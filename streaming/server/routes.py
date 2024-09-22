@@ -1,3 +1,4 @@
+import hashlib
 from fastapi import APIRouter, File, UploadFile, HTTPException, Request
 
 from pydantic import BaseModel
@@ -36,9 +37,16 @@ class SpeechRequest(BaseModel):
 
 @router.post("/generate_speech/")
 async def generate_speech(request: SpeechRequest):
-    output_path = os.path.join(AUDIO_DIR, "output.mp3")
+    text = request.text  # Accede a la propiedad 'text' del objeto JSON
+    # Hash the text to obtain a unique value
+    hashed_text = hashlib.md5(text.encode()).hexdigest()
+
+    # Save the output path using the hash as the name
+    output_path = os.path.join(AUDIO_DIR, f"{hashed_text}.mp3")
     await generate_speech_stream(request.text, output_path)
-    return FileResponse(output_path, media_type="audio/mpeg", filename="output.mp3")
+    
+    # Devuelve un JSON con la información del archivo
+    return {"file_path": output_path, "file_name": f"{hashed_text}.mp3"}
 
 
 @router.post("/upload-audio/")
@@ -79,7 +87,7 @@ async def generate_image_route(request: ImageRequest):
 @router.get("/", response_class=HTMLResponse)
 async def get_root(request: Request):
     print("Hello")
-    file_path = os.path.join("streaming", "client", "dist", "index.html")
+    file_path = os.path.join("client", "dist", "index.html")
     if os.path.exists(file_path):
         with open(file_path, "r") as file:
             html_content = file.read()
@@ -96,85 +104,9 @@ async def get_models():
     return models
 
 
-class MessageResponse(BaseModel):
-    id: int
-    content: str
-
-
-class ConversationResponse(BaseModel):
-    id: int
-    user_id: int
-    message_count: int
-
-    class Config:
-        from_attributes = True
-
-
-@router.get("/conversations", response_model=List[ConversationResponse])
-async def get_user_conversations():
-    # user_id = token.user_id
-    # conversations = db.query(Conversation).filter(Conversation.user_id == user_id).all()
-
-    # serialized_conversations = []
-    # for conversation in conversations:
-    #     message_count = len(conversation.messages)
-    #     serialized_conversation = ConversationResponse(
-    #         id=conversation.id,
-    #         user_id=conversation.user_id,
-    #         message_count=message_count,
-    #     )
-    #     serialized_conversations.append(serialized_conversation)
-
-    return "serialized_conversations"
-
-
-class ConversationDetailResponse(BaseModel):
-    id: int
-    user_id: int
-    messages: List[MessageResponse]
-
-    class Config:
-        from_attributes = True
-
-
-# @router.get(
-#     "/conversation/{conversation_id}", response_model=ConversationDetailResponse
-# )
-# async def get_conversation(
-#     conversation_id: int,
-#     token: Token = Depends(verify_token),
-#     db: Session = Depends(get_db),
-# ):
-#     conversation = (
-#         db.query(Conversation)
-#         .filter(
-#             Conversation.id == conversation_id, Conversation.user_id == token.user_id
-#         )
-#         .first()
-#     )
-
-#     if not conversation:
-#         raise HTTPException(status_code=404, detail="Conversation not found")
-
-#     messages = (
-#         db.query(Message).filter(Message.conversation_id == conversation_id).all()
-#     )
-
-#     return ConversationDetailResponse(
-#         id=conversation.id,
-#         user_id=conversation.user_id,
-#         messages=[
-#             MessageResponse(
-#                 id=msg.id, sender=msg.sender, text=msg.text, timestamp=msg.timestamp
-#             )
-#             for msg in messages
-#         ],
-#     )
-
-
 @router.get("/{page_name}", response_class=HTMLResponse)
 async def get_page():
-    file_path = os.path.join("streaming", "client", "dist", "index.html")
+    file_path = os.path.join("client", "dist", "index.html")
     if os.path.exists(file_path):
         with open(file_path, "r") as file:
             html_content = file.read()
@@ -186,12 +118,11 @@ async def get_page():
 
         return HTMLResponse(content=html_content)
     return HTMLResponse(content="Page not found", status_code=404)
-
 
 
 @router.get("/chat/c/{conversation_id}", response_class=HTMLResponse)
 async def get_conversation():
-    file_path = os.path.join("streaming", "client", "dist", "index.html")
+    file_path = os.path.join("client", "dist", "index.html")
     if os.path.exists(file_path):
         with open(file_path, "r") as file:
             html_content = file.read()
@@ -203,5 +134,3 @@ async def get_conversation():
 
         return HTMLResponse(content=html_content)
     return HTMLResponse(content="Page not found", status_code=404)
-
-

@@ -1,10 +1,8 @@
 import os
+import requests
 from openai import OpenAI
 from dotenv import load_dotenv
-import requests
-import asyncio
 from ..logger import logger
-import anthropic
 from .completions import TextStreamingHandler
 
 # from pydub import AudioSegment
@@ -12,7 +10,6 @@ from .completions import TextStreamingHandler
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 
 load_dotenv()
-
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
@@ -107,9 +104,7 @@ async def stream_completion(prompt, user_message, model, imageB64=""):
     #     if chunk.choices[0].delta.content:
     #         yield chunk.choices[0].delta.content
 
-    for chunk in streamer.stream(
-        system=prompt, text=content, model=model_slug
-    ):
+    for chunk in streamer.stream(system=prompt, text=content, model=model_slug):
         if isinstance(chunk, str):
             yield chunk
 
@@ -124,7 +119,7 @@ async def generate_speech_stream(
     client = OpenAI(
         api_key=os.environ.get("OPENAI_API_KEY"),
     )
-
+    logger.debug("trying to generate speech in generate speech function")
     try:
         with open(output_path, "wb") as output_file:
             response = client.audio.speech.create(model=model, voice=voice, input=text)
@@ -134,8 +129,12 @@ async def generate_speech_stream(
 
 
 def generate_speech_api(
-    text: str, model: str = "tts-1-1106", voice: str = "onyx"
-) -> bytes:
+    text: str,
+    output_path: str,
+    model: str = "tts-1",
+    voice: str = "onyx",
+    output_format: str = "mp3",
+):
     try:
         response = requests.post(
             "https://api.openai.com/v1/audio/speech",
@@ -147,15 +146,20 @@ def generate_speech_api(
                 "input": text,
                 "voice": voice,
             },
+            stream=True,
         )
 
         response.raise_for_status()
 
         audio = b""
-        for chunk in response.iter_content(chunk_size=1024 * 1024):
+        for chunk in response.iter_content(chunk_size=2048 * 1024):
+            yield chunk
             audio += chunk
 
-        return audio
+        with open(output_path, "wb") as audio_file:
+            audio_file.write(audio)
+
+        print(f"Audio saved to {output_path}")
 
     except requests.exceptions.RequestException as e:
         print(f"An error occurred: {e}")

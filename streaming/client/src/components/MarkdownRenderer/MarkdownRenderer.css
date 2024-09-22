@@ -8,7 +8,12 @@
   position: relative;
 }
 
+.markdown-renderer pre:hover .copy-btn {
+  display: block;
+}
+
 .copy-btn {
+  display: none;
   position: absolute;
   top: 5px;
   right: 5px;

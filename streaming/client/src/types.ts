@@ -5,3 +5,8 @@ export interface ChatItem {
   }
   
   
+
+export type TSomething = {
+  ifYouAreBored: true;
+  andYouJustWanna: "Add a type to avoid adding any"
+};

@@ -9,7 +9,7 @@ from .serializers import (
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 import json
-from api.authenticate.decorators import token_required
+from api.authenticate.decorators.token_required import token_required
 
 
 @method_decorator(csrf_exempt, name="dispatch")

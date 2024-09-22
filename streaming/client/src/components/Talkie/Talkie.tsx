@@ -1,7 +1,5 @@
 import React, { useRef, useEffect, useState } from "react";
-import "./talkie.css";
-
-
+import "./Talkie.css";
 
 interface TalkieProps {
   processAudio: (audioFile: Blob, transcription: string) => void;
@@ -20,7 +18,7 @@ export const Talkie: React.FC<TalkieProps> = ({ processAudio }) => {
   const barsRef = useRef<HTMLDivElement[]>([]);
   const animationIdRef = useRef<number | null>(null); // Ref para almacenar el ID de la animación
 
-  const numBars = 30; 
+  const numBars = 30;
 
   const startRecording = async () => {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -66,7 +64,7 @@ export const Talkie: React.FC<TalkieProps> = ({ processAudio }) => {
 
   const resetState = () => {
     // Reiniciar las barras
-    barsRef.current.forEach(bar => {
+    barsRef.current.forEach((bar) => {
       bar.style.height = "1px";
     });
 
@@ -126,7 +124,8 @@ export const Talkie: React.FC<TalkieProps> = ({ processAudio }) => {
       animateBars();
       // @ts-ignore
       const recognition = new (window.SpeechRecognition ||
-        (window as any).webkitSpeechRecognition)();
+        // @ts-ignore
+        window.webkitSpeechRecognition)();
       recognition.continuous = true;
       recognition.interimResults = true;
 
@@ -157,11 +156,29 @@ export const Talkie: React.FC<TalkieProps> = ({ processAudio }) => {
     }
   }, [isRecording]);
 
+  useEffect(() => {
+    const handleKeyPress = (event: KeyboardEvent) => {
+      if (event.key === "Enter") {
+        if (isRecording) {
+          stopRecording();
+        } else {
+          startRecording();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyPress);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyPress);
+    };
+  }, [isRecording]);
+
   return (
     <div className="talkie">
       <div id="bars-container" ref={barsContainerRef}></div>
       <button onClick={isRecording ? stopRecording : startRecording}>
-        {isRecording ? "Stop Recording" : "Start Recording"}
+        {isRecording ? "Stop Recording" : "Press Enter to Start Recording"}
       </button>
     </div>
   );

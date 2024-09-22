@@ -24,7 +24,7 @@ os.makedirs(AUDIO_DIR, exist_ok=True)
 app.include_router(router)
 
 # app.mount("/", StaticFiles(directory="client/dist", html=True), name="dist")
-app.mount("/assets", StaticFiles(directory="streaming/client/dist/assets"), name="static")
+app.mount("/assets", StaticFiles(directory="client/dist/assets"), name="static")
 
 # Integrar el socket
 app.add_route("/socket.io/", route=sio_asgi_app, methods=["GET", "POST"])

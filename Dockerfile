@@ -1,19 +1,20 @@
-FROM python:3.9-slim-buster
+# Use the official Python image from the Docker Hub
+FROM python:3.12-slim
 
-WORKDIR /api
+# Set the working directory in the container
+WORKDIR /app
 
+# Copy the requirements file into the container
+COPY requirements.txt .
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        gcc \
-        postgresql-client \
-        && rm -rf /var/lib/apt/lists/*
-
-COPY requirements.txt /api/
+# Install the dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . /api/
+# Copy the rest of the application code into the container
+COPY . .
 
+# Expose port if needed
 EXPOSE 8000
 
+# Command to run the Django server
 CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]

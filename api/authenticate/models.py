@@ -1,11 +1,14 @@
+import uuid
 from django.db import models
 import rest_framework.authtoken.models
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.utils import timezone
-from datetime import datetime
+from datetime import datetime,timedelta
 from django.core.exceptions import MultipleObjectsReturned
 from django.db.models import Q
+
+
 
 LOGIN_TOKEN_LIFETIME = timezone.timedelta(days=1)
 TEMPORAL_TOKEN_LIFETIME = timezone.timedelta(days=7)
@@ -124,3 +127,36 @@ class Token(rest_framework.authtoken.models.Token):
     class Meta:
         # ensure user and name are unique
         unique_together = (('user', 'key'), )
+
+
+
+class PublishableToken(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    token = models.CharField(max_length=255, unique=True, default=uuid.uuid4().hex)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    duration_minutes = models.IntegerField(null=True, blank=True)
+    duration_hours = models.IntegerField(null=True, blank=True)
+    duration_days = models.IntegerField(null=True, blank=True)
+
+    def save(self, *args, **kwargs):
+        if not self.expires_at and (self.duration_minutes or self.duration_hours or self.duration_days):
+            duration = timedelta(
+                minutes=self.duration_minutes or 0,
+                hours=self.duration_hours or 0,
+                days=self.duration_days or 0
+            )
+            self.expires_at = timezone.now() + duration
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.token
+
+    @classmethod
+    def get_valid(cls, token: str):
+        utc_now = timezone.now()
+        # Delete expired tokens
+        cls.objects.filter(expires_at__lt=utc_now).delete()
+
+        # Find among any non-expired token
+        return cls.objects.filter(token=token).filter(Q(expires_at__gt=utc_now) | Q(expires_at__isnull=True)).first()

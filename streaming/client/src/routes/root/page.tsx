@@ -1,17 +1,71 @@
 import React, { useState, useEffect } from "react";
 import { Navbar } from "../../components/Navbar/Navbar";
 import { Talkie } from "../../components/Talkie/Talkie";
-
-import { ChatItem } from "../../types";
+import { ChatItem, TSomething } from "../../types";
 import { ChatMessages } from "../../components/Messages/Messages";
 
+import io from "socket.io-client";
+import { useLoaderData } from "react-router-dom";
+import { PUBLIC_TOKEN } from "../../modules/constants";
+// import { SpeechReceptor } from "../../components/SpeechReceptor/SpeechReceptor";
+
+const socket = io("http://localhost:8001", { autoConnect: true });
+
 export default function Root() {
+  const data = useLoaderData() as { conversation: TSomething };
+
   const [chat, setChat] = useState<ChatItem[]>([]);
 
-  const processAudioExample = async (
-    audioFile: Blob,
-    transcription: string
-  ) => {
+  useEffect(() => {
+    socket.on("connect", () => {
+      console.log("Connected to socket server");
+    });
+
+    socket.on("disconnect", () => {
+      console.log("Disconnected from socket server");
+    });
+
+    const updateMessages = (chunk: string) => {
+      const newMessages = [...chat];
+      const lastMessage = newMessages[newMessages.length - 1];
+
+      if (lastMessage && lastMessage.isUser === false) {
+        lastMessage.text += chunk;
+      } else {
+        const assistantMessage = {
+          text: chunk,
+          isUser: false,
+        };
+        newMessages.push(assistantMessage);
+      }
+      return newMessages;
+    };
+
+    socket.on("response", (data) => {
+      setChat(updateMessages(data.chunk));
+    });
+
+    socket.on("responseFinished", (data) => {
+      console.log("Response finished:", data);
+      generateSpeech(data.ai_response);
+      // socket.disconnect();
+    });
+
+    socket.on("audio-file", (audioFile) => {
+      const audioBlob = new Blob([audioFile], { type: "audio/mp3" });
+      saveSpeechToMessage(audioBlob);
+    });
+
+    return () => {
+      socket.off("connect");
+      socket.off("disconnect");
+      socket.off("response");
+      socket.off("responseFinished");
+      socket.off("audio-file");
+    };
+  }, [chat]);
+
+  const processAudioExample = async (audioFile: Blob) => {
     const formData = new FormData();
     formData.append("file", audioFile, "audiofile.wav");
 
@@ -23,14 +77,12 @@ export default function Root() {
 
       if (response.ok) {
         const data = await response.json();
-        // Create a URL for the audio file
         const audioUrl = URL.createObjectURL(audioFile);
-        // Usar la transcripción que llega del servidor
         setChat((prevChat) => [
           ...prevChat,
           { text: data.transcription, audioSrc: audioUrl, isUser: true },
         ]);
-        await getCompletion(data.transcription, audioFile);
+        getCompletion(data.transcription);
       } else {
         console.error("Failed to upload audio file");
       }
@@ -39,62 +91,45 @@ export default function Root() {
     }
   };
 
-  const getCompletion = async (transcription: string, audioFile: Blob) => {
-    try {
-      const context = chat
-        .slice(-6)
-        .map((item) => `${item.isUser ? "user" : "ai"}: ${item.text}`)
-        .join("\n");
-      const completionResponse = await fetch("/get_completion/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ message: transcription, context }),
-      });
+  const getCompletion = (transcription: string) => {
+    const context = chat
+      .slice(-6)
+      .map((item) => `${item.isUser ? "user" : "ai"}: ${item.text}`)
+      .join("\n");
 
-      if (completionResponse.ok) {
-        const completionData = await completionResponse.json();
-        console.log("Completion from server:", completionData.response);
-        await generateSpeech(completionData.response, audioFile);
-      } else {
-        console.error("Failed to get completion");
-      }
-    } catch (error) {
-      console.error("Error getting completion:", error);
-    }
+    socket.connect();
+    socket.emit("message", {
+      message: transcription,
+      context,
+      conversation: data.conversation,
+      token: PUBLIC_TOKEN,
+    });
   };
 
-  const generateSpeech = async (text: string, audioFile: Blob) => {
-    try {
-      const response = await fetch("/generate_speech/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ text }),
-      });
+  const generateSpeech = async (text: string) => {
+    socket.emit("speech_request", {
+      text,
+    });
+  };
 
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        setChat((prevChat) => [
-          ...prevChat,
-          { text, audioSrc: url, isUser: false },
-        ]);
-      } else {
-        console.error("Failed to generate speech");
-      }
-    } catch (error) {
-      console.error("Error generating speech:", error);
-    }
+  const saveSpeechToMessage = (audioFile: Blob) => {
+    setChat((prevChat) => {
+      const newMessages = [...prevChat];
+      const lastMessage = newMessages[newMessages.length - 1];
+      console.log(lastMessage, "LAST MESSAGE!");
+
+      const audioUrl = URL.createObjectURL(audioFile);
+      lastMessage.audioSrc = audioUrl;
+
+      return newMessages;
+    });
   };
 
   return (
     <>
       <Navbar />
+      {/* <SpeechReceptor socket={socket} /> */}
       <ChatMessages chat={chat} />
-
       <Talkie processAudio={processAudioExample} />
     </>
   );

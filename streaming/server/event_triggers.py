@@ -1,7 +1,10 @@
-from .utils.openai_functions import stream_completion
+import os
+from .utils.openai_functions import stream_completion, generate_speech_api
 from server.utils.completions import get_system_prompt
 from .utils.apiCalls import save_message
-# from .logger import logger
+import hashlib
+
+from .logger import logger
 
 
 async def on_message_handler(socket_id, data, **kwargs):
@@ -10,9 +13,8 @@ async def on_message_handler(socket_id, data, **kwargs):
     context = data["context"]
     message = data["message"]
     token = data["token"]
-    model = data["model"]
+    model = data.get("model", {"name": "gpt-4o-mini", "provider": "openai"})
     conversation = data["conversation"]
-    print(model, "MODEL TO GENERATE")
 
     system_prompt = get_system_prompt(context=context)
 
@@ -48,3 +50,28 @@ def on_connect_handler(socket_id, **kwargs):
 
 async def on_start_handler(socket_id, data, **kwargs):
     print(data)
+
+
+AUDIO_DIR = "audios"
+
+
+async def on_speech_request_handler(socket_id, data, **kwargs):
+
+    logger.debug("GEnerating speech with soquete")
+
+    from server.socket import sio
+
+    text = data["text"]
+    logger.debug(f"TEXT to SPEECH {text}")
+
+    # Hash the text to obtain a unique value
+    hashed_text = hashlib.md5(text.encode()).hexdigest()
+
+    output_path = os.path.join(AUDIO_DIR, f"{hashed_text}.mp3")
+    for chunk in generate_speech_api(text=text, output_path=output_path):
+        logger.debug("audio emitted!")
+        await sio.emit("audio-chunk", chunk, to=socket_id)
+
+    with open(output_path, "rb") as audio_file:
+        audio_content = audio_file.read()
+        await sio.emit("audio-file", audio_content, to=socket_id)

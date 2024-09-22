@@ -26,14 +26,15 @@ const MarkdownRenderer = ({ markdown }: { markdown: string }) => {
         block.appendChild(button);
 
         button.addEventListener("click", () => {
-          console.log("trying to copy text");
-
           const codeElement = block.querySelector("code");
           const code = codeElement ? codeElement.textContent : "";
 
           if (code) {
             navigator.clipboard.writeText(code);
             toast.success("Code copied to clipboard!");
+          }
+          else {
+            toast.error("No code available!")
           }
         });
       }

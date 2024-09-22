@@ -4,7 +4,7 @@ from .event_triggers import (
     on_message_handler,
     on_start_handler,
     on_connect_handler,
-
+on_speech_request_handler
 )
 
 
@@ -20,6 +20,9 @@ class ProxyNamespaceManager(socketio.AsyncNamespace):
 
     async def on_message(self, sid, message_data):
         await on_message_handler(socket_id=sid, data=message_data)
+         
+    async def on_speech_request(self, sid, data):
+        await on_speech_request_handler(socket_id=sid, data=data)
 
 
     def on_test(self, sid, data):

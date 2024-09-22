@@ -20,7 +20,14 @@ export const Message: React.FC<MessageProps> = ({
   return (
     <div className={`message ${sender}`}>
       <MarkdownRenderer markdown={text} />
-      {imageUrl && <img src={imageUrl} alt="Generated" />}
+      {imageUrl && (
+        <>
+          <img src={imageUrl} alt="Generated" />
+          <a href={imageUrl} download="generated-image">
+            <button>{SVGS.download}</button>
+          </a>
+        </>
+      )}
       <div className="message-buttons">
         <button onClick={() => onGenerateSpeech(text)}>{SVGS.waves}</button>
         <button onClick={() => onGenerateImage(text)}>{SVGS.image}</button>
