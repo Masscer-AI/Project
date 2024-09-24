@@ -16,7 +16,7 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const endpoint = "/v1/auth/login";
-    const payload = { username: email, password };
+    const payload = { email, password };
     try {
       console.log(message);
 

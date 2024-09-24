@@ -22,9 +22,7 @@ class ProxyNamespaceManager(socketio.AsyncNamespace):
         on_connect_handler(socket_id=sid)
 
     async def on_message(self, sid, message_data):
-        logger.debug("RECEIVING MESSAGE EVENT")
         await on_message_handler(socket_id=sid, data=message_data)
-        logger.error("Succesfully finished handler execution")
 
     async def on_speech_request(self, sid, data):
         await on_speech_request_handler(socket_id=sid, data=data)

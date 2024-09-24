@@ -25,8 +25,8 @@ export default function Signup() {
       if (response.data.token) {
         localStorage.setItem("token", response.data.token);
       }
-      toast.success("User created successfully!");
-      navigate("/chat");
+      toast.success("User created successfully! Please log in");
+      navigate("/login");
     } catch (error) {
       setMessage(error.response?.data?.detail || "An error occurred");
       toast.error("An error occurred");

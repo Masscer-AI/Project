@@ -1,5 +1,6 @@
 #!/bin/bash
 
+docker start redis-instance
 # Activate the virtual environment
 source venv/Scripts/activate
 
