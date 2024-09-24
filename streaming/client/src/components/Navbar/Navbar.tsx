@@ -7,11 +7,12 @@ export const Navbar = () => {
     <nav className="navbar">
       <section className="nerko-one-regular">
         <h1>
-          Masscer<strong>AI</strong>
+          Masscer<strong> AI</strong>
         </h1>
       </section>
       <section>
-        <Link to={"/signup"}>Login | Signup</Link>
+        <Link className="highlighted" to={"/signup"}>Signup</Link>
+        <Link to={"/login"}>Login</Link>
       </section>
     </nav>
   );

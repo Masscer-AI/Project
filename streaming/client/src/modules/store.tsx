@@ -1,8 +1,8 @@
-
-import { createWithEqualityFn as create } from 'zustand/traditional'
+import { createWithEqualityFn as create } from "zustand/traditional";
 
 import { TConversationData } from "../types/chatTypes";
-import { getConversation } from "./apiCalls";
+import { getConversation, initConversation } from "./apiCalls";
+import { TAttachment } from "../types";
 
 type Message = {
   sender: string;
@@ -16,25 +16,23 @@ type Model = {
 };
 
 type Store = {
-  count: number;
   messages: Message[];
   input: string;
   model: Model;
   models: Model[];
-  chatState: { isSidebarOpened: boolean };
+  chatState: { isSidebarOpened: boolean; attachments: TAttachment[] };
   conversation: TConversationData | undefined;
-  inc: () => void;
   setMessages: (messages: Message[]) => void;
-  setConversation: (conversationId: string) => void;
-
+  setConversation: (conversationId: string | null) => void;
+  addAttachment: (newAttachment: TAttachment) => void;
   setInput: (input: string) => void;
   setModel: (model: Model) => void;
   setModels: (models: Model[]) => void;
   toggleSidebar: () => void;
+  cleanAttachments: () => void; // Add this line
 };
 
 export const useStore = create<Store>()((set) => ({
-  count: 1,
   messages: [],
   input: "",
   model: { name: "gpt-4o", provider: "openai" },
@@ -42,24 +40,46 @@ export const useStore = create<Store>()((set) => ({
     { name: "gpt-4o", provider: "openai" },
     { name: "gpt-4o-mini", provider: "openai" },
     { name: "claude-3-5-sonnet-20240620", provider: "anthropic" },
-    // { name: "claude-3-opus-20240229", provider: "anthropic" },
-    // { name: "claude-3-haiku-20240307", provider: "anthropic" },
   ],
-  chatState: { isSidebarOpened: false },
+  chatState: { isSidebarOpened: false, attachments: [] },
   conversation: undefined,
   setConversation: async (conversationId) => {
-    const data = await getConversation(conversationId);
+    let data;
+
+    if (!conversationId) {
+      data = await initConversation({ isPublic: false });
+    } else {
+      data = await getConversation(conversationId);
+    }
+
     set(() => ({
       conversation: data,
     }));
   },
-  inc: () => set((state) => ({ count: state.count + 1 })),
   setMessages: (messages) => set({ messages }),
   setInput: (input) => set({ input }),
   setModel: (model) => set({ model }),
   setModels: (models) => set({ models }),
+  addAttachment: (newAttachment) => {
+    set((state) => ({
+      chatState: {
+        isSidebarOpened: state.chatState.isSidebarOpened,
+        attachments: [...state.chatState.attachments, newAttachment],
+      },
+    }));
+  },
   toggleSidebar: () =>
     set((state) => ({
-      chatState: { isSidebarOpened: !state.chatState.isSidebarOpened },
+      chatState: {
+        isSidebarOpened: !state.chatState.isSidebarOpened,
+        attachments: [...state.chatState.attachments],
+      },
+    })),
+  cleanAttachments: () =>
+    set((state) => ({
+      chatState: {
+        ...state.chatState,
+        attachments: [],
+      },
     })),
 }));

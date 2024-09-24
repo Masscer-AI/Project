@@ -2,11 +2,12 @@ import os
 import requests
 from openai import OpenAI
 from dotenv import load_dotenv
-from ..logger import logger
+from ..logger import get_custom_logger
 from .completions import TextStreamingHandler
 
-# from pydub import AudioSegment
-# Obtener la clave de la API desde una variable de entorno
+
+logger = get_custom_logger("openai_functions")
+
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 
 load_dotenv()
@@ -48,7 +49,7 @@ def transcribe_audio(audio_file, output_format="verbose_json") -> str:
 #     return completion.choices[0].message.content
 
 
-async def stream_completion(prompt, user_message, model, imageB64=""):
+async def stream_completion(prompt, user_message, model, attachments=[]):
     logger.debug(f"MODEL TO COMPLETE: {model}")
 
     if model["provider"] == "openai":
@@ -64,6 +65,7 @@ async def stream_completion(prompt, user_message, model, imageB64=""):
 
     content = user_message
 
+    streamer.process_attachments(attachments)
     # if imageB64 != "" and imageB64 is not None:
     #     if model_slug not in [
     #         "gpt-4-vision-preview",
@@ -104,7 +106,11 @@ async def stream_completion(prompt, user_message, model, imageB64=""):
     #     if chunk.choices[0].delta.content:
     #         yield chunk.choices[0].delta.content
 
-    for chunk in streamer.stream(system=prompt, text=content, model=model_slug):
+    for chunk in streamer.stream(
+        system=prompt,
+        text=content,
+        model=model_slug,
+    ):
         if isinstance(chunk, str):
             yield chunk
 
@@ -152,7 +158,7 @@ def generate_speech_api(
         response.raise_for_status()
 
         audio = b""
-        for chunk in response.iter_content(chunk_size=2048 * 1024):
+        for chunk in response.iter_content(chunk_size=2097152):
             yield chunk
             audio += chunk
 

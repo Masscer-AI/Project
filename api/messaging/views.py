@@ -28,7 +28,8 @@ class ConversationView(View):
                     {"message": "Conversation not found", "status": 404}, status=404
                 )
         else:
-            conversations = Conversation.objects.filter(user=user)
+            conversations = Conversation.objects.filter(user=user).order_by('-created_at')
+
             serialized_conversations = ConversationSerializer(
                 conversations, many=True
             ).data
@@ -99,7 +100,7 @@ class MessageView(View):
 
         if not conversation.title and data["type"] == "assistant":
             conversation.generate_title()
-        # data["conversation"] = conversation.id
+       
         serializer = MessageSerializer(data=data)
 
         if serializer.is_valid():

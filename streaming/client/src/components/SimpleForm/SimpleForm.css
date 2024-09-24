@@ -1,17 +1,10 @@
-
-  
-  .signup-component {
-    width: 100%;
-    max-width: 400px;
-    padding: 20px;
-  }
-  
-  .simple-form {
-    background-color: #ffffff;
+.simple-form {
+    background-color: var(--modals-color);
     padding: 40px;
     border-radius: 10px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     transition: all 0.3s ease;
+    width: min(400px, 100%);
   }
   
   .simple-form:hover {
@@ -51,7 +44,7 @@
   .simple-form-button {
     width: 100%;
     padding: 10px;
-    background-color: #007bff;
+    background-color: var(--active-color);
     color: #fff;
     border: none;
     border-radius: 4px;
@@ -60,5 +53,6 @@
   }
   
   .simple-form-button:hover {
-    background-color: var(--active-color);
+    background-color: var(--hovered-color);
   }
+  

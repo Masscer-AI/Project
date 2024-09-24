@@ -1,8 +1,10 @@
 from openai import OpenAI
-from dotenv import load_dotenv
-from ..logger import logger
+import base64
 import anthropic
+import fitz
+from ..logger import get_custom_logger
 
+logger = get_custom_logger("completions")
 # def create_completion(provider: str, model: str, system_prompt: str, user_message: str):
 #     print("Generating completion with ", provider)
 
@@ -33,6 +35,7 @@ Continue the conversation naturally
 class TextStreamingHandler:
     client = None
     max_tokens = 4096
+    attachments = []
 
     def __init__(self, provider: str, api_key: str) -> None:
         if provider == "openai":
@@ -52,13 +55,30 @@ class TextStreamingHandler:
             return self.stream_anthropic(system, text, model)
 
     def stream_openai(self, system: str, text: str, model: str):
+        messages = [
+            {"role": "system", "content": system},
+            {"role": "user", "content": text},
+        ]
+
+        if len(self.attachments) > 0:
+            for a in self.attachments:
+                if "image" in a["type"]:
+                    logger.debug("Appending image to messages")
+                    messages.append(
+                        {"role": "user","content": [
+                            {"type": "image_url", "image_url": {"url": a["content"]}}
+                        ]},
+                    )
+                else:
+                    logger.debug(f"Attaching document {a["name"]}" )
+                    messages.append(
+                        {"role": "user", "content": f"The following if the content of a document called: {a["name"]} and of type {a["type"]}: \n{a["content"]}"},
+                    )
+
         response = self.client.chat.completions.create(
             model=model,
             max_tokens=self.max_tokens,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": text},
-            ],
+            messages=messages,
             temperature=0.5,
             stream=True,
         )
@@ -80,3 +100,38 @@ class TextStreamingHandler:
         ) as stream:
             for text in stream.text_stream:
                 yield text
+
+    def process_attachments(self, attachments=[]):
+        logger.debug(f"Processing {len(attachments)} attachments")
+        processed = []
+
+        for a in attachments:
+            if "image" in a["type"]:
+                processed.append(a)
+            elif "pdf" in a["type"]:
+                base64_content = a["content"]
+                if base64_content.startswith("data:application/pdf;base64,"):
+                    base64_content = base64_content.split(",")[1]
+
+                try:
+                    binary_content = base64.b64decode(base64_content)
+                except base64.binascii.Error as e:
+                    logger.error("Invalid base64 content")
+                    continue
+
+                if not binary_content.startswith(b"%PDF"):
+                    logger.error("The decoded content is not a valid PDF")
+                    continue
+
+                try:
+                    pdf_data = fitz.open(stream=binary_content, filetype="pdf")
+                except fitz.fitz.FileDataError as e:
+                    logger.error("Failed to open the PDF document")
+                    continue
+
+                text = ""
+                for page in pdf_data:
+                    text += page.get_text()
+                a["content"] = text
+                processed.append(a)
+        self.attachments = processed

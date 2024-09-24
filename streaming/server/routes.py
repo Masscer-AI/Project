@@ -98,9 +98,9 @@ async def get_root(request: Request):
 
 @router.get("/get-models")
 async def get_models():
-    # print("models")
+    print("REQUESTING MODELS FROM OLLAMA!")
     models = list_ollama_models()
-    # print(models)
+    print(models)
     return models
 
 

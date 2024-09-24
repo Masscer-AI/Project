@@ -11,22 +11,27 @@ import { useStore } from "../../modules/store";
 import { TChatLoader, TMessage } from "../../types/chatTypes";
 import { ChatHeader } from "../../components/ChatHeader/ChatHeader";
 import toast, { Toaster } from "react-hot-toast";
+import { playAudioFromBytes } from "../../modules/utils";
 
-const socket = io("http://localhost:8001", { autoConnect: false });
+const socket = io("http://localhost:8001", {
+  autoConnect: false,
+  transports: ["websockets", "polling"],
+});
 
 export default function ChatView() {
   const loaderData = useLoaderData() as TChatLoader;
 
-  const { chatState, input, setInput, model, conversation } = useStore(
-    (state) => ({
+  const token = localStorage.getItem("token");
+  const { chatState, input, setInput, model, conversation, cleanAttachments } =
+    useStore((state) => ({
       chatState: state.chatState,
       toggleSidebar: state.toggleSidebar,
       input: state.input,
       setInput: state.setInput,
       model: state.model,
       conversation: state.conversation,
-    })
-  );
+      cleanAttachments: state.cleanAttachments,
+    }));
 
   const [messages, setMessages] = useState(
     loaderData.conversation.messages as TMessage[]
@@ -51,6 +56,7 @@ export default function ChatView() {
         const assistantMessage = {
           type: "assistant",
           text: chunk,
+          attachments: [],
         };
         newMessages.push(assistantMessage);
       }
@@ -59,6 +65,9 @@ export default function ChatView() {
 
     socket.on("response", (data) => {
       setMessages(updateMessages(data.chunk));
+    });
+    socket.on("audio-file", (audioFile) => {
+      playAudioFromBytes(audioFile);
     });
 
     socket.on("responseFinished", (data) => {
@@ -70,8 +79,10 @@ export default function ChatView() {
       socket.off("connect");
       socket.off("disconnect");
       socket.off("response");
+      socket.off("audio-file");
       socket.off("responseFinished");
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages]);
 
   useEffect(() => {
@@ -83,24 +94,35 @@ export default function ChatView() {
     if (input.trim() === "") return;
 
     socket.connect();
-
-    console.log(messages, "MESSAGES");
-
-    const userMessage = { type: "user", text: input };
+    const userMessage = {
+      type: "user",
+      text: input,
+      attachments: chatState.attachments,
+    };
     setMessages([...messages, userMessage]);
 
     try {
       const token = localStorage.getItem("token");
-      // TODO: MEssage should be an object
-      socket.emit("message", {
-        message: input,
-        context: messages.map((msg) => `${msg.type}: ${msg.text}`).join("\n"),
-        model: model,
-        token: token,
-        conversation: conversation ? conversation : loaderData.conversation,
-      });
+      socket.emit(
+        "message",
+        {
+          message: {
+            type: "user",
+            text: input,
+            attachments: chatState.attachments,
+          },
+          context: messages.map((msg) => `${msg.type}: ${msg.text}`).join("\n"),
+          model: model,
+          token: token,
+          conversation: conversation ? conversation : loaderData.conversation,
+        },
+        (ack) => {
+          console.log(ack, "ACK FROM SERVER ?");
+        }
+      );
 
       setInput("");
+      cleanAttachments();
     } catch (error) {
       console.error("Error sending message:", error);
     }
@@ -108,21 +130,13 @@ export default function ChatView() {
 
   const handleGenerateSpeech = async (text) => {
     try {
-      const token = localStorage.getItem("token");
-      const response = await axios.post(
-        "/generate_speech/",
-        { text },
-        {
-          headers: {
-            Authorization: `Token ${token}`,
-          },
-          responseType: "blob",
-        }
-      );
-      const audioBlob = new Blob([response.data], { type: "audio/mpeg" });
-      const audioUrl = URL.createObjectURL(audioBlob);
-      const audio = new Audio(audioUrl);
-      audio.play();
+      socket.connect();
+
+      // TODO: Send the token in every socket event, maybe we need to have a socket manager for the client ir order to have a straightforward interface
+      // const token = localStorage.getItem("token");
+      socket.emit("speech_request", {
+        text,
+      });
     } catch (error) {
       console.error("Error generating speech:", error);
     }
@@ -130,7 +144,6 @@ export default function ChatView() {
 
   const handleGenerateImage = async (text) => {
     try {
-      const token = localStorage.getItem("token");
       const response = await axios.post(
         "/generate_image/",
         { prompt: text },
@@ -145,7 +158,13 @@ export default function ChatView() {
       const imageMessage = {
         type: "assistant",
         text: "",
-        imageUrl,
+        attachments: [
+          {
+            type: "image",
+            content: imageUrl,
+            name: "Generated image",
+          },
+        ],
       };
       setMessages([...messages, imageMessage]);
     } catch (error) {
@@ -157,13 +176,18 @@ export default function ChatView() {
       );
     }
   };
+
   const handleKeyDown = (event) => {
-    if (event.key === "Enter") {
+    if (event.key === "Enter" && event.shiftKey) {
+      setInput(event.target.value + "\n");
+    } else if (event.key === "Enter") {
       handleSendMessage();
     } else {
       setInput(event.target.value);
     }
   };
+
+
 
   return (
     <>
@@ -179,10 +203,9 @@ export default function ChatView() {
           {messages &&
             messages.map((msg, index) => (
               <Message
+       
+                {...msg}
                 key={index}
-                sender={msg.type}
-                text={msg.text}
-                imageUrl={msg.imageUrl}
                 onGenerateSpeech={handleGenerateSpeech}
                 onGenerateImage={handleGenerateImage}
               />

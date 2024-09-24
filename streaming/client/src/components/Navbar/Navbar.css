@@ -1,10 +1,9 @@
-/* General Navbar Styles */
 .navbar {
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 1rem 2rem;
-    background-color: #333;
+    background: linear-gradient(to bottom, var(--active-color), var(--bg-color));
     color: #fff;
     font-family: 'Nerko One', cursive;
 }

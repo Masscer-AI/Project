@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# Activate the virtual environment
+source venv/Scripts/activate
+
+# Run the Celery worker
+celery -A api.celery worker --pool=gevent --loglevel=INFO &
+
+celery -A api.celery flower --port=5555

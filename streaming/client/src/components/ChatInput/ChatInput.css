@@ -3,18 +3,24 @@
   flex-direction: column;
   position: fixed;
   bottom: 0;
+  z-index: 2;
+  background-color: #1c1c1c;
   left: 0;
+  justify-content: center;
   align-items: center;
-
-  padding: 20px;
+  padding: 10px;
   width: 100%;
 }
 
+.chat-input section:empty {
+  display: none;
+}
 .chat-input section {
   flex: 1;
   width: 100%;
   display: flex;
   align-items: center;
+  justify-content: center;
 }
 
 .chat-input textarea {
@@ -23,7 +29,7 @@
   border: 1px solid #444;
   border-radius: 10px;
   margin-right: 10px;
-  background-color: #2e2e2e;
+  background-color: transparent;
   color: #ffffff;
   resize: none;
 }
@@ -48,14 +54,17 @@
 }
 
 .chat-input .attachments {
-    display: flex;
-    gap: 10px;
-    padding: 10px;
+  display: flex;
+  gap: 10px;
+  padding: 10px;
 }
 
 .thumbnail {
   width: 50px;
   height: 50px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .thumbnail img {

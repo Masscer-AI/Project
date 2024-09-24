@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { Navbar } from "../../components/Navbar/Navbar";
 import { Talkie } from "../../components/Talkie/Talkie";
 import { ChatItem, TSomething } from "../../types";
 import { ChatMessages } from "../../components/Messages/Messages";
@@ -99,7 +98,11 @@ export default function Root() {
 
     socket.connect();
     socket.emit("message", {
-      message: transcription,
+      message: {
+        text: transcription,
+        type: "user",
+        attachments: [],
+      },
       context,
       conversation: data.conversation,
       token: PUBLIC_TOKEN,
@@ -127,7 +130,6 @@ export default function Root() {
 
   return (
     <>
-      <Navbar />
       {/* <SpeechReceptor socket={socket} /> */}
       <ChatMessages chat={chat} />
       <Talkie processAudio={processAudioExample} />

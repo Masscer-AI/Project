@@ -10,10 +10,14 @@
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  --active-color: "black";
-  --text-font-color: "red";
+  --active-color: rgb(14, 53, 61);
+  --highlighted-color: rgb(0, 144, 173);
+  --font-color: rgb(255, 255, 255);
+  --bg-color: rgb(10, 9, 26);
+  --hovered-color: rgb(3, 25, 30);
+  --modals-color: rgb(255, 255, 255);
   color-scheme: light dark;
-  background-color: #242424;
+  background-color: var(--bg-color);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -24,7 +28,7 @@
 
 a {
   font-weight: 500;
-  color: #646cff;
+  color: var(--font-color);
   text-decoration: inherit;
 }
 a:hover {
@@ -90,4 +94,9 @@ button:focus-visible {
 
 .button:hover {
   background-color: #262626;
+}
+
+
+.highlighted {
+  color: var(--highlighted-color);
 }

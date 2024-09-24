@@ -1,37 +1,31 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { Toaster, toast } from "react-hot-toast";
-import "./styles.css";
+import "./page.css";
 import { useNavigate } from "react-router-dom";
 import { API_URL } from "../../modules/constants";
-
+import { SimpleForm } from "../../components/SimpleForm/SimpleForm";
 
 export default function Signup() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isLogin, setIsLogin] = useState(true);
   const [message, setMessage] = useState("");
+  console.log(message);
 
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const endpoint = isLogin ? "/v1/auth/login" : "/v1/auth/signup";
-    const payload = isLogin
-      ? { username: email, password }
-      : { username, email, password };
+    const endpoint = "/v1/auth/signup";
+    const payload = { username, email, password };
     try {
-      const response = await axios.post(API_URL+ endpoint, payload);
+      const response = await axios.post(API_URL + endpoint, payload);
       setMessage(response.data.message);
       if (response.data.token) {
         localStorage.setItem("token", response.data.token);
       }
-      if (!isLogin) {
-        toast.success("User created successfully!");
-      } else {
-        toast.success("Successfully logged in!");
-      }
+      toast.success("User created successfully!");
       navigate("/chat");
     } catch (error) {
       setMessage(error.response?.data?.detail || "An error occurred");
@@ -43,20 +37,18 @@ export default function Signup() {
     <div className="signup-component">
       <Toaster />
       <SimpleForm>
-        <h2 className="simple-form-title">{isLogin ? "Login" : "Signup"}</h2>
+        <h2 className="simple-form-title">Sign Up</h2>
         <form onSubmit={handleSubmit}>
-          {!isLogin && (
-            <div className="simple-form-group">
-              <label className="simple-form-label">Username:</label>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                required={!isLogin}
-                className="simple-form-input"
-              />
-            </div>
-          )}
+          <div className="simple-form-group">
+            <label className="simple-form-label">Username:</label>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+              className="simple-form-input"
+            />
+          </div>
           <div className="simple-form-group">
             <label className="simple-form-label">Email:</label>
             <input
@@ -65,6 +57,7 @@ export default function Signup() {
               onChange={(e) => setEmail(e.target.value)}
               required
               className="simple-form-input"
+              autoComplete="email"
             />
           </div>
           <div className="simple-form-group">
@@ -75,23 +68,20 @@ export default function Signup() {
               onChange={(e) => setPassword(e.target.value)}
               required
               className="simple-form-input"
+              autoComplete="current-password"
             />
           </div>
           <button type="submit" className="simple-form-button">
-            {isLogin ? "Login" : "Signup"}
+            Signup
           </button>
         </form>
         <button
-          onClick={() => setIsLogin(!isLogin)}
+          onClick={() => navigate("/login")}
           className="simple-form-button"
         >
-          {isLogin ? "Switch to Signup" : "Switch to Login"}
+          Switch to Login
         </button>
       </SimpleForm>
     </div>
   );
 }
-
-const SimpleForm = ({ children }) => {
-  return <div className="simple-form">{children}</div>;
-};

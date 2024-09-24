@@ -16,7 +16,7 @@ canvas {
 #bars-container {
   display: flex;
   align-items: flex-end;
-  height: 200px;
+  height: 100px;
   width: 80%;
   justify-content: center;
 }
@@ -27,8 +27,8 @@ canvas {
   margin: 0 2px;
   background: linear-gradient(
     90deg,
-    rgb(198, 198, 198),
-    rgba(0, 255, 204, 0.661)
+    rgb(105, 83, 201),
+    var(--active-color)
   );
   transition: height 0.1s;
 }

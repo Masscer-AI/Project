@@ -1,9 +1,11 @@
-import React, { useState } from "react";
+import React, { useRef } from "react";
 import { SVGS } from "../../assets/svgs";
 import { v4 as uuidv4 } from "uuid";
 import { useStore } from "../../modules/store";
 import "./ChatInput.css";
-// import { useSearchParams } from "react-router-dom";
+import toast from "react-hot-toast";
+import { Thumbnail } from "../Thumbnail/Thumbnail";
+
 interface ChatInputProps {
   handleSendMessage: () => void;
   handleKeyDown: (event) => void;
@@ -13,32 +15,35 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   handleSendMessage,
   handleKeyDown,
 }) => {
-  // const [searchParams, setSearchParams] = useSearchParams();
-  const { input, setInput } = useStore();
-  const [attachments, setAttachments] = useState<{ [key: string]: string }>({});
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { input, setInput, attachments, addAttachment } = useStore((state) => ({
+    input: state.input,
+    setInput: state.setInput,
+    attachments: state.chatState.attachments,
+    addAttachment: state.addAttachment,
+  }));
 
-  // useEffect(() => {
-  //   console.log(searchParams);
-
-  //   // const url = new URL(window.location.href);
-  //   // url.searchParams.set("prompt", input);
-  //   // window.history.pushState({}, "", url.toString());
-  //   const params = {
-  //     prompt: input,
-  //   };
-  //   setSearchParams(params);
-  // }, [input, searchParams, setSearchParams]);
+  const allowedImageTypes = [
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "image/webp",
+  ];
+  const allowedDocumentTypes = [
+    "application/pdf",
+    "text/plain",
+    "text/html",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ];
 
   const handlePaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    console.log("User trying to paste");
-
     const items = event.clipboardData.items;
-    console.log("items", items);
 
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
 
-      if (item.type.indexOf("image") === 0) {
+      if (allowedImageTypes.includes(item.type)) {
         const blob = item.getAsFile();
         const reader = new FileReader();
         reader.onload = (event) => {
@@ -49,24 +54,68 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
           if (!result) return;
           const id = uuidv4();
-          setAttachments((prev) => ({ ...prev, [id]: result as string }));
+
+          addAttachment({
+            content: result as string,
+            type: "image",
+            name: id,
+          });
         };
         if (blob) {
           reader.readAsDataURL(blob);
         }
-      } else if (item.type === "text/plain") {
-        item.getAsString((textToAdd) => {
-          console.log("About to add text", textToAdd);
-        });
       }
     }
+  };
+
+  const addDocument = (event: React.ChangeEvent<HTMLInputElement>) => {
+
+    console.log("TRYING TO ADD FILES");
+    
+
+    const files = event.target.files;
+    if (!files) return;
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      console.log(file);
+
+      if (
+        allowedImageTypes.includes(file.type) ||
+        allowedDocumentTypes.includes(file.type)
+      ) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const target = event.target;
+          if (!target) return;
+
+          const result = event.target.result;
+
+          if (!result) return;
+
+          addAttachment({
+            content: result as string,
+            type: file.type,
+            name: file.name,
+          });
+        };
+        reader.readAsDataURL(file);
+      } else {
+        toast.error("File type not allowed 👀");
+      }
+    }
+  };
+
+  const openDocuments = () => {
+    if (!fileInputRef || !fileInputRef.current) return;
+    fileInputRef.current.click();
   };
 
   return (
     <div className="chat-input">
       <section className="attachments">
-        {Object.entries(attachments).map(([key, src]) => (
-          <Thumbnail src={src} key={key} name={key} />
+        {attachments.map(({ content, type }, index) => (
+          <Thumbnail type={type} src={content} key={index} />
         ))}
       </section>
       <section>
@@ -77,16 +126,23 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           onPaste={handlePaste}
           placeholder="Type your message..."
         />
-        <button onClick={handleSendMessage}>{SVGS.send}</button>
-      </section>
-    </div>
-  );
-};
+        <div>
+          <button onClick={handleSendMessage}>{SVGS.send}</button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            onChange={addDocument}
+            style={{ display: "none" }}
+            id="fileInput"
+            accept=".png,.jpeg,.jpg,.gif,.webp,.pdf,.txt,.html,.doc,.docx"
+          />
 
-const Thumbnail = ({ src, name }) => {
-  return (
-    <div className="thumbnail">
-      <img key={name} src={src} alt={`attachment-${name}`} />
+          <label htmlFor="fileInput">
+            <button onClick={openDocuments}>{SVGS.addDocument}</button>
+          </label>
+        </div>
+      </section>
     </div>
   );
 };

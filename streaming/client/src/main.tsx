@@ -8,23 +8,29 @@ import { chatLoader } from "./routes/chat/loader.ts";
 import "./index.css";
 import Signup from "./routes/signup/page.tsx";
 import ChatView from "./routes/chat/page.tsx";
+import Layout from "./routes/Layout.tsx";
+import Login from "./routes/login/page.tsx";
 
 const router = createBrowserRouter([
   {
     path: "/",
-    element: <Root />,
-    loader: rootLoader,
-    // children: [
-    //   {
-    //     path: 'team',
-    //     element: <Team />,
-    //     loader: teamLoader,
-    //   },
-    // ],
+    element: <Layout />,
+    // element: <Root />,
+    children: [
+      {
+        path: "/",
+        element: <Root />,
+        loader: rootLoader,
+      },
+    ],
   },
   {
     path: "/signup",
     element: <Signup />,
+  },
+  {
+    path: "/login",
+    element: <Login />,
   },
   {
     path: "/chat",

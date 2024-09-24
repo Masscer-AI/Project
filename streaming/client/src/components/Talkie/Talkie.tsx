@@ -177,7 +177,7 @@ export const Talkie: React.FC<TalkieProps> = ({ processAudio }) => {
   return (
     <div className="talkie">
       <div id="bars-container" ref={barsContainerRef}></div>
-      <button onClick={isRecording ? stopRecording : startRecording}>
+      <button className="button" onClick={isRecording ? stopRecording : startRecording}>
         {isRecording ? "Stop Recording" : "Press Enter to Start Recording"}
       </button>
     </div>

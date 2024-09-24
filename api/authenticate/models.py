@@ -9,7 +9,6 @@ from django.core.exceptions import MultipleObjectsReturned
 from django.db.models import Q
 
 
-
 LOGIN_TOKEN_LIFETIME = timezone.timedelta(days=1)
 TEMPORAL_TOKEN_LIFETIME = timezone.timedelta(days=7)
 TOKEN_TYPE = ['one_time', 'temporal', 'permanent', 'login']

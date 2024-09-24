@@ -4,8 +4,9 @@ from fastapi.staticfiles import StaticFiles
 import uvicorn
 import os
 from contextlib import asynccontextmanager
-from server.routes import router  
-from server.socket import sio_asgi_app 
+from server.routes import router
+from server.socket import sio_asgi_app
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -13,20 +14,18 @@ async def lifespan(app: FastAPI):
     yield
     # await database.disconnect()
 
+
 app = FastAPI(lifespan=lifespan)
 
 AUDIO_DIR = "audios"
 
-# Crear el directorio /audios si no existe
 os.makedirs(AUDIO_DIR, exist_ok=True)
 
-# Incluir las rutas desde el router
 app.include_router(router)
 
-# app.mount("/", StaticFiles(directory="client/dist", html=True), name="dist")
 app.mount("/assets", StaticFiles(directory="client/dist/assets"), name="static")
 
-# Integrar el socket
+
 app.add_route("/socket.io/", route=sio_asgi_app, methods=["GET", "POST"])
 
 if __name__ == "__main__":
