@@ -3,8 +3,16 @@
 
 set -o errexit
 
+py -m venv venv
+
+source venv/Scripts/activate
+
 pip install -r requirements.txt
 
 python manage.py migrate
 
-python manage.py runserver
+cp .env.example .env
+
+cd ./streaming
+
+npm i

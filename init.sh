@@ -11,7 +11,7 @@ cd ./streaming
 npm run watch-build &
 
 # Wait for 4 seconds to build the client
-sleep 4
+sleep 6
 
 # Run FastAPI application
 python main.py
