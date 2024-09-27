@@ -177,15 +177,23 @@ export default function ChatView() {
     }
   };
 
-  const handleKeyDown = (event) => {
-    if (event.key === "Enter" && event.shiftKey) {
-      setInput(event.target.value + "\n");
-    } else if (event.key === "Enter") {
-      handleSendMessage();
+  const handleKeyDown = (event, isWritingMode) => {
+    if (isWritingMode) {
+      if (event.key === "Enter") {
+        return
+      }
     } else {
-      setInput(event.target.value);
+      if (event.key === "Enter" && event.shiftKey) {
+        setInput(event.target.value)
+        return;
+      } else if (event.key === "Enter") {
+        handleSendMessage();
+      } else {
+        setInput(event.target.value);
+      }
     }
   };
+  
 
 
 
@@ -203,7 +211,6 @@ export default function ChatView() {
           {messages &&
             messages.map((msg, index) => (
               <Message
-       
                 {...msg}
                 key={index}
                 onGenerateSpeech={handleGenerateSpeech}

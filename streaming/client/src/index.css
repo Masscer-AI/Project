@@ -96,7 +96,33 @@ button:focus-visible {
   background-color: #262626;
 }
 
+.selected {
+  background-color: #666666;
+}
 
 .highlighted {
   color: var(--highlighted-color);
+}
+
+.floating-navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+}
+
+.flex-x {
+  display: flex;
+}
+.flex-y {
+  display: flex;
+  flex-direction: column;
+}
+
+.centered-container {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }

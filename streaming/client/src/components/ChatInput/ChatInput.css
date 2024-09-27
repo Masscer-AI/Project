@@ -37,6 +37,9 @@
 .chat-input textarea::placeholder {
   color: #888;
 }
+.chat-input textarea.big-size {
+  height: 400px;
+}
 
 .chat-input button {
   padding: 10px;
@@ -51,6 +54,11 @@
   border-radius: 50%;
   cursor: pointer;
   transition: background-color 0.3s;
+}
+
+
+.chat-input button.active {
+  background-color: var(--active-color);
 }
 
 .chat-input .attachments {

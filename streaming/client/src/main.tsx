@@ -10,6 +10,7 @@ import Signup from "./routes/signup/page.tsx";
 import ChatView from "./routes/chat/page.tsx";
 import Layout from "./routes/Layout.tsx";
 import Login from "./routes/login/page.tsx";
+import Tools from "./routes/tools/page.tsx"
 
 const router = createBrowserRouter([
   {
@@ -44,6 +45,10 @@ const router = createBrowserRouter([
     //   },
     // ],
   },
+  {
+    path: "/tools",
+    element: <Tools />
+  }
 ]);
 
 ReactDOM.createRoot(document.getElementById("root")!).render(

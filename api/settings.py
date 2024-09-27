@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'api.authenticate',
     'api.messaging',
+    'api.tools',
 ]
 
 MIDDLEWARE = [
@@ -151,3 +152,11 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'UTC'
+
+
+
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+MEDIA_URL = '/media/'
+
+if not os.path.exists(MEDIA_ROOT):
+    os.makedirs(MEDIA_ROOT)
