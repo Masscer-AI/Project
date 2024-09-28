@@ -5,23 +5,32 @@ import logging
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from .models import TranscriptionJob
-from django.contrib.auth.models import User
+from .serializers import TranscriptionJobSerializer
 import os
 from django.core.files import File
+from api.authenticate.decorators.token_required import token_required
 
 logger = logging.getLogger(__name__)
 
-
 @method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
 class Transcriptions(View):
+
+    def get(self, request):
+        user = request.user
+        transcription_jobs = TranscriptionJob.objects.filter(user=user)
+        serializer = TranscriptionJobSerializer(transcription_jobs, many=True)
+        return JsonResponse(serializer.data, safe=False)
+
     def post(self, request):
         source = request.POST.get("source")
-        user = User.objects.first()
+        user = request.user
 
         if source == "audio":
             audio_file = request.FILES.get("audio_file")
             if audio_file:
                 transcription_job = TranscriptionJob.objects.create(
+                    name=audio_file.name,
                     status="PENDING",
                     status_text="",
                     source_type="AUDIO",
@@ -36,6 +45,7 @@ class Transcriptions(View):
             youtube_url = request.POST.get("youtube_url")
             if youtube_url:
                 transcription_job = TranscriptionJob.objects.create(
+                    name=youtube_url,
                     status="PENDING",
                     status_text="",
                     source_type="YOUTUBE_URL",
@@ -56,6 +66,7 @@ class Transcriptions(View):
 
                 django_file = File(video_file, name=video_filename)
                 transcription_job = TranscriptionJob.objects.create(
+                    name=video_file.name,
                     status="PENDING",
                     status_text="",
                     source_type="VIDEO",

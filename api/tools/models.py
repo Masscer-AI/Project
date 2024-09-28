@@ -13,7 +13,7 @@ class TranscriptionJob(models.Model):
         ('AUDIO', 'Audio'),
         ('VIDEO', 'Video'),  # Added VIDEO as a source type
     ]
-    
+    name = models.CharField(max_length=255, null=True, blank=True) 
     status = models.CharField(max_length=7, choices=STATUS_CHOICES, default='PENDING')
     status_text = models.TextField()
     source_type = models.CharField(max_length=11, choices=SOURCE_CHOICES)

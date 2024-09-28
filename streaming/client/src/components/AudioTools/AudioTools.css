@@ -1,8 +1,22 @@
 .audio-tools {
   background-color: transparent;
-  height: 100vh;
+  padding-top: 100px;
+  text-align: center;
+}
+
+.cards-container {
+  margin-top: 20px;
+  width: 100vw;
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   justify-content: center;
-  align-items: center;
+  gap: 10px;
+  padding: 10px;
+}
+
+.card {
+  background-color: rgb(52, 52, 52);
+  padding: 10px;
+  border-radius: 10px;
+  width: min(300px, 100%);
 }

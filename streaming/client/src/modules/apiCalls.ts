@@ -1,7 +1,18 @@
-import axios from "axios";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import axios, { AxiosRequestConfig, Method } from "axios";
 import { API_URL, PUBLIC_TOKEN } from "./constants";
 
-export const initConversation = async ({isPublic = false}) => {
+const getToken = (isPublic: boolean) => {
+  if (isPublic) {
+    return { token: PUBLIC_TOKEN, tokenType: "PublishToken" };
+  } else {
+    const token = localStorage.getItem("token");
+    if (!token) throw new Error("No token found, impossible to make request");
+    return { token, tokenType: "Token" };
+  }
+};
+
+export const initConversation = async ({ isPublic = false }) => {
   const endpoint = API_URL + "/v1/messaging/conversations";
 
   try {
@@ -42,6 +53,32 @@ export const getConversation = async (conversationId: string) => {
     return response.data;
   } catch (error) {
     console.error("Error fetching conversation:", error);
+    throw error;
+  }
+};
+
+export const makeAuthenticatedRequest = async <T>(
+  method: Method,
+  endpoint: string,
+  data: any = {},
+  isPublic: boolean = false
+) => {
+  const { token, tokenType } = getToken(isPublic);
+
+  const config: AxiosRequestConfig = {
+    method,
+    url: `${API_URL}${endpoint}`,
+    headers: {
+      Authorization: `${tokenType} ${token}`,
+    },
+    data,
+  };
+
+  try {
+    const response = await axios(config);
+    return response.data as T;
+  } catch (error) {
+    console.error(`Error making ${method} request to ${endpoint}:`, error);
     throw error;
   }
 };

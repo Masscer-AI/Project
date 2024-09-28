@@ -66,6 +66,7 @@ def delete_file_after_delay(file_path, delay=5):
     except Exception as e:
         print(f"Error deleting file {file_path}: {e}")
 
+
 def transcribe(job_id):
     try:
         job = TranscriptionJob.objects.get(id=job_id)
@@ -81,7 +82,7 @@ def transcribe(job_id):
                 )
             job.status = "DONE"
         elif job.source_type == "AUDIO":
-            model = whisper.load_model("large")
+            model = whisper.load_model("tiny")
             audio_path = job.audio_file.path
             result = model.transcribe(audio_path)
             vtt_transcript = "WEBVTT\n\n"
@@ -96,11 +97,15 @@ def transcribe(job_id):
                 language=result["language"],
             )
             job.status = "DONE"
-            threading.Thread(target=delete_file_after_delay, args=(audio_path,)).start()  # Delete the audio file after processing
+            threading.Thread(
+                target=delete_file_after_delay, args=(audio_path,)
+            ).start()  # Delete the audio file after processing
         elif job.source_type == "VIDEO":
             model = whisper.load_model("tiny")
             video_path = job.video_file.path
-            audio_path = os.path.splitext(video_path)[0] + ".wav"  # Use the right extension from the video file name
+            audio_path = (
+                os.path.splitext(video_path)[0] + ".wav"
+            )  # Use the right extension from the video file name
 
             # Extract audio from video
             video_clip = VideoFileClip(video_path)
@@ -121,8 +126,8 @@ def transcribe(job_id):
                 language=result["language"],
             )
             job.status = "DONE"
-            threading.Thread(target=delete_file_after_delay, args=(audio_path,)).start()  # Delete the extracted audio file after processing
-            threading.Thread(target=delete_file_after_delay, args=(video_path,)).start()  # Delete the video file after processing
+            threading.Thread(target=delete_file_after_delay, args=(audio_path,)).start()
+            threading.Thread(target=delete_file_after_delay, args=(video_path,)).start()
 
         job.finished_at = timezone.now()
         job.save()

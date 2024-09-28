@@ -1,7 +1,10 @@
-import React, { useState, useRef } from "react";
-import axios from "axios";
-import { API_URL } from "../../modules/constants";
+import React, { useState, useRef, useEffect } from "react";
+// import axios from "axios";
+// import { API_URL } from "../../modules/constants";
 import "./AudioTools.css";
+import toast from "react-hot-toast";
+import { makeAuthenticatedRequest } from "../../modules/apiCalls";
+
 interface AudioOptionsProps {
   selectedOption: string;
   handleOptionClick: (option: string) => void;
@@ -214,18 +217,30 @@ export const AudioTools: React.FC = () => {
     }
 
     try {
-      const response = await axios.post(
-        `${API_URL}/v1/tools/transcriptions/`,
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        }
+      //   const response = await axios.post(
+      //     `${API_URL}/v1/tools/transcriptions/`,
+      //     formData,
+      //     {
+      //       headers: {
+      //         "Content-Type": "multipart/form-data",
+      //       },
+      //     }
+      //   );
+      //   console.log(response.data);
+
+      const responseData = await makeAuthenticatedRequest(
+        "POST",
+        `/v1/tools/transcriptions/`,
+        formData
       );
-      console.log(response.data);
+
+      console.log(responseData);
+      toast.success(
+        "Transcription job initialized! It will appear down soon 👇🏻"
+      );
     } catch (error) {
       console.error("Error:", error);
+      toast.error("Something failed in the server 👀");
     }
   };
 
@@ -237,12 +252,98 @@ export const AudioTools: React.FC = () => {
         handleOptionClick={handleAudioOption}
       />
       {audioOption === "transcribe" && (
-        <TranscribeOptions
-          selectedOption={transcribeOption}
-          handleOptionClick={setTranscribeOption}
-          handleSubmit={handleSubmit}
-        />
+        <>
+          <TranscribeOptions
+            selectedOption={transcribeOption}
+            handleOptionClick={setTranscribeOption}
+            handleSubmit={handleSubmit}
+          />
+          <TranscribeJobs />
+        </>
       )}
+    </div>
+  );
+};
+
+interface Transcription {
+  id: number;
+  format: string;
+  result: string;
+  language: string;
+  created_at: string;
+}
+
+interface TranscriptionJob {
+  id: number;
+  status: string;
+  source_type: string;
+  name: string;
+  created_at: string;
+  transcriptions: Transcription[];
+}
+
+const TranscriptionJobCard: React.FC<{ job: TranscriptionJob }> = ({ job }) => {
+  //   const [showResult, setShowResult] = useState(false);
+
+  const downloadResult = (result: string, id: number) => {
+    const element = document.createElement("a");
+    const file = new Blob([result], { type: "text/plain" });
+    element.href = URL.createObjectURL(file);
+    element.download = `transcription_${id}.txt`;
+    document.body.appendChild(element);
+    element.click();
+  };
+
+  return (
+    <div className="card">
+      <h2>{job.name}</h2>
+      <p>{job.status}</p>
+      <p>from: {job.source_type}</p>
+      <div>
+        <h4>Transcriptions:</h4>
+        {job.transcriptions.map((transcription) => (
+          <div key={transcription.id}>
+            <p>Language: {transcription.language}</p>
+            {/* {showResult && <p>Result: {transcription.result}</p>} */}
+            {/* <button onClick={() => setShowResult(!showResult)}>
+              {showResult ? "Hide" : "Show"} Result
+            </button> */}
+            <button
+              onClick={() =>
+                downloadResult(transcription.result, transcription.id)
+              }
+            >
+              Download Result
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const TranscribeJobs: React.FC = () => {
+  const [jobs, setJobs] = useState<TranscriptionJob[]>([]);
+
+  useEffect(() => {
+    getTranscriptionJobs();
+  }, []);
+
+  const getTranscriptionJobs = async () => {
+    const data = await makeAuthenticatedRequest<TranscriptionJob[]>(
+      "GET",
+      "/v1/tools/transcriptions/"
+    );
+    console.log(data);
+
+    setJobs(data);
+  };
+
+  return (
+    <div className="cards-container">
+      {jobs.map((job) => (
+        <TranscriptionJobCard key={job.id} job={job} />
+      ))}
     </div>
   );
 };
