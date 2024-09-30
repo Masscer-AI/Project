@@ -82,3 +82,17 @@ export const makeAuthenticatedRequest = async <T>(
     throw error;
   }
 };
+
+
+
+
+
+export const getAgents = async (isPublic: boolean = false) => {
+  try {
+    const agents = await makeAuthenticatedRequest<any[]>("GET", "/v1/ai_layers/agents/", {}, isPublic);
+    return agents;
+  } catch (error) {
+    console.error("Error fetching agents:", error);
+    throw error;
+  }
+};

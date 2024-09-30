@@ -2,19 +2,18 @@ import React, { useEffect } from "react";
 import axios from "axios";
 import { useStore } from "../../modules/store";
 import { SVGS } from "../../assets/svgs";
-// import { STREAMING_BACKEND_URL } from "../../modules/constants";
 
 export const ChatHeader = () => {
-  const { setModels, models, model, setModel, toggleSidebar } = useStore();
+  const { setModels, models, model, setModel, toggleSidebar, agents, fetchAgents } = useStore();
 
   useEffect(() => {
     getModels();
+    fetchAgents(); // Fetch agents on component mount
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const getModels = async () => {
     try {
-      // const response = await axios.get(STREAMING_BACKEND_URL + "/get-models");
       const response = await axios.get("/get-models");
       const ollamaModels = response.data.map((model) => ({
         name: model.name,
@@ -41,6 +40,13 @@ export const ChatHeader = () => {
         {models.map((modelObj, index) => (
           <option key={index} value={modelObj.name}>
             {modelObj.name} ({modelObj.provider})
+          </option>
+        ))}
+      </select>
+      <select>
+        {agents.map((agent, index) => (
+          <option key={index} value={agent.slug}>
+            {agent.name}
           </option>
         ))}
       </select>

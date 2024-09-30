@@ -131,7 +131,7 @@ class Token(rest_framework.authtoken.models.Token):
 
 class PublishableToken(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    token = models.CharField(max_length=255, unique=True, default=uuid.uuid4().hex)
+    token = models.CharField(max_length=255, unique=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField(null=True, blank=True)
     duration_minutes = models.IntegerField(null=True, blank=True)
@@ -146,6 +146,10 @@ class PublishableToken(models.Model):
                 days=self.duration_days or 0
             )
             self.expires_at = timezone.now() + duration
+
+        if not self.token:
+            self.token = uuid.uuid4().hex
+
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -154,8 +158,5 @@ class PublishableToken(models.Model):
     @classmethod
     def get_valid(cls, token: str):
         utc_now = timezone.now()
-        # Delete expired tokens
         cls.objects.filter(expires_at__lt=utc_now).delete()
-
-        # Find among any non-expired token
         return cls.objects.filter(token=token).filter(Q(expires_at__gt=utc_now) | Q(expires_at__isnull=True)).first()

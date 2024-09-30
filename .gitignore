@@ -34,3 +34,4 @@ __pycache__
 test.db
 
 db.sqlite3
+vector_storage 

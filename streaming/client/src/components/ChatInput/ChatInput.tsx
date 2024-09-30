@@ -5,12 +5,12 @@ import { useStore } from "../../modules/store";
 import "./ChatInput.css";
 import toast from "react-hot-toast";
 import { Thumbnail } from "../Thumbnail/Thumbnail";
+import { SvgButton } from "../SvgButton/SvgButton";
 
 interface ChatInputProps {
   handleSendMessage: () => void;
   handleKeyDown: (event, isWritingMode: boolean) => void;
 }
-
 
 export const ChatInput: React.FC<ChatInputProps> = ({
   handleSendMessage,
@@ -25,9 +25,17 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     addAttachment: state.addAttachment,
   }));
 
-  const allowedImageTypes = ["image/png", "image/jpeg", "image/gif", "image/webp"];
+  const allowedImageTypes = [
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "image/webp",
+  ];
   const allowedDocumentTypes = [
-    "application/pdf", "text/plain", "text/html", "application/msword",
+    "application/pdf",
+    "text/plain",
+    "text/html",
+    "application/msword",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   ];
 
@@ -56,14 +64,21 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     if (!files) return;
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      if (allowedImageTypes.includes(file.type) || allowedDocumentTypes.includes(file.type)) {
+      if (
+        allowedImageTypes.includes(file.type) ||
+        allowedDocumentTypes.includes(file.type)
+      ) {
         const reader = new FileReader();
         reader.onload = (event) => {
           const target = event.target;
           if (!target) return;
           const result = target.result;
           if (!result) return;
-          addAttachment({ content: result as string, type: file.type, name: file.name });
+          addAttachment({
+            content: result as string,
+            type: file.type,
+            name: file.name,
+          });
         };
         reader.readAsDataURL(file);
       } else {
@@ -79,22 +94,22 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
   const toggleWritingMode = (e) => {
     console.log(e.target);
-    
+
     console.log("Toggling writting mode");
-    
+
     setIsWritingMode(!isWritingMode);
   };
 
   return (
     <div className="chat-input">
       <section className="attachments">
-        {attachments.map(({ content, type }, index) => (
-          <Thumbnail type={type} src={content} key={index} />
+        {attachments.map(({ content, type, name }, index) => (
+          <Thumbnail name={name} type={type} src={content} key={index} index={index} />
         ))}
       </section>
       <section>
         <textarea
-        className={isWritingMode ? "big-size" : ""}
+          className={isWritingMode ? "big-size" : ""}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => handleKeyDown(e, isWritingMode)}
@@ -102,7 +117,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           placeholder="Type your message..."
         />
         <div>
-          <button onClick={handleSendMessage}>{SVGS.send}</button>
+          {/* <button className="button" onClick={handleSendMessage}>{SVGS.send}</button> */}
+          <SvgButton onClick={handleSendMessage} svg={SVGS.send} />
           <input
             ref={fileInputRef}
             type="file"
@@ -113,11 +129,14 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             accept=".png,.jpeg,.jpg,.gif,.webp,.pdf,.txt,.html,.doc,.docx"
           />
           <label htmlFor="fileInput">
-            <button onClick={openDocuments}>{SVGS.addDocument}</button>
+            {/* <button onClick={openDocuments}>{SVGS.addDocument}</button> */}
+            <SvgButton onClick={openDocuments} svg={SVGS.addDocument} />
           </label>
-          <button onClick={toggleWritingMode} className={isWritingMode ? "active" : ""} >
-            {SVGS.writting}
-          </button>
+          <SvgButton
+            extraClass={isWritingMode ? "active" : ""}
+            onClick={toggleWritingMode}
+            svg={SVGS.writePen}
+          />
         </div>
       </section>
     </div>

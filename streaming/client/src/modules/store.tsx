@@ -1,7 +1,7 @@
 import { createWithEqualityFn as create } from "zustand/traditional";
 
 import { TConversationData } from "../types/chatTypes";
-import { getConversation, initConversation } from "./apiCalls";
+import { getAgents, getConversation, initConversation } from "./apiCalls";
 import { TAttachment } from "../types";
 
 type Message = {
@@ -15,11 +15,17 @@ type Model = {
   provider: string;
 };
 
+type Agent = {
+  name: string;
+  slug: string;
+};
+
 type Store = {
   messages: Message[];
   input: string;
   model: Model;
   models: Model[];
+  agents: Agent[];
   chatState: { isSidebarOpened: boolean; attachments: TAttachment[] };
   conversation: TConversationData | undefined;
   setMessages: (messages: Message[]) => void;
@@ -28,8 +34,10 @@ type Store = {
   setInput: (input: string) => void;
   setModel: (model: Model) => void;
   setModels: (models: Model[]) => void;
+  fetchAgents: () => void;
   toggleSidebar: () => void;
-  cleanAttachments: () => void; // Add this line
+  cleanAttachments: () => void;
+  deleteAttachment: (index: number) => void; // Add this line
 };
 
 export const useStore = create<Store>()((set) => ({
@@ -41,6 +49,7 @@ export const useStore = create<Store>()((set) => ({
     { name: "gpt-4o-mini", provider: "openai" },
     { name: "claude-3-5-sonnet-20240620", provider: "anthropic" },
   ],
+  agents: [],
   chatState: { isSidebarOpened: false, attachments: [] },
   conversation: undefined,
   setConversation: async (conversationId) => {
@@ -68,6 +77,10 @@ export const useStore = create<Store>()((set) => ({
       },
     }));
   },
+  fetchAgents: async () => {
+    const agents = await getAgents();
+    set({ agents });
+  },
   toggleSidebar: () =>
     set((state) => ({
       chatState: {
@@ -82,4 +95,12 @@ export const useStore = create<Store>()((set) => ({
         attachments: [],
       },
     })),
+  deleteAttachment: (index) => {
+    set((state) => ({
+      chatState: {
+        ...state.chatState,
+        attachments: state.chatState.attachments.filter((_, i) => i !== index),
+      },
+    }));
+  },
 }));

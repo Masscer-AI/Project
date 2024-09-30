@@ -1,0 +1,28 @@
+.svg-button {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: var(--bg-color);
+  color: var(--font-color);
+  padding: 5px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+}
+.svg-button.active {
+  background-color: var(--active-color);
+}
+
+.svg-button button {
+  background: transparent;
+  border: none;
+}
+
+.svg-button svg path {
+  stroke: var(--font-color);
+}
+
+.svg-button svg {
+  width: 30px;
+  height: 30px;
+}

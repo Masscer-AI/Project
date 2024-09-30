@@ -2,5 +2,8 @@ from django.apps import AppConfig
 
 
 class RagConfig(AppConfig):
-    default_auto_field = 'django.db.models.BigAutoField'
-    name = 'api.rag'
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "api.rag"
+
+    def ready(self) -> None:
+        import api.rag.signals

@@ -41,7 +41,7 @@
   height: 400px;
 }
 
-.chat-input button {
+/* .chat-input button {
   padding: 10px;
   width: 50px;
   height: 50px;
@@ -54,8 +54,7 @@
   border-radius: 50%;
   cursor: pointer;
   transition: background-color 0.3s;
-}
-
+} */
 
 .chat-input button.active {
   background-color: var(--active-color);
@@ -73,9 +72,27 @@
   display: flex;
   justify-content: center;
   align-items: center;
+  position: relative;
 }
 
 .thumbnail img {
   width: 100%;
   height: 100%;
+}
+
+.thumbnail .floating-buttons {
+  position: absolute;
+  top: -10px;
+  display: none;
+}
+
+.thumbnail:hover .floating-buttons {
+  display: flex;
+}
+
+.floating-buttons button {
+  background-color: transparent;
+  padding: 1px;
+  border-radius: 5px;
+  cursor: pointer;
 }

@@ -24,6 +24,8 @@ apps = [
     ('v1/auth/', 'api.authenticate.urls', 'auth'),
     ('v1/messaging/', 'api.messaging.urls', 'messaging'),
     ('v1/tools/', 'api.tools.urls', 'tools'),
+    ('v1/rag/', 'api.rag.urls', 'rag'),
+    ('v1/ai_layers/', 'api.ai_layers.urls', 'ai_layers'),
 ]
 
 urlpatterns_apps = [path(url, include(urlconf, namespace=namespace)) for url, urlconf, namespace in apps]
