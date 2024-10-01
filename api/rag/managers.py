@@ -24,5 +24,9 @@ class ChromaManager:
         collection = self.get_or_create_collection(collection_name)
         return collection.query(query_texts=[query_text], n_results=n_results)
 
+    def delete_collection(self, collection_name: str):
+        print("Deleting collection from chroma")
+        self.client.delete_collection(collection_name)
+
 
 chroma_client = ChromaManager()

@@ -128,7 +128,7 @@ def query_collection(request):
     )
 
     results = chroma_client.get_results(
-        collection_name=collection.slug, query_text=query_text, n_results=2
+        collection_name=collection.slug, query_text=query_text, n_results=4
     )
 
     data = {"results": results}

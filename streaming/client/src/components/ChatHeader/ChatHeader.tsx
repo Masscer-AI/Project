@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import axios from "axios";
 import { useStore } from "../../modules/store";
 import { SVGS } from "../../assets/svgs";
+import { Link } from "react-router-dom"
 
 export const ChatHeader = () => {
   const {
@@ -59,7 +60,7 @@ export const ChatHeader = () => {
           </option>
         ))}
       </select>
-      <button>{SVGS.controls}</button>
+      <button><Link to={"/tools"}>Gallo click acá: {SVGS.controls}</Link></button>
     </div>
   );
 };
