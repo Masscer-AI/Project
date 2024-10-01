@@ -70,6 +70,9 @@ export const makeAuthenticatedRequest = async <T>(
     url: `${API_URL}${endpoint}`,
     headers: {
       Authorization: `${tokenType} ${token}`,
+      ...(data instanceof FormData
+        ? { "Content-Type": "multipart/form-data" }
+        : {}),
     },
     data,
   };
@@ -83,16 +86,32 @@ export const makeAuthenticatedRequest = async <T>(
   }
 };
 
-
-
-
-
 export const getAgents = async (isPublic: boolean = false) => {
   try {
-    const agents = await makeAuthenticatedRequest<any[]>("GET", "/v1/ai_layers/agents/", {}, isPublic);
+    const agents = await makeAuthenticatedRequest<any[]>(
+      "GET",
+      "/v1/ai_layers/agents/",
+      {},
+      isPublic
+    );
     return agents;
   } catch (error) {
     console.error("Error fetching agents:", error);
+    throw error;
+  }
+};
+
+export const uploadDocument = async (documentData: FormData) => {
+  try {
+    const response = await makeAuthenticatedRequest<any>(
+      "POST",
+      "/v1/rag/documents/",
+      documentData,
+      false
+    );
+    return response;
+  } catch (error) {
+    console.error("Error uploading document:", error);
     throw error;
   }
 };

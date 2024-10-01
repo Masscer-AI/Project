@@ -8,6 +8,7 @@
   width: 40px;
   height: 40px;
   border-radius: 50%;
+  cursor: pointer;
 }
 .svg-button.active {
   background-color: var(--active-color);
@@ -16,6 +17,7 @@
 .svg-button button {
   background: transparent;
   border: none;
+  cursor: pointer;
 }
 
 .svg-button svg path {
@@ -25,4 +27,5 @@
 .svg-button svg {
   width: 30px;
   height: 30px;
+  cursor: pointer;
 }

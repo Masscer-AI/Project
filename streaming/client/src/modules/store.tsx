@@ -1,5 +1,4 @@
 import { createWithEqualityFn as create } from "zustand/traditional";
-
 import { TConversationData } from "../types/chatTypes";
 import { getAgents, getConversation, initConversation } from "./apiCalls";
 import { TAttachment } from "../types";
@@ -26,7 +25,11 @@ type Store = {
   model: Model;
   models: Model[];
   agents: Agent[];
-  chatState: { isSidebarOpened: boolean; attachments: TAttachment[] };
+  chatState: {
+    isSidebarOpened: boolean;
+    attachments: TAttachment[];
+    selectedAgent: string;
+  };
   conversation: TConversationData | undefined;
   setMessages: (messages: Message[]) => void;
   setConversation: (conversationId: string | null) => void;
@@ -37,7 +40,7 @@ type Store = {
   fetchAgents: () => void;
   toggleSidebar: () => void;
   cleanAttachments: () => void;
-  deleteAttachment: (index: number) => void; // Add this line
+  deleteAttachment: (index: number) => void;
 };
 
 export const useStore = create<Store>()((set) => ({
@@ -50,7 +53,7 @@ export const useStore = create<Store>()((set) => ({
     { name: "claude-3-5-sonnet-20240620", provider: "anthropic" },
   ],
   agents: [],
-  chatState: { isSidebarOpened: false, attachments: [] },
+  chatState: { isSidebarOpened: false, attachments: [], selectedAgent: "" },
   conversation: undefined,
   setConversation: async (conversationId) => {
     let data;
@@ -72,20 +75,27 @@ export const useStore = create<Store>()((set) => ({
   addAttachment: (newAttachment) => {
     set((state) => ({
       chatState: {
-        isSidebarOpened: state.chatState.isSidebarOpened,
+        ...state.chatState,
         attachments: [...state.chatState.attachments, newAttachment],
       },
     }));
   },
   fetchAgents: async () => {
     const agents = await getAgents();
-    set({ agents });
+    set({
+      agents,
+      chatState: {
+        isSidebarOpened: false,
+        attachments: [],
+        selectedAgent: agents.length > 0 ? agents[0].slug : "",
+      },
+    });
   },
   toggleSidebar: () =>
     set((state) => ({
       chatState: {
+        ...state.chatState,
         isSidebarOpened: !state.chatState.isSidebarOpened,
-        attachments: [...state.chatState.attachments],
       },
     })),
   cleanAttachments: () =>

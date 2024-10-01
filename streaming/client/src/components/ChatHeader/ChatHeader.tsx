@@ -4,12 +4,20 @@ import { useStore } from "../../modules/store";
 import { SVGS } from "../../assets/svgs";
 
 export const ChatHeader = () => {
-  const { setModels, models, model, setModel, toggleSidebar, agents, fetchAgents } = useStore();
+  const {
+    setModels,
+    models,
+    model,
+    setModel,
+    toggleSidebar,
+    agents,
+    fetchAgents,
+  } = useStore();
 
   useEffect(() => {
     getModels();
-    fetchAgents(); // Fetch agents on component mount
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    fetchAgents();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const getModels = async () => {
@@ -22,6 +30,7 @@ export const ChatHeader = () => {
       setModels([...models, ...ollamaModels]);
     } catch (e) {
       console.error(e);
+      
     }
   };
 

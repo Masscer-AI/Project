@@ -15,6 +15,7 @@ class AgentView(View):
     def get(self, request, *args, **kwargs):
         request.user
         agents = Agent.objects.filter(user=request.user)
+        print("RETURNING AGENTS FOR USER", agents)
         serializer = AgentSerializer(agents, many=True)
         return JsonResponse(serializer.data, safe=False)
 

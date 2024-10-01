@@ -46,13 +46,24 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       if (allowedImageTypes.includes(item.type)) {
         const blob = item.getAsFile();
         const reader = new FileReader();
+
         reader.onload = (event) => {
           const target = event.target;
           if (!target) return;
           const result = target.result;
           if (!result) return;
           const id = uuidv4();
-          addAttachment({ content: result as string, type: "image", name: id });
+
+          console.log("PASTING SOMETHING IN THE INPUT");
+
+          if (!blob) return;
+
+          addAttachment({
+            content: result as string,
+            type: "image",
+            name: id,
+            file: blob,
+          });
         };
         if (blob) reader.readAsDataURL(blob);
       }
@@ -76,6 +87,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           if (!result) return;
           addAttachment({
             content: result as string,
+            file: file,
             type: file.type,
             name: file.name,
           });
@@ -103,8 +115,15 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   return (
     <div className="chat-input">
       <section className="attachments">
-        {attachments.map(({ content, type, name }, index) => (
-          <Thumbnail name={name} type={type} src={content} key={index} index={index} />
+        {attachments.map(({ content, type, name, file }, index) => (
+          <Thumbnail
+          file={file}
+            name={name}
+            type={type}
+            src={content}
+            key={index}
+            index={index}
+          />
         ))}
       </section>
       <section>

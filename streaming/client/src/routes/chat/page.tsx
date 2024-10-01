@@ -115,6 +115,7 @@ export default function ChatView() {
           model: model,
           token: token,
           conversation: conversation ? conversation : loaderData.conversation,
+          agent_slug: chatState.selectedAgent
         },
         (ack) => {
           console.log(ack, "ACK FROM SERVER ?");
@@ -163,6 +164,7 @@ export default function ChatView() {
             type: "image",
             content: imageUrl,
             name: "Generated image",
+            file: null,
           },
         ],
       };
@@ -180,11 +182,11 @@ export default function ChatView() {
   const handleKeyDown = (event, isWritingMode) => {
     if (isWritingMode) {
       if (event.key === "Enter") {
-        return
+        return;
       }
     } else {
       if (event.key === "Enter" && event.shiftKey) {
-        setInput(event.target.value)
+        setInput(event.target.value);
         return;
       } else if (event.key === "Enter") {
         handleSendMessage();
@@ -193,9 +195,6 @@ export default function ChatView() {
       }
     }
   };
-  
-
-
 
   return (
     <>

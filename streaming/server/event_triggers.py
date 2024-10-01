@@ -1,7 +1,7 @@
 import os
 from .utils.openai_functions import stream_completion, generate_speech_api
 from server.utils.completions import get_system_prompt
-from .utils.apiCalls import save_message
+from .utils.apiCalls import save_message, get_results
 import hashlib
 
 from .logger import get_custom_logger
@@ -15,10 +15,23 @@ async def on_message_handler(socket_id, data, **kwargs):
     context = data["context"]
     message = data["message"]
     token = data["token"]
+    agent_slug = data["agent_slug"]
+    logger.info(f"AGENT SLUG TO GENERETA MESSAGE {agent_slug}")
     model = data.get("model", {"name": "gpt-4o-mini", "provider": "openai"})
     conversation = data["conversation"]
 
-    system_prompt = get_system_prompt(context=context)
+    rag_results = get_results(
+        query_text=message["text"], agent_slug=agent_slug, token=token
+    )
+    documents = rag_results["results"]["documents"]
+    documents_context = ""
+    for d in documents:
+        documents_context += d[0]
+
+    print(documents, "DOCUMENTS FROM CHROMA TO MESSAGE")
+    print("----------DOCS CONTEXt-----------",documents_context, "DOCS CONTET")
+    complete_contet = context + f"\n\nThe following is information about a vector storage querying the user message: ---start_vector_context{documents_context}\n\nend_vector_context---"
+    system_prompt = get_system_prompt(context=complete_contet)
 
     data = {}
     ai_response = ""
@@ -33,6 +46,7 @@ async def on_message_handler(socket_id, data, **kwargs):
     await sio.emit(
         "responseFinished", {"status": "ok", "ai_response": ai_response}, to=socket_id
     )
+
     save_message(
         message=message,
         conversation=conversation.get("id", None),
