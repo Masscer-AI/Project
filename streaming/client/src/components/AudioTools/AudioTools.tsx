@@ -238,6 +238,10 @@ export const AudioTools: React.FC = () => {
       toast.success(
         "Transcription job initialized! It will appear down soon 👇🏻"
       );
+      // Wait for 2 seconds before reloading the page
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
     } catch (error) {
       console.error("Error:", error);
       toast.error("Something failed in the server 👀");
@@ -337,6 +341,22 @@ const TranscribeJobs: React.FC = () => {
     console.log(data);
 
     setJobs(data);
+
+    checkTranscriptionJobsStatus(data);
+  };
+
+  const checkTranscriptionJobsStatus = (jobs) => {
+    const hasPendingJobs = jobs.some((job) => job.status !== "DONE");
+
+    if (hasPendingJobs) {
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+    }
+    else {
+      console.log("Not necessary to reload, all transcriptions are ready");
+      
+    }
   };
 
   return (
