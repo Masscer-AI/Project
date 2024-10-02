@@ -23,15 +23,21 @@ async def on_message_handler(socket_id, data, **kwargs):
     rag_results = get_results(
         query_text=message["text"], agent_slug=agent_slug, token=token
     )
-    documents = rag_results["results"]["documents"]
     documents_context = ""
-    for d in documents:
-        documents_context += d[0]
+    complete_context = context
 
-    print(documents, "DOCUMENTS FROM CHROMA TO MESSAGE")
-    print("----------DOCS CONTEXt-----------",documents_context, "DOCS CONTET")
-    complete_contet = context + f"\n\nThe following is information about a vector storage querying the user message: ---start_vector_context{documents_context}\n\nend_vector_context---"
-    system_prompt = get_system_prompt(context=complete_contet)
+    if rag_results is not None:
+        print(rag_results)
+
+        documents = rag_results["results"]["documents"]
+        for d in documents:
+            if len(d) > 0:
+                documents_context += d[0]
+
+        if len(documents_context) > 0:
+            complete_context += f"\n\nThe following is information about a vector storage querying the user message: ---start_vector_context{documents_context}\n\nend_vector_context---"
+
+    system_prompt = get_system_prompt(context=complete_context)
 
     data = {}
     ai_response = ""
