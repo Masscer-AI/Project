@@ -13,39 +13,39 @@ import { ChatHeader } from "../../components/ChatHeader/ChatHeader";
 import toast, { Toaster } from "react-hot-toast";
 import { playAudioFromBytes } from "../../modules/utils";
 
-const socket = io("http://localhost:8001", {
-  autoConnect: false,
-  transports: ["websockets", "polling"],
-});
+// const socket = io("http://localhost:8001", {
+//   autoConnect: false,
+//   transports: ["websockets", "polling"],
+// });
 
 export default function ChatView() {
   const loaderData = useLoaderData() as TChatLoader;
 
   const token = localStorage.getItem("token");
-  const { chatState, input, setInput, model, conversation, cleanAttachments } =
-    useStore((state) => ({
-      chatState: state.chatState,
-      toggleSidebar: state.toggleSidebar,
-      input: state.input,
-      setInput: state.setInput,
-      model: state.model,
-      conversation: state.conversation,
-      cleanAttachments: state.cleanAttachments,
-    }));
+  const {
+    chatState,
+    input,
+    setInput,
+    model,
+    conversation,
+    cleanAttachments,
+    socket,
+  } = useStore((state) => ({
+    socket: state.socket,
+    chatState: state.chatState,
+    toggleSidebar: state.toggleSidebar,
+    input: state.input,
+    setInput: state.setInput,
+    model: state.model,
+    conversation: state.conversation,
+    cleanAttachments: state.cleanAttachments,
+  }));
 
   const [messages, setMessages] = useState(
     loaderData.conversation.messages as TMessage[]
   );
 
   useEffect(() => {
-    socket.on("connect", () => {
-      console.log("Connected to socket server");
-    });
-
-    socket.on("disconnect", () => {
-      console.log("Disconnected from socket server");
-    });
-
     const updateMessages = (chunk: string) => {
       const newMessages = [...messages];
       const lastMessage = newMessages[newMessages.length - 1];
@@ -72,12 +72,10 @@ export default function ChatView() {
 
     socket.on("responseFinished", (data) => {
       console.log("Response finished:", data);
-      socket.disconnect();
+      // socket.disconnect();
     });
 
     return () => {
-      socket.off("connect");
-      socket.off("disconnect");
       socket.off("response");
       socket.off("audio-file");
       socket.off("responseFinished");
@@ -93,7 +91,7 @@ export default function ChatView() {
   const handleSendMessage = async () => {
     if (input.trim() === "") return;
 
-    socket.connect();
+    // socket.connect();
     const userMessage = {
       type: "user",
       text: input,
@@ -103,19 +101,24 @@ export default function ChatView() {
 
     try {
       const token = localStorage.getItem("token");
+
+      const attachmentsOnlyId = chatState.attachments.map((a) => ({
+        id: a.id,
+      }));
+
       socket.emit(
         "message",
         {
           message: {
             type: "user",
             text: input,
-            attachments: chatState.attachments,
+            attachments: attachmentsOnlyId,
           },
           context: messages.map((msg) => `${msg.type}: ${msg.text}`).join("\n"),
           model: model,
           token: token,
           conversation: conversation ? conversation : loaderData.conversation,
-          agent_slug: chatState.selectedAgent
+          agent_slug: chatState.selectedAgent,
         },
         (ack) => {
           console.log(ack, "ACK FROM SERVER ?");
@@ -131,10 +134,6 @@ export default function ChatView() {
 
   const handleGenerateSpeech = async (text) => {
     try {
-      socket.connect();
-
-      // TODO: Send the token in every socket event, maybe we need to have a socket manager for the client ir order to have a straightforward interface
-      // const token = localStorage.getItem("token");
       socket.emit("speech_request", {
         text,
       });
@@ -205,6 +204,7 @@ export default function ChatView() {
         <ChatInput
           handleSendMessage={handleSendMessage}
           handleKeyDown={handleKeyDown}
+          conversation={conversation || loaderData.conversation}
         />
         <div className="chat-messages">
           {messages &&

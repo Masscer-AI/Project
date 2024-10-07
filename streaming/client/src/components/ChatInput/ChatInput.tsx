@@ -6,15 +6,18 @@ import "./ChatInput.css";
 import toast from "react-hot-toast";
 import { Thumbnail } from "../Thumbnail/Thumbnail";
 import { SvgButton } from "../SvgButton/SvgButton";
+import { TConversationData } from "../../types/chatTypes";
 
 interface ChatInputProps {
   handleSendMessage: () => void;
   handleKeyDown: (event, isWritingMode: boolean) => void;
+  conversation: TConversationData;
 }
 
 export const ChatInput: React.FC<ChatInputProps> = ({
   handleSendMessage,
   handleKeyDown,
+  conversation,
 }) => {
   const [isWritingMode, setIsWritingMode] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -54,16 +57,17 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           if (!result) return;
           const id = uuidv4();
 
-          console.log("PASTING SOMETHING IN THE INPUT");
-
           if (!blob) return;
 
-          addAttachment({
-            content: result as string,
-            type: "image",
-            name: id,
-            file: blob,
-          });
+          addAttachment(
+            {
+              content: result as string,
+              type: "image",
+              name: id,
+              file: blob,
+            },
+            conversation.id
+          );
         };
         if (blob) reader.readAsDataURL(blob);
       }
@@ -85,12 +89,16 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           if (!target) return;
           const result = target.result;
           if (!result) return;
-          addAttachment({
-            content: result as string,
-            file: file,
-            type: file.type,
-            name: file.name,
-          });
+
+          addAttachment(
+            {
+              content: result as string,
+              file: file,
+              type: file.type,
+              name: file.name,
+            },
+            conversation.id
+          );
         };
         reader.readAsDataURL(file);
       } else {
@@ -105,10 +113,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   };
 
   const toggleWritingMode = (e) => {
-    console.log(e.target);
-
-    console.log("Toggling writting mode");
-
     setIsWritingMode(!isWritingMode);
   };
 
@@ -117,7 +121,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       <section className="attachments">
         {attachments.map(({ content, type, name, file }, index) => (
           <Thumbnail
-          file={file}
+            file={file}
             name={name}
             type={type}
             src={content}

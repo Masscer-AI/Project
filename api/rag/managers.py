@@ -20,6 +20,16 @@ class ChromaManager:
         collection = self.get_or_create_collection(collection_name)
         collection.upsert(documents=[chunk_text], ids=[chunk_id])
 
+    def bulk_upsert_chunks(
+        self,
+        collection_name: str,
+        documents: list[str],
+        chunk_ids: list[str],
+        metadatas: list[dict],
+    ):
+        collection = self.get_or_create_collection(collection_name)
+        collection.upsert(documents=documents, ids=chunk_ids, metadatas=metadatas)
+
     def get_results(self, collection_name: str, query_text: str, n_results: int = 4):
         collection = self.get_or_create_collection(collection_name)
         return collection.query(query_texts=[query_text], n_results=n_results)

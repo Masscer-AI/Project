@@ -4,8 +4,9 @@ import "./Sidebar.css";
 import { SVGS } from "../../assets/svgs";
 import { API_URL } from "../../modules/constants";
 import { useStore } from "../../modules/store";
-import { useSearchParams } from "react-router-dom";
-// import { useNavigate } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { SvgButton } from "../SvgButton/SvgButton";
 
 interface TConversation {
   id: string;
@@ -20,9 +21,9 @@ export const Sidebar: React.FC = () => {
     setConversation: state.setConversation,
   }));
 
-  // const navigate = useNavigate();
   const [history, setHistory] = useState<TConversation[]>([]);
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   useEffect(() => {
     populateHistory();
@@ -63,24 +64,69 @@ export const Sidebar: React.FC = () => {
     toggleSidebar();
   };
 
+  const goTo = (to: string) => {
+    navigate(to);
+  };
+
   return (
     <div className="sidebar">
       <div className="sidebar__header">
-        <button className="button" onClick={handleNewChat}>
+        <button className=" clickeable button" onClick={handleNewChat}>
           New chat
         </button>
-        <button className="button" onClick={toggleSidebar}>
-          {SVGS.burger}
-        </button>
+        <SvgButton onClick={toggleSidebar} svg={SVGS.burger} />
       </div>
-      <div className="sidebar__history">
+      <details className="sidebar__history">
+        <summary>Conversations</summary>
         {history.map((conversation) => (
           <ConversationComponent
             key={conversation.id}
             conversation={conversation}
           />
         ))}
-      </div>
+      </details>
+      <details>
+        <summary>Tools</summary>
+        <p
+          className="clickeable rounded-rect"
+          onClick={() => goTo("/tools?selected=audio")}
+        >
+          Audio
+        </p>
+        <p
+          className="clickeable rounded-rect"
+          onClick={() => goTo("/tools?selected=images")}
+        >
+          Images
+        </p>
+        <p
+          className="clickeable rounded-rect"
+          onClick={() => goTo("/tools?selected=video")}
+        >
+          Video
+        </p>
+      </details>
+      <details>
+        <summary>Training</summary>
+        <p
+          className="clickeable rounded-rect"
+          // onClick={() => goTo("/tools?selected=audio")}
+        >
+          Documents
+        </p>
+        <p
+          className="clickeable rounded-rect"
+          // onClick={() => goTo("/tools?selected=images")}
+        >
+          Questions
+        </p>
+        <p
+          className="clickeable rounded-rect"
+          // onClick={() => goTo("/tools?selected=video")}
+        >
+          Tags
+        </p>
+      </details>
       <div className="sidebar__footer">Some user</div>
     </div>
   );
@@ -96,6 +142,7 @@ const ConversationComponent = ({
     setConversation: state.setConversation,
     toggleSidebar: state.toggleSidebar,
   }));
+  const navigate = useNavigate();
 
   const handleClick = (e) => {
     e.preventDefault();
@@ -105,14 +152,18 @@ const ConversationComponent = ({
       conversation: conversation.id,
     };
     setSearchParams(queryParams);
-    console.log(searchParams);
+
+    navigate(`/chat?conversation=${conversation.id}`);
   };
 
   return (
     <>
       {conversation.number_of_messages > 0 ? (
-        <div className="conversation" onClick={handleClick}>
-          <p>{conversation.title || conversation.id}</p>
+        <div
+          className="conversation clickeable rounded-rect"
+          onClick={handleClick}
+        >
+          <p>{(conversation.title || conversation.id).slice(0, 30)}</p>
         </div>
       ) : null}
     </>

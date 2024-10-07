@@ -1,4 +1,5 @@
 import requests
+import json
 
 API_URL = "http://127.0.0.1:8000"
 
@@ -7,10 +8,11 @@ def save_message(message: dict, conversation: str, token: str):
 
     endpoint = API_URL + "/v1/messaging/messages"
     headers = {"Authorization": "Token " + token}
+
     body = {
         "type": message["type"],
         "text": message["text"],
-        "attachments": message["attachments"],
+        "attachments": json.dumps(message["attachments"]),
         "conversation": conversation,
     }
 
@@ -23,13 +25,16 @@ def save_message(message: dict, conversation: str, token: str):
         return None
 
 
-def get_results(query_text: str, agent_slug: str, token: str):
+def get_results(
+    query_text: str, agent_slug: str, token: str, conversation_id: str = None
+):
 
     endpoint = API_URL + "/v1/rag/query/"
     headers = {"Authorization": "Token " + token}
     body = {
         "agent_slug": agent_slug,
         "query": query_text,
+        "conversation_id": conversation_id,
     }
 
     try:

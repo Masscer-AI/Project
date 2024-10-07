@@ -10,14 +10,16 @@
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  --active-color: rgb(14, 53, 61);
-  --highlighted-color: rgb(0, 144, 173);
+  --active-color: #0e353d;
+  --highlighted-color: rgb(20, 181, 151);
   --font-color: rgb(255, 255, 255);
   --bg-color: rgb(10, 9, 26);
-  --hovered-color: rgb(3, 25, 30);
+  --bg-secondary-color: rgba(31, 31, 31, 0.397);
+  --hovered-color: rgba(75, 75, 75, 0.646);
   --modals-color: rgb(255, 255, 255);
   --border-radius: 6px;
-  color-scheme: light dark;
+  --selected-border: 1px solid var(--highlighted-color);
+  color-scheme: dark light;
   background-color: var(--bg-color);
 
   font-synthesis: none;
@@ -33,7 +35,7 @@ a {
   text-decoration: inherit;
 }
 a:hover {
-  color: #535bf2;
+  color: var(--hovered-color);
 }
 html {
   color-scheme: light;
@@ -126,4 +128,41 @@ button:focus-visible {
   display: flex;
   justify-content: center;
   align-items: center;
+}
+.clickeable {
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.clickeable:hover,
+.clickeable:focus {
+  border: 1px solid var(--highlighted-color);
+  color: var(--highlighted-color) !important;
+  transition: 0.5s all;
+}
+.clickeable:hover * {
+  color: var(--highlighted-color);
+  stroke: var(--highlighted-color);
+}
+.clickeable:active {
+  background-color: var(--highlighted-color);
+}
+
+.rounded-rect {
+  padding: 10px 4px;
+  border-radius: 5px;
+}
+
+details summary {
+  list-style-type: none;
+  cursor: pointer;
+  padding: 10px;
+  font-size: large;
+  font-weight: bold;
+}
+
+details[open] summary {
+  background-color: var(--hovered-color);
+  border-radius: 5px;
+  box-shadow: 0px 2px var(--highlighted-color);
 }

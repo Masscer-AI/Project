@@ -35,3 +35,5 @@ test.db
 
 db.sqlite3
 vector_storage 
+
+streaming/audios

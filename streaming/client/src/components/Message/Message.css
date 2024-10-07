@@ -44,21 +44,3 @@
   display: none;
 }
 
-.message-buttons button {
-  border: none;
-  border-radius: 10px;
-  cursor: pointer;
-  width: 30px;
-  height: 30px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  transition: background-color 0.3s;
-}
-.message-buttons button svg {
-  width: 20px;
-}
-
-.message-buttons button:hover {
-  background-color: #0056b3;
-}

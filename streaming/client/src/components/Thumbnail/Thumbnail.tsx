@@ -15,7 +15,8 @@ export const Thumbnail = ({ src, type, name, index, file }) => {
     formData.append("agent_slug", chatState.selectedAgent);
     formData.append("name", name);
     formData.append("file", file);
-    console.log("FILE BEING APPENDED", file);
+    // formData.append("conversation_id", );
+
 
     try {
       const res = await uploadDocument(formData);

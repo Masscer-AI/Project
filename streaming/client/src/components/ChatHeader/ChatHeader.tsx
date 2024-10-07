@@ -60,7 +60,7 @@ export const ChatHeader = () => {
           </option>
         ))}
       </select>
-      <button><Link to={"/tools"}>Gallo click acá: {SVGS.controls}</Link></button>
+      {/* <button><Link to={"/tools"}>Gallo click acá: {SVGS.controls}</Link></button> */}
     </div>
   );
 };

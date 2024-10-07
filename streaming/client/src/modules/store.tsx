@@ -1,7 +1,14 @@
 import { createWithEqualityFn as create } from "zustand/traditional";
 import { TConversationData } from "../types/chatTypes";
-import { getAgents, getConversation, initConversation } from "./apiCalls";
+import {
+  getAgents,
+  getConversation,
+  initConversation,
+  uploadDocument,
+} from "./apiCalls";
 import { TAttachment } from "../types";
+import { SocketManager } from "./socketManager";
+import { STREAMING_BACKEND_URL } from "./constants";
 
 type Message = {
   sender: string;
@@ -20,6 +27,7 @@ type Agent = {
 };
 
 type Store = {
+  socket: any;
   messages: Message[];
   input: string;
   model: Model;
@@ -33,7 +41,7 @@ type Store = {
   conversation: TConversationData | undefined;
   setMessages: (messages: Message[]) => void;
   setConversation: (conversationId: string | null) => void;
-  addAttachment: (newAttachment: TAttachment) => void;
+  addAttachment: (newAttachment: TAttachment, conversation_id: string) => void;
   setInput: (input: string) => void;
   setModel: (model: Model) => void;
   setModels: (models: Model[]) => void;
@@ -43,7 +51,8 @@ type Store = {
   deleteAttachment: (index: number) => void;
 };
 
-export const useStore = create<Store>()((set) => ({
+export const useStore = create<Store>()((set, get) => ({
+  socket: new SocketManager(STREAMING_BACKEND_URL),
   messages: [],
   input: "",
   model: { name: "gpt-4o", provider: "openai" },
@@ -72,13 +81,30 @@ export const useStore = create<Store>()((set) => ({
   setInput: (input) => set({ input }),
   setModel: (model) => set({ model }),
   setModels: (models) => set({ models }),
-  addAttachment: (newAttachment) => {
-    set((state) => ({
-      chatState: {
-        ...state.chatState,
-        attachments: [...state.chatState.attachments, newAttachment],
-      },
-    }));
+  addAttachment: async (newAttachment, conversation_id) => {
+    const { chatState } = get();
+    const formData = new FormData();
+
+    formData.append("agent_slug", chatState.selectedAgent);
+    formData.append("name", newAttachment.name);
+    formData.append("conversation_id", String(conversation_id));
+    // @ts-ignore
+    formData.append("file", newAttachment.file);
+    try {
+      const r = await uploadDocument(formData);
+      newAttachment.id = r.id
+      set((state) => ({
+        chatState: {
+          ...state.chatState,
+          attachments: [...state.chatState.attachments, newAttachment],
+        },
+      }));
+      
+      console.log(r, "RESPONSE FROM BACKEND");
+    } catch (e) {
+      console.log(e, "ERROR DURING FILE UPLOAD");
+    }
+
   },
   fetchAgents: async () => {
     const agents = await getAgents();

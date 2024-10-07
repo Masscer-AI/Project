@@ -15,14 +15,21 @@ async def on_message_handler(socket_id, data, **kwargs):
     context = data["context"]
     message = data["message"]
     token = data["token"]
-    agent_slug = data["agent_slug"]
+    agent_slug = data.get("agent_slug", "useful-assistant")
     logger.info(f"AGENT SLUG TO GENERETA MESSAGE {agent_slug}")
     model = data.get("model", {"name": "gpt-4o-mini", "provider": "openai"})
     conversation = data["conversation"]
 
     rag_results = get_results(
-        query_text=message["text"], agent_slug=agent_slug, token=token
+        query_text=message["text"],
+        agent_slug=agent_slug,
+        token=token,
+        conversation_id=conversation["id"],
     )
+    print("--------RAG RESULTS -----------")
+    print(rag_results)
+    print("--------RAG RESULTS END -----------")
+
     documents_context = ""
     complete_context = context
 
@@ -35,14 +42,16 @@ async def on_message_handler(socket_id, data, **kwargs):
                 documents_context += d[0]
 
         if len(documents_context) > 0:
-            complete_context += f"\n\nThe following is information about a vector storage querying the user message: ---start_vector_context{documents_context}\n\nend_vector_context---"
+            complete_context += f"\n\nThe following is information about a vector storage querying the user message: ---start_vector_context\n\n{documents_context}\n\n---end_vector_context---"
 
+    # Get formatted prompt from API at generation time based in attachments
     system_prompt = get_system_prompt(context=complete_context)
 
     data = {}
     ai_response = ""
+
     async for chunk in stream_completion(
-        system_prompt, message["text"], model=model, attachments=message["attachments"]
+        system_prompt, message["text"], model=model, attachments=[]
     ):
         if isinstance(chunk, str):
             data["chunk"] = chunk

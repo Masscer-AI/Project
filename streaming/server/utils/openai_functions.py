@@ -51,6 +51,7 @@ def transcribe_audio(audio_file, output_format="verbose_json") -> str:
 
 async def stream_completion(prompt, user_message, model, attachments=[]):
     logger.debug(f"MODEL TO COMPLETE: {model}")
+    print(attachments, "ATTACHMENTS RECEVIED!")
 
     if model["provider"] == "openai":
         streamer = TextStreamingHandler(provider="openai", api_key=OPENAI_API_KEY)

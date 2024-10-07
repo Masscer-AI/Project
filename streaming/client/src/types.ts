@@ -10,6 +10,7 @@ export type TSomething = {
 };
 
 export type TAttachment = {
+  id?: number
   file: File | null;
   type: string;
   content: string;

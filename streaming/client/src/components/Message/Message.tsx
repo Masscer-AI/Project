@@ -4,6 +4,7 @@ import MarkdownRenderer from "../MarkdownRenderer/MarkdownRenderer";
 import { TAttachment } from "../../types";
 import { Thumbnail } from "../Thumbnail/Thumbnail";
 import "./Message.css";
+import { SvgButton } from "../SvgButton/SvgButton";
 
 interface MessageProps {
   type: string;
@@ -20,18 +21,22 @@ export const Message: React.FC<MessageProps> = ({
   onGenerateSpeech,
   onGenerateImage,
 }) => {
+  console.log(typeof attachments, "ATTACHMENTS", attachments);
+
   return (
     <div className={`message ${type}`}>
       <MarkdownRenderer markdown={text} />
       <section className="message__attachments">
         {attachments &&
+          typeof attachments == "object" &&
           attachments.map(({ content, type }, index) => (
+            // @ts-ignore
             <Thumbnail type={type} src={content} key={index} />
           ))}
       </section>
       <div className="message-buttons">
-        <button onClick={() => onGenerateSpeech(text)}>{SVGS.waves}</button>
-        <button onClick={() => onGenerateImage(text)}>{SVGS.image}</button>
+        <SvgButton onClick={() => onGenerateSpeech(text)} svg={SVGS.waves} />
+        <SvgButton onClick={() => onGenerateImage(text)} svg={SVGS.image} />
       </div>
     </div>
   );

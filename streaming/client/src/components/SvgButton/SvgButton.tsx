@@ -3,8 +3,8 @@ import "./SvgButton.css";
 
 export const SvgButton = ({ text = "", svg, onClick, extraClass = "" }) => {
   return (
-    <div className={`svg-button ${extraClass}`} onClick={onClick}>
-      <button>
+    <div tabIndex={0} className={`svg-button clickeable ${extraClass}`} onClick={onClick}>
+      <button tabIndex={-1}>
         {svg} {text}
       </button>
     </div>

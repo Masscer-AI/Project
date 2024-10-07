@@ -91,6 +91,9 @@ export default function Root() {
   };
 
   const getCompletion = (transcription: string) => {
+    console.log(data, "DATA BEING SEND");
+    
+
     const context = chat
       .slice(-6)
       .map((item) => `${item.isUser ? "user" : "ai"}: ${item.text}`)

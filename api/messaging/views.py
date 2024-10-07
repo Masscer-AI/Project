@@ -10,6 +10,11 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 import json
 from api.authenticate.decorators.token_required import token_required
+from .actions import transcribe_audio, generate_speech_api
+from django.core.files.storage import FileSystemStorage
+import os
+import uuid
+from django.conf import settings
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -28,7 +33,9 @@ class ConversationView(View):
                     {"message": "Conversation not found", "status": 404}, status=404
                 )
         else:
-            conversations = Conversation.objects.filter(user=user).order_by('-created_at')
+            conversations = Conversation.objects.filter(user=user).order_by(
+                "-created_at"
+            )
 
             serialized_conversations = ConversationSerializer(
                 conversations, many=True
@@ -100,7 +107,7 @@ class MessageView(View):
 
         if not conversation.title and data["type"] == "assistant":
             conversation.generate_title()
-       
+
         serializer = MessageSerializer(data=data)
 
         if serializer.is_valid():
@@ -143,3 +150,40 @@ class MessageView(View):
             return JsonResponse(
                 {"message": "Message not found", "status": 404}, status=404
             )
+
+
+@csrf_exempt
+def upload_audio(request):
+    if request.method == "POST" and request.FILES.get("audio_file"):
+        audio_file = request.FILES["audio_file"]
+
+        # Generate a random filename
+        random_filename = f"{uuid.uuid4()}{os.path.splitext(audio_file.name)[1]}"
+        random_filename_speech = f"{uuid.uuid4()}.mp3"
+
+        # Save the audio file in the 'audio_files' directory
+        fs = FileSystemStorage(
+            location=os.path.join(settings.MEDIA_ROOT, "audio_files")
+        )
+        filename = fs.save(random_filename, audio_file)
+        file_path = fs.path(filename)
+
+        transcription = transcribe_audio(file_path)
+
+        # Generate speech from the transcription
+        speech_output_path = os.path.join(
+            settings.MEDIA_ROOT, "audio_files", f"{random_filename_speech}"
+        )
+        audio_data = generate_speech_api(transcription, speech_output_path)
+
+        # with open(speech_output_path, "rb") as audio_file:
+        #     audio_data = audio_file.read()
+
+        return JsonResponse(
+            {
+                "transcription": transcription,
+                "speech_audio": audio_data.decode("latin-1"),
+            }
+        )
+
+    return JsonResponse({"error": "Invalid request"}, status=400)

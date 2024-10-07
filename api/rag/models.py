@@ -2,6 +2,7 @@ from django.db import models
 from .managers import chroma_client
 from django.utils.text import slugify
 from api.ai_layers.models import Agent
+from api.messaging.models import Conversation
 import random
 
 
@@ -31,7 +32,11 @@ class Collection(models.Model):
     user = models.ForeignKey("auth.User", on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     agent = models.ForeignKey(Agent, on_delete=models.CASCADE, null=True, blank=True)
+    conversation = models.ForeignKey(
+        Conversation, on_delete=models.CASCADE, null=True, blank=True
+    )
 
+    # ephemeral = models.BooleanField(default=False)
     # brief: Which kind of doc
     # tags
     def save(self, *args, **kwargs):
@@ -53,20 +58,23 @@ class Document(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def create_chunks(self):
+        from .signals import chunks_created
+
         chunk_size = self.collection.chunk_size
         chunk_overlap = self.collection.chunk_overlap
         text_length = len(self.text)
-        # chunks = []
         i = 0
+        chunks = []  # List to collect chunk objects
 
         while i < text_length:
             chunk_text = self.text[i : i + chunk_size]
             brief_text = chunk_text[:50]
             chunk = Chunk(document=self, content=chunk_text, brief=brief_text)
-            chunk.save()
+            chunks.append(chunk)
             i += chunk_size - chunk_overlap
 
-        # Chunk.objects.bulk_create(chunks)
+        Chunk.objects.bulk_create(chunks)
+        chunks_created.send(sender=self)
 
 
 class Chunk(models.Model):
@@ -76,10 +84,9 @@ class Chunk(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def save_in_db(self):
-        print("TRYING TP SAVE CHUNK IN CHROMA")
-        result = chroma_client.upsert_chunk(
+        chroma_client.upsert_chunk(
             collection_name=self.document.collection.slug,
             chunk_id=str(self.id),
             chunk_text=self.content,
+            metadata={"document_id": f"{self.document.id}"},
         )
-        print(result, "RESULT FROM SAVING")
