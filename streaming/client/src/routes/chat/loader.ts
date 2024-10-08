@@ -7,7 +7,6 @@ export const chatLoader: LoaderFunction = async ({
 }): Promise<{ conversation: TConversationData } | Response> => {
   let c: TConversationData;
   try {
-    console.log("Loading page!");
     const url = new URL(request.url);
     const conversationId = url.searchParams.get("conversation");
     if (conversationId) {

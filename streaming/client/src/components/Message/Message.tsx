@@ -21,8 +21,6 @@ export const Message: React.FC<MessageProps> = ({
   onGenerateSpeech,
   onGenerateImage,
 }) => {
-  console.log(typeof attachments, "ATTACHMENTS", attachments);
-
   return (
     <div className={`message ${type}`}>
       <MarkdownRenderer markdown={text} />

@@ -19,11 +19,16 @@ type Message = {
 type Model = {
   name: string;
   provider: string;
+  slug: string;
+  selected: boolean;
 };
 
 type Agent = {
   name: string;
+  provider: string;
   slug: string;
+  selected: boolean;
+  type: "model" | "agent";
 };
 
 type Store = {
@@ -33,10 +38,12 @@ type Store = {
   model: Model;
   models: Model[];
   agents: Agent[];
+  modelsAndAgents: Agent[];
   chatState: {
     isSidebarOpened: boolean;
     attachments: TAttachment[];
     selectedAgent: string;
+    webSearch: boolean;
   };
   conversation: TConversationData | undefined;
   setMessages: (messages: Message[]) => void;
@@ -49,20 +56,28 @@ type Store = {
   toggleSidebar: () => void;
   cleanAttachments: () => void;
   deleteAttachment: (index: number) => void;
+  toggleWebSearch: () => void;
+  toggleAgentSelected: (slug: string) => void
 };
 
 export const useStore = create<Store>()((set, get) => ({
   socket: new SocketManager(STREAMING_BACKEND_URL),
   messages: [],
+  modelsAndAgents: [],
   input: "",
-  model: { name: "gpt-4o", provider: "openai" },
+  model: { name: "gpt-4o", provider: "openai", slug: "gpt-4o", selected: true },
   models: [
-    { name: "gpt-4o", provider: "openai" },
-    { name: "gpt-4o-mini", provider: "openai" },
-    { name: "claude-3-5-sonnet-20240620", provider: "anthropic" },
+    { name: "gpt-4o", provider: "openai", slug: "gpt-4o", selected: true },
+    // { name: "gpt-4o-mini", provider: "openai" },
+    // { name: "claude-3-5-sonnet-20240620", provider: "anthropic" },
   ],
   agents: [],
-  chatState: { isSidebarOpened: false, attachments: [], selectedAgent: "" },
+  chatState: {
+    isSidebarOpened: false,
+    attachments: [],
+    selectedAgent: "",
+    webSearch: false,
+  },
   conversation: undefined,
   setConversation: async (conversationId) => {
     let data;
@@ -92,30 +107,34 @@ export const useStore = create<Store>()((set, get) => ({
     formData.append("file", newAttachment.file);
     try {
       const r = await uploadDocument(formData);
-      newAttachment.id = r.id
+      newAttachment.id = r.id;
       set((state) => ({
         chatState: {
           ...state.chatState,
           attachments: [...state.chatState.attachments, newAttachment],
         },
       }));
-      
+
       console.log(r, "RESPONSE FROM BACKEND");
     } catch (e) {
       console.log(e, "ERROR DURING FILE UPLOAD");
     }
-
   },
   fetchAgents: async () => {
     const agents = await getAgents();
+
     set({
       agents,
       chatState: {
         isSidebarOpened: false,
         attachments: [],
         selectedAgent: agents.length > 0 ? agents[0].slug : "",
+        webSearch: false,
       },
     });
+    set((state) => ({
+      modelsAndAgents: [...state.modelsAndAgents, ...agents],
+    }));
   },
   toggleSidebar: () =>
     set((state) => ({
@@ -136,6 +155,29 @@ export const useStore = create<Store>()((set, get) => ({
       chatState: {
         ...state.chatState,
         attachments: state.chatState.attachments.filter((_, i) => i !== index),
+      },
+    }));
+  },
+  toggleAgentSelected: (slug: string) => {
+    const { modelsAndAgents } = get();
+    
+    const copy = modelsAndAgents.map((a) => {
+      if (a.slug == slug) {
+        return {
+          ...a,
+          selected: !a.selected,
+        };
+      } else {
+        return a;
+      }
+    });
+    set({ modelsAndAgents: copy });
+  },
+  toggleWebSearch: () => {
+    set((state) => ({
+      chatState: {
+        ...state.chatState,
+        webSearch: !state.chatState.webSearch,
       },
     }));
   },

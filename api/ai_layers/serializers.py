@@ -5,4 +5,4 @@ from .models import Agent
 class AgentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Agent
-        fields = ['id', 'name', 'slug', 'model_slug', 'system_prompt', 'salute', 'act_as', 'user', 'is_public']
+        fields = ['id', 'name', 'slug', 'model_slug', 'system_prompt', 'salute', 'act_as', 'user', 'is_public', 'model_provider']

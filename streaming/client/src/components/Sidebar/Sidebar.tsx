@@ -45,8 +45,6 @@ export const Sidebar: React.FC = () => {
       });
 
       const conversations = res.data;
-      console.log(conversations);
-
       setHistory(conversations);
     } catch (error) {
       console.error("Failed to fetch conversations", error);

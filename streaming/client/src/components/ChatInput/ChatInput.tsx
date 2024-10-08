@@ -21,11 +21,20 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 }) => {
   const [isWritingMode, setIsWritingMode] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { input, setInput, attachments, addAttachment } = useStore((state) => ({
+  const {
+    input,
+    setInput,
+    attachments,
+    addAttachment,
+    chatState,
+    toggleWebSearch,
+  } = useStore((state) => ({
     input: state.input,
     setInput: state.setInput,
     attachments: state.chatState.attachments,
     addAttachment: state.addAttachment,
+    chatState: state.chatState,
+    toggleWebSearch: state.toggleWebSearch,
   }));
 
   const allowedImageTypes = [
@@ -139,7 +148,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           onPaste={handlePaste}
           placeholder="Type your message..."
         />
-        <div>
+        <div className="flex-y gap-1">
           {/* <button className="button" onClick={handleSendMessage}>{SVGS.send}</button> */}
           <SvgButton onClick={handleSendMessage} svg={SVGS.send} />
           <input
@@ -159,6 +168,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             extraClass={isWritingMode ? "active" : ""}
             onClick={toggleWritingMode}
             svg={SVGS.writePen}
+          />
+          <SvgButton
+            extraClass={chatState.webSearch ? "active" : ""}
+            onClick={toggleWebSearch}
+            svg={SVGS.webSearch}
           />
         </div>
       </section>

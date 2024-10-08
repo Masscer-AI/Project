@@ -44,3 +44,22 @@ def get_results(
     except requests.exceptions.RequestException as e:
         print(f"Error saving message: {e}")
         return None
+
+
+def get_system_prompt(agent_slug: str, context: str, token: str):
+
+    endpoint = API_URL + "/v1/ai_layers/system_prompt/"
+    headers = {"Authorization": "Token " + token}
+    body = {
+        "agent_slug": agent_slug,
+        "context": context,
+        # "conversation_id": conversation_id,
+    }
+
+    try:
+        response = requests.post(endpoint, headers=headers, json=body)
+        response.raise_for_status()
+        return response.json().get("system_prompt")
+    except requests.exceptions.RequestException as e:
+        print(f"Error saving message: {e}")
+        return None

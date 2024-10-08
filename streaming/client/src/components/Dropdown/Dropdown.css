@@ -1,0 +1,16 @@
+.floating-dropdown {
+    position: relative;
+}
+
+.floating-dropdown .__content {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 300px;
+    background-color: var(--bg-secondary-color);
+    padding: 10px;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+
+}

@@ -30,6 +30,7 @@ export default function ChatView() {
     conversation,
     cleanAttachments,
     socket,
+    modelsAndAgents,
   } = useStore((state) => ({
     socket: state.socket,
     chatState: state.chatState,
@@ -39,6 +40,7 @@ export default function ChatView() {
     model: state.model,
     conversation: state.conversation,
     cleanAttachments: state.cleanAttachments,
+    modelsAndAgents: state.modelsAndAgents,
   }));
 
   const [messages, setMessages] = useState(
@@ -117,8 +119,10 @@ export default function ChatView() {
           context: messages.map((msg) => `${msg.type}: ${msg.text}`).join("\n"),
           model: model,
           token: token,
+          models_to_complete: modelsAndAgents.filter((a) => a.selected),
           conversation: conversation ? conversation : loaderData.conversation,
           agent_slug: chatState.selectedAgent,
+          web_search_activated: chatState.webSearch,
         },
         (ack) => {
           console.log(ack, "ACK FROM SERVER ?");

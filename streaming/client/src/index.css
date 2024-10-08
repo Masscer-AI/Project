@@ -166,3 +166,9 @@ details[open] summary {
   border-radius: 5px;
   box-shadow: 0px 2px var(--highlighted-color);
 }
+
+
+
+.gap-1 {
+  gap: 2px;
+}

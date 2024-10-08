@@ -1,9 +1,11 @@
 import os
 from .utils.openai_functions import stream_completion, generate_speech_api
-from server.utils.completions import get_system_prompt
-from .utils.apiCalls import save_message, get_results
-import hashlib
 
+# from server.utils.completions import get_system_prompt
+from .utils.apiCalls import save_message, get_results
+from .utils.brave_search import search_brave
+import hashlib
+from .utils.apiCalls import get_system_prompt
 from .logger import get_custom_logger
 
 logger = get_custom_logger("event_triggers")
@@ -14,9 +16,12 @@ async def on_message_handler(socket_id, data, **kwargs):
 
     context = data["context"]
     message = data["message"]
+    web_search_activated = data["web_search_activated"]
+    models_to_complete = data["models_to_complete"]
+    
     token = data["token"]
     agent_slug = data.get("agent_slug", "useful-assistant")
-    logger.info(f"AGENT SLUG TO GENERETA MESSAGE {agent_slug}")
+
     model = data.get("model", {"name": "gpt-4o-mini", "provider": "openai"})
     conversation = data["conversation"]
 
@@ -26,16 +31,11 @@ async def on_message_handler(socket_id, data, **kwargs):
         token=token,
         conversation_id=conversation["id"],
     )
-    print("--------RAG RESULTS -----------")
-    print(rag_results)
-    print("--------RAG RESULTS END -----------")
 
     documents_context = ""
     complete_context = context
 
     if rag_results is not None:
-        print(rag_results)
-
         documents = rag_results["results"]["documents"]
         for d in documents:
             if len(d) > 0:
@@ -44,9 +44,23 @@ async def on_message_handler(socket_id, data, **kwargs):
         if len(documents_context) > 0:
             complete_context += f"\n\nThe following is information about a vector storage querying the user message: ---start_vector_context\n\n{documents_context}\n\n---end_vector_context---"
 
-    # Get formatted prompt from API at generation time based in attachments
-    system_prompt = get_system_prompt(context=complete_context)
+    if web_search_activated:
+        await sio.emit(
+            "notify",
+            {"message": "Exploring the web to add more context to your message"},
+            to=socket_id,
+        )
+        web_result = search_brave(message["text"])
+        complete_context += f"\n\nThe following context comes from a web search using the user message as query \n{web_result}. END OF WEB SEARCH RESULTS\n"
 
+
+
+    for m in models_to_complete:
+        print(m["slug"], "SLUG OF MODEL TO COMPLETE")
+    system_prompt = get_system_prompt(
+        context=complete_context, agent_slug=agent_slug, token=token
+    )
+ 
     data = {}
     ai_response = ""
 
