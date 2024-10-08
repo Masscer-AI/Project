@@ -1,16 +1,18 @@
 from django.http import JsonResponse
 from django.views import View
 import uuid
+import json
 import logging
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
-from .models import TranscriptionJob
+from .models import TranscriptionJob, VideoGenerationJob
 from .serializers import TranscriptionJobSerializer
 import os
 from django.core.files import File
 from api.authenticate.decorators.token_required import token_required
 
 logger = logging.getLogger(__name__)
+
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
@@ -24,6 +26,9 @@ class Transcriptions(View):
 
     def post(self, request):
         source = request.POST.get("source")
+        whisper_size = request.POST.get("whisper_size")
+        whisper_size = whisper_size.upper()
+        print("WHISPER SIZE REQUESTED,", whisper_size)
         user = request.user
 
         if source == "audio":
@@ -36,6 +41,7 @@ class Transcriptions(View):
                     source_type="AUDIO",
                     user=user,
                     audio_file=audio_file,
+                    whisper_size=whisper_size,
                 )
                 return JsonResponse(
                     {"message": "Audio file received", "job_id": transcription_job.id}
@@ -72,6 +78,7 @@ class Transcriptions(View):
                     source_type="VIDEO",
                     user=user,
                     video_file=django_file,
+                    whisper_size=whisper_size,
                 )
                 return JsonResponse(
                     {
@@ -81,3 +88,33 @@ class Transcriptions(View):
                 )
 
         return JsonResponse({"error": "Invalid data"}, status=400)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class VideoGenerationView(View):
+
+    def post(self, request):
+        user = request.user
+
+        data = json.loads(request.body)
+        about = data.get("about")
+
+        duration = data.get("duration", "LESS_THAN_MINUTE").upper()
+        orientation = data.get("orientation", "LANDSCAPE").upper()
+
+        video_generation_job = VideoGenerationJob.objects.create(
+            status="PENDING",
+            status_text="",
+            about=about,
+            duration=duration,
+            orientation=orientation,
+            user=user,
+        )
+
+        return JsonResponse(
+            {
+                "message": "Video generation job created",
+                "job_id": video_generation_job.id,
+            }
+        )

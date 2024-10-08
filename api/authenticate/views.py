@@ -7,7 +7,7 @@ from .models import Token  # Make sure to import your Token model
 from rest_framework.permissions import AllowAny  # Import AllowAny
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
-from rest_framework.authtoken.views import ObtainAuthToken
+
 from django.contrib.auth.models import User
 
 

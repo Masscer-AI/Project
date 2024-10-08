@@ -15,8 +15,3 @@ class ResourceMonitor:
             "memory": final_memory - self.initial_memory
         }
 
-# Usage
-monitor = ResourceMonitor()
-# ... your code to monitor ...
-result = monitor.end()
-print(result)  # Outputs: {'time': ..., 'memory': ...}

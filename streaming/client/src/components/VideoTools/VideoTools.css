@@ -1,0 +1,5 @@
+.video-tools {
+  padding-top: 100px;
+  width: min(700px, 100%);
+  margin-inline: auto;
+}

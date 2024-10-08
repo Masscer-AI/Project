@@ -160,7 +160,7 @@ def query_collection(request):
             conversation=c, defaults={"user": request.user}
         )
         results = chroma_client.get_results(
-            collection_name=collection.slug, query_text=query_text, n_results=4
+            collection_name=collection.slug, query_text=query_text, n_results=6
         )
         data = {"results": results}
         return JsonResponse(data, safe=False)
@@ -172,7 +172,7 @@ def query_collection(request):
     )
 
     results = chroma_client.get_results(
-        collection_name=collection.slug, query_text=query_text, n_results=4
+        collection_name=collection.slug, query_text=query_text, n_results=6
     )
 
     data = {"results": results}

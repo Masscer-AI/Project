@@ -43,7 +43,8 @@ interface TranscribeOptionsProps {
     selectedOption: string,
     youtubeUrl: string,
     audioFile: File | null,
-    recordedBlob: Blob | null
+    recordedBlob: Blob | null,
+    selectedModel: string
   ) => void;
 }
 const TranscribeOptions: React.FC<TranscribeOptionsProps> = ({
@@ -56,6 +57,8 @@ const TranscribeOptions: React.FC<TranscribeOptionsProps> = ({
   const [recording, setRecording] = useState<boolean>(false);
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [selectedModel, setSelectedModel] = useState<string>("large");
+
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
 
@@ -111,6 +114,15 @@ const TranscribeOptions: React.FC<TranscribeOptionsProps> = ({
 
   return (
     <div>
+      <span>Select whisper size</span>
+      <select
+        value={selectedModel}
+        onChange={(e) => setSelectedModel(e.target.value)}
+      >
+        <option value="large">Large</option>
+        <option value="medium">Medium</option>
+        <option value="tiny">Tiny</option>
+      </select>
       <h5>From:</h5>
       <div>
         <button
@@ -175,10 +187,17 @@ const TranscribeOptions: React.FC<TranscribeOptionsProps> = ({
         />
       )}
       {audioUrl && <audio controls src={audioUrl}></audio>}
+
       {selectedOption && (
         <button
           onClick={() =>
-            handleSubmit(selectedOption, youtubeUrl, audioFile, recordedBlob)
+            handleSubmit(
+              selectedOption,
+              youtubeUrl,
+              audioFile,
+              recordedBlob,
+              selectedModel
+            )
           }
         >
           Transcribe
@@ -201,7 +220,8 @@ export const AudioTools: React.FC = () => {
     selectedOption: string,
     youtubeUrl: string,
     audioFile: File | null,
-    recordedBlob: Blob | null
+    recordedBlob: Blob | null,
+    selectedModel: string
   ) => {
     const formData = new FormData();
     if (selectedOption === "youtube") {
@@ -216,18 +236,9 @@ export const AudioTools: React.FC = () => {
       formData.append("audio_file", recordedBlob, "recording.wav");
     }
 
-    try {
-      //   const response = await axios.post(
-      //     `${API_URL}/v1/tools/transcriptions/`,
-      //     formData,
-      //     {
-      //       headers: {
-      //         "Content-Type": "multipart/form-data",
-      //       },
-      //     }
-      //   );
-      //   console.log(response.data);
+    formData.append("whisper_size", selectedModel);
 
+    try {
       const responseData = await makeAuthenticatedRequest(
         "POST",
         `/v1/tools/transcriptions/`,
@@ -351,11 +362,9 @@ const TranscribeJobs: React.FC = () => {
     if (hasPendingJobs) {
       setTimeout(() => {
         window.location.reload();
-      }, 2000);
-    }
-    else {
+      }, 3000);
+    } else {
       console.log("Not necessary to reload, all transcriptions are ready");
-      
     }
   };
 

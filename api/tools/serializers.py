@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import TranscriptionJob, Transcription
+from .models import TranscriptionJob, Transcription, Video, VideoGenerationJob
 
 class TranscriptionSerializer(serializers.ModelSerializer):
     class Meta:
@@ -11,4 +11,15 @@ class TranscriptionJobSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TranscriptionJob
+        fields = '__all__'
+
+
+class VideoGenerationJobSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = VideoGenerationJob
+        fields = '__all__'
+
+class VideoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Video
         fields = '__all__'

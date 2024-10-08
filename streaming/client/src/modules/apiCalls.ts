@@ -115,3 +115,21 @@ export const uploadDocument = async (documentData: FormData) => {
     throw error;
   }
 };
+
+
+
+export const requestVideoGeneration = async (about, duration, orientation) => {
+  try {
+    const data = { about, duration, orientation };
+    const response = await makeAuthenticatedRequest(
+      "POST",
+      "/v1/tools/videos/",
+      data,
+      false
+    );
+    return response;
+  } catch (error) {
+    console.error("Error requesting video generation:", error);
+    throw error;
+  }
+};

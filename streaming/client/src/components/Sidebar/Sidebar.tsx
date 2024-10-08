@@ -62,6 +62,8 @@ export const Sidebar: React.FC = () => {
       console.log("Starting a new chat...");
     }
     toggleSidebar();
+
+    navigate(`/chat`);
   };
 
   const goTo = (to: string) => {
