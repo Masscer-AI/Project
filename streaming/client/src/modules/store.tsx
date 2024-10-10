@@ -57,7 +57,7 @@ type Store = {
   cleanAttachments: () => void;
   deleteAttachment: (index: number) => void;
   toggleWebSearch: () => void;
-  toggleAgentSelected: (slug: string) => void
+  toggleAgentSelected: (slug: string) => void;
 };
 
 export const useStore = create<Store>()((set, get) => ({
@@ -160,8 +160,16 @@ export const useStore = create<Store>()((set, get) => ({
   },
   toggleAgentSelected: (slug: string) => {
     const { modelsAndAgents } = get();
-    
+
     const copy = modelsAndAgents.map((a) => {
+      console.log(a);
+
+      if (a.type === "agent") {
+        set((s) => ({
+          chatState: { ...s.chatState, selectedAgent: a.slug },
+        }));
+      }
+
       if (a.slug == slug) {
         return {
           ...a,
@@ -171,6 +179,7 @@ export const useStore = create<Store>()((set, get) => ({
         return a;
       }
     });
+
     set({ modelsAndAgents: copy });
   },
   toggleWebSearch: () => {

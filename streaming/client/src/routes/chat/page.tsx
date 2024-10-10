@@ -76,11 +76,17 @@ export default function ChatView() {
       console.log("Response finished:", data);
       // socket.disconnect();
     });
+    socket.on("notification", (data) => {
+      console.log("Receiving notification:", data);
+      toast.success(data.message)
+      // socket.disconnect();
+    });
 
     return () => {
       socket.off("response");
       socket.off("audio-file");
       socket.off("responseFinished");
+      socket.off("notification");
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages]);

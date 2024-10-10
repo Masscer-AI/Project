@@ -8,10 +8,11 @@ sio = socketio.AsyncServer(
     async_mode="asgi",
     cors_allowed_origins="*",
     transports=["websocket", "polling"],
-    logger=False,
+    # logger=True,
+    # engineio_logger=True,
     max_http_buffer_size=20 * 1024 * 1024,
 )
 
 sio.register_namespace(ProxyNamespaceManager("/"))
 
-sio_asgi_app = socketio.ASGIApp(socketio_server=sio)
+

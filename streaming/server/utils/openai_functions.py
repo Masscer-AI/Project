@@ -4,7 +4,7 @@ from openai import OpenAI
 from dotenv import load_dotenv
 from ..logger import get_custom_logger
 from .completions import TextStreamingHandler
-
+from pydantic import BaseModel
 
 logger = get_custom_logger("openai_functions")
 
@@ -197,3 +197,30 @@ def generate_image(
     except Exception as e:
         print(e)
         raise Exception("Your prompt doesn't satisfy OpenAI policy, sorry :(")
+
+
+class ExampleStructure(BaseModel):
+    salute: str
+
+
+def create_structured_completion(
+    model="gpt-4o",
+    system_prompt: str = "You are an userful assistant",
+    user_prompt: str = "",
+    response_format=ExampleStructure,
+    api_key: str = os.environ.get("OPENAI_API_KEY"),
+):
+    client = OpenAI(api_key=api_key)
+
+    completion = client.beta.chat.completions.parse(
+        model="gpt-4o-2024-08-06",
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {
+                "role": "user",
+                "content": user_prompt,
+            },
+        ],
+        response_format=response_format,
+    )
+    return completion.choices[0].message.parsed

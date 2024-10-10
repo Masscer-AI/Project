@@ -16,9 +16,9 @@ async def on_message_handler(socket_id, data, **kwargs):
 
     context = data["context"]
     message = data["message"]
-    web_search_activated = data["web_search_activated"]
-    models_to_complete = data["models_to_complete"]
-    
+    web_search_activated = data.get("web_search_activated", False)
+    models_to_complete = data.get("models_to_complete", [])
+
     token = data["token"]
     agent_slug = data.get("agent_slug", "useful-assistant")
 
@@ -45,22 +45,22 @@ async def on_message_handler(socket_id, data, **kwargs):
             complete_context += f"\n\nThe following is information about a vector storage querying the user message: ---start_vector_context\n\n{documents_context}\n\n---end_vector_context---"
 
     if web_search_activated:
+        print("Emitting notification")
         await sio.emit(
-            "notify",
+            "notification",
             {"message": "Exploring the web to add more context to your message"},
             to=socket_id,
         )
         web_result = search_brave(message["text"])
         complete_context += f"\n\nThe following context comes from a web search using the user message as query \n{web_result}. END OF WEB SEARCH RESULTS\n"
 
-
-
     for m in models_to_complete:
         print(m["slug"], "SLUG OF MODEL TO COMPLETE")
+        
     system_prompt = get_system_prompt(
         context=complete_context, agent_slug=agent_slug, token=token
     )
- 
+
     data = {}
     ai_response = ""
 
@@ -76,6 +76,7 @@ async def on_message_handler(socket_id, data, **kwargs):
         "responseFinished", {"status": "ok", "ai_response": ai_response}, to=socket_id
     )
 
+
     save_message(
         message=message,
         conversation=conversation.get("id", None),
@@ -89,11 +90,11 @@ async def on_message_handler(socket_id, data, **kwargs):
 
 
 def on_connect_handler(socket_id, **kwargs):
-    # sio.emit("available_rooms", room_manager.get_rooms(), to=socket_id)
     pass
 
 
 async def on_start_handler(socket_id, data, **kwargs):
+
     print(data)
 
 

@@ -5,7 +5,9 @@ export class SocketManager {
   socket: any;
 
   constructor(serverUrl) {
-    this.socket = io(serverUrl);
+    this.socket = io(serverUrl, {
+      transports: ["websocket"]
+    });
 
     this.socket.on("connect", () => {
       console.log("Connected to socket server");
