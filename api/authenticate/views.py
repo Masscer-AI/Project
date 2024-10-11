@@ -2,18 +2,13 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from django.contrib.auth import authenticate, login
-from .serializers import SignupSerializer, LoginSerializer
+from .serializers import SignupSerializer, LoginSerializer, UserSerializer
 from .models import Token  # Make sure to import your Token model
 from rest_framework.permissions import AllowAny  # Import AllowAny
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
-
+from api.authenticate.decorators.token_required import token_required
 from django.contrib.auth.models import User
-
-
-class HelloWorldView(APIView):
-    def get(self, request):
-        return Response({"hello": "world"}, status=status.HTTP_201_CREATED)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -65,3 +60,10 @@ class LoginAPIView(APIView):
                 {"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@method_decorator(token_required, name="dispatch")
+class UserView(APIView):
+    def get(self, request, *args, **kwargs):
+        serializer = UserSerializer(request.user)
+        return Response(serializer.data, status=status.HTTP_200_OK)

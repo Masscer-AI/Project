@@ -1,10 +1,18 @@
 import { LoaderFunction, redirect } from "react-router-dom";
-import { initConversation, getConversation } from "../../modules/apiCalls";
-import { TConversationData } from "../../types/chatTypes";
+import {
+  initConversation,
+  getConversation,
+  getUser,
+} from "../../modules/apiCalls";
+import {
+  TConversationData,
+  TChatLoader,
+  TUserData,
+} from "../../types/chatTypes";
 
 export const chatLoader: LoaderFunction = async ({
   request,
-}): Promise<{ conversation: TConversationData } | Response> => {
+}): Promise<TChatLoader | Response> => {
   let c: TConversationData;
   try {
     const url = new URL(request.url);
@@ -14,8 +22,8 @@ export const chatLoader: LoaderFunction = async ({
     } else {
       c = await initConversation({ isPublic: false });
     }
-
-    return { conversation: c };
+    const user = (await getUser()) as TUserData;
+    return { conversation: c, user: user };
   } catch (error) {
     console.error("Error loading conversation:", error);
     return redirect("/signup");

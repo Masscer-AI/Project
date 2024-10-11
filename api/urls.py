@@ -26,6 +26,7 @@ apps = [
     ('v1/tools/', 'api.tools.urls', 'tools'),
     ('v1/rag/', 'api.rag.urls', 'rag'),
     ('v1/ai_layers/', 'api.ai_layers.urls', 'ai_layers'),
+    ('v1/finetuning/', 'api.finetuning.urls', 'finetuning'),
 ]
 
 urlpatterns_apps = [path(url, include(urlconf, namespace=namespace)) for url, urlconf, namespace in apps]

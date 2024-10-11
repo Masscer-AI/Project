@@ -1,6 +1,7 @@
 from django.db import models
 from django.utils.text import slugify
 from django.core.validators import MinValueValidator, MaxValueValidator
+from api.providers.models import AIProvider
 
 DEFAULT_CHARACTER = """
 You are an useful assistant.
@@ -14,6 +15,18 @@ The following context may be useful for your task:
 {{context}}
 ```
 """
+
+
+class LanguageModel(models.Model):
+    provider = models.ForeignKey(AIProvider, on_delete=models.CASCADE)
+    slug = models.CharField(max_length=100, unique=True, blank=True)
+    name = models.CharField(max_length=100)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.name} ({self.get_provider_display()})"
 
 
 class Agent(models.Model):

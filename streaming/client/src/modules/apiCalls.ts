@@ -65,9 +65,13 @@ export const makeAuthenticatedRequest = async <T>(
 ) => {
   const { token, tokenType } = getToken(isPublic);
 
+  if (endpoint.startsWith("/")) {
+    endpoint = endpoint.slice(1);
+  }
+
   const config: AxiosRequestConfig = {
     method,
-    url: `${API_URL}${endpoint}`,
+    url: `${API_URL}/${endpoint}`,
     headers: {
       Authorization: `${tokenType} ${token}`,
       ...(data instanceof FormData
@@ -116,8 +120,6 @@ export const uploadDocument = async (documentData: FormData) => {
   }
 };
 
-
-
 export const requestVideoGeneration = async (about, duration, orientation) => {
   try {
     const data = { about, duration, orientation };
@@ -132,4 +134,8 @@ export const requestVideoGeneration = async (about, duration, orientation) => {
     console.error("Error requesting video generation:", error);
     throw error;
   }
+};
+
+export const getUser = async () => {
+  return makeAuthenticatedRequest("GET", "v1/auth/user/me");
 };

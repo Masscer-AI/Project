@@ -16,9 +16,10 @@ interface TConversation {
 }
 
 export const Sidebar: React.FC = () => {
-  const { toggleSidebar, setConversation } = useStore((state) => ({
+  const { toggleSidebar, setConversation, user } = useStore((state) => ({
     toggleSidebar: state.toggleSidebar,
     setConversation: state.setConversation,
+    user: state.user,
   }));
 
   const [history, setHistory] = useState<TConversation[]>([]);
@@ -127,7 +128,7 @@ export const Sidebar: React.FC = () => {
           Tags
         </p>
       </details>
-      <div className="sidebar__footer">Some user</div>
+      <div className="sidebar__footer">{user ? user.username : "You"}</div>
     </div>
   );
 };

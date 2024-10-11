@@ -31,6 +31,7 @@ export default function ChatView() {
     cleanAttachments,
     socket,
     modelsAndAgents,
+    setUser,
   } = useStore((state) => ({
     socket: state.socket,
     chatState: state.chatState,
@@ -41,8 +42,14 @@ export default function ChatView() {
     conversation: state.conversation,
     cleanAttachments: state.cleanAttachments,
     modelsAndAgents: state.modelsAndAgents,
+    setUser: state.setUser,
   }));
 
+
+  useEffect(()=>{
+    setUser(loaderData.user)
+  }, [])
+  // setUser(loaderData.user);
   const [messages, setMessages] = useState(
     loaderData.conversation.messages as TMessage[]
   );
@@ -78,7 +85,7 @@ export default function ChatView() {
     });
     socket.on("notification", (data) => {
       console.log("Receiving notification:", data);
-      toast.success(data.message)
+      toast.success(data.message);
       // socket.disconnect();
     });
 

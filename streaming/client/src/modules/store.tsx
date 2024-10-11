@@ -1,5 +1,5 @@
 import { createWithEqualityFn as create } from "zustand/traditional";
-import { TConversationData } from "../types/chatTypes";
+import { TConversationData, TUserData } from "../types/chatTypes";
 import {
   getAgents,
   getConversation,
@@ -38,6 +38,7 @@ type Store = {
   model: Model;
   models: Model[];
   agents: Agent[];
+  user?: TUserData;
   modelsAndAgents: Agent[];
   chatState: {
     isSidebarOpened: boolean;
@@ -58,6 +59,7 @@ type Store = {
   deleteAttachment: (index: number) => void;
   toggleWebSearch: () => void;
   toggleAgentSelected: (slug: string) => void;
+  setUser: (user: TUserData) => void;
 };
 
 export const useStore = create<Store>()((set, get) => ({
@@ -71,6 +73,7 @@ export const useStore = create<Store>()((set, get) => ({
     // { name: "gpt-4o-mini", provider: "openai" },
     // { name: "claude-3-5-sonnet-20240620", provider: "anthropic" },
   ],
+  user: undefined,
   agents: [],
   chatState: {
     isSidebarOpened: false,
@@ -100,6 +103,17 @@ export const useStore = create<Store>()((set, get) => ({
     const { chatState } = get();
     const formData = new FormData();
 
+    console.log(newAttachment);
+    if (["image"].includes(newAttachment.type)) {
+      set((state) => ({
+        chatState: {
+          ...state.chatState,
+          attachments: [...state.chatState.attachments, newAttachment],
+        },
+      }));
+      return;
+    }
+
     formData.append("agent_slug", chatState.selectedAgent);
     formData.append("name", newAttachment.name);
     formData.append("conversation_id", String(conversation_id));
@@ -114,8 +128,6 @@ export const useStore = create<Store>()((set, get) => ({
           attachments: [...state.chatState.attachments, newAttachment],
         },
       }));
-
-      console.log(r, "RESPONSE FROM BACKEND");
     } catch (e) {
       console.log(e, "ERROR DURING FILE UPLOAD");
     }
@@ -189,5 +201,8 @@ export const useStore = create<Store>()((set, get) => ({
         webSearch: !state.chatState.webSearch,
       },
     }));
+  },
+  setUser: (user) => {
+    set({ user });
   },
 }));

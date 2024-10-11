@@ -5,8 +5,13 @@ export type TConversationData = {
   messages: TMessage[];
 };
 
+export type TUserData = {
+  username: string;
+};
+
 export type TChatLoader = {
   conversation: TConversationData;
+  user: TUserData;
 };
 
 export type TMessage = {
