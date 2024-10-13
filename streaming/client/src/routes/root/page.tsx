@@ -6,6 +6,7 @@ import { ChatMessages } from "../../components/Messages/Messages";
 import io from "socket.io-client";
 import { useLoaderData } from "react-router-dom";
 import { PUBLIC_TOKEN } from "../../modules/constants";
+import { Landing } from "../../components/Landing/Landing";
 // import { SpeechReceptor } from "../../components/SpeechReceptor/SpeechReceptor";
 
 const socket = io("http://localhost:8001", { autoConnect: true });
@@ -92,7 +93,6 @@ export default function Root() {
 
   const getCompletion = (transcription: string) => {
     console.log(data, "DATA BEING SEND");
-    
 
     const context = chat
       .slice(-6)
@@ -134,6 +134,7 @@ export default function Root() {
   return (
     <>
       {/* <SpeechReceptor socket={socket} /> */}
+      <Landing />
       <ChatMessages chat={chat} />
       <Talkie processAudio={processAudioExample} />
     </>

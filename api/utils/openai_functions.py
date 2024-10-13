@@ -92,3 +92,12 @@ def generate_speech_api(
     except requests.exceptions.RequestException as e:
         print(f"An error occurred: {e}")
         return b""
+
+
+
+def list_openai_models():
+    client = OpenAI(
+        api_key=os.environ.get("OPENAI_API_KEY"),
+    )
+
+    return client.models.list( )

@@ -49,12 +49,12 @@ INSTALLED_APPS = [
     "rest_framework",
     "corsheaders",
     "api.authenticate",
+    "api.providers",
     "api.ai_layers",
     "api.messaging",
     "api.rag",
     "api.finetuning",
     "api.tools",
-    "api.providers",
 ]
 
 MIDDLEWARE = [

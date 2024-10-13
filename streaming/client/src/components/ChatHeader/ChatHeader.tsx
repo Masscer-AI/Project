@@ -6,36 +6,17 @@ import { FloatingDropdown } from "../Dropdown/Dropdown";
 
 export const ChatHeader = () => {
   const {
-    setModels,
-    // models,
     toggleSidebar,
-    // agents,
     fetchAgents,
     modelsAndAgents,
     toggleAgentSelected
   } = useStore();
 
   useEffect(() => {
-    // getModels();
     fetchAgents();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // const getModels = async () => {
-  //   try {
-  //     const response = await axios.get("/get-models");
-   
-  //     const ollamaModels = response.data.map((model) => ({
-  //       name: model.name,
-  //       provider: "ollama",
-  //       slug: model.model,
-  //       selected: false,
-  //     }));
-  //     setModels([...models, ...ollamaModels]);
-  //   } catch (e) {
-  //     console.error(e);
-  //   }
-  // };
   const agents = modelsAndAgents.filter(a => a.type === "agent")
   const models = modelsAndAgents.filter(a => a.type === "model")
   return (

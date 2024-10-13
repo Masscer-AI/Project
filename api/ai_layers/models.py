@@ -26,7 +26,7 @@ class LanguageModel(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.name} ({self.get_provider_display()})"
+        return f"{self.name} ({self.provider.name})"
 
 
 class Agent(models.Model):

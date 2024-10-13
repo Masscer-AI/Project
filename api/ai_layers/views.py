@@ -4,8 +4,8 @@ from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
-from .models import Agent
-from .serializers import AgentSerializer
+from .models import Agent, LanguageModel
+from .serializers import AgentSerializer, LanguageModelSerializer
 from api.authenticate.decorators.token_required import token_required
 from rest_framework.parsers import JSONParser
 from api.utils.ollama_functions import list_ollama_models
@@ -34,9 +34,10 @@ class AgentView(View):
     def get(self, request, *args, **kwargs):
         request.user
         agents = Agent.objects.filter(user=request.user)
-
+        models = LanguageModel.objects.all()
         serializer_data = AgentSerializer(agents, many=True).data
-        ollama_models = list_ollama_models()
+        models_data = LanguageModelSerializer(models, many=True).data
+
         models_and_agents = [
             {
                 "name": a["name"],
@@ -53,12 +54,12 @@ class AgentView(View):
             [
                 {
                     "name": m["name"],
-                    "slug": m["model"],
-                    "provider": "ollama",
+                    "slug": m["slug"],
+                    "provider": m["provider"],
                     "selected": False,
                     "type": "model",
                 }
-                for m in ollama_models
+                for m in models_data
             ]
         )
         models_and_agents.extend(OPENAI_MODELS)

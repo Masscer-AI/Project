@@ -12,5 +12,6 @@
     border-radius: 8px;
     display: flex;
     flex-direction: column;
+    z-index: 2;
 
 }
