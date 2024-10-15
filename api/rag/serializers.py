@@ -4,15 +4,19 @@ from .models import Collection, Document, Chunk
 class ChunkSerializer(serializers.ModelSerializer):
     class Meta:
         model = Chunk
-        fields = ['id', 'document', 'content', 'brief', 'created_at']
+        fields = ['id', 'document', 'content', 'brief', 'tags','created_at']
 
 class DocumentSerializer(serializers.ModelSerializer):
-    chunks = ChunkSerializer(many=True, read_only=True)
+    chunk_set = ChunkSerializer(many=True, read_only=True)
+    chunk_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Document
-        fields = ['id', 'collection', 'text', 'name', 'created_at', 'chunks']
+        fields = ['id', 'collection', 'text', 'name', 'created_at', 'chunk_set', 'chunk_count']
 
+    def get_chunk_count(self, obj):
+        return obj.chunk_set.count()
+    
 class CollectionSerializer(serializers.ModelSerializer):
     documents = DocumentSerializer(many=True, read_only=True)
 

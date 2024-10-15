@@ -5,12 +5,12 @@ import json
 import logging
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
-from .models import TranscriptionJob, VideoGenerationJob
-from .serializers import TranscriptionJobSerializer
+from .models import TranscriptionJob, VideoGenerationJob, Video
+from .serializers import TranscriptionJobSerializer, VideoSerializer
 import os
 from django.core.files import File
 from api.authenticate.decorators.token_required import token_required
-
+from .actions import fetch_videos
 logger = logging.getLogger(__name__)
 
 
@@ -93,6 +93,14 @@ class Transcriptions(View):
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class VideoGenerationView(View):
+    def get(self, request):
+        user = request.user
+
+        videos = Video.objects.filter(video_generation_job__user=user)
+
+        serializer = VideoSerializer(videos, many=True)
+ 
+        return JsonResponse(serializer.data, safe=False)
 
     def post(self, request):
         user = request.user
@@ -118,3 +126,31 @@ class VideoGenerationView(View):
                 "job_id": video_generation_job.id,
             }
         )
+
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class MediaView(View):
+
+    def get(self, request):
+        query = request.GET.get("query", "")
+        per_page = request.GET.get("per_page", 15)
+        page = request.GET.get("page", 1)
+        orientation = request.GET.get("orientation", "landscape")
+
+        try:
+            # Convert per_page and page to integers
+            per_page = int(per_page)
+            page = int(page)
+
+            # Fetch videos from Pexels
+            response_data = fetch_videos(query, per_page, page, orientation)
+
+            if 'error' in response_data:
+                return JsonResponse(response_data, status=400)
+
+            return JsonResponse(response_data, safe=False)
+
+        except ValueError:
+            return JsonResponse({"error": "Invalid integer values for per_page or page"}, status=400)

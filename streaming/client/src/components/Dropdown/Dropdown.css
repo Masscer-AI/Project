@@ -1,5 +1,9 @@
 .floating-dropdown {
     position: relative;
+
+    > button {
+        cursor: pointer;
+    }
 }
 
 .floating-dropdown .__content {

@@ -39,7 +39,7 @@ def create_structured_completion(
     client = OpenAI(api_key=api_key)
 
     completion = client.beta.chat.completions.parse(
-        model="gpt-4o-2024-08-06",
+        model=model,
         messages=[
             {"role": "system", "content": system_prompt},
             {
@@ -87,12 +87,11 @@ def generate_speech_api(
             audio_file.write(audio)
 
         print(f"Audio saved to {output_path}")
-        return audio 
+        return audio
 
     except requests.exceptions.RequestException as e:
         print(f"An error occurred: {e}")
         return b""
-
 
 
 def list_openai_models():
@@ -100,4 +99,4 @@ def list_openai_models():
         api_key=os.environ.get("OPENAI_API_KEY"),
     )
 
-    return client.models.list( )
+    return client.models.list()

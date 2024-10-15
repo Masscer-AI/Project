@@ -7,6 +7,7 @@ import { useStore } from "../../modules/store";
 import { Link, useSearchParams } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 import { SvgButton } from "../SvgButton/SvgButton";
+import { DocumentsModal } from "../DocumentsModal/DocumentsModal";
 
 interface TConversation {
   id: string;
@@ -16,13 +17,17 @@ interface TConversation {
 }
 
 export const Sidebar: React.FC = () => {
-  const { toggleSidebar, setConversation, user } = useStore((state) => ({
-    toggleSidebar: state.toggleSidebar,
-    setConversation: state.setConversation,
-    user: state.user,
-  }));
+  const { toggleSidebar, setConversation, user, setOpenedModals } = useStore(
+    (state) => ({
+      toggleSidebar: state.toggleSidebar,
+      setConversation: state.setConversation,
+      user: state.user,
+      setOpenedModals: state.setOpenedModals,
+    })
+  );
 
   const [history, setHistory] = useState<TConversation[]>([]);
+
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
@@ -111,19 +116,25 @@ export const Sidebar: React.FC = () => {
         <summary>Training</summary>
         <p
           className="clickeable rounded-rect"
-          // onClick={() => goTo("/tools?selected=audio")}
+          onClick={() => {
+            setOpenedModals({ action: "add", name: "documents" }),
+            toggleSidebar();
+          }}
         >
           Documents
         </p>
+
         <p
           className="clickeable rounded-rect"
-          // onClick={() => goTo("/tools?selected=images")}
+          onClick={() =>
+            setOpenedModals({ action: "add", name: "completions" })
+          }
         >
-          Questions
+          Completions
         </p>
         <p
           className="clickeable rounded-rect"
-          // onClick={() => goTo("/tools?selected=video")}
+          onClick={() => setOpenedModals({ action: "add", name: "tags" })}
         >
           Tags
         </p>

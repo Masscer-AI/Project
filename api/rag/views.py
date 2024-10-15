@@ -3,17 +3,20 @@ import json
 from django.http import JsonResponse
 from .managers import chroma_client
 from django.views import View
+from rest_framework.parsers import JSONParser
 
 import logging
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
-from .models import Document, Collection
+from .models import Document, Collection, Chunk
 from api.authenticate.decorators.token_required import token_required
-from .serializers import DocumentSerializer
+from .serializers import DocumentSerializer, ChunkSerializer
 from api.ai_layers.models import Agent
 from rest_framework.parsers import MultiPartParser
 from .actions import read_file_content
-from api.messaging.models import Conversation
+from api.messaging.models import Conversation, Message
+from api.utils.color_printer import printer
+from .actions import querify_context
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +28,7 @@ def test_chunks(request):
     count = collection.count()
     print(count, "NOMBER OF VERGAS")
     results = chroma_client.get_results(
-        collection_name=collection_name, query_text=query_text, n_results=1
+        collection_name=collection_name, query_texts=[query_text], n_results=1
     )
 
     data = {"results": results}
@@ -50,7 +53,7 @@ class DocumentView(View):
         file = request.FILES.get("file")
         agent_slug = request.POST.get("agent_slug", None)
         conversation_id = request.POST.get("conversation_id", None)
-        print("conversation_id", conversation_id)
+
         if not file and (not agent_slug or not conversation_id):
             return JsonResponse(
                 {
@@ -59,12 +62,11 @@ class DocumentView(View):
                 },
                 status=400,
             )
-        print(type(file), "TIPE OF FILE")
 
         file_content, file_name = read_file_content(file)
         file_content = file_content.strip()
 
-        if conversation_id:
+        if conversation_id and not agent_slug:
             c = Conversation.objects.get(pk=conversation_id)
             if c is None:
                 return JsonResponse(
@@ -126,8 +128,6 @@ class DocumentView(View):
         data["collection"] = collection.id
         data["text"] = file_content
 
-        # logger.debug("Received post request in Document view")
-        # logger.debug(data)
         serializer = DocumentSerializer(data=data)
 
         if serializer.is_valid():
@@ -156,24 +156,61 @@ def query_collection(request):
 
     if conversation_id:
         c = Conversation.objects.get(pk=conversation_id)
-        collection, created = Collection.objects.get_or_create(
-            conversation=c, defaults={"user": request.user}
-        )
-        results = chroma_client.get_results(
-            collection_name=collection.slug, query_text=query_text, n_results=6
-        )
-        data = {"results": results}
-        return JsonResponse(data, safe=False)
+
+        collection = Collection.objects.get(conversation=c, user=request.user)
+
+        if collection:
+            messages = Message.objects.filter(conversation=c).order_by("-id")[:4]
+            _context = f"""
+            These are the last four messages in the conversation:
+            ---
+            {" ".join([f'{m.type}: {m.text}\n' for m in messages])}
+            ---
+
+
+            This is the last user message text: {query_text}
+            """
+
+            queries = querify_context(context=_context, collection=collection)
+            printer.success(queries, "Queries from AI")
+
+            results = chroma_client.get_results(
+                collection_name=collection.slug,
+                query_texts=queries.queries,
+                n_results=3,
+            )
+
+            data = {"results": results}
+            return JsonResponse(data, safe=False)
 
     agent = Agent.objects.get(slug=agent_slug)
 
-    collection, created = Collection.objects.get_or_create(
-        agent=agent, defaults={"user": request.user}
-    )
+    collection = Collection.objects.get(agent=agent, user=request.user)
 
-    results = chroma_client.get_results(
-        collection_name=collection.slug, query_text=query_text, n_results=6
-    )
+    if collection:
+        printer.success(
+            "There is a collection for the requested agent, geetting results from Chroma"
+        )
+        results = chroma_client.get_results(
+            collection_name=collection.slug, query_texts=[query_text], n_results=6
+        )
 
-    data = {"results": results}
-    return JsonResponse(data, safe=False)
+        data = {"results": results}
+        return JsonResponse(data, safe=False)
+
+    return JsonResponse({"error": "No collection found"}, status=404)
+
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+@method_decorator(token_required, name='dispatch')
+class ChunkDetailView(View):
+    parser_classes = (JSONParser,)
+
+    def get(self, request, chunk_id):
+        try:
+            chunk = Chunk.objects.get(id=chunk_id)
+            serializer = ChunkSerializer(chunk)
+            return JsonResponse(serializer.data, safe=False, status=200)
+        except Chunk.DoesNotExist:
+            return JsonResponse({"error": "Chunk not found"}, status=404)

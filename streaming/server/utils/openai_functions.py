@@ -28,85 +28,24 @@ def transcribe_audio(audio_file, output_format="verbose_json") -> str:
     return transcription.text
 
 
-# def create_completion_openai(
-#     system_prompt: str, user_message: str, model="gpt-4o-mini"
-# ):
-#     client = OpenAI(
-#         api_key=os.environ.get("OPENAI_API_KEY"),
-#     )
-
-#     completion = client.chat.completions.create(
-#         model=model,
-#         max_tokens=500,
-#         messages=[
-#             {
-#                 "role": "system",
-#                 "content": system_prompt,
-#             },
-#             {"role": "user", "content": user_message},
-#         ],
-#     )
-#     return completion.choices[0].message.content
-
-
-async def stream_completion(prompt, user_message, model, attachments=[]):
+async def stream_completion(prompt, user_message, model, attachments=[], config={}):
     logger.debug(f"MODEL TO COMPLETE: {model}")
-    print(attachments, "ATTACHMENTS RECEVIED!")
+    _provider = model["provider"].lower()
+    if _provider == "openai":
+        streamer = TextStreamingHandler(provider="openai", api_key=OPENAI_API_KEY, config=config)
 
-    if model["provider"] == "openai":
-        streamer = TextStreamingHandler(provider="openai", api_key=OPENAI_API_KEY)
+    elif _provider == "ollama":
+        streamer = TextStreamingHandler(provider="ollama", api_key="ANTHROPIC_API_KEY", config=config)
 
-    elif model["provider"] == "ollama":
-        streamer = TextStreamingHandler(provider="ollama", api_key="ANTHROPIC_API_KEY")
+    elif _provider == "anthropic":
+        streamer = TextStreamingHandler(provider="anthropic", api_key=ANTHROPIC_API_KEY, config=config)
 
-    elif model["provider"] == "anthropic":
-        streamer = TextStreamingHandler(provider="anthropic", api_key=ANTHROPIC_API_KEY)
-
-    model_slug = model["name"]
+    model_slug = model["slug"]
 
     content = user_message
 
     streamer.process_attachments(attachments)
-    # if imageB64 != "" and imageB64 is not None:
-    #     if model_slug not in [
-    #         "gpt-4-vision-preview",
-    #         "gpt-4",
-    #         "gpt-4o",
-    #         "gpt-4-turbo",
-    #         "gpt=4o-mini",
-    #     ]:
-    #         model_slug = "gpt-4o"
-    #     logger.info(f"Image detected, using {model} model")
-
-    #     content = [
-    #         {"type": "text", "text": user_message},
-    #         {"type": "image_url", "image_url": {"url": imageB64}},
-    #     ]
-    # TODO: Adapt to work with anthropic also
-    # messages[0]["content"] = [
-    #     {"type": "text", "text": user_message},
-    #     {"type": "image", "source": {"type": "base64", "data": imageB64}}
-    # ]
-
-    # max_tokens = 4000
-    # if model == "gpt-4o-mini":
-    #     max_tokens = 10000
-
-    # response = client.chat.completions.create(
-    #     model=model_slug,
-    #     max_tokens=max_tokens,
-    #     messages=[
-    #         {"role": "system", "content": prompt},
-    #         {"role": "user", "content": content},
-    #     ],
-    #     temperature=0.5,
-    #     stream=True,
-    # )
-
-    # for chunk in response:
-    #     if chunk.choices[0].delta.content:
-    #         yield chunk.choices[0].delta.content
-
+   
     for chunk in streamer.stream(
         system=prompt,
         text=content,

@@ -17,10 +17,10 @@ def trigger_async_generate_video(sender, instance, created, **kwargs):
         print("Trying to generate a video!")
         async_generate_video.delay(instance.id)
 
-@receiver(post_save, sender=VideoChunk)
-def trigger_async_generate_chunk_video(sender, instance, created, **kwargs):
-    if created:
-        print("Trying to generate a chunk video!")
-        async_generate_chunk_video.delay(instance.id)
+# @receiver(post_save, sender=VideoChunk)
+# def trigger_async_generate_chunk_video(sender, instance, created, **kwargs):
+#     if created:
+#         print("Trying to generate a chunk video!")
+#         async_generate_chunk_video.delay(instance.id)
 
 

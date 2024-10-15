@@ -1,0 +1,12 @@
+.documentCard {
+  /* background-color: aqua; */
+  border: 1px solid var(--bg-contrast-color);
+  padding: 10px;
+  border-radius: var(--standard-radius);
+  display: flex;
+  flex-direction: column;
+  > textarea {
+    height: 400px;
+    resize: vertical;
+  }
+}

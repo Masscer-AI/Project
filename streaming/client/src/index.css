@@ -17,9 +17,11 @@
   --bg-secondary-color: rgba(31, 31, 31, 0.397);
   --hovered-color: rgba(75, 75, 75, 0.646);
   --modals-color: rgb(255, 255, 255);
+  --modal-bg-color: #040404;
   --bg-contrast-color: rgb(55, 55, 55);
   --border-radius: 6px;
   --selected-border: 1px solid var(--highlighted-color);
+  --standard-radius: 8px;
   color-scheme: dark light;
   background-color: var(--bg-color);
 
@@ -40,6 +42,7 @@ a:hover {
 }
 html {
   color-scheme: light;
+  scroll-behavior: smooth;
 }
 body {
   margin: 0;
@@ -168,8 +171,50 @@ details[open] summary {
   box-shadow: 0px 2px var(--highlighted-color);
 }
 
-
-
 .gap-1 {
   gap: 2px;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+
+  > label {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  > label > *:first-child {
+    width: 130px;
+  }
+
+  > label > div {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  & textarea {
+    width: 100%;
+    min-height: 100px;
+    resize: vertical;
+  }
+
+  & input,
+  & textarea,
+  & select {
+    border-radius: 5px;
+    padding: 3px;
+  }
+}
+
+.modal-closer {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+}
+
+.text-center {
+  text-align: center;
 }

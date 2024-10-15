@@ -16,9 +16,11 @@ class ChromaManager:
         collection = self.client.get_or_create_collection(name=collection_name)
         return collection
 
-    def upsert_chunk(self, collection_name: str, chunk_text: str, chunk_id: str):
+    def upsert_chunk(
+        self, collection_name: str, chunk_text: str, chunk_id: str, metadata: dict = {}
+    ):
         collection = self.get_or_create_collection(collection_name)
-        collection.upsert(documents=[chunk_text], ids=[chunk_id])
+        collection.upsert(documents=[chunk_text], ids=[chunk_id], metadatas=[metadata])
 
     def bulk_upsert_chunks(
         self,
@@ -30,9 +32,15 @@ class ChromaManager:
         collection = self.get_or_create_collection(collection_name)
         collection.upsert(documents=documents, ids=chunk_ids, metadatas=metadatas)
 
-    def get_results(self, collection_name: str, query_text: str, n_results: int = 4):
+    def get_results(
+        self, collection_name: str, query_texts: list[str], n_results: int = 4
+    ):
         collection = self.get_or_create_collection(collection_name)
-        return collection.query(query_texts=[query_text], n_results=n_results)
+        return collection.query(
+            query_texts=query_texts,
+            n_results=n_results,
+            # where_document={"$contains": "search_string"},
+        )
 
     def delete_collection(self, collection_name: str):
         print("Deleting collection from chroma")

@@ -11,82 +11,101 @@ from .logger import get_custom_logger
 logger = get_custom_logger("event_triggers")
 
 
+def extract_rag_results(rag_results, context):
+    documents_context = ""
+    complete_context = context
+    counter = 0
+    if rag_results is not None:
+        metadatas = rag_results["results"]["metadatas"]
+        for meta in metadatas:
+            for ref in meta:
+                if len(ref) > 0:
+                    print(counter, ref["chunk_id"])
+                    documents_context += f"DOCUMENT_ID: {ref["document_id"]}\nCHUNK_ID: {ref["chunk_id"]}\nCHUNK CONTENT: {ref["content"]}"
+                    counter += 1
+
+        if len(documents_context) > 0:
+            complete_context += f"\n\nThe following is information about a embeddings vector storage querying the user message: ---start_vector_context\n\n{documents_context}\n\n---end_vector_context---\nIf you use information from the vector storage, please cite the resourcess in anchor tags like: <a href='#chunk-CHUNK_ID' target='__blank'>some_related_text</a> where CHUNK_ID is the ID of the chunks you are using to generate that part of the response and some_related_text is a three-four words text related to the chunk content that the user will be able to review. You can add the sources in any place of your response. Add as many as needed."
+
+    return complete_context
+
+
 async def on_message_handler(socket_id, data, **kwargs):
     from server.socket import sio
 
     context = data["context"]
     message = data["message"]
     web_search_activated = data.get("web_search_activated", False)
+    use_rag = data.get("use_rag", False)
     models_to_complete = data.get("models_to_complete", [])
 
     token = data["token"]
-    agent_slug = data.get("agent_slug", "useful-assistant")
 
-    model = data.get("model", {"name": "gpt-4o-mini", "provider": "openai"})
     conversation = data["conversation"]
-
-    rag_results = get_results(
-        query_text=message["text"],
-        agent_slug=agent_slug,
-        token=token,
-        conversation_id=conversation["id"],
-    )
-
-    documents_context = ""
-    complete_context = context
-
-    if rag_results is not None:
-        documents = rag_results["results"]["documents"]
-        for d in documents:
-            if len(d) > 0:
-                documents_context += d[0]
-
-        if len(documents_context) > 0:
-            complete_context += f"\n\nThe following is information about a vector storage querying the user message: ---start_vector_context\n\n{documents_context}\n\n---end_vector_context---"
-
-    if web_search_activated:
-        print("Emitting notification")
-        await sio.emit(
-            "notification",
-            {"message": "Exploring the web to add more context to your message"},
-            to=socket_id,
-        )
-        web_result = search_brave(message["text"])
-        complete_context += f"\n\nThe following context comes from a web search using the user message as query \n{web_result}. END OF WEB SEARCH RESULTS\n"
-
-    for m in models_to_complete:
-        print(m["slug"], "SLUG OF MODEL TO COMPLETE")
-        
-    system_prompt = get_system_prompt(
-        context=complete_context, agent_slug=agent_slug, token=token
-    )
-
-    data = {}
-    ai_response = ""
-
-    async for chunk in stream_completion(
-        system_prompt, message["text"], model=model, attachments=[]
-    ):
-        if isinstance(chunk, str):
-            data["chunk"] = chunk
-            ai_response += chunk
-            await sio.emit("response", data, to=socket_id)
-
-    await sio.emit(
-        "responseFinished", {"status": "ok", "ai_response": ai_response}, to=socket_id
-    )
-
-
+ 
     save_message(
         message=message,
         conversation=conversation.get("id", None),
         token=token,
     )
-    save_message(
-        message={"type": "assistant", "text": ai_response, "attachments": []},
-        conversation=conversation.get("id", None),
-        token=token,
-    )
+
+    for m in models_to_complete:
+        agent_slug = m["slug"]
+        complete_context = context
+        if use_rag:
+            await sio.emit(
+                "notification",
+                {"message": "Searching relevant information in the documents"},
+                to=socket_id,
+            )
+            rag_results = get_results(
+                query_text=message["text"],
+                agent_slug=agent_slug,
+                token=token,
+                conversation_id=conversation["id"],
+            )
+            complete_context = extract_rag_results(rag_results, complete_context)
+
+        if web_search_activated:
+            print("Emitting notification")
+            await sio.emit(
+                "notification",
+                {"message": "Exploring the web to add more context to your message"},
+                to=socket_id,
+            )
+            web_result = search_brave(message["text"])
+            complete_context += f"\n\nThe following context comes from a web search using the user message as query \n{web_result}. END OF WEB SEARCH RESULTS\n"
+
+        system_prompt = get_system_prompt(
+            context=complete_context, agent_slug=agent_slug, token=token
+        )
+
+        data = {"agent_slug": agent_slug}
+        ai_response = ""
+
+        async for chunk in stream_completion(
+            system_prompt,
+            message["text"],
+            model=m["llm"],
+            attachments=message["attachments"],
+            config=m,
+        ):
+            if isinstance(chunk, str):
+                data["chunk"] = chunk
+                ai_response += chunk
+                await sio.emit("response", data, to=socket_id)
+
+        await sio.emit(
+            "responseFinished",
+            {"status": "ok", "ai_response": ai_response},
+            to=socket_id,
+        )
+
+        save_message(
+            message={"type": "assistant", "text": ai_response, "attachments": []},
+            conversation=conversation.get("id", None),
+            token=token,
+        )
 
 
 def on_connect_handler(socket_id, **kwargs):

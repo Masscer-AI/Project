@@ -18,4 +18,5 @@ export type TMessage = {
   type: string;
   text: string;
   attachments: TAttachment[];
+  agentSlug?: string;
 };

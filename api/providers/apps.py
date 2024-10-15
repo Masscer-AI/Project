@@ -13,7 +13,7 @@ class ProvidersConfig(AppConfig):
     def startup_function(self):
         from .models import AIProvider
 
-        printer.blue(f"Running startup functions for {self.name}")
+        printer.blue(f"Running startup function for {self.name}")
         try:
             # Check if an AIProvider with name.lower() == "ollama" exists
             if not AIProvider.objects.filter(name__iexact="ollama").exists():
@@ -26,8 +26,7 @@ class ProvidersConfig(AppConfig):
                 # If it doesn't exist, create it
                 AIProvider.objects.create(name="OpenAI")
                 printer.green("AIProvider 'OpenAI' created.")
-            else:
-                printer.yellow("AIProvider 'OpenAI' already exists.")
+   
 
         except OperationalError:
             # This exception might occur during migrations or if the database is not ready

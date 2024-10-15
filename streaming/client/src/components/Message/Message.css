@@ -44,3 +44,33 @@
   display: none;
 }
 
+.message a {
+  color: var(--highlighted-color);
+}
+
+.source-component {
+  padding: 10px;
+  border-radius: var(--standard-radius);
+  border: 1px solid transparent;
+  background-color: var(--hovered-color);
+  position: relative;
+  > input {
+    width: 1px;
+    height: 1px;
+    position: absolute;
+    background-color: transparent;
+    border: none;
+    outline: none;
+  }
+}
+.source-component:has(input:focus),
+.source-component:has(input:active) {
+  border: 1px solid var(--highlighted-color);
+}
+
+.chunk-info textarea {
+  width: 100%;
+  min-height: 400px;
+  resize: vertical;
+  scrollbar-width: none;
+}

@@ -6,7 +6,11 @@ import "highlight.js/styles/tokyo-night-dark.css";
 import toast from "react-hot-toast";
 import "./MarkdownRenderer.css";
    
-const md = new MarkdownIt();
+const md = new MarkdownIt({
+  html: true,
+  linkify: true,
+  typographer: true
+});
 
 const MarkdownRenderer = ({ markdown }: { markdown: string }) => {
   useEffect(() => {

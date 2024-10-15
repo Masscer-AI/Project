@@ -37,7 +37,7 @@ class TextStreamingHandler:
     max_tokens = 4096
     attachments = []
 
-    def __init__(self, provider: str, api_key: str) -> None:
+    def __init__(self, provider: str, api_key: str, config: dict = {}) -> None:
         if provider == "openai":
             self.client = OpenAI(api_key=api_key)
         elif provider == "ollama":
@@ -47,6 +47,10 @@ class TextStreamingHandler:
 
         self.provider = provider
 
+        self.config = config
+
+        # print("Initializing text streamer")
+
     def stream(self, system: str, text: str, model: str):
         if self.provider in ["openai", "ollama"]:
             return self.stream_openai(system, text, model)
@@ -54,7 +58,10 @@ class TextStreamingHandler:
             print("trying to generate with Antnrhopic")
             return self.stream_anthropic(system, text, model)
 
+        print("PROVIDER NOT FOUND")
+
     def stream_openai(self, system: str, text: str, model: str):
+        print("tryng to stream with OPENAI")
         messages = [
             {"role": "system", "content": system},
             {"role": "user", "content": text},
@@ -65,21 +72,33 @@ class TextStreamingHandler:
                 if "image" in a["type"]:
                     logger.debug("Appending image to messages")
                     messages.append(
-                        {"role": "user","content": [
-                            {"type": "image_url", "image_url": {"url": a["content"]}}
-                        ]},
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "image_url",
+                                    "image_url": {"url": a["content"]},
+                                }
+                            ],
+                        },
                     )
                 else:
-                    logger.debug(f"Attaching document {a["name"]}" )
+                    logger.debug(f"Attaching document {a["name"]}")
                     messages.append(
-                        {"role": "user", "content": f"The following if the content of a document called: {a["name"]} and of type {a["type"]}: \n{a["content"]}"},
+                        {
+                            "role": "user",
+                            "content": f"The following if the content of a document called: {a["name"]} and of type {a["type"]}: \n{a["content"]}",
+                        },
                     )
 
         response = self.client.chat.completions.create(
             model=model,
-            max_tokens=self.max_tokens,
+            max_tokens=self.config.get("max_tokens", 3000),
             messages=messages,
-            temperature=0.5,
+            frequency_penalty=self.config.get("frequency_penalty", 0),
+            top_p=self.config.get("top_p", 1.0),
+            presence_penalty=self.config.get("presence_penalty", 0),
+            temperature=self.config.get("temperature", 0.5),
             stream=True,
         )
         for chunk in response:
@@ -103,35 +122,36 @@ class TextStreamingHandler:
 
     def process_attachments(self, attachments=[]):
         logger.debug(f"Processing {len(attachments)} attachments")
+        print(attachments)
         processed = []
 
         for a in attachments:
             if "image" in a["type"]:
                 processed.append(a)
-            elif "pdf" in a["type"]:
-                base64_content = a["content"]
-                if base64_content.startswith("data:application/pdf;base64,"):
-                    base64_content = base64_content.split(",")[1]
+            # elif "pdf" in a["type"]:
+            #     base64_content = a["content"]
+            #     if base64_content.startswith("data:application/pdf;base64,"):
+            #         base64_content = base64_content.split(",")[1]
 
-                try:
-                    binary_content = base64.b64decode(base64_content)
-                except base64.binascii.Error as e:
-                    logger.error("Invalid base64 content")
-                    continue
+            #     try:
+            #         binary_content = base64.b64decode(base64_content)
+            #     except base64.binascii.Error as e:
+            #         logger.error("Invalid base64 content")
+            #         continue
 
-                if not binary_content.startswith(b"%PDF"):
-                    logger.error("The decoded content is not a valid PDF")
-                    continue
+            #     if not binary_content.startswith(b"%PDF"):
+            #         logger.error("The decoded content is not a valid PDF")
+            #         continue
 
-                try:
-                    pdf_data = fitz.open(stream=binary_content, filetype="pdf")
-                except fitz.fitz.FileDataError as e:
-                    logger.error("Failed to open the PDF document")
-                    continue
+            #     try:
+            #         pdf_data = fitz.open(stream=binary_content, filetype="pdf")
+            #     except fitz.fitz.FileDataError as e:
+            #         logger.error("Failed to open the PDF document")
+            #         continue
 
-                text = ""
-                for page in pdf_data:
-                    text += page.get_text()
-                a["content"] = text
-                processed.append(a)
+            #     text = ""
+            #     for page in pdf_data:
+            #         text += page.get_text()
+            #     a["content"] = text
+            #     processed.append(a)
         self.attachments = processed

@@ -1,8 +1,7 @@
 .svg-button {
   display: flex;
-  justify-content: center;
-  align-items: center;
-  /* background-color: var(--bg-color); */
+  justify-content: center !important;
+  align-items: center !important;
   background-color: var(--bg-secondary-color);
   color: var(--font-color);
   padding: 5px;
@@ -11,17 +10,19 @@
   border-radius: 7px;
   cursor: pointer;
 }
-.svg-button.active {
-  background-color: var(--highlighted-color);
-}
 
-.svg-button button {
-  background: transparent;
-  border: none;
-  cursor: pointer;
-}
+
 .svg-button.active svg path {
   stroke: black;
+}
+.svg-button > span {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.svg-button > span:last-chil:not(:empty) {
+  margin-left: 5px;
 }
 .svg-button svg path {
   stroke: var(--font-color);
@@ -31,4 +32,8 @@
   width: 20px;
   height: 20px;
   cursor: pointer;
+}
+
+.svg-button.big {
+  width: 100%;
 }

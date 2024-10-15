@@ -42,6 +42,9 @@ class Agent(models.Model):
     model_slug = models.CharField(
         max_length=100, default="gpt-4o-mini", null=True, blank=True
     )
+    llm = models.ForeignKey(
+        LanguageModel, on_delete=models.SET_NULL, null=True, blank=True
+    )
 
     model_provider = models.CharField(
         max_length=20, choices=MODEL_PROVIDER_CHOICES, default="openai"
@@ -58,10 +61,30 @@ class Agent(models.Model):
     )
 
     is_public = models.BooleanField(default=False)
+    default = models.BooleanField(default=False)
+    temperature = models.FloatField(
+        validators=[MinValueValidator(0.00), MaxValueValidator(2.00)], default=0.7
+    )
+    max_tokens = models.IntegerField(null=True, blank=True, default=4000)
+    top_p = models.FloatField(
+        validators=[MinValueValidator(0.00), MaxValueValidator(1.00)], default=1.00
+    )
+    frequency_penalty = models.FloatField(
+        validators=[MinValueValidator(-2.00), MaxValueValidator(2.00)], default=0
+    )
+    presence_penalty = models.FloatField(
+        validators=[MinValueValidator(-2.00), MaxValueValidator(2.00)], default=0
+    )
 
     def save(self, *args, **kwargs):
         if not self.slug:
             self.slug = slugify(self.name)
+
+        if not self.llm:
+            llm = LanguageModel.objects.get(slug=self.model_slug)
+            self.llm = llm
+
+    
         super().save(*args, **kwargs)
 
     def format_prompt(self, context: str = ""):
@@ -69,19 +92,3 @@ class Agent(models.Model):
             "{{context}}", context
         )
         return formatted
-
-
-class ModelConfig(models.Model):
-    temperature = models.FloatField(
-        validators=[MinValueValidator(0.00), MaxValueValidator(2.00)]
-    )
-    max_tokens = models.IntegerField()
-    top_p = models.FloatField(
-        validators=[MinValueValidator(0.00), MaxValueValidator(1.00)]
-    )
-    frequency_penalty = models.FloatField(
-        validators=[MinValueValidator(-2.00), MaxValueValidator(2.00)]
-    )
-    presence_penalty = models.FloatField(
-        validators=[MinValueValidator(-2.00), MaxValueValidator(2.00)]
-    )

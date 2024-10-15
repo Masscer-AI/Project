@@ -1,9 +1,10 @@
 from django.urls import path
-from .views import Transcriptions, VideoGenerationView
+from .views import Transcriptions, VideoGenerationView, MediaView
 
 app_name = "tools"
 
 urlpatterns = [
-    path('transcriptions/', Transcriptions.as_view(), name='transcriptions'),
-    path('videos/', VideoGenerationView.as_view(), name='video_generation'),
+    path("transcriptions/", Transcriptions.as_view(), name="transcriptions"),
+    path("videos/", VideoGenerationView.as_view(), name="video_generation"),
+    path("media/", VideoGenerationView.as_view(), name="get_media"),
 ]

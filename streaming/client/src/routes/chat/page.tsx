@@ -12,6 +12,7 @@ import { TChatLoader, TMessage } from "../../types/chatTypes";
 import { ChatHeader } from "../../components/ChatHeader/ChatHeader";
 import toast, { Toaster } from "react-hot-toast";
 import { playAudioFromBytes } from "../../modules/utils";
+import { TrainingModals } from "../../components/TrainingModals/TrainingModals";
 
 // const socket = io("http://localhost:8001", {
 //   autoConnect: false,
@@ -30,8 +31,9 @@ export default function ChatView() {
     conversation,
     cleanAttachments,
     socket,
-    modelsAndAgents,
+    // modelsAndAgents,
     setUser,
+    agents,
   } = useStore((state) => ({
     socket: state.socket,
     chatState: state.chatState,
@@ -43,29 +45,34 @@ export default function ChatView() {
     cleanAttachments: state.cleanAttachments,
     modelsAndAgents: state.modelsAndAgents,
     setUser: state.setUser,
+    agents: state.agents,
   }));
 
-
-  useEffect(()=>{
-    setUser(loaderData.user)
-  }, [])
+  useEffect(() => {
+    setUser(loaderData.user);
+  }, []);
   // setUser(loaderData.user);
   const [messages, setMessages] = useState(
     loaderData.conversation.messages as TMessage[]
   );
 
   useEffect(() => {
-    const updateMessages = (chunk: string) => {
+    const updateMessages = (chunk: string, agentSlug: string) => {
       const newMessages = [...messages];
       const lastMessage = newMessages[newMessages.length - 1];
 
-      if (lastMessage && lastMessage.type === "assistant") {
+      if (
+        lastMessage &&
+        lastMessage.type === "assistant" &&
+        lastMessage.agentSlug === agentSlug
+      ) {
         lastMessage.text += chunk;
       } else {
         const assistantMessage = {
           type: "assistant",
           text: chunk,
           attachments: [],
+          agentSlug: agentSlug,
         };
         newMessages.push(assistantMessage);
       }
@@ -73,7 +80,7 @@ export default function ChatView() {
     };
 
     socket.on("response", (data) => {
-      setMessages(updateMessages(data.chunk));
+      setMessages(updateMessages(data.chunk, data.agent_slug));
     });
     socket.on("audio-file", (audioFile) => {
       playAudioFromBytes(audioFile);
@@ -106,7 +113,15 @@ export default function ChatView() {
   const handleSendMessage = async () => {
     if (input.trim() === "") return;
 
-    // socket.connect();
+    if (chatState.writtingMode) return;
+
+    const selectedAgents = agents.filter((a) => a.selected);
+
+    if (selectedAgents.length === 0) {
+      toast.error("You must select at least one agent to complete! 👀");
+      return;
+    }
+
     const userMessage = {
       type: "user",
       text: input,
@@ -117,9 +132,9 @@ export default function ChatView() {
     try {
       const token = localStorage.getItem("token");
 
-      const attachmentsOnlyId = chatState.attachments.map((a) => ({
-        id: a.id,
-      }));
+      const attachmentsOnlyId = chatState.attachments.filter(
+        (a) => !Boolean(a.id)
+      );
 
       socket.emit(
         "message",
@@ -132,10 +147,10 @@ export default function ChatView() {
           context: messages.map((msg) => `${msg.type}: ${msg.text}`).join("\n"),
           model: model,
           token: token,
-          models_to_complete: modelsAndAgents.filter((a) => a.selected),
+          models_to_complete: selectedAgents,
           conversation: conversation ? conversation : loaderData.conversation,
-          agent_slug: chatState.selectedAgent,
           web_search_activated: chatState.webSearch,
+          use_rag: chatState.useRag,
         },
         (ack) => {
           console.log(ack, "ACK FROM SERVER ?");
@@ -195,26 +210,21 @@ export default function ChatView() {
     }
   };
 
-  const handleKeyDown = (event, isWritingMode) => {
-    if (isWritingMode) {
-      if (event.key === "Enter") {
-        return;
-      }
+  const handleKeyDown = (event) => {
+    if (event.key === "Enter" && event.shiftKey) {
+      setInput(event.target.value);
+      return;
+    } else if (event.key === "Enter") {
+      handleSendMessage();
     } else {
-      if (event.key === "Enter" && event.shiftKey) {
-        setInput(event.target.value);
-        return;
-      } else if (event.key === "Enter") {
-        handleSendMessage();
-      } else {
-        setInput(event.target.value);
-      }
+      setInput(event.target.value);
     }
   };
 
   return (
     <>
       <Toaster />
+      <TrainingModals />
       {chatState.isSidebarOpened && <Sidebar />}
       <div className="chat-container">
         <ChatHeader />
@@ -229,6 +239,7 @@ export default function ChatView() {
               <Message
                 {...msg}
                 key={index}
+                index={index}
                 onGenerateSpeech={handleGenerateSpeech}
                 onGenerateImage={handleGenerateImage}
               />

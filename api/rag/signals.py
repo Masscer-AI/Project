@@ -3,7 +3,7 @@ from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver, Signal
 from .models import Document, Chunk, Collection
 from .managers import chroma_client
-
+from .tasks import async_generate_chunk_brief, async_generate_document_brief
 
 chunks_created = Signal()
 
@@ -11,6 +11,7 @@ chunks_created = Signal()
 @receiver(post_save, sender=Document)
 def create_chunks_after_save(sender, instance, created, **kwargs):
     if created:
+        async_generate_document_brief.delay(instance.pk)
         instance.create_chunks()
 
 
@@ -35,7 +36,9 @@ def chunks_created_handler(sender, **kwargs):
     for c in chunks:
         chunks_text.append(c.content)
         chunks_ids.append(str(c.id))
-        chunks_metadatas.append({"document_id": str(sender.id)})
+        chunks_metadatas.append(
+            {"document_id": str(sender.id), "content": c.content, "chunk_id": c.id}
+        )
 
     chroma_client.bulk_upsert_chunks(
         sender.collection.slug,
@@ -43,4 +46,6 @@ def chunks_created_handler(sender, **kwargs):
         chunk_ids=chunks_ids,
         metadatas=chunks_metadatas,
     )
-    print("CHUNKS FOR DOCUMENT SAVED IN CHROMA!")
+
+    for c in chunks:
+        async_generate_chunk_brief.delay(c.id)

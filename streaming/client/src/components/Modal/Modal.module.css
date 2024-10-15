@@ -1,3 +1,36 @@
 .modalBackdrop {
-    background-color: red;
+  background-color: rgba(76, 76, 76, 0.311);
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 1;
 }
+
+.modalComponent {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2;
+  overflow-y: auto;
+}
+
+.modalContent {
+  background-color: var(--modal-bg-color);
+  padding: 20px;
+  border-radius: 8px;
+  max-height: 90vh;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.403);
+  width: min(98%, 700px);
+  z-index: 3;
+  position: relative;
+  overflow: auto;
+}
+
+

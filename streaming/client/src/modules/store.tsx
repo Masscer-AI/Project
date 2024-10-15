@@ -1,6 +1,7 @@
 import { createWithEqualityFn as create } from "zustand/traditional";
 import { TConversationData, TUserData } from "../types/chatTypes";
 import {
+  createAgent,
   getAgents,
   getConversation,
   initConversation,
@@ -8,27 +9,13 @@ import {
 } from "./apiCalls";
 import { TAttachment } from "../types";
 import { SocketManager } from "./socketManager";
-import { STREAMING_BACKEND_URL } from "./constants";
+import { getRandomWordsAndSlug, STREAMING_BACKEND_URL } from "./constants";
+import { Agent, Message, Model } from "../types/agents";
+import toast from "react-hot-toast";
 
-type Message = {
-  sender: string;
-  text: string;
-  imageUrl?: string;
-};
-
-type Model = {
-  name: string;
-  provider: string;
-  slug: string;
-  selected: boolean;
-};
-
-type Agent = {
-  name: string;
-  provider: string;
-  slug: string;
-  selected: boolean;
-  type: "model" | "agent";
+type SetOpenedProps = {
+  action: "add" | "remove";
+  name: "documents" | "tags" | "completions";
 };
 
 type Store = {
@@ -43,10 +30,13 @@ type Store = {
   chatState: {
     isSidebarOpened: boolean;
     attachments: TAttachment[];
-    selectedAgent: string;
     webSearch: boolean;
+    writtingMode: boolean;
+    useRag: boolean;
   };
   conversation: TConversationData | undefined;
+  openedModals: string[];
+  setOpenedModals: (opts: SetOpenedProps) => void;
   setMessages: (messages: Message[]) => void;
   setConversation: (conversationId: string | null) => void;
   addAttachment: (newAttachment: TAttachment, conversation_id: string) => void;
@@ -58,8 +48,11 @@ type Store = {
   cleanAttachments: () => void;
   deleteAttachment: (index: number) => void;
   toggleWebSearch: () => void;
+  toggleWrittingMode: () => void;
+  toggleUseRag: () => void;
   toggleAgentSelected: (slug: string) => void;
   setUser: (user: TUserData) => void;
+  addAgent: () => void;
 };
 
 export const useStore = create<Store>()((set, get) => ({
@@ -78,10 +71,26 @@ export const useStore = create<Store>()((set, get) => ({
   chatState: {
     isSidebarOpened: false,
     attachments: [],
-    selectedAgent: "",
     webSearch: false,
+    writtingMode: false,
+    useRag: false,
   },
   conversation: undefined,
+  openedModals: [],
+
+  setOpenedModals: ({ action, name }) => {
+    const { openedModals } = get();
+    const copy = [...openedModals];
+    const index = copy.indexOf(name);
+
+    if (action === "add" && index === -1) {
+      copy.push(name);
+    } else if (action === "remove" && index !== -1) {
+      copy.splice(index, 1);
+    }
+
+    set({ openedModals: copy });
+  },
   setConversation: async (conversationId) => {
     let data;
 
@@ -100,11 +109,10 @@ export const useStore = create<Store>()((set, get) => ({
   setModel: (model) => set({ model }),
   setModels: (models) => set({ models }),
   addAttachment: async (newAttachment, conversation_id) => {
-    const { chatState } = get();
+    const { agents } = get();
     const formData = new FormData();
 
-    console.log(newAttachment);
-    if (["image"].includes(newAttachment.type)) {
+    if (newAttachment.type.includes("image")) {
       set((state) => ({
         chatState: {
           ...state.chatState,
@@ -114,14 +122,26 @@ export const useStore = create<Store>()((set, get) => ({
       return;
     }
 
-    formData.append("agent_slug", chatState.selectedAgent);
+    const selectedAgents = agents.map((a) => a.slug);
+    if (selectedAgents.length === 0) {
+      toast.error("No agents selected, please select one to attach the ");
+    } else {
+      console.log("SELECTED AGENTS");
+      console.log(selectedAgents);
+    }
+    // TODO: Make this possible, persist information
+    // toast.error("NOT IMPLEMENTED ERROR IN STORE LINE 133");
+    // formData.append("agent_slug", chatState.selectedAgent);
     formData.append("name", newAttachment.name);
     formData.append("conversation_id", String(conversation_id));
+
     // @ts-ignore
     formData.append("file", newAttachment.file);
     try {
       const r = await uploadDocument(formData);
       newAttachment.id = r.id;
+      console.log("ADDED ATTACHMENT IN DB", r);
+
       set((state) => ({
         chatState: {
           ...state.chatState,
@@ -133,20 +153,18 @@ export const useStore = create<Store>()((set, get) => ({
     }
   },
   fetchAgents: async () => {
-    const agents = await getAgents();
+    const { agents, models } = await getAgents();
 
-    set({
-      agents,
-      chatState: {
-        isSidebarOpened: false,
-        attachments: [],
-        selectedAgent: agents.length > 0 ? agents[0].slug : "",
-        webSearch: false,
-      },
-    });
-    set((state) => ({
-      modelsAndAgents: [...state.modelsAndAgents, ...agents],
+    // console.log(agents, "AGENTS FROM DB");
+
+    const agentsCopy = agents.map((a, i) => ({
+      ...a,
+      selected: i === 0,
     }));
+    set({
+      agents: agentsCopy,
+      models,
+    });
   },
   toggleSidebar: () =>
     set((state) => ({
@@ -171,17 +189,9 @@ export const useStore = create<Store>()((set, get) => ({
     }));
   },
   toggleAgentSelected: (slug: string) => {
-    const { modelsAndAgents } = get();
+    const { agents } = get();
 
-    const copy = modelsAndAgents.map((a) => {
-      console.log(a);
-
-      if (a.type === "agent") {
-        set((s) => ({
-          chatState: { ...s.chatState, selectedAgent: a.slug },
-        }));
-      }
-
+    const copy = agents.map((a) => {
       if (a.slug == slug) {
         return {
           ...a,
@@ -192,7 +202,7 @@ export const useStore = create<Store>()((set, get) => ({
       }
     });
 
-    set({ modelsAndAgents: copy });
+    set({ agents: copy });
   },
   toggleWebSearch: () => {
     set((state) => ({
@@ -202,7 +212,54 @@ export const useStore = create<Store>()((set, get) => ({
       },
     }));
   },
+  toggleWrittingMode: () => {
+    set((state) => ({
+      chatState: {
+        ...state.chatState,
+        writtingMode: !state.chatState.writtingMode,
+      },
+    }));
+  },
+  toggleUseRag: () => {
+    set((state) => ({
+      chatState: {
+        ...state.chatState,
+        useRag: !state.chatState.useRag,
+      },
+    }));
+  },
+
   setUser: (user) => {
     set({ user });
+  },
+
+  addAgent: () => {
+    const { name, slug } = getRandomWordsAndSlug();
+    const exampleAgent: Agent = {
+      name,
+      slug,
+      selected: false,
+      act_as: "You are a helpful assistant",
+      default: true,
+      salute: "Hello world",
+      frequency_penalty: 0.5,
+      is_public: false,
+      max_tokens: 2048,
+      model_slug: "gpt-4o-mini",
+      presence_penalty: 0.3,
+      system_prompt: `{{act_as}}
+      The following context may be useful for your task:
+      \`\`\`
+      {{context}}
+      \`\`\``,
+      temperature: 0.7,
+      top_p: 0.9,
+    };
+
+    set((state) => ({
+      agents: [...state.agents, exampleAgent],
+    }));
+
+    createAgent(exampleAgent);
   },
 }));

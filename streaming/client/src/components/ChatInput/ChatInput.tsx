@@ -10,7 +10,7 @@ import { TConversationData } from "../../types/chatTypes";
 
 interface ChatInputProps {
   handleSendMessage: () => void;
-  handleKeyDown: (event, isWritingMode: boolean) => void;
+  handleKeyDown: (event) => void;
   conversation: TConversationData;
 }
 
@@ -19,7 +19,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   handleKeyDown,
   conversation,
 }) => {
-  const [isWritingMode, setIsWritingMode] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const {
     input,
@@ -28,6 +27,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     addAttachment,
     chatState,
     toggleWebSearch,
+    toggleUseRag,
+    toggleWritingMode,
   } = useStore((state) => ({
     input: state.input,
     setInput: state.setInput,
@@ -35,6 +36,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     addAttachment: state.addAttachment,
     chatState: state.chatState,
     toggleWebSearch: state.toggleWebSearch,
+    toggleWritingMode: state.toggleWrittingMode,
+    toggleUseRag: state.toggleUseRag,
   }));
 
   const allowedImageTypes = [
@@ -121,10 +124,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     fileInputRef.current.click();
   };
 
-  const toggleWritingMode = (e) => {
-    setIsWritingMode(!isWritingMode);
-  };
-
   return (
     <div className="chat-input">
       <section className="attachments">
@@ -141,10 +140,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       </section>
       <section>
         <textarea
-          className={isWritingMode ? "big-size" : ""}
+          className={chatState.writtingMode ? "big-size" : ""}
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => handleKeyDown(e, isWritingMode)}
+          onKeyDown={handleKeyDown}
           onPaste={handlePaste}
           placeholder="Type your message..."
         />
@@ -165,7 +164,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             <SvgButton onClick={openDocuments} svg={SVGS.addDocument} />
           </label>
           <SvgButton
-            extraClass={isWritingMode ? "active" : ""}
+            extraClass={chatState.writtingMode ? "active" : ""}
             onClick={toggleWritingMode}
             svg={SVGS.writePen}
           />
@@ -173,6 +172,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             extraClass={chatState.webSearch ? "active" : ""}
             onClick={toggleWebSearch}
             svg={SVGS.webSearch}
+          />
+          <SvgButton
+            extraClass={chatState.useRag ? "active" : ""}
+            onClick={toggleUseRag}
+            svg={SVGS.document}
           />
         </div>
       </section>
