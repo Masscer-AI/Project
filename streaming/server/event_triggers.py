@@ -73,7 +73,7 @@ async def on_message_handler(socket_id, data, **kwargs):
                 {"message": "Exploring the web to add more context to your message"},
                 to=socket_id,
             )
-            web_result = search_brave(message["text"])
+            web_result = search_brave(message["text"], context)
             complete_context += f"\n\nThe following context comes from a web search using the user message as query \n{web_result}. END OF WEB SEARCH RESULTS\n"
 
         system_prompt = get_system_prompt(

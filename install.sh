@@ -3,6 +3,8 @@
 
 set -o errexit
 
+git pull
+
 py -m venv venv
 
 source venv/Scripts/activate
