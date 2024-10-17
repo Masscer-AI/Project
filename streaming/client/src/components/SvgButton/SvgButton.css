@@ -9,6 +9,7 @@
   height: 40px;
   border-radius: 7px;
   cursor: pointer;
+  
 }
 
 
@@ -21,7 +22,7 @@
   align-items: center;
 }
 
-.svg-button > span:last-chil:not(:empty) {
+.svg-button > span:last-child:not(:empty) {
   margin-left: 5px;
 }
 .svg-button svg path {

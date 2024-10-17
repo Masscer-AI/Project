@@ -16,6 +16,7 @@
   --bg-color: rgb(10, 9, 26);
   --bg-secondary-color: rgba(31, 31, 31, 0.397);
   --hovered-color: rgba(75, 75, 75, 0.646);
+  --selected-color: rgba(75, 75, 75, 0.646);
   --modals-color: rgb(255, 255, 255);
   --modal-bg-color: #040404;
   --bg-contrast-color: rgb(55, 55, 55);

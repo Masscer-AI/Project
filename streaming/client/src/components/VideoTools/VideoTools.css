@@ -2,4 +2,52 @@
   padding-top: 100px;
   width: min(700px, 100%);
   margin-inline: auto;
+  text-align: center;
+}
+
+.generate-video-card {
+  background-color: var(--selected-color);
+  width: min(100%, 500px);
+  margin-inline: auto;
+  border-radius: var(--standard-radius);
+  padding: 10px;
+}
+.videos-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px;
+}
+
+.video-card {
+  border-radius: var(--standard-radius);
+  border: 1px solid var(--selected-color);
+  padding: 10px;
+  text-align: left;
+}
+
+.script-hovered:hover {
+  background-color: var(--selected-color);
+}
+.source-video-component {
+  display: flex;
+  justify-content: center;
+}
+
+.source-video-component .source-video-info {
+  display: none;
+}
+
+.source-video-component > img {
+  max-width: 200px;
+  height: fit-content;
+}
+.source-video-component > img:hover {
+  scale: 1.2;
+  transition: all 0.5s;
+}
+
+.source-video-component:has(img:hover, .source-video-info:hover) .source-video-info {
+  display: flex;
+  flex-direction: column;
 }

@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 import { SvgButton } from "../SvgButton/SvgButton";
 import { SVGS } from "../../assets/svgs";
 
-export const Modal = ({ children, visible, hide }) => {
+export const Modal = ({ children, hide, visible = true }) => {
   if (!visible) return null;
 
   return createPortal(

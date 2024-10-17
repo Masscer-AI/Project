@@ -138,6 +138,12 @@ const AgentConfigForm = ({ agent, onSave }: TAgentConfigProps) => {
             onChange={handleInputChange}
           />
         </label>
+        
+        <label>
+          <span>Slug</span>
+          <p>{agent.slug}</p>
+        </label>
+
         <label>
           <span>Model:</span>
           <select
