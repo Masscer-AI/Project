@@ -27,6 +27,7 @@ fi
 
 # Run Django application if the flag is true
 if [ "$DJANGO" = true ]; then
+    python manage.py migrate
     python manage.py runserver &
 fi
 
