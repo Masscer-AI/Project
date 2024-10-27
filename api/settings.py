@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     "api.rag",
     "api.finetuning",
     "api.tools",
+    "api.whatsapp"
 ]
 
 MIDDLEWARE = [

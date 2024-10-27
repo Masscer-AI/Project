@@ -23,6 +23,8 @@
   --border-radius: 6px;
   --selected-border: 1px solid var(--highlighted-color);
   --standard-radius: 8px;
+  --modal-max-height: 99vh;
+
   color-scheme: dark light;
   background-color: var(--bg-color);
 
@@ -33,14 +35,59 @@
   -webkit-text-size-adjust: 100%;
 }
 
+:root:has(body.dark) {
+  --active-color: #5779ff;
+  --highlighted-color: #733af0;
+  --secondary-color: #0077ff;
+
+  --font-color: rgb(255, 255, 255);
+  --font-color-secondary: rgb(160, 160, 160);
+  --bg-color: rgb(0, 0, 0);
+  --bg-secondary-color: #070514;
+  --bg-color-secondary: #090716;
+  --hovered-color: rgba(134, 134, 134, 0.248);
+  --selected-color: rgba(75, 75, 75, 0.646);
+  --modals-color: #00071a;
+
+  --gradient-bg: radial-gradient(
+    ellipse farthest-corner at top left,
+    rgba(66, 42, 255, 0.8),
+    rgba(110, 91, 255, 0.8) 50%,
+    rgba(36, 30, 84, 0.8)
+  );
+
+  --gradient-blue: radial-gradient(circle, #00c6ff, #0072ff);
+  --gradient-green: radial-gradient(circle, #00b09b, #96c93d);
+  --gradient-multiple: radial-gradient(
+    circle,
+    #01003c,
+    #15147c,
+    #413ef0,
+    #403cff
+  );
+
+  --assistant-color: #02091d;
+  --user-color: #743af04e;
+  --modal-bg-color: #080c16;
+  --bg-contrast-color: rgb(55, 55, 55);
+  --border-radius: 6px;
+  --selected-border: 1px solid var(--highlighted-color);
+  --standard-radius: 8px;
+  --font-color: rgb(255, 255, 255);
+
+  --contrast-color: #202020;
+}
+
 a {
   font-weight: 500;
   color: var(--font-color);
   text-decoration: inherit;
 }
-a:hover {
-  color: var(--hovered-color);
+
+* {
+  color: var(--font-color);
 }
+
 html {
   color-scheme: light;
   scroll-behavior: smooth;
@@ -48,6 +95,7 @@ html {
 body {
   margin: 0;
   min-height: 100vh;
+  background-color: var(--bg-color);
 }
 
 h1 {
@@ -55,25 +103,7 @@ h1 {
   line-height: 1.1;
 }
 
-/* button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
-} */
-
+/* 
 @media (prefers-color-scheme: light) {
   :root {
     color: #213547;
@@ -85,6 +115,10 @@ button:focus-visible {
   button {
     background-color: #f9f9f9;
   }
+} */
+
+textarea {
+  resize: vertical;
 }
 
 .nerko-one-regular {
@@ -98,10 +132,17 @@ button:focus-visible {
   background-color: transparent;
   border-radius: 6px;
   border: 0;
+  cursor: pointer;
 }
 
 .button:hover {
   background-color: #262626;
+}
+.button.bg-active {
+  background-color: var(--active-color);
+  /* background:var(--gradient-multiple); */
+  /* background: red; */
+  color: white;
 }
 
 .selected {
@@ -143,14 +184,16 @@ button:focus-visible {
 .clickeable:focus {
   border: 1px solid var(--highlighted-color);
   color: var(--highlighted-color) !important;
-  transition: 0.5s all;
+  transition: 0.2s all;
 }
 .clickeable:hover * {
-  color: var(--highlighted-color);
-  stroke: var(--highlighted-color);
+  color: var(--font-color);
+  stroke: var(--font-color);
+  scale: 1.01;
 }
 .clickeable:active {
   background-color: var(--highlighted-color);
+  color: var(--font-color);
 }
 
 .rounded-rect {
@@ -180,7 +223,7 @@ details[open] summary {
   display: flex;
   flex-direction: column;
   gap: 5px;
-
+  color: var(--font-color);
   > label {
     display: flex;
     gap: 10px;
@@ -212,10 +255,91 @@ details[open] summary {
 
 .modal-closer {
   position: absolute;
-  right: 10px;
-  top: 10px;
+  right: 20px;
+  top: 20px;
 }
 
 .text-center {
   text-align: center;
+}
+
+.button {
+  padding: 5px 10px;
+  border-radius: 5px;
+}
+
+.bg-secondary {
+  background-color: var(--bg-secondary-color);
+}
+
+.bg-active {
+  background-color: var(--active-color);
+}
+.p-big {
+  padding: 10px 15px;
+}
+.w-100 {
+  width: 100%;
+}
+
+.mt-small {
+  margin-top: 5px;
+}
+
+.card {
+  border-radius: 10px;
+  padding: 10px;
+  background-color: var(--bg-secondary-color);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--bg-contrast-color);
+  gap: 10px;
+  border-radius: 10px;
+  width: min(350px, 100%);
+  transition: 0.2s all ease-in-out;
+  margin-inline: auto;
+}
+
+.card:hover {
+  border: 1px solid var(--highlighted-color);
+}
+
+.justify-between {
+  justify-content: space-between;
+}
+.justify-center {
+  justify-content: center;
+}
+
+.d-flex {
+  display: flex;
+}
+
+.gap-small {
+  gap: 5px;
+}
+
+.gap-medium {
+  gap: 10px;
+}
+
+.gap-big {
+  gap: 20px;
+}
+
+.text-left {
+  text-align: left;
+}
+
+.wrap-wrap {
+  flex-wrap: wrap;
+}
+
+.align-center {
+  align-items: center;
+}
+
+.padding-medium {
+  padding: 15px;
 }

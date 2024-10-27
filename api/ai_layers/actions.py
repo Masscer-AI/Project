@@ -1,3 +1,6 @@
+from .models import Agent
+
+
 def check_models_for_providers():
     from api.utils.color_printer import printer
     from .models import LanguageModel
@@ -64,4 +67,12 @@ def check_models_for_providers():
                 # )
 
     printer.success("All models are now in the DB!")
-    
+
+
+def answer_agent_inquiry(agent_slug: str, context: str, user_message: str):
+    """ 
+    Answer an user message based on the agent configuration
+    """
+    agent = Agent.objects.get(slug=agent_slug)
+    answer = agent.answer(context=context, user_message=user_message)
+    return answer

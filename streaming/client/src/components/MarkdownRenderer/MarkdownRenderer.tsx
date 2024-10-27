@@ -12,7 +12,7 @@ const md = new MarkdownIt({
   typographer: true
 });
 
-const MarkdownRenderer = ({ markdown }: { markdown: string }) => {
+const MarkdownRenderer = ({ markdown, extraClass }: { markdown: string, extraClass?: string }) => {
   useEffect(() => {
     document.querySelectorAll("pre code").forEach((block) => {
       const htmlBlock = block as HTMLElement;
@@ -25,7 +25,7 @@ const MarkdownRenderer = ({ markdown }: { markdown: string }) => {
     document.querySelectorAll("pre").forEach((block) => {
       if (!block.querySelector(".copy-btn")) {
         const button = document.createElement("button");
-        button.className = "copy-btn";
+        button.className = "copy-btn clickeable";
         button.textContent = "Copy";
         block.appendChild(button);
 
@@ -52,7 +52,7 @@ const MarkdownRenderer = ({ markdown }: { markdown: string }) => {
 
   return (
     <div
-      className="markdown-renderer"
+      className={`markdown-renderer ${extraClass}`}
       dangerouslySetInnerHTML={getMarkdownText()}
     />
   );

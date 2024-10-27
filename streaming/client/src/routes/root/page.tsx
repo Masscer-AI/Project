@@ -100,7 +100,8 @@ export default function Root() {
       .join("\n");
 
     socket.connect();
-    socket.emit("message", {
+
+    const messageData = {
       message: {
         text: transcription,
         type: "user",
@@ -109,7 +110,10 @@ export default function Root() {
       context,
       conversation: data.conversation,
       token: PUBLIC_TOKEN,
-    });
+    }
+    console.log(messageData);
+    
+    socket.emit("message", messageData);
   };
 
   const generateSpeech = async (text: string) => {

@@ -40,28 +40,28 @@ export default function Signup() {
         <h2 className="simple-form-title">Sign Up</h2>
         <form onSubmit={handleSubmit}>
           <div className="simple-form-group">
-            <label className="simple-form-label">Username:</label>
             <input
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
               className="simple-form-input"
+              autoComplete="username"
+              placeholder="Username"
             />
           </div>
           <div className="simple-form-group">
-            <label className="simple-form-label">Email:</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
               className="simple-form-input"
+              placeholder="Email"
               autoComplete="email"
             />
           </div>
           <div className="simple-form-group">
-            <label className="simple-form-label">Password:</label>
             <input
               type="password"
               value={password}
@@ -69,15 +69,16 @@ export default function Signup() {
               required
               className="simple-form-input"
               autoComplete="current-password"
+              placeholder="Password"
             />
           </div>
-          <button type="submit" className="simple-form-button">
+          <button type="submit" className="button w-100 bg-active">
             Signup
           </button>
         </form>
         <button
           onClick={() => navigate("/login")}
-          className="simple-form-button"
+          className="button w-100"
         >
           Switch to Login
         </button>

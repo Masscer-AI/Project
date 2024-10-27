@@ -12,7 +12,7 @@ export const Modal = ({ children, hide, visible = true }) => {
       <div className={styles.modalBackdrop} onClick={hide}></div>
       <div className={styles.modalContent}>
         <SvgButton extraClass="modal-closer" onClick={hide} svg={SVGS.close} />
-        {children}
+        <div>{children}</div>
       </div>
     </div>,
     document.body

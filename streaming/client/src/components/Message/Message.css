@@ -2,23 +2,26 @@
   margin-bottom: 15px;
   padding: 10px;
   border-radius: 8px;
-
   max-width: 100%;
+  display: flex;
+  flex-direction: column;
 }
 .message:hover .message-buttons {
   visibility: visible;
+  width: fit-content;
 }
-
-.message.user {
-  align-self: flex-end;
-}
-
-.message.user > div:first-child {
-  background-color: #262626;
+.message > .message-text {
   padding: 10px 15px;
   width: fit-content;
   border-radius: 10px;
-  color: #fff;
+  color: var(--font-color);
+}
+
+.message.user {
+  align-items: flex-end;
+}
+.message.user > .message-text {
+  background: var(--user-color);
 }
 
 .message img {

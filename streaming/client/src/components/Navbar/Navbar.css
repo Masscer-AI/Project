@@ -3,7 +3,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 1rem 2rem;
-    background: linear-gradient(to bottom, var(--active-color), var(--bg-color));
+    background: linear-gradient(rgb(67, 67, 67), rgb(0, 0, 0));
     color: #fff;
     font-family: 'Nerko One', cursive;
 }

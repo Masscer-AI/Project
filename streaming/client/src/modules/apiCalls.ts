@@ -194,7 +194,6 @@ export const createAgent = async (agent: any) => {
   }
 };
 
-
 export const getChunk = async (chunkId: string) => {
   try {
     const endpoint = `/v1/rag/chunks/${chunkId}/`;
@@ -211,8 +210,6 @@ export const getChunk = async (chunkId: string) => {
   }
 };
 
-
-
 export const getVideos = async () => {
   try {
     const response = await makeAuthenticatedRequest<any>(
@@ -228,12 +225,11 @@ export const getVideos = async () => {
   }
 };
 
-
 export const getMedia = async (
-  query: string, 
-  perPage: number = 15, 
-  page: number = 1, 
-  orientation: string = "landscape", 
+  query: string,
+  perPage: number = 15,
+  page: number = 1,
+  orientation: string = "landscape",
   isPublic: boolean = false
 ) => {
   try {
@@ -249,4 +245,32 @@ export const getMedia = async (
     console.error("Error fetching media:", error);
     throw error;
   }
+};
+
+export const getWhatsappNumbers = async () => {
+  return makeAuthenticatedRequest("GET", "/v1/whatsapp/numbers");
+};
+
+export const getWhatsappConversations = async () => {
+  return makeAuthenticatedRequest("GET", "/v1/whatsapp/conversations");
+};
+
+export const getWhatsappConversationMessages = async (
+  conversationId: string
+) => {
+  return makeAuthenticatedRequest(
+    "GET",
+    `/v1/whatsapp/conversations/${conversationId}`
+  );
+};
+
+export const sendMessageToConversation = async (
+  conversationId: string,
+  message: string
+) => {
+  return makeAuthenticatedRequest(
+    "POST",
+    `/v1/whatsapp/conversations/${conversationId}`,
+    { message }
+  );
 };

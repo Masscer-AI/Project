@@ -10,8 +10,9 @@ import Signup from "./routes/signup/page.tsx";
 import ChatView from "./routes/chat/page.tsx";
 import Layout from "./routes/Layout.tsx";
 import Login from "./routes/login/page.tsx";
-import Tools from "./routes/tools/page.tsx"
-
+import Tools from "./routes/tools/page.tsx";
+import Whatsapp from "./routes/whatsapp/page.tsx";
+import { whatsappLoader } from "./routes/whatsapp/loader.ts";
 const router = createBrowserRouter([
   {
     path: "/",
@@ -47,8 +48,13 @@ const router = createBrowserRouter([
   },
   {
     path: "/tools",
-    element: <Tools />
-  }
+    element: <Tools />,
+  },
+  {
+    path: "/whatsapp",
+    element: <Whatsapp />,
+    loader: whatsappLoader,
+  },
 ]);
 
 ReactDOM.createRoot(document.getElementById("root")!).render(

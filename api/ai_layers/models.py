@@ -2,6 +2,12 @@ from django.db import models
 from django.utils.text import slugify
 from django.core.validators import MinValueValidator, MaxValueValidator
 from api.providers.models import AIProvider
+from api.utils.openai_functions import create_completion_openai, create_structured_completion
+from pydantic import BaseModel, Field
+
+
+class ExampleStructure(BaseModel):
+    example: str = Field(description="An example of a good response")
 
 DEFAULT_CHARACTER = """
 You are an useful assistant.
@@ -84,7 +90,6 @@ class Agent(models.Model):
             llm = LanguageModel.objects.get(slug=self.model_slug)
             self.llm = llm
 
-    
         super().save(*args, **kwargs)
 
     def format_prompt(self, context: str = ""):
@@ -92,3 +97,16 @@ class Agent(models.Model):
             "{{context}}", context
         )
         return formatted
+
+    def answer(self, context: str = "", user_message: str = "Hello, who are you?", response_format: BaseModel = ExampleStructure):
+        _system = self.format_prompt(context=context)
+        # _answer = create_completion_openai(
+        #     system_prompt=_system, user_message=user_message
+        # )
+        response = create_structured_completion(
+            system_prompt=_system, user_prompt=user_message,
+            model="gpt-4o-mini", response_format=response_format
+        )
+        
+
+        return response

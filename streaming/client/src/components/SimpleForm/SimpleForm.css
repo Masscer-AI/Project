@@ -1,58 +1,52 @@
 .simple-form {
-    background-color: var(--modals-color);
-    padding: 40px;
-    border-radius: 10px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    transition: all 0.3s ease;
-    width: min(400px, 100%);
-  }
-  
-  .simple-form:hover {
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
-  }
-  
-  .simple-form-title {
-    margin-bottom: 20px;
-    color: #333;
-  }
-  
-  .simple-form-group {
-    margin-bottom: 15px;
-  }
-  
-  .simple-form-label {
-    display: block;
-    margin-bottom: 5px;
-    color: #555;
-  }
-  
-  .simple-form-input {
-    width: 100%;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    background-color: transparent;
-    transition: border-color 0.3s ease;
-    color: var(--text-font-color);
-    color: black;
-  }
-  
-  .simple-form-input:focus {
-    border-color: #e7e7e7;
-  }
-  
-  .simple-form-button {
-    width: 100%;
-    padding: 10px;
-    background-color: var(--active-color);
-    color: #fff;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    margin-top: 10px;
-  }
-  
-  .simple-form-button:hover {
-    background-color: var(--hovered-color);
-  }
-  
+  background-color: var(--modals-color);
+  padding: 40px;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  width: min(400px, 100%);
+  border: 2px solid transparent;
+  background: radial-gradient(
+    ellipse at center,
+    var(--navy),
+    black
+  );
+  color: var(--font-color);
+}
+
+.simple-form:hover {
+  /* box-shadow: 0 8px 16px rgba(0, 195, 255, 0.2); */
+  border: 2px solid rgba(128, 128, 128, 0.294);
+}
+
+.simple-form-title {
+  margin-bottom: 20px;
+  color: var(--font-color);
+  text-align: center;
+}
+
+.simple-form-group {
+  margin-bottom: 15px;
+}
+
+.simple-form input:focus, .simple-form input:active {
+  border-color: var(--navy) !important; 
+}
+
+.simple-form input {
+  color: var(--font-color);
+  width: 100%;
+  padding: 6px;
+  background-color: transparent;
+  border: 1px solid var(--font-color-secondary);
+  border-radius: 4px;
+}
+
+.simple-form input::placeholder {
+  color: var(--font-color-secondary);
+}
+
+
+.simple-form input:focus::placeholder {
+  color: var(--font-color);
+}

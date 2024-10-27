@@ -3,6 +3,7 @@ import { useStore } from "../../modules/store";
 import { SVGS } from "../../assets/svgs";
 import { FloatingDropdown } from "../Dropdown/Dropdown";
 import { Agent } from "../../types/agents";
+// @ts-ignore
 import styles from "./ChatHeader.module.css";
 import { Modal } from "../Modal/Modal";
 import { SvgButton } from "../SvgButton/SvgButton";
@@ -24,11 +25,13 @@ export const ChatHeader = () => {
 
   return (
     <div className="chat-header">
-      <button onClick={toggleSidebar}>{SVGS.burger}</button>
+      <button className="button" onClick={toggleSidebar}>
+        {SVGS.burger}
+      </button>
       <FloatingDropdown title={"Agents"}>
         <h3>Agents</h3>
         {agents.map((agent, index) => (
-          <AgentComponent agent={agent} />
+          <AgentComponent key={index} agent={agent} />
         ))}
         <div>
           <SvgButton onClick={addAgent} svg={SVGS.plus} />
@@ -67,7 +70,7 @@ const AgentComponent = ({ agent }: TAgentComponentProps) => {
   return (
     <div className={styles.agentComponent}>
       <section onClick={() => toggleAgentSelected(agent.slug)}>
-        <input type="checkbox" checked={agent.selected} />
+        <input onChange={() => {}} type="checkbox" checked={agent.selected} />
         <span>{agent.name}</span>
       </section>
       <section className="clickeable button" onClick={showModal}>
@@ -138,7 +141,7 @@ const AgentConfigForm = ({ agent, onSave }: TAgentConfigProps) => {
             onChange={handleInputChange}
           />
         </label>
-        
+
         <label>
           <span>Slug</span>
           <p>{agent.slug}</p>

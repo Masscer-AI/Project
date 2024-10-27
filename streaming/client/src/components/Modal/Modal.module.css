@@ -23,14 +23,17 @@
 
 .modalContent {
   background-color: var(--modal-bg-color);
-  padding: 20px;
   border-radius: 8px;
-  max-height: 90vh;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.403);
-  width: min(98%, 700px);
+  box-shadow: 0 0px 20px rgba(0, 0, 0, 0.742);
+  width: min(98%, 900px);
   z-index: 3;
   position: relative;
-  overflow: auto;
 }
 
-
+.modalContent > div {
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--bg-contrast-color) var(--modal-bg-color);
+  padding: 20px;
+  max-height: var(--modal-max-height);
+}

@@ -5,7 +5,7 @@ export const FloatingDropdown = ({ children, title }) => {
 
   return (
     <div className="floating-dropdown">
-      <button onClick={() => setIsOpened(!isOpened)}>{title}</button>
+      <button className="button" onClick={() => setIsOpened(!isOpened)}>{title}</button>
       {isOpened && <div className="__content">{children}</div>}
     </div>
   );

@@ -37,7 +37,13 @@ async def on_message_handler(socket_id, data, **kwargs):
     message = data["message"]
     web_search_activated = data.get("web_search_activated", False)
     use_rag = data.get("use_rag", False)
-    models_to_complete = data.get("models_to_complete", [])
+    models_to_complete = data.get("models_to_complete", [ {
+        "slug": "public-assistant",
+        "llm": {
+            "provider": "openai",
+            "slug": "gpt-4o-mini"
+        }
+    } ])
 
     token = data["token"]
 

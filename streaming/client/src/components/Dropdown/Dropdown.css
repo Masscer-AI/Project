@@ -1,6 +1,7 @@
 .floating-dropdown {
     position: relative;
-
+    display: flex;
+    align-items: center;
     > button {
         cursor: pointer;
     }

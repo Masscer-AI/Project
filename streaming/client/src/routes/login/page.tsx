@@ -40,37 +40,37 @@ export default function Login() {
         <h2 className="simple-form-title">Login</h2>
         <form onSubmit={handleSubmit}>
           <div className="simple-form-group">
-            <label className="simple-form-label">Email:</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              placeholder="Email"
               className="simple-form-input"
               autoComplete="email"
             />
           </div>
           <div className="simple-form-group">
-            <label className="simple-form-label">Password:</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              placeholder="Password"
               className="simple-form-input"
               autoComplete="current-password"
             />
           </div>
-          <button type="submit" className="simple-form-button">
+          <button type="submit" className="w-100 p-big button bg-active">
             Login
           </button>
-        </form>
         <button
           onClick={() => navigate("/signup")}
-          className="simple-form-button"
+          className="button bg-secondary w-100 p-big"
         >
           Switch to Signup
         </button>
+        </form>
       </SimpleForm>
     </div>
   );

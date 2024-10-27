@@ -1,5 +1,5 @@
 .sidebar {
-  background-color: var(--bg-secondary-color);
+  background-color: var(--modal-bg-color);
   position: fixed;
   left: 0;
   top: 0;
@@ -26,7 +26,6 @@
 .sidebar__history {
   overflow-y: scroll;
   scrollbar-width: none;
-
 }
 .sidebar__header {
   display: flex;

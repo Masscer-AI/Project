@@ -77,9 +77,7 @@ export const Sidebar: React.FC = () => {
   return (
     <div className="sidebar">
       <div className="sidebar__header">
-        <button className=" clickeable button" onClick={handleNewChat}>
-          New chat
-        </button>
+        <SvgButton onClick={handleNewChat} svg={SVGS.plus} size="big" text="New Chat" />
         <SvgButton onClick={toggleSidebar} svg={SVGS.burger} />
       </div>
       <details className="sidebar__history">
@@ -111,6 +109,12 @@ export const Sidebar: React.FC = () => {
         >
           Video
         </p>
+        <p
+          className="clickeable rounded-rect"
+          onClick={() => goTo("/whatsapp")}
+        >
+          WhatsApp
+        </p>
       </details>
       <details>
         <summary>Training</summary>
@@ -118,7 +122,7 @@ export const Sidebar: React.FC = () => {
           className="clickeable rounded-rect"
           onClick={() => {
             setOpenedModals({ action: "add", name: "documents" }),
-            toggleSidebar();
+              toggleSidebar();
           }}
         >
           Documents

@@ -1,0 +1,21 @@
+.whatsapp-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  padding: 0% 5vw;
+}
+
+.whatsapp-header {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--contrast-color);
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.whatsapp-messages {
+  max-height: 60vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--bg-contrast-color) var(--bg-color);
+}

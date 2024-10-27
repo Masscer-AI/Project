@@ -8,19 +8,58 @@ import random
 
 def generate_random_name():
     words = [
-        "alpha",
-        "bravo",
-        "charlie",
-        "delta",
+        "apple",
+        "banana",
+        "cherry",
+        "dragon",
+        "elephant",
+        "flamingo",
+        "giraffe",
+        "honey",
+        "iguana",
+        "jelly",
+        "kite",
+        "lemon",
+        "mango",
+        "nebula",
+        "octopus",
+        "pineapple",
+        "quokka",
+        "raspberry",
+        "starfish",
+        "tiger",
+        "umbrella",
+        "violin",
+        "watermelon",
+        "xylophone",
+        "yogurt",
+        "zebra",
+        "acorn",
+        "balloon",
+        "cactus",
+        "daffodil",
         "echo",
-        "foxtrot",
-        "golf",
-        "hotel",
-        "india",
-        "cookie",
-        "chroma",
-        "happy",
+        "feather",
+        "galaxy",
+        "hammock",
+        "island",
+        "jigsaw",
+        "kaleidoscope",
+        "lantern",
+        "meadow",
+        "notebook",
+        "olive",
+        "pebble",
+        "quilt",
+        "river",
+        "snowflake",
+        "tambourine",
+        "unicorn",
+        "volcano",
+        "willow",
+        "xerus",
     ]
+
     return " ".join(random.sample(words, 3))
 
 
@@ -36,7 +75,6 @@ class Collection(models.Model):
         Conversation, on_delete=models.CASCADE, null=True, blank=True
     )
 
-    # TODO: AI generate based in a subset of chunks brief: Which kind of doc
     # tags
     def save(self, *args, **kwargs):
         if not self.name:
@@ -59,6 +97,7 @@ class Document(models.Model):
 
     def __str__(self):
         return f"Document(name={self.name},id={self.id})"
+
     def create_chunks(self):
         from .signals import chunks_created
 
@@ -92,7 +131,7 @@ class Chunk(models.Model):
             brief = self.content
         chroma_client.upsert_chunk(
             collection_name=self.document.collection.slug,
-            chunk_id=str(self.id),
+            chunk_id=str(self.id+"-brief"),
             chunk_text=brief,
             metadata={
                 "document_id": f"{self.document.id}",

@@ -6,7 +6,7 @@
   margin: 0 auto;
   border-radius: 8px;
   overflow: hidden;
-  background-color: #171717;
+  background-color: var(--bg-color);
   color: #ffffff;
   padding: 20px;
 }
@@ -23,6 +23,7 @@
 
 .chat-header {
   display: flex;
+  align-items: center;
 }
 
 .chat-header select {
@@ -35,7 +36,7 @@
   border: 0;
 }
 .chat-header svg path {
-  stroke: white;
+  stroke: var(--font-color);
 }
 
 .chat-header select option {

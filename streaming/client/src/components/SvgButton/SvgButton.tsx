@@ -2,9 +2,9 @@ import React from "react";
 import "./SvgButton.css";
 
 export const SvgButton = ({
-  text = "",
   svg,
-  onClick,
+  text = "",
+  onClick = () => {},
   extraClass = "",
   size = "small",
 }) => {
@@ -14,7 +14,7 @@ export const SvgButton = ({
       className={`svg-button clickeable ${extraClass} ${size}`}
       onClick={onClick}
     >
-      <span>{svg} </span>
+      <span>{svg}</span>
       <span>{text}</span>
     </button>
   );

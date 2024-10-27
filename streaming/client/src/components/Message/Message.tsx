@@ -14,17 +14,17 @@ interface Link {
   text: string;
 }
 
-const extractHtmlLinks = (markdownText: string): Link[] => {
-  const linkRegex = /<a\s+(?:[^>]*?\s+)?href="([^"]*)">(.*?)<\/a>/gi;
-  let matches;
-  const links: Link[] = [];
+// const extractHtmlLinks = (markdownText: string): Link[] => {
+//   const linkRegex = /<a\s+(?:[^>]*?\s+)?href="([^"]*)">(.*?)<\/a>/gi;
+//   let matches;
+//   const links: Link[] = [];
 
-  while ((matches = linkRegex.exec(markdownText)) !== null) {
-    links.push({ url: matches[1], text: matches[2] });
-  }
+//   while ((matches = linkRegex.exec(markdownText)) !== null) {
+//     links.push({ url: matches[1], text: matches[2] });
+//   }
 
-  return links;
-};
+//   return links;
+// };
 
 interface MessageProps {
   type: string;
@@ -81,7 +81,7 @@ export const Message: React.FC<MessageProps> = ({
 
   return (
     <div className={`message ${type} message-${index}`}>
-      <MarkdownRenderer markdown={text} />
+      <MarkdownRenderer markdown={text} extraClass={"message-text"} />
       <section className="message__attachments">
         {attachments &&
           typeof attachments == "object" &&

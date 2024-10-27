@@ -14,9 +14,4 @@
   padding: 10px;
 }
 
-.card {
-  background-color: rgb(52, 52, 52);
-  padding: 10px;
-  border-radius: 10px;
-  width: min(300px, 100%);
-}
+

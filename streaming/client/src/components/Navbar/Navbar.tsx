@@ -11,8 +11,8 @@ export const Navbar = () => {
         </h1>
       </section>
       <section>
-        <Link className="highlighted" to={"/signup"}>Signup</Link>
-        <Link to={"/login"}>Login</Link>
+        <Link className="highlighted button bg-active" to={"/signup"}>Signup</Link>
+        <Link className="button" to={"/login"}>Login</Link>
       </section>
     </nav>
   );

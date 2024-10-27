@@ -2,7 +2,7 @@
 
 # Default values for the flags
 DJANGO=true
-INSTALL=false
+INSTALL=true  # Changed to true to install by default
 
 # Parse command line arguments
 while [[ "$#" -gt 0 ]]; do

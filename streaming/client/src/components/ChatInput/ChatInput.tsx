@@ -147,7 +147,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           onPaste={handlePaste}
           placeholder="Type your message..."
         />
-        <div className="flex-y gap-1">
+      </section>
+      <section className="mt-small">
+        <div className="flex-x">
           {/* <button className="button" onClick={handleSendMessage}>{SVGS.send}</button> */}
           <SvgButton onClick={handleSendMessage} svg={SVGS.send} />
           <input
