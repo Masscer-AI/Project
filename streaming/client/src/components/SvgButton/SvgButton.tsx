@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import "./SvgButton.css";
 
 type SvgButtonProps = {
@@ -32,6 +32,10 @@ export const SvgButton = ({
       setPendingConfirmations(pendingConfirmations.slice(1));
     }
   };
+
+  useEffect(() => {
+    setInnerText(text);
+  }, [text]);
 
   return (
     <button

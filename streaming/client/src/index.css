@@ -18,7 +18,7 @@
   --selected-border: 1px solid var(--highlighted-color);
   --standard-radius: 8px;
   --modal-max-height: 99vh;
-
+  --root-bg-color: #06181f;
   --danger-color: #ff3e3e;
   --success-color: #20dd92;
   color-scheme: dark light;
@@ -43,7 +43,8 @@
   --hovered-color: rgba(134, 134, 134, 0.248);
   --selected-color: rgba(75, 75, 75, 0.646);
   --modals-color: #00071a;
-
+  --font-color-secondary: rgb(160, 160, 160);
+  --root-bg-color: #06181f;
   --gradient-bg: radial-gradient(
     ellipse farthest-corner at top left,
     rgba(66, 42, 255, 0.8),
@@ -69,7 +70,7 @@
   --selected-border: 1px solid var(--highlighted-color);
   --standard-radius: 8px;
   --font-color: rgb(255, 255, 255);
-
+  --font-color-secondary: rgb(88, 88, 88);
   --contrast-color: #202020;
 }
 
@@ -140,8 +141,6 @@ textarea {
 }
 .button.bg-active {
   background-color: var(--active-color);
-  /* background:var(--gradient-multiple); */
-  /* background: red; */
   color: white;
 }
 
@@ -270,7 +269,7 @@ details[open] summary {
 }
 
 .bg-active {
-  background-color: var(--active-color);
+  background-color: var(--active-color) !important;
 }
 .p-big {
   padding: 10px 15px;
@@ -370,7 +369,7 @@ details[open] summary {
 }
 
 .bg-hovered {
-  background-color: var(--hovered-color);
+  background-color: var(--hovered-color) !important;
 }
 
 .pill {
@@ -378,4 +377,71 @@ details[open] summary {
   border-radius: 50vh;
   font-size: 12px;
   cursor: pointer;
+}
+
+.text-small {
+  font-size: 12px;
+}
+
+.padding-small {
+  padding: 5px;
+}
+
+.rounded {
+  border-radius: var(--standard-radius);
+}
+
+.carousel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  justify-content: center;
+  align-items: center;
+  margin-inline: auto;
+  animation: carousel cubic-bezier(0.39, 0.575, 0.565, 1) 5s infinite;
+  min-height: 30vh;
+}
+
+@keyframes carousel {
+  0% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.text-black {
+  color: black;
+}
+
+.badge {
+  padding: 20px;
+  border-radius: 10px;
+}
+
+.call-to-action {
+  background-color: var(--hovered-color);
+  padding: 20px;
+  border-radius: var(--standard-radius);
+  animation: appear-left 0.5s ease-in-out forwards infinite;
+  margin-inline: auto;
+  width: min(600px, 100%);
+}
+
+.call-to-action li {
+  list-style-type: none;
+  margin-left: 10px;
+}
+
+@keyframes appear-left {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }

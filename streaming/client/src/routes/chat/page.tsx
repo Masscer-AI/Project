@@ -82,7 +82,9 @@ export default function ChatView() {
 
     socket.on("responseFinished", (data) => {
       console.log("Response finished:", data);
-      // socket.disconnect();
+    });
+    socket.on("sources", (data) => {
+      console.log("Sources:", data);
     });
     socket.on("notification", (data) => {
       console.log("Receiving notification:", data);
@@ -95,6 +97,7 @@ export default function ChatView() {
       socket.off("audio-file");
       socket.off("responseFinished");
       socket.off("notification");
+      socket.off("sources");
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages]);
@@ -126,30 +129,16 @@ export default function ChatView() {
     try {
       const token = localStorage.getItem("token");
 
-      const attachmentsOnlyId = chatState.attachments.filter(
-        (a) => !Boolean(a.id)
-      );
-
-      socket.emit(
-        "message",
-        {
-          message: {
-            type: "user",
-            text: input,
-            attachments: attachmentsOnlyId,
-          },
-          context: messages.map((msg) => `${msg.type}: ${msg.text}`).join("\n"),
-          model: model,
-          token: token,
-          models_to_complete: selectedAgents,
-          conversation: conversation ? conversation : loaderData.conversation,
-          web_search_activated: chatState.webSearch,
-          use_rag: chatState.useRag,
-        },
-        (ack) => {
-          console.log(ack, "ACK FROM SERVER ?");
-        }
-      );
+      socket.emit("message", {
+        message: userMessage,
+        context: messages.map((msg) => `${msg.type}: ${msg.text}`).join("\n"),
+        model: model,
+        token: token,
+        models_to_complete: selectedAgents,
+        conversation: conversation ? conversation : loaderData.conversation,
+        web_search_activated: chatState.webSearch,
+        use_rag: chatState.useRag,
+      });
 
       setInput("");
       cleanAttachments();

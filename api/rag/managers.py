@@ -46,5 +46,9 @@ class ChromaManager:
         print("Deleting collection from chroma")
         self.client.delete_collection(collection_name)
 
+    def delete_chunk(self, collection_name: str, chunk_id: str):
+        collection = self.get_or_create_collection(collection_name)
+        collection.delete(ids=[chunk_id])
+
 
 chroma_client = ChromaManager()

@@ -3,6 +3,7 @@ import json
 
 API_URL = "http://127.0.0.1:8000"
 
+
 def save_message(message: dict, conversation: str, token: str):
 
     endpoint = API_URL + "/v1/messaging/messages"
@@ -50,7 +51,6 @@ def get_results(
 
 
 def get_system_prompt(agent_slug: str, context: str, token: str):
-
     endpoint = API_URL + "/v1/ai_layers/system_prompt/"
     headers = {"Authorization": "Token " + token}
     body = {

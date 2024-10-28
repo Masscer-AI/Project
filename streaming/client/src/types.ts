@@ -10,13 +10,12 @@ export type TSomething = {
 };
 
 export type TAttachment = {
-  id?: number
+  id?: number;
   file: File | null;
   type: string;
   content: string;
   name: string;
 };
-
 
 export interface TConversation {
   id: string;
@@ -24,3 +23,11 @@ export interface TConversation {
   number_of_messages: number;
   title: undefined | string;
 }
+
+export type TCompletion = {
+  id: number;
+  prompt: string;
+  answer: string;
+  approved: boolean;
+  agent: number;
+};

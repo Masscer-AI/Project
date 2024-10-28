@@ -5,6 +5,7 @@
   max-width: 100%;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 .message:hover .message-buttons {
   visibility: visible;
@@ -15,6 +16,12 @@
   width: fit-content;
   border-radius: 10px;
   color: var(--font-color);
+
+  & .reaction {
+    position: absolute;
+    bottom: 0;
+    right: 10px;
+  }
 }
 
 .message.user {

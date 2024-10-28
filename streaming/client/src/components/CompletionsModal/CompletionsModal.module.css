@@ -1,0 +1,32 @@
+.completionCard {
+  border-radius: 10px;
+  border: 1px solid var(--font-color-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: hidden;
+  > h4 {
+    font-size: 1.1rem;
+    color: var(--active-color);
+    background-color: var(--bg-secondary-color);
+    padding: 5px;
+    text-align: center;
+  }
+  & div {
+    padding: 10px !important;
+    overflow: auto;
+  }
+  > textarea {
+    padding: 10px;
+    border-radius: 5px;
+    border: 1px solid var(--font-color-secondary);
+    background-color: var(--bg-secondary-color);
+    min-height: 300px;
+  }
+  > input {
+    padding: 10px;
+    border-radius: 5px;
+    border: 1px solid var(--font-color-secondary);
+    background-color: var(--bg-secondary-color);
+  }
+}

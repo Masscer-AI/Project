@@ -15,6 +15,7 @@ import { TConversation } from "../../types";
 import { Modal } from "../Modal/Modal";
 import { AgentSelector } from "../AgentSelector/AgentSelector";
 import toast from "react-hot-toast";
+import { Pill } from "../Pill/Pill";
 
 export const Sidebar: React.FC = () => {
   const { toggleSidebar, setConversation, user, setOpenedModals } = useStore(
@@ -300,6 +301,7 @@ const TrainingOnConversation = ({
       completions_target_number: completionsTargetNumber,
     });
     toast.success("Training generation in queue...");
+    hide();
   };
 
   return (
@@ -352,21 +354,5 @@ const TrainingOnConversation = ({
         />
       </div>
     </Modal>
-  );
-};
-
-export const Pill = ({
-  children,
-  extraClass = "",
-  onClick = () => {},
-}: {
-  children: React.ReactNode;
-  extraClass?: string;
-  onClick?: () => void;
-}) => {
-  return (
-    <span onClick={onClick} className={`pill ${extraClass}`}>
-      {children}
-    </span>
   );
 };

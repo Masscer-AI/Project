@@ -1,0 +1,25 @@
+.landingComponent {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background-image: url("./landing.png");
+  background-size: cover;
+  background-position: center;
+  padding: 10px;
+  padding-top: 50px;
+  min-height: 50vh;
+
+  > section {
+    width: 80%;
+  }
+}
+
+/* Media query to devices more than 500px */
+@media (min-width: 500px) {
+  .landingComponent {
+    padding-top: 100px;
+    > section {
+      width: 50%;
+    }
+  }
+}

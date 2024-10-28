@@ -7,7 +7,6 @@ from pydantic import BaseModel, Field
 from datetime import datetime
 
 
-
 class ExampleStructure(BaseModel):
     example: str = Field(description="An example of a good response")
 
@@ -110,10 +109,8 @@ class Agent(models.Model):
         user_message: str = "Hello, who are you?",
         response_format: BaseModel = ExampleStructure,
     ):
+        context, sources = self.append_rag_context(context)
         _system = self.format_prompt(context=context)
-        # _answer = create_completion_openai(
-        #     system_prompt=_system, user_message=user_message
-        # )
 
         current_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -132,3 +129,22 @@ class Agent(models.Model):
 
         serializer = AgentSerializer(self)
         return serializer.data
+
+    def get_collection(self):
+        from api.rag.models import Collection
+
+        return Collection.objects.get(agent=self)
+
+    def append_rag_context(self, context: str = ""):
+        from api.rag.managers import chroma_client
+        from api.rag.actions import querify_context, extract_rag_results
+
+        collection = self.get_collection()
+        queries = querify_context(context, collection)
+        results = chroma_client.get_results(
+            collection_name=collection.slug,
+            query_texts=queries.queries,
+            n_results=3,
+        )
+
+        return extract_rag_results({"results": results}, context)

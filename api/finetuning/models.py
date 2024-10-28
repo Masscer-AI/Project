@@ -2,6 +2,9 @@ from django.db import models
 from django.contrib.auth.models import User
 
 from api.ai_layers.models import Agent
+from api.rag.managers import chroma_client
+from api.rag.models import Collection
+from api.utils.color_printer import printer
 
 
 class TrainingGenerator(models.Model):
@@ -94,3 +97,32 @@ class Completion(models.Model):
         self.approved = True
         self.approved_by = expert_user
         self.save()
+
+    def save_in_memory(self):
+        printer.yellow(f"Saving completion {self.id} in memory")
+        collection, created = Collection.objects.get_or_create(
+            agent=self.agent, user=self.agent.user
+        )
+
+        chroma_client.upsert_chunk(
+            collection_name=collection.slug,
+            chunk_id=str(self.id) + "-completion",
+            chunk_text=self.prompt,
+            metadata={
+                "content": f"{self.prompt}\n\n{self.answer}",
+                "model_id": self.id,
+                "model_name": "completion",
+                "extra": f"TRAINING_GENERATOR(name={self.training_generator.name}, id={self.training_generator.id})",
+            },
+        )
+        printer.green(f"Completion {self.id} saved in memory")
+
+    def remove_from_memory(self):
+        printer.red(f"Removing completion {self.id} from memory")
+        
+        collection, created = Collection.objects.get_or_create(
+            agent=self.agent, user=self.agent.user
+        )
+        chroma_client.delete_chunk(
+            collection_name=collection.slug, chunk_id=str(self.id) + "-completion"
+        )

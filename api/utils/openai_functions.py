@@ -2,6 +2,7 @@ from openai import OpenAI
 import requests
 from pydantic import BaseModel
 import os
+import tiktoken
 
 
 def create_completion_openai(
@@ -100,3 +101,9 @@ def list_openai_models():
     )
 
     return client.models.list()
+
+
+def count_tokens_from_text(text: str, model: str = "gpt-4o-mini"):
+    encoding = tiktoken.encoding_for_model(model)
+    tokens = encoding.encode(text)
+    return len(tokens)

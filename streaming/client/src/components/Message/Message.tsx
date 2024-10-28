@@ -14,18 +14,6 @@ interface Link {
   text: string;
 }
 
-// const extractHtmlLinks = (markdownText: string): Link[] => {
-//   const linkRegex = /<a\s+(?:[^>]*?\s+)?href="([^"]*)">(.*?)<\/a>/gi;
-//   let matches;
-//   const links: Link[] = [];
-
-//   while ((matches = linkRegex.exec(markdownText)) !== null) {
-//     links.push({ url: matches[1], text: matches[2] });
-//   }
-
-//   return links;
-// };
-
 interface MessageProps {
   type: string;
   text: string;
@@ -65,18 +53,18 @@ export const Message: React.FC<MessageProps> = ({
       text: anchor.textContent || "",
     }));
 
-    setSources(extractedLinks);
-
     anchors.forEach((anchor) => {
       const href = anchor.getAttribute("href");
       if (!href) return;
-      const isSource = href.includes("#chunk");
+      const isSource = href.includes("#");
       if (isSource) {
         anchor.removeAttribute("target");
       } else {
         anchor.setAttribute("target", "_blank");
       }
     });
+
+    setSources(extractedLinks);
   }, [text]);
 
   return (
@@ -105,8 +93,9 @@ export const Message: React.FC<MessageProps> = ({
 };
 
 function getSomeNumberFromChunkString(chunkString) {
-  const match = chunkString.match(/#chunk-(\d+)/);
-  return match ? match[1] : null;
+  // It must cut the string at - and return both parts
+  const [modelName, modelId] = chunkString.split("-");
+  return { modelName, modelId };
 }
 
 type TChunk = {
@@ -122,30 +111,28 @@ const Source = ({ href, text }) => {
 
   const sourceId = href.replace(/^#/, "");
 
-  const handleFocus = () => {
-    console.log("El cursor de inserción está dentro del input.");
-  };
-
-  const handleGetChunk = async () => {
-    const id = getSomeNumberFromChunkString(href);
-    const chunk = await getChunk(id);
+  const handleGetModel = async () => {
+    const { modelId, modelName } = getSomeNumberFromChunkString(href);
+    const chunk = await getChunk(modelId);
     setChunkInfo(chunk);
     setIsVisible(true);
   };
 
   return (
-    <div onFocus={handleFocus} className="source-component">
-      <input id={sourceId} type="text" onFocus={handleFocus} />
+    <div className="source-component">
+      <input id={sourceId} type="text" />
       <h5>{text}</h5>
       <p>{href}</p>
-      <SvgButton svg={SVGS.eyes} onClick={handleGetChunk} />
+      <SvgButton svg={SVGS.eyes} onClick={handleGetModel} />
       {isVisible && (
         <Modal visible={isVisible} hide={() => setIsVisible(false)}>
           <div className="chunk-info">
             <h3>{chunkInfo.brief}</h3>
-            <textarea readOnly name="chunk_text">
-              {JSON.stringify(chunkInfo.content)}
-            </textarea>
+            <textarea
+              value={JSON.stringify(chunkInfo.content)}
+              readOnly
+              name="chunk_text"
+            ></textarea>
           </div>
         </Modal>
       )}

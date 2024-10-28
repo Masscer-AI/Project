@@ -2,13 +2,13 @@
 
 # Default values for the flags
 DJANGO=true
-INSTALL=true  # Changed to true to install by default
+INSTALL=true  
 
 # Parse command line arguments
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         -d|--django) DJANGO="$2"; shift ;;
-        -i|--install) INSTALL=true ;;  # New flag for installation
+        -i|--install) INSTALL=false ;; 
         *) echo "Unknown parameter passed: $1"; exit 1 ;;
     esac
     shift

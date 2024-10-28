@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import axios, { AxiosRequestConfig, Method } from "axios";
 import { API_URL, PUBLIC_TOKEN } from "./constants";
-import { TConversation } from "../types";
+import { TCompletion, TConversation } from "../types";
 
 const getToken = (isPublic: boolean) => {
   if (isPublic) {
@@ -323,4 +323,26 @@ export const generateTrainingCompletions = async ({
     completions_target_number,
     only_prompt,
   });
+};
+
+export const getUserCompletions = async () => {
+  return makeAuthenticatedRequest<TCompletion[]>(
+    "GET",
+    "/v1/finetuning/completions/"
+  );
+};
+
+export const updateCompletion = async (completionId: string, data: any) => {
+  return makeAuthenticatedRequest(
+    "PUT",
+    `/v1/finetuning/completions/${completionId}/`,
+    data
+  );
+};
+
+export const deleteCompletion = async (completionId: string) => {
+  return makeAuthenticatedRequest(
+    "DELETE",
+    `/v1/finetuning/completions/${completionId}/`
+  );
 };

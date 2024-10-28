@@ -44,7 +44,7 @@ async def generate_speech(request: SpeechRequest):
     # Save the output path using the hash as the name
     output_path = os.path.join(AUDIO_DIR, f"{hashed_text}.mp3")
     await generate_speech_stream(request.text, output_path)
-    
+
     # Devuelve un JSON con la información del archivo
     return {"file_path": output_path, "file_name": f"{hashed_text}.mp3"}
 
@@ -86,7 +86,6 @@ async def generate_image_route(request: ImageRequest):
 
 @router.get("/", response_class=HTMLResponse)
 async def get_root(request: Request):
-    print("Hello")
     file_path = os.path.join("client", "dist", "index.html")
     if os.path.exists(file_path):
         with open(file_path, "r") as file:
@@ -126,11 +125,6 @@ async def get_conversation():
     if os.path.exists(file_path):
         with open(file_path, "r") as file:
             html_content = file.read()
-        # data = routes_meta.get(page_name, routes_meta["defaults"])
-
-        # for key, value in data.items():
-        #     placeholder = f"{{{{{key}}}}}"
-        #     html_content = html_content.replace(placeholder, value)
 
         return HTMLResponse(content=html_content)
     return HTMLResponse(content="Page not found", status_code=404)

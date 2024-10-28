@@ -93,7 +93,16 @@ class Document(models.Model):
     text = models.TextField()
     name = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    total_tokens = models.IntegerField(null=True, blank=True)
     brief = models.TextField(null=True, blank=True)
+
+    def save(self, *args, **kwargs):
+        from api.utils.openai_functions import count_tokens_from_text
+
+        if not self.total_tokens:
+            self.total_tokens = count_tokens_from_text(self.text)
+
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Document(name={self.name},id={self.id})"
@@ -134,9 +143,11 @@ class Chunk(models.Model):
             chunk_id=str(self.id) + "-brief",
             chunk_text=brief,
             metadata={
-                "document_id": f"{self.document.id}",
                 "content": self.content,
-                "chunk_id": self.id,
+                "model_id": self.id,
+                "model_name": "chunk",
                 "tags": self.tags,
+                "document_id": f"{self.document.id}",
+                "extra": f"DOCUMENT(name={self.document.name}, id={self.document.id})",
             },
         )

@@ -37,7 +37,12 @@ def chunks_created_handler(sender, **kwargs):
         chunks_text.append(c.content)
         chunks_ids.append(str(c.id))
         chunks_metadatas.append(
-            {"document_id": str(sender.id), "content": c.content, "chunk_id": c.id}
+            {
+                "content": c.content,
+                "model_id": c.id,
+                "model_name": "chunk",
+                "extra": f"DOCUMENT(name={sender.name}, id={sender.id})",
+            }
         )
 
     chroma_client.bulk_upsert_chunks(
@@ -47,5 +52,5 @@ def chunks_created_handler(sender, **kwargs):
         metadatas=chunks_metadatas,
     )
 
-    for c in chunks:
-        async_generate_chunk_brief.delay(c.id)
+    # for c in chunks:
+    #     async_generate_chunk_brief.delay(c.id)

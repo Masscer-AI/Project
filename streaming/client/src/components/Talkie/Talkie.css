@@ -6,6 +6,9 @@
   bottom: 5%;
   left: 50%;
   transform: translateX(-50%);
+  width: min(400px, 100%);
+  z-index: 2;
+  border-radius: 50vh;
 }
 
 canvas {
@@ -17,18 +20,14 @@ canvas {
   display: flex;
   align-items: flex-end;
   height: 100px;
-  width: 80%;
+  width: 100%;
   justify-content: center;
 }
 
 .bar {
-  width: 20px;
+  width: 10px;
   height: 1px;
   margin: 0 2px;
-  background: linear-gradient(
-    90deg,
-    rgb(105, 83, 201),
-    var(--active-color)
-  );
+  background: linear-gradient(90deg, rgb(105, 83, 201), var(--active-color));
   transition: height 0.1s;
 }

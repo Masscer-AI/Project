@@ -18,7 +18,7 @@ export const Talkie: React.FC<TalkieProps> = ({ processAudio }) => {
   const barsRef = useRef<HTMLDivElement[]>([]);
   const animationIdRef = useRef<number | null>(null); // Ref para almacenar el ID de la animación
 
-  const numBars = 30;
+  const numBars = 15;
 
   const startRecording = async () => {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });

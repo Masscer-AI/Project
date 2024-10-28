@@ -19,7 +19,7 @@ class WSNumber(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.user.username} - {self.number}"
+        return f"WSNumber({self.name} - {self.number})"
 
     def send_message(
         self,

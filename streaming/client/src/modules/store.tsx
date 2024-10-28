@@ -124,16 +124,17 @@ export const useStore = create<Store>()((set, get) => ({
       return;
     }
 
-    const selectedAgents = agents.map((a) => a.slug);
+    toast.success("Uploading document...");
+    const selectedAgents = agents
+      .filter((a) => a.selected)
+      .map((a) => a.slug)
+      .join(",");
     if (selectedAgents.length === 0) {
-      toast.error("No agents selected, please select one to attach the ");
-    } else {
-      console.log("SELECTED AGENTS");
-      console.log(selectedAgents);
+      toast.error(
+        "No agents selected, please  at least one to attach the documents on its vector store"
+      );
     }
-    // TODO: Make this possible, persist information
-    // toast.error("NOT IMPLEMENTED ERROR IN STORE LINE 133");
-    // formData.append("agent_slug", chatState.selectedAgent);
+    formData.append("agents", selectedAgents);
     formData.append("name", newAttachment.name);
     formData.append("conversation_id", String(conversation_id));
 
@@ -142,12 +143,18 @@ export const useStore = create<Store>()((set, get) => ({
     try {
       const r = await uploadDocument(formData);
       newAttachment.id = r.id;
-      console.log("ADDED ATTACHMENT IN DB", r);
+      toast.success("Document uploaded successfully! Now you can chat with it using all the you selected");
 
       set((state) => ({
         chatState: {
           ...state.chatState,
           attachments: [...state.chatState.attachments, newAttachment],
+        },
+      }));
+      set((state) => ({
+        chatState: {
+          ...state.chatState,
+          useRag: true,
         },
       }));
     } catch (e) {
@@ -156,8 +163,6 @@ export const useStore = create<Store>()((set, get) => ({
   },
   fetchAgents: async () => {
     const { agents, models } = await getAgents();
-
-    // console.log(agents, "AGENTS FROM DB");
 
     const agentsCopy = agents.map((a, i) => ({
       ...a,

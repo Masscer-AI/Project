@@ -7,7 +7,7 @@ import io from "socket.io-client";
 import { useLoaderData } from "react-router-dom";
 import { API_URL, PUBLIC_TOKEN } from "../../modules/constants";
 import { Landing } from "../../components/Landing/Landing";
-// import { SpeechReceptor } from "../../components/SpeechReceptor/SpeechReceptor";
+import "./page.css";
 import { Navbar } from "../../components/Navbar/Navbar";
 const socket = io("http://localhost:8001", { autoConnect: true });
 
@@ -137,11 +137,13 @@ export default function Root() {
 
   return (
     <>
-      {/* <SpeechReceptor socket={socket} /> */}
-      <Navbar />
-      <Landing />
-      <ChatMessages chat={chat} />
-      <Talkie processAudio={processAudio} />
+      <main className="root-page">
+        {/* <SpeechReceptor socket={socket} /> */}
+        <Navbar />
+        <Landing />
+        <ChatMessages chat={chat} />
+        <Talkie processAudio={processAudio} />
+      </main>
     </>
   );
 }

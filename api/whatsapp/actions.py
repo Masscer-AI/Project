@@ -92,7 +92,7 @@ def send_interactive_message(
         return None
 
 
-def send_message(business_phone_number_id, to, message, message_platform_id):
+def send_message(business_phone_number_id, to, message, message_platform_id) -> str:
     if not to or not message:
         raise ValueError("To and message fields are required.")
 
@@ -113,6 +113,8 @@ def send_message(business_phone_number_id, to, message, message_platform_id):
         print("Error sending message:", response.json())
         raise Exception("Failed to send message.")
     printer.success("Message sent successfully.")
+
+    return response.json().get("messages")[0].get("id")
 
 
 def verify_whatsapp_number(country_code, phone_number, method, cert, pin=None):
@@ -298,7 +300,9 @@ class UserInfo(BaseModel):
 
 class WhatsappResponse(BaseModel):
     response: str = Field(description="The response from the AI")
-    reaction: str = Field(description="The emoji to react with to the user message")
+    reaction: str = Field(
+        description="One emoji valid for WhatsApp to react to the user's message. Example 1: 🤖 Example 2:✅"
+    )
     user_info: UserInfo = Field(
         description="The user info you can collect from the message"
     )
@@ -309,7 +313,13 @@ def handle_message_received(webhook_data, message):
         "metadata"
     ]["phone_number_id"]
 
-    ws_number = WSNumber.objects.get(platform_id=business_phone_number_id)
+    try:
+        ws_number = WSNumber.objects.get(platform_id=business_phone_number_id)
+    except WSNumber.DoesNotExist:
+        printer.red(
+            f"WSNumber with platform_id {business_phone_number_id} not found, maybe we need to create it? Why I'm receiving webhooks from it?"
+        )
+        return
 
     conversation, created = WSConversation.objects.get_or_create(
         user_number=message["from"],
@@ -325,33 +335,34 @@ def handle_message_received(webhook_data, message):
     else:
         context = conversation.get_context()
 
-    save_ws_message(
-        conversation=conversation,
-        content=message["text"]["body"],
-        message_type="USER",
-        message_platform_id=message["id"],
-    )
-
     mark_message_as_read(business_phone_number_id, message["id"])
-    # send_typing_action(business_phone_number_id, message["from"])
+
     whatsapp_response = ws_number.agent.answer(
         context=context,
         user_message=message["text"]["body"],
         response_format=WhatsappResponse,
     )
 
-    send_message(
+    save_ws_message(
+        conversation=conversation,
+        content=message["text"]["body"],
+        message_type="USER",
+        message_platform_id=message["id"],
+        reaction=whatsapp_response.reaction,
+    )
+    ai_wamid = send_message(
         business_phone_number_id,
         message["from"],
         whatsapp_response.response,
         message["id"],
     )
+
     save_ws_message(
         conversation=conversation,
         content=whatsapp_response.response,
         message_type="ASSISTANT",
-        reaction=whatsapp_response.reaction,
         collected_info=json.dumps(whatsapp_response.user_info.model_dump()),
+        message_platform_id=ai_wamid,
     )
 
     send_reaction(
@@ -444,7 +455,7 @@ def mark_message_as_read(business_number_id, ws_message_id):
 #         "recipient_type": "individual",
 #         "to": user_phone_number,
 #         "type": "action",
-#         "action": {"typing": {"status": "typing_on"}}, 
+#         "action": {"typing": {"status": "typing_on"}},
 #     }
 
 #     response = requests.post(url, headers=headers, json=data)

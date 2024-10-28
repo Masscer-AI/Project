@@ -23,6 +23,8 @@ export default function Whatsapp() {
 
   const { numbers } = useLoaderData() as { numbers: any[] };
 
+  console.log(numbers);
+  
   return (
     <main className="whatsapp-page">
       <Toaster />
@@ -92,6 +94,7 @@ const WhatsAppNumber = ({
   return (
     <>
       <Card onClick={showConversations}>
+        <h2 className="text-center">{name}</h2>
         <h3 className="text-center">📞{number}</h3>
         <div className="d-flex justify-center gap-medium">
           <span className="text-center">🧠 {agent.name}</span>
@@ -217,10 +220,12 @@ const WhatsAppMessage = ({
   content,
   message_type,
   created_at,
+  reaction,
 }: {
   content: string;
   message_type: string;
   created_at: string;
+  reaction: string;
 }) => {
   // Create a Date object from the created_at string
   const date = new Date(created_at);
@@ -242,7 +247,10 @@ const WhatsAppMessage = ({
     >
       <div className=" text-left message-text">
         <MarkdownRenderer markdown={content} />
-        <p>{formattedDate}</p>
+        {reaction && <span className="reaction">{reaction} ✔️✔️</span>}
+      </div>
+      <div className="d-flex align-center padding-medium">
+        <p className="text-small">{formattedDate}</p>
       </div>
     </div>
   );
