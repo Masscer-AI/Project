@@ -24,36 +24,29 @@ const router = createBrowserRouter([
         element: <Root />,
         loader: rootLoader,
       },
+      {
+        path: "/signup",
+        element: <Signup />,
+      },
+      {
+        path: "/login",
+        element: <Login />,
+      },
+      {
+        path: "/chat",
+        element: <ChatView />,
+        loader: chatLoader,
+      },
+      {
+        path: "/tools",
+        element: <Tools />,
+      },
+      {
+        path: "/whatsapp",
+        element: <Whatsapp />,
+        loader: whatsappLoader,
+      },
     ],
-  },
-  {
-    path: "/signup",
-    element: <Signup />,
-  },
-  {
-    path: "/login",
-    element: <Login />,
-  },
-  {
-    path: "/chat",
-    element: <ChatView />,
-    loader: chatLoader,
-    // children: [
-    //   {
-    //     path: "c/:conversationId",
-    //     element: <ChatView />,
-    //     loader: chatLoader,
-    //   },
-    // ],
-  },
-  {
-    path: "/tools",
-    element: <Tools />,
-  },
-  {
-    path: "/whatsapp",
-    element: <Whatsapp />,
-    loader: whatsappLoader,
   },
 ]);
 

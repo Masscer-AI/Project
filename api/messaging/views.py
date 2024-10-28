@@ -154,6 +154,7 @@ class MessageView(View):
 
 @csrf_exempt
 def upload_audio(request):
+    print(request.FILES)
     if request.method == "POST" and request.FILES.get("audio_file"):
         audio_file = request.FILES["audio_file"]
 

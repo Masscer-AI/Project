@@ -14,11 +14,6 @@ import toast, { Toaster } from "react-hot-toast";
 import { playAudioFromBytes } from "../../modules/utils";
 import { TrainingModals } from "../../components/TrainingModals/TrainingModals";
 
-// const socket = io("http://localhost:8001", {
-//   autoConnect: false,
-//   transports: ["websockets", "polling"],
-// });
-
 export default function ChatView() {
   const loaderData = useLoaderData() as TChatLoader;
 
@@ -31,7 +26,6 @@ export default function ChatView() {
     conversation,
     cleanAttachments,
     socket,
-    // modelsAndAgents,
     setUser,
     agents,
   } = useStore((state) => ({
@@ -51,7 +45,7 @@ export default function ChatView() {
   useEffect(() => {
     setUser(loaderData.user);
   }, []);
-  // setUser(loaderData.user);
+
   const [messages, setMessages] = useState(
     loaderData.conversation.messages as TMessage[]
   );

@@ -2,10 +2,10 @@ import React from "react";
 
 export const Card = ({
   children,
-  onClick,
+  onClick = () => {},
 }: {
   children: React.ReactNode;
-  onClick: () => void;
+  onClick?: () => void;
 }) => {
   return (
     <div className="card clickeable" onClick={onClick}>

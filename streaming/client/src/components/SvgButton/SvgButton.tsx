@@ -1,21 +1,47 @@
-import React from "react";
+import React, { useState } from "react";
 import "./SvgButton.css";
 
+type SvgButtonProps = {
+  svg?: React.ReactNode;
+  text?: string;
+  onClick?: () => void;
+  extraClass?: string;
+  size?: "small" | "big";
+  confirmations?: string[];
+  title?: string;
+};
+
 export const SvgButton = ({
-  svg,
+  svg = null,
   text = "",
   onClick = () => {},
   extraClass = "",
   size = "small",
-}) => {
+  confirmations = [],
+  title = "",
+}: SvgButtonProps) => {
+  const [innerText, setInnerText] = useState(text);
+  const [pendingConfirmations, setPendingConfirmations] =
+    useState(confirmations);
+
+  const handleClick = () => {
+    if (pendingConfirmations.length === 0) {
+      onClick();
+    } else {
+      setInnerText(pendingConfirmations[0]);
+      setPendingConfirmations(pendingConfirmations.slice(1));
+    }
+  };
+
   return (
     <button
       tabIndex={0}
       className={`svg-button clickeable ${extraClass} ${size}`}
-      onClick={onClick}
+      onClick={handleClick}
+      title={title}
     >
       <span>{svg}</span>
-      <span>{text}</span>
+      <span>{innerText}</span>
     </button>
   );
 };

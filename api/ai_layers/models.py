@@ -2,12 +2,15 @@ from django.db import models
 from django.utils.text import slugify
 from django.core.validators import MinValueValidator, MaxValueValidator
 from api.providers.models import AIProvider
-from api.utils.openai_functions import create_completion_openai, create_structured_completion
+from api.utils.openai_functions import create_structured_completion
 from pydantic import BaseModel, Field
+from datetime import datetime
+
 
 
 class ExampleStructure(BaseModel):
     example: str = Field(description="An example of a good response")
+
 
 DEFAULT_CHARACTER = """
 You are an useful assistant.
@@ -82,6 +85,9 @@ class Agent(models.Model):
         validators=[MinValueValidator(-2.00), MaxValueValidator(2.00)], default=0
     )
 
+    def __str__(self):
+        return self.name
+
     def save(self, *args, **kwargs):
         if not self.slug:
             self.slug = slugify(self.name)
@@ -98,15 +104,31 @@ class Agent(models.Model):
         )
         return formatted
 
-    def answer(self, context: str = "", user_message: str = "Hello, who are you?", response_format: BaseModel = ExampleStructure):
+    def answer(
+        self,
+        context: str = "",
+        user_message: str = "Hello, who are you?",
+        response_format: BaseModel = ExampleStructure,
+    ):
         _system = self.format_prompt(context=context)
         # _answer = create_completion_openai(
         #     system_prompt=_system, user_message=user_message
         # )
+
+        current_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        _system += f"\nThe current date and time is {current_datetime} in you need to use it in your response"
         response = create_structured_completion(
-            system_prompt=_system, user_prompt=user_message,
-            model="gpt-4o-mini", response_format=response_format
+            system_prompt=_system,
+            user_prompt=user_message,
+            model="gpt-4o-mini",
+            response_format=response_format,
         )
-        
 
         return response
+
+    def serialize(self):
+        from .serializers import AgentSerializer
+
+        serializer = AgentSerializer(self)
+        return serializer.data

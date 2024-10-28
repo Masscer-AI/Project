@@ -42,15 +42,16 @@ class AgentView(View):
 
     def post(self, request, *args, **kwargs):
         data = JSONParser().parse(request)
-        
+
         serializer = AgentSerializer(data=data)
         if serializer.is_valid():
             serializer.save(user=request.user)
             return JsonResponse(serializer.data, status=201)
         return JsonResponse(serializer.errors, status=400)
+
     def delete(self, request, *args, **kwargs):
-        agent_id = kwargs.get("id")
-        agent = get_object_or_404(Agent, id=agent_id)
+        agent_slug = kwargs.get("slug")
+        agent = get_object_or_404(Agent, slug=agent_slug, user=request.user)
         agent.delete()
         return JsonResponse({"message": "Agent deleted successfully"})
 

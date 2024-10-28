@@ -1,0 +1,11 @@
+.container {
+  display: flex;
+  justify-content: center;
+  width: fit-content;
+}
+
+.container select {
+  padding: 10px;
+  border-radius: 5px;
+  border: 1px solid var(--hovered-color);
+}

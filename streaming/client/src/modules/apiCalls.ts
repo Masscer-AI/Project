@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import axios, { AxiosRequestConfig, Method } from "axios";
 import { API_URL, PUBLIC_TOKEN } from "./constants";
+import { TConversation } from "../types";
 
 const getToken = (isPublic: boolean) => {
   if (isPublic) {
@@ -273,4 +274,53 @@ export const sendMessageToConversation = async (
     `/v1/whatsapp/conversations/${conversationId}`,
     { message }
   );
+};
+
+export const updateWhatsappNumber = async (numberId: string, data: any) => {
+  return makeAuthenticatedRequest(
+    "PUT",
+    `/v1/whatsapp/numbers/${numberId}`,
+    data
+  );
+};
+
+export const deleteAgent = async (slug: string) => {
+  return makeAuthenticatedRequest("DELETE", `/v1/ai_layers/agents/${slug}/`);
+};
+
+export const deleteConversation = async (conversationId: string) => {
+  return makeAuthenticatedRequest(
+    "DELETE",
+    `/v1/messaging/conversations/${conversationId}/`
+  );
+};
+
+export const getAllConversations = async () => {
+  return makeAuthenticatedRequest<TConversation[]>(
+    "GET",
+    "/v1/messaging/conversations"
+  );
+};
+
+interface GenerateTrainingDataRequest {
+  model_id: string;
+  db_model: "conversation" | "document";
+  agents: string[];
+  completions_target_number?: number;
+  only_prompt?: boolean;
+}
+export const generateTrainingCompletions = async ({
+  model_id,
+  db_model,
+  agents,
+  completions_target_number = 30,
+  only_prompt = false,
+}: GenerateTrainingDataRequest) => {
+  return makeAuthenticatedRequest("POST", "/v1/finetuning/generate/", {
+    model_id,
+    db_model,
+    agents,
+    completions_target_number,
+    only_prompt,
+  });
 };

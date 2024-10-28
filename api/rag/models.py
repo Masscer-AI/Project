@@ -131,7 +131,7 @@ class Chunk(models.Model):
             brief = self.content
         chroma_client.upsert_chunk(
             collection_name=self.document.collection.slug,
-            chunk_id=str(self.id+"-brief"),
+            chunk_id=str(self.id) + "-brief",
             chunk_text=brief,
             metadata={
                 "document_id": f"{self.document.id}",

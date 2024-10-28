@@ -1,11 +1,5 @@
 @import url("https://fonts.googleapis.com/css2?family=Nerko+One&display=swap");
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
@@ -25,6 +19,8 @@
   --standard-radius: 8px;
   --modal-max-height: 99vh;
 
+  --danger-color: #ff3e3e;
+  --success-color: #20dd92;
   color-scheme: dark light;
   background-color: var(--bg-color);
 
@@ -39,7 +35,6 @@
   --active-color: #5779ff;
   --highlighted-color: #733af0;
   --secondary-color: #0077ff;
-
   --font-color: rgb(255, 255, 255);
   --font-color-secondary: rgb(160, 160, 160);
   --bg-color: rgb(0, 0, 0);
@@ -69,7 +64,7 @@
   --assistant-color: #02091d;
   --user-color: #743af04e;
   --modal-bg-color: #080c16;
-  --bg-contrast-color: rgb(55, 55, 55);
+  --bg-contrast-color: rgb(31, 31, 31);
   --border-radius: 6px;
   --selected-border: 1px solid var(--highlighted-color);
   --standard-radius: 8px;
@@ -86,6 +81,11 @@ a {
 
 * {
   color: var(--font-color);
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: var(--bg-contrast-color) var(--modal-bg-color);
 }
 
 html {
@@ -136,7 +136,7 @@ textarea {
 }
 
 .button:hover {
-  background-color: #262626;
+  background-color: var(--hovered-color);
 }
 .button.bg-active {
   background-color: var(--active-color);
@@ -189,7 +189,6 @@ textarea {
 .clickeable:hover * {
   color: var(--font-color);
   stroke: var(--font-color);
-  scale: 1.01;
 }
 .clickeable:active {
   background-color: var(--highlighted-color);
@@ -201,7 +200,7 @@ textarea {
   border-radius: 5px;
 }
 
-details summary {
+/* details summary {
   list-style-type: none;
   cursor: pointer;
   padding: 10px;
@@ -210,10 +209,8 @@ details summary {
 }
 
 details[open] summary {
-  background-color: var(--hovered-color);
-  border-radius: 5px;
   box-shadow: 0px 2px var(--highlighted-color);
-}
+} */
 
 .gap-1 {
   gap: 2px;
@@ -342,4 +339,43 @@ details[open] summary {
 
 .padding-medium {
   padding: 15px;
+}
+
+.my-medium {
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+.input {
+  border-radius: 5px;
+  padding: 3px;
+  background-color: transparent;
+}
+
+.bg-danger {
+  background-color: var(--danger-color) !important;
+}
+
+.bg-danger:hover {
+  border: 1px solid var(--font-color) !important;
+}
+
+.bg-success {
+  background-color: var(--success-color) !important;
+}
+
+.success-on-hover:hover {
+  border: 1px solid var(--font-color) !important;
+  background-color: var(--success-color) !important;
+}
+
+.bg-hovered {
+  background-color: var(--hovered-color);
+}
+
+.pill {
+  padding: 5px 10px;
+  border-radius: 50vh;
+  font-size: 12px;
+  cursor: pointer;
 }

@@ -151,7 +151,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       <section className="mt-small">
         <div className="flex-x">
           {/* <button className="button" onClick={handleSendMessage}>{SVGS.send}</button> */}
-          <SvgButton onClick={handleSendMessage} svg={SVGS.send} />
+          <SvgButton title="Send message" onClick={handleSendMessage} svg={SVGS.send} />
           <input
             ref={fileInputRef}
             type="file"
@@ -163,22 +163,25 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           />
           <label htmlFor="fileInput">
             {/* <button onClick={openDocuments}>{SVGS.addDocument}</button> */}
-            <SvgButton onClick={openDocuments} svg={SVGS.addDocument} />
+            <SvgButton onClick={openDocuments} title="Add files" svg={SVGS.addDocument} />
           </label>
           <SvgButton
             extraClass={chatState.writtingMode ? "active" : ""}
             onClick={toggleWritingMode}
             svg={SVGS.writePen}
+            title="Turn on/off writing mode"
           />
           <SvgButton
             extraClass={chatState.webSearch ? "active" : ""}
             onClick={toggleWebSearch}
             svg={SVGS.webSearch}
+            title="Turn on/off web search"
           />
           <SvgButton
             extraClass={chatState.useRag ? "active" : ""}
             onClick={toggleUseRag}
             svg={SVGS.document}
+            title="Turn on/off RAG"
           />
         </div>
       </section>

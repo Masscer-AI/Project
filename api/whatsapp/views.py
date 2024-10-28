@@ -4,11 +4,12 @@ from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 
 from dotenv import load_dotenv
-from .models import WSNumber, WSConversation, WSMessage, WSContact
+from .models import WSNumber, WSConversation
 from api.utils.color_printer import printer
 from .tasks import async_handle_webhook
 from api.authenticate.decorators.token_required import token_required
 from django.utils.decorators import method_decorator
+from api.ai_layers.models import Agent
 
 # import view
 from rest_framework import generics
@@ -48,12 +49,53 @@ def webhook(request):
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
-class WSNumbersView(generics.ListCreateAPIView):
-    serializer_class = WSNumberSerializer
+class WSNumbersView(View):
+    def get(self, request, *args, **kwargs):
+        user = request.user
+        ws_numbers = WSNumber.objects.filter(user=user)
+        serializer = WSNumberSerializer(ws_numbers, many=True)
+        return JsonResponse(serializer.data, safe=False)
 
-    def get_queryset(self):
-        user = self.request.user
-        return WSNumber.objects.filter(user=user)
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class WSNumberDetailView(View):
+    def put(self, request, *args, **kwargs):
+        user = request.user
+        number = kwargs.get("number")
+        ws_number = WSNumber.objects.filter(user=user, number=number).first()
+
+        if not ws_number:
+            return JsonResponse({"error": "WSNumber not found"}, status=404)
+
+        try:
+            data = json.loads(request.body)
+            agent_slug = data.get("slug")
+            if agent_slug:
+                agent = Agent.objects.filter(slug=agent_slug).first()
+                if not agent:
+                    return JsonResponse(
+                        {"error": f"Agent with that slug {agent_slug} not found"},
+                        status=404,
+                    )
+
+                ws_number.agent = agent
+                ws_number.save()
+                printer.success("WSNumber updated successfully")
+                return JsonResponse(WSNumberSerializer(ws_number).data, status=200)
+
+            name = data.get("name")
+            if name:
+                ws_number.name = name
+                ws_number.save()
+                printer.success("WSNumber updated successfully")
+                return JsonResponse(WSNumberSerializer(ws_number).data, status=200)
+
+            return JsonResponse({"error": "No agent slug provided"}, status=400)
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON"}, status=400)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
 
 
 @method_decorator(csrf_exempt, name="dispatch")

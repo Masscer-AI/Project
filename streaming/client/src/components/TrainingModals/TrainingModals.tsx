@@ -8,8 +8,6 @@ export const TrainingModals = () => {
     setOpenedModals: s.setOpenedModals,
   }));
 
-  console.log(openedModals);
-
   return (
     <>
       {openedModals.includes("documents") && (

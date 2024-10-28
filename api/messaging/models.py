@@ -26,6 +26,11 @@ class Conversation(models.Model):
 
             async_generate_conversation_title.delay(self.id)
 
+    def get_all_messages_context(self):
+        return "\n".join(
+            [f"{message.type}: {message.text}\n" for message in self.messages.all()]
+        )
+
 
 class Message(models.Model):
     TYPE_CHOICES = [

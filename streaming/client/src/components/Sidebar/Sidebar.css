@@ -8,7 +8,7 @@
   z-index: 3;
   display: flex;
   flex-direction: column;
-  width: 300px;
+  width: min(350px, 100%);
   padding: 12px;
   border-top-right-radius: 30px;
   border-bottom-right-radius: 30px;
@@ -24,9 +24,10 @@
   }
 }
 .sidebar__history {
-  overflow-y: scroll;
   scrollbar-width: none;
+  overflow-y: auto;
 }
+
 .sidebar__header {
   display: flex;
   justify-content: space-between;
@@ -40,10 +41,18 @@
   display: flex;
   font-size: 17.5px;
   cursor: pointer;
+  position: relative;
+  justify-content: space-between;
+  overflow-x: visible;
+  padding: 0;
+}
+.conversation:hover {
+  background-color: var(--hovered-color);
+}
+.conversation > p {
+  padding: 10px;
 }
 
-.conversation:hover {
-  /* background-color: var(--selected-background); */
-  border: var(--selected-border);
-  color: var(--highlighted-color);
+.conversation:last-child {
+  margin-bottom: 50px;
 }

@@ -66,38 +66,39 @@ class DocumentView(View):
         file_content, file_name = read_file_content(file)
         file_content = file_content.strip()
 
-        if conversation_id and not agent_slug:
-            c = Conversation.objects.get(pk=conversation_id)
-            if c is None:
-                return JsonResponse(
-                    {
-                        "message": "Bad request",
-                        "error": f"Conversation with conversation_id {conversation_id} not found!",
-                    },
-                    status=404,
-                )
+        # TODO: Save directly in the Agent's collection Vector DB
+        # if conversation_id and not agent_slug:
+        #     c = Conversation.objects.get(pk=conversation_id)
+        #     if c is None:
+        #         return JsonResponse(
+        #             {
+        #                 "message": "Bad request",
+        #                 "error": f"Conversation with conversation_id {conversation_id} not found!",
+        #             },
+        #             status=404,
+        #         )
 
-            collection, created = Collection.objects.get_or_create(
-                conversation=c, defaults={"user": request.user}
-            )
-            document_exists = Document.objects.filter(
-                text=file_content, collection=collection
-            ).exists()
-            if document_exists:
-                existing_document = Document.objects.get(
-                    text=file_content, collection=collection
-                )
-                existing_serializer = DocumentSerializer(existing_document)
-                return JsonResponse(existing_serializer.data, status=200)
+        #     collection, created = Collection.objects.get_or_create(
+        #         conversation=c, defaults={"user": request.user}
+        #     )
+        #     document_exists = Document.objects.filter(
+        #         text=file_content, collection=collection
+        #     ).exists()
+        #     if document_exists:
+        #         existing_document = Document.objects.get(
+        #             text=file_content, collection=collection
+        #         )
+        #         existing_serializer = DocumentSerializer(existing_document)
+        #         return JsonResponse(existing_serializer.data, status=200)
 
-            data["collection"] = collection.id
-            data["text"] = file_content
-            serializer = DocumentSerializer(data=data)
+        #     data["collection"] = collection.id
+        #     data["text"] = file_content
+        #     serializer = DocumentSerializer(data=data)
 
-            if serializer.is_valid():
-                serializer.save()
-                return JsonResponse(serializer.data, status=201)
-            return JsonResponse(serializer.errors, status=400)
+        #     if serializer.is_valid():
+        #         serializer.save()
+        #         return JsonResponse(serializer.data, status=201)
+        #     return JsonResponse(serializer.errors, status=400)
 
         agent = Agent.objects.get(slug=agent_slug)
 
@@ -201,9 +202,8 @@ def query_collection(request):
     return JsonResponse({"error": "No collection found"}, status=404)
 
 
-
-@method_decorator(csrf_exempt, name='dispatch')
-@method_decorator(token_required, name='dispatch')
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
 class ChunkDetailView(View):
     parser_classes = (JSONParser,)
 

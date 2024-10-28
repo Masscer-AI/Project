@@ -1,11 +1,10 @@
-# from django.urls import path
+from django.urls import path
 
 # from .views import LoginAPIView, SignupAPIView, HelloWorldView
+from .views import GenerateTrainingDataView
 
 app_name = "finetuning"
 
 urlpatterns = [
-    # path("hello_world", HelloWorldView.as_view(), name="hello_world"),
-    # path("signup", SignupAPIView.as_view(), name="api_signup"),
-    # path("login", LoginAPIView.as_view(), name="api_login"),
+    path("generate/", GenerateTrainingDataView.as_view(), name="generate"),
 ]

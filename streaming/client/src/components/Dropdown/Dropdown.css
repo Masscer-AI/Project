@@ -1,22 +1,22 @@
 .floating-dropdown {
-    position: relative;
-    display: flex;
-    align-items: center;
-    > button {
-        cursor: pointer;
-    }
+  position: relative;
+  display: flex;
+  align-items: center;
+  > button {
+    cursor: pointer;
+  }
 }
 
 .floating-dropdown .__content {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    width: 300px;
-    background-color: var(--bg-contrast-color);
-    padding: 10px;
-    border-radius: 8px;
-    display: flex;
-    flex-direction: column;
-    z-index: 2;
-
+  position: absolute;
+  width: min(300px, fit-content);
+  background-color: var(--bg-contrast-color);
+  padding: 10px;
+  border-radius: 8px;
+  display: none;
+  flex-direction: column;
+  z-index: 2;
+}
+.floating-dropdown:hover .__content {
+  display: flex !important;
 }

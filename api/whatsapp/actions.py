@@ -44,23 +44,6 @@ def send_reaction(business_phone_number_id, to, message_id, emoji):
     printer.success(f"Reaction {emoji} sent successfully.")
 
 
-def mark_message_as_read(business_phone_number_id, message_id):
-    url = f"https://graph.facebook.com/v18.0/{business_phone_number_id}/messages"
-    headers = {
-        "Authorization": f"Bearer {os.getenv('GRAPH_API_TOKEN')}",
-        "Content-Type": "application/json",
-    }
-    data = {
-        "messaging_product": "whatsapp",
-        "status": "read",
-        "message_id": message_id,
-    }
-
-    response = requests.post(url, headers=headers, json=data)
-    if response.status_code != 200:
-        print("Error marking message as read:", response.json())
-
-
 def send_interactive_message(
     whatsapp_business_phone_number_id,
     user_phone_number,
@@ -342,13 +325,15 @@ def handle_message_received(webhook_data, message):
     else:
         context = conversation.get_context()
 
-    # HACER QUE PAREAca que estoy escribiendo
     save_ws_message(
         conversation=conversation,
         content=message["text"]["body"],
         message_type="USER",
         message_platform_id=message["id"],
     )
+
+    mark_message_as_read(business_phone_number_id, message["id"])
+    # send_typing_action(business_phone_number_id, message["from"])
     whatsapp_response = ws_number.agent.answer(
         context=context,
         user_message=message["text"]["body"],
@@ -407,3 +392,65 @@ def generate_conversation_context(id: int):
     ws_conversation.summary = conversation_context.summary
     ws_conversation.sentiment = conversation_context.sentiment
     ws_conversation.save()
+
+
+def mark_message_as_read(business_number_id, ws_message_id):
+    """
+    Marks a message as read using the WhatsApp Business API.
+
+    :param business_number_id: The WhatsApp Business Phone Number ID
+    :param ws_message_id: The ID of the WSMessage to mark as read
+    """
+    try:
+        url = f"https://graph.facebook.com/v21.0/{business_number_id}/messages"
+        headers = {
+            "Authorization": f"Bearer {os.getenv('WHATSAPP_GRAPH_API_TOKEN')}",
+            "Content-Type": "application/json",
+        }
+        data = {
+            "messaging_product": "whatsapp",
+            "status": "read",
+            "message_id": ws_message_id,
+        }
+
+        response = requests.post(url, headers=headers, json=data)
+
+        if response.status_code == 200:
+            printer.success(
+                f"Message with ID {ws_message_id} marked as read successfully."
+            )
+        else:
+            printer.red("Error marking message as read:", response.json())
+            raise Exception("Failed to mark message as read.")
+
+    except Exception as e:
+        printer.red(f"Error marking message as read: {str(e)}")
+
+
+# def send_typing_action(business_phone_number_id, user_phone_number):
+#     """
+#     Envía una acción de "escribiendo" a un usuario de WhatsApp.
+
+#     :param business_phone_number_id: ID del número de teléfono de la empresa de WhatsApp
+#     :param user_phone_number: El número de teléfono del destinatario en WhatsApp
+#     """
+#     url = f"https://graph.facebook.com/v21.0/{business_phone_number_id}/messages"
+#     headers = {
+#         "Authorization": f"Bearer {os.getenv('WHATSAPP_GRAPH_API_TOKEN')}",
+#         "Content-Type": "application/json",
+#     }
+#     data = {
+#         "messaging_product": "whatsapp",
+#         "recipient_type": "individual",
+#         "to": user_phone_number,
+#         "type": "action",
+#         "action": {"typing": {"status": "typing_on"}}, 
+#     }
+
+#     response = requests.post(url, headers=headers, json=data)
+
+#     if response.status_code != 200:
+#         print("Error sending typing action:", response.json())
+#         raise Exception("Failed to send typing action.")
+
+#     printer.success("Typing action sent successfully.")

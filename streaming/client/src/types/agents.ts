@@ -11,7 +11,7 @@ export type Model = {
   selected: boolean;
 };
 
-export type Agent = {
+export type TAgent = {
   name: string; // The name of the agent
   provider?: string; // The provider of the model, e.g., "openai"
   slug: string; // A unique identifier or slug for the agent
@@ -23,7 +23,7 @@ export type Agent = {
   is_public?: boolean; // Optional flag to indicate if the agent is public
   max_tokens?: number | null; // Optional maximum number of tokens the agent can use
   model_provider?: string; // Optional provider of the model
-  model_slug?: string; 
+  model_slug?: string;
   presence_penalty?: number | null;
   salute?: string;
   system_prompt: string;

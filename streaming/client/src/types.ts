@@ -16,3 +16,11 @@ export type TAttachment = {
   content: string;
   name: string;
 };
+
+
+export interface TConversation {
+  id: string;
+  user_id: number;
+  number_of_messages: number;
+  title: undefined | string;
+}

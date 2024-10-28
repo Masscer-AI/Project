@@ -5,10 +5,10 @@ import { ChatMessages } from "../../components/Messages/Messages";
 
 import io from "socket.io-client";
 import { useLoaderData } from "react-router-dom";
-import { PUBLIC_TOKEN } from "../../modules/constants";
+import { API_URL, PUBLIC_TOKEN } from "../../modules/constants";
 import { Landing } from "../../components/Landing/Landing";
 // import { SpeechReceptor } from "../../components/SpeechReceptor/SpeechReceptor";
-
+import { Navbar } from "../../components/Navbar/Navbar";
 const socket = io("http://localhost:8001", { autoConnect: true });
 
 export default function Root() {
@@ -65,12 +65,12 @@ export default function Root() {
     };
   }, [chat]);
 
-  const processAudioExample = async (audioFile: Blob) => {
+  const processAudio = async (audioFile: Blob) => {
     const formData = new FormData();
-    formData.append("file", audioFile, "audiofile.wav");
+    formData.append("audio_file", audioFile, "audiofile.wav");
 
     try {
-      const response = await fetch("/upload-audio/", {
+      const response = await fetch(API_URL + "/v1/messaging/upload-audio/", {
         method: "POST",
         body: formData,
       });
@@ -110,9 +110,9 @@ export default function Root() {
       context,
       conversation: data.conversation,
       token: PUBLIC_TOKEN,
-    }
+    };
     console.log(messageData);
-    
+
     socket.emit("message", messageData);
   };
 
@@ -138,9 +138,10 @@ export default function Root() {
   return (
     <>
       {/* <SpeechReceptor socket={socket} /> */}
+      <Navbar />
       <Landing />
       <ChatMessages chat={chat} />
-      <Talkie processAudio={processAudioExample} />
+      <Talkie processAudio={processAudio} />
     </>
   );
 }

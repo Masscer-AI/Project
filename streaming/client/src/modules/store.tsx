@@ -2,6 +2,7 @@ import { createWithEqualityFn as create } from "zustand/traditional";
 import { TConversationData, TUserData } from "../types/chatTypes";
 import {
   createAgent,
+  deleteAgent,
   getAgents,
   getConversation,
   initConversation,
@@ -10,7 +11,7 @@ import {
 import { TAttachment } from "../types";
 import { SocketManager } from "./socketManager";
 import { getRandomWordsAndSlug, STREAMING_BACKEND_URL } from "./constants";
-import { Agent, Message, Model } from "../types/agents";
+import { TAgent, Message, Model } from "../types/agents";
 import toast from "react-hot-toast";
 
 type SetOpenedProps = {
@@ -24,9 +25,9 @@ type Store = {
   input: string;
   model: Model;
   models: Model[];
-  agents: Agent[];
+  agents: TAgent[];
   user?: TUserData;
-  modelsAndAgents: Agent[];
+  modelsAndAgents: TAgent[];
   chatState: {
     isSidebarOpened: boolean;
     attachments: TAttachment[];
@@ -36,6 +37,7 @@ type Store = {
   };
   conversation: TConversationData | undefined;
   openedModals: string[];
+  removeAgent: (slug: string) => void;
   setOpenedModals: (opts: SetOpenedProps) => void;
   setMessages: (messages: Message[]) => void;
   setConversation: (conversationId: string | null) => void;
@@ -235,7 +237,7 @@ export const useStore = create<Store>()((set, get) => ({
 
   addAgent: () => {
     const { name, slug } = getRandomWordsAndSlug();
-    const exampleAgent: Agent = {
+    const exampleAgent: TAgent = {
       name,
       slug,
       selected: false,
@@ -261,5 +263,11 @@ export const useStore = create<Store>()((set, get) => ({
     }));
 
     createAgent(exampleAgent);
+  },
+  removeAgent: (slug: string) => {
+    set((state) => ({
+      agents: state.agents.filter((a) => a.slug !== slug),
+    }));
+    deleteAgent(slug);
   },
 }));

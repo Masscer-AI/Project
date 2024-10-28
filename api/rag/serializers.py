@@ -12,7 +12,7 @@ class DocumentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Document
-        fields = ['id', 'collection', 'text', 'name', 'created_at', 'chunk_set', 'chunk_count']
+        fields = ['id', 'collection', 'text', 'name', 'created_at', 'chunk_set', 'chunk_count', 'brief']
 
     def get_chunk_count(self, obj):
         return obj.chunk_set.count()

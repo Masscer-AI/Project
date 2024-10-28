@@ -11,8 +11,11 @@ import {
   getWhatsappConversations,
   getWhatsappConversationMessages,
   sendMessageToConversation,
+  updateWhatsappNumber,
 } from "../../modules/apiCalls";
 import MarkdownRenderer from "../../components/MarkdownRenderer/MarkdownRenderer";
+import { AgentSelector } from "../../components/AgentSelector/AgentSelector";
+import toast, { Toaster } from "react-hot-toast";
 export default function Whatsapp() {
   const { isSidebarOpened } = useStore((s) => ({
     isSidebarOpened: s.chatState.isSidebarOpened,
@@ -22,6 +25,8 @@ export default function Whatsapp() {
 
   return (
     <main className="whatsapp-page">
+      <Toaster />
+
       {isSidebarOpened && <Sidebar />}
       <ChatHeader />
       <h1>Whatsapp</h1>
@@ -45,21 +50,23 @@ const WhatsAppNumber = ({
   number,
   agent,
   conversations_count,
+  name,
 }: {
   number: string;
   agent: any;
   conversations_count: number;
+  name: string;
 }) => {
   const [isModalVisible, setIsModalVisible] = useState(false);
 
   const [conversations, setConversations] = useState<any[]>([]);
+  const [nameInput, setNameInput] = useState(name ? name : "");
+
   const showConversations = () => {
-    console.log("show");
     setIsModalVisible(true);
   };
 
   const hideConversations = () => {
-    console.log("hide");
     setIsModalVisible(false);
   };
 
@@ -69,6 +76,18 @@ const WhatsAppNumber = ({
       setConversations(res);
     });
   }, []);
+
+  const changeAgent = (slug: string) => {
+    updateWhatsappNumber(number, { slug }).then((res) => {
+      toast.success("Agent changed");
+    });
+  };
+
+  const updateName = () => {
+    updateWhatsappNumber(number, { name: nameInput }).then((res) => {
+      toast.success("Name updated");
+    });
+  };
 
   return (
     <>
@@ -82,7 +101,28 @@ const WhatsAppNumber = ({
       {isModalVisible && (
         <Modal hide={hideConversations} visible={isModalVisible}>
           <h2 className="text-center">Conversations</h2>
-          <div className="d-flex gap-medium wrap-wrap ">
+          <section className="d-flex flex-y gap-small justify-center align-center">
+            <p>Number: {number}</p>
+            <p className="d-flex align-center gap-small wrap-wrap">
+              <span>Name:</span>
+              <input
+                className="input"
+                value={nameInput}
+                onChange={(e) => setNameInput(e.target.value)}
+                type="text"
+              />
+
+              <SvgButton onClick={updateName} text="Update name" svg={"💾"} />
+            </p>
+            <div className="d-flex align-center gap-small wrap-wrap">
+              <p>Change the agent for this number</p>
+              <AgentSelector
+                onSelectAgent={changeAgent}
+                selectedSlug={agent.slug}
+              />
+            </div>
+          </section>
+          <div className="d-flex gap-medium wrap-wrap my-medium">
             {conversations.map((conversation) => (
               <ConversationComponent key={conversation.id} {...conversation} />
             ))}
@@ -137,9 +177,17 @@ const ConversationComponent = ({
       </Card>
       <Modal hide={() => setShowMessages(false)} visible={showMessages}>
         <div className="whatsapp-header">
-          <h3>{title}</h3>
+          <h3>{title ? title : "No title"}</h3>
           <p>
-            {showMore ? summary : summary.slice(0, 80)}...
+            {summary ? (
+              showMore ? (
+                summary
+              ) : (
+                summary.slice(0, 80) + "..."
+              )
+            ) : (
+              <span className="text-center">No summary</span>
+            )}
             <button className="button" onClick={() => setShowMore(!showMore)}>
               {showMore ? "Ocultar" : "Leer más →"}
             </button>

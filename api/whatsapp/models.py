@@ -10,6 +10,7 @@ class WSNumber(models.Model):
     agent = models.ForeignKey(
         Agent, on_delete=models.CASCADE, related_name="whatsapp_numbers"
     )
+    name = models.CharField(max_length=100, null=True, blank=True)
     number = models.CharField(max_length=15)
     platform_id = models.CharField(max_length=50, null=True, blank=True)
     verified = models.BooleanField(default=False)
@@ -29,30 +30,32 @@ class WSNumber(models.Model):
         from .actions import (
             send_message as send_message_action,
             save_ws_message,
-            send_interactive_message,
         )
 
-        # message_platform_id = conversation.get_last_valid_message_platform_id()
-        # send_message_action(
-        #     self.platform_id, conversation.user_number, message, message_platform_id
-        # )
-        reply_platform_message_id = send_interactive_message(
-            whatsapp_business_phone_number_id=self.platform_id,
-            user_phone_number=conversation.user_number,
-            header_text="some header",
-            body_text=message,
-            footer_text="some footer",
-            buttons=[
-                {"type": "reply", "reply": {"id": "change-button", "title": "Change"}},
-                {"type": "reply", "reply": {"id": "cancel-button", "title": "Cancel"}},
-            ],
+        reply_message_platform_id = conversation.get_last_valid_message_platform_id()
+        send_message_action(
+            self.platform_id,
+            conversation.user_number,
+            message,
+            reply_message_platform_id,
         )
+        # reply_platform_message_id = send_interactive_message(
+        #     whatsapp_business_phone_number_id=self.platform_id,
+        #     user_phone_number=conversation.user_number,
+        #     header_text="some header",
+        #     body_text=message,
+        #     footer_text="some footer",
+        #     buttons=[
+        #         {"type": "reply", "reply": {"id": "change-button", "title": "Change"}},
+        #         {"type": "reply", "reply": {"id": "cancel-button", "title": "Cancel"}},
+        #     ],
+        # )
 
         save_ws_message(
             conversation,
             message,
             "ASSISTANT",
-            message_platform_id=reply_platform_message_id,
+            message_platform_id=reply_message_platform_id,
         )
 
 

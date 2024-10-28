@@ -2,8 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useStore } from "../../modules/store";
 import { SVGS } from "../../assets/svgs";
 import { FloatingDropdown } from "../Dropdown/Dropdown";
-import { Agent } from "../../types/agents";
-// @ts-ignore
+import { TAgent } from "../../types/agents";
 import styles from "./ChatHeader.module.css";
 import { Modal } from "../Modal/Modal";
 import { SvgButton } from "../SvgButton/SvgButton";
@@ -28,8 +27,11 @@ export const ChatHeader = () => {
       <button className="button" onClick={toggleSidebar}>
         {SVGS.burger}
       </button>
-      <FloatingDropdown title={"Agents"}>
-        <h3>Agents</h3>
+      <FloatingDropdown
+        left="0"
+        top="100%"
+        opener={<button className="button">Agents</button>}
+      >
         {agents.map((agent, index) => (
           <AgentComponent key={index} agent={agent} />
         ))}
@@ -42,7 +44,7 @@ export const ChatHeader = () => {
 };
 
 type TAgentComponentProps = {
-  agent: Agent;
+  agent: TAgent;
 };
 
 const AgentComponent = ({ agent }: TAgentComponentProps) => {
@@ -56,7 +58,7 @@ const AgentComponent = ({ agent }: TAgentComponentProps) => {
   const showModal = () => setModalVisible(true);
   const hideModal = () => setModalVisible(false);
 
-  const onSave = async (agent: Agent) => {
+  const onSave = async (agent: TAgent) => {
     try {
       const res = await updateAgent(agent.slug, agent);
       hideModal();
@@ -73,23 +75,24 @@ const AgentComponent = ({ agent }: TAgentComponentProps) => {
         <input onChange={() => {}} type="checkbox" checked={agent.selected} />
         <span>{agent.name}</span>
       </section>
-      <section className="clickeable button" onClick={showModal}>
-        {SVGS.controls}
-      </section>
+      <SvgButton svg={SVGS.controls} onClick={showModal} />
+
       <Modal visible={isModalVisible} hide={hideModal}>
-        <AgentConfigForm agent={agent} onSave={onSave} />
+        <AgentConfigForm agent={agent} onSave={onSave} onDelete={hideModal} />
       </Modal>
     </div>
   );
 };
 
 type TAgentConfigProps = {
-  agent: Agent;
-  onSave: (agent: Agent) => void;
+  agent: TAgent;
+  onSave: (agent: TAgent) => void;
+  onDelete: () => void;
 };
-const AgentConfigForm = ({ agent, onSave }: TAgentConfigProps) => {
-  const { models } = useStore((state) => ({
+const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
+  const { models, removeAgent } = useStore((state) => ({
     models: state.models,
+    removeAgent: state.removeAgent,
   }));
 
   const [formState, setFormState] = useState({
@@ -128,6 +131,12 @@ const AgentConfigForm = ({ agent, onSave }: TAgentConfigProps) => {
   const onSubmit = (e) => {
     e.preventDefault();
   };
+
+  const handleDelete = () => {
+    removeAgent(agent.slug);
+    onDelete();
+  };
+
   return (
     <div>
       <h3>Configure {formState.name}</h3>
@@ -246,14 +255,23 @@ const AgentConfigForm = ({ agent, onSave }: TAgentConfigProps) => {
             <span>{formState.top_p}</span>
           </span>
         </label>
-        <div>
-          <SvgButton
-            size="big"
-            onClick={save}
-            text="Save"
-            svg={SVGS.download}
-          />
-        </div>
+        <SvgButton
+          extraClass=""
+          size="big"
+          onClick={save}
+          text="Save"
+          svg={SVGS.download}
+        />
+        <SvgButton
+          size="big"
+          onClick={handleDelete}
+          text="Delete"
+          svg={SVGS.close}
+          extraClass="bg-danger"
+          confirmations={[
+            "Sure? This action cannot be undone. Click again to confirm.",
+          ]}
+        />
       </form>
     </div>
   );
