@@ -199,17 +199,12 @@ textarea {
   border-radius: 5px;
 }
 
-/* details summary {
-  list-style-type: none;
-  cursor: pointer;
-  padding: 10px;
-  font-size: large;
-  font-weight: bold;
+input,
+textarea,
+select,
+option {
+  background-color: var(--modal-bg-color);
 }
-
-details[open] summary {
-  box-shadow: 0px 2px var(--highlighted-color);
-} */
 
 .gap-1 {
   gap: 2px;
