@@ -27,11 +27,19 @@ def create_completion_ollama(
 
 def generate_conversation_title(conversation_id: str):
     system = """
-    Given some conversation messages, please generate a title related to the conversation. The title must have an emoji at the end.
+    Given some conversation messages, please generate a title related to the conversation. The title must have an emoji at the beginning.
 
     The title must be a plain string without double quotes and the start or end.
 
-    Return ONLY the title with the emoji please bro
+
+    These are examples of titles with emojis at the beginning:
+    - 💬 Conversation about Jupyter Notebooks
+    - 📝 Notes about the meeting with Maria
+    - 🎥 Video call analysis from recording
+    - 💻 Code review for the new OpenAI API
+    - 🙏🏻 User Support for John in Python
+
+    Return ONLY the new conversation title with the emoji at the beginning.
     """
     c = Conversation.objects.get(id=conversation_id)
 
@@ -43,7 +51,9 @@ def generate_conversation_title(conversation_id: str):
 
     user_message = "\n".join(formatted_messages)
 
-    title = create_completion_ollama(system, user_message, max_tokens=100)
+    title = create_completion_ollama(
+        system, user_message, max_tokens=50, model="llama3.2:1b"
+    )
 
     if title.startswith('"') and title.endswith('"'):
         title = title[1:-1]

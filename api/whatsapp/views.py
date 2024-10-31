@@ -39,12 +39,12 @@ def webhook(request):
         token = request.GET.get("hub.verify_token")
         challenge = request.GET.get("hub.challenge")
 
-        # Check the mode and token sent are correct
         if mode == "subscribe" and token == os.getenv("WHATSAPP_WEBHOOK_VERIFY_TOKEN"):
             print("Webhook verified successfully!")
             return HttpResponse(challenge)
         else:
             return HttpResponse(status=403)
+        
 
 
 @method_decorator(csrf_exempt, name="dispatch")

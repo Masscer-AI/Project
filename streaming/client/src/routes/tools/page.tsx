@@ -17,7 +17,6 @@ export default function Tools() {
 
   return (
     <main>
-      <Toaster />
       {chatState.isSidebarOpened && <Sidebar />}
       <ToolsOptions
         selectedTool={selectedTool}

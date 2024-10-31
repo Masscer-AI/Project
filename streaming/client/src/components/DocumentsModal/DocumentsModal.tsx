@@ -5,7 +5,8 @@ import {
   getDocuments,
 } from "../../modules/apiCalls";
 import styles from "./DocumentsModal.module.css";
-import { Card } from "../Card/Card";
+
+import { useTranslation } from "react-i18next";
 import { SvgButton } from "../SvgButton/SvgButton";
 import { SVGS } from "../../assets/svgs";
 import { Pill } from "../Pill/Pill";
@@ -20,6 +21,7 @@ type TDocument = {
 };
 
 export const DocumentsModal = ({ visible, hide }) => {
+  const { t } = useTranslation();
   const [documents, setDocuments] = useState([] as TDocument[]);
 
   useEffect(() => {
@@ -34,9 +36,9 @@ export const DocumentsModal = ({ visible, hide }) => {
 
   return (
     <Modal visible={visible} hide={hide}>
-      <h3 className="text-center">Knowledge base</h3>
+      <h3 className="text-center">{t("knowledge-base")}</h3>
       <p className="text-center">
-        You can use this page to train your model with files.
+        {t("you-can-use-this-page-to-train-your-model-with-files")}
       </p>
       <div>
         {documents.map((document) => (
@@ -53,6 +55,7 @@ const DocumentCard = ({ document }) => {
   const [isTrainingModalVisible, setIsTrainingModalVisible] = useState(false);
   const [search, setSearch] = useState("");
   const [filteredChunks, setFilteredChunks] = useState(document.chunk_set);
+  const { t } = useTranslation();
 
   useEffect(() => {
     setFilteredChunks(
@@ -80,7 +83,7 @@ const DocumentCard = ({ document }) => {
           extraClass="bg-active"
           onClick={() => setDisplayBrief(!displayBrief)}
         >
-          {displayBrief ? "Hide brief" : "Show brief"}
+          {displayBrief ? t("hide-brief") : t("show-brief")}
         </Pill>
         <Pill extraClass="bg-hovered">{document.total_tokens} tokens</Pill>
       </div>
@@ -89,14 +92,15 @@ const DocumentCard = ({ document }) => {
       <div className="d-flex justify-center gap-small">
         <SvgButton
           extraClass="bg-hovered"
-          text={isOpened ? "Hide document text" : "Show document text"}
+          text={isOpened ? t("hide-document-text") : t("show-document-text")}
           onClick={() => setIsOpened(!isOpened)}
         />
         <SvgButton
           extraClass="bg-active"
-          text="Train on this document"
+          text={t("train-on-this-document")}
           onClick={() => setIsTrainingModalVisible(true)}
         />
+        
       </div>
       {isOpened && (
         <>
@@ -104,7 +108,7 @@ const DocumentCard = ({ document }) => {
             <input
               type="text"
               className="input"
-              placeholder="Find something in the document"
+              placeholder={t("find-something-in-the-document")}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>

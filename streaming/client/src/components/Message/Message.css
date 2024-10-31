@@ -23,6 +23,11 @@
     right: 10px;
   }
 }
+.message .textarea-content {
+  width: 100%;
+  padding: 10px 15px;
+  font-family: var(--font-family);
+}
 
 .message.user {
   align-items: flex-end;

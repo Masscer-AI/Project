@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { SVGS } from "../../assets/svgs";
 import MarkdownRenderer from "../MarkdownRenderer/MarkdownRenderer";
 import { TAttachment } from "../../types";
@@ -8,7 +8,7 @@ import { SvgButton } from "../SvgButton/SvgButton";
 import toast from "react-hot-toast";
 import { getChunk } from "../../modules/apiCalls";
 import { Modal } from "../Modal/Modal";
-
+import { useTranslation } from "react-i18next";
 interface Link {
   url: string;
   text: string;
@@ -34,6 +34,10 @@ export const Message: React.FC<MessageProps> = ({
   onGenerateImage,
 }) => {
   const [sources, setSources] = useState([] as Link[]);
+  const [isEditing, setIsEditing] = useState(false);
+  const [innerText, setInnerText] = useState(text);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const { t } = useTranslation();
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text).then(
       () => {
@@ -44,6 +48,19 @@ export const Message: React.FC<MessageProps> = ({
       }
     );
   };
+
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height =
+        textareaRef.current.scrollHeight + "px";
+    }
+    return () => {
+      if (textareaRef.current) {
+        textareaRef.current.style.height = "auto";
+      }
+    };
+  }, [innerText, isEditing]);
 
   useEffect(() => {
     const anchors = document.querySelectorAll(`.message-${index} a`);
@@ -65,17 +82,31 @@ export const Message: React.FC<MessageProps> = ({
     });
 
     setSources(extractedLinks);
+    setInnerText(text);
   }, [text]);
+
+  const toggleEditMode = () => {
+    setIsEditing(!isEditing);
+  };
 
   return (
     <div className={`message ${type} message-${index}`}>
-      <MarkdownRenderer markdown={text} extraClass={"message-text"} />
+      <MarkdownRenderer
+        contentEditable={isEditing}
+        markdown={innerText}
+        extraClass={"message-text"}
+      />
+
       <section className="message__attachments">
         {attachments &&
-          typeof attachments == "object" &&
-          attachments.map(({ content, type }, index) => (
-            // @ts-ignore
-            <Thumbnail type={type} src={content} key={index} />
+          attachments.map(({ content, type, name }, index) => (
+            <Thumbnail
+              index={index}
+              type={type}
+              src={content}
+              name={name}
+              key={index}
+            />
           ))}
         {sources &&
           sources.map((s, index) => (
@@ -83,9 +114,27 @@ export const Message: React.FC<MessageProps> = ({
           ))}
       </section>
       <div className="message-buttons">
-        <SvgButton onClick={() => onGenerateSpeech(text)} svg={SVGS.waves} />
-        <SvgButton onClick={() => onGenerateImage(text)} svg={SVGS.image} />
-        <SvgButton onClick={() => copyToClipboard(text)} svg={SVGS.copy} />
+        <SvgButton
+          title={t("generate-speech")}
+          onClick={() => onGenerateSpeech(text)}
+          svg={SVGS.waves}
+        />
+        <SvgButton
+          title={t("generate-image")}
+          onClick={() => onGenerateImage(text)}
+          svg={SVGS.picture}
+        />
+        <SvgButton
+          title={t("copy-to-clipboard")}
+          onClick={() => copyToClipboard(text)}
+          svg={SVGS.copyTwo}
+        />
+        <SvgButton
+          title={isEditing ? t("finish") : t("edit")}
+          onClick={toggleEditMode}
+          svg={isEditing ? SVGS.finish : SVGS.edit}
+        />
+
         {agentSlug ? agentSlug : ""}
       </div>
     </div>

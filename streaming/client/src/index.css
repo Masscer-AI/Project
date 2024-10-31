@@ -1,7 +1,10 @@
 @import url("https://fonts.googleapis.com/css2?family=Nerko+One&display=swap");
 
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  --font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+
+  font-family: var(--font-family);
+
   line-height: 1.5;
   font-weight: 400;
   --active-color: #0e353d;
@@ -21,6 +24,7 @@
   --root-bg-color: #06181f;
   --danger-color: #ff3e3e;
   --success-color: #20dd92;
+  --app-max-width: 1200px;
   color-scheme: dark light;
   background-color: var(--bg-color);
 
@@ -187,7 +191,6 @@ textarea {
 }
 .clickeable:hover * {
   color: var(--font-color);
-  stroke: var(--font-color);
 }
 .clickeable:active {
   background-color: var(--highlighted-color);
@@ -380,6 +383,14 @@ option {
 
 .padding-small {
   padding: 5px;
+}
+
+.padding-medium {
+  padding: 10px;
+}
+
+.padding-big {
+  padding: 20px;
 }
 
 .rounded {

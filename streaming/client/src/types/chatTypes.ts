@@ -1,6 +1,7 @@
 import { TAttachment } from "../types";
 
 export type TConversationData = {
+  title: ReactNode;
   id: string;
   messages: TMessage[];
 };

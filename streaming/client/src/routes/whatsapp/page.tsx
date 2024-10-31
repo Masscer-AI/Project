@@ -27,7 +27,6 @@ export default function Whatsapp() {
   
   return (
     <main className="whatsapp-page">
-      <Toaster />
 
       {isSidebarOpened && <Sidebar />}
       <ChatHeader />

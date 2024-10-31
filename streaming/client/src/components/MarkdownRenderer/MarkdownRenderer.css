@@ -17,7 +17,15 @@
 .markdown-renderer pre {
   position: relative;
   overflow-x: auto;
+  background-color: var(--hovered-color);
+  border-radius: var(--standard-radius);
+  padding: 17px;
 }
+
+.markdown-renderer pre:has(.hljs) {
+  padding: 0;
+}
+
 .markdown-renderer pre code {
   scrollbar-width: thin;
   scrollbar-color: var(--bg-color-secondary) transparent !important;

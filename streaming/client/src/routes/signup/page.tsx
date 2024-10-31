@@ -35,7 +35,7 @@ export default function Signup() {
 
   return (
     <div className="signup-component">
-      <Toaster />
+   
       <SimpleForm>
         <h2 className="simple-form-title">Sign Up</h2>
         <form onSubmit={handleSubmit}>

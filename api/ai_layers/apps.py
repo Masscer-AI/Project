@@ -12,10 +12,6 @@ class AiLayersConfig(AppConfig):
 
     def startup_function(self):
         from api.ai_layers.actions import check_models_for_providers
-        # from .models import LanguageModel
-        # from api.providers.models import AIProvider
-        # from api.utils.ollama_functions import list_ollama_models
-        # from api.utils.openai_functions import list_openai_models
         try:
             printer.blue(f"Running startup function for {self.name}")
             check_models_for_providers()

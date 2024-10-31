@@ -15,8 +15,10 @@ import styles from "./CompletionsModal.module.css";
 import MarkdownRenderer from "../MarkdownRenderer/MarkdownRenderer";
 import { Checkbox } from "../Checkbox/Checkbox";
 import { toast } from "react-hot-toast";
+import { useTranslation } from "react-i18next";
 
 export const CompletionsModal = ({ visible, hide }) => {
+  const { t } = useTranslation();
   const [completions, setCompletions] = useState([] as TCompletion[]);
   const [filteredCompletions, setFilteredCompletions] = useState(
     [] as TCompletion[]
@@ -66,7 +68,7 @@ export const CompletionsModal = ({ visible, hide }) => {
 
   const updateCompletionAction = async (completionId: string, data: any) => {
     await updateCompletion(completionId, data);
-    toast.success("Completion updated");
+    toast.success(t("completion-updated"));
   };
 
   const handleDelete = async (completionId: string) => {
@@ -74,31 +76,32 @@ export const CompletionsModal = ({ visible, hide }) => {
     const filtered = completions.filter((c) => c.id !== parseInt(completionId));
     setCompletions(filtered);
     applyFilter(filter);
-    toast.success("Completion deleted");
+    toast.success(t("completion-deleted"));
   };
 
   return (
     <Modal visible={visible} hide={hide}>
-      <h3 className="text-center">Completions pending for approval</h3>
+      <h3 className="text-center">{t("completions-pending-for-approval")}</h3>
       <div className="d-flex align-center gap-small padding-medium">
-        <span>Filter by: </span>
+        <span>{t("filter-by")}: </span>
         <Pill
           onClick={() => setFilter("all")}
           extraClass={filter === "all" ? "bg-active" : ""}
         >
-          All
+          {t("all")}
         </Pill>
         <Pill
           onClick={() => setFilter("approved")}
           extraClass={filter === "approved" ? "bg-active" : ""}
         >
-          Approved
+          {t("approved")}
         </Pill>
+
         <Pill
           onClick={() => setFilter("pending")}
           extraClass={filter === "pending" ? "bg-active" : ""}
         >
-          Pending
+          {t("pending")}
         </Pill>
         {completionsAgents.map((a) => (
           <Pill
@@ -111,8 +114,9 @@ export const CompletionsModal = ({ visible, hide }) => {
         ))}
       </div>
       <p className="text-center">
-        A completion is a pair of a prompt and an answer. You can use this page
-        to train your model with completions.
+        {t(
+          "a-completion-is-a-pair-of-a-prompt-and-an-answer-you-can-use-this-page-to-train-your-model-with-completions"
+        )}
       </p>
       <div className="d-flex flex-y gap-big">
         {filteredCompletions.map((c) => (
@@ -139,6 +143,8 @@ const CompletionCard = ({
   updateCompletion,
   deleteCompletion,
 }: CompletionCardProps) => {
+  const { t } = useTranslation();
+
   const [isEditing, setIsEditing] = useState(false);
   const [answer, setAnswer] = useState(completion.answer);
   const [prompt, setPrompt] = useState(completion.prompt);
@@ -189,24 +195,24 @@ const CompletionCard = ({
         <Checkbox checked={approved} onChange={handleApprovedChange} />
         <SvgButton
           onClick={toggleApproved}
-          text={approved ? "Unapprove" : "Approve"}
+          text={approved ? t("unapprove") : t("approve")}
           svg={approved ? SVGS.close : SVGS.plus}
         />
         <SvgButton
           onClick={toggleEdit}
-          text={isEditing ? "Finish" : "Edit"}
+          text={isEditing ? t("finish") : t("edit")}
           extraClass={isEditing ? "bg-active" : ""}
           svg={isEditing ? SVGS.finish : SVGS.writePen}
         />
         <SvgButton
           confirmations={["Sure?"]}
-          title="Delete"
+          title={t("delete")}
           svg={SVGS.trash}
           onClick={() => deleteCompletion(completion.id.toString())}
         />
         <SvgButton
           onClick={saveCompletion}
-          text="Save in memory"
+          text={t("save-in-memory")}
           svg={SVGS.save}
         />
         <Pill extraClass="bg-hovered">Agent: {completion.agent}</Pill>

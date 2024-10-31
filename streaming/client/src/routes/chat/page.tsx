@@ -206,7 +206,6 @@ export default function ChatView() {
 
   return (
     <>
-      <Toaster />
       <TrainingModals />
       {chatState.isSidebarOpened && <Sidebar />}
       <div className="chat-container">
@@ -216,7 +215,18 @@ export default function ChatView() {
           handleKeyDown={handleKeyDown}
           conversation={conversation || loaderData.conversation}
         />
+
         <div className="chat-messages">
+          {conversation && conversation.title ? (
+            <h3 className="padding-medium text-center">{conversation.title}</h3>
+          ) : loaderData.conversation.title ? (
+            <h3 className="padding-medium text-center">
+              {loaderData.conversation.title}
+            </h3>
+          ) : (
+            ""
+          )}
+
           {messages &&
             messages.map((msg, index) => (
               <Message

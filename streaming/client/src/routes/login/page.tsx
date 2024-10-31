@@ -35,7 +35,7 @@ export default function Login() {
 
   return (
     <div className="login-component">
-      <Toaster />
+    
       <SimpleForm>
         <h2 className="simple-form-title">Login</h2>
         <form onSubmit={handleSubmit}>

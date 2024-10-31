@@ -7,8 +7,8 @@
   border-radius: 8px;
   overflow: hidden;
   background-color: var(--bg-color);
-  color: #ffffff;
-  padding: 20px;
+  padding: 10px;
+  width: min(100%, var(--app-max-width));
 }
 
 .chat-messages {
@@ -24,6 +24,9 @@
 .chat-header {
   display: flex;
   align-items: center;
+  padding: 10px;
+  background-color: var(--bg-secondary-color);
+  border-radius: var(--standard-radius);
 }
 
 .chat-header select {
@@ -35,9 +38,9 @@
   background-color: transparent;
   border: 0;
 }
-.chat-header svg path {
+/* .chat-header svg path {
   stroke: var(--font-color);
-}
+} */
 
 .chat-header select option {
   background-color: rgb(32, 32, 32);

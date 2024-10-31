@@ -1,11 +1,16 @@
 from .models import Agent
 
+# MANDATORY_MODELS = ["llama3.2:1b", "qwen2.5:0.5b"]
+MANDATORY_MODELS = ["llama3.2:1b"]
+
 
 def check_models_for_providers():
     from api.utils.color_printer import printer
     from .models import LanguageModel
     from api.providers.models import AIProvider
-    from api.utils.ollama_functions import list_ollama_models
+    from api.utils.ollama_functions import list_ollama_models, pull_ollama_model
+
+    # from api.utils.openai_functions import list_openai_models
 
     openai_models_objects = [
         {"name": "GPT-4", "slug": "gpt-4"},
@@ -13,10 +18,25 @@ def check_models_for_providers():
         {"name": "Gpt 4O", "slug": "gpt-4o"},
         {"name": "Gpt 4O Mini", "slug": "gpt-4o-mini"},
         {"name": "Gpt 3.5 Turbo", "slug": "gpt-3.5-turbo"},
+        {"name": "ChatGPT 4O Latest", "slug": "chatgpt-4o-latest"},
+        # {"name": "GPT 4O Realtime Preview", "slug": "gpt-4o-realtime-preview"},
     ]
+    # openai_models_from_api = list_openai_models()
+    # printer.red(openai_models_from_api, "OPENAI MODELS FROM API")
 
     ollama_models = list_ollama_models()
     ollama_models = [{"name": m["name"], "slug": m["model"]} for m in ollama_models]
+    ollama_models_slugs = [m["slug"] for m in ollama_models]
+
+    should_list_again = False
+    for model in MANDATORY_MODELS:
+        if model not in ollama_models_slugs:
+            pull_ollama_model(model)
+            should_list_again = True
+
+    if should_list_again:
+        ollama_models = list_ollama_models()
+        ollama_models = [{"name": m["name"], "slug": m["model"]} for m in ollama_models]
 
     try:
         openai_provider = AIProvider.objects.get(name__iexact="openai")
@@ -30,7 +50,6 @@ def check_models_for_providers():
         printer.red("AIProvider 'ollama' does not exist.")
         ollama_provider = None
 
-    # Create LanguageModels for OpenAI
     if openai_provider:
         for model in openai_models_objects:
             language_model, created = LanguageModel.objects.get_or_create(
@@ -70,7 +89,7 @@ def check_models_for_providers():
 
 
 def answer_agent_inquiry(agent_slug: str, context: str, user_message: str):
-    """ 
+    """
     Answer an user message based on the agent configuration
     """
     agent = Agent.objects.get(slug=agent_slug)

@@ -16,8 +16,11 @@ import { Modal } from "../Modal/Modal";
 import { AgentSelector } from "../AgentSelector/AgentSelector";
 import toast from "react-hot-toast";
 import { Pill } from "../Pill/Pill";
+import { LanguageSelector } from "../LanguageSelector/LanguageSelector";
+import { useTranslation } from "react-i18next";
 
 export const Sidebar: React.FC = () => {
+  const { t } = useTranslation();
   const { toggleSidebar, setConversation, user, setOpenedModals } = useStore(
     (state) => ({
       toggleSidebar: state.toggleSidebar,
@@ -28,7 +31,8 @@ export const Sidebar: React.FC = () => {
   );
 
   const [history, setHistory] = useState<TConversation[]>([]);
-
+  const [filteredHistory, setFilteredHistory] = useState<TConversation[]>([]);
+  const [conversationFilter, setConversationFilter] = useState("");
   const [searchParams, setSearchParams] = useSearchParams();
   const [openedSections, setOpenedSections] = useState<string[]>([]);
 
@@ -37,6 +41,16 @@ export const Sidebar: React.FC = () => {
   useEffect(() => {
     populateHistory();
   }, []);
+
+  useEffect(() => {
+    setFilteredHistory(
+      history.filter(
+        (c) =>
+          c.title &&
+          c.title.toLowerCase().includes(conversationFilter.toLowerCase())
+      )
+    );
+  }, [conversationFilter]);
 
   const populateHistory = async () => {
     const token = localStorage.getItem("token");
@@ -48,6 +62,7 @@ export const Sidebar: React.FC = () => {
     try {
       const res = await getAllConversations();
       setHistory(res);
+      setFilteredHistory(res);
     } catch (error) {
       console.error("Failed to fetch conversations", error);
     }
@@ -58,8 +73,6 @@ export const Sidebar: React.FC = () => {
     if (searchParams.has("conversation")) {
       searchParams.delete("conversation");
       setSearchParams(searchParams);
-    } else {
-      console.log("Starting a new chat...");
     }
     toggleSidebar();
 
@@ -72,8 +85,10 @@ export const Sidebar: React.FC = () => {
 
   const deleteConversationItem = async (id: string) => {
     setHistory(history.filter((conversation) => conversation.id !== id));
+    setFilteredHistory(
+      filteredHistory.filter((conversation) => conversation.id !== id)
+    );
     const res = await deleteConversation(id);
-    console.log(res);
   };
 
   const handleSectionClick = (section: string) => {
@@ -91,7 +106,7 @@ export const Sidebar: React.FC = () => {
           onClick={handleNewChat}
           svg={SVGS.plus}
           size="big"
-          text="New Chat"
+          text={t("new-chat")}
         />
         <SvgButton onClick={toggleSidebar} svg={SVGS.burger} />
       </div>
@@ -100,23 +115,34 @@ export const Sidebar: React.FC = () => {
           className={`button ${openedSections.includes("conversations") ? "bg-hovered" : ""}`}
           onClick={() => handleSectionClick("conversations")}
         >
-          Conversations
+          {t("conversations")}
         </h3>
-        {openedSections.includes("conversations") &&
-          history.map((conversation) => (
-            <ConversationComponent
-              key={conversation.id}
-              conversation={conversation}
-              deleteConversationItem={deleteConversationItem}
+        {openedSections.includes("conversations") && (
+          <>
+            <input
+              type="text"
+              className="input w-100 padding-medium"
+              placeholder={t("filter-conversations")}
+              autoFocus
+              value={conversationFilter}
+              onChange={(e) => setConversationFilter(e.target.value)}
             />
-          ))}
+            {filteredHistory.map((conversation) => (
+              <ConversationComponent
+                key={conversation.id}
+                conversation={conversation}
+                deleteConversationItem={deleteConversationItem}
+              />
+            ))}
+          </>
+        )}
       </div>
       <div>
         <h3
           className={`button ${openedSections.includes("tools") ? "bg-hovered" : ""}`}
           onClick={() => handleSectionClick("tools")}
         >
-          Tools
+          {t("tools")}
         </h3>
         {openedSections.includes("tools") && (
           <>
@@ -124,25 +150,25 @@ export const Sidebar: React.FC = () => {
               className="clickeable rounded-rect"
               onClick={() => goTo("/tools?selected=audio")}
             >
-              Audio
+              {t("audio")}
             </p>
             <p
               className="clickeable rounded-rect"
               onClick={() => goTo("/tools?selected=images")}
             >
-              Images
+              {t("images")}
             </p>
             <p
               className="clickeable rounded-rect"
               onClick={() => goTo("/tools?selected=video")}
             >
-              Video
+              {t("video")}
             </p>
             <p
               className="clickeable rounded-rect"
               onClick={() => goTo("/whatsapp")}
             >
-              WhatsApp
+              {t("whatsapp")}
             </p>
           </>
         )}
@@ -152,7 +178,7 @@ export const Sidebar: React.FC = () => {
           className={`button ${openedSections.includes("training") ? "bg-hovered" : ""}`}
           onClick={() => handleSectionClick("training")}
         >
-          Training
+          {t("training")}
         </h3>
         {openedSections.includes("training") && (
           <>
@@ -163,7 +189,7 @@ export const Sidebar: React.FC = () => {
                 toggleSidebar();
               }}
             >
-              Documents
+              {t("documents")}
             </p>
 
             <p
@@ -172,20 +198,21 @@ export const Sidebar: React.FC = () => {
                 setOpenedModals({ action: "add", name: "completions" })
               }
             >
-              Completions
+              {t("completions")}
             </p>
             <p
               className="clickeable rounded-rect"
               onClick={() => setOpenedModals({ action: "add", name: "tags" })}
             >
-              Tags
+              {t("tags")}
             </p>
           </>
         )}
       </div>
       <div className="sidebar__footer d-flex justify-between">
-        <SvgButton text={user ? user.username : "You"} />
-        <SvgButton svg={SVGS.controls} text="Settings" />
+        <SvgButton text={user ? user.username : t("you")} />
+        <SvgButton svg={SVGS.controls} text={t("settings")} />
+        <LanguageSelector />
       </div>
     </div>
   );
@@ -203,6 +230,8 @@ const ConversationComponent = ({
     setConversation: state.setConversation,
     toggleSidebar: state.toggleSidebar,
   }));
+
+  const { t } = useTranslation();
 
   const [showTrainingModal, setShowTrainingModal] = useState(false);
   const navigate = useNavigate();
@@ -237,23 +266,26 @@ const ConversationComponent = ({
               right="100%"
               top="0"
               opener={
-                <SvgButton title="Conversation options" svg={SVGS.options} />
+                <SvgButton
+                  title={t("conversation-options")}
+                  svg={SVGS.options}
+                />
               }
             >
               <SvgButton
                 size="big"
                 svg={SVGS.trash}
-                title="Delete conversation"
-                text="Delete"
-                confirmations={["Sure?"]}
+                title={t("delete-conversation")}
+                text={t("delete")}
+                confirmations={[t("delete-conversation-confirmation")]}
                 onClick={() => deleteConversationItem(conversation.id)}
                 extraClass="bg-danger"
               />
               <SvgButton
                 size="big"
                 svg={SVGS.dumbell}
-                title="Train on this conversation"
-                text="Train"
+                title={t("train-on-this-conversation")}
+                text={t("train")}
                 onClick={() => setShowTrainingModal(true)}
               />
             </FloatingDropdown>
@@ -275,6 +307,8 @@ const TrainingOnConversation = ({
     e.preventDefault();
   };
 
+  const { t } = useTranslation();
+
   const { agents } = useStore((state) => ({
     agents: state.agents,
   }));
@@ -291,7 +325,7 @@ const TrainingOnConversation = ({
 
   const generateTrainingData = async () => {
     if (selectedAgents.length === 0) {
-      toast.error("Please select at least one agent");
+      toast.error(t("please-select-at-least-one-agent"));
     }
 
     const res = await generateTrainingCompletions({
@@ -300,26 +334,23 @@ const TrainingOnConversation = ({
       agents: selectedAgents,
       completions_target_number: completionsTargetNumber,
     });
-    toast.success("Training generation in queue...");
+    toast.success(t("training-generation-in-queue"));
     hide();
   };
 
   return (
     <Modal hide={hide}>
       <div className="d-flex flex-y gap-big">
-        <h2 className="text-center">Generate completions</h2>
+        <h2 className="text-center">{t("generate-completions")}</h2>
         <p>
-          If you think the conversation <strong>{conversation.title}</strong> is
-          relevant to your business, you can generate completions for it to add
-          more context to your agents when answering similar conversations in
-          the future.
+          {t("generate-completions-description")}{" "}
+          <strong>{conversation.title}</strong>{" "}
+          {t("generate-completions-description-2")}
         </p>
-        <p>
-          After generating completions, you can approve, edit or discard them.
-        </p>
+        <p>{t("after-generating-completions")}</p>
         <form onSubmit={onSubmit} action="">
           <label>
-            Number of completions to generate
+            {t("number-of-completions-to-generate")}
             <input
               className="input"
               type="number"
@@ -329,11 +360,7 @@ const TrainingOnConversation = ({
               }
             />
           </label>
-          <p>
-            Select the agents that will retrain on this conversation. Keep in
-            mind that each agent will generate its own completions based on its
-            system prompt.
-          </p>
+          <p>{t("select-agents-that-will-retrain")}</p>
           <div className="d-flex gap-small wrap-wrap padding-medium">
             {agents.map((a) => (
               <Pill

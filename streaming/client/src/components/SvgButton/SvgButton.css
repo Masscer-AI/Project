@@ -12,9 +12,9 @@
   border: 1px solid transparent;
 }
 
-.svg-button.active svg path {
+/* .svg-button.active svg path {
   stroke: black;
-}
+} */
 .svg-button > span {
   display: flex;
   justify-content: center;
@@ -24,14 +24,23 @@
 .svg-button > span:last-child:not(:empty) {
   margin-left: 5px;
 }
-.svg-button svg path {
+
+/* .svg-button svg path {
   stroke: var(--font-color);
-}
+} */
 
 .svg-button svg {
   width: 20px;
   height: 20px;
   cursor: pointer;
+}
+
+.svg-button svg.set-stroke path {
+  stroke: var(--font-color);
+}
+
+.svg-button svg.set-fill path {
+  fill: var(--font-color);
 }
 
 .svg-button.big {

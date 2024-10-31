@@ -2,10 +2,16 @@ import React from "react";
 import { SVGS } from "../../assets/svgs";
 import { useStore } from "../../modules/store";
 
-export const Thumbnail = ({ src, type, name, index, file }) => {
-  const { deleteAttachment, chatState } = useStore((state) => ({
+interface ThumbnailProps {
+  src: string;
+  type: string;
+  name: string;
+  index: number;
+}
+
+export const Thumbnail = ({ src, type, name, index }: ThumbnailProps) => {
+  const { deleteAttachment } = useStore((state) => ({
     deleteAttachment: state.deleteAttachment,
-    chatState: state.chatState,
   }));
 
   return (

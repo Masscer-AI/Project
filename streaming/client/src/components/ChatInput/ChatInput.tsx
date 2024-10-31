@@ -7,6 +7,7 @@ import toast from "react-hot-toast";
 import { Thumbnail } from "../Thumbnail/Thumbnail";
 import { SvgButton } from "../SvgButton/SvgButton";
 import { TConversationData } from "../../types/chatTypes";
+import { useTranslation } from "react-i18next";
 
 interface ChatInputProps {
   handleSendMessage: () => void;
@@ -19,6 +20,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   handleKeyDown,
   conversation,
 }) => {
+  const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const {
     input,
@@ -114,7 +116,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         };
         reader.readAsDataURL(file);
       } else {
-        toast.error("File type not allowed 👀");
+        toast.error(t("file-type-not-allowed"));
       }
     }
   };
@@ -129,7 +131,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       <section className="attachments">
         {attachments.map(({ content, type, name, file }, index) => (
           <Thumbnail
-            file={file}
+            // file={file}
             name={name}
             type={type}
             src={content}
@@ -145,13 +147,17 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
-          placeholder="Type your message..."
+          placeholder={t("type-your-message")}
         />
       </section>
       <section className="mt-small">
         <div className="flex-x">
           {/* <button className="button" onClick={handleSendMessage}>{SVGS.send}</button> */}
-          <SvgButton title="Send message" onClick={handleSendMessage} svg={SVGS.send} />
+          <SvgButton
+            title={t("send-message")}
+            onClick={handleSendMessage}
+            svg={SVGS.send}
+          />
           <input
             ref={fileInputRef}
             type="file"
@@ -162,26 +168,29 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             accept=".png,.jpeg,.jpg,.gif,.webp,.pdf,.txt,.html,.doc,.docx"
           />
           <label htmlFor="fileInput">
-            {/* <button onClick={openDocuments}>{SVGS.addDocument}</button> */}
-            <SvgButton onClick={openDocuments} title="Add files" svg={SVGS.addDocument} />
+            <SvgButton
+              onClick={openDocuments}
+              title={t("add-files")}
+              svg={SVGS.addDocument}
+            />
           </label>
           <SvgButton
             extraClass={chatState.writtingMode ? "active" : ""}
             onClick={toggleWritingMode}
             svg={SVGS.writePen}
-            title="Turn on/off writing mode"
+            title={t("turn-on-off-writing-mode")}
           />
           <SvgButton
             extraClass={chatState.webSearch ? "active" : ""}
             onClick={toggleWebSearch}
             svg={SVGS.webSearch}
-            title="Turn on/off web search"
+            title={t("turn-on-off-web-search")}
           />
           <SvgButton
             extraClass={chatState.useRag ? "active" : ""}
             onClick={toggleUseRag}
             svg={SVGS.document}
-            title="Turn on/off RAG"
+            title={t("turn-on-off-rag")}
           />
         </div>
       </section>

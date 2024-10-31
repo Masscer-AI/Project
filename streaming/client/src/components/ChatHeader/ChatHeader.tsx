@@ -8,7 +8,10 @@ import { Modal } from "../Modal/Modal";
 import { SvgButton } from "../SvgButton/SvgButton";
 import { updateAgent } from "../../modules/apiCalls";
 import toast from "react-hot-toast";
+import { useTranslation } from "react-i18next";
+
 export const ChatHeader = () => {
+  const { t } = useTranslation();
   const { toggleSidebar, fetchAgents, agents, addAgent } = useStore(
     (state) => ({
       agents: state.agents,
@@ -22,15 +25,18 @@ export const ChatHeader = () => {
     fetchAgents();
   }, []);
 
+
+
   return (
     <div className="chat-header">
       <button className="button" onClick={toggleSidebar}>
         {SVGS.burger}
       </button>
+
       <FloatingDropdown
         left="0"
         top="100%"
-        opener={<button className="button">Agents</button>}
+        opener={<button className="button">{t("agents")}</button>}
       >
         {agents.map((agent, index) => (
           <AgentComponent key={index} agent={agent} />
@@ -95,6 +101,7 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
     removeAgent: state.removeAgent,
   }));
 
+  const { t } = useTranslation();
   const [formState, setFormState] = useState({
     name: agent.name || "",
     model_slug: agent.model_slug || "",
@@ -139,10 +146,10 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
 
   return (
     <div>
-      <h3>Configure {formState.name}</h3>
+      <h3>{t("configure")} {formState.name}</h3>
       <form onSubmit={onSubmit} className="form">
         <label>
-          <span>Name</span>
+          <span>{t("name")}</span>
           <input
             type="text"
             name="name"
@@ -152,12 +159,12 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
         </label>
 
         <label>
-          <span>Slug</span>
+          <span>{t("slug")}</span>
           <p>{agent.slug}</p>
         </label>
 
         <label>
-          <span>Model:</span>
+          <span>{t("model")}</span>
           <select
             name="model_slug"
             value={formState.model_slug}
@@ -171,7 +178,7 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
           </select>
         </label>
         <label>
-          <span>Frequency Penalty:</span>
+          <span>{t("frequency-penalty")}</span>
           <input
             type="range"
             min="-2.0"
@@ -184,7 +191,7 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
           <span>{formState.frequency_penalty}</span>
         </label>
         <label>
-          <span>Max Tokens:</span>
+          <span>{t("max-tokens")}</span>
           <input
             type="range"
             min="10"
@@ -197,7 +204,7 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
           <span>{formState.max_tokens}</span>
         </label>
         <label>
-          <span>Presence Penalty:</span>
+          <span>{t("presence-penalty")}</span>
           <input
             name="presence_penalty"
             type="range"
@@ -210,7 +217,7 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
           <span>{formState.presence_penalty}</span>
         </label>
         <label>
-          <span>Act as:</span>
+          <span>{t("act-as")}</span>
           <textarea
             name="act_as"
             value={formState.act_as}
@@ -218,7 +225,7 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
           />
         </label>
         <label>
-          <span>System Prompt:</span>
+          <span>{t("system-prompt")}</span>
           <textarea
             name="system_prompt"
             value={formState.system_prompt}
@@ -226,7 +233,7 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
           />
         </label>
         <label>
-          <span>Temperature:</span>
+          <span>{t("temperature")}</span>
           <div>
             <input
               type="range"
@@ -241,7 +248,7 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
           </div>
         </label>
         <label>
-          <span>Top P:</span>
+          <span>{t("top-p")}</span>
           <span>
             <input
               name="top_p"
@@ -259,17 +266,17 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
           extraClass=""
           size="big"
           onClick={save}
-          text="Save"
+          text={t("save")}
           svg={SVGS.download}
         />
         <SvgButton
           size="big"
           onClick={handleDelete}
-          text="Delete"
+          text={t("delete")}
           svg={SVGS.close}
           extraClass="bg-danger"
           confirmations={[
-            "Sure? This action cannot be undone. Click again to confirm.",
+            t("sure-this-action-cannot-be-undone-click-again-to-confirm"),
           ]}
         />
       </form>
