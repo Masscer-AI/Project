@@ -346,3 +346,11 @@ export const deleteCompletion = async (completionId: string) => {
     `/v1/finetuning/completions/${completionId}/`
   );
 };
+
+export const updateConversation = async (conversationId: string, data: any) => {
+  return makeAuthenticatedRequest(
+    "PUT",
+    `/v1/messaging/conversations/${conversationId}/`,
+    data
+  );
+};

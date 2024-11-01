@@ -10,7 +10,13 @@ import { updateAgent } from "../../modules/apiCalls";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 
-export const ChatHeader = () => {
+export const ChatHeader = ({
+  title,
+  onTitleEdit,
+}: {
+  title: string;
+  onTitleEdit: (title: string) => void;
+}) => {
   const { t } = useTranslation();
   const { toggleSidebar, fetchAgents, agents, addAgent } = useStore(
     (state) => ({
@@ -25,26 +31,41 @@ export const ChatHeader = () => {
     fetchAgents();
   }, []);
 
-
+  const onEdit = (e: React.ChangeEvent<HTMLSpanElement>) => {
+    const newTitle = e.target.innerText;
+    onTitleEdit(newTitle);
+  };
 
   return (
-    <div className="chat-header">
-      <button className="button" onClick={toggleSidebar}>
-        {SVGS.burger}
-      </button>
+    <div className="chat-header d-flex justify-between">
+      <div className="d-flex align-center gap-small">
+        <button className="button" onClick={toggleSidebar}>
+          {SVGS.burger}
+        </button>
 
-      <FloatingDropdown
-        left="0"
-        top="100%"
-        opener={<button className="button">{t("agents")}</button>}
-      >
-        {agents.map((agent, index) => (
-          <AgentComponent key={index} agent={agent} />
-        ))}
-        <div>
-          <SvgButton onClick={addAgent} svg={SVGS.plus} />
-        </div>
-      </FloatingDropdown>
+        <FloatingDropdown
+          left="0"
+          top="100%"
+          opener={<button className="button">{t("agents")}</button>}
+        >
+          {agents.map((agent, index) => (
+            <AgentComponent key={index} agent={agent} />
+          ))}
+          <div>
+            <SvgButton onClick={addAgent} svg={SVGS.plus} />
+          </div>
+        </FloatingDropdown>
+      </div>
+      <div className="d-flex align-center">
+        <span
+          contentEditable={true}
+          className="text-mini"
+          onBlur={onEdit}
+          suppressContentEditableWarning
+        >
+          {title}
+        </span>
+      </div>
     </div>
   );
 };
@@ -83,7 +104,7 @@ const AgentComponent = ({ agent }: TAgentComponentProps) => {
       </section>
       <SvgButton svg={SVGS.controls} onClick={showModal} />
 
-      <Modal visible={isModalVisible} hide={hideModal}>
+      <Modal minHeight={"40vh"} visible={isModalVisible} hide={hideModal}>
         <AgentConfigForm agent={agent} onSave={onSave} onDelete={hideModal} />
       </Modal>
     </div>
@@ -146,7 +167,9 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
 
   return (
     <div>
-      <h3>{t("configure")} {formState.name}</h3>
+      <h3>
+        {t("configure")} {formState.name}
+      </h3>
       <form onSubmit={onSubmit} className="form">
         <label>
           <span>{t("name")}</span>

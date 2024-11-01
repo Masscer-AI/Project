@@ -80,7 +80,7 @@ export const CompletionsModal = ({ visible, hide }) => {
   };
 
   return (
-    <Modal visible={visible} hide={hide}>
+    <Modal minHeight={"40vh"} visible={visible} hide={hide}>
       <h3 className="text-center">{t("completions-pending-for-approval")}</h3>
       <div className="d-flex align-center gap-small padding-medium">
         <span>{t("filter-by")}: </span>

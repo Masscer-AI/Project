@@ -7,7 +7,7 @@ import toast from "react-hot-toast";
 import "./MarkdownRenderer.css";
 import { debounce } from "../../modules/utils";
 
-const DEBOUNCE_TIME = 100;
+const DEBOUNCE_TIME = 180;
 
 const md = new MarkdownIt({
   html: true,

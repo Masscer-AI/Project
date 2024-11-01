@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import io from "socket.io-client";
 import "./page.css";
 import { Message } from "../../components/Message/Message";
 import { ChatInput } from "../../components/ChatInput/ChatInput";
@@ -13,6 +12,8 @@ import { ChatHeader } from "../../components/ChatHeader/ChatHeader";
 import toast, { Toaster } from "react-hot-toast";
 import { playAudioFromBytes } from "../../modules/utils";
 import { TrainingModals } from "../../components/TrainingModals/TrainingModals";
+import { updateConversation } from "../../modules/apiCalls";
+import { useTranslation } from "react-i18next";
 
 export default function ChatView() {
   const loaderData = useLoaderData() as TChatLoader;
@@ -42,6 +43,8 @@ export default function ChatView() {
     agents: state.agents,
   }));
 
+  const { t } = useTranslation();
+
   useEffect(() => {
     setUser(loaderData.user);
   }, []);
@@ -68,6 +71,13 @@ export default function ChatView() {
           attachments: [],
           agentSlug: agentSlug,
         };
+        lastMessage.versions = [
+          {
+            text: lastMessage.text,
+            type: "assistant",
+            agentSlug: agentSlug,
+          },
+        ];
         newMessages.push(assistantMessage);
       }
       return newMessages;
@@ -204,12 +214,25 @@ export default function ChatView() {
     }
   };
 
+  const onTitleEdit = async (title: string) => {
+    if (!conversation?.id && !loaderData.conversation.id) return;
+
+    await updateConversation(conversation?.id || loaderData.conversation.id, {
+      title,
+    });
+
+    toast.success(t("title-updated"));
+  };
+
   return (
     <>
       <TrainingModals />
       {chatState.isSidebarOpened && <Sidebar />}
       <div className="chat-container">
-        <ChatHeader />
+        <ChatHeader
+          onTitleEdit={onTitleEdit}
+          title={conversation?.title || loaderData.conversation.title || "Chat"}
+        />
         <ChatInput
           handleSendMessage={handleSendMessage}
           handleKeyDown={handleKeyDown}
@@ -217,16 +240,6 @@ export default function ChatView() {
         />
 
         <div className="chat-messages">
-          {conversation && conversation.title ? (
-            <h3 className="padding-medium text-center">{conversation.title}</h3>
-          ) : loaderData.conversation.title ? (
-            <h3 className="padding-medium text-center">
-              {loaderData.conversation.title}
-            </h3>
-          ) : (
-            ""
-          )}
-
           {messages &&
             messages.map((msg, index) => (
               <Message

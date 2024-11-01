@@ -34,7 +34,7 @@ export const Sidebar: React.FC = () => {
   const [filteredHistory, setFilteredHistory] = useState<TConversation[]>([]);
   const [conversationFilter, setConversationFilter] = useState("");
   const [searchParams, setSearchParams] = useSearchParams();
-  const [openedSections, setOpenedSections] = useState<string[]>([]);
+  const [openedSections, setOpenedSections] = useState<string[]>(["conversations"]);
 
   const navigate = useNavigate();
 
@@ -72,6 +72,7 @@ export const Sidebar: React.FC = () => {
     setConversation(null);
     if (searchParams.has("conversation")) {
       searchParams.delete("conversation");
+      setOpenedModals({ action: "add", name: "settings" });
       setSearchParams(searchParams);
     }
     toggleSidebar();
@@ -97,6 +98,11 @@ export const Sidebar: React.FC = () => {
     } else {
       setOpenedSections((prev) => [...prev, section]);
     }
+  };
+
+  const openSettings = () => {
+    setOpenedModals({ action: "add", name: "settings" });
+    toggleSidebar();
   };
 
   return (
@@ -211,8 +217,11 @@ export const Sidebar: React.FC = () => {
       </div>
       <div className="sidebar__footer d-flex justify-between">
         <SvgButton text={user ? user.username : t("you")} />
-        <SvgButton svg={SVGS.controls} text={t("settings")} />
-        <LanguageSelector />
+        <SvgButton
+          onClick={openSettings}
+          svg={SVGS.controls}
+          text={t("settings")}
+        />
       </div>
     </div>
   );
@@ -264,7 +273,6 @@ const ConversationComponent = ({
           <div className="conversation__options">
             <FloatingDropdown
               right="100%"
-              top="0"
               opener={
                 <SvgButton
                   title={t("conversation-options")}
@@ -339,9 +347,9 @@ const TrainingOnConversation = ({
   };
 
   return (
-    <Modal hide={hide}>
+    <Modal minHeight={"40vh"} hide={hide}>
       <div className="d-flex flex-y gap-big">
-        <h2 className="text-center">{t("generate-completions")}</h2>
+        <h2 className="text-center">{t("generate-completions25%")}</h2>
         <p>
           {t("generate-completions-description")}{" "}
           <strong>{conversation.title}</strong>{" "}

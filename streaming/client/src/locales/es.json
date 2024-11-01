@@ -71,5 +71,10 @@
     "completions-pending-for-approval": "Completaciones pendientes de aprobación",
     "unapprove": "Desaprobar",
     "approve": "Aprobar",
-    "save-in-memory": "Guardar en memoria"
+    "save-in-memory": "Guardar en memoria",
+    "settings-description": "Puedes cambiar el idioma de la aplicación aquí.",
+    "english": "Inglés",
+    "spanish": "Español",
+    "language": "Idioma",
+    "title-updated": "Título actualizado!"
 }

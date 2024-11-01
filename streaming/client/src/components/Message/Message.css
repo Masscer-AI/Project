@@ -89,3 +89,30 @@
   resize: vertical;
   scrollbar-width: none;
 }
+
+.message table {
+  width: 100%;
+  border-collapse: collapse; /* Because we like tidy edges */
+  border-radius: var(--standard-radius); /* Nice, smooth corners, obviously */
+  overflow: hidden; /* In case there are excess parts… let's just, you know... hide them */
+}
+
+.message td,
+.message th {
+  padding: 10px; /* Let's avoid hitting the table with a soft fist; give it space */
+  text-align: left; /* Getting a touch of readability without boxing */
+  border: 1px solid var(--font-color-secondary);
+}
+
+.message th {
+  background: var(--hovered-color);
+  font-weight: bold; /* Makes it tough... like telling tables you mean business */
+}
+
+/* .message tr:nth-child(even) td:nth-child(even) {
+  background-color: var(--hovered-color);
+} */
+
+.message td:hover {
+  background: var(--hovered-color);
+}

@@ -1,7 +1,7 @@
 import { TAttachment } from "../types";
 
 export type TConversationData = {
-  title: ReactNode;
+  title: string;
   id: string;
   messages: TMessage[];
 };
@@ -20,4 +20,9 @@ export type TMessage = {
   text: string;
   attachments: TAttachment[];
   agentSlug?: string;
+  versions?: {
+    text: string;
+    type: string;
+    agentSlug: string;
+  }[];
 };

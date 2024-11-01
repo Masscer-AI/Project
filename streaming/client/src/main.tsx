@@ -13,11 +13,11 @@ import Login from "./routes/login/page.tsx";
 import Tools from "./routes/tools/page.tsx";
 import Whatsapp from "./routes/whatsapp/page.tsx";
 import { whatsappLoader } from "./routes/whatsapp/loader.ts";
+
 const router = createBrowserRouter([
   {
     path: "/",
     element: <Layout />,
-    // element: <Root />,
     children: [
       {
         path: "/",

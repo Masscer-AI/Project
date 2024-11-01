@@ -19,6 +19,11 @@ interface MessageProps {
   text: string;
   index: number;
   agentSlug?: string;
+  versions?: {
+    text: string;
+    type: string;
+    agentSlug: string;
+  }[];
   attachments: TAttachment[];
   onGenerateSpeech: (text: string) => void;
   onGenerateImage: (text: string) => void;
@@ -29,6 +34,7 @@ export const Message: React.FC<MessageProps> = ({
   index,
   text,
   agentSlug,
+  versions,
   attachments,
   onGenerateSpeech,
   onGenerateImage,
@@ -37,6 +43,9 @@ export const Message: React.FC<MessageProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [innerText, setInnerText] = useState(text);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const [innerVersions, setInnerVersions] = useState(versions);
+  const [currentVersion, setCurrentVersion] = useState(0);
+
   const { t } = useTranslation();
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text).then(
@@ -93,7 +102,11 @@ export const Message: React.FC<MessageProps> = ({
     <div className={`message ${type} message-${index}`}>
       <MarkdownRenderer
         contentEditable={isEditing}
-        markdown={innerText}
+        markdown={
+          currentVersion === 0 || !innerVersions?.length
+            ? innerText
+            : innerVersions[currentVersion].text
+        }
         extraClass={"message-text"}
       />
 
@@ -134,6 +147,14 @@ export const Message: React.FC<MessageProps> = ({
           onClick={toggleEditMode}
           svg={isEditing ? SVGS.finish : SVGS.edit}
         />
+        {innerVersions &&
+          innerVersions.map((v, index) => (
+            <SvgButton
+              title={t("version")}
+              onClick={() => setCurrentVersion(index)}
+              svg={SVGS.edit}
+            />
+          ))}
 
         {agentSlug ? agentSlug : ""}
       </div>
@@ -174,7 +195,11 @@ const Source = ({ href, text }) => {
       <p>{href}</p>
       <SvgButton svg={SVGS.eyes} onClick={handleGetModel} />
       {isVisible && (
-        <Modal visible={isVisible} hide={() => setIsVisible(false)}>
+        <Modal
+          minHeight={"40vh"}
+          visible={isVisible}
+          hide={() => setIsVisible(false)}
+        >
           <div className="chunk-info">
             <h3>{chunkInfo.brief}</h3>
             <textarea

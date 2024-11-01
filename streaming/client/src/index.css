@@ -7,8 +7,10 @@
 
   line-height: 1.5;
   font-weight: 400;
-  --active-color: #0e353d;
-  --highlighted-color: rgb(20, 181, 151);
+  --active-color: #46e0ff;
+  /* --highlighted-color: rgb(20, 181, 151); */
+  --highlighted-color: #733af0;
+  --highlighted-color-opaque: #743af05b;
   --font-color: rgb(255, 255, 255);
   --bg-color: rgb(10, 9, 26);
   --bg-secondary-color: rgba(31, 31, 31, 0.397);
@@ -58,16 +60,16 @@
 
   --gradient-blue: radial-gradient(circle, #00c6ff, #0072ff);
   --gradient-green: radial-gradient(circle, #00b09b, #96c93d);
-  --gradient-multiple: radial-gradient(
-    circle,
-    #01003c,
-    #15147c,
-    #413ef0,
-    #403cff
+  --gradient-multiple: radial-gradient(#01003c, #15147c, #413ef0, #403cff);
+  --gradient-dark: linear-gradient(
+    130deg,
+    rgba(10, 75, 66, 0.429),
+    rgba(80, 5, 103, 0.348),
+    rgba(3, 1, 49, 0.208)
   );
 
   --assistant-color: #02091d;
-  --user-color: #743af04e;
+  --user-color: var(--gradient-dark);
   --modal-bg-color: #080c16;
   --bg-contrast-color: rgb(31, 31, 31);
   --border-radius: 6px;
@@ -186,8 +188,9 @@ textarea {
 .clickeable:hover,
 .clickeable:focus {
   border: 1px solid var(--highlighted-color);
-  color: var(--highlighted-color) !important;
+  color: var(--font-color);
   transition: 0.2s all;
+  background-color: var(--highlighted-color-opaque);
 }
 .clickeable:hover * {
   color: var(--font-color);
@@ -269,6 +272,9 @@ option {
 .bg-active {
   background-color: var(--active-color) !important;
 }
+.bg-gradient {
+  background: var(--gradient-dark);
+}
 .p-big {
   padding: 10px 15px;
 }
@@ -332,6 +338,9 @@ option {
 
 .align-center {
   align-items: center;
+}
+.align-top {
+  align-items: baseline;
 }
 
 .padding-medium {
@@ -450,4 +459,7 @@ option {
   to {
     opacity: 1;
   }
+}
+.text-mini {
+  font-size: 12px;
 }

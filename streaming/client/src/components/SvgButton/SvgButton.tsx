@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, LegacyRef } from "react";
 import "./SvgButton.css";
 
 type SvgButtonProps = {
@@ -9,9 +9,11 @@ type SvgButtonProps = {
   size?: "small" | "big";
   confirmations?: string[];
   title?: string;
+  reference?: LegacyRef<HTMLButtonElement>;
 };
 
 export const SvgButton = ({
+  reference,
   svg = null,
   text = "",
   onClick = () => {},
@@ -43,6 +45,7 @@ export const SvgButton = ({
       className={`svg-button clickeable ${extraClass} ${size}`}
       onClick={handleClick}
       title={title}
+      ref={reference}
     >
       <span>{svg}</span>
       <span>{innerText}</span>

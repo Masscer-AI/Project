@@ -16,7 +16,7 @@ import toast from "react-hot-toast";
 
 type SetOpenedProps = {
   action: "add" | "remove";
-  name: "documents" | "tags" | "completions";
+  name: "documents" | "tags" | "completions" | "settings";
 };
 
 type Store = {
@@ -143,7 +143,9 @@ export const useStore = create<Store>()((set, get) => ({
     try {
       const r = await uploadDocument(formData);
       newAttachment.id = r.id;
-      toast.success("Document uploaded successfully! Now you can chat with it using all the you selected");
+      toast.success(
+        "Document uploaded successfully! Now you can chat with it using all the you selected"
+      );
 
       set((state) => ({
         chatState: {

@@ -2,6 +2,7 @@ import React from "react";
 import { DocumentsModal } from "../DocumentsModal/DocumentsModal";
 import { useStore } from "../../modules/store";
 import { CompletionsModal } from "../CompletionsModal/CompletionsModal";
+import { Settings } from "../Settings/Settings";
 
 export const TrainingModals = () => {
   const { openedModals, setOpenedModals } = useStore((s) => ({
@@ -25,6 +26,7 @@ export const TrainingModals = () => {
           }
         />
       )}
+      {openedModals.includes("settings") && <Settings />}
     </>
   );
 };

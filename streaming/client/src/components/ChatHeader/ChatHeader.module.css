@@ -10,6 +10,11 @@
     display: flex;
     align-items: center;
     gap: 5px;
+    border-radius: 50vh;
+    padding: 5px;
+    &:hover {
+      background-color: var(--highlighted-color-opaque);
+    }
 
     & input[type="checkbox"] {
       width: 15px;
@@ -19,7 +24,8 @@
       border-radius: 50%;
     }
     & input[type="checkbox"]:checked {
-      background-color: var(--highlighted-color);
+      /* background-color: var(--highlighted-color); */
+      background-color: var(--success-color);
       border: 1px solid var(--highlighted-color);
     }
   }

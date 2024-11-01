@@ -7,33 +7,37 @@ type TFloatingDropdownProps = {
   left?: string;
   top?: string;
   right?: string;
+  bottom?: string;
+  isOpened?: boolean;
 };
 
 export const FloatingDropdown = ({
   children,
   opener,
+  isOpened,
   left = undefined,
   top = "0",
   right = undefined,
+  bottom = undefined,
 }: TFloatingDropdownProps) => {
-  const [isOpened, setIsOpened] = useState(false);
-
   return (
-    <div className={`floating-dropdown `}>
-      <div onClick={() => setIsOpened(!isOpened)}>{opener}</div>
-      {
-        <div
-          style={{
-            display: isOpened ? "flex" : "none",
-            top: top,
-            left: left,
-            right: right,
-          }}
-          className="__content"
-        >
-          {children}
-        </div>
-      }
-    </div>
+    <>
+      <div className={`floating-dropdown`}>
+      {opener}
+        {
+          <div
+            style={{
+              display: isOpened ? "flex" : "none",
+              top: top,
+              left: left,
+              right: right,
+            }}
+            className="__content"
+          >
+            {children}
+          </div>
+        }
+      </div>
+    </>
   );
 };
