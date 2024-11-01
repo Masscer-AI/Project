@@ -107,37 +107,26 @@ class SelectedChunks(BaseModel):
 
 
 def querify_context(context: str, collection: Collection) -> SelectedChunks:
-
-    chunks = get_chunks_for_collection(collection)
-    printer.yellow(len(chunks), "Number of chunks for the collection")
-    chunks_str = " ".join([json.dumps({"brief": c.content[100:500]}) for c in chunks])
+    # TODO: Instead, get the collection summary to understand the context better
+    # chunks = get_chunks_for_collection(collection)
+    # printer.yellow(len(chunks), "Number of chunks for the collection")
+    # chunks_str = " ".join([json.dumps({"brief": c.content[100:500]}) for c in chunks[:300]])
 
     _system = f"""
 You are a AI and Machine Learning specialist.
 
-The following context contains a brief of each chunk stored in a vector storage the user is querying and tags associated with them.
+The following context takes part of a conversation between the user and an AI assistant. Your task is to create queries that can lead to the best results when querying the vector storage as per user requirement.
 
-
-CHUNKS:
----
-{chunks_str}
----
-
-The following context takes part of a conversation between the user and an AI assistant
-
-CONTEXT:
+CONVERSATION CONTEXT:
 ---
 {context}
 ---
 
-
-
-Please return the queries that can lead to the best results when querying the vector storage as per user requirement.
 """
     queries = create_structured_completion(
         model="gpt-4o-mini",
         system_prompt=_system,
-        user_prompt=chunks_str,
+        user_prompt="Return the queries please.",
         response_format=SelectedChunks,
     )
     return queries
@@ -151,8 +140,6 @@ def get_chunks_for_collection(collection):
     chunks = Chunk.objects.filter(document__in=documents)
 
     return chunks
-
-
 
 
 def extract_rag_results(rag_results, context):
