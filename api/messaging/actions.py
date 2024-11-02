@@ -113,7 +113,7 @@ def transcribe_audio(audio_file_url, output_format="verbose_json") -> str:
         # Delete the file after successful transcription
         os.remove(audio_file_url)
     except Exception as e:
-        print(f"An error occurred: {e}")
+        print(f"An error occurred trascribing audio: {e}")
         raise
 
     if output_format == "vtt":
@@ -156,5 +156,5 @@ def generate_speech_api(
         return audio  # Return the audio bytes
 
     except requests.exceptions.RequestException as e:
-        print(f"An error occurred: {e}")
+        print(f"An error occurred generaeting speech: {e}")
         return b""

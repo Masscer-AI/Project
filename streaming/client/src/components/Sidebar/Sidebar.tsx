@@ -13,10 +13,8 @@ import {
 } from "../../modules/apiCalls";
 import { TConversation } from "../../types";
 import { Modal } from "../Modal/Modal";
-import { AgentSelector } from "../AgentSelector/AgentSelector";
 import toast from "react-hot-toast";
 import { Pill } from "../Pill/Pill";
-import { LanguageSelector } from "../LanguageSelector/LanguageSelector";
 import { useTranslation } from "react-i18next";
 
 export const Sidebar: React.FC = () => {
@@ -64,7 +62,7 @@ export const Sidebar: React.FC = () => {
       setHistory(res);
       setFilteredHistory(res);
     } catch (error) {
-      console.error("Failed to fetch conversations", error);
+      console.error("Failed to fetch conversations in sidebar", error);
     }
   };
 
@@ -72,7 +70,6 @@ export const Sidebar: React.FC = () => {
     setConversation(null);
     if (searchParams.has("conversation")) {
       searchParams.delete("conversation");
-      setOpenedModals({ action: "add", name: "settings" });
       setSearchParams(searchParams);
     }
     toggleSidebar();
@@ -245,15 +242,15 @@ const ConversationComponent = ({
   const [showTrainingModal, setShowTrainingModal] = useState(false);
   const navigate = useNavigate();
 
-  const handleClick = (e) => {
-    e.preventDefault();
+  const handleClick = () => {
+    console.log("Conversation clicked", conversation.id, "Trying to open");
     setConversation(conversation.id);
     toggleSidebar();
     const queryParams = {
       conversation: conversation.id,
     };
     setSearchParams(queryParams);
-
+    console.log("Navigating to", `/chat?conversation=${conversation.id}`);
     navigate(`/chat?conversation=${conversation.id}`);
   };
 

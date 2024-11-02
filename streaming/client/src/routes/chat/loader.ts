@@ -25,7 +25,7 @@ export const chatLoader: LoaderFunction = async ({
     const user = (await getUser()) as TUserData;
     return { conversation: c, user: user };
   } catch (error) {
-    console.error("Error loading conversation:", error);
+    console.error("Error loading conversation in chat loader:", error);
     return redirect("/signup");
   }
 };

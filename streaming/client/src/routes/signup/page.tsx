@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { Toaster, toast } from "react-hot-toast";
 import "./page.css";
@@ -11,7 +11,6 @@ export default function Signup() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
-  console.log(message);
 
   const navigate = useNavigate();
 
@@ -29,13 +28,17 @@ export default function Signup() {
       navigate("/login");
     } catch (error) {
       setMessage(error.response?.data?.detail || "An error occurred");
-      toast.error("An error occurred");
     }
   };
 
+  useEffect(() => {
+    if (message) {
+      toast.error(message);
+    }
+  }, [message]);
+
   return (
     <div className="signup-component">
-   
       <SimpleForm>
         <h2 className="simple-form-title">Sign Up</h2>
         <form onSubmit={handleSubmit}>
@@ -76,10 +79,7 @@ export default function Signup() {
             Signup
           </button>
         </form>
-        <button
-          onClick={() => navigate("/login")}
-          className="button w-100"
-        >
+        <button onClick={() => navigate("/login")} className="button w-100">
           Switch to Login
         </button>
       </SimpleForm>

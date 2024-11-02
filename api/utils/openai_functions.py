@@ -91,7 +91,7 @@ def generate_speech_api(
         return audio
 
     except requests.exceptions.RequestException as e:
-        print(f"An error occurred: {e}")
+        print(f"An error occurred generating speech API: {e}")
         return b""
 
 

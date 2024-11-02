@@ -15,7 +15,7 @@ export const rootLoader: LoaderFunction = async (): Promise<
 
     return { conversation: c };
   } catch (error) {
-    console.error("Error loading conversation:", error);
+    console.error("Error loading conversation in root loader:", error);
     // @ts-expect-error
     return {} as TConversationData;
     // return redirect("/signup");
