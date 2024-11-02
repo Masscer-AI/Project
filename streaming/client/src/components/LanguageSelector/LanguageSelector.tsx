@@ -20,6 +20,9 @@ export const LanguageSelector = () => {
     i18n.changeLanguage(lng);
     setIsOpened(false);
   };
+
+  const possibleLanguages = ["en", "es", "it"];
+
   return (
     <FloatingDropdown
       bottom="100%"
@@ -33,24 +36,14 @@ export const LanguageSelector = () => {
         />
       }
     >
-      <SvgButton
-      size="big"
-        text={t("english")}
-        onClick={() => setLanguage("en")}
-        svg={SVGS.language}
-      />
-      <SvgButton
-        size="big"
-        text={t("spanish")}
-        onClick={() => setLanguage("es")}
-        svg={SVGS.language}
-      />
-      <SvgButton
-        size="big"
-        text={t("italian")}
-        onClick={() => setLanguage("it")}
-        svg={SVGS.language}
-      />
+      {possibleLanguages.map((lng) => (
+        <SvgButton
+          size="big"
+          text={t(lng)}
+          onClick={() => setLanguage(lng)}
+          svg={<span className="text-mini text-secondary">{lng}</span>}
+        />
+      ))}
     </FloatingDropdown>
   );
 };

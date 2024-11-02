@@ -1,4 +1,3 @@
-import json
 import fitz
 import chardet
 from docx import Document as DocxDocument

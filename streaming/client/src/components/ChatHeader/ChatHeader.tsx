@@ -57,9 +57,10 @@ export const ChatHeader = ({
         </FloatingDropdown>
       </div>
       <div className="d-flex align-center">
-        <span
+        <span 
+          
           contentEditable={true}
-          className="text-mini"
+        className="text-normal padding-small"
           onBlur={onEdit}
           suppressContentEditableWarning
         >

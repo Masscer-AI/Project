@@ -34,7 +34,7 @@ export const Sidebar: React.FC = () => {
   const [filteredHistory, setFilteredHistory] = useState<TConversation[]>([]);
   const [conversationFilter, setConversationFilter] = useState("");
   const [searchParams, setSearchParams] = useSearchParams();
-  const [openedSections, setOpenedSections] = useState<string[]>(["conversations"]);
+  const [openedSections, setOpenedSections] = useState<string[]>([]);
 
   const navigate = useNavigate();
 

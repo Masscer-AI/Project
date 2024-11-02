@@ -77,5 +77,8 @@
     "spanish": "Español",
     "italian": "Italiano",
     "language": "Language",
-    "title-updated": "Title updated!"
+    "title-updated": "Title updated!",
+    "en": "English",
+    "es": "Spanish",
+    "it": "Italian"
 }

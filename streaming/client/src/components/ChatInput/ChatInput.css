@@ -33,6 +33,7 @@
   background-color: transparent;
   color: #ffffff;
   resize: none;
+  font-size: 16px;
 }
 
 .chat-input textarea::placeholder {

@@ -389,6 +389,9 @@ option {
 .text-small {
   font-size: 12px;
 }
+.text-secondary {
+  color: var(--font-color-secondary);
+}
 
 .padding-small {
   padding: 5px;
@@ -460,6 +463,19 @@ option {
     opacity: 1;
   }
 }
-.text-mini {
-  font-size: 12px;
+
+.circle {
+  border-radius: 50%;
+  width: 30px;
+  border: 1px solid var(--font-color);
+  height: 30px;
+  text-align: center;
+  display: block;
+  justify-content: center;
+  align-items: center;
+  display: flex;
+  font-size: 14px;
+}
+.text-normal {
+  font-size: 16px;
 }
