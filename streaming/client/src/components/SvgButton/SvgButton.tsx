@@ -47,8 +47,10 @@ export const SvgButton = ({
       title={title}
       ref={reference}
     >
-      {svg && <div>{svg}</div>}
-      {innerText && <div>{innerText}</div>}
+      {svg && <div className="d-flex align-center justify-center">{svg}</div>}
+      {innerText && (
+        <div className="d-flex align-center justify-center">{innerText}</div>
+      )}
     </button>
   );
 };

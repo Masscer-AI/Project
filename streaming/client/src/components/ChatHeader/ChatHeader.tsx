@@ -18,12 +18,13 @@ export const ChatHeader = ({
   onTitleEdit: (title: string) => void;
 }) => {
   const { t } = useTranslation();
-  const { toggleSidebar, fetchAgents, agents, addAgent } = useStore(
+  const { toggleSidebar, fetchAgents, agents, addAgent, chatState } = useStore(
     (state) => ({
       agents: state.agents,
       toggleSidebar: state.toggleSidebar,
       fetchAgents: state.fetchAgents,
       addAgent: state.addAgent,
+      chatState: state.chatState,
     })
   );
   const [innerTitle, setInnerTitle] = useState(title);
@@ -47,9 +48,11 @@ export const ChatHeader = ({
   return (
     <div className="chat-header d-flex justify-between">
       <div className="d-flex align-center gap-small">
-        <button className="button" onClick={toggleSidebar}>
-          {SVGS.burger}
-        </button>
+        {chatState.isSidebarOpened ? (
+          <></>
+        ) : (
+          <SvgButton onClick={toggleSidebar} svg={SVGS.burger} />
+        )}
 
         <FloatingDropdown
           left="0"

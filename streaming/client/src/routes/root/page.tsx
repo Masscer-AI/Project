@@ -9,6 +9,7 @@ import { Landing } from "../../components/Landing/Landing";
 import "./page.css";
 import { Navbar } from "../../components/Navbar/Navbar";
 import { useStore } from "../../modules/store";
+import toast from "react-hot-toast";
 
 export default function Root() {
   const data = useLoaderData() as { conversation: TSomething };
@@ -17,21 +18,17 @@ export default function Root() {
   const [chat, setChat] = useState<ChatItem[]>([]);
 
   useEffect(() => {
-
-    socket.on("disconnect", () => {
-      console.log("Disconnected from socket server");
-    });
-
     const updateMessages = (chunk: string) => {
       const newMessages = [...chat];
       const lastMessage = newMessages[newMessages.length - 1];
 
-      if (lastMessage && lastMessage.isUser === false) {
+      if (lastMessage && !lastMessage.isUser) {
         lastMessage.text += chunk;
       } else {
-        const assistantMessage = {
+        const assistantMessage: ChatItem = {
           text: chunk,
           isUser: false,
+          type: "assistant",
         };
         newMessages.push(assistantMessage);
       }
@@ -43,19 +40,20 @@ export default function Root() {
     });
 
     socket.on("responseFinished", (data) => {
-      console.log("Response finished:", data);
+      // console.log("Response finished:", data);
       generateSpeech(data.ai_response);
       // socket.disconnect();
     });
 
     socket.on("audio-file", (audioFile) => {
+      console.log(audioFile, "AUDIO FILE");
       const audioBlob = new Blob([audioFile], { type: "audio/mp3" });
       saveSpeechToMessage(audioBlob);
     });
 
     return () => {
       // socket.off("connect");
-      socket.off("disconnect");
+      // socket.off("disconnect");
       socket.off("response");
       socket.off("responseFinished");
       socket.off("audio-file");
@@ -77,7 +75,12 @@ export default function Root() {
         const audioUrl = URL.createObjectURL(audioFile);
         setChat((prevChat) => [
           ...prevChat,
-          { text: data.transcription, audioSrc: audioUrl, isUser: true },
+          {
+            text: data.transcription,
+            audioSrc: audioUrl,
+            isUser: true,
+            type: "user",
+          },
         ]);
         getCompletion(data.transcription);
       } else {
@@ -89,14 +92,7 @@ export default function Root() {
   };
 
   const getCompletion = (transcription: string) => {
-    console.log(data, "DATA BEING SEND");
-
-    const context = chat
-      .slice(-6)
-      .map((item) => `${item.isUser ? "user" : "ai"}: ${item.text}`)
-      .join("\n");
-
-    socket.connect();
+    const context = chat.slice(-6);
 
     const messageData = {
       message: {
@@ -114,6 +110,8 @@ export default function Root() {
   };
 
   const generateSpeech = async (text: string) => {
+    console.log(text, "TEXT");
+    toast.success("Generating speech... For text");
     socket.emit("speech_request", {
       text,
     });
@@ -123,7 +121,6 @@ export default function Root() {
     setChat((prevChat) => {
       const newMessages = [...prevChat];
       const lastMessage = newMessages[newMessages.length - 1];
-      console.log(lastMessage, "LAST MESSAGE!");
 
       const audioUrl = URL.createObjectURL(audioFile);
       lastMessage.audioSrc = audioUrl;
@@ -135,7 +132,7 @@ export default function Root() {
   return (
     <>
       <main className="root-page">
-        {/* <SpeechReceptor socket={socket} /> */}
+
         <Navbar />
         <Landing />
         <ChatMessages chat={chat} />

@@ -264,6 +264,7 @@ export default function ChatView() {
   return (
     <>
       <TrainingModals />
+      <div className="d-flex">
       {chatState.isSidebarOpened && <Sidebar />}
       <div className="chat-container">
         <ChatHeader
@@ -288,6 +289,7 @@ export default function ChatView() {
               />
             ))}
         </div>
+      </div>
       </div>
     </>
   );

@@ -1,16 +1,12 @@
 .simple-form {
-  background-color: var(--modals-color);
+  background-color: var(--modal-bg-color);
   padding: 40px;
   border-radius: 10px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease;
   width: min(400px, 100%);
   border: 2px solid transparent;
-  background: radial-gradient(
-    ellipse at center,
-    var(--navy),
-    black
-  );
+  background: radial-gradient(ellipse at center, var(--navy), black);
   color: var(--font-color);
 }
 
@@ -29,8 +25,9 @@
   margin-bottom: 15px;
 }
 
-.simple-form input:focus, .simple-form input:active {
-  border-color: var(--navy) !important; 
+.simple-form input:focus,
+.simple-form input:active {
+  border-color: var(--navy) !important;
 }
 
 .simple-form input {
@@ -45,7 +42,6 @@
 .simple-form input::placeholder {
   color: var(--font-color-secondary);
 }
-
 
 .simple-form input:focus::placeholder {
   color: var(--font-color);

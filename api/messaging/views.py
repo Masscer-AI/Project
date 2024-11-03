@@ -154,15 +154,12 @@ class MessageView(View):
 
 @csrf_exempt
 def upload_audio(request):
-    print(request.FILES)
     if request.method == "POST" and request.FILES.get("audio_file"):
         audio_file = request.FILES["audio_file"]
 
-        # Generate a random filename
         random_filename = f"{uuid.uuid4()}{os.path.splitext(audio_file.name)[1]}"
         random_filename_speech = f"{uuid.uuid4()}.mp3"
 
-        # Save the audio file in the 'audio_files' directory
         fs = FileSystemStorage(
             location=os.path.join(settings.MEDIA_ROOT, "audio_files")
         )
@@ -172,18 +169,18 @@ def upload_audio(request):
         transcription = transcribe_audio(file_path)
 
         # Generate speech from the transcription
-        speech_output_path = os.path.join(
-            settings.MEDIA_ROOT, "audio_files", f"{random_filename_speech}"
-        )
-        audio_data = generate_speech_api(transcription, speech_output_path)
+        # speech_output_path = os.path.join(
+        #     settings.MEDIA_ROOT, "audio_files", f"{random_filename_speech}"
+        # )
+        # audio_data = generate_speech_api(transcription, speech_output_path)
 
         # with open(speech_output_path, "rb") as audio_file:
         #     audio_data = audio_file.read()
-
+        # print(audio_data, "AUDIO DATA")
         return JsonResponse(
             {
                 "transcription": transcription,
-                "speech_audio": audio_data.decode("latin-1"),
+                # "speech_audio": audio_data.decode("latin-1"),
             }
         )
 

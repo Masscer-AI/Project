@@ -363,11 +363,19 @@ type TSuggestionResponse = {
 };
 
 export const getSuggestion = async (input: string) => {
-  return makeAuthenticatedRequest<TSuggestionResponse>  (
+  return makeAuthenticatedRequest<TSuggestionResponse>(
     "POST",
     "/v1/messaging/get-suggestion/",
     {
       input,
     }
+  );
+};
+
+export const updateMessage = async (messageId: number, data: any) => {
+  return makeAuthenticatedRequest(
+    "PUT",
+    `/v1/messaging/messages/${messageId}/`,
+    data
   );
 };

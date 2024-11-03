@@ -1,5 +1,7 @@
 import React, { useRef, useEffect, useState } from "react";
 import "./Talkie.css";
+import { SvgButton } from "../SvgButton/SvgButton";
+import { SVGS } from "../../assets/svgs";
 
 interface TalkieProps {
   processAudio: (audioFile: Blob, transcription: string) => void;
@@ -18,7 +20,7 @@ export const Talkie: React.FC<TalkieProps> = ({ processAudio }) => {
   const barsRef = useRef<HTMLDivElement[]>([]);
   const animationIdRef = useRef<number | null>(null); // Ref para almacenar el ID de la animación
 
-  const numBars = 15;
+  const numBars = 5;
 
   const startRecording = async () => {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -98,9 +100,9 @@ export const Talkie: React.FC<TalkieProps> = ({ processAudio }) => {
 
       for (let i = 0; i < numBars; i++) {
         const barHeight = dataArray[i * step] / 2;
-
+        const constrainedHeight = Math.min(Math.max(barHeight, 5), 25);
         if (barsRef.current[i]) {
-          barsRef.current[i].style.height = `${barHeight}px`;
+          barsRef.current[i].style.height = `${constrainedHeight}px`;
         }
       }
     };
@@ -156,30 +158,35 @@ export const Talkie: React.FC<TalkieProps> = ({ processAudio }) => {
     }
   }, [isRecording]);
 
-  useEffect(() => {
-    const handleKeyPress = (event: KeyboardEvent) => {
-      if (event.key === "Enter") {
-        if (isRecording) {
-          stopRecording();
-        } else {
-          startRecording();
-        }
-      }
-    };
+  // useEffect(() => {
+  //   const handleKeyPress = (event: KeyboardEvent) => {
+  //     if (event.key === "Enter") {
+  //       if (isRecording) {
+  //         stopRecording();
+  //       } else {
+  //         startRecording();
+  //       }
+  //     }
+  //   };
 
-    window.addEventListener("keydown", handleKeyPress);
+  //   window.addEventListener("keydown", handleKeyPress);
 
-    return () => {
-      window.removeEventListener("keydown", handleKeyPress);
-    };
-  }, [isRecording]);
+  //   return () => {
+  //     window.removeEventListener("keydown", handleKeyPress);
+  //   };
+  // }, [isRecording]);
 
   return (
     <div className="talkie">
+      <SvgButton
+        extraClass={isRecording ? "bg-danger" : ""}
+        onClick={isRecording ? stopRecording : startRecording}
+        svg={isRecording ? SVGS.microphoneOff : SVGS.microphone}
+        title={
+          isRecording ? "Stop Recording" : "Press Enter to Start Recording"
+        }
+      />
       <div id="bars-container" ref={barsContainerRef}></div>
-      <button className="button" onClick={isRecording ? stopRecording : startRecording}>
-        {isRecording ? "Stop Recording" : "Press Enter to Start Recording"}
-      </button>
     </div>
   );
 };

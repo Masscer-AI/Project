@@ -1,14 +1,9 @@
 .talkie {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  position: fixed;
-  bottom: 5%;
-  left: 50%;
-  transform: translateX(-50%);
   width: min(400px, 100%);
-  z-index: 2;
-  border-radius: 50vh;
+  overflow: hidden;
+  max-height: 100%;
 }
 
 canvas {
@@ -18,16 +13,19 @@ canvas {
 
 #bars-container {
   display: flex;
-  align-items: flex-end;
-  height: 100px;
-  width: 100%;
-  justify-content: center;
+  align-items: center;
+  max-height: 100%;
+  background-color: var(--bg-color);
+  width: fit-content;
+  padding: 2px;
+  overflow: hidden;
 }
 
 .bar {
-  width: 10px;
+  width: 2px;
   height: 1px;
-  margin: 0 2px;
+  margin: 0 1px;
   background: linear-gradient(90deg, rgb(105, 83, 201), var(--active-color));
   transition: height 0.1s;
+  overflow: hidden;
 }

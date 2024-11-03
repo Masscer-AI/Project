@@ -27,6 +27,7 @@
   --danger-color: #ff3e3e;
   --success-color: #20dd92;
   --app-max-width: 1200px;
+  --input-max-width: 800px;
   color-scheme: dark light;
   background-color: var(--bg-color);
 
@@ -38,17 +39,18 @@
 }
 
 :root:has(body.dark) {
-  --active-color: #5779ff;
-  --highlighted-color: #733af0;
+  --active-color: rgba(66, 42, 255, 0.8);
+  --highlighted-color: rgba(110, 91, 255, 0.8);
+
   --secondary-color: #0077ff;
   --font-color: rgb(255, 255, 255);
   --font-color-secondary: rgb(160, 160, 160);
   --bg-color: rgb(0, 0, 0);
-  --bg-secondary-color: #070514;
-  --bg-color-secondary: #090716;
+  --bg-secondary-color: rgb(22, 21, 29);
+  --bg-color-secondary: #91ff00;
   --hovered-color: rgba(134, 134, 134, 0.248);
   --selected-color: rgba(75, 75, 75, 0.646);
-  --modals-color: #00071a;
+  --modal-bg-color: #161020;
   --font-color-secondary: rgb(160, 160, 160);
   --root-bg-color: #06181f;
   --gradient-bg: radial-gradient(
@@ -58,9 +60,6 @@
     rgba(36, 30, 84, 0.8)
   );
 
-  --gradient-blue: radial-gradient(circle, #00c6ff, #0072ff);
-  --gradient-green: radial-gradient(circle, #00b09b, #96c93d);
-  --gradient-multiple: radial-gradient(#0f0e47, #15147c, #413ef0, #403cff);
   --gradient-dark: linear-gradient(
     130deg,
     rgba(34, 16, 100, 0.665),
@@ -70,7 +69,7 @@
 
   --assistant-color: #303031;
   --user-color: var(--gradient-dark);
-  --modal-bg-color: #080c16;
+
   --bg-contrast-color: rgb(31, 31, 31);
   --border-radius: 6px;
   --selected-border: 1px solid var(--highlighted-color);

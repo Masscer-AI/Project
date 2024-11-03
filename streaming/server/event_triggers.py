@@ -184,7 +184,7 @@ AUDIO_DIR = "audios"
 
 async def on_speech_request_handler(socket_id, data, **kwargs):
 
-    logger.debug("Generating speech with socket")
+    logger.debug("Generating speech with socket", data)
 
     from server.socket import sio
 

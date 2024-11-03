@@ -554,4 +554,342 @@ export const SVGS = {
       />
     </svg>
   ),
+  thumbUp: (
+    <svg
+      width="800px"
+      height="800px"
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className="set-stroke"
+    >
+      <path
+        d="M7.99997 20H17.1919C17.9865 20 18.7058 19.5296 19.0243 18.8016L21.8323 12.3833C21.9429 12.1305 22 11.8576 22 11.5816V11C22 9.89543 21.1045 9 20 9H13.5L14.7066 4.5757C14.8772 3.95023 14.5826 3.2913 14.0027 3.00136V3.00136C13.4204 2.7102 12.7134 2.87256 12.3164 3.3886L8.41472 8.46082C8.14579 8.81044 7.99997 9.23915 7.99997 9.68024V20ZM7.99997 20H2V10H7.99997V20Z"
+        stroke="var(--font-color)"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  ),
+  thumbDown: (
+    <svg
+      width="800px"
+      height="800px"
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className="set-stroke"
+    >
+      <path
+        d="M7.99997 4H17.1919C17.9865 4 18.7058 4.47039 19.0243 5.19836L21.8323 11.6167C21.9429 11.8695 22 12.1424 22 12.4184V13C22 14.1046 21.1045 15 20 15H13.5L14.7066 19.4243C14.8772 20.0498 14.5826 20.7087 14.0027 20.9986V20.9986C13.4204 21.2898 12.7134 21.1274 12.3164 20.6114L8.41472 15.5392C8.14579 15.1896 7.99997 14.7608 7.99997 14.3198V14M7.99997 4H2V14H7.99997M7.99997 4V14"
+        stroke="var(--font-color)"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  ),
+  sidebarExpand: (
+    <svg
+      fill="var(--font-color)"
+      width="800px"
+      height="800px"
+      viewBox="0 0 64 64"
+      version="1.1"
+      xmlns="http://www.w3.org/2000/svg"
+      xmlnsXlink="http://www.w3.org/1999/xlink"
+      xmlSpace="preserve"
+      style={{
+        fillRule: "evenodd",
+        clipRule: "evenodd",
+        strokeLinejoin: "round",
+        strokeMiterlimit: 2,
+      }}
+    >
+      <rect
+        id="Icons"
+        x="-1152"
+        y="0"
+        width="1280"
+        height="800"
+        style={{ fill: "none" }}
+      />
+
+      <g id="Icons1">
+        <g id="Strike"></g>
+
+        <g id="H1"></g>
+
+        <g id="H2"></g>
+
+        <g id="H3"></g>
+
+        <g id="list-ul"></g>
+
+        <g id="hamburger-1"></g>
+
+        <g id="hamburger-2"></g>
+
+        <g id="list-ol"></g>
+
+        <g id="list-task"></g>
+
+        <g id="trash"></g>
+
+        <g id="vertical-menu"></g>
+
+        <g id="horizontal-menu"></g>
+
+        <g id="sidebar-2"></g>
+
+        <g id="Pen"></g>
+
+        <g id="Pen1"></g>
+
+        <g id="clock"></g>
+
+        <g id="external-link"></g>
+
+        <g id="hr"></g>
+
+        <g id="info"></g>
+
+        <g id="warning"></g>
+
+        <g id="plus-circle"></g>
+
+        <g id="minus-circle"></g>
+
+        <g id="vue"></g>
+
+        <g id="cog"></g>
+
+        <g id="logo"></g>
+
+        <g id="radio-check"></g>
+
+        <g id="eye-slash"></g>
+
+        <g id="eye"></g>
+
+        <g id="toggle-off"></g>
+
+        <g>
+          <path
+            id="sidebar"
+            d="M50.008,56l-35.989,0c-3.309,0 -5.995,-2.686 -5.995,-5.995l0,-36.011c0,-3.308 2.686,-5.995 5.995,-5.995l35.989,0c3.309,0 5.995,2.687 5.995,5.995l0,36.011c0,3.309 -2.686,5.995 -5.995,5.995Zm-25.984,-4.001l0,-39.999l-9.012,0c-1.65,0 -2.989,1.339 -2.989,2.989l0,34.021c0,1.65 1.339,2.989 2.989,2.989l9.012,0Zm24.991,-39.999l-20.991,0l0,39.999l20.991,0c1.65,0 2.989,-1.339 2.989,-2.989l0,-34.021c0,-1.65 -1.339,-2.989 -2.989,-2.989Z"
+          />
+
+          <path
+            id="code"
+            d="M16.024,38.774l6.828,-6.828l-6.828,-6.829l-2.829,2.829l4,4l-4,4l2.829,2.828Z"
+          />
+        </g>
+
+        <g id="shredder"></g>
+
+        <g id="spinner--loading--dots-"></g>
+
+        <g id="react"></g>
+
+        <g id="check-selected"></g>
+
+        <g id="turn-off"></g>
+
+        <g id="code-block"></g>
+
+        <g id="user"></g>
+
+        <g id="coffee-bean"></g>
+
+        <g id="coffee-beans">
+          <g id="coffee-bean1"></g>
+        </g>
+
+        <g id="coffee-bean-filled"></g>
+
+        <g id="coffee-beans-filled">
+          <g id="coffee-bean2"></g>
+        </g>
+
+        <g id="clipboard"></g>
+
+        <g id="clipboard-paste"></g>
+
+        <g id="clipboard-copy"></g>
+
+        <g id="Layer1"></g>
+      </g>
+    </svg>
+  ),
+  sidebarCollapse: (
+    <svg
+      fill="var(--font-color)"
+      width="800px"
+      height="800px"
+      viewBox="0 0 64 64"
+      version="1.1"
+      xmlns="http://www.w3.org/2000/svg"
+      xmlnsXlink="http://www.w3.org/1999/xlink"
+      xmlSpace="preserve"
+      style={{
+        fillRule: "evenodd",
+        clipRule: "evenodd",
+        strokeLinejoin: "round",
+        strokeMiterlimit: 2,
+      }}
+    >
+      <rect
+        id="Icons"
+        x="-1088"
+        y="0"
+        width="1280"
+        height="800"
+        style={{ fill: "none" }}
+      />
+
+      <g id="Icons1">
+        <g id="Strike"></g>
+
+        <g id="H1"></g>
+
+        <g id="H2"></g>
+
+        <g id="H3"></g>
+
+        <g id="list-ul"></g>
+
+        <g id="hamburger-1"></g>
+
+        <g id="hamburger-2"></g>
+
+        <g id="list-ol"></g>
+
+        <g id="list-task"></g>
+
+        <g id="trash"></g>
+
+        <g id="vertical-menu"></g>
+
+        <g id="horizontal-menu"></g>
+
+        <g id="sidebar-2"></g>
+
+        <g id="Pen"></g>
+
+        <g id="Pen1"></g>
+
+        <g id="clock"></g>
+
+        <g id="external-link"></g>
+
+        <g id="hr"></g>
+
+        <g id="info"></g>
+
+        <g id="warning"></g>
+
+        <g id="plus-circle"></g>
+
+        <g id="minus-circle"></g>
+
+        <g id="vue"></g>
+
+        <g id="cog"></g>
+
+        <g id="logo"></g>
+
+        <g id="radio-check"></g>
+
+        <g id="eye-slash"></g>
+
+        <g id="eye"></g>
+
+        <g id="toggle-off"></g>
+
+        <g>
+          <path
+            id="sidebar"
+            d="M49.984,56l-35.989,0c-3.309,0 -5.995,-2.686 -5.995,-5.995l0,-36.011c0,-3.308 2.686,-5.995 5.995,-5.995l35.989,0c3.309,0 5.995,2.687 5.995,5.995l0,36.011c0,3.309 -2.686,5.995 -5.995,5.995Zm-25.984,-4.001l0,-39.999l-9.012,0c-1.65,0 -2.989,1.339 -2.989,2.989l0,34.021c0,1.65 1.339,2.989 2.989,2.989l9.012,0Zm24.991,-39.999l-20.991,0l0,39.999l20.991,0c1.65,0 2.989,-1.339 2.989,-2.989l0,-34.021c0,-1.65 -1.339,-2.989 -2.989,-2.989Z"
+          />
+
+          <path
+            id="code"
+            d="M19.999,38.774l-6.828,-6.828l6.828,-6.829l2.829,2.829l-4,4l4,4l-2.829,2.828Z"
+          />
+        </g>
+
+        <g id="shredder"></g>
+
+        <g id="spinner--loading--dots-"></g>
+
+        <g id="react"></g>
+
+        <g id="check-selected"></g>
+
+        <g id="turn-off"></g>
+
+        <g id="code-block"></g>
+
+        <g id="user"></g>
+
+        <g id="coffee-bean"></g>
+
+        <g id="coffee-beans">
+          <g id="coffee-bean1"></g>
+        </g>
+
+        <g id="coffee-bean-filled"></g>
+
+        <g id="coffee-beans-filled">
+          <g id="coffee-bean2"></g>
+        </g>
+
+        <g id="clipboard"></g>
+
+        <g id="clipboard-paste"></g>
+
+        <g id="clipboard-copy"></g>
+
+        <g id="Layer1"></g>
+      </g>
+    </svg>
+  ),
+  microphone: (
+    <svg
+      width="800px"
+      height="800px"
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className="set-stroke"
+    >
+      <path
+        d="M19 10V12C19 15.866 15.866 19 12 19M5 10V12C5 15.866 8.13401 19 12 19M12 19V22M8 22H16M15 6H13M15 10H13M12 15C10.3431 15 9 13.6569 9 12V5C9 3.34315 10.3431 2 12 2C13.6569 2 15 3.34315 15 5V12C15 13.6569 13.6569 15 12 15Z"
+        stroke="var(--font-color)"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  ),
+  microphoneOff: (
+    <svg
+      width="800px"
+      height="800px"
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className="set-stroke"
+    >
+      <path
+        d="M15 9.4V5C15 3.34315 13.6569 2 12 2C10.8224 2 9.80325 2.67852 9.3122 3.66593M12 19V22M8 22H16M3 3L21 21M5.00043 10C5.00043 10 3.50062 19 12.0401 19C14.51 19 16.1333 18.2471 17.1933 17.1768M19.0317 13C19.2365 11.3477 19 10 19 10M15 6H13M12 15C10.3431 15 9 13.6569 9 12V9L14.1226 14.12C13.5796 14.6637 12.8291 15 12 15Z"
+        stroke="var(--font-color)"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  ),
 };

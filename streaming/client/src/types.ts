@@ -2,6 +2,7 @@ export interface ChatItem {
   text: string;
   audioSrc?: string;
   isUser: boolean;
+  type: "user" | "assistant";
 }
 
 export type TSomething = {

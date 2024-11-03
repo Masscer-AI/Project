@@ -5,7 +5,7 @@
   top: 0;
   height: 100vh;
   backdrop-filter: blur(10px);
-  z-index: 3;
+  z-index: 4;
   display: flex;
   flex-direction: column;
   width: min(350px, 100%);
@@ -15,6 +15,15 @@
   animation: appear-left 500ms 1 forwards;
 }
 
+.sidebar-backdrop {
+  background-color: rgba(55, 55, 55, 0.242);
+  width: 100vw;
+  height: 100vh;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 3;
+}
 @keyframes appear-left {
   0% {
     left: -300px;
@@ -55,4 +64,15 @@
 
 .conversation:last-child {
   margin-bottom: 50px;
+}
+
+@media only screen and (min-width: 700px) {
+  .sidebar {
+    position: relative;
+    /* background-color: red; */
+    /* position: fixed; */
+  }
+  .sidebar-backdrop {
+    display: none;
+  }
 }

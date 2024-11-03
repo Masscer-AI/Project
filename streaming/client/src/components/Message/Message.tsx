@@ -6,7 +6,7 @@ import { Thumbnail } from "../Thumbnail/Thumbnail";
 import "./Message.css";
 import { SvgButton } from "../SvgButton/SvgButton";
 import toast from "react-hot-toast";
-import { getChunk } from "../../modules/apiCalls";
+import { getChunk, updateMessage } from "../../modules/apiCalls";
 import { Modal } from "../Modal/Modal";
 import { useTranslation } from "react-i18next";
 import { Pill } from "../Pill/Pill";
@@ -147,16 +147,23 @@ export const Message: React.FC<MessageProps> = ({
           svg={SVGS.copyTwo}
         />
         {id && (
-          // <SvgButton
-          //   title={t("delete")}
-          //   onClick={() => onDeleteMessage(id)}
-          //   svg={SVGS.trash}
-          // />
-          <SvgButton
-            title={isEditing ? t("finish") : t("edit")}
-            onClick={toggleEditMode}
-            svg={isEditing ? SVGS.finish : SVGS.edit}
-          />
+          <>
+            <SvgButton
+              title={isEditing ? t("finish") : t("edit")}
+              onClick={toggleEditMode}
+              svg={isEditing ? SVGS.finish : SVGS.edit}
+            />
+            <SvgButton
+              title={t("thumb-up")}
+              onClick={() => updateMessage(id, { thumbs_up: true })}
+              svg={SVGS.thumbUp}
+            />
+            <SvgButton
+              title={t("thumb-down")}
+              onClick={() => toast.success(`thumb down to message ${id}`)}
+              svg={SVGS.thumbDown}
+            />
+          </>
         )}
 
         {versions && (

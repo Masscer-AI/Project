@@ -10,6 +10,7 @@ import { TConversationData } from "../../types/chatTypes";
 import { useTranslation } from "react-i18next";
 import { debounce } from "../../modules/utils";
 import { getSuggestion } from "../../modules/apiCalls";
+import { SpeechHandler } from "../SpeechHandler/SpeechHandler";
 
 interface ChatInputProps {
   handleSendMessage: () => void;
@@ -212,6 +213,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             svg={SVGS.document}
             title={t("turn-on-off-rag")}
           />
+          <SpeechHandler />
         </div>
       </section>
     </div>
