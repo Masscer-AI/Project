@@ -30,7 +30,12 @@ SECRET_KEY = os.environ.get("SECRET_KEY", default="secret-key")
 DEBUG = "RENDER" not in os.environ
 
 # settings.py
-ALLOWED_HOSTS = ["http://localhost", "127.0.0.1", "localhost"]
+ALLOWED_HOSTS = [
+    "http://localhost",
+    "127.0.0.1",
+    "localhost",
+    "8ldmsxh6-8000.use2.devtunnels.ms",
+]
 
 
 RENDER_EXTERNAL_HOSTNAME = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
@@ -55,7 +60,7 @@ INSTALLED_APPS = [
     "api.rag",
     "api.finetuning",
     "api.tools",
-    "api.whatsapp"
+    "api.whatsapp",
 ]
 
 MIDDLEWARE = [

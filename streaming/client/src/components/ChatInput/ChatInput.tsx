@@ -148,6 +148,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
           placeholder={t("type-your-message")}
+          name="chat-input"
         />
       </section>
       <section className="mt-small">

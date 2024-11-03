@@ -40,7 +40,7 @@ export const initConversation = async ({ isPublic = false }) => {
 };
 
 export const getConversation = async (conversationId: string) => {
-  const endpoint = `${API_URL}/v1/messaging/conversations/${conversationId}`;
+  const endpoint = `${API_URL}/v1/messaging/conversations/${conversationId}/`;
 
   try {
     const token = localStorage.getItem("token");

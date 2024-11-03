@@ -26,6 +26,7 @@ export const ChatHeader = ({
       addAgent: state.addAgent,
     })
   );
+  const [innerTitle, setInnerTitle] = useState(title);
 
   useEffect(() => {
     fetchAgents();
@@ -33,8 +34,15 @@ export const ChatHeader = ({
 
   const onEdit = (e: React.ChangeEvent<HTMLSpanElement>) => {
     const newTitle = e.target.innerText;
+
+    if (!newTitle || newTitle === innerTitle) return;
+    setInnerTitle(newTitle);
     onTitleEdit(newTitle);
   };
+
+  useEffect(() => {
+    setInnerTitle(title);
+  }, [title]);
 
   return (
     <div className="chat-header d-flex justify-between">
@@ -57,14 +65,13 @@ export const ChatHeader = ({
         </FloatingDropdown>
       </div>
       <div className="d-flex align-center">
-        <span 
-          
+        <span
           contentEditable={true}
-        className="text-normal padding-small"
+          className="text-normal padding-small"
           onBlur={onEdit}
           suppressContentEditableWarning
         >
-          {title}
+          {innerTitle}
         </span>
       </div>
     </div>
@@ -100,7 +107,12 @@ const AgentComponent = ({ agent }: TAgentComponentProps) => {
   return (
     <div className={styles.agentComponent}>
       <section onClick={() => toggleAgentSelected(agent.slug)}>
-        <input onChange={() => {}} type="checkbox" checked={agent.selected} />
+        <input
+          name={`${agent.name}-checkbox`}
+          onChange={() => {}}
+          type="checkbox"
+          checked={agent.selected}
+        />
         <span>{agent.name}</span>
       </section>
       <SvgButton svg={SVGS.controls} onClick={showModal} />

@@ -74,10 +74,7 @@ export const Message: React.FC<MessageProps> = ({
   useEffect(() => {
     const anchors = document.querySelectorAll(`.message-${index} a`);
 
-    const extractedLinks: Link[] = Array.from(anchors).map((anchor) => ({
-      url: anchor.getAttribute("href") || "",
-      text: anchor.textContent || "",
-    }));
+    const extractedLinks: Link[] = [];
 
     anchors.forEach((anchor) => {
       const href = anchor.getAttribute("href");
@@ -88,8 +85,11 @@ export const Message: React.FC<MessageProps> = ({
       } else {
         anchor.setAttribute("target", "_blank");
       }
+      const currentHrefs = extractedLinks.map((l) => l.url);
+      if (!currentHrefs.includes(href)) {
+        extractedLinks.push({ url: href, text: anchor.textContent || "" });
+      }
     });
-
     setSources(extractedLinks);
     setInnerText(text);
   }, [text]);

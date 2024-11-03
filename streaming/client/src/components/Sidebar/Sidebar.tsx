@@ -127,6 +127,7 @@ export const Sidebar: React.FC = () => {
               className="input w-100 padding-medium"
               placeholder={t("filter-conversations")}
               autoFocus
+              name="conversation-filter"
               value={conversationFilter}
               onChange={(e) => setConversationFilter(e.target.value)}
             />

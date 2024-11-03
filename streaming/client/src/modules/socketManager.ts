@@ -6,11 +6,11 @@ export class SocketManager {
 
   constructor(serverUrl) {
     this.socket = io(serverUrl, {
-      transports: ["websocket"]
+      transports: ["websocket", "polling"]
     });
 
     this.socket.on("connect", () => {
-      console.log("Connected to socket server");
+      console.log(`Connected to socket server at ${serverUrl}`);
     });
 
     this.socket.on("disconnect", () => {

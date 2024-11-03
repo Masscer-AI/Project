@@ -3,23 +3,20 @@ import { Talkie } from "../../components/Talkie/Talkie";
 import { ChatItem, TSomething } from "../../types";
 import { ChatMessages } from "../../components/Messages/Messages";
 
-import io from "socket.io-client";
 import { useLoaderData } from "react-router-dom";
 import { API_URL, PUBLIC_TOKEN } from "../../modules/constants";
 import { Landing } from "../../components/Landing/Landing";
 import "./page.css";
 import { Navbar } from "../../components/Navbar/Navbar";
-const socket = io("http://localhost:8001", { autoConnect: true });
+import { useStore } from "../../modules/store";
 
 export default function Root() {
   const data = useLoaderData() as { conversation: TSomething };
 
+  const { socket } = useStore((state) => ({ socket: state.socket }));
   const [chat, setChat] = useState<ChatItem[]>([]);
 
   useEffect(() => {
-    socket.on("connect", () => {
-      console.log("Connected to socket server");
-    });
 
     socket.on("disconnect", () => {
       console.log("Disconnected from socket server");
@@ -57,7 +54,7 @@ export default function Root() {
     });
 
     return () => {
-      socket.off("connect");
+      // socket.off("connect");
       socket.off("disconnect");
       socket.off("response");
       socket.off("responseFinished");

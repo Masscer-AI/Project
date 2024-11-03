@@ -9,7 +9,7 @@ import { Sidebar } from "../../components/Sidebar/Sidebar";
 import { useStore } from "../../modules/store";
 import { TChatLoader, TMessage } from "../../types/chatTypes";
 import { ChatHeader } from "../../components/ChatHeader/ChatHeader";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
 import { playAudioFromBytes } from "../../modules/utils";
 import { TrainingModals } from "../../components/TrainingModals/TrainingModals";
 import { updateConversation } from "../../modules/apiCalls";
@@ -110,7 +110,7 @@ export default function ChatView() {
         });
         lastMessage.text = data.ai_response;
         setMessages(newMessages);
-      } 
+      }
     });
     socket.on("sources", (data) => {
       console.log("Sources:", data);
@@ -236,6 +236,7 @@ export default function ChatView() {
   const onTitleEdit = async (title: string) => {
     if (!conversation?.id && !loaderData.conversation.id) return;
 
+    // if
     await updateConversation(conversation?.id || loaderData.conversation.id, {
       title,
     });
