@@ -62,28 +62,57 @@ export default function ChatView() {
       const newMessages = [...prevMessages];
       const lastMessage = newMessages[newMessages.length - 1];
 
-      if (
-        lastMessage &&
-        lastMessage.type === "assistant" &&
-        lastMessage.agentSlug === agentSlug
-      ) {
-        lastMessage.text += chunk;
+      if (lastMessage && lastMessage.type === "assistant") {
+        if (lastMessage.agent_slug === agentSlug) {
+          lastMessage.text += chunk;
+        }
+        const targetVersion = lastMessage.versions?.find(
+          (v) => v.agent_slug === agentSlug
+        );
+        if (targetVersion) {
+          targetVersion.text += chunk;
+        } else {
+          lastMessage.versions = [
+            ...(lastMessage.versions || []),
+            {
+              text: chunk,
+              type: "assistant",
+              agent_slug: agentSlug,
+            },
+          ];
+        }
       } else {
-        const assistantMessage = {
+        const assistantMessage: TMessage = {
           type: "assistant",
           text: chunk,
           attachments: [],
-          agentSlug: agentSlug,
+          agent_slug: agentSlug,
         };
-        lastMessage.versions = [
+        assistantMessage.versions = [
           {
-            text: lastMessage.text,
+            text: chunk,
             type: "assistant",
-            agentSlug: agentSlug,
+            agent_slug: agentSlug,
           },
         ];
         newMessages.push(assistantMessage);
       }
+      return newMessages;
+    };
+
+    const updateLastMessagesIds = (data, prevMessages) => {
+      const newMessages = [...prevMessages];
+      newMessages.reverse();
+
+      const lastAIMessage = newMessages.find((m) => m.type === "assistant");
+      if (lastAIMessage) {
+        lastAIMessage.id = data.ai_message_id;
+      }
+      const lastUserMessage = newMessages.find((m) => m.type === "user");
+      if (lastUserMessage) {
+        lastUserMessage.id = data.user_message_id;
+      }
+      newMessages.reverse();
       return newMessages;
     };
 
@@ -98,19 +127,8 @@ export default function ChatView() {
     });
 
     socket.on("responseFinished", (data) => {
-      // console.log("Response finished:", data);
-      const newMessages = [...messages];
-      const lastMessage = newMessages[newMessages.length - 1];
-      const difference = lastMessage.text !== data.ai_response;
-      if (difference) {
-        console.log("Difference found, updating message");
-        console.table({
-          old: lastMessage.text,
-          new: data.ai_response,
-        });
-        lastMessage.text = data.ai_response;
-        setMessages(newMessages);
-      }
+      console.log("Response finished:", data);
+      setMessages((prevMessages) => updateLastMessagesIds(data, prevMessages));
     });
     socket.on("sources", (data) => {
       console.log("Sources:", data);
@@ -118,7 +136,6 @@ export default function ChatView() {
     socket.on("notification", (data) => {
       console.log("Receiving notification:", data);
       toast.success(data.message);
-      // socket.disconnect();
     });
 
     return () => {
@@ -160,7 +177,7 @@ export default function ChatView() {
 
       socket.emit("message", {
         message: userMessage,
-        context: messages.map((msg) => `${msg.type}: ${msg.text}`).join("\n"),
+        context: messages,
         model: model,
         token: token,
         models_to_complete: selectedAgents,

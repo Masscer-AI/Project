@@ -37,7 +37,14 @@ class TextStreamingHandler:
     max_tokens = 4096
     attachments = []
 
-    def __init__(self, provider: str, api_key: str, config: dict = {}) -> None:
+    def __init__(
+        self,
+        provider: str,
+        api_key: str,
+        config: dict = {},
+        prev_messages=[],
+        agent_slug=None,
+    ) -> None:
         if provider == "openai":
             self.client = OpenAI(api_key=api_key)
         elif provider == "ollama":
@@ -46,10 +53,9 @@ class TextStreamingHandler:
             self.client = anthropic.Anthropic(api_key=api_key)
 
         self.provider = provider
-
+        self.prev_messages = prev_messages
         self.config = config
-
-        # print("Initializing text streamer")
+        self.agent_slug = agent_slug
 
     def stream(self, system: str, text: str, model: str):
         if self.provider in ["openai", "ollama"]:
@@ -61,11 +67,28 @@ class TextStreamingHandler:
         print("PROVIDER NOT FOUND")
 
     def stream_openai(self, system: str, text: str, model: str):
-        print("tryng to stream with OPENAI")
+
         messages = [
             {"role": "system", "content": system},
-            {"role": "user", "content": text},
         ]
+        for m in self.prev_messages:
+            if m["type"] == "user":
+                messages.append({"role": "user", "content": m["text"]})
+            else:
+                found_version = next(
+                    (
+                        item
+                        for item in m["versions"]
+                        if item["agent_slug"] == self.agent_slug
+                    ),
+                    None,
+                )
+                if found_version:
+                    messages.append(
+                        {"role": "assistant", "content": found_version["text"]}
+                    )
+
+        messages.append({"role": "user", "content": text})
 
         if len(self.attachments) > 0:
             for a in self.attachments:
@@ -100,10 +123,14 @@ class TextStreamingHandler:
             presence_penalty=self.config.get("presence_penalty", 0),
             temperature=self.config.get("temperature", 0.5),
             stream=True,
+            stream_options={"include_usage": True},
         )
         for chunk in response:
-            if chunk.choices[0].delta.content:
-                yield chunk.choices[0].delta.content
+            try:
+                if chunk.choices[0].delta.content:
+                    yield chunk.choices[0].delta.content
+            except Exception:
+                yield chunk.usage
 
     def stream_anthropic(self, system: str, text: str, model: str):
         messages = [

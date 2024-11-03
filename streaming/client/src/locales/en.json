@@ -80,5 +80,6 @@
     "title-updated": "Title updated!",
     "en": "English",
     "es": "Spanish",
-    "it": "Italian"
+    "it": "Italian",
+    "message-copied": "Message copied to clipboard!"
 }

@@ -42,13 +42,13 @@ export const SvgButton = ({
   return (
     <button
       tabIndex={0}
-      className={`svg-button clickeable ${extraClass} ${size}`}
+      className={`svg-button d-flex align-center justify-center clickeable ${extraClass} ${size}`}
       onClick={handleClick}
       title={title}
       ref={reference}
     >
-      <span>{svg}</span>
-      <span>{innerText}</span>
+      {svg && <div>{svg}</div>}
+      {innerText && <div>{innerText}</div>}
     </button>
   );
 };

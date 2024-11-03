@@ -25,6 +25,8 @@ if [ "$INSTALL" = true ]; then
     cd ..  # Go back to the previous directory
 fi
 
+chroma run --path vector_storage/ --port 8002 &
+
 # Run Django application if the flag is true
 if [ "$DJANGO" = true ]; then
     python manage.py migrate

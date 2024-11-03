@@ -47,7 +47,7 @@ export const CompletionsModal = ({ visible, hide }) => {
 
   useEffect(() => {
     applyFilter(filter);
-  }, [filter]);
+  }, [filter, completions]);
 
   const applyFilter = (filter: string) => {
     if (filter === "all") {
@@ -69,18 +69,21 @@ export const CompletionsModal = ({ visible, hide }) => {
   const updateCompletionAction = async (completionId: string, data: any) => {
     await updateCompletion(completionId, data);
     toast.success(t("completion-updated"));
+    const updatedCompletions = completions.map((c) =>
+      c.id === parseInt(completionId) ? { ...c, ...data } : c
+    );
+    setCompletions(updatedCompletions);
   };
 
   const handleDelete = async (completionId: string) => {
     await deleteCompletion(completionId);
     const filtered = completions.filter((c) => c.id !== parseInt(completionId));
     setCompletions(filtered);
-    applyFilter(filter);
     toast.success(t("completion-deleted"));
   };
 
   return (
-    <Modal minHeight={"40vh"} visible={visible} hide={hide}>
+    <Modal minHeight={"80vh"} visible={visible} hide={hide}>
       <h3 className="text-center">{t("completions-pending-for-approval")}</h3>
       <div className="d-flex align-center gap-small padding-medium">
         <span>{t("filter-by")}: </span>

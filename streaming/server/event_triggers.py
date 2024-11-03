@@ -44,12 +44,15 @@ async def on_message_handler(socket_id, data, **kwargs):
     message = data["message"]
     web_search_activated = data.get("web_search_activated", False)
     use_rag = data.get("use_rag", False)
+
     models_to_complete = data.get(
         "models_to_complete",
         [
             {
+                # TODO: change this to the default agent: The default agent should exist always in the db
                 "slug": "public-assistant",
                 "llm": {"provider": "openai", "slug": "gpt-4o-mini"},
+                "name": "Public Assistant",
             }
         ],
     )
@@ -58,15 +61,23 @@ async def on_message_handler(socket_id, data, **kwargs):
 
     conversation = data["conversation"]
 
-    save_message(
+    message["conversation"] = conversation.get("id", None)
+    user_message_res = save_message(
         message=message,
-        conversation=conversation.get("id", None),
         token=token,
     )
+    logger.debug(user_message_res)
+
+    versions = []
 
     for m in models_to_complete:
         agent_slug = m["slug"]
-        complete_context = context
+        version = {
+            "agent_slug": agent_slug,
+            "type": "assistant",
+            "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+        }
+        complete_context = ""
         if use_rag:
             await sio.emit(
                 "notification",
@@ -82,6 +93,7 @@ async def on_message_handler(socket_id, data, **kwargs):
             complete_context, sources = extract_rag_results(
                 rag_results, complete_context
             )
+            version["sources"] = sources
             await sio.emit(
                 "sources",
                 {"status": "rag_finished", "sources": sources},
@@ -96,6 +108,7 @@ async def on_message_handler(socket_id, data, **kwargs):
                 to=socket_id,
             )
             web_result = search_brave(message["text"], context)
+            version["web_search_results"] = web_result
             complete_context += f"\n\nThe following context comes from a web search using the user message as query \n{web_result}. END OF WEB SEARCH RESULTS\n"
 
         system_prompt = get_system_prompt(
@@ -111,23 +124,45 @@ async def on_message_handler(socket_id, data, **kwargs):
             model=m["llm"],
             attachments=message["attachments"],
             config=m,
+            prev_messages=context,
+            agent_slug=m["slug"],
         ):
             if isinstance(chunk, str):
                 data["chunk"] = chunk
                 ai_response += chunk
                 await sio.emit("response", data, to=socket_id)
 
-        await sio.emit(
-            "responseFinished",
-            {"status": "ok", "ai_response": ai_response},
-            to=socket_id,
-        )
+            else:
+                version["usage"] = {
+                    "completion_tokens": chunk.completion_tokens,
+                    "prompt_tokens": chunk.prompt_tokens,
+                    "total_tokens": chunk.total_tokens,
+                }
 
-        save_message(
-            message={"type": "assistant", "text": ai_response, "attachments": []},
-            conversation=conversation.get("id", None),
-            token=token,
-        )
+        version["text"] = ai_response
+        versions.append(version)
+
+    ai_message_res = save_message(
+        message={
+            "type": "assistant",
+            "text": versions[0]["text"],
+            "attachments": message["attachments"],
+            "conversation": conversation.get("id", None),
+            "versions": versions,
+        },
+        token=token,
+    )
+
+    await sio.emit(
+        "responseFinished",
+        {
+            "status": "ok",
+            "versions": versions,
+            "user_message_id": user_message_res["id"],
+            "ai_message_id": ai_message_res["id"],
+        },
+        to=socket_id,
+    )
 
 
 def on_connect_handler(socket_id, **kwargs):

@@ -19,10 +19,10 @@ export type TMessage = {
   type: string;
   text: string;
   attachments: TAttachment[];
-  agentSlug?: string;
+  agent_slug?: string;
   versions?: {
     text: string;
     type: string;
-    agentSlug: string;
+    agent_slug: string;
   }[];
 };

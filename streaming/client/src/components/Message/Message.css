@@ -8,9 +8,10 @@
   position: relative;
 }
 .message:hover .message-buttons {
-  visibility: visible;
+  opacity: 1;
   width: fit-content;
 }
+
 .message > .message-text {
   padding: 10px 15px;
   width: fit-content;
@@ -41,9 +42,8 @@
 
 .message-buttons {
   display: flex;
-  visibility: hidden;
-  gap: 10px;
   margin-top: 20px;
+  opacity: 0.4;
   transition: all 100ms;
 }
 .message__attachments {

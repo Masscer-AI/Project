@@ -465,3 +465,11 @@ def mark_message_as_read(business_number_id, ws_message_id):
 #         raise Exception("Failed to send typing action.")
 
 #     printer.success("Typing action sent successfully.")
+
+
+def update_conversation_info(conversation_id):
+    ws_conversation = WSConversation.objects.get(id=conversation_id)
+    if not ws_conversation.title:
+        generate_conversation_context(conversation_id)
+
+    ws_conversation.update_user_info()

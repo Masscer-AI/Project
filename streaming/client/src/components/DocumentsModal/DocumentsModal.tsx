@@ -35,7 +35,7 @@ export const DocumentsModal = ({ visible, hide }) => {
   };
 
   return (
-    <Modal visible={visible} hide={hide}>
+    <Modal visible={visible} hide={hide} minHeight="80vh">
       <h3 className="text-center">{t("knowledge-base")}</h3>
       <p className="text-center">
         {t("you-can-use-this-page-to-train-your-model-with-files")}
@@ -177,7 +177,7 @@ const TrainingOnDocument = ({
   };
 
   return (
-    <Modal hide={hide}>
+    <Modal hide={hide} minHeight="80vh">
       <div className="d-flex flex-y gap-big">
         <h2 className="text-center">Generate completions</h2>
         <p>

@@ -132,7 +132,7 @@ class WSConversation(models.Model):
         else:
             contact = WSContact.objects.create(
                 number=self.user_number,
-                name=self.title,
+                name=self.user_number,
             )
             self.user_contact = contact
             self.save()

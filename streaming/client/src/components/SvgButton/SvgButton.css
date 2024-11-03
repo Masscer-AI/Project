@@ -1,30 +1,14 @@
 .svg-button {
-  display: flex;
-  justify-content: center;
-  align-items: center;
   background-color: transparent;
   color: var(--font-color);
   padding: 5px;
   width: fit-content;
   height: 40px;
+  gap: 5px;
   border-radius: 7px;
   cursor: pointer;
   border: 1px solid transparent;
 }
-
-.svg-button > span {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.svg-button > span:last-child:not(:empty) {
-  margin-left: 5px;
-}
-
-/* .svg-button svg path {
-  stroke: var(--font-color);
-} */
 
 .svg-button svg {
   width: 20px;

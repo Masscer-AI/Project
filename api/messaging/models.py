@@ -44,9 +44,9 @@ class Message(models.Model):
     type = models.CharField(max_length=10, choices=TYPE_CHOICES)
     text = models.TextField()
     attachments = models.JSONField(default=list, blank=True)
-
-    # TODO: Save the model that generates the response
-
+    versions = models.JSONField(default=list, blank=True)
+    rag_sources = models.JSONField(default=list, blank=True)
+    browse_sources = models.JSONField(default=list, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

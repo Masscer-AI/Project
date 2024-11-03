@@ -118,11 +118,14 @@ class Completion(models.Model):
         printer.green(f"Completion {self.id} saved in memory")
 
     def remove_from_memory(self):
-        printer.red(f"Removing completion {self.id} from memory")
-        
+
         collection, created = Collection.objects.get_or_create(
             agent=self.agent, user=self.agent.user
         )
+        if created or not self.approved:
+            return
+
+        printer.red(f"Removing completion {self.id} from memory")
         chroma_client.delete_chunk(
             collection_name=collection.slug, chunk_id=str(self.id) + "-completion"
         )

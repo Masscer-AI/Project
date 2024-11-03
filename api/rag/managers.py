@@ -1,11 +1,14 @@
 import chromadb
+# from chromadb.utils import embedding_functions
+
+# default_ef = embedding_functions.DefaultEmbeddingFunction()
 
 
 class ChromaManager:
     client = None
 
     def __init__(self) -> None:
-        self.client = chromadb.PersistentClient(path="vector_storage")
+        self.client = chromadb.HttpClient(host="localhost", port=8002)
 
     def heartbeat(self) -> str:
         if self.client is None:

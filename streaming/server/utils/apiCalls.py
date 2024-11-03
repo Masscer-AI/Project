@@ -4,7 +4,7 @@ import json
 API_URL = "http://127.0.0.1:8000"
 
 
-def save_message(message: dict, conversation: str, token: str):
+def save_message(message: dict, token: str):
 
     endpoint = API_URL + "/v1/messaging/messages"
     headers = {"Authorization": "Token " + token}
@@ -13,12 +13,10 @@ def save_message(message: dict, conversation: str, token: str):
         {"type": a["type"], "content": a["content"], "id": a.get("id", None)}
         for a in message["attachments"]
     ]
-    body = {
-        "type": message["type"],
-        "text": message["text"],
-        "attachments": attachments,
-        "conversation": conversation,
-    }
+
+    message["attachments"] = attachments
+
+    body = message
 
     try:
         response = requests.post(endpoint, headers=headers, json=body)

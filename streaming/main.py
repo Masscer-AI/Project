@@ -19,7 +19,6 @@ app = FastAPI(lifespan=lifespan)
 
 # CORS origins from environment variable
 origins = os.getenv("CORS_ORIGINS", "*").split(",")
-print(origins, "ORIGINS")
 
 app.add_middleware(
     CORSMiddleware,

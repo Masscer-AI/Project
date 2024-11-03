@@ -9,20 +9,23 @@ import toast from "react-hot-toast";
 import { getChunk } from "../../modules/apiCalls";
 import { Modal } from "../Modal/Modal";
 import { useTranslation } from "react-i18next";
+import { Pill } from "../Pill/Pill";
+import { useStore } from "../../modules/store";
 interface Link {
   url: string;
   text: string;
 }
 
 interface MessageProps {
+  id?: number;
   type: string;
   text: string;
   index: number;
-  agentSlug?: string;
+  agent_slug?: string;
   versions?: {
     text: string;
     type: string;
-    agentSlug: string;
+    agent_slug: string;
   }[];
   attachments: TAttachment[];
   onGenerateSpeech: (text: string) => void;
@@ -32,8 +35,9 @@ interface MessageProps {
 export const Message: React.FC<MessageProps> = ({
   type,
   index,
+  id,
   text,
-  agentSlug,
+  agent_slug,
   versions,
   attachments,
   onGenerateSpeech,
@@ -43,14 +47,18 @@ export const Message: React.FC<MessageProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [innerText, setInnerText] = useState(text);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const [innerVersions, setInnerVersions] = useState(versions);
   const [currentVersion, setCurrentVersion] = useState(0);
 
   const { t } = useTranslation();
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text).then(
+
+  const { agents } = useStore((s) => ({
+    agents: s.agents,
+  }));
+  const copyToClipboard = () => {
+    const textToCopy = versions?.[currentVersion]?.text || innerText;
+    navigator.clipboard.writeText(textToCopy).then(
       () => {
-        toast.success("Message copied to clipboard!");
+        toast.success(t("message-copied"));
       },
       (err) => {
         console.error("Error al copiar al portapapeles: ", err);
@@ -102,11 +110,7 @@ export const Message: React.FC<MessageProps> = ({
     <div className={`message ${type} message-${index}`}>
       <MarkdownRenderer
         contentEditable={isEditing}
-        markdown={
-          currentVersion === 0 || !innerVersions?.length
-            ? innerText
-            : innerVersions[currentVersion].text
-        }
+        markdown={versions?.[currentVersion]?.text || innerText}
         extraClass={`message-text ${type === "user" ? "fancy-gradient" : ""}`}
       />
 
@@ -126,7 +130,7 @@ export const Message: React.FC<MessageProps> = ({
             <Source key={index} text={s.text} href={s.url}></Source>
           ))}
       </section>
-      <div className="message-buttons">
+      <div className="message-buttons d-flex gap-small align-center">
         <SvgButton
           title={t("generate-speech")}
           onClick={() => onGenerateSpeech(text)}
@@ -139,24 +143,45 @@ export const Message: React.FC<MessageProps> = ({
         />
         <SvgButton
           title={t("copy-to-clipboard")}
-          onClick={() => copyToClipboard(text)}
+          onClick={() => copyToClipboard()}
           svg={SVGS.copyTwo}
         />
-        <SvgButton
-          title={isEditing ? t("finish") : t("edit")}
-          onClick={toggleEditMode}
-          svg={isEditing ? SVGS.finish : SVGS.edit}
-        />
-        {innerVersions &&
-          innerVersions.map((v, index) => (
-            <SvgButton
-              title={t("version")}
-              onClick={() => setCurrentVersion(index)}
-              svg={SVGS.edit}
-            />
-          ))}
+        {id && (
+          // <SvgButton
+          //   title={t("delete")}
+          //   onClick={() => onDeleteMessage(id)}
+          //   svg={SVGS.trash}
+          // />
+          <SvgButton
+            title={isEditing ? t("finish") : t("edit")}
+            onClick={toggleEditMode}
+            svg={isEditing ? SVGS.finish : SVGS.edit}
+          />
+        )}
 
-        {agentSlug ? agentSlug : ""}
+        {versions && (
+          <div className="d-flex gap-small align-center">
+            {versions.map((v, index) => (
+              <Pill
+                key={index + "pill"}
+                extraClass={` ${
+                  currentVersion === index ? "bg-active" : "bg-hovered"
+                }`}
+                onClick={() => setCurrentVersion(index)}
+              >
+                {index + 1}
+              </Pill>
+            ))}
+          </div>
+        )}
+        {versions?.[currentVersion]?.agent_slug ? (
+          <Pill>
+            {
+              agents.find((a) => a.slug === versions[currentVersion].agent_slug)
+                ?.name
+            }
+          </Pill>
+        ) : null}
       </div>
     </div>
   );

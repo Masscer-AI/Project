@@ -58,5 +58,5 @@ class CompletionsView(View):
         completion.remove_from_memory()
         completion.delete()
         return JsonResponse(
-            {"message": "Completion deleted"}, status=status.HTTP_204_NO_CONTENT
+            {"message": "Completion deleted"}, status=status.HTTP_200_OK
         )

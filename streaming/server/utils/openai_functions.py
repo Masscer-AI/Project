@@ -28,31 +28,55 @@ def transcribe_audio(audio_file, output_format="verbose_json") -> str:
     return transcription.text
 
 
-async def stream_completion(prompt, user_message, model, attachments=[], config={}):
-    logger.debug(f"MODEL TO COMPLETE: {model}")
+async def stream_completion(
+    prompt,
+    user_message,
+    model,
+    attachments=[],
+    config={},
+    prev_messages=[],
+    agent_slug=None,
+):
     _provider = model["provider"].lower()
     if _provider == "openai":
-        streamer = TextStreamingHandler(provider="openai", api_key=OPENAI_API_KEY, config=config)
+        streamer = TextStreamingHandler(
+            provider="openai",
+            api_key=OPENAI_API_KEY,
+            config=config,
+            prev_messages=prev_messages,
+            agent_slug=agent_slug,
+        )
 
     elif _provider == "ollama":
-        streamer = TextStreamingHandler(provider="ollama", api_key="ANTHROPIC_API_KEY", config=config)
+        streamer = TextStreamingHandler(
+            provider="ollama",
+            api_key="ANTHROPIC_API_KEY",
+            config=config,
+            prev_messages=prev_messages,
+            agent_slug=agent_slug,
+        )
 
     elif _provider == "anthropic":
-        streamer = TextStreamingHandler(provider="anthropic", api_key=ANTHROPIC_API_KEY, config=config)
+        streamer = TextStreamingHandler(
+            provider="anthropic",
+            api_key=ANTHROPIC_API_KEY,
+            config=config,
+            prev_messages=prev_messages,
+            agent_slug=agent_slug,
+        )
 
     model_slug = model["slug"]
 
     content = user_message
 
     streamer.process_attachments(attachments)
-   
+
     for chunk in streamer.stream(
         system=prompt,
         text=content,
         model=model_slug,
     ):
-        if isinstance(chunk, str):
-            yield chunk
+        yield chunk
 
 
 async def generate_speech_stream(
