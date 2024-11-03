@@ -7,22 +7,9 @@ from django.core.files.uploadedfile import InMemoryUploadedFile
 import io
 from pydub import AudioSegment
 
+from api.utils.ollama_functions import create_completion_ollama
+
 load_dotenv()
-
-
-def create_completion_ollama(
-    system_prompt, user_message, model="llama3.1", max_tokens=3000
-):
-    client = OpenAI(base_url="http://localhost:11434/v1", api_key="llama3")
-    response = client.chat.completions.create(
-        model=model,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_message},
-        ],
-        max_tokens=max_tokens,
-    )
-    return response.choices[0].message.content
 
 
 def generate_conversation_title(conversation_id: str):
@@ -33,11 +20,11 @@ def generate_conversation_title(conversation_id: str):
 
 
     These are examples of titles with emojis at the beginning:
-    - 💬 Conversation about Jupyter Notebooks
-    - 📝 Notes about the meeting with Maria
-    - 🎥 Video call analysis from recording
-    - 💻 Code review for the new OpenAI API
-    - 🙏🏻 User Support for John in Python
+    💬 Conversation about Jupyter Notebooks
+    📝 Notes about the meeting with Maria
+    🎥 Video call analysis from recording
+    💻 Code review for the new OpenAI API
+    🙏🏻 User Support for John in Python
 
     Return ONLY the new conversation title with the emoji at the beginning.
     """
@@ -52,7 +39,10 @@ def generate_conversation_title(conversation_id: str):
     user_message = "\n".join(formatted_messages)
 
     title = create_completion_ollama(
-        system, user_message, max_tokens=50, model="llama3.2:1b"
+        system,
+        user_message,
+        model="llama3.2:1b",
+        max_tokens=40,
     )
 
     if title.startswith('"') and title.endswith('"'):
@@ -158,3 +148,13 @@ def generate_speech_api(
     except requests.exceptions.RequestException as e:
         print(f"An error occurred generaeting speech: {e}")
         return b""
+
+
+def complete_message(text: str):
+    system = """
+    The following is the content of a textarea representing a user message.
+    Please complete the message with a suggestion for the next message so the user can continue writing easily.
+
+    COMPLETE THE FOLLOWING PART OF THE MESSAGE.
+    """
+    return create_completion_ollama(system, text, model="llama3.2:1b", max_tokens=20)

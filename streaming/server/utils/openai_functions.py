@@ -170,9 +170,9 @@ def create_structured_completion(
     model="gpt-4o",
     system_prompt: str = "You are an userful assistant",
     user_prompt: str = "",
-    response_format=ExampleStructure,
+    response_format: BaseModel = ExampleStructure,
     api_key: str = os.environ.get("OPENAI_API_KEY"),
-):
+) -> BaseModel:
     client = OpenAI(api_key=api_key)
 
     completion = client.beta.chat.completions.parse(

@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import ConversationView, MessageView, upload_audio
+from .views import ConversationView, MessageView, upload_audio, get_suggestion
 
 app_name = "messaging"
 
@@ -9,4 +9,5 @@ urlpatterns = [
     path('messages', MessageView.as_view(), name='message_list'),
     path('messages/<int:id>/', MessageView.as_view(), name='message_detail'),
     path('upload-audio/', upload_audio, name='upload_audio'),
+    path('get-suggestion/', get_suggestion, name='get_suggestion'),
 ]

@@ -10,7 +10,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 import json
 from api.authenticate.decorators.token_required import token_required
-from .actions import transcribe_audio, generate_speech_api
+from .actions import transcribe_audio, generate_speech_api, complete_message
 from django.core.files.storage import FileSystemStorage
 import os
 import uuid
@@ -188,3 +188,11 @@ def upload_audio(request):
         )
 
     return JsonResponse({"error": "Invalid request"}, status=400)
+
+
+@csrf_exempt
+def get_suggestion(request):
+    data = json.loads(request.body) 
+    # print(data.get("input"), "INPUT TO GET SUGGESTION")
+    suggestion = complete_message(data.get("input"))
+    return JsonResponse({"suggestion": suggestion})

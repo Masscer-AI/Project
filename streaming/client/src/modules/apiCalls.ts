@@ -357,3 +357,17 @@ export const updateConversation = async (conversationId: string, data: any) => {
     data
   );
 };
+
+type TSuggestionResponse = {
+  suggestion: string;
+};
+
+export const getSuggestion = async (input: string) => {
+  return makeAuthenticatedRequest<TSuggestionResponse>  (
+    "POST",
+    "/v1/messaging/get-suggestion/",
+    {
+      input,
+    }
+  );
+};

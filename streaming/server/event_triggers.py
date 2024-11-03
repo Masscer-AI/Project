@@ -1,7 +1,8 @@
 import os
+import json
+from datetime import datetime
 from .utils.openai_functions import stream_completion, generate_speech_api
 
-# from server.utils.completions import get_system_prompt
 from .utils.apiCalls import save_message, get_results
 from .utils.brave_search import search_brave
 import hashlib
@@ -38,6 +39,10 @@ def extract_rag_results(rag_results, context):
 
 
 async def on_message_handler(socket_id, data, **kwargs):
+    now = datetime.now()
+
+    current_date_time = now.strftime("%Y-%m-%d %H:%M:%S")
+
     from server.socket import sio
 
     context = data["context"]
@@ -77,7 +82,7 @@ async def on_message_handler(socket_id, data, **kwargs):
             "type": "assistant",
             "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
         }
-        complete_context = ""
+        complete_context = f"The current date and time is {current_date_time}\n\n"
         if use_rag:
             await sio.emit(
                 "notification",
@@ -107,9 +112,9 @@ async def on_message_handler(socket_id, data, **kwargs):
                 {"message": "Exploring the web to add more context to your message"},
                 to=socket_id,
             )
-            web_result = search_brave(message["text"], context)
-            version["web_search_results"] = web_result
-            complete_context += f"\n\nThe following context comes from a web search using the user message as query \n{web_result}. END OF WEB SEARCH RESULTS\n"
+            web_results = search_brave(message["text"], json.dumps(context))
+            version["web_search_results"] = web_results
+            complete_context += f"\n\<web_search_results>\n{json.dumps(web_results)}\n </web_search_results>\n"
 
         system_prompt = get_system_prompt(
             context=complete_context, agent_slug=agent_slug, token=token

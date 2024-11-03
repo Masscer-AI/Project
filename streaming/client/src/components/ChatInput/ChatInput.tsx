@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useEffect, useCallback, useState } from "react";
 import { SVGS } from "../../assets/svgs";
 import { v4 as uuidv4 } from "uuid";
 import { useStore } from "../../modules/store";
@@ -8,6 +8,8 @@ import { Thumbnail } from "../Thumbnail/Thumbnail";
 import { SvgButton } from "../SvgButton/SvgButton";
 import { TConversationData } from "../../types/chatTypes";
 import { useTranslation } from "react-i18next";
+import { debounce } from "../../modules/utils";
+import { getSuggestion } from "../../modules/apiCalls";
 
 interface ChatInputProps {
   handleSendMessage: () => void;
@@ -42,6 +44,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     toggleUseRag: state.toggleUseRag,
   }));
 
+  // const [suggestion, setSuggestion] = useState("");
   const allowedImageTypes = [
     "image/png",
     "image/jpeg",
@@ -55,6 +58,18 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     "application/msword",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   ];
+
+  // const debouncedGetSuggestion = useCallback(
+  //   debounce(async (inputContent: string) => {
+  //     if (inputContent.length > 0) {
+  //       const result = await getSuggestion(inputContent);
+  //       if (typeof result.suggestion === "string") {
+  //         setSuggestion(result.suggestion);
+  //       }
+  //     }
+  //   }, 1000),
+  //   []
+  // );
 
   const handlePaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const items = event.clipboardData.items;
@@ -126,6 +141,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     fileInputRef.current.click();
   };
 
+  // useEffect(() => {
+  //   debouncedGetSuggestion(input);
+  // }, [input]);
   return (
     <div className="chat-input">
       <section className="attachments">
@@ -150,6 +168,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           placeholder={t("type-your-message")}
           name="chat-input"
         />
+        {/* {suggestion && <p className="suggestion">{suggestion}</p>} */}
       </section>
       <section className="mt-small">
         <div className="flex-x">
