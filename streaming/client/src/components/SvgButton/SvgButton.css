@@ -2,7 +2,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  background-color: var(--bg-secondary-color);
+  background-color: transparent;
   color: var(--font-color);
   padding: 5px;
   width: fit-content;
@@ -12,9 +12,6 @@
   border: 1px solid transparent;
 }
 
-/* .svg-button.active svg path {
-  stroke: black;
-} */
 .svg-button > span {
   display: flex;
   justify-content: center;

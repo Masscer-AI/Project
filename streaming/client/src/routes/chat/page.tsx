@@ -54,8 +54,12 @@ export default function ChatView() {
   );
 
   useEffect(() => {
-    const updateMessages = (chunk: string, agentSlug: string) => {
-      const newMessages = [...messages];
+    const updateMessages = (
+      chunk: string,
+      agentSlug: string,
+      prevMessages: TMessage[]
+    ) => {
+      const newMessages = [...prevMessages];
       const lastMessage = newMessages[newMessages.length - 1];
 
       if (
@@ -84,14 +88,29 @@ export default function ChatView() {
     };
 
     socket.on("response", (data) => {
-      setMessages(updateMessages(data.chunk, data.agent_slug));
+      // setMessages(updateMessages(data.chunk, data.agent_slug));
+      setMessages((prevMessages) =>
+        updateMessages(data.chunk, data.agent_slug, prevMessages)
+      );
     });
     socket.on("audio-file", (audioFile) => {
       playAudioFromBytes(audioFile);
     });
 
     socket.on("responseFinished", (data) => {
-      console.log("Response finished:", data);
+      // console.log("Response finished:", data);
+      const newMessages = [...messages];
+      const lastMessage = newMessages[newMessages.length - 1];
+      const difference = lastMessage.text !== data.ai_response;
+      if (difference) {
+        console.log("Difference found, updating message");
+        console.table({
+          old: lastMessage.text,
+          new: data.ai_response,
+        });
+        lastMessage.text = data.ai_response;
+        setMessages(newMessages);
+      } 
     });
     socket.on("sources", (data) => {
       console.log("Sources:", data);

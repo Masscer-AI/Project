@@ -60,15 +60,15 @@
 
   --gradient-blue: radial-gradient(circle, #00c6ff, #0072ff);
   --gradient-green: radial-gradient(circle, #00b09b, #96c93d);
-  --gradient-multiple: radial-gradient(#01003c, #15147c, #413ef0, #403cff);
+  --gradient-multiple: radial-gradient(#0f0e47, #15147c, #413ef0, #403cff);
   --gradient-dark: linear-gradient(
     130deg,
-    rgba(10, 75, 66, 0.429),
-    rgba(80, 5, 103, 0.348),
-    rgba(3, 1, 49, 0.208)
+    rgba(34, 16, 100, 0.665),
+    rgba(104, 18, 130, 0.348),
+    rgba(38, 33, 140, 0.309)
   );
 
-  --assistant-color: #02091d;
+  --assistant-color: #303031;
   --user-color: var(--gradient-dark);
   --modal-bg-color: #080c16;
   --bg-contrast-color: rgb(31, 31, 31);
@@ -478,4 +478,40 @@ option {
 }
 .text-normal {
   font-size: 16px;
+}
+.pos-absolute {
+  position: absolute;
+}
+
+.right-zero {
+  right: 0;
+}
+
+.right-small {
+  right: 10px;
+}
+.top-middle {
+  top: 50%;
+  transform: translateY(-50%);
+}
+.pos-relative {
+  position: relative;
+}
+
+.fancy-gradient {
+  background: var(--gradient-dark);
+  background-size: 300% 300%;
+  animation: gradient-animation 15s ease infinite;
+}
+
+@keyframes gradient-animation {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
 }

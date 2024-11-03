@@ -107,7 +107,7 @@ export const Message: React.FC<MessageProps> = ({
             ? innerText
             : innerVersions[currentVersion].text
         }
-        extraClass={"message-text"}
+        extraClass={`message-text ${type === "user" ? "fancy-gradient" : ""}`}
       />
 
       <section className="message__attachments">

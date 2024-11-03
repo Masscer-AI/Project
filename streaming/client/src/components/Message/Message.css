@@ -32,9 +32,6 @@
 .message.user {
   align-items: flex-end;
 }
-.message.user > .message-text {
-  background: var(--user-color);
-}
 
 .message img {
   max-width: 100%;

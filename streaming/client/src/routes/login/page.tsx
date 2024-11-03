@@ -5,11 +5,14 @@ import "./page.css";
 import { useNavigate } from "react-router-dom";
 import { API_URL } from "../../modules/constants";
 import { SimpleForm } from "../../components/SimpleForm/SimpleForm";
+import { SvgButton } from "../../components/SvgButton/SvgButton";
+import { SVGS } from "../../assets/svgs";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const navigate = useNavigate();
 
@@ -35,7 +38,6 @@ export default function Login() {
 
   return (
     <div className="login-component">
-    
       <SimpleForm>
         <h2 className="simple-form-title">Login</h2>
         <form onSubmit={handleSubmit}>
@@ -50,9 +52,9 @@ export default function Login() {
               autoComplete="email"
             />
           </div>
-          <div className="simple-form-group">
+          <div className="simple-form-group pos-relative">
             <input
-              type="password"
+              type={showPassword ? "text" : "password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -60,16 +62,21 @@ export default function Login() {
               className="simple-form-input"
               autoComplete="current-password"
             />
+            <SvgButton
+              extraClass="pos-absolute right-zero top-middle"
+              svg={showPassword ? SVGS.eyeClosed : SVGS.eye}
+              onClick={() => setShowPassword(!showPassword)}
+            />
           </div>
           <button type="submit" className="w-100 p-big button bg-active">
             Login
           </button>
-        <button
-          onClick={() => navigate("/signup")}
-          className="button bg-secondary w-100 p-big"
-        >
-          Switch to Signup
-        </button>
+          <button
+            onClick={() => navigate("/signup")}
+            className="button bg-secondary w-100 p-big"
+          >
+            Switch to Signup
+          </button>
         </form>
       </SimpleForm>
     </div>
