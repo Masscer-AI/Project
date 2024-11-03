@@ -45,7 +45,6 @@ class Message(models.Model):
     text = models.TextField()
     attachments = models.JSONField(default=list, blank=True)
     versions = models.JSONField(default=list, blank=True)
-    reactions = models.JSONField(default=list, blank=True)
     rag_sources = models.JSONField(default=list, blank=True)
     browse_sources = models.JSONField(default=list, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

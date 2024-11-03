@@ -1,0 +1,25 @@
+.reactions-component {
+  position: relative;
+}
+
+.reactions-dropdown {
+  top: 100%;
+  display: none;
+}
+
+.reactions-component.from-right .reactions-dropdown {
+  right: 0;
+}
+
+.reactions-component.from-left .reactions-dropdown {
+  left: 0;
+}
+
+.dropdown-opener {
+  position: relative;
+}
+
+.reactions-component:has(.dropdown-opener:hover) .reactions-dropdown,
+.reactions-dropdown:hover {
+  display: flex;
+}

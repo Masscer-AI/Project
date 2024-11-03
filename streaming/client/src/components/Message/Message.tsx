@@ -11,6 +11,12 @@ import { Modal } from "../Modal/Modal";
 import { useTranslation } from "react-i18next";
 import { Pill } from "../Pill/Pill";
 import { useStore } from "../../modules/store";
+import { Reactions } from "../Reactions/Reactions";
+type TReaction = {
+  id: number;
+  template: number;
+};
+
 interface Link {
   url: string;
   text: string;
@@ -30,6 +36,7 @@ interface MessageProps {
   attachments: TAttachment[];
   onGenerateSpeech: (text: string) => void;
   onGenerateImage: (text: string) => void;
+  reactions?: TReaction[];
 }
 
 export const Message: React.FC<MessageProps> = ({
@@ -39,6 +46,7 @@ export const Message: React.FC<MessageProps> = ({
   text,
   agent_slug,
   versions,
+  reactions,
   attachments,
   onGenerateSpeech,
   onGenerateImage,
@@ -48,11 +56,15 @@ export const Message: React.FC<MessageProps> = ({
   const [innerText, setInnerText] = useState(text);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [currentVersion, setCurrentVersion] = useState(0);
+  const [innerReactions, setInnerReactions] = useState(
+    reactions || ([] as TReaction[])
+  );
 
   const { t } = useTranslation();
 
-  const { agents } = useStore((s) => ({
+  const { agents, reactionTemplates } = useStore((s) => ({
     agents: s.agents,
+    reactionTemplates: s.reactionTemplates,
   }));
   const copyToClipboard = () => {
     const textToCopy = versions?.[currentVersion]?.text || innerText;
@@ -106,6 +118,18 @@ export const Message: React.FC<MessageProps> = ({
     setIsEditing(!isEditing);
   };
 
+  const handleReaction = (action: "add" | "remove", templateId: number) => {
+    if (action === "add") {
+      setInnerReactions([
+        ...innerReactions,
+        { id: templateId, template: templateId },
+      ]);
+    } else {
+      setInnerReactions(
+        innerReactions.filter((r) => r.template !== templateId)
+      );
+    }
+  };
   return (
     <div className={`message ${type} message-${index}`}>
       <MarkdownRenderer
@@ -153,16 +177,20 @@ export const Message: React.FC<MessageProps> = ({
               onClick={toggleEditMode}
               svg={isEditing ? SVGS.finish : SVGS.edit}
             />
-            <SvgButton
-              title={t("thumb-up")}
-              onClick={() => updateMessage(id, { thumbs_up: true })}
-              svg={SVGS.thumbUp}
+            <Reactions
+              direction={type === "user" ? "right" : "left"}
+              onReaction={handleReaction}
+              messageId={id.toString()}
+              currentReactions={innerReactions?.map((r) => r.template) || []}
             />
-            <SvgButton
-              title={t("thumb-down")}
-              onClick={() => toast.success(`thumb down to message ${id}`)}
-              svg={SVGS.thumbDown}
-            />
+            {innerReactions && innerReactions.length > 0 && (
+              <>
+                {innerReactions.map(
+                  (r) =>
+                    reactionTemplates.find((rt) => rt.id === r.template)?.emoji
+                )}
+              </>
+            )}
           </>
         )}
 

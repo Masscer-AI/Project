@@ -2,6 +2,7 @@
 import axios, { AxiosRequestConfig, Method } from "axios";
 import { API_URL, PUBLIC_TOKEN } from "./constants";
 import { TCompletion, TConversation } from "../types";
+import { TReactionTemplate } from "../types/chatTypes";
 
 const getToken = (isPublic: boolean) => {
   if (isPublic) {
@@ -378,4 +379,20 @@ export const updateMessage = async (messageId: number, data: any) => {
     `/v1/messaging/messages/${messageId}/`,
     data
   );
+};
+
+export const getReactionTemplates = async () => {
+  return makeAuthenticatedRequest<TReactionTemplate[]>(
+    "GET",
+    "/v1/feedback/reaction-templates/"
+  );
+};
+
+type TCreateReactionData = {
+  conversation?: string;
+  template: string;
+  message?: string;
+};
+export const createReaction = async (data: TCreateReactionData) => {
+  return makeAuthenticatedRequest("POST", "/v1/feedback/reactions/", data);
 };

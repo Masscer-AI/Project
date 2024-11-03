@@ -26,3 +26,11 @@ export type TMessage = {
     agent_slug: string;
   }[];
 };
+
+export type TReactionTemplate = {
+  id: number;
+  type: string;
+  name: string;
+  emoji: string;
+  render_type?: string;
+};

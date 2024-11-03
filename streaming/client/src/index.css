@@ -514,3 +514,10 @@ option {
     background-position: 0% 50%;
   }
 }
+.z-index-tap {
+  z-index: 1000;
+}
+
+.w-fit-content {
+  width: fit-content;
+}

@@ -29,6 +29,7 @@ export default function ChatView() {
     socket,
     setUser,
     agents,
+    startup,
   } = useStore((state) => ({
     socket: state.socket,
     chatState: state.chatState,
@@ -41,12 +42,14 @@ export default function ChatView() {
     modelsAndAgents: state.modelsAndAgents,
     setUser: state.setUser,
     agents: state.agents,
+    startup: state.startup,
   }));
 
   const { t } = useTranslation();
 
   useEffect(() => {
     setUser(loaderData.user);
+    startup();
   }, []);
 
   const [messages, setMessages] = useState(

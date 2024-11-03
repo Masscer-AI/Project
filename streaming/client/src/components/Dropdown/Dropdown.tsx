@@ -23,7 +23,7 @@ export const FloatingDropdown = ({
   return (
     <>
       <div className={`floating-dropdown`}>
-      {opener}
+        {opener}
         {
           <div
             style={{
@@ -31,6 +31,7 @@ export const FloatingDropdown = ({
               top: top,
               left: left,
               right: right,
+              bottom: bottom,
             }}
             className="__content"
           >

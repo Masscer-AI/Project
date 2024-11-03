@@ -1,10 +1,15 @@
 import { createWithEqualityFn as create } from "zustand/traditional";
-import { TConversationData, TUserData } from "../types/chatTypes";
+import {
+  TConversationData,
+  TUserData,
+  TReactionTemplate,
+} from "../types/chatTypes";
 import {
   createAgent,
   deleteAgent,
   getAgents,
   getConversation,
+  getReactionTemplates,
   initConversation,
   uploadDocument,
 } from "./apiCalls";
@@ -37,6 +42,8 @@ type Store = {
   };
   conversation: TConversationData | undefined;
   openedModals: string[];
+  reactionTemplates: TReactionTemplate[];
+  startup: () => void;
   removeAgent: (slug: string) => void;
   setOpenedModals: (opts: SetOpenedProps) => void;
   setMessages: (messages: Message[]) => void;
@@ -79,7 +86,11 @@ export const useStore = create<Store>()((set, get) => ({
   },
   conversation: undefined,
   openedModals: [],
-
+  reactionTemplates: [],
+  startup: async () => {
+    const reactionTemplates: TReactionTemplate[] = await getReactionTemplates();
+    set({ reactionTemplates });
+  },
   setOpenedModals: ({ action, name }) => {
     const { openedModals } = get();
     const copy = [...openedModals];

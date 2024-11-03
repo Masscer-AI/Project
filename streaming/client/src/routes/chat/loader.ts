@@ -23,6 +23,8 @@ export const chatLoader: LoaderFunction = async ({
       c = await initConversation({ isPublic: false });
     }
     const user = (await getUser()) as TUserData;
+    // console.log(c, "conversation");
+
     return { conversation: c, user: user };
   } catch (error) {
     console.error("Error loading conversation in chat loader:", error);

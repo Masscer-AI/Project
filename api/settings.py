@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     "api.finetuning",
     "api.tools",
     "api.whatsapp",
+    "api.feedback",
 ]
 
 MIDDLEWARE = [
