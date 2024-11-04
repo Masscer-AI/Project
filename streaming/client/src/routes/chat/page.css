@@ -7,8 +7,7 @@
   border-radius: 8px;
   overflow: hidden;
   background-color: var(--bg-color);
-  padding: 10px;
-  width: min(100%, var(--app-max-width));
+  width: min(100%, var(--input-max-width));
   position: relative;
 }
 

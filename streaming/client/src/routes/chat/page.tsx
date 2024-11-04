@@ -12,9 +12,10 @@ import { ChatHeader } from "../../components/ChatHeader/ChatHeader";
 import toast from "react-hot-toast";
 import { playAudioFromBytes } from "../../modules/utils";
 import { TrainingModals } from "../../components/TrainingModals/TrainingModals";
-import { updateConversation } from "../../modules/apiCalls";
+import { updateConversation, updateMessage } from "../../modules/apiCalls";
 import { useTranslation } from "react-i18next";
 import MindMapper from "../../components/Plugins/MindMapper";
+import { TVersion } from "../../types";
 
 export default function ChatView() {
   const loaderData = useLoaderData() as TChatLoader;
@@ -197,6 +198,39 @@ export default function ChatView() {
     }
   };
 
+  const handleRegenerateConversation = (
+    userMessage: TMessage,
+    context: TMessage[]
+  ) => {
+    toast.success(t("regenerating-conversation"));
+    console.log("regenerateConversation");
+    try {
+      const selectedAgents = agents.filter((a) => a.selected);
+      const token = localStorage.getItem("token");
+
+      userMessage.attachments = chatState.attachments;
+
+      socket.emit("message", {
+        message: userMessage,
+        context: context,
+        model: model,
+        token: token,
+        models_to_complete: selectedAgents,
+        conversation: conversation ? conversation : loaderData.conversation,
+        web_search_activated: chatState.webSearch,
+        use_rag: chatState.useRag,
+        regenerate: {
+          user_message_id: userMessage.id,
+        },
+      });
+
+      setInput("");
+      cleanAttachments();
+    } catch (error) {
+      console.error("Error sending message:", error);
+    }
+  };
+
   const handleGenerateSpeech = async (text) => {
     try {
       socket.emit("speech_request", {
@@ -257,12 +291,34 @@ export default function ChatView() {
   const onTitleEdit = async (title: string) => {
     if (!conversation?.id && !loaderData.conversation.id) return;
 
-    // if
     await updateConversation(conversation?.id || loaderData.conversation.id, {
       title,
     });
 
     toast.success(t("title-updated"));
+  };
+
+  const onMessageEdit = (
+    index: number,
+    text: string,
+    versions?: TVersion[]
+  ) => {
+    const message = messages[index];
+    if (!message) return;
+
+    if (message.type === "user") {
+      // remove all messages after the user message
+      const newMessages = messages.slice(0, index + 1);
+
+      newMessages[index].text = text;
+      setMessages(newMessages);
+      handleRegenerateConversation(message, newMessages);
+    }
+    if (message.type === "assistant" && versions) {
+      const messagesCopy = [...messages];
+      messagesCopy[index].versions = versions;
+      setMessages(messagesCopy);
+    }
   };
 
   return (
@@ -292,6 +348,7 @@ export default function ChatView() {
                   index={index}
                   onGenerateSpeech={handleGenerateSpeech}
                   onGenerateImage={handleGenerateImage}
+                  onMessageEdit={onMessageEdit}
                 />
               ))}
           </div>

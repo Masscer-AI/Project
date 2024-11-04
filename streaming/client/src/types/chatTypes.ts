@@ -16,6 +16,7 @@ export type TChatLoader = {
 };
 
 export type TMessage = {
+  id?: number;
   type: string;
   text: string;
   attachments: TAttachment[];

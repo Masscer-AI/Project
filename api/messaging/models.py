@@ -20,6 +20,11 @@ class Conversation(models.Model):
 
         return f"Conversation({self.id})"
 
+    def cut_from(self, message_id):
+        # This must delete all messages after the given message id
+        Message.objects.filter(conversation=self, id__gt=message_id).delete()
+        
+
     def generate_title(self):
         if not self.title:
             from .tasks import async_generate_conversation_title

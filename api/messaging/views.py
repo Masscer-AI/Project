@@ -60,6 +60,13 @@ class ConversationView(View):
         user = request.user
         data = json.loads(request.body)
         conversation_id = kwargs.get("id")
+
+        regenerate = data.get("regenerate", None)
+        if regenerate:
+            conversation = Conversation.objects.get(id=conversation_id, user=user)
+            conversation.cut_from(regenerate["user_message_id"])
+            return JsonResponse({"status": "regenerated"})
+
         try:
             Conversation.objects.filter(id=conversation_id, user=user).update(**data)
             updated_conversation = Conversation.objects.get(
@@ -158,7 +165,6 @@ def upload_audio(request):
         audio_file = request.FILES["audio_file"]
 
         random_filename = f"{uuid.uuid4()}{os.path.splitext(audio_file.name)[1]}"
-        random_filename_speech = f"{uuid.uuid4()}.mp3"
 
         fs = FileSystemStorage(
             location=os.path.join(settings.MEDIA_ROOT, "audio_files")

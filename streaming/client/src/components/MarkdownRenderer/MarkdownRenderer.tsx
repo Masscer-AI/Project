@@ -5,7 +5,7 @@ import hljs from "highlight.js/lib/common";
 import "highlight.js/styles/tokyo-night-dark.css";
 import toast from "react-hot-toast";
 import "./MarkdownRenderer.css";
-import { debounce } from "../../modules/utils";
+import { convertHtmlToMarkdown, debounce } from "../../modules/utils";
 
 const DEBOUNCE_TIME = 180;
 
@@ -18,12 +18,11 @@ const md = new MarkdownIt({
 const MarkdownRenderer = ({
   markdown,
   extraClass,
-  contentEditable = false,
 }: {
   markdown: string;
   extraClass?: string;
-  contentEditable?: boolean;
 }) => {
+
   const highlightCodeBlocks = useCallback(
     debounce(() => {
       document.querySelectorAll("pre code").forEach((block) => {
@@ -76,7 +75,6 @@ const MarkdownRenderer = ({
   return (
     <div
       className={`markdown-renderer ${extraClass}`}
-      contentEditable={contentEditable}
       dangerouslySetInnerHTML={getMarkdownText()}
     />
   );

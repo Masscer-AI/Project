@@ -32,3 +32,9 @@ export type TCompletion = {
   approved: boolean;
   agent: number;
 };
+
+export type TVersion = {
+  text: string;
+  type: string;
+  agent_slug: string;
+};

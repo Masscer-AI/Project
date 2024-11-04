@@ -3,7 +3,7 @@ import json
 from datetime import datetime
 from .utils.openai_functions import stream_completion, generate_speech_api
 
-from .utils.apiCalls import save_message, get_results
+from .utils.apiCalls import save_message, get_results, regenerate_conversation
 from .utils.brave_search import search_brave
 import hashlib
 from .utils.apiCalls import get_system_prompt
@@ -49,6 +49,7 @@ async def on_message_handler(socket_id, data, **kwargs):
     message = data["message"]
     web_search_activated = data.get("web_search_activated", False)
     use_rag = data.get("use_rag", False)
+    regenerate = data.get("regenerate", None)
 
     models_to_complete = data.get(
         "models_to_complete",
@@ -67,11 +68,19 @@ async def on_message_handler(socket_id, data, **kwargs):
     conversation = data["conversation"]
 
     message["conversation"] = conversation.get("id", None)
-    user_message_res = save_message(
-        message=message,
-        token=token,
-    )
-    logger.debug(user_message_res)
+
+    if not regenerate:
+        user_message_res = save_message(
+            message=message,
+            token=token,
+        )
+
+    else:
+        regenerate_conversation(
+            conversation_id=conversation["id"],
+            user_message_id=regenerate["user_message_id"],
+            token=token,
+        )
 
     versions = []
 

@@ -24,10 +24,11 @@
     right: 10px;
   }
 }
-.message .textarea-content {
+.message .message-textarea {
   width: 100%;
   padding: 10px 15px;
   font-family: var(--font-family);
+  border-radius: var(--standard-radius);
 }
 
 .message.user {

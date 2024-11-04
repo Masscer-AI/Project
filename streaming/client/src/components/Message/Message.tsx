@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { SVGS } from "../../assets/svgs";
 import MarkdownRenderer from "../MarkdownRenderer/MarkdownRenderer";
-import { TAttachment } from "../../types";
+import { TAttachment, TVersion } from "../../types";
 import { Thumbnail } from "../Thumbnail/Thumbnail";
 import "./Message.css";
 import { SvgButton } from "../SvgButton/SvgButton";
@@ -27,15 +27,11 @@ interface MessageProps {
   type: string;
   text: string;
   index: number;
-  agent_slug?: string;
-  versions?: {
-    text: string;
-    type: string;
-    agent_slug: string;
-  }[];
+  versions?: TVersion[];
   attachments: TAttachment[];
   onGenerateSpeech: (text: string) => void;
   onGenerateImage: (text: string) => void;
+  onMessageEdit: (index: number, text: string, versions?: TVersion[]) => void;
   reactions?: TReaction[];
 }
 
@@ -44,12 +40,12 @@ export const Message: React.FC<MessageProps> = ({
   index,
   id,
   text,
-  agent_slug,
   versions,
   reactions,
   attachments,
   onGenerateSpeech,
   onGenerateImage,
+  onMessageEdit,
 }) => {
   const [sources, setSources] = useState([] as Link[]);
   const [isEditing, setIsEditing] = useState(false);
@@ -79,10 +75,15 @@ export const Message: React.FC<MessageProps> = ({
   };
 
   useEffect(() => {
-    if (textareaRef.current) {
+    if (isEditing && textareaRef.current) {
       textareaRef.current.style.height = "auto";
       textareaRef.current.style.height =
         textareaRef.current.scrollHeight + "px";
+
+      textareaRef.current.setSelectionRange(
+        textareaRef.current.value.length,
+        textareaRef.current.value.length
+      );
     }
     return () => {
       if (textareaRef.current) {
@@ -115,6 +116,37 @@ export const Message: React.FC<MessageProps> = ({
   }, [text]);
 
   const toggleEditMode = () => {
+    if (isEditing) {
+      textareaRef.current?.blur();
+      // Get the textarea value
+      const textareaValue = textareaRef.current?.value;
+
+      if (id && type === "assistant" && versions && textareaValue) {
+        const newVersions = versions.map((v, index) => {
+          if (currentVersion === index) {
+            return {
+              ...v,
+              text: textareaValue,
+            };
+          }
+          return v;
+        });
+
+        updateMessage(id, {
+          text: textareaValue,
+          type: type,
+          versions: newVersions,
+        });
+        onMessageEdit(index, textareaValue, newVersions);
+      }
+      if (id && type === "user" && textareaValue) {
+        updateMessage(id, {
+          text: textareaValue,
+          type: type,
+        });
+        onMessageEdit(index, textareaValue);
+      }
+    }
     setIsEditing(!isEditing);
   };
 
@@ -132,11 +164,19 @@ export const Message: React.FC<MessageProps> = ({
   };
   return (
     <div className={`message ${type} message-${index}`}>
-      <MarkdownRenderer
-        contentEditable={isEditing}
-        markdown={versions?.[currentVersion]?.text || innerText}
-        extraClass={`message-text ${type === "user" ? "fancy-gradient" : ""}`}
-      />
+      {isEditing ? (
+        <textarea
+          autoComplete="on"
+          ref={textareaRef}
+          className="message-textarea"
+          defaultValue={versions?.[currentVersion]?.text || innerText}
+        />
+      ) : (
+        <MarkdownRenderer
+          markdown={versions?.[currentVersion]?.text || innerText}
+          extraClass={`message-text ${type === "user" ? "fancy-gradient" : ""}`}
+        />
+      )}
 
       <section className="message__attachments">
         {attachments &&
