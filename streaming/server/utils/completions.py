@@ -1,3 +1,4 @@
+import base64
 from openai import OpenAI
 import anthropic
 from ..logger import get_custom_logger
@@ -79,18 +80,39 @@ class TextStreamingHandler:
                         },
                     )
                 else:
-                    logger.debug(f"Attaching document {a["name"]}")
-                    messages.append(
-                        {
-                            "role": "user",
-                            "content": f"The following if the content of a document called: {a["name"]} and of type {a["type"]}: \n{a["content"]}",
-                        },
-                    )
+                    if "audio" in a["type"]:
+                        logger.debug("Skipping audio file")
+                        continue
+                        if a["content"].startswith("data:audio/"):
+                            audio_data = a["content"].split(",")[1]
+                        else:
+                            audio_data = a["content"]
+
+                        messages.append(
+                            {
+                                "role": "user",
+                                "content": [
+                                    {
+                                        "type": "text",
+                                        "text": "This is an user recording",
+                                    },
+                                    {
+                                        "type": "input_audio",
+                                        "input_audio": {
+                                            "data": audio_data,
+                                            "format": "wav",
+                                        },
+                                    },
+                                ],
+                            },
+                        )
 
         response = self.client.chat.completions.create(
             model=model,
+            # model="gpt-4o-audio-preview",
             max_tokens=self.config.get("max_tokens", 3000),
             messages=messages,
+            # modalities=["text"],
             frequency_penalty=self.config.get("frequency_penalty", 0),
             top_p=self.config.get("top_p", 1.0),
             presence_penalty=self.config.get("presence_penalty", 0),
@@ -127,6 +149,9 @@ class TextStreamingHandler:
 
         for a in attachments:
             if "image" in a["type"]:
+                processed.append(a)
+
+            elif "audio" in a["type"]:
                 processed.append(a)
             # elif "pdf" in a["type"]:
             #     base64_content = a["content"]

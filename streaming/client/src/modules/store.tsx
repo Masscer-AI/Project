@@ -135,7 +135,19 @@ export const useStore = create<Store>()((set, get) => ({
       return;
     }
 
-    toast.success("Uploading document...");
+    if (newAttachment.type === "audio") {
+      return;
+      // Is an audio is passed, ask the user it it wants to use gpt-4o-audio-preview
+      set((state) => ({
+        chatState: {
+          ...state.chatState,
+          attachments: [...state.chatState.attachments, newAttachment],
+        },
+      }));
+      toast.success("Adding audio...");
+      return;
+    }
+
     const selectedAgents = agents
       .filter((a) => a.selected)
       .map((a) => a.slug)

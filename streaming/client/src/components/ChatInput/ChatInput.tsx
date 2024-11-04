@@ -142,9 +142,23 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     fileInputRef.current.click();
   };
 
-  // useEffect(() => {
-  //   debouncedGetSuggestion(input);
-  // }, [input]);
+  const handleAudioTranscript = (
+    transcript: string,
+    audioUrl: string,
+    base64Audio: string
+  ) => {
+    setInput(input + " " + transcript);
+    addAttachment(
+      {
+        content: base64Audio,
+        type: "audio",
+        name: uuidv4(),
+        file: null,
+      },
+      conversation.id
+    );
+  };
+
   return (
     <div className="chat-input">
       <section className="attachments">
@@ -169,11 +183,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           placeholder={t("type-your-message")}
           name="chat-input"
         />
-        {/* {suggestion && <p className="suggestion">{suggestion}</p>} */}
       </section>
       <section className="mt-small">
         <div className="flex-x">
-          {/* <button className="button" onClick={handleSendMessage}>{SVGS.send}</button> */}
           <SvgButton
             title={t("send-message")}
             onClick={handleSendMessage}
@@ -213,7 +225,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             svg={SVGS.document}
             title={t("turn-on-off-rag")}
           />
-          <SpeechHandler />
+          <SpeechHandler onTranscript={handleAudioTranscript} />
         </div>
       </section>
     </div>

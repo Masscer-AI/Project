@@ -28,6 +28,8 @@
   padding: 10px;
   background-color: var(--bg-secondary-color);
   border-radius: var(--standard-radius);
+  width: min(100%, var(--input-max-width));
+  margin-inline: auto;
 }
 
 .chat-header select {
@@ -38,11 +40,4 @@
   padding: 5px;
   background-color: transparent;
   border: 0;
-}
-/* .chat-header svg path {
-  stroke: var(--font-color);
-} */
-
-.chat-header select option {
-  background-color: rgb(32, 32, 32);
 }

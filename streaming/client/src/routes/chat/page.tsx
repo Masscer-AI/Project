@@ -14,6 +14,7 @@ import { playAudioFromBytes } from "../../modules/utils";
 import { TrainingModals } from "../../components/TrainingModals/TrainingModals";
 import { updateConversation } from "../../modules/apiCalls";
 import { useTranslation } from "react-i18next";
+import MindMapper from "../../components/Plugins/MindMapper";
 
 export default function ChatView() {
   const loaderData = useLoaderData() as TChatLoader;
@@ -268,31 +269,33 @@ export default function ChatView() {
     <>
       <TrainingModals />
       <div className="d-flex">
-      {chatState.isSidebarOpened && <Sidebar />}
-      <div className="chat-container">
-        <ChatHeader
-          onTitleEdit={onTitleEdit}
-          title={conversation?.title || loaderData.conversation.title || "Chat"}
-        />
-        <ChatInput
-          handleSendMessage={handleSendMessage}
-          handleKeyDown={handleKeyDown}
-          conversation={conversation || loaderData.conversation}
-        />
+        {chatState.isSidebarOpened && <Sidebar />}
+        <div className="chat-container">
+          <ChatHeader
+            onTitleEdit={onTitleEdit}
+            title={
+              conversation?.title || loaderData.conversation.title || "Chat"
+            }
+          />
+          <ChatInput
+            handleSendMessage={handleSendMessage}
+            handleKeyDown={handleKeyDown}
+            conversation={conversation || loaderData.conversation}
+          />
 
-        <div className="chat-messages">
-          {messages &&
-            messages.map((msg, index) => (
-              <Message
-                {...msg}
-                key={index}
-                index={index}
-                onGenerateSpeech={handleGenerateSpeech}
-                onGenerateImage={handleGenerateImage}
-              />
-            ))}
+          <div className="chat-messages">
+            {messages &&
+              messages.map((msg, index) => (
+                <Message
+                  {...msg}
+                  key={index}
+                  index={index}
+                  onGenerateSpeech={handleGenerateSpeech}
+                  onGenerateImage={handleGenerateImage}
+                />
+              ))}
+          </div>
         </div>
-      </div>
       </div>
     </>
   );
