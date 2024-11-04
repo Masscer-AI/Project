@@ -107,3 +107,30 @@ def count_tokens_from_text(text: str, model: str = "gpt-4o-mini"):
     encoding = tiktoken.encoding_for_model(model)
     tokens = encoding.encode(text)
     return len(tokens)
+
+
+def generate_image(
+    prompt: str,
+    model: str = "dall-e-3",
+    size: str = "1024x1024",
+    quality: str = "standard",
+    n: int = 1,
+    api_key: str = os.environ.get("OPENAI_API_KEY"),
+) -> str:
+    try:
+        client = OpenAI(
+            api_key=api_key,
+        )
+
+        response = client.images.generate(
+            model=model,
+            prompt=prompt,
+            size=size,
+            quality=quality,
+            n=n,
+        )
+        image_url = response.data[0].url
+        return image_url
+    except Exception as e:
+        print(e)
+        raise Exception("Your prompt doesn't satisfy OpenAI policy, sorry :(")

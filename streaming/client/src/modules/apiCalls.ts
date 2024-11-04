@@ -396,3 +396,16 @@ type TCreateReactionData = {
 export const createReaction = async (data: TCreateReactionData) => {
   return makeAuthenticatedRequest("POST", "/v1/feedback/reactions/", data);
 };
+
+type TGenerateImageResponse = {
+  image_url: string;
+};
+export const generateImage = async (
+  prompt: string,
+  message_id: string
+): Promise<TGenerateImageResponse> => {
+  return makeAuthenticatedRequest("POST", "/v1/tools/generate_image/", {
+    prompt,
+    message_id,
+  });
+};

@@ -12,7 +12,11 @@ import { ChatHeader } from "../../components/ChatHeader/ChatHeader";
 import toast from "react-hot-toast";
 import { playAudioFromBytes } from "../../modules/utils";
 import { TrainingModals } from "../../components/TrainingModals/TrainingModals";
-import { updateConversation, updateMessage } from "../../modules/apiCalls";
+import {
+  generateImage,
+  updateConversation,
+  updateMessage,
+} from "../../modules/apiCalls";
 import { useTranslation } from "react-i18next";
 import MindMapper from "../../components/Plugins/MindMapper";
 import { TVersion } from "../../types";
@@ -202,8 +206,6 @@ export default function ChatView() {
     userMessage: TMessage,
     context: TMessage[]
   ) => {
-    toast.success(t("regenerating-conversation"));
-    console.log("regenerateConversation");
     try {
       const selectedAgents = agents.filter((a) => a.selected);
       const token = localStorage.getItem("token");
@@ -224,7 +226,6 @@ export default function ChatView() {
         },
       });
 
-      setInput("");
       cleanAttachments();
     } catch (error) {
       console.error("Error sending message:", error);
@@ -241,32 +242,31 @@ export default function ChatView() {
     }
   };
 
-  const handleGenerateImage = async (text) => {
+  const handleGenerateImage = async (text, message_id) => {
     try {
-      const response = await axios.post(
-        "/generate_image/",
-        { prompt: text },
-        {
-          headers: {
-            Authorization: `Token ${token}`,
-          },
-        }
-      );
-      const imageUrl = response.data.image_url;
+      const messageIndex = messages.findIndex((m) => m.id === message_id);
+      if (messageIndex === -1) return;
+      toast.loading("Generating image...");
 
-      const imageMessage = {
-        type: "assistant",
-        text: "",
-        attachments: [
+      const response = await generateImage(text, message_id);
+
+      toast.dismiss();
+      const imageUrl = response.image_url;
+
+      setMessages((prevMessages) => {
+        const copyMessages = [...prevMessages];
+        copyMessages[messageIndex].attachments = [
+          ...(copyMessages[messageIndex].attachments || []),
           {
             type: "image",
             content: imageUrl,
             name: "Generated image",
             file: null,
           },
-        ],
-      };
-      setMessages([...messages, imageMessage]);
+        ];
+        return copyMessages;
+      });
+      toast.success("Image generated successfully!");
     } catch (error) {
       console.error("Error generating image:", error);
 

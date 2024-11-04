@@ -1,4 +1,7 @@
 from django.http import JsonResponse
+from django.utils.text import slugify
+import base64
+import requests
 from django.views import View
 import uuid
 import json
@@ -11,6 +14,10 @@ import os
 from django.core.files import File
 from api.authenticate.decorators.token_required import token_required
 from .actions import fetch_videos
+from api.utils.openai_functions import generate_image
+from api.messaging.models import Message
+from api.utils.color_printer import printer
+
 logger = logging.getLogger(__name__)
 
 
@@ -99,7 +106,7 @@ class VideoGenerationView(View):
         videos = Video.objects.filter(video_generation_job__user=user)
 
         serializer = VideoSerializer(videos, many=True)
- 
+
         return JsonResponse(serializer.data, safe=False)
 
     def post(self, request):
@@ -128,7 +135,6 @@ class VideoGenerationView(View):
         )
 
 
-
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class MediaView(View):
@@ -147,10 +153,45 @@ class MediaView(View):
             # Fetch videos from Pexels
             response_data = fetch_videos(query, per_page, page, orientation)
 
-            if 'error' in response_data:
+            if "error" in response_data:
                 return JsonResponse(response_data, status=400)
 
             return JsonResponse(response_data, safe=False)
 
         except ValueError:
-            return JsonResponse({"error": "Invalid integer values for per_page or page"}, status=400)
+            return JsonResponse(
+                {"error": "Invalid integer values for per_page or page"}, status=400
+            )
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class ImageGenerationView(View):
+    def post(self, request):
+        try:
+            data = json.loads(request.body)
+            prompt = data.get("prompt")
+            message_id = data.get("message_id")
+
+            image_url = generate_image(prompt=prompt)
+            image_response = requests.get(image_url)
+            image_content = image_response.content
+
+            image_content_b64 = base64.b64encode(image_content).decode("utf-8")
+            if message_id:
+                m = Message.objects.get(id=message_id)
+                attachments = m.attachments or []
+                attachments.append(
+                    {
+                        "type": "image",
+                        "content": f"data:image/png;base64,{image_content_b64}",
+                        "name": slugify(prompt),
+                    }
+                )
+                m.attachments = attachments
+                m.save()
+            return JsonResponse({"image_url": image_url})
+
+        except Exception as e:
+            printer.red(e)
+            return JsonResponse({"error": str(e)}, status=500)

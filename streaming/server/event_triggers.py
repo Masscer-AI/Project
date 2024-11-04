@@ -160,7 +160,7 @@ async def on_message_handler(socket_id, data, **kwargs):
         message={
             "type": "assistant",
             "text": versions[0]["text"],
-            "attachments": message["attachments"],
+            "attachments": [],
             "conversation": conversation.get("id", None),
             "versions": versions,
         },

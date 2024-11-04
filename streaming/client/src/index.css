@@ -19,7 +19,6 @@
   --modals-color: rgb(255, 255, 255);
   --modal-bg-color: #040404;
   --bg-contrast-color: rgb(55, 55, 55);
-  --border-radius: 6px;
   --selected-border: 1px solid var(--highlighted-color);
   --standard-radius: 8px;
   --modal-max-height: 99vh;
@@ -71,7 +70,6 @@
   --user-color: var(--gradient-dark);
 
   --bg-contrast-color: rgb(31, 31, 31);
-  --border-radius: 6px;
   --selected-border: 1px solid var(--highlighted-color);
   --standard-radius: 8px;
   --font-color: rgb(255, 255, 255);
@@ -520,4 +518,12 @@ option {
 
 .w-fit-content {
   width: fit-content;
+}
+.border-active {
+  border: 1px solid var(--active-color);
+}
+
+.square-button {
+  width: max(40px, fit-content);
+  height: 40px;
 }

@@ -30,7 +30,7 @@ interface MessageProps {
   versions?: TVersion[];
   attachments: TAttachment[];
   onGenerateSpeech: (text: string) => void;
-  onGenerateImage: (text: string) => void;
+  onGenerateImage: (text: string, message_id: number) => void;
   onMessageEdit: (index: number, text: string, versions?: TVersion[]) => void;
   reactions?: TReaction[];
 }
@@ -200,11 +200,13 @@ export const Message: React.FC<MessageProps> = ({
           onClick={() => onGenerateSpeech(text)}
           svg={SVGS.waves}
         />
-        <SvgButton
-          title={t("generate-image")}
-          onClick={() => onGenerateImage(text)}
-          svg={SVGS.picture}
-        />
+        {id && (
+          <SvgButton
+            title={t("generate-image")}
+            onClick={() => onGenerateImage(text, id)}
+            svg={SVGS.picture}
+          />
+        )}
         <SvgButton
           title={t("copy-to-clipboard")}
           onClick={() => copyToClipboard()}

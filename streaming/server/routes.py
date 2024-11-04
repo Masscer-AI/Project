@@ -128,3 +128,9 @@ async def get_conversation():
 
         return HTMLResponse(content=html_content)
     return HTMLResponse(content="Page not found", status_code=404)
+
+
+@router.post("/webhook")
+async def webhook(request: Request):
+    print(await request.json())
+    return {"message": "Webhook received"}

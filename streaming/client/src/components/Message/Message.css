@@ -35,22 +35,25 @@
   align-items: flex-end;
 }
 
-.message img {
-  max-width: 100%;
-  border-radius: 8px;
-  margin-top: 10px;
+.message.assistant .message-buttons {
+  padding-left: 10px;
 }
 
 .message-buttons {
   display: flex;
-  margin-top: 20px;
+  margin-top: 10px;
   opacity: 0.4;
   transition: all 100ms;
 }
 .message__attachments {
   display: flex;
   gap: 10px;
-  margin-top: 10px;
+
+  padding-inline: 12px;
+  padding-block: 5px;
+  display: flex;
+  align-items: center;
+  /* background-color: red; */
 }
 
 .message__attachments:empty {

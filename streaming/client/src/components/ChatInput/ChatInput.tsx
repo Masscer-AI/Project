@@ -170,6 +170,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             src={content}
             key={index}
             index={index}
+            showFloatingButtons={true}
           />
         ))}
       </section>

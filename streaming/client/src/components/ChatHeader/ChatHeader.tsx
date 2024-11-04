@@ -57,7 +57,7 @@ export const ChatHeader = ({
         <FloatingDropdown
           left="0"
           top="100%"
-          opener={<button className="button">{t("agents")}</button>}
+          opener={<SvgButton text={t("agents")} />}
         >
           {agents.map((agent, index) => (
             <AgentComponent key={index} agent={agent} />
