@@ -189,9 +189,8 @@ class ImageGenerationView(View):
                     }
                 )
                 m.attachments = attachments
-                m.save()
+                m.save() 
             return JsonResponse({"image_url": image_url})
 
         except Exception as e:
-            printer.red(e)
-            return JsonResponse({"error": str(e)}, status=500)
+            return JsonResponse({"error": str(e)}, status=400)

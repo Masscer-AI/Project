@@ -268,12 +268,10 @@ export default function ChatView() {
       });
       toast.success("Image generated successfully!");
     } catch (error) {
+      toast.dismiss();
       console.error("Error generating image:", error);
 
-      toast.error(
-        "Error generating image: " + error.response?.data?.detail?.message ||
-          error.message
-      );
+      toast.error("Error generating image: " + error.response.data.error);
     }
   };
 
