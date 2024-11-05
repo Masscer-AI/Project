@@ -45,6 +45,7 @@ type Store = {
   reactionTemplates: TReactionTemplate[];
   startup: () => void;
   removeAgent: (slug: string) => void;
+  updateSingleAgent: (agent: TAgent) => void;
   setOpenedModals: (opts: SetOpenedProps) => void;
   setMessages: (messages: Message[]) => void;
   setConversation: (conversationId: string | null) => void;
@@ -296,6 +297,11 @@ export const useStore = create<Store>()((set, get) => ({
     }));
 
     createAgent(exampleAgent);
+  },
+  updateSingleAgent: (agent: TAgent) => {
+    set((state) => ({
+      agents: state.agents.map((a) => (a.slug === agent.slug ? agent : a)),
+    }));
   },
   removeAgent: (slug: string) => {
     set((state) => ({

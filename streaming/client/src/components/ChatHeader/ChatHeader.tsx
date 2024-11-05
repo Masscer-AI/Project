@@ -84,11 +84,15 @@ type TAgentComponentProps = {
 };
 
 const AgentComponent = ({ agent }: TAgentComponentProps) => {
-  const { toggleAgentSelected, fetchAgents } = useStore((state) => ({
-    toggleAgentSelected: state.toggleAgentSelected,
-    fetchAgents: state.fetchAgents,
-  }));
+  const { toggleAgentSelected, fetchAgents, updateSingleAgent } = useStore(
+    (state) => ({
+      toggleAgentSelected: state.toggleAgentSelected,
+      fetchAgents: state.fetchAgents,
+      updateSingleAgent: state.updateSingleAgent,
+    })
+  );
 
+  const { t } = useTranslation();
   const [isModalVisible, setModalVisible] = useState(false);
 
   const showModal = () => setModalVisible(true);
@@ -98,8 +102,8 @@ const AgentComponent = ({ agent }: TAgentComponentProps) => {
     try {
       const res = await updateAgent(agent.slug, agent);
       hideModal();
-      // toast.success("Agent updated in DB!");
-      fetchAgents();
+      toast.success(t("agent-updated"));
+      updateSingleAgent(agent);
     } catch (e) {
       console.log("ERROR TRYING TO SAVE AGENT", e);
     }
