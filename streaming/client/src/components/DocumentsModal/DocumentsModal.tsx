@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Modal } from "../Modal/Modal";
 import {
+  deleteDocument,
   generateTrainingCompletions,
   getDocuments,
 } from "../../modules/apiCalls";
@@ -12,6 +13,7 @@ import { SVGS } from "../../assets/svgs";
 import { Pill } from "../Pill/Pill";
 import { useStore } from "../../modules/store";
 import toast from "react-hot-toast";
+import { FloatingDropdown } from "../Dropdown/Dropdown";
 type TDocument = {
   id: number;
   name: string;
@@ -30,41 +32,53 @@ export const DocumentsModal = ({ visible, hide }) => {
 
   const getDocs = async () => {
     const docs = await getDocuments();
-    setDocuments(docs); // Store the documents in state
-    console.log(docs);
+    setDocuments(docs);
+  };
+
+  const removeDoc = (id: number) => {
+    setDocuments(documents.filter((d) => d.id !== id));
   };
 
   return (
-    <Modal visible={visible} hide={hide} minHeight="80vh">
-      <h3 className="text-center">{t("knowledge-base")}</h3>
-      <p className="text-center">
-        {t("you-can-use-this-page-to-train-your-model-with-files")}
-      </p>
-      <div>
+    <Modal visible={visible} hide={hide} minHeight="90vh">
+      <div className="d-flex flex-y gap-big">
+        <h3 className="text-center fancy-bg padding-big rounded F">
+          {t("knowledge-base")}
+        </h3>
+
+        <p className="text-center">
+          {t("you-can-use-this-page-to-train-your-model-with-files")}
+        </p>
         {documents.map((document) => (
-          <DocumentCard key={document.id} document={document} />
+          <DocumentCard
+            removeDoc={removeDoc}
+            key={document.id}
+            document={document}
+          />
         ))}
       </div>
     </Modal>
   );
 };
 
-const DocumentCard = ({ document }) => {
+const DocumentCard = ({ document, removeDoc }) => {
   const [isOpened, setIsOpened] = useState(false);
-  const [displayBrief, setDisplayBrief] = useState(false);
+  // const [displayBrief, setDisplayBrief] = useState(false);
   const [isTrainingModalVisible, setIsTrainingModalVisible] = useState(false);
-  const [search, setSearch] = useState("");
-  const [filteredChunks, setFilteredChunks] = useState(document.chunk_set);
+
   const { t } = useTranslation();
 
-  useEffect(() => {
-    setFilteredChunks(
-      document.chunk_set.filter((c) =>
-        c.content.toLowerCase().includes(search.toLowerCase())
-      )
-    );
-  }, [search]);
-
+  const handleDelete = async () => {
+    const tID = toast.loading("Deleting document...");
+    try {
+      await deleteDocument(document.id);
+      toast.success("Document deleted");
+      removeDoc(document.id);
+    } catch (e) {
+      toast.error("Error deleting document");
+    }
+    toast.dismiss(tID);
+  };
   return (
     <div className={styles.documentCard}>
       {isTrainingModalVisible && (
@@ -79,45 +93,44 @@ const DocumentCard = ({ document }) => {
       <div className="d-flex justify-center gap-small">
         <Pill extraClass="bg-hovered">{document.chunk_count} chunks</Pill>
         <Pill extraClass="bg-hovered">{document.collection.agent.name}</Pill>
-        <Pill
-          extraClass="bg-active"
-          onClick={() => setDisplayBrief(!displayBrief)}
-        >
-          {displayBrief ? t("hide-brief") : t("show-brief")}
-        </Pill>
         <Pill extraClass="bg-hovered">{document.total_tokens} tokens</Pill>
       </div>
-      {displayBrief && <p>{document.brief}</p>}
 
+      <p>{document.brief}</p>
       <div className="d-flex justify-center gap-small">
-        <SvgButton
-          extraClass="bg-hovered"
-          text={isOpened ? t("hide-document-text") : t("show-document-text")}
-          onClick={() => setIsOpened(!isOpened)}
-        />
-        <SvgButton
-          extraClass="bg-active"
-          text={t("train-on-this-document")}
-          onClick={() => setIsTrainingModalVisible(true)}
-        />
-        
-      </div>
-      {isOpened && (
-        <>
-          <div className="d-flex justify-center">
-            <input
-              type="text"
-              className="input"
-              placeholder={t("find-something-in-the-document")}
-              onChange={(e) => setSearch(e.target.value)}
+        <FloatingDropdown
+          bottom="100%"
+          opener={<SvgButton text={t("options")} svg={SVGS.burger} />}
+        >
+          <div className="width-200 d-flex flex-y gap-small">
+            <SvgButton
+              extraClass="bg-hovered w-100"
+              text={
+                isOpened ? t("hide-document-text") : t("show-document-text")
+              }
+              onClick={() => setIsOpened(!isOpened)}
+            />
+            <SvgButton
+              extraClass="bg-active w-100"
+              text={t("train-on-this-document")}
+              onClick={() => setIsTrainingModalVisible(true)}
+            />
+            <SvgButton
+              extraClass="bg-danger w-100"
+              svg={SVGS.trash}
+              text={t("delete")}
+              confirmations={[`${t("sure")}?`]}
+              onClick={handleDelete}
             />
           </div>
-          <div className={styles.chunkContainer}>
-            {filteredChunks.map((c) => (
-              <Chunk key={c.id} content={c.content} id={c.id} />
-            ))}
-          </div>
-        </>
+        </FloatingDropdown>
+      </div>
+      {isOpened && (
+        <ChunksModal
+          hide={() => setIsOpened(false)}
+          visible={isOpened}
+          chunks={document.chunk_set}
+        />
       )}
     </div>
   );
@@ -129,10 +142,46 @@ const Chunk = ({ content, id }) => {
   return (
     <pre
       title={`This chunk is text is from the chunk ${id.toString()}`}
-      onClick={() => setDisplayFull(!displayFull)}
+      // onClick={() => setDisplayFull(!displayFull)}
+      onDoubleClick={() => setDisplayFull(!displayFull)}
     >
       {displayFull ? content : content.slice(0, 100)}
     </pre>
+  );
+};
+
+const ChunksModal = ({ visible, hide, chunks }) => {
+  const [filteredChunks, setFilteredChunks] = useState(chunks);
+  const [search, setSearch] = useState("");
+  const { t } = useTranslation();
+
+  useEffect(() => {
+    setFilteredChunks(
+      chunks.filter((c) =>
+        c.content.toLowerCase().includes(search.toLowerCase())
+      )
+    );
+  }, [search]);
+  return (
+    <Modal minHeight="90vh" visible={visible} hide={hide}>
+      <h1 className="fancy-bg padding-big text-center rounded">
+        Document content
+      </h1>
+      <div className={styles.chunkContainer}>
+        <div className="d-flex justify-center">
+          <input
+            type="text"
+            className="input w-100"
+            placeholder={t("find-something-in-the-document")}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <Pill extraClass="bg-active">{chunks.length} chunks</Pill>
+        </div>
+        {filteredChunks.map((c) => (
+          <Chunk key={c.id} content={c.content} id={c.id} />
+        ))}
+      </div>
+    </Modal>
   );
 };
 

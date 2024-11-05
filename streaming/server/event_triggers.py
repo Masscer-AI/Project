@@ -47,6 +47,7 @@ async def on_message_handler(socket_id, data, **kwargs):
 
     context = data["context"]
     message = data["message"]
+
     web_search_activated = data.get("web_search_activated", False)
     use_rag = data.get("use_rag", False)
     regenerate = data.get("regenerate", None)

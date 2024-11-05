@@ -1,9 +1,9 @@
 .documentCard {
-  /* background-color: aqua; */
   border: 1px solid var(--bg-contrast-color);
   padding: 10px;
   border-radius: var(--standard-radius);
   display: flex;
+
   flex-direction: column;
   gap: 15px;
 
@@ -15,12 +15,18 @@
 
 .chunkContainer {
   overflow-y: auto;
-  max-height: 400px;
 
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   > pre {
     margin: 0;
     padding: 5px;
+    text-wrap: wrap;
+    border-radius: var(--standard-radius);
+    white-space: pre-wrap;
     overflow-x: auto;
+    background-color: rgba(175, 175, 175, 0.424);
     &:hover {
       background-color: var(--hovered-color);
     }

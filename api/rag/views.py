@@ -95,7 +95,7 @@ class DocumentView(View):
     def delete(self, request, document_id):
         try:
             document = Document.objects.get(id=document_id)
-            document.delete()
+            document.remove_from_rag()
             return JsonResponse(
                 {"message": "Document deleted successfully"}, status=204
             )

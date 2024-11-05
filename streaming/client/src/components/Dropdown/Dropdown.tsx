@@ -17,7 +17,7 @@ export const FloatingDropdown = ({
   opener,
   isOpened,
   left = undefined,
-  top = "0",
+  top = undefined,
   right = undefined,
   bottom = undefined,
   transform = undefined,

@@ -1,4 +1,5 @@
 import chromadb
+
 # from chromadb.utils import embedding_functions
 
 # default_ef = embedding_functions.DefaultEmbeddingFunction()
@@ -38,20 +39,35 @@ class ChromaManager:
     def get_results(
         self, collection_name: str, query_texts: list[str], n_results: int = 4
     ):
+        # TODO: This is bad, if the collection doesn't exist, ignore
         collection = self.get_or_create_collection(collection_name)
+
         return collection.query(
             query_texts=query_texts,
             n_results=n_results,
             # where_document={"$contains": "search_string"},
         )
 
+    def get_collection_or_none(self, collection_name: str):
+        try:
+            return self.client.get_collection(name=collection_name)
+        except Exception as e:
+            print(e, "EXCEPTION TRYING TO GET COLLECTION")
+            return None
+
     def delete_collection(self, collection_name: str):
         print("Deleting collection from chroma")
         self.client.delete_collection(collection_name)
 
     def delete_chunk(self, collection_name: str, chunk_id: str):
+        # TODO: This is bad, if the collection doesn't exist, ignore
         collection = self.get_or_create_collection(collection_name)
         collection.delete(ids=[chunk_id])
+
+    def bulk_delete_chunks(self, collection_name: str, chunk_ids: list[str]):
+        collection = self.get_collection_or_none(collection_name)
+        if collection:
+            collection.delete(ids=chunk_ids)
 
 
 chroma_client = ChromaManager()

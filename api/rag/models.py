@@ -125,6 +125,14 @@ class Document(models.Model):
         Chunk.objects.bulk_create(chunks)
         chunks_created.send(sender=self)
 
+    def remove_from_rag(self):
+        collection_name = self.collection.slug
+        chunks = Chunk.objects.filter(document=self)
+        chunks_ids = [str(c.id) for c in chunks]
+        if (len(chunks_ids)) > 0:
+            chroma_client.bulk_delete_chunks(collection_name, chunks_ids)
+        self.delete()
+
 
 class Chunk(models.Model):
     document = models.ForeignKey(Document, on_delete=models.CASCADE)

@@ -3,9 +3,10 @@ from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver, Signal
 from .models import Document, Chunk, Collection
 from .managers import chroma_client
-from .tasks import async_generate_chunk_brief, async_generate_document_brief
+from .tasks import async_generate_document_brief
 
 chunks_created = Signal()
+# document_deleted = Signal()
 
 
 @receiver(post_save, sender=Document)
@@ -24,6 +25,11 @@ def store_chunk_in_vector_db(sender, instance, created, **kwargs):
 def collection_deleted(sender, instance, **kwargs):
     collection_name = instance.slug
     chroma_client.delete_collection(collection_name)
+
+
+# @receiver(document_deleted, sender=Document)
+# def document_deleted_handler(sender, instance, **kwargs):
+    
 
 
 @receiver(chunks_created)

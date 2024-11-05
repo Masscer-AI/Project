@@ -163,29 +163,30 @@ export const useStore = create<Store>()((set, get) => ({
     formData.append("name", newAttachment.name);
     formData.append("conversation_id", String(conversation_id));
 
+    const loadingID = toast.loading("Uploading document...");
     // @ts-ignore
     formData.append("file", newAttachment.file);
     try {
       const r = await uploadDocument(formData);
       newAttachment.id = r.id;
+
+      toast.dismiss(loadingID);
       toast.success(
         "Document uploaded successfully! Now you can chat with it using all the you selected"
       );
+
+      console.log("NEW ATTACHMENT", newAttachment);
 
       set((state) => ({
         chatState: {
           ...state.chatState,
           attachments: [...state.chatState.attachments, newAttachment],
-        },
-      }));
-      set((state) => ({
-        chatState: {
-          ...state.chatState,
           useRag: true,
         },
       }));
     } catch (e) {
       console.log(e, "ERROR DURING FILE UPLOAD");
+      toast.dismiss(loadingID);
     }
   },
   fetchAgents: async () => {

@@ -425,3 +425,7 @@ export const promptNodeAction = async (
 ): Promise<TPromptNodeResponse> => {
   return makeAuthenticatedRequest("POST", "/v1/tools/prompt_node/", data);
 };
+
+export const deleteDocument = async (documentId: number) => {
+  return makeAuthenticatedRequest("DELETE", `/v1/rag/documents/${documentId}/`);
+};

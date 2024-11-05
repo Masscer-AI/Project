@@ -379,6 +379,8 @@ option {
   border-radius: 50vh;
   font-size: 12px;
   cursor: pointer;
+  width: fit-content;
+  
 }
 
 .text-small {
@@ -494,6 +496,11 @@ option {
 }
 
 .fancy-gradient {
+  background: var(--gradient-dark);
+  background-size: 300% 300%;
+  animation: gradient-animation 15s ease infinite;
+}
+.fancy-bg {
   background: var(--gradient-dark);
   background-size: 300% 300%;
   animation: gradient-animation 15s ease infinite;

@@ -4,19 +4,30 @@ import json
 API_URL = "http://127.0.0.1:8000"
 
 
+import requests
+import copy
+
+
 def save_message(message: dict, token: str):
 
     endpoint = API_URL + "/v1/messaging/messages"
     headers = {"Authorization": "Token " + token}
 
+    body = copy.deepcopy(message)
+
     attachments = [
         {"type": a["type"], "content": a["content"], "id": a.get("id", None)}
-        for a in message["attachments"]
+        for a in body["attachments"]
     ]
 
-    message["attachments"] = attachments
+    for a in attachments:
+        if a["type"] == "application/pdf" or a["type"] == "docx":
+            a.pop("content", None)
 
-    body = message
+        if a.get("id", None):
+            a.pop("content", None)
+
+    body["attachments"] = attachments
 
     try:
         response = requests.post(endpoint, headers=headers, json=body)
