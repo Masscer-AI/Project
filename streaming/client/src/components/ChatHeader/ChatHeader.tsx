@@ -18,20 +18,18 @@ export const ChatHeader = ({
   onTitleEdit: (title: string) => void;
 }) => {
   const { t } = useTranslation();
-  const { toggleSidebar, fetchAgents, agents, addAgent, chatState } = useStore(
-    (state) => ({
-      agents: state.agents,
-      toggleSidebar: state.toggleSidebar,
-      fetchAgents: state.fetchAgents,
-      addAgent: state.addAgent,
-      chatState: state.chatState,
-    })
-  );
+  const { toggleSidebar, agents, addAgent, chatState } = useStore((state) => ({
+    agents: state.agents,
+    toggleSidebar: state.toggleSidebar,
+    // fetchAgents: state.fetchAgents,
+    addAgent: state.addAgent,
+    chatState: state.chatState,
+  }));
   const [innerTitle, setInnerTitle] = useState(title);
 
-  useEffect(() => {
-    fetchAgents();
-  }, []);
+  // useEffect(() => {
+  //   fetchAgents();
+  // }, []);
 
   const onEdit = (e: React.ChangeEvent<HTMLSpanElement>) => {
     const newTitle = e.target.innerText;
@@ -100,7 +98,7 @@ const AgentComponent = ({ agent }: TAgentComponentProps) => {
     try {
       const res = await updateAgent(agent.slug, agent);
       hideModal();
-      toast.success("Agent updated in DB!");
+      // toast.success("Agent updated in DB!");
       fetchAgents();
     } catch (e) {
       console.log("ERROR TRYING TO SAVE AGENT", e);

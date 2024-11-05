@@ -1,0 +1,22 @@
+.mind-mapper {
+  width: 100%;
+  height: 100dvh;
+  position: relative;
+}
+.mind-mapper-header {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px;
+  position: absolute;
+  top: 0;
+  z-index: 1;
+  width: min(100%, 500px);
+  background-color: var(--bg-color);
+  border-radius: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.mind-mapper-canvas {
+  height: 100%;
+}

@@ -17,6 +17,7 @@ from .actions import fetch_videos
 from api.utils.openai_functions import generate_image
 from api.messaging.models import Message
 from api.utils.color_printer import printer
+from api.utils.openai_functions import create_completion_openai
 
 logger = logging.getLogger(__name__)
 
@@ -189,8 +190,27 @@ class ImageGenerationView(View):
                     }
                 )
                 m.attachments = attachments
-                m.save() 
+                m.save()
             return JsonResponse({"image_url": image_url})
 
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=400)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class PromptNodeView(View):
+    def post(self, request):
+        data = json.loads(request.body)
+
+        system_prompt = data.get("system_prompt")
+        model = data.get("model")
+        user_message = data.get("user_message")
+
+        printer.red(f"SYSTEM PROMPT: {system_prompt}")
+        printer.red(f"USER MESSAGE: {user_message}")
+        printer.red(f"MODEL: {model}")
+        response = create_completion_openai(
+            system_prompt=system_prompt, user_message=user_message, model=model
+        )
+        return JsonResponse({"response": response})

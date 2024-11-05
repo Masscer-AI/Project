@@ -214,6 +214,9 @@ export const Sidebar: React.FC = () => {
             </>
           )}
         </div>
+        <div>
+          <h3 className="button" onClick={() => goTo("/workflows")}>{t("workflows")}</h3>
+        </div>
         <div className="sidebar__footer d-flex justify-between">
           <SvgButton text={user ? user.username : t("you")} />
           <SvgButton

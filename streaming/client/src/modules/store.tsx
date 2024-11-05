@@ -88,8 +88,10 @@ export const useStore = create<Store>()((set, get) => ({
   openedModals: [],
   reactionTemplates: [],
   startup: async () => {
+    const { fetchAgents } = get();
     const reactionTemplates: TReactionTemplate[] = await getReactionTemplates();
     set({ reactionTemplates });
+    fetchAgents();
   },
   setOpenedModals: ({ action, name }) => {
     const { openedModals } = get();

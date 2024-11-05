@@ -22,6 +22,7 @@
   --selected-border: 1px solid var(--highlighted-color);
   --standard-radius: 8px;
   --modal-max-height: 99vh;
+  --font-color-secondary: rgb(177, 177, 177);
   --root-bg-color: #06181f;
   --danger-color: #ff3e3e;
   --success-color: #20dd92;
@@ -43,14 +44,16 @@
 
   --secondary-color: #0077ff;
   --font-color: rgb(255, 255, 255);
-  --font-color-secondary: rgb(160, 160, 160);
+
   --bg-color: rgb(0, 0, 0);
   --bg-secondary-color: rgb(22, 21, 29);
   --bg-color-secondary: #91ff00;
+  --color-chillon: #91ff00;
   --hovered-color: rgba(134, 134, 134, 0.248);
   --selected-color: rgba(75, 75, 75, 0.646);
   --modal-bg-color: #161020;
-  --font-color-secondary: rgb(160, 160, 160);
+  --font-color-secondary: rgb(156, 156, 156);
+
   --root-bg-color: #06181f;
   --gradient-bg: radial-gradient(
     ellipse farthest-corner at top left,
@@ -72,8 +75,7 @@
   --bg-contrast-color: rgb(31, 31, 31);
   --selected-border: 1px solid var(--highlighted-color);
   --standard-radius: 8px;
-  --font-color: rgb(255, 255, 255);
-  --font-color-secondary: rgb(88, 88, 88);
+
   --contrast-color: #202020;
 }
 
@@ -260,10 +262,6 @@ option {
 .button {
   padding: 5px 10px;
   border-radius: 5px;
-}
-
-.bg-secondary {
-  background-color: var(--bg-secondary-color);
 }
 
 .bg-active {
@@ -526,4 +524,142 @@ option {
 .square-button {
   width: max(40px, fit-content);
   height: 40px;
+}
+.h-100 {
+  height: 100%;
+}
+
+.h-viewport {
+  height: 100dvh;
+}
+
+.overflow-hidden {
+  overflow: hidden;
+}
+.width-300 {
+  width: 300px;
+}
+.width-200 {
+  width: 200px;
+}
+
+.react-flow__node.selected {
+  background: var(--hovered-color);
+  border-radius: var(--standard-radius);
+}
+.bg-secondary {
+  background-color: var(--bg-secondary-color);
+}
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 60px;
+  height: 34px;
+}
+
+/* Hide the default checkbox */
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+/* Create the slider */
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: 0.4s;
+  border-radius: 34px;
+}
+
+/* The knob (the circle) */
+.slider::before {
+  position: absolute;
+  content: "";
+  height: 26px;
+  width: 26px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  border-radius: 50%;
+  transition: 0.4s;
+}
+
+input:checked + .slider {
+  background-color: #2196f3;
+}
+
+/* Move the knob when checked */
+input:checked + .slider::before {
+  transform: translateX(26px);
+}
+
+.textarea-container {
+  position: relative;
+}
+
+.textarea-container > span {
+  position: absolute;
+  top: 10px;
+  left: 8px;
+  font-size: 16px;
+  padding: 0 4px;
+  transition: 0.2s;
+}
+
+.textarea {
+  width: 100%;
+  padding: 8px;
+  border: 2px solid var(--bg-contrast-color);
+  border-radius: 4px;
+  resize: none;
+  font-size: 14px;
+  background-color: var(--bg-color);
+  transition: border-color 0.2s;
+  outline: none;
+  scrollbar-width: none;
+}
+.textarea-container:has(.textarea:not(:placeholder-shown)) > span {
+  font-size: 12px;
+  top: -10px;
+  background-color: var(--bg-color);
+  color: var(--font-color-secondary);
+  border: 1px solid transparent;
+}
+
+.textarea-container:has(.textarea:focus) > span {
+  font-size: 12px;
+  top: -15px;
+
+  color: var(--font-color);
+  background-color: var(--bg-color);
+  border: 1px solid transparent;
+}
+
+.select-container {
+  position: relative;
+}
+
+.select-container > span {
+  position: absolute;
+  bottom: 100%;
+  left: 8px;
+  padding: 0 4px;
+  transition: 0.2s;
+  color: var(--font-color);
+}
+
+.select-container:has(select:not(:placeholder-shown)) > span {
+  font-size: 12px;
+  bottom: calc(100% - 5px);
+}
+
+.select-container:has(select:focus) > span {
+  font-size: 12px;
+  top: -15px;
 }

@@ -8,6 +8,7 @@ type TFloatingDropdownProps = {
   top?: string;
   right?: string;
   bottom?: string;
+  transform?: string;
   isOpened?: boolean;
 };
 
@@ -19,6 +20,7 @@ export const FloatingDropdown = ({
   top = "0",
   right = undefined,
   bottom = undefined,
+  transform = undefined,
 }: TFloatingDropdownProps) => {
   return (
     <>
@@ -32,6 +34,7 @@ export const FloatingDropdown = ({
               left: left,
               right: right,
               bottom: bottom,
+              transform: transform,
             }}
             className="__content"
           >

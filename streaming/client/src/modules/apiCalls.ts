@@ -409,3 +409,19 @@ export const generateImage = async (
     message_id,
   });
 };
+
+type TPromptNodeData = {
+  system_prompt: string;
+  model: string;
+  user_message: string;
+  response_format: "text" | "json";
+};
+
+type TPromptNodeResponse = {
+  response: string;
+};
+export const promptNodeAction = async (
+  data: TPromptNodeData
+): Promise<TPromptNodeResponse> => {
+  return makeAuthenticatedRequest("POST", "/v1/tools/prompt_node/", data);
+};

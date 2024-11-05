@@ -13,7 +13,7 @@ import Login from "./routes/login/page.tsx";
 import Tools from "./routes/tools/page.tsx";
 import Whatsapp from "./routes/whatsapp/page.tsx";
 import { whatsappLoader } from "./routes/whatsapp/loader.ts";
-
+import WorkflowsPage from "./routes/workflows/page.tsx";
 const router = createBrowserRouter([
   {
     path: "/",
@@ -45,6 +45,10 @@ const router = createBrowserRouter([
         path: "/whatsapp",
         element: <Whatsapp />,
         loader: whatsappLoader,
+      },
+      {
+        path: "/workflows",
+        element: <WorkflowsPage />,
       },
     ],
   },
