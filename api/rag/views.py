@@ -97,7 +97,7 @@ class DocumentView(View):
             document = Document.objects.get(id=document_id)
             document.remove_from_rag()
             return JsonResponse(
-                {"message": "Document deleted successfully"}, status=204
+                {"message": "Document deleted successfully"}, status=200
             )
         except Document.DoesNotExist:
             return JsonResponse({"error": "Document not found"}, status=404)
