@@ -21,15 +21,10 @@ export const ChatHeader = ({
   const { toggleSidebar, agents, addAgent, chatState } = useStore((state) => ({
     agents: state.agents,
     toggleSidebar: state.toggleSidebar,
-    // fetchAgents: state.fetchAgents,
     addAgent: state.addAgent,
     chatState: state.chatState,
   }));
   const [innerTitle, setInnerTitle] = useState(title);
-
-  // useEffect(() => {
-  //   fetchAgents();
-  // }, []);
 
   const onEdit = (e: React.ChangeEvent<HTMLSpanElement>) => {
     const newTitle = e.target.innerText;
@@ -104,9 +99,7 @@ const AgentComponent = ({ agent }: TAgentComponentProps) => {
       hideModal();
       toast.success(t("agent-updated"));
       updateSingleAgent(agent);
-    } catch (e) {
-      console.log("ERROR TRYING TO SAVE AGENT", e);
-    }
+    } catch (e) {}
   };
 
   return (
@@ -160,9 +153,10 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
     >
   ) => {
     const { name, value, type } = e.target;
+
     setFormState((prevState) => ({
       ...prevState,
-      [name]: value,
+      [name]: name === "temperature" ? parseFloat(value) : value,
     }));
   };
 

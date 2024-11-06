@@ -8,7 +8,7 @@ from .models import Agent, LanguageModel
 from .serializers import AgentSerializer, LanguageModelSerializer
 from api.authenticate.decorators.token_required import token_required
 from rest_framework.parsers import JSONParser
-
+from api.utils.color_printer import printer
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
@@ -24,12 +24,11 @@ class AgentView(View):
         return JsonResponse(data, safe=False)
 
     def put(self, request, *args, **kwargs):
-        # Get the slug from the URL
+
         agent_slug = kwargs.get("slug")
-        # Retrieve the agent object
         agent = get_object_or_404(Agent, slug=agent_slug, user=request.user)
-        # Parse the incoming data
         data = JSONParser().parse(request)
+        printer.red(data)
         llm = LanguageModel.objects.get(slug=data.get("model_slug", "gpt-4o-mini"))
 
         agent.llm = llm

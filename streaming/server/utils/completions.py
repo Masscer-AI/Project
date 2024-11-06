@@ -163,6 +163,7 @@ class TextStreamingHandler:
                     binary_content = base64.b64decode(base64_content)
                 except base64.binascii.Error as e:
                     logger.error("Invalid base64 content")
+                    logger.error(e)
                     continue
 
                 if not binary_content.startswith(b"%PDF"):
@@ -173,6 +174,7 @@ class TextStreamingHandler:
                     pdf_data = fitz.open(stream=binary_content, filetype="pdf")
                 except fitz.fitz.FileDataError as e:
                     logger.error("Failed to open the PDF document")
+                    logger.error(e)
                     continue
 
                 text = ""
