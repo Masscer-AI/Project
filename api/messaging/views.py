@@ -1,6 +1,9 @@
+from datetime import timedelta
+from django.utils import timezone
+
 from django.http import JsonResponse
 from django.views import View
-from .models import Conversation, Message
+from .models import Conversation, Message, SharedConversation
 from .serializers import (
     ConversationSerializer,
     MessageSerializer,
@@ -199,3 +202,37 @@ def get_suggestion(request):
     # print(data.get("input"), "INPUT TO GET SUGGESTION")
     suggestion = complete_message(data.get("input"))
     return JsonResponse({"suggestion": suggestion})
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class SharedConversationView(View):
+    def post(self, request, *args, **kwargs):
+        data = json.loads(request.body)
+        conversation_id = data.get("conversation")
+        valid_until = data.get("valid_until", None)
+
+        if not conversation_id:
+            return JsonResponse(
+                {"message": "conversation is required", "status": 400}, status=400
+            )
+
+        try:
+            conversation = Conversation.objects.get(
+                id=conversation_id, user=request.user
+            )
+        except Conversation.DoesNotExist:
+            return JsonResponse(
+                {"message": "Conversation not found", "status": 404}, status=404
+            )
+
+        if not valid_until:
+            # Default to 30 days
+            valid_until = timezone.now() + timedelta(days=30)
+        shared_conversation = SharedConversation.objects.create(
+            conversation=conversation, user=request.user, valid_until=valid_until
+        )
+
+        return JsonResponse(
+            {"status": "created", "id": shared_conversation.id}, status=201
+        )

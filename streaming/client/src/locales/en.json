@@ -87,5 +87,18 @@
     "sure": "Sure",
     "workflows": "Workflows",
     "options": "Options",
-    "agent-updated": "Agent updated"
+    "agent-updated": "Agent updated",
+    "image-generated": "Image generated!",
+    "generating-image": "Generating image...",
+    "error-generating-image": "Error generating image",
+    "pause-speech": "Pause speech",
+    "play-speech": "Play speech",
+    "stop-speech": "Stop speech",
+    "share-conversation": "Share conversation",
+    "share": "Share",
+    "conversation-shared-message": "Conversation shared!",
+    "share-now": "Share now",
+    "share-conversation-description": "You can share this conversation with the entire world by generating a public link. Set a datetime for expiration, by default it will be 30 days.",
+    "copy": "Copy",
+    "copied-to-clipboard": "Copied to clipboard"
 }

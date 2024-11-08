@@ -6,7 +6,7 @@
 }
 
 .generate-video-card {
-  background-color: var(--selected-color);
+  background-color: var(--hovered-color);
   width: min(100%, 500px);
   margin-inline: auto;
   border-radius: var(--standard-radius);
@@ -21,13 +21,13 @@
 
 .video-card {
   border-radius: var(--standard-radius);
-  border: 1px solid var(--selected-color);
+  border: 1px solid var(--hovered-color);
   padding: 10px;
   text-align: left;
 }
 
 .script-hovered:hover {
-  background-color: var(--selected-color);
+  background-color: var(--hovered-color);
 }
 .source-video-component {
   display: flex;

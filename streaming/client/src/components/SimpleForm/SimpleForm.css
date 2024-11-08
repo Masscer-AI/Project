@@ -4,14 +4,10 @@
   border-radius: 10px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease;
-  width: min(400px, 100%);
+  width: min(500px, 100%);
   border: 2px solid transparent;
   background: radial-gradient(ellipse at center, var(--navy), black);
   color: var(--font-color);
-}
-
-.simple-form:hover {
-  /* box-shadow: 0 8px 16px rgba(0, 195, 255, 0.2); */
   border: 2px solid rgba(128, 128, 128, 0.294);
 }
 
@@ -33,7 +29,7 @@
 .simple-form input {
   color: var(--font-color);
   width: 100%;
-  padding: 6px;
+  padding: 9px;
   background-color: transparent;
   border: 1px solid var(--font-color-secondary);
   border-radius: 4px;

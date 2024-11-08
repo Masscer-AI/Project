@@ -10,16 +10,12 @@ import { useStore } from "../../modules/store";
 import { TChatLoader, TMessage } from "../../types/chatTypes";
 import { ChatHeader } from "../../components/ChatHeader/ChatHeader";
 import toast from "react-hot-toast";
-import { playAudioFromBytes } from "../../modules/utils";
-import { TrainingModals } from "../../components/TrainingModals/TrainingModals";
-import {
-  generateImage,
-  updateConversation,
-  updateMessage,
-} from "../../modules/apiCalls";
+import { createAudioPlayer, playAudioFromBytes } from "../../modules/utils";
+
+import { generateImage, updateConversation } from "../../modules/apiCalls";
 import { useTranslation } from "react-i18next";
-import MindMapper from "../../components/Plugins/MindMapper";
 import { TVersion } from "../../types";
+import { updateLastMessagesIds, updateMessages } from "./helpers";
 
 export default function ChatView() {
   const loaderData = useLoaderData() as TChatLoader;
@@ -63,76 +59,10 @@ export default function ChatView() {
   );
 
   useEffect(() => {
-    const updateMessages = (
-      chunk: string,
-      agentSlug: string,
-      prevMessages: TMessage[]
-    ) => {
-      const newMessages = [...prevMessages];
-      const lastMessage = newMessages[newMessages.length - 1];
-
-      if (lastMessage && lastMessage.type === "assistant") {
-        if (lastMessage.agent_slug === agentSlug) {
-          lastMessage.text += chunk;
-        }
-        const targetVersion = lastMessage.versions?.find(
-          (v) => v.agent_slug === agentSlug
-        );
-        if (targetVersion) {
-          targetVersion.text += chunk;
-        } else {
-          lastMessage.versions = [
-            ...(lastMessage.versions || []),
-            {
-              text: chunk,
-              type: "assistant",
-              agent_slug: agentSlug,
-            },
-          ];
-        }
-      } else {
-        const assistantMessage: TMessage = {
-          type: "assistant",
-          text: chunk,
-          attachments: [],
-          agent_slug: agentSlug,
-        };
-        assistantMessage.versions = [
-          {
-            text: chunk,
-            type: "assistant",
-            agent_slug: agentSlug,
-          },
-        ];
-        newMessages.push(assistantMessage);
-      }
-      return newMessages;
-    };
-
-    const updateLastMessagesIds = (data, prevMessages) => {
-      const newMessages = [...prevMessages];
-      newMessages.reverse();
-
-      const lastAIMessage = newMessages.find((m) => m.type === "assistant");
-      if (lastAIMessage) {
-        lastAIMessage.id = data.ai_message_id;
-      }
-      const lastUserMessage = newMessages.find((m) => m.type === "user");
-      if (lastUserMessage) {
-        lastUserMessage.id = data.user_message_id;
-      }
-      newMessages.reverse();
-      return newMessages;
-    };
-
     socket.on("response", (data) => {
-      // setMessages(updateMessages(data.chunk, data.agent_slug));
       setMessages((prevMessages) =>
         updateMessages(data.chunk, data.agent_slug, prevMessages)
       );
-    });
-    socket.on("audio-file", (audioFile) => {
-      playAudioFromBytes(audioFile);
     });
 
     socket.on("responseFinished", (data) => {
@@ -149,7 +79,7 @@ export default function ChatView() {
 
     return () => {
       socket.off("response");
-      socket.off("audio-file");
+      // socket.off("audio-file");
       socket.off("responseFinished");
       socket.off("notification");
       socket.off("sources");
@@ -232,21 +162,11 @@ export default function ChatView() {
     }
   };
 
-  const handleGenerateSpeech = async (text) => {
-    try {
-      socket.emit("speech_request", {
-        text,
-      });
-    } catch (error) {
-      console.error("Error generating speech:", error);
-    }
-  };
-
   const handleGenerateImage = async (text, message_id) => {
     try {
       const messageIndex = messages.findIndex((m) => m.id === message_id);
       if (messageIndex === -1) return;
-      toast.loading("Generating image...");
+      toast.loading(t("generating-image"));
 
       const response = await generateImage(text, message_id);
 
@@ -266,12 +186,12 @@ export default function ChatView() {
         ];
         return copyMessages;
       });
-      toast.success("Image generated successfully!");
+      toast.success(t("image-generated"));
     } catch (error) {
       toast.dismiss();
       console.error("Error generating image:", error);
 
-      toast.error("Error generating image: " + error.response.data.error);
+      toast.error(t("error-generating-image") + error.response.data.error);
     }
   };
 
@@ -305,9 +225,7 @@ export default function ChatView() {
     if (!message) return;
 
     if (message.type === "user") {
-      // remove all messages after the user message
       const newMessages = messages.slice(0, index + 1);
-
       newMessages[index].text = text;
       setMessages(newMessages);
       handleRegenerateConversation(message, newMessages);
@@ -321,7 +239,6 @@ export default function ChatView() {
 
   return (
     <>
-      <TrainingModals />
       <div className="d-flex">
         {chatState.isSidebarOpened && <Sidebar />}
         <div className="chat-container">
@@ -344,7 +261,7 @@ export default function ChatView() {
                   {...msg}
                   key={index}
                   index={index}
-                  onGenerateSpeech={handleGenerateSpeech}
+                  // onGenerateSpeech={handleGenerateSpeech}
                   onGenerateImage={handleGenerateImage}
                   onMessageEdit={onMessageEdit}
                 />

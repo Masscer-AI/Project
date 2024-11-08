@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { SVGS } from "../../assets/svgs";
 import MarkdownRenderer from "../MarkdownRenderer/MarkdownRenderer";
 import { TAttachment, TVersion } from "../../types";
@@ -12,6 +12,7 @@ import { useTranslation } from "react-i18next";
 import { Pill } from "../Pill/Pill";
 import { useStore } from "../../modules/store";
 import { Reactions } from "../Reactions/Reactions";
+import { AudioPlayerOptions, createAudioPlayer } from "../../modules/utils";
 type TReaction = {
   id: number;
   template: number;
@@ -29,7 +30,7 @@ interface MessageProps {
   index: number;
   versions?: TVersion[];
   attachments: TAttachment[];
-  onGenerateSpeech: (text: string) => void;
+  // onGenerateSpeech: (text: string) => void;
   onGenerateImage: (text: string, message_id: number) => void;
   onMessageEdit: (index: number, text: string, versions?: TVersion[]) => void;
   reactions?: TReaction[];
@@ -43,7 +44,7 @@ export const Message: React.FC<MessageProps> = ({
   versions,
   reactions,
   attachments,
-  onGenerateSpeech,
+  // onGenerateSpeech,
   onGenerateImage,
   onMessageEdit,
 }) => {
@@ -55,13 +56,19 @@ export const Message: React.FC<MessageProps> = ({
   const [innerReactions, setInnerReactions] = useState(
     reactions || ([] as TReaction[])
   );
+  const [audioPlayer, setAudioPlayer] = useState<AudioPlayerOptions | null>(
+    null
+  );
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
 
   const { t } = useTranslation();
 
-  const { agents, reactionTemplates } = useStore((s) => ({
+  const { agents, reactionTemplates, socket } = useStore((s) => ({
     agents: s.agents,
     reactionTemplates: s.reactionTemplates,
+    socket: s.socket,
   }));
+
   const copyToClipboard = () => {
     const textToCopy = versions?.[currentVersion]?.text || innerText;
     navigator.clipboard.writeText(textToCopy).then(
@@ -73,6 +80,24 @@ export const Message: React.FC<MessageProps> = ({
       }
     );
   };
+
+  useEffect(() => {
+    if (!id) return;
+
+    socket.on(`audio-file-${id}`, (audioFile) => {
+      const onFinish = () => {
+        setAudioPlayer(null);
+        setIsPlayingAudio(false);
+      };
+      const audioPlayer = createAudioPlayer(audioFile, onFinish);
+      audioPlayer.play();
+      setAudioPlayer(audioPlayer);
+      setIsPlayingAudio(true);
+    });
+    return () => {
+      socket.off(`audio-file-${id}`);
+    };
+  }, [id, socket]);
 
   useEffect(() => {
     if (isEditing && textareaRef.current) {
@@ -162,6 +187,20 @@ export const Message: React.FC<MessageProps> = ({
       );
     }
   };
+
+  const handleGenerateSpeech = async () => {
+    if (!audioPlayer) {
+      try {
+        socket.emit("speech_request", {
+          text: versions?.[currentVersion]?.text || innerText,
+          id: id,
+        });
+      } catch (error) {
+        console.error("Error generating speech:", error);
+      }
+    }
+  };
+
   return (
     <div className={`message ${type} message-${index}`}>
       {isEditing ? (
@@ -196,24 +235,60 @@ export const Message: React.FC<MessageProps> = ({
       </section>
       <div className="message-buttons d-flex gap-small align-center">
         <SvgButton
-          title={t("generate-speech")}
-          onClick={() => onGenerateSpeech(text)}
-          svg={SVGS.waves}
-        />
-        {id && (
-          <SvgButton
-            title={t("generate-image")}
-            onClick={() => onGenerateImage(text, id)}
-            svg={SVGS.picture}
-          />
-        )}
-        <SvgButton
           title={t("copy-to-clipboard")}
           onClick={() => copyToClipboard()}
           svg={SVGS.copyTwo}
         />
         {id && (
           <>
+            <SvgButton
+              title={t("generate-image")}
+              onClick={() =>
+                onGenerateImage(
+                  versions?.[currentVersion]?.text || innerText,
+                  id
+                )
+              }
+              svg={SVGS.picture}
+            />
+            {!audioPlayer && (
+              <SvgButton
+                title={t("generate-speech")}
+                onClick={handleGenerateSpeech}
+                svg={SVGS.waves}
+              />
+            )}
+            {audioPlayer && (
+              <>
+                {isPlayingAudio ? (
+                  <SvgButton
+                    title={t("pause-speech")}
+                    onClick={() => {
+                      audioPlayer.pause();
+                      setIsPlayingAudio(false);
+                    }}
+                    svg={SVGS.pause}
+                  />
+                ) : (
+                  <SvgButton
+                    title={t("play-speech")}
+                    onClick={() => {
+                      audioPlayer.play();
+                      setIsPlayingAudio(true);
+                    }}
+                    svg={SVGS.play}
+                  />
+                )}
+                <SvgButton
+                  title={t("stop-speech")}
+                  onClick={() => {
+                    audioPlayer.stop();
+                    setIsPlayingAudio(false);
+                  }}
+                  svg={SVGS.stop}
+                />
+              </>
+            )}
             <SvgButton
               title={isEditing ? t("finish") : t("edit")}
               onClick={toggleEditMode}
@@ -241,12 +316,12 @@ export const Message: React.FC<MessageProps> = ({
             {versions.map((v, index) => (
               <Pill
                 key={index + "pill"}
-                extraClass={` ${
+                extraClass={`${
                   currentVersion === index ? "bg-active" : "bg-hovered"
                 }`}
                 onClick={() => setCurrentVersion(index)}
               >
-                {index + 1}
+                <span className="box">{index + 1}</span>
               </Pill>
             ))}
           </div>

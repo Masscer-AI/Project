@@ -70,11 +70,13 @@ async def on_message_handler(socket_id, data, **kwargs):
 
     message["conversation"] = conversation.get("id", None)
 
+    user_id_to_emit = message.get("id", None)
     if not regenerate:
         user_message_res = save_message(
             message=message,
             token=token,
         )
+        user_id_to_emit = user_message_res["id"]
 
     else:
         regenerate_conversation(
@@ -173,7 +175,7 @@ async def on_message_handler(socket_id, data, **kwargs):
         {
             "status": "ok",
             "versions": versions,
-            "user_message_id": user_message_res["id"],
+            "user_message_id": user_id_to_emit,
             "ai_message_id": ai_message_res["id"],
         },
         to=socket_id,
@@ -199,19 +201,20 @@ async def on_speech_request_handler(socket_id, data, **kwargs):
     from server.socket import sio
 
     text = data["text"]
-    logger.debug(f"TEXT to SPEECH {text}")
+    id_to_emit = data["id"]
 
-    # Hash the text to obtain a unique value
+    if not id_to_emit:
+        return
+
     hashed_text = hashlib.md5(text.encode()).hexdigest()
 
     output_path = os.path.join(AUDIO_DIR, f"{hashed_text}.mp3")
 
-    # Check if the audio file already exists
     if os.path.exists(output_path):
         logger.debug("Audio file already exists, sending existing file.")
         with open(output_path, "rb") as audio_file:
             audio_content = audio_file.read()
-            await sio.emit("audio-file", audio_content, to=socket_id)
+            await sio.emit(f"audio-file-{id_to_emit}", audio_content, to=socket_id)
     else:
         for chunk in generate_speech_api(text=text, output_path=output_path):
             logger.debug("audio emitted!")
@@ -219,4 +222,4 @@ async def on_speech_request_handler(socket_id, data, **kwargs):
 
         with open(output_path, "rb") as audio_file:
             audio_content = audio_file.read()
-            await sio.emit("audio-file", audio_content, to=socket_id)
+            await sio.emit(f"audio-file-{id_to_emit}", audio_content, to=socket_id)

@@ -6,7 +6,6 @@ export const STREAMING_BACKEND_URL =
     ? "http://localhost:8001"
     : window.location.origin;
 
-
 export const PUBLIC_TOKEN =
   // @ts-ignore
   import.meta.env.VITE_PUBLIC_TOKEN || "39ece367b84b4bd19622692cc70361f2";
@@ -55,10 +54,8 @@ export function getRandomWordsAndSlug() {
     "starfruit",
   ];
 
-  // Shuffle the array and select the first three words
   const selectedWords = randomWords.sort(() => 0.5 - Math.random()).slice(0, 3);
 
-  // Create a slugified version by joining the words with hyphens
   const slug = selectedWords.join("-").toLowerCase();
 
   return {

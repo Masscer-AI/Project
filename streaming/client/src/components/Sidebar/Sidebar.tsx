@@ -10,6 +10,7 @@ import {
   deleteConversation,
   generateTrainingCompletions,
   getAllConversations,
+  shareConversation,
 } from "../../modules/apiCalls";
 import { TConversation } from "../../types";
 import { Modal } from "../Modal/Modal";
@@ -215,7 +216,9 @@ export const Sidebar: React.FC = () => {
           )}
         </div>
         <div>
-          <h3 className="button" onClick={() => goTo("/workflows")}>{t("workflows")}</h3>
+          <h3 className="button" onClick={() => goTo("/workflows")}>
+            {t("workflows")}
+          </h3>
         </div>
         <div className="sidebar__footer d-flex justify-between">
           <SvgButton text={user ? user.username : t("you")} />
@@ -247,6 +250,7 @@ const ConversationComponent = ({
   const { t } = useTranslation();
 
   const [showTrainingModal, setShowTrainingModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
   const navigate = useNavigate();
 
   const handleClick = () => {
@@ -274,6 +278,12 @@ const ConversationComponent = ({
               hide={() => setShowTrainingModal(false)}
             />
           )}
+          {showShareModal && (
+            <ShareConversationModal
+              hide={() => setShowShareModal(false)}
+              conversationId={conversation.id}
+            />
+          )}
           <div className="conversation__options">
             <FloatingDropdown
               right="100%"
@@ -284,27 +294,118 @@ const ConversationComponent = ({
                 />
               }
             >
-              <SvgButton
-                size="big"
-                svg={SVGS.trash}
-                title={t("delete-conversation")}
-                text={t("delete")}
-                confirmations={[t("delete-conversation-confirmation")]}
-                onClick={() => deleteConversationItem(conversation.id)}
-                extraClass="bg-danger"
-              />
-              <SvgButton
-                size="big"
-                svg={SVGS.dumbell}
-                title={t("train-on-this-conversation")}
-                text={t("train")}
-                onClick={() => setShowTrainingModal(true)}
-              />
+              <div className="flex-y d-flex gap-small">
+                <SvgButton
+                  size="big"
+                  svg={SVGS.trash}
+                  title={t("delete-conversation")}
+                  text={t("delete")}
+                  extraClass="justify-between bg-danger"
+                  confirmations={[t("delete-conversation-confirmation")]}
+                  onClick={() => deleteConversationItem(conversation.id)}
+                />
+                <SvgButton
+                  extraClass="justify-between bg-active"
+                  size="big"
+                  svg={SVGS.dumbell}
+                  title={t("train-on-this-conversation")}
+                  text={t("train")}
+                  onClick={() => setShowTrainingModal(true)}
+                />
+                <SvgButton
+                  extraClass="justify-between bg-hovered"
+                  size="big"
+                  svg={SVGS.share}
+                  title={t("share-conversation")}
+                  text={t("share")}
+                  onClick={() => setShowShareModal(true)}
+                />
+              </div>
             </FloatingDropdown>
           </div>
         </div>
       ) : null}
     </>
+  );
+};
+
+const ShareConversationModal = ({ hide, conversationId }) => {
+  const [validUntil, setValidUntil] = useState(null as Date | null);
+  const { t } = useTranslation();
+  const [sharedId, setSharedId] = useState("");
+
+  const share = async () => {
+    const tid = toast.loading(t("sharing-conversation"));
+    try {
+      const res = await shareConversation(conversationId, validUntil);
+      console.log(res.id);
+      toast.dismiss(tid);
+      toast.success(t("conversation-shared"));
+      setSharedId(res.id);
+    } catch (e) {
+      console.error("Failed to share conversation", e);
+      toast.dismiss(tid);
+      toast.error(t("failed-to-share-conversation"));
+    }
+  };
+
+  const formatDateToLocalString = (date) => {
+    return date.toISOString().slice(0, 16);
+  };
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text);
+    toast.success(t("copied-to-clipboard"));
+  };
+
+  const generateShareLink = () => {
+    return `${window.location.origin}/s?id=${sharedId}`;
+  };
+
+  return (
+    <Modal minHeight={"fit-content"} hide={hide}>
+      <div className="d-flex flex-y">
+        <h2 className="text-center padding-big">{t("share-conversation")}</h2>
+        {!sharedId && (
+          <>
+            <div className="flex-y gap-big">
+              <p>{t("share-conversation-description")}</p>
+              <input
+                type="datetime-local"
+                className="input padding-big"
+                defaultValue={
+                  validUntil ? formatDateToLocalString(validUntil) : ""
+                }
+                onChange={(e) => setValidUntil(new Date(e.target.value))}
+              />
+              <SvgButton
+                svg={SVGS.share}
+                text={t("share-now")}
+                size="big"
+                onClick={share}
+              />
+            </div>
+          </>
+        )}
+        {sharedId && (
+          <div className="d-flex flex-y gap-big">
+            <h3 className=" padding-big">{t("conversation-shared-message")}</h3>
+            <input
+              type="text"
+              value={generateShareLink()}
+              className="w-100 input padding-big bg-hovered"
+            />
+            <SvgButton
+              extraClass="bg-active"
+              onClick={() => copyToClipboard(generateShareLink())}
+              svg={SVGS.copy}
+              text={t("copy")}
+              size="big"
+            />
+          </div>
+        )}
+      </div>
+    </Modal>
   );
 };
 

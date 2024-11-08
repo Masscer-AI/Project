@@ -25,10 +25,11 @@
   display: flex;
   align-items: center;
   padding: 10px;
-  background-color: var(--bg-secondary-color);
+  background-color: var(--bg-color);
   border-radius: var(--standard-radius);
   width: min(100%, var(--input-max-width));
   margin-inline: auto;
+  border: 1px solid var(--hovered-color);
 }
 
 .chat-header select {

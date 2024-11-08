@@ -429,3 +429,18 @@ export const promptNodeAction = async (
 export const deleteDocument = async (documentId: number) => {
   return makeAuthenticatedRequest("DELETE", `/v1/rag/documents/${documentId}/`);
 };
+
+type TShareConversationResponse = {
+  id: string;
+};
+
+export const shareConversation = async (
+  conversationId: string,
+  validUntil: Date | null
+) => {
+  return makeAuthenticatedRequest<TShareConversationResponse>(
+    "POST",
+    `/v1/messaging/shared-conversations/`,
+    { conversation: conversationId, valid_until: validUntil }
+  );
+};

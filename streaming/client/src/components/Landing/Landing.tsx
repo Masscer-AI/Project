@@ -28,7 +28,7 @@ const Carousel = ({ sections }: { sections: React.ReactNode[] }) => {
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentSection((prev) => (prev + 1) % sections.length);
-    }, 5000);
+    }, 7000);
 
     return () => clearInterval(interval);
   }, []);

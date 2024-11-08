@@ -31,9 +31,13 @@ export const Thumbnail = ({
       {showModal && (
         <ImageModal src={src} name={name} hide={() => setShowModal(false)} />
       )}
-      <div className="thumbnail">
+      <div className="thumbnail pointer">
         {type.indexOf("image") === 0 && (
-          <img src={src} alt={`attachment-${name}`} />
+          <img
+            onClick={() => setShowModal(true)}
+            src={src}
+            alt={`attachment-${name}`}
+          />
         )}
         {type.indexOf("audio") === 0 && (
           <>
@@ -46,25 +50,16 @@ export const Thumbnail = ({
             {SVGS.document}
           </div>
         )}
-
-        <div className="floating-buttons">
-          {showFloatingButtons && (
+        {showFloatingButtons && (
+          <div className="floating-buttons">
             <SvgButton
               title={t("delete")}
               svg={SVGS.trash}
               extraClass="bg-danger square-button"
               onClick={() => deleteAttachment(index)}
             />
-          )}
-          {type.indexOf("image") === 0 && (
-            <SvgButton
-              extraClass="square-button"
-              title={t("watch-image")}
-              svg={SVGS.eye}
-              onClick={() => setShowModal(true)}
-            />
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </>
   );

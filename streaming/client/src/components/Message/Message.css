@@ -15,8 +15,10 @@
 .message > .message-text {
   padding: 10px 15px;
   width: fit-content;
-  border-radius: 10px;
+  border-radius: var(--standard-radius);
   color: var(--font-color);
+  line-height: 1.7rem;
+  /* border: 1px solid transparent; */
 
   & .reaction {
     position: absolute;
@@ -29,6 +31,11 @@
   padding: 10px 15px;
   font-family: var(--font-family);
   border-radius: var(--standard-radius);
+  font-size: 20px;
+  line-height: 1.5;
+  scrollbar-width: none;
+  border: 1px solid var(--font-color-secondary);
+  resize: none;
 }
 
 .message.user {
@@ -93,27 +100,38 @@
 
 .message table {
   width: 100%;
-  border-collapse: collapse; /* Because we like tidy edges */
-  border-radius: var(--standard-radius); /* Nice, smooth corners, obviously */
-  overflow: hidden; /* In case there are excess parts… let's just, you know... hide them */
+  border-collapse: collapse;
+  border-radius: var(--standard-radius);
+  overflow: hidden;
 }
 
 .message td,
 .message th {
-  padding: 10px; /* Let's avoid hitting the table with a soft fist; give it space */
-  text-align: left; /* Getting a touch of readability without boxing */
+  padding: 10px;
+  text-align: left;
   border: 1px solid var(--font-color-secondary);
 }
 
 .message th {
   background: var(--hovered-color);
-  font-weight: bold; /* Makes it tough... like telling tables you mean business */
+  font-weight: bold;
 }
-
-/* .message tr:nth-child(even) td:nth-child(even) {
-  background-color: var(--hovered-color);
-} */
 
 .message td:hover {
   background: var(--hovered-color);
+}
+
+.message code:not(pre code) {
+  background: var(--code-bg-color);
+  padding: 2px 5px;
+  border-radius: 4px;
+}
+.message li > p:first-child {
+  display: inline;
+}
+
+.message hr {
+  border: 2px solid var(--code-bg-color);
+  margin: 10px 0;
+  border-radius: 50vh;
 }

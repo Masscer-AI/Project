@@ -15,19 +15,20 @@
   --bg-color: rgb(10, 9, 26);
   --bg-secondary-color: rgba(31, 31, 31, 0.397);
   --hovered-color: rgba(75, 75, 75, 0.646);
-  --selected-color: rgba(75, 75, 75, 0.646);
   --modals-color: rgb(255, 255, 255);
   --modal-bg-color: #040404;
   --bg-contrast-color: rgb(55, 55, 55);
   --selected-border: 1px solid var(--highlighted-color);
   --standard-radius: 8px;
   --modal-max-height: 99vh;
+  --code-bg-color: #1a1b26;
   --font-color-secondary: rgb(177, 177, 177);
   --root-bg-color: #06181f;
   --danger-color: #ff3e3e;
   --success-color: #20dd92;
   --app-max-width: 1200px;
   --input-max-width: 800px;
+  --min-font-size: 16px;
   color-scheme: dark light;
   background-color: var(--bg-color);
 
@@ -46,12 +47,11 @@
   --font-color: rgb(255, 255, 255);
 
   --bg-color: rgb(0, 0, 0);
-  --bg-secondary-color: rgb(22, 21, 29);
+  --bg-secondary-color: rgb(22, 16, 49);
   --bg-color-secondary: #91ff00;
   --color-chillon: #91ff00;
   --hovered-color: rgba(134, 134, 134, 0.248);
-  --selected-color: rgba(75, 75, 75, 0.646);
-  --modal-bg-color: #161020;
+  --modal-bg-color: #090116;
   --font-color-secondary: rgb(156, 156, 156);
 
   --root-bg-color: #06181f;
@@ -209,6 +209,7 @@ textarea,
 select,
 option {
   background-color: var(--modal-bg-color);
+  font-size: var(--min-font-size);
 }
 
 .gap-1 {
@@ -273,9 +274,6 @@ option {
 .p-big {
   padding: 10px 15px;
 }
-.w-100 {
-  width: 100%;
-}
 
 .mt-small {
   margin-top: 5px;
@@ -300,11 +298,11 @@ option {
   border: 1px solid var(--highlighted-color);
 }
 
-.justify-between {
-  justify-content: space-between;
-}
 .justify-center {
   justify-content: center;
+}
+.justify-between {
+  justify-content: space-between;
 }
 
 .d-flex {
@@ -377,10 +375,9 @@ option {
 .pill {
   padding: 5px 10px;
   border-radius: 50vh;
-  font-size: 12px;
+  font-size: 16px;
   cursor: pointer;
   width: fit-content;
-  
 }
 
 .text-small {
@@ -413,7 +410,7 @@ option {
   justify-content: center;
   align-items: center;
   margin-inline: auto;
-  animation: carousel cubic-bezier(0.39, 0.575, 0.565, 1) 5s infinite;
+  animation: carousel cubic-bezier(0.39, 0.575, 0.565, 1) 7s infinite;
   min-height: 30vh;
 }
 
@@ -497,13 +494,13 @@ option {
 
 .fancy-gradient {
   background: var(--gradient-dark);
-  background-size: 300% 300%;
-  animation: gradient-animation 15s ease infinite;
+  background-size: 200% 200%;
+  animation: gradient-animation 7s ease-in-out infinite;
 }
 .fancy-bg {
   background: var(--gradient-dark);
-  background-size: 300% 300%;
-  animation: gradient-animation 15s ease infinite;
+  background-size: 200% 200%;
+  animation: gradient-animation 10s ease infinite;
 }
 
 @keyframes gradient-animation {
@@ -669,4 +666,15 @@ input:checked + .slider::before {
 .select-container:has(select:focus) > span {
   font-size: 12px;
   top: -15px;
+}
+.pointer {
+  cursor: pointer;
+}
+.box {
+  aspect-ratio: 1 !important;
+  display: block;
+}
+
+.w-100 {
+  width: 100% !important;
 }

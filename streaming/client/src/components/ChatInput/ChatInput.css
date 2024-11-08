@@ -4,13 +4,14 @@
   position: absolute;
   bottom: 0;
   z-index: 2;
-  background-color: var(--bg-secondary-color);
+  background-color: var(--bg-color);
   left: 50%;
   transform: translateX(-50%);
   justify-content: center;
   align-items: center;
   padding: 10px;
   width: min(100%, var(--input-max-width));
+  border: 1px solid var(--hovered-color);
   border-radius: var(--standard-radius);
 }
 
@@ -36,6 +37,7 @@
   align-self: center;
   resize: none;
   font-size: 16px;
+  background-color: var(--bg-secondary-color);
 }
 
 .chat-input textarea::placeholder {

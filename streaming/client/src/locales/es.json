@@ -86,5 +86,18 @@
     "sure": "Seguro",
     "workflows": "Workflows",
     "options": "Opciones",
-    "agent-updated": "Agente actualizado"
+    "agent-updated": "Agente actualizado",
+    "image-generated": "Imagen generada",
+    "generating-image": "Generando imagen...",
+    "error-generating-image": "Error generando imagen",
+    "pause-speech": "Pausar voz",
+    "play-speech": "Reproducir voz",
+    "stop-speech": "Detener voz",
+    "share-conversation": "Compartir conversación",
+    "share": "Compartir",
+    "conversation-shared-message": "¡Conversación compartida!",
+    "share-now": "Compartir ahora",
+    "share-conversation-description": "Comparte esta conversación con otros usuarios de la plataforma.",
+    "copy": "Copiar",
+    "copied-to-clipboard": "Copiado al portapapeles"
 }

@@ -1,9 +1,5 @@
 import { createWithEqualityFn as create } from "zustand/traditional";
-import {
-  TConversationData,
-  TUserData,
-  TReactionTemplate,
-} from "../types/chatTypes";
+import { TReactionTemplate } from "../types/chatTypes";
 import {
   createAgent,
   deleteAgent,
@@ -13,57 +9,11 @@ import {
   initConversation,
   uploadDocument,
 } from "./apiCalls";
-import { TAttachment } from "../types";
 import { SocketManager } from "./socketManager";
 import { getRandomWordsAndSlug, STREAMING_BACKEND_URL } from "./constants";
-import { TAgent, Message, Model } from "../types/agents";
+import { TAgent } from "../types/agents";
 import toast from "react-hot-toast";
-
-type SetOpenedProps = {
-  action: "add" | "remove";
-  name: "documents" | "tags" | "completions" | "settings";
-};
-
-type Store = {
-  socket: any;
-  messages: Message[];
-  input: string;
-  model: Model;
-  models: Model[];
-  agents: TAgent[];
-  user?: TUserData;
-  modelsAndAgents: TAgent[];
-  chatState: {
-    isSidebarOpened: boolean;
-    attachments: TAttachment[];
-    webSearch: boolean;
-    writtingMode: boolean;
-    useRag: boolean;
-  };
-  conversation: TConversationData | undefined;
-  openedModals: string[];
-  reactionTemplates: TReactionTemplate[];
-  startup: () => void;
-  removeAgent: (slug: string) => void;
-  updateSingleAgent: (agent: TAgent) => void;
-  setOpenedModals: (opts: SetOpenedProps) => void;
-  setMessages: (messages: Message[]) => void;
-  setConversation: (conversationId: string | null) => void;
-  addAttachment: (newAttachment: TAttachment, conversation_id: string) => void;
-  setInput: (input: string) => void;
-  setModel: (model: Model) => void;
-  setModels: (models: Model[]) => void;
-  fetchAgents: () => void;
-  toggleSidebar: () => void;
-  cleanAttachments: () => void;
-  deleteAttachment: (index: number) => void;
-  toggleWebSearch: () => void;
-  toggleWrittingMode: () => void;
-  toggleUseRag: () => void;
-  toggleAgentSelected: (slug: string) => void;
-  setUser: (user: TUserData) => void;
-  addAgent: () => void;
-};
+import { Store } from "./storeTypes";
 
 export const useStore = create<Store>()((set, get) => ({
   socket: new SocketManager(STREAMING_BACKEND_URL),
@@ -71,11 +21,7 @@ export const useStore = create<Store>()((set, get) => ({
   modelsAndAgents: [],
   input: "",
   model: { name: "gpt-4o", provider: "openai", slug: "gpt-4o", selected: true },
-  models: [
-    { name: "gpt-4o", provider: "openai", slug: "gpt-4o", selected: true },
-    // { name: "gpt-4o-mini", provider: "openai" },
-    // { name: "claude-3-5-sonnet-20240620", provider: "anthropic" },
-  ],
+  models: [],
   user: undefined,
   agents: [],
   chatState: {
@@ -278,18 +224,18 @@ export const useStore = create<Store>()((set, get) => ({
       act_as: "You are a helpful assistant",
       default: true,
       salute: "Hello world",
-      frequency_penalty: 0.5,
+      frequency_penalty: 0,
       is_public: false,
       max_tokens: 2048,
       model_slug: "gpt-4o-mini",
-      presence_penalty: 0.3,
+      presence_penalty: 0,
       system_prompt: `{{act_as}}
-      The following context may be useful for your task:
+      The context below can be useful for your task:
       \`\`\`
       {{context}}
       \`\`\``,
       temperature: 0.7,
-      top_p: 0.9,
+      top_p: 1.0,
     };
 
     set((state) => ({
@@ -308,5 +254,5 @@ export const useStore = create<Store>()((set, get) => ({
       agents: state.agents.filter((a) => a.slug !== slug),
     }));
     deleteAgent(slug);
-  },
+  }
 }));

@@ -135,8 +135,8 @@ export default function Root() {
 
         <Navbar />
         <Landing />
-        <ChatMessages chat={chat} />
-        <Talkie processAudio={processAudio} />
+        {/* <ChatMessages chat={chat} />
+        <Talkie processAudio={processAudio} /> */}
       </main>
     </>
   );

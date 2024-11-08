@@ -86,5 +86,18 @@
     "sure": "Seguro",
     "workflows": "Workflows",
     "options": "Opzioni",
-    "agent-updated": "Agente aggiornato"
+    "agent-updated": "Agente aggiornato",
+    "image-generated": "Immagine generata",
+    "generating-image": "Generazione immagine...",
+    "error-generating-image": "Errore generazione immagine",
+    "pause-speech": "Metti in pausa il discorso",
+    "play-speech": "Riproduci discorso",
+    "stop-speech": "Ferma discorso",
+    "share-conversation": "Condividi conversazione",
+    "share": "Condividi",
+    "conversation-shared-message": "Conversazione condivisa!",
+    "share-now": "Condividi ora",
+    "share-conversation-description": "Condividi questa conversazione con un collega o un amico. Puoi condividere il link o inviare la conversazione tramite e-mail.",
+    "copy": "Copia",
+    "copied-to-clipboard": "Copiato negli appunti"
 }

@@ -5,7 +5,7 @@ import hljs from "highlight.js/lib/common";
 import "highlight.js/styles/tokyo-night-dark.css";
 import toast from "react-hot-toast";
 import "./MarkdownRenderer.css";
-import { convertHtmlToMarkdown, debounce } from "../../modules/utils";
+import { debounce } from "../../modules/utils";
 
 const DEBOUNCE_TIME = 180;
 
@@ -22,7 +22,6 @@ const MarkdownRenderer = ({
   markdown: string;
   extraClass?: string;
 }) => {
-
   const highlightCodeBlocks = useCallback(
     debounce(() => {
       document.querySelectorAll("pre code").forEach((block) => {

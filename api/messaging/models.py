@@ -1,3 +1,4 @@
+from datetime import timedelta
 import uuid
 from django.db import models
 from django.contrib.auth.models import User
@@ -23,7 +24,6 @@ class Conversation(models.Model):
     def cut_from(self, message_id):
         # This must delete all messages after the given message id
         Message.objects.filter(conversation=self, id__gt=message_id).delete()
-        
 
     def generate_title(self):
         if not self.title:
@@ -57,3 +57,18 @@ class Message(models.Model):
 
     def __str__(self):
         return f"{self.type}: {self.text[:50]}"
+
+
+class SharedConversation(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    valid_until = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"SharedConversation({self.id})"
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)

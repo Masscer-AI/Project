@@ -16,8 +16,8 @@ export default function Login() {
 
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    // e.preventDefault();
     const endpoint = "/v1/auth/login";
     const payload = { email, password };
     try {
@@ -40,7 +40,7 @@ export default function Login() {
     <div className="login-component">
       <SimpleForm>
         <h2 className="simple-form-title">Login</h2>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={(e) => e.preventDefault()}>
           <div className="simple-form-group">
             <input
               type="email"
@@ -49,7 +49,7 @@ export default function Login() {
               required
               name="email"
               placeholder="Email"
-              className="simple-form-input"
+              className="input"
               autoComplete="email"
             />
           </div>
@@ -61,16 +61,20 @@ export default function Login() {
               required
               name="password"
               placeholder="Password"
-              className="simple-form-input"
+              className="input padding-big"
               autoComplete="current-password"
             />
             <SvgButton
-              extraClass="pos-absolute right-zero top-middle"
+              extraClass="pos-absolute  right-zero top-middle"
               svg={showPassword ? SVGS.eyeClosed : SVGS.eye}
               onClick={() => setShowPassword(!showPassword)}
             />
           </div>
-          <button type="submit" className="w-100 p-big button bg-active">
+          <button
+            onClick={handleSubmit}
+            type="submit"
+            className="w-100 p-big button bg-active"
+          >
             Login
           </button>
           <button
