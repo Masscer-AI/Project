@@ -29,7 +29,7 @@ class AgentView(View):
         agent_slug = kwargs.get("slug")
         agent = get_object_or_404(Agent, slug=agent_slug, user=request.user)
         data = JSONParser().parse(request)
-        # printer.red("request data",data)
+        printer.blue("Request saving agent",data)
         llm = LanguageModel.objects.get(slug=data.get("model_slug", "gpt-4o-mini"))
 
         agent.llm = llm
