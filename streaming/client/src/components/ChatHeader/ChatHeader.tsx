@@ -127,6 +127,7 @@ type TAgentConfigProps = {
   onSave: (agent: TAgent) => void;
   onDelete: () => void;
 };
+
 const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
   const { models, removeAgent } = useStore((state) => ({
     models: state.models,
@@ -145,7 +146,7 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
     system_prompt: agent.system_prompt || "",
     temperature: agent.temperature || 0.7,
     top_p: agent.top_p || 1.0,
-  });
+  } as TAgent);
 
   const handleInputChange = (
     e: React.ChangeEvent<
@@ -153,10 +154,23 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
     >
   ) => {
     const { name, value, type } = e.target;
+    // If the name is in temperature, max_tokens, presence_penalty, frequency_penalty, top_p, convert the value to a number
+    console.log(type, name, value, "input change");
 
+    const floatNames = [
+      "temperature",
+      "frequency_penalty",
+      "presence_penalty",
+      "top_p",
+    ];
+    const integerNames = ["max_tokens"];
+    let newValue = floatNames.includes(name) ? parseFloat(value) : value;
+    if (integerNames.includes(name)) {
+      newValue = parseInt(value);
+    }
     setFormState((prevState) => ({
       ...prevState,
-      [name]: name === "temperature" ? parseFloat(value) : value,
+      [name]: newValue,
     }));
   };
 
@@ -220,7 +234,9 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
             max="2.0"
             step="0.1"
             name="frequency_penalty"
-            value={formState.frequency_penalty}
+            defaultValue={
+              formState.frequency_penalty ? formState.frequency_penalty : 0.0
+            }
             onChange={handleInputChange}
           />
           <span>{formState.frequency_penalty}</span>
@@ -230,10 +246,10 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
           <input
             type="range"
             min="10"
-            max="16000"
+            max="8000"
             name="max_tokens"
             step="10"
-            value={formState.max_tokens}
+            defaultValue={formState.max_tokens ? formState.max_tokens : 4000}
             onChange={handleInputChange}
           />
           <span>{formState.max_tokens}</span>
@@ -246,7 +262,9 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
             min="-2.0"
             max="2.0"
             step="0.1"
-            value={formState.presence_penalty}
+            value={
+              formState.presence_penalty ? formState.presence_penalty : 0.0
+            }
             onChange={handleInputChange}
           />
           <span>{formState.presence_penalty}</span>

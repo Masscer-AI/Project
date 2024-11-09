@@ -10,6 +10,7 @@ from api.authenticate.decorators.token_required import token_required
 from rest_framework.parsers import JSONParser
 from api.utils.color_printer import printer
 
+
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class AgentView(View):
@@ -28,7 +29,7 @@ class AgentView(View):
         agent_slug = kwargs.get("slug")
         agent = get_object_or_404(Agent, slug=agent_slug, user=request.user)
         data = JSONParser().parse(request)
-        printer.red(data)
+        # printer.red("request data",data)
         llm = LanguageModel.objects.get(slug=data.get("model_slug", "gpt-4o-mini"))
 
         agent.llm = llm
