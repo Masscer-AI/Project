@@ -111,13 +111,13 @@ class TextStreamingHandler:
         response = self.client.chat.completions.create(
             model=model,
             # model="gpt-4o-audio-preview",
-            max_tokens=self.config.get("max_tokens", 3000),
+            max_tokens=int(self.config.get("max_tokens", 3000)),
             messages=messages,
             # modalities=["text"],
-            frequency_penalty=self.config.get("frequency_penalty", 0),
-            top_p=self.config.get("top_p", 1.0),
-            presence_penalty=self.config.get("presence_penalty", 0),
-            temperature=self.config.get("temperature", 0.5),
+            frequency_penalty=float(self.config.get("frequency_penalty", 0)),
+            top_p=float(self.config.get("top_p", 1.0)),
+            presence_penalty=float(self.config.get("presence_penalty", 0)),
+            temperature=float(self.config.get("temperature", 0.5)),
             stream=True,
             stream_options={"include_usage": True},
         )
