@@ -395,7 +395,7 @@ const ShareConversationModal = ({ hide, conversationId }) => {
         )}
         {sharedId && (
           <div className="d-flex flex-y gap-big">
-            <h2 className="text-center padding-big bg-success-opaque rounded">QRCodeDisplay
+            <h2 className="text-center padding-big bg-success-opaque rounded">
               {t("conversation-shared-message")}
             </h2>
             <div className="d-flex justify-center qr-display">
