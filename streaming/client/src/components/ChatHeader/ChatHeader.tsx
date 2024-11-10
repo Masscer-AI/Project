@@ -60,7 +60,7 @@ export const ChatHeader = ({
             <SvgButton onClick={addAgent} svg={SVGS.plus} />
           </div>
         </FloatingDropdown>
-        <SvgButton onClick={test} text="test" />
+        {/* <SvgButton onClick={test} text="test" /> */}
       </div>
       <div className="d-flex align-center">
         <span

@@ -75,3 +75,13 @@
     display: none;
   }
 }
+.qr-display {
+  width: fit-content;
+  height: fit-content;
+  background-color: rgba(135, 135, 135, 0.718);
+  z-index: 5;
+  margin-inline: auto;
+  padding: 30px;
+  justify-content: center;
+  align-items: center;
+}
