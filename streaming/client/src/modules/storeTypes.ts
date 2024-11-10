@@ -31,6 +31,7 @@ export type Store = {
   conversation: TConversationData | undefined;
   openedModals: string[];
   reactionTemplates: TReactionTemplate[];
+  
   startup: () => void;
   removeAgent: (slug: string) => void;
   updateSingleAgent: (agent: TAgent) => void;
@@ -51,4 +52,5 @@ export type Store = {
   toggleAgentSelected: (slug: string) => void;
   setUser: (user: TUserData) => void;
   addAgent: () => void;
+  test: () => void;
 };

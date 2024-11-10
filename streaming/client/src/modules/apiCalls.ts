@@ -444,3 +444,11 @@ export const shareConversation = async (
     { conversation: conversationId, valid_until: validUntil }
   );
 };
+
+export const getSharedConversation = async (id: string) => {
+  return makeAuthenticatedRequest(
+    "GET",
+    `/v1/messaging/shared-conversations/${id}/`,
+    true
+  );
+};

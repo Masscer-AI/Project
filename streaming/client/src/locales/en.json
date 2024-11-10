@@ -100,5 +100,6 @@
     "share-now": "Share now",
     "share-conversation-description": "You can share this conversation with the entire world by generating a public link. Set a datetime for expiration, by default it will be 30 days.",
     "copy": "Copy",
-    "copied-to-clipboard": "Copied to clipboard"
+    "copied-to-clipboard": "Copied to clipboard",
+    "open-link": "Open link"
 }

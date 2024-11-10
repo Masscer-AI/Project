@@ -19,6 +19,7 @@
     "highlight.js": "^11.10.0",
     "i18next": "^23.16.4",
     "markdown-it": "^14.1.0",
+    "qrcode.react": "^4.1.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-hot-toast": "^2.4.1",

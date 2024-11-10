@@ -4,7 +4,7 @@ from datetime import datetime
 from .utils.openai_functions import stream_completion, generate_speech_api
 
 from .utils.apiCalls import save_message, get_results, regenerate_conversation
-from .utils.brave_search import search_brave
+from .utils.brave_search import search_brave, new_search_brave
 import hashlib
 from .utils.apiCalls import get_system_prompt
 from .logger import get_custom_logger
@@ -223,3 +223,29 @@ async def on_speech_request_handler(socket_id, data, **kwargs):
         with open(output_path, "rb") as audio_file:
             audio_content = audio_file.read()
             await sio.emit(f"audio-file-{id_to_emit}", audio_content, to=socket_id)
+
+
+async def on_test_event_handler(socket_id, data, **kwargs):
+    context = "This i an example query, just make your best effort"
+
+    from server.socket import sio
+
+
+    print(
+        "Test event received",
+    )
+    if True:
+
+        await sio.emit(
+            "notification",
+            {"message": "Exploring the web to add more context to your message"},
+            to=socket_id,
+        )
+        web_results = new_search_brave(data["query"], json.dumps(context))
+
+        print("----------------------------")
+        print("WEB RESULTS", web_results)
+        print("----------------------------")
+
+        # version["web_search_results"] = web_results
+        # complete_context += f"\n\<web_search_results>\n{json.dumps(web_results)}\n </web_search_results>\n"

@@ -13,6 +13,7 @@ import { Pill } from "../Pill/Pill";
 import { useStore } from "../../modules/store";
 import { Reactions } from "../Reactions/Reactions";
 import { AudioPlayerOptions, createAudioPlayer } from "../../modules/utils";
+import { ImageGenerator } from "../ImageGenerator/ImageGenerator";
 type TReaction = {
   id: number;
   template: number;
@@ -60,6 +61,9 @@ export const Message: React.FC<MessageProps> = ({
     null
   );
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [messageState, setMessageState] = useState({
+    imageGeneratorOpened: false,
+  });
 
   const { t } = useTranslation();
 
@@ -201,6 +205,8 @@ export const Message: React.FC<MessageProps> = ({
     }
   };
 
+  // const handleGenerateImage
+
   return (
     <div className={`message ${type} message-${index}`}>
       {isEditing ? (
@@ -244,13 +250,28 @@ export const Message: React.FC<MessageProps> = ({
             <SvgButton
               title={t("generate-image")}
               onClick={() =>
-                onGenerateImage(
-                  versions?.[currentVersion]?.text || innerText,
-                  id
-                )
+                // onGenerateImage(
+                //   versions?.[currentVersion]?.text || innerText,
+                //   id
+                // ),
+                setMessageState((prev) => ({
+                  ...prev,
+                  imageGeneratorOpened: true,
+                }))
               }
               svg={SVGS.picture}
             />
+            {messageState.imageGeneratorOpened && (
+              <ImageGenerator
+                hide={() =>
+                  setMessageState((prev) => ({
+                    ...prev,
+                    imageGeneratorOpened: false,
+                  }))
+                }
+                initialPrompt={versions?.[currentVersion]?.text || innerText}
+              />
+            )}
             {!audioPlayer && (
               <SvgButton
                 title={t("generate-speech")}

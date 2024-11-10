@@ -45,3 +45,12 @@ class BigConversationSerializer(serializers.ModelSerializer):
 
     def get_number_of_messages(self, obj):
         return obj.messages.count()
+
+
+class SharedConversationSerializer(serializers.ModelSerializer):
+    conversation = BigConversationSerializer()
+
+    class Meta:
+        model = Conversation
+        fields = "__all__"
+

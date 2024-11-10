@@ -25,4 +25,9 @@ urlpatterns = [
         SharedConversationView.as_view(),
         name="shared_conversation_list",
     ),
+    path(
+        "shared-conversations/<uuid:share_id>/",
+        SharedConversationView.as_view(),
+        name="shared_conversation_detail",
+    ),
 ]

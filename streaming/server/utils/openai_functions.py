@@ -176,7 +176,7 @@ def create_structured_completion(
     client = OpenAI(api_key=api_key)
 
     completion = client.beta.chat.completions.parse(
-        model="gpt-4o-2024-08-06",
+        model=model,
         messages=[
             {"role": "system", "content": system_prompt},
             {

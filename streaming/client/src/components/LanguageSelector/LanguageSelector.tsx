@@ -24,26 +24,29 @@ export const LanguageSelector = () => {
   const possibleLanguages = ["en", "es", "it"];
 
   return (
-    <FloatingDropdown
-      bottom="100%"
-      left="100%"
-      isOpened={isOpened}
-      opener={
-        <SvgButton
-          text={t("language")}
-          svg={SVGS.language}
-          onClick={toggleLanguage}
-        />
-      }
-    >
-      {possibleLanguages.map((lng) => (
-        <SvgButton
-          size="big"
-          text={t(lng)}
-          onClick={() => setLanguage(lng)}
-          svg={<span className="text-mini text-secondary">{lng}</span>}
-        />
-      ))}
-    </FloatingDropdown>
+    <div className="pos-relative" style={{width: "fit-content"}}>
+      <FloatingDropdown
+        // bottom="100%"
+        left="100%"
+        isOpened={isOpened}
+        opener={
+          <SvgButton
+            text={t("language")}
+            svg={SVGS.language}
+            onClick={toggleLanguage}
+            extraClass="pos-relative"
+          />
+        }
+      >
+        {possibleLanguages.map((lng) => (
+          <SvgButton
+            size="big"
+            text={t(lng)}
+            onClick={() => setLanguage(lng)}
+            svg={<span className="text-mini text-secondary">{lng}</span>}
+          />
+        ))}
+      </FloatingDropdown>
+    </div>
   );
 };

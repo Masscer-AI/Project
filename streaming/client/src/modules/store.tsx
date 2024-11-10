@@ -139,6 +139,9 @@ export const useStore = create<Store>()((set, get) => ({
   fetchAgents: async () => {
     const { agents, models } = await getAgents();
 
+    // check here the favorite agents saved in the localStorage for the moment,
+    // also be able of receiving a token and the selectedAgents as a csv in the queryParam
+
     const agentsCopy = agents.map((a, i) => ({
       ...a,
       selected: i === 0,
@@ -254,5 +257,24 @@ export const useStore = create<Store>()((set, get) => ({
       agents: state.agents.filter((a) => a.slug !== slug),
     }));
     deleteAgent(slug);
-  }
+  },
+  test: () => {
+    const { socket } = get();
+    toast.success("Loading...");
+
+    const examplesQueries = [
+      "What is the current weather in New York?",
+      "Latest new from Ecuador",
+      "How to initialize a business in the US",
+    ];
+
+    socket.emit("test_event", {
+      query:
+        examplesQueries[Math.floor(Math.random() * examplesQueries.length)],
+    });
+
+    socket.on("web-search", (data) => {
+      console.log("WEB SEARCH", data);
+    });
+  },
 }));

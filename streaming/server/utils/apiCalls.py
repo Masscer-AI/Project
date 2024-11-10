@@ -1,11 +1,11 @@
 import requests
 import json
+import copy
 
 API_URL = "http://127.0.0.1:8000"
 
 
-import requests
-import copy
+
 
 
 def save_message(message: dict, token: str):

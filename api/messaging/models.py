@@ -70,5 +70,5 @@ class SharedConversation(models.Model):
     def __str__(self):
         return f"SharedConversation({self.id})"
 
-    def save(self, *args, **kwargs):
+    def save(self, *args, **kwargs):\
         super().save(*args, **kwargs)

@@ -26,6 +26,7 @@
   --root-bg-color: #06181f;
   --danger-color: #ff3e3e;
   --success-color: #20dd92;
+  --success-color-opaque: #20dd91bd;
   --app-max-width: 1200px;
   --input-max-width: 800px;
   --min-font-size: 16px;
@@ -40,7 +41,7 @@
 }
 
 :root:has(body.dark) {
-  --active-color: rgba(66, 42, 255, 0.8);
+  --active-color: rgb(102, 42, 255);
   --highlighted-color: rgba(110, 91, 255, 0.8);
 
   --secondary-color: #0077ff;
@@ -362,6 +363,9 @@ option {
 .bg-success {
   background-color: var(--success-color) !important;
 }
+.bg-success-opaque {
+  background-color: var(--success-color-opaque) !important;
+}
 
 .success-on-hover:hover {
   border: 1px solid var(--font-color) !important;
@@ -677,4 +681,47 @@ input:checked + .slider::before {
 
 .w-100 {
   width: 100% !important;
+}
+.active-on-hover:hover {
+  background-color: var(--active-color) !important;
+}
+
+.menu {
+  display: grid;
+  grid-template-columns: 50px 1fr;
+  height: 70vh;
+  gap: 10px;
+}
+.menu > .menu-sidebar {
+  /* background-color: var(--bg-color); */
+  background-color: rgba(67, 66, 66, 0.508);
+  height: fit-content;
+  text-align: center;
+  display: flex;
+  height: fit-content;
+  flex-direction: column;
+  justify-content: center;
+  align-content: center;
+  border-radius: var(--standard-radius);
+}
+.labeled-button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 2;
+}
+.labeled-button .button-label {
+  position: absolute;
+  left: 100%;
+  background-color: var(--active-color);
+  border-radius: 50vh;
+  padding: 10px;
+  display: none;
+}
+
+.labeled-button:hover .button-label {
+  display: block;
+
 }

@@ -5,6 +5,7 @@ from .event_triggers import (
     on_start_handler,
     on_connect_handler,
     on_speech_request_handler,
+    on_test_event_handler,
 )
 
 
@@ -26,6 +27,10 @@ class ProxyNamespaceManager(socketio.AsyncNamespace):
 
     async def on_speech_request(self, sid, data):
         await on_speech_request_handler(socket_id=sid, data=data)
+
+    async def on_test_event(self, sid, data):
+        await on_test_event_handler(socket_id=sid, data=data)
+        return "testing ack"
 
     def on_test(self, sid, data):
         logger.info(f"data: {data}")

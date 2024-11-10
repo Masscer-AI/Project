@@ -12,8 +12,12 @@ import Layout from "./routes/Layout.tsx";
 import Login from "./routes/login/page.tsx";
 import Tools from "./routes/tools/page.tsx";
 import Whatsapp from "./routes/whatsapp/page.tsx";
+
 import { whatsappLoader } from "./routes/whatsapp/loader.ts";
 import WorkflowsPage from "./routes/workflows/page.tsx";
+import Share from "./routes/shares/page.tsx";
+import { sharesLoader } from "./routes/shares/loader.ts";
+
 const router = createBrowserRouter([
   {
     path: "/",
@@ -49,6 +53,11 @@ const router = createBrowserRouter([
       {
         path: "/workflows",
         element: <WorkflowsPage />,
+      },
+      {
+        path: "/s",
+        element: <Share />,
+        loader: sharesLoader,
       },
     ],
   },

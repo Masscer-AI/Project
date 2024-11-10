@@ -42,7 +42,7 @@ def generate_conversation_title(conversation_id: str):
         system,
         user_message,
         model="llama3.2:1b",
-        max_tokens=40,
+        max_tokens=20,
     )
 
     if title.startswith('"') and title.endswith('"'):

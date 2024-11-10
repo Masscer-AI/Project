@@ -8,6 +8,7 @@ from .serializers import (
     ConversationSerializer,
     MessageSerializer,
     BigConversationSerializer,
+    SharedConversationSerializer,
 )
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
@@ -205,13 +206,25 @@ def get_suggestion(request):
 
 
 @method_decorator(csrf_exempt, name="dispatch")
-@method_decorator(token_required, name="dispatch")
+@method_decorator(token_required, name="post")
 class SharedConversationView(View):
+    def get(self, request, share_id):
+        try:
+            shared_conversation = SharedConversation.objects.get(id=share_id)
+        except SharedConversation.DoesNotExist:
+            return JsonResponse(
+                {"message": "Share not found", "status": 404}, status=404
+            )
+
+        serialized_conversation = SharedConversationSerializer(shared_conversation).data
+        return JsonResponse(serialized_conversation, safe=False)
+
     def post(self, request, *args, **kwargs):
         data = json.loads(request.body)
         conversation_id = data.get("conversation")
         valid_until = data.get("valid_until", None)
 
+        print(conversation_id, valid_until, "CONVERSATION ID AND VALID UNTIL")
         if not conversation_id:
             return JsonResponse(
                 {"message": "conversation is required", "status": 400}, status=400

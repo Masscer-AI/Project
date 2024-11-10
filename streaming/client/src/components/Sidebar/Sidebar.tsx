@@ -17,6 +17,7 @@ import { Modal } from "../Modal/Modal";
 import toast from "react-hot-toast";
 import { Pill } from "../Pill/Pill";
 import { useTranslation } from "react-i18next";
+import QRCodeDisplay from "../QRGenerator/QRGenerator";
 
 export const Sidebar: React.FC = () => {
   const { t } = useTranslation();
@@ -338,9 +339,7 @@ const ShareConversationModal = ({ hide, conversationId }) => {
     const tid = toast.loading(t("sharing-conversation"));
     try {
       const res = await shareConversation(conversationId, validUntil);
-      console.log(res.id);
       toast.dismiss(tid);
-      toast.success(t("conversation-shared"));
       setSharedId(res.id);
     } catch (e) {
       console.error("Failed to share conversation", e);
@@ -362,13 +361,20 @@ const ShareConversationModal = ({ hide, conversationId }) => {
     return `${window.location.origin}/s?id=${sharedId}`;
   };
 
+  const openLink = () => {
+    const url = generateShareLink();
+    window.open(url, "_blank");
+  };
+
   return (
     <Modal minHeight={"fit-content"} hide={hide}>
       <div className="d-flex flex-y">
-        <h2 className="text-center padding-big">{t("share-conversation")}</h2>
         {!sharedId && (
           <>
             <div className="flex-y gap-big">
+              <h2 className="text-center padding-big">
+                {t("share-conversation")}
+              </h2>
               <p>{t("share-conversation-description")}</p>
               <input
                 type="datetime-local"
@@ -389,19 +395,33 @@ const ShareConversationModal = ({ hide, conversationId }) => {
         )}
         {sharedId && (
           <div className="d-flex flex-y gap-big">
-            <h3 className=" padding-big">{t("conversation-shared-message")}</h3>
+            <h2 className="text-center padding-big bg-success-opaque rounded">
+              {t("conversation-shared-message")}
+            </h2>
+            <div className="d-flex justify-center">
+              <QRCodeDisplay url={generateShareLink()} />
+            </div>
             <input
               type="text"
               value={generateShareLink()}
               className="w-100 input padding-big bg-hovered"
             />
-            <SvgButton
-              extraClass="bg-active"
-              onClick={() => copyToClipboard(generateShareLink())}
-              svg={SVGS.copy}
-              text={t("copy")}
-              size="big"
-            />
+            <div className="d-flex gap-small ">
+              <SvgButton
+                extraClass="bg-hovered active-on-hover"
+                onClick={() => copyToClipboard(generateShareLink())}
+                svg={SVGS.copy}
+                text={t("copy")}
+                size="big"
+              />
+              <SvgButton
+                extraClass="bg-hovered active-on-hover"
+                onClick={openLink}
+                svg={SVGS.redirect}
+                text={t("open-link")}
+                size="big"
+              />
+            </div>
           </div>
         )}
       </div>
