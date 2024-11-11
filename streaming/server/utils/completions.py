@@ -152,38 +152,38 @@ class TextStreamingHandler:
             if "image" in a["type"]:
                 processed.append(a)
 
-            elif "audio" in a["type"]:
-                processed.append(a)
-            elif "pdf" in a["type"]:
-                base64_content = a["content"]
-                if base64_content.startswith("data:application/pdf;base64,"):
-                    base64_content = base64_content.split(",")[1]
+            # elif "audio" in a["type"]:
+            #     processed.append(a)
+            # elif "pdf" in a["type"]:
+            #     base64_content = a["content"]
+            #     if base64_content.startswith("data:application/pdf;base64,"):
+            #         base64_content = base64_content.split(",")[1]
 
-                try:
-                    binary_content = base64.b64decode(base64_content)
-                except base64.binascii.Error as e:
-                    logger.error("Invalid base64 content")
-                    logger.error(e)
-                    continue
+            #     try:
+            #         binary_content = base64.b64decode(base64_content)
+            #     except base64.binascii.Error as e:
+            #         logger.error("Invalid base64 content")
+            #         logger.error(e)
+            #         continue
 
-                if not binary_content.startswith(b"%PDF"):
-                    logger.error("The decoded content is not a valid PDF")
-                    continue
+            #     if not binary_content.startswith(b"%PDF"):
+            #         logger.error("The decoded content is not a valid PDF")
+            #         continue
 
-                try:
-                    pdf_data = fitz.open(stream=binary_content, filetype="pdf")
-                except fitz.fitz.FileDataError as e:
-                    logger.error("Failed to open the PDF document")
-                    logger.error(e)
-                    continue
+            #     try:
+            #         pdf_data = fitz.open(stream=binary_content, filetype="pdf")
+            #     except fitz.fitz.FileDataError as e:
+            #         logger.error("Failed to open the PDF document")
+            #         logger.error(e)
+            #         continue
 
-                text = ""
-                for page in pdf_data:
-                    text += page.get_text()
-                a["content"] = text
-                # Cut to the first 50000 characters
-                a["content"] = a["content"][:50000]
-                processed.append(a)
+            #     text = ""
+            #     for page in pdf_data:
+            #         text += page.get_text()
+            #     a["content"] = text
+            #     # Cut to the first 50000 characters
+            #     a["content"] = a["content"][:50000]
+            #     processed.append(a)
 
         logger.debug(f"Appending {len(processed)} attachments to the chat context")
         self.attachments = processed
