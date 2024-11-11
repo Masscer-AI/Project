@@ -16,7 +16,7 @@ def save_message(message: dict, token: str):
     body = copy.deepcopy(message)
 
     attachments = [
-        {"type": a["type"], "content": a["content"], "id": a.get("id", None)}
+        {"type": a["type"], "content": a["content"], "id": a.get("id", None), "name": a["name"]}
         for a in body["attachments"]
     ]
 

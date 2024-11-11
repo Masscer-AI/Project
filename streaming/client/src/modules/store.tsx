@@ -70,7 +70,7 @@ export const useStore = create<Store>()((set, get) => ({
   setInput: (input) => set({ input }),
   setModel: (model) => set({ model }),
   setModels: (models) => set({ models }),
-  addAttachment: async (newAttachment, conversation_id) => {
+  addAttachment: async (newAttachment, saved = false) => {
     const { agents } = get();
     const formData = new FormData();
 
@@ -99,6 +99,16 @@ export const useStore = create<Store>()((set, get) => ({
       return;
     }
 
+    if (saved) {
+      set((state) => ({
+        chatState: {
+          ...state.chatState,
+          attachments: [...state.chatState.attachments, newAttachment],
+        },
+      }));
+      return;
+    }
+
     const selectedAgents = agents
       .filter((a) => a.selected)
       .map((a) => a.slug)
@@ -108,9 +118,9 @@ export const useStore = create<Store>()((set, get) => ({
         "No agents selected, please  at least one to attach the documents on its vector store"
       );
     }
-    formData.append("agents", selectedAgents);
+    // formData.append("agents", selectedAgents);
     formData.append("name", newAttachment.name);
-    formData.append("conversation_id", String(conversation_id));
+    // formData.append("conversation_id", String(conversation_id));
 
     const loadingID = toast.loading("Uploading document...");
     // @ts-ignore
@@ -118,7 +128,7 @@ export const useStore = create<Store>()((set, get) => ({
     try {
       const r = await uploadDocument(formData);
       newAttachment.id = r.id;
-
+      newAttachment.text = r.text;
       toast.dismiss(loadingID);
       toast.success(
         "Document uploaded successfully! Now you can chat with it using all the you selected"

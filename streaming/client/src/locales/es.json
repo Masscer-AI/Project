@@ -18,7 +18,7 @@
     "sure-this-action-cannot-be-undone-click-again-to-confirm": "¿Seguro? Esta acción no se puede deshacer. Haz clic de nuevo para confirmar.",
     "save": "Guardar",
     "delete": "Eliminar",
-    "configure": "Configurar",
+  
     "name": "Nombre",
     "slug": "Slug",
     "model": "Modelo",
@@ -83,7 +83,6 @@
     "message-copied": "¡Mensaje copiado al portapapeles!",
     "transcribing": "Transcribiendo...",
     "watch-image": "Ver imagen",
-    "sure": "Seguro",
     "workflows": "Workflows",
     "options": "Opciones",
     "agent-updated": "Agente actualizado",

@@ -8,20 +8,25 @@ import { FloatingDropdown } from "../Dropdown/Dropdown";
 import { SliderInput } from "../SimpleForm/SliderInput";
 import MarkdownRenderer from "../MarkdownRenderer/MarkdownRenderer";
 import { AttatchmentMode } from "../../types";
+
 interface ThumbnailProps {
+  id?: number;
   src: string;
   type: string;
   name: string;
   index: number;
   showFloatingButtons?: boolean;
+  mode?: AttatchmentMode;
 }
 
 export const Thumbnail = ({
+  id,
   src,
   type,
   name,
   index,
   showFloatingButtons = false,
+  mode,
 }: ThumbnailProps) => {
   const [showModal, setShowModal] = useState(false);
 
@@ -37,10 +42,13 @@ export const Thumbnail = ({
       )}
       {type.indexOf("audio") !== 0 && type.indexOf("image") !== 0 && (
         <DocumentThumnail
+          id={id}
           index={index}
           onDelete={() => deleteAttachment(index)}
           type={type}
           name={name}
+          showFloatingButtons={showFloatingButtons}
+          mode={mode}
         />
       )}
       {type.indexOf("image") === 0 && (
@@ -109,12 +117,22 @@ const ImageModal = ({
   );
 };
 
-const DocumentThumnail = ({ index, type, name, onDelete }) => {
+const DocumentThumnail = ({
+  index,
+  type,
+  name,
+  onDelete,
+  id,
+  showFloatingButtons,
+  mode,
+}) => {
   const { updateAttachment } = useStore((state) => ({
     updateAttachment: state.updateAttachment,
   }));
   const { t } = useTranslation();
-  const [ragMode, setRagMode] = useState("similar_chunks" as AttatchmentMode);
+  const [ragMode, setRagMode] = useState(
+    mode ? mode : ("similar_chunks" as AttatchmentMode)
+  );
 
   const ragModeHelpHelper = {
     similar_chunks: t("chunks-mode-help-text"),
@@ -122,49 +140,50 @@ const DocumentThumnail = ({ index, type, name, onDelete }) => {
   };
 
   useEffect(() => {
-    // setRagMode("similarChunks");
     updateAttachment(index, { mode: ragMode });
   }, [ragMode]);
 
   return (
     <div
       title={name}
-      className="width-200 document-attachment bg-hovered rounded padding-small"
+      className="width-200 document-attachment bg-hovered rounded padding-small "
     >
       <div className="d-flex padding-small gap-small align-center">
         <div>{SVGS.document}</div>
         <p className="cut-text-to-line">{name}</p>
 
-        <FloatingDropdown
-          bottom="100%"
-          left="50%"
-          transform="translateX(-50%)"
-          opener={<SvgButton title={t("options")} svg={SVGS.options} />}
-        >
-          <div className="d-flex gap-medium flex-y width-300">
-            <h2 className="text-center">Configure</h2>
-            <SliderInput
-              extraClass="d-flex align-center rounded"
-              labelTrue={t("similar-chunks")}
-              labelFalse={t("allContent")}
-              keepActive={true}
-              checked={ragMode === "similar_chunks"}
-              onChange={(value) => {
-                setRagMode(value ? "similar_chunks" : "all_possible_text");
-              }}
-            />
+        {showFloatingButtons && (
+          <FloatingDropdown
+            bottom="100%"
+            left="50%"
+            transform="translateX(-50%)"
+            opener={<SvgButton title={t("options")} svg={SVGS.options} />}
+          >
+            <div className="d-flex gap-medium flex-y width-300 ">
+              <h2 className="text-center">{t("configure")}</h2>
+              <SliderInput
+                extraClass="d-flex align-center rounded"
+                labelTrue={t("similar-chunks")}
+                labelFalse={t("allContent")}
+                keepActive={true}
+                checked={ragMode === "similar_chunks"}
+                onChange={(value) => {
+                  setRagMode(value ? "similar_chunks" : "all_possible_text");
+                }}
+              />
 
-            <MarkdownRenderer markdown={ragModeHelpHelper[ragMode]} />
-            <SvgButton
-              title={t("delete")}
-              size="big"
-              svg={SVGS.trash}
-              extraClass="bg-danger square-button"
-              confirmations={[`${t("sure")}`]}
-              onClick={() => onDelete()}
-            />
-          </div>
-        </FloatingDropdown>
+              <MarkdownRenderer markdown={ragModeHelpHelper[ragMode]} />
+              <SvgButton
+                title={t("delete")}
+                size="big"
+                svg={SVGS.trash}
+                extraClass="bg-danger square-button"
+                confirmations={[`${t("sure")}`]}
+                onClick={() => onDelete()}
+              />
+            </div>
+          </FloatingDropdown>
+        )}
       </div>
     </div>
   );

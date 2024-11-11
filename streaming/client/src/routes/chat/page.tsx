@@ -132,7 +132,7 @@ export default function ChatView() {
       });
 
       setInput("");
-      cleanAttachments();
+      // cleanAttachments();
     } catch (error) {
       console.error("Error sending message:", error);
     }
@@ -188,6 +188,7 @@ export default function ChatView() {
             content: imageUrl,
             name: "Generated image",
             file: null,
+            text: "",
           },
         ];
         return copyMessages;

@@ -14,7 +14,10 @@ import { Pill } from "../Pill/Pill";
 import { useStore } from "../../modules/store";
 import toast from "react-hot-toast";
 import { FloatingDropdown } from "../Dropdown/Dropdown";
-type TDocument = {
+
+export type TDocument = {
+  text: string;
+  total_tokens: number;
   id: number;
   name: string;
   brief: string;

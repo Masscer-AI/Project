@@ -48,6 +48,26 @@ async def on_message_handler(socket_id, data, **kwargs):
     context = data["context"]
     message = data["message"]
 
+    attachments = message.get("attachments", [])
+
+    attachments_context = ""
+    for a in attachments:
+        extraction_mode = a.get("mode", None)
+        if extraction_mode and extraction_mode == "selected_chunks":
+            pass
+        if extraction_mode and extraction_mode == "all_possible_text":
+            doc_content = f"""
+<Document name="{a.get("name", "No name received")}" >
+        {a.get("text", "No content received")[:30000]}
+</Document> 
+"""
+            attachments_context += f"\n\n{doc_content}\n\n"
+    
+        # print(a.get("type", "NO TYPE"), "ATTACHMENT TYPE")
+        # print(a.get("id", "NO ID"), "ID of ATTACHMENT")
+        # print(a.get("mode", None), "mode of ATTACHMENT")
+        
+
     web_search_activated = data.get("web_search_activated", False)
     use_rag = data.get("use_rag", False)
     regenerate = data.get("regenerate", None)
@@ -129,8 +149,9 @@ async def on_message_handler(socket_id, data, **kwargs):
             version["web_search_results"] = web_results
             complete_context += f"\n\<web_search_results>\n{json.dumps(web_results)}\n </web_search_results>\n"
 
+        complete_context += attachments_context
         system_prompt = get_system_prompt(
-            context=complete_context, agent_slug=agent_slug, token=token
+            context=complete_context , agent_slug=agent_slug, token=token
         )
 
         data = {"agent_slug": agent_slug}

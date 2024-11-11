@@ -9,10 +9,12 @@ import { SvgButton } from "../SvgButton/SvgButton";
 import { TConversationData } from "../../types/chatTypes";
 import { useTranslation } from "react-i18next";
 import { debounce } from "../../modules/utils";
-import { getSuggestion } from "../../modules/apiCalls";
+import { getDocuments, getSuggestion } from "../../modules/apiCalls";
 import { SpeechHandler } from "../SpeechHandler/SpeechHandler";
 import { FloatingDropdown } from "../Dropdown/Dropdown";
 import { Modal } from "../Modal/Modal";
+import { TDocument } from "../DocumentsModal/DocumentsModal";
+import { TAttachment } from "../../types";
 
 interface ChatInputProps {
   handleSendMessage: () => void;
@@ -90,15 +92,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
           if (!blob) return;
 
-          addAttachment(
-            {
-              content: result as string,
-              type: "image",
-              name: id,
-              file: blob,
-            },
-            conversation.id
-          );
+          addAttachment({
+            content: result as string,
+            type: "image",
+            name: id,
+            file: blob,
+            text: "",
+          });
         };
         if (blob) reader.readAsDataURL(blob);
       }
@@ -121,15 +121,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           const result = target.result;
           if (!result) return;
 
-          addAttachment(
-            {
-              content: result as string,
-              file: file,
-              type: file.type,
-              name: file.name,
-            },
-            conversation.id
-          );
+          addAttachment({
+            content: result as string,
+            file: file,
+            type: file.type,
+            name: file.name,
+            text: "",
+          });
         };
         reader.readAsDataURL(file);
       } else {
@@ -149,29 +147,29 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     base64Audio: string
   ) => {
     setInput(input + " " + transcript);
-    addAttachment(
-      {
-        content: base64Audio,
-        type: "audio",
-        name: uuidv4(),
-        file: null,
-      },
-      conversation.id
-    );
+    addAttachment({
+      content: base64Audio,
+      type: "audio",
+      name: uuidv4(),
+      file: null,
+      text: "",
+    });
   };
 
   return (
     <div className="chat-input">
       <section className="attachments">
-        {attachments.map(({ content, type, name, file }, index) => (
+        {attachments.map(({ content, type, name, id, mode }, index) => (
           <Thumbnail
             // file={file}
+            id={id}
             name={name}
             type={type}
             src={content}
             key={index}
             index={index}
             showFloatingButtons={true}
+            mode={mode}
           />
         ))}
       </section>
@@ -258,8 +256,8 @@ const RagSearchOptions = () => {
         <SvgButton
           onClick={() => setIsConfigOpen(true)}
           size="big"
-          text={t("configure")}
-          svg={SVGS.controls}
+          // text={t("add-knowledge")}
+          svg={SVGS.plus}
         />
         {isConfigOpen && <RagConfig hide={() => setIsConfigOpen(false)} />}
       </div>
@@ -268,10 +266,57 @@ const RagSearchOptions = () => {
 };
 
 const RagConfig = ({ hide }: { hide: () => void }) => {
+  const [documents, setDocuments] = useState([] as TDocument[]);
+
+  const { addAttatchment, chatState, removeAttatchment } = useStore((s) => ({
+    addAttatchment: s.addAttachment,
+    chatState: s.chatState,
+    removeAttatchment: s.deleteAttachment,
+  }));
+
+  useEffect(() => {
+    getDocs();
+  }, []);
+
+  const getDocs = async () => {
+    const docs = await getDocuments();
+    setDocuments(docs);
+  };
+
+  const toggleDocument = (d: TDocument) => {
+    if (chatState.attachments.findIndex((a) => a.id == d.id) === -1) {
+      const attachment: TAttachment = {
+        content: d.text,
+        name: d.name,
+        type: "text/plain",
+        id: d.id,
+        mode: "all_possible_text",
+        text: "",
+      };
+      addAttatchment(attachment, true);
+    } else {
+      removeAttatchment(chatState.attachments.findIndex((a) => a.id == d.id));
+    }
+  };
+
   return (
     <Modal hide={hide}>
-      <div>
-        <p>Select collections or documents to give access to the Agent</p>
+      <h2 className="text-center">Select the knowledge to access</h2>
+      <div className="d-flex gap-small">
+        {documents.map((d) => (
+          <div
+            onClick={() => toggleDocument(d)}
+            className={`card ${chatState.attachments.findIndex((a) => a.id == d.id) != -1 && "bg-active"}`}
+          >
+            <h4>{d.name}</h4>
+            {/* {selectedDocuments.includes(d) && (
+              <div>
+                <span>✅</span>
+                <span>Tokens: {d.total_tokens}</span>
+              </div>
+            )} */}
+          </div>
+        ))}
       </div>
     </Modal>
   );

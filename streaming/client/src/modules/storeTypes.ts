@@ -38,7 +38,7 @@ export type Store = {
   setOpenedModals: (opts: SetOpenedProps) => void;
   setMessages: (messages: Message[]) => void;
   setConversation: (conversationId: string | null) => void;
-  addAttachment: (newAttachment: TAttachment, conversation_id: string) => void;
+  addAttachment: (newAttachment: TAttachment, saved?: boolean) => void;
   updateAttachment: (
     index: number,
     newAttachment: Partial<TAttachment>

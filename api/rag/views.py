@@ -69,8 +69,13 @@ class DocumentView(View):
             ).exists()
         
         if document_exists:
+            document = Document.objects.get(
+                text=file_content, collection=collection
+            )
+           
+            serializer = DocumentSerializer(document)
             return JsonResponse(
-                {"message": "Document already exists"}, status=200
+                serializer.data, status=200
             )
         
         data["collection"] = collection.id
@@ -81,7 +86,7 @@ class DocumentView(View):
             serializer.save()
                 
         return JsonResponse(
-                {"message": "Document created successfully"}, status=201
+                serializer.data, status=201
             )
 
     def delete(self, request, document_id):
