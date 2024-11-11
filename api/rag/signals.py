@@ -12,13 +12,13 @@ chunks_created = Signal()
 @receiver(post_save, sender=Document)
 def create_chunks_after_save(sender, instance, created, **kwargs):
     if created:
-        async_generate_document_brief.delay(instance.pk)
         instance.create_chunks()
+        async_generate_document_brief.delay(instance.pk)
 
 
-@receiver(post_save, sender=Chunk)
-def store_chunk_in_vector_db(sender, instance, created, **kwargs):
-    instance.save_in_db()
+# @receiver(post_save, sender=Chunk)
+# def store_chunk_in_vector_db(sender, instance, created, **kwargs):
+#     instance.save_in_db()
 
 
 @receiver(post_delete, sender=Collection)
@@ -47,7 +47,7 @@ def chunks_created_handler(sender, **kwargs):
                 "content": c.content,
                 "model_id": c.id,
                 "model_name": "chunk",
-                "extra": f"DOCUMENT(name={sender.name}, id={sender.id})",
+                "extra": sender.get_representation(),
             }
         )
 

@@ -42,9 +42,18 @@ type TWebSearchResult = {
   content: string;
 };
 
+export type TSource = {
+  model_id: number;
+  model_name: string;
+  content: string;
+  extra: string;
+}
+
 export type TVersion = {
   text: string;
   type: string;
   agent_slug: string;
+  agent_name: string;
   web_search_results?: TWebSearchResult[];
+  sources?: TSource[];
 };

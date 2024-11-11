@@ -37,15 +37,22 @@ class ChromaManager:
         collection.upsert(documents=documents, ids=chunk_ids, metadatas=metadatas)
 
     def get_results(
-        self, collection_name: str, query_texts: list[str], n_results: int = 4
+        self, collection_name: str, query_texts: list[str], n_results: int = 4, search_string: str = "", where: dict = {}
     ):
         # TODO: This is bad, if the collection doesn't exist, ignore
         collection = self.get_or_create_collection(collection_name)
 
+        if search_string:
+            return collection.query(
+                query_texts=query_texts,
+                n_results=n_results,
+                where_document={"$contains": search_string},
+                where=where
+            )
         return collection.query(
             query_texts=query_texts,
             n_results=n_results,
-            # where_document={"$contains": "search_string"},
+            where=where
         )
 
     def get_collection_or_none(self, collection_name: str):
@@ -57,8 +64,12 @@ class ChromaManager:
 
     def delete_collection(self, collection_name: str):
         print("Deleting collection from chroma")
-        self.client.delete_collection(collection_name)
-
+        try:
+            self.client.delete_collection(collection_name)
+            print("DELETED SUCCESSFULLY")
+        except Exception as e:
+            print(e, "EXCEPTION TRYING TO DELETE COLLECTION")
+            
     def delete_chunk(self, collection_name: str, chunk_id: str):
         # TODO: This is bad, if the collection doesn't exist, ignore
         collection = self.get_or_create_collection(collection_name)

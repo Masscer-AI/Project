@@ -93,7 +93,7 @@ The brief must be in the same language as the document.
 class SelectedChunks(BaseModel):
     queries: list[str] = Field(
         ...,
-        description="A list of 3 different queries that can lead to the best results when using a vector store to retrieve information about the collection where the chunks are stored. The goals is to provide another AI with relevant context from the vector storage",
+        description="A list of 4 different queries that can lead to the best results when using a vector store to retrieve information about the collection where the chunks are stored. The goals is to provide another AI with relevant context from the vector storage",
     )
     tags: str = Field(
         ...,
@@ -105,7 +105,7 @@ class SelectedChunks(BaseModel):
     )
 
 
-def querify_context(context: str, collection: Collection) -> SelectedChunks:
+def querify_context(context: str) -> SelectedChunks:
     # TODO: Instead, get the collection summary to understand the context better
     # chunks = get_chunks_for_collection(collection)
     # printer.yellow(len(chunks), "Number of chunks for the collection")
@@ -125,7 +125,7 @@ CONVERSATION CONTEXT:
     queries = create_structured_completion(
         model="gpt-4o-mini",
         system_prompt=_system,
-        user_prompt="Return the queries please.",
+        user_prompt="Return the most accurate and relevant queries to retrieve information from the vector storage, making mention of important keywords for each one.",
         response_format=SelectedChunks,
     )
     return queries

@@ -38,11 +38,11 @@ class DocumentView(View):
 
         file = request.FILES.get("file")
 
-        collection = Collection.objects.filter(user=request.user).first()
-
-        # collection, created = Collection.objects.get_or_create(
-        #         user=request.user
-        #     )
+        collection, created = Collection.objects.get_or_create(
+                user=request.user,
+                agent=None,
+                conversation=None
+            )
         if not collection:
             return JsonResponse(
                 {
@@ -79,15 +79,18 @@ class DocumentView(View):
             )
         
         data["collection"] = collection.id
-        data["text"] = file_content
+        data["text"] = file_content.replace('\0' , '')
         serializer = DocumentSerializer(data=data)
 
         if serializer.is_valid():
             serializer.save()
-                
-        return JsonResponse(
+            return JsonResponse(
                 serializer.data, status=201
             )
+                
+        return JsonResponse(
+            serializer.errors, status=400
+        )
 
     def delete(self, request, document_id):
         try:
@@ -104,18 +107,23 @@ class DocumentView(View):
 @token_required
 def query_collection(request):
     data = json.loads(request.body)
-    agent_slug = data.get("agent_slug", None)
+    # agent_slug = data.get("agent_slug", None)
     conversation_id = data.get("conversation_id", None)
+    document_id = data.get("document_id", None)
     query_text = data.get("query", None)
+    collection_id = data.get("collection_id", None)
 
-    agent = Agent.objects.get(slug=agent_slug)
-
-    collection = Collection.objects.get(agent=agent, user=request.user)
+    collection = Collection.objects.get(user=request.user, pk=collection_id)
 
     if collection:
         messages = Message.objects.filter(conversation=conversation_id).order_by("-id")[
             :4
         ]
+
+        if document_id:
+            document = Document.objects.get(id=document_id)
+
+
         _context = f"""
         These are the last four messages in the conversation:
         ---
@@ -124,15 +132,26 @@ def query_collection(request):
 
         This is the last user message text: {query_text}
         """
-        queries = querify_context(context=_context, collection=collection)
+        
+        if document:
+            _context += f"""
+            This is a brief from the document the user wants to query: 
+            ---
+            {document.brief}
+            ---
+            """
+
+        queries = querify_context(context=_context)
         printer.success(
-            "There is a collection for the requested agent, getting results from Chroma"
+            "There is a collection for the user, getting results from Chroma"
         )
 
+        printer.blue(f"Queries: {queries.queries}")
+        printer.yellow(f"Document: {document}")
         results = chroma_client.get_results(
             collection_name=collection.slug,
             query_texts=queries.queries,
-            n_results=3,
+            n_results=4
         )
 
         data = {"results": results}
@@ -153,3 +172,53 @@ class ChunkDetailView(View):
             return JsonResponse(serializer.data, safe=False, status=200)
         except Chunk.DoesNotExist:
             return JsonResponse({"error": "Chunk not found"}, status=404)
+
+
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class QueryDocument(View):
+    def post(self, request, document_id):
+        data = json.loads(request.body)
+        query_text = data.get("query", None)
+        conversation_id = data.get("conversation_id", None)
+
+        document = Document.objects.get(id=document_id)
+        collection = document.collection
+
+        messages = Message.objects.filter(conversation=conversation_id).order_by("-id")[
+            :4
+        ]
+
+        _context = f"""
+        These are the last four messages in the conversation:
+        ---
+        {" ".join([f'{m.type}: {m.text}\n' for m in messages])}
+        ---
+
+        This is a summary of the document the user wants to query:
+        ---
+        {document.brief}
+        ---
+
+        This is the last user message text: {query_text}
+        """
+
+        queries = querify_context(context=_context)
+        printer.success(
+            "There is a collection for the user, getting results from Chroma"
+        )
+
+        printer.blue(f"Queries: {queries.queries}")
+        printer.yellow(f"Document: {document}")
+
+        results = chroma_client.get_results(
+            collection_name=collection.slug,
+            query_texts=queries.queries,
+            n_results=4,
+            where={"extra": document.get_representation()}
+        )
+
+        data = {"results": results}
+        return JsonResponse(data, safe=False)

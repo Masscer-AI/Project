@@ -39,13 +39,34 @@ def save_message(message: dict, token: str):
 
 
 def get_results(
-    query_text: str, agent_slug: str, token: str, conversation_id: str = None
+    query_text: str, token: str, conversation_id: str = None, document_id: int = None
 ):
 
     endpoint = API_URL + "/v1/rag/query/"
     headers = {"Authorization": "Token " + token}
     body = {
-        "agent_slug": agent_slug,
+        "document_id": document_id,
+        "query": query_text,
+        "conversation_id": conversation_id,
+    }
+
+    try:
+        response = requests.post(endpoint, headers=headers, json=body)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        print(f"Error saving message: {e}")
+        return None
+
+
+
+def query_document(
+    query_text: str, token: str, conversation_id: str = None, document_id: int = None
+):
+
+    endpoint = API_URL + f"/v1/rag/documents/{document_id}/query/"
+    headers = {"Authorization": "Token " + token}
+    body = {
         "query": query_text,
         "conversation_id": conversation_id,
     }

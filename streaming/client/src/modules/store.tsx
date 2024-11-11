@@ -127,6 +127,8 @@ export const useStore = create<Store>()((set, get) => ({
     formData.append("file", newAttachment.file);
     try {
       const r = await uploadDocument(formData);
+      console.log(r, "RESPONSE FROM UPLOADING DOCUMENT");
+      
       newAttachment.id = r.id;
       newAttachment.text = r.text;
       toast.dismiss(loadingID);
@@ -149,13 +151,11 @@ export const useStore = create<Store>()((set, get) => ({
     }
   },
   updateAttachment: (index, newAttachment) => {
-    console.log("UPDATING ATTACHMENT", index, newAttachment);
-
     set((state) => ({
       chatState: {
         ...state.chatState,
         attachments: state.chatState.attachments.map((a, i) =>
-          i === index ? { ...a, newAttachment } : a
+          i === index ? { ...a, ...newAttachment } : a
         ),
       },
     }));

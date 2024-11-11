@@ -140,7 +140,7 @@ class Agent(models.Model):
         from api.rag.actions import querify_context, extract_rag_results
 
         collection = self.get_collection()
-        queries = querify_context(context, collection)
+        queries = querify_context(context)
         results = chroma_client.get_results(
             collection_name=collection.slug,
             query_texts=queries.queries,

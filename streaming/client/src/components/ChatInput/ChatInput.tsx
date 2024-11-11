@@ -291,7 +291,7 @@ const RagConfig = ({ hide }: { hide: () => void }) => {
         type: "text/plain",
         id: d.id,
         mode: "all_possible_text",
-        text: "",
+        text: d.text,
       };
       addAttatchment(attachment, true);
     } else {

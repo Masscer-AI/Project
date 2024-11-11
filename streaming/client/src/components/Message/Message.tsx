@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { SVGS } from "../../assets/svgs";
 import MarkdownRenderer from "../MarkdownRenderer/MarkdownRenderer";
-import { TAttachment, TVersion } from "../../types";
+import { TAttachment, TSource, TVersion } from "../../types";
 import { Thumbnail } from "../Thumbnail/Thumbnail";
 import "./Message.css";
 import { SvgButton } from "../SvgButton/SvgButton";
@@ -233,9 +233,13 @@ export const Message: React.FC<MessageProps> = ({
               key={index}
             />
           ))}
-        {sources &&
+        {/* {sources &&
           sources.map((s, index) => (
             <Source key={index} text={s.text} href={s.url}></Source>
+          ))} */}
+        {versions?.[currentVersion]?.sources &&
+          versions?.[currentVersion]?.sources.map((s, index) => (
+            <Source key={index} source={s} />
           ))}
 
         {versions?.[currentVersion]?.web_search_results &&
@@ -355,13 +359,8 @@ export const Message: React.FC<MessageProps> = ({
           </div>
         )}
 
-        {versions?.[currentVersion]?.agent_slug ? (
-          <Pill>
-            {
-              agents.find((a) => a.slug === versions[currentVersion].agent_slug)
-                ?.name
-            }
-          </Pill>
+        {versions?.[currentVersion]?.agent_name ? (
+          <Pill>{versions?.[currentVersion]?.agent_name}</Pill>
         ) : null}
       </div>
     </div>
@@ -381,24 +380,23 @@ type TChunk = {
   brief?: string;
   tags?: string;
 };
-const Source = ({ href, text }) => {
+const Source = ({ source }: { source: TSource }) => {
   const [isVisible, setIsVisible] = useState(false);
-  const [chunkInfo, setChunkInfo] = useState({} as TChunk);
-
-  const sourceId = href.replace(/^#/, "");
 
   const handleGetModel = async () => {
-    const { modelId, modelName } = getSomeNumberFromChunkString(href);
-    const chunk = await getChunk(modelId);
-    setChunkInfo(chunk);
+    // const { modelId, modelName } = getSomeNumberFromChunkString(href);
+    // const chunk = await getChunk(modelId);
+    // setChunkInfo(chunk);
     setIsVisible(true);
   };
 
   return (
     <div className="source-component">
-      <input id={sourceId} type="text" />
-      <h5>{text}</h5>
-      <p>{href}</p>
+      {/* <input type="text" /> */}
+      <h5>
+        {source.model_name} {source.model_id}
+      </h5>
+
       <SvgButton svg={SVGS.eyes} onClick={handleGetModel} />
       {isVisible && (
         <Modal
@@ -407,9 +405,11 @@ const Source = ({ href, text }) => {
           hide={() => setIsVisible(false)}
         >
           <div className="chunk-info">
-            <h3>{chunkInfo.brief}</h3>
+            <h3 className="text-center">
+              {source.model_name} {source.model_id}
+            </h3>
             <textarea
-              value={JSON.stringify(chunkInfo.content)}
+              value={JSON.stringify(source.content)}
               readOnly
               name="chunk_text"
             ></textarea>
