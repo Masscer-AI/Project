@@ -100,5 +100,15 @@
     "share-conversation-description": "Comparte esta conversación con otros usuarios de la plataforma.",
     "copy": "Copiar",
     "copied-to-clipboard": "Copiado al portapapeles",
-    "open-link": "Abrir enlace"
+    "open-link": "Abrir enlace",
+    "inspect-content": "Inspeccionar contenido",
+    "allContent": "Todo el contenido",
+    "text": "Texto",
+    "image": "Imagen",
+    "chunks": "Fragmentos",
+    "all-content": "Todo el contenido posible",
+    "chunks-mode-help-text": "En el modo de fragmentos, la IA recibirá una **cantidad n** de fragmentos del documento dependiendo de la consulta del usuario.",
+    "all-content-mode-help-text": "En el modo de **todo el contenido posible**, la IA recibirá todo el texto posible del documento dependiendo de los tokens de prompt disponibles para la siguiente iteración.",
+    "sure": "Seguro",
+    "configure": "Configurar"
 }

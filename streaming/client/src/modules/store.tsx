@@ -75,6 +75,8 @@ export const useStore = create<Store>()((set, get) => ({
     const formData = new FormData();
 
     if (newAttachment.type.includes("image")) {
+      newAttachment.mode = "all_possible_text";
+
       set((state) => ({
         chatState: {
           ...state.chatState,
@@ -122,7 +124,7 @@ export const useStore = create<Store>()((set, get) => ({
         "Document uploaded successfully! Now you can chat with it using all the you selected"
       );
 
-      console.log("NEW ATTACHMENT", newAttachment);
+      newAttachment.mode = "all_possible_text";
 
       set((state) => ({
         chatState: {
@@ -135,6 +137,18 @@ export const useStore = create<Store>()((set, get) => ({
       console.log(e, "ERROR DURING FILE UPLOAD");
       toast.dismiss(loadingID);
     }
+  },
+  updateAttachment: (index, newAttachment) => {
+    console.log("UPDATING ATTACHMENT", index, newAttachment);
+
+    set((state) => ({
+      chatState: {
+        ...state.chatState,
+        attachments: state.chatState.attachments.map((a, i) =>
+          i === index ? { ...a, newAttachment } : a
+        ),
+      },
+    }));
   },
   fetchAgents: async () => {
     const { agents, models } = await getAgents();

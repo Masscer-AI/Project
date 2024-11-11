@@ -18,12 +18,12 @@ export const ChatHeader = ({
   onTitleEdit: (title: string) => void;
 }) => {
   const { t } = useTranslation();
-  const { toggleSidebar, agents, addAgent, chatState, test } = useStore((state) => ({
+  const { toggleSidebar, agents, addAgent, chatState } = useStore((state) => ({
     agents: state.agents,
     toggleSidebar: state.toggleSidebar,
     addAgent: state.addAgent,
     chatState: state.chatState,
-    test: state.test,
+    // test: state.test,
   }));
   const [innerTitle, setInnerTitle] = useState(title);
 

@@ -101,5 +101,13 @@
     "share-conversation-description": "You can share this conversation with the entire world by generating a public link. Set a datetime for expiration, by default it will be 30 days.",
     "copy": "Copy",
     "copied-to-clipboard": "Copied to clipboard",
-    "open-link": "Open link"
+    "open-link": "Open link",
+    "inspect-content": "Inspect content",
+    "allContent": "All possible content",
+    "text": "Text",
+    "image": "Image",
+    "similar-chunks": "Similar chunks",
+    "chunks": "Chunks",
+    "chunks-mode-help-text": "In chunks mode, the AI will receive a **n quantity** of chunks from the document depending of the user query.",
+    "all-content-mode-help-text": "In **all content** mode, the AI will receive all the possible text from the document depending of the available prompt tokens for the next iteration."
 }

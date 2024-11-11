@@ -11,6 +11,8 @@ import { useTranslation } from "react-i18next";
 import { debounce } from "../../modules/utils";
 import { getSuggestion } from "../../modules/apiCalls";
 import { SpeechHandler } from "../SpeechHandler/SpeechHandler";
+import { FloatingDropdown } from "../Dropdown/Dropdown";
+import { Modal } from "../Modal/Modal";
 
 interface ChatInputProps {
   handleSendMessage: () => void;
@@ -32,7 +34,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     addAttachment,
     chatState,
     toggleWebSearch,
-    toggleUseRag,
+
     toggleWritingMode,
   } = useStore((state) => ({
     input: state.input,
@@ -42,7 +44,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     chatState: state.chatState,
     toggleWebSearch: state.toggleWebSearch,
     toggleWritingMode: state.toggleWrittingMode,
-    toggleUseRag: state.toggleUseRag,
   }));
 
   // const [suggestion, setSuggestion] = useState("");
@@ -214,21 +215,64 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             svg={SVGS.writePen}
             title={t("turn-on-off-writing-mode")}
           />
+          <RagSearchOptions />
           <SvgButton
             extraClass={chatState.webSearch ? "active" : ""}
             onClick={toggleWebSearch}
             svg={SVGS.webSearch}
             title={t("turn-on-off-web-search")}
           />
-          <SvgButton
-            extraClass={chatState.useRag ? "active" : ""}
-            onClick={toggleUseRag}
-            svg={SVGS.document}
-            title={t("turn-on-off-rag")}
-          />
+
           <SpeechHandler onTranscript={handleAudioTranscript} />
         </div>
       </section>
     </div>
+  );
+};
+
+const RagSearchOptions = () => {
+  const { toggleUseRag, chatState } = useStore((state) => ({
+    toggleUseRag: state.toggleUseRag,
+    chatState: state.chatState,
+  }));
+
+  const [isConfigOpen, setIsConfigOpen] = useState(false);
+
+  const { t } = useTranslation();
+  return (
+    <FloatingDropdown
+      bottom="100%"
+      left="50%"
+      transform="translateX(-50%)"
+      opener={
+        <SvgButton
+          extraClass={chatState.useRag ? "active" : ""}
+          onClick={toggleUseRag}
+          svg={SVGS.document}
+          title={t("turn-on-off-rag")}
+        />
+      }
+    >
+      <div className="width-300">
+        <p>You can select specific documents from each of your collections</p>
+        <SvgButton
+          onClick={() => setIsConfigOpen(true)}
+          size="big"
+          text={t("configure")}
+          svg={SVGS.controls}
+        />
+        {isConfigOpen && <RagConfig hide={() => setIsConfigOpen(false)} />}
+      </div>
+    </FloatingDropdown>
+  );
+};
+
+const RagConfig = ({ hide }: { hide: () => void }) => {
+  return (
+    <Modal hide={hide}>
+      <div>
+        <p>Select collections or documents to give access to the Agent</p>
+      </div>
+    </Modal>
   );
 };

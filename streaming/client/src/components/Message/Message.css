@@ -55,7 +55,7 @@
 .message__attachments {
   display: flex;
   gap: 10px;
-
+  overflow-x: auto;
   padding-inline: 12px;
   padding-block: 5px;
   display: flex;

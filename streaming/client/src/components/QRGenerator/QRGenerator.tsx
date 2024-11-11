@@ -10,7 +10,7 @@ const isValidURL = (string) => {
 const QRCodeDisplay = ({ url }) => {
   // Verify if the URL is valid
   if (!url || !isValidURL(url)) {
-    return <p>Por favor, proporciona una URL válida.</p>;
+  return <p>Por favor, proporciona una URL válida.</p>;
   }
 
   // Encode the URL before passing it to QRCodeSVG

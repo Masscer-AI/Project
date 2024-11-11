@@ -1,9 +1,13 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { SVGS } from "../../assets/svgs";
 import { useStore } from "../../modules/store";
 import { SvgButton } from "../SvgButton/SvgButton";
 import { useTranslation } from "react-i18next";
 import { Modal } from "../Modal/Modal";
+import { FloatingDropdown } from "../Dropdown/Dropdown";
+import { SliderInput } from "../SimpleForm/SliderInput";
+import MarkdownRenderer from "../MarkdownRenderer/MarkdownRenderer";
+import { AttatchmentMode } from "../../types";
 interface ThumbnailProps {
   src: string;
   type: string;
@@ -31,36 +35,40 @@ export const Thumbnail = ({
       {showModal && (
         <ImageModal src={src} name={name} hide={() => setShowModal(false)} />
       )}
-      <div className="thumbnail pointer">
-        {type.indexOf("image") === 0 && (
+      {type.indexOf("audio") !== 0 && type.indexOf("image") !== 0 && (
+        <DocumentThumnail
+          index={index}
+          onDelete={() => deleteAttachment(index)}
+          type={type}
+          name={name}
+        />
+      )}
+      {type.indexOf("image") === 0 && (
+        <div className="thumbnail pointer">
           <img
             onClick={() => setShowModal(true)}
             src={src}
             alt={`attachment-${name}`}
           />
-        )}
-        {type.indexOf("audio") === 0 && (
-          <>
-            <SvgButton />
-            <audio src={src} playsInline />
-          </>
-        )}
-        {type.indexOf("audio") !== 0 && type.indexOf("image") !== 0 && (
-          <div title={name} className="file-icon">
-            {SVGS.document}
-          </div>
-        )}
-        {showFloatingButtons && (
-          <div className="floating-buttons">
-            <SvgButton
-              title={t("delete")}
-              svg={SVGS.trash}
-              extraClass="bg-danger square-button"
-              onClick={() => deleteAttachment(index)}
-            />
-          </div>
-        )}
-      </div>
+          {showFloatingButtons && (
+            <div className="floating-buttons">
+              <SvgButton
+                title={t("delete")}
+                svg={SVGS.trash}
+                extraClass="bg-danger square-button"
+                confirmations={[`${t("sure")}`]}
+                onClick={() => deleteAttachment(index)}
+              />
+            </div>
+          )}
+        </div>
+      )}
+      {type.indexOf("audio") === 0 && (
+        <div className="thumbnail pointer">
+          <SvgButton />
+          <audio src={src} playsInline />
+        </div>
+      )}
     </>
   );
 };
@@ -98,5 +106,66 @@ const ImageModal = ({
         <img style={{ width: "100%" }} src={src} alt={`attachment-${name}`} />
       </div>
     </Modal>
+  );
+};
+
+const DocumentThumnail = ({ index, type, name, onDelete }) => {
+  const { updateAttachment } = useStore((state) => ({
+    updateAttachment: state.updateAttachment,
+  }));
+  const { t } = useTranslation();
+  const [ragMode, setRagMode] = useState("similar_chunks" as AttatchmentMode);
+
+  const ragModeHelpHelper = {
+    similar_chunks: t("chunks-mode-help-text"),
+    all_possible_text: t("all-content-mode-help-text"),
+  };
+
+  useEffect(() => {
+    // setRagMode("similarChunks");
+    updateAttachment(index, { mode: ragMode });
+  }, [ragMode]);
+
+  return (
+    <div
+      title={name}
+      className="width-200 document-attachment bg-hovered rounded padding-small"
+    >
+      <div className="d-flex padding-small gap-small align-center">
+        <div>{SVGS.document}</div>
+        <p className="cut-text-to-line">{name}</p>
+
+        <FloatingDropdown
+          bottom="100%"
+          left="50%"
+          transform="translateX(-50%)"
+          opener={<SvgButton title={t("options")} svg={SVGS.options} />}
+        >
+          <div className="d-flex gap-medium flex-y width-300">
+            <h2 className="text-center">Configure</h2>
+            <SliderInput
+              extraClass="d-flex align-center rounded"
+              labelTrue={t("similar-chunks")}
+              labelFalse={t("allContent")}
+              keepActive={true}
+              checked={ragMode === "similar_chunks"}
+              onChange={(value) => {
+                setRagMode(value ? "similar_chunks" : "all_possible_text");
+              }}
+            />
+
+            <MarkdownRenderer markdown={ragModeHelpHelper[ragMode]} />
+            <SvgButton
+              title={t("delete")}
+              size="big"
+              svg={SVGS.trash}
+              extraClass="bg-danger square-button"
+              confirmations={[`${t("sure")}`]}
+              onClick={() => onDelete()}
+            />
+          </div>
+        </FloatingDropdown>
+      </div>
+    </div>
   );
 };

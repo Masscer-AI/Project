@@ -9,7 +9,9 @@ from bs4 import BeautifulSoup
 from ..utils.openai_functions import create_structured_completion
 from pydantic import BaseModel, Field
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from ..logger import get_custom_logger
 
+logger = get_custom_logger("brave_search")
 
 class SearchQueries(BaseModel):
     queries: list[str] = Field(
@@ -25,7 +27,7 @@ class SearchQueries(BaseModel):
 class SelectUrls(BaseModel):
     selected: list[str] = Field(
         ...,
-        description="The selected URLs to query. Up to three",
+        description="The selected URLs to query. All the necessary urls, at least 4",
     )
 
 
@@ -94,8 +96,6 @@ REGIONS LIST:
         user_prompt=context + "\n\n LAST USER MESSAGE: \n" + user_message,
         response_format=SearchQueries,
     )
-    print(queries, "QUERIES")
-
     web_results = []
 
     with ThreadPoolExecutor() as executor:
@@ -141,13 +141,14 @@ def fetch_url_content(url):
                     content.append(element.get_text(strip=True))  # Strip whitespace
 
             combined_content = "\n\n".join(content)
-            print("Fetched content from", url[:50])
+            
+            logger.info(f"Fetched content from {combined_content[:50]}")
             return {"url": url, "content": combined_content}
         else:
-            print(f"Failed to fetch {url}: Status code {page_response.status_code}")
-            return None
+            raise Exception(f"Failed to fetch {url}: Status code {page_response.status_code}")
+         
     except Exception as e:
-        print(f"Error fetching URL {url}: {str(e)}")
+        logger.error(f"Failed to fetch {url}: Status code {e}")
         return None
 
 
@@ -210,6 +211,9 @@ Provide a list of queries from 1 to 2 queries to search the web. You must think 
 
 REGIONS LIST:
 {json.dumps(VALID_COUNTRIES)}
+
+TODAY:
+If you need to know it, today is: {time.strftime("%Y-%m-%d")} at {time.strftime("%H:%M:%S")}
 """
 
     api_key = os.getenv("BRAVE_API_KEY")
@@ -225,11 +229,8 @@ REGIONS LIST:
         user_prompt=context + "\n\n LAST USER MESSAGE: \n" + user_message,
         response_format=SearchQueries,
     )
-    web_results = []
-
     clickables = []
-    print("START EXPLORING WEB")
-    print("-------------------")
+
     for q in queries.queries:
         search_results = get_brave_results(q, "US", api_key)
         # web_results.append(res)
@@ -247,9 +248,9 @@ URLS you can select from:
 
 {json.dumps(urls)}
 
-PLease select up to three urls, the most relevant urls for the query.
+PLease select the most relevant urls for the query.
     """
-            # clickables.extend(urls)
+       
             selected_urls = create_structured_completion(
                 model="gpt-4o-mini",
                 system_prompt=_system_select,
@@ -258,22 +259,20 @@ PLease select up to three urls, the most relevant urls for the query.
             )
             clickables.extend(selected_urls.selected)
 
-    print("ALL URLS: ", clickables)
-
     results = []
-    for c in clickables:
-        results.append(fetch_url_content(c))
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+            future_to_url = {
+                executor.submit(fetch_url_content, url): url for url in clickables
+            }
+            for future in as_completed(future_to_url):
+                result = future.result()
+                if result:
+                    results.append(result)
+
         
-    print("FINISH EXPLORING WEB")
-    return web_results if web_results else "No results found."
+    return results 
 
-
-# async def process_queries(queries, api_key):
-#     web_results = []
-#     for q in queries.queries:
-#         web_results.append(await get_brave_results(q, "US", api_key))
-#         await asyncio.sleep(1)  # Non-blocking sleep
-#     return web_results
 
 
 def get_brave_results(q, country, api_key=os.getenv("BRAVE_API_KEY")):
@@ -294,4 +293,4 @@ def get_brave_results(q, country, api_key=os.getenv("BRAVE_API_KEY")):
         return response.json()
     else:
         return None
-    # return response.json()
+    

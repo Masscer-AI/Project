@@ -14,6 +14,7 @@ import { useStore } from "../../modules/store";
 import { Reactions } from "../Reactions/Reactions";
 import { AudioPlayerOptions, createAudioPlayer } from "../../modules/utils";
 import { ImageGenerator } from "../ImageGenerator/ImageGenerator";
+import { Loader } from "../Loader/Loader";
 type TReaction = {
   id: number;
   template: number;
@@ -31,7 +32,6 @@ interface MessageProps {
   index: number;
   versions?: TVersion[];
   attachments: TAttachment[];
-  // onGenerateSpeech: (text: string) => void;
   onGenerateImage: (text: string, message_id: number) => void;
   onMessageEdit: (index: number, text: string, versions?: TVersion[]) => void;
   reactions?: TReaction[];
@@ -205,10 +205,9 @@ export const Message: React.FC<MessageProps> = ({
     }
   };
 
-  // const handleGenerateImage
-
   return (
     <div className={`message ${type} message-${index}`}>
+      {!innerText && !versions?.[currentVersion]?.text && <Loader />}
       {isEditing ? (
         <textarea
           autoComplete="on"
@@ -238,15 +237,23 @@ export const Message: React.FC<MessageProps> = ({
           sources.map((s, index) => (
             <Source key={index} text={s.text} href={s.url}></Source>
           ))}
+
+        {versions?.[currentVersion]?.web_search_results &&
+          versions?.[currentVersion]?.web_search_results.map(
+            (result, index) => {
+              if (!result) return null;
+              return <WebSearchResultInspector key={index} result={result} />;
+            }
+          )}
       </section>
       <div className="message-buttons d-flex gap-small align-center">
-        <SvgButton
-          title={t("copy-to-clipboard")}
-          onClick={() => copyToClipboard()}
-          svg={SVGS.copyTwo}
-        />
         {id && (
           <>
+            <SvgButton
+              title={t("copy-to-clipboard")}
+              onClick={() => copyToClipboard()}
+              svg={SVGS.copyTwo}
+            />
             <SvgButton
               title={t("generate-image")}
               onClick={() =>
@@ -347,6 +354,7 @@ export const Message: React.FC<MessageProps> = ({
             ))}
           </div>
         )}
+
         {versions?.[currentVersion]?.agent_slug ? (
           <Pill>
             {
@@ -408,6 +416,50 @@ const Source = ({ href, text }) => {
           </div>
         </Modal>
       )}
+    </div>
+  );
+};
+
+const WebSearchResultInspector = ({ result }) => {
+  const { t } = useTranslation();
+  const [isVisible, setIsVisible] = useState(false);
+
+  const handleOpenWebsite = () => {
+    window.open(result.url, "_blank");
+  };
+  return (
+    <div className="card bg-hovered">
+      <p
+        onClick={handleOpenWebsite}
+        className="cut-text-to-line clickeable rounded padding-small"
+        title={result.url}
+      >
+        {result.url}
+      </p>
+      <SvgButton
+        size="big"
+        text={t("inspect-content")}
+        svg={SVGS.webSearch}
+        onClick={() => setIsVisible(true)}
+      />
+      {isVisible && (
+        <Modal
+          minHeight={"40vh"}
+          visible={isVisible}
+          hide={() => setIsVisible(false)}
+        >
+          <WebSearchResultContent result={result} />
+        </Modal>
+      )}
+    </div>
+  );
+};
+
+const WebSearchResultContent = ({ result }) => {
+  return (
+    <div>
+      <h3>{result.url}</h3>
+      <p>{result.content}</p>
     </div>
   );
 };

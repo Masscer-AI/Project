@@ -16,6 +16,7 @@ import { generateImage, updateConversation } from "../../modules/apiCalls";
 import { useTranslation } from "react-i18next";
 import { TVersion } from "../../types";
 import { updateLastMessagesIds, updateMessages } from "./helpers";
+import { SvgButton } from "../../components/SvgButton/SvgButton";
 
 export default function ChatView() {
   const loaderData = useLoaderData() as TChatLoader;
@@ -109,7 +110,12 @@ export default function ChatView() {
       text: input,
       attachments: chatState.attachments,
     };
-    setMessages([...messages, userMessage]);
+    const assistantMessage: TMessage = {
+      type: "assistant",
+      text: "",
+      attachments: [],
+    };
+    setMessages([...messages, userMessage, assistantMessage]);
 
     try {
       const token = localStorage.getItem("token");

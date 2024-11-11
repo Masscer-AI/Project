@@ -4,13 +4,19 @@ import translationEN from "./locales/en.json";
 import translationES from "./locales/es.json";
 import translationIT from "./locales/it.json";
 
+let language = localStorage.getItem("language");
+if (!language) {
+  language = "en";
+  localStorage.setItem("language", language);
+}
+
 i18n.init({
   resources: {
     en: { translation: translationEN },
     es: { translation: translationES },
     it: { translation: translationIT },
   },
-  lng: "en",
+  lng: language,
   fallbackLng: "en",
   interpolation: {
     escapeValue: false, // React already does escaping

@@ -584,6 +584,9 @@ option {
   transition: 0.4s;
   border-radius: 34px;
 }
+/* .keep-active {
+  background-color: var(--active-color);
+} */
 
 /* The knob (the circle) */
 .slider::before {
@@ -599,7 +602,10 @@ option {
 }
 
 input:checked + .slider {
-  background-color: #2196f3;
+  background-color: var(--active-color);
+}
+input + .slider.keep-active {
+  background-color: var(--active-color);
 }
 
 /* Move the knob when checked */
@@ -723,5 +729,9 @@ input:checked + .slider::before {
 
 .labeled-button:hover .button-label {
   display: block;
-
+}
+.cut-text-to-line {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }

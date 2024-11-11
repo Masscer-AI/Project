@@ -8,6 +8,7 @@ import { FloatingDropdown } from "../Dropdown/Dropdown";
 
 export const LanguageSelector = () => {
   const { t } = useTranslation();
+
   const [isOpened, setIsOpened] = useState(false);
   const toggleLanguage = () => {
     // const currentLng = i18n.language;
@@ -19,12 +20,13 @@ export const LanguageSelector = () => {
   const setLanguage = (lng: string) => {
     i18n.changeLanguage(lng);
     setIsOpened(false);
+    localStorage.setItem("language", lng);
   };
 
   const possibleLanguages = ["en", "es", "it"];
 
   return (
-    <div className="pos-relative" style={{width: "fit-content"}}>
+    <div className="pos-relative" style={{ width: "fit-content" }}>
       <FloatingDropdown
         // bottom="100%"
         left="100%"

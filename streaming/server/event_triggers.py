@@ -91,6 +91,7 @@ async def on_message_handler(socket_id, data, **kwargs):
         agent_slug = m["slug"]
         version = {
             "agent_slug": agent_slug,
+            "agent_name": m["name"],
             "type": "assistant",
             "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
         }
@@ -124,7 +125,7 @@ async def on_message_handler(socket_id, data, **kwargs):
                 {"message": "Exploring the web to add more context to your message"},
                 to=socket_id,
             )
-            web_results = search_brave(message["text"], json.dumps(context))
+            web_results = new_search_brave(message["text"], json.dumps(context))
             version["web_search_results"] = web_results
             complete_context += f"\n\<web_search_results>\n{json.dumps(web_results)}\n </web_search_results>\n"
 
@@ -176,7 +177,7 @@ async def on_message_handler(socket_id, data, **kwargs):
             "status": "ok",
             "versions": versions,
             "user_message_id": user_id_to_emit,
-            "ai_message_id": ai_message_res["id"],
+            "ai_message_id": ai_message_res["id"], 
         },
         to=socket_id,
     )
@@ -243,9 +244,6 @@ async def on_test_event_handler(socket_id, data, **kwargs):
         )
         web_results = new_search_brave(data["query"], json.dumps(context))
 
-        print("----------------------------")
-        print("WEB RESULTS", web_results)
-        print("----------------------------")
 
         # version["web_search_results"] = web_results
         # complete_context += f"\n\<web_search_results>\n{json.dumps(web_results)}\n </web_search_results>\n"

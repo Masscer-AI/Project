@@ -37,14 +37,26 @@ class DocumentView(View):
         data.pop("agent_slug", None)
 
         file = request.FILES.get("file")
-        agents = request.POST.get("agents", None).split(",")
-        # conversation_id = request.POST.get("conversation_id", None)
 
-        if not file and (not agents):
+        collection = Collection.objects.filter(user=request.user).first()
+
+        # collection, created = Collection.objects.get_or_create(
+        #         user=request.user
+        #     )
+        if not collection:
             return JsonResponse(
                 {
                     "message": "Bad request",
-                    "error": "File and agents are required",
+                    "error": "Collection not found",
+                },
+                status=400,
+            )
+        
+        if not file:
+            return JsonResponse(
+                {
+                    "message": "Bad request",
+                    "error": "File are required",
                 },
                 status=400,
             )
@@ -52,45 +64,25 @@ class DocumentView(View):
         file_content, file_name = read_file_content(file)
         file_content = file_content.strip()
 
-        errors = []
-
-        for agent_slug in agents:
-            agent = Agent.objects.get(slug=agent_slug)
-
-            if agent is None:
-                errors.append(
-                    {
-                        "message": "Bad request",
-                        "error": f"Agent with agent_slug {agent_slug} not found!",
-                    }
-                )
-                continue
-
-            collection, created = Collection.objects.get_or_create(
-                agent=agent, defaults={"user": request.user}
-            )
-
-            document_exists = Document.objects.filter(
+        document_exists = Document.objects.filter(
                 text=file_content, collection=collection
             ).exists()
-
-            if document_exists:
-                continue
-
-            data["collection"] = collection.id
-            data["text"] = file_content
-
-            serializer = DocumentSerializer(data=data)
-
-            if serializer.is_valid():
-                serializer.save()
-                continue
-
-        if len(errors) == 0:
+        
+        if document_exists:
             return JsonResponse(
+                {"message": "Document already exists"}, status=200
+            )
+        
+        data["collection"] = collection.id
+        data["text"] = file_content
+        serializer = DocumentSerializer(data=data)
+
+        if serializer.is_valid():
+            serializer.save()
+                
+        return JsonResponse(
                 {"message": "Document created successfully"}, status=201
             )
-        return JsonResponse(errors, status=400, safe=False)
 
     def delete(self, request, document_id):
         try:

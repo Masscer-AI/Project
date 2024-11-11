@@ -31,7 +31,7 @@ export type Store = {
   conversation: TConversationData | undefined;
   openedModals: string[];
   reactionTemplates: TReactionTemplate[];
-  
+
   startup: () => void;
   removeAgent: (slug: string) => void;
   updateSingleAgent: (agent: TAgent) => void;
@@ -39,6 +39,10 @@ export type Store = {
   setMessages: (messages: Message[]) => void;
   setConversation: (conversationId: string | null) => void;
   addAttachment: (newAttachment: TAttachment, conversation_id: string) => void;
+  updateAttachment: (
+    index: number,
+    newAttachment: Partial<TAttachment>
+  ) => void;
   setInput: (input: string) => void;
   setModel: (model: Model) => void;
   setModels: (models: Model[]) => void;
