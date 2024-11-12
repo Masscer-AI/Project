@@ -108,7 +108,7 @@ class TextStreamingHandler:
                             },
                         )
 
-        print(messages, "MESSAGES TO AI")
+        
         response = self.client.chat.completions.create(
             model=model,
             # model="gpt-4o-audio-preview",

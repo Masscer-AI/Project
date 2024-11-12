@@ -10,7 +10,6 @@ from api.authenticate.decorators.token_required import token_required
 from rest_framework.parsers import JSONParser
 from api.utils.color_printer import printer
 
-
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class AgentView(View):

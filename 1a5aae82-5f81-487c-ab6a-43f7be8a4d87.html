@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 20px;
+            border: 1px solid #ccc;
+        }
+        h1 {
+            text-align: center;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ccc;
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .total {
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Invoice</h1>
+
+    <p><strong>Date:</strong> 2024-11-12</p>
+    <p><strong>Invoice Number:</strong> 001</p>
+    <p><strong>Bill To:</strong></p>
+    <p>John Doe<br>
+    123 Main St.<br>
+    Anytown, USA</p>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Description</th>
+                <th>Quantity</th>
+                <th>Unit Price</th>
+                <th>Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Web Development Services</td>
+                <td>10 hours</td>
+                <td>$50.00</td>
+                <td>$500.00</td>
+            </tr>
+            <tr>
+                <td>Hosting (Annual)</td>
+                <td>1</td>
+                <td>$120.00</td>
+                <td>$120.00</td>
+            </tr>
+            <tr>
+                <td>Domain Registration</td>
+                <td>1</td>
+                <td>$15.00</td>
+                <td>$15.00</td>
+            </tr>
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="3" class="total">Subtotal</td>
+                <td class="total">$635.00</td>
+            </tr>
+            <tr>
+                <td colspan="3" class="total">Tax (5%)</td>
+                <td class="total">$31.75</td>
+            </tr>
+            <tr>
+                <td colspan="3" class="total">Total</td>
+                <td class="total">$666.75</td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <p>Thank you for your business!</p>
+
+</body>
+</html>

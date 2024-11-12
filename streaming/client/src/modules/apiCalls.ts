@@ -463,3 +463,31 @@ export const getUserOrganizations = async () => {
     "/v1/auth/organizations/"
   );
 };
+
+type TGenerateDocumentInput = {
+  source_text: string;
+  from_type: string;
+  to_type: string;
+};
+
+export const generateDocument = async (data: TGenerateDocumentInput) => {
+  return makeAuthenticatedRequest("POST", "/v1/tools/generate_document/", data);
+};
+
+export const downloadFile = (file_path: string) => {
+  const url = `${API_URL}/v1/tools/download/${file_path}/`;
+
+  const form = document.createElement("form");
+  form.method = "GET";
+  form.action = url;
+  form.style.display = "none"; 
+
+
+  document.body.appendChild(form);
+
+  // Submit the form
+  form.submit();
+
+  // Remove the form after submission to keep the DOM clean
+  document.body.removeChild(form);
+};

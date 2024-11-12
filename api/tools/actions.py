@@ -1,4 +1,5 @@
 import requests
+import uuid
 from moviepy.editor import VideoFileClip, concatenate_videoclips, AudioFileClip
 from django.conf import settings
 
@@ -9,6 +10,7 @@ from youtube_transcript_api import (
     TranscriptsDisabled,
     NoTranscriptFound,
 )
+
 import traceback
 from .models import (
     Transcription,
@@ -22,6 +24,7 @@ import whisper
 
 import os
 from api.utils.openai_functions import create_structured_completion, generate_speech_api
+from api.utils.document_tools import convert_html_to_docx
 import threading
 import time
 
@@ -214,6 +217,7 @@ def generate_video(video_job_id: int):
             status="PENDING",
         )
 
+
 def generate_chunk_video(video_chunk_id: int):
     chunk = VideoChunk.objects.get(pk=video_chunk_id)
 
@@ -222,7 +226,8 @@ def generate_chunk_video(video_chunk_id: int):
     chunk.save()
 
     audio_output_path = os.path.join(
-        settings.MEDIA_ROOT, f"audio_chunks/video_{chunk.video.pk}_chunk_{video_chunk_id}.mp3"
+        settings.MEDIA_ROOT,
+        f"audio_chunks/video_{chunk.video.pk}_chunk_{video_chunk_id}.mp3",
     )
     audio_duration = None
 
@@ -248,7 +253,8 @@ def generate_chunk_video(video_chunk_id: int):
 
             # Save the video locally
             video_path = os.path.join(
-                settings.MEDIA_ROOT, f"video_chunks/video_{chunk.video.pk}_chunk_{video_chunk_id}.mp4"
+                settings.MEDIA_ROOT,
+                f"video_chunks/video_{chunk.video.pk}_chunk_{video_chunk_id}.mp4",
             )
             with open(video_path, "wb") as f:
                 f.write(video_response.content)
@@ -273,19 +279,20 @@ def generate_chunk_video(video_chunk_id: int):
 
         # Save the final video
         final_video_path = os.path.join(
-            settings.MEDIA_ROOT, f"final_videos/video_{chunk.video.pk}_chunk_{video_chunk_id}.mp4"
+            settings.MEDIA_ROOT,
+            f"final_videos/video_{chunk.video.pk}_chunk_{video_chunk_id}.mp4",
         )
         final_video.write_videofile(final_video_path, codec="libx264")
 
         # Update status to COMPLETED
         chunk.status = "COMPLETED"
-        chunk.chunk_file = final_video_path 
+        chunk.chunk_file = final_video_path
         chunk.save()
 
         if not VideoChunk.objects.filter(
             video=chunk.video, status__in=["PROCESSING", "PENDING"]
         ).exists():
-            chunk.video.concatenate()  
+            chunk.video.concatenate()
 
     except Exception as e:
         # Update status to FAILED in case of an error
@@ -301,3 +308,21 @@ def generate_chunk_video(video_chunk_id: int):
         # # Remove the audio file after use
         # if os.path.exists(audio_output_path):
         #     os.remove(audio_output_path)
+
+
+# This should return the path to the generated file
+def create_html_file_from_string(html_string, output_file):
+    with open(output_file, "w") as f:
+        f.write(html_string)
+
+    return output_file
+
+
+def document_convertion(source_text: str, from_type="html", to_type="docx"):
+    input_file_path = f"{uuid.uuid4()}.{from_type}"
+    output_file_path = f"{uuid.uuid4()}.{to_type}"
+    create_html_file_from_string(source_text, input_file_path)
+
+    convert_html_to_docx(input_file_path, output_file_path)
+
+    return input_file_path, output_file_path 

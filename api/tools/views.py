@@ -13,11 +13,12 @@ from .serializers import TranscriptionJobSerializer, VideoSerializer
 import os
 from django.core.files import File
 from api.authenticate.decorators.token_required import token_required
-from .actions import fetch_videos
+from .actions import fetch_videos, document_convertion
 from api.utils.openai_functions import generate_image
 from api.messaging.models import Message
 from api.utils.color_printer import printer
 from api.utils.openai_functions import create_completion_openai
+from django.http import HttpResponse
 
 logger = logging.getLogger(__name__)
 
@@ -216,3 +217,47 @@ class PromptNodeView(View):
             system_prompt=system_prompt, user_message=user_message, model=model
         )
         return JsonResponse({"response": response})
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class DocumentGeneratorView(View):
+    def post(self, request):
+        data = json.loads(request.body)
+        source_text = data.get("source_text")
+        from_type = data.get("from_type")
+        to_type = data.get("to_type")
+        input_document_created_path, output_filepath = document_convertion(
+            source_text, from_type, to_type
+        )
+        # delete the created input document
+        os.remove(input_document_created_path)
+        return JsonResponse({"output_filepath": output_filepath})
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+# @method_decorator(token_required, name="dispatch")
+class DownloadFile(View):
+    def get(self, request, file_path):
+        full_path = file_path
+        # Validate the file path to prevent directory traversal attacks
+        # safe_base = os.path.join('your/safe/directory', '')  # Set a safe base directory
+        # full_path = os.path.join(safe_base, file_path)
+
+        # if not full_path.startswith(safe_base):
+        #     return JsonResponse({"error": "Invalid file path"}, status=400)
+
+        # # Check if the file exists
+        # if not os.path.exists(full_path):
+        #     return JsonResponse({"error": "File not found"}, status=404)
+
+        # # Open the file and prepare the response
+        with open(full_path, "rb") as file:
+            response = HttpResponse(
+                file.read(), content_type="application/octet-stream"
+            )
+            response["Content-Disposition"] = (
+                f'attachment; filename="{os.path.basename(full_path)}"'
+            )
+
+        return response

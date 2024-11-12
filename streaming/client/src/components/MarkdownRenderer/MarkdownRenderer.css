@@ -44,13 +44,7 @@
   position: absolute;
   top: 5px;
   right: 5px;
-  background: #44444472;
-  color: #fff;
   border: none;
-  padding: 5px;
   cursor: pointer;
 }
 
-.copy-btn:hover {
-  background-color: var(--active-color);
-}

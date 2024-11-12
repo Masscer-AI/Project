@@ -5,6 +5,8 @@ from .views import (
     MediaView,
     ImageGenerationView,
     PromptNodeView,
+    DocumentGeneratorView,
+    DownloadFile,
 )
 
 app_name = "tools"
@@ -15,4 +17,12 @@ urlpatterns = [
     path("media/", MediaView.as_view(), name="get_media"),
     path("generate_image/", ImageGenerationView.as_view(), name="generate_image"),
     path("prompt_node/", PromptNodeView.as_view(), name="prompt_node"),
+    path(
+        "generate_document/", DocumentGeneratorView.as_view(), name="generate_document"
+    ),
+    path(
+        "download/<path:file_path>/",
+        DownloadFile.as_view(),
+        name="download_file",
+    ),
 ]
