@@ -101,5 +101,6 @@
     "copy": "Copia",
     "copied-to-clipboard": "Copiato negli appunti",
     "open-link": "Apri link",
-    "inspect-content": "Ispeziona contenuto"
+    "inspect-content": "Ispeziona contenuto",
+    "max-memory-messages": "Messaggi massimi in memoria"
 }

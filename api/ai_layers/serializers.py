@@ -31,6 +31,7 @@ class AgentSerializer(serializers.ModelSerializer):
             "presence_penalty",
             "frequency_penalty",
             "top_p",
+            "profile_picture_url",
             "max_tokens",
             "temperature",
             "llm", 

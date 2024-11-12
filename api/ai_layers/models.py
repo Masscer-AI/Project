@@ -83,11 +83,13 @@ class Agent(models.Model):
     presence_penalty = models.FloatField(
         validators=[MinValueValidator(-2.00), MaxValueValidator(2.00)], default=0
     )
+    profile_picture_url = models.URLField(null=True, blank=True, max_length=500)
 
     def __str__(self):
         return self.name
 
     def save(self, *args, **kwargs):
+        from .tasks import async_generate_agent_profile_picture
         if not self.slug:
             self.slug = slugify(self.name)
 
@@ -95,6 +97,9 @@ class Agent(models.Model):
             llm = LanguageModel.objects.get(slug=self.model_slug)
             self.llm = llm
 
+        if not self.profile_picture_url:
+            async_generate_agent_profile_picture.delay(self.id)
+            
         super().save(*args, **kwargs)
 
     def format_prompt(self, context: str = ""):
@@ -148,3 +153,7 @@ class Agent(models.Model):
         )
 
         return extract_rag_results({"results": results}, context)
+    
+    # def generate_profile_picture(self):
+        
+        

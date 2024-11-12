@@ -185,7 +185,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         />
       </section>
       <section className="mt-small">
-        <div className="flex-x">
+        <div className="flex-x gap-small">
           <SvgButton
             title={t("send-message")}
             onClick={handleSendMessage}
@@ -222,6 +222,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           />
 
           <SpeechHandler onTranscript={handleAudioTranscript} />
+          <ConversationConfig hide={() => {}} />
         </div>
       </section>
     </div>
@@ -319,5 +320,41 @@ const RagConfig = ({ hide }: { hide: () => void }) => {
         ))}
       </div>
     </Modal>
+  );
+};
+
+const ConversationConfig = ({ hide }: { hide: () => void }) => {
+  const { chatState, updateChatState } = useStore((s) => ({
+    chatState: s.chatState,
+    updateChatState: s.updateChatState,
+  }));
+
+  const { t } = useTranslation();
+
+  const updateMaxMemoryMessages = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.value) {
+      updateChatState({ maxMemoryMessages: parseInt(e.target.value) });
+    }
+  };
+
+  return (
+    <FloatingDropdown
+      bottom="100%"
+      right="0"
+      opener={<SvgButton svg={SVGS.options} />}
+    >
+      <div className="flex-y gap-small">
+        <h3>Conversation</h3>
+        <span>{t("max-memory-messages")}</span>
+        {/* <p className="text-secondary">{t("max-memory-messages-description")}</p> */}
+        <input
+          type="number"
+          className="input padding-small"
+          value={chatState.maxMemoryMessages}
+          onChange={updateMaxMemoryMessages}
+          min={0}
+        />
+      </div>
+    </FloatingDropdown>
   );
 };

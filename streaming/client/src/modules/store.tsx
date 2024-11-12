@@ -20,7 +20,6 @@ export const useStore = create<Store>()((set, get) => ({
   messages: [],
   modelsAndAgents: [],
   input: "",
-  model: { name: "gpt-4o", provider: "openai", slug: "gpt-4o", selected: true },
   models: [],
   user: undefined,
   agents: [],
@@ -30,6 +29,7 @@ export const useStore = create<Store>()((set, get) => ({
     webSearch: false,
     writtingMode: false,
     useRag: false,
+    maxMemoryMessages: 10,
   },
   conversation: undefined,
   openedModals: [],
@@ -68,7 +68,6 @@ export const useStore = create<Store>()((set, get) => ({
   },
   setMessages: (messages) => set({ messages }),
   setInput: (input) => set({ input }),
-  setModel: (model) => set({ model }),
   setModels: (models) => set({ models }),
   addAttachment: async (newAttachment, saved = false) => {
     const { agents } = get();
@@ -128,7 +127,7 @@ export const useStore = create<Store>()((set, get) => ({
     try {
       const r = await uploadDocument(formData);
       console.log(r, "RESPONSE FROM UPLOADING DOCUMENT");
-      
+
       newAttachment.id = r.id;
       newAttachment.text = r.text;
       toast.dismiss(loadingID);
@@ -281,6 +280,15 @@ export const useStore = create<Store>()((set, get) => ({
       agents: state.agents.filter((a) => a.slug !== slug),
     }));
     deleteAgent(slug);
+  },
+  // This must update partial the chatState
+  updateChatState: (partial) => {
+    set((state) => ({
+      chatState: {
+        ...state.chatState,
+        ...partial,
+      },
+    }));
   },
   test: () => {
     const { socket } = get();

@@ -16,7 +16,6 @@ export type Store = {
   socket: any;
   messages: Message[];
   input: string;
-  model: Model;
   models: Model[];
   agents: TAgent[];
   user?: TUserData;
@@ -27,6 +26,7 @@ export type Store = {
     webSearch: boolean;
     writtingMode: boolean;
     useRag: boolean;
+    maxMemoryMessages: number;
   };
   conversation: TConversationData | undefined;
   openedModals: string[];
@@ -44,7 +44,6 @@ export type Store = {
     newAttachment: Partial<TAttachment>
   ) => void;
   setInput: (input: string) => void;
-  setModel: (model: Model) => void;
   setModels: (models: Model[]) => void;
   fetchAgents: () => void;
   toggleSidebar: () => void;
@@ -56,5 +55,6 @@ export type Store = {
   toggleAgentSelected: (slug: string) => void;
   setUser: (user: TUserData) => void;
   addAgent: () => void;
+  updateChatState: (state: Partial<Store["chatState"]>) => void;
   test: () => void;
 };

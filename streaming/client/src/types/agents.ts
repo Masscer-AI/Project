@@ -26,6 +26,7 @@ export type TAgent = {
   model_slug?: string;
   presence_penalty?: number | null;
   salute?: string;
+  profile_picture_url?: string;
   system_prompt: string;
   temperature: number;
   top_p?: number;

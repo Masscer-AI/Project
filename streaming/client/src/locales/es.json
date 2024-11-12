@@ -110,5 +110,7 @@
     "sure": "Seguro",
     "configure": "Configurar",
     "no-organizations-message": "No tienes organizaciones. Crea una para empezar a trabajar con tus compañeros. Entrenar modelos de forma colaboriva y más.",
-    "write-detailed-prompt": "Escribe un prompt detallado"
+    "write-detailed-prompt": "Escribe un prompt detallado",
+    "max-memory-messages": "Máximo de mensajes en memoria",
+    "max-memory-messages-description": "El número máximo de mensajes que se pasará como contexto para los agentes en conversación actual. Los mensajes más antiguos se eliminarán automáticamente. Por defecto: 10."
 }

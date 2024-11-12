@@ -1,4 +1,6 @@
+from api.utils.openai_functions import generate_image, create_completion_openai
 from .models import Agent
+from api.utils.color_printer import printer
 
 # MANDATORY_MODELS = ["llama3.2:1b", "qwen2.5:0.5b"]
 MANDATORY_MODELS = ["llama3.2:1b"]
@@ -95,3 +97,36 @@ def answer_agent_inquiry(agent_slug: str, context: str, user_message: str):
     agent = Agent.objects.get(slug=agent_slug)
     answer = agent.answer(context=context, user_message=user_message)
     return answer
+
+
+def generate_agent_profile_picture(agent_id: int):
+    """
+    Generate a profile picture for the agent
+    """
+    printer.blue(f"Generating profile picture for agent with id {agent_id}")
+    agent = Agent.objects.get(id=agent_id)
+    # agent.generate_profile_picture()
+    # return agent.profile_picture_url
+    prompt = agent.format_prompt(context="This is a test prompt")
+
+    _system = f"""You are an artist, designer and web developer. Your task is to provide the description of an antropomorphic representation of an AI Agent based in the system prompt of that AI Agent.
+    
+    This is the system prompt of the AI agent:
+    ---
+    {prompt}
+    ---
+
+    Based on the description above, generate a  60 words (max) description of a movie characters representing the AI agent in a frontal view to the camera in an artistical way.
+    """
+
+    prompt = create_completion_openai(
+        system_prompt=_system,
+        user_message="",
+        model="gpt-4o-mini",
+    )
+
+    image_url = generate_image(prompt, model="dall-e-3", size="1024x1024")
+    agent.profile_picture_url = image_url
+    agent.save()
+    printer.cyan(f"Profile picture generated for agent {agent.name}")
+    return image_url

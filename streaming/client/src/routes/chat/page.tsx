@@ -10,23 +10,18 @@ import { useStore } from "../../modules/store";
 import { TChatLoader, TMessage } from "../../types/chatTypes";
 import { ChatHeader } from "../../components/ChatHeader/ChatHeader";
 import toast from "react-hot-toast";
-import { createAudioPlayer, playAudioFromBytes } from "../../modules/utils";
 
 import { generateImage, updateConversation } from "../../modules/apiCalls";
 import { useTranslation } from "react-i18next";
 import { TVersion } from "../../types";
 import { updateLastMessagesIds, updateMessages } from "./helpers";
-import { SvgButton } from "../../components/SvgButton/SvgButton";
 
 export default function ChatView() {
   const loaderData = useLoaderData() as TChatLoader;
-
-  const token = localStorage.getItem("token");
   const {
     chatState,
     input,
     setInput,
-    model,
     conversation,
     cleanAttachments,
     socket,
@@ -39,7 +34,6 @@ export default function ChatView() {
     toggleSidebar: state.toggleSidebar,
     input: state.input,
     setInput: state.setInput,
-    model: state.model,
     conversation: state.conversation,
     cleanAttachments: state.cleanAttachments,
     modelsAndAgents: state.modelsAndAgents,
@@ -80,7 +74,6 @@ export default function ChatView() {
 
     return () => {
       socket.off("response");
-      // socket.off("audio-file");
       socket.off("responseFinished");
       socket.off("notification");
       socket.off("sources");
@@ -117,13 +110,17 @@ export default function ChatView() {
     };
     setMessages([...messages, userMessage, assistantMessage]);
 
+    const memoryMessages = [...messages]
+      .reverse()
+      .slice(0, chatState.maxMemoryMessages)
+      .reverse();
+
     try {
       const token = localStorage.getItem("token");
 
       socket.emit("message", {
         message: userMessage,
-        context: messages,
-        model: model,
+        context: memoryMessages,
         token: token,
         models_to_complete: selectedAgents,
         conversation: conversation ? conversation : loaderData.conversation,
@@ -151,7 +148,6 @@ export default function ChatView() {
       socket.emit("message", {
         message: userMessage,
         context: context,
-        model: model,
         token: token,
         models_to_complete: selectedAgents,
         conversation: conversation ? conversation : loaderData.conversation,
@@ -165,40 +161,6 @@ export default function ChatView() {
       cleanAttachments();
     } catch (error) {
       console.error("Error sending message:", error);
-    }
-  };
-
-  const handleGenerateImage = async (text, message_id) => {
-    try {
-      const messageIndex = messages.findIndex((m) => m.id === message_id);
-      if (messageIndex === -1) return;
-      toast.loading(t("generating-image"));
-
-      const response = await generateImage(text, message_id);
-
-      toast.dismiss();
-      const imageUrl = response.image_url;
-
-      setMessages((prevMessages) => {
-        const copyMessages = [...prevMessages];
-        copyMessages[messageIndex].attachments = [
-          ...(copyMessages[messageIndex].attachments || []),
-          {
-            type: "image",
-            content: imageUrl,
-            name: "Generated image",
-            file: null,
-            text: "",
-          },
-        ];
-        return copyMessages;
-      });
-      toast.success(t("image-generated"));
-    } catch (error) {
-      toast.dismiss();
-      console.error("Error generating image:", error);
-
-      toast.error(t("error-generating-image") + error.response.data.error);
     }
   };
 

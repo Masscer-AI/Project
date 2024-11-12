@@ -117,7 +117,7 @@ const OrganizationManager = () => {
 
   return (
     <div>
-      <h2>Organization Credentials</h2>
+      <h2>Organization</h2>
       <p>Here you can manage your organization</p>
       {orgs.length === 0 && <p>{t("no-organizations-message")}</p>}
       {orgs.map((org) => (

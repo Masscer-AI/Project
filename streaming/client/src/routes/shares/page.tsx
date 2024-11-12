@@ -23,7 +23,6 @@ export default function ChatView() {
     chatState,
     input,
     setInput,
-    model,
     conversation,
     cleanAttachments,
     socket,
@@ -36,7 +35,6 @@ export default function ChatView() {
     toggleSidebar: state.toggleSidebar,
     input: state.input,
     setInput: state.setInput,
-    model: state.model,
     conversation: state.conversation,
     cleanAttachments: state.cleanAttachments,
     modelsAndAgents: state.modelsAndAgents,
@@ -116,7 +114,6 @@ export default function ChatView() {
       socket.emit("message", {
         message: userMessage,
         context: messages,
-        model: model,
         token: token,
         models_to_complete: selectedAgents,
         conversation: loaderData,
@@ -144,7 +141,6 @@ export default function ChatView() {
       socket.emit("message", {
         message: userMessage,
         context: context,
-        model: model,
         token: token,
         models_to_complete: selectedAgents,
         conversation: conversation ? conversation : loaderData.conversation,
@@ -161,37 +157,24 @@ export default function ChatView() {
     }
   };
 
-  const handleGenerateImage = async (text, message_id) => {
-    try {
-      const messageIndex = messages.findIndex((m) => m.id === message_id);
-      if (messageIndex === -1) return;
-      toast.loading(t("generating-image"));
+  const onImageGenerated = (imageUrl: string, message_id: number) => {
+    setMessages((prevMessages) => {
+      const messageIndex = prevMessages.findIndex((m) => m.id === message_id);
+      if (messageIndex === -1) return prevMessages;
 
-      const response = await generateImage(text, message_id);
-
-      toast.dismiss();
-      const imageUrl = response.image_url;
-
-      setMessages((prevMessages) => {
-        const copyMessages = [...prevMessages];
-        copyMessages[messageIndex].attachments = [
-          ...(copyMessages[messageIndex].attachments || []),
-          {
-            type: "image",
-            content: imageUrl,
-            name: "Generated image",
-            file: null,
-          },
-        ];
-        return copyMessages;
-      });
-      toast.success(t("image-generated"));
-    } catch (error) {
-      toast.dismiss();
-      console.error("Error generating image:", error);
-
-      toast.error(t("error-generating-image") + error.response.data.error);
-    }
+      const copyMessages = [...prevMessages];
+      copyMessages[messageIndex].attachments = [
+        ...(copyMessages[messageIndex].attachments || []),
+        {
+          type: "image",
+          content: imageUrl,
+          name: "Generated image",
+          file: null,
+          text: "",
+        },
+      ];
+      return copyMessages;
+    });
   };
 
   const handleKeyDown = (event) => {
@@ -266,7 +249,7 @@ export default function ChatView() {
                   key={index}
                   index={index}
                   // onGenerateSpeech={handleGenerateSpeech}
-                  onGenerateImage={handleGenerateImage}
+                  onImageGenerated={onImageGenerated}
                   onMessageEdit={onMessageEdit}
                 />
               ))}

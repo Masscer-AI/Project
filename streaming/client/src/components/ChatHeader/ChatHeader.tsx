@@ -131,10 +131,11 @@ type TAgentConfigProps = {
 };
 
 const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
+  // console.log(, "agent");
+
   const { models, removeAgent } = useStore((state) => ({
     models: state.models,
     removeAgent: state.removeAgent,
-    
   }));
 
   const { t } = useTranslation();
@@ -194,11 +195,31 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
     onDelete();
   };
 
+  const onTriggerGenerateImage = () => {
+    toast.loading(t("generating-image"));
+  }
+
   return (
     <div>
       <h3>
         {t("configure")} {formState.name}
       </h3>
+      {agent.profile_picture_url && (
+        <div className="d-flex justify-center padding-small align-center gap-big flex-y">
+          <img
+            width={"200"}
+            height={"200"}
+            style={{
+              aspectRatio: 1,
+              borderRadius: "50%",
+            }}
+            src={agent.profile_picture_url}
+            alt={agent.name}
+          />
+          {/* <SvgButton onClick={onTriggerGenerateImage} extraClass="bg-active" text={t("generate-image")} /> */}
+        </div>
+      )}
+
       <form onSubmit={onSubmit} className="form">
         <label>
           <span>{t("name")}</span>
