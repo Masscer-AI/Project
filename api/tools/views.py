@@ -173,8 +173,10 @@ class ImageGenerationView(View):
             data = json.loads(request.body)
             prompt = data.get("prompt")
             message_id = data.get("message_id")
+            size = data.get("size")
+            model = data.get("model")
 
-            image_url = generate_image(prompt=prompt)
+            image_url = generate_image(prompt=prompt, model=model, size=size)
             image_response = requests.get(image_url)
             image_content = image_response.content
 

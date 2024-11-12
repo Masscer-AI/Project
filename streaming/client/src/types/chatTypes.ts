@@ -1,4 +1,4 @@
-import { TAttachment } from "../types";
+import { TAttachment, TVersion } from "../types";
 
 export type TConversationData = {
   title: string;
@@ -21,11 +21,7 @@ export type TMessage = {
   text: string;
   attachments: TAttachment[];
   agent_slug?: string;
-  versions?: {
-    text: string;
-    type: string;
-    agent_slug: string;
-  }[];
+  versions?: TVersion[];
 };
 
 export type TReactionTemplate = {

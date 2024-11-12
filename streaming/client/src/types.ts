@@ -57,3 +57,9 @@ export type TVersion = {
   web_search_results?: TWebSearchResult[];
   sources?: TSource[];
 };
+
+export type TOrganization = {
+  id: number;
+  name: string;
+  description: string;
+};

@@ -18,7 +18,6 @@
     "sure-this-action-cannot-be-undone-click-again-to-confirm": "¿Seguro? Esta acción no se puede deshacer. Haz clic de nuevo para confirmar.",
     "save": "Guardar",
     "delete": "Eliminar",
-  
     "name": "Nombre",
     "slug": "Slug",
     "model": "Modelo",
@@ -109,5 +108,7 @@
     "chunks-mode-help-text": "En el modo de fragmentos, la IA recibirá una **cantidad n** de fragmentos del documento dependiendo de la consulta del usuario.",
     "all-content-mode-help-text": "En el modo de **todo el contenido posible**, la IA recibirá todo el texto posible del documento dependiendo de los tokens de prompt disponibles para la siguiente iteración.",
     "sure": "Seguro",
-    "configure": "Configurar"
+    "configure": "Configurar",
+    "no-organizations-message": "No tienes organizaciones. Crea una para empezar a trabajar con tus compañeros. Entrenar modelos de forma colaboriva y más.",
+    "write-detailed-prompt": "Escribe un prompt detallado"
 }

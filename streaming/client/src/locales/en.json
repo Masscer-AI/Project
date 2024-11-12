@@ -109,5 +109,7 @@
     "similar-chunks": "Similar chunks",
     "chunks": "Chunks",
     "chunks-mode-help-text": "In chunks mode, the AI will receive a **n quantity** of chunks from the document depending of the user query.",
-    "all-content-mode-help-text": "In **all content** mode, the AI will receive all the possible text from the document depending of the available prompt tokens for the next iteration."
+    "all-content-mode-help-text": "In **all content** mode, the AI will receive all the possible text from the document depending of the available prompt tokens for the next iteration.",
+    "no-organizations-message": "You don't have any organizations yet. Create one to share conversations with your team, creating training AI models collaboratively and more.",
+    "write-detailed-prompt": "Write a detailed prompt"
 }

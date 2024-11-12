@@ -1,10 +1,12 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Modal } from "../Modal/Modal";
 import { useStore } from "../../modules/store";
 import { useTranslation } from "react-i18next";
 import { LanguageSelector } from "../LanguageSelector/LanguageSelector";
 import { SvgButton } from "../SvgButton/SvgButton";
 import { SVGS } from "../../assets/svgs";
+import { getUserOrganizations } from "../../modules/apiCalls";
+import { TOrganization } from "../../types";
 
 export const Settings = () => {
   const { setOpenedModals } = useStore((s) => ({
@@ -17,7 +19,7 @@ export const Settings = () => {
       name: "General",
       component: (
         <div>
-          <div></div>
+          <h2>General</h2>
           <p>{t("settings-description")}</p>
           <LanguageSelector />
         </div>
@@ -26,9 +28,23 @@ export const Settings = () => {
     },
     {
       name: "Appearance",
-      component: <div>Appearance</div>,
+      component: (
+        <div>
+          <h2>Appeareance</h2>
+        </div>
+      ),
       svg: SVGS.appearance,
     },
+    {
+      name: "Organization",
+      component: <OrganizationManager />,
+      svg: SVGS.organization,
+    },
+    // {
+    //   name: "Organization",
+    //   component: <OrganizationManager />,
+    //   svg: SVGS.organization
+    // },
     // {
     //   name: "Notifications",
     //   component: <div className="d-flex padding-big">Notifications</div>,
@@ -48,9 +64,9 @@ export const Settings = () => {
       minHeight={"80vh"}
       hide={() => setOpenedModals({ action: "remove", name: "settings" })}
     >
-      <h1 className="d-flex rounded gap-big align-top justify-center padding-small">
+      <h2 className="d-flex rounded gap-big align-top justify-center padding-big">
         {t("settings")}
-      </h1>
+      </h2>
 
       <Menu options={menuOptions} />
     </Modal>
@@ -85,3 +101,32 @@ const LabeledButton = ({ label, onClick, svg }) => {
     </div>
   );
 };
+
+const OrganizationManager = () => {
+  const { t } = useTranslation();
+  const [orgs, setOrgs] = React.useState([] as TOrganization[]);
+
+  useEffect(() => {
+    getOrgs();
+  }, []);
+
+  const getOrgs = async () => {
+    const orgs = await getUserOrganizations();
+    setOrgs(orgs);
+  };
+
+  return (
+    <div>
+      <h2>Organization Credentials</h2>
+      <p>Here you can manage your organization</p>
+      {orgs.length === 0 && <p>{t("no-organizations-message")}</p>}
+      {orgs.map((org) => (
+        <div key={org.id}>
+          <h3>{org.name}</h3>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const WhatsappConfig = () => {};

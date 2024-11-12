@@ -197,7 +197,7 @@ class PublishableToken(models.Model):
 class Organization(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=255)
-    slug = models.SlugField(max_length=255, unique=True)
+    # slug = models.SlugField(max_length=255, unique=True)
     description = models.TextField(null=True, blank=True)
     owner = models.ForeignKey(User, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -212,3 +212,19 @@ class OrganizationMember(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+
+
+class CredentialsManager(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
+    openai_api_key = models.CharField(max_length=255,null=True, blank=True)
+    brave_api_key = models.CharField(max_length=255, null=True, blank=True)
+    anthropic_api_key = models.CharField(max_length=255, null=True, blank=True)
+    pexels_api_key = models.CharField(max_length=255, null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.name

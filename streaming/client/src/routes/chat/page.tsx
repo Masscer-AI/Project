@@ -202,6 +202,26 @@ export default function ChatView() {
     }
   };
 
+  const onImageGenerated = (imageUrl: string, message_id: number) => {
+    setMessages((prevMessages) => {
+      const messageIndex = prevMessages.findIndex((m) => m.id === message_id);
+      if (messageIndex === -1) return prevMessages;
+
+      const copyMessages = [...prevMessages];
+      copyMessages[messageIndex].attachments = [
+        ...(copyMessages[messageIndex].attachments || []),
+        {
+          type: "image",
+          content: imageUrl,
+          name: "Generated image",
+          file: null,
+          text: "",
+        },
+      ];
+      return copyMessages;
+    });
+  };
+
   const handleKeyDown = (event) => {
     if (event.key === "Enter" && event.shiftKey) {
       setInput(event.target.value);
@@ -268,8 +288,7 @@ export default function ChatView() {
                   {...msg}
                   key={index}
                   index={index}
-                  // onGenerateSpeech={handleGenerateSpeech}
-                  onGenerateImage={handleGenerateImage}
+                  onImageGenerated={onImageGenerated}
                   onMessageEdit={onMessageEdit}
                 />
               ))}

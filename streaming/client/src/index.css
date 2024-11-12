@@ -699,15 +699,14 @@ input:checked + .slider::before {
   gap: 10px;
 }
 .menu > .menu-sidebar {
-  /* background-color: var(--bg-color); */
   background-color: rgba(67, 66, 66, 0.508);
   height: fit-content;
   text-align: center;
   display: flex;
-  height: fit-content;
   flex-direction: column;
   justify-content: center;
   align-content: center;
+  margin-top: 8px;
   border-radius: var(--standard-radius);
 }
 .labeled-button {
@@ -735,4 +734,3 @@ input:checked + .slider::before {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-

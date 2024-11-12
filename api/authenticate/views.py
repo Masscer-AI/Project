@@ -1,15 +1,18 @@
 from rest_framework.views import APIView
+import json
 from rest_framework.response import Response
 from rest_framework import status
+from django.http import JsonResponse
 from django.contrib.auth import authenticate, login
-from .serializers import SignupSerializer, LoginSerializer, UserSerializer
-from .models import Token  # Make sure to import your Token model
-from rest_framework.permissions import AllowAny  # Import AllowAny
+from .serializers import SignupSerializer, LoginSerializer, UserSerializer, OrganizationSerializer
+from .models import Token, Organization  
+from rest_framework.permissions import AllowAny  
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from api.authenticate.decorators.token_required import token_required
 from django.contrib.auth.models import User
-
+from django.views import View
+from .decorators.token_required import token_required
 
 @method_decorator(csrf_exempt, name="dispatch")
 class SignupAPIView(APIView):
@@ -62,8 +65,29 @@ class LoginAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+@method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class UserView(APIView):
     def get(self, request, *args, **kwargs):
         serializer = UserSerializer(request.user)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class OrganizationView(View):
+    def get(self, request):
+        organizations = Organization.objects.filter(owner=request.user)
+        serializer = OrganizationSerializer(organizations, many=True)
+        return JsonResponse(serializer.data, safe=False)
+
+    def post(self, request):
+        data = json.loads(request.body)
+        serializer = OrganizationSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(
+                {"message": "Organization created successfully"}, status=status.HTTP_201_CREATED
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

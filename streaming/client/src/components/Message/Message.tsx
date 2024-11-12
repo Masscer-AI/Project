@@ -32,7 +32,8 @@ interface MessageProps {
   index: number;
   versions?: TVersion[];
   attachments: TAttachment[];
-  onGenerateImage: (text: string, message_id: number) => void;
+  // onGenerateImage: (text: string, message_id: number) => void;
+  onImageGenerated: (imageUrl: string, message_id: number) => void;
   onMessageEdit: (index: number, text: string, versions?: TVersion[]) => void;
   reactions?: TReaction[];
 }
@@ -45,8 +46,8 @@ export const Message: React.FC<MessageProps> = ({
   versions,
   reactions,
   attachments,
-  // onGenerateSpeech,
-  onGenerateImage,
+  onImageGenerated,
+  // onGenerateImage,
   onMessageEdit,
 }) => {
   const [sources, setSources] = useState([] as Link[]);
@@ -274,6 +275,8 @@ export const Message: React.FC<MessageProps> = ({
             />
             {messageState.imageGeneratorOpened && (
               <ImageGenerator
+                onResult={(imageUrl) => onImageGenerated(imageUrl, id)}
+                messageId={id}
                 hide={() =>
                   setMessageState((prev) => ({
                     ...prev,

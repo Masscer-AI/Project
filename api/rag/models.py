@@ -108,6 +108,7 @@ class Document(models.Model):
         return f"Document(name={self.name},id={self.id})"
 
     def get_representation(self):
+        
         return f"DOCUMENT(name={self.name}, id={self.id})"
 
     def create_chunks(self):

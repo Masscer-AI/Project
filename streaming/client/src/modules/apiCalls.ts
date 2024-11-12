@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import axios, { AxiosRequestConfig, Method } from "axios";
 import { API_URL, PUBLIC_TOKEN } from "./constants";
-import { TCompletion, TConversation } from "../types";
+import { TCompletion, TConversation, TOrganization } from "../types";
 import { TReactionTemplate } from "../types/chatTypes";
 
 const getToken = (isPublic: boolean) => {
@@ -402,11 +402,15 @@ type TGenerateImageResponse = {
 };
 export const generateImage = async (
   prompt: string,
-  message_id: string
+  message_id: number,
+  size: string = "1024x1024",
+  model: string = "dall-e-3"
 ): Promise<TGenerateImageResponse> => {
   return makeAuthenticatedRequest("POST", "/v1/tools/generate_image/", {
     prompt,
     message_id,
+    size,
+    model,
   });
 };
 
@@ -450,5 +454,12 @@ export const getSharedConversation = async (id: string) => {
     "GET",
     `/v1/messaging/shared-conversations/${id}/`,
     true
+  );
+};
+
+export const getUserOrganizations = async () => {
+  return makeAuthenticatedRequest<TOrganization[]>(
+    "GET",
+    "/v1/auth/organizations/"
   );
 };
