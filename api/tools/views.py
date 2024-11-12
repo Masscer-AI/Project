@@ -260,4 +260,6 @@ class DownloadFile(View):
                 f'attachment; filename="{os.path.basename(full_path)}"'
             )
 
+        # delete the file after download
+        os.remove(full_path)
         return response
