@@ -7,6 +7,7 @@ import toast from "react-hot-toast";
 import "./MarkdownRenderer.css";
 import { debounce } from "../../modules/utils";
 import { downloadFile, generateDocument } from "../../modules/apiCalls";
+import { useTranslation } from "react-i18next";
 
 const DEBOUNCE_TIME = 180;
 
@@ -23,6 +24,8 @@ const MarkdownRenderer = ({
   markdown: string;
   extraClass?: string;
 }) => {
+  const { t } = useTranslation();
+
   const highlightCodeBlocks = useCallback(
     debounce(() => {
       document.querySelectorAll("pre code").forEach((block) => {
@@ -46,14 +49,15 @@ const MarkdownRenderer = ({
 
           // Create the Copy button
           const button = document.createElement("button");
-          button.className = " clickeable rounded padding-small bg-hovered active-on-hover";
-          button.textContent = "Copy";
+          button.className =
+            " clickeable rounded padding-small bg-hovered active-on-hover";
+          button.textContent = t("copy");
 
           // Create the Transform button
           const transformButton = document.createElement("button");
           transformButton.className =
             "clickeable rounded padding-small bg-hovered active-on-hover";
-          transformButton.textContent = "Transform to docx";
+          transformButton.textContent = t("transform-to-docx");
 
           // Append buttons to the container
           buttonContainer.appendChild(button);
@@ -88,21 +92,21 @@ const MarkdownRenderer = ({
             }
 
             if (code) {
-              const res = await generateDocument({
-                source_text: code,
-                from_type: input_format,
-                to_type: "docx",
-              });
-
-              console.log(res);
-              // @ts-ignore
-              console.log(res.output_filepath);
-
-              // @ts-ignore
-              await downloadFile(res.output_filepath);
-
-              // navigator.clipboard.writeText(code);
-              toast.success("Document being generated");
+              const tid = toast.loading(t("generating-document"));
+              try {
+                const res = await generateDocument({
+                  source_text: code,
+                  from_type: input_format,
+                  to_type: "docx",
+                });
+                // @ts-ignore
+                await downloadFile(res.output_filepath);
+                toast.dismiss(tid);
+                toast.success(t("document-generated"));
+              } catch (e) {
+                toast.dismiss(tid);
+                toast.error(t("error-generating-document"));
+              }
             } else {
               toast.error("No code available!");
             }

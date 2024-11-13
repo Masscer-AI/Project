@@ -37,7 +37,7 @@ class Token(rest_framework.authtoken.models.Token):
     replace model one-to-one relationship with foreign key
     """
 
-    key = models.CharField(max_length=40, db_index=True, unique=True)
+    key = models.CharField(max_length=40, db_index=True, unique=True, blank=True)
     # Foreign key relationship to user for many-to-one relationship
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -69,6 +69,9 @@ class Token(rest_framework.authtoken.models.Token):
 
         if self.token_type == "one_time" or self.token_type == "permanent":
             self.expires_at = None
+
+        if not self.key:
+            self.key = self.generate_key()
 
         super().save(*args, **kwargs)
 
@@ -154,6 +157,9 @@ class Token(rest_framework.authtoken.models.Token):
         # ensure user and name are unique
         unique_together = (("user", "key"),)
 
+    def generate_key(self):
+        return uuid.uuid4().hex
+
 
 class PublishableToken(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -206,6 +212,7 @@ class Organization(models.Model):
     def __str__(self):
         return self.name
 
+
 class OrganizationMember(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
@@ -214,11 +221,10 @@ class OrganizationMember(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
 
-
 class CredentialsManager(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
-    openai_api_key = models.CharField(max_length=255,null=True, blank=True)
+    openai_api_key = models.CharField(max_length=255, null=True, blank=True)
     brave_api_key = models.CharField(max_length=255, null=True, blank=True)
     anthropic_api_key = models.CharField(max_length=255, null=True, blank=True)
     pexels_api_key = models.CharField(max_length=255, null=True, blank=True)

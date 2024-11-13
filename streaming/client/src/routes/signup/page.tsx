@@ -49,7 +49,7 @@ export default function Signup() {
               onChange={(e) => setUsername(e.target.value)}
               required
               name="username"
-              className="simple-form-input"
+              className="simple-form-input padding-medium"
               autoComplete="username"
               placeholder="Username"
             />
@@ -61,7 +61,7 @@ export default function Signup() {
               onChange={(e) => setEmail(e.target.value)}
               required
               name="email"
-              className="simple-form-input"
+              className="simple-form-input padding-medium"
               placeholder="Email"
               autoComplete="email"
             />
@@ -73,16 +73,16 @@ export default function Signup() {
               onChange={(e) => setPassword(e.target.value)}
               required
               name="password"
-              className="simple-form-input"
+              className="simple-form-input padding-medium"
               autoComplete="current-password"
               placeholder="Password"
             />
           </div>
-          <button type="submit" className="button w-100 bg-active">
+          <button type="submit" className="button w-100 bg-active padding-medium">
             Signup
           </button>
         </form>
-        <button onClick={() => navigate("/login")} className="button w-100">
+        <button onClick={() => navigate("/login")} className="button w-100 padding-medium">
           Switch to Login
         </button>
       </SimpleForm>

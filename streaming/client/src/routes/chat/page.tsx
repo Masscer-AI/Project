@@ -18,6 +18,7 @@ import { updateLastMessagesIds, updateMessages } from "./helpers";
 
 export default function ChatView() {
   const loaderData = useLoaderData() as TChatLoader;
+
   const {
     chatState,
     input,
@@ -47,6 +48,7 @@ export default function ChatView() {
   useEffect(() => {
     setUser(loaderData.user);
     startup();
+    setInput(loaderData.query || "");
   }, []);
 
   const [messages, setMessages] = useState(
@@ -86,6 +88,17 @@ export default function ChatView() {
     setMessages(conversation?.messages);
   }, [conversation]);
 
+  useEffect(() => {
+    if (
+      loaderData.query &&
+      input === loaderData.query &&
+      agents.length > 0 &&
+      messages.length === 0
+    ) {
+      handleSendMessage();
+    }
+  }, [loaderData.query, input, agents]);
+
   const handleSendMessage = async () => {
     if (input.trim() === "") return;
 
@@ -118,6 +131,12 @@ export default function ChatView() {
     try {
       const token = localStorage.getItem("token");
 
+      // @ts-ignore
+      userMessage.agents = selectedAgents.map((a) => ({
+        slug: a.slug,
+        name: a.name,
+      }));
+
       socket.emit("message", {
         message: userMessage,
         context: memoryMessages,
@@ -144,6 +163,10 @@ export default function ChatView() {
       const token = localStorage.getItem("token");
 
       userMessage.attachments = chatState.attachments;
+      userMessage.agents = selectedAgents.map((a) => ({
+        slug: a.slug,
+        name: a.name,
+      }));
 
       socket.emit("message", {
         message: userMessage,

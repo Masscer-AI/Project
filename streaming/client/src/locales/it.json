@@ -102,5 +102,12 @@
     "copied-to-clipboard": "Copiato negli appunti",
     "open-link": "Apri link",
     "inspect-content": "Ispeziona contenuto",
-    "max-memory-messages": "Messaggi massimi in memoria"
+    "max-memory-messages": "Messaggi massimi in memoria",
+    "select-documents-to-use": "Seleziona i documenti da utilizzare",
+    "transform-to-docx": "Trasforma in DOCX",
+    "generating-document": "Generazione documento...",
+    "error-generating-document": "Errore generazione documento",
+    "document-generated": "Documento generato"
+
+
 }

@@ -26,6 +26,7 @@ class MessageSerializer(serializers.ModelSerializer):
 
 class ConversationSerializer(serializers.ModelSerializer):
     number_of_messages = serializers.SerializerMethodField()
+    # related_agents = serializers.SerializerMethodField()
 
     class Meta:
         model = Conversation
@@ -33,11 +34,23 @@ class ConversationSerializer(serializers.ModelSerializer):
 
     def get_number_of_messages(self, obj):
         return obj.messages.count()
+
+    # def get_related_agents(self, obj):
+    #     list_of_agents = []
+
+    #     for m in obj.messages.all():
+    #         if isinstance(m.agents, list):
+    #             list_of_agents.extend(m.agents)
+
+    #     unique_agents = {agent["slug"]: agent["slug"] for agent in list_of_agents}.values()
+
+    #     return list(unique_agents)
 
 
 class BigConversationSerializer(serializers.ModelSerializer):
     messages = MessageSerializer(many=True, read_only=True)
     number_of_messages = serializers.SerializerMethodField()
+    related_agents = serializers.SerializerMethodField()
 
     class Meta:
         model = Conversation
@@ -45,6 +58,10 @@ class BigConversationSerializer(serializers.ModelSerializer):
 
     def get_number_of_messages(self, obj):
         return obj.messages.count()
+
+    def get_related_agents(self, obj):
+        for m in obj.messages.all():
+            return m.versions
 
 
 class SharedConversationSerializer(serializers.ModelSerializer):
@@ -53,4 +70,3 @@ class SharedConversationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Conversation
         fields = "__all__"
-

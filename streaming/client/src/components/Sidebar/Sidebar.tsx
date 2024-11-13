@@ -35,6 +35,7 @@ export const Sidebar: React.FC = () => {
   const [conversationFilter, setConversationFilter] = useState("");
   const [searchParams, setSearchParams] = useSearchParams();
   const [openedSections, setOpenedSections] = useState<string[]>([]);
+  // const [relatedAgents, setRelatedAgents] = useState<string[]>([]);
 
   const navigate = useNavigate();
 
@@ -134,6 +135,16 @@ export const Sidebar: React.FC = () => {
                 value={conversationFilter}
                 onChange={(e) => setConversationFilter(e.target.value)}
               />
+              {/* {relatedAgents.map((agent) => (
+                <Pill
+                  key={agent}
+                  // onClick={() => {
+                  //   setConversationFilter(agent);
+                  // }}
+                >
+                  {agent}
+                </Pill>
+              ))} */}
               {filteredHistory.map((conversation) => (
                 <ConversationComponent
                   key={conversation.id}
@@ -249,6 +260,8 @@ const ConversationComponent = ({
   }));
 
   const { t } = useTranslation();
+
+  // console.log(conversation, "conversation");
 
   const [showTrainingModal, setShowTrainingModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);

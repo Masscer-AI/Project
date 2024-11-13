@@ -85,6 +85,7 @@ const Menu = ({ options }) => {
             onClick={() => setSelected(index)}
             label={option.name}
             svg={option.svg}
+            selected={index === selected}
           />
         ))}
       </section>
@@ -93,10 +94,11 @@ const Menu = ({ options }) => {
   );
 };
 
-const LabeledButton = ({ label, onClick, svg }) => {
+const LabeledButton = ({ label, onClick, svg, selected }) => {
   return (
-    <div onClick={onClick} className="labeled-button">
-      <SvgButton svg={svg} extraClass="pos-relative w-100" />
+    <div onClick={onClick} className= {`labeled-button ${selected && "active"}`} >
+      {/* <SvgButton svg={svg} extraClass="pos-relative w-100" /> */}
+      <span>{svg}</span>
       <p className="button-label">{label}</p>
     </div>
   );

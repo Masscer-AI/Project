@@ -8,7 +8,7 @@
   }
 }
 
-.floating-dropdown .__content {
+ .__content {
   position: absolute;
   width: min(300px, fit-content);
   background-color: var(--bg-contrast-color);

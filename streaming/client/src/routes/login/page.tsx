@@ -49,7 +49,7 @@ export default function Login() {
               required
               name="email"
               placeholder="Email"
-              className="input"
+              className="input padding-medium"
               autoComplete="email"
             />
           </div>
@@ -61,7 +61,7 @@ export default function Login() {
               required
               name="password"
               placeholder="Password"
-              className="input padding-big"
+              className="input padding-medium"
               autoComplete="current-password"
             />
             <SvgButton
@@ -73,13 +73,13 @@ export default function Login() {
           <button
             onClick={handleSubmit}
             type="submit"
-            className="w-100 p-big button bg-active"
+            className="w-100 padding-medium button bg-active"
           >
             Login
           </button>
           <button
             onClick={() => navigate("/signup")}
-            className="button bg-secondary w-100 p-big"
+            className="button bg-secondary w-100 padding-medium"
           >
             Switch to Signup
           </button>

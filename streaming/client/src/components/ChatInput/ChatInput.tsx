@@ -275,6 +275,8 @@ const RagConfig = ({ hide }: { hide: () => void }) => {
     removeAttatchment: s.deleteAttachment,
   }));
 
+  const { t } = useTranslation();
+
   useEffect(() => {
     getDocs();
   }, []);
@@ -302,7 +304,7 @@ const RagConfig = ({ hide }: { hide: () => void }) => {
 
   return (
     <Modal hide={hide}>
-      <h2 className="text-center">Select the knowledge to access</h2>
+      <h2 className="text-center padding-big">{t("select-documents-to-use")}</h2>
       <div className="d-flex gap-small">
         {documents.map((d) => (
           <div

@@ -52,6 +52,7 @@ class Message(models.Model):
     versions = models.JSONField(default=list, blank=True)
     rag_sources = models.JSONField(default=list, blank=True)
     browse_sources = models.JSONField(default=list, blank=True)
+    agents = models.JSONField(default=list, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -70,5 +71,5 @@ class SharedConversation(models.Model):
     def __str__(self):
         return f"SharedConversation({self.id})"
 
-    def save(self, *args, **kwargs):\
+    def save(self, *args, **kwargs):
         super().save(*args, **kwargs)

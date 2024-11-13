@@ -12,6 +12,7 @@
   padding: 10px;
   width: min(100%, var(--input-max-width));
   border: 1px solid var(--hovered-color);
+  gap: 10px;
   border-radius: var(--standard-radius);
 }
 
@@ -28,7 +29,7 @@
 
 .chat-input textarea {
   width: 100%;
-  padding: 20px;
+  padding: 10px;
   border: 1px solid var(--hovered-color);
   border-radius: 10px;
   margin-right: 10px;
@@ -37,7 +38,8 @@
   align-self: center;
   resize: none;
   font-size: 16px;
-  background-color: var(--bg-secondary-color);
+  font-family: var(--font-family);
+  /* background-color: var(--bg-secondary-color); */
 }
 
 .chat-input textarea::placeholder {
@@ -54,7 +56,7 @@
 .chat-input .attachments {
   display: flex;
   gap: 10px;
-  padding: 10px;
+  /* padding: 10px; */
   flex-wrap: wrap;
 }
 

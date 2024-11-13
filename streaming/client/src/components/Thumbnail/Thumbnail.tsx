@@ -146,20 +146,22 @@ const DocumentThumnail = ({
   return (
     <div
       title={name}
-      className="width-200 document-attachment bg-hovered rounded padding-small "
+      className="width-200 document-attachment bg-contrast rounded padding-small "
     >
-      <div className="d-flex padding-small gap-small align-center">
+      <div className="d-flex gap-small align-center ">
         <div>{SVGS.document}</div>
         <p className="cut-text-to-line">{name}</p>
 
         {showFloatingButtons && (
           <FloatingDropdown
             bottom="100%"
-            left="50%"
+            // right="0"
+            left="70%"
+            extraClass="padding-big border-secondary"
             transform="translateX(-50%)"
             opener={<SvgButton title={t("options")} svg={SVGS.options} />}
           >
-            <div className="d-flex gap-medium flex-y width-300 ">
+            <div className="d-flex gap-medium flex-y width-200 ">
               <h2 className="text-center">{t("configure")}</h2>
               <SliderInput
                 extraClass="d-flex align-center rounded"
@@ -172,7 +174,10 @@ const DocumentThumnail = ({
                 }}
               />
 
-              <MarkdownRenderer markdown={ragModeHelpHelper[ragMode]} />
+              <MarkdownRenderer
+                extraClass="text-mini"
+                markdown={ragModeHelpHelper[ragMode]}
+              />
               <SvgButton
                 title={t("delete")}
                 size="big"

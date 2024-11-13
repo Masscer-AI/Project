@@ -1,4 +1,5 @@
 import { TAttachment, TVersion } from "../types";
+import { TAgent } from "./agents";
 
 export type TConversationData = {
   title: string;
@@ -13,6 +14,7 @@ export type TUserData = {
 export type TChatLoader = {
   conversation: TConversationData;
   user: TUserData;
+  query: string | null ;
 };
 
 export type TMessage = {
@@ -22,6 +24,7 @@ export type TMessage = {
   attachments: TAttachment[];
   agent_slug?: string;
   versions?: TVersion[];
+  agents?: Partial<TAgent>[];
 };
 
 export type TReactionTemplate = {

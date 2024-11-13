@@ -10,6 +10,7 @@ type TFloatingDropdownProps = {
   bottom?: string;
   transform?: string;
   isOpened?: boolean;
+  extraClass?: string;
 };
 
 export const FloatingDropdown = ({
@@ -21,6 +22,7 @@ export const FloatingDropdown = ({
   right = undefined,
   bottom = undefined,
   transform = undefined,
+  extraClass = "",
 }: TFloatingDropdownProps) => {
   return (
     <>
@@ -36,7 +38,7 @@ export const FloatingDropdown = ({
               bottom: bottom,
               transform: transform,
             }}
-            className="__content"
+            className={`__content ${extraClass}`}
           >
             {children}
           </div>
