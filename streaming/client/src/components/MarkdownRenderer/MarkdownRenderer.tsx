@@ -46,14 +46,14 @@ const MarkdownRenderer = ({
 
           // Create the Copy button
           const button = document.createElement("button");
-          button.className = " clickeable rounded padding-small bg-hovered";
+          button.className = " clickeable rounded padding-small bg-hovered active-on-hover";
           button.textContent = "Copy";
 
           // Create the Transform button
           const transformButton = document.createElement("button");
           transformButton.className =
-            "clickeable rounded padding-small bg-hovered";
-          transformButton.textContent = "Transform";
+            "clickeable rounded padding-small bg-hovered active-on-hover";
+          transformButton.textContent = "Transform to docx";
 
           // Append buttons to the container
           buttonContainer.appendChild(button);
@@ -77,21 +77,28 @@ const MarkdownRenderer = ({
 
           // Transform button event listener
           transformButton.addEventListener("click", async () => {
+            let input_format = "md";
             const codeElement = block.querySelector("code");
             const code = codeElement ? codeElement.textContent : "";
+            // get the classlist of the code block
+            const codeBlockClassList = codeElement?.classList;
+            // check if the code block is a language-html
+            if (codeBlockClassList?.contains("language-html")) {
+              input_format = "html";
+            }
 
             if (code) {
               const res = await generateDocument({
                 source_text: code,
-                from_type: "html",
+                from_type: input_format,
                 to_type: "docx",
               });
 
               console.log(res);
               // @ts-ignore
               console.log(res.output_filepath);
-              
-// @ts-ignore
+
+              // @ts-ignore
               await downloadFile(res.output_filepath);
 
               // navigator.clipboard.writeText(code);

@@ -106,6 +106,7 @@ pydub==0.25.1
 Pygments==2.18.0
 PyMuPDF==1.24.10
 PyMuPDFb==1.24.10
+pypandoc==1.14
 PyPika==0.48.9
 pyproject_hooks==1.2.0
 pyreadline3==3.5.4
