@@ -27,6 +27,7 @@ fi
 
 chroma run --path vector_storage/ --port 8002 &
 
+sleep 3
 # Run Django application if the flag is true
 if [ "$DJANGO" = true ]; then
     python manage.py migrate
