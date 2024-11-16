@@ -2,13 +2,10 @@
   position: relative;
   display: flex;
   align-items: center;
-
-  > button {
-    cursor: pointer;
-  }
+  z-index: 3 !important;
 }
 
- .__content {
+.__content {
   position: absolute;
   width: min(300px, fit-content);
   background-color: var(--bg-contrast-color);
@@ -16,7 +13,7 @@
   border-radius: 8px;
   display: none;
   flex-direction: column;
-  z-index: 2;
+  z-index: 3 !important;
 }
 .floating-dropdown:hover .__content {
   display: flex !important;

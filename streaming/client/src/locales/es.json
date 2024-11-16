@@ -117,6 +117,13 @@
     "transform-to-docx": "Transformar a DOCX",
     "generating-document": "Generando documento...",
     "document-generated": "Documento generado",
-    "error-generating-document": "Error generando documento"
+    "error-generating-document": "Error generando documento",
+    "speech-being-generated-wait-a-second": "Voz siendo generada, espera un segundo...",
+    "structure-the-ai-system-prompt": "Estructura el prompt del sistema de IA",
+    "explain-its-role-to-the-ai": "Explica su rol a la IA",
+    "document-chunks": "Fragmentos del documento",
+    "document-templates-you-can-replicate-using-ai": "Plantillas de documentos que puedes replicar usando IA",
+    "templates": "Plantillas",
+    "loading-documents": "Cargando documentos..."
 
 }

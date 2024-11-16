@@ -106,7 +106,11 @@ body {
 }
 
 h1 {
-  font-size: 3.2em;
+  font-size: 3em;
+  line-height: 1.1;
+}
+h2 {
+  font-size: 2.5em;
   line-height: 1.1;
 }
 
@@ -123,10 +127,6 @@ h1 {
     background-color: #f9f9f9;
   }
 } */
-
-textarea {
-  resize: vertical;
-}
 
 .nerko-one-regular {
   font-family: "Nerko One", cursive;
@@ -212,43 +212,12 @@ option {
   background-color: var(--modal-bg-color);
   font-size: var(--min-font-size);
 }
+textarea {
+  resize: vertical;
+}
 
 .gap-1 {
   gap: 2px;
-}
-
-.form {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  color: var(--font-color);
-  > label {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-  }
-  > label > *:first-child {
-    width: 130px;
-  }
-
-  > label > div {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-  }
-
-  & textarea {
-    width: 100%;
-    min-height: 100px;
-    resize: vertical;
-  }
-
-  & input,
-  & textarea,
-  & select {
-    border-radius: 5px;
-    padding: 3px;
-  }
 }
 
 .modal-closer {
@@ -272,7 +241,6 @@ option {
 .bg-gradient {
   background: var(--gradient-dark);
 }
-
 
 .mt-small {
   margin-top: 5px;
@@ -380,6 +348,7 @@ option {
   font-size: 16px;
   cursor: pointer;
   width: fit-content;
+  text-wrap: nowrap;
 }
 
 .text-small {
@@ -637,19 +606,19 @@ input:checked + .slider::before {
   scrollbar-width: none;
 }
 .textarea-container:has(.textarea:not(:placeholder-shown)) > span {
-  font-size: 12px;
-  top: -10px;
+  font-size: 15px;
+  top: -12px;
   background-color: var(--bg-color);
   color: var(--font-color-secondary);
   border: 1px solid transparent;
 }
 
 .textarea-container:has(.textarea:focus) > span {
-  font-size: 12px;
-  top: -15px;
+  font-size: 18px;
+  top: -25px;
 
   color: var(--font-color);
-  background-color: var(--bg-color);
+  background-color: var(--active-color);
   border: 1px solid transparent;
 }
 
@@ -718,7 +687,7 @@ input:checked + .slider::before {
   padding: 5px;
   gap: 5px;
   transition: all 0.2s;
-    border-radius: var(--standard-radius);
+  border-radius: var(--standard-radius);
   &.active {
     background-color: var(--active-color);
   }
@@ -740,7 +709,6 @@ input:checked + .slider::before {
 
 .labeled-button.active .button-label {
   display: block;
-  
 }
 .cut-text-to-line {
   white-space: nowrap;
@@ -757,4 +725,27 @@ input:checked + .slider::before {
 
 .border-secondary {
   border: 1px solid rgb(75, 73, 73);
+}
+/* @media (min-width: 743px) {
+  .form > label {
+    flex-direction: row;
+  }
+} */
+.pressable {
+  cursor: pointer;
+  transition: 0.2s;
+}
+.pressable:hover {
+  transform: scale(1.01);
+}
+
+.pressable:active {
+  transform: scale(0.95);
+}
+.above-all {
+  z-index: 1000;
+}
+
+.active-on-focus:focus {
+  background-color: var(--active-color);
 }

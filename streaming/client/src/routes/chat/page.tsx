@@ -15,6 +15,7 @@ import { generateImage, updateConversation } from "../../modules/apiCalls";
 import { useTranslation } from "react-i18next";
 import { TVersion } from "../../types";
 import { updateLastMessagesIds, updateMessages } from "./helpers";
+import { QRGenerator } from "../../components/QRGenerator/QRGenerator";
 
 export default function ChatView() {
   const loaderData = useLoaderData() as TChatLoader;
@@ -265,6 +266,8 @@ export default function ChatView() {
             handleKeyDown={handleKeyDown}
             conversation={conversation || loaderData.conversation}
           />
+
+         
 
           <div className="chat-messages">
             {messages &&

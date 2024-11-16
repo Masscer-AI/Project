@@ -107,7 +107,10 @@
     "transform-to-docx": "Trasforma in DOCX",
     "generating-document": "Generazione documento...",
     "error-generating-document": "Errore generazione documento",
-    "document-generated": "Documento generato"
-
-
+    "document-generated": "Documento generato",
+    "speech-being-generated-wait-a-second": "Il discorso è in fase di generazione, attendi un secondo",
+    "document-chunks": "Frammenti del documento",
+    "document-templates-you-can-replicate-using-ai": "Modelli di documento che puoi replicare utilizzando l’IA",
+    "templates": "Modelli",
+    "loading-documents": "Caricamento documenti..."
 }

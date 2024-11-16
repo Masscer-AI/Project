@@ -118,6 +118,13 @@
     "transform-to-docx": "Transform to DOCX",
     "generating-document": "Generating document...",
     "document-generated": "Document generated!",
-    "error-generating-document": "Error generating document"
+    "error-generating-document": "Error generating document",
+    "speech-being-generated-wait-a-second": "Speech being generated, wait a second...",
+    "structure-the-ai-system-prompt": "Structure the AI system prompt",
+    "explain-its-role-to-the-ai": "Explain its role to the AI",
+    "document-chunks": "Document chunks",
+    "document-templates-you-can-replicate-using-ai": "Document templates you can replicate using AI",
+    "templates": "Templates",
+    "loading-documents": "Loading documents..."
 
 }

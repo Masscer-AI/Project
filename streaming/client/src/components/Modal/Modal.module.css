@@ -13,33 +13,36 @@
   top: 0;
   left: 0;
   width: 100vw;
-  height: 100vh;
+  height: 100dvh;
+  margin-block: auto;
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 4;
-  overflow-y: auto;
+  overflow-y: hidden;
 }
 
 .modalContent {
   background-color: var(--modal-bg-color);
+  /* background-color: rgba(105, 105, 105, 0.366); */
   border-radius: 8px;
   box-shadow: 0 0px 20px rgba(0, 0, 0, 0.742);
   width: min(98%, 900px);
+  padding: 10px;
   z-index: 5;
   position: relative;
+  scrollbar-width: thin;
+  max-height: 96dvh;
+  overflow-y: auto;
+  scrollbar-color: var(--bg-contrast-color) var(--modal-bg-color);
 }
 
-.modalContent > div {
+/* .modalContent > div {
   overflow: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--bg-contrast-color) var(--modal-bg-color);
   padding: 10px;
   max-height: var(--modal-max-height);
-}
+} */
 
-@media (min-width: 743px) {
-  .modalContent > div {
-    padding: 20px;
-  }
-}
+

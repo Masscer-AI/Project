@@ -73,7 +73,7 @@ export const Settings = () => {
   );
 };
 
-const Menu = ({ options }) => {
+export const Menu = ({ options }) => {
   const [selected, setSelected] = React.useState(0);
 
   return (
@@ -96,7 +96,7 @@ const Menu = ({ options }) => {
 
 const LabeledButton = ({ label, onClick, svg, selected }) => {
   return (
-    <div onClick={onClick} className= {`labeled-button ${selected && "active"}`} >
+    <div onClick={onClick} className={`labeled-button ${selected && "active"}`}>
       {/* <SvgButton svg={svg} extraClass="pos-relative w-100" /> */}
       <span>{svg}</span>
       <p className="button-label">{label}</p>

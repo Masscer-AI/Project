@@ -13,8 +13,8 @@ import { getDocuments, getSuggestion } from "../../modules/apiCalls";
 import { SpeechHandler } from "../SpeechHandler/SpeechHandler";
 import { FloatingDropdown } from "../Dropdown/Dropdown";
 import { Modal } from "../Modal/Modal";
-import { TDocument } from "../DocumentsModal/DocumentsModal";
-import { TAttachment } from "../../types";
+
+import { TAttachment, TDocument } from "../../types";
 
 interface ChatInputProps {
   handleSendMessage: () => void;
@@ -28,7 +28,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   conversation,
 }) => {
   const { t } = useTranslation();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const {
     input,
     setInput,
@@ -49,19 +48,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   }));
 
   // const [suggestion, setSuggestion] = useState("");
-  const allowedImageTypes = [
-    "image/png",
-    "image/jpeg",
-    "image/gif",
-    "image/webp",
-  ];
-  const allowedDocumentTypes = [
-    "application/pdf",
-    "text/plain",
-    "text/html",
-    "application/msword",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  ];
 
   // const debouncedGetSuggestion = useCallback(
   //   debounce(async (inputContent: string) => {
@@ -103,42 +89,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         if (blob) reader.readAsDataURL(blob);
       }
     }
-  };
-
-  const addDocument = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (!files) return;
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      if (
-        allowedImageTypes.includes(file.type) ||
-        allowedDocumentTypes.includes(file.type)
-      ) {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          const target = event.target;
-          if (!target) return;
-          const result = target.result;
-          if (!result) return;
-
-          addAttachment({
-            content: result as string,
-            file: file,
-            type: file.type,
-            name: file.name,
-            text: "",
-          });
-        };
-        reader.readAsDataURL(file);
-      } else {
-        toast.error(t("file-type-not-allowed"));
-      }
-    }
-  };
-
-  const openDocuments = () => {
-    if (!fileInputRef || !fileInputRef.current) return;
-    fileInputRef.current.click();
   };
 
   const handleAudioTranscript = (
@@ -191,22 +141,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             onClick={handleSendMessage}
             svg={SVGS.send}
           />
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            onChange={addDocument}
-            style={{ display: "none" }}
-            id="fileInput"
-            accept=".png,.jpeg,.jpg,.gif,.webp,.pdf,.txt,.html,.doc,.docx"
-          />
-          <label htmlFor="fileInput">
-            <SvgButton
-              onClick={openDocuments}
-              title={t("add-files")}
-              svg={SVGS.addDocument}
-            />
-          </label>
+
           <SvgButton
             extraClass={chatState.writtingMode ? "active" : ""}
             onClick={toggleWritingMode}
@@ -214,6 +149,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             title={t("turn-on-off-writing-mode")}
           />
           <RagSearchOptions />
+          <FileLoader />
           <SvgButton
             extraClass={chatState.webSearch ? "active" : ""}
             onClick={toggleWebSearch}
@@ -226,6 +162,84 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         </div>
       </section>
     </div>
+  );
+};
+
+const allowedDocumentTypes = [
+  "application/pdf",
+  "text/plain",
+  "text/html",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+];
+
+const allowedImageTypes = [
+  "image/png",
+  "image/jpeg",
+  "image/gif",
+  "image/webp",
+];
+
+export const FileLoader = () => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { t } = useTranslation();
+  const addAttachment = useStore((s) => s.addAttachment);
+
+  const addDocument = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files) return;
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (
+        allowedImageTypes.includes(file.type) ||
+        allowedDocumentTypes.includes(file.type)
+      ) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const target = event.target;
+          if (!target) return;
+          const result = target.result;
+          if (!result) return;
+
+          addAttachment({
+            content: result as string,
+            file: file,
+            type: file.type,
+            name: file.name,
+            text: "",
+          });
+        };
+        reader.readAsDataURL(file);
+      } else {
+        toast.error(t("file-type-not-allowed"));
+      }
+    }
+  };
+
+  const openDocuments = () => {
+    if (!fileInputRef || !fileInputRef.current) return;
+    fileInputRef.current.click();
+  };
+
+  return (
+    <>
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        onChange={addDocument}
+        style={{ display: "none" }}
+        id="fileInput"
+        accept=".png,.jpeg,.jpg,.gif,.webp,.pdf,.txt,.html,.doc,.docx"
+      />
+      <label htmlFor="fileInput">
+        <SvgButton
+          onClick={openDocuments}
+          title={t("add-files")}
+          svg={SVGS.addDocument}
+        />
+      </label>
+    </>
   );
 };
 
@@ -304,20 +318,16 @@ const RagConfig = ({ hide }: { hide: () => void }) => {
 
   return (
     <Modal hide={hide}>
-      <h2 className="text-center padding-big">{t("select-documents-to-use")}</h2>
-      <div className="d-flex gap-small">
+      <h2 className="text-center padding-big">
+        {t("select-documents-to-use")}
+      </h2>
+      <div className="d-flex gap-small wrap-wrap">
         {documents.map((d) => (
           <div
             onClick={() => toggleDocument(d)}
             className={`card ${chatState.attachments.findIndex((a) => a.id == d.id) != -1 && "bg-active"}`}
           >
             <h4>{d.name}</h4>
-            {/* {selectedDocuments.includes(d) && (
-              <div>
-                <span>✅</span>
-                <span>Tokens: {d.total_tokens}</span>
-              </div>
-            )} */}
           </div>
         ))}
       </div>

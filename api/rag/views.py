@@ -29,7 +29,7 @@ class DocumentView(View):
     def get(self, request):
         user = request.user
         documents = Document.objects.filter(collection__user=user)
-        serializer = BigDocumentSerializer(documents, many=True)
+        serializer = DocumentSerializer(documents, many=True)
         return JsonResponse(serializer.data, safe=False)
 
     def post(self, request):
@@ -39,10 +39,8 @@ class DocumentView(View):
         file = request.FILES.get("file")
 
         collection, created = Collection.objects.get_or_create(
-                user=request.user,
-                agent=None,
-                conversation=None
-            )
+            user=request.user, agent=None, conversation=None
+        )
         if not collection:
             return JsonResponse(
                 {
@@ -51,7 +49,7 @@ class DocumentView(View):
                 },
                 status=400,
             )
-        
+
         if not file:
             return JsonResponse(
                 {
@@ -65,32 +63,24 @@ class DocumentView(View):
         file_content = file_content.strip()
 
         document_exists = Document.objects.filter(
-                text=file_content, collection=collection
-            ).exists()
-        
+            text=file_content, collection=collection
+        ).exists()
+
         if document_exists:
-            document = Document.objects.get(
-                text=file_content, collection=collection
-            )
-           
+            document = Document.objects.get(text=file_content, collection=collection)
+
             serializer = DocumentSerializer(document)
-            return JsonResponse(
-                serializer.data, status=200
-            )
-        
+            return JsonResponse(serializer.data, status=200)
+
         data["collection"] = collection.id
-        data["text"] = file_content.replace('\0' , '')
+        data["text"] = file_content.replace("\0", "")
         serializer = DocumentSerializer(data=data)
 
         if serializer.is_valid():
             serializer.save()
-            return JsonResponse(
-                serializer.data, status=201
-            )
-                
-        return JsonResponse(
-            serializer.errors, status=400
-        )
+            return JsonResponse(serializer.data, status=201)
+
+        return JsonResponse(serializer.errors, status=400)
 
     def delete(self, request, document_id):
         try:
@@ -123,7 +113,6 @@ def query_collection(request):
         if document_id:
             document = Document.objects.get(id=document_id)
 
-
         _context = f"""
         These are the last four messages in the conversation:
         ---
@@ -132,7 +121,7 @@ def query_collection(request):
 
         This is the last user message text: {query_text}
         """
-        
+
         if document:
             _context += f"""
             This is a brief from the document the user wants to query: 
@@ -149,15 +138,22 @@ def query_collection(request):
         printer.blue(f"Queries: {queries.queries}")
         printer.yellow(f"Document: {document}")
         results = chroma_client.get_results(
-            collection_name=collection.slug,
-            query_texts=queries.queries,
-            n_results=4
+            collection_name=collection.slug, query_texts=queries.queries, n_results=4
         )
 
         data = {"results": results}
         return JsonResponse(data, safe=False)
 
     return JsonResponse({"error": "No collection found"}, status=404)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class ChunkSetView(View):
+    def get(self, request, document_id):
+        document = Document.objects.get(id=document_id)
+        data = BigDocumentSerializer(document).data
+        return JsonResponse(data, status=201)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -172,8 +168,6 @@ class ChunkDetailView(View):
             return JsonResponse(serializer.data, safe=False, status=200)
         except Chunk.DoesNotExist:
             return JsonResponse({"error": "Chunk not found"}, status=404)
-
-
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -217,7 +211,7 @@ class QueryDocument(View):
             collection_name=collection.slug,
             query_texts=queries.queries,
             n_results=4,
-            where={"extra": document.get_representation()}
+            where={"extra": document.get_representation()},
         )
 
         data = {"results": results}

@@ -63,3 +63,13 @@ export type TOrganization = {
   name: string;
   description: string;
 };
+
+export type TDocument = {
+  text: string;
+  total_tokens: number;
+  id: number;
+  name: string;
+  brief: string;
+  chunk_count: number;
+  chunk_set: any[];
+};

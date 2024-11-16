@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import axios, { AxiosRequestConfig, Method } from "axios";
 import { API_URL, PUBLIC_TOKEN } from "./constants";
-import { TCompletion, TConversation, TOrganization } from "../types";
+import { TCompletion, TConversation, TDocument, TOrganization } from "../types";
 import { TReactionTemplate } from "../types/chatTypes";
 
 const getToken = (isPublic: boolean) => {
@@ -480,8 +480,7 @@ export const downloadFile = (file_path: string) => {
   const form = document.createElement("form");
   form.method = "GET";
   form.action = url;
-  form.style.display = "none"; 
-
+  form.style.display = "none";
 
   document.body.appendChild(form);
 
@@ -490,4 +489,11 @@ export const downloadFile = (file_path: string) => {
 
   // Remove the form after submission to keep the DOM clean
   document.body.removeChild(form);
+};
+
+export const getBigDocument = async (documentId: string) => {
+  return makeAuthenticatedRequest<TDocument>(
+    "GET",
+    `/v1/rag/documents/${documentId}/chunks/`
+  );
 };

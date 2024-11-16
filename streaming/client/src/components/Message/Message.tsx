@@ -65,6 +65,7 @@ export const Message: React.FC<MessageProps> = ({
   const [messageState, setMessageState] = useState({
     imageGeneratorOpened: false,
   });
+  const [isGeneratingSpeech, setIsGeneratingSpeech] = useState(false);
 
   const { t } = useTranslation();
 
@@ -194,12 +195,20 @@ export const Message: React.FC<MessageProps> = ({
   };
 
   const handleGenerateSpeech = async () => {
+    if (isGeneratingSpeech) {
+      toast.success(t("speech-being-generated-wait-a-second"), {
+        icon: "🔊",
+      });
+      return;
+    }
+
     if (!audioPlayer) {
       try {
         socket.emit("speech_request", {
           text: versions?.[currentVersion]?.text || innerText,
           id: id,
         });
+        setIsGeneratingSpeech(true);
       } catch (error) {
         console.error("Error generating speech:", error);
       }
@@ -208,7 +217,7 @@ export const Message: React.FC<MessageProps> = ({
 
   return (
     <div className={`message ${type} message-${index}`}>
-      {!innerText && !versions?.[currentVersion]?.text && <Loader />}
+      {!innerText && !versions?.[currentVersion]?.text && <Loader text="" />}
       {isEditing ? (
         <textarea
           autoComplete="on"

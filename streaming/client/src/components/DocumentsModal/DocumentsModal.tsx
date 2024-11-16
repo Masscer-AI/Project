@@ -3,6 +3,7 @@ import { Modal } from "../Modal/Modal";
 import {
   deleteDocument,
   generateTrainingCompletions,
+  getBigDocument,
   getDocuments,
 } from "../../modules/apiCalls";
 import styles from "./DocumentsModal.module.css";
@@ -14,20 +15,14 @@ import { Pill } from "../Pill/Pill";
 import { useStore } from "../../modules/store";
 import toast from "react-hot-toast";
 import { FloatingDropdown } from "../Dropdown/Dropdown";
-
-export type TDocument = {
-  text: string;
-  total_tokens: number;
-  id: number;
-  name: string;
-  brief: string;
-  chunk_count: number;
-  chunk_set: any[];
-};
+import { TDocument } from "../../types";
+import { Menu } from "../Settings/Settings";
+import { Loader } from "../Loader/Loader";
 
 export const DocumentsModal = ({ visible, hide }) => {
   const { t } = useTranslation();
   const [documents, setDocuments] = useState([] as TDocument[]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     getDocs();
@@ -36,29 +31,59 @@ export const DocumentsModal = ({ visible, hide }) => {
   const getDocs = async () => {
     const docs = await getDocuments();
     setDocuments(docs);
+    setLoading(false);
   };
 
   const removeDoc = (id: number) => {
     setDocuments(documents.filter((d) => d.id !== id));
   };
 
+  const knowledgeOptions = [
+    {
+      name: t("documents"),
+      component: (
+        <div className="flex-y gap-big">
+          {/* <h3 className="text-center">{t("documents")}</h3> */}
+          <p>{t("you-can-use-this-page-to-train-your-model-with-files")}</p>
+          <div className="d-flex gap-small">
+          <Pill extraClass="">
+            {documents.length} {t("documents")}
+          </Pill>
+          {/* <Pill extraClass="bg-hovered active-on-hover pressable">
+            {t("add-documents")}
+          </Pill> */}
+
+          </div>
+          {loading && <Loader text={t("loading-documents")} />}
+          {documents.map((document) => (
+            <DocumentCard
+              removeDoc={removeDoc}
+              key={document.id}
+              document={document}
+            />
+          ))}
+        </div>
+      ),
+      svg: SVGS.addDocument,
+    },
+    {
+      name: t("templates"),
+      component: (
+        <div className="flex-y gap-big">
+          <p>{t("document-templates-you-can-replicate-using-ai")}</p>
+        </div>
+      ),
+      svg: SVGS.format,
+    },
+  ];
+
   return (
     <Modal visible={visible} hide={hide} minHeight="90vh">
       <div className="d-flex flex-y gap-big">
-        <h3 className="text-center fancy-bg padding-big rounded F">
+        <h2 className="text-center  padding-big rounded ">
           {t("knowledge-base")}
-        </h3>
-
-        <p className="text-center">
-          {t("you-can-use-this-page-to-train-your-model-with-files")}
-        </p>
-        {documents.map((document) => (
-          <DocumentCard
-            removeDoc={removeDoc}
-            key={document.id}
-            document={document}
-          />
-        ))}
+        </h2>
+        <Menu options={knowledgeOptions} />
       </div>
     </Modal>
   );
@@ -95,7 +120,6 @@ const DocumentCard = ({ document, removeDoc }) => {
       </h3>
       <div className="d-flex justify-center gap-small">
         <Pill extraClass="bg-hovered">{document.chunk_count} chunks</Pill>
-        <Pill extraClass="bg-hovered">{document.collection.agent.name}</Pill>
         <Pill extraClass="bg-hovered">{document.total_tokens} tokens</Pill>
       </div>
 
@@ -132,7 +156,8 @@ const DocumentCard = ({ document, removeDoc }) => {
         <ChunksModal
           hide={() => setIsOpened(false)}
           visible={isOpened}
-          chunks={document.chunk_set}
+          // chunks={document.chunk_set}
+          documentId={document.id}
         />
       )}
     </div>
@@ -153,10 +178,21 @@ const Chunk = ({ content, id }) => {
   );
 };
 
-const ChunksModal = ({ visible, hide, chunks }) => {
-  const [filteredChunks, setFilteredChunks] = useState(chunks);
+const ChunksModal = ({ visible, hide, documentId }) => {
+  const [chunks, setChunks] = useState([] as any[]);
+  const [filteredChunks, setFilteredChunks] = useState([] as any[]);
   const [search, setSearch] = useState("");
   const { t } = useTranslation();
+
+  useEffect(() => {
+    getChunks();
+  }, []);
+
+  const getChunks = async () => {
+    const doc = await getBigDocument(documentId);
+    setChunks(doc.chunk_set);
+    setFilteredChunks(doc.chunk_set);
+  };
 
   useEffect(() => {
     setFilteredChunks(
@@ -167,18 +203,18 @@ const ChunksModal = ({ visible, hide, chunks }) => {
   }, [search]);
   return (
     <Modal minHeight="90vh" visible={visible} hide={hide}>
-      <h1 className="fancy-bg padding-big text-center rounded">
-        Document content
-      </h1>
+      <h2 className=" padding-medium text-center rounded">
+        {t("document-chunks")}
+      </h2>
       <div className={styles.chunkContainer}>
-        <div className="d-flex justify-center">
+        <div className="d-flex justify-center gap-big">
           <input
             type="text"
             className="input w-100"
             placeholder={t("find-something-in-the-document")}
             onChange={(e) => setSearch(e.target.value)}
           />
-          <Pill extraClass="bg-active">{chunks.length} chunks</Pill>
+          <Pill extraClass="bg-active w-50">Total: {chunks.length}</Pill>
         </div>
         {filteredChunks.map((c) => (
           <Chunk key={c.id} content={c.content} id={c.id} />

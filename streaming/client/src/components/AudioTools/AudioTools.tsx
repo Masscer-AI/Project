@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from "react";
 import "./AudioTools.css";
 import toast from "react-hot-toast";
 import { makeAuthenticatedRequest } from "../../modules/apiCalls";
+import { QRGenerator } from "../QRGenerator/QRGenerator";
 
 interface AudioOptionsProps {
   selectedOption: string;
@@ -276,6 +277,7 @@ export const AudioTools: React.FC = () => {
           <TranscribeJobs />
         </>
       )}
+
     </div>
   );
 };

@@ -17,7 +17,7 @@ import { Modal } from "../Modal/Modal";
 import toast from "react-hot-toast";
 import { Pill } from "../Pill/Pill";
 import { useTranslation } from "react-i18next";
-import QRCodeDisplay from "../QRGenerator/QRGenerator";
+import { QRCodeDisplay } from "../QRGenerator/QRGenerator";
 
 export const Sidebar: React.FC = () => {
   const { t } = useTranslation();
@@ -108,22 +108,28 @@ export const Sidebar: React.FC = () => {
   return (
     <>
       <div className="sidebar">
-        <div className="sidebar__header">
+        <div className="flex-x justify-between">
           <SvgButton
             onClick={handleNewChat}
             svg={SVGS.plus}
             size="big"
+            extraClass="active-on-hover pressable"
             text={t("new-chat")}
           />
-          <SvgButton onClick={toggleSidebar} svg={SVGS.burger} />
+          <SvgButton
+            extraClass="active-on-hover pressable"
+            onClick={toggleSidebar}
+            svg={SVGS.burger}
+          />
         </div>
-        <div className="sidebar__history">
-          <h3
-            className={`button ${openedSections.includes("conversations") ? "bg-hovered" : ""}`}
+        <div className="sidebar__history flex-y gap-small ">
+          <SvgButton
             onClick={() => handleSectionClick("conversations")}
-          >
-            {t("conversations")}
-          </h3>
+            text={t("conversations")}
+            svg={SVGS.chat}
+            extraClass={` w-100 active-on-hover pressable ${openedSections.includes("conversations") ? "bg-active" : "bg-hovered"}`}
+          />
+
           {openedSections.includes("conversations") && (
             <>
               <input
@@ -135,33 +141,24 @@ export const Sidebar: React.FC = () => {
                 value={conversationFilter}
                 onChange={(e) => setConversationFilter(e.target.value)}
               />
-              {/* {relatedAgents.map((agent) => (
-                <Pill
-                  key={agent}
-                  // onClick={() => {
-                  //   setConversationFilter(agent);
-                  // }}
-                >
-                  {agent}
-                </Pill>
-              ))} */}
-              {filteredHistory.map((conversation) => (
-                <ConversationComponent
-                  key={conversation.id}
-                  conversation={conversation}
-                  deleteConversationItem={deleteConversationItem}
-                />
-              ))}
+              <div className="flex-y conversation-history gap-small ">
+                {filteredHistory.map((conversation) => (
+                  <ConversationComponent
+                    key={conversation.id}
+                    conversation={conversation}
+                    deleteConversationItem={deleteConversationItem}
+                  />
+                ))}
+              </div>
             </>
           )}
-        </div>
-        <div>
-          <h3
-            className={`button ${openedSections.includes("tools") ? "bg-hovered" : ""}`}
+
+          <SvgButton
+            extraClass={`active-on-hover pressable w-100 ${openedSections.includes("tools") ? "bg-active" : "bg-hovered"}`}
             onClick={() => handleSectionClick("tools")}
-          >
-            {t("tools")}
-          </h3>
+            text={t("tools")}
+            svg={SVGS.tools}
+          />
           {openedSections.includes("tools") && (
             <>
               <p
@@ -190,14 +187,15 @@ export const Sidebar: React.FC = () => {
               </p>
             </>
           )}
-        </div>
-        <div>
-          <h3
-            className={`button ${openedSections.includes("training") ? "bg-hovered" : ""}`}
+
+          <SvgButton
+            extraClass={`active-on
+              -hover pressable w-100 active-on-hover ${openedSections.includes("training") ? "bg-active" : "bg-hovered"}`}
             onClick={() => handleSectionClick("training")}
-          >
-            {t("training")}
-          </h3>
+            text={t("training")}
+            svg={SVGS.dumbell}
+          />
+
           {openedSections.includes("training") && (
             <>
               <p
@@ -218,19 +216,15 @@ export const Sidebar: React.FC = () => {
               >
                 {t("completions")}
               </p>
-              <p
-                className="clickeable rounded-rect"
-                onClick={() => setOpenedModals({ action: "add", name: "tags" })}
-              >
-                {t("tags")}
-              </p>
             </>
           )}
-        </div>
-        <div>
-          <h3 className="button" onClick={() => goTo("/workflows")}>
-            {t("workflows")}
-          </h3>
+          <SvgButton
+            text={t("workflows")}
+            size="big"
+            extraClass="bg-hovered active-on-hover pressable w-100 "
+            onClick={() => goTo("/workflows")}
+            svg={SVGS.workflows}
+          />
         </div>
         <div className="sidebar__footer d-flex justify-between">
           <SvgButton text={user ? user.username : t("you")} />
@@ -279,68 +273,62 @@ const ConversationComponent = ({
     navigate(`/chat?conversation=${conversation.id}`);
   };
 
-  return (
-    <>
-      {conversation.number_of_messages > 0 ? (
-        <div className="conversation rounded-rect d-flex align-center">
-          <p className="w-100" onClick={handleClick}>
-            {(conversation.title || conversation.id).slice(0, 30)}
-          </p>
-          {showTrainingModal && (
-            <TrainingOnConversation
-              conversation={conversation}
-              hide={() => setShowTrainingModal(false)}
-            />
-          )}
-          {showShareModal && (
-            <ShareConversationModal
-              hide={() => setShowShareModal(false)}
-              conversationId={conversation.id}
-            />
-          )}
-          <div className="conversation__options">
-            <FloatingDropdown
-              right="100%"
-              opener={
-                <SvgButton
-                  title={t("conversation-options")}
-                  svg={SVGS.options}
-                />
-              }
-            >
-              <div className="flex-y d-flex gap-small">
-                <SvgButton
-                  size="big"
-                  svg={SVGS.trash}
-                  title={t("delete-conversation")}
-                  text={t("delete")}
-                  extraClass="justify-between bg-danger"
-                  confirmations={[t("delete-conversation-confirmation")]}
-                  onClick={() => deleteConversationItem(conversation.id)}
-                />
-                <SvgButton
-                  extraClass="justify-between bg-active"
-                  size="big"
-                  svg={SVGS.dumbell}
-                  title={t("train-on-this-conversation")}
-                  text={t("train")}
-                  onClick={() => setShowTrainingModal(true)}
-                />
-                <SvgButton
-                  extraClass="justify-between bg-hovered"
-                  size="big"
-                  svg={SVGS.share}
-                  title={t("share-conversation")}
-                  text={t("share")}
-                  onClick={() => setShowShareModal(true)}
-                />
-              </div>
-            </FloatingDropdown>
+  return conversation.number_of_messages > 0 ? (
+    <div className="conversation rounded-rect d-flex align-center">
+      <p className="w-100" onClick={handleClick}>
+        {(conversation.title || conversation.id).slice(0, 30)}
+      </p>
+      {showTrainingModal && (
+        <TrainingOnConversation
+          conversation={conversation}
+          hide={() => setShowTrainingModal(false)}
+        />
+      )}
+      {showShareModal && (
+        <ShareConversationModal
+          hide={() => setShowShareModal(false)}
+          conversationId={conversation.id}
+        />
+      )}
+      <FloatingDropdown
+        right="100%"
+        opener={
+          <SvgButton title={t("conversation-options")} svg={SVGS.options} />
+        }
+      >
+        <div className="flex-y d-flex gap-small">
+          <SvgButton
+            size="big"
+            svg={SVGS.trash}
+            title={t("delete-conversation")}
+            text={t("delete")}
+            extraClass="justify-between bg-danger"
+            confirmations={[t("delete-conversation-confirmation")]}
+            onClick={() => deleteConversationItem(conversation.id)}
+          />
+          <SvgButton
+            extraClass="justify-between bg-active"
+            size="big"
+            svg={SVGS.dumbell}
+            title={t("train-on-this-conversation")}
+            text={t("train")}
+            onClick={() => setShowTrainingModal(true)}
+          />
+          <SvgButton
+            extraClass="justify-between bg-hovered"
+            size="big"
+            svg={SVGS.share}
+            title={t("share-conversation")}
+            text={t("share")}
+            onClick={() => setShowShareModal(true)}
+          />
+          <div className="text-center">
+            {conversation.number_of_messages} {t("messages")}
           </div>
         </div>
-      ) : null}
-    </>
-  );
+      </FloatingDropdown>
+    </div>
+  ) : null;
 };
 
 const ShareConversationModal = ({ hide, conversationId }) => {
@@ -412,7 +400,7 @@ const ShareConversationModal = ({ hide, conversationId }) => {
               {t("conversation-shared-message")}
             </h2>
             <div className="d-flex justify-center qr-display">
-              <QRCodeDisplay url={generateShareLink()} />
+              <QRCodeDisplay size={256} url={generateShareLink()} />
             </div>
             <input
               type="text"

@@ -9,6 +9,8 @@ import { SvgButton } from "../SvgButton/SvgButton";
 import { updateAgent } from "../../modules/apiCalls";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
+import { SliderInput } from "../SimpleForm/SliderInput";
+import { Textarea } from "../SimpleForm/Textarea";
 
 export const ChatHeader = ({
   title,
@@ -51,7 +53,13 @@ export const ChatHeader = ({
         <FloatingDropdown
           left="0"
           top="100%"
-          opener={<SvgButton text={t("agents")} />}
+          opener={
+            <SvgButton
+              svg={SVGS.stars}
+              extraClass="active-on-focus"
+              text={t("agents")}
+            />
+          }
         >
           {agents.map((agent, index) => (
             <AgentComponent key={index} agent={agent} />
@@ -117,7 +125,7 @@ const AgentComponent = ({ agent }: TAgentComponentProps) => {
       </section>
       <SvgButton svg={SVGS.controls} onClick={showModal} />
 
-      <Modal minHeight={"40vh"} visible={isModalVisible} hide={hideModal}>
+      <Modal minHeight={"40dvh"} visible={isModalVisible} hide={hideModal}>
         <AgentConfigForm agent={agent} onSave={onSave} onDelete={hideModal} />
       </Modal>
     </div>
@@ -195,53 +203,42 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
     onDelete();
   };
 
-  const onTriggerGenerateImage = () => {
-    toast.loading(t("generating-image"));
-  }
+  const handleSystemPromptChange = (value: string) => {
+    setFormState((prevState) => ({
+      ...prevState,
+      system_prompt: value,
+    }));
+  };
 
   return (
-    <div>
-      <h3>
-        {t("configure")} {formState.name}
-      </h3>
-      {agent.profile_picture_url && (
-        <div className="d-flex justify-center padding-small align-center gap-big flex-y">
-          <img
-            width={"200"}
-            height={"200"}
-            style={{
-              aspectRatio: 1,
-              borderRadius: "50%",
-            }}
-            src={agent.profile_picture_url}
-            alt={agent.name}
-          />
-          {/* <SvgButton onClick={onTriggerGenerateImage} extraClass="bg-active" text={t("generate-image")} /> */}
-        </div>
-      )}
-
-      <form onSubmit={onSubmit} className="form">
-        <label>
-          <span>{t("name")}</span>
+    <form onSubmit={onSubmit} className="form">
+      <div className="flex-y gap-medium F">
+        <h2 className="fancy-bg padding-medium text-center rounded">
+          {t("configure")} {formState.name}
+        </h2>
+        <label className="d-flex gap-small align-center">
+          <span>{t("name")}:</span>
           <input
             type="text"
             name="name"
+            className="input"
             value={formState.name}
             onChange={handleInputChange}
           />
         </label>
 
-        <label>
+        <label className="d-flex gap-small align-center">
           <span>{t("slug")}</span>
           <p>{agent.slug}</p>
         </label>
 
-        <label>
+        <label className="d-flex gap-small align-center">
           <span>{t("model")}</span>
           <select
             name="model_slug"
             value={formState.model_slug}
             onChange={handleInputChange}
+            className="input"
           >
             {models.map((m) => (
               <option key={m.slug} value={m.slug}>
@@ -250,7 +247,7 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
             ))}
           </select>
         </label>
-        <label>
+        <label className="d-flex gap-small align-center">
           <span>{t("frequency-penalty")}</span>
           <input
             type="range"
@@ -258,6 +255,7 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
             max="2.0"
             step="0.1"
             name="frequency_penalty"
+            className="input"
             defaultValue={
               formState.frequency_penalty ? formState.frequency_penalty : 0.0
             }
@@ -265,7 +263,7 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
           />
           <span>{formState.frequency_penalty}</span>
         </label>
-        <label>
+        <label className="d-flex gap-small align-center">
           <span>{t("max-tokens")}</span>
           <input
             type="range"
@@ -278,7 +276,7 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
           />
           <span>{formState.max_tokens}</span>
         </label>
-        <label>
+        <label className="d-flex gap-small align-center">
           <span>{t("presence-penalty")}</span>
           <input
             name="presence_penalty"
@@ -293,23 +291,25 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
           />
           <span>{formState.presence_penalty}</span>
         </label>
-        <label>
-          <span>{t("act-as")}</span>
-          <textarea
-            name="act_as"
-            value={formState.act_as}
-            onChange={handleInputChange}
-          />
-        </label>
-        <label>
-          <span>{t("system-prompt")}</span>
-          <textarea
-            name="system_prompt"
-            value={formState.system_prompt}
-            onChange={handleInputChange}
-          />
-        </label>
-        <label>
+        <p>{t("act-as")}</p>
+        <Textarea
+          defaultValue={formState.act_as ? formState.act_as : ""}
+          onChange={(value) => {
+            setFormState((prevState) => ({
+              ...prevState,
+              act_as: value,
+            }));
+          }}
+          placeholder={t("explain-its-role-to-the-ai")}
+        />
+
+        <p>{t("system-prompt")}</p>
+        <Textarea
+          placeholder={t("structure-the-ai-system-prompt")}
+          defaultValue={formState.system_prompt}
+          onChange={handleSystemPromptChange}
+        />
+        <label className="d-flex gap-small align-center">
           <span>{t("temperature")}</span>
           <div>
             <input
@@ -339,25 +339,25 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
             <span>{formState.top_p}</span>
           </span>
         </label>
-        <SvgButton
-          extraClass=""
-          size="big"
-          onClick={save}
-          text={t("save")}
-          svg={SVGS.download}
-        />
-        <SvgButton
-          size="big"
-          onClick={handleDelete}
-          text={t("delete")}
-          svg={SVGS.close}
-          extraClass="bg-danger"
-          confirmations={[
-            t("sure-this-action-cannot-be-undone-click-again-to-confirm"),
-          ]}
-        />
-      </form>
-    </div>
+      </div>
+      <SvgButton
+        extraClass=""
+        size="big"
+        onClick={save}
+        text={t("save")}
+        svg={SVGS.download}
+      />
+      <SvgButton
+        size="big"
+        onClick={handleDelete}
+        text={t("delete")}
+        svg={SVGS.close}
+        extraClass="bg-danger"
+        confirmations={[
+          t("sure-this-action-cannot-be-undone-click-again-to-confirm"),
+        ]}
+      />
+    </form>
   );
 };
 
