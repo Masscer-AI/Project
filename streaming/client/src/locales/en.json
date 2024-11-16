@@ -125,6 +125,14 @@
     "document-chunks": "Document chunks",
     "document-templates-you-can-replicate-using-ai": "Document templates you can replicate using AI",
     "templates": "Templates",
-    "loading-documents": "Loading documents..."
+    "loading-documents": "Loading documents...",
+    "unselect": "Unselect",
+    "select-all": "Select all",
+    "select": "Select",
+    "unselect-all": "Unselect all",
+    "group-actions": "Group actions",
+    "selected": "selected",
+    "delete-all": "Delete all",
+    "approve-all": "Approve all"
 
 }

@@ -20,11 +20,13 @@
   --bg-contrast-color: rgb(55, 55, 55);
   --selected-border: 1px solid var(--highlighted-color);
   --standard-radius: 8px;
+  --semi-transparent: rgba(0, 0, 0, 0.5);
   --modal-max-height: 99vh;
   --code-bg-color: #1a1b26;
   --font-color-secondary: rgb(177, 177, 177);
   --root-bg-color: #06181f;
   --danger-color: #ff3e3e;
+  --danger-color-opaque: #852a2a90;
   --success-color: #20dd92;
   --success-color-opaque: #20dd91bd;
   --app-max-width: 1200px;
@@ -249,20 +251,16 @@ textarea {
 .card {
   border-radius: 10px;
   padding: 10px;
-  background-color: var(--bg-secondary-color);
+  background-color: var(--bg-color);
   cursor: pointer;
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--bg-contrast-color);
+  border: 1px solid var(--semi-transparent);
   gap: 10px;
   border-radius: 10px;
   width: min(350px, 100%);
   transition: 0.2s all ease-in-out;
   margin-inline: auto;
-}
-
-.card:hover {
-  border: 1px solid var(--highlighted-color);
 }
 
 .justify-center {
@@ -316,6 +314,7 @@ textarea {
   border-radius: var(--standard-radius);
   padding: 5px;
   background-color: transparent;
+  border: 1px solid var(--bg-contrast-color);
 }
 
 .bg-danger {
@@ -582,6 +581,7 @@ input:checked + .slider::before {
 
 .textarea-container {
   position: relative;
+  overflow: visible !important;
 }
 
 .textarea-container > span {
@@ -595,12 +595,12 @@ input:checked + .slider::before {
 
 .textarea {
   width: 100%;
-  padding: 8px;
-  border: 2px solid var(--bg-contrast-color);
+  padding: 10px;
+  border: 1px solid var(--bg-contrast-color);
   border-radius: 4px;
   resize: none;
-  font-size: 14px;
-  background-color: var(--bg-color);
+  font-size: 18px;
+  background-color: transparent;
   transition: border-color 0.2s;
   outline: none;
   scrollbar-width: none;
@@ -748,4 +748,49 @@ input:checked + .slider::before {
 
 .active-on-focus:focus {
   background-color: var(--active-color);
+}
+.w-45 {
+  width: 30%;
+}
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  appearance: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.chat-max-width {
+  width: min(100%, var(--input-max-width));
+  margin-inline: auto;
+}
+.border-danger {
+  border: 1px solid var(--danger-color) !important;
+}
+.danger-on-hover:hover {
+  background-color: var(--danger-color);
+}
+.danger-on-hover:focus {
+  background-color: var(--danger-color-opaque);
+}
+
+.separator {
+  border-top: 1px solid rgba(67, 62, 62, 0.544);
+  width: 100%;
+}
+.fat-border {
+  border-width: 4px;
+}
+.overflow-x-auto {
+  overflow-x: auto;
+  width: 100%;
+}
+.overflow-y-hidden {
+  overflow-y: hidden;
+}
+.no-scrollbar {
+  scrollbar-width: none;
 }

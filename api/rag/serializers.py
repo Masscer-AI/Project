@@ -18,7 +18,7 @@ class MiniCollectionSerializer(serializers.ModelSerializer):
 
 
 class DocumentSerializer(serializers.ModelSerializer):
-    chunk_set = ChunkSerializer(many=True, read_only=True)
+    # chunk_set = ChunkSerializer(many=True, read_only=True)
     chunk_count = serializers.SerializerMethodField()
 
     class Meta:

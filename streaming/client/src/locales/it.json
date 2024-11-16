@@ -112,5 +112,8 @@
     "document-chunks": "Frammenti del documento",
     "document-templates-you-can-replicate-using-ai": "Modelli di documento che puoi replicare utilizzando l’IA",
     "templates": "Modelli",
-    "loading-documents": "Caricamento documenti..."
+    "loading-documents": "Caricamento documenti...",
+    "group-actions": "azioni di gruppo",
+    "delete-all": "Elimina tutto",
+    "approve-all": "Approva tutto"
 }

@@ -324,8 +324,9 @@ const RagConfig = ({ hide }: { hide: () => void }) => {
       <div className="d-flex gap-small wrap-wrap">
         {documents.map((d) => (
           <div
+            key={d.id}
             onClick={() => toggleDocument(d)}
-            className={`card ${chatState.attachments.findIndex((a) => a.id == d.id) != -1 && "bg-active"}`}
+            className={`card pressable ${chatState.attachments.findIndex((a) => a.id == d.id) != -1 && "bg-active"}`}
           >
             <h4>{d.name}</h4>
           </div>

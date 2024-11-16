@@ -2,6 +2,7 @@ import { createWithEqualityFn as create } from "zustand/traditional";
 import { TReactionTemplate } from "../types/chatTypes";
 import {
   createAgent,
+  createRandomAgent,
   deleteAgent,
   getAgents,
   getConversation,
@@ -29,7 +30,7 @@ export const useStore = create<Store>()((set, get) => ({
     webSearch: false,
     writtingMode: false,
     useRag: false,
-    maxMemoryMessages: 10,
+    maxMemoryMessages: 20,
   },
   conversation: undefined,
   openedModals: [],
@@ -241,34 +242,34 @@ export const useStore = create<Store>()((set, get) => ({
     set({ user });
   },
 
-  addAgent: () => {
-    const { name, slug } = getRandomWordsAndSlug();
-    const exampleAgent: TAgent = {
-      name,
-      slug,
-      selected: false,
-      act_as: "You are a helpful assistant",
-      default: true,
-      salute: "Hello world",
-      frequency_penalty: 0,
-      is_public: false,
-      max_tokens: 2048,
-      model_slug: "gpt-4o-mini",
-      presence_penalty: 0,
-      system_prompt: `{{act_as}}
-      The context below can be useful for your task:
-      \`\`\`
-      {{context}}
-      \`\`\``,
-      temperature: 0.7,
-      top_p: 1.0,
-    };
+  addAgent: async () => {
+    // const { name, slug } = getRandomWordsAndSlug();
+    // const exampleAgent: TAgent = {
+    //   name,
+    //   slug,
+    //   selected: false,
+    //   act_as: "You are a helpful assistant",
+    //   default: true,
+    //   salute: "Hello world",
+    //   frequency_penalty: 0,
+    //   is_public: false,
+    //   max_tokens: 2048,
+    //   model_slug: "gpt-4o-mini",
+    //   presence_penalty: 0,
+    //   system_prompt: `{{act_as}}
+    //   The context below can be useful for your task:
+    //   \`\`\`
+    //   {{context}}
+    //   \`\`\``,
+    //   temperature: 0.7,
+    //   top_p: 1.0,
+    // };
 
+    // createAgent(exampleAgent);
+    const a = await createRandomAgent();
     set((state) => ({
-      agents: [...state.agents, exampleAgent],
+      agents: [...state.agents, a],
     }));
-
-    createAgent(exampleAgent);
   },
   updateSingleAgent: (agent: TAgent) => {
     set((state) => ({

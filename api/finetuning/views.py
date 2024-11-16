@@ -60,3 +60,64 @@ class CompletionsView(View):
         return JsonResponse(
             {"message": "Completion deleted"}, status=status.HTTP_200_OK
         )
+
+
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class BulkCompletionView(View):
+    permission_classes = [AllowAny]
+
+    def put(self, request):
+        data = json.loads(request.body)
+        completions_data = data
+
+        if not completions_data:
+            return JsonResponse(
+                {"message": "No completions provided"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        updated_completions = []
+        for completion_data in completions_data:
+            completion_id = completion_data.get("id")
+            print(completion_id, "COMPLETION ID")
+            completion = get_object_or_404(Completion, id=completion_id)
+
+            serializer = CompletionSerializer(completion, data=completion_data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                updated_completions.append(serializer.data)
+            else:
+                return JsonResponse(
+                    {"message": "Invalid data for completion id: {}".format(completion_id)}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        return JsonResponse(
+            {"message": "Completions updated", "updated_completions": updated_completions}, 
+            status=status.HTTP_200_OK
+        )
+
+    def delete(self, request):
+        data = json.loads(request.body)
+        completions_ids = data.get("completions_ids", [])
+
+        if not completions_ids:
+            return JsonResponse(
+                {"message": "No completion IDs provided"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        deleted_ids = []
+        for completion_id in completions_ids:
+            completion = get_object_or_404(Completion, id=completion_id)
+            completion.remove_from_memory()  
+            completion.delete()
+            deleted_ids.append(completion_id)
+
+        return JsonResponse(
+            {"message": "Completions deleted", "deleted_ids": deleted_ids}, 
+            status=status.HTTP_200_OK
+        )

@@ -146,7 +146,7 @@ const DocumentThumnail = ({
   return (
     <div
       title={name}
-      className="width-200 document-attachment bg-contrast rounded padding-small "
+      className="w-45 document-attachment bg-contrast rounded padding-small "
     >
       <div className="d-flex gap-small align-center ">
         <div>{SVGS.document}</div>
@@ -156,13 +156,13 @@ const DocumentThumnail = ({
           <FloatingDropdown
             bottom="100%"
             // right="0"
-            left="70%"
+            left="50%"
             extraClass="padding-big border-secondary"
             transform="translateX(-50%)"
             opener={<SvgButton title={t("options")} svg={SVGS.options} />}
           >
             <div className="d-flex gap-medium flex-y width-200 ">
-              <h2 className="text-center">{t("configure")}</h2>
+              <h3 className="text-center">{t("configure")}</h3>
               <SliderInput
                 extraClass="d-flex align-center rounded"
                 labelTrue={t("similar-chunks")}
@@ -182,7 +182,7 @@ const DocumentThumnail = ({
                 title={t("delete")}
                 size="big"
                 svg={SVGS.trash}
-                extraClass="bg-danger square-button"
+                extraClass="bg-danger square-button pressable"
                 confirmations={[`${t("sure")}`]}
                 onClick={() => onDelete()}
               />

@@ -1,8 +1,5 @@
 .whatsapp-page {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  padding: 0% 5vw;
+  height: 100dvh;
 }
 
 .whatsapp-header {

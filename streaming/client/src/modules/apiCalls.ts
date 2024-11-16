@@ -3,6 +3,7 @@ import axios, { AxiosRequestConfig, Method } from "axios";
 import { API_URL, PUBLIC_TOKEN } from "./constants";
 import { TCompletion, TConversation, TDocument, TOrganization } from "../types";
 import { TReactionTemplate } from "../types/chatTypes";
+import { TAgent } from "../types/agents";
 
 const getToken = (isPublic: boolean) => {
   if (isPublic) {
@@ -495,5 +496,28 @@ export const getBigDocument = async (documentId: string) => {
   return makeAuthenticatedRequest<TDocument>(
     "GET",
     `/v1/rag/documents/${documentId}/chunks/`
+  );
+};
+
+export const createRandomAgent = async () => {
+  return makeAuthenticatedRequest<TAgent>(
+    "POST",
+    "/v1/ai_layers/agents/create/random/"
+  );
+};
+
+export const bulkUpdateCompletions = async (data: TCompletion[]) => {
+  return makeAuthenticatedRequest(
+    "PUT",
+    "/v1/finetuning/bulk/completions/",
+    data
+  );
+};
+
+export const bulkDeleteCompletions = async (data: TCompletion[]) => {
+  return makeAuthenticatedRequest(
+    "DELETE",
+    "/v1/finetuning/bulk/completions/delete/",
+    { completions_ids: data.map((c) => c.id) }
   );
 };

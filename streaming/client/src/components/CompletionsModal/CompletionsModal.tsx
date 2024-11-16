@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { Modal } from "../Modal/Modal";
 import {
+  bulkDeleteCompletions,
+  bulkUpdateCompletions,
   deleteCompletion,
   getUserCompletions,
   updateCompletion,
@@ -16,6 +18,8 @@ import MarkdownRenderer from "../MarkdownRenderer/MarkdownRenderer";
 import { Checkbox } from "../Checkbox/Checkbox";
 import { toast } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
+import { Textarea } from "../SimpleForm/Textarea";
+import { FloatingDropdown } from "../Dropdown/Dropdown";
 
 export const CompletionsModal = ({ visible, hide }) => {
   const { t } = useTranslation();
@@ -25,6 +29,9 @@ export const CompletionsModal = ({ visible, hide }) => {
   );
   const [filter, setFilter] = useState("all");
   const [completionsAgents, setCompletionsAgents] = useState([] as number[]);
+  const [selectedCompletions, setSelectedCompletions] = useState(
+    [] as TCompletion[]
+  );
 
   useEffect(() => {
     getCompletions();
@@ -68,9 +75,8 @@ export const CompletionsModal = ({ visible, hide }) => {
 
   const updateCompletionAction = async (completionId: string, data: any) => {
     await updateCompletion(completionId, data);
-    toast.success(t("completion-updated"));
     const updatedCompletions = completions.map((c) =>
-      c.id === parseInt(completionId) ? { ...c, ...data } : c
+      c.id.toString() === completionId ? { ...c, ...data } : c
     );
     setCompletions(updatedCompletions);
   };
@@ -79,57 +85,135 @@ export const CompletionsModal = ({ visible, hide }) => {
     await deleteCompletion(completionId);
     const filtered = completions.filter((c) => c.id !== parseInt(completionId));
     setCompletions(filtered);
+    if (
+      selectedCompletions.findIndex((c) => c.toString() === completionId) !== -1
+    ) {
+      setSelectedCompletions(
+        selectedCompletions.filter((c) => c.id.toString() !== completionId)
+      );
+    }
     toast.success(t("completion-deleted"));
   };
 
-  return (
-    <Modal minHeight={"80vh"} visible={visible} hide={hide}>
-      <h3 className="text-center">{t("completions-pending-for-approval")}</h3>
-      <div className="d-flex align-center gap-small padding-medium">
-        <span>{t("filter-by")}: </span>
-        <Pill
-          onClick={() => setFilter("all")}
-          extraClass={filter === "all" ? "bg-active" : ""}
-        >
-          {t("all")}
-        </Pill>
-        <Pill
-          onClick={() => setFilter("approved")}
-          extraClass={filter === "approved" ? "bg-active" : ""}
-        >
-          {t("approved")}
-        </Pill>
+  const handleSelect = (c: TCompletion) => {
+    if (
+      selectedCompletions.findIndex(
+        (com) => com.id.toString() === c.id.toString()
+      ) !== -1
+    ) {
+      setSelectedCompletions(
+        selectedCompletions.filter(
+          (com) => com.id.toString() !== c.id.toString()
+        )
+      );
+      return;
+    }
+    setSelectedCompletions([...selectedCompletions, c]);
+  };
 
-        <Pill
-          onClick={() => setFilter("pending")}
-          extraClass={filter === "pending" ? "bg-active" : ""}
-        >
-          {t("pending")}
-        </Pill>
-        {completionsAgents.map((a) => (
-          <Pill
-            onClick={() => setFilter(`agent-${a}`)}
-            extraClass={filter === `agent-${a}` ? "bg-active" : ""}
-            key={a}
-          >
-            {agents.find((ag) => ag.id === a)?.name}
-          </Pill>
-        ))}
-      </div>
-      <p className="text-center">
-        {t(
-          "a-completion-is-a-pair-of-a-prompt-and-an-answer-you-can-use-this-page-to-train-your-model-with-completions"
-        )}
-      </p>
-      <div className="d-flex flex-y gap-big">
-        {filteredCompletions.map((c) => (
-          <CompletionCard
-            deleteCompletion={handleDelete}
-            updateCompletion={updateCompletionAction}
-            key={c.id}
-            completion={c}
-          />
-        ))}
+  const handleBulkUpdate = async () => {
+    // toast.success("Bulk update");
+    await bulkUpdateCompletions(selectedCompletions);
+    // toast.success("Bulk update completed");
+  };
+
+  const bulkDelete = async () => {
+    bulkDeleteCompletions(selectedCompletions);
+    setCompletions(
+      completions.filter(
+        (c) => selectedCompletions.findIndex((com) => com.id === c.id) === -1
+      )
+    );
+  };
+
+  return (
+    <Modal minHeight={"80dvh"} visible={visible} hide={hide}>
+      <div className="flex-y gap-big">
+        <h3 className="text-center padding-small">
+          {t("completions-pending-for-approval")}
+        </h3>
+        <div className=" align-center flex-y gap-small padding-small wrap-wrap">
+          <span>{t("filter-by")}: </span>
+          <div className="overflow-x-auto no-scrollbar d-flex justify-center">
+            <Pill
+              onClick={() => setFilter("all")}
+              extraClass={filter === "all" ? "bg-active" : ""}
+            >
+              {t("all")}
+            </Pill>
+            <Pill
+              onClick={() => setFilter("approved")}
+              extraClass={filter === "approved" ? "bg-active" : ""}
+            >
+              {t("approved")}
+            </Pill>
+
+            <Pill
+              onClick={() => setFilter("pending")}
+              extraClass={filter === "pending" ? "bg-active" : ""}
+            >
+              {t("pending")}
+            </Pill>
+            {completionsAgents.map((a) => (
+              <Pill
+                onClick={() => setFilter(`agent-${a}`)}
+                extraClass={filter === `agent-${a}` ? "bg-active" : ""}
+                key={a}
+              >
+                {agents.find((ag) => ag.id === a)?.name}
+              </Pill>
+            ))}
+          </div>
+
+          <div className="d-flex align-center gap-medium">
+            <div>
+              {selectedCompletions.length} {t("selected")}
+            </div>
+            <FloatingDropdown
+              left="50%"
+              top="100%"
+              transform="translateX(-50%)"
+              opener={
+                <SvgButton
+                  extraClass="active-on-hover "
+                  text={t("group-actions")}
+                  svg={SVGS.options}
+                />
+              }
+            >
+              <div className="width-200 flex-y gap-medium">
+                <SvgButton
+                  extraClass=" pressable bg-danger"
+                  size="big"
+                  text={t("delete-all")}
+                  onClick={bulkDelete}
+                  confirmations={[t("sure-delete-completions")]}
+                />
+                <SvgButton
+                  onClick={handleBulkUpdate}
+                  extraClass=" bg-active pressable"
+                  size="big"
+                  text={t("approve-all")}
+                />
+              </div>
+            </FloatingDropdown>
+          </div>
+        </div>
+
+        <div className={styles.completionsContainer}>
+          {filteredCompletions.map((c) => (
+            <CompletionCard
+              handleSelect={handleSelect}
+              updateCompletion={updateCompletionAction}
+              key={c.id}
+              handleDelete={handleDelete}
+              completion={c}
+              selected={
+                selectedCompletions.findIndex((com) => com.id == c.id) !== -1
+              }
+            />
+          ))}
+        </div>
       </div>
     </Modal>
   );
@@ -138,13 +222,17 @@ export const CompletionsModal = ({ visible, hide }) => {
 type CompletionCardProps = {
   completion: TCompletion;
   updateCompletion: (completionId: string, data: any) => void;
-  deleteCompletion: (completionId: string) => void;
+  handleSelect: (c: TCompletion) => void;
+  handleDelete: (completionId: string) => void;
+  selected: boolean;
 };
 
 const CompletionCard = ({
   completion,
   updateCompletion,
-  deleteCompletion,
+  handleSelect,
+  selected,
+  handleDelete,
 }: CompletionCardProps) => {
   const { t } = useTranslation();
 
@@ -154,10 +242,14 @@ const CompletionCard = ({
   const [approved, setApproved] = useState(completion.approved);
 
   const toggleEdit = () => {
+    if (isEditing) {
+      saveCompletion();
+    }
     setIsEditing(!isEditing);
   };
 
   const saveCompletion = async () => {
+    toast.error(completion.id.toString());
     updateCompletion(completion.id.toString(), {
       answer: answer,
       prompt: prompt,
@@ -166,8 +258,8 @@ const CompletionCard = ({
     setIsEditing(false);
   };
 
-  const handleAnswerChange = (e) => {
-    setAnswer(e.target.value);
+  const handleAnswerChange = (value) => {
+    setAnswer(value);
   };
 
   const handlePromptChange = (e) => {
@@ -178,47 +270,59 @@ const CompletionCard = ({
     setApproved(e.target.checked);
   };
 
-  const toggleApproved = () => {
-    setApproved(!approved);
-  };
-
   return (
-    <div className={styles.completionCard}>
-      {isEditing ? (
-        <input onChange={handlePromptChange} value={prompt} />
-      ) : (
-        <h4>{prompt}</h4>
-      )}
-      {isEditing ? (
-        <textarea onChange={handleAnswerChange} value={answer} />
-      ) : (
-        <MarkdownRenderer markdown={answer} />
-      )}
+    <div className={`card fat-border ${selected ? " border-active " : ""}`}>
+      <section
+        onClick={() => handleSelect(completion)}
+        className="flex-y gap-medium"
+      >
+        {isEditing ? (
+          <input
+            className="input padding-big"
+            onChange={handlePromptChange}
+            value={prompt}
+          />
+        ) : (
+          <h4>{prompt}</h4>
+        )}
+        <div className={`separator checked `} />
+        {isEditing ? (
+          <Textarea
+            extraClass=""
+            placeholder="This is how the AI supposed to answer"
+            defaultValue={answer}
+            onChange={handleAnswerChange}
+          />
+        ) : (
+          <MarkdownRenderer markdown={answer} />
+        )}
+      </section>
       <div className="d-flex gap-small justify-center align-center">
-        <Checkbox checked={approved} onChange={handleApprovedChange} />
-        <SvgButton
+        {/* <SvgButton
           onClick={toggleApproved}
-          text={approved ? t("unapprove") : t("approve")}
-          svg={approved ? SVGS.close : SVGS.plus}
+          text={selected ? t("unselect") : t("select")}
+        /> */}
+        <Checkbox
+          checked={approved}
+          onChange={handleApprovedChange}
+          checkedFill="var(--success-color)"
         />
         <SvgButton
           onClick={toggleEdit}
           text={isEditing ? t("finish") : t("edit")}
-          extraClass={isEditing ? "bg-active" : ""}
+          extraClass={
+            isEditing ? "bg-hovered active-on-hover pressable" : "pressable"
+          }
           svg={isEditing ? SVGS.finish : SVGS.writePen}
         />
         <SvgButton
           confirmations={["Sure?"]}
           title={t("delete")}
+          extraClass=" danger-on-hover pressable"
           svg={SVGS.trash}
-          onClick={() => deleteCompletion(completion.id.toString())}
+          onClick={() => handleDelete(completion.id.toString())}
         />
-        <SvgButton
-          onClick={saveCompletion}
-          text={t("save-in-memory")}
-          svg={SVGS.save}
-        />
-        <Pill extraClass="bg-hovered">Agent: {completion.agent}</Pill>
+        {/* <Pill extraClass="bg-hovered">Agent: {completion.agent}</Pill> */}
       </div>
     </div>
   );

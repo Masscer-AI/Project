@@ -24,24 +24,29 @@ export default function Whatsapp() {
   const { numbers } = useLoaderData() as { numbers: any[] };
 
   console.log(numbers);
-  
+
   return (
     <main className="whatsapp-page">
-
-      {isSidebarOpened && <Sidebar />}
-      <ChatHeader />
-      <h1>Whatsapp</h1>
-      <p>
-        Masscer AI let's you use AI Agents inside Whatsapp, in this way you can
-        boost your customer services and collect information about your
-        contacts.
-      </p>
-      <SvgButton text="Connect to Whatsapp" svg={"✅"} />
-      <p>These are your WhatsApp numbers</p>
-      <div>
-        {numbers.map((number) => (
-          <WhatsAppNumber key={number.id} {...number} />
-        ))}
+      <div className="d-flex">
+        {isSidebarOpened && <Sidebar />}
+        <div className="chat-max-width ">
+          <ChatHeader onTitleEdit={() => {}} title="" />
+          <div className="padding-big">
+            <h1>Whatsapp</h1>
+            <p>
+              Masscer AI let's you use AI Agents inside Whatsapp, in this way
+              you can boost your customer services and collect information about
+              your contacts.
+            </p>
+            <SvgButton text="Connect to Whatsapp" svg={"✅"} />
+            <p>These are your WhatsApp numbers</p>
+            <div>
+              {numbers.map((number) => (
+                <WhatsAppNumber key={number.id} {...number} />
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
     </main>
   );

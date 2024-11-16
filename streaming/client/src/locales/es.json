@@ -124,6 +124,13 @@
     "document-chunks": "Fragmentos del documento",
     "document-templates-you-can-replicate-using-ai": "Plantillas de documentos que puedes replicar usando IA",
     "templates": "Plantillas",
-    "loading-documents": "Cargando documentos..."
-
+    "loading-documents": "Cargando documentos...",
+    "unselect": "Deseleccionar",
+    "select-all": "Seleccionar todo",
+    "select": "Seleccionar",
+    "unselect-all": "Deseleccionar todo",
+    "group-actions": "Acciones en grupo",
+    "selected": "seleccionados",
+    "delete-all": "Eliminar todo",
+    "approve-all": "Aprobar todo"
 }

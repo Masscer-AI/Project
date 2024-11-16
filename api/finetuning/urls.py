@@ -1,7 +1,7 @@
 from django.urls import path
 
 # from .views import LoginAPIView, SignupAPIView, HelloWorldView
-from .views import GenerateTrainingDataView, CompletionsView
+from .views import GenerateTrainingDataView, CompletionsView, BulkCompletionView
 
 app_name = "finetuning"
 
@@ -13,4 +13,5 @@ urlpatterns = [
         CompletionsView.as_view(),
         name="completions",
     ),
+    path("bulk/completions/", BulkCompletionView.as_view(), name="bulk"),
 ]

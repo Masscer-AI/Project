@@ -5,28 +5,32 @@ export const Textarea = ({
   defaultValue,
   onChange,
   placeholder,
+  extraClass = "",
 }: {
   defaultValue: string;
   onChange: (value: string) => void;
   placeholder: string;
+  extraClass?: string;
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   // Function to resize the textarea
   const autoResize = () => {
     if (textareaRef.current) {
-      textareaRef.current.style.height = "auto"; // Reset height
-      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`; // Set to scroll height
+      // textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight + 5}px`;
     }
   };
 
   useEffect(() => {
-    autoResize(); // Resize on mount
-  }, [defaultValue]); // Run when defaultValue changes
+    autoResize(); 
+  }, [defaultValue]); 
 
   return (
-    <div className="d-flex flex-y gap-small textarea-container nowheel">
-      <Pill>{placeholder}</Pill>
+    <div
+      className={`d-flex flex-y gap-small textarea-container nowheel   ${extraClass}`}
+    >
+      <Pill extraClass="above-all">{placeholder}</Pill>
       <textarea
         ref={textareaRef}
         className="textarea"

@@ -96,7 +96,7 @@ class Agent(models.Model):
         from .tasks import async_generate_agent_profile_picture
 
         if not self.slug:
-            self.slug = slugify(self.name)
+            self.slug = slugify(self.name + "-" + str(self.id))
 
         if not self.llm:
             llm = LanguageModel.objects.get(slug=self.model_slug)
@@ -159,4 +159,5 @@ class Agent(models.Model):
 
         return extract_rag_results({"results": results}, context)
 
-    # def generate_profile_picture(self):
+
+# def generate_profile_picture(self):
