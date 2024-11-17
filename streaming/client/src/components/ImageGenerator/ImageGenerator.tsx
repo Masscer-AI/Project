@@ -7,9 +7,26 @@ import { generateImage } from "../../modules/apiCalls";
 import { SVGS } from "../../assets/svgs";
 import toast from "react-hot-toast";
 
+const FLUX_SIZES = [
+  "512x512",
+  "1024x1024",
+  "1440x1440",
+  "1440x768",
+  "1024x768",
+  "1280x768",
+  // Other layouts
+  "768x1024",
+  "768x1440",
+];
+
+
 const modelSizes = {
   "dall-e-2": ["256x256", "512x512", "1024x1024"],
   "dall-e-3": ["1024x1024", "1792x1024", "1024x1792"],
+  "flux-pro-1.1-ultra": [...FLUX_SIZES],
+  "flux-pro-1.1": [...FLUX_SIZES],
+  "flux-pro": [...FLUX_SIZES],
+  "flux-dev": [...FLUX_SIZES],
 };
 
 export const ImageGenerator = ({

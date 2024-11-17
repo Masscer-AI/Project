@@ -19,6 +19,7 @@ from api.messaging.models import Message
 from api.utils.color_printer import printer
 from api.utils.openai_functions import create_completion_openai
 from django.http import HttpResponse
+from api.utils.black_forest_labs import request_flux_generation, get_result_url
 
 logger = logging.getLogger(__name__)
 
@@ -166,6 +167,22 @@ class MediaView(View):
             )
 
 
+def get_width_and_height_from_size_string(size: str):
+    # SPlit at x
+    split_size = size.split("x")
+    width = int(split_size[0])
+    height = int(split_size[1])
+    return width, height
+
+
+LIST_OF_FLUX_MODELS = [
+    "flux-pro-1.1-ultra",
+    "flux-pro-1.1",
+    "flux-pro",
+    "flux-dev",
+]
+
+
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class ImageGenerationView(View):
@@ -177,7 +194,17 @@ class ImageGenerationView(View):
             size = data.get("size")
             model = data.get("model")
 
-            image_url = generate_image(prompt=prompt, model=model, size=size)
+            if model in LIST_OF_FLUX_MODELS:
+                width, height = get_width_and_height_from_size_string(size)
+                request_id = request_flux_generation(
+                    prompt=prompt, width=width, height=height, model=model, steps=40
+                )
+                if not request_id:
+                    raise Exception("Failed to generate image")
+                image_url = get_result_url(request_id)
+            else:
+                image_url = generate_image(prompt=prompt, model=model, size=size)
+
             image_response = requests.get(image_url)
             image_content = image_response.content
 

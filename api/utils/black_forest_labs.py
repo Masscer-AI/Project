@@ -1,6 +1,8 @@
 import os
 import requests
 import random
+import time
+
 
 # request = requests.post(
 #     'https://api.bfl.ml/v1/flux-pro-1.1',
@@ -18,7 +20,6 @@ import random
 
 
 def create_random_seed():
-    # Create a random integer from 1 to 100000
     return random.randint(1, 100000)
 
 
@@ -37,21 +38,60 @@ def request_flux_generation(
     model: str = "flux-dev",
     steps: int = 40,
     seed: int = create_random_seed(),
+    prompt_upsampling: bool = False,
     api_key: str = os.environ.get("BFL_API_KEY"),
-    output_format: str = "png",
 ):
     endpoint = flux_models_to_endpoint[model]
-    req = requests.post(
-        endpoint,
-        headers={
-            "accept": "application/json",
-            "x-key": api_key,
-            "Content-Type": "application/json",
-        },
-        json={
-            "prompt": prompt,
-            "width": width,
-            "height": height,
-        },
-    ).json()
-    return req["id"]
+
+    try:
+        req = requests.post(
+            endpoint,
+            headers={
+                "accept": "application/json",
+                "x-key": api_key,
+                "Content-Type": "application/json",
+            },
+            json={
+                "prompt": prompt,
+                "width": width,
+                "height": height,
+                "steps": steps,
+                "seed": seed,
+                "prompt_upsampling": prompt_upsampling,
+            },
+        )
+
+        # Check if the request was successful
+        req.raise_for_status()  # Raises an error for bad responses (4xx or 5xx)
+
+        return req.json()["id"]
+
+    except requests.exceptions.HTTPError as e:
+        if req.status_code == 422:
+            error_details = req.json().get("detail", [])
+            print("Validation Error fields:")
+            for error in error_details:
+                print(f"Field: {error.get('loc')}, Message: {error.get('msg')}")
+        else:
+            print(f"An unexpected error occurred while generating flux image: {e}")
+
+    return None
+
+
+def get_result_url(result_id: str, api_key: str = os.environ.get("BFL_API_KEY")):
+    url = f"https://api.bfl.ml/v1/get_result?id={result_id}"
+
+    while True:
+        response = requests.get(
+            url,
+            headers={
+                "accept": "application/json",
+                "x-key": api_key,
+            },
+        ).json()
+
+        if response.get("status") == "Ready":
+            return response["result"]["sample"]
+        else:
+            print("Status not ready, waiting to retry...")
+            time.sleep(1.5)
