@@ -2,7 +2,7 @@ import hashlib
 from fastapi import APIRouter, File, UploadFile, HTTPException, Request
 
 from pydantic import BaseModel
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import HTMLResponse
 from server.utils.openai_functions import (
     transcribe_audio,
     generate_speech_stream,
@@ -68,21 +68,6 @@ async def upload_audio(file: UploadFile = File(...)):
     }
 
 
-class ImageRequest(BaseModel):
-    prompt: str
-
-
-@router.post("/generate_image/")
-async def generate_image_route(request: ImageRequest):
-    try:
-        image_url = generate_image(request.prompt)
-        return {"image_url": image_url}
-    except Exception as e:
-        raise HTTPException(
-            status_code=400,
-            detail={"message": str(e), "status": "error", "type": "GenerationError"},
-        )
-
 
 @router.get("/", response_class=HTMLResponse)
 async def get_root(request: Request):
@@ -95,12 +80,6 @@ async def get_root(request: Request):
     return HTMLResponse(content="Page not found", status_code=404)
 
 
-@router.get("/get-models")
-async def get_models():
-    print("REQUESTING MODELS FROM OLLAMA!")
-    models = list_ollama_models()
-    print(models)
-    return models
 
 
 @router.get("/{page_name}", response_class=HTMLResponse)

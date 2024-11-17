@@ -2,7 +2,7 @@ import os
 import requests
 import random
 import time
-
+from .color_printer import printer
 
 # request = requests.post(
 #     'https://api.bfl.ml/v1/flux-pro-1.1',
@@ -93,5 +93,7 @@ def get_result_url(result_id: str, api_key: str = os.environ.get("BFL_API_KEY"))
         if response.get("status") == "Ready":
             return response["result"]["sample"]
         else:
-            print("Status not ready, waiting to retry...")
+            printer.blue(
+                "Waiting to retry...", "STATUS NOT READY", response.get("status")
+            )
             time.sleep(1.5)
