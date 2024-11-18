@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { Talkie } from "../../components/Talkie/Talkie";
+
 import { ChatItem, TSomething } from "../../types";
-import { ChatMessages } from "../../components/Messages/Messages";
+
 
 import { useLoaderData } from "react-router-dom";
 import { API_URL, PUBLIC_TOKEN } from "../../modules/constants";

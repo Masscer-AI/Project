@@ -96,7 +96,7 @@ class Agent(models.Model):
         return self.name
 
     def save(self, *args, **kwargs):
-        from .tasks import async_generate_agent_profile_picture
+        # from .tasks import async_generate_agent_profile_picture
 
         if not self.slug:
             self.slug = slugify(self.name + "-" + str(uuid.uuid4()))
@@ -105,8 +105,8 @@ class Agent(models.Model):
             llm = LanguageModel.objects.get(slug=self.model_slug)
             self.llm = llm
 
-        if not self.profile_picture_url:
-            async_generate_agent_profile_picture.delay(self.id)
+        # if not self.profile_picture_url and self.id:
+        #     async_generate_agent_profile_picture.delay(self.id)
 
         super().save(*args, **kwargs)
 

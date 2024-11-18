@@ -202,7 +202,7 @@ async def on_message_handler(socket_id, data, **kwargs):
 
         await sio.emit(
             "generation_status",
-            {"message": "generating-response-with", "extra": f" {agent_slug}"},
+            {"message": "generating-response-with", "extra": f" {m["name"]}"},
             to=socket_id,
         )
         async for chunk in stream_completion(
