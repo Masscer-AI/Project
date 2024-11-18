@@ -5,11 +5,10 @@ from .utils.openai_functions import stream_completion, generate_speech_api
 
 from .utils.apiCalls import (
     save_message,
-    get_results,
     regenerate_conversation,
     query_document,
 )
-from .utils.brave_search import search_brave, new_search_brave
+from .utils.brave_search import new_search_brave
 import hashlib
 from .utils.apiCalls import get_system_prompt
 from .logger import get_custom_logger
@@ -120,6 +119,7 @@ async def on_message_handler(socket_id, data, **kwargs):
             {"message": "exploring-the-web"},
             to=socket_id,
         )
+        
         messages_context = [
             {"text": m["text"], "type": m["type"], "versions": m["versions"]}
             for m in context

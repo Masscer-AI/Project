@@ -108,7 +108,7 @@ class TextStreamingHandler:
                             },
                         )
 
-        
+        logger.debug(f"Creating completion with {model}")
         response = self.client.chat.completions.create(
             model=model,
             # model="gpt-4o-audio-preview",

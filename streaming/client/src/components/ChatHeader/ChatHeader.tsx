@@ -256,7 +256,7 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
             onChange={handleInputChange}
             className="input"
           >
-            {["allow", "shimmer", "alloy", "echo", "fable", "onyx", "nova"].map(
+            {["shimmer", "alloy", "echo", "fable", "onyx", "nova"].map(
               (voice) => (
                 <option key={voice} value={voice}>
                   {voice.charAt(0).toUpperCase() + voice.slice(1)}{" "}

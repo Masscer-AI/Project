@@ -139,6 +139,7 @@
     "searching-similar-information-in-the-database": "Searching similar information in the database...",
     "message-received": "Message received",
     "generating-response-with": "Generating response with",
-    "im-sure": "I'm sure"
+    "im-sure": "I'm sure",
+    "thinking...": "Thinking..."
 
 }
