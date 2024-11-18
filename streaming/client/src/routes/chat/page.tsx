@@ -45,6 +45,7 @@ export default function ChatView() {
   }));
 
   const { t } = useTranslation();
+  const chatMessageContainerRef = React.useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setUser(loaderData.user);
@@ -61,6 +62,10 @@ export default function ChatView() {
       setMessages((prevMessages) =>
         updateMessages(data.chunk, data.agent_slug, prevMessages)
       );
+      if (chatMessageContainerRef.current) {
+        chatMessageContainerRef.current.scrollTop =
+          chatMessageContainerRef.current.scrollHeight;
+      }
     });
 
     socket.on("responseFinished", (data) => {
@@ -250,39 +255,39 @@ export default function ChatView() {
     }
   };
 
+  const onMessageDeleted = (index: number) => {
+    const newMessages = messages.filter((_, i) => i !== index);
+    setMessages(newMessages);
+  };
+
   return (
-    <>
-      <div className="d-flex">
-        {chatState.isSidebarOpened && <Sidebar />}
-        <div className="chat-container">
-          <ChatHeader
-            onTitleEdit={onTitleEdit}
-            title={
-              conversation?.title || loaderData.conversation.title || "Chat"
-            }
-          />
-          <ChatInput
-            handleSendMessage={handleSendMessage}
-            handleKeyDown={handleKeyDown}
-            conversation={conversation || loaderData.conversation}
-          />
+    <div className="d-flex">
+      {chatState.isSidebarOpened && <Sidebar />}
+      <div className="chat-container">
+        <ChatHeader
+          onTitleEdit={onTitleEdit}
+          title={conversation?.title || loaderData.conversation.title || "Chat"}
+        />
+        <ChatInput
+          handleSendMessage={handleSendMessage}
+          handleKeyDown={handleKeyDown}
+          conversation={conversation || loaderData.conversation}
+        />
 
-         
-
-          <div className="chat-messages">
-            {messages &&
-              messages.map((msg, index) => (
-                <Message
-                  {...msg}
-                  key={index}
-                  index={index}
-                  onImageGenerated={onImageGenerated}
-                  onMessageEdit={onMessageEdit}
-                />
-              ))}
-          </div>
+        <div ref={chatMessageContainerRef} className="chat-messages">
+          {messages &&
+            messages.map((msg, index) => (
+              <Message
+                {...msg}
+                key={index}
+                index={index}
+                onImageGenerated={onImageGenerated}
+                onMessageEdit={onMessageEdit}
+                onMessageDeleted={onMessageDeleted}
+              />
+            ))}
         </div>
       </div>
-    </>
+    </div>
   );
 }

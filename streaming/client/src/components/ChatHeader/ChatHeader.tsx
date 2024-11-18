@@ -9,8 +9,8 @@ import { SvgButton } from "../SvgButton/SvgButton";
 import { updateAgent } from "../../modules/apiCalls";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
-import { SliderInput } from "../SimpleForm/SliderInput";
 import { Textarea } from "../SimpleForm/Textarea";
+import { Pill } from "../Pill/Pill";
 
 export const ChatHeader = ({
   title,
@@ -150,6 +150,7 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
   const [formState, setFormState] = useState({
     name: agent.name || "",
     model_slug: agent.model_slug || "",
+    openai_voice: agent.openai_voice || "shimmer",
     default: agent.default || false,
     frequency_penalty: agent.frequency_penalty || 0.0,
     max_tokens: agent.max_tokens || 1000,
@@ -167,7 +168,6 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
   ) => {
     const { name, value, type } = e.target;
     // If the name is in temperature, max_tokens, presence_penalty, frequency_penalty, top_p, convert the value to a number
-    console.log(type, name, value, "input change");
 
     const floatNames = [
       "temperature",
@@ -247,6 +247,35 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
             ))}
           </select>
         </label>
+
+        <label className="d-flex gap-small align-center">
+          <span>{t("voice")}</span>
+          <select
+            name="openai_voice"
+            value={formState.openai_voice}
+            onChange={handleInputChange}
+            className="input"
+          >
+            {["allow", "shimmer", "alloy", "echo", "fable", "onyx", "nova"].map(
+              (voice) => (
+                <option key={voice} value={voice}>
+                  {voice.charAt(0).toUpperCase() + voice.slice(1)}{" "}
+                  {/* Capitalize the first letter */}
+                </option>
+              )
+            )}
+          </select>
+          <Pill
+            onClick={() => {
+              const url = `https://platform.openai.com/docs/guides/text-to-speech#${formState.openai_voice}`;
+              window.open(url, "_blank");
+            }}
+            extraClass="bg-hovered"
+          >
+            Ref
+          </Pill>
+        </label>
+
         <label className="d-flex gap-small align-center">
           <span>{t("frequency-penalty")}</span>
           <input

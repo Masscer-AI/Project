@@ -13,11 +13,12 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.MouseEvent<HTMLButtonElement>) => {
     // e.preventDefault();
+    setIsLoading(true);
     const endpoint = "/v1/auth/login";
     const payload = { email, password };
     try {
@@ -34,6 +35,7 @@ export default function Login() {
       setMessage(error.response?.data?.detail || "An error occurred");
       toast.error("An error occurred");
     }
+    setIsLoading(false);
   };
 
   return (
@@ -75,7 +77,7 @@ export default function Login() {
             type="submit"
             className="w-100 padding-medium button bg-active"
           >
-            Login
+            {!isLoading ? "Login" : "Loading..."}
           </button>
           <button
             onClick={() => navigate("/signup")}

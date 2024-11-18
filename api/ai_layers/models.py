@@ -1,4 +1,5 @@
 from django.db import models
+import uuid
 from django.utils.text import slugify
 from django.core.validators import MinValueValidator, MaxValueValidator
 from api.providers.models import AIProvider
@@ -39,6 +40,7 @@ class LanguageModel(models.Model):
 
 class Agent(models.Model):
 
+    VOICE_OPTIONS = ["allow", ""]
     MODEL_PROVIDER_CHOICES = [
         ("openai", "OpenAI"),
         ("ollama", "Ollama"),
@@ -64,6 +66,7 @@ class Agent(models.Model):
         default=DEFAULT_CHARACTER, help_text="How should the AI act?"
     )
 
+    openai_voice = models.CharField(max_length=100, null=True, blank=True)
     user = models.ForeignKey(
         "auth.User", on_delete=models.CASCADE, null=True, blank=True
     )
@@ -96,7 +99,7 @@ class Agent(models.Model):
         from .tasks import async_generate_agent_profile_picture
 
         if not self.slug:
-            self.slug = slugify(self.name + "-" + str(self.id))
+            self.slug = slugify(self.name + "-" + str(uuid.uuid4()))
 
         if not self.llm:
             llm = LanguageModel.objects.get(slug=self.model_slug)

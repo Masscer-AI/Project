@@ -6,15 +6,21 @@ import { Thumbnail } from "../Thumbnail/Thumbnail";
 import "./Message.css";
 import { SvgButton } from "../SvgButton/SvgButton";
 import toast from "react-hot-toast";
-import { getChunk, updateMessage } from "../../modules/apiCalls";
+import { deleteMessage, getChunk, updateMessage } from "../../modules/apiCalls";
 import { Modal } from "../Modal/Modal";
 import { useTranslation } from "react-i18next";
 import { Pill } from "../Pill/Pill";
 import { useStore } from "../../modules/store";
 import { Reactions } from "../Reactions/Reactions";
-import { AudioPlayerOptions, createAudioPlayer } from "../../modules/utils";
+import {
+  AudioPlayerOptions,
+  AudioPlayerWithAppendOptions,
+  createAudioPlayer,
+  createAudioPlayerWithAppend,
+} from "../../modules/utils";
 import { ImageGenerator } from "../ImageGenerator/ImageGenerator";
 import { Loader } from "../Loader/Loader";
+import { FloatingDropdown } from "../Dropdown/Dropdown";
 type TReaction = {
   id: number;
   template: number;
@@ -24,6 +30,13 @@ interface Link {
   url: string;
   text: string;
 }
+
+const slugify = (text: string) => {
+  return text
+    .toLowerCase()
+    .replace(/ /g, "-")
+    .replace(/[^a-z0-9-]/g, "");
+};
 
 interface MessageProps {
   id?: number;
@@ -36,6 +49,7 @@ interface MessageProps {
   onImageGenerated: (imageUrl: string, message_id: number) => void;
   onMessageEdit: (index: number, text: string, versions?: TVersion[]) => void;
   reactions?: TReaction[];
+  onMessageDeleted: (index: number) => void;
 }
 
 export const Message: React.FC<MessageProps> = ({
@@ -49,6 +63,7 @@ export const Message: React.FC<MessageProps> = ({
   onImageGenerated,
   // onGenerateImage,
   onMessageEdit,
+  onMessageDeleted,
 }) => {
   const [sources, setSources] = useState([] as Link[]);
   const [isEditing, setIsEditing] = useState(false);
@@ -58,9 +73,9 @@ export const Message: React.FC<MessageProps> = ({
   const [innerReactions, setInnerReactions] = useState(
     reactions || ([] as TReaction[])
   );
-  const [audioPlayer, setAudioPlayer] = useState<AudioPlayerOptions | null>(
-    null
-  );
+  const [audioPlayer, setAudioPlayer] = useState<
+    AudioPlayerWithAppendOptions | AudioPlayerOptions | null
+  >(null);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [messageState, setMessageState] = useState({
     imageGeneratorOpened: false,
@@ -87,23 +102,56 @@ export const Message: React.FC<MessageProps> = ({
     );
   };
 
+  const onFinish = () => {
+    setIsPlayingAudio(false);
+  };
   useEffect(() => {
     if (!id) return;
 
     socket.on(`audio-file-${id}`, (audioFile) => {
-      const onFinish = () => {
-        setAudioPlayer(null);
-        setIsPlayingAudio(false);
-      };
-      const audioPlayer = createAudioPlayer(audioFile, onFinish);
-      audioPlayer.play();
-      setAudioPlayer(audioPlayer);
+      console.log("Receiving audio file");
+
+      setIsGeneratingSpeech(false);
+
+      if (audioPlayer) {
+        audioPlayer.stop();
+        audioPlayer.destroy();
+        toast.success("Audio player stopped");
+      }
+      const newAudioPlayer = createAudioPlayer(audioFile, onFinish);
+      // newAudioPlayer.append(0, audioFile);
+      newAudioPlayer.play();
+
+      setAudioPlayer(newAudioPlayer);
       setIsPlayingAudio(true);
+    });
+
+    socket.on(`audio-chunk-${id}`, (data) => {
+      // toast.loading("Audio chunk received");
+      // console.log(data, "audio chunk received");
+
+      if (!audioPlayer) {
+        toast.loading("Creating audio player");
+        const audioPlayer = createAudioPlayerWithAppend(onFinish);
+        audioPlayer.append(
+          data.position,
+          new Uint8Array(data.audio_bytes).buffer
+        );
+        if (data.position === 0) {
+          setIsGeneratingSpeech(false);
+        }
+        setAudioPlayer(audioPlayer);
+      } else {
+        // console.log("Appending audio chunk");
+        //  @ts-ignore
+        audioPlayer.replace(new Uint8Array(data.audio_bytes).buffer);
+      }
     });
     return () => {
       socket.off(`audio-file-${id}`);
+      socket.off(`audio-chunk-${id}`);
     };
-  }, [id, socket]);
+  }, [id, socket, audioPlayer]);
 
   useEffect(() => {
     if (isEditing && textareaRef.current) {
@@ -196,7 +244,13 @@ export const Message: React.FC<MessageProps> = ({
 
   const handleGenerateSpeech = async () => {
     if (isGeneratingSpeech) {
-      toast.success(t("speech-being-generated-wait-a-second"), {
+      const randomWaitMessage = [
+        t("speech-being-generated-wait-a-second"),
+        t("are-you-trying-to-make-me-speak-twice?"),
+        t("just-a-second"),
+      ];
+      const randomIndex = Math.floor(Math.random() * randomWaitMessage.length);
+      toast.success(randomWaitMessage[randomIndex], {
         icon: "🔊",
       });
       return;
@@ -204,20 +258,42 @@ export const Message: React.FC<MessageProps> = ({
 
     if (!audioPlayer) {
       try {
+        toast.success(t("speech-being-generated-wait-a-second"), {
+          icon: "🔊",
+        });
+
         socket.emit("speech_request", {
           text: versions?.[currentVersion]?.text || innerText,
           id: id,
+          voice: {
+            type: "openai",
+            slug:
+              agents.find(
+                (a) => versions?.[currentVersion].agent_slug === a.slug
+              )?.openai_voice || "alloy",
+          },
         });
         setIsGeneratingSpeech(true);
       } catch (error) {
         console.error("Error generating speech:", error);
       }
+    } else {
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!id) return;
+    try {
+      await deleteMessage(id);
+      onMessageDeleted(index);
+    } catch (error) {
+      console.error("Error deleting message:", error);
+      toast.error(t("error-deleting-message"));
     }
   };
 
   return (
     <div className={`message ${type} message-${index}`}>
-      {!innerText && !versions?.[currentVersion]?.text && <Loader text="" />}
       {isEditing ? (
         <textarea
           autoComplete="on"
@@ -232,6 +308,7 @@ export const Message: React.FC<MessageProps> = ({
         />
       )}
 
+      {!id && type === "assistant" && <Loader text={t("thinking...")} />}
       <section className="message__attachments">
         {attachments &&
           attachments.map(({ content, type, name }, index) => (
@@ -243,10 +320,6 @@ export const Message: React.FC<MessageProps> = ({
               key={index}
             />
           ))}
-        {/* {sources &&
-          sources.map((s, index) => (
-            <Source key={index} text={s.text} href={s.url}></Source>
-          ))} */}
         {versions?.[currentVersion]?.sources &&
           versions?.[currentVersion]?.sources.map((s, index) => (
             <Source key={index} source={s} />
@@ -263,25 +336,12 @@ export const Message: React.FC<MessageProps> = ({
       <div className="message-buttons d-flex gap-small align-center">
         {id && (
           <>
-            <SvgButton
+            {/* <SvgButton
               title={t("copy-to-clipboard")}
               onClick={() => copyToClipboard()}
               svg={SVGS.copyTwo}
-            />
-            <SvgButton
-              title={t("generate-image")}
-              onClick={() =>
-                // onGenerateImage(
-                //   versions?.[currentVersion]?.text || innerText,
-                //   id
-                // ),
-                setMessageState((prev) => ({
-                  ...prev,
-                  imageGeneratorOpened: true,
-                }))
-              }
-              svg={SVGS.picture}
-            />
+            /> */}
+
             {messageState.imageGeneratorOpened && (
               <ImageGenerator
                 onResult={(imageUrl) => onImageGenerated(imageUrl, id)}
@@ -331,13 +391,26 @@ export const Message: React.FC<MessageProps> = ({
                   }}
                   svg={SVGS.stop}
                 />
+                <SvgButton
+                  title={t("download-audio")}
+                  onClick={() => {
+                    const filename = slugify(
+                      versions?.[currentVersion]?.text || text
+                    ).slice(0, 100);
+
+                    audioPlayer.download(filename);
+                  }}
+                  svg={SVGS.download}
+                />
               </>
             )}
-            <SvgButton
-              title={isEditing ? t("finish") : t("edit")}
-              onClick={toggleEditMode}
-              svg={isEditing ? SVGS.finish : SVGS.edit}
-            />
+            {isEditing && (
+              <SvgButton
+                title={isEditing ? t("finish") : t("edit")}
+                onClick={toggleEditMode}
+                svg={isEditing ? SVGS.finish : SVGS.edit}
+              />
+            )}
             <Reactions
               direction={type === "user" ? "right" : "left"}
               onReaction={handleReaction}
@@ -363,7 +436,10 @@ export const Message: React.FC<MessageProps> = ({
                 extraClass={`${
                   currentVersion === index ? "bg-active" : "bg-hovered"
                 }`}
-                onClick={() => setCurrentVersion(index)}
+                onClick={() => {
+                  setCurrentVersion(index);
+                  setAudioPlayer(null);
+                }}
               >
                 <span className="box">{index + 1}</span>
               </Pill>
@@ -374,6 +450,54 @@ export const Message: React.FC<MessageProps> = ({
         {versions?.[currentVersion]?.agent_name ? (
           <Pill>{versions?.[currentVersion]?.agent_name}</Pill>
         ) : null}
+
+        {id && (
+          <FloatingDropdown
+            top="0"
+            {...(type === "user" ? { right: "100%" } : { left: "100%" })}
+            opener={<SvgButton svg={SVGS.options} />}
+          >
+            <div className="flex-y gap-small width-200">
+              <SvgButton
+                title={t("copy-to-clipboard")}
+                extraClass="active-on-hover border-active pressable"
+                onClick={() => copyToClipboard()}
+                svg={SVGS.copyTwo}
+                text={t("copy")}
+                size="big"
+              />
+              <SvgButton
+                title={isEditing ? t("finish") : t("edit")}
+                onClick={toggleEditMode}
+                size="big"
+                text={isEditing ? t("finish") : t("edit")}
+                svg={isEditing ? SVGS.finish : SVGS.edit}
+                extraClass="active-on-hover border-active pressable"
+              />
+              <SvgButton
+                size="big"
+                text={t("generate-image")}
+                extraClass="active-on-hover border-active pressable"
+                onClick={() =>
+                  setMessageState((prev) => ({
+                    ...prev,
+                    imageGeneratorOpened: true,
+                  }))
+                }
+                svg={SVGS.picture}
+              />
+              <SvgButton
+                title={t("delete-message")}
+                size="big"
+                extraClass="danger-on-hover border-danger pressable"
+                onClick={() => handleDelete()}
+                svg={SVGS.trash}
+                text={t("delete")}
+                confirmations={[t("im-sure")]}
+              />
+            </div>
+          </FloatingDropdown>
+        )}
       </div>
     </div>
   );

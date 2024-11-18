@@ -3,7 +3,12 @@ import json
 from datetime import datetime
 from .utils.openai_functions import stream_completion, generate_speech_api
 
-from .utils.apiCalls import save_message, get_results, regenerate_conversation, query_document
+from .utils.apiCalls import (
+    save_message,
+    get_results,
+    regenerate_conversation,
+    query_document,
+)
 from .utils.brave_search import search_brave, new_search_brave
 import hashlib
 from .utils.apiCalls import get_system_prompt
@@ -40,10 +45,14 @@ def extract_rag_results(rag_results, context):
 
 async def on_message_handler(socket_id, data, **kwargs):
     now = datetime.now()
-
     current_date_time = now.strftime("%Y-%m-%d %H:%M:%S")
-
     from server.socket import sio
+
+    await sio.emit(
+        "generation_status",
+        {"message": "message-received"},
+        to=socket_id,
+    )
 
     context = data["context"]
     message = data["message"]
@@ -62,20 +71,25 @@ async def on_message_handler(socket_id, data, **kwargs):
     user_id_to_emit = message.get("id", None)
 
     for a in attachments:
+        print("Type of attachment", a.get("type", None))
         extraction_mode = a.get("mode", None)
 
         if a.get("type", None) == "image":
             continue
 
-
         if extraction_mode and extraction_mode == "similar_chunks":
             rag_results = query_document(
-                    query_text=message["text"],
-                    token=token,
-                    conversation_id=conversation["id"],
-                    document_id=a.get("id", None),
-                )
-            
+                query_text=message["text"],
+                token=token,
+                conversation_id=conversation["id"],
+                document_id=a.get("id", None),
+            )
+            await sio.emit(
+                "generation_status",
+                {"message": "searching-similar-information-in-the-database"},
+                to=socket_id,
+            )
+
             attachments_context, sources = extract_rag_results(
                 rag_results, attachments_context
             )
@@ -87,10 +101,36 @@ async def on_message_handler(socket_id, data, **kwargs):
             </Document> 
             """
             attachments_context += f"\n\n{doc_content}\n\n"
-        
+            await sio.emit(
+                "generation_status",
+                {
+                    "message": "appending-all-document-text",
+                    "extra": a.get("name", " No name received"),
+                },
+                to=socket_id,
+            )
 
     web_search_activated = data.get("web_search_activated", False)
-    use_rag = data.get("use_rag", False)
+    web_results = []
+    # use_rag = data.get("use_rag", False)
+    if web_search_activated:
+
+        await sio.emit(
+            "generation_status",
+            {"message": "exploring-the-web"},
+            to=socket_id,
+        )
+        messages_context = [
+            {"text": m["text"], "type": m["type"], "versions": m["versions"]}
+            for m in context
+        ]
+        web_results = new_search_brave(
+            message["text"],
+            json.dumps(
+                {"messages": messages_context, "other_context": attachments_context}
+            ),
+        )
+
     regenerate = data.get("regenerate", None)
 
     models_to_complete = data.get(
@@ -105,7 +145,6 @@ async def on_message_handler(socket_id, data, **kwargs):
         ],
     )
 
-    
     if not regenerate:
         user_message_res = save_message(
             message=message,
@@ -129,52 +168,43 @@ async def on_message_handler(socket_id, data, **kwargs):
             "agent_name": m["name"],
             "type": "assistant",
             "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
-            "sources": source_documents
+            "sources": source_documents,
         }
 
         complete_context = f"The following information is from the database: ---{attachments_context}---\n\n"
 
         complete_context += f"The current date and time is {current_date_time}\n\n"
-        if use_rag:
-            await sio.emit(
-                "notification",
-                {"message": "Searching relevant information in the documents"},
-                to=socket_id,
-            )
-            # rag_results = get_results(
-            #     query_text=message["text"],
-            #     agent_slug=agent_slug,
-            #     token=token,
-            #     conversation_id=conversation["id"],
-            # )
-            # complete_context, sources = extract_rag_results(
-            #     rag_results, complete_context
-            # )
-            # version["sources"] = source_documents
-            # await sio.emit(
-            #     "sources",
-            #     {"status": "rag_finished", "sources": sources},
-            #     to=socket_id,
-            # )
+        # if use_rag:
 
-        if web_search_activated:
-
-            await sio.emit(
-                "notification",
-                {"message": "Exploring the web to add more context to your message"},
-                to=socket_id,
-            )
-            web_results = new_search_brave(message["text"], json.dumps(context))
-            version["web_search_results"] = web_results
-            complete_context += f"\n<web_search_results>\n{json.dumps(web_results)}\n </web_search_results>\n"
+        # rag_results = get_results(
+        #     query_text=message["text"],
+        #     agent_slug=agent_slug,
+        #     token=token,
+        #     conversation_id=conversation["id"],
+        # )
+        # complete_context, sources = extract_rag_results(
+        #     rag_results, complete_context
+        # )
+        # version["sources"] = source_documents
+        # await sio.emit(
+        #     "sources",
+        #     {"status": "rag_finished", "sources": sources},
+        #     to=socket_id,
+        # )
+        complete_context += f"\n<web_search_results>\n{json.dumps(web_results)}\n </web_search_results>\n"
 
         system_prompt = get_system_prompt(
-            context=complete_context , agent_slug=agent_slug, token=token
+            context=complete_context, agent_slug=agent_slug, token=token
         )
 
         data = {"agent_slug": agent_slug}
         ai_response = ""
 
+        await sio.emit(
+            "generation_status",
+            {"message": "generating-response-with", "extra": f" {agent_slug}"},
+            to=socket_id,
+        )
         async for chunk in stream_completion(
             system_prompt,
             message["text"],
@@ -196,6 +226,7 @@ async def on_message_handler(socket_id, data, **kwargs):
                     "total_tokens": chunk.total_tokens,
                 }
 
+        version["web_search_results"] = web_results
         version["text"] = ai_response
         versions.append(version)
 
@@ -216,8 +247,13 @@ async def on_message_handler(socket_id, data, **kwargs):
             "status": "ok",
             "versions": versions,
             "user_message_id": user_id_to_emit,
-            "ai_message_id": ai_message_res["id"], 
+            "ai_message_id": ai_message_res["id"],
         },
+        to=socket_id,
+    )
+    await sio.emit(
+        "generation_status",
+        {"message": "message-ready"},
         to=socket_id,
     )
 
@@ -242,6 +278,7 @@ async def on_speech_request_handler(socket_id, data, **kwargs):
 
     text = data["text"]
     id_to_emit = data["id"]
+    voice = data["voice"]
 
     if not id_to_emit:
         return
@@ -256,9 +293,24 @@ async def on_speech_request_handler(socket_id, data, **kwargs):
             audio_content = audio_file.read()
             await sio.emit(f"audio-file-{id_to_emit}", audio_content, to=socket_id)
     else:
-        for chunk in generate_speech_api(text=text, output_path=output_path):
-            logger.debug("audio emitted!")
-            await sio.emit("audio-chunk", chunk, to=socket_id)
+        counter = 0
+        audio = b""
+        for chunk in generate_speech_api(
+            text=text, output_path=output_path, voice=voice.get("slug", "alloy")
+        ):
+            audio += chunk
+            data = {
+                "audio_bytes": audio,
+                "position": counter,
+            }
+            # Eviar solo si ya se tiene 2mb de audio
+            if len(audio) > 2097152:
+                await sio.emit(f"audio-chunk-{id_to_emit}", data, to=socket_id)
+                logger.debug("audio chunk emitted!")
+                counter += 1
+                # await sio.emit(f"audio-chunk-{id_to_emit}", data, to=socket_id)
+                # logger.debug("audio chunk emitted!")
+                counter += 1
 
         with open(output_path, "rb") as audio_file:
             audio_content = audio_file.read()
@@ -269,7 +321,6 @@ async def on_test_event_handler(socket_id, data, **kwargs):
     context = "This i an example query, just make your best effort"
 
     from server.socket import sio
-
 
     print(
         "Test event received",
@@ -282,7 +333,6 @@ async def on_test_event_handler(socket_id, data, **kwargs):
             to=socket_id,
         )
         web_results = new_search_brave(data["query"], json.dumps(context))
-
 
         # version["web_search_results"] = web_results
         # complete_context += f"\n\<web_search_results>\n{json.dumps(web_results)}\n </web_search_results>\n"

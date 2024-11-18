@@ -4,6 +4,7 @@ import { API_URL, PUBLIC_TOKEN } from "./constants";
 import { TCompletion, TConversation, TDocument, TOrganization } from "../types";
 import { TReactionTemplate } from "../types/chatTypes";
 import { TAgent } from "../types/agents";
+import toast from "react-hot-toast";
 
 const getToken = (isPublic: boolean) => {
   if (isPublic) {
@@ -474,22 +475,38 @@ type TGenerateDocumentInput = {
 export const generateDocument = async (data: TGenerateDocumentInput) => {
   return makeAuthenticatedRequest("POST", "/v1/tools/generate_document/", data);
 };
+export const downloadFile = async (file_path: string) => {
+  const { token } = getToken(false);
+  toast.success("Downloading file...");
 
-export const downloadFile = (file_path: string) => {
   const url = `${API_URL}/v1/tools/download/${file_path}/`;
 
-  const form = document.createElement("form");
-  form.method = "GET";
-  form.action = url;
-  form.style.display = "none";
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        Authorization: `Token ${token}`,
+      },
+    });
 
-  document.body.appendChild(form);
+    // Check if the response is OK
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
 
-  // Submit the form
-  form.submit();
+    const blob = await response.blob();
+    const link = document.createElement("a");
+    link.href = window.URL.createObjectURL(blob);
+    // @ts-ignore
+    link.download = file_path.split("/").pop();
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 
-  // Remove the form after submission to keep the DOM clean
-  document.body.removeChild(form);
+    toast.success("File downloaded successfully!");
+  } catch (error) {
+    toast.error(`Download failed: ${error.message}`);
+  }
 };
 
 export const getBigDocument = async (documentId: string) => {
@@ -519,5 +536,12 @@ export const bulkDeleteCompletions = async (data: TCompletion[]) => {
     "DELETE",
     "/v1/finetuning/bulk/completions/delete/",
     { completions_ids: data.map((c) => c.id) }
+  );
+};
+
+export const deleteMessage = async (messageId: number) => {
+  return makeAuthenticatedRequest(
+    "DELETE",
+    `/v1/messaging/messages/${messageId}/`
   );
 };

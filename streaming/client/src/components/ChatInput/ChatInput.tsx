@@ -329,6 +329,7 @@ const RagConfig = ({ hide }: { hide: () => void }) => {
             className={`card pressable ${chatState.attachments.findIndex((a) => a.id == d.id) != -1 && "bg-active"}`}
           >
             <h4>{d.name}</h4>
+            <p title={d.brief}>{d.brief.slice(0, 200)}...</p>
           </div>
         ))}
       </div>
@@ -359,7 +360,7 @@ const ConversationConfig = ({ hide }: { hide: () => void }) => {
       <div className="flex-y gap-small">
         <h3>Conversation</h3>
         <span>{t("max-memory-messages")}</span>
-        {/* <p className="text-secondary">{t("max-memory-messages-description")}</p> */}
+
         <input
           type="number"
           className="input padding-small"

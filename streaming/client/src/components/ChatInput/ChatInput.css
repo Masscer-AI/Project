@@ -53,10 +53,9 @@
   background-color: var(--active-color);
 }
 
-.chat-input .attachments {
+.attachments {
   display: flex;
   gap: 10px;
-  /* padding: 10px; */
   flex-wrap: wrap;
 }
 

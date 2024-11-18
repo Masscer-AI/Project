@@ -133,6 +133,12 @@
     "group-actions": "Group actions",
     "selected": "selected",
     "delete-all": "Delete all",
-    "approve-all": "Approve all"
+    "approve-all": "Approve all",
+    "exploring-the-web": "Exploring the web...",
+    "appending-all-document-text": "Appending all document text...",
+    "searching-similar-information-in-the-database": "Searching similar information in the database...",
+    "message-received": "Message received",
+    "generating-response-with": "Generating response with",
+    "im-sure": "I'm sure"
 
 }

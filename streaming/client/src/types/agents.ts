@@ -11,6 +11,15 @@ export type Model = {
   selected: boolean;
 };
 
+export type TOpenaiVoiceOptions =
+  | "allow"
+  | "shimmer"
+  | "alloy"
+  | "echo"
+  | "fable"
+  | "onyx"
+  | "nova";
+
 export type TAgent = {
   name: string; // The name of the agent
   provider?: string; // The provider of the model, e.g., "openai"
@@ -26,8 +35,10 @@ export type TAgent = {
   model_slug?: string;
   presence_penalty?: number | null;
   salute?: string;
+  openai_voice?: TOpenaiVoiceOptions; // Use the new type for voice options
   profile_picture_url?: string;
   system_prompt: string;
   temperature: number;
   top_p?: number;
+  voice?: TOpenaiVoiceOptions; // Added property for voice selection
 };

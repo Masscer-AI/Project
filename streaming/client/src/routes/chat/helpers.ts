@@ -24,6 +24,7 @@ export const updateMessages = (
           text: chunk,
           type: "assistant",
           agent_slug: agentSlug,
+          agent_name: agentSlug,
         },
       ];
     }
@@ -39,6 +40,7 @@ export const updateMessages = (
         text: chunk,
         type: "assistant",
         agent_slug: agentSlug,
+        agent_name: agentSlug,
       },
     ];
     newMessages.push(assistantMessage);

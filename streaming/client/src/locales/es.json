@@ -132,5 +132,12 @@
     "group-actions": "Acciones en grupo",
     "selected": "seleccionados",
     "delete-all": "Eliminar todo",
-    "approve-all": "Aprobar todo"
+    "approve-all": "Aprobar todo",
+    "exploring-the-web": "Explorando la web...",
+    "appending-all-document-text": "Añadiendo todo el texto del documento...",
+    "searching-similar-information-in-the-database": "Buscando información similar en la base de datos...",
+    "message-received": "Mensaje recibido",
+    "generating-response-with": "Generando respuesta con",
+    "im-sure": "Estoy seguro"
+
 }

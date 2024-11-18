@@ -18,13 +18,13 @@ export const Textarea = ({
   const autoResize = () => {
     if (textareaRef.current) {
       // textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height = `${textareaRef.current.scrollHeight + 5}px`;
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
     }
   };
 
   useEffect(() => {
-    autoResize(); 
-  }, [defaultValue]); 
+    autoResize();
+  }, [defaultValue]);
 
   return (
     <div
@@ -37,7 +37,7 @@ export const Textarea = ({
         defaultValue={defaultValue}
         onChange={(e) => {
           onChange(e.target.value);
-          autoResize();
+          // autoResize();
         }}
         placeholder={""}
       />

@@ -58,6 +58,7 @@ def request_flux_generation(
                 "steps": steps,
                 "seed": seed,
                 "prompt_upsampling": prompt_upsampling,
+                "safety_tolerance": 6
             },
         )
 

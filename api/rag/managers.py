@@ -8,6 +8,7 @@ import chromadb
 class ChromaManager:
     client = None
 
+
     def __init__(self) -> None:
         self.client = chromadb.HttpClient(host="localhost", port=8002)
 

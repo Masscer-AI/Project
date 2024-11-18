@@ -49,7 +49,7 @@ export const SvgButton = ({
     >
       {svg && <div className="d-flex align-center justify-center">{svg}</div>}
       {innerText && (
-        <div className="d-flex align-center justify-center">{innerText}</div>
+        <div className="d-flex align-center justify-center fit-content">{innerText}</div>
       )}
     </button>
   );

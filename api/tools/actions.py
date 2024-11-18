@@ -28,6 +28,8 @@ from api.utils.document_tools import convert_html_to_docx
 import threading
 import time
 
+SAVE_PATH = os.path.join(settings.MEDIA_ROOT, "generated")
+
 
 def format_time_vtt(time):
     minutes = int(time // 60)
@@ -319,10 +321,11 @@ def create_html_file_from_string(html_string, output_file):
 
 
 def document_convertion(source_text: str, from_type="html", to_type="docx"):
+
     input_file_path = f"{uuid.uuid4()}.{from_type}"
-    output_file_path = f"{uuid.uuid4()}.{to_type}"
+    output_file_path = f"{SAVE_PATH}/{uuid.uuid4()}.{to_type}"
     create_html_file_from_string(source_text, input_file_path)
 
     convert_html_to_docx(input_file_path, output_file_path)
 
-    return input_file_path, output_file_path 
+    return input_file_path, output_file_path

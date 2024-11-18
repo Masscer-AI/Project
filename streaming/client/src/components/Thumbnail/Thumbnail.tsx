@@ -146,7 +146,7 @@ const DocumentThumnail = ({
   return (
     <div
       title={name}
-      className="w-45 document-attachment bg-contrast rounded padding-small "
+      className="width-200 document-attachment bg-contrast rounded padding-small "
     >
       <div className="d-flex gap-small align-center ">
         <div>{SVGS.document}</div>

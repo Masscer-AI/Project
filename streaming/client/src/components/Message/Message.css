@@ -56,11 +56,17 @@
   display: flex;
   gap: 10px;
   overflow-x: auto;
-  padding-inline: 12px;
-  padding-block: 5px;
+  padding: 5px;
   display: flex;
+  width: min(fit-content, 100%);
   align-items: center;
-  /* background-color: red; */
+  background-color: rgba(42, 42, 42, 0.227);
+  border-radius: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--hovered-color) transparent;
+}
+.message.user .message__attachments {
+  flex-direction: row-reverse;
 }
 
 .message__attachments:empty {

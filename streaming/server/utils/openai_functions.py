@@ -123,13 +123,15 @@ def generate_speech_api(
 
         audio = b""
         for chunk in response.iter_content(chunk_size=2097152):
-            yield chunk
             audio += chunk
+            yield chunk
 
-        with open(output_path, "wb") as audio_file:
-            audio_file.write(audio)
+        if output_path:
+            with open(output_path, "wb") as audio_file:
+                audio_file.write(audio)
 
         print(f"Audio saved to {output_path}")
+        return audio
 
     except requests.exceptions.RequestException as e:
         print(f"An error occurred: {e}")

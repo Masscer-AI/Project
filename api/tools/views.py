@@ -2,6 +2,8 @@ from django.http import JsonResponse
 from django.utils.text import slugify
 import base64
 import requests
+from django.conf import settings
+
 from django.views import View
 import uuid
 import json
@@ -21,6 +23,8 @@ from api.utils.openai_functions import create_completion_openai
 from django.http import HttpResponse
 from api.utils.black_forest_labs import request_flux_generation, get_result_url
 
+
+SAVE_PATH = os.path.join(settings.MEDIA_ROOT, "generated")
 logger = logging.getLogger(__name__)
 
 
@@ -263,20 +267,19 @@ class DocumentGeneratorView(View):
 
 
 @method_decorator(csrf_exempt, name="dispatch")
-# @method_decorator(token_required, name="dispatch")
+@method_decorator(token_required, name="dispatch")
 class DownloadFile(View):
     def get(self, request, file_path):
-        full_path = file_path
-        # Validate the file path to prevent directory traversal attacks
-        # safe_base = os.path.join('your/safe/directory', '')  # Set a safe base directory
-        # full_path = os.path.join(safe_base, file_path)
+        # full_path = file_path
+        full_path = os.path.normpath(file_path)
 
-        # if not full_path.startswith(safe_base):
-        #     return JsonResponse({"error": "Invalid file path"}, status=400)
+        if not full_path.startswith(SAVE_PATH):
+            printer.blue(f"THe PATH {full_path} IS NOT SAFE")
+            printer.red("SAVE PATH ", SAVE_PATH)
+            return JsonResponse({"error": "Invalid file path"}, status=400)
 
-        # # Check if the file exists
-        # if not os.path.exists(full_path):
-        #     return JsonResponse({"error": "File not found"}, status=404)
+        if not os.path.exists(full_path):
+            return JsonResponse({"error": "File not found"}, status=404)
 
         # # Open the file and prepare the response
         with open(full_path, "rb") as file:

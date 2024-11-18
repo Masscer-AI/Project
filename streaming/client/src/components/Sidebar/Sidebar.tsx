@@ -154,39 +154,20 @@ export const Sidebar: React.FC = () => {
           )}
 
           <SvgButton
-            extraClass={`active-on-hover pressable w-100 ${openedSections.includes("tools") ? "bg-active" : "bg-hovered"}`}
-            onClick={() => handleSectionClick("tools")}
-            text={t("tools")}
             svg={SVGS.tools}
+            text={t("tools")}
+            size="big"
+            extraClass="bg-hovered
+          active-on-hover pressable w-100"
+            onClick={() => goTo("/tools")}
           />
-          {openedSections.includes("tools") && (
-            <>
-              <p
-                className="clickeable rounded-rect"
-                onClick={() => goTo("/tools?selected=audio")}
-              >
-                {t("audio")}
-              </p>
-              <p
-                className="clickeable rounded-rect"
-                onClick={() => goTo("/tools?selected=images")}
-              >
-                {t("images")}
-              </p>
-              <p
-                className="clickeable rounded-rect"
-                onClick={() => goTo("/tools?selected=video")}
-              >
-                {t("video")}
-              </p>
-              <p
-                className="clickeable rounded-rect"
-                onClick={() => goTo("/whatsapp")}
-              >
-                {t("whatsapp")}
-              </p>
-            </>
-          )}
+          <SvgButton
+            onClick={() => goTo("/whatsapp")}
+            text={t("whatsapp")}
+            size="big"
+            extraClass="bg-hovered active-on-hover pressable w-100"
+            svg={SVGS.whatsapp}
+          />
 
           <SvgButton
             extraClass={`active-on
@@ -198,24 +179,25 @@ export const Sidebar: React.FC = () => {
 
           {openedSections.includes("training") && (
             <>
-              <p
-                className="clickeable rounded-rect"
+              <SvgButton
                 onClick={() => {
                   setOpenedModals({ action: "add", name: "documents" });
                   toggleSidebar();
                 }}
-              >
-                {t("documents")}
-              </p>
-
-              <p
-                className="clickeable rounded-rect"
+                text={t("documents")}
+                size="big"
+                extraClass="bg-hovered active-on-hover pressable w-100"
+                svg={SVGS.document}
+              />
+              <SvgButton
                 onClick={() =>
                   setOpenedModals({ action: "add", name: "completions" })
                 }
-              >
-                {t("completions")}
-              </p>
+                text={t("completions")}
+                size="big"
+                extraClass="bg-hovered active-on-hover pressable w-100"
+                svg={SVGS.dumbell}
+              />
             </>
           )}
           <SvgButton
@@ -292,6 +274,7 @@ const ConversationComponent = ({
       )}
       <FloatingDropdown
         right="100%"
+        top="0"
         opener={
           <SvgButton title={t("conversation-options")} svg={SVGS.options} />
         }

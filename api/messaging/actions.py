@@ -26,7 +26,7 @@ def generate_conversation_title(conversation_id: str):
     💻 Code review for the new OpenAI API
     🙏🏻 User Support for John in Python
 
-    Return ONLY the new conversation title with the emoji at the beginning.
+    Return ONLY the new conversation title with the emoji at the beginning. Both are mandatory, emoji + text.
     """
     c = Conversation.objects.get(id=conversation_id)
 
