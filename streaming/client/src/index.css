@@ -315,6 +315,8 @@ textarea {
   padding: 5px;
   background-color: transparent;
   border: 1px solid var(--bg-contrast-color);
+  font-size: 18px;
+  font-family: var(--font-family);
 }
 
 .bg-danger {
@@ -601,6 +603,7 @@ input:checked + .slider::before {
   transition: border-color 0.2s;
   outline: none;
   scrollbar-width: none;
+  font-family: var(--font-family);
 }
 .textarea-container:has(.textarea:not(:placeholder-shown)) > span {
   font-size: 15px;

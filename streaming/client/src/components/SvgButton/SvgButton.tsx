@@ -29,6 +29,7 @@ export const SvgButton = ({
   const handleClick = () => {
     if (pendingConfirmations.length === 0) {
       onClick();
+      setPendingConfirmations(confirmations);
     } else {
       setInnerText(pendingConfirmations[0]);
       setPendingConfirmations(pendingConfirmations.slice(1));
@@ -49,7 +50,9 @@ export const SvgButton = ({
     >
       {svg && <div className="d-flex align-center justify-center">{svg}</div>}
       {innerText && (
-        <div className="d-flex align-center justify-center fit-content">{innerText}</div>
+        <div className="d-flex align-center justify-center fit-content">
+          {innerText}
+        </div>
       )}
     </button>
   );

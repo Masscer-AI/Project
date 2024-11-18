@@ -79,6 +79,7 @@ export const CompletionsModal = ({ visible, hide }) => {
       c.id.toString() === completionId ? { ...c, ...data } : c
     );
     setCompletions(updatedCompletions);
+    toast.success(t("completion-updated"));
   };
 
   const handleDelete = async (completionId: string) => {
@@ -114,7 +115,17 @@ export const CompletionsModal = ({ visible, hide }) => {
   const handleBulkUpdate = async () => {
     // toast.success("Bulk update");
     await bulkUpdateCompletions(selectedCompletions);
+
+    setCompletions((prev) => {
+      return prev.map((c) => {
+        if (selectedCompletions.findIndex((com) => com.id === c.id) !== -1) {
+          return { ...c, approved: true };
+        }
+        return c;
+      });
+    });
     // toast.success("Bulk update completed");
+    toast.success(t("completions-approved"));
   };
 
   const bulkDelete = async () => {
@@ -124,6 +135,7 @@ export const CompletionsModal = ({ visible, hide }) => {
         (c) => selectedCompletions.findIndex((com) => com.id === c.id) === -1
       )
     );
+    toast.success(t("completions-deleted"));
   };
 
   return (
@@ -239,7 +251,6 @@ const CompletionCard = ({
   const [isEditing, setIsEditing] = useState(false);
   const [answer, setAnswer] = useState(completion.answer);
   const [prompt, setPrompt] = useState(completion.prompt);
-  const [approved, setApproved] = useState(completion.approved);
 
   const toggleEdit = () => {
     if (isEditing) {
@@ -249,11 +260,10 @@ const CompletionCard = ({
   };
 
   const saveCompletion = async () => {
-    toast.error(completion.id.toString());
     updateCompletion(completion.id.toString(), {
       answer: answer,
       prompt: prompt,
-      approved: approved,
+      approved: completion.approved,
     });
     setIsEditing(false);
   };
@@ -267,7 +277,12 @@ const CompletionCard = ({
   };
 
   const handleApprovedChange = (e) => {
-    setApproved(e.target.checked);
+    // setApproved(e.target.checked);
+    updateCompletion(completion.id.toString(), {
+      answer: answer,
+      prompt: prompt,
+      approved: e.target.checked,
+    });
   };
 
   return (
@@ -303,7 +318,7 @@ const CompletionCard = ({
           text={selected ? t("unselect") : t("select")}
         /> */}
         <Checkbox
-          checked={approved}
+          checked={completion.approved}
           onChange={handleApprovedChange}
           checkedFill="var(--success-color)"
         />

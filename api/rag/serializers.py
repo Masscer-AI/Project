@@ -32,6 +32,7 @@ class DocumentSerializer(serializers.ModelSerializer):
             "chunk_set",
             "chunk_count",
             "brief",
+            "total_tokens",
         ]
 
     def get_chunk_count(self, obj):
