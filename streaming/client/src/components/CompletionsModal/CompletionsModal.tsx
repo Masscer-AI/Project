@@ -124,7 +124,7 @@ export const CompletionsModal = ({ visible, hide }) => {
         return c;
       });
     });
-    // toast.success("Bulk update completed");
+    setSelectedCompletions([]);
     toast.success(t("completions-approved"));
   };
 
@@ -135,6 +135,7 @@ export const CompletionsModal = ({ visible, hide }) => {
         (c) => selectedCompletions.findIndex((com) => com.id === c.id) === -1
       )
     );
+    setSelectedCompletions([]);
     toast.success(t("completions-deleted"));
   };
 

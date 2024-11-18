@@ -4,7 +4,7 @@ from .views import (
     query_collection,
     ChunkDetailView,
     QueryDocument,
-    ChunkSetView,
+    ChunkSetView
 )
 
 app_name = "rag"
