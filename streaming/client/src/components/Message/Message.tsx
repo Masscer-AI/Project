@@ -409,6 +409,7 @@ export const Message: React.FC<MessageProps> = ({
                 title={isEditing ? t("finish") : t("edit")}
                 onClick={toggleEditMode}
                 svg={isEditing ? SVGS.finish : SVGS.edit}
+                extraClass={isEditing ? "bg-active" : ""}
               />
             )}
             <Reactions
