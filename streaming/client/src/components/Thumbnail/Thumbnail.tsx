@@ -58,13 +58,15 @@ export const Thumbnail = ({
             src={src}
             alt={`attachment-${name}`}
           />
-          <SvgButton
-            title={t("delete")}
-            svg={SVGS.trash}
-            extraClass="danger-on-hover square-button"
-            confirmations={[`${t("sure")}`]}
-            onClick={() => deleteAttachment(index)}
-          />
+          {showFloatingButtons && (
+            <SvgButton
+              title={t("delete")}
+              svg={SVGS.trash}
+              extraClass="danger-on-hover square-button"
+              confirmations={[`${t("sure")}`]}
+              onClick={() => deleteAttachment(index)}
+            />
+          )}
         </div>
       )}
       {type.indexOf("audio") === 0 && (
@@ -88,10 +90,13 @@ const ImageModal = ({
 }) => {
   const handleDownload = () => {
     const a = document.createElement("a");
-    a.href = src;
+    console.log(src);
+
+    a.href = src.startsWith("data:") ? src : `data:image/png;base64,${src}`;
     a.setAttribute("download", name);
-    a.setAttribute("target", "_blank");
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
   };
 
   return (
