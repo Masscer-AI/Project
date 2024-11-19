@@ -261,27 +261,26 @@ class DocumentGeneratorView(View):
         input_document_created_path, output_filepath = document_convertion(
             source_text, from_type, to_type
         )
-        # delete the created input document
+
         os.remove(input_document_created_path)
-        return JsonResponse({"output_filepath": output_filepath})
+        # Return only the last section of the path, not the full path
+        file_name = os.path.basename(output_filepath)
+
+        return JsonResponse({"output_filepath": file_name})
 
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class DownloadFile(View):
     def get(self, request, file_path):
-        # full_path = file_path
-        full_path = os.path.normpath(file_path)
+        file_name = os.path.normpath(file_path)
 
-        if not full_path.startswith(SAVE_PATH):
-            printer.blue(f"THe PATH {full_path} IS NOT SAFE")
-            printer.red("SAVE PATH ", SAVE_PATH)
-            return JsonResponse({"error": "Invalid file path"}, status=400)
+        # COncatenate the file path with the save path
+        full_path = os.path.join(SAVE_PATH, file_name)
 
         if not os.path.exists(full_path):
             return JsonResponse({"error": "File not found"}, status=404)
 
-        # # Open the file and prepare the response
         with open(full_path, "rb") as file:
             response = HttpResponse(
                 file.read(), content_type="application/octet-stream"
