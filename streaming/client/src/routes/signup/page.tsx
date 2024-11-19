@@ -27,7 +27,13 @@ export default function Signup() {
       toast.success("User created successfully! Please log in");
       navigate("/login");
     } catch (error) {
-      setMessage(error.response?.data?.detail || "An error occurred");
+      console.log(error);
+
+      setMessage(
+        error.response?.data?.detail ||
+          error.response?.data?.email ||
+          "An error occurred"
+      );
     }
   };
 
@@ -78,11 +84,17 @@ export default function Signup() {
               placeholder="Password"
             />
           </div>
-          <button type="submit" className="button w-100 bg-active padding-medium">
+          <button
+            type="submit"
+            className="button w-100 bg-active padding-medium"
+          >
             Signup
           </button>
         </form>
-        <button onClick={() => navigate("/login")} className="button w-100 padding-medium">
+        <button
+          onClick={() => navigate("/login")}
+          className="button w-100 padding-medium"
+        >
           Switch to Login
         </button>
       </SimpleForm>
