@@ -58,17 +58,13 @@ export const Thumbnail = ({
             src={src}
             alt={`attachment-${name}`}
           />
-          {showFloatingButtons && (
-            <div className="floating-buttons">
-              <SvgButton
-                title={t("delete")}
-                svg={SVGS.trash}
-                extraClass="bg-danger square-button"
-                confirmations={[`${t("sure")}`]}
-                onClick={() => deleteAttachment(index)}
-              />
-            </div>
-          )}
+          <SvgButton
+            title={t("delete")}
+            svg={SVGS.trash}
+            extraClass="danger-on-hover square-button"
+            confirmations={[`${t("sure")}`]}
+            onClick={() => deleteAttachment(index)}
+          />
         </div>
       )}
       {type.indexOf("audio") === 0 && (
@@ -146,7 +142,7 @@ const DocumentThumnail = ({
   return (
     <div
       title={name}
-      className="width-200 document-attachment bg-contrast rounded padding-small "
+      className="width-150 document-attachment bg-contrast rounded padding-small "
     >
       <div className="d-flex gap-small align-center ">
         <div>{SVGS.document}</div>

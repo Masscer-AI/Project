@@ -25,10 +25,9 @@ export const Loader = ({ text }: { text: string }) => {
   }, [text]);
 
   return (
-    <div className="d-flex align-center gap-big padding-big">
-      <div className={styles.loader}>
-      </div>
-      <div className={styles.loaderText}>{innerText}</div>
+    <div className="d-flex gap-big  padding-medium align-center">
+      <div className={"spinner"}></div>
+      <span className="loaderText cutted-text">{innerText}</span>
     </div>
   );
 };

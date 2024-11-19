@@ -257,6 +257,7 @@ export const Message: React.FC<MessageProps> = ({
     }
 
     if (!audioPlayer) {
+      
       try {
         toast.success(t("speech-being-generated-wait-a-second"), {
           icon: "🔊",
@@ -334,14 +335,16 @@ export const Message: React.FC<MessageProps> = ({
           )}
       </section>
       <div className="message-buttons d-flex gap-small align-center">
+        <SvgButton
+          title={t("copy-to-clipboard")}
+          extraClass="active-on-hover  pressable"
+          onClick={() => copyToClipboard()}
+          svg={SVGS.copyTwo}
+          // text={t("copy")}
+          // size="big"
+        />
         {id && (
           <>
-            {/* <SvgButton
-              title={t("copy-to-clipboard")}
-              onClick={() => copyToClipboard()}
-              svg={SVGS.copyTwo}
-            /> */}
-
             {messageState.imageGeneratorOpened && (
               <ImageGenerator
                 onResult={(imageUrl) => onImageGenerated(imageUrl, id)}
@@ -355,13 +358,7 @@ export const Message: React.FC<MessageProps> = ({
                 initialPrompt={versions?.[currentVersion]?.text || innerText}
               />
             )}
-            {!audioPlayer && (
-              <SvgButton
-                title={t("generate-speech")}
-                onClick={handleGenerateSpeech}
-                svg={SVGS.waves}
-              />
-            )}
+
             {audioPlayer && (
               <>
                 {isPlayingAudio ? (
@@ -454,19 +451,21 @@ export const Message: React.FC<MessageProps> = ({
 
         {id && (
           <FloatingDropdown
-            top="0"
-            {...(type === "user" ? { right: "100%" } : { left: "100%" })}
+            bottom="100%"
+            right="0"
+            // {...(type === "user" ? { right: "100%" } : {  })}
             opener={<SvgButton svg={SVGS.options} />}
           >
             <div className="flex-y gap-small width-200">
-              <SvgButton
-                title={t("copy-to-clipboard")}
-                extraClass="active-on-hover border-active pressable"
-                onClick={() => copyToClipboard()}
-                svg={SVGS.copyTwo}
-                text={t("copy")}
-                size="big"
-              />
+              {!audioPlayer && (
+                <SvgButton
+                  text={t("generate-speech")}
+                  onClick={handleGenerateSpeech}
+                  svg={SVGS.waves}
+                  size="big"
+                  extraClass="active-on-hover border-active pressable"
+                />
+              )}
               <SvgButton
                 title={isEditing ? t("finish") : t("edit")}
                 onClick={toggleEditMode}

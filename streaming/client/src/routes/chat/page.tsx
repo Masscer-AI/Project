@@ -268,11 +268,6 @@ export default function ChatView() {
           onTitleEdit={onTitleEdit}
           title={conversation?.title || loaderData.conversation.title || "Chat"}
         />
-        <ChatInput
-          handleSendMessage={handleSendMessage}
-          handleKeyDown={handleKeyDown}
-          conversation={conversation || loaderData.conversation}
-        />
 
         <div ref={chatMessageContainerRef} className="chat-messages">
           {messages &&
@@ -287,6 +282,11 @@ export default function ChatView() {
               />
             ))}
         </div>
+        <ChatInput
+          handleSendMessage={handleSendMessage}
+          handleKeyDown={handleKeyDown}
+          conversation={conversation || loaderData.conversation}
+        />
       </div>
     </div>
   );

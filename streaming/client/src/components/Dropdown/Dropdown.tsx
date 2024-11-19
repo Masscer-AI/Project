@@ -39,9 +39,9 @@ export const FloatingDropdown = ({
   const [adjusted, setAdjusted] = useState(false);
   const [innerIsOpened, setInnerIsOpened] = useState(isOpened);
   const [timeoutId, setTimeoutId] = useState<number | null>(null);
+
   const adjustDropdown = () => {
-    setInnerIsOpened(true);
-    if (dropdownRef.current && !adjusted) {
+    if (dropdownRef.current) {
       const { innerWidth, innerHeight } = window;
       const dropdownRect = dropdownRef.current.getBoundingClientRect();
 
@@ -53,6 +53,7 @@ export const FloatingDropdown = ({
         transform,
       };
 
+
       if (dropdownRect.left < 0) {
         if (left) {
           newStyles.left = `calc(${left} + ${Math.abs(dropdownRect.left)}px)`;
@@ -63,8 +64,11 @@ export const FloatingDropdown = ({
         newStyles.left = newLeft;
       }
       if (dropdownRect.bottom > innerHeight) {
-        let newTop = `calc(${top} - ${dropdownRect.bottom - innerHeight}px)`;
-        newStyles.top = newTop;
+        if (bottom) {
+          newStyles.bottom = `calc(${bottom} - ${dropdownRect.bottom - innerHeight}px)`;
+        } else {
+          newStyles.top = `calc(${top} - ${dropdownRect.bottom - innerHeight}px)`;
+        }
       }
       if (dropdownRect.top < 0) {
         if (top) {
@@ -81,18 +85,22 @@ export const FloatingDropdown = ({
   const onMouseLeave = () => {
     const id = setTimeout(() => {
       setInnerIsOpened(false);
-      setTimeoutId(null); // Limpiar el ID del timeout
+      setTimeoutId(null);
     }, 200);
-    setTimeoutId(id); // Guardar el ID del timeout
+    setTimeoutId(id);
   };
 
   const onMouseEnter = () => {
     if (timeoutId) {
-      clearTimeout(timeoutId); // Cancelar el timeout si el mouse entra
-      setTimeoutId(null); // Limpiar el ID del timeout
+      clearTimeout(timeoutId);
+      setTimeoutId(null);
     }
-    adjustDropdown();
+    setInnerIsOpened(true);
   };
+
+  useEffect(() => {
+    adjustDropdown();
+  }, [innerIsOpened]);
 
   return (
     <div

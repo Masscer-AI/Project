@@ -213,9 +213,9 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
   return (
     <form onSubmit={onSubmit} className="form">
       <div className="flex-y gap-medium F">
-        <h2 className="fancy-bg padding-medium text-center rounded">
+        <h3 className="fancy-bg padding-medium text-center rounded">
           {t("configure")} {formState.name}
-        </h2>
+        </h3>
         <label className="d-flex gap-small align-center">
           <span>{t("name")}:</span>
           <input

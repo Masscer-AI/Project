@@ -318,9 +318,9 @@ const RagConfig = ({ hide }: { hide: () => void }) => {
 
   return (
     <Modal hide={hide}>
-      <h2 className="text-center padding-big">
+      <h3 className="text-center padding-big">
         {t("select-documents-to-use")}
-      </h2>
+      </h3>
       <div className="d-flex gap-small wrap-wrap">
         {documents.map((d) => (
           <div
