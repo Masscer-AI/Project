@@ -131,7 +131,7 @@ export const Message: React.FC<MessageProps> = ({
       // console.log(data, "audio chunk received");
 
       if (!audioPlayer) {
-        toast.loading("Creating audio player");
+        // toast.loading("Creating audio player");
         const audioPlayer = createAudioPlayerWithAppend(onFinish);
         audioPlayer.append(
           data.position,
