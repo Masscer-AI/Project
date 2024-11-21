@@ -1,4 +1,6 @@
 from django.apps import AppConfig
+from api.utils.color_printer import printer
+from django.db.utils import OperationalError
 
 SYSTEM_REACTIONS = [
     {
@@ -59,14 +61,20 @@ class FeedbackConfig(AppConfig):
     def ready(self):
         from .models import ReactionTemplate
 
-        all_system_reactions = ReactionTemplate.objects.filter(type="system")
-        if all_system_reactions.count() == 0:
-            for reaction in SYSTEM_REACTIONS:
-                ReactionTemplate.objects.create(
-                    name=reaction["name"],
-                    emoji=reaction["emoji"],
-                    emoji_type=reaction["emoji_type"],
-                    description=reaction["description"],
-                    type="system",
-                )
-        print("Feedback app is ready!")
+        try:
+            printer.blue(f"Running startup function for {self.name}")
+            all_system_reactions = ReactionTemplate.objects.filter(type="system")
+            if all_system_reactions.count() == 0:
+                for reaction in SYSTEM_REACTIONS:
+                    ReactionTemplate.objects.create(
+                        name=reaction["name"],
+                        emoji=reaction["emoji"],
+                        emoji_type=reaction["emoji_type"],
+                        description=reaction["description"],
+                        type="system",
+                    )
+            printer.success("System reactions were created successfully!")
+        except OperationalError:
+            printer.red(
+                f"Database is not ready. Skipping {self.name} startup function."
+            )
