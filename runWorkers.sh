@@ -15,7 +15,7 @@ source venv/Scripts/activate
 sleep 3
 
 # Run the Celery worker
-celery -A api.celery worker --pool=gevent --loglevel=INFO &
+celery -A api.celery worker --pool=gevent --loglevel=INFO
 
 # Run the Celery Flower
 # celery -A api.celery flower --port=5555
