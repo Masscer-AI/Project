@@ -45,11 +45,16 @@ interface MessageProps {
   index: number;
   versions?: TVersion[];
   attachments: TAttachment[];
-  // onGenerateImage: (text: string, message_id: number) => void;
-  onImageGenerated: (imageUrl: string, message_id: number) => void;
+
+  onImageGenerated: (
+    imageContentB64: string,
+    imageName: string,
+    message_id: number
+  ) => void;
   onMessageEdit: (index: number, text: string, versions?: TVersion[]) => void;
   reactions?: TReaction[];
   onMessageDeleted: (index: number) => void;
+  numberMessages: number;
 }
 
 export const Message: React.FC<MessageProps> = ({
@@ -61,9 +66,9 @@ export const Message: React.FC<MessageProps> = ({
   reactions,
   attachments,
   onImageGenerated,
-  // onGenerateImage,
   onMessageEdit,
   onMessageDeleted,
+  numberMessages,
 }) => {
   const [sources, setSources] = useState([] as Link[]);
   const [isEditing, setIsEditing] = useState(false);
@@ -84,10 +89,11 @@ export const Message: React.FC<MessageProps> = ({
 
   const { t } = useTranslation();
 
-  const { agents, reactionTemplates, socket } = useStore((s) => ({
+  const { agents, reactionTemplates, socket, chatState } = useStore((s) => ({
     agents: s.agents,
     reactionTemplates: s.reactionTemplates,
     socket: s.socket,
+    chatState: s.chatState,
   }));
 
   const copyToClipboard = () => {
@@ -102,56 +108,59 @@ export const Message: React.FC<MessageProps> = ({
     );
   };
 
-  const onFinish = () => {
+  const onFinishAudioGeneration = () => {
     setIsPlayingAudio(false);
   };
+
   useEffect(() => {
     if (!id) return;
 
     socket.on(`audio-file-${id}`, (audioFile) => {
-      console.log("Receiving audio file");
-
       setIsGeneratingSpeech(false);
 
       if (audioPlayer) {
         audioPlayer.stop();
         audioPlayer.destroy();
-        toast.success("Audio player stopped");
+        // toast.success("Audio player stopped");
       }
-      const newAudioPlayer = createAudioPlayer(audioFile, onFinish);
-      // newAudioPlayer.append(0, audioFile);
+      const newAudioPlayer = createAudioPlayer(
+        audioFile,
+        onFinishAudioGeneration
+      );
       newAudioPlayer.play();
 
       setAudioPlayer(newAudioPlayer);
       setIsPlayingAudio(true);
     });
 
-    socket.on(`audio-chunk-${id}`, (data) => {
-      // toast.loading("Audio chunk received");
-      // console.log(data, "audio chunk received");
-
-      if (!audioPlayer) {
-        // toast.loading("Creating audio player");
-        const audioPlayer = createAudioPlayerWithAppend(onFinish);
-        audioPlayer.append(
-          data.position,
-          new Uint8Array(data.audio_bytes).buffer
-        );
-        if (data.position === 0) {
-          setIsGeneratingSpeech(false);
-        }
-        setAudioPlayer(audioPlayer);
-      } else {
-        // console.log("Appending audio chunk");
-        //  @ts-ignore
-        audioPlayer.replace(new Uint8Array(data.audio_bytes).buffer);
-      }
-    });
+    // socket.on(`audio-chunk-${id}`, (data) => {
+    //   toast.success("Audio chunk received");
+    //   if (!audioPlayer) {
+    //     const player = createAudioPlayerWithAppend(onFinishAudioGeneration);
+    //     player.append(new Uint8Array(data.audio_bytes).buffer);
+    //     if (data.position === 0) {
+    //       setIsGeneratingSpeech(false);
+    //       player.play();
+    //     }
+    //     setAudioPlayer(player);
+    //   }
+    // });
     return () => {
       socket.off(`audio-file-${id}`);
-      socket.off(`audio-chunk-${id}`);
+      // socket.off(`audio-chunk-${id}`);
     };
   }, [id, socket, audioPlayer]);
+
+  useEffect(() => {
+    if (
+      id &&
+      numberMessages === index + 1 &&
+      chatState.autoPlay &&
+      type === "assistant"
+    ) {
+      handleGenerateSpeech();
+    }
+  }, [id, numberMessages]);
 
   useEffect(() => {
     if (isEditing && textareaRef.current) {
@@ -190,7 +199,7 @@ export const Message: React.FC<MessageProps> = ({
         extractedLinks.push({ url: href, text: anchor.textContent || "" });
       }
     });
-    setSources(extractedLinks);
+    // setSources(extractedLinks);
     setInnerText(text);
   }, [text]);
 
@@ -257,7 +266,6 @@ export const Message: React.FC<MessageProps> = ({
     }
 
     if (!audioPlayer) {
-      
       try {
         toast.success(t("speech-being-generated-wait-a-second"), {
           icon: "🔊",
@@ -347,7 +355,9 @@ export const Message: React.FC<MessageProps> = ({
           <>
             {messageState.imageGeneratorOpened && (
               <ImageGenerator
-                onResult={(imageUrl) => onImageGenerated(imageUrl, id)}
+                onResult={(imageB64, imageName) =>
+                  onImageGenerated(imageB64, imageName, id)
+                }
                 messageId={id}
                 hide={() =>
                   setMessageState((prev) => ({

@@ -3,8 +3,8 @@ import React from "react";
 export const SliderInput = ({
   checked,
   onChange,
-  labelTrue = "Yes",
-  labelFalse = "No",
+  labelTrue = "",
+  labelFalse = "",
   extraClass = "",
   keepActive = false,
 }: {

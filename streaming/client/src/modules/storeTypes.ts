@@ -27,6 +27,7 @@ export type Store = {
     writtingMode: boolean;
     useRag: boolean;
     maxMemoryMessages: number;
+    autoPlay: boolean;
   };
   conversation: TConversationData | undefined;
   openedModals: string[];

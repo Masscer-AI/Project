@@ -15,6 +15,7 @@ import { FloatingDropdown } from "../Dropdown/Dropdown";
 import { Modal } from "../Modal/Modal";
 
 import { TAttachment, TDocument } from "../../types";
+import { SliderInput } from "../SimpleForm/SliderInput";
 
 interface ChatInputProps {
   handleSendMessage: () => void;
@@ -358,15 +359,20 @@ const ConversationConfig = ({ hide }: { hide: () => void }) => {
       opener={<SvgButton svg={SVGS.options} />}
     >
       <div className="flex-y gap-small">
-        <h3>Conversation</h3>
-        <span>{t("max-memory-messages")}</span>
-
+        <h5>{t("max-memory-messages")}</h5>
         <input
           type="number"
           className="input padding-small"
           value={chatState.maxMemoryMessages}
           onChange={updateMaxMemoryMessages}
           min={0}
+        />
+        <hr />
+        <h5>{t("auto-play")}</h5>
+        <span>{t("auto-play-description")}</span>
+        <SliderInput
+          checked={chatState.autoPlay}
+          onChange={(checked) => updateChatState({ autoPlay: checked })}
         />
       </div>
     </FloatingDropdown>

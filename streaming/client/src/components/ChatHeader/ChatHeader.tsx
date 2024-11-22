@@ -117,7 +117,6 @@ const AgentComponent = ({ agent }: TAgentComponentProps) => {
       <section onClick={() => toggleAgentSelected(agent.slug)}>
         <input
           name={`${agent.name}-checkbox`}
-          onChange={() => {}}
           type="checkbox"
           checked={agent.selected}
         />
@@ -259,8 +258,7 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
             {["shimmer", "alloy", "echo", "fable", "onyx", "nova"].map(
               (voice) => (
                 <option key={voice} value={voice}>
-                  {voice.charAt(0).toUpperCase() + voice.slice(1)}{" "}
-                  {/* Capitalize the first letter */}
+                  {voice.charAt(0).toUpperCase() + voice.slice(1)}
                 </option>
               )
             )}

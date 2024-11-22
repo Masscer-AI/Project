@@ -401,6 +401,8 @@ export const createReaction = async (data: TCreateReactionData) => {
 
 type TGenerateImageResponse = {
   image_url: string;
+  image_content_b64: string;
+  image_name: string;
 };
 export const generateImage = async (
   prompt: string,

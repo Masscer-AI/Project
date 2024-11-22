@@ -39,8 +39,6 @@ export const createAudioPlayer = (
     if (typeof onFinish === "function") {
       onFinish();
     }
-
-    URL.revokeObjectURL(audioUrl);
   });
 
   return {
@@ -55,11 +53,13 @@ export const createAudioPlayer = (
       audio.currentTime = 0;
     },
     download: (filename = "audio.mp3") => {
+      console.log("downloading audio");
+      console.log(audioUrl);
+
       const link = document.createElement("a");
       link.href = audioUrl;
       link.download = filename;
       link.click();
-      URL.revokeObjectURL(audioUrl);
     },
     destroy: () => {
       audio.pause();
@@ -69,7 +69,7 @@ export const createAudioPlayer = (
 };
 
 export type AudioPlayerWithAppendOptions = {
-  append: (position: number, audioData: ArrayBuffer) => void;
+  append: (audioData: ArrayBuffer) => void;
   play: () => void;
   pause: () => void;
   stop: () => void;
@@ -82,39 +82,31 @@ export const createAudioPlayerWithAppend = (
   onFinish?: () => void
 ): AudioPlayerWithAppendOptions => {
   const audioElement = new Audio();
-  const currentBytes: ArrayBuffer[] = [];
-  let totalLength = 0;
+  const mediaSource = new MediaSource();
+  let sourceBuffer: SourceBuffer | null = null;
   let isPlaying = false;
-  let currentPosition = 0;
 
-  const append = (position: number, audioData: ArrayBuffer) => {
-    currentBytes.push(audioData);
-    totalLength += audioData.byteLength;
+  audioElement.src = URL.createObjectURL(mediaSource);
 
-    const audioBlob = new Blob(currentBytes, { type: "audio/mp3" });
-    const audioUrl = URL.createObjectURL(audioBlob);
+  mediaSource.addEventListener("sourceopen", () => {
+    sourceBuffer = mediaSource.addSourceBuffer("audio/mp3");
+    sourceBuffer.addEventListener("updateend", () => {
+      if (isPlaying) {
+        audioElement.play().catch((err) => {
+          console.error("Playback error:", err);
+        });
+      }
+    });
+  });
 
-    audioElement.src = audioUrl;
-    audioElement.currentTime = currentPosition;
-    toast.success(`Audio appended. Total length: ${totalLength} bytes.`);
-
-    // Check if we have at least 1 MB of audio and play if not already playing
-    if (totalLength >= 1048576 && !isPlaying) {
-      play(); // Start playback if we have enough data
+  const append = (audioData: ArrayBuffer) => {
+    if (!sourceBuffer || sourceBuffer.updating) {
+      console.warn("SourceBuffer is updating or not initialized.");
+      return;
     }
-  };
 
-  const replace = (audioData: ArrayBuffer) => {
-    currentBytes.length = 0;
-    currentBytes.push(audioData);
-    totalLength = audioData.byteLength;
-
-    const audioBlob = new Blob(currentBytes, { type: "audio/mp3" });
-    const audioUrl = URL.createObjectURL(audioBlob);
-
-    audioElement.src = audioUrl;
-    audioElement.currentTime = 0;
-    // toast.success(`Audio replaced. Total length: ${totalLength} bytes.`);
+    sourceBuffer.appendBuffer(new Uint8Array(audioData));
+    console.log(`Appended audio data: ${audioData.byteLength} bytes.`);
   };
 
   const play = () => {
@@ -123,25 +115,15 @@ export const createAudioPlayerWithAppend = (
       return;
     }
 
-    toast.success("Trying to play audio in the new audio player");
-
     audioElement
       .play()
       .then(() => {
         isPlaying = true;
         audioElement.onended = () => {
           isPlaying = false; // Reset the flag when playback ends
-          currentPosition = 0; // Reset position for next playback
           if (typeof onFinish === "function") {
             onFinish(); // Call onFinish if provided
           }
-
-          // Check if we have new audio data to play
-          const audioBlob = new Blob(currentBytes, { type: "audio/mp3" });
-          const audioUrl = URL.createObjectURL(audioBlob);
-          audioElement.src = audioUrl; // Update to the latest audio
-          audioElement.play(); // Start playing the updated audio
-          isPlaying = true; // Set isPlaying to true again
         };
       })
       .catch((err) => {
@@ -151,35 +133,36 @@ export const createAudioPlayerWithAppend = (
 
   const pause = () => {
     if (!isPlaying) {
-      toast.error("Nothing is currently playing to pause.");
+      console.error("Nothing is currently playing to pause.");
       return;
     }
 
-    toast.success("Paused audio.");
-    currentPosition = audioElement.currentTime;
     audioElement.pause();
     isPlaying = false;
+    console.log("Paused audio.");
   };
 
   const stop = () => {
     audioElement.pause();
     audioElement.currentTime = 0;
     isPlaying = false;
+    console.log("Stopped audio.");
   };
 
   const download = (filename = "audio.mp3") => {
-    const audioBlob = new Blob(currentBytes, { type: "audio/mp3" });
+    console.log("Downloading audio...");
+    const audioBlob = new Blob([sourceBuffer!.buffer], { type: "audio/mp3" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(audioBlob);
     link.download = filename;
     link.click();
-    URL.revokeObjectURL(link.href);
   };
 
   const destroy = () => {
     audioElement.pause();
     audioElement.src = "";
-    currentBytes.length = 0;
+    mediaSource.endOfStream();
+    console.log("Audio player destroyed.");
   };
 
   return {
@@ -189,6 +172,40 @@ export const createAudioPlayerWithAppend = (
     stop,
     download,
     destroy,
-    replace
+    replace: (audioData: ArrayBuffer) => {
+      if (!sourceBuffer || sourceBuffer.updating) {
+        console.warn("SourceBuffer is updating or not initialized.");
+        return;
+      }
+      sourceBuffer!.abort();
+      sourceBuffer!.appendBuffer(new Uint8Array(audioData));
+      console.log("Audio replaced.");
+    },
   };
+};
+
+const languageMap = {
+  "en-US": "en",
+  "en-GB": "en",
+  "es-US": "es",
+  "es-MX": "es",
+  "fr-FR": "fr",
+  "fr-CA": "fr",
+  "de-DE": "de",
+  "zh-CN": "zh",
+  "zh-TW": "zh",
+  "pt-BR": "pt",
+  "pt-PT": "pt",
+  "ja-JP": "ja",
+  "ru-RU": "ru",
+  "it-IT": "it",
+  "ar-SA": "ar",
+};
+
+export const getPreferredLanguage = () => {
+  const lang = navigator.language;
+
+  const generalLanguage = languageMap[lang] || lang;
+
+  return generalLanguage.substring(0, 2);
 };

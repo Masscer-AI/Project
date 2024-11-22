@@ -213,19 +213,27 @@ class ImageGenerationView(View):
             image_content = image_response.content
 
             image_content_b64 = base64.b64encode(image_content).decode("utf-8")
+            image_content_b64 = f"data:image/png;base64,{image_content_b64}"
+            image_name = slugify(prompt[:100])
             if message_id:
                 m = Message.objects.get(id=message_id)
                 attachments = m.attachments or []
                 attachments.append(
                     {
                         "type": "image",
-                        "content": f"data:image/png;base64,{image_content_b64}",
-                        "name": slugify(prompt),
+                        "content": image_content_b64,
+                        "name": image_name,
                     }
                 )
                 m.attachments = attachments
                 m.save()
-            return JsonResponse({"image_url": image_url})
+            return JsonResponse(
+                {
+                    "image_url": image_url,
+                    "image_content_b64": image_content_b64,
+                    "image_name": image_name,
+                }
+            )
 
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=400)

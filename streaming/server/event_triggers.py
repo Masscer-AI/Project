@@ -119,7 +119,7 @@ async def on_message_handler(socket_id, data, **kwargs):
             {"message": "exploring-the-web"},
             to=socket_id,
         )
-        
+
         messages_context = [
             {"text": m["text"], "type": m["type"], "versions": m["versions"]}
             for m in context
@@ -271,21 +271,22 @@ AUDIO_DIR = "audios"
 
 
 async def on_speech_request_handler(socket_id, data, **kwargs):
-
+    audio_format = data.get("format", "wav")
     logger.debug("Generating speech with socket", data)
 
     from server.socket import sio
 
-    text = data["text"]
-    id_to_emit = data["id"]
-    voice = data["voice"]
+    text = data.get("text", "")
+    id_to_emit = data.get("id", None)
+    voice = data.get("voice", None)
 
-    if not id_to_emit:
+    if not id_to_emit or not voice or not text:
+        logger.error("Missing data to generate speech", data)
         return
 
     hashed_text = hashlib.md5(text.encode()).hexdigest()
 
-    output_path = os.path.join(AUDIO_DIR, f"{hashed_text}.mp3")
+    output_path = os.path.join(AUDIO_DIR, f"{hashed_text}.{audio_format}")
 
     if os.path.exists(output_path):
         logger.debug("Audio file already exists, sending existing file.")
@@ -294,23 +295,28 @@ async def on_speech_request_handler(socket_id, data, **kwargs):
             await sio.emit(f"audio-file-{id_to_emit}", audio_content, to=socket_id)
     else:
         counter = 0
+
         audio = b""
         for chunk in generate_speech_api(
-            text=text, output_path=output_path, voice=voice.get("slug", "alloy")
+            text=text,
+            output_path=output_path,
+            voice=voice.get("slug", "alloy"),
+            output_format=audio_format,
         ):
             audio += chunk
-            data = {
-                "audio_bytes": audio,
-                "position": counter,
-            }
-            # Eviar solo si ya se tiene 2mb de audio
-            if len(audio) > 2097152:
-                await sio.emit(f"audio-chunk-{id_to_emit}", data, to=socket_id)
-                logger.debug("audio chunk emitted!")
-                counter += 1
-                # await sio.emit(f"audio-chunk-{id_to_emit}", data, to=socket_id)
-                # logger.debug("audio chunk emitted!")
-                counter += 1
+            # data = {
+            #     "audio_bytes": audio,
+            #     "position": counter,
+            # }
+
+            # if len(audio) > 104857:
+            #     await sio.emit(f"audio-chunk-{id_to_emit}", data, to=socket_id)
+            #     audio = b""
+            # logger.debug("audio chunk emitted!")
+            counter += 1
+
+        logger.debug("Audio generation finished!")
+        logger.debug(f"Number of chunks: {counter}")
 
         with open(output_path, "rb") as audio_file:
             audio_content = audio_file.read()

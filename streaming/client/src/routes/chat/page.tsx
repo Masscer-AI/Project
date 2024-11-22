@@ -193,7 +193,11 @@ export default function ChatView() {
     }
   };
 
-  const onImageGenerated = (imageUrl: string, message_id: number) => {
+  const onImageGenerated = (
+    imageContentB64: string,
+    imageName: string,
+    message_id: number
+  ) => {
     setMessages((prevMessages) => {
       const messageIndex = prevMessages.findIndex((m) => m.id === message_id);
       if (messageIndex === -1) return prevMessages;
@@ -203,8 +207,8 @@ export default function ChatView() {
         ...(copyMessages[messageIndex].attachments || []),
         {
           type: "image",
-          content: imageUrl,
-          name: "Generated image",
+          content: imageContentB64,
+          name: imageName,
           file: null,
           text: "",
         },
@@ -279,6 +283,7 @@ export default function ChatView() {
                 onImageGenerated={onImageGenerated}
                 onMessageEdit={onMessageEdit}
                 onMessageDeleted={onMessageDeleted}
+                numberMessages={messages.length}
               />
             ))}
         </div>

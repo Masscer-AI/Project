@@ -19,7 +19,6 @@ const FLUX_SIZES = [
   "768x1440",
 ];
 
-
 const modelSizes = {
   "dall-e-2": ["256x256", "512x512", "1024x1024"],
   "dall-e-3": ["1024x1024", "1792x1024", "1024x1792"],
@@ -38,10 +37,10 @@ export const ImageGenerator = ({
   messageId: number;
   initialPrompt: string;
   hide: () => void;
-  onResult: (imageUrl: string) => void;
+  onResult: (imageUrl: string, imageContentB64: string) => void;
 }) => {
-  const [prompt, setPrompt] = useState(initialPrompt.slice(0, 500));
-  const [model, setModel] = useState("dall-e-3");
+  const [prompt, setPrompt] = useState(initialPrompt.slice(0, 1000));
+  const [model, setModel] = useState("flux-pro-1.1");
   const [size, setSize] = useState(modelSizes[model][0]);
 
   const { t } = useTranslation();
@@ -55,11 +54,15 @@ export const ImageGenerator = ({
     hide();
     const tid = toast.loading(t("generating-image"));
     try {
-      const response = await generateImage(prompt, messageId, size, model);
+      const { image_url, image_content_b64, image_name } = await generateImage(
+        prompt,
+        messageId,
+        size,
+        model
+      );
       toast.dismiss(tid);
-      const imageUrl = response.image_url;
       toast.success(t("image-generated"));
-      onResult(imageUrl);
+      onResult(image_content_b64, image_name);
     } catch (error) {
       console.error("Error generating image:", error);
       toast.dismiss(tid);
@@ -107,7 +110,7 @@ export const ImageGenerator = ({
         <SvgButton
           svg={SVGS.stars}
           onClick={generate}
-          extraClass="fancy-bg"
+          extraClass="pressable bg-active "
           size="big"
           text="Generate"
         />

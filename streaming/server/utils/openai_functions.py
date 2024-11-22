@@ -106,6 +106,10 @@ def generate_speech_api(
     output_format: str = "mp3",
 ):
     try:
+        logger.debug("trying to generate speech in generate speech api")
+        logger.debug(f"model: {model}, voice: {voice}, output_format: {output_format}")
+        logger.debug(f"openai api key: {os.environ['OPENAI_API_KEY']}")
+        logger.debug(f"text: {text}")
         response = requests.post(
             "https://api.openai.com/v1/audio/speech",
             headers={
@@ -115,6 +119,7 @@ def generate_speech_api(
                 "model": model,
                 "input": text,
                 "voice": voice,
+                "response_format": output_format,
             },
             stream=True,
         )
@@ -122,7 +127,7 @@ def generate_speech_api(
         response.raise_for_status()
 
         audio = b""
-        for chunk in response.iter_content(chunk_size=2097152):
+        for chunk in response.iter_content(chunk_size=1048576):
             audio += chunk
             yield chunk
 
@@ -134,7 +139,8 @@ def generate_speech_api(
         return audio
 
     except requests.exceptions.RequestException as e:
-        print(f"An error occurred: {e}")
+        logger.error(f"An error occurred: {e}")
+        print(e)
         return b""
 
 

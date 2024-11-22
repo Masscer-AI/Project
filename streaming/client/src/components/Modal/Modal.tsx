@@ -25,9 +25,9 @@ export const Modal = ({
     <div className={styles.modalComponent}>
       <div className={styles.modalBackdrop} onClick={hide}></div>
       <div className={styles.modalContent} style={{ minHeight }}>
-        <div className="d-flex justify-end modal-closer">
+        <div className="d-flex justify-end modal-closer gap-small">
           {extraButtons}
-          <SvgButton onClick={hide} svg={SVGS.close} />
+          <SvgButton extraClass="pressable bg-active" onClick={hide} svg={SVGS.close} />
         </div>
         {children}
       </div>

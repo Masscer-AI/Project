@@ -140,6 +140,15 @@
     "message-received": "Message received",
     "generating-response-with": "Generating response with",
     "im-sure": "I'm sure",
-    "thinking...": "Thinking..."
-
+    "thinking...": "Thinking...",
+    "go-to-signup": "Switch to Signup",
+    "login": "Login",
+    "loading": "Loading...",
+    "successfully-logged-in": "Successfully logged in!",
+    "an-error-occurred": "An error occurred!",
+    "email": "Email",
+    "password": "Password",
+    "email-and-password-required": "Email and password are required",
+    "auto-play": "Auto play",
+    "auto-play-description": "Automatically play messages when they are generated."
 }

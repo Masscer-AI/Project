@@ -1,7 +1,6 @@
 import { createWithEqualityFn as create } from "zustand/traditional";
 import { TReactionTemplate } from "../types/chatTypes";
 import {
-  createAgent,
   createRandomAgent,
   deleteAgent,
   getAgents,
@@ -11,7 +10,7 @@ import {
   uploadDocument,
 } from "./apiCalls";
 import { SocketManager } from "./socketManager";
-import { getRandomWordsAndSlug, STREAMING_BACKEND_URL } from "./constants";
+import { STREAMING_BACKEND_URL } from "./constants";
 import { TAgent } from "../types/agents";
 import toast from "react-hot-toast";
 import { Store } from "./storeTypes";
@@ -31,6 +30,7 @@ export const useStore = create<Store>()((set, get) => ({
     writtingMode: false,
     useRag: false,
     maxMemoryMessages: 20,
+    autoPlay: false,
   },
   conversation: undefined,
   openedModals: [],

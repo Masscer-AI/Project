@@ -90,7 +90,7 @@ const ImageModal = ({
 }) => {
   const handleDownload = () => {
     const a = document.createElement("a");
-    console.log(src);
+    // console.log(src);
 
     a.href = src.startsWith("data:") ? src : `data:image/png;base64,${src}`;
     a.setAttribute("download", name);
@@ -107,6 +107,7 @@ const ImageModal = ({
         <SvgButton
           onClick={handleDownload}
           title="Download"
+          extraClass="pressable bg-active"
           svg={SVGS.download}
         />
       }

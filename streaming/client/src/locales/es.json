@@ -139,6 +139,15 @@
     "message-received": "Mensaje recibido",
     "generating-response-with": "Generando respuesta con",
     "im-sure": "Estoy seguro",
-    "thinking...": "Pensando..."
-
+    "thinking...": "Pensando...",
+    "go-to-signup": "Cambiar a Registro",
+    "login": "Iniciar sesión",
+    "loading": "Cargando...",
+    "successfully-logged-in": "¡Sesión iniciada correctamente!",
+    "an-error-occurred": "¡Ocurrió un error!",
+    "email": "Email",
+    "password": "Contraseña",
+    "email-and-password-required": "Email y contraseña son requeridos",
+    "auto-play": "Auto play",
+    "auto-play-description": "Reproduce automáticamente los mensajes cuando se generan."
 }

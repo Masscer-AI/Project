@@ -116,5 +116,15 @@
     "group-actions": "azioni di gruppo",
     "delete-all": "Elimina tutto",
     "approve-all": "Approva tutto",
-    "thinking...": "Sto pensando..."
+    "thinking...": "Sto pensando...",
+    "go-to-signup": "Cambia a Registrazione",
+    "login": "Accedi",
+    "loading": "Caricamento...",
+    "successfully-logged-in": "Accesso avvenuto con successo!",
+    "an-error-occurred": "Si è verificato un errore!",
+    "email": "Email",
+    "password": "Password",
+    "email-and-password-required": "Email e password sono richiesti",
+    "auto-play": "Auto play",
+    "auto-play-description": "Riproduci automaticamente i messaggi quando vengono generati."
 }
