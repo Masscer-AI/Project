@@ -6,6 +6,7 @@ from api.providers.models import AIProvider
 from api.utils.openai_functions import create_structured_completion
 from pydantic import BaseModel, Field
 from datetime import datetime
+from api.utils.color_printer import printer
 
 
 class ExampleStructure(BaseModel):
@@ -146,7 +147,8 @@ class Agent(models.Model):
     def get_collection(self):
         from api.rag.models import Collection
 
-        return Collection.objects.get(agent=self)
+        printer.blue(f"Getting collection for agent {self.id}")
+        return Collection.objects.get(agent=self, user=self.user)
 
     def append_rag_context(self, context: str = ""):
         from api.rag.managers import chroma_client
