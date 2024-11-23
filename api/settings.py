@@ -13,7 +13,9 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 import os
 from pathlib import Path
 import dj_database_url
+from dotenv import load_dotenv
 
+load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -107,8 +109,12 @@ CORS_ALLOW_ALL_ORIGINS = True
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
 DATABASES = {
-    "default": dj_database_url.config(default="sqlite:///db.sqlite3", conn_max_age=600)
+    "default": dj_database_url.config(
+        default=os.environ.get("DB_CONNECTION_STRING", "sqlite:///db.sqlite3"),
+        conn_max_age=600,
+    )
 }
+
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
@@ -128,7 +134,7 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-DATA_UPLOAD_MAX_MEMORY_SIZE = 10485760  
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10485760
 # Internationalization
 # https://docs.djangoproject.com/en/4.2/topics/i18n/
 

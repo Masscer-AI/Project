@@ -66,6 +66,7 @@ async def on_message_handler(socket_id, data, **kwargs):
     conversation = data["conversation"]
 
     message["conversation"] = conversation.get("id", None)
+    config = data.get("config", {"multi_agentic": False})
 
     user_id_to_emit = message.get("id", None)
 
@@ -296,14 +297,14 @@ async def on_speech_request_handler(socket_id, data, **kwargs):
     else:
         counter = 0
 
-        audio = b""
+        # audio = b""
         for chunk in generate_speech_api(
             text=text,
             output_path=output_path,
             voice=voice.get("slug", "alloy"),
             output_format=audio_format,
         ):
-            audio += chunk
+            # audio += chunk
             # data = {
             #     "audio_bytes": audio,
             #     "position": counter,

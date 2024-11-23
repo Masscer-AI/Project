@@ -47,8 +47,8 @@ class Agent(models.Model):
         ("anthropic", "Anthropic"),
     ]
 
-    name = models.CharField(max_length=100)
-    slug = models.SlugField(unique=True, blank=True)
+    name = models.CharField(max_length=255)
+    slug = models.SlugField(unique=True, blank=True, max_length=100)
     model_slug = models.CharField(
         max_length=100, default="gpt-4o-mini", null=True, blank=True
     )
@@ -99,7 +99,7 @@ class Agent(models.Model):
         # from .tasks import async_generate_agent_profile_picture
 
         if not self.slug:
-            self.slug = slugify(self.name + "-" + str(uuid.uuid4()))
+            self.slug = slugify(self.name + "-" + str(uuid.uuid4()))[:100]
 
         if not self.llm:
             llm = LanguageModel.objects.get(slug=self.model_slug)

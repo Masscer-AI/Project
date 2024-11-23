@@ -35,6 +35,6 @@ export const chatLoader: LoaderFunction = async ({
     return { conversation: c, user: user, query: query };
   } catch (error) {
     console.error("Error loading conversation in chat loader:", error);
-    return redirect("/signup");
+    return redirect("/login");
   }
 };

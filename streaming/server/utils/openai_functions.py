@@ -103,7 +103,7 @@ def generate_speech_api(
     output_path: str,
     model: str = "tts-1",
     voice: str = "onyx",
-    output_format: str = "mp3",
+    output_format: str = "wav",
 ):
     try:
         logger.debug("trying to generate speech in generate speech api")
