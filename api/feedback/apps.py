@@ -59,6 +59,9 @@ class FeedbackConfig(AppConfig):
     name = "api.feedback"
 
     def ready(self):
+        self.startup_function()
+
+    def startup_function(self):
         from .models import ReactionTemplate
 
         try:
