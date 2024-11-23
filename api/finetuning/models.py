@@ -41,7 +41,7 @@ CLARIFICATION:
 The goal is to optain a list of different completions based in the source text. Each prompt/answer pair must be different from the others.
 """
     # organization = models.CharField(max_length=255)
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=255)
     completions_target_number = models.IntegerField(default=30)
     target_model_description = models.TextField()
     source_text = models.TextField()

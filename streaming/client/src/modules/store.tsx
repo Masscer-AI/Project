@@ -31,6 +31,7 @@ export const useStore = create<Store>()((set, get) => ({
     useRag: false,
     maxMemoryMessages: 20,
     autoPlay: false,
+    autoScroll: false,
   },
   conversation: undefined,
   openedModals: [],

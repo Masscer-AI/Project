@@ -374,6 +374,13 @@ const ConversationConfig = ({ hide }: { hide: () => void }) => {
           checked={chatState.autoPlay}
           onChange={(checked) => updateChatState({ autoPlay: checked })}
         />
+        <hr />
+        <h5>{t("auto-scroll")}</h5>
+        <span>{t("auto-scroll-description")}</span>
+        <SliderInput
+          checked={chatState.autoScroll}
+          onChange={(checked) => updateChatState({ autoScroll: checked })}
+        />
       </div>
     </FloatingDropdown>
   );

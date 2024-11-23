@@ -550,7 +550,6 @@ textarea {
   border-radius: 34px;
 }
 
-
 /* The knob (the circle) */
 .slider::before {
   position: absolute;
@@ -866,4 +865,13 @@ input:checked + .slider::before {
     transform: scale(1);
     opacity: 1;
   }
+}
+.mt-small {
+  margin-top: 10px;
+}
+.svg-danger svg.set-fill path {
+  fill: var(--danger-color);
+}
+.svg-danger svg.set-stroke path {
+  stroke: var(--danger-color);
 }

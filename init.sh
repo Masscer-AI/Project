@@ -2,13 +2,15 @@
 
 # Default values for the flags
 DJANGO=true
-INSTALL=true  
+INSTALL=true
+WATCH=false  
 
 # Parse command line arguments
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         -d|--django) DJANGO="$2"; shift ;;
-        -i|--install) INSTALL=false ;; 
+        -i|--install) INSTALL=false ;;
+        -w|--watch) WATCH="$2"; shift ;;
         *) echo "Unknown parameter passed: $1"; exit 1 ;;
     esac
     shift
@@ -36,11 +38,14 @@ fi
 
 cd ./streaming 
 
-# Run npm watch-build in the background
-npm run watch-build &
+# Check the WATCH flag and execute the appropriate npm command
+if [ "$WATCH" = true ]; then
+    npm run watch-build &
+    # Wait for 6 seconds to build the client
+else
+    npm run build
+fi
 
-# Wait for 6 seconds to build the client
 sleep 6
-
 # Run FastAPI application
 python main.py

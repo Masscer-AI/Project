@@ -28,6 +28,7 @@ export type Store = {
     useRag: boolean;
     maxMemoryMessages: number;
     autoPlay: boolean;
+    autoScroll: boolean;
   };
   conversation: TConversationData | undefined;
   openedModals: string[];

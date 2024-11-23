@@ -170,36 +170,25 @@ export const Sidebar: React.FC = () => {
           />
 
           <SvgButton
-            extraClass={`active-on
-              -hover pressable w-100 active-on-hover ${openedSections.includes("training") ? "bg-active" : "bg-hovered"}`}
-            onClick={() => handleSectionClick("training")}
-            text={t("training")}
+            onClick={() => {
+              setOpenedModals({ action: "add", name: "documents" });
+              toggleSidebar();
+            }}
+            text={t("documents")}
+            size="big"
+            extraClass="bg-hovered active-on-hover pressable w-100"
+            svg={SVGS.document}
+          />
+          <SvgButton
+            onClick={() =>
+              setOpenedModals({ action: "add", name: "completions" })
+            }
+            text={t("completions")}
+            size="big"
+            extraClass="bg-hovered active-on-hover pressable w-100"
             svg={SVGS.dumbell}
           />
-
-          {openedSections.includes("training") && (
-            <>
-              <SvgButton
-                onClick={() => {
-                  setOpenedModals({ action: "add", name: "documents" });
-                  toggleSidebar();
-                }}
-                text={t("documents")}
-                size="big"
-                extraClass="bg-hovered active-on-hover pressable w-100"
-                svg={SVGS.document}
-              />
-              <SvgButton
-                onClick={() =>
-                  setOpenedModals({ action: "add", name: "completions" })
-                }
-                text={t("completions")}
-                size="big"
-                extraClass="bg-hovered active-on-hover pressable w-100"
-                svg={SVGS.dumbell}
-              />
-            </>
-          )}
+          {openedSections.includes("training") && <></>}
           <SvgButton
             text={t("workflows")}
             size="big"

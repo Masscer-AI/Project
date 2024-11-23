@@ -102,8 +102,12 @@ def create_generator_for_document(
             ```
             """
             printer.yellow(f"{len(document.text)}")
+            tg_name = (
+                f"Training for {agent.name} on document {document.name} - part {i + 1}"
+            )
+            tg_name = tg_name[:255]
             TrainingGenerator.objects.create(
-                name=f"Training for {agent.name} on document {document.name} - part {i + 1}",
+                name=tg_name,
                 agent=agent,
                 completions_target_number=completions_target_number,
                 target_model_description=_description,

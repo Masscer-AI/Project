@@ -212,7 +212,7 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
   return (
     <form onSubmit={onSubmit} className="form">
       <div className="flex-y gap-medium F">
-        <h3 className="fancy-bg padding-medium text-center rounded">
+        <h3 className="padding-medium text-center rounded">
           {t("configure")} {formState.name}
         </h3>
         <label className="d-flex gap-small align-center">
@@ -367,23 +367,25 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
           </span>
         </label>
       </div>
-      <SvgButton
-        extraClass=""
-        size="big"
-        onClick={save}
-        text={t("save")}
-        svg={SVGS.download}
-      />
-      <SvgButton
-        size="big"
-        onClick={handleDelete}
-        text={t("delete")}
-        svg={SVGS.close}
-        extraClass="bg-danger"
-        confirmations={[
-          t("sure-this-action-cannot-be-undone-click-again-to-confirm"),
-        ]}
-      />
+      <div className="d-flex gap-small mt-small">
+        <SvgButton
+          extraClass="pressable border-active active-on-hover"
+          size="big"
+          onClick={save}
+          text={t("save")}
+          svg={SVGS.download}
+        />
+        <SvgButton
+          size="big"
+          onClick={handleDelete}
+          text={t("delete")}
+          svg={SVGS.close}
+          extraClass="border-danger pressable danger-on-hover"
+          confirmations={[
+            t("sure-this-action-cannot-be-undone-click-again-to-confirm"),
+          ]}
+        />
+      </div>
     </form>
   );
 };
