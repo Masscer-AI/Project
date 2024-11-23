@@ -1,12 +1,9 @@
 .chat-input {
   display: flex;
   flex-direction: column;
-  /* position: absolute; */
   bottom: 0;
-  /* z-index: 2; */
   background-color: var(--bg-color);
   left: 50%;
-  /* transform: translateX(-50%); */
   justify-content: center;
   align-items: center;
   padding: 10px;
@@ -39,7 +36,7 @@
   resize: none;
   font-size: 16px;
   font-family: var(--font-family);
-  /* background-color: var(--bg-secondary-color); */
+
 }
 
 .chat-input textarea::placeholder {

@@ -1,5 +1,5 @@
 .sidebar {
-  background-color: var(--bg-color);
+  background-color: var(--semi-transparent);
   position: fixed;
   left: 0;
   top: 0;

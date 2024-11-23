@@ -13,7 +13,7 @@
     border-radius: 50vh;
     padding: 5px;
     &:hover {
-      background-color: var(--highlighted-color-opaque);
+      background-color: var(--highlighted-color);
     }
 
     & input[type="checkbox"] {

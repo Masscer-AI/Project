@@ -62,7 +62,7 @@ export default function ChatView() {
       setMessages((prevMessages) =>
         updateMessages(data.chunk, data.agent_slug, prevMessages)
       );
-      if (chatMessageContainerRef.current) {
+      if (chatMessageContainerRef.current && chatState.autoScroll) {
         chatMessageContainerRef.current.scrollTop =
           chatMessageContainerRef.current.scrollHeight;
       }

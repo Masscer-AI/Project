@@ -1,6 +1,4 @@
 .svg-button {
-  background-color: transparent;
-  color: var(--font-color);
   padding: 5px;
   width: fit-content;
   height: 40px;
@@ -8,6 +6,9 @@
   border-radius: 7px;
   cursor: pointer;
   border: 1px solid transparent;
+}
+.svg-button.transparent {
+  background-color: transparent;
 }
 
 .svg-button svg {

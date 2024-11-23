@@ -12,10 +12,12 @@ type SetOpenedProps = {
   name: "documents" | "tags" | "completions" | "settings";
 };
 
+type TTheme = "light" | "dark" | "system";
 export type Store = {
   socket: any;
   messages: Message[];
   input: string;
+  theme: TTheme;
   models: Model[];
   agents: TAgent[];
   user?: TUserData;
@@ -34,6 +36,7 @@ export type Store = {
   openedModals: string[];
   reactionTemplates: TReactionTemplate[];
 
+  setTheme: (theme: TTheme) => void;
   startup: () => void;
   removeAgent: (slug: string) => void;
   updateSingleAgent: (agent: TAgent) => void;

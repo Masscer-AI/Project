@@ -7,6 +7,8 @@ import { SvgButton } from "../SvgButton/SvgButton";
 import { SVGS } from "../../assets/svgs";
 import { getUserOrganizations } from "../../modules/apiCalls";
 import { TOrganization } from "../../types";
+import { SliderInput } from "../SimpleForm/SliderInput";
+import { FloatingDropdown } from "../Dropdown/Dropdown";
 
 export const Settings = () => {
   const { setOpenedModals } = useStore((s) => ({
@@ -28,11 +30,7 @@ export const Settings = () => {
     },
     {
       name: "Appearance",
-      component: (
-        <div>
-          <h2>Appeareance</h2>
-        </div>
-      ),
+      component: <AppearanceConfig />,
       svg: SVGS.appearance,
     },
     {
@@ -40,23 +38,6 @@ export const Settings = () => {
       component: <OrganizationManager />,
       svg: SVGS.organization,
     },
-    // {
-    //   name: "Organization",
-    //   component: <OrganizationManager />,
-    //   svg: SVGS.organization
-    // },
-    // {
-    //   name: "Notifications",
-    //   component: <div className="d-flex padding-big">Notifications</div>,
-    // },
-    // {
-    //   name: "Security",
-    //   component: <div className="d-flex padding-big">Security</div>,
-    // },
-    // {
-    //   name: "About",
-    //   component: <div className="d-flex padding-big">About</div>,
-    // },
   ];
 
   return (
@@ -96,7 +77,10 @@ export const Menu = ({ options }) => {
 
 const LabeledButton = ({ label, onClick, svg, selected }) => {
   return (
-    <div onClick={onClick} className={`labeled-button ${selected && "active"}`}>
+    <div
+      onClick={onClick}
+      className={`labeled-button ${selected && "active svg-white text-white"}`}
+    >
       {/* <SvgButton svg={svg} extraClass="pos-relative w-100" /> */}
       <span>{svg}</span>
       <p className="button-label">{label}</p>
@@ -132,3 +116,31 @@ const OrganizationManager = () => {
 };
 
 const WhatsappConfig = () => {};
+
+const AppearanceConfig = () => {
+  const { theme, setTheme } = useStore((s) => ({
+    theme: s.theme,
+    setTheme: s.setTheme,
+  }));
+  return (
+    <div>
+      <h2>Appeareance</h2>
+      <p>Here you can configure the appeareance of the app</p>
+
+      <div className="d-flex gap-small">
+        <SvgButton
+          onClick={() => setTheme("light")}
+          extraClass=""
+          text="light"
+          svg={SVGS.sun}
+        />
+        <SvgButton
+          onClick={() => setTheme("dark")}
+          extraClass=""
+          text="dark"
+          svg={SVGS.moon}
+        />
+      </div>
+    </div>
+  );
+};

@@ -144,7 +144,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           />
 
           <SvgButton
-            extraClass={chatState.writtingMode ? "active" : ""}
+            extraClass={chatState.writtingMode ? "bg-active svg-white" : ""}
             onClick={toggleWritingMode}
             svg={SVGS.writePen}
             title={t("turn-on-off-writing-mode")}
@@ -152,7 +152,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           <RagSearchOptions />
           <FileLoader />
           <SvgButton
-            extraClass={chatState.webSearch ? "active" : ""}
+            extraClass={chatState.webSearch ? "bg-active svg-white" : ""}
             onClick={toggleWebSearch}
             svg={SVGS.webSearch}
             title={t("turn-on-off-web-search")}
@@ -260,7 +260,7 @@ const RagSearchOptions = () => {
       transform="translateX(-50%)"
       opener={
         <SvgButton
-          extraClass={chatState.useRag ? "active" : ""}
+          extraClass={chatState.useRag ? "bg-active svg-white" : ""}
           onClick={toggleUseRag}
           svg={SVGS.document}
           title={t("turn-on-off-rag")}

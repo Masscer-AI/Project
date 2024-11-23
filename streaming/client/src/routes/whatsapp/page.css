@@ -5,7 +5,7 @@
 .whatsapp-header {
   display: flex;
   flex-direction: column;
-  background-color: var(--contrast-color);
+  background-color: var(--bg-contrast-color);
   border-radius: 10px;
   padding: 10px;
 }

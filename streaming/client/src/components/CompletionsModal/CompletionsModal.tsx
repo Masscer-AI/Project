@@ -20,10 +20,12 @@ import { toast } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { Textarea } from "../SimpleForm/Textarea";
 import { FloatingDropdown } from "../Dropdown/Dropdown";
+import { Loader } from "../Loader/Loader";
 
 export const CompletionsModal = ({ visible, hide }) => {
   const { t } = useTranslation();
   const [completions, setCompletions] = useState([] as TCompletion[]);
+  const [isLoading, setIsLoading] = useState(false);
   const [filteredCompletions, setFilteredCompletions] = useState(
     [] as TCompletion[]
   );
@@ -214,6 +216,7 @@ export const CompletionsModal = ({ visible, hide }) => {
         </div>
 
         <div className={styles.completionsContainer}>
+          {isLoading && <Loader />}
           {filteredCompletions.map((c) => (
             <CompletionCard
               handleSelect={handleSelect}

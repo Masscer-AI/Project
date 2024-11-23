@@ -11,9 +11,6 @@ export const LanguageSelector = () => {
 
   const [isOpened, setIsOpened] = useState(false);
   const toggleLanguage = () => {
-    // const currentLng = i18n.language;
-    // const newLng = currentLng === "en" ? "es" : "en";
-    // i18n.changeLanguage(newLng);
     setIsOpened(!isOpened);
   };
 

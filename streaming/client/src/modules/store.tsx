@@ -20,6 +20,7 @@ export const useStore = create<Store>()((set, get) => ({
   messages: [],
   modelsAndAgents: [],
   input: "",
+  theme: "dark",
   models: [],
   user: undefined,
   agents: [],
@@ -291,6 +292,9 @@ export const useStore = create<Store>()((set, get) => ({
         ...partial,
       },
     }));
+  },
+  setTheme: (theme) => {
+    set({ theme });
   },
   test: () => {
     const { socket } = get();

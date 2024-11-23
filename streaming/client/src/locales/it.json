@@ -126,5 +126,7 @@
     "password": "Password",
     "email-and-password-required": "Email e password sono richiesti",
     "auto-play": "Auto play",
-    "auto-play-description": "Riproduci automaticamente i messaggi quando vengono generati."
+    "auto-play-description": "Riproduci automaticamente i messaggi quando vengono generati.",
+    "auto-scroll": "Auto scroll",
+    "auto-scroll-description": "Scorri automaticamente verso il fondo della chat quando viene generato un nuovo messaggio."
 }

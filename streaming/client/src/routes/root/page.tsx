@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 
 import { ChatItem, TSomething } from "../../types";
 
-
 import { useLoaderData } from "react-router-dom";
 import { API_URL, PUBLIC_TOKEN } from "../../modules/constants";
 import { Landing } from "../../components/Landing/Landing";
@@ -132,11 +131,8 @@ export default function Root() {
   return (
     <>
       <main className="root-page">
-
         <Navbar />
         <Landing />
-        {/* <ChatMessages chat={chat} />
-        <Talkie processAudio={processAudio} /> */}
       </main>
     </>
   );

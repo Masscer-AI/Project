@@ -4,7 +4,7 @@ import { useStore } from "../../modules/store";
 import { useTranslation } from "react-i18next";
 import { SVGS } from "../../assets/svgs";
 
-export const Loader = ({ text }: { text: string }) => {
+export const Loader = ({ text="..." }: { text?: string }) => {
   const [innerText, setInnerText] = useState(text);
 
   const { t } = useTranslation();

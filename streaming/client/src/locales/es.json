@@ -149,5 +149,7 @@
     "password": "Contraseña",
     "email-and-password-required": "Email y contraseña son requeridos",
     "auto-play": "Auto play",
-    "auto-play-description": "Reproduce automáticamente los mensajes cuando se generan."
+    "auto-play-description": "Reproduce automáticamente los mensajes cuando se generan.",
+    "auto-scroll": "Auto scroll",
+    "auto-scroll-description": "Desplázate automáticamente al final de la conversación cuando se genera un nuevo mensaje."
 }

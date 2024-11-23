@@ -11,6 +11,7 @@ type SvgButtonProps = {
   title?: string;
   reference?: LegacyRef<HTMLButtonElement>;
   tabIndex?: number;
+  transparent?: boolean;
 };
 
 export const SvgButton = ({
@@ -23,6 +24,7 @@ export const SvgButton = ({
   confirmations = [],
   title = "",
   tabIndex = 0,
+  transparent = true,
 }: SvgButtonProps) => {
   const [innerText, setInnerText] = useState(text);
   const [pendingConfirmations, setPendingConfirmations] =
@@ -45,7 +47,7 @@ export const SvgButton = ({
   return (
     <button
       tabIndex={tabIndex}
-      className={`svg-button d-flex align-center justify-center clickeable ${extraClass} ${size}`}
+      className={`svg-button d-flex align-center justify-center clickeable ${extraClass} ${size} ${transparent ? "transparent" : ""}`}
       onClick={handleClick}
       title={title}
       ref={reference}

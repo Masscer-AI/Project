@@ -4,27 +4,34 @@
   --font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
 
   font-family: var(--font-family);
-
-  line-height: 1.5;
   font-weight: 400;
-  --active-color: #46e0ff;
-  /* --highlighted-color: rgb(20, 181, 151); */
+  color-scheme: light;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+
+  --bg-color: rgb(255, 255, 255);
+  --active-color: rgb(102, 42, 255);
   --highlighted-color: #733af0;
   --highlighted-color-opaque: #743af05b;
-  --font-color: rgb(255, 255, 255);
-  --bg-color: rgb(10, 9, 26);
-  --bg-secondary-color: rgba(31, 31, 31, 0.397);
-  --hovered-color: rgba(75, 75, 75, 0.646);
-  --modals-color: rgb(255, 255, 255);
-  --modal-bg-color: #040404;
-  --bg-contrast-color: rgb(55, 55, 55);
+  --font-color: #000000;
+  background-color: var(--bg-color);
+  --bg-secondary-color: rgba(190, 190, 190, 0.397);
+  --hovered-color: rgba(183, 183, 183, 0.646);
+
+  --modal-bg-color: #ffffff;
+  --bg-contrast-color: #f9f9f9;
   --selected-border: 1px solid var(--highlighted-color);
+
   --standard-radius: 8px;
-  --semi-transparent: rgba(0, 0, 0, 0.5);
+  --semi-transparent: rgba(246, 246, 246, 0.5);
   --modal-max-height: 99vh;
-  --code-bg-color: #1a1b26;
-  --font-color-secondary: rgb(177, 177, 177);
-  --root-bg-color: #06181f;
+  --code-bg-color: #cbcbcb;
+  --font-color-secondary: rgb(109, 109, 109);
+  --root-bg-color: #ffffff;
   --danger-color: #ff3e3e;
   --danger-color-opaque: #852a2a90;
   --success-color: #20dd92;
@@ -32,23 +39,15 @@
   --app-max-width: 1200px;
   --input-max-width: 800px;
   --min-font-size: 16px;
-  color-scheme: dark light;
-  background-color: var(--bg-color);
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  -webkit-text-size-adjust: 100%;
 }
 
-:root:has(body.dark) {
+:root:has(#themer.dark) {
   --active-color: rgb(102, 42, 255);
   --highlighted-color: rgba(110, 91, 255, 0.8);
-
+  
   --secondary-color: #0077ff;
   --font-color: rgb(255, 255, 255);
-
+  
   --bg-color: rgb(0, 0, 0);
   --bg-secondary-color: rgb(22, 16, 49);
   --bg-color-secondary: #91ff00;
@@ -56,7 +55,9 @@
   --hovered-color: rgba(134, 134, 134, 0.248);
   --modal-bg-color: #090116;
   --font-color-secondary: rgb(156, 156, 156);
-
+  --semi-transparent: rgba(23, 23, 23, 0.5);
+  
+  --code-bg-color: #1A1B26;
   --root-bg-color: #06181f;
   --gradient-bg: radial-gradient(
     ellipse farthest-corner at top left,
@@ -77,9 +78,7 @@
 
   --bg-contrast-color: rgb(35, 33, 39);
   --selected-border: 1px solid var(--highlighted-color);
-  --standard-radius: 8px;
-
-  --contrast-color: #202020;
+  color-scheme: dark;
 }
 
 a {
@@ -105,6 +104,9 @@ body {
   margin: 0;
   min-height: 100vh;
   background-color: var(--bg-color);
+}
+#themer {
+  display: none;
 }
 
 h1 {
@@ -192,7 +194,6 @@ h2 {
   border: 1px solid var(--highlighted-color);
   color: var(--font-color);
   transition: 0.2s all;
-  background-color: var(--highlighted-color-opaque);
 }
 .clickeable:hover * {
   color: var(--font-color);
@@ -239,6 +240,7 @@ textarea {
 
 .bg-active {
   background-color: var(--active-color) !important;
+  color: white !important;
 }
 .bg-gradient {
   background: var(--gradient-dark);
@@ -654,6 +656,7 @@ input:checked + .slider::before {
 }
 .active-on-hover:hover {
   background-color: var(--active-color) !important;
+  color: white !important;
 }
 
 .menu {
@@ -706,6 +709,7 @@ input:checked + .slider::before {
 
 .labeled-button.active .button-label {
   display: block;
+  color: white;
 }
 .cut-text-to-line {
   white-space: nowrap;
@@ -874,4 +878,13 @@ input:checked + .slider::before {
 }
 .svg-danger svg.set-stroke path {
   stroke: var(--danger-color);
+}
+.svg-white svg.set-fill path {
+  fill: white !important;
+}
+.svg-white svg.set-stroke path {
+  stroke: white !important;
+}
+.svg-white svg.set-svg-fill {
+  fill: white;
 }
