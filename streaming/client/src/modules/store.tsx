@@ -48,18 +48,10 @@ export const useStore = create<Store>()((set, get) => ({
     const reactionTemplates: TReactionTemplate[] = await getReactionTemplates();
     set({ reactionTemplates });
     fetchAgents();
+    const pref = await getUserPreferences();
+    const bodySize = new TextEncoder().encode(JSON.stringify(pref)).length;
 
-    try {
-      const localStoredPreferences = localStorage.getItem("userPreferences");
-      if (!localStoredPreferences) {
-        const pref = await getUserPreferences();
-        set({ userPreferences: pref });
-      } else {
-        set({ userPreferences: JSON.parse(localStoredPreferences) });
-      }
-    } catch (e) {
-      console.log(e, "ERROR GETTING USER PREFERENCES");
-    }
+    set({ userPreferences: pref });
   },
   setOpenedModals: ({ action, name }) => {
     const { openedModals } = get();
@@ -322,8 +314,6 @@ export const useStore = create<Store>()((set, get) => ({
     } catch (e) {
       console.log(e, "ERROR UPDATING USER PREFERENCES");
     }
-    // Save the preferences in localStorage
-    localStorage.setItem("userPreferences", JSON.stringify(newPref));
   },
 
   test: () => {

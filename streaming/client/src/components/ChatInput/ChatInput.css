@@ -37,13 +37,14 @@
   resize: none;
   font-size: 16px;
   font-family: var(--font-family);
+  background-color: transparent;
 }
 
 .chat-input textarea::placeholder {
   color: var(--font-color-secondary);
 }
 .chat-input textarea.big-size {
-  height: 400px;
+  height: min(400px, 90vh);
 }
 
 .chat-input button.active {
