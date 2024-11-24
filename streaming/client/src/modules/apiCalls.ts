@@ -5,6 +5,7 @@ import { TCompletion, TConversation, TDocument, TOrganization } from "../types";
 import { TReactionTemplate } from "../types/chatTypes";
 import { TAgent } from "../types/agents";
 import toast from "react-hot-toast";
+import { TUserPreferences } from "./storeTypes";
 
 const getToken = (isPublic: boolean) => {
   if (isPublic) {
@@ -546,4 +547,12 @@ export const deleteMessage = async (messageId: number) => {
     "DELETE",
     `/v1/messaging/messages/${messageId}/`
   );
+};
+
+export const getUserPreferences = async () => {
+  return makeAuthenticatedRequest<TUserPreferences>("GET", "/v1/preferences/");
+};
+
+export const updateUserPreferences = async (data: any) => {
+  return makeAuthenticatedRequest("PUT", "/v1/preferences/", data);
 };

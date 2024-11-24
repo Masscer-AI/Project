@@ -339,16 +339,18 @@ const RagConfig = ({ hide }: { hide: () => void }) => {
 };
 
 const ConversationConfig = ({ hide }: { hide: () => void }) => {
-  const { chatState, updateChatState } = useStore((s) => ({
-    chatState: s.chatState,
-    updateChatState: s.updateChatState,
+  const { userPreferences, setPreferences } = useStore((s) => ({
+    userPreferences: s.userPreferences,
+    setPreferences: s.setPreferences,
   }));
 
   const { t } = useTranslation();
 
   const updateMaxMemoryMessages = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.value) {
-      updateChatState({ maxMemoryMessages: parseInt(e.target.value) });
+      setPreferences({
+        max_memory_messages: parseInt(e.target.value),
+      });
     }
   };
 
@@ -363,7 +365,7 @@ const ConversationConfig = ({ hide }: { hide: () => void }) => {
         <input
           type="number"
           className="input padding-small"
-          value={chatState.maxMemoryMessages}
+          value={userPreferences.max_memory_messages}
           onChange={updateMaxMemoryMessages}
           min={0}
         />
@@ -371,15 +373,15 @@ const ConversationConfig = ({ hide }: { hide: () => void }) => {
         <h5>{t("auto-play")}</h5>
         <span>{t("auto-play-description")}</span>
         <SliderInput
-          checked={chatState.autoPlay}
-          onChange={(checked) => updateChatState({ autoPlay: checked })}
+          checked={userPreferences.autoplay}
+          onChange={(checked) => setPreferences({ autoplay: checked })}
         />
         <hr />
         <h5>{t("auto-scroll")}</h5>
         <span>{t("auto-scroll-description")}</span>
         <SliderInput
-          checked={chatState.autoScroll}
-          onChange={(checked) => updateChatState({ autoScroll: checked })}
+          checked={userPreferences.autoscroll}
+          onChange={(checked) => setPreferences({ autoscroll: checked })}
         />
       </div>
     </FloatingDropdown>

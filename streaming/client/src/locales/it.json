@@ -128,5 +128,17 @@
     "auto-play": "Auto play",
     "auto-play-description": "Riproduci automaticamente i messaggi quando vengono generati.",
     "auto-scroll": "Auto scroll",
-    "auto-scroll-description": "Scorri automaticamente verso il fondo della chat quando viene generato un nuovo messaggio."
+    "auto-scroll-description": "Scorri automaticamente verso il fondo della chat quando viene generato un nuovo messaggio.",
+    "signup": "Registrazione",
+    "switch-to-login": "Cambia ad accesso",
+    "user-created-succesfully-please-login": "Utente creato con successo! Accedi per favore.",
+    "light": "Chiaro",
+    "dark": "Scuro",
+    "appeareance": "Aspetto",
+    "theme": "Tema",
+    "chat-background-image": "Immagine di sfondo della chat",
+    "system": "Sistema",
+    "sure?": "Sei sicuro?",
+    "click-to-edit": "Clicca per modificare"
+
 }

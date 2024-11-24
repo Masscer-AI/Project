@@ -1,9 +1,8 @@
 import React from "react";
 import { useStore } from "../../modules/store";
 export const Themer = () => {
-  const { theme, setTheme } = useStore((s) => ({
-    theme: s.theme,
-    setTheme: s.setTheme,
+  const { userPreferences } = useStore((s) => ({
+    userPreferences: s.userPreferences,
   }));
-  return <div id="themer" className={`${theme}`} />;
+  return <div id="themer" className={`${userPreferences.theme}`} />;
 };

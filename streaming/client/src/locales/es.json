@@ -75,7 +75,7 @@
     "english": "Inglés",
     "spanish": "Español",
     "language": "Idioma",
-    "title-updated": "Título actualizado!",
+    "title-updated": "¡Título actualizado!",
     "en": "Inglés",
     "es": "Español",
     "it": "Italiano",
@@ -151,5 +151,18 @@
     "auto-play": "Auto play",
     "auto-play-description": "Reproduce automáticamente los mensajes cuando se generan.",
     "auto-scroll": "Auto scroll",
-    "auto-scroll-description": "Desplázate automáticamente al final de la conversación cuando se genera un nuevo mensaje."
+    "auto-scroll-description": "Desplázate automáticamente al final de la conversación cuando se genera un nuevo mensaje.",
+    "signup": "Registro",
+    "switch-to-login": "Cambiar a Iniciar sesión",
+    "user-created-succesfully-please-login": "¡Usuario creado correctamente! Por favor, inicia sesión.",
+    "light": "Claro",
+    "dark": "Oscuro",
+    "appeareance": "Apariencia",
+    "theme": "Tema",
+    "chat-background-image": "Imagen de fondo del chat",
+    "system": "Sistema",
+    "sure?": "¿Seguro?",
+    "click-to-edit": "Haz clic para editar"
+
+
 }

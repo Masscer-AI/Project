@@ -47,7 +47,11 @@ export const ChatHeader = ({
         {chatState.isSidebarOpened ? (
           <></>
         ) : (
-          <SvgButton onClick={toggleSidebar} svg={SVGS.burger} />
+          <SvgButton
+            extraClass="pressable active-on-hover"
+            onClick={toggleSidebar}
+            svg={SVGS.burger}
+          />
         )}
 
         <FloatingDropdown
@@ -68,17 +72,15 @@ export const ChatHeader = ({
             <SvgButton onClick={addAgent} svg={SVGS.plus} />
           </div>
         </FloatingDropdown>
-        {/* <SvgButton onClick={test} text="test" /> */}
       </div>
-      <div className="d-flex align-center">
-        <span
-          contentEditable={true}
-          className="text-normal padding-small"
-          onBlur={onEdit}
-          suppressContentEditableWarning
-        >
-          {innerTitle}
-        </span>
+      <div
+        contentEditable={true}
+        className="text-normal padding-small "
+        onBlur={onEdit}
+        suppressContentEditableWarning
+        title={t("click-to-edit")}
+      >
+        {innerTitle}
       </div>
     </div>
   );
@@ -119,6 +121,7 @@ const AgentComponent = ({ agent }: TAgentComponentProps) => {
           name={`${agent.name}-checkbox`}
           type="checkbox"
           checked={agent.selected}
+          onChange={() => {}}
         />
         <span>{agent.name}</span>
       </section>
@@ -381,9 +384,7 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
           text={t("delete")}
           svg={SVGS.close}
           extraClass="border-danger pressable danger-on-hover"
-          confirmations={[
-            t("sure-this-action-cannot-be-undone-click-again-to-confirm"),
-          ]}
+          confirmations={[t("sure?")]}
         />
       </div>
     </form>

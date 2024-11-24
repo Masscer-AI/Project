@@ -118,29 +118,96 @@ const OrganizationManager = () => {
 const WhatsappConfig = () => {};
 
 const AppearanceConfig = () => {
-  const { theme, setTheme } = useStore((s) => ({
-    theme: s.theme,
-    setTheme: s.setTheme,
+  const { userPreferences, setPreferences } = useStore((s) => ({
+    // theme: s.theme,
+    // setTheme: s.setTheme,
+    userPreferences: s.userPreferences,
+    setPreferences: s.setPreferences,
   }));
+  const { t } = useTranslation();
   return (
-    <div>
-      <h2>Appeareance</h2>
-      <p>Here you can configure the appeareance of the app</p>
+    <div className="flex-y gap-big">
+      <h2>{t("appeareance")}</h2>
 
-      <div className="d-flex gap-small">
-        <SvgButton
-          onClick={() => setTheme("light")}
-          extraClass=""
-          text="light"
-          svg={SVGS.sun}
-        />
-        <SvgButton
-          onClick={() => setTheme("dark")}
-          extraClass=""
-          text="dark"
-          svg={SVGS.moon}
+      <div className="d-flex gap-small flex-y">
+        <h4>{t("theme")}</h4>
+        <div className="d-flex gap-small align-center">
+          <SvgButton
+            onClick={() =>
+              setPreferences({
+                theme: "light",
+              })
+            }
+            extraClass={
+              userPreferences.theme === "light"
+                ? "bg-active text-white"
+                : "bg-hovered"
+            }
+            text={t("light")}
+            svg={SVGS.sun}
+          />
+          <SvgButton
+            onClick={() => setPreferences({ theme: "dark" })}
+            extraClass={
+              userPreferences.theme === "dark"
+                ? "bg-active text-white"
+                : "bg-hovered"
+            }
+            text={t("dark")}
+            svg={SVGS.moon}
+          />
+          <SvgButton
+            onClick={() => setPreferences({ theme: "system" })}
+            extraClass={
+              userPreferences.theme === "system"
+                ? "bg-active text-white"
+                : "bg-hovered"
+            }
+            text={t("system")}
+            svg={SVGS.pc}
+          />
+        </div>
+      </div>
+      <div className="d-flex flex-y gap-small">
+        <h4>{t("chat-background-image")}</h4>
+        <ImageInput
+          onResult={(result) =>
+            setPreferences({
+              background_image_source: result,
+            })
+          }
         />
       </div>
+    </div>
+  );
+};
+
+const ImageInput = ({ onResult }) => {
+  const handleFileChange = (event) => {
+    const file = event.target.files[0];
+
+    if (file) {
+      if (!file.type.startsWith("image/")) {
+        alert("Please select a valid image file.");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        onResult(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  return (
+    <div>
+      <input
+        className="input"
+        type="file"
+        accept="image/*"
+        onChange={handleFileChange}
+      />
     </div>
   );
 };

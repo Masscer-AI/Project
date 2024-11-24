@@ -30,6 +30,7 @@ export default function ChatView() {
     setUser,
     agents,
     startup,
+    userPreferences,
   } = useStore((state) => ({
     socket: state.socket,
     chatState: state.chatState,
@@ -42,6 +43,7 @@ export default function ChatView() {
     setUser: state.setUser,
     agents: state.agents,
     startup: state.startup,
+    userPreferences: state.userPreferences,
   }));
 
   const { t } = useTranslation();
@@ -62,7 +64,7 @@ export default function ChatView() {
       setMessages((prevMessages) =>
         updateMessages(data.chunk, data.agent_slug, prevMessages)
       );
-      if (chatMessageContainerRef.current && chatState.autoScroll) {
+      if (chatMessageContainerRef.current && userPreferences.autoscroll) {
         chatMessageContainerRef.current.scrollTop =
           chatMessageContainerRef.current.scrollHeight;
       }
@@ -131,7 +133,7 @@ export default function ChatView() {
 
     const memoryMessages = [...messages]
       .reverse()
-      .slice(0, chatState.maxMemoryMessages)
+      .slice(0, userPreferences.max_memory_messages)
       .reverse();
 
     try {
@@ -265,9 +267,15 @@ export default function ChatView() {
   };
 
   return (
-    <div className="d-flex">
+    <main className="d-flex chat-page">
       {chatState.isSidebarOpened && <Sidebar />}
       <div className="chat-container">
+        {userPreferences.background_image_source && (
+          <img
+            className="pos-absolute"
+            src={userPreferences.background_image_source}
+          />
+        )}
         <ChatHeader
           onTitleEdit={onTitleEdit}
           title={conversation?.title || loaderData.conversation.title || "Chat"}
@@ -293,6 +301,6 @@ export default function ChatView() {
           conversation={conversation || loaderData.conversation}
         />
       </div>
-    </div>
+    </main>
   );
 }

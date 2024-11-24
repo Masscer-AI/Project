@@ -89,12 +89,14 @@ export const Message: React.FC<MessageProps> = ({
 
   const { t } = useTranslation();
 
-  const { agents, reactionTemplates, socket, chatState } = useStore((s) => ({
-    agents: s.agents,
-    reactionTemplates: s.reactionTemplates,
-    socket: s.socket,
-    chatState: s.chatState,
-  }));
+  const { agents, reactionTemplates, socket, userPreferences } = useStore(
+    (s) => ({
+      agents: s.agents,
+      reactionTemplates: s.reactionTemplates,
+      socket: s.socket,
+      userPreferences: s.userPreferences,
+    })
+  );
 
   const copyToClipboard = () => {
     const textToCopy = versions?.[currentVersion]?.text || innerText;
@@ -155,7 +157,7 @@ export const Message: React.FC<MessageProps> = ({
     if (
       id &&
       numberMessages === index + 1 &&
-      chatState.autoPlay &&
+      userPreferences.autoplay &&
       type === "assistant"
     ) {
       handleGenerateSpeech();
@@ -461,9 +463,12 @@ export const Message: React.FC<MessageProps> = ({
 
         {id && (
           <FloatingDropdown
-            bottom="100%"
-            right="0"
-            // {...(type === "user" ? { right: "100%" } : {  })}
+            {...(index === 0
+              ? { right: "100%", top: "0" }
+              : {
+                  right: "0",
+                  bottom: "100%",
+                })}
             opener={<SvgButton svg={SVGS.options} />}
           >
             <div className="flex-y gap-small width-200">
@@ -499,7 +504,7 @@ export const Message: React.FC<MessageProps> = ({
               <SvgButton
                 title={t("delete-message")}
                 size="big"
-                extraClass="danger-on-hover border-danger pressable"
+                extraClass="border-danger danger-on-hover  pressable"
                 onClick={() => handleDelete()}
                 svg={SVGS.trash}
                 text={t("delete")}

@@ -11,6 +11,7 @@
   border: 1px solid var(--hovered-color);
   gap: 10px;
   border-radius: var(--standard-radius);
+  z-index: 2;
 }
 
 .chat-input section:empty {
@@ -36,7 +37,6 @@
   resize: none;
   font-size: 16px;
   font-family: var(--font-family);
-
 }
 
 .chat-input textarea::placeholder {

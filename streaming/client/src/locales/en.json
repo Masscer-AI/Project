@@ -152,5 +152,18 @@
     "auto-play": "Auto play",
     "auto-play-description": "Automatically play messages when they are generated.",
     "auto-scroll": "Auto scroll",
-    "auto-scroll-description": "Automatically scroll to the bottom of the chat when a new message is being generated."
+    "auto-scroll-description": "Automatically scroll to the bottom of the chat when a new message is being generated.",
+    "signup": "Signup",
+    "switch-to-login": "Switch to Login",
+    "user-created-succesfully-please-login": "User created successfully! Please login.",
+    "light": "Light",
+    "dark": "Dark",
+    "appeareance": "Appearance",
+    "theme": "Theme",
+    "chat-background-image": "Chat background image",
+    "system": "System",
+    "sure?": "Sure?",
+    "click-to-edit": "Click to edit"
+
+
 }

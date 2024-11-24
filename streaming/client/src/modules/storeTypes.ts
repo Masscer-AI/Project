@@ -13,6 +13,15 @@ type SetOpenedProps = {
 };
 
 type TTheme = "light" | "dark" | "system";
+
+export type TUserPreferences = {
+  theme: TTheme;
+  max_memory_messages: number;
+  autoplay: boolean;
+  autoscroll: boolean;
+  background_image_source: string;
+};
+
 export type Store = {
   socket: any;
   messages: Message[];
@@ -28,14 +37,15 @@ export type Store = {
     webSearch: boolean;
     writtingMode: boolean;
     useRag: boolean;
-    maxMemoryMessages: number;
-    autoPlay: boolean;
-    autoScroll: boolean;
+    // maxMemoryMessages: number;
+    // autoPlay: boolean;
+    // autoScroll: boolean;
   };
   conversation: TConversationData | undefined;
   openedModals: string[];
   reactionTemplates: TReactionTemplate[];
-
+  userPreferences: TUserPreferences;
+  setPreferences: (prefs: Partial<TUserPreferences>) => void;
   setTheme: (theme: TTheme) => void;
   startup: () => void;
   removeAgent: (slug: string) => void;

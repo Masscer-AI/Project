@@ -1,5 +1,3 @@
-import toast from "react-hot-toast";
-
 export const playAudioFromBytes = (audioFile) => {
   const audioBlob = new Blob([audioFile], { type: "audio/mp3" });
   const audioUrl = URL.createObjectURL(audioBlob);
@@ -151,6 +149,7 @@ export const createAudioPlayerWithAppend = (
 
   const download = (filename = "audio.mp3") => {
     console.log("Downloading audio...");
+    // @ts-ignore
     const audioBlob = new Blob([sourceBuffer!.buffer], { type: "audio/mp3" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(audioBlob);
@@ -208,4 +207,12 @@ export const getPreferredLanguage = () => {
   const generalLanguage = languageMap[lang] || lang;
 
   return generalLanguage.substring(0, 2);
+};
+
+export const getStoredPreferences = () => {
+  const storedPreferences = localStorage.getItem("userPreferences");
+  if (storedPreferences) {
+    return JSON.parse(storedPreferences);
+  }
+  return null;
 };

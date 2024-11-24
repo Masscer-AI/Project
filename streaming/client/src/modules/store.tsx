@@ -6,7 +6,9 @@ import {
   getAgents,
   getConversation,
   getReactionTemplates,
+  getUserPreferences,
   initConversation,
+  updateUserPreferences,
   uploadDocument,
 } from "./apiCalls";
 import { SocketManager } from "./socketManager";
@@ -24,15 +26,19 @@ export const useStore = create<Store>()((set, get) => ({
   models: [],
   user: undefined,
   agents: [],
+  userPreferences: {
+    theme: "dark",
+    max_memory_messages: 20,
+    autoplay: false,
+    autoscroll: false,
+    background_image_source: "",
+  },
   chatState: {
     isSidebarOpened: false,
     attachments: [],
     webSearch: false,
     writtingMode: false,
     useRag: false,
-    maxMemoryMessages: 20,
-    autoPlay: false,
-    autoScroll: false,
   },
   conversation: undefined,
   openedModals: [],
@@ -42,6 +48,18 @@ export const useStore = create<Store>()((set, get) => ({
     const reactionTemplates: TReactionTemplate[] = await getReactionTemplates();
     set({ reactionTemplates });
     fetchAgents();
+
+    try {
+      const localStoredPreferences = localStorage.getItem("userPreferences");
+      if (!localStoredPreferences) {
+        const pref = await getUserPreferences();
+        set({ userPreferences: pref });
+      } else {
+        set({ userPreferences: JSON.parse(localStoredPreferences) });
+      }
+    } catch (e) {
+      console.log(e, "ERROR GETTING USER PREFERENCES");
+    }
   },
   setOpenedModals: ({ action, name }) => {
     const { openedModals } = get();
@@ -296,6 +314,18 @@ export const useStore = create<Store>()((set, get) => ({
   setTheme: (theme) => {
     set({ theme });
   },
+  setPreferences: async (prefs) => {
+    const newPref = { ...get().userPreferences, ...prefs };
+    set({ userPreferences: newPref });
+    try {
+      await updateUserPreferences(newPref);
+    } catch (e) {
+      console.log(e, "ERROR UPDATING USER PREFERENCES");
+    }
+    // Save the preferences in localStorage
+    localStorage.setItem("userPreferences", JSON.stringify(newPref));
+  },
+
   test: () => {
     const { socket } = get();
     toast.success("Loading...");

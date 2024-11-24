@@ -5,6 +5,7 @@ import "./page.css";
 import { useNavigate } from "react-router-dom";
 import { API_URL } from "../../modules/constants";
 import { SimpleForm } from "../../components/SimpleForm/SimpleForm";
+import { useTranslation } from "react-i18next";
 
 export default function Signup() {
   const [username, setUsername] = useState("");
@@ -13,6 +14,8 @@ export default function Signup() {
   const [message, setMessage] = useState("");
 
   const navigate = useNavigate();
+
+  const { t } = useTranslation();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,7 +27,7 @@ export default function Signup() {
       if (response.data.token) {
         localStorage.setItem("token", response.data.token);
       }
-      toast.success("User created successfully! Please log in");
+      toast.success(t("user-created-succesfully-please-login"));
       navigate("/login");
     } catch (error) {
       console.log(error);
@@ -88,14 +91,14 @@ export default function Signup() {
             type="submit"
             className="button w-100 bg-active padding-medium"
           >
-            Signup
+            {t("signup")}
           </button>
         </form>
         <button
           onClick={() => navigate("/login")}
           className="button w-100 padding-medium"
         >
-          Switch to Login
+          {t("switch-to-login")}
         </button>
       </SimpleForm>
     </div>
