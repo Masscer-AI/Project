@@ -128,14 +128,10 @@ async def on_message_handler(socket_id, data, **kwargs):
             to=socket_id,
         )
 
-        messages_context = [
-            {"text": m["text"], "type": m["type"], "versions": m["versions"]}
-            for m in prev_messages
-        ]
         web_results = new_search_brave(
             message["text"],
             json.dumps(
-                {"messages": messages_context, "other_context": attachments_context}
+                {"messages": prev_messages, "other_context": attachments_context}
             ),
         )
         await sio.emit(
