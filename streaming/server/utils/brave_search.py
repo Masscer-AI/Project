@@ -129,13 +129,16 @@ def fetch_url_content(url):
                 "h1",
                 "h2",
                 "h3",
+                "h4",
                 "p",
+                "span",
                 "blockquote",
                 "pre",
                 "code",
                 "strong",
+                "ul",
+                "ol",
                 "li",
-                "strong",
             ]:
                 elements = soup.find_all(tag)
                 for element in elements:
@@ -151,7 +154,7 @@ def fetch_url_content(url):
             )
 
     except Exception as e:
-        logger.error(f"Failed to fetch {url}: Status code {e}")
+        logger.error(f"Failed to fetch {url}: {e}")
         return None
 
 
