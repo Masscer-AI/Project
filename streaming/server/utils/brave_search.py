@@ -13,6 +13,7 @@ from ..logger import get_custom_logger
 
 logger = get_custom_logger("brave_search")
 
+
 class SearchQueries(BaseModel):
     queries: list[str] = Field(
         ...,
@@ -27,7 +28,7 @@ class SearchQueries(BaseModel):
 class SelectUrls(BaseModel):
     selected: list[str] = Field(
         ...,
-        description="The selected URLs to query. All the necessary urls, at least 4",
+        description="The selected URLs to query. Up to 3 urls",
     )
 
 
@@ -141,12 +142,14 @@ def fetch_url_content(url):
                     content.append(element.get_text(strip=True))  # Strip whitespace
 
             combined_content = "\n\n".join(content)
-            
+
             logger.info(f"Fetched content from {combined_content[:50]}")
             return {"url": url, "content": combined_content}
         else:
-            raise Exception(f"Failed to fetch {url}: Status code {page_response.status_code}")
-         
+            raise Exception(
+                f"Failed to fetch {url}: Status code {page_response.status_code}"
+            )
+
     except Exception as e:
         logger.error(f"Failed to fetch {url}: Status code {e}")
         return None
@@ -250,7 +253,7 @@ URLS you can select from:
 
 PLease select the most relevant urls for the query.
     """
-       
+
             selected_urls = create_structured_completion(
                 model="gpt-4o-mini",
                 system_prompt=_system_select,
@@ -261,18 +264,16 @@ PLease select the most relevant urls for the query.
 
     results = []
 
-    with ThreadPoolExecutor(max_workers=4) as executor:
-            future_to_url = {
-                executor.submit(fetch_url_content, url): url for url in clickables
-            }
-            for future in as_completed(future_to_url):
-                result = future.result()
-                if result:
-                    results.append(result)
+    with ThreadPoolExecutor(max_workers=6) as executor:
+        future_to_url = {
+            executor.submit(fetch_url_content, url): url for url in clickables
+        }
+        for future in as_completed(future_to_url):
+            result = future.result()
+            if result:
+                results.append(result)
 
-        
-    return results 
-
+    return results
 
 
 def get_brave_results(q, country, api_key=os.getenv("BRAVE_API_KEY")):
@@ -293,4 +294,3 @@ def get_brave_results(q, country, api_key=os.getenv("BRAVE_API_KEY")):
         return response.json()
     else:
         return None
-    
