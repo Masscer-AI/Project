@@ -1,11 +1,9 @@
 import requests
-import json
+
+# import json
 import copy
 
 API_URL = "http://127.0.0.1:8000"
-
-
-
 
 
 def save_message(message: dict, token: str):
@@ -16,7 +14,12 @@ def save_message(message: dict, token: str):
     body = copy.deepcopy(message)
 
     attachments = [
-        {"type": a["type"], "content": a["content"], "id": a.get("id", None), "name": a["name"]}
+        {
+            "type": a["type"],
+            "content": a["content"],
+            "id": a.get("id", None),
+            "name": a["name"],
+        }
         for a in body["attachments"]
     ]
 
@@ -59,7 +62,6 @@ def get_results(
         return None
 
 
-
 def query_document(
     query_text: str, token: str, conversation_id: str = None, document_id: int = None
 ):
@@ -69,6 +71,36 @@ def query_document(
     body = {
         "query": query_text,
         "conversation_id": conversation_id,
+    }
+
+    try:
+        response = requests.post(endpoint, headers=headers, json=body)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        print(f"Error saving message: {e}")
+        return None
+
+
+def query_completions(
+    query_text: str, agent_slug: str, prev_messages: list, token: str
+):
+    """
+    Query the completions API
+    """
+    _context = f"""
+    These are the last four messages in the conversation:
+    ---
+    {" ".join([f'{m["type"]}: {m["text"]}\n' for m in prev_messages])}
+    ---
+
+    This is the last user message text: {query_text}
+    """
+    endpoint = API_URL + "/v1/rag/completions/query/"
+    headers = {"Authorization": "Token " + token}
+    body = {
+        "query": _context,
+        "agent_slug": agent_slug,
     }
 
     try:

@@ -44,7 +44,7 @@ interface MessageProps {
   text: string;
   index: number;
   versions?: TVersion[];
-  attachments: TAttachment[];
+  attachments?: TAttachment[];
 
   onImageGenerated: (
     imageContentB64: string,
@@ -57,7 +57,7 @@ interface MessageProps {
   numberMessages: number;
 }
 
-export const Message: React.FC<MessageProps> = ({
+export const Message = ({
   type,
   index,
   id,
@@ -69,7 +69,7 @@ export const Message: React.FC<MessageProps> = ({
   onMessageEdit,
   onMessageDeleted,
   numberMessages,
-}) => {
+}: MessageProps) => {
   const [sources, setSources] = useState([] as Link[]);
   const [isEditing, setIsEditing] = useState(false);
   const [innerText, setInnerText] = useState(text);
@@ -524,16 +524,17 @@ function getSomeNumberFromChunkString(chunkString) {
   return { modelName, modelId };
 }
 
-type TChunk = {
-  id: number;
-  document: number;
-  content: string;
-  brief?: string;
-  tags?: string;
-};
+// type TChunk = {
+//   id: number;
+//   document: number;
+//   content: string;
+//   brief?: string;
+//   tags?: string;
+// };
 const Source = ({ source }: { source: TSource }) => {
   const [isVisible, setIsVisible] = useState(false);
 
+  const { t } = useTranslation();
   const handleGetModel = async () => {
     // const { modelId, modelName } = getSomeNumberFromChunkString(href);
     // const chunk = await getChunk(modelId);
@@ -542,28 +543,34 @@ const Source = ({ source }: { source: TSource }) => {
   };
 
   return (
-    <div className="source-component">
-      {/* <input type="text" /> */}
-      <h5>
-        {source.model_name} {source.model_id}
-      </h5>
+    <div className="source-component bg-hovered ">
+      <input id={`${source.model_name}-${source.model_id}`} type="text" />
+      <p className="fit-content cut-text-to-line">
+        <span>{t("source")}: </span>
+        <span className="text-secondary">
+          {t(source.model_name)} {source.model_id}
+        </span>
+      </p>
 
-      <SvgButton svg={SVGS.eyes} onClick={handleGetModel} />
+      <div className="d-flex justify-center">
+        <SvgButton
+          size="big"
+          text={t("inspect")}
+          svg={SVGS.eyes}
+          onClick={handleGetModel}
+        />
+      </div>
       {isVisible && (
         <Modal
           minHeight={"40vh"}
           visible={isVisible}
           hide={() => setIsVisible(false)}
         >
-          <div className="chunk-info">
-            <h3 className="text-center">
-              {source.model_name} {source.model_id}
-            </h3>
-            <textarea
-              value={JSON.stringify(source.content)}
-              readOnly
-              name="chunk_text"
-            ></textarea>
+          <div className="chunk-info flex-y gap-big">
+            <h2 className="text-center">
+              {t(source.model_name)} {source.model_id}
+            </h2>
+            <pre>{source.content}</pre>
           </div>
         </Modal>
       )}
@@ -608,9 +615,9 @@ const WebSearchResultInspector = ({ result }) => {
 
 const WebSearchResultContent = ({ result }) => {
   return (
-    <div>
-      <h3>{result.url}</h3>
-      <p>{result.content}</p>
+    <div className="flex-y gap-medium">
+      <h2 className="word-break-all">{result.url}</h2>
+      <pre className="word-break-all">{result.content}</pre>
     </div>
   );
 };

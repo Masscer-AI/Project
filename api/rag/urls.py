@@ -4,7 +4,8 @@ from .views import (
     query_collection,
     ChunkDetailView,
     QueryDocument,
-    ChunkSetView
+    ChunkSetView,
+    QueryCompletions,
 )
 
 app_name = "rag"
@@ -20,6 +21,7 @@ urlpatterns = [
         QueryDocument.as_view(),
         name="documents_query",
     ),
+    path("completions/query/", QueryCompletions.as_view(), name="completions_query"),
     path(
         "documents/<int:document_id>/chunks/", ChunkSetView.as_view(), name="chunk_set"
     ),

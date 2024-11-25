@@ -162,7 +162,18 @@
     "chat-background-image": "Imagen de fondo del chat",
     "system": "Sistema",
     "sure?": "¿Seguro?",
-    "click-to-edit": "Haz clic para editar"
-
-
+    "click-to-edit": "Haz clic para editar",
+    "sorry-an-unexpected-error-happen": "Lo siento, ocurrió un error inesperado",
+    "notify-developers": "Notificar a los desarrolladores",
+    "multiagentic-modality": "Modo multiagente",
+    "multiagentic-modality-description": "En modo grupal, cada agente puede ver el contexto de los otros agentes. En modo aislado, cada agente solo puede ver su propio contexto.",
+    "isolated": "Aislado",
+    "grupal": "Grupal",
+    "select-at-least-one-agent-to-chat": "Selecciona al menos un agente para chat",
+    "conversation-settings": "Configuración de conversación",
+    "source": "Fuente",
+    "chunk": "Fragmento",
+    "completion": "Completación",
+    "inspect": "Inspeccionar",
+    "querying-completions-for-the-agent": "Consultando completaciones para el agente"
 }

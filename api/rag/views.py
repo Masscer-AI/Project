@@ -216,3 +216,38 @@ class QueryDocument(View):
 
         data = {"results": results}
         return JsonResponse(data, safe=False)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class QueryCompletions(View):
+    def post(self, request):
+        data = json.loads(request.body)
+        query_text = data.get("query", None)
+        agent_slug = data.get("agent_slug", None)
+
+        agent = Agent.objects.get(slug=agent_slug)
+
+        if not agent:
+            # Return a 404
+            return JsonResponse({"error": "Agent not found"}, status=404)
+        collection, created = Collection.objects.get_or_create(
+            user=request.user, agent=agent
+        )
+        if created:
+            printer.success("No collection found for the agent, creating a new one")
+            return JsonResponse([], status=200, safe=False)
+
+        queries = querify_context(context=query_text)
+        printer.success(
+            "There is a collection for the agent, getting results from Chroma"
+        )
+
+        results = chroma_client.get_results(
+            collection_name=collection.slug,
+            query_texts=queries.queries,
+            n_results=4,
+        )
+
+        data = {"results": results}
+        return JsonResponse(data, safe=False)

@@ -11,11 +11,10 @@ import { TChatLoader, TMessage } from "../../types/chatTypes";
 import { ChatHeader } from "../../components/ChatHeader/ChatHeader";
 import toast from "react-hot-toast";
 
-import { generateImage, updateConversation } from "../../modules/apiCalls";
+import { updateConversation } from "../../modules/apiCalls";
 import { useTranslation } from "react-i18next";
 import { TVersion } from "../../types";
-import { updateLastMessagesIds, updateMessages } from "./helpers";
-import { QRGenerator } from "../../components/QRGenerator/QRGenerator";
+import { updateLastMessagesIds, addAssistantMessageChunk } from "./helpers";
 
 export default function ChatView() {
   const loaderData = useLoaderData() as TChatLoader;
@@ -54,15 +53,21 @@ export default function ChatView() {
     startup();
     setInput(loaderData.query || "");
   }, []);
-
   const [messages, setMessages] = useState(
-    loaderData.conversation.messages as TMessage[]
+    (loaderData.conversation.messages || []).sort(
+      (a, b) => (a.id || 0) - (b.id || 0)
+    ) as TMessage[]
   );
 
   useEffect(() => {
     socket.on("response", (data) => {
       setMessages((prevMessages) =>
-        updateMessages(data.chunk, data.agent_slug, prevMessages)
+        addAssistantMessageChunk(
+          data.chunk,
+          data.agent_slug,
+          prevMessages,
+          userPreferences.multiagentic_modality
+        )
       );
       if (chatMessageContainerRef.current && userPreferences.autoscroll) {
         chatMessageContainerRef.current.scrollTop =
@@ -89,7 +94,7 @@ export default function ChatView() {
       socket.off("sources");
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages]);
+  }, [messages.length]);
 
   useEffect(() => {
     if (!conversation?.messages) return;
@@ -112,22 +117,30 @@ export default function ChatView() {
 
     if (chatState.writtingMode) return;
 
-    const selectedAgents = agents.filter((a) => a.selected);
-
-    if (selectedAgents.length === 0) {
-      toast.error("You must select at least one agent to complete! 👀");
-      return;
-    }
+    let selectedAgents = agents.filter((a) => a.selected);
 
     const userMessage = {
       type: "user",
       text: input,
       attachments: chatState.attachments,
     };
+
+    if (selectedAgents.length === 0) {
+      toast.error(t("select-at-least-one-agent-to-chat"));
+      return;
+    }
+    // reorder the agents based on its slug and position in the chatState.selectedAgents
+    selectedAgents = selectedAgents.sort(
+      (a, b) =>
+        chatState.selectedAgents.indexOf(a.slug) -
+        chatState.selectedAgents.indexOf(b.slug)
+    );
+
     const assistantMessage: TMessage = {
       type: "assistant",
       text: "",
       attachments: [],
+      agent_slug: selectedAgents[0].slug,
     };
     setMessages([...messages, userMessage, assistantMessage]);
 
@@ -153,6 +166,7 @@ export default function ChatView() {
         conversation: conversation ? conversation : loaderData.conversation,
         web_search_activated: chatState.webSearch,
         use_rag: chatState.useRag,
+        multiagentic_modality: userPreferences.multiagentic_modality,
       });
 
       setInput("");

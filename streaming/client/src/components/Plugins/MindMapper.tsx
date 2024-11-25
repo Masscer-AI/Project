@@ -318,10 +318,12 @@ const MindMapper = () => {
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
           fitView
+          minZoom={0.1}
+          maxZoom={6}
         >
           <Background />
           <Controls />
-          {/* <MiniMap /> */}
+          <MiniMap />
         </ReactFlow>
       </div>
     </div>

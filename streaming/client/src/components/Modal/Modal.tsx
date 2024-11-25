@@ -28,7 +28,7 @@ export const Modal = ({
         <div className="d-flex justify-end modal-closer gap-small">
           {extraButtons}
           <SvgButton
-            extraClass="pressable danger-on-hover border-danger"
+            extraClass="pressable bg-danger "
             onClick={hide}
             svg={SVGS.close}
           />

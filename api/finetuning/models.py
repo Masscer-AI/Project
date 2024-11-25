@@ -103,26 +103,33 @@ class Completion(models.Model):
         collection, created = Collection.objects.get_or_create(
             agent=self.agent, user=self.agent.user
         )
+        if created:
+            printer.red(
+                f"Collection not found for agent {self.agent.slug}, creating a new one"
+            )
 
         chroma_client.upsert_chunk(
             collection_name=collection.slug,
             chunk_id=str(self.id) + "-completion",
             chunk_text=self.prompt,
             metadata={
-                "content": f"{self.prompt}\n\n{self.answer}",
+                "content": f"PROMPT: {self.prompt}\n\nANSWER: {self.answer}",
                 "model_id": self.id,
                 "model_name": "completion",
                 "extra": f"TRAINING_GENERATOR(name={self.training_generator.name}, id={self.training_generator.id})",
             },
         )
-        printer.green(f"Completion {self.id} saved in memory")
+        printer.success(f"Completion {self.id} saved in memory")
 
     def remove_from_memory(self):
 
         collection, created = Collection.objects.get_or_create(
             agent=self.agent, user=self.agent.user
         )
-        if created or not self.approved:
+        if created:
+            printer.yellow(
+                f"Collection not found for agent {self.agent.slug} and it was created, skipping removal"
+            )
             return
 
         printer.red(f"Removing completion {self.id} from memory")

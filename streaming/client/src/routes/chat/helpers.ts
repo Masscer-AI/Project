@@ -1,20 +1,45 @@
+import toast from "react-hot-toast";
 import { TMessage } from "../../types/chatTypes";
 
-export const updateMessages = (
+export const addAssistantMessageChunk = (
   chunk: string,
   agentSlug: string,
-  prevMessages: TMessage[]
+  prevMessages: TMessage[],
+  multiagenticModality: "isolated" | "grupal"
 ) => {
   const newMessages = [...prevMessages];
   const lastMessage = newMessages[newMessages.length - 1];
 
   if (lastMessage && lastMessage.type === "assistant") {
-    if (lastMessage.agent_slug === agentSlug) {
+    const lastAgent = lastMessage.agent_slug;
+
+    if (lastAgent === agentSlug) {
       lastMessage.text += chunk;
     }
+
+    if (lastAgent !== agentSlug && multiagenticModality === "grupal") {
+      const assistantMessage: TMessage = {
+        type: "assistant",
+        text: chunk,
+        attachments: [],
+        agent_slug: agentSlug,
+        versions: [
+          {
+            text: chunk,
+            type: "assistant",
+            agent_slug: agentSlug,
+            agent_name: agentSlug,
+          },
+        ],
+      };
+      newMessages.push(assistantMessage);
+      return newMessages;
+    }
+
     const targetVersion = lastMessage.versions?.find(
       (v) => v.agent_slug === agentSlug
     );
+
     if (targetVersion) {
       targetVersion.text += chunk;
     } else {
@@ -29,6 +54,9 @@ export const updateMessages = (
       ];
     }
   } else {
+    toast.loading("New message appended to conversation");
+    console.log("New message appended to conversation");
+
     const assistantMessage: TMessage = {
       type: "assistant",
       text: chunk,

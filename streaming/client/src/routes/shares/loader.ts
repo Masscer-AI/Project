@@ -1,4 +1,3 @@
-import toast from "react-hot-toast";
 import { getSharedConversation } from "../../modules/apiCalls";
 
 export const sharesLoader = async () => {
@@ -11,7 +10,6 @@ export const sharesLoader = async () => {
     return data;
   } catch (e) {
     console.log(e);
-    
   }
   return null;
 };

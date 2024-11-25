@@ -943,3 +943,9 @@ input:checked + .slider::before {
 .svg-white svg.set-svg-fill {
   fill: white;
 }
+.word-break-all {
+  word-break: break-all;
+}
+.fit-content {
+  width: fit-content ;
+}

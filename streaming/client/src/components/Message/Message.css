@@ -85,8 +85,8 @@
   background-color: var(--hovered-color);
   position: relative;
   > input {
-    width: 1px;
-    height: 1px;
+    width: 0px;
+    height: 0px;
     position: absolute;
     background-color: transparent;
     border: none;

@@ -20,6 +20,7 @@ export type TUserPreferences = {
   autoplay: boolean;
   autoscroll: boolean;
   background_image_source: string;
+  multiagentic_modality: "isolated" | "grupal";
 };
 
 export type Store = {
@@ -37,9 +38,7 @@ export type Store = {
     webSearch: boolean;
     writtingMode: boolean;
     useRag: boolean;
-    // maxMemoryMessages: number;
-    // autoPlay: boolean;
-    // autoScroll: boolean;
+    selectedAgents: string[];
   };
   conversation: TConversationData | undefined;
   openedModals: string[];

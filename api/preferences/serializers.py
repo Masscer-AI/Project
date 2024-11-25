@@ -12,4 +12,5 @@ class UserPreferencesSerializer(serializers.ModelSerializer):
             "autoplay",
             "background_image_source",
             "theme",
+            "multiagentic_modality",
         ]

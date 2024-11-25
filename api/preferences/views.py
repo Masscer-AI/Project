@@ -31,7 +31,7 @@ class UserPreferencesView(View):
             user_preferences.save()
 
         data = json.loads(request.body)
-        print(data)
+        
         serializer = UserPreferencesSerializer(user_preferences, data=data)
 
         if serializer.is_valid():

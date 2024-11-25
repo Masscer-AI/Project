@@ -14,9 +14,12 @@ import { createAudioPlayer, playAudioFromBytes } from "../../modules/utils";
 import { generateImage, updateConversation } from "../../modules/apiCalls";
 import { useTranslation } from "react-i18next";
 import { TVersion } from "../../types";
-import { updateLastMessagesIds, updateMessages } from "../chat/helpers";
+import {
+  updateLastMessagesIds,
+  addAssistantMessageChunk,
+} from "../chat/helpers";
 
-export default function ChatView() {
+export default function SharedChatView() {
   const loaderData = useLoaderData() as TChatLoader;
 
   const {
@@ -29,6 +32,7 @@ export default function ChatView() {
     setUser,
     agents,
     startup,
+    userPreferences,
   } = useStore((state) => ({
     socket: state.socket,
     chatState: state.chatState,
@@ -41,6 +45,7 @@ export default function ChatView() {
     setUser: state.setUser,
     agents: state.agents,
     startup: state.startup,
+    userPreferences: state.userPreferences,
   }));
 
   const { t } = useTranslation();
@@ -58,7 +63,12 @@ export default function ChatView() {
   useEffect(() => {
     socket.on("response", (data) => {
       setMessages((prevMessages) =>
-        updateMessages(data.chunk, data.agent_slug, prevMessages)
+        addAssistantMessageChunk(
+          data.chunk,
+          data.agent_slug,
+          prevMessages,
+          userPreferences.multiagentic_modality
+        )
       );
     });
 
@@ -177,27 +187,6 @@ export default function ChatView() {
     });
   };
 
-  const handleKeyDown = (event) => {
-    if (event.key === "Enter" && event.shiftKey) {
-      setInput(event.target.value);
-      return;
-    } else if (event.key === "Enter") {
-      handleSendMessage();
-    } else {
-      setInput(event.target.value);
-    }
-  };
-
-  const onTitleEdit = async (title: string) => {
-    if (!conversation?.id && !loaderData.conversation.id) return;
-
-    await updateConversation(conversation?.id || loaderData.conversation.id, {
-      title,
-    });
-
-    toast.success(t("title-updated"));
-  };
-
   const onMessageEdit = (
     index: number,
     text: string,
@@ -222,35 +211,23 @@ export default function ChatView() {
   return (
     <>
       <div className="d-flex">
-        {chatState.isSidebarOpened && <Sidebar />}
+        {/* {chatState.isSidebarOpened && <Sidebar />} */}
         <div className="chat-container">
-          {/* <ChatHeader
-            onTitleEdit={onTitleEdit}
-            title={
-              //   conversation?.title || loaderData.conversation.title || "Chat"
-              "Chat"
-            }
-          /> */}
-          {/* @ts-ignore */}
-          <h2 className="fancy-bg padding-big">
-            {loaderData.conversation.title}
-          </h2>
-          {/* <ChatInput
-            handleSendMessage={handleSendMessage}
-            handleKeyDown={handleKeyDown}
-            conversation={conversation || loaderData.conversation}
-          /> */}
-
           <div className="chat-messages">
+            <h2 className="padding-medium my-medium">
+              {loaderData.conversation.title}
+            </h2>
             {messages &&
               messages.map((msg, index) => (
                 <Message
                   {...msg}
                   key={index}
                   index={index}
-                  // onGenerateSpeech={handleGenerateSpeech}
-                  onImageGenerated={onImageGenerated}
+                  // @ts-ignore
+                  onImageGenerated={() => {}}
                   onMessageEdit={onMessageEdit}
+                  onMessageDeleted={() => {}}
+                  numberMessages={messages.length}
                 />
               ))}
           </div>

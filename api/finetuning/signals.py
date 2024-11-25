@@ -21,7 +21,14 @@ def completions_generated_handler(sender, **kwargs):
 @receiver(post_save, sender=Completion)
 def completion_post_save_handler(sender, **kwargs):
     completion = kwargs.get("instance")
+    printer.yellow(f"COMPLETION {completion.id} POST SAVE HANDLER")
     if completion.approved:
+        printer.success(f"COMPLETION {completion.id} IS APPROVED, SAVING IN MEMORY")
         completion.save_in_memory()
     else:
+        printer.yellow(
+            f"COMPLETION {completion.id} IS NOT APPROVED, REMOVING FROM MEMORY"
+        )
         completion.remove_from_memory()
+
+

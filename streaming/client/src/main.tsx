@@ -17,12 +17,13 @@ import { whatsappLoader } from "./routes/whatsapp/loader.ts";
 import WorkflowsPage from "./routes/workflows/page.tsx";
 import Share from "./routes/shares/page.tsx";
 import { sharesLoader } from "./routes/shares/loader.ts";
+import { ErrorPage } from "./routes/error/Page.tsx";
 
 const router = createBrowserRouter([
   {
     path: "/",
     element: <Layout />,
-    errorElement: <div>Not Found</div>,
+    errorElement: <ErrorPage />,
     children: [
       {
         path: "/",

@@ -20,13 +20,15 @@ export const ChatHeader = ({
   onTitleEdit: (title: string) => void;
 }) => {
   const { t } = useTranslation();
-  const { toggleSidebar, agents, addAgent, chatState } = useStore((state) => ({
-    agents: state.agents,
-    toggleSidebar: state.toggleSidebar,
-    addAgent: state.addAgent,
-    chatState: state.chatState,
-    // test: state.test,
-  }));
+  const { toggleSidebar, agents, addAgent, chatState, test } = useStore(
+    (state) => ({
+      agents: state.agents,
+      toggleSidebar: state.toggleSidebar,
+      addAgent: state.addAgent,
+      chatState: state.chatState,
+      test: state.test,
+    })
+  );
   const [innerTitle, setInnerTitle] = useState(title);
 
   const onEdit = (e: React.ChangeEvent<HTMLSpanElement>) => {
@@ -72,6 +74,7 @@ export const ChatHeader = ({
             <SvgButton onClick={addAgent} svg={SVGS.plus} />
           </div>
         </FloatingDropdown>
+        {/* <Pill onClick={test}>Test</Pill> */}
       </div>
       <div
         contentEditable={true}
@@ -91,13 +94,13 @@ type TAgentComponentProps = {
 };
 
 const AgentComponent = ({ agent }: TAgentComponentProps) => {
-  const { toggleAgentSelected, fetchAgents, updateSingleAgent } = useStore(
-    (state) => ({
+  const { toggleAgentSelected, fetchAgents, updateSingleAgent, chatState } =
+    useStore((state) => ({
       toggleAgentSelected: state.toggleAgentSelected,
       fetchAgents: state.fetchAgents,
       updateSingleAgent: state.updateSingleAgent,
-    })
-  );
+      chatState: state.chatState,
+    }));
 
   const { t } = useTranslation();
   const [isModalVisible, setModalVisible] = useState(false);
@@ -117,12 +120,19 @@ const AgentComponent = ({ agent }: TAgentComponentProps) => {
   return (
     <div className={styles.agentComponent}>
       <section onClick={() => toggleAgentSelected(agent.slug)}>
-        <input
-          name={`${agent.name}-checkbox`}
-          type="checkbox"
-          checked={agent.selected}
-          onChange={() => {}}
-        />
+        <div className="d-flex gap-small align-center pos-relative">
+          <input
+            name={`${agent.name}-checkbox`}
+            type="checkbox"
+            checked={agent.selected}
+            onChange={() => {}}
+          />
+          <span className={styles.agentPosition}>
+            {chatState.selectedAgents.indexOf(agent.slug) !== -1
+              ? chatState.selectedAgents.indexOf(agent.slug) + 1
+              : ""}
+          </span>
+        </div>
         <span>{agent.name}</span>
       </section>
       <SvgButton svg={SVGS.controls} onClick={showModal} />

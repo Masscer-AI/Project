@@ -159,7 +159,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           />
 
           <SpeechHandler onTranscript={handleAudioTranscript} />
-          <ConversationConfig hide={() => {}} />
+          <ConversationConfig />
         </div>
       </section>
     </div>
@@ -338,11 +338,14 @@ const RagConfig = ({ hide }: { hide: () => void }) => {
   );
 };
 
-const ConversationConfig = ({ hide }: { hide: () => void }) => {
+const ConversationConfig = () => {
   const { userPreferences, setPreferences } = useStore((s) => ({
     userPreferences: s.userPreferences,
     setPreferences: s.setPreferences,
+    chatState: s.chatState,
+    updateChatState: s.updateChatState,
   }));
+  const [isOpened, setIsOpened] = useState(false);
 
   const { t } = useTranslation();
 
@@ -354,36 +357,61 @@ const ConversationConfig = ({ hide }: { hide: () => void }) => {
     }
   };
 
+
   return (
-    <FloatingDropdown
-      bottom="100%"
-      right="0"
-      opener={<SvgButton svg={SVGS.options} />}
-    >
-      <div className="flex-y gap-small">
-        <h5>{t("max-memory-messages")}</h5>
-        <input
-          type="number"
-          className="input padding-small"
-          value={userPreferences.max_memory_messages}
-          onChange={updateMaxMemoryMessages}
-          min={0}
-        />
-        <hr />
-        <h5>{t("auto-play")}</h5>
-        <span>{t("auto-play-description")}</span>
-        <SliderInput
-          checked={userPreferences.autoplay}
-          onChange={(checked) => setPreferences({ autoplay: checked })}
-        />
-        <hr />
-        <h5>{t("auto-scroll")}</h5>
-        <span>{t("auto-scroll-description")}</span>
-        <SliderInput
-          checked={userPreferences.autoscroll}
-          onChange={(checked) => setPreferences({ autoscroll: checked })}
-        />
-      </div>
-    </FloatingDropdown>
+    <>
+      <SvgButton onClick={() => setIsOpened(true)} svg={SVGS.options} />
+      <Modal visible={isOpened} hide={() => setIsOpened(false)}>
+        <div className="flex-y gap-medium">
+          <h2 className="text-center">{t("conversation-settings")}</h2>
+          <div className="flex-y gap-small align-center  ">
+            <h5>{t("max-memory-messages")}</h5>
+            <span>{t("max-memory-messages-description")}</span>
+            <input
+              type="number"
+              className="input padding-small"
+              value={userPreferences.max_memory_messages}
+              onChange={updateMaxMemoryMessages}
+              min={0}
+            />
+          </div>
+          <hr />
+          <div className="flex-y gap-small align-center">
+            <h5>{t("auto-play")}</h5>
+            <span>{t("auto-play-description")}</span>
+            <SliderInput
+              checked={userPreferences.autoplay}
+              onChange={(checked) => setPreferences({ autoplay: checked })}
+            />
+          </div>
+          <hr />
+          <div className="flex-y gap-small align-center">
+            <h5>{t("auto-scroll")}</h5>
+            <span>{t("auto-scroll-description")}</span>
+            <SliderInput
+              checked={userPreferences.autoscroll}
+              onChange={(checked) => setPreferences({ autoscroll: checked })}
+            />
+          </div>
+          <hr />
+          <div className="flex-y gap-small align-center">
+            <h5>{t("multiagentic-modality")}</h5>
+            <span>{t("multiagentic-modality-description")}</span>
+            
+            <SliderInput
+              keepActive={true}
+              labelTrue={t("isolated")}
+              labelFalse={t("grupal")}
+              checked={userPreferences.multiagentic_modality === "isolated"}
+              onChange={(checked) =>
+                setPreferences({
+                  multiagentic_modality: checked ? "isolated" : "grupal",
+                })
+              }
+            />
+          </div>
+        </div>
+      </Modal>
+    </>
   );
 };

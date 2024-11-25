@@ -139,6 +139,6 @@
     "chat-background-image": "Immagine di sfondo della chat",
     "system": "Sistema",
     "sure?": "Sei sicuro?",
-    "click-to-edit": "Clicca per modificare"
-
+    "click-to-edit": "Clicca per modificare",
+    "select-at-least-one-agent-to-chat": "Seleziona almeno un agente per chat"
 }

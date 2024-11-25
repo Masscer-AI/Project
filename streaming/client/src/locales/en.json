@@ -163,7 +163,18 @@
     "chat-background-image": "Chat background image",
     "system": "System",
     "sure?": "Sure?",
-    "click-to-edit": "Click to edit"
-
-
+    "click-to-edit": "Click to edit",
+    "sorry-an-unexpected-error-happen": "Sorry, an expected error happened",
+    "notify-developers": "Notify developers",
+    "multiagentic-modality": "Multiagentic modality",
+    "multiagentic-modality-description": "In grupal mode, each agent can see the context of the other agents. In isolated mode, each agent can only see its own context.",
+    "isolated": "Isolated",
+    "grupal": "Grupal",
+    "select-at-least-one-agent-to-chat": "Select at least one agent to chat",
+    "conversation-settings": "Conversation settings",
+    "source": "Source",
+    "chunk": "Chunk",
+    "completion": "Completion",
+    "inspect": "Inspect",
+    "querying-completions-for-the-agent": "Querying completions for the agent"
 }
