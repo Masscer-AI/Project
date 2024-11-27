@@ -16,7 +16,7 @@ export default function Tools() {
   const [selectedTool, setSelectedTool] = useState(null);
 
   return (
-    <main>
+    <main >
       {chatState.isSidebarOpened && <Sidebar />}
       <ToolsOptions
         selectedTool={selectedTool}
@@ -36,7 +36,7 @@ const ToolsOptions = ({ setSelectedTool, selectedTool }) => {
   }));
 
   return (
-    <nav className="floating-navbar flex-x tool-options">
+    <nav className="flex-x tool-options">
       <SvgButton onClick={toggleSidebar} svg={SVGS.burger} />
       <section
         className={`${selectedTool === "audio" && "selected"}`}

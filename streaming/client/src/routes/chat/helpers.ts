@@ -54,7 +54,7 @@ export const addAssistantMessageChunk = (
       ];
     }
   } else {
-    toast.loading("New message appended to conversation");
+
     console.log("New message appended to conversation");
 
     const assistantMessage: TMessage = {

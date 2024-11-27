@@ -14,6 +14,8 @@ class Conversation(models.Model):
     public_token = models.ForeignKey(
         PublishableToken, on_delete=models.SET_NULL, null=True, blank=True
     )
+    tags = models.JSONField(default=list, blank=True)
+    background_image_src = models.TextField(blank=True, null=True)
 
     def __str__(self):
         if self.title:
