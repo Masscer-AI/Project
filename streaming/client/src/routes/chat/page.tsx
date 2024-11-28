@@ -53,10 +53,8 @@ export default function ChatView() {
     startup();
     setInput(loaderData.query || "");
   }, []);
-  const [messages, setMessages] = useState(
-    (loaderData.conversation.messages || []).sort(
-      (a, b) => (a.id || 0) - (b.id || 0)
-    ) as TMessage[]
+  const [messages, setMessages] = useState<TMessage[]>(
+    loaderData.conversation.messages  
   );
 
   useEffect(() => {
