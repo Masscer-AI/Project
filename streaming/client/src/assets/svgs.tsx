@@ -987,13 +987,14 @@ export const SVGS = {
     <svg
       width="800px"
       height="800px"
-      viewBox="0 0 16 16"
+      viewBox="0 0 24 24"
       xmlns="http://www.w3.org/2000/svg"
       className="set-fill"
     >
       <path
+        d="M23.14.93l-.07-.07A2.926 2.926 0 0 0 20.98 0a2.886 2.886 0 0 0-2.08.86L8.858 10.9a3.04 3.04 0 0 0-.53.72 7.793 7.793 0 0 0-4.1 1.621c-.191.144-.36.316-.5.51a6.08 6.08 0 0 0-.98 1.961c-.25.69-.59 1.631-1.22 3-.42.91-.75 1.541-.98 1.981a3.092 3.092 0 0 0-.54 1.631c.014.206.08.406.19.58a2.64 2.64 0 0 0 2.23 1.07 10.462 10.462 0 0 0 8.161-3.371c.378-.44.692-.932.93-1.461a7.882 7.882 0 0 0 .69-3.361.142.142 0 0 1 .02-.04c.325-.144.62-.347.87-.6L23.14 5.1A2.888 2.888 0 0 0 24 3.021 2.927 2.927 0 0 0 23.14.93zM9.7 18.317c-.17.368-.388.711-.65 1.02a8.393 8.393 0 0 1-6.891 2.6c.05-.1.11-.21.17-.32.24-.46.58-1.11 1.02-2.061a39.058 39.058 0 0 0 1.28-3.151c.14-.491.355-.957.64-1.381.062-.08.133-.154.21-.22a5.221 5.221 0 0 1 2.59-1.14c.121.537.396 1.027.79 1.411l.07.07c.35.357.788.616 1.27.75a5.614 5.614 0 0 1-.499 2.422zM21.73 3.691L11.678 13.735a.947.947 0 0 1-.67.28.983.983 0 0 1-.67-.28l-.07-.07a.948.948 0 0 1 0-1.34L20.309 2.271c.18-.173.42-.27.671-.271a.937.937 0 0 1 .67.27l.08.08c.36.374.36.967 0 1.341z"
         fill="var(--font-color)"
-        d="M8,0 C12.4183,0 16,3.58172 16,8 C16,8.15958 15.9953,8.31807 15.9861,8.47533 C15.9328,9.38596 15.1095,10.0039 14.1974,10.0039 L11.0106,10.0039 C9.22875,10.0039 8.33642,12.1582 9.59635,13.4181 C10.4823,14.304 10.198,15.7959 8.95388,15.9437 C8.6411,15.9809 8.32278,16 8,16 C3.58172,16 0,12.4183 0,8 C0,3.58172 3.58172,0 8,0 Z M8,2 C4.68629,2 2,4.68629 2,8 C2,11.1538 4.4333,13.7393 7.52492,13.9815 C6.059,11.4506 7.82321,8.00391 11.0106,8.00391 L14,8.00391 C14,4.68629 11.3137,2 8,2 Z M5,8 C5.55228,8 6,8.44771 6,9 C6,9.55228 5.55228,10 5,10 C4.44772,10 4,9.55228 4,9 C4,8.44771 4.44772,8 5,8 Z M6,5 C6.55228,5 7,5.44772 7,6 C7,6.55228 6.55228,7 6,7 C5.44772,7 5,6.55228 5,6 C5,5.44772 5.44772,5 6,5 Z M9,4 C9.55228,4 10,4.44772 10,5 C10,5.55228 9.55228,6 9,6 C8.44771,6 8,5.55228 8,5 C8,4.44772 8.44771,4 9,4 Z"
+        fillRule="evenodd"
       />
     </svg>
   ),
@@ -1149,14 +1150,14 @@ export const SVGS = {
       viewBox="0 0 24 24"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className="set-stroke"
+      className="set-stroke "
     >
       <circle
         cx="12"
         cy="12"
         r="6"
         stroke="var(--font-color)"
-        stroke-width="1.5"
+        strokeWidth="1.5"
       />
       <path
         d="M12 2V3"
@@ -1215,7 +1216,7 @@ export const SVGS = {
       viewBox="0 0 24 24"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className="set-fill"
+      className="set-fill "
     >
       <path
         fill-rule="evenodd"
@@ -1249,6 +1250,145 @@ export const SVGS = {
       <path
         d="M18 12.0789V10.1053H14.93C14.88 9.72039 14.81 9.34539 14.71 8.98026L17.29 7.50987L16.29 5.80263L13.92 7.14474C13.64 6.67105 13.3 6.24671 12.93 5.87171C12.97 5.64474 13 5.41776 13 5.17105C13 4.38158 12.76 3.64145 12.35 3.01974L14 1.39145L12.59 0L10.87 1.69737C9.19 0.819079 7.77 1.37171 7.14 1.69737L5.41 0L4 1.39145L5.65 3.01974C5.24 3.64145 5 4.38158 5 5.17105C5 5.41776 5.03 5.64474 5.07 5.88158C4.7 6.25658 4.36 6.68092 4.08 7.14474L1.71 5.79276L0.71 7.5L3.29 8.9704C3.19 9.33553 3.12 9.71053 3.07 10.0954H0V12.0691H3.07C3.12 12.4539 3.19 12.8289 3.29 13.1941L0.71 14.6645L1.71 16.3717L4.08 15.0395C5.16 16.8257 6.96 18 9 18C11.04 18 12.84 16.8257 13.92 15.0395L16.29 16.3914L17.29 14.6842L14.71 13.2138C14.81 12.8487 14.88 12.4737 14.93 12.0888H18V12.0789ZM10 14.0526H8V8.13158H10V14.0526Z"
         fill="#616E7C"
+      />
+    </svg>
+  ),
+  logout: (
+    <svg
+      width="800px"
+      height="800px"
+      viewBox="0 0 24 24"
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      className="set-stroke"
+    >
+      <path
+        stroke="var(--font-color)"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+        d="M20 12h-9.5m7.5 3l3-3-3-3m-5-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2h5a2 2 0 002-2v-1"
+      />
+    </svg>
+  ),
+  settings: (
+    <svg
+      width="800px"
+      height="800px"
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className="set-stroke"
+    >
+      <circle
+        r="2"
+        transform="matrix(-1 0 0 1 12 12)"
+        stroke="var(--font-color)"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M20 10C21.1046 10 22 10.8954 22 12C22 13.1046 21.1046 14 20 14"
+        stroke="var(--font-color)"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M4 10C2.89543 10 2 10.8954 2 12C2 13.1046 2.89543 14 4 14"
+        stroke="#333333"
+        stroke-width="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M17.732 17.9282C18.2843 18.8848 17.9566 20.108 17 20.6603C16.0434 21.2126 14.8202 20.8848 14.2679 19.9282"
+        stroke="var(--font-color)"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M9.73205 4.07178C9.17976 3.11519 7.95658 2.78744 6.99999 3.33973C6.04341 3.89201 5.71566 5.11519 6.26794 6.07178"
+        stroke="var(--font-color)"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M20 13.9999C19 13.9999 17.7484 14.0434 17.1962 15C16.6439 15.9566 17 16.5 17.5 17.5"
+        stroke="var(--font-color)"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M6.50002 6.5C7.00002 7.5 7.35615 8.04343 6.80386 9.00002C6.25158 9.9566 5.00001 10 4.00001 10"
+        stroke="var(--font-color)"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M14.2679 4.07177C14.8202 3.11519 16.0434 2.78744 17 3.33972C17.9566 3.89201 18.2843 5.11519 17.732 6.07177"
+        stroke="var(--font-color)"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M6.26792 17.9282C5.71564 18.8848 6.04339 20.108 6.99997 20.6603C7.95656 21.2126 9.17974 20.8848 9.73203 19.9282"
+        stroke="var(--font-color)"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M17.732 6.07185C17.232 6.93787 16.6439 8.0435 17.1962 9.00009C17.7485 9.95667 18.3971 9.91994 19.5131 9.98694"
+        stroke="var(--font-color)"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M4.48686 14.0131C5.60289 14.0801 6.25158 14.0434 6.80387 15C7.35615 15.9566 6.76796 17.0622 6.26796 17.9282"
+        stroke="var(--font-color)"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M9.73201 4.07179C10.232 4.93781 10.8955 5.99995 12 5.99995C13.1046 5.99995 13.3971 5.41985 14.0132 4.48682"
+        stroke="var(--font-color)"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M9.98688 19.5131C10.6029 18.5801 10.8955 18 12 18C13.1046 18 13.768 19.0622 14.268 19.9282"
+        stroke="var(--font-color)"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  ),
+  person: (
+    <svg
+      width="800px"
+      height="800px"
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className="set-stroke"
+    >
+      <path
+        d="M5 21C5 17.134 8.13401 14 12 14C15.866 14 19 17.134 19 21M16 7C16 9.20914 14.2091 11 12 11C9.79086 11 8 9.20914 8 7C8 4.79086 9.79086 3 12 3C14.2091 3 16 4.79086 16 7Z"
+        stroke="var(--font-color)"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </svg>
   ),

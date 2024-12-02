@@ -27,7 +27,15 @@
   --success-color-opaque: #20dd91bd;
   --app-max-width: 1400px;
   --input-max-width: 900px;
+  --assistant-color: #b7b7b726;
   --min-font-size: 16px;
+
+  --gradient-dark: linear-gradient(
+    130deg,
+    rgba(34, 16, 100, 1),
+    rgba(104, 18, 130, 1),
+    rgba(38, 33, 140, 1)
+  );
 }
 
 @media (prefers-color-scheme: dark) {
@@ -47,13 +55,6 @@
 
     --code-bg-color: #1a1b26;
     --root-bg-color: #06181f;
-
-    --gradient-dark: linear-gradient(
-      130deg,
-      rgba(34, 16, 100, 0.665),
-      rgba(104, 18, 130, 0.348),
-      rgba(38, 33, 140, 0.309)
-    );
 
     --user-color: var(--gradient-dark);
 
@@ -101,13 +102,6 @@
   --code-bg-color: #1a1b26;
   --root-bg-color: #06181f;
 
-  --gradient-dark: linear-gradient(
-    130deg,
-    rgba(34, 16, 100, 0.665),
-    rgba(104, 18, 130, 0.348),
-    rgba(38, 33, 140, 0.309)
-  );
-
   --user-color: var(--gradient-dark);
 
   --bg-contrast-color: rgb(35, 33, 39);
@@ -143,7 +137,7 @@ a {
 }
 
 * {
-  color: var(--font-color);
+  /* color: var(--font-color); */
   margin: 0;
   padding: 0;
   box-sizing: border-box;
@@ -152,7 +146,6 @@ a {
 }
 
 html {
-  color-scheme: light;
   scroll-behavior: smooth;
 }
 body {
@@ -167,10 +160,16 @@ body {
 h1 {
   font-size: 3em;
   line-height: 1.1;
+  color: var(--font-color);
 }
 h2 {
   font-size: 2.5em;
   line-height: 1.1;
+  color: var(--font-color);
+}
+h3,
+h4 {
+  color: var(--font-color);
 }
 
 /* 
@@ -722,9 +721,6 @@ input:checked + .slider::before {
   max-width: 100vw;
 }
 .menu > .menu-sidebar {
-  background-color: rgba(68, 68, 68, 0.508);
-
-  /* width: min(fit-content, 100%); */
   text-align: center;
   display: flex;
   margin-inline: auto;
@@ -940,6 +936,10 @@ input:checked + .slider::before {
 .svg-white svg.set-stroke path {
   stroke: white !important;
 }
+.svg-white svg.set-stroke circle {
+  stroke: white !important;
+}
+
 .svg-white svg.set-svg-fill {
   fill: white;
 }
@@ -947,5 +947,9 @@ input:checked + .slider::before {
   word-break: break-all;
 }
 .fit-content {
-  width: fit-content ;
+  width: fit-content;
+}
+
+.text-danger {
+  color: var(--danger-color);
 }

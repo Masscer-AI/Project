@@ -7,6 +7,7 @@ from .views import (
     PromptNodeView,
     DocumentGeneratorView,
     DownloadFile,
+    ImageEditorView,
 )
 
 app_name = "tools"
@@ -25,4 +26,5 @@ urlpatterns = [
         DownloadFile.as_view(),
         name="download_file",
     ),
+    path("image_editor/", ImageEditorView.as_view(), name="image_editor"),
 ]

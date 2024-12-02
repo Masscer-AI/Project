@@ -8,28 +8,25 @@ import { SVGS } from "../../assets/svgs";
 import toast from "react-hot-toast";
 
 const FLUX_SIZES = [
-  "512x512",
-  "1024x1024",
-  "1440x1440",
-  "1440x768",
+  "512x512", // 1:1
+  "1024x1024", // 1:1
+  "1440x1440", // 1:1
+  "1440x768", //
   "1024x768",
   "1280x768",
-  // Other layouts
-  "768x1024",
   "768x1440",
-  "1440x768",
   "1280x1024",
   "1024x1280",
   "1280x1440",
   "1440x1280",
-  "1280x768",
-  "1024x768",
 ];
+
+const ULTRA_FLUX_SIZES = ["1x1", "16x9", "4x3", "21x9", "9x21", "3x4", "9x16"];
 
 const modelSizes = {
   "dall-e-2": ["256x256", "512x512", "1024x1024"],
   "dall-e-3": ["1024x1024", "1792x1024", "1024x1792"],
-  "flux-pro-1.1-ultra": [...FLUX_SIZES],
+  "flux-pro-1.1-ultra": [...ULTRA_FLUX_SIZES],
   "flux-pro-1.1": [...FLUX_SIZES],
   "flux-pro": [...FLUX_SIZES],
   "flux-dev": [...FLUX_SIZES],
@@ -46,8 +43,8 @@ export const ImageGenerator = ({
   hide: () => void;
   onResult: (imageUrl: string, imageContentB64: string) => void;
 }) => {
-  const [prompt, setPrompt] = useState(initialPrompt.slice(0, 1000));
-  const [model, setModel] = useState("flux-pro-1.1");
+  const [prompt, setPrompt] = useState(initialPrompt);
+  const [model, setModel] = useState("flux-pro-1.1-ultra");
   const [size, setSize] = useState(modelSizes[model][0]);
 
   const { t } = useTranslation();
@@ -83,7 +80,7 @@ export const ImageGenerator = ({
         <h2 className=" padding-medium text-center">Image generator</h2>
 
         <div className="d-flex gap-big">
-          <strong>Choose model</strong>
+          <strong>{t("choose-model")}</strong>
           <select
             className="rounded"
             onChange={handleModelChange}
@@ -97,14 +94,14 @@ export const ImageGenerator = ({
           </select>
         </div>
 
-        <strong>Prompt</strong>
+        <strong>{t("prompt")}</strong>
         <Textarea
           onChange={(value: string) => setPrompt(value)}
           placeholder={t("write-detailed-prompt")}
           defaultValue={prompt}
         />
 
-        <strong>Choose aspect ratio</strong>
+        <strong>{t("choose-aspect-ratio")}</strong>
         <div className="d-flex wrap-wrap justify-center">
           {modelSizes[model].map((s) => (
             <AspectRatio
@@ -125,11 +122,17 @@ export const ImageGenerator = ({
     </Modal>
   );
 };
-const AspectRatio = ({ size, selected = false, onClick = () => {} }) => {
-  const [width, height] = size.split("x").map(Number);
+
+const AspectRatio = ({
+  size,
+  separator = "x",
+  selected = false,
+  onClick = () => {},
+}) => {
+  const [width, height] = size.split(separator).map(Number);
   const relation = height / width;
 
-  const minWidth = 150;
+  const minWidth = 100;
   let calculatedHeight = minWidth * relation;
   return (
     <div
@@ -143,8 +146,66 @@ const AspectRatio = ({ size, selected = false, onClick = () => {} }) => {
       onClick={onClick}
     >
       <span>
-        {width}x{height}
+        {width}
+        {separator}
+        {height}
       </span>
+    </div>
+  );
+};
+
+const DynamicAspectRatio = ({
+  selected = false,
+  onChange = (size: string) => {},
+}) => {
+  const [width, setWidth] = useState(1); // Start with a default width
+  const [height, setHeight] = useState(1); // Start with a default height
+
+  const handleWidthChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const newWidth = Number(event.target.value);
+    setWidth(newWidth);
+    onChange(`${newWidth}:${height}`); // Update the aspect ratio format
+  };
+
+  const handleHeightChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const newHeight = Number(event.target.value);
+    setHeight(newHeight);
+    onChange(`${width}:${newHeight}`); // Update the aspect ratio format
+  };
+
+  return (
+    <div
+      className={`d-flex align-center justify-center flex-y ${selected ? "bg-active" : "bg-hovered"}`}
+    >
+      <div style={{ margin: "10px" }}>
+        <label>
+          Width: {width}
+          <input
+            type="range"
+            min="1"
+            max="16" // You can configure the maximum value as needed
+            value={width}
+            onChange={handleWidthChange}
+            style={{ width: "150px" }}
+          />
+        </label>
+      </div>
+      <div style={{ margin: "10px" }}>
+        <label>
+          Height: {height}
+          <input
+            type="range"
+            min="1"
+            max="16" // You can configure the maximum value as needed
+            value={height}
+            onChange={handleHeightChange}
+            style={{ width: "150px" }}
+          />
+        </label>
+      </div>
+      <div>
+        Aspect Ratio: {width}:{height}
+      </div>
     </div>
   );
 };

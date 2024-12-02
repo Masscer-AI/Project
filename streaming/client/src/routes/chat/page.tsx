@@ -54,7 +54,7 @@ export default function ChatView() {
     setInput(loaderData.query || "");
   }, []);
   const [messages, setMessages] = useState<TMessage[]>(
-    loaderData.conversation.messages  
+    loaderData.conversation.messages
   );
 
   useEffect(() => {
@@ -284,6 +284,7 @@ export default function ChatView() {
       <div className="chat-container">
         {userPreferences.background_image_source && (
           <img
+            style={{ opacity: userPreferences.background_image_opacity }}
             className="pos-absolute"
             src={userPreferences.background_image_source}
           />

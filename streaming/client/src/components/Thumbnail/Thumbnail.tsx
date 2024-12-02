@@ -52,7 +52,7 @@ export const Thumbnail = ({
         />
       )}
       {type.indexOf("image") === 0 && (
-        <div className="thumbnail pointer">
+        <div className="thumbnail pointer ">
           <img
             onClick={() => setShowModal(true)}
             src={src}
@@ -88,9 +88,11 @@ const ImageModal = ({
   name: string;
   hide: () => void;
 }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const { t } = useTranslation();
+
   const handleDownload = () => {
     const a = document.createElement("a");
-    // console.log(src);
 
     a.href = src.startsWith("data:") ? src : `data:image/png;base64,${src}`;
     a.setAttribute("download", name);
@@ -99,20 +101,33 @@ const ImageModal = ({
     document.body.removeChild(a);
   };
 
+  const toggleEdit = () => {
+    setIsEditing(!isEditing);
+  };
+
   return (
     <Modal
       minHeight={"50vh"}
       hide={hide}
       extraButtons={
-        <SvgButton
-          onClick={handleDownload}
-          title="Download"
-          extraClass="pressable bg-active"
-          svg={SVGS.download}
-        />
+        <>
+          <SvgButton
+            onClick={handleDownload}
+            title="Download"
+            extraClass="pressable bg-active"
+            svg={SVGS.download}
+          />
+          <SvgButton
+            onClick={toggleEdit}
+            title="Edit"
+            extraClass="pressable bg-active"
+            svg={SVGS.edit}
+          />
+        </>
       }
     >
-      <div className="d-flex justify-center align-center ">
+      <div className="flex-y justify-center align-center ">
+        <h2>{isEditing ? t("edit") : t("view")}</h2>
         <img style={{ width: "100%" }} src={src} alt={`attachment-${name}`} />
       </div>
     </Modal>

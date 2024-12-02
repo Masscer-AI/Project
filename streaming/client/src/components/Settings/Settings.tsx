@@ -5,10 +5,11 @@ import { useTranslation } from "react-i18next";
 import { LanguageSelector } from "../LanguageSelector/LanguageSelector";
 import { SvgButton } from "../SvgButton/SvgButton";
 import { SVGS } from "../../assets/svgs";
-import { getUserOrganizations } from "../../modules/apiCalls";
+import { getUserOrganizations, updateUser } from "../../modules/apiCalls";
 import { TOrganization } from "../../types";
-import { SliderInput } from "../SimpleForm/SliderInput";
-import { FloatingDropdown } from "../Dropdown/Dropdown";
+import { debounce } from "../../modules/utils";
+import { toast } from "react-hot-toast";
+import { JSONForm } from "../JSONForm/JSONForm";
 
 export const Settings = () => {
   const { setOpenedModals } = useStore((s) => ({
@@ -18,25 +19,24 @@ export const Settings = () => {
 
   const menuOptions = [
     {
-      name: "General",
-      component: (
-        <div>
-          <h2>General</h2>
-          <p>{t("settings-description")}</p>
-          <LanguageSelector />
-        </div>
-      ),
+      name: t("general"),
+      component: <GeneralConfig />,
       svg: SVGS.controls,
     },
     {
-      name: "Appearance",
+      name: t("appearance"),
       component: <AppearanceConfig />,
       svg: SVGS.appearance,
     },
     {
-      name: "Organization",
+      name: t("organization"),
       component: <OrganizationManager />,
       svg: SVGS.organization,
+    },
+    {
+      name: t("user"),
+      component: <UserConfig />,
+      svg: SVGS.person,
     },
   ];
 
@@ -45,9 +45,9 @@ export const Settings = () => {
       minHeight={"80vh"}
       hide={() => setOpenedModals({ action: "remove", name: "settings" })}
     >
-      <h2 className="d-flex rounded gap-big align-top justify-center padding-big">
+      <h3 className="d-flex rounded gap-big align-top justify-center padding-big">
         {t("settings")}
-      </h2>
+      </h3>
 
       <Menu options={menuOptions} />
     </Modal>
@@ -103,8 +103,8 @@ const OrganizationManager = () => {
 
   return (
     <div>
-      <h2>Organization</h2>
-      <p>Here you can manage your organization</p>
+      {/* <h2>{t("organization")}</h2> */}
+      <p>{t("organization-description")}</p>
       {orgs.length === 0 && <p>{t("no-organizations-message")}</p>}
       {orgs.map((org) => (
         <div key={org.id}>
@@ -124,10 +124,20 @@ const AppearanceConfig = () => {
     userPreferences: s.userPreferences,
     setPreferences: s.setPreferences,
   }));
+
+  const debouncedSetOpacity = debounce((opacity) => {
+    setPreferences({ background_image_opacity: opacity });
+  }, 1000);
   const { t } = useTranslation();
+
+  const handleOpacityChange = (event) => {
+    const opacity = parseFloat(event.target.value);
+    debouncedSetOpacity(opacity);
+  };
+
   return (
     <div className="flex-y gap-big">
-      <h2>{t("appeareance")}</h2>
+      {/* <h2>{t("appeareance")}</h2> */}
 
       <div className="d-flex gap-small flex-y">
         <h4>{t("theme")}</h4>
@@ -140,7 +150,7 @@ const AppearanceConfig = () => {
             }
             extraClass={
               userPreferences.theme === "light"
-                ? "bg-active text-white"
+                ? "bg-active text-white svg-white"
                 : "bg-hovered"
             }
             text={t("light")}
@@ -150,7 +160,7 @@ const AppearanceConfig = () => {
             onClick={() => setPreferences({ theme: "dark" })}
             extraClass={
               userPreferences.theme === "dark"
-                ? "bg-active text-white"
+                ? "bg-active text-white svg-white"
                 : "bg-hovered"
             }
             text={t("dark")}
@@ -160,7 +170,7 @@ const AppearanceConfig = () => {
             onClick={() => setPreferences({ theme: "system" })}
             extraClass={
               userPreferences.theme === "system"
-                ? "bg-active text-white"
+                ? "bg-active text-white svg-white"
                 : "bg-hovered"
             }
             text={t("system")}
@@ -176,6 +186,16 @@ const AppearanceConfig = () => {
               background_image_source: result,
             })
           }
+        />
+        <h4>{t("opacity-chat-background-image")}</h4>
+        <input
+          onChange={handleOpacityChange}
+          title={t("opacity")}
+          defaultValue={userPreferences.background_image_opacity}
+          type="range"
+          min="0"
+          max="1"
+          step="0.01"
         />
       </div>
     </div>
@@ -208,6 +228,135 @@ const ImageInput = ({ onResult }) => {
         accept="image/*"
         onChange={handleFileChange}
       />
+    </div>
+  );
+};
+
+const GeneralConfig = () => {
+  const { t } = useTranslation();
+
+  const { user, setUser } = useStore((s) => ({
+    user: s.user,
+    setUser: s.setUser,
+  }));
+
+  const [username, setUsername] = React.useState(user?.username || "");
+  const [email, setEmail] = React.useState(user?.email || "");
+  const [error, setError] = React.useState("");
+
+  const handleUpdateUser = async () => {
+    const tid = toast.loading(t("updating-user"));
+    try {
+      const response = await updateUser({
+        username,
+        email,
+        profile: user?.profile,
+      });
+      toast.success(t("user-updated"));
+      setUser({ ...user, username, email });
+      setError("");
+    } catch (e) {
+      toast.error(t(e.response.data.error));
+      setError(t(e.response.data.error));
+    } finally {
+      toast.dismiss(tid);
+    }
+  };
+  return (
+    <div className="flex-y gap-small">
+      <p>{t("settings-description")}</p>
+      <LanguageSelector />
+      <hr />
+      <div className="d-flex gap-small align-center">
+        <h4>{t("username")}</h4>
+        <input
+          type="text"
+          value={username}
+          className="input"
+          onChange={(e) => setUsername(e.target.value)}
+        />
+      </div>
+      <div className="d-flex gap-small align-center">
+        <h4>{t("email")}</h4>
+        <input
+          type="email"
+          value={email}
+          className="input w-100"
+          onChange={(e) => setEmail(e.target.value)}
+        />
+      </div>
+      {error && <p className="error text-danger">{error}</p>}
+      <SvgButton
+        text={t("save")}
+        svg={SVGS.save}
+        onClick={handleUpdateUser}
+        size="big"
+      />
+    </div>
+  );
+};
+
+const UserConfig = () => {
+  const { t } = useTranslation();
+
+  const { user, setUser } = useStore((s) => ({
+    user: s.user,
+    setUser: s.setUser,
+  }));
+
+  const handleUpdateUser = async (data) => {
+    console.log(data);
+  };
+
+  const onKeyChange = async (key, value) => {
+    if (!user) return;
+    const newUser = { ...user };
+    const profile = newUser.profile || {
+      avatar_url: "",
+      bio: "",
+      sex: "",
+      age: 0,
+      birthday: "",
+      name: "",
+    };
+    profile[key] = value;
+
+    newUser.profile = profile;
+
+    try {
+      await updateUser({
+        username: newUser.username,
+        email: newUser.email,
+        profile,
+      });
+      toast.success(t("user-updated"));
+      // @ts-ignore
+      setUser(newUser);
+    } catch (e) {
+      toast.error(t(e.response.data.error));
+    }
+  };
+
+  const onKeyChangeDebounced = debounce(onKeyChange, 600);
+
+  return (
+    <div className="flex-y gap-medium">
+      {/* <pre>{JSON.stringify(user, null, 2)}</pre> */}
+
+      <JSONForm
+        data={user?.profile || {}}
+        onSubmit={handleUpdateUser}
+        onKeyChange={onKeyChangeDebounced}
+        hiddenKeys={["id", "user", "created_at", "updated_at", "age"]}
+        fieldMapping={{
+          name: { type: "string", label: t("name") },
+          birthday: { type: "date", label: t("birthday") },
+          bio: { type: "textarea", label: t("bio") },
+          sex: { type: "string", label: t("sex") },
+          avatar_url: { type: "image", label: t("avatar") },
+        }}
+      />
+      <p>{t("why-user-info-matters-for-ai-personalization")}</p>
     </div>
   );
 };

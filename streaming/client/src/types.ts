@@ -27,6 +27,7 @@ export interface TConversation {
   user_id: number;
   number_of_messages: number;
   title: undefined | string;
+  created_at: string;
 }
 
 export type TCompletion = {

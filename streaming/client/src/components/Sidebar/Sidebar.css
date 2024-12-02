@@ -62,6 +62,8 @@
 }
 .conversation > p {
   padding: 10px;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .conversation:last-child {

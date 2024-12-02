@@ -21,6 +21,7 @@ export type TUserPreferences = {
   autoscroll: boolean;
   background_image_source: string;
   multiagentic_modality: "isolated" | "grupal";
+  background_image_opacity: number;
 };
 
 export type Store = {
@@ -65,6 +66,7 @@ export type Store = {
   deleteAttachment: (index: number) => void;
   toggleWebSearch: () => void;
   toggleWrittingMode: () => void;
+  logout: () => void;
   toggleUseRag: () => void;
   toggleAgentSelected: (slug: string) => void;
   setUser: (user: TUserData) => void;

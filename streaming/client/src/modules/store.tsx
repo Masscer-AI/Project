@@ -33,6 +33,7 @@ export const useStore = create<Store>()((set, get) => ({
     autoscroll: false,
     background_image_source: "",
     multiagentic_modality: "isolated",
+    background_image_opacity: 0.5,
   },
   chatState: {
     isSidebarOpened: false,
@@ -353,6 +354,12 @@ export const useStore = create<Store>()((set, get) => ({
     } catch (e) {
       console.log(e, "ERROR UPDATING USER PREFERENCES");
     }
+  },
+  logout: () => {
+    set({ user: undefined });
+    localStorage.removeItem("token");
+    localStorage.removeItem("selectedAgents");
+    window.location.href = "/";
   },
 
   test: () => {

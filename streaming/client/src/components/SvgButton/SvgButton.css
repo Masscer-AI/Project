@@ -5,6 +5,7 @@
   gap: 5px;
   border-radius: 7px;
   cursor: pointer;
+  color: var(--font-color);
   border: 1px solid transparent;
 }
 .svg-button.transparent {

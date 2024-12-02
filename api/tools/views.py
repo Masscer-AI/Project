@@ -21,7 +21,12 @@ from api.messaging.models import Message
 from api.utils.color_printer import printer
 from api.utils.openai_functions import create_completion_openai
 from django.http import HttpResponse
-from api.utils.black_forest_labs import request_flux_generation, get_result_url
+from api.utils.black_forest_labs import (
+    request_flux_generation,
+    get_result_url,
+    request_image_edit_with_mask,
+    generate_with_control_image,
+)
 
 
 SAVE_PATH = os.path.join(settings.MEDIA_ROOT, "generated")
@@ -172,6 +177,7 @@ class MediaView(View):
 
 
 def get_width_and_height_from_size_string(size: str):
+    printer.red(f"SIZE: {size}")
     # SPlit at x
     split_size = size.split("x")
     width = int(split_size[0])
@@ -300,3 +306,101 @@ class DownloadFile(View):
         # delete the file after download
         os.remove(full_path)
         return response
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class ImageEditorView(View):
+    def post(self, request):
+        try:
+            data = json.loads(request.body)
+            image_base64 = data.get("image")
+            prompt = data.get("prompt")
+            mask_base64 = data.get("mask")
+            steps = data.get("steps", 50)
+            prompt_upsampling = data.get("prompt_upsampling", False)
+            guidance = data.get("guidance", 60)
+            output_format = data.get("output_format", "png")
+            safety_tolerance = data.get("safety_tolerance", 4)
+
+            # Call the request_image_edit_with_mask function
+            request_id = request_image_edit_with_mask(
+                image_base64=image_base64,
+                prompt=prompt,
+                mask_base64=mask_base64,
+                steps=steps,
+                prompt_upsampling=prompt_upsampling,
+                guidance=guidance,
+                output_format=output_format,
+                safety_tolerance=safety_tolerance,
+                api_key=os.environ.get("BFL_API_KEY"),
+            )
+
+            if not request_id:
+                raise Exception("Failed to edit image")
+
+            # Get the result URL after the request
+            image_url = get_result_url(request_id)
+
+            # Get the image content and convert it to Base64
+            image_response = requests.get(image_url)
+            image_content = image_response.content
+            image_content_b64 = base64.b64encode(image_content).decode("utf-8")
+            image_content_b64 = f"data:image/jpeg;base64,{image_content_b64}"
+
+            image_name = slugify(prompt[:100])
+
+            return JsonResponse(
+                {
+                    "image_url": image_url,
+                    "image_content_b64": image_content_b64,
+                    "image_name": image_name,
+                }
+            )
+
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=400)
+
+
+class ImageVaryView(View):
+    def post(self, request):
+        data = json.loads(request.body)
+        prompt = data.get("prompt")
+        control_image_base64 = data.get("control_image_base64")
+        # model = data.get("model", "flux-dev")
+        # steps = data.get("steps", 50)
+        # prompt_upsampling = data.get("prompt_upsampling", False)
+        guidance = data.get("guidance", 30)
+        # output_format = data.get("output_format", "jpeg")
+        safety_tolerance = data.get("safety_tolerance", 2)
+
+        request_id = generate_with_control_image(
+            prompt=prompt,
+            control_image_base64=control_image_base64,
+            # model=model,
+            # steps=steps,
+            # prompt_upsampling=prompt_upsampling,
+            guidance=guidance,
+            # output_format=output_format,
+            safety_tolerance=safety_tolerance,
+        )
+
+        if not request_id:
+            raise Exception("Failed to generate image")
+
+        image_url = get_result_url(request_id)
+
+        image_response = requests.get(image_url)
+        image_content = image_response.content
+        image_content_b64 = base64.b64encode(image_content).decode("utf-8")
+        image_content_b64 = f"data:image/jpeg;base64,{image_content_b64}"
+
+        image_name = slugify(prompt[:100])
+
+        return JsonResponse(
+            {
+                "image_url": image_url,
+                "image_content_b64": image_content_b64,
+                "image_name": image_name,
+            }
+        )

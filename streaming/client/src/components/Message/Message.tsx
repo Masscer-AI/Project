@@ -57,6 +57,17 @@ interface MessageProps {
   numberMessages: number;
 }
 
+const messageStyles = {
+  user: {
+    background: "var(--gradient-dark)",
+    color: "white",
+  },
+  assistant: {
+    backgroundColor: "var(--assistant-color)",
+    color: "var(--font-color)",
+  },
+};
+
 export const Message = ({
   type,
   index,
@@ -315,7 +326,8 @@ export const Message = ({
       ) : (
         <MarkdownRenderer
           markdown={versions?.[currentVersion]?.text || innerText}
-          extraClass={`message-text ${type === "user" ? "fancy-gradient" : ""}`}
+          extraClass={`message-text `}
+          style={messageStyles[type]}
         />
       )}
 

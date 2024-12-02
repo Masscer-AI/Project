@@ -1,7 +1,8 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Organization, OrganizationMember, CredentialsManager
+from .models import Organization, OrganizationMember, CredentialsManager, UserProfile
 from django.core.exceptions import ValidationError
+
 
 class SignupSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
@@ -9,7 +10,7 @@ class SignupSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['username', 'email', 'password']
+        fields = ["username", "email", "password"]
 
     def validate_email(self, value):
         if User.objects.filter(email=value).exists():
@@ -18,9 +19,9 @@ class SignupSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         user = User.objects.create_user(
-            username=validated_data['username'],
-            email=validated_data['email'],
-            password=validated_data['password']
+            username=validated_data["username"],
+            email=validated_data["email"],
+            password=validated_data["password"],
         )
         return user
 
@@ -30,24 +31,53 @@ class LoginSerializer(serializers.Serializer):
     password = serializers.CharField(write_only=True)
 
 
+class UserProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserProfile
+        fields = [
+            "id",
+            "user",
+            "avatar_url",
+            "bio",
+            "sex",
+            "age",
+            "birthday",
+            "name",
+            "created_at",
+            "updated_at",
+        ]
+
+
 class UserSerializer(serializers.ModelSerializer):
+    profile = UserProfileSerializer(read_only=True)
+
     class Meta:
         model = User
-        fields = ['username', 'email']
+        fields = ["username", "email", "profile"]
 
 
 class OrganizationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Organization
-        fields = ['id', 'name', 'description', 'owner', 'created_at', 'updated_at']
+        fields = ["id", "name", "description", "owner", "created_at", "updated_at"]
+
 
 class OrganizationMemberSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrganizationMember
-        fields = ['id', 'organization', 'user', 'created_at', 'updated_at']
+        fields = ["id", "organization", "user", "created_at", "updated_at"]
+
 
 class CredentialsManagerSerializer(serializers.ModelSerializer):
     class Meta:
         model = CredentialsManager
-        fields = ['id', 'organization', 'openai_api_key', 'brave_api_key', 
-                  'anthropic_api_key', 'pexels_api_key', 'created_at', 'updated_at']
+        fields = [
+            "id",
+            "organization",
+            "openai_api_key",
+            "brave_api_key",
+            "anthropic_api_key",
+            "pexels_api_key",
+            "created_at",
+            "updated_at",
+        ]

@@ -20,9 +20,11 @@ const md = new MarkdownIt({
 const MarkdownRenderer = ({
   markdown,
   extraClass,
+  style,
 }: {
   markdown: string;
   extraClass?: string;
+  style?: React.CSSProperties;
 }) => {
   const { t } = useTranslation();
 
@@ -129,6 +131,7 @@ const MarkdownRenderer = ({
 
   return (
     <div
+      style={style}
       className={`markdown-renderer ${extraClass}`}
       dangerouslySetInnerHTML={getMarkdownText()}
     />

@@ -7,14 +7,25 @@ export type TConversationData = {
   messages: TMessage[];
 };
 
+export type TUserProfile = {
+  avatar_url: string;
+  bio: string;
+  sex: string;
+  age: number;
+  birthday: string;
+  name: string;
+};
+
 export type TUserData = {
   username: string;
+  email: string;
+  profile?: TUserProfile;
 };
 
 export type TChatLoader = {
   conversation: TConversationData;
   user: TUserData;
-  query: string | null ;
+  query: string | null;
 };
 
 export type TMessage = {

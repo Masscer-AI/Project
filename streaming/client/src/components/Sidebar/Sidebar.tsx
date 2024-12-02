@@ -21,21 +21,24 @@ import { QRCodeDisplay } from "../QRGenerator/QRGenerator";
 
 export const Sidebar: React.FC = () => {
   const { t } = useTranslation();
-  const { toggleSidebar, setConversation, user, setOpenedModals } = useStore(
-    (state) => ({
+  const { toggleSidebar, setConversation, user, setOpenedModals, logout } =
+    useStore((state) => ({
       toggleSidebar: state.toggleSidebar,
       setConversation: state.setConversation,
       user: state.user,
       setOpenedModals: state.setOpenedModals,
-    })
-  );
+      logout: state.logout,
+    }));
 
   const [history, setHistory] = useState<TConversation[]>([]);
   const [filteredHistory, setFilteredHistory] = useState<TConversation[]>([]);
   const [conversationFilter, setConversationFilter] = useState("");
   const [searchParams, setSearchParams] = useSearchParams();
   const [openedSections, setOpenedSections] = useState<string[]>([]);
-  // const [relatedAgents, setRelatedAgents] = useState<string[]>([]);
+
+  // New state for date filtering
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
 
   const navigate = useNavigate();
 
@@ -44,14 +47,16 @@ export const Sidebar: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    let filteredHistory = filterByDateRange();
+
     setFilteredHistory(
-      history.filter(
+      filteredHistory.filter(
         (c) =>
           c.title &&
           c.title.toLowerCase().includes(conversationFilter.toLowerCase())
       )
     );
-  }, [conversationFilter]);
+  }, [conversationFilter, history, startDate, endDate]);
 
   const populateHistory = async () => {
     const token = localStorage.getItem("token");
@@ -105,6 +110,38 @@ export const Sidebar: React.FC = () => {
     toggleSidebar();
   };
 
+  // Function to filter based on date range
+  const filterByDateRange = () => {
+    return history.filter((c) => {
+      const createdAtDate = new Date(c.created_at);
+      // add one day to start and end date to include the whole day
+
+      const start = startDate ? new Date(startDate) : null;
+      if (start) {
+        // Add one day to start date to include the whole day
+        start.setDate(start.getDate() + 1);
+        start.setHours(0, 0, 0, 0);
+      }
+
+      const end = endDate ? new Date(endDate) : new Date();
+      if (end) {
+        // Add one day to end date to include the whole day
+        end.setDate(end.getDate() + 1);
+        end.setHours(23, 59, 59, 999);
+      }
+
+      const letPass =
+        (!start || createdAtDate >= start) && createdAtDate <= end;
+      if (letPass) {
+        console.table({ startDate, start, endDate, end, createdAtDate });
+      }
+
+      return letPass;
+    });
+  };
+
+  const today = new Date().toLocaleDateString();
+
   return (
     <>
       <div className="sidebar">
@@ -141,14 +178,56 @@ export const Sidebar: React.FC = () => {
                 value={conversationFilter}
                 onChange={(e) => setConversationFilter(e.target.value)}
               />
+              <div className="date-filters d-flex gap-small">
+                <input
+                  className="w-100"
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  placeholder="Start Date"
+                />
+                <input
+                  className="w-100"
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  placeholder="End Date"
+                />
+              </div>
+              <SvgButton
+                text={t("clean")}
+                extraClass="border-danger pressable"
+                onClick={() => {
+                  setStartDate("");
+                  setEndDate("");
+                  setConversationFilter("");
+                }}
+              />
               <div className="flex-y conversation-history gap-small ">
-                {filteredHistory.map((conversation) => (
-                  <ConversationComponent
-                    key={conversation.id}
-                    conversation={conversation}
-                    deleteConversationItem={deleteConversationItem}
-                  />
-                ))}
+                <h3>{t("today")}</h3>
+                {filteredHistory
+                  .filter(
+                    (c) => new Date(c.created_at).toLocaleDateString() === today
+                  )
+                  .map((conversation) => (
+                    <ConversationComponent
+                      key={conversation.id}
+                      conversation={conversation}
+                      deleteConversationItem={deleteConversationItem}
+                    />
+                  ))}
+                <h3>{t("previous-days")}</h3>
+                {filteredHistory
+                  .filter(
+                    (c) => new Date(c.created_at).toLocaleDateString() !== today
+                  )
+                  .map((conversation) => (
+                    <ConversationComponent
+                      key={conversation.id}
+                      conversation={conversation}
+                      deleteConversationItem={deleteConversationItem}
+                    />
+                  ))}
               </div>
             </>
           )}
@@ -198,11 +277,18 @@ export const Sidebar: React.FC = () => {
           />
         </div>
         <div className="sidebar__footer d-flex justify-between">
-          <SvgButton text={user ? user.username : t("you")} />
           <SvgButton
             onClick={openSettings}
-            svg={SVGS.controls}
-            text={t("settings")}
+            svg={SVGS.settings}
+            title={t("settings")}
+            text={user ? user.username : t("you")}
+          />
+          <SvgButton
+            onClick={logout}
+            svg={SVGS.logout}
+            title={t("logout")}
+            extraClass="pressable danger-on-hover"
+            confirmations={[t("sure?")]}
           />
         </div>
       </div>
@@ -274,12 +360,12 @@ const ConversationComponent = ({
             svg={SVGS.trash}
             title={t("delete-conversation")}
             text={t("delete")}
-            extraClass="justify-between bg-danger"
+            extraClass=" bg-danger"
             confirmations={[t("delete-conversation-confirmation")]}
             onClick={() => deleteConversationItem(conversation.id)}
           />
           <SvgButton
-            extraClass="justify-between bg-active"
+            extraClass=" bg-active"
             size="big"
             svg={SVGS.dumbell}
             title={t("train-on-this-conversation")}
@@ -287,7 +373,7 @@ const ConversationComponent = ({
             onClick={() => setShowTrainingModal(true)}
           />
           <SvgButton
-            extraClass="justify-between bg-hovered"
+            extraClass=" bg-hovered"
             size="big"
             svg={SVGS.share}
             title={t("share-conversation")}
@@ -296,6 +382,9 @@ const ConversationComponent = ({
           />
           <div className="text-center">
             {conversation.number_of_messages} {t("messages")}
+          </div>
+          <div className="text-center">
+            {new Date(conversation.created_at).toLocaleString()}
           </div>
         </div>
       </FloatingDropdown>

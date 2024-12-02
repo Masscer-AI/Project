@@ -2,7 +2,7 @@
 import axios, { AxiosRequestConfig, Method } from "axios";
 import { API_URL, PUBLIC_TOKEN } from "./constants";
 import { TCompletion, TConversation, TDocument, TOrganization } from "../types";
-import { TReactionTemplate } from "../types/chatTypes";
+import { TReactionTemplate, TUserProfile } from "../types/chatTypes";
 import { TAgent } from "../types/agents";
 import toast from "react-hot-toast";
 import { TUserPreferences } from "./storeTypes";
@@ -556,4 +556,29 @@ export const getUserPreferences = async () => {
 
 export const updateUserPreferences = async (data: any) => {
   return makeAuthenticatedRequest("PUT", "/v1/preferences/", data);
+};
+
+type TEditImageData = {
+  image: string;
+  prompt: string;
+  mask?: string;
+  steps?: number;
+  prompt_upsampling?: boolean;
+  guidance?: number;
+  output_format?: string;
+  safety_tolerance?: number;
+};
+
+export const editImage = async (data: TEditImageData) => {
+  return makeAuthenticatedRequest("POST", "/v1/tools/image_editor/", data);
+};
+
+type TUpdateUserData = {
+  username: string;
+  email: string;
+  profile?: TUserProfile;
+};
+
+export const updateUser = async (data: TUpdateUserData) => {
+  return makeAuthenticatedRequest("PUT", "/v1/auth/user/me", data);
 };
