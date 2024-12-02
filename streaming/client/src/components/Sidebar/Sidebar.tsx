@@ -180,14 +180,14 @@ export const Sidebar: React.FC = () => {
               />
               <div className="date-filters d-flex gap-small">
                 <input
-                  className="w-100"
+                  className="w-100 rounded padding-small"
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
                   placeholder="Start Date"
                 />
                 <input
-                  className="w-100"
+                  className="w-100 rounded padding-small"
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}

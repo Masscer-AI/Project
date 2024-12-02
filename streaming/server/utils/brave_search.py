@@ -147,7 +147,7 @@ def fetch_url_content(url):
             combined_content = "\n\n".join(content)
 
             logger.info(f"Fetched content from {combined_content[:50]}")
-            return {"url": url, "content": combined_content}
+            return {"url": url, "content": combined_content[:50000]}
         else:
             raise Exception(
                 f"Failed to fetch {url}: Status code {page_response.status_code}"

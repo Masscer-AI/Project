@@ -79,7 +79,6 @@ async def on_message_handler(socket_id, data, **kwargs):
     user_id_to_emit = message.get("id", None)
 
     for a in attachments:
-        print("Type of attachment", a.get("type", None))
         extraction_mode = a.get("mode", None)
 
         if a.get("type", None) == "image":
@@ -222,7 +221,6 @@ async def on_message_handler(socket_id, data, **kwargs):
             else:
                 print("No completions found for the agent")
         if len(web_results) > 0:
-
             complete_context += f"\n<web_search_results>\n{json.dumps(web_results)}\n </web_search_results>\n"
         else:
             print("No web results found")

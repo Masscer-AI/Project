@@ -9,7 +9,7 @@ from .serializers import AgentSerializer, LanguageModelSerializer
 from api.authenticate.decorators.token_required import token_required
 from rest_framework.parsers import JSONParser
 from api.utils.color_printer import printer
-
+from api.authenticate.models import UserProfile
 from faker import Faker
 import random
 
@@ -65,8 +65,12 @@ class AgentView(View):
 @token_required
 def get_formatted_system_prompt(request):
     body = json.loads(request.body)
+    profile = UserProfile.objects.get(user=request.user)
+
     agent = Agent.objects.get(slug=body.get("agent_slug", "useful-assistant"))
     system = agent.format_prompt(context=body.get("context"))
+    if profile:
+        system += profile.get_as_text()
     agent_data = AgentSerializer(agent).data
     agent_data["formatted"] = system
     return JsonResponse(agent_data)

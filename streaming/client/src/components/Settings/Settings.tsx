@@ -347,7 +347,7 @@ const UserConfig = () => {
         data={user?.profile || {}}
         onSubmit={handleUpdateUser}
         onKeyChange={onKeyChangeDebounced}
-        hiddenKeys={["id", "user", "created_at", "updated_at", "age"]}
+        hiddenKeys={["id", "user", "created_at", "updated_at", "age", "avatar_url"]}
         fieldMapping={{
           name: { type: "string", label: t("name") },
           birthday: { type: "date", label: t("birthday") },

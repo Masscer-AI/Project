@@ -251,3 +251,26 @@ class UserProfile(models.Model):
 
     def __str__(self):
         return f"USER_PROFILE(user={self.user.username or self.user.email})"
+
+    def get_as_text(self):
+        is_empty = True
+        text = "This is information about the user:\n<USER_PROFILE>\n"
+        if self.name:
+            text += f"name={self.name}\n"
+            is_empty = False
+        if self.bio:
+            text += f"bio={self.bio}\n"
+            is_empty = False
+        if self.sex:
+            text += f"sex={self.sex}\n"
+            is_empty = False
+        if self.age:
+            text += f"age={self.age}\n"
+            is_empty = False
+        if self.birthday:
+            text += f"birthday={self.birthday}\n"
+            is_empty = False
+        if is_empty:
+            return ""
+        text += "</USER_PROFILE>\n"
+        return text

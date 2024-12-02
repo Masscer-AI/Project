@@ -132,7 +132,7 @@ export const JSONForm: React.FC<JSONFormProps> = ({
         if (hiddenKeys.includes(key)) return null;
 
         return (
-          <div className="d-flex gap-medium" key={key}>
+          <div className="d-flex gap-medium align-center" key={key}>
             {renderInput(key, data[key])}
           </div>
         );
