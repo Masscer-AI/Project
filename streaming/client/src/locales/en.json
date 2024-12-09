@@ -209,5 +209,9 @@
     "clean-filters": "Clean filters",
     "transform-to": "Transform to",
     "code-copied-to-clipboard": "Code copied to clipboard!",
-    "no-code-available": "No code available!"
+    "no-code-available": "No code available!",
+    "network-error": "Network error: Check your internet connection and try again.",
+    "error-downloading-document": "Error downloading document 🤔",
+    "document-downloaded": "Document downloaded!",
+    "export-to": "Export to"
 }

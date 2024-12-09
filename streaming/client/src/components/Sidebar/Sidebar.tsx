@@ -132,9 +132,9 @@ export const Sidebar: React.FC = () => {
 
       const letPass =
         (!start || createdAtDate >= start) && createdAtDate <= end;
-      if (letPass) {
-        console.table({ startDate, start, endDate, end, createdAtDate });
-      }
+      // if (letPass) {
+      //   console.table({ startDate, start, endDate, end, createdAtDate });
+      // }
 
       return letPass;
     });

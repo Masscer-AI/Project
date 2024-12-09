@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+// import axios from "axios";
 import "./page.css";
 import { Message } from "../../components/Message/Message";
 import { ChatInput } from "../../components/ChatInput/ChatInput";
@@ -21,8 +21,8 @@ export default function ChatView() {
 
   const {
     chatState,
-    input,
-    setInput,
+    // input,
+    // setInput,
     conversation,
     cleanAttachments,
     socket,
@@ -34,8 +34,8 @@ export default function ChatView() {
     socket: state.socket,
     chatState: state.chatState,
     toggleSidebar: state.toggleSidebar,
-    input: state.input,
-    setInput: state.setInput,
+    // input: state.input,
+    // setInput: state.setInput,
     conversation: state.conversation,
     cleanAttachments: state.cleanAttachments,
     modelsAndAgents: state.modelsAndAgents,
@@ -51,7 +51,7 @@ export default function ChatView() {
   useEffect(() => {
     setUser(loaderData.user);
     startup();
-    setInput(loaderData.query || "");
+    // setInput(loaderData.query || "");
   }, []);
   const [messages, setMessages] = useState<TMessage[]>(
     loaderData.conversation.messages
@@ -102,15 +102,15 @@ export default function ChatView() {
   useEffect(() => {
     if (
       loaderData.query &&
-      input === loaderData.query &&
       agents.length > 0 &&
-      messages.length === 0
+      messages.length === 0 &&
+      loaderData.sendQuery
     ) {
-      handleSendMessage();
+      handleSendMessage(loaderData.query);
     }
-  }, [loaderData.query, input, agents]);
+  }, [loaderData.query, agents]);
 
-  const handleSendMessage = async () => {
+  const handleSendMessage = async (input: string) => {
     if (input.trim() === "") return;
 
     if (chatState.writtingMode) return;
@@ -142,10 +142,16 @@ export default function ChatView() {
     };
     setMessages([...messages, userMessage, assistantMessage]);
 
+    // Remove the key "attachments" from the messages
     const memoryMessages = [...messages]
       .reverse()
       .slice(0, userPreferences.max_memory_messages)
-      .reverse();
+      .reverse()
+      .map((m) => {
+        const { attachments, ...rest } = m;
+        return rest;
+      });
+
 
     try {
       const token = localStorage.getItem("token");
@@ -167,7 +173,6 @@ export default function ChatView() {
         multiagentic_modality: userPreferences.multiagentic_modality,
       });
 
-      setInput("");
       // cleanAttachments();
     } catch (error) {
       console.error("Error sending message:", error);
@@ -229,17 +234,6 @@ export default function ChatView() {
       ];
       return copyMessages;
     });
-  };
-
-  const handleKeyDown = (event) => {
-    if (event.key === "Enter" && event.shiftKey) {
-      setInput(event.target.value);
-      return;
-    } else if (event.key === "Enter") {
-      handleSendMessage();
-    } else {
-      setInput(event.target.value);
-    }
   };
 
   const onTitleEdit = async (title: string) => {
@@ -310,8 +304,11 @@ export default function ChatView() {
         </div>
         <ChatInput
           handleSendMessage={handleSendMessage}
-          handleKeyDown={handleKeyDown}
-          conversation={conversation || loaderData.conversation}
+          initialInput={
+            loaderData.query && !loaderData.sendQuery ? loaderData.query : ""
+          }
+          // handleKeyDown={handleKeyDown}
+          // conversation={conversation || loaderData.conversation}
         />
       </div>
     </main>

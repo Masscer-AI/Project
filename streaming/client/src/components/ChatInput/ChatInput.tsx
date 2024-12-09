@@ -16,22 +16,24 @@ import { Modal } from "../Modal/Modal";
 
 import { TAttachment, TDocument } from "../../types";
 import { SliderInput } from "../SimpleForm/SliderInput";
+import { WebsiteFetcher } from "../WebsiteFetcher/WebsiteFetcher";
 
 interface ChatInputProps {
-  handleSendMessage: () => void;
-  handleKeyDown: (event) => void;
-  conversation: TConversationData;
+  handleSendMessage: (input: string) => void;
+  initialInput: string;
+  // conversation: TConversationData;
 }
 
 export const ChatInput: React.FC<ChatInputProps> = ({
   handleSendMessage,
-  handleKeyDown,
-  conversation,
+  initialInput,
+  // handleKeyDown,
+  // conversation,
 }) => {
   const { t } = useTranslation();
   const {
-    input,
-    setInput,
+    // input,
+    // setInput, F
     attachments,
     addAttachment,
     chatState,
@@ -48,19 +50,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     toggleWritingMode: state.toggleWrittingMode,
   }));
 
-  // const [suggestion, setSuggestion] = useState("");
-
-  // const debouncedGetSuggestion = useCallback(
-  //   debounce(async (inputContent: string) => {
-  //     if (inputContent.length > 0) {
-  //       const result = await getSuggestion(inputContent);
-  //       if (typeof result.suggestion === "string") {
-  //         setSuggestion(result.suggestion);
-  //       }
-  //     }
-  //   }, 1000),
-  //   []
-  // );
+  const [innerInput, setInnerInput] = useState(initialInput);
 
   const handlePaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const items = event.clipboardData.items;
@@ -97,14 +87,25 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     audioUrl: string,
     base64Audio: string
   ) => {
-    setInput(input + " " + transcript);
-    addAttachment({
-      content: base64Audio,
-      type: "audio",
-      name: uuidv4(),
-      file: null,
-      text: "",
-    });
+    setInnerInput((prev) => prev + " " + transcript);
+
+    // addAttachment({
+    //   content: base64Audio,
+    //   type: "audio",
+    //   name: uuidv4(),
+    //   file: null,
+    //   text: "",
+    // });
+  };
+
+  const handleKeyDown = (event) => {
+    if (event.key === "Enter" && event.shiftKey) {
+      return;
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      handleSendMessage(innerInput);
+      setInnerInput("");
+    }
   };
 
   return (
@@ -127,8 +128,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       <section>
         <textarea
           className={chatState.writtingMode ? "big-size" : ""}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
+          value={innerInput}
+          onChange={(e) => setInnerInput(e.target.value)}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
           placeholder={t("type-your-message")}
@@ -139,7 +140,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         <div className="flex-x gap-small">
           <SvgButton
             title={t("send-message")}
-            onClick={handleSendMessage}
+            onClick={() => {
+              handleSendMessage(innerInput);
+              setInnerInput("");
+            }}
             svg={SVGS.send}
           />
 
@@ -160,6 +164,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
           <SpeechHandler onTranscript={handleAudioTranscript} />
           <ConversationConfig />
+          {/* <WebsiteFetcher /> */}
         </div>
       </section>
     </div>
@@ -357,7 +362,6 @@ const ConversationConfig = () => {
     }
   };
 
-
   return (
     <>
       <SvgButton onClick={() => setIsOpened(true)} svg={SVGS.options} />
@@ -397,7 +401,7 @@ const ConversationConfig = () => {
           <div className="flex-y gap-small align-center">
             <h5>{t("multiagentic-modality")}</h5>
             <span>{t("multiagentic-modality-description")}</span>
-            
+
             <SliderInput
               keepActive={true}
               labelTrue={t("isolated")}

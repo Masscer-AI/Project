@@ -202,21 +202,21 @@ export const createAgent = async (agent: any) => {
   }
 };
 
-export const getChunk = async (chunkId: string) => {
-  try {
-    const endpoint = `/v1/rag/chunks/${chunkId}/`;
-    const response = await makeAuthenticatedRequest<any>(
-      "GET",
-      endpoint,
-      null,
-      false
-    );
-    return response;
-  } catch (error) {
-    console.error(`Error fetching chunk with ID ${chunkId}:`, error);
-    throw error;
-  }
-};
+// export const getChunk = async (chunkId: string) => {
+//   try {
+//     const endpoint = `/v1/rag/chunks/${chunkId}/`;
+//     const response = await makeAuthenticatedRequest<any>(
+//       "GET",
+//       endpoint,
+//       null,
+//       false
+//     );
+//     return response;
+//   } catch (error) {
+//     console.error(`Error fetching chunk with ID ${chunkId}:`, error);
+//     throw error;
+//   }
+// };
 
 export const getVideos = async () => {
   try {
@@ -481,7 +481,6 @@ export const generateDocument = async (data: TGenerateDocumentInput) => {
 };
 export const downloadFile = async (file_path: string) => {
   const { token } = getToken(false);
-  toast.success("Downloading file...");
 
   const url = `${API_URL}/v1/tools/download/${file_path}/`;
 
@@ -507,9 +506,10 @@ export const downloadFile = async (file_path: string) => {
     link.click();
     document.body.removeChild(link);
 
-    toast.success("File downloaded successfully!");
+    return true;
   } catch (error) {
-    toast.error(`Download failed: ${error.message}`);
+    console.error("Document download failed: ", error);
+    return false;
   }
 };
 

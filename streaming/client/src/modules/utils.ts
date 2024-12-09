@@ -1,3 +1,5 @@
+import axios from "axios";
+
 export const playAudioFromBytes = (audioFile) => {
   const audioBlob = new Blob([audioFile], { type: "audio/mp3" });
   const audioUrl = URL.createObjectURL(audioBlob);
@@ -215,4 +217,30 @@ export const getStoredPreferences = () => {
     return JSON.parse(storedPreferences);
   }
   return null;
+};
+
+type TResponseFormat = "text" | "json";
+export const fetchUrlContent = async (
+  url: string,
+  responseFormat: TResponseFormat
+) => {
+  try {
+    const response = await axios.get(url, { timeout: 5000 });
+    if (responseFormat === "text") {
+      return response.data;
+    } else if (responseFormat === "json") {
+      return response.data;
+    }
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      console.error("Error fetching the URL content:", {
+        message: error.message,
+        code: error.code,
+        config: error.config,
+      });
+    } else {
+      console.error("Unexpected error:", error);
+    }
+    throw error; // Consider whether to throw or return a fallback value
+  }
 };

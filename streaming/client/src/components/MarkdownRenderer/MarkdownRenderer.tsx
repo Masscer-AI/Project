@@ -1,6 +1,8 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { twilight } from "react-syntax-highlighter/dist/esm/styles/prism";
 
@@ -14,7 +16,6 @@ import { Pill } from "../Pill/Pill";
 const MarkdownRenderer = ({
   markdown,
   extraClass,
-  style,
 }: {
   markdown: string;
   extraClass?: string;
@@ -22,15 +23,21 @@ const MarkdownRenderer = ({
 }) => {
   const { t } = useTranslation();
 
-  const urlTransform = (url: string) => {
-    return url;
-  };
+  // const urlTransform = (url: string) => {
+  //   return url;
+  // };
 
   return (
     <Markdown
       className={`markdown-renderer ${extraClass}`}
-      urlTransform={urlTransform}
-      remarkPlugins={[remarkGfm]}
+      // urlTransform={urlTransform}
+      remarkPlugins={[
+        [remarkGfm, { singleTilde: false }],
+        [remarkMath],
+        // [docx, { output: "blob" }],
+      ]}
+      rehypePlugins={[rehypeKatex]}
+      skipHtml={true}
       components={{
         pre(props) {
           const codeBlocks = props.node?.children.map((child) => {
@@ -38,22 +45,18 @@ const MarkdownRenderer = ({
             const code = child.children.map((c) => c.value).join("");
             // @ts-ignore
             const classNames = child.properties?.className;
-
             let lang = "text";
             if (classNames && classNames?.length > 0) {
               lang = classNames[0].split("-")[1];
             }
-
             return {
               lang,
               code,
             };
           });
-
           if (!codeBlocks || codeBlocks.length === 0) {
             return <pre>{props.children}</pre>;
           }
-
           return (
             <CustomCodeBlock
               code={codeBlocks[0].code}
@@ -68,14 +71,34 @@ const MarkdownRenderer = ({
   );
 };
 
-const output_formats = ["docx", "pdf", "md"];
+const output_formats = ["docx", "pdf", "md", "csv", "html", "json", "txt"];
+type TOutputFormat = "docx" | "pdf" | "md" | "csv" | "html" | "json" | "txt";
 
-type TOutputFormat = "docx" | "pdf" | "md";
+const text_only_formats = ["csv", "txt", "json"];
+
+const downloadTextAsFile = (text: string, format: TOutputFormat) => {
+  // Download the text as a CSV file
+  const blob = new Blob([text], { type: "text/csv" });
+  // use as title the first 50 characters of the text
+  const title = text.slice(0, 50);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${title}.${format}`;
+  a.click();
+};
 
 export const CustomCodeBlock = ({ code, language }) => {
   const { t } = useTranslation();
   const [output_format, setOutputFormat] = useState<TOutputFormat>("docx");
   const [input_format, setInputFormat] = useState("md");
+
+  useEffect(() => {
+    // If the language is HTML, set the output format to HTML
+    if (language === "html") {
+      setInputFormat("html");
+    }
+  }, []);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(code);
@@ -84,6 +107,10 @@ export const CustomCodeBlock = ({ code, language }) => {
 
   const handleTransform = async () => {
     if (code) {
+      if (text_only_formats.includes(output_format)) {
+        downloadTextAsFile(code, output_format);
+        return;
+      }
       const tid = toast.loading(t("generating-document"));
 
       try {
@@ -92,10 +119,18 @@ export const CustomCodeBlock = ({ code, language }) => {
           from_type: input_format,
           to_type: output_format,
         });
+        toast.success(t("document-generated"), {
+          id: tid,
+        });
         // @ts-ignore
-        await downloadFile(res.output_filepath);
-        toast.dismiss(tid);
-        toast.success(t("document-generated"));
+        const success = await downloadFile(res.output_filepath);
+        if (!success) {
+          toast.dismiss(tid);
+          toast.error(t("error-downloading-document"));
+        }
+        toast.success(t("document-downloaded"), {
+          id: tid,
+        });
       } catch (e) {
         toast.dismiss(tid);
         toast.error(t("error-generating-document"));
@@ -107,8 +142,11 @@ export const CustomCodeBlock = ({ code, language }) => {
 
   return (
     <div className="code-block">
-      <div className="actions flex-x gap-small align-center justify-between">
+      <div className="actions flex-x align-center justify-between bg-hovered rounded">
         <section className="flex-x gap-small align-center">
+          <Pill>{language ? language : "text"}</Pill>
+        </section>
+        <section className="flex-x align-center">
           <SvgButton
             extraClass="pressable active-on-hover "
             text={t("copy")}
@@ -117,7 +155,7 @@ export const CustomCodeBlock = ({ code, language }) => {
           <div className="flex-x active-on-hover  rounded">
             <SvgButton
               extraClass="pressable "
-              text={t("transform-to")}
+              text={t("export-to")}
               onClick={handleTransform}
             />
             <select
@@ -126,13 +164,12 @@ export const CustomCodeBlock = ({ code, language }) => {
               onChange={(e) => setOutputFormat(e.target.value as TOutputFormat)}
             >
               {output_formats.map((format) => (
-                <option value={format}>{format.toUpperCase()}</option>
+                <option key={format} value={format}>
+                  {format.toUpperCase()}
+                </option>
               ))}
             </select>
           </div>
-        </section>
-        <section className="flex-x gap-small align-center">
-          <Pill>{language ? language : "text"}</Pill>
         </section>
       </div>
       <SyntaxHighlighter

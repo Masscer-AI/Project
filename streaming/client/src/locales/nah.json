@@ -208,5 +208,9 @@
     "clean-filters": "Limpiar filtros",
     "transform-to": "Transformar a",
     "code-copied-to-clipboard": "Código copiado al portapapeles!",
-    "no-code-available": "No hay código disponible!"
+    "no-code-available": "No hay código disponible!",
+    "network-error": "Error de red: Verifica tu conexión a internet y vuelve a intentarlo.",
+    "error-downloading-document": "Error descargando documento 🤔",
+    "document-downloaded": "¡Documento descargado!",
+    "export-to": "Exportar a"
 }

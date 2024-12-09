@@ -27,6 +27,16 @@
     bottom: 0;
     right: 10px;
   }
+
+  &.user {
+    background: var(--gradient-dark);
+    color: white;
+  }
+
+  &.assistant {
+    background: var(--assistant-color);
+    color: var(--font-color);
+  }
 }
 
 .message .message-textarea {

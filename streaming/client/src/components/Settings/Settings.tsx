@@ -337,7 +337,7 @@ const UserConfig = () => {
     }
   };
 
-  const onKeyChangeDebounced = debounce(onKeyChange, 600);
+  const onKeyChangeDebounced = debounce(onKeyChange, 1000);
 
   return (
     <div className="flex-y gap-medium">
@@ -347,7 +347,14 @@ const UserConfig = () => {
         data={user?.profile || {}}
         onSubmit={handleUpdateUser}
         onKeyChange={onKeyChangeDebounced}
-        hiddenKeys={["id", "user", "created_at", "updated_at", "age", "avatar_url"]}
+        hiddenKeys={[
+          "id",
+          "user",
+          "created_at",
+          "updated_at",
+          "age",
+          "avatar_url",
+        ]}
         fieldMapping={{
           name: { type: "string", label: t("name") },
           birthday: { type: "date", label: t("birthday") },
@@ -356,7 +363,9 @@ const UserConfig = () => {
           avatar_url: { type: "image", label: t("avatar") },
         }}
       />
-      <p>{t("why-user-info-matters-for-ai-personalization")}</p>
+      <p className="text-small text-secondary">
+        {t("why-user-info-matters-for-ai-personalization")}
+      </p>
     </div>
   );
 };

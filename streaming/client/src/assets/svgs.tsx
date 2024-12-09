@@ -1297,8 +1297,8 @@ export const SVGS = {
       />
       <path
         d="M4 10C2.89543 10 2 10.8954 2 12C2 13.1046 2.89543 14 4 14"
-        stroke="#333333"
-        stroke-width="2"
+        stroke="var(--font-color)"
+        strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />

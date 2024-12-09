@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { SVGS } from "../../assets/svgs";
 import MarkdownRenderer from "../MarkdownRenderer/MarkdownRenderer";
 import { TAttachment, TSource, TVersion } from "../../types";
@@ -6,7 +6,7 @@ import { Thumbnail } from "../Thumbnail/Thumbnail";
 import "./Message.css";
 import { SvgButton } from "../SvgButton/SvgButton";
 import toast from "react-hot-toast";
-import { deleteMessage, getChunk, updateMessage } from "../../modules/apiCalls";
+import { deleteMessage, updateMessage } from "../../modules/apiCalls";
 import { Modal } from "../Modal/Modal";
 import { useTranslation } from "react-i18next";
 import { Pill } from "../Pill/Pill";
@@ -16,8 +16,9 @@ import {
   AudioPlayerOptions,
   AudioPlayerWithAppendOptions,
   createAudioPlayer,
-  createAudioPlayerWithAppend,
+  // createAudioPlayerWithAppend,
 } from "../../modules/utils";
+
 import { ImageGenerator } from "../ImageGenerator/ImageGenerator";
 import { Loader } from "../Loader/Loader";
 import { FloatingDropdown } from "../Dropdown/Dropdown";
@@ -326,8 +327,7 @@ export const Message = ({
       ) : (
         <MarkdownRenderer
           markdown={versions?.[currentVersion]?.text || innerText}
-          extraClass={`message-text `}
-          style={messageStyles[type]}
+          extraClass={`message-text ${type}`}
         />
       )}
 

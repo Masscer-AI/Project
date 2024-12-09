@@ -9,10 +9,18 @@ import { SvgButton } from "../../components/SvgButton/SvgButton";
 import { SVGS } from "../../assets/svgs";
 import { useTranslation } from "react-i18next";
 
+type TMessage = {
+  text: string;
+  type: "error" | "success";
+};
+
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState<TMessage>({
+    text: "",
+    type: "error",
+  });
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
@@ -34,9 +42,18 @@ export default function Login() {
         localStorage.setItem("token", response.data.token);
       }
       toast.success(t("successfully-logged-in"));
+      setMessage({ text: t("successfully-logged-in"), type: "success" });
       navigate("/chat");
     } catch (error) {
-      setMessage(error.response?.data?.detail || t("an-error-occurred"));
+      console.error("LOGIN ERROR: ", error);
+      if (error.code === "ERR_NETWORK") {
+        setMessage({ text: t("network-error"), type: "error" });
+      } else {
+        setMessage({
+          text: error.response?.data?.detail || t("an-error-occurred"),
+          type: "error",
+        });
+      }
       toast.error(t("an-error-occurred"));
     }
     setIsLoading(false);
@@ -65,7 +82,7 @@ export default function Login() {
               autoComplete="email"
             />
           </div>
-          <div className="simple-form-group pos-relative">
+          <div className="pos-relative">
             <input
               type={showPassword ? "text" : "password"}
               value={password}
@@ -83,17 +100,27 @@ export default function Login() {
               svg={showPassword ? SVGS.eyeClosed : SVGS.eye}
               onClick={() => setShowPassword(!showPassword)}
             />
+            {/* <p className="text-small text-center text-gray">
+              {t("forgot-password")}
+            </p> */}
           </div>
-          <SvgButton
-            onClick={handleSubmit}
-            text={!isLoading ? t("login") : t("loading")}
-            extraClass="w-100 padding-medium button bg-active pressable"
-          />
-          <SvgButton
-            extraClass="w-100 padding-medium button bg-secondary"
-            text={t("go-to-signup")}
-            onClick={() => navigate("/signup")}
-          />
+          <p
+            className={`text-small padding-medium no-margin text-center ${message.type === "error" ? "text-error" : "text-success"}`}
+          >
+            {message.text}
+          </p>
+          <div className="flex-y gap-small">
+            <SvgButton
+              onClick={handleSubmit}
+              text={!isLoading ? t("login") : t("loading")}
+              extraClass="w-100 padding-medium button bg-active pressable"
+            />
+            <SvgButton
+              extraClass="w-100 padding-medium button pressable"
+              text={t("go-to-signup")}
+              onClick={() => navigate("/signup")}
+            />
+          </div>
         </form>
       </SimpleForm>
     </div>

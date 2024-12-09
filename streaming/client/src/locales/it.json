@@ -173,5 +173,9 @@
     "clean-filters": "Pulisci filtri",
     "transform-to": "Trasforma in",
     "code-copied-to-clipboard": "Codice copiato negli appunti!",
-    "no-code-available": "Nessun codice disponibile!"
+    "no-code-available": "Nessun codice disponibile!",
+    "network-error": "Errore di rete: Verifica la tua connessione internet e riprova.",
+    "error-downloading-document": "Errore scaricamento documento 🤔",
+    "document-downloaded": "Documento scaricato!",
+    "export-to": "Esporta in"
 }

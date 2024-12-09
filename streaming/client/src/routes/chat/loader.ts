@@ -19,6 +19,7 @@ export const chatLoader: LoaderFunction = async ({
     const conversationId = url.searchParams.get("conversation");
     const token = url.searchParams.get("token");
     const query = url.searchParams.get("query");
+    const sendQuery: boolean = url.searchParams.get("sendQuery") === "true";
 
     if (token) {
       localStorage.setItem("token", token);
@@ -32,7 +33,7 @@ export const chatLoader: LoaderFunction = async ({
     const user = (await getUser()) as TUserData;
     // console.log(query, "query");
 
-    return { conversation: c, user: user, query: query };
+    return { conversation: c, user: user, query: query, sendQuery };
   } catch (error) {
     console.error("Error loading conversation in chat loader:", error);
     return redirect("/login");

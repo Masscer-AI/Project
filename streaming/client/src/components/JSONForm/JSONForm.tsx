@@ -50,14 +50,14 @@ export const JSONForm: React.FC<JSONFormProps> = ({
         );
       case "textarea":
         return (
-          <>
+          <div className="flex-y gap-small w-100">
             <label>{field.label}</label>
             <textarea
               className="textarea"
               value={formData[key] || ""}
               onChange={(e) => handleChange(key, e.target.value)}
             />
-          </>
+          </div>
         );
       case "number":
         return (

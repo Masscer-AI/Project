@@ -26,6 +26,7 @@ export type TChatLoader = {
   conversation: TConversationData;
   user: TUserData;
   query: string | null;
+  sendQuery: boolean;
 };
 
 export type TMessage = {
