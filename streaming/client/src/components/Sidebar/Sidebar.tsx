@@ -195,7 +195,7 @@ export const Sidebar: React.FC = () => {
                 />
               </div>
               <SvgButton
-                text={t("clean")}
+                text={t("clean-filters")}
                 extraClass="border-danger pressable"
                 onClick={() => {
                   setStartDate("");

@@ -38,6 +38,12 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
+# Show the flags
+info "DJANGO: $DJANGO"
+info "INSTALL: $INSTALL"
+info "WATCH: $WATCH"
+
+
 # Activate virtual environment
 if [[ -f "venv/bin/activate" ]]; then
     source venv/bin/activate

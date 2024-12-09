@@ -204,5 +204,9 @@
     "avatar": "Avatar",
     "sex": "Sexualidad",
     "age": "Ixtlapalli",
-    "nah": "Náhuatl"
+    "nah": "Náhuatl",
+    "clean-filters": "Limpiar filtros",
+    "transform-to": "Transformar a",
+    "code-copied-to-clipboard": "Código copiado al portapapeles!",
+    "no-code-available": "No hay código disponible!"
 }

@@ -952,3 +952,12 @@ input:checked + .slider::before {
 .text-danger {
   color: var(--danger-color);
 }
+.code-block {
+  /* background-color: var(--bg-contrast-color); */
+  border-radius: var(--standard-radius);
+  padding: 10px;
+
+  > pre {
+    border: 0 !important;
+  }
+}

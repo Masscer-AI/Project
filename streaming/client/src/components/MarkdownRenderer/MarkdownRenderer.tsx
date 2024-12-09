@@ -1,21 +1,15 @@
-import React, { useEffect, useCallback } from "react";
-import MarkdownIt from "markdown-it";
-import hljs from "highlight.js/lib/common";
+import React, { useState } from "react";
+import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { twilight } from "react-syntax-highlighter/dist/esm/styles/prism";
 
-import "highlight.js/styles/tokyo-night-dark.css";
 import toast from "react-hot-toast";
 import "./MarkdownRenderer.css";
-import { debounce } from "../../modules/utils";
 import { downloadFile, generateDocument } from "../../modules/apiCalls";
 import { useTranslation } from "react-i18next";
-
-const DEBOUNCE_TIME = 180;
-
-const md = new MarkdownIt({
-  html: true,
-  linkify: true,
-  typographer: true,
-});
+import { SvgButton } from "../SvgButton/SvgButton";
+import { Pill } from "../Pill/Pill";
 
 const MarkdownRenderer = ({
   markdown,
@@ -28,113 +22,126 @@ const MarkdownRenderer = ({
 }) => {
   const { t } = useTranslation();
 
-  const highlightCodeBlocks = useCallback(
-    debounce(() => {
-      document.querySelectorAll("pre code").forEach((block) => {
-        const htmlBlock = block as HTMLElement;
-        if (!htmlBlock.dataset.highlighted) {
-          hljs.highlightElement(htmlBlock);
-          htmlBlock.dataset.highlighted = "true";
-        }
-      });
-    }, DEBOUNCE_TIME),
-    []
-  );
-
-  const addCopyButtons = useCallback(
-    debounce(() => {
-      document.querySelectorAll("pre").forEach((block) => {
-        if (!block.querySelector(".copy-btn")) {
-          // Create a div to hold the buttons
-          const buttonContainer = document.createElement("div");
-          buttonContainer.className = "d-flex gap-small align-center copy-btn";
-
-          // Create the Copy button
-          const button = document.createElement("button");
-          button.className =
-            " clickeable rounded padding-small bg-hovered active-on-hover";
-          button.textContent = t("copy");
-
-          // Create the Transform button
-          const transformButton = document.createElement("button");
-          transformButton.className =
-            "clickeable rounded padding-small bg-hovered active-on-hover";
-          transformButton.textContent = t("transform-to-docx");
-
-          // Append buttons to the container
-          buttonContainer.appendChild(button);
-          buttonContainer.appendChild(transformButton);
-
-          // Append the container to the block
-          block.appendChild(buttonContainer);
-
-          // Copy button event listener
-          button.addEventListener("click", () => {
-            const codeElement = block.querySelector("code");
-            const code = codeElement ? codeElement.textContent : "";
-
-            if (code) {
-              navigator.clipboard.writeText(code);
-              toast.success("Code copied to clipboard!");
-            } else {
-              toast.error("No code available!");
-            }
-          });
-
-          // Transform button event listener
-          transformButton.addEventListener("click", async () => {
-            let input_format = "md";
-            const codeElement = block.querySelector("code");
-            const code = codeElement ? codeElement.textContent : "";
-            // get the classlist of the code block
-            const codeBlockClassList = codeElement?.classList;
-            // check if the code block is a language-html
-            if (codeBlockClassList?.contains("language-html")) {
-              input_format = "html";
-            }
-
-            if (code) {
-              const tid = toast.loading(t("generating-document"));
-              try {
-                const res = await generateDocument({
-                  source_text: code,
-                  from_type: input_format,
-                  to_type: "docx",
-                });
-                // @ts-ignore
-                await downloadFile(res.output_filepath);
-                toast.dismiss(tid);
-                toast.success(t("document-generated"));
-              } catch (e) {
-                toast.dismiss(tid);
-                toast.error(t("error-generating-document"));
-              }
-            } else {
-              toast.error("No code available!");
-            }
-          });
-        }
-      });
-    }, DEBOUNCE_TIME),
-    []
-  );
-
-  useEffect(() => {
-    highlightCodeBlocks();
-    addCopyButtons();
-  }, [markdown]);
-
-  const getMarkdownText = () => {
-    const rawMarkup = md.render(markdown);
-    return { __html: rawMarkup };
+  const urlTransform = (url: string) => {
+    return url;
   };
 
   return (
-    <div
-      style={style}
+    <Markdown
       className={`markdown-renderer ${extraClass}`}
-      dangerouslySetInnerHTML={getMarkdownText()}
-    />
+      urlTransform={urlTransform}
+      remarkPlugins={[remarkGfm]}
+      components={{
+        pre(props) {
+          const codeBlocks = props.node?.children.map((child) => {
+            // @ts-ignore
+            const code = child.children.map((c) => c.value).join("");
+            // @ts-ignore
+            const classNames = child.properties?.className;
+
+            let lang = "text";
+            if (classNames && classNames?.length > 0) {
+              lang = classNames[0].split("-")[1];
+            }
+
+            return {
+              lang,
+              code,
+            };
+          });
+
+          if (!codeBlocks || codeBlocks.length === 0) {
+            return <pre>{props.children}</pre>;
+          }
+
+          return (
+            <CustomCodeBlock
+              code={codeBlocks[0].code}
+              language={codeBlocks[0].lang}
+            />
+          );
+        },
+      }}
+    >
+      {markdown}
+    </Markdown>
+  );
+};
+
+const output_formats = ["docx", "pdf", "md"];
+
+type TOutputFormat = "docx" | "pdf" | "md";
+
+export const CustomCodeBlock = ({ code, language }) => {
+  const { t } = useTranslation();
+  const [output_format, setOutputFormat] = useState<TOutputFormat>("docx");
+  const [input_format, setInputFormat] = useState("md");
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(code);
+    toast.success(t("code-copied-to-clipboard"));
+  };
+
+  const handleTransform = async () => {
+    if (code) {
+      const tid = toast.loading(t("generating-document"));
+
+      try {
+        const res = await generateDocument({
+          source_text: code,
+          from_type: input_format,
+          to_type: output_format,
+        });
+        // @ts-ignore
+        await downloadFile(res.output_filepath);
+        toast.dismiss(tid);
+        toast.success(t("document-generated"));
+      } catch (e) {
+        toast.dismiss(tid);
+        toast.error(t("error-generating-document"));
+      }
+    } else {
+      toast.error("No code available!");
+    }
+  };
+
+  return (
+    <div className="code-block">
+      <div className="actions flex-x gap-small align-center justify-between">
+        <section className="flex-x gap-small align-center">
+          <SvgButton
+            extraClass="pressable active-on-hover "
+            text={t("copy")}
+            onClick={handleCopy}
+          />
+          <div className="flex-x active-on-hover  rounded">
+            <SvgButton
+              extraClass="pressable "
+              text={t("transform-to")}
+              onClick={handleTransform}
+            />
+            <select
+              className="rounded  "
+              value={output_format}
+              onChange={(e) => setOutputFormat(e.target.value as TOutputFormat)}
+            >
+              {output_formats.map((format) => (
+                <option value={format}>{format.toUpperCase()}</option>
+              ))}
+            </select>
+          </div>
+        </section>
+        <section className="flex-x gap-small align-center">
+          <Pill>{language ? language : "text"}</Pill>
+        </section>
+      </div>
+      <SyntaxHighlighter
+        language={language ? language : "text"}
+        style={twilight}
+      >
+        {code}
+      </SyntaxHighlighter>
+    </div>
   );
 };
 

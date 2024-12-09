@@ -205,5 +205,9 @@
     "age": "Age",
     "username-already-taken": "Username already taken",
     "email-already-taken": "Email already taken",
-    "nah": "Nahuatl"
+    "nah": "Nahuatl",
+    "clean-filters": "Clean filters",
+    "transform-to": "Transform to",
+    "code-copied-to-clipboard": "Code copied to clipboard!",
+    "no-code-available": "No code available!"
 }

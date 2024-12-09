@@ -16,7 +16,7 @@
 }
 
 .sidebar-backdrop {
-  background-color: rgba(55, 55, 55, 0.242);
+  background-color: rgba(55, 55, 55, 0.52);
   width: 100vw;
   height: 100vh;
   position: fixed;
@@ -35,6 +35,7 @@
 .sidebar__history {
   scrollbar-width: none;
   overflow: auto;
+  padding: 2px;
 }
 .conversation-history {
   max-height: 65vh;
