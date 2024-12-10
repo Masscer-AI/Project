@@ -24,7 +24,6 @@
 
 .modalContent {
   background-color: var(--modal-bg-color);
-  /* background-color: rgba(105, 105, 105, 0.366); */
   border-radius: 8px;
   box-shadow: 0 0px 20px rgba(0, 0, 0, 0.742);
   width: min(98%, 900px);
@@ -37,12 +36,13 @@
   scrollbar-color: var(--bg-contrast-color) var(--modal-bg-color);
 }
 
-/* .modalContent > div {
-  overflow: auto;
+.header {
+  height: fit-content;
+}
+
+.content {
+  overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--bg-contrast-color) var(--modal-bg-color);
   padding: 10px;
-  max-height: var(--modal-max-height);
-} */
-
-
+}

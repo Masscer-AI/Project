@@ -17,7 +17,7 @@ export const Textarea = ({
   // Function to resize the textarea
   const autoResize = () => {
     if (textareaRef.current) {
-      // textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = "auto";
       textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
     }
   };
@@ -28,13 +28,13 @@ export const Textarea = ({
 
   return (
     <div
-      className={`d-flex flex-y gap-small textarea-container nowheel   ${extraClass}`}
+      className={`d-flex flex-y gap-small textarea-container nowheel max-height-500   ${extraClass}`}
     >
       <Pill extraClass="above-all">{placeholder}</Pill>
       <textarea
         ref={textareaRef}
         className="textarea"
-        defaultValue={defaultValue}
+        value={defaultValue}
         onChange={(e) => {
           onChange(e.target.value);
           // autoResize();

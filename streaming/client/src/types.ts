@@ -1,3 +1,5 @@
+import { TMessage } from "./types/chatTypes";
+
 export interface ChatItem {
   text: string;
   audioSrc?: string;
@@ -26,8 +28,10 @@ export interface TConversation {
   id: string;
   user_id: number;
   number_of_messages: number;
+  tags?: string[];
   title: undefined | string;
   created_at: string;
+  messages?: TMessage[];
 }
 
 export type TCompletion = {
@@ -48,7 +52,7 @@ export type TSource = {
   model_name: string;
   content: string;
   extra: string;
-}
+};
 
 export type TVersion = {
   text: string;

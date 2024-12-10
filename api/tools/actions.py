@@ -314,7 +314,7 @@ def generate_chunk_video(video_chunk_id: int):
 
 # This should return the path to the generated file
 def create_html_file_from_string(html_string, output_file):
-    with open(output_file, "w") as f:
+    with open(output_file, "w", encoding="utf-8") as f:
         f.write(html_string)
 
     return output_file

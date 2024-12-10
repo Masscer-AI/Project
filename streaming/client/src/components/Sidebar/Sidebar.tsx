@@ -21,24 +21,45 @@ import { QRCodeDisplay } from "../QRGenerator/QRGenerator";
 
 export const Sidebar: React.FC = () => {
   const { t } = useTranslation();
-  const { toggleSidebar, setConversation, user, setOpenedModals, logout } =
-    useStore((state) => ({
-      toggleSidebar: state.toggleSidebar,
-      setConversation: state.setConversation,
-      user: state.user,
-      setOpenedModals: state.setOpenedModals,
-      logout: state.logout,
-    }));
+  const {
+    toggleSidebar,
+    setConversation,
+    user,
+    setOpenedModals,
+    logout,
+    userTags,
+  } = useStore((state) => ({
+    toggleSidebar: state.toggleSidebar,
+    setConversation: state.setConversation,
+    user: state.user,
+    setOpenedModals: state.setOpenedModals,
+    logout: state.logout,
+    userTags: state.userTags,
+  }));
 
   const [history, setHistory] = useState<TConversation[]>([]);
   const [filteredHistory, setFilteredHistory] = useState<TConversation[]>([]);
-  const [conversationFilter, setConversationFilter] = useState("");
   const [searchParams, setSearchParams] = useSearchParams();
   const [openedSections, setOpenedSections] = useState<string[]>([]);
+  const [historyConfig, setHistoryConfig] = useState<{
+    isOpen: boolean;
+    showFilters: boolean;
+  }>({
+    isOpen: false,
+    showFilters: false,
+  });
 
-  // New state for date filtering
-  const [startDate, setStartDate] = useState<string>("");
-  const [endDate, setEndDate] = useState<string>("");
+  const [filters, setFilters] = useState<{
+    tags: string[];
+    startDate: string;
+    endDate: string;
+    title: string;
+  }>({
+    tags: [],
+    startDate: "",
+    endDate: "",
+    title: "",
+  });
 
   const navigate = useNavigate();
 
@@ -48,15 +69,21 @@ export const Sidebar: React.FC = () => {
 
   useEffect(() => {
     let filteredHistory = filterByDateRange();
+    console.log(filteredHistory, "filteredHistory BEFORE FILTERS");
+    if (filters.tags.length > 0) {
+      filteredHistory = filteredHistory.filter((c) =>
+        c.tags?.some((tag) => filters.tags.includes(tag))
+      );
+    }
 
-    setFilteredHistory(
-      filteredHistory.filter(
-        (c) =>
-          c.title &&
-          c.title.toLowerCase().includes(conversationFilter.toLowerCase())
-      )
+    filteredHistory = filteredHistory.filter(
+      (c) =>
+        c.title && c.title.toLowerCase().includes(filters.title.toLowerCase())
     );
-  }, [conversationFilter, history, startDate, endDate]);
+    console.log(filteredHistory, "filteredHistory AFTER FILTERS");
+
+    setFilteredHistory(filteredHistory);
+  }, [filters]);
 
   const populateHistory = async () => {
     const token = localStorage.getItem("token");
@@ -116,14 +143,14 @@ export const Sidebar: React.FC = () => {
       const createdAtDate = new Date(c.created_at);
       // add one day to start and end date to include the whole day
 
-      const start = startDate ? new Date(startDate) : null;
+      const start = filters.startDate ? new Date(filters.startDate) : null;
       if (start) {
         // Add one day to start date to include the whole day
         start.setDate(start.getDate() + 1);
         start.setHours(0, 0, 0, 0);
       }
 
-      const end = endDate ? new Date(endDate) : new Date();
+      const end = filters.endDate ? new Date(filters.endDate) : new Date();
       if (end) {
         // Add one day to end date to include the whole day
         end.setDate(end.getDate() + 1);
@@ -138,6 +165,16 @@ export const Sidebar: React.FC = () => {
 
       return letPass;
     });
+  };
+
+  const filterByTag = (tag: string) => {
+    // Remove the tag from the filters if it is already in the filters, otherwise add it
+    setFilters((prev) => ({
+      ...prev,
+      tags: prev.tags.includes(tag)
+        ? prev.tags.filter((t) => t !== tag)
+        : [...prev.tags, tag],
+    }));
   };
 
   const today = new Date().toLocaleDateString();
@@ -161,48 +198,101 @@ export const Sidebar: React.FC = () => {
         </div>
         <div className="sidebar__history flex-y gap-small ">
           <SvgButton
-            onClick={() => handleSectionClick("conversations")}
+            onClick={() =>
+              setHistoryConfig((prev) => ({
+                ...prev,
+                isOpen: !prev.isOpen,
+              }))
+            }
             text={t("conversations")}
             svg={SVGS.chat}
-            extraClass={` w-100 active-on-hover pressable ${openedSections.includes("conversations") ? "bg-active" : "bg-hovered"}`}
+            extraClass={` w-100 active-on-hover pressable ${historyConfig.isOpen ? "bg-active" : "bg-hovered"}`}
           />
 
-          {openedSections.includes("conversations") && (
+          {historyConfig.isOpen && (
             <>
-              <input
-                type="text"
-                className="input w-100 padding-medium"
-                placeholder={t("filter-conversations")}
-                autoFocus
-                name="conversation-filter"
-                value={conversationFilter}
-                onChange={(e) => setConversationFilter(e.target.value)}
-              />
-              <div className="date-filters d-flex gap-small">
-                <input
-                  className="w-100 rounded padding-small"
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  placeholder="Start Date"
+              {historyConfig.showFilters ? (
+                <div>
+                  <input
+                    type="text"
+                    className="input w-100 padding-medium"
+                    placeholder={t("filter-conversations")}
+                    autoFocus
+                    name="conversation-filter"
+                    value={filters.title}
+                    onChange={(e) =>
+                      setFilters({ ...filters, title: e.target.value })
+                    }
+                  />
+                  <div className="date-filters d-flex gap-small">
+                    <input
+                      className="w-100 rounded padding-small"
+                      type="date"
+                      value={filters.startDate}
+                      onChange={(e) =>
+                        setFilters({ ...filters, startDate: e.target.value })
+                      }
+                    />
+                    <input
+                      className="w-100 rounded padding-small"
+                      type="date"
+                      value={filters.endDate}
+                      onChange={(e) =>
+                        setFilters({ ...filters, endDate: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="d-flex gap-small wrap-wrap">
+                    {userTags.map((tag) => (
+                      <Pill
+                        onClick={() => filterByTag(tag)}
+                        extraClass={`${filters.tags.includes(tag) ? "bg-active" : "bg-hovered"}`}
+                        key={tag}
+                      >
+                        {tag}
+                      </Pill>
+                    ))}
+                  </div>
+                  <div className="d-flex gap-small">
+                    <SvgButton
+                      size="big"
+                      text={t("clean-filters")}
+                      extraClass="border-danger"
+                      onClick={() => {
+                        setFilters({
+                          tags: [],
+                          startDate: "",
+                          endDate: "",
+                          title: "",
+                        });
+                        // setFilteredHistory(history);
+                      }}
+                    />
+                    <SvgButton
+                      size="big"
+                      extraClass="border-gray"
+                      text={t("close-filters")}
+                      onClick={() =>
+                        setHistoryConfig((prev) => ({
+                          ...prev,
+                          showFilters: false,
+                        }))
+                      }
+                    />
+                  </div>
+                </div>
+              ) : (
+                <SvgButton
+                  extraClass="border-gray"
+                  text={t("show-filters")}
+                  onClick={() =>
+                    setHistoryConfig((prev) => ({
+                      ...prev,
+                      showFilters: true,
+                    }))
+                  }
                 />
-                <input
-                  className="w-100 rounded padding-small"
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  placeholder="End Date"
-                />
-              </div>
-              <SvgButton
-                text={t("clean-filters")}
-                extraClass="border-danger pressable"
-                onClick={() => {
-                  setStartDate("");
-                  setEndDate("");
-                  setConversationFilter("");
-                }}
-              />
+              )}
               <div className="flex-y conversation-history gap-small ">
                 <h3>{t("today")}</h3>
                 {filteredHistory
@@ -304,15 +394,13 @@ const ConversationComponent = ({
   conversation: TConversation;
   deleteConversationItem: (id: string) => void;
 }) => {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [_, setSearchParams] = useSearchParams();
   const { setConversation, toggleSidebar } = useStore((state) => ({
     setConversation: state.setConversation,
     toggleSidebar: state.toggleSidebar,
   }));
 
   const { t } = useTranslation();
-
-  // console.log(conversation, "conversation");
 
   const [showTrainingModal, setShowTrainingModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
@@ -321,7 +409,7 @@ const ConversationComponent = ({
   const handleClick = () => {
     console.log("Conversation clicked", conversation.id, "Trying to open");
     setConversation(conversation.id);
-    toggleSidebar();
+
     const queryParams = {
       conversation: conversation.id,
     };

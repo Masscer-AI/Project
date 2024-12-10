@@ -72,16 +72,24 @@ class ConversationView(View):
             return JsonResponse({"status": "regenerated"})
 
         try:
-            Conversation.objects.filter(id=conversation_id, user=user).update(**data)
-            updated_conversation = Conversation.objects.get(
-                id=conversation_id, user=user
-            )
-            serialized_data = ConversationSerializer(updated_conversation).data
+            # Retrieve the conversation instance
+            conversation = Conversation.objects.get(id=conversation_id, user=user)
+
+            # Update the instance's fields with the new data
+            for key, value in data.items():
+                setattr(conversation, key, value)
+
+            # Save the updated instance
+            conversation.save()
+
+            # Serialize the updated conversation
+            serialized_data = ConversationSerializer(conversation).data
             return JsonResponse(serialized_data, status=200)
         except Conversation.DoesNotExist:
             return JsonResponse(
                 {"message": "Conversation not found", "status": 404}, status=404
             )
+
 
     def delete(self, request, *args, **kwargs):
         user = request.user

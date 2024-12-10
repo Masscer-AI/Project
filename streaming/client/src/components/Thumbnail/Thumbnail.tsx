@@ -28,8 +28,6 @@ export const Thumbnail = ({
   showFloatingButtons = false,
   mode,
 }: ThumbnailProps) => {
-  const [showModal, setShowModal] = useState(false);
-
   const { t } = useTranslation();
   const { deleteAttachment } = useStore((state) => ({
     deleteAttachment: state.deleteAttachment,
@@ -37,9 +35,6 @@ export const Thumbnail = ({
 
   return (
     <>
-      {showModal && (
-        <ImageModal src={src} name={name} hide={() => setShowModal(false)} />
-      )}
       {type.indexOf("audio") !== 0 && type.indexOf("image") !== 0 && (
         <DocumentThumnail
           id={id}
@@ -53,20 +48,23 @@ export const Thumbnail = ({
       )}
       {type.indexOf("image") === 0 && (
         <div className="thumbnail pointer ">
-          <img
-            onClick={() => setShowModal(true)}
+          <ImageThumbnail
             src={src}
-            alt={`attachment-${name}`}
+            name={name}
+            buttons={
+              showFloatingButtons && (
+                <div className="d-flex align-center justify-center padding-small">
+                  <SvgButton
+                    title={t("delete")}
+                    svg={SVGS.trash}
+                    extraClass="danger-on-hover "
+                    confirmations={[`${t("sure")}`]}
+                    onClick={() => deleteAttachment(index)}
+                  />
+                </div>
+              )
+            }
           />
-          {showFloatingButtons && (
-            <SvgButton
-              title={t("delete")}
-              svg={SVGS.trash}
-              extraClass="danger-on-hover square-button"
-              confirmations={[`${t("sure")}`]}
-              onClick={() => deleteAttachment(index)}
-            />
-          )}
         </div>
       )}
       {type.indexOf("audio") === 0 && (
@@ -207,6 +205,32 @@ const DocumentThumnail = ({
           </FloatingDropdown>
         )}
       </div>
+    </div>
+  );
+};
+
+const ImageThumbnail = ({
+  src,
+  name,
+  buttons,
+}: {
+  src: string;
+  name: string;
+  buttons?: React.ReactNode;
+}) => {
+  const [showModal, setShowModal] = useState(false);
+
+  return (
+    <div className="thumbnail pointer">
+      {showModal && (
+        <ImageModal src={src} name={name} hide={() => setShowModal(false)} />
+      )}
+      <img
+        onClick={() => setShowModal(true)}
+        src={src}
+        alt={`attachment-${name}`}
+      />
+      {buttons}
     </div>
   );
 };

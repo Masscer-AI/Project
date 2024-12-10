@@ -6,34 +6,28 @@ import "./ChatInput.css";
 import toast from "react-hot-toast";
 import { Thumbnail } from "../Thumbnail/Thumbnail";
 import { SvgButton } from "../SvgButton/SvgButton";
-import { TConversationData } from "../../types/chatTypes";
+
 import { useTranslation } from "react-i18next";
-import { debounce } from "../../modules/utils";
-import { getDocuments, getSuggestion } from "../../modules/apiCalls";
+import { getDocuments } from "../../modules/apiCalls";
 import { SpeechHandler } from "../SpeechHandler/SpeechHandler";
 import { FloatingDropdown } from "../Dropdown/Dropdown";
 import { Modal } from "../Modal/Modal";
 
 import { TAttachment, TDocument } from "../../types";
 import { SliderInput } from "../SimpleForm/SliderInput";
-import { WebsiteFetcher } from "../WebsiteFetcher/WebsiteFetcher";
+import { Loader } from "../Loader/Loader";
 
 interface ChatInputProps {
   handleSendMessage: (input: string) => void;
   initialInput: string;
-  // conversation: TConversationData;
 }
 
 export const ChatInput: React.FC<ChatInputProps> = ({
   handleSendMessage,
   initialInput,
-  // handleKeyDown,
-  // conversation,
 }) => {
   const { t } = useTranslation();
   const {
-    // input,
-    // setInput, F
     attachments,
     addAttachment,
     chatState,
@@ -41,8 +35,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
     toggleWritingMode,
   } = useStore((state) => ({
-    input: state.input,
-    setInput: state.setInput,
     attachments: state.chatState.attachments,
     addAttachment: state.addAttachment,
     chatState: state.chatState,
@@ -154,7 +146,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             title={t("turn-on-off-writing-mode")}
           />
           <RagSearchOptions />
-          <FileLoader />
           <SvgButton
             extraClass={chatState.webSearch ? "bg-active svg-white" : ""}
             onClick={toggleWebSearch}
@@ -241,8 +232,10 @@ export const FileLoader = () => {
       <label htmlFor="fileInput">
         <SvgButton
           onClick={openDocuments}
-          title={t("add-files")}
           svg={SVGS.addDocument}
+          size="big"
+          text={t("add-files")}
+          extraClass="border-active"
         />
       </label>
     </>
@@ -258,6 +251,12 @@ const RagSearchOptions = () => {
   const [isConfigOpen, setIsConfigOpen] = useState(false);
 
   const { t } = useTranslation();
+
+  const explanations = {
+    true: t("use-completions-active-explanation"),
+    false: t("use-completions-inactive-explanation"),
+  };
+
   return (
     <FloatingDropdown
       bottom="100%"
@@ -272,14 +271,29 @@ const RagSearchOptions = () => {
         />
       }
     >
-      <div className="width-300">
-        <p>You can select specific documents from each of your collections</p>
+      <div className="width-300 flex-y gap-medium">
+        <p>{explanations[String(chatState.useRag)]}</p>
+        <SliderInput
+          checked={chatState.useRag}
+          onChange={(checked) => toggleUseRag()}
+          labelTrue={t("use-completions-active")}
+          labelFalse={t("use-completions-inactive")}
+        />
+
+        <span className="text-mini text-secondary">
+          {t(
+            "the-completions-configuration-do-not-affect-the-documents-used-only-specifies-if-completions-are-used"
+          )}
+        </span>
         <SvgButton
           onClick={() => setIsConfigOpen(true)}
-          size="big"
-          // text={t("add-knowledge")}
+          text={t("add-existing-documents")}
+          extraClass="border-active"
           svg={SVGS.plus}
+          size="big"
         />
+        <FileLoader />
+
         {isConfigOpen && <RagConfig hide={() => setIsConfigOpen(false)} />}
       </div>
     </FloatingDropdown>
@@ -288,6 +302,7 @@ const RagSearchOptions = () => {
 
 const RagConfig = ({ hide }: { hide: () => void }) => {
   const [documents, setDocuments] = useState([] as TDocument[]);
+  const [isLoading, setIsLoading] = useState(false);
 
   const { addAttatchment, chatState, removeAttatchment } = useStore((s) => ({
     addAttatchment: s.addAttachment,
@@ -302,8 +317,10 @@ const RagConfig = ({ hide }: { hide: () => void }) => {
   }, []);
 
   const getDocs = async () => {
+    setIsLoading(true);
     const docs = await getDocuments();
     setDocuments(docs);
+    setIsLoading(false);
   };
 
   const toggleDocument = (d: TDocument) => {
@@ -328,6 +345,12 @@ const RagConfig = ({ hide }: { hide: () => void }) => {
         {t("select-documents-to-use")}
       </h3>
       <div className="d-flex gap-small wrap-wrap">
+        {isLoading && (
+          <div className="flex-x justify-center w-100 h-100 align-center">
+            <Loader text={t("loading-documents")} />
+          </div>
+        )}
+
         {documents.map((d) => (
           <div
             key={d.id}
@@ -338,6 +361,12 @@ const RagConfig = ({ hide }: { hide: () => void }) => {
             <p title={d.brief}>{d.brief.slice(0, 200)}...</p>
           </div>
         ))}
+
+        {documents.length === 0 && (
+          <div className="flex-x justify-center w-100 h-100 align-center">
+            <span>{t("no-documents-found")}</span>
+          </div>
+        )}
       </div>
     </Modal>
   );

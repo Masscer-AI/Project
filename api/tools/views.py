@@ -1,15 +1,15 @@
 from django.http import JsonResponse
 from django.utils.text import slugify
 import base64
+import json
+from django.views import View
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
 import requests
 from django.conf import settings
 
-from django.views import View
 import uuid
-import json
 import logging
-from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
 from .models import TranscriptionJob, VideoGenerationJob, Video
 from .serializers import TranscriptionJobSerializer, VideoSerializer
 import os
@@ -402,5 +402,45 @@ class ImageVaryView(View):
                 "image_url": image_url,
                 "image_content_b64": image_content_b64,
                 "image_name": image_name,
+            }
+        )
+
+
+def fetch_url_content(url: str):
+    try:
+        res = requests.get(url)
+        res.raise_for_status()  # Raise an error for bad responses
+
+        # Check the Content-Type to determine how to handle the response
+        content_type = res.headers.get("Content-Type", "")
+        if "application/json" in content_type:
+            content = res.json()  # Parse JSON response
+        else:
+            content = res.text  # Fallback to text response
+
+        return content, res.status_code, res.headers, content_type
+    except requests.RequestException as e:
+        # Handle any request errors as appropriate
+        return str(e), 500, {}, ""
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class WebsiteFetcherView(View):
+    def post(self, request):
+        data = json.loads(request.body)
+        url = data.get("url")
+
+        content, status_code, headers, content_type = fetch_url_content(url)
+
+        # Convert headers to a normal dict
+        headers_dict = dict(headers)
+
+        return JsonResponse(
+            {
+                "content": content,
+                "status_code": status_code,
+                "headers": headers_dict,
+                "content_type": content_type,
             }
         )

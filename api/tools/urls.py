@@ -8,6 +8,7 @@ from .views import (
     DocumentGeneratorView,
     DownloadFile,
     ImageEditorView,
+    WebsiteFetcherView,
 )
 
 app_name = "tools"
@@ -27,4 +28,5 @@ urlpatterns = [
         name="download_file",
     ),
     path("image_editor/", ImageEditorView.as_view(), name="image_editor"),
+    path("website_fetcher/", WebsiteFetcherView.as_view(), name="website_fetcher"),
 ]

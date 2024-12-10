@@ -47,7 +47,7 @@ export const SvgButton = ({
   return (
     <button
       tabIndex={tabIndex}
-      className={`svg-button d-flex align-center justify-center clickeable ${extraClass} ${size} ${transparent ? "transparent" : ""}`}
+      className={`svg-button  clickeable ${extraClass} ${size} ${transparent ? "transparent" : ""}`}
       onClick={handleClick}
       title={title}
       ref={reference}

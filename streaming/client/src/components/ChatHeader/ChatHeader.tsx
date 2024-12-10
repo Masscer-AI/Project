@@ -13,11 +13,13 @@ import { Textarea } from "../SimpleForm/Textarea";
 import { Pill } from "../Pill/Pill";
 
 export const ChatHeader = ({
-  title,
-  onTitleEdit,
+  // title,
+  // onTitleEdit,
+  right,
 }: {
-  title: string;
-  onTitleEdit: (title: string) => void;
+  // title: string;
+  // onTitleEdit: (title: string) => void;
+  right?: React.ReactNode;
 }) => {
   const { t } = useTranslation();
   const { toggleSidebar, agents, addAgent, chatState, test } = useStore(
@@ -29,19 +31,19 @@ export const ChatHeader = ({
       test: state.test,
     })
   );
-  const [innerTitle, setInnerTitle] = useState(title);
+  // const [innerTitle, setInnerTitle] = useState(title);
 
-  const onEdit = (e: React.ChangeEvent<HTMLSpanElement>) => {
-    const newTitle = e.target.innerText;
+  // const onEdit = (e: React.ChangeEvent<HTMLSpanElement>) => {
+  //   const newTitle = e.target.innerText;
 
-    if (!newTitle || newTitle === innerTitle) return;
-    setInnerTitle(newTitle);
-    onTitleEdit(newTitle);
-  };
+  //   if (!newTitle || newTitle === innerTitle) return;
+  //   setInnerTitle(newTitle);
+  //   onTitleEdit(newTitle);
+  // };
 
-  useEffect(() => {
-    setInnerTitle(title);
-  }, [title]);
+  // useEffect(() => {
+  //   setInnerTitle(title);
+  // }, [title]);
 
   return (
     <div className="chat-header d-flex justify-between">
@@ -76,15 +78,15 @@ export const ChatHeader = ({
         </FloatingDropdown>
         {/* <Pill onClick={test}>Test</Pill> */}
       </div>
-      <div
-        contentEditable={true}
-        className="text-normal padding-small "
-        onBlur={onEdit}
-        suppressContentEditableWarning
-        title={t("click-to-edit")}
+      <section
+      // contentEditable={true}
+      // className="text-normal padding-small "
+      // onBlur={onEdit}
+      // suppressContentEditableWarning
+      // title={t("click-to-edit")}
       >
-        {innerTitle}
-      </div>
+        {right && right}
+      </section>
     </div>
   );
 };

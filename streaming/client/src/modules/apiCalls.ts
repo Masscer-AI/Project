@@ -582,3 +582,24 @@ type TUpdateUserData = {
 export const updateUser = async (data: TUpdateUserData) => {
   return makeAuthenticatedRequest("PUT", "/v1/auth/user/me", data);
 };
+
+type TFetchUrlContentResponse = {
+  content: string;
+  status_code: number;
+  headers: any;
+  content_type: string;
+};
+
+export const fetchUrlContent = async (url: string) => {
+  return makeAuthenticatedRequest<TFetchUrlContentResponse>(
+    "POST",
+    "/v1/tools/website_fetcher/",
+    {
+      url,
+    }
+  );
+};
+
+export const getUserTags = async () => {
+  return makeAuthenticatedRequest<string[]>("GET", "/v1/preferences/tags/");
+};

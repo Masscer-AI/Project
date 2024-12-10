@@ -1,11 +1,6 @@
-import { TAttachment } from "../types";
+import { TAttachment, TConversation } from "../types";
 import { Message, Model, TAgent } from "../types/agents";
-import {
-  TUserData,
-  TConversationData,
-  TReactionTemplate,
-} from "../types/chatTypes";
-import { AudioPlayerOptions } from "./utils";
+import { TUserData, TReactionTemplate } from "../types/chatTypes";
 
 type SetOpenedProps = {
   action: "add" | "remove";
@@ -27,7 +22,7 @@ export type TUserPreferences = {
 export type Store = {
   socket: any;
   messages: Message[];
-  input: string;
+  // input: string;
   theme: TTheme;
   models: Model[];
   agents: TAgent[];
@@ -41,10 +36,11 @@ export type Store = {
     useRag: boolean;
     selectedAgents: string[];
   };
-  conversation: TConversationData | undefined;
+  conversation: TConversation | undefined;
   openedModals: string[];
   reactionTemplates: TReactionTemplate[];
   userPreferences: TUserPreferences;
+  userTags: string[];
   setPreferences: (prefs: Partial<TUserPreferences>) => void;
   setTheme: (theme: TTheme) => void;
   startup: () => void;
@@ -58,7 +54,7 @@ export type Store = {
     index: number,
     newAttachment: Partial<TAttachment>
   ) => void;
-  setInput: (input: string) => void;
+  // setInput: (input: string) => void;
   setModels: (models: Model[]) => void;
   fetchAgents: () => void;
   toggleSidebar: () => void;

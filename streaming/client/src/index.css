@@ -271,6 +271,7 @@ option {
 }
 textarea {
   resize: vertical;
+  height: auto;
 }
 
 .gap-1 {
@@ -298,10 +299,6 @@ textarea {
 }
 .bg-gradient {
   background: var(--gradient-dark);
-}
-
-.mt-small {
-  margin-top: 5px;
 }
 
 .card {
@@ -923,6 +920,9 @@ input:checked + .slider::before {
 .mt-small {
   margin-top: 10px;
 }
+.mt-big {
+  margin-top: 20px;
+}
 .svg-danger svg.set-fill path {
   fill: var(--danger-color);
 }
@@ -963,4 +963,15 @@ input:checked + .slider::before {
 }
 .no-margin {
   margin: 0;
+}
+.max-height-500 {
+  max-height: 500px;
+}
+
+.danger-color-on-hover:hover {
+  color: var(--danger-color);
+}
+
+.border-gray {
+  border: 1px solid var(--font-color-secondary) !important;
 }

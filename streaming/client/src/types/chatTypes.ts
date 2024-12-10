@@ -1,11 +1,7 @@
-import { TAttachment, TVersion } from "../types";
+import { TAttachment, TConversation, TVersion } from "../types";
 import { TAgent } from "./agents";
 
-export type TConversationData = {
-  title: string;
-  id: string;
-  messages: TMessage[];
-};
+
 
 export type TUserProfile = {
   avatar_url: string;
@@ -23,7 +19,7 @@ export type TUserData = {
 };
 
 export type TChatLoader = {
-  conversation: TConversationData;
+  conversation: TConversation;
   user: TUserData;
   query: string | null;
   sendQuery: boolean;

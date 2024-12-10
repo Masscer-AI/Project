@@ -3,7 +3,7 @@ from django.http import JsonResponse
 from django.views import View
 from django.utils.decorators import method_decorator
 from api.authenticate.decorators.token_required import token_required
-from .models import UserPreferences
+from .models import UserPreferences, UserTags
 from .serializers import UserPreferencesSerializer
 from rest_framework import status
 from django.views.decorators.csrf import csrf_exempt
@@ -31,7 +31,7 @@ class UserPreferencesView(View):
             user_preferences.save()
 
         data = json.loads(request.body)
-        
+
         serializer = UserPreferencesSerializer(user_preferences, data=data)
 
         if serializer.is_valid():
@@ -39,3 +39,15 @@ class UserPreferencesView(View):
             return JsonResponse(serializer.data, status=status.HTTP_200_OK)
 
         return JsonResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class UserTagsView(View):
+    def get(self, request):
+        user_tags = UserTags.objects.filter(user=request.user).first()
+        if user_tags is None:
+            user_tags = UserTags(user=request.user)
+            user_tags.save()
+
+        return JsonResponse(user_tags.tags, status=status.HTTP_200_OK, safe=False)

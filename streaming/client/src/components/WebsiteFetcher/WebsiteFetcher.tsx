@@ -1,60 +1,82 @@
-import { fetchUrlContent } from "../../modules/utils";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Modal } from "../Modal/Modal";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { SvgButton } from "../SvgButton/SvgButton";
 import { SVGS } from "../../assets/svgs";
+import { fetchUrlContent } from "../../modules/apiCalls";
+import { Textarea } from "../SimpleForm/Textarea";
 
-type TResponseFormat = "text" | "json";
-const allowedFormats = ["text", "json"];
+const extractTextFromHTML = (html: string) => {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, "text/html");
+  return doc.body.innerText;
+};
+
 export const WebsiteFetcher = () => {
   const { t } = useTranslation();
   const [url, setUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
-  const [responseFormat, setResponseFormat] = useState<TResponseFormat>("text");
   const [content, setContent] = useState("");
+  const [wordCount, setWordCount] = useState(0);
 
   const handleFetch = async () => {
     try {
       setIsLoading(true);
-      const content = await fetchUrlContent(url, responseFormat);
-      console.log(content);
-      toast.success("Content fetched");
+      const response = await fetchUrlContent(url);
 
-      setContent(content);
+      console.log(response);
+      toast.success("Content fetched");
+      if (response.status_code === 200) {
+        if (response.content_type.includes("text/html")) {
+          const text = extractTextFromHTML(response.content);
+          setContent(text);
+        } else {
+          setContent(String(response.content));
+        }
+      } else {
+        toast.error(t("error-fetching-content"));
+        setContent("");
+      }
     } catch (error) {
-      toast.error("Error fetching content");
+      toast.error(t("error-fetching-content"));
     } finally {
       setIsLoading(false);
     }
   };
 
+  useEffect(() => {
+    setWordCount(content.split(" ").length);
+  }, [content]);
+
   return (
     <div>
-      <Modal hide={() => setIsOpen(false)} visible={isOpen}>
-        <h2>{t("website-content")}</h2>
-        <pre>{JSON.stringify(content, null, 2)}</pre>
-        <input
-          className="input"
-          placeholder={t("enter-website-url")}
-          type="text"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-        />
-        <select
-          value={responseFormat}
-          onChange={(e) => setResponseFormat(e.target.value as TResponseFormat)}
-        >
-          {allowedFormats.map((format) => (
-            <option value={format}>{format}</option>
-          ))}
-        </select>
-        <SvgButton
-          onClick={handleFetch}
-          svg={SVGS.webSearch}
-          text={isLoading ? "Loading..." : t("fetch-website-content")}
+      <Modal
+        hide={() => setIsOpen(false)}
+        visible={isOpen}
+        header={<h2 className="text-center">{t("website-content-fetcher")}</h2>}
+      >
+        <div className="flex-x gap-small">
+          <input
+            className="input"
+            placeholder={t("enter-website-url")}
+            type="text"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+          />
+
+          <SvgButton
+            onClick={handleFetch}
+            svg={SVGS.webSearch}
+            text={isLoading ? "Loading..." : t("fetch-website-content")}
+          />
+        </div>
+        <Textarea
+          extraClass="mt-big"
+          defaultValue={content}
+          onChange={(newValue) => setContent(newValue)}
+          placeholder={t("choose-relevant-content")}
         />
       </Modal>
       <button onClick={() => setIsOpen(!isOpen)}>Open</button>

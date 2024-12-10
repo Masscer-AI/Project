@@ -4,16 +4,13 @@ import {
   getConversation,
   getUser,
 } from "../../modules/apiCalls";
-import {
-  TConversationData,
-  TChatLoader,
-  TUserData,
-} from "../../types/chatTypes";
+import { TChatLoader, TUserData } from "../../types/chatTypes";
+import { TConversation } from "../../types";
 
 export const chatLoader: LoaderFunction = async ({
   request,
 }): Promise<TChatLoader | Response> => {
-  let c: TConversationData;
+  let c: TConversation;
   try {
     const url = new URL(request.url);
     const conversationId = url.searchParams.get("conversation");

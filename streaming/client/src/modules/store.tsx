@@ -7,6 +7,7 @@ import {
   getConversation,
   getReactionTemplates,
   getUserPreferences,
+  getUserTags,
   initConversation,
   updateUserPreferences,
   uploadDocument,
@@ -21,7 +22,6 @@ export const useStore = create<Store>()((set, get) => ({
   socket: new SocketManager(STREAMING_BACKEND_URL),
   messages: [],
   modelsAndAgents: [],
-  input: "",
   theme: "dark",
   models: [],
   user: undefined,
@@ -46,13 +46,16 @@ export const useStore = create<Store>()((set, get) => ({
   conversation: undefined,
   openedModals: [],
   reactionTemplates: [],
+  userTags: [],
   startup: async () => {
     const { fetchAgents } = get();
     const reactionTemplates: TReactionTemplate[] = await getReactionTemplates();
     set({ reactionTemplates });
     fetchAgents();
     const pref = await getUserPreferences();
-    const bodySize = new TextEncoder().encode(JSON.stringify(pref)).length;
+    const userTags = await getUserTags();
+    set({ userTags: userTags || [] });
+    // const bodySize = new TextEncoder().encode(JSON.stringify(pref)).length;
 
     set({ userPreferences: pref });
   },
@@ -83,7 +86,6 @@ export const useStore = create<Store>()((set, get) => ({
     }));
   },
   setMessages: (messages) => set({ messages }),
-  setInput: (input) => set({ input }),
   setModels: (models) => set({ models }),
   addAttachment: async (newAttachment, saved = false) => {
     const { agents } = get();
@@ -147,9 +149,6 @@ export const useStore = create<Store>()((set, get) => ({
       newAttachment.id = r.id;
       newAttachment.text = r.text;
       toast.dismiss(loadingID);
-      toast.success(
-        "Document uploaded successfully! Now you can chat with it using all the you selected"
-      );
 
       newAttachment.mode = "all_possible_text";
 
@@ -295,29 +294,6 @@ export const useStore = create<Store>()((set, get) => ({
   },
 
   addAgent: async () => {
-    // const { name, slug } = getRandomWordsAndSlug();
-    // const exampleAgent: TAgent = {
-    //   name,
-    //   slug,
-    //   selected: false,
-    //   act_as: "You are a helpful assistant",
-    //   default: true,
-    //   salute: "Hello world",
-    //   frequency_penalty: 0,
-    //   is_public: false,
-    //   max_tokens: 2048,
-    //   model_slug: "gpt-4o-mini",
-    //   presence_penalty: 0,
-    //   system_prompt: `{{act_as}}
-    //   The context below can be useful for your task:
-    //   \`\`\`
-    //   {{context}}
-    //   \`\`\``,
-    //   temperature: 0.7,
-    //   top_p: 1.0,
-    // };
-
-    // createAgent(exampleAgent);
     const a = await createRandomAgent();
     set((state) => ({
       agents: [...state.agents, a],

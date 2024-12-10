@@ -46,13 +46,12 @@ export const DocumentsModal = ({ visible, hide }) => {
           {/* <h3 className="text-center">{t("documents")}</h3> */}
           <p>{t("you-can-use-this-page-to-train-your-model-with-files")}</p>
           <div className="d-flex gap-small">
-          <Pill extraClass="">
-            {documents.length} {t("documents")}
-          </Pill>
-          {/* <Pill extraClass="bg-hovered active-on-hover pressable">
+            <Pill extraClass="">
+              {documents.length} {t("documents")}
+            </Pill>
+            {/* <Pill extraClass="bg-hovered active-on-hover pressable">
             {t("add-documents")}
           </Pill> */}
-
           </div>
           {loading && <Loader text={t("loading-documents")} />}
           {documents.map((document) => (
@@ -97,13 +96,14 @@ const DocumentCard = ({ document, removeDoc }) => {
   const { t } = useTranslation();
 
   const handleDelete = async () => {
-    const tID = toast.loading("Deleting document...");
+    const tID = toast.loading(t("deleting-document"));
     try {
       await deleteDocument(document.id);
-      toast.success("Document deleted");
+      toast.success(t("document-deleted"));
       removeDoc(document.id);
     } catch (e) {
-      toast.error("Error deleting document");
+      toast.error(t("error-deleting-document"));
+      console.log("Error deleting document", e);
     }
     toast.dismiss(tID);
   };

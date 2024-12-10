@@ -15,6 +15,9 @@ import { updateConversation } from "../../modules/apiCalls";
 import { useTranslation } from "react-i18next";
 import { TVersion } from "../../types";
 import { updateLastMessagesIds, addAssistantMessageChunk } from "./helpers";
+import { SvgButton } from "../../components/SvgButton/SvgButton";
+import { SVGS } from "../../assets/svgs";
+import { ConversationModal } from "../../components/ConversationModal/ConversationModal";
 
 export default function ChatView() {
   const loaderData = useLoaderData() as TChatLoader;
@@ -34,8 +37,6 @@ export default function ChatView() {
     socket: state.socket,
     chatState: state.chatState,
     toggleSidebar: state.toggleSidebar,
-    // input: state.input,
-    // setInput: state.setInput,
     conversation: state.conversation,
     cleanAttachments: state.cleanAttachments,
     modelsAndAgents: state.modelsAndAgents,
@@ -54,7 +55,7 @@ export default function ChatView() {
     // setInput(loaderData.query || "");
   }, []);
   const [messages, setMessages] = useState<TMessage[]>(
-    loaderData.conversation.messages
+    loaderData.conversation.messages || []
   );
 
   useEffect(() => {
@@ -152,7 +153,6 @@ export default function ChatView() {
         return rest;
       });
 
-
     try {
       const token = localStorage.getItem("token");
 
@@ -236,16 +236,6 @@ export default function ChatView() {
     });
   };
 
-  const onTitleEdit = async (title: string) => {
-    if (!conversation?.id && !loaderData.conversation.id) return;
-
-    await updateConversation(conversation?.id || loaderData.conversation.id, {
-      title,
-    });
-
-    toast.success(t("title-updated"));
-  };
-
   const onMessageEdit = (
     index: number,
     text: string,
@@ -284,8 +274,11 @@ export default function ChatView() {
           />
         )}
         <ChatHeader
-          onTitleEdit={onTitleEdit}
-          title={conversation?.title || loaderData.conversation.title || "Chat"}
+          right={
+            <ConversationModal
+              conversation={conversation || loaderData.conversation}
+            />
+          }
         />
 
         <div ref={chatMessageContainerRef} className="chat-messages">

@@ -10,6 +10,7 @@ type TModalProps = {
   visible?: boolean;
   extraButtons?: React.ReactNode;
   minHeight?: string;
+  header?: React.ReactNode;
 };
 
 export const Modal = ({
@@ -18,6 +19,7 @@ export const Modal = ({
   visible = true,
   extraButtons = null,
   minHeight = "50vh",
+  header = null,
 }: TModalProps) => {
   if (!visible) return null;
 
@@ -33,7 +35,9 @@ export const Modal = ({
             svg={SVGS.close}
           />
         </div>
-        {children}
+
+        {header && <section className={styles.header}>{header}</section>}
+        <section className={styles.content}>{children}</section>
       </div>
     </div>,
     document.body

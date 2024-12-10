@@ -19,7 +19,6 @@ const MarkdownRenderer = ({
 }: {
   markdown: string;
   extraClass?: string;
-  style?: React.CSSProperties;
 }) => {
   const { t } = useTranslation();
 
