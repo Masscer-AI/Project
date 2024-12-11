@@ -158,7 +158,7 @@ export const CustomCodeBlock = ({ code, language }) => {
               onClick={handleTransform}
             />
             <select
-              className="rounded  "
+              className="rounded  input"
               value={output_format}
               onChange={(e) => setOutputFormat(e.target.value as TOutputFormat)}
             >

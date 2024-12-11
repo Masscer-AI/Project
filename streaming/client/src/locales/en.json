@@ -234,5 +234,7 @@
     "deleting-document": "Deleting document...",
     "error-deleting-document": "Error deleting document",
     "document-deleted": "Document deleted",
-    "no-documents-found": "No documents found"
+    "no-documents-found": "No documents found",
+    "add-an-agent": "Add an agent",
+    "voice": "Voice"
 }

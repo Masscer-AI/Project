@@ -93,7 +93,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const handleKeyDown = (event) => {
     if (event.key === "Enter" && event.shiftKey) {
       return;
-    } else if (event.key === "Enter") {
+    }
+
+    if (event.key === "Enter" && chatState.writtingMode) {
+      return;
+    }
+    if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       handleSendMessage(innerInput);
       setInnerInput("");

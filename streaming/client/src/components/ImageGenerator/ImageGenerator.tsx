@@ -44,8 +44,8 @@ export const ImageGenerator = ({
   onResult: (imageUrl: string, imageContentB64: string) => void;
 }) => {
   const [prompt, setPrompt] = useState(initialPrompt);
-  const [model, setModel] = useState("flux-pro-1.1-ultra");
-  const [size, setSize] = useState(modelSizes[model][0]);
+  const [model, setModel] = useState("flux-pro-1.1");
+  const [size, setSize] = useState("768x1440");
 
   const { t } = useTranslation();
 
@@ -105,6 +105,7 @@ export const ImageGenerator = ({
         <div className="d-flex wrap-wrap justify-center">
           {modelSizes[model].map((s) => (
             <AspectRatio
+              key={s}
               onClick={() => setSize(s)}
               size={s}
               selected={size === s}

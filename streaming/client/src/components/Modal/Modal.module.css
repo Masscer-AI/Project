@@ -37,7 +37,7 @@
 }
 
 .header {
-  height: fit-content;
+  height: 90px;
 }
 
 .content {
@@ -45,4 +45,5 @@
   scrollbar-width: thin;
   scrollbar-color: var(--bg-contrast-color) var(--modal-bg-color);
   padding: 10px;
+  max-height: calc(90dvh - 100px);
 }

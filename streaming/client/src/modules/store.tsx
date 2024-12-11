@@ -305,10 +305,23 @@ export const useStore = create<Store>()((set, get) => ({
     }));
   },
   removeAgent: (slug: string) => {
+    const { chatState } = get();
     set((state) => ({
       agents: state.agents.filter((a) => a.slug !== slug),
     }));
     deleteAgent(slug);
+    // Remove the agent from the selectedAgents array
+
+    const selectedAgents = chatState.selectedAgents.filter((a) => a !== slug);
+
+    set((state) => ({
+      chatState: {
+        ...state.chatState,
+        selectedAgents: selectedAgents,
+      },
+    }));
+    localStorage.setItem("selectedAgents", JSON.stringify(selectedAgents));
+    
   },
   // This must update partial the chatState
   updateChatState: (partial) => {

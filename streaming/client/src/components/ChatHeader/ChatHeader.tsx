@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { useStore } from "../../modules/store";
 import { SVGS } from "../../assets/svgs";
-import { FloatingDropdown } from "../Dropdown/Dropdown";
+// import { FloatingDropdown } from "../Dropdown/Dropdown";
 import { TAgent } from "../../types/agents";
 import styles from "./ChatHeader.module.css";
 import { Modal } from "../Modal/Modal";
@@ -22,71 +22,24 @@ export const ChatHeader = ({
   right?: React.ReactNode;
 }) => {
   const { t } = useTranslation();
-  const { toggleSidebar, agents, addAgent, chatState, test } = useStore(
-    (state) => ({
-      agents: state.agents,
-      toggleSidebar: state.toggleSidebar,
-      addAgent: state.addAgent,
-      chatState: state.chatState,
-      test: state.test,
-    })
-  );
-  // const [innerTitle, setInnerTitle] = useState(title);
-
-  // const onEdit = (e: React.ChangeEvent<HTMLSpanElement>) => {
-  //   const newTitle = e.target.innerText;
-
-  //   if (!newTitle || newTitle === innerTitle) return;
-  //   setInnerTitle(newTitle);
-  //   onTitleEdit(newTitle);
-  // };
-
-  // useEffect(() => {
-  //   setInnerTitle(title);
-  // }, [title]);
+  const { toggleSidebar, chatState } = useStore((state) => ({
+    toggleSidebar: state.toggleSidebar,
+    chatState: state.chatState,
+  }));
 
   return (
     <div className="chat-header d-flex justify-between">
       <div className="d-flex align-center gap-small">
-        {chatState.isSidebarOpened ? (
-          <></>
-        ) : (
+        {!chatState.isSidebarOpened && (
           <SvgButton
             extraClass="pressable active-on-hover"
             onClick={toggleSidebar}
             svg={SVGS.burger}
           />
         )}
-
-        <FloatingDropdown
-          left="0"
-          top="100%"
-          opener={
-            <SvgButton
-              svg={SVGS.stars}
-              extraClass="active-on-focus"
-              text={t("agents")}
-            />
-          }
-        >
-          {agents.map((agent, index) => (
-            <AgentComponent key={index} agent={agent} />
-          ))}
-          <div>
-            <SvgButton onClick={addAgent} svg={SVGS.plus} />
-          </div>
-        </FloatingDropdown>
-        {/* <Pill onClick={test}>Test</Pill> */}
+        <AgentsModal />
       </div>
-      <section
-      // contentEditable={true}
-      // className="text-normal padding-small "
-      // onBlur={onEdit}
-      // suppressContentEditableWarning
-      // title={t("click-to-edit")}
-      >
-        {right && right}
-      </section>
+      <section>{right && right}</section>
     </div>
   );
 };
@@ -96,12 +49,12 @@ type TAgentComponentProps = {
 };
 
 const AgentComponent = ({ agent }: TAgentComponentProps) => {
-  const { toggleAgentSelected, fetchAgents, updateSingleAgent, chatState } =
+  const { toggleAgentSelected, updateSingleAgent, chatState, removeAgent } =
     useStore((state) => ({
       toggleAgentSelected: state.toggleAgentSelected,
-      fetchAgents: state.fetchAgents,
       updateSingleAgent: state.updateSingleAgent,
       chatState: state.chatState,
+      removeAgent: state.removeAgent,
     }));
 
   const { t } = useTranslation();
@@ -116,11 +69,24 @@ const AgentComponent = ({ agent }: TAgentComponentProps) => {
       hideModal();
       toast.success(t("agent-updated"));
       updateSingleAgent(agent);
-    } catch (e) {}
+    } catch (e) {
+      toast.error(t("an-error-occurred"));
+    }
   };
 
+  const handleDelete = () => {
+    removeAgent(agent.slug);
+  };
+
+  const isSelected = chatState.selectedAgents.indexOf(agent.slug) !== -1;
+
   return (
-    <div className={styles.agentComponent}>
+    <div
+      className={styles.agentComponent}
+      style={{
+        backgroundColor: isSelected ? "var(--hovered-color)" : "transparent",
+      }}
+    >
       <section onClick={() => toggleAgentSelected(agent.slug)}>
         <div className="d-flex gap-small align-center pos-relative">
           <input
@@ -137,7 +103,21 @@ const AgentComponent = ({ agent }: TAgentComponentProps) => {
         </div>
         <span>{agent.name}</span>
       </section>
-      <SvgButton svg={SVGS.controls} onClick={showModal} />
+      <section className="d-flex gap-small w-100 ">
+        <SvgButton
+          size="big"
+          extraClass="pressable active-on-hover"
+          svg={SVGS.controls}
+          onClick={showModal}
+        />
+        <SvgButton
+          size="big"
+          extraClass="pressable danger-on-hover"
+          confirmations={[t("sure?")]}
+          svg={SVGS.trash}
+          onClick={handleDelete}
+        />
+      </section>
 
       <Modal minHeight={"40dvh"} visible={isModalVisible} hide={hideModal}>
         <AgentConfigForm agent={agent} onSave={onSave} onDelete={hideModal} />
@@ -239,11 +219,6 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
             value={formState.name}
             onChange={handleInputChange}
           />
-        </label>
-
-        <label className="d-flex gap-small align-center">
-          <span>{t("slug")}</span>
-          <p>{agent.slug}</p>
         </label>
 
         <label className="d-flex gap-small align-center">
@@ -400,6 +375,49 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
         />
       </div>
     </form>
+  );
+};
+
+const AgentsModal = () => {
+  const { agents, addAgent } = useStore((state) => ({
+    agents: state.agents,
+    addAgent: state.addAgent,
+  }));
+
+  const { t } = useTranslation();
+
+  const [isVisible, setVisible] = useState(false);
+
+  const showModal = () => setVisible(true);
+  const hideModal = () => setVisible(false);
+
+  return (
+    <>
+      <SvgButton
+        extraClass="pressable active-on-hover"
+        text={t("agents")}
+        onClick={showModal}
+        svg={SVGS.stars}
+      />
+      <Modal
+        extraButtons={
+          <SvgButton
+            text={t("add-an-agent")}
+            onClick={addAgent}
+            svg={SVGS.plus}
+          />
+        }
+        header={<h2 className="text-center ">{t("agents")}</h2>}
+        visible={isVisible}
+        hide={hideModal}
+      >
+        <div className="d-flex gap-big wrap-wrap justify-center">
+          {agents.map((agent) => (
+            <AgentComponent key={agent.slug} agent={agent} />
+          ))}
+        </div>
+      </Modal>
+    </>
   );
 };
 

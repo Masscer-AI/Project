@@ -198,5 +198,7 @@
     "deleting-document": "Eliminando documento...",
     "error-deleting-document": "Errore eliminando documento",
     "document-deleted": "Documento eliminato",
-    "no-documents-found": "Nessun documento trovato"
+    "no-documents-found": "Nessun documento trovato",
+    "add-an-agent": "Aggiungi un agente",
+    "voice": "Voce"
 }

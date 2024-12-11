@@ -1,44 +1,55 @@
 .agentComponent {
   display: flex;
+  flex-direction: column;
   justify-content: space-between;
-  padding: 2px;
-  align-items: center;
+  padding: 10px;
+  align-items: flex-start;
   width: 300px;
+  border: 1px solid var(--font-color-secondary);
+  border-radius: 10px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
   color: var(--font-color);
-  > section:first-child {
-    cursor: pointer;
-    width: 100%;
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    border-radius: 50vh;
-    padding: 5px;
-    &:hover {
-      background-color: var(--hovered-color);
-    }
-    &:active {
-      background-color: var(--highlighted-color);
-    }
+}
 
-    & input[type="checkbox"] {
-      width: 20px;
-      height: 20px;
-      appearance: none;
-      border: 1px solid var(--font-color-secondary);
-      border-radius: 8px;
-    }
-    & input[type="checkbox"]:checked {
-      /* background-color: var(--highlighted-color); */
-      background-color: var(--success-color);
-      border: 1px solid var(--highlighted-color);
-    }
-    & span.agent-position {
-      font-size: 12px;
-      color: red !important;
-      top: -10px;
-      left: -10px;
-    }
-  }
+.agentComponent > section:first-child {
+  cursor: pointer;
+  width: 100%;
+  display: flex;
+  flex-direction: row; /* Keep elements in a row */
+  align-items: center;
+  gap: 10px; /* Increased gap for better spacing */
+  border-radius: 8px; /* Slightly rounded corners */
+  padding: 10px; /* Increased padding for better touch targets */
+  transition: background-color 0.3s; /* Smooth transition for hover effects */
+}
+
+.agentComponent > section:first-child:hover {
+  background-color: var(--hovered-color);
+}
+
+.agentComponent > section:first-child:active {
+  background-color: var(--highlighted-color);
+}
+
+.agentComponent > section:first-child input[type="checkbox"] {
+  width: 24px; /* Slightly larger checkbox */
+  height: 24px;
+  appearance: none;
+  border: 1px solid var(--font-color-secondary);
+  border-radius: 4px; /* Less rounded for a modern look */
+}
+
+.agentComponent > section:first-child input[type="checkbox"]:checked {
+  background-color: var(--success-color);
+  border: 1px solid var(--highlighted-color);
+}
+
+.agentComponent > section:first-child span.agent-position {
+  font-size: 14px; /* Increased font size */
+  color: red !important;
+  position: absolute; /* Ensure it positions correctly */
+  top: 10px; /* Adjusted for card layout */
+  left: 10px; /* Adjusted for card layout */
 }
 
 .agentPosition {
@@ -46,7 +57,7 @@
   left: 50%;
   transform: translate(-50%, -50%);
   position: absolute;
-  font-size: 12px;
+  font-size: 14px; /* Increased font size */
   font-weight: bolder;
   color: black !important;
 }
