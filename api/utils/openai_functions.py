@@ -6,10 +6,13 @@ import tiktoken
 
 
 def create_completion_openai(
-    system_prompt: str, user_message: str, model="gpt-4o-mini"
+    system_prompt: str,
+    user_message: str,
+    model="gpt-4o-mini",
+    api_key: str = os.environ.get("OPENAI_API_KEY"),
 ):
     client = OpenAI(
-        api_key=os.environ.get("OPENAI_API_KEY"),
+        api_key=api_key,
     )
 
     completion = client.chat.completions.create(

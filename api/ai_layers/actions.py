@@ -2,6 +2,7 @@ from api.utils.openai_functions import generate_image, create_completion_openai
 from .models import Agent
 from api.utils.color_printer import printer
 
+
 # MANDATORY_MODELS = ["llama3.2:1b", "qwen2.5:0.5b"]
 MANDATORY_MODELS = ["llama3.2:1b"]
 
@@ -22,6 +23,11 @@ def check_models_for_providers():
         {"name": "Gpt 3.5 Turbo", "slug": "gpt-3.5-turbo"},
         {"name": "ChatGPT 4O Latest", "slug": "chatgpt-4o-latest"},
         # {"name": "GPT 4O Realtime Preview", "slug": "gpt-4o-realtime-preview"},
+    ]
+
+    anthropic_models_objects = [
+        {"name": "Claude 3.5 Sonnet", "slug": "claude-3-5-sonnet-20241022"},
+        {"name": "Claude 3.5 Haiku", "slug": "claude-3-5-haiku-20241022"},
     ]
     # openai_models_from_api = list_openai_models()
     # printer.red(openai_models_from_api, "OPENAI MODELS FROM API")
@@ -51,6 +57,12 @@ def check_models_for_providers():
     except AIProvider.DoesNotExist:
         printer.red("AIProvider 'ollama' does not exist.")
         ollama_provider = None
+
+    try:
+        anthropic_provider = AIProvider.objects.get(name__iexact="anthropic")
+    except AIProvider.DoesNotExist:
+        printer.red("AIProvider 'anthropic' does not exist.")
+        anthropic_provider = None
 
     if openai_provider:
         for model in openai_models_objects:
@@ -86,6 +98,19 @@ def check_models_for_providers():
                 # printer.yellow(
                 #     f"LanguageModel '{model['name']}' already exists for provider 'Ollama'."
                 # )
+
+    # Create LanguageModels for Anthropic
+    if anthropic_provider:
+        for model in anthropic_models_objects:
+            language_model, created = LanguageModel.objects.get_or_create(
+                provider=anthropic_provider,
+                slug=model["slug"],
+                defaults={"name": model["name"]},
+            )
+            if created:
+                printer.green(
+                    f"LanguageModel '{model['name']}' created for provider 'Anthropic'."
+                )
 
     printer.success("All models are now in the DB!")
 

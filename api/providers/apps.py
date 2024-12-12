@@ -1,6 +1,10 @@
 from django.apps import AppConfig
 from django.db.utils import OperationalError
 from api.utils.color_printer import printer
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 
 class ProvidersConfig(AppConfig):
@@ -26,7 +30,20 @@ class ProvidersConfig(AppConfig):
                 # If it doesn't exist, create it
                 AIProvider.objects.create(name="OpenAI")
                 printer.green("AIProvider 'OpenAI' created.")
-   
+
+            ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+            # Check if an AIProvider with name.lower() == "anthropic" exists
+            if (
+                not AIProvider.objects.filter(name__iexact="anthropic").exists()
+                and ANTHROPIC_API_KEY
+            ):
+                # If it doesn't exist, create it
+                AIProvider.objects.create(name="Anthropic")
+                printer.green("AIProvider 'Anthropic' created.")
+            else:
+                printer.red(
+                    "Anthropic API key not found. Skipping creation of AIProvider 'Anthropic'."
+                )
 
         except OperationalError:
             # This exception might occur during migrations or if the database is not ready

@@ -233,12 +233,16 @@ async def on_message_handler(socket_id, data, **kwargs):
         data = {"agent_slug": agent_slug}
         ai_response = ""
 
+        m["multiagentic_modality"] = multi_agentic_modality
+
         await sio.emit(
             "generation_status",
-            {"message": "generating-response-with", "extra": f" {m["name"]}"},
+            {
+                "message": "generating-response-with",
+                "extra": f" {m["name"]} ({m["llm"]["slug"]})",
+            },
             to=socket_id,
         )
-        m["multiagentic_modality"] = multi_agentic_modality
         async for chunk in stream_completion(
             system_prompt,
             message["text"],
