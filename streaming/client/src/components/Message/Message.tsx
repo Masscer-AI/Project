@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, memo } from "react";
 import { SVGS } from "../../assets/svgs";
 import MarkdownRenderer from "../MarkdownRenderer/MarkdownRenderer";
 import { TAttachment, TSource, TVersion } from "../../types";
@@ -22,6 +22,7 @@ import {
 import { ImageGenerator } from "../ImageGenerator/ImageGenerator";
 import { Loader } from "../Loader/Loader";
 import { FloatingDropdown } from "../Dropdown/Dropdown";
+import { createPortal } from "react-dom";
 type TReaction = {
   id: number;
   template: number;
@@ -58,500 +59,484 @@ interface MessageProps {
   numberMessages: number;
 }
 
-const messageStyles = {
-  user: {
-    background: "var(--gradient-dark)",
-    color: "white",
-  },
-  assistant: {
-    backgroundColor: "var(--assistant-color)",
-    color: "var(--font-color)",
-  },
-};
-
-export const Message = ({
-  type,
-  index,
-  id,
-  text,
-  versions,
-  reactions,
-  attachments,
-  onImageGenerated,
-  onMessageEdit,
-  onMessageDeleted,
-  numberMessages,
-}: MessageProps) => {
-  const [sources, setSources] = useState([] as Link[]);
-  const [isEditing, setIsEditing] = useState(false);
-  const [innerText, setInnerText] = useState(text);
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const [currentVersion, setCurrentVersion] = useState(0);
-  const [innerReactions, setInnerReactions] = useState(
-    reactions || ([] as TReaction[])
-  );
-  const [audioPlayer, setAudioPlayer] = useState<
-    AudioPlayerWithAppendOptions | AudioPlayerOptions | null
-  >(null);
-  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
-  const [messageState, setMessageState] = useState({
-    imageGeneratorOpened: false,
-  });
-  const [isGeneratingSpeech, setIsGeneratingSpeech] = useState(false);
-
-  const { t } = useTranslation();
-
-  const { agents, reactionTemplates, socket, userPreferences } = useStore(
-    (s) => ({
-      agents: s.agents,
-      reactionTemplates: s.reactionTemplates,
-      socket: s.socket,
-      userPreferences: s.userPreferences,
-    })
-  );
-
-  const copyToClipboard = () => {
-    const textToCopy = versions?.[currentVersion]?.text || innerText;
-    navigator.clipboard.writeText(textToCopy).then(
-      () => {
-        toast.success(t("message-copied"));
-      },
-      (err) => {
-        console.error("Error al copiar al portapapeles: ", err);
-      }
+export const Message = memo(
+  ({
+    type,
+    index,
+    id,
+    text,
+    versions,
+    reactions,
+    attachments,
+    onImageGenerated,
+    onMessageEdit,
+    onMessageDeleted,
+    numberMessages,
+  }: MessageProps) => {
+    const [isEditing, setIsEditing] = useState(false);
+    const [innerText, setInnerText] = useState(text);
+    const textareaValueRef = useRef<string | null>(null);
+    const [currentVersion, setCurrentVersion] = useState(0);
+    const [innerReactions, setInnerReactions] = useState(
+      reactions || ([] as TReaction[])
     );
-  };
-
-  const onFinishAudioGeneration = () => {
-    setIsPlayingAudio(false);
-  };
-
-  useEffect(() => {
-    if (!id) return;
-
-    socket.on(`audio-file-${id}`, (audioFile) => {
-      setIsGeneratingSpeech(false);
-
-      if (audioPlayer) {
-        audioPlayer.stop();
-        audioPlayer.destroy();
-        // toast.success("Audio player stopped");
-      }
-      const newAudioPlayer = createAudioPlayer(
-        audioFile,
-        onFinishAudioGeneration
-      );
-      newAudioPlayer.play();
-
-      setAudioPlayer(newAudioPlayer);
-      setIsPlayingAudio(true);
+    const [audioPlayer, setAudioPlayer] = useState<
+      AudioPlayerWithAppendOptions | AudioPlayerOptions | null
+    >(null);
+    const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+    const [messageState, setMessageState] = useState({
+      imageGeneratorOpened: false,
     });
+    const [isGeneratingSpeech, setIsGeneratingSpeech] = useState(false);
 
-    // socket.on(`audio-chunk-${id}`, (data) => {
-    //   toast.success("Audio chunk received");
-    //   if (!audioPlayer) {
-    //     const player = createAudioPlayerWithAppend(onFinishAudioGeneration);
-    //     player.append(new Uint8Array(data.audio_bytes).buffer);
-    //     if (data.position === 0) {
-    //       setIsGeneratingSpeech(false);
-    //       player.play();
-    //     }
-    //     setAudioPlayer(player);
-    //   }
-    // });
-    return () => {
-      socket.off(`audio-file-${id}`);
-      // socket.off(`audio-chunk-${id}`);
-    };
-  }, [id, socket, audioPlayer]);
+    const { t } = useTranslation();
 
-  useEffect(() => {
-    if (
-      id &&
-      numberMessages === index + 1 &&
-      userPreferences.autoplay &&
-      type === "assistant"
-    ) {
-      handleGenerateSpeech();
-    }
-  }, [id, numberMessages]);
+    const { agents, reactionTemplates, socket, userPreferences } = useStore(
+      (s) => ({
+        agents: s.agents,
+        reactionTemplates: s.reactionTemplates,
+        socket: s.socket,
+        userPreferences: s.userPreferences,
+      })
+    );
 
-  useEffect(() => {
-    if (isEditing && textareaRef.current) {
-      textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height =
-        textareaRef.current.scrollHeight + "px";
-
-      textareaRef.current.setSelectionRange(
-        textareaRef.current.value.length,
-        textareaRef.current.value.length
+    const copyToClipboard = () => {
+      const textToCopy = versions?.[currentVersion]?.text || innerText;
+      navigator.clipboard.writeText(textToCopy).then(
+        () => {
+          toast.success(t("message-copied"));
+        },
+        (err) => {
+          console.error("Error al copiar al portapapeles: ", err);
+        }
       );
-    }
-    return () => {
-      if (textareaRef.current) {
-        textareaRef.current.style.height = "auto";
-      }
     };
-  }, [innerText, isEditing]);
 
-  useEffect(() => {
-    const anchors = document.querySelectorAll(`.message-${index} a`);
+    const onFinishAudioGeneration = () => {
+      setIsPlayingAudio(false);
+    };
 
-    const extractedLinks: Link[] = [];
+    useEffect(() => {
+      socket.on(`response-for-${index}`, (data) => {
+        if (data.chunk) {
+          setInnerText((prev) => prev + data.chunk);
+        }
+      });
 
-    anchors.forEach((anchor) => {
-      const href = anchor.getAttribute("href");
-      if (!href) return;
-      const isSource = href.includes("#");
-      if (isSource) {
-        anchor.removeAttribute("target");
+      return () => {
+        socket.off(`response-for-${index}`);
+      };
+    }, [index]);
+
+    useEffect(() => {
+      if (!id) return;
+
+      socket.on(`audio-file-${id}`, (audioFile) => {
+        setIsGeneratingSpeech(false);
+
+        if (audioPlayer) {
+          audioPlayer.stop();
+          audioPlayer.destroy();
+          // toast.success("Audio player stopped");
+        }
+        const newAudioPlayer = createAudioPlayer(
+          audioFile,
+          onFinishAudioGeneration
+        );
+        newAudioPlayer.play();
+
+        setAudioPlayer(newAudioPlayer);
+        setIsPlayingAudio(true);
+      });
+
+      // socket.on(`audio-chunk-${id}`, (data) => {
+      //   toast.success("Audio chunk received");
+      //   if (!audioPlayer) {
+      //     const player = createAudioPlayerWithAppend(onFinishAudioGeneration);
+      //     player.append(new Uint8Array(data.audio_bytes).buffer);
+      //     if (data.position === 0) {
+      //       setIsGeneratingSpeech(false);
+      //       player.play();
+      //     }
+      //     setAudioPlayer(player);
+      //   }
+      // });
+      return () => {
+        socket.off(`audio-file-${id}`);
+        // socket.off(`audio-chunk-${id}`);
+      };
+    }, [id, socket, audioPlayer]);
+
+    useEffect(() => {
+      if (
+        id &&
+        numberMessages === index + 1 &&
+        userPreferences.autoplay &&
+        type === "assistant"
+      ) {
+        handleGenerateSpeech(versions?.[currentVersion]?.text || innerText);
+      }
+    }, [id, numberMessages]);
+
+    useEffect(() => {
+      const anchors = document.querySelectorAll(`.message-${index} a`);
+
+      const extractedLinks: Link[] = [];
+
+      anchors.forEach((anchor) => {
+        const href = anchor.getAttribute("href");
+        if (!href) return;
+        const isSource = href.includes("#");
+        if (isSource) {
+          anchor.removeAttribute("target");
+        } else {
+          anchor.setAttribute("target", "_blank");
+        }
+        const currentHrefs = extractedLinks.map((l) => l.url);
+        if (!currentHrefs.includes(href)) {
+          extractedLinks.push({ url: href, text: anchor.textContent || "" });
+        }
+      });
+      // setSources(extractedLinks);
+      setInnerText(text);
+    }, [text]);
+
+    const toggleEditMode = () => {
+      setIsEditing(!isEditing);
+    };
+
+    const handleReaction = (action: "add" | "remove", templateId: number) => {
+      if (action === "add") {
+        setInnerReactions([
+          ...innerReactions,
+          { id: templateId, template: templateId },
+        ]);
       } else {
-        anchor.setAttribute("target", "_blank");
+        setInnerReactions(
+          innerReactions.filter((r) => r.template !== templateId)
+        );
       }
-      const currentHrefs = extractedLinks.map((l) => l.url);
-      if (!currentHrefs.includes(href)) {
-        extractedLinks.push({ url: href, text: anchor.textContent || "" });
+    };
+
+    const handleGenerateSpeech = async (text: string) => {
+      if (isGeneratingSpeech) {
+        const randomWaitMessage = [
+          t("speech-being-generated-wait-a-second"),
+          t("are-you-trying-to-make-me-speak-twice?"),
+          t("just-a-second"),
+        ];
+        const randomIndex = Math.floor(
+          Math.random() * randomWaitMessage.length
+        );
+        toast.success(randomWaitMessage[randomIndex], {
+          icon: "🔊",
+        });
+        return;
       }
-    });
-    // setSources(extractedLinks);
-    setInnerText(text);
-  }, [text]);
 
-  const toggleEditMode = () => {
-    if (isEditing) {
-      textareaRef.current?.blur();
-      // Get the textarea value
-      const textareaValue = textareaRef.current?.value;
+      if (!audioPlayer) {
+        try {
+          toast.success(t("speech-being-generated-wait-a-second"), {
+            icon: "🔊",
+          });
 
-      if (id && type === "assistant" && versions && textareaValue) {
+          socket.emit("speech_request", {
+            text: text,
+            id: id,
+            voice: {
+              type: "openai",
+              slug:
+                agents.find(
+                  (a) => versions?.[currentVersion].agent_slug === a.slug
+                )?.openai_voice || "alloy",
+            },
+          });
+          setIsGeneratingSpeech(true);
+        } catch (error) {
+          console.error("Error generating speech:", error);
+        }
+      } else {
+      }
+    };
+
+    const handleDelete = async () => {
+      if (!id) return;
+      try {
+        await deleteMessage(id);
+        onMessageDeleted(index);
+      } catch (error) {
+        console.error("Error deleting message:", error);
+        toast.error(t("error-deleting-message"));
+      }
+    };
+
+    const finishEditing = () => {
+      const newValue = textareaValueRef.current;
+
+      if (!newValue) return;
+
+      setInnerText(newValue);
+
+      if (id && type === "assistant" && versions && newValue) {
         const newVersions = versions.map((v, index) => {
           if (currentVersion === index) {
             return {
               ...v,
-              text: textareaValue,
+              text: newValue,
             };
           }
           return v;
         });
 
         updateMessage(id, {
-          text: textareaValue,
+          text: newValue,
           type: type,
           versions: newVersions,
         });
-        onMessageEdit(index, textareaValue, newVersions);
+        onMessageEdit(index, newValue, newVersions);
       }
-      if (id && type === "user" && textareaValue) {
+      if (id && type === "user" && newValue) {
         updateMessage(id, {
-          text: textareaValue,
+          text: newValue,
           type: type,
         });
-        onMessageEdit(index, textareaValue);
+        onMessageEdit(index, newValue);
       }
-    }
-    setIsEditing(!isEditing);
-  };
 
-  const handleReaction = (action: "add" | "remove", templateId: number) => {
-    if (action === "add") {
-      setInnerReactions([
-        ...innerReactions,
-        { id: templateId, template: templateId },
-      ]);
-    } else {
-      setInnerReactions(
-        innerReactions.filter((r) => r.template !== templateId)
-      );
-    }
-  };
+      toggleEditMode();
+    };
 
-  const handleGenerateSpeech = async () => {
-    if (isGeneratingSpeech) {
-      const randomWaitMessage = [
-        t("speech-being-generated-wait-a-second"),
-        t("are-you-trying-to-make-me-speak-twice?"),
-        t("just-a-second"),
-      ];
-      const randomIndex = Math.floor(Math.random() * randomWaitMessage.length);
-      toast.success(randomWaitMessage[randomIndex], {
-        icon: "🔊",
-      });
-      return;
-    }
-
-    if (!audioPlayer) {
-      try {
-        toast.success(t("speech-being-generated-wait-a-second"), {
-          icon: "🔊",
-        });
-
-        socket.emit("speech_request", {
-          text: versions?.[currentVersion]?.text || innerText,
-          id: id,
-          voice: {
-            type: "openai",
-            slug:
-              agents.find(
-                (a) => versions?.[currentVersion].agent_slug === a.slug
-              )?.openai_voice || "alloy",
-          },
-        });
-        setIsGeneratingSpeech(true);
-      } catch (error) {
-        console.error("Error generating speech:", error);
-      }
-    } else {
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!id) return;
-    try {
-      await deleteMessage(id);
-      onMessageDeleted(index);
-    } catch (error) {
-      console.error("Error deleting message:", error);
-      toast.error(t("error-deleting-message"));
-    }
-  };
-
-  return (
-    <div className={`message ${type} message-${index}`}>
-      {isEditing ? (
-        <textarea
-          autoComplete="on"
-          ref={textareaRef}
-          className="message-textarea"
-          defaultValue={versions?.[currentVersion]?.text || innerText}
-        />
-      ) : (
-        <MarkdownRenderer
-          markdown={versions?.[currentVersion]?.text || innerText}
-          extraClass={`message-text ${type}`}
-        />
-      )}
-
-      {!id && type === "assistant" && <Loader text={t("thinking...")} />}
-      <section className="message__attachments">
-        {attachments &&
-          attachments.map(({ content, type, name }, index) => (
-            <Thumbnail
-              index={index}
-              type={type}
-              src={content}
-              name={name}
-              key={index}
-            />
-          ))}
-        {versions?.[currentVersion]?.sources &&
-          versions?.[currentVersion]?.sources.map((s, index) => (
-            <Source key={index} source={s} />
-          ))}
-
-        {versions?.[currentVersion]?.web_search_results &&
-          versions?.[currentVersion]?.web_search_results.map(
-            (result, index) => {
-              if (!result) return null;
-              return <WebSearchResultInspector key={index} result={result} />;
-            }
-          )}
-      </section>
-      <div className="message-buttons d-flex gap-small align-center">
-        <SvgButton
-          title={t("copy-to-clipboard")}
-          extraClass="active-on-hover  pressable"
-          onClick={() => copyToClipboard()}
-          svg={SVGS.copyTwo}
-          // text={t("copy")}
-          // size="big"
-        />
-        {id && (
+    return (
+      <div className={`message ${type} message-${index}`}>
+        {isEditing ? (
           <>
-            {messageState.imageGeneratorOpened && (
-              <ImageGenerator
-                onResult={(imageB64, imageName) =>
-                  onImageGenerated(imageB64, imageName, id)
-                }
-                messageId={id}
-                hide={() =>
-                  setMessageState((prev) => ({
-                    ...prev,
-                    imageGeneratorOpened: false,
-                  }))
-                }
-                initialPrompt={versions?.[currentVersion]?.text || innerText}
-              />
-            )}
-
-            {/* <span>{id}</span> */}
-            {audioPlayer && (
-              <>
-                {isPlayingAudio ? (
-                  <SvgButton
-                    title={t("pause-speech")}
-                    onClick={() => {
-                      audioPlayer.pause();
-                      setIsPlayingAudio(false);
-                    }}
-                    svg={SVGS.pause}
-                  />
-                ) : (
-                  <SvgButton
-                    title={t("play-speech")}
-                    onClick={() => {
-                      audioPlayer.play();
-                      setIsPlayingAudio(true);
-                    }}
-                    svg={SVGS.play}
-                  />
-                )}
-                <SvgButton
-                  title={t("stop-speech")}
-                  onClick={() => {
-                    audioPlayer.stop();
-                    setIsPlayingAudio(false);
-                  }}
-                  svg={SVGS.stop}
-                />
-                <SvgButton
-                  title={t("download-audio")}
-                  onClick={() => {
-                    const filename = slugify(
-                      versions?.[currentVersion]?.text || text
-                    ).slice(0, 100);
-
-                    audioPlayer.download(filename);
-                  }}
-                  svg={SVGS.download}
-                />
-              </>
-            )}
-            {isEditing && (
-              <SvgButton
-                title={isEditing ? t("finish") : t("edit")}
-                onClick={toggleEditMode}
-                svg={isEditing ? SVGS.finish : SVGS.edit}
-                extraClass={isEditing ? "bg-active" : ""}
-              />
-            )}
-            <Reactions
-              direction={type === "user" ? "right" : "left"}
-              onReaction={handleReaction}
-              messageId={id.toString()}
-              currentReactions={innerReactions?.map((r) => r.template) || []}
+            <MessageEditor
+              textareaValueRef={textareaValueRef}
+              text={versions?.[currentVersion]?.text || innerText}
+              messageId={id}
+              onImageGenerated={onImageGenerated}
+              generateSpeech={handleGenerateSpeech}
             />
-            {innerReactions && innerReactions.length > 0 && (
-              <>
-                {innerReactions.map(
-                  (r) =>
-                    reactionTemplates.find((rt) => rt.id === r.template)?.emoji
-                )}
-              </>
-            )}
           </>
+        ) : (
+          <MarkdownRenderer
+            markdown={versions?.[currentVersion]?.text || innerText}
+            extraClass={`message-text ${type}`}
+          />
         )}
 
-        {versions && (
-          <div className="d-flex gap-small align-center">
-            {versions.map((v, index) => (
-              <Pill
-                key={index + "pill"}
-                extraClass={`${
-                  currentVersion === index ? "bg-active" : "bg-hovered"
-                }`}
-                onClick={() => {
-                  setCurrentVersion(index);
-                  setAudioPlayer(null);
-                }}
-              >
-                <span className="box">{index + 1}</span>
-              </Pill>
+        {!id && type === "assistant" && <Loader text={t("thinking...")} />}
+        <section className="message__attachments">
+          {attachments &&
+            attachments.map(({ content, type, name }, index) => (
+              <Thumbnail
+                index={index}
+                type={type}
+                src={content}
+                name={name}
+                key={index}
+              />
             ))}
-          </div>
-        )}
+          {versions?.[currentVersion]?.sources &&
+            versions?.[currentVersion]?.sources.map((s, index) => (
+              <Source key={index} source={s} />
+            ))}
 
-        {versions?.[currentVersion]?.agent_name ? (
-          <Pill>{versions?.[currentVersion]?.agent_name}</Pill>
-        ) : null}
-
-        {id && (
-          <FloatingDropdown
-            {...(index === 0
-              ? { right: "100%", top: "0" }
-              : {
-                  right: "0",
-                  bottom: "100%",
-                })}
-            opener={<SvgButton svg={SVGS.options} />}
-          >
-            <div className="flex-y gap-small width-200">
-              {!audioPlayer && (
-                <SvgButton
-                  text={t("generate-speech")}
-                  onClick={handleGenerateSpeech}
-                  svg={SVGS.waves}
-                  size="big"
-                  extraClass="active-on-hover border-active pressable"
+          {versions?.[currentVersion]?.web_search_results &&
+            versions?.[currentVersion]?.web_search_results.map(
+              (result, index) => {
+                if (!result) return null;
+                return <WebSearchResultInspector key={index} result={result} />;
+              }
+            )}
+        </section>
+        <div className="message-buttons d-flex gap-small align-center">
+          <SvgButton
+            title={t("copy-to-clipboard")}
+            extraClass="active-on-hover  pressable"
+            onClick={() => copyToClipboard()}
+            svg={SVGS.copyTwo}
+            // text={t("copy")}
+            // size="big"
+          />
+          {id && (
+            <>
+              {messageState.imageGeneratorOpened && (
+                <ImageGenerator
+                  onResult={(imageB64, imageName) =>
+                    onImageGenerated(imageB64, imageName, id)
+                  }
+                  messageId={id}
+                  hide={() =>
+                    setMessageState((prev) => ({
+                      ...prev,
+                      imageGeneratorOpened: false,
+                    }))
+                  }
+                  initialPrompt={versions?.[currentVersion]?.text || innerText}
                 />
               )}
-              <SvgButton
-                title={isEditing ? t("finish") : t("edit")}
-                onClick={toggleEditMode}
-                size="big"
-                text={isEditing ? t("finish") : t("edit")}
-                svg={isEditing ? SVGS.finish : SVGS.edit}
-                extraClass="active-on-hover border-active pressable"
+
+              {/* <span>{id}</span> */}
+              {audioPlayer && (
+                <>
+                  {isPlayingAudio ? (
+                    <SvgButton
+                      title={t("pause-speech")}
+                      onClick={() => {
+                        audioPlayer.pause();
+                        setIsPlayingAudio(false);
+                      }}
+                      svg={SVGS.pause}
+                    />
+                  ) : (
+                    <SvgButton
+                      title={t("play-speech")}
+                      onClick={() => {
+                        audioPlayer.play();
+                        setIsPlayingAudio(true);
+                      }}
+                      svg={SVGS.play}
+                    />
+                  )}
+                  <SvgButton
+                    title={t("stop-speech")}
+                    onClick={() => {
+                      audioPlayer.stop();
+                      setIsPlayingAudio(false);
+                    }}
+                    svg={SVGS.stop}
+                  />
+                  <SvgButton
+                    title={t("download-audio")}
+                    onClick={() => {
+                      const filename = slugify(
+                        versions?.[currentVersion]?.text || text
+                      ).slice(0, 100);
+
+                      audioPlayer.download(filename);
+                    }}
+                    svg={SVGS.download}
+                  />
+                </>
+              )}
+              {isEditing && (
+                <SvgButton
+                  title={t("finish")}
+                  onClick={finishEditing}
+                  svg={SVGS.finish}
+                  extraClass={isEditing ? "bg-active" : ""}
+                />
+              )}
+              <Reactions
+                direction={type === "user" ? "right" : "left"}
+                onReaction={handleReaction}
+                messageId={id.toString()}
+                currentReactions={innerReactions?.map((r) => r.template) || []}
               />
-              <SvgButton
-                size="big"
-                text={t("generate-image")}
-                extraClass="active-on-hover border-active pressable"
-                onClick={() =>
-                  setMessageState((prev) => ({
-                    ...prev,
-                    imageGeneratorOpened: true,
-                  }))
-                }
-                svg={SVGS.picture}
-              />
-              <SvgButton
-                title={t("delete-message")}
-                size="big"
-                extraClass="border-danger danger-on-hover  pressable"
-                onClick={() => handleDelete()}
-                svg={SVGS.trash}
-                text={t("delete")}
-                confirmations={[t("im-sure")]}
-              />
+              {innerReactions && innerReactions.length > 0 && (
+                <>
+                  {innerReactions.map(
+                    (r) =>
+                      reactionTemplates.find((rt) => rt.id === r.template)
+                        ?.emoji
+                  )}
+                </>
+              )}
+            </>
+          )}
+
+          {versions && (
+            <div className="d-flex gap-small align-center">
+              {versions.map((v, index) => (
+                <Pill
+                  key={index + "pill"}
+                  extraClass={`${
+                    currentVersion === index ? "bg-active" : "bg-hovered"
+                  }`}
+                  onClick={() => {
+                    setCurrentVersion(index);
+                    setAudioPlayer(null);
+                  }}
+                >
+                  <span className="box">{index + 1}</span>
+                </Pill>
+              ))}
             </div>
-          </FloatingDropdown>
-        )}
+          )}
+
+          {versions?.[currentVersion]?.agent_name ? (
+            <Pill>{versions?.[currentVersion]?.agent_name}</Pill>
+          ) : null}
+
+          {id && (
+            <FloatingDropdown
+              {...(index === 0
+                ? { right: "100%", top: "0" }
+                : {
+                    right: "0",
+                    bottom: "100%",
+                  })}
+              opener={<SvgButton svg={SVGS.options} />}
+            >
+              <div className="flex-y gap-small width-200">
+                {!audioPlayer && (
+                  <SvgButton
+                    text={t("generate-speech")}
+                    onClick={() =>
+                      handleGenerateSpeech(
+                        versions?.[currentVersion]?.text || innerText
+                      )
+                    }
+                    svg={SVGS.waves}
+                    size="big"
+                    extraClass="active-on-hover border-active pressable"
+                  />
+                )}
+                {/* TODO: Change this possibly */}
+                <SvgButton
+                  title={isEditing ? t("finish") : t("edit")}
+                  onClick={toggleEditMode}
+                  size="big"
+                  text={isEditing ? t("finish") : t("edit")}
+                  svg={isEditing ? SVGS.finish : SVGS.edit}
+                  extraClass="active-on-hover border-active pressable"
+                />
+                <SvgButton
+                  size="big"
+                  text={t("generate-image")}
+                  extraClass="active-on-hover border-active pressable"
+                  onClick={() =>
+                    setMessageState((prev) => ({
+                      ...prev,
+                      imageGeneratorOpened: true,
+                    }))
+                  }
+                  svg={SVGS.picture}
+                />
+                <SvgButton
+                  title={t("delete-message")}
+                  size="big"
+                  extraClass="border-danger danger-on-hover  pressable"
+                  onClick={() => handleDelete()}
+                  svg={SVGS.trash}
+                  text={t("delete")}
+                  confirmations={[t("im-sure")]}
+                />
+              </div>
+            </FloatingDropdown>
+          )}
+        </div>
       </div>
-    </div>
-  );
-};
+    );
+  }
+);
 
-function getSomeNumberFromChunkString(chunkString) {
-  // It must cut the string at - and return both parts
-  const [modelName, modelId] = chunkString.split("-");
-  return { modelName, modelId };
-}
-
-// type TChunk = {
-//   id: number;
-//   document: number;
-//   content: string;
-//   brief?: string;
-//   tags?: string;
-// };
 const Source = ({ source }: { source: TSource }) => {
   const [isVisible, setIsVisible] = useState(false);
 
   const { t } = useTranslation();
   const handleGetModel = async () => {
-    // const { modelId, modelName } = getSomeNumberFromChunkString(href);
-    // const chunk = await getChunk(modelId);
-    // setChunkInfo(chunk);
     setIsVisible(true);
   };
 
@@ -632,5 +617,211 @@ const WebSearchResultContent = ({ result }) => {
       <h2 className="word-break-all">{result.url}</h2>
       <pre className="word-break-all">{result.content}</pre>
     </div>
+  );
+};
+
+{
+  /* <textarea
+autoComplete="on"
+ref={textareaRef}
+className="message-textarea"
+defaultValue={versions?.[currentVersion]?.text || innerText}
+/> */
+}
+
+const MessageEditor = ({
+  text,
+  textareaValueRef,
+  messageId,
+  onImageGenerated,
+  generateSpeech,
+}) => {
+  const [innerText, setInnerText] = useState(text);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const [editionOptions, setEditionOptions] = useState({
+    top: 0,
+    left: 0,
+    isVisible: false,
+    generateImage: false,
+    currentText: text,
+  });
+  const { t } = useTranslation();
+
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height =
+        textareaRef.current.scrollHeight + "px";
+    }
+  }, [innerText]);
+
+  const handleDoubleClick = (e: React.MouseEvent<HTMLTextAreaElement>) => {
+    // Get current selected text
+    const selectedText = window.getSelection()?.toString();
+
+    if (selectedText) {
+      setEditionOptions({
+        top: e.clientY,
+        left: e.clientX,
+        isVisible: true,
+        generateImage: false,
+        currentText: selectedText,
+      });
+    } else {
+      setEditionOptions({
+        top: e.clientY,
+        left: e.clientX,
+        isVisible: false,
+        generateImage: false,
+        currentText: text,
+      });
+    }
+  };
+
+  // const handleTouchEnd = (e: React.TouchEvent<HTMLTextAreaElement>) => {
+  //   console.log(e);
+
+  //   const selectedText = window.getSelection()?.toString();
+  //   const yPosition = e.changedTouches[0].clientY;
+  //   const xPosition = e.changedTouches[0].clientX;
+
+  //   console.log(yPosition, xPosition, selectedText);
+
+  //   if (selectedText && yPosition > 100 && xPosition > 100) {
+  //     setEditionOptions({
+  //       top: yPosition,
+  //       left: xPosition,
+  //       isVisible: true,
+  //       generatedImage: false,
+  //       currentText: selectedText,
+  //     });
+  //   } else {
+  //     setEditionOptions({
+  //       top: yPosition,
+  //       left: xPosition,
+  //       isVisible: false,
+  //       generatedImage: false,
+  //       currentText: text,
+  //     });
+  //   }
+  // };
+
+  const generateImageWithThisText = () => {
+    setEditionOptions((prev) => ({
+      ...prev,
+      generateImage: true,
+    }));
+  };
+
+  const generateSpeechWithThisText = () => {
+    generateSpeech(editionOptions.currentText);
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent<HTMLTextAreaElement>) => {
+    console.log(e);
+    const selectedText = window.getSelection()?.toString();
+
+    const touch = e.changedTouches[0];
+    if (selectedText && e.changedTouches) {
+      setEditionOptions({
+        top: e.changedTouches[0].clientY,
+        left: e.changedTouches[0].clientX,
+        isVisible: true,
+        generateImage: false,
+        currentText: selectedText,
+      });
+    }
+  };
+
+  return (
+    <div className="message-editor">
+      <textarea
+        autoComplete="on"
+        ref={textareaRef}
+        className="message-textarea"
+        onChange={(e) => (textareaValueRef.current = e.target.value)}
+        defaultValue={text}
+        onMouseUp={handleDoubleClick}
+        onDoubleClick={handleDoubleClick}
+        onTouchEnd={handleTouchEnd}
+        // onTouchEnd={handleTouchEnd}
+      />
+      {editionOptions.isVisible &&
+        createPortal(
+          <div
+            style={{
+              top: editionOptions.top,
+              left: editionOptions.left,
+            }}
+            className="message-edition-options"
+          >
+            {editionOptions.generateImage && (
+              <ImageGenerator
+                onResult={(imageB64, imageName) =>
+                  onImageGenerated(imageB64, imageName, messageId)
+                }
+                messageId={messageId}
+                hide={() =>
+                  setEditionOptions((prev) => ({
+                    ...prev,
+                    generateImage: false,
+                  }))
+                }
+                initialPrompt={editionOptions.currentText}
+              />
+            )}
+            <SvgButton
+              text={t("generate-image")}
+              onClick={generateImageWithThisText}
+              svg={SVGS.picture}
+              size="big"
+            />
+            <SvgButton
+              text={t("generate-speech")}
+              onClick={generateSpeechWithThisText}
+              svg={SVGS.waves}
+              size="big"
+            />
+            <ModifyTextModal
+              text={editionOptions.currentText}
+              messageID={messageId}
+            />
+          </div>,
+          document.body
+        )}
+    </div>
+  );
+};
+
+const ModifyTextModal = ({ text, messageID }) => {
+  const [isVisible, setIsVisible] = useState(false);
+  const [modifications, setModifications] = useState({
+    text: text,
+    messageID: messageID,
+  });
+  const { t } = useTranslation();
+
+  return (
+    <>
+      <SvgButton
+        size="big"
+        text="Modify text"
+        onClick={() => setIsVisible(true)}
+        svg={SVGS.edit}
+      />
+      <Modal
+        header={<h3 className="padding-medium">{t("modify-message")}</h3>}
+        visible={isVisible}
+        hide={() => setIsVisible(false)}
+      >
+        <div className="flex-y gap-medium">
+          <h4>{t("selected-text")}</h4>
+          <p className="text-small text-secondary">{text}</p>
+          <div className="d-flex gap-small">
+            <SvgButton text="Extend" svg={SVGS.plus} />
+          </div>
+        </div>
+      </Modal>
+    </>
   );
 };

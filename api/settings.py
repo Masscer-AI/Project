@@ -65,7 +65,8 @@ INSTALLED_APPS = [
     "api.whatsapp",
     "api.feedback",
     "api.preferences",
-    "api.prompting"
+    "api.prompting",
+    "api.notify",
 ]
 
 MIDDLEWARE = [

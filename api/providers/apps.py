@@ -40,10 +40,6 @@ class ProvidersConfig(AppConfig):
                 # If it doesn't exist, create it
                 AIProvider.objects.create(name="Anthropic")
                 printer.green("AIProvider 'Anthropic' created.")
-            else:
-                printer.red(
-                    "Anthropic API key not found. Skipping creation of AIProvider 'Anthropic'."
-                )
 
         except OperationalError:
             # This exception might occur during migrations or if the database is not ready

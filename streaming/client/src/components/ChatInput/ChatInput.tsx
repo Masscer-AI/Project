@@ -8,7 +8,7 @@ import { Thumbnail } from "../Thumbnail/Thumbnail";
 import { SvgButton } from "../SvgButton/SvgButton";
 
 import { useTranslation } from "react-i18next";
-import { getDocuments } from "../../modules/apiCalls";
+import { generateDocumentBrief, getDocuments } from "../../modules/apiCalls";
 import { SpeechHandler } from "../SpeechHandler/SpeechHandler";
 import { FloatingDropdown } from "../Dropdown/Dropdown";
 import { Modal } from "../Modal/Modal";
@@ -18,7 +18,7 @@ import { SliderInput } from "../SimpleForm/SliderInput";
 import { Loader } from "../Loader/Loader";
 
 interface ChatInputProps {
-  handleSendMessage: (input: string) => void;
+  handleSendMessage: (input: string) => Promise<boolean>;
   initialInput: string;
 }
 
@@ -90,7 +90,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     // });
   };
 
-  const handleKeyDown = (event) => {
+  const handleKeyDown = async (event) => {
     if (event.key === "Enter" && event.shiftKey) {
       return;
     }
@@ -100,7 +100,17 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     }
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
-      handleSendMessage(innerInput);
+      const result = await handleSendMessage(innerInput);
+
+      if (result) {
+        setInnerInput("");
+      }
+    }
+  };
+
+  const asyncSendMessage = async () => {
+    const result = await handleSendMessage(innerInput);
+    if (result) {
       setInnerInput("");
     }
   };
@@ -137,10 +147,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         <div className="flex-x gap-small">
           <SvgButton
             title={t("send-message")}
-            onClick={() => {
-              handleSendMessage(innerInput);
-              setInnerInput("");
-            }}
+            onClick={asyncSendMessage}
             svg={SVGS.send}
           />
 
@@ -328,6 +335,45 @@ const RagConfig = ({ hide }: { hide: () => void }) => {
     setIsLoading(false);
   };
 
+  return (
+    <Modal
+      header={
+        <h3 className="text-center padding-big">
+          {t("select-documents-to-use")}
+        </h3>
+      }
+      hide={hide}
+    >
+      <div className="d-flex gap-small wrap-wrap">
+        {isLoading && (
+          <div className="flex-x justify-center w-100 h-100 align-center">
+            <Loader text={t("loading-documents")} />
+          </div>
+        )}
+
+        {documents.map((d) => (
+          <DocumentCard d={d} key={d.id} />
+        ))}
+
+        {documents.length === 0 && (
+          <div className="flex-x justify-center w-100 h-100 align-center">
+            <span>{t("no-documents-found")}</span>
+          </div>
+        )}
+      </div>
+    </Modal>
+  );
+};
+
+const DocumentCard = ({ d }: { d: TDocument }) => {
+  const { addAttatchment, chatState, removeAttatchment } = useStore((s) => ({
+    addAttatchment: s.addAttachment,
+    chatState: s.chatState,
+    removeAttatchment: s.deleteAttachment,
+  }));
+
+  const { t } = useTranslation();
+
   const toggleDocument = (d: TDocument) => {
     if (chatState.attachments.findIndex((a) => a.id == d.id) === -1) {
       const attachment: TAttachment = {
@@ -344,36 +390,46 @@ const RagConfig = ({ hide }: { hide: () => void }) => {
     }
   };
 
+  const generateBrief = async () => {
+    toast.success(t("generating-brief"));
+    await generateDocumentBrief(String(d.id));
+  };
+
   return (
-    <Modal hide={hide}>
-      <h3 className="text-center padding-big">
-        {t("select-documents-to-use")}
-      </h3>
-      <div className="d-flex gap-small wrap-wrap">
-        {isLoading && (
-          <div className="flex-x justify-center w-100 h-100 align-center">
-            <Loader text={t("loading-documents")} />
-          </div>
-        )}
-
-        {documents.map((d) => (
-          <div
-            key={d.id}
-            onClick={() => toggleDocument(d)}
-            className={`card pressable ${chatState.attachments.findIndex((a) => a.id == d.id) != -1 && "bg-active"}`}
-          >
-            <h4>{d.name}</h4>
-            <p title={d.brief}>{d.brief.slice(0, 200)}...</p>
-          </div>
-        ))}
-
-        {documents.length === 0 && (
-          <div className="flex-x justify-center w-100 h-100 align-center">
-            <span>{t("no-documents-found")}</span>
-          </div>
-        )}
-      </div>
-    </Modal>
+    <div
+      className={`card pressable ${
+        chatState.attachments.findIndex((a) => a.id == d.id) != -1
+          ? "bg-active"
+          : ""
+      }`}
+    >
+      <h4>{d.name}</h4>
+      {d.brief && <p title={d.brief}>{d.brief.slice(0, 200)}...</p>}
+      <SvgButton
+        onClick={() => toggleDocument(d)}
+        svg={SVGS.plus}
+        size="big"
+        text={
+          chatState.attachments.findIndex((a) => a.id == d.id) != -1
+            ? t("remove-document")
+            : t("add-document")
+        }
+        extraClass={
+          chatState.attachments.findIndex((a) => a.id == d.id) != -1
+            ? ""
+            : "border-active"
+        }
+      />
+      {!d.brief && (
+        <SvgButton
+          extraClass="border-active"
+          text={t("generate-brief")}
+          onClick={generateBrief}
+          svg={SVGS.plus}
+          size="big"
+        />
+      )}
+    </div>
   );
 };
 

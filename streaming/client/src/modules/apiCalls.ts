@@ -603,3 +603,9 @@ export const fetchUrlContent = async (url: string) => {
 export const getUserTags = async () => {
   return makeAuthenticatedRequest<string[]>("GET", "/v1/preferences/tags/");
 };
+
+export const generateDocumentBrief = async (documentId: string) => {
+  return makeAuthenticatedRequest("PUT", `/v1/rag/documents/${documentId}/`, {
+    action: "generate_brief",
+  });
+};

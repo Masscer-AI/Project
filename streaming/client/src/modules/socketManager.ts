@@ -6,7 +6,10 @@ export class SocketManager {
 
   constructor(serverUrl) {
     this.socket = io(serverUrl, {
-      transports: ["websocket", "polling"]
+      transports: ["websocket", "polling"],
+      query: {
+        user_id: "",
+      },
     });
 
     this.socket.on("connect", () => {

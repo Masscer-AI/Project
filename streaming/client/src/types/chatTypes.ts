@@ -1,9 +1,8 @@
 import { TAttachment, TConversation, TVersion } from "../types";
 import { TAgent } from "./agents";
 
-
-
 export type TUserProfile = {
+  id: string;
   avatar_url: string;
   bio: string;
   sex: string;
@@ -13,6 +12,7 @@ export type TUserProfile = {
 };
 
 export type TUserData = {
+  id?: number;
   username: string;
   email: string;
   profile?: TUserProfile;

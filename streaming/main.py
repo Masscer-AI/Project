@@ -4,16 +4,23 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import os
+from server.redis_manager import listen_to_notifications
+
 from contextlib import asynccontextmanager
 from server.routes import router
 from server.socket import sio
 import socketio
+import asyncio
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # await database.connect()
+    asyncio.create_task(listen_to_notifications())
     yield
+
     # await database.disconnect()
+
 
 app = FastAPI(lifespan=lifespan)
 
@@ -28,12 +35,6 @@ app.add_middleware(
     allow_origins=["*"],
 )
 
-# # Custom middleware to add Access-Control-Allow-Private-Network header
-# @app.middleware("http")
-# async def add_private_network_header(request, call_next):
-#     response = await call_next(request)
-#     response.headers["Access-Control-Allow-Private-Network"] = "true"
-#     return response
 
 sio_asgi_app = socketio.ASGIApp(socketio_server=sio, other_asgi_app=app)
 

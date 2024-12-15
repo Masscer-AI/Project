@@ -65,6 +65,7 @@ async def on_message_handler(socket_id, data, **kwargs):
 
     prev_messages = data["context"]
     message = data["message"]
+
     token = data["token"]
     conversation = data["conversation"]
     web_search_activated = data.get("web_search_activated", False)
@@ -169,7 +170,7 @@ async def on_message_handler(socket_id, data, **kwargs):
 
     versions = []
 
-    for m in agents_to_complete:
+    for index, m in enumerate(agents_to_complete, start=1):
         # If there are previous versions, we need to add them to the context
 
         if multi_agentic_modality == "grupal":
@@ -255,7 +256,11 @@ async def on_message_handler(socket_id, data, **kwargs):
             if isinstance(chunk, str):
                 data["chunk"] = chunk
                 ai_response += chunk
-                await sio.emit("response", data, to=socket_id)
+
+                await sio.emit(
+                    f"response-for-{message['index'] + index }", data, to=socket_id
+                )
+                await sio.emit("response", {}, to=socket_id)
 
             else:
                 version["usage"] = {
@@ -286,11 +291,14 @@ async def on_message_handler(socket_id, data, **kwargs):
                     "versions": [version],
                     "user_message_id": user_id_to_emit,
                     "ai_message_id": ai_message_res["id"],
+                    "next_agent_slug": (
+                        agents_to_complete[index]["slug"]
+                        if index < len(agents_to_complete)
+                        else None
+                    ),
                 },
                 to=socket_id,
             )
-
-        # if config.get("multiagent_mode", "isolated") == "grupal":
 
     if multi_agentic_modality == "isolated":
         ai_message_res = save_message(
@@ -405,3 +413,7 @@ async def on_test_event_handler(socket_id, data, **kwargs):
 
     # version["web_search_results"] = web_results
     # complete_context += f"\n\<web_search_results>\n{json.dumps(web_results)}\n </web_search_results>\n"
+
+
+async def on_modify_message_handler(socket_id, data, **kwargs):
+    print(data)

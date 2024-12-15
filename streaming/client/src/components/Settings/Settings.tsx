@@ -312,6 +312,7 @@ const UserConfig = () => {
     if (!user) return;
     const newUser = { ...user };
     const profile = newUser.profile || {
+      id: "",
       avatar_url: "",
       bio: "",
       sex: "",

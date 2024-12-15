@@ -154,3 +154,26 @@
   margin: 10px 0;
   border-radius: 50vh;
 }
+
+.message blockquote {
+  border-left: 2px solid var(--code-bg-color);
+  padding: 10px;
+  background: var(--hovered-color);
+  border-radius: var(--standard-radius);
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  margin-block: 10px;
+}
+
+.message-editor {
+  width: 100%;
+}
+
+.message-edition-options {
+  position: absolute;
+
+  width: fit-content;
+  background: var(--code-bg-color);
+  border-radius: var(--standard-radius);
+  padding: 10px;
+}

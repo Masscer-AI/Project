@@ -20,6 +20,12 @@ export type TOpenaiVoiceOptions =
   | "onyx"
   | "nova";
 
+type TLLM = {
+  name: string;
+  provider: string;
+  slug: string;
+};
+
 export type TAgent = {
   name: string; // The name of the agent
   provider?: string; // The provider of the model, e.g., "openai"
@@ -35,10 +41,11 @@ export type TAgent = {
   model_slug?: string;
   presence_penalty?: number | null;
   salute?: string;
+  llm: TLLM;
   openai_voice?: TOpenaiVoiceOptions; // Use the new type for voice options
   profile_picture_url?: string;
   system_prompt: string;
   temperature: number;
   top_p?: number;
-  voice?: TOpenaiVoiceOptions; // Added property for voice selection
+  // voice?: TOpenaiVoiceOptions;
 };

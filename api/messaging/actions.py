@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from django.core.files.uploadedfile import InMemoryUploadedFile
 import io
 from pydub import AudioSegment
-
+from api.notify.actions import notify_user
 from api.utils.ollama_functions import create_completion_ollama
 
 load_dotenv()
@@ -50,6 +50,11 @@ def generate_conversation_title(conversation_id: str):
 
     c.title = title
     c.save()
+    data = {
+        "title": title,
+        "conversation_id": str(c.id),
+    }
+    notify_user(c.user.id, event_type="title_updated", data=data)
     return True
 
 

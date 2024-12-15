@@ -179,13 +179,12 @@ export const useStore = create<Store>()((set, get) => ({
 
     let selectFirstAI = false;
     let selectedAgentsStored = localStorage.getItem("selectedAgents");
+    let selectedAgentsSlugs: string[] = [];
 
     if (!selectedAgentsStored) {
       selectFirstAI = true;
-      // @ts-ignore
-      selectedAgentsStored = [];
     } else {
-      selectedAgentsStored = JSON.parse(selectedAgentsStored);
+      selectedAgentsSlugs = JSON.parse(selectedAgentsStored);
     }
 
     const agentsCopy = agents.map((a, i) => ({
@@ -193,10 +192,21 @@ export const useStore = create<Store>()((set, get) => ({
       selected:
         (i === 0 && selectFirstAI) || selectedAgentsStored?.includes(a.slug),
     }));
-    const selectedAgents =
+
+    let selectedAgents =
       selectedAgentsStored && selectedAgentsStored.length > 0
-        ? selectedAgentsStored
+        ? selectedAgentsSlugs.filter((a) =>
+            agentsCopy.some((a2) => a2.slug === a)
+          )
         : agentsCopy.filter((a) => a.selected).map((a) => a.slug);
+
+    agentsCopy.sort((a, b) => {
+      const indexA = selectedAgents.indexOf(a.slug);
+      const indexB = selectedAgents.indexOf(b.slug);
+
+      return indexA === -1 ? 1 : indexB === -1 ? -1 : indexA - indexB;
+    });
+
     set({
       agents: agentsCopy,
       models,
@@ -251,6 +261,13 @@ export const useStore = create<Store>()((set, get) => ({
       }
     });
 
+    copy.sort((a, b) => {
+      const indexA = newSelectedAgents.indexOf(a.slug);
+      const indexB = newSelectedAgents.indexOf(b.slug);
+
+      return indexA === -1 ? 1 : indexB === -1 ? -1 : indexA - indexB;
+    });
+
     set({ agents: copy });
     set((state) => ({
       chatState: {
@@ -290,6 +307,14 @@ export const useStore = create<Store>()((set, get) => ({
   },
 
   setUser: (user) => {
+    const { socket } = get();
+
+    if (user.id) {
+      socket.emit("register_user", user.id);
+    } else {
+      console.log("The user has no id");
+    }
+
     set({ user });
   },
 
@@ -321,7 +346,6 @@ export const useStore = create<Store>()((set, get) => ({
       },
     }));
     localStorage.setItem("selectedAgents", JSON.stringify(selectedAgents));
-    
   },
   // This must update partial the chatState
   updateChatState: (partial) => {
@@ -352,10 +376,20 @@ export const useStore = create<Store>()((set, get) => ({
   },
 
   test: () => {
-    const { socket, chatState } = get();
-    toast.success("Loading...");
+    const { chatState, agents } = get();
+    // toast.success("Loading...");
+    // console.log(agents, "AGENTS");
+    // console.log(chatState.selectedAgents, "SELECTED AGENTS");
 
-    toast.success(chatState.selectedAgents.join(", "));
+    // // Clean selected agents
+    // set((state) => ({
+    //   chatState: {
+    //     ...state.chatState,
+    //     selectedAgents: [],
+    //   },
+    // }));
+
+    // localStorage.removeItem("selectedAgents");
 
     // socket.emit("test_event", {
     //   query:

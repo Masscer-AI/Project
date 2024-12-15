@@ -18,6 +18,7 @@ import { updateLastMessagesIds, addAssistantMessageChunk } from "./helpers";
 import { SvgButton } from "../../components/SvgButton/SvgButton";
 import { SVGS } from "../../assets/svgs";
 import { ConversationModal } from "../../components/ConversationModal/ConversationModal";
+import { debounce } from "../../modules/utils";
 
 export default function ChatView() {
   const loaderData = useLoaderData() as TChatLoader;
@@ -49,51 +50,88 @@ export default function ChatView() {
   const { t } = useTranslation();
   const chatMessageContainerRef = React.useRef<HTMLDivElement>(null);
 
+  const timeoutRef = React.useRef<number | null>(null);
+
   useEffect(() => {
     setUser(loaderData.user);
     startup();
-    // setInput(loaderData.query || "");
-  }, []);
+  }, [loaderData.user, startup]);
+
   const [messages, setMessages] = useState<TMessage[]>(
     loaderData.conversation.messages || []
   );
 
   useEffect(() => {
-    socket.on("response", (data) => {
-      setMessages((prevMessages) =>
-        addAssistantMessageChunk(
-          data.chunk,
-          data.agent_slug,
-          prevMessages,
-          userPreferences.multiagentic_modality
-        )
-      );
-      if (chatMessageContainerRef.current && userPreferences.autoscroll) {
-        chatMessageContainerRef.current.scrollTop =
-          chatMessageContainerRef.current.scrollHeight;
-      }
-    });
-
     socket.on("responseFinished", (data) => {
       console.log("Response finished:", data);
-      setMessages((prevMessages) => updateLastMessagesIds(data, prevMessages));
+      setMessages((prevMessages) =>
+        updateLastMessagesIds(data, prevMessages, data.next_agent_slug)
+      );
     });
-    socket.on("sources", (data) => {
-      console.log("Sources:", data);
-    });
+    // socket.on("sources", (data) => {
+    //   console.log("Sources:", data);
+    // });
     socket.on("notification", (data) => {
       console.log("Receiving notification:", data);
-      toast.success(data.message);
+    });
+
+    return () => {
+      socket.off("responseFinished");
+      socket.off("notification");
+      // socket.off("sources");
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const scrollChat = () => {
+    const container = chatMessageContainerRef.current;
+    if (!container) return;
+    const start = container.scrollTop;
+    const end = container.scrollHeight;
+    const duration = 1000; // Duración en milisegundos
+    const startTime = performance.now();
+
+    const smoothScroll = (currentTime) => {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1); // Normalizar entre 0 y 1
+      const ease =
+        progress < 0.5
+          ? 2 * progress * progress
+          : -1 + (4 - 2 * progress) * progress;
+
+      container.scrollTop = start + (end - start) * ease;
+
+      if (elapsed < duration) {
+        requestAnimationFrame(smoothScroll);
+      } else {
+        timeoutRef.current = null;
+      }
+    };
+
+    requestAnimationFrame(smoothScroll);
+  };
+
+  const handleAutoScroll = () => {
+    if (chatMessageContainerRef.current && userPreferences.autoscroll) {
+      if (timeoutRef.current) {
+        return;
+      }
+
+      timeoutRef.current = setTimeout(() => {
+        scrollChat();
+      }, 1000);
+    }
+  };
+
+  useEffect(() => {
+    socket.on("response", (data) => {
+      handleAutoScroll();
     });
 
     return () => {
       socket.off("response");
-      socket.off("responseFinished");
-      socket.off("notification");
-      socket.off("sources");
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages.length]);
+  }, [chatMessageContainerRef, userPreferences.autoscroll]);
 
   useEffect(() => {
     if (!conversation?.messages) return;
@@ -112,9 +150,9 @@ export default function ChatView() {
   }, [loaderData.query, agents]);
 
   const handleSendMessage = async (input: string) => {
-    if (input.trim() === "") return;
+    if (input.trim() === "") return false;
 
-    if (chatState.writtingMode) return;
+    if (chatState.writtingMode) return false;
 
     let selectedAgents = agents.filter((a) => a.selected);
 
@@ -122,13 +160,14 @@ export default function ChatView() {
       type: "user",
       text: input,
       attachments: chatState.attachments,
+      index: messages.length,
     };
 
     if (selectedAgents.length === 0) {
       toast.error(t("select-at-least-one-agent-to-chat"));
-      return;
+      return false;
     }
-    // reorder the agents based on its slug and position in the chatState.selectedAgents
+
     selectedAgents = selectedAgents.sort(
       (a, b) =>
         chatState.selectedAgents.indexOf(a.slug) -
@@ -174,8 +213,11 @@ export default function ChatView() {
       });
 
       // cleanAttachments();
+      scrollChat();
+      return true;
     } catch (error) {
       console.error("Error sending message:", error);
+      return false;
     }
   };
 

@@ -27,12 +27,13 @@ export const Modal = ({
     <div className={styles.modalComponent}>
       <div className={styles.modalBackdrop} onClick={hide}></div>
       <div className={styles.modalContent} style={{ minHeight }}>
-        <div className="d-flex justify-end modal-closer gap-small">
+        <div className="d-flex justify-end modal-closer gap-small align-center">
           {extraButtons}
           <SvgButton
-            extraClass="pressable bg-danger "
+            extraClass="pressable danger-on-hover svg-danger border-danger"
             onClick={hide}
             svg={SVGS.close}
+            aria-label="Close modal"
           />
         </div>
 

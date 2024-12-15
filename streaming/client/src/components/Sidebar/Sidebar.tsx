@@ -54,11 +54,15 @@ export const Sidebar: React.FC = () => {
     startDate: string;
     endDate: string;
     title: string;
+    minMessages: number | null;
+    maxMessages: number | null;
   }>({
     tags: [],
     startDate: "",
     endDate: "",
     title: "",
+    minMessages: null,
+    maxMessages: null,
   });
 
   const navigate = useNavigate();
@@ -69,7 +73,7 @@ export const Sidebar: React.FC = () => {
 
   useEffect(() => {
     let filteredHistory = filterByDateRange();
-    console.log(filteredHistory, "filteredHistory BEFORE FILTERS");
+
     if (filters.tags.length > 0) {
       filteredHistory = filteredHistory.filter((c) =>
         c.tags?.some((tag) => filters.tags.includes(tag))
@@ -80,7 +84,12 @@ export const Sidebar: React.FC = () => {
       (c) =>
         c.title && c.title.toLowerCase().includes(filters.title.toLowerCase())
     );
-    console.log(filteredHistory, "filteredHistory AFTER FILTERS");
+
+    filteredHistory = filteredHistory.filter(
+      (c) =>
+        c.number_of_messages >= (filters.minMessages || 0) &&
+        c.number_of_messages <= (filters.maxMessages || 100000)
+    );
 
     setFilteredHistory(filteredHistory);
   }, [filters]);
@@ -122,14 +131,6 @@ export const Sidebar: React.FC = () => {
       filteredHistory.filter((conversation) => conversation.id !== id)
     );
     const res = await deleteConversation(id);
-  };
-
-  const handleSectionClick = (section: string) => {
-    if (openedSections.includes(section)) {
-      setOpenedSections((prev) => prev.filter((s) => s !== section));
-    } else {
-      setOpenedSections((prev) => [...prev, section]);
-    }
   };
 
   const openSettings = () => {
@@ -242,6 +243,38 @@ export const Sidebar: React.FC = () => {
                       }
                     />
                   </div>
+                  <div className="d-flex gap-small">
+                    <input
+                      className="w-100 rounded padding-small"
+                      type="number"
+                      min={0}
+                      placeholder={t("min-messages")}
+                      value={filters.minMessages || ""}
+                      onChange={(e) =>
+                        setFilters({
+                          ...filters,
+                          minMessages: e.target.value
+                            ? parseInt(e.target.value)
+                            : null,
+                        })
+                      }
+                    />
+                    <input
+                      className="w-100 rounded padding-small"
+                      type="number"
+                      placeholder={t("max-messages")}
+                      min={0}
+                      value={filters.maxMessages || ""}
+                      onChange={(e) =>
+                        setFilters({
+                          ...filters,
+                          maxMessages: e.target.value
+                            ? parseInt(e.target.value)
+                            : null,
+                        })
+                      }
+                    />
+                  </div>
                   <div className="d-flex gap-small wrap-wrap">
                     {userTags.map((tag) => (
                       <Pill
@@ -264,6 +297,8 @@ export const Sidebar: React.FC = () => {
                           startDate: "",
                           endDate: "",
                           title: "",
+                          minMessages: null,
+                          maxMessages: null,
                         });
                         // setFilteredHistory(history);
                       }}
@@ -322,49 +357,53 @@ export const Sidebar: React.FC = () => {
             </>
           )}
 
-          <SvgButton
-            svg={SVGS.tools}
-            text={t("tools")}
-            size="big"
-            extraClass="bg-hovered
+          {!historyConfig.isOpen && (
+            <>
+              <SvgButton
+                svg={SVGS.tools}
+                text={t("tools")}
+                size="big"
+                extraClass="bg-hovered
           active-on-hover pressable w-100"
-            onClick={() => goTo("/tools")}
-          />
-          <SvgButton
-            onClick={() => goTo("/whatsapp")}
-            text={t("whatsapp")}
-            size="big"
-            extraClass="bg-hovered active-on-hover pressable w-100"
-            svg={SVGS.whatsapp}
-          />
+                onClick={() => goTo("/tools")}
+              />
+              <SvgButton
+                onClick={() => goTo("/whatsapp")}
+                text={t("whatsapp")}
+                size="big"
+                extraClass="bg-hovered active-on-hover pressable w-100"
+                svg={SVGS.whatsapp}
+              />
 
-          <SvgButton
-            onClick={() => {
-              setOpenedModals({ action: "add", name: "documents" });
-              toggleSidebar();
-            }}
-            text={t("documents")}
-            size="big"
-            extraClass="bg-hovered active-on-hover pressable w-100"
-            svg={SVGS.document}
-          />
-          <SvgButton
-            onClick={() =>
-              setOpenedModals({ action: "add", name: "completions" })
-            }
-            text={t("completions")}
-            size="big"
-            extraClass="bg-hovered active-on-hover pressable w-100"
-            svg={SVGS.question}
-          />
+              <SvgButton
+                onClick={() => {
+                  setOpenedModals({ action: "add", name: "documents" });
+                  toggleSidebar();
+                }}
+                text={t("documents")}
+                size="big"
+                extraClass="bg-hovered active-on-hover pressable w-100"
+                svg={SVGS.document}
+              />
+              <SvgButton
+                onClick={() =>
+                  setOpenedModals({ action: "add", name: "completions" })
+                }
+                text={t("completions")}
+                size="big"
+                extraClass="bg-hovered active-on-hover pressable w-100"
+                svg={SVGS.question}
+              />
 
-          <SvgButton
-            text={t("workflows")}
-            size="big"
-            extraClass="bg-hovered active-on-hover pressable w-100"
-            onClick={() => goTo("/workflows")}
-            svg={SVGS.workflows}
-          />
+              <SvgButton
+                text={t("workflows")}
+                size="big"
+                extraClass="bg-hovered active-on-hover pressable w-100"
+                onClick={() => goTo("/workflows")}
+                svg={SVGS.workflows}
+              />
+            </>
+          )}
         </div>
         <div className="sidebar__footer d-flex justify-between">
           <SvgButton

@@ -82,6 +82,20 @@ class DocumentView(View):
 
         return JsonResponse(serializer.errors, status=400)
 
+    def put(self, request, document_id):
+        data = json.loads(request.body)
+        action = data.get("action", None)
+
+        document = Document.objects.get(id=document_id)
+        if action == "add":
+            document.add_to_rag()
+        elif action == "remove":
+            document.remove_from_rag()
+        elif action == "generate_brief":
+            document.generate_brief()
+
+        return JsonResponse(DocumentSerializer(document).data, status=200)
+
     def delete(self, request, document_id):
         try:
             document = Document.objects.get(id=document_id)

@@ -70,6 +70,7 @@ const AgentComponent = ({ agent }: TAgentComponentProps) => {
       toast.success(t("agent-updated"));
       updateSingleAgent(agent);
     } catch (e) {
+      console.log(e, "error while updating agent");
       toast.error(t("an-error-occurred"));
     }
   };
@@ -133,7 +134,7 @@ type TAgentConfigProps = {
 };
 
 const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
-  // console.log(, "agent");
+  console.log(agent, "agent");
 
   const { models, removeAgent } = useStore((state) => ({
     models: state.models,
@@ -153,6 +154,11 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
     system_prompt: agent.system_prompt || "",
     temperature: agent.temperature || 0.7,
     top_p: agent.top_p || 1.0,
+    llm: agent.llm || {
+      name: "",
+      provider: "",
+      slug: "",
+    },
   } as TAgent);
 
   const handleInputChange = (
@@ -161,7 +167,6 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
     >
   ) => {
     const { name, value, type } = e.target;
-    // If the name is in temperature, max_tokens, presence_penalty, frequency_penalty, top_p, convert the value to a number
 
     const floatNames = [
       "temperature",
@@ -178,6 +183,23 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
       ...prevState,
       [name]: newValue,
     }));
+  };
+
+  const handleLLMChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const { value } = e.target;
+    // Get the LLM from the models array
+    const llm = models.find((m) => m.slug === value);
+
+    if (llm) {
+      setFormState((prevState) => ({
+        ...prevState,
+        llm: {
+          name: llm.name || "",
+          provider: llm.provider || "",
+          slug: llm.slug || "",
+        },
+      }));
+    }
   };
 
   const save = () => {
@@ -204,6 +226,8 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
     }));
   };
 
+  console.log(models, "models");
+
   return (
     <form onSubmit={onSubmit} className="form">
       <div className="flex-y gap-medium F">
@@ -224,9 +248,9 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
         <label className="d-flex gap-small align-center">
           <span>{t("model")}</span>
           <select
-            name="model_slug"
-            value={formState.model_slug}
-            onChange={handleInputChange}
+            name="llm"
+            value={formState.llm.slug}
+            onChange={handleLLMChange}
             className="input"
           >
             {models.map((m) => (
@@ -379,9 +403,10 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
 };
 
 const AgentsModal = () => {
-  const { agents, addAgent } = useStore((state) => ({
+  const { agents, addAgent, test } = useStore((state) => ({
     agents: state.agents,
     addAgent: state.addAgent,
+    test: state.test,
   }));
 
   const { t } = useTranslation();
@@ -399,15 +424,22 @@ const AgentsModal = () => {
         onClick={showModal}
         svg={SVGS.stars}
       />
+      {/* <SvgButton
+        extraClass="pressable active-on-hover"
+        onClick={test}
+        svg={SVGS.dumbell}
+      /> */}
       <Modal
         extraButtons={
           <SvgButton
-            text={t("add-an-agent")}
+            extraClass="pressable active-on-hover bg-hovered padding-medium"
+            title={t("add-an-agent")}
+            aria-label={t("add-an-agent")}
             onClick={addAgent}
             svg={SVGS.plus}
           />
         }
-        header={<h2 className="text-center ">{t("agents")}</h2>}
+        header={<h3 className="padding-medium">{t("agents")}</h3>}
         visible={isVisible}
         hide={hideModal}
       >

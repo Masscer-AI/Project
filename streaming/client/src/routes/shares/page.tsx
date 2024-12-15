@@ -1,31 +1,20 @@
 import React, { useEffect, useState } from "react";
 
 import { Message } from "../../components/Message/Message";
-import { ChatInput } from "../../components/ChatInput/ChatInput";
 
 import { useLoaderData } from "react-router-dom";
-import { Sidebar } from "../../components/Sidebar/Sidebar";
+
 import { useStore } from "../../modules/store";
 import { TChatLoader, TMessage } from "../../types/chatTypes";
-import { ChatHeader } from "../../components/ChatHeader/ChatHeader";
-import toast from "react-hot-toast";
-import { createAudioPlayer, playAudioFromBytes } from "../../modules/utils";
 
-import { generateImage, updateConversation } from "../../modules/apiCalls";
 import { useTranslation } from "react-i18next";
 import { TVersion } from "../../types";
-import {
-  updateLastMessagesIds,
-  addAssistantMessageChunk,
-} from "../chat/helpers";
 
 export default function SharedChatView() {
   const loaderData = useLoaderData() as TChatLoader;
 
   const {
     chatState,
-    input,
-    setInput,
     conversation,
     cleanAttachments,
     socket,
@@ -36,9 +25,7 @@ export default function SharedChatView() {
   } = useStore((state) => ({
     socket: state.socket,
     chatState: state.chatState,
-    toggleSidebar: state.toggleSidebar,
-    input: state.input,
-    setInput: state.setInput,
+
     conversation: state.conversation,
     cleanAttachments: state.cleanAttachments,
     modelsAndAgents: state.modelsAndAgents,
@@ -61,82 +48,9 @@ export default function SharedChatView() {
   );
 
   useEffect(() => {
-    socket.on("response", (data) => {
-      setMessages((prevMessages) =>
-        addAssistantMessageChunk(
-          data.chunk,
-          data.agent_slug,
-          prevMessages,
-          userPreferences.multiagentic_modality
-        )
-      );
-    });
-
-    socket.on("responseFinished", (data) => {
-      console.log("Response finished:", data);
-      setMessages((prevMessages) => updateLastMessagesIds(data, prevMessages));
-    });
-    socket.on("sources", (data) => {
-      console.log("Sources:", data);
-    });
-    socket.on("notification", (data) => {
-      console.log("Receiving notification:", data);
-      toast.success(data.message);
-    });
-
-    return () => {
-      socket.off("response");
-      // socket.off("audio-file");
-      socket.off("responseFinished");
-      socket.off("notification");
-      socket.off("sources");
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages]);
-
-  useEffect(() => {
     if (!conversation?.messages) return;
     setMessages(conversation?.messages);
   }, [conversation]);
-
-  const handleSendMessage = async () => {
-    if (input.trim() === "") return;
-
-    if (chatState.writtingMode) return;
-
-    const selectedAgents = agents.filter((a) => a.selected);
-
-    if (selectedAgents.length === 0) {
-      toast.error("You must select at least one agent to complete! 👀");
-      return;
-    }
-
-    const userMessage = {
-      type: "user",
-      text: input,
-      attachments: chatState.attachments,
-    };
-    setMessages([...messages, userMessage]);
-
-    try {
-      const token = localStorage.getItem("token");
-
-      socket.emit("message", {
-        message: userMessage,
-        context: messages,
-        token: token,
-        models_to_complete: selectedAgents,
-        conversation: loaderData,
-        web_search_activated: chatState.webSearch,
-        use_rag: chatState.useRag,
-      });
-
-      setInput("");
-      cleanAttachments();
-    } catch (error) {
-      console.error("Error sending message:", error);
-    }
-  };
 
   const handleRegenerateConversation = (
     userMessage: TMessage,

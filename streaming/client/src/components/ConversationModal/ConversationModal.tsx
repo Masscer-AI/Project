@@ -8,6 +8,7 @@ import { useTranslation } from "react-i18next";
 import { debounce } from "../../modules/utils";
 import { Pill } from "../Pill/Pill";
 import { useStore } from "../../modules/store";
+import { Socket } from "socket.io-client";
 
 export const ConversationModal = ({
   conversation,
@@ -17,11 +18,12 @@ export const ConversationModal = ({
   const [showModal, setShowModal] = useState(false);
   const [title, setTitle] = useState(conversation.title);
   const [tags, setTags] = useState(conversation.tags || []);
-  
+
   const { t } = useTranslation();
 
-  const { userTags } = useStore((s) => ({
+  const { userTags, socket } = useStore((s) => ({
     userTags: s.userTags,
+    socket: s.socket,
   }));
 
   const onTitleEdit = async (e: React.FocusEvent<HTMLDivElement>) => {
@@ -54,6 +56,15 @@ export const ConversationModal = ({
     setTags((prev) => [...prev, ...newTags]);
   };
   const debouncedOnTagEdit = debounce(onTagEdit, 1000);
+
+  useEffect(() => {
+    socket.on("title_updated", (data) => {
+      console.log("TITLE UPDATED", data);
+      if (data.message.conversation_id === conversation.id) {
+        setTitle(data.message.title);
+      }
+    });
+  }, []);
 
   useEffect(() => {
     if (conversation.tags !== tags) {

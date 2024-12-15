@@ -54,7 +54,6 @@ export const addAssistantMessageChunk = (
       ];
     }
   } else {
-
     console.log("New message appended to conversation");
 
     const assistantMessage: TMessage = {
@@ -76,7 +75,7 @@ export const addAssistantMessageChunk = (
   return newMessages;
 };
 
-export const updateLastMessagesIds = (data, prevMessages) => {
+export const updateLastMessagesIds = (data, prevMessages, nextAgentSlug) => {
   const newMessages = [...prevMessages];
   newMessages.reverse();
 
@@ -90,5 +89,24 @@ export const updateLastMessagesIds = (data, prevMessages) => {
     lastUserMessage.id = data.user_message_id;
   }
   newMessages.reverse();
+
+  if (nextAgentSlug) {
+
+    const assistantMessage: TMessage = {
+      type: "assistant",
+      text: "",
+      attachments: [],
+      agent_slug: nextAgentSlug,
+      versions: [
+        {
+          text: "",
+          type: "assistant",
+          agent_slug: nextAgentSlug,
+          agent_name: nextAgentSlug,
+        },
+      ],
+    };
+    newMessages.push(assistantMessage);
+  } 
   return newMessages;
 };

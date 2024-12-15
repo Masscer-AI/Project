@@ -73,7 +73,7 @@ Everything must be in the same language as the chunk.
 
 
 def generate_document_brief(document_id: int):
-    number_of_characters = 20000
+    number_of_characters = 50000
     _system = f"""
 You are an AI and Machine Learning Specialist.
 You task is to summarice the content of a document in up to 100 words, explaining what is the document and an overview of its content.

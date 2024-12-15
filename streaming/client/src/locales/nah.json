@@ -235,5 +235,14 @@
     "document-deleted": "Documento eliminado",
     "no-documents-found": "No hay documentos encontrados",
     "add-an-agent": "Añadir un agente",
-    "voice": "Voz"
+    "voice": "Voz",
+    "add-document": "Añadir documento",
+    "remove-document": "Eliminar documento",
+    "generating-brief": "Generando breve...",
+    "generate-brief": "Genera breve",
+    "are-you-trying-to-make-me-speak-twice": "¿Estás intentando que te hables dos veces?",
+    "just-a-second": "¡Un segundo...",
+    "modify-message": "Modificar mensaje",
+    "min-messages": "Mínimo de mensajes",
+    "max-messages": "Máximo de mensajes"
 }
