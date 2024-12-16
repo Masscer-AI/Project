@@ -85,7 +85,8 @@ const AgentComponent = ({ agent }: TAgentComponentProps) => {
     <div
       className={styles.agentComponent}
       style={{
-        backgroundColor: isSelected ? "var(--hovered-color)" : "transparent",
+        backgroundColor: isSelected ? "var(--active-color)" : "transparent",
+        color: isSelected ? "white" : "var(--font-color)",
       }}
     >
       <section onClick={() => toggleAgentSelected(agent.slug)}>
@@ -107,20 +108,29 @@ const AgentComponent = ({ agent }: TAgentComponentProps) => {
       <section className="d-flex gap-small w-100 ">
         <SvgButton
           size="big"
-          extraClass="pressable active-on-hover"
+          extraClass={`pressable active-on-hover ${
+            isSelected ? "svg-white" : ""
+          }`}
           svg={SVGS.controls}
           onClick={showModal}
         />
         <SvgButton
           size="big"
-          extraClass="pressable danger-on-hover"
+          extraClass={`pressable danger-on-hover ${
+            isSelected ? "svg-white text-white" : ""
+          }`}
           confirmations={[t("sure?")]}
           svg={SVGS.trash}
           onClick={handleDelete}
         />
       </section>
 
-      <Modal minHeight={"40dvh"} visible={isModalVisible} hide={hideModal}>
+      <Modal
+        minHeight={"40dvh"}
+        header={<h3 className="padding-big">{agent.name}</h3>}
+        visible={isModalVisible}
+        hide={hideModal}
+      >
         <AgentConfigForm agent={agent} onSave={onSave} onDelete={hideModal} />
       </Modal>
     </div>
@@ -134,8 +144,6 @@ type TAgentConfigProps = {
 };
 
 const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
-  console.log(agent, "agent");
-
   const { models, removeAgent } = useStore((state) => ({
     models: state.models,
     removeAgent: state.removeAgent,
@@ -229,11 +237,8 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
   console.log(models, "models");
 
   return (
-    <form onSubmit={onSubmit} className="form">
-      <div className="flex-y gap-medium F">
-        <h3 className="padding-medium text-center rounded">
-          {t("configure")} {formState.name}
-        </h3>
+    <form onSubmit={onSubmit}>
+      <div className="flex-y gap-medium ">
         <label className="d-flex gap-small align-center">
           <span>{t("name")}:</span>
           <input
@@ -334,6 +339,7 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
         </label>
         <p>{t("act-as")}</p>
         <Textarea
+          extraClass="my-medium"
           defaultValue={formState.act_as ? formState.act_as : ""}
           onChange={(value) => {
             setFormState((prevState) => ({
@@ -346,6 +352,7 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
 
         <p>{t("system-prompt")}</p>
         <Textarea
+          extraClass="my-medium"
           placeholder={t("structure-the-ai-system-prompt")}
           defaultValue={formState.system_prompt}
           onChange={handleSystemPromptChange}
@@ -423,6 +430,7 @@ const AgentsModal = () => {
         text={t("agents")}
         onClick={showModal}
         svg={SVGS.stars}
+        svgOnHover={SVGS.threeStars}
       />
       {/* <SvgButton
         extraClass="pressable active-on-hover"
@@ -432,7 +440,7 @@ const AgentsModal = () => {
       <Modal
         extraButtons={
           <SvgButton
-            extraClass="pressable active-on-hover bg-hovered padding-medium"
+            extraClass="pressable active-on-hover padding-medium"
             title={t("add-an-agent")}
             aria-label={t("add-an-agent")}
             onClick={addAgent}

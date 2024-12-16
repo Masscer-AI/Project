@@ -91,3 +91,9 @@
   justify-content: center;
   align-items: center;
 }
+
+.conversation-history-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}

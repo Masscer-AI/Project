@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Textarea } from "../SimpleForm/Textarea";
 
 type TField = {
   type: string;
@@ -38,7 +39,7 @@ export const JSONForm: React.FC<JSONFormProps> = ({
     switch (field.type) {
       case "string":
         return (
-          <>
+          <div className="d-flex gap-medium align-center">
             <label>{field.label}</label>
             <input
               className="input"
@@ -46,18 +47,15 @@ export const JSONForm: React.FC<JSONFormProps> = ({
               value={formData[key] || ""}
               onChange={(e) => handleChange(key, e.target.value)}
             />
-          </>
+          </div>
         );
       case "textarea":
         return (
-          <div className="flex-y gap-small w-100">
-            <label>{field.label}</label>
-            <textarea
-              className="textarea"
-              value={formData[key] || ""}
-              onChange={(e) => handleChange(key, e.target.value)}
-            />
-          </div>
+          <Textarea
+            defaultValue={formData[key] || ""}
+            onChange={(value) => handleChange(key, value)}
+            placeholder={field.label}
+          />
         );
       case "number":
         return (
@@ -73,7 +71,7 @@ export const JSONForm: React.FC<JSONFormProps> = ({
         );
       case "boolean":
         return (
-          <>
+          <div>
             <label>{field.label}</label>
             <input
               className="input"
@@ -81,11 +79,11 @@ export const JSONForm: React.FC<JSONFormProps> = ({
               checked={!!formData[key]}
               onChange={(e) => handleChange(key, e.target.checked)}
             />
-          </>
+          </div>
         );
       case "date":
         return (
-          <>
+          <div>
             <label>{field.label}</label>
             <input
               className="input"
@@ -93,11 +91,11 @@ export const JSONForm: React.FC<JSONFormProps> = ({
               value={formData[key] || ""}
               onChange={(e) => handleChange(key, e.target.value)}
             />
-          </>
+          </div>
         );
       case "image":
         return (
-          <>
+          <div>
             <label>{field.label}</label>
             <input
               type="file"
@@ -119,7 +117,7 @@ export const JSONForm: React.FC<JSONFormProps> = ({
                 <img src={formData[key]} alt={field.label} width={50} />
               </div>
             )}
-          </>
+          </div>
         );
       default:
         return null;
@@ -127,17 +125,11 @@ export const JSONForm: React.FC<JSONFormProps> = ({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex-y gap-medium">
+    <form onSubmit={handleSubmit} className="flex-y gap-big">
       {Object.keys(data).map((key) => {
         if (hiddenKeys.includes(key)) return null;
-
-        return (
-          <div className="d-flex gap-medium align-center" key={key}>
-            {renderInput(key, data[key])}
-          </div>
-        );
+        return renderInput(key, data[key]);
       })}
-      {/* <button type="submit">{t("save")}</button> */}
     </form>
   );
 };

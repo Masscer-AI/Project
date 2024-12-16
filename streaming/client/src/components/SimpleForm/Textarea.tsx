@@ -28,9 +28,9 @@ export const Textarea = ({
 
   return (
     <div
-      className={`d-flex flex-y gap-small textarea-container nowheel max-height-500   ${extraClass}`}
+      className={` textarea-container nowheel max-height-500  ${extraClass}`}
     >
-      <Pill extraClass="above-all">{placeholder}</Pill>
+      <span className="above-all rounded">{placeholder}</span>
       <textarea
         ref={textareaRef}
         className="textarea"

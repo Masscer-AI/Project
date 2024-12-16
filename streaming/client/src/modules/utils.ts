@@ -244,3 +244,97 @@ export const getStoredPreferences = () => {
 //     throw error; // Consider whether to throw or return a fallback value
 //   }
 // };
+type Operation =
+  | "sum"
+  | "rest"
+  | "multiply"
+  | "divide"
+  | "sqrt"
+  | "floor"
+  | "power"
+  | "mod"
+  | "ceil"
+  | "round"
+  | "abs"
+  | "factorial"
+  | "exponential"
+  | "percentage";
+
+export interface OperationStep {
+  name: Operation;
+  arguments: (number | string)[];
+  result_name: string;
+  label: string;
+  result_value: number | null;
+}
+
+export const calculateOperations = (
+  operations: OperationStep[]
+): OperationStep[] => {
+  const results = new Map<string, number>();
+
+  const resolveArgument = (arg: number | string): number => {
+    return typeof arg === "string" ? results.get(arg) || 0 : arg;
+  };
+
+  const factorial = (n: number): number => {
+    if (n < 0)
+      throw new Error("Factorial is not defined for negative numbers.");
+    return n === 0 ? 1 : n * factorial(n - 1);
+  };
+
+  const operators = {
+    sum: (...args: number[]) => args.reduce((acc, curr) => acc + curr, 0),
+    rest: (...args: number[]) =>
+      args.reduce((acc, curr, index) => (index === 0 ? curr : acc - curr), 0),
+    multiply: (...args: number[]) =>
+      args.reduce((acc, curr) => acc * curr, 1),
+    divide: (a: number, b: number) => (b !== 0 ? a / b : 0),
+    sqrt: (a: number) => (a >= 0 ? Math.sqrt(a) : 0),
+    floor: (a: number) => Math.floor(a),
+    power: (a: number, b: number) => Math.pow(a, b),
+    mod: (a: number, b: number) => (b !== 0 ? a % b : 0),
+    ceil: (a: number) => Math.ceil(a),
+    round: (a: number) => Math.round(a),
+    abs: (a: number) => Math.abs(a),
+    factorial: (a: number) => factorial(a),
+    exponential: (a: number) => Math.exp(a),
+    percentage: (a: number, b: number) => (b !== 0 ? (a / b) * 100 : 0),
+  };
+
+  operations.forEach((op) => {
+    const args = op.arguments.map(resolveArgument);
+
+    // Verificar si la operación existe y es válida
+    if (!(op.name in operators)) {
+      throw new Error(`Unsupported operation: ${op.name}`);
+    }
+
+    let result: number;
+
+    // @ts-ignore
+    if (["sum", "rest", "multiply"].includes(op.name)) {
+      // Operaciones con múltiples argumentos
+      // @ts-ignore
+      result = operators[op.name](...args);
+    } else if (args.length === 1) {
+      // Operaciones unarias
+      // @ts-ignore
+      result = operators[op.name](args[0]);
+    } else if (args.length === 2) {
+      // Operaciones binarias
+      const [a, b] = args;
+      // @ts-ignore
+      result = operators[op.name](a, b);
+    } else {
+      throw new Error(
+        `Invalid number of arguments for operation: ${op.name}`
+      );
+    }
+
+    results.set(op.result_name, result);
+    op.result_value = result;
+  });
+
+  return operations;
+};

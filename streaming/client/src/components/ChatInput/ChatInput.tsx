@@ -143,23 +143,30 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           name="chat-input"
         />
       </section>
-      <section className="mt-small">
-        <div className="flex-x gap-small">
+      <section>
+        <div className="flex-x gap-small button-group">
           <SvgButton
             title={t("send-message")}
+            extraClass="active-on-hover pressable rounded"
             onClick={asyncSendMessage}
             svg={SVGS.send}
           />
 
           <SvgButton
-            extraClass={chatState.writtingMode ? "bg-active svg-white" : ""}
+            extraClass={
+              chatState.writtingMode
+                ? "bg-active svg-white pressable rounded active-on-hover"
+                : "pressable rounded active-on-hover"
+            }
             onClick={toggleWritingMode}
             svg={SVGS.writePen}
             title={t("turn-on-off-writing-mode")}
           />
           <RagSearchOptions />
           <SvgButton
-            extraClass={chatState.webSearch ? "bg-active svg-white" : ""}
+            extraClass={`pressable active-on-hover rounded ${
+              chatState.webSearch ? "bg-active svg-white" : ""
+            } `}
             onClick={toggleWebSearch}
             svg={SVGS.webSearch}
             title={t("turn-on-off-web-search")}
@@ -276,7 +283,9 @@ const RagSearchOptions = () => {
       transform="translateX(-50%)"
       opener={
         <SvgButton
-          extraClass={chatState.useRag ? "bg-active svg-white" : ""}
+          extraClass={`pressable rounded active-on-hover ${
+            chatState.useRag ? "bg-active svg-white" : ""
+          }`}
           onClick={toggleUseRag}
           svg={SVGS.document}
           title={t("turn-on-off-rag")}
@@ -454,10 +463,17 @@ const ConversationConfig = () => {
 
   return (
     <>
-      <SvgButton onClick={() => setIsOpened(true)} svg={SVGS.options} />
-      <Modal visible={isOpened} hide={() => setIsOpened(false)}>
+      <SvgButton
+        extraClass="pressable active-on-hover rounded"
+        onClick={() => setIsOpened(true)}
+        svg={SVGS.options}
+      />
+      <Modal
+        header={<h3 className="padding-big">{t("conversation-settings")}</h3>}
+        visible={isOpened}
+        hide={() => setIsOpened(false)}
+      >
         <div className="flex-y gap-medium">
-          <h2 className="text-center">{t("conversation-settings")}</h2>
           <div className="flex-y gap-small align-center  ">
             <h5>{t("max-memory-messages")}</h5>
             <span>{t("max-memory-messages-description")}</span>
@@ -469,40 +485,50 @@ const ConversationConfig = () => {
               min={0}
             />
           </div>
-          <hr />
+          <hr className="separator" />
           <div className="flex-y gap-small align-center">
-            <h5>{t("auto-play")}</h5>
+            <section className="flex-x gap-medium align-center justify-center w-100">
+              <h5>{t("auto-play")}</h5>
+              <SliderInput
+                checked={userPreferences.autoplay}
+                onChange={(checked) => setPreferences({ autoplay: checked })}
+              />
+            </section>
             <span>{t("auto-play-description")}</span>
-            <SliderInput
-              checked={userPreferences.autoplay}
-              onChange={(checked) => setPreferences({ autoplay: checked })}
-            />
           </div>
-          <hr />
+          <hr className="separator" />
           <div className="flex-y gap-small align-center">
-            <h5>{t("auto-scroll")}</h5>
+            <section className="flex-x gap-medium align-center justify-center w-100">
+              <h5>{t("auto-scroll")}</h5>
+              <SliderInput
+                checked={userPreferences.autoscroll}
+                onChange={(checked) => setPreferences({ autoscroll: checked })}
+              />
+            </section>
             <span>{t("auto-scroll-description")}</span>
-            <SliderInput
-              checked={userPreferences.autoscroll}
-              onChange={(checked) => setPreferences({ autoscroll: checked })}
-            />
           </div>
-          <hr />
+          <hr className="separator" />
           <div className="flex-y gap-small align-center">
-            <h5>{t("multiagentic-modality")}</h5>
-            <span>{t("multiagentic-modality-description")}</span>
-
-            <SliderInput
-              keepActive={true}
-              labelTrue={t("isolated")}
-              labelFalse={t("grupal")}
-              checked={userPreferences.multiagentic_modality === "isolated"}
-              onChange={(checked) =>
-                setPreferences({
-                  multiagentic_modality: checked ? "isolated" : "grupal",
-                })
-              }
-            />
+            <section className="flex-x gap-medium align-center justify-center w-100">
+              <h5>{t("multiagentic-modality")}</h5>
+              <SliderInput
+                labelTrue={t("isolated")}
+                labelFalse={t("grupal")}
+                svgTrue={SVGS.palmeras}
+                svgFalse={SVGS.team}
+                checked={userPreferences.multiagentic_modality === "isolated"}
+                onChange={(checked) => {
+                  setPreferences({
+                    multiagentic_modality: checked ? "isolated" : "grupal",
+                  });
+                }}
+              />
+            </section>
+            <span>
+              {userPreferences.multiagentic_modality === "isolated"
+                ? t("isolated-modality-description")
+                : t("grupal-modality-description")}
+            </span>
           </div>
         </div>
       </Modal>

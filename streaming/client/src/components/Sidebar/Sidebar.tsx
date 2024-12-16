@@ -213,7 +213,7 @@ export const Sidebar: React.FC = () => {
           {historyConfig.isOpen && (
             <>
               {historyConfig.showFilters ? (
-                <div>
+                <div className="conversation-history-filters">
                   <input
                     type="text"
                     className="input w-100 padding-medium"
@@ -410,6 +410,7 @@ export const Sidebar: React.FC = () => {
             onClick={openSettings}
             svg={SVGS.settings}
             title={t("settings")}
+            extraClass="pressable active-on-hover "
             text={user ? user.username : t("you")}
           />
           <SvgButton

@@ -245,5 +245,10 @@
     "just-a-second": "Just a second...",
     "modify-message": "Modify message",
     "min-messages": "Min messages",
-    "max-messages": "Max messages"
-}
+    "max-messages": "Max messages",
+    "isolated-modality-description": "In isolated mode, each agent receives only its messages, it doesn't know about the other agents in the conversation.",
+    "grupal-modality-description": "In grupal mode, each agent can see the context of the other agents. They can also interact with each other because they can see the messages of the other agents.",
+    "view-code": "View code",
+    "use-plugin": "Use plugin",
+    "copied": "Copied!"
+}   

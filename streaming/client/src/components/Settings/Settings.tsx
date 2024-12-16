@@ -43,12 +43,9 @@ export const Settings = () => {
   return (
     <Modal
       minHeight={"80vh"}
+      header={<h3 className="padding-big">{t("settings")}</h3>}
       hide={() => setOpenedModals({ action: "remove", name: "settings" })}
     >
-      <h3 className="d-flex rounded gap-big align-top justify-center padding-big">
-        {t("settings")}
-      </h3>
-
       <Menu options={menuOptions} />
     </Modal>
   );
@@ -148,31 +145,19 @@ const AppearanceConfig = () => {
                 theme: "light",
               })
             }
-            extraClass={
-              userPreferences.theme === "light"
-                ? "bg-active text-white svg-white"
-                : "bg-hovered"
-            }
+            extraClass={`pressable active-on-hover ${userPreferences.theme === "light" ? "bg-active svg-white" : "bg-hovered"}`}
             text={t("light")}
             svg={SVGS.sun}
           />
           <SvgButton
             onClick={() => setPreferences({ theme: "dark" })}
-            extraClass={
-              userPreferences.theme === "dark"
-                ? "bg-active text-white svg-white"
-                : "bg-hovered"
-            }
+            extraClass={`pressable active-on-hover ${userPreferences.theme === "dark" ? "bg-active svg-white" : "bg-hovered "}`}
             text={t("dark")}
             svg={SVGS.moon}
           />
           <SvgButton
             onClick={() => setPreferences({ theme: "system" })}
-            extraClass={
-              userPreferences.theme === "system"
-                ? "bg-active text-white svg-white"
-                : "bg-hovered"
-            }
+            extraClass={`pressable active-on-hover ${userPreferences.theme === "system" ? "bg-active svg-white" : "bg-hovered"}`}
             text={t("system")}
             svg={SVGS.pc}
           />
@@ -266,7 +251,7 @@ const GeneralConfig = () => {
     <div className="flex-y gap-small">
       <p>{t("settings-description")}</p>
       <LanguageSelector />
-      <hr />
+      <hr className="separator my-medium" />
       <div className="d-flex gap-small align-center">
         <h4>{t("username")}</h4>
         <input
@@ -291,6 +276,7 @@ const GeneralConfig = () => {
         svg={SVGS.save}
         onClick={handleUpdateUser}
         size="big"
+        extraClass="active-on-hover pressable"
       />
     </div>
   );
@@ -341,7 +327,7 @@ const UserConfig = () => {
   const onKeyChangeDebounced = debounce(onKeyChange, 1000);
 
   return (
-    <div className="flex-y gap-medium">
+    <div className="flex-y gap-big">
       {/* <pre>{JSON.stringify(user, null, 2)}</pre> */}
 
       <JSONForm

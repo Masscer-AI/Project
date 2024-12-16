@@ -273,7 +273,10 @@ export const Message = memo(
     const finishEditing = () => {
       const newValue = textareaValueRef.current;
 
-      if (!newValue) return;
+      if (!newValue) {
+        toggleEditMode();
+        return;
+      }
 
       setInnerText(newValue);
 
@@ -721,11 +724,13 @@ const MessageEditor = ({
     console.log(e);
     const selectedText = window.getSelection()?.toString();
 
+    if (e.changedTouches.length === 0) return;
+
     const touch = e.changedTouches[0];
-    if (selectedText && e.changedTouches) {
+    if (selectedText && touch) {
       setEditionOptions({
-        top: e.changedTouches[0].clientY,
-        left: e.changedTouches[0].clientX,
+        top: touch.clientY,
+        left: touch.clientX,
         isVisible: true,
         generateImage: false,
         currentText: selectedText,
@@ -739,10 +744,13 @@ const MessageEditor = ({
         autoComplete="on"
         ref={textareaRef}
         className="message-textarea"
-        onChange={(e) => (textareaValueRef.current = e.target.value)}
+        onChange={(e) => {
+          textareaValueRef.current = e.target.value;
+          setInnerText(e.target.value);
+        }}
         defaultValue={text}
         onMouseUp={handleDoubleClick}
-        onDoubleClick={handleDoubleClick}
+        // onDoubleClick={handleDoubleClick}
         onTouchEnd={handleTouchEnd}
         // onTouchEnd={handleTouchEnd}
       />

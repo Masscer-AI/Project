@@ -306,15 +306,16 @@ export default function ChatView() {
 
   return (
     <main className="d-flex chat-page">
-      {chatState.isSidebarOpened && <Sidebar />}
-      <div className="chat-container">
-        {userPreferences.background_image_source && (
+      {userPreferences.background_image_source && (
           <img
             style={{ opacity: userPreferences.background_image_opacity }}
             className="pos-absolute"
             src={userPreferences.background_image_source}
           />
         )}
+      {chatState.isSidebarOpened && <Sidebar />}
+      <div className="chat-container">
+        
         <ChatHeader
           right={
             <ConversationModal

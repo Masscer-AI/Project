@@ -150,7 +150,7 @@
     "email-and-password-required": "Email y contraseña son requeridos",
     "auto-play": "Auto play",
     "auto-play-description": "Reproduce automáticamente los mensajes cuando se generan.",
-    "auto-scroll": "Auto scroll",
+    "auto-scroll": "Auto desplazarse",
     "auto-scroll-description": "Desplázate automáticamente al final de la conversación cuando se genera un nuevo mensaje.",
     "signup": "Registro",
     "switch-to-login": "Cambiar a Iniciar sesión",
@@ -244,5 +244,10 @@
     "just-a-second": "¡Un segundo...",
     "modify-message": "Modificar mensaje",
     "min-messages": "Mínimo de mensajes",
-    "max-messages": "Máximo de mensajes"
+    "max-messages": "Máximo de mensajes",
+    "isolated-modality-description": "En modo aislado, cada agente solo puede ver su propio contexto. No puede ver los mensajes de los otros agentes en la conversación.",
+    "grupal-modality-description": "En modo grupal, cada agente puede ver el contexto de los otros agentes. También pueden interactuar entre sí porque pueden ver los mensajes de los otros agentes.",
+    "view-code": "Ver código",
+    "use-plugin": "Usar plugin",
+    "copied": "¡Copiado!"
 }

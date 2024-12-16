@@ -59,6 +59,8 @@
     --user-color: var(--gradient-dark);
 
     --bg-contrast-color: rgb(35, 33, 39);
+
+    color-scheme: dark;
   }
 }
 
@@ -152,6 +154,7 @@ body {
   margin: 0;
   min-height: 100vh;
   background-color: var(--bg-color);
+  color: var(--font-color);
 }
 #themer {
   display: none;
@@ -268,6 +271,7 @@ select,
 option {
   background-color: var(--modal-bg-color);
   font-size: var(--min-font-size);
+  color: var(--font-color);
 }
 textarea {
   resize: vertical;
@@ -578,9 +582,11 @@ textarea {
 }
 .switch {
   position: relative;
+
   display: inline-block;
   width: 60px;
   height: 34px;
+  border-radius: 50%;
 }
 
 /* Hide the default checkbox */
@@ -588,6 +594,12 @@ textarea {
   opacity: 0;
   width: 0;
   height: 0;
+  z-index: 10;
+}
+.switch:has(input:focus) {
+  background-color: grey;
+  padding: 2px;
+  scale: 1.05;
 }
 
 /* Create the slider */
@@ -601,6 +613,14 @@ textarea {
   background-color: #ccc;
   transition: background 0.4s;
   border-radius: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+
+  & .svg-button {
+    width: 20px;
+    height: 20px;
+  }
 }
 
 /* The knob (the circle) */
@@ -611,7 +631,7 @@ textarea {
   width: 26px;
   left: 4px;
   bottom: 4px;
-  background-color: white;
+  background-color: rgba(255, 255, 255, 0.587);
   border-radius: 50%;
   transition: background 0.4s;
 }
@@ -630,7 +650,6 @@ input:checked + .slider::before {
 
 .textarea-container {
   position: relative;
-  overflow: visible !important;
 }
 
 .textarea-container > span {
@@ -652,6 +671,8 @@ input:checked + .slider::before {
   background-color: transparent;
   transition: border-color 0.2s;
   outline: none;
+  max-height: 500px;
+  overflow: auto;
   scrollbar-width: none;
   font-family: var(--font-family);
 }
@@ -660,16 +681,19 @@ input:checked + .slider::before {
   top: -12px;
   background-color: var(--bg-color);
   color: var(--font-color-secondary);
-  border: 1px solid transparent;
+  border: 1px solid var(--bg-contrast-color);
 }
 
 .textarea-container:has(.textarea:focus) > span {
   font-size: 18px;
-  top: -25px;
+  top: -15px;
 
-  color: var(--font-color);
+  color: white;
+  border: 1px solid var(--active-color);
   background-color: var(--active-color);
-  border: 1px solid transparent;
+}
+.textarea-container:has(.textarea:focus) > textarea {
+  border: 1px solid var(--active-color);
 }
 
 .select-container {
@@ -704,10 +728,6 @@ input:checked + .slider::before {
 
 .w-100 {
   width: 100% !important;
-}
-.active-on-hover:hover {
-  background-color: var(--active-color) !important;
-  color: white !important;
 }
 
 .menu {
@@ -775,17 +795,23 @@ input:checked + .slider::before {
 .border-secondary {
   border: 1px solid rgb(75, 73, 73);
 }
-/* @media (min-width: 743px) {
-  .form > label {
-    flex-direction: row;
-  }
-} */
+
 .pressable {
   cursor: pointer;
-  transition: 0.2s;
+  transition: 0.2s all;
+  transform-origin: center center;
 }
 .pressable:hover {
-  transform: scale(1.01);
+  transform: scale(1.05);
+
+  transform: translate(0, -2px);
+  box-shadow: 0px 3px 0 rgba(49, 45, 45, 0.845);
+}
+.pressable:focus {
+  transform: scale(1.05);
+  transform-origin: center center;
+  transform: translate(0, -2px);
+  box-shadow: 0px 3px 0 rgba(77, 77, 77, 0.529);
 }
 
 .pressable:active {
@@ -822,15 +848,28 @@ input:checked + .slider::before {
 .border-danger {
   border: 1px solid var(--danger-color) !important;
 }
-.danger-on-hover:hover {
+.danger-on-hover:hover,
+.danger-on-hover:focus {
   background-color: var(--danger-color) !important;
+  border: 1px solid var(--danger-color) !important;
+
+  & svg.set-fill path {
+    fill: white;
+  }
+  & svg.set-stroke path {
+    stroke: white;
+  }
+  & p {
+    color: white;
+  }
 }
 .danger-on-hover:focus {
   background-color: var(--danger-color);
 }
 
 .separator {
-  border-top: 1px solid rgba(67, 62, 62, 0.544);
+  border-top: 1px solid var(--active-color);
+  opacity: 0.1;
   width: 100%;
 }
 .fat-border {
@@ -974,4 +1013,50 @@ input:checked + .slider::before {
 
 .border-gray {
   border: 1px solid var(--font-color-secondary) !important;
+}
+.button-group {
+  display: flex;
+  border-radius: var(--standard-radius);
+  /* border: 1px solid var(--font-color-secondary) !impo    rtant; */
+
+  > .svg-button:first-child {
+    border-top-left-radius: var(--standard-radius);
+    border-bottom-left-radius: var(--standard-radius);
+  }
+  > .svg-button:last-child {
+    border-top-right-radius: var(--standard-radius);
+    border-bottom-right-radius: var(--standard-radius);
+  }
+}
+.svg-mini {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.active-on-hover:hover,
+.active-on-hover:focus {
+  background-color: var(--active-color) !important;
+
+  & p {
+    color: white;
+  }
+
+  & svg.set-fill path {
+    fill: white;
+  }
+  & svg.set-stroke path {
+    stroke: white;
+  }
+  & svg.set-svg-fill {
+    fill: white;
+  }
+}
+.text-white {
+  color: white;
+}
+.justify-end {
+  justify-content: flex-end;
 }

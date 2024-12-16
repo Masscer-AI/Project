@@ -39,6 +39,7 @@ export const LanguageSelector = () => {
       >
         {possibleLanguages.map((lng) => (
           <SvgButton
+            key={lng}
             size="big"
             text={t(lng)}
             onClick={() => setLanguage(lng)}

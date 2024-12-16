@@ -30,7 +30,7 @@ export const Modal = ({
         <div className="d-flex justify-end modal-closer gap-small align-center">
           {extraButtons}
           <SvgButton
-            extraClass="pressable danger-on-hover svg-danger border-danger"
+            extraClass="pressable danger-on-hover svg-danger "
             onClick={hide}
             svg={SVGS.close}
             aria-label="Close modal"

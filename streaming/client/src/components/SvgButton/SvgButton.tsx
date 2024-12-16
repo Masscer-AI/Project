@@ -12,6 +12,8 @@ type SvgButtonProps = {
   reference?: LegacyRef<HTMLButtonElement>;
   tabIndex?: number;
   transparent?: boolean;
+  svgOnHover?: React.ReactNode;
+  rounded?: boolean;
 };
 
 export const SvgButton = ({
@@ -25,8 +27,11 @@ export const SvgButton = ({
   title = "",
   tabIndex = 0,
   transparent = true,
+  svgOnHover = null,
+  rounded = true,
 }: SvgButtonProps) => {
   const [innerText, setInnerText] = useState(text);
+  const [currentSvg, setCurrentSvg] = useState(svg);
   const [pendingConfirmations, setPendingConfirmations] =
     useState(confirmations);
 
@@ -47,17 +52,23 @@ export const SvgButton = ({
   return (
     <button
       tabIndex={tabIndex}
-      className={`svg-button  clickeable ${extraClass} ${size} ${transparent ? "transparent" : ""}`}
+      className={`svg-button ${rounded ? "rounded" : ""} clickeable ${extraClass} ${size} ${transparent ? "transparent" : ""}`}
       onClick={handleClick}
+      onMouseEnter={() => {
+        if (svgOnHover) {
+          setCurrentSvg(svgOnHover);
+        }
+      }}
+      onMouseLeave={() => {
+        setCurrentSvg(svg);
+      }}
       title={title}
       ref={reference}
     >
-      {svg && <div className="d-flex align-center justify-center">{svg}</div>}
-      {innerText && (
-        <div className="d-flex align-center justify-center fit-content">
-          {innerText}
-        </div>
+      {svg && (
+        <div className="d-flex align-center justify-center">{currentSvg}</div>
       )}
+      {innerText && <p>{innerText}</p>}
     </button>
   );
 };

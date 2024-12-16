@@ -59,12 +59,14 @@ export const ConversationModal = ({
 
   useEffect(() => {
     socket.on("title_updated", (data) => {
-      console.log("TITLE UPDATED", data);
       if (data.message.conversation_id === conversation.id) {
         setTitle(data.message.title);
       }
     });
-  }, []);
+    return () => {
+      socket.off("title_updated");
+    };
+  }, [socket, conversation]);
 
   useEffect(() => {
     if (conversation.tags !== tags) {
@@ -82,7 +84,7 @@ export const ConversationModal = ({
       <SvgButton text={title} onClick={() => setShowModal(true)} />
       <Modal
         visible={showModal}
-        header={<h2 className="text-center">{t("conversation-editor")}</h2>}
+        header={<h3 className="padding-big">{t("conversation-editor")}</h3>}
         hide={() => setShowModal(false)}
       >
         <div className="flex-y gap-big">

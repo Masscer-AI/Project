@@ -3,9 +3,8 @@
   width: fit-content;
   height: 40px;
   gap: 5px;
-  border-radius: 7px;
-  cursor: pointer;
   color: var(--font-color);
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;

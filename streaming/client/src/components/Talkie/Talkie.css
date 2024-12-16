@@ -2,7 +2,6 @@
   display: flex;
   align-items: center;
   width: min(400px, 100%);
-  overflow: hidden;
   max-height: 100%;
 }
 

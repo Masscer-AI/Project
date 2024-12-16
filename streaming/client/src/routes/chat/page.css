@@ -7,17 +7,8 @@
   margin: 0 auto;
   border-radius: 8px;
   overflow: hidden;
-  /* background-color: var(--bg-color); */
   width: min(100%, var(--input-max-width));
   position: relative;
-
-  > img:first-child {
-    position: absolute;
-    z-index: 0;
-    width: 100%;
-    height: 100%;
-    border-radius: 10px;
-  }
 }
 
 .chat-messages {
@@ -42,4 +33,12 @@
   border: 1px solid var(--hovered-color);
   z-index: 1;
   gap: 10px;
+}
+
+.chat-page > img:first-child {
+  position: absolute;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 10px;
 }

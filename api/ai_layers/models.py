@@ -89,9 +89,7 @@ class Agent(models.Model):
     )
     profile_picture_url = models.URLField(null=True, blank=True, max_length=500)
 
-    # profile_picture_src = models.ImageField(
-    #     upload_to="profile_pictures", null=True, blank=True
-    # )
+    profile_picture_src = models.TextField(null=True, blank=True)
 
     def __str__(self):
         return self.name
@@ -164,5 +162,8 @@ class Agent(models.Model):
 
         return extract_rag_results({"results": results}, context)
 
+    def generate_profile_picture(self):
+        from .tasks import async_generate_agent_profile_picture
 
-# def generate_profile_picture(self):
+        async_generate_agent_profile_picture.delay(self.id)
+        

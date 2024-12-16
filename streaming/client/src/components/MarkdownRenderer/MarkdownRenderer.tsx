@@ -13,6 +13,8 @@ import { useTranslation } from "react-i18next";
 import { SvgButton } from "../SvgButton/SvgButton";
 import { Pill } from "../Pill/Pill";
 
+import { Calculator } from "../MessagePlugins/Calculator/Calculator";
+
 const MarkdownRenderer = ({
   markdown,
   extraClass,
@@ -87,17 +89,28 @@ const downloadTextAsFile = (text: string, format: TOutputFormat) => {
   a.click();
 };
 
+const plugins = {
+  calculator: (text: string) => {
+    return <Calculator {...JSON.parse(text)} />;
+  },
+};
+
 export const CustomCodeBlock = ({ code, language }) => {
   const { t } = useTranslation();
   const [output_format, setOutputFormat] = useState<TOutputFormat>("docx");
   const [input_format, setInputFormat] = useState("md");
+  const [usePlugin, setUsePlugin] = useState<boolean>(false);
+  const [pluginName, setPluginName] = useState<string | null>(null);
 
   useEffect(() => {
     // If the language is HTML, set the output format to HTML
     if (language === "html") {
       setInputFormat("html");
     }
-  }, []);
+    if (language === "json") {
+      findPlugin();
+    }
+  }, [code, language]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(code);
@@ -139,19 +152,50 @@ export const CustomCodeBlock = ({ code, language }) => {
     }
   };
 
+  const findPlugin = () => {
+    try {
+      const json = JSON.parse(code);
+      if (json.plugin) {
+        // setUsePlugin(true);
+        setPluginName(json.plugin);
+      }
+    } catch (e) {
+      console.log(e);
+      setUsePlugin(false);
+      setPluginName(null);
+    }
+  };
+
+  const label = usePlugin ? pluginName : language;
+
   return (
     <div className="code-block">
       <div className="actions flex-x align-center justify-between bg-hovered rounded">
         <section className="flex-x gap-small align-center">
-          <Pill>{language ? language : "text"}</Pill>
+          <Pill>{label.slice(0, 1).toUpperCase() + label.slice(1)}</Pill>
         </section>
-        <section className="flex-x align-center">
+        <section className="flex-x align-center wrap-wrap gap-small padding-small justify-end">
           <SvgButton
-            extraClass="pressable active-on-hover "
+            extraClass="pressable active-on-hover bg-hovered"
             text={t("copy")}
             onClick={handleCopy}
           />
-          <div className="flex-x active-on-hover  rounded">
+          {pluginName && (
+            <SvgButton
+              extraClass="pressable active-on-hover bg-hovered"
+              text={
+                usePlugin ? t("view-code") : t("use-plugin") + " " + pluginName
+              }
+              onClick={
+                usePlugin
+                  ? () => setUsePlugin(false)
+                  : () => {
+                      setUsePlugin(true);
+                    }
+              }
+            />
+          )}
+          <div className="flex-x active-on-hover  bg-hovered rounded">
             <SvgButton
               extraClass="pressable "
               text={t("export-to")}
@@ -171,12 +215,17 @@ export const CustomCodeBlock = ({ code, language }) => {
           </div>
         </section>
       </div>
-      <SyntaxHighlighter
-        language={language ? language : "text"}
-        style={twilight}
-      >
-        {code}
-      </SyntaxHighlighter>
+
+      {pluginName && usePlugin ? (
+        plugins[pluginName](code)
+      ) : (
+        <SyntaxHighlighter
+          language={language ? language : "text"}
+          style={twilight}
+        >
+          {code}
+        </SyntaxHighlighter>
+      )}
     </div>
   );
 };

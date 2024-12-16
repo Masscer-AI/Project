@@ -209,5 +209,10 @@
     "just-a-second": "Un secondo...",
     "modify-message": "Modifica messaggio",
     "min-messages": "Minimo di messaggi",
-    "max-messages": "Massimo di messaggi"
+    "max-messages": "Massimo di messaggi",
+    "isolated-modality-description": "In modalità isolata, ogni agente può solo vedere il suo proprio contesto. Non può vedere i messaggi degli altri agenti nella conversazione.",
+    "grupal-modality-description": "In modalità grupale, ogni agente può vedere il contesto degli altri agenti. Possono anche interagire tra loro perché possono vedere i messaggi degli altri agenti.",
+    "view-code": "Visualizza codice",
+    "use-plugin": "Usa plugin",
+    "copied": "Copiato!"
 }
