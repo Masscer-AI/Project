@@ -179,7 +179,7 @@ export const Talkie: React.FC<TalkieProps> = ({ processAudio }) => {
   return (
     <div className="talkie">
       <SvgButton
-        extraClass={`pressable rounded active-on-hover ${
+        extraClass={`pressable rounded danger-on-hover ${
           isRecording ? "bg-danger" : ""
         }`}
         onClick={isRecording ? stopRecording : startRecording}

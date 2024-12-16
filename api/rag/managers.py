@@ -1,13 +1,16 @@
 import chromadb
+import time
+import os
+import subprocess
 
 # from chromadb.utils import embedding_functions
 
 # default_ef = embedding_functions.DefaultEmbeddingFunction()
+ChromaNotInitializedException = Exception("Chroma not yet initialized!")
 
 
 class ChromaManager:
     client = None
-
 
     def __init__(self) -> None:
         self.client = chromadb.HttpClient(host="localhost", port=8002)
@@ -38,7 +41,12 @@ class ChromaManager:
         collection.upsert(documents=documents, ids=chunk_ids, metadatas=metadatas)
 
     def get_results(
-        self, collection_name: str, query_texts: list[str], n_results: int = 4, search_string: str = "", where: dict = {}
+        self,
+        collection_name: str,
+        query_texts: list[str],
+        n_results: int = 4,
+        search_string: str = "",
+        where: dict = {},
     ):
         # TODO: This is bad, if the collection doesn't exist, ignore
         collection = self.get_or_create_collection(collection_name)
@@ -48,12 +56,10 @@ class ChromaManager:
                 query_texts=query_texts,
                 n_results=n_results,
                 where_document={"$contains": search_string},
-                where=where
+                where=where,
             )
         return collection.query(
-            query_texts=query_texts,
-            n_results=n_results,
-            where=where
+            query_texts=query_texts, n_results=n_results, where=where
         )
 
     def get_collection_or_none(self, collection_name: str):
@@ -70,7 +76,7 @@ class ChromaManager:
             print("DELETED SUCCESSFULLY")
         except Exception as e:
             print(e, "EXCEPTION TRYING TO DELETE COLLECTION")
-            
+
     def delete_chunk(self, collection_name: str, chunk_id: str):
         # TODO: This is bad, if the collection doesn't exist, ignore
         collection = self.get_or_create_collection(collection_name)
@@ -82,4 +88,22 @@ class ChromaManager:
             collection.delete(ids=chunk_ids)
 
 
-chroma_client = ChromaManager()
+def start_chroma_server():
+
+    process = subprocess.Popen(
+        ["chroma", "run", "--path", "vector_storage/", "--port", "8002"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    process.wait()
+
+
+chroma_client = None
+try:
+    chroma_client = ChromaManager()
+except Exception as e:
+    # start_chroma_server()
+    # time.sleep(3)
+
+    # chroma_client = ChromaManager()
+    raise ChromaNotInitializedException

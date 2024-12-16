@@ -81,7 +81,9 @@ export const ConversationModal = ({
 
   return (
     <>
-      <SvgButton text={title} onClick={() => setShowModal(true)} />
+      <p onClick={() => setShowModal(true)} className="cutted-text pressable">
+        {title ? `${title.slice(0, 25)}...` : t("conversation-without-title")}
+      </p>
       <Modal
         visible={showModal}
         header={<h3 className="padding-big">{t("conversation-editor")}</h3>}

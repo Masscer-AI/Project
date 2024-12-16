@@ -1,4 +1,8 @@
-from api.utils.openai_functions import generate_image, create_completion_openai
+from api.utils.openai_functions import (
+    generate_image,
+    create_completion_openai,
+    list_openai_models,
+)
 from .models import Agent
 from api.utils.color_printer import printer
 
@@ -16,18 +20,109 @@ def check_models_for_providers():
     # from api.utils.openai_functions import list_openai_models
 
     openai_models_objects = [
-        {"name": "GPT-4", "slug": "gpt-4"},
-        {"name": "Gpt 4 Turbo", "slug": "gpt-4-turbo"},
-        {"name": "Gpt 4O", "slug": "gpt-4o"},
-        {"name": "Gpt 4O Mini", "slug": "gpt-4o-mini"},
-        {"name": "Gpt 3.5 Turbo", "slug": "gpt-3.5-turbo"},
-        {"name": "ChatGPT 4O Latest", "slug": "chatgpt-4o-latest"},
-        # {"name": "GPT 4O Realtime Preview", "slug": "gpt-4o-realtime-preview"},
+        {
+            "name": "GPT-4",
+            "slug": "gpt-4",
+            "pricing": {
+                "text": {
+                    "prompt": "30.00 USD / 1000000",
+                    "output": "60.00 USD / 1000000",
+                }
+            },
+        },
+        {
+            "name": "Gpt 4 Turbo",
+            "slug": "gpt-4-turbo",
+            "pricing": {
+                "text": {
+                    "prompt": "10.00 USD / 1000000",
+                    "output": "30.00 USD / 1000000",
+                }
+            },
+        },
+        {
+            "name": "Gpt 4O",
+            "slug": "gpt-4o",
+            "pricing": {
+                "text": {
+                    "prompt": "2.50 USD / 1000000",
+                    "output": "10.00 USD / 1000000",
+                }
+            },
+        },
+        {
+            "name": "Gpt 4O Mini",
+            "slug": "gpt-4o-mini",
+            "pricing": {
+                "text": {
+                    "prompt": "0.15 USD / 1000000",
+                    "output": "0.60 USD / 1000000",
+                }
+            },
+        },
+        {
+            "name": "Gpt 3.5 Turbo",
+            "slug": "gpt-3.5-turbo",
+            "pricing": {
+                "text": {
+                    "prompt": "0.50 USD / 1000000",
+                    "output": "1.50 USD / 1000000",
+                }
+            },
+        },
+        {
+            "name": "ChatGPT 4O Latest",
+            "slug": "chatgpt-4o-latest",
+            "pricing": {
+                "text": {
+                    "prompt": "5.00 USD / 1000000",
+                    "output": "15.00 USD / 1000000",
+                }
+            },
+        },
+        {
+            "name": "O1 Preview",
+            "slug": "o1-preview",
+            "pricing": {
+                "text": {
+                    "prompt": "15.00 USD / 1000000",
+                    "output": "60.00 USD / 1000000",
+                }
+            },
+        },
+        {
+            "name": "O1 Mini",
+            "slug": "o1-mini",
+            "pricing": {
+                "text": {
+                    "prompt": "3.00 USD / 1000000",
+                    "output": "12.00 USD / 1000000",
+                }
+            },
+        },
     ]
 
     anthropic_models_objects = [
-        {"name": "Claude 3.5 Sonnet", "slug": "claude-3-5-sonnet-20241022"},
-        {"name": "Claude 3.5 Haiku", "slug": "claude-3-5-haiku-20241022"},
+        {
+            "name": "Claude 3.5 Sonnet",
+            "slug": "claude-3-5-sonnet-20241022",
+            "pricing": {
+                "text": {
+                    "prompt": "3.00 USD / 1000000",
+                    "output": "15.00 USD / 1000000",
+                }
+            },
+        },
+        {
+            "name": "Claude 3.5 Haiku",
+            "slug": "claude-3-5-haiku-20241022",
+            "pricing": {
+                "text": {
+                    "prompt": "0.80 USD / 1000000",
+                    "output": "4.00 USD / 1000000",
+                }
+            },
+        },
     ]
     # openai_models_from_api = list_openai_models()
     # printer.red(openai_models_from_api, "OPENAI MODELS FROM API")
@@ -69,17 +164,20 @@ def check_models_for_providers():
             language_model, created = LanguageModel.objects.get_or_create(
                 provider=openai_provider,
                 slug=model["slug"],
-                defaults={"name": model["name"]},
+                defaults={"name": model["name"], "pricing": model["pricing"]},
             )
+
             if created:
                 printer.green(
                     f"LanguageModel '{model['name']}' created for provider 'OpenAI'."
                 )
-            else:
-                pass
-                # printer.yellow(
-                #     f"LanguageModel '{model['name']}' already exists for provider 'OpenAI'."
-                # )
+
+            if not created and language_model.pricing != model["pricing"]:
+                language_model.pricing = model["pricing"]
+                language_model.save()
+                printer.yellow(
+                    f"Updated pricing for LanguageModel '{model['name']}' (OpenAI)."
+                )
 
     # Create LanguageModels for Ollama
     if ollama_provider:
@@ -93,11 +191,14 @@ def check_models_for_providers():
                 printer.green(
                     f"LanguageModel '{model['name']}' created for provider 'Ollama'."
                 )
-            else:
-                pass
-                # printer.yellow(
-                #     f"LanguageModel '{model['name']}' already exists for provider 'Ollama'."
-                # )
+
+            # TODO: Calculate a pricing for ollama models
+            # if not created and language_model.pricing != model["pricing"]:
+            #     language_model.pricing = model["pricing"]
+            #     language_model.save()
+            #     printer.yellow(
+            #         f"Updated pricing for LanguageModel '{model['name']}' (Ollama)."
+            #     )
 
     # Create LanguageModels for Anthropic
     if anthropic_provider:
@@ -105,13 +206,18 @@ def check_models_for_providers():
             language_model, created = LanguageModel.objects.get_or_create(
                 provider=anthropic_provider,
                 slug=model["slug"],
-                defaults={"name": model["name"]},
+                defaults={"name": model["name"], "pricing": model["pricing"]},
             )
             if created:
                 printer.green(
                     f"LanguageModel '{model['name']}' created for provider 'Anthropic'."
                 )
-
+            if not created and language_model.pricing != model["pricing"]:
+                language_model.pricing = model["pricing"]
+                language_model.save()
+                printer.yellow(
+                    f"Updated pricing for LanguageModel '{model['name']}' (Anthropic)."
+                )
     printer.success("All models are now in the DB!")
 
 

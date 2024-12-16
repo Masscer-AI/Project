@@ -51,9 +51,14 @@ class TextStreamingHandler:
         print("PROVIDER NOT FOUND")
 
     def stream_openai(self, system: str, text: str, model: str):
+        reasoning_models = ["o1-mini", "o1-preview"]
+        is_reasoning_model = model in reasoning_models
+
+        if is_reasoning_model:
+            self.max_tokens = 16000
 
         messages = [
-            {"role": "system", "content": system},
+            {"role": "system" if not is_reasoning_model else "user", "content": system},
         ]
         for m in self.prev_messages:
             if m["type"] == "user":
@@ -148,17 +153,21 @@ AI_RESPONSE:
                             },
                         )
 
+        temperature = float(self.config.get("temperature", 1))
+        if is_reasoning_model:
+            temperature = 1
+
         logger.debug(f"Creating completion with {model}")
         response = self.client.chat.completions.create(
             model=model,
             # model="gpt-4o-audio-preview",
-            max_tokens=int(self.config.get("max_tokens", 3000)),
+            max_completion_tokens=int(self.config.get("max_tokens", 3000)),
             messages=messages,
             # modalities=["text"],
             frequency_penalty=float(self.config.get("frequency_penalty", 0)),
+            temperature=temperature,
             top_p=float(self.config.get("top_p", 1.0)),
             presence_penalty=float(self.config.get("presence_penalty", 0)),
-            temperature=float(self.config.get("temperature", 0.5)),
             stream=True,
             stream_options={"include_usage": True},
         )

@@ -1060,3 +1060,6 @@ input:checked + .slider::before {
 .justify-end {
   justify-content: flex-end;
 }
+.width-150 {
+  width: 150px;
+}

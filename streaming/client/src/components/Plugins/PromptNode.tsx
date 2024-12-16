@@ -122,6 +122,7 @@ export const PromptNode = ({ data }: NodeProps<TPromptNode>) => {
           onClick={test}
         />
         <SliderInput
+          name="output-type"
           labelFalse="JSON"
           labelTrue="Text"
           checked={outputType === "text"}

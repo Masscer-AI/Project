@@ -255,6 +255,7 @@ const GeneralConfig = () => {
       <div className="d-flex gap-small align-center">
         <h4>{t("username")}</h4>
         <input
+          name="username"
           type="text"
           value={username}
           className="input"
@@ -264,6 +265,7 @@ const GeneralConfig = () => {
       <div className="d-flex gap-small align-center">
         <h4>{t("email")}</h4>
         <input
+          name="email"
           type="email"
           value={email}
           className="input w-100"

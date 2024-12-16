@@ -250,5 +250,9 @@
     "grupal-modality-description": "In grupal mode, each agent can see the context of the other agents. They can also interact with each other because they can see the messages of the other agents.",
     "view-code": "View code",
     "use-plugin": "Use plugin",
-    "copied": "Copied!"
-}   
+    "copied": "Copied!",
+    "calculator": "Calculator",
+    "new-conversation": "New conversation",
+    "conversation-without-title": "Conversation without title",
+    "cost": "Cost"
+}

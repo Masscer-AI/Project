@@ -120,7 +120,7 @@
     "error-generating-document": "Error generando documento",
     "speech-being-generated-wait-a-second": "Voz siendo generada, espera un segundo...",
     "structure-the-ai-system-prompt": "Estructura el prompt del sistema de IA",
-    "explain-its-role-to-the-ai": "Explica su rol a la IA",
+    "explain-its-role-to-the-ai": "Explica a la IA su rol",
     "document-chunks": "Fragmentos del documento",
     "document-templates-you-can-replicate-using-ai": "Plantillas de documentos que puedes replicar usando IA",
     "templates": "Plantillas",
@@ -249,5 +249,9 @@
     "grupal-modality-description": "En modo grupal, cada agente puede ver el contexto de los otros agentes. También pueden interactuar entre sí porque pueden ver los mensajes de los otros agentes.",
     "view-code": "Ver código",
     "use-plugin": "Usar plugin",
-    "copied": "¡Copiado!"
+    "copied": "¡Copiado!",
+    "calculator": "Calculadora",
+    "new-conversation": "Nueva conversación",
+    "conversation-without-title": "Conversación sin título",
+    "cost": "Costo"
 }

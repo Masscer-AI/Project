@@ -249,5 +249,9 @@
     "grupal-modality-description": "En modo grupal, cada agente puede ver el contexto de los otros agentes. Posiblemente interactúen entre sí porque pueden ver los mensajes de los otros agentes.",
     "view-code": "Ver código",
     "use-plugin": "Usar plugin",
-    "copied": "¡Copiado!"
+    "copied": "¡Copiado!",
+    "calculator": "Calculadora",
+    "new-conversation": "Nueva conversación",
+    "conversation-without-title": "Conversación sin título",
+    "cost": "Costo"
 }

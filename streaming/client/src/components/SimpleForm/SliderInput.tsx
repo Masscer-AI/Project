@@ -11,6 +11,7 @@ export const SliderInput = ({
   keepActive = false,
   svgTrue = null,
   svgFalse = null,
+  name = "",
 }: {
   checked: boolean;
   onChange: (checked: boolean) => void;
@@ -19,6 +20,7 @@ export const SliderInput = ({
   extraClass?: string;
   keepActive?: boolean;
   svgTrue?: React.ReactNode;
+  name?: string;
   svgFalse?: React.ReactNode;
 }) => {
   const [innerChecked, setInnerChecked] = useState(checked);
@@ -42,6 +44,7 @@ export const SliderInput = ({
       <label className={`switch `}>
         <input
           tabIndex={0}
+          name={name}
           type="checkbox"
           checked={innerChecked}
           onChange={(e) => onChange(e.target.checked)}

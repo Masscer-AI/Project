@@ -30,12 +30,19 @@ class AgentView(View):
         return JsonResponse(data, safe=False)
 
     def put(self, request, *args, **kwargs):
+        default_llm = {
+            "provider": "openai",
+            "slug": "gpt-4o-mini",
+        }
 
         agent_slug = kwargs.get("slug")
         agent = get_object_or_404(Agent, slug=agent_slug, user=request.user)
         data = JSONParser().parse(request)
         printer.blue("Request saving agent", data)
-        llm = LanguageModel.objects.get(slug=data.get("model_slug", "gpt-4o-mini"))
+
+        llm_slug = data.get("llm", default_llm).get("slug")
+        llm_provider = data.get("llm", default_llm).get("provider")
+        llm = LanguageModel.objects.get(slug=llm_slug, provider__name=llm_provider)
 
         agent.llm = llm
 

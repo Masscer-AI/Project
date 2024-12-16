@@ -298,6 +298,7 @@ const RagSearchOptions = () => {
           checked={chatState.useRag}
           onChange={(checked) => toggleUseRag()}
           labelTrue={t("use-completions-active")}
+          name="use-completions"
           labelFalse={t("use-completions-inactive")}
         />
 
@@ -490,6 +491,7 @@ const ConversationConfig = () => {
             <section className="flex-x gap-medium align-center justify-center w-100">
               <h5>{t("auto-play")}</h5>
               <SliderInput
+                name="autoplay"
                 checked={userPreferences.autoplay}
                 onChange={(checked) => setPreferences({ autoplay: checked })}
               />
@@ -501,6 +503,7 @@ const ConversationConfig = () => {
             <section className="flex-x gap-medium align-center justify-center w-100">
               <h5>{t("auto-scroll")}</h5>
               <SliderInput
+                name="autoscroll"
                 checked={userPreferences.autoscroll}
                 onChange={(checked) => setPreferences({ autoscroll: checked })}
               />
@@ -512,6 +515,7 @@ const ConversationConfig = () => {
             <section className="flex-x gap-medium align-center justify-center w-100">
               <h5>{t("multiagentic-modality")}</h5>
               <SliderInput
+                name="multiagentic-modality"
                 labelTrue={t("isolated")}
                 labelFalse={t("grupal")}
                 svgTrue={SVGS.palmeras}

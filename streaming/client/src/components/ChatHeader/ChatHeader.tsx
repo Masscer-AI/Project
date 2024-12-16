@@ -152,7 +152,6 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
   const { t } = useTranslation();
   const [formState, setFormState] = useState({
     name: agent.name || "",
-    model_slug: agent.model_slug || "",
     openai_voice: agent.openai_voice || "shimmer",
     default: agent.default || false,
     frequency_penalty: agent.frequency_penalty || 0.0,
@@ -233,8 +232,6 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
       system_prompt: value,
     }));
   };
-
-  console.log(models, "models");
 
   return (
     <form onSubmit={onSubmit}>
@@ -337,7 +334,6 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
           />
           <span>{formState.presence_penalty}</span>
         </label>
-        <p>{t("act-as")}</p>
         <Textarea
           extraClass="my-medium"
           defaultValue={formState.act_as ? formState.act_as : ""}
@@ -350,7 +346,6 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
           placeholder={t("explain-its-role-to-the-ai")}
         />
 
-        <p>{t("system-prompt")}</p>
         <Textarea
           extraClass="my-medium"
           placeholder={t("structure-the-ai-system-prompt")}

@@ -287,8 +287,7 @@ export const calculateOperations = (
     sum: (...args: number[]) => args.reduce((acc, curr) => acc + curr, 0),
     rest: (...args: number[]) =>
       args.reduce((acc, curr, index) => (index === 0 ? curr : acc - curr), 0),
-    multiply: (...args: number[]) =>
-      args.reduce((acc, curr) => acc * curr, 1),
+    multiply: (...args: number[]) => args.reduce((acc, curr) => acc * curr, 1),
     divide: (a: number, b: number) => (b !== 0 ? a / b : 0),
     sqrt: (a: number) => (a >= 0 ? Math.sqrt(a) : 0),
     floor: (a: number) => Math.floor(a),
@@ -327,9 +326,7 @@ export const calculateOperations = (
       // @ts-ignore
       result = operators[op.name](a, b);
     } else {
-      throw new Error(
-        `Invalid number of arguments for operation: ${op.name}`
-      );
+      throw new Error(`Invalid number of arguments for operation: ${op.name}`);
     }
 
     results.set(op.result_name, result);
@@ -337,4 +334,14 @@ export const calculateOperations = (
   });
 
   return operations;
+};
+// Example pricing: "3.00 USD / 1000000"
+export const calculatePricing = (pricing: string, tokens: number) => {
+  // Separate the pricing by /
+  const pricingParts = pricing.split("/");
+  const [price, units] = pricingParts;
+  const pricePerTokenQuantity = parseFloat(price);
+  const tokenQuantity = parseInt(units);
+  const totalPrice = (pricePerTokenQuantity / tokenQuantity) * tokens;
+  return totalPrice;
 };

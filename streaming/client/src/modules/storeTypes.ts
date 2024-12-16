@@ -1,5 +1,5 @@
 import { TAttachment, TConversation } from "../types";
-import { Message, Model, TAgent } from "../types/agents";
+import { Message, TModel, TAgent } from "../types/agents";
 import { TUserData, TReactionTemplate } from "../types/chatTypes";
 
 type SetOpenedProps = {
@@ -24,7 +24,7 @@ export type Store = {
   messages: Message[];
   // input: string;
   theme: TTheme;
-  models: Model[];
+  models: TModel[];
   agents: TAgent[];
   user?: TUserData;
   modelsAndAgents: TAgent[];
@@ -55,7 +55,7 @@ export type Store = {
     newAttachment: Partial<TAttachment>
   ) => void;
   // setInput: (input: string) => void;
-  setModels: (models: Model[]) => void;
+  setModels: (models: TModel[]) => void;
   fetchAgents: () => void;
   toggleSidebar: () => void;
   cleanAttachments: () => void;

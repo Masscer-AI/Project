@@ -4,11 +4,21 @@ export type Message = {
   imageUrl?: string;
 };
 
-export type Model = {
+type TModelPricing = {
+  output: string;
+  prompt: string;
+};
+
+type TOutputMode = "text" | "image";
+
+export type TModel = {
   name: string;
   provider: string;
   slug: string;
   selected: boolean;
+  pricing: {
+    [key in TOutputMode]: TModelPricing;
+  };
 };
 
 export type TOpenaiVoiceOptions =
@@ -38,7 +48,6 @@ export type TAgent = {
   is_public?: boolean; // Optional flag to indicate if the agent is public
   max_tokens?: number | null; // Optional maximum number of tokens the agent can use
   model_provider?: string; // Optional provider of the model
-  model_slug?: string;
   presence_penalty?: number | null;
   salute?: string;
   llm: TLLM;

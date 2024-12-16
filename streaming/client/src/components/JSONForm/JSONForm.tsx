@@ -39,7 +39,7 @@ export const JSONForm: React.FC<JSONFormProps> = ({
     switch (field.type) {
       case "string":
         return (
-          <div className="d-flex gap-medium align-center">
+          <div key={key} className="d-flex gap-medium align-center">
             <label>{field.label}</label>
             <input
               className="input"
@@ -52,6 +52,7 @@ export const JSONForm: React.FC<JSONFormProps> = ({
       case "textarea":
         return (
           <Textarea
+            key={key}
             defaultValue={formData[key] || ""}
             onChange={(value) => handleChange(key, value)}
             placeholder={field.label}
@@ -59,7 +60,7 @@ export const JSONForm: React.FC<JSONFormProps> = ({
         );
       case "number":
         return (
-          <>
+          <div key={key} className="d-flex gap-medium align-center">
             <label>{field.label}</label>
             <input
               className="input"
@@ -67,11 +68,11 @@ export const JSONForm: React.FC<JSONFormProps> = ({
               value={formData[key] || ""}
               onChange={(e) => handleChange(key, Number(e.target.value))}
             />
-          </>
+          </div>
         );
       case "boolean":
         return (
-          <div>
+          <div key={key} className="d-flex gap-medium align-center">
             <label>{field.label}</label>
             <input
               className="input"
@@ -83,7 +84,7 @@ export const JSONForm: React.FC<JSONFormProps> = ({
         );
       case "date":
         return (
-          <div>
+          <div key={key} className="d-flex gap-medium align-center">
             <label>{field.label}</label>
             <input
               className="input"
@@ -95,7 +96,7 @@ export const JSONForm: React.FC<JSONFormProps> = ({
         );
       case "image":
         return (
-          <div>
+          <div key={key} className="d-flex gap-medium align-center">
             <label>{field.label}</label>
             <input
               type="file"

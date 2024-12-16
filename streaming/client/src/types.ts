@@ -54,6 +54,13 @@ export type TSource = {
   extra: string;
 };
 
+type TUsage = {
+  total_tokens: number;
+  prompt_tokens: number;
+  completion_tokens: number;
+  model_slug?: string;
+};
+
 export type TVersion = {
   text: string;
   type: string;
@@ -61,6 +68,7 @@ export type TVersion = {
   agent_name: string;
   web_search_results?: TWebSearchResult[];
   sources?: TSource[];
+  usage?: TUsage;
 };
 
 export type TOrganization = {

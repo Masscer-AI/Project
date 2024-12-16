@@ -263,10 +263,12 @@ async def on_message_handler(socket_id, data, **kwargs):
                 await sio.emit("response", {}, to=socket_id)
 
             else:
+                print("Chunk received", chunk)
                 version["usage"] = {
                     "completion_tokens": chunk.completion_tokens,
                     "prompt_tokens": chunk.prompt_tokens,
                     "total_tokens": chunk.total_tokens,
+                    "model_slug": m["llm"]["slug"],
                 }
 
         version["web_search_results"] = web_results

@@ -8,11 +8,11 @@ class LanguageModelSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = LanguageModel
-        fields = ["id", "provider", "slug", "name", "created_at", "updated_at"]
+        fields = ["id", "provider", "slug", "name", "pricing"]
 
 
 class AgentSerializer(serializers.ModelSerializer):
-    llm = LanguageModelSerializer(read_only=True) 
+    llm = LanguageModelSerializer(read_only=True)
 
     class Meta:
         model = Agent
@@ -20,7 +20,6 @@ class AgentSerializer(serializers.ModelSerializer):
             "id",
             "name",
             "slug",
-            "model_slug",
             "system_prompt",
             "salute",
             "act_as",
@@ -35,5 +34,5 @@ class AgentSerializer(serializers.ModelSerializer):
             "profile_picture_url",
             "max_tokens",
             "temperature",
-            "llm", 
+            "llm",
         ]

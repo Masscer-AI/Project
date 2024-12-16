@@ -5,6 +5,12 @@ import os
 import tiktoken
 
 
+
+
+def pricing_calculator(model: str, tokens: int):
+    return 0
+
+
 def create_completion_openai(
     system_prompt: str,
     user_message: str,

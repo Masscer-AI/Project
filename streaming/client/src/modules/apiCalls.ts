@@ -88,9 +88,7 @@ export const makeAuthenticatedRequest = async <T>(
 
   try {
     const response = await axios(config);
-    if (method === "DELETE") {
-      console.log(response.data, "RESPONSE DATA");
-    }
+
     return response.data as T;
   } catch (error) {
     console.error(`Error making ${method} request to ${endpoint}:`, error);

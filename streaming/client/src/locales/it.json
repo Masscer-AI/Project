@@ -214,5 +214,10 @@
     "grupal-modality-description": "In modalità grupale, ogni agente può vedere il contesto degli altri agenti. Possono anche interagire tra loro perché possono vedere i messaggi degli altri agenti.",
     "view-code": "Visualizza codice",
     "use-plugin": "Usa plugin",
-    "copied": "Copiato!"
+    "copied": "Copiato!",
+    "calculator": "Calcolatrice",
+    "explain-its-role-to-the-ai": "Spiega il suo ruolo all'IA",
+    "new-conversation": "Nuova conversazione",
+    "conversation-without-title": "Conversazione senza titolo",
+    "cost": "Costo"
 }

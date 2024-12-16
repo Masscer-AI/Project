@@ -15,6 +15,7 @@ import { Reactions } from "../Reactions/Reactions";
 import {
   AudioPlayerOptions,
   AudioPlayerWithAppendOptions,
+  calculatePricing,
   createAudioPlayer,
   // createAudioPlayerWithAppend,
 } from "../../modules/utils";
@@ -91,14 +92,15 @@ export const Message = memo(
 
     const { t } = useTranslation();
 
-    const { agents, reactionTemplates, socket, userPreferences } = useStore(
-      (s) => ({
+    const { agents, reactionTemplates, socket, userPreferences, models } =
+      useStore((s) => ({
         agents: s.agents,
         reactionTemplates: s.reactionTemplates,
         socket: s.socket,
         userPreferences: s.userPreferences,
-      })
-    );
+
+        models: s.models,
+      }));
 
     const copyToClipboard = () => {
       const textToCopy = versions?.[currentVersion]?.text || innerText;
@@ -353,7 +355,7 @@ export const Message = memo(
               }
             )}
         </section>
-        <div className="message-buttons d-flex gap-small align-center">
+        <div className="message-buttons d-flex gap-small align-center wrap-wrap">
           <SvgButton
             title={t("copy-to-clipboard")}
             extraClass="active-on-hover  pressable"
@@ -380,7 +382,6 @@ export const Message = memo(
                 />
               )}
 
-              {/* <span>{id}</span> */}
               {audioPlayer && (
                 <>
                   {isPlayingAudio ? (
@@ -469,7 +470,62 @@ export const Message = memo(
           )}
 
           {versions?.[currentVersion]?.agent_name ? (
-            <Pill>{versions?.[currentVersion]?.agent_name}</Pill>
+            <FloatingDropdown
+              left="50%"
+              bottom="100%"
+              transform="translateX(-50%)"
+              opener={<Pill>{versions?.[currentVersion]?.agent_name}</Pill>}
+            >
+              <div className="flex-y gap-small width-150">
+                <h4>Tokens</h4>
+
+                <p>
+                  <span className="text-secondary">Prompt:</span>{" "}
+                  {versions?.[currentVersion]?.usage?.prompt_tokens}
+                </p>
+                <p>
+                  <span className="text-secondary">Completion:</span>{" "}
+                  {versions?.[currentVersion]?.usage?.completion_tokens}
+                </p>
+                <p>
+                  <span className="text-secondary">Total:</span>{" "}
+                  {versions?.[currentVersion]?.usage?.total_tokens}
+                </p>
+                <>
+                  {(() => {
+                    const model_slug =
+                      versions?.[currentVersion]?.usage?.model_slug;
+
+                    const llm = models.find((m) => m.slug === model_slug);
+                    let totalPrice = calculatePricing(
+                      llm?.pricing.text.prompt || "",
+                      versions?.[currentVersion]?.usage?.prompt_tokens || 0
+                    );
+                    totalPrice += calculatePricing(
+                      llm?.pricing.text.output || "",
+                      versions?.[currentVersion]?.usage?.completion_tokens || 0
+                    );
+                    if (isNaN(totalPrice)) {
+                      return null;
+                    }
+                    // Dejar solo cinco decimales
+                    totalPrice = parseFloat(totalPrice.toFixed(5));
+
+                    return (
+                      <Pill>
+                        <span className="text-secondary">{t("cost")}</span>{" "}
+                        {totalPrice}
+                      </Pill>
+                    );
+                  })()}
+                </>
+                {versions?.[currentVersion]?.usage?.model_slug && (
+                  <Pill extraClass="bg-hovered w-100 text-center">
+                    {versions?.[currentVersion]?.usage?.model_slug}
+                  </Pill>
+                )}
+              </div>
+            </FloatingDropdown>
           ) : null}
 
           {id && (

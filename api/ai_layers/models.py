@@ -27,10 +27,29 @@ The following context may be useful for your task:
 """
 
 
+EXAMPLE_PRICING = {
+    "text": {
+        "prompt": "2.50 USD / 1M",
+        "output": "10 USD / 1M",
+    },
+    # "image": {
+    #     "prompt": "15 USD / 1M",
+    #     "output": "60 USD / 1M",
+    # },
+    # "audio": {
+    #     "prompt": "100.00 USD / 1M",
+    #     "output": "200.00 USD / 1M",
+    # },
+}
+
+
+
+
 class LanguageModel(models.Model):
     provider = models.ForeignKey(AIProvider, on_delete=models.CASCADE)
     slug = models.CharField(max_length=100, unique=True, blank=True)
     name = models.CharField(max_length=100)
+    pricing = models.JSONField(default=dict)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -166,4 +185,3 @@ class Agent(models.Model):
         from .tasks import async_generate_agent_profile_picture
 
         async_generate_agent_profile_picture.delay(self.id)
-        

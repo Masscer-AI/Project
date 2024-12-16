@@ -184,7 +184,9 @@ export const CustomCodeBlock = ({ code, language }) => {
             <SvgButton
               extraClass="pressable active-on-hover bg-hovered"
               text={
-                usePlugin ? t("view-code") : t("use-plugin") + " " + pluginName
+                usePlugin
+                  ? t("view-code")
+                  : t("use-plugin") + ": " + t(pluginName)
               }
               onClick={
                 usePlugin
@@ -204,6 +206,7 @@ export const CustomCodeBlock = ({ code, language }) => {
             <select
               className="rounded  input"
               value={output_format}
+              name="output-format"
               onChange={(e) => setOutputFormat(e.target.value as TOutputFormat)}
             >
               {output_formats.map((format) => (

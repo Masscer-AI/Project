@@ -175,11 +175,12 @@ const DocumentThumnail = ({
             extraClass="padding-big border-secondary"
             transform="translateX(-50%)"
             opener={<SvgButton title={t("options")} svg={SVGS.options} />}
-          >
+          >cutted-text
             <div className="d-flex gap-medium flex-y width-200 ">
               <h3 className="text-center">{t("configure")}</h3>
               <SliderInput
                 extraClass="d-flex align-center rounded"
+                name="rag-mode"
                 labelTrue={t("similar-chunks")}
                 labelFalse={t("allContent")}
                 keepActive={true}
