@@ -311,6 +311,10 @@ export const Message = memo(
       toggleEditMode();
     };
 
+    const handleMarkdownChange = (markdown: string) => {
+      setInnerText(markdown);
+    };
+
     return (
       <div className={`message ${type} message-${index}`}>
         {isEditing ? (
@@ -327,6 +331,7 @@ export const Message = memo(
           <MarkdownRenderer
             markdown={versions?.[currentVersion]?.text || innerText}
             extraClass={`message-text ${type}`}
+            onChange={handleMarkdownChange}
           />
         )}
 

@@ -311,13 +311,12 @@ export const calculateOperations = (
 
     let result: number;
 
-    // @ts-ignore
+    
     if (["sum", "rest", "multiply"].includes(op.name)) {
       // Operaciones con múltiples argumentos
       // @ts-ignore
       result = operators[op.name](...args);
     } else if (args.length === 1) {
-      // Operaciones unarias
       // @ts-ignore
       result = operators[op.name](args[0]);
     } else if (args.length === 2) {

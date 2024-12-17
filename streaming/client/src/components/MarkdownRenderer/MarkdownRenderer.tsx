@@ -18,15 +18,24 @@ import { Calculator } from "../MessagePlugins/Calculator/Calculator";
 const MarkdownRenderer = ({
   markdown,
   extraClass,
+  onChange,
 }: {
   markdown: string;
   extraClass?: string;
+  onChange?: (markdown: string) => void;
 }) => {
   const { t } = useTranslation();
 
   // const urlTransform = (url: string) => {
   //   return url;
   // };
+
+  const changeInMarkdown = (search: string, replace: string) => {
+    const newMarkdown = markdown.replace(search, replace);
+    if (onChange) {
+      onChange(newMarkdown);
+    }
+  };
 
   return (
     <Markdown
@@ -62,6 +71,7 @@ const MarkdownRenderer = ({
             <CustomCodeBlock
               code={codeBlocks[0].code}
               language={codeBlocks[0].lang}
+              changeInMarkdown={changeInMarkdown}
             />
           );
         },
@@ -95,7 +105,15 @@ const plugins = {
   },
 };
 
-export const CustomCodeBlock = ({ code, language }) => {
+export const CustomCodeBlock = ({
+  code,
+  language,
+  changeInMarkdown,
+}: {
+  code: string;
+  language: string;
+  changeInMarkdown: (search: string, replace: string) => void;
+}) => {
   const { t } = useTranslation();
   const [output_format, setOutputFormat] = useState<TOutputFormat>("docx");
   const [input_format, setInputFormat] = useState("md");
@@ -172,7 +190,9 @@ export const CustomCodeBlock = ({ code, language }) => {
     <div className="code-block">
       <div className="actions flex-x align-center justify-between bg-hovered rounded">
         <section className="flex-x gap-small align-center">
-          <Pill>{label.slice(0, 1).toUpperCase() + label.slice(1)}</Pill>
+          <Pill>
+            {label?.slice(0, 1).toUpperCase() + (label ? label.slice(1) : "")}
+          </Pill>
         </section>
         <section className="flex-x align-center wrap-wrap gap-small padding-small justify-end">
           <SvgButton
