@@ -253,5 +253,10 @@
     "calculator": "Calculadora",
     "new-conversation": "Nueva conversación",
     "conversation-without-title": "Conversación sin título",
-    "cost": "Costo"
+    "cost": "Costo",
+    "mermaid-theme": "Tema de Mermaid",
+    "mermaid-theme-description": "El tema a usar para los diagramas de Mermaid. Puedes pedirle a la IA que genere diagramas usando *sintaxis de Mermaid*.",
+    "download-svg": "Descargar SVG",
+    "expand": "Expandir",
+    "mermaid-visualizer": "Visualizador de Mermaid"
 }

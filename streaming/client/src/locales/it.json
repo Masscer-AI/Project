@@ -219,5 +219,10 @@
     "explain-its-role-to-the-ai": "Spiega il suo ruolo all'IA",
     "new-conversation": "Nuova conversazione",
     "conversation-without-title": "Conversazione senza titolo",
-    "cost": "Costo"
+    "cost": "Costo",
+    "mermaid-theme": "Tema di Mermaid",
+    "mermaid-theme-description": "Il tema da usare per i diagrammi di Mermaid. Puoi chiedere all’IA di generare diagrammi usando *sintassi di Mermaid*.",
+    "download-svg": "Scarica SVG",
+    "expand": "Espandi",
+    "mermaid-visualizer": "Visualizzatore di Mermaid"
 }

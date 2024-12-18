@@ -14,6 +14,7 @@ import { SvgButton } from "../SvgButton/SvgButton";
 import { Pill } from "../Pill/Pill";
 
 import { Calculator } from "../MessagePlugins/Calculator/Calculator";
+import { CodeBlock } from "../CodeBlock/CodeBlock";
 
 const MarkdownRenderer = ({
   markdown,
@@ -103,6 +104,9 @@ const plugins = {
   calculator: (text: string) => {
     return <Calculator {...JSON.parse(text)} />;
   },
+  mermaid: (text: string) => {
+    return <CodeBlock code={text} language="mermaid" />;
+  },
 };
 
 export const CustomCodeBlock = ({
@@ -125,8 +129,13 @@ export const CustomCodeBlock = ({
     if (language === "html") {
       setInputFormat("html");
     }
+    
     if (language === "json") {
       findPlugin();
+    }
+
+    if (language === "mermaid") {
+      setPluginName("mermaid");
     }
   }, [code, language]);
 

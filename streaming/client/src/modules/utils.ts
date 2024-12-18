@@ -311,7 +311,6 @@ export const calculateOperations = (
 
     let result: number;
 
-    
     if (["sum", "rest", "multiply"].includes(op.name)) {
       // Operaciones con múltiples argumentos
       // @ts-ignore
@@ -342,5 +341,6 @@ export const calculatePricing = (pricing: string, tokens: number) => {
   const pricePerTokenQuantity = parseFloat(price);
   const tokenQuantity = parseInt(units);
   const totalPrice = (pricePerTokenQuantity / tokenQuantity) * tokens;
-  return totalPrice;
+  const winningPercentage = 1.35;
+  return totalPrice * winningPercentage;
 };

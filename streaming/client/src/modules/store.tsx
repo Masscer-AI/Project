@@ -23,6 +23,9 @@ export const useStore = create<Store>()((set, get) => ({
   messages: [],
   modelsAndAgents: [],
   theme: "dark",
+  theming: {
+    mermaid: "dark",
+  },
   models: [],
   user: undefined,
   agents: [],
@@ -367,6 +370,15 @@ export const useStore = create<Store>()((set, get) => ({
     } catch (e) {
       console.log(e, "ERROR UPDATING USER PREFERENCES");
     }
+  },
+
+  setTheming: (theming: Partial<Store["theming"]>) => {
+    set((state) => ({
+      theming: {
+        ...state.theming,
+        ...theming,
+      },
+    }));
   },
   logout: () => {
     set({ user: undefined });

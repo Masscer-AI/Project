@@ -19,11 +19,16 @@ export type TUserPreferences = {
   background_image_opacity: number;
 };
 
+export type TMermaidTheme = "dark" | "forest" | "neutral" | "base" | "light";
+
 export type Store = {
   socket: any;
   messages: Message[];
   // input: string;
   theme: TTheme;
+  theming: {
+    mermaid: TMermaidTheme;
+  };
   models: TModel[];
   agents: TAgent[];
   user?: TUserData;
@@ -41,6 +46,7 @@ export type Store = {
   reactionTemplates: TReactionTemplate[];
   userPreferences: TUserPreferences;
   userTags: string[];
+  setTheming: (theming: Partial<Store["theming"]>) => void;
   setPreferences: (prefs: Partial<TUserPreferences>) => void;
   setTheme: (theme: TTheme) => void;
   startup: () => void;

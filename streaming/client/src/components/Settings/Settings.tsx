@@ -10,6 +10,7 @@ import { TOrganization } from "../../types";
 import { debounce } from "../../modules/utils";
 import { toast } from "react-hot-toast";
 import { JSONForm } from "../JSONForm/JSONForm";
+import mermaid from "mermaid";
 
 export const Settings = () => {
   const { setOpenedModals } = useStore((s) => ({
@@ -114,13 +115,59 @@ const OrganizationManager = () => {
 
 const WhatsappConfig = () => {};
 
-const AppearanceConfig = () => {
-  const { userPreferences, setPreferences } = useStore((s) => ({
-    // theme: s.theme,
-    // setTheme: s.setTheme,
-    userPreferences: s.userPreferences,
-    setPreferences: s.setPreferences,
+const MERMAID_THEMES = ["dark", "forest", "neutral", "base", "light"];
+
+const exampleCode = `graph TD; A-->B; A-->C; B-->D; C-->D;`;
+
+const makeThemeCode = (theme: string) => {
+  return `%%{init: {'theme':'${theme}'}}%%\n${exampleCode}`;
+};
+
+const MermaidExaple = () => {
+  const preRef = React.useRef<HTMLPreElement>(null);
+  const { theming } = useStore((s) => ({
+    theming: s.theming,
   }));
+
+  useEffect(() => {
+    mermaid.initialize({ startOnLoad: true, look: "classic" });
+  }, []);
+
+  useEffect(() => {
+    runMermaid();
+  }, [theming.mermaid]);
+
+  const runMermaid = () => {
+    // Remove the data-processed attribute
+    if (preRef.current) {
+      preRef.current.removeAttribute("data-processed");
+      mermaid.run();
+    }
+  };
+
+
+  return (
+    // Add a bigger
+    <div className="d-flex justify-center">
+      <pre ref={preRef} className="mermaid">
+        {makeThemeCode(theming.mermaid)}
+      </pre>
+
+    </div>
+  );
+};
+
+const AppearanceConfig = () => {
+  const { userPreferences, setPreferences, theming, setTheming } = useStore(
+    (s) => ({
+      // theme: s.theme,
+      // setTheme: s.setTheme,
+      userPreferences: s.userPreferences,
+      setPreferences: s.setPreferences,
+      theming: s.theming,
+      setTheming: s.setTheming,
+    })
+  );
 
   const debouncedSetOpacity = debounce((opacity) => {
     setPreferences({ background_image_opacity: opacity });
@@ -163,6 +210,7 @@ const AppearanceConfig = () => {
           />
         </div>
       </div>
+      <hr className="separator my-medium" />
       <div className="d-flex flex-y gap-small">
         <h4>{t("chat-background-image")}</h4>
         <ImageInput
@@ -182,6 +230,24 @@ const AppearanceConfig = () => {
           max="1"
           step="0.01"
         />
+      </div>
+      <hr className="separator my-medium" />
+      <div className="flex-y gap-small ">
+        <h4>{t("mermaid-theme")}</h4>
+        <p>{t("mermaid-theme-description")}</p>
+        <div className="d-flex gap-small">
+          {MERMAID_THEMES.map((theme) => (
+            <SvgButton
+              extraClass={`pressable active-on-hover ${
+                theming.mermaid === theme ? "bg-active svg-white" : "bg-hovered"
+              }`}
+              key={theme}
+              onClick={() => setTheming({ mermaid: theme as any })}
+              text={theme.charAt(0).toUpperCase() + theme.slice(1)}
+            />
+          ))}
+        </div>
+        <MermaidExaple />
       </div>
     </div>
   );

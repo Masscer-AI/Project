@@ -557,7 +557,7 @@ export const Message = memo(
                     extraClass="active-on-hover border-active pressable"
                   />
                 )}
-                {/* TODO: Change this possibly */}
+                
                 <SvgButton
                   title={isEditing ? t("finish") : t("edit")}
                   onClick={toggleEditMode}
