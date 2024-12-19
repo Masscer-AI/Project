@@ -105,7 +105,7 @@ async def on_message_handler(socket_id, data, **kwargs):
         if extraction_mode and extraction_mode == "all_possible_text":
             doc_content = f"""
             <Document name="{a.get("name", "No name received")}" extra-info-for-ai="The user added this document to its prompt">
-                    {a.get("text", "No content received")[:40000]}
+                    {a.get("text", "No content received")[:50000]}
             </Document> 
             """
             attachments_context += f"\n\n{doc_content}\n\n"
@@ -171,7 +171,6 @@ async def on_message_handler(socket_id, data, **kwargs):
     versions = []
 
     for index, m in enumerate(agents_to_complete, start=1):
-        # If there are previous versions, we need to add them to the context
 
         if multi_agentic_modality == "grupal":
             prev_generations = [
@@ -195,14 +194,13 @@ async def on_message_handler(socket_id, data, **kwargs):
         complete_context = ""
 
         if attachments_context:
-            complete_context += f"The following information is from the a vector store, if is empty, then it means the user is still not using the vector store: <vector_store_context>{attachments_context}</vector_store_context>\n\n"
+            complete_context += f"<vector_store_context>{attachments_context}</vector_store_context>\n\n"
         else:
             print("No attachments context found to append")
 
         complete_context += f"The current date and time is {current_date_time}\n\n"
 
         if use_rag:
-            print("try to add completions for the AGENT")
             await sio.emit(
                 "generation_status",
                 {"message": "querying-completions-for-the-agent"},
@@ -219,12 +217,9 @@ async def on_message_handler(socket_id, data, **kwargs):
                     completions, complete_context
                 )
                 source_documents.extend(sources)
-            else:
-                print("No completions found for the agent")
+
         if len(web_results) > 0:
             complete_context += f"\n<web_search_results>\n{json.dumps(web_results)}\n </web_search_results>\n"
-        else:
-            print("No web results found")
 
         system_prompt = get_system_prompt(
             context=complete_context, agent_slug=agent_slug, token=token
@@ -263,7 +258,6 @@ async def on_message_handler(socket_id, data, **kwargs):
                 await sio.emit("response", {}, to=socket_id)
 
             else:
-                print("Chunk received", chunk)
                 version["usage"] = {
                     "completion_tokens": chunk.completion_tokens,
                     "prompt_tokens": chunk.prompt_tokens,
