@@ -232,14 +232,14 @@ AI_RESPONSE:
 
         messages.append({"role": "user", "content": text})
 
-
         with self.client.messages.stream(
             max_tokens=self.max_tokens,
             system=system,
             messages=messages,
             model=model,
-            temperature=0.5,
+            temperature=self.config.get("temperature", 0.5),
         ) as stream:
+
             for text in stream.text_stream:
                 yield text
 

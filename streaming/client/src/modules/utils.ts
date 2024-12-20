@@ -298,7 +298,9 @@ export const calculateOperations = (
     abs: (a: number) => Math.abs(a),
     factorial: (a: number) => factorial(a),
     exponential: (a: number) => Math.exp(a),
-    percentage: (a: number, b: number) => (b !== 0 ? (a / b) * 100 : 0),
+    percentage: (a: number, b: number) => {
+      return b !== 0 ? (b * a) / 100 : 0;
+    },
   };
 
   operations.forEach((op) => {
@@ -322,6 +324,7 @@ export const calculateOperations = (
       // Operaciones binarias
       const [a, b] = args;
       // @ts-ignore
+      console.log(a, b, "calculating, operation: ", op.name);
       result = operators[op.name](a, b);
     } else {
       throw new Error(`Invalid number of arguments for operation: ${op.name}`);
@@ -333,6 +336,8 @@ export const calculateOperations = (
 
   return operations;
 };
+
+
 // Example pricing: "3.00 USD / 1000000"
 export const calculatePricing = (pricing: string, tokens: number) => {
   // Separate the pricing by /
