@@ -259,5 +259,6 @@
     "mermaid-theme-description": "The theme to use for the mermaid diagrams. You can ask the AI to generate diagrams using *mermaid syntax*.",
     "download-svg": "Download SVG",
     "expand": "Expand",
-    "mermaid-visualizer": "Mermaid visualizer"
+    "mermaid-visualizer": "Mermaid visualizer",
+    "enter-text-to-generate-audio": "Enter text to generate audio"
 }

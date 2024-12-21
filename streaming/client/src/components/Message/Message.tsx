@@ -24,6 +24,7 @@ import { ImageGenerator } from "../ImageGenerator/ImageGenerator";
 import { Loader } from "../Loader/Loader";
 import { FloatingDropdown } from "../Dropdown/Dropdown";
 import { createPortal } from "react-dom";
+import { AudioGenerator } from "../AudioGenerator/AudioGenerator";
 type TReaction = {
   id: number;
   template: number;
@@ -557,7 +558,7 @@ export const Message = memo(
                     extraClass="active-on-hover border-active pressable"
                   />
                 )}
-                
+
                 <SvgButton
                   title={isEditing ? t("finish") : t("edit")}
                   onClick={toggleEditMode}
@@ -845,11 +846,15 @@ const MessageEditor = ({
               svg={SVGS.picture}
               size="big"
             />
-            <SvgButton
+            {/* <SvgButton
               text={t("generate-speech")}
               onClick={generateSpeechWithThisText}
               svg={SVGS.waves}
               size="big"
+            /> */}
+            <AudioGenerator
+              text={editionOptions.currentText}
+              messageId={messageId}
             />
             <ModifyTextModal
               text={editionOptions.currentText}
