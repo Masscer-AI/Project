@@ -325,7 +325,6 @@ export const Message = memo(
               text={versions?.[currentVersion]?.text || innerText}
               messageId={id}
               onImageGenerated={onImageGenerated}
-              generateSpeech={handleGenerateSpeech}
             />
           </>
         ) : (
@@ -699,7 +698,6 @@ const MessageEditor = ({
   textareaValueRef,
   messageId,
   onImageGenerated,
-  generateSpeech,
 }) => {
   const [innerText, setInnerText] = useState(text);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -743,43 +741,11 @@ const MessageEditor = ({
     }
   };
 
-  // const handleTouchEnd = (e: React.TouchEvent<HTMLTextAreaElement>) => {
-  //   console.log(e);
-
-  //   const selectedText = window.getSelection()?.toString();
-  //   const yPosition = e.changedTouches[0].clientY;
-  //   const xPosition = e.changedTouches[0].clientX;
-
-  //   console.log(yPosition, xPosition, selectedText);
-
-  //   if (selectedText && yPosition > 100 && xPosition > 100) {
-  //     setEditionOptions({
-  //       top: yPosition,
-  //       left: xPosition,
-  //       isVisible: true,
-  //       generatedImage: false,
-  //       currentText: selectedText,
-  //     });
-  //   } else {
-  //     setEditionOptions({
-  //       top: yPosition,
-  //       left: xPosition,
-  //       isVisible: false,
-  //       generatedImage: false,
-  //       currentText: text,
-  //     });
-  //   }
-  // };
-
   const generateImageWithThisText = () => {
     setEditionOptions((prev) => ({
       ...prev,
       generateImage: true,
     }));
-  };
-
-  const generateSpeechWithThisText = () => {
-    generateSpeech(editionOptions.currentText);
   };
 
   const handleTouchEnd = (e: React.TouchEvent<HTMLTextAreaElement>) => {

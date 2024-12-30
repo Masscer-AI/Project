@@ -8,7 +8,7 @@ from ..logger import get_custom_logger
 logger = get_custom_logger("completions")
 
 
-class TextStreamingHandler:
+class TextStreamingFactory:
     client = None
     max_tokens = 4096
     attachments = []
@@ -28,6 +28,9 @@ class TextStreamingHandler:
         elif provider == "anthropic":
             self.client = anthropic.Anthropic(api_key=api_key)
 
+        elif provider == "xai":
+            self.client = OpenAI(api_key=api_key, base_url="https://api.x.ai/v1")
+
         self.provider = provider
 
         self.prev_messages = prev_messages
@@ -39,7 +42,7 @@ class TextStreamingHandler:
         if self.config.get("multiagentic_modality", "isolated") == "grupal":
             system = f"{system}\n\nYou must consider that the other AI in the conversation is another user and refer to them as such. ONLY GIVE YOUR RESPONSE."
 
-        if self.provider in ["openai", "ollama"]:
+        if self.provider in ["openai", "ollama", "xai"]:
             return self.stream_openai(system, text, model)
         elif self.provider == "anthropic":
             print("trying to generate with Anthropic")

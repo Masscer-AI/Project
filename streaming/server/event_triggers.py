@@ -158,6 +158,11 @@ async def on_message_handler(socket_id, data, **kwargs):
             message=message,
             token=token,
         )
+        if not user_message_res:
+            await sio.emit(
+                "error", {"message": "Error saving user message"}, to=socket_id
+            )
+            return
         user_id_to_emit = user_message_res["id"]
 
     else:

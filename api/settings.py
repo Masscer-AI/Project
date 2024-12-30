@@ -114,7 +114,8 @@ CORS_ALLOW_ALL_ORIGINS = True
 DATABASES = {
     "default": dj_database_url.config(
         default=os.environ.get("DB_CONNECTION_STRING", "sqlite:///db.sqlite3"),
-        conn_max_age=50,
+        conn_max_age=5,
+        conn_health_checks=True,
     )
 }
 

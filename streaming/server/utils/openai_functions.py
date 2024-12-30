@@ -3,7 +3,7 @@ import requests
 from openai import OpenAI
 from dotenv import load_dotenv
 from ..logger import get_custom_logger
-from .completions import TextStreamingHandler
+from .completions import TextStreamingFactory
 from pydantic import BaseModel
 
 logger = get_custom_logger("openai_functions")
@@ -13,6 +13,8 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 load_dotenv()
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+
+XAI_API_KEY = os.environ.get("XAI_API_KEY")
 
 
 def transcribe_audio(audio_file, output_format="verbose_json") -> str:
@@ -39,7 +41,7 @@ async def stream_completion(
 ):
     _provider = model["provider"].lower()
     if _provider == "openai":
-        streamer = TextStreamingHandler(
+        streamer = TextStreamingFactory(
             provider="openai",
             api_key=OPENAI_API_KEY,
             config=config,
@@ -48,7 +50,7 @@ async def stream_completion(
         )
 
     elif _provider == "ollama":
-        streamer = TextStreamingHandler(
+        streamer = TextStreamingFactory(
             provider="ollama",
             api_key="ANTHROPIC_API_KEY",
             config=config,
@@ -57,9 +59,18 @@ async def stream_completion(
         )
 
     elif _provider == "anthropic":
-        streamer = TextStreamingHandler(
+        streamer = TextStreamingFactory(
             provider="anthropic",
             api_key=ANTHROPIC_API_KEY,
+            config=config,
+            prev_messages=prev_messages,
+            agent_slug=agent_slug,
+        )
+
+    elif _provider == "xai":
+        streamer = TextStreamingFactory(
+            provider="xai",
+            api_key=XAI_API_KEY,
             config=config,
             prev_messages=prev_messages,
             agent_slug=agent_slug,
