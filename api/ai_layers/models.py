@@ -43,8 +43,6 @@ EXAMPLE_PRICING = {
 }
 
 
-
-
 class LanguageModel(models.Model):
     provider = models.ForeignKey(AIProvider, on_delete=models.CASCADE)
     slug = models.CharField(max_length=100, unique=True, blank=True)
@@ -165,13 +163,19 @@ class Agent(models.Model):
         from api.rag.models import Collection
 
         printer.blue(f"Getting collection for agent {self.id}")
-        return Collection.objects.get(agent=self, user=self.user)
+        try:
+            return Collection.objects.get(agent=self, user=self.user)
+        except Collection.DoesNotExist:
+            return None
 
     def append_rag_context(self, context: str = ""):
         from api.rag.managers import chroma_client
         from api.rag.actions import querify_context, extract_rag_results
 
         collection = self.get_collection()
+        if not collection:
+            return context, []
+
         queries = querify_context(context)
         results = chroma_client.get_results(
             collection_name=collection.slug,

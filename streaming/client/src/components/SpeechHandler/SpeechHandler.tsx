@@ -1,5 +1,6 @@
 import React from "react";
 import { Talkie } from "../Talkie/Talkie";
+import { useHotkeys } from "react-hotkeys-hook";
 import { API_URL } from "../../modules/constants";
 import axios from "axios";
 import toast from "react-hot-toast";
@@ -18,12 +19,12 @@ const convertToBase64 = (file) => {
     };
   });
 };
-export const SpeechHandler = ({ onTranscript }) => {
 
-    const {t} = useTranslation()
+export const SpeechHandler = ({ onTranscript }) => {
+  const { t } = useTranslation();
 
   const processAudio = async (audioFile: Blob) => {
-    toast.success(t("transcribing"))
+    toast.success(t("transcribing"));
     const formData = new FormData();
     formData.append("audio_file", audioFile, "audiofile.wav");
 

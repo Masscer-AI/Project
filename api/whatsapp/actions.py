@@ -5,7 +5,7 @@ from .models import WSMessage, WSNumber, WSConversation
 from django.core.exceptions import ValidationError
 from api.ai_layers.actions import answer_agent_inquiry
 from api.utils.color_printer import printer
-from api.messaging.actions import transcribe_audio, generate_speech_api
+from api.messaging.actions import transcribe_audio
 from pydantic import BaseModel, Field
 from api.utils.openai_functions import create_structured_completion
 from api.utils.color_printer import printer

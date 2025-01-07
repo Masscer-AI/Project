@@ -1,4 +1,5 @@
-import React, { useRef, useEffect, useCallback, useState } from "react";
+import React, { useRef, useEffect, useState } from "react";
+import { useHotkeys } from "react-hotkeys-hook";
 import { SVGS } from "../../assets/svgs";
 import { v4 as uuidv4 } from "uuid";
 import { useStore } from "../../modules/store";
@@ -114,6 +115,16 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       setInnerInput("");
     }
   };
+
+  useHotkeys(
+    "ctrl+alt+w",
+    () => {
+      toggleWritingMode();
+    },
+    {
+      enableOnFormTags: true,
+    }
+  );
 
   return (
     <div className="chat-input">

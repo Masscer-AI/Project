@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState } from "react";
 import "./Talkie.css";
 import { SvgButton } from "../SvgButton/SvgButton";
 import { SVGS } from "../../assets/svgs";
+import { useHotkeys } from "react-hotkeys-hook";
 
 interface TalkieProps {
   processAudio: (audioFile: Blob, transcription: string) => void;
@@ -175,6 +176,18 @@ export const Talkie: React.FC<TalkieProps> = ({ processAudio }) => {
   //     window.removeEventListener("keydown", handleKeyPress);
   //   };
   // }, [isRecording]);
+
+  useHotkeys("ctrl+alt+r", () => {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
+    },
+    {
+      enableOnFormTags: true,
+    }
+  );
 
   return (
     <div className="talkie">

@@ -395,13 +395,13 @@ export const Sidebar: React.FC = () => {
                 svg={SVGS.question}
               />
 
-              <SvgButton
+              {/* <SvgButton
                 text={t("workflows")}
                 size="big"
                 extraClass="bg-hovered active-on-hover pressable w-100"
                 onClick={() => goTo("/workflows")}
                 svg={SVGS.workflows}
-              />
+              /> */}
             </>
           )}
         </div>
