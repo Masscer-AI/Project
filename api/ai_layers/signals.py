@@ -3,6 +3,7 @@ from django.dispatch import receiver
 from django.contrib.auth.models import User
 from .models import Agent
 from api.authenticate.models import UserProfile
+from api.rag.models import Collection
 
 
 @receiver(post_save, sender=User)
@@ -16,3 +17,12 @@ def user_created(sender, instance, created, **kwargs):
     _, created = UserProfile.objects.get_or_create(user=instance)
     if created:
         print(f"New user profile created for user: {instance.username}")
+
+
+@receiver(post_save, sender=Agent)
+def agent_created(sender, instance, created, **kwargs):
+    if created:
+        print(f"New agent created for user: {instance.user.username}")
+        collection = Collection.objects.create(agent=instance, user=instance.user)
+        print(f"New collection created for agent: {instance.id}")
+        
