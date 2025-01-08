@@ -1,15 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { SvgButton } from "../SvgButton/SvgButton";
 import { Modal } from "../Modal/Modal";
 import { TConversation } from "../../types";
-import { getUserTags, updateConversation } from "../../modules/apiCalls";
+import { updateConversation } from "../../modules/apiCalls";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { debounce } from "../../modules/utils";
 import { Pill } from "../Pill/Pill";
 import { useStore } from "../../modules/store";
-import { Socket } from "socket.io-client";
-
+  
 export const ConversationModal = ({
   conversation,
 }: {

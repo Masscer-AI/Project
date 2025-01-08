@@ -8,6 +8,11 @@ import { FloatingDropdown } from "../Dropdown/Dropdown";
 import { SliderInput } from "../SimpleForm/SliderInput";
 import MarkdownRenderer from "../MarkdownRenderer/MarkdownRenderer";
 import { AttatchmentMode } from "../../types";
+import { Textarea } from "../SimpleForm/Textarea";
+import toast from "react-hot-toast";
+import { generateVideo } from "../../modules/apiCalls";
+import { Select } from "../SimpleForm/Select";
+import { AspectRatio } from "../ImageGenerator/ImageGenerator";
 
 interface ThumbnailProps {
   id?: number;
@@ -17,6 +22,7 @@ interface ThumbnailProps {
   index: number;
   showFloatingButtons?: boolean;
   mode?: AttatchmentMode;
+  message_id?: number;
 }
 
 export const Thumbnail = ({
@@ -27,6 +33,7 @@ export const Thumbnail = ({
   index,
   showFloatingButtons = false,
   mode,
+  message_id,
 }: ThumbnailProps) => {
   const { t } = useTranslation();
   const { deleteAttachment } = useStore((state) => ({
@@ -50,6 +57,7 @@ export const Thumbnail = ({
         <div className="thumbnail pointer ">
           <ImageThumbnail
             src={src}
+            message_id={message_id}
             name={name}
             buttons={
               showFloatingButtons && (
@@ -77,17 +85,26 @@ export const Thumbnail = ({
   );
 };
 
+const aspectRatioOptions = [
+  { label: "1280:768", value: "1280:768" },
+  { label: "768:1280", value: "768:1280" },
+];
+
 const ImageModal = ({
   src,
   name,
   hide,
+  message_id,
 }: {
   src: string;
   name: string;
   hide: () => void;
+  message_id?: number;
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const { t } = useTranslation();
+  const [videoPrompt, setVideoPrompt] = useState("");
+  const [ratio, setRatio] = useState("1280:768");
 
   const handleDownload = () => {
     const a = document.createElement("a");
@@ -101,6 +118,18 @@ const ImageModal = ({
 
   const toggleEdit = () => {
     setIsEditing(!isEditing);
+  };
+
+  const handleGenerateVideo = async () => {
+    const response = await generateVideo({
+      prompt: videoPrompt,
+      image_b64: src,
+      message_id: message_id!,
+      ratio: ratio,
+    });
+    console.log(response);
+
+    toast.success(t("video-job-started"));
   };
 
   return (
@@ -125,7 +154,34 @@ const ImageModal = ({
       }
     >
       <div className="flex-y justify-center align-center ">
-        <h2>{isEditing ? t("edit") : t("view")}</h2>
+        <h2>{isEditing ? t("Generate Video") : t("view")}</h2>
+        {isEditing && (
+          <div className="flex-y gap-small align-center w-100">
+            <Textarea
+              extraClass="w-100"
+              onChange={(e) => setVideoPrompt(e)}
+              placeholder={t("describe-the-video")}
+              defaultValue={videoPrompt}
+            />
+            <div className="d-flex gap-small align-center w-100">
+              <h4>{t("aspect-ratio")}</h4>
+              {aspectRatioOptions.map((option) => (
+                <AspectRatio
+                  key={option.value}
+                  size={option.value}
+                  separator=":"
+                  selected={ratio === option.value}
+                  onClick={() => setRatio(option.value)}
+                />
+              ))}
+            </div>
+            <SvgButton
+              onClick={handleGenerateVideo}
+              title={t("generate-video")}
+              svg={SVGS.addDocument}
+            />
+          </div>
+        )}
         <img style={{ width: "100%" }} src={src} alt={`attachment-${name}`} />
       </div>
     </Modal>
@@ -175,7 +231,8 @@ const DocumentThumnail = ({
             extraClass="padding-big border-secondary"
             transform="translateX(-50%)"
             opener={<SvgButton title={t("options")} svg={SVGS.options} />}
-          >cutted-text
+          >
+            cutted-text
             <div className="d-flex gap-medium flex-y width-200 ">
               <h3 className="text-center">{t("configure")}</h3>
               <SliderInput
@@ -214,17 +271,24 @@ const ImageThumbnail = ({
   src,
   name,
   buttons,
+  message_id,
 }: {
   src: string;
   name: string;
   buttons?: React.ReactNode;
+  message_id?: number;
 }) => {
   const [showModal, setShowModal] = useState(false);
 
   return (
     <div className="thumbnail pointer">
       {showModal && (
-        <ImageModal src={src} name={name} hide={() => setShowModal(false)} />
+        <ImageModal
+          src={src}
+          name={name}
+          hide={() => setShowModal(false)}
+          message_id={message_id}
+        />
       )}
       <img
         onClick={() => setShowModal(true)}

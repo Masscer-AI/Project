@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import (
     Transcriptions,
-    VideoGenerationView,
+    ImageToVideo,
     MediaView,
     ImageGenerationView,
     PromptNodeView,
@@ -9,13 +9,14 @@ from .views import (
     DownloadFile,
     ImageEditorView,
     WebsiteFetcherView,
+    ImageToVideoView,
 )
 
 app_name = "tools"
 
 urlpatterns = [
     path("transcriptions/", Transcriptions.as_view(), name="transcriptions"),
-    path("videos/", VideoGenerationView.as_view(), name="video_generation"),
+    path("videos/", ImageToVideo.as_view(), name="video_generation"),
     path("media/", MediaView.as_view(), name="get_media"),
     path("generate_image/", ImageGenerationView.as_view(), name="generate_image"),
     path("prompt_node/", PromptNodeView.as_view(), name="prompt_node"),
@@ -29,4 +30,9 @@ urlpatterns = [
     ),
     path("image_editor/", ImageEditorView.as_view(), name="image_editor"),
     path("website_fetcher/", WebsiteFetcherView.as_view(), name="website_fetcher"),
+    path(
+        "video_generator/image_to_video/",
+        ImageToVideoView.as_view(),
+        name="video_generator",
+    ),
 ]

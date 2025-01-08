@@ -24,9 +24,13 @@ import whisper
 
 import os
 from api.utils.openai_functions import create_structured_completion, generate_speech_api
+from api.utils.runway_functions import image_to_video
 from api.utils.document_tools import convert_html
 import threading
 import time
+from api.notify.actions import notify_user
+
+from api.utils.color_printer import printer
 
 SAVE_PATH = os.path.join(settings.MEDIA_ROOT, "generated")
 
@@ -328,3 +332,28 @@ def document_convertion(source_text: str, from_type="html", to_type="docx"):
     convert_html(input_file_path, output_file_path, to_type)
 
     return input_file_path, output_file_path
+
+
+def generate_video_from_image(
+    prompt_image_b64, prompt_text, ratio, user_id, provider="runway", message_id=None
+):
+    if provider == "runway":
+        printer.blue("Generating video from image")
+        task = image_to_video(prompt_image_b64, prompt_text, ratio)
+        printer.red(task, "TASK RETRIEVED FROM RUNWAY")
+        result_url = task.output[0]
+
+        video_path = os.path.join(settings.MEDIA_ROOT, f"generated/{uuid.uuid4()}.mp4")
+        with open(video_path, "wb") as f:
+            f.write(requests.get(result_url).content)
+
+        printer.green("Video generated", video_path)
+        notify_user(
+            user_id,
+            event_type="video_generated",
+            data={"url": result_url, "message_id": message_id},
+        )
+        return True
+    else:
+        printer.red("No provider selected")
+        return None

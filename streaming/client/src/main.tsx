@@ -18,6 +18,7 @@ import WorkflowsPage from "./routes/workflows/page.tsx";
 import Share from "./routes/shares/page.tsx";
 import { sharesLoader } from "./routes/shares/loader.ts";
 import { ErrorPage } from "./routes/error/Page.tsx";
+import { NotificationListener } from "./components/NotificationListener/NotificationListener.tsx";
 
 const router = createBrowserRouter([
   {
@@ -40,7 +41,13 @@ const router = createBrowserRouter([
       },
       {
         path: "/chat",
-        element: <ChatView />,
+        element: (
+          <>
+            <NotificationListener>
+              <ChatView />
+            </NotificationListener>
+          </>
+        ),
         loader: chatLoader,
       },
       {

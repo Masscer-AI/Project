@@ -345,6 +345,7 @@ export const Message = memo(
                 src={content}
                 name={name}
                 key={index}
+                message_id={id}
               />
             ))}
           {versions?.[currentVersion]?.sources &&

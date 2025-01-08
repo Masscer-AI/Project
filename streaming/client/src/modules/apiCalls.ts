@@ -607,3 +607,17 @@ export const generateDocumentBrief = async (documentId: string) => {
     action: "generate_brief",
   });
 };
+
+type TGenerateVideoData = {
+  prompt: string;
+  image_b64: string;
+  message_id: number;
+  ratio: string;
+};
+export const generateVideo = async (data: TGenerateVideoData) => {
+  return makeAuthenticatedRequest(
+    "POST",
+    "/v1/tools/video_generator/image_to_video/",
+    data
+  );
+};

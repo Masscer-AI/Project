@@ -28,6 +28,8 @@ from api.utils.black_forest_labs import (
     generate_with_control_image,
 )
 
+from .tasks import async_image_to_video
+
 
 SAVE_PATH = os.path.join(settings.MEDIA_ROOT, "generated")
 logger = logging.getLogger(__name__)
@@ -111,7 +113,7 @@ class Transcriptions(View):
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
-class VideoGenerationView(View):
+class ImageToVideo(View):
     def get(self, request):
         user = request.user
 
@@ -442,5 +444,30 @@ class WebsiteFetcherView(View):
                 "status_code": status_code,
                 "headers": headers_dict,
                 "content_type": content_type,
+            }
+        )
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class ImageToVideoView(View):
+    def post(self, request):
+        data = json.loads(request.body)
+        prompt_image_b64 = data.get("image_b64")
+        prompt_text = data.get("prompt")
+        ratio = data.get("ratio")
+        message_id = data.get("message_id")
+
+        async_image_to_video.delay(
+            prompt_image_b64,
+            prompt_text,
+            ratio=ratio,
+            user_id=request.user.id,
+            message_id=message_id,
+        )
+
+        return JsonResponse(
+            {
+                "message": "Video generation job created, you'll receive a notification when ready"
             }
         )

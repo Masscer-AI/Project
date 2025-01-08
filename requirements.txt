@@ -90,6 +90,7 @@ opentelemetry-util-http==0.48b0
 orjson==3.10.7
 overrides==7.7.0
 packaging==24.1
+pathspec==0.12.1
 pillow==10.4.0
 posthog==3.6.6
 proglog==0.1.10
@@ -125,6 +126,7 @@ requests==2.32.3
 requests-oauthlib==2.0.0
 rich==13.8.1
 rsa==4.9
+runwayml==2.1.7
 serpy==0.3.1
 setuptools==75.1.0
 shellingham==1.5.4

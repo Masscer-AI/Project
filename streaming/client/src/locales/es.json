@@ -259,5 +259,9 @@
     "download-svg": "Descargar SVG",
     "expand": "Expandir",
     "mermaid-visualizer": "Visualizador de Mermaid",
-    "enter-text-to-generate-audio": "Ingresa el texto para generar audio"
+    "enter-text-to-generate-audio": "Ingresa el texto para generar audio",
+    "generate-video": "Generar video",
+    "video-job-started": "¡Trabajo de video iniciado!",
+    "video-generated": "¡Video generado!",
+    "describe-the-video": "Describe el video"
 }

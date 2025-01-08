@@ -124,7 +124,7 @@ export const ImageGenerator = ({
   );
 };
 
-const AspectRatio = ({
+export const AspectRatio = ({
   size,
   separator = "x",
   selected = false,
