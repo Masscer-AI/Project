@@ -129,17 +129,14 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   return (
     <div className="chat-input">
       <section className="attachments">
-        {attachments.map(({ content, type, name, id, mode }, index) => (
+        {attachments.map((a, index) => (
           <Thumbnail
-            // file={file}
-            id={id}
-            name={name}
-            type={type}
-            src={content}
+            {...a}
             key={index}
+            src={a.content}
             index={index}
             showFloatingButtons={true}
-            mode={mode}
+            mode={a.mode}
           />
         ))}
       </section>

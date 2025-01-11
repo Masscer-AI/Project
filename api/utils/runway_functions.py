@@ -8,16 +8,15 @@ from typing import Literal
 def image_to_video(
     prompt_image_b64,
     prompt_text,
-    api_key=os.getenv("RUNWAY_API_KEY"),
     ratio: Literal[
         "1280:768",
         "768:1280",
     ] = "768:1280",
+    api_key=os.getenv("RUNWAY_API_KEY"),
 ):
     if not api_key:
         raise ValueError("RUNWAY_API_KEY is not set in the environment variables")
     client = RunwayML(api_key=api_key)
-    print(prompt_text, "PROMPT TEXT")
     task = client.image_to_video.create(
         model="gen3a_turbo",
         prompt_image=prompt_image_b64,
@@ -31,8 +30,8 @@ def image_to_video(
     time.sleep(10)  # Wait for a second before polling
     task = client.tasks.retrieve(task_id)
     while task.status not in ["SUCCEEDED", "FAILED"]:
-        print("Waiting for task to complete...")
-        time.sleep(10)  # Wait for a second before polling
+        print("Waiting for video generation task to complete...")
+        time.sleep(10)
         task = client.tasks.retrieve(task_id)
 
     return task

@@ -110,7 +110,8 @@ export const Sidebar: React.FC = () => {
     }
   };
 
-  const handleNewChat = () => {
+  const handleNewChat = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
     setConversation(null);
     if (searchParams.has("conversation")) {
       searchParams.delete("conversation");
@@ -184,13 +185,14 @@ export const Sidebar: React.FC = () => {
     <>
       <div className="sidebar">
         <div className="flex-x justify-between">
-          <SvgButton
-            onClick={handleNewChat}
-            svg={SVGS.plus}
-            size="big"
-            extraClass="active-on-hover pressable"
-            text={t("new-chat")}
-          />
+          <a href="/chat" onClick={handleNewChat}>
+            <SvgButton
+              svg={SVGS.plus}
+              size="big"
+              extraClass="active-on-hover pressable"
+              text={t("new-chat")}
+            />
+          </a>
           <SvgButton
             extraClass="active-on-hover pressable"
             onClick={toggleSidebar}

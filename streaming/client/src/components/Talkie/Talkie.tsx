@@ -159,30 +159,14 @@ export const Talkie: React.FC<TalkieProps> = ({ processAudio }) => {
     }
   }, [isRecording]);
 
-  // useEffect(() => {
-  //   const handleKeyPress = (event: KeyboardEvent) => {
-  //     if (event.key === "Enter") {
-  //       if (isRecording) {
-  //         stopRecording();
-  //       } else {
-  //         startRecording();
-  //       }
-  //     }
-  //   };
-
-  //   window.addEventListener("keydown", handleKeyPress);
-
-  //   return () => {
-  //     window.removeEventListener("keydown", handleKeyPress);
-  //   };
-  // }, [isRecording]);
-
-  useHotkeys("ctrl+alt+r", () => {
-    if (isRecording) {
-      stopRecording();
-    } else {
-      startRecording();
-    }
+  useHotkeys(
+    "ctrl+alt+r",
+    () => {
+      if (isRecording) {
+        stopRecording();
+      } else {
+        startRecording();
+      }
     },
     {
       enableOnFormTags: true,
@@ -197,7 +181,7 @@ export const Talkie: React.FC<TalkieProps> = ({ processAudio }) => {
         }`}
         onClick={isRecording ? stopRecording : startRecording}
         svg={isRecording ? SVGS.microphoneOff : SVGS.microphone}
-        title={
+        title={  
           isRecording ? "Stop Recording" : "Press Enter to Start Recording"
         }
       />

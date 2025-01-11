@@ -15,8 +15,8 @@ export type TSomething = {
 export type AttatchmentMode = "all_possible_text" | "similar_chunks";
 
 export type TAttachment = {
-  text: any;
-  id?: number;
+  text?: string;
+  id?: number | string;
   file?: File | null;
   type: string;
   content: string;

@@ -11,15 +11,19 @@ import { AttatchmentMode } from "../../types";
 import { Textarea } from "../SimpleForm/Textarea";
 import toast from "react-hot-toast";
 import { generateVideo } from "../../modules/apiCalls";
-import { Select } from "../SimpleForm/Select";
+// import { Select } from "../SimpleForm/Select";
 import { AspectRatio } from "../ImageGenerator/ImageGenerator";
+import { log } from "mermaid/dist/logger.js";
+import { API_URL } from "../../modules/constants";
 
 interface ThumbnailProps {
-  id?: number;
+  id?: number | string;
   src: string;
   type: string;
+  content: string;
   name: string;
   index: number;
+  text?: string;
   showFloatingButtons?: boolean;
   mode?: AttatchmentMode;
   message_id?: number;
@@ -28,6 +32,8 @@ interface ThumbnailProps {
 export const Thumbnail = ({
   id,
   src,
+  text,
+  content,
   type,
   name,
   index,
@@ -42,17 +48,19 @@ export const Thumbnail = ({
 
   return (
     <>
-      {type.indexOf("audio") !== 0 && type.indexOf("image") !== 0 && (
-        <DocumentThumnail
-          id={id}
-          index={index}
-          onDelete={() => deleteAttachment(index)}
-          type={type}
-          name={name}
-          showFloatingButtons={showFloatingButtons}
-          mode={mode}
-        />
-      )}
+      {type.indexOf("audio") !== 0 &&
+        type.indexOf("image") !== 0 &&
+        type.indexOf("video_generation") !== 0 && (
+          <DocumentThumnail
+            id={id}
+            index={index}
+            onDelete={() => deleteAttachment(index)}
+            // type={type}
+            name={name}
+            showFloatingButtons={showFloatingButtons}
+            mode={mode}
+          />
+        )}
       {type.indexOf("image") === 0 && (
         <div className="thumbnail pointer ">
           <ImageThumbnail
@@ -81,6 +89,12 @@ export const Thumbnail = ({
           <audio src={src} playsInline />
         </div>
       )}
+      {type.indexOf("video_generation") === 0 && (
+        <>
+          <VideoThumbnail id={id} src={src} text={text} />
+          {/* <SvgButton title="Open" svg={SVGS.play} /> */}
+        </>
+      )}
     </>
   );
 };
@@ -101,10 +115,10 @@ const ImageModal = ({
   hide: () => void;
   message_id?: number;
 }) => {
-  const [isEditing, setIsEditing] = useState(false);
+  const [showGenerationOptions, setShowGenerationOptions] = useState(false);
   const { t } = useTranslation();
   const [videoPrompt, setVideoPrompt] = useState("");
-  const [ratio, setRatio] = useState("1280:768");
+  const [ratio, setRatio] = useState("768:1280");
 
   const handleDownload = () => {
     const a = document.createElement("a");
@@ -116,8 +130,8 @@ const ImageModal = ({
     document.body.removeChild(a);
   };
 
-  const toggleEdit = () => {
-    setIsEditing(!isEditing);
+  const toggleGenerateVideo = () => {
+    setShowGenerationOptions(!showGenerationOptions);
   };
 
   const handleGenerateVideo = async () => {
@@ -127,9 +141,9 @@ const ImageModal = ({
       message_id: message_id!,
       ratio: ratio,
     });
-    console.log(response);
 
     toast.success(t("video-job-started"));
+    setShowGenerationOptions(false);
   };
 
   return (
@@ -145,25 +159,19 @@ const ImageModal = ({
             svg={SVGS.download}
           />
           <SvgButton
-            onClick={toggleEdit}
-            title="Edit"
+            onClick={toggleGenerateVideo}
+            title={showGenerationOptions ? t("cancel") : t("edit")}
             extraClass="pressable bg-active"
-            svg={SVGS.edit}
+            svg={showGenerationOptions ? SVGS.close : SVGS.video}
           />
         </>
       }
     >
       <div className="flex-y justify-center align-center ">
-        <h2>{isEditing ? t("Generate Video") : t("view")}</h2>
-        {isEditing && (
+        <h2>{showGenerationOptions ? t("generate-video") : t("view")}</h2>
+        {showGenerationOptions ? (
           <div className="flex-y gap-small align-center w-100">
-            <Textarea
-              extraClass="w-100"
-              onChange={(e) => setVideoPrompt(e)}
-              placeholder={t("describe-the-video")}
-              defaultValue={videoPrompt}
-            />
-            <div className="d-flex gap-small align-center w-100">
+            <div className="d-flex gap-small align-center w-100 justify-center">
               <h4>{t("aspect-ratio")}</h4>
               {aspectRatioOptions.map((option) => (
                 <AspectRatio
@@ -175,14 +183,31 @@ const ImageModal = ({
                 />
               ))}
             </div>
+            <div className="flex-x gap-small w-100">
+              <Textarea
+                extraClass="w-100"
+                maxLength={512}
+                onChange={(e) => setVideoPrompt(e)}
+                placeholder={t("describe-the-video")}
+                defaultValue={videoPrompt}
+              />
+            </div>
+            <img
+              style={{ width: "40%" }}
+              src={src}
+              alt={`attachment-${name}`}
+            />
+
             <SvgButton
+              extraClass="bg-active w-100 pressable         "
               onClick={handleGenerateVideo}
               title={t("generate-video")}
-              svg={SVGS.addDocument}
+              svg={SVGS.finish}
             />
           </div>
+        ) : (
+          <img style={{ width: "100%" }} src={src} alt={`attachment-${name}`} />
         )}
-        <img style={{ width: "100%" }} src={src} alt={`attachment-${name}`} />
       </div>
     </Modal>
   );
@@ -190,7 +215,7 @@ const ImageModal = ({
 
 const DocumentThumnail = ({
   index,
-  type,
+  // type,
   name,
   onDelete,
   id,
@@ -297,5 +322,87 @@ const ImageThumbnail = ({
       />
       {buttons}
     </div>
+  );
+};
+
+const VideoThumbnail = ({
+  id,
+  src,
+  text,
+}: {
+  id?: string | number;
+  src: string;
+  text?: string;
+  // name: string;
+}) => {
+  const [openModal, setOpenModal] = useState(false);
+
+  return (
+    <div className="thumbnail pointer">
+      {openModal ? (
+        <VideoModal
+          url={API_URL + src}
+          close={() => setOpenModal(false)}
+          text={text}
+        />
+      ) : (
+        <SvgButton
+          title="Open"
+          svg={SVGS.play}
+          onClick={() => setOpenModal(true)}
+        />
+      )}
+    </div>
+  );
+};
+
+const VideoModal = ({
+  url,
+  close,
+  text,
+}: {
+  url: string;
+  close: () => void;
+  text?: string;
+}) => {
+  const { t } = useTranslation();
+
+  const download = () => {
+    const a = document.createElement("a");
+    a.href = url;
+    a.setAttribute("download", "video.mp4");
+    a.setAttribute("target", "_blank");
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  return (
+    <Modal
+      hide={close}
+      minHeight="50vh"
+      extraButtons={
+        <SvgButton
+          title={t("download")}
+          svg={SVGS.download}
+          onClick={download}
+        />
+      }
+      header={<h2>{t("generated-video")}</h2>}
+    >
+      <div className="flex-y gap-medium">
+        <p>
+          <strong>Prompt: </strong>
+          {text}
+        </p>
+        <video
+          style={{ width: "100%" }}
+          src={url}
+          // playsInline
+          autoPlay
+          controls
+        />
+      </div>
+    </Modal>
   );
 };

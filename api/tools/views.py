@@ -461,9 +461,9 @@ class ImageToVideoView(View):
         async_image_to_video.delay(
             prompt_image_b64,
             prompt_text,
-            ratio=ratio,
-            user_id=request.user.id,
-            message_id=message_id,
+            ratio,
+            request.user.id,
+            message_id,
         )
 
         return JsonResponse(

@@ -6,11 +6,13 @@ export const Textarea = ({
   onChange,
   placeholder,
   extraClass = "",
+  maxLength,
 }: {
   defaultValue: string;
   onChange: (value: string) => void;
   placeholder: string;
   extraClass?: string;
+  maxLength?: number;
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -34,10 +36,10 @@ export const Textarea = ({
       <textarea
         ref={textareaRef}
         className="textarea"
+        maxLength={maxLength}
         value={defaultValue}
         onChange={(e) => {
           onChange(e.target.value);
-          // autoResize();
         }}
         placeholder={""}
       />

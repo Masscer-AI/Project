@@ -1,17 +1,18 @@
 import React from "react";
-import "./Navbar.css";
+// import "./Navbar.css";
 import { Link } from "react-router-dom";
 
 export const Navbar = () => {
   return (
-    <nav className="navbar">
-      <section className="nerko-one-regular">
-        <h1>
-          Masscer<strong> AI</strong>
-        </h1>
+    <nav className="d-flex justify-between bg-hovered">
+      <section className="logo-container">
+        <img src="masscer.jpg" />
       </section>
-      <section>
-        <Link className="highlighted button bg-success text-black" to={"/signup"}>
+      <section className="d-flex align-center gap-small">
+        <Link
+          className="highlighted button bg-success text-black"
+          to={"/signup"}
+        >
           Signup
         </Link>
         <Link className="button" to={"/login"}>

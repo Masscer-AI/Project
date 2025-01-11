@@ -43,4 +43,7 @@ urlpatterns_django = [
 
 urlpatterns_static = static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 
-urlpatterns = urlpatterns_apps + urlpatterns_django + urlpatterns_static
+# add the media URL
+urlpatterns_media = static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+urlpatterns = urlpatterns_apps + urlpatterns_django + urlpatterns_static + urlpatterns_media

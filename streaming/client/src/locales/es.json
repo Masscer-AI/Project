@@ -263,5 +263,7 @@
     "generate-video": "Generar video",
     "video-job-started": "¡Trabajo de video iniciado!",
     "video-generated": "¡Video generado!",
-    "describe-the-video": "Describe el video"
+    "describe-the-video": "Describe el video",
+    "aspect-ratio": "Proporción",
+    "generated-video": "Video generado"
 }

@@ -1,7 +1,9 @@
 import requests
 import uuid
 from moviepy.editor import VideoFileClip, concatenate_videoclips, AudioFileClip
+from django.core.files import File
 from django.conf import settings
+from django.contrib.auth.models import User
 
 from pydantic import BaseModel, Field
 from typing import List
@@ -26,10 +28,11 @@ import os
 from api.utils.openai_functions import create_structured_completion, generate_speech_api
 from api.utils.runway_functions import image_to_video
 from api.utils.document_tools import convert_html
+from api.messaging.models import Message
 import threading
 import time
 from api.notify.actions import notify_user
-
+from api.generations.models import VideoGeneration
 from api.utils.color_printer import printer
 
 SAVE_PATH = os.path.join(settings.MEDIA_ROOT, "generated")
@@ -337,23 +340,50 @@ def document_convertion(source_text: str, from_type="html", to_type="docx"):
 def generate_video_from_image(
     prompt_image_b64, prompt_text, ratio, user_id, provider="runway", message_id=None
 ):
-    if provider == "runway":
-        printer.blue("Generating video from image")
-        task = image_to_video(prompt_image_b64, prompt_text, ratio)
-        printer.red(task, "TASK RETRIEVED FROM RUNWAY")
-        result_url = task.output[0]
+    try:
+        if provider == "runway":
+            user = User.objects.get(pk=user_id)
+            task = image_to_video(prompt_image_b64, prompt_text, ratio)
+            result_url = task.output[0]
 
-        video_path = os.path.join(settings.MEDIA_ROOT, f"generated/{uuid.uuid4()}.mp4")
-        with open(video_path, "wb") as f:
-            f.write(requests.get(result_url).content)
+            video_path = f"generations/videos/{uuid.uuid4()}.mp4"
 
-        printer.green("Video generated", video_path)
-        notify_user(
-            user_id,
-            event_type="video_generated",
-            data={"url": result_url, "message_id": message_id},
-        )
-        return True
-    else:
-        printer.red("No provider selected")
+            with open(os.path.join(settings.MEDIA_ROOT, video_path), "wb") as f:
+                f.write(requests.get(result_url).content)
+
+            video_generation = VideoGeneration.objects.create(
+                name=f"Video generated from image {message_id}",
+                prompt=prompt_text,
+                message_id=message_id,
+                user=user,
+                ratio=ratio,
+                engine="runway",
+                file=video_path,
+            )
+            m = Message.objects.get(pk=message_id)
+            m.attachments.append(
+                {
+                    "type": "video_generation",
+                    "id": str(video_generation.id),
+                    "content": f"{settings.MEDIA_URL}{video_path}",
+                    "name": f"Video generated from image {message_id}",
+                    "text": prompt_text,
+                }
+            )
+            m.save()
+
+            notify_user(
+                user_id,
+                event_type="video_generated",
+                data={
+                    "message_id": message_id,
+                    "public_url": f"{settings.MEDIA_URL}{video_path}",
+                },
+            )
+
+            return True
+        else:
+            raise Exception(f"The provider {provider} is not supported yet!")
+    except Exception as e:
+        printer.red(e)
         return None

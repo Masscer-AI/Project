@@ -67,6 +67,7 @@ INSTALLED_APPS = [
     "api.preferences",
     "api.prompting",
     "api.notify",
+    "api.generations",
 ]
 
 MIDDLEWARE = [

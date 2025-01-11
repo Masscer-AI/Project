@@ -31,5 +31,5 @@ def async_generate_chunk_video(video_chunk_id: int):
 @shared_task
 def async_image_to_video(prompt_image_b64, prompt_text, ratio, user_id, message_id):
     return generate_video_from_image(
-        prompt_image_b64, prompt_text, user_id, "runway", message_id, ratio
+        prompt_image_b64, prompt_text, ratio, user_id, "runway", message_id
     )

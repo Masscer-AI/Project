@@ -338,12 +338,13 @@ export const Message = memo(
         {!id && type === "assistant" && <Loader text={t("thinking...")} />}
         <section className="message__attachments">
           {attachments &&
-            attachments.map(({ content, type, name }, index) => (
+            attachments.map((attachment, index) => (
               <Thumbnail
+                {...attachment}
                 index={index}
-                type={type}
-                src={content}
-                name={name}
+                // type={type}
+                src={attachment.content}
+                // name={name}
                 key={index}
                 message_id={id}
               />

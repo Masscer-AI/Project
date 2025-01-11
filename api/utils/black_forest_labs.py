@@ -51,7 +51,7 @@ def request_flux_generation(
         "prompt_upsampling": prompt_upsampling,
         "safety_tolerance": 6,
     }
-    print("USING KEY", api_key)
+    # print("USING KEY", api_key)
     if model == "flux-pro-1.1-ultra":
         payload["aspect_ratio"] = f"{width}:{height}"
     try:

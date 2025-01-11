@@ -21,6 +21,7 @@ async def listen_to_notifications():
         message = pubsub.get_message()
         if message:
             data = message.get("data")
+            print(data, "NOTIFICATION RECEIVED IN REDIS MANAGER")
             if isinstance(data, bytes):
                 decoded_message = data.decode("utf-8")
                 decoded_message = json.loads(decoded_message)
