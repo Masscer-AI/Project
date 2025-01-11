@@ -40,3 +40,8 @@ streaming/audios
 
 
 data.json
+
+media/generations/videos/*
+media/audio_files/*
+media/audio_chunks/*
+media/final_videos/*
