@@ -38,10 +38,13 @@ class Wallet(models.Model):
         return f"<Wallet user={self.user.username} balance={self.balance} />"
 
     def use_balance(self, amount: Decimal):
-        if self.balance < amount:
-            raise ValueError("Insufficient balance for this operation!")
         self.balance -= amount
         self.save()
+        if self.balance < 0:
+            self.balance = 0
+            self.save()
+            return False
+        return True
 
 
 class Consumption(models.Model):

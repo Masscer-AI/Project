@@ -266,5 +266,7 @@
     "video-generated": "Video generated!",
     "describe-the-video": "Describe the video",
     "aspect-ratio": "Aspect ratio",
-    "generated-video": "Generated video"
+    "generated-video": "Generated video",
+    "video-generated-please-reload": "Video generated, please reload the conversation to see it!",
+    "out-of-compute-units": "Out of compute units, please buy more to continue using our services!"
 }

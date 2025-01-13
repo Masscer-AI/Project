@@ -60,6 +60,7 @@ Everything must be in the same language as the chunk.
     c = Chunk.objects.get(pk=chunk_id)
     printer.red(f"Generating chunk brief for {c.pk}")
     printer.blue(c.content)
+    # TODO: register consumption here
     chunkito = create_structured_completion(
         model="gpt-4o-mini",
         system_prompt=_system,
@@ -70,6 +71,7 @@ Everything must be in the same language as the chunk.
     c.brief = chunkito.brief
     c.tags = chunkito.tags
     c.save()
+    return True
 
 
 def generate_document_brief(document_id: int):
@@ -83,6 +85,7 @@ The brief must be in the same language as the document.
 """
     d = Document.objects.get(pk=document_id)
     first_20000_chars = d.text[:number_of_characters]
+    # TODO: register consumption here
     brief = create_completion_openai(
         system_prompt=_system, user_message=first_20000_chars
     )
@@ -122,6 +125,7 @@ CONVERSATION CONTEXT:
 ---
 
 """
+    # TODO: register consumption here
     queries = create_structured_completion(
         model="gpt-4o-mini",
         system_prompt=_system,

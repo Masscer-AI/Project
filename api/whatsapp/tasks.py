@@ -7,17 +7,20 @@ logger = logging.getLogger(__name__)
 
 @shared_task
 def async_send_message(business_phone_number_id, to):
-    return send_message(
+    result = send_message(
         business_phone_number_id=business_phone_number_id,
         to=to,
     )
+    return result
 
 
 @shared_task
 def async_handle_webhook(webhook_data):
-    return handle_webhook(webhook_data=webhook_data)
+    result = handle_webhook(webhook_data=webhook_data)
+    return result
 
 
 @shared_task
 def async_update_conversation_info(conversation_id):
-    return update_conversation_info(conversation_id=conversation_id)
+    result = update_conversation_info(conversation_id=conversation_id)
+    return result

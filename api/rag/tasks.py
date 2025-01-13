@@ -7,8 +7,11 @@ logger = logging.getLogger(__name__)
 
 @shared_task
 def async_generate_chunk_brief(chunk_id: int):
-    return generate_chunk_brief(chunk_id)
+    result = generate_chunk_brief(chunk_id)
+    return result
+
 
 @shared_task
 def async_generate_document_brief(document_id: int):
-    return generate_document_brief(document_id)
+    result = generate_document_brief(document_id)
+    return result

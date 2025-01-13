@@ -139,6 +139,7 @@ def start_generator(generator_id):
     if not generator:
         raise Exception("Generator not found")
 
+    # TODO: register consumption here
     response = create_structured_completion(
         model="gpt-4o-mini",
         system_prompt=generator.get_system_prompt(),
@@ -157,6 +158,8 @@ def start_generator(generator_id):
     ]
     Completion.objects.bulk_create(completions)
     printer.green(f"GENERATED {len(completions)} COMPLETIONS")
+    # close_old_connections()
+    return True
 
 
 def get_user_completions(user):

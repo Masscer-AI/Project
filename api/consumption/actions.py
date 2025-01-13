@@ -2,6 +2,7 @@ from .models import Consumption, Currency, Wallet
 from api.ai_layers.models import LanguageModel
 from api.payments.models import WinningRates
 from decimal import Decimal
+from api.notify.actions import notify_user
 
 
 def register_consumption(
@@ -15,10 +16,14 @@ def register_consumption(
     if created:
         wallet.balance = 5000
         wallet.save()
-    wallet.use_balance(amount)
     Consumption.objects.create(
         user_id=user_id, wallet=wallet, amount=amount, is_for=is_for
     )
+
+    if not wallet.use_balance(amount):
+        notify_user(user_id, "out_of_balance", {"message": "out-of-compute-units"})
+        return False
+    return True
 
 
 def split_price(price):
