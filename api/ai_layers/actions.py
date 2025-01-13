@@ -1,7 +1,7 @@
 from api.utils.openai_functions import (
     generate_image,
     create_completion_openai,
-    list_openai_models,
+    # list_openai_models,
 )
 from .models import Agent
 from api.utils.color_printer import printer
@@ -218,7 +218,7 @@ def check_models_for_providers():
                 printer.yellow(
                     f"Updated pricing for LanguageModel '{model['name']}' (Anthropic)."
                 )
-    printer.success("All models are now in the DB!")
+    printer.success("All LLMs are now in the DB!")
 
 
 def answer_agent_inquiry(agent_slug: str, context: str, user_message: str):

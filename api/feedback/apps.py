@@ -65,7 +65,7 @@ class FeedbackConfig(AppConfig):
         from .models import ReactionTemplate
 
         try:
-            printer.blue(f"Running startup function for {self.name}")
+            # printer.blue(f"Running startup function for {self.name}")
             all_system_reactions = ReactionTemplate.objects.filter(type="system")
             if all_system_reactions.count() == 0:
                 for reaction in SYSTEM_REACTIONS:
@@ -76,7 +76,10 @@ class FeedbackConfig(AppConfig):
                         description=reaction["description"],
                         type="system",
                     )
-            printer.success("System reactions were created successfully!")
+                printer.success("System reactions were created successfully!")
+                return
+            # printer.info("System reactions already exist :)")
+
         except OperationalError:
             printer.red(
                 f"Database is not ready. Skipping {self.name} startup function."

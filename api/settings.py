@@ -68,6 +68,8 @@ INSTALLED_APPS = [
     "api.prompting",
     "api.notify",
     "api.generations",
+    "api.payments",
+    "api.consumption",
 ]
 
 MIDDLEWARE = [
@@ -176,9 +178,23 @@ CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = "UTC"
 
+CELERY_RESULT_EXPIRES = 3600
+
 
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 MEDIA_URL = "/media/"
 
 if not os.path.exists(MEDIA_ROOT):
     os.makedirs(MEDIA_ROOT)
+
+
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": os.getenv("REDIS_CACHE_URL", "redis://localhost:6379/1"),
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+        "KEY_PREFIX": "chat_cache",
+    }
+}

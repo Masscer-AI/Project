@@ -13,14 +13,24 @@ from api.messaging.models import Message
 from django.views import View
 
 from api.utils.color_printer import printer
+from django.core.cache import cache
 
 
 @method_decorator(token_required, name="get")
 @method_decorator(csrf_exempt, name="dispatch")
 class ReactionTemplateView(View):
+    # TIMEOUT DE UNA SEMANA YA QUE ESTOS DATOS SON LOS MISMOS PARA TODOS LOS USUARIOS
+    CACHE_TIMEOUT = 604800
+
     def get(self, request):
+        cache_key = "reaction_templates"
+        cached_data = cache.get(cache_key)
+        if cached_data:
+            return JsonResponse(cached_data, status=status.HTTP_200_OK, safe=False)
         reaction_templates = ReactionTemplate.objects.filter(type="system")
         serializer = ReactionTemplateSerializer(reaction_templates, many=True)
+        cache.set(cache_key, serializer.data, timeout=self.CACHE_TIMEOUT)
+        printer.info("Updated cache")
         return JsonResponse(serializer.data, status=status.HTTP_200_OK, safe=False)
 
 

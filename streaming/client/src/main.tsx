@@ -3,7 +3,7 @@ import ReactDOM from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 
 import Root from "./routes/root/page.tsx";
-import { rootLoader } from "./routes/root/loader.ts";
+
 import { chatLoader } from "./routes/chat/loader.ts";
 import "./index.css";
 import Signup from "./routes/signup/page.tsx";
@@ -29,7 +29,7 @@ const router = createBrowserRouter([
       {
         path: "/",
         element: <Root />,
-        loader: rootLoader,
+        // loader: rootLoader,
       },
       {
         path: "/signup",

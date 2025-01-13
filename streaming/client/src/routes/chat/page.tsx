@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, version } from "react";
 // import axios from "axios";
 import "./page.css";
 import { Message } from "../../components/Message/Message";
@@ -154,15 +154,14 @@ export default function ChatView() {
 
     if (chatState.writtingMode) return false;
 
-    let selectedAgents = agents.filter((a) => a.selected);
-
-    const userMessage = {
+    const userMessage: TMessage = {
       type: "user",
       text: input,
       attachments: chatState.attachments,
       index: messages.length,
     };
 
+    let selectedAgents = agents.filter((a) => a.selected);
     if (selectedAgents.length === 0) {
       toast.error(t("select-at-least-one-agent-to-chat"));
       return false;
@@ -223,10 +222,22 @@ export default function ChatView() {
 
   const handleRegenerateConversation = (
     userMessage: TMessage,
-    context: TMessage[]
+    prevMessages: TMessage[]
   ) => {
     try {
-      const selectedAgents = agents.filter((a) => a.selected);
+      // const selectedAgents = agents.filter((a) => a.selected);
+      let selectedAgents = agents.filter((a) => a.selected);
+      if (selectedAgents.length === 0) {
+        toast.error(t("select-at-least-one-agent-to-chat"));
+        return false;
+      }
+
+      selectedAgents = selectedAgents.sort(
+        (a, b) =>
+          chatState.selectedAgents.indexOf(a.slug) -
+          chatState.selectedAgents.indexOf(b.slug)
+      );
+
       const token = localStorage.getItem("token");
 
       userMessage.attachments = chatState.attachments;
@@ -235,9 +246,18 @@ export default function ChatView() {
         name: a.name,
       }));
 
+      const assistantMessage: TMessage = {
+        type: "assistant",
+        text: "",
+        attachments: [],
+        agent_slug: selectedAgents[0].slug,
+      };
+
+      setMessages([...prevMessages, assistantMessage]);
+
       socket.emit("message", {
         message: userMessage,
-        context: context,
+        context: prevMessages,
         token: token,
         models_to_complete: selectedAgents,
         conversation: conversation ? conversation : loaderData.conversation,
@@ -287,9 +307,9 @@ export default function ChatView() {
     if (!message) return;
 
     if (message.type === "user") {
-      const newMessages = messages.slice(0, index + 1);
+      let newMessages = messages.slice(0, index + 1);
       newMessages[index].text = text;
-      setMessages(newMessages);
+      message.index = index;
       handleRegenerateConversation(message, newMessages);
     }
     if (message.type === "assistant" && versions) {
@@ -307,15 +327,14 @@ export default function ChatView() {
   return (
     <main className="d-flex chat-page">
       {userPreferences.background_image_source && (
-          <img
-            style={{ opacity: userPreferences.background_image_opacity }}
-            className="pos-absolute"
-            src={userPreferences.background_image_source}
-          />
-        )}
+        <img
+          style={{ opacity: userPreferences.background_image_opacity }}
+          className="pos-absolute"
+          src={userPreferences.background_image_source}
+        />
+      )}
       {chatState.isSidebarOpened && <Sidebar />}
       <div className="chat-container">
-        
         <ChatHeader
           right={
             <ConversationModal
@@ -329,7 +348,7 @@ export default function ChatView() {
             messages.map((msg, index) => (
               <Message
                 {...msg}
-                key={index}
+                key={index + msg.text + JSON.stringify(msg.versions)}
                 index={index}
                 onImageGenerated={onImageGenerated}
                 onMessageEdit={onMessageEdit}

@@ -33,6 +33,7 @@ export type TMessage = {
   agent_slug?: string;
   versions?: TVersion[];
   agents?: Partial<TAgent>[];
+  index?: number;
 };
 
 export type TReactionTemplate = {

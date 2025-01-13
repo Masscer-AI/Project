@@ -1,6 +1,7 @@
 from api.messaging.models import Conversation
 from api.utils.color_printer import printer
 from .models import UserTags
+from django.core.cache import cache
 
 def clean_unused_tags(user_id: int) -> None:
     user_tags = UserTags.objects.filter(user_id=user_id).first()
@@ -19,4 +20,6 @@ def clean_unused_tags(user_id: int) -> None:
     for tag in unused_tags:
         user_tags.remove_tag(tag)
 
+
     printer.yellow("Removed unused tags:", unused_tags)
+    

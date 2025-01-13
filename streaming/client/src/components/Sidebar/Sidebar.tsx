@@ -189,7 +189,7 @@ export const Sidebar: React.FC = () => {
             <SvgButton
               svg={SVGS.plus}
               size="big"
-              extraClass="active-on-hover pressable"
+              extraClass="active-on-hover pressable justify-center"
               text={t("new-chat")}
             />
           </a>

@@ -1,6 +1,8 @@
 from django.http import JsonResponse
 from ..models import Token, PublishableToken
 from api.utils.color_printer import printer
+
+
 def token_required(view_func):
     def _wrapped_view(request, *args, **kwargs):
         auth_header = request.headers.get("Authorization")
@@ -19,14 +21,14 @@ def token_required(view_func):
         if token:
             request.user = token.user
         else:
-            # If not valid as Token, try as PublishableToken
             token = PublishableToken.get_valid(token_key)
             if token:
                 request.user = None
             else:
+                printer.error("Invalid or expired token")
                 return JsonResponse({"error": "Invalid or expired token"}, status=401)
 
-        printer.success("Token is valid!")
+        # printer.success("Token is valid!")
         return view_func(request, *args, **kwargs)
 
     return _wrapped_view

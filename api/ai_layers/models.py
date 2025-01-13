@@ -27,27 +27,24 @@ The following context may be useful for your task:
 """
 
 
-EXAMPLE_PRICING = {
+DEFAULT_PRICING = {
     "text": {
-        "prompt": "2.50 USD / 1M",
-        "output": "10 USD / 1M",
+        "prompt": "2.50 USD / 1000000",
+        "output": "10 USD / 1000000",
     },
-    # "image": {
-    #     "prompt": "15 USD / 1M",
-    #     "output": "60 USD / 1M",
-    # },
-    # "audio": {
-    #     "prompt": "100.00 USD / 1M",
-    #     "output": "200.00 USD / 1M",
-    # },
 }
+
+
+def default_pricing():
+    return DEFAULT_PRICING
 
 
 class LanguageModel(models.Model):
     provider = models.ForeignKey(AIProvider, on_delete=models.CASCADE)
+    
     slug = models.CharField(max_length=100, unique=True, blank=True)
     name = models.CharField(max_length=100)
-    pricing = models.JSONField(default=dict)
+    pricing = models.JSONField(default=default_pricing)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

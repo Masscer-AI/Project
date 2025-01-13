@@ -13,7 +13,7 @@ class AiLayersConfig(AppConfig):
     def startup_function(self):
         from api.ai_layers.actions import check_models_for_providers
         try:
-            printer.blue(f"Running startup function for {self.name}")
+            # printer.blue(f"Running startup function for {self.name}")
             check_models_for_providers()
         except OperationalError:
             # This exception might occur during migrations or if the database is not ready

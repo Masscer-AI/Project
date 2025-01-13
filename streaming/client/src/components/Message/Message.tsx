@@ -484,7 +484,7 @@ export const Message = memo(
               opener={<Pill>{versions?.[currentVersion]?.agent_name}</Pill>}
             >
               <div className="flex-y gap-small width-150">
-                <h4>Tokens</h4>
+                <h4 className="text-center">Tokens</h4>
 
                 <p>
                   <span className="text-secondary">Prompt:</span>{" "}
@@ -498,7 +498,7 @@ export const Message = memo(
                   <span className="text-secondary">Total:</span>{" "}
                   {versions?.[currentVersion]?.usage?.total_tokens}
                 </p>
-                <>
+                {/* <>
                   {(() => {
                     const model_slug =
                       versions?.[currentVersion]?.usage?.model_slug;
@@ -516,7 +516,7 @@ export const Message = memo(
                       return null;
                     }
                     // Dejar solo cinco decimales
-                    totalPrice = parseFloat(totalPrice.toFixed(5));
+                    totalPrice = parseFloat(totalPrice.toFixed(10));
 
                     return (
                       <Pill>
@@ -525,7 +525,7 @@ export const Message = memo(
                       </Pill>
                     );
                   })()}
-                </>
+                </> */}
                 {versions?.[currentVersion]?.usage?.model_slug && (
                   <Pill extraClass="bg-hovered w-100 text-center">
                     {versions?.[currentVersion]?.usage?.model_slug}

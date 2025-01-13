@@ -17,7 +17,7 @@ class ProvidersConfig(AppConfig):
     def startup_function(self):
         from .models import AIProvider
 
-        printer.blue(f"Running startup function for {self.name}")
+        # printer.blue(f"Running startup function for {self.name}")
         try:
             # Check if an AIProvider with name.lower() == "ollama" exists
             if not AIProvider.objects.filter(name__iexact="ollama").exists():

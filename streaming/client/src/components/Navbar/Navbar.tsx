@@ -4,9 +4,12 @@ import { Link } from "react-router-dom";
 
 export const Navbar = () => {
   return (
-    <nav className="d-flex justify-between bg-hovered">
+    <nav
+      className="d-flex justify-between bg-hovered"
+      style={{ background: "#002F4D" }}
+    >
       <section className="logo-container">
-        <img src="masscer.jpg" />
+        <img src="assets/masscer.jpg" />
       </section>
       <section className="d-flex align-center gap-small">
         <Link
