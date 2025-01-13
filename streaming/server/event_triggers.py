@@ -67,6 +67,7 @@ async def on_message_handler(socket_id, data, **kwargs):
     message = data["message"]
 
     token = data["token"]
+    plugins = data["plugins"]
     conversation = data["conversation"]
     web_search_activated = data.get("web_search_activated", False)
     use_rag = data["use_rag"]
@@ -230,6 +231,9 @@ async def on_message_handler(socket_id, data, **kwargs):
             context=complete_context, agent_slug=agent_slug, token=token
         )
         system_prompt += f"\n\nYour name is: {m['name']}."
+
+        if plugins and len(plugins) > 0:
+            system_prompt += f"\n\nYou have the following plugins available, use them to enrich your response. If they are available, is because the user has selected them: {json.dumps(plugins)}"
 
         data = {"agent_slug": agent_slug}
         ai_response = ""

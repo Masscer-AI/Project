@@ -21,6 +21,13 @@ export type TUserPreferences = {
 
 export type TMermaidTheme = "dark" | "forest" | "neutral" | "base" | "light";
 
+export type TPlugin = {
+  name: string;
+  slug: string;
+  instructions: string;
+  descriptionTranslationKey: string;
+};
+
 export type Store = {
   socket: any;
   messages: Message[];
@@ -40,6 +47,7 @@ export type Store = {
     writtingMode: boolean;
     useRag: boolean;
     selectedAgents: string[];
+    selectedPlugins: TPlugin[];
   };
   conversation: TConversation | undefined;
   openedModals: string[];
@@ -73,6 +81,7 @@ export type Store = {
   toggleAgentSelected: (slug: string) => void;
   setUser: (user: TUserData) => void;
   addAgent: () => void;
+  togglePlugin: (plugin: TPlugin) => void;
   updateChatState: (state: Partial<Store["chatState"]>) => void;
   test: () => void;
 };

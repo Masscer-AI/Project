@@ -29,7 +29,7 @@ class AgentView(View):
 
         # Si los datos están en el caché, devolverlos directamente
         if cached_data:
-  
+
             return JsonResponse(cached_data, safe=False)
 
         # Si no están en el caché, obtener datos de la base de datos
@@ -136,6 +136,9 @@ def create_random_agent(request):
         llm=llm,
     )
 
-    agent.save()  # Save the agent to the database
+    agent.save()
+
+    cache_key = f"agent_data_{request.user.id}"
+    cache.delete(cache_key)
 
     return JsonResponse(agent.serialize(), status=201)

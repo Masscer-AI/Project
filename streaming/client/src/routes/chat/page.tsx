@@ -203,6 +203,7 @@ export default function ChatView() {
       socket.emit("message", {
         message: userMessage,
         context: memoryMessages,
+        plugins: chatState.selectedPlugins,
         token: token,
         models_to_complete: selectedAgents,
         conversation: conversation ? conversation : loaderData.conversation,
@@ -258,6 +259,7 @@ export default function ChatView() {
       socket.emit("message", {
         message: userMessage,
         context: prevMessages,
+        plugins: chatState.selectedPlugins,
         token: token,
         models_to_complete: selectedAgents,
         conversation: conversation ? conversation : loaderData.conversation,

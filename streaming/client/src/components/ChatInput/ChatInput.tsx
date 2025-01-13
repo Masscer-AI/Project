@@ -17,6 +17,7 @@ import { Modal } from "../Modal/Modal";
 import { TAttachment, TDocument } from "../../types";
 import { SliderInput } from "../SimpleForm/SliderInput";
 import { Loader } from "../Loader/Loader";
+import { SYSTEM_PLUGINS } from "../../modules/constants";
 
 interface ChatInputProps {
   handleSendMessage: (input: string) => Promise<boolean>;
@@ -179,7 +180,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             svg={SVGS.webSearch}
             title={t("turn-on-off-web-search")}
           />
-
+          <PluginSelector />
           <SpeechHandler onTranscript={handleAudioTranscript} />
           <ConversationConfig />
           {/* <WebsiteFetcher /> */}
@@ -542,6 +543,50 @@ const ConversationConfig = () => {
                 : t("grupal-modality-description")}
             </span>
           </div>
+        </div>
+      </Modal>
+    </>
+  );
+};
+
+export const PluginSelector = () => {
+  const { t } = useTranslation();
+  const { togglePlugin, chatState } = useStore((s) => ({
+    togglePlugin: s.togglePlugin,
+    chatState: s.chatState,
+  }));
+  const [isOpened, setIsOpened] = useState(false);
+  return (
+    <>
+      <SvgButton
+        onClick={() => setIsOpened(true)}
+        svg={SVGS.plugin}
+        size="big"
+        extraClass={`pressable active-on-hover rounded ${
+          chatState.selectedPlugins.length > 0 ? "bg-active" : ""
+        }`}
+      />
+      <Modal
+        header={<h3 className="padding-big">{t("plugin-selector")}</h3>}
+        visible={isOpened}
+        hide={() => setIsOpened(false)}
+      >
+        <div className="d-flex gap-medium wrap-wrap justify-center">
+          {SYSTEM_PLUGINS.map((p) => (
+            <div
+              key={p.slug}
+              className={`card pressable ${
+                chatState.selectedPlugins.some((sp) => sp.slug === p.slug)
+                  ? "bg-active"
+                  : ""
+              }`}
+              onClick={() => togglePlugin(p)}
+            >
+              <h5>{t(p.slug)}</h5>
+              <p>{t(p.descriptionTranslationKey)}</p>
+            </div>
+          ))}
+          <h4 className="text-secondary">{t("more-plugins-coming-soon")}</h4>
         </div>
       </Modal>
     </>

@@ -16,7 +16,7 @@ import { SocketManager } from "./socketManager";
 import { STREAMING_BACKEND_URL } from "./constants";
 import { TAgent } from "../types/agents";
 import toast from "react-hot-toast";
-import { Store } from "./storeTypes";
+import { Store, TPlugin } from "./storeTypes";
 
 export const useStore = create<Store>()((set, get) => ({
   socket: new SocketManager(STREAMING_BACKEND_URL),
@@ -45,6 +45,7 @@ export const useStore = create<Store>()((set, get) => ({
     writtingMode: false,
     useRag: false,
     selectedAgents: [],
+    selectedPlugins: [],
   },
   conversation: undefined,
   openedModals: [],
@@ -385,6 +386,26 @@ export const useStore = create<Store>()((set, get) => ({
     localStorage.removeItem("token");
     localStorage.removeItem("selectedAgents");
     window.location.href = "/";
+  },
+
+  togglePlugin: (plugin: TPlugin) => {
+    const { chatState } = get();
+
+    let newSelectedPlugins: TPlugin[] = [];
+    if (chatState.selectedPlugins.some((p) => p.slug === plugin.slug)) {
+      newSelectedPlugins = chatState.selectedPlugins.filter(
+        (p) => p.slug !== plugin.slug
+      );
+    } else {
+      newSelectedPlugins = [...chatState.selectedPlugins, plugin];
+    }
+
+    set((state) => ({
+      chatState: {
+        ...state.chatState,
+        selectedPlugins: newSelectedPlugins,
+      },
+    }));
   },
 
   test: () => {

@@ -268,5 +268,10 @@
     "aspect-ratio": "Aspect ratio",
     "generated-video": "Generated video",
     "video-generated-please-reload": "Video generated, please reload the conversation to see it!",
-    "out-of-compute-units": "Out of compute units, please buy more to continue using our services!"
+    "out-of-compute-units": "Out of compute units, please buy more to continue using our services!",
+    "calculator-description": "This plugin performs mathematical operations on numbers. The AI model can concatenate different operations to perform complex calculations.",
+    "mermaid-diagrams-description": "This plugin generates Mermaid diagrams from text. The AI model can generate diagrams from text descriptions. Just ask the modal what you want to generate.",
+    "mermaid-diagrams": "Mermaid Diagrams",
+    "plugin-selector": "Plugin selector",
+    "more-plugins-coming-soon": "More plugins coming soon!"
 }
