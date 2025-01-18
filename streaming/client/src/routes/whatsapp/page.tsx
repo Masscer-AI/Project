@@ -30,7 +30,7 @@ export default function Whatsapp() {
       <div className="d-flex">
         {isSidebarOpened && <Sidebar />}
         <div className="chat-max-width ">
-          <ChatHeader onTitleEdit={() => {}} title="" />
+          <ChatHeader />
           <div className="padding-big">
             <h1>Whatsapp</h1>
             <p>

@@ -1,7 +1,6 @@
 import requests
 import uuid
 from moviepy.editor import VideoFileClip, concatenate_videoclips, AudioFileClip
-from django.core.files import File
 from django.conf import settings
 from django.contrib.auth.models import User
 
@@ -36,6 +35,9 @@ from api.generations.models import VideoGeneration
 from api.utils.color_printer import printer
 
 SAVE_PATH = os.path.join(settings.MEDIA_ROOT, "generated")
+
+# Ensure the SAVE_PATH exists
+os.makedirs(SAVE_PATH, exist_ok=True)
 
 
 def format_time_vtt(time):
@@ -347,6 +349,9 @@ def generate_video_from_image(
             result_url = task.output[0]
 
             video_path = f"generations/videos/{uuid.uuid4()}.mp4"
+            os.makedirs(
+                os.path.join(settings.MEDIA_ROOT, "generations/videos"), exist_ok=True
+            )
 
             with open(os.path.join(settings.MEDIA_ROOT, video_path), "wb") as f:
                 f.write(requests.get(result_url).content)

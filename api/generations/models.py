@@ -1,6 +1,11 @@
 from django.db import models
 from django.contrib.auth.models import User
 import uuid
+import os
+from django.conf import settings
+
+SAVE_PATH = os.path.join(settings.MEDIA_ROOT, "generations/videos")
+os.makedirs(SAVE_PATH, exist_ok=True)
 
 
 class VideoGeneration(models.Model):

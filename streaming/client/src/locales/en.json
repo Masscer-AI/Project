@@ -273,5 +273,6 @@
     "mermaid-diagrams-description": "This plugin generates Mermaid diagrams from text. The AI model can generate diagrams from text descriptions. Just ask the modal what you want to generate.",
     "mermaid-diagrams": "Mermaid Diagrams",
     "plugin-selector": "Plugin selector",
-    "more-plugins-coming-soon": "More plugins coming soon!"
+    "more-plugins-coming-soon": "More plugins coming soon!",
+    "conversation-updated": "Conversation updated"
 }

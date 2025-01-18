@@ -7,7 +7,9 @@ import { useTranslation } from "react-i18next";
 import { debounce } from "../../modules/utils";
 import { Pill } from "../Pill/Pill";
 import { useStore } from "../../modules/store";
-  
+import { SvgButton } from "../SvgButton/SvgButton";
+import { SVGS } from "../../assets/svgs";
+
 export const ConversationModal = ({
   conversation,
 }: {
@@ -26,26 +28,15 @@ export const ConversationModal = ({
 
   const onTitleEdit = async (e: React.FocusEvent<HTMLDivElement>) => {
     if (!conversation?.id) return;
-    if (e.target.innerText === title) return;
-
-    await updateConversation(conversation?.id, {
-      title: e.target.innerText,
-    });
     setTitle(e.target.innerText);
-
-    toast.success(t("title-updated"));
   };
 
-  const updateTags = async () => {
-    if (!conversation?.id) return;
-    await updateConversation(conversation?.id, {
-      tags: tags,
-    });
-  };
+  // const updateTags = async () => {
+  //   if (!conversation?.id) return;
+  //   setTags(tags);
+  // };
 
-  const debouncedTitleEdit = debounce(onTitleEdit, 1000);
-
-  const onTagEdit = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onTagEdit = (e: React.FocusEvent<HTMLInputElement>) => {
     const newTags = e.target.value
       .split(",")
       .map((tag) => tag.trim())
@@ -53,7 +44,6 @@ export const ConversationModal = ({
 
     setTags((prev) => [...prev, ...newTags]);
   };
-  const debouncedOnTagEdit = debounce(onTagEdit, 1000);
 
   useEffect(() => {
     socket.on("title_updated", (data) => {
@@ -67,15 +57,18 @@ export const ConversationModal = ({
   }, [socket, conversation]);
 
   useEffect(() => {
-    if (conversation.tags !== tags) {
-      updateTags();
-    }
-  }, [tags]);
-
-  useEffect(() => {
     setTitle(conversation.title);
     setTags(conversation.tags || []);
   }, [conversation]);
+
+  const handleSave = async () => {
+    await updateConversation(conversation.id, {
+      title: title,
+      tags: tags,
+    });
+    toast.success(t("conversation-updated"));
+    setShowModal(false);
+  };
 
   return (
     <>
@@ -93,7 +86,7 @@ export const ConversationModal = ({
             <h3
               suppressContentEditableWarning
               contentEditable
-              onBlur={debouncedTitleEdit}
+              onBlur={onTitleEdit}
             >
               {title}
             </h3>
@@ -119,8 +112,9 @@ export const ConversationModal = ({
             <input
               className="input"
               defaultValue={""}
-              onChange={debouncedOnTagEdit}
+              // onChange={debouncedOnTagEdit}
               type="text"
+              onBlur={onTagEdit}
               placeholder={t("tag-examples")}
             />
           </div>
@@ -137,6 +131,14 @@ export const ConversationModal = ({
                   {tag}
                 </Pill>
               ))}
+          </div>
+          <div className="d-flex justify-center   ">
+            <SvgButton
+              svg={SVGS.save}
+              text={t("save")}
+              onClick={handleSave}
+              extraClass="active-on-hover pressable w-100 "
+            />
           </div>
         </div>
       </Modal>

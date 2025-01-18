@@ -21,7 +21,7 @@ export const ChatHeader = ({
   // onTitleEdit: (title: string) => void;
   right?: React.ReactNode;
 }) => {
-  const { t } = useTranslation();
+  // const { t } = useTranslation();
   const { toggleSidebar, chatState } = useStore((state) => ({
     toggleSidebar: state.toggleSidebar,
     chatState: state.chatState,

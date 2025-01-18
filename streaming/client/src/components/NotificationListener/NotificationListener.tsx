@@ -3,11 +3,7 @@ import { useStore } from "../../modules/store";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 
-export const NotificationListener = ({
-  children,
-}: {
-  children: React.ReactNode;
-}) => {
+export const NotificationListener = () => {
   const { t } = useTranslation();
   const { socket } = useStore((state) => ({
     socket: state.socket,
@@ -28,5 +24,5 @@ export const NotificationListener = ({
       socket.off("out_of_balance");
     };
   }, []);
-  return <>{children}</>;
+  return <></>;
 };

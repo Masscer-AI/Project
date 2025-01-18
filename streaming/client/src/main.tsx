@@ -43,9 +43,8 @@ const router = createBrowserRouter([
         path: "/chat",
         element: (
           <>
-            <NotificationListener>
-              <ChatView />
-            </NotificationListener>
+            <ChatView />
+            <NotificationListener />
           </>
         ),
         loader: chatLoader,
