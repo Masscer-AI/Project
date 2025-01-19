@@ -46,3 +46,6 @@ media/audio_files/*
 media/audio_chunks/*
 media/final_videos/*
 
+pgbouncer.ini
+userlist.txt
+

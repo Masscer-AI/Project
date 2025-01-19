@@ -80,6 +80,7 @@ info "Starting PGBouncer container..."
 if [[ "$(docker ps -aq -f name=$PGBOUNCER_CONTAINER)" ]]; then
     info "Starting existing PGBouncer container..."
     docker start $PGBOUNCER_CONTAINER || { error "Failed to start PGBouncer container. Make sure it exists and is not in an invalid state."; exit 1; }
+    success "PGBouncer container started."
 else
     error "PGBouncer container does not exist. Please create it first running: ./createPostgres.sh. Ask for help if you need it."
     exit 1
