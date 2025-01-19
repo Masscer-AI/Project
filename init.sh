@@ -7,6 +7,9 @@ error() {
 info() {
     echo -e "\033[34m$1\033[0m"  # Blue
 }
+success() {
+    echo -e "\033[32m$1\033[0m"  # Green
+}
 cleanup() {
     info "Stopping background services..."
     kill $CHROMA_PID $DJANGO_PID 2>/dev/null
@@ -39,6 +42,7 @@ while [[ "$#" -gt 0 ]]; do
 done
 
 # Show the flags
+success "Starting with flags:"
 info "DJANGO: $DJANGO"
 info "INSTALL: $INSTALL"
 info "WATCH: $WATCH"
@@ -50,22 +54,37 @@ if [[ -f "venv/bin/activate" ]]; then
 elif [[ -f "venv/Scripts/activate" ]]; then
     source venv/Scripts/activate
 else
-    error "Virtual environment not found. Please set it up first."; exit 1
+    error "Virtual environment not found. Please set it up first. running: py -m venv venv"; exit 1
 fi
 
 # Start PostgreSQL container
 POSTGRES_CONTAINER=${POSTGRES_CONTAINER:-postgres_container}
 POSTGRES_HOST=${POSTGRES_HOST:-localhost}
 POSTGRES_PORT=${POSTGRES_PORT:-5432}
+PGBOUNCER_CONTAINER=${PGBOUNCER_CONTAINER:-pgbouncer_container}
+PGBOUNCER_HOST=${PGBOUNCER_HOST:-localhost}
+PGBOUNCER_PORT=${PGBOUNCER_PORT:-6432}
 
 info "Checking PostgreSQL container..."
 if [[ "$(docker ps -aq -f name=$POSTGRES_CONTAINER)" ]]; then
     info "Starting existing PostgreSQL container..."
     docker start $POSTGRES_CONTAINER || { error "Failed to start PostgreSQL container. Make sure it exists and is not in an invalid state."; exit 1; }
 else
-    error "PostgreSQL container does not exist. Please create it first using your specialized script."
+    error "PostgreSQL container does not exist. Please create it first running: ./createPostgres.sh. Ask for help if you need it."
     exit 1
 fi
+
+info "PostgreSQL container started."
+info "Starting PGBouncer container..."
+
+if [[ "$(docker ps -aq -f name=$PGBOUNCER_CONTAINER)" ]]; then
+    info "Starting existing PGBouncer container..."
+    docker start $PGBOUNCER_CONTAINER || { error "Failed to start PGBouncer container. Make sure it exists and is not in an invalid state."; exit 1; }
+else
+    error "PGBouncer container does not exist. Please create it first running: ./createPostgres.sh. Ask for help if you need it."
+    exit 1
+fi
+
 
 # Execute installation commands if the flag is true
 if [ "$INSTALL" = true ]; then

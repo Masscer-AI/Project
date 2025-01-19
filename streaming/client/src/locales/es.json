@@ -273,5 +273,9 @@
     "mermaid-diagrams": "Diagramas de Mermaid",
     "plugin-selector": "Selector de plugins",
     "more-plugins-coming-soon": "¡Más plugins pronto!",
-    "conversation-updated": "Conversación actualizada"
+    "conversation-updated": "Conversación actualizada",
+    "modify-text": "Modificar texto",
+    "selected-text": "Texto seleccionado",
+    "document-maker-description": "Este plugin genera un documento a partir de un bloque de código markdown. El modelo de IA puede generar un documento a partir de un bloque de código markdown. Simplemente pregunta al modal qué quieres generar.",
+    "document-maker": "Generador de documentos"
 }

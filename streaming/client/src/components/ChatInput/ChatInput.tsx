@@ -17,12 +17,19 @@ import { Modal } from "../Modal/Modal";
 import { TAttachment, TDocument } from "../../types";
 import { SliderInput } from "../SimpleForm/SliderInput";
 import { Loader } from "../Loader/Loader";
-import { SYSTEM_PLUGINS } from "../../modules/constants";
+import { SYSTEM_PLUGINS } from "../../modules/plugins";
 
 interface ChatInputProps {
   handleSendMessage: (input: string) => Promise<boolean>;
   initialInput: string;
 }
+
+const getCommand = (text: string): string | null => {
+  // Regex para capturar el comando después de "k/"
+  const regex = /k\/(.*)$/;
+  const match = text.match(regex);
+  return match ? match[1] : null; // Si hay coincidencia, devuelve el comando; si no, null.
+};
 
 export const ChatInput: React.FC<ChatInputProps> = ({
   handleSendMessage,
@@ -44,7 +51,20 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     toggleWritingMode: state.toggleWrittingMode,
   }));
 
-  const [innerInput, setInnerInput] = useState(initialInput);
+  const [textPrompt, setTextPrompt] = useState(initialInput);
+
+  useEffect(() => {
+    setTextPrompt(initialInput);
+  }, [initialInput]);
+
+  useEffect(() => {
+    console.log(textPrompt);
+    const command = getCommand(textPrompt);
+    if (command) {
+      // asyncSendMessage();
+      toast.success(`Command ${command} detected`);
+    }
+  }, [textPrompt]);
 
   const handlePaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const items = event.clipboardData.items;
@@ -81,7 +101,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     audioUrl: string,
     base64Audio: string
   ) => {
-    setInnerInput((prev) => prev + " " + transcript);
+    setTextPrompt((prev) => prev + " " + transcript);
 
     // addAttachment({
     //   content: base64Audio,
@@ -102,18 +122,18 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     }
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
-      const result = await handleSendMessage(innerInput);
+      const result = await handleSendMessage(textPrompt);
 
       if (result) {
-        setInnerInput("");
+        setTextPrompt("");
       }
     }
   };
 
   const asyncSendMessage = async () => {
-    const result = await handleSendMessage(innerInput);
+    const result = await handleSendMessage(textPrompt);
     if (result) {
-      setInnerInput("");
+      setTextPrompt("");
     }
   };
 
@@ -126,6 +146,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       enableOnFormTags: true,
     }
   );
+
+  const handleTextPromptChange = (
+    e: React.ChangeEvent<HTMLTextAreaElement>
+  ) => {
+    setTextPrompt(e.target.value);
+  };
 
   return (
     <div className="chat-input">
@@ -144,8 +170,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       <section>
         <textarea
           className={chatState.writtingMode ? "big-size" : ""}
-          value={innerInput}
-          onChange={(e) => setInnerInput(e.target.value)}
+          value={textPrompt}
+          onChange={handleTextPromptChange}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
           placeholder={t("type-your-message")}
@@ -572,7 +598,7 @@ export const PluginSelector = () => {
         hide={() => setIsOpened(false)}
       >
         <div className="d-flex gap-medium wrap-wrap justify-center">
-          {SYSTEM_PLUGINS.map((p) => (
+          {Object.values(SYSTEM_PLUGINS).map((p) => (
             <div
               key={p.slug}
               className={`card pressable ${

@@ -498,34 +498,7 @@ export const Message = memo(
                   <span className="text-secondary">Total:</span>{" "}
                   {versions?.[currentVersion]?.usage?.total_tokens}
                 </p>
-                {/* <>
-                  {(() => {
-                    const model_slug =
-                      versions?.[currentVersion]?.usage?.model_slug;
 
-                    const llm = models.find((m) => m.slug === model_slug);
-                    let totalPrice = calculatePricing(
-                      llm?.pricing.text.prompt || "",
-                      versions?.[currentVersion]?.usage?.prompt_tokens || 0
-                    );
-                    totalPrice += calculatePricing(
-                      llm?.pricing.text.output || "",
-                      versions?.[currentVersion]?.usage?.completion_tokens || 0
-                    );
-                    if (isNaN(totalPrice)) {
-                      return null;
-                    }
-                    // Dejar solo cinco decimales
-                    totalPrice = parseFloat(totalPrice.toFixed(10));
-
-                    return (
-                      <Pill>
-                        <span className="text-secondary">{t("cost")}</span>{" "}
-                        {totalPrice}
-                      </Pill>
-                    );
-                  })()}
-                </> */}
                 {versions?.[currentVersion]?.usage?.model_slug && (
                   <Pill extraClass="bg-hovered w-100 text-center">
                     {versions?.[currentVersion]?.usage?.model_slug}
@@ -847,7 +820,7 @@ const ModifyTextModal = ({ text, messageID }) => {
     <>
       <SvgButton
         size="big"
-        text="Modify text"
+        text={t("modify-text")}
         onClick={() => setIsVisible(true)}
         svg={SVGS.edit}
       />

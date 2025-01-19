@@ -20,22 +20,6 @@ export const CodeBlock = ({
   return <pre className={`language-${language}`}>{code}</pre>;
 };
 
-const customTheme = `
-%%{
-  init: {
-    'theme': 'dark',
-    'themeVariables': {
-      'primaryColor': '#BB2528',
-      'primaryTextColor': '#ff0000',
-      'primaryBorderColor': '#7C0000',
-      'lineColor': '#F8B229',
-      'secondaryColor': '#006100',
-      'tertiaryColor': '#fff'
-    }
-  }
-}%%
-`;
-
 const MermaidVisualizer = ({ code }: { code: string }) => {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);

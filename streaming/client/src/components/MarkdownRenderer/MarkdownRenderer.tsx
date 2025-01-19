@@ -15,6 +15,7 @@ import { Pill } from "../Pill/Pill";
 
 import { Calculator } from "../MessagePlugins/Calculator/Calculator";
 import { CodeBlock } from "../CodeBlock/CodeBlock";
+import { SYSTEM_PLUGINS } from "../../modules/plugins";
 
 const MarkdownRenderer = ({
   markdown,
@@ -83,10 +84,27 @@ const MarkdownRenderer = ({
   );
 };
 
-const output_formats = ["docx", "pdf", "md", "csv", "html", "json", "txt"];
-type TOutputFormat = "docx" | "pdf" | "md" | "csv" | "html" | "json" | "txt";
+const output_formats = [
+  "docx",
+  "pdf",
+  "md",
+  "csv",
+  "html",
+  "json",
+  "txt",
+  "latex",
+];
+type TOutputFormat =
+  | "docx"
+  | "pdf"
+  | "md"
+  | "csv"
+  | "html"
+  | "json"
+  | "txt"
+  | "latex";
 
-const text_only_formats = ["csv", "txt", "json"];
+const text_only_formats = ["csv", "txt", "json", "latex"];
 
 const downloadTextAsFile = (text: string, format: TOutputFormat) => {
   // Download the text as a CSV file
@@ -98,15 +116,6 @@ const downloadTextAsFile = (text: string, format: TOutputFormat) => {
   a.href = url;
   a.download = `${title}.${format}`;
   a.click();
-};
-
-const plugins = {
-  calculator: (text: string) => {
-    return <Calculator {...JSON.parse(text)} />;
-  },
-  mermaid: (text: string) => {
-    return <CodeBlock code={text} language="mermaid" />;
-  },
 };
 
 export const CustomCodeBlock = ({
@@ -129,13 +138,16 @@ export const CustomCodeBlock = ({
     if (language === "html") {
       setInputFormat("html");
     }
-    
+    if (language === "latex") {
+      setInputFormat("latex");
+    }
+
     if (language === "json") {
       findPlugin();
     }
 
-    if (language === "mermaid") {
-      setPluginName("mermaid");
+    if (language === "documentMaker") {
+      setPluginName("documentMaker");
     }
   }, [code, language]);
 
@@ -249,7 +261,16 @@ export const CustomCodeBlock = ({
       </div>
 
       {pluginName && usePlugin ? (
-        plugins[pluginName](code)
+        SYSTEM_PLUGINS[pluginName]?.code_receptor ? (
+          SYSTEM_PLUGINS[pluginName].code_receptor(code, language)
+        ) : (
+          <SyntaxHighlighter
+            language={language ? language : "text"}
+          style={twilight}
+        >
+          {code}
+          </SyntaxHighlighter>
+        )
       ) : (
         <SyntaxHighlighter
           language={language ? language : "text"}
