@@ -10,8 +10,9 @@ from .serializers import (
     UserSerializer,
     UserProfileSerializer,
     OrganizationSerializer,
+    CredentialsManagerSerializer,
 )
-from .models import Token, Organization, UserProfile
+from .models import Token, Organization, UserProfile, CredentialsManager
 from rest_framework.permissions import AllowAny
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
@@ -149,58 +150,6 @@ class UserView(View):
         )
 
 
-# @method_decorator(csrf_exempt, name="dispatch")
-# @method_decorator(token_required, name="dispatch")
-# class UserView(View):
-#     permission_classes = [AllowAny]
-
-#     def get(self, request, *args, **kwargs):
-#         serializer = UserSerializer(request.user)
-#         return JsonResponse(serializer.data, status=status.HTTP_200_OK)
-
-#     def put(self, request, *args, **kwargs):
-#         data = json.loads(request.body)
-#         # Validate if the username is available
-#         if (
-#             User.objects.filter(username=data["username"])
-#             .exclude(id=request.user.id)
-#             .exists()
-#         ):
-#             return JsonResponse(
-#                 {"error": "username-already-taken"},
-#                 status=status.HTTP_400_BAD_REQUEST,
-#             )
-
-#         # validate if the email is available
-#         if (
-#             User.objects.filter(email=data["email"])
-#             .exclude(id=request.user.id)
-#             .exists()
-#         ):
-#             return JsonResponse(
-#                 {"error": "email-already-taken"},
-#                 status=status.HTTP_400_BAD_REQUEST,
-#             )
-
-#         request.user.username = data["username"]
-#         request.user.email = data["email"]
-#         request.user.save()
-
-#         if "profile" in data:
-#             profile = request.user.profile
-#             if not profile:
-#                 profile = UserProfile.objects.create(
-#                     user=request.user, **data["profile"]
-#                 )
-#             serializer = UserProfileSerializer(profile, data=data["profile"])
-#             if serializer.is_valid():
-#                 serializer.save()
-
-#         return JsonResponse(
-#             {"message": "user-updated-successfully"}, status=status.HTTP_200_OK
-#         )
-
-
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class OrganizationView(View):
@@ -209,13 +158,74 @@ class OrganizationView(View):
         serializer = OrganizationSerializer(organizations, many=True)
         return JsonResponse(serializer.data, safe=False)
 
+    def delete(self, request, organization_id):
+        organization = Organization.objects.get(id=organization_id)
+        if organization.owner != request.user:
+            return JsonResponse(
+                {"error": "You are not the owner of this organization"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        organization.delete()
+        return JsonResponse(
+            {"message": "Organization deleted successfully"}, status=status.HTTP_200_OK
+        )
+
     def post(self, request):
+        try:
+            data = json.loads(request.body)
+            data["owner"] = request.user.id
+            serializer = OrganizationSerializer(data=data)
+            if serializer.is_valid():
+                serializer.save()
+                return JsonResponse(
+                    {"message": "Organization created successfully"},
+                    status=status.HTTP_201_CREATED,
+                )
+            return JsonResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    def put(self, request, organization_id):
         data = json.loads(request.body)
-        serializer = OrganizationSerializer(data=data)
+        organization = Organization.objects.get(id=organization_id)
+        if organization.owner != request.user:
+            return JsonResponse(
+                {"error": "You are not the owner of this organization"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        serializer = OrganizationSerializer(organization, data=data)
         if serializer.is_valid():
             serializer.save()
-            return Response(
-                {"message": "Organization created successfully"},
-                status=status.HTTP_201_CREATED,
+            return JsonResponse(
+                {"message": "Organization updated successfully"},
+                status=status.HTTP_200_OK,
             )
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return JsonResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class OrganizationCredentialsView(View):
+    def get(self, request, organization_id):
+        organization = Organization.objects.get(id=organization_id)
+        if organization.owner != request.user:
+            return JsonResponse(
+                {"error": "You are not the owner of this organization"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        credentials_manager = CredentialsManager.objects.get(organization=organization)
+        serializer = CredentialsManagerSerializer(credentials_manager)
+        return JsonResponse(serializer.data, safe=False)
+
+    def put(self, request, organization_id):
+        data = json.loads(request.body)
+        organization = Organization.objects.get(id=organization_id)
+        credentials_manager = CredentialsManager.objects.get(organization=organization)
+        serializer = CredentialsManagerSerializer(credentials_manager, data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return JsonResponse(
+                {"message": "Credentials updated successfully"},
+                status=status.HTTP_200_OK,
+            )
+        return JsonResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

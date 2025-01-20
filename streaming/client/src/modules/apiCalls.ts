@@ -17,6 +17,10 @@ const getToken = (isPublic: boolean) => {
   }
 };
 
+const deleteToken = () => {
+  localStorage.removeItem("token");
+};
+
 export const initConversation = async ({ isPublic = false }) => {
   const endpoint = API_URL + "/v1/messaging/conversations";
 
@@ -618,6 +622,58 @@ export const generateVideo = async (data: TGenerateVideoData) => {
   return makeAuthenticatedRequest(
     "POST",
     "/v1/tools/video_generator/image_to_video/",
+    data
+  );
+};
+
+export type TOrganizationData = {
+  name: string;
+  description: string;
+};
+export const createOrganization = async (data: TOrganizationData) => {
+  return makeAuthenticatedRequest("POST", "/v1/auth/organizations/", data);
+};
+
+export const deleteOrganization = async (organizationId: string) => {
+  return makeAuthenticatedRequest(
+    "DELETE",
+    `/v1/auth/organizations/${organizationId}/`
+  );
+};
+
+export type TOrganizationCredentials = {
+  openai_api_key: string;
+  brave_api_key: string;
+  anthropic_api_key: string;
+  pexels_api_key: string;
+  elevenlabs_api_key: string;
+  heygen_api_key: string;
+};
+export const getOrganizationCredentials = async (organizationId: string) => {
+  return makeAuthenticatedRequest<TOrganizationCredentials>(
+    "GET",
+    `/v1/auth/organizations/${organizationId}/credentials/`
+  );
+};
+
+export const updateOrganizationCredentials = async (
+  organizationId: string,
+  data: TOrganizationCredentials
+) => {
+  return makeAuthenticatedRequest(
+    "PUT",
+    `/v1/auth/organizations/${organizationId}/credentials/`,
+    data
+  );
+};
+
+export const updateOrganization = async (
+  organizationId: string,
+  data: TOrganizationData
+) => {
+  return makeAuthenticatedRequest(
+    "PUT",
+    `/v1/auth/organizations/${organizationId}/`,
     data
   );
 };

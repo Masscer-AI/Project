@@ -187,8 +187,9 @@ const ImageModal = ({
               <Textarea
                 extraClass="w-100"
                 maxLength={512}
+                name="prompt"
                 onChange={(e) => setVideoPrompt(e)}
-                placeholder={t("describe-the-video")}
+                label={t("describe-the-video")}
                 defaultValue={videoPrompt}
               />
             </div>

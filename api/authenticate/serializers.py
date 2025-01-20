@@ -78,6 +78,8 @@ class CredentialsManagerSerializer(serializers.ModelSerializer):
             "brave_api_key",
             "anthropic_api_key",
             "pexels_api_key",
+            "elevenlabs_api_key",
+            "heygen_api_key",
             "created_at",
             "updated_at",
         ]

@@ -14,6 +14,7 @@ type SvgButtonProps = {
   transparent?: boolean;
   svgOnHover?: React.ReactNode;
   rounded?: boolean;
+  type?: "button" | "submit" | "reset";
 };
 
 export const SvgButton = ({
@@ -29,6 +30,7 @@ export const SvgButton = ({
   transparent = true,
   svgOnHover = null,
   rounded = true,
+  type = "button",
 }: SvgButtonProps) => {
   const [innerText, setInnerText] = useState(text);
   const [currentSvg, setCurrentSvg] = useState(svg);
@@ -51,6 +53,7 @@ export const SvgButton = ({
 
   return (
     <button
+      type={type}
       tabIndex={tabIndex}
       className={`svg-button ${rounded ? "rounded" : ""} clickeable ${extraClass} ${size} ${transparent ? "transparent" : ""}`}
       onClick={handleClick}

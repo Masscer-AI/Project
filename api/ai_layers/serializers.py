@@ -36,3 +36,5 @@ class AgentSerializer(serializers.ModelSerializer):
             "temperature",
             "llm",
         ]
+
+

@@ -1606,7 +1606,7 @@ export const SVGS = {
       xmlns="http://www.w3.org/2000/svg"
       className="set-stroke"
     >
-      <g clip-path="url(#clip0_402_1610)">
+      <g clipPath="url(#clip0_402_1610)">
         <path
           d="M17.6336 11.5653L12.2393 16.9596L15.3514 20.0717C16.841 21.5613 19.2561 21.5613 20.7457 20.0717C22.2353 18.5821 22.2353 16.167 20.7457 14.6774L17.6336 11.5653Z"
           stroke="var(--font-color)"

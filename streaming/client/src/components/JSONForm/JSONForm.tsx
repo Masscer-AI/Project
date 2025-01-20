@@ -1,15 +1,20 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Textarea } from "../SimpleForm/Textarea";
+import { SvgButton } from "../SvgButton/SvgButton";
+import { SVGS } from "../../assets/svgs";
 
 type TField = {
   type: string;
   label: string;
 };
 
+export type TJSONFormData = Record<string, any>;
+
 interface JSONFormProps {
-  data: Record<string, any>;
+  data: TJSONFormData;
   hiddenKeys?: string[];
-  onSubmit: (formData: Record<string, any>) => void;
+  submitText?: string;
+  onSubmit?: (formData: TJSONFormData) => void;
   onKeyChange?: (key: string, value: any) => void;
   fieldMapping?: Record<string, TField>;
 }
@@ -17,11 +22,12 @@ interface JSONFormProps {
 export const JSONForm: React.FC<JSONFormProps> = ({
   data,
   hiddenKeys = [],
+  submitText = "",
   onSubmit,
   onKeyChange,
   fieldMapping = {},
 }) => {
-  const [formData, setFormData] = useState<Record<string, any>>(data);
+  const [formData, setFormData] = useState<TJSONFormData>(data);
 
   const handleChange = (key: string, value: any) => {
     setFormData({ ...formData, [key]: value });
@@ -30,8 +36,12 @@ export const JSONForm: React.FC<JSONFormProps> = ({
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
-    onSubmit(formData);
+    onSubmit?.(formData);
   };
+
+  useEffect(() => {
+    setFormData(data);
+  }, [data]);
 
   const renderInput = (key: string, value: any) => {
     const field = fieldMapping[key] || { type: typeof value, label: key };
@@ -44,7 +54,7 @@ export const JSONForm: React.FC<JSONFormProps> = ({
             <input
               className="input"
               type="text"
-              value={formData[key] || ""}
+              defaultValue={formData[key] || ""}
               onChange={(e) => handleChange(key, e.target.value)}
             />
           </div>
@@ -55,7 +65,7 @@ export const JSONForm: React.FC<JSONFormProps> = ({
             key={key}
             defaultValue={formData[key] || ""}
             onChange={(value) => handleChange(key, value)}
-            placeholder={field.label}
+            label={field.label}
           />
         );
       case "number":
@@ -131,6 +141,14 @@ export const JSONForm: React.FC<JSONFormProps> = ({
         if (hiddenKeys.includes(key)) return null;
         return renderInput(key, data[key]);
       })}
+      {onSubmit && (
+        <SvgButton
+          extraClass="w-100 active-on-hover pressable"
+          type="submit"
+          svg={SVGS.save}
+          text={submitText}
+        />
+      )}
     </form>
   );
 };

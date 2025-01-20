@@ -308,7 +308,8 @@ const CompletionCard = ({
         {isEditing ? (
           <Textarea
             extraClass=""
-            placeholder="This is how the AI supposed to answer"
+            name="answer"
+            label={t("this-is-how-the-ai-supposed-to-answer")}
             defaultValue={answer}
             onChange={handleAnswerChange}
           />

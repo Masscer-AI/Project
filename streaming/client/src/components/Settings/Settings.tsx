@@ -5,12 +5,30 @@ import { useTranslation } from "react-i18next";
 import { LanguageSelector } from "../LanguageSelector/LanguageSelector";
 import { SvgButton } from "../SvgButton/SvgButton";
 import { SVGS } from "../../assets/svgs";
-import { getUserOrganizations, updateUser } from "../../modules/apiCalls";
+import {
+  createOrganization,
+  deleteOrganization,
+  getOrganizationCredentials,
+  getUserOrganizations,
+  TOrganizationData,
+  TOrganizationCredentials,
+  updateUser,
+  updateOrganization,
+  updateOrganizationCredentials,
+} from "../../modules/apiCalls";
 import { TOrganization } from "../../types";
 import { debounce } from "../../modules/utils";
 import { toast } from "react-hot-toast";
-import { JSONForm } from "../JSONForm/JSONForm";
+import { JSONForm, TJSONFormData } from "../JSONForm/JSONForm";
 import mermaid from "mermaid";
+import { Textarea } from "../SimpleForm/Textarea";
+import {
+  validateElevenLabsApiKey,
+  validateHeyGenApiKey,
+} from "../../modules/externalServices";
+import { TUserProfile } from "../../types/chatTypes";
+
+const MAX_ALLOWED_ORGANIZATIONS = 1;
 
 export const Settings = () => {
   const { setOpenedModals } = useStore((s) => ({
@@ -89,10 +107,12 @@ const LabeledButton = ({ label, onClick, svg, selected }) => {
 const OrganizationManager = () => {
   const { t } = useTranslation();
   const [orgs, setOrgs] = React.useState([] as TOrganization[]);
+  const [showForm, setShowForm] = React.useState(false);
 
   useEffect(() => {
+    if (showForm) return;
     getOrgs();
-  }, []);
+  }, [showForm]);
 
   const getOrgs = async () => {
     const orgs = await getUserOrganizations();
@@ -100,15 +120,33 @@ const OrganizationManager = () => {
   };
 
   return (
-    <div>
-      {/* <h2>{t("organization")}</h2> */}
-      <p>{t("organization-description")}</p>
-      {orgs.length === 0 && <p>{t("no-organizations-message")}</p>}
-      {orgs.map((org) => (
-        <div key={org.id}>
-          <h3>{org.name}</h3>
-        </div>
-      ))}
+    <div className="flex-y gap-medium">
+      {showForm ? (
+        <OrganizationForm close={() => setShowForm(false)} />
+      ) : (
+        <>
+          {orgs.length === 0 && <p>{t("no-organizations-message")}</p>}
+          <div className="d-flex gap-small wrap-wrap justify-center">
+            {orgs.map((org) => (
+              <OrganizationCard
+                reload={getOrgs}
+                key={org.id}
+                organization={org}
+              />
+            ))}
+          </div>
+          {orgs.length < MAX_ALLOWED_ORGANIZATIONS ? (
+            <SvgButton
+              text={t("create-organization")}
+              svg={SVGS.plus}
+              extraClass="pressable active-on-hover w-100"
+              onClick={() => setShowForm(true)}
+            />
+          ) : (
+            <p>{t("max-organizations-reached")}</p>
+          )}
+        </>
+      )}
     </div>
   );
 };
@@ -145,14 +183,12 @@ const MermaidExaple = () => {
     }
   };
 
-
   return (
     // Add a bigger
     <div className="d-flex justify-center">
       <pre ref={preRef} className="mermaid">
         {makeThemeCode(theming.mermaid)}
       </pre>
-
     </div>
   );
 };
@@ -358,30 +394,19 @@ const UserConfig = () => {
     setUser: s.setUser,
   }));
 
+  const [profile, setProfile] = React.useState(
+    user?.profile || ({} as TUserProfile)
+  );
+
   const handleUpdateUser = async (data) => {
     console.log(data);
-  };
 
-  const onKeyChange = async (key, value) => {
     if (!user) return;
-    const newUser = { ...user };
-    const profile = newUser.profile || {
-      id: "",
-      avatar_url: "",
-      bio: "",
-      sex: "",
-      age: 0,
-      birthday: "",
-      name: "",
-    };
-    profile[key] = value;
-
-    newUser.profile = profile;
 
     try {
       await updateUser({
-        username: newUser.username,
-        email: newUser.email,
+        username: user.username,
+        email: user.email,
         profile,
       });
       toast.success(t("user-updated"));
@@ -392,7 +417,11 @@ const UserConfig = () => {
     }
   };
 
-  const onKeyChangeDebounced = debounce(onKeyChange, 1000);
+  const onKeyChange = async (key, value) => {
+    const newProfile = { ...profile };
+    newProfile[key] = value;
+    setProfile(newProfile);
+  };
 
   return (
     <div className="flex-y gap-big">
@@ -401,7 +430,8 @@ const UserConfig = () => {
       <JSONForm
         data={user?.profile || {}}
         onSubmit={handleUpdateUser}
-        onKeyChange={onKeyChangeDebounced}
+        submitText={t("save-profile")}
+        onKeyChange={onKeyChange}
         hiddenKeys={[
           "id",
           "user",
@@ -422,5 +452,232 @@ const UserConfig = () => {
         {t("why-user-info-matters-for-ai-personalization")}
       </p>
     </div>
+  );
+};
+
+const OrganizationForm = ({ close }: { close: () => void }) => {
+  const { t } = useTranslation();
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.target as HTMLFormElement);
+    const data = Object.fromEntries(formData.entries());
+    const response = await createOrganization(data as TOrganizationData);
+    console.log(response);
+    close();
+  };
+
+  return (
+    <div>
+      <form className="flex-y gap-medium" onSubmit={handleSubmit}>
+        <h3 className="text-center">{t("create-organization")}</h3>
+        <label htmlFor="name">
+          {t("choose-the-name-of-your-organization")}
+        </label>
+        <input
+          type="text"
+          name="name"
+          className="input"
+          placeholder={t("name-for-your-organization")}
+        />
+        <label htmlFor="description">{t("describe-your-organization")}</label>
+        <Textarea
+          name="description"
+          placeholder={t("describe-your-organization")}
+          // onChange={(e) => {}}
+          defaultValue={""}
+        />
+        <div className="d-flex gap-small">
+          <SvgButton
+            text={t("cancel")}
+            svg={SVGS.close}
+            extraClass="w-100 pressable danger-on-hover"
+            onClick={close}
+          />
+          <SvgButton
+            text={t("create")}
+            type="submit"
+            svg={SVGS.save}
+            extraClass="w-100 pressable active-on-hover"
+          />
+        </div>
+      </form>
+    </div>
+  );
+};
+
+const OrganizationCard = ({
+  reload,
+  organization,
+}: {
+  reload: () => void;
+  organization: TOrganization;
+}) => {
+  const { t } = useTranslation();
+
+  const handleDelete = async () => {
+    const response = await deleteOrganization(organization.id);
+    console.log(response);
+    toast.success(t("organization-deleted"));
+    reload();
+  };
+
+  return (
+    <div className="border-active padding-medium rounded fit-content">
+      <h3 className="text-center">{organization.name}</h3>
+      <p className="text-center">{organization.description}</p>
+      <div className="d-flex gap-small justify-center">
+        <SvgButton
+          svg={SVGS.trash}
+          extraClass="pressable danger-on-hover"
+          onClick={handleDelete}
+          confirmations={[t("sure-this-action-is-irreversible")]}
+        />
+        <OrganizationConfigModal organization={organization} />
+      </div>
+    </div>
+  );
+};
+
+const OrganizationConfigModal = ({
+  organization,
+}: {
+  organization: TOrganization;
+}) => {
+  const { t } = useTranslation();
+  const [isOpen, setIsOpen] = React.useState(false);
+  const [innerOrganization, setInnerOrganization] =
+    React.useState(organization);
+
+  const [credentials, setCredentials] = React.useState(
+    null as TOrganizationCredentials | null
+  );
+
+  useEffect(() => {
+    if (!isOpen) return;
+    getCredentials();
+  }, [organization, isOpen]);
+
+  const getCredentials = async () => {
+    const response = await getOrganizationCredentials(organization.id);
+    setCredentials(response);
+  };
+
+  const handleUpdateCredentials = async (key: string, value: string) => {
+    if (!credentials) return;
+
+    if (key === "elevenlabs_api_key") {
+      const isValid = await validateElevenLabsApiKey(value);
+      if (!isValid) {
+        toast.error(t("invalid-api-key"));
+        return;
+      } else {
+        toast.success(t("valid-api-key"));
+      }
+    }
+
+    if (key === "heygen_api_key") {
+      const isValid = await validateHeyGenApiKey(value);
+      if (!isValid) {
+        toast.error(t("invalid-api-key"));
+        return;
+      } else {
+        toast.success(t("valid-api-key"));
+      }
+    }
+    setCredentials({
+      ...credentials,
+      [key]: value,
+    });
+  };
+
+  const handleSave = async () => {
+    const response = await updateOrganization(
+      organization.id,
+      innerOrganization
+    );
+    if (!credentials) return;
+    const responseCredentials = await updateOrganizationCredentials(
+      organization.id,
+      credentials
+    );
+
+    toast.success(t("organization-updated"));
+    setIsOpen(false);
+  };
+
+  return (
+    <>
+      <SvgButton
+        svg={SVGS.edit}
+        extraClass="pressable active-on-hover"
+        onClick={() => setIsOpen(true)}
+      />
+      <Modal
+        visible={isOpen}
+        hide={() => setIsOpen(false)}
+        header={
+          <h3 className="text-center padding-medium">
+            {t("organization-config")}
+          </h3>
+        }
+      >
+        <div className="flex-y gap-medium">
+          <h5>{t("organization-name")}</h5>
+          <input
+            type="text"
+            name="name"
+            className="input"
+            defaultValue={innerOrganization.name}
+            onChange={(e) => {
+              setInnerOrganization({
+                ...innerOrganization,
+                name: e.target.value,
+              });
+            }}
+          />
+          <h5>{t("describe-your-organization")}</h5>
+          <Textarea
+            name="description"
+            defaultValue={innerOrganization.description}
+            onChange={(value) => {
+              setInnerOrganization({
+                ...innerOrganization,
+                description: value,
+              });
+            }}
+          />
+          <h5>{t("api-keys")}</h5>
+          <p className="text-secondary">{t("api-keys-description")}</p>
+          <JSONForm
+            data={credentials || {}}
+            onKeyChange={handleUpdateCredentials}
+            fieldMapping={{
+              elevenlabs_api_key: {
+                type: "string",
+                label: t("elevenlabs_api_key"),
+              },
+              heygen_api_key: { type: "string", label: t("heygen_api_key") },
+            }}
+            hiddenKeys={[
+              "id",
+              "organization",
+              "created_at",
+              "updated_at",
+              "openai_api_key",
+              "brave_api_key",
+              "anthropic_api_key",
+              "pexels_api_key",
+            ]}
+          />
+          <SvgButton
+            text={t("save")}
+            svg={SVGS.save}
+            extraClass="pressable active-on-hover w-100"
+            onClick={handleSave}
+          />
+        </div>
+      </Modal>
+    </>
   );
 };

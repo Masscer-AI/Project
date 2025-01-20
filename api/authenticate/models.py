@@ -228,12 +228,15 @@ class CredentialsManager(models.Model):
     brave_api_key = models.CharField(max_length=255, null=True, blank=True)
     anthropic_api_key = models.CharField(max_length=255, null=True, blank=True)
     pexels_api_key = models.CharField(max_length=255, null=True, blank=True)
+    elevenlabs_api_key = models.CharField(max_length=255, null=True, blank=True)
+    heygen_api_key = models.CharField(max_length=255, null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.name
+        return f"<CredentialsManager for {self.organization.name}>"
+
 
 
 class UserProfile(models.Model):

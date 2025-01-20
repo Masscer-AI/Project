@@ -31,7 +31,7 @@ export const AudioGenerator = ({
   const generateSpeech = () => {
     toast.success(t("generating-speech"));
     socket.emit("speech_request", {
-      text: text,
+      text: audioText,
       id: messageId,
       voice: {
         type: "openai",
@@ -55,10 +55,11 @@ export const AudioGenerator = ({
       >
         <div className="flex-y gap-medium align-center">
           <Textarea
-          extraClass="w-100"
+            name="text"
+            extraClass="w-100"
             defaultValue={audioText}
             onChange={(value) => setAudioText(value)}
-            placeholder={t("enter-text-to-generate-audio")}
+            label={t("enter-text-to-generate-audio")}
           />
           <select
             className="input padding-medium"

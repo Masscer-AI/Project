@@ -335,7 +335,9 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
           <span>{formState.presence_penalty}</span>
         </label>
         <Textarea
+          name="act_as"
           extraClass="my-medium"
+          label={t("explain-its-role-to-the-ai")}
           defaultValue={formState.act_as ? formState.act_as : ""}
           onChange={(value) => {
             setFormState((prevState) => ({
@@ -347,8 +349,9 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
         />
 
         <Textarea
+          name="system_prompt"
           extraClass="my-medium"
-          placeholder={t("structure-the-ai-system-prompt")}
+          label={t("structure-the-ai-system-prompt")}
           defaultValue={formState.system_prompt}
           onChange={handleSystemPromptChange}
         />

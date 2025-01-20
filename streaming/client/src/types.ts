@@ -72,7 +72,7 @@ export type TVersion = {
 };
 
 export type TOrganization = {
-  id: number;
+  id: string;
   name: string;
   description: string;
 };

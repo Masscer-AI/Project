@@ -96,8 +96,9 @@ export const ImageGenerator = ({
 
         <strong>{t("prompt")}</strong>
         <Textarea
+          name="prompt"
           onChange={(value: string) => setPrompt(value)}
-          placeholder={t("write-detailed-prompt")}
+          label={t("write-detailed-prompt")}
           defaultValue={prompt}
         />
 

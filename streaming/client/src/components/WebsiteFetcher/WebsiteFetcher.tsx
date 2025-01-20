@@ -76,7 +76,7 @@ export const WebsiteFetcher = () => {
           extraClass="mt-big"
           defaultValue={content}
           onChange={(newValue) => setContent(newValue)}
-          placeholder={t("choose-relevant-content")}
+          label={t("choose-relevant-content")}
         />
       </Modal>
       <button onClick={() => setIsOpen(!isOpen)}>Open</button>
