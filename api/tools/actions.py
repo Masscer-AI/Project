@@ -115,7 +115,11 @@ def transcribe(job_id):
             if not os.path.exists(audio_path):
                 printer.red("The audio file does not exist!")
                 raise Exception("The audio file does not exist!")
+            else:
+                print("AUDIO PATH EXISTS")
 
+            audio_path = os.path.normpath(job.audio_file.path)
+            print("NORMALIZED AUDIO PATH", audio_path)
             result = model.transcribe(audio_path)
             vtt_transcript = "WEBVTT\n\n"
             for segment in result["segments"]:
