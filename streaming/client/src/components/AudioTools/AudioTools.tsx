@@ -22,6 +22,8 @@ interface TranscribeOptionsProps {
     selectedModel: string
   ) => void;
 }
+
+const whisperSizes = ["tiny", "base", "small", "medium", "large-v3"];
 const TranscribeOptions: React.FC<TranscribeOptionsProps> = ({
   handleSubmit,
 }) => {
@@ -31,7 +33,7 @@ const TranscribeOptions: React.FC<TranscribeOptionsProps> = ({
   const [recordingStarted, setRecordingStarted] = useState<boolean>(false);
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [selectedModel, setSelectedModel] = useState<string>("large");
+  const [selectedModel, setSelectedModel] = useState<string>("small");
   const [selectedOption, setSelectedOption] = useState<string>("youtube");
   const { t } = useTranslation();
 
@@ -93,21 +95,8 @@ const TranscribeOptions: React.FC<TranscribeOptionsProps> = ({
   };
 
   return (
-    <div className="flex-y gap-medium padding-medium  rounded justify-center">
-      <div className="flex-x gap-small align-center">
-        <h4>{t("whisper-size")}</h4>
-        <select
-          className="input"
-          value={selectedModel}
-          onChange={(e) => setSelectedModel(e.target.value)}
-        >
-          <option value="large">{t("large")}</option>
-          <option value="medium">{t("medium")}</option>
-          <option value="tiny">{t("tiny")}</option>
-        </select>
-      </div>
-
-      <div className=" flex-x gap-medium padding-medium">
+    <div className="flex-y gap-medium padding-big  rounded justify-center border-gray">
+      <div className="flex-x gap-medium ">
         <h4>{t("from")}</h4>
         <button
           className={`button selected ${selectedOption === "youtube" ? "bg-active" : ""}`}
@@ -167,21 +156,49 @@ const TranscribeOptions: React.FC<TranscribeOptionsProps> = ({
       )}
       {audioUrl && <audio controls src={audioUrl}></audio>}
 
+      {(selectedOption === "microphone" || selectedOption === "audio") && (
+        <div className="flex-x gap-small align-center">
+          <h4>{t("whisper-size")}</h4>
+          <select
+            className="input"
+            value={selectedModel}
+            onChange={(e) => setSelectedModel(e.target.value)}
+          >
+            {whisperSizes.map((size) => (
+              <option value={size}>{size}</option>
+            ))}
+          </select>
+        </div>
+      )}
       {selectedOption && (
         <SvgButton
           text={t("transcribe")}
           size="big"
           extraClass="bg-hovered active-on-hover pressable w-100"
           svg={SVGS.waves}
-          onClick={() =>
+          onClick={() => {
+            if (selectedOption === "youtube" && !youtubeUrl) {
+              toast.error(t("youtube-url-required"));
+              return;
+            }
+            if (selectedOption === "microphone" && !recordedBlob) {
+              toast.error(t("you-need-to-record-something-first"));
+              return;
+            }
+
+            if (selectedOption === "audio" && !audioFile) {
+              toast.error(t("you-need-to-upload-an-audio-file-first"));
+              return;
+            }
+
             handleSubmit(
               selectedOption,
               youtubeUrl,
               audioFile,
               recordedBlob,
               selectedModel
-            )
-          }
+            );
+          }}
         />
       )}
     </div>
@@ -222,6 +239,7 @@ interface TranscriptionJob {
   name: string;
   created_at: string;
   transcriptions: Transcription[];
+  status_text: string;
 }
 
 const TranscriptionJobCard: React.FC<{
@@ -240,9 +258,22 @@ const TranscriptionJobCard: React.FC<{
   };
 
   return (
-    <div className={`card ${job.status === "PENDING" ? "bg-loading" : ""}`}>
-      <h4 className="text-center">Transcription job {job.id}</h4>
+    <div
+      className={`card ${job.status === "PENDING" ? "bg-loading" : job.status === "ERROR" ? "bg-danger" : ""}`}
+    >
+      <h4 className="flex-x justify-between  gap-small align-center">
+        {job.source_type === "AUDIO" ? (
+          <p>{SVGS.microphone}</p>
+        ) : (
+          <p>{SVGS.youtube}</p>
+        )}
+        <p>{t("transcription")}</p>
+        <p>{job.id}</p>
+      </h4>
 
+      {job.status === "ERROR" && (
+        <div className="text-center">{job.status_text}</div>
+      )}
       <div>
         {job.transcriptions.map((transcription) => (
           <div className=" justify-center" key={transcription.id}>

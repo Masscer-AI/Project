@@ -1004,7 +1004,7 @@ input:checked + .slider::before {
 }
 
 .border-gray {
-  border: 1px solid var(--font-color-secondary) !important;
+  border: 1px solid var(--code-bg-color) !important;
 }
 .button-group {
   display: flex;

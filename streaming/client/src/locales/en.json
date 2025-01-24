@@ -315,5 +315,9 @@
     "pause": "Pause",
     "resume": "Resume",
     "processing": "Processing...",
-    "transcription-job-initialized": "Transcription job initialized! It will appear down soon 👇🏻"
+    "transcription-job-initialized": "Transcription job initialized! It will appear down soon 👇🏻",
+    "you-need-to-record-something-first": "You need to record something first",
+    "you-need-to-upload-an-audio-file-first": "You need to upload an audio file first",
+    "youtube-url-required": "You need to enter a YouTube URL first",
+    "transcription": "Transcription"
 }

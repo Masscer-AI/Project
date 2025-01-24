@@ -315,5 +315,9 @@
     "pause": "Pausar",
     "resume": "Resumir",
     "processing": "Procesando...",
-    "transcription-job-initialized": "¡Trabajo de transcripción iniciado! Aparecerá pronto 👇🏻"
+    "transcription-job-initialized": "¡Trabajo de transcripción iniciado! Aparecerá pronto 👇🏻",
+    "you-need-to-record-something-first": "Necesitas grabar algo primero",
+    "you-need-to-upload-an-audio-file-first": "Necesitas subir un archivo de audio primero",
+    "youtube-url-required": "Necesitas ingresar una URL de YouTube primero",
+    "transcription": "Transcripción"
 }
