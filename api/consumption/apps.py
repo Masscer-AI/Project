@@ -8,6 +8,9 @@ class ConsumptionConfig(AppConfig):
     name = "api.consumption"
 
     def ready(self):
+        self.startup_function()
+
+    def startup_function(self):
         from .models import Currency
         
 
