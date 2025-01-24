@@ -112,6 +112,10 @@ def transcribe(job_id):
             model = whisper.load_model(job.whisper_size.lower())
             audio_path = job.audio_file.path
             print("AUDIO PATH", audio_path)
+            if not os.path.exists(audio_path):
+                printer.red("The audio file does not exist!")
+                raise Exception("The audio file does not exist!")
+
             result = model.transcribe(audio_path)
             vtt_transcript = "WEBVTT\n\n"
             for segment in result["segments"]:
@@ -134,9 +138,8 @@ def transcribe(job_id):
             print("AUDIO PATH", audio_path)
             video_clip = VideoFileClip(video_path)
             video_clip.audio.write_audiofile(audio_path)
-            video_clip.close()  # Close the video clip to release the file
+            video_clip.close()
 
-            # Transcribe the extracted audio
             result = model.transcribe(audio_path)
             vtt_transcript = "WEBVTT\n\n"
             for segment in result["segments"]:
