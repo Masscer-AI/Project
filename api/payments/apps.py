@@ -10,12 +10,13 @@ class PaymentsConfig(AppConfig):
     name = "api.payments"
 
     def ready(self):
+        self.startup_function()
 
+    def startup_function(self):
         from .models import WinningRates
 
         try:
             if WinningRates.objects.filter(name=DEFAULT_WINNING_RATE_NAME).exists():
-                # printer.info("Default winning rates already exist")
                 return
 
             WinningRates.objects.create(name=DEFAULT_WINNING_RATE_NAME)
