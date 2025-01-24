@@ -58,11 +58,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   }, [initialInput]);
 
   useEffect(() => {
-    console.log(textPrompt);
     const command = getCommand(textPrompt);
     if (command) {
-      // asyncSendMessage();
-      toast.success(`Command ${command} detected`);
+      console.log(command);
     }
   }, [textPrompt]);
 

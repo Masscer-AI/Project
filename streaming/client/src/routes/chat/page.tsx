@@ -4,29 +4,23 @@ import "./page.css";
 import { Message } from "../../components/Message/Message";
 import { ChatInput } from "../../components/ChatInput/ChatInput";
 
-import { useLoaderData } from "react-router-dom";
+import { useLoaderData, useSearchParams } from "react-router-dom";
 import { Sidebar } from "../../components/Sidebar/Sidebar";
 import { useStore } from "../../modules/store";
 import { TChatLoader, TMessage } from "../../types/chatTypes";
 import { ChatHeader } from "../../components/ChatHeader/ChatHeader";
 import toast from "react-hot-toast";
 
-import { updateConversation } from "../../modules/apiCalls";
 import { useTranslation } from "react-i18next";
 import { TVersion } from "../../types";
-import { updateLastMessagesIds, addAssistantMessageChunk } from "./helpers";
-import { SvgButton } from "../../components/SvgButton/SvgButton";
-import { SVGS } from "../../assets/svgs";
+import { updateLastMessagesIds } from "./helpers";
 import { ConversationModal } from "../../components/ConversationModal/ConversationModal";
-import { debounce } from "../../modules/utils";
 
 export default function ChatView() {
   const loaderData = useLoaderData() as TChatLoader;
 
   const {
     chatState,
-    // input,
-    // setInput,
     conversation,
     cleanAttachments,
     socket,
@@ -37,7 +31,6 @@ export default function ChatView() {
   } = useStore((state) => ({
     socket: state.socket,
     chatState: state.chatState,
-    toggleSidebar: state.toggleSidebar,
     conversation: state.conversation,
     cleanAttachments: state.cleanAttachments,
     modelsAndAgents: state.modelsAndAgents,
@@ -49,6 +42,7 @@ export default function ChatView() {
 
   const { t } = useTranslation();
   const chatMessageContainerRef = React.useRef<HTMLDivElement>(null);
+  // const [searchParams, setSearchParams] = useSearchParams();
 
   const timeoutRef = React.useRef<number | null>(null);
 
@@ -68,19 +62,10 @@ export default function ChatView() {
         updateLastMessagesIds(data, prevMessages, data.next_agent_slug)
       );
     });
-    // socket.on("sources", (data) => {
-    //   console.log("Sources:", data);
-    // });
-    socket.on("notification", (data) => {
-      console.log("Receiving notification:", data);
-    });
 
     return () => {
       socket.off("responseFinished");
-      socket.off("notification");
-      // socket.off("sources");
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const scrollChat = () => {
@@ -181,7 +166,6 @@ export default function ChatView() {
     };
     setMessages([...messages, userMessage, assistantMessage]);
 
-    // Remove the key "attachments" from the messages
     const memoryMessages = [...messages]
       .reverse()
       .slice(0, userPreferences.max_memory_messages)
@@ -364,8 +348,6 @@ export default function ChatView() {
           initialInput={
             loaderData.query && !loaderData.sendQuery ? loaderData.query : ""
           }
-          // handleKeyDown={handleKeyDown}
-          // conversation={conversation || loaderData.conversation}
         />
       </div>
     </main>

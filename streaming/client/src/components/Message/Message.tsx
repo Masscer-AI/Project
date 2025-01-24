@@ -15,7 +15,6 @@ import { Reactions } from "../Reactions/Reactions";
 import {
   AudioPlayerOptions,
   AudioPlayerWithAppendOptions,
-  calculatePricing,
   createAudioPlayer,
   // createAudioPlayerWithAppend,
 } from "../../modules/utils";
@@ -152,21 +151,8 @@ export const Message = memo(
         setIsPlayingAudio(true);
       });
 
-      // socket.on(`audio-chunk-${id}`, (data) => {
-      //   toast.success("Audio chunk received");
-      //   if (!audioPlayer) {
-      //     const player = createAudioPlayerWithAppend(onFinishAudioGeneration);
-      //     player.append(new Uint8Array(data.audio_bytes).buffer);
-      //     if (data.position === 0) {
-      //       setIsGeneratingSpeech(false);
-      //       player.play();
-      //     }
-      //     setAudioPlayer(player);
-      //   }
-      // });
       return () => {
         socket.off(`audio-file-${id}`);
-        // socket.off(`audio-chunk-${id}`);
       };
     }, [id, socket, audioPlayer]);
 

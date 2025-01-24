@@ -26,9 +26,12 @@ export const chatLoader: LoaderFunction = async ({
       c = await getConversation(conversationId);
     } else {
       c = await initConversation({ isPublic: false });
+      // Add the search param to the url
+      const newUrl = new URL(request.url);
+      newUrl.searchParams.set("conversation", c.id);
+      return redirect(newUrl.toString());
     }
     const user = (await getUser()) as TUserData;
-    // console.log(query, "query");
 
     return { conversation: c, user: user, query: query, sendQuery };
   } catch (error) {

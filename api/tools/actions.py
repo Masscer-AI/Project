@@ -96,7 +96,9 @@ def delete_file_after_delay(file_path, delay=5):
 def transcribe(job_id):
     try:
         job = TranscriptionJob.objects.get(id=job_id)
-        print(job.source_type, "SOURCE TYPE of the job transcription")
+        print(
+            f"Initializing transcription job. Source type: {job.source_type}. Whisper size: {job.whisper_size}"
+        )
 
         if job.source_type == "YOUTUBE_URL":
             transcriptions = get_available_transcriptions(job.source_url)
@@ -111,15 +113,12 @@ def transcribe(job_id):
         elif job.source_type == "AUDIO":
             model = whisper.load_model(job.whisper_size.lower())
             audio_path = job.audio_file.path
-            print("AUDIO PATH", audio_path)
+
             if not os.path.exists(audio_path):
                 printer.red("The audio file does not exist!")
-                raise Exception("The audio file does not exist!")
-            else:
-                print("AUDIO PATH EXISTS")
+                raise Exception("The audio file for transcription does not exist!")
 
             audio_path = os.path.normpath(job.audio_file.path)
-            print("NORMALIZED AUDIO PATH", audio_path)
             result = model.transcribe(audio_path)
             vtt_transcript = "WEBVTT\n\n"
             for segment in result["segments"]:
@@ -133,13 +132,11 @@ def transcribe(job_id):
                 language=result["language"],
             )
             job.status = "DONE"
-            print("AUDIO TRANSCRIPTION DONE")
             threading.Thread(target=delete_file_after_delay, args=(audio_path,)).start()
         elif job.source_type == "VIDEO":
             model = whisper.load_model(job.whisper_size.lower())
             video_path = job.video_file.path
             audio_path = os.path.splitext(video_path)[0] + ".wav"
-            print("AUDIO PATH", audio_path)
             video_clip = VideoFileClip(video_path)
             video_clip.audio.write_audiofile(audio_path)
             video_clip.close()

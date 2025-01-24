@@ -75,7 +75,11 @@ export const addAssistantMessageChunk = (
   return newMessages;
 };
 
-export const updateLastMessagesIds = (data, prevMessages, nextAgentSlug) => {
+export const updateLastMessagesIds = (
+  data: any,
+  prevMessages: TMessage[],
+  nextAgentSlug: string
+) => {
   const newMessages = [...prevMessages];
   newMessages.reverse();
 

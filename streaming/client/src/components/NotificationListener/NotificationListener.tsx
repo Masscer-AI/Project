@@ -10,10 +10,9 @@ export const NotificationListener = () => {
   }));
 
   useEffect(() => {
-    console.log("NotificationListener");
     socket.on("video_generated", (data) => {
-      // console.log(data, "VIDEO GENERATED");
       toast.success(t("video-generated-please-reload"));
+      // window.location.reload();
     });
     socket.on("out_of_balance", (data) => {
       // toast.error(t("out-of-compute-units"));
