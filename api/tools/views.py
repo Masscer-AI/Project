@@ -45,6 +45,18 @@ class Transcriptions(View):
         serializer = TranscriptionJobSerializer(transcription_jobs, many=True)
         return JsonResponse(serializer.data, safe=False)
 
+    def delete(self, request, job_id):
+        transcription_job = TranscriptionJob.objects.get(id=job_id)
+
+        if transcription_job.user != request.user:
+            return JsonResponse(
+                {"error": "You are not allowed to delete this transcription job"},
+                status=403,
+            )
+
+        transcription_job.delete()
+        return JsonResponse({"message": "Transcription job deleted"})
+
     def post(self, request):
         source = request.POST.get("source")
         whisper_size = request.POST.get("whisper_size")

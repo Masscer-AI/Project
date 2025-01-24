@@ -301,5 +301,19 @@
     "organization-updated": "Organization updated",
     "organization-credentials-updated": "Organization credentials updated",
     "save-profile": "Save profile",
-    "generating-speech": "Generating speech..."
+    "generating-speech": "Generating speech...",
+    "transcribe": "Transcribe",
+    "audio-tools": "Audio tools",
+    "whisper-size": "Whisper size",
+    "from": "From",
+    "youtube": "Youtube",
+    "microphone": "Microphone",
+    "audio-file": "Audio file",
+    "enter-youtube-url": "Enter YouTube URL",
+    "start-recording": "Start recording",
+    "stop-recording": "Stop recording",
+    "pause": "Pause",
+    "resume": "Resume",
+    "processing": "Processing...",
+    "transcription-job-initialized": "Transcription job initialized! It will appear down soon 👇🏻"
 }

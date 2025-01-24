@@ -1064,3 +1064,19 @@ input:checked + .slider::before {
     height: 80px;
   }
 }
+
+.bg-loading {
+  animation: loading-animation 1s linear infinite;
+}
+
+@keyframes loading-animation {
+  0% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.5;
+  }
+}

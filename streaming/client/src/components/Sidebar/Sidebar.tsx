@@ -40,7 +40,6 @@ export const Sidebar: React.FC = () => {
   const [history, setHistory] = useState<TConversation[]>([]);
   const [filteredHistory, setFilteredHistory] = useState<TConversation[]>([]);
   const [searchParams, setSearchParams] = useSearchParams();
-  const [openedSections, setOpenedSections] = useState<string[]>([]);
   const [historyConfig, setHistoryConfig] = useState<{
     isOpen: boolean;
     showFilters: boolean;
@@ -363,11 +362,13 @@ export const Sidebar: React.FC = () => {
             <>
               <SvgButton
                 svg={SVGS.tools}
-                text={t("tools")}
+                text={t("audio-tools")}
                 size="big"
                 extraClass="bg-hovered
           active-on-hover pressable w-100"
-                onClick={() => goTo("/tools")}
+                onClick={() =>
+                  setOpenedModals({ action: "add", name: "audio" })
+                }
               />
               <SvgButton
                 onClick={() => goTo("/whatsapp")}

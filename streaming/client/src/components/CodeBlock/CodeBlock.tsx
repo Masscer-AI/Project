@@ -6,6 +6,7 @@ import { SvgButton } from "../SvgButton/SvgButton";
 import { useTranslation } from "react-i18next";
 import { Modal } from "../Modal/Modal";
 import "./CodeBlock.css";
+import toast from "react-hot-toast";
 
 export const CodeBlock = ({
   code,
@@ -17,6 +18,7 @@ export const CodeBlock = ({
   if (language === "mermaid") {
     return <MermaidVisualizer code={code} />;
   }
+  toast.success("Mermaid visualizer is not available yet");
   return <pre className={`language-${language}`}>{code}</pre>;
 };
 

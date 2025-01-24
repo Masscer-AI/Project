@@ -13,8 +13,6 @@ import { useTranslation } from "react-i18next";
 import { SvgButton } from "../SvgButton/SvgButton";
 import { Pill } from "../Pill/Pill";
 
-import { Calculator } from "../MessagePlugins/Calculator/Calculator";
-import { CodeBlock } from "../CodeBlock/CodeBlock";
 import { SYSTEM_PLUGINS } from "../../modules/plugins";
 
 const MarkdownRenderer = ({
@@ -67,6 +65,7 @@ const MarkdownRenderer = ({
             };
           });
           if (!codeBlocks || codeBlocks.length === 0) {
+            // toast.success("No code blocks found");
             return <pre>{props.children}</pre>;
           }
           return (
@@ -140,6 +139,10 @@ export const CustomCodeBlock = ({
     }
     if (language === "latex") {
       setInputFormat("latex");
+    }
+
+    if (language === "mermaid") {
+      setPluginName("mermaid");
     }
 
     if (language === "json") {

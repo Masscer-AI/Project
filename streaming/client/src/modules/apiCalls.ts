@@ -677,3 +677,10 @@ export const updateOrganization = async (
     data
   );
 };
+
+export const deleteTranscriptionJob = async (jobId: number) => {
+  return makeAuthenticatedRequest(
+    "DELETE",
+    `/v1/tools/transcriptions/${jobId}/`
+  );
+};

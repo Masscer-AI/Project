@@ -16,6 +16,11 @@ app_name = "tools"
 
 urlpatterns = [
     path("transcriptions/", Transcriptions.as_view(), name="transcriptions"),
+    path(
+        "transcriptions/<int:job_id>/",
+        Transcriptions.as_view(),
+        name="transcription_detail",
+    ),
     path("videos/", ImageToVideo.as_view(), name="video_generation"),
     path("media/", MediaView.as_view(), name="get_media"),
     path("generate_image/", ImageGenerationView.as_view(), name="generate_image"),

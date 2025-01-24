@@ -6,6 +6,7 @@ type SvgButtonProps = {
   text?: string;
   onClick?: () => void;
   extraClass?: string;
+  disabled?: boolean;
   size?: "small" | "big";
   confirmations?: string[];
   title?: string;
@@ -24,6 +25,7 @@ export const SvgButton = ({
   onClick = () => {},
   extraClass = "",
   size = "small",
+  disabled = false,
   confirmations = [],
   title = "",
   tabIndex = 0,
@@ -57,6 +59,7 @@ export const SvgButton = ({
       tabIndex={tabIndex}
       className={`svg-button ${rounded ? "rounded" : ""} clickeable ${extraClass} ${size} ${transparent ? "transparent" : ""}`}
       onClick={handleClick}
+      disabled={disabled}
       onMouseEnter={() => {
         if (svgOnHover) {
           setCurrentSvg(svgOnHover);

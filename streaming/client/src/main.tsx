@@ -10,7 +10,7 @@ import Signup from "./routes/signup/page.tsx";
 import ChatView from "./routes/chat/page.tsx";
 import Layout from "./routes/Layout.tsx";
 import Login from "./routes/login/page.tsx";
-import Tools from "./routes/tools/page.tsx";
+
 import Whatsapp from "./routes/whatsapp/page.tsx";
 
 import { whatsappLoader } from "./routes/whatsapp/loader.ts";
@@ -48,10 +48,6 @@ const router = createBrowserRouter([
           </>
         ),
         loader: chatLoader,
-      },
-      {
-        path: "/tools",
-        element: <Tools />,
       },
       {
         path: "/whatsapp",

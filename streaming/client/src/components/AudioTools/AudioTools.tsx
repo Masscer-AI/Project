@@ -1,45 +1,19 @@
 import React, { useState, useRef, useEffect } from "react";
-// import axios from "axios";
-// import { API_URL } from "../../modules/constants";
 import "./AudioTools.css";
 import toast from "react-hot-toast";
-import { makeAuthenticatedRequest } from "../../modules/apiCalls";
-import { QRGenerator } from "../QRGenerator/QRGenerator";
+import {
+  deleteTranscriptionJob,
+  makeAuthenticatedRequest,
+} from "../../modules/apiCalls";
 
-interface AudioOptionsProps {
-  selectedOption: string;
-  handleOptionClick: (option: string) => void;
-}
-
-const AudioOptions: React.FC<AudioOptionsProps> = ({
-  selectedOption,
-  handleOptionClick,
-}) => (
-  <section>
-    <button
-      className={`button ${selectedOption === "transcribe" ? "selected" : ""}`}
-      onClick={() => handleOptionClick("transcribe")}
-    >
-      Transcribe
-    </button>
-    <button
-      className={`button ${selectedOption === "podcast" ? "selected" : ""}`}
-      onClick={() => handleOptionClick("podcast")}
-    >
-      Generate Podcast
-    </button>
-    <button
-      className={`button ${selectedOption === "music" ? "selected" : ""}`}
-      onClick={() => handleOptionClick("music")}
-    >
-      Generate Music
-    </button>
-  </section>
-);
+import { Modal } from "../Modal/Modal";
+import { useTranslation } from "react-i18next";
+import { useStore } from "../../modules/store";
+import { SvgButton } from "../SvgButton/SvgButton";
+import { SVGS } from "../../assets/svgs";
+import { t } from "i18next";
 
 interface TranscribeOptionsProps {
-  selectedOption: string;
-  handleOptionClick: (option: string) => void;
   handleSubmit: (
     selectedOption: string,
     youtubeUrl: string,
@@ -49,22 +23,24 @@ interface TranscribeOptionsProps {
   ) => void;
 }
 const TranscribeOptions: React.FC<TranscribeOptionsProps> = ({
-  selectedOption,
-  handleOptionClick,
   handleSubmit,
 }) => {
   const [youtubeUrl, setYoutubeUrl] = useState<string>("");
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [recording, setRecording] = useState<boolean>(false);
+  const [recordingStarted, setRecordingStarted] = useState<boolean>(false);
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [selectedModel, setSelectedModel] = useState<string>("large");
+  const [selectedOption, setSelectedOption] = useState<string>("youtube");
+  const { t } = useTranslation();
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
 
   const startRecording = async () => {
     setRecording(true);
+    setRecordingStarted(true);
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     const mediaRecorder = new MediaRecorder(stream);
     mediaRecorderRef.current = mediaRecorder;
@@ -76,6 +52,7 @@ const TranscribeOptions: React.FC<TranscribeOptionsProps> = ({
       setRecordedBlob(blob);
       setAudioUrl(URL.createObjectURL(blob));
       setRecording(false);
+      setRecordingStarted(false);
     };
 
     mediaRecorder.start();
@@ -93,6 +70,7 @@ const TranscribeOptions: React.FC<TranscribeOptionsProps> = ({
       mediaRecorderRef.current.state === "recording"
     ) {
       mediaRecorderRef.current.pause();
+      setRecording(false);
     }
   };
 
@@ -102,6 +80,7 @@ const TranscribeOptions: React.FC<TranscribeOptionsProps> = ({
       mediaRecorderRef.current.state === "paused"
     ) {
       mediaRecorderRef.current.resume();
+      setRecording(true);
     }
   };
 
@@ -114,74 +93,73 @@ const TranscribeOptions: React.FC<TranscribeOptionsProps> = ({
   };
 
   return (
-    <div>
-      <span>Select whisper size</span>
-      <select
-        value={selectedModel}
-        onChange={(e) => setSelectedModel(e.target.value)}
-      >
-        <option value="large">Large</option>
-        <option value="medium">Medium</option>
-        <option value="tiny">Tiny</option>
-      </select>
-      <h5>From:</h5>
-      <div>
-        <button
-          className={`button ${selectedOption === "youtube" ? "selected" : ""}`}
-          onClick={() => handleOptionClick("youtube")}
+    <div className="flex-y gap-medium padding-medium  rounded justify-center">
+      <div className="flex-x gap-small align-center">
+        <h4>{t("whisper-size")}</h4>
+        <select
+          className="input"
+          value={selectedModel}
+          onChange={(e) => setSelectedModel(e.target.value)}
         >
-          YouTube URL
+          <option value="large">{t("large")}</option>
+          <option value="medium">{t("medium")}</option>
+          <option value="tiny">{t("tiny")}</option>
+        </select>
+      </div>
+
+      <div className=" flex-x gap-medium padding-medium">
+        <h4>{t("from")}</h4>
+        <button
+          className={`button selected ${selectedOption === "youtube" ? "bg-active" : ""}`}
+          onClick={() => setSelectedOption("youtube")}
+        >
+          {t("youtube")}
         </button>
         <button
-          className={`button ${selectedOption === "microphone" ? "selected" : ""}`}
-          onClick={() => handleOptionClick("microphone")}
+          className={`button selected ${selectedOption === "microphone" ? "bg-active" : ""}`}
+          onClick={() => setSelectedOption("microphone")}
         >
-          Microphone
+          {t("microphone")}
         </button>
         <button
-          className={`button ${selectedOption === "audio" ? "selected" : ""}`}
-          onClick={() => handleOptionClick("audio")}
+          className={`button selected ${selectedOption === "audio" ? "bg-active" : ""}`}
+          onClick={() => setSelectedOption("audio")}
         >
-          Audio/Video File
+          {t("audio-file")}
         </button>
       </div>
       {selectedOption === "youtube" && (
         <input
           type="text"
-          placeholder="Enter YouTube URL"
+          className="input"
+          placeholder={t("enter-youtube-url")}
           value={youtubeUrl}
           onChange={(e) => setYoutubeUrl(e.target.value)}
         />
       )}
       {selectedOption === "microphone" && (
-        <>
-          <button onClick={startRecording} disabled={recording}>
-            {recording ? "Recording..." : "Start Recording"}
-          </button>
-          <button
-            onClick={pauseRecording}
-            disabled={
-              !recording || mediaRecorderRef.current?.state === "paused"
-            }
-          >
-            Pause
-          </button>
-          <button
-            onClick={resumeRecording}
-            disabled={
-              !recording || mediaRecorderRef.current?.state !== "paused"
-            }
-          >
-            Resume
-          </button>
-          <button onClick={stopRecording} disabled={!recording}>
-            Stop
-          </button>
-          {recordedBlob && <p>Recording complete</p>}
-        </>
+        <div className="flex-x gap-small">
+          <SvgButton
+            text={recordingStarted ? t("stop-recording") : t("start-recording")}
+            size="small"
+            extraClass="bg-hovered active-on-hover pressable w-100"
+            svg={recordingStarted ? SVGS.stop : SVGS.play}
+            onClick={recordingStarted ? stopRecording : startRecording}
+          />
+          {recordingStarted && (
+            <SvgButton
+              text={recording ? t("pause") : t("resume")}
+              size="small"
+              extraClass="bg-hovered active-on-hover pressable w-100"
+              svg={recording ? SVGS.pause : SVGS.play}
+              onClick={recording ? pauseRecording : resumeRecording}
+            />
+          )}
+        </div>
       )}
       {selectedOption === "audio" && (
         <input
+          className="input"
           type="file"
           accept="audio/*,video/*"
           onChange={handleFileChange}
@@ -190,7 +168,11 @@ const TranscribeOptions: React.FC<TranscribeOptionsProps> = ({
       {audioUrl && <audio controls src={audioUrl}></audio>}
 
       {selectedOption && (
-        <button
+        <SvgButton
+          text={t("transcribe")}
+          size="big"
+          extraClass="bg-hovered active-on-hover pressable w-100"
+          svg={SVGS.waves}
           onClick={() =>
             handleSubmit(
               selectedOption,
@@ -200,21 +182,135 @@ const TranscribeOptions: React.FC<TranscribeOptionsProps> = ({
               selectedModel
             )
           }
-        >
-          Transcribe
-        </button>
+        />
       )}
     </div>
   );
 };
 
 export const AudioTools: React.FC = () => {
-  const [audioOption, setAudioOption] = useState<string>("");
-  const [transcribeOption, setTranscribeOption] = useState<string>("");
+  const { t } = useTranslation();
 
-  const handleAudioOption = (option: string) => {
-    setAudioOption(option);
-    setTranscribeOption("");
+  const { setOpenedModals } = useStore((state) => ({
+    setOpenedModals: state.setOpenedModals,
+  }));
+
+  return (
+    <Modal
+      header={<h4 className="padding-medium">{t("transcribe")}</h4>}
+      hide={() => {
+        setOpenedModals({ action: "remove", name: "audio" });
+      }}
+    >
+      <Transcriptor />
+    </Modal>
+  );
+};
+
+interface Transcription {
+  id: number;
+  format: string;
+  result: string;
+  language: string;
+  created_at: string;
+}
+
+interface TranscriptionJob {
+  id: number;
+  status: string;
+  source_type: string;
+  name: string;
+  created_at: string;
+  transcriptions: Transcription[];
+}
+
+const TranscriptionJobCard: React.FC<{
+  job: TranscriptionJob;
+  handleDelete: (id: number) => void;
+}> = ({ job, handleDelete }) => {
+  const { t } = useTranslation();
+
+  const downloadResult = (result: string, id: number) => {
+    const element = document.createElement("a");
+    const file = new Blob([result], { type: "text/plain" });
+    element.href = URL.createObjectURL(file);
+    element.download = `transcription_${id}.txt`;
+    document.body.appendChild(element);
+    element.click();
+  };
+
+  return (
+    <div className={`card ${job.status === "PENDING" ? "bg-loading" : ""}`}>
+      <h4 className="text-center">Transcription job {job.id}</h4>
+
+      <div>
+        {job.transcriptions.map((transcription) => (
+          <div className=" justify-center" key={transcription.id}>
+            <SvgButton
+              text={`${transcription.language} - ${transcription.format}`}
+              size="small"
+              extraClass="bg-hovered active-on-hover pressable w-100"
+              svg={SVGS.download}
+              onClick={() =>
+                downloadResult(transcription.result, transcription.id)
+              }
+            />
+          </div>
+        ))}
+      </div>
+      {job.status !== "PENDING" ? (
+        <div>
+          <SvgButton
+            text="Delete"
+            size="small"
+            extraClass="bg-hovered danger-on-hover pressable w-100"
+            svg={SVGS.trash}
+            confirmations={[t("sure")]}
+            onClick={() => handleDelete(job.id)}
+          />
+        </div>
+      ) : (
+        <div className="text-center">{t("processing")}</div>
+      )}
+    </div>
+  );
+};
+
+const Transcriptor: React.FC = () => {
+  const [jobs, setJobs] = useState<TranscriptionJob[]>([]);
+
+  useEffect(() => {
+    getTranscriptionJobs();
+  }, []);
+
+  useEffect(() => {
+    // Ver si hay algun trabajo pendiente
+    const pendingJob = jobs.find((job) => job.status === "PENDING");
+    if (pendingJob) {
+      setTimeout(() => {
+        getTranscriptionJobs();
+      }, 5000);
+    }
+  }, [jobs]);
+
+  const getTranscriptionJobs = async () => {
+    const data = await makeAuthenticatedRequest<TranscriptionJob[]>(
+      "GET",
+      "/v1/tools/transcriptions/"
+    );
+    setJobs(data);
+  };
+
+  const handleDelete = async (id: number) => {
+    try {
+      await deleteTranscriptionJob(id);
+
+      toast.success("Transcription job deleted");
+      await getTranscriptionJobs();
+    } catch (error) {
+      console.error("Error:", error);
+      toast.error("Something failed in the server 👀");
+    }
   };
 
   const handleSubmit = async (
@@ -247,12 +343,10 @@ export const AudioTools: React.FC = () => {
       );
 
       console.log(responseData);
-      toast.success(
-        "Transcription job initialized! It will appear down soon 👇🏻"
-      );
-      // Wait for 2 seconds before reloading the page
+      toast.success(t("transcription-job-initialized"));
+
       setTimeout(() => {
-        window.location.reload();
+        getTranscriptionJobs();
       }, 2000);
     } catch (error) {
       console.error("Error:", error);
@@ -261,120 +355,18 @@ export const AudioTools: React.FC = () => {
   };
 
   return (
-    <div className="audio-tools">
-      <h4>What do you want to do with audio?</h4>
-      <AudioOptions
-        selectedOption={audioOption}
-        handleOptionClick={handleAudioOption}
-      />
-      {audioOption === "transcribe" && (
-        <>
-          <TranscribeOptions
-            selectedOption={transcribeOption}
-            handleOptionClick={setTranscribeOption}
-            handleSubmit={handleSubmit}
+    <div className="">
+      <TranscribeOptions handleSubmit={handleSubmit} />
+
+      <div className="wrap-wrap padding-medium flex-x gap-medium">
+        {jobs.map((job) => (
+          <TranscriptionJobCard
+            key={job.id}
+            job={job}
+            handleDelete={handleDelete}
           />
-          <TranscribeJobs />
-        </>
-      )}
-
-    </div>
-  );
-};
-
-interface Transcription {
-  id: number;
-  format: string;
-  result: string;
-  language: string;
-  created_at: string;
-}
-
-interface TranscriptionJob {
-  id: number;
-  status: string;
-  source_type: string;
-  name: string;
-  created_at: string;
-  transcriptions: Transcription[];
-}
-
-const TranscriptionJobCard: React.FC<{ job: TranscriptionJob }> = ({ job }) => {
-  //   const [showResult, setShowResult] = useState(false);
-
-  const downloadResult = (result: string, id: number) => {
-    const element = document.createElement("a");
-    const file = new Blob([result], { type: "text/plain" });
-    element.href = URL.createObjectURL(file);
-    element.download = `transcription_${id}.txt`;
-    document.body.appendChild(element);
-    element.click();
-  };
-
-  return (
-    <div className="card">
-      <h2>{job.name}</h2>
-      <p>{job.status}</p>
-      <p>from: {job.source_type}</p>
-      <div>
-        <h4>Transcriptions:</h4>
-        {job.transcriptions.map((transcription) => (
-          <div key={transcription.id}>
-            <p>Language: {transcription.language}</p>
-            {/* {showResult && <p>Result: {transcription.result}</p>} */}
-            {/* <button onClick={() => setShowResult(!showResult)}>
-              {showResult ? "Hide" : "Show"} Result
-            </button> */}
-            <button
-              onClick={() =>
-                downloadResult(transcription.result, transcription.id)
-              }
-            >
-              Download Result
-            </button>
-          </div>
         ))}
       </div>
-    </div>
-  );
-};
-
-const TranscribeJobs: React.FC = () => {
-  const [jobs, setJobs] = useState<TranscriptionJob[]>([]);
-
-  useEffect(() => {
-    getTranscriptionJobs();
-  }, []);
-
-  const getTranscriptionJobs = async () => {
-    const data = await makeAuthenticatedRequest<TranscriptionJob[]>(
-      "GET",
-      "/v1/tools/transcriptions/"
-    );
-    console.log(data);
-
-    setJobs(data);
-
-    checkTranscriptionJobsStatus(data);
-  };
-
-  const checkTranscriptionJobsStatus = (jobs) => {
-    const hasPendingJobs = jobs.some((job) => job.status !== "DONE");
-
-    if (hasPendingJobs) {
-      setTimeout(() => {
-        window.location.reload();
-      }, 3000);
-    } else {
-      console.log("Not necessary to reload, all transcriptions are ready");
-    }
-  };
-
-  return (
-    <div className="cards-container">
-      {jobs.map((job) => (
-        <TranscriptionJobCard key={job.id} job={job} />
-      ))}
     </div>
   );
 };

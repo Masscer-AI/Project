@@ -301,5 +301,19 @@
     "valid-api-key": "Clave de API válida",
     "organization-updated": "Organización actualizada",
     "save-profile": "Guardar perfil",
-    "generating-speech": "Generando voz..."
+    "generating-speech": "Generando voz...",
+    "transcribe": "Transcribir",
+    "audio-tools": "Herramientas de audio",
+    "whisper-size": "Tamaño de Whisper",
+    "from": "De",
+    "youtube": "Youtube",
+    "microphone": "Micrófono",
+    "audio-file": "Archivo de audio o video",
+    "enter-youtube-url": "Ingresa URL de YouTube",
+    "start-recording": "Iniciar grabación",
+    "stop-recording": "Detener grabación",
+    "pause": "Pausar",
+    "resume": "Resumir",
+    "processing": "Procesando...",
+    "transcription-job-initialized": "¡Trabajo de transcripción iniciado! Aparecerá pronto 👇🏻"
 }

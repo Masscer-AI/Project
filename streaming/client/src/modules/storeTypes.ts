@@ -4,7 +4,7 @@ import { TUserData, TReactionTemplate } from "../types/chatTypes";
 
 type SetOpenedProps = {
   action: "add" | "remove";
-  name: "documents" | "tags" | "completions" | "settings";
+  name: "documents" | "tags" | "completions" | "settings" | "audio";
 };
 
 type TTheme = "light" | "dark" | "system";
