@@ -14,9 +14,11 @@ class TranscriptionJob(models.Model):
         ("ERROR", "Error"),
     ]
     WHISPER_SIZE_CHOICES = [
-        ("LARGE", "Large"),
         ("MEDIUM", "Medium"),
         ("TINY", "Tiny"),
+        ("BASE", "Base"),
+        ("SMALL", "Small"),
+        ("LARGE_V3", "Large V3"),
     ]
     SOURCE_CHOICES = [
         ("YOUTUBE_URL", "YouTube URL"),
@@ -35,7 +37,7 @@ class TranscriptionJob(models.Model):
         upload_to="audio_files/", blank=True, null=True, max_length=255
     )
     whisper_size = models.CharField(
-        max_length=6, choices=WHISPER_SIZE_CHOICES, default="LARGE"
+        max_length=15, choices=WHISPER_SIZE_CHOICES, default="SMALL"
     )
     video_file = models.FileField(
         upload_to="video_files/", blank=True, null=True, max_length=255
@@ -74,12 +76,15 @@ class VideoGenerationJob(models.Model):
         ("SQUARE", "Square"),
     ]
 
-
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="PENDING")
     status_text = models.TextField(null=True, blank=True)
     about = models.TextField()
-    duration = models.CharField(max_length=20, choices=DURATION_CHOICES, default="LESS_THAN_MINUTE")
-    orientation = models.CharField(max_length=15, choices=ORIENTATION_CHOICES, default="LANDSCAPE")
+    duration = models.CharField(
+        max_length=20, choices=DURATION_CHOICES, default="LESS_THAN_MINUTE"
+    )
+    orientation = models.CharField(
+        max_length=15, choices=ORIENTATION_CHOICES, default="LANDSCAPE"
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -94,14 +99,14 @@ class Video(models.Model):
     description = models.TextField(blank=True, null=True)
     file = models.FileField(upload_to="generated_videos/", null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    
+
     def concatenate(self):
         # Fetch all chunks associated with this video
         chunks = VideoChunk.objects.filter(video=self)
 
         video_clips = []
         for chunk in chunks:
-            if chunk.chunk_file: 
+            if chunk.chunk_file:
                 video_clips.append(VideoFileClip(chunk.chunk_file.path))
 
         if video_clips:
@@ -110,13 +115,13 @@ class Video(models.Model):
 
             # Define the path for the final video
             final_video_path = f"final_videos/concatenated_video_{self.pk}.mp4"
-            
+
             # Save the final video to a temporary file
             temp_file_path = os.path.join(default_storage.location, final_video_path)
             final_video.write_videofile(temp_file_path, codec="libx264")
 
             # Save the final video file using Django's storage system
-            with open(temp_file_path, 'rb') as f:
+            with open(temp_file_path, "rb") as f:
                 self.file.save(final_video_path, ContentFile(f.read()), save=True)
 
             # Close all video clips
@@ -126,6 +131,7 @@ class Video(models.Model):
             print(f"Final video saved at: {self.file.url}")
         else:
             print("No video chunks available to concatenate.")
+
 
 class VideoChunk(models.Model):
     STATUS_CHOICES = [
@@ -137,10 +143,10 @@ class VideoChunk(models.Model):
 
     speech_text = models.TextField()  # String for speech text
     resource_query = models.TextField()  # String for resource query
-    duration = models.PositiveIntegerField(null=True, blank=True)  
+    duration = models.PositiveIntegerField(null=True, blank=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="PENDING")
-    status_text = models.TextField(null=True, blank=True)  
+    status_text = models.TextField(null=True, blank=True)
     video = models.ForeignKey(Video, on_delete=models.CASCADE, related_name="chunks")
-    chunk_file = models.FileField(upload_to="video_chunks/", null=True, blank=True) 
+    chunk_file = models.FileField(upload_to="video_chunks/", null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)

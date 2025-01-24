@@ -61,7 +61,7 @@ class Transcriptions(View):
         source = request.POST.get("source")
         whisper_size = request.POST.get("whisper_size")
         whisper_size = whisper_size.upper()
-        print("WHISPER SIZE REQUESTED,", whisper_size)
+       
         user = request.user
 
         if source == "audio":
