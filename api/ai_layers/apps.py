@@ -1,6 +1,7 @@
 from django.apps import AppConfig
 from api.utils.color_printer import printer
-from django.db.utils import OperationalError
+from django.db.utils import OperationalError, ProgrammingError
+
 
 class AiLayersConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
@@ -8,13 +9,19 @@ class AiLayersConfig(AppConfig):
 
     def ready(self) -> None:
         import api.ai_layers.signals
+
         self.startup_function()
 
     def startup_function(self):
         from api.ai_layers.actions import check_models_for_providers
+
         try:
             # printer.blue(f"Running startup function for {self.name}")
             check_models_for_providers()
         except OperationalError:
             # This exception might occur during migrations or if the database is not ready
             printer.red("Database is not ready. Skipping AIProvider check.")
+        except ProgrammingError as e:
+            printer.error(
+                f"Error in ai_layers app ready method: {str(e)}, a ProgrammingError occurred."
+            )

@@ -1,5 +1,5 @@
 from django.apps import AppConfig
-from django.db.utils import OperationalError
+from django.db.utils import OperationalError, ProgrammingError
 from api.utils.color_printer import printer
 from dotenv import load_dotenv
 import os
@@ -44,3 +44,8 @@ class ProvidersConfig(AppConfig):
         except OperationalError:
             # This exception might occur during migrations or if the database is not ready
             printer.red("Database is not ready. Skipping AIProvider check.")
+
+        except ProgrammingError as e:
+            printer.error(
+                f"Error in providers app ready method: {str(e)}, a ProgrammingError occurred."
+            )

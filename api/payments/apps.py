@@ -1,6 +1,6 @@
 from django.apps import AppConfig
 from api.utils.color_printer import printer
-from django.db import OperationalError
+from django.db import OperationalError, ProgrammingError
 
 DEFAULT_WINNING_RATE_NAME = "default"
 
@@ -23,3 +23,8 @@ class PaymentsConfig(AppConfig):
             printer.success("Created default winning rates")
         except OperationalError as e:
             printer.error(f"Error in payments app ready method: {str(e)}")
+        except ProgrammingError as e:
+            printer.error(
+                f"Error in payments app ready method: {str(e)}, a ProgrammingError occurred."
+            )
+

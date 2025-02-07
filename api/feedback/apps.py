@@ -1,6 +1,9 @@
 from django.apps import AppConfig
 from api.utils.color_printer import printer
-from django.db.utils import OperationalError
+
+# from django.db.utils import OperationalError
+from django.db.utils import OperationalError, ProgrammingError
+
 
 SYSTEM_REACTIONS = [
     {
@@ -83,4 +86,8 @@ class FeedbackConfig(AppConfig):
         except OperationalError:
             printer.red(
                 f"Database is not ready. Skipping {self.name} startup function."
+            )
+        except ProgrammingError:
+            printer.red(
+                f"Database is not ready, a ProgrammingError occurred. Skipping {self.name} startup function."
             )

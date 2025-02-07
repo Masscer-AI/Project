@@ -1,5 +1,5 @@
 from django.apps import AppConfig
-from django.db.utils import OperationalError
+from django.db.utils import OperationalError, ProgrammingError
 from api.utils.color_printer import printer
 
 
@@ -22,3 +22,8 @@ class ConsumptionConfig(AppConfig):
             #     printer.info("Compute Unit already exists")
         except OperationalError:
             printer.error("Database not ready, skipping Compute Unit creation")
+        except ProgrammingError as e:
+            printer.error(
+                f"Error in consumption app ready method: {str(e)}, a ProgrammingError occurred."
+            )
+
