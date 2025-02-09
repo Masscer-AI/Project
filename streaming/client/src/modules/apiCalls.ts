@@ -1,10 +1,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import axios, { AxiosRequestConfig, Method } from "axios";
 import { API_URL, PUBLIC_TOKEN } from "./constants";
-import { TCompletion, TConversation, TDocument, TOrganization } from "../types";
+import {
+  TCompletion,
+  TConversation,
+  TDocument,
+  TOrganization,
+  TOrganizationCredentials,
+} from "../types";
 import { TReactionTemplate, TUserProfile } from "../types/chatTypes";
 import { TAgent } from "../types/agents";
-import toast from "react-hot-toast";
 import { TUserPreferences } from "./storeTypes";
 
 const getToken = (isPublic: boolean) => {
@@ -15,10 +20,6 @@ const getToken = (isPublic: boolean) => {
     if (!token) throw new Error("No token found, impossible to make request");
     return { token, tokenType: "Token" };
   }
-};
-
-const deleteToken = () => {
-  localStorage.removeItem("token");
 };
 
 export const initConversation = async ({ isPublic = false }) => {
@@ -641,14 +642,6 @@ export const deleteOrganization = async (organizationId: string) => {
   );
 };
 
-export type TOrganizationCredentials = {
-  openai_api_key: string;
-  brave_api_key: string;
-  anthropic_api_key: string;
-  pexels_api_key: string;
-  elevenlabs_api_key: string;
-  heygen_api_key: string;
-};
 export const getOrganizationCredentials = async (organizationId: string) => {
   return makeAuthenticatedRequest<TOrganizationCredentials>(
     "GET",
@@ -684,3 +677,28 @@ export const deleteTranscriptionJob = async (jobId: number) => {
     `/v1/tools/transcriptions/${jobId}/`
   );
 };
+
+export type TVoice = {
+  id: string;
+  name: string;
+  provider: string;
+};
+
+type TGenerateAudioData = {
+  text: string;
+  voice: TVoice;
+  message_id: string;
+};
+
+export const generateAudio = async (data: TGenerateAudioData) => {
+  return makeAuthenticatedRequest("POST", "/v1/tools/audio_generator/", data);
+};
+
+export const getUserVoices = async () => {
+  return makeAuthenticatedRequest<TVoice[]>("GET", "/v1/preferences/voices/");
+};
+
+export const updateUserVoices = async (data: TVoice[]) => {
+  return makeAuthenticatedRequest("PUT", "/v1/preferences/voices/", data);
+};
+

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { TMessage } from "./types/chatTypes";
 
 export interface ChatItem {
@@ -71,10 +72,20 @@ export type TVersion = {
   usage?: TUsage;
 };
 
+export type TOrganizationCredentials = {
+  openai_api_key: string;
+  brave_api_key: string;
+  anthropic_api_key: string;
+  pexels_api_key: string;
+  elevenlabs_api_key: string;
+  heygen_api_key: string;
+};
+
 export type TOrganization = {
   id: string;
   name: string;
   description: string;
+  credentials: TOrganizationCredentials;
 };
 
 export type TDocument = {

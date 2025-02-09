@@ -26,7 +26,6 @@ class UserPreferences(models.Model):
         max_length=50, default="isolated", choices=MULTIAGENTIC_CHOICES
     )
 
-
     def __str__(self):
         return f"UserPreferences for {self.user.username}: max_memory_messages={self.max_memory_messages}, autoscroll={self.autoscroll}, autoplay={self.autoplay}"
 
@@ -47,3 +46,11 @@ class UserTags(models.Model):
         if tag in self.tags:
             self.tags.remove(tag)
             self.save()
+
+
+class UserVoices(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="voices")
+    voices = models.JSONField(default=list)
+
+    def __str__(self):
+        return f"UserVoices for {self.user.username}"

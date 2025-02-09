@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect } from "react";
 import { Modal } from "../Modal/Modal";
 import { useStore } from "../../modules/store";
@@ -11,7 +12,6 @@ import {
   getOrganizationCredentials,
   getUserOrganizations,
   TOrganizationData,
-  TOrganizationCredentials,
   updateUser,
   updateOrganization,
   updateOrganizationCredentials,
@@ -19,9 +19,11 @@ import {
 import { TOrganization } from "../../types";
 import { debounce } from "../../modules/utils";
 import { toast } from "react-hot-toast";
-import { JSONForm, TJSONFormData } from "../JSONForm/JSONForm";
+import { JSONForm } from "../JSONForm/JSONForm";
 import mermaid from "mermaid";
 import { Textarea } from "../SimpleForm/Textarea";
+import { TOrganizationCredentials } from "../../types";
+
 import {
   validateElevenLabsApiKey,
   validateHeyGenApiKey,
@@ -116,6 +118,7 @@ const OrganizationManager = () => {
 
   const getOrgs = async () => {
     const orgs = await getUserOrganizations();
+    console.log(orgs, "USER ORGS");
     setOrgs(orgs);
   };
 
@@ -151,7 +154,7 @@ const OrganizationManager = () => {
   );
 };
 
-const WhatsappConfig = () => {};
+// const WhatsappConfig = () => {};
 
 const MERMAID_THEMES = ["dark", "forest", "neutral", "base", "light"];
 
@@ -278,6 +281,7 @@ const AppearanceConfig = () => {
                 theming.mermaid === theme ? "bg-active svg-white" : "bg-hovered"
               }`}
               key={theme}
+              // @ts-ignore
               onClick={() => setTheming({ mermaid: theme as any })}
               text={theme.charAt(0).toUpperCase() + theme.slice(1)}
             />
@@ -334,7 +338,7 @@ const GeneralConfig = () => {
   const handleUpdateUser = async () => {
     const tid = toast.loading(t("updating-user"));
     try {
-      const response = await updateUser({
+      await updateUser({
         username,
         email,
         profile: user?.profile,
@@ -592,15 +596,10 @@ const OrganizationConfigModal = ({
   };
 
   const handleSave = async () => {
-    const response = await updateOrganization(
-      organization.id,
-      innerOrganization
-    );
+    await updateOrganization(organization.id, innerOrganization);
     if (!credentials) return;
-    const responseCredentials = await updateOrganizationCredentials(
-      organization.id,
-      credentials
-    );
+
+    await updateOrganizationCredentials(organization.id, credentials);
 
     toast.success(t("organization-updated"));
     setIsOpen(false);

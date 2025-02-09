@@ -11,12 +11,14 @@ from .serializers import (
     UserProfileSerializer,
     OrganizationSerializer,
     CredentialsManagerSerializer,
+    BigOrganizationSerializer,
 )
 from .models import Token, Organization, UserProfile, CredentialsManager
 from rest_framework.permissions import AllowAny
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from api.authenticate.decorators.token_required import token_required
+
 from django.contrib.auth.models import User
 from django.views import View
 from django.core.cache import cache
@@ -155,7 +157,7 @@ class UserView(View):
 class OrganizationView(View):
     def get(self, request):
         organizations = Organization.objects.filter(owner=request.user)
-        serializer = OrganizationSerializer(organizations, many=True)
+        serializer = BigOrganizationSerializer(organizations, many=True)
         return JsonResponse(serializer.data, safe=False)
 
     def delete(self, request, organization_id):

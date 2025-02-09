@@ -34,3 +34,9 @@ def async_image_to_video(prompt_image_b64, prompt_text, ratio, user_id, message_
         prompt_image_b64, prompt_text, ratio, user_id, "runway", message_id
     )
     return result
+
+
+@shared_task
+def async_audio_generation(text, voice, user_id, message_id):
+    result = generate_audio(text, voice, user_id, message_id)
+    return result

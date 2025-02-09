@@ -3,7 +3,7 @@ from django.http import JsonResponse
 from django.views import View
 from django.utils.decorators import method_decorator
 from api.authenticate.decorators.token_required import token_required
-from .models import UserPreferences, UserTags
+from .models import UserPreferences, UserTags, UserVoices
 from .serializers import UserPreferencesSerializer
 from rest_framework import status
 from django.views.decorators.csrf import csrf_exempt
@@ -72,3 +72,27 @@ class UserTagsView(View):
             user_tags.save()
 
         return JsonResponse(user_tags.tags, status=status.HTTP_200_OK, safe=False)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class UserVoicesView(View):
+    def get(self, request):
+        user_voices = UserVoices.objects.filter(user=request.user).first()
+        if user_voices is None:
+            user_voices = UserVoices(user=request.user)
+            user_voices.save()
+
+        return JsonResponse(user_voices.voices, status=status.HTTP_200_OK, safe=False)
+
+    def put(self, request):
+        user_voices = UserVoices.objects.filter(user=request.user).first()
+        new_voices = json.loads(request.body)
+        if user_voices is None:
+            user_voices = UserVoices(user=request.user, voices=new_voices)
+            user_voices.save()
+        else:
+            user_voices.voices = new_voices
+            user_voices.save()
+
+        return JsonResponse(user_voices.voices, status=status.HTTP_200_OK, safe=False)

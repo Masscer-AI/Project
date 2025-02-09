@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { SVGS } from "../../assets/svgs";
 import { useStore } from "../../modules/store";
 import { SvgButton } from "../SvgButton/SvgButton";
@@ -13,7 +13,6 @@ import toast from "react-hot-toast";
 import { generateVideo } from "../../modules/apiCalls";
 // import { Select } from "../SimpleForm/Select";
 import { AspectRatio } from "../ImageGenerator/ImageGenerator";
-import { log } from "mermaid/dist/logger.js";
 import { API_URL } from "../../modules/constants";
 
 interface ThumbnailProps {
@@ -50,12 +49,14 @@ export const Thumbnail = ({
     <>
       {type.indexOf("audio") !== 0 &&
         type.indexOf("image") !== 0 &&
-        type.indexOf("video_generation") !== 0 && (
+        type.indexOf("video_generation") !== 0 &&
+        type.indexOf("audio_generation") !== 0 && (
           <DocumentThumnail
             id={id}
             index={index}
             onDelete={() => deleteAttachment(index)}
             // type={type}
+
             name={name}
             showFloatingButtons={showFloatingButtons}
             mode={mode}
@@ -83,15 +84,20 @@ export const Thumbnail = ({
           />
         </div>
       )}
-      {type.indexOf("audio") === 0 && (
+      {/* {type.indexOf("audio") === 0 && (
         <div className="thumbnail pointer">
-          <SvgButton />
+          <SvgButton title="Play" svg={SVGS.play} />
           <audio src={src} playsInline />
         </div>
+      )} */}
+      {type.indexOf("audio_generation") === 0 && (
+        <AudioThumbnail src={content} />
       )}
+
       {type.indexOf("video_generation") === 0 && (
         <>
           <VideoThumbnail id={id} src={src} text={text} />
+
           {/* <SvgButton title="Open" svg={SVGS.play} /> */}
         </>
       )}
@@ -135,7 +141,7 @@ const ImageModal = ({
   };
 
   const handleGenerateVideo = async () => {
-    const response = await generateVideo({
+    await generateVideo({
       prompt: videoPrompt,
       image_b64: src,
       message_id: message_id!,
@@ -223,6 +229,7 @@ const DocumentThumnail = ({
   showFloatingButtons,
   mode,
 }) => {
+  id;
   const { updateAttachment } = useStore((state) => ({
     updateAttachment: state.updateAttachment,
   }));
@@ -336,6 +343,7 @@ const VideoThumbnail = ({
   text?: string;
   // name: string;
 }) => {
+  id;
   const [openModal, setOpenModal] = useState(false);
 
   return (
@@ -405,5 +413,15 @@ const VideoModal = ({
         />
       </div>
     </Modal>
+  );
+};
+
+const AudioThumbnail = ({ src }: { src: string }) => {
+  const audioRef = useRef<HTMLAudioElement>(null);
+
+  return (
+    <div className="">
+      <audio ref={audioRef} controls src={API_URL + src} playsInline />
+    </div>
   );
 };

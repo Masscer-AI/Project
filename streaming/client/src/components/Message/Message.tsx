@@ -92,15 +92,16 @@ export const Message = memo(
 
     const { t } = useTranslation();
 
-    const { agents, reactionTemplates, socket, userPreferences, models } =
-      useStore((s) => ({
+    const { agents, reactionTemplates, socket, userPreferences } = useStore(
+      (s) => ({
         agents: s.agents,
         reactionTemplates: s.reactionTemplates,
         socket: s.socket,
         userPreferences: s.userPreferences,
 
-        models: s.models,
-      }));
+        // models: s.models,
+      })
+    );
 
     const copyToClipboard = () => {
       const textToCopy = versions?.[currentVersion]?.text || innerText;
@@ -244,7 +245,6 @@ export const Message = memo(
         } catch (error) {
           console.error("Error generating speech:", error);
         }
-      } else {
       }
     };
 
@@ -505,7 +505,7 @@ export const Message = memo(
               opener={<SvgButton svg={SVGS.options} />}
             >
               <div className="flex-y gap-small width-200">
-                {!audioPlayer && (
+                {/* {!audioPlayer && (
                   <SvgButton
                     text={t("generate-speech")}
                     onClick={() =>
@@ -517,7 +517,11 @@ export const Message = memo(
                     size="big"
                     extraClass="active-on-hover border-active pressable"
                   />
-                )}
+                )} */}
+                <AudioGenerator
+                  text={versions?.[currentVersion]?.text || innerText}
+                  messageId={id.toString()}
+                />
 
                 <SvgButton
                   title={isEditing ? t("finish") : t("edit")}
@@ -785,7 +789,7 @@ const MessageEditor = ({
             />
             <ModifyTextModal
               text={editionOptions.currentText}
-              messageID={messageId}
+              // messageID={messageId}
             />
           </div>,
           document.body
@@ -794,12 +798,12 @@ const MessageEditor = ({
   );
 };
 
-const ModifyTextModal = ({ text, messageID }) => {
+const ModifyTextModal = ({ text }) => {
   const [isVisible, setIsVisible] = useState(false);
-  const [modifications, setModifications] = useState({
-    text: text,
-    messageID: messageID,
-  });
+  // const [modifications, setModifications] = useState({
+  //   text: text,
+  //   messageID: messageID,
+  // });
   const { t } = useTranslation();
 
   return (

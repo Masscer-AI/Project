@@ -62,7 +62,7 @@ export type Store = {
   updateSingleAgent: (agent: TAgent) => void;
   setOpenedModals: (opts: SetOpenedProps) => void;
   setMessages: (messages: Message[]) => void;
-  setConversation: (conversationId: string | null) => void;
+  setConversation: (conversationId: string | null | undefined) => void;
   addAttachment: (newAttachment: TAttachment, saved?: boolean) => void;
   updateAttachment: (
     index: number,

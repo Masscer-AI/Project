@@ -28,6 +28,7 @@ export default function ChatView() {
     agents,
     startup,
     userPreferences,
+    setConversation,
   } = useStore((state) => ({
     socket: state.socket,
     chatState: state.chatState,
@@ -38,6 +39,7 @@ export default function ChatView() {
     agents: state.agents,
     startup: state.startup,
     userPreferences: state.userPreferences,
+    setConversation: state.setConversation,
   }));
 
   const { t } = useTranslation();
@@ -52,7 +54,8 @@ export default function ChatView() {
   }, [loaderData.user, startup]);
 
   const [messages, setMessages] = useState<TMessage[]>(
-    loaderData.conversation.messages || []
+    // loaderData.conversation.messages || conversation?.messages || []
+    conversation?.messages || []
   );
 
   useEffect(() => {
@@ -62,6 +65,11 @@ export default function ChatView() {
         updateLastMessagesIds(data, prevMessages, data.next_agent_slug)
       );
     });
+
+    if (loaderData.conversation) {
+      // setMessages(loaderData.conversation.messages || []);
+      setConversation(loaderData.conversation.id);
+    }
 
     return () => {
       socket.off("responseFinished");
@@ -119,9 +127,20 @@ export default function ChatView() {
   }, [chatMessageContainerRef, userPreferences.autoscroll]);
 
   useEffect(() => {
-    if (!conversation?.messages) return;
+    // toast.success("Loading conversation...");
+    if (!conversation?.messages) {
+      // toast.error("Conversation not found");
+      return;
+    }
+    // toast.success("Conversation loaded");
     setMessages(conversation?.messages);
   }, [conversation]);
+
+  // useEffect(() => {
+  //   if (loaderData.conversation) {
+  //     loaderData.conversation.messages;
+  //   }
+  // }, [loaderData.conversation]);
 
   useEffect(() => {
     if (
@@ -293,7 +312,7 @@ export default function ChatView() {
     if (!message) return;
 
     if (message.type === "user") {
-      let newMessages = messages.slice(0, index + 1);
+      const newMessages = messages.slice(0, index + 1);
       newMessages[index].text = text;
       message.index = index;
       handleRegenerateConversation(message, newMessages);

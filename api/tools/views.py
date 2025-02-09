@@ -27,6 +27,7 @@ from api.utils.black_forest_labs import (
     request_image_edit_with_mask,
     generate_with_control_image,
 )
+from .actions import generate_audio
 
 from .tasks import async_image_to_video
 
@@ -61,7 +62,7 @@ class Transcriptions(View):
         source = request.POST.get("source")
         whisper_size = request.POST.get("whisper_size")
         whisper_size = whisper_size.upper()
-       
+
         user = request.user
 
         if source == "audio":
@@ -483,3 +484,22 @@ class ImageToVideoView(View):
                 "message": "Video generation job created, you'll receive a notification when ready"
             }
         )
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class AudioGeneratorView(View):
+    def post(self, request):
+        data = json.loads(request.body)
+
+        text = data.get("text")
+        voice = data.get("voice")
+        message_id = data.get("message_id")
+
+        print(text, voice, message_id, "DATA")
+
+        # async_audio_generation.delay(text, voice, request.user.id, message_id)
+        generate_audio(
+            text, voice["id"], voice["provider"], request.user.id, message_id
+        )
+        return JsonResponse({"message": "Audio generation job created"})

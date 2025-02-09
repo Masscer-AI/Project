@@ -319,5 +319,12 @@
     "you-need-to-record-something-first": "You need to record something first",
     "you-need-to-upload-an-audio-file-first": "You need to upload an audio file first",
     "youtube-url-required": "You need to enter a YouTube URL first",
-    "transcription": "Transcription"
+    "transcription": "Transcription",
+    "video-generated-successfully": "Video generated successfully",
+    "audio-generated-successfully": "Audio generated successfully",
+    "please-enter-voice-id-and-name": "Please enter voice id and name",
+    "enter-voice-id": "Enter voice id",
+    "enter-voice-name": "Enter voice name",
+    "add-elevenlabs-voice": "Add ElevenLabs voice"
+    
 }

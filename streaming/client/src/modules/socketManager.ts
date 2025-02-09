@@ -1,12 +1,13 @@
-import io from "socket.io-client";
+import io, { Socket } from "socket.io-client";
 
 // Clase para manejar WebSocket
 export class SocketManager {
-  socket: any;
+  socket: Socket;
 
   constructor(serverUrl) {
     this.socket = io(serverUrl, {
       transports: ["websocket", "polling"],
+
       query: {
         user_id: "",
       },

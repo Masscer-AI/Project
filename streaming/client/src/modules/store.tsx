@@ -38,12 +38,14 @@ export const useStore = create<Store>()((set, get) => ({
     multiagentic_modality: "isolated",
     background_image_opacity: 0.5,
   },
+  organizations: [],
   chatState: {
     isSidebarOpened: false,
     attachments: [],
     webSearch: false,
     writtingMode: false,
     useRag: false,
+
     selectedAgents: [],
     selectedPlugins: [],
   },
@@ -80,6 +82,7 @@ export const useStore = create<Store>()((set, get) => ({
     let data;
 
     if (!conversationId) {
+      toast.success("Initializing conversation...");
       data = await initConversation({ isPublic: false });
     } else {
       data = await getConversation(conversationId);
@@ -182,7 +185,7 @@ export const useStore = create<Store>()((set, get) => ({
     const { agents, models } = await getAgents();
 
     let selectFirstAI = false;
-    let selectedAgentsStored = localStorage.getItem("selectedAgents");
+    const selectedAgentsStored = localStorage.getItem("selectedAgents");
     let selectedAgentsSlugs: string[] = [];
 
     if (!selectedAgentsStored) {
@@ -197,7 +200,7 @@ export const useStore = create<Store>()((set, get) => ({
         (i === 0 && selectFirstAI) || selectedAgentsStored?.includes(a.slug),
     }));
 
-    let selectedAgents =
+    const selectedAgents =
       selectedAgentsStored && selectedAgentsStored.length > 0
         ? selectedAgentsSlugs.filter((a) =>
             agentsCopy.some((a2) => a2.slug === a)
@@ -409,11 +412,10 @@ export const useStore = create<Store>()((set, get) => ({
   },
 
   test: () => {
-    const { chatState, agents } = get();
+    // const { chatState, agents } = get();
     // toast.success("Loading...");
     // console.log(agents, "AGENTS");
     // console.log(chatState.selectedAgents, "SELECTED AGENTS");
-
     // // Clean selected agents
     // set((state) => ({
     //   chatState: {
@@ -421,14 +423,11 @@ export const useStore = create<Store>()((set, get) => ({
     //     selectedAgents: [],
     //   },
     // }));
-
     // localStorage.removeItem("selectedAgents");
-
     // socket.emit("test_event", {
     //   query:
     //     examplesQueries[Math.floor(Math.random() * examplesQueries.length)],
     // });
-
     // socket.on("web-search", (data) => {
     //   console.log("WEB SEARCH", data);
     // });

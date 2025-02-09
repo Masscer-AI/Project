@@ -10,6 +10,7 @@ from .views import (
     ImageEditorView,
     WebsiteFetcherView,
     ImageToVideoView,
+    AudioGeneratorView,
 )
 
 app_name = "tools"
@@ -40,4 +41,5 @@ urlpatterns = [
         ImageToVideoView.as_view(),
         name="video_generator",
     ),
+    path("audio_generator/", AudioGeneratorView.as_view(), name="audio_generator"),
 ]

@@ -63,6 +63,7 @@ class OrganizationSerializer(serializers.ModelSerializer):
 
 
 class OrganizationMemberSerializer(serializers.ModelSerializer):
+
     class Meta:
         model = OrganizationMember
         fields = ["id", "organization", "user", "created_at", "updated_at"]
@@ -83,3 +84,24 @@ class CredentialsManagerSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+
+
+class BigOrganizationSerializer(serializers.ModelSerializer):
+    credentials = serializers.SerializerMethodField()
+
+
+    class Meta:
+        model = Organization
+        fields = [
+            "id",
+            "name",
+            "description",
+            "owner",
+            "created_at",
+            "updated_at",
+            "credentials",
+        ]
+
+    def get_credentials(self, obj):
+        credentials = CredentialsManager.objects.get(organization=obj)
+        return CredentialsManagerSerializer(credentials).data

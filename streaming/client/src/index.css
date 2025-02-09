@@ -1049,9 +1049,13 @@ input:checked + .slider::before {
 .text-white {
   color: white;
 }
+.text-gray {
+  color: red !important;
+}
 .justify-end {
   justify-content: flex-end;
 }
+
 .width-150 {
   width: 150px;
 }

@@ -12,6 +12,8 @@ from youtube_transcript_api import (
     NoTranscriptFound,
 )
 
+from api.authenticate.models import CredentialsManager, Organization
+
 import traceback
 from .models import (
     Transcription,
@@ -31,8 +33,9 @@ from api.messaging.models import Message
 import threading
 import time
 from api.notify.actions import notify_user
-from api.generations.models import VideoGeneration
+from api.generations.models import VideoGeneration, AudioGeneration
 from api.utils.color_printer import printer
+from api.utils.elevenlabs_functions import generate_audio_elevenlabs
 
 SAVE_PATH = os.path.join(settings.MEDIA_ROOT, "generated")
 
@@ -346,6 +349,17 @@ def document_convertion(source_text: str, from_type="html", to_type="docx"):
     return input_file_path, output_file_path
 
 
+def append_attachment_to_message(message_id, attachment_type, extra_data={}):
+    m = Message.objects.get(pk=message_id)
+    m.attachments.append(
+        {
+            "type": attachment_type,
+            **extra_data,
+        }
+    )
+    m.save()
+
+
 def generate_video_from_image(
     prompt_image_b64, prompt_text, ratio, user_id, provider="runway", message_id=None
 ):
@@ -397,5 +411,64 @@ def generate_video_from_image(
         else:
             raise Exception(f"The provider {provider} is not supported yet!")
     except Exception as e:
+        printer.red(e)
+        return None
+
+
+def generate_audio(text, voice, provider, user_id, message_id):
+    try:
+        # Get the user organizations
+        user = User.objects.get(pk=user_id)
+        organizations = Organization.objects.filter(owner=user)
+        credentials = CredentialsManager.objects.filter(organization__in=organizations)
+
+        # Get the API_KEY of the first one with eleven_labs_api_key
+        eleven_labs_api_key = None
+        for credential in credentials:
+            if credential.elevenlabs_api_key:
+                eleven_labs_api_key = credential.elevenlabs_api_key
+                break
+
+        if provider == "elevenlabs":
+            audio_path = f"generations/audios/{uuid.uuid4()}.mp3"
+            save_path = os.path.join(settings.MEDIA_ROOT, audio_path)
+            generate_audio_elevenlabs(
+                text,
+                voice,
+                eleven_labs_api_key,
+                save_path,
+            )
+
+            audio_generation = AudioGeneration.objects.create(
+                text=text,
+                voice=voice,
+                provider=provider,
+                user=user,
+                file=audio_path,
+            )
+
+            append_attachment_to_message(
+                message_id,
+                "audio_generation",
+                {
+                    "id": str(audio_generation.id),
+                    "content": f"{settings.MEDIA_URL}{audio_path}",
+                },
+            )
+
+            notify_user(
+                user_id,
+                event_type="audio_generated",
+                data={
+                    "message_id": message_id,
+                },
+            )
+            return True
+        else:
+
+            raise Exception(f"The provider {provider} is not supported yet!")
+
+    except Exception as e:
+
         printer.red(e)
         return None
