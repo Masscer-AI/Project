@@ -39,7 +39,6 @@ from api.utils.elevenlabs_functions import generate_audio_elevenlabs
 
 SAVE_PATH = os.path.join(settings.MEDIA_ROOT, "generated")
 
-# Ensure the SAVE_PATH exists
 os.makedirs(SAVE_PATH, exist_ok=True)
 
 
@@ -416,6 +415,11 @@ def generate_video_from_image(
 
 
 def generate_audio(text, voice, provider, user_id, message_id):
+
+    # Ensure audio directory exists
+    audio_store_path = "generations/audios"
+    os.makedirs(os.path.join(settings.MEDIA_ROOT, audio_store_path), exist_ok=True)
+
     try:
         # Get the user organizations
         user = User.objects.get(pk=user_id)

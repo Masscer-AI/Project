@@ -82,7 +82,6 @@ export const useStore = create<Store>()((set, get) => ({
     let data;
 
     if (!conversationId) {
-      toast.success("Initializing conversation...");
       data = await initConversation({ isPublic: false });
     } else {
       data = await getConversation(conversationId);
