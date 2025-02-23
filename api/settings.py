@@ -162,7 +162,7 @@ USE_TZ = True
 STATIC_URL = "/static/"
 
 
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
 
 if not DEBUG:
@@ -186,8 +186,9 @@ CELERY_TIMEZONE = "UTC"
 CELERY_RESULT_EXPIRES = 3600
 
 
-MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+MEDIA_ROOT = os.environ.get("MEDIA_ROOT", os.path.join(BASE_DIR, "media"))
 MEDIA_URL = "/media/"
+
 
 if not os.path.exists(MEDIA_ROOT):
     os.makedirs(MEDIA_ROOT)
