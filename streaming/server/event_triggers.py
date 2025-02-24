@@ -16,6 +16,12 @@ from .logger import get_custom_logger
 
 logger = get_custom_logger("event_triggers")
 
+STORAGE_PATH = os.environ.get("MEDIA_ROOT", os.path.join(os.getcwd(), "storage"))
+AUDIO_DIR = os.path.join(STORAGE_PATH, "audios")
+
+# Ensure the audio directory exists
+os.makedirs(AUDIO_DIR, exist_ok=True)
+
 
 def extract_rag_results(rag_results, context):
     documents_context = ""
@@ -344,9 +350,6 @@ async def on_start_handler(socket_id, data, **kwargs):
     print(data)
 
 
-AUDIO_DIR = "audios"
-
-
 async def on_speech_request_handler(socket_id, data, **kwargs):
     audio_format = data.get("format", "wav")
     logger.debug("Generating speech with socket", data)
@@ -361,7 +364,9 @@ async def on_speech_request_handler(socket_id, data, **kwargs):
         logger.error("Missing data to generate speech", data)
         return
 
-    hashed_text = hashlib.md5(text.encode()).hexdigest()
+    hashed_text = hashlib.md5(
+        (text + voice.get("slug", "alloy")).encode("utf-8")
+    ).hexdigest()
 
     output_path = os.path.join(AUDIO_DIR, f"{hashed_text}.{audio_format}")
 

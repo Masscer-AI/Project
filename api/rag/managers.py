@@ -3,7 +3,16 @@ import time
 import os
 import subprocess
 
+# Import the settings
+from api.settings import MEDIA_ROOT
+
 # from chromadb.utils import embedding_functions
+VECTOR_STORAGE_PATH = os.environ.get(
+    "VECTOR_STORAGE_PATH", os.path.join(MEDIA_ROOT, "vector_storage/")
+)
+
+if not os.path.exists(VECTOR_STORAGE_PATH):
+    os.makedirs(VECTOR_STORAGE_PATH)
 
 # default_ef = embedding_functions.DefaultEmbeddingFunction()
 ChromaNotInitializedException = Exception("Chroma not yet initialized!")
@@ -91,7 +100,7 @@ class ChromaManager:
 def start_chroma_server():
 
     process = subprocess.Popen(
-        ["chroma", "run", "--path", "vector_storage/", "--port", "8002"],
+        ["chroma", "run", "--path", VECTOR_STORAGE_PATH, "--port", "8002"],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
