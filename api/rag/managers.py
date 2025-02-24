@@ -1,5 +1,4 @@
 import chromadb
-import time
 import os
 import subprocess
 
@@ -111,6 +110,7 @@ chroma_client = None
 try:
     chroma_client = ChromaManager()
 except Exception as e:
+    print(e)
     # start_chroma_server()
     # time.sleep(3)
 
