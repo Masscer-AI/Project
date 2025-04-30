@@ -11,11 +11,20 @@ WSL es una herramienta que permite ejecutar sistemas operativos Linux en Windows
 🔗 [Descargar WSL](https://learn.microsoft.com/en-us/windows/wsl/install)
 
 1. Abrir una PowerShell como administrador.
+   ![Abrir PowerShell como administrador](./assets/run_powershell.png)
 2. Ejecutar el siguiente comando:
+
    ```bash
    wsl --install
    ```
-3. Reiniciar la PC.
+
+   Esto inicializa el proceso de instalación de WSL.
+   ![Instalación de WSL](./assets/install_wsl.png)
+
+3. Add an user name and password to the WSL.
+   ![Agregar usuario y contraseña](./assets/user_and_pass_linux.png)
+
+4. Reiniciar la PC.
 
 ### 2️⃣ **Docker**
 
@@ -35,16 +44,16 @@ Invoke-WebRequest -UseBasicParsing -Uri "https://raw.githubusercontent.com/pyenv
 
 > NOTA: En caso de dar un error, un modelo como GPT-4o puede ayudarte a solucionar el problema, será cuestión de correr otro comando para desactivar algo en Windows.
 
-2. Instalar Python 3.12.8
+2. Instalar Python 3.12.7
 
 ```bash
-pyenv install 3.12.8
+pyenv install 3.12.7
 ```
 
 3. Hacer que Pyenv use la versión 3.12.8
 
 ```bash
-pyenv global 3.12.8
+pyenv global 3.12.7
 ```
 
 4. Verificar la instalación de Python

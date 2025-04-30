@@ -51,7 +51,7 @@ class TextStreamingFactory:
         print("PROVIDER NOT FOUND")
 
     def stream_openai(self, system: str, text: str, model: str):
-        reasoning_models = ["o1-mini", "o1-preview"]
+        reasoning_models = ["o1-mini", "o1-preview", "o3-mini", "o4-mini", "o3"]
         is_reasoning_model = model in reasoning_models
 
         if is_reasoning_model:
@@ -155,15 +155,14 @@ AI_RESPONSE:
 
         temperature = float(self.config.get("temperature", 1))
         if is_reasoning_model:
+            logger.debug("Using reasoning model with temperature 1")
             temperature = 1
 
         logger.debug(f"Creating completion with {model}")
         response = self.client.chat.completions.create(
             model=model,
-            # model="gpt-4o-audio-preview",
             max_completion_tokens=int(self.config.get("max_tokens", 3000)),
             messages=messages,
-            # modalities=["text"],
             frequency_penalty=float(self.config.get("frequency_penalty", 0)),
             temperature=temperature,
             top_p=float(self.config.get("top_p", 1.0)),
