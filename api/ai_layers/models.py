@@ -41,7 +41,7 @@ def default_pricing():
 
 class LanguageModel(models.Model):
     provider = models.ForeignKey(AIProvider, on_delete=models.CASCADE)
-    
+
     slug = models.CharField(max_length=100, unique=True, blank=True)
     name = models.CharField(max_length=100)
     pricing = models.JSONField(default=default_pricing)
@@ -177,7 +177,7 @@ class Agent(models.Model):
         results = chroma_client.get_results(
             collection_name=collection.slug,
             query_texts=queries.queries,
-            n_results=3,
+            n_results=4,
         )
 
         return extract_rag_results({"results": results}, context)

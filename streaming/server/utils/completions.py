@@ -51,7 +51,7 @@ class TextStreamingFactory:
         print("PROVIDER NOT FOUND")
 
     def stream_openai(self, system: str, text: str, model: str):
-        reasoning_models = ["o1-mini", "o1-preview", "o3-mini", "o4-mini", "o3"]
+        reasoning_models = ["o1-mini", "o1-preview", "o3-mini", "o4-mini", "o3", "gpt-5", "o4"]
         is_reasoning_model = model in reasoning_models
 
         if is_reasoning_model:

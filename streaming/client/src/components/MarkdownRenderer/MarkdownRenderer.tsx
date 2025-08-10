@@ -269,9 +269,9 @@ export const CustomCodeBlock = ({
         ) : (
           <SyntaxHighlighter
             language={language ? language : "text"}
-          style={twilight}
-        >
-          {code}
+            style={twilight}
+          >
+            {code}
           </SyntaxHighlighter>
         )
       ) : (
