@@ -211,6 +211,7 @@ export default function ChatView() {
         models_to_complete: selectedAgents,
         conversation: conversation ? conversation : loaderData.conversation,
         web_search_activated: chatState.webSearch,
+        specified_urls: chatState.specifiedUrls || [],
         use_rag: chatState.useRag,
         multiagentic_modality: userPreferences.multiagentic_modality,
       });

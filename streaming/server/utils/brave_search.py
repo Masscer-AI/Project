@@ -1,6 +1,5 @@
 import os
 import time
-import asyncio
 import requests
 import json
 from requests.utils import quote

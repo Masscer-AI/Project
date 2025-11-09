@@ -407,6 +407,63 @@ textarea {
 .text-secondary {
   color: var(--font-color-secondary);
 }
+.text-success {
+  color: var(--success-color);
+}
+.text-error {
+  color: var(--danger-color);
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background-color: rgba(255, 255, 255, 0.05);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.status-badge.status-success {
+  background-color: var(--success-color-opaque);
+  color: #0c2a1e;
+}
+
+.status-badge.status-error {
+  background-color: rgba(255, 62, 62, 0.2);
+  color: var(--danger-color);
+}
+
+.status-badge.status-pending {
+  background-color: rgba(255, 214, 0, 0.2);
+  color: #ffd600;
+}
+
+.website-fetcher-card {
+  width: 100%;
+  cursor: default;
+}
+
+.website-fetcher-preview {
+  width: 100%;
+  max-height: 200px;
+  overflow: auto;
+  background-color: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 10px;
+  font-family: "Fira Code", Consolas, Monaco, "Courier New", monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.website-fetcher-card .cut-text-to-line {
+  max-width: 100%;
+}
 
 .padding-small {
   padding: 5px !important;
@@ -900,6 +957,15 @@ input:checked + .slider::before {
   background: rgba(68, 68, 68, 0.095);
 }
 
+.spinner-small {
+  border: 2px solid var(--hovered-color);
+  border-top: 2px solid var(--active-color);
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  animation: spin 1s linear infinite;
+}
+
 .loaderText {
   color: var(--active-color);
   font-size: 18px;
@@ -1083,4 +1149,8 @@ input:checked + .slider::before {
   100% {
     opacity: 0.5;
   }
+}
+
+.width-200 {
+  width: 200px;
 }

@@ -7,7 +7,6 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 import requests
 from django.conf import settings
-
 import uuid
 import logging
 from .models import TranscriptionJob, VideoGenerationJob, Video
@@ -27,6 +26,7 @@ from api.utils.black_forest_labs import (
     request_image_edit_with_mask,
     generate_with_control_image,
 )
+from firecrawl import Firecrawl
 from .actions import generate_audio
 
 from .tasks import async_image_to_video
@@ -421,22 +421,14 @@ class ImageVaryView(View):
         )
 
 
-def fetch_url_content(url: str):
+def fetch_url_content(url: str) -> str | None:
     try:
-        res = requests.get(url)
-        res.raise_for_status()  # Raise an error for bad responses
-
-        # Check the Content-Type to determine how to handle the response
-        content_type = res.headers.get("Content-Type", "")
-        if "application/json" in content_type:
-            content = res.json()  # Parse JSON response
-        else:
-            content = res.text  # Fallback to text response
-
-        return content, res.status_code, res.headers, content_type
-    except requests.RequestException as e:
-        # Handle any request errors as appropriate
-        return str(e), 500, {}, ""
+        firecrawl = Firecrawl(api_key=settings.FIRECRAWL_API_KEY)
+        doc = firecrawl.scrape(url, formats=["markdown", "html"])
+        return doc.markdown
+    except Exception as e:
+        logger.error(f"Error fetching URL content: {e}")
+        return None
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -446,19 +438,11 @@ class WebsiteFetcherView(View):
         data = json.loads(request.body)
         url = data.get("url")
 
-        content, status_code, headers, content_type = fetch_url_content(url)
+        content = fetch_url_content(url)
+        if not content:
+            return JsonResponse({"error": "No content found"}, status=400)
 
-        # Convert headers to a normal dict
-        headers_dict = dict(headers)
-
-        return JsonResponse(
-            {
-                "content": content,
-                "status_code": status_code,
-                "headers": headers_dict,
-                "content_type": content_type,
-            }
-        )
+        return JsonResponse({"content": content})
 
 
 @method_decorator(csrf_exempt, name="dispatch")

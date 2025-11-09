@@ -13,6 +13,7 @@ import { generateDocumentBrief, getDocuments } from "../../modules/apiCalls";
 import { SpeechHandler } from "../SpeechHandler/SpeechHandler";
 import { FloatingDropdown } from "../Dropdown/Dropdown";
 import { Modal } from "../Modal/Modal";
+import { WebsiteFetcher } from "../WebsiteFetcher/WebsiteFetcher";
 
 import { TAttachment, TDocument } from "../../types";
 import { SliderInput } from "../SimpleForm/SliderInput";
@@ -196,14 +197,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             title={t("turn-on-off-writing-mode")}
           />
           <RagSearchOptions />
-          <SvgButton
-            extraClass={`pressable active-on-hover rounded ${
-              chatState.webSearch ? "bg-active svg-white" : ""
-            } `}
-            onClick={toggleWebSearch}
-            svg={SVGS.webSearch}
-            title={t("turn-on-off-web-search")}
-          />
+          <WebSearchDropdown />
           <PluginSelector />
           <SpeechHandler onTranscript={handleAudioTranscript} />
           <ConversationConfig />
@@ -569,6 +563,71 @@ const ConversationConfig = () => {
           </div>
         </div>
       </Modal>
+    </>
+  );
+};
+
+const WebSearchDropdown = () => {
+  const { t } = useTranslation();
+  const { toggleWebSearch, chatState } = useStore((state) => ({
+    toggleWebSearch: state.toggleWebSearch,
+    chatState: state.chatState,
+  }));
+  const [isWebsiteFetcherOpen, setIsWebsiteFetcherOpen] = useState(false);
+
+  const hasActiveWebSearch =
+    chatState.webSearch || (chatState.specifiedUrls?.length ?? 0) > 0;
+
+  return (
+    <>
+      <FloatingDropdown
+        bottom="100%"
+        left="50%"
+        transform="translateX(-50%)"
+        opener={
+          <SvgButton
+            extraClass={`pressable active-on-hover rounded ${
+              hasActiveWebSearch ? "bg-active svg-white" : ""
+            }`}
+            onClick={toggleWebSearch}
+            svg={SVGS.webSearch}
+            title={t("turn-on-off-web-search")}
+          />
+        }
+      >
+        <div className="width-200 flex-y gap-small">
+          <SvgButton
+            extraClass={`pressable rounded ${
+              chatState.webSearch ? "bg-active svg-white" : ""
+            }`}
+            onClick={toggleWebSearch}
+            svg={SVGS.webSearch}
+            text={t("auto-search") || "Auto Search"}
+            title={t("turn-on-off-web-search")}
+          />
+          <SvgButton
+            extraClass={`pressable rounded ${
+              (chatState.specifiedUrls?.length ?? 0) > 0
+                ? "bg-active svg-white"
+                : ""
+            }`}
+            onClick={() => setIsWebsiteFetcherOpen(true)}
+            svg={SVGS.webSearch}
+            text={t("fetch-urls") || "Fetch URLs"}
+            title={t("specify-urls-to-fetch") || "Specify URLs to fetch"}
+          />
+          {(chatState.specifiedUrls?.length ?? 0) > 0 && (
+            <p className="text-mini text-secondary">
+              {t("urls-selected") || "URLs selected"}:{" "}
+              {chatState.specifiedUrls.length}
+            </p>
+          )}
+        </div>
+      </FloatingDropdown>
+      <WebsiteFetcher
+        isOpen={isWebsiteFetcherOpen}
+        onClose={() => setIsWebsiteFetcherOpen(false)}
+      />
     </>
   );
 };

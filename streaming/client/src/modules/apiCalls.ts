@@ -588,9 +588,6 @@ export const updateUser = async (data: TUpdateUserData) => {
 
 type TFetchUrlContentResponse = {
   content: string;
-  status_code: number;
-  headers: any;
-  content_type: string;
 };
 
 export const fetchUrlContent = async (url: string) => {

@@ -48,6 +48,7 @@ export const useStore = create<Store>()((set, get) => ({
 
     selectedAgents: [],
     selectedPlugins: [],
+    specifiedUrls: [],
   },
   conversation: undefined,
   openedModals: [],
@@ -406,6 +407,14 @@ export const useStore = create<Store>()((set, get) => ({
       chatState: {
         ...state.chatState,
         selectedPlugins: newSelectedPlugins,
+      },
+    }));
+  },
+  setSpecifiedUrls: (urls: Store["chatState"]["specifiedUrls"]) => {
+    set((state) => ({
+      chatState: {
+        ...state.chatState,
+        specifiedUrls: urls,
       },
     }));
   },

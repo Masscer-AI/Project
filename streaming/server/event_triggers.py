@@ -127,6 +127,9 @@ async def on_message_handler(socket_id, data, **kwargs):
 
     web_results = []
     use_rag = data.get("use_rag", False)
+    specified_urls = data.get("specified_urls", [])
+    
+    # Handle auto-search if enabled
     if web_search_activated:
 
         await sio.emit(
@@ -152,6 +155,54 @@ async def on_message_handler(socket_id, data, **kwargs):
             {"message": "web-explored-successfully"},
             to=socket_id,
         )
+    
+    # Handle specified URLs
+    if specified_urls and len(specified_urls) > 0:
+        provided_results = []
+        urls_to_fetch = []
+
+        for item in specified_urls:
+            if isinstance(item, dict):
+                url = item.get("url")
+                content = item.get("content")
+                if content:
+                    provided_results.append({"url": url, "content": content[:50000]})
+                elif url:
+                    urls_to_fetch.append(url)
+            elif isinstance(item, str):
+                urls_to_fetch.append(item)
+
+        if provided_results:
+            web_results.extend(provided_results)
+            await sio.emit(
+                "generation_status",
+                {"message": "using-provided-url-content"},
+                to=socket_id,
+            )
+
+        if urls_to_fetch:
+            await sio.emit(
+                "generation_status",
+                {"message": "fetching-specified-urls"},
+                to=socket_id,
+            )
+
+            from server.utils.brave_search import fetch_url_content
+
+            for url in urls_to_fetch:
+                try:
+                    result = fetch_url_content(url)
+                    if result:
+                        web_results.append(result)
+                except Exception as e:
+                    logger.error(f"Failed to fetch specified URL {url}: {e}")
+
+            if urls_to_fetch:
+                await sio.emit(
+                    "generation_status",
+                    {"message": "urls-fetched-successfully"},
+                    to=socket_id,
+                )
 
     regenerate = data.get("regenerate", None)
 

@@ -204,3 +204,6 @@ CACHES = {
         "KEY_PREFIX": "chat_cache",
     }
 }
+
+
+FIRECRAWL_API_KEY = os.environ.get("FIRECRAWL_API_KEY", "")

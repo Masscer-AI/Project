@@ -28,6 +28,11 @@ export type TPlugin = {
   descriptionTranslationKey: string;
 };
 
+export type TSpecifiedUrl = {
+  url: string;
+  content: string;
+};
+
 export type Store = {
   socket: any;
   messages: Message[];
@@ -48,6 +53,7 @@ export type Store = {
     useRag: boolean;
     selectedAgents: string[];
     selectedPlugins: TPlugin[];
+    specifiedUrls: TSpecifiedUrl[];
   };
   conversation: TConversation | undefined;
   openedModals: string[];
@@ -83,5 +89,6 @@ export type Store = {
   addAgent: () => void;
   togglePlugin: (plugin: TPlugin) => void;
   updateChatState: (state: Partial<Store["chatState"]>) => void;
+  setSpecifiedUrls: (urls: TSpecifiedUrl[]) => void;
   test: () => void;
 };
