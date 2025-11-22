@@ -3,12 +3,13 @@ from django.utils import timezone
 
 from django.http import JsonResponse
 from django.views import View
-from .models import Conversation, Message, SharedConversation
+from .models import Conversation, Message, SharedConversation, ChatWidget
 from .serializers import (
     ConversationSerializer,
     MessageSerializer,
     BigConversationSerializer,
     SharedConversationSerializer,
+    ChatWidgetConfigSerializer,
 )
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
@@ -256,4 +257,50 @@ class SharedConversationView(View):
 
         return JsonResponse(
             {"status": "created", "id": shared_conversation.id}, status=201
+        )
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class ChatWidgetConfigView(View):
+    def get(self, request, token):
+        try:
+            widget = ChatWidget.objects.get(token=token, enabled=True)
+        except ChatWidget.DoesNotExist:
+            return JsonResponse(
+                {"error": "Widget not found or disabled", "status": 404}, status=404
+            )
+
+        serializer = ChatWidgetConfigSerializer(widget)
+        return JsonResponse(serializer.data, safe=False)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class ChatWidgetAuthTokenView(View):
+    def get(self, request, token):
+        try:
+            widget = ChatWidget.objects.get(token=token, enabled=True)
+        except ChatWidget.DoesNotExist:
+            return JsonResponse(
+                {"error": "Widget not found or disabled", "status": 404}, status=404
+            )
+
+        # Get or create a Token for the widget's owner
+        # Widgets need to authenticate as a user to access agents and other resources
+        from api.authenticate.models import Token
+        
+        if not widget.created_by:
+            return JsonResponse(
+                {"error": "Widget has no owner configured", "status": 400}, status=400
+            )
+
+        # Get or create a token for the widget owner
+        # Use a permanent token type so it doesn't expire
+        auth_token, created = Token.get_or_create(
+            user=widget.created_by,
+            token_type="permanent"
+        )
+
+        return JsonResponse(
+            {"token": auth_token.key, "token_type": "Token"},
+            safe=False,
         )

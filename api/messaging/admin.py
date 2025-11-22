@@ -1,5 +1,7 @@
 from django.contrib import admin
-from .models import Conversation, Message
+from django.utils.html import format_html
+from django.conf import settings
+from .models import Conversation, Message, ChatWidget
 
 
 class ConversationAdmin(admin.ModelAdmin):
@@ -27,5 +29,47 @@ class MessageAdmin(admin.ModelAdmin):
     short_text.short_description = "Message Text"
 
 
+class ChatWidgetAdmin(admin.ModelAdmin):
+    list_display = ("name", "token", "agent", "enabled", "created_by", "created_at")
+    list_filter = ("enabled", "web_search_enabled", "rag_enabled", "created_at", "agent")
+    search_fields = ("name", "token", "agent__name", "agent__slug")
+    readonly_fields = ("token", "widget_script_url", "created_at", "updated_at")
+    fields = (
+        "name",
+        "token",
+        "widget_script_url",
+        "enabled",
+        "agent",
+        "web_search_enabled",
+        "rag_enabled",
+        "plugins_enabled",
+        "created_by",
+        "created_at",
+        "updated_at",
+    )
+
+    def widget_script_url(self, obj):
+        if not obj.token:
+            return "Token will be generated after saving"
+        
+        # Get the base URL from settings or use a default
+        # The widget is served from the streaming server, not the API server
+        base_url = getattr(settings, "STREAMING_SERVER_URL", "http://localhost:8001")
+        script_url = f"{base_url}/widget/{obj.token}.js"
+        script_tag = f'<script src="{script_url}"></script>'
+        
+        return format_html(
+            '<div style="margin: 10px 0;">'
+            '<input type="text" id="widget-script-{0}" value="{1}" readonly style="width: 100%; padding: 5px; font-family: monospace; margin-bottom: 5px;">'
+            '<button type="button" onclick="navigator.clipboard.writeText(document.getElementById(\'widget-script-{0}\').value); alert(\'Copied to clipboard!\');" style="padding: 5px 10px; cursor: pointer;">Copy Script Tag</button>'
+            '</div>',
+            obj.id,
+            script_tag
+        )
+    
+    widget_script_url.short_description = "Widget Script URL"
+
+
 admin.site.register(Conversation, ConversationAdmin)
 admin.site.register(Message, MessageAdmin)
+admin.site.register(ChatWidget, ChatWidgetAdmin)

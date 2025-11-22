@@ -46,5 +46,69 @@ app.mount("/assets", StaticFiles(directory="client/dist/assets"), name="static")
 app.add_route("/socket.io/", route=sio_asgi_app, methods=["GET", "POST"])
 app.add_websocket_route("/socket.io/", route=sio_asgi_app)
 
+# Widget loader route
+from fastapi.responses import Response
+from fastapi import Request
+
+@app.get("/widget/{widget_token}.js")
+async def widget_loader(widget_token: str, request: Request):
+    """
+    Serve the widget loader script with the token embedded.
+    This script will fetch widget config and initialize the widget.
+    """
+    base_url = str(request.base_url).rstrip("/")
+    api_url = os.getenv("API_URL", "http://localhost:8000")
+    streaming_server_url = os.getenv("STREAMING_SERVER_URL", base_url)
+    
+    loader_script = f"""
+(function() {{
+    'use strict';
+    const widgetToken = '{widget_token}';
+    const apiUrl = '{api_url}';
+    const baseUrl = '{base_url}';
+    const streamingUrl = '{streaming_server_url}';
+    
+    // Set streaming URL for widget to use (must be set before loading widget bundle)
+    window.WIDGET_STREAMING_URL = streamingUrl;
+    console.log('Widget streaming URL set to:', streamingUrl);
+    
+    // Fetch widget configuration
+    fetch(apiUrl + '/v1/messaging/widgets/' + widgetToken + '/config/')
+        .then(response => {{
+            if (!response.ok) {{
+                throw new Error('Widget not found or disabled');
+            }}
+            return response.json();
+        }})
+        .then(config => {{
+            // Fetch auth token
+            return fetch(apiUrl + '/v1/messaging/widgets/' + widgetToken + '/auth-token/')
+                .then(response => response.json())
+                .then(authData => {{
+                    return {{ config, authToken: authData.token }};
+                }});
+        }})
+        .then(({{ config, authToken }}) => {{
+            // Load widget bundle
+            const script = document.createElement('script');
+            script.src = baseUrl + '/assets/chat-widget.js';
+            script.onload = function() {{
+                // Initialize widget - pass streaming URL directly
+                if (window.initChatWidget) {{
+                    window.initChatWidget(config, authToken, widgetToken, streamingUrl);
+                }}
+            }};
+            script.onerror = function() {{
+                console.error('Failed to load chat widget bundle');
+            }};
+            document.head.appendChild(script);
+        }})
+        .catch(error => {{
+            console.error('Error loading chat widget:', error);
+        }});
+}})();
+"""
+    return Response(content=loader_script, media_type="application/javascript")
+
 if __name__ == "__main__":
     uvicorn.run("main:app", host="127.0.0.1", port=8001, reload=True)

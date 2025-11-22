@@ -5,6 +5,8 @@ from .views import (
     upload_audio,
     get_suggestion,
     SharedConversationView,
+    ChatWidgetConfigView,
+    ChatWidgetAuthTokenView,
 )
 
 app_name = "messaging"
@@ -29,5 +31,15 @@ urlpatterns = [
         "shared-conversations/<uuid:share_id>/",
         SharedConversationView.as_view(),
         name="shared_conversation_detail",
+    ),
+    path(
+        "widgets/<str:token>/config/",
+        ChatWidgetConfigView.as_view(),
+        name="widget_config",
+    ),
+    path(
+        "widgets/<str:token>/auth-token/",
+        ChatWidgetAuthTokenView.as_view(),
+        name="widget_auth_token",
     ),
 ]

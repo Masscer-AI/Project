@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Message, Conversation
+from .models import Message, Conversation, ChatWidget
 from api.feedback.serializers import ReactionSerializer
 
 
@@ -60,3 +60,26 @@ class SharedConversationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Conversation
         fields = "__all__"
+
+
+class ChatWidgetConfigSerializer(serializers.ModelSerializer):
+    agent_slug = serializers.SerializerMethodField()
+    agent_name = serializers.SerializerMethodField()
+    
+    def get_agent_slug(self, obj):
+        return obj.agent.slug if obj.agent else None
+    
+    def get_agent_name(self, obj):
+        return obj.agent.name if obj.agent else None
+    
+    class Meta:
+        model = ChatWidget
+        fields = (
+            "name",
+            "enabled",
+            "web_search_enabled",
+            "rag_enabled",
+            "plugins_enabled",
+            "agent_slug",
+            "agent_name",
+        )

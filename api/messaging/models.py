@@ -74,3 +74,28 @@ class SharedConversation(models.Model):
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
+
+
+class ChatWidget(models.Model):
+    token = models.CharField(max_length=64, unique=True, db_index=True, blank=True)
+    name = models.CharField(max_length=255)
+    enabled = models.BooleanField(default=True)
+    web_search_enabled = models.BooleanField(default=False)
+    rag_enabled = models.BooleanField(default=False)
+    plugins_enabled = models.JSONField(default=list, blank=True)
+    agent = models.ForeignKey(
+        "ai_layers.Agent", on_delete=models.SET_NULL, null=True, blank=True
+    )
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if not self.token:
+            self.token = uuid.uuid4().hex
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"ChatWidget({self.name})"

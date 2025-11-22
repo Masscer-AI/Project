@@ -120,8 +120,8 @@ if [ "$WATCH" = true ]; then
     info "Running NPM watch-build..."
     npm run watch-build &
 else
-    info "Building client with NPM..."
-    npm run build || { error "NPM build failed"; exit 1; }
+    info "Building client and widget with NPM..."
+    npm run build:all || { error "NPM build failed"; exit 1; }
 fi
 
 # Wait a moment to ensure services are ready

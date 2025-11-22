@@ -19,8 +19,8 @@ RUN cat tsconfig.json
 # Run TypeScript compiler separately to check for errors
 RUN npx tsc --noEmit
 
-# Build the frontend assets
-RUN npm run build
+# Build the frontend assets (app + widget)
+RUN npm run build:all
 
 # Verify that the directory was created
 RUN ls -la client/dist/assets
