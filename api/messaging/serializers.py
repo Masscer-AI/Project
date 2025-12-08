@@ -26,6 +26,7 @@ class MessageSerializer(serializers.ModelSerializer):
 
 class ConversationSerializer(serializers.ModelSerializer):
     number_of_messages = serializers.SerializerMethodField()
+    summary = serializers.SerializerMethodField()
 
     class Meta:
         model = Conversation
@@ -33,6 +34,15 @@ class ConversationSerializer(serializers.ModelSerializer):
 
     def get_number_of_messages(self, obj):
         return obj.messages.count()
+
+    def get_summary(self, obj):
+        """Get a summary of the conversation from the first few messages."""
+        messages = obj.messages.order_by('id')[:5]  # Get first 5 messages
+        if not messages:
+            return ""
+        # Combine message texts for search purposes
+        summary_parts = [f"{msg.type}: {msg.text[:100]}" for msg in messages]
+        return " ".join(summary_parts)
 
 
 
