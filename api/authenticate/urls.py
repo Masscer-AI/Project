@@ -5,6 +5,8 @@ from .views import (
     UserView,
     OrganizationView,
     OrganizationCredentialsView,
+    FeatureFlagCheckView,
+    FeatureFlagListView,
 )
 
 app_name = "authenticate"
@@ -23,5 +25,15 @@ urlpatterns = [
         "organizations/<str:organization_id>/credentials/",
         OrganizationCredentialsView.as_view(),
         name="organization_credentials",
+    ),
+    path(
+        "feature-flags/<str:feature_flag_name>/check",
+        FeatureFlagCheckView.as_view(),
+        name="feature_flag_check",
+    ),
+    path(
+        "feature-flags/",
+        FeatureFlagListView.as_view(),
+        name="feature_flag_list",
     ),
 ]

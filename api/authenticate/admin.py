@@ -7,6 +7,8 @@ from .models import (
     CredentialsManager,
     Organization,
     OrganizationMember,
+    FeatureFlag,
+    FeatureFlagAssignment,
 )
 
 
@@ -97,3 +99,17 @@ class OrganizationMemberAdmin(admin.ModelAdmin):
     list_display = ("organization", "user")
     search_fields = ("organization", "user")
     list_filter = ("organization", "user")
+
+
+@admin.register(FeatureFlag)
+class FeatureFlagAdmin(admin.ModelAdmin):
+    list_display = ("name", "created", "modified")
+    search_fields = ("name",)
+    list_filter = ("created", "modified")
+
+
+@admin.register(FeatureFlagAssignment)
+class FeatureFlagAssignmentAdmin(admin.ModelAdmin):
+    list_display = ("feature_flag", "organization", "user", "enabled", "created", "modified")
+    search_fields = ("feature_flag__name", "organization__name", "user__email", "user__username")
+    list_filter = ("enabled", "created", "modified", "feature_flag")

@@ -699,3 +699,28 @@ export const updateUserVoices = async (data: TVoice[]) => {
   return makeAuthenticatedRequest("PUT", "/v1/preferences/voices/", data);
 };
 
+export type FeatureFlagStatusResponse = {
+  enabled: boolean;
+  feature_flag_name: string;
+};
+
+export type TeamFeatureFlagsResponse = {
+  feature_flags: Record<string, boolean>;
+};
+
+export const checkFeatureFlag = async (
+  featureFlagName: string
+): Promise<FeatureFlagStatusResponse> => {
+  return makeAuthenticatedRequest<FeatureFlagStatusResponse>(
+    "GET",
+    `/v1/auth/feature-flags/${featureFlagName}/check`
+  );
+};
+
+export const getTeamFeatureFlags = async (): Promise<TeamFeatureFlagsResponse> => {
+  return makeAuthenticatedRequest<TeamFeatureFlagsResponse>(
+    "GET",
+    "/v1/auth/feature-flags/"
+  );
+};
+
