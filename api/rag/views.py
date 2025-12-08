@@ -130,7 +130,7 @@ def query_collection(request):
         _context = f"""
         These are the last four messages in the conversation:
         ---
-        {" ".join([f'{m.type}: {m.text}\n' for m in messages])}
+        {" ".join([f'{m.type}: {m.text}' for m in messages])}
         ---
 
         This is the last user message text: {query_text}
@@ -202,7 +202,7 @@ class QueryDocument(View):
         _context = f"""
         These are the last four messages in the conversation:
         ---
-        {" ".join([f'{m.type}: {m.text}\n' for m in messages])}
+        {" ".join([f'{m.type}: {m.text}' for m in messages])}
         ---
 
         This is a summary of the document the user wants to query:
