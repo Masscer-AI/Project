@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Organization, OrganizationMember, CredentialsManager, UserProfile
+from .models import Organization, OrganizationMember, CredentialsManager, UserProfile, FeatureFlag, FeatureFlagAssignment
 from django.core.exceptions import ValidationError
 
 
@@ -105,3 +105,38 @@ class BigOrganizationSerializer(serializers.ModelSerializer):
     def get_credentials(self, obj):
         credentials = CredentialsManager.objects.get(organization=obj)
         return CredentialsManagerSerializer(credentials).data
+
+
+class FeatureFlagSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FeatureFlag
+        fields = ["id", "name", "created", "modified"]
+
+
+class FeatureFlagAssignmentSerializer(serializers.ModelSerializer):
+    feature_flag = FeatureFlagSerializer(read_only=True)
+    feature_flag_id = serializers.PrimaryKeyRelatedField(
+        queryset=FeatureFlag.objects.all(), source="feature_flag", write_only=True, required=False
+    )
+
+    class Meta:
+        model = FeatureFlagAssignment
+        fields = [
+            "id",
+            "organization",
+            "user",
+            "feature_flag",
+            "feature_flag_id",
+            "enabled",
+            "created",
+            "modified",
+        ]
+
+
+class FeatureFlagStatusResponseSerializer(serializers.Serializer):
+    enabled = serializers.BooleanField()
+    feature_flag_name = serializers.CharField()
+
+
+class TeamFeatureFlagsResponseSerializer(serializers.Serializer):
+    feature_flags = serializers.DictField(child=serializers.BooleanField())

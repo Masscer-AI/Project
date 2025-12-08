@@ -12,8 +12,11 @@ from .serializers import (
     OrganizationSerializer,
     CredentialsManagerSerializer,
     BigOrganizationSerializer,
+    FeatureFlagStatusResponseSerializer,
+    TeamFeatureFlagsResponseSerializer,
 )
-from .models import Token, Organization, UserProfile, CredentialsManager
+from .models import Token, Organization, UserProfile, CredentialsManager, OrganizationMember
+from .services import FeatureFlagService
 from rest_framework.permissions import AllowAny
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
@@ -22,6 +25,7 @@ from api.authenticate.decorators.token_required import token_required
 from django.contrib.auth.models import User
 from django.views import View
 from django.core.cache import cache
+from .models import FeatureFlagAssignment
 
 # from api.utils.color_printer import printer
 
@@ -231,3 +235,58 @@ class OrganizationCredentialsView(View):
                 status=status.HTTP_200_OK,
             )
         return JsonResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class FeatureFlagCheckView(View):
+    """Check if a specific feature flag is enabled for the current user."""
+
+    def get(self, request, feature_flag_name):
+        user = request.user
+        enabled = FeatureFlagService.is_feature_enabled(
+            feature_flag_name=feature_flag_name, user=user
+        )
+
+        serializer = FeatureFlagStatusResponseSerializer({
+            "enabled": enabled,
+            "feature_flag_name": feature_flag_name,
+        })
+        return JsonResponse(serializer.data, status=status.HTTP_200_OK)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class FeatureFlagListView(View):
+    """Get all feature flags for the user's organizations."""
+
+    def get(self, request):
+        user = request.user
+        
+        # Get all organizations where user is owner or member
+        owned_orgs = Organization.objects.filter(owner=user)
+        member_orgs = Organization.objects.filter(organizationmember__user=user)
+        user_organizations = (owned_orgs | member_orgs).distinct()
+        
+        # Collect all feature flags from all user's organizations
+        all_flags = {}
+        for org in user_organizations:
+            org_flags = FeatureFlagService.get_organization_feature_flags(org)
+            # Merge flags (user-level flags take priority, but we're only getting org-level here)
+            for flag_name, enabled in org_flags.items():
+                if flag_name not in all_flags:
+                    all_flags[flag_name] = enabled
+                # If already exists, keep the first one (or could use OR logic)
+        
+        # Also check user-level flags
+        user_assignments = FeatureFlagAssignment.objects.filter(
+            user=user, organization__isnull=True
+        ).select_related("feature_flag")
+        
+        for assignment in user_assignments:
+            all_flags[assignment.feature_flag.name] = assignment.enabled
+
+        serializer = TeamFeatureFlagsResponseSerializer({
+            "feature_flags": all_flags,
+        })
+        return JsonResponse(serializer.data, status=status.HTTP_200_OK)

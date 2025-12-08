@@ -5,8 +5,9 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.utils import timezone
 from datetime import datetime, timedelta
-from django.core.exceptions import MultipleObjectsReturned
+from django.core.exceptions import MultipleObjectsReturned, ValidationError
 from django.db.models import Q
+from model_utils.models import TimeStampedModel
 
 
 LOGIN_TOKEN_LIFETIME = timezone.timedelta(days=1)
@@ -277,3 +278,85 @@ class UserProfile(models.Model):
             return ""
         text += "</USER_PROFILE>\n"
         return text
+
+
+class FeatureFlag(TimeStampedModel):
+    name = models.CharField(max_length=255, unique=True)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        verbose_name = "Feature Flag"
+        verbose_name_plural = "Feature Flags"
+
+
+class FeatureFlagAssignment(TimeStampedModel):
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name="feature_flag_assignments",
+        null=True,
+        blank=True,
+        help_text="Organization for organization-level feature flags. Leave blank for user-level flags.",
+    )
+    feature_flag = models.ForeignKey(
+        FeatureFlag, on_delete=models.CASCADE, related_name="assignments"
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="feature_flag_assignments",
+        null=True,
+        blank=True,
+        help_text="User for user-level feature flags. Leave blank for organization-level flags.",
+    )
+    enabled = models.BooleanField(default=False)
+
+    def clean(self):
+        """Validate that either organization or user is set, but not both or neither."""
+        super().clean()
+
+        # Must have exactly one of organization or user
+        if not self.organization_id and not self.user_id:
+            raise ValidationError(
+                "Must specify either an organization (for organization-level flag) or a user (for user-level flag)."
+            )
+
+        if self.organization_id and self.user_id:
+            raise ValidationError(
+                "Cannot specify both organization and user. Choose either organization-level or user-level flag."
+            )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        try:
+            if self.user_id:
+                user_email = self.user.email if self.user else f"User #{self.user_id}"
+                flag_name = self.feature_flag.name
+                return f"{user_email} - {flag_name} ({'enabled' if self.enabled else 'disabled'})"
+
+            org_name = self.organization.name if self.organization_id and self.organization else "Unknown Organization"
+            flag_name = self.feature_flag.name
+            return f"{org_name} - {flag_name} ({'enabled' if self.enabled else 'disabled'})"
+        except:
+            return f"FeatureFlagAssignment #{self.pk or '(new)'}"
+
+    class Meta:
+        verbose_name = "Feature Flag Assignment"
+        verbose_name_plural = "Feature Flag Assignments"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "feature_flag"],
+                condition=models.Q(organization__isnull=False, user__isnull=True),
+                name="unique_organization_feature_flag",
+            ),
+            models.UniqueConstraint(
+                fields=["user", "feature_flag"],
+                condition=models.Q(user__isnull=False, organization__isnull=True),
+                name="unique_user_feature_flag",
+            ),
+        ]

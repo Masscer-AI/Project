@@ -17,10 +17,12 @@ import { Modal } from "../Modal/Modal";
 import toast from "react-hot-toast";
 import { Pill } from "../Pill/Pill";
 import { useTranslation } from "react-i18next";
+import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
 import { QRCodeDisplay } from "../QRGenerator/QRGenerator";
 
 export const Sidebar: React.FC = () => {
   const { t } = useTranslation();
+  const isConversationsDashboardEnabled = useIsFeatureEnabled("conversations-dashboard");
   const {
     toggleSidebar,
     setConversation,
@@ -397,6 +399,16 @@ export const Sidebar: React.FC = () => {
                 extraClass="bg-hovered active-on-hover pressable w-100"
                 svg={SVGS.question}
               />
+
+              {isConversationsDashboardEnabled && (
+                <SvgButton
+                  onClick={() => goTo("/conversations-dashboard")}
+                  text={t("conversations-dashboard")}
+                  size="big"
+                  extraClass="bg-hovered active-on-hover pressable w-100"
+                  svg={SVGS.chat}
+                />
+              )}
 
               {/* <SvgButton
                 text={t("workflows")}
