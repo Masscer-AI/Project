@@ -92,7 +92,7 @@ def query_completions(
     _context = f"""
     These are the last four messages in the conversation:
     ---
-    {" ".join([f'{m["type"]}: {m["text"]}\n' for m in prev_messages])}
+    {" ".join([f'{m["type"]}: {m["text"]}' for m in prev_messages])}
     ---
 
     This is the last user message text: {query_text}
