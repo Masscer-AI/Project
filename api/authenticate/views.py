@@ -25,6 +25,7 @@ from api.authenticate.decorators.token_required import token_required
 from django.contrib.auth.models import User
 from django.views import View
 from django.core.cache import cache
+from .models import FeatureFlagAssignment
 
 # from api.utils.color_printer import printer
 
@@ -278,7 +279,6 @@ class FeatureFlagListView(View):
                 # If already exists, keep the first one (or could use OR logic)
         
         # Also check user-level flags
-        from .models import FeatureFlagAssignment
         user_assignments = FeatureFlagAssignment.objects.filter(
             user=user, organization__isnull=True
         ).select_related("feature_flag")
