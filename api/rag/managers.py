@@ -110,9 +110,6 @@ chroma_client = None
 try:
     chroma_client = ChromaManager()
 except Exception as e:
-    print(e)
-    # start_chroma_server()
-    # time.sleep(3)
-
-    # chroma_client = ChromaManager()
-    raise ChromaNotInitializedException
+    print(f"ChromaDB not available: {e}")
+    # chroma_client will remain None
+    # This allows migrations to run without ChromaDB

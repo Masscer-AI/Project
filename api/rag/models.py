@@ -84,7 +84,11 @@ class Collection(models.Model):
         if not self.slug:
             slug = slugify(self.name)
             self.slug = slug
-            chroma_client.get_or_create_collection(collection_name=slug)
+            if chroma_client:
+                try:
+                    chroma_client.get_or_create_collection(collection_name=slug)
+                except Exception:
+                    pass  # ChromaDB not available, skip
 
         super().save(*args, **kwargs)
 
@@ -134,8 +138,11 @@ class Document(models.Model):
         collection_name = self.collection.slug
         chunks = Chunk.objects.filter(document=self)
         chunks_ids = [str(c.id) for c in chunks]
-        if (len(chunks_ids)) > 0:
-            chroma_client.bulk_delete_chunks(collection_name, chunks_ids)
+        if (len(chunks_ids)) > 0 and chroma_client:
+            try:
+                chroma_client.bulk_delete_chunks(collection_name, chunks_ids)
+            except Exception:
+                pass  # ChromaDB not available, skip
         self.delete()
 
     def generate_brief(self):
@@ -152,20 +159,25 @@ class Chunk(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def save_in_db(self):
+        if not chroma_client:
+            return  # ChromaDB not available, skip
         if self.brief:
             brief = self.brief
         else:
             brief = self.content
-        chroma_client.upsert_chunk(
-            collection_name=self.document.collection.slug,
-            chunk_id=str(self.id) + "-brief",
-            chunk_text=brief,
-            metadata={
-                "content": self.content,
-                "model_id": self.id,
-                "model_name": "chunk",
-                "tags": self.tags,
-                "document_id": f"{self.document.id}",
-                "extra": f"DOCUMENT(name={self.document.name}, id={self.document.id})",
-            },
-        )
+        try:
+            chroma_client.upsert_chunk(
+                collection_name=self.document.collection.slug,
+                chunk_id=str(self.id) + "-brief",
+                chunk_text=brief,
+                metadata={
+                    "content": self.content,
+                    "model_id": self.id,
+                    "model_name": "chunk",
+                    "tags": self.tags,
+                    "document_id": f"{self.document.id}",
+                    "extra": f"DOCUMENT(name={self.document.name}, id={self.document.id})",
+                },
+            )
+        except Exception:
+            pass  # ChromaDB not available, skip

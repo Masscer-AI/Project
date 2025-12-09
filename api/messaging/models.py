@@ -15,6 +15,11 @@ class Conversation(models.Model):
     )
     tags = models.JSONField(default=list, blank=True)
     background_image_src = models.TextField(blank=True, null=True)
+    summary = models.TextField(blank=True, null=True, help_text="Resumen de la conversación generado por la IA")
+    pending_analysis = models.BooleanField(
+        default=False,
+        help_text="Indica si la conversación tiene un análisis pendiente de procesar"
+    )
 
     def __str__(self):
         if self.title:
