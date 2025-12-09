@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Message, Conversation, ChatWidget
+from .models import Message, Conversation, ChatWidget, ConversationAlert, ConversationAlertRule
 from api.feedback.serializers import ReactionSerializer
 
 
@@ -93,3 +93,61 @@ class ChatWidgetConfigSerializer(serializers.ModelSerializer):
             "agent_slug",
             "agent_name",
         )
+
+
+class ConversationAlertRuleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ConversationAlertRule
+        fields = (
+            "id",
+            "name",
+            "trigger",
+            "extractions",
+            "scope",
+            "enabled",
+            "notify_to",
+            "organization",
+            "created_by",
+            "created_at",
+            "updated_at",
+        )
+
+
+class ConversationAlertSerializer(serializers.ModelSerializer):
+    alert_rule = ConversationAlertRuleSerializer(read_only=True)
+    conversation_title = serializers.SerializerMethodField()
+    conversation_id = serializers.SerializerMethodField()
+    resolved_by_username = serializers.SerializerMethodField()
+    dismissed_by_username = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ConversationAlert
+        fields = (
+            "id",
+            "title",
+            "reasoning",
+            "extractions",
+            "status",
+            "conversation",
+            "conversation_title",
+            "conversation_id",
+            "alert_rule",
+            "resolved_by",
+            "resolved_by_username",
+            "dismissed_by",
+            "dismissed_by_username",
+            "created_at",
+            "updated_at",
+        )
+
+    def get_conversation_title(self, obj):
+        return obj.conversation.title or str(obj.conversation.id)
+
+    def get_conversation_id(self, obj):
+        return str(obj.conversation.id)
+
+    def get_resolved_by_username(self, obj):
+        return obj.resolved_by.username if obj.resolved_by else None
+
+    def get_dismissed_by_username(self, obj):
+        return obj.dismissed_by.username if obj.dismissed_by else None

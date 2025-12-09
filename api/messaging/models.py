@@ -1,7 +1,7 @@
 import uuid
 from django.db import models
 from django.contrib.auth.models import User
-from api.authenticate.models import PublishableToken
+from api.authenticate.models import PublishableToken, Organization
 
 
 class Conversation(models.Model):
@@ -99,3 +99,185 @@ class ChatWidget(models.Model):
 
     def __str__(self):
         return f"ChatWidget({self.name})"
+
+
+class ConversationAlertRule(models.Model):
+    """
+    Define los parámetros que deben cumplirse para levantar una alerta,
+    a qué conversaciones o agentes aplica esta regla, y si está activada o no.
+    """
+
+    SCOPE_CHOICES = [
+        ("all_conversations", "All Conversations"),
+        ("selected_agents", "Selected Agents"),
+    ]
+
+    NOTIFY_TO_CHOICES = [
+        ("all_staff", "All Staff"),
+        ("selected_members", "Selected Members"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=50, help_text="Nombre de la regla de alerta")
+    trigger = models.TextField(
+        help_text="Explicación de los parámetros que deben cumplirse para levantar esta alerta"
+    )
+    extractions = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Los datos que la IA debe extraer de la conversación (ej: Nombre, fecha, problema, etc)",
+    )
+    scope = models.CharField(
+        max_length=20,
+        choices=SCOPE_CHOICES,
+        default="all_conversations",
+        help_text="A qué conversaciones o agentes aplica esta regla",
+    )
+    enabled = models.BooleanField(
+        default=True, help_text="Si esta regla está activada o no"
+    )
+    notify_to = models.CharField(
+        max_length=20,
+        choices=NOTIFY_TO_CHOICES,
+        default="all_staff",
+        help_text="A quién notificar cuando se active esta alerta",
+    )
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name="alert_rules",
+        help_text="Organización a la que pertenece esta regla",
+    )
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_alert_rules",
+        help_text="Usuario que creó esta regla",
+    )
+    agents = models.ManyToManyField(
+        "ai_layers.Agent",
+        blank=True,
+        related_name="alert_rules",
+        help_text="Agentes seleccionados (solo aplica si scope='selected_agents')",
+    )
+    selected_members = models.ManyToManyField(
+        User,
+        blank=True,
+        related_name="subscribed_alert_rules",
+        help_text="Miembros seleccionados para notificar (solo aplica si notify_to='selected_members')",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Conversation Alert Rule"
+        verbose_name_plural = "Conversation Alert Rules"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.name} ({self.organization.name})"
+
+
+class ConversationAlert(models.Model):
+    """
+    Define las alertas que han sido detectadas por el sistema.
+    Está relacionado a una conversación y a una regla.
+    """
+
+    STATUS_CHOICES = [
+        ("PENDING", "Pending"),
+        ("NOTIFIED", "Notified"),
+        ("RESOLVED", "Resolved"),
+        ("DISMISSED", "Dismissed"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    title = models.CharField(
+        max_length=50, help_text="Título de la alerta (creado por la IA)"
+    )
+    reasoning = models.TextField(
+        help_text="Explicación de la IA de por qué se levantó esta alerta"
+    )
+    extractions = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Extracción de datos de la IA: JSON que contiene los datos extraídos de la conversación",
+    )
+    status = models.CharField(
+        max_length=10,
+        choices=STATUS_CHOICES,
+        default="PENDING",
+        help_text="Estado de la alerta",
+    )
+    conversation = models.ForeignKey(
+        Conversation,
+        on_delete=models.CASCADE,
+        related_name="alerts",
+        help_text="Conversación que generó esta alerta",
+    )
+    alert_rule = models.ForeignKey(
+        ConversationAlertRule,
+        on_delete=models.CASCADE,
+        related_name="alerts",
+        help_text="Regla que generó esta alerta",
+    )
+    resolved_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="resolved_alerts",
+        help_text="Usuario que resolvió esta alerta",
+    )
+    dismissed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="dismissed_alerts",
+        help_text="Usuario que desechó esta alerta",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Conversation Alert"
+        verbose_name_plural = "Conversation Alerts"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.title} - {self.alert_rule.name} ({self.status})"
+
+
+class AlertSubscription(models.Model):
+    """
+    Suscripciones de usuarios a reglas de alerta.
+    Los usuarios suscritos serán los primeros en enterarse de una alerta.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="alert_subscriptions",
+        help_text="Usuario suscrito a esta alerta",
+    )
+    alert_rule = models.ForeignKey(
+        ConversationAlertRule,
+        on_delete=models.CASCADE,
+        related_name="subscriptions",
+        help_text="Regla de alerta a la que el usuario se está suscribiendo",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Alert Subscription"
+        verbose_name_plural = "Alert Subscriptions"
+        unique_together = [["user", "alert_rule"]]
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.user.username} subscribed to {self.alert_rule.name}"

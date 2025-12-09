@@ -7,6 +7,8 @@ import {
   TDocument,
   TOrganization,
   TOrganizationCredentials,
+  TConversationAlert,
+  TAlertStats,
 } from "../types";
 import { TReactionTemplate, TUserProfile } from "../types/chatTypes";
 import { TAgent } from "../types/agents";
@@ -309,6 +311,34 @@ export const getAllConversations = async () => {
   return makeAuthenticatedRequest<TConversation[]>(
     "GET",
     "/v1/messaging/conversations"
+  );
+};
+
+export const getAlerts = async (status?: "all" | "pending" | "notified" | "resolved" | "dismissed") => {
+  const endpoint = status && status !== "all" 
+    ? `/v1/messaging/alerts?status=${status}`
+    : "/v1/messaging/alerts";
+  return makeAuthenticatedRequest<TConversationAlert[]>(
+    "GET",
+    endpoint
+  );
+};
+
+export const getAlertStats = async () => {
+  return makeAuthenticatedRequest<TAlertStats>(
+    "GET",
+    "/v1/messaging/alerts/stats/"
+  );
+};
+
+export const updateAlertStatus = async (
+  alertId: string,
+  status: "PENDING" | "NOTIFIED" | "RESOLVED" | "DISMISSED"
+) => {
+  return makeAuthenticatedRequest<TConversationAlert>(
+    "PUT",
+    `/v1/messaging/alerts/${alertId}/`,
+    { status }
   );
 };
 

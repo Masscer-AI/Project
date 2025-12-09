@@ -20,6 +20,7 @@ import { sharesLoader } from "./routes/shares/loader.ts";
 import { ErrorPage } from "./routes/error/Page.tsx";
 import { NotificationListener } from "./components/NotificationListener/NotificationListener.tsx";
 import DashboardPage from "./routes/dashboard/page.tsx";
+import AlertsPage from "./routes/dashboard/AlertsPage.tsx";
 
 const router = createBrowserRouter([
   {
@@ -67,6 +68,10 @@ const router = createBrowserRouter([
       {
         path: "/dashboard",
         element: <DashboardPage />,
+      },
+      {
+        path: "/dashboard/alerts",
+        element: <AlertsPage />,
       },
     ],
   },
