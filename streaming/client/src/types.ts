@@ -119,7 +119,6 @@ export interface TConversationAlert {
   reasoning: string;
   extractions: Record<string, any>;
   status: "PENDING" | "NOTIFIED" | "RESOLVED" | "DISMISSED";
-  conversation: string;
   conversation_title: string;
   conversation_id: string;
   alert_rule: TConversationAlertRule;
