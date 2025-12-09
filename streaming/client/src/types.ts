@@ -98,3 +98,42 @@ export type TDocument = {
   chunk_count: number;
   chunk_set: any[];
 };
+
+export interface TConversationAlertRule {
+  id: string;
+  name: string;
+  trigger: string;
+  extractions: Record<string, any>;
+  scope: "all_conversations" | "selected_agents";
+  enabled: boolean;
+  notify_to: "all_staff" | "selected_members";
+  organization: string;
+  created_by: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TConversationAlert {
+  id: string;
+  title: string;
+  reasoning: string;
+  extractions: Record<string, any>;
+  status: "PENDING" | "NOTIFIED" | "RESOLVED" | "DISMISSED";
+  conversation_title: string;
+  conversation_id: string;
+  alert_rule: TConversationAlertRule;
+  resolved_by: number | null;
+  resolved_by_username: string | null;
+  dismissed_by: number | null;
+  dismissed_by_username: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TAlertStats {
+  total: number;
+  pending: number;
+  notified: number;
+  resolved: number;
+  dismissed: number;
+}

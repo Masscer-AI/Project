@@ -3,14 +3,24 @@ from django.utils import timezone
 
 from django.http import JsonResponse
 from django.views import View
-from .models import Conversation, Message, SharedConversation, ChatWidget
+from .models import (
+    Conversation,
+    Message,
+    SharedConversation,
+    ChatWidget,
+    ConversationAlert,
+    ConversationAlertRule,
+)
 from .serializers import (
     ConversationSerializer,
     MessageSerializer,
     BigConversationSerializer,
     SharedConversationSerializer,
     ChatWidgetConfigSerializer,
+    ConversationAlertSerializer,
+    ConversationAlertRuleSerializer,
 )
+from api.authenticate.models import Organization, OrganizationMember
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 import json
@@ -108,7 +118,12 @@ class ConversationView(View):
 @method_decorator(token_required, name="dispatch")
 class MessageView(View):
     def post(self, request, *args, **kwargs):
-        data = json.loads(request.body)
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse(
+                {"message": "Invalid JSON", "status": 400}, status=400
+            )
         conversation_id = data.get("conversation")
 
         if not conversation_id:
@@ -304,3 +319,119 @@ class ChatWidgetAuthTokenView(View):
             {"token": auth_token.key, "token_type": "Token"},
             safe=False,
         )
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class ConversationAlertView(View):
+    def get(self, request, *args, **kwargs):
+        user = request.user
+        alert_id = kwargs.get("id")
+        
+        # Get user's organizations
+        owned_orgs = Organization.objects.filter(owner=user)
+        member_orgs = Organization.objects.filter(organizationmember__user=user)
+        user_organizations = (owned_orgs | member_orgs).distinct()
+        
+        if alert_id:
+            # Get single alert
+            try:
+                alert = ConversationAlert.objects.get(
+                    id=alert_id,
+                    alert_rule__organization__in=user_organizations
+                )
+                serializer = ConversationAlertSerializer(alert)
+                return JsonResponse(serializer.data, safe=False)
+            except ConversationAlert.DoesNotExist:
+                return JsonResponse(
+                    {"message": "Alert not found", "status": 404}, status=404
+                )
+        else:
+            # Get all alerts filtered by status
+            status_filter = request.GET.get("status", "all")
+            
+            # Get alerts from user's organizations
+            alerts = ConversationAlert.objects.filter(
+                alert_rule__organization__in=user_organizations
+            )
+            
+            if status_filter != "all":
+                alerts = alerts.filter(status=status_filter.upper())
+            
+            alerts = alerts.order_by("-created_at")
+            serializer = ConversationAlertSerializer(alerts, many=True)
+            return JsonResponse(serializer.data, safe=False)
+
+    def put(self, request, *args, **kwargs):
+        user = request.user
+        alert_id = kwargs.get("id")
+        data = json.loads(request.body)
+        
+        if not alert_id:
+            return JsonResponse(
+                {"message": "Alert ID is required", "status": 400}, status=400
+            )
+        
+        # Get user's organizations
+        owned_orgs = Organization.objects.filter(owner=user)
+        member_orgs = Organization.objects.filter(organizationmember__user=user)
+        user_organizations = (owned_orgs | member_orgs).distinct()
+        
+        try:
+            alert = ConversationAlert.objects.get(
+                id=alert_id,
+                alert_rule__organization__in=user_organizations
+            )
+        except ConversationAlert.DoesNotExist:
+            return JsonResponse(
+                {"message": "Alert not found", "status": 404}, status=404
+            )
+        
+        # Update status
+        new_status = data.get("status")
+        if new_status:
+            if new_status.upper() not in ["PENDING", "NOTIFIED", "RESOLVED", "DISMISSED"]:
+                return JsonResponse(
+                    {"message": "Invalid status", "status": 400}, status=400
+                )
+            alert.status = new_status.upper()
+            
+            # Set resolved_by or dismissed_by based on status
+            if new_status.upper() == "RESOLVED":
+                alert.resolved_by = user
+                alert.dismissed_by = None
+            elif new_status.upper() == "DISMISSED":
+                alert.dismissed_by = user
+                alert.resolved_by = None
+            
+            alert.save()
+        
+        serializer = ConversationAlertSerializer(alert)
+        return JsonResponse(serializer.data, safe=False)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class ConversationAlertStatsView(View):
+    def get(self, request):
+        user = request.user
+        
+        # Get user's organizations
+        owned_orgs = Organization.objects.filter(owner=user)
+        member_orgs = Organization.objects.filter(organizationmember__user=user)
+        user_organizations = (owned_orgs | member_orgs).distinct()
+        
+        # Get alerts from user's organizations
+        alerts = ConversationAlert.objects.filter(
+            alert_rule__organization__in=user_organizations
+        )
+        
+        stats = {
+            "total": alerts.count(),
+            "pending": alerts.filter(status="PENDING").count(),
+            "notified": alerts.filter(status="NOTIFIED").count(),
+            "resolved": alerts.filter(status="RESOLVED").count(),
+            "dismissed": alerts.filter(status="DISMISSED").count(),
+        }
+        
+        return JsonResponse(stats, safe=False)
