@@ -65,11 +65,11 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({ conversa
 
     // Filtrar por número de mensajes
     if (filters.minMessages) {
-      const min = parseInt(filters.minMessages);
+      const min = parseInt(filters.minMessages, 10);
       filtered = filtered.filter(conv => (conv.number_of_messages || 0) >= min);
     }
     if (filters.maxMessages) {
-      const max = parseInt(filters.maxMessages);
+      const max = parseInt(filters.maxMessages, 10);
       filtered = filtered.filter(conv => (conv.number_of_messages || 0) <= max);
     }
 
