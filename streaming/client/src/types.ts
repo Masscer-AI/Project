@@ -33,6 +33,7 @@ export interface TConversation {
   title: undefined | string;
   created_at: string;
   messages?: TMessage[];
+  summary?: string;
 }
 
 export type TCompletion = {

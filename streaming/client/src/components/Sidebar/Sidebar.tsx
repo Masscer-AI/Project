@@ -402,7 +402,7 @@ export const Sidebar: React.FC = () => {
 
               {isConversationsDashboardEnabled && (
                 <SvgButton
-                  onClick={() => goTo("/conversations-dashboard")}
+                  onClick={() => goTo("/dashboard")}
                   text={t("conversations-dashboard")}
                   size="big"
                   extraClass="bg-hovered active-on-hover pressable w-100"
