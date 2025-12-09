@@ -383,7 +383,6 @@
     "resolved-alerts": "Resolved Alerts",
     "total-alerts": "Total Alerts",
     "back-to-dashboard": "Back to Dashboard",
-    "pending": "Pending",
     "notified": "Notified",
     "resolved": "Resolved",
     "dismissed": "Dismissed",

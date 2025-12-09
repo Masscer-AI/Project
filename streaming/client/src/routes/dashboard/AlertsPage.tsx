@@ -21,8 +21,12 @@ export default function AlertsPage() {
 
   useEffect(() => {
     startup();
+  }, []);
+  
+  useEffect(() => {
     loadAlerts();
   }, [statusFilter]);
+  
 
   const loadAlerts = async () => {
     try {
@@ -70,13 +74,19 @@ export default function AlertsPage() {
               className={`alert-filter-button ${statusFilter === "all" ? "active" : ""}`}
               onClick={() => setStatusFilter("all")}
             >
-              {t("all")} ({alerts.length})
+              {t("all")}
             </button>
             <button
               className={`alert-filter-button ${statusFilter === "pending" ? "active" : ""}`}
               onClick={() => setStatusFilter("pending")}
             >
               {t("pending")}
+            </button>
+            <button
+              className={`alert-filter-button ${statusFilter === "notified" ? "active" : ""}`}
+              onClick={() => setStatusFilter("notified")}
+            >
+              {t("notified")}
             </button>
             <button
               className={`alert-filter-button ${statusFilter === "resolved" ? "active" : ""}`}

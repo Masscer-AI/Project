@@ -118,7 +118,12 @@ class ConversationView(View):
 @method_decorator(token_required, name="dispatch")
 class MessageView(View):
     def post(self, request, *args, **kwargs):
-        data = json.loads(request.body)
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse(
+                {"message": "Invalid JSON", "status": 400}, status=400
+            )
         conversation_id = data.get("conversation")
 
         if not conversation_id:
