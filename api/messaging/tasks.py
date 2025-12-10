@@ -1,10 +1,10 @@
 import logging
 from celery import shared_task
-from django.db.models import Q
 from .actions import generate_conversation_title
 from .models import Conversation, Message
 from api.authenticate.models import Organization, OrganizationMember, FeatureFlag, FeatureFlagAssignment
 from api.authenticate.services import FeatureFlagService
+from django.db import transaction
 
 logger = logging.getLogger(__name__)
 
@@ -79,13 +79,15 @@ def check_pending_conversations():
         logger.info("No users found in organizations with the feature flag enabled")
         return {"processed": 0, "organizations_checked": len(organizations)}
     
-    # Buscar conversaciones pendientes de análisis de estos usuarios
-    pending_conversations = Conversation.objects.filter(
-        user__in=all_users,
-        pending_analysis=True
-    ).select_related('user')
-    
-    conversation_count = pending_conversations.count()
+    # Atomically claim pending conversations to prevent duplicate processing
+    with transaction.atomic():
+        pending_conversations = list(
+            Conversation.objects.select_for_update(skip_locked=True).filter(
+                user__in=all_users,
+                pending_analysis=True
+            ).select_related('user')
+        )
+    conversation_count = len(pending_conversations)
     logger.info(f"Found {conversation_count} conversations pending analysis")
     
     # Orquestar tarea para cada conversación
@@ -123,7 +125,6 @@ def analyze_single_conversation(conversation_uuid: str):
         message_count = Message.objects.filter(conversation=conversation).count()
         
         logger.info(f"Analyzing conversation {conversation_uuid}: {message_count} messages to analyze")
-        print(f"Conversation {conversation_uuid}: {message_count} messages to analyze")
         
         # Setear pending_analysis como False
         conversation.pending_analysis = False

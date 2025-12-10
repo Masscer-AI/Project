@@ -31,10 +31,9 @@ cleanup() {
     if [ ! -z "$BEAT_PID" ]; then
         kill $BEAT_PID 2>/dev/null || true
     fi
-    exit 0
 }
-
-trap cleanup SIGINT SIGTERM EXIT
+trap 'cleanup; exit 0' SIGINT SIGTERM
+trap cleanup EXIT
 
 # Run the Celery worker in background
 echo "Starting Celery worker..."
