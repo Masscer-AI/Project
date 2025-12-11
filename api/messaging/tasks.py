@@ -1,9 +1,12 @@
 import logging
+import json
 from celery import shared_task
 from .actions import generate_conversation_title
 from .models import Conversation, Message
-from api.authenticate.models import Organization, OrganizationMember, FeatureFlag, FeatureFlagAssignment
+from .schemas import ConversationAnalysis
+from api.authenticate.models import Organization, OrganizationMember, FeatureFlag, FeatureFlagAssignment, CredentialsManager
 from api.authenticate.services import FeatureFlagService
+from api.utils.openai_functions import create_structured_completion
 from django.db import transaction
 
 logger = logging.getLogger(__name__)
@@ -108,35 +111,125 @@ def check_pending_conversations():
     }
 
 
+def get_user_organization(user):
+    """
+    Obtiene la organización de un usuario (como owner o member).
+    Retorna la primera organización encontrada.
+    """
+    if not user:
+        return None
+    
+    # Buscar si el usuario es owner de alguna organización
+    owned_org = Organization.objects.filter(owner=user).first()
+    if owned_org:
+        return owned_org
+    
+    # Buscar si el usuario es miembro de alguna organización
+    member_org = OrganizationMember.objects.filter(user=user).select_related('organization').first()
+    if member_org:
+        return member_org.organization
+    
+    return None
+
+
 @shared_task
 def analyze_single_conversation(conversation_uuid: str):
     """
-    Analiza una conversación individual.
+    Analiza una conversación individual usando OpenAI con un schema de Pydantic.
     
     Args:
         conversation_uuid: UUID de la conversación a analizar
         
-    Por ahora solo imprime el número de mensajes y setea pending_analysis como False.
+    El análisis incluye: resumen, temas principales, sentimiento, insights clave y elementos de acción.
     """
     try:
-        conversation = Conversation.objects.get(id=conversation_uuid)
+        conversation = Conversation.objects.select_related('user').get(id=conversation_uuid)
         
         # Contar mensajes
         message_count = Message.objects.filter(conversation=conversation).count()
         
+        if message_count == 0:
+            logger.warning(f"Conversation {conversation_uuid} has no messages, skipping analysis")
+            conversation.pending_analysis = False
+            conversation.save()
+            return {
+                "conversation_uuid": conversation_uuid,
+                "message_count": 0,
+                "status": "skipped",
+                "reason": "No messages"
+            }
+        
         logger.info(f"Analyzing conversation {conversation_uuid}: {message_count} messages to analyze")
         
-        # Setear pending_analysis como False
-        conversation.pending_analysis = False
-        conversation.save()
+        # Obtener la organización del usuario para las credenciales
+        organization = get_user_organization(conversation.user)
         
-        logger.info(f"Conversation {conversation_uuid} analysis completed, pending_analysis set to False")
+        if not organization:
+            logger.warning(f"User {conversation.user} has no organization, using default API key")
+            api_key = None  # Usará la del entorno
+        else:
+            try:
+                credentials = CredentialsManager.objects.get(organization=organization)
+                api_key = credentials.openai_api_key
+                if not api_key:
+                    logger.warning(f"Organization {organization.name} has no OpenAI API key, using default")
+                    api_key = None
+            except CredentialsManager.DoesNotExist:
+                logger.warning(f"Organization {organization.name} has no credentials manager, using default API key")
+                api_key = None
         
-        return {
-            "conversation_uuid": conversation_uuid,
-            "message_count": message_count,
-            "status": "completed"
-        }
+        # Obtener y formatear los mensajes de la conversación
+        messages = Message.objects.filter(conversation=conversation).order_by('created_at')
+        messages_context = "\n".join(
+            [f"{message.type}: {message.text}" for message in messages]
+        )
+        
+        # Crear el prompt del sistema
+        system_prompt = """Eres un analista experto de conversaciones. Analiza la siguiente conversación y proporciona:
+- Un resumen general y conciso de la conversación
+- Los temas principales discutidos
+- El sentimiento general (positive, negative, o neutral)
+- Insights clave o puntos importantes
+- Cualquier elemento de acción, tarea o compromiso mencionado
+
+Sé preciso y objetivo en tu análisis."""
+        
+        # Realizar el análisis usando OpenAI con el schema de Pydantic
+        try:
+            analysis = create_structured_completion(
+                model="gpt-4o",
+                system_prompt=system_prompt,
+                user_prompt=messages_context,
+                response_format=ConversationAnalysis,
+                api_key=api_key,
+            )
+            
+            # Guardar el análisis en el campo summary como JSON
+            analysis_dict = analysis.model_dump()
+            conversation.summary = json.dumps(analysis_dict, ensure_ascii=False, indent=2)
+            conversation.pending_analysis = False
+            conversation.save()
+            
+            logger.info(f"Conversation {conversation_uuid} analysis completed successfully")
+            logger.info(f"Analysis summary: {analysis.summary[:100]}...")
+            
+            return {
+                "conversation_uuid": conversation_uuid,
+                "message_count": message_count,
+                "status": "completed",
+                "analysis": analysis_dict
+            }
+            
+        except Exception as openai_error:
+            logger.error(f"OpenAI API error analyzing conversation {conversation_uuid}: {str(openai_error)}")
+            # Marcar como procesado para evitar reintentos infinitos
+            conversation.pending_analysis = False
+            conversation.save()
+            return {
+                "conversation_uuid": conversation_uuid,
+                "status": "error",
+                "error": f"OpenAI API error: {str(openai_error)}"
+            }
         
     except Conversation.DoesNotExist:
         logger.error(f"Conversation {conversation_uuid} not found")
