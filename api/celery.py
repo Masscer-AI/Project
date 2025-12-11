@@ -15,6 +15,9 @@ app.config_from_object("django.conf:settings", namespace="CELERY")
 # Load task modules from all registered Django app configs.
 app.autodiscover_tasks()
 
+# Explicitly import api.tasks to register tasks in the api module
+import api.tasks
+
 # @app.task(bind=True)
 # def debug_task(self):
 #     print(f'Request: {self.request!r}')

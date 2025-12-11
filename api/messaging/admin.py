@@ -12,10 +12,23 @@ from .models import (
 
 
 class ConversationAdmin(admin.ModelAdmin):
-    list_display = ("id", "user", "title", "created_at", "updated_at")
-    list_filter = ("user", "created_at", "updated_at")
+    list_display = ("id", "user", "title", "pending_analysis", "created_at", "updated_at")
+    list_filter = ("user", "pending_analysis", "created_at", "updated_at")
     search_fields = ("title", "user__username")
     ordering = ("-created_at",)
+    fields = (
+        "id",
+        "user",
+        "title",
+        "summary",
+        "pending_analysis",
+        "tags",
+        "background_image_src",
+        "public_token",
+        "created_at",
+        "updated_at",
+    )
+    readonly_fields = ("id", "created_at", "updated_at")
 
 
 class MessageAdmin(admin.ModelAdmin):

@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "corsheaders",
+    "django_celery_beat",
     "api.authenticate",
     "api.providers",
     "api.ai_layers",
@@ -185,6 +186,9 @@ CELERY_TIMEZONE = "UTC"
 
 CELERY_RESULT_EXPIRES = 3600
 
+# Celery Beat Configuration
+CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
+
 
 MEDIA_ROOT = os.environ.get("MEDIA_ROOT", os.path.join(BASE_DIR, "media"))
 MEDIA_URL = "/media/"
@@ -207,3 +211,5 @@ CACHES = {
 
 
 FIRECRAWL_API_KEY = os.environ.get("FIRECRAWL_API_KEY", "")
+
+CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
