@@ -186,6 +186,9 @@ CELERY_TIMEZONE = "UTC"
 
 CELERY_RESULT_EXPIRES = 3600
 
+# Celery Beat Configuration
+CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
+
 
 MEDIA_ROOT = os.environ.get("MEDIA_ROOT", os.path.join(BASE_DIR, "media"))
 MEDIA_URL = "/media/"

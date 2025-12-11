@@ -13,6 +13,7 @@ billiard==4.2.0
 build==1.2.2
 cachetools==5.5.0
 celery==5.4.0
+django-celery-beat==2.8.1
 certifi==2024.8.30
 cffi==1.17.1
 chardet==5.2.0
