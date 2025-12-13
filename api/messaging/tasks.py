@@ -4,7 +4,7 @@ from celery import shared_task
 from .actions import generate_conversation_title
 from .models import Conversation, Message
 from .schemas import ConversationAnalysis
-from api.authenticate.models import Organization, OrganizationMember, FeatureFlag, FeatureFlagAssignment, CredentialsManager
+from api.authenticate.models import Organization, FeatureFlag, FeatureFlagAssignment, CredentialsManager
 from api.authenticate.services import FeatureFlagService
 from api.utils.openai_functions import create_structured_completion
 from django.db import transaction
@@ -65,15 +65,17 @@ def check_pending_conversations():
     logger.info(f"Found {len(organizations)} organizations with '{feature_flag_name}' enabled")
     
     # Obtener todos los usuarios de estas organizaciones
+    from django.contrib.auth.models import User
+    
     # Usuarios que son owners
     owner_users = Organization.objects.filter(
         id__in=[org.id for org in organizations]
     ).values_list('owner', flat=True)
     
-    # Usuarios que son miembros
-    member_users = OrganizationMember.objects.filter(
-        organization__in=organizations
-    ).values_list('user', flat=True)
+    # Usuarios que son miembros (ahora a través de UserProfile.organization)
+    member_users = User.objects.filter(
+        profile__organization__in=organizations
+    ).values_list('id', flat=True)
     
     # Combinar y obtener usuarios únicos
     all_users = set(list(owner_users) + list(member_users))
@@ -124,10 +126,9 @@ def get_user_organization(user):
     if owned_org:
         return owned_org
     
-    # Buscar si el usuario es miembro de alguna organización
-    member_org = OrganizationMember.objects.filter(user=user).select_related('organization').first()
-    if member_org:
-        return member_org.organization
+    # Buscar si el usuario tiene una organización en su perfil
+    if hasattr(user, 'profile') and user.profile.organization:
+        return user.profile.organization
     
     return None
 

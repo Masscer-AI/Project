@@ -2,7 +2,7 @@ import logging
 from django.db import transaction
 from django.db.models import Q
 
-from .models import FeatureFlag, FeatureFlagAssignment, Organization, OrganizationMember
+from .models import FeatureFlag, FeatureFlagAssignment, Organization
 
 logger = logging.getLogger(__name__)
 
@@ -51,9 +51,10 @@ class FeatureFlagService:
         if not organization_to_check and user:
             # Get organizations where user is owner or member
             owned_orgs = Organization.objects.filter(owner=user)
-            member_orgs = Organization.objects.filter(
-                organizationmember__user=user
-            )
+            # Get organization from user profile
+            member_orgs = Organization.objects.none()
+            if hasattr(user, 'profile') and user.profile.organization:
+                member_orgs = Organization.objects.filter(id=user.profile.organization.id)
             # Combine and get first one (or check all)
             user_organizations = (owned_orgs | member_orgs).distinct()
             

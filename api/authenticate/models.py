@@ -214,14 +214,6 @@ class Organization(models.Model):
         return self.name
 
 
-class OrganizationMember(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-
 class CredentialsManager(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
@@ -249,6 +241,14 @@ class UserProfile(models.Model):
     sex = models.CharField(max_length=255, null=True, blank=True, default="")
     age = models.IntegerField(null=True, blank=True, default=0)
     birthday = models.DateField(null=True, blank=True, default=None)
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='members',
+        help_text="Organización a la que pertenece el usuario"
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

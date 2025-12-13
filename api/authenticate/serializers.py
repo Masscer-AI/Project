@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Organization, OrganizationMember, CredentialsManager, UserProfile, FeatureFlag, FeatureFlagAssignment
+from .models import Organization, CredentialsManager, UserProfile, FeatureFlag, FeatureFlagAssignment
 from django.core.exceptions import ValidationError
 
 
@@ -43,6 +43,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "age",
             "birthday",
             "name",
+            "organization",
             "created_at",
             "updated_at",
         ]
@@ -60,13 +61,6 @@ class OrganizationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Organization
         fields = ["id", "name", "description", "owner", "created_at", "updated_at"]
-
-
-class OrganizationMemberSerializer(serializers.ModelSerializer):
-
-    class Meta:
-        model = OrganizationMember
-        fields = ["id", "organization", "user", "created_at", "updated_at"]
 
 
 class CredentialsManagerSerializer(serializers.ModelSerializer):
