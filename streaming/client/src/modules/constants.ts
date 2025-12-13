@@ -9,3 +9,7 @@ export const STREAMING_BACKEND_URL =
 export const PUBLIC_TOKEN =
   // @ts-ignore
   import.meta.env.VITE_PUBLIC_TOKEN || "39ece367b84b4bd19622692cc70361f2";
+
+export const DEFAULT_ORGANIZATION_ID =
+  // @ts-ignore
+  import.meta.env.VITE_DEFAULT_ORGANIZATION_ID || null;

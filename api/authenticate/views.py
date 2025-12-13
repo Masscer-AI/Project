@@ -35,9 +35,28 @@ class SignupAPIView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
-        return Response(
-            {"message": "User created successfully"}, status=status.HTTP_201_CREATED
-        )
+        org_id = request.query_params.get('orgId')
+        if not org_id:
+            return Response(
+                {"error": "orgId query parameter is required"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            organization = Organization.objects.get(id=org_id)
+        except Organization.DoesNotExist:
+            return Response(
+                {"error": "Organization not found"}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except ValueError:
+            return Response(
+                {"error": "Invalid organization ID format"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        serializer = OrganizationSerializer(organization)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request):
         serializer = SignupSerializer(data=request.data)
