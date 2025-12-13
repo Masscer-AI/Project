@@ -15,7 +15,7 @@ from .serializers import (
     FeatureFlagStatusResponseSerializer,
     TeamFeatureFlagsResponseSerializer,
 )
-from .models import Token, Organization, UserProfile, CredentialsManager, OrganizationMember
+from .models import Token, Organization, UserProfile, CredentialsManager
 from .services import FeatureFlagService
 from rest_framework.permissions import AllowAny
 from django.views.decorators.csrf import csrf_exempt
@@ -265,7 +265,10 @@ class FeatureFlagListView(View):
         
         # Get all organizations where user is owner or member
         owned_orgs = Organization.objects.filter(owner=user)
-        member_orgs = Organization.objects.filter(organizationmember__user=user)
+        # Get organization from user profile
+        member_orgs = Organization.objects.none()
+        if hasattr(user, 'profile') and user.profile.organization:
+            member_orgs = Organization.objects.filter(id=user.profile.organization.id)
         user_organizations = (owned_orgs | member_orgs).distinct()
         
         # Collect all feature flags from all user's organizations

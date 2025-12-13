@@ -6,7 +6,6 @@ from .models import (
     PublishableToken,
     CredentialsManager,
     Organization,
-    OrganizationMember,
     FeatureFlag,
     FeatureFlagAssignment,
 )
@@ -92,13 +91,6 @@ class OrganizationAdmin(admin.ModelAdmin):
     list_display = ("name", "description", "owner")
     search_fields = ("name", "description", "owner")
     list_filter = ("name", "description", "owner")
-
-
-@admin.register(OrganizationMember)
-class OrganizationMemberAdmin(admin.ModelAdmin):
-    list_display = ("organization", "user")
-    search_fields = ("organization", "user")
-    list_filter = ("organization", "user")
 
 
 @admin.register(FeatureFlag)

@@ -20,7 +20,7 @@ from .serializers import (
     ConversationAlertSerializer,
     ConversationAlertRuleSerializer,
 )
-from api.authenticate.models import Organization, OrganizationMember
+from api.authenticate.models import Organization
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 import json
@@ -324,14 +324,19 @@ class ChatWidgetAuthTokenView(View):
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class ConversationAlertView(View):
+    def _get_user_organizations(self, user):
+        """Get all organizations where user is owner or member."""
+        owned_orgs = Organization.objects.filter(owner=user)
+        member_orgs = Organization.objects.none()
+        if hasattr(user, 'profile') and user.profile.organization:
+            member_orgs = Organization.objects.filter(id=user.profile.organization.id)
+        return (owned_orgs | member_orgs).distinct()
+    
     def get(self, request, *args, **kwargs):
         user = request.user
         alert_id = kwargs.get("id")
         
-        # Get user's organizations
-        owned_orgs = Organization.objects.filter(owner=user)
-        member_orgs = Organization.objects.filter(organizationmember__user=user)
-        user_organizations = (owned_orgs | member_orgs).distinct()
+        user_organizations = self._get_user_organizations(user)
         
         if alert_id:
             # Get single alert
@@ -372,10 +377,7 @@ class ConversationAlertView(View):
                 {"message": "Alert ID is required", "status": 400}, status=400
             )
         
-        # Get user's organizations
-        owned_orgs = Organization.objects.filter(owner=user)
-        member_orgs = Organization.objects.filter(organizationmember__user=user)
-        user_organizations = (owned_orgs | member_orgs).distinct()
+        user_organizations = self._get_user_organizations(user)
         
         try:
             alert = ConversationAlert.objects.get(
@@ -418,7 +420,10 @@ class ConversationAlertStatsView(View):
         
         # Get user's organizations
         owned_orgs = Organization.objects.filter(owner=user)
-        member_orgs = Organization.objects.filter(organizationmember__user=user)
+        # Get organization from user profile
+        member_orgs = Organization.objects.none()
+        if hasattr(user, 'profile') and user.profile.organization:
+            member_orgs = Organization.objects.filter(id=user.profile.organization.id)
         user_organizations = (owned_orgs | member_orgs).distinct()
         
         # Get alerts from user's organizations
