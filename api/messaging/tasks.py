@@ -2,8 +2,8 @@ import logging
 import json
 from celery import shared_task
 from .actions import generate_conversation_title
-from .models import Conversation, Message
-from .schemas import ConversationAnalysis
+from .models import Conversation, Message, ConversationAlertRule, ConversationAlert
+from .schemas import ConversationAnalysisResult
 from api.authenticate.models import Organization, OrganizationMember, FeatureFlag, FeatureFlagAssignment, CredentialsManager
 from api.authenticate.services import FeatureFlagService
 from api.utils.openai_functions import create_structured_completion
@@ -135,12 +135,17 @@ def get_user_organization(user):
 @shared_task
 def analyze_single_conversation(conversation_uuid: str):
     """
-    Analiza una conversación individual usando OpenAI con un schema de Pydantic.
+    Analiza una conversación individual para determinar si rompe alguna regla y levanta alertas.
     
     Args:
         conversation_uuid: UUID de la conversación a analizar
         
-    El análisis incluye: resumen, temas principales, sentimiento, insights clave y elementos de acción.
+    La tarea:
+    - Obtiene las alert rules activas de la organización
+    - Verifica alertas previamente levantadas para evitar duplicados
+    - Usa OpenAI para analizar si la conversación debe levantar alertas
+    - Guarda las alertas levantadas en la base de datos
+    - Marca la conversación como analizada
     """
     try:
         conversation = Conversation.objects.select_related('user').get(id=conversation_uuid)
@@ -161,22 +166,58 @@ def analyze_single_conversation(conversation_uuid: str):
         
         logger.info(f"Analyzing conversation {conversation_uuid}: {message_count} messages to analyze")
         
-        # Obtener la organización del usuario para las credenciales
+        # Obtener la organización del usuario
         organization = get_user_organization(conversation.user)
         
         if not organization:
-            logger.warning(f"User {conversation.user} has no organization, using default API key")
-            api_key = None  # Usará la del entorno
-        else:
-            try:
-                credentials = CredentialsManager.objects.get(organization=organization)
-                api_key = credentials.openai_api_key
-                if not api_key:
-                    logger.warning(f"Organization {organization.name} has no OpenAI API key, using default")
-                    api_key = None
-            except CredentialsManager.DoesNotExist:
-                logger.warning(f"Organization {organization.name} has no credentials manager, using default API key")
+            logger.warning(f"User {conversation.user} has no organization, skipping analysis")
+            conversation.pending_analysis = False
+            conversation.save()
+            return {
+                "conversation_uuid": conversation_uuid,
+                "status": "skipped",
+                "reason": "No organization"
+            }
+        
+        # Obtener credenciales de OpenAI
+        api_key = None
+        try:
+            credentials = CredentialsManager.objects.get(organization=organization)
+            api_key = credentials.openai_api_key
+            if not api_key:
+                logger.warning(f"Organization {organization.name} has no OpenAI API key, using default")
                 api_key = None
+        except CredentialsManager.DoesNotExist:
+            logger.warning(f"Organization {organization.name} has no credentials manager, using default API key")
+            api_key = None
+        
+        # Obtener alert rules activas y habilitadas de la organización
+        alert_rules = ConversationAlertRule.objects.filter(
+            organization=organization,
+            enabled=True
+        ).values('id', 'name', 'trigger', 'extractions')
+        
+        if not alert_rules.exists():
+            logger.info(f"No active alert rules found for organization {organization.name}, marking conversation as analyzed")
+            conversation.pending_analysis = False
+            conversation.save()
+            return {
+                "conversation_uuid": conversation_uuid,
+                "status": "completed",
+                "alerts_raised": 0,
+                "reason": "No alert rules configured"
+            }
+        
+        alert_rules_list = list(alert_rules)
+        logger.info(f"Found {len(alert_rules_list)} active alert rules for organization {organization.name}")
+        
+        # Obtener alertas previamente levantadas para esta conversación (para evitar duplicados)
+        existing_alerts = ConversationAlert.objects.filter(
+            conversation=conversation
+        ).values('alert_rule_id', 'status')
+        
+        existing_alert_rule_ids = {str(alert['alert_rule_id']) for alert in existing_alerts}
+        logger.info(f"Found {len(existing_alert_rule_ids)} existing alerts for conversation {conversation_uuid}")
         
         # Obtener y formatear los mensajes de la conversación
         messages = Message.objects.filter(conversation=conversation).order_by('created_at')
@@ -184,15 +225,47 @@ def analyze_single_conversation(conversation_uuid: str):
             [f"{message.type}: {message.text}" for message in messages]
         )
         
+        # Formatear información de alert rules para el prompt
+        alert_rules_info = []
+        for rule in alert_rules_list:
+            rule_info = {
+                "id": str(rule['id']),
+                "name": rule['name'],
+                "trigger": rule['trigger'],
+                "extractions": rule['extractions'] or {}
+            }
+            alert_rules_info.append(rule_info)
+        
+        # Formatear información de alertas existentes
+        existing_alerts_info = []
+        for alert in existing_alerts:
+            existing_alerts_info.append({
+                "alert_rule_id": str(alert['alert_rule_id']),
+                "status": alert['status']
+            })
+        
         # Crear el prompt del sistema
-        system_prompt = """Eres un analista experto de conversaciones. Analiza la siguiente conversación y proporciona:
-- Un resumen general y conciso de la conversación
-- Los temas principales discutidos
-- El sentimiento general (positive, negative, o neutral)
-- Insights clave o puntos importantes
-- Cualquier elemento de acción, tarea o compromiso mencionado
+        alert_rules_json = json.dumps(alert_rules_info, ensure_ascii=False, indent=2)
+        existing_alerts_json = json.dumps(existing_alerts_info, ensure_ascii=False, indent=2)
+        
+        system_prompt = f"""Eres un analista experto de conversaciones. Tu tarea es analizar la conversación y determinar si debe levantarse alguna alerta según las reglas proporcionadas.
 
-Sé preciso y objetivo en tu análisis."""
+REGLAS DE ALERTA DISPONIBLES:
+{alert_rules_json}
+
+ALERTAS YA LEVANTADAS (NO debes levantar alertas duplicadas para las mismas reglas):
+{existing_alerts_json}
+
+INSTRUCCIONES:
+1. Analiza cuidadosamente la conversación
+2. Evalúa si la conversación cumple con los requerimientos (trigger) de alguna de las reglas de alerta
+3. NO levantes alertas para reglas que ya están en las alertas existentes (a menos que sea necesario por alguna razón especial)
+4. Para cada alerta que levantes, proporciona:
+   - El ID de la regla correspondiente
+   - Los datos extraídos según lo especificado en el campo "extractions" de la regla
+5. En el campo "reasoning", explica claramente por qué se levanta o no cada alerta
+
+IMPORTANTE: Solo levanta alertas si la conversación realmente cumple con los requerimientos especificados en el campo "trigger" de cada regla."""
         
         # Realizar el análisis usando OpenAI con el schema de Pydantic
         try:
@@ -200,24 +273,77 @@ Sé preciso y objetivo en tu análisis."""
                 model="gpt-4o",
                 system_prompt=system_prompt,
                 user_prompt=messages_context,
-                response_format=ConversationAnalysis,
+                response_format=ConversationAnalysisResult,
                 api_key=api_key,
             )
             
-            # Guardar el análisis en el campo summary como JSON
-            analysis_dict = analysis.model_dump()
-            conversation.summary = json.dumps(analysis_dict, ensure_ascii=False, indent=2)
-            conversation.pending_analysis = False
-            conversation.save()
+            logger.info(f"Analysis completed for conversation {conversation_uuid}")
+            logger.info(f"Reasoning: {analysis.reasoning[:200]}...")
+            logger.info(f"Alerts to raise: {len(analysis.alerts)}")
             
-            logger.info(f"Conversation {conversation_uuid} analysis completed successfully")
-            logger.info(f"Analysis summary: {analysis.summary[:100]}...")
+            # Procesar y guardar las alertas levantadas
+            alerts_raised = 0
+            with transaction.atomic():
+                for alert_data in analysis.alerts:
+                    try:
+                        # Verificar que la alert rule existe y está activa
+                        alert_rule = ConversationAlertRule.objects.get(
+                            id=alert_data.id,
+                            organization=organization,
+                            enabled=True
+                        )
+                        
+                        # Verificar si ya existe una alerta para esta regla y conversación (evitar duplicados)
+                        existing_alert = ConversationAlert.objects.filter(
+                            conversation=conversation,
+                            alert_rule=alert_rule
+                        ).first()
+                        
+                        if existing_alert:
+                            logger.info(f"Alert already exists for rule {alert_data.id} in conversation {conversation_uuid}, skipping")
+                            continue
+                        
+                        # Crear la alerta
+                        # Generar un título basado en el nombre de la regla y algún dato extraído
+                        title = alert_rule.name
+                        extractions = alert_data.extractions or {}
+                        if extractions:
+                            # Intentar crear un título más descriptivo con los datos extraídos
+                            first_key = list(extractions.keys())[0] if extractions else None
+                            if first_key:
+                                title = f"{alert_rule.name} - {str(extractions.get(first_key, ''))[:30]}"
+                        
+                        ConversationAlert.objects.create(
+                            title=title[:50],  # El campo tiene max_length=50
+                            reasoning=analysis.reasoning,
+                            extractions=extractions,
+                            conversation=conversation,
+                            alert_rule=alert_rule,
+                            status="PENDING"
+                        )
+                        
+                        alerts_raised += 1
+                        logger.info(f"Alert raised for rule {alert_rule.name} (ID: {alert_data.id}) in conversation {conversation_uuid}")
+                        
+                    except ConversationAlertRule.DoesNotExist:
+                        logger.warning(f"Alert rule {alert_data.id} not found or not enabled, skipping")
+                        continue
+                    except Exception as alert_error:
+                        logger.error(f"Error creating alert for rule {alert_data.id}: {str(alert_error)}")
+                        continue
+                
+                # Marcar la conversación como analizada
+                conversation.pending_analysis = False
+                conversation.save()
+            
+            logger.info(f"Conversation {conversation_uuid} analysis completed: {alerts_raised} alerts raised")
             
             return {
                 "conversation_uuid": conversation_uuid,
                 "message_count": message_count,
                 "status": "completed",
-                "analysis": analysis_dict
+                "alerts_raised": alerts_raised,
+                "reasoning": analysis.reasoning
             }
             
         except Exception as openai_error:
@@ -240,6 +366,13 @@ Sé preciso y objetivo en tu análisis."""
         }
     except Exception as e:
         logger.error(f"Error analyzing conversation {conversation_uuid}: {str(e)}")
+        # Intentar marcar como procesado para evitar reintentos infinitos
+        try:
+            conversation = Conversation.objects.get(id=conversation_uuid)
+            conversation.pending_analysis = False
+            conversation.save()
+        except:
+            pass
         return {
             "conversation_uuid": conversation_uuid,
             "status": "error",
