@@ -11,20 +11,25 @@ def migrate_organization_members(apps, schema_editor):
     OrganizationMember = apps.get_model('authenticate', 'OrganizationMember')
     UserProfile = apps.get_model('authenticate', 'UserProfile')
     
-    # Get all unique users from OrganizationMember
+    errors = []
+    last_user_id = None
+    
     for member in OrganizationMember.objects.select_related('user', 'organization').order_by('user_id', 'created_at'):
+        # Skip subsequent memberships for the same user (we only assign the first org)
+        if member.user_id == last_user_id:
+            continue
+        last_user_id = member.user_id
+        
         try:
-            # Get or create UserProfile for this user
-            profile, created = UserProfile.objects.get_or_create(user=member.user)
-            
-            # If the profile doesn't have an organization yet, assign it
-            # (This handles the case where a user has multiple organizations - we take the first one)
+            profile, _created = UserProfile.objects.get_or_create(user=member.user)
             if not profile.organization:
                 profile.organization = member.organization
-                profile.save()
+                profile.save(update_fields=['organization'])
         except Exception as e:
-            # Log error but continue migration
-            print(f"Error migrating organization member for user {member.user_id}: {e}")
+            errors.append(f"Error migrating organization member for user {member.user_id}: {e}")
+    
+    if errors:
+        raise RuntimeError(f"Migration failed with {len(errors)} errors:\n" + "\n".join(errors))
 
 
 def reverse_migration(apps, schema_editor):
@@ -34,12 +39,19 @@ def reverse_migration(apps, schema_editor):
     OrganizationMember = apps.get_model('authenticate', 'OrganizationMember')
     UserProfile = apps.get_model('authenticate', 'UserProfile')
     
-    # Create OrganizationMember for each UserProfile with an organization
+    errors = []
+    
     for profile in UserProfile.objects.filter(organization__isnull=False).select_related('user', 'organization'):
-        OrganizationMember.objects.get_or_create(
-            user=profile.user,
-            organization=profile.organization
-        )
+        try:
+            OrganizationMember.objects.get_or_create(
+                user=profile.user,
+                organization=profile.organization
+            )
+        except Exception as e:
+            errors.append(f"Error creating OrganizationMember for user {profile.user_id}: {e}")
+    
+    if errors:
+        raise RuntimeError(f"Reverse migration failed with {len(errors)} errors:\n" + "\n".join(errors))
 
 
 class Migration(migrations.Migration):

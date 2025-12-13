@@ -243,7 +243,7 @@ class UserProfile(models.Model):
     birthday = models.DateField(null=True, blank=True, default=None)
     organization = models.ForeignKey(
         Organization,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name='members',
