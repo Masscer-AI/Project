@@ -371,8 +371,8 @@ IMPORTANTE: Solo levanta alertas si la conversación realmente cumple con los re
             conversation = Conversation.objects.get(id=conversation_uuid)
             conversation.pending_analysis = False
             conversation.save()
-        except:
-            pass
+        except Exception as cleanup_error:
+            logger.warning(f"Failed to mark conversation {conversation_uuid} as processed: {cleanup_error}")
         return {
             "conversation_uuid": conversation_uuid,
             "status": "error",
