@@ -1,24 +1,27 @@
 from pydantic import BaseModel, Field
+from typing import Dict, Any, Optional
 
 
-class ConversationAnalysis(BaseModel):
-    """Schema para el análisis de una conversación usando OpenAI."""
+class Alert(BaseModel):
+    """Schema para una alerta levantada por la IA."""
     
-    summary: str = Field(
-        description="Resumen general y conciso de la conversación"
+    id: str = Field(
+        description="ID (UUID) de la alert rule que se levanta"
     )
-    main_topics: list[str] = Field(
-        description="Lista de los temas principales discutidos en la conversación"
+    extractions: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Datos extraídos de la conversación según los requerimientos de la alert rule"
     )
-    sentiment: str = Field(
-        description="Sentimiento general de la conversación: 'positive', 'negative', o 'neutral'"
+
+
+class ConversationAnalysisResult(BaseModel):
+    """Schema para el resultado del análisis de una conversación con detección de alertas."""
+    
+    reasoning: str = Field(
+        description="Explicación de por qué la conversación levanta o no una o varias alertas"
     )
-    key_insights: list[str] = Field(
-        default=[],
-        description="Insights clave o puntos importantes extraídos de la conversación"
-    )
-    action_items: list[str] = Field(
-        default=[],
-        description="Elementos de acción, tareas o compromisos mencionados en la conversación"
+    alerts: list[Alert] = Field(
+        default_factory=list,
+        description="Lista de alertas que se deben levantar para esta conversación"
     )
 
