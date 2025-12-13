@@ -115,11 +115,6 @@ export default function Login() {
               text={!isLoading ? t("login") : t("loading")}
               extraClass="w-100 padding-medium button bg-active pressable"
             />
-            <SvgButton
-              extraClass="w-100 padding-medium button pressable"
-              text={t("go-to-signup")}
-              onClick={() => navigate("/signup")}
-            />
           </div>
         </form>
       </SimpleForm>

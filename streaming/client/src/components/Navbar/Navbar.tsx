@@ -1,8 +1,19 @@
 import React from "react";
 // import "./Navbar.css";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { DEFAULT_ORGANIZATION_ID } from "../../modules/constants";
 
 export const Navbar = () => {
+  const navigate = useNavigate();
+
+  const handleSignupClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const signupUrl = DEFAULT_ORGANIZATION_ID
+      ? `/signup?orgId=${DEFAULT_ORGANIZATION_ID}`
+      : "/signup";
+    navigate(signupUrl);
+  };
+
   return (
     <nav
       className="d-flex justify-between bg-hovered"
@@ -12,12 +23,14 @@ export const Navbar = () => {
         <img src="assets/masscer.jpg" />
       </section>
       <section className="d-flex align-center gap-small">
-        <Link
+        <a
           className="highlighted button bg-success text-black"
-          to={"/signup"}
+          href="#"
+          onClick={handleSignupClick}
+          style={{ textDecoration: "none", cursor: "pointer" }}
         >
           Signup
-        </Link>
+        </a>
         <Link className="button" to={"/login"}>
           Login
         </Link>

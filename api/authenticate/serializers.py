@@ -7,22 +7,39 @@ from django.core.exceptions import ValidationError
 class SignupSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
     email = serializers.EmailField(required=True)
+    organization_id = serializers.UUIDField(required=True, write_only=True)
 
     class Meta:
         model = User
-        fields = ["username", "email", "password"]
+        fields = ["username", "email", "password", "organization_id"]
 
     def validate_email(self, value):
         if User.objects.filter(email=value).exists():
             raise ValidationError("A user with this email already exists.")
         return value
+    
+    def validate_organization_id(self, value):
+        try:
+            organization = Organization.objects.get(id=value)
+        except Organization.DoesNotExist:
+            raise ValidationError("Organization does not exist.")
+        return value
 
     def create(self, validated_data):
+        organization_id = validated_data.pop('organization_id')
         user = User.objects.create_user(
             username=validated_data["username"],
             email=validated_data["email"],
             password=validated_data["password"],
         )
+        
+        # Assign organization to user's profile
+        # UserProfile is created automatically by signal, but we need to assign the organization
+        user_profile = UserProfile.objects.get(user=user)
+        organization = Organization.objects.get(id=organization_id)
+        user_profile.organization = organization
+        user_profile.save()
+        
         return user
 
 
