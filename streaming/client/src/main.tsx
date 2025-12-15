@@ -21,6 +21,7 @@ import { ErrorPage } from "./routes/error/Page.tsx";
 import { NotificationListener } from "./components/NotificationListener/NotificationListener.tsx";
 import DashboardPage from "./routes/dashboard/page.tsx";
 import AlertsPage from "./routes/dashboard/AlertsPage.tsx";
+import AlertRulesPage from "./routes/dashboard/AlertRulesPage.tsx";
 
 const router = createBrowserRouter([
   {
@@ -72,6 +73,10 @@ const router = createBrowserRouter([
       {
         path: "/dashboard/alerts",
         element: <AlertsPage />,
+      },
+      {
+        path: "/dashboard/alert-rules",
+        element: <AlertRulesPage />,
       },
     ],
   },

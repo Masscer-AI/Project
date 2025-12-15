@@ -6,6 +6,8 @@ from api.utils.color_printer import printer
 from api.preferences.actions import clean_unused_tags
 from api.consumption.actions import register_llm_interaction
 from api.consumption.tasks import async_register_llm_interaction
+from api.messaging.tasks import get_user_organization
+from api.authenticate.services import FeatureFlagService
 
 
 @receiver(post_save, sender=Conversation)
@@ -54,6 +56,19 @@ def message_post_save(sender, instance, **kwargs):
                     output_tokens,
                     model_slug,
                 )
+        
+        # Marcar conversación como pendiente de análisis si corresponde
+        conversation = instance.conversation
+        if conversation.user:
+            organization = get_user_organization(conversation.user)
+            if organization and FeatureFlagService.is_feature_enabled(
+                "conversation-analysis", organization=organization, user=conversation.user
+            ):
+                # Solo marcar si no está ya marcada (evitar updates innecesarios)
+                if not conversation.pending_analysis:
+                    conversation.pending_analysis = True
+                    conversation.save(update_fields=['pending_analysis'])
+                    printer.info(f"Conversation {conversation.id} marked for analysis")
 
     except Exception as e:
         printer.error(f"Error in post_save message signal: {str(e)}")

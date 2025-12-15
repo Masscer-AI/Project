@@ -21,6 +21,8 @@ from .serializers import (
     ConversationAlertRuleSerializer,
 )
 from api.authenticate.models import Organization
+from api.authenticate.services import FeatureFlagService
+from django.core.exceptions import PermissionDenied
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 import json
@@ -440,3 +442,167 @@ class ConversationAlertStatsView(View):
         }
         
         return JsonResponse(stats, safe=False)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class ConversationAlertRuleView(View):
+    """View para gestionar Alert Rules (CRUD) con verificación de feature flag."""
+    
+    def _get_user_organization(self, user):
+        """Get user's organization (owner or member)."""
+        if not user:
+            return None
+        
+        # Buscar si el usuario es owner de alguna organización
+        owned_org = Organization.objects.filter(owner=user).first()
+        if owned_org:
+            return owned_org
+        
+        # Buscar si el usuario tiene una organización en su perfil
+        if hasattr(user, 'profile') and user.profile.organization:
+            return user.profile.organization
+        
+        return None
+    
+    def _check_permission(self, user, organization):
+        """Check if user has permission to manage alert rules."""
+        if not organization:
+            raise PermissionDenied("User has no organization.")
+        
+        if not FeatureFlagService.is_feature_enabled(
+            "alert-rules-manager", organization=organization, user=user
+        ):
+            raise PermissionDenied("You are not allowed to manage alert rules. The 'alert-rules-manager' feature flag is not enabled for your organization.")
+    
+    def get(self, request, *args, **kwargs):
+        """Get all alert rules for user's organization."""
+        user = request.user
+        rule_id = kwargs.get("id")
+        
+        organization = self._get_user_organization(user)
+        self._check_permission(user, organization)
+        
+        if rule_id:
+            # Get single alert rule
+            try:
+                rule = ConversationAlertRule.objects.get(
+                    id=rule_id,
+                    organization=organization
+                )
+                serializer = ConversationAlertRuleSerializer(rule)
+                return JsonResponse(serializer.data, safe=False)
+            except ConversationAlertRule.DoesNotExist:
+                return JsonResponse(
+                    {"message": "Alert rule not found", "status": 404}, 
+                    status=404
+                )
+        else:
+            # Get all alert rules for the organization (enabled and disabled)
+            rules = ConversationAlertRule.objects.filter(
+                organization=organization
+            ).order_by("-created_at")
+            serializer = ConversationAlertRuleSerializer(rules, many=True)
+            return JsonResponse(serializer.data, safe=False)
+    
+    def post(self, request, *args, **kwargs):
+        """Create a new alert rule."""
+        user = request.user
+        organization = self._get_user_organization(user)
+        self._check_permission(user, organization)
+        
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse(
+                {"message": "Invalid JSON", "status": 400}, 
+                status=400
+            )
+        
+        # Set organization and created_by
+        serializer = ConversationAlertRuleSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save(organization=organization, created_by=user)
+            return JsonResponse(serializer.data, status=201)
+        else:
+            return JsonResponse(
+                {"message": "Validation error", "errors": serializer.errors, "status": 400},
+                status=400
+            )
+    
+    def put(self, request, *args, **kwargs):
+        """Update an existing alert rule."""
+        user = request.user
+        rule_id = kwargs.get("id")
+        
+        if not rule_id:
+            return JsonResponse(
+                {"message": "Alert rule ID is required", "status": 400}, 
+                status=400
+            )
+        
+        organization = self._get_user_organization(user)
+        self._check_permission(user, organization)
+        
+        try:
+            rule = ConversationAlertRule.objects.get(
+                id=rule_id,
+                organization=organization
+            )
+        except ConversationAlertRule.DoesNotExist:
+            return JsonResponse(
+                {"message": "Alert rule not found", "status": 404}, 
+                status=404
+            )
+        
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse(
+                {"message": "Invalid JSON", "status": 400}, 
+                status=400
+            )
+        
+        # Don't allow changing organization or created_by
+        data.pop("organization", None)
+        data.pop("created_by", None)
+        
+        serializer = ConversationAlertRuleSerializer(rule, data=data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return JsonResponse(serializer.data, safe=False)
+        else:
+            return JsonResponse(
+                {"message": "Validation error", "errors": serializer.errors, "status": 400},
+                status=400
+            )
+    
+    def delete(self, request, *args, **kwargs):
+        """Delete an alert rule."""
+        user = request.user
+        rule_id = kwargs.get("id")
+        
+        if not rule_id:
+            return JsonResponse(
+                {"message": "Alert rule ID is required", "status": 400}, 
+                status=400
+            )
+        
+        organization = self._get_user_organization(user)
+        self._check_permission(user, organization)
+        
+        try:
+            rule = ConversationAlertRule.objects.get(
+                id=rule_id,
+                organization=organization
+            )
+            rule.delete()
+            return JsonResponse(
+                {"message": "Alert rule deleted successfully", "status": 200},
+                status=200
+            )
+        except ConversationAlertRule.DoesNotExist:
+            return JsonResponse(
+                {"message": "Alert rule not found", "status": 404}, 
+                status=404
+            )

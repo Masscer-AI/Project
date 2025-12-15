@@ -6,6 +6,7 @@ import { TConversation, TAlertStats } from "../../types";
 import { ProtectedRoute } from "../../components/ProtectedRoute/ProtectedRoute";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
+import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
 import { ConversationsTable } from "./ConversationsTable";
 import "./page.css";
 
@@ -20,6 +21,7 @@ export default function DashboardPage() {
   const [alertStats, setAlertStats] = useState<TAlertStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showTable, setShowTable] = useState(false);
+  const canManageAlertRules = useIsFeatureEnabled("alert-rules-manager");
 
   useEffect(() => {
     startup();
@@ -77,6 +79,14 @@ export default function DashboardPage() {
                 >
                   {t("view-alerts")} {alertStats && alertStats.pending > 0 && `(${alertStats.pending})`}
                 </button>
+                {canManageAlertRules && (
+                  <button 
+                    className="dashboard-button primary"
+                    onClick={() => navigate("/dashboard/alert-rules")}
+                  >
+                    {t("manage-alert-rules") || "Manage Alert Rules"}
+                  </button>
+                )}
                 <button className="dashboard-button" disabled>
                   {t("create-users")} ({t("coming-soon")})
                 </button>
