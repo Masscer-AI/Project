@@ -26,6 +26,7 @@ from django.contrib.auth.models import User
 from django.views import View
 from django.core.cache import cache
 from .models import FeatureFlagAssignment
+from django.core.exceptions import ValidationError
 
 # from api.utils.color_printer import printer
 
@@ -49,13 +50,13 @@ class SignupAPIView(APIView):
                 {"error": "Organization not found"}, 
                 status=status.HTTP_404_NOT_FOUND
             )
-        except ValueError:
+        except (ValueError, ValidationError):
             return Response(
                 {"error": "Invalid organization ID format"}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        serializer = OrganizationSerializer(organization)
+        serializer = PublicOrganizationSerializer(organization)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request):

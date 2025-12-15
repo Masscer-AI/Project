@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import Organization, CredentialsManager, UserProfile, FeatureFlag, FeatureFlagAssignment
-from django.core.exceptions import ValidationError
+from rest_framework.exceptions import ValidationError
 
 
 class SignupSerializer(serializers.ModelSerializer):
@@ -20,27 +20,30 @@ class SignupSerializer(serializers.ModelSerializer):
     
     def validate_organization_id(self, value):
         try:
-            organization = Organization.objects.get(id=value)
-        except Organization.DoesNotExist:
-            raise ValidationError("Organization does not exist.")
+            self._organization = Organization.objects.get(id=value)
+        except Organization.DoesNotExist as err:
+            raise ValidationError("Organization does not exist.") from err
         return value
 
     def create(self, validated_data):
-        organization_id = validated_data.pop('organization_id')
-        user = User.objects.create_user(
-            username=validated_data["username"],
-            email=validated_data["email"],
-            password=validated_data["password"],
-        )
-        
-        # Assign organization to user's profile
-        # UserProfile is created automatically by signal, but we need to assign the organization
-        user_profile = UserProfile.objects.get(user=user)
-        organization = Organization.objects.get(id=organization_id)
-        user_profile.organization = organization
-        user_profile.save()
-        
-        return user
+        organization_id = validated_data.pop('organization_id'create)
+        with transaction.atomic():
+            user = User.objects.create_user(
+                username=validated_data["username"],
+                email=validated_data["email"],
+                password=validated_data["password"],
+            )
+
+            # Prefer the org already validated (see validate_organization_id)
+            organization = getattr(self, "_organization", None)
+            if organization is None:
+                organization = Organization.objects.select_for_update().get(id=organization_id)
+
+            user_profile, _ = UserProfile.objects.get_or_create(user=user)
+            user_profile.organization = organization
+            user_profile.save(update_fields=["organization", "updated_at"])
+
+            return user
 
 
 class LoginSerializer(serializers.Serializer):

@@ -6,14 +6,13 @@ import { DEFAULT_ORGANIZATION_ID } from "../../modules/constants";
 export const Navbar = () => {
   const navigate = useNavigate();
 
-  const handleSignupClick = (e: React.MouseEvent) => {
-    e.preventDefault();
+  const handleSignupClick = () => {
     const signupUrl = DEFAULT_ORGANIZATION_ID
       ? `/signup?orgId=${DEFAULT_ORGANIZATION_ID}`
       : "/signup";
     navigate(signupUrl);
   };
-
+  
   return (
     <nav
       className="d-flex justify-between bg-hovered"
@@ -23,14 +22,14 @@ export const Navbar = () => {
         <img src="assets/masscer.jpg" />
       </section>
       <section className="d-flex align-center gap-small">
-        <a
+        <button
+          type="button"
           className="highlighted button bg-success text-black"
-          href="#"
           onClick={handleSignupClick}
           style={{ textDecoration: "none", cursor: "pointer" }}
         >
           Signup
-        </a>
+        </button>
         <Link className="button" to={"/login"}>
           Login
         </Link>
