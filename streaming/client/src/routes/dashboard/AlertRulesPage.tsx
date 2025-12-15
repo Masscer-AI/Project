@@ -36,7 +36,7 @@ export default function AlertRulesPage() {
   useEffect(() => {
     startup();
     loadAlertRules();
-  }, []);
+  }, [startup]);
 
   const loadAlertRules = async () => {
     try {
