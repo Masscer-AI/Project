@@ -9,6 +9,7 @@ import {
   TOrganizationCredentials,
   TConversationAlert,
   TAlertStats,
+  TConversationAlertRule,
 } from "../types";
 import { TReactionTemplate, TUserProfile } from "../types/chatTypes";
 import { TAgent } from "../types/agents";
@@ -339,6 +340,61 @@ export const updateAlertStatus = async (
     "PUT",
     `/v1/messaging/alerts/${alertId}/`,
     { status }
+  );
+};
+
+// Alert Rules API functions
+export const getAlertRules = async () => {
+  return makeAuthenticatedRequest<TConversationAlertRule[]>(
+    "GET",
+    "/v1/messaging/alert-rules"
+  );
+};
+
+export const getAlertRule = async (ruleId: string) => {
+  return makeAuthenticatedRequest<TConversationAlertRule>(
+    "GET",
+    `/v1/messaging/alert-rules/${ruleId}/`
+  );
+};
+
+export const createAlertRule = async (data: {
+  name: string;
+  trigger: string;
+  extractions?: Record<string, any>;
+  scope?: "all_conversations" | "selected_agents";
+  enabled?: boolean;
+  notify_to?: "all_staff" | "selected_members";
+}) => {
+  return makeAuthenticatedRequest<TConversationAlertRule>(
+    "POST",
+    "/v1/messaging/alert-rules",
+    data
+  );
+};
+
+export const updateAlertRule = async (
+  ruleId: string,
+  data: Partial<{
+    name: string;
+    trigger: string;
+    extractions: Record<string, any>;
+    scope: "all_conversations" | "selected_agents";
+    enabled: boolean;
+    notify_to: "all_staff" | "selected_members";
+  }>
+) => {
+  return makeAuthenticatedRequest<TConversationAlertRule>(
+    "PUT",
+    `/v1/messaging/alert-rules/${ruleId}/`,
+    data
+  );
+};
+
+export const deleteAlertRule = async (ruleId: string) => {
+  return makeAuthenticatedRequest<{ message: string; status: number }>(
+    "DELETE",
+    `/v1/messaging/alert-rules/${ruleId}/`
   );
 };
 

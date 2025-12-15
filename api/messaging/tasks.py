@@ -2,9 +2,8 @@ import logging
 import json
 from celery import shared_task
 from .actions import generate_conversation_title
-from .models import Conversation, Message
 from .models import Conversation, Message, ConversationAlertRule, ConversationAlert
-from .schemas import ConversationAnalysis, ConversationAnalysisResult
+from .schemas import ConversationAnalysisResult
 from api.authenticate.models import Organization, FeatureFlag, FeatureFlagAssignment, CredentialsManager
 from api.authenticate.services import FeatureFlagService
 from api.utils.openai_functions import create_structured_completion

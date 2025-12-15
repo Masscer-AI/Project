@@ -9,6 +9,7 @@ from .views import (
     ChatWidgetAuthTokenView,
     ConversationAlertView,
     ConversationAlertStatsView,
+    ConversationAlertRuleView,
 )
 
 app_name = "messaging"
@@ -47,4 +48,6 @@ urlpatterns = [
     path("alerts", ConversationAlertView.as_view(), name="alert_list"),
     path("alerts/<uuid:id>/", ConversationAlertView.as_view(), name="alert_detail"),
     path("alerts/stats/", ConversationAlertStatsView.as_view(), name="alert_stats"),
+    path("alert-rules/", ConversationAlertRuleView.as_view(), name="alert_rule_list"),
+    path("alert-rules/<uuid:id>/", ConversationAlertRuleView.as_view(), name="alert_rule_detail"),
 ]

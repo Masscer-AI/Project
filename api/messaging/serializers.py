@@ -96,6 +96,9 @@ class ChatWidgetConfigSerializer(serializers.ModelSerializer):
 
 
 class ConversationAlertRuleSerializer(serializers.ModelSerializer):
+    organization = serializers.UUIDField(read_only=True, source="organization.id")
+    created_by = serializers.IntegerField(read_only=True, source="created_by.id", allow_null=True)
+    
     class Meta:
         model = ConversationAlertRule
         fields = (
