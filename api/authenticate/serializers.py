@@ -2,6 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import Organization, CredentialsManager, UserProfile, FeatureFlag, FeatureFlagAssignment
 from rest_framework.exceptions import ValidationError
+from django.db import transaction
 
 
 class SignupSerializer(serializers.ModelSerializer):
