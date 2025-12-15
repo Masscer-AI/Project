@@ -14,6 +14,7 @@ from .serializers import (
     BigOrganizationSerializer,
     FeatureFlagStatusResponseSerializer,
     TeamFeatureFlagsResponseSerializer,
+    PublicOrganizationSerializer
 )
 from .models import Token, Organization, UserProfile, CredentialsManager
 from .services import FeatureFlagService

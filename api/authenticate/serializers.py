@@ -26,7 +26,7 @@ class SignupSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
-        organization_id = validated_data.pop('organization_id'create)
+        organization_id = validated_data.pop('organization_id')
         with transaction.atomic():
             user = User.objects.create_user(
                 username=validated_data["username"],
@@ -154,3 +154,9 @@ class FeatureFlagStatusResponseSerializer(serializers.Serializer):
 
 class TeamFeatureFlagsResponseSerializer(serializers.Serializer):
     feature_flags = serializers.DictField(child=serializers.BooleanField())
+
+
+class PublicOrganizationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Organization
+        fields = ["id", "name", "description"]
