@@ -50,3 +50,8 @@ media/final_videos/*
 pgbouncer.ini
 userlist.txt
 
+# Celery Beat schedule files
+celerybeat-schedule
+celerybeat-schedule.dat
+celerybeat-schedule.dir
+celerybeat-schedule.bak
