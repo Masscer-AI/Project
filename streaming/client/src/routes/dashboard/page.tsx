@@ -1,19 +1,24 @@
 import React, { useState, useEffect } from "react";
 import { useStore } from "../../modules/store";
 import { Sidebar } from "../../components/Sidebar/Sidebar";
-import { getAllConversations, getAlertStats } from "../../modules/apiCalls";
+import { getAllConversations, getAlertStats, getUser } from "../../modules/apiCalls";
 import { TConversation, TAlertStats } from "../../types";
+import { TUserData } from "../../types/chatTypes";
 import { ProtectedRoute } from "../../components/ProtectedRoute/ProtectedRoute";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
 import { ConversationsTable } from "./ConversationsTable";
+import { SvgButton } from "../../components/SvgButton/SvgButton";
+import { SVGS } from "../../assets/svgs";
 import "./page.css";
 
 export default function DashboardPage() {
-  const { chatState, startup } = useStore((state) => ({
+  const { chatState, startup, toggleSidebar, setUser } = useStore((state) => ({
     chatState: state.chatState,
     startup: state.startup,
+    toggleSidebar: state.toggleSidebar,
+    setUser: state.setUser,
   }));
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -24,6 +29,16 @@ export default function DashboardPage() {
   const canManageAlertRules = useIsFeatureEnabled("alert-rules-manager");
 
   useEffect(() => {
+    const loadUser = async () => {
+      try {
+        const user = (await getUser()) as TUserData;
+        setUser(user);
+      } catch (error) {
+        console.error("Error loading user:", error);
+      }
+    };
+    
+    loadUser();
     startup();
     loadConversations();
     loadAlertStats();
@@ -50,11 +65,17 @@ export default function DashboardPage() {
   };
 
   return (
-    <ProtectedRoute featureFlag="conversations-dashboard">
       <main className="d-flex pos-relative h-viewport">
         {chatState.isSidebarOpened && <Sidebar />}
         <div className="dashboard-container">
           <div className="dashboard-header">
+            {!chatState.isSidebarOpened && (
+              <SvgButton
+                extraClass="pressable active-on-hover"
+                onClick={toggleSidebar}
+                svg={SVGS.burger}
+              />
+            )}
             <h1>{t("conversations-dashboard")}</h1>
           </div>
           
@@ -102,7 +123,6 @@ export default function DashboardPage() {
           )}
         </div>
       </main>
-    </ProtectedRoute>
   );
 }
 
