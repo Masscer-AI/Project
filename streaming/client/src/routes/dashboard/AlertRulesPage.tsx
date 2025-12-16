@@ -11,12 +11,15 @@ import { TConversationAlertRule } from "../../types";
 import { ProtectedRoute } from "../../components/ProtectedRoute/ProtectedRoute";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
+import { SvgButton } from "../../components/SvgButton/SvgButton";
+import { SVGS } from "../../assets/svgs";
 import "./AlertRulesPage.css";
 
 export default function AlertRulesPage() {
-  const { chatState, startup } = useStore((state) => ({
+  const { chatState, startup, toggleSidebar } = useStore((state) => ({
     chatState: state.chatState,
     startup: state.startup,
+    toggleSidebar: state.toggleSidebar,
   }));
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -120,11 +123,17 @@ export default function AlertRulesPage() {
   };
 
   return (
-    <ProtectedRoute featureFlag="alert-rules-manager">
       <main className="d-flex pos-relative h-viewport">
         {chatState.isSidebarOpened && <Sidebar />}
         <div className="dashboard-container">
           <div className="dashboard-header">
+            {!chatState.isSidebarOpened && (
+              <SvgButton
+                extraClass="pressable active-on-hover"
+                onClick={toggleSidebar}
+                svg={SVGS.burger}
+              />
+            )}
             <button 
               className="dashboard-back-button"
               onClick={() => navigate("/dashboard")}
@@ -175,7 +184,6 @@ export default function AlertRulesPage() {
           )}
         </div>
       </main>
-    </ProtectedRoute>
   );
 }
 
