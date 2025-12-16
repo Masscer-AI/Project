@@ -347,7 +347,7 @@ export const updateAlertStatus = async (
 export const getAlertRules = async () => {
   return makeAuthenticatedRequest<TConversationAlertRule[]>(
     "GET",
-    "/v1/messaging/alert-rules"
+    "/v1/messaging/alert-rules/"
   );
 };
 
@@ -368,7 +368,7 @@ export const createAlertRule = async (data: {
 }) => {
   return makeAuthenticatedRequest<TConversationAlertRule>(
     "POST",
-    "/v1/messaging/alert-rules",
+    "/v1/messaging/alert-rules/",
     data
   );
 };
