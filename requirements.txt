@@ -175,3 +175,4 @@ zipp==3.20.2
 zope.event==5.0
 zope.interface==7.0.3
 firecrawl-py==4.6.0
+django-celery-results==2.5.1
