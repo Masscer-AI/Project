@@ -55,3 +55,5 @@ celerybeat-schedule
 celerybeat-schedule.dat
 celerybeat-schedule.dir
 celerybeat-schedule.bak
+
+data/

@@ -1,0 +1,16 @@
+node_modules
+npm-debug.log
+dist
+.env
+.env.local
+*.log
+__pycache__
+*.pyc
+.pytest_cache
+*.pyc
+.venv
+venv
+*.swp
+*.swo
+*~
+
