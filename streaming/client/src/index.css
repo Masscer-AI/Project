@@ -708,6 +708,8 @@ input:checked + .slider::before {
   font-size: 16px;
   padding: 0 4px;
   transition: 0.2s;
+  pointer-events: none;
+  z-index: 1;
 }
 
 .textarea {
@@ -867,7 +869,7 @@ input:checked + .slider::before {
   transform: scale(0.95);
 }
 .above-all {
-  z-index: 1000;
+  z-index: 1;
 }
 
 .active-on-focus:focus {

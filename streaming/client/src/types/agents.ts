@@ -56,5 +56,6 @@ export type TAgent = {
   system_prompt: string;
   temperature: number;
   top_p?: number;
+  conversation_title_prompt?: string;
   // voice?: TOpenaiVoiceOptions;
 };

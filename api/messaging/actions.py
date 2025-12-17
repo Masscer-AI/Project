@@ -13,7 +13,8 @@ load_dotenv()
 
 
 def generate_conversation_title(conversation_id: str):
-    system = """
+    # Prompt por defecto
+    default_system = """
     Given some conversation messages, please generate a title related to the conversation. The title must have an emoji at the beginning.
 
     The title must be a plain string without double quotes and the start or end.
@@ -28,7 +29,35 @@ def generate_conversation_title(conversation_id: str):
 
     Return ONLY the new conversation title with the emoji at the beginning. Both are mandatory, emoji + text. But up to 50 characters are allowed.
     """
+    
     c = Conversation.objects.get(id=conversation_id)
+    
+    # Obtener el agente usado en la conversación
+    agent = None
+    agent_slug = None
+    
+    # Buscar el primer mensaje assistant para obtener el agente
+    first_assistant_message = c.messages.filter(type="assistant").first()
+    if first_assistant_message:
+        # Intentar obtener el agent_slug de versions
+        if first_assistant_message.versions and len(first_assistant_message.versions) > 0:
+            agent_slug = first_assistant_message.versions[0].get("agent_slug")
+        
+        # Si no está en versions, intentar en agents
+        if not agent_slug and first_assistant_message.agents:
+            if isinstance(first_assistant_message.agents, list) and len(first_assistant_message.agents) > 0:
+                agent_slug = first_assistant_message.agents[0].get("slug")
+    
+    # Si encontramos un agent_slug, obtener el agente
+    if agent_slug:
+        try:
+            from api.ai_layers.models import Agent
+            agent = Agent.objects.filter(slug=agent_slug).first()
+        except Exception as e:
+            print(f"Error getting agent: {e}")
+    
+    # Usar el prompt personalizado del agente si existe, sino el default
+    system = agent.conversation_title_prompt if agent and agent.conversation_title_prompt else default_system
 
     messages = c.messages.order_by("created_at")[:2]
     formatted_messages = []

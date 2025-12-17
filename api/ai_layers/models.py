@@ -105,6 +105,12 @@ class Agent(models.Model):
 
     profile_picture_src = models.TextField(null=True, blank=True)
 
+    conversation_title_prompt = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Prompt personalizado para generar títulos de conversaciones. Si está vacío, se usa el prompt por defecto."
+    )
+
     def __str__(self):
         return self.name
 
