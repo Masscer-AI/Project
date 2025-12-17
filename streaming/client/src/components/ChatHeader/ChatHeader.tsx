@@ -159,6 +159,7 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
     presence_penalty: agent.presence_penalty || 0.0,
     act_as: agent.act_as || "",
     system_prompt: agent.system_prompt || "",
+    conversation_title_prompt: agent.conversation_title_prompt || "",
     temperature: agent.temperature || 0.7,
     top_p: agent.top_p || 1.0,
     llm: agent.llm || {
@@ -213,6 +214,8 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
     const updatedAgent = {
       ...agent,
       ...formState,
+      // Asegurar que conversation_title_prompt se envíe como null si está vacío
+      conversation_title_prompt: formState.conversation_title_prompt?.trim() || null,
     };
     onSave(updatedAgent);
   };
@@ -230,6 +233,13 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
     setFormState((prevState) => ({
       ...prevState,
       system_prompt: value,
+    }));
+  };
+
+  const handleConversationTitlePromptChange = (value: string) => {
+    setFormState((prevState) => ({
+      ...prevState,
+      conversation_title_prompt: value,
     }));
   };
 
@@ -354,6 +364,14 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
           label={t("structure-the-ai-system-prompt")}
           defaultValue={formState.system_prompt}
           onChange={handleSystemPromptChange}
+        />
+        <Textarea
+          name="conversation_title_prompt"
+          extraClass="my-medium"
+          label={t("conversation-title-prompt")}
+          defaultValue={formState.conversation_title_prompt || ""}
+          onChange={handleConversationTitlePromptChange}
+          placeholder={t("conversation-title-prompt-placeholder")}
         />
         <label className="d-flex gap-small align-center">
           <span>{t("temperature")}</span>

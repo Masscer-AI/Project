@@ -414,5 +414,7 @@
     "error-deleting-alert-rule": "Error deleting alert rule",
     "error-saving-alert-rule": "Error saving alert rule",
     "update": "Update",
-    "manage-alert-rules": "Manage Alert Rules"
+    "manage-alert-rules": "Manage Alert Rules",
+    "conversation-title-prompt": "Conversation Title Prompt",
+    "conversation-title-prompt-placeholder": "Leave empty to use default prompt. Customize how titles are generated for conversations using this agent."
 }

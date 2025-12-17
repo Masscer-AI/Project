@@ -283,5 +283,7 @@
     "urls-selected": "URLs seleccionadas",
     "fetching-specified-urls": "Xi motlaloa URLs tlaixpantin...",
     "urls-fetched-successfully": "URLs mochiuiloa",
-    "using-provided-url-content": "Xi tlapaleuiloa in tlahtolli URL"
+    "using-provided-url-content": "Xi tlapaleuiloa in tlahtolli URL",
+    "conversation-title-prompt": "Tlapohuiltl Toka Tla'toltlamachtli",
+    "conversation-title-prompt-placeholder": "Xi pohuiloa uel tlapohuiltl. Xi tlahtlajkuiloa tlahtolli tla'toltlamachtli."
 }

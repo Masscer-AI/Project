@@ -414,5 +414,7 @@
     "error-deleting-alert-rule": "Error al eliminar la regla de alerta",
     "error-saving-alert-rule": "Error al guardar la regla de alerta",
     "update": "Actualizar",
-    "manage-alert-rules": "Gestionar Reglas de Alerta"
+    "manage-alert-rules": "Gestionar Reglas de Alerta",
+    "conversation-title-prompt": "Prompt para Título de Conversación",
+    "conversation-title-prompt-placeholder": "Deja vacío para usar el prompt por defecto. Personaliza cómo se generan los títulos de las conversaciones usando este agente."
 }

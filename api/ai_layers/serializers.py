@@ -35,6 +35,7 @@ class AgentSerializer(serializers.ModelSerializer):
             "max_tokens",
             "temperature",
             "llm",
+            "conversation_title_prompt",
         ]
 
 

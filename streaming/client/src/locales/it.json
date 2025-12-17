@@ -257,5 +257,7 @@
     "auto-search": "Ricerca Automatica",
     "fetch-urls": "Recupera URL",
     "specify-urls-to-fetch": "Specifica URL da recuperare",
-    "urls-selected": "URL selezionati"
+    "urls-selected": "URL selezionati",
+    "conversation-title-prompt": "Prompt Titolo Conversazione",
+    "conversation-title-prompt-placeholder": "Lascia vuoto per usare il prompt predefinito. Personalizza come vengono generati i titoli delle conversazioni usando questo agente."
 }
