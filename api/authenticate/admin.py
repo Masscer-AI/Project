@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django import forms
 from django.utils import timezone
+import pytz
 from .models import (
     Token,
     PublishableToken,
@@ -87,11 +88,24 @@ class CredentialsManagerAdmin(admin.ModelAdmin):
     list_filter = ("organization",)
 
 
+class OrganizationAdminForm(forms.ModelForm):
+    timezone = forms.ChoiceField(
+        choices=[(tz, tz) for tz in pytz.all_timezones],
+        initial='UTC',
+        help_text="Selecciona la zona horaria para mostrar los timestamps de esta organización"
+    )
+    
+    class Meta:
+        model = Organization
+        fields = '__all__'
+
+
 @admin.register(Organization)
 class OrganizationAdmin(admin.ModelAdmin):
-    list_display = ("name", "description", "owner")
-    search_fields = ("name", "description", "owner")
-    list_filter = ("name", "description", "owner")
+    form = OrganizationAdminForm
+    list_display = ("name", "description", "owner", "timezone")
+    search_fields = ("name", "description", "owner__username")
+    list_filter = ("timezone", "owner")
 
 
 @admin.register(FeatureFlag)
