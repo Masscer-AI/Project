@@ -277,7 +277,7 @@ clean() {
 
 # Clean PostgreSQL data (useful when database is corrupted)
 clean_postgres() {
-    if [ "$2" != "--yes" ]; then
+    if [ "$1" != "--yes" ]; then
         print_warn "This will remove PostgreSQL data directory. Are you sure? (y/N)"
         read -r response
         if [[ ! "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
@@ -325,7 +325,7 @@ case "$1" in
         clean
         ;;
     clean-postgres)
-        clean_postgres
+        clean_postgres "$@"
         ;;
     create-superuser)
         create_superuser
