@@ -8,7 +8,7 @@ class LanguageModelSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = LanguageModel
-        fields = ["id", "provider", "slug", "name", "pricing"]
+        fields = ["id", "provider", "slug", "name", "pricing", "max_output_tokens"]
 
 
 class AgentSerializer(serializers.ModelSerializer):

@@ -23,10 +23,6 @@
   transition: background-color 0.3s; /* Smooth transition for hover effects */
 }
 
-
-
-
-
 .agentComponent > section:first-child input[type="checkbox"] {
   width: 24px; /* Slightly larger checkbox */
   height: 24px;

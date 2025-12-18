@@ -1,10 +1,10 @@
-import React, { useEffect, useState, version } from "react";
+import React, { useEffect, useState } from "react";
 // import axios from "axios";
 import "./page.css";
 import { Message } from "../../components/Message/Message";
 import { ChatInput } from "../../components/ChatInput/ChatInput";
 
-import { useLoaderData, useSearchParams } from "react-router-dom";
+import { useLoaderData } from "react-router-dom";
 import { Sidebar } from "../../components/Sidebar/Sidebar";
 import { useStore } from "../../modules/store";
 import { TChatLoader, TMessage } from "../../types/chatTypes";
@@ -46,7 +46,7 @@ export default function ChatView() {
   const chatMessageContainerRef = React.useRef<HTMLDivElement>(null);
   // const [searchParams, setSearchParams] = useSearchParams();
 
-  const timeoutRef = React.useRef<number | null>(null);
+  const timeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setUser(loaderData.user);
@@ -59,7 +59,7 @@ export default function ChatView() {
   );
 
   useEffect(() => {
-    socket.on("responseFinished", (data) => {
+    socket.on("responseFinished", (data: any) => {
       console.log("Response finished:", data);
       setMessages((prevMessages) =>
         updateLastMessagesIds(data, prevMessages, data.next_agent_slug)
@@ -84,7 +84,7 @@ export default function ChatView() {
     const duration = 1000; // Duración en milisegundos
     const startTime = performance.now();
 
-    const smoothScroll = (currentTime) => {
+    const smoothScroll = (currentTime: number) => {
       const elapsed = currentTime - startTime;
       const progress = Math.min(elapsed / duration, 1); // Normalizar entre 0 y 1
       const ease =
@@ -117,7 +117,7 @@ export default function ChatView() {
   };
 
   useEffect(() => {
-    socket.on("response", (data) => {
+    socket.on("response", (_data: any) => {
       handleAutoScroll();
     });
 

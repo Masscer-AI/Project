@@ -45,6 +45,7 @@ class LanguageModel(models.Model):
     slug = models.CharField(max_length=100, unique=True, blank=True)
     name = models.CharField(max_length=100)
     pricing = models.JSONField(default=default_pricing)
+    max_output_tokens = models.IntegerField(null=True, blank=True, default=4000)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

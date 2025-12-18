@@ -205,6 +205,7 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
           name: llm.name || "",
           provider: llm.provider || "",
           slug: llm.slug || "",
+          max_output_tokens: llm.max_output_tokens,
         },
       }));
     }
@@ -220,7 +221,7 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
     onSave(updatedAgent);
   };
 
-  const onSubmit = (e) => {
+  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
   };
 
@@ -242,6 +243,10 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
       conversation_title_prompt: value,
     }));
   };
+
+  // Obtener el max_output_tokens del modelo seleccionado
+  const selectedModel = models.find((m) => m.slug === formState.llm.slug);
+  const maxOutputTokens = selectedModel?.max_output_tokens || 4000;
 
   return (
     <form onSubmit={onSubmit}>
@@ -321,7 +326,7 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
           <input
             type="range"
             min="10"
-            max="8000"
+            max={maxOutputTokens}
             name="max_tokens"
             step="10"
             defaultValue={formState.max_tokens ? formState.max_tokens : 4000}

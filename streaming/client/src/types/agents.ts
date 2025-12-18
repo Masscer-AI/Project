@@ -19,6 +19,7 @@ export type TModel = {
   pricing: {
     [key in TOutputMode]: TModelPricing;
   };
+  max_output_tokens?: number;
 };
 
 export type TOpenaiVoiceOptions =
@@ -34,6 +35,7 @@ type TLLM = {
   name: string;
   provider: string;
   slug: string;
+  max_output_tokens?: number;
 };
 
 export type TAgent = {
@@ -56,6 +58,6 @@ export type TAgent = {
   system_prompt: string;
   temperature: number;
   top_p?: number;
-  conversation_title_prompt?: string;
+  conversation_title_prompt?: string | null;
   // voice?: TOpenaiVoiceOptions;
 };
