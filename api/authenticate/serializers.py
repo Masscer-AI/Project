@@ -81,7 +81,7 @@ class UserSerializer(serializers.ModelSerializer):
 class OrganizationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Organization
-        fields = ["id", "name", "description", "owner", "created_at", "updated_at"]
+        fields = ["id", "name", "description", "owner", "timezone", "created_at", "updated_at"]
 
 
 class CredentialsManagerSerializer(serializers.ModelSerializer):
@@ -112,6 +112,7 @@ class BigOrganizationSerializer(serializers.ModelSerializer):
             "name",
             "description",
             "owner",
+            "timezone",
             "created_at",
             "updated_at",
             "credentials",

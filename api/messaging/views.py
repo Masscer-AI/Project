@@ -43,7 +43,7 @@ class ConversationView(View):
         if conversation_id:
             try:
                 conversation = Conversation.objects.get(id=conversation_id, user=user)
-                serialized_conversation = BigConversationSerializer(conversation).data
+                serialized_conversation = BigConversationSerializer(conversation, context={'request': request}).data
                 return JsonResponse(serialized_conversation, safe=False)
             except Conversation.DoesNotExist:
                 return JsonResponse(
@@ -55,7 +55,7 @@ class ConversationView(View):
             )
 
             serialized_conversations = ConversationSerializer(
-                conversations, many=True
+                conversations, many=True, context={'request': request}
             ).data
             return JsonResponse(serialized_conversations, safe=False)
 
@@ -66,11 +66,11 @@ class ConversationView(View):
             user=user, messages__isnull=True
         ).first()
         if existing_conversation:
-            data = BigConversationSerializer(existing_conversation).data
+            data = BigConversationSerializer(existing_conversation, context={'request': request}).data
             return JsonResponse(data, status=200)
 
         conversation = Conversation.objects.create(user=user)
-        data = BigConversationSerializer(conversation).data
+        data = BigConversationSerializer(conversation, context={'request': request}).data
         return JsonResponse(data, status=201)
 
     def put(self, request, *args, **kwargs):
@@ -96,7 +96,7 @@ class ConversationView(View):
             conversation.save()
 
             # Serialize the updated conversation
-            serialized_data = ConversationSerializer(conversation).data
+            serialized_data = ConversationSerializer(conversation, context={'request': request}).data
             return JsonResponse(serialized_data, status=200)
         except Conversation.DoesNotExist:
             return JsonResponse(
@@ -242,7 +242,7 @@ class SharedConversationView(View):
                 {"message": "Share not found", "status": 404}, status=404
             )
 
-        serialized_conversation = SharedConversationSerializer(shared_conversation).data
+        serialized_conversation = SharedConversationSerializer(shared_conversation, context={'request': request}).data
         return JsonResponse(serialized_conversation, safe=False)
 
     def post(self, request, *args, **kwargs):
@@ -347,7 +347,7 @@ class ConversationAlertView(View):
                     id=alert_id,
                     alert_rule__organization__in=user_organizations
                 )
-                serializer = ConversationAlertSerializer(alert)
+                serializer = ConversationAlertSerializer(alert, context={'request': request})
                 return JsonResponse(serializer.data, safe=False)
             except ConversationAlert.DoesNotExist:
                 return JsonResponse(
@@ -366,7 +366,7 @@ class ConversationAlertView(View):
                 alerts = alerts.filter(status=status_filter.upper())
             
             alerts = alerts.order_by("-created_at")
-            serializer = ConversationAlertSerializer(alerts, many=True)
+            serializer = ConversationAlertSerializer(alerts, many=True, context={'request': request})
             return JsonResponse(serializer.data, safe=False)
 
     def put(self, request, *args, **kwargs):
@@ -410,7 +410,7 @@ class ConversationAlertView(View):
             
             alert.save()
         
-        serializer = ConversationAlertSerializer(alert)
+        serializer = ConversationAlertSerializer(alert, context={'request': request})
         return JsonResponse(serializer.data, safe=False)
 
 

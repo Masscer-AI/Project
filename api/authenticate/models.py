@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from django.core.exceptions import MultipleObjectsReturned, ValidationError
 from django.db.models import Q
 from model_utils.models import TimeStampedModel
+import pytz
 
 
 LOGIN_TOKEN_LIFETIME = timezone.timedelta(days=1)
@@ -207,11 +208,21 @@ class Organization(models.Model):
     # slug = models.SlugField(max_length=255, unique=True)
     description = models.TextField(null=True, blank=True)
     owner = models.ForeignKey(User, on_delete=models.CASCADE)
+    timezone = models.CharField(
+        max_length=50,
+        default='UTC',
+        choices=[(tz, tz) for tz in pytz.all_timezones],
+        help_text="Zona horaria de la organización para mostrar timestamps"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.name
+    
+    def get_timezone(self):
+        """Retorna el objeto timezone de pytz"""
+        return pytz.timezone(self.timezone)
 
 
 class CredentialsManager(models.Model):
