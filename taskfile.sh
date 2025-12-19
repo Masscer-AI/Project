@@ -54,15 +54,15 @@ setup_django() {
     
     # Wait for postgres to be ready
     print_info "Waiting for PostgreSQL to be ready..."
-    docker compose -f docker-compose.local.yml exec -T postgres bash -c "until pg_isready -U \${POSTGRES_USER:-postgres}; do sleep 1; done" || true
+    docker compose -f docker-compose.yml exec -T postgres bash -c "until pg_isready -U \${POSTGRES_USER:-postgres}; do sleep 1; done" || true
     
     # Run migrations
     print_info "Running migrations..."
-    docker compose -f docker-compose.local.yml exec -T django python manage.py migrate
+    docker compose -f docker-compose.yml exec -T django python manage.py migrate
     
     # Create superuser and default organization
     print_info "Creating superuser and default organization..."
-    docker compose -f docker-compose.local.yml exec -T django python manage.py shell <<'PYEOF'
+    docker compose -f docker-compose.yml exec -T django python manage.py shell <<'PYEOF'
 from django.contrib.auth import get_user_model
 from api.authenticate.models import Organization, UserProfile
 
@@ -130,7 +130,7 @@ PYEOF
 create_superuser() {
     print_info "Creating superuser and default organization..."
     
-    docker compose -f docker-compose.local.yml exec -T django python manage.py shell <<'PYEOF'
+    docker compose -f docker-compose.yml exec -T django python manage.py shell <<'PYEOF'
 from django.contrib.auth import get_user_model
 from api.authenticate.models import Organization, UserProfile
 
@@ -197,7 +197,7 @@ PYEOF
 # Build frontend
 build_frontend() {
     print_info "Building frontend..."
-    docker compose -f docker-compose.local.yml exec -T fastapi npm run build || {
+    docker compose -f docker-compose.yml exec -T fastapi npm run build || {
         print_warn "Frontend build failed, continuing..."
     }
 }
@@ -205,7 +205,7 @@ build_frontend() {
 # Watch frontend (runs in background)
 watch_frontend() {
     print_info "Starting frontend watch mode..."
-    docker compose -f docker-compose.local.yml exec -d fastapi npm run watch
+    docker compose -f docker-compose.yml exec -d fastapi npm run watch
 }
 
 # Development mode - starts all services
@@ -217,7 +217,7 @@ dev() {
     
     # Start services
     print_info "Starting Docker Compose services..."
-    docker compose -f docker-compose.local.yml up -d
+    docker compose -f docker-compose.yml up -d
     
     # Wait for services to be ready
     print_info "Waiting for services to be ready..."
@@ -244,22 +244,22 @@ dev() {
 # Run migrations
 migrate() {
     print_info "Running migrations..."
-    docker compose -f docker-compose.local.yml exec django python manage.py migrate
+    docker compose -f docker-compose.yml exec django python manage.py migrate
 }
 
 # Show logs
 logs() {
     if [ -z "$1" ]; then
-        docker compose -f docker-compose.local.yml logs -f
+        docker compose -f docker-compose.yml logs -f
     else
-        docker compose -f docker-compose.local.yml logs -f "$1"
+        docker compose -f docker-compose.yml logs -f "$1"
     fi
 }
 
 # Stop all services
 stop() {
     print_info "Stopping all services..."
-    docker compose -f docker-compose.local.yml down
+    docker compose -f docker-compose.yml down
 }
 
 # Clean up (stop and remove volumes)
@@ -268,7 +268,7 @@ clean() {
     read -r response
     if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
         print_info "Cleaning up..."
-        docker compose -f docker-compose.local.yml down -v
+        docker compose -f docker-compose.yml down -v
         print_info "Cleanup complete!"
     else
         print_info "Cleanup cancelled."
@@ -286,8 +286,8 @@ clean_postgres() {
         fi
     fi
     print_info "Cleaning PostgreSQL data..."
-    docker compose -f docker-compose.local.yml stop postgres 2>/dev/null || true
-    docker compose -f docker-compose.local.yml rm -f postgres 2>/dev/null || true
+    docker compose -f docker-compose.yml stop postgres 2>/dev/null || true
+    docker compose -f docker-compose.yml rm -f postgres 2>/dev/null || true
     if [ -d "./data/postgres" ]; then
         rm -rf ./data/postgres/* ./data/postgres/.[^.]* 2>/dev/null || true
         print_info "PostgreSQL data directory cleaned!"

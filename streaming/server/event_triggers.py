@@ -217,7 +217,7 @@ async def on_message_handler(socket_id, data, **kwargs):
             token=token,
         )
         if not user_message_res:
-            print("Error saving user message, notify user")
+            logger.error("Error saving user message, notify user")
             await sio.emit(
                 "error", {"message": "Error saving user message"}, to=socket_id
             )
@@ -260,7 +260,7 @@ async def on_message_handler(socket_id, data, **kwargs):
         if attachments_context:
             complete_context += f"<vector_store_context>{attachments_context}</vector_store_context>\n\n"
         else:
-            print("No attachments context found to append")
+            logger.debug("No attachments context found to append")
 
         complete_context += f"The current date and time is {current_date_time}\n\n"
 
@@ -348,21 +348,43 @@ async def on_message_handler(socket_id, data, **kwargs):
                 },
                 token=token,
             )
-            await sio.emit(
-                "responseFinished",
-                {
-                    "status": "ok",
-                    "versions": [version],
-                    "user_message_id": user_id_to_emit,
-                    "ai_message_id": ai_message_res["id"],
-                    "next_agent_slug": (
-                        agents_to_complete[index]["slug"]
-                        if index < len(agents_to_complete)
-                        else None
-                    ),
-                },
-                to=socket_id,
-            )
+            if not ai_message_res:
+                logger.error("Error saving AI message in grupal mode, but continuing...")
+                await sio.emit(
+                    "error", 
+                    {"message": "Error saving AI message"}, 
+                    to=socket_id
+                )
+                await sio.emit(
+                    "responseFinished",
+                    {
+                        "status": "ok",
+                        "versions": [version],
+                        "user_message_id": user_id_to_emit,
+                        "next_agent_slug": (
+                            agents_to_complete[index]["slug"]
+                            if index < len(agents_to_complete)
+                            else None
+                        ),
+                    },
+                    to=socket_id,
+                )
+            else:
+                await sio.emit(
+                    "responseFinished",
+                    {
+                        "status": "ok",
+                        "versions": [version],
+                        "user_message_id": user_id_to_emit,
+                        "ai_message_id": ai_message_res["id"],
+                        "next_agent_slug": (
+                            agents_to_complete[index]["slug"]
+                            if index < len(agents_to_complete)
+                            else None
+                        ),
+                    },
+                    to=socket_id,
+                )
 
     if multi_agentic_modality == "isolated":
         ai_message_res = save_message(
@@ -375,16 +397,33 @@ async def on_message_handler(socket_id, data, **kwargs):
             },
             token=token,
         )
-        await sio.emit(
-            "responseFinished",
-            {
-                "status": "ok",
-                "versions": versions,
-                "user_message_id": user_id_to_emit,
-                "ai_message_id": ai_message_res["id"],
-            },
-            to=socket_id,
-        )
+        if not ai_message_res:
+            logger.error("Error saving AI message in isolated mode, but continuing...")
+            await sio.emit(
+                "error", 
+                {"message": "Error saving AI message"}, 
+                to=socket_id
+            )
+            await sio.emit(
+                "responseFinished",
+                {
+                    "status": "ok",
+                    "versions": versions,
+                    "user_message_id": user_id_to_emit,
+                },
+                to=socket_id,
+            )
+        else:
+            await sio.emit(
+                "responseFinished",
+                {
+                    "status": "ok",
+                    "versions": versions,
+                    "user_message_id": user_id_to_emit,
+                    "ai_message_id": ai_message_res["id"],
+                },
+                to=socket_id,
+            )
 
     await sio.emit(
         "generation_status",

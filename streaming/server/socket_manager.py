@@ -41,7 +41,13 @@ class ProxyNamespaceManager(socketio.AsyncNamespace):
         r.set("socket_id_to_user_id", json.dumps(self.socket_id_to_user_id))
 
     async def on_message(self, sid, message_data):
-        await on_message_handler(socket_id=sid, data=message_data)
+        logger.info(f"Message received from client {sid}")
+        try:
+            await on_message_handler(socket_id=sid, data=message_data)
+        except Exception as e:
+            logger.error(f"Error processing message from {sid}: {e}", exc_info=True)
+            from server.socket import sio
+            await sio.emit("error", {"message": f"Error processing message: {str(e)}"}, to=sid)
 
     async def on_speech_request(self, sid, data):
         await on_speech_request_handler(socket_id=sid, data=data)
