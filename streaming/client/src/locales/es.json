@@ -397,7 +397,7 @@
     "resolve": "Resolver",
     "dismiss": "Descartar",
     "alert-rules": "Reglas de Alerta",
-    "create-alert-rule": "+ Crear Regla de Alerta",
+    "create-alert-rule": "+ Nueva regla",
     "edit-alert-rule": "Editar Regla de Alerta",
     "no-alert-rules-found": "No se encontraron reglas de alerta. ¡Crea tu primera regla!",
     "enabled": "Habilitado",
@@ -416,5 +416,6 @@
     "update": "Actualizar",
     "manage-alert-rules": "Gestionar Reglas de Alerta",
     "conversation-title-prompt": "Prompt para Título de Conversación",
-    "conversation-title-prompt-placeholder": "Deja vacío para usar el prompt por defecto. Personaliza cómo se generan los títulos de las conversaciones usando este agente."
+    "conversation-title-prompt-placeholder": "Deja vacío para usar el prompt por defecto. Personaliza cómo se generan los títulos de las conversaciones usando este agente.",
+    "conversation": "Conversación"
 }

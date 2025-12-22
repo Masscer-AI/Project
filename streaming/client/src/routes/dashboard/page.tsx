@@ -26,6 +26,7 @@ export default function DashboardPage() {
   const [alertStats, setAlertStats] = useState<TAlertStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showTable, setShowTable] = useState(false);
+  const [hoveredButton, setHoveredButton] = useState<string | null>(null);
   const canManageAlertRules = useIsFeatureEnabled("alert-rules-manager");
 
   useEffect(() => {
@@ -67,60 +68,93 @@ export default function DashboardPage() {
   return (
       <main className="d-flex pos-relative h-viewport">
         {chatState.isSidebarOpened && <Sidebar />}
-        <div className="dashboard-container">
-          <div className="dashboard-header">
-            {!chatState.isSidebarOpened && (
+        <div className="dashboard-container relative">
+          {!chatState.isSidebarOpened && (
+            <div className="absolute top-6 left-6 z-10">
               <SvgButton
                 extraClass="pressable active-on-hover"
                 onClick={toggleSidebar}
                 svg={SVGS.burger}
               />
-            )}
-            <h1>{t("conversations-dashboard")}</h1>
-          </div>
-          
-          {isLoading ? (
-            <div className="dashboard-loading">{t("loading")}...</div>
-          ) : (
-            <>
-              {/* Estadísticas */}
-              <DashboardStats conversations={conversations} alertStats={alertStats} t={t} />
-              
-              {/* Botones de acción */}
-              <div className="dashboard-actions">
-                <button 
-                  className="dashboard-button primary"
-                  onClick={() => setShowTable(!showTable)}
-                >
-                  {showTable ? t("hide-table") : t("view-all-conversations")}
-                </button>
-                <button 
-                  className="dashboard-button primary"
-                  onClick={() => navigate("/dashboard/alerts")}
-                >
-                  {t("view-alerts")} {alertStats && alertStats.pending > 0 && `(${alertStats.pending})`}
-                </button>
-                {canManageAlertRules && (
-                  <button 
-                    className="dashboard-button primary"
-                    onClick={() => navigate("/dashboard/alert-rules")}
-                  >
-                    {t("manage-alert-rules") || "Manage Alert Rules"}
-                  </button>
-                )}
-                <button className="dashboard-button" disabled>
-                  {t("create-users")} ({t("coming-soon")})
-                </button>
-              </div>
-
-              {/* Tabla de conversaciones */}
-              {showTable && (
-                <div className="dashboard-table-container">
-                  <ConversationsTable conversations={conversations || []} />
-                </div>
-              )}
-            </>
+            </div>
           )}
+          <div className="max-w-7xl mx-auto px-4">
+            <div className="dashboard-header mb-8">
+              <h1 className="text-4xl font-bold mb-8 text-center text-white tracking-tight" style={{ textShadow: '0 2px 8px rgba(110, 91, 255, 0.2)' }}>
+                {t("conversations-dashboard")}
+              </h1>
+            </div>
+            
+            {isLoading ? (
+              <div className="text-center py-10 text-lg text-[rgb(156,156,156)]">
+                {t("loading")}...
+              </div>
+            ) : (
+              <>
+                {/* Estadísticas */}
+                <DashboardStats conversations={conversations} alertStats={alertStats} t={t} />
+                
+                {/* Botones de acción */}
+                <div className="flex justify-center gap-4 mb-12 flex-wrap">
+                  <button 
+                    className={`px-8 py-3 rounded-full font-normal text-sm cursor-pointer border ${
+                      hoveredButton === 'table' 
+                        ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+                        : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
+                    }`}
+                    style={{ transform: 'none' }}
+                    onMouseEnter={() => setHoveredButton('table')}
+                    onMouseLeave={() => setHoveredButton(null)}
+                    onClick={() => setShowTable(!showTable)}
+                  >
+                    {showTable ? t("hide-table") : t("view-all-conversations")}
+                  </button>
+                  <button 
+                    className={`px-8 py-3 rounded-full font-normal text-sm cursor-pointer border ${
+                      hoveredButton === 'alerts' 
+                        ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+                        : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
+                    }`}
+                    style={{ transform: 'none' }}
+                    onMouseEnter={() => setHoveredButton('alerts')}
+                    onMouseLeave={() => setHoveredButton(null)}
+                    onClick={() => navigate("/dashboard/alerts")}
+                  >
+                    {t("view-alerts")} {alertStats && alertStats.pending > 0 && `(${alertStats.pending})`}
+                  </button>
+                  {canManageAlertRules && (
+                    <button 
+                      className={`px-8 py-3 rounded-full font-normal text-sm cursor-pointer border ${
+                        hoveredButton === 'rules' 
+                          ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+                          : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
+                      }`}
+                      style={{ transform: 'none' }}
+                      onMouseEnter={() => setHoveredButton('rules')}
+                      onMouseLeave={() => setHoveredButton(null)}
+                      onClick={() => navigate("/dashboard/alert-rules")}
+                    >
+                      {t("manage-alert-rules")}
+                    </button>
+                  )}
+                  <button 
+                    className="px-8 py-3 rounded-full font-normal text-sm cursor-not-allowed border bg-[rgba(35,33,39,0.3)] text-[rgb(156,156,156)] border-[rgba(156,156,156,0.2)] opacity-50"
+                    style={{ transform: 'none' }}
+                    disabled
+                  >
+                    {t("create-users")} ({t("coming-soon")})
+                  </button>
+                </div>
+
+                {/* Tabla de conversaciones */}
+                {showTable && (
+                  <div className="bg-[rgba(255,255,255,0.05)] backdrop-blur-md border border-[rgba(255,255,255,0.1)] rounded-2xl p-8 shadow-lg">
+                    <ConversationsTable conversations={conversations || []} />
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </div>
       </main>
   );
@@ -146,49 +180,49 @@ function DashboardStats({
   }).length;
 
   return (
-    <div className="dashboard-stats">
-      <div className="stat-card">
-        <div className="stat-card-icon">💬</div>
-        <div className="stat-card-content">
-          <h3>{t("total-conversations")}</h3>
-          <p className="stat-card-value">{totalConversations}</p>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+      <div className="bg-[rgba(255,255,255,0.05)] backdrop-blur-md border border-[rgba(255,255,255,0.1)] rounded-2xl p-8 flex items-center gap-4 shadow-lg">
+        <div className="text-4xl">💬</div>
+        <div className="flex-1">
+          <h3 className="text-sm font-medium text-[rgb(156,156,156)] mb-2 uppercase tracking-wide">{t("total-conversations")}</h3>
+          <p className="text-3xl font-bold text-white">{totalConversations}</p>
         </div>
       </div>
-      <div className="stat-card">
-        <div className="stat-card-icon">📨</div>
-        <div className="stat-card-content">
-          <h3>{t("total-messages")}</h3>
-          <p className="stat-card-value">{totalMessages}</p>
+      <div className="bg-[rgba(255,255,255,0.05)] backdrop-blur-md border border-[rgba(255,255,255,0.1)] rounded-2xl p-8 flex items-center gap-4 shadow-lg">
+        <div className="text-4xl">📨</div>
+        <div className="flex-1">
+          <h3 className="text-sm font-medium text-[rgb(156,156,156)] mb-2 uppercase tracking-wide">{t("total-messages")}</h3>
+          <p className="text-3xl font-bold text-white">{totalMessages}</p>
         </div>
       </div>
-      <div className="stat-card">
-        <div className="stat-card-icon">📅</div>
-        <div className="stat-card-content">
-          <h3>{t("this-week")}</h3>
-          <p className="stat-card-value">{recentConversations}</p>
+      <div className="bg-[rgba(255,255,255,0.05)] backdrop-blur-md border border-[rgba(255,255,255,0.1)] rounded-2xl p-8 flex items-center gap-4 shadow-lg">
+        <div className="text-4xl">📅</div>
+        <div className="flex-1">
+          <h3 className="text-sm font-medium text-[rgb(156,156,156)] mb-2 uppercase tracking-wide">{t("this-week")}</h3>
+          <p className="text-3xl font-bold text-white">{recentConversations}</p>
         </div>
       </div>
       {alertStats && (
         <>
-          <div className="stat-card">
-            <div className="stat-card-icon">⚠️</div>
-            <div className="stat-card-content">
-              <h3>{t("pending-alerts")}</h3>
-              <p className="stat-card-value">{alertStats.pending}</p>
+          <div className="bg-[rgba(255,255,255,0.05)] backdrop-blur-md border border-[rgba(255,255,255,0.1)] rounded-2xl p-8 flex items-center gap-4 shadow-lg">
+            <div className="text-4xl">⚠️</div>
+            <div className="flex-1">
+              <h3 className="text-sm font-medium text-[rgb(156,156,156)] mb-2 uppercase tracking-wide">{t("pending-alerts")}</h3>
+              <p className="text-3xl font-bold text-white">{alertStats.pending}</p>
             </div>
           </div>
-          <div className="stat-card">
-            <div className="stat-card-icon">✅</div>
-            <div className="stat-card-content">
-              <h3>{t("resolved-alerts")}</h3>
-              <p className="stat-card-value">{alertStats.resolved}</p>
+          <div className="bg-[rgba(255,255,255,0.05)] backdrop-blur-md border border-[rgba(255,255,255,0.1)] rounded-2xl p-8 flex items-center gap-4 shadow-lg">
+            <div className="text-4xl">✅</div>
+            <div className="flex-1">
+              <h3 className="text-sm font-medium text-[rgb(156,156,156)] mb-2 uppercase tracking-wide">{t("resolved-alerts")}</h3>
+              <p className="text-3xl font-bold text-white">{alertStats.resolved}</p>
             </div>
           </div>
-          <div className="stat-card">
-            <div className="stat-card-icon">🔔</div>
-            <div className="stat-card-content">
-              <h3>{t("total-alerts")}</h3>
-              <p className="stat-card-value">{alertStats.total}</p>
+          <div className="bg-[rgba(255,255,255,0.05)] backdrop-blur-md border border-[rgba(255,255,255,0.1)] rounded-2xl p-8 flex items-center gap-4 shadow-lg">
+            <div className="text-4xl">🔔</div>
+            <div className="flex-1">
+              <h3 className="text-sm font-medium text-[rgb(156,156,156)] mb-2 uppercase tracking-wide">{t("total-alerts")}</h3>
+              <p className="text-3xl font-bold text-white">{alertStats.total}</p>
             </div>
           </div>
         </>

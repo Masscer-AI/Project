@@ -1,7 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import { preserveWidgetPlugin } from "./vite-preserve-widget-plugin";
-
+import tailwindcss from '@tailwindcss/vite'
 // https://vitejs.dev/config/
 export default defineConfig(({ command, mode }) => {
   // Check for widget build via command line args or env var
@@ -10,7 +10,7 @@ export default defineConfig(({ command, mode }) => {
   if (isWidgetBuild) {
     // Widget build configuration
     return {
-      plugins: [react()],
+      plugins: [react(), tailwindcss()],
       root: "./client",
       envDir: "../../",
       define: {
@@ -38,7 +38,7 @@ export default defineConfig(({ command, mode }) => {
 
   // Main app build configuration
   return {
-    plugins: [react(), preserveWidgetPlugin()],
+    plugins: [react(), tailwindcss(), preserveWidgetPlugin()],
     root: "./client",
     envDir: "../../",
     define: {

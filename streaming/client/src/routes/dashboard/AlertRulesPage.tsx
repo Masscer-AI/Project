@@ -8,12 +8,10 @@ import {
   deleteAlertRule 
 } from "../../modules/apiCalls";
 import { TConversationAlertRule } from "../../types";
-import { ProtectedRoute } from "../../components/ProtectedRoute/ProtectedRoute";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { SvgButton } from "../../components/SvgButton/SvgButton";
 import { SVGS } from "../../assets/svgs";
-import "./AlertRulesPage.css";
 
 export default function AlertRulesPage() {
   const { chatState, startup, toggleSidebar } = useStore((state) => ({
@@ -27,6 +25,7 @@ export default function AlertRulesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingRule, setEditingRule] = useState<TConversationAlertRule | null>(null);
+  const [hoveredHeaderButton, setHoveredHeaderButton] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     trigger: "",
@@ -125,52 +124,93 @@ export default function AlertRulesPage() {
   return (
       <main className="d-flex pos-relative h-viewport">
         {chatState.isSidebarOpened && <Sidebar />}
-        <div className="dashboard-container">
-          <div className="dashboard-header">
-            {!chatState.isSidebarOpened && (
+        <div className="dashboard-container relative">
+          {!chatState.isSidebarOpened && (
+            <div className="absolute top-6 left-6 z-10">
               <SvgButton
                 extraClass="pressable active-on-hover"
                 onClick={toggleSidebar}
                 svg={SVGS.burger}
               />
-            )}
-            <button 
-              className="dashboard-back-button"
-              onClick={() => navigate("/dashboard")}
-            >
-              ← {t("back-to-dashboard")}
-            </button>
-            <h1>{t("alert-rules") || "Alert Rules"}</h1>
-          </div>
-
-          <div className="alert-rules-actions">
-            <button 
-              className="dashboard-button primary"
-              onClick={handleCreate}
-            >
-              {t("create-alert-rule") || "+ Create Alert Rule"}
-            </button>
-          </div>
-
-          {isLoading ? (
-            <div className="dashboard-loading">{t("loading")}...</div>
-          ) : alertRules.length === 0 ? (
-            <div className="alert-rules-empty">
-              {t("no-alert-rules-found") || "No alert rules found. Create your first one!"}
-            </div>
-          ) : (
-            <div className="alert-rules-list">
-              {alertRules.map((rule) => (
-                <AlertRuleCard
-                  key={rule.id}
-                  rule={rule}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                  t={t}
-                />
-              ))}
             </div>
           )}
+          <div className="max-w-7xl mx-auto px-4">
+            <div className="dashboard-header mb-8">
+              <div className="flex items-center gap-4 mb-4">
+                {!chatState.isSidebarOpened && (
+                  <div className="w-10"></div>
+                )}
+                <button 
+                  className={`px-6 py-3 rounded-full font-normal text-sm cursor-pointer border ${
+                    hoveredHeaderButton === 'back' 
+                      ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+                      : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
+                  }`}
+                  style={{ transform: 'none' }}
+                  onMouseEnter={() => setHoveredHeaderButton('back')}
+                  onMouseLeave={() => setHoveredHeaderButton(null)}
+                  onClick={() => {
+                    setHoveredHeaderButton('back');
+                    setTimeout(() => {
+                      navigate("/dashboard");
+                      setHoveredHeaderButton(null);
+                    }, 200);
+                  }}
+                >
+                  ← {t("back-to-dashboard")}
+                </button>
+              </div>
+              <h1 className="text-4xl font-bold mb-8 text-center text-white tracking-tight" style={{ textShadow: '0 2px 8px rgba(110, 91, 255, 0.2)' }}>
+                {t("alert-rules") || "Alert Rules"}
+              </h1>
+            </div>
+
+            <div className="mb-12 text-center">
+              <button 
+                className={`px-4 py-3 rounded-full font-normal text-sm cursor-pointer border ${
+                  hoveredHeaderButton === 'create' 
+                    ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+                    : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
+                }`}
+                style={{ transform: 'none' }}
+                onMouseEnter={() => setHoveredHeaderButton('create')}
+                onMouseLeave={() => setHoveredHeaderButton(null)}
+                onClick={() => {
+                  setHoveredHeaderButton('create');
+                  setTimeout(() => {
+                    handleCreate();
+                    setHoveredHeaderButton(null);
+                  }, 200);
+                }}
+              >
+                {t("create-alert-rule") || "+ Nueva regla"}
+              </button>
+            </div>
+
+            {isLoading ? (
+              <div className="text-center py-10 text-lg text-[rgb(156,156,156)]">
+                {t("loading")}...
+              </div>
+            ) : alertRules.length === 0 ? (
+              <div className="text-center py-16 text-xl text-[rgb(156,156,156)]">
+                {t("no-alert-rules-found") || "No alert rules found. Create your first one!"}
+              </div>
+            ) : (
+              <div className="flex justify-center w-full">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-fit">
+                  {alertRules.map((rule) => (
+                    <AlertRuleCard
+                      key={rule.id}
+                      rule={rule}
+                      onEdit={handleEdit}
+                      onDelete={handleDelete}
+                      t={t}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
 
           {showForm && (
             <AlertRuleForm
@@ -195,33 +235,70 @@ interface AlertRuleCardProps {
 }
 
 function AlertRuleCard({ rule, onEdit, onDelete, t }: AlertRuleCardProps) {
+  const [hoveredButton, setHoveredButton] = useState<string | null>(null);
+  
   return (
-    <div className={`alert-rule-card ${rule.enabled ? "enabled" : "disabled"}`}>
-      <div className="alert-rule-header">
-        <h3>{rule.name}</h3>
-        <div className="alert-rule-status">
-          <span className={`status-badge ${rule.enabled ? "active" : "inactive"}`}>
-            {rule.enabled ? t("enabled") || "Enabled" : t("disabled") || "Disabled"}
-          </span>
-        </div>
+    <div className="bg-[rgba(255,255,255,0.05)] backdrop-blur-md border border-[rgba(255,255,255,0.1)] rounded-2xl p-6 flex flex-col gap-4 shadow-lg">
+      <div className="flex justify-between items-start">
+        <h3 className="text-xl font-bold text-white ml-2">{rule.name}</h3>
+        <span className={`px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap ${
+          rule.enabled 
+            ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
+            : 'bg-red-500/20 text-red-400 border border-red-500/30'
+        }`}>
+          {rule.enabled ? t("enabled") || "Enabled" : t("disabled") || "Disabled"}
+        </span>
       </div>
-      <div className="alert-rule-body">
-        <p className="alert-rule-trigger">{rule.trigger}</p>
-        <div className="alert-rule-meta">
-          <span>{t("scope") || "Scope"}: {rule.scope === "all_conversations" ? t("all-conversations") || "All Conversations" : t("selected-agents") || "Selected Agents"}</span>
-          <span>{t("notify-to") || "Notify To"}: {rule.notify_to === "all_staff" ? t("all-staff") || "All Staff" : t("selected-members") || "Selected Members"}</span>
-        </div>
+      
+      <p className="text-sm leading-relaxed text-[rgb(156,156,156)]">
+        {rule.trigger}
+      </p>
+      
+      <div className="flex flex-col gap-2 text-sm text-[rgb(156,156,156)]">
+        <span>
+          {t("scope") || "Scope"}: {rule.scope === "all_conversations" ? t("all-conversations") || "All Conversations" : t("selected-agents") || "Selected Agents"}
+        </span>
+        <span>
+          {t("notify-to") || "Notify To"}: {rule.notify_to === "all_staff" ? t("all-staff") || "All Staff" : t("selected-members") || "Selected Members"}
+        </span>
       </div>
-      <div className="alert-rule-actions">
+      
+      <div className="flex gap-3 mt-2 pt-4 border-t border-[rgba(255,255,255,0.1)]">
         <button 
-          className="alert-rule-button edit"
-          onClick={() => onEdit(rule)}
+          className={`px-8 py-3 rounded-full font-normal text-sm cursor-pointer border ${
+            hoveredButton === 'edit' 
+              ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+              : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
+          }`}
+          style={{ transform: 'none' }}
+          onMouseEnter={() => setHoveredButton('edit')}
+          onMouseLeave={() => setHoveredButton(null)}
+          onClick={() => {
+            setHoveredButton('edit');
+            setTimeout(() => {
+              onEdit(rule);
+              setHoveredButton(null);
+            }, 200);
+          }}
         >
           {t("edit") || "Edit"}
         </button>
         <button 
-          className="alert-rule-button delete"
-          onClick={() => onDelete(rule.id)}
+          className={`px-8 py-3 rounded-full font-normal text-sm cursor-pointer border ${
+            hoveredButton === 'delete' 
+              ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+              : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
+          }`}
+          style={{ transform: 'none' }}
+          onMouseEnter={() => setHoveredButton('delete')}
+          onMouseLeave={() => setHoveredButton(null)}
+          onClick={() => {
+            setHoveredButton('delete');
+            setTimeout(() => {
+              onDelete(rule.id);
+              setHoveredButton(null);
+            }, 200);
+          }}
         >
           {t("delete") || "Delete"}
         </button>
@@ -247,71 +324,101 @@ interface AlertRuleFormProps {
 }
 
 function AlertRuleForm({ formData, setFormData, onSubmit, onCancel, editingRule, t }: AlertRuleFormProps) {
+  const [hoveredButton, setHoveredButton] = useState<string | null>(null);
+  
   return (
-    <div className="alert-rule-form-overlay">
-      <div className="alert-rule-form">
-        <h2>{editingRule ? t("edit-alert-rule") || "Edit Alert Rule" : t("create-alert-rule") || "Create Alert Rule"}</h2>
-        <form onSubmit={onSubmit}>
-          <div className="form-group">
-            <label>{t("name") || "Name"}</label>
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-[rgba(255,255,255,0.05)] backdrop-blur-md border border-[rgba(255,255,255,0.1)] rounded-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-lg">
+        <h2 className="font-bold text-white text-center" style={{ textShadow: '0 2px 8px rgba(110, 91, 255, 0.2)' }}>
+          {editingRule ? t("edit-alert-rule") : t("create-alert-rule")}
+        </h2>
+        <form onSubmit={onSubmit} className="space-y-6">
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-[rgb(156,156,156)]">{t("name")}</label>
             <input
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               required
+              className="w-full !px-4 !py-3 bg-[rgba(35,33,39,0.5)] border border-[rgba(156,156,156,0.3)] rounded-lg text-white focus:outline-none focus:border-[rgba(156,156,156,0.5)] transition-colors"
             />
           </div>
 
-          <div className="form-group">
-            <label>{t("trigger") || "Trigger Description"}</label>
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-[rgb(156,156,156)]">{t("trigger")}</label>
             <textarea
               value={formData.trigger}
               onChange={(e) => setFormData({ ...formData, trigger: e.target.value })}
               required
               rows={4}
-              placeholder={t("trigger-description-placeholder") || "Describe when this alert should be triggered..."}
+              placeholder={t("trigger-description-placeholder")}
+              className="w-full !px-4 !py-3 bg-[rgba(35,33,39,0.5)] border border-[rgba(156,156,156,0.3)] rounded-lg text-white focus:outline-none focus:border-[rgba(156,156,156,0.5)] transition-colors resize-vertical"
             />
           </div>
 
-          <div className="form-group">
-            <label>{t("scope") || "Scope"}</label>
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-[rgb(156,156,156)]">{t("scope")}</label>
             <select
               value={formData.scope}
               onChange={(e) => setFormData({ ...formData, scope: e.target.value as "all_conversations" | "selected_agents" })}
+              className="w-full !px-4 !py-3 bg-[rgba(35,33,39,0.5)] border border-[rgba(156,156,156,0.3)] rounded-lg text-white focus:outline-none focus:border-[rgba(156,156,156,0.5)] transition-colors"
             >
-              <option value="all_conversations">{t("all-conversations") || "All Conversations"}</option>
-              <option value="selected_agents">{t("selected-agents") || "Selected Agents"}</option>
+              <option value="all_conversations">{t("all-conversations")}</option>
+              <option value="selected_agents">{t("selected-agents")}</option>
             </select>
           </div>
 
-          <div className="form-group">
-            <label>{t("notify-to") || "Notify To"}</label>
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-[rgb(156,156,156)]">{t("notify-to")}</label>
             <select
               value={formData.notify_to}
               onChange={(e) => setFormData({ ...formData, notify_to: e.target.value as "all_staff" | "selected_members" })}
+              className="w-full !px-4 !py-3 bg-[rgba(35,33,39,0.5)] border border-[rgba(156,156,156,0.3)] rounded-lg text-white focus:outline-none focus:border-[rgba(156,156,156,0.5)] transition-colors"
             >
-              <option value="all_staff">{t("all-staff") || "All Staff"}</option>
-              <option value="selected_members">{t("selected-members") || "Selected Members"}</option>
+              <option value="all_staff">{t("all-staff")}</option>
+              <option value="selected_members">{t("selected-members")}</option>
             </select>
           </div>
 
-          <div className="form-group">
-            <label>
+          <div className="space-y-2">
+            <label className="flex items-center text-sm font-medium text-[rgb(156,156,156)] cursor-pointer">
               <input
                 type="checkbox"
                 checked={formData.enabled}
                 onChange={(e) => setFormData({ ...formData, enabled: e.target.checked })}
+                className="mr-2 w-4 h-4 cursor-pointer"
               />
-              {t("enabled") || "Enabled"}
+              {t("enabled")}
             </label>
           </div>
 
-          <div className="form-actions">
-            <button type="button" className="button secondary" onClick={onCancel}>
-              {t("cancel") || "Cancel"}
+          <div className="flex justify-end gap-4 pt-6 border-t border-[rgba(255,255,255,0.1)]">
+            <button 
+              type="button" 
+              className={`px-8 py-3 rounded-full font-normal text-sm cursor-pointer border ${
+                hoveredButton === 'cancel' 
+                  ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+                  : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
+              }`}
+              style={{ transform: 'none' }}
+              onMouseEnter={() => setHoveredButton('cancel')}
+              onMouseLeave={() => setHoveredButton(null)}
+              onClick={onCancel}
+            >
+              {t("cancel")}
             </button>
-            <button type="submit" className="button primary">
-              {editingRule ? t("update") || "Update" : t("create") || "Create"}
+            <button 
+              type="submit" 
+              className={`px-8 py-3 rounded-full font-normal text-sm cursor-pointer border ${
+                hoveredButton === 'submit' 
+                  ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+                  : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
+              }`}
+              style={{ transform: 'none' }}
+              onMouseEnter={() => setHoveredButton('submit')}
+              onMouseLeave={() => setHoveredButton(null)}
+            >
+              {editingRule ? t("update") : t("create")}
             </button>
           </div>
         </form>
