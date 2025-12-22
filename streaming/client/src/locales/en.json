@@ -397,7 +397,7 @@
     "resolve": "Resolve",
     "dismiss": "Dismiss",
     "alert-rules": "Alert Rules",
-    "create-alert-rule": "+ Create Alert Rule",
+    "create-alert-rule": "+ New Rule",
     "edit-alert-rule": "Edit Alert Rule",
     "no-alert-rules-found": "No alert rules found. Create your first one!",
     "enabled": "Enabled",
@@ -416,5 +416,6 @@
     "update": "Update",
     "manage-alert-rules": "Manage Alert Rules",
     "conversation-title-prompt": "Conversation Title Prompt",
-    "conversation-title-prompt-placeholder": "Leave empty to use default prompt. Customize how titles are generated for conversations using this agent."
+    "conversation-title-prompt-placeholder": "Leave empty to use default prompt. Customize how titles are generated for conversations using this agent.",
+    "conversation": "Conversation"
 }
