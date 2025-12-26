@@ -36,6 +36,7 @@ ALLOWED_HOSTS = [
     "http://localhost",
     "127.0.0.1",
     "localhost",
+    # "django",
     "8ldmsxh6-8000.use2.devtunnels.ms",
 ]
 
