@@ -286,8 +286,8 @@ IMPORTANTE: Solo levanta alertas si la conversación realmente cumple con los re
             )
             
             logger.info(f"Analysis completed for conversation {conversation_uuid}")
-            logger.info(f"Reasoning: {analysis.reasoning[:200]}...")
-            logger.info(f"Summary: {analysis.summary[:200]}...")
+            logger.info(f"Reasoning: {(analysis.reasoning or '')[:200]}...")
+            logger.info(f"Summary: {(analysis.summary or '')[:200]}...")
             logger.info(f"Suggested tags: {analysis.suggested_tags}")
             logger.info(f"Alerts to raise: {len(analysis.alerts)}")
             

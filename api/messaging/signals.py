@@ -13,6 +13,10 @@ from api.authenticate.services import FeatureFlagService
 @receiver(post_save, sender=Conversation)
 def conversation_post_save(sender, instance, **kwargs):
     try:
+        # Verificar que la conversación tenga un usuario antes de procesar tags
+        if not instance.user:
+            return
+        
         # Tags ahora es JSONField con lista de IDs
         tag_ids = instance.tags if isinstance(instance.tags, list) else []
         
