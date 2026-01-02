@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import "./Sidebar.css";
 import { SVGS } from "../../assets/svgs";
 import { useStore } from "../../modules/store";
 import { useSearchParams } from "react-router-dom";
@@ -66,6 +65,8 @@ export const Sidebar: React.FC = () => {
     maxMessages: null,
   });
 
+  const [hoveredButton, setHoveredButton] = useState<string | null>(null);
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -111,15 +112,13 @@ export const Sidebar: React.FC = () => {
     }
   };
 
-  const handleNewChat = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    e.preventDefault();
+  const handleNewChat = () => {
     setConversation(null);
     if (searchParams.has("conversation")) {
       searchParams.delete("conversation");
       setSearchParams(searchParams);
     }
     toggleSidebar();
-
     navigate(`/chat`);
   };
 
@@ -184,42 +183,64 @@ export const Sidebar: React.FC = () => {
 
   return (
     <>
-      <div className="sidebar">
-        <div className="flex-x justify-between">
-          <a href="/chat" onClick={handleNewChat}>
-            <SvgButton
-              svg={SVGS.plus}
-              size="big"
-              extraClass="active-on-hover pressable justify-center"
-              text={t("new-chat")}
-            />
-          </a>
-          <SvgButton
-            extraClass="active-on-hover pressable"
+      <div className="bg-[rgba(35,33,39,0.5)] backdrop-blur-md fixed md:relative left-0 top-0 h-screen z-[3] flex flex-col w-[min(350px,100%)] p-3 gap-2.5 border-r border-[rgba(255,255,255,0.1)] animate-[appear-left_500ms_forwards] md:[animation:none]">
+        <div className="flex justify-between gap-2">
+          <button
+            className={`w-full px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center justify-center gap-2 ${
+              hoveredButton === 'new-chat' 
+                ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+                : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
+            }`}
+            style={{ transform: 'none' }}
+            onMouseEnter={() => setHoveredButton('new-chat')}
+            onMouseLeave={() => setHoveredButton(null)}
+            onClick={handleNewChat}
+          >
+            <div className="w-5 h-5 flex items-center justify-center [&>svg]:w-5 [&>svg]:h-5">{SVGS.plus}</div>
+            <span>{t("new-chat")}</span>
+          </button>
+          <button
+            className={`px-4 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center justify-center ${
+              hoveredButton === 'burger' 
+                ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+                : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
+            }`}
+            style={{ transform: 'none' }}
+            onMouseEnter={() => setHoveredButton('burger')}
+            onMouseLeave={() => setHoveredButton(null)}
             onClick={toggleSidebar}
-            svg={SVGS.burger}
-          />
+          >
+            <div className="w-5 h-5 flex items-center justify-center [&>svg]:w-5 [&>svg]:h-5">{SVGS.burger}</div>
+          </button>
         </div>
-        <div className="sidebar__history flex-y gap-small ">
-          <SvgButton
+        <div className="[scrollbar-width:none] overflow-auto p-0.5 flex flex-col gap-2.5 flex-1">
+          <button
+            className={`w-full px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center justify-center gap-2 ${
+              hoveredButton === 'conversations' || historyConfig.isOpen
+                ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+                : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
+            }`}
+            style={{ transform: 'none' }}
+            onMouseEnter={() => setHoveredButton('conversations')}
+            onMouseLeave={() => setHoveredButton(null)}
             onClick={() =>
               setHistoryConfig((prev) => ({
                 ...prev,
                 isOpen: !prev.isOpen,
               }))
             }
-            text={t("conversations")}
-            svg={SVGS.chat}
-            extraClass={` w-100 active-on-hover pressable ${historyConfig.isOpen ? "bg-active" : "bg-hovered"}`}
-          />
+          >
+            <div className="w-5 h-5 flex items-center justify-center [&>svg]:w-5 [&>svg]:h-5">{SVGS.chat}</div>
+            <span>{t("conversations")}</span>
+          </button>
 
           {historyConfig.isOpen && (
             <>
               {historyConfig.showFilters ? (
-                <div className="conversation-history-filters">
+                <div className="flex flex-col gap-2.5">
                   <input
                     type="text"
-                    className="input w-100 padding-medium"
+                    className="w-full p-3 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-lg text-white placeholder-[rgb(156,156,156)] focus:outline-none focus:ring-2 focus:ring-[rgba(110,91,255,0.5)]"
                     placeholder={t("filter-conversations")}
                     autoFocus
                     name="conversation-filter"
@@ -228,9 +249,9 @@ export const Sidebar: React.FC = () => {
                       setFilters({ ...filters, title: e.target.value })
                     }
                   />
-                  <div className="date-filters d-flex gap-small">
+                  <div className="flex gap-2.5">
                     <input
-                      className="w-100 rounded padding-small"
+                      className="w-full rounded-lg p-2 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] text-white focus:outline-none focus:ring-2 focus:ring-[rgba(110,91,255,0.5)]"
                       type="date"
                       value={filters.startDate}
                       onChange={(e) =>
@@ -238,7 +259,7 @@ export const Sidebar: React.FC = () => {
                       }
                     />
                     <input
-                      className="w-100 rounded padding-small"
+                      className="w-full rounded-lg p-2 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] text-white focus:outline-none focus:ring-2 focus:ring-[rgba(110,91,255,0.5)]"
                       type="date"
                       value={filters.endDate}
                       onChange={(e) =>
@@ -246,9 +267,9 @@ export const Sidebar: React.FC = () => {
                       }
                     />
                   </div>
-                  <div className="d-flex gap-small">
+                  <div className="flex gap-2.5">
                     <input
-                      className="w-100 rounded padding-small"
+                      className="w-full rounded-lg p-2 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] text-white placeholder-[rgb(156,156,156)] focus:outline-none focus:ring-2 focus:ring-[rgba(110,91,255,0.5)]"
                       type="number"
                       min={0}
                       placeholder={t("min-messages")}
@@ -263,7 +284,7 @@ export const Sidebar: React.FC = () => {
                       }
                     />
                     <input
-                      className="w-100 rounded padding-small"
+                      className="w-full rounded-lg p-2 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] text-white placeholder-[rgb(156,156,156)] focus:outline-none focus:ring-2 focus:ring-[rgba(110,91,255,0.5)]"
                       type="number"
                       placeholder={t("max-messages")}
                       min={0}
@@ -278,7 +299,7 @@ export const Sidebar: React.FC = () => {
                       }
                     />
                   </div>
-                  <div className="d-flex gap-small wrap-wrap">
+                  <div className="flex gap-2.5 flex-wrap">
                     {userTags.map((tag) => (
                       <Pill
                         onClick={() => filterByTag(tag)}
@@ -289,11 +310,16 @@ export const Sidebar: React.FC = () => {
                       </Pill>
                     ))}
                   </div>
-                  <div className="d-flex gap-small">
-                    <SvgButton
-                      size="big"
-                      text={t("clean-filters")}
-                      extraClass="border-danger"
+                  <div className="flex gap-2.5">
+                    <button
+                      className={`w-full px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center justify-center ${
+                        hoveredButton === 'clean-filters' 
+                          ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+                          : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
+                      }`}
+                      style={{ transform: 'none' }}
+                      onMouseEnter={() => setHoveredButton('clean-filters')}
+                      onMouseLeave={() => setHoveredButton(null)}
                       onClick={() => {
                         setFilters({
                           tags: [],
@@ -303,36 +329,52 @@ export const Sidebar: React.FC = () => {
                           minMessages: null,
                           maxMessages: null,
                         });
-                        // setFilteredHistory(history);
                       }}
-                    />
-                    <SvgButton
-                      size="big"
-                      extraClass="border-gray"
-                      text={t("close-filters")}
+                    >
+                      {t("clean-filters")}
+                    </button>
+                    <button
+                      className={`w-full px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center justify-center ${
+                        hoveredButton === 'close-filters' 
+                          ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+                          : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
+                      }`}
+                      style={{ transform: 'none' }}
+                      onMouseEnter={() => setHoveredButton('close-filters')}
+                      onMouseLeave={() => setHoveredButton(null)}
                       onClick={() =>
                         setHistoryConfig((prev) => ({
                           ...prev,
                           showFilters: false,
                         }))
                       }
-                    />
+                    >
+                      {t("close-filters")}
+                    </button>
                   </div>
                 </div>
               ) : (
-                <SvgButton
-                  extraClass="border-gray"
-                  text={t("show-filters")}
+                <button
+                  className={`w-full px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center justify-center ${
+                    hoveredButton === 'show-filters' 
+                      ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+                      : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
+                  }`}
+                  style={{ transform: 'none' }}
+                  onMouseEnter={() => setHoveredButton('show-filters')}
+                  onMouseLeave={() => setHoveredButton(null)}
                   onClick={() =>
                     setHistoryConfig((prev) => ({
                       ...prev,
                       showFilters: true,
                     }))
                   }
-                />
+                >
+                  {t("show-filters")}
+                </button>
               )}
-              <div className="flex-y conversation-history gap-small ">
-                <h3>{t("today")}</h3>
+              <div className="h-full overflow-y-auto [scrollbar-width:none] flex flex-col gap-2.5">
+                <h3 className="text-white font-semibold text-sm">{t("today")}</h3>
                 {filteredHistory
                   .filter(
                     (c) => new Date(c.created_at).toLocaleDateString() === today
@@ -344,7 +386,7 @@ export const Sidebar: React.FC = () => {
                       deleteConversationItem={deleteConversationItem}
                     />
                   ))}
-                <h3>{t("previous-days")}</h3>
+                <h3 className="text-white font-semibold text-sm">{t("previous-days")}</h3>
                 {filteredHistory
                   .filter(
                     (c) => new Date(c.created_at).toLocaleDateString() !== today
@@ -362,82 +404,121 @@ export const Sidebar: React.FC = () => {
 
           {!historyConfig.isOpen && (
             <>
-              <SvgButton
-                svg={SVGS.tools}
-                text={t("audio-tools")}
-                size="big"
-                extraClass="bg-hovered
-          active-on-hover pressable w-100"
+              <button
+                className={`w-full px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center justify-center gap-2 ${
+                  hoveredButton === 'audio-tools' 
+                    ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+                    : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
+                }`}
+                style={{ transform: 'none' }}
+                onMouseEnter={() => setHoveredButton('audio-tools')}
+                onMouseLeave={() => setHoveredButton(null)}
                 onClick={() =>
                   setOpenedModals({ action: "add", name: "audio" })
                 }
-              />
-              <SvgButton
+              >
+                <div className="w-5 h-5 flex items-center justify-center [&>svg]:w-5 [&>svg]:h-5">{SVGS.tools}</div>
+                <span>{t("audio-tools")}</span>
+              </button>
+              <button
+                className={`w-full px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center justify-center gap-2 ${
+                  hoveredButton === 'whatsapp' 
+                    ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+                    : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
+                }`}
+                style={{ transform: 'none' }}
+                onMouseEnter={() => setHoveredButton('whatsapp')}
+                onMouseLeave={() => setHoveredButton(null)}
                 onClick={() => goTo("/whatsapp")}
-                text={t("whatsapp")}
-                size="big"
-                extraClass="bg-hovered active-on-hover pressable w-100"
-                svg={SVGS.whatsapp}
-              />
-
-              <SvgButton
+              >
+                <div className="w-5 h-5 flex items-center justify-center [&>svg]:w-5 [&>svg]:h-5">{SVGS.whatsapp}</div>
+                <span>{t("whatsapp")}</span>
+              </button>
+              <button
+                className={`w-full px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center justify-center gap-2 ${
+                  hoveredButton === 'documents' 
+                    ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+                    : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
+                }`}
+                style={{ transform: 'none' }}
+                onMouseEnter={() => setHoveredButton('documents')}
+                onMouseLeave={() => setHoveredButton(null)}
                 onClick={() => {
                   setOpenedModals({ action: "add", name: "documents" });
                   toggleSidebar();
                 }}
-                text={t("documents")}
-                size="big"
-                extraClass="bg-hovered active-on-hover pressable w-100"
-                svg={SVGS.document}
-              />
-              <SvgButton
+              >
+                <div className="w-5 h-5 flex items-center justify-center [&>svg]:w-5 [&>svg]:h-5">{SVGS.document}</div>
+                <span>{t("documents")}</span>
+              </button>
+              <button
+                className={`w-full px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center justify-center gap-2 ${
+                  hoveredButton === 'completions' 
+                    ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+                    : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
+                }`}
+                style={{ transform: 'none' }}
+                onMouseEnter={() => setHoveredButton('completions')}
+                onMouseLeave={() => setHoveredButton(null)}
                 onClick={() =>
                   setOpenedModals({ action: "add", name: "completions" })
                 }
-                text={t("completions")}
-                size="big"
-                extraClass="bg-hovered active-on-hover pressable w-100"
-                svg={SVGS.question}
-              />
-
+              >
+                <div className="w-5 h-5 flex items-center justify-center [&>svg]:w-5 [&>svg]:h-5">{SVGS.question}</div>
+                <span>{t("completions")}</span>
+              </button>
               {isConversationsDashboardEnabled && (
-                <SvgButton
+                <button
+                  className={`w-full px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center justify-center gap-2 ${
+                    hoveredButton === 'dashboard' 
+                      ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+                      : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
+                  }`}
+                  style={{ transform: 'none' }}
+                  onMouseEnter={() => setHoveredButton('dashboard')}
+                  onMouseLeave={() => setHoveredButton(null)}
                   onClick={() => goTo("/dashboard")}
-                  text={t("conversations-dashboard")}
-                  size="big"
-                  extraClass="bg-hovered active-on-hover pressable w-100"
-                  svg={SVGS.chat}
-                />
+                >
+                  <div className="w-5 h-5 flex items-center justify-center [&>svg]:w-5 [&>svg]:h-5">{SVGS.chat}</div>
+                  <span>{t("conversations-dashboard")}</span>
+                </button>
               )}
-
-              {/* <SvgButton
-                text={t("workflows")}
-                size="big"
-                extraClass="bg-hovered active-on-hover pressable w-100"
-                onClick={() => goTo("/workflows")}
-                svg={SVGS.workflows}
-              /> */}
             </>
           )}
         </div>
-        <div className="sidebar__footer d-flex justify-between">
-          <SvgButton
+        <div className="mt-auto flex justify-between gap-2">
+          <button
+            className={`flex-1 px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center justify-center gap-2 ${
+              hoveredButton === 'settings' 
+                ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+                : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
+            }`}
+            style={{ transform: 'none' }}
+            onMouseEnter={() => setHoveredButton('settings')}
+            onMouseLeave={() => setHoveredButton(null)}
             onClick={openSettings}
-            svg={SVGS.settings}
             title={t("settings")}
-            extraClass="pressable active-on-hover "
-            text={user ? user.username : t("you")}
-          />
-          <SvgButton
+          >
+            <div className="w-5 h-5 flex items-center justify-center [&>svg]:w-5 [&>svg]:h-5">{SVGS.settings}</div>
+            <span>{user ? user.username : t("you")}</span>
+          </button>
+          <button
+            className={`px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center justify-center ${
+              hoveredButton === 'logout' 
+                ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+                : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
+            }`}
+            style={{ transform: 'none' }}
+            onMouseEnter={() => setHoveredButton('logout')}
+            onMouseLeave={() => setHoveredButton(null)}
             onClick={logout}
-            svg={SVGS.logout}
             title={t("logout")}
-            extraClass="pressable danger-on-hover"
-            confirmations={[t("sure?")]}
-          />
+          >
+            <div className="w-5 h-5 flex items-center justify-center [&>svg]:w-5 [&>svg]:h-5">{SVGS.logout}</div>
+          </button>
         </div>
       </div>
-      <div onClick={toggleSidebar} className="sidebar-backdrop"></div>
+      <div onClick={toggleSidebar} className="bg-[rgba(55,55,55,0.52)] w-screen h-screen fixed top-0 left-0 z-[2] md:hidden"></div>
     </>
   );
 };
@@ -474,8 +555,8 @@ const ConversationComponent = ({
   };
 
   return conversation.number_of_messages > 0 ? (
-    <div className="conversation rounded-rect d-flex align-center">
-      <p className="w-100" onClick={handleClick}>
+    <div className="flex items-center justify-between text-[17.5px] cursor-pointer relative text-ellipsis whitespace-nowrap p-0 rounded-lg hover:bg-[rgba(255,255,255,0.05)] transition-colors">
+      <p className="w-full p-2.5 max-w-full overflow-hidden" onClick={handleClick}>
         {(conversation.title || conversation.id).slice(0, 30)}
       </p>
       {showTrainingModal && (
