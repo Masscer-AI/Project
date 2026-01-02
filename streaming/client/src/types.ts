@@ -29,6 +29,7 @@ export interface TTag {
   id: number;
   title: string;
   description: string;
+  color?: string;
   enabled: boolean;
   organization: string;
   created_at: string;

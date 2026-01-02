@@ -31,6 +31,7 @@ export default function TagsPage() {
   const [formData, setFormData] = useState({
     title: "",
     description: "",
+    color: "#4a9eff",
     enabled: true,
   });
 
@@ -58,6 +59,7 @@ export default function TagsPage() {
     setFormData({
       title: "",
       description: "",
+      color: "#4a9eff",
       enabled: true,
     });
     setShowForm(true);
@@ -68,6 +70,7 @@ export default function TagsPage() {
     setFormData({
       title: tag.title,
       description: tag.description || "",
+      color: tag.color || "#4a9eff",
       enabled: tag.enabled,
     });
     setShowForm(true);
@@ -109,6 +112,7 @@ export default function TagsPage() {
     setFormData({
       title: "",
       description: "",
+      color: "#4a9eff",
       enabled: true,
     });
   };
@@ -300,6 +304,7 @@ interface TagFormProps {
   formData: {
     title: string;
     description: string;
+    color: string;
     enabled: boolean;
   };
   setFormData: React.Dispatch<React.SetStateAction<any>>;
@@ -341,6 +346,38 @@ function TagForm({ formData, setFormData, onSubmit, onCancel, editingTag, t }: T
               className="w-full p-3 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-lg text-white placeholder-[rgb(156,156,156)] focus:outline-none focus:ring-2 focus:ring-[rgba(110,91,255,0.5)] resize-none"
               placeholder={t("tag-description-placeholder") || "Tag description (optional)"}
             />
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-[rgb(156,156,156)]">{t("color") || "Color"}</label>
+            <div className="flex gap-3 items-center">
+              <input
+                type="color"
+                value={formData.color}
+                onChange={(e) => setFormData({ ...formData, color: e.target.value })}
+                className="w-16 h-12 rounded cursor-pointer border border-[rgba(255,255,255,0.1)]"
+              />
+              <input
+                type="text"
+                value={formData.color}
+                onChange={(e) => setFormData({ ...formData, color: e.target.value })}
+                className="flex-1 p-3 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-lg text-white placeholder-[rgb(156,156,156)] focus:outline-none focus:ring-2 focus:ring-[rgba(110,91,255,0.5)]"
+                placeholder="#4a9eff"
+                pattern="^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$"
+              />
+            </div>
+            <div className="flex gap-2 flex-wrap mt-2">
+              {["#4a9eff", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4", "#84cc16"].map((color) => (
+                <button
+                  key={color}
+                  type="button"
+                  onClick={() => setFormData({ ...formData, color })}
+                  className="w-8 h-8 rounded border-2 border-[rgba(255,255,255,0.2)] hover:border-white transition-colors"
+                  style={{ backgroundColor: color }}
+                  title={color}
+                />
+              ))}
+            </div>
           </div>
 
           <div className="flex items-center gap-3">

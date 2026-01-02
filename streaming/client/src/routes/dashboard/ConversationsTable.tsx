@@ -1,6 +1,8 @@
-import React, { useState, useMemo } from "react";
-import { TConversation } from "../../types";
+import React, { useState, useMemo, useEffect } from "react";
+import { TConversation, TTag } from "../../types";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
+import { getTags } from "../../modules/apiCalls";
 import "./ConversationsTable.css";
 
 interface ConversationsTableProps {
@@ -9,6 +11,33 @@ interface ConversationsTableProps {
 
 export const ConversationsTable: React.FC<ConversationsTableProps> = ({ conversations }) => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const [tags, setTags] = useState<TTag[]>([]);
+  
+  // Cargar tags al montar el componente
+  useEffect(() => {
+    const loadTags = async () => {
+      try {
+        const tagsData = await getTags();
+        setTags(tagsData);
+      } catch (error) {
+        console.error("Error loading tags:", error);
+      }
+    };
+    loadTags();
+  }, []);
+  
+  // Crear un mapeo de ID a nombre y color de tag
+  const tagMap = useMemo(() => {
+    const map = new Map<number, { name: string; color: string }>();
+    tags.forEach(tag => {
+      map.set(tag.id, { 
+        name: tag.title, 
+        color: tag.color || "#4a9eff" 
+      });
+    });
+    return map;
+  }, [tags]);
   
   // Asegurar que conversations sea un array válido
   const safeConversations = Array.isArray(conversations) ? conversations : [];
@@ -39,9 +68,10 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({ conversa
       filtered = filtered.filter(conv => {
         const titleMatch = conv.title?.toLowerCase().includes(searchLower);
         const idMatch = conv.id.toLowerCase().includes(searchLower);
-        const tagsMatch = conv.tags?.some(tag => 
-          tag.toLowerCase().includes(searchLower)
-        );
+        const tagsMatch = conv.tags?.some(tagId => {
+          const tagInfo = tagMap.get(tagId);
+          return tagInfo?.name.toLowerCase().includes(searchLower) || false;
+        });
         const summaryMatch = conv.summary?.toLowerCase().includes(searchLower);
         return titleMatch || idMatch || tagsMatch || summaryMatch;
       });
@@ -88,7 +118,7 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({ conversa
     });
 
     return filtered;
-  }, [safeConversations, filters]);
+  }, [safeConversations, filters, tagMap]);
 
   const clearFilters = () => {
     setFilters({
@@ -238,7 +268,11 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({ conversa
             </thead>
             <tbody>
               {filteredConversations.map(conv => (
-                <tr key={conv.id}>
+                <tr 
+                  key={conv.id}
+                  onClick={() => navigate(`/chat?conversation=${conv.id}`)}
+                  className="cursor-pointer hover:bg-[rgba(255,255,255,0.05)] transition-colors"
+                >
                   <td className="conversation-title-cell">
                     {conv.title || conv.id.slice(0, 20) + "..."}
                   </td>
@@ -248,9 +282,19 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({ conversa
                   <td>
                     {conv.tags && conv.tags.length > 0 ? (
                       <div className="conversation-tags">
-                        {conv.tags.slice(0, 3).map((tag, idx) => (
-                          <span key={idx} className="conversation-tag">{tag}</span>
-                        ))}
+                        {conv.tags.slice(0, 3).map((tagId, idx) => {
+                          const tagInfo = tagMap.get(tagId);
+                          if (!tagInfo) return null;
+                          return (
+                            <span 
+                              key={idx} 
+                              className="conversation-tag"
+                              style={{ backgroundColor: tagInfo.color }}
+                            >
+                              {tagInfo.name}
+                            </span>
+                          );
+                        })}
                         {conv.tags.length > 3 && ` +${conv.tags.length - 3}`}
                       </div>
                     ) : (

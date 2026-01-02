@@ -300,6 +300,7 @@ class Tag(models.Model):
     id = models.AutoField(primary_key=True)
     title = models.CharField(max_length=50, help_text="Título de la etiqueta (máximo 50 caracteres)")
     description = models.TextField(blank=True, help_text="Descripción detallada de la etiqueta")
+    color = models.CharField(max_length=7, default="#4a9eff", help_text="Color de la etiqueta en formato hexadecimal")
     enabled = models.BooleanField(default=True, help_text="Indica si la etiqueta está habilitada")
     organization = models.ForeignKey(
         Organization,
