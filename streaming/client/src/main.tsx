@@ -22,6 +22,7 @@ import { NotificationListener } from "./components/NotificationListener/Notifica
 import DashboardPage from "./routes/dashboard/page.tsx";
 import AlertsPage from "./routes/dashboard/AlertsPage.tsx";
 import AlertRulesPage from "./routes/dashboard/AlertRulesPage.tsx";
+import TagsPage from "./routes/dashboard/TagsPage.tsx";
 
 const router = createBrowserRouter([
   {
@@ -77,6 +78,10 @@ const router = createBrowserRouter([
       {
         path: "/dashboard/alert-rules",
         element: <AlertRulesPage />,
+      },
+      {
+        path: "/dashboard/tags",
+        element: <TagsPage />,
       },
     ],
   },

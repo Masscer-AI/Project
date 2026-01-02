@@ -417,5 +417,15 @@
     "manage-alert-rules": "Gestionar Reglas de Alerta",
     "conversation-title-prompt": "Prompt para Título de Conversación",
     "conversation-title-prompt-placeholder": "Deja vacío para usar el prompt por defecto. Personaliza cómo se generan los títulos de las conversaciones usando este agente.",
-    "conversation": "Conversación"
+    "conversation": "Conversación",
+    "tags": "Etiquetas",
+    "manage-tags": "Gestionar Etiquetas",
+    "create-tag": "+ Nueva Etiqueta",
+    "edit-tag": "Editar Etiqueta",
+    "no-tags-found": "No se encontraron etiquetas. ¡Crea tu primera etiqueta!",
+    "confirm-delete-tag": "¿Estás seguro de que quieres eliminar esta etiqueta?",
+    "error-deleting-tag": "Error al eliminar la etiqueta",
+    "error-saving-tag": "Error al guardar la etiqueta",
+    "tag-title-placeholder": "Título de la etiqueta (máximo 50 caracteres)",
+    "tag-description-placeholder": "Descripción de la etiqueta (opcional)"
 }

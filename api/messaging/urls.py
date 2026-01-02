@@ -10,6 +10,7 @@ from .views import (
     ConversationAlertView,
     ConversationAlertStatsView,
     ConversationAlertRuleView,
+    TagView,
 )
 
 app_name = "messaging"
@@ -50,4 +51,6 @@ urlpatterns = [
     path("alerts/stats/", ConversationAlertStatsView.as_view(), name="alert_stats"),
     path("alert-rules/", ConversationAlertRuleView.as_view(), name="alert_rule_list"),
     path("alert-rules/<uuid:id>/", ConversationAlertRuleView.as_view(), name="alert_rule_detail"),
+    path("tags/", TagView.as_view(), name="tag_list"),
+    path("tags/<int:id>/", TagView.as_view(), name="tag_detail"),
 ]

@@ -417,5 +417,15 @@
     "manage-alert-rules": "Manage Alert Rules",
     "conversation-title-prompt": "Conversation Title Prompt",
     "conversation-title-prompt-placeholder": "Leave empty to use default prompt. Customize how titles are generated for conversations using this agent.",
-    "conversation": "Conversation"
+    "conversation": "Conversation",
+    "tags": "Tags",
+    "manage-tags": "Manage Tags",
+    "create-tag": "+ New Tag",
+    "edit-tag": "Edit Tag",
+    "no-tags-found": "No tags found. Create your first one!",
+    "confirm-delete-tag": "Are you sure you want to delete this tag?",
+    "error-deleting-tag": "Error deleting tag",
+    "error-saving-tag": "Error saving tag",
+    "tag-title-placeholder": "Tag title (max 50 characters)",
+    "tag-description-placeholder": "Tag description (optional)"
 }

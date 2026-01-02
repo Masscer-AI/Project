@@ -10,6 +10,7 @@ import {
   TConversationAlert,
   TAlertStats,
   TConversationAlertRule,
+  TTag,
 } from "../types";
 import { TReactionTemplate, TUserProfile } from "../types/chatTypes";
 import { TAgent } from "../types/agents";
@@ -395,6 +396,55 @@ export const deleteAlertRule = async (ruleId: string) => {
   return makeAuthenticatedRequest<{ message: string; status: number }>(
     "DELETE",
     `/v1/messaging/alert-rules/${ruleId}/`
+  );
+};
+
+// Tags API functions
+export const getTags = async () => {
+  return makeAuthenticatedRequest<TTag[]>(
+    "GET",
+    "/v1/messaging/tags/"
+  );
+};
+
+export const getTag = async (tagId: number) => {
+  return makeAuthenticatedRequest<TTag>(
+    "GET",
+    `/v1/messaging/tags/${tagId}/`
+  );
+};
+
+export const createTag = async (data: {
+  title: string;
+  description?: string;
+  enabled?: boolean;
+}) => {
+  return makeAuthenticatedRequest<TTag>(
+    "POST",
+    "/v1/messaging/tags/",
+    data
+  );
+};
+
+export const updateTag = async (
+  tagId: number,
+  data: Partial<{
+    title: string;
+    description: string;
+    enabled: boolean;
+  }>
+) => {
+  return makeAuthenticatedRequest<TTag>(
+    "PUT",
+    `/v1/messaging/tags/${tagId}/`,
+    data
+  );
+};
+
+export const deleteTag = async (tagId: number) => {
+  return makeAuthenticatedRequest<{ message: string; status: number }>(
+    "DELETE",
+    `/v1/messaging/tags/${tagId}/`
   );
 };
 
