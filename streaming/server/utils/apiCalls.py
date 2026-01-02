@@ -1,10 +1,14 @@
 import requests
 import os
+from ..logger import get_custom_logger
 
 # import json
 import copy
 
+logger = get_custom_logger("apiCalls")
+
 API_URL = os.environ.get("API_URL", "http://127.0.0.1:8000")
+logger.info(f"API_URL configured as: {API_URL}")
 
 
 def save_message(message: dict, token: str):
@@ -12,7 +16,13 @@ def save_message(message: dict, token: str):
     endpoint = API_URL + "/v1/messaging/messages"
     headers = {"Authorization": "Token " + token}
 
+    logger.info(f"Headers: {headers}")
+    logger.info(f"Token: {token}")
+    logger.info(f"Endpoint: {endpoint}")
+
     body = copy.deepcopy(message)
+
+    logger.info(f"Body: {body}")
 
     attachments = [
         {
@@ -34,11 +44,20 @@ def save_message(message: dict, token: str):
     body["attachments"] = attachments
 
     try:
+        logger.info(f"Saving message to {endpoint}")
         response = requests.post(endpoint, headers=headers, json=body)
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
-        print(f"Error saving message: {e}")
+        # Capturar el error específico de Django
+        if hasattr(e, 'response') and e.response is not None:
+            try:
+                error_details = e.response.json()
+                logger.error(f"Error saving message: {error_details}")
+            except:
+                logger.error(f"Error saving message: Status {e.response.status_code}, Body: {e.response.text[:500]}")
+        else:
+            logger.error(f"Error saving message: {e}", exc_info=True)
         return None
 
 
@@ -59,7 +78,7 @@ def get_results(
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
-        print(f"Error saving message: {e}")
+        logger.error(f"Error querying RAG: {e}", exc_info=True)
         return None
 
 
@@ -79,7 +98,7 @@ def query_document(
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
-        print(f"Error saving message: {e}")
+        logger.error(f"Error querying document: {e}", exc_info=True)
         return None
 
 
@@ -109,7 +128,7 @@ def query_completions(
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
-        print(f"Error saving message: {e}")
+        logger.error(f"Error querying completions: {e}", exc_info=True)
         return None
 
 
@@ -127,7 +146,7 @@ def get_system_prompt(agent_slug: str, context: str, token: str):
         response.raise_for_status()
         return response.json().get("formatted")
     except requests.exceptions.RequestException as e:
-        print(f"Error saving message: {e}")
+        logger.error(f"Error getting system prompt: {e}", exc_info=True)
         return None
 
 
@@ -141,5 +160,5 @@ def regenerate_conversation(conversation_id: str, user_message_id: str, token: s
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
-        print(f"Error regenerating conversation: {e}")
+        logger.error(f"Error regenerating conversation: {e}", exc_info=True)
         return None
