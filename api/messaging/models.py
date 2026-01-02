@@ -13,7 +13,11 @@ class Conversation(models.Model):
     public_token = models.ForeignKey(
         PublishableToken, on_delete=models.SET_NULL, null=True, blank=True
     )
-    tags = models.JSONField(default=list, blank=True)
+    tags = models.JSONField(
+        default=list, 
+        blank=True,
+        help_text="Lista de IDs de tags asociadas a esta conversación (solo tags habilitadas)"
+    )
     background_image_src = models.TextField(blank=True, null=True)
     summary = models.TextField(blank=True, null=True, help_text="Resumen de la conversación generado por la IA")
     pending_analysis = models.BooleanField(
@@ -286,3 +290,31 @@ class AlertSubscription(models.Model):
 
     def __str__(self):
         return f"{self.user.username} subscribed to {self.alert_rule.name}"
+
+
+class Tag(models.Model):
+    """
+    Modelo para etiquetas de conversaciones.
+    Cada organización puede tener sus propias tags habilitadas.
+    """
+    id = models.AutoField(primary_key=True)
+    title = models.CharField(max_length=50, help_text="Título de la etiqueta (máximo 50 caracteres)")
+    description = models.TextField(blank=True, help_text="Descripción detallada de la etiqueta")
+    enabled = models.BooleanField(default=True, help_text="Indica si la etiqueta está habilitada")
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name="tags",
+        help_text="Organización a la que pertenece esta etiqueta"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Tag"
+        verbose_name_plural = "Tags"
+        ordering = ["title"]
+        unique_together = [["title", "organization"]]  # Evitar tags duplicadas en la misma org
+
+    def __str__(self):
+        return f"{self.title} ({self.organization.name})"

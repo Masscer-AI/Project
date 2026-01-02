@@ -13,16 +13,23 @@ from api.authenticate.services import FeatureFlagService
 @receiver(post_save, sender=Conversation)
 def conversation_post_save(sender, instance, **kwargs):
     try:
-
-        if len(instance.tags) == 0:
+        # Tags ahora es JSONField con lista de IDs
+        tag_ids = instance.tags if isinstance(instance.tags, list) else []
+        
+        if len(tag_ids) == 0:
             return
 
         user_tags = UserTags.objects.filter(user=instance.user).first()
         if not user_tags:
             user_tags = UserTags.objects.create(user=instance.user)
 
-        for tag in instance.tags:
-            user_tags.add_tag(tag)
+        # Obtener los títulos de las tags desde la base de datos
+        from .models import Tag
+        tags = Tag.objects.filter(id__in=tag_ids)
+        
+        # Agregar los títulos de las tags al UserTags
+        for tag in tags:
+            user_tags.add_tag(tag.title)
 
         clean_unused_tags(instance.user.id)
         printer.info("User tags updated successfully")

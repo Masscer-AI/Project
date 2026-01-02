@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Message, Conversation, ChatWidget, ConversationAlert, ConversationAlertRule
+from .models import Message, Conversation, ChatWidget, ConversationAlert, ConversationAlertRule, Tag
 from api.feedback.serializers import ReactionSerializer
 from api.utils.timezone_utils import format_datetime_for_organization, get_organization_timezone_from_request
 
@@ -50,13 +50,8 @@ class ConversationSerializer(serializers.ModelSerializer):
         return obj.messages.count()
 
     def get_summary(self, obj):
-        """Get a summary of the conversation from the first few messages."""
-        messages = obj.messages.order_by('id')[:5]  # Get first 5 messages
-        if not messages:
-            return ""
-        # Combine message texts for search purposes
-        summary_parts = [f"{msg.type}: {msg.text[:100]}" for msg in messages]
-        return " ".join(summary_parts)
+        """Get the AI-generated summary of the conversation."""
+        return obj.summary or ""
     
     def get_created_at_formatted(self, obj):
         """Retorna el created_at formateado según la zona horaria de la organización"""
@@ -78,6 +73,14 @@ class ConversationSerializer(serializers.ModelSerializer):
             '%Y-%m-%d %H:%M:%S %Z'
         )
 
+
+class TagSerializer(serializers.ModelSerializer):
+    organization = serializers.UUIDField(read_only=True, source="organization.id")
+    
+    class Meta:
+        model = Tag
+        fields = ['id', 'title', 'description', 'enabled', 'organization', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
 
 class BigConversationSerializer(serializers.ModelSerializer):

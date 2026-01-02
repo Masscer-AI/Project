@@ -25,11 +25,21 @@ export type TAttachment = {
   mode?: AttatchmentMode;
 };
 
+export interface TTag {
+  id: number;
+  title: string;
+  description: string;
+  enabled: boolean;
+  organization: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface TConversation {
   id: string;
   user_id: number;
   number_of_messages: number;
-  tags?: string[];
+  tags?: number[];
   title: undefined | string;
   created_at: string;
   messages?: TMessage[];

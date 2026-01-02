@@ -28,6 +28,7 @@ export default function DashboardPage() {
   const [showTable, setShowTable] = useState(false);
   const [hoveredButton, setHoveredButton] = useState<string | null>(null);
   const canManageAlertRules = useIsFeatureEnabled("alert-rules-manager");
+  const canManageTags = useIsFeatureEnabled("tags-management");
 
   useEffect(() => {
     const loadUser = async () => {
@@ -135,6 +136,21 @@ export default function DashboardPage() {
                       onClick={() => navigate("/dashboard/alert-rules")}
                     >
                       {t("manage-alert-rules")}
+                    </button>
+                  )}
+                  {canManageTags && (
+                    <button 
+                      className={`px-8 py-3 rounded-full font-normal text-sm cursor-pointer border ${
+                        hoveredButton === 'tags' 
+                          ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+                          : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
+                      }`}
+                      style={{ transform: 'none' }}
+                      onMouseEnter={() => setHoveredButton('tags')}
+                      onMouseLeave={() => setHoveredButton(null)}
+                      onClick={() => navigate("/dashboard/tags")}
+                    >
+                      {t("manage-tags") || "Manage Tags"}
                     </button>
                   )}
                   <button 

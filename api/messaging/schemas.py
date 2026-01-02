@@ -20,6 +20,13 @@ class ConversationAnalysisResult(BaseModel):
     reasoning: str = Field(
         description="Explicación de por qué la conversación levanta o no una o varias alertas"
     )
+    summary: str = Field(
+        description="Resumen de la conversación en el mismo idioma en que se desarrolló la conversación"
+    )
+    suggested_tags: Optional[list[int]] = Field(
+        default=None,
+        description="Lista de IDs de tags sugeridas para esta conversación (solo tags habilitadas de la organización)"
+    )
     alerts: list[Alert] = Field(
         default_factory=list,
         description="Lista de alertas que se deben levantar para esta conversación"
