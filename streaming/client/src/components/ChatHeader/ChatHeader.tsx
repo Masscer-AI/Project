@@ -1,9 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useStore } from "../../modules/store";
 import { SVGS } from "../../assets/svgs";
 // import { FloatingDropdown } from "../Dropdown/Dropdown";
 import { TAgent } from "../../types/agents";
-import styles from "./ChatHeader.module.css";
 import { Modal } from "../Modal/Modal";
 import { SvgButton } from "../SvgButton/SvgButton";
 import { updateAgent } from "../../modules/apiCalls";
@@ -27,15 +26,33 @@ export const ChatHeader = ({
     chatState: state.chatState,
   }));
 
+  const [hoveredButton, setHoveredButton] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Resetear el estado hover cuando cambia el estado del sidebar
+    setHoveredButton(null);
+  }, [chatState.isSidebarOpened]);
+
   return (
-    <div className="chat-header d-flex justify-between">
-      <div className="d-flex align-center gap-small">
+    <div className="flex items-center justify-between bg-[#282826] p-4 bg-[#282826] border border-[#282826] rounded-xl w-full shadow-lg z-10 gap-3">
+      <div className="flex items-center gap-3">
         {!chatState.isSidebarOpened && (
-          <SvgButton
-            extraClass="pressable active-on-hover"
-            onClick={toggleSidebar}
-            svg={SVGS.burger}
-          />
+          <button
+            className={`px-4 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center justify-center ${
+              hoveredButton === 'burger' 
+                ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+                : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
+            }`}
+            style={{ transform: 'none' }}
+            onMouseEnter={() => setHoveredButton('burger')}
+            onMouseLeave={() => setHoveredButton(null)}
+            onClick={() => {
+              setHoveredButton(null);
+              toggleSidebar();
+            }}
+          >
+            <div className="w-5 h-5 flex items-center justify-center [&>svg]:w-5 [&>svg]:h-5">{SVGS.burger}</div>
+          </button>
         )}
         <AgentsModal />
       </div>
@@ -83,21 +100,25 @@ const AgentComponent = ({ agent }: TAgentComponentProps) => {
 
   return (
     <div
-      className={styles.agentComponent}
+      className="flex flex-col justify-between p-2.5 items-start w-[300px] border border-gray-500 rounded-[10px] shadow-md"
       style={{
         backgroundColor: isSelected ? "var(--active-color)" : "transparent",
         color: isSelected ? "white" : "var(--font-color)",
       }}
     >
-      <section onClick={() => toggleAgentSelected(agent.slug)}>
-        <div className="d-flex gap-small align-center pos-relative">
+      <section 
+        onClick={() => toggleAgentSelected(agent.slug)}
+        className="cursor-pointer w-full flex flex-row items-center gap-2.5 rounded-lg p-2.5 transition-colors duration-300"
+      >
+        <div className="flex gap-2.5 items-center relative">
           <input
             name={`${agent.name}-checkbox`}
             type="checkbox"
             checked={agent.selected}
             onChange={() => {}}
+            className="w-6 h-6 appearance-none border border-gray-500 rounded checked:bg-green-500 checked:border-purple-500"
           />
-          <span className={styles.agentPosition}>
+          <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-sm font-bold text-black">
             {chatState.selectedAgents.indexOf(agent.slug) !== -1
               ? chatState.selectedAgents.indexOf(agent.slug) + 1
               : ""}
@@ -105,7 +126,7 @@ const AgentComponent = ({ agent }: TAgentComponentProps) => {
         </div>
         <span>{agent.name}</span>
       </section>
-      <section className="d-flex gap-small w-100 ">
+      <section className="flex gap-2.5 w-full">
         <SvgButton
           size="big"
           extraClass={`pressable active-on-hover ${
@@ -211,16 +232,16 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
   };
 
   const save = () => {
-    const updatedAgent = {
+    const updatedAgent: TAgent = {
       ...agent,
       ...formState,
       // Asegurar que conversation_title_prompt se envíe como null si está vacío
-      conversation_title_prompt: formState.conversation_title_prompt?.trim() || null,
+      conversation_title_prompt: formState.conversation_title_prompt?.trim() || undefined,
     };
     onSave(updatedAgent);
   };
 
-  const onSubmit = (e) => {
+  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
   };
 
@@ -442,7 +463,7 @@ const AgentsModal = () => {
   return (
     <>
       <SvgButton
-        extraClass="pressable active-on-hover"
+        extraClass="pressable active-on-hover hover:!bg-white hover:!text-gray-800 [&>p]:hover:!text-gray-800"
         text={t("agents")}
         onClick={showModal}
         svg={SVGS.stars}

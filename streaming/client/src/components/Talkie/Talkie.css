@@ -14,17 +14,19 @@ canvas {
   display: flex;
   align-items: center;
   max-height: 100%;
-  background-color: var(--bg-color);
+  background-color: #282826;
   width: fit-content;
   padding: 2px;
   overflow: hidden;
 }
 
 .bar {
-  width: 2px;
+  width: 3px;
   height: 1px;
-  margin: 0 1px;
+  margin: 0 1.5px;
   background: linear-gradient(90deg, rgb(105, 83, 201), var(--active-color));
   transition: height 0.1s;
   overflow: hidden;
+  border-radius: 1.5px;
+  min-height: 3px;
 }

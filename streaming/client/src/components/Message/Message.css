@@ -29,13 +29,13 @@
   }
 
   &.user {
-    background: var(--gradient-dark);
+    background: #2a2a2a; /* Gris oscuro sólido para usuario */
     color: white;
   }
 
   &.assistant {
-    background: var(--assistant-color);
-    color: var(--font-color);
+    background: #3a3a3a; /* Gris oscuro ligeramente más claro para AI */
+    color: white;
   }
 }
 

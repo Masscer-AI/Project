@@ -1,6 +1,5 @@
 import React, { useEffect, useState, version } from "react";
 // import axios from "axios";
-import "./page.css";
 import { Message } from "../../components/Message/Message";
 import { ChatInput } from "../../components/ChatInput/ChatInput";
 
@@ -331,16 +330,16 @@ export default function ChatView() {
   };
 
   return (
-    <main className="d-flex chat-page">
+    <main className="flex relative h-screen bg-[#0a0a0f]">
       {userPreferences.background_image_source && (
         <img
           style={{ opacity: userPreferences.background_image_opacity }}
-          className="pos-absolute"
+          className="absolute inset-0 w-full h-full object-cover rounded-lg z-0"
           src={userPreferences.background_image_source}
         />
       )}
       {chatState.isSidebarOpened && <Sidebar />}
-      <div className="chat-container">
+      <div className="flex flex-col h-screen mx-auto w-full max-w-[900px] relative z-10 px-4 py-6 overflow-visible">
         <ChatHeader
           right={
             <ConversationModal
@@ -349,7 +348,11 @@ export default function ChatView() {
           }
         />
 
-        <div ref={chatMessageContainerRef} className="chat-messages">
+        <div 
+          ref={chatMessageContainerRef} 
+          className="flex-1 overflow-y-auto flex flex-col w-full pb-6 scrollbar-none mt-6 px-2"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        >
           {messages &&
             messages.map((msg, index) => (
               <Message

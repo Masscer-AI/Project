@@ -1,5 +1,4 @@
 import React from "react";
-import styles from "./modal.module.css";
 import { createPortal } from "react-dom";
 import { SvgButton } from "../SvgButton/SvgButton";
 import { SVGS } from "../../assets/svgs";
@@ -24,21 +23,40 @@ export const Modal = ({
   if (!visible) return null;
 
   return createPortal(
-    <div className={styles.modalComponent}>
-      <div className={styles.modalBackdrop} onClick={hide}></div>
-      <div className={styles.modalContent} style={{ minHeight }}>
-        <div className="d-flex justify-end modal-closer gap-small align-center">
+    <div className="fixed inset-0 flex items-center justify-center z-50 overflow-y-hidden">
+      {/* Backdrop */}
+      <div 
+        className="fixed inset-0 bg-black/70 backdrop-blur-sm" 
+        onClick={hide}
+      ></div>
+      
+      {/* Modal Content */}
+      <div 
+        className="relative bg-[rgba(255,255,255,0.05)] backdrop-blur-md border border-[rgba(255,255,255,0.1)] rounded-2xl shadow-lg w-[min(98%,900px)] max-h-[90vh] overflow-y-auto [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.1)_transparent]"
+        style={{ minHeight }}
+      >
+        {/* Close button and extra buttons */}
+        <div className="flex justify-end items-center gap-2 p-4">
           {extraButtons}
           <SvgButton
-            extraClass="pressable danger-on-hover svg-danger "
+            extraClass="pressable danger-on-hover svg-danger"
             onClick={hide}
             svg={SVGS.close}
             aria-label="Close modal"
           />
         </div>
 
-        {header && <section className={styles.header}>{header}</section>}
-        <section className={styles.content}>{children}</section>
+        {/* Header */}
+        {header && (
+          <section className="px-8 pb-4">
+            {header}
+          </section>
+        )}
+        
+        {/* Content */}
+        <section className="px-8 pb-8">
+          {children}
+        </section>
       </div>
     </div>,
     document.body

@@ -18,6 +18,7 @@ export const ConversationModal = ({
   const [showModal, setShowModal] = useState(false);
   const [title, setTitle] = useState(conversation.title);
   const [tags, setTags] = useState(conversation.tags || []);
+  const [hoveredButton, setHoveredButton] = useState<string | null>(null);
 
   const { t } = useTranslation();
 
@@ -82,11 +83,16 @@ export const ConversationModal = ({
       >
         <div className="flex-y gap-big">
           <div className="flex-y gap-small">
-            <h6>{t("title")}</h6>
+            <h6 className="text-white">{t("title")}</h6>
             <h3
               suppressContentEditableWarning
               contentEditable
               onBlur={onTitleEdit}
+              className="w-full p-3 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[rgba(110,91,255,0.5)] min-h-[48px]"
+              style={{ 
+                outline: 'none',
+                wordBreak: 'break-word'
+              }}
             >
               {title}
             </h3>
@@ -110,7 +116,7 @@ export const ConversationModal = ({
 
           <div className="flex-x gap-small wrap-wrap">
             <input
-              className="input"
+              className="input w-full"
               defaultValue={""}
               // onChange={debouncedOnTagEdit}
               type="text"
@@ -132,13 +138,21 @@ export const ConversationModal = ({
                 </Pill>
               ))}
           </div>
-          <div className="d-flex justify-center   ">
-            <SvgButton
-              svg={SVGS.save}
-              text={t("save")}
+          <div className="flex justify-center w-full">
+            <button
+              className={`px-8 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center gap-2 w-full justify-center ${
+                hoveredButton === 'save' 
+                  ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+                  : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
+              }`}
+              style={{ transform: 'none' }}
+              onMouseEnter={() => setHoveredButton('save')}
+              onMouseLeave={() => setHoveredButton(null)}
               onClick={handleSave}
-              extraClass="active-on-hover pressable w-100 "
-            />
+            >
+              <span className="flex items-center justify-center w-5 h-5 [&>svg]:w-5 [&>svg]:h-5">{SVGS.save}</span>
+              <span>{t("save")}</span>
+            </button>
           </div>
         </div>
       </Modal>

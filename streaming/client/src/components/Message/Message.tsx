@@ -3,7 +3,6 @@ import { SVGS } from "../../assets/svgs";
 import MarkdownRenderer from "../MarkdownRenderer/MarkdownRenderer";
 import { TAttachment, TSource, TVersion } from "../../types";
 import { Thumbnail } from "../Thumbnail/Thumbnail";
-import "./Message.css";
 import { SvgButton } from "../SvgButton/SvgButton";
 import toast from "react-hot-toast";
 import { deleteMessage, updateMessage } from "../../modules/apiCalls";
@@ -303,7 +302,7 @@ export const Message = memo(
     };
 
     return (
-      <div className={`message ${type} message-${index}`}>
+      <div className={`mb-5 max-w-[85%] flex flex-col relative group ${type === "user" ? "items-end ml-auto" : "items-start"} message-${index}`}>
         {isEditing ? (
           <>
             <MessageEditor
@@ -314,15 +313,25 @@ export const Message = memo(
             />
           </>
         ) : (
-          <MarkdownRenderer
-            markdown={versions?.[currentVersion]?.text || innerText}
-            extraClass={`message-text ${type}`}
-            onChange={handleMarkdownChange}
-          />
+          <div className={`relative ${type === "user" ? "" : ""}`}>
+            <MarkdownRenderer
+              markdown={versions?.[currentVersion]?.text || innerText}
+              // extraClass={`px-5 py-4 w-fit rounded-2xl text-white leading-7 overflow-x-auto scrollbar-none shadow-lg ${
+              //   type === "user" 
+              //     ? "bg-[#6e5bff] text-white border border-[#8b7aff] shadow-[0_4px_16px_rgba(110,91,255,0.4)]" 
+              //     : "bg-[#1a1a2e] text-white border border-[#2d2d44] shadow-[0_4px_16px_rgba(0,0,0,0.4)]"
+              // }`}
+              extraClass={`px-5 py-4 w-fit rounded-2xl text-white leading-7 overflow-x-auto scrollbar-none shadow-lg backdrop-blur-md ${
+                type === "user" 
+                  ? "bg-gradient-to-b from-[#008292] to-[#32127A] text-white border border-[rgba(0,130,146,0.4)] shadow-[0_4px_16px_rgba(50,18,122,0.4)]" 
+                  : "bg-[rgba(35,33,39,0.5)] text-white border border-[rgba(255,255,255,0.1)] shadow-[0_4px_16px_rgba(0,0,0,0.3)]"
+              }`}
+            />
+          </div>
         )}
 
         {!id && type === "assistant" && <Loader text={t("thinking...")} />}
-        <section className="message__attachments">
+        <section className={`flex gap-2.5 overflow-x-auto p-2 w-fit items-center rounded-xl mt-2 ${type === "user" ? "flex-row-reverse" : ""}`}>
           {attachments &&
             attachments.map((attachment, index) => (
               <Thumbnail
@@ -348,7 +357,7 @@ export const Message = memo(
               }
             )}
         </section>
-        <div className="message-buttons d-flex gap-small align-center wrap-wrap">
+        <div className={`flex gap-2.5 items-center flex-wrap mt-3 opacity-0 group-hover:opacity-100 transition-all duration-300 ${type === "assistant" ? "pl-0" : ""}`}>
           <SvgButton
             title={t("copy-to-clipboard")}
             extraClass="active-on-hover  pressable"
@@ -570,16 +579,16 @@ const Source = ({ source }: { source: TSource }) => {
   };
 
   return (
-    <div className="source-component bg-hovered ">
-      <input id={`${source.model_name}-${source.model_id}`} type="text" />
-      <p className="fit-content cut-text-to-line">
-        <span>{t("source")}: </span>
-        <span className="text-secondary">
+    <div className="p-3 rounded-xl border border-[#2d2d44] bg-[#1a1a2e] relative shadow-md">
+      <input id={`${source.model_name}-${source.model_id}`} type="text" className="w-0 h-0 absolute bg-transparent border-none outline-none" />
+      <p className="w-fit truncate text-sm">
+        <span className="text-white font-medium">{t("source")}: </span>
+        <span className="text-[#9ca3af]">
           {t(source.model_name)} {source.model_id}
         </span>
       </p>
 
-      <div className="d-flex justify-center">
+      <div className="flex justify-center mt-2">
         <SvgButton
           size="big"
           text={t("inspect")}
@@ -593,7 +602,7 @@ const Source = ({ source }: { source: TSource }) => {
           visible={isVisible}
           hide={() => setIsVisible(false)}
         >
-          <div className="chunk-info flex-y gap-big">
+          <div className="flex flex-col gap-6">
             <h2 className="text-center">
               {t(source.model_name)} {source.model_id}
             </h2>
@@ -613,10 +622,10 @@ const WebSearchResultInspector = ({ result }) => {
     window.open(result.url, "_blank");
   };
   return (
-    <div className="card bg-hovered">
+    <div className="bg-[#1a1a2e] rounded-xl p-4 border border-[#2d2d44] shadow-md">
       <p
         onClick={handleOpenWebsite}
-        className="cut-text-to-line clickeable rounded padding-small"
+        className="truncate cursor-pointer rounded-lg p-3 bg-[#0f0f1a] hover:bg-[#252540] border border-[#2d2d44] hover:border-[#6e5bff] transition-all text-sm text-[#9ca3af] hover:text-white"
         title={result.url}
       >
         {result.url}
@@ -642,9 +651,9 @@ const WebSearchResultInspector = ({ result }) => {
 
 const WebSearchResultContent = ({ result }) => {
   return (
-    <div className="flex-y gap-medium">
-      <h2 className="word-break-all">{result.url}</h2>
-      <pre className="word-break-all">{result.content}</pre>
+    <div className="flex flex-col gap-4">
+      <h2 className="break-all">{result.url}</h2>
+      <pre className="break-all">{result.content}</pre>
     </div>
   );
 };
@@ -732,11 +741,11 @@ const MessageEditor = ({
   };
 
   return (
-    <div className="message-editor">
+    <div className="w-full">
       <textarea
         autoComplete="on"
         ref={textareaRef}
-        className="message-textarea"
+        className="w-full px-4 py-3 font-sans rounded-xl text-base leading-6 scrollbar-none border border-[#6e5bff]/30 bg-[#0f0f1a] text-white resize-none focus:outline-none focus:border-[#6e5bff] focus:ring-2 focus:ring-[#6e5bff]/20"
         onChange={(e) => {
           textareaValueRef.current = e.target.value;
           setInnerText(e.target.value);
@@ -754,7 +763,7 @@ const MessageEditor = ({
               top: editionOptions.top,
               left: editionOptions.left,
             }}
-            className="message-edition-options"
+            className="absolute w-fit bg-[#1a1a2e] border border-[#2d2d44] rounded-xl p-3 shadow-[0_8px_24px_rgba(0,0,0,0.6)]"
           >
             {editionOptions.generateImage && (
               <ImageGenerator

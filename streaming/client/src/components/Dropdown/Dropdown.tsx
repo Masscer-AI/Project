@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from "react";
-import "./Dropdown.css";
 import toast from "react-hot-toast";
 import { debounce } from "../../modules/utils";
 
@@ -104,23 +103,21 @@ export const FloatingDropdown = ({
 
   return (
     <div
-      className={`floating-dropdown`}
+      className="relative flex items-center z-[1000]"
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
       {opener}
-      {
-        <div
-          ref={dropdownRef}
-          style={{
-            display: innerIsOpened ? "flex" : "none",
-            ...dropdownStyle,
-          }}
-          className={`__content ${extraClass}`}
-        >
-          {children}
-        </div>
-      }
+      <div
+        ref={dropdownRef}
+        style={{
+          display: innerIsOpened ? "flex" : "none",
+          ...dropdownStyle,
+        }}
+        className={`absolute w-fit max-w-[90vw] bg-[rgba(35,33,39,0.5)] backdrop-blur-md border border-[rgba(255,255,255,0.1)] rounded-2xl flex-col !z-[1000] overflow-visible [&_.svg-button.border-active]:!border-transparent [&_.svg-button.border-active:hover]:!border-white ${extraClass}`}
+      >
+        {children}
+      </div>
     </div>
   );
 };

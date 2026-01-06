@@ -540,6 +540,7 @@ const ConversationComponent = ({
 
   const [showTrainingModal, setShowTrainingModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [hoveredButton, setHoveredButton] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const handleClick = () => {
@@ -575,39 +576,60 @@ const ConversationComponent = ({
         right="100%"
         top="0"
         opener={
-          <SvgButton title={t("conversation-options")} svg={SVGS.options} />
+          <SvgButton 
+            title={t("conversation-options")} 
+            svg={SVGS.options}
+            extraClass="hover:!bg-white hover:!border-white [&>svg]:hover:!fill-black [&>svg]:hover:!stroke-black [&>svg>*]:hover:!fill-black [&>svg>*]:hover:!stroke-black"
+          />
         }
       >
-        <div className="flex-y d-flex gap-small">
-          <SvgButton
-            size="big"
-            svg={SVGS.trash}
-            title={t("delete-conversation")}
-            text={t("delete")}
-            extraClass=" bg-danger"
-            confirmations={[t("delete-conversation-confirmation")]}
+        <div className="w-[200px] flex flex-col gap-3 p-4 bg-black/95 backdrop-blur-sm border border-gray-700 rounded-2xl shadow-lg">
+          <button
+            className={`px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center gap-2 w-full justify-center ${
+              hoveredButton === 'delete'
+                ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]'
+                : 'bg-[#dc2626] text-white border-[rgba(156,156,156,0.3)] hover:bg-[#b91c1c]'
+            }`}
+            style={{ transform: 'none' }}
+            onMouseEnter={() => setHoveredButton('delete')}
+            onMouseLeave={() => setHoveredButton(null)}
             onClick={() => deleteConversationItem(conversation.id)}
-          />
-          <SvgButton
-            extraClass=" bg-active"
-            size="big"
-            svg={SVGS.dumbell}
-            title={t("train-on-this-conversation")}
-            text={t("train")}
+          >
+            <span className="flex items-center justify-center w-5 h-5 [&>svg]:w-5 [&>svg]:h-5">{SVGS.trash}</span>
+            <span>{t("delete")}</span>
+          </button>
+          <button
+            className={`px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center gap-2 w-full justify-center ${
+              hoveredButton === 'train'
+                ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]'
+                : 'bg-[#6e5bff] text-white border-[rgba(156,156,156,0.3)] hover:bg-[#5a47e6]'
+            }`}
+            style={{ transform: 'none' }}
+            onMouseEnter={() => setHoveredButton('train')}
+            onMouseLeave={() => setHoveredButton(null)}
             onClick={() => setShowTrainingModal(true)}
-          />
-          <SvgButton
-            extraClass=" bg-hovered"
-            size="big"
-            svg={SVGS.share}
-            title={t("share-conversation")}
-            text={t("share")}
+          >
+            <span className="flex items-center justify-center w-5 h-5 [&>svg]:w-5 [&>svg]:h-5">{SVGS.dumbell}</span>
+            <span>{t("train")}</span>
+          </button>
+          <button
+            className={`px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center gap-2 w-full justify-center ${
+              hoveredButton === 'share'
+                ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]'
+                : 'bg-[#232127] text-white border-[rgba(156,156,156,0.3)] hover:bg-[#1a181d]'
+            }`}
+            style={{ transform: 'none' }}
+            onMouseEnter={() => setHoveredButton('share')}
+            onMouseLeave={() => setHoveredButton(null)}
             onClick={() => setShowShareModal(true)}
-          />
-          <div className="text-center">
+          >
+            <span className="flex items-center justify-center w-5 h-5 [&>svg]:w-5 [&>svg]:h-5">{SVGS.share}</span>
+            <span>{t("share")}</span>
+          </button>
+          <div className="text-center text-gray-300 text-sm">
             {conversation.number_of_messages} {t("messages")}
           </div>
-          <div className="text-center">
+          <div className="text-center text-gray-300 text-sm">
             {new Date(conversation.created_at).toLocaleString()}
           </div>
         </div>

@@ -74,10 +74,11 @@ export const Settings = () => {
 
 export const Menu = ({ options }) => {
   const [selected, setSelected] = React.useState(0);
+  const [hoveredButton, setHoveredButton] = React.useState<number | null>(null);
 
   return (
     <div className="menu">
-      <section className="menu-sidebar">
+      <section className="menu-sidebar flex gap-2">
         {options.map((option, index) => (
           <LabeledButton
             key={index}
@@ -85,6 +86,9 @@ export const Menu = ({ options }) => {
             label={option.name}
             svg={option.svg}
             selected={index === selected}
+            hovered={hoveredButton === index}
+            onMouseEnter={() => setHoveredButton(index)}
+            onMouseLeave={() => setHoveredButton(null)}
           />
         ))}
       </section>
@@ -93,16 +97,22 @@ export const Menu = ({ options }) => {
   );
 };
 
-const LabeledButton = ({ label, onClick, svg, selected }) => {
+const LabeledButton = ({ label, onClick, svg, selected, hovered, onMouseEnter, onMouseLeave }) => {
   return (
-    <div
+    <button
       onClick={onClick}
-      className={`labeled-button ${selected && "active svg-white text-white"}`}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      className={`px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center gap-2 justify-center ${
+        hovered || selected
+          ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+          : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
+      }`}
+      style={{ transform: 'none' }}
     >
-      {/* <SvgButton svg={svg} extraClass="pos-relative w-100" /> */}
-      <span>{svg}</span>
-      <p className="button-label">{label}</p>
-    </div>
+      <span className="flex items-center justify-center w-5 h-5 [&>svg]:w-5 [&>svg]:h-5">{svg}</span>
+      <span>{label}</span>
+    </button>
   );
 };
 
@@ -110,6 +120,7 @@ const OrganizationManager = () => {
   const { t } = useTranslation();
   const [orgs, setOrgs] = React.useState([] as TOrganization[]);
   const [showForm, setShowForm] = React.useState(false);
+  const [hoveredButton, setHoveredButton] = React.useState<string | null>(null);
 
   useEffect(() => {
     if (showForm) return;
@@ -139,12 +150,20 @@ const OrganizationManager = () => {
             ))}
           </div>
           {orgs.length < MAX_ALLOWED_ORGANIZATIONS ? (
-            <SvgButton
-              text={t("create-organization")}
-              svg={SVGS.plus}
-              extraClass="pressable active-on-hover w-100"
+            <button
+              className={`px-8 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center gap-2 w-full justify-center ${
+                hoveredButton === 'create-org' 
+                  ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+                  : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
+              }`}
+              style={{ transform: 'none' }}
+              onMouseEnter={() => setHoveredButton('create-org')}
+              onMouseLeave={() => setHoveredButton(null)}
               onClick={() => setShowForm(true)}
-            />
+            >
+              <span className="flex items-center justify-center w-5 h-5 [&>svg]:w-5 [&>svg]:h-5">{SVGS.plus}</span>
+              <span>{t("create-organization")}</span>
+            </button>
           ) : (
             <p>{t("max-organizations-reached")}</p>
           )}
@@ -212,6 +231,8 @@ const AppearanceConfig = () => {
     setPreferences({ background_image_opacity: opacity });
   }, 1000);
   const { t } = useTranslation();
+  const [hoveredTheme, setHoveredTheme] = React.useState<string | null>(null);
+  const [hoveredMermaid, setHoveredMermaid] = React.useState<string | null>(null);
 
   const handleOpacityChange = (event) => {
     const opacity = parseFloat(event.target.value);
@@ -224,29 +245,49 @@ const AppearanceConfig = () => {
 
       <div className="d-flex gap-small flex-y">
         <h4>{t("theme")}</h4>
-        <div className="d-flex gap-small align-center">
-          <SvgButton
-            onClick={() =>
-              setPreferences({
-                theme: "light",
-              })
-            }
-            extraClass={`pressable active-on-hover ${userPreferences.theme === "light" ? "bg-active svg-white" : "bg-hovered"}`}
-            text={t("light")}
-            svg={SVGS.sun}
-          />
-          <SvgButton
+        <div className="d-flex gap-2 align-center flex-wrap">
+          <button
+            className={`px-6 py-2 rounded-full font-normal text-sm cursor-pointer border flex items-center gap-2 ${
+              hoveredTheme === 'light' || userPreferences.theme === "light"
+                ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+                : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
+            }`}
+            style={{ transform: 'none' }}
+            onMouseEnter={() => setHoveredTheme('light')}
+            onMouseLeave={() => setHoveredTheme(null)}
+            onClick={() => setPreferences({ theme: "light" })}
+          >
+            <span className="flex items-center justify-center w-5 h-5 [&>svg]:w-5 [&>svg]:h-5">{SVGS.sun}</span>
+            <span>{t("light")}</span>
+          </button>
+          <button
+            className={`px-6 py-2 rounded-full font-normal text-sm cursor-pointer border flex items-center gap-2 ${
+              hoveredTheme === 'dark' || userPreferences.theme === "dark"
+                ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+                : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
+            }`}
+            style={{ transform: 'none' }}
+            onMouseEnter={() => setHoveredTheme('dark')}
+            onMouseLeave={() => setHoveredTheme(null)}
             onClick={() => setPreferences({ theme: "dark" })}
-            extraClass={`pressable active-on-hover ${userPreferences.theme === "dark" ? "bg-active svg-white" : "bg-hovered "}`}
-            text={t("dark")}
-            svg={SVGS.moon}
-          />
-          <SvgButton
+          >
+            <span className="flex items-center justify-center w-5 h-5 [&>svg]:w-5 [&>svg]:h-5">{SVGS.moon}</span>
+            <span>{t("dark")}</span>
+          </button>
+          <button
+            className={`px-6 py-2 rounded-full font-normal text-sm cursor-pointer border flex items-center gap-2 ${
+              hoveredTheme === 'system' || userPreferences.theme === "system"
+                ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+                : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
+            }`}
+            style={{ transform: 'none' }}
+            onMouseEnter={() => setHoveredTheme('system')}
+            onMouseLeave={() => setHoveredTheme(null)}
             onClick={() => setPreferences({ theme: "system" })}
-            extraClass={`pressable active-on-hover ${userPreferences.theme === "system" ? "bg-active svg-white" : "bg-hovered"}`}
-            text={t("system")}
-            svg={SVGS.pc}
-          />
+          >
+            <span className="flex items-center justify-center w-5 h-5 [&>svg]:w-5 [&>svg]:h-5">{SVGS.pc}</span>
+            <span>{t("system")}</span>
+          </button>
         </div>
       </div>
       <hr className="separator my-medium" />
@@ -274,17 +315,23 @@ const AppearanceConfig = () => {
       <div className="flex-y gap-small ">
         <h4>{t("mermaid-theme")}</h4>
         <p>{t("mermaid-theme-description")}</p>
-        <div className="d-flex gap-small">
+        <div className="d-flex gap-2 flex-wrap">
           {MERMAID_THEMES.map((theme) => (
-            <SvgButton
-              extraClass={`pressable active-on-hover ${
-                theming.mermaid === theme ? "bg-active svg-white" : "bg-hovered"
-              }`}
+            <button
               key={theme}
+              className={`px-6 py-2 rounded-full font-normal text-sm cursor-pointer border flex items-center gap-2 ${
+                hoveredMermaid === theme || theming.mermaid === theme
+                  ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+                  : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
+              }`}
+              style={{ transform: 'none' }}
+              onMouseEnter={() => setHoveredMermaid(theme)}
+              onMouseLeave={() => setHoveredMermaid(null)}
               // @ts-ignore
               onClick={() => setTheming({ mermaid: theme as any })}
-              text={theme.charAt(0).toUpperCase() + theme.slice(1)}
-            />
+            >
+              <span>{theme.charAt(0).toUpperCase() + theme.slice(1)}</span>
+            </button>
           ))}
         </div>
         <MermaidExaple />
@@ -334,6 +381,7 @@ const GeneralConfig = () => {
   const [username, setUsername] = React.useState(user?.username || "");
   const [email, setEmail] = React.useState(user?.email || "");
   const [error, setError] = React.useState("");
+  const [hoveredButton, setHoveredButton] = React.useState<string | null>(null);
 
   const handleUpdateUser = async () => {
     const tid = toast.loading(t("updating-user"));
@@ -379,13 +427,20 @@ const GeneralConfig = () => {
         />
       </div>
       {error && <p className="error text-danger">{error}</p>}
-      <SvgButton
-        text={t("save")}
-        svg={SVGS.save}
+      <button
+        className={`px-8 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center gap-2 w-full justify-center ${
+          hoveredButton === 'save' 
+            ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+            : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
+        }`}
+        style={{ transform: 'none' }}
+        onMouseEnter={() => setHoveredButton('save')}
+        onMouseLeave={() => setHoveredButton(null)}
         onClick={handleUpdateUser}
-        size="big"
-        extraClass="active-on-hover pressable"
-      />
+      >
+        <span className="flex items-center justify-center w-5 h-5 [&>svg]:w-5 [&>svg]:h-5">{SVGS.save}</span>
+        <span>{t("save")}</span>
+      </button>
     </div>
   );
 };
@@ -526,17 +581,32 @@ const OrganizationCard = ({
     reload();
   };
 
+  const [hoveredButton, setHoveredButton] = React.useState<string | null>(null);
+
   return (
-    <div className="border-active padding-medium rounded fit-content">
-      <h3 className="text-center">{organization.name}</h3>
-      <p className="text-center">{organization.description}</p>
-      <div className="d-flex gap-small justify-center">
-        <SvgButton
-          svg={SVGS.trash}
-          extraClass="pressable danger-on-hover"
-          onClick={handleDelete}
-          confirmations={[t("sure-this-action-is-irreversible")]}
-        />
+    <div className="bg-black/95 backdrop-blur-md border border-gray-700 rounded-2xl p-6 flex flex-col gap-4 shadow-lg">
+      <h3 className="text-center text-white font-bold">{organization.name}</h3>
+      {organization.description && (
+        <p className="text-center text-gray-300">{organization.description}</p>
+      )}
+      <div className="d-flex gap-3 justify-center">
+        <button
+          className={`px-6 py-2 rounded-full font-normal text-sm cursor-pointer border flex items-center gap-2 ${
+            hoveredButton === 'delete' 
+              ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+              : 'bg-[#dc2626] text-white border-[rgba(156,156,156,0.3)] hover:bg-[#b91c1c]'
+          }`}
+          style={{ transform: 'none' }}
+          onMouseEnter={() => setHoveredButton('delete')}
+          onMouseLeave={() => setHoveredButton(null)}
+          onClick={() => {
+            if (window.confirm(t("sure-this-action-is-irreversible"))) {
+              handleDelete();
+            }
+          }}
+        >
+          <span className="flex items-center justify-center w-5 h-5 [&>svg]:w-5 [&>svg]:h-5">{SVGS.trash}</span>
+        </button>
         <OrganizationConfigModal organization={organization} />
       </div>
     </div>
@@ -552,6 +622,7 @@ const OrganizationConfigModal = ({
   const [isOpen, setIsOpen] = React.useState(false);
   const [innerOrganization, setInnerOrganization] =
     React.useState(organization);
+  const [hoveredButton, setHoveredButton] = React.useState<string | null>(null);
 
   const [credentials, setCredentials] = React.useState(
     null as TOrganizationCredentials | null
@@ -605,13 +676,23 @@ const OrganizationConfigModal = ({
     setIsOpen(false);
   };
 
+  const [hoveredEdit, setHoveredEdit] = React.useState(false);
+
   return (
     <>
-      <SvgButton
-        svg={SVGS.edit}
-        extraClass="pressable active-on-hover"
+      <button
+        className={`px-6 py-2 rounded-full font-normal text-sm cursor-pointer border flex items-center gap-2 ${
+          hoveredEdit 
+            ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+            : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
+        }`}
+        style={{ transform: 'none' }}
+        onMouseEnter={() => setHoveredEdit(true)}
+        onMouseLeave={() => setHoveredEdit(false)}
         onClick={() => setIsOpen(true)}
-      />
+      >
+        <span className="flex items-center justify-center w-5 h-5 [&>svg]:w-5 [&>svg]:h-5">{SVGS.edit}</span>
+      </button>
       <Modal
         visible={isOpen}
         hide={() => setIsOpen(false)}
@@ -669,12 +750,20 @@ const OrganizationConfigModal = ({
               "pexels_api_key",
             ]}
           />
-          <SvgButton
-            text={t("save")}
-            svg={SVGS.save}
-            extraClass="pressable active-on-hover w-100"
+          <button
+            className={`px-8 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center gap-2 w-full justify-center ${
+              hoveredButton === 'save' 
+                ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+                : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
+            }`}
+            style={{ transform: 'none' }}
+            onMouseEnter={() => setHoveredButton('save')}
+            onMouseLeave={() => setHoveredButton(null)}
             onClick={handleSave}
-          />
+          >
+            <span className="flex items-center justify-center w-5 h-5 [&>svg]:w-5 [&>svg]:h-5">{SVGS.save}</span>
+            <span>{t("save")}</span>
+          </button>
         </div>
       </Modal>
     </>

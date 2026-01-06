@@ -1,5 +1,69 @@
 @import "tailwindcss";
 
+/* Hide scrollbar for chat messages */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* Message content styles - tables, code, blockquotes, etc. */
+[class*="message-"] table {
+  border-collapse: collapse;
+  border-radius: 8px;
+}
+
+[class*="message-"] td,
+[class*="message-"] th {
+  padding: 10px;
+  text-align: left;
+  border: 1px solid rgb(156, 156, 156);
+  width: fit-content;
+  word-break: normal;
+}
+
+[class*="message-"] th {
+  background: rgba(134, 134, 134, 0.248);
+  font-weight: bold;
+}
+
+[class*="message-"] td:hover {
+  background: rgba(134, 134, 134, 0.248);
+}
+
+[class*="message-"] code:not(pre code) {
+  background: #1a1b26;
+  padding: 2px 5px;
+  border-radius: 4px;
+}
+
+[class*="message-"] li > p:first-child {
+  display: inline;
+}
+
+[class*="message-"] hr {
+  border: 2px solid #1a1b26;
+  margin: 10px 0;
+  border-radius: 50vh;
+}
+
+[class*="message-"] blockquote {
+  border-left: 2px solid #1a1b26;
+  padding: 10px;
+  background: rgba(134, 134, 134, 0.248);
+  border-radius: 8px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  margin-block: 10px;
+}
+
+[class*="message-"] a {
+  color: rgba(110, 91, 255, 0.8);
+}
+
 :root {
   --font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
 
@@ -363,11 +427,23 @@ textarea {
 
 .input {
   border-radius: var(--standard-radius);
-  padding: 5px;
-  background-color: transparent;
-  border: 1px solid var(--bg-contrast-color);
-  font-size: 18px;
+  padding: 8px 12px;
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 16px;
   font-family: var(--font-family);
+  color: var(--font-color);
+  transition: all 0.2s;
+}
+
+.input:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 0 0 2px rgba(110, 91, 255, 0.3);
+}
+
+.input::placeholder {
+  color: rgb(156, 156, 156);
 }
 
 .bg-danger {
@@ -602,6 +678,34 @@ textarea {
   border: 1px solid var(--active-color) !important;
 }
 
+/* Estilos para SVG dentro de botones del sidebar cuando tienen fondo blanco (hover) */
+.bg-white svg path,
+.bg-white svg circle,
+.bg-white svg rect,
+.bg-white svg polygon,
+.bg-white svg polyline,
+.bg-white svg line,
+.bg-white svg ellipse,
+.bg-white svg * {
+  stroke: #000000 !important;
+  fill: #000000 !important;
+  color: #000000 !important;
+}
+
+/* También para elementos con text-gray-800 (que indica que están en hover) */
+.text-gray-800 svg path,
+.text-gray-800 svg circle,
+.text-gray-800 svg rect,
+.text-gray-800 svg polygon,
+.text-gray-800 svg polyline,
+.text-gray-800 svg line,
+.text-gray-800 svg ellipse,
+.text-gray-800 svg * {
+  stroke: #000000 !important;
+  fill: #000000 !important;
+  color: #000000 !important;
+}
+
 .square-button {
   width: max(40px, fit-content);
   height: 40px;
@@ -742,11 +846,15 @@ input:checked + .slider::before {
   top: -15px;
 
   color: white;
-  border: 1px solid var(--active-color);
+  border: 1px solid white;
   background-color: var(--active-color);
 }
+
 .textarea-container:has(.textarea:focus) > textarea {
-  border: 1px solid var(--active-color);
+  border: 1px solid white;
+}
+.textarea-container:has(.textarea:focus) > textarea {
+  border: 1px solid white;
 }
 
 .select-container {
@@ -1042,6 +1150,20 @@ input:checked + .slider::before {
 
 .svg-white svg.set-svg-fill {
   fill: white;
+}
+
+.svg-black svg.set-fill path {
+  fill: #000000 !important;
+}
+.svg-black svg.set-stroke path {
+  stroke: #000000 !important;
+}
+.svg-black svg.set-stroke circle {
+  stroke: #000000 !important;
+}
+
+.svg-black svg.set-svg-fill {
+  fill: #000000;
 }
 .word-break-all {
   word-break: break-all;

@@ -35,6 +35,7 @@ const TranscribeOptions: React.FC<TranscribeOptionsProps> = ({
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [selectedModel, setSelectedModel] = useState<string>("small");
   const [selectedOption, setSelectedOption] = useState<string>("youtube");
+  const [hoveredButton, setHoveredButton] = useState<string | null>(null);
   const { t } = useTranslation();
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -171,11 +172,15 @@ const TranscribeOptions: React.FC<TranscribeOptionsProps> = ({
         </div>
       )}
       {selectedOption && (
-        <SvgButton
-          text={t("transcribe")}
-          size="big"
-          extraClass="bg-hovered active-on-hover pressable w-100"
-          svg={SVGS.waves}
+        <button
+          className={`px-8 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center gap-2 w-full justify-center ${
+            hoveredButton === 'transcribe' 
+              ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+              : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
+          }`}
+          style={{ transform: 'none' }}
+          onMouseEnter={() => setHoveredButton('transcribe')}
+          onMouseLeave={() => setHoveredButton(null)}
           onClick={() => {
             if (selectedOption === "youtube" && !youtubeUrl) {
               toast.error(t("youtube-url-required"));
@@ -199,7 +204,10 @@ const TranscribeOptions: React.FC<TranscribeOptionsProps> = ({
               selectedModel
             );
           }}
-        />
+          >
+          <span className="flex items-center justify-center w-5 h-5 [&>svg]:w-5 [&>svg]:h-5">{SVGS.waves}</span>
+          <span>{t("transcribe")}</span>
+        </button>
       )}
     </div>
   );

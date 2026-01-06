@@ -68,7 +68,7 @@ export const Talkie: React.FC<TalkieProps> = ({ processAudio }) => {
   const resetState = () => {
     // Reiniciar las barras
     barsRef.current.forEach((bar) => {
-      bar.style.height = "1px";
+      bar.style.height = "3px";
     });
 
     // Limpiar los chunks de audio
@@ -101,7 +101,7 @@ export const Talkie: React.FC<TalkieProps> = ({ processAudio }) => {
 
       for (let i = 0; i < numBars; i++) {
         const barHeight = dataArray[i * step] / 2;
-        const constrainedHeight = Math.min(Math.max(barHeight, 5), 25);
+        const constrainedHeight = Math.min(Math.max(barHeight, 4), 20);
         if (barsRef.current[i]) {
           barsRef.current[i].style.height = `${constrainedHeight}px`;
         }
@@ -176,7 +176,7 @@ export const Talkie: React.FC<TalkieProps> = ({ processAudio }) => {
   return (
     <div className="talkie">
       <SvgButton
-        extraClass={`pressable rounded danger-on-hover ${
+        extraClass={`!w-12 !h-12 !rounded-full !p-2 pressable danger-on-hover ${
           isRecording ? "bg-danger" : ""
         }`}
         onClick={isRecording ? stopRecording : startRecording}
@@ -185,7 +185,7 @@ export const Talkie: React.FC<TalkieProps> = ({ processAudio }) => {
           isRecording ? "Stop Recording" : "Press Enter to Start Recording"
         }
       />
-      <div id="bars-container" ref={barsContainerRef}></div>
+      <div id="bars-container" ref={barsContainerRef} className="flex items-center gap-1 h-12"></div>
     </div>
   );
 };

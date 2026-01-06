@@ -92,6 +92,7 @@ const DocumentCard = ({ document, removeDoc }) => {
   const [isOpened, setIsOpened] = useState(false);
   // const [displayBrief, setDisplayBrief] = useState(false);
   const [isTrainingModalVisible, setIsTrainingModalVisible] = useState(false);
+  const [hoveredAction, setHoveredAction] = useState<string | null>(null);
 
   const { t } = useTranslation();
 
@@ -129,26 +130,51 @@ const DocumentCard = ({ document, removeDoc }) => {
           bottom="100%"
           opener={<SvgButton text={t("options")} svg={SVGS.burger} />}
         >
-          <div className="width-200 d-flex flex-y gap-small">
-            <SvgButton
-              extraClass="bg-hovered w-100"
-              text={
-                isOpened ? t("hide-document-text") : t("show-document-text")
-              }
+          <div className="w-[200px] flex flex-col gap-3 p-4 bg-[rgba(255,255,255,0.05)] backdrop-blur-md border border-[rgba(255,255,255,0.1)] rounded-2xl shadow-lg">
+            <button
+              className={`px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center gap-2 w-full justify-center ${
+                hoveredAction === 'show-hide' 
+                  ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+                  : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
+              }`}
+              style={{ transform: 'none' }}
+              onMouseEnter={() => setHoveredAction('show-hide')}
+              onMouseLeave={() => setHoveredAction(null)}
               onClick={() => setIsOpened(!isOpened)}
-            />
-            <SvgButton
-              extraClass="bg-active w-100"
-              text={t("train-on-this-document")}
+            >
+              <span>{isOpened ? t("hide-document-text") : t("show-document-text")}</span>
+            </button>
+            <button
+              className={`px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center gap-2 w-full justify-center ${
+                hoveredAction === 'train' 
+                  ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+                  : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
+              }`}
+              style={{ transform: 'none' }}
+              onMouseEnter={() => setHoveredAction('train')}
+              onMouseLeave={() => setHoveredAction(null)}
               onClick={() => setIsTrainingModalVisible(true)}
-            />
-            <SvgButton
-              extraClass="bg-danger w-100"
-              svg={SVGS.trash}
-              text={t("delete")}
-              confirmations={[`${t("sure")}?`]}
-              onClick={handleDelete}
-            />
+            >
+              <span>{t("train-on-this-document")}</span>
+            </button>
+            <button
+              className={`px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center gap-2 w-full justify-center ${
+                hoveredAction === 'delete' 
+                  ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+                  : 'bg-[rgba(220,38,38,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(220,38,38,0.8)]'
+              }`}
+              style={{ transform: 'none' }}
+              onMouseEnter={() => setHoveredAction('delete')}
+              onMouseLeave={() => setHoveredAction(null)}
+              onClick={() => {
+                if (window.confirm(`${t("sure")}?`)) {
+                  handleDelete();
+                }
+              }}
+            >
+              <span className="flex items-center justify-center w-5 h-5 [&>svg]:w-5 [&>svg]:h-5">{SVGS.trash}</span>
+              <span>{t("delete")}</span>
+            </button>
           </div>
         </FloatingDropdown>
       </div>
@@ -241,6 +267,7 @@ const TrainingOnDocument = ({
 
   const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
   const [completionsTargetNumber, setCompletionsTargetNumber] = useState(30);
+  const [hoveredButton, setHoveredButton] = useState<string | null>(null);
   const toggleAgent = (slug: string) => {
     if (selectedAgents.includes(slug)) {
       setSelectedAgents((prev) => prev.filter((s) => s !== slug));
@@ -306,12 +333,20 @@ const TrainingOnDocument = ({
             ))}
           </div>
         </form>
-        <SvgButton
-          svg={SVGS.dumbell}
-          text="Generate"
-          size="big"
+        <button
+          className={`px-8 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center gap-2 w-full justify-center ${
+            hoveredButton === 'generate' 
+              ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+              : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
+          }`}
+          style={{ transform: 'none' }}
+          onMouseEnter={() => setHoveredButton('generate')}
+          onMouseLeave={() => setHoveredButton(null)}
           onClick={generateTrainingData}
-        />
+        >
+          <span className="flex items-center justify-center w-5 h-5 [&>svg]:w-5 [&>svg]:h-5">{SVGS.dumbell}</span>
+          <span>Generate</span>
+        </button>
       </div>
     </Modal>
   );

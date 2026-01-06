@@ -11,9 +11,7 @@ import {
 import { TCompletion } from "../../types";
 import { SvgButton } from "../SvgButton/SvgButton";
 import { SVGS } from "../../assets/svgs";
-import { Pill } from "../Pill/Pill";
 import { useStore } from "../../modules/store";
-import styles from "./CompletionsModal.module.css";
 import MarkdownRenderer from "../MarkdownRenderer/MarkdownRenderer";
 import { Checkbox } from "../Checkbox/Checkbox";
 import { toast } from "react-hot-toast";
@@ -34,6 +32,8 @@ export const CompletionsModal = ({ visible, hide }) => {
   const [selectedCompletions, setSelectedCompletions] = useState(
     [] as TCompletion[]
   );
+  const [hoveredFilter, setHoveredFilter] = useState<string | null>(null);
+  const [hoveredAction, setHoveredAction] = useState<string | null>(null);
 
   useEffect(() => {
     getCompletions();
@@ -143,51 +143,78 @@ export const CompletionsModal = ({ visible, hide }) => {
 
   return (
     <Modal minHeight={"80dvh"} visible={visible} hide={hide}>
-      <div className="flex-y gap-big">
-        <h3 className="text-center padding-small">
+      <div className="flex flex-col gap-5">
+        <h3 className="text-center p-1.5">
           {t("completions-pending-for-approval")}
         </h3>
-        <div className=" align-center flex-y gap-small padding-small wrap-wrap">
+        <div className="items-center flex flex-col gap-1.5 p-1.5 flex-wrap">
           <span>{t("filter-by")}: </span>
-          <div className="overflow-x-auto no-scrollbar d-flex justify-center">
-            <Pill
+          <div className="overflow-x-auto scrollbar-none flex justify-center gap-2 flex-wrap">
+            <button
+              className={`px-6 py-2 rounded-full font-normal text-sm cursor-pointer border ${
+                hoveredFilter === 'all' || filter === "all"
+                  ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+                  : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
+              }`}
+              style={{ transform: 'none' }}
+              onMouseEnter={() => setHoveredFilter('all')}
+              onMouseLeave={() => setHoveredFilter(null)}
               onClick={() => setFilter("all")}
-              extraClass={filter === "all" ? "bg-active" : ""}
             >
               {t("all")}
-            </Pill>
-            <Pill
+            </button>
+            <button
+              className={`px-6 py-2 rounded-full font-normal text-sm cursor-pointer border ${
+                hoveredFilter === 'approved' || filter === "approved"
+                  ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+                  : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
+              }`}
+              style={{ transform: 'none' }}
+              onMouseEnter={() => setHoveredFilter('approved')}
+              onMouseLeave={() => setHoveredFilter(null)}
               onClick={() => setFilter("approved")}
-              extraClass={filter === "approved" ? "bg-active" : ""}
             >
               {t("approved")}
-            </Pill>
-
-            <Pill
+            </button>
+            <button
+              className={`px-6 py-2 rounded-full font-normal text-sm cursor-pointer border ${
+                hoveredFilter === 'pending' || filter === "pending"
+                  ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+                  : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
+              }`}
+              style={{ transform: 'none' }}
+              onMouseEnter={() => setHoveredFilter('pending')}
+              onMouseLeave={() => setHoveredFilter(null)}
               onClick={() => setFilter("pending")}
-              extraClass={filter === "pending" ? "bg-active" : ""}
             >
               {t("pending")}
-            </Pill>
+            </button>
             {completionsAgents.map((a) => (
-              <Pill
-                onClick={() => setFilter(`agent-${a}`)}
-                extraClass={filter === `agent-${a}` ? "bg-active" : ""}
+              <button
                 key={a}
+                className={`px-6 py-2 rounded-full font-normal text-sm cursor-pointer border ${
+                  hoveredFilter === `agent-${a}` || filter === `agent-${a}`
+                    ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+                    : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
+                }`}
+                style={{ transform: 'none' }}
+                onMouseEnter={() => setHoveredFilter(`agent-${a}`)}
+                onMouseLeave={() => setHoveredFilter(null)}
+                onClick={() => setFilter(`agent-${a}`)}
               >
                 {agents.find((ag) => ag.id === a)?.name}
-              </Pill>
+              </button>
             ))}
           </div>
 
-          <div className="d-flex align-center gap-medium">
+          <div className="flex items-center gap-2.5">
             <div>
               {selectedCompletions.length} {t("selected")}
             </div>
             <FloatingDropdown
-              left="50%"
+              right="0"
               top="100%"
-              transform="translateX(-50%)"
+              extraClass="mt-2"
               opener={
                 <SvgButton
                   extraClass="active-on-hover "
@@ -196,26 +223,43 @@ export const CompletionsModal = ({ visible, hide }) => {
                 />
               }
             >
-              <div className="width-200 flex-y gap-medium">
-                <SvgButton
-                  extraClass=" pressable bg-danger"
-                  size="big"
-                  text={t("delete-all")}
-                  onClick={bulkDelete}
-                  confirmations={[t("sure-delete-completions")]}
-                />
-                <SvgButton
+              <div className="w-[200px] flex flex-col gap-3 p-4 bg-[rgba(255,255,255,0.05)] backdrop-blur-md border border-[rgba(255,255,255,0.1)] rounded-2xl shadow-lg">
+                <button
+                  className={`px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center gap-2 w-full justify-center ${
+                    hoveredAction === 'delete-all' 
+                      ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+                      : 'bg-[rgba(220,38,38,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(220,38,38,0.8)]'
+                  }`}
+                  style={{ transform: 'none' }}
+                  onMouseEnter={() => setHoveredAction('delete-all')}
+                  onMouseLeave={() => setHoveredAction(null)}
+                  onClick={() => {
+                    if (window.confirm(t("sure-delete-completions"))) {
+                      bulkDelete();
+                    }
+                  }}
+                >
+                  <span>{t("delete-all")}</span>
+                </button>
+                <button
+                  className={`px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center gap-2 w-full justify-center ${
+                    hoveredAction === 'approve-all' 
+                      ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+                      : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
+                  }`}
+                  style={{ transform: 'none' }}
+                  onMouseEnter={() => setHoveredAction('approve-all')}
+                  onMouseLeave={() => setHoveredAction(null)}
                   onClick={handleBulkUpdate}
-                  extraClass=" bg-active pressable"
-                  size="big"
-                  text={t("approve-all")}
-                />
+                >
+                  <span>{t("approve-all")}</span>
+                </button>
               </div>
             </FloatingDropdown>
           </div>
         </div>
 
-        <div className={styles.completionsContainer}>
+        <div className="flex flex-wrap gap-[10px] justify-center p-[10px] overflow-auto max-h-[60dvh]">
           {isLoading && <Loader />}
           {filteredCompletions.map((c) => (
             <CompletionCard
@@ -290,21 +334,21 @@ const CompletionCard = ({
   };
 
   return (
-    <div className={`card fat-border ${selected ? " border-active " : ""}`}>
+    <div className={`rounded-[10px] p-2.5 bg-[var(--code-bg-color)] cursor-pointer flex flex-col gap-2.5 w-[min(350px,100%)] transition-all duration-200 ease-in-out mx-auto border-4 ${selected ? "border-[var(--active-color)]" : "border-[var(--semi-transparent)]"}`}>
       <section
         onClick={() => handleSelect(completion)}
-        className="flex-y gap-medium"
+        className="flex flex-col gap-2.5"
       >
         {isEditing ? (
           <input
-            className="input padding-big"
+            className="rounded-lg p-5 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] text-base font-[var(--font-family)] text-[var(--font-color)] transition-all duration-200 focus:outline-none focus:border-[rgba(255,255,255,0.2)] focus:shadow-[0_0_0_2px_rgba(110,91,255,0.3)]"
             onChange={handlePromptChange}
             value={prompt}
           />
         ) : (
           <h4>{prompt}</h4>
         )}
-        <div className={`separator checked `} />
+        <div className="border-t border-[var(--active-color)] opacity-10 w-full" />
         {isEditing ? (
           <Textarea
             extraClass=""
@@ -317,7 +361,7 @@ const CompletionCard = ({
           <MarkdownRenderer markdown={answer} />
         )}
       </section>
-      <div className="d-flex gap-small justify-center align-center">
+      <div className="flex gap-1.5 justify-center items-center">
         {/* <SvgButton
           onClick={toggleApproved}
           text={selected ? t("unselect") : t("select")}

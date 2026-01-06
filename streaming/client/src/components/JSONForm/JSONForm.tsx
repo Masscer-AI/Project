@@ -28,6 +28,7 @@ export const JSONForm: React.FC<JSONFormProps> = ({
   fieldMapping = {},
 }) => {
   const [formData, setFormData] = useState<TJSONFormData>(data);
+  const [hoveredButton, setHoveredButton] = useState<string | null>(null);
 
   const handleChange = (key: string, value: any) => {
     setFormData({ ...formData, [key]: value });
@@ -142,12 +143,20 @@ export const JSONForm: React.FC<JSONFormProps> = ({
         return renderInput(key, data[key]);
       })}
       {onSubmit && (
-        <SvgButton
-          extraClass="w-100 active-on-hover pressable"
+        <button
           type="submit"
-          svg={SVGS.save}
-          text={submitText}
-        />
+          className={`px-8 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center gap-2 w-full justify-center ${
+            hoveredButton === 'save' 
+              ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+              : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
+          }`}
+          style={{ transform: 'none' }}
+          onMouseEnter={() => setHoveredButton('save')}
+          onMouseLeave={() => setHoveredButton(null)}
+        >
+          <span className="flex items-center justify-center w-5 h-5 [&>svg]:w-5 [&>svg]:h-5">{SVGS.save}</span>
+          <span>{submitText}</span>
+        </button>
       )}
     </form>
   );
