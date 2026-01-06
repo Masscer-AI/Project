@@ -10,6 +10,8 @@ from .models import (
     FeatureFlag,
     FeatureFlagAssignment,
     UserProfile,
+    Role,
+    RoleAssignment,
 )
 
 
@@ -128,3 +130,26 @@ class UserProfileAdmin(admin.ModelAdmin):
     search_fields = ("user__username", "user__email", "name", "bio")
     list_filter = ("organization", "sex", "created_at", "updated_at")
     readonly_fields = ("id", "created_at", "updated_at")
+
+
+@admin.register(Role)
+class RoleAdmin(admin.ModelAdmin):
+    list_display = ("name", "organization", "enabled", "created_at", "updated_at")
+    search_fields = ("name", "organization__name", "description")
+    list_filter = ("enabled", "organization", "created_at", "updated_at")
+    readonly_fields = ("id", "created_at", "updated_at")
+
+
+@admin.register(RoleAssignment)
+class RoleAssignmentAdmin(admin.ModelAdmin):
+    list_display = ("user", "role", "organization", "from_date", "to_date", "is_active_display", "created_at")
+    search_fields = ("user__username", "user__email", "role__name", "organization__name")
+    list_filter = ("organization", "role", "from_date", "to_date", "created_at", "updated_at")
+    readonly_fields = ("id", "created_at", "updated_at")
+    date_hierarchy = "from_date"
+    
+    def is_active_display(self, obj):
+        """Display if the role assignment is currently active"""
+        return obj.is_active()
+    is_active_display.boolean = True
+    is_active_display.short_description = "Active"

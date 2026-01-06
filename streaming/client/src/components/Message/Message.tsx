@@ -323,7 +323,7 @@ export const Message = memo(
               // }`}
               extraClass={`px-5 py-4 w-fit rounded-2xl text-white leading-7 overflow-x-auto scrollbar-none shadow-lg backdrop-blur-md ${
                 type === "user" 
-                  ? "bg-gradient-to-b from-[#008292] to-[#32127A] text-white border border-[rgba(0,130,146,0.4)] shadow-[0_4px_16px_rgba(50,18,122,0.4)]" 
+                  ? "bg-gradient-to-b from-[rgba(0,130,146,0.6)] to-[rgba(50,18,122,0.6)] text-white border border-[rgba(0,130,146,0.3)] shadow-[0_4px_16px_rgba(50,18,122,0.25)]" 
                   : "bg-[rgba(35,33,39,0.5)] text-white border border-[rgba(255,255,255,0.1)] shadow-[0_4px_16px_rgba(0,0,0,0.3)]"
               }`}
             />

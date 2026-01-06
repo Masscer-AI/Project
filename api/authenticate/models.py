@@ -371,3 +371,92 @@ class FeatureFlagAssignment(TimeStampedModel):
                 name="unique_user_feature_flag",
             ),
         ]
+
+class Role(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name="roles",
+        help_text="Organization this role belongs to"
+    )
+    name = models.CharField(
+        max_length=50,
+        help_text="Name of the role"
+    )
+    description = models.TextField(
+        null=True,
+        blank=True,
+        help_text="Description of the role"
+    )
+    enabled = models.BooleanField(
+        default=True,
+        help_text="Whether this role exists under the organization or not"
+    )
+    capabilities = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="List of feature flag slugs that this role will have enabled"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Role"
+        verbose_name_plural = "Roles"
+        unique_together = [("organization", "name")]
+
+    def __str__(self):
+        return f"{self.name} ({self.organization.name})"
+
+
+class RoleAssignment(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="role_assignments",
+        help_text="User to whom the role is assigned"
+    )
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name="role_assignments",
+        help_text="Organization this assignment belongs to"
+    )
+    role = models.ForeignKey(
+        Role,
+        on_delete=models.CASCADE,
+        related_name="assignments",
+        help_text="Role being assigned"
+    )
+    from_date = models.DateField(
+        help_text="Date from which the user has this role"
+    )
+    to_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date until which the user has this role. Empty if the role is active or has no end date"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Role Assignment"
+        verbose_name_plural = "Role Assignments"
+        indexes = [
+            models.Index(fields=["user", "organization"]),
+            models.Index(fields=["from_date", "to_date"]),
+        ]
+
+    def __str__(self):
+        status = "Active" if not self.to_date or self.to_date >= timezone.now().date() else "Inactive"
+        return f"{self.user.email} - {self.role.name} ({self.organization.name}) - {status}"
+
+    def is_active(self):
+        """Check if the role assignment is currently active"""
+        today = timezone.now().date()
+        return (
+            self.from_date <= today and
+            (self.to_date is None or self.to_date >= today)
+        )
