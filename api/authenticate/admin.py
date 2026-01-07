@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django import forms
 from django.utils import timezone
+from django.utils.html import format_html
 import pytz
 from .models import (
     Token,
@@ -90,6 +91,15 @@ class CredentialsManagerAdmin(admin.ModelAdmin):
     list_filter = ("organization",)
 
 
+class LogoFileWidget(forms.ClearableFileInput):
+    template_name = 'admin/widgets/clearable_file_input_simple.html'
+    
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault('attrs', {})
+        kwargs['attrs']['accept'] = 'image/*'
+        super().__init__(*args, **kwargs)
+
+
 class OrganizationAdminForm(forms.ModelForm):
     timezone = forms.ChoiceField(
         choices=[(tz, tz) for tz in pytz.all_timezones],
@@ -100,14 +110,40 @@ class OrganizationAdminForm(forms.ModelForm):
     class Meta:
         model = Organization
         fields = '__all__'
+        widgets = {
+            'logo': LogoFileWidget()
+        }
 
 
 @admin.register(Organization)
 class OrganizationAdmin(admin.ModelAdmin):
     form = OrganizationAdminForm
-    list_display = ("name", "description", "owner", "timezone")
+    list_display = ("name", "description", "owner", "timezone", "logo_preview")
     search_fields = ("name", "description", "owner__username")
     list_filter = ("timezone", "owner")
+    readonly_fields = ("logo_preview",)
+    
+    fieldsets = (
+        ('Información básica', {
+            'fields': ('name', 'description', 'owner', 'timezone')
+        }),
+        ('Logo', {
+            'fields': ('logo', 'logo_preview'),
+            'description': 'Sube un logo para la organización.'
+        }),
+    )
+    
+    class Media:
+        css = {
+            'all': ('admin/css/organization_logo.css',)
+        }
+        js = ('admin/js/organization_logo.js',)
+    
+    def logo_preview(self, obj):
+        if obj.logo:
+            return format_html('<img src="{}" style="max-height: 50px; max-width: 50px;" />', obj.logo.url)
+        return "Sin logo"
+    logo_preview.short_description = "Logo"
 
 
 @admin.register(FeatureFlag)

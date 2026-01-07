@@ -79,9 +79,20 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class OrganizationSerializer(serializers.ModelSerializer):
+    logo_url = serializers.SerializerMethodField()
+    
     class Meta:
         model = Organization
-        fields = ["id", "name", "description", "owner", "timezone", "created_at", "updated_at"]
+        fields = ["id", "name", "description", "owner", "timezone", "logo", "logo_url", "created_at", "updated_at"]
+        read_only_fields = ["logo_url"]
+    
+    def get_logo_url(self, obj):
+        if obj.logo:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.logo.url)
+            return obj.logo.url
+        return None
 
 
 class CredentialsManagerSerializer(serializers.ModelSerializer):
@@ -103,7 +114,7 @@ class CredentialsManagerSerializer(serializers.ModelSerializer):
 
 class BigOrganizationSerializer(serializers.ModelSerializer):
     credentials = serializers.SerializerMethodField()
-
+    logo_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Organization
@@ -113,6 +124,7 @@ class BigOrganizationSerializer(serializers.ModelSerializer):
             "description",
             "owner",
             "timezone",
+            "logo_url",
             "created_at",
             "updated_at",
             "credentials",
@@ -121,6 +133,14 @@ class BigOrganizationSerializer(serializers.ModelSerializer):
     def get_credentials(self, obj):
         credentials = CredentialsManager.objects.get(organization=obj)
         return CredentialsManagerSerializer(credentials).data
+    
+    def get_logo_url(self, obj):
+        if obj.logo:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.logo.url)
+            return obj.logo.url
+        return None
 
 
 class FeatureFlagSerializer(serializers.ModelSerializer):

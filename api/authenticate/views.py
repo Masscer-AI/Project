@@ -2,6 +2,7 @@ from rest_framework.views import APIView
 import json
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.parsers import MultiPartParser, JSONParser, FormParser
 from django.http import JsonResponse
 from django.contrib.auth import authenticate, login
 from .serializers import (
@@ -182,7 +183,11 @@ class UserView(View):
 class OrganizationView(View):
     def get(self, request):
         organizations = Organization.objects.filter(owner=request.user)
-        serializer = BigOrganizationSerializer(organizations, many=True)
+        serializer = BigOrganizationSerializer(
+            organizations, 
+            many=True,
+            context={'request': request}
+        )
         return JsonResponse(serializer.data, safe=False)
 
     def delete(self, request, organization_id):
@@ -199,13 +204,35 @@ class OrganizationView(View):
 
     def post(self, request):
         try:
-            data = json.loads(request.body)
+            # Manejar datos JSON o multipart
+            if request.content_type and 'multipart/form-data' in request.content_type:
+                data = request.POST.dict()
+                logo_file = request.FILES.get('logo')
+            else:
+                data = json.loads(request.body)
+                logo_file = None
+            
             data["owner"] = request.user.id
-            serializer = OrganizationSerializer(data=data)
+            serializer = OrganizationSerializer(
+                data=data,
+                context={'request': request}
+            )
+            
             if serializer.is_valid():
-                serializer.save()
+                organization = serializer.save()
+                # Si hay archivo de logo, actualizarlo
+                if logo_file:
+                    organization.logo = logo_file
+                    organization.save()
+                
+                response_serializer = OrganizationSerializer(
+                    organization, 
+                    context={'request': request}
+                )
+                response_data = response_serializer.data
+                response_data["message"] = "Organization created successfully"
                 return JsonResponse(
-                    {"message": "Organization created successfully"},
+                    response_data,
                     status=status.HTTP_201_CREATED,
                 )
             return JsonResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -213,18 +240,81 @@ class OrganizationView(View):
             return JsonResponse({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
     def put(self, request, organization_id):
-        data = json.loads(request.body)
         organization = Organization.objects.get(id=organization_id)
         if organization.owner != request.user:
             return JsonResponse(
                 {"error": "You are not the owner of this organization"},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        serializer = OrganizationSerializer(organization, data=data)
+        
+        # Manejar datos JSON o multipart
+        if request.content_type and 'multipart/form-data' in request.content_type:
+            data = request.POST.dict()
+            logo_file = request.FILES.get('logo')
+            delete_logo = data.get('delete_logo') == 'true'
+        else:
+            data = json.loads(request.body)
+            logo_file = None
+            delete_logo = data.get('delete_logo', False)
+        
+        # Guardar referencia al logo anterior ANTES de cualquier cambio
+        old_logo = organization.logo
+        
+        # Si se solicita eliminar el logo
+        if delete_logo:
+            if old_logo:
+                # Eliminar el archivo del sistema de archivos
+                old_logo.delete(save=False)
+                organization.logo = None
+                organization.save()
+            
+            # Actualizar otros campos si se enviaron
+            serializer = OrganizationSerializer(
+                organization,
+                data=data,
+                partial=True,
+                context={'request': request}
+            )
+            if serializer.is_valid():
+                organization = serializer.save()
+                response_serializer = OrganizationSerializer(
+                    organization,
+                    context={'request': request}
+                )
+                response_data = response_serializer.data
+                response_data["message"] = "Logo deleted successfully" if old_logo else "Organization updated successfully"
+                return JsonResponse(
+                    response_data,
+                    status=status.HTTP_200_OK,
+                )
+            return JsonResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        serializer = OrganizationSerializer(
+            organization, 
+            data=data, 
+            partial=True,
+            context={'request': request}
+        )
+        
         if serializer.is_valid():
-            serializer.save()
+            organization = serializer.save()
+            
+            # Si hay nuevo archivo de logo, reemplazar el anterior
+            if logo_file:
+                # Eliminar logo anterior si existe (del sistema de archivos)
+                if old_logo:
+                    old_logo.delete(save=False)
+                organization.logo = logo_file
+                organization.save()
+            
+            response_serializer = OrganizationSerializer(
+                organization,
+                context={'request': request}
+            )
+            response_data = response_serializer.data
+            response_data["message"] = "Organization updated successfully"
             return JsonResponse(
-                {"message": "Organization updated successfully"},
+                response_data,
                 status=status.HTTP_200_OK,
             )
         return JsonResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

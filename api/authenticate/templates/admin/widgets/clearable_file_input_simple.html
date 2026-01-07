@@ -1,0 +1,17 @@
+<div style="display: flex; flex-direction: column;">
+    {% if widget.is_initial %}
+        <div style="margin-bottom: 10px;">
+            {{ widget.initial_text }}: <a href="{{ widget.value.url }}">{{ widget.value }}</a>
+        </div>
+    {% endif %}
+    <div style="margin-bottom: 10px;">
+        <input type="{{ widget.type }}" name="{{ widget.name }}"{% include "django/forms/widgets/attrs.html" %}>
+    </div>
+    {% if widget.is_initial %}
+        <div style="margin-top: 10px; display: flex; align-items: center;">
+            <input type="checkbox" name="{{ widget.checkbox_name }}" id="{{ widget.checkbox_id }}" style="margin-right: 5px;">
+            <label for="{{ widget.checkbox_id }}" style="margin: 0;">{{ widget.clear_checkbox_label }}</label>
+        </div>
+    {% endif %}
+</div>
+

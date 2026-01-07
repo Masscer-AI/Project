@@ -1,4 +1,5 @@
 import uuid
+import os
 from django.db import models
 import rest_framework.authtoken.models
 from django.conf import settings
@@ -9,6 +10,7 @@ from django.core.exceptions import MultipleObjectsReturned, ValidationError
 from django.db.models import Q
 from model_utils.models import TimeStampedModel
 import pytz
+from PIL import Image
 
 
 LOGIN_TOKEN_LIFETIME = timezone.timedelta(days=1)
@@ -202,6 +204,14 @@ class PublishableToken(models.Model):
         )
 
 
+def organization_logo_upload_path(instance, filename):
+    """Genera la ruta para almacenar el logo de la organización"""
+    ext = filename.split('.')[-1]
+    # Nombre único: organization_id.ext
+    filename = f"{instance.id}.{ext}"
+    return os.path.join('organizations', 'logos', filename)
+
+
 class Organization(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=255)
@@ -214,6 +224,12 @@ class Organization(models.Model):
         choices=[(tz, tz) for tz in pytz.all_timezones],
         help_text="Zona horaria de la organización para mostrar timestamps"
     )
+    logo = models.ImageField(
+        upload_to=organization_logo_upload_path,
+        null=True,
+        blank=True,
+        help_text="Logo de la organización (recomendado: 500x500px, formato PNG/JPG/SVG)"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -223,6 +239,39 @@ class Organization(models.Model):
     def get_timezone(self):
         """Retorna el objeto timezone de pytz"""
         return pytz.timezone(self.timezone)
+    
+    def save(self, *args, **kwargs):
+        """Redimensiona el logo si es necesario al guardar y maneja eliminación"""
+        # Guardar referencia al logo anterior antes de guardar
+        old_logo = None
+        if self.pk:
+            try:
+                old_instance = Organization.objects.get(pk=self.pk)
+                old_logo = old_instance.logo if old_instance.logo else None
+            except Organization.DoesNotExist:
+                pass
+        
+        super().save(*args, **kwargs)
+        
+        # Si se eliminó el logo (ahora es None pero antes existía)
+        if old_logo and not self.logo:
+            old_logo.delete(save=False)
+        # Si se cambió el logo (el nombre del archivo es diferente)
+        elif old_logo and self.logo and old_logo.name != self.logo.name:
+            old_logo.delete(save=False)
+        
+        # Redimensionar el nuevo logo si existe
+        if self.logo:
+            try:
+                img = Image.open(self.logo.path)
+                # Redimensionar a 500x500 manteniendo aspecto
+                if img.height > 500 or img.width > 500:
+                    output_size = (500, 500)
+                    img.thumbnail(output_size, Image.Resampling.LANCZOS)
+                    img.save(self.logo.path)
+            except Exception:
+                # Si es SVG o hay error, continuar sin redimensionar
+                pass
 
 
 class CredentialsManager(models.Model):

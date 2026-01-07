@@ -1,0 +1,33 @@
+/* Forzar que todos los elementos del campo logo estén en columna */
+.field-logo ul {
+    display: flex !important;
+    flex-direction: column !important;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.field-logo ul li {
+    display: block !important;
+    margin-bottom: 10px;
+    width: 100%;
+}
+
+/* Asegurar que el input de archivo esté visible y con margen */
+.field-logo input[type="file"] {
+    display: block !important;
+    margin-bottom: 10px;
+}
+
+/* Posicionar el checkbox Clear debajo del selector */
+.field-logo input[type="checkbox"][id*="logo-clear"] {
+    margin-top: 10px;
+    display: block !important;
+}
+
+/* Asegurar que el label del checkbox esté en la misma línea */
+.field-logo label[for*="logo-clear"] {
+    display: inline-block;
+    margin-left: 5px;
+}
+
