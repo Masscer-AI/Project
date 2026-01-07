@@ -45,6 +45,7 @@ export interface TConversation {
   created_at: string;
   messages?: TMessage[];
   summary?: string;
+  alerts_count?: number;
 }
 
 export type TCompletion = {

@@ -259,5 +259,6 @@
     "specify-urls-to-fetch": "Specifica URL da recuperare",
     "urls-selected": "URL selezionati",
     "conversation-title-prompt": "Prompt Titolo Conversazione",
-    "conversation-title-prompt-placeholder": "Lascia vuoto per usare il prompt predefinito. Personalizza come vengono generati i titoli delle conversazioni usando questo agente."
+    "conversation-title-prompt-placeholder": "Lascia vuoto per usare il prompt predefinito. Personalizza come vengono generati i titoli delle conversazioni usando questo agente.",
+    "has-alerts": "Ha allerte"
 }

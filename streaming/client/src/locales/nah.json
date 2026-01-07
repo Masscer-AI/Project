@@ -285,5 +285,6 @@
     "urls-fetched-successfully": "URLs mochiuiloa",
     "using-provided-url-content": "Xi tlapaleuiloa in tlahtolli URL",
     "conversation-title-prompt": "Tlapohuiltl Toka Tla'toltlamachtli",
-    "conversation-title-prompt-placeholder": "Xi pohuiloa uel tlapohuiltl. Xi tlahtlajkuiloa tlahtolli tla'toltlamachtli."
+    "conversation-title-prompt-placeholder": "Xi pohuiloa uel tlapohuiltl. Xi tlahtlajkuiloa tlahtolli tla'toltlamachtli.",
+    "has-alerts": "Tiene Alertas"
 }

@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { getTags } from "../../modules/apiCalls";
 import "./ConversationsTable.css";
+import { AlertTriangle } from "lucide-react";
 
 interface ConversationsTableProps {
   conversations: TConversation[];
@@ -51,6 +52,7 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({ conversa
     minMessages: "",
     maxMessages: "",
     hasTags: "" as "" | "yes" | "no",
+    hasAlerts: "" as "" | "yes" | "no",
   });
 
   // Obtener lista única de usuarios para el filtro
@@ -110,6 +112,13 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({ conversa
       filtered = filtered.filter(conv => !conv.tags || conv.tags.length === 0);
     }
 
+    // Filtrar por alertas
+    if (filters.hasAlerts === "yes") {
+      filtered = filtered.filter(conv => (conv.alerts_count || 0) > 0);
+    } else if (filters.hasAlerts === "no") {
+      filtered = filtered.filter(conv => !conv.alerts_count || conv.alerts_count === 0);
+    }
+
     // Ordenar
     filtered.sort((a, b) => {
       const dateA = new Date(a.created_at).getTime();
@@ -130,6 +139,7 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({ conversa
       minMessages: "",
       maxMessages: "",
       hasTags: "",
+      hasAlerts: "",
     });
   };
 
@@ -224,6 +234,19 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({ conversa
           </div>
 
           <div className="conversations-filter-group">
+            <label>{t("has-alerts")}</label>
+            <select
+              className="conversations-filter-select"
+              value={filters.hasAlerts}
+              onChange={(e) => setFilters({ ...filters, hasAlerts: e.target.value as "" | "yes" | "no" })}
+            >
+              <option value="">{t("all")}</option>
+              <option value="yes">{t("yes")}</option>
+              <option value="no">{t("no")}</option>
+            </select>
+          </div>
+
+          <div className="conversations-filter-group">
             <label>{t("sort-by")}</label>
             <select
               className="conversations-filter-select"
@@ -264,6 +287,7 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({ conversa
                 <th>{t("messages")}</th>
                 <th>{t("date")}</th>
                 <th>{t("tags")}</th>
+                <th>{t("alerts")}</th>
               </tr>
             </thead>
             <tbody>
@@ -296,6 +320,16 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({ conversa
                           );
                         })}
                         {conv.tags.length > 3 && ` +${conv.tags.length - 3}`}
+                      </div>
+                    ) : (
+                      "-"
+                    )}
+                  </td>
+                  <td>
+                    {(conv.alerts_count || 0) > 0 ? (
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#ff6b6b" }}>
+                        <AlertTriangle size={16} />
+                        <span>{conv.alerts_count}</span>
                       </div>
                     ) : (
                       "-"

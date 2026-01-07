@@ -41,6 +41,7 @@ class ConversationSerializer(serializers.ModelSerializer):
     summary = serializers.SerializerMethodField()
     created_at_formatted = serializers.SerializerMethodField()
     updated_at_formatted = serializers.SerializerMethodField()
+    alerts_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Conversation
@@ -52,6 +53,9 @@ class ConversationSerializer(serializers.ModelSerializer):
     def get_summary(self, obj):
         """Get the AI-generated summary of the conversation."""
         return obj.summary or ""
+
+    def get_alerts_count(self, obj):
+        return obj.alerts.count()
     
     def get_created_at_formatted(self, obj):
         """Retorna el created_at formateado según la zona horaria de la organización"""

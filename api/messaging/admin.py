@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from django.conf import settings
+from django.db.models import Exists, OuterRef
 from .models import (
     Conversation,
     Message,
@@ -182,6 +183,35 @@ class AlertSubscriptionAdmin(admin.ModelAdmin):
     )
     readonly_fields = ("id", "created_at", "updated_at")
     fields = ("id", "user", "alert_rule", "created_at", "updated_at")
+
+class HasAlertsFilter(admin.SimpleListFilter):
+    title = 'has alerts'
+    parameter_name = 'has_alerts'
+
+    def lookups(self, request, model_admin):
+        return (('yes', 'With alerts'), ('no', 'Without alerts'))
+
+    def queryset(self, request, queryset):
+        if self.value() == 'yes':
+            return queryset.filter(
+                Exists(ConversationAlert.objects.filter(conversation=OuterRef('pk')))
+            )
+        if self.value() == 'no':
+            return queryset.filter(
+                ~Exists(ConversationAlert.objects.filter(conversation=OuterRef('pk')))
+            )
+        return queryset
+
+class ConversationAdmin(admin.ModelAdmin):
+    list_display = ("id", "user", "title", "pending_analysis", "has_alerts_display", "created_at", "updated_at")
+    list_filter = ("user", "pending_analysis", HasAlertsFilter, "created_at", "updated_at")
+
+    def has_alerts_display(self, obj):
+        count = obj.alerts.count()
+        if count > 0:
+            return format_html('<span style="color:#ff6b6b;font-weight:600;">⚠️ {} alert(s)</span>', count)
+        return format_html('<span style="color:#51cf66;">✓ No alerts</span>')
+    has_alerts_display.short_description = "Alerts"
 
 
 admin.site.register(Conversation, ConversationAdmin)
