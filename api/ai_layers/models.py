@@ -85,6 +85,14 @@ class Agent(models.Model):
     user = models.ForeignKey(
         "auth.User", on_delete=models.CASCADE, null=True, blank=True
     )
+    organization = models.ForeignKey(
+        "authenticate.Organization",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="agents",
+        help_text="Organization this agent belongs to. If set, all members of the organization can use it."
+    )
 
     is_public = models.BooleanField(default=False)
     default = models.BooleanField(default=False)

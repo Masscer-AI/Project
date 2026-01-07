@@ -13,6 +13,7 @@ class LanguageModelSerializer(serializers.ModelSerializer):
 
 class AgentSerializer(serializers.ModelSerializer):
     llm = LanguageModelSerializer(read_only=True)
+    organization = serializers.SerializerMethodField()
 
     class Meta:
         model = Agent
@@ -24,6 +25,7 @@ class AgentSerializer(serializers.ModelSerializer):
             "salute",
             "act_as",
             "user",
+            "organization",
             "is_public",
             "model_provider",
             "default",
@@ -37,5 +39,9 @@ class AgentSerializer(serializers.ModelSerializer):
             "llm",
             "conversation_title_prompt",
         ]
+    
+    def get_organization(self, obj):
+        """Return organization ID if it exists, None otherwise"""
+        return str(obj.organization.id) if obj.organization else None
 
 

@@ -68,6 +68,22 @@ class ChatWidgetAdmin(admin.ModelAdmin):
         "updated_at",
     )
 
+    def get_form(self, request, obj=None, **kwargs):
+        form = super().get_form(request, obj, **kwargs)
+        # Pre-select agent if passed in URL
+        if 'agent' in request.GET and not obj:
+            try:
+                agent_id = int(request.GET['agent'])
+                form.base_fields['agent'].initial = agent_id
+            except (ValueError, KeyError):
+                pass
+        return form
+    
+    def save_model(self, request, obj, form, change):
+        if not change:  # Only set created_by on creation
+            obj.created_by = request.user
+        super().save_model(request, obj, form, change)
+
     def widget_script_url(self, obj):
         if not obj.token:
             return "Token will be generated after saving"

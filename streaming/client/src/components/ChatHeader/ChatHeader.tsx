@@ -10,6 +10,7 @@ import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { Textarea } from "../SimpleForm/Textarea";
 import { Pill } from "../Pill/Pill";
+import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
 
 export const ChatHeader = ({
   // title,
@@ -76,6 +77,7 @@ const AgentComponent = ({ agent }: TAgentComponentProps) => {
 
   const { t } = useTranslation();
   const [isModalVisible, setModalVisible] = useState(false);
+  const canManageAgents = useIsFeatureEnabled("organization-agents-admin");
 
   const showModal = () => setModalVisible(true);
   const hideModal = () => setModalVisible(false);
@@ -126,25 +128,27 @@ const AgentComponent = ({ agent }: TAgentComponentProps) => {
         </div>
         <span>{agent.name}</span>
       </section>
-      <section className="flex gap-2.5 w-full">
-        <SvgButton
-          size="big"
-          extraClass={`pressable active-on-hover ${
-            isSelected ? "svg-white" : ""
-          }`}
-          svg={SVGS.controls}
-          onClick={showModal}
-        />
-        <SvgButton
-          size="big"
-          extraClass={`pressable danger-on-hover ${
-            isSelected ? "svg-white text-white" : ""
-          }`}
-          confirmations={[t("sure?")]}
-          svg={SVGS.trash}
-          onClick={handleDelete}
-        />
-      </section>
+      {canManageAgents && (
+        <section className="flex gap-2.5 w-full">
+          <SvgButton
+            size="big"
+            extraClass={`pressable active-on-hover ${
+              isSelected ? "svg-white" : ""
+            }`}
+            svg={SVGS.controls}
+            onClick={showModal}
+          />
+          <SvgButton
+            size="big"
+            extraClass={`pressable danger-on-hover ${
+              isSelected ? "svg-white text-white" : ""
+            }`}
+            confirmations={[t("sure?")]}
+            svg={SVGS.trash}
+            onClick={handleDelete}
+          />
+        </section>
+      )}
 
       <Modal
         minHeight={"40dvh"}
@@ -171,6 +175,7 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
   }));
 
   const { t } = useTranslation();
+  const canManageAgents = useIsFeatureEnabled("organization-agents-admin");
   const [formState, setFormState] = useState({
     name: agent.name || "",
     openai_voice: agent.openai_voice || "shimmer",
@@ -433,7 +438,8 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
           text={t("save")}
           svg={SVGS.download}
         />
-        <SvgButton
+        {canManageAgents && (
+          <SvgButton
           size="big"
           onClick={handleDelete}
           text={t("delete")}
@@ -441,6 +447,7 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
           extraClass="border-danger pressable danger-on-hover"
           confirmations={[t("sure?")]}
         />
+        )}
       </div>
     </form>
   );

@@ -4,9 +4,11 @@ from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
+from django.db.models import Q
 from .models import Agent, LanguageModel
 from .serializers import AgentSerializer, LanguageModelSerializer
 from api.authenticate.decorators.token_required import token_required
+from api.authenticate.models import Organization
 from rest_framework.parsers import JSONParser
 from api.utils.color_printer import printer
 from api.authenticate.models import UserProfile
@@ -23,17 +25,29 @@ fake = Faker()
 @method_decorator(token_required, name="dispatch")
 class AgentView(View):
     def get(self, request, *args, **kwargs):
-        # Generar una clave única para el caché basado en el usuario
-        cache_key = f"agent_data_{request.user.id}"
+        # Get user's organization first
+        user_org = None
+        if hasattr(request.user, 'profile') and request.user.profile.organization:
+            user_org = request.user.profile.organization
+        
+        # Generar una clave única para el caché basado en el usuario Y su organización
+        # Esto asegura que si la organización cambia o se agregan agentes, se invalida el caché
+        org_id = user_org.id if user_org else "no_org"
+        cache_key = f"agent_data_{request.user.id}_{org_id}"
         cached_data = cache.get(cache_key)
 
         # Si los datos están en el caché, devolverlos directamente
         if cached_data:
-
             return JsonResponse(cached_data, safe=False)
 
-        # Si no están en el caché, obtener datos de la base de datos
-        agents = Agent.objects.filter(user=request.user)
+        # Obtener agentes del usuario Y de su organización
+        # TODOS los miembros de la organización pueden VER los agentes de la organización
+        # La feature flag NO afecta la visibilidad, solo los permisos de edición/eliminación
+        if user_org:
+            agents = Agent.objects.filter(Q(user=request.user) | Q(organization=user_org))
+        else:
+            agents = Agent.objects.filter(user=request.user)
+        
         models = LanguageModel.objects.all()
         agents_data = AgentSerializer(agents, many=True).data
         models_data = LanguageModelSerializer(models, many=True).data
@@ -45,13 +59,43 @@ class AgentView(View):
         return JsonResponse(data, safe=False)
 
     def put(self, request, *args, **kwargs):
+        from api.authenticate.services import FeatureFlagService
+        
         default_llm = {
             "provider": "openai",
             "slug": "gpt-4o-mini",
         }
 
         agent_slug = kwargs.get("slug")
-        agent = get_object_or_404(Agent, slug=agent_slug, user=request.user)
+        
+        # Get user's organization
+        user_org = None
+        if hasattr(request.user, 'profile') and request.user.profile.organization:
+            user_org = request.user.profile.organization
+        
+        # Check permissions: user can edit their own agents OR organization agents if they have the flag
+        has_admin_flag = FeatureFlagService.is_feature_enabled(
+            "organization-agents-admin",
+            organization=user_org,
+            user=request.user
+        )
+        
+        # Build query for agent
+        if has_admin_flag and user_org:
+            agent = get_object_or_404(
+                Agent.objects.filter(
+                    Q(user=request.user) | Q(organization=user_org),
+                    slug=agent_slug
+                )
+            )
+        else:
+            agent = get_object_or_404(Agent, slug=agent_slug, user=request.user)
+        
+        # Check if user can actually edit this agent
+        can_edit = (agent.user == request.user) or (has_admin_flag and agent.organization == user_org)
+        if not can_edit:
+            return JsonResponse({"error": "You don't have permission to edit this agent"}, status=403)
+        
         data = JSONParser().parse(request)
 
         llm_slug = data.get("llm", default_llm).get("slug")
@@ -65,8 +109,23 @@ class AgentView(View):
             serializer.save()
 
             # Invalidar el caché después de actualizar
-            cache_key = f"agent_data_{request.user.id}"
+            # Invalidate cache for user
+            user_org = None
+            if hasattr(request.user, 'profile') and request.user.profile.organization:
+                user_org = request.user.profile.organization
+            
+            org_id = user_org.id if user_org else "no_org"
+            cache_key = f"agent_data_{request.user.id}_{org_id}"
             cache.delete(cache_key)
+            
+            # If agent belongs to organization, invalidate cache for all org members
+            if agent.organization:
+                from django.contrib.auth.models import User
+                org_members = User.objects.filter(profile__organization=agent.organization)
+                for member in org_members:
+                    member_org_id = agent.organization.id
+                    member_cache_key = f"agent_data_{member.id}_{member_org_id}"
+                    cache.delete(member_cache_key)
 
             return JsonResponse(serializer.data, status=200)
         return JsonResponse(serializer.errors, status=400)
@@ -79,20 +138,80 @@ class AgentView(View):
             serializer.save(user=request.user)
 
             # Invalidar el caché después de crear un nuevo agente
-            cache_key = f"agent_data_{request.user.id}"
+            user_org = None
+            if hasattr(request.user, 'profile') and request.user.profile.organization:
+                user_org = request.user.profile.organization
+            
+            org_id = user_org.id if user_org else "no_org"
+            cache_key = f"agent_data_{request.user.id}_{org_id}"
             cache.delete(cache_key)
+            
+            # If agent belongs to organization, invalidate cache for all org members
+            if serializer.instance and serializer.instance.organization:
+                from django.contrib.auth.models import User
+                org_members = User.objects.filter(profile__organization=serializer.instance.organization)
+                for member in org_members:
+                    member_org_id = serializer.instance.organization.id
+                    member_cache_key = f"agent_data_{member.id}_{member_org_id}"
+                    cache.delete(member_cache_key)
 
             return JsonResponse(serializer.data, status=201)
         return JsonResponse(serializer.errors, status=400)
 
     def delete(self, request, *args, **kwargs):
+        from api.authenticate.services import FeatureFlagService
+        
         agent_slug = kwargs.get("slug")
-        agent = get_object_or_404(Agent, slug=agent_slug, user=request.user)
+        
+        # Get user's organization
+        user_org = None
+        if hasattr(request.user, 'profile') and request.user.profile.organization:
+            user_org = request.user.profile.organization
+        
+        # Check permissions
+        has_admin_flag = FeatureFlagService.is_feature_enabled(
+            "organization-agents-admin",
+            organization=user_org,
+            user=request.user
+        )
+        
+        # Build query for agent
+        if has_admin_flag and user_org:
+            agent = get_object_or_404(
+                Agent.objects.filter(
+                    Q(user=request.user) | Q(organization=user_org),
+                    slug=agent_slug
+                )
+            )
+        else:
+            agent = get_object_or_404(Agent, slug=agent_slug, user=request.user)
+        
+        # Check if user can actually delete this agent
+        can_delete = (agent.user == request.user) or (has_admin_flag and agent.organization == user_org)
+        if not can_delete:
+            return JsonResponse({"error": "You don't have permission to delete this agent"}, status=403)
+        
+        # Capture organization before deleting
+        agent_org = agent.organization
         agent.delete()
 
         # Invalidar el caché después de eliminar un agente
-        cache_key = f"agent_data_{request.user.id}"
+        user_org = None
+        if hasattr(request.user, 'profile') and request.user.profile.organization:
+            user_org = request.user.profile.organization
+        
+        org_id = user_org.id if user_org else "no_org"
+        cache_key = f"agent_data_{request.user.id}_{org_id}"
         cache.delete(cache_key)
+        
+        # If agent belonged to organization, invalidate cache for all org members
+        if agent_org:
+            from django.contrib.auth.models import User
+            org_members = User.objects.filter(profile__organization=agent_org)
+            for member in org_members:
+                member_org_id = agent_org.id
+                member_cache_key = f"agent_data_{member.id}_{member_org_id}"
+                cache.delete(member_cache_key)
 
         return JsonResponse({"message": "Agent deleted successfully"})
 

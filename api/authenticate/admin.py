@@ -130,6 +130,18 @@ class UserProfileAdmin(admin.ModelAdmin):
     search_fields = ("user__username", "user__email", "name", "bio")
     list_filter = ("organization", "sex", "created_at", "updated_at")
     readonly_fields = ("id", "created_at", "updated_at")
+    fields = (
+        "user",
+        "name",
+        "organization",
+        "avatar_url",
+        "bio",
+        "sex",
+        "age",
+        "birthday",
+        "created_at",
+        "updated_at",
+    )
 
 
 @admin.register(Role)

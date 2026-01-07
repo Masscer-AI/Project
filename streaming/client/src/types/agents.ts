@@ -57,5 +57,7 @@ export type TAgent = {
   temperature: number;
   top_p?: number;
   conversation_title_prompt?: string;
+  organization?: string | null; // Organization ID if the agent belongs to an organization
+  user?: number; // User ID if the agent belongs to a user
   // voice?: TOpenaiVoiceOptions;
 };

@@ -264,10 +264,20 @@ class FeatureFlagCheckView(View):
     """Check if a specific feature flag is enabled for the current user."""
 
     def get(self, request, feature_flag_name):
+        import logging
+        logger = logging.getLogger(__name__)
+        
         user = request.user
         enabled = FeatureFlagService.is_feature_enabled(
             feature_flag_name=feature_flag_name, user=user
         )
+        
+        # Debug logging
+        user_org = None
+        if hasattr(user, 'profile') and user.profile.organization:
+            user_org = user.profile.organization
+        
+        logger.info(f"🔍 Feature Flag Check Debug: user={user.email}, flag={feature_flag_name}, enabled={enabled}, org={user_org.name if user_org else None}")
 
         serializer = FeatureFlagStatusResponseSerializer({
             "enabled": enabled,

@@ -30,6 +30,9 @@ class FeatureFlagService:
         Returns:
             bool: True if the feature is enabled for the user or organization, False otherwise
         """
+        # Debug logging
+        logger.info(f"🔍 is_feature_enabled called: flag={feature_flag_name}, user={user.email if user else None}, org={organization.name if organization else None}")
+        
         # Check user-level assignment first (highest priority)
         if user is not None:
             try:
@@ -40,8 +43,10 @@ class FeatureFlagService:
                     feature_flag__name=feature_flag_name,
                     organization__isnull=True,
                 )
+                logger.info(f"🔍 Found user-level assignment: user={user.email}, flag={feature_flag_name}, enabled={user_assignment.enabled}")
                 return user_assignment.enabled
             except FeatureFlagAssignment.DoesNotExist:
+                logger.info(f"🔍 No user-level assignment found for user={user.email}, flag={feature_flag_name}")
                 pass  # No user-level override, check organization level
 
         # Determine which organization to check (explicit organization param OR user's organizations)
@@ -58,6 +63,8 @@ class FeatureFlagService:
             # Combine and get first one (or check all)
             user_organizations = (owned_orgs | member_orgs).distinct()
             
+            logger.info(f"🔍 User organizations: user={user.email}, owned={[o.name for o in owned_orgs]}, member={[o.name for o in member_orgs]}")
+            
             # Check all user's organizations - if any has it enabled, return True
             for org in user_organizations:
                 try:
@@ -68,9 +75,11 @@ class FeatureFlagService:
                         feature_flag__name=feature_flag_name,
                         user__isnull=True,
                     )
+                    logger.info(f"🔍 Found org-level assignment: org={org.name}, flag={feature_flag_name}, enabled={assignment.enabled}")
                     if assignment.enabled:
                         return True
                 except FeatureFlagAssignment.DoesNotExist:
+                    logger.info(f"🔍 No org-level assignment found for org={org.name}, flag={feature_flag_name}")
                     continue
 
         # Check explicit organization if provided
@@ -83,10 +92,13 @@ class FeatureFlagService:
                     feature_flag__name=feature_flag_name,
                     user__isnull=True,
                 )
+                logger.info(f"🔍 Found explicit org assignment: org={organization_to_check.name}, flag={feature_flag_name}, enabled={assignment.enabled}")
                 return assignment.enabled
             except FeatureFlagAssignment.DoesNotExist:
+                logger.info(f"🔍 No explicit org assignment found for org={organization_to_check.name}, flag={feature_flag_name}")
                 pass
 
+        logger.info(f"🔍 Returning False - no assignment found for flag={feature_flag_name}")
         return False
 
     @classmethod
