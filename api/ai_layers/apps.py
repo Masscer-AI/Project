@@ -1,6 +1,7 @@
 from django.apps import AppConfig
 from api.utils.color_printer import printer
 from django.db.utils import OperationalError, ProgrammingError
+import requests
 
 
 class AiLayersConfig(AppConfig):
@@ -22,6 +23,11 @@ class AiLayersConfig(AppConfig):
             # This exception might occur during migrations or if the database is not ready
             printer.red("Database is not ready. Skipping AIProvider check.")
         except ProgrammingError as e:
-            printer.error(
-                f"Error in ai_layers app ready method: {str(e)}, a ProgrammingError occurred."
-            )
+            # This exception occurs when tables don't exist (migrations not run yet)
+            printer.yellow(f"Database tables not ready yet: {str(e)}. Skipping AIProvider check.")
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+            # Ollama is not available
+            printer.yellow(f"Ollama is not available. Skipping AIProvider check.")
+        except Exception as e:
+            # Catch any other exceptions to prevent Django startup from failing
+            printer.yellow(f"Error in AIProvider check: {str(e)}. Skipping.")

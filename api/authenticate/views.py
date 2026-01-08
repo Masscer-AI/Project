@@ -120,17 +120,27 @@ class UserView(View):
     def get(self, request, *args, **kwargs):
         # Generar una clave única para el caché basado en el usuario
         cache_key = f"user_data_{request.user.id}"
-        cached_data = cache.get(cache_key)
-
-        # Si los datos están en el caché, devolverlos directamente
-        if cached_data:
-
-            return JsonResponse(cached_data, status=status.HTTP_200_OK)
+        
+        # Intentar obtener del caché, pero si falla, continuar sin caché
+        try:
+            cached_data = cache.get(cache_key)
+            # Si los datos están en el caché, devolverlos directamente
+            if cached_data:
+                return JsonResponse(cached_data, status=status.HTTP_200_OK)
+        except Exception:
+            # Si el cache falla (ej: Redis no disponible), continuar sin cache
+            pass
 
         # Si no hay datos en el caché, serializar y guardar en el caché
         serializer = UserSerializer(request.user)
         response_data = serializer.data
-        cache.set(cache_key, response_data, timeout=self.CACHE_TIMEOUT)
+        
+        # Intentar guardar en cache, pero si falla, continuar
+        try:
+            cache.set(cache_key, response_data, timeout=self.CACHE_TIMEOUT)
+        except Exception:
+            # Si el cache falla, simplemente continuar sin cache
+            pass
 
         return JsonResponse(response_data, status=status.HTTP_200_OK)
 
@@ -179,7 +189,13 @@ class UserView(View):
         cache_key = f"user_data_{request.user.id}"
         serializer = UserSerializer(request.user)
         response_data = serializer.data
-        cache.set(cache_key, response_data, timeout=self.CACHE_TIMEOUT)
+        
+        # Intentar guardar en cache, pero si falla, continuar
+        try:
+            cache.set(cache_key, response_data, timeout=self.CACHE_TIMEOUT)
+        except Exception:
+            # Si el cache falla, simplemente continuar sin cache
+            pass
 
         return JsonResponse(
             {"message": "user-updated-successfully"}, status=status.HTTP_200_OK
