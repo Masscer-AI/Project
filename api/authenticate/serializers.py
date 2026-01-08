@@ -115,6 +115,8 @@ class CredentialsManagerSerializer(serializers.ModelSerializer):
 class BigOrganizationSerializer(serializers.ModelSerializer):
     credentials = serializers.SerializerMethodField()
     logo_url = serializers.SerializerMethodField()
+    can_manage = serializers.SerializerMethodField()
+    is_owner = serializers.SerializerMethodField()
 
     class Meta:
         model = Organization
@@ -128,6 +130,8 @@ class BigOrganizationSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "credentials",
+            "can_manage",
+            "is_owner",
         ]
 
     def get_credentials(self, obj):
@@ -141,6 +145,29 @@ class BigOrganizationSerializer(serializers.ModelSerializer):
                 return request.build_absolute_uri(obj.logo.url)
             return obj.logo.url
         return None
+    
+    def get_is_owner(self, obj):
+        """Verifica si el usuario actual es el owner de la organización"""
+        request = self.context.get('request')
+        if request and request.user:
+            return obj.owner == request.user
+        return False
+    
+    def get_can_manage(self, obj):
+        """Verifica si el usuario actual puede gestionar la organización (es owner o tiene la feature flag)"""
+        request = self.context.get('request')
+        if request and request.user:
+            # Los owners siempre pueden gestionar
+            if obj.owner == request.user:
+                return True
+            # Si no es owner, verificar la feature flag
+            from .services import FeatureFlagService
+            return FeatureFlagService.is_feature_enabled(
+                feature_flag_name="manage-organization",
+                organization=obj,
+                user=request.user
+            )
+        return False
 
 
 class FeatureFlagSerializer(serializers.ModelSerializer):

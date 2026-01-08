@@ -582,6 +582,9 @@ const OrganizationCard = ({
   };
 
   const [hoveredButton, setHoveredButton] = React.useState<string | null>(null);
+  
+  // Verificar si el usuario puede editar/eliminar
+  const canManage = organization.can_manage ?? false;
 
   return (
     <div className="bg-black/95 backdrop-blur-md border border-gray-700 rounded-2xl p-6 flex flex-col gap-4 shadow-lg">
@@ -589,26 +592,28 @@ const OrganizationCard = ({
       {organization.description && (
         <p className="text-center text-gray-300">{organization.description}</p>
       )}
-      <div className="d-flex gap-3 justify-center">
-        <button
-          className={`px-6 py-2 rounded-full font-normal text-sm cursor-pointer border flex items-center gap-2 ${
-            hoveredButton === 'delete' 
-              ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
-              : 'bg-[#dc2626] text-white border-[rgba(156,156,156,0.3)] hover:bg-[#b91c1c]'
-          }`}
-          style={{ transform: 'none' }}
-          onMouseEnter={() => setHoveredButton('delete')}
-          onMouseLeave={() => setHoveredButton(null)}
-          onClick={() => {
-            if (window.confirm(t("sure-this-action-is-irreversible"))) {
-              handleDelete();
-            }
-          }}
-        >
-          <span className="flex items-center justify-center w-5 h-5 [&>svg]:w-5 [&>svg]:h-5">{SVGS.trash}</span>
-        </button>
-        <OrganizationConfigModal organization={organization} />
-      </div>
+      {canManage && (
+        <div className="d-flex gap-3 justify-center">
+          <button
+            className={`px-6 py-2 rounded-full font-normal text-sm cursor-pointer border flex items-center gap-2 ${
+              hoveredButton === 'delete' 
+                ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+                : 'bg-[#dc2626] text-white border-[rgba(156,156,156,0.3)] hover:bg-[#b91c1c]'
+            }`}
+            style={{ transform: 'none' }}
+            onMouseEnter={() => setHoveredButton('delete')}
+            onMouseLeave={() => setHoveredButton(null)}
+            onClick={() => {
+              if (window.confirm(t("sure-this-action-is-irreversible"))) {
+                handleDelete();
+              }
+            }}
+          >
+            <span className="flex items-center justify-center w-5 h-5 [&>svg]:w-5 [&>svg]:h-5">{SVGS.trash}</span>
+          </button>
+          <OrganizationConfigModal organization={organization} />
+        </div>
+      )}
     </div>
   );
 };

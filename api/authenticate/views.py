@@ -1,10 +1,15 @@
 from rest_framework.views import APIView
 import json
+import os
+import logging
+import requests
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser, JSONParser, FormParser
 from django.http import JsonResponse
 from django.contrib.auth import authenticate, login
+from django.core.files import File
+from django.core.files.temp import NamedTemporaryFile
 from .serializers import (
     SignupSerializer,
     LoginSerializer,
@@ -19,6 +24,7 @@ from .serializers import (
 )
 from .models import Token, Organization, UserProfile, CredentialsManager
 from .services import FeatureFlagService
+from api.utils.openai_functions import generate_image
 from rest_framework.permissions import AllowAny
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
@@ -29,6 +35,8 @@ from django.views import View
 from django.core.cache import cache
 from .models import FeatureFlagAssignment
 from django.core.exceptions import ValidationError
+
+logger = logging.getLogger(__name__)
 
 # from api.utils.color_printer import printer
 
@@ -181,8 +189,81 @@ class UserView(View):
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class OrganizationView(View):
+    FEATURE_FLAG_NAME = "manage-organization"
+    
+    def _can_manage_logo(self, user, organization):
+        """Verifica si el usuario puede gestionar el logo y nombre de la organización"""
+        return FeatureFlagService.is_feature_enabled(
+            feature_flag_name=self.FEATURE_FLAG_NAME,
+            organization=organization,
+            user=user
+        )
+    
+    def _generate_logo_with_ai(self, organization):
+        """Genera un logo automáticamente usando DALL-E-3"""
+        try:
+            # Obtener la API key de OpenAI desde CredentialsManager
+            credentials = CredentialsManager.objects.get(organization=organization)
+            api_key = credentials.openai_api_key
+            
+            if not api_key:
+                # Si no hay API key configurada, usar la del entorno
+                api_key = os.environ.get("OPENAI_API_KEY")
+            
+            if not api_key:
+                return False, "OpenAI API key not configured"
+            
+            # Generar prompt para el logo
+            prompt = f"A modern, professional logo for {organization.name}. "
+            if organization.description:
+                prompt += f"The organization is about: {organization.description}. "
+            prompt += "Simple, clean design with a transparent or solid background. Suitable for business use."
+            
+            # Generar imagen con DALL-E-3
+            image_url = generate_image(
+                prompt=prompt,
+                model="dall-e-3",
+                size="1024x1024",
+                quality="standard",
+                api_key=api_key
+            )
+            
+            # Descargar la imagen desde la URL
+            response = requests.get(image_url, timeout=30)
+            response.raise_for_status()
+            
+            # Guardar la imagen como logo de la organización
+            img_temp = NamedTemporaryFile(delete=True)
+            img_temp.write(response.content)
+            img_temp.flush()
+            
+            # Obtener extensión del archivo (DALL-E-3 devuelve PNG)
+            ext = 'png'
+            filename = f"{organization.id}.{ext}"
+            
+            organization.logo.save(filename, File(img_temp), save=True)
+            img_temp.close()
+            
+            return True, "Logo generated successfully"
+            
+        except CredentialsManager.DoesNotExist:
+            return False, "Credentials manager not found"
+        except Exception as e:
+            logger.error(f"Error generating logo for organization {organization.id}: {str(e)}")
+            return False, f"Error generating logo: {str(e)}"
+    
     def get(self, request):
-        organizations = Organization.objects.filter(owner=request.user)
+        # Obtener organizaciones donde el usuario es owner
+        owned_orgs = Organization.objects.filter(owner=request.user)
+        
+        # Obtener organizaciones donde el usuario es miembro (a través de su profile)
+        member_orgs = Organization.objects.none()
+        if hasattr(request.user, 'profile') and request.user.profile.organization:
+            member_orgs = Organization.objects.filter(id=request.user.profile.organization.id)
+        
+        # Combinar ambas y eliminar duplicados
+        organizations = (owned_orgs | member_orgs).distinct()
+        
         serializer = BigOrganizationSerializer(
             organizations, 
             many=True,
@@ -220,10 +301,18 @@ class OrganizationView(View):
             
             if serializer.is_valid():
                 organization = serializer.save()
+                
+                # El usuario que crea la organización siempre es el owner, así que puede gestionar el logo
                 # Si hay archivo de logo, actualizarlo
                 if logo_file:
                     organization.logo = logo_file
                     organization.save()
+                # Si no hay logo y no tiene la feature flag, generar uno automáticamente
+                elif not self._can_manage_logo(request.user, organization):
+                    success, message = self._generate_logo_with_ai(organization)
+                    if not success:
+                        # Log el error pero continuar (la organización se creó sin logo)
+                        logger.warning(f"Failed to generate logo for organization {organization.id}: {message}")
                 
                 response_serializer = OrganizationSerializer(
                     organization, 
@@ -247,6 +336,11 @@ class OrganizationView(View):
                 status=status.HTTP_403_FORBIDDEN,
             )
         
+        # Verificar permisos para gestionar logo y nombre (feature flag)
+        can_manage = self._can_manage_logo(request.user, organization)
+        # Los owners siempre pueden gestionar, independientemente de la feature flag
+        is_owner = organization.owner == request.user
+        
         # Manejar datos JSON o multipart
         if request.content_type and 'multipart/form-data' in request.content_type:
             data = request.POST.dict()
@@ -256,6 +350,24 @@ class OrganizationView(View):
             data = json.loads(request.body)
             logo_file = None
             delete_logo = data.get('delete_logo', False)
+        
+        # Verificar si es owner (los owners siempre pueden gestionar)
+        is_owner = organization.owner == request.user
+        
+        # Verificar si se intenta modificar el nombre sin permisos (solo si no es owner)
+        if 'name' in data and data.get('name') != organization.name:
+            if not (is_owner or can_manage):
+                return JsonResponse(
+                    {"error": "You don't have permission to modify organization name. You must be the owner or have the 'manage-organization' feature flag."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+        
+        # Si se intenta modificar o eliminar el logo sin permisos (solo si no es owner)
+        if (logo_file or delete_logo) and not (is_owner or can_manage):
+            return JsonResponse(
+                {"error": "You don't have permission to modify organization logo. You must be the owner or have the 'manage-organization' feature flag."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         
         # Guardar referencia al logo anterior ANTES de cualquier cambio
         old_logo = organization.logo
@@ -268,10 +380,15 @@ class OrganizationView(View):
                 organization.logo = None
                 organization.save()
             
-            # Actualizar otros campos si se enviaron
+            # Actualizar otros campos si se enviaron (excepto nombre si no tiene permisos)
+            update_data = data.copy()
+            if 'name' in update_data and not (is_owner or can_manage):
+                # Remover nombre de los datos si no tiene permisos para cambiarlo
+                update_data.pop('name')
+            
             serializer = OrganizationSerializer(
                 organization,
-                data=data,
+                data=update_data,
                 partial=True,
                 context={'request': request}
             )
@@ -289,9 +406,14 @@ class OrganizationView(View):
                 )
             return JsonResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
+        # Remover nombre de los datos si no tiene permisos para cambiarlo
+        update_data = data.copy()
+        if 'name' in update_data and not (is_owner or can_manage) and update_data.get('name') != organization.name:
+            update_data.pop('name')
+        
         serializer = OrganizationSerializer(
             organization, 
-            data=data, 
+            data=update_data, 
             partial=True,
             context={'request': request}
         )

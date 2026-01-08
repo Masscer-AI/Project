@@ -99,6 +99,8 @@ export type TOrganization = {
   name: string;
   description: string;
   credentials: TOrganizationCredentials;
+  can_manage?: boolean;
+  is_owner?: boolean;
 };
 
 export type TDocument = {
