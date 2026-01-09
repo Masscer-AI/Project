@@ -5,7 +5,7 @@ import { SVGS } from "../../assets/svgs";
 import { TAgent } from "../../types/agents";
 import { Modal } from "../Modal/Modal";
 import { SvgButton } from "../SvgButton/SvgButton";
-import { updateAgent } from "../../modules/apiCalls";
+import { updateAgent, makeAuthenticatedRequest } from "../../modules/apiCalls";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { Textarea } from "../SimpleForm/Textarea";
@@ -269,6 +269,31 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
     }));
   };
 
+  const handleCopyMCPConfig = async () => {
+    try {
+      const response = await makeAuthenticatedRequest<{
+        config_json: string;
+        agent_name: string;
+        instructions: string;
+        config_path: string;
+      }>("GET", `v1/ai_layers/mcp/${agent.slug}/config/`, {});
+      
+      // Copiar al portapapeles
+      await navigator.clipboard.writeText(response.config_json);
+      
+      toast.success(
+        `MCP configuration for "${response.agent_name}" copied!\n\n${response.instructions}\n\nPath: ${response.config_path}`,
+        { 
+          duration: 10000,
+          style: { whiteSpace: 'pre-line', maxWidth: '500px' }
+        }
+      );
+    } catch (error: any) {
+      console.error("Error fetching MCP config:", error);
+      toast.error(error.response?.data?.error || "Error fetching MCP configuration");
+    }
+  };
+
   return (
     <form onSubmit={onSubmit}>
       <div className="flex-y gap-medium ">
@@ -429,6 +454,15 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
             <span>{formState.top_p}</span>
           </span>
         </label>
+        <hr className="separator my-medium" />
+        <button
+          type="button"
+          onClick={handleCopyMCPConfig}
+          className="px-4 py-2 rounded border border-gray-500 bg-[rgba(35,33,39,0.5)] text-white hover:bg-[rgba(35,33,39,0.8)] transition-colors w-full flex items-center justify-center gap-2"
+        >
+          <span>📋</span>
+          <span>Copiar MCP Config</span>
+        </button>
       </div>
       <div className="d-flex gap-small mt-small">
         <SvgButton
