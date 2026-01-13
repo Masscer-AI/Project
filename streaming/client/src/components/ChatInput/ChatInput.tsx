@@ -166,9 +166,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         ))}
       </section>
       <section className="flex-1 w-full flex flex-col items-center justify-center relative overflow-visible">
-        <div className="w-full bg-[#282826] border border-[#282826] rounded-2xl overflow-visible">
+        <div className="w-full bg-[#282826] border border-[#282826] rounded-none md:rounded-2xl overflow-visible">
           <textarea
-            className={`w-full ${chatState.writtingMode ? "min-h-[400px] max-h-[90vh]" : "min-h-[70px]"} resize-none px-6 py-4 text-white !bg-[#282826] focus:outline-none focus:ring-0 outline-none transition-all text-base font-sans placeholder:text-[#6b7280] border-0 rounded-2xl`}
+            className={`w-full ${chatState.writtingMode ? "min-h-[400px] max-h-[90vh]" : "min-h-[48px] md:min-h-[70px]"} resize-none px-3 md:px-6 py-2 md:py-4 text-white !bg-[#282826] focus:outline-none focus:ring-0 outline-none transition-all text-base font-sans placeholder:text-[#6b7280] border-0 rounded-none md:rounded-2xl`}
             value={textPrompt}
             onChange={handleTextPromptChange}
             onKeyDown={handleKeyDown}
@@ -176,13 +176,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             placeholder={t("type-your-message")}
             name="chat-input"
           />
-          <div className="flex items-center justify-between px-4 pb-4 pt-3 relative z-10">
-            <div className="flex gap-2 button-group relative z-20">
+          <div className="flex items-center justify-between px-1 md:px-4 pb-1 md:pb-4 pt-1 md:pt-3 relative z-10 min-w-0">
+            <div className="flex gap-2 button-group relative z-20 min-w-0 flex-shrink">
               <SvgButton
                 extraClass={
                   chatState.writtingMode
-                    ? "!w-12 !h-12 !rounded-full !p-2 bg-white svg-black pressable"
-                    : "!w-12 !h-12 !rounded-full !p-2 pressable"
+                    ? "!w-8 !h-8 md:!w-12 md:!h-12 !rounded-full !p-1.5 md:!p-2 bg-white svg-black pressable"
+                    : "!w-8 !h-8 md:!w-12 md:!h-12 !rounded-full !p-1.5 md:!p-2 pressable"
                 }
                 onClick={toggleWritingMode}
                 svg={SVGS.writePen}
@@ -193,16 +193,17 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               <PluginSelector />
               <ConversationConfig />
             </div>
-            <div className="flex gap-2 items-center">
+            <div className="flex gap-2 items-center flex-shrink-0">
               <SpeechHandler onTranscript={handleAudioTranscript} />
               <button
                 onClick={asyncSendMessage}
-                className="w-12 h-12 rounded-full aspect-square bg-white flex items-center justify-center transition-all hover:scale-105 active:scale-95 border-0 cursor-pointer shadow-md"
+                className="w-8 h-8 md:w-12 md:h-12 rounded-full aspect-square bg-white flex items-center justify-center transition-all hover:scale-105 active:scale-95 border-0 cursor-pointer shadow-md"
                 title={t("send-message")}
               >
                 <svg
-                  width="20px"
-                  height="20px"
+                  width="16px"
+                  height="16px"
+                  className="md:w-5 md:h-5"
                   viewBox="0 0 24 24"
                   fill="none"
                   xmlns="http://www.w3.org/2000/svg"
@@ -327,7 +328,7 @@ const RagSearchOptions = () => {
       extraClass=""
       opener={
         <SvgButton
-          extraClass={`!w-12 !h-12 !rounded-full !p-2 pressable ${
+          extraClass={`!w-8 !h-8 md:!w-12 md:!h-12 !rounded-full !p-1.5 md:!p-2 pressable ${
             chatState.useRag ? "bg-active svg-white" : ""
           }`}
           onClick={toggleUseRag}
@@ -509,7 +510,7 @@ const ConversationConfig = () => {
   return (
     <>
       <SvgButton
-        extraClass="!w-12 !h-12 !rounded-full !p-2 pressable"
+        extraClass="!w-8 !h-8 md:!w-12 md:!h-12 !rounded-full !p-1.5 md:!p-2 pressable"
         onClick={() => setIsOpened(true)}
         svg={SVGS.options}
       />
@@ -603,7 +604,7 @@ const WebSearchDropdown = () => {
         transform="translateX(-50%)"
         opener={
           <SvgButton
-            extraClass={`!w-12 !h-12 !rounded-full !p-2 pressable ${
+            extraClass={`!w-8 !h-8 md:!w-12 md:!h-12 !rounded-full !p-1.5 md:!p-2 pressable ${
               hasActiveWebSearch ? "bg-active svg-white" : ""
             }`}
             onClick={toggleWebSearch}
@@ -662,7 +663,7 @@ export const PluginSelector = () => {
         onClick={() => setIsOpened(true)}
         svg={SVGS.plugin}
         size="big"
-        extraClass={`!w-12 !h-12 !rounded-full !p-2 pressable ${
+        extraClass={`!w-8 !h-8 md:!w-12 md:!h-12 !rounded-full !p-1.5 md:!p-2 pressable ${
           chatState.selectedPlugins.length > 0 ? "bg-active svg-white" : ""
         }`}
       />

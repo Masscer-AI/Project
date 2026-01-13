@@ -64,7 +64,7 @@ export const Settings = () => {
   return (
     <Modal
       minHeight={"80vh"}
-      header={<h3 className="padding-big">{t("settings")}</h3>}
+      header={<h3 className="px-4 py-2 md:px-5 md:py-5">{t("settings")}</h3>}
       hide={() => setOpenedModals({ action: "remove", name: "settings" })}
     >
       <Menu options={menuOptions} />
@@ -103,14 +103,14 @@ const LabeledButton = ({ label, onClick, svg, selected, hovered, onMouseEnter, o
       onClick={onClick}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
-      className={`px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center gap-2 justify-center ${
+      className={`px-3 py-1.5 md:px-6 md:py-3 rounded-full font-normal text-xs md:text-sm cursor-pointer border flex items-center gap-1.5 md:gap-2 justify-center whitespace-nowrap ${
         hovered || selected
           ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
           : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
       }`}
       style={{ transform: 'none' }}
     >
-      <span className="flex items-center justify-center w-5 h-5 [&>svg]:w-5 [&>svg]:h-5">{svg}</span>
+      <span className="flex items-center justify-center w-4 h-4 md:w-5 md:h-5 [&>svg]:w-4 [&>svg]:h-4 md:[&>svg]:w-5 md:[&>svg]:h-5">{svg}</span>
       <span>{label}</span>
     </button>
   );
@@ -151,7 +151,7 @@ const OrganizationManager = () => {
           </div>
           {orgs.length < MAX_ALLOWED_ORGANIZATIONS ? (
             <button
-              className={`px-8 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center gap-2 w-full justify-center ${
+              className={`px-3 py-1.5 md:px-8 md:py-3 rounded-full font-normal text-xs md:text-sm cursor-pointer border flex items-center gap-1.5 md:gap-2 w-full justify-center whitespace-nowrap ${
                 hoveredButton === 'create-org' 
                   ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
                   : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
@@ -161,7 +161,7 @@ const OrganizationManager = () => {
               onMouseLeave={() => setHoveredButton(null)}
               onClick={() => setShowForm(true)}
             >
-              <span className="flex items-center justify-center w-5 h-5 [&>svg]:w-5 [&>svg]:h-5">{SVGS.plus}</span>
+              <span className="flex items-center justify-center w-4 h-4 md:w-5 md:h-5 [&>svg]:w-4 [&>svg]:h-4 md:[&>svg]:w-5 md:[&>svg]:h-5">{SVGS.plus}</span>
               <span>{t("create-organization")}</span>
             </button>
           ) : (
@@ -247,7 +247,7 @@ const AppearanceConfig = () => {
         <h4>{t("theme")}</h4>
         <div className="d-flex gap-2 align-center flex-wrap">
           <button
-            className={`px-6 py-2 rounded-full font-normal text-sm cursor-pointer border flex items-center gap-2 ${
+            className={`px-3 py-1.5 md:px-6 md:py-2 rounded-full font-normal text-xs md:text-sm cursor-pointer border flex items-center gap-1.5 md:gap-2 whitespace-nowrap ${
               hoveredTheme === 'light' || userPreferences.theme === "light"
                 ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
                 : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
@@ -257,11 +257,11 @@ const AppearanceConfig = () => {
             onMouseLeave={() => setHoveredTheme(null)}
             onClick={() => setPreferences({ theme: "light" })}
           >
-            <span className="flex items-center justify-center w-5 h-5 [&>svg]:w-5 [&>svg]:h-5">{SVGS.sun}</span>
+            <span className="flex items-center justify-center w-4 h-4 md:w-5 md:h-5 [&>svg]:w-4 [&>svg]:h-4 md:[&>svg]:w-5 md:[&>svg]:h-5">{SVGS.sun}</span>
             <span>{t("light")}</span>
           </button>
           <button
-            className={`px-6 py-2 rounded-full font-normal text-sm cursor-pointer border flex items-center gap-2 ${
+            className={`px-3 py-1.5 md:px-6 md:py-2 rounded-full font-normal text-xs md:text-sm cursor-pointer border flex items-center gap-1.5 md:gap-2 whitespace-nowrap ${
               hoveredTheme === 'dark' || userPreferences.theme === "dark"
                 ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
                 : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
@@ -271,11 +271,11 @@ const AppearanceConfig = () => {
             onMouseLeave={() => setHoveredTheme(null)}
             onClick={() => setPreferences({ theme: "dark" })}
           >
-            <span className="flex items-center justify-center w-5 h-5 [&>svg]:w-5 [&>svg]:h-5">{SVGS.moon}</span>
+            <span className="flex items-center justify-center w-4 h-4 md:w-5 md:h-5 [&>svg]:w-4 [&>svg]:h-4 md:[&>svg]:w-5 md:[&>svg]:h-5">{SVGS.moon}</span>
             <span>{t("dark")}</span>
           </button>
           <button
-            className={`px-6 py-2 rounded-full font-normal text-sm cursor-pointer border flex items-center gap-2 ${
+            className={`px-3 py-1.5 md:px-6 md:py-2 rounded-full font-normal text-xs md:text-sm cursor-pointer border flex items-center gap-1.5 md:gap-2 whitespace-nowrap ${
               hoveredTheme === 'system' || userPreferences.theme === "system"
                 ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
                 : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
@@ -285,7 +285,7 @@ const AppearanceConfig = () => {
             onMouseLeave={() => setHoveredTheme(null)}
             onClick={() => setPreferences({ theme: "system" })}
           >
-            <span className="flex items-center justify-center w-5 h-5 [&>svg]:w-5 [&>svg]:h-5">{SVGS.pc}</span>
+            <span className="flex items-center justify-center w-4 h-4 md:w-5 md:h-5 [&>svg]:w-4 [&>svg]:h-4 md:[&>svg]:w-5 md:[&>svg]:h-5">{SVGS.pc}</span>
             <span>{t("system")}</span>
           </button>
         </div>
@@ -319,7 +319,7 @@ const AppearanceConfig = () => {
           {MERMAID_THEMES.map((theme) => (
             <button
               key={theme}
-              className={`px-6 py-2 rounded-full font-normal text-sm cursor-pointer border flex items-center gap-2 ${
+              className={`px-3 py-1.5 md:px-6 md:py-2 rounded-full font-normal text-xs md:text-sm cursor-pointer border flex items-center gap-1.5 md:gap-2 whitespace-nowrap ${
                 hoveredMermaid === theme || theming.mermaid === theme
                   ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
                   : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
@@ -361,7 +361,7 @@ const ImageInput = ({ onResult }) => {
   return (
     <div>
       <input
-        className="input"
+        className="input w-full max-w-full"
         type="file"
         accept="image/*"
         onChange={handleFileChange}
@@ -406,29 +406,29 @@ const GeneralConfig = () => {
       <p>{t("settings-description")}</p>
       <LanguageSelector />
       <hr className="separator my-medium" />
-      <div className="d-flex gap-small align-center">
-        <h4>{t("username")}</h4>
+      <div className="d-flex flex-col md:flex-row gap-small align-center md:align-center">
+        <h4 className="w-full md:w-auto">{t("username")}</h4>
         <input
           name="username"
           type="text"
           value={username}
-          className="input"
+          className="input w-full max-w-full"
           onChange={(e) => setUsername(e.target.value)}
         />
       </div>
-      <div className="d-flex gap-small align-center">
-        <h4>{t("email")}</h4>
+      <div className="d-flex flex-col md:flex-row gap-small align-center md:align-center">
+        <h4 className="w-full md:w-auto">{t("email")}</h4>
         <input
           name="email"
           type="email"
           value={email}
-          className="input w-100"
+          className="input w-full max-w-full"
           onChange={(e) => setEmail(e.target.value)}
         />
       </div>
       {error && <p className="error text-danger">{error}</p>}
       <button
-        className={`px-8 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center gap-2 w-full justify-center ${
+        className={`px-3 py-1.5 md:px-8 md:py-3 rounded-full font-normal text-xs md:text-sm cursor-pointer border flex items-center gap-1.5 md:gap-2 w-full justify-center whitespace-nowrap ${
           hoveredButton === 'save' 
             ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
             : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
@@ -438,7 +438,7 @@ const GeneralConfig = () => {
         onMouseLeave={() => setHoveredButton(null)}
         onClick={handleUpdateUser}
       >
-        <span className="flex items-center justify-center w-5 h-5 [&>svg]:w-5 [&>svg]:h-5">{SVGS.save}</span>
+        <span className="flex items-center justify-center w-4 h-4 md:w-5 md:h-5 [&>svg]:w-4 [&>svg]:h-4 md:[&>svg]:w-5 md:[&>svg]:h-5">{SVGS.save}</span>
         <span>{t("save")}</span>
       </button>
     </div>
@@ -536,7 +536,7 @@ const OrganizationForm = ({ close }: { close: () => void }) => {
         <input
           type="text"
           name="name"
-          className="input"
+          className="input w-full max-w-full"
           placeholder={t("name-for-your-organization")}
         />
         <label htmlFor="description">{t("describe-your-organization")}</label>
@@ -595,7 +595,7 @@ const OrganizationCard = ({
       {canManage && (
         <div className="d-flex gap-3 justify-center">
           <button
-            className={`px-6 py-2 rounded-full font-normal text-sm cursor-pointer border flex items-center gap-2 ${
+            className={`px-3 py-1.5 md:px-6 md:py-2 rounded-full font-normal text-xs md:text-sm cursor-pointer border flex items-center gap-1.5 md:gap-2 ${
               hoveredButton === 'delete' 
                 ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
                 : 'bg-[#dc2626] text-white border-[rgba(156,156,156,0.3)] hover:bg-[#b91c1c]'
@@ -609,7 +609,7 @@ const OrganizationCard = ({
               }
             }}
           >
-            <span className="flex items-center justify-center w-5 h-5 [&>svg]:w-5 [&>svg]:h-5">{SVGS.trash}</span>
+            <span className="flex items-center justify-center w-4 h-4 md:w-5 md:h-5 [&>svg]:w-4 [&>svg]:h-4 md:[&>svg]:w-5 md:[&>svg]:h-5">{SVGS.trash}</span>
           </button>
           <OrganizationConfigModal organization={organization} />
         </div>
@@ -686,7 +686,7 @@ const OrganizationConfigModal = ({
   return (
     <>
       <button
-        className={`px-6 py-2 rounded-full font-normal text-sm cursor-pointer border flex items-center gap-2 ${
+        className={`px-3 py-1.5 md:px-6 md:py-2 rounded-full font-normal text-xs md:text-sm cursor-pointer border flex items-center gap-1.5 md:gap-2 ${
           hoveredEdit 
             ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
             : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
@@ -696,7 +696,7 @@ const OrganizationConfigModal = ({
         onMouseLeave={() => setHoveredEdit(false)}
         onClick={() => setIsOpen(true)}
       >
-        <span className="flex items-center justify-center w-5 h-5 [&>svg]:w-5 [&>svg]:h-5">{SVGS.edit}</span>
+        <span className="flex items-center justify-center w-4 h-4 md:w-5 md:h-5 [&>svg]:w-4 [&>svg]:h-4 md:[&>svg]:w-5 md:[&>svg]:h-5">{SVGS.edit}</span>
       </button>
       <Modal
         visible={isOpen}
@@ -712,7 +712,7 @@ const OrganizationConfigModal = ({
           <input
             type="text"
             name="name"
-            className="input"
+            className="input w-full max-w-full"
             defaultValue={innerOrganization.name}
             onChange={(e) => {
               setInnerOrganization({
@@ -756,7 +756,7 @@ const OrganizationConfigModal = ({
             ]}
           />
           <button
-            className={`px-8 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center gap-2 w-full justify-center ${
+            className={`px-3 py-1.5 md:px-8 md:py-3 rounded-full font-normal text-xs md:text-sm cursor-pointer border flex items-center gap-1.5 md:gap-2 w-full justify-center whitespace-nowrap ${
               hoveredButton === 'save' 
                 ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
                 : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
@@ -766,7 +766,7 @@ const OrganizationConfigModal = ({
             onMouseLeave={() => setHoveredButton(null)}
             onClick={handleSave}
           >
-            <span className="flex items-center justify-center w-5 h-5 [&>svg]:w-5 [&>svg]:h-5">{SVGS.save}</span>
+            <span className="flex items-center justify-center w-4 h-4 md:w-5 md:h-5 [&>svg]:w-4 [&>svg]:h-4 md:[&>svg]:w-5 md:[&>svg]:h-5">{SVGS.save}</span>
             <span>{t("save")}</span>
           </button>
         </div>

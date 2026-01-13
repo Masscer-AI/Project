@@ -35,11 +35,11 @@ export const ChatHeader = ({
   }, [chatState.isSidebarOpened]);
 
   return (
-    <div className="flex items-center justify-between bg-[#282826] p-4 bg-[#282826] border border-[#282826] rounded-xl w-full shadow-lg z-10 gap-3">
-      <div className="flex items-center gap-3">
+    <div className="flex items-center justify-between bg-[#282826] p-2 md:p-4 bg-[#282826] border border-[#282826] rounded-none md:rounded-xl w-full shadow-lg z-10 gap-2 md:gap-3 min-w-0">
+      <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
         {!chatState.isSidebarOpened && (
           <button
-            className={`px-4 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center justify-center ${
+            className={`px-4 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center justify-center flex-shrink-0 ${
               hoveredButton === 'burger' 
                 ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
                 : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
@@ -57,7 +57,7 @@ export const ChatHeader = ({
         )}
         <AgentsModal />
       </div>
-      <section>{right && right}</section>
+      <section className="min-w-0 flex-1 md:flex-shrink-0 md:ml-auto overflow-hidden text-right md:text-right">{right && right}</section>
     </div>
   );
 };

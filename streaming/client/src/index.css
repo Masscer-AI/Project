@@ -434,6 +434,9 @@ textarea {
   font-family: var(--font-family);
   color: var(--font-color);
   transition: all 0.2s;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .input:focus {
@@ -896,16 +899,33 @@ input:checked + .slider::before {
   flex-direction: column;
   height: 70vh;
   gap: 20px;
-  max-width: 100vw;
+  max-width: 100%;
+  width: 100%;
 }
 .menu > .menu-sidebar {
   text-align: center;
   display: flex;
+  flex-wrap: wrap;
   margin-inline: auto;
   justify-content: center;
   align-content: center;
-
+  gap: 8px;
   border-radius: var(--standard-radius);
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .menu {
+    height: auto;
+    max-height: 80vh;
+  }
+  
+  .menu > .menu-sidebar {
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+  }
 }
 .labeled-button {
   position: relative;

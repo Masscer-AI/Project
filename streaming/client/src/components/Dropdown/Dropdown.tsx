@@ -115,6 +115,8 @@ export const FloatingDropdown = ({
           ...dropdownStyle,
         }}
         className={`absolute w-fit max-w-[90vw] bg-[rgba(35,33,39,0.5)] backdrop-blur-md border border-[rgba(255,255,255,0.1)] rounded-2xl flex-col !z-[1000] overflow-visible [&_.svg-button.border-active]:!border-transparent [&_.svg-button.border-active:hover]:!border-white ${extraClass}`}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
       >
         {children}
       </div>

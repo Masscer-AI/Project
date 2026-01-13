@@ -176,7 +176,7 @@ export const Talkie: React.FC<TalkieProps> = ({ processAudio }) => {
   return (
     <div className="talkie">
       <SvgButton
-        extraClass={`!w-12 !h-12 !rounded-full !p-2 pressable danger-on-hover ${
+        extraClass={`!w-8 !h-8 md:!w-12 md:!h-12 !rounded-full !p-1.5 md:!p-2 pressable danger-on-hover ${
           isRecording ? "bg-danger" : ""
         }`}
         onClick={isRecording ? stopRecording : startRecording}

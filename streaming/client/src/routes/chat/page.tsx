@@ -330,7 +330,7 @@ export default function ChatView() {
   };
 
   return (
-    <main className="flex relative h-screen bg-[#0a0a0f]">
+    <main className="flex relative h-screen w-full bg-[#0a0a0f] overflow-hidden">
       {userPreferences.background_image_source && (
         <img
           style={{ opacity: userPreferences.background_image_opacity }}
@@ -339,7 +339,7 @@ export default function ChatView() {
         />
       )}
       {chatState.isSidebarOpened && <Sidebar />}
-      <div className="flex flex-col h-screen mx-auto w-full max-w-[900px] relative z-10 px-4 py-6 overflow-visible">
+      <div className="flex flex-col h-screen w-full md:mx-auto md:max-w-[900px] relative z-10 px-0 md:px-4 py-0 md:py-6 overflow-visible">
         <ChatHeader
           right={
             <ConversationModal
@@ -350,7 +350,7 @@ export default function ChatView() {
 
         <div 
           ref={chatMessageContainerRef} 
-          className="flex-1 overflow-y-auto flex flex-col w-full pb-6 scrollbar-none mt-6 px-2"
+          className="flex-1 overflow-y-auto flex flex-col w-full pb-6 scrollbar-none mt-6 px-1 md:px-2"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
           {messages &&

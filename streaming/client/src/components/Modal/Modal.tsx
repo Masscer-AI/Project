@@ -23,7 +23,7 @@ export const Modal = ({
   if (!visible) return null;
 
   return createPortal(
-    <div className="fixed inset-0 flex items-center justify-center z-50 overflow-y-hidden">
+    <div className="fixed inset-0 flex items-center justify-center z-50 overflow-hidden">
       {/* Backdrop */}
       <div 
         className="fixed inset-0 bg-black/70 backdrop-blur-sm" 
@@ -32,11 +32,11 @@ export const Modal = ({
       
       {/* Modal Content */}
       <div 
-        className="relative bg-[rgba(255,255,255,0.05)] backdrop-blur-md border border-[rgba(255,255,255,0.1)] rounded-2xl shadow-lg w-[min(98%,900px)] max-h-[90vh] overflow-y-auto [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.1)_transparent]"
+        className="relative bg-[rgba(255,255,255,0.05)] backdrop-blur-md border border-[rgba(255,255,255,0.1)] rounded-2xl shadow-lg w-[min(98%,900px)] max-w-full mx-4 max-h-[90vh] overflow-y-auto overflow-x-hidden [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.1)_transparent]"
         style={{ minHeight }}
       >
         {/* Close button and extra buttons */}
-        <div className="flex justify-end items-center gap-2 p-4">
+        <div className="flex justify-end items-center gap-2 p-2 md:p-4">
           {extraButtons}
           <SvgButton
             extraClass="pressable danger-on-hover svg-danger"
@@ -48,13 +48,13 @@ export const Modal = ({
 
         {/* Header */}
         {header && (
-          <section className="px-8 pb-4">
+          <section className="px-4 md:px-8 pb-2 md:pb-4">
             {header}
           </section>
         )}
         
         {/* Content */}
-        <section className="px-8 pb-8">
+        <section className="px-4 md:px-8 pb-8 overflow-x-auto max-w-full">
           {children}
         </section>
       </div>

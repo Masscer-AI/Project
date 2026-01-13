@@ -183,7 +183,7 @@ export const Sidebar: React.FC = () => {
 
   return (
     <>
-      <div className="bg-[rgba(35,33,39,0.5)] backdrop-blur-md fixed md:relative left-0 top-0 h-screen z-[3] flex flex-col w-[min(350px,100%)] p-3 gap-2.5 border-r border-[rgba(255,255,255,0.1)] animate-[appear-left_500ms_forwards] md:[animation:none]">
+      <div className="bg-[rgba(35,33,39,0.5)] backdrop-blur-md fixed md:relative left-0 top-0 h-screen z-[50] md:z-[3] flex flex-col w-[min(350px,100%)] p-3 gap-2.5 border-r border-[rgba(255,255,255,0.1)] animate-[appear-left_500ms_forwards] md:[animation:none]">
         <div className="flex justify-between gap-2">
           <button
             className={`w-full px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center justify-center gap-2 ${
@@ -518,7 +518,7 @@ export const Sidebar: React.FC = () => {
           </button>
         </div>
       </div>
-      <div onClick={toggleSidebar} className="bg-[rgba(55,55,55,0.52)] w-screen h-screen fixed top-0 left-0 z-[2] md:hidden"></div>
+      <div onClick={toggleSidebar} className="bg-[rgba(55,55,55,0.52)] w-screen h-screen fixed top-0 left-0 z-[40] md:hidden"></div>
     </>
   );
 };
@@ -531,9 +531,10 @@ const ConversationComponent = ({
   deleteConversationItem: (id: string) => void;
 }) => {
   const [_, setSearchParams] = useSearchParams();
-  const { setConversation, toggleSidebar } = useStore((state) => ({
+  const { setConversation, toggleSidebar, chatState } = useStore((state) => ({
     setConversation: state.setConversation,
     toggleSidebar: state.toggleSidebar,
+    chatState: state.chatState,
   }));
 
   const { t } = useTranslation();
@@ -553,6 +554,11 @@ const ConversationComponent = ({
     setSearchParams(queryParams);
     console.log("Navigating to", `/chat?conversation=${conversation.id}`);
     navigate(`/chat?conversation=${conversation.id}`);
+    
+    // Cerrar el sidebar en mobile después de seleccionar una conversación
+    if (window.innerWidth < 768 && chatState.isSidebarOpened) {
+      toggleSidebar();
+    }
   };
 
   return conversation.number_of_messages > 0 ? (

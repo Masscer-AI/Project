@@ -3,7 +3,16 @@
   flex-direction: column;
   gap: 9px;
   word-break: break-word;
+  overflow-wrap: break-word;
   max-width: 100%;
+  min-width: 0;
+  font-size: 14px;
+}
+
+@media (min-width: 768px) {
+  .markdown-renderer {
+    font-size: 16px;
+  }
 }
 
 .markdown-renderer li {

@@ -2,41 +2,84 @@
   margin-bottom: 15px;
   padding: 10px;
   border-radius: 8px;
-  max-width: 100%;
+  max-width: 85%;
   display: flex;
   flex-direction: column;
   position: relative;
+  width: 100%;
+  min-width: 0;
 }
+
+.message > div {
+  max-width: 100%;
+  min-width: 0;
+  width: 100%;
+}
+
+/* Para mensajes de usuario, el wrapper debe ajustarse al contenido */
+.message.user > div {
+  width: fit-content;
+  align-self: flex-end;  /* Alinear a la derecha */
+  max-width: 100%;
+}
+
 .message:hover .message-buttons {
   opacity: 1;
   width: fit-content;
 }
 
-.message > .message-text {
+.message .markdown-renderer.message-text {
   padding: 10px 15px;
-  width: fit-content;
+  max-width: 100%;  /* Cambiar de 85% a 100% porque ahora el padre ya limita */
+  /* width: 100%;  Cambiar de auto a 100% */
+  width: fit-content;  /* Cambiar de auto a 100% */
   border-radius: var(--standard-radius);
   color: var(--font-color);
   line-height: 1.7rem;
   backdrop-filter: blur(10px);
-  overflow-x: auto;
+  overflow-x: hidden;
   scrollbar-width: none;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  min-width: 0;
+  box-sizing: border-box;
 
   & .reaction {
     position: absolute;
     bottom: 0;
     right: 10px;
   }
+}
 
-  &.user {
-    background: #2a2a2a; /* Gris oscuro sólido para usuario */
-    color: white;
-  }
+/* De prueba */
+/* .message .markdown-renderer.message-text.user {
+  background: rgba(203, 197, 197, 0.5); 
+  backdrop-filter: blur(12px); 
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2); 
+  color: #1a1a1a; 
+}
 
-  &.assistant {
-    background: #3a3a3a; /* Gris oscuro ligeramente más claro para AI */
-    color: white;
-  }
+.message.user .markdown-renderer.message-text code:not(pre code) {
+  color: white;
+} */
+
+.message .markdown-renderer.message-text.user {
+  background: linear-gradient(to bottom, rgba(0, 130, 146, 0.6), rgba(50, 18, 122, 0.6));
+  backdrop-filter: blur(12px); 
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 130, 146, 0.3); 
+  box-shadow: 0 4px 16px rgba(50, 18, 122, 0.25); 
+  color: white;
+}
+
+.message .markdown-renderer.message-text.assistant {
+  background: rgba(35, 33, 39, 0.5);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1); 
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  color: white;
 }
 
 .message .message-textarea {
@@ -53,6 +96,9 @@
 
 .message.user {
   align-items: flex-end;
+  max-width: 85%;
+  min-width: 0;
+  margin-left: auto;
 }
 
 .message.assistant .message-buttons {

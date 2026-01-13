@@ -23,6 +23,7 @@ import { Loader } from "../Loader/Loader";
 import { FloatingDropdown } from "../Dropdown/Dropdown";
 import { createPortal } from "react-dom";
 import { AudioGenerator } from "../AudioGenerator/AudioGenerator";
+import "./Message.css";
 type TReaction = {
   id: number;
   template: number;
@@ -302,7 +303,7 @@ export const Message = memo(
     };
 
     return (
-      <div className={`mb-5 max-w-[85%] flex flex-col relative group ${type === "user" ? "items-end ml-auto" : "items-start"} message-${index}`}>
+      <div className={`message ${type === "user" ? "user" : "assistant"}`}>
         {isEditing ? (
           <>
             <MessageEditor
@@ -313,7 +314,7 @@ export const Message = memo(
             />
           </>
         ) : (
-          <div className={`relative ${type === "user" ? "" : ""}`}>
+          <div>
             <MarkdownRenderer
               markdown={versions?.[currentVersion]?.text || innerText}
               // extraClass={`px-5 py-4 w-fit rounded-2xl text-white leading-7 overflow-x-auto scrollbar-none shadow-lg ${
@@ -321,17 +322,13 @@ export const Message = memo(
               //     ? "bg-[#6e5bff] text-white border border-[#8b7aff] shadow-[0_4px_16px_rgba(110,91,255,0.4)]" 
               //     : "bg-[#1a1a2e] text-white border border-[#2d2d44] shadow-[0_4px_16px_rgba(0,0,0,0.4)]"
               // }`}
-              extraClass={`px-5 py-4 w-fit rounded-2xl text-white leading-7 overflow-x-auto scrollbar-none shadow-lg backdrop-blur-md ${
-                type === "user" 
-                  ? "bg-gradient-to-b from-[rgba(0,130,146,0.6)] to-[rgba(50,18,122,0.6)] text-white border border-[rgba(0,130,146,0.3)] shadow-[0_4px_16px_rgba(50,18,122,0.25)]" 
-                  : "bg-[rgba(35,33,39,0.5)] text-white border border-[rgba(255,255,255,0.1)] shadow-[0_4px_16px_rgba(0,0,0,0.3)]"
-              }`}
+              extraClass={`message-text ${type === "user" ? "user" : "assistant"}`}
             />
           </div>
         )}
 
         {!id && type === "assistant" && <Loader text={t("thinking...")} />}
-        <section className={`flex gap-2.5 overflow-x-auto p-2 w-fit items-center rounded-xl mt-2 ${type === "user" ? "flex-row-reverse" : ""}`}>
+        <section className={`message__attachments ${type === "user" ? "user" : ""}`}>
           {attachments &&
             attachments.map((attachment, index) => (
               <Thumbnail
@@ -357,7 +354,7 @@ export const Message = memo(
               }
             )}
         </section>
-        <div className={`flex gap-2.5 items-center flex-wrap mt-3 opacity-0 group-hover:opacity-100 transition-all duration-300 ${type === "assistant" ? "pl-0" : ""}`}>
+        <div className="message-buttons">
           <SvgButton
             title={t("copy-to-clipboard")}
             extraClass="active-on-hover  pressable"
