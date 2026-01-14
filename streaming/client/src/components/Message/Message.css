@@ -51,19 +51,6 @@
   }
 }
 
-/* De prueba */
-/* .message .markdown-renderer.message-text.user {
-  background: rgba(203, 197, 197, 0.5); 
-  backdrop-filter: blur(12px); 
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2); 
-  color: #1a1a1a; 
-}
-
-.message.user .markdown-renderer.message-text code:not(pre code) {
-  color: white;
-} */
-
 .message .markdown-renderer.message-text.user {
   background: linear-gradient(to bottom, rgba(0, 130, 146, 0.6), rgba(50, 18, 122, 0.6));
   backdrop-filter: blur(12px); 

@@ -81,7 +81,7 @@ export default function DashboardPage() {
           )}
           <div className="max-w-7xl mx-auto px-4">
             <div className="dashboard-header mb-8">
-              <h1 className="text-4xl font-bold mb-8 text-center text-white tracking-tight" style={{ textShadow: '0 2px 8px rgba(110, 91, 255, 0.2)' }}>
+              <h1 className="text-2xl md:text-4xl font-bold mb-4 md:mb-8 text-center text-white tracking-tight" style={{ textShadow: '0 2px 8px rgba(110, 91, 255, 0.2)' }}>
                 {t("conversations-dashboard")}
               </h1>
             </div>
@@ -96,9 +96,9 @@ export default function DashboardPage() {
                 <DashboardStats conversations={conversations} alertStats={alertStats} t={t} />
                 
                 {/* Botones de acción */}
-                <div className="flex justify-center gap-4 mb-12 flex-wrap">
+                <div className="grid grid-cols-2 md:flex md:justify-center gap-2 md:gap-4 mb-6 md:mb-12 flex-wrap">
                   <button 
-                    className={`px-8 py-3 rounded-full font-normal text-sm cursor-pointer border ${
+                    className={`px-3 py-1.5 md:px-8 md:py-3 rounded-full font-normal text-[10px] md:text-sm cursor-pointer border ${
                       hoveredButton === 'table' 
                         ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
                         : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
@@ -111,7 +111,7 @@ export default function DashboardPage() {
                     {showTable ? t("hide-table") : t("view-all-conversations")}
                   </button>
                   <button 
-                    className={`px-8 py-3 rounded-full font-normal text-sm cursor-pointer border ${
+                    className={`px-3 py-1.5 md:px-8 md:py-3 rounded-full font-normal text-[10px] md:text-sm cursor-pointer border ${
                       hoveredButton === 'alerts' 
                         ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
                         : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
@@ -125,7 +125,7 @@ export default function DashboardPage() {
                   </button>
                   {canManageAlertRules && (
                     <button 
-                      className={`px-8 py-3 rounded-full font-normal text-sm cursor-pointer border ${
+                      className={`px-3 py-1.5 md:px-8 md:py-3 rounded-full font-normal text-[10px] md:text-sm cursor-pointer border ${
                         hoveredButton === 'rules' 
                           ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
                           : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
@@ -140,7 +140,7 @@ export default function DashboardPage() {
                   )}
                   {canManageTags && (
                     <button 
-                      className={`px-8 py-3 rounded-full font-normal text-sm cursor-pointer border ${
+                      className={`px-3 py-1.5 md:px-8 md:py-3 rounded-full font-normal text-[10px] md:text-sm cursor-pointer border ${
                         hoveredButton === 'tags' 
                           ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
                           : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
@@ -154,7 +154,7 @@ export default function DashboardPage() {
                     </button>
                   )}
                   <button 
-                    className="px-8 py-3 rounded-full font-normal text-sm cursor-not-allowed border bg-[rgba(35,33,39,0.3)] text-[rgb(156,156,156)] border-[rgba(156,156,156,0.2)] opacity-50"
+                    className="col-span-2 md:col-span-1 px-3 py-1.5 md:px-8 md:py-3 rounded-full font-normal text-[10px] md:text-sm cursor-not-allowed border bg-[rgba(35,33,39,0.3)] text-[rgb(156,156,156)] border-[rgba(156,156,156,0.2)] opacity-50"
                     style={{ transform: 'none' }}
                     disabled
                   >
@@ -164,7 +164,7 @@ export default function DashboardPage() {
 
                 {/* Tabla de conversaciones */}
                 {showTable && (
-                  <div className="bg-[rgba(255,255,255,0.05)] backdrop-blur-md border border-[rgba(255,255,255,0.1)] rounded-2xl p-8 shadow-lg">
+                  <div className="bg-[rgba(255,255,255,0.05)] backdrop-blur-md border border-[rgba(255,255,255,0.1)] rounded-xl md:rounded-2xl p-4 md:p-8 shadow-lg">
                     <ConversationsTable conversations={conversations || []} />
                   </div>
                 )}
@@ -196,49 +196,49 @@ function DashboardStats({
   }).length;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-      <div className="bg-[rgba(255,255,255,0.05)] backdrop-blur-md border border-[rgba(255,255,255,0.1)] rounded-2xl p-8 flex items-center gap-4 shadow-lg">
-        <div className="text-4xl">💬</div>
+    <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6 mb-12">
+      <div className="bg-[rgba(255,255,255,0.05)] backdrop-blur-md border border-[rgba(255,255,255,0.1)] rounded-xl md:rounded-2xl p-4 md:p-8 flex items-center gap-2 md:gap-4 shadow-lg">
+        <div className="text-2xl md:text-4xl">💬</div>
         <div className="flex-1">
-          <h3 className="text-sm font-medium text-[rgb(156,156,156)] mb-2 uppercase tracking-wide">{t("total-conversations")}</h3>
-          <p className="text-3xl font-bold text-white">{totalConversations}</p>
+          <h3 className="text-[10px] md:text-sm font-medium text-[rgb(156,156,156)] mb-1 md:mb-2 uppercase tracking-wide">{t("total-conversations")}</h3>
+          <p className="text-xl md:text-3xl font-bold text-white">{totalConversations}</p>
         </div>
       </div>
-      <div className="bg-[rgba(255,255,255,0.05)] backdrop-blur-md border border-[rgba(255,255,255,0.1)] rounded-2xl p-8 flex items-center gap-4 shadow-lg">
-        <div className="text-4xl">📨</div>
+      <div className="bg-[rgba(255,255,255,0.05)] backdrop-blur-md border border-[rgba(255,255,255,0.1)] rounded-xl md:rounded-2xl p-4 md:p-8 flex items-center gap-2 md:gap-4 shadow-lg">
+        <div className="text-2xl md:text-4xl">📨</div>
         <div className="flex-1">
-          <h3 className="text-sm font-medium text-[rgb(156,156,156)] mb-2 uppercase tracking-wide">{t("total-messages")}</h3>
-          <p className="text-3xl font-bold text-white">{totalMessages}</p>
+          <h3 className="text-[10px] md:text-sm font-medium text-[rgb(156,156,156)] mb-1 md:mb-2 uppercase tracking-wide">{t("total-messages")}</h3>
+          <p className="text-xl md:text-3xl font-bold text-white">{totalMessages}</p>
         </div>
       </div>
-      <div className="bg-[rgba(255,255,255,0.05)] backdrop-blur-md border border-[rgba(255,255,255,0.1)] rounded-2xl p-8 flex items-center gap-4 shadow-lg">
-        <div className="text-4xl">📅</div>
+      <div className="bg-[rgba(255,255,255,0.05)] backdrop-blur-md border border-[rgba(255,255,255,0.1)] rounded-xl md:rounded-2xl p-4 md:p-8 flex items-center gap-2 md:gap-4 shadow-lg">
+        <div className="text-2xl md:text-4xl">📅</div>
         <div className="flex-1">
-          <h3 className="text-sm font-medium text-[rgb(156,156,156)] mb-2 uppercase tracking-wide">{t("this-week")}</h3>
-          <p className="text-3xl font-bold text-white">{recentConversations}</p>
+          <h3 className="text-[10px] md:text-sm font-medium text-[rgb(156,156,156)] mb-1 md:mb-2 uppercase tracking-wide">{t("this-week")}</h3>
+          <p className="text-xl md:text-3xl font-bold text-white">{recentConversations}</p>
         </div>
       </div>
       {alertStats && (
         <>
-          <div className="bg-[rgba(255,255,255,0.05)] backdrop-blur-md border border-[rgba(255,255,255,0.1)] rounded-2xl p-8 flex items-center gap-4 shadow-lg">
-            <div className="text-4xl">⚠️</div>
+          <div className="bg-[rgba(255,255,255,0.05)] backdrop-blur-md border border-[rgba(255,255,255,0.1)] rounded-xl md:rounded-2xl p-4 md:p-8 flex items-center gap-2 md:gap-4 shadow-lg">
+            <div className="text-2xl md:text-4xl">⚠️</div>
             <div className="flex-1">
-              <h3 className="text-sm font-medium text-[rgb(156,156,156)] mb-2 uppercase tracking-wide">{t("pending-alerts")}</h3>
-              <p className="text-3xl font-bold text-white">{alertStats.pending}</p>
+              <h3 className="text-[10px] md:text-sm font-medium text-[rgb(156,156,156)] mb-1 md:mb-2 uppercase tracking-wide">{t("pending-alerts")}</h3>
+              <p className="text-xl md:text-3xl font-bold text-white">{alertStats.pending}</p>
             </div>
           </div>
-          <div className="bg-[rgba(255,255,255,0.05)] backdrop-blur-md border border-[rgba(255,255,255,0.1)] rounded-2xl p-8 flex items-center gap-4 shadow-lg">
-            <div className="text-4xl">✅</div>
+          <div className="bg-[rgba(255,255,255,0.05)] backdrop-blur-md border border-[rgba(255,255,255,0.1)] rounded-xl md:rounded-2xl p-4 md:p-8 flex items-center gap-2 md:gap-4 shadow-lg">
+            <div className="text-2xl md:text-4xl">✅</div>
             <div className="flex-1">
-              <h3 className="text-sm font-medium text-[rgb(156,156,156)] mb-2 uppercase tracking-wide">{t("resolved-alerts")}</h3>
-              <p className="text-3xl font-bold text-white">{alertStats.resolved}</p>
+              <h3 className="text-[10px] md:text-sm font-medium text-[rgb(156,156,156)] mb-1 md:mb-2 uppercase tracking-wide">{t("resolved-alerts")}</h3>
+              <p className="text-xl md:text-3xl font-bold text-white">{alertStats.resolved}</p>
             </div>
           </div>
-          <div className="bg-[rgba(255,255,255,0.05)] backdrop-blur-md border border-[rgba(255,255,255,0.1)] rounded-2xl p-8 flex items-center gap-4 shadow-lg">
-            <div className="text-4xl">🔔</div>
+          <div className="bg-[rgba(255,255,255,0.05)] backdrop-blur-md border border-[rgba(255,255,255,0.1)] rounded-xl md:rounded-2xl p-4 md:p-8 flex items-center gap-2 md:gap-4 shadow-lg">
+            <div className="text-2xl md:text-4xl">🔔</div>
             <div className="flex-1">
-              <h3 className="text-sm font-medium text-[rgb(156,156,156)] mb-2 uppercase tracking-wide">{t("total-alerts")}</h3>
-              <p className="text-3xl font-bold text-white">{alertStats.total}</p>
+              <h3 className="text-[10px] md:text-sm font-medium text-[rgb(156,156,156)] mb-1 md:mb-2 uppercase tracking-wide">{t("total-alerts")}</h3>
+              <p className="text-xl md:text-3xl font-bold text-white">{alertStats.total}</p>
             </div>
           </div>
         </>

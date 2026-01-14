@@ -77,7 +77,7 @@ export default function AlertsPage() {
                   <div className="w-10"></div>
                 )}
                 <button 
-                  className={`px-6 py-3 rounded-full font-normal text-sm cursor-pointer border ${
+                  className={`px-3 md:px-6 py-3 rounded-full font-normal text-sm cursor-pointer border ${
                     hoveredButton === 'back' 
                       ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
                       : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
@@ -87,7 +87,8 @@ export default function AlertsPage() {
                   onMouseLeave={() => setHoveredButton(null)}
                   onClick={() => navigate("/dashboard")}
                 >
-                  ← {t("back-to-dashboard")}
+                  <span className="md:mr-1">←</span>
+                  <span className="hidden md:inline">{t("back-to-dashboard")}</span>
                 </button>
               </div>
               <h1 className="text-4xl font-bold mb-8 text-center text-white tracking-tight" style={{ textShadow: '0 2px 8px rgba(110, 91, 255, 0.2)' }}>
@@ -96,9 +97,9 @@ export default function AlertsPage() {
             </div>
 
             {/* Filtros */}
-            <div className="flex justify-center gap-3 mb-8 flex-wrap">
+            <div className="flex justify-center gap-2 md:gap-3 mb-8 flex-wrap">
               <button
-                className={`px-6 py-2 rounded-full font-normal text-sm cursor-pointer border ${
+                className={`px-3 py-1.5 md:px-6 md:py-2 rounded-full font-normal text-xs md:text-sm cursor-pointer border ${
                   statusFilter === "all" 
                     ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
                     : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
@@ -109,7 +110,7 @@ export default function AlertsPage() {
                 {t("all")}
               </button>
               <button
-                className={`px-6 py-2 rounded-full font-normal text-sm cursor-pointer border ${
+                className={`px-3 py-1.5 md:px-6 md:py-2 rounded-full font-normal text-xs md:text-sm cursor-pointer border ${
                   statusFilter === "pending" 
                     ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
                     : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
@@ -120,7 +121,7 @@ export default function AlertsPage() {
                 {t("pending")}
               </button>
               <button
-                className={`px-6 py-2 rounded-full font-normal text-sm cursor-pointer border ${
+                className={`px-3 py-1.5 md:px-6 md:py-2 rounded-full font-normal text-xs md:text-sm cursor-pointer border ${
                   statusFilter === "notified" 
                     ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
                     : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
@@ -131,7 +132,7 @@ export default function AlertsPage() {
                 {t("notified")}
               </button>
               <button
-                className={`px-6 py-2 rounded-full font-normal text-sm cursor-pointer border ${
+                className={`px-3 py-1.5 md:px-6 md:py-2 rounded-full font-normal text-xs md:text-sm cursor-pointer border ${
                   statusFilter === "resolved" 
                     ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
                     : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
@@ -142,9 +143,9 @@ export default function AlertsPage() {
                 {t("resolved")}
               </button>
               <button
-                className={`px-6 py-2 rounded-full font-normal text-sm cursor-pointer border ${
-                  statusFilter === "dismissed" 
-                    ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
+                className={`px-3 py-1.5 md:px-6 md:py-2 rounded-full font-normal text-xs md:text-sm cursor-pointer border ${
+                  statusFilter === "dismissed"
+                    ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]'
                     : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
                 }`}
                 style={{ transform: 'none' }}
@@ -225,27 +226,27 @@ function AlertCard({ alert, onStatusChange, onViewConversation, t }: AlertCardPr
   };
 
   return (
-    <div className="bg-[rgba(255,255,255,0.05)] backdrop-blur-md border border-[rgba(255,255,255,0.1)] rounded-2xl p-8 flex flex-col gap-4 shadow-lg">
-      <div className="flex justify-between items-start">
-        <div className="flex items-center gap-3 flex-wrap">
-          <h3 className="text-xl font-bold text-white">{alert.title}</h3>
-          <span className={`px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap ${getStatusBadgeStyle(alert.status)}`}>
+    <div className="bg-[rgba(255,255,255,0.05)] backdrop-blur-md border border-[rgba(255,255,255,0.1)] rounded-xl md:rounded-2xl p-4 md:p-8 flex flex-col gap-2 md:gap-4 shadow-lg">
+      <div className="flex justify-between items-start flex-col md:flex-row gap-2 md:gap-0">
+        <div className="flex items-center gap-2 md:gap-3 flex-wrap">
+          <h3 className="text-base md:text-xl font-bold text-white">{alert.title}</h3>
+          <span className={`px-2 py-1 md:px-4 md:py-2 rounded-full text-[10px] md:text-xs font-semibold whitespace-nowrap ${getStatusBadgeStyle(alert.status)}`}>
             {t(alert.status.toLowerCase())}
           </span>
         </div>
-        <span className="text-sm text-[rgb(156,156,156)]">
+        <span className="text-xs md:text-sm text-[rgb(156,156,156)]">
           {new Date(alert.created_at).toLocaleDateString()} {new Date(alert.created_at).toLocaleTimeString()}
         </span>
       </div>
 
-      <div className="flex flex-col gap-2 text-sm text-[rgb(156,156,156)]">
+      <div className="flex flex-col gap-1.5 md:gap-2 text-xs md:text-sm text-[rgb(156,156,156)]">
         <div>
           <strong className="text-white">{t("rule")}:</strong> {alert.alert_rule.name}
         </div>
         <div>
           <strong className="text-white">{t("conversation")}:</strong>{" "}
           <button
-            className="text-blue-400 hover:text-blue-300 underline cursor-pointer"
+            className="text-blue-400 hover:text-blue-300 underline cursor-pointer text-xs md:text-sm"
             onClick={() => onViewConversation(alert.conversation_id)}
           >
             {alert.conversation_title || alert.conversation_id.slice(0, 8)}
@@ -254,7 +255,7 @@ function AlertCard({ alert, onStatusChange, onViewConversation, t }: AlertCardPr
       </div>
 
       <button
-        className="px-6 py-2 rounded-full font-normal text-sm cursor-pointer border bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)] w-fit"
+        className="px-3 py-1.5 md:px-6 md:py-2 rounded-full font-normal text-xs md:text-sm cursor-pointer border bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)] w-fit"
         style={{ transform: 'none' }}
         onClick={() => setShowDetails(!showDetails)}
       >
@@ -262,18 +263,18 @@ function AlertCard({ alert, onStatusChange, onViewConversation, t }: AlertCardPr
       </button>
 
       {showDetails && (
-        <div className="mt-4 pt-4 border-t border-[rgba(255,255,255,0.1)] space-y-4">
+        <div className="mt-2 md:mt-4 pt-2 md:pt-4 border-t border-[rgba(255,255,255,0.1)] space-y-2 md:space-y-4">
           <div>
-            <h4 className="text-sm font-medium text-[rgb(156,156,156)] mb-2">{t("ai-analysis")}</h4>
-            <p className="text-sm leading-relaxed text-[rgb(156,156,156)] whitespace-pre-wrap">{alert.reasoning}</p>
+            <h4 className="text-xs md:text-sm font-medium text-[rgb(156,156,156)] mb-1 md:mb-2">{t("ai-analysis")}</h4>
+            <p className="text-xs md:text-sm leading-relaxed text-[rgb(156,156,156)] whitespace-pre-wrap">{alert.reasoning}</p>
           </div>
 
           {Object.keys(alert.extractions).length > 0 && (
             <div>
-              <h4 className="text-sm font-medium text-[rgb(156,156,156)] mb-2">{t("extracted-data")}</h4>
-              <div className="flex flex-col gap-2">
+              <h4 className="text-xs md:text-sm font-medium text-[rgb(156,156,156)] mb-1 md:mb-2">{t("extracted-data")}</h4>
+              <div className="flex flex-col gap-1.5 md:gap-2">
                 {Object.entries(alert.extractions).map(([key, value]) => (
-                  <div key={key} className="px-4 py-2 bg-[rgba(35,33,39,0.5)] rounded-lg text-sm">
+                  <div key={key} className="px-2 py-1.5 md:px-4 md:py-2 bg-[rgba(35,33,39,0.5)] rounded-lg text-xs md:text-sm">
                     <strong className="text-blue-400">{key}:</strong>{" "}
                     <span className="text-[rgb(156,156,156)]">
                       {typeof value === "object" ? JSON.stringify(value) : String(value)}
@@ -285,13 +286,13 @@ function AlertCard({ alert, onStatusChange, onViewConversation, t }: AlertCardPr
           )}
 
           {alert.resolved_by_username && (
-            <div className="text-sm text-[rgb(156,156,156)]">
+            <div className="text-xs md:text-sm text-[rgb(156,156,156)]">
               <strong className="text-white">{t("resolved-by")}:</strong> {alert.resolved_by_username}
             </div>
           )}
 
           {alert.dismissed_by_username && (
-            <div className="text-sm text-[rgb(156,156,156)]">
+            <div className="text-xs md:text-sm text-[rgb(156,156,156)]">
               <strong className="text-white">{t("dismissed-by")}:</strong> {alert.dismissed_by_username}
             </div>
           )}
@@ -299,9 +300,9 @@ function AlertCard({ alert, onStatusChange, onViewConversation, t }: AlertCardPr
       )}
 
       {alert.status === "PENDING" || alert.status === "NOTIFIED" ? (
-        <div className="flex gap-3 mt-2 pt-4 border-t border-[rgba(255,255,255,0.1)]">
+        <div className="flex gap-2 md:gap-3 mt-1 md:mt-2 pt-2 md:pt-4 border-t border-[rgba(255,255,255,0.1)]">
           <button
-            className={`px-8 py-3 rounded-full font-normal text-sm cursor-pointer border ${
+            className={`px-3 py-1.5 md:px-6 md:py-2 rounded-full font-normal text-xs md:text-sm cursor-pointer border ${
               hoveredButton === 'resolve' 
                 ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
                 : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
@@ -314,7 +315,7 @@ function AlertCard({ alert, onStatusChange, onViewConversation, t }: AlertCardPr
             {t("resolve")}
           </button>
           <button
-            className={`px-8 py-3 rounded-full font-normal text-sm cursor-pointer border ${
+            className={`px-3 py-1.5 md:px-6 md:py-2 rounded-full font-normal text-xs md:text-sm cursor-pointer border ${
               hoveredButton === 'dismiss' 
                 ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
                 : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'

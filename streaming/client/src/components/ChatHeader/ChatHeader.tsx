@@ -67,12 +67,13 @@ type TAgentComponentProps = {
 };
 
 const AgentComponent = ({ agent }: TAgentComponentProps) => {
-  const { toggleAgentSelected, updateSingleAgent, chatState, removeAgent } =
+  const { toggleAgentSelected, updateSingleAgent, chatState, removeAgent, user } =
     useStore((state) => ({
       toggleAgentSelected: state.toggleAgentSelected,
       updateSingleAgent: state.updateSingleAgent,
       chatState: state.chatState,
       removeAgent: state.removeAgent,
+      user: state.user,
     }));
 
   const { t } = useTranslation();
@@ -99,6 +100,13 @@ const AgentComponent = ({ agent }: TAgentComponentProps) => {
   };
 
   const isSelected = chatState.selectedAgents.indexOf(agent.slug) !== -1;
+
+  // Determine if user can manage this agent
+  // Users can ALWAYS manage their own personal agents (no feature flag needed)
+  // Users can manage organization agents ONLY if they have the feature flag
+  const isPersonalAgent = agent.organization === null || agent.organization === undefined;
+  const isOwnAgent = user && agent.user === user.id;
+  const canEditDelete = (isPersonalAgent && isOwnAgent) || (canManageAgents && !isPersonalAgent);
 
   return (
     <div
@@ -128,7 +136,7 @@ const AgentComponent = ({ agent }: TAgentComponentProps) => {
         </div>
         <span>{agent.name}</span>
       </section>
-      {canManageAgents && (
+      {canEditDelete && (
         <section className="flex gap-2.5 w-full">
           <SvgButton
             size="big"
@@ -169,9 +177,10 @@ type TAgentConfigProps = {
 };
 
 const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
-  const { models, removeAgent } = useStore((state) => ({
+  const { models, removeAgent, user } = useStore((state) => ({
     models: state.models,
     removeAgent: state.removeAgent,
+    user: state.user,
   }));
 
   const { t } = useTranslation();
@@ -472,16 +481,25 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
           text={t("save")}
           svg={SVGS.download}
         />
-        {canManageAgents && (
-          <SvgButton
-          size="big"
-          onClick={handleDelete}
-          text={t("delete")}
-          svg={SVGS.close}
-          extraClass="border-danger pressable danger-on-hover"
-          confirmations={[t("sure?")]}
-        />
-        )}
+        {(() => {
+          // Determine if user can manage this agent
+          // Users can ALWAYS manage their own personal agents (no feature flag needed)
+          // Users can manage organization agents ONLY if they have the feature flag
+          const isPersonalAgent = agent.organization === null || agent.organization === undefined;
+          const isOwnAgent = user && agent.user === user.id;
+          const canEditDelete = (isPersonalAgent && isOwnAgent) || (canManageAgents && !isPersonalAgent);
+          
+          return canEditDelete ? (
+            <SvgButton
+              size="big"
+              onClick={handleDelete}
+              text={t("delete")}
+              svg={SVGS.close}
+              extraClass="border-danger pressable danger-on-hover"
+              confirmations={[t("sure?")]}
+            />
+          ) : null;
+        })()}
       </div>
     </form>
   );

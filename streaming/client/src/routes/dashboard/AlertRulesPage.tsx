@@ -141,7 +141,7 @@ export default function AlertRulesPage() {
                   <div className="w-10"></div>
                 )}
                 <button 
-                  className={`px-6 py-3 rounded-full font-normal text-sm cursor-pointer border ${
+                  className={`px-3 md:px-6 py-3 rounded-full font-normal text-sm cursor-pointer border ${
                     hoveredHeaderButton === 'back' 
                       ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
                       : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
@@ -157,17 +157,18 @@ export default function AlertRulesPage() {
                     }, 200);
                   }}
                 >
-                  ← {t("back-to-dashboard")}
+                  <span className="md:mr-1">←</span>
+                  <span className="hidden md:inline">{t("back-to-dashboard")}</span>
                 </button>
               </div>
-              <h1 className="text-4xl font-bold mb-8 text-center text-white tracking-tight" style={{ textShadow: '0 2px 8px rgba(110, 91, 255, 0.2)' }}>
+              <h1 className="text-2xl md:text-4xl font-bold mb-4 md:mb-8 text-center text-white tracking-tight" style={{ textShadow: '0 2px 8px rgba(110, 91, 255, 0.2)' }}>
                 {t("alert-rules") || "Alert Rules"}
               </h1>
             </div>
 
-            <div className="mb-12 text-center">
+            <div className="mb-8 md:mb-12 text-center">
               <button 
-                className={`px-4 py-3 rounded-full font-normal text-sm cursor-pointer border ${
+                className={`px-3 py-1.5 md:px-4 md:py-3 rounded-full font-normal text-xs md:text-sm cursor-pointer border ${
                   hoveredHeaderButton === 'create' 
                     ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
                     : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
@@ -197,7 +198,7 @@ export default function AlertRulesPage() {
               </div>
             ) : (
               <div className="flex justify-center w-full">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-fit">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6 w-full max-w-fit">
                   {alertRules.map((rule) => (
                     <AlertRuleCard
                       key={rule.id}
@@ -238,10 +239,10 @@ function AlertRuleCard({ rule, onEdit, onDelete, t }: AlertRuleCardProps) {
   const [hoveredButton, setHoveredButton] = useState<string | null>(null);
   
   return (
-    <div className="bg-[rgba(255,255,255,0.05)] backdrop-blur-md border border-[rgba(255,255,255,0.1)] rounded-2xl p-6 flex flex-col gap-4 shadow-lg">
-      <div className="flex justify-between items-start">
-        <h3 className="text-xl font-bold text-white ml-2">{rule.name}</h3>
-        <span className={`px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap ${
+    <div className="bg-[rgba(255,255,255,0.05)] backdrop-blur-md border border-[rgba(255,255,255,0.1)] rounded-xl md:rounded-2xl p-4 md:p-6 flex flex-col gap-2 md:gap-4 shadow-lg">
+      <div className="flex justify-between items-start flex-col md:flex-row gap-2 md:gap-0">
+        <h3 className="text-base md:text-xl font-bold text-white md:ml-2">{rule.name}</h3>
+        <span className={`px-2 py-1 md:px-4 md:py-2 rounded-full text-[10px] md:text-xs font-semibold whitespace-nowrap ${
           rule.enabled 
             ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
             : 'bg-red-500/20 text-red-400 border border-red-500/30'
@@ -250,11 +251,11 @@ function AlertRuleCard({ rule, onEdit, onDelete, t }: AlertRuleCardProps) {
         </span>
       </div>
       
-      <p className="text-sm leading-relaxed text-[rgb(156,156,156)]">
+      <p className="text-xs md:text-sm leading-relaxed text-[rgb(156,156,156)]">
         {rule.trigger}
       </p>
       
-      <div className="flex flex-col gap-2 text-sm text-[rgb(156,156,156)]">
+      <div className="flex flex-col gap-1.5 md:gap-2 text-xs md:text-sm text-[rgb(156,156,156)]">
         <span>
           {t("scope") || "Scope"}: {rule.scope === "all_conversations" ? t("all-conversations") || "All Conversations" : t("selected-agents") || "Selected Agents"}
         </span>
@@ -263,9 +264,9 @@ function AlertRuleCard({ rule, onEdit, onDelete, t }: AlertRuleCardProps) {
         </span>
       </div>
       
-      <div className="flex gap-3 mt-2 pt-4 border-t border-[rgba(255,255,255,0.1)]">
+      <div className="flex gap-2 md:gap-3 mt-1 md:mt-2 pt-2 md:pt-4 border-t border-[rgba(255,255,255,0.1)]">
         <button 
-          className={`px-8 py-3 rounded-full font-normal text-sm cursor-pointer border ${
+          className={`px-3 py-1.5 md:px-6 md:py-2 rounded-full font-normal text-xs md:text-sm cursor-pointer border ${
             hoveredButton === 'edit' 
               ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
               : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
@@ -284,7 +285,7 @@ function AlertRuleCard({ rule, onEdit, onDelete, t }: AlertRuleCardProps) {
           {t("edit") || "Edit"}
         </button>
         <button 
-          className={`px-8 py-3 rounded-full font-normal text-sm cursor-pointer border ${
+          className={`px-3 py-1.5 md:px-6 md:py-2 rounded-full font-normal text-xs md:text-sm cursor-pointer border ${
             hoveredButton === 'delete' 
               ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
               : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
@@ -327,61 +328,61 @@ function AlertRuleForm({ formData, setFormData, onSubmit, onCancel, editingRule,
   const [hoveredButton, setHoveredButton] = useState<string | null>(null);
   
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-[rgba(255,255,255,0.05)] backdrop-blur-md border border-[rgba(255,255,255,0.1)] rounded-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-lg">
-        <h2 className="font-bold text-white text-center" style={{ textShadow: '0 2px 8px rgba(110, 91, 255, 0.2)' }}>
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-2 md:p-4">
+      <div className="bg-[rgba(255,255,255,0.05)] backdrop-blur-md border border-[rgba(255,255,255,0.1)] rounded-xl md:rounded-2xl p-4 md:p-8 max-w-2xl w-full max-h-[95vh] md:max-h-[90vh] overflow-y-auto shadow-lg overflow-x-hidden">
+        <h2 className="text-base md:text-2xl font-bold text-white text-center mb-3 md:mb-6" style={{ textShadow: '0 2px 8px rgba(110, 91, 255, 0.2)' }}>
           {editingRule ? t("edit-alert-rule") : t("create-alert-rule")}
         </h2>
-        <form onSubmit={onSubmit} className="space-y-6">
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-[rgb(156,156,156)]">{t("name")}</label>
+        <form onSubmit={onSubmit} className="space-y-3 md:space-y-6">
+          <div className="space-y-1.5 md:space-y-2">
+            <label className="block text-xs md:text-sm font-medium text-[rgb(156,156,156)]">{t("name")}</label>
             <input
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               required
-              className="w-full !px-4 !py-3 bg-[rgba(35,33,39,0.5)] border border-[rgba(156,156,156,0.3)] rounded-lg text-white focus:outline-none focus:border-[rgba(156,156,156,0.5)] transition-colors"
+              className="w-full !px-3 !py-2 md:!px-4 md:!py-3 bg-[rgba(35,33,39,0.5)] border border-[rgba(156,156,156,0.3)] rounded-lg text-xs md:text-sm text-white focus:outline-none focus:border-[rgba(156,156,156,0.5)] transition-colors"
             />
           </div>
 
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-[rgb(156,156,156)]">{t("trigger")}</label>
+          <div className="space-y-1.5 md:space-y-2">
+            <label className="block text-xs md:text-sm font-medium text-[rgb(156,156,156)]">{t("trigger")}</label>
             <textarea
               value={formData.trigger}
               onChange={(e) => setFormData({ ...formData, trigger: e.target.value })}
               required
               rows={4}
               placeholder={t("trigger-description-placeholder")}
-              className="w-full !px-4 !py-3 bg-[rgba(35,33,39,0.5)] border border-[rgba(156,156,156,0.3)] rounded-lg text-white focus:outline-none focus:border-[rgba(156,156,156,0.5)] transition-colors resize-vertical"
+              className="w-full !px-3 !py-2 md:!px-4 md:!py-3 bg-[rgba(35,33,39,0.5)] border border-[rgba(156,156,156,0.3)] rounded-lg text-xs md:text-sm text-white focus:outline-none focus:border-[rgba(156,156,156,0.5)] transition-colors resize-vertical"
             />
           </div>
 
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-[rgb(156,156,156)]">{t("scope")}</label>
+          <div className="space-y-1.5 md:space-y-2">
+            <label className="block text-xs md:text-sm font-medium text-[rgb(156,156,156)]">{t("scope")}</label>
             <select
               value={formData.scope}
               onChange={(e) => setFormData({ ...formData, scope: e.target.value as "all_conversations" | "selected_agents" })}
-              className="w-full !px-4 !py-3 bg-[rgba(35,33,39,0.5)] border border-[rgba(156,156,156,0.3)] rounded-lg text-white focus:outline-none focus:border-[rgba(156,156,156,0.5)] transition-colors"
+              className="w-full px-2 py-1.5 md:px-4 md:py-2.5 bg-[rgba(35,33,39,0.5)] border border-[rgba(156,156,156,0.3)] rounded-lg text-xs md:text-sm text-white focus:outline-none focus:border-[rgba(156,156,156,0.5)] transition-colors appearance-none max-w-full box-border"
             >
-              <option value="all_conversations">{t("all-conversations")}</option>
-              <option value="selected_agents">{t("selected-agents")}</option>
+              <option value="all_conversations" className="text-xs md:text-sm">{t("all-conversations")}</option>
+              <option value="selected_agents" className="text-xs md:text-sm">{t("selected-agents")}</option>
             </select>
           </div>
 
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-[rgb(156,156,156)]">{t("notify-to")}</label>
+          <div className="space-y-1.5 md:space-y-2">
+            <label className="block text-xs md:text-sm font-medium text-[rgb(156,156,156)]">{t("notify-to")}</label>
             <select
               value={formData.notify_to}
               onChange={(e) => setFormData({ ...formData, notify_to: e.target.value as "all_staff" | "selected_members" })}
-              className="w-full !px-4 !py-3 bg-[rgba(35,33,39,0.5)] border border-[rgba(156,156,156,0.3)] rounded-lg text-white focus:outline-none focus:border-[rgba(156,156,156,0.5)] transition-colors"
+              className="w-full px-2 py-1.5 md:px-4 md:py-2.5 bg-[rgba(35,33,39,0.5)] border border-[rgba(156,156,156,0.3)] rounded-lg text-xs md:text-sm text-white focus:outline-none focus:border-[rgba(156,156,156,0.5)] transition-colors appearance-none max-w-full box-border"
             >
-              <option value="all_staff">{t("all-staff")}</option>
-              <option value="selected_members">{t("selected-members")}</option>
+              <option value="all_staff" className="text-xs md:text-sm">{t("all-staff")}</option>
+              <option value="selected_members" className="text-xs md:text-sm">{t("selected-members")}</option>
             </select>
           </div>
 
-          <div className="space-y-2">
-            <label className="flex items-center text-sm font-medium text-[rgb(156,156,156)] cursor-pointer">
+          <div className="space-y-1.5 md:space-y-2">
+            <label className="flex items-center text-xs md:text-sm font-medium text-[rgb(156,156,156)] cursor-pointer">
               <input
                 type="checkbox"
                 checked={formData.enabled}
@@ -392,10 +393,10 @@ function AlertRuleForm({ formData, setFormData, onSubmit, onCancel, editingRule,
             </label>
           </div>
 
-          <div className="flex justify-end gap-4 pt-6 border-t border-[rgba(255,255,255,0.1)]">
+          <div className="flex justify-end gap-2 md:gap-4 pt-3 md:pt-6 border-t border-[rgba(255,255,255,0.1)]">
             <button 
               type="button" 
-              className={`px-8 py-3 rounded-full font-normal text-sm cursor-pointer border ${
+              className={`px-3 py-1.5 md:px-6 md:py-2 rounded-full font-normal text-xs md:text-sm cursor-pointer border ${
                 hoveredButton === 'cancel' 
                   ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
                   : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
@@ -409,7 +410,7 @@ function AlertRuleForm({ formData, setFormData, onSubmit, onCancel, editingRule,
             </button>
             <button 
               type="submit" 
-              className={`px-8 py-3 rounded-full font-normal text-sm cursor-pointer border ${
+              className={`px-3 py-1.5 md:px-6 md:py-2 rounded-full font-normal text-xs md:text-sm cursor-pointer border ${
                 hoveredButton === 'submit' 
                   ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
                   : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'

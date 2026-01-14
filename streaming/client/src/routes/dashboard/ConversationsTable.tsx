@@ -146,24 +146,24 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({ conversa
   return (
     <div className="conversations-table">
       {/* Filtros */}
-      <div className="conversations-filters-section">
-        <h3 className="conversations-filters-title">{t("filters")}</h3>
-        <div className="conversations-filters">
-          <div className="conversations-filter-group">
-            <label>{t("search-by-keywords")}</label>
+      <div className="conversations-filters-section p-3 md:p-5">
+        <h3 className="conversations-filters-title text-sm md:text-lg mb-3 md:mb-4">{t("filters")}</h3>
+        <div className="conversations-filters gap-2 md:gap-4">
+          <div className="conversations-filter-group gap-1 md:gap-2">
+            <label className="text-[10px] md:text-xs">{t("search-by-keywords")}</label>
             <input
               type="text"
-              className="conversations-filter-input"
+              className="conversations-filter-input text-xs md:text-sm px-2 py-1.5 md:px-4 md:py-2.5"
               placeholder={t("search-by-keywords")}
               value={filters.search}
               onChange={(e) => setFilters({ ...filters, search: e.target.value })}
             />
           </div>
 
-          <div className="conversations-filter-group">
-            <label>{t("user")}</label>
+          <div className="conversations-filter-group gap-1 md:gap-2">
+            <label className="text-[10px] md:text-xs">{t("user")}</label>
             <select
-              className="conversations-filter-select"
+              className="conversations-filter-select text-xs md:text-sm px-2 py-1.5 md:px-4 md:py-2.5"
               value={filters.userId}
               onChange={(e) => setFilters({ ...filters, userId: e.target.value })}
             >
@@ -176,31 +176,31 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({ conversa
             </select>
           </div>
 
-          <div className="conversations-filter-group">
-            <label>{t("date-from")}</label>
+          <div className="conversations-filter-group gap-1 md:gap-2">
+            <label className="text-[10px] md:text-xs">{t("date-from")}</label>
             <input
               type="date"
-              className="conversations-filter-input"
+              className="conversations-filter-input text-xs md:text-sm px-2 py-1.5 md:px-4 md:py-2.5"
               value={filters.dateFrom}
               onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })}
             />
           </div>
 
-          <div className="conversations-filter-group">
-            <label>{t("date-to")}</label>
+          <div className="conversations-filter-group gap-1 md:gap-2">
+            <label className="text-[10px] md:text-xs">{t("date-to")}</label>
             <input
               type="date"
-              className="conversations-filter-input"
+              className="conversations-filter-input text-xs md:text-sm px-2 py-1.5 md:px-4 md:py-2.5"
               value={filters.dateTo}
               onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
             />
           </div>
 
-          <div className="conversations-filter-group">
-            <label>{t("min-messages")}</label>
+          <div className="conversations-filter-group gap-1 md:gap-2">
+            <label className="text-[10px] md:text-xs">{t("min-messages")}</label>
             <input
               type="number"
-              className="conversations-filter-input"
+              className="conversations-filter-input text-xs md:text-sm px-2 py-1.5 md:px-4 md:py-2.5"
               placeholder="0"
               min="0"
               value={filters.minMessages}
@@ -208,11 +208,11 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({ conversa
             />
           </div>
 
-          <div className="conversations-filter-group">
-            <label>{t("max-messages")}</label>
+          <div className="conversations-filter-group gap-1 md:gap-2">
+            <label className="text-[10px] md:text-xs">{t("max-messages")}</label>
             <input
               type="number"
-              className="conversations-filter-input"
+              className="conversations-filter-input text-xs md:text-sm px-2 py-1.5 md:px-4 md:py-2.5"
               placeholder="∞"
               min="0"
               value={filters.maxMessages}
@@ -220,10 +220,10 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({ conversa
             />
           </div>
 
-          <div className="conversations-filter-group">
-            <label>{t("has-tags")}</label>
+          <div className="conversations-filter-group gap-1 md:gap-2">
+            <label className="text-[10px] md:text-xs">{t("has-tags")}</label>
             <select
-              className="conversations-filter-select"
+              className="conversations-filter-select text-xs md:text-sm px-2 py-1.5 md:px-4 md:py-2.5"
               value={filters.hasTags}
               onChange={(e) => setFilters({ ...filters, hasTags: e.target.value as "" | "yes" | "no" })}
             >
@@ -233,10 +233,10 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({ conversa
             </select>
           </div>
 
-          <div className="conversations-filter-group">
-            <label>{t("has-alerts")}</label>
+          <div className="conversations-filter-group gap-1 md:gap-2">
+            <label className="text-[10px] md:text-xs">{t("has-alerts")}</label>
             <select
-              className="conversations-filter-select"
+              className="conversations-filter-select text-xs md:text-sm px-2 py-1.5 md:px-4 md:py-2.5"
               value={filters.hasAlerts}
               onChange={(e) => setFilters({ ...filters, hasAlerts: e.target.value as "" | "yes" | "no" })}
             >
@@ -246,10 +246,10 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({ conversa
             </select>
           </div>
 
-          <div className="conversations-filter-group">
-            <label>{t("sort-by")}</label>
+          <div className="conversations-filter-group gap-1 md:gap-2">
+            <label className="text-[10px] md:text-xs">{t("sort-by")}</label>
             <select
-              className="conversations-filter-select"
+              className="conversations-filter-select text-xs md:text-sm px-2 py-1.5 md:px-4 md:py-2.5"
               value={filters.sortBy}
               onChange={(e) => setFilters({ ...filters, sortBy: e.target.value as "newest" | "oldest" })}
             >
@@ -258,9 +258,9 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({ conversa
             </select>
           </div>
 
-          <div className="conversations-filter-group">
+          <div className="conversations-filter-group gap-1 md:gap-2">
             <button 
-              className="conversations-clear-filters"
+              className="conversations-clear-filters text-xs md:text-sm px-2 py-1.5 md:px-4 md:py-2.5 mt-2 md:mt-6"
               onClick={clearFilters}
             >
               {t("clear-filters")}
@@ -271,23 +271,23 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({ conversa
 
       {/* Tabla de conversaciones */}
       {filteredConversations.length === 0 ? (
-        <div className="conversations-empty">
+        <div className="conversations-empty text-xs md:text-base py-8 md:py-[60px] px-3 md:px-5">
           {t("no-conversations")}
         </div>
       ) : (
-        <div className="conversations-table-wrapper">
-          <div className="conversations-table-header">
+        <div className="conversations-table-wrapper p-2 md:p-5">
+          <div className="conversations-table-header text-xs md:text-sm py-2 md:py-3 mb-2 md:mb-4">
             <span>{t("showing")} {filteredConversations.length} {t("of")} {safeConversations.length} {t("conversations")}</span>
           </div>
-          <table className="conversations-table-content">
+          <table className="conversations-table-content text-xs md:text-sm">
             <thead>
               <tr>
-                <th>{t("title")}</th>
-                <th>{t("user")}</th>
-                <th>{t("messages")}</th>
-                <th>{t("date")}</th>
-                <th>{t("tags")}</th>
-                <th>{t("alerts")}</th>
+                <th className="px-2 py-1.5 md:px-4 md:py-3 text-[10px] md:text-xs">{t("title")}</th>
+                <th className="px-2 py-1.5 md:px-4 md:py-3 text-[10px] md:text-xs">{t("user")}</th>
+                <th className="px-2 py-1.5 md:px-4 md:py-3 text-[10px] md:text-xs">{t("messages")}</th>
+                <th className="px-2 py-1.5 md:px-4 md:py-3 text-[10px] md:text-xs">{t("date")}</th>
+                <th className="px-2 py-1.5 md:px-4 md:py-3 text-[10px] md:text-xs">{t("tags")}</th>
+                <th className="px-2 py-1.5 md:px-4 md:py-3 text-[10px] md:text-xs">{t("alerts")}</th>
               </tr>
             </thead>
             <tbody>
@@ -297,39 +297,39 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({ conversa
                   onClick={() => navigate(`/chat?conversation=${conv.id}`)}
                   className="cursor-pointer hover:bg-[rgba(255,255,255,0.05)] transition-colors"
                 >
-                  <td className="conversation-title-cell">
+                  <td className="conversation-title-cell px-2 py-1.5 md:px-4 md:py-3 text-xs md:text-sm max-w-[120px] md:max-w-[250px]">
                     {conv.title || conv.id.slice(0, 20) + "..."}
                   </td>
-                  <td>{conv.user_id || "-"}</td>
-                  <td>{conv.number_of_messages || 0}</td>
-                  <td>{conv.created_at ? new Date(conv.created_at).toLocaleDateString() : "-"}</td>
-                  <td>
+                  <td className="px-2 py-1.5 md:px-4 md:py-3 text-xs md:text-sm">{conv.user_id || "-"}</td>
+                  <td className="px-2 py-1.5 md:px-4 md:py-3 text-xs md:text-sm">{conv.number_of_messages || 0}</td>
+                  <td className="px-2 py-1.5 md:px-4 md:py-3 text-xs md:text-sm">{conv.created_at ? new Date(conv.created_at).toLocaleDateString() : "-"}</td>
+                  <td className="px-2 py-1.5 md:px-4 md:py-3">
                     {conv.tags && conv.tags.length > 0 ? (
-                      <div className="conversation-tags">
+                      <div className="conversation-tags gap-1 md:gap-1.5">
                         {conv.tags.slice(0, 3).map((tagId, idx) => {
                           const tagInfo = tagMap.get(tagId);
                           if (!tagInfo) return null;
                           return (
                             <span 
                               key={idx} 
-                              className="conversation-tag"
+                              className="conversation-tag text-[10px] md:text-xs px-1.5 py-0.5 md:px-2 md:py-1"
                               style={{ backgroundColor: tagInfo.color }}
                             >
                               {tagInfo.name}
                             </span>
                           );
                         })}
-                        {conv.tags.length > 3 && ` +${conv.tags.length - 3}`}
+                        {conv.tags.length > 3 && <span className="text-[10px] md:text-xs"> +{conv.tags.length - 3}</span>}
                       </div>
                     ) : (
                       "-"
                     )}
                   </td>
-                  <td>
+                  <td className="px-2 py-1.5 md:px-4 md:py-3">
                     {(conv.alerts_count || 0) > 0 ? (
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#ff6b6b" }}>
-                        <AlertTriangle size={16} />
-                        <span>{conv.alerts_count}</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: "4px" }} className="md:gap-1.5">
+                        <AlertTriangle size={12} className="md:w-4 md:h-4" />
+                        <span className="text-xs md:text-sm">{conv.alerts_count}</span>
                       </div>
                     ) : (
                       "-"
