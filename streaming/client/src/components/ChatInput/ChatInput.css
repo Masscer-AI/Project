@@ -1,94 +1,28 @@
-/* .chat-input {
-  display: flex;
-  flex-direction: column;
-  background-color: var(--bg-color);
-
-  justify-content: center;
-  align-items: center;
-  padding: 10px;
-  width: min(100%, var(--input-max-width));
-  border: 1px solid var(--hovered-color);
-  gap: 10px;
-
-  border-radius: var(--standard-radius);
-  z-index: 2;
+/* Estilos para botón de enviar en pantallas menores a 470px */
+@media (max-width: 469px) {
+  .chat-input-send-mobile {
+    display: flex !important;
+  }
+  
+  .chat-input-send-desktop {
+    display: none !important;
+  }
+  
+  .chat-input-textarea-mobile {
+    padding-right: 3.5rem !important;
+  }
 }
 
-.chat-input section:empty {
-  display: none;
+@media (min-width: 470px) {
+  .chat-input-send-mobile {
+    display: none !important;
+  }
+  
+  .chat-input-send-desktop {
+    display: flex !important;
+  }
+  
+  .chat-input-textarea-mobile {
+    padding-right: inherit !important;
+  }
 }
-.chat-input section {
-  flex: 1;
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.chat-input textarea {
-  width: 100%;
-  padding: 8px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  margin-right: 10px;
-  color: var(--font-color);
-  margin-inline: auto;
-  align-self: center;
-  resize: none;
-  font-size: 16px;
-  font-family: var(--font-family);
-  background-color: rgba(255, 255, 255, 0.05);
-  transition: all 0.2s;
-}
-
-.chat-input textarea:focus {
-  outline: none;
-  border-color: rgba(255, 255, 255, 0.2);
-  box-shadow: 0 0 0 2px rgba(110, 91, 255, 0.3);
-}
-
-.chat-input textarea::placeholder {
-  color: rgb(156, 156, 156);
-}
-
-.chat-input textarea::placeholder {
-  color: var(--font-color-secondary);
-}
-.chat-input textarea.big-size {
-  height: min(400px, 90vh);
-}
-
-.chat-input button.active {
-  background-color: var(--active-color);
-}
-
-.attachments {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.thumbnail {
-  height: 50px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-
-  border: 1px solid var(--font-color);
-  border-radius: var(--standard-radius);
-}
-
-.thumbnail img {
-  width: 100%;
-  height: 100%;
-  border-radius: var(--standard-radius);
-}
-
-.thumbnail .file-icon {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  stroke: var(--font-color);
-} */

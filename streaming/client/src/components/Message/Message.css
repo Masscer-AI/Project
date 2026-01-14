@@ -30,14 +30,14 @@
 
 .message .markdown-renderer.message-text {
   padding: 10px 15px;
-  max-width: 100%;  /* Cambiar de 85% a 100% porque ahora el padre ya limita */
-  /* width: 100%;  Cambiar de auto a 100% */
-  width: fit-content;  /* Cambiar de auto a 100% */
+  max-width: 100%;  
+  width: fit-content;
   border-radius: var(--standard-radius);
   color: var(--font-color);
   line-height: 1.7rem;
   backdrop-filter: blur(10px);
-  overflow-x: hidden;
+  /* overflow-x: hidden; */
+  overflow-x: auto;
   scrollbar-width: none;
   word-break: break-word;
   overflow-wrap: break-word;
@@ -153,6 +153,10 @@
 .message table {
   border-collapse: collapse;
   border-radius: var(--standard-radius);
+  width: 100%;
+  display: block;
+  overflow-x: auto;
+  white-space: nowrap;
 }
 
 .message td,

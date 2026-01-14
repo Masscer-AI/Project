@@ -18,6 +18,7 @@ import { TAttachment, TDocument } from "../../types";
 import { SliderInput } from "../SimpleForm/SliderInput";
 import { Loader } from "../Loader/Loader";
 import { SYSTEM_PLUGINS } from "../../modules/plugins";
+import "./ChatInput.css";
 
 interface ChatInputProps {
   handleSendMessage: (input: string) => Promise<boolean>;
@@ -166,9 +167,31 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         ))}
       </section>
       <section className="flex-1 w-full flex flex-col items-center justify-center relative overflow-visible">
-        <div className="w-full bg-[#282826] border border-[#282826] rounded-none md:rounded-2xl overflow-visible">
+        <div className="w-full bg-[#282826] border border-[#282826] rounded-none md:rounded-2xl overflow-visible relative">
+          {/* Botón de enviar para móvil - esquina superior derecha del textarea (solo < 470px) */}
+          <button
+            onClick={asyncSendMessage}
+            className="chat-input-send-mobile absolute top-2 right-2 w-10 h-10 rounded-full aspect-square bg-white items-center justify-center transition-all hover:scale-105 active:scale-95 border-0 cursor-pointer shadow-md z-20"
+            title={t("send-message")}
+          >
+            <svg
+              width="20px"
+              height="20px"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M12.0004 18.5816V12.5M12.7976 18.754L15.8103 19.7625C17.4511 20.3118 18.2714 20.5864 18.7773 20.3893C19.2166 20.2182 19.5499 19.8505 19.6771 19.3965C19.8236 18.8737 19.4699 18.0843 18.7624 16.5053L14.2198 6.36709C13.5279 4.82299 13.182 4.05094 12.7001 3.81172C12.2814 3.60388 11.7898 3.60309 11.3705 3.80958C10.8878 4.04726 10.5394 4.8182 9.84259 6.36006L5.25633 16.5082C4.54325 18.086 4.18671 18.875 4.33169 19.3983C4.4576 19.8528 4.78992 20.2216 5.22888 20.394C5.73435 20.5926 6.55603 20.3198 8.19939 19.7744L11.2797 18.752C11.5614 18.6585 11.7023 18.6117 11.8464 18.5933C11.9742 18.5769 12.1036 18.5771 12.2314 18.5938C12.3754 18.6126 12.5162 18.6597 12.7976 18.754Z"
+                stroke="#000000"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
           <textarea
-            className={`w-full ${chatState.writtingMode ? "min-h-[400px] max-h-[90vh]" : "min-h-[48px] md:min-h-[70px]"} resize-none px-3 md:px-6 py-2 md:py-4 text-white !bg-[#282826] focus:outline-none focus:ring-0 outline-none transition-all text-base font-sans placeholder:text-[#6b7280] border-0 rounded-none md:rounded-2xl`}
+            className={`w-full chat-input-textarea-mobile ${chatState.writtingMode ? "min-h-[400px] max-h-[90vh]" : "min-h-[48px] md:min-h-[70px]"} resize-none px-3 md:px-6 py-2 md:py-4 text-white !bg-[#282826] focus:outline-none focus:ring-0 outline-none transition-all text-base font-sans placeholder:text-[#6b7280] border-0 rounded-none md:rounded-2xl md:pr-6`}
             value={textPrompt}
             onChange={handleTextPromptChange}
             onKeyDown={handleKeyDown}
@@ -195,15 +218,15 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             </div>
             <div className="flex gap-2 items-center flex-shrink-0">
               <SpeechHandler onTranscript={handleAudioTranscript} />
+              {/* Botón de enviar para desktop - visible desde 470px en adelante */}
               <button
                 onClick={asyncSendMessage}
-                className="w-8 h-8 md:w-12 md:h-12 rounded-full aspect-square bg-white flex items-center justify-center transition-all hover:scale-105 active:scale-95 border-0 cursor-pointer shadow-md"
+                className="chat-input-send-desktop w-12 h-12 rounded-full aspect-square bg-white items-center justify-center transition-all hover:scale-105 active:scale-95 border-0 cursor-pointer shadow-md"
                 title={t("send-message")}
               >
                 <svg
-                  width="16px"
-                  height="16px"
-                  className="md:w-5 md:h-5"
+                  width="20px"
+                  height="20px"
                   viewBox="0 0 24 24"
                   fill="none"
                   xmlns="http://www.w3.org/2000/svg"
