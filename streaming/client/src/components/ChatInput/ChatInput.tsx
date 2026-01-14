@@ -154,7 +154,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
   return (
     <div className="flex flex-col justify-center items-center p-0 w-full max-w-[900px] bg-transparent z-[2] gap-0 mt-4 overflow-visible">
-      <section className="flex gap-2.5 flex-wrap empty:hidden w-full mb-3 px-4">
+      <section className="chat-input-attachments flex gap-2.5 flex-nowrap overflow-x-auto empty:hidden w-full mb-3 px-4 [scrollbar-width:thin] [scrollbar-color:rgba(128,128,128,0.3)_transparent] [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-[rgba(128,128,128,0.3)] [&::-webkit-scrollbar-thumb]:rounded-full">
         {attachments.map((a, index) => (
           <Thumbnail
             {...a}

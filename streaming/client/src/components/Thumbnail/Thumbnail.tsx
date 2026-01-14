@@ -63,7 +63,7 @@ export const Thumbnail = ({
           />
         )}
       {type.indexOf("image") === 0 && (
-        <div className="thumbnail pointer ">
+        <div className="thumbnail pointer flex-shrink-0">
           <ImageThumbnail
             src={src}
             message_id={message_id}
@@ -314,7 +314,7 @@ const ImageThumbnail = ({
   const [showModal, setShowModal] = useState(false);
 
   return (
-    <div className="thumbnail pointer">
+    <div className="thumbnail pointer flex-shrink-0">
       {showModal && (
         <ImageModal
           src={src}
@@ -327,6 +327,7 @@ const ImageThumbnail = ({
         onClick={() => setShowModal(true)}
         src={src}
         alt={`attachment-${name}`}
+        className="max-w-[70px] max-h-[70px] w-[70px] h-[70px] object-contain rounded-md flex-shrink-0"
       />
       {buttons}
     </div>

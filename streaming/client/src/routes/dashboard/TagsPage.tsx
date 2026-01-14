@@ -5,9 +5,11 @@ import {
   getTags, 
   createTag, 
   updateTag, 
-  deleteTag 
+  deleteTag,
+  getUser
 } from "../../modules/apiCalls";
 import { TTag } from "../../types";
+import { TUserData } from "../../types/chatTypes";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { SvgButton } from "../../components/SvgButton/SvgButton";
@@ -15,10 +17,11 @@ import { SVGS } from "../../assets/svgs";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
 
 export default function TagsPage() {
-  const { chatState, startup, toggleSidebar } = useStore((state) => ({
+  const { chatState, startup, toggleSidebar, setUser } = useStore((state) => ({
     chatState: state.chatState,
     startup: state.startup,
     toggleSidebar: state.toggleSidebar,
+    setUser: state.setUser,
   }));
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -36,11 +39,24 @@ export default function TagsPage() {
   });
 
   useEffect(() => {
+    const loadUser = async () => {
+      try {
+        const user = (await getUser()) as TUserData;
+        setUser(user);
+      } catch (error) {
+        console.error("Error loading user:", error);
+      }
+    };
+    
+    loadUser();
     startup();
-    if (canManageTags) {
+  }, [startup, setUser]);
+
+  useEffect(() => {
+    if (canManageTags === true) {
       loadTags();
     }
-  }, [startup, canManageTags]);
+  }, [canManageTags]);
 
   const loadTags = async () => {
     try {
@@ -117,7 +133,7 @@ export default function TagsPage() {
     });
   };
 
-  if (!canManageTags) {
+  if (canManageTags === false) {
     return null;
   }
 

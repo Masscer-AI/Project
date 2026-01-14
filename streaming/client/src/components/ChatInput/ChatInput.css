@@ -26,3 +26,21 @@
     padding-right: inherit !important;
   }
 }
+
+/* Estilos para scrollbar horizontal de attachments */
+.chat-input-attachments::-webkit-scrollbar {
+  height: 6px;
+}
+
+.chat-input-attachments::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chat-input-attachments::-webkit-scrollbar-thumb {
+  background-color: rgba(128, 128, 128, 0.3);
+  border-radius: 3px;
+}
+
+.chat-input-attachments::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(128, 128, 128, 0.5);
+}

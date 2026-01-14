@@ -34,7 +34,7 @@ export const Talkie: React.FC<TalkieProps> = ({ processAudio }) => {
     const analyser = audioContext.createAnalyser();
     analyser.fftSize = 256;
     const bufferLength = analyser.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
+    const dataArray = new Uint8Array(new ArrayBuffer(bufferLength));
     analyserRef.current = analyser;
     dataArrayRef.current = dataArray;
 
@@ -95,7 +95,7 @@ export const Talkie: React.FC<TalkieProps> = ({ processAudio }) => {
       }
       animationIdRef.current = requestAnimationFrame(animate); // Almacenar el ID de la animación
 
-      analyser.getByteFrequencyData(dataArray);
+      analyser.getByteFrequencyData(dataArray as Uint8Array<ArrayBuffer>);
 
       const step = Math.floor(dataArray.length / numBars);
 
