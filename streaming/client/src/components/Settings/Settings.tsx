@@ -611,23 +611,45 @@ const OrganizationCard = ({
           >
             <span className="flex items-center justify-center w-4 h-4 md:w-5 md:h-5 [&>svg]:w-4 [&>svg]:h-4 md:[&>svg]:w-5 md:[&>svg]:h-5">{SVGS.trash}</span>
           </button>
-          <OrganizationConfigModal organization={organization} />
+          <OrganizationConfigModal organization={organization} reload={reload} />
         </div>
       )}
     </div>
   );
 };
 
+const LogoPreview = ({ file }: { file: File }) => {
+  const [src, setSrc] = React.useState<string>("");
+  React.useEffect(() => {
+    const url = URL.createObjectURL(file);
+    setSrc(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+  return (
+    <img
+      src={src}
+      alt="Preview"
+      className="rounded"
+      style={{ width: 80, height: 80, objectFit: "cover" }}
+    />
+  );
+};
+
 const OrganizationConfigModal = ({
   organization,
+  reload,
 }: {
   organization: TOrganization;
+  reload: () => void;
 }) => {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = React.useState(false);
   const [innerOrganization, setInnerOrganization] =
     React.useState(organization);
   const [hoveredButton, setHoveredButton] = React.useState<string | null>(null);
+  const [logoFile, setLogoFile] = React.useState<File | null>(null);
+  const [deleteLogo, setDeleteLogo] = React.useState(false);
+  const logoInputRef = React.useRef<HTMLInputElement>(null);
 
   const [credentials, setCredentials] = React.useState(
     null as TOrganizationCredentials | null
@@ -637,6 +659,14 @@ const OrganizationConfigModal = ({
     if (!isOpen) return;
     getCredentials();
   }, [organization, isOpen]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setInnerOrganization(organization);
+      setLogoFile(null);
+      setDeleteLogo(false);
+    }
+  }, [isOpen, organization]);
 
   const getCredentials = async () => {
     const response = await getOrganizationCredentials(organization.id);
@@ -672,12 +702,16 @@ const OrganizationConfigModal = ({
   };
 
   const handleSave = async () => {
-    await updateOrganization(organization.id, innerOrganization);
-    if (!credentials) return;
-
-    await updateOrganizationCredentials(organization.id, credentials);
-
+    const options =
+      logoFile != null || deleteLogo
+        ? { logoFile: logoFile ?? undefined, deleteLogo }
+        : undefined;
+    await updateOrganization(organization.id, innerOrganization, options);
+    if (credentials) {
+      await updateOrganizationCredentials(organization.id, credentials);
+    }
     toast.success(t("organization-updated"));
+    reload();
     setIsOpen(false);
   };
 
@@ -708,6 +742,66 @@ const OrganizationConfigModal = ({
         }
       >
         <div className="flex-y gap-medium">
+          <h5>{t("organization-logo")}</h5>
+          <div className="d-flex align-center gap-medium flex-wrap">
+            {(organization.logo_url || innerOrganization.logo_url) && !deleteLogo && !logoFile ? (
+              <img
+                src={organization.logo_url || innerOrganization.logo_url || ""}
+                alt={organization.name}
+                className="rounded"
+                style={{ width: 80, height: 80, objectFit: "cover" }}
+              />
+            ) : logoFile ? (
+              <LogoPreview file={logoFile} />
+            ) : (
+              <div
+                className="rounded d-flex align-center justify-center text-secondary"
+                style={{
+                  width: 80,
+                  height: 80,
+                  background: "var(--bg-secondary-color, #222)",
+                  fontSize: "0.85rem",
+                }}
+              >
+                {t("no-logo")}
+              </div>
+            )}
+            <div className="d-flex gap-small flex-wrap">
+              <input
+                ref={logoInputRef}
+                type="file"
+                accept="image/*"
+                className="d-none"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) {
+                    setLogoFile(f);
+                    setDeleteLogo(false);
+                  }
+                  e.target.value = "";
+                }}
+              />
+              <button
+                type="button"
+                className="px-3 py-1.5 rounded-full text-xs md:text-sm cursor-pointer border bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]"
+                onClick={() => logoInputRef.current?.click()}
+              >
+                {t("change-logo")}
+              </button>
+              {((organization.logo_url || innerOrganization.logo_url) || logoFile) && !deleteLogo ? (
+                <button
+                  type="button"
+                  className="px-3 py-1.5 rounded-full text-xs md:text-sm cursor-pointer border border-red-500/50 text-red-400 hover:bg-red-500/20"
+                  onClick={() => {
+                    setDeleteLogo(true);
+                    setLogoFile(null);
+                  }}
+                >
+                  {t("remove-logo")}
+                </button>
+              ) : null}
+            </div>
+          </div>
           <h5>{t("organization-name")}</h5>
           <input
             type="text"

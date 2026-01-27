@@ -47,6 +47,20 @@ info "DJANGO: $DJANGO"
 info "INSTALL: $INSTALL"
 info "WATCH: $WATCH"
 
+# Load .env if present (so DJANGO_PORT, FASTAPI_PORT, etc. are available)
+if [[ -f .env ]]; then
+    set -a
+    source .env
+    set +a
+fi
+
+# Ports and Redis from env (defaults: Django 8000, FastAPI 8001, Redis 6379)
+DJANGO_PORT=${DJANGO_PORT:-8000}
+FASTAPI_PORT=${FASTAPI_PORT:-8001}
+REDIS_PORT=${REDIS_PORT:-6379}
+info "DJANGO_PORT: $DJANGO_PORT"
+info "FASTAPI_PORT: $FASTAPI_PORT"
+info "REDIS_PORT: $REDIS_PORT"
 
 # Activate virtual environment
 if [[ -f "venv/bin/activate" ]]; then
@@ -86,6 +100,18 @@ else
     exit 1
 fi
 
+# Start Redis container (FastAPI notifications, Celery)
+REDIS_CONTAINER=${REDIS_CONTAINER:-redis-instance}
+info "Checking Redis container..."
+if [[ "$(docker ps -aq -f name=$REDIS_CONTAINER)" ]]; then
+    info "Starting existing Redis container on port $REDIS_PORT..."
+    docker start $REDIS_CONTAINER || { error "Failed to start Redis container."; exit 1; }
+    success "Redis container started."
+else
+    info "Creating and running Redis container on port $REDIS_PORT..."
+    docker run --name $REDIS_CONTAINER -d -p "${REDIS_PORT}:6379" redis:alpine || { error "Failed to run Redis container."; exit 1; }
+    success "Redis container started."
+fi
 
 # Execute installation commands if the flag is true
 if [ "$INSTALL" = true ]; then
@@ -107,9 +133,9 @@ fi
 
 # Run Django application if the flag is true
 if [ "$DJANGO" = true ]; then
-    info "Running Django migrations and server..."
+    info "Running Django migrations and server on port $DJANGO_PORT..."
     python manage.py migrate || { error "Django migration failed"; exit 1; }
-    python manage.py runserver &
+    python manage.py runserver "0.0.0.0:$DJANGO_PORT" &
     DJANGO_PID=$!
 fi
 
@@ -127,8 +153,8 @@ fi
 # Wait a moment to ensure services are ready
 sleep 6
 
-# Run FastAPI application
-info "Starting FastAPI..."
-python main.py || { error "FastAPI failed to start"; exit 1; }
+# Run FastAPI application (reads FASTAPI_PORT from env)
+info "Starting FastAPI on port $FASTAPI_PORT..."
+FASTAPI_PORT=$FASTAPI_PORT python main.py || { error "FastAPI failed to start"; exit 1; }
 
 info "All services are up and running!"

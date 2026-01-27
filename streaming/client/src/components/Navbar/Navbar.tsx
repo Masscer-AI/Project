@@ -1,7 +1,11 @@
 import React from "react";
-// import "./Navbar.css";
 import { Link, useNavigate } from "react-router-dom";
 import { DEFAULT_ORGANIZATION_ID } from "../../modules/constants";
+import styles from "./Navbar.module.css";
+
+/** Logo: replace `streaming/client/public/assets/masscer.jpg` with your image,
+ *  or change the `src` below to another path (e.g. `assets/your-logo.png`). */
+const LOGO_SRC = "assets/masscer.jpg";
 
 export const Navbar = () => {
   const navigate = useNavigate();
@@ -12,28 +16,28 @@ export const Navbar = () => {
       : "/signup";
     navigate(signupUrl);
   };
-  
+
   return (
-    <nav
-      className="d-flex justify-between bg-hovered"
-      style={{ background: "#002F4D" }}
-    >
-      <section className="logo-container">
-        <img src="assets/masscer.jpg" />
-      </section>
-      <section className="d-flex align-center gap-small">
+    <nav className={styles.nav}>
+      <Link to="/" className={styles.logoLink} aria-label="Masscer home">
+        <img
+          src={LOGO_SRC}
+          alt="Masscer"
+          className={styles.logo}
+        />
+      </Link>
+      <div className={styles.actions}>
         <button
           type="button"
-          className="highlighted button bg-success text-black"
+          className={`${styles.btn} ${styles.btnPrimary}`}
           onClick={handleSignupClick}
-          style={{ textDecoration: "none", cursor: "pointer" }}
         >
           Signup
         </button>
-        <Link className="button" to={"/login"}>
+        <Link to="/login" className={`${styles.btn} ${styles.btnSecondary}`}>
           Login
         </Link>
-      </section>
+      </div>
     </nav>
   );
 };

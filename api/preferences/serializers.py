@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import UserPreferences
+from .models import UserPreferences, WebPage
 
 
 class UserPreferencesSerializer(serializers.ModelSerializer):
@@ -14,4 +14,17 @@ class UserPreferencesSerializer(serializers.ModelSerializer):
             "background_image_opacity",
             "theme",
             "multiagentic_modality",
+        ]
+
+
+class WebPageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WebPage
+        fields = [
+            "id",
+            "url",
+            "title",
+            "is_pinned",
+            "created_at",
+            "updated_at",
         ]

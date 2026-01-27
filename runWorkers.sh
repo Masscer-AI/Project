@@ -1,12 +1,22 @@
 #!/bin/bash
 
+# Load .env if present
+if [[ -f .env ]]; then
+    set -a
+    source .env
+    set +a
+fi
+
+REDIS_PORT=${REDIS_PORT:-6379}
+REDIS_CONTAINER=${REDIS_CONTAINER:-redis-instance}
+
 # Check if the container exists and start it if it does
-if [ $(docker ps -a -q -f name=redis-instance) ]; then
-    echo "Starting existing redis-instance container..."
-    docker start redis-instance
+if [[ "$(docker ps -a -q -f name=$REDIS_CONTAINER)" ]]; then
+    echo "Starting existing Redis container ($REDIS_CONTAINER) on port $REDIS_PORT..."
+    docker start $REDIS_CONTAINER
 else
-    echo "Running a new Redis container..."
-    docker run --name redis-instance -d -p 6379:6379 redis
+    echo "Running a new Redis container on port $REDIS_PORT..."
+    docker run --name $REDIS_CONTAINER -d -p "${REDIS_PORT}:6379" redis:alpine
 fi
 
 # Activate the virtual environment

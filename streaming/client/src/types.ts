@@ -101,6 +101,7 @@ export type TOrganization = {
   credentials: TOrganizationCredentials;
   can_manage?: boolean;
   is_owner?: boolean;
+  logo_url?: string | null;
 };
 
 export type TDocument = {
@@ -111,6 +112,15 @@ export type TDocument = {
   brief: string;
   chunk_count: number;
   chunk_set: any[];
+};
+
+export type TWebPage = {
+  id: number;
+  url: string;
+  title?: string;
+  is_pinned: boolean;
+  created_at: string;
+  updated_at: string;
 };
 
 export interface TConversationAlertRule {

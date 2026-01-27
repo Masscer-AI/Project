@@ -3,8 +3,8 @@ from django.http import JsonResponse
 from django.views import View
 from django.utils.decorators import method_decorator
 from api.authenticate.decorators.token_required import token_required
-from .models import UserPreferences, UserTags, UserVoices
-from .serializers import UserPreferencesSerializer
+from .models import UserPreferences, UserTags, UserVoices, WebPage
+from .serializers import UserPreferencesSerializer, WebPageSerializer
 from rest_framework import status
 from django.views.decorators.csrf import csrf_exempt
 from django.core.cache import cache
@@ -96,3 +96,73 @@ class UserVoicesView(View):
             user_voices.save()
 
         return JsonResponse(user_voices.voices, status=status.HTTP_200_OK, safe=False)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class WebPagesView(View):
+    def get(self, request):
+        pinned = request.GET.get("pinned")
+        pages = WebPage.objects.filter(user=request.user)
+        if pinned in ["true", "1", "yes"]:
+            pages = pages.filter(is_pinned=True)
+
+        serializer = WebPageSerializer(pages, many=True)
+        return JsonResponse(serializer.data, status=status.HTTP_200_OK, safe=False)
+
+    def post(self, request):
+        data = json.loads(request.body or "{}")
+        url = (data.get("url") or "").strip()
+        if not url:
+            return JsonResponse({"error": "url-required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        title = data.get("title")
+        is_pinned = data.get("is_pinned")
+
+        page = WebPage.objects.filter(user=request.user, url=url).first()
+        if page:
+            if title is not None:
+                page.title = title
+            if is_pinned is not None:
+                page.is_pinned = bool(is_pinned)
+            page.save()
+            serializer = WebPageSerializer(page)
+            return JsonResponse(serializer.data, status=status.HTTP_200_OK)
+
+        page = WebPage.objects.create(
+            user=request.user,
+            url=url,
+            title=title or "",
+            is_pinned=bool(is_pinned) if is_pinned is not None else False,
+        )
+        serializer = WebPageSerializer(page)
+        return JsonResponse(serializer.data, status=status.HTTP_201_CREATED)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class WebPageDetailView(View):
+    def patch(self, request, page_id):
+        page = WebPage.objects.filter(user=request.user, id=page_id).first()
+        if not page:
+            return JsonResponse({"error": "not-found"}, status=status.HTTP_404_NOT_FOUND)
+
+        data = json.loads(request.body or "{}")
+        if "url" in data:
+            page.url = data["url"]
+        if "title" in data:
+            page.title = data["title"] or ""
+        if "is_pinned" in data:
+            page.is_pinned = bool(data["is_pinned"])
+        page.save()
+
+        serializer = WebPageSerializer(page)
+        return JsonResponse(serializer.data, status=status.HTTP_200_OK)
+
+    def delete(self, request, page_id):
+        page = WebPage.objects.filter(user=request.user, id=page_id).first()
+        if not page:
+            return JsonResponse({"error": "not-found"}, status=status.HTTP_404_NOT_FOUND)
+
+        page.delete()
+        return JsonResponse({"deleted": True}, status=status.HTTP_200_OK)

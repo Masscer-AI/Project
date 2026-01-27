@@ -111,4 +111,5 @@ async def widget_loader(widget_token: str, request: Request):
     return Response(content=loader_script, media_type="application/javascript")
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="127.0.0.1", port=8001, reload=True)
+    port = int(os.getenv("FASTAPI_PORT", 8001))
+    uvicorn.run("main:app", host="127.0.0.1", port=port, reload=True)

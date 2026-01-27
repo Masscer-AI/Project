@@ -11,6 +11,7 @@ import {
   TAlertStats,
   TConversationAlertRule,
   TTag,
+  TWebPage,
 } from "../types";
 import { TReactionTemplate, TUserProfile } from "../types/chatTypes";
 import { TAgent } from "../types/agents";
@@ -746,6 +747,45 @@ export const generateDocumentBrief = async (documentId: string) => {
   });
 };
 
+type TCreateWebPagePayload = {
+  url: string;
+  title?: string;
+  is_pinned?: boolean;
+};
+
+type TUpdateWebPagePayload = Partial<TCreateWebPagePayload>;
+
+export const getWebPages = async (pinned?: boolean) => {
+  const params = pinned ? "?pinned=true" : "";
+  return makeAuthenticatedRequest<TWebPage[]>(
+    "GET",
+    `/v1/preferences/webpages/${params}`
+  );
+};
+
+export const createWebPage = async (data: TCreateWebPagePayload) => {
+  return makeAuthenticatedRequest<TWebPage>(
+    "POST",
+    "/v1/preferences/webpages/",
+    data
+  );
+};
+
+export const updateWebPage = async (id: number, data: TUpdateWebPagePayload) => {
+  return makeAuthenticatedRequest<TWebPage>(
+    "PATCH",
+    `/v1/preferences/webpages/${id}/`,
+    data
+  );
+};
+
+export const deleteWebPage = async (id: number) => {
+  return makeAuthenticatedRequest<{ deleted: boolean }>(
+    "DELETE",
+    `/v1/preferences/webpages/${id}/`
+  );
+};
+
 type TGenerateVideoData = {
   prompt: string;
   image_b64: string;
@@ -764,6 +804,12 @@ export type TOrganizationData = {
   name: string;
   description: string;
 };
+
+export type TUpdateOrganizationOptions = {
+  logoFile?: File | null;
+  deleteLogo?: boolean;
+};
+
 export const createOrganization = async (data: TOrganizationData) => {
   return makeAuthenticatedRequest("POST", "/v1/auth/organizations/", data);
 };
@@ -795,8 +841,24 @@ export const updateOrganizationCredentials = async (
 
 export const updateOrganization = async (
   organizationId: string,
-  data: TOrganizationData
+  data: TOrganizationData,
+  options?: TUpdateOrganizationOptions
 ) => {
+  const hasLogoChange = options?.logoFile != null || options?.deleteLogo === true;
+  if (hasLogoChange) {
+    const formData = new FormData();
+    formData.append("name", data.name ?? "");
+    formData.append("description", data.description ?? "");
+    formData.append("delete_logo", options?.deleteLogo === true ? "true" : "false");
+    if (options?.logoFile) {
+      formData.append("logo", options.logoFile);
+    }
+    return makeAuthenticatedRequest(
+      "PUT",
+      `/v1/auth/organizations/${organizationId}/`,
+      formData
+    );
+  }
   return makeAuthenticatedRequest(
     "PUT",
     `/v1/auth/organizations/${organizationId}/`,

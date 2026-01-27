@@ -16,43 +16,8 @@
 }
 
 .svg-button:hover:not(:disabled) {
-  background-color: white;
-  border-color: white;
-}
-
-.svg-button:hover:not(:disabled) svg.set-stroke path,
-.svg-button:hover:not(:disabled) svg.set-fill path {
-  stroke: #000000 !important;
-  fill: #000000 !important;
-}
-
-.svg-button:hover:not(:disabled) svg.set-svg-fill {
-  fill: #000000 !important;
-}
-
-.svg-button:hover:not(:disabled) svg path {
-  stroke: #000000 !important;
-  fill: #000000 !important;
-}
-
-.svg-button:hover:not(:disabled) svg circle,
-.svg-button:hover:not(:disabled) svg rect,
-.svg-button:hover:not(:disabled) svg polygon,
-.svg-button:hover:not(:disabled) svg polyline,
-.svg-button:hover:not(:disabled) svg line,
-.svg-button:hover:not(:disabled) svg ellipse {
-  stroke: #000000 !important;
-  fill: #000000 !important;
-}
-
-.svg-button:hover:not(:disabled) svg * {
-  stroke: #000000 !important;
-  fill: #000000 !important;
-  color: #000000 !important;
-}
-
-.svg-button:hover:not(:disabled) p {
-  color: #000000 !important;
+  background-color: var(--bg-contrast-color);
+  border-color: var(--bg-contrast-color);
 }
 
 

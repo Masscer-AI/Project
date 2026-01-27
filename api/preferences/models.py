@@ -54,3 +54,19 @@ class UserVoices(models.Model):
 
     def __str__(self):
         return f"UserVoices for {self.user.username}"
+
+
+class WebPage(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="web_pages")
+    url = models.URLField(max_length=2048)
+    title = models.CharField(max_length=255, blank=True)
+    is_pinned = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ("user", "url")
+        ordering = ["-is_pinned", "-created_at"]
+
+    def __str__(self):
+        return f"WebPage for {self.user.username}: {self.url}"

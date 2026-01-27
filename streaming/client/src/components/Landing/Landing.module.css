@@ -1,25 +1,243 @@
 .landingComponent {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  background-image: url("./landing.png");
-  background-size: cover;
-  background-position: center;
-  padding: 10px;
-  padding-top: 50px;
-  min-height: 50vh;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+  background: #0a0a0a;
+  padding: 60px 20px;
+  min-height: 70vh;
+  overflow: hidden;
+}
 
-  > section {
-    width: 80%;
+.heroContent {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 900px;
+  text-align: center;
+  animation: fadeInUp 0.8s ease-out;
+}
+
+.heroTitle {
+  font-size: clamp(2.5rem, 5vw, 4.5rem);
+  font-weight: 700;
+  line-height: 1.2;
+  color: #fff;
+  margin-bottom: 24px;
+  letter-spacing: -0.02em;
+}
+
+.highlight {
+  color: #fff;
+  font-weight: 800;
+}
+
+.heroSubtitle {
+  font-size: clamp(1.1rem, 2vw, 1.4rem);
+  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.7);
+  max-width: 800px;
+  margin: 0 auto;
+  font-weight: 400;
+}
+
+.carouselContainer {
+  padding: 80px 20px;
+  background: #0a0a0a;
+  min-height: 50vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.carouselWrapper {
+  width: 100%;
+  max-width: 1000px;
+  position: relative;
+}
+
+.carousel {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #111;
+  border: 1px solid #222;
+}
+
+.carouselContent {
+  display: flex;
+  transition: transform 0.5s ease;
+  will-change: transform;
+  width: 100%;
+}
+
+.carouselSlide {
+  min-width: 100%;
+  width: 100%;
+  flex-shrink: 0;
+  padding: 60px 40px;
+  box-sizing: border-box;
+}
+
+.featureCard {
+  text-align: center;
+  padding: 40px;
+  background: #111;
+  border-radius: 12px;
+  border: 1px solid #222;
+  transition: border-color 0.2s ease, background 0.2s ease;
+  animation: fadeIn 0.5s ease-out;
+}
+
+.featureCard:hover {
+  background: #141414;
+  border-color: #333;
+}
+
+.featureIcon {
+  font-size: 3.5rem;
+  margin-bottom: 20px;
+  display: inline-block;
+  opacity: 0.9;
+}
+
+.featureTitle {
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 16px;
+}
+
+.featureDescription {
+  font-size: clamp(1rem, 1.5vw, 1.15rem);
+  line-height: 1.8;
+  color: rgba(255, 255, 255, 0.65);
+  margin-bottom: 24px;
+  max-width: 700px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.featureList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 24px;
+}
+
+.featureTag {
+  padding: 8px 16px;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.featureTag:hover {
+  background: #222;
+  border-color: #444;
+}
+
+.carouselIndicators {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 28px;
+}
+
+.indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px solid #444;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0;
+}
+
+.indicator:hover {
+  border-color: #666;
+  background: #333;
+}
+
+.indicatorActive {
+  background: #fff;
+  border-color: #fff;
+  width: 28px;
+  border-radius: 5px;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
-/* Media query to devices more than 500px */
-@media (min-width: 500px) {
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 768px) {
   .landingComponent {
-    padding-top: 100px;
-    > section {
-      width: 50%;
-    }
+    min-height: 60vh;
+    padding: 40px 15px;
+  }
+
+  .heroContent {
+    max-width: 100%;
+  }
+
+  .carouselSlide {
+    padding: 40px 20px;
+  }
+
+  .featureCard {
+    padding: 30px 20px;
+  }
+
+  .featureIcon {
+    font-size: 3rem;
+  }
+
+  .featureList {
+    gap: 8px;
+  }
+
+  .featureTag {
+    padding: 6px 14px;
+    font-size: 0.85rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .landingComponent {
+    min-height: 50vh;
+    padding: 30px 10px;
+  }
+
+  .carouselSlide {
+    padding: 30px 15px;
+  }
+
+  .featureCard {
+    padding: 25px 15px;
   }
 }

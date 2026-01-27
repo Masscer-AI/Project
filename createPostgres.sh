@@ -4,17 +4,19 @@ set -o errexit
 
 # Function to show usage
 usage() {
-    echo "Usage: $0 -u <username> -p <password> -d <database_name>"
+    echo "Usage: $0 -u <username> -p <password> -d <database_name> [-e <postgres_port>]"
+    echo "  -u  Username (required)"
+    echo "  -p  Password (required)"
+    echo "  -d  Database name (required)"
+    echo "  -e  PostgreSQL port/endpoint (optional, default: 5432)"
     exit 1
 }
 
-# Check if arguments are provided
-if [ "$#" -ne 6 ]; then
-    usage
-fi
+# Default PostgreSQL port
+PG_PORT=5432
 
 # Parse arguments
-while getopts ":u:p:d:" opt; do
+while getopts ":u:p:d:e:" opt; do
     case $opt in
         u) USER="$OPTARG"
         ;;
@@ -22,13 +24,15 @@ while getopts ":u:p:d:" opt; do
         ;;
         d) DB_NAME="$OPTARG"
         ;;
+        e) PG_PORT="$OPTARG"
+        ;;
         \?) echo "Invalid option -$OPTARG" >&2
             usage
         ;;
     esac
 done
 
-# Check that arguments are not empty
+# Check that required arguments are not empty
 if [[ -z "$USER" || -z "$PASSWORD" || -z "$DB_NAME" ]]; then
     usage
 fi
@@ -49,22 +53,53 @@ adjust_path_for_docker() {
 }
 
 # Check if PostgreSQL container already exists
+CONTAINER_EXISTS=false
+EXISTING_PORT=""
 if docker ps -a --format '{{.Names}}' | grep -q "^postgres_container\$"; then
-    echo "PostgreSQL container already exists. Starting the container..."
+    CONTAINER_EXISTS=true
+    # Check what port the existing container is using (works even if container is stopped)
+    EXISTING_PORT=$(docker inspect postgres_container --format='{{(index (index .NetworkSettings.Ports "5432/tcp") 0).HostPort}}' 2>/dev/null || echo "")
+fi
+
+if [ "$CONTAINER_EXISTS" = true ] && [ "$EXISTING_PORT" = "$PG_PORT" ]; then
+    echo "PostgreSQL container already exists on port $PG_PORT. Starting the container..."
     docker start postgres_container
+elif [ "$CONTAINER_EXISTS" = true ] && [ "$EXISTING_PORT" != "$PG_PORT" ]; then
+    echo "PostgreSQL container exists but on different port ($EXISTING_PORT). Recreating on port $PG_PORT..."
+    # Stop and remove PgBouncer if it exists (it's linked to postgres_container)
+    if docker ps -a --format '{{.Names}}' | grep -q "^pgbouncer_container\$"; then
+        echo "Stopping and removing PgBouncer container (will be recreated)..."
+        docker stop pgbouncer_container 2>/dev/null || true
+        docker rm pgbouncer_container 2>/dev/null || true
+    fi
+    docker stop postgres_container 2>/dev/null || true
+    docker rm postgres_container 2>/dev/null || true
+    # Pull PostgreSQL image
+    echo "Pulling PostgreSQL image..."
+    docker pull postgres:latest
+
+    # Create and run the PostgreSQL container
+    echo "Creating and running PostgreSQL container on port $PG_PORT..."
+    docker run -d \
+        --name postgres_container \
+        -e POSTGRES_DB="$DB_NAME" \
+        -e POSTGRES_USER="$USER" \
+        -e POSTGRES_PASSWORD="$PASSWORD" \
+        -p "$PG_PORT:5432" \
+        postgres:latest
 else
     # Pull PostgreSQL image
     echo "Pulling PostgreSQL image..."
     docker pull postgres:latest
 
     # Create and run the PostgreSQL container
-    echo "Creating and running PostgreSQL container..."
+    echo "Creating and running PostgreSQL container on port $PG_PORT..."
     docker run -d \
         --name postgres_container \
         -e POSTGRES_DB="$DB_NAME" \
         -e POSTGRES_USER="$USER" \
         -e POSTGRES_PASSWORD="$PASSWORD" \
-        -p 5432:5432 \
+        -p "$PG_PORT:5432" \
         postgres:latest
 fi
 
@@ -123,6 +158,7 @@ else
         edoburu/pgbouncer:latest
 fi
 
-# Print connection string
-echo "PostgreSQL and PgBouncer are running. Connection string:"
-echo "postgres://$USER:$PASSWORD@localhost:6432/$DB_NAME"
+# Print connection strings
+echo "PostgreSQL and PgBouncer are running."
+echo "PostgreSQL (direct): postgres://$USER:$PASSWORD@localhost:$PG_PORT/$DB_NAME"
+echo "PgBouncer: postgres://$USER:$PASSWORD@localhost:6432/$DB_NAME"

@@ -1,5 +1,5 @@
 .root-page {
-  background-color: var(--root-bg-color);
-  padding: 5px;
+  background-color: #0a0a0a;
+  padding: 0;
   min-height: 100vh;
 }
