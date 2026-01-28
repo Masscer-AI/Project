@@ -588,6 +588,16 @@ const OrganizationCard = ({
 
   return (
     <div className="bg-black/95 backdrop-blur-md border border-gray-700 rounded-2xl p-6 flex flex-col gap-4 shadow-lg">
+      {organization.logo_url && (
+        <div className="flex justify-center">
+          <img
+            src={organization.logo_url}
+            alt={organization.name}
+            className="rounded"
+            style={{ width: 80, height: 80, objectFit: "cover" }}
+          />
+        </div>
+      )}
       <h3 className="text-center text-white font-bold">{organization.name}</h3>
       {organization.description && (
         <p className="text-center text-gray-300">{organization.description}</p>
@@ -702,17 +712,49 @@ const OrganizationConfigModal = ({
   };
 
   const handleSave = async () => {
-    const options =
-      logoFile != null || deleteLogo
-        ? { logoFile: logoFile ?? undefined, deleteLogo }
-        : undefined;
-    await updateOrganization(organization.id, innerOrganization, options);
-    if (credentials) {
-      await updateOrganizationCredentials(organization.id, credentials);
+    try {
+      // Build options for logo changes
+      let options: { logoFile?: File; deleteLogo: boolean } | undefined;
+      
+      if (logoFile) {
+        // New logo file selected
+        options = { logoFile, deleteLogo: false };
+        console.log("📤 Uploading new logo:", logoFile.name, logoFile.size, "bytes");
+      } else if (deleteLogo) {
+        // Delete existing logo
+        options = { deleteLogo: true };
+        console.log("🗑️ Deleting logo");
+      } else {
+        // No logo changes
+        console.log("ℹ️ No logo changes");
+      }
+      
+      console.log("📝 Saving organization:", {
+        id: organization.id,
+        name: innerOrganization.name,
+        hasLogoFile: !!logoFile,
+        deleteLogo,
+        options,
+      });
+      
+      const result = await updateOrganization(organization.id, innerOrganization, options);
+      console.log("✅ Update response:", result);
+      
+      if (credentials) {
+        await updateOrganizationCredentials(organization.id, credentials);
+      }
+      
+      toast.success(t("organization-updated"));
+      
+      // Close modal and reload
+      setIsOpen(false);
+      setLogoFile(null);
+      setDeleteLogo(false);
+      await reload();
+    } catch (error) {
+      console.error("❌ Error saving organization:", error);
+      toast.error(t("error-updating-organization"));
     }
-    toast.success(t("organization-updated"));
-    reload();
-    setIsOpen(false);
   };
 
   const [hoveredEdit, setHoveredEdit] = React.useState(false);

@@ -241,37 +241,8 @@ class Organization(models.Model):
         return pytz.timezone(self.timezone)
     
     def save(self, *args, **kwargs):
-        """Redimensiona el logo si es necesario al guardar y maneja eliminación"""
-        # Guardar referencia al logo anterior antes de guardar
-        old_logo = None
-        if self.pk:
-            try:
-                old_instance = Organization.objects.get(pk=self.pk)
-                old_logo = old_instance.logo if old_instance.logo else None
-            except Organization.DoesNotExist:
-                pass
-        
+        """Guarda la organización. La gestión del logo se hace en la vista."""
         super().save(*args, **kwargs)
-        
-        # Si se eliminó el logo (ahora es None pero antes existía)
-        if old_logo and not self.logo:
-            old_logo.delete(save=False)
-        # Si se cambió el logo (el nombre del archivo es diferente)
-        elif old_logo and self.logo and old_logo.name != self.logo.name:
-            old_logo.delete(save=False)
-        
-        # Redimensionar el nuevo logo si existe
-        if self.logo:
-            try:
-                img = Image.open(self.logo.path)
-                # Redimensionar a 500x500 manteniendo aspecto
-                if img.height > 500 or img.width > 500:
-                    output_size = (500, 500)
-                    img.thumbnail(output_size, Image.Resampling.LANCZOS)
-                    img.save(self.logo.path)
-            except Exception:
-                # Si es SVG o hay error, continuar sin redimensionar
-                pass
 
 
 class CredentialsManager(models.Model):

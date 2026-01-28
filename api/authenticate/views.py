@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser, JSONParser, FormParser
 from django.http import JsonResponse
+from django.http.multipartparser import MultiPartParser, MultiPartParserError
 from django.contrib.auth import authenticate, login
 from .serializers import (
     SignupSerializer,
@@ -270,6 +271,8 @@ class OrganizationView(View):
             return JsonResponse({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
     def put(self, request, organization_id):
+        # Use print statements to ensure logs show in dev server output
+        
         organization = Organization.objects.get(id=organization_id)
         if organization.owner != request.user:
             return JsonResponse(
@@ -277,110 +280,137 @@ class OrganizationView(View):
                 status=status.HTTP_403_FORBIDDEN,
             )
         
-        # Verificar permisos para gestionar logo y nombre (feature flag)
+        # Verificar permisos
         can_manage = self._can_manage_logo(request.user, organization)
-        # Los owners siempre pueden gestionar, independientemente de la feature flag
         is_owner = organization.owner == request.user
+        
+        # DEBUG: Log request info
+        print(f"=== PUT Organization {organization_id} ===")
+        print(f"Content-Type: {request.content_type}")
+        print(f"is_owner: {is_owner}, can_manage: {can_manage}")
         
         # Manejar datos JSON o multipart
         if request.content_type and 'multipart/form-data' in request.content_type:
-            data = request.POST.dict()
-            logo_file = request.FILES.get('logo')
+            # Django no parsea multipart en PUT, hay que hacerlo manualmente
+            try:
+                parser = MultiPartParser(request.META, request, request.upload_handlers)
+                data, files = parser.parse()
+                data = data.dict()
+                logo_file = files.get('logo')
+            except MultiPartParserError as e:
+                print(f"Multipart parse error: {e}")
+                data = request.POST.dict()
+                logo_file = request.FILES.get('logo')
+                files = request.FILES
             delete_logo = data.get('delete_logo') == 'true'
+            print(f"Multipart data: {data}")
+            print(f"Files: {list(files.keys())}")
         else:
             data = json.loads(request.body)
             logo_file = None
             delete_logo = data.get('delete_logo', False)
+            print(f"JSON data: {data}")
         
-        # Verificar si es owner (los owners siempre pueden gestionar)
-        is_owner = organization.owner == request.user
+        print(f"delete_logo={delete_logo} (type: {type(delete_logo)}), has_logo_file={logo_file is not None}")
         
-        # Verificar si se intenta modificar el nombre sin permisos (solo si no es owner)
+        # Verificar permisos para nombre
         if 'name' in data and data.get('name') != organization.name:
             if not (is_owner or can_manage):
                 return JsonResponse(
-                    {"error": "You don't have permission to modify organization name. You must be the owner or have the 'manage-organization' feature flag."},
+                    {"error": "You don't have permission to modify organization name."},
                     status=status.HTTP_403_FORBIDDEN,
                 )
         
-        # Si se intenta modificar o eliminar el logo sin permisos (solo si no es owner)
+        # Verificar permisos para logo
         if (logo_file or delete_logo) and not (is_owner or can_manage):
             return JsonResponse(
-                {"error": "You don't have permission to modify organization logo. You must be the owner or have the 'manage-organization' feature flag."},
+                {"error": "You don't have permission to modify organization logo."},
                 status=status.HTTP_403_FORBIDDEN,
             )
         
-        # Guardar referencia al logo anterior ANTES de cualquier cambio
-        old_logo = organization.logo
+        # Guardar la ruta del logo anterior ANTES de cualquier cambio
+        old_logo_path = None
+        old_logo_name = None
+        if organization.logo and organization.logo.name:
+            old_logo_name = organization.logo.name
+            try:
+                old_logo_path = organization.logo.path
+                print(f"Old logo: name={old_logo_name}, path={old_logo_path}")
+            except Exception as e:
+                print(f"Error getting logo path: {e}")
         
-        # Si se solicita eliminar el logo
+        # Actualizar campos de texto (name, description)
+        if 'name' in data and (is_owner or can_manage):
+            organization.name = data['name']
+        if 'description' in data:
+            organization.description = data.get('description', '')
+        
+        # Manejar cambios de logo
         if delete_logo:
-            if old_logo:
-                # Eliminar el archivo del sistema de archivos
-                old_logo.delete(save=False)
-                organization.logo = None
-                organization.save()
+            print(f">>> DELETING LOGO for organization {organization_id}")
             
-            # Actualizar otros campos si se enviaron (excepto nombre si no tiene permisos)
-            update_data = data.copy()
-            if 'name' in update_data and not (is_owner or can_manage):
-                # Remover nombre de los datos si no tiene permisos para cambiarlo
-                update_data.pop('name')
+            # Eliminar el archivo del disco
+            if old_logo_path:
+                if os.path.exists(old_logo_path):
+                    try:
+                        os.remove(old_logo_path)
+                        print(f"Deleted file from disk: {old_logo_path}")
+                    except OSError as e:
+                        print(f"Failed to delete file {old_logo_path}: {e}")
+                else:
+                    print(f"File not found on disk: {old_logo_path}")
             
-            serializer = OrganizationSerializer(
-                organization,
-                data=update_data,
-                partial=True,
-                context={'request': request}
-            )
-            if serializer.is_valid():
-                organization = serializer.save()
-                response_serializer = OrganizationSerializer(
-                    organization,
-                    context={'request': request}
-                )
-                response_data = response_serializer.data
-                response_data["message"] = "Logo deleted successfully" if old_logo else "Organization updated successfully"
-                return JsonResponse(
-                    response_data,
-                    status=status.HTTP_200_OK,
-                )
-            return JsonResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            # Limpiar el campo en el modelo
+            print(f"Before: organization.logo = {organization.logo}")
+            organization.logo = None
+            print(f"After setting None: organization.logo = {organization.logo}")
+            
+            # Guardar con update_fields para asegurar que solo se actualiza el logo
+            organization.save(update_fields=['logo', 'name', 'description', 'updated_at'])
+            print(f"After save: organization.logo = {organization.logo}")
+            
+            # Verificar en la base de datos
+            org_from_db = Organization.objects.get(id=organization_id)
+            print(f"From DB: logo = {org_from_db.logo}, logo.name = {org_from_db.logo.name if org_from_db.logo else 'None'}")
         
-        # Remover nombre de los datos si no tiene permisos para cambiarlo
-        update_data = data.copy()
-        if 'name' in update_data and not (is_owner or can_manage) and update_data.get('name') != organization.name:
-            update_data.pop('name')
+        elif logo_file:
+            print(f">>> UPLOADING NEW LOGO: {logo_file.name}, size={logo_file.size}")
+            
+            # Eliminar el archivo anterior del disco
+            if old_logo_path and os.path.exists(old_logo_path):
+                try:
+                    os.remove(old_logo_path)
+                    print(f"Deleted old file: {old_logo_path}")
+                except OSError as e:
+                    print(f"Failed to delete old file: {e}")
+            
+            # Asignar el nuevo logo directamente
+            organization.logo = logo_file
+            organization.save()
+            print(f"New logo saved: {organization.logo.name if organization.logo else 'None'}")
         
-        serializer = OrganizationSerializer(
-            organization, 
-            data=update_data, 
-            partial=True,
+        else:
+            print(">>> No logo changes, updating text fields only")
+            organization.save()
+        
+        # Refrescar desde la base de datos
+        organization.refresh_from_db()
+        print(f"After refresh_from_db: logo = {organization.logo.name if organization.logo else 'None'}")
+        
+        response_serializer = OrganizationSerializer(
+            organization,
             context={'request': request}
         )
+        response_data = response_serializer.data
+        response_data["message"] = "Organization updated successfully"
         
-        if serializer.is_valid():
-            organization = serializer.save()
-            
-            # Si hay nuevo archivo de logo, reemplazar el anterior
-            if logo_file:
-                # Eliminar logo anterior si existe (del sistema de archivos)
-                if old_logo:
-                    old_logo.delete(save=False)
-                organization.logo = logo_file
-                organization.save()
-            
-            response_serializer = OrganizationSerializer(
-                organization,
-                context={'request': request}
-            )
-            response_data = response_serializer.data
-            response_data["message"] = "Organization updated successfully"
-            return JsonResponse(
-                response_data,
-                status=status.HTTP_200_OK,
-            )
-        return JsonResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        print(f"Response logo_url: {response_data.get('logo_url')}")
+        print("=== END PUT Organization ===")
+        
+        return JsonResponse(
+            response_data,
+            status=status.HTTP_200_OK,
+        )
 
 
 @method_decorator(csrf_exempt, name="dispatch")

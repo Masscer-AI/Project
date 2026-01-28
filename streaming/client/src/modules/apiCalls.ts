@@ -89,9 +89,7 @@ export const makeAuthenticatedRequest = async <T>(
     url: `${API_URL}/${endpoint}`,
     headers: {
       Authorization: `${tokenType} ${token}`,
-      ...(data instanceof FormData
-        ? { "Content-Type": "multipart/form-data" }
-        : {}),
+      // DON'T set Content-Type for FormData - axios sets it automatically with the correct boundary
     },
     data,
   };
@@ -806,7 +804,7 @@ export type TOrganizationData = {
 };
 
 export type TUpdateOrganizationOptions = {
-  logoFile?: File | null;
+  logoFile?: File;
   deleteLogo?: boolean;
 };
 
@@ -843,23 +841,51 @@ export const updateOrganization = async (
   organizationId: string,
   data: TOrganizationData,
   options?: TUpdateOrganizationOptions
-) => {
-  const hasLogoChange = options?.logoFile != null || options?.deleteLogo === true;
-  if (hasLogoChange) {
+): Promise<TOrganization> => {
+  // Determine if we need to send FormData (for file upload or delete)
+  const hasLogoFile = options?.logoFile instanceof File;
+  const shouldDeleteLogo = options?.deleteLogo === true;
+  const needsFormData = hasLogoFile || shouldDeleteLogo;
+  
+  console.log("🔄 updateOrganization:", {
+    organizationId,
+    name: data.name,
+    hasLogoFile,
+    shouldDeleteLogo,
+    needsFormData,
+    logoFileName: options?.logoFile?.name,
+  });
+  
+  if (needsFormData) {
     const formData = new FormData();
     formData.append("name", data.name ?? "");
     formData.append("description", data.description ?? "");
-    formData.append("delete_logo", options?.deleteLogo === true ? "true" : "false");
-    if (options?.logoFile) {
+    formData.append("delete_logo", shouldDeleteLogo ? "true" : "false");
+    
+    if (hasLogoFile && options.logoFile) {
       formData.append("logo", options.logoFile);
+      console.log("📎 Added logo to FormData:", options.logoFile.name, options.logoFile.size, "bytes");
     }
-    return makeAuthenticatedRequest(
+    
+    // Debug: log all FormData entries
+    console.log("📦 FormData contents:");
+    for (const [key, value] of formData.entries()) {
+      if (value instanceof File) {
+        console.log(`  ${key}: File("${value.name}", ${value.size} bytes, ${value.type})`);
+      } else {
+        console.log(`  ${key}: "${value}"`);
+      }
+    }
+    
+    return makeAuthenticatedRequest<TOrganization>(
       "PUT",
       `/v1/auth/organizations/${organizationId}/`,
       formData
     );
   }
-  return makeAuthenticatedRequest(
+  
+  // No logo changes, send JSON
+  return makeAuthenticatedRequest<TOrganization>(
     "PUT",
     `/v1/auth/organizations/${organizationId}/`,
     data
