@@ -30,7 +30,7 @@ export type TPlugin = {
 
 export type TSpecifiedUrl = {
   url: string;
-  content: string;
+  content?: string;
 };
 
 export type Store = {

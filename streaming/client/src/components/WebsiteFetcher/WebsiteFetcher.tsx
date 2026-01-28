@@ -49,10 +49,8 @@ export const WebsiteFetcher = ({
   // Load existing URLs from store when modal opens
   useEffect(() => {
     if (!isOpen) {
-      // Reset local state when modal closes
-      setFetchedUrls([]);
+      // Reset transient input on close
       setUrlInput("");
-      setSelectedUrls([]);
       hasInitializedRef.current = false;
       return;
     }
@@ -62,16 +60,16 @@ export const WebsiteFetcher = ({
     }
 
     const existing = chatState.specifiedUrls || [];
-    if (existing.length > 0) {
-      setFetchedUrls(
-        existing.map((item) => ({
-          url: item.url,
-          content: item.content,
-          status: item.content ? "success" : "pending",
-        }))
-      );
-      setSelectedUrls(existing.map((item) => item.url));
-    }
+      if (existing.length > 0) {
+        setFetchedUrls(
+          existing.map((item) => ({
+            url: item.url,
+            content: item.content ?? "",
+            status: item.content ? "success" : "pending",
+          }))
+        );
+        setSelectedUrls(existing.map((item) => item.url));
+      }
     loadSavedPages();
     hasInitializedRef.current = true;
   }, [isOpen]);
@@ -86,14 +84,13 @@ export const WebsiteFetcher = ({
   };
 
   useEffect(() => {
-    const selected = fetchedUrls
-      .filter(
-        (f) =>
-          f.status === "success" &&
-          f.content.trim().length > 0 &&
-          selectedUrls.includes(f.url)
-      )
-      .map<TSpecifiedUrl>((f) => ({ url: f.url, content: f.content }));
+    const selected = selectedUrls.map<TSpecifiedUrl>((url) => {
+      const fetched = fetchedUrls.find((item) => item.url === url);
+      return {
+        url,
+        content: fetched?.content,
+      };
+    });
     setSpecifiedUrls(selected);
   }, [fetchedUrls, selectedUrls, setSpecifiedUrls]);
 

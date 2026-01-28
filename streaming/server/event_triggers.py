@@ -302,8 +302,7 @@ async def on_message_handler(socket_id, data, **kwargs):
             "generation_status",
             {
                 "message": "generating-response-with",
-                # "extra": f" {m.get("name", "unknown")} {m.get("llm", {}).get("slug", "unknown")}",
-                "extra": f"Hello World",
+                "extra": f"{m.get('name', 'unknown')} {m.get('llm', {}).get('slug', 'unknown')}",
             },
             to=socket_id,
         )
