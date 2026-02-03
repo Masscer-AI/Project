@@ -18,9 +18,17 @@ from .serializers import (
     BigOrganizationSerializer,
     FeatureFlagStatusResponseSerializer,
     TeamFeatureFlagsResponseSerializer,
-    PublicOrganizationSerializer
+    PublicOrganizationSerializer,
+    OrganizationMemberSerializer,
+    RoleSerializer,
+    RoleCreateUpdateSerializer,
+    RoleAssignmentSerializer,
+    RoleAssignmentCreateSerializer,
 )
-from .models import Token, Organization, UserProfile, CredentialsManager
+from .models import Token, Organization, UserProfile, CredentialsManager, Role, RoleAssignment, FeatureFlag
+from django.contrib.auth.models import User
+from django.utils import timezone
+from django.db.models import Q
 from .services import FeatureFlagService
 from .tasks import generate_organization_logo
 from rest_framework.permissions import AllowAny
@@ -64,7 +72,9 @@ class SignupAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        serializer = PublicOrganizationSerializer(organization)
+        serializer = PublicOrganizationSerializer(
+            organization, context={"request": request}
+        )
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request):
@@ -439,6 +449,240 @@ class OrganizationCredentialsView(View):
                 status=status.HTTP_200_OK,
             )
         return JsonResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+def _can_manage_organization(user, organization):
+    """Return True if user is owner or has manage-organization feature flag."""
+    if organization.owner_id == user.id:
+        return True
+    return FeatureFlagService.is_feature_enabled(
+        feature_flag_name="manage-organization",
+        organization=organization,
+        user=user,
+    )
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class OrganizationMembersView(View):
+    """List organization members (owner + users with profile.organization set)."""
+
+    def get(self, request, organization_id):
+        try:
+            organization = Organization.objects.get(id=organization_id)
+        except Organization.DoesNotExist:
+            return JsonResponse(
+                {"error": "Organization not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if not _can_manage_organization(request.user, organization):
+            return JsonResponse(
+                {"error": "You do not have permission to view this organization's members"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        owner = organization.owner
+        owner_profile = getattr(owner, "profile", None)
+        today = timezone.now().date()
+        active_assignments = RoleAssignment.objects.filter(
+            organization=organization,
+            from_date__lte=today,
+        ).filter(
+            Q(to_date__isnull=True) | Q(to_date__gte=today)
+        ).select_related("role", "user").order_by("from_date")
+        user_to_role = {}
+        for a in active_assignments:
+            if a.user_id not in user_to_role:
+                user_to_role[a.user_id] = {
+                    "id": str(a.role_id),
+                    "name": a.role.name,
+                    "assignment_id": str(a.id),
+                }
+
+        members_data = [
+            {
+                "id": owner.id,
+                "email": owner.email or "",
+                "username": owner.username or "",
+                "profile_name": (owner_profile.name if owner_profile and owner_profile.name else "") or "",
+                "is_owner": True,
+                "current_role": user_to_role.get(owner.id),
+            }
+        ]
+        seen_ids = {owner.id}
+
+        for profile in UserProfile.objects.filter(organization=organization).select_related("user"):
+            user = profile.user
+            if user.id in seen_ids:
+                continue
+            seen_ids.add(user.id)
+            members_data.append({
+                "id": user.id,
+                "email": user.email or "",
+                "username": user.username or "",
+                "profile_name": (profile.name or "").strip(),
+                "is_owner": False,
+                "current_role": user_to_role.get(user.id),
+            })
+
+        serializer = OrganizationMemberSerializer(members_data, many=True)
+        return JsonResponse(serializer.data, safe=False)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class OrganizationRolesView(View):
+    """List and create roles for an organization."""
+
+    def get(self, request, organization_id):
+        try:
+            organization = Organization.objects.get(id=organization_id)
+        except Organization.DoesNotExist:
+            return JsonResponse({"error": "Organization not found"}, status=status.HTTP_404_NOT_FOUND)
+        if not _can_manage_organization(request.user, organization):
+            return JsonResponse({"error": "You do not have permission to manage roles"}, status=status.HTTP_403_FORBIDDEN)
+        roles = Role.objects.filter(organization=organization).order_by("name")
+        serializer = RoleSerializer(roles, many=True)
+        return JsonResponse(serializer.data, safe=False)
+
+    def post(self, request, organization_id):
+        try:
+            organization = Organization.objects.get(id=organization_id)
+        except Organization.DoesNotExist:
+            return JsonResponse({"error": "Organization not found"}, status=status.HTTP_404_NOT_FOUND)
+        if not _can_manage_organization(request.user, organization):
+            return JsonResponse({"error": "You do not have permission to manage roles"}, status=status.HTTP_403_FORBIDDEN)
+        data = json.loads(request.body) if request.body else {}
+        serializer = RoleCreateUpdateSerializer(data=data, context={"organization": organization})
+        if serializer.is_valid():
+            role = serializer.save(organization=organization)
+            return JsonResponse(RoleSerializer(role).data, status=status.HTTP_201_CREATED)
+        return JsonResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class OrganizationRoleDetailView(View):
+    """Get, update, or delete a single role."""
+
+    def get(self, request, organization_id, role_id):
+        try:
+            organization = Organization.objects.get(id=organization_id)
+            role = Role.objects.get(id=role_id, organization=organization)
+        except (Organization.DoesNotExist, Role.DoesNotExist):
+            return JsonResponse({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+        if not _can_manage_organization(request.user, organization):
+            return JsonResponse({"error": "You do not have permission"}, status=status.HTTP_403_FORBIDDEN)
+        return JsonResponse(RoleSerializer(role).data)
+
+    def put(self, request, organization_id, role_id):
+        try:
+            organization = Organization.objects.get(id=organization_id)
+            role = Role.objects.get(id=role_id, organization=organization)
+        except (Organization.DoesNotExist, Role.DoesNotExist):
+            return JsonResponse({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+        if not _can_manage_organization(request.user, organization):
+            return JsonResponse({"error": "You do not have permission"}, status=status.HTTP_403_FORBIDDEN)
+        data = json.loads(request.body) if request.body else {}
+        serializer = RoleCreateUpdateSerializer(role, data=data, partial=True, context={"organization": organization})
+        if serializer.is_valid():
+            serializer.save()
+            return JsonResponse(RoleSerializer(role).data)
+        return JsonResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, organization_id, role_id):
+        try:
+            organization = Organization.objects.get(id=organization_id)
+            role = Role.objects.get(id=role_id, organization=organization)
+        except (Organization.DoesNotExist, Role.DoesNotExist):
+            return JsonResponse({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+        if not _can_manage_organization(request.user, organization):
+            return JsonResponse({"error": "You do not have permission"}, status=status.HTTP_403_FORBIDDEN)
+        role.delete()
+        return JsonResponse({"message": "Role deleted"}, status=status.HTTP_200_OK)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class OrganizationRoleAssignmentsView(View):
+    """Create or list role assignments. DELETE to remove an assignment."""
+
+    def get(self, request, organization_id):
+        try:
+            organization = Organization.objects.get(id=organization_id)
+        except Organization.DoesNotExist:
+            return JsonResponse({"error": "Organization not found"}, status=status.HTTP_404_NOT_FOUND)
+        if not _can_manage_organization(request.user, organization):
+            return JsonResponse({"error": "You do not have permission"}, status=status.HTTP_403_FORBIDDEN)
+        assignments = RoleAssignment.objects.filter(organization=organization).select_related("role", "user").order_by("-created_at")
+        serializer = RoleAssignmentSerializer(assignments, many=True)
+        data = [dict(d) for d in serializer.data]
+        for i, a in enumerate(assignments):
+            data[i]["user_id"] = a.user_id
+        return JsonResponse(data, safe=False)
+
+    def post(self, request, organization_id):
+        try:
+            organization = Organization.objects.get(id=organization_id)
+        except Organization.DoesNotExist:
+            return JsonResponse({"error": "Organization not found"}, status=status.HTTP_404_NOT_FOUND)
+        if not _can_manage_organization(request.user, organization):
+            return JsonResponse({"error": "You do not have permission"}, status=status.HTTP_403_FORBIDDEN)
+        data = json.loads(request.body) if request.body else {}
+        ser = RoleAssignmentCreateSerializer(data=data)
+        if not ser.is_valid():
+            return JsonResponse(ser.errors, status=status.HTTP_400_BAD_REQUEST)
+        role = Role.objects.filter(id=ser.validated_data["role_id"], organization=organization).first()
+        if not role:
+            return JsonResponse({"error": "Role not found"}, status=status.HTTP_404_NOT_FOUND)
+        user = User.objects.filter(id=ser.validated_data["user_id"]).first()
+        if not user:
+            return JsonResponse({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+        today = timezone.now().date()
+        from_date = ser.validated_data.get("from_date") or today
+        to_date = ser.validated_data.get("to_date")
+        active = RoleAssignment.objects.filter(
+            user=user, organization=organization
+        ).filter(Q(to_date__isnull=True) | Q(to_date__gte=today)).first()
+        if active:
+            active.role = role
+            active.from_date = from_date
+            active.to_date = to_date
+            active.save()
+            assignment = active
+        else:
+            assignment = RoleAssignment.objects.create(
+                user=user, organization=organization, role=role, from_date=from_date, to_date=to_date
+            )
+        return JsonResponse(RoleAssignmentSerializer(assignment).data, status=status.HTTP_201_CREATED)
+
+    def delete(self, request, organization_id):
+        assignment_id = request.GET.get("assignment_id") or (json.loads(request.body) if request.body else {}).get("assignment_id")
+        if not assignment_id:
+            return JsonResponse({"error": "assignment_id required"}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            assignment = RoleAssignment.objects.get(id=assignment_id, organization_id=organization_id)
+        except RoleAssignment.DoesNotExist:
+            return JsonResponse({"error": "Assignment not found"}, status=status.HTTP_404_NOT_FOUND)
+        try:
+            organization = Organization.objects.get(id=organization_id)
+        except Organization.DoesNotExist:
+            return JsonResponse({"error": "Organization not found"}, status=status.HTTP_404_NOT_FOUND)
+        if not _can_manage_organization(request.user, organization):
+            return JsonResponse({"error": "You do not have permission"}, status=status.HTTP_403_FORBIDDEN)
+        assignment.delete()
+        return JsonResponse({"message": "Assignment removed"}, status=status.HTTP_200_OK)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class FeatureFlagNamesView(View):
+    """List feature flag names (for role capabilities)."""
+
+    def get(self, request):
+        names = list(FeatureFlag.objects.values_list("name", flat=True).order_by("name"))
+        return JsonResponse(names, safe=False)
 
 
 @method_decorator(csrf_exempt, name="dispatch")

@@ -16,22 +16,23 @@ def create_completion_openai(
     user_message: str,
     model="gpt-4o-mini",
     api_key: str = os.environ.get("OPENAI_API_KEY"),
+    max_tokens: int = 500,
+    temperature: float | None = None,
 ):
     client = OpenAI(
         api_key=api_key,
     )
-
-    completion = client.chat.completions.create(
-        model=model,
-        max_tokens=500,
-        messages=[
-            {
-                "role": "system",
-                "content": system_prompt,
-            },
+    kwargs = {
+        "model": model,
+        "max_tokens": max_tokens,
+        "messages": [
+            {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_message},
         ],
-    )
+    }
+    if temperature is not None:
+        kwargs["temperature"] = temperature
+    completion = client.chat.completions.create(**kwargs)
     return completion.choices[0].message.content
 
 

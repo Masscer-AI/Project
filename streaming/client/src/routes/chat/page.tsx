@@ -46,6 +46,7 @@ export default function ChatView() {
   // const [searchParams, setSearchParams] = useSearchParams();
 
   const timeoutRef = React.useRef<number | null>(null);
+  const [showScrollToEnd, setShowScrollToEnd] = useState(false);
 
   useEffect(() => {
     setUser(loaderData.user);
@@ -103,6 +104,14 @@ export default function ChatView() {
     requestAnimationFrame(smoothScroll);
   };
 
+  const updateScrollToEndVisibility = React.useCallback(() => {
+    const container = chatMessageContainerRef.current;
+    if (!container) return;
+    const remaining =
+      container.scrollHeight - container.scrollTop - container.clientHeight;
+    setShowScrollToEnd(remaining > 60);
+  }, []);
+
   const handleAutoScroll = () => {
     if (chatMessageContainerRef.current && userPreferences.autoscroll) {
       if (timeoutRef.current) {
@@ -134,6 +143,21 @@ export default function ChatView() {
     // toast.success("Conversation loaded");
     setMessages(conversation?.messages);
   }, [conversation]);
+
+  useEffect(() => {
+    const container = chatMessageContainerRef.current;
+    if (!container) return;
+    updateScrollToEndVisibility();
+    const onScroll = () => updateScrollToEndVisibility();
+    container.addEventListener("scroll", onScroll);
+    return () => {
+      container.removeEventListener("scroll", onScroll);
+    };
+  }, [updateScrollToEndVisibility]);
+
+  useEffect(() => {
+    updateScrollToEndVisibility();
+  }, [messages.length, updateScrollToEndVisibility]);
 
   // useEffect(() => {
   //   if (loaderData.conversation) {
@@ -348,10 +372,9 @@ export default function ChatView() {
           }
         />
 
-        <div 
-          ref={chatMessageContainerRef} 
-          className="flex-1 overflow-y-auto flex flex-col w-full pb-6 scrollbar-none mt-6 px-1 md:px-2"
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        <div
+          ref={chatMessageContainerRef}
+          className="flex-1 overflow-y-auto flex flex-col w-full pb-6 mt-6 px-1 md:px-2"
         >
           {messages &&
             messages.map((msg, index) => (
@@ -366,6 +389,15 @@ export default function ChatView() {
               />
             ))}
         </div>
+        {showScrollToEnd && (
+          <button
+            type="button"
+            onClick={scrollChat}
+            className="absolute right-4 bottom-24 md:bottom-28 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm text-white shadow-lg backdrop-blur hover:bg-white/20"
+          >
+            {t("scroll-to-end")}
+          </button>
+        )}
         <ChatInput
           handleSendMessage={handleSendMessage}
           initialInput={

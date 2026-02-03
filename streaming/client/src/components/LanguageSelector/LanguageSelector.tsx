@@ -21,7 +21,7 @@ export const LanguageSelector = () => {
     localStorage.setItem("language", lng);
   };
 
-  const possibleLanguages = ["en", "es", "it", "nah"];
+  const possibleLanguages = ["en", "es"];
 
   return (
     <div className="pos-relative" style={{ width: "fit-content" }}>

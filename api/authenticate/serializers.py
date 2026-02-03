@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Organization, CredentialsManager, UserProfile, FeatureFlag, FeatureFlagAssignment
+from .models import Organization, CredentialsManager, UserProfile, FeatureFlag, FeatureFlagAssignment, Role, RoleAssignment
 from rest_framework.exceptions import ValidationError
 from django.db import transaction
 
@@ -206,6 +206,74 @@ class TeamFeatureFlagsResponseSerializer(serializers.Serializer):
 
 
 class PublicOrganizationSerializer(serializers.ModelSerializer):
+    logo_url = serializers.SerializerMethodField()
+
     class Meta:
         model = Organization
-        fields = ["id", "name", "description"]
+        fields = ["id", "name", "description", "logo_url"]
+
+    def get_logo_url(self, obj):
+        if obj.logo:
+            request = self.context.get("request")
+            if request:
+                return request.build_absolute_uri(obj.logo.url)
+            return obj.logo.url
+        return None
+
+
+class OrganizationMemberSerializer(serializers.Serializer):
+    """Read-only representation of an organization member for list API."""
+
+    id = serializers.IntegerField()
+    email = serializers.EmailField()
+    username = serializers.CharField()
+    profile_name = serializers.CharField(allow_blank=True, required=False)
+    is_owner = serializers.BooleanField()
+    current_role = serializers.DictField(allow_null=True, required=False)
+
+
+class RoleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Role
+        fields = ["id", "name", "description", "enabled", "capabilities", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class RoleCreateUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Role
+        fields = ["name", "description", "enabled", "capabilities"]
+
+    def validate_name(self, value):
+        org = self.context.get("organization")
+        if not org:
+            return value
+        qs = Role.objects.filter(organization=org, name=value)
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise ValidationError("A role with this name already exists in this organization.")
+        return value
+
+    def create(self, validated_data):
+        org = self.context.get("organization")
+        if not org:
+            raise ValidationError("Organization is required")
+        validated_data.pop("organization", None)
+        return Role.objects.create(organization=org, **validated_data)
+
+
+class RoleAssignmentSerializer(serializers.ModelSerializer):
+    role_name = serializers.CharField(source="role.name", read_only=True)
+
+    class Meta:
+        model = RoleAssignment
+        fields = ["id", "user", "organization", "role", "role_name", "from_date", "to_date", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class RoleAssignmentCreateSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField()
+    role_id = serializers.UUIDField()
+    from_date = serializers.DateField(required=False)
+    to_date = serializers.DateField(required=False, allow_null=True)

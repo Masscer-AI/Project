@@ -1,8 +1,9 @@
 import logging
 from django.db import transaction
 from django.db.models import Q
+from django.utils import timezone
 
-from .models import FeatureFlag, FeatureFlagAssignment, Organization
+from .models import FeatureFlag, FeatureFlagAssignment, Organization, RoleAssignment
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +21,8 @@ class FeatureFlagService:
         Priority order:
         1. User-level flag (if exists) - overrides organization-level
         2. Organization-level flag (explicit organization param OR user's organizations)
-        3. False (if no assignments exist)
+        3. Role capabilities: if user has an active role in the org and that role lists this flag in capabilities
+        4. False (if no assignments exist)
 
         Args:
             feature_flag_name: The name of the feature flag
@@ -80,7 +82,11 @@ class FeatureFlagService:
                         return True
                 except FeatureFlagAssignment.DoesNotExist:
                     logger.info(f"🔍 No org-level assignment found for org={org.name}, flag={feature_flag_name}")
-                    continue
+                    pass
+                # Role capabilities: user has feature if any active role in this org has it
+                if cls._user_has_capability_via_role(user, org, feature_flag_name):
+                    logger.info(f"🔍 Feature enabled via role capability: user={user.email}, org={org.name}, flag={feature_flag_name}")
+                    return True
 
         # Check explicit organization if provided
         if organization_to_check:
@@ -97,8 +103,27 @@ class FeatureFlagService:
             except FeatureFlagAssignment.DoesNotExist:
                 logger.info(f"🔍 No explicit org assignment found for org={organization_to_check.name}, flag={feature_flag_name}")
                 pass
+            # Role capabilities in explicit org
+            if user and cls._user_has_capability_via_role(user, organization_to_check, feature_flag_name):
+                logger.info(f"🔍 Feature enabled via role capability: user={user.email}, org={organization_to_check.name}, flag={feature_flag_name}")
+                return True
 
         logger.info(f"🔍 Returning False - no assignment found for flag={feature_flag_name}")
+        return False
+
+    @classmethod
+    def _user_has_capability_via_role(cls, user, organization, feature_flag_name: str) -> bool:
+        """Return True if user has an active role in this organization whose capabilities include the flag."""
+        today = timezone.now().date()
+        active = RoleAssignment.objects.filter(
+            user=user,
+            organization=organization,
+            from_date__lte=today,
+        ).filter(Q(to_date__isnull=True) | Q(to_date__gte=today)).select_related("role")
+        for assignment in active:
+            caps = assignment.role.capabilities or []
+            if feature_flag_name in caps:
+                return True
         return False
 
     @classmethod

@@ -104,6 +104,38 @@ export type TOrganization = {
   logo_url?: string | null;
 };
 
+export type TOrganizationMember = {
+  id: number;
+  email: string;
+  username: string;
+  profile_name: string;
+  is_owner: boolean;
+  current_role?: { id: string; name: string; assignment_id?: string } | null;
+};
+
+export type TOrganizationRole = {
+  id: string;
+  name: string;
+  description: string | null;
+  enabled: boolean;
+  capabilities: string[];
+  created_at: string;
+  updated_at: string;
+};
+
+export type TRoleAssignment = {
+  id: string;
+  user: number;
+  user_id?: number;
+  organization: string;
+  role: string;
+  role_name: string;
+  from_date: string;
+  to_date: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type TDocument = {
   text: string;
   total_tokens: number;

@@ -1,5 +1,12 @@
 import axios from "axios";
 
+/** Turn a slug like "manage-organization" or "some_capability" into "Manage Organization" / "Some Capability". */
+export const titlelify = (slug: string): string =>
+  slug
+    .split(/[-_]/)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+
 export const playAudioFromBytes = (audioFile) => {
   const audioBlob = new Blob([audioFile], { type: "audio/mp3" });
   const audioUrl = URL.createObjectURL(audioBlob);

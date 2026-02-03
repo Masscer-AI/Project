@@ -5,6 +5,11 @@ from .views import (
     UserView,
     OrganizationView,
     OrganizationCredentialsView,
+    OrganizationMembersView,
+    OrganizationRolesView,
+    OrganizationRoleDetailView,
+    OrganizationRoleAssignmentsView,
+    FeatureFlagNamesView,
     FeatureFlagCheckView,
     FeatureFlagListView,
 )
@@ -25,6 +30,31 @@ urlpatterns = [
         "organizations/<str:organization_id>/credentials/",
         OrganizationCredentialsView.as_view(),
         name="organization_credentials",
+    ),
+    path(
+        "organizations/<str:organization_id>/members/",
+        OrganizationMembersView.as_view(),
+        name="organization_members",
+    ),
+    path(
+        "organizations/<str:organization_id>/roles/",
+        OrganizationRolesView.as_view(),
+        name="organization_roles",
+    ),
+    path(
+        "organizations/<str:organization_id>/roles/<uuid:role_id>/",
+        OrganizationRoleDetailView.as_view(),
+        name="organization_role_detail",
+    ),
+    path(
+        "organizations/<str:organization_id>/roles/assignments/",
+        OrganizationRoleAssignmentsView.as_view(),
+        name="organization_role_assignments",
+    ),
+    path(
+        "feature-flags/names/",
+        FeatureFlagNamesView.as_view(),
+        name="feature_flag_names",
     ),
     path(
         "feature-flags/<str:feature_flag_name>/check",

@@ -9,6 +9,7 @@ import {
   deleteConversation,
   generateTrainingCompletions,
   getAllConversations,
+  getUserOrganizations,
   shareConversation,
 } from "../../modules/apiCalls";
 import { TConversation } from "../../types";
@@ -66,8 +67,25 @@ export const Sidebar: React.FC = () => {
   });
 
   const [hoveredButton, setHoveredButton] = useState<string | null>(null);
+  const [canManageOrg, setCanManageOrg] = useState(false);
 
   const navigate = useNavigate();
+
+  useEffect(() => {
+    let cancelled = false;
+    getUserOrganizations()
+      .then((orgs) => {
+        if (!cancelled) {
+          setCanManageOrg(orgs.some((o) => o.is_owner || o.can_manage));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setCanManageOrg(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     populateHistory();
@@ -467,6 +485,22 @@ export const Sidebar: React.FC = () => {
                 <div className="w-5 h-5 flex items-center justify-center [&>svg]:w-5 [&>svg]:h-5">{SVGS.question}</div>
                 <span>{t("completions")}</span>
               </button>
+              {canManageOrg && (
+                <button
+                  className={`w-full px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center justify-center gap-2 ${
+                    hoveredButton === 'manage-org'
+                      ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]'
+                      : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
+                  }`}
+                  style={{ transform: 'none' }}
+                  onMouseEnter={() => setHoveredButton('manage-org')}
+                  onMouseLeave={() => setHoveredButton(null)}
+                  onClick={() => goTo("/organization")}
+                >
+                  <div className="w-5 h-5 flex items-center justify-center [&>svg]:w-5 [&>svg]:h-5">{SVGS.organization}</div>
+                  <span>{t("manage-organization")}</span>
+                </button>
+              )}
               {isConversationsDashboardEnabled && (
                 <button
                   className={`w-full px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center justify-center gap-2 ${

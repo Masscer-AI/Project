@@ -8,8 +8,12 @@ import io
 from pydub import AudioSegment
 from api.notify.actions import notify_user
 from api.utils.ollama_functions import create_completion_ollama
+from api.utils.openai_functions import create_completion_openai
 
 load_dotenv()
+
+# Max tokens for title generation (short string)
+TITLE_MAX_TOKENS = 50
 
 
 def generate_conversation_title(conversation_id: str):
@@ -67,14 +71,36 @@ def generate_conversation_title(conversation_id: str):
 
     user_message = "\n".join(formatted_messages)
 
-    title = create_completion_ollama(
-        system,
-        user_message,
-        model="llama3.2:1b",
-        max_tokens=20,
-    )
+    # Use agent's LLM configuration when available; otherwise default to OpenAI
+    provider = (agent.model_provider or "openai").lower() if agent else "openai"
+    model_slug = (agent.llm.slug if agent and agent.llm else (agent.model_slug if agent else "gpt-4o-mini")) or "gpt-4o-mini"
+    max_tokens = min(agent.max_tokens or 4000, TITLE_MAX_TOKENS) if agent else TITLE_MAX_TOKENS
 
-    if title.startswith('"') and title.endswith('"'):
+    if provider == "openai":
+        title = create_completion_openai(
+            system,
+            user_message,
+            model=model_slug,
+            max_tokens=max_tokens,
+            temperature=agent.temperature if agent else None,
+        )
+    elif provider == "ollama":
+        title = create_completion_ollama(
+            system,
+            user_message,
+            model=model_slug,
+            max_tokens=max_tokens,
+        )
+    else:
+        # anthropic or unknown: fallback to OpenAI (no sync Anthropic completion in api/)
+        title = create_completion_openai(
+            system,
+            user_message,
+            model="gpt-4o-mini",
+            max_tokens=max_tokens,
+        )
+
+    if title and title.startswith('"') and title.endswith('"'):
         title = title[1:-1]
 
     c.title = title

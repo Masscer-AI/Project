@@ -1,18 +1,40 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { Toaster, toast } from "react-hot-toast";
-import "./page.css";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { toast } from "react-hot-toast";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { API_URL, DEFAULT_ORGANIZATION_ID } from "../../modules/constants";
-import { SimpleForm } from "../../components/SimpleForm/SimpleForm";
 import { useTranslation } from "react-i18next";
+
+type Organization = {
+  id: string;
+  name: string;
+  description?: string;
+  logo_url?: string | null;
+};
+
+const panelBase =
+  "flex-1 flex flex-col justify-center items-center p-8";
+const panelLeft =
+  "bg-[radial-gradient(ellipse_80%_60%_at_30%_50%,rgba(110,91,255,0.15),transparent),linear-gradient(180deg,rgba(20,20,25,0.98)_0%,rgba(15,15,20,0.99)_100%)] border-r border-white/[0.06] md:min-h-0 min-h-[40vh] md:border-b-0 border-b border-white/[0.06]";
+const panelRight = "bg-[var(--bg-color,#0a0a0a)] md:min-h-0 min-h-[60vh]";
+const formCard =
+  "w-full max-w-[400px] p-10 rounded-2xl border border-white/[0.08] shadow-2xl bg-[var(--modal-bg-color,rgba(28,28,32,0.98))]";
+const formTitle = "text-2xl font-semibold mb-7 text-center text-[var(--font-color,#fff)]";
+const formGroup = "mb-5";
+const inputClass =
+  "w-full px-3.5 py-3 rounded-xl border border-white/20 bg-white/5 text-[var(--font-color,#fff)] text-base placeholder:text-white/35 focus:outline-none focus:border-[rgba(110,91,255,0.6)] focus:ring-2 focus:ring-[rgba(110,91,255,0.15)] disabled:opacity-60 disabled:cursor-not-allowed transition-colors";
+const labelClass = "block text-sm text-white/60 mb-1.5";
+const submitBtn =
+  "w-full mt-2 py-3.5 px-5 rounded-xl border-0 text-base font-semibold cursor-pointer transition-all bg-gradient-to-br from-[#6e5bff] to-[#5a47e6] text-white hover:enabled:from-[#7d6bff] hover:enabled:to-[#6b56f0] active:enabled:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed";
+const linkLogin =
+  "block text-center mt-6 text-sm text-[rgba(110,91,255,0.9)] no-underline hover:text-[rgba(140,120,255,1)] transition-colors";
 
 export default function Signup() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
-  const [organization, setOrganization] = useState<any>(null);
+  const [organization, setOrganization] = useState<Organization | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingOrg, setLoadingOrg] = useState(true);
 
@@ -20,13 +42,10 @@ export default function Signup() {
   const orgId = searchParams.get("orgId");
 
   const navigate = useNavigate();
-
   const { t } = useTranslation();
 
-  // Fetch organization info on mount
   useEffect(() => {
     if (!orgId) {
-      // Si no hay orgId pero sí hay DEFAULT_ORGANIZATION_ID, redirigir
       if (DEFAULT_ORGANIZATION_ID) {
         navigate(`/signup?orgId=${DEFAULT_ORGANIZATION_ID}`, { replace: true });
         return;
@@ -37,10 +56,12 @@ export default function Signup() {
 
     const fetchOrganization = async () => {
       try {
-        const response = await axios.get(`${API_URL}/v1/auth/signup?orgId=${orgId}`);
+        const response = await axios.get<Organization>(
+          `${API_URL}/v1/auth/signup?orgId=${orgId}`
+        );
         setOrganization(response.data);
-      } catch (error: any) {
-        // Don't set message here, we'll show a full view instead
+      } catch {
+        setOrganization(null);
       } finally {
         setLoadingOrg(false);
       }
@@ -69,8 +90,6 @@ export default function Signup() {
       toast.success(t("user-created-succesfully-please-login"));
       navigate("/login");
     } catch (error: any) {
-      console.log(error);
-
       setMessage(
         error.response?.data?.detail ||
           error.response?.data?.email ||
@@ -84,139 +103,168 @@ export default function Signup() {
   };
 
   useEffect(() => {
-    // Only show toast for API errors during submit, not for missing orgId
     if (message && orgId) {
       toast.error(message);
     }
   }, [message, orgId]);
 
+  const getInitialForLogo = (name: string) =>
+    name.trim().slice(0, 2).toUpperCase() || "O";
+
+  const errorOrLoadingContent = (
+    <div className="text-center max-w-[360px]">
+      <h2 className="text-xl mb-3 text-[var(--font-color,#fff)]">{t("signup")}</h2>
+      <p className="text-[0.95rem] text-white/60 leading-relaxed m-0">{t("loading")}...</p>
+    </div>
+  );
+
   if (loadingOrg) {
     return (
-      <div className="signup-component">
-        <SimpleForm>
-          <h2 className="simple-form-title">Loading...</h2>
-        </SimpleForm>
+      <div className="min-h-screen flex flex-col md:flex-row bg-[var(--bg-color,#0a0a0a)] text-[var(--font-color,#fff)]">
+        <div className={`${panelBase} ${panelLeft}`}>{errorOrLoadingContent}</div>
+        <div className={`${panelBase} ${panelRight}`}>
+          <div className={formCard}>
+            <h2 className={formTitle}>{t("signup")}</h2>
+            <p className="text-center text-white/50">{t("loading")}...</p>
+          </div>
+        </div>
       </div>
     );
   }
 
-  // Si no hay orgId, mostrar vista completa de error
   if (!orgId) {
     return (
-      <div className="signup-component">
-        <SimpleForm>
-          <h2 className="simple-form-title">Sign Up</h2>
-          <div style={{ 
-            padding: "2rem", 
-            textAlign: "center",
-            color: "#666"
-          }}>
-            <p style={{ fontSize: "1.2rem", marginBottom: "1rem" }}>
-              Organization ID is required
-            </p>
-            <p>
-              Please use a valid signup link with an organization ID to register.
-            </p>
+      <div className="min-h-screen flex flex-col md:flex-row bg-[var(--bg-color,#0a0a0a)] text-[var(--font-color,#fff)]">
+        <div className={`${panelBase} ${panelLeft}`}>
+          <div className="text-center max-w-[360px]">
+            <h2 className="text-xl mb-3 text-[var(--font-color,#fff)]">{t("signup")}</h2>
+            <p className="text-[0.95rem] text-white/60 leading-relaxed m-0">{t("organization-id-required")}</p>
+            <p className="text-[0.95rem] text-white/60 leading-relaxed m-0">{t("use-valid-signup-link")}</p>
           </div>
-        </SimpleForm>
+        </div>
+        <div className={`${panelBase} ${panelRight}`}>
+          <div className={formCard}>
+            <h2 className={formTitle}>{t("signup")}</h2>
+            <p className="text-center text-white/60">{t("organization-id-required")}</p>
+            <Link to="/login" className={linkLogin}>{t("switch-to-login")}</Link>
+          </div>
+        </div>
       </div>
     );
   }
 
-  // Si hay error cargando la organización, también mostrar vista completa
   if (!loadingOrg && !organization && orgId) {
     return (
-      <div className="signup-component">
-        <SimpleForm>
-          <h2 className="simple-form-title">Sign Up</h2>
-          <div style={{ 
-            padding: "2rem", 
-            textAlign: "center",
-            color: "#666"
-          }}>
-            <p style={{ fontSize: "1.2rem", marginBottom: "1rem" }}>
-              Organization not found
-            </p>
-            <p>
-              The organization with the provided ID does not exist. Please use a valid signup link.
-            </p>
+      <div className="min-h-screen flex flex-col md:flex-row bg-[var(--bg-color,#0a0a0a)] text-[var(--font-color,#fff)]">
+        <div className={`${panelBase} ${panelLeft}`}>
+          <div className="text-center max-w-[360px]">
+            <h2 className="text-xl mb-3 text-[var(--font-color,#fff)]">{t("signup")}</h2>
+            <p className="text-[0.95rem] text-white/60 leading-relaxed m-0">{t("organization-not-found")}</p>
+            <p className="text-[0.95rem] text-white/60 leading-relaxed m-0">{t("use-valid-signup-link")}</p>
           </div>
-        </SimpleForm>
+        </div>
+        <div className={`${panelBase} ${panelRight}`}>
+          <div className={formCard}>
+            <h2 className={formTitle}>{t("signup")}</h2>
+            <p className="text-center text-white/60">{t("organization-not-found")}</p>
+            <Link to="/login" className={linkLogin}>{t("switch-to-login")}</Link>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="signup-component">
-      <SimpleForm>
-        <h2 className="simple-form-title">Sign Up</h2>
+    <div className="min-h-screen flex flex-col md:flex-row bg-[var(--bg-color,#0a0a0a)] text-[var(--font-color,#fff)]">
+      <div className={`${panelBase} ${panelLeft}`}>
+        <div className="text-center max-w-[380px]">
+          {organization?.logo_url ? (
+            <img
+              src={organization.logo_url}
+              alt={organization.name}
+              className="block w-[88px] h-[88px] mx-auto mb-6 rounded-2xl object-cover border border-white/10 bg-white/5"
+            />
+          ) : (
+            <div className="w-[88px] h-[88px] mx-auto mb-6 rounded-2xl flex items-center justify-center bg-[rgba(110,91,255,0.2)] border border-[rgba(110,91,255,0.3)] text-3xl font-semibold text-white/90 uppercase">
+              {organization ? getInitialForLogo(organization.name) : "O"}
+            </div>
+          )}
+          <p className="text-[0.85rem] text-white/50 mb-2 uppercase tracking-wider">{t("joining")}</p>
+          <h1 className="text-[1.75rem] font-semibold m-0 mb-3 text-[var(--font-color,#fff)]">
+            {organization?.name ?? ""}
+          </h1>
+          {organization?.description && (
+            <p className="text-[0.95rem] text-white/65 leading-normal m-0">
+              {organization.description}
+            </p>
+          )}
+        </div>
+      </div>
 
-        {organization && (
-          <div
-            className="organization-info"
-            style={{
-              marginBottom: "1rem",
-              padding: "1rem",
-              background: "#f0f0f0",
-              borderRadius: "4px",
-            }}
-          >
-            <h3 style={{ margin: "0 0 0.5rem 0" }}>Joining: {organization.name}</h3>
-            {organization.description && (
-              <p style={{ margin: 0, color: "#666" }}>{organization.description}</p>
-            )}
-          </div>
-        )}
+      <div className={`${panelBase} ${panelRight}`}>
+        <div className={formCard}>
+          <h2 className={formTitle}>{t("signup")}</h2>
 
-        <form onSubmit={handleSubmit}>
-          <div className="simple-form-group">
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required
-              name="username"
-              className="simple-form-input padding-medium"
-              autoComplete="username"
-              placeholder="Username"
-              disabled={!orgId}
-            />
-          </div>
-          <div className="simple-form-group">
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              name="email"
-              className="simple-form-input padding-medium"
-              placeholder="Email"
-              autoComplete="email"
-              disabled={!orgId}
-            />
-          </div>
-          <div className="simple-form-group">
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              name="password"
-              className="simple-form-input padding-medium"
-              autoComplete="current-password"
-              placeholder="Password"
-              disabled={!orgId}
-            />
-          </div>
-          <button
-            type="submit"
-            className="button w-100 bg-active padding-medium"
-            disabled={loading || !orgId}
-          >
-            {loading ? t("loading") : t("signup")}
-          </button>
-        </form>
-      </SimpleForm>
+          <form onSubmit={handleSubmit}>
+            <div className={formGroup}>
+              <label htmlFor="username" className={labelClass}>{t("username")}</label>
+              <input
+                id="username"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+                name="username"
+                autoComplete="username"
+                placeholder={t("username")}
+                disabled={!orgId}
+                className={inputClass}
+              />
+            </div>
+            <div className={formGroup}>
+              <label htmlFor="email" className={labelClass}>{t("email")}</label>
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                name="email"
+                autoComplete="email"
+                placeholder={t("email")}
+                disabled={!orgId}
+                className={inputClass}
+              />
+            </div>
+            <div className={formGroup}>
+              <label htmlFor="password" className={labelClass}>{t("password")}</label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                name="password"
+                autoComplete="new-password"
+                placeholder={t("password")}
+                disabled={!orgId}
+                className={inputClass}
+              />
+            </div>
+            <button
+              type="submit"
+              className={submitBtn}
+              disabled={loading || !orgId}
+            >
+              {loading ? t("loading") : t("signup")}
+            </button>
+          </form>
+
+          <Link to="/login" className={linkLogin}>
+            {t("switch-to-login")}
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }

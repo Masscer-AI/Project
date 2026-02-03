@@ -7,6 +7,9 @@ import {
   TDocument,
   TOrganization,
   TOrganizationCredentials,
+  TOrganizationMember,
+  TOrganizationRole,
+  TRoleAssignment,
   TConversationAlert,
   TAlertStats,
   TConversationAlertRule,
@@ -824,6 +827,82 @@ export const getOrganizationCredentials = async (organizationId: string) => {
     "GET",
     `/v1/auth/organizations/${organizationId}/credentials/`
   );
+};
+
+export const getOrganizationMembers = async (organizationId: string) => {
+  return makeAuthenticatedRequest<TOrganizationMember[]>(
+    "GET",
+    `/v1/auth/organizations/${organizationId}/members/`
+  );
+};
+
+export const getOrganizationRoles = async (organizationId: string) => {
+  return makeAuthenticatedRequest<TOrganizationRole[]>(
+    "GET",
+    `/v1/auth/organizations/${organizationId}/roles/`
+  );
+};
+
+export const createOrganizationRole = async (
+  organizationId: string,
+  data: { name: string; description?: string; enabled?: boolean; capabilities?: string[] }
+) => {
+  return makeAuthenticatedRequest<TOrganizationRole>(
+    "POST",
+    `/v1/auth/organizations/${organizationId}/roles/`,
+    data
+  );
+};
+
+export const updateOrganizationRole = async (
+  organizationId: string,
+  roleId: string,
+  data: Partial<{ name: string; description: string; enabled: boolean; capabilities: string[] }>
+) => {
+  return makeAuthenticatedRequest<TOrganizationRole>(
+    "PUT",
+    `/v1/auth/organizations/${organizationId}/roles/${roleId}/`,
+    data
+  );
+};
+
+export const deleteOrganizationRole = async (organizationId: string, roleId: string) => {
+  return makeAuthenticatedRequest<{ message: string }>(
+    "DELETE",
+    `/v1/auth/organizations/${organizationId}/roles/${roleId}/`
+  );
+};
+
+export const getOrganizationRoleAssignments = async (organizationId: string) => {
+  return makeAuthenticatedRequest<(TRoleAssignment & { user_id?: number })[]>(
+    "GET",
+    `/v1/auth/organizations/${organizationId}/roles/assignments/`
+  );
+};
+
+export const assignRoleToMember = async (
+  organizationId: string,
+  data: { user_id: number; role_id: string }
+) => {
+  return makeAuthenticatedRequest<TRoleAssignment>(
+    "POST",
+    `/v1/auth/organizations/${organizationId}/roles/assignments/`,
+    data
+  );
+};
+
+export const removeRoleAssignment = async (
+  organizationId: string,
+  assignmentId: string
+) => {
+  return makeAuthenticatedRequest<{ message: string }>(
+    "DELETE",
+    `/v1/auth/organizations/${organizationId}/roles/assignments/?assignment_id=${assignmentId}`
+  );
+};
+
+export const getFeatureFlagNames = async () => {
+  return makeAuthenticatedRequest<string[]>("GET", "/v1/auth/feature-flags/names/");
 };
 
 export const updateOrganizationCredentials = async (
