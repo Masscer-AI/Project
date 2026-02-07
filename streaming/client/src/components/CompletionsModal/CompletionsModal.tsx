@@ -10,7 +10,6 @@ import {
 
 import { TCompletion } from "../../types";
 import { SvgButton } from "../SvgButton/SvgButton";
-import { SVGS } from "../../assets/svgs";
 import { useStore } from "../../modules/store";
 import MarkdownRenderer from "../MarkdownRenderer/MarkdownRenderer";
 import { Checkbox } from "../Checkbox/Checkbox";
@@ -19,6 +18,7 @@ import { useTranslation } from "react-i18next";
 import { Textarea } from "../SimpleForm/Textarea";
 import { FloatingDropdown } from "../Dropdown/Dropdown";
 import { Loader } from "../Loader/Loader";
+import { Icon } from "../Icon/Icon";
 
 export const CompletionsModal = ({ visible, hide }) => {
   const { t } = useTranslation();
@@ -115,7 +115,6 @@ export const CompletionsModal = ({ visible, hide }) => {
   };
 
   const handleBulkUpdate = async () => {
-    // toast.success("Bulk update");
     await bulkUpdateCompletions(selectedCompletions);
 
     setCompletions((prev) => {
@@ -219,7 +218,7 @@ export const CompletionsModal = ({ visible, hide }) => {
                 <SvgButton
                   extraClass="active-on-hover "
                   text={t("group-actions")}
-                  svg={SVGS.options}
+                  svg={<Icon name="MoreVertical" size={20} />}
                 />
               }
             >
@@ -325,7 +324,6 @@ const CompletionCard = ({
   };
 
   const handleApprovedChange = (e) => {
-    // setApproved(e.target.checked);
     updateCompletion(completion.id.toString(), {
       answer: answer,
       prompt: prompt,
@@ -362,10 +360,6 @@ const CompletionCard = ({
         )}
       </section>
       <div className="flex gap-1.5 justify-center items-center">
-        {/* <SvgButton
-          onClick={toggleApproved}
-          text={selected ? t("unselect") : t("select")}
-        /> */}
         <Checkbox
           checked={completion.approved}
           onChange={handleApprovedChange}
@@ -377,16 +371,15 @@ const CompletionCard = ({
           extraClass={
             isEditing ? "bg-hovered active-on-hover pressable" : "pressable"
           }
-          svg={isEditing ? SVGS.finish : SVGS.writePen}
+          svg={isEditing ? <Icon name="Check" size={20} /> : <Icon name="PenLine" size={20} />}
         />
         <SvgButton
           confirmations={["Sure?"]}
           title={t("delete")}
           extraClass=" danger-on-hover pressable"
-          svg={SVGS.trash}
+          svg={<Icon name="Trash2" size={20} />}
           onClick={() => handleDelete(completion.id.toString())}
         />
-        {/* <Pill extraClass="bg-hovered">Agent: {completion.agent}</Pill> */}
       </div>
     </div>
   );

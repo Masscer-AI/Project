@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { SVGS } from "../../assets/svgs";
+import { Icon } from "../Icon/Icon";
 import { useStore } from "../../modules/store";
 import { SvgButton } from "../SvgButton/SvgButton";
 import { useTranslation } from "react-i18next";
@@ -73,7 +73,7 @@ export const Thumbnail = ({
                 <div className="d-flex align-center justify-center padding-small">
                   <SvgButton
                     title={t("delete")}
-                    svg={SVGS.trash}
+                    svg={<Icon name="Trash2" size={20} />}
                     extraClass="danger-on-hover "
                     confirmations={[`${t("sure")}`]}
                     onClick={() => deleteAttachment(index)}
@@ -162,13 +162,13 @@ const ImageModal = ({
             onClick={handleDownload}
             title="Download"
             extraClass="pressable bg-active"
-            svg={SVGS.download}
+            svg={<Icon name="Download" size={20} />}
           />
           <SvgButton
             onClick={toggleGenerateVideo}
             title={showGenerationOptions ? t("cancel") : t("edit")}
             extraClass="pressable bg-active"
-            svg={showGenerationOptions ? SVGS.close : SVGS.video}
+            svg={showGenerationOptions ? <Icon name="X" size={20} /> : <Icon name="Video" size={20} />}
           />
         </>
       }
@@ -209,7 +209,7 @@ const ImageModal = ({
               extraClass="bg-active w-100 pressable         "
               onClick={handleGenerateVideo}
               title={t("generate-video")}
-              svg={SVGS.finish}
+              svg={<Icon name="Check" size={20} />}
             />
           </div>
         ) : (
@@ -253,7 +253,7 @@ const DocumentThumnail = ({
       className="width-150 document-attachment bg-contrast rounded padding-small "
     >
       <div className="d-flex gap-small align-center ">
-        <div>{SVGS.document}</div>
+        <div><Icon name="FileText" size={20} /></div>
         <p className="cut-text-to-line">{name}</p>
 
         {showFloatingButtons && (
@@ -263,7 +263,7 @@ const DocumentThumnail = ({
             left="50%"
             extraClass="padding-big border-secondary"
             transform="translateX(-50%)"
-            opener={<SvgButton title={t("options")} svg={SVGS.options} />}
+            opener={<SvgButton title={t("options")} svg={<Icon name="MoreVertical" size={20} />} />}
           >
             cutted-text
             <div className="d-flex gap-medium flex-y width-200 ">
@@ -287,7 +287,7 @@ const DocumentThumnail = ({
               <SvgButton
                 title={t("delete")}
                 size="big"
-                svg={SVGS.trash}
+                svg={<Icon name="Trash2" size={20} />}
                 extraClass="bg-danger square-button pressable"
                 confirmations={[`${t("sure")}`]}
                 onClick={() => onDelete()}
@@ -358,7 +358,7 @@ const VideoThumbnail = ({
       ) : (
         <SvgButton
           title="Open"
-          svg={SVGS.play}
+          svg={<Icon name="Play" size={20} />}
           onClick={() => setOpenModal(true)}
         />
       )}
@@ -394,7 +394,7 @@ const VideoModal = ({
       extraButtons={
         <SvgButton
           title={t("download")}
-          svg={SVGS.download}
+          svg={<Icon name="Download" size={20} />}
           onClick={download}
         />
       }

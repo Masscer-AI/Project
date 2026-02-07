@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 
-import { SvgButton } from "../SvgButton/SvgButton";
-import { SVGS } from "../../assets/svgs";
+import { SvgButton } from "../SvgButton/SvgButton"; 
+import { Icon } from "../Icon/Icon";
 import { useTranslation } from "react-i18next";
 import i18n from "../../i18next";
 import { FloatingDropdown } from "../Dropdown/Dropdown";
@@ -32,7 +32,7 @@ export const LanguageSelector = () => {
         opener={
           <SvgButton
             text={t("language")}
-            svg={SVGS.language}
+            svg={<Icon name="Languages" size={20} />}
             onClick={toggleLanguage}
             extraClass="pos-relative"
           />

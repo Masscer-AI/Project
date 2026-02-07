@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import mermaid from "mermaid";
 import { useStore } from "../../modules/store";
-import { SVGS } from "../../assets/svgs";
+import { Icon } from "../Icon/Icon";
 import { SvgButton } from "../SvgButton/SvgButton";
 import { useTranslation } from "react-i18next";
 import { Modal } from "../Modal/Modal";
@@ -64,7 +64,7 @@ const MermaidVisualizer = ({ code }: { code: string }) => {
           onClick={downloadSVG}
           text={t("download-svg")}
           extraClass="bg-hovered active-on-hover pressable"
-          svg={SVGS.download}
+          svg={<Icon name="Download" size={20} />}
         />
         <SvgButton
           extraClass="bg-hovered active-on-hover pressable"
@@ -72,7 +72,7 @@ const MermaidVisualizer = ({ code }: { code: string }) => {
             setExpanded(true);
           }}
           text={t("expand")}
-          svg={SVGS.expand}
+          svg={<Icon name="Maximize2" size={20} />}
         />
         <Modal
           hide={() => {

@@ -19,6 +19,8 @@ import { Pill } from "../Pill/Pill";
 import { useTranslation } from "react-i18next";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
 import { QRCodeDisplay } from "../QRGenerator/QRGenerator";
+import { WidgetManager } from "../WidgetManager/WidgetManager";
+import { Icon } from "../Icon/Icon";
 
 export const Sidebar: React.FC = () => {
   const { t } = useTranslation();
@@ -68,6 +70,7 @@ export const Sidebar: React.FC = () => {
 
   const [hoveredButton, setHoveredButton] = useState<string | null>(null);
   const [canManageOrg, setCanManageOrg] = useState(false);
+  const [showWidgetManager, setShowWidgetManager] = useState(false);
 
   const navigate = useNavigate();
 
@@ -96,7 +99,7 @@ export const Sidebar: React.FC = () => {
 
     if (filters.tags.length > 0) {
       filteredHistory = filteredHistory.filter((c) =>
-        c.tags?.some((tag) => filters.tags.includes(tag))
+        c.tags?.some((tag: number) => filters.tags.includes(tag.toString()))
       );
     }
 
@@ -214,7 +217,7 @@ export const Sidebar: React.FC = () => {
             onMouseLeave={() => setHoveredButton(null)}
             onClick={handleNewChat}
           >
-            <div className="w-5 h-5 flex items-center justify-center [&>svg]:w-5 [&>svg]:h-5">{SVGS.plus}</div>
+            <Icon name="Plus" size={20} />
             <span>{t("new-chat")}</span>
           </button>
           <button
@@ -228,7 +231,7 @@ export const Sidebar: React.FC = () => {
             onMouseLeave={() => setHoveredButton(null)}
             onClick={toggleSidebar}
           >
-            <div className="w-5 h-5 flex items-center justify-center [&>svg]:w-5 [&>svg]:h-5">{SVGS.burger}</div>
+            <Icon name="Menu" size={20} />
           </button>
         </div>
         <div className="[scrollbar-width:none] overflow-auto p-0.5 flex flex-col gap-2.5 flex-1">
@@ -248,7 +251,7 @@ export const Sidebar: React.FC = () => {
               }))
             }
           >
-            <div className="w-5 h-5 flex items-center justify-center [&>svg]:w-5 [&>svg]:h-5">{SVGS.chat}</div>
+            <Icon name="MessageSquare" size={20} />
             <span>{t("conversations")}</span>
           </button>
 
@@ -435,7 +438,7 @@ export const Sidebar: React.FC = () => {
                   setOpenedModals({ action: "add", name: "audio" })
                 }
               >
-                <div className="w-5 h-5 flex items-center justify-center [&>svg]:w-5 [&>svg]:h-5">{SVGS.tools}</div>
+                <Icon name="AudioLines" size={20} />
                 <span>{t("audio-tools")}</span>
               </button>
               <button
@@ -454,36 +457,31 @@ export const Sidebar: React.FC = () => {
               </button>
               <button
                 className={`w-full px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center justify-center gap-2 ${
-                  hoveredButton === 'documents' 
+                  hoveredButton === 'knowledge-base' 
                     ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
                     : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
                 }`}
                 style={{ transform: 'none' }}
-                onMouseEnter={() => setHoveredButton('documents')}
+                onMouseEnter={() => setHoveredButton('knowledge-base')}
                 onMouseLeave={() => setHoveredButton(null)}
-                onClick={() => {
-                  setOpenedModals({ action: "add", name: "documents" });
-                  toggleSidebar();
-                }}
+                onClick={() => goTo("/knowledge-base")}
               >
-                <div className="w-5 h-5 flex items-center justify-center [&>svg]:w-5 [&>svg]:h-5">{SVGS.document}</div>
-                <span>{t("documents")}</span>
+                <Icon name="Database" size={20} />
+                <span>{t("knowledge-base")}</span>
               </button>
               <button
                 className={`w-full px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center justify-center gap-2 ${
-                  hoveredButton === 'completions' 
+                  hoveredButton === 'widgets' 
                     ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
                     : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
                 }`}
                 style={{ transform: 'none' }}
-                onMouseEnter={() => setHoveredButton('completions')}
+                onMouseEnter={() => setHoveredButton('widgets')}
                 onMouseLeave={() => setHoveredButton(null)}
-                onClick={() =>
-                  setOpenedModals({ action: "add", name: "completions" })
-                }
+                onClick={() => setShowWidgetManager(true)}
               >
-                <div className="w-5 h-5 flex items-center justify-center [&>svg]:w-5 [&>svg]:h-5">{SVGS.question}</div>
-                <span>{t("completions")}</span>
+                <Icon name="Puzzle" size={20} />
+                <span>{t("chat-widgets")}</span>
               </button>
               {canManageOrg && (
                 <button
@@ -497,7 +495,7 @@ export const Sidebar: React.FC = () => {
                   onMouseLeave={() => setHoveredButton(null)}
                   onClick={() => goTo("/organization")}
                 >
-                  <div className="w-5 h-5 flex items-center justify-center [&>svg]:w-5 [&>svg]:h-5">{SVGS.organization}</div>
+                  <Icon name="Building2" size={20} />
                   <span>{t("manage-organization")}</span>
                 </button>
               )}
@@ -513,7 +511,7 @@ export const Sidebar: React.FC = () => {
                   onMouseLeave={() => setHoveredButton(null)}
                   onClick={() => goTo("/dashboard")}
                 >
-                  <div className="w-5 h-5 flex items-center justify-center [&>svg]:w-5 [&>svg]:h-5">{SVGS.chat}</div>
+                  <Icon name="LayoutDashboard" size={20} />
                   <span>{t("conversations-dashboard")}</span>
                 </button>
               )}
@@ -533,7 +531,7 @@ export const Sidebar: React.FC = () => {
             onClick={openSettings}
             title={t("settings")}
           >
-            <div className="w-5 h-5 flex items-center justify-center [&>svg]:w-5 [&>svg]:h-5">{SVGS.settings}</div>
+            <Icon name="Settings" size={20} />
             <span>{user ? user.username : t("you")}</span>
           </button>
           <button
@@ -548,11 +546,14 @@ export const Sidebar: React.FC = () => {
             onClick={logout}
             title={t("logout")}
           >
-            <div className="w-5 h-5 flex items-center justify-center [&>svg]:w-5 [&>svg]:h-5">{SVGS.logout}</div>
+            <Icon name="LogOut" size={20} />
           </button>
         </div>
       </div>
       <div onClick={toggleSidebar} className="bg-[rgba(55,55,55,0.52)] w-screen h-screen fixed top-0 left-0 z-[40] md:hidden"></div>
+      {showWidgetManager && (
+        <WidgetManager hide={() => setShowWidgetManager(false)} />
+      )}
     </>
   );
 };
@@ -618,7 +619,7 @@ const ConversationComponent = ({
         opener={
           <SvgButton 
             title={t("conversation-options")} 
-            svg={SVGS.options}
+            svg={<Icon name="MoreVertical" size={20} />}
             extraClass="hover:!bg-white hover:!border-white [&>svg]:hover:!fill-black [&>svg]:hover:!stroke-black [&>svg>*]:hover:!fill-black [&>svg>*]:hover:!stroke-black"
           />
         }
@@ -635,7 +636,7 @@ const ConversationComponent = ({
             onMouseLeave={() => setHoveredButton(null)}
             onClick={() => deleteConversationItem(conversation.id)}
           >
-            <span className="flex items-center justify-center w-5 h-5 [&>svg]:w-5 [&>svg]:h-5">{SVGS.trash}</span>
+            <Icon name="Trash2" size={20} />
             <span>{t("delete")}</span>
           </button>
           <button
@@ -649,7 +650,7 @@ const ConversationComponent = ({
             onMouseLeave={() => setHoveredButton(null)}
             onClick={() => setShowTrainingModal(true)}
           >
-            <span className="flex items-center justify-center w-5 h-5 [&>svg]:w-5 [&>svg]:h-5">{SVGS.dumbell}</span>
+            <Icon name="Dumbbell" size={20} />
             <span>{t("train")}</span>
           </button>
           <button
@@ -663,7 +664,7 @@ const ConversationComponent = ({
             onMouseLeave={() => setHoveredButton(null)}
             onClick={() => setShowShareModal(true)}
           >
-            <span className="flex items-center justify-center w-5 h-5 [&>svg]:w-5 [&>svg]:h-5">{SVGS.share}</span>
+            <Icon name="Share2" size={20} />
             <span>{t("share")}</span>
           </button>
           <div className="text-center text-gray-300 text-sm">
@@ -733,7 +734,7 @@ const ShareConversationModal = ({ hide, conversationId }) => {
                 onChange={(e) => setValidUntil(new Date(e.target.value))}
               />
               <SvgButton
-                svg={SVGS.share}
+                svg={<Icon name="Share2" size={20} />}
                 text={t("share-now")}
                 size="big"
                 onClick={share}
@@ -758,14 +759,14 @@ const ShareConversationModal = ({ hide, conversationId }) => {
               <SvgButton
                 extraClass="bg-hovered active-on-hover"
                 onClick={() => copyToClipboard(generateShareLink())}
-                svg={SVGS.copy}
+                svg={<Icon name="Copy" size={20} />}
                 text={t("copy")}
                 size="big"
               />
               <SvgButton
                 extraClass="bg-hovered active-on-hover"
                 onClick={openLink}
-                svg={SVGS.redirect}
+                svg={<Icon name="ExternalLink" size={20} />}
                 text={t("open-link")}
                 size="big"
               />
@@ -855,7 +856,7 @@ const TrainingOnConversation = ({
           </div>
         </form>
         <SvgButton
-          svg={SVGS.dumbell}
+          svg={<Icon name="Dumbbell" size={20} />}
           text="Generate"
           size="big"
           onClick={generateTrainingData}

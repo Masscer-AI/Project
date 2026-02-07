@@ -6,7 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { API_URL } from "../../modules/constants";
 import { SimpleForm } from "../../components/SimpleForm/SimpleForm";
 import { SvgButton } from "../../components/SvgButton/SvgButton";
-import { SVGS } from "../../assets/svgs";
+import { Icon } from "../../components/Icon/Icon";
 import { useTranslation } from "react-i18next";
 
 type TMessage = {
@@ -97,7 +97,7 @@ export default function Login() {
             <SvgButton
               tabIndex={-1}
               extraClass="pos-absolute right-zero top-middle padding-small"
-              svg={showPassword ? SVGS.eyeClosed : SVGS.eye}
+              svg={showPassword ? <Icon name="EyeOff" size={20} /> : <Icon name="Eye" size={20} />}
               onClick={() => setShowPassword(!showPassword)}
             />
             {/* <p className="text-small text-center text-gray">

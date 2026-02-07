@@ -1,11 +1,11 @@
 import React, { useRef, useEffect, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
-import { SVGS } from "../../assets/svgs";
 import { v4 as uuidv4 } from "uuid";
 import { useStore } from "../../modules/store";
 import toast from "react-hot-toast";
 import { Thumbnail } from "../Thumbnail/Thumbnail";
 import { SvgButton } from "../SvgButton/SvgButton";
+import { Icon } from "../Icon/Icon";
 
 import { useTranslation } from "react-i18next";
 import { generateDocumentBrief, getDocuments } from "../../modules/apiCalls";
@@ -208,7 +208,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                     : "!w-8 !h-8 md:!w-12 md:!h-12 !rounded-full !p-1.5 md:!p-2 pressable"
                 }
                 onClick={toggleWritingMode}
-                svg={SVGS.writePen}
+                svg={<Icon name="PenLine" size={20} />}
                 title={t("turn-on-off-writing-mode")}
               />
               <RagSearchOptions />
@@ -318,7 +318,7 @@ export const FileLoader = () => {
       <label htmlFor="fileInput">
         <SvgButton
           onClick={openDocuments}
-          svg={SVGS.addDocument}
+          svg={<Icon name="FilePlus" size={20} />}
           size="big"
           text={t("add-files")}
           extraClass="border-active"
@@ -355,7 +355,7 @@ const RagSearchOptions = () => {
             chatState.useRag ? "bg-active svg-white" : ""
           }`}
           onClick={toggleUseRag}
-          svg={SVGS.document}
+          svg={<Icon name="FileText" size={20} />}
           title={t("turn-on-off-rag")}
         />
       }
@@ -379,7 +379,7 @@ const RagSearchOptions = () => {
           onClick={() => setIsConfigOpen(true)}
           text={t("add-existing-documents")}
           extraClass="border-active"
-          svg={SVGS.plus}
+          svg={<Icon name="Plus" size={20} />}
           size="big"
         />
         <FileLoader />
@@ -485,7 +485,7 @@ const DocumentCard = ({ d }: { d: TDocument }) => {
       {d.brief && <p title={d.brief}>{d.brief.slice(0, 200)}...</p>}
       <SvgButton
         onClick={() => toggleDocument(d)}
-        svg={SVGS.plus}
+        svg={<Icon name="Plus" size={20} />}
         size="big"
         text={
           chatState.attachments.findIndex((a) => a.id == d.id) != -1
@@ -503,7 +503,7 @@ const DocumentCard = ({ d }: { d: TDocument }) => {
           extraClass="border-active"
           text={t("generate-brief")}
           onClick={generateBrief}
-          svg={SVGS.plus}
+          svg={<Icon name="Plus" size={20} />}
           size="big"
         />
       )}
@@ -535,7 +535,7 @@ const ConversationConfig = () => {
       <SvgButton
         extraClass="!w-8 !h-8 md:!w-12 md:!h-12 !rounded-full !p-1.5 md:!p-2 pressable"
         onClick={() => setIsOpened(true)}
-        svg={SVGS.options}
+        svg={<Icon name="Settings" size={20} />}
       />
       <Modal
         header={<h3 className="padding-big">{t("conversation-settings")}</h3>}
@@ -586,8 +586,8 @@ const ConversationConfig = () => {
                 name="multiagentic-modality"
                 labelTrue={t("isolated")}
                 labelFalse={t("grupal")}
-                svgTrue={SVGS.palmeras}
-                svgFalse={SVGS.team}
+                svgTrue={<Icon name="Palmtree" size={20} />}
+                svgFalse={<Icon name="Users" size={20} />}
                 checked={userPreferences.multiagentic_modality === "isolated"}
                 onChange={(checked) => {
                   setPreferences({
@@ -631,7 +631,7 @@ const WebSearchDropdown = () => {
               hasActiveWebSearch ? "bg-active svg-white" : ""
             }`}
             onClick={toggleWebSearch}
-            svg={SVGS.webSearch}
+            svg={<Icon name="Globe" size={20} />}
             title={t("turn-on-off-web-search")}
           />
         }
@@ -642,7 +642,7 @@ const WebSearchDropdown = () => {
               chatState.webSearch ? "bg-active svg-white" : ""
             }`}
             onClick={toggleWebSearch}
-            svg={SVGS.webSearch}
+            svg={<Icon name="Globe" size={20} />}
             text={t("auto-search") || "Auto Search"}
             title={t("turn-on-off-web-search")}
           />
@@ -653,7 +653,7 @@ const WebSearchDropdown = () => {
                 : ""
             }`}
             onClick={() => setIsWebsiteFetcherOpen(true)}
-            svg={SVGS.webSearch}
+            svg={<Icon name="Link" size={20} />}
             text={t("fetch-urls") || "Fetch URLs"}
             title={t("specify-urls-to-fetch") || "Specify URLs to fetch"}
           />
@@ -684,7 +684,7 @@ export const PluginSelector = () => {
     <>
       <SvgButton
         onClick={() => setIsOpened(true)}
-        svg={SVGS.plugin}
+        svg={<Icon name="Puzzle" size={20} />}
         size="big"
         extraClass={`!w-8 !h-8 md:!w-12 md:!h-12 !rounded-full !p-1.5 md:!p-2 pressable ${
           chatState.selectedPlugins.length > 0 ? "bg-active svg-white" : ""

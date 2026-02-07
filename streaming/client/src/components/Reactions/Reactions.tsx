@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from "react";
 import { useStore } from "../../modules/store";
 import { FloatingDropdown } from "../Dropdown/Dropdown";
 import { SvgButton } from "../SvgButton/SvgButton";
-import { SVGS } from "../../assets/svgs";
+import { Icon } from "../Icon/Icon";
 import "./Reactions.css";
 import { createReaction } from "../../modules/apiCalls";
 
@@ -48,7 +48,7 @@ export const Reactions = ({
       <SvgButton
         extraClass="dropdown-opener"
         title="Reactions"
-        svg={SVGS.reaction}
+        svg={<Icon name="Smile" size={20} />}
       />
       <div
         ref={divRef}

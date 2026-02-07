@@ -32,7 +32,7 @@ export const Icon = ({
       size={size}
       color={color}
       strokeWidth={strokeWidth}
-      className={className}
+      className={`${className}`}
       {...props}
     />
   );

@@ -1,0 +1,222 @@
+.kb-container {
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto;
+  background-color: var(--bg-color, #1a1a1a);
+  color: var(--font-color, #ffffff);
+  min-height: 100vh;
+}
+
+.kb-header {
+  margin-bottom: 32px;
+}
+
+.kb-header h1 {
+  font-size: 32px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--font-color, #ffffff);
+}
+
+.kb-card {
+  background-color: var(--hovered-color, #2a2a2a);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.kb-card h2 {
+  font-size: 1.25rem;
+  margin: 0 0 1rem 0;
+  color: var(--font-color, #ffffff);
+}
+
+.kb-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.kb-tab {
+  padding: 10px 20px;
+  border-radius: 9999px;
+  border: 1px solid rgba(156, 156, 156, 0.3);
+  background: rgba(35, 33, 39, 0.5);
+  color: white;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.kb-tab:hover {
+  background: rgba(35, 33, 39, 0.8);
+}
+
+.kb-tab.active {
+  background: white;
+  color: #1a1a1a;
+}
+
+.kb-content {
+  min-height: 400px;
+}
+
+.kb-empty {
+  padding: 48px 24px;
+  text-align: center;
+  color: rgb(156, 156, 156);
+  border: 1px dashed rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.kb-item {
+  padding: 16px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  margin-bottom: 12px;
+  transition: all 0.2s ease;
+}
+
+.kb-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.kb-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.kb-item-title {
+  font-weight: 500;
+  color: var(--font-color, #ffffff);
+  margin: 0;
+  word-break: break-word;
+}
+
+.kb-item-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.kb-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.kb-item-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.kb-agent-select {
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  font-size: 13px;
+  cursor: pointer;
+  min-width: 140px;
+}
+
+.kb-agent-select option {
+  background: #2a2a2a;
+  color: white;
+}
+
+.kb-item-brief {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 14px;
+  margin: 8px 0 0 0;
+  line-height: 1.5;
+}
+
+.kb-upload-area {
+  border: 2px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 32px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: 24px;
+}
+
+.kb-upload-area:hover {
+  border-color: rgba(110, 91, 255, 0.5);
+  background: rgba(110, 91, 255, 0.05);
+}
+
+.kb-upload-area.dragging {
+  border-color: rgba(110, 91, 255, 0.8);
+  background: rgba(110, 91, 255, 0.1);
+}
+
+.kb-completion-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  margin-bottom: 24px;
+}
+
+.kb-completion-form textarea {
+  width: 100%;
+  min-height: 80px;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+  color: white;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.kb-completion-form textarea:focus {
+  outline: none;
+  border-color: rgba(110, 91, 255, 0.5);
+}
+
+.kb-filter-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.kb-search-input {
+  flex: 1;
+  min-width: 200px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--font-color, #ffffff);
+  font-size: 14px;
+}
+
+.kb-search-input:focus {
+  outline: none;
+  border-color: rgba(110, 91, 255, 0.5);
+}

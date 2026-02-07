@@ -10,7 +10,6 @@ import styles from "./DocumentsModal.module.css";
 
 import { useTranslation } from "react-i18next";
 import { SvgButton } from "../SvgButton/SvgButton";
-import { SVGS } from "../../assets/svgs";
 import { Pill } from "../Pill/Pill";
 import { useStore } from "../../modules/store";
 import toast from "react-hot-toast";
@@ -18,6 +17,7 @@ import { FloatingDropdown } from "../Dropdown/Dropdown";
 import { TDocument } from "../../types";
 import { Menu } from "../Settings/Settings";
 import { Loader } from "../Loader/Loader";
+import { Icon } from "../Icon/Icon";
 
 export const DocumentsModal = ({ visible, hide }) => {
   const { t } = useTranslation();
@@ -63,7 +63,7 @@ export const DocumentsModal = ({ visible, hide }) => {
           ))}
         </div>
       ),
-      svg: SVGS.addDocument,
+      svg: <Icon name="FilePlus" size={20} />,
     },
     {
       name: t("templates"),
@@ -72,7 +72,7 @@ export const DocumentsModal = ({ visible, hide }) => {
           <p>{t("document-templates-you-can-replicate-using-ai")}</p>
         </div>
       ),
-      svg: SVGS.format,
+      svg: <Icon name="FileCode" size={20} />,
     },
   ];
 
@@ -128,7 +128,7 @@ const DocumentCard = ({ document, removeDoc }) => {
       <div className="d-flex justify-center gap-small">
         <FloatingDropdown
           bottom="100%"
-          opener={<SvgButton text={t("options")} svg={SVGS.burger} />}
+          opener={<SvgButton text={t("options")} svg={<Icon name="Menu" size={20} />} />}
         >
           <div className="w-[200px] flex flex-col gap-3 p-4 bg-[rgba(255,255,255,0.05)] backdrop-blur-md border border-[rgba(255,255,255,0.1)] rounded-2xl shadow-lg">
             <button
@@ -172,7 +172,7 @@ const DocumentCard = ({ document, removeDoc }) => {
                 }
               }}
             >
-              <span className="flex items-center justify-center w-5 h-5 [&>svg]:w-5 [&>svg]:h-5">{SVGS.trash}</span>
+              <Icon name="Trash2" size={20} />
               <span>{t("delete")}</span>
             </button>
           </div>
@@ -344,7 +344,7 @@ const TrainingOnDocument = ({
           onMouseLeave={() => setHoveredButton(null)}
           onClick={generateTrainingData}
         >
-          <span className="flex items-center justify-center w-5 h-5 [&>svg]:w-5 [&>svg]:h-5">{SVGS.dumbell}</span>
+          <Icon name="Dumbbell" size={20} />
           <span>Generate</span>
         </button>
       </div>

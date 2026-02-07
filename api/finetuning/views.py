@@ -39,6 +39,41 @@ class CompletionsView(View):
         completions = get_user_completions(request.user)
         return JsonResponse(completions, status=status.HTTP_200_OK, safe=False)
 
+    def post(self, request):
+        data = json.loads(request.body)
+        
+        prompt = data.get("prompt")
+        answer = data.get("answer")
+        agent_id = data.get("agent")
+        approved = data.get("approved", False)
+        
+        if not prompt or not answer:
+            return JsonResponse(
+                {"message": "Prompt and answer are required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        completion_data = {
+            "prompt": prompt,
+            "answer": answer,
+            "approved": approved,
+        }
+        
+        if agent_id:
+            completion_data["agent"] = agent_id
+        
+        serializer = CompletionSerializer(data=completion_data)
+        if serializer.is_valid():
+            serializer.save()
+            return JsonResponse(
+                serializer.data,
+                status=status.HTTP_201_CREATED
+            )
+        return JsonResponse(
+            {"message": "Invalid data", "errors": serializer.errors},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
     def put(self, request, completion_id):
         data = json.loads(request.body)
         completion = get_object_or_404(Completion, id=completion_id)

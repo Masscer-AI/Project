@@ -8,7 +8,7 @@ import toast from "react-hot-toast";
 import "./VideoTools.css";
 import { Modal } from "../Modal/Modal";
 import { SvgButton } from "../SvgButton/SvgButton";
-import { SVGS } from "../../assets/svgs";
+import { Icon } from "../Icon/Icon";
 
 export const VideoTools = () => {
   const [state, setState] = useState({
@@ -173,7 +173,7 @@ const VideoCard = ({ video }) => {
       <SvgButton
         size="big"
         text="Show media"
-        svg={SVGS.eyes}
+        svg={<Icon name="Eye" size={20} />}
         onClick={toggleShowMedia}
       />
       {showSources && <VideoSources hide={hideModal} videos={videos} />}

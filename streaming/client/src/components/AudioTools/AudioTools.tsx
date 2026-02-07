@@ -10,8 +10,8 @@ import { Modal } from "../Modal/Modal";
 import { useTranslation } from "react-i18next";
 import { useStore } from "../../modules/store";
 import { SvgButton } from "../SvgButton/SvgButton";
-import { SVGS } from "../../assets/svgs";
 import { t } from "i18next";
+import { Icon } from "../Icon/Icon";
 
 interface TranscribeOptionsProps {
   handleSubmit: (
@@ -133,7 +133,7 @@ const TranscribeOptions: React.FC<TranscribeOptionsProps> = ({
             text={recordingStarted ? t("stop-recording") : t("start-recording")}
             size="small"
             extraClass="bg-hovered active-on-hover pressable w-100"
-            svg={recordingStarted ? SVGS.stop : SVGS.play}
+            svg={recordingStarted ? <Icon name="Square" size={20} /> : <Icon name="Play" size={20} />}
             onClick={recordingStarted ? stopRecording : startRecording}
           />
           {recordingStarted && (
@@ -141,7 +141,7 @@ const TranscribeOptions: React.FC<TranscribeOptionsProps> = ({
               text={recording ? t("pause") : t("resume")}
               size="small"
               extraClass="bg-hovered active-on-hover pressable w-100"
-              svg={recording ? SVGS.pause : SVGS.play}
+              svg={recording ? <Icon name="Pause" size={20} /> : <Icon name="Play" size={20} />}
               onClick={recording ? pauseRecording : resumeRecording}
             />
           )}
@@ -205,7 +205,7 @@ const TranscribeOptions: React.FC<TranscribeOptionsProps> = ({
             );
           }}
           >
-          <span className="flex items-center justify-center w-5 h-5 [&>svg]:w-5 [&>svg]:h-5">{SVGS.waves}</span>
+          <Icon name="Waves" size={20} />
           <span>{t("transcribe")}</span>
         </button>
       )}
@@ -271,9 +271,9 @@ const TranscriptionJobCard: React.FC<{
     >
       <h4 className="flex-x justify-between  gap-small align-center">
         {job.source_type === "AUDIO" ? (
-          <p>{SVGS.microphone}</p>
+          <p><Icon name="Mic" size={20} /></p>
         ) : (
-          <p>{SVGS.youtube}</p>
+          <p><Icon name="Youtube" size={20} /></p>
         )}
         <p>{t("transcription")}</p>
         <p>{job.id}</p>
@@ -289,7 +289,7 @@ const TranscriptionJobCard: React.FC<{
               text={`${transcription.language} - ${transcription.format}`}
               size="small"
               extraClass="bg-hovered active-on-hover pressable w-100"
-              svg={SVGS.download}
+              svg={<Icon name="Download" size={20} />}
               onClick={() =>
                 downloadResult(transcription.result, transcription.id)
               }
@@ -303,7 +303,7 @@ const TranscriptionJobCard: React.FC<{
             text="Delete"
             size="small"
             extraClass="bg-hovered danger-on-hover pressable w-100"
-            svg={SVGS.trash}
+            svg={<Icon name="Trash2" size={20} />}
             confirmations={[t("sure")]}
             onClick={() => handleDelete(job.id)}
           />

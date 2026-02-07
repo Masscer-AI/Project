@@ -1,8 +1,8 @@
 import React, { useRef, useEffect, useState } from "react";
 import "./Talkie.css";
 import { SvgButton } from "../SvgButton/SvgButton";
-import { SVGS } from "../../assets/svgs";
 import { useHotkeys } from "react-hotkeys-hook";
+import { Icon } from "../Icon/Icon";
 
 interface TalkieProps {
   processAudio: (audioFile: Blob, transcription: string) => void;
@@ -180,7 +180,7 @@ export const Talkie: React.FC<TalkieProps> = ({ processAudio }) => {
           isRecording ? "bg-danger" : ""
         }`}
         onClick={isRecording ? stopRecording : startRecording}
-        svg={isRecording ? SVGS.microphoneOff : SVGS.microphone}
+        svg={isRecording ? <Icon name="MicOff" size={20} /> : <Icon name="Mic" size={20} />}
         title={  
           isRecording ? "Stop Recording" : "Press Enter to Start Recording"
         }

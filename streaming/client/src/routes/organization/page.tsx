@@ -1,31 +1,33 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useStore } from "../../modules/store";
 import { Sidebar } from "../../components/Sidebar/Sidebar";
 import {
   assignRoleToMember,
+  createOrganization,
   createOrganizationRole,
+  deleteOrganization,
   deleteOrganizationRole,
   getFeatureFlagNames,
   getOrganizationMembers,
   getOrganizationRoles,
   getUserOrganizations,
   removeRoleAssignment,
+  TOrganizationData,
+  updateOrganization,
   updateOrganizationRole,
 } from "../../modules/apiCalls";
 import { titlelify } from "../../modules/utils";
 import { TOrganization, TOrganizationMember, TOrganizationRole } from "../../types";
 import { useTranslation } from "react-i18next";
 import { SvgButton } from "../../components/SvgButton/SvgButton";
-import { SVGS } from "../../assets/svgs";
 import toast from "react-hot-toast";
+import { Icon } from "../../components/Icon/Icon";
 import "./page.css";
 
 export default function OrganizationPage() {
-  const { chatState, toggleSidebar, setUser, setOpenedModals } = useStore((s) => ({
+  const { chatState, toggleSidebar } = useStore((s) => ({
     chatState: s.chatState,
     toggleSidebar: s.toggleSidebar,
-    setUser: s.setUser,
-    setOpenedModals: s.setOpenedModals,
   }));
   const { t } = useTranslation();
   const [orgs, setOrgs] = useState<TOrganization[]>([]);
@@ -41,21 +43,41 @@ export default function OrganizationPage() {
   const [roleForm, setRoleForm] = useState({ name: "", description: "", capabilities: [] as string[] });
   const [assigningUserId, setAssigningUserId] = useState<number | null>(null);
 
+  // Organization settings state
+  const [editingOrgSettings, setEditingOrgSettings] = useState(false);
+  const [orgForm, setOrgForm] = useState({ name: "", description: "" });
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [deleteLogo, setDeleteLogo] = useState(false);
+  const [savingOrg, setSavingOrg] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
+  // Create organization state
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [createForm, setCreateForm] = useState({ name: "", description: "" });
+  const [creating, setCreating] = useState(false);
+
+  const loadOrgs = async () => {
+    try {
+      const data = await getUserOrganizations();
+      setOrgs(data.filter((o) => o.is_owner || o.can_manage));
+    } catch {
+      setOrgs([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const load = async () => {
-      try {
-        const data = await getUserOrganizations();
-        setOrgs(data.filter((o) => o.is_owner || o.can_manage));
-      } catch {
-        setOrgs([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
+    loadOrgs();
   }, []);
 
   const org = orgs[0] ?? null;
+
+  useEffect(() => {
+    if (org) {
+      setOrgForm({ name: org.name, description: org.description || "" });
+    }
+  }, [org?.id]);
 
   useEffect(() => {
     if (!org?.id) {
@@ -93,6 +115,70 @@ export default function OrganizationPage() {
 
   const reloadRoles = () => {
     if (org?.id) getOrganizationRoles(org.id).then(setRoles).catch(() => setRoles([]));
+  };
+
+  // Create organization
+  const handleCreateOrg = async () => {
+    if (!createForm.name.trim()) {
+      toast.error(t("organization-name-required"));
+      return;
+    }
+    setCreating(true);
+    const tid = toast.loading(t("loading"));
+    try {
+      await createOrganization(createForm as TOrganizationData);
+      toast.success(t("organization-created"));
+      setShowCreateForm(false);
+      setCreateForm({ name: "", description: "" });
+      await loadOrgs();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.detail || t("an-error-occurred"));
+    } finally {
+      toast.dismiss(tid);
+      setCreating(false);
+    }
+  };
+
+  // Save organization settings
+  const handleSaveOrgSettings = async () => {
+    if (!org?.id || !orgForm.name.trim()) return;
+    setSavingOrg(true);
+    const tid = toast.loading(t("loading"));
+    try {
+      let options: { logoFile?: File; deleteLogo: boolean } | undefined;
+      if (logoFile) {
+        options = { logoFile, deleteLogo: false };
+      } else if (deleteLogo) {
+        options = { deleteLogo: true };
+      }
+
+      await updateOrganization(org.id, orgForm, options);
+      toast.success(t("organization-updated"));
+      setEditingOrgSettings(false);
+      setLogoFile(null);
+      setDeleteLogo(false);
+      await loadOrgs();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.detail || t("error-updating-organization"));
+    } finally {
+      toast.dismiss(tid);
+      setSavingOrg(false);
+    }
+  };
+
+  // Delete organization
+  const handleDeleteOrg = async () => {
+    if (!org?.id || !window.confirm(t("sure-this-action-is-irreversible"))) return;
+    const tid = toast.loading(t("loading"));
+    try {
+      await deleteOrganization(org.id);
+      toast.success(t("organization-deleted"));
+      await loadOrgs();
+    } catch {
+      toast.error(t("an-error-occurred"));
+    } finally {
+      toast.dismiss(tid);
+    }
   };
 
   const handleSaveRole = async () => {
@@ -186,11 +272,6 @@ export default function OrganizationPage() {
     toast.success(t("copied-to-clipboard"));
   };
 
-  const openSettings = () => {
-    setOpenedModals({ action: "add", name: "settings" });
-    toggleSidebar();
-  };
-
   if (loading) {
     return (
       <main className="d-flex pos-relative h-viewport">
@@ -213,67 +294,276 @@ export default function OrganizationPage() {
             <SvgButton
               extraClass="pressable active-on-hover"
               onClick={toggleSidebar}
-              svg={SVGS.burger}
+              svg={<Icon name="Menu" size={20} />}
             />
           </div>
         )}
         <div className="max-w-2xl mx-auto px-4">
           <div className="org-header">
             <h1 className="text-2xl md:text-4xl font-bold mb-4 md:mb-8 text-center text-white tracking-tight">
-              {t("manage-organization")}
+              {org ? t("manage-organization") : t("organization")}
             </h1>
           </div>
 
           {!org ? (
-            <>
-              {!chatState.isSidebarOpened && (
-                <div className="absolute top-6 left-6 z-10">
-                  <SvgButton
-                    extraClass="pressable active-on-hover"
-                    onClick={toggleSidebar}
-                    svg={SVGS.burger}
-                  />
+            // No organization - show create form
+            <div className="org-card">
+              {!showCreateForm ? (
+                <div className="text-center py-8">
+                  <p className="text-[rgb(156,156,156)] mb-4">{t("no-organizations-message")}</p>
+                  <button
+                    type="button"
+                    className={`px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center gap-2 mx-auto ${
+                      hoveredButton === "create-org"
+                        ? "bg-white text-gray-800 border-[rgba(156,156,156,0.3)]"
+                        : "bg-[#6e5bff] text-white border-[rgba(156,156,156,0.3)] hover:bg-[#5a47e6]"
+                    }`}
+                    onMouseEnter={() => setHoveredButton("create-org")}
+                    onMouseLeave={() => setHoveredButton(null)}
+                    onClick={() => setShowCreateForm(true)}
+                  >
+                    <Icon name="Plus" size={20} />
+                    {t("create-organization")}
+                  </button>
                 </div>
-              )}
-              <div className="org-empty-state">
-              <p>{t("no-organization-to-manage")}</p>
-              <p className="text-sm">{t("create-or-join-organization-in-settings")}</p>
-              <button
-                type="button"
-                className={`mt-4 px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center gap-2 mx-auto ${
-                  hoveredButton === "settings"
-                    ? "bg-white text-gray-800 border-[rgba(156,156,156,0.3)]"
-                    : "bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]"
-                }`}
-                onMouseEnter={() => setHoveredButton("settings")}
-                onMouseLeave={() => setHoveredButton(null)}
-                onClick={openSettings}
-              >
-                <span className="flex items-center justify-center w-5 h-5 [&>svg]:w-5 [&>svg]:h-5">{SVGS.settings}</span>
-                {t("settings")}
-              </button>
-            </div>
-            </>
-          ) : (
-            <>
-              <div className="org-card">
-                <div className="flex items-center gap-4 mb-4">
-                  {org.logo_url && (
-                    <img
-                      src={org.logo_url}
-                      alt={org.name}
-                      className="rounded w-14 h-14 object-cover"
+              ) : (
+                <div className="flex flex-col gap-4">
+                  <h2 className="text-white font-semibold">{t("create-organization")}</h2>
+                  <div className="flex flex-col gap-2">
+                    <label className="text-[rgb(156,156,156)] text-sm">{t("organization-name")}</label>
+                    <input
+                      type="text"
+                      value={createForm.name}
+                      onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
+                      placeholder={t("name-for-your-organization")}
+                      className="w-full p-3 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-lg text-white placeholder-[rgb(156,156,156)] focus:outline-none focus:ring-2 focus:ring-[rgba(110,91,255,0.5)]"
                     />
-                  )}
-                  <div>
-                    <h2>{org.name}</h2>
-                    {org.description && (
-                      <p className="text-sm text-[rgb(156,156,156)] mt-1">{org.description}</p>
-                    )}
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <label className="text-[rgb(156,156,156)] text-sm">{t("describe-your-organization")}</label>
+                    <textarea
+                      value={createForm.description}
+                      onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })}
+                      placeholder={t("describe-your-organization")}
+                      rows={3}
+                      className="w-full p-3 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-lg text-white placeholder-[rgb(156,156,156)] focus:outline-none focus:ring-2 focus:ring-[rgba(110,91,255,0.5)] resize-none"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleCreateOrg}
+                      disabled={creating}
+                      className={`flex-1 px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center justify-center gap-2 ${
+                        hoveredButton === "submit-create"
+                          ? "bg-white text-gray-800 border-[rgba(156,156,156,0.3)]"
+                          : "bg-[#6e5bff] text-white border-[rgba(156,156,156,0.3)] hover:bg-[#5a47e6]"
+                      }`}
+                      onMouseEnter={() => setHoveredButton("submit-create")}
+                      onMouseLeave={() => setHoveredButton(null)}
+                    >
+                      {t("create")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCreateForm(false);
+                        setCreateForm({ name: "", description: "" });
+                      }}
+                      className={`px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center justify-center ${
+                        hoveredButton === "cancel-create"
+                          ? "bg-white text-gray-800 border-[rgba(156,156,156,0.3)]"
+                          : "bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]"
+                      }`}
+                      onMouseEnter={() => setHoveredButton("cancel-create")}
+                      onMouseLeave={() => setHoveredButton(null)}
+                    >
+                      {t("cancel")}
+                    </button>
                   </div>
                 </div>
+              )}
+            </div>
+          ) : (
+            <>
+              {/* Organization Settings Card */}
+              <div className="org-card">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-white font-semibold m-0">{t("organization-settings")}</h2>
+                  {org.is_owner && !editingOrgSettings && (
+                    <button
+                      type="button"
+                      className={`px-4 py-2 rounded-full text-sm cursor-pointer border flex items-center gap-2 ${
+                        hoveredButton === "edit-org"
+                          ? "bg-white text-gray-800"
+                          : "bg-[rgba(35,33,39,0.5)] text-white border-white/20 hover:bg-[rgba(35,33,39,0.8)]"
+                      }`}
+                      onMouseEnter={() => setHoveredButton("edit-org")}
+                      onMouseLeave={() => setHoveredButton(null)}
+                      onClick={() => setEditingOrgSettings(true)}
+                    >
+                      <Icon name="Pencil" size={16} />
+                      {t("edit")}
+                    </button>
+                  )}
+                </div>
+
+                {!editingOrgSettings ? (
+                  // View mode
+                  <div className="flex items-center gap-4">
+                    {org.logo_url ? (
+                      <img
+                        src={org.logo_url}
+                        alt={org.name}
+                        className="rounded w-16 h-16 object-cover"
+                      />
+                    ) : (
+                      <div className="rounded w-16 h-16 bg-[rgba(255,255,255,0.05)] flex items-center justify-center text-[rgb(156,156,156)] text-xs">
+                        {t("no-logo")}
+                      </div>
+                    )}
+                    <div>
+                      <h3 className="text-white font-semibold m-0">{org.name}</h3>
+                      {org.description && (
+                        <p className="text-sm text-[rgb(156,156,156)] mt-1 m-0">{org.description}</p>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  // Edit mode
+                  <div className="flex flex-col gap-4">
+                    {/* Logo */}
+                    <div className="flex flex-col gap-2">
+                      <label className="text-[rgb(156,156,156)] text-sm">{t("organization-logo")}</label>
+                      <div className="flex items-center gap-4 flex-wrap">
+                        {(org.logo_url && !deleteLogo && !logoFile) ? (
+                          <img
+                            src={org.logo_url}
+                            alt={org.name}
+                            className="rounded w-16 h-16 object-cover"
+                          />
+                        ) : logoFile ? (
+                          <LogoPreview file={logoFile} />
+                        ) : (
+                          <div className="rounded w-16 h-16 bg-[rgba(255,255,255,0.05)] flex items-center justify-center text-[rgb(156,156,156)] text-xs">
+                            {t("no-logo")}
+                          </div>
+                        )}
+                        <div className="flex gap-2 flex-wrap">
+                          <input
+                            ref={logoInputRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) {
+                                setLogoFile(f);
+                                setDeleteLogo(false);
+                              }
+                              e.target.value = "";
+                            }}
+                          />
+                          <button
+                            type="button"
+                            className="px-3 py-1.5 rounded-full text-sm cursor-pointer border bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]"
+                            onClick={() => logoInputRef.current?.click()}
+                          >
+                            {t("change-logo")}
+                          </button>
+                          {((org.logo_url || logoFile) && !deleteLogo) && (
+                            <button
+                              type="button"
+                              className="px-3 py-1.5 rounded-full text-sm cursor-pointer border border-red-500/50 text-red-400 hover:bg-red-500/20"
+                              onClick={() => {
+                                setDeleteLogo(true);
+                                setLogoFile(null);
+                              }}
+                            >
+                              {t("remove-logo")}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Name */}
+                    <div className="flex flex-col gap-2">
+                      <label className="text-[rgb(156,156,156)] text-sm">{t("organization-name")}</label>
+                      <input
+                        type="text"
+                        value={orgForm.name}
+                        onChange={(e) => setOrgForm({ ...orgForm, name: e.target.value })}
+                        className="w-full p-3 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-lg text-white placeholder-[rgb(156,156,156)] focus:outline-none focus:ring-2 focus:ring-[rgba(110,91,255,0.5)]"
+                      />
+                    </div>
+
+                    {/* Description */}
+                    <div className="flex flex-col gap-2">
+                      <label className="text-[rgb(156,156,156)] text-sm">{t("describe-your-organization")}</label>
+                      <textarea
+                        value={orgForm.description}
+                        onChange={(e) => setOrgForm({ ...orgForm, description: e.target.value })}
+                        rows={3}
+                        className="w-full p-3 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-lg text-white placeholder-[rgb(156,156,156)] focus:outline-none focus:ring-2 focus:ring-[rgba(110,91,255,0.5)] resize-none"
+                      />
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={handleSaveOrgSettings}
+                        disabled={savingOrg}
+                        className={`flex-1 px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center justify-center gap-2 ${
+                          hoveredButton === "save-org"
+                            ? "bg-white text-gray-800 border-[rgba(156,156,156,0.3)]"
+                            : "bg-[#6e5bff] text-white border-[rgba(156,156,156,0.3)] hover:bg-[#5a47e6]"
+                        }`}
+                        onMouseEnter={() => setHoveredButton("save-org")}
+                        onMouseLeave={() => setHoveredButton(null)}
+                      >
+                        <Icon name="Save" size={16} />
+                        {t("save")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingOrgSettings(false);
+                          setOrgForm({ name: org.name, description: org.description || "" });
+                          setLogoFile(null);
+                          setDeleteLogo(false);
+                        }}
+                        className={`px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center justify-center ${
+                          hoveredButton === "cancel-org"
+                            ? "bg-white text-gray-800 border-[rgba(156,156,156,0.3)]"
+                            : "bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]"
+                        }`}
+                        onMouseEnter={() => setHoveredButton("cancel-org")}
+                        onMouseLeave={() => setHoveredButton(null)}
+                      >
+                        {t("cancel")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleDeleteOrg}
+                        className={`px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center justify-center gap-2 ${
+                          hoveredButton === "delete-org"
+                            ? "bg-white text-gray-800 border-[rgba(156,156,156,0.3)]"
+                            : "bg-[#dc2626] text-white border-[rgba(156,156,156,0.3)] hover:bg-[#b91c1c]"
+                        }`}
+                        onMouseEnter={() => setHoveredButton("delete-org")}
+                        onMouseLeave={() => setHoveredButton(null)}
+                      >
+                        <Icon name="Trash2" size={16} />
+                        {t("delete")}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
+              {/* Invite Link */}
               <div className="org-card">
                 <h2>{t("invite-link")}</h2>
                 <p className="text-sm text-[rgb(156,156,156)] mb-3">{t("invite-link-description")}</p>
@@ -290,12 +580,13 @@ export default function OrganizationPage() {
                     onMouseLeave={() => setHoveredButton(null)}
                     onClick={copyInviteLink}
                   >
-                    <span className="flex items-center justify-center w-5 h-5 [&>svg]:w-5 [&>svg]:h-5">{SVGS.copy}</span>
+                    <Icon name="Copy" size={20} />
                     {t("copy")}
                   </button>
                 </div>
               </div>
 
+              {/* Roles */}
               <div className="org-card">
                 <div className="flex items-center justify-between gap-4 flex-wrap">
                   <h2 className="m-0">{t("roles")}</h2>
@@ -311,7 +602,7 @@ export default function OrganizationPage() {
                       onMouseLeave={() => setHoveredButton(null)}
                       onClick={openCreateRole}
                     >
-                      <span className="[&>svg]:w-4 [&>svg]:h-4">{SVGS.plus}</span>
+                      <Icon name="Plus" size={16} />
                       {t("create-role")}
                     </button>
                   )}
@@ -423,6 +714,7 @@ export default function OrganizationPage() {
                 )}
               </div>
 
+              {/* Members */}
               <div className="org-card">
                 <h2>{t("members")}</h2>
                 {loadingMembers ? (
@@ -481,3 +773,20 @@ export default function OrganizationPage() {
     </main>
   );
 }
+
+// Helper component for logo preview
+const LogoPreview = ({ file }: { file: File }) => {
+  const [src, setSrc] = useState<string>("");
+  useEffect(() => {
+    const url = URL.createObjectURL(file);
+    setSrc(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+  return (
+    <img
+      src={src}
+      alt="Preview"
+      className="rounded w-16 h-16 object-cover"
+    />
+  );
+};

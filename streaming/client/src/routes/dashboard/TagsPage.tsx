@@ -13,7 +13,7 @@ import { TUserData } from "../../types/chatTypes";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { SvgButton } from "../../components/SvgButton/SvgButton";
-import { SVGS } from "../../assets/svgs";
+import { Icon } from "../../components/Icon/Icon";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
 
 export default function TagsPage() {
@@ -146,7 +146,7 @@ export default function TagsPage() {
               <SvgButton
                 extraClass="pressable active-on-hover"
                 onClick={toggleSidebar}
-                svg={SVGS.burger}
+                svg={<Icon name="Menu" size={20} />}
               />
             </div>
           )}

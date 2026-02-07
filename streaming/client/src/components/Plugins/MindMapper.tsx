@@ -17,7 +17,7 @@ import "@xyflow/react/dist/style.css";
 import toast from "react-hot-toast";
 import "./MindMapper.css";
 import { SvgButton } from "../SvgButton/SvgButton";
-import { SVGS } from "../../assets/svgs";
+import { Icon } from "../Icon/Icon";
 import { useStore } from "../../modules/store";
 import { FloatingDropdown } from "../Dropdown/Dropdown";
 import { NodeTemplate } from "./NodeTemplate";
@@ -267,35 +267,35 @@ const MindMapper = () => {
   return (
     <div className="mind-mapper">
       <div className="mind-mapper-header">
-        <SvgButton onClick={toggleSidebar} svg={SVGS.burger} />
+        <SvgButton onClick={toggleSidebar} svg={<Icon name="Menu" size={20} />} />
 
         <FloatingDropdown
           top="100%"
           left="50%"
           transform="translate(-50%, 0)"
-          opener={<SvgButton svg={SVGS.plus} text="Add node" />}
+          opener={<SvgButton svg={<Icon name="Plus" size={20} />} text="Add node" />}
         >
           <div className="width-200 justify-center align-center d-flex flex-y">
             <SvgButton
               onClick={() => addNode("websiteReaderNode")}
-              svg={SVGS.webSearch}
+              svg={<Icon name="Search" size={20} />}
               text="Website Reader"
             />
             <SvgButton
               onClick={() => addNode("customNode")}
-              svg={SVGS.reaction}
+              svg={<Icon name="Smile" size={20} />}
               text="Custom Node"
             />
             <SvgButton
               onClick={() => addNode("promptNode")}
-              svg={SVGS.reaction}
+              svg={<Icon name="Smile" size={20} />}
               text="Prompt Node"
             />
           </div>
         </FloatingDropdown>
         <SvgButton
           onClick={downloadJSON}
-          svg={SVGS.download}
+          svg={<Icon name="Download" size={20} />}
           text="Download JSON"
         />
       </div>

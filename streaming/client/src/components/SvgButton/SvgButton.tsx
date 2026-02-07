@@ -1,5 +1,4 @@
 import React, { useState, useEffect, LegacyRef } from "react";
-import "./SvgButton.css";
 
 type SvgButtonProps = {
   svg?: React.ReactNode;
@@ -22,7 +21,7 @@ export const SvgButton = ({
   reference,
   svg = null,
   text = "",
-  onClick = () => {},
+  onClick = () => { },
   extraClass = "",
   size = "small",
   disabled = false,
@@ -57,7 +56,7 @@ export const SvgButton = ({
     <button
       type={type}
       tabIndex={tabIndex}
-      className={`svg-button ${rounded ? "rounded" : ""} clickeable ${extraClass} ${size} ${transparent ? "transparent" : ""}`}
+      className={`flex items-center justify-center flex-row gap-2  ${extraClass} ${size} `}
       onClick={handleClick}
       disabled={disabled}
       onMouseEnter={() => {

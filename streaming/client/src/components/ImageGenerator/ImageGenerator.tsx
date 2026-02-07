@@ -4,7 +4,7 @@ import { Modal } from "../Modal/Modal";
 import { SvgButton } from "../SvgButton/SvgButton";
 import { useTranslation } from "react-i18next";
 import { generateImage } from "../../modules/apiCalls";
-import { SVGS } from "../../assets/svgs";
+import { Icon } from "../Icon/Icon";
 import toast from "react-hot-toast";
 
 const FLUX_SIZES = [
@@ -114,7 +114,7 @@ export const ImageGenerator = ({
           ))}
         </div>
         <SvgButton
-          svg={SVGS.stars}
+          svg={<Icon name="Sparkles" size={20} />}
           onClick={generate}
           extraClass="pressable bg-active "
           size="big"

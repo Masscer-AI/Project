@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, memo } from "react";
-import { SVGS } from "../../assets/svgs";
+import { Icon } from "../Icon/Icon";
 import MarkdownRenderer from "../MarkdownRenderer/MarkdownRenderer";
 import { TAttachment, TSource, TVersion } from "../../types";
 import { Thumbnail } from "../Thumbnail/Thumbnail";
@@ -359,7 +359,7 @@ export const Message = memo(
             title={t("copy-to-clipboard")}
             extraClass="active-on-hover  pressable"
             onClick={() => copyToClipboard()}
-            svg={SVGS.copyTwo}
+            svg={<Icon name="Copy" size={20} />}
             // text={t("copy")}
             // size="big"
           />
@@ -390,7 +390,7 @@ export const Message = memo(
                         audioPlayer.pause();
                         setIsPlayingAudio(false);
                       }}
-                      svg={SVGS.pause}
+                      svg={<Icon name="Pause" size={20} />}
                     />
                   ) : (
                     <SvgButton
@@ -399,7 +399,7 @@ export const Message = memo(
                         audioPlayer.play();
                         setIsPlayingAudio(true);
                       }}
-                      svg={SVGS.play}
+                      svg={<Icon name="Play" size={20} />}
                     />
                   )}
                   <SvgButton
@@ -408,7 +408,7 @@ export const Message = memo(
                       audioPlayer.stop();
                       setIsPlayingAudio(false);
                     }}
-                    svg={SVGS.stop}
+                    svg={<Icon name="Square" size={20} />}
                   />
                   <SvgButton
                     title={t("download-audio")}
@@ -419,7 +419,7 @@ export const Message = memo(
 
                       audioPlayer.download(filename);
                     }}
-                    svg={SVGS.download}
+                    svg={<Icon name="Download" size={20} />}
                   />
                 </>
               )}
@@ -427,7 +427,7 @@ export const Message = memo(
                 <SvgButton
                   title={t("finish")}
                   onClick={finishEditing}
-                  svg={SVGS.finish}
+                  svg={<Icon name="Check" size={20} />}
                   extraClass={isEditing ? "bg-active" : ""}
                 />
               )}
@@ -508,7 +508,7 @@ export const Message = memo(
                     right: "0",
                     bottom: "100%",
                   })}
-              opener={<SvgButton svg={SVGS.options} />}
+              opener={<SvgButton svg={<Icon name="MoreVertical" size={20} />} />}
             >
               <div className="flex-y gap-small width-200">
                 {/* {!audioPlayer && (
@@ -534,7 +534,7 @@ export const Message = memo(
                   onClick={toggleEditMode}
                   size="big"
                   text={isEditing ? t("finish") : t("edit")}
-                  svg={isEditing ? SVGS.finish : SVGS.edit}
+                  svg={isEditing ? <Icon name="Check" size={20} /> : <Icon name="Pencil" size={20} />}
                   extraClass="active-on-hover border-active pressable"
                 />
                 <SvgButton
@@ -547,14 +547,14 @@ export const Message = memo(
                       imageGeneratorOpened: true,
                     }))
                   }
-                  svg={SVGS.picture}
+                  svg={<Icon name="Image" size={20} />}
                 />
                 <SvgButton
                   title={t("delete-message")}
                   size="big"
                   extraClass="border-danger danger-on-hover  pressable"
                   onClick={() => handleDelete()}
-                  svg={SVGS.trash}
+                  svg={<Icon name="Trash2" size={20} />}
                   text={t("delete")}
                   confirmations={[t("im-sure")]}
                 />
@@ -589,7 +589,7 @@ const Source = ({ source }: { source: TSource }) => {
         <SvgButton
           size="big"
           text={t("inspect")}
-          svg={SVGS.eyes}
+          svg={<Icon name="Eye" size={20} />}
           onClick={handleGetModel}
         />
       </div>
@@ -630,7 +630,7 @@ const WebSearchResultInspector = ({ result }) => {
       <SvgButton
         size="big"
         text={t("inspect-content")}
-        svg={SVGS.webSearch}
+        svg={<Icon name="Search" size={20} />}
         onClick={() => setIsVisible(true)}
       />
       {isVisible && (
@@ -780,7 +780,7 @@ const MessageEditor = ({
             <SvgButton
               text={t("generate-image")}
               onClick={generateImageWithThisText}
-              svg={SVGS.picture}
+              svg={<Icon name="Image" size={20} />}
               size="big"
             />
             {/* <SvgButton
@@ -818,7 +818,7 @@ const ModifyTextModal = ({ text }) => {
         size="big"
         text={t("modify-text")}
         onClick={() => setIsVisible(true)}
-        svg={SVGS.edit}
+        svg={<Icon name="Pencil" size={20} />}
       />
       <Modal
         header={<h3 className="padding-medium">{t("modify-message")}</h3>}
@@ -829,7 +829,7 @@ const ModifyTextModal = ({ text }) => {
           <h4>{t("selected-text")}</h4>
           <p className="text-small text-secondary">{text}</p>
           <div className="d-flex gap-small">
-            <SvgButton text="Extend" svg={SVGS.plus} />
+            <SvgButton text="Extend" svg={<Icon name="Plus" size={20} />} />
           </div>
         </div>
       </Modal>

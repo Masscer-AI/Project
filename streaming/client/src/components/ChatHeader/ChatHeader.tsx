@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { useStore } from "../../modules/store";
-import { SVGS } from "../../assets/svgs";
-// import { FloatingDropdown } from "../Dropdown/Dropdown";
 import { TAgent } from "../../types/agents";
 import { Modal } from "../Modal/Modal";
 import { SvgButton } from "../SvgButton/SvgButton";
@@ -11,6 +9,7 @@ import { useTranslation } from "react-i18next";
 import { Textarea } from "../SimpleForm/Textarea";
 import { Pill } from "../Pill/Pill";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
+import { Icon } from "../Icon/Icon";
 
 export const ChatHeader = ({
   // title,
@@ -52,7 +51,7 @@ export const ChatHeader = ({
               toggleSidebar();
             }}
           >
-            <div className="w-5 h-5 flex items-center justify-center [&>svg]:w-5 [&>svg]:h-5">{SVGS.burger}</div>
+            <Icon name="Menu" size={20} />
           </button>
         )}
         <AgentsModal />
@@ -143,7 +142,7 @@ const AgentComponent = ({ agent }: TAgentComponentProps) => {
             extraClass={`pressable active-on-hover ${
               isSelected ? "svg-white" : ""
             }`}
-            svg={SVGS.controls}
+            svg={<Icon name="Settings" size={20} />}
             onClick={showModal}
           />
           <SvgButton
@@ -152,7 +151,7 @@ const AgentComponent = ({ agent }: TAgentComponentProps) => {
               isSelected ? "svg-white text-white" : ""
             }`}
             confirmations={[t("sure?")]}
-            svg={SVGS.trash}
+            svg={<Icon name="Trash2" size={20} />}
             onClick={handleDelete}
           />
         </section>
@@ -479,7 +478,7 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
           size="big"
           onClick={save}
           text={t("save")}
-          svg={SVGS.download}
+          svg={<Icon name="Download" size={20} />}
         />
         {(() => {
           // Determine if user can manage this agent
@@ -494,7 +493,7 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
               size="big"
               onClick={handleDelete}
               text={t("delete")}
-              svg={SVGS.close}
+              svg={<Icon name="X" size={20} />}
               extraClass="border-danger pressable danger-on-hover"
               confirmations={[t("sure?")]}
             />
@@ -506,10 +505,9 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
 };
 
 const AgentsModal = () => {
-  const { agents, addAgent, test } = useStore((state) => ({
+  const { agents, addAgent } = useStore((state) => ({
     agents: state.agents,
     addAgent: state.addAgent,
-    test: state.test,
   }));
 
   const { t } = useTranslation();
@@ -525,14 +523,9 @@ const AgentsModal = () => {
         extraClass="pressable active-on-hover hover:!bg-white hover:!text-gray-800 [&>p]:hover:!text-gray-800"
         text={t("agents")}
         onClick={showModal}
-        svg={SVGS.stars}
-        svgOnHover={SVGS.threeStars}
+        svg={<Icon name="Sparkles" size={20} />}
+        svgOnHover={<Icon name="Stars" size={20} />}
       />
-      {/* <SvgButton
-        extraClass="pressable active-on-hover"
-        onClick={test}
-        svg={SVGS.dumbell}
-      /> */}
       <Modal
         extraButtons={
           <SvgButton
@@ -540,7 +533,7 @@ const AgentsModal = () => {
             title={t("add-an-agent")}
             aria-label={t("add-an-agent")}
             onClick={addAgent}
-            svg={SVGS.plus}
+            svg={<Icon name="Plus" size={20} />}
           />
         }
         header={<h3 className="padding-medium">{t("agents")}</h3>}

@@ -18,6 +18,7 @@ from .serializers import (
     BigConversationSerializer,
     SharedConversationSerializer,
     ChatWidgetConfigSerializer,
+    ChatWidgetSerializer,
     ConversationAlertSerializer,
     ConversationAlertRuleSerializer,
     TagSerializer,
@@ -323,6 +324,143 @@ class ChatWidgetAuthTokenView(View):
             {"token": auth_token.key, "token_type": "Token"},
             safe=False,
         )
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class ChatWidgetView(View):
+    """View para gestionar Chat Widgets (CRUD)."""
+    
+    def _get_user_agents(self, user):
+        """Get agents that belong to the user or their organization."""
+        from api.ai_layers.models import Agent
+        from django.db.models import Q
+        
+        user_org = None
+        if hasattr(user, 'profile') and user.profile.organization:
+            user_org = user.profile.organization
+        
+        if user_org:
+            return Agent.objects.filter(Q(user=user) | Q(organization=user_org))
+        return Agent.objects.filter(user=user)
+    
+    def get(self, request, *args, **kwargs):
+        """Get all widgets for user or a single widget by ID."""
+        user = request.user
+        widget_id = kwargs.get("id")
+        
+        if widget_id:
+            # Get single widget
+            try:
+                widget = ChatWidget.objects.get(id=widget_id, created_by=user)
+                serializer = ChatWidgetSerializer(widget, context={'request': request})
+                return JsonResponse(serializer.data, safe=False)
+            except ChatWidget.DoesNotExist:
+                return JsonResponse(
+                    {"message": "Widget not found", "status": 404}, status=404
+                )
+        else:
+            # Get all widgets for the user
+            widgets = ChatWidget.objects.filter(created_by=user).order_by("-created_at")
+            serializer = ChatWidgetSerializer(widgets, many=True, context={'request': request})
+            return JsonResponse(serializer.data, safe=False)
+    
+    def post(self, request, *args, **kwargs):
+        """Create a new widget."""
+        user = request.user
+        
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse(
+                {"message": "Invalid JSON", "status": 400}, status=400
+            )
+        
+        # Validate that agent belongs to user
+        agent_id = data.get("agent_id")
+        if agent_id:
+            user_agents = self._get_user_agents(user)
+            if not user_agents.filter(id=agent_id).exists():
+                return JsonResponse(
+                    {"message": "Agent not found or not accessible", "status": 403},
+                    status=403
+                )
+        
+        serializer = ChatWidgetSerializer(data=data, context={'request': request})
+        if serializer.is_valid():
+            serializer.save(created_by=user)
+            return JsonResponse(serializer.data, status=201)
+        else:
+            return JsonResponse(
+                {"message": "Validation error", "errors": serializer.errors, "status": 400},
+                status=400
+            )
+    
+    def put(self, request, *args, **kwargs):
+        """Update an existing widget."""
+        user = request.user
+        widget_id = kwargs.get("id")
+        
+        if not widget_id:
+            return JsonResponse(
+                {"message": "Widget ID is required", "status": 400}, status=400
+            )
+        
+        try:
+            widget = ChatWidget.objects.get(id=widget_id, created_by=user)
+        except ChatWidget.DoesNotExist:
+            return JsonResponse(
+                {"message": "Widget not found", "status": 404}, status=404
+            )
+        
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse(
+                {"message": "Invalid JSON", "status": 400}, status=400
+            )
+        
+        # Validate that agent belongs to user if being changed
+        agent_id = data.get("agent_id")
+        if agent_id:
+            user_agents = self._get_user_agents(user)
+            if not user_agents.filter(id=agent_id).exists():
+                return JsonResponse(
+                    {"message": "Agent not found or not accessible", "status": 403},
+                    status=403
+                )
+        
+        serializer = ChatWidgetSerializer(widget, data=data, partial=True, context={'request': request})
+        if serializer.is_valid():
+            serializer.save()
+            return JsonResponse(serializer.data, safe=False)
+        else:
+            return JsonResponse(
+                {"message": "Validation error", "errors": serializer.errors, "status": 400},
+                status=400
+            )
+    
+    def delete(self, request, *args, **kwargs):
+        """Delete a widget."""
+        user = request.user
+        widget_id = kwargs.get("id")
+        
+        if not widget_id:
+            return JsonResponse(
+                {"message": "Widget ID is required", "status": 400}, status=400
+            )
+        
+        try:
+            widget = ChatWidget.objects.get(id=widget_id, created_by=user)
+            widget.delete()
+            return JsonResponse(
+                {"message": "Widget deleted successfully", "status": 200},
+                status=200
+            )
+        except ChatWidget.DoesNotExist:
+            return JsonResponse(
+                {"message": "Widget not found", "status": 404}, status=404
+            )
 
 
 @method_decorator(csrf_exempt, name="dispatch")

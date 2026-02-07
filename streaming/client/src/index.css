@@ -239,20 +239,6 @@ h4 {
   color: var(--font-color);
 }
 
-/* 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
-} */
-
 .button {
   padding: 5px 6px;
   background-color: transparent;
@@ -261,9 +247,6 @@ h4 {
   cursor: pointer;
 }
 
-.button:hover {
-  background-color: var(--hovered-color);
-}
 .button.bg-active {
   background-color: var(--active-color);
   color: white;
@@ -299,6 +282,7 @@ h4 {
   justify-content: center;
   align-items: center;
 }
+
 .clickeable {
   cursor: pointer;
   border: 1px solid transparent;
@@ -1250,7 +1234,6 @@ input:checked + .slider::before {
 .button-group {
   display: flex;
   border-radius: var(--standard-radius);
-  /* border: 1px solid var(--font-color-secondary) !impo    rtant; */
 
   > .svg-button:first-child {
     border-top-left-radius: var(--standard-radius);

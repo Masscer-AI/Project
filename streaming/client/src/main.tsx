@@ -24,6 +24,7 @@ import AlertsPage from "./routes/dashboard/AlertsPage.tsx";
 import AlertRulesPage from "./routes/dashboard/AlertRulesPage.tsx";
 import TagsPage from "./routes/dashboard/TagsPage.tsx";
 import OrganizationPage from "./routes/organization/page.tsx";
+import KnowledgeBasePage from "./routes/knowledge-base/page.tsx";
 
 const router = createBrowserRouter([
   {
@@ -87,6 +88,10 @@ const router = createBrowserRouter([
       {
         path: "/organization",
         element: <OrganizationPage />,
+      },
+      {
+        path: "/knowledge-base",
+        element: <KnowledgeBasePage />,
       },
     ],
   },

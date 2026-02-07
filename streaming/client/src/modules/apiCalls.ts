@@ -15,6 +15,7 @@ import {
   TConversationAlertRule,
   TTag,
   TWebPage,
+  TChatWidget,
 } from "../types";
 import { TReactionTemplate, TUserProfile } from "../types/chatTypes";
 import { TAgent } from "../types/agents";
@@ -477,6 +478,19 @@ export const getUserCompletions = async () => {
   return makeAuthenticatedRequest<TCompletion[]>(
     "GET",
     "/v1/finetuning/completions/"
+  );
+};
+
+export const createCompletion = async (data: {
+  prompt: string;
+  answer: string;
+  agent?: number | null;
+  approved?: boolean;
+}) => {
+  return makeAuthenticatedRequest<TCompletion>(
+    "POST",
+    "/v1/finetuning/completions/",
+    data
   );
 };
 
@@ -1024,6 +1038,61 @@ export const getTeamFeatureFlags = async (): Promise<TeamFeatureFlagsResponse> =
   return makeAuthenticatedRequest<TeamFeatureFlagsResponse>(
     "GET",
     "/v1/auth/feature-flags/"
+  );
+};
+
+// Chat Widget API functions
+export const getChatWidgets = async () => {
+  return makeAuthenticatedRequest<TChatWidget[]>(
+    "GET",
+    "/v1/messaging/widgets/"
+  );
+};
+
+export const getChatWidget = async (widgetId: number) => {
+  return makeAuthenticatedRequest<TChatWidget>(
+    "GET",
+    `/v1/messaging/widgets/${widgetId}/`
+  );
+};
+
+export const createChatWidget = async (data: {
+  name: string;
+  agent_id?: number | null;
+  enabled?: boolean;
+  web_search_enabled?: boolean;
+  rag_enabled?: boolean;
+  plugins_enabled?: string[];
+}) => {
+  return makeAuthenticatedRequest<TChatWidget>(
+    "POST",
+    "/v1/messaging/widgets/",
+    data
+  );
+};
+
+export const updateChatWidget = async (
+  widgetId: number,
+  data: Partial<{
+    name: string;
+    agent_id: number | null;
+    enabled: boolean;
+    web_search_enabled: boolean;
+    rag_enabled: boolean;
+    plugins_enabled: string[];
+  }>
+) => {
+  return makeAuthenticatedRequest<TChatWidget>(
+    "PUT",
+    `/v1/messaging/widgets/${widgetId}/`,
+    data
+  );
+};
+
+export const deleteChatWidget = async (widgetId: number) => {
+  return makeAuthenticatedRequest<{ message: string; status: number }>(
+    "DELETE",
+    `/v1/messaging/widgets/${widgetId}/`
   );
 };
 

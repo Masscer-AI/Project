@@ -12,7 +12,7 @@ import { downloadFile, generateDocument } from "../../modules/apiCalls";
 import { useTranslation } from "react-i18next";
 import { SvgButton } from "../SvgButton/SvgButton";
 import { Pill } from "../Pill/Pill";
-import { SVGS } from "../../assets/svgs";
+import { Icon } from "../Icon/Icon";
 
 import { SYSTEM_PLUGINS } from "../../modules/plugins";
 
@@ -222,7 +222,7 @@ export const CustomCodeBlock = ({
         <section className="flex-x align-center wrap-wrap gap-1 md:gap-small p-1 md:padding-small justify-end min-w-0 flex-1 overflow-hidden">
           <SvgButton
             extraClass="pressable active-on-hover bg-hovered !h-8 md:!h-10 !px-2 md:!px-3 !min-w-8 md:!min-w-10 [&>p]:hidden md:[&>p]:block [&>div>svg]:w-4 [&>div>svg]:h-4 md:[&>div>svg]:w-5 md:[&>div>svg]:h-5"
-            svg={SVGS.copy}
+            svg={<Icon name="Copy" size={20} />}
             text={t("copy")}
             onClick={handleCopy}
             title={t("copy")}
@@ -247,7 +247,7 @@ export const CustomCodeBlock = ({
           <div className="flex-x items-center active-on-hover bg-hovered rounded min-w-0 !h-8 md:!h-10">
             <SvgButton
               extraClass="pressable !h-8 md:!h-10 !px-1.5 md:!px-3 !min-w-8 md:!min-w-10 [&>div>svg]:w-4 [&>div>svg]:h-4 md:[&>div>svg]:w-5 md:[&>div>svg]:h-5 !text-sm md:!text-sm [&>p]:hidden md:[&>p]:block flex-shrink-0"
-              svg={SVGS.download}
+              svg={<Icon name="Download" size={20} />}
               text={t("export-to")}
               onClick={handleTransform}
               title={t("export-to")}

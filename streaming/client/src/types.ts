@@ -193,3 +193,18 @@ export interface TAlertStats {
   resolved: number;
   dismissed: number;
 }
+
+export interface TChatWidget {
+  id: number;
+  token: string;
+  name: string;
+  enabled: boolean;
+  web_search_enabled: boolean;
+  rag_enabled: boolean;
+  plugins_enabled: string[];
+  agent_slug: string | null;
+  agent_name: string | null;
+  embed_code: string;
+  created_at: string;
+  updated_at: string;
+}

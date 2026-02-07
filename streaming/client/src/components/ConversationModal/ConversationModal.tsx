@@ -8,7 +8,7 @@ import { debounce } from "../../modules/utils";
 import { Pill } from "../Pill/Pill";
 import { useStore } from "../../modules/store";
 import { SvgButton } from "../SvgButton/SvgButton";
-import { SVGS } from "../../assets/svgs";
+import { Icon } from "../Icon/Icon";
 
 export const ConversationModal = ({
   conversation,
@@ -17,7 +17,8 @@ export const ConversationModal = ({
 }) => {
   const [showModal, setShowModal] = useState(false);
   const [title, setTitle] = useState(conversation.title);
-  const [tags, setTags] = useState(conversation.tags || []);
+  // Tags are stored as strings (tag names) in this component
+  const [tags, setTags] = useState<string[]>([]);
   const [hoveredButton, setHoveredButton] = useState<string | null>(null);
 
   const { t } = useTranslation();
@@ -31,11 +32,6 @@ export const ConversationModal = ({
     if (!conversation?.id) return;
     setTitle(e.target.innerText);
   };
-
-  // const updateTags = async () => {
-  //   if (!conversation?.id) return;
-  //   setTags(tags);
-  // };
 
   const onTagEdit = (e: React.FocusEvent<HTMLInputElement>) => {
     const newTags = e.target.value
@@ -59,7 +55,9 @@ export const ConversationModal = ({
 
   useEffect(() => {
     setTitle(conversation.title);
-    setTags(conversation.tags || []);
+    // Convert tag IDs to strings for display (or use empty array if none)
+    // Note: ideally we'd fetch tag names from IDs, but for now we store as strings
+    setTags(conversation.tags?.map(String) || []);
   }, [conversation]);
 
   const handleSave = async () => {
@@ -150,7 +148,7 @@ export const ConversationModal = ({
               onMouseLeave={() => setHoveredButton(null)}
               onClick={handleSave}
             >
-              <span className="flex items-center justify-center w-5 h-5 [&>svg]:w-5 [&>svg]:h-5">{SVGS.save}</span>
+              <Icon name="Save" size={20} />
               <span>{t("save")}</span>
             </button>
           </div>

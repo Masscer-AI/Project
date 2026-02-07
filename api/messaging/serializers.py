@@ -136,6 +136,78 @@ class ChatWidgetConfigSerializer(serializers.ModelSerializer):
         )
 
 
+class ChatWidgetSerializer(serializers.ModelSerializer):
+    """Full serializer for CRUD operations on ChatWidget"""
+    agent_slug = serializers.SerializerMethodField()
+    agent_name = serializers.SerializerMethodField()
+    agent_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
+    embed_code = serializers.SerializerMethodField()
+    
+    def get_agent_slug(self, obj):
+        return obj.agent.slug if obj.agent else None
+    
+    def get_agent_name(self, obj):
+        return obj.agent.name if obj.agent else None
+    
+    def get_embed_code(self, obj):
+        import os
+        from django.conf import settings
+        
+        # Get streaming server URL from environment or settings
+        streaming_url = os.getenv(
+            "STREAMING_SERVER_URL", 
+            getattr(settings, "STREAMING_SERVER_URL", None)
+        )
+        
+        # If not configured, build from request
+        if not streaming_url:
+            request = self.context.get('request')
+            if request:
+                host = request.get_host()
+                scheme = 'https' if request.is_secure() else 'http'
+                streaming_url = f"{scheme}://{host}"
+            else:
+                streaming_url = "https://your-streaming-server.com"
+        
+        # Remove trailing slash if present
+        streaming_url = streaming_url.rstrip('/')
+        
+        return f'<script src="{streaming_url}/widget/{obj.token}.js"></script>'
+    
+    class Meta:
+        model = ChatWidget
+        fields = (
+            "id",
+            "token",
+            "name",
+            "enabled",
+            "web_search_enabled",
+            "rag_enabled",
+            "plugins_enabled",
+            "agent_slug",
+            "agent_name",
+            "agent_id",
+            "embed_code",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = ("id", "token", "created_at", "updated_at")
+    
+    def create(self, validated_data):
+        agent_id = validated_data.pop('agent_id', None)
+        if agent_id:
+            from api.ai_layers.models import Agent
+            validated_data['agent'] = Agent.objects.get(id=agent_id)
+        return super().create(validated_data)
+    
+    def update(self, instance, validated_data):
+        agent_id = validated_data.pop('agent_id', None)
+        if agent_id is not None:
+            from api.ai_layers.models import Agent
+            validated_data['agent'] = Agent.objects.get(id=agent_id) if agent_id else None
+        return super().update(instance, validated_data)
+
+
 class ConversationAlertRuleSerializer(serializers.ModelSerializer):
     organization = serializers.UUIDField(read_only=True, source="organization.id")
     created_by = serializers.IntegerField(read_only=True, source="created_by.id", allow_null=True)

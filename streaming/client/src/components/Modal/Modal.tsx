@@ -1,7 +1,7 @@
 import React from "react";
 import { createPortal } from "react-dom";
 import { SvgButton } from "../SvgButton/SvgButton";
-import { SVGS } from "../../assets/svgs";
+import { Icon } from "../Icon/Icon";
 
 type TModalProps = {
   children: React.ReactNode;
@@ -39,9 +39,9 @@ export const Modal = ({
         <div className="flex justify-end items-center gap-2 p-2 md:p-4">
           {extraButtons}
           <SvgButton
-            extraClass="pressable danger-on-hover svg-danger"
+            extraClass="pressable danger-on-hover"
             onClick={hide}
-            svg={SVGS.close}
+            svg={<Icon name="X" size={20} />}
             aria-label="Close modal"
           />
         </div>

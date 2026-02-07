@@ -5,7 +5,7 @@ import { useStore } from "../../modules/store";
 import { useTranslation } from "react-i18next";
 import { LanguageSelector } from "../LanguageSelector/LanguageSelector";
 import { SvgButton } from "../SvgButton/SvgButton";
-import { SVGS } from "../../assets/svgs";
+import { Icon } from "../Icon/Icon";
 import {
   createOrganization,
   deleteOrganization,
@@ -42,22 +42,22 @@ export const Settings = () => {
     {
       name: t("general"),
       component: <GeneralConfig />,
-      svg: SVGS.controls,
+      svg: <Icon name="SlidersHorizontal" size={20} />,
     },
     {
       name: t("appearance"),
       component: <AppearanceConfig />,
-      svg: SVGS.appearance,
+      svg: <Icon name="Paintbrush" size={20} />,
     },
     {
       name: t("organization"),
       component: <OrganizationManager />,
-      svg: SVGS.organization,
+      svg: <Icon name="Building2" size={20} />,
     },
     {
       name: t("user"),
       component: <UserConfig />,
-      svg: SVGS.person,
+      svg: <Icon name="User" size={20} />,
     },
   ];
 
@@ -110,7 +110,7 @@ const LabeledButton = ({ label, onClick, svg, selected, hovered, onMouseEnter, o
       }`}
       style={{ transform: 'none' }}
     >
-      <span className="flex items-center justify-center w-4 h-4 md:w-5 md:h-5 [&>svg]:w-4 [&>svg]:h-4 md:[&>svg]:w-5 md:[&>svg]:h-5">{svg}</span>
+      <span className="flex items-center justify-center">{svg}</span>
       <span>{label}</span>
     </button>
   );
@@ -161,7 +161,7 @@ const OrganizationManager = () => {
               onMouseLeave={() => setHoveredButton(null)}
               onClick={() => setShowForm(true)}
             >
-              <span className="flex items-center justify-center w-4 h-4 md:w-5 md:h-5 [&>svg]:w-4 [&>svg]:h-4 md:[&>svg]:w-5 md:[&>svg]:h-5">{SVGS.plus}</span>
+              <Icon name="Plus" size={20} />
               <span>{t("create-organization")}</span>
             </button>
           ) : (
@@ -257,7 +257,7 @@ const AppearanceConfig = () => {
             onMouseLeave={() => setHoveredTheme(null)}
             onClick={() => setPreferences({ theme: "light" })}
           >
-            <span className="flex items-center justify-center w-4 h-4 md:w-5 md:h-5 [&>svg]:w-4 [&>svg]:h-4 md:[&>svg]:w-5 md:[&>svg]:h-5">{SVGS.sun}</span>
+            <Icon name="Sun" size={20} />
             <span>{t("light")}</span>
           </button>
           <button
@@ -271,7 +271,7 @@ const AppearanceConfig = () => {
             onMouseLeave={() => setHoveredTheme(null)}
             onClick={() => setPreferences({ theme: "dark" })}
           >
-            <span className="flex items-center justify-center w-4 h-4 md:w-5 md:h-5 [&>svg]:w-4 [&>svg]:h-4 md:[&>svg]:w-5 md:[&>svg]:h-5">{SVGS.moon}</span>
+            <Icon name="Moon" size={20} />
             <span>{t("dark")}</span>
           </button>
           <button
@@ -285,7 +285,7 @@ const AppearanceConfig = () => {
             onMouseLeave={() => setHoveredTheme(null)}
             onClick={() => setPreferences({ theme: "system" })}
           >
-            <span className="flex items-center justify-center w-4 h-4 md:w-5 md:h-5 [&>svg]:w-4 [&>svg]:h-4 md:[&>svg]:w-5 md:[&>svg]:h-5">{SVGS.pc}</span>
+            <Icon name="Monitor" size={20} />
             <span>{t("system")}</span>
           </button>
         </div>
@@ -383,6 +383,14 @@ const GeneralConfig = () => {
   const [error, setError] = React.useState("");
   const [hoveredButton, setHoveredButton] = React.useState<string | null>(null);
 
+  // Sync state when user data loads
+  useEffect(() => {
+    if (user) {
+      setUsername(user.username || "");
+      setEmail(user.email || "");
+    }
+  }, [user]);
+
   const handleUpdateUser = async () => {
     const tid = toast.loading(t("updating-user"));
     try {
@@ -438,7 +446,7 @@ const GeneralConfig = () => {
         onMouseLeave={() => setHoveredButton(null)}
         onClick={handleUpdateUser}
       >
-        <span className="flex items-center justify-center w-4 h-4 md:w-5 md:h-5 [&>svg]:w-4 [&>svg]:h-4 md:[&>svg]:w-5 md:[&>svg]:h-5">{SVGS.save}</span>
+        <Icon name="Save" size={20} />
         <span>{t("save")}</span>
       </button>
     </div>
@@ -549,14 +557,14 @@ const OrganizationForm = ({ close }: { close: () => void }) => {
         <div className="d-flex gap-small">
           <SvgButton
             text={t("cancel")}
-            svg={SVGS.close}
+            svg={<Icon name="X" size={20} />}
             extraClass="w-100 pressable danger-on-hover"
             onClick={close}
           />
           <SvgButton
             text={t("create")}
             type="submit"
-            svg={SVGS.save}
+            svg={<Icon name="Save" size={20} />}
             extraClass="w-100 pressable active-on-hover"
           />
         </div>
@@ -619,7 +627,7 @@ const OrganizationCard = ({
               }
             }}
           >
-            <span className="flex items-center justify-center w-4 h-4 md:w-5 md:h-5 [&>svg]:w-4 [&>svg]:h-4 md:[&>svg]:w-5 md:[&>svg]:h-5">{SVGS.trash}</span>
+            <Icon name="Trash2" size={20} />
           </button>
           <OrganizationConfigModal organization={organization} reload={reload} />
         </div>
@@ -772,7 +780,7 @@ const OrganizationConfigModal = ({
         onMouseLeave={() => setHoveredEdit(false)}
         onClick={() => setIsOpen(true)}
       >
-        <span className="flex items-center justify-center w-4 h-4 md:w-5 md:h-5 [&>svg]:w-4 [&>svg]:h-4 md:[&>svg]:w-5 md:[&>svg]:h-5">{SVGS.edit}</span>
+        <Icon name="Pencil" size={20} />
       </button>
       <Modal
         visible={isOpen}
@@ -902,7 +910,7 @@ const OrganizationConfigModal = ({
             onMouseLeave={() => setHoveredButton(null)}
             onClick={handleSave}
           >
-            <span className="flex items-center justify-center w-4 h-4 md:w-5 md:h-5 [&>svg]:w-4 [&>svg]:h-4 md:[&>svg]:w-5 md:[&>svg]:h-5">{SVGS.save}</span>
+            <Icon name="Save" size={20} />
             <span>{t("save")}</span>
           </button>
         </div>

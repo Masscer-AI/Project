@@ -4,13 +4,12 @@ import { Sidebar } from "../../components/Sidebar/Sidebar";
 import { getAllConversations, getAlertStats, getUser } from "../../modules/apiCalls";
 import { TConversation, TAlertStats } from "../../types";
 import { TUserData } from "../../types/chatTypes";
-import { ProtectedRoute } from "../../components/ProtectedRoute/ProtectedRoute";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
 import { ConversationsTable } from "./ConversationsTable";
 import { SvgButton } from "../../components/SvgButton/SvgButton";
-import { SVGS } from "../../assets/svgs";
+import { Icon } from "../../components/Icon/Icon";
 import "./page.css";
 
 export default function DashboardPage() {
@@ -75,7 +74,7 @@ export default function DashboardPage() {
               <SvgButton
                 extraClass="pressable active-on-hover"
                 onClick={toggleSidebar}
-                svg={SVGS.burger}
+                svg={<Icon name="Menu" size={20} />}
               />
             </div>
           )}

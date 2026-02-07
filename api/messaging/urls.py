@@ -7,6 +7,7 @@ from .views import (
     SharedConversationView,
     ChatWidgetConfigView,
     ChatWidgetAuthTokenView,
+    ChatWidgetView,
     ConversationAlertView,
     ConversationAlertStatsView,
     ConversationAlertRuleView,
@@ -46,6 +47,9 @@ urlpatterns = [
         ChatWidgetAuthTokenView.as_view(),
         name="widget_auth_token",
     ),
+    # Widget management endpoints (CRUD)
+    path("widgets/", ChatWidgetView.as_view(), name="widget_list"),
+    path("widgets/<int:id>/", ChatWidgetView.as_view(), name="widget_detail"),
     path("alerts", ConversationAlertView.as_view(), name="alert_list"),
     path("alerts/<uuid:id>/", ConversationAlertView.as_view(), name="alert_detail"),
     path("alerts/stats/", ConversationAlertStatsView.as_view(), name="alert_stats"),

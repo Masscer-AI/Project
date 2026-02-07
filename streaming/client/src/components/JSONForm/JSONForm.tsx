@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Textarea } from "../SimpleForm/Textarea";
-import { SvgButton } from "../SvgButton/SvgButton";
-import { SVGS } from "../../assets/svgs";
+import { Icon } from "../Icon/Icon";
 
 type TField = {
   type: string;
@@ -136,9 +135,15 @@ export const JSONForm: React.FC<JSONFormProps> = ({
     }
   };
 
+  // Collect all keys: from data + from fieldMapping (for fields not in data yet)
+  const allKeys = new Set([
+    ...Object.keys(data),
+    ...Object.keys(fieldMapping),
+  ]);
+
   return (
     <form onSubmit={handleSubmit} className="flex-y gap-big">
-      {Object.keys(data).map((key) => {
+      {Array.from(allKeys).map((key) => {
         if (hiddenKeys.includes(key)) return null;
         return renderInput(key, data[key]);
       })}
@@ -154,7 +159,7 @@ export const JSONForm: React.FC<JSONFormProps> = ({
           onMouseEnter={() => setHoveredButton('save')}
           onMouseLeave={() => setHoveredButton(null)}
         >
-          <span className="flex items-center justify-center w-5 h-5 [&>svg]:w-5 [&>svg]:h-5">{SVGS.save}</span>
+          <Icon name="Save" size={20} />
           <span>{submitText}</span>
         </button>
       )}

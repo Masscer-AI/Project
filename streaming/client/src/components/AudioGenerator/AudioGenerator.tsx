@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Modal } from "../Modal/Modal";
 import { SvgButton } from "../SvgButton/SvgButton";
-import { SVGS } from "../../assets/svgs";
+import { Icon } from "../Icon/Icon";
 import { Textarea } from "../SimpleForm/Textarea";
 import { useStore } from "../../modules/store";
 import { useTranslation } from "react-i18next";
@@ -139,7 +139,7 @@ export const AudioGenerator = ({
       <SvgButton
         size="big"
         text={t("generate-speech")}
-        svg={SVGS.waves}
+        svg={<Icon name="Volume2" size={20} />}
         extraClass="active-on-hover pressable border-active"
         onClick={() => setOpen(true)}
       />
@@ -212,7 +212,7 @@ const AddElevenVoice = ({
       <SvgButton
         extraClass="active-on-hover pressable "
         text={t("add-elevenlabs-voice")}
-        svg={SVGS.plus}
+        svg={<Icon name="Plus" size={20} />}
         onClick={() => setOpen(true)}
       />
       <Modal
@@ -242,7 +242,7 @@ const AddElevenVoice = ({
             <SvgButton
               extraClass="active-on-hover pressable "
               text={t("add-elevenlabs-voice")}
-              svg={SVGS.plus}
+              svg={<Icon name="Plus" size={20} />}
               type="submit"
             />
           </form>
