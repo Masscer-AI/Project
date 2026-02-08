@@ -1,29 +1,54 @@
 import React, { useEffect, useRef, useState, memo } from "react";
-import { Icon } from "../Icon/Icon";
 import MarkdownRenderer from "../MarkdownRenderer/MarkdownRenderer";
 import { TAttachment, TSource, TVersion } from "../../types";
 import { Thumbnail } from "../Thumbnail/Thumbnail";
-import { SvgButton } from "../SvgButton/SvgButton";
 import toast from "react-hot-toast";
 import { deleteMessage, updateMessage } from "../../modules/apiCalls";
-import { Modal } from "../Modal/Modal";
 import { useTranslation } from "react-i18next";
-import { Pill } from "../Pill/Pill";
 import { useStore } from "../../modules/store";
 import { Reactions } from "../Reactions/Reactions";
 import {
   AudioPlayerOptions,
   AudioPlayerWithAppendOptions,
   createAudioPlayer,
-  // createAudioPlayerWithAppend,
 } from "../../modules/utils";
 
 import { ImageGenerator } from "../ImageGenerator/ImageGenerator";
-import { Loader } from "../Loader/Loader";
-import { FloatingDropdown } from "../Dropdown/Dropdown";
 import { createPortal } from "react-dom";
 import { AudioGenerator } from "../AudioGenerator/AudioGenerator";
 import "./Message.css";
+
+import {
+  ActionIcon,
+  Tooltip,
+  Badge,
+  HoverCard,
+  Menu,
+  Modal,
+  Button,
+  Text,
+  Title,
+  Stack,
+  Group,
+  Loader as MantineLoader,
+} from "@mantine/core";
+import {
+  IconCopy,
+  IconPlayerPause,
+  IconPlayerPlay,
+  IconPlayerStop,
+  IconDownload,
+  IconCheck,
+  IconDotsVertical,
+  IconPencil,
+  IconPhoto,
+  IconTrash,
+  IconEye,
+  IconSearch,
+  IconPlus,
+  IconVolume,
+} from "@tabler/icons-react";
+
 type TReaction = {
   id: number;
   template: number;
@@ -87,6 +112,8 @@ export const Message = memo(
     const [isPlayingAudio, setIsPlayingAudio] = useState(false);
     const [messageState, setMessageState] = useState({
       imageGeneratorOpened: false,
+      audioGeneratorOpened: false,
+      confirmDeleteOpened: false,
     });
     const [isGeneratingSpeech, setIsGeneratingSpeech] = useState(false);
 
@@ -98,8 +125,6 @@ export const Message = memo(
         reactionTemplates: s.reactionTemplates,
         socket: s.socket,
         userPreferences: s.userPreferences,
-
-        // models: s.models,
       })
     );
 
@@ -140,7 +165,6 @@ export const Message = memo(
         if (audioPlayer) {
           audioPlayer.stop();
           audioPlayer.destroy();
-          // toast.success("Audio player stopped");
         }
         const newAudioPlayer = createAudioPlayer(
           audioFile,
@@ -187,7 +211,6 @@ export const Message = memo(
           extractedLinks.push({ url: href, text: anchor.textContent || "" });
         }
       });
-      // setSources(extractedLinks);
       setInnerText(text);
     }, [text]);
 
@@ -257,6 +280,7 @@ export const Message = memo(
         console.error("Error deleting message:", error);
         toast.error(t("error-deleting-message"));
       }
+      setMessageState((prev) => ({ ...prev, confirmDeleteOpened: false }));
     };
 
     const finishEditing = () => {
@@ -270,12 +294,9 @@ export const Message = memo(
       setInnerText(newValue);
 
       if (id && type === "assistant" && versions && newValue) {
-        const newVersions = versions.map((v, index) => {
-          if (currentVersion === index) {
-            return {
-              ...v,
-              text: newValue,
-            };
+        const newVersions = versions.map((v, vIdx) => {
+          if (currentVersion === vIdx) {
+            return { ...v, text: newValue };
           }
           return v;
         });
@@ -298,71 +319,75 @@ export const Message = memo(
       toggleEditMode();
     };
 
-    const handleMarkdownChange = (markdown: string) => {
-      setInnerText(markdown);
-    };
-
     return (
       <div className={`message ${type === "user" ? "user" : "assistant"}`}>
         {isEditing ? (
-          <>
-            <MessageEditor
-              textareaValueRef={textareaValueRef}
-              text={versions?.[currentVersion]?.text || innerText}
-              messageId={id}
-              onImageGenerated={onImageGenerated}
-            />
-          </>
+          <MessageEditor
+            textareaValueRef={textareaValueRef}
+            text={versions?.[currentVersion]?.text || innerText}
+            messageId={id}
+            onImageGenerated={onImageGenerated}
+          />
         ) : (
           <div>
             <MarkdownRenderer
               markdown={versions?.[currentVersion]?.text || innerText}
-              // extraClass={`px-5 py-4 w-fit rounded-2xl text-white leading-7 overflow-x-auto scrollbar-none shadow-lg ${
-              //   type === "user" 
-              //     ? "bg-[#6e5bff] text-white border border-[#8b7aff] shadow-[0_4px_16px_rgba(110,91,255,0.4)]" 
-              //     : "bg-[#1a1a2e] text-white border border-[#2d2d44] shadow-[0_4px_16px_rgba(0,0,0,0.4)]"
-              // }`}
               extraClass={`message-text ${type === "user" ? "user" : "assistant"}`}
             />
           </div>
         )}
 
-        {!id && type === "assistant" && <Loader text={t("thinking...")} />}
-        <section className={`message__attachments ${type === "user" ? "user" : ""}`}>
+        {!id && type === "assistant" && (
+          <Group gap="xs" mt="xs">
+            <MantineLoader size="sm" color="violet" />
+            <Text size="sm" c="dimmed">
+              {t("thinking...")}
+            </Text>
+          </Group>
+        )}
+
+        <section
+          className={`message__attachments ${type === "user" ? "user" : ""}`}
+        >
           {attachments &&
-            attachments.map((attachment, index) => (
+            attachments.map((attachment, aIdx) => (
               <Thumbnail
                 {...attachment}
-                index={index}
-                // type={type}
+                index={aIdx}
                 src={attachment.content}
-                // name={name}
-                key={index}
+                key={aIdx}
                 message_id={id}
               />
             ))}
           {versions?.[currentVersion]?.sources &&
-            versions?.[currentVersion]?.sources.map((s, index) => (
-              <Source key={index} source={s} />
+            versions?.[currentVersion]?.sources.map((s, sIdx) => (
+              <Source key={sIdx} source={s} />
             ))}
 
           {versions?.[currentVersion]?.web_search_results &&
             versions?.[currentVersion]?.web_search_results.map(
-              (result, index) => {
+              (result, rIdx) => {
                 if (!result) return null;
-                return <WebSearchResultInspector key={index} result={result} />;
+                return (
+                  <WebSearchResultInspector key={rIdx} result={result} />
+                );
               }
             )}
         </section>
+
+        {/* ── Action bar ── */}
         <div className="message-buttons">
-          <SvgButton
-            title={t("copy-to-clipboard")}
-            extraClass="active-on-hover  pressable"
-            onClick={() => copyToClipboard()}
-            svg={<Icon name="Copy" size={20} />}
-            // text={t("copy")}
-            // size="big"
-          />
+          <Tooltip label={t("copy-to-clipboard")} withArrow>
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              size="sm"
+              onClick={copyToClipboard}
+            >
+              <IconCopy size={18} />
+            </ActionIcon>
+          </Tooltip>
+
           {id && (
             <>
               {messageState.imageGeneratorOpened && (
@@ -377,207 +402,292 @@ export const Message = memo(
                       imageGeneratorOpened: false,
                     }))
                   }
-                  initialPrompt={versions?.[currentVersion]?.text || innerText}
+                  initialPrompt={
+                    versions?.[currentVersion]?.text || innerText
+                  }
                 />
               )}
 
               {audioPlayer && (
                 <>
                   {isPlayingAudio ? (
-                    <SvgButton
-                      title={t("pause-speech")}
+                    <Tooltip label={t("pause-speech")} withArrow>
+                      <ActionIcon
+                        variant="subtle"
+                        color="gray"
+                        size="sm"
+                        onClick={() => {
+                          audioPlayer.pause();
+                          setIsPlayingAudio(false);
+                        }}
+                      >
+                        <IconPlayerPause size={18} />
+                      </ActionIcon>
+                    </Tooltip>
+                  ) : (
+                    <Tooltip label={t("play-speech")} withArrow>
+                      <ActionIcon
+                        variant="subtle"
+                        color="gray"
+                        size="sm"
+                        onClick={() => {
+                          audioPlayer.play();
+                          setIsPlayingAudio(true);
+                        }}
+                      >
+                        <IconPlayerPlay size={18} />
+                      </ActionIcon>
+                    </Tooltip>
+                  )}
+                  <Tooltip label={t("stop-speech")} withArrow>
+                    <ActionIcon
+                      variant="subtle"
+                      color="gray"
+                      size="sm"
                       onClick={() => {
-                        audioPlayer.pause();
+                        audioPlayer.stop();
                         setIsPlayingAudio(false);
                       }}
-                      svg={<Icon name="Pause" size={20} />}
-                    />
-                  ) : (
-                    <SvgButton
-                      title={t("play-speech")}
+                    >
+                      <IconPlayerStop size={18} />
+                    </ActionIcon>
+                  </Tooltip>
+                  <Tooltip label={t("download-audio")} withArrow>
+                    <ActionIcon
+                      variant="subtle"
+                      color="gray"
+                      size="sm"
                       onClick={() => {
-                        audioPlayer.play();
-                        setIsPlayingAudio(true);
+                        const filename = slugify(
+                          versions?.[currentVersion]?.text || text
+                        ).slice(0, 100);
+                        audioPlayer.download(filename);
                       }}
-                      svg={<Icon name="Play" size={20} />}
-                    />
-                  )}
-                  <SvgButton
-                    title={t("stop-speech")}
-                    onClick={() => {
-                      audioPlayer.stop();
-                      setIsPlayingAudio(false);
-                    }}
-                    svg={<Icon name="Square" size={20} />}
-                  />
-                  <SvgButton
-                    title={t("download-audio")}
-                    onClick={() => {
-                      const filename = slugify(
-                        versions?.[currentVersion]?.text || text
-                      ).slice(0, 100);
-
-                      audioPlayer.download(filename);
-                    }}
-                    svg={<Icon name="Download" size={20} />}
-                  />
+                    >
+                      <IconDownload size={18} />
+                    </ActionIcon>
+                  </Tooltip>
                 </>
               )}
+
               {isEditing && (
-                <SvgButton
-                  title={t("finish")}
-                  onClick={finishEditing}
-                  svg={<Icon name="Check" size={20} />}
-                  extraClass={isEditing ? "bg-active" : ""}
-                />
+                <Tooltip label={t("finish")} withArrow>
+                  <ActionIcon
+                    variant="filled"
+                    color="violet"
+                    size="sm"
+                    onClick={finishEditing}
+                  >
+                    <IconCheck size={18} />
+                  </ActionIcon>
+                </Tooltip>
               )}
+
               <Reactions
                 direction={type === "user" ? "right" : "left"}
                 onReaction={handleReaction}
                 messageId={id.toString()}
-                currentReactions={innerReactions?.map((r) => r.template) || []}
+                currentReactions={
+                  innerReactions?.map((r) => r.template) || []
+                }
               />
               {innerReactions && innerReactions.length > 0 && (
                 <>
-                  {innerReactions.map(
-                    (r) =>
-                      reactionTemplates.find((rt) => rt.id === r.template)
-                        ?.emoji
+                  {innerReactions.map((r) =>
+                    reactionTemplates.find((rt) => rt.id === r.template)
+                      ?.emoji
                   )}
                 </>
               )}
             </>
           )}
 
+          {/* Version selector (each badge shows agent + token info on hover) */}
           {versions && (
-            <div className="d-flex gap-small align-center">
-              {versions.map((v, index) => (
-                <Pill
-                  key={index + "pill"}
-                  extraClass={`${
-                    currentVersion === index ? "bg-active" : "bg-hovered"
-                  }`}
-                  onClick={() => {
-                    setCurrentVersion(index);
-                    setAudioPlayer(null);
-                  }}
-                >
-                  <span className="box">{index + 1}</span>
-                </Pill>
+            <Group gap={4} align="center">
+              {versions.map((v, vIdx) => (
+                <HoverCard key={vIdx} width={200} shadow="md" withArrow>
+                  <HoverCard.Target>
+                    <Badge
+                      variant={currentVersion === vIdx ? "filled" : "default"}
+                      style={{ cursor: "pointer" }}
+                      size="sm"
+                      onClick={() => {
+                        setCurrentVersion(vIdx);
+                        setAudioPlayer(null);
+                      }}
+                    >
+                      {vIdx + 1}
+                    </Badge>
+                  </HoverCard.Target>
+                  <HoverCard.Dropdown>
+                    <Stack gap="xs">
+                      {v.agent_name && (
+                        <Text size="sm" fw={600} ta="center">
+                          {v.agent_name}
+                        </Text>
+                      )}
+                      {v.usage && (
+                        <>
+                          <Text size="xs">
+                            <Text span c="dimmed">Prompt:</Text>{" "}
+                            <strong>{v.usage.prompt_tokens}</strong>
+                          </Text>
+                          <Text size="xs">
+                            <Text span c="dimmed">Completion:</Text>{" "}
+                            <strong>{v.usage.completion_tokens}</strong>
+                          </Text>
+                          <Text size="xs">
+                            <Text span c="dimmed">Total:</Text>{" "}
+                            <strong>{v.usage.total_tokens}</strong>
+                          </Text>
+                          {v.usage.model_slug && (
+                            <Badge variant="default" size="xs" fullWidth>
+                              {v.usage.model_slug}
+                            </Badge>
+                          )}
+                        </>
+                      )}
+                    </Stack>
+                  </HoverCard.Dropdown>
+                </HoverCard>
               ))}
-            </div>
+            </Group>
           )}
 
-          {versions?.[currentVersion]?.agent_name ? (
-            <FloatingDropdown
-              left="50%"
-              bottom="100%"
-              transform="translateX(-50%)"
-              opener={<Pill>{versions?.[currentVersion]?.agent_name}</Pill>}
-            >
-              <div className="flex-y gap-small width-150">
-                <h4 className="text-center">Tokens</h4>
-
-                <p>
-                  <span className="text-secondary">Prompt:</span>{" "}
-                  {versions?.[currentVersion]?.usage?.prompt_tokens}
-                </p>
-                <p>
-                  <span className="text-secondary">Completion:</span>{" "}
-                  {versions?.[currentVersion]?.usage?.completion_tokens}
-                </p>
-                <p>
-                  <span className="text-secondary">Total:</span>{" "}
-                  {versions?.[currentVersion]?.usage?.total_tokens}
-                </p>
-
-                {versions?.[currentVersion]?.usage?.model_slug && (
-                  <Pill extraClass="bg-hovered w-100 text-center">
-                    {versions?.[currentVersion]?.usage?.model_slug}
-                  </Pill>
-                )}
-              </div>
-            </FloatingDropdown>
-          ) : null}
-
+          {/* Message options menu */}
           {id && (
-            <FloatingDropdown
-              {...(index === 0
-                ? { right: "100%", top: "0" }
-                : {
-                    right: "0",
-                    bottom: "100%",
-                  })}
-              opener={<SvgButton svg={<Icon name="MoreVertical" size={20} />} />}
-            >
-              <div className="flex-y gap-small width-200">
-                {/* {!audioPlayer && (
-                  <SvgButton
-                    text={t("generate-speech")}
-                    onClick={() =>
-                      handleGenerateSpeech(
-                        versions?.[currentVersion]?.text || innerText
-                      )
-                    }
-                    svg={SVGS.waves}
-                    size="big"
-                    extraClass="active-on-hover border-active pressable"
-                  />
-                )} */}
-                <AudioGenerator
-                  text={versions?.[currentVersion]?.text || innerText}
-                  messageId={id.toString()}
-                />
-
-                <SvgButton
-                  title={isEditing ? t("finish") : t("edit")}
+            <Menu shadow="md" withArrow position="top-end">
+              <Menu.Target>
+                <ActionIcon variant="subtle" color="gray" size="sm">
+                  <IconDotsVertical size={18} />
+                </ActionIcon>
+              </Menu.Target>
+              <Menu.Dropdown>
+                <Menu.Item
+                  leftSection={<IconVolume size={16} />}
+                  onClick={() =>
+                    setMessageState((prev) => ({
+                      ...prev,
+                      audioGeneratorOpened: true,
+                    }))
+                  }
+                >
+                  {t("generate-speech")}
+                </Menu.Item>
+                <Menu.Item
+                  leftSection={
+                    isEditing ? (
+                      <IconCheck size={16} />
+                    ) : (
+                      <IconPencil size={16} />
+                    )
+                  }
                   onClick={toggleEditMode}
-                  size="big"
-                  text={isEditing ? t("finish") : t("edit")}
-                  svg={isEditing ? <Icon name="Check" size={20} /> : <Icon name="Pencil" size={20} />}
-                  extraClass="active-on-hover border-active pressable"
-                />
-                <SvgButton
-                  size="big"
-                  text={t("generate-image")}
-                  extraClass="active-on-hover border-active pressable"
+                >
+                  {isEditing ? t("finish") : t("edit")}
+                </Menu.Item>
+                <Menu.Item
+                  leftSection={<IconPhoto size={16} />}
                   onClick={() =>
                     setMessageState((prev) => ({
                       ...prev,
                       imageGeneratorOpened: true,
                     }))
                   }
-                  svg={<Icon name="Image" size={20} />}
-                />
-                <SvgButton
-                  title={t("delete-message")}
-                  size="big"
-                  extraClass="border-danger danger-on-hover  pressable"
-                  onClick={() => handleDelete()}
-                  svg={<Icon name="Trash2" size={20} />}
-                  text={t("delete")}
-                  confirmations={[t("im-sure")]}
-                />
-              </div>
-            </FloatingDropdown>
+                >
+                  {t("generate-image")}
+                </Menu.Item>
+                <Menu.Divider />
+                <Menu.Item
+                  color="red"
+                  leftSection={<IconTrash size={16} />}
+                  onClick={() =>
+                    setMessageState((prev) => ({
+                      ...prev,
+                      confirmDeleteOpened: true,
+                    }))
+                  }
+                >
+                  {t("delete")}
+                </Menu.Item>
+              </Menu.Dropdown>
+            </Menu>
           )}
         </div>
+
+        {/* AudioGenerator modal (externally triggered) */}
+        {id && (
+          <AudioGenerator
+            text={versions?.[currentVersion]?.text || innerText}
+            messageId={id.toString()}
+            opened={messageState.audioGeneratorOpened}
+            onClose={() =>
+              setMessageState((prev) => ({
+                ...prev,
+                audioGeneratorOpened: false,
+              }))
+            }
+          />
+        )}
+
+        {/* Delete confirmation modal */}
+        <Modal
+          opened={messageState.confirmDeleteOpened}
+          onClose={() =>
+            setMessageState((prev) => ({
+              ...prev,
+              confirmDeleteOpened: false,
+            }))
+          }
+          title={t("delete-message")}
+          centered
+          size="sm"
+        >
+          <Stack gap="md">
+            <Text size="sm">{t("im-sure")}?</Text>
+            <Group justify="flex-end" gap="sm">
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() =>
+                  setMessageState((prev) => ({
+                    ...prev,
+                    confirmDeleteOpened: false,
+                  }))
+                }
+              >
+                {t("cancel")}
+              </Button>
+              <Button
+                color="red"
+                size="sm"
+                leftSection={<IconTrash size={16} />}
+                onClick={handleDelete}
+              >
+                {t("delete")}
+              </Button>
+            </Group>
+          </Stack>
+        </Modal>
       </div>
     );
   }
 );
 
+// ─── Source ────────────────────────────────────────────────────────────────────
+
 const Source = ({ source }: { source: TSource }) => {
   const [isVisible, setIsVisible] = useState(false);
-
   const { t } = useTranslation();
-  const handleGetModel = async () => {
-    setIsVisible(true);
-  };
 
   return (
     <div className="p-3 rounded-xl border border-[#2d2d44] bg-[#1a1a2e] relative shadow-md">
-      <input id={`${source.model_name}-${source.model_id}`} type="text" className="w-0 h-0 absolute bg-transparent border-none outline-none" />
+      <input
+        id={`${source.model_name}-${source.model_id}`}
+        type="text"
+        className="w-0 h-0 absolute bg-transparent border-none outline-none"
+      />
       <p className="w-fit truncate text-sm">
         <span className="text-white font-medium">{t("source")}: </span>
         <span className="text-[#9ca3af]">
@@ -586,38 +696,39 @@ const Source = ({ source }: { source: TSource }) => {
       </p>
 
       <div className="flex justify-center mt-2">
-        <SvgButton
-          size="big"
-          text={t("inspect")}
-          svg={<Icon name="Eye" size={20} />}
-          onClick={handleGetModel}
-        />
-      </div>
-      {isVisible && (
-        <Modal
-          minHeight={"40vh"}
-          visible={isVisible}
-          hide={() => setIsVisible(false)}
+        <Button
+          variant="default"
+          size="xs"
+          leftSection={<IconEye size={16} />}
+          onClick={() => setIsVisible(true)}
         >
-          <div className="flex flex-col gap-6">
-            <h2 className="text-center">
-              {t(source.model_name)} {source.model_id}
-            </h2>
-            <pre>{source.content}</pre>
-          </div>
-        </Modal>
-      )}
+          {t("inspect")}
+        </Button>
+      </div>
+
+      <Modal
+        opened={isVisible}
+        onClose={() => setIsVisible(false)}
+        title={`${t(source.model_name)} ${source.model_id}`}
+        centered
+        size="lg"
+      >
+        <pre className="whitespace-pre-wrap break-all">{source.content}</pre>
+      </Modal>
     </div>
   );
 };
 
-const WebSearchResultInspector = ({ result }) => {
+// ─── WebSearchResultInspector ─────────────────────────────────────────────────
+
+const WebSearchResultInspector = ({ result }: { result: any }) => {
   const { t } = useTranslation();
   const [isVisible, setIsVisible] = useState(false);
 
   const handleOpenWebsite = () => {
     window.open(result.url, "_blank");
   };
+
   return (
     <div className="bg-[#1a1a2e] rounded-xl p-4 border border-[#2d2d44] shadow-md">
       <p
@@ -627,48 +738,50 @@ const WebSearchResultInspector = ({ result }) => {
       >
         {result.url}
       </p>
-      <SvgButton
-        size="big"
-        text={t("inspect-content")}
-        svg={<Icon name="Search" size={20} />}
+      <Button
+        variant="default"
+        size="xs"
+        leftSection={<IconSearch size={16} />}
         onClick={() => setIsVisible(true)}
-      />
-      {isVisible && (
-        <Modal
-          minHeight={"40vh"}
-          visible={isVisible}
-          hide={() => setIsVisible(false)}
-        >
-          <WebSearchResultContent result={result} />
-        </Modal>
-      )}
+        mt="xs"
+      >
+        {t("inspect-content")}
+      </Button>
+
+      <Modal
+        opened={isVisible}
+        onClose={() => setIsVisible(false)}
+        title={result.url}
+        centered
+        size="lg"
+      >
+        <Stack gap="md">
+          <Title order={4} className="break-all">
+            {result.url}
+          </Title>
+          <pre className="whitespace-pre-wrap break-all">{result.content}</pre>
+        </Stack>
+      </Modal>
     </div>
   );
 };
 
-const WebSearchResultContent = ({ result }) => {
-  return (
-    <div className="flex flex-col gap-4">
-      <h2 className="break-all">{result.url}</h2>
-      <pre className="break-all">{result.content}</pre>
-    </div>
-  );
-};
-
-{
-  /* <textarea
-autoComplete="on"
-ref={textareaRef}
-className="message-textarea"
-defaultValue={versions?.[currentVersion]?.text || innerText}
-/> */
-}
+// ─── MessageEditor ────────────────────────────────────────────────────────────
 
 const MessageEditor = ({
   text,
   textareaValueRef,
   messageId,
   onImageGenerated,
+}: {
+  text: string;
+  textareaValueRef: React.MutableRefObject<string | null>;
+  messageId: number | undefined;
+  onImageGenerated: (
+    imageContentB64: string,
+    imageName: string,
+    message_id: number
+  ) => void;
 }) => {
   const [innerText, setInnerText] = useState(text);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -689,10 +802,8 @@ const MessageEditor = ({
     }
   }, [innerText]);
 
-  const handleDoubleClick = (e: React.MouseEvent<HTMLTextAreaElement>) => {
-    // Get current selected text
+  const handleMouseUp = (e: React.MouseEvent<HTMLTextAreaElement>) => {
     const selectedText = window.getSelection()?.toString();
-
     if (selectedText) {
       setEditionOptions({
         top: e.clientY,
@@ -720,11 +831,8 @@ const MessageEditor = ({
   };
 
   const handleTouchEnd = (e: React.TouchEvent<HTMLTextAreaElement>) => {
-    console.log(e);
     const selectedText = window.getSelection()?.toString();
-
     if (e.changedTouches.length === 0) return;
-
     const touch = e.changedTouches[0];
     if (selectedText && touch) {
       setEditionOptions({
@@ -748,10 +856,8 @@ const MessageEditor = ({
           setInnerText(e.target.value);
         }}
         defaultValue={text}
-        onMouseUp={handleDoubleClick}
-        // onDoubleClick={handleDoubleClick}
+        onMouseUp={handleMouseUp}
         onTouchEnd={handleTouchEnd}
-        // onTouchEnd={handleTouchEnd}
       />
       {editionOptions.isVisible &&
         createPortal(
@@ -760,9 +866,9 @@ const MessageEditor = ({
               top: editionOptions.top,
               left: editionOptions.left,
             }}
-            className="absolute w-fit bg-[#1a1a2e] border border-[#2d2d44] rounded-xl p-3 shadow-[0_8px_24px_rgba(0,0,0,0.6)]"
+            className="absolute w-fit bg-[#1a1a2e] border border-[#2d2d44] rounded-xl p-3 shadow-[0_8px_24px_rgba(0,0,0,0.6)] z-50"
           >
-            {editionOptions.generateImage && (
+            {editionOptions.generateImage && messageId && (
               <ImageGenerator
                 onResult={(imageB64, imageName) =>
                   onImageGenerated(imageB64, imageName, messageId)
@@ -777,26 +883,22 @@ const MessageEditor = ({
                 initialPrompt={editionOptions.currentText}
               />
             )}
-            <SvgButton
-              text={t("generate-image")}
-              onClick={generateImageWithThisText}
-              svg={<Icon name="Image" size={20} />}
-              size="big"
-            />
-            {/* <SvgButton
-              text={t("generate-speech")}
-              onClick={generateSpeechWithThisText}
-              svg={SVGS.waves}
-              size="big"
-            /> */}
-            <AudioGenerator
-              text={editionOptions.currentText}
-              messageId={messageId}
-            />
-            <ModifyTextModal
-              text={editionOptions.currentText}
-              // messageID={messageId}
-            />
+            <Stack gap="xs">
+              <Button
+                variant="default"
+                size="xs"
+                leftSection={<IconPhoto size={16} />}
+                onClick={generateImageWithThisText}
+                fullWidth
+              >
+                {t("generate-image")}
+              </Button>
+              <AudioGenerator
+                text={editionOptions.currentText}
+                messageId={messageId?.toString() ?? ""}
+              />
+              <ModifyTextModal text={editionOptions.currentText} />
+            </Stack>
           </div>,
           document.body
         )}
@@ -804,34 +906,44 @@ const MessageEditor = ({
   );
 };
 
-const ModifyTextModal = ({ text }) => {
+// ─── ModifyTextModal ──────────────────────────────────────────────────────────
+
+const ModifyTextModal = ({ text }: { text: string }) => {
   const [isVisible, setIsVisible] = useState(false);
-  // const [modifications, setModifications] = useState({
-  //   text: text,
-  //   messageID: messageID,
-  // });
   const { t } = useTranslation();
 
   return (
     <>
-      <SvgButton
-        size="big"
-        text={t("modify-text")}
+      <Button
+        variant="default"
+        size="xs"
+        leftSection={<IconPencil size={16} />}
         onClick={() => setIsVisible(true)}
-        svg={<Icon name="Pencil" size={20} />}
-      />
-      <Modal
-        header={<h3 className="padding-medium">{t("modify-message")}</h3>}
-        visible={isVisible}
-        hide={() => setIsVisible(false)}
+        fullWidth
       >
-        <div className="flex-y gap-medium">
-          <h4>{t("selected-text")}</h4>
-          <p className="text-small text-secondary">{text}</p>
-          <div className="d-flex gap-small">
-            <SvgButton text="Extend" svg={<Icon name="Plus" size={20} />} />
-          </div>
-        </div>
+        {t("modify-text")}
+      </Button>
+      <Modal
+        opened={isVisible}
+        onClose={() => setIsVisible(false)}
+        title={t("modify-message")}
+        centered
+      >
+        <Stack gap="md">
+          <Title order={5}>{t("selected-text")}</Title>
+          <Text size="sm" c="dimmed">
+            {text}
+          </Text>
+          <Group gap="xs">
+            <Button
+              variant="default"
+              size="xs"
+              leftSection={<IconPlus size={16} />}
+            >
+              Extend
+            </Button>
+          </Group>
+        </Stack>
       </Modal>
     </>
   );

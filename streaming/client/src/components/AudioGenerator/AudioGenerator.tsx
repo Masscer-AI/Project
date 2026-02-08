@@ -1,8 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { Modal } from "../Modal/Modal";
-import { SvgButton } from "../SvgButton/SvgButton";
-import { Icon } from "../Icon/Icon";
-import { Textarea } from "../SimpleForm/Textarea";
 import { useStore } from "../../modules/store";
 import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
@@ -12,38 +8,27 @@ import {
   updateUserVoices,
   TVoice,
 } from "../../modules/apiCalls";
+import {
+  Modal,
+  Button,
+  Textarea,
+  NativeSelect,
+  Stack,
+  Group,
+  TextInput,
+} from "@mantine/core";
+import { IconVolume, IconPlus } from "@tabler/icons-react";
 
 const voices = [
-  {
-    provider: "openai",
-    id: "alloy",
-    name: "Alloy",
-  },
-  {
-    provider: "openai",
-    id: "echo",
-    name: "Echo",
-  },
-  {
-    provider: "openai",
-    id: "fable",
-    name: "Fable",
-  },
-  {
-    provider: "openai",
-    id: "onyx",
-    name: "Onyx",
-  },
-  {
-    provider: "openai",
-    id: "nova",
-    name: "Nova",
-  },
-  {
-    provider: "openai",
-    id: "shimmer",
-    name: "Shimmer",
-  },
+  { provider: "openai", id: "alloy", name: "Alloy" },
+  { provider: "openai", id: "ash", name: "Ash" },
+  { provider: "openai", id: "coral", name: "Coral" },
+  { provider: "openai", id: "echo", name: "Echo" },
+  { provider: "openai", id: "fable", name: "Fable" },
+  { provider: "openai", id: "onyx", name: "Onyx" },
+  { provider: "openai", id: "nova", name: "Nova" },  
+  { provider: "openai", id: "sage", name: "Sage" },
+  { provider: "openai", id: "shimmer", name: "Shimmer" },
 ];
 
 const removeOpenaiVoices = (voices: TVoice[]) => {
@@ -54,9 +39,7 @@ const removeDuplicateVoices = (voices: TVoice[]) => {
   const seen = new Set();
   return voices.filter((v) => {
     const key = `${v.provider}-${v.id}`;
-    if (seen.has(key)) {
-      return false;
-    }
+    if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
@@ -68,18 +51,22 @@ const fixVoices = (voices: TVoice[]) => {
 
 export const AudioGenerator = ({
   messageId,
-
   text,
+  opened,
+  onClose,
 }: {
   messageId: string;
   text: string;
+  opened?: boolean;
+  onClose?: () => void;
 }) => {
-  const [open, setOpen] = useState(false);
+  const isExternallyControlled = opened !== undefined;
+  const [internalOpen, setInternalOpen] = useState(false);
+  const modalOpened = isExternallyControlled ? opened : internalOpen;
+
   const [audioText, setAudioText] = useState(text);
   const [voice, setVoice] = useState<TVoice>(voices[0]);
   const [voiceList, setVoiceList] = useState<TVoice[]>(voices);
-
-  // const [voiceProvider, setVoiceProvider] = useState("openai");
   const { t } = useTranslation();
 
   const { socket } = useStore((state) => ({
@@ -92,24 +79,28 @@ export const AudioGenerator = ({
 
   useEffect(() => {
     const fetchVoices = async () => {
-      const voices = await getUserVoices();
-      setVoiceList((prev) => removeDuplicateVoices([...prev, ...voices]));
+      const fetchedVoices = await getUserVoices();
+      setVoiceList((prev) => removeDuplicateVoices([...prev, ...fetchedVoices]));
     };
     fetchVoices();
   }, []);
 
+  const handleClose = () => {
+    if (isExternallyControlled && onClose) {
+      onClose();
+    } else {
+      setInternalOpen(false);
+    }
+  };
+
   const addElevenVoice = (id: string, name: string) => {
     setVoiceList((prev) => {
-      const newvoices = [
+      const newVoices = [
         ...prev,
-        {
-          provider: "elevenlabs",
-          id: id,
-          name: name,
-        },
+        { provider: "elevenlabs", id, name },
       ];
-      updateUserVoices(fixVoices(newvoices));
-      return newvoices;
+      updateUserVoices(fixVoices(newVoices));
+      return newVoices;
     });
   };
 
@@ -126,61 +117,67 @@ export const AudioGenerator = ({
     } else {
       socket.emit("speech_request", {
         text: audioText,
-
         id: messageId,
         voice,
       });
     }
-    setOpen(false);
+    handleClose();
   };
+
+  const selectedVoiceValue = voice.id;
 
   return (
     <>
-      <SvgButton
-        size="big"
-        text={t("generate-speech")}
-        svg={<Icon name="Volume2" size={20} />}
-        extraClass="active-on-hover pressable border-active"
-        onClick={() => setOpen(true)}
-      />
+      {!isExternallyControlled && (
+        <Button
+          variant="default"
+          size="xs"
+          leftSection={<IconVolume size={16} />}
+          onClick={() => setInternalOpen(true)}
+          fullWidth
+        >
+          {t("generate-speech")}
+        </Button>
+      )}
       <Modal
-        header={<h3 className="padding-medium ">{t("generate-speech")}</h3>}
-        visible={open}
-        hide={() => setOpen(false)}
+        opened={!!modalOpened}
+        onClose={handleClose}
+        title={t("generate-speech")}
+        centered
+        size="md"
       >
-        <div className="flex-y gap-medium align-center">
+        <Stack gap="md">
           <Textarea
-            name="text"
-            extraClass="w-100"
-            defaultValue={audioText}
-            onChange={(value) => setAudioText(value)}
             label={t("enter-text-to-generate-audio")}
+            value={audioText}
+            onChange={(e) => setAudioText(e.currentTarget.value)}
+            autosize
+            minRows={3}
+            maxRows={10}
           />
-          <div className="flex-x gap-medium align-center">
-            <select
-              className="input padding-medium"
-              value={voice.id}
-              onChange={(e) =>
-                setVoice(voiceList.find((v) => v.id === e.target.value)!)
-              }
-            >
-              {voiceList.map((voice) => (
-                <option key={voice.id} value={voice.id}>
-                  {voice.name}{" "}
-                  <span className="text-gray">({voice.provider})</span>
-                </option>
-              ))}
-            </select>
+          <Group gap="sm" align="end">
+            <NativeSelect
+              label="Voice"
+              value={selectedVoiceValue}
+              onChange={(e) => {
+                const val = e.currentTarget.value;
+                setVoice(voiceList.find((v) => v.id === val)!);
+              }}
+              data={voiceList.map((v) => ({
+                value: v.id,
+                label: `${v.name} (${v.provider})`,
+              }))}
+              style={{ flex: 1 }}
+            />
             <AddElevenVoice addElevenVoice={addElevenVoice} />
-          </div>
-
-          <SvgButton
-            extraClass="active-on-hover pressable border-active"
-            size="big"
-            text={t("generate")}
+          </Group>
+          <Button
+            leftSection={<IconVolume size={16} />}
             onClick={generateSpeech}
-          />
-        </div>
+          >
+            {t("generate")}
+          </Button>
+        </Stack>
       </Modal>
     </>
   );
@@ -207,46 +204,45 @@ const AddElevenVoice = ({
     addElevenVoice(id, name);
     setOpen(false);
   };
+
   return (
     <>
-      <SvgButton
-        extraClass="active-on-hover pressable "
-        text={t("add-elevenlabs-voice")}
-        svg={<Icon name="Plus" size={20} />}
+      <Button
+        variant="default"
+        size="xs"
+        leftSection={<IconPlus size={16} />}
         onClick={() => setOpen(true)}
-      />
-      <Modal
-        header={
-          <h3 className="padding-medium ">{t("add-elevenlabs-voice")}</h3>
-        }
-        visible={open}
-        hide={() => setOpen(false)}
       >
-        <div className="flex-y gap-medium align-center">
-          <form
-            onSubmit={handleSubmit}
-            className="flex-y gap-medium align-center w-100"
-          >
-            <input
+        {t("add-elevenlabs-voice")}
+      </Button>
+      <Modal
+        opened={open}
+        onClose={() => setOpen(false)}
+        title={t("add-elevenlabs-voice")}
+        centered
+      >
+        <form onSubmit={handleSubmit}>
+          <Stack gap="md">
+            <TextInput
               name="voice_id"
-              type="text"
-              className="input w-100"
+              label="Voice ID"
               placeholder={t("enter-voice-id")}
+              required
             />
-            <input
+            <TextInput
               name="voice_name"
-              type="text"
-              className="input w-100"
+              label="Voice Name"
               placeholder={t("enter-voice-name")}
+              required
             />
-            <SvgButton
-              extraClass="active-on-hover pressable "
-              text={t("add-elevenlabs-voice")}
-              svg={<Icon name="Plus" size={20} />}
+            <Button
               type="submit"
-            />
-          </form>
-        </div>
+              leftSection={<IconPlus size={16} />}
+            >
+              {t("add-elevenlabs-voice")}
+            </Button>
+          </Stack>
+        </form>
       </Modal>
     </>
   );

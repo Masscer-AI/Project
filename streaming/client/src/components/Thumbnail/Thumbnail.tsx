@@ -4,16 +4,26 @@ import { useStore } from "../../modules/store";
 import { SvgButton } from "../SvgButton/SvgButton";
 import { useTranslation } from "react-i18next";
 import { Modal } from "../Modal/Modal";
-import { FloatingDropdown } from "../Dropdown/Dropdown";
-import { SliderInput } from "../SimpleForm/SliderInput";
 import MarkdownRenderer from "../MarkdownRenderer/MarkdownRenderer";
 import { AttatchmentMode } from "../../types";
 import { Textarea } from "../SimpleForm/Textarea";
 import toast from "react-hot-toast";
 import { generateVideo } from "../../modules/apiCalls";
-// import { Select } from "../SimpleForm/Select";
 import { AspectRatio } from "../ImageGenerator/ImageGenerator";
 import { API_URL } from "../../modules/constants";
+import {
+  Menu,
+  Switch,
+  Button,
+  ActionIcon,
+  Stack,
+  Text,
+} from "@mantine/core";
+import {
+  IconDotsVertical,
+  IconTrash,
+  IconFileText,
+} from "@tabler/icons-react";
 
 interface ThumbnailProps {
   id?: number | string;
@@ -222,23 +232,29 @@ const ImageModal = ({
 
 const DocumentThumnail = ({
   index,
-  // type,
   name,
   onDelete,
   id,
   showFloatingButtons,
   mode,
+}: {
+  index: number;
+  name: string;
+  onDelete: () => void;
+  id?: number | string;
+  showFloatingButtons: boolean;
+  mode?: AttatchmentMode;
 }) => {
-  id;
   const { updateAttachment } = useStore((state) => ({
     updateAttachment: state.updateAttachment,
   }));
   const { t } = useTranslation();
-  const [ragMode, setRagMode] = useState(
-    mode ? mode : ("similar_chunks" as AttatchmentMode)
+  const [ragMode, setRagMode] = useState<AttatchmentMode>(
+    mode ? mode : "similar_chunks"
   );
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const ragModeHelpHelper = {
+  const ragModeHelpHelper: Record<string, string> = {
     similar_chunks: t("chunks-mode-help-text"),
     all_possible_text: t("all-content-mode-help-text"),
   };
@@ -250,50 +266,72 @@ const DocumentThumnail = ({
   return (
     <div
       title={name}
-      className="width-150 document-attachment bg-contrast rounded padding-small "
+      className="width-150 document-attachment bg-contrast rounded padding-small"
     >
-      <div className="d-flex gap-small align-center ">
-        <div><Icon name="FileText" size={20} /></div>
+      <div className="d-flex gap-small align-center">
+        <div>
+          <IconFileText size={20} />
+        </div>
         <p className="cut-text-to-line">{name}</p>
 
         {showFloatingButtons && (
-          <FloatingDropdown
-            bottom="100%"
-            // right="0"
-            left="50%"
-            extraClass="padding-big border-secondary"
-            transform="translateX(-50%)"
-            opener={<SvgButton title={t("options")} svg={<Icon name="MoreVertical" size={20} />} />}
+          <Menu
+            shadow="md"
+            width={240}
+            position="top"
+            withArrow
+            closeOnItemClick={false}
           >
-            cutted-text
-            <div className="d-flex gap-medium flex-y width-200 ">
-              <h3 className="text-center">{t("configure")}</h3>
-              <SliderInput
-                extraClass="d-flex align-center rounded"
-                name="rag-mode"
-                labelTrue={t("similar-chunks")}
-                labelFalse={t("allContent")}
-                keepActive={true}
-                checked={ragMode === "similar_chunks"}
-                onChange={(value) => {
-                  setRagMode(value ? "similar_chunks" : "all_possible_text");
-                }}
-              />
-
-              <MarkdownRenderer
-                extraClass="text-mini"
-                markdown={ragModeHelpHelper[ragMode]}
-              />
-              <SvgButton
-                title={t("delete")}
-                size="big"
-                svg={<Icon name="Trash2" size={20} />}
-                extraClass="bg-danger square-button pressable"
-                confirmations={[`${t("sure")}`]}
-                onClick={() => onDelete()}
-              />
-            </div>
-          </FloatingDropdown>
+            <Menu.Target>
+              <ActionIcon variant="subtle" color="gray" size="sm">
+                <IconDotsVertical size={16} />
+              </ActionIcon>
+            </Menu.Target>
+            <Menu.Dropdown>
+              <Stack gap="sm" p="xs">
+                <Text fw={500} ta="center" size="sm">
+                  {t("configure")}
+                </Text>
+                <Switch
+                  label={
+                    ragMode === "similar_chunks"
+                      ? t("similar-chunks")
+                      : t("allContent")
+                  }
+                  checked={ragMode === "similar_chunks"}
+                  onChange={(e) => {
+                    setRagMode(
+                      e.currentTarget.checked
+                        ? "similar_chunks"
+                        : "all_possible_text"
+                    );
+                  }}
+                  color="violet"
+                />
+                <MarkdownRenderer
+                  extraClass="text-mini"
+                  markdown={ragModeHelpHelper[ragMode]}
+                />
+                <Button
+                  color={confirmDelete ? "red" : "red"}
+                  variant={confirmDelete ? "filled" : "light"}
+                  leftSection={<IconTrash size={16} />}
+                  fullWidth
+                  onClick={() => {
+                    if (!confirmDelete) {
+                      setConfirmDelete(true);
+                      return;
+                    }
+                    onDelete();
+                    setConfirmDelete(false);
+                  }}
+                  onMouseLeave={() => setConfirmDelete(false)}
+                >
+                  {confirmDelete ? t("sure") : t("delete")}
+                </Button>
+              </Stack>
+            </Menu.Dropdown>
+          </Menu>
         )}
       </div>
     </div>

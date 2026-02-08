@@ -34,7 +34,18 @@ class FeatureFlagService:
         """
         # Debug logging
         logger.info(f"🔍 is_feature_enabled called: flag={feature_flag_name}, user={user.email if user else None}, org={organization.name if organization else None}")
-        
+
+        # Organization owners get ALL feature flags enabled
+        if user is not None:
+            is_owner = False
+            if organization and organization.owner_id == user.id:
+                is_owner = True
+            elif Organization.objects.filter(owner=user).exists():
+                is_owner = True
+            if is_owner:
+                logger.info(f"🔍 User {user.email} is an org owner — granting flag '{feature_flag_name}' automatically")
+                return True
+
         # Check user-level assignment first (highest priority)
         if user is not None:
             try:

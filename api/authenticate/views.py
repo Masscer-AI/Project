@@ -55,8 +55,8 @@ class SignupAPIView(APIView):
         org_id = request.query_params.get('orgId')
         if not org_id:
             return Response(
-                {"error": "orgId query parameter is required"}, 
-                status=status.HTTP_400_BAD_REQUEST
+                {"open_signup": True},
+                status=status.HTTP_200_OK,
             )
         
         try:
@@ -723,6 +723,18 @@ class FeatureFlagListView(View):
         
         # Get all organizations where user is owner or member
         owned_orgs = Organization.objects.filter(owner=user)
+
+        # Organization owners get ALL feature flags enabled
+        if owned_orgs.exists():
+            all_flags = {
+                flag.name: True
+                for flag in FeatureFlag.objects.all()
+            }
+            serializer = TeamFeatureFlagsResponseSerializer({
+                "feature_flags": all_flags,
+            })
+            return JsonResponse(serializer.data, status=status.HTTP_200_OK)
+
         # Get organization from user profile
         member_orgs = Organization.objects.none()
         if hasattr(user, 'profile') and user.profile.organization:

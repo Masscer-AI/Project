@@ -1,25 +1,22 @@
 import React, { useEffect, useState } from "react";
-import { Modal } from "../Modal/Modal";
+import { Modal, TextInput, Button, Badge, Group, Stack, Title, Text } from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
 import { TConversation } from "../../types";
 import { updateConversation } from "../../modules/apiCalls";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
-import { debounce } from "../../modules/utils";
-import { Pill } from "../Pill/Pill";
 import { useStore } from "../../modules/store";
-import { SvgButton } from "../SvgButton/SvgButton";
-import { Icon } from "../Icon/Icon";
+import { IconDeviceFloppy } from "@tabler/icons-react";
 
 export const ConversationModal = ({
   conversation,
 }: {
   conversation: TConversation;
 }) => {
-  const [showModal, setShowModal] = useState(false);
+  const [opened, { open, close }] = useDisclosure(false);
   const [title, setTitle] = useState(conversation.title);
-  // Tags are stored as strings (tag names) in this component
   const [tags, setTags] = useState<string[]>([]);
-  const [hoveredButton, setHoveredButton] = useState<string | null>(null);
+  const [tagInput, setTagInput] = useState("");
 
   const { t } = useTranslation();
 
@@ -28,18 +25,16 @@ export const ConversationModal = ({
     socket: s.socket,
   }));
 
-  const onTitleEdit = async (e: React.FocusEvent<HTMLDivElement>) => {
-    if (!conversation?.id) return;
-    setTitle(e.target.innerText);
-  };
-
-  const onTagEdit = (e: React.FocusEvent<HTMLInputElement>) => {
-    const newTags = e.target.value
+  const onTagSubmit = () => {
+    const newTags = tagInput
       .split(",")
       .map((tag) => tag.trim())
       .filter((tag) => tag !== "" && !tags.includes(tag));
 
-    setTags((prev) => [...prev, ...newTags]);
+    if (newTags.length > 0) {
+      setTags((prev) => [...prev, ...newTags]);
+      setTagInput("");
+    }
   };
 
   useEffect(() => {
@@ -55,8 +50,6 @@ export const ConversationModal = ({
 
   useEffect(() => {
     setTitle(conversation.title);
-    // Convert tag IDs to strings for display (or use empty array if none)
-    // Note: ideally we'd fetch tag names from IDs, but for now we store as strings
     setTags(conversation.tags?.map(String) || []);
   }, [conversation]);
 
@@ -66,93 +59,101 @@ export const ConversationModal = ({
       tags: tags,
     });
     toast.success(t("conversation-updated"));
-    setShowModal(false);
+    close();
   };
 
   return (
     <>
-      <p onClick={() => setShowModal(true)} className="cutted-text pressable">
+      <p onClick={open} className="cutted-text pressable">
         {title ? `${title.slice(0, 25)}...` : t("conversation-without-title")}
       </p>
-      <Modal
-        visible={showModal}
-        header={<h3 className="padding-big">{t("conversation-editor")}</h3>}
-        hide={() => setShowModal(false)}
-      >
-        <div className="flex-y gap-big">
-          <div className="flex-y gap-small">
-            <h6 className="text-white">{t("title")}</h6>
-            <h3
-              suppressContentEditableWarning
-              contentEditable
-              onBlur={onTitleEdit}
-              className="w-full p-3 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[rgba(110,91,255,0.5)] min-h-[48px]"
-              style={{ 
-                outline: 'none',
-                wordBreak: 'break-word'
-              }}
-            >
-              {title}
-            </h3>
-          </div>
-          <h6>{t("tags")}</h6>
-          {tags && tags.length > 0 && (
-            <div className="flex-x gap-small">
-              {tags.map((tag) => (
-                <Pill extraClass="bg-hovered " key={tag}>
-                  {tag}
-                  <span
-                    className="cursor-pointer text-secondary padding-small danger-color-on-hover rounded"
-                    onClick={() => setTags(tags.filter((t) => t !== tag))}
-                  >
-                    &times;
-                  </span>
-                </Pill>
-              ))}
-            </div>
-          )}
 
-          <div className="flex-x gap-small wrap-wrap">
-            <input
-              className="input w-full"
-              defaultValue={""}
-              // onChange={debouncedOnTagEdit}
-              type="text"
-              onBlur={onTagEdit}
+      <Modal
+        opened={opened}
+        onClose={close}
+        title={<Title order={4}>{t("conversation-editor")}</Title>}
+        centered
+        size="lg"
+        overlayProps={{
+          backgroundOpacity: 0.55,
+          blur: 3,
+        }}
+      >
+        <Stack gap="md">
+          <TextInput
+            label={t("title")}
+            value={title ?? ""}
+            onChange={(e) => setTitle(e.currentTarget.value)}
+          />
+
+          <div>
+            <Text size="sm" fw={500} mb={4}>
+              {t("tags")}
+            </Text>
+
+            {tags.length > 0 && (
+              <Group gap="xs" mb="sm">
+                {tags.map((tag) => (
+                  <Badge
+                    key={tag}
+                    variant="light"
+                    rightSection={
+                      <span
+                        style={{ cursor: "pointer", marginLeft: 4 }}
+                        onClick={() => setTags(tags.filter((t) => t !== tag))}
+                      >
+                        &times;
+                      </span>
+                    }
+                  >
+                    {tag}
+                  </Badge>
+                ))}
+              </Group>
+            )}
+
+            <TextInput
+              value={tagInput}
+              onChange={(e) => setTagInput(e.currentTarget.value)}
+              onBlur={onTagSubmit}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") onTagSubmit();
+              }}
               placeholder={t("tag-examples")}
             />
           </div>
-          <div className="flex-x gap-small wrap-wrap align-center">
-            <h6 className="text-secondary">{t("previously-used-tags")}</h6>
-            {userTags
-              .filter((tag) => !tags.includes(tag))
-              .map((tag) => (
-                <Pill
-                  onClick={() => setTags([...tags, tag])}
-                  key={tag}
-                  extraClass="bg-hovered active-on-hover"
-                >
-                  {tag}
-                </Pill>
-              ))}
-          </div>
-          <div className="flex justify-center w-full">
-            <button
-              className={`px-8 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center gap-2 w-full justify-center ${
-                hoveredButton === 'save' 
-                  ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
-                  : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
-              }`}
-              style={{ transform: 'none' }}
-              onMouseEnter={() => setHoveredButton('save')}
-              onMouseLeave={() => setHoveredButton(null)}
-              onClick={handleSave}
-            >
-              <Icon name="Save" size={20} />
-              <span>{t("save")}</span>
-            </button>
-          </div>
-        </div>
+
+          {userTags.filter((tag) => !tags.includes(tag)).length > 0 && (
+            <div>
+              <Text size="xs" c="dimmed" mb={4}>
+                {t("previously-used-tags")}
+              </Text>
+              <Group gap="xs">
+                {userTags
+                  .filter((tag) => !tags.includes(tag))
+                  .map((tag) => (
+                    <Badge
+                      key={tag}
+                      variant="outline"
+                      style={{ cursor: "pointer" }}
+                      onClick={() => setTags([...tags, tag])}
+                    >
+                      {tag}
+                    </Badge>
+                  ))}
+              </Group>
+            </div>
+          )}
+
+          <Button
+            onClick={handleSave}
+            leftSection={<IconDeviceFloppy size={18} />}
+            fullWidth
+            variant="light"
+          >
+            {t("save")}
+          </Button>
+        </Stack>
       </Modal>
     </>
   );

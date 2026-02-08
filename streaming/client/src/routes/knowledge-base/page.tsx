@@ -5,22 +5,57 @@ import {
   getDocuments,
   uploadDocument,
   deleteDocument,
-  generateDocumentBrief,
   getUserCompletions,
   updateCompletion,
   deleteCompletion,
   createCompletion,
+  generateTrainingCompletions,
+  getBigDocument,
 } from "../../modules/apiCalls";
 import { TDocument, TCompletion } from "../../types";
 import { useTranslation } from "react-i18next";
-import { SvgButton } from "../../components/SvgButton/SvgButton";
 import toast from "react-hot-toast";
-import { Icon } from "../../components/Icon/Icon";
-import { Loader } from "../../components/Loader/Loader";
 import { TAgent } from "../../types/agents";
-import "./page.css";
 
-type TabType = "documents" | "completions";
+import {
+  ActionIcon,
+  Badge,
+  Box,
+  Button,
+  Card,
+  Checkbox,
+  Group,
+  Loader,
+  Modal,
+  NativeSelect,
+  NumberInput,
+  ScrollArea,
+  Stack,
+  Text,
+  Textarea,
+  TextInput,
+  Title,
+  Tooltip,
+} from "@mantine/core";
+import {
+  IconCheck,
+  IconClock,
+  IconBarbell,
+  IconEdit,
+  IconFileText,
+  IconHash,
+  IconLoader,
+  IconMenu2,
+  IconPlus,
+  IconRobot,
+  IconSearch,
+  IconSparkles,
+  IconTrash,
+  IconUpload,
+  IconX,
+} from "@tabler/icons-react";
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function KnowledgeBasePage() {
   const { chatState, toggleSidebar, agents, fetchAgents } = useStore((s) => ({
@@ -30,28 +65,33 @@ export default function KnowledgeBasePage() {
     fetchAgents: s.fetchAgents,
   }));
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<TabType>("documents");
+  const [activeTab, setActiveTab] = useState<"documents" | "completions">(
+    "documents"
+  );
   const [documents, setDocuments] = useState<TDocument[]>([]);
   const [completions, setCompletions] = useState<TCompletion[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(true);
   const [loadingCompletions, setLoadingCompletions] = useState(true);
   const [search, setSearch] = useState("");
-  const [agentFilter, setAgentFilter] = useState<string>("all");
+  const [agentFilter, setAgentFilter] = useState("all");
 
   useEffect(() => {
     loadDocuments();
     loadCompletions();
-    // Load agents if not already loaded
-    if (agents.length === 0) {
-      fetchAgents();
-    }
+    if (agents.length === 0) fetchAgents();
   }, []);
+
+  useEffect(() => {
+    const hasProcessing = documents.some((doc) => !doc.brief);
+    if (!hasProcessing) return;
+    const id = window.setInterval(loadDocuments, 5000);
+    return () => window.clearInterval(id);
+  }, [documents]);
 
   const loadDocuments = async () => {
     setLoadingDocs(true);
     try {
-      const docs = await getDocuments();
-      setDocuments(docs);
+      setDocuments(await getDocuments());
     } catch {
       toast.error(t("error-loading-documents"));
     } finally {
@@ -62,8 +102,7 @@ export default function KnowledgeBasePage() {
   const loadCompletions = async () => {
     setLoadingCompletions(true);
     try {
-      const comps = await getUserCompletions();
-      setCompletions(comps);
+      setCompletions(await getUserCompletions());
     } catch {
       toast.error(t("error-loading-completions"));
     } finally {
@@ -71,10 +110,14 @@ export default function KnowledgeBasePage() {
     }
   };
 
-  const filteredDocuments = documents.filter((doc) =>
-    doc.name?.toLowerCase().includes(search.toLowerCase()) ||
-    doc.brief?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredDocuments = documents.filter((doc) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      doc.name?.toLowerCase().includes(q) ||
+      doc.brief?.toLowerCase().includes(q)
+    );
+  });
 
   const filteredCompletions = completions.filter((comp) => {
     const matchesSearch =
@@ -88,106 +131,117 @@ export default function KnowledgeBasePage() {
   return (
     <main className="d-flex pos-relative h-viewport">
       {chatState.isSidebarOpened && <Sidebar />}
-      <div className="kb-container relative">
+      <div
+        style={{
+          flex: "1 1 auto",
+          minWidth: 0,
+          padding: 24,
+          overflowY: "auto",
+          minHeight: "100vh",
+          display: "flex",
+          justifyContent: "center",
+        }}
+        className="relative"
+      >
         {!chatState.isSidebarOpened && (
-          <div className="absolute top-6 left-6 z-10">
-            <SvgButton
-              extraClass="pressable active-on-hover"
-              onClick={toggleSidebar}
-              svg={<Icon name="Menu" size={20} />}
-            />
-          </div>
+          <Box pos="absolute" top={24} left={24} style={{ zIndex: 10 }}>
+            <ActionIcon variant="subtle" color="gray" onClick={toggleSidebar}>
+              <IconMenu2 size={20} />
+            </ActionIcon>
+          </Box>
         )}
-        <div className="max-w-4xl mx-auto px-4">
-          <div className="kb-header">
-            <h1 className="text-2xl md:text-4xl font-bold mb-4 md:mb-8 text-center text-white tracking-tight">
-              {t("knowledge-base")}
-            </h1>
-            <p className="text-center text-[rgb(156,156,156)] mb-6">
-              {t("knowledge-base-description")}
-            </p>
-          </div>
+
+        <Box px="md" w="100%" maw="52rem" mx="auto">
+          <Title order={2} ta="center" mb="xs" mt="md">
+            {t("knowledge-base")}
+          </Title>
+          <Text ta="center" c="dimmed" mb="lg" size="sm">
+            {t("knowledge-base-description")}
+          </Text>
 
           {/* Tabs */}
-          <div className="kb-tabs">
-            <button
-              className={`kb-tab ${activeTab === "documents" ? "active" : ""}`}
+          <Group gap="xs" mb="md">
+            <Button
+              variant={activeTab === "documents" ? "filled" : "default"}
+              leftSection={<IconFileText size={16} />}
+              size="sm"
               onClick={() => setActiveTab("documents")}
             >
-              <span className="flex items-center gap-2">
-                <Icon name="FileText" size={16} />
-                {t("documents")} ({documents.length})
-              </span>
-            </button>
-            <button
-              className={`kb-tab ${activeTab === "completions" ? "active" : ""}`}
+              {t("documents")} ({documents.length})
+            </Button>
+            <Button
+              variant={activeTab === "completions" ? "filled" : "default"}
+              leftSection={<IconSparkles size={16} />}
+              size="sm"
               onClick={() => setActiveTab("completions")}
             >
-              <span className="flex items-center gap-2">
-                <Icon name="Sparkles" size={16} />
-                {t("completions")} ({completions.length})
-              </span>
-            </button>
-          </div>
+              {t("completions")} ({completions.length})
+            </Button>
+          </Group>
 
-          {/* Filter Row */}
-          <div className="kb-filter-row">
-            <input
-              type="text"
-              className="kb-search-input"
+          {/* Filters */}
+          <Group gap="sm" mb="md">
+            <TextInput
               placeholder={t("search")}
+              leftSection={<IconSearch size={16} />}
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => setSearch(e.currentTarget.value)}
+              style={{ flex: 1, minWidth: 200 }}
+              size="sm"
             />
             {activeTab === "completions" && (
-              <select
-                className="kb-agent-select"
+              <NativeSelect
                 value={agentFilter}
-                onChange={(e) => setAgentFilter(e.target.value)}
-              >
-                <option value="all">{t("all-agents")}</option>
-                {agents.filter(a => a.id).map((agent) => (
-                  <option key={agent.id} value={agent.id!.toString()}>
-                    {agent.name}
-                  </option>
-                ))}
-              </select>
+                onChange={(e) => setAgentFilter(e.currentTarget.value)}
+                data={[
+                  { value: "all", label: t("all-agents") },
+                  ...agents
+                    .filter((a) => a.id)
+                    .map((a) => ({
+                      value: a.id!.toString(),
+                      label: a.name,
+                    })),
+                ]}
+                size="sm"
+              />
             )}
-          </div>
+          </Group>
 
           {/* Content */}
-          <div className="kb-content">
-            {activeTab === "documents" ? (
-              <DocumentsTab
-                documents={filteredDocuments}
-                loading={loadingDocs}
-                onRefresh={loadDocuments}
-                agents={agents}
-              />
-            ) : (
-              <CompletionsTab
-                completions={filteredCompletions}
-                loading={loadingCompletions}
-                onRefresh={loadCompletions}
-                agents={agents}
-              />
-            )}
-          </div>
-        </div>
+          {activeTab === "documents" ? (
+            <DocumentsTab
+              documents={filteredDocuments}
+              loading={loadingDocs}
+              onRefresh={loadDocuments}
+              agents={agents}
+            />
+          ) : (
+            <CompletionsTab
+              completions={filteredCompletions}
+              loading={loadingCompletions}
+              onRefresh={loadCompletions}
+              agents={agents}
+            />
+          )}
+        </Box>
       </div>
     </main>
   );
 }
 
-// Documents Tab Component
-type DocumentsTabProps = {
+// ─── Documents Tab ────────────────────────────────────────────────────────────
+
+const DocumentsTab = ({
+  documents,
+  loading,
+  onRefresh,
+  agents,
+}: {
   documents: TDocument[];
   loading: boolean;
   onRefresh: () => void;
   agents: TAgent[];
-};
-
-const DocumentsTab = ({ documents, loading, onRefresh, agents }: DocumentsTabProps) => {
+}) => {
   const { t } = useTranslation();
   const [uploading, setUploading] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -195,15 +249,13 @@ const DocumentsTab = ({ documents, loading, onRefresh, agents }: DocumentsTabPro
 
   const handleFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
-
     setUploading(true);
     const toastId = toast.loading(t("uploading-document"));
-
     try {
       for (const file of Array.from(files)) {
-        const formData = new FormData();
-        formData.append("file", file);
-        await uploadDocument(formData);
+        const fd = new FormData();
+        fd.append("file", file);
+        await uploadDocument(fd);
       }
       toast.success(t("document-uploaded"));
       onRefresh();
@@ -222,8 +274,6 @@ const DocumentsTab = ({ documents, loading, onRefresh, agents }: DocumentsTabPro
   };
 
   const handleDelete = async (docId: number) => {
-    if (!window.confirm(t("sure") + "?")) return;
-
     const toastId = toast.loading(t("deleting-document"));
     try {
       await deleteDocument(docId);
@@ -236,28 +286,31 @@ const DocumentsTab = ({ documents, loading, onRefresh, agents }: DocumentsTabPro
     }
   };
 
-  const handleGenerateBrief = async (docId: number) => {
-    const toastId = toast.loading(t("generating-brief"));
-    try {
-      await generateDocumentBrief(docId.toString());
-      toast.success(t("brief-generated"));
-      onRefresh();
-    } catch {
-      toast.error(t("error-generating-brief"));
-    } finally {
-      toast.dismiss(toastId);
-    }
-  };
-
   if (loading) {
-    return <Loader text={t("loading-documents")} />;
+    return (
+      <Stack align="center" py="xl">
+        <Loader color="violet" />
+      </Stack>
+    );
   }
 
   return (
-    <div>
-      {/* Upload Area */}
-      <div
-        className={`kb-upload-area ${dragging ? "dragging" : ""}`}
+    <Stack gap="md">
+      {/* Upload area */}
+      <Card
+        withBorder
+        p="xl"
+        ta="center"
+        style={{
+          cursor: "pointer",
+          borderStyle: "dashed",
+          borderColor: dragging
+            ? "var(--mantine-color-violet-6)"
+            : undefined,
+          background: dragging
+            ? "rgba(110,91,255,0.06)"
+            : undefined,
+        }}
         onClick={() => fileInputRef.current?.click()}
         onDragOver={(e) => {
           e.preventDefault();
@@ -270,20 +323,25 @@ const DocumentsTab = ({ documents, loading, onRefresh, agents }: DocumentsTabPro
           ref={fileInputRef}
           type="file"
           multiple
-          className="hidden"
+          style={{ display: "none" }}
           onChange={(e) => handleFileUpload(e.target.files)}
         />
-        <Icon name="Upload" size={32} className="mx-auto mb-3 text-[rgb(156,156,156)]" />
-        <p className="text-[rgb(156,156,156)] m-0">
-          {uploading ? t("uploading") + "..." : t("drag-drop-or-click-to-upload")}
-        </p>
-      </div>
+        <IconUpload
+          size={32}
+          style={{ margin: "0 auto 8px", opacity: 0.4 }}
+        />
+        <Text c="dimmed" size="sm">
+          {uploading
+            ? t("uploading") + "..."
+            : t("drag-drop-or-click-to-upload")}
+        </Text>
+      </Card>
 
-      {/* Documents List */}
+      {/* Documents list */}
       {documents.length === 0 ? (
-        <div className="kb-empty">
-          <p>{t("no-documents-yet")}</p>
-        </div>
+        <Card withBorder p="xl" ta="center" style={{ borderStyle: "dashed" }}>
+          <Text c="dimmed">{t("no-documents-yet")}</Text>
+        </Card>
       ) : (
         documents.map((doc) => (
           <DocumentItem
@@ -291,102 +349,342 @@ const DocumentsTab = ({ documents, loading, onRefresh, agents }: DocumentsTabPro
             document={doc}
             agents={agents}
             onDelete={() => handleDelete(doc.id)}
-            onGenerateBrief={() => handleGenerateBrief(doc.id)}
           />
         ))
       )}
-    </div>
+    </Stack>
   );
 };
 
-type DocumentItemProps = {
+// ─── Document Item ────────────────────────────────────────────────────────────
+
+const DocumentItem = ({
+  document,
+  agents,
+  onDelete,
+}: {
   document: TDocument;
   agents: TAgent[];
   onDelete: () => void;
-  onGenerateBrief: () => void;
-};
-
-const DocumentItem = ({ document, agents, onDelete, onGenerateBrief }: DocumentItemProps) => {
+}) => {
   const { t } = useTranslation();
-  const [hoveredAction, setHoveredAction] = useState<string | null>(null);
+  const [showChunks, setShowChunks] = useState(false);
+  const [showTraining, setShowTraining] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const isProcessing = !document.brief;
 
   return (
-    <div className="kb-item">
-      <div className="kb-item-header">
-        <h3 className="kb-item-title">{document.name || t("untitled")}</h3>
-      </div>
-      <div className="kb-item-meta">
-        <span className="kb-pill">
-          <Icon name="FileText" size={12} />
-          {document.chunk_count} {t("chunks")}
-        </span>
-        <span className="kb-pill">
-          <Icon name="Hash" size={12} />
-          {document.total_tokens} {t("tokens")}
-        </span>
-      </div>
-      {document.brief && (
-        <p className="kb-item-brief">{document.brief}</p>
-      )}
-      <div className="kb-item-actions">
-        {!document.brief && (
-          <button
-            className={`px-4 py-2 rounded-full text-sm cursor-pointer border flex items-center gap-2 ${
-              hoveredAction === "brief"
-                ? "bg-white text-gray-800 border-[rgba(156,156,156,0.3)]"
-                : "bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]"
-            }`}
-            onMouseEnter={() => setHoveredAction("brief")}
-            onMouseLeave={() => setHoveredAction(null)}
-            onClick={onGenerateBrief}
+    <>
+      <ChunksModal
+        opened={showChunks}
+        onClose={() => setShowChunks(false)}
+        documentId={document.id}
+      />
+      <TrainingModal
+        opened={showTraining}
+        onClose={() => setShowTraining(false)}
+        document={document}
+        agents={agents}
+      />
+
+      <Card withBorder p="md">
+        <Text fw={600} mb={4}>
+          {document.name || t("untitled")}
+        </Text>
+
+        <Group gap={6} mb="xs">
+          <Badge
+            size="xs"
+            variant="default"
+            leftSection={<IconFileText size={10} />}
           >
-            <Icon name="Sparkles" size={14} />
-            {t("generate-brief")}
-          </button>
+            {document.chunk_count} {t("chunks")}
+          </Badge>
+          <Badge
+            size="xs"
+            variant="default"
+            leftSection={<IconHash size={10} />}
+          >
+            {document.total_tokens} {t("tokens")}
+          </Badge>
+          {isProcessing && (
+            <Badge
+              size="xs"
+              variant="light"
+              color="yellow"
+              leftSection={<IconLoader size={10} />}
+            >
+              {t("processing")}
+            </Badge>
+          )}
+        </Group>
+
+        {document.brief && (
+          <Text size="sm" c="dimmed" mb="sm" lineClamp={3}>
+            {document.brief}
+          </Text>
         )}
-        <button
-          className={`px-4 py-2 rounded-full text-sm cursor-pointer border flex items-center gap-2 ${
-            hoveredAction === "delete"
-              ? "bg-white text-gray-800 border-[rgba(156,156,156,0.3)]"
-              : "bg-[rgba(220,38,38,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(220,38,38,0.8)]"
-          }`}
-          onMouseEnter={() => setHoveredAction("delete")}
-          onMouseLeave={() => setHoveredAction(null)}
-          onClick={onDelete}
-        >
-          <Icon name="Trash2" size={14} />
-          {t("delete")}
-        </button>
-      </div>
-    </div>
+
+        <Group gap="xs">
+          <Button
+            variant="default"
+            size="xs"
+            leftSection={<IconSearch size={14} />}
+            onClick={() => setShowChunks(true)}
+            disabled={isProcessing}
+          >
+            {t("show-document-text")}
+          </Button>
+          <Button
+            variant="default"
+            size="xs"
+            leftSection={<IconBarbell size={14} />}
+            onClick={() => setShowTraining(true)}
+            disabled={isProcessing}
+          >
+            {t("train-on-this-document")}
+          </Button>
+          <Button
+            variant="light"
+            color={confirmDelete ? "red" : "gray"}
+            size="xs"
+            leftSection={<IconTrash size={14} />}
+            onClick={() => {
+              if (confirmDelete) {
+                onDelete();
+                setConfirmDelete(false);
+              } else {
+                setConfirmDelete(true);
+              }
+            }}
+            onBlur={() => setConfirmDelete(false)}
+          >
+            {confirmDelete ? t("im-sure") : t("delete")}
+          </Button>
+        </Group>
+      </Card>
+    </>
   );
 };
 
-// Completions Tab Component
-type CompletionsTabProps = {
+// ─── Chunks Modal ─────────────────────────────────────────────────────────────
+
+const ChunksModal = ({
+  opened,
+  onClose,
+  documentId,
+}: {
+  opened: boolean;
+  onClose: () => void;
+  documentId: number;
+}) => {
+  const { t } = useTranslation();
+  const [chunks, setChunks] = useState<{ id: number; content: string }[]>([]);
+  const [filtered, setFiltered] = useState<{ id: number; content: string }[]>(
+    []
+  );
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    if (!opened) return;
+    getBigDocument(documentId.toString()).then((doc) => {
+      const c = doc.chunk_set || [];
+      setChunks(c);
+      setFiltered(c);
+    });
+  }, [opened, documentId]);
+
+  useEffect(() => {
+    setFiltered(
+      chunks.filter((c) =>
+        c.content.toLowerCase().includes(search.toLowerCase())
+      )
+    );
+  }, [search, chunks]);
+
+  return (
+    <Modal
+      opened={opened}
+      onClose={onClose}
+      title={t("document-chunks")}
+      size="lg"
+    >
+      <Stack gap="sm">
+        <Group gap="xs">
+          <TextInput
+            placeholder={t("find-something-in-the-document")}
+            leftSection={<IconSearch size={16} />}
+            value={search}
+            onChange={(e) => setSearch(e.currentTarget.value)}
+            style={{ flex: 1 }}
+            size="sm"
+          />
+          <Badge variant="default" size="lg">
+            {filtered.length} / {chunks.length}
+          </Badge>
+        </Group>
+
+        <ScrollArea.Autosize mah="60vh">
+          <Stack gap="xs">
+            {filtered.map((c) => (
+              <ChunkItem key={c.id} content={c.content} id={c.id} />
+            ))}
+          </Stack>
+        </ScrollArea.Autosize>
+      </Stack>
+    </Modal>
+  );
+};
+
+const ChunkItem = ({ content, id }: { content: string; id: number }) => {
+  const [full, setFull] = useState(false);
+
+  return (
+    <Card
+      withBorder
+      p="sm"
+      style={{ cursor: "pointer" }}
+      onClick={() => setFull(!full)}
+    >
+      <Text
+        size="sm"
+        style={{ whiteSpace: "pre-wrap", fontFamily: "monospace" }}
+      >
+        {full ? content : content.slice(0, 200)}
+        {!full && content.length > 200 && "..."}
+      </Text>
+    </Card>
+  );
+};
+
+// ─── Training Modal ───────────────────────────────────────────────────────────
+
+const TrainingModal = ({
+  opened,
+  onClose,
+  document,
+  agents,
+}: {
+  opened: boolean;
+  onClose: () => void;
+  document: TDocument;
+  agents: TAgent[];
+}) => {
+  const { t } = useTranslation();
+  const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
+  const [target, setTarget] = useState(30);
+  const [generating, setGenerating] = useState(false);
+
+  const toggleAgent = (slug: string) => {
+    setSelectedAgents((prev) =>
+      prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug]
+    );
+  };
+
+  const handleGenerate = async () => {
+    if (selectedAgents.length === 0) {
+      toast.error(t("please-select-at-least-one-agent"));
+      return;
+    }
+    setGenerating(true);
+    try {
+      await generateTrainingCompletions({
+        model_id: document.id.toString(),
+        db_model: "document",
+        agents: selectedAgents,
+        completions_target_number: target,
+      });
+      toast.success(t("training-generation-in-queue"));
+      onClose();
+    } catch {
+      toast.error(t("an-error-occurred"));
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  return (
+    <Modal
+      opened={opened}
+      onClose={onClose}
+      title={t("train-on-this-document")}
+      size="md"
+    >
+      <Stack gap="md">
+        <Text size="sm">
+          {t("generate-completions-description")}{" "}
+          <Text span fw={600}>
+            {document.name}
+          </Text>{" "}
+          {t("generate-completions-description-2")}
+        </Text>
+        <Text size="sm" c="dimmed">
+          {t("after-generating-completions")}
+        </Text>
+
+        <NumberInput
+          label={t("number-of-completions-to-generate")}
+          value={target}
+          onChange={(val) => setTarget(typeof val === "number" ? val : 30)}
+          min={1}
+          variant="filled"
+        />
+
+        <Text size="sm" fw={500}>
+          {t("select-agents-that-will-retrain")}
+        </Text>
+        <Group gap="xs">
+          {agents.map((a) => (
+            <Badge
+              key={a.slug}
+              variant={selectedAgents.includes(a.slug) ? "filled" : "default"}
+              style={{ cursor: "pointer" }}
+              onClick={() => toggleAgent(a.slug)}
+            >
+              {a.name}
+            </Badge>
+          ))}
+        </Group>
+
+        <Button
+          leftSection={<IconBarbell size={16} />}
+          onClick={handleGenerate}
+          loading={generating}
+          fullWidth
+        >
+          {t("generate")}
+        </Button>
+      </Stack>
+    </Modal>
+  );
+};
+
+// ─── Completions Tab ──────────────────────────────────────────────────────────
+
+const CompletionsTab = ({
+  completions,
+  loading,
+  onRefresh,
+  agents,
+}: {
   completions: TCompletion[];
   loading: boolean;
   onRefresh: () => void;
   agents: TAgent[];
-};
-
-const CompletionsTab = ({ completions, loading, onRefresh, agents }: CompletionsTabProps) => {
+}) => {
   const { t } = useTranslation();
-  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
   const [newPrompt, setNewPrompt] = useState("");
   const [newAnswer, setNewAnswer] = useState("");
-  const [newAgentId, setNewAgentId] = useState<string>("");
+  const [newAgentId, setNewAgentId] = useState("");
   const [creating, setCreating] = useState(false);
-  const [hoveredButton, setHoveredButton] = useState<string | null>(null);
 
   const handleCreate = async () => {
     if (!newPrompt.trim() || !newAnswer.trim()) {
       toast.error(t("prompt-and-answer-required"));
       return;
     }
-
     setCreating(true);
-    const toastId = toast.loading(t("creating"));
     try {
       await createCompletion({
         prompt: newPrompt,
@@ -398,120 +696,99 @@ const CompletionsTab = ({ completions, loading, onRefresh, agents }: Completions
       setNewPrompt("");
       setNewAnswer("");
       setNewAgentId("");
-      setShowCreateForm(false);
+      setShowCreate(false);
       onRefresh();
     } catch {
       toast.error(t("error-creating-completion"));
     } finally {
-      toast.dismiss(toastId);
       setCreating(false);
     }
   };
 
   if (loading) {
-    return <Loader text={t("loading-completions")} />;
+    return (
+      <Stack align="center" py="xl">
+        <Loader color="violet" />
+      </Stack>
+    );
   }
 
   return (
-    <div>
-      {/* Create Button */}
-      {!showCreateForm && (
-        <div className="mb-4">
-          <button
-            className={`px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center gap-2 ${
-              hoveredButton === "new"
-                ? "bg-white text-gray-800 border-[rgba(156,156,156,0.3)]"
-                : "bg-[#6e5bff] text-white border-[rgba(156,156,156,0.3)] hover:bg-[#5a47e6]"
-            }`}
-            onMouseEnter={() => setHoveredButton("new")}
-            onMouseLeave={() => setHoveredButton(null)}
-            onClick={() => setShowCreateForm(true)}
+    <Stack gap="md">
+      {!showCreate && (
+        <Group justify="flex-end">
+          <Button
+            leftSection={<IconPlus size={16} />}
+            onClick={() => setShowCreate(true)}
           >
-            <Icon name="Plus" size={18} />
             {t("new-completion")}
-          </button>
-        </div>
+          </Button>
+        </Group>
       )}
 
-      {/* Create Form */}
-      {showCreateForm && (
-        <div className="kb-completion-form">
-          <h3 className="text-white font-semibold m-0">{t("create-completion")}</h3>
-          <div className="flex flex-col gap-2">
-            <label className="text-[rgb(156,156,156)] text-sm">{t("prompt")}</label>
-            <textarea
-              value={newPrompt}
-              onChange={(e) => setNewPrompt(e.target.value)}
+      {showCreate && (
+        <Card withBorder p="lg">
+          <Title order={4} mb="md">
+            {t("create-completion")}
+          </Title>
+          <Stack gap="sm">
+            <Textarea
+              label={t("prompt")}
               placeholder={t("prompt-placeholder")}
-              rows={2}
+              value={newPrompt}
+              onChange={(e) => setNewPrompt(e.currentTarget.value)}
+              minRows={2}
+              autosize
             />
-          </div>
-          <div className="flex flex-col gap-2">
-            <label className="text-[rgb(156,156,156)] text-sm">{t("answer")}</label>
-            <textarea
-              value={newAnswer}
-              onChange={(e) => setNewAnswer(e.target.value)}
+            <Textarea
+              label={t("answer")}
               placeholder={t("answer-placeholder")}
-              rows={4}
+              value={newAnswer}
+              onChange={(e) => setNewAnswer(e.currentTarget.value)}
+              minRows={3}
+              autosize
             />
-          </div>
-          <div className="flex flex-col gap-2">
-            <label className="text-[rgb(156,156,156)] text-sm">{t("assign-to-agent")}</label>
-            <select
-              className="kb-agent-select"
+            <NativeSelect
+              label={t("assign-to-agent")}
               value={newAgentId}
-              onChange={(e) => setNewAgentId(e.target.value)}
-            >
-              <option value="">{t("no-agent-assigned")}</option>
-              {agents.filter(a => a.id).map((agent) => (
-                <option key={agent.id} value={agent.id!.toString()}>
-                  {agent.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={handleCreate}
-              disabled={creating}
-              className={`flex-1 px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center justify-center gap-2 ${
-                hoveredButton === "create"
-                  ? "bg-white text-gray-800 border-[rgba(156,156,156,0.3)]"
-                  : "bg-[#6e5bff] text-white border-[rgba(156,156,156,0.3)] hover:bg-[#5a47e6]"
-              }`}
-              onMouseEnter={() => setHoveredButton("create")}
-              onMouseLeave={() => setHoveredButton(null)}
-            >
-              <Icon name="Save" size={16} />
-              {t("create")}
-            </button>
-            <button
-              onClick={() => {
-                setShowCreateForm(false);
-                setNewPrompt("");
-                setNewAnswer("");
-                setNewAgentId("");
-              }}
-              className={`px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center justify-center ${
-                hoveredButton === "cancel"
-                  ? "bg-white text-gray-800 border-[rgba(156,156,156,0.3)]"
-                  : "bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]"
-              }`}
-              onMouseEnter={() => setHoveredButton("cancel")}
-              onMouseLeave={() => setHoveredButton(null)}
-            >
-              {t("cancel")}
-            </button>
-          </div>
-        </div>
+              onChange={(e) => setNewAgentId(e.currentTarget.value)}
+              data={[
+                { value: "", label: t("no-agent-assigned") },
+                ...agents
+                  .filter((a) => a.id)
+                  .map((a) => ({
+                    value: a.id!.toString(),
+                    label: a.name,
+                  })),
+              ]}
+            />
+            <Group justify="flex-end">
+              <Button
+                variant="default"
+                onClick={() => {
+                  setShowCreate(false);
+                  setNewPrompt("");
+                  setNewAnswer("");
+                  setNewAgentId("");
+                }}
+              >
+                {t("cancel")}
+              </Button>
+              <Button onClick={handleCreate} loading={creating}>
+                {t("create")}
+              </Button>
+            </Group>
+          </Stack>
+        </Card>
       )}
 
-      {/* Completions List */}
-      {completions.length === 0 && !showCreateForm ? (
-        <div className="kb-empty">
-          <p>{t("no-completions-yet")}</p>
-          <p className="text-sm mt-2">{t("completions-hint")}</p>
-        </div>
+      {completions.length === 0 && !showCreate ? (
+        <Card withBorder p="xl" ta="center" style={{ borderStyle: "dashed" }}>
+          <Text c="dimmed">{t("no-completions-yet")}</Text>
+          <Text size="sm" c="dimmed" mt="xs">
+            {t("completions-hint")}
+          </Text>
+        </Card>
       ) : (
         completions.map((comp) => (
           <CompletionItem
@@ -522,27 +799,30 @@ const CompletionsTab = ({ completions, loading, onRefresh, agents }: Completions
           />
         ))
       )}
-    </div>
+    </Stack>
   );
 };
 
-type CompletionItemProps = {
+// ─── Completion Item ──────────────────────────────────────────────────────────
+
+const CompletionItem = ({
+  completion,
+  agents,
+  onRefresh,
+}: {
   completion: TCompletion;
   agents: TAgent[];
   onRefresh: () => void;
-};
-
-const CompletionItem = ({ completion, agents, onRefresh }: CompletionItemProps) => {
+}) => {
   const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
   const [prompt, setPrompt] = useState(completion.prompt);
   const [answer, setAnswer] = useState(completion.answer);
-  const [hoveredAction, setHoveredAction] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const agentName = agents.find((a) => a.id === completion.agent)?.name;
 
   const handleSave = async () => {
-    const toastId = toast.loading(t("saving"));
     try {
       await updateCompletion(completion.id.toString(), {
         prompt,
@@ -554,30 +834,26 @@ const CompletionItem = ({ completion, agents, onRefresh }: CompletionItemProps) 
       onRefresh();
     } catch {
       toast.error(t("error-updating-completion"));
-    } finally {
-      toast.dismiss(toastId);
     }
   };
 
   const handleApprove = async () => {
-    const toastId = toast.loading(t("saving"));
     try {
       await updateCompletion(completion.id.toString(), {
         prompt: completion.prompt,
         answer: completion.answer,
         approved: !completion.approved,
       });
-      toast.success(completion.approved ? t("completion-unapproved") : t("completion-approved"));
+      toast.success(
+        completion.approved ? t("completion-unapproved") : t("completion-approved")
+      );
       onRefresh();
     } catch {
       toast.error(t("error-updating-completion"));
-    } finally {
-      toast.dismiss(toastId);
     }
   };
 
   const handleAssignAgent = async (agentId: string) => {
-    const toastId = toast.loading(t("saving"));
     try {
       await updateCompletion(completion.id.toString(), {
         prompt: completion.prompt,
@@ -589,125 +865,122 @@ const CompletionItem = ({ completion, agents, onRefresh }: CompletionItemProps) 
       onRefresh();
     } catch {
       toast.error(t("error-assigning-agent"));
-    } finally {
-      toast.dismiss(toastId);
     }
   };
 
   const handleDelete = async () => {
-    if (!window.confirm(t("sure") + "?")) return;
-
-    const toastId = toast.loading(t("deleting"));
     try {
       await deleteCompletion(completion.id.toString());
       toast.success(t("completion-deleted"));
       onRefresh();
     } catch {
       toast.error(t("error-deleting-completion"));
-    } finally {
-      toast.dismiss(toastId);
     }
   };
 
   return (
-    <div className="kb-item">
-      <div className="kb-item-header">
-        <div className="flex-1">
-          {isEditing ? (
-            <textarea
-              className="w-full p-3 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-lg text-white placeholder-[rgb(156,156,156)] focus:outline-none focus:ring-2 focus:ring-[rgba(110,91,255,0.5)] resize-none mb-2"
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder={t("prompt")}
-              rows={2}
-            />
-          ) : (
-            <h3 className="kb-item-title">{completion.prompt}</h3>
-          )}
-        </div>
-      </div>
-
-      <div className="kb-item-meta">
-        <span className={`kb-pill ${completion.approved ? "bg-green-500/20 text-green-400" : "bg-yellow-500/20 text-yellow-400"}`}>
-          <Icon name={completion.approved ? "Check" : "Clock"} size={12} />
-          {completion.approved ? t("approved") : t("pending")}
-        </span>
-        {agentName && (
-          <span className="kb-pill">
-            <Icon name="Bot" size={12} />
-            {agentName}
-          </span>
-        )}
-      </div>
-
+    <Card withBorder p="md">
+      {/* Prompt */}
       {isEditing ? (
-        <textarea
-          className="w-full p-3 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-lg text-white placeholder-[rgb(156,156,156)] focus:outline-none focus:ring-2 focus:ring-[rgba(110,91,255,0.5)] resize-none mb-3"
-          value={answer}
-          onChange={(e) => setAnswer(e.target.value)}
-          placeholder={t("answer")}
-          rows={4}
+        <Textarea
+          value={prompt}
+          onChange={(e) => setPrompt(e.currentTarget.value)}
+          placeholder={t("prompt")}
+          minRows={2}
+          autosize
+          mb="xs"
         />
       ) : (
-        <p className="kb-item-brief">{completion.answer}</p>
+        <Text fw={600} mb={4}>
+          {completion.prompt}
+        </Text>
       )}
 
-      <div className="kb-item-actions">
-        {/* Agent assignment */}
-        <select
-          className="kb-agent-select"
-          value={completion.agent?.toString() || ""}
-          onChange={(e) => handleAssignAgent(e.target.value)}
+      {/* Status badges */}
+      <Group gap={6} mb="xs">
+        <Badge
+          size="xs"
+          variant="light"
+          color={completion.approved ? "green" : "yellow"}
+          leftSection={
+            completion.approved ? (
+              <IconCheck size={10} />
+            ) : (
+              <IconClock size={10} />
+            )
+          }
         >
-          <option value="">{t("no-agent-assigned")}</option>
-          {agents.filter(a => a.id).map((agent) => (
-            <option key={agent.id} value={agent.id!.toString()}>
-              {agent.name}
-            </option>
-          ))}
-        </select>
+          {completion.approved ? t("approved") : t("pending")}
+        </Badge>
+        {agentName && (
+          <Badge
+            size="xs"
+            variant="default"
+            leftSection={<IconRobot size={10} />}
+          >
+            {agentName}
+          </Badge>
+        )}
+      </Group>
 
-        {/* Approve/Unapprove */}
-        <button
-          className={`px-4 py-2 rounded-full text-sm cursor-pointer border flex items-center gap-2 ${
-            hoveredAction === "approve"
-              ? "bg-white text-gray-800 border-[rgba(156,156,156,0.3)]"
-              : completion.approved
-              ? "bg-[rgba(34,197,94,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(34,197,94,0.8)]"
-              : "bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]"
-          }`}
-          onMouseEnter={() => setHoveredAction("approve")}
-          onMouseLeave={() => setHoveredAction(null)}
+      {/* Answer */}
+      {isEditing ? (
+        <Textarea
+          value={answer}
+          onChange={(e) => setAnswer(e.currentTarget.value)}
+          placeholder={t("answer")}
+          minRows={3}
+          autosize
+          mb="sm"
+        />
+      ) : (
+        <Text size="sm" c="dimmed" mb="sm" style={{ whiteSpace: "pre-wrap" }}>
+          {completion.answer}
+        </Text>
+      )}
+
+      {/* Actions */}
+      <Group gap="xs" wrap="wrap">
+        <NativeSelect
+          size="xs"
+          value={completion.agent?.toString() || ""}
+          onChange={(e) => handleAssignAgent(e.currentTarget.value)}
+          data={[
+            { value: "", label: t("no-agent-assigned") },
+            ...agents
+              .filter((a) => a.id)
+              .map((a) => ({
+                value: a.id!.toString(),
+                label: a.name,
+              })),
+          ]}
+          style={{ minWidth: 140 }}
+        />
+
+        <Button
+          variant="light"
+          color={completion.approved ? "green" : "gray"}
+          size="xs"
+          leftSection={
+            completion.approved ? (
+              <IconX size={14} />
+            ) : (
+              <IconCheck size={14} />
+            )
+          }
           onClick={handleApprove}
         >
-          <Icon name={completion.approved ? "X" : "Check"} size={14} />
           {completion.approved ? t("unapprove") : t("approve")}
-        </button>
+        </Button>
 
-        {/* Edit/Save */}
         {isEditing ? (
           <>
-            <button
-              className={`px-4 py-2 rounded-full text-sm cursor-pointer border flex items-center gap-2 ${
-                hoveredAction === "save"
-                  ? "bg-white text-gray-800 border-[rgba(156,156,156,0.3)]"
-                  : "bg-[#6e5bff] text-white border-[rgba(156,156,156,0.3)] hover:bg-[#5a47e6]"
-              }`}
-              onMouseEnter={() => setHoveredAction("save")}
-              onMouseLeave={() => setHoveredAction(null)}
-              onClick={handleSave}
-            >
-              <Icon name="Save" size={14} />
+            <Button size="xs" onClick={handleSave}>
               {t("save")}
-            </button>
-            <button
-              className={`px-4 py-2 rounded-full text-sm cursor-pointer border flex items-center gap-2 ${
-                hoveredAction === "cancel"
-                  ? "bg-white text-gray-800 border-[rgba(156,156,156,0.3)]"
-                  : "bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]"
-              }`}
-              onMouseEnter={() => setHoveredAction("cancel")}
-              onMouseLeave={() => setHoveredAction(null)}
+            </Button>
+            <Button
+              variant="default"
+              size="xs"
               onClick={() => {
                 setIsEditing(false);
                 setPrompt(completion.prompt);
@@ -715,39 +988,37 @@ const CompletionItem = ({ completion, agents, onRefresh }: CompletionItemProps) 
               }}
             >
               {t("cancel")}
-            </button>
+            </Button>
           </>
         ) : (
-          <button
-            className={`px-4 py-2 rounded-full text-sm cursor-pointer border flex items-center gap-2 ${
-              hoveredAction === "edit"
-                ? "bg-white text-gray-800 border-[rgba(156,156,156,0.3)]"
-                : "bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]"
-            }`}
-            onMouseEnter={() => setHoveredAction("edit")}
-            onMouseLeave={() => setHoveredAction(null)}
+          <Button
+            variant="default"
+            size="xs"
+            leftSection={<IconEdit size={14} />}
             onClick={() => setIsEditing(true)}
           >
-            <Icon name="PenLine" size={14} />
             {t("edit")}
-          </button>
+          </Button>
         )}
 
-        {/* Delete */}
-        <button
-          className={`px-4 py-2 rounded-full text-sm cursor-pointer border flex items-center gap-2 ${
-            hoveredAction === "delete"
-              ? "bg-white text-gray-800 border-[rgba(156,156,156,0.3)]"
-              : "bg-[rgba(220,38,38,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(220,38,38,0.8)]"
-          }`}
-          onMouseEnter={() => setHoveredAction("delete")}
-          onMouseLeave={() => setHoveredAction(null)}
-          onClick={handleDelete}
+        <Button
+          variant="light"
+          color={confirmDelete ? "red" : "gray"}
+          size="xs"
+          leftSection={<IconTrash size={14} />}
+          onClick={() => {
+            if (confirmDelete) {
+              handleDelete();
+              setConfirmDelete(false);
+            } else {
+              setConfirmDelete(true);
+            }
+          }}
+          onBlur={() => setConfirmDelete(false)}
         >
-          <Icon name="Trash2" size={14} />
-          {t("delete")}
-        </button>
-      </div>
-    </div>
+          {confirmDelete ? t("im-sure") : t("delete")}
+        </Button>
+      </Group>
+    </Card>
   );
 };

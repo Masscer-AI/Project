@@ -15,6 +15,7 @@ type SvgButtonProps = {
   svgOnHover?: React.ReactNode;
   rounded?: boolean;
   type?: "button" | "submit" | "reset";
+  isActive?: boolean;
 };
 
 export const SvgButton = ({
@@ -32,6 +33,7 @@ export const SvgButton = ({
   svgOnHover = null,
   rounded = true,
   type = "button",
+  isActive = false,
 }: SvgButtonProps) => {
   const [innerText, setInnerText] = useState(text);
   const [currentSvg, setCurrentSvg] = useState(svg);
@@ -52,11 +54,23 @@ export const SvgButton = ({
     setInnerText(text);
   }, [text]);
 
+  const baseClasses =
+    "group inline-flex items-center justify-center flex-row gap-2 cursor-pointer transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30 disabled:opacity-50 disabled:cursor-not-allowed";
+  const shapeClass = rounded ? "rounded-md" : "rounded-sm";
+  const paddingClass = innerText ? "px-4 py-2 text-sm" : "p-2";
+  const variantClass = transparent
+    ? "bg-transparent border border-transparent hover:bg-white/15 active:bg-white/20"
+    : "bg-[rgba(35,33,39,0.5)] text-white border border-[rgba(156,156,156,0.3)] hover:bg-white hover:text-gray-900 active:bg-gray-100 svg-btn-hover-invert";
+  const activeClass = isActive
+    ? "!bg-white !text-gray-900 !border-white/30 svg-btn-active"
+    : "";
+
   return (
     <button
       type={type}
       tabIndex={tabIndex}
-      className={`flex items-center justify-center flex-row gap-2  ${extraClass} ${size} `}
+      aria-pressed={isActive || undefined}
+      className={`${baseClasses} ${shapeClass} ${paddingClass} ${variantClass} ${activeClass} ${extraClass} ${size} `}
       onClick={handleClick}
       disabled={disabled}
       onMouseEnter={() => {
@@ -73,7 +87,7 @@ export const SvgButton = ({
       {svg && (
         <div className="d-flex align-center justify-center">{currentSvg}</div>
       )}
-      {innerText && <p>{innerText}</p>}
+      {innerText && <span className="svg-btn-text">{innerText}</span>}
     </button>
   );
 };

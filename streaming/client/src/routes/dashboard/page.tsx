@@ -152,13 +152,7 @@ export default function DashboardPage() {
                       {t("manage-tags") || "Manage Tags"}
                     </button>
                   )}
-                  <button 
-                    className="col-span-2 md:col-span-1 px-3 py-1.5 md:px-8 md:py-3 rounded-full font-normal text-[10px] md:text-sm cursor-not-allowed border bg-[rgba(35,33,39,0.3)] text-[rgb(156,156,156)] border-[rgba(156,156,156,0.2)] opacity-50"
-                    style={{ transform: 'none' }}
-                    disabled
-                  >
-                    {t("create-users")} ({t("coming-soon")})
-                  </button>
+
                 </div>
 
                 {/* Tabla de conversaciones */}

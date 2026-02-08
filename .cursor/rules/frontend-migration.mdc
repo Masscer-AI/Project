@@ -1,0 +1,119 @@
+---
+description: Frontend migration guide — Mantine UI adoption and Lucide-to-Tabler icon replacement
+globs: streaming/client/src/**/*.tsx
+alwaysApply: true
+---
+
+# Frontend Migration: Mantine UI + Tabler Icons
+
+We are progressively migrating the frontend from custom components + Tailwind to **Mantine UI v8** (dark theme, violet primary color).
+
+## Mantine Component Migration
+
+When touching a file that uses any of these custom components, suggest replacing them with Mantine equivalents:
+
+| Custom component | Mantine replacement |
+|---|---|
+| `<Modal>` from `../Modal/Modal` | `<Modal>` from `@mantine/core` + `useDisclosure` from `@mantine/hooks` |
+| `<Pill>` from `../Pill/Pill` | `<Badge>` from `@mantine/core` |
+| `<SvgButton>` from `../SvgButton/SvgButton` | `<Button>` or `<ActionIcon>` from `@mantine/core` |
+| `<Textarea>` from `../SimpleForm/Textarea` | `<Textarea>` from `@mantine/core` with `autosize` |
+| Native `<input>` / `<select>` | `<TextInput>`, `<NativeSelect>`, `<Slider>`, etc. from `@mantine/core` |
+
+Use Mantine layout components (`Stack`, `Group`, `Divider`, `Title`, `Text`, `Card`, `Tooltip`, etc.) to replace custom flex/gap CSS patterns.
+
+## Icon Migration: Lucide → Tabler
+
+The `<Icon>` component (`../Icon/Icon`) uses `lucide-react` under the hood. When you encounter it, suggest replacing with a direct Tabler icon import.
+
+Common replacements:
+
+```tsx
+// ❌ Old (Lucide via Icon wrapper — imports entire icon set)
+import { Icon } from "../Icon/Icon";
+<Icon name="Settings" size={20} />
+
+// ✅ New (Tabler — tree-shakeable)
+import { IconSettings } from "@tabler/icons-react";
+<IconSettings size={20} />
+```
+
+Naming convention: Tabler icons use `Icon` prefix + PascalCase. Examples:
+- `"X"` → `IconX`
+- `"Trash2"` → `IconTrash`
+- `"Download"` → `IconDownload`
+- `"Menu"` → `IconMenu2`
+- `"Sparkles"` → `IconSparkles`
+- `"Save"` → `IconDeviceFloppy`
+- `"Plus"` → `IconPlus`
+
+## Important Patterns
+
+- Always use `useDisclosure` for modal open/close state instead of manual `useState`.
+- When using `e.currentTarget.value` inside a `setState` updater, capture the value first:
+
+```tsx
+// ❌ Breaks with React 18 batching (currentTarget becomes null)
+onChange={(e) => setState((prev) => ({ ...prev, field: e.currentTarget.value }))}
+
+// ✅ Capture value before updater
+onChange={(e) => {
+  const val = e.currentTarget.value;
+  setState((prev) => ({ ...prev, field: val }));
+}}
+```
+
+- MantineProvider is configured in `main.tsx` with `forceColorScheme="dark"` and `primaryColor: 'violet'`.
+
+## Lessons Learned (Migration Pitfalls)
+
+### Menu + confirmation = broken
+Mantine `Menu` closes on any item click. Never put multi-step confirmation logic (e.g. "click once to warn, click again to confirm") inside a `Menu.Item`. Instead, have the `Menu.Item` set state and open a separate `Modal` for confirmation.
+
+```tsx
+// ❌ Doesn't work — menu closes after first click
+<Menu.Item onClick={handleDeleteWithConfirm}>Delete</Menu.Item>
+
+// ✅ Menu.Item triggers a confirmation Modal
+<Menu.Item onClick={() => setConfirmDeleteOpened(true)}>Delete</Menu.Item>
+<Modal opened={confirmDeleteOpened} onClose={() => setConfirmDeleteOpened(false)}>
+  <Button color="red" onClick={handleDelete}>Confirm delete</Button>
+</Modal>
+```
+
+### Don't drop full components inside Menu.Dropdown
+If a component renders its own trigger button + modal (like `AudioGenerator`), dropping it inside `Menu.Dropdown` breaks the layout. Instead, add optional `opened`/`onClose` props to the component so a `Menu.Item` can trigger it externally.
+
+```tsx
+// ❌ Renders a broken button inside the menu
+<Menu.Dropdown>
+  <AudioGenerator text={text} messageId={id} />
+</Menu.Dropdown>
+
+// ✅ Menu.Item triggers, component renders its modal externally
+<Menu.Item onClick={() => setAudioGenOpened(true)}>Generate Speech</Menu.Item>
+<AudioGenerator text={text} messageId={id} opened={audioGenOpened} onClose={() => setAudioGenOpened(false)} />
+```
+
+### overflow-x clips absolutely positioned dropdowns
+Parent containers with `overflow-x: auto` will clip any child with `position: absolute`. Use Mantine `Menu` or `Popover` (which render via Portal) to avoid this.
+
+### CSS hover dropdowns → Mantine Popover
+Replace custom CSS `:hover` + `display: none/flex` dropdown patterns with Mantine `Popover`. They handle positioning, portals, and accessibility properly.
+
+### No separate mobile/desktop button copies
+Don't create two copies of the same button (one absolute-positioned for mobile, one in-flow for desktop) swapped via media queries. It causes layout bugs. Keep a single button in the normal document flow — it works on all screen sizes.
+
+### Pill-shaped border-radius breaks on multi-line
+`border-radius: 50vh` looks great on single-line text but becomes ugly on multi-line content. Use standard `border-radius` (e.g. `var(--standard-radius)`) for message bubbles or any container that might have variable-height content.
+
+### Scope exclusions may need migration anyway
+When migrating a parent component (e.g. `Message`), child components that render their own custom UI (e.g. `Reactions`, `AudioGenerator`) may look broken alongside the new Mantine elements. Be prepared to migrate them too, or at minimum add compatibility props (`opened`/`onClose`) so they integrate cleanly.
+
+## Style Guidelines
+
+- Use `variant="subtle" color="gray"` for low-emphasis icon buttons (action bars, toolbars).
+- Use `variant="default"` for medium-emphasis buttons.
+- Use `variant="filled"` sparingly for primary actions.
+- Don't add `radius="xl"` to every button — keep the default radius for consistency.
+- Prefer `size="sm"` for inline/toolbar ActionIcons, `size="xs"` for compact secondary buttons.

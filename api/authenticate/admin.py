@@ -146,11 +146,46 @@ class OrganizationAdmin(admin.ModelAdmin):
     logo_preview.short_description = "Logo"
 
 
+class OrganizationFeatureFlagInline(admin.TabularInline):
+    model = FeatureFlagAssignment
+    extra = 1
+    verbose_name = "Organization Assignment"
+    verbose_name_plural = "Organization-Level Assignments"
+    fields = ("organization", "enabled")
+    autocomplete_fields = ("organization",)
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).filter(user__isnull=True, organization__isnull=False)
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "user":
+            kwargs["required"] = False
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+
+class UserFeatureFlagInline(admin.TabularInline):
+    model = FeatureFlagAssignment
+    extra = 1
+    verbose_name = "User Assignment"
+    verbose_name_plural = "User-Level Assignments"
+    fields = ("user", "enabled")
+    raw_id_fields = ("user",)
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).filter(user__isnull=False, organization__isnull=True)
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "organization":
+            kwargs["required"] = False
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+
 @admin.register(FeatureFlag)
 class FeatureFlagAdmin(admin.ModelAdmin):
     list_display = ("name", "created", "modified")
     search_fields = ("name",)
     list_filter = ("created", "modified")
+    inlines = [OrganizationFeatureFlagInline, UserFeatureFlagInline]
 
 
 @admin.register(FeatureFlagAssignment)

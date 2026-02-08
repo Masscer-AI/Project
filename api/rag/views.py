@@ -73,6 +73,8 @@ class DocumentView(View):
             return JsonResponse(serializer.data, status=200)
 
         data["collection"] = collection.id
+        if not data.get("name") and file_name:
+            data["name"] = file_name
         data["text"] = file_content.replace("\0", "")
         serializer = DocumentSerializer(data=data)
 

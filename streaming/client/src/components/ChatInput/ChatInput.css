@@ -1,32 +1,3 @@
-/* Estilos para botón de enviar en pantallas menores a 470px */
-@media (max-width: 469px) {
-  .chat-input-send-mobile {
-    display: flex !important;
-  }
-  
-  .chat-input-send-desktop {
-    display: none !important;
-  }
-  
-  .chat-input-textarea-mobile {
-    padding-right: 3.5rem !important;
-  }
-}
-
-@media (min-width: 470px) {
-  .chat-input-send-mobile {
-    display: none !important;
-  }
-  
-  .chat-input-send-desktop {
-    display: flex !important;
-  }
-  
-  .chat-input-textarea-mobile {
-    padding-right: inherit !important;
-  }
-}
-
 /* Estilos para scrollbar horizontal de attachments */
 .chat-input-attachments::-webkit-scrollbar {
   height: 6px;

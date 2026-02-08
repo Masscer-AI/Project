@@ -1,10 +1,8 @@
-import React, { useEffect, useRef } from "react";
+import React from "react";
 import { useStore } from "../../modules/store";
-import { FloatingDropdown } from "../Dropdown/Dropdown";
-import { SvgButton } from "../SvgButton/SvgButton";
-import { Icon } from "../Icon/Icon";
-import "./Reactions.css";
 import { createReaction } from "../../modules/apiCalls";
+import { ActionIcon, Popover, Tooltip } from "@mantine/core";
+import { IconMoodSmile } from "@tabler/icons-react";
 
 export const Reactions = ({
   messageId,
@@ -22,7 +20,6 @@ export const Reactions = ({
   const { reactionTemplates } = useStore((s) => ({
     reactionTemplates: s.reactionTemplates,
   }));
-  const divRef = useRef<HTMLDivElement>(null);
 
   const handleReactionClick = (templateId: number) => {
     const action = currentReactions.includes(templateId) ? "remove" : "add";
@@ -34,39 +31,35 @@ export const Reactions = ({
     });
   };
 
-  useEffect(() => {
-    // Adjust the width to never overflow
-    // calculate with respect of the left border and the right border ;=less than 100px
-    if (divRef.current) {
-      const left = divRef.current.offsetLeft;
-      const width = divRef.current.offsetWidth;
-    }
-  }, [currentReactions]);
-
   return (
-    <div className={`reactions-component from-${direction}`}>
-      <SvgButton
-        extraClass="dropdown-opener"
-        title="Reactions"
-        svg={<Icon name="Smile" size={20} />}
-      />
-      <div
-        ref={divRef}
-        className="d-flex rounded z-index-tap pos-absolute bg-secondary wrap-wrap width-150 reactions-dropdown"
-      >
-        {reactionTemplates.map((reactionTemplate) => (
-          <SvgButton
-            extraClass={`${
-              currentReactions.includes(reactionTemplate.id) &&
-              "bg-active pressable"
-            }`}
-            onClick={() => handleReactionClick(reactionTemplate.id)}
-            key={reactionTemplate.id}
-            title={reactionTemplate.name}
-            svg={reactionTemplate.emoji}
-          />
-        ))}
-      </div>
-    </div>
+    <Popover
+      position={direction === "right" ? "bottom-end" : "bottom-start"}
+      shadow="md"
+      withArrow
+    >
+      <Popover.Target>
+        <Tooltip label="Reactions" withArrow>
+          <ActionIcon variant="subtle" color="gray" size="sm">
+            <IconMoodSmile size={18} />
+          </ActionIcon>
+        </Tooltip>
+      </Popover.Target>
+      <Popover.Dropdown p={6}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
+          {reactionTemplates.map((rt) => (
+            <ActionIcon
+              key={rt.id}
+              variant={currentReactions.includes(rt.id) ? "filled" : "subtle"}
+              color={currentReactions.includes(rt.id) ? "violet" : "gray"}
+              size="md"
+              onClick={() => handleReactionClick(rt.id)}
+              title={rt.name}
+            >
+              <span style={{ fontSize: 16 }}>{rt.emoji}</span>
+            </ActionIcon>
+          ))}
+        </div>
+      </Popover.Dropdown>
+    </Popover>
   );
 };

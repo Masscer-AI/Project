@@ -6,19 +6,20 @@ from django.db import transaction
 
 
 class SignupSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True)
+    password = serializers.CharField(write_only=True, min_length=8)
     email = serializers.EmailField(required=True)
-    organization_id = serializers.UUIDField(required=True, write_only=True)
+    organization_id = serializers.UUIDField(required=False, write_only=True)
+    organization_name = serializers.CharField(required=False, write_only=True, max_length=255)
 
     class Meta:
         model = User
-        fields = ["username", "email", "password", "organization_id"]
+        fields = ["username", "email", "password", "organization_id", "organization_name"]
 
     def validate_email(self, value):
         if User.objects.filter(email=value).exists():
             raise ValidationError("A user with this email already exists.")
         return value
-    
+
     def validate_organization_id(self, value):
         try:
             self._organization = Organization.objects.get(id=value)
@@ -26,8 +27,24 @@ class SignupSerializer(serializers.ModelSerializer):
             raise ValidationError("Organization does not exist.") from err
         return value
 
+    def validate(self, attrs):
+        has_org_id = "organization_id" in attrs and attrs["organization_id"]
+        has_org_name = "organization_name" in attrs and attrs["organization_name"]
+
+        if not has_org_id and not has_org_name:
+            raise ValidationError(
+                "Either organization_id or organization_name must be provided."
+            )
+        if has_org_id and has_org_name:
+            raise ValidationError(
+                "Provide either organization_id or organization_name, not both."
+            )
+        return attrs
+
     def create(self, validated_data):
-        organization_id = validated_data.pop('organization_id')
+        organization_id = validated_data.pop("organization_id", None)
+        organization_name = validated_data.pop("organization_name", None)
+
         with transaction.atomic():
             user = User.objects.create_user(
                 username=validated_data["username"],
@@ -35,10 +52,19 @@ class SignupSerializer(serializers.ModelSerializer):
                 password=validated_data["password"],
             )
 
-            # Prefer the org already validated (see validate_organization_id)
-            organization = getattr(self, "_organization", None)
-            if organization is None:
-                organization = Organization.objects.select_for_update().get(id=organization_id)
+            if organization_name:
+                # New independent signup: create org with user as owner
+                organization = Organization.objects.create(
+                    name=organization_name,
+                    owner=user,
+                )
+            else:
+                # Invited signup: join existing org
+                organization = getattr(self, "_organization", None)
+                if organization is None:
+                    organization = Organization.objects.select_for_update().get(
+                        id=organization_id
+                    )
 
             user_profile, _ = UserProfile.objects.get_or_create(user=user)
             user_profile.organization = organization

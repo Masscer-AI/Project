@@ -1,10 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { SVGS } from "../../assets/svgs";
 import { useStore } from "../../modules/store";
-import { useSearchParams } from "react-router-dom";
-import { useNavigate } from "react-router-dom";
-import { SvgButton } from "../SvgButton/SvgButton";
-import { FloatingDropdown } from "../Dropdown/Dropdown";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import {
   deleteConversation,
   generateTrainingCompletions,
@@ -13,33 +10,63 @@ import {
   shareConversation,
 } from "../../modules/apiCalls";
 import { TConversation } from "../../types";
-import { Modal } from "../Modal/Modal";
 import toast from "react-hot-toast";
-import { Pill } from "../Pill/Pill";
 import { useTranslation } from "react-i18next";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
 import { QRCodeDisplay } from "../QRGenerator/QRGenerator";
-import { WidgetManager } from "../WidgetManager/WidgetManager";
-import { Icon } from "../Icon/Icon";
+
+import "./Sidebar.css";
+
+import {
+  Button,
+  ActionIcon,
+  TextInput,
+  NumberInput,
+  Badge,
+  Modal,
+  Menu,
+  Stack,
+  Group,
+  Text,
+  Divider,
+} from "@mantine/core";
+import { DatePickerInput } from "@mantine/dates";
+import {
+  IconPlus,
+  IconMenu2,
+  IconMessage,
+  IconWaveSine,
+  IconDatabase,
+  IconPuzzle,
+  IconBuilding,
+  IconLayoutDashboard,
+  IconSettings,
+  IconLogout,
+  IconDotsVertical,
+  IconTrash,
+  IconBarbell,
+  IconShare,
+  IconCopy,
+  IconExternalLink,
+  IconFilter,
+} from "@tabler/icons-react";
+
+// ─── Main Sidebar ─────────────────────────────────────────────────────────────
 
 export const Sidebar: React.FC = () => {
   const { t } = useTranslation();
-  const isConversationsDashboardEnabled = useIsFeatureEnabled("conversations-dashboard");
-  const {
-    toggleSidebar,
-    setConversation,
-    user,
-    setOpenedModals,
-    logout,
-    userTags,
-  } = useStore((state) => ({
-    toggleSidebar: state.toggleSidebar,
-    setConversation: state.setConversation,
-    user: state.user,
-    setOpenedModals: state.setOpenedModals,
-    logout: state.logout,
-    userTags: state.userTags,
-  }));
+  const isConversationsDashboardEnabled = useIsFeatureEnabled(
+    "conversations-dashboard"
+  );
+  const { toggleSidebar, setConversation, user, setOpenedModals, logout, userTags } =
+    useStore((state) => ({
+      toggleSidebar: state.toggleSidebar,
+      setConversation: state.setConversation,
+      user: state.user,
+      setOpenedModals: state.setOpenedModals,
+      logout: state.logout,
+      userTags: state.userTags,
+    }));
 
   const [history, setHistory] = useState<TConversation[]>([]);
   const [filteredHistory, setFilteredHistory] = useState<TConversation[]>([]);
@@ -54,23 +81,17 @@ export const Sidebar: React.FC = () => {
 
   const [filters, setFilters] = useState<{
     tags: string[];
-    startDate: string;
-    endDate: string;
+    startDate: Date | null;
+    endDate: Date | null;
     title: string;
-    minMessages: number | null;
-    maxMessages: number | null;
   }>({
     tags: [],
-    startDate: "",
-    endDate: "",
+    startDate: null,
+    endDate: null,
     title: "",
-    minMessages: null,
-    maxMessages: null,
   });
 
-  const [hoveredButton, setHoveredButton] = useState<string | null>(null);
   const [canManageOrg, setCanManageOrg] = useState(false);
-  const [showWidgetManager, setShowWidgetManager] = useState(false);
 
   const navigate = useNavigate();
 
@@ -95,26 +116,20 @@ export const Sidebar: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    let filteredHistory = filterByDateRange();
+    let result = filterByDateRange();
 
     if (filters.tags.length > 0) {
-      filteredHistory = filteredHistory.filter((c) =>
+      result = result.filter((c) =>
         c.tags?.some((tag: number) => filters.tags.includes(tag.toString()))
       );
     }
 
-    filteredHistory = filteredHistory.filter(
+    result = result.filter(
       (c) =>
         c.title && c.title.toLowerCase().includes(filters.title.toLowerCase())
     );
 
-    filteredHistory = filteredHistory.filter(
-      (c) =>
-        c.number_of_messages >= (filters.minMessages || 0) &&
-        c.number_of_messages <= (filters.maxMessages || 100000)
-    );
-
-    setFilteredHistory(filteredHistory);
+    setFilteredHistory(result);
   }, [filters]);
 
   const populateHistory = async () => {
@@ -152,46 +167,32 @@ export const Sidebar: React.FC = () => {
     setFilteredHistory(
       filteredHistory.filter((conversation) => conversation.id !== id)
     );
-    const res = await deleteConversation(id);
+    await deleteConversation(id);
   };
 
   const openSettings = () => {
-    setOpenedModals({ action: "add", name: "settings" });
-    toggleSidebar();
+    goTo("/settings");
   };
 
-  // Function to filter based on date range
   const filterByDateRange = () => {
     return history.filter((c) => {
       const createdAtDate = new Date(c.created_at);
-      // add one day to start and end date to include the whole day
 
       const start = filters.startDate ? new Date(filters.startDate) : null;
       if (start) {
-        // Add one day to start date to include the whole day
-        start.setDate(start.getDate() + 1);
         start.setHours(0, 0, 0, 0);
       }
 
       const end = filters.endDate ? new Date(filters.endDate) : new Date();
       if (end) {
-        // Add one day to end date to include the whole day
-        end.setDate(end.getDate() + 1);
         end.setHours(23, 59, 59, 999);
       }
 
-      const letPass =
-        (!start || createdAtDate >= start) && createdAtDate <= end;
-      // if (letPass) {
-      //   console.table({ startDate, start, endDate, end, createdAtDate });
-      // }
-
-      return letPass;
+      return (!start || createdAtDate >= start) && createdAtDate <= end;
     });
   };
 
   const filterByTag = (tag: string) => {
-    // Remove the tag from the filters if it is already in the filters, otherwise add it
     setFilters((prev) => ({
       ...prev,
       tags: prev.tags.includes(tag)
@@ -205,164 +206,130 @@ export const Sidebar: React.FC = () => {
   return (
     <>
       <div className="bg-[rgba(35,33,39,0.5)] backdrop-blur-md fixed md:relative left-0 top-0 h-screen z-[50] md:z-[3] flex flex-col w-[min(350px,100%)] p-3 gap-2.5 border-r border-[rgba(255,255,255,0.1)] animate-[appear-left_500ms_forwards] md:[animation:none]">
-        <div className="flex justify-between gap-2">
-          <button
-            className={`w-full px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center justify-center gap-2 ${
-              hoveredButton === 'new-chat' 
-                ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
-                : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
-            }`}
-            style={{ transform: 'none' }}
-            onMouseEnter={() => setHoveredButton('new-chat')}
-            onMouseLeave={() => setHoveredButton(null)}
+        {/* Header */}
+        <Group gap="xs">
+          <Button
+            variant="default"
+            leftSection={<IconPlus size={20} />}
             onClick={handleNewChat}
+            className="flex-1"
           >
-            <Icon name="Plus" size={20} />
-            <span>{t("new-chat")}</span>
-          </button>
-          <button
-            className={`px-4 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center justify-center ${
-              hoveredButton === 'burger' 
-                ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
-                : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
-            }`}
-            style={{ transform: 'none' }}
-            onMouseEnter={() => setHoveredButton('burger')}
-            onMouseLeave={() => setHoveredButton(null)}
+            {t("new-chat")}
+          </Button>
+          <ActionIcon
+            variant="default"
+            size="lg"
             onClick={toggleSidebar}
+            aria-label="Toggle sidebar"
           >
-            <Icon name="Menu" size={20} />
-          </button>
-        </div>
+            <IconMenu2 size={20} />
+          </ActionIcon>
+        </Group>
+
+        {/* Scrollable content */}
         <div className="[scrollbar-width:none] overflow-auto p-0.5 flex flex-col gap-2.5 flex-1">
-          <button
-            className={`w-full px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center justify-center gap-2 ${
-              hoveredButton === 'conversations' || historyConfig.isOpen
-                ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
-                : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
-            }`}
-            style={{ transform: 'none' }}
-            onMouseEnter={() => setHoveredButton('conversations')}
-            onMouseLeave={() => setHoveredButton(null)}
+          <Button
+            variant="default"
+            size="sm"
+            leftSection={<IconMessage size={20} />}
             onClick={() =>
               setHistoryConfig((prev) => ({
                 ...prev,
                 isOpen: !prev.isOpen,
               }))
             }
+            fullWidth
+            styles={{
+              root: {
+                backgroundColor: historyConfig.isOpen
+                  ? "rgba(255,255,255,0.08)"
+                  : undefined,
+              },
+            }}
           >
-            <Icon name="MessageSquare" size={20} />
-            <span>{t("conversations")}</span>
-          </button>
+            {t("conversations")}
+          </Button>
 
           {historyConfig.isOpen && (
             <>
               {historyConfig.showFilters ? (
-                <div className="flex flex-col gap-2.5">
-                  <input
-                    type="text"
-                    className="w-full p-3 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-lg text-white placeholder-[rgb(156,156,156)] focus:outline-none focus:ring-2 focus:ring-[rgba(110,91,255,0.5)]"
+                <Stack gap="xs">
+                  <TextInput
                     placeholder={t("filter-conversations")}
                     autoFocus
                     name="conversation-filter"
                     value={filters.title}
-                    onChange={(e) =>
-                      setFilters({ ...filters, title: e.target.value })
-                    }
+                    onChange={(e) => {
+                      const val = e.currentTarget.value;
+                      setFilters((prev) => ({ ...prev, title: val }));
+                    }}
+                    radius="md"
+                    variant="filled"
+                    size="xs"
                   />
-                  <div className="flex gap-2.5">
-                    <input
-                      className="w-full rounded-lg p-2 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] text-white focus:outline-none focus:ring-2 focus:ring-[rgba(110,91,255,0.5)]"
-                      type="date"
+                  <Group gap="xs" grow>
+                    <DatePickerInput
                       value={filters.startDate}
-                      onChange={(e) =>
-                        setFilters({ ...filters, startDate: e.target.value })
+                      onChange={(val) =>
+                        setFilters({
+                          ...filters,
+                          startDate: val as Date | null,
+                        })
                       }
+                      placeholder={t("start-date")}
+                      radius="md"
+                      variant="filled"
+                      clearable
+                      size="xs"
                     />
-                    <input
-                      className="w-full rounded-lg p-2 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] text-white focus:outline-none focus:ring-2 focus:ring-[rgba(110,91,255,0.5)]"
-                      type="date"
+                    <DatePickerInput
                       value={filters.endDate}
-                      onChange={(e) =>
-                        setFilters({ ...filters, endDate: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div className="flex gap-2.5">
-                    <input
-                      className="w-full rounded-lg p-2 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] text-white placeholder-[rgb(156,156,156)] focus:outline-none focus:ring-2 focus:ring-[rgba(110,91,255,0.5)]"
-                      type="number"
-                      min={0}
-                      placeholder={t("min-messages")}
-                      value={filters.minMessages || ""}
-                      onChange={(e) =>
+                      onChange={(val) =>
                         setFilters({
                           ...filters,
-                          minMessages: e.target.value
-                            ? parseInt(e.target.value)
-                            : null,
+                          endDate: val as Date | null,
                         })
                       }
+                      placeholder={t("end-date")}
+                      radius="md"
+                      variant="filled"
+                      clearable
+                      size="xs"
                     />
-                    <input
-                      className="w-full rounded-lg p-2 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] text-white placeholder-[rgb(156,156,156)] focus:outline-none focus:ring-2 focus:ring-[rgba(110,91,255,0.5)]"
-                      type="number"
-                      placeholder={t("max-messages")}
-                      min={0}
-                      value={filters.maxMessages || ""}
-                      onChange={(e) =>
-                        setFilters({
-                          ...filters,
-                          maxMessages: e.target.value
-                            ? parseInt(e.target.value)
-                            : null,
-                        })
-                      }
-                    />
-                  </div>
-                  <div className="flex gap-2.5 flex-wrap">
+                  </Group>
+                  <Group gap="xs" wrap="wrap">
                     {userTags.map((tag) => (
-                      <Pill
-                        onClick={() => filterByTag(tag)}
-                        extraClass={`${filters.tags.includes(tag) ? "bg-active" : "bg-hovered"}`}
+                      <Badge
                         key={tag}
+                        variant={
+                          filters.tags.includes(tag) ? "filled" : "default"
+                        }
+                        style={{ cursor: "pointer" }}
+                        onClick={() => filterByTag(tag)}
                       >
                         {tag}
-                      </Pill>
+                      </Badge>
                     ))}
-                  </div>
-                  <div className="flex gap-2.5">
-                    <button
-                      className={`w-full px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center justify-center ${
-                        hoveredButton === 'clean-filters' 
-                          ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
-                          : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
-                      }`}
-                      style={{ transform: 'none' }}
-                      onMouseEnter={() => setHoveredButton('clean-filters')}
-                      onMouseLeave={() => setHoveredButton(null)}
+                  </Group>
+                  <Divider />
+                  <Group gap="xs" justify="flex-end">
+                    <Button
+                      size="xs"
+                      variant="default"
                       onClick={() => {
                         setFilters({
                           tags: [],
-                          startDate: "",
-                          endDate: "",
+                          startDate: null,
+                          endDate: null,
                           title: "",
-                          minMessages: null,
-                          maxMessages: null,
                         });
                       }}
                     >
                       {t("clean-filters")}
-                    </button>
-                    <button
-                      className={`w-full px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center justify-center ${
-                        hoveredButton === 'close-filters' 
-                          ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
-                          : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
-                      }`}
-                      style={{ transform: 'none' }}
-                      onMouseEnter={() => setHoveredButton('close-filters')}
-                      onMouseLeave={() => setHoveredButton(null)}
+                    </Button>
+                    <Button
+                      size="xs"
+                      variant="default"
                       onClick={() =>
                         setHistoryConfig((prev) => ({
                           ...prev,
@@ -371,34 +338,33 @@ export const Sidebar: React.FC = () => {
                       }
                     >
                       {t("close-filters")}
-                    </button>
-                  </div>
-                </div>
+                    </Button>
+                  </Group>
+                </Stack>
               ) : (
-                <button
-                  className={`w-full px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center justify-center ${
-                    hoveredButton === 'show-filters' 
-                      ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
-                      : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
-                  }`}
-                  style={{ transform: 'none' }}
-                  onMouseEnter={() => setHoveredButton('show-filters')}
-                  onMouseLeave={() => setHoveredButton(null)}
+                <Button
+                  variant="default"
+                  leftSection={<IconFilter size={18} />}
                   onClick={() =>
                     setHistoryConfig((prev) => ({
                       ...prev,
                       showFilters: true,
                     }))
                   }
+                  fullWidth
                 >
                   {t("show-filters")}
-                </button>
+                </Button>
               )}
+
               <div className="h-full overflow-y-auto [scrollbar-width:none] flex flex-col gap-2.5">
-                <h3 className="text-white font-semibold text-sm">{t("today")}</h3>
+                <Text size="sm" fw={600} c="white">
+                  {t("today")}
+                </Text>
                 {filteredHistory
                   .filter(
-                    (c) => new Date(c.created_at).toLocaleDateString() === today
+                    (c) =>
+                      new Date(c.created_at).toLocaleDateString() === today
                   )
                   .map((conversation) => (
                     <ConversationComponent
@@ -407,10 +373,13 @@ export const Sidebar: React.FC = () => {
                       deleteConversationItem={deleteConversationItem}
                     />
                   ))}
-                <h3 className="text-white font-semibold text-sm">{t("previous-days")}</h3>
+                <Text size="sm" fw={600} c="white">
+                  {t("previous-days")}
+                </Text>
                 {filteredHistory
                   .filter(
-                    (c) => new Date(c.created_at).toLocaleDateString() !== today
+                    (c) =>
+                      new Date(c.created_at).toLocaleDateString() !== today
                   )
                   .map((conversation) => (
                     <ConversationComponent
@@ -424,139 +393,101 @@ export const Sidebar: React.FC = () => {
           )}
 
           {!historyConfig.isOpen && (
-            <>
-              <button
-                className={`w-full px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center justify-center gap-2 ${
-                  hoveredButton === 'audio-tools' 
-                    ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
-                    : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
-                }`}
-                style={{ transform: 'none' }}
-                onMouseEnter={() => setHoveredButton('audio-tools')}
-                onMouseLeave={() => setHoveredButton(null)}
-                onClick={() =>
-                  setOpenedModals({ action: "add", name: "audio" })
+            <Stack gap="xs">
+              <Button
+                variant="default"
+                leftSection={<IconWaveSine size={20} />}
+                onClick={() => goTo("/generation-tools")}
+                fullWidth
+              >
+                {t("audio-tools")}
+              </Button>
+              {/* WhatsApp — disabled until feature is complete
+              <Button
+                variant="default"
+                leftSection={
+                  <div className="w-5 h-5 flex items-center justify-center [&>svg]:w-5 [&>svg]:h-5">
+                    {SVGS.whatsapp}
+                  </div>
                 }
-              >
-                <Icon name="AudioLines" size={20} />
-                <span>{t("audio-tools")}</span>
-              </button>
-              <button
-                className={`w-full px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center justify-center gap-2 ${
-                  hoveredButton === 'whatsapp' 
-                    ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
-                    : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
-                }`}
-                style={{ transform: 'none' }}
-                onMouseEnter={() => setHoveredButton('whatsapp')}
-                onMouseLeave={() => setHoveredButton(null)}
                 onClick={() => goTo("/whatsapp")}
+                fullWidth
               >
-                <div className="w-5 h-5 flex items-center justify-center [&>svg]:w-5 [&>svg]:h-5">{SVGS.whatsapp}</div>
-                <span>{t("whatsapp")}</span>
-              </button>
-              <button
-                className={`w-full px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center justify-center gap-2 ${
-                  hoveredButton === 'knowledge-base' 
-                    ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
-                    : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
-                }`}
-                style={{ transform: 'none' }}
-                onMouseEnter={() => setHoveredButton('knowledge-base')}
-                onMouseLeave={() => setHoveredButton(null)}
+                {t("whatsapp")}
+              </Button>
+              */}
+              <Button
+                variant="default"
+                leftSection={<IconDatabase size={20} />}
                 onClick={() => goTo("/knowledge-base")}
+                fullWidth
               >
-                <Icon name="Database" size={20} />
-                <span>{t("knowledge-base")}</span>
-              </button>
-              <button
-                className={`w-full px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center justify-center gap-2 ${
-                  hoveredButton === 'widgets' 
-                    ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
-                    : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
-                }`}
-                style={{ transform: 'none' }}
-                onMouseEnter={() => setHoveredButton('widgets')}
-                onMouseLeave={() => setHoveredButton(null)}
-                onClick={() => setShowWidgetManager(true)}
+                {t("knowledge-base")}
+              </Button>
+              <Button
+                variant="default"
+                leftSection={<IconPuzzle size={20} />}
+                onClick={() => goTo("/chat-widgets")}
+                fullWidth
               >
-                <Icon name="Puzzle" size={20} />
-                <span>{t("chat-widgets")}</span>
-              </button>
+                {t("chat-widgets")}
+              </Button>
               {canManageOrg && (
-                <button
-                  className={`w-full px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center justify-center gap-2 ${
-                    hoveredButton === 'manage-org'
-                      ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]'
-                      : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
-                  }`}
-                  style={{ transform: 'none' }}
-                  onMouseEnter={() => setHoveredButton('manage-org')}
-                  onMouseLeave={() => setHoveredButton(null)}
+                <Button
+                  variant="default"
+                  leftSection={<IconBuilding size={20} />}
                   onClick={() => goTo("/organization")}
+                  fullWidth
                 >
-                  <Icon name="Building2" size={20} />
-                  <span>{t("manage-organization")}</span>
-                </button>
+                  {t("manage-organization")}
+                </Button>
               )}
               {isConversationsDashboardEnabled && (
-                <button
-                  className={`w-full px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center justify-center gap-2 ${
-                    hoveredButton === 'dashboard' 
-                      ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
-                      : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
-                  }`}
-                  style={{ transform: 'none' }}
-                  onMouseEnter={() => setHoveredButton('dashboard')}
-                  onMouseLeave={() => setHoveredButton(null)}
+                <Button
+                  variant="default"
+                  leftSection={<IconLayoutDashboard size={20} />}
                   onClick={() => goTo("/dashboard")}
+                  fullWidth
                 >
-                  <Icon name="LayoutDashboard" size={20} />
-                  <span>{t("conversations-dashboard")}</span>
-                </button>
+                  {t("conversations-dashboard")}
+                </Button>
               )}
-            </>
+            </Stack>
           )}
         </div>
-        <div className="mt-auto flex justify-between gap-2">
-          <button
-            className={`flex-1 px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center justify-center gap-2 ${
-              hoveredButton === 'settings' 
-                ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
-                : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
-            }`}
-            style={{ transform: 'none' }}
-            onMouseEnter={() => setHoveredButton('settings')}
-            onMouseLeave={() => setHoveredButton(null)}
+
+        {/* Footer */}
+        <Group gap="xs" className="mt-auto">
+          <Button
+            variant="default"
+            leftSection={<IconSettings size={20} />}
             onClick={openSettings}
-            title={t("settings")}
+            className="flex-1"
           >
-            <Icon name="Settings" size={20} />
-            <span>{user ? user.username : t("you")}</span>
-          </button>
-          <button
-            className={`px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center justify-center ${
-              hoveredButton === 'logout' 
-                ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]' 
-                : 'bg-[rgba(35,33,39,0.5)] text-white border-[rgba(156,156,156,0.3)] hover:bg-[rgba(35,33,39,0.8)]'
-            }`}
-            style={{ transform: 'none' }}
-            onMouseEnter={() => setHoveredButton('logout')}
-            onMouseLeave={() => setHoveredButton(null)}
+            {user ? user.username : t("you")}
+          </Button>
+          <ActionIcon
+            variant="default"
+            size="lg"
             onClick={logout}
-            title={t("logout")}
+            aria-label={t("logout")}
           >
-            <Icon name="LogOut" size={20} />
-          </button>
-        </div>
+            <IconLogout size={20} />
+          </ActionIcon>
+        </Group>
       </div>
-      <div onClick={toggleSidebar} className="bg-[rgba(55,55,55,0.52)] w-screen h-screen fixed top-0 left-0 z-[40] md:hidden"></div>
-      {showWidgetManager && (
-        <WidgetManager hide={() => setShowWidgetManager(false)} />
-      )}
+
+      {/* Mobile backdrop */}
+      <div
+        onClick={toggleSidebar}
+        className="bg-[rgba(55,55,55,0.52)] w-screen h-screen fixed top-0 left-0 z-[40] md:hidden"
+      ></div>
+
     </>
   );
 };
+
+// ─── ConversationComponent ────────────────────────────────────────────────────
 
 const ConversationComponent = ({
   conversation,
@@ -573,24 +504,17 @@ const ConversationComponent = ({
   }));
 
   const { t } = useTranslation();
-
   const [showTrainingModal, setShowTrainingModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
-  const [hoveredButton, setHoveredButton] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const handleClick = () => {
-    console.log("Conversation clicked", conversation.id, "Trying to open");
     setConversation(conversation.id);
-
-    const queryParams = {
-      conversation: conversation.id,
-    };
+    const queryParams = { conversation: conversation.id };
     setSearchParams(queryParams);
-    console.log("Navigating to", `/chat?conversation=${conversation.id}`);
     navigate(`/chat?conversation=${conversation.id}`);
-    
-    // Cerrar el sidebar en mobile después de seleccionar una conversación
+
+    // Close sidebar on mobile after selecting a conversation
     if (window.innerWidth < 768 && chatState.isSidebarOpened) {
       toggleSidebar();
     }
@@ -598,89 +522,75 @@ const ConversationComponent = ({
 
   return conversation.number_of_messages > 0 ? (
     <div className="flex items-center justify-between text-[17.5px] cursor-pointer relative text-ellipsis whitespace-nowrap p-0 rounded-lg hover:bg-[rgba(255,255,255,0.05)] transition-colors">
-      <p className="w-full p-2.5 max-w-full overflow-hidden" onClick={handleClick}>
+      <p
+        className="w-full p-2.5 max-w-full overflow-hidden"
+        onClick={handleClick}
+      >
         {(conversation.title || conversation.id).slice(0, 30)}
       </p>
-      {showTrainingModal && (
-        <TrainingOnConversation
-          conversation={conversation}
-          hide={() => setShowTrainingModal(false)}
-        />
-      )}
-      {showShareModal && (
-        <ShareConversationModal
-          hide={() => setShowShareModal(false)}
-          conversationId={conversation.id}
-        />
-      )}
-      <FloatingDropdown
-        right="100%"
-        top="0"
-        opener={
-          <SvgButton 
-            title={t("conversation-options")} 
-            svg={<Icon name="MoreVertical" size={20} />}
-            extraClass="hover:!bg-white hover:!border-white [&>svg]:hover:!fill-black [&>svg]:hover:!stroke-black [&>svg>*]:hover:!fill-black [&>svg>*]:hover:!stroke-black"
-          />
-        }
-      >
-        <div className="w-[200px] flex flex-col gap-3 p-4 bg-black/95 backdrop-blur-sm border border-gray-700 rounded-2xl shadow-lg">
-          <button
-            className={`px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center gap-2 w-full justify-center ${
-              hoveredButton === 'delete'
-                ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]'
-                : 'bg-[#dc2626] text-white border-[rgba(156,156,156,0.3)] hover:bg-[#b91c1c]'
-            }`}
-            style={{ transform: 'none' }}
-            onMouseEnter={() => setHoveredButton('delete')}
-            onMouseLeave={() => setHoveredButton(null)}
+
+      <ShareConversationModal
+        opened={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        conversationId={conversation.id}
+      />
+      <TrainingOnConversation
+        opened={showTrainingModal}
+        onClose={() => setShowTrainingModal(false)}
+        conversation={conversation}
+      />
+
+      <Menu position="left-start" withArrow shadow="md">
+        <Menu.Target>
+          <ActionIcon variant="subtle" color="gray" size="sm">
+            <IconDotsVertical size={18} />
+          </ActionIcon>
+        </Menu.Target>
+        <Menu.Dropdown>
+          <Menu.Item
+            color="red"
+            leftSection={<IconTrash size={16} />}
             onClick={() => deleteConversationItem(conversation.id)}
           >
-            <Icon name="Trash2" size={20} />
-            <span>{t("delete")}</span>
-          </button>
-          <button
-            className={`px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center gap-2 w-full justify-center ${
-              hoveredButton === 'train'
-                ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]'
-                : 'bg-[#6e5bff] text-white border-[rgba(156,156,156,0.3)] hover:bg-[#5a47e6]'
-            }`}
-            style={{ transform: 'none' }}
-            onMouseEnter={() => setHoveredButton('train')}
-            onMouseLeave={() => setHoveredButton(null)}
+            {t("delete")}
+          </Menu.Item>
+          <Menu.Item
+            leftSection={<IconBarbell size={16} />}
             onClick={() => setShowTrainingModal(true)}
           >
-            <Icon name="Dumbbell" size={20} />
-            <span>{t("train")}</span>
-          </button>
-          <button
-            className={`px-6 py-3 rounded-full font-normal text-sm cursor-pointer border flex items-center gap-2 w-full justify-center ${
-              hoveredButton === 'share'
-                ? 'bg-white text-gray-800 border-[rgba(156,156,156,0.3)]'
-                : 'bg-[#232127] text-white border-[rgba(156,156,156,0.3)] hover:bg-[#1a181d]'
-            }`}
-            style={{ transform: 'none' }}
-            onMouseEnter={() => setHoveredButton('share')}
-            onMouseLeave={() => setHoveredButton(null)}
+            {t("train")}
+          </Menu.Item>
+          <Menu.Item
+            leftSection={<IconShare size={16} />}
             onClick={() => setShowShareModal(true)}
           >
-            <Icon name="Share2" size={20} />
-            <span>{t("share")}</span>
-          </button>
-          <div className="text-center text-gray-300 text-sm">
+            {t("share")}
+          </Menu.Item>
+          <Menu.Divider />
+          <Menu.Label>
             {conversation.number_of_messages} {t("messages")}
-          </div>
-          <div className="text-center text-gray-300 text-sm">
+          </Menu.Label>
+          <Menu.Label>
             {new Date(conversation.created_at).toLocaleString()}
-          </div>
-        </div>
-      </FloatingDropdown>
+          </Menu.Label>
+        </Menu.Dropdown>
+      </Menu>
     </div>
   ) : null;
 };
 
-const ShareConversationModal = ({ hide, conversationId }) => {
-  const [validUntil, setValidUntil] = useState(null as Date | null);
+// ─── ShareConversationModal ───────────────────────────────────────────────────
+
+const ShareConversationModal = ({
+  opened,
+  onClose,
+  conversationId,
+}: {
+  opened: boolean;
+  onClose: () => void;
+  conversationId: string;
+}) => {
+  const [validUntil, setValidUntil] = useState<Date | null>(null);
   const { t } = useTranslation();
   const [sharedId, setSharedId] = useState("");
 
@@ -697,11 +607,11 @@ const ShareConversationModal = ({ hide, conversationId }) => {
     }
   };
 
-  const formatDateToLocalString = (date) => {
+  const formatDateToLocalString = (date: Date) => {
     return date.toISOString().slice(0, 16);
   };
 
-  const copyToClipboard = (text) => {
+  const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     toast.success(t("copied-to-clipboard"));
   };
@@ -711,92 +621,96 @@ const ShareConversationModal = ({ hide, conversationId }) => {
   };
 
   const openLink = () => {
-    const url = generateShareLink();
-    window.open(url, "_blank");
+    window.open(generateShareLink(), "_blank");
   };
 
   return (
-    <Modal minHeight={"fit-content"} hide={hide}>
-      <div className="d-flex flex-y">
-        {!sharedId && (
+    <Modal
+      opened={opened}
+      onClose={onClose}
+      onExitTransitionEnd={() => setSharedId("")}
+      title={t("share-conversation")}
+      centered
+    >
+      <Stack gap="md">
+        {!sharedId ? (
           <>
-            <div className="flex-y gap-big">
-              <h2 className="text-center padding-big">
-                {t("share-conversation")}
-              </h2>
-              <p>{t("share-conversation-description")}</p>
-              <input
-                type="datetime-local"
-                className="input padding-big"
-                defaultValue={
-                  validUntil ? formatDateToLocalString(validUntil) : ""
-                }
-                onChange={(e) => setValidUntil(new Date(e.target.value))}
-              />
-              <SvgButton
-                svg={<Icon name="Share2" size={20} />}
-                text={t("share-now")}
-                size="big"
-                onClick={share}
-              />
-            </div>
+            <Text>{t("share-conversation-description")}</Text>
+            <input
+              type="datetime-local"
+              className="w-full rounded-lg p-2 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] text-white focus:outline-none focus:ring-2 focus:ring-[rgba(110,91,255,0.5)]"
+              defaultValue={
+                validUntil ? formatDateToLocalString(validUntil) : ""
+              }
+              onChange={(e) => setValidUntil(new Date(e.target.value))}
+            />
+            <Button
+              leftSection={<IconShare size={18} />}
+              onClick={share}
+              fullWidth
+            >
+              {t("share-now")}
+            </Button>
           </>
-        )}
-        {sharedId && (
-          <div className="d-flex flex-y gap-big">
-            <h2 className="text-center padding-big bg-success-opaque rounded">
+        ) : (
+          <>
+            <Text
+              ta="center"
+              p="md"
+              className="bg-green-500/20 rounded-lg"
+            >
               {t("conversation-shared-message")}
-            </h2>
-            <div className="d-flex justify-center qr-display">
+            </Text>
+            <div className="qr-display">
               <QRCodeDisplay size={256} url={generateShareLink()} />
             </div>
-            <input
-              type="text"
+            <TextInput
               value={generateShareLink()}
-              className="w-100 input padding-big bg-hovered"
+              readOnly
+              variant="filled"
             />
-            <div className="d-flex gap-small ">
-              <SvgButton
-                extraClass="bg-hovered active-on-hover"
+            <Group gap="xs" grow>
+              <Button
+                variant="default"
+                leftSection={<IconCopy size={18} />}
                 onClick={() => copyToClipboard(generateShareLink())}
-                svg={<Icon name="Copy" size={20} />}
-                text={t("copy")}
-                size="big"
-              />
-              <SvgButton
-                extraClass="bg-hovered active-on-hover"
+              >
+                {t("copy")}
+              </Button>
+              <Button
+                variant="default"
+                leftSection={<IconExternalLink size={18} />}
                 onClick={openLink}
-                svg={<Icon name="ExternalLink" size={20} />}
-                text={t("open-link")}
-                size="big"
-              />
-            </div>
-          </div>
+              >
+                {t("open-link")}
+              </Button>
+            </Group>
+          </>
         )}
-      </div>
+      </Stack>
     </Modal>
   );
 };
 
+// ─── TrainingOnConversation ───────────────────────────────────────────────────
+
 const TrainingOnConversation = ({
-  hide,
+  opened,
+  onClose,
   conversation,
 }: {
-  hide: () => void;
+  opened: boolean;
+  onClose: () => void;
   conversation: TConversation;
 }) => {
-  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-  };
-
   const { t } = useTranslation();
-
   const { agents } = useStore((state) => ({
     agents: state.agents,
   }));
 
   const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
   const [completionsTargetNumber, setCompletionsTargetNumber] = useState(30);
+
   const toggleAgent = (slug: string) => {
     if (selectedAgents.includes(slug)) {
       setSelectedAgents((prev) => prev.filter((s) => s !== slug));
@@ -808,60 +722,69 @@ const TrainingOnConversation = ({
   const generateTrainingData = async () => {
     if (selectedAgents.length === 0) {
       toast.error(t("please-select-at-least-one-agent"));
+      return;
     }
 
-    const res = await generateTrainingCompletions({
+    await generateTrainingCompletions({
       model_id: conversation.id,
       db_model: "conversation",
       agents: selectedAgents,
       completions_target_number: completionsTargetNumber,
     });
     toast.success(t("training-generation-in-queue"));
-    hide();
+    onClose();
   };
 
   return (
-    <Modal minHeight={"40vh"} hide={hide}>
-      <div className="d-flex flex-y gap-big">
-        <h2 className="text-center">{t("generate-completions")}</h2>
-        <p>
+    <Modal
+      opened={opened}
+      onClose={onClose}
+      onExitTransitionEnd={() => {
+        setSelectedAgents([]);
+        setCompletionsTargetNumber(30);
+      }}
+      title={t("generate-completions")}
+      centered
+    >
+      <Stack gap="md">
+        <Text>
           {t("generate-completions-description")}{" "}
           <strong>{conversation.title}</strong>{" "}
           {t("generate-completions-description-2")}
-        </p>
-        <p>{t("after-generating-completions")}</p>
-        <form onSubmit={onSubmit} action="">
-          <label>
-            {t("number-of-completions-to-generate")}
-            <input
-              className="input"
-              type="number"
-              defaultValue={30}
-              onChange={(e) =>
-                setCompletionsTargetNumber(parseInt(e.target.value))
-              }
-            />
-          </label>
-          <p>{t("select-agents-that-will-retrain")}</p>
-          <div className="d-flex gap-small wrap-wrap padding-medium">
-            {agents.map((a) => (
-              <Pill
-                extraClass={`${selectedAgents.includes(a.slug) ? "bg-active" : "bg-hovered"}`}
-                key={a.id}
-                onClick={() => toggleAgent(a.slug)}
-              >
-                {a.name}
-              </Pill>
-            ))}
-          </div>
-        </form>
-        <SvgButton
-          svg={<Icon name="Dumbbell" size={20} />}
-          text="Generate"
-          size="big"
-          onClick={generateTrainingData}
+        </Text>
+        <Text>{t("after-generating-completions")}</Text>
+        <NumberInput
+          label={t("number-of-completions-to-generate")}
+          value={completionsTargetNumber}
+          onChange={(val) =>
+            setCompletionsTargetNumber(typeof val === "number" ? val : 30)
+          }
+          min={1}
+          variant="filled"
         />
-      </div>
+        <Text size="sm">{t("select-agents-that-will-retrain")}</Text>
+        <Group gap="xs" wrap="wrap">
+          {agents.map((a) => (
+            <Badge
+              key={a.id}
+              variant={
+                selectedAgents.includes(a.slug) ? "filled" : "default"
+              }
+              style={{ cursor: "pointer" }}
+              onClick={() => toggleAgent(a.slug)}
+            >
+              {a.name}
+            </Badge>
+          ))}
+        </Group>
+        <Button
+          leftSection={<IconBarbell size={18} />}
+          onClick={generateTrainingData}
+          fullWidth
+        >
+          Generate
+        </Button>
+      </Stack>
     </Modal>
   );
 };

@@ -1,6 +1,13 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import '@mantine/core/styles.css';
+import '@mantine/dates/styles.css';
+import { MantineProvider, createTheme } from '@mantine/core';
+
+const theme = createTheme({
+  primaryColor: 'violet',
+});
 
 import Root from "./routes/root/page.tsx";
 
@@ -25,6 +32,9 @@ import AlertRulesPage from "./routes/dashboard/AlertRulesPage.tsx";
 import TagsPage from "./routes/dashboard/TagsPage.tsx";
 import OrganizationPage from "./routes/organization/page.tsx";
 import KnowledgeBasePage from "./routes/knowledge-base/page.tsx";
+import GenerationToolsPage from "./routes/generation-tools/page.tsx";
+import ChatWidgetsPage from "./routes/chat-widgets/page.tsx";
+import SettingsPage from "./routes/settings/page.tsx";
 
 const router = createBrowserRouter([
   {
@@ -93,12 +103,26 @@ const router = createBrowserRouter([
         path: "/knowledge-base",
         element: <KnowledgeBasePage />,
       },
+      {
+        path: "/generation-tools",
+        element: <GenerationToolsPage />,
+      },
+      {
+        path: "/chat-widgets",
+        element: <ChatWidgetsPage />,
+      },
+      {
+        path: "/settings",
+        element: <SettingsPage />,
+      },
     ],
   },
 ]);
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <RouterProvider router={router} />
+    <MantineProvider theme={theme} forceColorScheme="dark">
+      <RouterProvider router={router} />
+    </MantineProvider>
   </React.StrictMode>
 );

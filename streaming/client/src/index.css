@@ -722,6 +722,36 @@ textarea {
   color: #000000 !important;
 }
 
+/* SvgButton hover: invert SVG + text colors when hovering non-transparent buttons */
+.svg-btn-hover-invert:hover svg,
+.svg-btn-hover-invert:hover svg path,
+.svg-btn-hover-invert:hover svg circle,
+.svg-btn-hover-invert:hover svg line,
+.svg-btn-hover-invert:hover svg polyline,
+.svg-btn-hover-invert:hover svg rect,
+.svg-btn-hover-invert:hover svg ellipse {
+  stroke: #000000 !important;
+  color: #000000 !important;
+}
+.svg-btn-hover-invert:hover .svg-btn-text {
+  color: #1a1a1a !important;
+}
+
+/* SvgButton active/isActive: invert SVG + text colors */
+.svg-btn-active svg,
+.svg-btn-active svg path,
+.svg-btn-active svg circle,
+.svg-btn-active svg line,
+.svg-btn-active svg polyline,
+.svg-btn-active svg rect,
+.svg-btn-active svg ellipse {
+  stroke: #000000 !important;
+  color: #000000 !important;
+}
+.svg-btn-active .svg-btn-text {
+  color: #1a1a1a !important;
+}
+
 .square-button {
   width: max(40px, fit-content);
   height: 40px;
@@ -989,7 +1019,7 @@ input:checked + .slider::before {
 .border-secondary {
   border: 1px solid rgb(75, 73, 73);
 }
-
+/* 
 .pressable {
   cursor: pointer;
   transition: 0.2s all;
@@ -1010,7 +1040,7 @@ input:checked + .slider::before {
 
 .pressable:active {
   transform: scale(0.95);
-}
+} */
 .above-all {
   z-index: 1;
 }
@@ -1252,7 +1282,7 @@ input:checked + .slider::before {
   justify-content: center;
 }
 
-.active-on-hover:hover,
+/* .active-on-hover:hover,
 .active-on-hover:focus {
   background-color: var(--active-color) !important;
 
@@ -1269,7 +1299,7 @@ input:checked + .slider::before {
   & svg.set-svg-fill {
     fill: white;
   }
-}
+} */
 .text-white {
   color: white;
 }

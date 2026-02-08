@@ -12,7 +12,10 @@ from youtube_transcript_api import (
     NoTranscriptFound,
 )
 
+_ytt_api = YouTubeTranscriptApi()
+
 from api.authenticate.models import CredentialsManager, Organization
+from api.utils.transcription import transcription_service
 
 import traceback
 from .models import (
@@ -23,7 +26,6 @@ from .models import (
     VideoChunk,
 )
 from django.utils import timezone
-import whisper
 
 import os
 from api.utils.openai_functions import create_structured_completion, generate_speech_api
@@ -61,12 +63,13 @@ def get_available_transcriptions(video_url):
         video_id = video_url.split("v=")[1]
 
         # Obtener las transcripciones disponibles
-        transcripts = YouTubeTranscriptApi.list_transcripts(video_id)
+        transcripts = _ytt_api.list(video_id)
         available_transcriptions = {}
 
         for transcript in transcripts:
             language_code = transcript.language_code
-            transcript_data = transcript.fetch()
+            fetched = transcript.fetch()
+            transcript_data = fetched.to_raw_data()
             vtt_transcript = "WEBVTT\n\n"
             for entry in transcript_data:
                 start_time = format_time_vtt(entry["start"])
@@ -113,50 +116,37 @@ def transcribe(job_id):
                 )
             job.status = "DONE"
         elif job.source_type == "AUDIO":
-            model = whisper.load_model(job.whisper_size.lower())
-            audio_path = job.audio_file.path
-
+            audio_path = os.path.normpath(job.audio_file.path)
             if not os.path.exists(audio_path):
-                printer.red("The audio file does not exist!")
                 raise Exception("The audio file for transcription does not exist!")
 
-            audio_path = os.path.normpath(job.audio_file.path)
-            result = model.transcribe(audio_path)
-            vtt_transcript = "WEBVTT\n\n"
-            for segment in result["segments"]:
-                start_time = format_time_vtt(segment["start"])
-                end_time = format_time_vtt(segment["end"])
-                vtt_transcript += f"{start_time} --> {end_time}\n{segment['text']}\n\n"
+            vtt_transcript = transcription_service.transcribe_to_vtt(
+                audio_path, delete_after=True
+            )
             Transcription.objects.create(
                 transcription_job=job,
                 format="VTT",
                 result=vtt_transcript,
-                language=result["language"],
+                language="auto",
             )
             job.status = "DONE"
-            threading.Thread(target=delete_file_after_delay, args=(audio_path,)).start()
         elif job.source_type == "VIDEO":
-            model = whisper.load_model(job.whisper_size.lower())
             video_path = job.video_file.path
             audio_path = os.path.splitext(video_path)[0] + ".wav"
             video_clip = VideoFileClip(video_path)
             video_clip.audio.write_audiofile(audio_path)
             video_clip.close()
 
-            result = model.transcribe(audio_path)
-            vtt_transcript = "WEBVTT\n\n"
-            for segment in result["segments"]:
-                start_time = format_time_vtt(segment["start"])
-                end_time = format_time_vtt(segment["end"])
-                vtt_transcript += f"{start_time} --> {end_time}\n{segment['text']}\n\n"
+            vtt_transcript = transcription_service.transcribe_to_vtt(
+                audio_path, delete_after=True
+            )
             Transcription.objects.create(
                 transcription_job=job,
                 format="VTT",
                 result=vtt_transcript,
-                language=result["language"],
+                language="auto",
             )
             job.status = "DONE"
-            threading.Thread(target=delete_file_after_delay, args=(audio_path,)).start()
             threading.Thread(target=delete_file_after_delay, args=(video_path,)).start()
 
         job.finished_at = timezone.now()

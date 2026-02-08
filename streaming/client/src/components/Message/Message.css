@@ -94,6 +94,8 @@
 
 .message-buttons {
   display: flex;
+  gap: 6px;
+  align-items: center;
   margin-top: 10px;
   opacity: 0.4;
   transition: all 100ms;

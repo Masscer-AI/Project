@@ -132,43 +132,13 @@ def convert_to_audio_file(
 
 
 def transcribe_audio(audio_file_url, output_format="verbose_json") -> str:
-    client = OpenAI(
-        api_key=os.environ.get("OPENAI_API_KEY"),
-    )
-
-    # Verificar el formato del archivo
-    supported_formats = [
-        "flac",
-        "m4a",
-        "mp3",
-        "mp4",
-        "mpeg",
-        "mpga",
-        "oga",
-        "ogg",
-        "wav",
-        "webm",
-    ]
-
-    # Check if the file format is supported
-    if not any(audio_file_url.endswith(ext) for ext in supported_formats):
-        raise ValueError("Unsupported audio file format.")
-
-    try:
-        # Open the audio file from the given path
-        with open(audio_file_url, "rb") as audio_file:
-            transcription = client.audio.transcriptions.create(
-                response_format=output_format, model="whisper-1", file=audio_file
-            )
-        # Delete the file after successful transcription
-        os.remove(audio_file_url)
-    except Exception as e:
-        print(f"An error occurred trascribing audio: {e}")
-        raise
+    """Transcribe audio using the centralized TranscriptionService."""
+    from api.utils.transcription import transcription_service
 
     if output_format == "vtt":
-        return transcription
-    return transcription.text
+        return transcription_service.transcribe_to_vtt(audio_file_url, delete_after=True)
+
+    return transcription_service.transcribe_to_text(audio_file_url, delete_after=True)
 
 
 def generate_speech_api(

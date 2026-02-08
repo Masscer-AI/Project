@@ -1,8 +1,7 @@
 import React, { useRef, useEffect, useState } from "react";
-import "./Talkie.css";
-import { SvgButton } from "../SvgButton/SvgButton";
 import { useHotkeys } from "react-hotkeys-hook";
-import { Icon } from "../Icon/Icon";
+import { ActionIcon } from "@mantine/core";
+import { IconMicrophone, IconPlayerStop } from "@tabler/icons-react";
 
 interface TalkieProps {
   processAudio: (audioFile: Blob, transcription: string) => void;
@@ -14,44 +13,23 @@ export const Talkie: React.FC<TalkieProps> = ({ processAudio }) => {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const transcriptionRef = useRef<string>("");
-  const barsContainerRef = useRef<HTMLDivElement>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const dataArrayRef = useRef<Uint8Array | null>(null);
-  const barsRef = useRef<HTMLDivElement[]>([]);
-  const animationIdRef = useRef<number | null>(null); // Ref para almacenar el ID de la animación
-
-  const numBars = 5;
 
   const startRecording = async () => {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     const mediaRecorder = new MediaRecorder(stream);
     mediaRecorderRef.current = mediaRecorder;
 
-    const audioContext = new AudioContext();
-    audioContextRef.current = audioContext;
-    const source = audioContext.createMediaStreamSource(stream);
-    const analyser = audioContext.createAnalyser();
-    analyser.fftSize = 256;
-    const bufferLength = analyser.frequencyBinCount;
-    const dataArray = new Uint8Array(new ArrayBuffer(bufferLength));
-    analyserRef.current = analyser;
-    dataArrayRef.current = dataArray;
-
-    source.connect(analyser);
-
     mediaRecorder.ondataavailable = (event) => {
       audioChunksRef.current.push(event.data);
     };
 
     mediaRecorder.onstop = async () => {
-      const audioBlob = new Blob(audioChunksRef.current, { type: "audio/wav" });
-      const audioUrl = URL.createObjectURL(audioBlob);
-      if (audioRef.current) {
-        audioRef.current.src = audioUrl;
-      }
+      const audioBlob = new Blob(audioChunksRef.current, {
+        type: "audio/wav",
+      });
       processAudio(audioBlob, transcriptionRef.current);
-      resetState(); // Reiniciar todo al detener la grabación
+      audioChunksRef.current = [];
+      transcriptionRef.current = "";
     };
 
     mediaRecorder.start();
@@ -65,66 +43,8 @@ export const Talkie: React.FC<TalkieProps> = ({ processAudio }) => {
     }
   };
 
-  const resetState = () => {
-    // Reiniciar las barras
-    barsRef.current.forEach((bar) => {
-      bar.style.height = "3px";
-    });
-
-    // Limpiar los chunks de audio
-    audioChunksRef.current = [];
-
-    // Restablecer la transcripción
-    transcriptionRef.current = "";
-
-    // Detener la animación
-    if (animationIdRef.current !== null) {
-      cancelAnimationFrame(animationIdRef.current);
-    }
-  };
-
-  const animateBars = () => {
-    if (!analyserRef.current || !dataArrayRef.current) return;
-
-    const analyser = analyserRef.current;
-    const dataArray = dataArrayRef.current;
-
-    const animate = () => {
-      if (!isRecording) {
-        return;
-      }
-      animationIdRef.current = requestAnimationFrame(animate); // Almacenar el ID de la animación
-
-      analyser.getByteFrequencyData(dataArray as Uint8Array<ArrayBuffer>);
-
-      const step = Math.floor(dataArray.length / numBars);
-
-      for (let i = 0; i < numBars; i++) {
-        const barHeight = dataArray[i * step] / 2;
-        const constrainedHeight = Math.min(Math.max(barHeight, 4), 20);
-        if (barsRef.current[i]) {
-          barsRef.current[i].style.height = `${constrainedHeight}px`;
-        }
-      }
-    };
-
-    animate();
-  };
-
-  useEffect(() => {
-    if (barsContainerRef.current) {
-      for (let i = 0; i < numBars; i++) {
-        const bar = document.createElement("div");
-        bar.classList.add("bar");
-        barsContainerRef.current.appendChild(bar);
-        barsRef.current.push(bar);
-      }
-    }
-  }, []);
-
   useEffect(() => {
     if (isRecording) {
-      animateBars();
       // @ts-ignore
       const recognition = new (window.SpeechRecognition ||
         // @ts-ignore
@@ -132,7 +52,7 @@ export const Talkie: React.FC<TalkieProps> = ({ processAudio }) => {
       recognition.continuous = true;
       recognition.interimResults = true;
 
-      recognition.onresult = (event) => {
+      recognition.onresult = (event: any) => {
         let interimTranscription = "";
         for (let i = event.resultIndex; i < event.results.length; i++) {
           const transcript = event.results[i][0].transcript;
@@ -142,19 +62,12 @@ export const Talkie: React.FC<TalkieProps> = ({ processAudio }) => {
             interimTranscription += transcript;
           }
         }
-        console.log(
-          "Transcription: ",
-          transcriptionRef.current + interimTranscription
-        );
       };
 
       recognition.start();
 
       return () => {
         recognition.stop();
-        if (animationIdRef.current !== null) {
-          cancelAnimationFrame(animationIdRef.current);
-        }
       };
     }
   }, [isRecording]);
@@ -174,18 +87,19 @@ export const Talkie: React.FC<TalkieProps> = ({ processAudio }) => {
   );
 
   return (
-    <div className="talkie">
-      <SvgButton
-        extraClass={`!w-8 !h-8 md:!w-12 md:!h-12 !rounded-full !p-1.5 md:!p-2 pressable danger-on-hover ${
-          isRecording ? "bg-danger" : ""
-        }`}
-        onClick={isRecording ? stopRecording : startRecording}
-        svg={isRecording ? <Icon name="MicOff" size={20} /> : <Icon name="Mic" size={20} />}
-        title={  
-          isRecording ? "Stop Recording" : "Press Enter to Start Recording"
-        }
-      />
-      <div id="bars-container" ref={barsContainerRef} className="flex items-center gap-1 h-12"></div>
-    </div>
+    <ActionIcon
+      variant={isRecording ? "filled" : "subtle"}
+      color={isRecording ? "red" : "gray"}
+      size="lg"
+      radius="xl"
+      onClick={isRecording ? stopRecording : startRecording}
+      aria-label={isRecording ? "Stop recording" : "Start recording"}
+    >
+      {isRecording ? (
+        <IconPlayerStop size={20} />
+      ) : (
+        <IconMicrophone size={20} />
+      )}
+    </ActionIcon>
   );
 };

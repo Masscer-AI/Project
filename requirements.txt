@@ -170,7 +170,7 @@ websockets==13.1
 whitenoise==6.7.0
 wrapt==1.16.0
 wsproto==1.2.0
-youtube-transcript-api==0.6.2
+youtube-transcript-api==1.2.4
 zipp==3.20.2
 zope.event==5.0
 zope.interface==7.0.3

@@ -14,6 +14,8 @@ import { useTranslation } from "react-i18next";
 import { TVersion } from "../../types";
 import { updateLastMessagesIds } from "./helpers";
 import { ConversationModal } from "../../components/ConversationModal/ConversationModal";
+import { ActionIcon } from "@mantine/core";
+import { IconArrowDown } from "@tabler/icons-react";
 
 export default function ChatView() {
   const loaderData = useLoaderData() as TChatLoader;
@@ -390,13 +392,17 @@ export default function ChatView() {
             ))}
         </div>
         {showScrollToEnd && (
-          <button
-            type="button"
+          <ActionIcon
             onClick={scrollChat}
-            className="absolute right-4 bottom-24 md:bottom-28 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm text-white shadow-lg backdrop-blur hover:bg-white/20"
+            variant="default"
+            radius="xl"
+            size="lg"
+            style={{ position: "absolute", right: 16, bottom: 140, zIndex: 10 }}
+            className="!bg-white/10 !border-white/10 backdrop-blur shadow-lg hover:!bg-white/20"
+            aria-label={t("scroll-to-end")}
           >
-            {t("scroll-to-end")}
-          </button>
+            <IconArrowDown size={18} />
+          </ActionIcon>
         )}
         <ChatInput
           handleSendMessage={handleSendMessage}

@@ -60,7 +60,7 @@ class Transcriptions(View):
 
     def post(self, request):
         source = request.POST.get("source")
-        whisper_size = request.POST.get("whisper_size")
+        whisper_size = request.POST.get("whisper_size", "CLOUD")
         whisper_size = whisper_size.upper()
 
         user = request.user
