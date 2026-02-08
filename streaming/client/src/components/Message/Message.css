@@ -52,21 +52,21 @@
 }
 
 .message .markdown-renderer.message-text.user {
-  background: linear-gradient(to bottom, rgba(0, 130, 146, 0.6), rgba(50, 18, 122, 0.6));
+  background: var(--user-bubble-bg);
   backdrop-filter: blur(12px); 
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(0, 130, 146, 0.3); 
-  box-shadow: 0 4px 16px rgba(50, 18, 122, 0.25); 
-  color: white;
+  border: 1px solid var(--user-bubble-border); 
+  box-shadow: var(--user-bubble-shadow); 
+  color: var(--user-bubble-color);
 }
 
 .message .markdown-renderer.message-text.assistant {
-  background: rgba(35, 33, 39, 0.5);
+  background: var(--assistant-bubble-bg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.1); 
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-  color: white;
+  border: 1px solid var(--assistant-bubble-border); 
+  box-shadow: var(--assistant-bubble-shadow);
+  color: var(--assistant-bubble-color);
 }
 
 .message .message-textarea {
@@ -215,4 +215,10 @@
   background: var(--code-bg-color);
   border-radius: var(--standard-radius);
   padding: 10px;
+}
+
+.web-search-url:hover {
+  background: var(--hovered-color) !important;
+  border-color: var(--highlighted-color) !important;
+  color: var(--font-color) !important;
 }

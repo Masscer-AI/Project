@@ -682,15 +682,15 @@ const Source = ({ source }: { source: TSource }) => {
   const { t } = useTranslation();
 
   return (
-    <div className="p-3 rounded-xl border border-[#2d2d44] bg-[#1a1a2e] relative shadow-md">
+    <div className="p-3 rounded-xl shadow-md" style={{ background: "var(--code-bg-color)", border: "1px solid var(--hovered-color)" }}>
       <input
         id={`${source.model_name}-${source.model_id}`}
         type="text"
         className="w-0 h-0 absolute bg-transparent border-none outline-none"
       />
       <p className="w-fit truncate text-sm">
-        <span className="text-white font-medium">{t("source")}: </span>
-        <span className="text-[#9ca3af]">
+        <span className="font-medium">{t("source")}: </span>
+        <span style={{ color: "var(--font-color-secondary)" }}>
           {t(source.model_name)} {source.model_id}
         </span>
       </p>
@@ -730,10 +730,11 @@ const WebSearchResultInspector = ({ result }: { result: any }) => {
   };
 
   return (
-    <div className="bg-[#1a1a2e] rounded-xl p-4 border border-[#2d2d44] shadow-md">
+    <div className="rounded-xl p-4 shadow-md" style={{ background: "var(--code-bg-color)", border: "1px solid var(--hovered-color)" }}>
       <p
         onClick={handleOpenWebsite}
-        className="truncate cursor-pointer rounded-lg p-3 bg-[#0f0f1a] hover:bg-[#252540] border border-[#2d2d44] hover:border-[#6e5bff] transition-all text-sm text-[#9ca3af] hover:text-white"
+        className="truncate cursor-pointer rounded-lg p-3 transition-all text-sm web-search-url"
+        style={{ background: "var(--bg-secondary-color)", border: "1px solid var(--hovered-color)", color: "var(--font-color-secondary)" }}
         title={result.url}
       >
         {result.url}
@@ -850,7 +851,8 @@ const MessageEditor = ({
       <textarea
         autoComplete="on"
         ref={textareaRef}
-        className="w-full px-4 py-3 font-sans rounded-xl text-base leading-6 scrollbar-none border border-[#6e5bff]/30 bg-[#0f0f1a] text-white resize-none focus:outline-none focus:border-[#6e5bff] focus:ring-2 focus:ring-[#6e5bff]/20"
+        className="w-full px-4 py-3 font-sans rounded-xl text-base leading-6 scrollbar-none resize-none focus:outline-none"
+        style={{ background: "var(--code-bg-color)", color: "var(--font-color)", border: "1px solid var(--highlighted-color-opaque)" }}
         onChange={(e) => {
           textareaValueRef.current = e.target.value;
           setInnerText(e.target.value);
@@ -865,8 +867,11 @@ const MessageEditor = ({
             style={{
               top: editionOptions.top,
               left: editionOptions.left,
+              background: "var(--modal-bg-color)",
+              border: "1px solid var(--hovered-color)",
+              boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
             }}
-            className="absolute w-fit bg-[#1a1a2e] border border-[#2d2d44] rounded-xl p-3 shadow-[0_8px_24px_rgba(0,0,0,0.6)] z-50"
+            className="absolute w-fit rounded-xl p-3 z-50"
           >
             {editionOptions.generateImage && messageId && (
               <ImageGenerator

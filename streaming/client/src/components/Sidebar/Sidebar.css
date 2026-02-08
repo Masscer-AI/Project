@@ -7,6 +7,10 @@
   }
 }
 
+.sidebar-conversation-item:hover {
+  background-color: var(--hovered-color);
+}
+
 .qr-display {
   width: fit-content;
   height: fit-content;

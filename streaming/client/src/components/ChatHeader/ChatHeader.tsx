@@ -47,12 +47,12 @@ export const ChatHeader = ({
   }));
 
   return (
-    <div className="flex items-center justify-between bg-[#282826] p-2 md:p-4 bg-[#282826] border border-[#282826] rounded-none md:rounded-xl w-full shadow-lg z-10 gap-2 md:gap-3 min-w-0">
+    <div className="flex items-center justify-between p-2 md:p-4 rounded-none md:rounded-xl w-full shadow-lg z-10 gap-2 md:gap-3 min-w-0" style={{ background: "var(--bg-contrast-color)", border: "1px solid var(--hovered-color)" }}>
       <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
         {!chatState.isSidebarOpened && (
           <ActionIcon
-            variant="filled"
-            color="dark"
+            variant="subtle"
+            color="gray"
             size="lg"
             onClick={toggleSidebar}
             aria-label="Toggle sidebar"

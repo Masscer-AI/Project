@@ -160,6 +160,7 @@ export const Sidebar: React.FC = () => {
 
   const goTo = (to: string) => {
     navigate(to);
+    toggleSidebar();
   };
 
   const deleteConversationItem = async (id: string) => {
@@ -205,7 +206,7 @@ export const Sidebar: React.FC = () => {
 
   return (
     <>
-      <div className="bg-[rgba(35,33,39,0.5)] backdrop-blur-md fixed md:relative left-0 top-0 h-screen z-[50] md:z-[3] flex flex-col w-[min(350px,100%)] p-3 gap-2.5 border-r border-[rgba(255,255,255,0.1)] animate-[appear-left_500ms_forwards] md:[animation:none]">
+      <div className="backdrop-blur-md fixed md:relative left-0 top-0 h-screen z-[50] md:z-[3] flex flex-col w-[min(350px,100%)] p-3 gap-2.5 animate-[appear-left_500ms_forwards] md:[animation:none]" style={{ background: "var(--semi-transparent)", borderRight: "1px solid var(--hovered-color)" }}>
         {/* Header */}
         <Group gap="xs">
           <Button
@@ -506,6 +507,7 @@ const ConversationComponent = ({
   const { t } = useTranslation();
   const [showTrainingModal, setShowTrainingModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const navigate = useNavigate();
 
   const handleClick = () => {
@@ -521,7 +523,7 @@ const ConversationComponent = ({
   };
 
   return conversation.number_of_messages > 0 ? (
-    <div className="flex items-center justify-between text-[17.5px] cursor-pointer relative text-ellipsis whitespace-nowrap p-0 rounded-lg hover:bg-[rgba(255,255,255,0.05)] transition-colors">
+    <div className="sidebar-conversation-item flex items-center justify-between text-[17.5px] cursor-pointer relative text-ellipsis whitespace-nowrap p-0 rounded-lg transition-colors">
       <p
         className="w-full p-2.5 max-w-full overflow-hidden"
         onClick={handleClick}
@@ -539,6 +541,31 @@ const ConversationComponent = ({
         onClose={() => setShowTrainingModal(false)}
         conversation={conversation}
       />
+      <Modal
+        opened={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        title={t("delete-conversation")}
+        size="sm"
+        centered
+      >
+        <Text size="sm" mb="md">
+          {t("sure")}?
+        </Text>
+        <Group justify="flex-end" gap="xs">
+          <Button variant="default" onClick={() => setShowDeleteConfirm(false)}>
+            {t("cancel")}
+          </Button>
+          <Button
+            color="red"
+            onClick={() => {
+              deleteConversationItem(conversation.id);
+              setShowDeleteConfirm(false);
+            }}
+          >
+            {t("delete")}
+          </Button>
+        </Group>
+      </Modal>
 
       <Menu position="left-start" withArrow shadow="md">
         <Menu.Target>
@@ -550,7 +577,7 @@ const ConversationComponent = ({
           <Menu.Item
             color="red"
             leftSection={<IconTrash size={16} />}
-            onClick={() => deleteConversationItem(conversation.id)}
+            onClick={() => setShowDeleteConfirm(true)}
           >
             {t("delete")}
           </Menu.Item>
@@ -636,13 +663,12 @@ const ShareConversationModal = ({
         {!sharedId ? (
           <>
             <Text>{t("share-conversation-description")}</Text>
-            <input
+            <TextInput
               type="datetime-local"
-              className="w-full rounded-lg p-2 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] text-white focus:outline-none focus:ring-2 focus:ring-[rgba(110,91,255,0.5)]"
               defaultValue={
                 validUntil ? formatDateToLocalString(validUntil) : ""
               }
-              onChange={(e) => setValidUntil(new Date(e.target.value))}
+              onChange={(e) => setValidUntil(new Date(e.currentTarget.value))}
             />
             <Button
               leftSection={<IconShare size={18} />}

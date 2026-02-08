@@ -181,15 +181,20 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         ))}
       </section>
       <section className="flex-1 w-full flex flex-col items-center justify-center relative overflow-visible">
-        <div className="w-full bg-[#282826] border border-[#282826] rounded-none md:rounded-2xl overflow-visible relative">
+        <div className="w-full rounded-none md:rounded-2xl overflow-visible relative" style={{ background: "var(--bg-contrast-color)", border: "1px solid var(--hovered-color)" }}>
           <MantineTextarea
             autosize
             minRows={1}
             maxRows={chatState.writtingMode ? 20 : 3}
             classNames={{
-              input: "!bg-transparent !border-0 !text-white !text-sm !font-sans !placeholder-[#6b7280] focus:!ring-0 focus:!outline-none !px-3 md:!px-5 !py-2 md:!py-3",
+              input: "!bg-transparent !border-0 !text-sm !font-sans focus:!ring-0 focus:!outline-none !px-3 md:!px-5 !py-2 md:!py-3",
               wrapper: "!bg-transparent",
               root: "!bg-transparent",
+            }}
+            styles={{
+              input: {
+                color: "var(--font-color)",
+              },
             }}
             value={textPrompt}
             onChange={(e) => setTextPrompt(e.currentTarget.value)}

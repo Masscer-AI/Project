@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import '@mantine/core/styles.css';
 import '@mantine/dates/styles.css';
 import { MantineProvider, createTheme } from '@mantine/core';
+import { useStore } from "./modules/store";
 
 const theme = createTheme({
   primaryColor: 'violet',
@@ -119,10 +120,37 @@ const router = createBrowserRouter([
   },
 ]);
 
-ReactDOM.createRoot(document.getElementById("root")!).render(
-  <React.StrictMode>
-    <MantineProvider theme={theme} forceColorScheme="dark">
+
+
+function App() {
+  const userTheme = useStore((s) => s.userPreferences.theme);
+  const [systemDark, setSystemDark] = useState(
+    window.matchMedia("(prefers-color-scheme: dark)").matches
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const handler = (e: MediaQueryListEvent) => setSystemDark(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
+  const colorScheme: "light" | "dark" =
+    userTheme === "system"
+      ? systemDark
+        ? "dark"
+        : "light"
+      : (userTheme as "light" | "dark") || "dark";
+
+  return (
+    <MantineProvider theme={theme} forceColorScheme={colorScheme}>
       <RouterProvider router={router} />
     </MantineProvider>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <App />
   </React.StrictMode>
 );

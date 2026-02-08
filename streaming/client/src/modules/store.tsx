@@ -18,11 +18,20 @@ import { TAgent } from "../types/agents";
 import toast from "react-hot-toast";
 import { Store, TPlugin } from "./storeTypes";
 
+const _initialTheme = (() => {
+  try {
+    return localStorage.getItem("cached_theme") || "dark";
+  } catch {
+    return "dark";
+  }
+})();
+
+
 export const useStore = create<Store>()((set, get) => ({
   socket: new SocketManager(STREAMING_BACKEND_URL),
   messages: [],
   modelsAndAgents: [],
-  theme: "dark",
+  theme: _initialTheme as "dark" | "light" | "system",
   theming: {
     mermaid: "dark",
   },
@@ -30,7 +39,7 @@ export const useStore = create<Store>()((set, get) => ({
   user: undefined,
   agents: [],
   userPreferences: {
-    theme: "dark",
+    theme: _initialTheme as "dark" | "light" | "system",
     max_memory_messages: 20,
     autoplay: false,
     autoscroll: false,
@@ -65,6 +74,9 @@ export const useStore = create<Store>()((set, get) => ({
     // const bodySize = new TextEncoder().encode(JSON.stringify(pref)).length;
 
     set({ userPreferences: pref });
+    try {
+      if (pref.theme) localStorage.setItem("cached_theme", pref.theme);
+    } catch {}
   },
   setOpenedModals: ({ action, name }) => {
     const { openedModals } = get();
@@ -369,6 +381,9 @@ export const useStore = create<Store>()((set, get) => ({
   setPreferences: async (prefs) => {
     const newPref = { ...get().userPreferences, ...prefs };
     set({ userPreferences: newPref });
+    try {
+      if (newPref.theme) localStorage.setItem("cached_theme", newPref.theme);
+    } catch {}
     try {
       await updateUserPreferences(newPref);
     } catch (e) {

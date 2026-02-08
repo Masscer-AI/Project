@@ -356,7 +356,7 @@ export default function ChatView() {
   };
 
   return (
-    <main className="flex relative h-screen w-full bg-[#0a0a0f] overflow-hidden">
+    <main className="flex relative h-screen w-full overflow-hidden" style={{ backgroundColor: "var(--bg-color)" }}>
       {userPreferences.background_image_source && (
         <img
           style={{ opacity: userPreferences.background_image_opacity }}
