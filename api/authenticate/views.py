@@ -170,6 +170,21 @@ class UserView(View):
         # Actualizar los datos del usuario
         request.user.username = data["username"]
         request.user.email = data["email"]
+
+        # Cambiar la contraseña si se proporciona
+        if data.get("current_password") and data.get("new_password"):
+            if not request.user.check_password(data["current_password"]):
+                return JsonResponse(
+                    {"error": "current-password-incorrect"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if len(data["new_password"]) < 8:
+                return JsonResponse(
+                    {"error": "password-min-length"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            request.user.set_password(data["new_password"])
+
         request.user.save()
 
         # Actualizar el perfil del usuario si se incluye en los datos

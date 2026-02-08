@@ -551,5 +551,10 @@
     "preferences": "Preferences",
     "profile": "Profile",
     "profile-helptext": "This information helps the AI personalize its responses for you. It is optional but recommended.",
-    "upload-image": "Upload image"
+    "upload-image": "Upload image",
+    "change-password": "Change password",
+    "current-password": "Current password",
+    "new-password": "New password",
+    "password-updated": "Password updated successfully",
+    "current-password-incorrect": "Current password is incorrect"
 }

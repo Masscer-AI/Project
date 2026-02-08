@@ -552,5 +552,10 @@
     "preferences": "Preferencias",
     "profile": "Perfil",
     "profile-helptext": "Esta informacion ayuda a la IA a personalizar sus respuestas para ti. Es opcional pero recomendado.",
-    "upload-image": "Subir imagen"
+    "upload-image": "Subir imagen",
+    "change-password": "Cambiar contraseña",
+    "current-password": "Contraseña actual",
+    "new-password": "Nueva contraseña",
+    "password-updated": "Contraseña actualizada correctamente",
+    "current-password-incorrect": "La contraseña actual es incorrecta"
 }

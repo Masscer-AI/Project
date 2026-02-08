@@ -732,6 +732,8 @@ type TUpdateUserData = {
   username: string;
   email: string;
   profile?: TUserProfile;
+  current_password?: string;
+  new_password?: string;
 };
 
 export const updateUser = async (data: TUpdateUserData) => {

@@ -17,7 +17,9 @@ import {
   Divider,
   FileInput,
   Group,
+  Modal,
   NativeSelect,
+  PasswordInput,
   SegmentedControl,
   Slider,
   Stack,
@@ -105,6 +107,10 @@ const UserSection = () => {
 
   const [username, setUsername] = useState(user?.username || "");
   const [email, setEmail] = useState(user?.email || "");
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   useEffect(() => {
     if (user) {
@@ -123,8 +129,40 @@ const UserSection = () => {
     }
   };
 
+  const handleChangePassword = async () => {
+    if (newPassword.length < 8) {
+      toast.error(t("password-min-length"));
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error(t("passwords-do-not-match"));
+      return;
+    }
+    try {
+      await updateUser({
+        username: user?.username || username,
+        email: user?.email || email,
+        profile: user?.profile,
+        current_password: currentPassword,
+        new_password: newPassword,
+      });
+      toast.success(t("password-updated"));
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setPasswordModalOpen(false);
+    } catch (e: any) {
+      toast.error(t(e.response?.data?.error || "an-error-occurred"));
+    }
+  };
+
   const isDirty =
     username !== (user?.username || "") || email !== (user?.email || "");
+
+  const isPasswordReady =
+    currentPassword.length > 0 &&
+    newPassword.length >= 8 &&
+    newPassword === confirmPassword;
 
   return (
     <Card withBorder p="lg">
@@ -144,6 +182,9 @@ const UserSection = () => {
           onChange={(e) => setEmail(e.currentTarget.value)}
         />
         <Group justify="flex-end">
+          <Button variant="subtle" size="xs" onClick={() => setPasswordModalOpen(true)}>
+            {t("change-password")}
+          </Button>
           <Button
             leftSection={<IconDeviceFloppy size={16} />}
             onClick={handleSave}
@@ -152,6 +193,45 @@ const UserSection = () => {
             {t("save")}
           </Button>
         </Group>
+
+        <Modal
+          opened={passwordModalOpen}
+          onClose={() => setPasswordModalOpen(false)}
+          title={t("change-password")}
+          centered
+        >
+          <Stack gap="sm">
+            <PasswordInput
+              label={t("current-password")}
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.currentTarget.value)}
+            />
+            <PasswordInput
+              label={t("new-password")}
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.currentTarget.value)}
+              description={t("password-min-length")}
+            />
+            <PasswordInput
+              label={t("confirm-password")}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.currentTarget.value)}
+              error={
+                confirmPassword.length > 0 && newPassword !== confirmPassword
+                  ? t("passwords-do-not-match")
+                  : undefined
+              }
+            />
+            <Group justify="flex-end" mt="sm">
+              <Button
+                onClick={handleChangePassword}
+                disabled={!isPasswordReady}
+              >
+                {t("change-password")}
+              </Button>
+            </Group>
+          </Stack>
+        </Modal>
       </Stack>
     </Card>
   );
