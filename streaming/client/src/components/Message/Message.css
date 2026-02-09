@@ -111,7 +111,6 @@
   background-color: transparent;
   border-radius: 8px;
   scrollbar-width: thin;
-  scrollbar-color: var(--hovered-color) transparent;
 }
 .message.user .message__attachments {
   flex-direction: row-reverse;

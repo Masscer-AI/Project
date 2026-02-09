@@ -1,9 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Modal } from "../Modal/Modal";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
-import { SvgButton } from "../SvgButton/SvgButton";
-import { Icon } from "../Icon/Icon";
 import {
   createWebPage,
   deleteWebPage,
@@ -13,6 +10,25 @@ import {
 import { useStore } from "../../modules/store";
 import { TSpecifiedUrl } from "../../modules/storeTypes";
 import { TWebPage } from "../../types";
+import MarkdownRenderer from "../MarkdownRenderer/MarkdownRenderer";
+import {
+  Modal,
+  Button,
+  ActionIcon,
+  TextInput,
+  Group,
+  Stack,
+  Text,
+  ScrollArea,
+  Badge,
+} from "@mantine/core";
+import {
+  IconPlus,
+  IconGlobe,
+  IconEye,
+  IconTrash,
+  IconDeviceFloppy,
+} from "@tabler/icons-react";
 
 type FetchedUrl = {
   url: string;
@@ -283,201 +299,122 @@ export const WebsiteFetcher = ({
 
   return (
     <Modal
-      hide={onClose}
-      visible={isOpen}
-      header={<h2 className="text-center">{t("website-content-fetcher")}</h2>}
+      opened={isOpen}
+      onClose={onClose}
+      title={t("website-content-fetcher")}
+      size="lg"
+      centered
     >
-      <div className="flex-y gap-medium">
-        <div className="flex-x gap-small website-fetcher-row">
-          <input
-            className="input flex-1"
+      <Stack gap="md">
+        <Group gap="xs">
+          <TextInput
             placeholder={t("enter-website-url") || "Enter website URL"}
-            type="text"
             value={urlInput}
-            onChange={(e) => setUrlInput(e.target.value)}
+            onChange={(e) => setUrlInput(e.currentTarget.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                handleAddUrl();
-              }
+              if (e.key === "Enter") handleAddUrl();
             }}
+            style={{ flex: 1 }}
           />
-          <SvgButton
-            onClick={handleAddUrl}
-            svg={<Icon name="Plus" />}
-            extraClass="border-active"
-            title={t("add-url") || "Add URL"}
-          />
-        </div>
+          <ActionIcon onClick={handleAddUrl} title={t("add-url") || "Add URL"}>
+            <IconPlus size={18} />
+          </ActionIcon>
+        </Group>
 
-        <div className="flex-y gap-small website-fetcher-section">
-          {isLoadingSaved && (
-            <p className="text-mini">{t("loading") || "Loading..."}</p>
-          )}
-          {!isLoadingSaved && savedPages.length === 0 && (
-            <p className="text-mini text-secondary">
-              {t("no-saved-pages-yet") || "No saved pages yet"}
-            </p>
-          )}
-          {savedPages.length > 0 && (
-            <div className="flex-y gap-small url-list">
-              {savedPages.map((page) => {
-                const fetched = fetchedUrls.find((f) => f.url === page.url);
-                return (
-                  <div key={page.id} className="card website-fetcher-card">
-                    <div className="flex-y gap-small website-fetcher-row">
-                      <p
-                        className="cut-text-to-line flex-1 website-fetcher-url"
-                        title={page.url}
-                      >
-                        {page.title ? `${page.title} - ${page.url}` : page.url}
-                      </p>
-                      <div className="flex-x gap-small website-fetcher-buttons">
-                        <SvgButton
-                          onClick={() => handleToggleSelected(page.url)}
-                          svg={<Icon name="Globe" />}
-                          extraClass={`border-active ${
-                            selectedUrls.includes(page.url)
-                              ? "bg-active svg-white"
-                              : ""
-                          }`}
-                          title={
-                            selectedUrls.includes(page.url)
-                              ? t("unselect") || "Unselect"
-                              : t("select") || "Select"
-                          }
-                          text={
-                            selectedUrls.includes(page.url)
-                              ? t("selected") || "Selected"
-                              : t("select") || "Select"
-                          }
-                        />
-                        {fetched?.status === "success" && fetched.content && (
-                          <SvgButton
-                            onClick={() => openContentModal(page.url, fetched.content)}
-                            svg={<Icon name="Eye" />}
-                            extraClass="border-active"
-                            title={t("view") || "View"}
-                            text={t("view") || "View"}
-                          />
-                        )}
-                        <SvgButton
-                          onClick={() => handleDeleteSaved(page)}
-                          svg={<Icon name="Trash" />}
-                          extraClass="border-active"
-                          title={t("remove") || "Remove"}
-                        />
-                      </div>
-                    </div>
-                    {fetched?.status === "error" && fetched.errorMessage && (
-                      <p className="text-error text-mini">{fetched.errorMessage}</p>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {fetchedUrls.filter((f) => !savedPages.some((p) => p.url === f.url))
-          .length > 0 && (
-          <div className="flex-y gap-small website-fetcher-section">
-            <div className="flex-y gap-small url-list">
-              {fetchedUrls
-                .filter((f) => !savedPages.some((p) => p.url === f.url))
-                .map((fetchedUrl, index) => (
-                <div key={index} className="card website-fetcher-card">
-                  <div className="flex-y gap-small website-fetcher-row">
-                    <div className="flex-x gap-small align-center website-fetcher-row">
-                      <p
-                        className="cut-text-to-line flex-1 website-fetcher-url"
-                        title={fetchedUrl.url}
-                      >
-                        {fetchedUrl.url}
-                      </p>
-                      {fetchedUrl.status === "pending" && (
-                        <div className="spinner-small"></div>
-                      )}
-                      {fetchedUrl.status === "error" && (
-                        <span className={`status-badge status-${fetchedUrl.status}`}>
-                          {statusLabels[fetchedUrl.status]}
-                        </span>
-                      )}
-                    </div>
-
-                    {fetchedUrl.status === "error" && fetchedUrl.errorMessage && (
-                      <p className="text-error text-mini">{fetchedUrl.errorMessage}</p>
-                    )}
-
-                    <div className="flex-x gap-small website-fetcher-buttons">
-                      <SvgButton
-                        onClick={() => handleToggleSelected(fetchedUrl.url)}
-                        svg={<Icon name="Globe" />}
-                        extraClass={`border-active ${
-                          selectedUrls.includes(fetchedUrl.url)
-                            ? "bg-active svg-white"
-                            : ""
-                        }`}
-                        title={
-                          selectedUrls.includes(fetchedUrl.url)
-                            ? t("unselect") || "Unselect"
-                            : t("select") || "Select"
-                        }
-                        text={
-                          selectedUrls.includes(fetchedUrl.url)
-                            ? t("selected") || "Selected"
-                            : t("select") || "Select"
-                        }
-                      />
-                      {fetchedUrl.status === "success" && fetchedUrl.content && (
-                        <SvgButton
-                          onClick={() =>
-                            openContentModal(fetchedUrl.url, fetchedUrl.content)
-                          }
-                          svg={<Icon name="Eye" />}
-                          extraClass="border-active"
-                          title={t("view") || "View"}
-                          text={t("view") || "View"}
-                        />
-                      )}
-                      <SvgButton
-                        onClick={() => handleRemoveUrl(index)}
-                        svg={<Icon name="Trash" />}
-                        extraClass="border-active"
-                        title={t("remove") || "Remove"}
-                      />
-                      {fetchedUrl.status === "success" &&
-                        fetchedUrl.content &&
-                        !savedPages.some((p) => p.url === fetchedUrl.url) && (
-                          <SvgButton
-                            onClick={() => handleSavePage(fetchedUrl.url)}
-                            svg={<Icon name="Save" />}
-                            extraClass="border-active"
-                            title={t("save") || "Save"}
-                          />
-                        )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+        {/* Saved pages */}
+        {isLoadingSaved && <Text size="xs">{t("loading") || "Loading..."}</Text>}
+        {!isLoadingSaved && savedPages.length === 0 && (
+          <Text size="xs" c="dimmed">{t("no-saved-pages-yet") || "No saved pages yet"}</Text>
         )}
+        {savedPages.map((page) => {
+          const fetched = fetchedUrls.find((f) => f.url === page.url);
+          return (
+            <div key={page.id} style={{ background: "var(--code-bg-color)", borderRadius: 8, padding: 8 }}>
+              <Text size="xs" truncate title={page.url}>
+                {page.title ? `${page.title} - ${page.url}` : page.url}
+              </Text>
+              <Group gap="xs" mt={4}>
+                <Button
+                  size="xs"
+                  variant={selectedUrls.includes(page.url) ? "filled" : "default"}
+                  leftSection={<IconGlobe size={14} />}
+                  onClick={() => handleToggleSelected(page.url)}
+                >
+                  {selectedUrls.includes(page.url) ? t("selected") || "Selected" : t("select") || "Select"}
+                </Button>
+                {fetched?.status === "success" && fetched.content && (
+                  <Button size="xs" variant="default" leftSection={<IconEye size={14} />} onClick={() => openContentModal(page.url, fetched.content)}>
+                    {t("view") || "View"}
+                  </Button>
+                )}
+                <ActionIcon variant="subtle" color="red" size="sm" onClick={() => handleDeleteSaved(page)} title={t("remove") || "Remove"}>
+                  <IconTrash size={14} />
+                </ActionIcon>
+              </Group>
+              {fetched?.status === "error" && fetched.errorMessage && (
+                <Text size="xs" c="red" mt={4}>{fetched.errorMessage}</Text>
+              )}
+            </div>
+          );
+        })}
 
+        {/* Unsaved fetched URLs */}
+        {fetchedUrls
+          .filter((f) => !savedPages.some((p) => p.url === f.url))
+          .map((fetchedUrl, index) => (
+            <div key={index} style={{ background: "var(--code-bg-color)", borderRadius: 8, padding: 8 }}>
+              <Group gap="xs" align="center">
+                <Text size="xs" truncate style={{ flex: 1 }} title={fetchedUrl.url}>
+                  {fetchedUrl.url}
+                </Text>
+                {fetchedUrl.status === "pending" && <Badge size="xs" color="yellow">Pending</Badge>}
+                {fetchedUrl.status === "error" && <Badge size="xs" color="red">{statusLabels.error}</Badge>}
+              </Group>
+              {fetchedUrl.status === "error" && fetchedUrl.errorMessage && (
+                <Text size="xs" c="red" mt={4}>{fetchedUrl.errorMessage}</Text>
+              )}
+              <Group gap="xs" mt={4}>
+                <Button
+                  size="xs"
+                  variant={selectedUrls.includes(fetchedUrl.url) ? "filled" : "default"}
+                  leftSection={<IconGlobe size={14} />}
+                  onClick={() => handleToggleSelected(fetchedUrl.url)}
+                >
+                  {selectedUrls.includes(fetchedUrl.url) ? t("selected") || "Selected" : t("select") || "Select"}
+                </Button>
+                {fetchedUrl.status === "success" && fetchedUrl.content && (
+                  <Button size="xs" variant="default" leftSection={<IconEye size={14} />} onClick={() => openContentModal(fetchedUrl.url, fetchedUrl.content)}>
+                    {t("view") || "View"}
+                  </Button>
+                )}
+                <ActionIcon variant="subtle" color="red" size="sm" onClick={() => handleRemoveUrl(index)} title={t("remove") || "Remove"}>
+                  <IconTrash size={14} />
+                </ActionIcon>
+                {fetchedUrl.status === "success" && fetchedUrl.content && !savedPages.some((p) => p.url === fetchedUrl.url) && (
+                  <ActionIcon variant="subtle" color="green" size="sm" onClick={() => handleSavePage(fetchedUrl.url)} title={t("save") || "Save"}>
+                    <IconDeviceFloppy size={14} />
+                  </ActionIcon>
+                )}
+              </Group>
+            </div>
+          ))}
+
+        {/* Content preview modal */}
         <Modal
-          hide={() => setContentModal({ isOpen: false, url: "", content: "" })}
-          visible={contentModal.isOpen}
-          header={<h3 className="text-center">{t("inspect-content") || "Inspect content"}</h3>}
+          opened={contentModal.isOpen}
+          onClose={() => setContentModal({ isOpen: false, url: "", content: "" })}
+          title={t("inspect-content") || "Inspect content"}
+          size="lg"
+          centered
         >
-          <div className="flex-y gap-small">
-            <p className="text-mini cut-text-to-line" title={contentModal.url}>
-              {contentModal.url}
-            </p>
-            <pre className="website-fetcher-preview">
-              {contentModal.content}
-            </pre>
-          </div>
+          <Stack gap="sm">
+            <Text size="xs" truncate title={contentModal.url}>{contentModal.url}</Text>
+            <ScrollArea.Autosize mah={500}>
+              <MarkdownRenderer markdown={contentModal.content} />
+            </ScrollArea.Autosize>
+          </Stack>
         </Modal>
-      </div>
+      </Stack>
     </Modal>
   );
 };

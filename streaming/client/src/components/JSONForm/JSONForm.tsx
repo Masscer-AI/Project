@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Textarea } from "../SimpleForm/Textarea";
-import { Icon } from "../Icon/Icon";
+import { IconDeviceFloppy } from "@tabler/icons-react";
 
 type TField = {
   type: string;
@@ -159,7 +159,7 @@ export const JSONForm: React.FC<JSONFormProps> = ({
           onMouseEnter={() => setHoveredButton('save')}
           onMouseLeave={() => setHoveredButton(null)}
         >
-          <Icon name="Save" size={20} />
+          <IconDeviceFloppy name="Save" size={20} />
           <span>{submitText}</span>
         </button>
       )}

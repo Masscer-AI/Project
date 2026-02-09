@@ -6,9 +6,8 @@ import {
 } from "../../modules/apiCalls";
 import toast from "react-hot-toast";
 import "./VideoTools.css";
-import { Modal } from "../Modal/Modal";
-import { SvgButton } from "../SvgButton/SvgButton";
-import { Icon } from "../Icon/Icon";
+import { Button, Modal, Stack, Text } from "@mantine/core";
+import { IconEye } from "@tabler/icons-react";
 
 export const VideoTools = () => {
   const [state, setState] = useState({
@@ -170,12 +169,14 @@ const VideoCard = ({ video }) => {
           <ScriptSection text={c.speech_text} key={index} />
         ))}
       </div>
-      <SvgButton
-        size="big"
-        text="Show media"
-        svg={<Icon name="Eye" size={20} />}
+      <Button
+        variant="default"
+        size="xs"
+        leftSection={<IconEye size={16} />}
         onClick={toggleShowMedia}
-      />
+      >
+        Show media
+      </Button>
       {showSources && <VideoSources hide={hideModal} videos={videos} />}
     </div>
   );
@@ -187,13 +188,13 @@ const ScriptSection = ({ text }) => {
 
 const VideoSources = ({ videos, hide }) => {
   return (
-    <div>
-      <Modal hide={hide}>
+    <Modal opened={true} onClose={hide} title="Video Sources" size="lg" centered>
+      <Stack gap="md">
         {videos.map((video) => (
           <SourceVideo key={video.id} video={video} />
         ))}
-      </Modal>
-    </div>
+      </Stack>
+    </Modal>
   );
 };
 

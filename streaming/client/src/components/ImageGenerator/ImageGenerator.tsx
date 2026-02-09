@@ -1,11 +1,17 @@
 import React, { useState } from "react";
-import { Textarea } from "../SimpleForm/Textarea";
-import { Modal } from "../Modal/Modal";
-import { SvgButton } from "../SvgButton/SvgButton";
 import { useTranslation } from "react-i18next";
 import { generateImage } from "../../modules/apiCalls";
-import { Icon } from "../Icon/Icon";
 import toast from "react-hot-toast";
+import {
+  Modal,
+  Button,
+  Textarea,
+  NativeSelect,
+  Stack,
+  Text,
+  Group,
+} from "@mantine/core";
+import { IconSparkles } from "@tabler/icons-react";
 
 const FLUX_SIZES = [
   "512x512", // 1:1
@@ -75,34 +81,29 @@ export const ImageGenerator = ({
   };
 
   return (
-    <Modal hide={hide}>
-      <div className="d-flex flex-y gap-big">
-        <h2 className=" padding-medium text-center">Image generator</h2>
-
-        <div className="d-flex gap-big">
-          <strong>{t("choose-model")}</strong>
-          <select
-            className="rounded"
-            onChange={handleModelChange}
-            value={model}
-          >
-            {Object.keys(modelSizes).map((model) => (
-              <option key={model} value={model}>
-                {model}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <strong>{t("prompt")}</strong>
-        <Textarea
-          name="prompt"
-          onChange={(value: string) => setPrompt(value)}
-          label={t("write-detailed-prompt")}
-          defaultValue={prompt}
+    <Modal opened={true} onClose={hide} title="Image generator" size="lg" centered>
+      <Stack gap="md">
+        <NativeSelect
+          label={t("choose-model")}
+          value={model}
+          onChange={(e) => {
+            const val = e.currentTarget.value;
+            setModel(val);
+            setSize(modelSizes[val][0]);
+          }}
+          data={Object.keys(modelSizes)}
         />
 
-        <strong>{t("choose-aspect-ratio")}</strong>
+        <Textarea
+          label={t("prompt")}
+          placeholder={t("write-detailed-prompt")}
+          value={prompt}
+          onChange={(e) => setPrompt(e.currentTarget.value)}
+          autosize
+          minRows={3}
+        />
+
+        <Text size="sm" fw={500}>{t("choose-aspect-ratio")}</Text>
         <div className="d-flex wrap-wrap justify-center">
           {modelSizes[model].map((s) => (
             <AspectRatio
@@ -113,14 +114,15 @@ export const ImageGenerator = ({
             />
           ))}
         </div>
-        <SvgButton
-          svg={<Icon name="Sparkles" size={20} />}
+
+        <Button
+          fullWidth
+          leftSection={<IconSparkles size={18} />}
           onClick={generate}
-          extraClass="pressable bg-active "
-          size="big"
-          text="Generate"
-        />
-      </div>
+        >
+          Generate
+        </Button>
+      </Stack>
     </Modal>
   );
 };

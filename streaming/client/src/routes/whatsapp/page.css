@@ -14,5 +14,4 @@
   max-height: 60vh;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: var(--bg-contrast-color) var(--bg-color);
 }

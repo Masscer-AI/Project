@@ -10,9 +10,8 @@ import toast from "react-hot-toast";
 import "./MarkdownRenderer.css";
 import { downloadFile, generateDocument } from "../../modules/apiCalls";
 import { useTranslation } from "react-i18next";
-import { SvgButton } from "../SvgButton/SvgButton";
-import { Pill } from "../Pill/Pill";
-import { Icon } from "../Icon/Icon";
+import { Badge, ActionIcon, Tooltip, NativeSelect, Group, Button } from "@mantine/core";
+import { IconCopy, IconDownload } from "@tabler/icons-react";
 
 import { SYSTEM_PLUGINS } from "../../modules/plugins";
 
@@ -213,60 +212,48 @@ export const CustomCodeBlock = ({
 
   return (
     <div className="code-block">
-      <div className="actions flex-x align-center justify-between bg-hovered rounded min-w-0 overflow-hidden">
-        <section className="flex-x gap-small align-center min-w-0 flex-shrink-0">
-          <Pill extraClass="!py-1 !px-2 md:!py-[5px] md:!px-[10px] !text-sm md:!text-base">
-            {label?.slice(0, 1).toUpperCase() + (label ? label.slice(1) : "")}
-          </Pill>
-        </section>
-        <section className="flex-x align-center wrap-wrap gap-1 md:gap-small p-1 md:padding-small justify-end min-w-0 flex-1 overflow-hidden">
-          <SvgButton
-            extraClass="pressable active-on-hover bg-hovered !h-8 md:!h-10 !px-2 md:!px-3 !min-w-8 md:!min-w-10 [&>p]:hidden md:[&>p]:block [&>div>svg]:w-4 [&>div>svg]:h-4 md:[&>div>svg]:w-5 md:[&>div>svg]:h-5"
-            svg={<Icon name="Copy" size={20} />}
-            text={t("copy")}
-            onClick={handleCopy}
-            title={t("copy")}
-          />
+      <Group
+        gap="xs"
+        justify="space-between"
+        wrap="wrap"
+        className="actions bg-hovered rounded"
+        p="xs"
+      >
+        <Badge variant="default" size="sm">
+          {label?.slice(0, 1).toUpperCase() + (label ? label.slice(1) : "")}
+        </Badge>
+        <Group gap={4} wrap="wrap" justify="flex-end">
+          <Tooltip label={t("copy")} position="top" withArrow>
+            <ActionIcon variant="subtle" color="gray" size="sm" onClick={handleCopy}>
+              <IconCopy size={14} />
+            </ActionIcon>
+          </Tooltip>
           {pluginName && (
-            <SvgButton
-              extraClass="pressable active-on-hover bg-hovered !h-8 md:!h-10 !px-2 md:!px-3 !min-w-8 md:!min-w-10 text-xs md:text-sm"
-              text={
-                usePlugin
-                  ? t("view-code")
-                  : t("use-plugin") + ": " + t(pluginName)
-              }
-              onClick={
-                usePlugin
-                  ? () => setUsePlugin(false)
-                  : () => {
-                      setUsePlugin(true);
-                    }
-              }
-            />
-          )}
-          <div className="flex-x items-center active-on-hover bg-hovered rounded min-w-0 !h-8 md:!h-10">
-            <SvgButton
-              extraClass="pressable !h-8 md:!h-10 !px-1.5 md:!px-3 !min-w-8 md:!min-w-10 [&>div>svg]:w-4 [&>div>svg]:h-4 md:[&>div>svg]:w-5 md:[&>div>svg]:h-5 !text-sm md:!text-sm [&>p]:hidden md:[&>p]:block flex-shrink-0"
-              svg={<Icon name="Download" size={20} />}
-              text={t("export-to")}
-              onClick={handleTransform}
-              title={t("export-to")}
-            />
-            <select
-              className="rounded input !text-xs md:!text-sm !px-1 md:!px-2 !py-1 md:!py-2 !h-8 md:!h-10 min-w-0 flex-shrink-0"
-              value={output_format}
-              name="output-format"
-              onChange={(e) => setOutputFormat(e.target.value as TOutputFormat)}
+            <Button
+              variant="subtle"
+              color="gray"
+              size="compact-xs"
+              onClick={usePlugin ? () => setUsePlugin(false) : () => setUsePlugin(true)}
             >
-              {output_formats.map((format) => (
-                <option key={format} value={format}>
-                  {format.toUpperCase()}
-                </option>
-              ))}
-            </select>
-          </div>
-        </section>
-      </div>
+              {usePlugin ? t("view-code") : t("use-plugin") + ": " + t(pluginName)}
+            </Button>
+          )}
+          <Group gap={2} wrap="nowrap">
+            <Tooltip label={t("export-to")} position="top" withArrow>
+              <ActionIcon variant="subtle" color="gray" size="sm" onClick={handleTransform}>
+                <IconDownload size={14} />
+              </ActionIcon>
+            </Tooltip>
+            <NativeSelect
+              size="xs"
+              value={output_format}
+              onChange={(e) => setOutputFormat(e.currentTarget.value as TOutputFormat)}
+              data={output_formats.map((f) => ({ value: f, label: f.toUpperCase() }))}
+              styles={{ input: { minWidth: 60, height: 28, fontSize: 12 } }}
+            />
+          </Group>
+        </Group>
+      </Group>
 
       {pluginName && usePlugin ? (
         SYSTEM_PLUGINS[pluginName]?.code_receptor ? (

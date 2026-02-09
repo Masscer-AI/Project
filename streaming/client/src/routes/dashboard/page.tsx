@@ -8,8 +8,8 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
 import { ConversationsTable } from "./ConversationsTable";
-import { SvgButton } from "../../components/SvgButton/SvgButton";
-import { Icon } from "../../components/Icon/Icon";
+import { ActionIcon } from "@mantine/core";
+import { IconMenu2 } from "@tabler/icons-react";
 import "./page.css";
 
 export default function DashboardPage() {
@@ -71,11 +71,9 @@ export default function DashboardPage() {
         <div className="dashboard-container relative">
           {!chatState.isSidebarOpened && (
             <div className="absolute top-6 left-6 z-10">
-              <SvgButton
-                extraClass="pressable active-on-hover"
-                onClick={toggleSidebar}
-                svg={<Icon name="Menu" size={20} />}
-              />
+              <ActionIcon variant="subtle" color="gray" onClick={toggleSidebar}>
+                <IconMenu2 size={20} />
+              </ActionIcon>
             </div>
           )}
           <div className="max-w-7xl mx-auto px-4">

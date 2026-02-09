@@ -1,28 +1,33 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Icon } from "../Icon/Icon";
 import { useStore } from "../../modules/store";
-import { SvgButton } from "../SvgButton/SvgButton";
 import { useTranslation } from "react-i18next";
-import { Modal } from "../Modal/Modal";
 import MarkdownRenderer from "../MarkdownRenderer/MarkdownRenderer";
 import { AttatchmentMode } from "../../types";
-import { Textarea } from "../SimpleForm/Textarea";
 import toast from "react-hot-toast";
 import { generateVideo } from "../../modules/apiCalls";
 import { AspectRatio } from "../ImageGenerator/ImageGenerator";
 import { API_URL } from "../../modules/constants";
 import {
   Menu,
+  Modal,
   Switch,
   Button,
   ActionIcon,
   Stack,
   Text,
+  Textarea,
+  NativeSelect,
+  Group,
 } from "@mantine/core";
 import {
   IconDotsVertical,
   IconTrash,
   IconFileText,
+  IconDownload,
+  IconVideo,
+  IconX,
+  IconCheck,
+  IconPlayerPlay,
 } from "@tabler/icons-react";
 
 interface ThumbnailProps {
@@ -81,25 +86,22 @@ export const Thumbnail = ({
             buttons={
               showFloatingButtons && (
                 <div className="d-flex align-center justify-center padding-small">
-                  <SvgButton
-                    title={t("delete")}
-                    svg={<Icon name="Trash2" size={20} />}
-                    extraClass="danger-on-hover "
-                    confirmations={[`${t("sure")}`]}
+                  <ActionIcon
+                    variant="subtle"
+                    color="red"
+                    size="sm"
                     onClick={() => deleteAttachment(index)}
-                  />
+                    title={t("delete")}
+                  >
+                    <IconTrash size={16} />
+                  </ActionIcon>
                 </div>
               )
             }
           />
         </div>
       )}
-      {/* {type.indexOf("audio") === 0 && (
-        <div className="thumbnail pointer">
-          <SvgButton title="Play" svg={SVGS.play} />
-          <audio src={src} playsInline />
-        </div>
-      )} */}
+      {/* Audio type currently unused */}
       {type.indexOf("audio_generation") === 0 && (
         <AudioThumbnail src={content} />
       )}
@@ -108,7 +110,6 @@ export const Thumbnail = ({
         <>
           <VideoThumbnail id={id} src={src} text={text} />
 
-          {/* <SvgButton title="Open" svg={SVGS.play} /> */}
         </>
       )}
     </>
@@ -164,31 +165,30 @@ const ImageModal = ({
 
   return (
     <Modal
-      minHeight={"50vh"}
-      hide={hide}
-      extraButtons={
-        <>
-          <SvgButton
-            onClick={handleDownload}
-            title="Download"
-            extraClass="pressable bg-active"
-            svg={<Icon name="Download" size={20} />}
-          />
-          <SvgButton
-            onClick={toggleGenerateVideo}
-            title={showGenerationOptions ? t("cancel") : t("edit")}
-            extraClass="pressable bg-active"
-            svg={showGenerationOptions ? <Icon name="X" size={20} /> : <Icon name="Video" size={20} />}
-          />
-        </>
-      }
+      opened={true}
+      onClose={hide}
+      title={showGenerationOptions ? t("generate-video") : t("view")}
+      size="lg"
+      centered
     >
-      <div className="flex-y justify-center align-center ">
-        <h2>{showGenerationOptions ? t("generate-video") : t("view")}</h2>
+      <Stack gap="md" align="center">
+        <Group gap="xs">
+          <ActionIcon variant="default" onClick={handleDownload} title="Download">
+            <IconDownload size={18} />
+          </ActionIcon>
+          <ActionIcon
+            variant="default"
+            onClick={toggleGenerateVideo}
+            title={showGenerationOptions ? t("cancel") : t("generate-video")}
+          >
+            {showGenerationOptions ? <IconX size={18} /> : <IconVideo size={18} />}
+          </ActionIcon>
+        </Group>
+
         {showGenerationOptions ? (
-          <div className="flex-y gap-small align-center w-100">
-            <div className="d-flex gap-small align-center w-100 justify-center">
-              <h4>{t("aspect-ratio")}</h4>
+          <Stack gap="sm" w="100%" align="center">
+            <Group gap="sm" justify="center">
+              <Text size="sm" fw={500}>{t("aspect-ratio")}</Text>
               {aspectRatioOptions.map((option) => (
                 <AspectRatio
                   key={option.value}
@@ -198,34 +198,33 @@ const ImageModal = ({
                   onClick={() => setRatio(option.value)}
                 />
               ))}
-            </div>
-            <div className="flex-x gap-small w-100">
-              <Textarea
-                extraClass="w-100"
-                maxLength={512}
-                name="prompt"
-                onChange={(e) => setVideoPrompt(e)}
-                label={t("describe-the-video")}
-                defaultValue={videoPrompt}
-              />
-            </div>
+            </Group>
+            <Textarea
+              label={t("describe-the-video")}
+              value={videoPrompt}
+              onChange={(e) => setVideoPrompt(e.currentTarget.value)}
+              maxLength={512}
+              w="100%"
+              autosize
+              minRows={2}
+            />
             <img
               style={{ width: "40%" }}
               src={src}
               alt={`attachment-${name}`}
             />
-
-            <SvgButton
-              extraClass="bg-active w-100 pressable         "
+            <Button
+              fullWidth
+              leftSection={<IconCheck size={16} />}
               onClick={handleGenerateVideo}
-              title={t("generate-video")}
-              svg={<Icon name="Check" size={20} />}
-            />
-          </div>
+            >
+              {t("generate-video")}
+            </Button>
+          </Stack>
         ) : (
           <img style={{ width: "100%" }} src={src} alt={`attachment-${name}`} />
         )}
-      </div>
+      </Stack>
     </Modal>
   );
 };
@@ -387,19 +386,16 @@ const VideoThumbnail = ({
 
   return (
     <div className="thumbnail pointer">
-      {openModal ? (
+      {openModal && (
         <VideoModal
           url={API_URL + src}
           close={() => setOpenModal(false)}
           text={text}
         />
-      ) : (
-        <SvgButton
-          title="Open"
-          svg={<Icon name="Play" size={20} />}
-          onClick={() => setOpenModal(true)}
-        />
       )}
+      <ActionIcon variant="subtle" color="gray" onClick={() => setOpenModal(true)} title="Open">
+        <IconPlayerPlay size={20} />
+      </ActionIcon>
     </div>
   );
 };
@@ -426,31 +422,17 @@ const VideoModal = ({
   };
 
   return (
-    <Modal
-      hide={close}
-      minHeight="50vh"
-      extraButtons={
-        <SvgButton
-          title={t("download")}
-          svg={<Icon name="Download" size={20} />}
-          onClick={download}
-        />
-      }
-      header={<h2>{t("generated-video")}</h2>}
-    >
-      <div className="flex-y gap-medium">
-        <p>
+    <Modal opened={true} onClose={close} title={t("generated-video")} size="lg" centered>
+      <Stack gap="md">
+        <ActionIcon variant="default" onClick={download} title={t("download")}>
+          <IconDownload size={18} />
+        </ActionIcon>
+        <Text size="sm">
           <strong>Prompt: </strong>
           {text}
-        </p>
-        <video
-          style={{ width: "100%" }}
-          src={url}
-          // playsInline
-          autoPlay
-          controls
-        />
-      </div>
+        </Text>
+        <video style={{ width: "100%" }} src={url} autoPlay controls />
+      </Stack>
     </Modal>
   );
 };
