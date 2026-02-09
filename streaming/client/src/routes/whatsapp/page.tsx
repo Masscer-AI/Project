@@ -1,12 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { SvgButton } from "../../components/SvgButton/SvgButton";
 import { Sidebar } from "../../components/Sidebar/Sidebar";
 import { useStore } from "../../modules/store";
-import { ChatHeader } from "../../components/ChatHeader/ChatHeader";
-import { Card } from "../../components/Card/Card";
 import "./page.css";
 import { useLoaderData } from "react-router-dom";
-import { Modal } from "../../components/Modal/Modal";
 import {
   getWhatsappConversations,
   getWhatsappConversationMessages,
@@ -15,38 +11,72 @@ import {
 } from "../../modules/apiCalls";
 import MarkdownRenderer from "../../components/MarkdownRenderer/MarkdownRenderer";
 import { AgentSelector } from "../../components/AgentSelector/AgentSelector";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
+
+import {
+  ActionIcon,
+  Box,
+  Button,
+  Card,
+  Group,
+  Modal,
+  Stack,
+  Text,
+  Textarea,
+  TextInput,
+  Title,
+} from "@mantine/core";
+import { IconMenu2, IconSend, IconDeviceFloppy } from "@tabler/icons-react";
+
 export default function Whatsapp() {
-  const { isSidebarOpened } = useStore((s) => ({
-    isSidebarOpened: s.chatState.isSidebarOpened,
+  const { chatState, toggleSidebar } = useStore((s) => ({
+    chatState: s.chatState,
+    toggleSidebar: s.toggleSidebar,
   }));
 
   const { numbers } = useLoaderData() as { numbers: any[] };
 
-  console.log(numbers);
-
   return (
-    <main className="whatsapp-page">
-      <div className="d-flex">
-        {isSidebarOpened && <Sidebar />}
-        <div className="chat-max-width ">
-          <ChatHeader />
-          <div className="padding-big">
-            <h1>Whatsapp</h1>
-            <p>
-              Masscer AI let's you use AI Agents inside Whatsapp, in this way
-              you can boost your customer services and collect information about
-              your contacts.
-            </p>
-            <SvgButton text="Connect to Whatsapp" svg={"✅"} />
-            <p>These are your WhatsApp numbers</p>
-            <div>
-              {numbers.map((number) => (
-                <WhatsAppNumber key={number.id} {...number} />
-              ))}
-            </div>
-          </div>
-        </div>
+    <main className="d-flex pos-relative h-viewport">
+      {chatState.isSidebarOpened && <Sidebar />}
+      <div
+        style={{
+          flex: "1 1 auto",
+          minWidth: 0,
+          padding: 24,
+          overflowY: "auto",
+          minHeight: "100vh",
+          display: "flex",
+          justifyContent: "center",
+        }}
+        className="relative"
+      >
+        {!chatState.isSidebarOpened && (
+          <Box pos="absolute" top={24} left={24} style={{ zIndex: 10 }}>
+            <ActionIcon variant="subtle" color="gray" onClick={toggleSidebar}>
+              <IconMenu2 size={20} />
+            </ActionIcon>
+          </Box>
+        )}
+
+        <Box px="md" w="100%" maw="42rem" mx="auto">
+          <Title order={2} ta="center" mb="lg" mt="md">
+            WhatsApp
+          </Title>
+          <Text mb="md">
+            Masscer AI lets you use AI Agents inside WhatsApp, boosting your
+            customer service and collecting information about your contacts.
+          </Text>
+
+          <Title order={4} mb="sm">
+            Your WhatsApp numbers
+          </Title>
+          <Stack gap="md">
+            {numbers.map((number) => (
+              <WhatsAppNumber key={number.id} {...number} />
+            ))}
+          </Stack>
+        </Box>
       </div>
     </main>
   );
@@ -64,78 +94,87 @@ const WhatsAppNumber = ({
   name: string;
 }) => {
   const [isModalVisible, setIsModalVisible] = useState(false);
-
   const [conversations, setConversations] = useState<any[]>([]);
   const [nameInput, setNameInput] = useState(name ? name : "");
 
-  const showConversations = () => {
-    setIsModalVisible(true);
-  };
-
-  const hideConversations = () => {
-    setIsModalVisible(false);
-  };
-
   useEffect(() => {
     getWhatsappConversations().then((res) => {
-      // @ts-ignore
-      setConversations(res);
+      setConversations(res as any[]);
     });
   }, []);
 
   const changeAgent = (slug: string) => {
-    updateWhatsappNumber(number, { slug }).then((res) => {
+    updateWhatsappNumber(number, { slug }).then(() => {
       toast.success("Agent changed");
     });
   };
 
   const updateName = () => {
-    updateWhatsappNumber(number, { name: nameInput }).then((res) => {
+    updateWhatsappNumber(number, { name: nameInput }).then(() => {
       toast.success("Name updated");
     });
   };
 
   return (
     <>
-      <Card onClick={showConversations}>
-        <h2 className="text-center">{name}</h2>
-        <h3 className="text-center">📞{number}</h3>
-        <div className="d-flex justify-center gap-medium">
-          <span className="text-center">🧠 {agent.name}</span>
-          <span className="text-center">💬 {conversations_count}</span>
-        </div>
+      <Card
+        withBorder
+        padding="lg"
+        style={{ cursor: "pointer" }}
+        onClick={() => setIsModalVisible(true)}
+      >
+        <Title order={4} ta="center">
+          {name}
+        </Title>
+        <Text ta="center" size="lg">
+          📞 {number}
+        </Text>
+        <Group justify="center" gap="md" mt="xs">
+          <Text size="sm">🧠 {agent.name}</Text>
+          <Text size="sm">💬 {conversations_count}</Text>
+        </Group>
       </Card>
-      {isModalVisible && (
-        <Modal hide={hideConversations} visible={isModalVisible}>
-          <h2 className="text-center">Conversations</h2>
-          <section className="d-flex flex-y gap-small justify-center align-center">
-            <p>Number: {number}</p>
-            <p className="d-flex align-center gap-small wrap-wrap">
-              <span>Name:</span>
-              <input
-                className="input"
-                value={nameInput}
-                onChange={(e) => setNameInput(e.target.value)}
-                type="text"
-              />
 
-              <SvgButton onClick={updateName} text="Update name" svg={"💾"} />
-            </p>
-            <div className="d-flex align-center gap-small wrap-wrap">
-              <p>Change the agent for this number</p>
-              <AgentSelector
-                onSelectAgent={changeAgent}
-                selectedSlug={agent.slug}
-              />
-            </div>
-          </section>
-          <div className="d-flex gap-medium wrap-wrap my-medium">
+      <Modal
+        opened={isModalVisible}
+        onClose={() => setIsModalVisible(false)}
+        title="Conversations"
+        centered
+        size="lg"
+      >
+        <Stack gap="md">
+          <Group gap="sm" align="flex-end">
+            <TextInput
+              label="Name"
+              value={nameInput}
+              onChange={(e) => setNameInput(e.currentTarget.value)}
+              style={{ flex: 1 }}
+            />
+            <Button
+              leftSection={<IconDeviceFloppy size={16} />}
+              onClick={updateName}
+            >
+              Update
+            </Button>
+          </Group>
+
+          <div>
+            <Text size="sm" fw={500} mb={4}>
+              Change the agent for this number
+            </Text>
+            <AgentSelector
+              onSelectAgent={changeAgent}
+              selectedSlug={agent.slug}
+            />
+          </div>
+
+          <Stack gap="sm">
             {conversations.map((conversation) => (
               <ConversationComponent key={conversation.id} {...conversation} />
             ))}
-          </div>
-        </Modal>
-      )}
+          </Stack>
+        </Stack>
+      </Modal>
     </>
   );
 };
@@ -156,65 +195,88 @@ const ConversationComponent = ({
   const [messages, setMessages] = useState<any[]>([]);
   const [showMessages, setShowMessages] = useState(false);
   const [showMore, setShowMore] = useState(false);
-
   const [messageInput, setMessageInput] = useState("");
+
   const getMessages = () => {
     getWhatsappConversationMessages(id).then((res) => {
-      console.log(res);
-      // @ts-ignore
-      setMessages(res.messages);
+      setMessages((res as any).messages);
       setShowMessages(true);
     });
   };
 
   const sendMessage = () => {
     if (messageInput.trim() === "") return;
-    sendMessageToConversation(id, messageInput).then((res) => {
+    sendMessageToConversation(id, messageInput).then(() => {
       setMessageInput("");
     });
   };
 
   return (
     <>
-      <Card onClick={getMessages}>
-        <h3>{title}</h3>
-        <p>
+      <Card
+        withBorder
+        padding="md"
+        style={{ cursor: "pointer" }}
+        onClick={getMessages}
+      >
+        <Title order={5}>{title}</Title>
+        <Text size="sm">
           {user_number} <span>{sentiment}</span>
-        </p>
+        </Text>
       </Card>
-      <Modal hide={() => setShowMessages(false)} visible={showMessages}>
-        <div className="whatsapp-header">
-          <h3>{title ? title : "No title"}</h3>
-          <p>
-            {summary ? (
-              showMore ? (
-                summary
+
+      <Modal
+        opened={showMessages}
+        onClose={() => setShowMessages(false)}
+        title={title || "No title"}
+        centered
+        size="lg"
+      >
+        <Stack gap="md">
+          <Card withBorder p="sm" className="whatsapp-header">
+            <Text size="sm">
+              {summary ? (
+                showMore ? (
+                  summary
+                ) : (
+                  summary.slice(0, 80) + "..."
+                )
               ) : (
-                summary.slice(0, 80) + "..."
-              )
-            ) : (
-              <span className="text-center">No summary</span>
-            )}
-            <button className="button" onClick={() => setShowMore(!showMore)}>
-              {showMore ? "Ocultar" : "Leer más →"}
-            </button>
-          </p>
-        </div>
-        <div className="whatsapp-messages">
-          {messages &&
-            messages.map((message) => (
-              <WhatsAppMessage key={message.id} {...message} />
-            ))}
-        </div>
-        <div className="d-flex gap-small justify-center align-center padding-medium">
-          <textarea
-            onChange={(e) => setMessageInput(e.target.value)}
-            value={messageInput}
-            placeholder="Escribe un mensaje"
-            className="button w-100"
-          />
-          <SvgButton onClick={() => sendMessage()} text="Send" svg={"💬"} />
-        </div>
+                "No summary"
+              )}
+            </Text>
+            <Button
+              variant="subtle"
+              size="xs"
+              onClick={() => setShowMore(!showMore)}
+              mt={4}
+            >
+              {showMore ? "Hide" : "Read more →"}
+            </Button>
+          </Card>
+
+          <div className="whatsapp-messages">
+            {messages &&
+              messages.map((message) => (
+                <WhatsAppMessage key={message.id} {...message} />
+              ))}
+          </div>
+
+          <Group gap="sm" align="flex-end">
+            <Textarea
+              value={messageInput}
+              onChange={(e) => setMessageInput(e.currentTarget.value)}
+              placeholder="Write a message"
+              autosize
+              minRows={1}
+              maxRows={4}
+              style={{ flex: 1 }}
+            />
+            <ActionIcon size="lg" onClick={sendMessage}>
+              <IconSend size={18} />
+            </ActionIcon>
+          </Group>
+        </Stack>
       </Modal>
     </>
   );
@@ -231,10 +293,7 @@ const WhatsAppMessage = ({
   created_at: string;
   reaction: string;
 }) => {
-  // Create a Date object from the created_at string
   const date = new Date(created_at);
-
-  // Format the date to a more readable format
   const formattedDate = date.toLocaleString(undefined, {
     year: "numeric",
     month: "long",
@@ -249,13 +308,13 @@ const WhatsAppMessage = ({
     <div
       className={`text-center d-flex flex-y message ${message_type.toLowerCase()}`}
     >
-      <div className=" text-left message-text">
+      <div className="text-left message-text">
         <MarkdownRenderer markdown={content} />
         {reaction && <span className="reaction">{reaction} ✔️✔️</span>}
       </div>
-      <div className="d-flex align-center padding-medium">
-        <p className="text-small">{formattedDate}</p>
-      </div>
+      <Text size="xs" c="dimmed" p="xs">
+        {formattedDate}
+      </Text>
     </div>
   );
 };

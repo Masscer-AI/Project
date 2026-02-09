@@ -184,7 +184,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         <div className="w-full rounded-none md:rounded-2xl overflow-visible relative" style={{ background: "var(--bg-contrast-color)", border: "1px solid var(--hovered-color)" }}>
           <MantineTextarea
             autosize
-            minRows={1}
+            minRows={chatState.writtingMode ? 8 : 1}
             maxRows={chatState.writtingMode ? 20 : 3}
             classNames={{
               input: "!bg-transparent !border-0 !text-sm !font-sans focus:!ring-0 focus:!outline-none !px-3 md:!px-5 !py-2 md:!py-3",

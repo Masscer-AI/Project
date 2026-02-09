@@ -16,12 +16,21 @@ import {
 import "@xyflow/react/dist/style.css";
 import toast from "react-hot-toast";
 import "./MindMapper.css";
-import { SvgButton } from "../SvgButton/SvgButton";
-import { Icon } from "../Icon/Icon";
 import { useStore } from "../../modules/store";
-import { FloatingDropdown } from "../Dropdown/Dropdown";
 import { NodeTemplate } from "./NodeTemplate";
 import { PromptNode } from "./PromptNode";
+import { ActionIcon, Button, Menu, TextInput } from "@mantine/core";
+import {
+  IconMenu2,
+  IconPlus,
+  IconDownload,
+  IconSearch,
+  IconPrompt,
+  IconCircleDot,
+  IconTrash,
+  IconCheck,
+  IconWorldWww,
+} from "@tabler/icons-react";
 
 const nodeDefaults = {
   sourcePosition: Position.Right,
@@ -48,29 +57,37 @@ const CustomNode = ({ data, id }) => {
 
   useEffect(() => {
     if (data.input) {
-      console.log(data.input);
       setLabel(data.input);
-      toast.success(`Received ${data.input}`, {
-        duration: 500,
-      });
+      toast.success(`Received ${data.input}`, { duration: 500 });
     }
   }, [data.input]);
 
   return (
     <NodeTemplate data={data}>
       <h3>{data.label}</h3>
-      <input
-        type="text"
+      <TextInput
         value={label}
-        onChange={(e) => setLabel(e.target.value)}
-        style={{ width: "100%" }}
+        onChange={(e) => setLabel(e.currentTarget.value)}
+        size="xs"
       />
-      <button onClick={data.onDelete}>Delete</button>
-      <SvgButton
-        // @ts-ignore
-        onClick={() => data.onFinish(id, label)}
-        text="Finish"
-      />
+      <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+        <Button
+          size="xs"
+          variant="subtle"
+          color="red"
+          leftSection={<IconTrash size={14} />}
+          onClick={data.onDelete}
+        >
+          Delete
+        </Button>
+        <Button
+          size="xs"
+          leftSection={<IconCheck size={14} />}
+          onClick={() => data.onFinish(id, label)}
+        >
+          Finish
+        </Button>
+      </div>
     </NodeTemplate>
   );
 };
@@ -79,7 +96,7 @@ const WebsiteReaderNode = (props: NodeProps<WebsiteReaderNode>) => {
   const [url, setUrl] = useState(props.data.url);
 
   const fetchWebsite = async (url: string) => {
-    toast.loading(`fetching ${url}`);
+    toast.loading(`Fetching ${url}`);
 
     if (!url) return;
     try {
@@ -102,22 +119,35 @@ const WebsiteReaderNode = (props: NodeProps<WebsiteReaderNode>) => {
       toast.error("Failed to fetch website: " + error.message);
     }
   };
+
   return (
     <NodeTemplate data={props.data} bgColor="var(--hovered-color)">
       <h4>Website Reader</h4>
-
-      <input
+      <TextInput
         type="url"
         value={url}
-        onChange={(e) => setUrl(e.target.value)}
-        style={{ width: "100%" }}
+        onChange={(e) => setUrl(e.currentTarget.value)}
+        placeholder="https://example.com"
+        size="xs"
       />
-      <button onClick={props.data.onDelete}>Delete</button>
-      <SvgButton
-        // @ts-ignore
-        onClick={() => fetchWebsite(url)}
-        text="fetch website"
-      />
+      <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+        <Button
+          size="xs"
+          variant="subtle"
+          color="red"
+          leftSection={<IconTrash size={14} />}
+          onClick={props.data.onDelete}
+        >
+          Delete
+        </Button>
+        <Button
+          size="xs"
+          leftSection={<IconWorldWww size={14} />}
+          onClick={() => fetchWebsite(url || "")}
+        >
+          Fetch
+        </Button>
+      </div>
     </NodeTemplate>
   );
 };
@@ -267,37 +297,41 @@ const MindMapper = () => {
   return (
     <div className="mind-mapper">
       <div className="mind-mapper-header">
-        <SvgButton onClick={toggleSidebar} svg={<Icon name="Menu" size={20} />} />
+        <ActionIcon variant="subtle" color="gray" onClick={toggleSidebar}>
+          <IconMenu2 size={20} />
+        </ActionIcon>
 
-        <FloatingDropdown
-          top="100%"
-          left="50%"
-          transform="translate(-50%, 0)"
-          opener={<SvgButton svg={<Icon name="Plus" size={20} />} text="Add node" />}
-        >
-          <div className="width-200 justify-center align-center d-flex flex-y">
-            <SvgButton
+        <Menu position="bottom" withinPortal>
+          <Menu.Target>
+            <ActionIcon variant="subtle" color="gray">
+              <IconPlus size={20} />
+            </ActionIcon>
+          </Menu.Target>
+          <Menu.Dropdown>
+            <Menu.Item
+              leftSection={<IconSearch size={16} />}
               onClick={() => addNode("websiteReaderNode")}
-              svg={<Icon name="Search" size={20} />}
-              text="Website Reader"
-            />
-            <SvgButton
+            >
+              Website Reader
+            </Menu.Item>
+            <Menu.Item
+              leftSection={<IconCircleDot size={16} />}
               onClick={() => addNode("customNode")}
-              svg={<Icon name="Smile" size={20} />}
-              text="Custom Node"
-            />
-            <SvgButton
+            >
+              Custom Node
+            </Menu.Item>
+            <Menu.Item
+              leftSection={<IconPrompt size={16} />}
               onClick={() => addNode("promptNode")}
-              svg={<Icon name="Smile" size={20} />}
-              text="Prompt Node"
-            />
-          </div>
-        </FloatingDropdown>
-        <SvgButton
-          onClick={downloadJSON}
-          svg={<Icon name="Download" size={20} />}
-          text="Download JSON"
-        />
+            >
+              Prompt Node
+            </Menu.Item>
+          </Menu.Dropdown>
+        </Menu>
+
+        <ActionIcon variant="subtle" color="gray" onClick={downloadJSON}>
+          <IconDownload size={20} />
+        </ActionIcon>
       </div>
       <div className="mind-mapper-canvas">
         <ReactFlow

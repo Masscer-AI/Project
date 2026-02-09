@@ -3,15 +3,21 @@ import { NodeProps, Node } from "@xyflow/react";
 
 import { NodeTemplate } from "./NodeTemplate";
 import { promptNodeAction } from "../../modules/apiCalls";
-import { SvgButton } from "../SvgButton/SvgButton";
 import toast from "react-hot-toast";
 import MarkdownRenderer from "../MarkdownRenderer/MarkdownRenderer";
-import { AgentSelector } from "../AgentSelector/AgentSelector";
 import { useStore } from "../../modules/store";
 import { useTranslation } from "react-i18next";
-import { SliderInput } from "../SimpleForm/SliderInput";
-import { Textarea } from "../SimpleForm/Textarea";
-import { Select } from "../SimpleForm/Select";
+
+import {
+  Button,
+  NativeSelect,
+  SegmentedControl,
+  Textarea,
+  Text,
+  ScrollArea,
+} from "@mantine/core";
+import { IconPlayerPlay } from "@tabler/icons-react";
+
 export type TPromptNode = Node<
   {
     url?: string;
@@ -23,9 +29,6 @@ export type TPromptNode = Node<
   },
   "websiteReaderNode"
 >;
-
-// const DEFAULT_OUTPUT_FOR_TESTING =
-//   "Lorem ipsum dolor sit amet consectetur adipisicing elit. Quisquam, quos. Lorem ipsum dolor sit amet consectetur adipisicing elit. Quisquam, quos. Lorem ipsum dolor sit amet consectetur adipisicing elit. Quisquam, quos.  Lorem ipsum dolor sit amet consectetur adipisicing elit. Quisquam, quos. Lorem ipsum dolor sit amet consectetur adipisicing elit. Quisquam, quos. Lorem ipsum dolor sit amet consectetur adipisicing elit. Quisquam, quos.  ";
 
 export const PromptNode = ({ data }: NodeProps<TPromptNode>) => {
   const [systemPrompt, setSystemPrompt] = useState(
@@ -85,50 +88,71 @@ export const PromptNode = ({ data }: NodeProps<TPromptNode>) => {
   return (
     <NodeTemplate data={data} bgColor="var(--hovered-color)">
       <div className="d-flex flex-y gap-big">
-        <h2>Text Node</h2>
+        <Text fw={600} size="lg">
+          Text Node
+        </Text>
         <Textarea
-          defaultValue={systemPrompt}
-          onChange={(value) => setSystemPrompt(value)}
+          value={systemPrompt}
+          onChange={(e) => setSystemPrompt(e.currentTarget.value)}
           placeholder="System prompt"
+          autosize
+          minRows={2}
+          maxRows={5}
         />
         <Textarea
-          defaultValue={userMessage}
-          onChange={(value) => setUserMessage(value)}
+          value={userMessage}
+          onChange={(e) => setUserMessage(e.currentTarget.value)}
           placeholder="User message"
+          autosize
+          minRows={2}
+          maxRows={5}
         />
 
-        <Select
-          placeholder={t("model")}
-          options={models.map((m) => m.slug)}
+        <NativeSelect
           value={model}
-          onChange={(value) => setModel(value)}
+          onChange={(e) => setModel(e.currentTarget.value)}
+          data={models.map((m) => ({ value: m.slug, label: m.slug }))}
         />
 
-        {/* <AgentSelector /> */}
         {output && (
           <>
-            <h3>Output</h3>
-            <div
-              style={{ maxHeight: "300px", overflow: "scroll" }}
-              className="padding-small bg-secondary rounded nodrag nowheel"
+            <Text fw={500} size="sm">
+              Output
+            </Text>
+            <ScrollArea.Autosize
+              mah={300}
+              className="nodrag nowheel"
+              style={{
+                background: "var(--bg-secondary-color)",
+                borderRadius: "var(--standard-radius)",
+                padding: 8,
+              }}
             >
               <MarkdownRenderer markdown={output} />
-            </div>
+            </ScrollArea.Autosize>
           </>
         )}
-        <SvgButton
-          text={"Test node"}
-          extraClass="bg-secondary"
+
+        <Button
+          leftSection={<IconPlayerPlay size={16} />}
           onClick={test}
+          size="xs"
+        >
+          Test node
+        </Button>
+
+        <SegmentedControl
+          value={outputType}
+          onChange={(val) => setOutputType(val as "text" | "json")}
+          data={[
+            { value: "text", label: "Text" },
+            { value: "json", label: "JSON" },
+          ]}
+          size="xs"
         />
-        <SliderInput
-          name="output-type"
-          labelFalse="JSON"
-          labelTrue="Text"
-          checked={outputType === "text"}
-          onChange={(checked) => setOutputType(checked ? "text" : "json")}
-        />
-        {outputType === "json" && <textarea className="textarea" />}
+        {outputType === "json" && (
+          <Textarea placeholder="JSON schema" autosize minRows={2} />
+        )}
       </div>
     </NodeTemplate>
   );
