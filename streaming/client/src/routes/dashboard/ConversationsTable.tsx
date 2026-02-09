@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { getTags } from "../../modules/apiCalls";
 import "./ConversationsTable.css";
-import { AlertTriangle } from "lucide-react";
+import { IconAlertTriangle } from "@tabler/icons-react";
 
 interface ConversationsTableProps {
   conversations: TConversation[];
@@ -328,7 +328,7 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({ conversa
                   <td className="px-2 py-1.5 md:px-4 md:py-3">
                     {(conv.alerts_count || 0) > 0 ? (
                       <div style={{ display: "flex", alignItems: "center", gap: "4px" }} className="md:gap-1.5">
-                        <AlertTriangle size={12} className="md:w-4 md:h-4" />
+                        <IconAlertTriangle size={12} />
                         <span className="text-xs md:text-sm">{conv.alerts_count}</span>
                       </div>
                     ) : (
