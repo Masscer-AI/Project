@@ -211,6 +211,18 @@ def analyze_single_conversation(conversation_uuid: str):
         alert_rules_list = list(alert_rules)
         logger.info(f"Found {len(alert_rules_list)} active alert rules for organization {organization.name}")
         
+        # Skip analysis if there are no alert rules and no tags configured
+        if not alert_rules_list and not enabled_tags_list:
+            logger.info(f"Organization {organization.name} has no alert rules or tags, skipping analysis for conversation {conversation_uuid}")
+            conversation.pending_analysis = False
+            conversation.save(update_fields=['pending_analysis'])
+            return {
+                "conversation_uuid": conversation_uuid,
+                "message_count": message_count,
+                "status": "skipped",
+                "reason": "No alert rules or tags configured"
+            }
+        
         # Obtener alertas previamente levantadas para esta conversación (para evitar duplicados)
         existing_alerts = ConversationAlert.objects.filter(
             conversation=conversation

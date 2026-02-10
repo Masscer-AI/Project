@@ -16,6 +16,7 @@ import {
 import { ImageGenerator } from "../ImageGenerator/ImageGenerator";
 import { createPortal } from "react-dom";
 import { AudioGenerator } from "../AudioGenerator/AudioGenerator";
+import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
 import "./Message.css";
 
 import {
@@ -118,6 +119,8 @@ export const Message = memo(
     const [isGeneratingSpeech, setIsGeneratingSpeech] = useState(false);
 
     const { t } = useTranslation();
+    const isChatSpeechEnabled = useIsFeatureEnabled("chat-generate-speech");
+    const isImageToolsEnabled = useIsFeatureEnabled("image-tools");
 
     const { agents, reactionTemplates, socket, userPreferences } = useStore(
       (s) => ({
@@ -564,17 +567,19 @@ export const Message = memo(
                 </ActionIcon>
               </Menu.Target>
               <Menu.Dropdown>
-                <Menu.Item
-                  leftSection={<IconVolume size={16} />}
-                  onClick={() =>
-                    setMessageState((prev) => ({
-                      ...prev,
-                      audioGeneratorOpened: true,
-                    }))
-                  }
-                >
-                  {t("generate-speech")}
-                </Menu.Item>
+                {isChatSpeechEnabled && (
+                  <Menu.Item
+                    leftSection={<IconVolume size={16} />}
+                    onClick={() =>
+                      setMessageState((prev) => ({
+                        ...prev,
+                        audioGeneratorOpened: true,
+                      }))
+                    }
+                  >
+                    {t("generate-speech")}
+                  </Menu.Item>
+                )}
                 <Menu.Item
                   leftSection={
                     isEditing ? (
@@ -587,17 +592,19 @@ export const Message = memo(
                 >
                   {isEditing ? t("finish") : t("edit")}
                 </Menu.Item>
-                <Menu.Item
-                  leftSection={<IconPhoto size={16} />}
-                  onClick={() =>
-                    setMessageState((prev) => ({
-                      ...prev,
-                      imageGeneratorOpened: true,
-                    }))
-                  }
-                >
-                  {t("generate-image")}
-                </Menu.Item>
+                {isImageToolsEnabled && (
+                  <Menu.Item
+                    leftSection={<IconPhoto size={16} />}
+                    onClick={() =>
+                      setMessageState((prev) => ({
+                        ...prev,
+                        imageGeneratorOpened: true,
+                      }))
+                    }
+                  >
+                    {t("generate-image")}
+                  </Menu.Item>
+                )}
                 <Menu.Divider />
                 <Menu.Item
                   color="red"
@@ -794,6 +801,8 @@ const MessageEditor = ({
     currentText: text,
   });
   const { t } = useTranslation();
+  const isChatSpeechEnabled = useIsFeatureEnabled("chat-generate-speech");
+  const isImageToolsEnabled = useIsFeatureEnabled("image-tools");
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -862,6 +871,7 @@ const MessageEditor = ({
         onTouchEnd={handleTouchEnd}
       />
       {editionOptions.isVisible &&
+        (isImageToolsEnabled || isChatSpeechEnabled) &&
         createPortal(
           <div
             style={{
@@ -889,20 +899,23 @@ const MessageEditor = ({
               />
             )}
             <Stack gap="xs">
-              <Button
-                variant="default"
-                size="xs"
-                leftSection={<IconPhoto size={16} />}
-                onClick={generateImageWithThisText}
-                fullWidth
-              >
-                {t("generate-image")}
-              </Button>
-              <AudioGenerator
-                text={editionOptions.currentText}
-                messageId={messageId?.toString() ?? ""}
-              />
-              <ModifyTextModal text={editionOptions.currentText} />
+              {isImageToolsEnabled && (
+                <Button
+                  variant="default"
+                  size="xs"
+                  leftSection={<IconPhoto size={16} />}
+                  onClick={generateImageWithThisText}
+                  fullWidth
+                >
+                  {t("generate-image")}
+                </Button>
+              )}
+              {isChatSpeechEnabled && (
+                <AudioGenerator
+                  text={editionOptions.currentText}
+                  messageId={messageId?.toString() ?? ""}
+                />
+              )}
             </Stack>
           </div>,
           document.body
@@ -911,45 +924,3 @@ const MessageEditor = ({
   );
 };
 
-// ─── ModifyTextModal ──────────────────────────────────────────────────────────
-
-const ModifyTextModal = ({ text }: { text: string }) => {
-  const [isVisible, setIsVisible] = useState(false);
-  const { t } = useTranslation();
-
-  return (
-    <>
-      <Button
-        variant="default"
-        size="xs"
-        leftSection={<IconPencil size={16} />}
-        onClick={() => setIsVisible(true)}
-        fullWidth
-      >
-        {t("modify-text")}
-      </Button>
-      <Modal
-        opened={isVisible}
-        onClose={() => setIsVisible(false)}
-        title={t("modify-message")}
-        centered
-      >
-        <Stack gap="md">
-          <Title order={5}>{t("selected-text")}</Title>
-          <Text size="sm" c="dimmed">
-            {text}
-          </Text>
-          <Group gap="xs">
-            <Button
-              variant="default"
-              size="xs"
-              leftSection={<IconPlus size={16} />}
-            >
-              Extend
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
-    </>
-  );
-};

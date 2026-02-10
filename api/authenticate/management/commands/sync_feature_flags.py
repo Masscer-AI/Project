@@ -29,8 +29,11 @@ class Command(BaseCommand):
 
         created = []
         existing = []
+        updated = []
 
-        for name in KNOWN_FEATURE_FLAGS:
+        for name, meta in KNOWN_FEATURE_FLAGS.items():
+            org_only = meta.get("organization_only", False)
+
             if dry_run:
                 exists = FeatureFlag.objects.filter(name=name).exists()
                 if exists:
@@ -41,12 +44,18 @@ class Command(BaseCommand):
 
             flag, was_created = FeatureFlag.objects.get_or_create(
                 name=name,
-                defaults={},
+                defaults={"organization_only": org_only},
             )
             if was_created:
                 created.append(name)
             else:
-                existing.append(name)
+                # Update organization_only if it changed in the registry
+                if flag.organization_only != org_only:
+                    flag.organization_only = org_only
+                    flag.save(update_fields=["organization_only"])
+                    updated.append(name)
+                else:
+                    existing.append(name)
 
         if dry_run:
             if created:
@@ -66,17 +75,20 @@ class Command(BaseCommand):
         for n in created:
             if verbosity >= 1:
                 self.stdout.write(self.style.SUCCESS(f'Created feature flag: "{n}"'))
+        for n in updated:
+            if verbosity >= 1:
+                self.stdout.write(self.style.WARNING(f'Updated feature flag: "{n}"'))
         for n in existing:
             if verbosity >= 2:
                 self.stdout.write(f'Already exists: "{n}"')
 
-        if verbosity >= 1 and created:
+        if verbosity >= 1 and (created or updated):
             self.stdout.write(
                 self.style.SUCCESS(
-                    f"Done. {len(created)} created, {len(existing)} already existed."
+                    f"Done. {len(created)} created, {len(updated)} updated, {len(existing)} unchanged."
                 )
             )
-        elif verbosity >= 1 and not created:
+        elif verbosity >= 1 and not created and not updated:
             self.stdout.write(
-                self.style.SUCCESS("All known feature flags already exist.")
+                self.style.SUCCESS("All known feature flags already exist and are up to date.")
             )

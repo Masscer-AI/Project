@@ -14,6 +14,7 @@ from .serializers import TranscriptionJobSerializer, VideoSerializer
 import os
 from django.core.files import File
 from api.authenticate.decorators.token_required import token_required
+from api.authenticate.decorators.feature_flag_required import feature_flag_required
 from .actions import fetch_videos, document_convertion
 from api.utils.openai_functions import generate_image
 from api.messaging.models import Message
@@ -38,6 +39,7 @@ logger = logging.getLogger(__name__)
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
+@method_decorator(feature_flag_required("audio-tools"), name="dispatch")
 class Transcriptions(View):
 
     def get(self, request):
@@ -126,6 +128,7 @@ class Transcriptions(View):
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
+@method_decorator(feature_flag_required("video-tools"), name="dispatch")
 class ImageToVideo(View):
     def get(self, request):
         user = request.user
@@ -210,6 +213,7 @@ LIST_OF_FLUX_MODELS = [
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
+@method_decorator(feature_flag_required("image-tools"), name="dispatch")
 class ImageGenerationView(View):
     def post(self, request):
         try:
@@ -325,6 +329,7 @@ class DownloadFile(View):
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
+@method_decorator(feature_flag_required("image-tools"), name="dispatch")
 class ImageEditorView(View):
     def post(self, request):
         try:
@@ -433,6 +438,7 @@ def fetch_url_content(url: str) -> str | None:
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
+@method_decorator(feature_flag_required("web-scraping"), name="dispatch")
 class WebsiteFetcherView(View):
     def post(self, request):
         data = json.loads(request.body)
@@ -447,6 +453,7 @@ class WebsiteFetcherView(View):
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
+@method_decorator(feature_flag_required("video-tools"), name="dispatch")
 class ImageToVideoView(View):
     def post(self, request):
         data = json.loads(request.body)
@@ -472,6 +479,7 @@ class ImageToVideoView(View):
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
+@method_decorator(feature_flag_required("audio-tools"), name="dispatch")
 class AudioGeneratorView(View):
     def post(self, request):
         data = json.loads(request.body)

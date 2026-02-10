@@ -281,6 +281,21 @@ class RoleCreateUpdateSerializer(serializers.ModelSerializer):
             raise ValidationError("A role with this name already exists in this organization.")
         return value
 
+    def validate_capabilities(self, value):
+        if not value:
+            return value
+        org_only_flags = set(
+            FeatureFlag.objects.filter(
+                name__in=value, organization_only=True
+            ).values_list("name", flat=True)
+        )
+        if org_only_flags:
+            names = ", ".join(sorted(org_only_flags))
+            raise ValidationError(
+                f"The following flags are organization-only and cannot be used as role capabilities: {names}"
+            )
+        return value
+
     def create(self, validated_data):
         org = self.context.get("organization")
         if not org:

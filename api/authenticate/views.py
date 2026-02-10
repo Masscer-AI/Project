@@ -696,8 +696,10 @@ class FeatureFlagNamesView(View):
     """List feature flag names (for role capabilities)."""
 
     def get(self, request):
-        names = list(FeatureFlag.objects.values_list("name", flat=True).order_by("name"))
-        return JsonResponse(names, safe=False)
+        flags = list(
+            FeatureFlag.objects.order_by("name").values("name", "organization_only")
+        )
+        return JsonResponse(flags, safe=False)
 
 
 @method_decorator(csrf_exempt, name="dispatch")

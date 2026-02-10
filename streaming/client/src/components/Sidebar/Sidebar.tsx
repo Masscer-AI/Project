@@ -58,6 +58,9 @@ export const Sidebar: React.FC = () => {
   const isConversationsDashboardEnabled = useIsFeatureEnabled(
     "conversations-dashboard"
   );
+  const isChatWidgetsEnabled = useIsFeatureEnabled("chat-widgets-management");
+  const isTrainAgentsEnabled = useIsFeatureEnabled("train-agents");
+  const isAudioToolsEnabled = useIsFeatureEnabled("audio-tools");
   const { toggleSidebar, setConversation, user, setOpenedModals, logout, userTags } =
     useStore((state) => ({
       toggleSidebar: state.toggleSidebar,
@@ -395,14 +398,16 @@ export const Sidebar: React.FC = () => {
 
           {!historyConfig.isOpen && (
             <Stack gap="xs">
-              <Button
-                variant="default"
-                leftSection={<IconWaveSine size={20} />}
-                onClick={() => goTo("/generation-tools")}
-                fullWidth
-              >
-                {t("audio-tools")}
-              </Button>
+              {isAudioToolsEnabled && (
+                <Button
+                  variant="default"
+                  leftSection={<IconWaveSine size={20} />}
+                  onClick={() => goTo("/generation-tools")}
+                  fullWidth
+                >
+                  {t("audio-tools")}
+                </Button>
+              )}
               {/* WhatsApp — disabled until feature is complete
               <Button
                 variant="default"
@@ -417,22 +422,26 @@ export const Sidebar: React.FC = () => {
                 {t("whatsapp")}
               </Button>
               */}
-              <Button
-                variant="default"
-                leftSection={<IconDatabase size={20} />}
-                onClick={() => goTo("/knowledge-base")}
-                fullWidth
-              >
-                {t("knowledge-base")}
-              </Button>
-              <Button
-                variant="default"
-                leftSection={<IconPuzzle size={20} />}
-                onClick={() => goTo("/chat-widgets")}
-                fullWidth
-              >
-                {t("chat-widgets")}
-              </Button>
+              {isTrainAgentsEnabled && (
+                <Button
+                  variant="default"
+                  leftSection={<IconDatabase size={20} />}
+                  onClick={() => goTo("/knowledge-base")}
+                  fullWidth
+                >
+                  {t("knowledge-base")}
+                </Button>
+              )}
+              {isChatWidgetsEnabled && (
+                <Button
+                  variant="default"
+                  leftSection={<IconPuzzle size={20} />}
+                  onClick={() => goTo("/chat-widgets")}
+                  fullWidth
+                >
+                  {t("chat-widgets")}
+                </Button>
+              )}
               {canManageOrg && (
                 <Button
                   variant="default"
@@ -505,6 +514,7 @@ const ConversationComponent = ({
   }));
 
   const { t } = useTranslation();
+  const isTrainAgentsEnabled = useIsFeatureEnabled("train-agents");
   const [showTrainingModal, setShowTrainingModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -581,12 +591,14 @@ const ConversationComponent = ({
           >
             {t("delete")}
           </Menu.Item>
-          <Menu.Item
-            leftSection={<IconBarbell size={16} />}
-            onClick={() => setShowTrainingModal(true)}
-          >
-            {t("train")}
-          </Menu.Item>
+          {isTrainAgentsEnabled && (
+            <Menu.Item
+              leftSection={<IconBarbell size={16} />}
+              onClick={() => setShowTrainingModal(true)}
+            >
+              {t("train")}
+            </Menu.Item>
+          )}
           <Menu.Item
             leftSection={<IconShare size={16} />}
             onClick={() => setShowShareModal(true)}

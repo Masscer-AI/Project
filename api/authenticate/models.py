@@ -313,6 +313,10 @@ class UserProfile(models.Model):
 
 class FeatureFlag(TimeStampedModel):
     name = models.CharField(max_length=255, unique=True)
+    organization_only = models.BooleanField(
+        default=False,
+        help_text="If True, this flag can only be assigned at the organization level (not to users or as role capabilities).",
+    )
 
     def __str__(self):
         return self.name
@@ -358,6 +362,16 @@ class FeatureFlagAssignment(TimeStampedModel):
             raise ValidationError(
                 "Cannot specify both organization and user. Choose either organization-level or user-level flag."
             )
+
+        # Organization-only flags cannot be assigned to individual users
+        if self.user_id and self.feature_flag_id:
+            try:
+                if self.feature_flag.organization_only:
+                    raise ValidationError(
+                        f"The feature flag '{self.feature_flag.name}' is organization-only and cannot be assigned to individual users."
+                    )
+            except FeatureFlag.DoesNotExist:
+                pass
 
     def save(self, *args, **kwargs):
         self.full_clean()

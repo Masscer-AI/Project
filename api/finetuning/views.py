@@ -14,12 +14,32 @@ from django.http import JsonResponse
 from rest_framework.permissions import AllowAny
 from django.views import View
 from .actions import create_training_generator, get_user_completions
+from api.authenticate.models import Organization
+from api.authenticate.services import FeatureFlagService
+from django.core.exceptions import PermissionDenied
+
+
+def _check_train_agents_permission(user):
+    """Check if user has the train-agents feature flag."""
+    if not user:
+        raise PermissionDenied("User has no organization.")
+    owned_org = Organization.objects.filter(owner=user).first()
+    organization = owned_org
+    if not organization and hasattr(user, 'profile') and user.profile.organization:
+        organization = user.profile.organization
+    if not organization:
+        raise PermissionDenied("User has no organization.")
+    if not FeatureFlagService.is_feature_enabled(
+        "train-agents", organization=organization, user=user
+    ):
+        raise PermissionDenied("You are not allowed to generate training data. The 'train-agents' feature flag is not enabled for your organization.")
 
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class GenerateTrainingDataView(View):
     def post(self, request):
+        _check_train_agents_permission(request.user)
         data = json.loads(request.body)
 
         create_training_generator(data, request.user)

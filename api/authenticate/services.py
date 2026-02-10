@@ -231,6 +231,28 @@ class FeatureFlagService:
             return {}
 
     @classmethod
+    def ensure_feature_enabled(cls, feature_flag_name: str, organization: Organization) -> bool:
+        """
+        Ensure a feature flag is enabled for an organization.
+        Only creates the assignment if one doesn't already exist (respects intentional disables).
+
+        Returns:
+            True if a new assignment was created, False if one already existed.
+        """
+        feature_flag = cls.get_or_create_feature_flag(feature_flag_name)
+        _, created = FeatureFlagAssignment.objects.get_or_create(
+            organization=organization,
+            feature_flag=feature_flag,
+            user=None,
+            defaults={"enabled": True},
+        )
+        if created:
+            logger.info(
+                f"Auto-enabled feature flag '{feature_flag_name}' for organization '{organization.name}'"
+            )
+        return created
+
+    @classmethod
     def remove_feature_flag_assignment(cls, feature_flag_name: str, organization: Organization) -> bool:
         """
         Remove a feature flag assignment for an organization.

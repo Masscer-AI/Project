@@ -35,6 +35,7 @@ import OrganizationPage from "./routes/organization/page.tsx";
 import KnowledgeBasePage from "./routes/knowledge-base/page.tsx";
 import GenerationToolsPage from "./routes/generation-tools/page.tsx";
 import ChatWidgetsPage from "./routes/chat-widgets/page.tsx";
+import { ProtectedRoute } from "./components/ProtectedRoute/ProtectedRoute.tsx";
 import SettingsPage from "./routes/settings/page.tsx";
 
 const router = createBrowserRouter([
@@ -102,15 +103,27 @@ const router = createBrowserRouter([
       },
       {
         path: "/knowledge-base",
-        element: <KnowledgeBasePage />,
+        element: (
+          <ProtectedRoute featureFlag="train-agents">
+            <KnowledgeBasePage />
+          </ProtectedRoute>
+        ),
       },
       {
         path: "/generation-tools",
-        element: <GenerationToolsPage />,
+        element: (
+          <ProtectedRoute featureFlag="audio-tools">
+            <GenerationToolsPage />
+          </ProtectedRoute>
+        ),
       },
       {
         path: "/chat-widgets",
-        element: <ChatWidgetsPage />,
+        element: (
+          <ProtectedRoute featureFlag="chat-widgets-management">
+            <ChatWidgetsPage />
+          </ProtectedRoute>
+        ),
       },
       {
         path: "/settings",

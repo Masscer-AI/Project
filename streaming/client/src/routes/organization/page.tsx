@@ -67,7 +67,9 @@ export default function OrganizationPage() {
   const [orgs, setOrgs] = useState<TOrganization[]>([]);
   const [members, setMembers] = useState<TOrganizationMember[]>([]);
   const [roles, setRoles] = useState<TOrganizationRole[]>([]);
-  const [featureFlagNames, setFeatureFlagNames] = useState<string[]>([]);
+  const [featureFlagNames, setFeatureFlagNames] = useState<
+    { name: string; organization_only: boolean }[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [loadingRoles, setLoadingRoles] = useState(false);
@@ -838,28 +840,31 @@ export default function OrganizationPage() {
             <Text size="sm" c="dimmed">
               {t("capabilities")}
             </Text>
-            {featureFlagNames.length === 0 ? (
+            {featureFlagNames.filter((f) => !f.organization_only).length ===
+            0 ? (
               <Text size="sm" c="dimmed">
                 {t("no-capabilities-available")}
               </Text>
             ) : (
               <Stack gap="xs">
-                {featureFlagNames.map((flag) => (
-                  <Checkbox
-                    key={flag}
-                    label={titlelify(flag)}
-                    checked={roleForm.capabilities.includes(flag)}
-                    onChange={(e) => {
-                      const checked = e.currentTarget.checked;
-                      setRoleForm((f) => ({
-                        ...f,
-                        capabilities: checked
-                          ? [...f.capabilities, flag]
-                          : f.capabilities.filter((c) => c !== flag),
-                      }));
-                    }}
-                  />
-                ))}
+                {featureFlagNames
+                  .filter((f) => !f.organization_only)
+                  .map((flag) => (
+                    <Checkbox
+                      key={flag.name}
+                      label={titlelify(flag.name)}
+                      checked={roleForm.capabilities.includes(flag.name)}
+                      onChange={(e) => {
+                        const checked = e.currentTarget.checked;
+                        setRoleForm((f) => ({
+                          ...f,
+                          capabilities: checked
+                            ? [...f.capabilities, flag.name]
+                            : f.capabilities.filter((c) => c !== flag.name),
+                        }));
+                      }}
+                    />
+                  ))}
               </Stack>
             )}
           </Stack>

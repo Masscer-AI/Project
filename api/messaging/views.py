@@ -331,6 +331,26 @@ class ChatWidgetAuthTokenView(View):
 class ChatWidgetView(View):
     """View para gestionar Chat Widgets (CRUD)."""
     
+    def _get_user_organization(self, user):
+        """Get user's organization (owner or member)."""
+        if not user:
+            return None
+        owned_org = Organization.objects.filter(owner=user).first()
+        if owned_org:
+            return owned_org
+        if hasattr(user, 'profile') and user.profile.organization:
+            return user.profile.organization
+        return None
+
+    def _check_permission(self, user, organization):
+        """Check if user has permission to manage chat widgets."""
+        if not organization:
+            raise PermissionDenied("User has no organization.")
+        if not FeatureFlagService.is_feature_enabled(
+            "chat-widgets-management", organization=organization, user=user
+        ):
+            raise PermissionDenied("You are not allowed to manage chat widgets. The 'chat-widgets-management' feature flag is not enabled for your organization.")
+
     def _get_user_agents(self, user):
         """Get agents that belong to the user or their organization."""
         from api.ai_layers.models import Agent
@@ -347,6 +367,8 @@ class ChatWidgetView(View):
     def get(self, request, *args, **kwargs):
         """Get all widgets for user or a single widget by ID."""
         user = request.user
+        organization = self._get_user_organization(user)
+        self._check_permission(user, organization)
         widget_id = kwargs.get("id")
         
         if widget_id:
@@ -368,6 +390,8 @@ class ChatWidgetView(View):
     def post(self, request, *args, **kwargs):
         """Create a new widget."""
         user = request.user
+        organization = self._get_user_organization(user)
+        self._check_permission(user, organization)
         
         try:
             data = json.loads(request.body)
@@ -399,6 +423,8 @@ class ChatWidgetView(View):
     def put(self, request, *args, **kwargs):
         """Update an existing widget."""
         user = request.user
+        organization = self._get_user_organization(user)
+        self._check_permission(user, organization)
         widget_id = kwargs.get("id")
         
         if not widget_id:
@@ -443,6 +469,8 @@ class ChatWidgetView(View):
     def delete(self, request, *args, **kwargs):
         """Delete a widget."""
         user = request.user
+        organization = self._get_user_organization(user)
+        self._check_permission(user, organization)
         widget_id = kwargs.get("id")
         
         if not widget_id:
@@ -663,6 +691,8 @@ class ConversationAlertRuleView(View):
         serializer = ConversationAlertRuleSerializer(data=data)
         if serializer.is_valid():
             serializer.save(organization=organization, created_by=user)
+            # Auto-enable conversation-analysis when the first alert rule is created
+            FeatureFlagService.ensure_feature_enabled("conversation-analysis", organization)
             return JsonResponse(serializer.data, status=201)
         else:
             return JsonResponse(
@@ -825,6 +855,8 @@ class TagView(View):
         serializer = TagSerializer(data=data)
         if serializer.is_valid():
             serializer.save(organization=organization)
+            # Auto-enable conversation-analysis when the first tag is created
+            FeatureFlagService.ensure_feature_enabled("conversation-analysis", organization)
             return JsonResponse(serializer.data, status=201)
         else:
             return JsonResponse(

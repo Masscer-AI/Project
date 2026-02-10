@@ -917,8 +917,13 @@ export const removeRoleAssignment = async (
   );
 };
 
+export type TFeatureFlagInfo = {
+  name: string;
+  organization_only: boolean;
+};
+
 export const getFeatureFlagNames = async () => {
-  return makeAuthenticatedRequest<string[]>("GET", "/v1/auth/feature-flags/names/");
+  return makeAuthenticatedRequest<TFeatureFlagInfo[]>("GET", "/v1/auth/feature-flags/names/");
 };
 
 export const updateOrganizationCredentials = async (

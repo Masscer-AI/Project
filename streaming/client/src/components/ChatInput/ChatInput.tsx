@@ -10,6 +10,7 @@ import { SpeechHandler } from "../SpeechHandler/SpeechHandler";
 import { WebsiteFetcher } from "../WebsiteFetcher/WebsiteFetcher";
 import { TAttachment, TDocument } from "../../types";
 import { SYSTEM_PLUGINS } from "../../modules/plugins";
+import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
 import "./ChatInput.css";
 
 import {
@@ -95,6 +96,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   }));
 
   const [textPrompt, setTextPrompt] = useState(initialInput);
+  const isTranscribeEnabled = useIsFeatureEnabled("transcribe-on-chat");
 
   useEffect(() => {
     setTextPrompt(initialInput);
@@ -210,7 +212,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               <ToolsMenu />
             </div>
             <div className="flex gap-2 items-center flex-shrink-0">
-              <SpeechHandler onTranscript={handleAudioTranscript} />
+              {isTranscribeEnabled && (
+                <SpeechHandler onTranscript={handleAudioTranscript} />
+              )}
               <ActionIcon
                 onClick={asyncSendMessage}
                 variant="subtle"
@@ -236,6 +240,9 @@ const PlusMenu = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const addAttachment = useStore((s) => s.addAttachment);
   const attachments = useStore((s) => s.chatState.attachments);
+  const isAddFilesEnabled = useIsFeatureEnabled("add-files-to-chat");
+  const isTrainAgentsEnabled = useIsFeatureEnabled("train-agents");
+  const isWebScrapingEnabled = useIsFeatureEnabled("web-scraping");
 
   const [ragConfigOpened, { open: openRagConfig, close: closeRagConfig }] =
     useDisclosure(false);
@@ -275,6 +282,8 @@ const PlusMenu = () => {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  const hasAnyPlusOption = isAddFilesEnabled || isTrainAgentsEnabled || isWebScrapingEnabled;
+
   return (
     <>
       <input
@@ -286,6 +295,7 @@ const PlusMenu = () => {
         accept=".png,.jpeg,.jpg,.gif,.webp,.pdf,.txt,.html,.doc,.docx"
       />
 
+      {hasAnyPlusOption && (
       <Menu shadow="md" width={220} position="top-start" withArrow>
         <Menu.Target>
           <Indicator
@@ -300,26 +310,33 @@ const PlusMenu = () => {
           </Indicator>
         </Menu.Target>
         <Menu.Dropdown>
-          <Menu.Item
-            leftSection={<IconFilePlus size={18} />}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            {t("add-files")}
-          </Menu.Item>
-          <Menu.Item
-            leftSection={<IconFileText size={18} />}
-            onClick={openRagConfig}
-          >
-            {t("add-existing-documents")}
-          </Menu.Item>
-          <Menu.Item
-            leftSection={<IconLink size={18} />}
-            onClick={() => setWebsiteFetcherOpen(true)}
-          >
-            {t("fetch-urls") || "Fetch URLs"}
-          </Menu.Item>
+          {isAddFilesEnabled && (
+            <Menu.Item
+              leftSection={<IconFilePlus size={18} />}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {t("add-files")}
+            </Menu.Item>
+          )}
+          {isTrainAgentsEnabled && (
+            <Menu.Item
+              leftSection={<IconFileText size={18} />}
+              onClick={openRagConfig}
+            >
+              {t("add-existing-documents")}
+            </Menu.Item>
+          )}
+          {isWebScrapingEnabled && (
+            <Menu.Item
+              leftSection={<IconLink size={18} />}
+              onClick={() => setWebsiteFetcherOpen(true)}
+            >
+              {t("fetch-urls") || "Fetch URLs"}
+            </Menu.Item>
+          )}
         </Menu.Dropdown>
       </Menu>
+      )}
 
       <RagConfig opened={ragConfigOpened} onClose={closeRagConfig} />
       <WebsiteFetcher
@@ -334,6 +351,8 @@ const PlusMenu = () => {
 
 const ToolsMenu = () => {
   const { t } = useTranslation();
+  const isTrainAgentsEnabled = useIsFeatureEnabled("train-agents");
+  const isWebScrapingEnabled = useIsFeatureEnabled("web-scraping");
   const {
     chatState,
     toggleUseRag,
@@ -380,36 +399,40 @@ const ToolsMenu = () => {
           </Indicator>
         </Menu.Target>
         <Menu.Dropdown>
-          <Menu.Item
-            leftSection={<IconFileText size={18} />}
-            rightSection={
-              <Switch
-                checked={chatState.useRag}
-                onChange={() => toggleUseRag()}
-                color="violet"
-                size="xs"
-                styles={{ track: { cursor: "pointer" } }}
-              />
-            }
-            onClick={() => toggleUseRag()}
-          >
-            RAG
-          </Menu.Item>
-          <Menu.Item
-            leftSection={<IconGlobe size={18} />}
-            rightSection={
-              <Switch
-                checked={chatState.webSearch}
-                onChange={() => toggleWebSearch()}
-                color="violet"
-                size="xs"
-                styles={{ track: { cursor: "pointer" } }}
-              />
-            }
-            onClick={() => toggleWebSearch()}
-          >
-            {t("auto-search") || "Web Search"}
-          </Menu.Item>
+          {isTrainAgentsEnabled && (
+            <Menu.Item
+              leftSection={<IconFileText size={18} />}
+              rightSection={
+                <Switch
+                  checked={chatState.useRag}
+                  onChange={() => toggleUseRag()}
+                  color="violet"
+                  size="xs"
+                  styles={{ track: { cursor: "pointer" } }}
+                />
+              }
+              onClick={() => toggleUseRag()}
+            >
+              RAG
+            </Menu.Item>
+          )}
+          {isWebScrapingEnabled && (
+            <Menu.Item
+              leftSection={<IconGlobe size={18} />}
+              rightSection={
+                <Switch
+                  checked={chatState.webSearch}
+                  onChange={() => toggleWebSearch()}
+                  color="violet"
+                  size="xs"
+                  styles={{ track: { cursor: "pointer" } }}
+                />
+              }
+              onClick={() => toggleWebSearch()}
+            >
+              {t("auto-search") || "Web Search"}
+            </Menu.Item>
+          )}
           <Menu.Item
             leftSection={<IconPencil size={18} />}
             rightSection={
@@ -678,6 +701,7 @@ const ConversationConfigModal = ({
     setPreferences: s.setPreferences,
   }));
   const { t } = useTranslation();
+  const isChatSpeechEnabled = useIsFeatureEnabled("chat-generate-speech");
 
   return (
     <Modal
@@ -707,23 +731,27 @@ const ConversationConfigModal = ({
           />
         </div>
 
-        <Divider />
+        {isChatSpeechEnabled && (
+          <>
+            <Divider />
 
-        <Group justify="space-between">
-          <div>
-            <Text fw={500}>{t("auto-play")}</Text>
-            <Text size="sm" c="dimmed">
-              {t("auto-play-description")}
-            </Text>
-          </div>
-          <Switch
-            checked={userPreferences.autoplay}
-            onChange={(e) =>
-              setPreferences({ autoplay: e.currentTarget.checked })
-            }
-            color="violet"
-          />
-        </Group>
+            <Group justify="space-between">
+              <div>
+                <Text fw={500}>{t("auto-play")}</Text>
+                <Text size="sm" c="dimmed">
+                  {t("auto-play-description")}
+                </Text>
+              </div>
+              <Switch
+                checked={userPreferences.autoplay}
+                onChange={(e) =>
+                  setPreferences({ autoplay: e.currentTarget.checked })
+                }
+                color="violet"
+              />
+            </Group>
+          </>
+        )}
 
         <Divider />
 

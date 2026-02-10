@@ -16,9 +16,35 @@ from rest_framework.parsers import MultiPartParser
 from .actions import read_file_content
 from api.messaging.models import Message
 from api.utils.color_printer import printer
+from api.authenticate.models import Organization
+from api.authenticate.services import FeatureFlagService
+from django.core.exceptions import PermissionDenied
 from .actions import querify_context
 
 logger = logging.getLogger(__name__)
+
+
+def _get_user_organization(user):
+    """Get user's organization (owner or member)."""
+    if not user:
+        return None
+    owned_org = Organization.objects.filter(owner=user).first()
+    if owned_org:
+        return owned_org
+    if hasattr(user, 'profile') and user.profile.organization:
+        return user.profile.organization
+    return None
+
+
+def _check_train_agents_permission(user):
+    """Check if user has the train-agents feature flag."""
+    organization = _get_user_organization(user)
+    if not organization:
+        raise PermissionDenied("User has no organization.")
+    if not FeatureFlagService.is_feature_enabled(
+        "train-agents", organization=organization, user=user
+    ):
+        raise PermissionDenied("You are not allowed to manage the knowledge base. The 'train-agents' feature flag is not enabled for your organization.")
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -28,11 +54,13 @@ class DocumentView(View):
 
     def get(self, request):
         user = request.user
+        _check_train_agents_permission(user)
         documents = Document.objects.filter(collection__user=user)
         serializer = DocumentSerializer(documents, many=True)
         return JsonResponse(serializer.data, safe=False)
 
     def post(self, request):
+        _check_train_agents_permission(request.user)
         data = request.POST.copy()
         data.pop("agent_slug", None)
 
@@ -85,6 +113,7 @@ class DocumentView(View):
         return JsonResponse(serializer.errors, status=400)
 
     def put(self, request, document_id):
+        _check_train_agents_permission(request.user)
         data = json.loads(request.body)
         action = data.get("action", None)
 
@@ -99,6 +128,7 @@ class DocumentView(View):
         return JsonResponse(DocumentSerializer(document).data, status=200)
 
     def delete(self, request, document_id):
+        _check_train_agents_permission(request.user)
         try:
             document = Document.objects.get(id=document_id)
             document.remove_from_rag()

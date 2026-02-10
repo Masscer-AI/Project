@@ -33,35 +33,39 @@ def generate_conversation_title(conversation_id: str):
 
     Return ONLY the new conversation title with the emoji at the beginning. Both are mandatory, emoji + text. But up to 50 characters are allowed.
     """
-    
-    c = Conversation.objects.get(id=conversation_id)
-    
+
+    try:
+        c = Conversation.objects.get(id=conversation_id)
+    except Conversation.DoesNotExist:
+        return False
+
     # Obtener el agente usado en la conversación
     agent = None
     agent_slug = None
-    
+
     # Buscar el primer mensaje assistant para obtener el agente
     first_assistant_message = c.messages.filter(type="assistant").first()
     if first_assistant_message:
         # Intentar obtener el agent_slug de versions
         if first_assistant_message.versions and len(first_assistant_message.versions) > 0:
             agent_slug = first_assistant_message.versions[0].get("agent_slug")
-        
+
         # Si no está en versions, intentar en agents
         if not agent_slug and first_assistant_message.agents:
             if isinstance(first_assistant_message.agents, list) and len(first_assistant_message.agents) > 0:
                 agent_slug = first_assistant_message.agents[0].get("slug")
-    
+
     # Si encontramos un agent_slug, obtener el agente
     if agent_slug:
         try:
             from api.ai_layers.models import Agent
             agent = Agent.objects.filter(slug=agent_slug).first()
-        except Exception as e:
-            print(f"Error getting agent: {e}")
-    
+        except Exception:
+            pass
+
     # Usar el prompt personalizado del agente si existe, sino el default
     system = agent.conversation_title_prompt if agent and agent.conversation_title_prompt else default_system
+    system += "\n\nIMPORTANT: The title must be at most 50 characters long."
 
     messages = c.messages.order_by("created_at")[:2]
     formatted_messages = []
@@ -74,14 +78,13 @@ def generate_conversation_title(conversation_id: str):
     # Use agent's LLM configuration when available; otherwise default to OpenAI
     provider = (agent.model_provider or "openai").lower() if agent else "openai"
     model_slug = (agent.llm.slug if agent and agent.llm else (agent.model_slug if agent else "gpt-4o-mini")) or "gpt-4o-mini"
-    max_tokens = min(agent.max_tokens or 4000, TITLE_MAX_TOKENS) if agent else TITLE_MAX_TOKENS
 
     if provider == "openai":
         title = create_completion_openai(
             system,
             user_message,
             model=model_slug,
-            max_tokens=max_tokens,
+            max_tokens=TITLE_MAX_TOKENS,
             temperature=agent.temperature if agent else None,
         )
     elif provider == "ollama":
@@ -89,7 +92,7 @@ def generate_conversation_title(conversation_id: str):
             system,
             user_message,
             model=model_slug,
-            max_tokens=max_tokens,
+            max_tokens=TITLE_MAX_TOKENS,
         )
     else:
         # anthropic or unknown: fallback to OpenAI (no sync Anthropic completion in api/)
@@ -97,11 +100,15 @@ def generate_conversation_title(conversation_id: str):
             system,
             user_message,
             model="gpt-4o-mini",
-            max_tokens=max_tokens,
+            max_tokens=TITLE_MAX_TOKENS,
         )
 
     if title and title.startswith('"') and title.endswith('"'):
         title = title[1:-1]
+
+    # Enforce 50 character limit regardless of prompt or LLM response
+    if title and len(title) > 50:
+        title = title[:50].rstrip()
 
     c.title = title
     c.save()
