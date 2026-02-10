@@ -702,6 +702,7 @@ const ConversationConfigModal = ({
   }));
   const { t } = useTranslation();
   const isChatSpeechEnabled = useIsFeatureEnabled("chat-generate-speech");
+  const isMultiAgentEnabled = useIsFeatureEnabled("multi-agent-chat");
 
   return (
     <Modal
@@ -771,43 +772,47 @@ const ConversationConfigModal = ({
           />
         </Group>
 
-        <Divider />
+        {isMultiAgentEnabled && (
+          <>
+            <Divider />
 
-        <Group justify="space-between">
-          <div>
-            <Text fw={500}>{t("multiagentic-modality")}</Text>
-            <Text size="sm" c="dimmed">
-              {userPreferences.multiagentic_modality === "isolated"
-                ? t("isolated-modality-description")
-                : t("grupal-modality-description")}
-            </Text>
-          </div>
-          <Group gap="xs">
-            <IconUsers
-              size={18}
-              opacity={
-                userPreferences.multiagentic_modality !== "isolated" ? 1 : 0.3
-              }
-            />
-            <Switch
-              checked={userPreferences.multiagentic_modality === "isolated"}
-              onChange={(e) => {
-                setPreferences({
-                  multiagentic_modality: e.currentTarget.checked
-                    ? "isolated"
-                    : "grupal",
-                });
-              }}
-              color="violet"
-            />
-            <IconTree
-              size={18}
-              opacity={
-                userPreferences.multiagentic_modality === "isolated" ? 1 : 0.3
-              }
-            />
-          </Group>
-        </Group>
+            <Group justify="space-between">
+              <div>
+                <Text fw={500}>{t("multiagentic-modality")}</Text>
+                <Text size="sm" c="dimmed">
+                  {userPreferences.multiagentic_modality === "isolated"
+                    ? t("isolated-modality-description")
+                    : t("grupal-modality-description")}
+                </Text>
+              </div>
+              <Group gap="xs">
+                <IconUsers
+                  size={18}
+                  opacity={
+                    userPreferences.multiagentic_modality !== "isolated" ? 1 : 0.3
+                  }
+                />
+                <Switch
+                  checked={userPreferences.multiagentic_modality === "isolated"}
+                  onChange={(e) => {
+                    setPreferences({
+                      multiagentic_modality: e.currentTarget.checked
+                        ? "isolated"
+                        : "grupal",
+                    });
+                  }}
+                  color="violet"
+                />
+                <IconTree
+                  size={18}
+                  opacity={
+                    userPreferences.multiagentic_modality === "isolated" ? 1 : 0.3
+                  }
+                />
+              </Group>
+            </Group>
+          </>
+        )}
       </Stack>
     </Modal>
   );

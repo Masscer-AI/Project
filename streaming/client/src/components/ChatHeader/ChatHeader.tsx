@@ -86,6 +86,7 @@ const AgentComponent = ({ agent }: TAgentComponentProps) => {
   const { t } = useTranslation();
   const [configOpened, { open: openConfig, close: closeConfig }] = useDisclosure(false);
   const canManageAgents = useIsFeatureEnabled("organization-agents-admin");
+  const isMultiAgentEnabled = useIsFeatureEnabled("multi-agent-chat");
 
   const onSave = async (updatedAgent: TAgent) => {
     try {
@@ -135,36 +136,49 @@ const AgentComponent = ({ agent }: TAgentComponentProps) => {
       >
         <Group
           gap="sm"
-          onClick={() => toggleAgentSelected(agent.slug)}
+          onClick={() => {
+            if (isMultiAgentEnabled) {
+              toggleAgentSelected(agent.slug);
+            } else {
+              // Single-agent mode: switch to this agent only
+              if (!isSelected) {
+                // Deselect all first, then select this one
+                chatState.selectedAgents.forEach((s) => toggleAgentSelected(s));
+                toggleAgentSelected(agent.slug);
+              }
+            }
+          }}
           wrap="nowrap"
         >
-          <div style={{ position: "relative" }}>
-            <Checkbox
-              checked={isSelected}
-              onChange={() => {}}
-              color="violet"
-              size="md"
-              styles={{
-                input: { cursor: "pointer" },
-              }}
-            />
-            {isSelected && (
-              <Badge
-                size="xs"
-                circle
+          {isMultiAgentEnabled && (
+            <div style={{ position: "relative" }}>
+              <Checkbox
+                checked={isSelected}
+                onChange={() => {}}
                 color="violet"
-                style={{
-                  position: "absolute",
-                  top: -6,
-                  right: -6,
-                  zIndex: 1,
-                  pointerEvents: "none",
+                size="md"
+                styles={{
+                  input: { cursor: "pointer" },
                 }}
-              >
-                {selectionIndex + 1}
-              </Badge>
-            )}
-          </div>
+              />
+              {isSelected && (
+                <Badge
+                  size="xs"
+                  circle
+                  color="violet"
+                  style={{
+                    position: "absolute",
+                    top: -6,
+                    right: -6,
+                    zIndex: 1,
+                    pointerEvents: "none",
+                  }}
+                >
+                  {selectionIndex + 1}
+                </Badge>
+              )}
+            </div>
+          )}
           <Text fw={500} truncate>
             {agent.name}
           </Text>

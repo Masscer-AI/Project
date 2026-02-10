@@ -107,40 +107,31 @@ class AgentAdmin(admin.ModelAdmin):
         qs = super().get_queryset(request)
         user = request.user
         
+        # Superusers can see all agents
+        if user.is_superuser:
+            return qs
+        
         # Get user's organization
         user_org = None
         if hasattr(user, 'profile') and user.profile.organization:
             user_org = user.profile.organization
         
-        # Check if user has the feature flag
-        has_admin_flag = FeatureFlagService.is_feature_enabled(
-            "organization-agents-admin",
-            organization=user_org,
-            user=user
-        )
-        
-        if has_admin_flag:
-            # User with flag can see:
-            # - Their own agents (user=user)
-            # - Organization agents (organization=user_org)
-            if user_org:
-                return qs.filter(Q(user=user) | Q(organization=user_org))
-            else:
-                return qs.filter(user=user)
+        # Non-superusers see their own agents + their organization's agents
+        if user_org:
+            return qs.filter(Q(user=user) | Q(organization=user_org))
         else:
-            # User without flag can only see:
-            # - Their own agents (user=user)
-            # - Organization agents (organization=user_org) - but read-only
-            if user_org:
-                return qs.filter(Q(user=user) | Q(organization=user_org))
-            else:
-                return qs.filter(user=user)
+            return qs.filter(user=user)
     
     def has_change_permission(self, request, obj=None):
         if obj is None:
             return super().has_change_permission(request, obj)
         
         user = request.user
+        
+        # Superusers can edit anything
+        if user.is_superuser:
+            return True
+        
         user_org = None
         if hasattr(user, 'profile') and user.profile.organization:
             user_org = user.profile.organization

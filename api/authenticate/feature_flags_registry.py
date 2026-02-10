@@ -23,4 +23,5 @@ KNOWN_FEATURE_FLAGS = {
     "add-files-to-chat": {"organization_only": False},
     "transcribe-on-chat": {"organization_only": False},
     "chat-generate-speech": {"organization_only": False},
+    "multi-agent-chat": {"organization_only": False},
 }
