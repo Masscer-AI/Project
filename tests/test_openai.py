@@ -18,18 +18,13 @@ def create_completion_openai(
         api_key=api_key,
     )
 
-    completion = client.chat.completions.create(
+    completion = client.responses.create(
         model=model,
-        max_tokens=500,
-        messages=[
-            {
-                "role": "system",
-                "content": system_prompt,
-            },
-            {"role": "user", "content": user_message},
-        ],
+        max_output_tokens=500,
+        instructions=system_prompt,
+        input=user_message,
     )
-    return completion.choices[0].message.content
+    return completion.output_text
 
 
 def create_completion_openai_requests(model="gpt-4o", messages=None, api_key=None):
@@ -62,13 +57,13 @@ def create_completion_openai_requests(model="gpt-4o", messages=None, api_key=Non
         messages = [{"role": "user", "content": "Hello"}]
 
     # API endpoint
-    url = "https://api.openai.com/v1/chat/completions"
+    url = "https://api.openai.com/v1/responses"
 
     # Headers
     headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
 
     # Request payload
-    payload = {"model": model, "messages": messages}
+    payload = {"model": model, "input": messages}
 
     print(payload)
     # Make the API request
@@ -107,5 +102,5 @@ if __name__ == "__main__":
     )
 
     # Extract and print the generated text
-    if "choices" in response:
-        print(response["choices"][0]["message"]["content"])
+    if "output_text" in response:
+        print(response["output_text"])

@@ -695,10 +695,18 @@ class OrganizationRoleAssignmentsView(View):
 class FeatureFlagNamesView(View):
     """List feature flag names (for role capabilities)."""
 
+    CACHE_TIMEOUT = 86400  # 24 hours
+
     def get(self, request):
+        cache_key = "feature_flag_names"
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return JsonResponse(cached_data, safe=False)
+
         flags = list(
             FeatureFlag.objects.order_by("name").values("name", "organization_only")
         )
+        cache.set(cache_key, flags, timeout=self.CACHE_TIMEOUT)
         return JsonResponse(flags, safe=False)
 
 
@@ -707,27 +715,26 @@ class FeatureFlagNamesView(View):
 class FeatureFlagCheckView(View):
     """Check if a specific feature flag is enabled for the current user."""
 
+    CACHE_TIMEOUT = 86400  # 24 hours
+
     def get(self, request, feature_flag_name):
-        import logging
-        logger = logging.getLogger(__name__)
-        
         user = request.user
+        cache_key = f"ff_check_{user.id}_{feature_flag_name}"
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return JsonResponse(cached_data, status=status.HTTP_200_OK)
+
         enabled = FeatureFlagService.is_feature_enabled(
             feature_flag_name=feature_flag_name, user=user
         )
-        
-        # Debug logging
-        user_org = None
-        if hasattr(user, 'profile') and user.profile.organization:
-            user_org = user.profile.organization
-        
-        logger.info(f"🔍 Feature Flag Check Debug: user={user.email}, flag={feature_flag_name}, enabled={enabled}, org={user_org.name if user_org else None}")
 
         serializer = FeatureFlagStatusResponseSerializer({
             "enabled": enabled,
             "feature_flag_name": feature_flag_name,
         })
-        return JsonResponse(serializer.data, status=status.HTTP_200_OK)
+        response_data = serializer.data
+        cache.set(cache_key, response_data, timeout=self.CACHE_TIMEOUT)
+        return JsonResponse(response_data, status=status.HTTP_200_OK)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -735,9 +742,15 @@ class FeatureFlagCheckView(View):
 class FeatureFlagListView(View):
     """Get all feature flags for the user's organizations."""
 
+    CACHE_TIMEOUT = 86400  # 24 hours
+
     def get(self, request):
         user = request.user
-        
+        cache_key = f"ff_list_{user.id}"
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return JsonResponse(cached_data, status=status.HTTP_200_OK)
+
         # Get all organizations where user is owner or member
         owned_orgs = Organization.objects.filter(owner=user)
 
@@ -750,7 +763,9 @@ class FeatureFlagListView(View):
             serializer = TeamFeatureFlagsResponseSerializer({
                 "feature_flags": all_flags,
             })
-            return JsonResponse(serializer.data, status=status.HTTP_200_OK)
+            response_data = serializer.data
+            cache.set(cache_key, response_data, timeout=self.CACHE_TIMEOUT)
+            return JsonResponse(response_data, status=status.HTTP_200_OK)
 
         # Get organization from user profile
         member_orgs = Organization.objects.none()
@@ -779,4 +794,6 @@ class FeatureFlagListView(View):
         serializer = TeamFeatureFlagsResponseSerializer({
             "feature_flags": all_flags,
         })
-        return JsonResponse(serializer.data, status=status.HTTP_200_OK)
+        response_data = serializer.data
+        cache.set(cache_key, response_data, timeout=self.CACHE_TIMEOUT)
+        return JsonResponse(response_data, status=status.HTTP_200_OK)

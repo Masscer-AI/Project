@@ -12,7 +12,7 @@ KNOWN_FEATURE_FLAGS = {
     "alert-rules-manager": {"organization_only": False},
     "tags-management": {"organization_only": False},
     "conversations-dashboard": {"organization_only": False},
-    "organization-agents-admin": {"organization_only": False},
+    "edit-organization-agent": {"organization_only": False},
     "conversation-analysis": {"organization_only": True},
     "chat-widgets-management": {"organization_only": False},
     "train-agents": {"organization_only": False},
@@ -24,4 +24,6 @@ KNOWN_FEATURE_FLAGS = {
     "transcribe-on-chat": {"organization_only": False},
     "chat-generate-speech": {"organization_only": False},
     "multi-agent-chat": {"organization_only": False},
+    "add-llm": {"organization_only": False},
+    "set-agent-ownership": {"organization_only": False},
 }

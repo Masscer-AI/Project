@@ -18,7 +18,7 @@ import {
   TChatWidget,
 } from "../types";
 import { TReactionTemplate, TUserProfile } from "../types/chatTypes";
-import { TAgent } from "../types/agents";
+import { TAgent, TModel } from "../types/agents";
 import { TUserPreferences } from "./storeTypes";
 
 const getToken = (isPublic: boolean) => {
@@ -188,6 +188,17 @@ export const updateAgent = async (agentSlug: string, updatedData: any) => {
     console.error("Error updating agent:", error);
     throw error;
   }
+};
+
+type TCreateLlmPayload = {
+  provider: string;
+  slug: string;
+  name: string;
+  pricing?: Record<string, any>;
+};
+
+export const createLLM = async (data: TCreateLlmPayload) => {
+  return makeAuthenticatedRequest<TModel>("POST", "/v1/ai_layers/models/", data, false);
 };
 
 export const getUser = async () => {

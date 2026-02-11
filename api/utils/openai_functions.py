@@ -3,12 +3,61 @@ import requests
 from pydantic import BaseModel
 import os
 import tiktoken
+import json
 
 
 
 
 def pricing_calculator(model: str, tokens: int):
     return 0
+
+
+def _extract_output_text(response) -> str:
+    output_text = getattr(response, "output_text", None)
+    if isinstance(output_text, str) and output_text:
+        return output_text.strip()
+
+    chunks = []
+    for item in getattr(response, "output", []) or []:
+        for content in getattr(item, "content", []) or []:
+            if getattr(content, "type", "") in ("output_text", "text"):
+                text = getattr(content, "text", "")
+                if text:
+                    chunks.append(text)
+    return "".join(chunks).strip()
+
+
+def _response_text_format_from_pydantic(response_format):
+    schema = (
+        response_format.model_json_schema()
+        if hasattr(response_format, "model_json_schema")
+        else response_format.schema()
+    )
+    return {
+        "type": "json_schema",
+        "name": response_format.__name__,
+        "schema": schema,
+        "strict": True,
+    }
+
+
+def _extract_json_from_text(text: str) -> dict:
+    raw = (text or "").strip()
+    if not raw:
+        raise ValueError("Empty response received for structured output")
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        if "```" in raw:
+            for part in raw.split("```"):
+                candidate = part.replace("json", "", 1).strip()
+                if not candidate:
+                    continue
+                try:
+                    return json.loads(candidate)
+                except json.JSONDecodeError:
+                    continue
+        raise
 
 
 def create_completion_openai(
@@ -24,16 +73,15 @@ def create_completion_openai(
     )
     kwargs = {
         "model": model,
-        "max_tokens": max_tokens,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_message},
-        ],
+        "max_output_tokens": max_tokens,
+        "instructions": system_prompt,
+        "input": user_message,
     }
-    if temperature is not None:
+    is_reasoning_model = model.startswith("gpt-5") or model.startswith("o")
+    if temperature is not None and not is_reasoning_model:
         kwargs["temperature"] = temperature
-    completion = client.chat.completions.create(**kwargs)
-    return completion.choices[0].message.content
+    completion = client.responses.create(**kwargs)
+    return _extract_output_text(completion)
 
 
 class ExampleStructure(BaseModel):
@@ -49,18 +97,16 @@ def create_structured_completion(
 ):
     client = OpenAI(api_key=api_key)
 
-    completion = client.beta.chat.completions.parse(
+    completion = client.responses.create(
         model=model,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {
-                "role": "user",
-                "content": user_prompt,
-            },
-        ],
-        response_format=response_format,
+        instructions=system_prompt,
+        input=user_prompt,
+        text={"format": _response_text_format_from_pydantic(response_format)},
     )
-    return completion.choices[0].message.parsed
+    parsed_dict = _extract_json_from_text(_extract_output_text(completion))
+    if hasattr(response_format, "model_validate"):
+        return response_format.model_validate(parsed_dict)
+    return response_format.parse_obj(parsed_dict)
 
 
 def generate_speech_api(

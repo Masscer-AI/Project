@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { useStore } from "../../modules/store";
-import { Sidebar } from "../../components/Sidebar/Sidebar";
 import {
   getAllConversations,
   getAlertStats,
@@ -9,14 +8,11 @@ import {
 import { TConversation, TAlertStats } from "../../types";
 import { TUserData } from "../../types/chatTypes";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
-import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
+import { DashboardLayout } from "./DashboardLayout";
 import { ConversationsTable } from "./ConversationsTable";
 import {
-  ActionIcon,
   Button,
   Card,
-  Container,
   Group,
   Loader,
   SimpleGrid,
@@ -25,7 +21,6 @@ import {
   Title,
 } from "@mantine/core";
 import {
-  IconMenu2,
   IconMessage,
   IconMail,
   IconCalendar,
@@ -35,20 +30,15 @@ import {
 } from "@tabler/icons-react";
 
 export default function DashboardPage() {
-  const { chatState, startup, toggleSidebar, setUser } = useStore((state) => ({
-    chatState: state.chatState,
+  const { startup, setUser } = useStore((state) => ({
     startup: state.startup,
-    toggleSidebar: state.toggleSidebar,
     setUser: state.setUser,
   }));
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const [conversations, setConversations] = useState<TConversation[]>([]);
   const [alertStats, setAlertStats] = useState<TAlertStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showTable, setShowTable] = useState(false);
-  const canManageAlertRules = useIsFeatureEnabled("alert-rules-manager");
-  const canManageTags = useIsFeatureEnabled("tags-management");
 
   useEffect(() => {
     const loadUser = async () => {
@@ -87,91 +77,38 @@ export default function DashboardPage() {
   };
 
   return (
-    <main className="d-flex pos-relative h-viewport">
-      {chatState.isSidebarOpened && <Sidebar />}
-      <div
-        style={{
-          flex: 1,
-          overflowY: "auto",
-          minHeight: "100vh",
-          position: "relative",
-        }}
-      >
-        {!chatState.isSidebarOpened && (
-          <div style={{ position: "absolute", top: 24, left: 24, zIndex: 10 }}>
-            <ActionIcon
-              variant="subtle"
-              color="gray"
-              onClick={toggleSidebar}
+    <DashboardLayout>
+      {isLoading ? (
+        <Group justify="center" py="xl">
+          <Loader />
+        </Group>
+      ) : (
+        <Stack gap="xl">
+          <DashboardStats
+            conversations={conversations}
+            alertStats={alertStats}
+            t={t}
+          />
+
+          <Group justify="center">
+            <Button
+              variant="default"
+              onClick={() => setShowTable(!showTable)}
             >
-              <IconMenu2 size={20} />
-            </ActionIcon>
-          </div>
-        )}
+              {showTable
+                ? t("hide-table")
+                : t("view-all-conversations")}
+            </Button>
+          </Group>
 
-        <Container size="xl" py="xl">
-          <Title order={1} ta="center" mb="xl">
-            {t("conversations-dashboard")}
-          </Title>
-
-          {isLoading ? (
-            <Group justify="center" py="xl">
-              <Loader />
-            </Group>
-          ) : (
-            <Stack gap="xl">
-              <DashboardStats
-                conversations={conversations}
-                alertStats={alertStats}
-                t={t}
-              />
-
-              <Group justify="center" wrap="wrap" gap="sm">
-                <Button
-                  variant="default"
-                  onClick={() => setShowTable(!showTable)}
-                >
-                  {showTable
-                    ? t("hide-table")
-                    : t("view-all-conversations")}
-                </Button>
-                <Button
-                  variant="default"
-                  onClick={() => navigate("/dashboard/alerts")}
-                >
-                  {t("view-alerts")}{" "}
-                  {alertStats &&
-                    alertStats.pending > 0 &&
-                    `(${alertStats.pending})`}
-                </Button>
-                {canManageAlertRules && (
-                  <Button
-                    variant="default"
-                    onClick={() => navigate("/dashboard/alert-rules")}
-                  >
-                    {t("manage-alert-rules")}
-                  </Button>
-                )}
-                {canManageTags && (
-                  <Button
-                    variant="default"
-                    onClick={() => navigate("/dashboard/tags")}
-                  >
-                    {t("manage-tags") || "Manage Tags"}
-                  </Button>
-                )}
-              </Group>
-
-              {showTable && (
-                <Card withBorder padding="lg" radius="md">
-                  <ConversationsTable conversations={conversations || []} />
-                </Card>
-              )}
-            </Stack>
+          {showTable && (
+            <Card withBorder padding="lg" radius="md">
+              <ConversationsTable conversations={conversations || []} />
+            </Card>
           )}
-        </Container>
-      </div>
-    </main>
+        </Stack>
+      )}
+    </DashboardLayout>
   );
 }
 

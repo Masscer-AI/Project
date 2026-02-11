@@ -1,0 +1,52 @@
+---
+description: Encountered frontend issues and CSS/JS pitfalls — reference to avoid repeating past mistakes
+globs: streaming/client/src/**/*.{tsx,ts,css
+alwaysApply: false
+---
+
+# Frontend Knowledge: Encountered Issues
+
+A running list of non-obvious frontend bugs we've hit and resolved. Check this before introducing `overflow`, `position: sticky`, scroll-tracking, or similar patterns.
+
+---
+
+## 1. `overflow` breaks `position: sticky`
+
+**Symptom:** A `position: sticky` element scrolls away instead of sticking.
+
+**Root cause:** Any ancestor with `overflow-x: hidden`, `overflow-y: auto/hidden`, or even `overflow-x: clip` (in some contexts) creates a new scroll container. `position: sticky` only sticks relative to its nearest scrollable ancestor — if that ancestor doesn't actually scroll (the page does), the element never sticks.
+
+**Rule:** Never place a `position: sticky` element inside an ancestor that has any `overflow` value other than `visible`. If you need to clip horizontal overflow, either:
+- Apply `overflow-x: clip` on a **sibling** wrapper that doesn't contain the sticky element.
+- Remove `overflow` entirely if nothing actually overflows.
+
+---
+
+## 2. `overflow` breaks framer-motion `useScroll` with `target`
+
+**Symptom:** `scrollYProgress` from `useScroll({ target: ref })` stays at 0 and never updates, even though the page scrolls normally.
+
+**Root cause:** Framer-motion walks up the DOM to find the nearest scrollable ancestor. Any `overflow` value other than `visible` (including `clip`) on an ancestor makes framer-motion think that ancestor is the scroll container. Since that element isn't actually scrolling (the document is), scroll events never fire on it, and `scrollYProgress` never changes.
+
+**Rule:** When using `useScroll({ target })`, ensure no ancestor between the target and the document has `overflow` set to anything other than `visible`. If you must restrict overflow, isolate it to a wrapper that is **not** an ancestor of the tracked element.
+
+---
+
+## 3. Combined: sticky + scroll-tracking in the same tree
+
+**Symptom:** You can have sticky positioning OR scroll-based animations — but not both. Fixing one breaks the other.
+
+**Root cause:** Issues #1 and #2 share the same trigger (`overflow` on an ancestor). `overflow: hidden` creates a scroll container (breaks sticky). Removing it (or using `clip`) fixes sticky but can break framer-motion scroll detection.
+
+**Solution:** Remove `overflow` from the common ancestor entirely. Neither `position: sticky` nor `useScroll` requires it. If content genuinely overflows horizontally, contain it at a lower level (e.g., on the overflowing child itself, not a high-level page wrapper).
+
+---
+
+## Quick-check before using these patterns
+
+| Pattern | Watch out for |
+|---|---|
+| `position: sticky` | No `overflow` (other than `visible`) on ANY ancestor up to the scroll root |
+| `useScroll({ target })` | Same — no `overflow` on ancestors between target and scroll root |
+| `overflow-x: hidden/clip` | Will break sticky children and framer-motion scroll tracking |
+| `overflow: auto` on a wrapper | Creates a nested scroll container — sticky and scroll-tracking will be scoped to it |

@@ -2,6 +2,7 @@
 from openai import OpenAI
 import anthropic
 from ..logger import get_custom_logger
+from types import SimpleNamespace
 
 # import fitz
 
@@ -52,14 +53,12 @@ class TextStreamingFactory:
 
     def stream_openai(self, system: str, text: str, model: str):
         reasoning_models = ["o1-mini", "o1-preview", "o3-mini", "o4-mini", "o3", "gpt-5", "o4"]
-        is_reasoning_model = model in reasoning_models
+        is_reasoning_model = model in reasoning_models or model.startswith("gpt-5")
 
         if is_reasoning_model:
             self.max_tokens = 16000
 
-        messages = [
-            {"role": "system" if not is_reasoning_model else "user", "content": system},
-        ]
+        messages = [{"role": "system", "content": system}]
         for m in self.prev_messages:
             if m["type"] == "user":
                 messages.append({"role": "user", "content": m["text"]})
@@ -119,11 +118,11 @@ AI_RESPONSE:
                             "role": "user",
                             "content": [
                                 {
-                                    "type": "image_url",
-                                    "image_url": {"url": a["content"]},
+                                    "type": "input_image",
+                                    "image_url": a["content"],
                                 }
                             ],
-                        },
+                        }
                     )
                 else:
                     if "audio" in a["type"]:
@@ -158,24 +157,38 @@ AI_RESPONSE:
             logger.debug("Using reasoning model with temperature 1")
             temperature = 1
 
-        logger.debug(f"Creating completion with {model}")
-        response = self.client.chat.completions.create(
-            model=model,
-            max_completion_tokens=int(self.config.get("max_tokens", 3000)),
-            messages=messages,
-            frequency_penalty=float(self.config.get("frequency_penalty", 0)),
-            temperature=temperature,
-            top_p=float(self.config.get("top_p", 1.0)),
-            presence_penalty=float(self.config.get("presence_penalty", 0)),
-            stream=True,
-            stream_options={"include_usage": True},
-        )
-        for chunk in response:
-            try:
-                if chunk.choices[0].delta.content:
-                    yield chunk.choices[0].delta.content
-            except Exception:
-                yield chunk.usage
+        logger.debug(f"Creating response stream with {model}")
+        kwargs = {
+            "model": model,
+            "instructions": system,
+            "input": messages[1:],  # keep prior/user turns as input; instructions holds system prompt
+            "max_output_tokens": int(self.config.get("max_tokens", 3000)),
+        }
+        if not is_reasoning_model:
+            kwargs["temperature"] = temperature
+            kwargs["top_p"] = float(self.config.get("top_p", 1.0))
+
+        with self.client.responses.stream(**kwargs) as stream:
+            # SDK compatibility: some versions expose text deltas as events only.
+            if hasattr(stream, "text_deltas"):
+                for delta in stream.text_deltas:
+                    if delta:
+                        yield delta
+            else:
+                for event in stream:
+                    if getattr(event, "type", None) == "response.output_text.delta":
+                        delta = getattr(event, "delta", "")
+                        if delta:
+                            yield delta
+
+            final = stream.get_final_response()
+            usage = getattr(final, "usage", None)
+            if usage:
+                yield SimpleNamespace(
+                    completion_tokens=getattr(usage, "output_tokens", 0),
+                    prompt_tokens=getattr(usage, "input_tokens", 0),
+                    total_tokens=getattr(usage, "total_tokens", 0),
+                )
 
     def stream_anthropic(self, system: str, text: str, model: str):
         messages = []

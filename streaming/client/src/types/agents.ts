@@ -43,12 +43,10 @@ export type TAgent = {
   selected: boolean; // Indicates if this agent is currently selected or active
   act_as?: string; // Optional description of the agent's role or behavior
   default?: boolean; // Optional flag to indicate if this is the default agent
-  frequency_penalty?: number | null; // Optional penalty for frequency (if applicable)
   id?: number; // Optional identifier for the agent
   is_public?: boolean; // Optional flag to indicate if the agent is public
   max_tokens?: number | null; // Optional maximum number of tokens the agent can use
   model_provider?: string; // Optional provider of the model
-  presence_penalty?: number | null;
   salute?: string;
   llm: TLLM;
   openai_voice?: TOpenaiVoiceOptions; // Use the new type for voice options

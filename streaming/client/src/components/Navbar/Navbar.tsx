@@ -1,5 +1,6 @@
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Box, Button, Group } from "@mantine/core";
 import { DEFAULT_ORGANIZATION_ID } from "../../modules/constants";
 
@@ -8,6 +9,7 @@ import { DEFAULT_ORGANIZATION_ID } from "../../modules/constants";
 const LOGO_SRC = "assets/masscer.png";
 
 export const Navbar = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
 
   const handleSignupClick = () => {
@@ -41,10 +43,10 @@ export const Navbar = () => {
         </Link>
         <Group gap="sm">
           <Button variant="filled" onClick={handleSignupClick}>
-            Signup
+            {t("signup")}
           </Button>
           <Button component={Link} to="/login" variant="default">
-            Login
+            {t("login")}
           </Button>
         </Group>
       </Group>

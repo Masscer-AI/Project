@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useStore } from "../../modules/store";
 import { TAgent } from "../../types/agents";
 import {
@@ -20,7 +20,7 @@ import {
   Tooltip,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { updateAgent, makeAuthenticatedRequest } from "../../modules/apiCalls";
+import { createLLM, updateAgent, makeAuthenticatedRequest, getUserOrganizations } from "../../modules/apiCalls";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
@@ -85,7 +85,7 @@ const AgentComponent = ({ agent }: TAgentComponentProps) => {
 
   const { t } = useTranslation();
   const [configOpened, { open: openConfig, close: closeConfig }] = useDisclosure(false);
-  const canManageAgents = useIsFeatureEnabled("organization-agents-admin");
+  const canManageAgents = useIsFeatureEnabled("edit-organization-agent");
   const isMultiAgentEnabled = useIsFeatureEnabled("multi-agent-chat");
 
   const onSave = async (updatedAgent: TAgent) => {
@@ -226,23 +226,37 @@ type TAgentConfigProps = {
 };
 
 const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
-  const { models, removeAgent, user } = useStore((state) => ({
+  const { models, removeAgent, user, fetchAgents } = useStore((state) => ({
     models: state.models,
     removeAgent: state.removeAgent,
     user: state.user,
+    fetchAgents: state.fetchAgents,
   }));
 
   const { t } = useTranslation();
-  const canManageAgents = useIsFeatureEnabled("organization-agents-admin");
+  const canManageAgents = useIsFeatureEnabled("edit-organization-agent");
+  const canAddLlm = useIsFeatureEnabled("add-llm");
+  const canSetOwnership = useIsFeatureEnabled("set-agent-ownership");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [addLlmOpened, { open: openAddLlm, close: closeAddLlm }] = useDisclosure(false);
+  const [userOrgs, setUserOrgs] = useState<{ id: string; name: string; is_owner?: boolean }[]>([]);
+  const [ownership, setOwnership] = useState<string>(
+    agent.organization ? agent.organization : "personal"
+  );
+
+  // Load user organizations when ownership toggle is available
+  useEffect(() => {
+    if (!canSetOwnership) return;
+    getUserOrganizations()
+      .then((orgs) => setUserOrgs(orgs))
+      .catch(() => setUserOrgs([]));
+  }, [canSetOwnership]);
 
   const [formState, setFormState] = useState({
     name: agent.name || "",
     openai_voice: agent.openai_voice || "shimmer",
     default: agent.default || false,
-    frequency_penalty: agent.frequency_penalty || 0.0,
     max_tokens: agent.max_tokens || 1000,
-    presence_penalty: agent.presence_penalty || 0.0,
     act_as: agent.act_as || "",
     system_prompt: agent.system_prompt || "",
     conversation_title_prompt: agent.conversation_title_prompt || "",
@@ -260,7 +274,7 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
   ) => {
     const { name, value } = e.target;
 
-    const floatNames = ["temperature", "frequency_penalty", "presence_penalty", "top_p"];
+    const floatNames = ["temperature", "top_p"];
     const integerNames = ["max_tokens"];
     let newValue: string | number = floatNames.includes(name) ? parseFloat(value) : value;
     if (integerNames.includes(name)) {
@@ -283,12 +297,73 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
     }
   };
 
+  const [newLlmForm, setNewLlmForm] = useState({
+    provider: "",
+    name: "",
+    slug: "",
+  });
+  const [isSlugTouched, setIsSlugTouched] = useState(false);
+
+  const toSlug = (value: string) =>
+    value
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9.\s:_-]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-");
+
+  const providerOptions = Array.from(new Set(models.map((m) => m.provider).filter(Boolean))).map(
+    (provider) => ({
+      value: provider,
+      label: provider,
+    })
+  );
+
+  const handleOpenAddLlm = () => {
+    const defaultProvider = providerOptions[0]?.value || "openai";
+    setNewLlmForm((prev) => ({
+      provider: prev.provider || defaultProvider,
+      name: prev.name,
+      slug: prev.slug,
+    }));
+    setIsSlugTouched(false);
+    openAddLlm();
+  };
+
+  const handleCreateLlm = async () => {
+    try {
+      const provider = newLlmForm.provider.trim();
+      const name = newLlmForm.name.trim();
+      const slug = (newLlmForm.slug.trim() || toSlug(name)).trim();
+
+      if (!provider || !name || !slug) {
+        toast.error("Provider, name and slug are required");
+        return;
+      }
+
+      const created = await createLLM({ provider, name, slug });
+      await fetchAgents();
+      handleLLMChange(created.slug);
+      closeAddLlm();
+      setNewLlmForm({ provider, name: "", slug: "" });
+      setIsSlugTouched(false);
+      toast.success(`LLM "${created.name}" created`);
+    } catch (error: any) {
+      const errMessage = error?.response?.data?.error || "Failed to create LLM";
+      toast.error(errMessage);
+    }
+  };
+
   const save = () => {
-    const updatedAgent: TAgent = {
+    const updatedAgent: TAgent & { ownership?: string } = {
       ...agent,
       ...formState,
       conversation_title_prompt: formState.conversation_title_prompt?.trim() || undefined,
     };
+    // Include ownership change if the user has the flag
+    if (canSetOwnership) {
+      updatedAgent.ownership = ownership;
+    }
     onSave(updatedAgent);
   };
 
@@ -350,15 +425,45 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
         onChange={handleInputChange}
       />
 
-      <NativeSelect
-        label={t("model")}
-        data={modelOptions}
-        value={formState.llm.slug}
-        onChange={(e) => {
-          const val = e.currentTarget.value;
-          handleLLMChange(val);
-        }}
-      />
+      {canSetOwnership && userOrgs.length > 0 && (
+        <NativeSelect
+          label={t("ownership")}
+          data={[
+            { value: "personal", label: t("personal") },
+            ...userOrgs.map((org) => ({
+              value: org.id,
+              label: `${t("organization-agent")}: ${org.name}`,
+            })),
+          ]}
+          value={ownership}
+          onChange={(e) => {
+            const val = e.currentTarget.value;
+            setOwnership(val);
+          }}
+        />
+      )}
+
+      <Group align="flex-end" gap="xs" wrap="nowrap">
+        <NativeSelect
+          label={t("model")}
+          data={modelOptions}
+          value={formState.llm.slug}
+          onChange={(e) => {
+            const val = e.currentTarget.value;
+            handleLLMChange(val);
+          }}
+          style={{ flex: 1 }}
+        />
+        {canAddLlm === true && (
+          <Button
+            variant="default"
+            leftSection={<IconPlus size={16} />}
+            onClick={handleOpenAddLlm}
+          >
+            Add LLM
+          </Button>
+        )}
+      </Group>
 
       <Group align="flex-end" gap="xs">
         <NativeSelect
@@ -387,24 +492,6 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
 
       <div>
         <Text size="sm" fw={500} mb={4}>
-          {t("frequency-penalty")}: {formState.frequency_penalty}
-        </Text>
-        <Slider
-          min={-2.0}
-          max={2.0}
-          step={0.1}
-          value={formState.frequency_penalty ?? 0}
-          onChange={(val) => setFormState((prev) => ({ ...prev, frequency_penalty: val }))}
-          marks={[
-            { value: -2, label: "-2" },
-            { value: 0, label: "0" },
-            { value: 2, label: "2" },
-          ]}
-        />
-      </div>
-
-      <div>
-        <Text size="sm" fw={500} mb={4}>
           {t("max-tokens")}: {formState.max_tokens}
         </Text>
         <Slider
@@ -417,24 +504,6 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
             { value: 10, label: "10" },
             { value: 4000, label: "4K" },
             { value: 8000, label: "8K" },
-          ]}
-        />
-      </div>
-
-      <div>
-        <Text size="sm" fw={500} mb={4}>
-          {t("presence-penalty")}: {formState.presence_penalty}
-        </Text>
-        <Slider
-          min={-2.0}
-          max={2.0}
-          step={0.1}
-          value={formState.presence_penalty ?? 0}
-          onChange={(val) => setFormState((prev) => ({ ...prev, presence_penalty: val }))}
-          marks={[
-            { value: -2, label: "-2" },
-            { value: 0, label: "0" },
-            { value: 2, label: "2" },
           ]}
         />
       </div>
@@ -547,6 +616,52 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
           </Button>
         )}
       </Group>
+
+      <Modal
+        opened={addLlmOpened}
+        onClose={closeAddLlm}
+        title="Add LLM"
+        centered
+      >
+        <Stack gap="sm">
+          <NativeSelect
+            label="Provider"
+            data={providerOptions}
+            value={newLlmForm.provider}
+            onChange={(e) => {
+              const val = e.currentTarget.value;
+              setNewLlmForm((prev) => ({ ...prev, provider: val }));
+            }}
+          />
+          <TextInput
+            label="Name"
+            value={newLlmForm.name}
+            onChange={(e) => {
+              const val = e.currentTarget.value;
+              setNewLlmForm((prev) => ({
+                ...prev,
+                name: val,
+                slug: isSlugTouched ? prev.slug : toSlug(val),
+              }));
+            }}
+          />
+          <TextInput
+            label="Slug"
+            value={newLlmForm.slug}
+            onChange={(e) => {
+              const val = e.currentTarget.value;
+              setIsSlugTouched(true);
+              setNewLlmForm((prev) => ({ ...prev, slug: toSlug(val) }));
+            }}
+          />
+          <Group justify="flex-end">
+            <Button variant="default" onClick={closeAddLlm}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateLlm}>Create</Button>
+          </Group>
+        </Stack>
+      </Modal>
     </Stack>
   );
 };
