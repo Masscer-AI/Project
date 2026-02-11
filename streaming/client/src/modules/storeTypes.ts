@@ -59,7 +59,6 @@ export type Store = {
   openedModals: string[];
   reactionTemplates: TReactionTemplate[];
   userPreferences: TUserPreferences;
-  userTags: string[];
   setTheming: (theming: Partial<Store["theming"]>) => void;
   setPreferences: (prefs: Partial<TUserPreferences>) => void;
   setTheme: (theme: TTheme) => void;

@@ -30,23 +30,6 @@ class UserPreferences(models.Model):
         return f"UserPreferences for {self.user.username}: max_memory_messages={self.max_memory_messages}, autoscroll={self.autoscroll}, autoplay={self.autoplay}"
 
 
-class UserTags(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="tags")
-    tags = models.JSONField(default=list)
-
-    def __str__(self):
-        return f"UserTags for {self.user.username}: {self.tags}"
-
-    def add_tag(self, tag: str):
-        if tag not in self.tags:
-            self.tags.append(tag)
-            self.save()
-
-    def remove_tag(self, tag: str):
-        if tag in self.tags:
-            self.tags.remove(tag)
-            self.save()
-
 
 class UserVoices(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="voices")

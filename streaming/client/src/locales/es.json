@@ -557,5 +557,8 @@
     "current-password": "Contraseña actual",
     "new-password": "Nueva contraseña",
     "password-updated": "Contraseña actualizada correctamente",
-    "current-password-incorrect": "La contraseña actual es incorrecta"
+    "current-password-incorrect": "La contraseña actual es incorrecta",
+    "summary": "Resumen",
+    "no-summary-available": "No hay resumen disponible",
+    "view-only-mode": "Estás viendo esta conversación en solo lectura. Solo el propietario puede enviar mensajes o editar."
 }

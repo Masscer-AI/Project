@@ -51,6 +51,7 @@ import {
 interface ChatInputProps {
   handleSendMessage: (input: string) => Promise<boolean>;
   initialInput: string;
+  readOnly?: boolean;
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -81,6 +82,7 @@ const getCommand = (text: string): string | null => {
 export const ChatInput: React.FC<ChatInputProps> = ({
   handleSendMessage,
   initialInput,
+  readOnly = false,
 }) => {
   const { t } = useTranslation();
   const {
@@ -167,6 +169,16 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   useHotkeys("ctrl+alt+w", () => toggleWritingMode(), {
     enableOnFormTags: true,
   });
+
+  if (readOnly) {
+    return (
+      <div className="flex flex-col justify-center items-center p-0 w-full max-w-[900px] bg-transparent z-[2] gap-0 mt-4 overflow-visible">
+        <div className="w-full rounded-lg px-4 py-3 text-center" style={{ background: "var(--bg-contrast-color)", border: "1px solid var(--hovered-color)" }}>
+          <Text size="sm" c="dimmed">{t("view-only-mode")}</Text>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col justify-center items-center p-0 w-full max-w-[900px] bg-transparent z-[2] gap-0 mt-4 overflow-visible">

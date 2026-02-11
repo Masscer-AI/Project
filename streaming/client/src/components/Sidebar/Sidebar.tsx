@@ -8,8 +8,9 @@ import {
   getAllConversations,
   getUserOrganizations,
   shareConversation,
+  getTags,
 } from "../../modules/apiCalls";
-import { TConversation } from "../../types";
+import { TConversation, TTag } from "../../types";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
@@ -61,14 +62,13 @@ export const Sidebar: React.FC = () => {
   const isChatWidgetsEnabled = useIsFeatureEnabled("chat-widgets-management");
   const isTrainAgentsEnabled = useIsFeatureEnabled("train-agents");
   const isAudioToolsEnabled = useIsFeatureEnabled("audio-tools");
-  const { toggleSidebar, setConversation, user, setOpenedModals, logout, userTags } =
+  const { toggleSidebar, setConversation, user, setOpenedModals, logout } =
     useStore((state) => ({
       toggleSidebar: state.toggleSidebar,
       setConversation: state.setConversation,
       user: state.user,
       setOpenedModals: state.setOpenedModals,
       logout: state.logout,
-      userTags: state.userTags,
     }));
 
   const [history, setHistory] = useState<TConversation[]>([]);
@@ -83,7 +83,7 @@ export const Sidebar: React.FC = () => {
   });
 
   const [filters, setFilters] = useState<{
-    tags: string[];
+    tags: number[];
     startDate: Date | null;
     endDate: Date | null;
     title: string;
@@ -94,6 +94,7 @@ export const Sidebar: React.FC = () => {
     title: "",
   });
 
+  const [orgTags, setOrgTags] = useState<TTag[]>([]);
   const [canManageOrg, setCanManageOrg] = useState(false);
 
   const navigate = useNavigate();
@@ -116,6 +117,9 @@ export const Sidebar: React.FC = () => {
 
   useEffect(() => {
     populateHistory();
+    getTags()
+      .then((tags) => setOrgTags(tags))
+      .catch(() => setOrgTags([]));
   }, []);
 
   useEffect(() => {
@@ -123,7 +127,7 @@ export const Sidebar: React.FC = () => {
 
     if (filters.tags.length > 0) {
       result = result.filter((c) =>
-        c.tags?.some((tag: number) => filters.tags.includes(tag.toString()))
+        c.tags?.some((tagId: number) => filters.tags.includes(tagId))
       );
     }
 
@@ -196,12 +200,12 @@ export const Sidebar: React.FC = () => {
     });
   };
 
-  const filterByTag = (tag: string) => {
+  const filterByTag = (tagId: number) => {
     setFilters((prev) => ({
       ...prev,
-      tags: prev.tags.includes(tag)
-        ? prev.tags.filter((t) => t !== tag)
-        : [...prev.tags, tag],
+      tags: prev.tags.includes(tagId)
+        ? prev.tags.filter((id) => id !== tagId)
+        : [...prev.tags, tagId],
     }));
   };
 
@@ -302,18 +306,21 @@ export const Sidebar: React.FC = () => {
                     />
                   </Group>
                   <Group gap="xs" wrap="wrap">
-                    {userTags.map((tag) => (
-                      <Badge
-                        key={tag}
-                        variant={
-                          filters.tags.includes(tag) ? "filled" : "default"
-                        }
-                        style={{ cursor: "pointer" }}
-                        onClick={() => filterByTag(tag)}
-                      >
-                        {tag}
-                      </Badge>
-                    ))}
+                    {orgTags
+                      .filter((tag) => tag.enabled)
+                      .map((tag) => (
+                        <Badge
+                          key={tag.id}
+                          variant={
+                            filters.tags.includes(tag.id) ? "filled" : "outline"
+                          }
+                          color={tag.color || "violet"}
+                          style={{ cursor: "pointer" }}
+                          onClick={() => filterByTag(tag.id)}
+                        >
+                          {tag.title}
+                        </Badge>
+                      ))}
                   </Group>
                   <Divider />
                   <Group gap="xs" justify="flex-end">

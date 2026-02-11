@@ -38,7 +38,8 @@ export interface TTag {
 
 export interface TConversation {
   id: string;
-  user_id: number;
+  user_id?: number | null;
+  user_username?: string | null;
   number_of_messages: number;
   tags?: number[];
   title: undefined | string;
@@ -46,6 +47,7 @@ export interface TConversation {
   messages?: TMessage[];
   summary?: string;
   alerts_count?: number;
+  alert_rule_ids?: string[];
 }
 
 export type TCompletion = {

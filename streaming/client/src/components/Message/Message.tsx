@@ -74,6 +74,7 @@ interface MessageProps {
   index: number;
   versions?: TVersion[];
   attachments?: TAttachment[];
+  readOnly?: boolean;
 
   onImageGenerated: (
     imageContentB64: string,
@@ -99,6 +100,7 @@ export const Message = memo(
     onMessageEdit,
     onMessageDeleted,
     numberMessages,
+    readOnly = false,
   }: MessageProps) => {
     const [isEditing, setIsEditing] = useState(false);
     const [innerText, setInnerText] = useState(text);
@@ -324,7 +326,7 @@ export const Message = memo(
 
     return (
       <div className={`message ${type === "user" ? "user" : "assistant"}`}>
-        {isEditing ? (
+        {isEditing && !readOnly ? (
           <MessageEditor
             textareaValueRef={textareaValueRef}
             text={versions?.[currentVersion]?.text || innerText}
@@ -391,7 +393,7 @@ export const Message = memo(
             </ActionIcon>
           </Tooltip>
 
-          {id && (
+          {id && !readOnly && (
             <>
               {messageState.imageGeneratorOpened && (
                 <ImageGenerator
@@ -494,15 +496,19 @@ export const Message = memo(
                   innerReactions?.map((r) => r.template) || []
                 }
               />
-              {innerReactions && innerReactions.length > 0 && (
-                <>
-                  {innerReactions.map((r) =>
-                    reactionTemplates.find((rt) => rt.id === r.template)
-                      ?.emoji
-                  )}
-                </>
-              )}
             </>
+          )}
+
+          {/* Reaction emojis – show in both edit and read-only mode */}
+          {id && innerReactions && innerReactions.length > 0 && (
+            <Group gap={4} align="center">
+              {innerReactions.map((r) => {
+                const rt = reactionTemplates.find((rt) => rt.id === r.template);
+                return rt ? (
+                  <span key={`${r.id}-${r.template}`}>{rt.emoji}</span>
+                ) : null;
+              })}
+            </Group>
           )}
 
           {/* Version selector (each badge shows agent + token info on hover) */}
@@ -559,7 +565,7 @@ export const Message = memo(
           )}
 
           {/* Message options menu */}
-          {id && (
+          {id && !readOnly && (
             <Menu shadow="md" withArrow position="top-end">
               <Menu.Target>
                 <ActionIcon variant="subtle" color="gray" size="sm">

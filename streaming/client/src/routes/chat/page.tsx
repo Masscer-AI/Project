@@ -44,6 +44,13 @@ export default function ChatView() {
   }));
 
   const { t } = useTranslation();
+
+  const activeConversation = conversation ?? loaderData.conversation;
+  const isViewer =
+    activeConversation?.user_id != null &&
+    loaderData.user?.id != null &&
+    activeConversation.user_id !== loaderData.user.id;
+
   const chatMessageContainerRef = React.useRef<HTMLDivElement>(null);
   // const [searchParams, setSearchParams] = useSearchParams();
 
@@ -370,6 +377,7 @@ export default function ChatView() {
           right={
             <ConversationModal
               conversation={conversation || loaderData.conversation}
+              readOnly={isViewer}
             />
           }
         />
@@ -388,6 +396,7 @@ export default function ChatView() {
                 onMessageEdit={onMessageEdit}
                 onMessageDeleted={onMessageDeleted}
                 numberMessages={messages.length}
+                readOnly={isViewer}
               />
             ))}
         </div>
@@ -409,6 +418,7 @@ export default function ChatView() {
           initialInput={
             loaderData.query && !loaderData.sendQuery ? loaderData.query : ""
           }
+          readOnly={isViewer}
         />
       </div>
     </main>

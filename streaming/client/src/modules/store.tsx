@@ -7,7 +7,6 @@ import {
   getConversation,
   getReactionTemplates,
   getUserPreferences,
-  getUserTags,
   initConversation,
   updateUserPreferences,
   uploadDocument,
@@ -62,15 +61,12 @@ export const useStore = create<Store>()((set, get) => ({
   conversation: undefined,
   openedModals: [],
   reactionTemplates: [],
-  userTags: [],
   startup: async () => {
     const { fetchAgents } = get();
     const reactionTemplates: TReactionTemplate[] = await getReactionTemplates();
     set({ reactionTemplates });
     fetchAgents();
     const pref = await getUserPreferences();
-    const userTags = await getUserTags();
-    set({ userTags: userTags || [] });
     // const bodySize = new TextEncoder().encode(JSON.stringify(pref)).length;
 
     set({ userPreferences: pref });

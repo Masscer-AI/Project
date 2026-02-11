@@ -42,10 +42,17 @@ class ConversationSerializer(serializers.ModelSerializer):
     created_at_formatted = serializers.SerializerMethodField()
     updated_at_formatted = serializers.SerializerMethodField()
     alerts_count = serializers.SerializerMethodField()
+    alert_rule_ids = serializers.SerializerMethodField()
 
     class Meta:
         model = Conversation
         fields = "__all__"
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["user_id"] = instance.user_id if instance.user_id else None
+        data["user_username"] = instance.user.username if instance.user else None
+        return data
 
     def get_number_of_messages(self, obj):
         return obj.messages.count()
@@ -56,6 +63,12 @@ class ConversationSerializer(serializers.ModelSerializer):
 
     def get_alerts_count(self, obj):
         return obj.alerts.count()
+
+    def get_alert_rule_ids(self, obj):
+        """Return distinct alert rule IDs triggered on this conversation."""
+        return list(
+            obj.alerts.values_list("alert_rule_id", flat=True).distinct()
+        )
     
     def get_created_at_formatted(self, obj):
         """Retorna el created_at formateado según la zona horaria de la organización"""
@@ -94,6 +107,12 @@ class BigConversationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Conversation
         fields = "__all__"
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["user_id"] = instance.user_id if instance.user_id else None
+        data["user_username"] = instance.user.username if instance.user else None
+        return data
 
     def get_messages(self, obj):
         # Retrieve messages ordered by ID

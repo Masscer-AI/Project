@@ -1,11 +1,11 @@
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { Box, Button, Group } from "@mantine/core";
 import { DEFAULT_ORGANIZATION_ID } from "../../modules/constants";
-import styles from "./Navbar.module.css";
 
-/** Logo: replace `streaming/client/public/assets/masscer.jpg` with your image,
+/** Logo: replace `streaming/client/public/assets/masscer.png` with your image,
  *  or change the `src` below to another path (e.g. `assets/your-logo.png`). */
-const LOGO_SRC = "assets/masscer.jpg";
+const LOGO_SRC = "assets/masscer.png";
 
 export const Navbar = () => {
   const navigate = useNavigate();
@@ -18,26 +18,36 @@ export const Navbar = () => {
   };
 
   return (
-    <nav className={styles.nav}>
-      <Link to="/" className={styles.logoLink} aria-label="Masscer home">
-        <img
-          src={LOGO_SRC}
-          alt="Masscer"
-          className={styles.logo}
-        />
-      </Link>
-      <div className={styles.actions}>
-        <button
-          type="button"
-          className={`${styles.btn} ${styles.btnPrimary}`}
-          onClick={handleSignupClick}
-        >
-          Signup
-        </button>
-        <Link to="/login" className={`${styles.btn} ${styles.btnSecondary}`}>
-          Login
+    <Box
+      component="nav"
+      py="md"
+      px={{ base: "md", xs: "xl" }}
+      style={{
+        borderBottom: "1px solid var(--mantine-color-dark-4)",
+      }}
+    >
+      <Group justify="space-between" w="100%" wrap="nowrap">
+        <Link to="/" aria-label="Masscer home" style={{ display: "flex", alignItems: "center" }}>
+          <img
+            src={LOGO_SRC}
+            alt="Masscer"
+            style={{
+              height: 36,
+              width: "auto",
+              display: "block",
+              objectFit: "contain",
+            }}
+          />
         </Link>
-      </div>
-    </nav>
+        <Group gap="sm">
+          <Button variant="filled" onClick={handleSignupClick}>
+            Signup
+          </Button>
+          <Button component={Link} to="/login" variant="default">
+            Login
+          </Button>
+        </Group>
+      </Group>
+    </Box>
   );
 };

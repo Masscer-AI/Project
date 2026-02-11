@@ -556,5 +556,8 @@
     "current-password": "Current password",
     "new-password": "New password",
     "password-updated": "Password updated successfully",
-    "current-password-incorrect": "Current password is incorrect"
+    "current-password-incorrect": "Current password is incorrect",
+    "summary": "Summary",
+    "no-summary-available": "No summary available",
+    "view-only-mode": "You are viewing this conversation in read-only mode. Only the owner can send messages or edit."
 }

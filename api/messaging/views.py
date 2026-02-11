@@ -1,6 +1,7 @@
 from datetime import timedelta
 from django.utils import timezone
 
+from django.contrib.auth.models import User
 from django.http import JsonResponse
 from django.views import View
 from .models import (
@@ -37,6 +38,48 @@ import uuid
 from django.conf import settings
 
 
+def _get_conversation_for_user(request, conversation_id):
+    """
+    Get conversation if the user has access (owns it or is org member).
+    Returns (conversation, None) on success, or (None, JsonResponse) on 404.
+    """
+    try:
+        conversation = Conversation.objects.get(id=conversation_id)
+    except Conversation.DoesNotExist:
+        return None, JsonResponse(
+            {"message": "Conversation not found", "status": 404}, status=404
+        )
+    user = request.user
+    if conversation.user_id == user.id:
+        return conversation, None
+    org_user_ids = _get_org_user_ids(user)
+    if org_user_ids and (
+        conversation.user_id in org_user_ids or conversation.user_id is None
+    ):
+        return conversation, None
+    return None, JsonResponse(
+        {"message": "Conversation not found", "status": 404}, status=404
+    )
+
+
+def _get_org_user_ids(user):
+    """Get all user IDs in the user's organization(s). Returns None if user has no org (fallback to own only)."""
+    owned_orgs = Organization.objects.filter(owner=user)
+    member_orgs = Organization.objects.none()
+    if hasattr(user, "profile") and user.profile.organization_id:
+        member_orgs = Organization.objects.filter(id=user.profile.organization_id)
+    orgs = (owned_orgs | member_orgs).distinct()
+    if not orgs.exists():
+        return None
+    owner_ids = set(Organization.objects.filter(id__in=orgs).values_list("owner_id", flat=True))
+    member_ids = set(
+        User.objects.filter(profile__organization__in=orgs).values_list(
+            "id", flat=True
+        )
+    )
+    return list(owner_ids | member_ids)
+
+
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class ConversationView(View):
@@ -44,21 +87,31 @@ class ConversationView(View):
         user = request.user
         conversation_id = kwargs.get("id")
         if conversation_id:
-            try:
-                conversation = Conversation.objects.get(id=conversation_id, user=user)
-                serialized_conversation = BigConversationSerializer(conversation, context={'request': request}).data
-                return JsonResponse(serialized_conversation, safe=False)
-            except Conversation.DoesNotExist:
-                return JsonResponse(
-                    {"message": "Conversation not found", "status": 404}, status=404
-                )
+            conversation, err = _get_conversation_for_user(request, conversation_id)
+            if err:
+                return err
+            serialized_conversation = BigConversationSerializer(
+                conversation, context={"request": request}
+            ).data
+            return JsonResponse(serialized_conversation, safe=False)
         else:
-            conversations = Conversation.objects.filter(user=user).order_by(
-                "-created_at"
-            )
+            org_user_ids = _get_org_user_ids(user)
+            if org_user_ids:
+                from django.db.models import Q
+
+                conversations = (
+                    Conversation.objects.filter(
+                        Q(user_id__in=org_user_ids) | Q(user__isnull=True)
+                    )
+                    .order_by("-created_at")
+                )
+            else:
+                conversations = Conversation.objects.filter(user=user).order_by(
+                    "-created_at"
+                )
 
             serialized_conversations = ConversationSerializer(
-                conversations, many=True, context={'request': request}
+                conversations, many=True, context={"request": request}
             ).data
             return JsonResponse(serialized_conversations, safe=False)
 
@@ -81,19 +134,45 @@ class ConversationView(View):
         data = json.loads(request.body)
         conversation_id = kwargs.get("id")
 
+        conversation, err = _get_conversation_for_user(request, conversation_id)
+        if err:
+            return err
+
         regenerate = data.get("regenerate", None)
         if regenerate:
-            conversation = Conversation.objects.get(id=conversation_id, user=user)
             conversation.cut_from(regenerate["user_message_id"])
             return JsonResponse({"status": "regenerated"})
 
         try:
-            # Retrieve the conversation instance
-            conversation = Conversation.objects.get(id=conversation_id, user=user)
+            # Validate and sanitize tags if present
+            if "tags" in data:
+                raw_tags = data["tags"]
+                if not isinstance(raw_tags, list):
+                    return JsonResponse(
+                        {"message": "Tags must be a list of tag IDs"}, status=400
+                    )
+                # Coerce to integers, discard any non-numeric values
+                tag_ids = []
+                for t in raw_tags:
+                    try:
+                        tag_ids.append(int(t))
+                    except (ValueError, TypeError):
+                        continue
+                # Only keep IDs that actually exist as enabled Tags
+                if tag_ids:
+                    valid_ids = list(
+                        Tag.objects.filter(id__in=tag_ids, enabled=True)
+                        .values_list("id", flat=True)
+                    )
+                else:
+                    valid_ids = []
+                data["tags"] = valid_ids
 
-            # Update the instance's fields with the new data
+            # Whitelist of allowed fields to update
+            ALLOWED_FIELDS = {"title", "tags", "background_image_src"}
             for key, value in data.items():
-                setattr(conversation, key, value)
+                if key in ALLOWED_FIELDS:
+                    setattr(conversation, key, value)
 
             # Save the updated instance
             conversation.save()
@@ -108,15 +187,12 @@ class ConversationView(View):
 
 
     def delete(self, request, *args, **kwargs):
-        user = request.user
         conversation_id = kwargs.get("id")
-        try:
-            Conversation.objects.filter(id=conversation_id, user=user).delete()
-            return JsonResponse({"status": "deleted"})
-        except Conversation.DoesNotExist:
-            return JsonResponse(
-                {"message": "Conversation not found", "status": 404}, status=404
-            )
+        conversation, err = _get_conversation_for_user(request, conversation_id)
+        if err:
+            return err
+        conversation.delete()
+        return JsonResponse({"status": "deleted"})
 
 
 @method_decorator(csrf_exempt, name="dispatch")
