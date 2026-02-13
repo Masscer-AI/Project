@@ -95,20 +95,26 @@ class ConversationView(View):
             ).data
             return JsonResponse(serialized_conversation, safe=False)
         else:
-            org_user_ids = _get_org_user_ids(user)
-            if org_user_ids:
-                from django.db.models import Q
-
-                conversations = (
-                    Conversation.objects.filter(
-                        Q(user_id__in=org_user_ids) | Q(user__isnull=True)
-                    )
-                    .order_by("-created_at")
-                )
-            else:
+            scope = request.GET.get("scope", "org")
+            if scope == "personal":
                 conversations = Conversation.objects.filter(user=user).order_by(
                     "-created_at"
                 )
+            else:
+                org_user_ids = _get_org_user_ids(user)
+                if org_user_ids:
+                    from django.db.models import Q
+
+                    conversations = (
+                        Conversation.objects.filter(
+                            Q(user_id__in=org_user_ids) | Q(user__isnull=True)
+                        )
+                        .order_by("-created_at")
+                    )
+                else:
+                    conversations = Conversation.objects.filter(user=user).order_by(
+                        "-created_at"
+                    )
 
             serialized_conversations = ConversationSerializer(
                 conversations, many=True, context={"request": request}

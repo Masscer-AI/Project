@@ -323,10 +323,12 @@ export const deleteConversation = async (conversationId: string) => {
   );
 };
 
-export const getAllConversations = async () => {
+export const getAllConversations = async (
+  scope: "personal" | "org" = "org"
+) => {
   return makeAuthenticatedRequest<TConversation[]>(
     "GET",
-    "/v1/messaging/conversations"
+    `/v1/messaging/conversations?scope=${scope}`
   );
 };
 

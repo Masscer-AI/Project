@@ -147,7 +147,7 @@ export const Sidebar: React.FC = () => {
     }
 
     try {
-      const res = await getAllConversations();
+      const res = await getAllConversations("personal");
       setHistory(res);
       setFilteredHistory(res);
     } catch (error) {
