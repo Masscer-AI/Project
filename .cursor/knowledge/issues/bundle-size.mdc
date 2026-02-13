@@ -1,0 +1,90 @@
+---
+description: Bundle size analysis and optimization opportunities for the frontend
+globs: streaming/client/**/*.{ts,tsx,js},streaming/client/vite.config.*
+alwaysApply: false
+---
+
+# Frontend Bundle Size Issue
+
+**Date identified:** 2026-02-13
+**Status:** Open
+**Impact:** Main bundle is ~2,838 KB raw / ~898 KB gzipped — well above the recommended ~200-300 KB gzipped target.
+
+---
+
+## Analysis
+
+Ran `npx vite-bundle-visualizer` from `streaming/client/`. The treemap shows the main bundle (`index-*.js`) contains several heavy libraries that should be lazy-loaded.
+
+### Top offenders in the main bundle
+
+| Library | Raw size (est.) | Why it's heavy | Used where |
+|---------|----------------|----------------|------------|
+| **mermaid core** (`mermaid/dist`, `mermaid.core.mjs`) | ~300-400 KB | Diagram engine core is bundled even though diagram types are code-split | Chat message rendering (markdown with diagrams) |
+| **katex** (`katex/dist/katex.mjs`) | ~200-300 KB | Full LaTeX math renderer | Chat message rendering (math formulas) |
+| **@xyflow** | ~150-200 KB | Flow/graph visualization | Specific pages only |
+| **refractor** | ~100-150 KB | Syntax highlighting for code blocks | Chat message rendering |
+| **framer-motion / motion-dom** | ~80-100 KB | Animation library | Used across components (harder to split) |
+| **@mantine** | ~200-300 KB | UI framework | Everywhere (unavoidable, but check tree-shaking) |
+| **cytoscape.esm** | 379 KB (already split) | Graph visualization | Already code-split — no action needed |
+
+### What's already code-split (good)
+
+- Mermaid diagram **types** (flowDiagram, sequenceDiagram, etc.) — ~30 chunks
+- `cytoscape.esm` — separate chunk
+- `dagre` — separate chunk
+
+---
+
+## Recommended optimizations (by estimated impact)
+
+### 1. Lazy-load mermaid core (~300-400 KB savings)
+
+Mermaid diagram types are split but the core engine is in the main bundle. Likely imported at the top level in a markdown renderer component. Wrap the mermaid import with `React.lazy` or dynamic `import()`.
+
+**Where to look:** Find which component imports `mermaid` and make it a lazy-loaded component.
+
+### 2. Lazy-load katex (~200-300 KB savings)
+
+Math rendering is niche — most chat messages don't contain LaTeX. Dynamic import katex only when a message contains math syntax.
+
+**Where to look:** The markdown renderer likely imports katex directly.
+
+### 3. Lazy-load @xyflow (~150-200 KB savings)
+
+Only used on specific pages. Use `React.lazy()` for the route/component that uses it.
+
+### 4. Lazy-load refractor (~100-150 KB savings)
+
+Syntax highlighting could be loaded on demand when a code block is detected.
+
+### 5. Route-level code splitting
+
+Use `React.lazy` + `Suspense` for heavy routes:
+- Organization page
+- Dashboard pages
+- Any page using @xyflow
+
+### 6. Verify Mantine tree-shaking
+
+Ensure the Vite config properly tree-shakes unused Mantine components. Check if importing from `@mantine/core` pulls in everything or just what's used.
+
+---
+
+## How to reproduce the analysis
+
+```bash
+cd streaming/client
+npx vite-bundle-visualizer
+```
+
+This generates an interactive HTML treemap showing exactly what's in each chunk.
+
+---
+
+## Notes
+
+- The code-split chunks (mermaid diagram types, cytoscape, dagre) are already well-handled
+- The main bundle optimization is about moving heavy libs that aren't needed on initial page load behind dynamic imports
+- framer-motion is hard to split since it's used for animations across the app — lower priority
+- @mantine is the design system, can't be removed, but tree-shaking should be verified
