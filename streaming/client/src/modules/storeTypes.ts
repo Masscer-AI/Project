@@ -58,6 +58,7 @@ export type Store = {
   conversation: TConversation | undefined;
   openedModals: string[];
   reactionTemplates: TReactionTemplate[];
+  agentTaskStatus: string | null;
   userPreferences: TUserPreferences;
   setTheming: (theming: Partial<Store["theming"]>) => void;
   setPreferences: (prefs: Partial<TUserPreferences>) => void;
@@ -89,5 +90,6 @@ export type Store = {
   togglePlugin: (plugin: TPlugin) => void;
   updateChatState: (state: Partial<Store["chatState"]>) => void;
   setSpecifiedUrls: (urls: TSpecifiedUrl[]) => void;
+  setAgentTaskStatus: (status: string | null) => void;
   test: () => void;
 };

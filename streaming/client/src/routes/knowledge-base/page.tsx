@@ -11,6 +11,7 @@ import {
   createCompletion,
   generateTrainingCompletions,
   getBigDocument,
+  bulkDeleteCompletions,
 } from "../../modules/apiCalls";
 import { TDocument, TCompletion } from "../../types";
 import { useTranslation } from "react-i18next";
@@ -679,6 +680,57 @@ const CompletionsTab = ({
   const [newAgentId, setNewAgentId] = useState("");
   const [creating, setCreating] = useState(false);
 
+  // Bulk selection state
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+
+  const allSelected =
+    completions.length > 0 && selectedIds.size === completions.length;
+  const someSelected = selectedIds.size > 0;
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+    setConfirmBulkDelete(false);
+  };
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(completions.map((c) => c.id)));
+    }
+    setConfirmBulkDelete(false);
+  };
+
+  const handleBulkDelete = async () => {
+    if (!confirmBulkDelete) {
+      setConfirmBulkDelete(true);
+      return;
+    }
+    setBulkDeleting(true);
+    const toastId = toast.loading(t("deleting-completions"));
+    try {
+      await bulkDeleteCompletions(Array.from(selectedIds));
+      toast.success(
+        t("completions-deleted", { count: selectedIds.size })
+      );
+      setSelectedIds(new Set());
+      setConfirmBulkDelete(false);
+      onRefresh();
+    } catch {
+      toast.error(t("error-deleting-completions"));
+    } finally {
+      toast.dismiss(toastId);
+      setBulkDeleting(false);
+    }
+  };
+
   const handleCreate = async () => {
     if (!newPrompt.trim() || !newAnswer.trim()) {
       toast.error(t("prompt-and-answer-required"));
@@ -715,16 +767,45 @@ const CompletionsTab = ({
 
   return (
     <Stack gap="md">
-      {!showCreate && (
-        <Group justify="flex-end">
+      {/* Action bar */}
+      <Group justify="space-between">
+        <Group gap="xs">
+          {completions.length > 0 && (
+            <Checkbox
+              checked={allSelected}
+              indeterminate={someSelected && !allSelected}
+              onChange={toggleSelectAll}
+              label={allSelected ? t("unselect-all") : t("select-all")}
+              size="sm"
+            />
+          )}
+          {someSelected && (
+            <Button
+              variant="light"
+              color={confirmBulkDelete ? "red" : "red"}
+              size="xs"
+              leftSection={<IconTrash size={14} />}
+              loading={bulkDeleting}
+              onClick={handleBulkDelete}
+              onBlur={() => setConfirmBulkDelete(false)}
+            >
+              {confirmBulkDelete
+                ? t("confirm-delete-count", { count: selectedIds.size })
+                : t("delete-selected", { count: selectedIds.size })}
+            </Button>
+          )}
+        </Group>
+
+        {!showCreate && (
           <Button
             leftSection={<IconPlus size={16} />}
             onClick={() => setShowCreate(true)}
+            size="sm"
           >
             {t("new-completion")}
           </Button>
-        </Group>
-      )}
+        )}
+      </Group>
 
       {showCreate && (
         <Card withBorder p="lg">
@@ -796,6 +877,8 @@ const CompletionsTab = ({
             completion={comp}
             agents={agents}
             onRefresh={onRefresh}
+            selected={selectedIds.has(comp.id)}
+            onToggleSelect={() => toggleSelect(comp.id)}
           />
         ))
       )}
@@ -809,10 +892,14 @@ const CompletionItem = ({
   completion,
   agents,
   onRefresh,
+  selected,
+  onToggleSelect,
 }: {
   completion: TCompletion;
   agents: TAgent[];
   onRefresh: () => void;
+  selected: boolean;
+  onToggleSelect: () => void;
 }) => {
   const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
@@ -879,7 +966,21 @@ const CompletionItem = ({
   };
 
   return (
-    <Card withBorder p="md">
+    <Card
+      withBorder
+      p="md"
+      style={{
+        borderColor: selected ? "var(--mantine-color-violet-6)" : undefined,
+      }}
+    >
+      <Group gap="sm" align="flex-start" wrap="nowrap">
+        <Checkbox
+          checked={selected}
+          onChange={onToggleSelect}
+          mt={4}
+          style={{ flexShrink: 0 }}
+        />
+        <Box style={{ flex: 1, minWidth: 0 }}>
       {/* Prompt */}
       {isEditing ? (
         <Textarea
@@ -1018,6 +1119,8 @@ const CompletionItem = ({
         >
           {confirmDelete ? t("im-sure") : t("delete")}
         </Button>
+      </Group>
+        </Box>
       </Group>
     </Card>
   );

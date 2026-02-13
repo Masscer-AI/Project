@@ -27,12 +27,46 @@ def _extract_output_text(response) -> str:
     return "".join(chunks).strip()
 
 
+def _fix_schema_for_openai_strict(schema: dict) -> dict:
+    """Recursively patch a JSON schema so it passes OpenAI strict-mode validation.
+
+    Two things OpenAI requires that Pydantic doesn't emit by default:
+    1. Every object must have "additionalProperties": false
+    2. Every object must list ALL property keys in "required"
+    """
+    if not isinstance(schema, dict):
+        return schema
+
+    if schema.get("type") == "object" or "properties" in schema:
+        schema["additionalProperties"] = False
+        props = schema.get("properties")
+        if isinstance(props, dict) and props:
+            schema["required"] = list(props.keys())
+
+    for key in ("properties", "$defs", "definitions"):
+        container = schema.get(key)
+        if isinstance(container, dict):
+            for v in container.values():
+                _fix_schema_for_openai_strict(v)
+
+    for key in ("items", "anyOf", "oneOf", "allOf"):
+        value = schema.get(key)
+        if isinstance(value, dict):
+            _fix_schema_for_openai_strict(value)
+        elif isinstance(value, list):
+            for item in value:
+                _fix_schema_for_openai_strict(item)
+
+    return schema
+
+
 def _response_text_format_from_pydantic(response_format):
     schema = (
         response_format.model_json_schema()
         if hasattr(response_format, "model_json_schema")
         else response_format.schema()
     )
+    _fix_schema_for_openai_strict(schema)
     return {
         "type": "json_schema",
         "name": response_format.__name__,

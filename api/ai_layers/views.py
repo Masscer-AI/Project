@@ -330,3 +330,143 @@ def create_random_agent(request):
     cache.delete(cache_key)
 
     return JsonResponse(agent.serialize(), status=201)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+@method_decorator(feature_flag_required("agent-task"), name="dispatch")
+class AgentTaskView(View):
+    """
+    Trigger an AgentLoop execution as a background Celery task.
+
+    POST /api/ai-layers/agent-task/conversation/
+    Body (JSON):
+        - conversation_id (str, required): UUID of the conversation
+        - agent_slug (str, required): slug of the Agent to use (derives instructions + model)
+        - user_inputs (list, required): list of input objects, e.g.
+              [{"type": "input_text", "text": "Hello"}]
+              Future: input_image, input_document, etc.
+        - tool_names (list[str], optional): tool names from the registry (default [])
+
+    The agent's system prompt and LLM model are resolved from the Agent model.
+    Messages are always saved to the conversation.
+
+    Returns 202 Accepted with {"task_id": ..., "status": "accepted"}
+    """
+
+    def post(self, request, *args, **kwargs):
+        from api.messaging.models import Conversation
+        from .tasks import conversation_agent_task
+        from .tools import list_available_tools
+
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON body"}, status=400)
+
+        # --- Validate required fields ---
+        conversation_id = data.get("conversation_id")
+        agent_slug = data.get("agent_slug")
+        user_inputs = data.get("user_inputs")
+
+        missing = []
+        if not conversation_id:
+            missing.append("conversation_id")
+        if not agent_slug:
+            missing.append("agent_slug")
+        if not user_inputs or not isinstance(user_inputs, list):
+            missing.append("user_inputs (must be a non-empty list)")
+
+        if missing:
+            return JsonResponse(
+                {"error": f"Missing required fields: {', '.join(missing)}"},
+                status=400,
+            )
+
+        # --- Validate user_inputs structure ---
+        for i, inp in enumerate(user_inputs):
+            if not isinstance(inp, dict) or "type" not in inp:
+                return JsonResponse(
+                    {"error": f"user_inputs[{i}] must be an object with a 'type' field"},
+                    status=400,
+                )
+
+        # --- Validate optional tool_names ---
+        tool_names = data.get("tool_names", [])
+
+        if not isinstance(tool_names, list):
+            return JsonResponse(
+                {"error": "tool_names must be a list of strings"},
+                status=400,
+            )
+
+        available = list_available_tools()
+        unknown = [t for t in tool_names if t not in available]
+        if unknown:
+            return JsonResponse(
+                {
+                    "error": f"Unknown tools: {', '.join(unknown)}",
+                    "available_tools": available,
+                },
+                status=400,
+            )
+
+        # --- Look up agent ---
+        user = request.user
+        user_org = getattr(getattr(user, "profile", None), "organization", None)
+
+        # Agent must belong to the user or their organization
+        from django.db.models import Q
+        agent_qs = Agent.objects.filter(slug=agent_slug)
+        if user_org:
+            agent_qs = agent_qs.filter(Q(user=user) | Q(organization=user_org))
+        else:
+            agent_qs = agent_qs.filter(user=user)
+
+        agent = agent_qs.first()
+        if not agent:
+            return JsonResponse(
+                {"error": f"Agent '{agent_slug}' not found or not accessible"},
+                status=404,
+            )
+
+        # Derive instructions and model from the agent
+        instructions = agent.format_prompt()
+        model = agent.llm.slug if agent.llm else (agent.model_slug or "gpt-4o")
+
+        # --- Validate conversation belongs to the user ---
+        try:
+            conversation = Conversation.objects.get(id=conversation_id)
+        except Conversation.DoesNotExist:
+            return JsonResponse(
+                {"error": "Conversation not found"},
+                status=404,
+            )
+
+        is_owner = conversation.user_id == user.id
+        is_org_member = (
+            user_org is not None
+            and conversation.organization_id is not None
+            and conversation.organization_id == user_org.id
+        )
+
+        if not is_owner and not is_org_member:
+            return JsonResponse(
+                {"error": "You don't have access to this conversation"},
+                status=403,
+            )
+
+        # --- Dispatch Celery task ---
+        task = conversation_agent_task.delay(
+            conversation_id=str(conversation_id),
+            user_inputs=user_inputs,
+            tool_names=tool_names,
+            instructions=instructions,
+            user_id=user.id,
+            model=model,
+        )
+
+        return JsonResponse(
+            {"task_id": task.id, "status": "accepted"},
+            status=202,
+        )

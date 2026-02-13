@@ -701,11 +701,11 @@ export const bulkUpdateCompletions = async (data: TCompletion[]) => {
   );
 };
 
-export const bulkDeleteCompletions = async (data: TCompletion[]) => {
+export const bulkDeleteCompletions = async (ids: number[]) => {
   return makeAuthenticatedRequest(
     "DELETE",
-    "/v1/finetuning/bulk/completions/delete/",
-    { completions_ids: data.map((c) => c.id) }
+    "/v1/finetuning/bulk/completions/",
+    { completions_ids: ids }
   );
 };
 
@@ -1131,6 +1131,33 @@ export const deleteChatWidget = async (widgetId: number) => {
   return makeAuthenticatedRequest<{ message: string; status: number }>(
     "DELETE",
     `/v1/messaging/widgets/${widgetId}/`
+  );
+};
+
+// ---- Agent Task ----
+
+export type TAgentTaskInput =
+  | { type: "input_text"; text: string }
+  | { type: "input_image"; content: string }
+  | { type: "input_document"; content: string; name?: string };
+
+export type TriggerAgentTaskPayload = {
+  conversation_id: string;
+  agent_slug: string;
+  user_inputs: TAgentTaskInput[];
+  tool_names?: string[];
+};
+
+export type TriggerAgentTaskResponse = {
+  task_id: string;
+  status: string;
+};
+
+export const triggerAgentTask = async (payload: TriggerAgentTaskPayload) => {
+  return makeAuthenticatedRequest<TriggerAgentTaskResponse>(
+    "POST",
+    "/v1/ai_layers/agent-task/conversation/",
+    payload
   );
 };
 

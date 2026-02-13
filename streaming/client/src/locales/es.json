@@ -130,6 +130,11 @@
     "group-actions": "Acciones en grupo",
     "selected": "Seleccionado",
     "delete-all": "Eliminar todo",
+    "delete-selected": "Eliminar {{count}} seleccionados",
+    "confirm-delete-count": "Confirmar eliminar {{count}}?",
+    "deleting-completions": "Eliminando completions...",
+    "completions-deleted": "{{count}} completions eliminados",
+    "error-deleting-completions": "Error eliminando completions",
     "approve-all": "Aprobar todo",
     "fetching-specified-urls": "Obteniendo URLs especificadas...",
     "urls-fetched-successfully": "URLs obtenidas exitosamente",
@@ -654,5 +659,12 @@
     "landing-tag-transcriptions": "Transcripciones",
     "ownership": "Propiedad",
     "personal": "Personal",
-    "organization-agent": "Organizacion"
+    "organization-agent": "Organizacion",
+    "ff-agent-task": "Tareas de Agente",
+    "ff-agent-task-desc": "Permite ejecutar agentes de IA con capacidades de ejecucion de herramientas en conversaciones.",
+    "agent-running-tool": "Ejecutando herramienta: {{toolName}}...",
+    "agent-tool-completed": "Herramienta completada: {{toolName}}",
+    "agent-thinking": "El agente esta pensando...",
+    "agent-processing": "El agente esta procesando...",
+    "agent-task-failed": "La tarea del agente fallo"
 }

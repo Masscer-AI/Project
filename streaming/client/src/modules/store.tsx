@@ -47,6 +47,7 @@ export const useStore = create<Store>()((set, get) => ({
     background_image_opacity: 0.5,
   },
   organizations: [],
+  agentTaskStatus: null,
   chatState: {
     isSidebarOpened: false,
     attachments: [],
@@ -428,6 +429,10 @@ export const useStore = create<Store>()((set, get) => ({
         specifiedUrls: urls,
       },
     }));
+  },
+
+  setAgentTaskStatus: (status: string | null) => {
+    set({ agentTaskStatus: status });
   },
 
   test: () => {

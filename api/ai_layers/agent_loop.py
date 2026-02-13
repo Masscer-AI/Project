@@ -130,6 +130,34 @@ def _add_additional_properties_false(schema_obj: dict) -> None:
                 _add_additional_properties_false(item)
 
 
+def _to_dict(obj: Any) -> Any:
+    """
+    Safely convert an OpenAI SDK Pydantic model to a plain dict.
+
+    This avoids the ``by_alias: NoneType cannot be converted to PyBool``
+    error that occurs in certain pydantic/pydantic-core versions when
+    the SDK re-serialises its own output objects.
+    """
+    if isinstance(obj, dict):
+        return obj
+    # OpenAI SDK >=1.x objects expose to_dict()
+    if hasattr(obj, "to_dict"):
+        return obj.to_dict()
+    # Pydantic v2 model_dump — no kwargs to dodge the by_alias bug
+    if hasattr(obj, "model_dump"):
+        try:
+            return obj.model_dump()
+        except Exception:
+            pass
+    # Last resort: json round-trip
+    if hasattr(obj, "model_dump_json"):
+        try:
+            return json.loads(obj.model_dump_json())
+        except Exception:
+            pass
+    return obj
+
+
 def _serialize_tool_result(result: Any) -> str:
     """Serialize a tool function's return value to a string for OpenAI."""
     if result is None:
@@ -137,7 +165,7 @@ def _serialize_tool_result(result: Any) -> str:
     if isinstance(result, str):
         return result
     if isinstance(result, BaseModel):
-        return result.model_dump_json()
+        return json.dumps(result.model_dump(), default=str)
     if isinstance(result, dict):
         return json.dumps(result, default=str)
     # Fallback
@@ -331,8 +359,9 @@ class AgentLoop:
                         tool_calls_found.append(output_item)
                     elif item_type == "message":
                         message_outputs.append(output_item)
-                    # reasoning items are also appended to preserve context
-                    messages.append(output_item)
+                    # Convert to plain dict to avoid Pydantic serialization
+                    # issues (by_alias bug) when items are fed back to the SDK
+                    messages.append(_to_dict(output_item))
 
             # --- Tool calls: execute and loop ---
             if tool_calls_found:

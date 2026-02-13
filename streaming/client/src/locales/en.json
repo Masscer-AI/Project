@@ -129,6 +129,11 @@
     "group-actions": "Group actions",
     "selected": "selected",
     "delete-all": "Delete all",
+    "delete-selected": "Delete {{count}} selected",
+    "confirm-delete-count": "Confirm delete {{count}}?",
+    "deleting-completions": "Deleting completions...",
+    "completions-deleted": "{{count}} completions deleted",
+    "error-deleting-completions": "Error deleting completions",
     "approve-all": "Approve all",
     "exploring-the-web": "Exploring the web...",
     "appending-all-document-text": "Appending all document text...",
@@ -652,5 +657,12 @@
     "landing-tag-transcriptions": "Transcriptions",
     "ownership": "Ownership",
     "personal": "Personal",
-    "organization-agent": "Organization"
+    "organization-agent": "Organization",
+    "ff-agent-task": "Agent Tasks",
+    "ff-agent-task-desc": "Allows running AI agents with tool execution capabilities in conversations.",
+    "agent-running-tool": "Running tool: {{toolName}}...",
+    "agent-tool-completed": "Tool completed: {{toolName}}",
+    "agent-thinking": "Agent is thinking...",
+    "agent-processing": "Agent is processing...",
+    "agent-task-failed": "Agent task failed"
 }

@@ -16,6 +16,8 @@ import { updateLastMessagesIds } from "./helpers";
 import { ConversationModal } from "../../components/ConversationModal/ConversationModal";
 import { ActionIcon } from "@mantine/core";
 import { IconArrowDown } from "@tabler/icons-react";
+import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
+import { triggerAgentTask } from "../../modules/apiCalls";
 
 export default function ChatView() {
   const loaderData = useLoaderData() as TChatLoader;
@@ -44,6 +46,7 @@ export default function ChatView() {
   }));
 
   const { t } = useTranslation();
+  const isAgentTaskEnabled = useIsFeatureEnabled("agent-task");
 
   const activeConversation = conversation ?? loaderData.conversation;
   const isViewer =
@@ -217,6 +220,34 @@ export default function ChatView() {
     };
     setMessages([...messages, userMessage, assistantMessage]);
 
+    // --- Agent Task route (feature flag gated) ---
+    if (isAgentTaskEnabled) {
+      try {
+        const currentConversation = conversation ?? loaderData.conversation;
+        if (!currentConversation?.id) {
+          toast.error("No conversation found");
+          return false;
+        }
+
+        const agent = selectedAgents[0];
+
+        await triggerAgentTask({
+          conversation_id: currentConversation.id,
+          agent_slug: agent.slug,
+          user_inputs: [{ type: "input_text", text: input }],
+          tool_names: ["print_color"],
+        });
+
+        scrollChat();
+        return true;
+      } catch (error) {
+        console.error("Error triggering agent task:", error);
+        toast.error(t("agent-task-failed"));
+        return false;
+      }
+    }
+
+    // --- Normal streaming route ---
     const memoryMessages = [...messages]
       .reverse()
       .slice(0, userPreferences.max_memory_messages)

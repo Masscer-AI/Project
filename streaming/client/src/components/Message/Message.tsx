@@ -124,12 +124,13 @@ export const Message = memo(
     const isChatSpeechEnabled = useIsFeatureEnabled("chat-generate-speech");
     const isImageToolsEnabled = useIsFeatureEnabled("image-tools");
 
-    const { agents, reactionTemplates, socket, userPreferences } = useStore(
+    const { agents, reactionTemplates, socket, userPreferences, agentTaskStatus } = useStore(
       (s) => ({
         agents: s.agents,
         reactionTemplates: s.reactionTemplates,
         socket: s.socket,
         userPreferences: s.userPreferences,
+        agentTaskStatus: s.agentTaskStatus,
       })
     );
 
@@ -346,7 +347,7 @@ export const Message = memo(
           <Group gap="xs" mt="xs">
             <MantineLoader size="sm" color="violet" />
             <Text size="sm" c="dimmed">
-              {t("thinking...")}
+              {agentTaskStatus || t("thinking...")}
             </Text>
           </Group>
         )}
