@@ -20,15 +20,15 @@ class FeatureFlagService:
 
         Priority order:
         1. Organization owner — all flags enabled automatically
-        2. User-level assignment (highest explicit priority)
-        3. Organization-level assignment (explicit org param OR user's orgs)
-        4. Role capabilities
+        2. Direct user-level assignment (highest explicit priority)
+        3. Role capabilities (user has an active role whose capabilities include the flag)
+        4. Organization-level assignment — ONLY for ``organization_only`` flags
         5. False (no assignment found)
 
         Returns:
             (enabled, reason) where reason is one of:
-            "is-owner", "direct-user-assignment", "organization-assignment",
-            "role-assignment", "not-assigned"
+            "is-owner", "direct-user-assignment", "role-assignment",
+            "organization-assignment", "not-assigned"
         """
 
         # Organization owners get ALL feature flags enabled
@@ -55,18 +55,30 @@ class FeatureFlagService:
             except FeatureFlagAssignment.DoesNotExist:
                 pass
 
-        # Determine which organization to check
-        organization_to_check = organization
-
-        # If no explicit organization, try to get user's organizations
-        if not organization_to_check and user:
+        # Resolve the user's organizations once
+        orgs_to_check = []
+        if organization:
+            orgs_to_check = [organization]
+        elif user:
             owned_orgs = Organization.objects.filter(owner=user)
             member_orgs = Organization.objects.none()
             if hasattr(user, 'profile') and user.profile.organization:
                 member_orgs = Organization.objects.filter(id=user.profile.organization.id)
-            user_organizations = (owned_orgs | member_orgs).distinct()
+            orgs_to_check = list((owned_orgs | member_orgs).distinct())
 
-            for org in user_organizations:
+        # Check role capabilities (applies to ALL flags)
+        if user:
+            for org in orgs_to_check:
+                if cls._user_has_capability_via_role(user, org, feature_flag_name):
+                    return True, "role-assignment"
+
+        # Check organization-level assignment ONLY for organization_only flags
+        is_org_only = FeatureFlag.objects.filter(
+            name=feature_flag_name, organization_only=True
+        ).exists()
+
+        if is_org_only:
+            for org in orgs_to_check:
                 try:
                     assignment = FeatureFlagAssignment.objects.select_related(
                         "feature_flag"
@@ -79,24 +91,6 @@ class FeatureFlagService:
                         return True, "organization-assignment"
                 except FeatureFlagAssignment.DoesNotExist:
                     pass
-                if cls._user_has_capability_via_role(user, org, feature_flag_name):
-                    return True, "role-assignment"
-
-        # Check explicit organization if provided
-        if organization_to_check:
-            try:
-                assignment = FeatureFlagAssignment.objects.select_related(
-                    "feature_flag"
-                ).get(
-                    organization=organization_to_check,
-                    feature_flag__name=feature_flag_name,
-                    user__isnull=True,
-                )
-                return assignment.enabled, "organization-assignment"
-            except FeatureFlagAssignment.DoesNotExist:
-                pass
-            if user and cls._user_has_capability_via_role(user, organization_to_check, feature_flag_name):
-                return True, "role-assignment"
 
         return False, "not-assigned"
 
@@ -114,6 +108,20 @@ class FeatureFlagService:
             if feature_flag_name in caps:
                 return True
         return False
+
+    @classmethod
+    def get_user_role_capabilities(cls, user, organization) -> list[str]:
+        """Return the list of feature flag names granted to the user via active roles in this org."""
+        today = timezone.now().date()
+        active = RoleAssignment.objects.filter(
+            user=user,
+            organization=organization,
+            from_date__lte=today,
+        ).filter(Q(to_date__isnull=True) | Q(to_date__gte=today)).select_related("role")
+        caps = []
+        for assignment in active:
+            caps.extend(assignment.role.capabilities or [])
+        return caps
 
     @classmethod
     def get_or_create_feature_flag(cls, feature_flag_name: str) -> FeatureFlag:

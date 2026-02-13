@@ -114,9 +114,6 @@ class OrganizationSerializer(serializers.ModelSerializer):
     
     def get_logo_url(self, obj):
         if obj.logo:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.logo.url)
             return obj.logo.url
         return None
 
@@ -166,9 +163,6 @@ class BigOrganizationSerializer(serializers.ModelSerializer):
     
     def get_logo_url(self, obj):
         if obj.logo:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.logo.url)
             return obj.logo.url
         return None
     
@@ -242,9 +236,6 @@ class PublicOrganizationSerializer(serializers.ModelSerializer):
 
     def get_logo_url(self, obj):
         if obj.logo:
-            request = self.context.get("request")
-            if request:
-                return request.build_absolute_uri(obj.logo.url)
             return obj.logo.url
         return None
 

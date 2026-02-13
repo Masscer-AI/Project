@@ -16,6 +16,7 @@ import {
   updateOrganizationRole,
 } from "../../modules/apiCalls";
 import { titlelify } from "../../modules/utils";
+import { API_URL } from "../../modules/constants";
 import {
   TOrganization,
   TOrganizationMember,
@@ -238,7 +239,7 @@ export default function OrganizationPage() {
   };
 
   const isOrgDirty = orgForm.isDirty() || !!logoFile || deleteLogo;
-  const logoSrc = org?.logo_url ? `${org.logo_url}?v=${logoCacheKey}` : null;
+  const logoSrc = org?.logo_url ? `${API_URL}${org.logo_url}?v=${logoCacheKey}` : null;
   const handleSaveRole = async () => {
     if (!org?.id || !roleForm.name.trim()) return;
     const tid = toast.loading(t("loading"));

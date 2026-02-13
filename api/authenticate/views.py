@@ -774,25 +774,33 @@ class FeatureFlagListView(View):
         member_orgs = Organization.objects.none()
         if hasattr(user, 'profile') and user.profile.organization:
             member_orgs = Organization.objects.filter(id=user.profile.organization.id)
-        user_organizations = (owned_orgs | member_orgs).distinct()
-        
-        # Collect all feature flags from all user's organizations
+        user_organizations = list((owned_orgs | member_orgs).distinct())
+
         all_flags = {}
-        for org in user_organizations:
-            org_flags = FeatureFlagService.get_organization_feature_flags(org)
-            # Merge flags (user-level flags take priority, but we're only getting org-level here)
-            for flag_name, enabled in org_flags.items():
-                if flag_name not in all_flags:
-                    all_flags[flag_name] = enabled
-                # If already exists, keep the first one (or could use OR logic)
-        
-        # Also check user-level flags
+
+        # 1. Direct user-level assignments
         user_assignments = FeatureFlagAssignment.objects.filter(
             user=user, organization__isnull=True
         ).select_related("feature_flag")
-        
         for assignment in user_assignments:
             all_flags[assignment.feature_flag.name] = assignment.enabled
+
+        # 2. Role capabilities (across all user orgs)
+        for org in user_organizations:
+            for flag_name in FeatureFlagService.get_user_role_capabilities(user, org):
+                if flag_name not in all_flags:
+                    all_flags[flag_name] = True
+
+        # 3. Organization-level assignments — only for organization_only flags
+        org_only_names = set(
+            FeatureFlag.objects.filter(organization_only=True)
+            .values_list("name", flat=True)
+        )
+        for org in user_organizations:
+            org_flags = FeatureFlagService.get_organization_feature_flags(org)
+            for flag_name, enabled in org_flags.items():
+                if flag_name in org_only_names and flag_name not in all_flags:
+                    all_flags[flag_name] = enabled
 
         serializer = TeamFeatureFlagsResponseSerializer({
             "feature_flags": all_flags,

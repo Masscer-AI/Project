@@ -190,7 +190,7 @@ export default function Signup() {
             <>
               {organization?.logo_url ? (
                 <img
-                  src={organization.logo_url}
+                  src={`${API_URL}${organization.logo_url}`}
                   alt={organization.name}
                   className="block w-[88px] h-[88px] mx-auto mb-6 rounded-2xl object-cover border border-white/10 bg-white/5"
                 />
