@@ -103,6 +103,14 @@ class LoginAPIView(APIView):
                 user = None
 
             if user is not None:
+                # Block deactivated users from logging in
+                profile = getattr(user, "profile", None)
+                if profile and profile.organization_id and not profile.is_active:
+                    return Response(
+                        {"error": "Your account has been deactivated. Contact your organization administrator."},
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+
                 login(request, user)
                 token, created = Token.get_or_create(user=user, token_type="login")
                 return Response(
@@ -227,9 +235,9 @@ class OrganizationView(View):
         # Obtener organizaciones donde el usuario es owner
         owned_orgs = Organization.objects.filter(owner=request.user)
         
-        # Obtener organizaciones donde el usuario es miembro (a través de su profile)
+        # Obtener organizaciones donde el usuario es miembro activo (a través de su profile)
         member_orgs = Organization.objects.none()
-        if hasattr(request.user, 'profile') and request.user.profile.organization:
+        if hasattr(request.user, 'profile') and request.user.profile.organization and request.user.profile.is_active:
             member_orgs = Organization.objects.filter(id=request.user.profile.organization.id)
         
         # Combinar ambas y eliminar duplicados
@@ -467,8 +475,21 @@ class OrganizationCredentialsView(View):
         return JsonResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+def _is_active_member(user, organization):
+    """Return True if user is an active member (or owner) of the organization."""
+    if organization.owner_id == user.id:
+        return True
+    profile = getattr(user, "profile", None)
+    if profile and profile.organization_id == organization.id and profile.is_active:
+        return True
+    return False
+
+
 def _can_manage_organization(user, organization):
-    """Return True if user is owner or has manage-organization feature flag."""
+    """Return True if user is owner or has manage-organization feature flag.
+    Deactivated members are always rejected."""
+    if not _is_active_member(user, organization):
+        return False
     if organization.owner_id == user.id:
         return True
     enabled, _ = FeatureFlagService.is_feature_enabled(
@@ -524,6 +545,7 @@ class OrganizationMembersView(View):
                 "username": owner.username or "",
                 "profile_name": (owner_profile.name if owner_profile and owner_profile.name else "") or "",
                 "is_owner": True,
+                "is_active": True,
                 "current_role": user_to_role.get(owner.id),
             }
         ]
@@ -540,11 +562,101 @@ class OrganizationMembersView(View):
                 "username": user.username or "",
                 "profile_name": (profile.name or "").strip(),
                 "is_owner": False,
+                "is_active": profile.is_active,
                 "current_role": user_to_role.get(user.id),
             })
 
         serializer = OrganizationMemberSerializer(members_data, many=True)
         return JsonResponse(serializer.data, safe=False)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class OrganizationMemberDetailView(View):
+    """
+    PATCH  → deactivate / reactivate a member  (body: {"is_active": bool})
+    DELETE → fully remove a member from the organization
+    """
+
+    def patch(self, request, organization_id, user_id):
+        try:
+            organization = Organization.objects.get(id=organization_id)
+        except Organization.DoesNotExist:
+            return JsonResponse({"error": "Organization not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        if not _can_manage_organization(request.user, organization):
+            return JsonResponse({"error": "You do not have permission"}, status=status.HTTP_403_FORBIDDEN)
+
+        # Cannot deactivate the owner
+        if organization.owner_id == user_id:
+            return JsonResponse({"error": "Cannot deactivate the organization owner"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            profile = UserProfile.objects.select_related("user").get(
+                user_id=user_id, organization=organization
+            )
+        except UserProfile.DoesNotExist:
+            return JsonResponse({"error": "Member not found in this organization"}, status=status.HTTP_404_NOT_FOUND)
+
+        data = json.loads(request.body) if request.body else {}
+        new_status = data.get("is_active")
+        if new_status is None or not isinstance(new_status, bool):
+            return JsonResponse(
+                {"error": "is_active (boolean) is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        profile.is_active = new_status
+        profile.save(update_fields=["is_active", "updated_at"])
+
+        action = "reactivated" if new_status else "deactivated"
+        return JsonResponse(
+            {"message": f"Member {action} successfully", "is_active": profile.is_active},
+            status=status.HTTP_200_OK,
+        )
+
+    def delete(self, request, organization_id, user_id):
+        try:
+            organization = Organization.objects.get(id=organization_id)
+        except Organization.DoesNotExist:
+            return JsonResponse({"error": "Organization not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        if not _can_manage_organization(request.user, organization):
+            return JsonResponse({"error": "You do not have permission"}, status=status.HTTP_403_FORBIDDEN)
+
+        # Cannot remove the owner
+        if organization.owner_id == user_id:
+            return JsonResponse({"error": "Cannot remove the organization owner"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            profile = UserProfile.objects.select_related("user").get(
+                user_id=user_id, organization=organization
+            )
+        except UserProfile.DoesNotExist:
+            return JsonResponse({"error": "Member not found in this organization"}, status=status.HTTP_404_NOT_FOUND)
+
+        # --- Cleanup org-scoped data for this user ---
+        from api.messaging.models import ConversationAlertRule, AlertSubscription
+
+        # 1. Remove role assignments
+        RoleAssignment.objects.filter(user_id=user_id, organization=organization).delete()
+
+        # 2. Remove from alert rule selected_members (M2M)
+        for rule in ConversationAlertRule.objects.filter(organization=organization):
+            rule.selected_members.remove(profile.user)
+
+        # 3. Remove alert subscriptions for this org's rules
+        AlertSubscription.objects.filter(
+            user_id=user_id,
+            alert_rule__organization=organization,
+        ).delete()
+
+        # 4. Unlink profile from organization
+        profile.organization = None
+        profile.is_active = True  # Reset so user is clean if they join another org
+        profile.save(update_fields=["organization", "is_active", "updated_at"])
+
+        return JsonResponse({"message": "Member removed successfully"}, status=status.HTTP_200_OK)
 
 
 @method_decorator(csrf_exempt, name="dispatch")

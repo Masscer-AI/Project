@@ -20,6 +20,13 @@ def token_required(view_func):
         token = Token.get_valid(token_key)
         if token:
             request.user = token.user
+            # Block deactivated users from accessing any resource
+            profile = getattr(token.user, "profile", None)
+            if profile and profile.organization_id and not profile.is_active:
+                return JsonResponse(
+                    {"error": "Your account has been deactivated"},
+                    status=403,
+                )
         else:
             token = PublishableToken.get_valid(token_key)
             if token:

@@ -1,4 +1,6 @@
 from django.contrib import admin
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.contrib.auth.models import User
 from django import forms
 from django.utils import timezone
 from django.utils.html import format_html
@@ -195,24 +197,57 @@ class FeatureFlagAssignmentAdmin(admin.ModelAdmin):
     list_filter = ("enabled", "created", "modified", "feature_flag")
 
 
-@admin.register(UserProfile)
-class UserProfileAdmin(admin.ModelAdmin):
-    list_display = ("user", "name", "organization", "age", "created_at", "updated_at")
-    search_fields = ("user__username", "user__email", "name", "bio")
-    list_filter = ("organization", "sex", "created_at", "updated_at")
-    readonly_fields = ("id", "created_at", "updated_at")
+class UserProfileInline(admin.StackedInline):
+    model = UserProfile
+    can_delete = False
+    verbose_name = "Profile"
+    verbose_name_plural = "Profile"
     fields = (
-        "user",
         "name",
         "organization",
+        "is_active",
         "avatar_url",
         "bio",
         "sex",
         "age",
         "birthday",
-        "created_at",
-        "updated_at",
     )
+
+
+# Extend the default User admin to include the profile inline
+admin.site.unregister(User)
+
+
+@admin.register(User)
+class UserAdmin(BaseUserAdmin):
+    inlines = [UserProfileInline]
+    list_display = (
+        "username",
+        "email",
+        "get_organization",
+        "get_is_active_member",
+        "is_staff",
+        "date_joined",
+    )
+    list_filter = (
+        "is_staff",
+        "is_superuser",
+        "is_active",
+        "profile__is_active",
+        "profile__organization",
+    )
+
+    @admin.display(description="Organization", ordering="profile__organization__name")
+    def get_organization(self, obj):
+        profile = getattr(obj, "profile", None)
+        return profile.organization if profile else None
+
+    @admin.display(description="Active member", boolean=True)
+    def get_is_active_member(self, obj):
+        profile = getattr(obj, "profile", None)
+        if not profile or not profile.organization:
+            return None
+        return profile.is_active
 
 
 @admin.register(Role)

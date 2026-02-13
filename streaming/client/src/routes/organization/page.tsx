@@ -5,17 +5,18 @@ import {
   assignRoleToMember,
   createOrganization,
   createOrganizationRole,
+  deactivateOrganizationMember,
   deleteOrganizationRole,
   getFeatureFlagNames,
   getOrganizationMembers,
   getOrganizationRoles,
   getUserOrganizations,
+  removeOrganizationMember,
   removeRoleAssignment,
   TOrganizationData,
   updateOrganization,
   updateOrganizationRole,
 } from "../../modules/apiCalls";
-import { titlelify } from "../../modules/utils";
 import { API_URL } from "../../modules/constants";
 import {
   TOrganization,
@@ -47,6 +48,7 @@ import {
   Textarea,
   TextInput,
   Title,
+  Tooltip,
 } from "@mantine/core";
 import {
   IconBuilding,
@@ -54,8 +56,12 @@ import {
   IconDeviceFloppy,
   IconLink,
   IconMenu2,
+  IconPlayerPause,
+  IconPlayerPlay,
   IconPlus,
+  IconQuestionMark,
   IconShield,
+  IconTrash,
   IconUsers,
 } from "@tabler/icons-react";
 
@@ -106,6 +112,13 @@ export default function OrganizationPage() {
 
   // Invite link
   const [showInviteLink, setShowInviteLink] = useState(false);
+
+  // Member action confirmation modal
+  const [memberAction, setMemberAction] = useState<{
+    member: TOrganizationMember;
+    action: "deactivate" | "reactivate" | "remove";
+  } | null>(null);
+  const [memberActionLoading, setMemberActionLoading] = useState(false);
 
   const loadOrgs = async () => {
     try {
@@ -335,6 +348,44 @@ export default function OrganizationPage() {
     if (!inviteUrl) return;
     navigator.clipboard.writeText(inviteUrl);
     toast.success(t("copied-to-clipboard"));
+  };
+
+  const openMemberAction = (
+    member: TOrganizationMember,
+    action: "deactivate" | "reactivate" | "remove"
+  ) => {
+    setMemberAction({ member, action });
+  };
+
+  const closeMemberAction = () => {
+    setMemberAction(null);
+    setMemberActionLoading(false);
+  };
+
+  const confirmMemberAction = async () => {
+    if (!org?.id || !memberAction) return;
+    setMemberActionLoading(true);
+    const tid = toast.loading(t("loading"));
+    try {
+      const { member, action } = memberAction;
+      if (action === "remove") {
+        await removeOrganizationMember(org.id, member.id);
+        toast.success(t("member-removed"));
+      } else {
+        const newStatus = action === "reactivate";
+        await deactivateOrganizationMember(org.id, member.id, newStatus);
+        toast.success(
+          newStatus ? t("member-reactivated") : t("member-deactivated")
+        );
+      }
+      reloadMembers();
+      closeMemberAction();
+    } catch {
+      toast.error(t("an-error-occurred"));
+    } finally {
+      toast.dismiss(tid);
+      setMemberActionLoading(false);
+    }
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -638,13 +689,21 @@ export default function OrganizationPage() {
                               {role.capabilities?.length > 0 && (
                                 <Group gap={4} mt={4}>
                                   {role.capabilities.map((c) => (
-                                    <Badge
+                                    <Tooltip
                                       key={c}
-                                      size="xs"
-                                      variant="default"
+                                      label={t(`ff-${c}-desc`)}
+                                      multiline
+                                      w={250}
+                                      withArrow
                                     >
-                                      {titlelify(c)}
-                                    </Badge>
+                                      <Badge
+                                        size="xs"
+                                        variant="default"
+                                        style={{ cursor: "help" }}
+                                      >
+                                        {t(`ff-${c}`)}
+                                      </Badge>
+                                    </Tooltip>
                                   ))}
                                 </Group>
                               )}
@@ -746,6 +805,7 @@ export default function OrganizationPage() {
                             p="sm"
                             style={{
                               background: "rgba(255,255,255,0.02)",
+                              opacity: m.is_active === false ? 0.55 : 1,
                             }}
                           >
                             <Group
@@ -754,12 +814,23 @@ export default function OrganizationPage() {
                               gap="sm"
                             >
                               <Stack gap={2} style={{ minWidth: 0, flex: 1 }}>
-                                <Text fw={500} truncate>
-                                  {m.profile_name ||
-                                    m.username ||
-                                    m.email ||
-                                    String(m.id)}
-                                </Text>
+                                <Group gap="xs">
+                                  <Text fw={500} truncate>
+                                    {m.profile_name ||
+                                      m.username ||
+                                      m.email ||
+                                      String(m.id)}
+                                  </Text>
+                                  {m.is_active === false && (
+                                    <Badge
+                                      color="gray"
+                                      size="xs"
+                                      variant="outline"
+                                    >
+                                      {t("deactivated")}
+                                    </Badge>
+                                  )}
+                                </Group>
                                 <Text size="sm" c="dimmed" truncate>
                                   {m.email}
                                 </Text>
@@ -771,26 +842,70 @@ export default function OrganizationPage() {
                                   </Badge>
                                 )}
                                 {!m.is_owner && (
-                                  <NativeSelect
-                                    size="xs"
-                                    value={m.current_role?.id ?? ""}
-                                    onChange={(e) => {
-                                      const v = e.currentTarget.value;
-                                      handleAssignRole(m.id, v || null);
-                                    }}
-                                    disabled={assigningUserId === m.id}
-                                    data={[
-                                      {
-                                        value: "",
-                                        label: `— ${t("no-role")} —`,
-                                      },
-                                      ...roles.map((r) => ({
-                                        value: r.id,
-                                        label: r.name,
-                                      })),
-                                    ]}
-                                    style={{ minWidth: 130 }}
-                                  />
+                                  <>
+                                    <NativeSelect
+                                      size="xs"
+                                      value={m.current_role?.id ?? ""}
+                                      onChange={(e) => {
+                                        const v = e.currentTarget.value;
+                                        handleAssignRole(m.id, v || null);
+                                      }}
+                                      disabled={
+                                        assigningUserId === m.id ||
+                                        m.is_active === false
+                                      }
+                                      data={[
+                                        {
+                                          value: "",
+                                          label: `— ${t("no-role")} —`,
+                                        },
+                                        ...roles.map((r) => ({
+                                          value: r.id,
+                                          label: r.name,
+                                        })),
+                                      ]}
+                                      style={{ minWidth: 130 }}
+                                    />
+                                    <ActionIcon
+                                      variant="subtle"
+                                      color={
+                                        m.is_active === false
+                                          ? "green"
+                                          : "yellow"
+                                      }
+                                      size="sm"
+                                      title={
+                                        m.is_active === false
+                                          ? t("reactivate")
+                                          : t("deactivate")
+                                      }
+                                      onClick={() =>
+                                        openMemberAction(
+                                          m,
+                                          m.is_active === false
+                                            ? "reactivate"
+                                            : "deactivate"
+                                        )
+                                      }
+                                    >
+                                      {m.is_active === false ? (
+                                        <IconPlayerPlay size={16} />
+                                      ) : (
+                                        <IconPlayerPause size={16} />
+                                      )}
+                                    </ActionIcon>
+                                    <ActionIcon
+                                      variant="subtle"
+                                      color="red"
+                                      size="sm"
+                                      title={t("remove-member")}
+                                      onClick={() =>
+                                        openMemberAction(m, "remove")
+                                      }
+                                    >
+                                      <IconTrash size={16} />
+                                    </ActionIcon>
+                                  </>
                                 )}
                               </Group>
                             </Group>
@@ -851,20 +966,39 @@ export default function OrganizationPage() {
                 {featureFlagNames
                   .filter((f) => !f.organization_only)
                   .map((flag) => (
-                    <Checkbox
-                      key={flag.name}
-                      label={titlelify(flag.name)}
-                      checked={roleForm.capabilities.includes(flag.name)}
-                      onChange={(e) => {
-                        const checked = e.currentTarget.checked;
-                        setRoleForm((f) => ({
-                          ...f,
-                          capabilities: checked
-                            ? [...f.capabilities, flag.name]
-                            : f.capabilities.filter((c) => c !== flag.name),
-                        }));
-                      }}
-                    />
+                    <Group key={flag.name} gap={6} wrap="nowrap">
+                      <Checkbox
+                        label={t(`ff-${flag.name}`)}
+                        checked={roleForm.capabilities.includes(flag.name)}
+                        onChange={(e) => {
+                          const checked = e.currentTarget.checked;
+                          setRoleForm((f) => ({
+                            ...f,
+                            capabilities: checked
+                              ? [...f.capabilities, flag.name]
+                              : f.capabilities.filter((c) => c !== flag.name),
+                          }));
+                        }}
+                        styles={{ body: { alignItems: "center" } }}
+                      />
+                      <Tooltip
+                        label={t(`ff-${flag.name}-desc`)}
+                        multiline
+                        w={260}
+                        withArrow
+                        position="right"
+                      >
+                        <ActionIcon
+                          variant="subtle"
+                          color="gray"
+                          size={18}
+                          radius="xl"
+                          style={{ cursor: "help" }}
+                        >
+                          <IconQuestionMark size={12} />
+                        </ActionIcon>
+                      </Tooltip>
+                    </Group>
                   ))}
               </Stack>
             )}
@@ -885,6 +1019,64 @@ export default function OrganizationPage() {
             </Button>
           </Group>
         </Stack>
+      </Modal>
+
+      {/* ── Member action confirmation modal ── */}
+      <Modal
+        opened={!!memberAction}
+        onClose={closeMemberAction}
+        title={
+          memberAction?.action === "remove"
+            ? t("remove-member")
+            : memberAction?.action === "deactivate"
+              ? t("deactivate-member")
+              : t("reactivate-member")
+        }
+        centered
+        size="sm"
+      >
+        {memberAction && (
+          <Stack gap="md">
+            <Text size="sm">
+              {memberAction.action === "remove"
+                ? t("confirm-remove-member-description", {
+                    name:
+                      memberAction.member.profile_name ||
+                      memberAction.member.username ||
+                      memberAction.member.email,
+                  })
+                : memberAction.action === "deactivate"
+                  ? t("confirm-deactivate-member-description", {
+                      name:
+                        memberAction.member.profile_name ||
+                        memberAction.member.username ||
+                        memberAction.member.email,
+                    })
+                  : t("confirm-reactivate-member-description", {
+                      name:
+                        memberAction.member.profile_name ||
+                        memberAction.member.username ||
+                        memberAction.member.email,
+                    })}
+            </Text>
+            <Group justify="flex-end">
+              <Button variant="default" onClick={closeMemberAction}>
+                {t("cancel")}
+              </Button>
+              <Button
+                color={memberAction.action === "remove" ? "red" : memberAction.action === "deactivate" ? "yellow" : "green"}
+                loading={memberActionLoading}
+                onClick={confirmMemberAction}
+              >
+                {memberAction.action === "remove"
+                  ? t("remove")
+                  : memberAction.action === "deactivate"
+                    ? t("deactivate")
+                    : t("reactivate")}
+              </Button>
+            </Group>
+          </Stack>
+        )}
       </Modal>
 
     </main>

@@ -112,6 +112,7 @@ export type TOrganizationMember = {
   username: string;
   profile_name: string;
   is_owner: boolean;
+  is_active: boolean;
   current_role?: { id: string; name: string; assignment_id?: string } | null;
 };
 

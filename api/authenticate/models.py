@@ -280,6 +280,11 @@ class UserProfile(models.Model):
         related_name='members',
         help_text="Organización a la que pertenece el usuario"
     )
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Whether the user is active within their organization. "
+                  "Deactivated users keep the org link but cannot access org resources."
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

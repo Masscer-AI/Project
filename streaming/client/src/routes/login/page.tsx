@@ -6,6 +6,7 @@ import { API_URL } from "../../modules/constants";
 import { useTranslation } from "react-i18next";
 
 import {
+  Alert,
   TextInput,
   PasswordInput,
   Button,
@@ -14,7 +15,7 @@ import {
   Stack,
   Anchor,
 } from "@mantine/core";
-import { IconLogin, IconSparkles } from "@tabler/icons-react";
+import { IconLogin, IconLock, IconSparkles } from "@tabler/icons-react";
 
 const panelBase = "flex-1 flex flex-col justify-center items-center p-8";
 const panelLeft =
@@ -27,6 +28,7 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [isDeactivated, setIsDeactivated] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -39,6 +41,7 @@ export default function Login() {
 
     setIsLoading(true);
     setErrorMessage("");
+    setIsDeactivated(false);
     try {
       const response = await axios.post(API_URL + "/v1/auth/login", {
         email,
@@ -51,12 +54,26 @@ export default function Login() {
       navigate("/chat");
     } catch (error: any) {
       console.error("LOGIN ERROR: ", error);
-      const msg =
-        error.code === "ERR_NETWORK"
-          ? t("network-error")
-          : error.response?.data?.detail || t("an-error-occurred");
-      setErrorMessage(msg);
-      toast.error(msg);
+      const status = error.response?.status;
+      const serverMsg =
+        error.response?.data?.error ||
+        error.response?.data?.detail;
+
+      if (status === 403) {
+        setIsDeactivated(true);
+        setErrorMessage(t("account-deactivated"));
+      } else if (error.code === "ERR_NETWORK") {
+        const msg = t("network-error");
+        setErrorMessage(msg);
+        toast.error(msg);
+      } else if (status === 401) {
+        const msg = t("invalid-credentials");
+        setErrorMessage(msg);
+      } else {
+        const msg = t("an-error-occurred");
+        setErrorMessage(msg);
+        toast.error(msg);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -120,7 +137,18 @@ export default function Login() {
                 size="md"
               />
 
-              {errorMessage && (
+              {isDeactivated && (
+                <Alert
+                  variant="light"
+                  color="yellow"
+                  title={t("account-deactivated-title")}
+                  icon={<IconLock size={18} />}
+                >
+                  {t("account-deactivated-description")}
+                </Alert>
+              )}
+
+              {errorMessage && !isDeactivated && (
                 <Text size="sm" c="red" ta="center">
                   {errorMessage}
                 </Text>

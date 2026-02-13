@@ -248,6 +248,7 @@ class OrganizationMemberSerializer(serializers.Serializer):
     username = serializers.CharField()
     profile_name = serializers.CharField(allow_blank=True, required=False)
     is_owner = serializers.BooleanField()
+    is_active = serializers.BooleanField(default=True)
     current_role = serializers.DictField(allow_null=True, required=False)
 
 

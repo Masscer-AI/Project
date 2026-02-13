@@ -925,6 +925,28 @@ export const removeRoleAssignment = async (
   );
 };
 
+export const deactivateOrganizationMember = async (
+  organizationId: string,
+  userId: number,
+  isActive: boolean
+) => {
+  return makeAuthenticatedRequest<{ message: string; is_active: boolean }>(
+    "PATCH",
+    `/v1/auth/organizations/${organizationId}/members/${userId}/`,
+    { is_active: isActive }
+  );
+};
+
+export const removeOrganizationMember = async (
+  organizationId: string,
+  userId: number
+) => {
+  return makeAuthenticatedRequest<{ message: string }>(
+    "DELETE",
+    `/v1/auth/organizations/${organizationId}/members/${userId}/`
+  );
+};
+
 export type TFeatureFlagInfo = {
   name: string;
   organization_only: boolean;
