@@ -216,11 +216,12 @@ class OrganizationView(View):
     
     def _can_manage_logo(self, user, organization):
         """Verifica si el usuario puede gestionar el logo y nombre de la organización"""
-        return FeatureFlagService.is_feature_enabled(
+        enabled, _ = FeatureFlagService.is_feature_enabled(
             feature_flag_name=self.FEATURE_FLAG_NAME,
             organization=organization,
             user=user
         )
+        return enabled
     
     def get(self, request):
         # Obtener organizaciones donde el usuario es owner
@@ -470,11 +471,12 @@ def _can_manage_organization(user, organization):
     """Return True if user is owner or has manage-organization feature flag."""
     if organization.owner_id == user.id:
         return True
-    return FeatureFlagService.is_feature_enabled(
+    enabled, _ = FeatureFlagService.is_feature_enabled(
         feature_flag_name="manage-organization",
         organization=organization,
         user=user,
     )
+    return enabled
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -724,13 +726,14 @@ class FeatureFlagCheckView(View):
         if cached_data is not None:
             return JsonResponse(cached_data, status=status.HTTP_200_OK)
 
-        enabled = FeatureFlagService.is_feature_enabled(
+        enabled, reason = FeatureFlagService.is_feature_enabled(
             feature_flag_name=feature_flag_name, user=user
         )
 
         serializer = FeatureFlagStatusResponseSerializer({
             "enabled": enabled,
             "feature_flag_name": feature_flag_name,
+            "reason": reason,
         })
         response_data = serializer.data
         cache.set(cache_key, response_data, timeout=self.CACHE_TIMEOUT)

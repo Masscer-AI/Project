@@ -188,11 +188,12 @@ class BigOrganizationSerializer(serializers.ModelSerializer):
                 return True
             # Si no es owner, verificar la feature flag
             from .services import FeatureFlagService
-            return FeatureFlagService.is_feature_enabled(
+            enabled, _ = FeatureFlagService.is_feature_enabled(
                 feature_flag_name="manage-organization",
                 organization=obj,
                 user=request.user
             )
+            return enabled
         return False
 
 
@@ -225,6 +226,7 @@ class FeatureFlagAssignmentSerializer(serializers.ModelSerializer):
 class FeatureFlagStatusResponseSerializer(serializers.Serializer):
     enabled = serializers.BooleanField()
     feature_flag_name = serializers.CharField()
+    reason = serializers.CharField()
 
 
 class TeamFeatureFlagsResponseSerializer(serializers.Serializer):

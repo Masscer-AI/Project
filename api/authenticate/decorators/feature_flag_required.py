@@ -44,7 +44,8 @@ def feature_flag_required(flag_name):
                     {"error": "User has no organization."},
                     status=403,
                 )
-            if not FeatureFlagService.is_feature_enabled(flag_name, organization=organization, user=user):
+            enabled, _ = FeatureFlagService.is_feature_enabled(flag_name, organization=organization, user=user)
+            if not enabled:
                 return JsonResponse(
                     {"error": f"The '{flag_name}' feature is not enabled for your organization."},
                     status=403,

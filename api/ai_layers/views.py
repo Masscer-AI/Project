@@ -91,7 +91,7 @@ class AgentView(View):
             user_org = request.user.profile.organization
         
         # Check permissions: user can edit their own agents OR organization agents if they have the flag
-        has_admin_flag = FeatureFlagService.is_feature_enabled(
+        has_admin_flag, _ = FeatureFlagService.is_feature_enabled(
             "edit-organization-agent",
             organization=user_org,
             user=request.user
@@ -124,7 +124,7 @@ class AgentView(View):
         # --- Handle ownership change (personal ↔ organization) ---
         ownership = data.pop("ownership", None)  # "personal" | "<organization_id>"
         if ownership is not None:
-            can_set_ownership = FeatureFlagService.is_feature_enabled(
+            can_set_ownership, _ = FeatureFlagService.is_feature_enabled(
                 "set-agent-ownership", organization=user_org, user=request.user
             )
             is_org_owner = user_org and user_org.owner_id == request.user.id
@@ -198,7 +198,7 @@ class AgentView(View):
             user_org = request.user.profile.organization
         
         # Check permissions
-        has_admin_flag = FeatureFlagService.is_feature_enabled(
+        has_admin_flag, _ = FeatureFlagService.is_feature_enabled(
             "edit-organization-agent",
             organization=user_org,
             user=request.user

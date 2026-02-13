@@ -29,9 +29,10 @@ def _check_train_agents_permission(user):
         organization = user.profile.organization
     if not organization:
         raise PermissionDenied("User has no organization.")
-    if not FeatureFlagService.is_feature_enabled(
+    enabled, _ = FeatureFlagService.is_feature_enabled(
         "train-agents", organization=organization, user=user
-    ):
+    )
+    if not enabled:
         raise PermissionDenied("You are not allowed to generate training data. The 'train-agents' feature flag is not enabled for your organization.")
 
 

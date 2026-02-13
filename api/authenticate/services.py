@@ -14,26 +14,22 @@ class FeatureFlagService:
     @classmethod
     def is_feature_enabled(
         cls, feature_flag_name: str, organization: Organization = None, user=None
-    ) -> bool:
+    ) -> tuple[bool, str]:
         """
         Check if a feature flag is enabled for a specific organization or user.
 
         Priority order:
-        1. User-level flag (if exists) - overrides organization-level
-        2. Organization-level flag (explicit organization param OR user's organizations)
-        3. Role capabilities: if user has an active role in the org and that role lists this flag in capabilities
-        4. False (if no assignments exist)
-
-        Args:
-            feature_flag_name: The name of the feature flag
-            organization: The organization to check the feature flag for (for organization-level flags)
-            user: The user to check for user-level feature flags
+        1. Organization owner — all flags enabled automatically
+        2. User-level assignment (highest explicit priority)
+        3. Organization-level assignment (explicit org param OR user's orgs)
+        4. Role capabilities
+        5. False (no assignment found)
 
         Returns:
-            bool: True if the feature is enabled for the user or organization, False otherwise
+            (enabled, reason) where reason is one of:
+            "is-owner", "direct-user-assignment", "organization-assignment",
+            "role-assignment", "not-assigned"
         """
-        # Debug logging
-        logger.info(f"🔍 is_feature_enabled called: flag={feature_flag_name}, user={user.email if user else None}, org={organization.name if organization else None}")
 
         # Organization owners get ALL feature flags enabled
         if user is not None:
@@ -43,8 +39,7 @@ class FeatureFlagService:
             elif Organization.objects.filter(owner=user).exists():
                 is_owner = True
             if is_owner:
-                logger.info(f"🔍 User {user.email} is an org owner — granting flag '{feature_flag_name}' automatically")
-                return True
+                return True, "is-owner"
 
         # Check user-level assignment first (highest priority)
         if user is not None:
@@ -56,29 +51,21 @@ class FeatureFlagService:
                     feature_flag__name=feature_flag_name,
                     organization__isnull=True,
                 )
-                logger.info(f"🔍 Found user-level assignment: user={user.email}, flag={feature_flag_name}, enabled={user_assignment.enabled}")
-                return user_assignment.enabled
+                return user_assignment.enabled, "direct-user-assignment"
             except FeatureFlagAssignment.DoesNotExist:
-                logger.info(f"🔍 No user-level assignment found for user={user.email}, flag={feature_flag_name}")
-                pass  # No user-level override, check organization level
+                pass
 
-        # Determine which organization to check (explicit organization param OR user's organizations)
+        # Determine which organization to check
         organization_to_check = organization
 
         # If no explicit organization, try to get user's organizations
         if not organization_to_check and user:
-            # Get organizations where user is owner or member
             owned_orgs = Organization.objects.filter(owner=user)
-            # Get organization from user profile
             member_orgs = Organization.objects.none()
             if hasattr(user, 'profile') and user.profile.organization:
                 member_orgs = Organization.objects.filter(id=user.profile.organization.id)
-            # Combine and get first one (or check all)
             user_organizations = (owned_orgs | member_orgs).distinct()
-            
-            logger.info(f"🔍 User organizations: user={user.email}, owned={[o.name for o in owned_orgs]}, member={[o.name for o in member_orgs]}")
-            
-            # Check all user's organizations - if any has it enabled, return True
+
             for org in user_organizations:
                 try:
                     assignment = FeatureFlagAssignment.objects.select_related(
@@ -88,16 +75,12 @@ class FeatureFlagService:
                         feature_flag__name=feature_flag_name,
                         user__isnull=True,
                     )
-                    logger.info(f"🔍 Found org-level assignment: org={org.name}, flag={feature_flag_name}, enabled={assignment.enabled}")
                     if assignment.enabled:
-                        return True
+                        return True, "organization-assignment"
                 except FeatureFlagAssignment.DoesNotExist:
-                    logger.info(f"🔍 No org-level assignment found for org={org.name}, flag={feature_flag_name}")
                     pass
-                # Role capabilities: user has feature if any active role in this org has it
                 if cls._user_has_capability_via_role(user, org, feature_flag_name):
-                    logger.info(f"🔍 Feature enabled via role capability: user={user.email}, org={org.name}, flag={feature_flag_name}")
-                    return True
+                    return True, "role-assignment"
 
         # Check explicit organization if provided
         if organization_to_check:
@@ -109,18 +92,13 @@ class FeatureFlagService:
                     feature_flag__name=feature_flag_name,
                     user__isnull=True,
                 )
-                logger.info(f"🔍 Found explicit org assignment: org={organization_to_check.name}, flag={feature_flag_name}, enabled={assignment.enabled}")
-                return assignment.enabled
+                return assignment.enabled, "organization-assignment"
             except FeatureFlagAssignment.DoesNotExist:
-                logger.info(f"🔍 No explicit org assignment found for org={organization_to_check.name}, flag={feature_flag_name}")
                 pass
-            # Role capabilities in explicit org
             if user and cls._user_has_capability_via_role(user, organization_to_check, feature_flag_name):
-                logger.info(f"🔍 Feature enabled via role capability: user={user.email}, org={organization_to_check.name}, flag={feature_flag_name}")
-                return True
+                return True, "role-assignment"
 
-        logger.info(f"🔍 Returning False - no assignment found for flag={feature_flag_name}")
-        return False
+        return False, "not-assigned"
 
     @classmethod
     def _user_has_capability_via_role(cls, user, organization, feature_flag_name: str) -> bool:

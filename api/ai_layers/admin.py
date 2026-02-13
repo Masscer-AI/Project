@@ -27,7 +27,7 @@ class AgentAdminForm(forms.ModelForm):
                 user_org = user.profile.organization
             
             # Check if user has the feature flag
-            has_admin_flag = FeatureFlagService.is_feature_enabled(
+            has_admin_flag, _ = FeatureFlagService.is_feature_enabled(
                 "edit-organization-agent",
                 organization=user_org,
                 user=user
@@ -53,7 +53,7 @@ class AgentAdminForm(forms.ModelForm):
         request = getattr(self, 'request', None)
         if request and request.user:
             user = request.user
-            has_admin_flag = FeatureFlagService.is_feature_enabled(
+            has_admin_flag, _ = FeatureFlagService.is_feature_enabled(
                 "edit-organization-agent",
                 user=user
             )
@@ -136,7 +136,7 @@ class AgentAdmin(admin.ModelAdmin):
         if hasattr(user, 'profile') and user.profile.organization:
             user_org = user.profile.organization
         
-        has_admin_flag = FeatureFlagService.is_feature_enabled(
+        has_admin_flag, _ = FeatureFlagService.is_feature_enabled(
             "edit-organization-agent",
             organization=user_org,
             user=user
@@ -172,7 +172,7 @@ class AgentAdmin(admin.ModelAdmin):
         if hasattr(user, 'profile') and user.profile.organization:
             user_org = user.profile.organization
         
-        has_admin_flag = FeatureFlagService.is_feature_enabled(
+        has_admin_flag, _ = FeatureFlagService.is_feature_enabled(
             "edit-organization-agent",
             organization=user_org,
             user=user

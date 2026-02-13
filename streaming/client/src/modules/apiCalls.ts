@@ -1034,6 +1034,7 @@ export const updateUserVoices = async (data: TVoice[]) => {
 export type FeatureFlagStatusResponse = {
   enabled: boolean;
   feature_flag_name: string;
+  reason: string;
 };
 
 export type TeamFeatureFlagsResponse = {

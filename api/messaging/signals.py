@@ -38,9 +38,13 @@ def message_post_save(sender, instance, **kwargs):
         conversation = instance.conversation
         if conversation.user:
             organization = get_user_organization(conversation.user)
-            if organization and FeatureFlagService.is_feature_enabled(
-                "conversation-analysis", organization=organization, user=conversation.user
-            ):
+            if organization:
+                enabled, _ = FeatureFlagService.is_feature_enabled(
+                    "conversation-analysis", organization=organization, user=conversation.user
+                )
+            else:
+                enabled = False
+            if enabled:
                 # Solo marcar si no está ya marcada (evitar updates innecesarios)
                 if not conversation.pending_analysis:
                     conversation.pending_analysis = True

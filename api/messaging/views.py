@@ -422,9 +422,10 @@ class ChatWidgetView(View):
         """Check if user has permission to manage chat widgets."""
         if not organization:
             raise PermissionDenied("User has no organization.")
-        if not FeatureFlagService.is_feature_enabled(
+        enabled, _ = FeatureFlagService.is_feature_enabled(
             "chat-widgets-management", organization=organization, user=user
-        ):
+        )
+        if not enabled:
             raise PermissionDenied("You are not allowed to manage chat widgets. The 'chat-widgets-management' feature flag is not enabled for your organization.")
 
     def _get_user_agents(self, user):
@@ -714,9 +715,10 @@ class ConversationAlertRuleView(View):
         if not organization:
             raise PermissionDenied("User has no organization.")
         
-        if not FeatureFlagService.is_feature_enabled(
+        enabled, _ = FeatureFlagService.is_feature_enabled(
             "alert-rules-manager", organization=organization, user=user
-        ):
+        )
+        if not enabled:
             raise PermissionDenied("You are not allowed to manage alert rules. The 'alert-rules-manager' feature flag is not enabled for your organization.")
     
     def get(self, request, *args, **kwargs):
@@ -878,9 +880,10 @@ class TagView(View):
         if not organization:
             raise PermissionDenied("User has no organization.")
         
-        if not FeatureFlagService.is_feature_enabled(
+        enabled, _ = FeatureFlagService.is_feature_enabled(
             "tags-management", organization=organization, user=user
-        ):
+        )
+        if not enabled:
             raise PermissionDenied("You are not allowed to manage tags. The 'tags-management' feature flag is not enabled for your organization.")
     
     def get(self, request, *args, **kwargs):
