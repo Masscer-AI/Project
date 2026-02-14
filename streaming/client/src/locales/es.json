@@ -83,6 +83,8 @@
     "message-copied": "¡Mensaje copiado al portapapeles!",
     "transcribing": "Transcribiendo...",
     "watch-image": "Ver imagen",
+    "image-preview": "Vista previa de imagen",
+    "generate-video-tooltip": "Generar video (IA)",
     "workflows": "Workflows",
     "options": "Opciones",
     "agent-updated": "Agente actualizado",

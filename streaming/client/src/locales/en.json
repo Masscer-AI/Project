@@ -83,6 +83,8 @@
     "message-copied": "Message copied to clipboard!",
     "transcribing": "Transcribing...",
     "watch-image": "Watch image",
+    "image-preview": "Image preview",
+    "generate-video-tooltip": "Generate video (AI)",
     "sure": "Sure",
     "workflows": "Workflows",
     "options": "Options",

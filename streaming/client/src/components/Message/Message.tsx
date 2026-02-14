@@ -24,6 +24,7 @@ import {
   ActionIcon,
   Tooltip,
   Badge,
+  Divider,
   HoverCard,
   Menu,
   Modal,
@@ -550,12 +551,15 @@ export const Message = memo(
                   <HoverCard.Dropdown>
                     <Stack gap="xs">
                       {v.agent_name && (
-                        <Text size="sm" fw={600} ta="center">
-                          {v.agent_name}
-                        </Text>
+                        <>
+                          <Text size="sm" fw={600} ta="center">
+                            {v.agent_name}
+                          </Text>
+                          <Divider />
+                        </>
                       )}
                       {agentSessions?.[vIdx] && (
-                        <Stack gap={4}>
+                        <>
                           <Text size="xs">
                             <Text span c="dimmed">{t("iterations")}:</Text>{" "}
                             <strong>{agentSessions[vIdx].iterations}</strong>
@@ -573,11 +577,12 @@ export const Message = memo(
                             </Text>
                           )}
                           {agentSessions[vIdx].model_slug && (
-                            <Badge variant="default" size="xs" fullWidth>
-                              {agentSessions[vIdx].model_slug}
-                            </Badge>
+                            <Text size="xs">
+                              <Text span c="dimmed">{t("model")}:</Text>{" "}
+                              <strong>{agentSessions[vIdx].model_slug}</strong>
+                            </Text>
                           )}
-                        </Stack>
+                        </>
                       )}
                       {v.usage && (
                         <>
@@ -594,9 +599,10 @@ export const Message = memo(
                             <strong>{v.usage.total_tokens}</strong>
                           </Text>
                           {v.usage.model_slug && !agentSessions?.[vIdx]?.model_slug && (
-                            <Badge variant="default" size="xs" fullWidth>
-                              {v.usage.model_slug}
-                            </Badge>
+                            <Text size="xs">
+                              <Text span c="dimmed">{t("model")}:</Text>{" "}
+                              <strong>{v.usage.model_slug}</strong>
+                            </Text>
                           )}
                         </>
                       )}

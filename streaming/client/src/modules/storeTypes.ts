@@ -51,7 +51,7 @@ export type Store = {
     webSearch: boolean;
     writtingMode: boolean;
     useRag: boolean;
-    useAgentTask: boolean;
+    useAgentTask?: boolean;
     selectedAgents: string[];
     selectedPlugins: TPlugin[];
     specifiedUrls: TSpecifiedUrl[];

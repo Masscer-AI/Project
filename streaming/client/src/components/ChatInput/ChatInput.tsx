@@ -799,7 +799,7 @@ const ConversationConfigModal = ({
                 </Text>
               </div>
               <Switch
-                checked={chatState.useAgentTask ?? false}
+                checked={chatState.useAgentTask ?? isAgentTaskEnabled}
                 onChange={(e) => {
                   const val = e.currentTarget.checked;
                   updateChatState({ useAgentTask: val });

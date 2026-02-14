@@ -18,6 +18,7 @@ import {
   Textarea,
   NativeSelect,
   Group,
+  Tooltip,
 } from "@mantine/core";
 import {
   IconDotsVertical,
@@ -139,8 +140,9 @@ const ImageModal = ({
 
   const handleDownload = () => {
     const a = document.createElement("a");
-
-    a.href = src.startsWith("data:") ? src : `data:image/png;base64,${src}`;
+    const isDataOrUrl =
+      src.startsWith("data:") || src.startsWith("http") || src.startsWith("/");
+    a.href = isDataOrUrl ? src : `data:image/png;base64,${src}`;
     a.setAttribute("download", name);
     document.body.appendChild(a);
     a.click();
@@ -163,68 +165,119 @@ const ImageModal = ({
     setShowGenerationOptions(false);
   };
 
+  const canGenerateVideo = message_id != null;
+
   return (
     <Modal
       opened={true}
       onClose={hide}
-      title={showGenerationOptions ? t("generate-video") : t("view")}
+      title={
+        <Group justify="space-between" wrap="nowrap" style={{ width: "100%" }}>
+          <Text fw={600} size="lg">
+            {showGenerationOptions ? t("generate-video") : t("image-preview")}
+          </Text>
+          <Group gap="xs" align="center">
+            <Tooltip label={t("download")} withArrow>
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                size="md"
+                onClick={handleDownload}
+              >
+                <IconDownload size={18} />
+              </ActionIcon>
+            </Tooltip>
+            {canGenerateVideo && (
+              <Tooltip
+                label={
+                  showGenerationOptions ? t("cancel") : t("generate-video")
+                }
+                withArrow
+              >
+                <ActionIcon
+                  variant="light"
+                  color="violet"
+                  size="md"
+                  onClick={toggleGenerateVideo}
+                >
+                  {showGenerationOptions ? (
+                    <IconX size={18} />
+                  ) : (
+                    <IconVideo size={18} />
+                  )}
+                </ActionIcon>
+              </Tooltip>
+            )}
+          </Group>
+        </Group>
+      }
       size="lg"
       centered
+      padding="md"
+      styles={{
+        header: { paddingBottom: 12 },
+        body: { paddingTop: 8 },
+      }}
     >
-      <Stack gap="md" align="center">
-        <Group gap="xs">
-          <ActionIcon variant="default" onClick={handleDownload} title="Download">
-            <IconDownload size={18} />
-          </ActionIcon>
-          <ActionIcon
-            variant="default"
-            onClick={toggleGenerateVideo}
-            title={showGenerationOptions ? t("cancel") : t("generate-video")}
+      {showGenerationOptions ? (
+        <Stack gap="sm" w="100%" align="center">
+          <Group gap="sm" justify="center">
+            <Text size="sm" fw={500}>
+              {t("aspect-ratio")}
+            </Text>
+            {aspectRatioOptions.map((option) => (
+              <AspectRatio
+                key={option.value}
+                size={option.value}
+                separator=":"
+                selected={ratio === option.value}
+                onClick={() => setRatio(option.value)}
+              />
+            ))}
+          </Group>
+          <Textarea
+            label={t("describe-the-video")}
+            value={videoPrompt}
+            onChange={(e) => setVideoPrompt(e.currentTarget.value)}
+            maxLength={512}
+            w="100%"
+            autosize
+            minRows={2}
+          />
+          <img
+            style={{ width: "40%", maxHeight: "40vh", objectFit: "contain" }}
+            src={src}
+            alt={`attachment-${name}`}
+          />
+          <Button
+            fullWidth
+            leftSection={<IconCheck size={16} />}
+            onClick={handleGenerateVideo}
           >
-            {showGenerationOptions ? <IconX size={18} /> : <IconVideo size={18} />}
-          </ActionIcon>
-        </Group>
-
-        {showGenerationOptions ? (
-          <Stack gap="sm" w="100%" align="center">
-            <Group gap="sm" justify="center">
-              <Text size="sm" fw={500}>{t("aspect-ratio")}</Text>
-              {aspectRatioOptions.map((option) => (
-                <AspectRatio
-                  key={option.value}
-                  size={option.value}
-                  separator=":"
-                  selected={ratio === option.value}
-                  onClick={() => setRatio(option.value)}
-                />
-              ))}
-            </Group>
-            <Textarea
-              label={t("describe-the-video")}
-              value={videoPrompt}
-              onChange={(e) => setVideoPrompt(e.currentTarget.value)}
-              maxLength={512}
-              w="100%"
-              autosize
-              minRows={2}
-            />
-            <img
-              style={{ width: "40%" }}
-              src={src}
-              alt={`attachment-${name}`}
-            />
-            <Button
-              fullWidth
-              leftSection={<IconCheck size={16} />}
-              onClick={handleGenerateVideo}
-            >
-              {t("generate-video")}
-            </Button>
-          </Stack>
-        ) : (
-          <img style={{ width: "100%" }} src={src} alt={`attachment-${name}`} />
-        )}
-      </Stack>
+            {t("generate-video")}
+          </Button>
+        </Stack>
+      ) : (
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            maxHeight: "calc(100vh - 140px)",
+            overflow: "auto",
+          }}
+        >
+          <img
+            style={{
+              maxWidth: "100%",
+              maxHeight: "calc(100vh - 160px)",
+              objectFit: "contain",
+            }}
+            src={src}
+            alt={`attachment-${name}`}
+          />
+        </div>
+      )}
     </Modal>
   );
 };

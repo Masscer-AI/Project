@@ -48,7 +48,7 @@ export default function ChatView() {
   const { t } = useTranslation();
   const isAgentTaskEnabled = useIsFeatureEnabled("agent-task");
   const useAgentTaskPath =
-    isAgentTaskEnabled && (chatState.useAgentTask ?? false);
+    isAgentTaskEnabled && (chatState.useAgentTask ?? true);
 
   const activeConversation = conversation ?? loaderData.conversation;
   const isViewer =
