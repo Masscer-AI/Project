@@ -201,3 +201,55 @@ class Agent(models.Model):
         from .tasks import async_generate_agent_profile_picture
 
         async_generate_agent_profile_picture.delay(self.id)
+
+
+# ---- AgentSession ----
+
+class AgentSession(models.Model):
+    """
+    Records one agent loop execution for audit, debugging, and reproducibility.
+
+    Inputs and outputs are validated via Pydantic schemas before storage.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    conversation = models.ForeignKey(
+        "messaging.Conversation",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="agent_sessions",
+    )
+    user_message = models.ForeignKey(
+        "messaging.Message",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="agent_sessions_as_user_message",
+    )
+    assistant_message = models.ForeignKey(
+        "messaging.Message",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="agent_sessions_as_assistant_message",
+    )
+
+    task_type = models.CharField(max_length=50, default="chat_message")
+    inputs = models.JSONField(default=dict)
+    outputs = models.JSONField(default=dict)
+
+    iterations = models.PositiveIntegerField(default=0)
+    tool_calls_count = models.PositiveIntegerField(default=0)
+    total_duration = models.FloatField(null=True, blank=True)
+    agent_index = models.PositiveSmallIntegerField(default=0)
+
+    started_at = models.DateTimeField(auto_now_add=True)
+    ended_at = models.DateTimeField(null=True, blank=True)
+    dismissed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-started_at"]
+
+    def __str__(self):
+        return f"AgentSession({self.id}) {self.task_type}"

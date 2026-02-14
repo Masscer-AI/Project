@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState, memo } from "react";
 import MarkdownRenderer from "../MarkdownRenderer/MarkdownRenderer";
-import { TAttachment, TSource, TVersion } from "../../types";
+import { TAttachment, TAgentSession, TSource, TVersion } from "../../types";
+import { API_URL } from "../../modules/constants";
 import { Thumbnail } from "../Thumbnail/Thumbnail";
 import toast from "react-hot-toast";
-import { deleteMessage, updateMessage } from "../../modules/apiCalls";
+import { deleteMessage, updateMessage, getAgentSessionsForMessage } from "../../modules/apiCalls";
 import { useTranslation } from "react-i18next";
 import { useStore } from "../../modules/store";
 import { Reactions } from "../Reactions/Reactions";
@@ -119,6 +120,7 @@ export const Message = memo(
       confirmDeleteOpened: false,
     });
     const [isGeneratingSpeech, setIsGeneratingSpeech] = useState(false);
+    const [agentSessions, setAgentSessions] = useState<TAgentSession[] | null>(null);
 
     const { t } = useTranslation();
     const isChatSpeechEnabled = useIsFeatureEnabled("chat-generate-speech");
@@ -161,6 +163,14 @@ export const Message = memo(
         socket.off(`response-for-${index}`);
       };
     }, [index]);
+
+    useEffect(() => {
+      if (!id || !versions?.length || type !== "assistant") return;
+
+      getAgentSessionsForMessage(id)
+        .then((sessions) => setAgentSessions(sessions))
+        .catch(() => setAgentSessions(null));
+    }, [id, versions?.length, type]);
 
     useEffect(() => {
       if (!id) return;
@@ -356,15 +366,22 @@ export const Message = memo(
           className={`message__attachments ${type === "user" ? "user" : ""}`}
         >
           {attachments &&
-            attachments.map((attachment, aIdx) => (
-              <Thumbnail
-                {...attachment}
-                index={aIdx}
-                src={attachment.content}
-                key={aIdx}
-                message_id={id}
-              />
-            ))}
+            attachments.map((attachment, aIdx) => {
+              const src =
+                attachment.content?.startsWith("data:") ||
+                attachment.content?.startsWith("http")
+                  ? attachment.content
+                  : `${API_URL}${attachment.content?.startsWith("/") ? "" : "/"}${attachment.content || ""}`;
+              return (
+                <Thumbnail
+                  {...attachment}
+                  index={aIdx}
+                  src={src}
+                  key={aIdx}
+                  message_id={id}
+                />
+              );
+            })}
           {versions?.[currentVersion]?.sources &&
             versions?.[currentVersion]?.sources.map((s, sIdx) => (
               <Source key={sIdx} source={s} />
@@ -537,6 +554,31 @@ export const Message = memo(
                           {v.agent_name}
                         </Text>
                       )}
+                      {agentSessions?.[vIdx] && (
+                        <Stack gap={4}>
+                          <Text size="xs">
+                            <Text span c="dimmed">{t("iterations")}:</Text>{" "}
+                            <strong>{agentSessions[vIdx].iterations}</strong>
+                          </Text>
+                          {agentSessions[vIdx].tool_calls_count > 0 && (
+                            <Text size="xs">
+                              <Text span c="dimmed">{t("tool-calls")}:</Text>{" "}
+                              <strong>{agentSessions[vIdx].tool_calls_count}</strong>
+                            </Text>
+                          )}
+                          {agentSessions[vIdx].total_duration != null && (
+                            <Text size="xs">
+                              <Text span c="dimmed">{t("duration")}:</Text>{" "}
+                              <strong>{agentSessions[vIdx].total_duration!.toFixed(1)}s</strong>
+                            </Text>
+                          )}
+                          {agentSessions[vIdx].model_slug && (
+                            <Badge variant="default" size="xs" fullWidth>
+                              {agentSessions[vIdx].model_slug}
+                            </Badge>
+                          )}
+                        </Stack>
+                      )}
                       {v.usage && (
                         <>
                           <Text size="xs">
@@ -551,7 +593,7 @@ export const Message = memo(
                             <Text span c="dimmed">Total:</Text>{" "}
                             <strong>{v.usage.total_tokens}</strong>
                           </Text>
-                          {v.usage.model_slug && (
+                          {v.usage.model_slug && !agentSessions?.[vIdx]?.model_slug && (
                             <Badge variant="default" size="xs" fullWidth>
                               {v.usage.model_slug}
                             </Badge>

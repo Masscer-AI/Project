@@ -29,8 +29,10 @@ async def listen_to_notifications():
                 event_type = decoded_message.get("event_type", None)
 
                 if user_id_to_emit and event_type:
-                    user_ids_to_socket_id = r.get("user_id_to_socket_id")
-                    user_ids_to_socket_id = json.loads(user_ids_to_socket_id)
+                    user_ids_to_socket_id_raw = r.get("user_id_to_socket_id")
+                    if user_ids_to_socket_id_raw is None:
+                        continue
+                    user_ids_to_socket_id = json.loads(user_ids_to_socket_id_raw)
 
                     sockets = user_ids_to_socket_id.get(str(user_id_to_emit), None)
                     if sockets:

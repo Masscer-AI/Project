@@ -107,50 +107,22 @@ AI_RESPONSE:
 
                 messages.append({"role": "user", "content": prev_ai_context})
 
-        messages.append({"role": "user", "content": text})
-
+        # Build current user message: combine text + images in one multimodal message
         if len(self.attachments) > 0:
-            for a in self.attachments:
-                if "image" in a["type"]:
-                    logger.debug("Appending image to messages")
-                    messages.append(
-                        {
-                            "role": "user",
-                            "content": [
-                                {
-                                    "type": "input_image",
-                                    "image_url": a["content"],
-                                }
-                            ],
-                        }
-                    )
-                else:
-                    if "audio" in a["type"]:
-                        logger.debug("Skipping audio file")
-                        continue
-                        if a["content"].startswith("data:audio/"):
-                            audio_data = a["content"].split(",")[1]
-                        else:
-                            audio_data = a["content"]
-
-                        messages.append(
-                            {
-                                "role": "user",
-                                "content": [
-                                    {
-                                        "type": "text",
-                                        "text": "This is an user recording",
-                                    },
-                                    {
-                                        "type": "input_audio",
-                                        "input_audio": {
-                                            "data": audio_data,
-                                            "format": "wav",
-                                        },
-                                    },
-                                ],
-                            },
-                        )
+            image_parts = [a for a in self.attachments if "image" in a.get("type", "")]
+            if image_parts:
+                logger.debug("Appending %d image(s) to user message", len(image_parts))
+                content_parts = [{"type": "input_text", "text": text}]
+                for a in image_parts:
+                    content_parts.append({
+                        "type": "input_image",
+                        "image_url": a["content"],
+                    })
+                messages.append({"role": "user", "content": content_parts})
+            else:
+                messages.append({"role": "user", "content": text})
+        else:
+            messages.append({"role": "user", "content": text})
 
         temperature = float(self.config.get("temperature", 1))
         if is_reasoning_model:

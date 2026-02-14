@@ -315,12 +315,18 @@ class AgentLoop:
     # Main loop
     # ------------------------------------------------------------------
 
-    def run(self, user_message: str) -> AgentLoopResult:
+    def run(
+        self,
+        user_message: str,
+        user_inputs: list[dict] | None = None,
+    ) -> AgentLoopResult:
         """
         Run the agent loop.
 
         Args:
-            user_message: the user's input message
+            user_message: the user's input message (plain text)
+            user_inputs: optional resolved inputs for multimodal (e.g. with input_image content).
+                When provided and contains input_image, builds content as list for vision.
 
         Returns:
             AgentLoopResult with the final output, conversation history,
@@ -331,8 +337,29 @@ class AgentLoop:
         """
         self._emit(LOOP_START, {"model": self.model, "max_iterations": self.max_iterations})
 
+        content: Any
+        if user_inputs:
+            content_parts = []
+            for inp in user_inputs:
+                t = inp.get("type", "")
+                if t == "input_text":
+                    text = inp.get("text", "").strip()
+                    if text:
+                        content_parts.append({"type": "input_text", "text": text})
+                elif t == "input_image" and inp.get("content"):
+                    content_parts.append({
+                        "type": "input_image",
+                        "image_url": inp["content"],
+                    })
+            if content_parts:
+                content = content_parts
+            else:
+                content = user_message
+        else:
+            content = user_message
+
         messages: list[Any] = [
-            {"role": "user", "content": user_message},
+            {"role": "user", "content": content},
         ]
         tool_call_log: list[ToolCallRecord] = []
         total_usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}

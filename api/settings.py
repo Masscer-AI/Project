@@ -192,6 +192,9 @@ CELERY_RESULT_EXPIRES = 3600
 
 MEDIA_ROOT = os.environ.get("MEDIA_ROOT", os.path.join(BASE_DIR, "media"))
 MEDIA_URL = "/media/"
+# Base URL for building absolute URLs (e.g. for MessageAttachment display).
+# Set API_BASE_URL in env for production (e.g. https://api.example.com).
+API_BASE_URL = os.environ.get("API_BASE_URL", "")
 
 
 if not os.path.exists(MEDIA_ROOT):

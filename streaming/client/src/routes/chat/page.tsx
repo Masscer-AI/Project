@@ -17,7 +17,7 @@ import { ConversationModal } from "../../components/ConversationModal/Conversati
 import { ActionIcon } from "@mantine/core";
 import { IconArrowDown } from "@tabler/icons-react";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
-import { triggerAgentTask } from "../../modules/apiCalls";
+import { triggerAgentTask, uploadMessageAttachments } from "../../modules/apiCalls";
 
 export default function ChatView() {
   const loaderData = useLoaderData() as TChatLoader;
@@ -47,6 +47,8 @@ export default function ChatView() {
 
   const { t } = useTranslation();
   const isAgentTaskEnabled = useIsFeatureEnabled("agent-task");
+  const useAgentTaskPath =
+    isAgentTaskEnabled && (chatState.useAgentTask ?? false);
 
   const activeConversation = conversation ?? loaderData.conversation;
   const isViewer =
@@ -78,15 +80,41 @@ export default function ChatView() {
       );
     });
 
+    const handleAgentEvents = (raw: {
+      user_id?: number;
+      message?: { type: string; conversation_id?: string; version?: TVersion };
+    }) => {
+      const data = raw?.message;
+      if (!data || !conversation?.id || data.conversation_id !== conversation.id)
+        return;
+      if (data.type === "agent_version_ready" && data.version) {
+        setMessages((prev) => {
+          const last = prev[prev.length - 1];
+          if (!last || last.type !== "assistant") return prev;
+          const versions = [...(last.versions || [])];
+          const existingIdx = versions.findIndex(
+            (v) => v.agent_slug === data.version!.agent_slug
+          );
+          if (existingIdx >= 0) versions[existingIdx] = data.version!;
+          else versions.push(data.version!);
+          const updated = [...prev];
+          updated[updated.length - 1] = { ...last, versions, text: versions[0]?.text ?? last.text };
+          return updated;
+        });
+      }
+    };
+
+    socket.on("agent_events_channel", handleAgentEvents);
+
     if (loaderData.conversation) {
-      // setMessages(loaderData.conversation.messages || []);
       setConversation(loaderData.conversation.id);
     }
 
     return () => {
       socket.off("responseFinished");
+      socket.off("agent_events_channel", handleAgentEvents);
     };
-  }, []);
+  }, [conversation?.id]);
 
   const scrollChat = () => {
     const container = chatMessageContainerRef.current;
@@ -220,8 +248,8 @@ export default function ChatView() {
     };
     setMessages([...messages, userMessage, assistantMessage]);
 
-    // --- Agent Task route (feature flag gated) ---
-    if (isAgentTaskEnabled) {
+    // --- Agent Task route (feature flag gated + user preference) ---
+    if (useAgentTaskPath) {
       try {
         const currentConversation = conversation ?? loaderData.conversation;
         if (!currentConversation?.id) {
@@ -229,15 +257,37 @@ export default function ChatView() {
           return false;
         }
 
-        const agent = selectedAgents[0];
+        const userInputs: Array<
+          { type: "input_text"; text: string } | { type: "input_image"; id: string }
+        > = [{ type: "input_text", text: input }];
+
+        if (chatState.attachments.length > 0) {
+          const imageAttachments = chatState.attachments.filter((a) =>
+            a.type.startsWith("image")
+          );
+          if (imageAttachments.length > 0) {
+            const uploadRes = await uploadMessageAttachments(
+              currentConversation.id,
+              imageAttachments.map((a) => ({
+                content: a.content,
+                name: a.name || "image.png",
+              }))
+            );
+            for (const att of uploadRes.attachments) {
+              userInputs.push({ type: "input_image", id: att.id });
+            }
+          }
+        }
 
         await triggerAgentTask({
           conversation_id: currentConversation.id,
-          agent_slug: agent.slug,
-          user_inputs: [{ type: "input_text", text: input }],
+          agent_slugs: selectedAgents.map((a) => a.slug),
+          user_inputs: userInputs,
           tool_names: ["print_color"],
+          multiagentic_modality: userPreferences.multiagentic_modality,
         });
 
+        cleanAttachments();
         scrollChat();
         return true;
       } catch (error) {
@@ -279,7 +329,7 @@ export default function ChatView() {
         multiagentic_modality: userPreferences.multiagentic_modality,
       });
 
-      // cleanAttachments();
+      cleanAttachments();
       scrollChat();
       return true;
     } catch (error) {

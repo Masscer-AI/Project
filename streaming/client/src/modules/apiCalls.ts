@@ -2,6 +2,7 @@
 import axios, { AxiosRequestConfig, Method } from "axios";
 import { API_URL, PUBLIC_TOKEN } from "./constants";
 import {
+  TAgentSession,
   TCompletion,
   TConversation,
   TDocument,
@@ -1152,18 +1153,43 @@ export const deleteChatWidget = async (widgetId: number) => {
 export type TAgentTaskInput =
   | { type: "input_text"; text: string }
   | { type: "input_image"; content: string }
+  | { type: "input_image"; id: string }
   | { type: "input_document"; content: string; name?: string };
 
 export type TriggerAgentTaskPayload = {
   conversation_id: string;
-  agent_slug: string;
+  agent_slugs: string[];
   user_inputs: TAgentTaskInput[];
   tool_names?: string[];
+  multiagentic_modality?: "isolated" | "grupal";
 };
 
 export type TriggerAgentTaskResponse = {
   task_id: string;
   status: string;
+};
+
+export const uploadMessageAttachments = async (
+  conversationId: string,
+  attachments: { content: string; name?: string }[]
+): Promise<{ attachments: { id: string; url: string }[] }> => {
+  return makeAuthenticatedRequest(
+    "POST",
+    "/v1/messaging/attachments/upload/",
+    { conversation_id: conversationId, attachments },
+    false
+  );
+};
+
+export const getAgentSessionsForMessage = async (
+  assistantMessageId: number
+): Promise<TAgentSession[]> => {
+  return makeAuthenticatedRequest<TAgentSession[]>(
+    "GET",
+    `/v1/ai_layers/agent-sessions/?assistant_message_id=${assistantMessageId}`,
+    {},
+    false
+  );
 };
 
 export const triggerAgentTask = async (payload: TriggerAgentTaskPayload) => {

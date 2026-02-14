@@ -1,7 +1,12 @@
 import uuid
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils import timezone
 from api.authenticate.models import PublishableToken, Organization
+
+
+def _message_attachment_expires_default():
+    return timezone.now() + timezone.timedelta(days=30)
 
 
 class Conversation(models.Model):
@@ -53,6 +58,60 @@ class Conversation(models.Model):
         return "\n".join(
             [f"{message.type}: {message.text}\n" for message in self.messages.all()]
         )
+
+
+class MessageAttachment(models.Model):
+    """
+    Temporary storage for files attached to messages (images, audio, etc.).
+    Files expire after 30 days and can be cleaned up by a periodic task.
+
+    Primary relation is to Message. Conversation is also stored for cases where
+    the attachment is uploaded before the message exists (e.g. agent task flow).
+    User and agent are optional (e.g. user-uploaded vs agent-generated).
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    message = models.ForeignKey(
+        "Message",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="attachment_files",
+        help_text="The message this attachment belongs to (set when message is created)",
+    )
+    conversation = models.ForeignKey(
+        Conversation,
+        on_delete=models.CASCADE,
+        related_name="message_attachments",
+        help_text="Conversation context; required when uploading before message exists",
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="message_attachments",
+    )
+    agent = models.ForeignKey(
+        "ai_layers.Agent",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="message_attachments",
+    )
+    file = models.FileField(upload_to="message_attachments/%Y/%m/")
+    content_type = models.CharField(max_length=100, blank=True, default="")
+    expires_at = models.DateTimeField(
+        default=_message_attachment_expires_default,
+        help_text="After this date the attachment can be deleted (default: 30 days)",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"MessageAttachment({self.id})"
 
 
 class Message(models.Model):

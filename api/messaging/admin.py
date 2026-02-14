@@ -5,6 +5,7 @@ from django.db.models import Exists, OuterRef
 from .models import (
     Conversation,
     Message,
+    MessageAttachment,
     ChatWidget,
     ConversationAlertRule,
     ConversationAlert,
@@ -30,6 +31,29 @@ class ConversationAdmin(admin.ModelAdmin):
         "updated_at",
     )
     readonly_fields = ("id", "created_at", "updated_at")
+
+
+@admin.register(MessageAttachment)
+class MessageAttachmentAdmin(admin.ModelAdmin):
+    list_display = ("id", "message", "conversation", "user", "agent", "content_type", "expires_at", "created_at")
+    list_filter = ("content_type", "expires_at", "created_at")
+    readonly_fields = ("id", "file", "created_at")
+    raw_id_fields = ("message", "conversation", "user", "agent")
+    ordering = ("-created_at",)
+
+
+class MessageInline(admin.TabularInline):
+    model = Message
+    extra = 0
+    show_change_link = True
+    readonly_fields = ("id", "type", "short_text_display", "created_at")
+    ordering = ("created_at",)
+    fields = ("id", "type", "short_text_display", "created_at")
+
+    def short_text_display(self, obj):
+        return obj.text[:80] + ("..." if len(obj.text) > 80 else "")
+
+    short_text_display.short_description = "Text"
 
 
 class MessageAdmin(admin.ModelAdmin):
@@ -205,6 +229,7 @@ class HasAlertsFilter(admin.SimpleListFilter):
 class ConversationAdmin(admin.ModelAdmin):
     list_display = ("id", "user", "title", "pending_analysis", "has_alerts_display", "created_at", "updated_at")
     list_filter = ("user", "pending_analysis", HasAlertsFilter, "created_at", "updated_at")
+    inlines = [MessageInline]
 
     def has_alerts_display(self, obj):
         count = obj.alerts.count()

@@ -4,7 +4,7 @@ from django.urls import reverse
 from django.utils.safestring import mark_safe
 from django import forms
 from django.db.models import Q
-from .models import Agent, LanguageModel
+from .models import Agent, LanguageModel, AgentSession
 from api.authenticate.services import FeatureFlagService
 from api.authenticate.models import Organization
 from api.messaging.models import ChatWidget
@@ -210,6 +210,38 @@ class AgentAdmin(admin.ModelAdmin):
     def changeform_view(self, request, object_id=None, form_url='', extra_context=None):
         self._request = request
         return super().changeform_view(request, object_id, form_url, extra_context)
+
+
+@admin.register(AgentSession)
+class AgentSessionAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "task_type",
+        "conversation",
+        "agent_index",
+        "iterations",
+        "tool_calls_count",
+        "started_at",
+        "ended_at",
+    )
+    list_filter = ("task_type",)
+    search_fields = ("conversation__id",)
+    readonly_fields = (
+        "id",
+        "task_type",
+        "conversation",
+        "user_message",
+        "assistant_message",
+        "inputs",
+        "outputs",
+        "iterations",
+        "tool_calls_count",
+        "total_duration",
+        "agent_index",
+        "started_at",
+        "ended_at",
+        "dismissed_at",
+    )
 
 
 @admin.register(LanguageModel)

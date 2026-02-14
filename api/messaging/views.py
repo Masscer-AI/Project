@@ -7,6 +7,7 @@ from django.views import View
 from .models import (
     Conversation,
     Message,
+    MessageAttachment,
     SharedConversation,
     ChatWidget,
     ConversationAlert,
@@ -29,6 +30,7 @@ from api.authenticate.services import FeatureFlagService
 from django.core.exceptions import PermissionDenied
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
+import base64
 import json
 from api.authenticate.decorators.token_required import token_required
 from .actions import transcribe_audio, complete_message
@@ -306,6 +308,92 @@ def upload_audio(request):
         )
 
     return JsonResponse({"error": "Invalid request"}, status=400)
+
+
+@csrf_exempt
+@token_required
+def upload_message_attachments(request):
+    """
+    Upload file attachments for a message (images, audio, etc.).
+    Accepts JSON: { conversation_id, attachments: [{ content: "data:...;base64,...", name }] }
+    Returns: { attachments: [{ id, url }] }
+    Files expire after 30 days.
+    """
+    if request.user is None:
+        return JsonResponse({"error": "Authentication required"}, status=401)
+
+    try:
+        data = json.loads(request.body) if request.body else {}
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    conversation_id = data.get("conversation_id")
+    attachments_data = data.get("attachments", [])
+
+    if not conversation_id:
+        return JsonResponse({"error": "conversation_id is required"}, status=400)
+    if not attachments_data or not isinstance(attachments_data, list):
+        return JsonResponse({"error": "attachments must be a non-empty list"}, status=400)
+
+    conv, err = _get_conversation_for_user(request, conversation_id)
+    if err:
+        return err
+
+    result = []
+    for i, att in enumerate(attachments_data):
+        if not isinstance(att, dict):
+            return JsonResponse(
+                {"error": f"attachments[{i}] must be an object"}, status=400
+            )
+        content = att.get("content", "")
+        name = att.get("name", f"file_{i}")
+
+        if not content or not content.startswith("data:"):
+            return JsonResponse(
+                {"error": f"attachments[{i}].content must be a data URL (data:...;base64,...)"},
+                status=400,
+            )
+
+        try:
+            header, b64_data = content.split(",", 1)
+            ext = "bin"
+            if "image/png" in header or "png" in header:
+                ext = "png"
+            elif "image/jpeg" in header or "jpeg" in header or "jpg" in header:
+                ext = "jpg"
+            elif "image/gif" in header or "gif" in header:
+                ext = "gif"
+            elif "image/webp" in header or "webp" in header:
+                ext = "webp"
+            elif "audio" in header:
+                ext = "webm" if "webm" in header else "mp3" if "mp3" in header else "wav"
+            raw = base64.b64decode(b64_data)
+        except Exception as e:
+            return JsonResponse(
+                {"error": f"attachments[{i}] invalid base64: {e}"}, status=400
+            )
+
+        from django.core.files.base import ContentFile
+
+        file_obj = ContentFile(raw, name=f"{uuid.uuid4().hex}.{ext}")
+        if att.get("content_type"):
+            content_type = att["content_type"]
+        elif ext in ("png", "jpg", "gif", "webp"):
+            content_type = f"image/{ext}"
+        elif ext in ("webm", "mp3", "wav"):
+            content_type = f"audio/{ext}"
+        else:
+            content_type = "application/octet-stream"
+        attachment = MessageAttachment.objects.create(
+            conversation=conv,
+            user=request.user,
+            file=file_obj,
+            content_type=content_type,
+        )
+        url = request.build_absolute_uri(attachment.file.url)
+        result.append({"id": str(attachment.id), "url": url})
+
+    return JsonResponse({"attachments": result})
 
 
 @csrf_exempt

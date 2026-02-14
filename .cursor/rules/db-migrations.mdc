@@ -1,0 +1,9 @@
+---
+alwaysApply: true
+---
+
+# Database Migrations
+
+- **Only the developer** is allowed to run migrations, or when permission is explicitly conceded.
+- Migrations must be run **only** via the `./migrate` command (never `python manage.py migrate` or `makemigrations` directly unless instructed).
+- When migration-related changes are needed, suggest the edits and remind the user to run `./migrate` themselves.

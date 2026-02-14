@@ -28,6 +28,9 @@
     "temperature": "Temperature",
     "top-p": "Top P",
     "generate-speech": "Generate Speech",
+    "iterations": "Iterations",
+    "tool-calls": "Tool calls",
+    "duration": "Duration",
     "copy-to-clipboard": "Copy to Clipboard",
     "edit": "Edit",
     "finish": "Finish",
@@ -660,9 +663,13 @@
     "organization-agent": "Organization",
     "ff-agent-task": "Agent Tasks",
     "ff-agent-task-desc": "Allows running AI agents with tool execution capabilities in conversations.",
+    "use-agent-tasks": "Use agent tasks",
+    "use-agent-tasks-desc": "When on, uses the agent task path (Celery). When off, uses streaming. Useful for testing both paths.",
     "agent-running-tool": "Running tool: {{toolName}}...",
     "agent-tool-completed": "Tool completed: {{toolName}}",
     "agent-thinking": "Agent is thinking...",
     "agent-processing": "Agent is processing...",
-    "agent-task-failed": "Agent task failed"
+    "agent-task-failed": "Agent task failed",
+    "agent-response-complete": "{{agentName}} completed",
+    "agent-response-complete-progress": "{{agentName}} completed ({{index}}/{{total}})"
 }

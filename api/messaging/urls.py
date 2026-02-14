@@ -3,6 +3,7 @@ from .views import (
     ConversationView,
     MessageView,
     upload_audio,
+    upload_message_attachments,
     get_suggestion,
     SharedConversationView,
     ChatWidgetConfigView,
@@ -26,6 +27,7 @@ urlpatterns = [
     path("messages", MessageView.as_view(), name="message_list"),
     path("messages/<int:id>/", MessageView.as_view(), name="message_detail"),
     path("upload-audio/", upload_audio, name="upload_audio"),
+    path("attachments/upload/", upload_message_attachments, name="upload_message_attachments"),
     path("get-suggestion/", get_suggestion, name="get_suggestion"),
     path(
         "shared-conversations/",

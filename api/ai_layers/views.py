@@ -5,8 +5,8 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.db.models import Q
-from .models import Agent, LanguageModel
-from .serializers import AgentSerializer, LanguageModelSerializer
+from .models import Agent, LanguageModel, AgentSession
+from .serializers import AgentSerializer, LanguageModelSerializer, AgentSessionSerializer
 from api.authenticate.decorators.token_required import token_required
 from api.authenticate.decorators.feature_flag_required import feature_flag_required
 from api.authenticate.models import Organization
@@ -24,18 +24,33 @@ CACHE_TIMEOUT = 60 * 60 * 24
 fake = Faker()
 
 
-def _invalidate_agent_cache_for_user_and_org(user, organization=None):
-    org_id = organization.id if organization else "no_org"
-    cache.delete(f"agent_data_{user.id}_{org_id}")
+def _invalidate_agent_cache_for_user_and_org(user, agent_organization=None):
+    """
+    Invalidate agent cache so updated agent data is reflected on next fetch.
 
-    if not organization:
+    The GET endpoint uses cache key agent_data_{user_id}_{org_id} where org_id
+    comes from the REQUESTING user's profile (their org or "no_org"), not the
+    agent's. So we must invalidate using the requester's org.
+
+    - For the requester: invalidate BOTH no_org and their org (covers personal
+      agents when user has org, and org agents).
+    - For org agents: also invalidate all org members (they see org agents).
+    """
+    # Always invalidate requester's possible cache keys
+    cache.delete(f"agent_data_{user.id}_no_org")
+    user_org = getattr(getattr(user, "profile", None), "organization", None)
+    if user_org:
+        cache.delete(f"agent_data_{user.id}_{user_org.id}")
+
+    if not agent_organization:
         return
 
+    # Org agent changed: invalidate for all org members
     org_members = User.objects.filter(
-        Q(profile__organization=organization) | Q(id=organization.owner_id)
+        Q(profile__organization=agent_organization) | Q(id=agent_organization.owner_id)
     ).distinct()
     for member in org_members:
-        cache.delete(f"agent_data_{member.id}_{organization.id}")
+        cache.delete(f"agent_data_{member.id}_{agent_organization.id}")
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -395,11 +410,11 @@ class AgentTaskView(View):
     POST /api/ai-layers/agent-task/conversation/
     Body (JSON):
         - conversation_id (str, required): UUID of the conversation
-        - agent_slug (str, required): slug of the Agent to use (derives instructions + model)
+        - agent_slugs (list[str], required): slugs of one or more Agents
         - user_inputs (list, required): list of input objects, e.g.
               [{"type": "input_text", "text": "Hello"}]
-              Future: input_image, input_document, etc.
         - tool_names (list[str], optional): tool names from the registry (default [])
+        - multiagentic_modality (str, optional): "isolated" or "grupal" (default "isolated")
 
     The agent's system prompt and LLM model are resolved from the Agent model.
     Messages are always saved to the conversation.
@@ -419,14 +434,21 @@ class AgentTaskView(View):
 
         # --- Validate required fields ---
         conversation_id = data.get("conversation_id")
-        agent_slug = data.get("agent_slug")
+        agent_slugs = data.get("agent_slugs")
         user_inputs = data.get("user_inputs")
+
+        if not isinstance(agent_slugs, list):
+            return JsonResponse(
+                {"error": "agent_slugs must be a list of strings"},
+                status=400,
+            )
+        slugs = [s for s in agent_slugs if isinstance(s, str) and s.strip()]
 
         missing = []
         if not conversation_id:
             missing.append("conversation_id")
-        if not agent_slug:
-            missing.append("agent_slug")
+        if not slugs:
+            missing.append("agent_slugs (at least one agent required)")
         if not user_inputs or not isinstance(user_inputs, list):
             missing.append("user_inputs (must be a non-empty list)")
 
@@ -453,6 +475,13 @@ class AgentTaskView(View):
                 status=400,
             )
 
+        multiagentic_modality = data.get("multiagentic_modality", "isolated")
+        if multiagentic_modality not in ("isolated", "grupal"):
+            return JsonResponse(
+                {"error": "multiagentic_modality must be 'isolated' or 'grupal'"},
+                status=400,
+            )
+
         available = list_available_tools()
         unknown = [t for t in tool_names if t not in available]
         if unknown:
@@ -464,22 +493,23 @@ class AgentTaskView(View):
                 status=400,
             )
 
-        # --- Look up agent ---
+        # --- Look up agents ---
         user = request.user
         user_org = getattr(getattr(user, "profile", None), "organization", None)
 
-        # Agent must belong to the user or their organization
         from django.db.models import Q
-        agent_qs = Agent.objects.filter(slug=agent_slug)
+        base_qs = Agent.objects.all()
         if user_org:
-            agent_qs = agent_qs.filter(Q(user=user) | Q(organization=user_org))
+            base_qs = base_qs.filter(Q(user=user) | Q(organization=user_org))
         else:
-            agent_qs = agent_qs.filter(user=user)
+            base_qs = base_qs.filter(user=user)
 
-        agent = agent_qs.first()
-        if not agent:
+        agents_found = list(base_qs.filter(slug__in=slugs))
+        found_slugs = {a.slug for a in agents_found}
+        not_found = [s for s in slugs if s not in found_slugs]
+        if not_found:
             return JsonResponse(
-                {"error": f"Agent '{agent_slug}' not found or not accessible"},
+                {"error": f"Agent(s) not found or not accessible: {', '.join(not_found)}"},
                 status=404,
             )
 
@@ -510,7 +540,8 @@ class AgentTaskView(View):
             conversation_id=str(conversation_id),
             user_inputs=user_inputs,
             tool_names=tool_names,
-            agent_slug=agent_slug,
+            agent_slugs=slugs,
+            multiagentic_modality=multiagentic_modality,
             user_id=user.id,
         )
 
@@ -518,3 +549,73 @@ class AgentTaskView(View):
             {"task_id": task.id, "status": "accepted"},
             status=202,
         )
+
+
+def _user_can_access_message(user, message):
+    """Check if user can access the message's conversation."""
+    from api.messaging.models import Message
+    from api.authenticate.models import Organization
+
+    conv = message.conversation
+    if not conv:
+        return False
+    if conv.user_id == user.id:
+        return True
+    org_user_ids = []
+    owned_orgs = Organization.objects.filter(owner=user)
+    if hasattr(user, "profile") and user.profile.organization_id:
+        member_orgs = Organization.objects.filter(id=user.profile.organization_id)
+        orgs = (owned_orgs | member_orgs).distinct()
+    else:
+        orgs = owned_orgs
+    if orgs.exists():
+        owner_ids = set(
+            Organization.objects.filter(id__in=orgs).values_list("owner_id", flat=True)
+        )
+        member_ids = set(
+            User.objects.filter(
+                profile__organization__in=orgs
+            ).values_list("id", flat=True)
+        )
+        org_user_ids = list(owner_ids | member_ids)
+    if org_user_ids and (
+        conv.user_id in org_user_ids or conv.user_id is None
+    ):
+        return True
+    return False
+
+
+@csrf_exempt
+@token_required
+def agent_sessions_for_message(request):
+    """
+    GET /api/ai_layers/agent-sessions/?assistant_message_id=123
+    Returns AgentSessions for the given assistant message, ordered by agent_index.
+    User must have access to the message's conversation.
+    """
+    from api.messaging.models import Message
+
+    msg_id = request.GET.get("assistant_message_id")
+    if not msg_id:
+        return JsonResponse(
+            {"error": "assistant_message_id is required"}, status=400
+        )
+    try:
+        msg_id = int(msg_id)
+    except (TypeError, ValueError):
+        return JsonResponse({"error": "assistant_message_id must be an integer"}, status=400)
+
+    try:
+        message = Message.objects.get(id=msg_id)
+    except Message.DoesNotExist:
+        return JsonResponse({"error": "Message not found"}, status=404)
+
+    if not _user_can_access_message(request.user, message):
+        return JsonResponse({"error": "Forbidden"}, status=403)
+
+    sessions = AgentSession.objects.filter(
+        assistant_message_id=msg_id
+    ).order_by("agent_index")
+
+    data = AgentSessionSerializer(sessions, many=True).data
+    return JsonResponse(data, safe=False)

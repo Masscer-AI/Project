@@ -708,13 +708,17 @@ const ConversationConfigModal = ({
   opened: boolean;
   onClose: () => void;
 }) => {
-  const { userPreferences, setPreferences } = useStore((s) => ({
-    userPreferences: s.userPreferences,
-    setPreferences: s.setPreferences,
-  }));
+  const { userPreferences, setPreferences, chatState, updateChatState } =
+    useStore((s) => ({
+      userPreferences: s.userPreferences,
+      setPreferences: s.setPreferences,
+      chatState: s.chatState,
+      updateChatState: s.updateChatState,
+    }));
   const { t } = useTranslation();
   const isChatSpeechEnabled = useIsFeatureEnabled("chat-generate-speech");
   const isMultiAgentEnabled = useIsFeatureEnabled("multi-agent-chat");
+  const isAgentTaskEnabled = useIsFeatureEnabled("agent-task");
 
   return (
     <Modal
@@ -783,6 +787,28 @@ const ConversationConfigModal = ({
             color="violet"
           />
         </Group>
+
+        {isAgentTaskEnabled && (
+          <>
+            <Divider />
+            <Group justify="space-between">
+              <div>
+                <Text fw={500}>{t("use-agent-tasks")}</Text>
+                <Text size="sm" c="dimmed">
+                  {t("use-agent-tasks-desc")}
+                </Text>
+              </div>
+              <Switch
+                checked={chatState.useAgentTask ?? false}
+                onChange={(e) => {
+                  const val = e.currentTarget.checked;
+                  updateChatState({ useAgentTask: val });
+                }}
+                color="violet"
+              />
+            </Group>
+          </>
+        )}
 
         {isMultiAgentEnabled && (
           <>

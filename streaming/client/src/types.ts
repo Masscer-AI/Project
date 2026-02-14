@@ -77,6 +77,19 @@ type TUsage = {
   model_slug?: string;
 };
 
+export type TAgentSession = {
+  id: string;
+  task_type: string;
+  iterations: number;
+  tool_calls_count: number;
+  total_duration: number | null;
+  agent_index: number;
+  agent_slug: string | null;
+  model_slug: string | null;
+  started_at: string;
+  ended_at: string | null;
+};
+
 export type TVersion = {
   text: string;
   type: string;

@@ -54,6 +54,7 @@ export const useStore = create<Store>()((set, get) => ({
     webSearch: false,
     writtingMode: false,
     useRag: false,
+    useAgentTask: false,
 
     selectedAgents: [],
     selectedPlugins: [],

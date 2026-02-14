@@ -27,6 +27,9 @@
     "temperature": "Temperatura",
     "top-p": "Top P",
     "generate-speech": "Generar Voz",
+    "iterations": "Iteraciones",
+    "tool-calls": "Llamadas a herramientas",
+    "duration": "Duración",
     "copy-to-clipboard": "Copiar al Portapapeles",
     "edit": "Editar",
     "finish": "Finalizar",
@@ -662,9 +665,13 @@
     "organization-agent": "Organizacion",
     "ff-agent-task": "Tareas de Agente",
     "ff-agent-task-desc": "Permite ejecutar agentes de IA con capacidades de ejecucion de herramientas en conversaciones.",
+    "use-agent-tasks": "Usar tareas de agente",
+    "use-agent-tasks-desc": "Activado: usa el path de agent task (Celery). Desactivado: usa streaming. Util para probar ambos.",
     "agent-running-tool": "Ejecutando herramienta: {{toolName}}...",
     "agent-tool-completed": "Herramienta completada: {{toolName}}",
     "agent-thinking": "El agente esta pensando...",
     "agent-processing": "El agente esta procesando...",
-    "agent-task-failed": "La tarea del agente fallo"
+    "agent-task-failed": "La tarea del agente fallo",
+    "agent-response-complete": "{{agentName}} completado",
+    "agent-response-complete-progress": "{{agentName}} completado ({{index}}/{{total}})"
 }
