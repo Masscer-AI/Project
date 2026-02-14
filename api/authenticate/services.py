@@ -4,6 +4,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from .models import FeatureFlag, FeatureFlagAssignment, Organization, RoleAssignment
+from .feature_flags_registry import KNOWN_FEATURE_FLAGS
 
 logger = logging.getLogger(__name__)
 
@@ -19,11 +20,14 @@ class FeatureFlagService:
         Check if a feature flag is enabled for a specific organization or user.
 
         Priority order:
-        1. Organization owner — all flags enabled automatically
+        1. Organization owner — registry flags enabled automatically
         2. Direct user-level assignment (highest explicit priority)
         3. Role capabilities (user has an active role whose capabilities include the flag)
         4. Organization-level assignment — ONLY for ``organization_only`` flags
         5. False (no assignment found)
+
+        Note: owners only auto-get flags listed in KNOWN_FEATURE_FLAGS.
+        Flags not in the registry require explicit assignment.
 
         Returns:
             (enabled, reason) where reason is one of:
@@ -31,14 +35,15 @@ class FeatureFlagService:
             "organization-assignment", "not-assigned"
         """
 
-        # Organization owners get ALL feature flags enabled
+        # Organization owners get registry feature flags enabled automatically.
+        # Flags NOT in KNOWN_FEATURE_FLAGS require explicit assignment.
         if user is not None:
             is_owner = False
             if organization and organization.owner_id == user.id:
                 is_owner = True
             elif Organization.objects.filter(owner=user).exists():
                 is_owner = True
-            if is_owner:
+            if is_owner and feature_flag_name in KNOWN_FEATURE_FLAGS:
                 return True, "is-owner"
 
         # Check user-level assignment first (highest priority)

@@ -73,12 +73,18 @@ class AgentLoopResult:
     - messages: full conversation history (for inspection/logging)
     - iterations: how many loop iterations ran
     - tool_calls: log of every tool execution that happened
+    - usage: accumulated token usage across all iterations
     """
 
     output: BaseModel | str
     messages: list[dict]
     iterations: int
     tool_calls: list[ToolCallRecord] = field(default_factory=list)
+    usage: dict = field(default_factory=lambda: {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0,
+    })
 
 
 # ---------------------------------------------------------------------------
@@ -329,6 +335,7 @@ class AgentLoop:
             {"role": "user", "content": user_message},
         ]
         tool_call_log: list[ToolCallRecord] = []
+        total_usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
         iteration = 0
 
         while iteration < self.max_iterations:
@@ -347,6 +354,16 @@ class AgentLoop:
             except Exception as e:
                 self._emit(ERROR, {"error": str(e), "iteration": iteration})
                 raise
+
+            # --- Accumulate token usage ---
+            resp_usage = getattr(response, "usage", None)
+            if resp_usage:
+                total_usage["prompt_tokens"] += getattr(resp_usage, "input_tokens", 0) or 0
+                total_usage["completion_tokens"] += getattr(resp_usage, "output_tokens", 0) or 0
+                total_usage["total_tokens"] += (
+                    (getattr(resp_usage, "input_tokens", 0) or 0)
+                    + (getattr(resp_usage, "output_tokens", 0) or 0)
+                )
 
             # --- Process response output items ---
             tool_calls_found = []
@@ -397,6 +414,7 @@ class AgentLoop:
                     messages=messages,
                     iterations=iteration,
                     tool_calls=tool_call_log,
+                    usage=total_usage,
                 )
 
             # No text and no tool calls — unusual, keep going

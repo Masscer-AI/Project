@@ -20,7 +20,7 @@ import {
   Tooltip,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { createLLM, updateAgent, makeAuthenticatedRequest, getUserOrganizations } from "../../modules/apiCalls";
+import { createLLM, deleteLLM, updateAgent, makeAuthenticatedRequest, getUserOrganizations } from "../../modules/apiCalls";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
@@ -235,10 +235,11 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
 
   const { t } = useTranslation();
   const canManageAgents = useIsFeatureEnabled("edit-organization-agent");
-  const canAddLlm = useIsFeatureEnabled("add-llm");
+  const canAddLlm = useIsFeatureEnabled("manage-llm");
   const canSetOwnership = useIsFeatureEnabled("set-agent-ownership");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [addLlmOpened, { open: openAddLlm, close: closeAddLlm }] = useDisclosure(false);
+  const [deleteLlmOpened, { open: openDeleteLlm, close: closeDeleteLlm }] = useDisclosure(false);
   const [userOrgs, setUserOrgs] = useState<{ id: string; name: string; is_owner?: boolean }[]>([]);
   const [ownership, setOwnership] = useState<string>(
     agent.organization ? agent.organization : "personal"
@@ -354,6 +355,25 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
     }
   };
 
+  const handleDeleteLlm = async () => {
+    const slug = formState.llm?.slug;
+    if (!slug) return;
+    try {
+      const result = await deleteLLM(slug);
+      await fetchAgents();
+      closeDeleteLlm();
+      if (result.migrated_to) {
+        handleLLMChange(result.migrated_to);
+        toast.success(`"${result.deleted}" deleted. ${result.migrated_agents} agent(s) migrated to "${result.migrated_to}".`);
+      } else {
+        toast.success(`"${result.deleted}" deleted.`);
+      }
+    } catch (error: any) {
+      const errMessage = error?.response?.data?.error || "Failed to delete LLM";
+      toast.error(errMessage);
+    }
+  };
+
   const save = () => {
     const updatedAgent: TAgent & { ownership?: string } = {
       ...agent,
@@ -455,13 +475,25 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
           style={{ flex: 1 }}
         />
         {canAddLlm === true && (
-          <Button
-            variant="default"
-            leftSection={<IconPlus size={16} />}
-            onClick={handleOpenAddLlm}
-          >
-            Add LLM
-          </Button>
+          <>
+            <Button
+              variant="default"
+              leftSection={<IconPlus size={16} />}
+              onClick={handleOpenAddLlm}
+            >
+              Add
+            </Button>
+            <Tooltip label={`Delete "${formState.llm?.name || formState.llm?.slug}"`}>
+              <ActionIcon
+                variant="subtle"
+                color="red"
+                size="lg"
+                onClick={openDeleteLlm}
+              >
+                <IconTrash size={18} />
+              </ActionIcon>
+            </Tooltip>
+          </>
         )}
       </Group>
 
@@ -659,6 +691,31 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
               Cancel
             </Button>
             <Button onClick={handleCreateLlm}>Create</Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      <Modal
+        opened={deleteLlmOpened}
+        onClose={closeDeleteLlm}
+        title="Delete LLM"
+        centered
+        size="sm"
+      >
+        <Stack gap="sm">
+          <Text size="sm">
+            Are you sure you want to delete <strong>{formState.llm?.name || formState.llm?.slug}</strong>?
+          </Text>
+          <Text size="xs" c="dimmed">
+            Any agents using this model will be automatically migrated to another model from the same provider.
+          </Text>
+          <Group justify="flex-end">
+            <Button variant="default" onClick={closeDeleteLlm}>
+              Cancel
+            </Button>
+            <Button color="red" onClick={handleDeleteLlm}>
+              Delete
+            </Button>
           </Group>
         </Stack>
       </Modal>

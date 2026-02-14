@@ -34,29 +34,28 @@ def conversation_agent_task(
     conversation_id: str,
     user_inputs: list[dict],
     tool_names: list[str],
-    instructions: str,
+    agent_slug: str,
     user_id: int,
-    model: str = "gpt-4o",
 ):
     """
     Celery task that runs an AgentLoop for a conversation.
 
-    Resolves tools from the registry, executes the agent loop, and emits
-    real-time status updates via Redis pub/sub (notify_user) so the frontend
-    can show progress to the user. Messages are always saved.
+    Resolves the agent from its slug, derives instructions and model,
+    executes the agent loop, and emits real-time status updates via
+    Redis pub/sub (notify_user) so the frontend can show progress.
 
     Args:
         conversation_id: UUID of the conversation
         user_inputs: list of input dicts, e.g. [{"type": "input_text", "text": "..."}]
         tool_names: list of tool names to resolve from the registry
-        instructions: system prompt / instructions (derived from Agent model)
+        agent_slug: slug of the Agent to use (derives instructions & model)
         user_id: ID of the user (for notifications)
-        model: LLM model slug (derived from Agent model)
 
     Returns:
         dict with status, output, iterations, and tool_calls count
     """
     from api.ai_layers.agent_loop import AgentLoop
+    from api.ai_layers.models import Agent
     from api.ai_layers.tools import resolve_tools
     from api.notify.actions import notify_user
     from api.messaging.models import Conversation, Message
@@ -64,9 +63,18 @@ def conversation_agent_task(
     # Build plain-text message from user_inputs
     user_message = _build_user_message_text(user_inputs)
 
+    # ---- Resolve agent ----
+    agent = Agent.objects.filter(slug=agent_slug).first()
+    if not agent:
+        logger.error("Agent '%s' not found", agent_slug)
+        return {"status": "error", "error": f"Agent '{agent_slug}' not found"}
+
+    instructions = agent.format_prompt()
+    model = agent.llm.slug if agent.llm else (agent.model_slug or "gpt-5.2")
+
     logger.info(
-        "conversation_agent_task started: conversation=%s user=%s tools=%s model=%s",
-        conversation_id, user_id, tool_names, model,
+        "conversation_agent_task started: conversation=%s user=%s agent=%s tools=%s model=%s",
+        conversation_id, user_id, agent_slug, tool_names, model,
     )
 
     # ---- Two-channel notification system ----
@@ -128,10 +136,26 @@ def conversation_agent_task(
         assistant_message_id = None
         try:
             conversation = Conversation.objects.get(id=conversation_id)
+
+            # Build versions metadata so title generation and usage tracking work
+            versions = []
+            if agent_slug:
+                versions = [{
+                    "agent_slug": agent_slug,
+                    "type": "assistant",
+                    "usage": {
+                        "prompt_tokens": result.usage.get("prompt_tokens", 0),
+                        "completion_tokens": result.usage.get("completion_tokens", 0),
+                        "total_tokens": result.usage.get("total_tokens", 0),
+                        "model_slug": model,
+                    },
+                }]
+
             assistant_msg = Message.objects.create(
                 conversation=conversation,
                 type="assistant",
                 text=output_text,
+                versions=versions,
             )
             assistant_message_id = assistant_msg.id
 

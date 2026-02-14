@@ -201,6 +201,17 @@ export const createLLM = async (data: TCreateLlmPayload) => {
   return makeAuthenticatedRequest<TModel>("POST", "/v1/ai_layers/models/", data, false);
 };
 
+type TDeleteLlmResponse = {
+  status: string;
+  deleted: string;
+  migrated_agents: number;
+  migrated_to: string | null;
+};
+
+export const deleteLLM = async (slug: string) => {
+  return makeAuthenticatedRequest<TDeleteLlmResponse>("DELETE", `/v1/ai_layers/models/${slug}/`);
+};
+
 export const getUser = async () => {
   return makeAuthenticatedRequest("GET", "v1/auth/user/me");
 };

@@ -232,7 +232,7 @@ class AgentView(View):
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
-@method_decorator(feature_flag_required("add-llm"), name="dispatch")
+@method_decorator(feature_flag_required("manage-llm"), name="dispatch")
 class LanguageModelView(View):
     def post(self, request, *args, **kwargs):
         data = JSONParser().parse(request)
@@ -284,6 +284,59 @@ class LanguageModelView(View):
 
         return JsonResponse(LanguageModelSerializer(model).data, status=201)
 
+    def delete(self, request, *args, **kwargs):
+        slug = kwargs.get("slug")
+        if not slug:
+            return JsonResponse(
+                {"error": "Model slug is required in the URL"},
+                status=400,
+            )
+
+        try:
+            model = LanguageModel.objects.select_related("provider").get(slug=slug)
+        except LanguageModel.DoesNotExist:
+            return JsonResponse(
+                {"error": f"Language model '{slug}' not found"},
+                status=404,
+            )
+
+        # Auto-migrate agents using this LLM to another LLM of the same provider
+        affected_agents = Agent.objects.filter(llm=model)
+        replacement = (
+            LanguageModel.objects.filter(provider=model.provider)
+            .exclude(id=model.id)
+            .first()
+        )
+
+        migrated_count = 0
+        if affected_agents.exists():
+            if not replacement:
+                return JsonResponse(
+                    {
+                        "error": f"Cannot delete '{slug}': {affected_agents.count()} agent(s) use it "
+                        f"and no other model exists for provider '{model.provider.name}' to migrate to."
+                    },
+                    status=409,
+                )
+            migrated_count = affected_agents.update(llm=replacement)
+
+        model_name = model.name
+        model.delete()
+
+        user_org = None
+        if hasattr(request.user, "profile") and request.user.profile.organization:
+            user_org = request.user.profile.organization
+        _invalidate_agent_cache_for_user_and_org(request.user, user_org)
+
+        return JsonResponse(
+            {
+                "status": "deleted",
+                "deleted": model_name,
+                "migrated_agents": migrated_count,
+                "migrated_to": replacement.slug if replacement and migrated_count else None,
+            }
+        )
+
 
 @csrf_exempt
 @token_required
@@ -308,7 +361,7 @@ def create_random_agent(request):
         return JsonResponse({"error": "Only POST requests are allowed."}, status=405)
 
     name = fake.name()
-    model_slug = random.choice(["gpt-4o-mini", "gpt-4o", "chatgpt-4o-latest"])
+    model_slug = random.choice(["gpt-4o-mini", "gpt-4o"])
     salute = fake.sentence()
     llm = LanguageModel.objects.get(slug=model_slug)
     act_as = "You are a helpful assistant."
@@ -430,10 +483,6 @@ class AgentTaskView(View):
                 status=404,
             )
 
-        # Derive instructions and model from the agent
-        instructions = agent.format_prompt()
-        model = agent.llm.slug if agent.llm else (agent.model_slug or "gpt-4o")
-
         # --- Validate conversation belongs to the user ---
         try:
             conversation = Conversation.objects.get(id=conversation_id)
@@ -461,9 +510,8 @@ class AgentTaskView(View):
             conversation_id=str(conversation_id),
             user_inputs=user_inputs,
             tool_names=tool_names,
-            instructions=instructions,
+            agent_slug=agent_slug,
             user_id=user.id,
-            model=model,
         )
 
         return JsonResponse(

@@ -11,17 +11,17 @@ from api.authenticate.services import FeatureFlagService
 def message_post_save(sender, instance, **kwargs):
     try:
         if instance.type == "assistant":
-            # printer.info("Assistant message detected")
             for version in instance.versions:
+                usage = version.get("usage")
+                if not usage:
+                    continue
 
-                model_slug = version["usage"]["model_slug"]
-
-                input_tokens = version["usage"]["prompt_tokens"]
-                output_tokens = version["usage"]["completion_tokens"]
+                model_slug = usage.get("model_slug")
+                input_tokens = usage.get("prompt_tokens")
+                output_tokens = usage.get("completion_tokens")
 
                 if not input_tokens or not output_tokens:
-                    printer.error("No tokens found!")
-                    return
+                    continue
 
                 if not instance.conversation.user:
                     printer.error("No user found!")

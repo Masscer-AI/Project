@@ -40,6 +40,7 @@ from django.contrib.auth.models import User
 from django.views import View
 from django.core.cache import cache
 from .models import FeatureFlagAssignment
+from .feature_flags_registry import KNOWN_FEATURE_FLAGS
 from django.core.exceptions import ValidationError
 
 logger = logging.getLogger(__name__)
@@ -807,7 +808,12 @@ class OrganizationRoleAssignmentsView(View):
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class FeatureFlagNamesView(View):
-    """List feature flag names (for role capabilities)."""
+    """List feature flag names (for role capabilities).
+
+    Only returns flags from the registry (KNOWN_FEATURE_FLAGS).
+    Flags not in the registry are admin-only and should not be
+    assignable via roles.
+    """
 
     CACHE_TIMEOUT = 86400  # 24 hours
 
@@ -817,8 +823,12 @@ class FeatureFlagNamesView(View):
         if cached_data is not None:
             return JsonResponse(cached_data, safe=False)
 
-        flags = list(
-            FeatureFlag.objects.order_by("name").values("name", "organization_only")
+        flags = sorted(
+            [
+                {"name": name, "organization_only": meta.get("organization_only", False)}
+                for name, meta in KNOWN_FEATURE_FLAGS.items()
+            ],
+            key=lambda f: f["name"],
         )
         cache.set(cache_key, flags, timeout=self.CACHE_TIMEOUT)
         return JsonResponse(flags, safe=False)
@@ -869,12 +879,16 @@ class FeatureFlagListView(View):
         # Get all organizations where user is owner or member
         owned_orgs = Organization.objects.filter(owner=user)
 
-        # Organization owners get ALL feature flags enabled
+        # Organization owners get registry feature flags enabled automatically.
+        # Flags NOT in KNOWN_FEATURE_FLAGS require explicit assignment.
         if owned_orgs.exists():
-            all_flags = {
-                flag.name: True
-                for flag in FeatureFlag.objects.all()
-            }
+            all_flags = {name: True for name in KNOWN_FEATURE_FLAGS}
+            # Also include any direct user-level assignments (for non-registry flags)
+            user_assignments = FeatureFlagAssignment.objects.filter(
+                user=user, organization__isnull=True
+            ).select_related("feature_flag")
+            for assignment in user_assignments:
+                all_flags[assignment.feature_flag.name] = assignment.enabled
             serializer = TeamFeatureFlagsResponseSerializer({
                 "feature_flags": all_flags,
             })

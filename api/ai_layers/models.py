@@ -45,6 +45,7 @@ class LanguageModel(models.Model):
     slug = models.CharField(max_length=100, unique=True, blank=True)
     name = models.CharField(max_length=100)
     pricing = models.JSONField(default=default_pricing)
+    is_reasoning_model = models.BooleanField(default=False)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

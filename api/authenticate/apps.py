@@ -21,5 +21,16 @@ class AuthenticateConfig(AppConfig):
             return
         try:
             call_command("sync_feature_flags", verbosity=1)
+            self._clear_feature_flag_cache()
         except (OperationalError, ProgrammingError):
             printer.red("Database not ready. Skipping feature-flag sync on startup.")
+
+    @staticmethod
+    def _clear_feature_flag_cache():
+        """Clear all feature-flag related caches so stale data is never served after restart."""
+        from django.core.cache import cache
+
+        cache.delete("feature_flag_names")
+        cache.delete_pattern("*ff_check_*")
+        cache.delete_pattern("*ff_list_*")
+        printer.green("Feature-flag cache cleared.")

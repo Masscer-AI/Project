@@ -21,125 +21,111 @@ def check_models_for_providers():
 
     openai_models_objects = [
         {
-            "name": "GPT-4",
-            "slug": "gpt-4",
+            "name": "GPT-5 Nano",
+            "slug": "gpt-5-nano",
+            "is_reasoning_model": True,
             "pricing": {
                 "text": {
-                    "prompt": "30.00 USD / 1000000",
-                    "output": "60.00 USD / 1000000",
+                    "prompt": "0.05 USD / 1000000",
+                    "output": "0.40 USD / 1000000",
                 }
             },
         },
         {
-            "name": "Gpt 4 Turbo",
-            "slug": "gpt-4-turbo",
+            "name": "GPT-5 Mini",
+            "slug": "gpt-5-mini",
+            "is_reasoning_model": True,
             "pricing": {
                 "text": {
-                    "prompt": "10.00 USD / 1000000",
-                    "output": "30.00 USD / 1000000",
+                    "prompt": "0.25 USD / 1000000",
+                    "output": "2.00 USD / 1000000",
                 }
             },
         },
         {
-            "name": "Gpt 4O",
-            "slug": "gpt-4o",
+            "name": "GPT-5",
+            "slug": "gpt-5",
+            "is_reasoning_model": True,
             "pricing": {
                 "text": {
-                    "prompt": "2.50 USD / 1000000",
+                    "prompt": "1.25 USD / 1000000",
                     "output": "10.00 USD / 1000000",
                 }
             },
         },
         {
-            "name": "Gpt 4O Mini",
-            "slug": "gpt-4o-mini",
+            "name": "GPT-5.2",
+            "slug": "gpt-5.2",
+            "is_reasoning_model": True,
             "pricing": {
                 "text": {
-                    "prompt": "0.15 USD / 1000000",
-                    "output": "0.60 USD / 1000000",
+                    "prompt": "1.75 USD / 1000000",
+                    "output": "14.00 USD / 1000000",
                 }
             },
         },
         {
-            "name": "Gpt 3.5 Turbo",
-            "slug": "gpt-3.5-turbo",
+            "name": "GPT-5.2 Pro",
+            "slug": "gpt-5.2-pro",
+            "is_reasoning_model": True,
             "pricing": {
                 "text": {
-                    "prompt": "0.50 USD / 1000000",
-                    "output": "1.50 USD / 1000000",
+                    "prompt": "21.00 USD / 1000000",
+                    "output": "168.00 USD / 1000000",
                 }
             },
         },
         {
-            "name": "ChatGPT 4O Latest",
-            "slug": "chatgpt-4o-latest",
+            "name": "GPT-4.1",
+            "slug": "gpt-4.1",
+            "is_reasoning_model": False,
             "pricing": {
                 "text": {
-                    "prompt": "5.00 USD / 1000000",
-                    "output": "15.00 USD / 1000000",
-                }
-            },
-        },
-        {
-            "name": "O1 Preview",
-            "slug": "o1-preview",
-            "pricing": {
-                "text": {
-                    "prompt": "15.00 USD / 1000000",
-                    "output": "60.00 USD / 1000000",
-                }
-            },
-        },
-        {
-            "name": "O1 Mini",
-            "slug": "o1-mini",
-            "pricing": {
-                "text": {
-                    "prompt": "3.00 USD / 1000000",
-                    "output": "12.00 USD / 1000000",
+                    "prompt": "2.00 USD / 1000000",
+                    "output": "8.00 USD / 1000000",
                 }
             },
         },
     ]
 
-    anthropic_models_objects = [
-        {
-            "name": "Claude 3.5 Sonnet",
-            "slug": "claude-3-5-sonnet-20241022",
-            "pricing": {
-                "text": {
-                    "prompt": "3.00 USD / 1000000",
-                    "output": "15.00 USD / 1000000",
-                }
-            },
-        },
-        {
-            "name": "Claude 3.5 Haiku",
-            "slug": "claude-3-5-haiku-20241022",
-            "pricing": {
-                "text": {
-                    "prompt": "0.80 USD / 1000000",
-                    "output": "4.00 USD / 1000000",
-                }
-            },
-        },
-    ]
+    # anthropic_models_objects = [
+    #     {
+    #         "name": "Claude 3.5 Sonnet",
+    #         "slug": "claude-3-5-sonnet-20241022",
+    #         "pricing": {
+    #             "text": {
+    #                 "prompt": "3.00 USD / 1000000",
+    #                 "output": "15.00 USD / 1000000",
+    #             }
+    #         },
+    #     },
+    #     {
+    #         "name": "Claude 3.5 Haiku",
+    #         "slug": "claude-3-5-haiku-20241022",
+    #         "pricing": {
+    #             "text": {
+    #                 "prompt": "0.80 USD / 1000000",
+    #                 "output": "4.00 USD / 1000000",
+    #             }
+    #         },
+    #     },
+    # ]
     # openai_models_from_api = list_openai_models()
     # printer.red(openai_models_from_api, "OPENAI MODELS FROM API")
 
-    ollama_models = list_ollama_models()
-    ollama_models = [{"name": m["name"], "slug": m["model"]} for m in ollama_models]
-    ollama_models_slugs = [m["slug"] for m in ollama_models]
-
-    should_list_again = False
-    for model in MANDATORY_MODELS:
-        if model not in ollama_models_slugs:
-            pull_ollama_model(model)
-            should_list_again = True
-
-    if should_list_again:
-        ollama_models = list_ollama_models()
-        ollama_models = [{"name": m["name"], "slug": m["model"]} for m in ollama_models]
+    # ollama_models = list_ollama_models()
+    # ollama_models = [{"name": m["name"], "slug": m["model"]} for m in ollama_models]
+    # ollama_models_slugs = [m["slug"] for m in ollama_models]
+    #
+    # should_list_again = False
+    # for model in MANDATORY_MODELS:
+    #     if model not in ollama_models_slugs:
+    #         pull_ollama_model(model)
+    #         should_list_again = True
+    #
+    # if should_list_again:
+    #     ollama_models = list_ollama_models()
+    #     ollama_models = [{"name": m["name"], "slug": m["model"]} for m in ollama_models]
 
     try:
         openai_provider = AIProvider.objects.get(name__iexact="openai")
@@ -147,24 +133,28 @@ def check_models_for_providers():
         printer.red("AIProvider 'openai' does not exist.")
         openai_provider = None
 
-    try:
-        ollama_provider = AIProvider.objects.get(name__iexact="ollama")
-    except AIProvider.DoesNotExist:
-        printer.red("AIProvider 'ollama' does not exist.")
-        ollama_provider = None
+    # try:
+    #     ollama_provider = AIProvider.objects.get(name__iexact="ollama")
+    # except AIProvider.DoesNotExist:
+    #     printer.red("AIProvider 'ollama' does not exist.")
+    #     ollama_provider = None
 
-    try:
-        anthropic_provider = AIProvider.objects.get(name__iexact="anthropic")
-    except AIProvider.DoesNotExist:
-        printer.red("AIProvider 'anthropic' does not exist.")
-        anthropic_provider = None
+    # try:
+    #     anthropic_provider = AIProvider.objects.get(name__iexact="anthropic")
+    # except AIProvider.DoesNotExist:
+    #     printer.red("AIProvider 'anthropic' does not exist.")
+    #     anthropic_provider = None
 
     if openai_provider:
         for model in openai_models_objects:
             language_model, created = LanguageModel.objects.get_or_create(
                 provider=openai_provider,
                 slug=model["slug"],
-                defaults={"name": model["name"], "pricing": model["pricing"]},
+                defaults={
+                    "name": model["name"],
+                    "pricing": model["pricing"],
+                    "is_reasoning_model": model.get("is_reasoning_model", False),
+                },
             )
 
             if created:
@@ -172,52 +162,52 @@ def check_models_for_providers():
                     f"LanguageModel '{model['name']}' created for provider 'OpenAI'."
                 )
 
-            if not created and language_model.pricing != model["pricing"]:
-                language_model.pricing = model["pricing"]
-                language_model.save()
-                printer.yellow(
-                    f"Updated pricing for LanguageModel '{model['name']}' (OpenAI)."
-                )
+            if not created:
+                updated = False
+                if language_model.pricing != model["pricing"]:
+                    language_model.pricing = model["pricing"]
+                    updated = True
+                if language_model.is_reasoning_model != model.get("is_reasoning_model", False):
+                    language_model.is_reasoning_model = model.get("is_reasoning_model", False)
+                    updated = True
+                if updated:
+                    language_model.save()
+                    printer.yellow(
+                        f"Updated LanguageModel '{model['name']}' (OpenAI)."
+                    )
 
-    # Create LanguageModels for Ollama
-    if ollama_provider:
-        for model in ollama_models:
-            language_model, created = LanguageModel.objects.get_or_create(
-                provider=ollama_provider,
-                slug=model["slug"],
-                defaults={"name": model["name"]},
-            )
-            if created:
-                printer.green(
-                    f"LanguageModel '{model['name']}' created for provider 'Ollama'."
-                )
+    # # Create LanguageModels for Ollama
+    # if ollama_provider:
+    #     for model in ollama_models:
+    #         language_model, created = LanguageModel.objects.get_or_create(
+    #             provider=ollama_provider,
+    #             slug=model["slug"],
+    #             defaults={"name": model["name"]},
+    #         )
+    #         if created:
+    #             printer.green(
+    #                 f"LanguageModel '{model['name']}' created for provider 'Ollama'."
+    #             )
 
-            # TODO: Calculate a pricing for ollama models
-            # if not created and language_model.pricing != model["pricing"]:
-            #     language_model.pricing = model["pricing"]
-            #     language_model.save()
-            #     printer.yellow(
-            #         f"Updated pricing for LanguageModel '{model['name']}' (Ollama)."
-            #     )
+    # # Create LanguageModels for Anthropic
+    # if anthropic_provider:
+    #     for model in anthropic_models_objects:
+    #         language_model, created = LanguageModel.objects.get_or_create(
+    #             provider=anthropic_provider,
+    #             slug=model["slug"],
+    #             defaults={"name": model["name"], "pricing": model["pricing"]},
+    #         )
+    #         if created:
+    #             printer.green(
+    #                 f"LanguageModel '{model['name']}' created for provider 'Anthropic'."
+    #             )
+    #         if not created and language_model.pricing != model["pricing"]:
+    #             language_model.pricing = model["pricing"]
+    #             language_model.save()
+    #             printer.yellow(
+    #                 f"Updated pricing for LanguageModel '{model['name']}' (Anthropic)."
+    #             )
 
-    # Create LanguageModels for Anthropic
-    if anthropic_provider:
-        for model in anthropic_models_objects:
-            language_model, created = LanguageModel.objects.get_or_create(
-                provider=anthropic_provider,
-                slug=model["slug"],
-                defaults={"name": model["name"], "pricing": model["pricing"]},
-            )
-            if created:
-                printer.green(
-                    f"LanguageModel '{model['name']}' created for provider 'Anthropic'."
-                )
-            if not created and language_model.pricing != model["pricing"]:
-                language_model.pricing = model["pricing"]
-                language_model.save()
-                printer.yellow(
-                    f"Updated pricing for LanguageModel '{model['name']}' (Anthropic)."
-                )
     printer.success("All LLMs are now in the DB!")
 
 

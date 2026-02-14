@@ -24,6 +24,5 @@ KNOWN_FEATURE_FLAGS = {
     "transcribe-on-chat": {"organization_only": False},
     "chat-generate-speech": {"organization_only": False},
     "multi-agent-chat": {"organization_only": False},
-    "add-llm": {"organization_only": False},
     "set-agent-ownership": {"organization_only": False},
 }
