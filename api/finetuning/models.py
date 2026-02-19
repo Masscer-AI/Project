@@ -100,8 +100,26 @@ class Completion(models.Model):
 
     def save_in_memory(self):
         printer.yellow(f"Saving completion {self.id} in memory")
+        if not chroma_client:
+            printer.red("ChromaDB not available, skipping save_in_memory")
+            return
+        if not self.agent:
+            printer.red("Completion has no agent, skipping save_in_memory")
+            return
+
+        # Match how chat RAG is scoped: Collection is per (user, agent).
+        # Prefer the user who initiated training (training_generator.created_by),
+        # then the user who approved it, then fall back to agent owner.
+        collection_user = None
+        if self.training_generator and getattr(self.training_generator, "created_by_id", None):
+            collection_user = self.training_generator.created_by
+        elif self.approved_by_id:
+            collection_user = self.approved_by
+        else:
+            collection_user = self.agent.user
+
         collection, created = Collection.objects.get_or_create(
-            agent=self.agent, user=self.agent.user
+            agent=self.agent, user=collection_user
         )
         if created:
             printer.red(
@@ -116,15 +134,33 @@ class Completion(models.Model):
                 "content": f"PROMPT: {self.prompt}\n\nANSWER: {self.answer}",
                 "model_id": self.id,
                 "model_name": "completion",
-                "extra": f"TRAINING_GENERATOR(name={self.training_generator.name}, id={self.training_generator.id})",
+                "extra": (
+                    f"TRAINING_GENERATOR(name={self.training_generator.name}, id={self.training_generator.id})"
+                    if self.training_generator
+                    else "TRAINING_GENERATOR(None)"
+                ),
             },
         )
         printer.success(f"Completion {self.id} saved in memory")
 
     def remove_from_memory(self):
+        if not chroma_client:
+            printer.red("ChromaDB not available, skipping remove_from_memory")
+            return
+        if not self.agent:
+            printer.red("Completion has no agent, skipping remove_from_memory")
+            return
+
+        collection_user = None
+        if self.training_generator and getattr(self.training_generator, "created_by_id", None):
+            collection_user = self.training_generator.created_by
+        elif self.approved_by_id:
+            collection_user = self.approved_by
+        else:
+            collection_user = self.agent.user
 
         collection, created = Collection.objects.get_or_create(
-            agent=self.agent, user=self.agent.user
+            agent=self.agent, user=collection_user
         )
         if created:
             printer.yellow(

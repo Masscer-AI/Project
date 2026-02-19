@@ -343,7 +343,10 @@ export default function ChatView() {
           }
         }
 
-        const toolNames = ["print_color", "read_attachment", "list_attachments", "explore_web"];
+        const toolNames = ["read_attachment", "list_attachments"];
+        if (chatState.webSearch) {
+          toolNames.push("explore_web");
+        }
         if (chatState.useRag) {
           toolNames.push("rag_query");
         }

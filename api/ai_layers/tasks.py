@@ -382,6 +382,22 @@ def conversation_agent_task(
             if attachment_ids_instruction:
                 instructions = instructions + attachment_ids_instruction
 
+            # If the user enabled RAG/Web Search, they expect the agent to use it.
+            if "rag_query" in (tool_names or []):
+                instructions += (
+                    "\n\nRAG is enabled for this conversation. "
+                    "Before answering, you MUST call rag_query at least once with a small list of queries "
+                    "(1-5) derived from the user's latest request. "
+                    "If rag_query returns no results, say so briefly and continue with best-effort."
+                )
+            if "explore_web" in (tool_names or []):
+                instructions += (
+                    "\n\nWeb Search is enabled for this conversation. "
+                    "Before answering, you MUST call explore_web at least once with an appropriate query "
+                    "derived from the user's latest request. "
+                    "Use the results to improve factuality; if it returns no results, say so briefly and continue."
+                )
+
             # For grupal: prepend previous agents' outputs to instructions
             if multiagentic_modality == "grupal" and versions:
                 prev_context = (
