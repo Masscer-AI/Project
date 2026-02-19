@@ -88,28 +88,13 @@ export const Thumbnail = ({
           )
         )}
       {type.indexOf("image") === 0 && (
-        <div className="thumbnail pointer flex-shrink-0">
-          <ImageThumbnail
-            src={src}
-            message_id={message_id}
-            name={name}
-            buttons={
-              showFloatingButtons && (
-                <div className="d-flex align-center justify-center padding-small">
-                  <ActionIcon
-                    variant="subtle"
-                    color="red"
-                    size="sm"
-                    onClick={() => deleteAttachment(index)}
-                    title={t("delete")}
-                  >
-                    <IconTrash size={16} />
-                  </ActionIcon>
-                </div>
-              )
-            }
-          />
-        </div>
+        <ImageAttachmentThumbnail
+          src={src}
+          message_id={message_id}
+          name={name}
+          showFloatingButtons={showFloatingButtons}
+          onDelete={() => deleteAttachment(index)}
+        />
       )}
       {/* Audio type currently unused */}
       {type.indexOf("audio_generation") === 0 && (
@@ -123,6 +108,83 @@ export const Thumbnail = ({
         </>
       )}
     </>
+  );
+};
+
+const ImageAttachmentThumbnail = ({
+  src,
+  name,
+  message_id,
+  showFloatingButtons,
+  onDelete,
+}: {
+  src: string;
+  name: string;
+  message_id?: number;
+  showFloatingButtons: boolean;
+  onDelete: () => void;
+}) => {
+  const { t } = useTranslation();
+  const [showModal, setShowModal] = useState(false);
+
+  if (!showFloatingButtons) {
+    // In-message rendering (compact square preview)
+    return (
+      <div className="thumbnail pointer flex-shrink-0">
+        {showModal && (
+          <ImageModal
+            src={src}
+            name={name}
+            hide={() => setShowModal(false)}
+            message_id={message_id}
+          />
+        )}
+        <img
+          onClick={() => setShowModal(true)}
+          src={src}
+          alt={`attachment-${name}`}
+          className="max-w-[70px] max-h-[70px] w-[70px] h-[70px] object-contain rounded-md flex-shrink-0"
+        />
+      </div>
+    );
+  }
+
+  // Input strip rendering (match document/website chips)
+  return (
+    <div className="width-150 document-attachment bg-contrast rounded padding-small">
+      {showModal && (
+        <ImageModal
+          src={src}
+          name={name}
+          hide={() => setShowModal(false)}
+          message_id={message_id}
+        />
+      )}
+      <div className="d-flex gap-small align-center">
+        <img
+          onClick={() => setShowModal(true)}
+          src={src}
+          alt={`attachment-${name}`}
+          className="w-[38px] h-[38px] object-cover rounded-md flex-shrink-0 pointer"
+        />
+        <p
+          className="cut-text-to-line"
+          style={{ flex: 1, minWidth: 0, margin: 0 }}
+        >
+          {name}
+        </p>
+        <ActionIcon
+          variant="subtle"
+          color="red"
+          size="sm"
+          onClick={onDelete}
+          title={t("delete")}
+          aria-label={t("delete")}
+        >
+          <IconTrash size={16} />
+        </ActionIcon>
+      </div>
+    </div>
   );
 };
 
@@ -146,7 +208,7 @@ const WebsiteThumbnail = ({ url, name }: { url: string; name: string }) => {
       }}
     >
       <IconLink size={20} />
-      <p className="cut-text-to-line" style={{ flex: 1 }}>
+      <p className="cut-text-to-line" style={{ flex: 1, margin: 0 }}>
         {display}
       </p>
     </a>
@@ -360,7 +422,9 @@ const DocumentThumnail = ({
         <div>
           <IconFileText size={20} />
         </div>
-        <p className="cut-text-to-line">{name}</p>
+        <p className="cut-text-to-line" style={{ margin: 0, flex: 1, minWidth: 0 }}>
+          {name}
+        </p>
 
         {showFloatingButtons && (
           <Menu
@@ -422,40 +486,6 @@ const DocumentThumnail = ({
           </Menu>
         )}
       </div>
-    </div>
-  );
-};
-
-const ImageThumbnail = ({
-  src,
-  name,
-  buttons,
-  message_id,
-}: {
-  src: string;
-  name: string;
-  buttons?: React.ReactNode;
-  message_id?: number;
-}) => {
-  const [showModal, setShowModal] = useState(false);
-
-  return (
-    <div className="thumbnail pointer flex-shrink-0">
-      {showModal && (
-        <ImageModal
-          src={src}
-          name={name}
-          hide={() => setShowModal(false)}
-          message_id={message_id}
-        />
-      )}
-      <img
-        onClick={() => setShowModal(true)}
-        src={src}
-        alt={`attachment-${name}`}
-        className="max-w-[70px] max-h-[70px] w-[70px] h-[70px] object-contain rounded-md flex-shrink-0"
-      />
-      {buttons}
     </div>
   );
 };

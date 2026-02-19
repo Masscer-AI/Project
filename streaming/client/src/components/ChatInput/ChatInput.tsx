@@ -41,6 +41,7 @@ import {
   IconPlus,
   IconFilePlus,
   IconLink,
+  IconTrash,
   IconTree,
   IconUsers,
   IconAdjustments,
@@ -90,11 +91,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     addAttachment,
     chatState,
     toggleWritingMode,
+    setSpecifiedUrls,
   } = useStore((state) => ({
     attachments: state.chatState.attachments,
     addAttachment: state.addAttachment,
     chatState: state.chatState,
     toggleWritingMode: state.toggleWrittingMode,
+    setSpecifiedUrls: state.setSpecifiedUrls,
   }));
 
   const [textPrompt, setTextPrompt] = useState(initialInput);
@@ -183,6 +186,57 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   return (
     <div className="flex flex-col justify-center items-center p-0 w-full max-w-[900px] bg-transparent z-[2] gap-0 mt-4 overflow-visible">
       <section className="chat-input-attachments flex gap-2.5 flex-nowrap overflow-x-auto empty:hidden w-full mb-3 px-4 [scrollbar-width:thin] [scrollbar-color:rgba(128,128,128,0.3)_transparent] [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-[rgba(128,128,128,0.3)] [&::-webkit-scrollbar-thumb]:rounded-full">
+        {(chatState.specifiedUrls || []).map((u) => (
+          <div
+            key={u.url}
+            title={u.url}
+            className="width-150 document-attachment bg-contrast rounded padding-small"
+            style={{
+              display: "flex",
+              gap: 8,
+              alignItems: "center",
+              textDecoration: "none",
+              color: "inherit",
+            }}
+          >
+            <a
+              href={u.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "flex",
+                gap: 8,
+                alignItems: "center",
+                textDecoration: "none",
+                color: "inherit",
+                flex: 1,
+                minWidth: 0,
+              }}
+            >
+              <IconLink size={20} />
+              <p className="cut-text-to-line" style={{ flex: 1, minWidth: 0 }}>
+                {u.url}
+              </p>
+            </a>
+            <ActionIcon
+              variant="subtle"
+              color="red"
+              size="sm"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const next = (chatState.specifiedUrls || []).filter(
+                  (x) => x.url !== u.url
+                );
+                setSpecifiedUrls(next);
+              }}
+              aria-label={t("delete") || "Delete"}
+              title={t("delete") || "Delete"}
+            >
+              <IconTrash size={16} />
+            </ActionIcon>
+          </div>
+        ))}
         {attachments.map((a, index) => (
           <Thumbnail
             {...a}
