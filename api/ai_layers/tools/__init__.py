@@ -24,10 +24,12 @@ logger = logging.getLogger(__name__)
 
 TOOL_REGISTRY: dict[str, str] = {
     "print_color": "api.ai_layers.tools.print_color",
+    "read_attachment": "api.ai_layers.tools.read_attachment",
+    "list_attachments": "api.ai_layers.tools.list_attachments",
 }
 
 
-def resolve_tools(tool_names: list[str]) -> list[dict]:
+def resolve_tools(tool_names: list[str], **context) -> list[dict]:
     """
     Resolve a list of tool name strings into AgentTool dicts.
 
@@ -55,8 +57,8 @@ def resolve_tools(tool_names: list[str]) -> list[dict]:
         module_path = TOOL_REGISTRY[name]
         try:
             module = importlib.import_module(module_path)
-            get_tool = getattr(module, "get_tool")
-            tools.append(get_tool())
+            get_tool_fn = getattr(module, "get_tool")
+            tools.append(get_tool_fn(**context))
             logger.info("Resolved tool '%s' from %s", name, module_path)
         except Exception as e:
             logger.error("Failed to resolve tool '%s': %s", name, e)

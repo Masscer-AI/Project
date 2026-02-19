@@ -11,7 +11,7 @@ Usage:
         tools=[get_tool()],
         instructions="You can print colored messages in the terminal. Use the tool.",
     )
-    result = loop.run("Print 'Hello world' in green and then 'Goodbye' in red")
+    result = loop.run([{"role": "user", "content": "Print 'Hello world' in green and then 'Goodbye' in red"}])
 """
 
 from typing import Literal
@@ -77,7 +77,7 @@ def print_color(color: ColorLiteral, text: str) -> PrintColorResult:
 # Tool config (ready for AgentLoop)
 # ---------------------------------------------------------------------------
 
-def get_tool() -> dict:
+def get_tool(**kwargs) -> dict:
     """
     Return an AgentTool dict ready to pass to AgentLoop(tools=[...]).
 

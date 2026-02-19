@@ -1,4 +1,4 @@
-import React, { useEffect, useState, version } from "react";
+import React, { useEffect, useState } from "react";
 // import axios from "axios";
 import { Message } from "../../components/Message/Message";
 import { ChatInput } from "../../components/ChatInput/ChatInput";
@@ -17,7 +17,11 @@ import { ConversationModal } from "../../components/ConversationModal/Conversati
 import { ActionIcon } from "@mantine/core";
 import { IconArrowDown } from "@tabler/icons-react";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
-import { triggerAgentTask, uploadMessageAttachments } from "../../modules/apiCalls";
+import {
+  linkMessageAttachment,
+  triggerAgentTask,
+  uploadMessageAttachments,
+} from "../../modules/apiCalls";
 
 export default function ChatView() {
   const loaderData = useLoaderData() as TChatLoader;
@@ -257,24 +261,44 @@ export default function ChatView() {
           return false;
         }
 
-        const userInputs: Array<
-          { type: "input_text"; text: string } | { type: "input_image"; id: string }
-        > = [{ type: "input_text", text: input }];
+        type UserInput =
+          | { type: "input_text"; text: string }
+          | { type: "input_attachment"; attachment_id: string };
+        const userInputs: UserInput[] = [{ type: "input_text", text: input }];
 
         if (chatState.attachments.length > 0) {
-          const imageAttachments = chatState.attachments.filter((a) =>
-            a.type.startsWith("image")
+          const fileUploads = chatState.attachments.filter(
+            (a) => typeof a.content === "string" && a.content.startsWith("data:")
           );
-          if (imageAttachments.length > 0) {
+          const ragDocs = chatState.attachments.filter(
+            (a) =>
+              !(typeof a.content === "string" && a.content.startsWith("data:")) &&
+              a.id != null
+          );
+
+          const toUpload = fileUploads.map((a) => ({
+            content: a.content,
+            name: a.name || "file",
+          }));
+
+          if (toUpload.length > 0) {
             const uploadRes = await uploadMessageAttachments(
               currentConversation.id,
-              imageAttachments.map((a) => ({
-                content: a.content,
-                name: a.name || "image.png",
-              }))
+              toUpload
             );
             for (const att of uploadRes.attachments) {
-              userInputs.push({ type: "input_image", id: att.id });
+              userInputs.push({ type: "input_attachment", attachment_id: att.id });
+            }
+          }
+
+          for (const rag of ragDocs) {
+            const docId = typeof rag.id === "number" ? rag.id : parseInt(String(rag.id), 10);
+            if (!isNaN(docId)) {
+              const linkRes = await linkMessageAttachment(currentConversation.id, {
+                kind: "rag_document",
+                rag_document_id: docId,
+              });
+              userInputs.push({ type: "input_attachment", attachment_id: linkRes.attachment.id });
             }
           }
         }
@@ -283,7 +307,7 @@ export default function ChatView() {
           conversation_id: currentConversation.id,
           agent_slugs: selectedAgents.map((a) => a.slug),
           user_inputs: userInputs,
-          tool_names: ["print_color"],
+          tool_names: ["print_color", "read_attachment", "list_attachments"],
           multiagentic_modality: userPreferences.multiagentic_modality,
         });
 

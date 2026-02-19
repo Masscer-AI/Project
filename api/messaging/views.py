@@ -367,6 +367,16 @@ def upload_message_attachments(request):
                 ext = "webp"
             elif "audio" in header:
                 ext = "webm" if "webm" in header else "mp3" if "mp3" in header else "wav"
+            elif "application/pdf" in header or "pdf" in header:
+                ext = "pdf"
+            elif "wordprocessingml" in header or "docx" in header:
+                ext = "docx"
+            elif "msword" in header or "doc" in header:
+                ext = "doc"
+            elif "text/plain" in header or "plain" in header:
+                ext = "txt"
+            elif "text/html" in header or "html" in header:
+                ext = "html"
             raw = base64.b64decode(b64_data)
         except Exception as e:
             return JsonResponse(
@@ -382,11 +392,22 @@ def upload_message_attachments(request):
             content_type = f"image/{ext}"
         elif ext in ("webm", "mp3", "wav"):
             content_type = f"audio/{ext}"
+        elif ext == "pdf":
+            content_type = "application/pdf"
+        elif ext == "docx":
+            content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        elif ext == "doc":
+            content_type = "application/msword"
+        elif ext == "txt":
+            content_type = "text/plain"
+        elif ext == "html":
+            content_type = "text/html"
         else:
             content_type = "application/octet-stream"
         attachment = MessageAttachment.objects.create(
             conversation=conv,
             user=request.user,
+            kind="file",
             file=file_obj,
             content_type=content_type,
         )
@@ -394,6 +415,80 @@ def upload_message_attachments(request):
         result.append({"id": str(attachment.id), "url": url})
 
     return JsonResponse({"attachments": result})
+
+
+@csrf_exempt
+@token_required
+def link_message_attachment(request):
+    """
+    Create a reference attachment (no file upload).
+
+    Accepts JSON:
+      { conversation_id, kind: "rag_document"|"website", rag_document_id?, url? }
+
+    Returns:
+      { attachment: { id } }
+    """
+    if request.user is None:
+        return JsonResponse({"error": "Authentication required"}, status=401)
+
+    try:
+        data = json.loads(request.body) if request.body else {}
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    conversation_id = data.get("conversation_id")
+    kind = data.get("kind")
+    if not conversation_id:
+        return JsonResponse({"error": "conversation_id is required"}, status=400)
+    if kind not in ("rag_document", "website"):
+        return JsonResponse(
+            {"error": "kind must be one of: rag_document, website"},
+            status=400,
+        )
+
+    conv, err = _get_conversation_for_user(request, conversation_id)
+    if err:
+        return err
+
+    if kind == "rag_document":
+        rag_document_id = data.get("rag_document_id") or data.get("document_id")
+        if rag_document_id is None:
+            return JsonResponse({"error": "rag_document_id is required"}, status=400)
+        try:
+            from api.rag.models import Document
+
+            doc = Document.objects.select_related("collection").get(id=int(rag_document_id))
+        except Exception:
+            return JsonResponse({"error": "RAG document not found"}, status=404)
+
+        if getattr(doc.collection, "user_id", None) != request.user.id:
+            return JsonResponse({"error": "RAG document not accessible"}, status=403)
+
+        attachment = MessageAttachment.objects.create(
+            conversation=conv,
+            user=request.user,
+            kind="rag_document",
+            rag_document=doc,
+            content_type="application/rag_document",
+            expires_at=None,
+        )
+        return JsonResponse({"attachment": {"id": str(attachment.id)}})
+
+    # kind == "website"
+    url = data.get("url")
+    if not url:
+        return JsonResponse({"error": "url is required"}, status=400)
+
+    attachment = MessageAttachment.objects.create(
+        conversation=conv,
+        user=request.user,
+        kind="website",
+        url=url,
+        content_type="text/html",
+        expires_at=None,
+    )
+    return JsonResponse({"attachment": {"id": str(attachment.id), "url": url}})
 
 
 @csrf_exempt

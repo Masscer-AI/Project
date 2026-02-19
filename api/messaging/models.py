@@ -70,6 +70,12 @@ class MessageAttachment(models.Model):
     User and agent are optional (e.g. user-uploaded vs agent-generated).
     """
 
+    KIND_CHOICES = [
+        ("file", "File"),
+        ("rag_document", "RAG Document"),
+        ("website", "Website"),
+    ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     message = models.ForeignKey(
         "Message",
@@ -99,11 +105,28 @@ class MessageAttachment(models.Model):
         blank=True,
         related_name="message_attachments",
     )
-    file = models.FileField(upload_to="message_attachments/%Y/%m/")
+    kind = models.CharField(
+        max_length=20,
+        choices=KIND_CHOICES,
+        default="file",
+        help_text="Attachment kind: file upload, RAG document reference, or website reference",
+    )
+    file = models.FileField(upload_to="message_attachments/%Y/%m/", null=True, blank=True)
+    rag_document = models.ForeignKey(
+        "rag.Document",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="message_attachments",
+    )
+    url = models.URLField(null=True, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
     content_type = models.CharField(max_length=100, blank=True, default="")
     expires_at = models.DateTimeField(
         default=_message_attachment_expires_default,
         help_text="After this date the attachment can be deleted (default: 30 days)",
+        null=True,
+        blank=True,
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -111,7 +134,46 @@ class MessageAttachment(models.Model):
         ordering = ["-created_at"]
 
     def __str__(self):
-        return f"MessageAttachment({self.id})"
+        return f"MessageAttachment({self.id}, kind={self.kind})"
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        if self.kind == "file":
+            if not self.file:
+                raise ValidationError({"file": "file is required when kind='file'."})
+            if self.rag_document_id:
+                raise ValidationError(
+                    {"rag_document": "rag_document must be empty when kind='file'."}
+                )
+            if self.url:
+                raise ValidationError({"url": "url must be empty when kind='file'."})
+            if self.expires_at is None:
+                self.expires_at = _message_attachment_expires_default()
+        elif self.kind == "rag_document":
+            if not self.rag_document_id:
+                raise ValidationError(
+                    {"rag_document": "rag_document is required when kind='rag_document'."}
+                )
+            if self.file:
+                raise ValidationError({"file": "file must be empty when kind='rag_document'."})
+            if self.url:
+                raise ValidationError({"url": "url must be empty when kind='rag_document'."})
+            self.expires_at = None
+            self.content_type = self.content_type or "application/rag_document"
+        elif self.kind == "website":
+            if not self.url:
+                raise ValidationError({"url": "url is required when kind='website'."})
+            if self.file:
+                raise ValidationError({"file": "file must be empty when kind='website'."})
+            if self.rag_document_id:
+                raise ValidationError(
+                    {"rag_document": "rag_document must be empty when kind='website'."}
+                )
+            self.expires_at = None
+            self.content_type = self.content_type or "text/html"
+        else:
+            raise ValidationError({"kind": f"Unknown kind '{self.kind}'."})
 
 
 class Message(models.Model):
