@@ -100,6 +100,7 @@ The agent-task path uses a strict minimal shape:
 Notes:
 - The saved user message text is **only** `input_text`.
 - Attachments are **not** appended into the user message text.
+- The model can still discover attachment IDs later via tools (e.g. `list_attachments`) and via attachment metadata included in the AgentLoop inputs.
 
 ## Attachments in agent-task (on-demand reading)
 
@@ -115,13 +116,13 @@ For the agent-task path, documents should **not** be injected into prompt contex
 We use `api/messaging/models.py:MessageAttachment` as a typed attachment table:
 - `kind="file"`: has a `file` (images, PDFs, etc.), expires by default
 - `kind="rag_document"`: references a RAG `Document` (persistent), no file
-- `kind="website"`: stores a URL, no file
+- `kind="website"`: stores a URL + a Firecrawl markdown snapshot in `metadata.content`, no file
 
 ### Endpoints
 
 - **Upload file attachments** (data URLs only):\n  `POST /v1/messaging/attachments/upload/`\n  Stores `MessageAttachment(kind=\"file\")`.
 
-- **Link reference attachments** (no file):\n  `POST /v1/messaging/attachments/link/`\n  Creates `MessageAttachment(kind=\"rag_document\"|\"website\")`.
+- **Link reference attachments** (no file):\n  `POST /v1/messaging/attachments/link/`\n  Creates `MessageAttachment(kind=\"rag_document\"|\"website\")`. For `kind=\"website\"`, the backend scrapes the page via Firecrawl and stores the markdown snapshot in `MessageAttachment.metadata.content`.
 
 ### Frontend behavior
 
@@ -142,11 +143,32 @@ Behavior:
 - routes by attachment kind:
   - `file`: sends the file to OpenAI (vision for images; `input_file` for docs)
   - `rag_document`: sends `Document.text` to OpenAI (with a size cap)
-  - `website`: fetches URL, extracts plain text, sends to OpenAI (with a size cap)
+  - `website`: prefers the stored snapshot from `metadata.content`; only refetches if missing (with a size cap when sending to OpenAI)
+
+### Tool: `list_attachments`
+
+Lists all attachments for the current conversation (metadata only). Use this to discover `attachment_id` values from older messages.
+
+- `list_attachments() -> { attachments: [...] }`
+- Returns items like: `attachment_id`, `kind`, `content_type`, `name/url`, `message_id`, timestamps.
+
+### Tool: `explore_web`
+
+Web search + scrape using Firecrawl.
+
+- `explore_web(query, limit=3) -> { results: [{url,title,description,markdown}] }`
+- Returns scraped markdown for each result (truncated per result for safety).
+
+### Tool: `rag_query`
+
+Vector store retrieval for the current agent.
+
+- `rag_query(queries: string[], n_results=4) -> { queries_used, results }`
+- The agent is responsible for generating `queries[]` from conversation context.
 
 ## Known gaps / follow-ups
 
-- **Website extraction quality**: currently very lightweight HTML stripping; could be upgraded to a more robust extractor later.
+- **Website snapshot size**: we store Firecrawl markdown snapshots; `read_attachment` caps how much is sent to the model to avoid huge prompts.
 - **Large image chunking**: not implemented in this repo yet; could adopt a chunking helper like the reference project if needed.
 - **Direct-to-storage uploads**: base64 upload is convenient but not ideal for large files; presigned uploads would scale better.
 

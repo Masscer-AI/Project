@@ -228,9 +228,6 @@ def _process_rag_document(att, question: str) -> ReadAttachmentResult:
 def _process_website(att, question: str) -> ReadAttachmentResult:
     """Fetch a website URL and answer a question about its content."""
     import os
-    import re
-    import requests
-    from html import unescape
 
     client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
@@ -238,25 +235,35 @@ def _process_website(att, question: str) -> ReadAttachmentResult:
     if not url:
         raise ValueError(f"URL not available for attachment {att.id}")
 
-    try:
-        resp = requests.get(
-            url,
-            headers={"User-Agent": "masscer/1.0 (+https://masscer.local)"},
-            timeout=20,
-        )
-        resp.raise_for_status()
-        html = resp.text or ""
-    except Exception as e:
-        logger.exception("Error fetching website %s", url)
-        raise ValueError(f"Failed to fetch website: {str(e)}")
+    # Prefer stored snapshot (no refetch).
+    metadata = getattr(att, "metadata", None) or {}
+    text = metadata.get("content") if isinstance(metadata, dict) else None
 
-    # Very lightweight text extraction (no external deps)
-    html = re.sub(r"(?is)<(script|style|noscript).*?>.*?</\\1>", " ", html)
-    html = re.sub(r"(?is)<br\\s*/?>", "\n", html)
-    text = re.sub(r"(?is)<.*?>", " ", html)
-    text = unescape(text)
-    text = re.sub(r"[ \\t\\r\\f\\v]+", " ", text)
-    text = re.sub(r"\\n\\s*\\n+", "\n\n", text).strip()
+    if not text:
+        # Fallback: fetch live if snapshot missing.
+        import re
+        import requests
+        from html import unescape
+
+        try:
+            resp = requests.get(
+                url,
+                headers={"User-Agent": "masscer/1.0 (+https://masscer.local)"},
+                timeout=20,
+            )
+            resp.raise_for_status()
+            html = resp.text or ""
+        except Exception as e:
+            logger.exception("Error fetching website %s", url)
+            raise ValueError(f"Failed to fetch website: {str(e)}")
+
+        # Very lightweight text extraction (no external deps)
+        html = re.sub(r"(?is)<(script|style|noscript).*?>.*?</\\1>", " ", html)
+        html = re.sub(r"(?is)<br\\s*/?>", "\n", html)
+        text = re.sub(r"(?is)<.*?>", " ", html)
+        text = unescape(text)
+        text = re.sub(r"[ \\t\\r\\f\\v]+", " ", text)
+        text = re.sub(r"\\n\\s*\\n+", "\n\n", text).strip()
 
     max_chars = 120_000
     if len(text) > max_chars:

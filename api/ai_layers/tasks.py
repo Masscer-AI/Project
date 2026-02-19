@@ -146,7 +146,7 @@ def _build_agent_loop_inputs(
         final_text = f"{final_text}\n\n{current_block}"
     inputs.append({"role": "user", "content": final_text})
 
-    return inputsimage.png
+    return inputs
 
 
 def _resolve_user_inputs_and_attachments(
@@ -334,16 +334,6 @@ def conversation_agent_task(
 
     agent_sessions_created = []
     try:
-        tools = (
-            resolve_tools(
-                tool_names,
-                conversation_id=conversation_id,
-                user_id=user_id,
-            )
-            if tool_names
-            else []
-        )
-
         # ---- Save user message ----
         try:
             user_message = Message.objects.create(
@@ -441,6 +431,18 @@ def conversation_agent_task(
                     **data,
                 }
                 notify_user(user_id, "agent_events_channel", payload)
+
+            # Resolve tools per-agent so tools can use agent_slug closures (e.g. rag_query)
+            tools = (
+                resolve_tools(
+                    tool_names,
+                    conversation_id=conversation_id,
+                    user_id=user_id,
+                    agent_slug=agent.slug,
+                )
+                if tool_names
+                else []
+            )
 
             loop = AgentLoop(
                 tools=tools,

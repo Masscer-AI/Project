@@ -29,6 +29,7 @@ import {
   IconX,
   IconCheck,
   IconPlayerPlay,
+  IconLink,
 } from "@tabler/icons-react";
 
 interface ThumbnailProps {
@@ -63,10 +64,17 @@ export const Thumbnail = ({
 
   return (
     <>
+      {type === "website" && (
+        <WebsiteThumbnail
+          url={src || content}
+          name={name}
+        />
+      )}
       {type.indexOf("audio") !== 0 &&
         type.indexOf("image") !== 0 &&
         type.indexOf("video_generation") !== 0 &&
         type.indexOf("audio_generation") !== 0 && (
+          type !== "website" && (
           <DocumentThumnail
             id={id}
             index={index}
@@ -77,6 +85,7 @@ export const Thumbnail = ({
             showFloatingButtons={showFloatingButtons}
             mode={mode}
           />
+          )
         )}
       {type.indexOf("image") === 0 && (
         <div className="thumbnail pointer flex-shrink-0">
@@ -114,6 +123,33 @@ export const Thumbnail = ({
         </>
       )}
     </>
+  );
+};
+
+const WebsiteThumbnail = ({ url, name }: { url: string; name: string }) => {
+  const safeUrl = url || "";
+  const display = name || safeUrl;
+
+  return (
+    <a
+      href={safeUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={safeUrl}
+      className="width-150 document-attachment bg-contrast rounded padding-small"
+      style={{
+        display: "flex",
+        gap: 8,
+        alignItems: "center",
+        textDecoration: "none",
+        color: "inherit",
+      }}
+    >
+      <IconLink size={20} />
+      <p className="cut-text-to-line" style={{ flex: 1 }}>
+        {display}
+      </p>
+    </a>
   );
 };
 

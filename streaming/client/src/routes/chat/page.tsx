@@ -36,6 +36,7 @@ export default function ChatView() {
     startup,
     userPreferences,
     setConversation,
+    setSpecifiedUrls,
   } = useStore((state) => ({
     socket: state.socket,
     chatState: state.chatState,
@@ -47,6 +48,7 @@ export default function ChatView() {
     startup: state.startup,
     userPreferences: state.userPreferences,
     setConversation: state.setConversation,
+    setSpecifiedUrls: state.setSpecifiedUrls,
   }));
 
   const { t } = useTranslation();
@@ -303,15 +305,59 @@ export default function ChatView() {
           }
         }
 
+        // Website attachments (specified URLs)
+        const specifiedUrls = chatState.specifiedUrls || [];
+        if (specifiedUrls.length > 0) {
+          const uiWebsiteAttachments: any[] = [];
+          for (const item of specifiedUrls) {
+            const url = (item as any)?.url;
+            if (!url) continue;
+            const linkRes = await linkMessageAttachment(currentConversation.id, {
+              kind: "website",
+              url,
+            });
+            userInputs.push({
+              type: "input_attachment",
+              attachment_id: linkRes.attachment.id,
+            });
+            uiWebsiteAttachments.push({
+              type: "website",
+              content: url,
+              name: (linkRes.attachment as any)?.url || url,
+            });
+          }
+
+          // Update UI user message to show website attachments immediately
+          if (uiWebsiteAttachments.length > 0) {
+            setMessages((prev) => {
+              const updated = [...prev];
+              const userIdx = updated.length - 2; // user message is before assistant placeholder
+              const target = updated[userIdx];
+              if (!target || target.type !== "user") return prev;
+              updated[userIdx] = {
+                ...target,
+                attachments: [...(target.attachments || []), ...uiWebsiteAttachments],
+              };
+              return updated;
+            });
+          }
+        }
+
+        const toolNames = ["print_color", "read_attachment", "list_attachments", "explore_web"];
+        if (chatState.useRag) {
+          toolNames.push("rag_query");
+        }
+
         await triggerAgentTask({
           conversation_id: currentConversation.id,
           agent_slugs: selectedAgents.map((a) => a.slug),
           user_inputs: userInputs,
-          tool_names: ["print_color", "read_attachment", "list_attachments"],
+          tool_names: toolNames,
           multiagentic_modality: userPreferences.multiagentic_modality,
         });
 
         cleanAttachments();
+        setSpecifiedUrls([]);
         scrollChat();
         return true;
       } catch (error) {
