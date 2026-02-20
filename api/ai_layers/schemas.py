@@ -66,6 +66,10 @@ class AgentSessionInputs(BaseModel):
     )
     user_message_text: str = Field(description="Resolved plain text for the LLM")
     tool_names: list[str] = Field(default_factory=list, description="Enabled tool names")
+    plugin_slugs: list[str] = Field(
+        default_factory=list,
+        description="Enabled plugin slugs (server-side allowlist)",
+    )
     agent: AgentRef = Field(description="Agent reference")
     model: ModelRef = Field(description="Model reference")
     multiagentic_modality: Literal["isolated", "grupal"] = "isolated"

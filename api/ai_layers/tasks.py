@@ -254,6 +254,7 @@ def conversation_agent_task(
     user_inputs: list[dict],
     tool_names: list[str],
     agent_slugs: list[str],
+    plugin_slugs: list[str] | None = None,
     multiagentic_modality: str = "isolated",
     max_iterations: int = 10,
     user_id: int | None = None,
@@ -281,6 +282,7 @@ def conversation_agent_task(
     """
     from api.ai_layers.agent_loop import AgentLoop
     from api.ai_layers.models import Agent, AgentSession
+    from api.ai_layers.plugins import format_plugins_instruction
     from api.ai_layers.tools import resolve_tools
     from api.ai_layers.schemas import (
         AgentSessionInputs,
@@ -304,6 +306,23 @@ def conversation_agent_task(
             {"type": "error", "conversation_id": conversation_id, "error": f"Conversation {conversation_id} not found"},
         )
         return {"status": "error", "error": "Conversation not found"}
+
+    # Normalize plugin slugs (preserve order, dedupe).
+    if plugin_slugs is None:
+        plugin_slugs = []
+    if not isinstance(plugin_slugs, list):
+        plugin_slugs = []
+    seen_plugins: set[str] = set()
+    normalized_plugins: list[str] = []
+    for p in plugin_slugs:
+        if not isinstance(p, str):
+            continue
+        s = p.strip()
+        if not s or s in seen_plugins:
+            continue
+        seen_plugins.add(s)
+        normalized_plugins.append(s)
+    plugin_slugs = normalized_plugins
 
     # Normalize inputs and collect attachments for Message (strict contract)
     try:
@@ -409,6 +428,9 @@ def conversation_agent_task(
                     prev_context += f"\n--- {v.get('agent_name', 'Unknown')} ---\n{v.get('text', '')}\n"
                 instructions = instructions + prev_context
 
+            # Plugins: canonical instruction blocks (server-side allowlist).
+            instructions += format_plugins_instruction(plugin_slugs)
+
             # ---- Create AgentSession (inputs) ----
             model_ref = ModelRef(
                 id=llm.id if llm else 0,
@@ -420,6 +442,7 @@ def conversation_agent_task(
                 user_inputs=resolved_inputs,
                 user_message_text=user_message_text,
                 tool_names=tool_names,
+                plugin_slugs=plugin_slugs,
                 agent=AgentRef(id=agent.id, slug=agent.slug, name=agent.name),
                 model=model_ref,
                 multiagentic_modality=multiagentic_modality,

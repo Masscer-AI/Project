@@ -60,6 +60,7 @@ Payload includes:
 - `agent_slugs[]` (which agents to run, in order)
 - `user_inputs[]`
 - `tool_names[]`
+- `plugin_slugs[]` (optional; selected plugin slugs to inject as extra instructions)
 - `multiagentic_modality`
 
 ### Backend → Celery task
