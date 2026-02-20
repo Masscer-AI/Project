@@ -356,6 +356,7 @@ export default function ChatView() {
           agent_slugs: selectedAgents.map((a) => a.slug),
           user_inputs: userInputs,
           tool_names: toolNames,
+          plugin_slugs: (chatState.selectedPlugins || []).map((p) => p.slug),
           multiagentic_modality: userPreferences.multiagentic_modality,
         });
 
