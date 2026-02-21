@@ -402,7 +402,6 @@ def create_random_agent(request):
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
-@method_decorator(feature_flag_required("agent-task"), name="dispatch")
 class AgentTaskView(View):
     """
     Trigger an AgentLoop execution as a background Celery task.
