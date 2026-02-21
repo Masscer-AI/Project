@@ -37,6 +37,7 @@ export const WidgetMessage = memo(
           <MarkdownRenderer
             markdown={contentToRender}
             extraClass={`message-content ${type}`}
+            attachments={attachments}
           />
         </div>
 

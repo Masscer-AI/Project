@@ -54,6 +54,7 @@ export const useStore = create<Store>()((set, get) => ({
     webSearch: false,
     writtingMode: false,
     useRag: false,
+    generateImages: false,
     useAgentTask: undefined,
 
     selectedAgents: [],
@@ -319,6 +320,14 @@ export const useStore = create<Store>()((set, get) => ({
       chatState: {
         ...state.chatState,
         useRag: !state.chatState.useRag,
+      },
+    }));
+  },
+  toggleGenerateImages: () => {
+    set((state) => ({
+      chatState: {
+        ...state.chatState,
+        generateImages: !state.chatState.generateImages,
       },
     }));
   },

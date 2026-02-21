@@ -36,6 +36,7 @@ import {
   IconPencil,
   IconFileText,
   IconGlobe,
+  IconPhoto,
   IconPuzzle,
   IconSettings,
   IconPlus,
@@ -419,16 +420,19 @@ const ToolsMenu = () => {
   const { t } = useTranslation();
   const isTrainAgentsEnabled = useIsFeatureEnabled("train-agents");
   const isWebScrapingEnabled = useIsFeatureEnabled("web-scraping");
+  const isImageToolsEnabled = useIsFeatureEnabled("image-tools");
   const {
     chatState,
     toggleUseRag,
     toggleWebSearch,
     toggleWritingMode,
+    toggleGenerateImages,
   } = useStore((state) => ({
     chatState: state.chatState,
     toggleUseRag: state.toggleUseRag,
     toggleWebSearch: state.toggleWebSearch,
     toggleWritingMode: state.toggleWrittingMode,
+    toggleGenerateImages: state.toggleGenerateImages,
   }));
 
   const [pluginsOpened, { open: openPlugins, close: closePlugins }] =
@@ -439,6 +443,7 @@ const ToolsMenu = () => {
   const hasActiveTools =
     chatState.useRag ||
     chatState.webSearch ||
+    chatState.generateImages ||
     (chatState.specifiedUrls?.length ?? 0) > 0 ||
     chatState.selectedPlugins.length > 0 ||
     chatState.writtingMode;
@@ -497,6 +502,23 @@ const ToolsMenu = () => {
               onClick={() => toggleWebSearch()}
             >
               {t("auto-search") || "Web Search"}
+            </Menu.Item>
+          )}
+          {isImageToolsEnabled && (
+            <Menu.Item
+              leftSection={<IconPhoto size={18} />}
+              rightSection={
+                <Switch
+                  checked={chatState.generateImages}
+                  onChange={() => toggleGenerateImages()}
+                  color="violet"
+                  size="xs"
+                  styles={{ track: { cursor: "pointer" } }}
+                />
+              }
+              onClick={() => toggleGenerateImages()}
+            >
+              {t("generate-image") || "Generate image"}
             </Menu.Item>
           )}
           <Menu.Item

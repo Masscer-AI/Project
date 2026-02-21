@@ -350,6 +350,9 @@ export default function ChatView() {
         if (chatState.useRag) {
           toolNames.push("rag_query");
         }
+        if (chatState.generateImages) {
+          toolNames.push("create_image");
+        }
 
         await triggerAgentTask({
           conversation_id: currentConversation.id,

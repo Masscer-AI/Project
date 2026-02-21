@@ -350,6 +350,7 @@ export const Message = memo(
             <MarkdownRenderer
               markdown={versions?.[currentVersion]?.text || innerText}
               extraClass={`message-text ${type === "user" ? "user" : "assistant"}`}
+              attachments={attachments}
             />
           </div>
         )}
