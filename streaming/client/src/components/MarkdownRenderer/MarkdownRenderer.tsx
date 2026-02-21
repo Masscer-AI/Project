@@ -223,6 +223,7 @@ export const CustomCodeBlock = ({
 
     if (language === "mermaid") {
       setPluginName("mermaid");
+      setUsePlugin(true);
     }
 
     if (language === "json") {
@@ -231,6 +232,7 @@ export const CustomCodeBlock = ({
 
     if (language === "documentMaker") {
       setPluginName("documentMaker");
+      setUsePlugin(true);
     }
   }, [code, language]);
 

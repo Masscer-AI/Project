@@ -475,28 +475,6 @@ class AgentTaskView(View):
                 status=400,
             )
 
-        # --- Validate optional plugin_slugs ---
-        from api.ai_layers.plugins import AVAILABLE_PLUGIN_SLUGS
-
-        plugin_slugs = data.get("plugin_slugs", [])
-        if plugin_slugs is None:
-            plugin_slugs = []
-        if not isinstance(plugin_slugs, list):
-            return JsonResponse(
-                {"error": "plugin_slugs must be a list of strings"},
-                status=400,
-            )
-        plugin_slugs = [s.strip() for s in plugin_slugs if isinstance(s, str) and s.strip()]
-        unknown_plugins = [s for s in plugin_slugs if s not in AVAILABLE_PLUGIN_SLUGS]
-        if unknown_plugins:
-            return JsonResponse(
-                {
-                    "error": f"Unknown plugins: {', '.join(unknown_plugins)}",
-                    "available_plugins": sorted(AVAILABLE_PLUGIN_SLUGS),
-                },
-                status=400,
-            )
-
         multiagentic_modality = data.get("multiagentic_modality", "isolated")
         if multiagentic_modality not in ("isolated", "grupal"):
             return JsonResponse(
@@ -574,7 +552,6 @@ class AgentTaskView(View):
             user_inputs=user_inputs,
             tool_names=tool_names,
             agent_slugs=slugs,
-            plugin_slugs=plugin_slugs,
             multiagentic_modality=multiagentic_modality,
             user_id=user.id,
             regenerate_message_id=regenerate_message_id,

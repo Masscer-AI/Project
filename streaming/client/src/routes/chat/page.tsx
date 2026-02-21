@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Message } from "../../components/Message/Message";
 import { ChatInput } from "../../components/ChatInput/ChatInput";
 
@@ -56,8 +56,9 @@ export default function ChatView() {
     loaderData.user?.id != null &&
     activeConversation.user_id !== loaderData.user.id;
 
-  const chatMessageContainerRef = React.useRef<HTMLDivElement>(null);
-  const timeoutRef = React.useRef<number | null>(null);
+  const chatMessageContainerRef = useRef<HTMLDivElement>(null);
+  const timeoutRef = useRef<number | null>(null);
+  const handleRegenerateRef = useRef<(msg: TMessage, idx: number, text: string) => void>(() => {});
   const [showScrollToEnd, setShowScrollToEnd] = useState(false);
 
   useEffect(() => {
@@ -133,7 +134,7 @@ export default function ChatView() {
     requestAnimationFrame(smoothScroll);
   };
 
-  const updateScrollToEndVisibility = React.useCallback(() => {
+  const updateScrollToEndVisibility = useCallback(() => {
     const container = chatMessageContainerRef.current;
     if (!container) return;
     const remaining =
@@ -300,7 +301,6 @@ export default function ChatView() {
         agent_slugs: selectedAgents.map((a) => a.slug),
         user_inputs: userInputs,
         tool_names: toolNames,
-        plugin_slugs: (chatState.selectedPlugins || []).map((p) => p.slug),
         multiagentic_modality: userPreferences.multiagentic_modality,
       });
 
@@ -315,47 +315,52 @@ export default function ChatView() {
     }
   };
 
-  const onImageGenerated = (
-    imageContentB64: string,
-    imageName: string,
-    message_id: number
-  ) => {
-    setMessages((prevMessages) => {
-      const messageIndex = prevMessages.findIndex((m) => m.id === message_id);
-      if (messageIndex === -1) return prevMessages;
+  const onImageGenerated = useCallback(
+    (imageContentB64: string, imageName: string, message_id: number) => {
+      setMessages((prevMessages) => {
+        const messageIndex = prevMessages.findIndex((m) => m.id === message_id);
+        if (messageIndex === -1) return prevMessages;
 
-      const copyMessages = [...prevMessages];
-      copyMessages[messageIndex].attachments = [
-        ...(copyMessages[messageIndex].attachments || []),
-        {
-          type: "image",
-          content: imageContentB64,
-          name: imageName,
-          file: null,
-          text: "",
-        },
-      ];
-      return copyMessages;
-    });
-  };
+        const copyMessages = [...prevMessages];
+        copyMessages[messageIndex] = {
+          ...copyMessages[messageIndex],
+          attachments: [
+            ...(copyMessages[messageIndex].attachments || []),
+            {
+              type: "image",
+              content: imageContentB64,
+              name: imageName,
+              file: null,
+              text: "",
+            },
+          ],
+        };
+        return copyMessages;
+      });
+    },
+    []
+  );
 
-  const onMessageEdit = (
-    index: number,
-    text: string,
-    versions?: TVersion[]
-  ) => {
-    const message = messages[index];
-    if (!message) return;
+  const onMessageEdit = useCallback(
+    (index: number, text: string, versions?: TVersion[]) => {
+      setMessages((prev) => {
+        const message = prev[index];
+        if (!message) return prev;
 
-    if (message.type === "user" && message.id) {
-      handleRegenerateAgentTask(message, index, text);
-    }
-    if (message.type === "assistant" && versions) {
-      const messagesCopy = [...messages];
-      messagesCopy[index].versions = versions;
-      setMessages(messagesCopy);
-    }
-  };
+        if (message.type === "user" && message.id) {
+          handleRegenerateRef.current(message, index, text);
+          return prev;
+        }
+        if (message.type === "assistant" && versions) {
+          const updated = [...prev];
+          updated[index] = { ...updated[index], versions };
+          return updated;
+        }
+        return prev;
+      });
+    },
+    []
+  );
 
   const handleRegenerateAgentTask = async (
     userMessage: TMessage,
@@ -399,7 +404,6 @@ export default function ChatView() {
         agent_slugs: selectedAgents.map((a) => a.slug),
         user_inputs: [{ type: "input_text", text: newText }],
         tool_names: toolNames,
-        plugin_slugs: (chatState.selectedPlugins || []).map((p) => p.slug),
         multiagentic_modality: userPreferences.multiagentic_modality,
         regenerate_message_id: userMessage.id,
       });
@@ -411,10 +415,11 @@ export default function ChatView() {
     }
   };
 
-  const onMessageDeleted = (index: number) => {
-    const newMessages = messages.filter((_, i) => i !== index);
-    setMessages(newMessages);
-  };
+  handleRegenerateRef.current = handleRegenerateAgentTask;
+
+  const onMessageDeleted = useCallback((index: number) => {
+    setMessages((prev) => prev.filter((_, i) => i !== index));
+  }, []);
 
   return (
     <main className="flex relative h-screen w-full overflow-hidden" style={{ backgroundColor: "var(--bg-color)" }}>
@@ -444,7 +449,7 @@ export default function ChatView() {
             messages.map((msg, index) => (
               <Message
                 {...msg}
-                key={index + msg.text + JSON.stringify(msg.versions)}
+                key={msg.id ?? `tmp-${index}`}
                 index={index}
                 onImageGenerated={onImageGenerated}
                 onMessageEdit={onMessageEdit}

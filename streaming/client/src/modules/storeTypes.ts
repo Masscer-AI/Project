@@ -12,7 +12,6 @@ type TTheme = "light" | "dark" | "system";
 export type TUserPreferences = {
   theme: TTheme;
   max_memory_messages: number;
-  autoplay: boolean;
   autoscroll: boolean;
   background_image_source: string;
   multiagentic_modality: "isolated" | "grupal";
@@ -20,13 +19,6 @@ export type TUserPreferences = {
 };
 
 export type TMermaidTheme = "dark" | "forest" | "neutral" | "base" | "light";
-
-export type TPlugin = {
-  name: string;
-  slug: string;
-  instructions: string;
-  descriptionTranslationKey: string;
-};
 
 export type TSpecifiedUrl = {
   url: string;
@@ -54,7 +46,6 @@ export type Store = {
     generateImages: boolean;
     generateSpeech: boolean;
     selectedAgents: string[];
-    selectedPlugins: TPlugin[];
     specifiedUrls: TSpecifiedUrl[];
   };
   conversation: TConversation | undefined;
@@ -91,7 +82,6 @@ export type Store = {
   toggleAgentSelected: (slug: string) => void;
   setUser: (user: TUserData) => void;
   addAgent: () => void;
-  togglePlugin: (plugin: TPlugin) => void;
   updateChatState: (state: Partial<Store["chatState"]>) => void;
   setSpecifiedUrls: (urls: TSpecifiedUrl[]) => void;
   setAgentTaskStatus: (status: string | null) => void;

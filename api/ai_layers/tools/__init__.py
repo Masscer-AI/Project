@@ -30,6 +30,7 @@ TOOL_REGISTRY: dict[str, str] = {
     "rag_query": "api.ai_layers.tools.rag_query",
     "create_image": "api.ai_layers.tools.create_image",
     "create_speech": "api.ai_layers.tools.create_speech",
+    "read_plugin_instructions": "api.ai_layers.tools.read_plugin_instructions",
 }
 
 

@@ -15,7 +15,7 @@ import { SocketManager } from "./socketManager";
 import { STREAMING_BACKEND_URL } from "./constants";
 import { TAgent } from "../types/agents";
 import toast from "react-hot-toast";
-import { Store, TPlugin } from "./storeTypes";
+import { Store } from "./storeTypes";
 
 const _initialTheme = (() => {
   try {
@@ -40,7 +40,6 @@ export const useStore = create<Store>()((set, get) => ({
   userPreferences: {
     theme: _initialTheme as "dark" | "light" | "system",
     max_memory_messages: 20,
-    autoplay: false,
     autoscroll: false,
     background_image_source: "",
     multiagentic_modality: "isolated",
@@ -58,7 +57,6 @@ export const useStore = create<Store>()((set, get) => ({
     generateSpeech: false,
 
     selectedAgents: [],
-    selectedPlugins: [],
     specifiedUrls: [],
   },
   conversation: undefined,
@@ -421,25 +419,6 @@ export const useStore = create<Store>()((set, get) => ({
     window.location.href = "/";
   },
 
-  togglePlugin: (plugin: TPlugin) => {
-    const { chatState } = get();
-
-    let newSelectedPlugins: TPlugin[] = [];
-    if (chatState.selectedPlugins.some((p) => p.slug === plugin.slug)) {
-      newSelectedPlugins = chatState.selectedPlugins.filter(
-        (p) => p.slug !== plugin.slug
-      );
-    } else {
-      newSelectedPlugins = [...chatState.selectedPlugins, plugin];
-    }
-
-    set((state) => ({
-      chatState: {
-        ...state.chatState,
-        selectedPlugins: newSelectedPlugins,
-      },
-    }));
-  },
   setSpecifiedUrls: (urls: Store["chatState"]["specifiedUrls"]) => {
     set((state) => ({
       chatState: {

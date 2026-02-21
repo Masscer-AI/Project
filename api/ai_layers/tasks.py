@@ -423,7 +423,7 @@ def conversation_agent_task(
     """
     from api.ai_layers.agent_loop import AgentLoop
     from api.ai_layers.models import Agent, AgentSession
-    from api.ai_layers.plugins import format_plugins_instruction
+    from api.ai_layers.plugins import format_available_plugins_summary
     from api.ai_layers.tools import resolve_tools
     from api.ai_layers.schemas import (
         AgentSessionInputs,
@@ -448,22 +448,8 @@ def conversation_agent_task(
         )
         return {"status": "error", "error": "Conversation not found"}
 
-    # Normalize plugin slugs (preserve order, dedupe).
-    if plugin_slugs is None:
-        plugin_slugs = []
-    if not isinstance(plugin_slugs, list):
-        plugin_slugs = []
-    seen_plugins: set[str] = set()
-    normalized_plugins: list[str] = []
-    for p in plugin_slugs:
-        if not isinstance(p, str):
-            continue
-        s = p.strip()
-        if not s or s in seen_plugins:
-            continue
-        seen_plugins.add(s)
-        normalized_plugins.append(s)
-    plugin_slugs = normalized_plugins
+    # plugin_slugs is no longer used — plugins are now auto-discovered
+    # by the agent via the read_plugin_instructions tool.
 
     # Normalize inputs and collect attachments for Message (strict contract)
     try:
@@ -635,8 +621,8 @@ def conversation_agent_task(
                         grupal_preamble += f"\n--- {v.get('agent_name', 'Unknown')} ---\n{v.get('text', '')}\n"
                 instructions = instructions + grupal_preamble
 
-            # Plugins: canonical instruction blocks (server-side allowlist).
-            instructions += format_plugins_instruction(plugin_slugs)
+            # Available plugins summary (agent discovers and uses them on demand).
+            instructions += format_available_plugins_summary()
 
             # ---- Create AgentSession (inputs) ----
             model_ref = ModelRef(
@@ -649,7 +635,7 @@ def conversation_agent_task(
                 user_inputs=resolved_inputs,
                 user_message_text=user_message_text,
                 tool_names=tool_names,
-                plugin_slugs=plugin_slugs,
+                plugin_slugs=[],
                 agent=AgentRef(id=agent.id, slug=agent.slug, name=agent.name),
                 model=model_ref,
                 multiagentic_modality=multiagentic_modality,
@@ -678,16 +664,16 @@ def conversation_agent_task(
                 }
                 notify_user(user_id, "agent_events_channel", payload)
 
-            # Resolve tools per-agent so tools can use agent_slug closures (e.g. rag_query)
-            tools = (
-                resolve_tools(
-                    tool_names,
-                    conversation_id=conversation_id,
-                    user_id=user_id,
-                    agent_slug=agent.slug,
-                )
-                if tool_names
-                else []
+            # Always include read_plugin_instructions so the agent can
+            # discover plugin formatting rules on demand.
+            if "read_plugin_instructions" not in tool_names:
+                tool_names.append("read_plugin_instructions")
+
+            tools = resolve_tools(
+                tool_names,
+                conversation_id=conversation_id,
+                user_id=user_id,
+                agent_slug=agent.slug,
             )
 
             loop = AgentLoop(

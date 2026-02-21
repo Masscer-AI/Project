@@ -1159,7 +1159,6 @@ export type TriggerAgentTaskPayload = {
   agent_slugs: string[];
   user_inputs: TAgentTaskInput[];
   tool_names?: string[];
-  plugin_slugs?: string[];
   multiagentic_modality?: "isolated" | "grupal";
   regenerate_message_id?: number;
 };

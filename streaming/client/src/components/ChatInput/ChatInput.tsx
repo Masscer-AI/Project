@@ -9,7 +9,7 @@ import { generateDocumentBrief, getDocuments } from "../../modules/apiCalls";
 import { SpeechHandler } from "../SpeechHandler/SpeechHandler";
 import { WebsiteFetcher } from "../WebsiteFetcher/WebsiteFetcher";
 import { TAttachment, TDocument } from "../../types";
-import { SYSTEM_PLUGINS } from "../../modules/plugins";
+
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
 import "./ChatInput.css";
 
@@ -38,7 +38,6 @@ import {
   IconGlobe,
   IconPhoto,
   IconVolume,
-  IconPuzzle,
   IconSettings,
   IconPlus,
   IconFilePlus,
@@ -439,8 +438,6 @@ const ToolsMenu = () => {
     toggleGenerateSpeech: state.toggleGenerateSpeech,
   }));
 
-  const [pluginsOpened, { open: openPlugins, close: closePlugins }] =
-    useDisclosure(false);
   const [settingsOpened, { open: openSettings, close: closeSettings }] =
     useDisclosure(false);
 
@@ -450,7 +447,6 @@ const ToolsMenu = () => {
     chatState.generateImages ||
     chatState.generateSpeech ||
     (chatState.specifiedUrls?.length ?? 0) > 0 ||
-    chatState.selectedPlugins.length > 0 ||
     chatState.writtingMode;
 
   return (
@@ -562,20 +558,6 @@ const ToolsMenu = () => {
           <Menu.Divider />
 
           <Menu.Item
-            leftSection={<IconPuzzle size={18} />}
-            onClick={openPlugins}
-            closeMenuOnClick
-            rightSection={
-              chatState.selectedPlugins.length > 0 ? (
-                <Text size="xs" c="violet">
-                  {chatState.selectedPlugins.length}
-                </Text>
-              ) : null
-            }
-          >
-            {t("plugin-selector") || "Plugins"}
-          </Menu.Item>
-          <Menu.Item
             leftSection={<IconSettings size={18} />}
             onClick={openSettings}
             closeMenuOnClick
@@ -585,7 +567,6 @@ const ToolsMenu = () => {
         </Menu.Dropdown>
       </Menu>
 
-      <PluginSelectorModal opened={pluginsOpened} onClose={closePlugins} />
       <ConversationConfigModal
         opened={settingsOpened}
         onClose={closeSettings}
@@ -814,7 +795,6 @@ const ConversationConfigModal = ({
       updateChatState: s.updateChatState,
     }));
   const { t } = useTranslation();
-  const isChatSpeechEnabled = useIsFeatureEnabled("chat-generate-speech");
   const isMultiAgentEnabled = useIsFeatureEnabled("multi-agent-chat");
   return (
     <Modal
@@ -843,28 +823,6 @@ const ConversationConfigModal = ({
             min={0}
           />
         </div>
-
-        {isChatSpeechEnabled && (
-          <>
-            <Divider />
-
-            <Group justify="space-between">
-              <div>
-                <Text fw={500}>{t("auto-play")}</Text>
-                <Text size="sm" c="dimmed">
-                  {t("auto-play-description")}
-                </Text>
-              </div>
-              <Switch
-                checked={userPreferences.autoplay}
-                onChange={(e) =>
-                  setPreferences({ autoplay: e.currentTarget.checked })
-                }
-                color="violet"
-              />
-            </Group>
-          </>
-        )}
 
         <Divider />
 
@@ -930,65 +888,3 @@ const ConversationConfigModal = ({
   );
 };
 
-// ─── PluginSelector Modal ────────────────────────────────────────────────────
-
-export const PluginSelectorModal = ({
-  opened,
-  onClose,
-}: {
-  opened: boolean;
-  onClose: () => void;
-}) => {
-  const { t } = useTranslation();
-  const { togglePlugin, chatState } = useStore((s) => ({
-    togglePlugin: s.togglePlugin,
-    chatState: s.chatState,
-  }));
-
-  return (
-    <Modal
-      opened={opened}
-      onClose={onClose}
-      title={<Title order={4}>{t("plugin-selector")}</Title>}
-      centered
-      overlayProps={{ backgroundOpacity: 0.55, blur: 3 }}
-    >
-      <Stack gap="md">
-        <Group gap="md" justify="center">
-          {Object.values(SYSTEM_PLUGINS).map((p) => {
-            const isActive = chatState.selectedPlugins.some(
-              (sp) => sp.slug === p.slug
-            );
-            return (
-              <Card
-                key={p.slug}
-                shadow="sm"
-                padding="sm"
-                radius="md"
-                withBorder
-                onClick={() => togglePlugin(p)}
-                style={{
-                  cursor: "pointer",
-                  backgroundColor: isActive
-                    ? "var(--mantine-color-violet-light)"
-                    : undefined,
-                  borderColor: isActive
-                    ? "var(--mantine-color-violet-6)"
-                    : undefined,
-                }}
-              >
-                <Text fw={500}>{t(p.slug)}</Text>
-                <Text size="sm" c="dimmed">
-                  {t(p.descriptionTranslationKey)}
-                </Text>
-              </Card>
-            );
-          })}
-        </Group>
-        <Text ta="center" c="dimmed" size="sm">
-          {t("more-plugins-coming-soon")}
-        </Text>
-      </Stack>
-    </Modal>
-  );
-};
