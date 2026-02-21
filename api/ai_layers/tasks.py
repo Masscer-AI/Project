@@ -1,6 +1,7 @@
 import logging
 import time
 import traceback as tb
+import json
 from celery import shared_task
 from .actions import generate_agent_profile_picture
 
@@ -248,6 +249,53 @@ def _resolve_user_inputs_and_attachments(
     return resolved, message_attachments, attachment_objects
 
 
+def _extract_create_image_attachments(tool_calls: list[dict]) -> tuple[list[dict], list[str]]:
+    """
+    Extract image attachment descriptors from AgentLoop tool_calls.
+
+    create_image tool returns JSON like:
+      { attachment_id, name, content, ... }
+
+    We persist those into Message.attachments (for UI) and keep attachment IDs
+    to link MessageAttachment.message after the assistant Message exists.
+    """
+    if not tool_calls:
+        return [], []
+
+    attachments: list[dict] = []
+    attachment_ids: list[str] = []
+
+    for call in tool_calls:
+        try:
+            if (call or {}).get("tool_name") != "create_image":
+                continue
+            raw = (call or {}).get("result") or ""
+            if not isinstance(raw, str) or not raw.strip():
+                continue
+            data = json.loads(raw)
+            if not isinstance(data, dict):
+                continue
+            aid = data.get("attachment_id")
+            content = data.get("content") or ""
+            name = data.get("name") or "image"
+            if not aid or not content:
+                continue
+            attachments.append(
+                {
+                    "type": "image",
+                    "content": content,
+                    "name": name,
+                    "attachment_id": str(aid),
+                }
+            )
+            attachment_ids.append(str(aid))
+        except Exception:
+            # Never fail the whole agent task because of attachment parsing
+            continue
+
+    return attachments, attachment_ids
+
+
 @shared_task
 def conversation_agent_task(
     conversation_id: str,
@@ -378,6 +426,8 @@ def conversation_agent_task(
         versions = []
         total_iterations = 0
         total_tool_calls = 0
+        assistant_message_attachments: list[dict] = []
+        assistant_attachment_ids: list[str] = []
 
         prev_messages = _serialize_prev_messages(conversation, user_message.id)
 
@@ -415,6 +465,14 @@ def conversation_agent_task(
                     "Before answering, you MUST call explore_web at least once with an appropriate query "
                     "derived from the user's latest request. "
                     "Use the results to improve factuality; if it returns no results, say so briefly and continue."
+                )
+            if "create_image" in (tool_names or []):
+                instructions += (
+                    "\n\nImage generation is enabled for this conversation. "
+                    "If the user asks you to generate an image, you can call create_image(prompt, model, aspect_ratio). "
+                    "Use model='gpt-image-1.5'. aspect_ratio must be one of: square, landscape, portrait."
+                    "\n\nWhen referencing an attachment inside your message markdown, prefer this format: "
+                    "![Alt text](attachment:<attachment_id>). Do NOT invent /media/... URLs."
                 )
 
             # For grupal: prepend previous agents' outputs to instructions
@@ -503,6 +561,13 @@ def conversation_agent_task(
             # ---- Update AgentSession (outputs) ----
             from django.utils import timezone
 
+            # ---- Collect any generated image attachments ----
+            new_atts, new_ids = _extract_create_image_attachments(result.tool_calls or [])
+            if new_atts:
+                assistant_message_attachments.extend(new_atts)
+            if new_ids:
+                assistant_attachment_ids.extend(new_ids)
+
             if isinstance(result.output, str):
                 output_value = OutputValue(type="string", value=result.output)
             elif hasattr(result.output, "model_dump"):
@@ -572,8 +637,17 @@ def conversation_agent_task(
                 type="assistant",
                 text=primary_text,
                 versions=versions,
+                attachments=assistant_message_attachments,
             )
             assistant_message_id = assistant_msg.id
+            # Link generated attachments to this assistant message for list_attachments/read_attachment
+            if assistant_attachment_ids:
+                from api.messaging.models import MessageAttachment
+
+                MessageAttachment.objects.filter(
+                    conversation_id=conversation_id,
+                    id__in=assistant_attachment_ids,
+                ).update(message=assistant_msg)
             for s in agent_sessions_created:
                 s.assistant_message = assistant_msg
                 s.save(update_fields=["assistant_message"])

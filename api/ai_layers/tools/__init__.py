@@ -28,6 +28,7 @@ TOOL_REGISTRY: dict[str, str] = {
     "list_attachments": "api.ai_layers.tools.list_attachments",
     "explore_web": "api.ai_layers.tools.explore_web",
     "rag_query": "api.ai_layers.tools.rag_query",
+    "create_image": "api.ai_layers.tools.create_image",
 }
 
 
