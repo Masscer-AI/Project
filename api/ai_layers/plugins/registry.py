@@ -24,13 +24,25 @@ PLUGIN_DEFINITIONS: dict[str, PluginDefinition] = {
     "mermaid-diagrams": PluginDefinition(
         slug="mermaid-diagrams",
         name="Mermaid Diagrams",
-        description="Create flowcharts, sequence diagrams, ER diagrams, Gantt charts and more using MermaidJS syntax inside markdown code blocks.",
+        description=(
+            "Create flowcharts, sequence diagrams, ER diagrams, Gantt charts "
+            "and more using MermaidJS syntax inside markdown code blocks. "
+            "USE THIS whenever the user asks for a diagram, chart, or visual "
+            "representation of a process/flow/architecture."
+        ),
         instructions_filename="mermaid-diagrams.md",
     ),
     "document-maker": PluginDefinition(
         slug="document-maker",
         name="Document Maker",
-        description="Generate formal documents (reports, essays, letters, etc.) as full HTML pages with metadata. The user can then export them to PDF or DOCX.",
+        description=(
+            "Generate formal documents (resumes/CVs, reports, essays, letters, "
+            "proposals, etc.) as full HTML pages with metadata. The user can "
+            "then export them to PDF or DOCX directly from the chat. "
+            "USE THIS whenever the user asks you to create, write, or generate "
+            "a document, resume, CV, report, letter, or any content they would "
+            "want to download or print."
+        ),
         instructions_filename="document-maker.md",
     ),
 }
@@ -92,13 +104,33 @@ def format_available_plugins_summary() -> str:
         return ""
 
     lines = [
-        "\n\n# Available frontend plugins",
-        "The user's frontend supports the following rendering plugins. "
-        "When the task calls for it, use them — no manual activation is needed. "
-        "If you need detailed formatting rules, call the `read_plugin_instructions` tool with the plugin slug.\n",
+        "\n\n# Available frontend plugins — IMPORTANT",
+        "",
+        "The user's frontend can render rich content (diagrams, exportable "
+        "documents, etc.) through these plugins. You MUST use the appropriate "
+        "plugin when the task matches — do NOT output plain text when a plugin "
+        "applies.",
+        "",
+        "## How to use a plugin",
+        "",
+        "1. Identify that the user's request matches a plugin (see list below).",
+        "2. Call `read_plugin_instructions` with the plugin slug to get the "
+        "exact formatting rules. You MUST read the instructions before using "
+        "a plugin for the first time in a conversation.",
+        "3. Follow the instructions precisely to produce the output.",
+        "",
+        "## Available plugins",
+        "",
     ]
     for p in PLUGIN_DEFINITIONS.values():
         lines.append(f"- **{p.name}** (slug: `{p.slug}`): {p.description}")
+
+    lines.append("")
+    lines.append(
+        "If the user asks for a document, resume, report, diagram, chart, "
+        "or any exportable content, ALWAYS use the matching plugin. "
+        "Never just paste plain text when a plugin can produce a downloadable result."
+    )
 
     return "\n".join(lines) + "\n"
 
