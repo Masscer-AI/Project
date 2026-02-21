@@ -296,6 +296,49 @@ def _extract_create_image_attachments(tool_calls: list[dict]) -> tuple[list[dict
     return attachments, attachment_ids
 
 
+def _extract_create_speech_attachments(tool_calls: list[dict]) -> tuple[list[dict], list[str]]:
+    """
+    Extract audio attachment descriptors from AgentLoop tool_calls.
+
+    create_speech tool returns JSON like:
+      { attachment_id, name, content, content_type, ... }
+    """
+    if not tool_calls:
+        return [], []
+
+    attachments: list[dict] = []
+    attachment_ids: list[str] = []
+
+    for call in tool_calls:
+        try:
+            if (call or {}).get("tool_name") != "create_speech":
+                continue
+            raw = (call or {}).get("result") or ""
+            if not isinstance(raw, str) or not raw.strip():
+                continue
+            data = json.loads(raw)
+            if not isinstance(data, dict):
+                continue
+            aid = data.get("attachment_id")
+            content = data.get("content") or ""
+            name = data.get("name") or "speech"
+            if not aid or not content:
+                continue
+            attachments.append(
+                {
+                    "type": "audio_generation",
+                    "content": content,
+                    "name": name,
+                    "attachment_id": str(aid),
+                }
+            )
+            attachment_ids.append(str(aid))
+        except Exception:
+            continue
+
+    return attachments, attachment_ids
+
+
 @shared_task
 def conversation_agent_task(
     conversation_id: str,
@@ -306,6 +349,7 @@ def conversation_agent_task(
     multiagentic_modality: str = "isolated",
     max_iterations: int = 10,
     user_id: int | None = None,
+    regenerate_message_id: int | None = None,
 ):
     """
     Celery task that runs an AgentLoop for one or more agents in a conversation.
@@ -324,6 +368,8 @@ def conversation_agent_task(
         agent_slugs: list of Agent slugs to run (in order)
         multiagentic_modality: "isolated" or "grupal"
         user_id: ID of the user (for notifications)
+        regenerate_message_id: if set, reuse this user message (update its text,
+            delete all subsequent messages) instead of creating a new one.
 
     Returns:
         dict with status, output, iterations, tool_calls_count, message_id
@@ -401,20 +447,38 @@ def conversation_agent_task(
 
     agent_sessions_created = []
     try:
-        # ---- Save user message ----
-        try:
-            user_message = Message.objects.create(
-                conversation=conversation,
-                type="user",
-                text=user_message_text,
-                attachments=message_attachments,
-            )
-            for att in attachment_objects:
-                att.message = user_message
-                att.save(update_fields=["message"])
-        except Exception:
-            emit_event("error", {"error": "Failed to save user message"})
-            return {"status": "error", "error": "Failed to save user message"}
+        # ---- Save or reuse user message ----
+        if regenerate_message_id:
+            try:
+                user_message = Message.objects.get(
+                    id=regenerate_message_id,
+                    conversation=conversation,
+                    type="user",
+                )
+                user_message.text = user_message_text
+                user_message.attachments = message_attachments
+                user_message.save(update_fields=["text", "attachments"])
+                Message.objects.filter(
+                    conversation=conversation,
+                    id__gt=user_message.id,
+                ).delete()
+            except Message.DoesNotExist:
+                emit_event("error", {"error": "Message to regenerate not found"})
+                return {"status": "error", "error": "Message to regenerate not found"}
+        else:
+            try:
+                user_message = Message.objects.create(
+                    conversation=conversation,
+                    type="user",
+                    text=user_message_text,
+                    attachments=message_attachments,
+                )
+                for att in attachment_objects:
+                    att.message = user_message
+                    att.save(update_fields=["message"])
+            except Exception:
+                emit_event("error", {"error": "Failed to save user message"})
+                return {"status": "error", "error": "Failed to save user message"}
 
         # ---- Resolve agents in order ----
         agents_by_slug = {a.slug: a for a in Agent.objects.filter(slug__in=agent_slugs)}
@@ -443,10 +507,28 @@ def conversation_agent_task(
                 "Available attachment IDs: " + ", ".join(str(aid) for aid in attachment_ids if aid) + "\n"
             )
 
+        # Pre-compute context shared across all agent iterations
+        from datetime import datetime
+        from api.authenticate.models import UserProfile
+
+        current_date_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        user_profile_text = ""
+        if user_id:
+            try:
+                user_profile_text = UserProfile.objects.get(user_id=user_id).get_as_text()
+            except UserProfile.DoesNotExist:
+                pass
+
         for index, agent in enumerate(agents_ordered):
             instructions = agent.format_prompt()
             llm = agent.llm
             model_slug = llm.slug if llm else (agent.model_slug or "gpt-5.2")
+
+            instructions += f"\n\nYour name is: {agent.name}."
+            instructions += f"\nThe current date and time is {current_date_time}."
+            if user_profile_text:
+                instructions += f"\n{user_profile_text}"
 
             if attachment_ids_instruction:
                 instructions = instructions + attachment_ids_instruction
@@ -473,6 +555,18 @@ def conversation_agent_task(
                     "Use model='gpt-image-1.5'. aspect_ratio must be one of: square, landscape, portrait."
                     "\n\nWhen referencing an attachment inside your message markdown, prefer this format: "
                     "![Alt text](attachment:<attachment_id>). Do NOT invent /media/... URLs."
+                )
+            if "create_speech" in (tool_names or []):
+                instructions += (
+                    "\n\nSpeech generation is enabled (model: gpt-4o-mini-tts). "
+                    "If the user asks for an audio version, call create_speech(text, voice, instructions, output_format). "
+                    "voices: alloy, ash, ballad, coral, echo, fable, nova, onyx, sage, shimmer, verse, marin, cedar. "
+                    "For best quality use marin or cedar. "
+                    "The 'instructions' parameter lets you control accent, tone, speed, emotional range, whispering, etc. "
+                    "Example: instructions='Speak slowly with a calm, soothing British accent.' "
+                    "output_format must be mp3 or wav."
+                    "\n\nWhen referencing the audio attachment in markdown, link it like: "
+                    "[Listen](attachment:<attachment_id>)."
                 )
 
             # For grupal: prepend previous agents' outputs to instructions
@@ -561,12 +655,18 @@ def conversation_agent_task(
             # ---- Update AgentSession (outputs) ----
             from django.utils import timezone
 
-            # ---- Collect any generated image attachments ----
+            # ---- Collect any generated attachments (image/audio) ----
             new_atts, new_ids = _extract_create_image_attachments(result.tool_calls or [])
             if new_atts:
                 assistant_message_attachments.extend(new_atts)
             if new_ids:
                 assistant_attachment_ids.extend(new_ids)
+
+            speech_atts, speech_ids = _extract_create_speech_attachments(result.tool_calls or [])
+            if speech_atts:
+                assistant_message_attachments.extend(speech_atts)
+            if speech_ids:
+                assistant_attachment_ids.extend(speech_ids)
 
             if isinstance(result.output, str):
                 output_value = OutputValue(type="string", value=result.output)

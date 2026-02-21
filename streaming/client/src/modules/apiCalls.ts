@@ -1161,6 +1161,7 @@ export type TriggerAgentTaskPayload = {
   tool_names?: string[];
   plugin_slugs?: string[];
   multiagentic_modality?: "isolated" | "grupal";
+  regenerate_message_id?: number;
 };
 
 export type TriggerAgentTaskResponse = {

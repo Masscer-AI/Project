@@ -52,6 +52,7 @@ export type Store = {
     writtingMode: boolean;
     useRag: boolean;
     generateImages: boolean;
+    generateSpeech: boolean;
     useAgentTask?: boolean;
     selectedAgents: string[];
     selectedPlugins: TPlugin[];
@@ -87,6 +88,7 @@ export type Store = {
   logout: () => void;
   toggleUseRag: () => void;
   toggleGenerateImages: () => void;
+  toggleGenerateSpeech: () => void;
   toggleAgentSelected: (slug: string) => void;
   setUser: (user: TUserData) => void;
   addAgent: () => void;

@@ -37,6 +37,7 @@ import {
   IconFileText,
   IconGlobe,
   IconPhoto,
+  IconVolume,
   IconPuzzle,
   IconSettings,
   IconPlus,
@@ -421,18 +422,21 @@ const ToolsMenu = () => {
   const isTrainAgentsEnabled = useIsFeatureEnabled("train-agents");
   const isWebScrapingEnabled = useIsFeatureEnabled("web-scraping");
   const isImageToolsEnabled = useIsFeatureEnabled("image-tools");
+  const isChatSpeechEnabled = useIsFeatureEnabled("chat-generate-speech");
   const {
     chatState,
     toggleUseRag,
     toggleWebSearch,
     toggleWritingMode,
     toggleGenerateImages,
+    toggleGenerateSpeech,
   } = useStore((state) => ({
     chatState: state.chatState,
     toggleUseRag: state.toggleUseRag,
     toggleWebSearch: state.toggleWebSearch,
     toggleWritingMode: state.toggleWrittingMode,
     toggleGenerateImages: state.toggleGenerateImages,
+    toggleGenerateSpeech: state.toggleGenerateSpeech,
   }));
 
   const [pluginsOpened, { open: openPlugins, close: closePlugins }] =
@@ -444,6 +448,7 @@ const ToolsMenu = () => {
     chatState.useRag ||
     chatState.webSearch ||
     chatState.generateImages ||
+    chatState.generateSpeech ||
     (chatState.specifiedUrls?.length ?? 0) > 0 ||
     chatState.selectedPlugins.length > 0 ||
     chatState.writtingMode;
@@ -519,6 +524,23 @@ const ToolsMenu = () => {
               onClick={() => toggleGenerateImages()}
             >
               {t("generate-image") || "Generate image"}
+            </Menu.Item>
+          )}
+          {isChatSpeechEnabled && (
+            <Menu.Item
+              leftSection={<IconVolume size={18} />}
+              rightSection={
+                <Switch
+                  checked={chatState.generateSpeech}
+                  onChange={() => toggleGenerateSpeech()}
+                  color="violet"
+                  size="xs"
+                  styles={{ track: { cursor: "pointer" } }}
+                />
+              }
+              onClick={() => toggleGenerateSpeech()}
+            >
+              {t("generate-speech") || "Generate speech"}
             </Menu.Item>
           )}
           <Menu.Item

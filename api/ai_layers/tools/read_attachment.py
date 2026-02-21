@@ -175,8 +175,62 @@ def _process_document(att, question: str) -> ReadAttachmentResult:
         raise ValueError(f"Failed to analyze document: {str(e)}")
 
 
+def _search_document_collection(doc, question: str) -> str:
+    """
+    If the document's collection has a ChromaDB index, run a semantic search
+    scoped to this document and return the matching chunks as extra context.
+    Returns an empty string when ChromaDB is unavailable or nothing is found.
+    """
+    try:
+        from api.rag.managers import chroma_client
+
+        if not chroma_client:
+            return ""
+
+        collection = getattr(doc, "collection", None)
+        if not collection or not collection.slug:
+            return ""
+
+        results = chroma_client.get_results(
+            collection_name=collection.slug,
+            query_texts=[question],
+            n_results=6,
+            where={"extra": doc.get_representation()},
+        )
+
+        if not results:
+            return ""
+
+        chunks: list[str] = []
+        for doc_list in (results.get("documents") or []):
+            for text in doc_list:
+                if text:
+                    chunks.append(text.strip())
+
+        if not chunks:
+            metadatas = results.get("metadatas") or []
+            for meta_list in metadatas:
+                for meta in meta_list:
+                    content = meta.get("content", "") if isinstance(meta, dict) else ""
+                    if content:
+                        chunks.append(content.strip())
+
+        if not chunks:
+            return ""
+
+        formatted = "\n---\n".join(chunks)
+        return (
+            f"\n\n<SEMANTIC_SEARCH_RESULTS query=\"{question}\">\n"
+            f"{formatted}\n"
+            f"</SEMANTIC_SEARCH_RESULTS>"
+        )
+    except Exception:
+        logger.debug("Collection search failed for document %s", doc.id, exc_info=True)
+        return ""
+
+
 def _process_rag_document(att, question: str) -> ReadAttachmentResult:
-    """Process a RAG document reference (stored text)."""
+    """Process a RAG document: full text + semantic search on its collection."""
     import os
 
     client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
@@ -188,10 +242,11 @@ def _process_rag_document(att, question: str) -> ReadAttachmentResult:
     text = getattr(doc, "text", "") or ""
     name = getattr(doc, "name", None) or f"document_{doc.id}"
 
-    # Avoid sending arbitrarily large payloads
     max_chars = 120_000
     if len(text) > max_chars:
         text = text[:max_chars]
+
+    collection_context = _search_document_collection(doc, question)
 
     content = [
         {
@@ -199,6 +254,7 @@ def _process_rag_document(att, question: str) -> ReadAttachmentResult:
             "text": (
                 f"Document name: {name}\n\n"
                 f"Document text:\n{text}\n\n"
+                f"{collection_context}\n\n"
                 f"Question: {question}"
             ),
         }
@@ -208,7 +264,8 @@ def _process_rag_document(att, question: str) -> ReadAttachmentResult:
         response = client.responses.create(
             model="gpt-4o",
             instructions=(
-                "Answer the user's question using only the provided document text. "
+                "Answer the user's question using the provided document text and "
+                "any semantic search results from the document's vector index. "
                 "Be concise and accurate. If the answer is not in the text, say so clearly."
             ),
             input=[{"role": "user", "content": content}],
@@ -218,7 +275,7 @@ def _process_rag_document(att, question: str) -> ReadAttachmentResult:
             answer_text = "Could not extract a response from the model."
         return ReadAttachmentResult(
             answer=answer_text,
-            message=f"Successfully analyzed RAG document",
+            message="Successfully analyzed RAG document",
         )
     except Exception as e:
         logger.exception("Error analyzing RAG document attachment %s", att.id)

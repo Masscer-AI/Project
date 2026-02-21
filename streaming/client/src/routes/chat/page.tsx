@@ -353,6 +353,9 @@ export default function ChatView() {
         if (chatState.generateImages) {
           toolNames.push("create_image");
         }
+        if (chatState.generateSpeech) {
+          toolNames.push("create_speech");
+        }
 
         await triggerAgentTask({
           conversation_id: currentConversation.id,
@@ -503,15 +506,73 @@ export default function ChatView() {
     if (!message) return;
 
     if (message.type === "user") {
-      const newMessages = messages.slice(0, index + 1);
-      newMessages[index].text = text;
-      message.index = index;
-      handleRegenerateConversation(message, newMessages);
+      if (useAgentTaskPath && message.id) {
+        handleRegenerateAgentTask(message, index, text);
+      } else {
+        const newMessages = messages.slice(0, index + 1);
+        newMessages[index].text = text;
+        message.index = index;
+        handleRegenerateConversation(message, newMessages);
+      }
     }
     if (message.type === "assistant" && versions) {
       const messagesCopy = [...messages];
       messagesCopy[index].versions = versions;
       setMessages(messagesCopy);
+    }
+  };
+
+  const handleRegenerateAgentTask = async (
+    userMessage: TMessage,
+    index: number,
+    newText: string
+  ) => {
+    const currentConversation = conversation ?? loaderData.conversation;
+    if (!currentConversation?.id || !userMessage.id) return;
+
+    let selectedAgents = agents.filter((a) => a.selected);
+    if (selectedAgents.length === 0) {
+      toast.error(t("select-at-least-one-agent-to-chat"));
+      return;
+    }
+    selectedAgents = selectedAgents.sort(
+      (a, b) =>
+        chatState.selectedAgents.indexOf(a.slug) -
+        chatState.selectedAgents.indexOf(b.slug)
+    );
+
+    const truncated = messages.slice(0, index + 1);
+    truncated[index] = { ...truncated[index], text: newText };
+
+    const assistantMessage: TMessage = {
+      type: "assistant",
+      text: "",
+      attachments: [],
+      agent_slug: selectedAgents[0].slug,
+    };
+    setMessages([...truncated, assistantMessage]);
+
+    try {
+      const toolNames = ["read_attachment", "list_attachments"];
+      if (chatState.webSearch) toolNames.push("explore_web");
+      if (chatState.useRag) toolNames.push("rag_query");
+      if (chatState.generateImages) toolNames.push("create_image");
+      if (chatState.generateSpeech) toolNames.push("create_speech");
+
+      await triggerAgentTask({
+        conversation_id: currentConversation.id,
+        agent_slugs: selectedAgents.map((a) => a.slug),
+        user_inputs: [{ type: "input_text", text: newText }],
+        tool_names: toolNames,
+        plugin_slugs: (chatState.selectedPlugins || []).map((p) => p.slug),
+        multiagentic_modality: userPreferences.multiagentic_modality,
+        regenerate_message_id: userMessage.id,
+      });
+
+      scrollChat();
+    } catch (error) {
+      console.error("Error regenerating via agent task:", error);
+      toast.error(t("agent-task-failed"));
     }
   };
 

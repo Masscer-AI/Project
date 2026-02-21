@@ -55,6 +55,7 @@ export const useStore = create<Store>()((set, get) => ({
     writtingMode: false,
     useRag: false,
     generateImages: false,
+    generateSpeech: false,
     useAgentTask: undefined,
 
     selectedAgents: [],
@@ -328,6 +329,14 @@ export const useStore = create<Store>()((set, get) => ({
       chatState: {
         ...state.chatState,
         generateImages: !state.chatState.generateImages,
+      },
+    }));
+  },
+  toggleGenerateSpeech: () => {
+    set((state) => ({
+      chatState: {
+        ...state.chatState,
+        generateSpeech: !state.chatState.generateSpeech,
       },
     }));
   },

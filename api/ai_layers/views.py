@@ -557,6 +557,17 @@ class AgentTaskView(View):
                 status=403,
             )
 
+        # --- Optional: regenerate (edit & re-run) ---
+        regenerate_message_id = data.get("regenerate_message_id")
+        if regenerate_message_id is not None:
+            try:
+                regenerate_message_id = int(regenerate_message_id)
+            except (TypeError, ValueError):
+                return JsonResponse(
+                    {"error": "regenerate_message_id must be an integer"},
+                    status=400,
+                )
+
         # --- Dispatch Celery task ---
         task = conversation_agent_task.delay(
             conversation_id=str(conversation_id),
@@ -566,6 +577,7 @@ class AgentTaskView(View):
             plugin_slugs=plugin_slugs,
             multiagentic_modality=multiagentic_modality,
             user_id=user.id,
+            regenerate_message_id=regenerate_message_id,
         )
 
         return JsonResponse(
