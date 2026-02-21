@@ -14,21 +14,65 @@ import { Badge, ActionIcon, Tooltip, NativeSelect, Group, Button } from "@mantin
 import { IconCopy, IconDownload } from "@tabler/icons-react";
 
 import { SYSTEM_PLUGINS } from "../../modules/plugins";
+import { API_URL } from "../../modules/constants";
+import { TAttachment } from "../../types";
 
 const MarkdownRenderer = ({
   markdown,
   extraClass,
   onChange,
+  attachments,
 }: {
   markdown: string;
   extraClass?: string;
   onChange?: (markdown: string) => void;
+  attachments?: TAttachment[];
 }) => {
   const { t } = useTranslation();
 
-  // const urlTransform = (url: string) => {
-  //   return url;
-  // };
+  const attachmentUrlById = (() => {
+    const map = new Map<string, string>();
+    for (const att of attachments || []) {
+      const id = (att.attachment_id || att.id) as string | number | undefined;
+      const content = att.content;
+      if (!id || !content) continue;
+      map.set(String(id), String(content));
+    }
+    return map;
+  })();
+
+  const normalizeUrl = (url: string) => {
+    const u = (url || "").trim();
+    if (!u) return u;
+    if (u.startsWith("http://") || u.startsWith("https://") || u.startsWith("data:")) {
+      return u;
+    }
+    if (u.startsWith("/")) {
+      return `${API_URL}${u}`;
+    }
+    return u;
+  };
+
+  // react-markdown URL rewrite hook (for links + images)
+  const urlTransform = (url: string) => {
+    const u = (url || "").trim();
+    if (!u) return u;
+
+    // Preferred: attachment UUID reference
+    // Example: ![Alt](attachment:550e8400-e29b-41d4-a716-446655440000)
+    if (u.toLowerCase().startsWith("attachment:")) {
+      const id = u.slice("attachment:".length).trim();
+      const resolved = id ? attachmentUrlById.get(id) : undefined;
+      return resolved ? normalizeUrl(resolved) : u;
+    }
+
+    // Legacy: model sometimes outputs /media/... which needs API_URL prefix
+    if (u.startsWith("/media/")) {
+      return `${API_URL}${u}`;
+    }
+
+    return u;
+  };
 
   const changeInMarkdown = (search: string, replace: string) => {
     const newMarkdown = markdown.replace(search, replace);
@@ -40,7 +84,7 @@ const MarkdownRenderer = ({
   return (
     <Markdown
       className={`markdown-renderer ${extraClass}`}
-      // urlTransform={urlTransform}
+      urlTransform={urlTransform}
       remarkPlugins={[
         [remarkGfm, { singleTilde: false }],
         [remarkMath],
@@ -49,6 +93,42 @@ const MarkdownRenderer = ({
       rehypePlugins={[rehypeKatex]}
       skipHtml={true}
       components={{
+        img(props) {
+          // react-markdown passes src/alt on props
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const src = (props as any)?.src as string | undefined;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const alt = (props as any)?.alt as string | undefined;
+          const resolvedSrc = src ? urlTransform(src) : src;
+          return (
+            <img
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              {...(props as any)}
+              src={resolvedSrc}
+              alt={alt || ""}
+              style={{
+                maxWidth: "100%",
+                borderRadius: 8,
+                ...(// eslint-disable-next-line @typescript-eslint/no-explicit-any
+                ((props as any)?.style || {})),
+              }}
+            />
+          );
+        },
+        a(props) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const href = (props as any)?.href as string | undefined;
+          const resolvedHref = href ? urlTransform(href) : href;
+          return (
+            <a
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              {...(props as any)}
+              href={resolvedHref}
+              target={(resolvedHref || "").includes("#") ? undefined : "_blank"}
+              rel="noopener noreferrer"
+            />
+          );
+        },
         pre(props) {
           const codeBlocks = props.node?.children.map((child) => {
             // @ts-ignore

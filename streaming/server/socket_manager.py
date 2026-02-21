@@ -4,10 +4,8 @@ from .redis_manager import r
 
 from .logger import get_custom_logger
 from .event_triggers import (
-    on_message_handler,
     on_start_handler,
     on_connect_handler,
-    on_speech_request_handler,
     on_test_event_handler,
     on_modify_message_handler,
 )
@@ -24,10 +22,7 @@ class ProxyNamespaceManager(socketio.AsyncNamespace):
         await on_start_handler(sid, data)
 
     def on_connect(self, sid, environ):
-        # QUERY_STRING = environ.get("QUERY_STRING")
-
         logger.info(f"Client {sid} connected")
-        # return False
         on_connect_handler(socket_id=sid)
 
     def on_register_user(self, sid, user_id):
@@ -36,15 +31,8 @@ class ProxyNamespaceManager(socketio.AsyncNamespace):
         self.user_id_to_socket_id[user_id].append(sid)
 
         self.socket_id_to_user_id[sid] = user_id
-        # Save a copy of the user_id_to_socket_id in redis
         r.set("user_id_to_socket_id", json.dumps(self.user_id_to_socket_id))
         r.set("socket_id_to_user_id", json.dumps(self.socket_id_to_user_id))
-
-    async def on_message(self, sid, message_data):
-        await on_message_handler(socket_id=sid, data=message_data)
-
-    async def on_speech_request(self, sid, data):
-        await on_speech_request_handler(socket_id=sid, data=data)
 
     async def on_test_event(self, sid, data):
         await on_test_event_handler(socket_id=sid, data=data)
@@ -66,6 +54,5 @@ class ProxyNamespaceManager(socketio.AsyncNamespace):
                 del self.user_id_to_socket_id[user_id]
             del self.socket_id_to_user_id[sid]
 
-        # Save a copy of the user_id_to_socket_id in redis
         r.set("user_id_to_socket_id", json.dumps(self.user_id_to_socket_id))
         r.set("socket_id_to_user_id", json.dumps(self.socket_id_to_user_id))

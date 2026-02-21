@@ -1,16 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useStore } from "../../modules/store";
 import { useTranslation } from "react-i18next";
-import MarkdownRenderer from "../MarkdownRenderer/MarkdownRenderer";
 import { AttatchmentMode } from "../../types";
 import toast from "react-hot-toast";
 import { generateVideo } from "../../modules/apiCalls";
 import { AspectRatio } from "../ImageGenerator/ImageGenerator";
 import { API_URL } from "../../modules/constants";
 import {
-  Menu,
   Modal,
-  Switch,
   Button,
   ActionIcon,
   Stack,
@@ -21,7 +18,6 @@ import {
   Tooltip,
 } from "@mantine/core";
 import {
-  IconDotsVertical,
   IconTrash,
   IconFileText,
   IconDownload,
@@ -29,6 +25,7 @@ import {
   IconX,
   IconCheck,
   IconPlayerPlay,
+  IconLink,
 } from "@tabler/icons-react";
 
 interface ThumbnailProps {
@@ -63,10 +60,17 @@ export const Thumbnail = ({
 
   return (
     <>
+      {type === "website" && (
+        <WebsiteThumbnail
+          url={src || content}
+          name={name}
+        />
+      )}
       {type.indexOf("audio") !== 0 &&
         type.indexOf("image") !== 0 &&
         type.indexOf("video_generation") !== 0 &&
         type.indexOf("audio_generation") !== 0 && (
+          type !== "website" && (
           <DocumentThumnail
             id={id}
             index={index}
@@ -77,30 +81,16 @@ export const Thumbnail = ({
             showFloatingButtons={showFloatingButtons}
             mode={mode}
           />
+          )
         )}
       {type.indexOf("image") === 0 && (
-        <div className="thumbnail pointer flex-shrink-0">
-          <ImageThumbnail
-            src={src}
-            message_id={message_id}
-            name={name}
-            buttons={
-              showFloatingButtons && (
-                <div className="d-flex align-center justify-center padding-small">
-                  <ActionIcon
-                    variant="subtle"
-                    color="red"
-                    size="sm"
-                    onClick={() => deleteAttachment(index)}
-                    title={t("delete")}
-                  >
-                    <IconTrash size={16} />
-                  </ActionIcon>
-                </div>
-              )
-            }
-          />
-        </div>
+        <ImageAttachmentThumbnail
+          src={src}
+          message_id={message_id}
+          name={name}
+          showFloatingButtons={showFloatingButtons}
+          onDelete={() => deleteAttachment(index)}
+        />
       )}
       {/* Audio type currently unused */}
       {type.indexOf("audio_generation") === 0 && (
@@ -114,6 +104,110 @@ export const Thumbnail = ({
         </>
       )}
     </>
+  );
+};
+
+const ImageAttachmentThumbnail = ({
+  src,
+  name,
+  message_id,
+  showFloatingButtons,
+  onDelete,
+}: {
+  src: string;
+  name: string;
+  message_id?: number;
+  showFloatingButtons: boolean;
+  onDelete: () => void;
+}) => {
+  const { t } = useTranslation();
+  const [showModal, setShowModal] = useState(false);
+
+  if (!showFloatingButtons) {
+    // In-message rendering (compact square preview)
+    return (
+      <div className="thumbnail pointer flex-shrink-0">
+        {showModal && (
+          <ImageModal
+            src={src}
+            name={name}
+            hide={() => setShowModal(false)}
+            message_id={message_id}
+          />
+        )}
+        <img
+          onClick={() => setShowModal(true)}
+          src={src}
+          alt={`attachment-${name}`}
+          className="max-w-[70px] max-h-[70px] w-[70px] h-[70px] object-contain rounded-md flex-shrink-0"
+        />
+      </div>
+    );
+  }
+
+  // Input strip rendering (match document/website chips)
+  return (
+    <div className="width-150 document-attachment bg-contrast rounded padding-small">
+      {showModal && (
+        <ImageModal
+          src={src}
+          name={name}
+          hide={() => setShowModal(false)}
+          message_id={message_id}
+        />
+      )}
+      <div className="d-flex gap-small align-center">
+        <img
+          onClick={() => setShowModal(true)}
+          src={src}
+          alt={`attachment-${name}`}
+          className="w-[38px] h-[38px] object-cover rounded-md flex-shrink-0 pointer"
+        />
+        <p
+          className="cut-text-to-line"
+          style={{ flex: 1, minWidth: 0, margin: 0 }}
+        >
+          {name}
+        </p>
+        <ActionIcon
+          variant="subtle"
+          color="red"
+          size="sm"
+          onClick={onDelete}
+          title={t("delete")}
+          aria-label={t("delete")}
+        >
+          <IconTrash size={16} />
+        </ActionIcon>
+      </div>
+    </div>
+  );
+};
+
+const WebsiteThumbnail = ({ url, name }: { url: string; name: string }) => {
+  const safeUrl = url || "";
+  const display = name || safeUrl;
+
+  return (
+    <a
+      href={safeUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={safeUrl}
+      className="width-150 document-attachment bg-contrast rounded padding-small"
+      style={{
+        display: "flex",
+        gap: 8,
+        alignItems: "center",
+        textDecoration: "none",
+        color: "inherit",
+      }}
+    >
+      <IconLink size={20} />
+      <p className="cut-text-to-line" style={{ flex: 1, margin: 0 }}>
+        {display}
+      </p>
+    </a>
   );
 };
 
@@ -297,24 +391,6 @@ const DocumentThumnail = ({
   showFloatingButtons: boolean;
   mode?: AttatchmentMode;
 }) => {
-  const { updateAttachment } = useStore((state) => ({
-    updateAttachment: state.updateAttachment,
-  }));
-  const { t } = useTranslation();
-  const [ragMode, setRagMode] = useState<AttatchmentMode>(
-    mode ? mode : "similar_chunks"
-  );
-  const [confirmDelete, setConfirmDelete] = useState(false);
-
-  const ragModeHelpHelper: Record<string, string> = {
-    similar_chunks: t("chunks-mode-help-text"),
-    all_possible_text: t("all-content-mode-help-text"),
-  };
-
-  useEffect(() => {
-    updateAttachment(index, { mode: ragMode });
-  }, [ragMode]);
-
   return (
     <div
       title={name}
@@ -324,102 +400,21 @@ const DocumentThumnail = ({
         <div>
           <IconFileText size={20} />
         </div>
-        <p className="cut-text-to-line">{name}</p>
+        <p className="cut-text-to-line" style={{ margin: 0, flex: 1, minWidth: 0 }}>
+          {name}
+        </p>
 
         {showFloatingButtons && (
-          <Menu
-            shadow="md"
-            width={240}
-            position="top"
-            withArrow
-            closeOnItemClick={false}
+          <ActionIcon
+            variant="subtle"
+            color="red"
+            size="sm"
+            onClick={onDelete}
           >
-            <Menu.Target>
-              <ActionIcon variant="subtle" color="gray" size="sm">
-                <IconDotsVertical size={16} />
-              </ActionIcon>
-            </Menu.Target>
-            <Menu.Dropdown>
-              <Stack gap="sm" p="xs">
-                <Text fw={500} ta="center" size="sm">
-                  {t("configure")}
-                </Text>
-                <Switch
-                  label={
-                    ragMode === "similar_chunks"
-                      ? t("similar-chunks")
-                      : t("allContent")
-                  }
-                  checked={ragMode === "similar_chunks"}
-                  onChange={(e) => {
-                    setRagMode(
-                      e.currentTarget.checked
-                        ? "similar_chunks"
-                        : "all_possible_text"
-                    );
-                  }}
-                  color="violet"
-                />
-                <MarkdownRenderer
-                  extraClass="text-mini"
-                  markdown={ragModeHelpHelper[ragMode]}
-                />
-                <Button
-                  color={confirmDelete ? "red" : "red"}
-                  variant={confirmDelete ? "filled" : "light"}
-                  leftSection={<IconTrash size={16} />}
-                  fullWidth
-                  onClick={() => {
-                    if (!confirmDelete) {
-                      setConfirmDelete(true);
-                      return;
-                    }
-                    onDelete();
-                    setConfirmDelete(false);
-                  }}
-                  onMouseLeave={() => setConfirmDelete(false)}
-                >
-                  {confirmDelete ? t("sure") : t("delete")}
-                </Button>
-              </Stack>
-            </Menu.Dropdown>
-          </Menu>
+            <IconX size={16} />
+          </ActionIcon>
         )}
       </div>
-    </div>
-  );
-};
-
-const ImageThumbnail = ({
-  src,
-  name,
-  buttons,
-  message_id,
-}: {
-  src: string;
-  name: string;
-  buttons?: React.ReactNode;
-  message_id?: number;
-}) => {
-  const [showModal, setShowModal] = useState(false);
-
-  return (
-    <div className="thumbnail pointer flex-shrink-0">
-      {showModal && (
-        <ImageModal
-          src={src}
-          name={name}
-          hide={() => setShowModal(false)}
-          message_id={message_id}
-        />
-      )}
-      <img
-        onClick={() => setShowModal(true)}
-        src={src}
-        alt={`attachment-${name}`}
-        className="max-w-[70px] max-h-[70px] w-[70px] h-[70px] object-contain rounded-md flex-shrink-0"
-      />
-      {buttons}
     </div>
   );
 };

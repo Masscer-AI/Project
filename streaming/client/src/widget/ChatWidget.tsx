@@ -4,7 +4,8 @@ import { SimpleChatInput } from "./SimpleChatInput";
 import { useWidgetStore, WidgetConfig } from "./widgetStore";
 import { TMessage } from "../types/chatTypes";
 import { TAgent } from "../types/agents";
-import { initConversation, getAgents } from "../modules/apiCalls";
+import { TVersion } from "../types";
+import { initConversation, getAgents, triggerAgentTask } from "../modules/apiCalls";
 import { SocketManager } from "../modules/socketManager";
 import { API_URL } from "../modules/constants";
 import "./ChatWidget.css";
@@ -30,7 +31,6 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
     isOpen,
     setMessages,
     addMessage,
-    updateMessage,
     setConversation,
     setAgents,
     setIsOpen,
@@ -41,41 +41,27 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
   const initializationRef = useRef(false);
   const socketRef = useRef<SocketManager | null>(null);
   const [socketReady, setSocketReady] = useState(false);
-  const streamingIndexRef = useRef<number | null>(null);
-  const chunkHandlerRef = useRef<((data: any) => void) | null>(null);
 
   useEffect(() => {
-    // Prevent multiple initializations
-    if (initializationRef.current) {
-      console.log("Widget: Initialization already in progress, skipping");
-      return;
-    }
+    if (initializationRef.current) return;
     initializationRef.current = true;
 
     const initializeWidget = async () => {
       try {
-        // Set auth token in localStorage for API calls
         localStorage.setItem("token", authToken);
 
-        // Get user info to register with socket
         const getUser = async () => {
           try {
             const response = await fetch(`${API_URL}/v1/auth/user/me`, {
-              headers: {
-                Authorization: `Token ${authToken}`,
-              },
+              headers: { Authorization: `Token ${authToken}` },
             });
-            if (response.ok) {
-              return await response.json();
-            }
+            if (response.ok) return await response.json();
           } catch (error) {
             console.error("Error fetching user:", error);
           }
           return null;
         };
 
-        // Use streaming URL passed as prop (most reliable)
-        // Fallback to window variable, then to default
         const streamingUrl =
           propStreamingUrl ||
           (window as any).WIDGET_STREAMING_URL ||
@@ -85,24 +71,15 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
               ? window.location.hostname + ":8001"
               : window.location.host);
 
-        console.log("Widget connecting to streaming server:", streamingUrl);
-        console.log("Streaming URL sources:", {
-          prop: propStreamingUrl,
-          window: (window as any).WIDGET_STREAMING_URL,
-          location: window.location.host,
-        });
         const user = await getUser();
         const newSocket = new SocketManager(streamingUrl, user?.id);
         socketRef.current = newSocket;
         setSocketReady(true);
-        
-        // Register user with socket
+
         if (user?.id && newSocket) {
           newSocket.emit("register_user", user.id);
         }
 
-        // Fetch agents and find the configured agent
-        // Use the regular token (not public) since we're authenticating as the widget owner
         const agentsData = await getAgents(false);
         if (config.agent_slug && agentsData.agents) {
           const configuredAgent = agentsData.agents.find(
@@ -111,16 +88,12 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
           if (configuredAgent) {
             setAgents([{ ...configuredAgent, selected: true }]);
           } else if (agentsData.agents.length > 0) {
-            // Fallback to first public agent if configured agent not found
             setAgents(agentsData.agents.slice(0, 1).map((a: TAgent) => ({ ...a, selected: true })));
           }
         } else if (agentsData.agents && agentsData.agents.length > 0) {
-          // Fallback to first public agent if no agent configured
           setAgents(agentsData.agents.slice(0, 1).map((a: TAgent) => ({ ...a, selected: true })));
         }
 
-        // Initialize conversation
-        // Use the regular token (not public) since we're authenticating as the widget owner
         const conv = await initConversation({ isPublic: false });
         setConversation(conv);
         setMessages(conv.messages || []);
@@ -128,7 +101,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
         setIsInitialized(true);
       } catch (error) {
         console.error("Error initializing widget:", error);
-        initializationRef.current = false; // Allow retry on error
+        initializationRef.current = false;
       }
     };
 
@@ -136,75 +109,114 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
 
     return () => {
       if (socketRef.current) {
-        console.log("Widget: Cleaning up socket on unmount");
         socketRef.current.disconnect();
         socketRef.current = null;
         setSocketReady(false);
       }
       initializationRef.current = false;
     };
-  }, []); // Empty deps - only run once on mount
+  }, []);
 
   useEffect(() => {
-    if (!socketReady || !socketRef.current) {
-      return;
-    }
+    if (!socketReady || !socketRef.current) return;
 
     const socketInstance = socketRef.current;
 
-    const handleResponseFinished = (data: any) => {
-      const currentMessages = useWidgetStore.getState().messages;
-      const newMessages = JSON.parse(JSON.stringify(currentMessages));
+    const handleAgentEvents = (raw: {
+      user_id?: number;
+      message?: { type: string; conversation_id?: string; version?: TVersion };
+    }) => {
+      const data = raw?.message;
+      const conv = useWidgetStore.getState().conversation;
+      if (!data || !conv?.id || data.conversation_id !== conv.id) return;
 
-      let aiIndex = -1;
-      let userIndex = -1;
+      if (data.type === "agent_version_ready" && data.version) {
+        const currentMessages = useWidgetStore.getState().messages;
+        const newMessages = [...currentMessages];
+        const last = newMessages[newMessages.length - 1];
+        if (!last || last.type !== "assistant") return;
 
-      for (let i = newMessages.length - 1; i >= 0; i--) {
-        if (aiIndex === -1 && newMessages[i].type === "assistant") {
-          aiIndex = i;
-        }
-        if (userIndex === -1 && newMessages[i].type === "user") {
-          userIndex = i;
-        }
-        if (aiIndex !== -1 && userIndex !== -1) break;
-      }
+        const versions = [...(last.versions || [])];
+        const existingIdx = versions.findIndex(
+          (v) => v.agent_slug === data.version!.agent_slug
+        );
+        if (existingIdx >= 0) versions[existingIdx] = data.version!;
+        else versions.push(data.version!);
 
-      if (aiIndex !== -1) {
-        newMessages[aiIndex].id = data.ai_message_id;
-        if (data.versions) {
-          newMessages[aiIndex].versions = data.versions;
-          if (data.versions.length > 0 && data.versions[0].text) {
-            newMessages[aiIndex].text = data.versions[0].text;
-          }
-        }
-      }
-
-      if (userIndex !== -1) {
-        const msg = newMessages[userIndex];
-        if (!msg.text && currentMessages[userIndex]?.text) {
-          msg.text = currentMessages[userIndex].text;
-        }
-        msg.id = data.user_message_id;
-      }
-
-      useWidgetStore.getState().setMessages(newMessages);
-
-      if (streamingIndexRef.current !== null && chunkHandlerRef.current) {
-        socketInstance.off(`response-for-${streamingIndexRef.current}`, chunkHandlerRef.current);
-        streamingIndexRef.current = null;
-        chunkHandlerRef.current = null;
+        newMessages[newMessages.length - 1] = {
+          ...last,
+          versions,
+          text: versions[0]?.text ?? last.text,
+        };
+        useWidgetStore.getState().setMessages(newMessages);
+        scrollToBottom();
       }
     };
 
-    socketInstance.on("responseFinished", handleResponseFinished);
+    const handleAgentFinished = (raw: {
+      user_id?: number;
+      message?: {
+        type: string;
+        conversation_id?: string;
+        user_message_id?: number;
+        ai_message_id?: number;
+        versions?: TVersion[];
+        next_agent_slug?: string;
+      };
+    }) => {
+      const data = raw?.message;
+      const conv = useWidgetStore.getState().conversation;
+      if (!data || !conv?.id || data.conversation_id !== conv.id) return;
+
+      if (data.type === "agent_loop_finished") {
+        const currentMessages = useWidgetStore.getState().messages;
+        const newMessages = [...currentMessages];
+
+        for (let i = newMessages.length - 1; i >= 0; i--) {
+          if (newMessages[i].type === "assistant") {
+            if (data.ai_message_id) newMessages[i].id = data.ai_message_id;
+            if (data.versions) {
+              newMessages[i].versions = data.versions;
+              if (data.versions.length > 0 && data.versions[0].text) {
+                newMessages[i].text = data.versions[0].text;
+              }
+            }
+            break;
+          }
+        }
+
+        for (let i = newMessages.length - 1; i >= 0; i--) {
+          if (newMessages[i].type === "user") {
+            if (data.user_message_id) newMessages[i].id = data.user_message_id;
+            break;
+          }
+        }
+
+        useWidgetStore.getState().setMessages(newMessages);
+
+        if (data.next_agent_slug) {
+          useWidgetStore.getState().addMessage({
+            type: "assistant",
+            text: "",
+            attachments: [],
+            agent_slug: data.next_agent_slug,
+            versions: [{
+              text: "",
+              type: "assistant",
+              agent_slug: data.next_agent_slug,
+              agent_name: data.next_agent_slug,
+            }],
+          });
+        }
+      }
+    };
+
+    socketInstance.on("agent_events_channel", handleAgentEvents);
+    socketInstance.on("agent_loop_finished", handleAgentFinished);
 
     return () => {
-      socketInstance.off("responseFinished", handleResponseFinished);
-      if (streamingIndexRef.current !== null && chunkHandlerRef.current) {
-        socketInstance.off(`response-for-${streamingIndexRef.current}`, chunkHandlerRef.current);
-        streamingIndexRef.current = null;
-        chunkHandlerRef.current = null;
-      }
+      socketInstance.off("agent_events_channel", handleAgentEvents);
+      socketInstance.off("agent_loop_finished", handleAgentFinished);
     };
   }, [socketReady]);
 
@@ -216,13 +228,10 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
   };
 
   const handleSendMessage = async (input: string): Promise<boolean> => {
-    const socketInstance = socketRef.current;
-    if (input.trim() === "" || !socketInstance || !conversation) return false;
+    if (input.trim() === "" || !conversation) return false;
 
     const selectedAgents = agents.filter((a) => a.selected);
-    if (selectedAgents.length === 0) {
-      return false;
-    }
+    if (selectedAgents.length === 0) return false;
 
     const userMessage: TMessage = {
       type: "user",
@@ -236,93 +245,31 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
       text: "",
       attachments: [],
       agent_slug: selectedAgents[0].slug,
-      versions: [
-        {
-          text: "",
-          type: "assistant",
-          agent_slug: selectedAgents[0].slug,
-          agent_name: selectedAgents[0].name,
-        },
-      ],
+      versions: [{
+        text: "",
+        type: "assistant",
+        agent_slug: selectedAgents[0].slug,
+        agent_name: selectedAgents[0].name,
+      }],
     };
 
     useWidgetStore.getState().addMessage(userMessage);
     useWidgetStore.getState().addMessage(assistantMessage);
 
-    const assistantIndex = useWidgetStore.getState().messages.length - 1;
-    streamingIndexRef.current = assistantIndex;
-
-    const handleChunk = (data: any) => {
-      if (data.chunk) {
-        const currentMessages = useWidgetStore.getState().messages;
-        const msg = currentMessages[assistantIndex];
-        if (msg && msg.type === "assistant") { // Ensure we are updating an assistant message
-          const updatedText = (msg.text || "") + data.chunk;
-          // Deep copy versions to avoid mutation issues
-          const updatedVersions = msg.versions ? JSON.parse(JSON.stringify(msg.versions)) : [];
-          if (updatedVersions.length > 0) {
-            updatedVersions[updatedVersions.length - 1].text = updatedText;
-          }
-          
-          useWidgetStore.getState().updateMessage(assistantIndex, {
-            text: updatedText,
-            versions: updatedVersions
-          });
-          scrollToBottom();
-        }
-      }
-    };
-
-    socketInstance.on(`response-for-${assistantIndex}`, handleChunk);
-    chunkHandlerRef.current = handleChunk;
-
     try {
-        const token = localStorage.getItem("token");
-        console.log("Widget: Sending message via socket:", {
-          message: userMessage.text,
-          conversation_id: conversation.id,
-          agent_slug: selectedAgents[0].slug,
-        });
+      const toolNames = ["read_attachment", "list_attachments"];
+      if (config.web_search_enabled) toolNames.push("explore_web");
+      if (config.rag_enabled) toolNames.push("rag_query");
 
-      socketInstance.emit("message", {
-        message: {
-          ...userMessage,
-          agents: selectedAgents.map((a) => ({ slug: a.slug, name: a.name })),
-        },
-        context: useWidgetStore.getState().messages.slice(-20).map((m) => {
-          const { attachments, ...rest } = m;
-          const safeMessage = {
-            ...rest,
-            text: rest.text ?? "",
-          };
-          // Ensure assistant messages have versions array for the server
-          if (safeMessage.type === "assistant" && !safeMessage.versions) {
-            safeMessage.versions = safeMessage.agent_slug
-              ? [
-                  {
-                    text: safeMessage.text || "",
-                    type: "assistant",
-                    agent_slug: safeMessage.agent_slug,
-                    agent_name:
-                      selectedAgents.find((a) => a.slug === safeMessage.agent_slug)?.name ||
-                      safeMessage.agent_slug,
-                  },
-                ]
-              : [];
-          }
-          return safeMessage;
-        }),
-        plugins: [],
-        token: token,
-        models_to_complete: selectedAgents,
-        conversation: conversation,
-        web_search_activated: config.web_search_enabled,
-        specified_urls: [],
-        use_rag: config.rag_enabled,
+      await triggerAgentTask({
+        conversation_id: conversation.id,
+        agent_slugs: selectedAgents.map((a) => a.slug),
+        user_inputs: [{ type: "input_text", text: input }],
+        tool_names: toolNames,
         multiagentic_modality: "isolated",
       });
 
-      // scrollToBottom();
+      scrollToBottom();
       return true;
     } catch (error) {
       console.error("Error sending message:", error);
@@ -340,7 +287,6 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
 
   return (
     <>
-      {/* Chat Bubble Button */}
       {!isOpen && (
         <button
           className="chat-widget-bubble"
@@ -360,7 +306,6 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
         </button>
       )}
 
-      {/* Chat Window */}
       {isOpen && (
         <div className="chat-widget-container">
           <div className="chat-widget-header">
@@ -386,7 +331,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
           <div className="chat-widget-input-container">
             <SimpleChatInput
               onSendMessage={handleSendMessage}
-              disabled={!socketReady || !conversation}
+              disabled={!conversation}
             />
           </div>
         </div>
@@ -396,4 +341,3 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
 };
 
 export default ChatWidget;
-

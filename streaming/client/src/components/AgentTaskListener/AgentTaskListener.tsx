@@ -22,6 +22,7 @@ type AgentFinishedEvent = {
   message_id: number | null;
   iterations: number;
   tool_calls_count: number;
+  next_agent_slug?: string;
 };
 
 type RedisNotification<T> = {
@@ -129,6 +130,11 @@ export const AgentTaskListener = () => {
       if (!data) return;
 
       if (!conversation?.id || data.conversation_id !== conversation.id) return;
+
+      if (data.next_agent_slug) {
+        setConversation(conversation.id);
+        return;
+      }
 
       if (toolHoldRef.current) {
         clearTimeout(toolHoldRef.current);

@@ -36,11 +36,14 @@ import {
   IconPencil,
   IconFileText,
   IconGlobe,
+  IconPhoto,
+  IconVolume,
   IconPuzzle,
   IconSettings,
   IconPlus,
   IconFilePlus,
   IconLink,
+  IconTrash,
   IconTree,
   IconUsers,
   IconAdjustments,
@@ -90,11 +93,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     addAttachment,
     chatState,
     toggleWritingMode,
+    setSpecifiedUrls,
   } = useStore((state) => ({
     attachments: state.chatState.attachments,
     addAttachment: state.addAttachment,
     chatState: state.chatState,
     toggleWritingMode: state.toggleWrittingMode,
+    setSpecifiedUrls: state.setSpecifiedUrls,
   }));
 
   const [textPrompt, setTextPrompt] = useState(initialInput);
@@ -183,6 +188,57 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   return (
     <div className="flex flex-col justify-center items-center p-0 w-full max-w-[900px] bg-transparent z-[2] gap-0 mt-4 overflow-visible">
       <section className="chat-input-attachments flex gap-2.5 flex-nowrap overflow-x-auto empty:hidden w-full mb-3 px-4 [scrollbar-width:thin] [scrollbar-color:rgba(128,128,128,0.3)_transparent] [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-[rgba(128,128,128,0.3)] [&::-webkit-scrollbar-thumb]:rounded-full">
+        {(chatState.specifiedUrls || []).map((u) => (
+          <div
+            key={u.url}
+            title={u.url}
+            className="width-150 document-attachment bg-contrast rounded padding-small"
+            style={{
+              display: "flex",
+              gap: 8,
+              alignItems: "center",
+              textDecoration: "none",
+              color: "inherit",
+            }}
+          >
+            <a
+              href={u.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "flex",
+                gap: 8,
+                alignItems: "center",
+                textDecoration: "none",
+                color: "inherit",
+                flex: 1,
+                minWidth: 0,
+              }}
+            >
+              <IconLink size={20} />
+              <p className="cut-text-to-line" style={{ flex: 1, minWidth: 0 }}>
+                {u.url}
+              </p>
+            </a>
+            <ActionIcon
+              variant="subtle"
+              color="red"
+              size="sm"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const next = (chatState.specifiedUrls || []).filter(
+                  (x) => x.url !== u.url
+                );
+                setSpecifiedUrls(next);
+              }}
+              aria-label={t("delete") || "Delete"}
+              title={t("delete") || "Delete"}
+            >
+              <IconTrash size={16} />
+            </ActionIcon>
+          </div>
+        ))}
         {attachments.map((a, index) => (
           <Thumbnail
             {...a}
@@ -365,16 +421,22 @@ const ToolsMenu = () => {
   const { t } = useTranslation();
   const isTrainAgentsEnabled = useIsFeatureEnabled("train-agents");
   const isWebScrapingEnabled = useIsFeatureEnabled("web-scraping");
+  const isImageToolsEnabled = useIsFeatureEnabled("image-tools");
+  const isChatSpeechEnabled = useIsFeatureEnabled("chat-generate-speech");
   const {
     chatState,
     toggleUseRag,
     toggleWebSearch,
     toggleWritingMode,
+    toggleGenerateImages,
+    toggleGenerateSpeech,
   } = useStore((state) => ({
     chatState: state.chatState,
     toggleUseRag: state.toggleUseRag,
     toggleWebSearch: state.toggleWebSearch,
     toggleWritingMode: state.toggleWrittingMode,
+    toggleGenerateImages: state.toggleGenerateImages,
+    toggleGenerateSpeech: state.toggleGenerateSpeech,
   }));
 
   const [pluginsOpened, { open: openPlugins, close: closePlugins }] =
@@ -385,6 +447,8 @@ const ToolsMenu = () => {
   const hasActiveTools =
     chatState.useRag ||
     chatState.webSearch ||
+    chatState.generateImages ||
+    chatState.generateSpeech ||
     (chatState.specifiedUrls?.length ?? 0) > 0 ||
     chatState.selectedPlugins.length > 0 ||
     chatState.writtingMode;
@@ -443,6 +507,40 @@ const ToolsMenu = () => {
               onClick={() => toggleWebSearch()}
             >
               {t("auto-search") || "Web Search"}
+            </Menu.Item>
+          )}
+          {isImageToolsEnabled && (
+            <Menu.Item
+              leftSection={<IconPhoto size={18} />}
+              rightSection={
+                <Switch
+                  checked={chatState.generateImages}
+                  onChange={() => toggleGenerateImages()}
+                  color="violet"
+                  size="xs"
+                  styles={{ track: { cursor: "pointer" } }}
+                />
+              }
+              onClick={() => toggleGenerateImages()}
+            >
+              {t("generate-image") || "Generate image"}
+            </Menu.Item>
+          )}
+          {isChatSpeechEnabled && (
+            <Menu.Item
+              leftSection={<IconVolume size={18} />}
+              rightSection={
+                <Switch
+                  checked={chatState.generateSpeech}
+                  onChange={() => toggleGenerateSpeech()}
+                  color="violet"
+                  size="xs"
+                  styles={{ track: { cursor: "pointer" } }}
+                />
+              }
+              onClick={() => toggleGenerateSpeech()}
+            >
+              {t("generate-speech") || "Generate speech"}
             </Menu.Item>
           )}
           <Menu.Item
@@ -718,8 +816,6 @@ const ConversationConfigModal = ({
   const { t } = useTranslation();
   const isChatSpeechEnabled = useIsFeatureEnabled("chat-generate-speech");
   const isMultiAgentEnabled = useIsFeatureEnabled("multi-agent-chat");
-  const isAgentTaskEnabled = useIsFeatureEnabled("agent-task");
-
   return (
     <Modal
       opened={opened}
@@ -787,28 +883,6 @@ const ConversationConfigModal = ({
             color="violet"
           />
         </Group>
-
-        {isAgentTaskEnabled && (
-          <>
-            <Divider />
-            <Group justify="space-between">
-              <div>
-                <Text fw={500}>{t("use-agent-tasks")}</Text>
-                <Text size="sm" c="dimmed">
-                  {t("use-agent-tasks-desc")}
-                </Text>
-              </div>
-              <Switch
-                checked={chatState.useAgentTask ?? isAgentTaskEnabled}
-                onChange={(e) => {
-                  const val = e.currentTarget.checked;
-                  updateChatState({ useAgentTask: val });
-                }}
-                color="violet"
-              />
-            </Group>
-          </>
-        )}
 
         {isMultiAgentEnabled && (
           <>

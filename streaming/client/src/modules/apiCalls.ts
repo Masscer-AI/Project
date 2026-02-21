@@ -1152,16 +1152,16 @@ export const deleteChatWidget = async (widgetId: number) => {
 
 export type TAgentTaskInput =
   | { type: "input_text"; text: string }
-  | { type: "input_image"; content: string }
-  | { type: "input_image"; id: string }
-  | { type: "input_document"; content: string; name?: string };
+  | { type: "input_attachment"; attachment_id: string };
 
 export type TriggerAgentTaskPayload = {
   conversation_id: string;
   agent_slugs: string[];
   user_inputs: TAgentTaskInput[];
   tool_names?: string[];
+  plugin_slugs?: string[];
   multiagentic_modality?: "isolated" | "grupal";
+  regenerate_message_id?: number;
 };
 
 export type TriggerAgentTaskResponse = {
@@ -1177,6 +1177,20 @@ export const uploadMessageAttachments = async (
     "POST",
     "/v1/messaging/attachments/upload/",
     { conversation_id: conversationId, attachments },
+    false
+  );
+};
+
+export const linkMessageAttachment = async (
+  conversationId: string,
+  data:
+    | { kind: "rag_document"; rag_document_id: number }
+    | { kind: "website"; url: string }
+): Promise<{ attachment: { id: string; url?: string } }> => {
+  return makeAuthenticatedRequest(
+    "POST",
+    "/v1/messaging/attachments/link/",
+    { conversation_id: conversationId, ...data },
     false
   );
 };

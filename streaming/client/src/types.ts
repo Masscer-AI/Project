@@ -18,6 +18,7 @@ export type AttatchmentMode = "all_possible_text" | "similar_chunks";
 export type TAttachment = {
   text?: string;
   id?: number | string;
+  attachment_id?: string;
   file?: File | null;
   type: string;
   content: string;

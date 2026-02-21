@@ -35,8 +35,20 @@ class ConversationAdmin(admin.ModelAdmin):
 
 @admin.register(MessageAttachment)
 class MessageAttachmentAdmin(admin.ModelAdmin):
-    list_display = ("id", "message", "conversation", "user", "agent", "content_type", "expires_at", "created_at")
-    list_filter = ("content_type", "expires_at", "created_at")
+    list_display = (
+        "id",
+        "kind",
+        "message",
+        "conversation",
+        "user",
+        "agent",
+        "content_type",
+        "rag_document",
+        "url",
+        "expires_at",
+        "created_at",
+    )
+    list_filter = ("kind", "content_type", "expires_at", "created_at")
     readonly_fields = ("id", "file", "created_at")
     raw_id_fields = ("message", "conversation", "user", "agent")
     ordering = ("-created_at",)

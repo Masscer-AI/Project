@@ -1,6 +1,7 @@
 import logging
 import time
 import traceback as tb
+import json
 from celery import shared_task
 from .actions import generate_agent_profile_picture
 
@@ -16,7 +17,13 @@ def _serialize_prev_messages(conversation, before_message_id, limit=50):
         id__lt=before_message_id,
     ).order_by("-id")[:limit]
     return [
-        {"type": m.type, "text": m.text, "versions": m.versions}
+        {
+            "id": m.id,
+            "type": m.type,
+            "text": m.text,
+            "versions": m.versions,
+            "attachments": m.attachments or [],
+        }
         for m in reversed(list(qs))
     ]
 
@@ -30,64 +37,353 @@ def async_generate_agent_profile_picture(agent_id: int):
 def _build_user_message_text(user_inputs: list[dict]) -> str:
     """
     Build a plain-text user message from user_inputs.
+    Only includes input_text; images and documents are referenced via attachments/tool.
     """
     parts = []
     for inp in user_inputs:
-        input_type = inp.get("type", "")
-        if input_type == "input_text":
+        if inp.get("type") == "input_text":
             text = inp.get("text", "").strip()
             if text:
                 parts.append(text)
-        elif input_type == "input_image":
-            parts.append("[Image attached]")
     return "\n".join(parts) if parts else ""
 
 
-def _resolve_user_inputs_and_attachments(user_inputs: list[dict]):
+def _format_attachments_for_model_context(attachments: list[dict]) -> str:
     """
-    Resolve input_image with id to base64 content; build attachments for Message.
-    Returns (resolved_user_inputs, message_attachments_json, attachment_objects).
-    attachment_objects are the MessageAttachment instances to link to the message later.
+    Render attachment metadata as plain text for model context.
+
+    This is used when building the AgentLoop inputs so the model can discover
+    attachment IDs from previous turns, without mutating stored Message.text.
     """
-    import base64
+    if not attachments:
+        return ""
+
+    lines = ["Attachments available from this message:"]
+    for a in attachments:
+        a_type = a.get("type") or "attachment"
+        aid = a.get("attachment_id") or a.get("id") or ""
+        name = a.get("name") or ""
+        url = a.get("content") if a_type == "website" else ""
+
+        bits = [a_type]
+        if name:
+            bits.append(f"name={name}")
+        if url:
+            bits.append(f"url={url}")
+        if aid:
+            bits.append(f"attachment_id={aid}")
+        lines.append("- " + " | ".join(bits))
+
+    return "\n".join(lines)
+
+
+def _build_agent_loop_inputs(
+    *,
+    prev_messages: list[dict],
+    current_user_text: str,
+    current_user_attachments: list[dict],
+    agent_slug: str,
+    multiagentic_modality: str,
+) -> list[dict]:
+    """
+    Build the ordered OpenAI input messages for AgentLoop, including previous turns.
+
+    We include attachment metadata inside the message content so the model can
+    reference attachment IDs across many turns.
+    """
+    inputs: list[dict] = []
+
+    for m in prev_messages or []:
+        m_type = m.get("type")
+        attachments_block = _format_attachments_for_model_context(m.get("attachments") or [])
+
+        if m_type == "user":
+            text = m.get("text") or ""
+            if attachments_block:
+                text = f"{text}\n\n{attachments_block}"
+            inputs.append({"role": "user", "content": text})
+            continue
+
+        if m_type == "assistant":
+            versions = m.get("versions") or []
+
+            if multiagentic_modality == "grupal" and versions:
+                for v in versions:
+                    v_text = v.get("text") or ""
+                    if not v_text:
+                        continue
+                    if v.get("agent_slug") == agent_slug:
+                        text = v_text
+                        if attachments_block:
+                            text = f"{text}\n\n{attachments_block}"
+                        inputs.append({"role": "assistant", "content": text})
+                    else:
+                        agent_name = v.get("agent_name", "Unknown")
+                        tagged = (
+                            f"[GROUP CHAT — message from AI assistant \"{agent_name}\"]\n\n"
+                            f"{v_text}"
+                        )
+                        if attachments_block:
+                            tagged = f"{tagged}\n\n{attachments_block}"
+                        inputs.append({"role": "user", "content": tagged})
+                continue
+
+            # isolated: pick this agent's version if present, else fall back to message text
+            picked = None
+            for v in versions:
+                if v.get("agent_slug") == agent_slug and v.get("text"):
+                    picked = v.get("text")
+                    break
+            text = picked or (m.get("text") or "")
+            if attachments_block:
+                text = f"{text}\n\n{attachments_block}"
+            inputs.append({"role": "assistant", "content": text})
+            continue
+
+    # Current user turn (last)
+    final_text = current_user_text or ""
+    current_block = _format_attachments_for_model_context(current_user_attachments or [])
+    if current_block:
+        final_text = f"{final_text}\n\n{current_block}"
+    inputs.append({"role": "user", "content": final_text})
+
+    return inputs
+
+
+def _resolve_user_inputs_and_attachments(
+    user_inputs: list[dict],
+    conversation_id: str | None = None,
+):
+    """
+    Normalize user_inputs to the minimal agent-task contract:
+    - input_text
+    - input_attachment { attachment_id }
+
+    Also builds Message.attachments JSON for display and returns MessageAttachment
+    objects to link to the saved Message.
+    """
     from api.messaging.models import MessageAttachment
     from django.conf import settings
 
-    resolved = []
-    message_attachments = []
-    attachment_objects = []
+    resolved: list[dict] = []
+    message_attachments: list[dict] = []
+    attachment_objects: list[MessageAttachment] = []
+
+    def _display_url_for_file(att: MessageAttachment) -> str:
+        if not att.file:
+            return ""
+        api_base = getattr(settings, "API_BASE_URL", None) or ""
+        url = att.file.url
+        if api_base and not url.startswith("http"):
+            return f"{api_base.rstrip('/')}{url}"
+        return url
 
     for inp in user_inputs:
         input_type = inp.get("type", "")
-        if input_type == "input_image" and inp.get("id"):
-            try:
-                att = MessageAttachment.objects.get(id=inp["id"])
-            except MessageAttachment.DoesNotExist:
-                logger.warning("MessageAttachment %s not found, skipping", inp["id"])
-                continue
-            attachment_objects.append(att)
-            with att.file.open("rb") as f:
-                raw = f.read()
-            b64 = base64.b64encode(raw).decode("ascii")
-            content_type = att.content_type or "image/png"
-            data_url = f"data:{content_type};base64,{b64}"
 
-            resolved.append({"type": "input_image", "content": data_url})
-            api_base = getattr(settings, "API_BASE_URL", None) or ""
-            url = att.file.url
-            if api_base and not url.startswith("http"):
-                display_url = f"{api_base.rstrip('/')}{url}"
+        if input_type == "input_text":
+            resolved.append({"type": "input_text", "text": inp.get("text", "")})
+            continue
+
+        if input_type == "input_attachment":
+            attachment_id = inp.get("attachment_id")
+            if not attachment_id:
+                raise ValueError("input_attachment requires attachment_id")
+            try:
+                if conversation_id:
+                    att = MessageAttachment.objects.get(
+                        id=attachment_id,
+                        conversation_id=conversation_id,
+                    )
+                else:
+                    att = MessageAttachment.objects.get(id=attachment_id)
+            except MessageAttachment.DoesNotExist:
+                raise ValueError(
+                    f"MessageAttachment {attachment_id} not found"
+                    + (f" for conversation {conversation_id}" if conversation_id else "")
+                )
+
+            attachment_objects.append(att)
+            resolved.append({"type": "input_attachment", "attachment_id": str(att.id)})
+
+            # Attachments shown in Message history (UI)
+            kind = getattr(att, "kind", "") or ""
+            if kind == "website":
+                message_attachments.append(
+                    {
+                        "type": "website",
+                        "content": getattr(att, "url", "") or "",
+                        "attachment_id": str(att.id),
+                    }
+                )
+            elif kind == "rag_document":
+                rag_doc = getattr(att, "rag_document", None)
+                message_attachments.append(
+                    {
+                        "type": "rag_document",
+                        "name": getattr(rag_doc, "name", None) if rag_doc else None,
+                        "attachment_id": str(att.id),
+                    }
+                )
             else:
-                display_url = url
-            message_attachments.append({
-                "type": "image",
-                "content": display_url,
-                "name": att.file.name.split("/")[-1] or "image.png",
-            })
-        else:
-            resolved.append(dict(inp))
+                # Default: file attachment (image or generic document)
+                display_url = _display_url_for_file(att)
+                is_image = bool(att.content_type and att.content_type.startswith("image/"))
+                filename = (
+                    att.file.name.split("/")[-1]
+                    if att.file and att.file.name
+                    else ("image" if is_image else "document")
+                )
+                message_attachments.append(
+                    {
+                        "type": "image" if is_image else "document",
+                        "content": display_url,
+                        "name": filename,
+                        "attachment_id": str(att.id),
+                    }
+                )
+            continue
+
+        raise ValueError(f"Unsupported user input type '{input_type}'")
 
     return resolved, message_attachments, attachment_objects
+
+
+def _extract_create_image_attachments(tool_calls: list[dict]) -> tuple[list[dict], list[str]]:
+    """
+    Extract image attachment descriptors from AgentLoop tool_calls.
+
+    create_image tool returns JSON like:
+      { attachment_id, name, content, ... }
+
+    We persist those into Message.attachments (for UI) and keep attachment IDs
+    to link MessageAttachment.message after the assistant Message exists.
+    """
+    if not tool_calls:
+        return [], []
+
+    attachments: list[dict] = []
+    attachment_ids: list[str] = []
+
+    for call in tool_calls:
+        try:
+            if (call or {}).get("tool_name") != "create_image":
+                continue
+            raw = (call or {}).get("result") or ""
+            if not isinstance(raw, str) or not raw.strip():
+                continue
+            data = json.loads(raw)
+            if not isinstance(data, dict):
+                continue
+            aid = data.get("attachment_id")
+            content = data.get("content") or ""
+            name = data.get("name") or "image"
+            if not aid or not content:
+                continue
+            attachments.append(
+                {
+                    "type": "image",
+                    "content": content,
+                    "name": name,
+                    "attachment_id": str(aid),
+                }
+            )
+            attachment_ids.append(str(aid))
+        except Exception:
+            # Never fail the whole agent task because of attachment parsing
+            continue
+
+    return attachments, attachment_ids
+
+
+def _extract_create_speech_attachments(tool_calls: list[dict]) -> tuple[list[dict], list[str]]:
+    """
+    Extract audio attachment descriptors from AgentLoop tool_calls.
+
+    create_speech tool returns JSON like:
+      { attachment_id, name, content, content_type, ... }
+    """
+    if not tool_calls:
+        return [], []
+
+    attachments: list[dict] = []
+    attachment_ids: list[str] = []
+
+    for call in tool_calls:
+        try:
+            if (call or {}).get("tool_name") != "create_speech":
+                continue
+            raw = (call or {}).get("result") or ""
+            if not isinstance(raw, str) or not raw.strip():
+                continue
+            data = json.loads(raw)
+            if not isinstance(data, dict):
+                continue
+            aid = data.get("attachment_id")
+            content = data.get("content") or ""
+            name = data.get("name") or "speech"
+            if not aid or not content:
+                continue
+            attachments.append(
+                {
+                    "type": "audio_generation",
+                    "content": content,
+                    "name": name,
+                    "attachment_id": str(aid),
+                }
+            )
+            attachment_ids.append(str(aid))
+        except Exception:
+            continue
+
+    return attachments, attachment_ids
+
+
+def _extract_rag_sources(tool_calls: list[dict]) -> list[dict]:
+    """
+    Extract RAG sources from rag_query tool calls so they can be displayed
+    in the frontend just like the streaming path does.
+
+    Returns a list of source dicts matching the TSource frontend type:
+      { model_id, model_name, content, extra }
+    """
+    if not tool_calls:
+        return []
+
+    sources: list[dict] = []
+    seen: set[str] = set()
+
+    for call in tool_calls:
+        try:
+            if (call or {}).get("tool_name") != "rag_query":
+                continue
+            raw = (call or {}).get("result") or ""
+            if not isinstance(raw, str) or not raw.strip():
+                continue
+            data = json.loads(raw)
+            if not isinstance(data, dict):
+                continue
+            results_wrapper = data.get("results") or {}
+            inner = results_wrapper.get("results") or results_wrapper
+            metadatas = inner.get("metadatas") or []
+            for meta_list in metadatas:
+                for meta in meta_list:
+                    if not isinstance(meta, dict) or not meta:
+                        continue
+                    key = f"{meta.get('model_name', '')}-{meta.get('model_id', '')}"
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    sources.append({
+                        "model_id": meta.get("model_id"),
+                        "model_name": meta.get("model_name", "chunk"),
+                        "content": meta.get("content", ""),
+                        "extra": meta.get("extra", ""),
+                    })
+        except Exception:
+            continue
+
+    return sources
 
 
 @shared_task
@@ -96,9 +392,11 @@ def conversation_agent_task(
     user_inputs: list[dict],
     tool_names: list[str],
     agent_slugs: list[str],
+    plugin_slugs: list[str] | None = None,
     multiagentic_modality: str = "isolated",
     max_iterations: int = 10,
     user_id: int | None = None,
+    regenerate_message_id: int | None = None,
 ):
     """
     Celery task that runs an AgentLoop for one or more agents in a conversation.
@@ -117,12 +415,15 @@ def conversation_agent_task(
         agent_slugs: list of Agent slugs to run (in order)
         multiagentic_modality: "isolated" or "grupal"
         user_id: ID of the user (for notifications)
+        regenerate_message_id: if set, reuse this user message (update its text,
+            delete all subsequent messages) instead of creating a new one.
 
     Returns:
         dict with status, output, iterations, tool_calls_count, message_id
     """
     from api.ai_layers.agent_loop import AgentLoop
     from api.ai_layers.models import Agent, AgentSession
+    from api.ai_layers.plugins import format_plugins_instruction
     from api.ai_layers.tools import resolve_tools
     from api.ai_layers.schemas import (
         AgentSessionInputs,
@@ -135,10 +436,47 @@ def conversation_agent_task(
     from api.notify.actions import notify_user
     from api.messaging.models import Conversation, Message
 
-    # Resolve input_image ids to content; get attachments for Message
-    resolved_inputs, message_attachments, attachment_objects = _resolve_user_inputs_and_attachments(
-        user_inputs
-    )
+    # Get conversation first (needed for validation in resolve)
+    try:
+        conversation = Conversation.objects.get(id=conversation_id)
+    except Conversation.DoesNotExist:
+        logger.error("Conversation %s not found", conversation_id)
+        notify_user(
+            user_id,
+            "agent_events_channel",
+            {"type": "error", "conversation_id": conversation_id, "error": f"Conversation {conversation_id} not found"},
+        )
+        return {"status": "error", "error": "Conversation not found"}
+
+    # Normalize plugin slugs (preserve order, dedupe).
+    if plugin_slugs is None:
+        plugin_slugs = []
+    if not isinstance(plugin_slugs, list):
+        plugin_slugs = []
+    seen_plugins: set[str] = set()
+    normalized_plugins: list[str] = []
+    for p in plugin_slugs:
+        if not isinstance(p, str):
+            continue
+        s = p.strip()
+        if not s or s in seen_plugins:
+            continue
+        seen_plugins.add(s)
+        normalized_plugins.append(s)
+    plugin_slugs = normalized_plugins
+
+    # Normalize inputs and collect attachments for Message (strict contract)
+    try:
+        resolved_inputs, message_attachments, attachment_objects = _resolve_user_inputs_and_attachments(
+            user_inputs, conversation_id=conversation_id
+        )
+    except ValueError as e:
+        notify_user(
+            user_id,
+            "agent_events_channel",
+            {"type": "error", "conversation_id": conversation_id, "error": str(e)},
+        )
+        return {"status": "error", "error": str(e)}
     user_message_text = _build_user_message_text(resolved_inputs)
 
     def emit_event(event_type: str, data: dict) -> None:
@@ -156,24 +494,38 @@ def conversation_agent_task(
 
     agent_sessions_created = []
     try:
-        tools = resolve_tools(tool_names) if tool_names else []
-
-        # ---- Save user message ----
-        try:
-            conversation = Conversation.objects.get(id=conversation_id)
-            user_message = Message.objects.create(
-                conversation=conversation,
-                type="user",
-                text=user_message_text,
-                attachments=message_attachments,
-            )
-            for att in attachment_objects:
-                att.message = user_message
-                att.save(update_fields=["message"])
-        except Conversation.DoesNotExist:
-            logger.error("Conversation %s not found", conversation_id)
-            emit_event("error", {"error": f"Conversation {conversation_id} not found"})
-            return {"status": "error", "error": "Conversation not found"}
+        # ---- Save or reuse user message ----
+        if regenerate_message_id:
+            try:
+                user_message = Message.objects.get(
+                    id=regenerate_message_id,
+                    conversation=conversation,
+                    type="user",
+                )
+                user_message.text = user_message_text
+                user_message.attachments = message_attachments
+                user_message.save(update_fields=["text", "attachments"])
+                Message.objects.filter(
+                    conversation=conversation,
+                    id__gt=user_message.id,
+                ).delete()
+            except Message.DoesNotExist:
+                emit_event("error", {"error": "Message to regenerate not found"})
+                return {"status": "error", "error": "Message to regenerate not found"}
+        else:
+            try:
+                user_message = Message.objects.create(
+                    conversation=conversation,
+                    type="user",
+                    text=user_message_text,
+                    attachments=message_attachments,
+                )
+                for att in attachment_objects:
+                    att.message = user_message
+                    att.save(update_fields=["message"])
+            except Exception:
+                emit_event("error", {"error": "Failed to save user message"})
+                return {"status": "error", "error": "Failed to save user message"}
 
         # ---- Resolve agents in order ----
         agents_by_slug = {a.slug: a for a in Agent.objects.filter(slug__in=agent_slugs)}
@@ -185,24 +537,106 @@ def conversation_agent_task(
         versions = []
         total_iterations = 0
         total_tool_calls = 0
+        assistant_message_attachments: list[dict] = []
+        assistant_attachment_ids: list[str] = []
 
         prev_messages = _serialize_prev_messages(conversation, user_message.id)
+
+        attachment_ids = [
+            inp.get("attachment_id") or inp.get("id")
+            for inp in resolved_inputs
+            if inp.get("type") == "input_attachment"
+        ]
+        attachment_ids_instruction = ""
+        if attachment_ids:
+            attachment_ids_instruction = (
+                "\n\nThe user has attached items. Read them with the read_attachment tool. "
+                "Available attachment IDs: " + ", ".join(str(aid) for aid in attachment_ids if aid) + "\n"
+            )
+
+        # Pre-compute context shared across all agent iterations
+        from datetime import datetime
+        from api.authenticate.models import UserProfile
+
+        current_date_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        user_profile_text = ""
+        if user_id:
+            try:
+                user_profile_text = UserProfile.objects.get(user_id=user_id).get_as_text()
+            except UserProfile.DoesNotExist:
+                pass
 
         for index, agent in enumerate(agents_ordered):
             instructions = agent.format_prompt()
             llm = agent.llm
             model_slug = llm.slug if llm else (agent.model_slug or "gpt-5.2")
 
-            # For grupal: prepend previous agents' outputs to instructions
-            if multiagentic_modality == "grupal" and versions:
-                prev_context = (
-                    "\n\nYou must consider that the other AI(s) in the conversation "
-                    "are other users and refer to them as such. ONLY GIVE YOUR RESPONSE."
-                    "\n\nResponses from other AIs so far:\n"
+            instructions += f"\n\nYour name is: {agent.name}."
+            instructions += f"\nThe current date and time is {current_date_time}."
+            if user_profile_text:
+                instructions += f"\n{user_profile_text}"
+
+            if attachment_ids_instruction:
+                instructions = instructions + attachment_ids_instruction
+
+            # If the user enabled RAG/Web Search, they expect the agent to use it.
+            if "rag_query" in (tool_names or []):
+                instructions += (
+                    "\n\nRAG is enabled for this conversation. "
+                    "Before answering, you MUST call rag_query at least once with a small list of queries "
+                    "(1-5) derived from the user's latest request. "
+                    "If rag_query returns no results, say so briefly and continue with best-effort."
                 )
-                for v in versions:
-                    prev_context += f"\n--- {v.get('agent_name', 'Unknown')} ---\n{v.get('text', '')}\n"
-                instructions = instructions + prev_context
+            if "explore_web" in (tool_names or []):
+                instructions += (
+                    "\n\nWeb Search is enabled for this conversation. "
+                    "Before answering, you MUST call explore_web at least once with an appropriate query "
+                    "derived from the user's latest request. "
+                    "Use the results to improve factuality; if it returns no results, say so briefly and continue."
+                )
+            if "create_image" in (tool_names or []):
+                instructions += (
+                    "\n\nImage generation is enabled for this conversation. "
+                    "If the user asks you to generate an image, you can call create_image(prompt, model, aspect_ratio). "
+                    "Use model='gpt-image-1.5'. aspect_ratio must be one of: square, landscape, portrait."
+                    "\n\nWhen referencing an attachment inside your message markdown, prefer this format: "
+                    "![Alt text](attachment:<attachment_id>). Do NOT invent /media/... URLs."
+                )
+            if "create_speech" in (tool_names or []):
+                instructions += (
+                    "\n\nSpeech generation is enabled (model: gpt-4o-mini-tts). "
+                    "If the user asks for an audio version, call create_speech(text, voice, instructions, output_format). "
+                    "voices: alloy, ash, ballad, coral, echo, fable, nova, onyx, sage, shimmer, verse, marin, cedar. "
+                    "For best quality use marin or cedar. "
+                    "The 'instructions' parameter lets you control accent, tone, speed, emotional range, whispering, etc. "
+                    "Example: instructions='Speak slowly with a calm, soothing British accent.' "
+                    "output_format must be mp3 or wav."
+                    "\n\nWhen referencing the audio attachment in markdown, link it like: "
+                    "[Listen](attachment:<attachment_id>)."
+                )
+
+            # For grupal: strong context about the group conversation
+            if multiagentic_modality == "grupal":
+                grupal_preamble = (
+                    "\n\n=== GROUP CONVERSATION ===\n"
+                    "You are participating in a GROUP CHAT alongside other AI assistants. "
+                    "Each assistant takes turns responding to the same user message. "
+                    "You can see the other assistants' responses in the conversation history — "
+                    "they are real participants in this chat, not text pasted by the user. "
+                    "Treat them as fellow participants: you can agree, disagree, add to, "
+                    "or complement their responses. Do NOT repeat what they already said. "
+                    "Give ONLY your own response — do not summarize or restate theirs.\n"
+                    "=== END GROUP CONVERSATION ===\n"
+                )
+                if versions:
+                    grupal_preamble += "\nResponses from other assistants so far:\n"
+                    for v in versions:
+                        grupal_preamble += f"\n--- {v.get('agent_name', 'Unknown')} ---\n{v.get('text', '')}\n"
+                instructions = instructions + grupal_preamble
+
+            # Plugins: canonical instruction blocks (server-side allowlist).
+            instructions += format_plugins_instruction(plugin_slugs)
 
             # ---- Create AgentSession (inputs) ----
             model_ref = ModelRef(
@@ -215,6 +649,7 @@ def conversation_agent_task(
                 user_inputs=resolved_inputs,
                 user_message_text=user_message_text,
                 tool_names=tool_names,
+                plugin_slugs=plugin_slugs,
                 agent=AgentRef(id=agent.id, slug=agent.slug, name=agent.name),
                 model=model_ref,
                 multiagentic_modality=multiagentic_modality,
@@ -243,6 +678,18 @@ def conversation_agent_task(
                 }
                 notify_user(user_id, "agent_events_channel", payload)
 
+            # Resolve tools per-agent so tools can use agent_slug closures (e.g. rag_query)
+            tools = (
+                resolve_tools(
+                    tool_names,
+                    conversation_id=conversation_id,
+                    user_id=user_id,
+                    agent_slug=agent.slug,
+                )
+                if tool_names
+                else []
+            )
+
             loop = AgentLoop(
                 tools=tools,
                 instructions=instructions,
@@ -250,10 +697,31 @@ def conversation_agent_task(
                 max_iterations=max_iterations,
                 on_event=on_event,
             )
-            result = loop.run(user_message_text, user_inputs=resolved_inputs)
+
+            openai_inputs = _build_agent_loop_inputs(
+                prev_messages=prev_messages,
+                current_user_text=user_message_text,
+                current_user_attachments=message_attachments,
+                agent_slug=agent.slug,
+                multiagentic_modality=multiagentic_modality,
+            )
+            result = loop.run(openai_inputs)
 
             # ---- Update AgentSession (outputs) ----
             from django.utils import timezone
+
+            # ---- Collect any generated attachments (image/audio) ----
+            new_atts, new_ids = _extract_create_image_attachments(result.tool_calls or [])
+            if new_atts:
+                assistant_message_attachments.extend(new_atts)
+            if new_ids:
+                assistant_attachment_ids.extend(new_ids)
+ 
+            speech_atts, speech_ids = _extract_create_speech_attachments(result.tool_calls or [])
+            if speech_atts:
+                assistant_message_attachments.extend(speech_atts)
+            if speech_ids:
+                assistant_attachment_ids.extend(speech_ids)
 
             if isinstance(result.output, str):
                 output_value = OutputValue(type="string", value=result.output)
@@ -287,10 +755,13 @@ def conversation_agent_task(
             else:
                 output_text = str(result.output)
 
+            rag_sources = _extract_rag_sources(result.tool_calls or [])
+
             version = {
                 "agent_slug": agent.slug,
                 "agent_name": agent.name,
                 "type": "assistant",
+                "sources": rag_sources,
                 "usage": {
                     "prompt_tokens": result.usage.get("prompt_tokens", 0),
                     "completion_tokens": result.usage.get("completion_tokens", 0),
@@ -307,6 +778,43 @@ def conversation_agent_task(
             # Emit version immediately so frontend can display it in real time
             emit_event("agent_version_ready", {"version": version})
 
+            # Grupal: save a separate assistant message per agent (matches streaming behaviour)
+            if multiagentic_modality == "grupal":
+                try:
+                    conv_ref = Conversation.objects.get(id=conversation_id)
+                    grupal_msg = Message.objects.create(
+                        conversation=conv_ref,
+                        type="assistant",
+                        text=output_text,
+                        versions=[version],
+                        attachments=assistant_message_attachments,
+                    )
+                    if assistant_attachment_ids:
+                        from api.messaging.models import MessageAttachment
+                        MessageAttachment.objects.filter(
+                            conversation_id=conversation_id,
+                            id__in=assistant_attachment_ids,
+                        ).update(message=grupal_msg)
+                    session.assistant_message = grupal_msg
+                    session.save(update_fields=["assistant_message"])
+                    # Reset per-agent attachment accumulators
+                    assistant_message_attachments = []
+                    assistant_attachment_ids = []
+
+                    is_last_agent = index == len(agents_ordered) - 1
+                    next_agent_slug = agents_ordered[index + 1].slug if not is_last_agent else None
+
+                    emit_finished({
+                        "output": output_text,
+                        "message_id": grupal_msg.id,
+                        "versions": [version],
+                        "iterations": total_iterations,
+                        "tool_calls_count": total_tool_calls,
+                        "next_agent_slug": next_agent_slug,
+                    })
+                except Conversation.DoesNotExist:
+                    logger.warning("Conversation %s not found (grupal save)", conversation_id)
+
             emit_event("agent_complete", {
                 "agent_slug": agent.slug,
                 "agent_name": agent.name,
@@ -314,35 +822,50 @@ def conversation_agent_task(
                 "total": len(agents_ordered),
             })
 
-        # ---- Save assistant message with all versions ----
-        assistant_message_id = None
-        primary_text = versions[0]["text"] if versions else ""
-        try:
-            conversation = Conversation.objects.get(id=conversation_id)
-            assistant_msg = Message.objects.create(
-                conversation=conversation,
-                type="assistant",
-                text=primary_text,
-                versions=versions,
-            )
-            assistant_message_id = assistant_msg.id
-            for s in agent_sessions_created:
-                s.assistant_message = assistant_msg
-                s.save(update_fields=["assistant_message"])
-            conversation.generate_title()
-        except Conversation.DoesNotExist:
-            logger.warning(
-                "Conversation %s not found when saving assistant message",
-                conversation_id,
-            )
+        # ---- Save assistant message (isolated: single message with all versions) ----
+        if multiagentic_modality != "grupal":
+            assistant_message_id = None
+            primary_text = versions[0]["text"] if versions else ""
+            try:
+                conversation = Conversation.objects.get(id=conversation_id)
+                assistant_msg = Message.objects.create(
+                    conversation=conversation,
+                    type="assistant",
+                    text=primary_text,
+                    versions=versions,
+                    attachments=assistant_message_attachments,
+                )
+                assistant_message_id = assistant_msg.id
+                if assistant_attachment_ids:
+                    from api.messaging.models import MessageAttachment
 
-        emit_finished({
-            "output": primary_text,
-            "message_id": assistant_message_id,
-            "versions": versions,
-            "iterations": total_iterations,
-            "tool_calls_count": total_tool_calls,
-        })
+                    MessageAttachment.objects.filter(
+                        conversation_id=conversation_id,
+                        id__in=assistant_attachment_ids,
+                    ).update(message=assistant_msg)
+                for s in agent_sessions_created:
+                    s.assistant_message = assistant_msg
+                    s.save(update_fields=["assistant_message"])
+                conversation.generate_title()
+            except Conversation.DoesNotExist:
+                logger.warning(
+                    "Conversation %s not found when saving assistant message",
+                    conversation_id,
+                )
+
+            emit_finished({
+                "output": primary_text,
+                "message_id": assistant_message_id,
+                "versions": versions,
+                "iterations": total_iterations,
+                "tool_calls_count": total_tool_calls,
+            })
+
+        if multiagentic_modality == "grupal":
+            try:
+                Conversation.objects.get(id=conversation_id).generate_title()
+            except Conversation.DoesNotExist:
+                pass
 
         logger.info(
             "conversation_agent_task completed: conversation=%s agents=%d iterations=%d tool_calls=%d",

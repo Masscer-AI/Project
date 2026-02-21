@@ -29,17 +29,9 @@ class UserInputText(BaseModel):
     text: str
 
 
-class UserInputDocument(BaseModel):
-    type: Literal["input_document"] = "input_document"
-    id: str
-    name: str | None = None
-    content: str | None = None
-
-
-class UserInputImage(BaseModel):
-    type: Literal["input_image"] = "input_image"
-    content: str | None = None
-    id: str | None = None
+class UserInputAttachment(BaseModel):
+    type: Literal["input_attachment"] = "input_attachment"
+    attachment_id: str
 
 
 class UserInputOther(BaseModel):
@@ -49,15 +41,17 @@ class UserInputOther(BaseModel):
     model_config = {"extra": "allow"}
 
 
-UserInput = Union[UserInputText, UserInputDocument, UserInputImage, UserInputOther]
+UserInput = Union[UserInputText, UserInputAttachment, UserInputOther]
 
 
 # ---- Prev messages ----
 
 class PrevMessage(BaseModel):
     type: Literal["user", "assistant"]
+    id: int | None = None
     text: str
     versions: list[dict[str, Any]] = Field(default_factory=list)
+    attachments: list[dict[str, Any]] = Field(default_factory=list)
 
 
 # ---- AgentSession inputs ----
@@ -72,6 +66,10 @@ class AgentSessionInputs(BaseModel):
     )
     user_message_text: str = Field(description="Resolved plain text for the LLM")
     tool_names: list[str] = Field(default_factory=list, description="Enabled tool names")
+    plugin_slugs: list[str] = Field(
+        default_factory=list,
+        description="Enabled plugin slugs (server-side allowlist)",
+    )
     agent: AgentRef = Field(description="Agent reference")
     model: ModelRef = Field(description="Model reference")
     multiagentic_modality: Literal["isolated", "grupal"] = "isolated"

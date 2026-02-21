@@ -8,16 +8,7 @@ import { deleteMessage, updateMessage, getAgentSessionsForMessage } from "../../
 import { useTranslation } from "react-i18next";
 import { useStore } from "../../modules/store";
 import { Reactions } from "../Reactions/Reactions";
-import {
-  AudioPlayerOptions,
-  AudioPlayerWithAppendOptions,
-  createAudioPlayer,
-} from "../../modules/utils";
 
-import { ImageGenerator } from "../ImageGenerator/ImageGenerator";
-import { createPortal } from "react-dom";
-import { AudioGenerator } from "../AudioGenerator/AudioGenerator";
-import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
 import "./Message.css";
 
 import {
@@ -34,22 +25,16 @@ import {
   Stack,
   Group,
   Loader as MantineLoader,
+  ScrollArea,
 } from "@mantine/core";
 import {
   IconCopy,
-  IconPlayerPause,
-  IconPlayerPlay,
-  IconPlayerStop,
-  IconDownload,
   IconCheck,
   IconDotsVertical,
   IconPencil,
-  IconPhoto,
   IconTrash,
-  IconEye,
+  IconFileText,
   IconSearch,
-  IconPlus,
-  IconVolume,
 } from "@tabler/icons-react";
 
 type TReaction = {
@@ -61,13 +46,6 @@ interface Link {
   url: string;
   text: string;
 }
-
-const slugify = (text: string) => {
-  return text
-    .toLowerCase()
-    .replace(/ /g, "-")
-    .replace(/[^a-z0-9-]/g, "");
-};
 
 interface MessageProps {
   id?: number;
@@ -111,28 +89,17 @@ export const Message = memo(
     const [innerReactions, setInnerReactions] = useState(
       reactions || ([] as TReaction[])
     );
-    const [audioPlayer, setAudioPlayer] = useState<
-      AudioPlayerWithAppendOptions | AudioPlayerOptions | null
-    >(null);
-    const [isPlayingAudio, setIsPlayingAudio] = useState(false);
     const [messageState, setMessageState] = useState({
-      imageGeneratorOpened: false,
-      audioGeneratorOpened: false,
       confirmDeleteOpened: false,
     });
-    const [isGeneratingSpeech, setIsGeneratingSpeech] = useState(false);
     const [agentSessions, setAgentSessions] = useState<TAgentSession[] | null>(null);
 
     const { t } = useTranslation();
-    const isChatSpeechEnabled = useIsFeatureEnabled("chat-generate-speech");
-    const isImageToolsEnabled = useIsFeatureEnabled("image-tools");
 
-    const { agents, reactionTemplates, socket, userPreferences, agentTaskStatus } = useStore(
+    const { agents, reactionTemplates, agentTaskStatus } = useStore(
       (s) => ({
         agents: s.agents,
         reactionTemplates: s.reactionTemplates,
-        socket: s.socket,
-        userPreferences: s.userPreferences,
         agentTaskStatus: s.agentTaskStatus,
       })
     );
@@ -149,22 +116,6 @@ export const Message = memo(
       );
     };
 
-    const onFinishAudioGeneration = () => {
-      setIsPlayingAudio(false);
-    };
-
-    useEffect(() => {
-      socket.on(`response-for-${index}`, (data) => {
-        if (data.chunk) {
-          setInnerText((prev) => prev + data.chunk);
-        }
-      });
-
-      return () => {
-        socket.off(`response-for-${index}`);
-      };
-    }, [index]);
-
     useEffect(() => {
       if (!id || !versions?.length || type !== "assistant") return;
 
@@ -172,42 +123,6 @@ export const Message = memo(
         .then((sessions) => setAgentSessions(sessions))
         .catch(() => setAgentSessions(null));
     }, [id, versions?.length, type]);
-
-    useEffect(() => {
-      if (!id) return;
-
-      socket.on(`audio-file-${id}`, (audioFile) => {
-        setIsGeneratingSpeech(false);
-
-        if (audioPlayer) {
-          audioPlayer.stop();
-          audioPlayer.destroy();
-        }
-        const newAudioPlayer = createAudioPlayer(
-          audioFile,
-          onFinishAudioGeneration
-        );
-        newAudioPlayer.play();
-
-        setAudioPlayer(newAudioPlayer);
-        setIsPlayingAudio(true);
-      });
-
-      return () => {
-        socket.off(`audio-file-${id}`);
-      };
-    }, [id, socket, audioPlayer]);
-
-    useEffect(() => {
-      if (
-        id &&
-        numberMessages === index + 1 &&
-        userPreferences.autoplay &&
-        type === "assistant"
-      ) {
-        handleGenerateSpeech(versions?.[currentVersion]?.text || innerText);
-      }
-    }, [id, numberMessages]);
 
     useEffect(() => {
       const anchors = document.querySelectorAll(`.message-${index} a`);
@@ -245,46 +160,6 @@ export const Message = memo(
         setInnerReactions(
           innerReactions.filter((r) => r.template !== templateId)
         );
-      }
-    };
-
-    const handleGenerateSpeech = async (text: string) => {
-      if (isGeneratingSpeech) {
-        const randomWaitMessage = [
-          t("speech-being-generated-wait-a-second"),
-          t("are-you-trying-to-make-me-speak-twice?"),
-          t("just-a-second"),
-        ];
-        const randomIndex = Math.floor(
-          Math.random() * randomWaitMessage.length
-        );
-        toast.success(randomWaitMessage[randomIndex], {
-          icon: "🔊",
-        });
-        return;
-      }
-
-      if (!audioPlayer) {
-        try {
-          toast.success(t("speech-being-generated-wait-a-second"), {
-            icon: "🔊",
-          });
-
-          socket.emit("speech_request", {
-            text: text,
-            id: id,
-            voice: {
-              type: "openai",
-              slug:
-                agents.find(
-                  (a) => versions?.[currentVersion].agent_slug === a.slug
-                )?.openai_voice || "alloy",
-            },
-          });
-          setIsGeneratingSpeech(true);
-        } catch (error) {
-          console.error("Error generating speech:", error);
-        }
       }
     };
 
@@ -350,6 +225,7 @@ export const Message = memo(
             <MarkdownRenderer
               markdown={versions?.[currentVersion]?.text || innerText}
               extraClass={`message-text ${type === "user" ? "user" : "assistant"}`}
+              attachments={attachments}
             />
           </div>
         )}
@@ -384,9 +260,13 @@ export const Message = memo(
               );
             })}
           {versions?.[currentVersion]?.sources &&
-            versions?.[currentVersion]?.sources.map((s, sIdx) => (
-              <Source key={sIdx} source={s} />
-            ))}
+            versions[currentVersion].sources.length > 0 && (
+              <Group gap="xs" mt="xs" wrap="wrap">
+                {versions[currentVersion].sources.map((s, sIdx) => (
+                  <Source key={sIdx} source={s} />
+                ))}
+              </Group>
+            )}
 
           {versions?.[currentVersion]?.web_search_results &&
             versions?.[currentVersion]?.web_search_results.map(
@@ -414,86 +294,6 @@ export const Message = memo(
 
           {id && !readOnly && (
             <>
-              {messageState.imageGeneratorOpened && (
-                <ImageGenerator
-                  onResult={(imageB64, imageName) =>
-                    onImageGenerated(imageB64, imageName, id)
-                  }
-                  messageId={id}
-                  hide={() =>
-                    setMessageState((prev) => ({
-                      ...prev,
-                      imageGeneratorOpened: false,
-                    }))
-                  }
-                  initialPrompt={
-                    versions?.[currentVersion]?.text || innerText
-                  }
-                />
-              )}
-
-              {audioPlayer && (
-                <>
-                  {isPlayingAudio ? (
-                    <Tooltip label={t("pause-speech")} withArrow>
-                      <ActionIcon
-                        variant="subtle"
-                        color="gray"
-                        size="sm"
-                        onClick={() => {
-                          audioPlayer.pause();
-                          setIsPlayingAudio(false);
-                        }}
-                      >
-                        <IconPlayerPause size={18} />
-                      </ActionIcon>
-                    </Tooltip>
-                  ) : (
-                    <Tooltip label={t("play-speech")} withArrow>
-                      <ActionIcon
-                        variant="subtle"
-                        color="gray"
-                        size="sm"
-                        onClick={() => {
-                          audioPlayer.play();
-                          setIsPlayingAudio(true);
-                        }}
-                      >
-                        <IconPlayerPlay size={18} />
-                      </ActionIcon>
-                    </Tooltip>
-                  )}
-                  <Tooltip label={t("stop-speech")} withArrow>
-                    <ActionIcon
-                      variant="subtle"
-                      color="gray"
-                      size="sm"
-                      onClick={() => {
-                        audioPlayer.stop();
-                        setIsPlayingAudio(false);
-                      }}
-                    >
-                      <IconPlayerStop size={18} />
-                    </ActionIcon>
-                  </Tooltip>
-                  <Tooltip label={t("download-audio")} withArrow>
-                    <ActionIcon
-                      variant="subtle"
-                      color="gray"
-                      size="sm"
-                      onClick={() => {
-                        const filename = slugify(
-                          versions?.[currentVersion]?.text || text
-                        ).slice(0, 100);
-                        audioPlayer.download(filename);
-                      }}
-                    >
-                      <IconDownload size={18} />
-                    </ActionIcon>
-                  </Tooltip>
-                </>
-              )}
-
               {isEditing && (
                 <Tooltip label={t("finish")} withArrow>
                   <ActionIcon
@@ -542,7 +342,6 @@ export const Message = memo(
                       size="sm"
                       onClick={() => {
                         setCurrentVersion(vIdx);
-                        setAudioPlayer(null);
                       }}
                     >
                       {vIdx + 1}
@@ -622,19 +421,6 @@ export const Message = memo(
                 </ActionIcon>
               </Menu.Target>
               <Menu.Dropdown>
-                {isChatSpeechEnabled && (
-                  <Menu.Item
-                    leftSection={<IconVolume size={16} />}
-                    onClick={() =>
-                      setMessageState((prev) => ({
-                        ...prev,
-                        audioGeneratorOpened: true,
-                      }))
-                    }
-                  >
-                    {t("generate-speech")}
-                  </Menu.Item>
-                )}
                 <Menu.Item
                   leftSection={
                     isEditing ? (
@@ -647,19 +433,6 @@ export const Message = memo(
                 >
                   {isEditing ? t("finish") : t("edit")}
                 </Menu.Item>
-                {isImageToolsEnabled && (
-                  <Menu.Item
-                    leftSection={<IconPhoto size={16} />}
-                    onClick={() =>
-                      setMessageState((prev) => ({
-                        ...prev,
-                        imageGeneratorOpened: true,
-                      }))
-                    }
-                  >
-                    {t("generate-image")}
-                  </Menu.Item>
-                )}
                 <Menu.Divider />
                 <Menu.Item
                   color="red"
@@ -677,21 +450,6 @@ export const Message = memo(
             </Menu>
           )}
         </div>
-
-        {/* AudioGenerator modal (externally triggered) */}
-        {id && (
-          <AudioGenerator
-            text={versions?.[currentVersion]?.text || innerText}
-            messageId={id.toString()}
-            opened={messageState.audioGeneratorOpened}
-            onClose={() =>
-              setMessageState((prev) => ({
-                ...prev,
-                audioGeneratorOpened: false,
-              }))
-            }
-          />
-        )}
 
         {/* Delete confirmation modal */}
         <Modal
@@ -744,40 +502,49 @@ const Source = ({ source }: { source: TSource }) => {
   const { t } = useTranslation();
 
   return (
-    <div className="p-3 rounded-xl shadow-md" style={{ background: "var(--code-bg-color)", border: "1px solid var(--hovered-color)" }}>
-      <input
-        id={`${source.model_name}-${source.model_id}`}
-        type="text"
-        className="w-0 h-0 absolute bg-transparent border-none outline-none"
-      />
-      <p className="w-fit truncate text-sm">
-        <span className="font-medium">{t("source")}: </span>
-        <span style={{ color: "var(--font-color-secondary)" }}>
-          {t(source.model_name)} {source.model_id}
-        </span>
-      </p>
-
-      <div className="flex justify-center mt-2">
-        <Button
-          variant="default"
-          size="xs"
-          leftSection={<IconEye size={16} />}
-          onClick={() => setIsVisible(true)}
-        >
-          {t("inspect")}
-        </Button>
-      </div>
+    <>
+      <Badge
+        variant="outline"
+        color="gray"
+        size="lg"
+        style={{ cursor: "pointer" }}
+        leftSection={<IconFileText size={14} />}
+        onClick={() => setIsVisible(true)}
+      >
+        {t(source.model_name)} {source.model_id}
+      </Badge>
 
       <Modal
         opened={isVisible}
         onClose={() => setIsVisible(false)}
-        title={`${t(source.model_name)} ${source.model_id}`}
+        title={
+          <Group gap="xs">
+            <IconFileText size={18} />
+            <Text fw={600} size="sm">
+              {t(source.model_name)} {source.model_id}
+            </Text>
+          </Group>
+        }
         centered
         size="lg"
       >
-        <pre className="whitespace-pre-wrap break-all">{source.content}</pre>
+        <Stack gap="md">
+          {source.extra && (
+            <Text size="xs" c="dimmed">
+              {source.extra}
+            </Text>
+          )}
+          <ScrollArea.Autosize mah={400}>
+            <Text
+              size="sm"
+              style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", lineHeight: 1.6 }}
+            >
+              {source.content}
+            </Text>
+          </ScrollArea.Autosize>
+        </Stack>
       </Modal>
-    </div>
+    </>
   );
 };
 
@@ -834,13 +601,11 @@ const WebSearchResultInspector = ({ result }: { result: any }) => {
 const MessageEditor = ({
   text,
   textareaValueRef,
-  messageId,
-  onImageGenerated,
 }: {
   text: string;
   textareaValueRef: React.MutableRefObject<string | null>;
-  messageId: number | undefined;
-  onImageGenerated: (
+  messageId?: number;
+  onImageGenerated?: (
     imageContentB64: string,
     imageName: string,
     message_id: number
@@ -848,16 +613,6 @@ const MessageEditor = ({
 }) => {
   const [innerText, setInnerText] = useState(text);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const [editionOptions, setEditionOptions] = useState({
-    top: 0,
-    left: 0,
-    isVisible: false,
-    generateImage: false,
-    currentText: text,
-  });
-  const { t } = useTranslation();
-  const isChatSpeechEnabled = useIsFeatureEnabled("chat-generate-speech");
-  const isImageToolsEnabled = useIsFeatureEnabled("image-tools");
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -866,49 +621,6 @@ const MessageEditor = ({
         textareaRef.current.scrollHeight + "px";
     }
   }, [innerText]);
-
-  const handleMouseUp = (e: React.MouseEvent<HTMLTextAreaElement>) => {
-    const selectedText = window.getSelection()?.toString();
-    if (selectedText) {
-      setEditionOptions({
-        top: e.clientY,
-        left: e.clientX,
-        isVisible: true,
-        generateImage: false,
-        currentText: selectedText,
-      });
-    } else {
-      setEditionOptions({
-        top: e.clientY,
-        left: e.clientX,
-        isVisible: false,
-        generateImage: false,
-        currentText: text,
-      });
-    }
-  };
-
-  const generateImageWithThisText = () => {
-    setEditionOptions((prev) => ({
-      ...prev,
-      generateImage: true,
-    }));
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent<HTMLTextAreaElement>) => {
-    const selectedText = window.getSelection()?.toString();
-    if (e.changedTouches.length === 0) return;
-    const touch = e.changedTouches[0];
-    if (selectedText && touch) {
-      setEditionOptions({
-        top: touch.clientY,
-        left: touch.clientX,
-        isVisible: true,
-        generateImage: false,
-        currentText: selectedText,
-      });
-    }
-  };
 
   return (
     <div className="w-full">
@@ -922,59 +634,7 @@ const MessageEditor = ({
           setInnerText(e.target.value);
         }}
         defaultValue={text}
-        onMouseUp={handleMouseUp}
-        onTouchEnd={handleTouchEnd}
       />
-      {editionOptions.isVisible &&
-        (isImageToolsEnabled || isChatSpeechEnabled) &&
-        createPortal(
-          <div
-            style={{
-              top: editionOptions.top,
-              left: editionOptions.left,
-              background: "var(--modal-bg-color)",
-              border: "1px solid var(--hovered-color)",
-              boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
-            }}
-            className="absolute w-fit rounded-xl p-3 z-50"
-          >
-            {editionOptions.generateImage && messageId && (
-              <ImageGenerator
-                onResult={(imageB64, imageName) =>
-                  onImageGenerated(imageB64, imageName, messageId)
-                }
-                messageId={messageId}
-                hide={() =>
-                  setEditionOptions((prev) => ({
-                    ...prev,
-                    generateImage: false,
-                  }))
-                }
-                initialPrompt={editionOptions.currentText}
-              />
-            )}
-            <Stack gap="xs">
-              {isImageToolsEnabled && (
-                <Button
-                  variant="default"
-                  size="xs"
-                  leftSection={<IconPhoto size={16} />}
-                  onClick={generateImageWithThisText}
-                  fullWidth
-                >
-                  {t("generate-image")}
-                </Button>
-              )}
-              {isChatSpeechEnabled && (
-                <AudioGenerator
-                  text={editionOptions.currentText}
-                  messageId={messageId?.toString() ?? ""}
-                />
-              )}
-            </Stack>
-          </div>,
-          document.body
-        )}
     </div>
   );
 };
