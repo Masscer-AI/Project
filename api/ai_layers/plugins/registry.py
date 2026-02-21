@@ -20,11 +20,6 @@ class PluginDefinition:
 
 
 PLUGIN_DEFINITIONS: dict[str, PluginDefinition] = {
-    "calculator": PluginDefinition(
-        slug="calculator",
-        name="Calculator",
-        instructions_filename="calculator.md",
-    ),
     "mermaid-diagrams": PluginDefinition(
         slug="mermaid-diagrams",
         name="Mermaid Diagrams",

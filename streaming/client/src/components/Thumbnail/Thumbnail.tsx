@@ -1,16 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useStore } from "../../modules/store";
 import { useTranslation } from "react-i18next";
-import MarkdownRenderer from "../MarkdownRenderer/MarkdownRenderer";
 import { AttatchmentMode } from "../../types";
 import toast from "react-hot-toast";
 import { generateVideo } from "../../modules/apiCalls";
 import { AspectRatio } from "../ImageGenerator/ImageGenerator";
 import { API_URL } from "../../modules/constants";
 import {
-  Menu,
   Modal,
-  Switch,
   Button,
   ActionIcon,
   Stack,
@@ -21,7 +18,6 @@ import {
   Tooltip,
 } from "@mantine/core";
 import {
-  IconDotsVertical,
   IconTrash,
   IconFileText,
   IconDownload,
@@ -395,24 +391,6 @@ const DocumentThumnail = ({
   showFloatingButtons: boolean;
   mode?: AttatchmentMode;
 }) => {
-  const { updateAttachment } = useStore((state) => ({
-    updateAttachment: state.updateAttachment,
-  }));
-  const { t } = useTranslation();
-  const [ragMode, setRagMode] = useState<AttatchmentMode>(
-    mode ? mode : "similar_chunks"
-  );
-  const [confirmDelete, setConfirmDelete] = useState(false);
-
-  const ragModeHelpHelper: Record<string, string> = {
-    similar_chunks: t("chunks-mode-help-text"),
-    all_possible_text: t("all-content-mode-help-text"),
-  };
-
-  useEffect(() => {
-    updateAttachment(index, { mode: ragMode });
-  }, [ragMode]);
-
   return (
     <div
       title={name}
@@ -427,63 +405,14 @@ const DocumentThumnail = ({
         </p>
 
         {showFloatingButtons && (
-          <Menu
-            shadow="md"
-            width={240}
-            position="top"
-            withArrow
-            closeOnItemClick={false}
+          <ActionIcon
+            variant="subtle"
+            color="red"
+            size="sm"
+            onClick={onDelete}
           >
-            <Menu.Target>
-              <ActionIcon variant="subtle" color="gray" size="sm">
-                <IconDotsVertical size={16} />
-              </ActionIcon>
-            </Menu.Target>
-            <Menu.Dropdown>
-              <Stack gap="sm" p="xs">
-                <Text fw={500} ta="center" size="sm">
-                  {t("configure")}
-                </Text>
-                <Switch
-                  label={
-                    ragMode === "similar_chunks"
-                      ? t("similar-chunks")
-                      : t("allContent")
-                  }
-                  checked={ragMode === "similar_chunks"}
-                  onChange={(e) => {
-                    setRagMode(
-                      e.currentTarget.checked
-                        ? "similar_chunks"
-                        : "all_possible_text"
-                    );
-                  }}
-                  color="violet"
-                />
-                <MarkdownRenderer
-                  extraClass="text-mini"
-                  markdown={ragModeHelpHelper[ragMode]}
-                />
-                <Button
-                  color={confirmDelete ? "red" : "red"}
-                  variant={confirmDelete ? "filled" : "light"}
-                  leftSection={<IconTrash size={16} />}
-                  fullWidth
-                  onClick={() => {
-                    if (!confirmDelete) {
-                      setConfirmDelete(true);
-                      return;
-                    }
-                    onDelete();
-                    setConfirmDelete(false);
-                  }}
-                  onMouseLeave={() => setConfirmDelete(false)}
-                >
-                  {confirmDelete ? t("sure") : t("delete")}
-                </Button>
-              </Stack>
-            </Menu.Dropdown>
-          </Menu>
+            <IconX size={16} />
+          </ActionIcon>
         )}
       </div>
     </div>

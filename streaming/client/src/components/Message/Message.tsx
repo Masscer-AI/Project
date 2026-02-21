@@ -34,6 +34,7 @@ import {
   Stack,
   Group,
   Loader as MantineLoader,
+  ScrollArea,
 } from "@mantine/core";
 import {
   IconCopy,
@@ -46,7 +47,7 @@ import {
   IconPencil,
   IconPhoto,
   IconTrash,
-  IconEye,
+  IconFileText,
   IconSearch,
   IconPlus,
   IconVolume,
@@ -385,9 +386,13 @@ export const Message = memo(
               );
             })}
           {versions?.[currentVersion]?.sources &&
-            versions?.[currentVersion]?.sources.map((s, sIdx) => (
-              <Source key={sIdx} source={s} />
-            ))}
+            versions[currentVersion].sources.length > 0 && (
+              <Group gap="xs" mt="xs" wrap="wrap">
+                {versions[currentVersion].sources.map((s, sIdx) => (
+                  <Source key={sIdx} source={s} />
+                ))}
+              </Group>
+            )}
 
           {versions?.[currentVersion]?.web_search_results &&
             versions?.[currentVersion]?.web_search_results.map(
@@ -745,40 +750,49 @@ const Source = ({ source }: { source: TSource }) => {
   const { t } = useTranslation();
 
   return (
-    <div className="p-3 rounded-xl shadow-md" style={{ background: "var(--code-bg-color)", border: "1px solid var(--hovered-color)" }}>
-      <input
-        id={`${source.model_name}-${source.model_id}`}
-        type="text"
-        className="w-0 h-0 absolute bg-transparent border-none outline-none"
-      />
-      <p className="w-fit truncate text-sm">
-        <span className="font-medium">{t("source")}: </span>
-        <span style={{ color: "var(--font-color-secondary)" }}>
-          {t(source.model_name)} {source.model_id}
-        </span>
-      </p>
-
-      <div className="flex justify-center mt-2">
-        <Button
-          variant="default"
-          size="xs"
-          leftSection={<IconEye size={16} />}
-          onClick={() => setIsVisible(true)}
-        >
-          {t("inspect")}
-        </Button>
-      </div>
+    <>
+      <Badge
+        variant="outline"
+        color="gray"
+        size="lg"
+        style={{ cursor: "pointer" }}
+        leftSection={<IconFileText size={14} />}
+        onClick={() => setIsVisible(true)}
+      >
+        {t(source.model_name)} {source.model_id}
+      </Badge>
 
       <Modal
         opened={isVisible}
         onClose={() => setIsVisible(false)}
-        title={`${t(source.model_name)} ${source.model_id}`}
+        title={
+          <Group gap="xs">
+            <IconFileText size={18} />
+            <Text fw={600} size="sm">
+              {t(source.model_name)} {source.model_id}
+            </Text>
+          </Group>
+        }
         centered
         size="lg"
       >
-        <pre className="whitespace-pre-wrap break-all">{source.content}</pre>
+        <Stack gap="md">
+          {source.extra && (
+            <Text size="xs" c="dimmed">
+              {source.extra}
+            </Text>
+          )}
+          <ScrollArea.Autosize mah={400}>
+            <Text
+              size="sm"
+              style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", lineHeight: 1.6 }}
+            >
+              {source.content}
+            </Text>
+          </ScrollArea.Autosize>
+        </Stack>
       </Modal>
-    </div>
+    </>
   );
 };
 
