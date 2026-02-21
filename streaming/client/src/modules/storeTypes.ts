@@ -53,7 +53,6 @@ export type Store = {
     useRag: boolean;
     generateImages: boolean;
     generateSpeech: boolean;
-    useAgentTask?: boolean;
     selectedAgents: string[];
     selectedPlugins: TPlugin[];
     specifiedUrls: TSpecifiedUrl[];

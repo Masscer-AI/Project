@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { useStore } from "../../modules/store";
 import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
 import {
@@ -19,22 +18,6 @@ import {
 } from "@mantine/core";
 import { IconVolume, IconPlus } from "@tabler/icons-react";
 
-const voices = [
-  { provider: "openai", id: "alloy", name: "Alloy" },
-  { provider: "openai", id: "ash", name: "Ash" },
-  { provider: "openai", id: "coral", name: "Coral" },
-  { provider: "openai", id: "echo", name: "Echo" },
-  { provider: "openai", id: "fable", name: "Fable" },
-  { provider: "openai", id: "onyx", name: "Onyx" },
-  { provider: "openai", id: "nova", name: "Nova" },  
-  { provider: "openai", id: "sage", name: "Sage" },
-  { provider: "openai", id: "shimmer", name: "Shimmer" },
-];
-
-const removeOpenaiVoices = (voices: TVoice[]) => {
-  return voices.filter((v) => v.provider !== "openai");
-};
-
 const removeDuplicateVoices = (voices: TVoice[]) => {
   const seen = new Set();
   return voices.filter((v) => {
@@ -43,10 +26,6 @@ const removeDuplicateVoices = (voices: TVoice[]) => {
     seen.add(key);
     return true;
   });
-};
-
-const fixVoices = (voices: TVoice[]) => {
-  return removeDuplicateVoices(removeOpenaiVoices(voices));
 };
 
 export const AudioGenerator = ({
@@ -65,13 +44,9 @@ export const AudioGenerator = ({
   const modalOpened = isExternallyControlled ? opened : internalOpen;
 
   const [audioText, setAudioText] = useState(text);
-  const [voice, setVoice] = useState<TVoice>(voices[0]);
-  const [voiceList, setVoiceList] = useState<TVoice[]>(voices);
+  const [voice, setVoice] = useState<TVoice | null>(null);
+  const [voiceList, setVoiceList] = useState<TVoice[]>([]);
   const { t } = useTranslation();
-
-  const { socket } = useStore((state) => ({
-    socket: state.socket,
-  }));
 
   useEffect(() => {
     setAudioText(text);
@@ -80,7 +55,9 @@ export const AudioGenerator = ({
   useEffect(() => {
     const fetchVoices = async () => {
       const fetchedVoices = await getUserVoices();
-      setVoiceList((prev) => removeDuplicateVoices([...prev, ...fetchedVoices]));
+      const merged = removeDuplicateVoices(fetchedVoices);
+      setVoiceList(merged);
+      if (merged.length > 0 && !voice) setVoice(merged[0]);
     };
     fetchVoices();
   }, []);
@@ -95,36 +72,27 @@ export const AudioGenerator = ({
 
   const addElevenVoice = (id: string, name: string) => {
     setVoiceList((prev) => {
-      const newVoices = [
+      const newVoices = removeDuplicateVoices([
         ...prev,
         { provider: "elevenlabs", id, name },
-      ];
-      updateUserVoices(fixVoices(newVoices));
+      ]);
+      updateUserVoices(newVoices);
       return newVoices;
     });
   };
 
   const generateSpeech = async () => {
+    if (!voice) return;
     toast.success(t("generating-speech"));
-
-    if (voice.provider === "elevenlabs") {
-      const res = await generateAudio({
-        text: audioText,
-        voice,
-        message_id: messageId,
-      });
-      console.log(res);
-    } else {
-      socket.emit("speech_request", {
-        text: audioText,
-        id: messageId,
-        voice,
-      });
-    }
+    await generateAudio({
+      text: audioText,
+      voice,
+      message_id: messageId,
+    });
     handleClose();
   };
 
-  const selectedVoiceValue = voice.id;
+  const selectedVoiceValue = voice?.id ?? "";
 
   return (
     <>

@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from "react";
-// import axios from "axios";
 import { Message } from "../../components/Message/Message";
 import { ChatInput } from "../../components/ChatInput/ChatInput";
 
-import { useLoaderData, useSearchParams } from "react-router-dom";
+import { useLoaderData } from "react-router-dom";
 import { Sidebar } from "../../components/Sidebar/Sidebar";
 import { useStore } from "../../modules/store";
 import { TChatLoader, TMessage } from "../../types/chatTypes";
@@ -12,11 +11,9 @@ import toast from "react-hot-toast";
 
 import { useTranslation } from "react-i18next";
 import { TVersion } from "../../types";
-import { updateLastMessagesIds } from "./helpers";
 import { ConversationModal } from "../../components/ConversationModal/ConversationModal";
 import { ActionIcon } from "@mantine/core";
 import { IconArrowDown } from "@tabler/icons-react";
-import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
 import {
   linkMessageAttachment,
   triggerAgentTask,
@@ -52,9 +49,6 @@ export default function ChatView() {
   }));
 
   const { t } = useTranslation();
-  const isAgentTaskEnabled = useIsFeatureEnabled("agent-task");
-  const useAgentTaskPath =
-    isAgentTaskEnabled && (chatState.useAgentTask ?? true);
 
   const activeConversation = conversation ?? loaderData.conversation;
   const isViewer =
@@ -63,8 +57,6 @@ export default function ChatView() {
     activeConversation.user_id !== loaderData.user.id;
 
   const chatMessageContainerRef = React.useRef<HTMLDivElement>(null);
-  // const [searchParams, setSearchParams] = useSearchParams();
-
   const timeoutRef = React.useRef<number | null>(null);
   const [showScrollToEnd, setShowScrollToEnd] = useState(false);
 
@@ -74,18 +66,10 @@ export default function ChatView() {
   }, [loaderData.user, startup]);
 
   const [messages, setMessages] = useState<TMessage[]>(
-    // loaderData.conversation.messages || conversation?.messages || []
     conversation?.messages || []
   );
 
   useEffect(() => {
-    socket.on("responseFinished", (data) => {
-      console.log("Response finished:", data);
-      setMessages((prevMessages) =>
-        updateLastMessagesIds(data, prevMessages, data.next_agent_slug)
-      );
-    });
-
     const handleAgentEvents = (raw: {
       user_id?: number;
       message?: { type: string; conversation_id?: string; version?: TVersion };
@@ -117,7 +101,6 @@ export default function ChatView() {
     }
 
     return () => {
-      socket.off("responseFinished");
       socket.off("agent_events_channel", handleAgentEvents);
     };
   }, [conversation?.id]);
@@ -127,12 +110,12 @@ export default function ChatView() {
     if (!container) return;
     const start = container.scrollTop;
     const end = container.scrollHeight;
-    const duration = 1000; // Duración en milisegundos
+    const duration = 1000;
     const startTime = performance.now();
 
-    const smoothScroll = (currentTime) => {
+    const smoothScroll = (currentTime: number) => {
       const elapsed = currentTime - startTime;
-      const progress = Math.min(elapsed / duration, 1); // Normalizar entre 0 y 1
+      const progress = Math.min(elapsed / duration, 1);
       const ease =
         progress < 0.5
           ? 2 * progress * progress
@@ -158,35 +141,8 @@ export default function ChatView() {
     setShowScrollToEnd(remaining > 60);
   }, []);
 
-  const handleAutoScroll = () => {
-    if (chatMessageContainerRef.current && userPreferences.autoscroll) {
-      if (timeoutRef.current) {
-        return;
-      }
-
-      timeoutRef.current = setTimeout(() => {
-        scrollChat();
-      }, 1000);
-    }
-  };
-
   useEffect(() => {
-    socket.on("response", (data) => {
-      handleAutoScroll();
-    });
-
-    return () => {
-      socket.off("response");
-    };
-  }, [chatMessageContainerRef, userPreferences.autoscroll]);
-
-  useEffect(() => {
-    // toast.success("Loading conversation...");
-    if (!conversation?.messages) {
-      // toast.error("Conversation not found");
-      return;
-    }
-    // toast.success("Conversation loaded");
+    if (!conversation?.messages) return;
     setMessages(conversation?.messages);
   }, [conversation]);
 
@@ -204,12 +160,6 @@ export default function ChatView() {
   useEffect(() => {
     updateScrollToEndVisibility();
   }, [messages.length, updateScrollToEndVisibility]);
-
-  // useEffect(() => {
-  //   if (loaderData.conversation) {
-  //     loaderData.conversation.messages;
-  //   }
-  // }, [loaderData.conversation]);
 
   useEffect(() => {
     if (
@@ -254,222 +204,114 @@ export default function ChatView() {
     };
     setMessages([...messages, userMessage, assistantMessage]);
 
-    // --- Agent Task route (feature flag gated + user preference) ---
-    if (useAgentTaskPath) {
-      try {
-        const currentConversation = conversation ?? loaderData.conversation;
-        if (!currentConversation?.id) {
-          toast.error("No conversation found");
-          return false;
-        }
-
-        type UserInput =
-          | { type: "input_text"; text: string }
-          | { type: "input_attachment"; attachment_id: string };
-        const userInputs: UserInput[] = [{ type: "input_text", text: input }];
-
-        if (chatState.attachments.length > 0) {
-          const fileUploads = chatState.attachments.filter(
-            (a) => typeof a.content === "string" && a.content.startsWith("data:")
-          );
-          const ragDocs = chatState.attachments.filter(
-            (a) =>
-              !(typeof a.content === "string" && a.content.startsWith("data:")) &&
-              a.id != null
-          );
-
-          const toUpload = fileUploads.map((a) => ({
-            content: a.content,
-            name: a.name || "file",
-          }));
-
-          if (toUpload.length > 0) {
-            const uploadRes = await uploadMessageAttachments(
-              currentConversation.id,
-              toUpload
-            );
-            for (const att of uploadRes.attachments) {
-              userInputs.push({ type: "input_attachment", attachment_id: att.id });
-            }
-          }
-
-          for (const rag of ragDocs) {
-            const docId = typeof rag.id === "number" ? rag.id : parseInt(String(rag.id), 10);
-            if (!isNaN(docId)) {
-              const linkRes = await linkMessageAttachment(currentConversation.id, {
-                kind: "rag_document",
-                rag_document_id: docId,
-              });
-              userInputs.push({ type: "input_attachment", attachment_id: linkRes.attachment.id });
-            }
-          }
-        }
-
-        // Website attachments (specified URLs)
-        const specifiedUrls = chatState.specifiedUrls || [];
-        if (specifiedUrls.length > 0) {
-          const uiWebsiteAttachments: any[] = [];
-          for (const item of specifiedUrls) {
-            const url = (item as any)?.url;
-            if (!url) continue;
-            const linkRes = await linkMessageAttachment(currentConversation.id, {
-              kind: "website",
-              url,
-            });
-            userInputs.push({
-              type: "input_attachment",
-              attachment_id: linkRes.attachment.id,
-            });
-            uiWebsiteAttachments.push({
-              type: "website",
-              content: url,
-              name: (linkRes.attachment as any)?.url || url,
-            });
-          }
-
-          // Update UI user message to show website attachments immediately
-          if (uiWebsiteAttachments.length > 0) {
-            setMessages((prev) => {
-              const updated = [...prev];
-              const userIdx = updated.length - 2; // user message is before assistant placeholder
-              const target = updated[userIdx];
-              if (!target || target.type !== "user") return prev;
-              updated[userIdx] = {
-                ...target,
-                attachments: [...(target.attachments || []), ...uiWebsiteAttachments],
-              };
-              return updated;
-            });
-          }
-        }
-
-        const toolNames = ["read_attachment", "list_attachments"];
-        if (chatState.webSearch) {
-          toolNames.push("explore_web");
-        }
-        if (chatState.useRag) {
-          toolNames.push("rag_query");
-        }
-        if (chatState.generateImages) {
-          toolNames.push("create_image");
-        }
-        if (chatState.generateSpeech) {
-          toolNames.push("create_speech");
-        }
-
-        await triggerAgentTask({
-          conversation_id: currentConversation.id,
-          agent_slugs: selectedAgents.map((a) => a.slug),
-          user_inputs: userInputs,
-          tool_names: toolNames,
-          plugin_slugs: (chatState.selectedPlugins || []).map((p) => p.slug),
-          multiagentic_modality: userPreferences.multiagentic_modality,
-        });
-
-        cleanAttachments();
-        setSpecifiedUrls([]);
-        scrollChat();
-        return true;
-      } catch (error) {
-        console.error("Error triggering agent task:", error);
-        toast.error(t("agent-task-failed"));
+    try {
+      const currentConversation = conversation ?? loaderData.conversation;
+      if (!currentConversation?.id) {
+        toast.error("No conversation found");
         return false;
       }
-    }
 
-    // --- Normal streaming route ---
-    const memoryMessages = [...messages]
-      .reverse()
-      .slice(0, userPreferences.max_memory_messages)
-      .reverse()
-      .map((m) => {
-        const { attachments, ...rest } = m;
-        return rest;
-      });
+      type UserInput =
+        | { type: "input_text"; text: string }
+        | { type: "input_attachment"; attachment_id: string };
+      const userInputs: UserInput[] = [{ type: "input_text", text: input }];
 
-    try {
-      const token = localStorage.getItem("token");
+      if (chatState.attachments.length > 0) {
+        const fileUploads = chatState.attachments.filter(
+          (a) => typeof a.content === "string" && a.content.startsWith("data:")
+        );
+        const ragDocs = chatState.attachments.filter(
+          (a) =>
+            !(typeof a.content === "string" && a.content.startsWith("data:")) &&
+            a.id != null
+        );
 
-      // @ts-ignore
-      userMessage.agents = selectedAgents.map((a) => ({
-        slug: a.slug,
-        name: a.name,
-      }));
+        const toUpload = fileUploads.map((a) => ({
+          content: a.content,
+          name: a.name || "file",
+        }));
 
-      socket.emit("message", {
-        message: userMessage,
-        context: memoryMessages,
-        plugins: chatState.selectedPlugins,
-        token: token,
-        models_to_complete: selectedAgents,
-        conversation: conversation ? conversation : loaderData.conversation,
-        web_search_activated: chatState.webSearch,
-        specified_urls: chatState.specifiedUrls || [],
-        use_rag: chatState.useRag,
+        if (toUpload.length > 0) {
+          const uploadRes = await uploadMessageAttachments(
+            currentConversation.id,
+            toUpload
+          );
+          for (const att of uploadRes.attachments) {
+            userInputs.push({ type: "input_attachment", attachment_id: att.id });
+          }
+        }
+
+        for (const rag of ragDocs) {
+          const docId = typeof rag.id === "number" ? rag.id : parseInt(String(rag.id), 10);
+          if (!isNaN(docId)) {
+            const linkRes = await linkMessageAttachment(currentConversation.id, {
+              kind: "rag_document",
+              rag_document_id: docId,
+            });
+            userInputs.push({ type: "input_attachment", attachment_id: linkRes.attachment.id });
+          }
+        }
+      }
+
+      const specifiedUrls = chatState.specifiedUrls || [];
+      if (specifiedUrls.length > 0) {
+        const uiWebsiteAttachments: any[] = [];
+        for (const item of specifiedUrls) {
+          const url = (item as any)?.url;
+          if (!url) continue;
+          const linkRes = await linkMessageAttachment(currentConversation.id, {
+            kind: "website",
+            url,
+          });
+          userInputs.push({
+            type: "input_attachment",
+            attachment_id: linkRes.attachment.id,
+          });
+          uiWebsiteAttachments.push({
+            type: "website",
+            content: url,
+            name: (linkRes.attachment as any)?.url || url,
+          });
+        }
+
+        if (uiWebsiteAttachments.length > 0) {
+          setMessages((prev) => {
+            const updated = [...prev];
+            const userIdx = updated.length - 2;
+            const target = updated[userIdx];
+            if (!target || target.type !== "user") return prev;
+            updated[userIdx] = {
+              ...target,
+              attachments: [...(target.attachments || []), ...uiWebsiteAttachments],
+            };
+            return updated;
+          });
+        }
+      }
+
+      const toolNames = ["read_attachment", "list_attachments"];
+      if (chatState.webSearch) toolNames.push("explore_web");
+      if (chatState.useRag) toolNames.push("rag_query");
+      if (chatState.generateImages) toolNames.push("create_image");
+      if (chatState.generateSpeech) toolNames.push("create_speech");
+
+      await triggerAgentTask({
+        conversation_id: currentConversation.id,
+        agent_slugs: selectedAgents.map((a) => a.slug),
+        user_inputs: userInputs,
+        tool_names: toolNames,
+        plugin_slugs: (chatState.selectedPlugins || []).map((p) => p.slug),
         multiagentic_modality: userPreferences.multiagentic_modality,
       });
 
       cleanAttachments();
+      setSpecifiedUrls([]);
       scrollChat();
       return true;
     } catch (error) {
-      console.error("Error sending message:", error);
+      console.error("Error triggering agent task:", error);
+      toast.error(t("agent-task-failed"));
       return false;
-    }
-  };
-
-  const handleRegenerateConversation = (
-    userMessage: TMessage,
-    prevMessages: TMessage[]
-  ) => {
-    try {
-      // const selectedAgents = agents.filter((a) => a.selected);
-      let selectedAgents = agents.filter((a) => a.selected);
-      if (selectedAgents.length === 0) {
-        toast.error(t("select-at-least-one-agent-to-chat"));
-        return false;
-      }
-
-      selectedAgents = selectedAgents.sort(
-        (a, b) =>
-          chatState.selectedAgents.indexOf(a.slug) -
-          chatState.selectedAgents.indexOf(b.slug)
-      );
-
-      const token = localStorage.getItem("token");
-
-      userMessage.attachments = chatState.attachments;
-      userMessage.agents = selectedAgents.map((a) => ({
-        slug: a.slug,
-        name: a.name,
-      }));
-
-      const assistantMessage: TMessage = {
-        type: "assistant",
-        text: "",
-        attachments: [],
-        agent_slug: selectedAgents[0].slug,
-      };
-
-      setMessages([...prevMessages, assistantMessage]);
-
-      socket.emit("message", {
-        message: userMessage,
-        context: prevMessages,
-        plugins: chatState.selectedPlugins,
-        token: token,
-        models_to_complete: selectedAgents,
-        conversation: conversation ? conversation : loaderData.conversation,
-        web_search_activated: chatState.webSearch,
-        use_rag: chatState.useRag,
-        regenerate: {
-          user_message_id: userMessage.id,
-        },
-      });
-
-      cleanAttachments();
-    } catch (error) {
-      console.error("Error sending message:", error);
     }
   };
 
@@ -505,15 +347,8 @@ export default function ChatView() {
     const message = messages[index];
     if (!message) return;
 
-    if (message.type === "user") {
-      if (useAgentTaskPath && message.id) {
-        handleRegenerateAgentTask(message, index, text);
-      } else {
-        const newMessages = messages.slice(0, index + 1);
-        newMessages[index].text = text;
-        message.index = index;
-        handleRegenerateConversation(message, newMessages);
-      }
+    if (message.type === "user" && message.id) {
+      handleRegenerateAgentTask(message, index, text);
     }
     if (message.type === "assistant" && versions) {
       const messagesCopy = [...messages];

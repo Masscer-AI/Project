@@ -816,8 +816,6 @@ const ConversationConfigModal = ({
   const { t } = useTranslation();
   const isChatSpeechEnabled = useIsFeatureEnabled("chat-generate-speech");
   const isMultiAgentEnabled = useIsFeatureEnabled("multi-agent-chat");
-  const isAgentTaskEnabled = useIsFeatureEnabled("agent-task");
-
   return (
     <Modal
       opened={opened}
@@ -885,28 +883,6 @@ const ConversationConfigModal = ({
             color="violet"
           />
         </Group>
-
-        {isAgentTaskEnabled && (
-          <>
-            <Divider />
-            <Group justify="space-between">
-              <div>
-                <Text fw={500}>{t("use-agent-tasks")}</Text>
-                <Text size="sm" c="dimmed">
-                  {t("use-agent-tasks-desc")}
-                </Text>
-              </div>
-              <Switch
-                checked={chatState.useAgentTask ?? isAgentTaskEnabled}
-                onChange={(e) => {
-                  const val = e.currentTarget.checked;
-                  updateChatState({ useAgentTask: val });
-                }}
-                color="violet"
-              />
-            </Group>
-          </>
-        )}
 
         {isMultiAgentEnabled && (
           <>

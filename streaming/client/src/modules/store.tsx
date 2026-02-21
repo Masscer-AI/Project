@@ -56,7 +56,6 @@ export const useStore = create<Store>()((set, get) => ({
     useRag: false,
     generateImages: false,
     generateSpeech: false,
-    useAgentTask: undefined,
 
     selectedAgents: [],
     selectedPlugins: [],
