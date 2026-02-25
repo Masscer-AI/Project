@@ -116,9 +116,9 @@ fi
 # Execute installation commands if the flag is true
 if [ "$INSTALL" = true ]; then
     git pull
-    pip install -r requirements.txt || { error "Pip install failed"; exit 1; }
+    pip install -q -r requirements.txt || { error "Pip install failed"; exit 1; }
     cd ./streaming
-    npm i || { error "NPM install failed"; exit 1; }
+    npm i -q || { error "NPM install failed"; exit 1; }
     cd ..  # Go back to the previous directory
 fi
 
@@ -126,7 +126,7 @@ fi
 info "Starting Chroma service..."
 chroma run --path vector_storage/ --port 8002 &
 CHROMA_PID=$!
-sleep 2
+sleep 4
 if ! kill -0 $CHROMA_PID 2>/dev/null; then
     error "Chroma service failed to start."; exit 1
 fi
@@ -144,10 +144,10 @@ cd ./streaming
 # Check the WATCH flag and execute the appropriate npm command
 if [ "$WATCH" = true ]; then
     info "Running NPM watch-build..."
-    npm run watch-build &
+    npm run watch-build -q &
 else
     info "Building client and widget with NPM..."
-    npm run build:all || { error "NPM build failed"; exit 1; }
+    npm run build:all -q || { error "NPM build failed"; exit 1; }
 fi
 
 # Wait a moment to ensure services are ready
