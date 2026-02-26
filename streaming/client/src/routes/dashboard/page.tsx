@@ -263,7 +263,7 @@ function DashboardStats({
                   ))}
                 </Group>
                 <Text size="xs" c="dimmed" mt={4}>
-                  {recentConversations} total in last 7 days
+                  {recentConversations} {t("total-in-last-7-days")}
                 </Text>
               </div>
             </div>
@@ -277,11 +277,11 @@ function DashboardStats({
             </Text>
             <div style={{ width: "100%" }}>
               <Text size="xs" c="dimmed" tt="uppercase" fw={500}>
-                Most active users
+                {t("most-active-users")}
               </Text>
               {topUsers.length === 0 ? (
                 <Text size="sm" c="dimmed" mt={8}>
-                  No user activity yet
+                  {t("no-user-activity-yet")}
                 </Text>
               ) : (
                 <Group gap={8} mt={8} wrap="wrap">

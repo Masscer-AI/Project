@@ -2,6 +2,7 @@ import logging
 import time
 import traceback as tb
 import json
+import re
 from celery import shared_task
 from .actions import generate_agent_profile_picture
 
@@ -339,6 +340,108 @@ def _extract_create_speech_attachments(tool_calls: list[dict]) -> tuple[list[dic
     return attachments, attachment_ids
 
 
+def _message_attachment_to_display_dict(att) -> dict | None:
+    """
+    Build a Message.attachments-compatible descriptor from a MessageAttachment row.
+    """
+    from django.conf import settings
+
+    kind = getattr(att, "kind", "") or ""
+    aid = str(att.id)
+
+    if kind == "website":
+        return {
+            "type": "website",
+            "content": getattr(att, "url", "") or "",
+            "attachment_id": aid,
+        }
+
+    if kind == "rag_document":
+        rag_doc = getattr(att, "rag_document", None)
+        return {
+            "type": "rag_document",
+            "name": getattr(rag_doc, "name", None) if rag_doc else None,
+            "attachment_id": aid,
+        }
+
+    # Default: file-like attachment
+    file_field = getattr(att, "file", None)
+    if not file_field:
+        return None
+
+    url = file_field.url
+    api_base = getattr(settings, "API_BASE_URL", None) or ""
+    if api_base and isinstance(url, str) and not url.startswith("http"):
+        url = f"{api_base.rstrip('/')}{url}"
+
+    ctype = getattr(att, "content_type", "") or ""
+    if ctype.startswith("image/"):
+        att_type = "image"
+    elif ctype.startswith("audio/"):
+        att_type = "audio_generation"
+    else:
+        att_type = "document"
+
+    filename = (
+        file_field.name.split("/")[-1]
+        if getattr(file_field, "name", None)
+        else ("image" if att_type == "image" else "document")
+    )
+
+    return {
+        "type": att_type,
+        "content": url,
+        "name": filename,
+        "attachment_id": aid,
+    }
+
+
+def _extract_referenced_attachments_from_text(
+    text: str,
+    conversation_id: str,
+) -> list[dict]:
+    """
+    Resolve attachment:<uuid> references found in assistant output text and return
+    their display descriptors so frontend markdown rendering can resolve them.
+    """
+    if not text:
+        return []
+
+    ids = re.findall(
+        r"attachment:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})",
+        text,
+    )
+    if not ids:
+        return []
+
+    # Keep mention order but dedupe.
+    ordered_ids: list[str] = []
+    seen: set[str] = set()
+    for aid in ids:
+        if aid in seen:
+            continue
+        seen.add(aid)
+        ordered_ids.append(aid)
+
+    from api.messaging.models import MessageAttachment
+
+    rows = MessageAttachment.objects.filter(
+        conversation_id=conversation_id,
+        id__in=ordered_ids,
+    )
+    by_id = {str(r.id): r for r in rows}
+
+    resolved: list[dict] = []
+    for aid in ordered_ids:
+        row = by_id.get(aid)
+        if not row:
+            continue
+        descriptor = _message_attachment_to_display_dict(row)
+        if descriptor:
+            resolved.append(descriptor)
+    return resolved
+
+
 def _extract_rag_sources(tool_calls: list[dict]) -> list[dict]:
     """
     Extract RAG sources from rag_query tool calls so they can be displayed
@@ -540,6 +643,9 @@ def conversation_agent_task(
             attachment_ids_instruction = (
                 "\n\nThe user has attached items. Read them with the read_attachment tool. "
                 "Available attachment IDs: " + ", ".join(str(aid) for aid in attachment_ids if aid) + "\n"
+                "When referencing attachments in markdown:\n"
+                "- Use ![Alt text](attachment:<attachment_id>) ONLY for image attachments.\n"
+                "- For documents/audio/other files, use [Label](attachment:<attachment_id>) instead.\n"
             )
 
         # Pre-compute context shared across all agent iterations
@@ -744,6 +850,26 @@ def conversation_agent_task(
                 output_text = _json.dumps(result.output.model_dump(), default=str)
             else:
                 output_text = str(result.output)
+
+            # Also include attachments referenced in assistant markdown using
+            # attachment:<uuid>, even when they were originally uploaded in
+            # previous messages (e.g. user documents/images).
+            referenced_atts = _extract_referenced_attachments_from_text(
+                output_text,
+                conversation_id=conversation_id,
+            )
+            if referenced_atts:
+                existing_ids = {
+                    str(a.get("attachment_id") or "")
+                    for a in assistant_message_attachments
+                }
+                for att in referenced_atts:
+                    aid = str(att.get("attachment_id") or "")
+                    if aid and aid in existing_ids:
+                        continue
+                    assistant_message_attachments.append(att)
+                    if aid:
+                        existing_ids.add(aid)
 
             rag_sources = _extract_rag_sources(result.tool_calls or [])
 

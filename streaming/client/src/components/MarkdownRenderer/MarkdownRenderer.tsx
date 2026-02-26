@@ -41,6 +41,20 @@ const MarkdownRenderer = ({
     return map;
   })();
 
+  const attachmentMetaById = (() => {
+    const map = new Map<string, { type?: string; name?: string; content?: string }>();
+    for (const att of attachments || []) {
+      const id = (att.attachment_id || att.id) as string | number | undefined;
+      if (!id) continue;
+      map.set(String(id), {
+        type: att.type,
+        name: att.name,
+        content: att.content,
+      });
+    }
+    return map;
+  })();
+
   const normalizeUrl = (url: string) => {
     const u = (url || "").trim();
     if (!u) return u;
@@ -100,6 +114,36 @@ const MarkdownRenderer = ({
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const alt = (props as any)?.alt as string | undefined;
           const resolvedSrc = src ? urlTransform(src) : src;
+
+          const rawId =
+            src && src.toLowerCase().startsWith("attachment:")
+              ? src.slice("attachment:".length).trim()
+              : "";
+          const meta = rawId ? attachmentMetaById.get(rawId) : undefined;
+          const typeHint = (meta?.type || "").toLowerCase();
+          const looksLikeDocumentUrl = !!resolvedSrc && /\.(pdf|doc|docx|xls|xlsx|ppt|pptx|csv|txt)(\?|$)/i.test(resolvedSrc);
+          const isNonImageAttachment =
+            typeHint === "document" || typeHint === "rag_document" || looksLikeDocumentUrl;
+          const unresolvedAttachmentRef =
+            !!src && src.toLowerCase().startsWith("attachment:") && resolvedSrc === src;
+
+          // If the model used image markdown for a non-image attachment
+          // (very common with PDFs), render it as a file link instead.
+          if (isNonImageAttachment && resolvedSrc) {
+            const label = alt || meta?.name || t("open-attachment") || "Open attachment";
+            return (
+              <a href={resolvedSrc} target="_blank" rel="noopener noreferrer">
+                {label}
+              </a>
+            );
+          }
+
+          // Avoid browser GET attachment:... for unresolved refs.
+          if (unresolvedAttachmentRef) {
+            const label = alt || t("attachment-not-found") || "Attachment not found";
+            return <span>{label}</span>;
+          }
+
           return (
             <img
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
