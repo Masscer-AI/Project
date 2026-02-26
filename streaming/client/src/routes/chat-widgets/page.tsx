@@ -356,7 +356,7 @@ const WidgetForm = ({
             "#ec4899",
           ]}
           onChange={setPrimaryColor}
-          clearable
+          __clearable={true}
         />
 
         <NativeSelect
