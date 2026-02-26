@@ -25,16 +25,18 @@ async def listen_to_notifications():
             if isinstance(data, bytes):
                 decoded_message = data.decode("utf-8")
                 decoded_message = json.loads(decoded_message)
-                user_id_to_emit = decoded_message.get("user_id", None)
+                route_id_to_emit = decoded_message.get("route_id", None)
+                if route_id_to_emit is None:
+                    route_id_to_emit = decoded_message.get("user_id", None)
                 event_type = decoded_message.get("event_type", None)
 
-                if user_id_to_emit and event_type:
-                    user_ids_to_socket_id_raw = r.get("user_id_to_socket_id")
-                    if user_ids_to_socket_id_raw is None:
+                if route_id_to_emit and event_type:
+                    route_ids_to_socket_id_raw = r.get("route_id_to_socket_id")
+                    if route_ids_to_socket_id_raw is None:
                         continue
-                    user_ids_to_socket_id = json.loads(user_ids_to_socket_id_raw)
+                    route_ids_to_socket_id = json.loads(route_ids_to_socket_id_raw)
 
-                    sockets = user_ids_to_socket_id.get(str(user_id_to_emit), None)
+                    sockets = route_ids_to_socket_id.get(str(route_id_to_emit), None)
                     if sockets:
                         for socket in sockets:
                             await sio.emit(event_type, decoded_message, to=socket)

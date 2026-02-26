@@ -8,7 +8,7 @@
 }
 
 .loading-spinner {
-  color: #666;
+  color: var(--widget-muted, #666);
   font-size: 14px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
@@ -21,7 +21,7 @@
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: #000;
+  background: var(--widget-primary, #000);
   color: white;
   border: none;
   cursor: pointer;
@@ -56,7 +56,7 @@
   width: 360px;
   height: 580px;
   max-height: calc(100vh - 48px);
-  background: #ffffff;
+  background: var(--widget-bg, #ffffff);
   border-radius: 12px;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
   z-index: 999999;
@@ -64,13 +64,14 @@
   flex-direction: column;
   overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--widget-border, rgba(0, 0, 0, 0.08));
+  color: var(--widget-text, #333333);
 }
 
 /* Header */
 .chat-widget-header {
   padding: 16px 20px;
-  background: #000;
+  background: var(--widget-primary, #000);
   color: white;
   display: flex;
   justify-content: space-between;
@@ -112,7 +113,7 @@
   flex: 1;
   overflow-y: auto;
   padding: 16px;
-  background: #ffffff;
+  background: var(--widget-bg, #ffffff);
   scroll-behavior: smooth;
 }
 
@@ -125,12 +126,12 @@
 }
 
 .chat-widget-messages::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.1);
+  background: var(--widget-scrollbar-thumb, rgba(0, 0, 0, 0.1));
   border-radius: 2px;
 }
 
 .chat-widget-messages::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.15);
+  background: var(--widget-scrollbar-thumb-hover, rgba(0, 0, 0, 0.15));
 }
 
 /* Input Container */

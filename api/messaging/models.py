@@ -10,6 +10,13 @@ def _message_attachment_expires_default():
 
 
 class Conversation(models.Model):
+    STATUS_CHOICES = [
+        ("active", "Active"),
+        ("inactive", "Inactive"),
+        ("archived", "Archived"),
+        ("deleted", "Deleted"),
+    ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     organization = models.ForeignKey(
@@ -26,6 +33,20 @@ class Conversation(models.Model):
     public_token = models.ForeignKey(
         PublishableToken, on_delete=models.SET_NULL, null=True, blank=True
     )
+    chat_widget = models.ForeignKey(
+        "ChatWidget",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="conversations",
+    )
+    widget_visitor_session = models.ForeignKey(
+        "WidgetVisitorSession",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="conversations",
+    )
     tags = models.JSONField(
         default=list, 
         blank=True,
@@ -33,6 +54,10 @@ class Conversation(models.Model):
     )
     background_image_src = models.TextField(blank=True, null=True)
     summary = models.TextField(blank=True, null=True, help_text="Resumen de la conversación generado por la IA")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="active")
+    last_message_at = models.DateTimeField(null=True, blank=True)
+    archived_at = models.DateTimeField(null=True, blank=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
     pending_analysis = models.BooleanField(
         default=False,
         help_text="Indica si la conversación tiene un análisis pendiente de procesar"
@@ -198,6 +223,16 @@ class Message(models.Model):
     def __str__(self):
         return f"{self.type}: {self.text[:50]}"
 
+    def save(self, *args, **kwargs):
+        is_create = self.pk is None
+        super().save(*args, **kwargs)
+        if is_create and self.conversation_id:
+            conv = self.conversation
+            conv.last_message_at = self.created_at
+            if conv.status in ("active", "inactive"):
+                conv.status = "active"
+            conv.save(update_fields=["last_message_at", "status", "updated_at"])
+
 
 class SharedConversation(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -218,6 +253,7 @@ class ChatWidget(models.Model):
     token = models.CharField(max_length=64, unique=True, db_index=True, blank=True)
     name = models.CharField(max_length=255)
     enabled = models.BooleanField(default=True)
+    style = models.JSONField(default=dict, blank=True)
     web_search_enabled = models.BooleanField(default=False)
     rag_enabled = models.BooleanField(default=False)
     plugins_enabled = models.JSONField(default=list, blank=True)
@@ -237,6 +273,26 @@ class ChatWidget(models.Model):
 
     def __str__(self):
         return f"ChatWidget({self.name})"
+
+
+class WidgetVisitorSession(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    widget = models.ForeignKey(
+        ChatWidget, on_delete=models.CASCADE, related_name="visitor_sessions"
+    )
+    visitor_id = models.CharField(max_length=64, db_index=True)
+    origin = models.CharField(max_length=255, blank=True, default="")
+    user_agent = models.TextField(blank=True, default="")
+    expires_at = models.DateTimeField()
+    last_seen_at = models.DateTimeField(auto_now=True)
+    is_blocked = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = (("widget", "visitor_id"),)
+
+    def __str__(self):
+        return f"WidgetVisitorSession(widget={self.widget_id}, visitor={self.visitor_id})"
 
 
 class ConversationAlertRule(models.Model):

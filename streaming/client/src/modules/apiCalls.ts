@@ -58,6 +58,51 @@ export const initConversation = async ({ isPublic = false }) => {
   }
 };
 
+const getWidgetAuthHeaders = (sessionToken: string) => ({
+  Authorization: `WidgetSession ${sessionToken}`,
+});
+
+export const initWidgetConversation = async (
+  widgetToken: string,
+  sessionToken: string
+) => {
+  const endpoint = `${API_URL}/v1/messaging/widgets/${widgetToken}/conversation/`;
+  const response = await axios.post(
+    endpoint,
+    {},
+    {
+      headers: getWidgetAuthHeaders(sessionToken),
+    }
+  );
+  return response.data;
+};
+
+export const triggerWidgetAgentTask = async (
+  widgetToken: string,
+  sessionToken: string,
+  payload: {
+    conversation_id: string;
+    user_inputs: { type: "input_text"; text: string }[];
+  }
+) => {
+  const endpoint = `${API_URL}/v1/messaging/widgets/${widgetToken}/agent-task/`;
+  const response = await axios.post(endpoint, payload, {
+    headers: getWidgetAuthHeaders(sessionToken),
+  });
+  return response.data;
+};
+
+export const getWidgetSocketRoute = async (
+  widgetToken: string,
+  sessionToken: string
+): Promise<{ route_key: string; session_id: string }> => {
+  const endpoint = `${API_URL}/v1/messaging/widgets/${widgetToken}/socket-auth/`;
+  const response = await axios.get(endpoint, {
+    headers: getWidgetAuthHeaders(sessionToken),
+  });
+  return response.data;
+};
+
 export const getConversation = async (conversationId: string) => {
   const endpoint = `${API_URL}/v1/messaging/conversations/${conversationId}/`;
 
@@ -336,12 +381,38 @@ export const deleteConversation = async (conversationId: string) => {
 };
 
 export const getAllConversations = async (
-  scope: "personal" | "org" = "org"
+  scope: "personal" | "org" = "org",
+  options?: {
+    chatWidgetId?: number | "none";
+    status?: "active_inactive" | "all" | "active" | "inactive" | "archived" | "deleted";
+  }
 ) => {
+  const params = new URLSearchParams({ scope });
+  if (options?.chatWidgetId !== undefined) {
+    params.set("chat_widget_id", String(options.chatWidgetId));
+  }
+  if (options?.status) {
+    params.set("status", options.status);
+  }
   return makeAuthenticatedRequest<TConversation[]>(
     "GET",
-    `/v1/messaging/conversations?scope=${scope}`
+    `/v1/messaging/conversations?${params.toString()}`
   );
+};
+
+export const bulkConversationAction = async (
+  action: "archive" | "unarchive" | "delete",
+  conversationIds: string[]
+) => {
+  return makeAuthenticatedRequest<{
+    status: string;
+    action: string;
+    updated: number;
+    skipped: number;
+  }>("POST", "/v1/messaging/conversations/bulk/", {
+    action,
+    conversation_ids: conversationIds,
+  });
 };
 
 export const getAlerts = async (status?: "all" | "pending" | "notified" | "resolved" | "dismissed") => {
@@ -1112,6 +1183,10 @@ export const createChatWidget = async (data: {
   name: string;
   agent_id?: number | null;
   enabled?: boolean;
+  style?: {
+    primary_color?: string;
+    theme?: "default" | "light" | "dark";
+  };
   web_search_enabled?: boolean;
   rag_enabled?: boolean;
   plugins_enabled?: string[];
@@ -1129,6 +1204,10 @@ export const updateChatWidget = async (
     name: string;
     agent_id: number | null;
     enabled: boolean;
+    style: {
+      primary_color?: string;
+      theme?: "default" | "light" | "dark";
+    };
     web_search_enabled: boolean;
     rag_enabled: boolean;
     plugins_enabled: string[];

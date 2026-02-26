@@ -1,7 +1,9 @@
 from rest_framework import serializers
+from pydantic import ValidationError as PydanticValidationError
 from .models import Message, Conversation, ChatWidget, ConversationAlert, ConversationAlertRule, Tag
 from api.feedback.serializers import ReactionSerializer
 from api.utils.timezone_utils import format_datetime_for_organization, get_organization_timezone_from_request
+from .schemas import ChatWidgetStyle
 
 
 class MessageSerializer(serializers.ModelSerializer):
@@ -43,6 +45,9 @@ class ConversationSerializer(serializers.ModelSerializer):
     updated_at_formatted = serializers.SerializerMethodField()
     alerts_count = serializers.SerializerMethodField()
     alert_rule_ids = serializers.SerializerMethodField()
+    is_anonymous_widget = serializers.SerializerMethodField()
+    chat_widget_id = serializers.SerializerMethodField()
+    visitor_alias = serializers.SerializerMethodField()
 
     class Meta:
         model = Conversation
@@ -90,6 +95,18 @@ class ConversationSerializer(serializers.ModelSerializer):
             '%Y-%m-%d %H:%M:%S %Z'
         )
 
+    def get_is_anonymous_widget(self, obj):
+        return obj.user_id is None and obj.chat_widget_id is not None
+
+    def get_chat_widget_id(self, obj):
+        return obj.chat_widget_id
+
+    def get_visitor_alias(self, obj):
+        session = getattr(obj, "widget_visitor_session", None)
+        if not session:
+            return None
+        return f"visitor-{session.visitor_id[:8]}"
+
 
 class TagSerializer(serializers.ModelSerializer):
     organization = serializers.UUIDField(read_only=True, source="organization.id")
@@ -103,6 +120,9 @@ class TagSerializer(serializers.ModelSerializer):
 class BigConversationSerializer(serializers.ModelSerializer):
     messages = serializers.SerializerMethodField()  # Change to SerializerMethodField
     number_of_messages = serializers.SerializerMethodField()
+    is_anonymous_widget = serializers.SerializerMethodField()
+    chat_widget_id = serializers.SerializerMethodField()
+    visitor_alias = serializers.SerializerMethodField()
 
     class Meta:
         model = Conversation
@@ -121,6 +141,18 @@ class BigConversationSerializer(serializers.ModelSerializer):
 
     def get_number_of_messages(self, obj):
         return obj.messages.count()  # This can stay the same
+
+    def get_is_anonymous_widget(self, obj):
+        return obj.user_id is None and obj.chat_widget_id is not None
+
+    def get_chat_widget_id(self, obj):
+        return obj.chat_widget_id
+
+    def get_visitor_alias(self, obj):
+        session = getattr(obj, "widget_visitor_session", None)
+        if not session:
+            return None
+        return f"visitor-{session.visitor_id[:8]}"
 
 
 
@@ -147,6 +179,7 @@ class ChatWidgetConfigSerializer(serializers.ModelSerializer):
         fields = (
             "name",
             "enabled",
+            "style",
             "web_search_enabled",
             "rag_enabled",
             "plugins_enabled",
@@ -192,6 +225,19 @@ class ChatWidgetSerializer(serializers.ModelSerializer):
         streaming_url = streaming_url.rstrip('/')
         
         return f'<script src="{streaming_url}/widget/{obj.token}.js"></script>'
+
+    def validate_style(self, value):
+        if value is None:
+            return {}
+        if not isinstance(value, dict):
+            raise serializers.ValidationError("style must be a JSON object.")
+
+        try:
+            parsed = ChatWidgetStyle.model_validate(value)
+        except PydanticValidationError as exc:
+            raise serializers.ValidationError(exc.errors()) from exc
+
+        return parsed.model_dump(exclude_none=True)
     
     class Meta:
         model = ChatWidget
@@ -200,6 +246,7 @@ class ChatWidgetSerializer(serializers.ModelSerializer):
             "token",
             "name",
             "enabled",
+            "style",
             "web_search_enabled",
             "rag_enabled",
             "plugins_enabled",

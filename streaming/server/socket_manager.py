@@ -15,8 +15,17 @@ logger = get_custom_logger("socket_manager")
 
 
 class ProxyNamespaceManager(socketio.AsyncNamespace):
-    user_id_to_socket_id = {}
-    socket_id_to_user_id = {}
+    route_id_to_socket_id = {}
+    socket_id_to_route_id = {}
+
+    def _register_route(self, sid, route_id):
+        route_id = str(route_id)
+        if route_id not in self.route_id_to_socket_id:
+            self.route_id_to_socket_id[route_id] = []
+        self.route_id_to_socket_id[route_id].append(sid)
+        self.socket_id_to_route_id[sid] = route_id
+        r.set("route_id_to_socket_id", json.dumps(self.route_id_to_socket_id))
+        r.set("socket_id_to_route_id", json.dumps(self.socket_id_to_route_id))
 
     async def on_start(self, sid, data):
         await on_start_handler(sid, data)
@@ -26,13 +35,12 @@ class ProxyNamespaceManager(socketio.AsyncNamespace):
         on_connect_handler(socket_id=sid)
 
     def on_register_user(self, sid, user_id):
-        if user_id not in self.user_id_to_socket_id:
-            self.user_id_to_socket_id[user_id] = []
-        self.user_id_to_socket_id[user_id].append(sid)
+        self._register_route(sid, user_id)
 
-        self.socket_id_to_user_id[sid] = user_id
-        r.set("user_id_to_socket_id", json.dumps(self.user_id_to_socket_id))
-        r.set("socket_id_to_user_id", json.dumps(self.socket_id_to_user_id))
+    def on_register_widget_session(self, sid, route_key):
+        if not route_key:
+            return
+        self._register_route(sid, route_key)
 
     async def on_test_event(self, sid, data):
         await on_test_event_handler(socket_id=sid, data=data)
@@ -47,12 +55,12 @@ class ProxyNamespaceManager(socketio.AsyncNamespace):
 
     def on_disconnect(self, sid):
         logger.info(f"Client {sid} disconnected")
-        user_id = self.socket_id_to_user_id.get(sid)
-        if user_id:
-            self.user_id_to_socket_id[user_id].remove(sid)
-            if len(self.user_id_to_socket_id[user_id]) == 0:
-                del self.user_id_to_socket_id[user_id]
-            del self.socket_id_to_user_id[sid]
+        route_id = self.socket_id_to_route_id.get(sid)
+        if route_id:
+            self.route_id_to_socket_id[route_id].remove(sid)
+            if len(self.route_id_to_socket_id[route_id]) == 0:
+                del self.route_id_to_socket_id[route_id]
+            del self.socket_id_to_route_id[sid]
 
-        r.set("user_id_to_socket_id", json.dumps(self.user_id_to_socket_id))
-        r.set("socket_id_to_user_id", json.dumps(self.socket_id_to_user_id))
+        r.set("route_id_to_socket_id", json.dumps(self.route_id_to_socket_id))
+        r.set("socket_id_to_route_id", json.dumps(self.socket_id_to_route_id))

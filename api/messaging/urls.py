@@ -1,6 +1,7 @@
 from django.urls import path
 from .views import (
     ConversationView,
+    ConversationBulkView,
     MessageView,
     upload_audio,
     upload_message_attachments,
@@ -8,7 +9,10 @@ from .views import (
     get_suggestion,
     SharedConversationView,
     ChatWidgetConfigView,
-    ChatWidgetAuthTokenView,
+    ChatWidgetSessionView,
+    ChatWidgetConversationView,
+    ChatWidgetAgentTaskView,
+    ChatWidgetSocketAuthView,
     ChatWidgetView,
     ConversationAlertView,
     ConversationAlertStatsView,
@@ -20,6 +24,7 @@ app_name = "messaging"
 
 urlpatterns = [
     path("conversations", ConversationView.as_view(), name="conversation_list"),
+    path("conversations/bulk/", ConversationBulkView.as_view(), name="conversation_bulk"),
     path(
         "conversations/<uuid:id>/",
         ConversationView.as_view(),
@@ -47,9 +52,24 @@ urlpatterns = [
         name="widget_config",
     ),
     path(
-        "widgets/<str:token>/auth-token/",
-        ChatWidgetAuthTokenView.as_view(),
-        name="widget_auth_token",
+        "widgets/<str:token>/session/",
+        ChatWidgetSessionView.as_view(),
+        name="widget_session",
+    ),
+    path(
+        "widgets/<str:token>/conversation/",
+        ChatWidgetConversationView.as_view(),
+        name="widget_conversation",
+    ),
+    path(
+        "widgets/<str:token>/agent-task/",
+        ChatWidgetAgentTaskView.as_view(),
+        name="widget_agent_task",
+    ),
+    path(
+        "widgets/<str:token>/socket-auth/",
+        ChatWidgetSocketAuthView.as_view(),
+        name="widget_socket_auth",
     ),
     # Widget management endpoints (CRUD)
     path("widgets/", ChatWidgetView.as_view(), name="widget_list"),

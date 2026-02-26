@@ -81,21 +81,32 @@ async def widget_loader(widget_token: str, request: Request):
             return response.json();
         }})
         .then(config => {{
-            // Fetch auth token
-            return fetch(apiUrl + '/v1/messaging/widgets/' + widgetToken + '/auth-token/')
-                .then(response => response.json())
-                .then(authData => {{
-                    return {{ config, authToken: authData.token }};
+            const visitorStorageKey = 'masscer_widget_visitor_' + widgetToken;
+            const existingVisitorId = localStorage.getItem(visitorStorageKey) || '';
+            const sessionUrl = apiUrl + '/v1/messaging/widgets/' + widgetToken + '/session/?visitor_id=' + encodeURIComponent(existingVisitorId);
+
+            return fetch(sessionUrl)
+                .then(response => {{
+                    if (!response.ok) {{
+                        throw new Error('Failed to create widget session');
+                    }}
+                    return response.json();
+                }})
+                .then(sessionData => {{
+                    if (sessionData.visitor_id) {{
+                        localStorage.setItem(visitorStorageKey, sessionData.visitor_id);
+                    }}
+                    return {{ config, sessionToken: sessionData.token }};
                 }});
         }})
-        .then(({{ config, authToken }}) => {{
+        .then(({{ config, sessionToken }}) => {{
             // Load widget bundle
             const script = document.createElement('script');
             script.src = baseUrl + '/assets/chat-widget.js';
             script.onload = function() {{
                 // Initialize widget - pass streaming URL directly
                 if (window.initChatWidget) {{
-                    window.initChatWidget(config, authToken, widgetToken, streamingUrl);
+                    window.initChatWidget(config, sessionToken, widgetToken, streamingUrl);
                 }}
             }};
             script.onerror = function() {{

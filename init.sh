@@ -12,7 +12,8 @@ success() {
 }
 cleanup() {
     info "Stopping background services..."
-    kill $CHROMA_PID $DJANGO_PID 2>/dev/null
+    kill $CHROMA_PID 2>/dev/null
+    docker stop $DJANGO_CONTAINER 2>/dev/null
     info "Cleanup complete."
 }
 trap cleanup EXIT
@@ -20,7 +21,8 @@ trap cleanup EXIT
 # Default values for the flags
 DJANGO=true
 INSTALL=true
-WATCH=false  
+WATCH=false
+REBUILD=false
 
 # Parse command line arguments
 while [[ "$#" -gt 0 ]]; do
@@ -31,11 +33,12 @@ while [[ "$#" -gt 0 ]]; do
             fi
             DJANGO="$2"; shift ;;
         -i|--install) INSTALL=false ;;
-        -w|--watch) 
+        -w|--watch)
             if [[ -z "$2" ]]; then
                 error "Error: Missing value for $1"; exit 1
             fi
             WATCH="$2"; shift ;;
+        -r|--rebuild) REBUILD=true ;;
         *) error "Unknown parameter passed: $1"; exit 1 ;;
     esac
     shift
@@ -102,6 +105,9 @@ fi
 
 # Start Redis container (FastAPI notifications, Celery)
 REDIS_CONTAINER=${REDIS_CONTAINER:-redis-instance}
+DJANGO_CONTAINER=${DJANGO_CONTAINER:-masscer-django}
+DJANGO_IMAGE=${DJANGO_IMAGE:-masscer-django-img}
+NETWORK_NAME=${NETWORK_NAME:-masscer-net}
 info "Checking Redis container..."
 if [[ "$(docker ps -aq -f name=$REDIS_CONTAINER)" ]]; then
     info "Starting existing Redis container on port $REDIS_PORT..."
@@ -112,6 +118,26 @@ else
     docker run --name $REDIS_CONTAINER -d -p "${REDIS_PORT}:6379" redis:alpine || { error "Failed to run Redis container."; exit 1; }
     success "Redis container started."
 fi
+
+# === DOCKER NETWORK ===
+info "Setting up Docker network '$NETWORK_NAME'..."
+if ! docker network ls --format '{{.Name}}' | grep -q "^${NETWORK_NAME}$"; then
+    docker network create $NETWORK_NAME
+    success "Network '$NETWORK_NAME' created."
+else
+    info "Network '$NETWORK_NAME' already exists."
+fi
+
+# Connect infrastructure containers to the shared network
+for CONTAINER in $POSTGRES_CONTAINER $PGBOUNCER_CONTAINER $REDIS_CONTAINER; do
+    if docker ps -q -f name="^${CONTAINER}$" | grep -q .; then
+        if ! docker network inspect $NETWORK_NAME --format '{{range .Containers}}{{.Name}} {{end}}' 2>/dev/null | grep -qw "$CONTAINER"; then
+            docker network connect $NETWORK_NAME $CONTAINER && success "Connected $CONTAINER to $NETWORK_NAME."
+        else
+            info "$CONTAINER already in $NETWORK_NAME."
+        fi
+    fi
+done
 
 # Execute installation commands if the flag is true
 if [ "$INSTALL" = true ]; then
@@ -133,10 +159,50 @@ fi
 
 # Run Django application if the flag is true
 if [ "$DJANGO" = true ]; then
-    info "Running Django migrations and server on port $DJANGO_PORT..."
-    python manage.py migrate || { error "Django migration failed"; exit 1; }
-    python manage.py runserver "0.0.0.0:$DJANGO_PORT" &
-    DJANGO_PID=$!
+    # Inside the container, services are reachable by their container name on internal ports.
+    # We derive those URLs from the .env ones by replacing localhost:<any-port> with the
+    # container name and its internal port.
+    DB_URL_CONTAINER=$(grep "^DB_CONNECTION_STRING=" .env 2>/dev/null | cut -d= -f2- \
+        | sed "s|localhost:[0-9]*|${PGBOUNCER_CONTAINER}:6432|g; s|127\.0\.0\.1:[0-9]*|${PGBOUNCER_CONTAINER}:6432|g")
+    REDIS_INTERNAL="redis://${REDIS_CONTAINER}:6379"
+
+    if [ "$REBUILD" = true ] || ! docker image inspect $DJANGO_IMAGE &>/dev/null; then
+        info "Building Django image '$DJANGO_IMAGE'..."
+        docker build -t $DJANGO_IMAGE . || { error "Django image build failed"; exit 1; }
+    else
+        info "Django image '$DJANGO_IMAGE' already exists. Skipping build (use -r to rebuild)."
+    fi
+
+    info "Running Django migrations inside container..."
+    docker run --rm \
+        --network $NETWORK_NAME \
+        --env-file .env \
+        -e DB_CONNECTION_STRING="$DB_URL_CONTAINER" \
+        -e CELERY_BROKER_URL="${REDIS_INTERNAL}/0" \
+        -e CELERY_RESULT_BACKEND="${REDIS_INTERNAL}/0" \
+        -e REDIS_CACHE_URL="${REDIS_INTERNAL}/1" \
+        -e REDIS_NOTIFICATIONS_URL="${REDIS_INTERNAL}/2" \
+        -e MEDIA_ROOT=/app/storage \
+        -v "$(pwd)/storage:/app/storage" \
+        $DJANGO_IMAGE python manage.py migrate || { error "Django migration failed"; exit 1; }
+
+    info "Starting Django container on port $DJANGO_PORT..."
+    docker stop $DJANGO_CONTAINER 2>/dev/null || true
+    docker rm $DJANGO_CONTAINER 2>/dev/null || true
+    docker run -d \
+        --name $DJANGO_CONTAINER \
+        --network $NETWORK_NAME \
+        --env-file .env \
+        -e DB_CONNECTION_STRING="$DB_URL_CONTAINER" \
+        -e CELERY_BROKER_URL="${REDIS_INTERNAL}/0" \
+        -e CELERY_RESULT_BACKEND="${REDIS_INTERNAL}/0" \
+        -e REDIS_CACHE_URL="${REDIS_INTERNAL}/1" \
+        -e REDIS_NOTIFICATIONS_URL="${REDIS_INTERNAL}/2" \
+        -e MEDIA_ROOT=/app/storage \
+        -v "$(pwd):/app" \
+        -p "${DJANGO_PORT}:${DJANGO_PORT}" \
+        $DJANGO_IMAGE python manage.py runserver "0.0.0.0:${DJANGO_PORT}" || { error "Django container failed to start"; exit 1; }
+    success "Django container started on port $DJANGO_PORT."
 fi
 
 cd ./streaming 

@@ -18,6 +18,7 @@ import {
   Button,
   Card,
   Checkbox,
+  ColorInput,
   CopyButton,
   Group,
   Loader,
@@ -231,9 +232,15 @@ interface WidgetFormData {
   name: string;
   agent_id: number | null;
   enabled: boolean;
+  style?: {
+    primary_color?: string;
+    theme?: "default" | "light" | "dark";
+  };
   web_search_enabled: boolean;
   rag_enabled: boolean;
 }
+
+type WidgetTheme = "default" | "light" | "dark";
 
 const WidgetForm = ({
   agents,
@@ -258,6 +265,12 @@ const WidgetForm = ({
     matchedAgent ? String(matchedAgent.id) : ""
   );
   const [enabled, setEnabled] = useState(initialData?.enabled ?? true);
+  const [primaryColor, setPrimaryColor] = useState(
+    initialData?.style?.primary_color ?? ""
+  );
+  const [theme, setTheme] = useState<WidgetTheme>(
+    initialData?.style?.theme ?? "default"
+  );
   const [webSearch, setWebSearch] = useState(
     initialData?.web_search_enabled ?? false
   );
@@ -268,12 +281,27 @@ const WidgetForm = ({
       toast.error(t("widget-name-required"));
       return;
     }
+    const trimmedPrimaryColor = primaryColor.trim();
+    if (
+      trimmedPrimaryColor &&
+      !/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(trimmedPrimaryColor)
+    ) {
+      toast.error(t("widget-primary-color-invalid"));
+      return;
+    }
     setSaving(true);
     try {
+      const stylePayload: { primary_color?: string; theme?: WidgetTheme } = {
+        theme,
+      };
+      if (trimmedPrimaryColor) {
+        stylePayload.primary_color = trimmedPrimaryColor;
+      }
       await onSave({
         name: name.trim(),
         agent_id: agentId ? parseInt(agentId) : null,
         enabled,
+        style: stylePayload,
         web_search_enabled: webSearch,
         rag_enabled: rag,
       });
@@ -307,6 +335,39 @@ const WidgetForm = ({
               value: String(a.id),
               label: a.name,
             })),
+          ]}
+        />
+
+        <ColorInput
+          label={t("widget-primary-color")}
+          description={t("widget-primary-color-description")}
+          placeholder="#667eea"
+          value={primaryColor}
+          format="hex"
+          withPicker
+          swatches={[
+            "#000000",
+            "#667eea",
+            "#7c3aed",
+            "#0ea5e9",
+            "#10b981",
+            "#f59e0b",
+            "#ef4444",
+            "#ec4899",
+          ]}
+          onChange={setPrimaryColor}
+          clearable
+        />
+
+        <NativeSelect
+          label={t("widget-theme")}
+          description={t("widget-theme-description")}
+          value={theme}
+          onChange={(e) => setTheme(e.currentTarget.value as WidgetTheme)}
+          data={[
+            { value: "default", label: t("widget-theme-default") },
+            { value: "light", label: t("widget-theme-light") },
+            { value: "dark", label: t("widget-theme-dark") },
           ]}
         />
 
@@ -402,6 +463,16 @@ const WidgetCard = ({
       )}
 
       <Group gap={6} mb="sm">
+        {widget.style?.theme && (
+          <Badge size="xs" variant="light" color="indigo">
+            {t("widget-theme")}: {t(`widget-theme-${widget.style.theme}`)}
+          </Badge>
+        )}
+        {widget.style?.primary_color && (
+          <Badge size="xs" variant="light" color="gray">
+            {t("widget-primary-color")}: {widget.style.primary_color}
+          </Badge>
+        )}
         {widget.web_search_enabled && (
           <Badge size="xs" variant="light" color="blue">
             {t("web-search")}

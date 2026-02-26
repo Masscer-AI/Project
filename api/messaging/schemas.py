@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Literal
 
 
 class Alert(BaseModel):
@@ -30,5 +30,17 @@ class ConversationAnalysisResult(BaseModel):
     alerts: list[Alert] = Field(
         default_factory=list,
         description="Lista de alertas que se deben levantar para esta conversación"
+    )
+
+
+class ChatWidgetStyle(BaseModel):
+    primary_color: Optional[str] = Field(
+        default=None,
+        pattern=r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$",
+        description="Primary color in hex format (#RGB or #RRGGBB)",
+    )
+    theme: Optional[Literal["default", "light", "dark"]] = Field(
+        default=None,
+        description="Widget theme mode",
     )
 

@@ -395,7 +395,7 @@ def conversation_agent_task(
     plugin_slugs: list[str] | None = None,
     multiagentic_modality: str = "isolated",
     max_iterations: int = 10,
-    user_id: int | None = None,
+    user_id: int | str | None = None,
     regenerate_message_id: int | None = None,
 ):
     """
@@ -414,7 +414,7 @@ def conversation_agent_task(
         tool_names: list of tool names to resolve from the registry
         agent_slugs: list of Agent slugs to run (in order)
         multiagentic_modality: "isolated" or "grupal"
-        user_id: ID of the user (for notifications)
+        user_id: Notification route id (user id or widget_session:<id>)
         regenerate_message_id: if set, reuse this user message (update its text,
             delete all subsequent messages) instead of creating a new one.
 
@@ -435,6 +435,8 @@ def conversation_agent_task(
     )
     from api.notify.actions import notify_user
     from api.messaging.models import Conversation, Message
+    notification_route_id = user_id
+    actor_user_id = user_id if isinstance(user_id, int) else None
 
     # Get conversation first (needed for validation in resolve)
     try:
@@ -442,7 +444,7 @@ def conversation_agent_task(
     except Conversation.DoesNotExist:
         logger.error("Conversation %s not found", conversation_id)
         notify_user(
-            user_id,
+            notification_route_id,
             "agent_events_channel",
             {"type": "error", "conversation_id": conversation_id, "error": f"Conversation {conversation_id} not found"},
         )
@@ -458,7 +460,7 @@ def conversation_agent_task(
         )
     except ValueError as e:
         notify_user(
-            user_id,
+            notification_route_id,
             "agent_events_channel",
             {"type": "error", "conversation_id": conversation_id, "error": str(e)},
         )
@@ -467,11 +469,11 @@ def conversation_agent_task(
 
     def emit_event(event_type: str, data: dict) -> None:
         payload = {"type": event_type, "conversation_id": conversation_id, **data}
-        notify_user(user_id, "agent_events_channel", payload)
+        notify_user(notification_route_id, "agent_events_channel", payload)
 
     def emit_finished(data: dict) -> None:
         payload = {"conversation_id": conversation_id, **data}
-        notify_user(user_id, "agent_loop_finished", payload)
+        notify_user(notification_route_id, "agent_loop_finished", payload)
 
     logger.info(
         "conversation_agent_task started: conversation=%s user=%s agents=%s tools=%s modality=%s",
@@ -547,9 +549,11 @@ def conversation_agent_task(
         current_date_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         user_profile_text = ""
-        if user_id:
+        if actor_user_id:
             try:
-                user_profile_text = UserProfile.objects.get(user_id=user_id).get_as_text()
+                user_profile_text = UserProfile.objects.get(
+                    user_id=actor_user_id
+                ).get_as_text()
             except UserProfile.DoesNotExist:
                 pass
 
@@ -662,7 +666,7 @@ def conversation_agent_task(
                     "agent_name": agent.name,
                     **data,
                 }
-                notify_user(user_id, "agent_events_channel", payload)
+                notify_user(notification_route_id, "agent_events_channel", payload)
 
             # Always include read_plugin_instructions so the agent can
             # discover plugin formatting rules on demand.
@@ -672,7 +676,7 @@ def conversation_agent_task(
             tools = resolve_tools(
                 tool_names,
                 conversation_id=conversation_id,
-                user_id=user_id,
+                user_id=actor_user_id,
                 agent_slug=agent.slug,
             )
 

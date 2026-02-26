@@ -590,7 +590,12 @@ def _user_can_access_message(user, message):
         )
         org_user_ids = list(owner_ids | member_ids)
     if org_user_ids and (
-        conv.user_id in org_user_ids or conv.user_id is None
+        conv.user_id in org_user_ids
+        or (
+            conv.user_id is None
+            and conv.chat_widget
+            and conv.chat_widget.created_by_id in org_user_ids
+        )
     ):
         return True
     return False

@@ -614,7 +614,7 @@ const ConversationComponent = ({
           </Menu.Item>
           <Menu.Divider />
           <Menu.Label>
-            {conversation.number_of_messages} {t("messages")}
+            {conversation.number_of_messages} {t("messages").toLowerCase()}
           </Menu.Label>
           <Menu.Label>
             {new Date(conversation.created_at).toLocaleString()}

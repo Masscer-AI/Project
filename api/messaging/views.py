@@ -10,6 +10,7 @@ from .models import (
     MessageAttachment,
     SharedConversation,
     ChatWidget,
+    WidgetVisitorSession,
     ConversationAlert,
     ConversationAlertRule,
     Tag,
@@ -33,11 +34,16 @@ from django.utils.decorators import method_decorator
 import base64
 import json
 from api.authenticate.decorators.token_required import token_required
+from api.authenticate.decorators.widget_session_required import (
+    create_widget_session_token,
+    widget_session_required,
+)
 from .actions import transcribe_audio, complete_message
 from django.core.files.storage import FileSystemStorage
 import os
 import uuid
 from django.conf import settings
+from django.core.cache import cache
 
 
 def _get_conversation_for_user(request, conversation_id):
@@ -51,13 +57,12 @@ def _get_conversation_for_user(request, conversation_id):
         return None, JsonResponse(
             {"message": "Conversation not found", "status": 404}, status=404
         )
+    if conversation.status == "deleted":
+        return None, JsonResponse(
+            {"message": "Conversation not found", "status": 404}, status=404
+        )
     user = request.user
-    if conversation.user_id == user.id:
-        return conversation, None
-    org_user_ids = _get_org_user_ids(user)
-    if org_user_ids and (
-        conversation.user_id in org_user_ids or conversation.user_id is None
-    ):
+    if _user_can_access_conversation(user, conversation):
         return conversation, None
     return None, JsonResponse(
         {"message": "Conversation not found", "status": 404}, status=404
@@ -82,6 +87,43 @@ def _get_org_user_ids(user):
     return list(owner_ids | member_ids)
 
 
+def _user_can_access_conversation(user, conversation):
+    if conversation.user_id == user.id:
+        return True
+    org_user_ids = _get_org_user_ids(user)
+    widget_owner_id = (
+        conversation.chat_widget.created_by_id if conversation.chat_widget else None
+    )
+    if org_user_ids and (
+        conversation.user_id in org_user_ids
+        or (conversation.user_id is None and widget_owner_id in org_user_ids)
+    ):
+        return True
+    return False
+
+
+def _rate_limit_widget_request(
+    *,
+    request,
+    scope_key: str,
+    limit: int,
+    window_seconds: int,
+):
+    remote_addr = request.META.get("REMOTE_ADDR", "unknown")
+    key = f"widget-rate:{scope_key}:{remote_addr}"
+    current = cache.get(key)
+    if current is None:
+        cache.set(key, 1, timeout=window_seconds)
+        return None
+    if int(current) >= limit:
+        return JsonResponse(
+            {"error": "Too many requests. Please try again later."},
+            status=429,
+        )
+    cache.incr(key)
+    return None
+
+
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class ConversationView(View):
@@ -98,6 +140,8 @@ class ConversationView(View):
             return JsonResponse(serialized_conversation, safe=False)
         else:
             scope = request.GET.get("scope", "org")
+            chat_widget_id = (request.GET.get("chat_widget_id") or "").strip()
+            status_param = (request.GET.get("status") or "").strip().lower()
             if scope == "personal":
                 conversations = Conversation.objects.filter(user=user).order_by(
                     "-created_at"
@@ -109,7 +153,11 @@ class ConversationView(View):
 
                     conversations = (
                         Conversation.objects.filter(
-                            Q(user_id__in=org_user_ids) | Q(user__isnull=True)
+                            Q(user_id__in=org_user_ids)
+                            | Q(
+                                user__isnull=True,
+                                chat_widget__created_by_id__in=org_user_ids,
+                            )
                         )
                         .order_by("-created_at")
                     )
@@ -117,6 +165,37 @@ class ConversationView(View):
                     conversations = Conversation.objects.filter(user=user).order_by(
                         "-created_at"
                     )
+
+            if status_param in ("", "active_inactive"):
+                conversations = conversations.filter(status__in=["active", "inactive"])
+            elif status_param == "all":
+                conversations = conversations.exclude(status="deleted")
+            elif status_param in ("active", "inactive", "archived", "deleted"):
+                conversations = conversations.filter(status=status_param)
+            else:
+                return JsonResponse(
+                    {
+                        "message": "status must be one of: active_inactive, all, active, inactive, archived, deleted",
+                        "status": 400,
+                    },
+                    status=400,
+                )
+
+            if chat_widget_id:
+                if chat_widget_id.lower() == "none":
+                    conversations = conversations.filter(chat_widget__isnull=True)
+                else:
+                    try:
+                        widget_id = int(chat_widget_id)
+                    except ValueError:
+                        return JsonResponse(
+                            {
+                                "message": "chat_widget_id must be an integer or 'none'",
+                                "status": 400,
+                            },
+                            status=400,
+                        )
+                    conversations = conversations.filter(chat_widget_id=widget_id)
 
             serialized_conversations = ConversationSerializer(
                 conversations, many=True, context={"request": request}
@@ -127,7 +206,7 @@ class ConversationView(View):
         user = request.user
 
         existing_conversation = Conversation.objects.filter(
-            user=user, messages__isnull=True
+            user=user, messages__isnull=True, status__in=["active", "inactive"]
         ).first()
         if existing_conversation:
             data = BigConversationSerializer(existing_conversation, context={'request': request}).data
@@ -199,8 +278,74 @@ class ConversationView(View):
         conversation, err = _get_conversation_for_user(request, conversation_id)
         if err:
             return err
-        conversation.delete()
+        conversation.status = "deleted"
+        conversation.deleted_at = timezone.now()
+        conversation.save(update_fields=["status", "deleted_at", "updated_at"])
         return JsonResponse({"status": "deleted"})
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class ConversationBulkView(View):
+    def post(self, request, *args, **kwargs):
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({"message": "Invalid JSON", "status": 400}, status=400)
+
+        action = (data.get("action") or "").strip().lower()
+        conversation_ids = data.get("conversation_ids") or []
+        if action not in ("archive", "unarchive", "delete"):
+            return JsonResponse(
+                {"message": "action must be archive, unarchive, or delete", "status": 400},
+                status=400,
+            )
+        if not isinstance(conversation_ids, list) or not conversation_ids:
+            return JsonResponse(
+                {"message": "conversation_ids must be a non-empty list", "status": 400},
+                status=400,
+            )
+
+        updated = 0
+        skipped = 0
+        now = timezone.now()
+        inactive_threshold = now - timedelta(days=30)
+        user = request.user
+        conversations = Conversation.objects.filter(id__in=conversation_ids).select_related(
+            "chat_widget"
+        )
+        by_id = {str(c.id): c for c in conversations}
+
+        for conv_id in conversation_ids:
+            conversation = by_id.get(str(conv_id))
+            if not conversation:
+                skipped += 1
+                continue
+            if not _user_can_access_conversation(user, conversation):
+                skipped += 1
+                continue
+
+            if action == "archive":
+                conversation.status = "archived"
+                conversation.archived_at = now
+                conversation.deleted_at = None
+            elif action == "unarchive":
+                is_recent = bool(
+                    conversation.last_message_at and conversation.last_message_at >= inactive_threshold
+                )
+                conversation.status = "active" if is_recent else "inactive"
+                conversation.archived_at = None
+                conversation.deleted_at = None
+            else:  # delete
+                conversation.status = "deleted"
+                conversation.deleted_at = now
+            conversation.save(update_fields=["status", "archived_at", "deleted_at", "updated_at"])
+            updated += 1
+
+        return JsonResponse(
+            {"status": "ok", "action": action, "updated": updated, "skipped": skipped},
+            status=200,
+        )
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -607,8 +752,17 @@ class ChatWidgetConfigView(View):
 
 
 @method_decorator(csrf_exempt, name="dispatch")
-class ChatWidgetAuthTokenView(View):
+class ChatWidgetSessionView(View):
     def get(self, request, token):
+        rate_limit_resp = _rate_limit_widget_request(
+            request=request,
+            scope_key=f"session:{token}",
+            limit=120,
+            window_seconds=60,
+        )
+        if rate_limit_resp:
+            return rate_limit_resp
+
         try:
             widget = ChatWidget.objects.get(token=token, enabled=True)
         except ChatWidget.DoesNotExist:
@@ -616,25 +770,176 @@ class ChatWidgetAuthTokenView(View):
                 {"error": "Widget not found or disabled", "status": 404}, status=404
             )
 
-        # Get or create a Token for the widget's owner
-        # Widgets need to authenticate as a user to access agents and other resources
-        from api.authenticate.models import Token
-        
-        if not widget.created_by:
-            return JsonResponse(
-                {"error": "Widget has no owner configured", "status": 400}, status=400
-            )
+        visitor_id = (request.GET.get("visitor_id") or "").strip()
+        if not visitor_id:
+            visitor_id = uuid.uuid4().hex
+        visitor_id = visitor_id[:64]
 
-        # Get or create a token for the widget owner
-        # Use a permanent token type so it doesn't expire
-        auth_token, created = Token.get_or_create(
-            user=widget.created_by,
-            token_type="permanent"
+        now = timezone.now()
+        expires_at = now + timedelta(days=30)
+        defaults = {
+            "origin": (request.headers.get("Origin") or "")[:255],
+            "user_agent": request.headers.get("User-Agent") or "",
+            "expires_at": expires_at,
+        }
+        session, _ = WidgetVisitorSession.objects.get_or_create(
+            widget=widget,
+            visitor_id=visitor_id,
+            defaults=defaults,
+        )
+        if session.is_blocked:
+            return JsonResponse({"error": "Widget session blocked"}, status=403)
+
+        # Keep session alive for persistent browser identity.
+        session.expires_at = expires_at
+        session.origin = defaults["origin"]
+        session.user_agent = defaults["user_agent"]
+        session.save(update_fields=["expires_at", "origin", "user_agent", "last_seen_at"])
+
+        auth_token = create_widget_session_token(
+            widget_token=widget.token,
+            session_id=str(session.id),
+            visitor_id=session.visitor_id,
         )
 
         return JsonResponse(
-            {"token": auth_token.key, "token_type": "Token"},
+            {
+                "token": auth_token,
+                "token_type": "WidgetSession",
+                "visitor_id": session.visitor_id,
+                "session_id": str(session.id),
+                "expires_at": session.expires_at.isoformat(),
+            },
             safe=False,
+        )
+
+
+def _get_widget_organization(widget):
+    owner = getattr(widget, "created_by", None)
+    if not owner:
+        return None
+    owned_org = Organization.objects.filter(owner=owner).first()
+    if owned_org:
+        return owned_org
+    if hasattr(owner, "profile") and owner.profile.organization:
+        return owner.profile.organization
+    return None
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(widget_session_required, name="dispatch")
+class ChatWidgetConversationView(View):
+    def post(self, request, token):
+        rate_limit_resp = _rate_limit_widget_request(
+            request=request,
+            scope_key=f"conversation:{token}",
+            limit=30,
+            window_seconds=60,
+        )
+        if rate_limit_resp:
+            return rate_limit_resp
+
+        if request.widget.token != token:
+            return JsonResponse({"error": "Widget token mismatch"}, status=403)
+
+        session = request.widget_visitor_session
+        existing_conversation = Conversation.objects.filter(
+            widget_visitor_session=session,
+            messages__isnull=True,
+            status__in=["active", "inactive"],
+        ).first()
+        if existing_conversation:
+            data = BigConversationSerializer(
+                existing_conversation, context={"request": request}
+            ).data
+            return JsonResponse(data, status=200)
+
+        conversation = Conversation.objects.create(
+            user=None,
+            organization=_get_widget_organization(request.widget),
+            chat_widget=request.widget,
+            widget_visitor_session=session,
+        )
+        data = BigConversationSerializer(conversation, context={"request": request}).data
+        return JsonResponse(data, status=201)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(widget_session_required, name="dispatch")
+class ChatWidgetAgentTaskView(View):
+    def post(self, request, token):
+        rate_limit_resp = _rate_limit_widget_request(
+            request=request,
+            scope_key=f"agent-task:{token}",
+            limit=20,
+            window_seconds=60,
+        )
+        if rate_limit_resp:
+            return rate_limit_resp
+
+        if request.widget.token != token:
+            return JsonResponse({"error": "Widget token mismatch"}, status=403)
+
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON body"}, status=400)
+
+        conversation_id = data.get("conversation_id")
+        user_inputs = data.get("user_inputs")
+        if not conversation_id or not isinstance(user_inputs, list) or not user_inputs:
+            return JsonResponse(
+                {
+                    "error": "conversation_id and user_inputs (non-empty list) are required"
+                },
+                status=400,
+            )
+
+        try:
+            conversation = Conversation.objects.get(
+                id=conversation_id,
+                chat_widget=request.widget,
+                widget_visitor_session=request.widget_visitor_session,
+            )
+        except Conversation.DoesNotExist:
+            return JsonResponse({"error": "Conversation not found"}, status=404)
+
+        if not request.widget.agent:
+            return JsonResponse({"error": "Widget has no configured agent"}, status=400)
+
+        tool_names = ["read_attachment", "list_attachments"]
+        if request.widget.web_search_enabled:
+            tool_names.append("explore_web")
+        if request.widget.rag_enabled:
+            tool_names.append("rag_query")
+        tool_names.extend(request.widget.plugins_enabled or [])
+
+        from api.messaging.tasks import widget_conversation_agent_task
+
+        task = widget_conversation_agent_task.delay(
+            conversation_id=str(conversation.id),
+            user_inputs=user_inputs,
+            tool_names=tool_names,
+            agent_slug=request.widget.agent.slug,
+            widget_token=request.widget.token,
+            widget_session_id=str(request.widget_visitor_session.id),
+            regenerate_message_id=data.get("regenerate_message_id"),
+        )
+        return JsonResponse({"task_id": task.id, "status": "accepted"}, status=202)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(widget_session_required, name="dispatch")
+class ChatWidgetSocketAuthView(View):
+    def get(self, request, token):
+        if request.widget.token != token:
+            return JsonResponse({"error": "Widget token mismatch"}, status=403)
+        return JsonResponse(
+            {
+                "route_key": f"widget_session:{request.widget_visitor_session.id}",
+                "session_id": str(request.widget_visitor_session.id),
+            },
+            status=200,
         )
 
 

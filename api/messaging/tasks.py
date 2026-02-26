@@ -18,6 +18,51 @@ def async_generate_conversation_title(conversation_id: str):
     return result
 
 
+@shared_task
+def widget_conversation_agent_task(
+    *,
+    conversation_id: str,
+    user_inputs: list[dict],
+    tool_names: list[str],
+    agent_slug: str,
+    widget_token: str,
+    widget_session_id: str,
+    regenerate_message_id: int | None = None,
+):
+    """
+    Dedicated widget agent task entrypoint.
+    Keeps widget-specific validation/routing separate from generic conversation_agent_task.
+    """
+    from api.ai_layers.tasks import conversation_agent_task
+
+    try:
+        conversation = Conversation.objects.select_related(
+            "chat_widget", "widget_visitor_session"
+        ).get(id=conversation_id)
+    except Conversation.DoesNotExist:
+        return {"status": "error", "error": "Conversation not found"}
+
+    if not conversation.chat_widget or conversation.chat_widget.token != widget_token:
+        return {"status": "error", "error": "Conversation does not belong to widget"}
+    if (
+        not conversation.widget_visitor_session
+        or str(conversation.widget_visitor_session_id) != str(widget_session_id)
+    ):
+        return {"status": "error", "error": "Conversation does not belong to widget session"}
+
+    # Widget route key is how streaming events are delivered to this visitor.
+    route_key = f"widget_session:{widget_session_id}"
+    return conversation_agent_task(
+        conversation_id=conversation_id,
+        user_inputs=user_inputs,
+        tool_names=tool_names,
+        agent_slugs=[agent_slug],
+        multiagentic_modality="isolated",
+        user_id=route_key,
+        regenerate_message_id=regenerate_message_id,
+    )
+
+
 def get_organizations_with_feature_flag(feature_flag_name: str):
     """
     Obtiene todas las organizaciones que tienen un feature flag específico activado.

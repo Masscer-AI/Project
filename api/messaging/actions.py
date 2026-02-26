@@ -116,7 +116,14 @@ def generate_conversation_title(conversation_id: str):
         "title": title,
         "conversation_id": str(c.id),
     }
-    notify_user(c.user.id, event_type="title_updated", data=data)
+    route_id = None
+    if c.user_id:
+        route_id = c.user_id
+    elif c.widget_visitor_session_id:
+        route_id = f"widget_session:{c.widget_visitor_session_id}"
+
+    if route_id is not None:
+        notify_user(route_id, event_type="title_updated", data=data)
     return True
 
 

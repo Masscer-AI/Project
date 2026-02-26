@@ -3,36 +3,35 @@ import { WidgetMessage } from "./WidgetMessage";
 import { SimpleChatInput } from "./SimpleChatInput";
 import { useWidgetStore, WidgetConfig } from "./widgetStore";
 import { TMessage } from "../types/chatTypes";
-import { TAgent } from "../types/agents";
 import { TVersion } from "../types";
-import { initConversation, getAgents, triggerAgentTask } from "../modules/apiCalls";
+import {
+  initWidgetConversation,
+  triggerWidgetAgentTask,
+  getWidgetSocketRoute,
+} from "../modules/apiCalls";
 import { SocketManager } from "../modules/socketManager";
-import { API_URL } from "../modules/constants";
 import "./ChatWidget.css";
 import "./WidgetMessage.css";
 
 interface ChatWidgetProps {
   config: WidgetConfig;
-  authToken: string;
+  sessionToken: string;
   widgetToken: string;
   streamingUrl: string;
 }
 
 const ChatWidget: React.FC<ChatWidgetProps> = ({
   config,
-  authToken,
+  sessionToken,
   widgetToken,
   streamingUrl: propStreamingUrl,
 }) => {
   const {
     messages,
     conversation,
-    agents,
     isOpen,
     setMessages,
-    addMessage,
     setConversation,
-    setAgents,
     setIsOpen,
   } = useWidgetStore();
 
@@ -41,6 +40,48 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
   const initializationRef = useRef(false);
   const socketRef = useRef<SocketManager | null>(null);
   const [socketReady, setSocketReady] = useState(false);
+  const widgetTheme = config.style?.theme ?? "default";
+  const isDarkTheme = widgetTheme === "dark";
+  const widgetPrimaryColor = config.style?.primary_color?.trim();
+  const widgetCssVars = {
+    "--widget-primary":
+      widgetPrimaryColor && widgetPrimaryColor.length > 0
+        ? widgetPrimaryColor
+        : "#000000",
+    "--widget-bg": isDarkTheme ? "#111827" : "#ffffff",
+    "--widget-input-bg": isDarkTheme ? "#0f172a" : "#f8f9fa",
+    "--widget-input-focus-bg": isDarkTheme ? "#111827" : "#ffffff",
+    "--widget-border": isDarkTheme
+      ? "rgba(255, 255, 255, 0.12)"
+      : "rgba(0, 0, 0, 0.08)",
+    "--widget-input-border": isDarkTheme
+      ? "rgba(255, 255, 255, 0.2)"
+      : "rgba(0, 0, 0, 0.1)",
+    "--widget-scrollbar-thumb": isDarkTheme
+      ? "rgba(255, 255, 255, 0.2)"
+      : "rgba(0, 0, 0, 0.1)",
+    "--widget-scrollbar-thumb-hover": isDarkTheme
+      ? "rgba(255, 255, 255, 0.28)"
+      : "rgba(0, 0, 0, 0.15)",
+    "--widget-text": isDarkTheme ? "#e5e7eb" : "#333333",
+    "--widget-muted": isDarkTheme ? "#9ca3af" : "#666666",
+    "--widget-placeholder": isDarkTheme ? "#9ca3af" : "#999999",
+    "--widget-assistant-bg": isDarkTheme ? "#1f2937" : "#f0f0f0",
+    "--widget-assistant-text": isDarkTheme ? "#e5e7eb" : "#333333",
+    "--widget-code-bg": isDarkTheme
+      ? "rgba(255, 255, 255, 0.12)"
+      : "rgba(0, 0, 0, 0.1)",
+    "--widget-pre-bg": isDarkTheme
+      ? "rgba(255, 255, 255, 0.06)"
+      : "rgba(0, 0, 0, 0.05)",
+    "--widget-table-border": isDarkTheme ? "#374151" : "#dddddd",
+    "--widget-table-header-bg": isDarkTheme ? "#111827" : "#f5f5f5",
+    "--widget-link": isDarkTheme ? "#60a5fa" : "#007bff",
+    "--widget-blockquote-border": isDarkTheme ? "#4b5563" : "#cccccc",
+    "--widget-focus-ring": isDarkTheme
+      ? "rgba(255, 255, 255, 0.16)"
+      : "rgba(0, 0, 0, 0.1)",
+  } as React.CSSProperties;
 
   useEffect(() => {
     if (initializationRef.current) return;
@@ -48,19 +89,10 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
 
     const initializeWidget = async () => {
       try {
-        localStorage.setItem("token", authToken);
-
-        const getUser = async () => {
-          try {
-            const response = await fetch(`${API_URL}/v1/auth/user/me`, {
-              headers: { Authorization: `Token ${authToken}` },
-            });
-            if (response.ok) return await response.json();
-          } catch (error) {
-            console.error("Error fetching user:", error);
-          }
-          return null;
-        };
+        localStorage.setItem(
+          `masscer_widget_session_${widgetToken}`,
+          sessionToken
+        );
 
         const streamingUrl =
           propStreamingUrl ||
@@ -71,30 +103,16 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
               ? window.location.hostname + ":8001"
               : window.location.host);
 
-        const user = await getUser();
-        const newSocket = new SocketManager(streamingUrl, user?.id);
+        const newSocket = new SocketManager(streamingUrl);
         socketRef.current = newSocket;
         setSocketReady(true);
 
-        if (user?.id && newSocket) {
-          newSocket.emit("register_user", user.id);
+        if (newSocket) {
+          const socketRoute = await getWidgetSocketRoute(widgetToken, sessionToken);
+          newSocket.registerWidgetSession(socketRoute.route_key);
         }
 
-        const agentsData = await getAgents(false);
-        if (config.agent_slug && agentsData.agents) {
-          const configuredAgent = agentsData.agents.find(
-            (agent: TAgent) => agent.slug === config.agent_slug
-          );
-          if (configuredAgent) {
-            setAgents([{ ...configuredAgent, selected: true }]);
-          } else if (agentsData.agents.length > 0) {
-            setAgents(agentsData.agents.slice(0, 1).map((a: TAgent) => ({ ...a, selected: true })));
-          }
-        } else if (agentsData.agents && agentsData.agents.length > 0) {
-          setAgents(agentsData.agents.slice(0, 1).map((a: TAgent) => ({ ...a, selected: true })));
-        }
-
-        const conv = await initConversation({ isPublic: false });
+        const conv = await initWidgetConversation(widgetToken, sessionToken);
         setConversation(conv);
         setMessages(conv.messages || []);
 
@@ -229,9 +247,8 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
 
   const handleSendMessage = async (input: string): Promise<boolean> => {
     if (input.trim() === "" || !conversation) return false;
-
-    const selectedAgents = agents.filter((a) => a.selected);
-    if (selectedAgents.length === 0) return false;
+    const agentSlug = config.agent_slug || "widget-agent";
+    const agentName = config.agent_name || "Assistant";
 
     const userMessage: TMessage = {
       type: "user",
@@ -244,12 +261,12 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
       type: "assistant",
       text: "",
       attachments: [],
-      agent_slug: selectedAgents[0].slug,
+      agent_slug: agentSlug,
       versions: [{
         text: "",
         type: "assistant",
-        agent_slug: selectedAgents[0].slug,
-        agent_name: selectedAgents[0].name,
+        agent_slug: agentSlug,
+        agent_name: agentName,
       }],
     };
 
@@ -257,16 +274,9 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
     useWidgetStore.getState().addMessage(assistantMessage);
 
     try {
-      const toolNames = ["read_attachment", "list_attachments"];
-      if (config.web_search_enabled) toolNames.push("explore_web");
-      if (config.rag_enabled) toolNames.push("rag_query");
-
-      await triggerAgentTask({
+      await triggerWidgetAgentTask(widgetToken, sessionToken, {
         conversation_id: conversation.id,
-        agent_slugs: selectedAgents.map((a) => a.slug),
         user_inputs: [{ type: "input_text", text: input }],
-        tool_names: toolNames,
-        multiagentic_modality: "isolated",
       });
 
       scrollToBottom();
@@ -290,6 +300,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
       {!isOpen && (
         <button
           className="chat-widget-bubble"
+          style={widgetCssVars}
           onClick={() => setIsOpen(true)}
           aria-label="Open chat"
         >
@@ -307,7 +318,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
       )}
 
       {isOpen && (
-        <div className="chat-widget-container">
+        <div className="chat-widget-container" style={widgetCssVars}>
           <div className="chat-widget-header">
             <h3>{config.name || "Chat"}</h3>
             <button

@@ -4,14 +4,11 @@ import io, { Socket } from "socket.io-client";
 export class SocketManager {
   socket: Socket;
 
-  constructor(serverUrl, userId?: string | number) {
-    console.log(`SocketManager: Connecting to ${serverUrl} with user_id: ${userId}`);
+  constructor(serverUrl: string) {
+    console.log(`SocketManager: Connecting to ${serverUrl}`);
     this.socket = io(serverUrl, {
       transports: ["websocket", "polling"],
       path: "/socket.io/",
-      query: {
-        user_id: userId ? String(userId) : "",
-      },
     });
 
     this.socket.on("connect", () => {
@@ -41,6 +38,10 @@ export class SocketManager {
 
   emit(event, data) {
     this.socket.emit(event, data);
+  }
+
+  registerWidgetSession(routeKey: string) {
+    this.socket.emit("register_widget_session", routeKey);
   }
 
   disconnect() {

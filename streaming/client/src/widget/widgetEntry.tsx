@@ -6,7 +6,7 @@ import { WidgetConfig } from "./widgetStore";
 // This will be called by the loader script
 (window as any).initChatWidget = (
   config: WidgetConfig,
-  authToken: string,
+  sessionToken: string,
   widgetToken: string,
   streamingUrl: string
 ) => {
@@ -30,7 +30,7 @@ import { WidgetConfig } from "./widgetStore";
   root.render(
     <ChatWidget
       config={config}
-      authToken={authToken}
+      sessionToken={sessionToken}
       widgetToken={widgetToken}
       streamingUrl={streamingUrl}
     />

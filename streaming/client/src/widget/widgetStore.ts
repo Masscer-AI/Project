@@ -6,6 +6,10 @@ import { TConversation } from "../types";
 export interface WidgetConfig {
   name: string;
   enabled: boolean;
+  style?: {
+    primary_color?: string;
+    theme?: "default" | "light" | "dark";
+  };
   web_search_enabled: boolean;
   rag_enabled: boolean;
   plugins_enabled: string[];

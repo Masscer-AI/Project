@@ -41,6 +41,13 @@ export interface TConversation {
   id: string;
   user_id?: number | null;
   user_username?: string | null;
+  chat_widget_id?: number | null;
+  is_anonymous_widget?: boolean;
+  visitor_alias?: string | null;
+  status?: "active" | "inactive" | "archived" | "deleted";
+  last_message_at?: string | null;
+  archived_at?: string | null;
+  deleted_at?: string | null;
   number_of_messages: number;
   tags?: number[];
   title: undefined | string;
@@ -216,6 +223,10 @@ export interface TChatWidget {
   token: string;
   name: string;
   enabled: boolean;
+  style: {
+    primary_color?: string;
+    theme?: "default" | "light" | "dark";
+  };
   web_search_enabled: boolean;
   rag_enabled: boolean;
   plugins_enabled: string[];

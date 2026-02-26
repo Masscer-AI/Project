@@ -51,10 +51,12 @@ export default function ChatView() {
   const { t } = useTranslation();
 
   const activeConversation = conversation ?? loaderData.conversation;
-  const isViewer =
+  const isForeignConversation =
     activeConversation?.user_id != null &&
     loaderData.user?.id != null &&
     activeConversation.user_id !== loaderData.user.id;
+  const isWidgetConversation = activeConversation?.chat_widget_id != null;
+  const isViewer = isForeignConversation || isWidgetConversation;
 
   const chatMessageContainerRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<number | null>(null);
