@@ -21,7 +21,9 @@ class ChromaManager:
     client = None
 
     def __init__(self) -> None:
-        self.client = chromadb.HttpClient(host="localhost", port=8002)
+        chroma_host = os.environ.get("CHROMA_HOST", "localhost")
+        chroma_port = int(os.environ.get("CHROMA_PORT", "8002"))
+        self.client = chromadb.HttpClient(host=chroma_host, port=chroma_port)
 
     def heartbeat(self) -> str:
         if self.client is None:

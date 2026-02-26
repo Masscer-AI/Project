@@ -102,7 +102,8 @@ async def widget_loader(widget_token: str, request: Request):
         .then(({{ config, sessionToken }}) => {{
             // Load widget bundle
             const script = document.createElement('script');
-            script.src = baseUrl + '/assets/chat-widget.js';
+            // Cache-buster to avoid stale widget bundles in embedded pages
+            script.src = baseUrl + '/assets/chat-widget.js?v=' + Date.now();
             script.onload = function() {{
                 // Initialize widget - pass streaming URL directly
                 if (window.initChatWidget) {{
@@ -123,4 +124,4 @@ async def widget_loader(widget_token: str, request: Request):
 
 if __name__ == "__main__":
     port = int(os.getenv("FASTAPI_PORT", 8001))
-    uvicorn.run("main:app", host="127.0.0.1", port=port, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True)
