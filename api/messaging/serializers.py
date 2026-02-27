@@ -45,6 +45,7 @@ class ConversationSerializer(serializers.ModelSerializer):
     updated_at_formatted = serializers.SerializerMethodField()
     alerts_count = serializers.SerializerMethodField()
     alert_rule_ids = serializers.SerializerMethodField()
+    has_pending_alerts = serializers.SerializerMethodField()
     is_anonymous_widget = serializers.SerializerMethodField()
     chat_widget_id = serializers.SerializerMethodField()
     visitor_alias = serializers.SerializerMethodField()
@@ -74,6 +75,10 @@ class ConversationSerializer(serializers.ModelSerializer):
         return list(
             obj.alerts.values_list("alert_rule_id", flat=True).distinct()
         )
+
+    def get_has_pending_alerts(self, obj):
+        """True if any alert is PENDING or NOTIFIED (needs action)."""
+        return obj.alerts.filter(status__in=["PENDING", "NOTIFIED"]).exists()
     
     def get_created_at_formatted(self, obj):
         """Retorna el created_at formateado según la zona horaria de la organización"""

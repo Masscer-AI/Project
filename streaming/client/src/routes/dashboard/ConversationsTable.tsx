@@ -1,12 +1,13 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import {
   TConversation,
   TTag,
   TConversationAlertRule,
   TChatWidget,
 } from "../../types";
+import type { TConversationFilters } from "../../modules/apiCalls";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import {
   bulkConversationAction,
   getTags,
@@ -21,15 +22,18 @@ import {
   Card,
   Checkbox,
   Group,
+  Loader,
   MultiSelect,
   NativeSelect,
   NumberInput,
+  Pagination,
   SimpleGrid,
   Stack,
   Table,
   Text,
   TextInput,
   Title,
+  Tooltip,
   UnstyledButton,
 } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
@@ -43,14 +47,40 @@ import {
   IconUsers,
 } from "@tabler/icons-react";
 
+/** Parse date from picker (string or Date) as local noon to avoid timezone display bugs. */
+function parseDateForPicker(val: string | Date): Date {
+  if (typeof val === "string" && /^\d{4}-\d{2}-\d{2}/.test(val)) {
+    const [y, m, d] = val.slice(0, 10).split("-").map(Number);
+    return new Date(y, m - 1, d, 12, 0, 0);
+  }
+  const d = new Date(val);
+  return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 12, 0, 0);
+}
+
 interface ConversationsTableProps {
   conversations: TConversation[];
+  total: number;
+  page: number;
+  pageSize: number;
+  filters: TConversationFilters;
+  filterOptions?: { users: { id: number; label: string }[] };
+  onFiltersChange: (filters: TConversationFilters) => void;
+  onPageChange: (page: number) => void;
   onConversationsChanged?: () => Promise<void> | void;
+  isLoading?: boolean;
 }
 
 export const ConversationsTable: React.FC<ConversationsTableProps> = ({
   conversations,
+  total,
+  page,
+  pageSize,
+  filters,
+  filterOptions,
+  onFiltersChange,
+  onPageChange,
   onConversationsChanged,
+  isLoading = false,
 }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -92,182 +122,42 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({
   const toggleRow = (id: string) => {
     setExpandedRows((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   };
 
-  const [filters, setFilters] = useState({
-    search: "",
-    userId: "",
-    sortBy: "newest" as "newest" | "oldest",
-    dateFrom: null as Date | null,
-    dateTo: null as Date | null,
-    minMessages: "" as number | string,
-    maxMessages: "" as number | string,
-    selectedTags: [] as number[],
-    selectedAlertRules: [] as string[],
-    chatWidgetId: "",
-    status: "active_inactive" as
-      | "active_inactive"
-      | "all"
-      | "active"
-      | "inactive"
-      | "archived"
-      | "deleted",
-    messagesSort: "none" as "none" | "asc" | "desc",
-  });
+  const updateFilters = useCallback(
+    (updates: Partial<TConversationFilters>) => {
+      onFiltersChange({ ...filters, ...updates });
+    },
+    [filters, onFiltersChange]
+  );
 
-  const { uniqueUserIds, userDisplayMap } = useMemo(() => {
-    const ids = new Set<number>();
-    const displayMap = new Map<number, string>();
-    safeConversations.forEach((conv) => {
-      if (conv?.user_id != null) {
-        ids.add(conv.user_id);
-        if (conv.user_username)
-          displayMap.set(conv.user_id, conv.user_username);
-      }
-    });
-    return {
-      uniqueUserIds: Array.from(ids).sort((a, b) => a - b),
-      userDisplayMap: displayMap,
-    };
-  }, [safeConversations]);
-
-  const filteredConversations = useMemo(() => {
-    let filtered = [...safeConversations];
-
-    // Hide empty conversations: no title AND 0 messages
-    filtered = filtered.filter(
-      (conv) =>
-        (conv.title && conv.title.trim()) || (conv.number_of_messages ?? 0) > 0
-    );
-
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase();
-      filtered = filtered.filter((conv) => {
-        const titleMatch = conv.title?.toLowerCase().includes(searchLower);
-        const idMatch = conv.id.toLowerCase().includes(searchLower);
-        const tagsMatch = conv.tags?.some((tagId) => {
-          const tagInfo = tagMap.get(tagId);
-          return tagInfo?.name.toLowerCase().includes(searchLower) || false;
-        });
-        const summaryMatch = conv.summary?.toLowerCase().includes(searchLower);
-        return titleMatch || idMatch || tagsMatch || summaryMatch;
-      });
-    }
-
-    if (filters.userId) {
-      filtered = filtered.filter(
-        (conv) => conv.user_id != null && String(conv.user_id) === filters.userId
-      );
-    }
-
-    if (filters.dateFrom) {
-      const fromDate = filters.dateFrom;
-      filtered = filtered.filter(
-        (conv) => new Date(conv.created_at) >= fromDate
-      );
-    }
-    if (filters.dateTo) {
-      const toDate = new Date(filters.dateTo);
-      toDate.setHours(23, 59, 59, 999);
-      filtered = filtered.filter(
-        (conv) => new Date(conv.created_at) <= toDate
-      );
-    }
-
-    if (typeof filters.minMessages === "number") {
-      const min = filters.minMessages;
-      filtered = filtered.filter(
-        (conv) => (conv.number_of_messages || 0) >= min
-      );
-    }
-    if (typeof filters.maxMessages === "number") {
-      const max = filters.maxMessages;
-      filtered = filtered.filter(
-        (conv) => (conv.number_of_messages || 0) <= max
-      );
-    }
-
-    if (filters.selectedTags.length > 0) {
-      filtered = filtered.filter((conv) =>
-        conv.tags?.some((tagId) => filters.selectedTags.includes(tagId))
-      );
-    }
-
-    if (filters.selectedAlertRules.length > 0) {
-      filtered = filtered.filter((conv) =>
-        conv.alert_rule_ids?.some((ruleId) =>
-          filters.selectedAlertRules.includes(ruleId)
-        )
-      );
-    }
-
-    if (filters.chatWidgetId) {
-      if (filters.chatWidgetId === "none") {
-        filtered = filtered.filter((conv) => conv.chat_widget_id == null);
-      } else {
-        filtered = filtered.filter(
-          (conv) => String(conv.chat_widget_id ?? "") === filters.chatWidgetId
-        );
-      }
-    }
-
-    if (filters.status !== "all") {
-      if (filters.status === "active_inactive") {
-        filtered = filtered.filter(
-          (conv) => conv.status === "active" || conv.status === "inactive"
-        );
-      } else {
-        filtered = filtered.filter((conv) => conv.status === filters.status);
-      }
-    }
-
-    if (filters.messagesSort !== "none") {
-      filtered.sort((a, b) => {
-        const aCount = a.number_of_messages || 0;
-        const bCount = b.number_of_messages || 0;
-        if (filters.messagesSort === "asc") return aCount - bCount;
-        return bCount - aCount;
-      });
-    } else {
-      filtered.sort((a, b) => {
-        const dateA = new Date(a.created_at).getTime();
-        const dateB = new Date(b.created_at).getTime();
-        return filters.sortBy === "newest" ? dateB - dateA : dateA - dateB;
-      });
-    }
-
-    return filtered;
-  }, [safeConversations, filters, tagMap]);
-
-  const clearFilters = () => {
-    setFilters({
+  const clearFilters = useCallback(() => {
+    onFiltersChange({
+      scope: filters.scope ?? "org",
       search: "",
       userId: "",
       sortBy: "newest",
       dateFrom: null,
       dateTo: null,
-      minMessages: "",
-      maxMessages: "",
+      minMessages: 1,
+      maxMessages: "" as unknown as number,
       selectedTags: [],
       selectedAlertRules: [],
       chatWidgetId: "",
-      status: "active_inactive",
+      status: "all",
       messagesSort: "none",
     });
-  };
+  }, [filters.scope, onFiltersChange]);
 
   const userOptions = [
     { value: "", label: t("all-users") },
-    ...uniqueUserIds.map((userId) => ({
-      value: userId.toString(),
-      label: userDisplayMap.get(userId) ?? `${t("user")} ${userId}`,
+    ...(filterOptions?.users ?? []).map((u) => ({
+      value: String(u.id),
+      label: u.label,
     })),
   ];
 
@@ -294,15 +184,13 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({
   ];
 
   const toggleMessagesSort = () => {
-    setFilters((prev) => ({
-      ...prev,
-      messagesSort:
-        prev.messagesSort === "none"
-          ? "desc"
-          : prev.messagesSort === "desc"
-            ? "asc"
-            : "none",
-    }));
+    const next =
+      filters.messagesSort === "none"
+        ? "desc"
+        : filters.messagesSort === "desc"
+          ? "asc"
+          : "none";
+    updateFilters({ messagesSort: next });
   };
 
   const statusOptions = [
@@ -314,7 +202,7 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({
     { value: "deleted", label: "Deleted" },
   ];
 
-  const allFilteredIds = filteredConversations.map((c) => c.id);
+  const allFilteredIds = safeConversations.map((c) => c.id);
   const allFilteredSelected =
     allFilteredIds.length > 0 &&
     allFilteredIds.every((id) => selectedConversationIds.has(id));
@@ -378,10 +266,10 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({
               label={t("search-by-keywords")}
               placeholder={t("search-by-keywords")}
               size="sm"
-              value={filters.search}
+              value={filters.search ?? ""}
               onChange={(e) => {
                 const val = e.currentTarget.value;
-                setFilters((prev) => ({ ...prev, search: val }));
+                updateFilters({ search: val });
               }}
             />
 
@@ -389,10 +277,10 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({
               label={t("user")}
               size="sm"
               data={userOptions}
-              value={filters.userId}
+              value={filters.userId ?? ""}
               onChange={(e) => {
                 const val = e.currentTarget.value;
-                setFilters((prev) => ({ ...prev, userId: val }));
+                updateFilters({ userId: val });
               }}
             />
 
@@ -400,10 +288,14 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({
               label={t("date-from")}
               size="sm"
               clearable
-              value={filters.dateFrom}
+              value={filters.dateFrom ?? null}
               onChange={(val) => {
-                const date = val ? new Date(val) : null;
-                setFilters((prev) => ({ ...prev, dateFrom: date }));
+                if (!val) {
+                  updateFilters({ dateFrom: null });
+                  return;
+                }
+                const date = parseDateForPicker(val);
+                updateFilters({ dateFrom: date });
               }}
             />
 
@@ -411,22 +303,24 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({
               label={t("date-to")}
               size="sm"
               clearable
-              value={filters.dateTo}
+              value={filters.dateTo ?? null}
               onChange={(val) => {
-                const date = val ? new Date(val) : null;
-                setFilters((prev) => ({ ...prev, dateTo: date }));
+                if (!val) {
+                  updateFilters({ dateTo: null });
+                  return;
+                }
+                const date = parseDateForPicker(val);
+                updateFilters({ dateTo: date });
               }}
             />
 
             <NumberInput
               label={t("min-messages")}
               size="sm"
-              placeholder="0"
-              min={0}
-              value={filters.minMessages}
-              onChange={(val) =>
-                setFilters((prev) => ({ ...prev, minMessages: val }))
-              }
+              placeholder="1"
+              min={1}
+              value={filters.minMessages ?? ""}
+              onChange={(val) => updateFilters({ minMessages: val as number })}
             />
 
             <NumberInput
@@ -434,10 +328,8 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({
               size="sm"
               placeholder="∞"
               min={0}
-              value={filters.maxMessages}
-              onChange={(val) =>
-                setFilters((prev) => ({ ...prev, maxMessages: val }))
-              }
+              value={filters.maxMessages ?? ""}
+              onChange={(val) => updateFilters({ maxMessages: val as number })}
             />
 
             <MultiSelect
@@ -452,12 +344,9 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({
                   value: tag.id.toString(),
                   label: tag.title,
                 }))}
-              value={filters.selectedTags.map(String)}
+              value={(filters.selectedTags ?? []).map(String)}
               onChange={(vals) =>
-                setFilters((prev) => ({
-                  ...prev,
-                  selectedTags: vals.map(Number),
-                }))
+                updateFilters({ selectedTags: vals.map(Number) })
               }
             />
 
@@ -473,12 +362,9 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({
                   value: rule.id,
                   label: rule.name,
                 }))}
-              value={filters.selectedAlertRules}
+              value={filters.selectedAlertRules ?? []}
               onChange={(vals) =>
-                setFilters((prev) => ({
-                  ...prev,
-                  selectedAlertRules: vals,
-                }))
+                updateFilters({ selectedAlertRules: vals })
               }
             />
 
@@ -486,10 +372,10 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({
               label={t("sort-by")}
               size="sm"
               data={sortOptions}
-              value={filters.sortBy}
+              value={filters.sortBy ?? "newest"}
               onChange={(e) => {
                 const val = e.currentTarget.value as "newest" | "oldest";
-                setFilters((prev) => ({ ...prev, sortBy: val }));
+                updateFilters({ sortBy: val });
               }}
             />
 
@@ -497,10 +383,10 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({
               label="Chat widget"
               size="sm"
               data={chatWidgetOptions}
-              value={filters.chatWidgetId}
+              value={filters.chatWidgetId ?? ""}
               onChange={(e) => {
                 const val = e.currentTarget.value;
-                setFilters((prev) => ({ ...prev, chatWidgetId: val }));
+                updateFilters({ chatWidgetId: val });
               }}
             />
 
@@ -508,10 +394,10 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({
               label="Status"
               size="sm"
               data={statusOptions}
-              value={filters.status}
+              value={filters.status ?? "all"}
               onChange={(e) => {
                 const val = e.currentTarget.value as typeof filters.status;
-                setFilters((prev) => ({ ...prev, status: val }));
+                updateFilters({ status: val });
               }}
             />
 
@@ -530,16 +416,33 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({
       )}
 
       {/* Table */}
-      {filteredConversations.length === 0 ? (
+      {isLoading ? (
+        <Group justify="center" py="xl">
+          <Loader />
+        </Group>
+      ) : safeConversations.length === 0 ? (
         <Text ta="center" c="dimmed" py="xl">
           {t("no-conversations")}
         </Text>
       ) : (
         <>
-          <Text size="sm" c="dimmed">
-            {t("showing")} {filteredConversations.length} {t("of")}{" "}
-            {safeConversations.length} {t("conversations")}
-          </Text>
+          <Group justify="space-between" wrap="nowrap">
+            <Text size="sm" c="dimmed">
+              {t("showing")}{" "}
+              {total === 0
+                ? 0
+                : `${page * pageSize + 1}-${Math.min(page * pageSize + pageSize, total)}`}{" "}
+              {t("of")} {total} {t("conversations")}
+            </Text>
+            {total > pageSize && (
+              <Pagination
+                total={Math.ceil(total / pageSize)}
+                value={page + 1}
+                onChange={(p) => onPageChange(p - 1)}
+                size="sm"
+              />
+            )}
+          </Group>
 
           {selectedConversationIds.size > 0 && (
             <Group justify="space-between">
@@ -621,7 +524,7 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
-                {filteredConversations.map((conv) => {
+                {safeConversations.map((conv) => {
                   const isExpanded = expandedRows.has(conv.id);
                   return (
                     <React.Fragment key={conv.id}>
@@ -758,12 +661,30 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({
                             </Text>
                           )}
                         </Table.Td>
-                        <Table.Td>
+                        <Table.Td
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           {(conv.alerts_count || 0) > 0 ? (
-                            <Group gap={4} wrap="nowrap">
-                              <IconAlertTriangle size={14} />
-                              <Text size="sm">{conv.alerts_count}</Text>
-                            </Group>
+                            <Tooltip label={t("open-alerts")} withArrow>
+                              <UnstyledButton
+                                component={Link}
+                                to={`/dashboard/alerts?conversation=${conv.id}`}
+                                style={{ display: "inline-flex" }}
+                              >
+                                <Group gap={4} wrap="nowrap" style={{ cursor: "pointer" }}>
+                                  <IconAlertTriangle
+                                    size={14}
+                                    color={conv.has_pending_alerts ? "var(--mantine-color-red-6)" : undefined}
+                                  />
+                                  <Text
+                                    size="sm"
+                                    c={conv.has_pending_alerts ? "red" : undefined}
+                                  >
+                                    {conv.alerts_count}
+                                  </Text>
+                                </Group>
+                              </UnstyledButton>
+                            </Tooltip>
                           ) : (
                             <Text size="sm" c="dimmed">
                               -

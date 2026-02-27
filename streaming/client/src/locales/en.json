@@ -386,6 +386,8 @@
     "urls-selected": "URLs selected",
     "view-all-conversations": "View All Conversations",
     "alerts": "Alerts",
+    "filtered-by-conversation": "Conversation",
+    "open-alerts": "Open alerts",
     "overview": "Overview",
     "create-users": "Create Users",
     "manage-users": "Manage Users",

@@ -51,6 +51,7 @@ logger = logging.getLogger(__name__)
 @method_decorator(csrf_exempt, name="dispatch")
 class SignupAPIView(APIView):
     permission_classes = [AllowAny]
+    authentication_classes = []  # No auth before signup; avoids DRF SessionAuthentication CSRF
 
     def get(self, request):
         org_id = request.query_params.get('orgId')
@@ -91,6 +92,7 @@ class SignupAPIView(APIView):
 @method_decorator(csrf_exempt, name="dispatch")
 class LoginAPIView(APIView):
     permission_classes = [AllowAny]
+    authentication_classes = []  # No session/token before login; avoids DRF SessionAuthentication CSRF
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data)

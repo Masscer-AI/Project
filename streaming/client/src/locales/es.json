@@ -388,6 +388,8 @@
     "urls-selected": "URLs seleccionadas",
     "view-all-conversations": "Ver Todas las Conversaciones",
     "alerts": "Alertas",
+    "filtered-by-conversation": "Conversación",
+    "open-alerts": "Abrir alertas",
     "overview": "Resumen",
     "create-users": "Crear Usuarios",
     "manage-users": "Gestionar Usuarios",

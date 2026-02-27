@@ -543,7 +543,9 @@ def conversation_agent_task(
 
     # Get conversation first (needed for validation in resolve)
     try:
-        conversation = Conversation.objects.get(id=conversation_id)
+        conversation = Conversation.objects.select_related(
+            "organization", "user", "chat_widget", "chat_widget__agent"
+        ).get(id=conversation_id)
     except Conversation.DoesNotExist:
         logger.error("Conversation %s not found", conversation_id)
         notify_user(
@@ -619,7 +621,12 @@ def conversation_agent_task(
                 return {"status": "error", "error": "Failed to save user message"}
 
         # ---- Resolve agents in order ----
-        agents_by_slug = {a.slug: a for a in Agent.objects.filter(slug__in=agent_slugs)}
+        agents_by_slug = {
+            a.slug: a
+            for a in Agent.objects.filter(slug__in=agent_slugs).select_related(
+                "organization"
+            )
+        }
         agents_ordered = [agents_by_slug[s] for s in agent_slugs if s in agents_by_slug]
         if not agents_ordered:
             emit_event("error", {"error": "No valid agents found"})
@@ -731,6 +738,93 @@ def conversation_agent_task(
                         grupal_preamble += f"\n--- {v.get('agent_name', 'Unknown')} ---\n{v.get('text', '')}\n"
                 instructions = instructions + grupal_preamble
 
+            # ---- Alert rules: inject when org has rules that apply to this agent ----
+            organization = (
+                getattr(conversation, "organization", None)
+                or getattr(agent, "organization", None)
+            )
+            if not organization and getattr(conversation, "user", None):
+                from api.messaging.tasks import get_user_organization
+
+                organization = get_user_organization(conversation.user)
+            if not organization and getattr(conversation, "chat_widget", None):
+                widget_agent = getattr(conversation.chat_widget, "agent", None)
+                if widget_agent:
+                    organization = getattr(widget_agent, "organization", None)
+
+            agent_tool_names = list(tool_names or [])
+            applicable_alert_rules = []
+            if organization:
+                from api.messaging.models import ConversationAlertRule, ConversationAlert
+
+                rules_qs = ConversationAlertRule.objects.filter(
+                    organization=organization,
+                    enabled=True,
+                ).prefetch_related("agents")
+                for rule in rules_qs:
+                    if rule.scope == "all_conversations":
+                        applicable_alert_rules.append(rule)
+                    elif rule.scope == "selected_agents" and agent in rule.agents.all():
+                        applicable_alert_rules.append(rule)
+
+            logger.debug(
+                "Alert rules check: conv_org=%s agent_org=%s applicable=%d",
+                getattr(conversation, "organization_id", None),
+                getattr(agent, "organization_id", None),
+                len(applicable_alert_rules),
+            )
+            if applicable_alert_rules:
+                rules_info = [
+                    {"id": str(r.id), "name": r.name, "trigger": r.trigger}
+                    for r in applicable_alert_rules
+                ]
+                import json as _json
+                rules_json = _json.dumps(rules_info, ensure_ascii=False, indent=2)
+                existing_alerts = list(
+                    conversation.alerts.values(
+                        "id", "alert_rule_id", "status", "reasoning", "extractions", "title"
+                    )
+                )
+                existing_list = [
+                    {
+                        "id": str(a["id"]),
+                        "alert_rule_id": str(a["alert_rule_id"]),
+                        "status": a["status"],
+                        "title": a["title"],
+                        # Show as key/value list so the model knows the format to re-use on update
+                        "extractions": [
+                            {"key": k, "value": str(v)}
+                            for k, v in (a["extractions"] or {}).items()
+                        ],
+                    }
+                    for a in existing_alerts
+                ]
+                existing_json = _json.dumps(existing_list, ensure_ascii=False, indent=2)
+                instructions += (
+                    f"\n\n=== ALERT RULES ===\n"
+                    f"You have access to the raise_alert tool.\n"
+                    f"- CREATE: call with alert_rule_id, reasoning, and extractions. "
+                    f"Always populate extractions with structured data (names, dates, amounts, phone, room_type, etc.). "
+                    f"Example: extractions=[{{\"key\":\"room_type\",\"value\":\"Single\"}},{{\"key\":\"phone\",\"value\":\"0964105554\"}},{{\"key\":\"nights\",\"value\":\"2\"}}]\n"
+                    f"- UPDATE: when the user adds more info, use alert_id, reasoning, title (if needed), and extractions. "
+                    f"You MUST pass extractions when updating — include ALL known fields (old + new) as key/value pairs. "
+                    f"NEVER pass extractions as null or empty when there is data in the conversation.\n"
+                    f"Do NOT raise alerts for rules that do not match.\n\n"
+                    f"RULES:\n{rules_json}\n\n"
+                    f"ALREADY RAISED (id=alert_id for updates):\n{existing_json}\n"
+                    f"=== END ALERT RULES ===\n"
+                )
+                agent_tool_names.append("raise_alert")
+            else:
+                # Remove raise_alert if client sent it but we have no applicable rules
+                if "raise_alert" in agent_tool_names:
+                    agent_tool_names.remove("raise_alert")
+
+            # Always include read_plugin_instructions so the agent can
+            # discover plugin formatting rules on demand.
+            if "read_plugin_instructions" not in agent_tool_names:
+                agent_tool_names.append("read_plugin_instructions")
+
             # Available plugins summary (agent discovers and uses them on demand).
             instructions += format_available_plugins_summary()
 
@@ -744,7 +838,7 @@ def conversation_agent_task(
                 instructions=instructions,
                 user_inputs=resolved_inputs,
                 user_message_text=user_message_text,
-                tool_names=tool_names,
+                tool_names=agent_tool_names,
                 plugin_slugs=[],
                 agent=AgentRef(id=agent.id, slug=agent.slug, name=agent.name),
                 model=model_ref,
@@ -774,17 +868,15 @@ def conversation_agent_task(
                 }
                 notify_user(notification_route_id, "agent_events_channel", payload)
 
-            # Always include read_plugin_instructions so the agent can
-            # discover plugin formatting rules on demand.
-            if "read_plugin_instructions" not in tool_names:
-                tool_names.append("read_plugin_instructions")
-
-            tools = resolve_tools(
-                tool_names,
+            resolve_kwargs = dict(
                 conversation_id=conversation_id,
                 user_id=actor_user_id,
                 agent_slug=agent.slug,
             )
+            if applicable_alert_rules and organization:
+                resolve_kwargs["organization_id"] = organization.id
+
+            tools = resolve_tools(agent_tool_names, **resolve_kwargs)
 
             loop = AgentLoop(
                 tools=tools,

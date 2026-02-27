@@ -1,5 +1,8 @@
 from datetime import timedelta
+from functools import reduce
+from operator import or_
 from django.utils import timezone
+from django.db.models import Q, Count
 
 from django.contrib.auth.models import User
 from django.http import JsonResponse
@@ -102,6 +105,158 @@ def _user_can_access_conversation(user, conversation):
     return False
 
 
+def _build_conversation_list_queryset(request, user):
+    """
+    Build the filtered, annotated, ordered queryset for conversation list.
+    Returns a queryset or JsonResponse on validation error.
+    """
+    scope = request.GET.get("scope", "org")
+    chat_widget_id = (request.GET.get("chat_widget_id") or "").strip()
+    status_param = (request.GET.get("status") or "").strip().lower()
+
+    if scope == "personal":
+        conversations = Conversation.objects.filter(user=user)
+    else:
+        org_user_ids = _get_org_user_ids(user)
+        if org_user_ids:
+            conversations = Conversation.objects.filter(
+                Q(user_id__in=org_user_ids)
+                | Q(
+                    user__isnull=True,
+                    chat_widget__created_by_id__in=org_user_ids,
+                )
+            )
+        else:
+            conversations = Conversation.objects.filter(user=user)
+
+    # Status filter
+    if status_param in ("", "active_inactive"):
+        conversations = conversations.filter(status__in=["active", "inactive"])
+    elif status_param == "all":
+        conversations = conversations.exclude(status="deleted")
+    elif status_param in ("active", "inactive", "archived", "deleted"):
+        conversations = conversations.filter(status=status_param)
+    else:
+        return JsonResponse(
+            {
+                "message": "status must be one of: active_inactive, all, active, inactive, archived, deleted",
+                "status": 400,
+            },
+            status=400,
+        )
+
+    # Chat widget filter
+    if chat_widget_id:
+        if chat_widget_id.lower() == "none":
+            conversations = conversations.filter(chat_widget__isnull=True)
+        else:
+            try:
+                widget_id = int(chat_widget_id)
+                conversations = conversations.filter(chat_widget_id=widget_id)
+            except ValueError:
+                return JsonResponse(
+                    {
+                        "message": "chat_widget_id must be an integer or 'none'",
+                        "status": 400,
+                    },
+                    status=400,
+                )
+
+    # Search (title, id, summary)
+    search = (request.GET.get("search") or "").strip()
+    if search:
+        search_q = Q()
+        if search:
+            search_q = (
+                Q(title__icontains=search)
+                | Q(id__icontains=search)
+                | Q(summary__icontains=search)
+            )
+        conversations = conversations.filter(search_q)
+
+    # User filter
+    user_id_param = (request.GET.get("user_id") or "").strip()
+    if user_id_param and user_id_param.isdigit():
+        conversations = conversations.filter(user_id=int(user_id_param))
+
+    # Date range (accepts YYYY-MM-DD or ISO)
+    date_from = (request.GET.get("date_from") or "").strip()
+    if date_from:
+        try:
+            from datetime import datetime as dt_module
+            if len(date_from) == 10 and date_from[4] == "-" and date_from[7] == "-":
+                dt = dt_module.strptime(date_from, "%Y-%m-%d")
+            else:
+                dt = dt_module.fromisoformat(date_from.replace("Z", "+00:00"))
+            if timezone.is_naive(dt):
+                dt = timezone.make_aware(dt)
+            conversations = conversations.filter(created_at__gte=dt)
+        except (ValueError, TypeError):
+            pass
+    date_to = (request.GET.get("date_to") or "").strip()
+    if date_to:
+        try:
+            from datetime import datetime as dt_module
+            if len(date_to) == 10 and date_to[4] == "-" and date_to[7] == "-":
+                dt = dt_module.strptime(date_to, "%Y-%m-%d").replace(
+                    hour=23, minute=59, second=59, microsecond=999999
+                )
+            else:
+                dt = dt_module.fromisoformat(date_to.replace("Z", "+00:00"))
+                dt = dt.replace(hour=23, minute=59, second=59, microsecond=999999)
+            if timezone.is_naive(dt):
+                dt = timezone.make_aware(dt)
+            conversations = conversations.filter(created_at__lte=dt)
+        except (ValueError, TypeError):
+            pass
+
+    # Tags filter (conversations that have any of these tag ids)
+    tags_param = (request.GET.get("tags") or "").strip()
+    if tags_param:
+        tag_ids = []
+        for x in tags_param.split(","):
+            if x.strip().isdigit():
+                tag_ids.append(int(x.strip()))
+        if tag_ids:
+            tag_qs = [Q(tags__contains=[tid]) for tid in tag_ids]
+            conversations = conversations.filter(reduce(or_, tag_qs))
+
+    # Alert rules filter (conversations that have alerts from any of these rules)
+    alert_rules_param = (request.GET.get("alert_rules") or "").strip()
+    if alert_rules_param:
+        rule_ids = [x.strip() for x in alert_rules_param.split(",") if x.strip()]
+        if rule_ids:
+            conversations = conversations.filter(
+                alerts__alert_rule_id__in=rule_ids
+            ).distinct()
+
+    # Min/max messages – annotate and filter (exclude 0-message convos by default)
+    conversations = conversations.annotate(msg_count=Count("messages"))
+    min_messages = request.GET.get("min_messages")
+    if min_messages is not None and str(min_messages).strip().isdigit():
+        min_val = max(1, int(min_messages))
+        conversations = conversations.filter(msg_count__gte=min_val)
+    else:
+        conversations = conversations.filter(msg_count__gt=0)
+    max_messages = request.GET.get("max_messages")
+    if max_messages is not None and str(max_messages).isdigit():
+        conversations = conversations.filter(msg_count__lte=int(max_messages))
+
+    # Sort
+    sort_by = (request.GET.get("sort_by") or "newest").lower()
+    messages_sort = (request.GET.get("messages_sort") or "none").lower()
+    if messages_sort in ("asc", "desc"):
+        order = "msg_count" if messages_sort == "asc" else "-msg_count"
+        conversations = conversations.order_by(order, "-created_at")
+    else:
+        if sort_by == "oldest":
+            conversations = conversations.order_by("created_at", "id")
+        else:
+            conversations = conversations.order_by("-created_at", "-id")
+
+    return conversations
+
+
 def _rate_limit_widget_request(
     *,
     request,
@@ -126,6 +281,73 @@ def _rate_limit_widget_request(
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
+class ConversationStatsView(View):
+    """Separate endpoint for dashboard metrics. Accepts same filters as list for consistency."""
+
+    def get(self, request):
+        user = request.user
+        conversations = _build_conversation_list_queryset(request, user)
+        if isinstance(conversations, JsonResponse):
+            return conversations
+
+        total_conversations = conversations.count()
+        agg = conversations.aggregate(total_msgs=Count("messages"))
+        total_messages = agg.get("total_msgs") or 0
+
+        now = timezone.now()
+        week_ago = now - timedelta(days=7)
+        last_7_days = conversations.filter(created_at__gte=week_ago).count()
+
+        # Per-day breakdown for last 7 days (for chart)
+        from django.db.models.functions import TruncDate
+        last_7_days_breakdown = list(
+            conversations.filter(created_at__gte=week_ago)
+            .annotate(day=TruncDate("created_at"))
+            .values("day")
+            .annotate(count=Count("id"))
+            .values_list("day", "count")
+        )
+        day_counts = {str(d): c for d, c in last_7_days_breakdown if d}
+        week_points = []
+        for i in range(7):
+            d = (now - timedelta(days=(6 - i))).date()
+            week_points.append({"date": d.isoformat(), "count": day_counts.get(str(d), 0)})
+
+        top_users_rows = (
+            conversations.exclude(user_id__isnull=True)
+            .values("user_id")
+            .annotate(
+                conv_count=Count("id", distinct=True),
+                msg_count=Count("messages"),
+            )
+            .order_by("-conv_count", "-msg_count")[:5]
+        )
+        user_ids = [r["user_id"] for r in top_users_rows]
+        user_map = {u.id: u.username for u in User.objects.filter(id__in=user_ids)}
+        top_users = [
+            {
+                "user_id": r["user_id"],
+                "label": user_map.get(r["user_id"]) or f"User {r['user_id']}",
+                "conversations": r["conv_count"],
+                "messages": r["msg_count"],
+            }
+            for r in top_users_rows
+        ]
+
+        return JsonResponse(
+            {
+                "total_conversations": total_conversations,
+                "total_messages": total_messages,
+                "last_7_days": last_7_days,
+                "last_7_days_breakdown": week_points,
+                "top_users": top_users,
+            },
+            safe=False,
+        )
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
 class ConversationView(View):
     def get(self, request, *args, **kwargs):
         user = request.user
@@ -139,68 +361,47 @@ class ConversationView(View):
             ).data
             return JsonResponse(serialized_conversation, safe=False)
         else:
-            scope = request.GET.get("scope", "org")
-            chat_widget_id = (request.GET.get("chat_widget_id") or "").strip()
-            status_param = (request.GET.get("status") or "").strip().lower()
-            if scope == "personal":
-                conversations = Conversation.objects.filter(user=user).order_by(
-                    "-created_at"
-                )
-            else:
-                org_user_ids = _get_org_user_ids(user)
-                if org_user_ids:
-                    from django.db.models import Q
+            conversations = _build_conversation_list_queryset(request, user)
+            if isinstance(conversations, JsonResponse):
+                return conversations
 
-                    conversations = (
-                        Conversation.objects.filter(
-                            Q(user_id__in=org_user_ids)
-                            | Q(
-                                user__isnull=True,
-                                chat_widget__created_by_id__in=org_user_ids,
-                            )
-                        )
-                        .order_by("-created_at")
-                    )
-                else:
-                    conversations = Conversation.objects.filter(user=user).order_by(
-                        "-created_at"
-                    )
+            # Filter options for user dropdown (from full filtered set, before pagination)
+            user_ids = list(
+                conversations.values_list("user_id", flat=True).distinct()
+            )[:100]
+            user_ids = [uid for uid in user_ids if uid is not None]
+            user_options = (
+                list(User.objects.filter(id__in=user_ids).values("id", "username"))
+                if user_ids
+                else []
+            )
 
-            if status_param in ("", "active_inactive"):
-                conversations = conversations.filter(status__in=["active", "inactive"])
-            elif status_param == "all":
-                conversations = conversations.exclude(status="deleted")
-            elif status_param in ("active", "inactive", "archived", "deleted"):
-                conversations = conversations.filter(status=status_param)
-            else:
-                return JsonResponse(
-                    {
-                        "message": "status must be one of: active_inactive, all, active, inactive, archived, deleted",
-                        "status": 400,
-                    },
-                    status=400,
-                )
-
-            if chat_widget_id:
-                if chat_widget_id.lower() == "none":
-                    conversations = conversations.filter(chat_widget__isnull=True)
-                else:
-                    try:
-                        widget_id = int(chat_widget_id)
-                    except ValueError:
-                        return JsonResponse(
-                            {
-                                "message": "chat_widget_id must be an integer or 'none'",
-                                "status": 400,
-                            },
-                            status=400,
-                        )
-                    conversations = conversations.filter(chat_widget_id=widget_id)
+            # Pagination
+            limit = min(max(1, int(request.GET.get("limit", 50))), 100)
+            offset = max(0, int(request.GET.get("offset", 0)))
+            total = conversations.count()
+            conversations = conversations[offset : offset + limit]
 
             serialized_conversations = ConversationSerializer(
                 conversations, many=True, context={"request": request}
             ).data
-            return JsonResponse(serialized_conversations, safe=False)
+
+            return JsonResponse(
+                {
+                    "results": serialized_conversations,
+                    "total": total,
+                    "limit": limit,
+                    "offset": offset,
+                    "has_next": offset + limit < total,
+                    "filter_options": {
+                        "users": [
+                            {"id": u["id"], "label": u["username"] or f"User {u['id']}"}
+                            for u in user_options
+                        ],
+                    },
+                },
+                safe=False,
+            )
 
     def post(self, request, *args, **kwargs):
         user = request.user

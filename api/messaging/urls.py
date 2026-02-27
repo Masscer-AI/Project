@@ -1,6 +1,7 @@
 from django.urls import path
 from .views import (
     ConversationView,
+    ConversationStatsView,
     ConversationBulkView,
     MessageView,
     upload_audio,
@@ -24,6 +25,7 @@ app_name = "messaging"
 
 urlpatterns = [
     path("conversations", ConversationView.as_view(), name="conversation_list"),
+    path("conversations/stats/", ConversationStatsView.as_view(), name="conversation_stats"),
     path("conversations/bulk/", ConversationBulkView.as_view(), name="conversation_bulk"),
     path(
         "conversations/<uuid:id>/",

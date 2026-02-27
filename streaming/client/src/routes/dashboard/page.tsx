@@ -1,11 +1,17 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useStore } from "../../modules/store";
 import {
-  getAllConversations,
+  getConversations,
+  getConversationStats,
   getAlertStats,
   getUser,
 } from "../../modules/apiCalls";
-import { TConversation, TAlertStats } from "../../types";
+import type {
+  TConversationFilters,
+  TConversationsResponse,
+  TConversationStats,
+} from "../../modules/apiCalls";
+import { TAlertStats } from "../../types";
 import { TUserData } from "../../types/chatTypes";
 import { useTranslation } from "react-i18next";
 import { DashboardLayout } from "./DashboardLayout";
@@ -31,69 +37,130 @@ import {
   IconUsers,
 } from "@tabler/icons-react";
 
+const DEFAULT_FILTERS: TConversationFilters = {
+  scope: "org",
+  status: "all",
+  sortBy: "newest",
+  search: "",
+  userId: "",
+  dateFrom: null,
+  dateTo: null,
+  minMessages: 1,
+  maxMessages: "" as unknown as number,
+  selectedTags: [],
+  selectedAlertRules: [],
+  chatWidgetId: "",
+  messagesSort: "none",
+};
+
 export default function DashboardPage() {
   const { startup, setUser } = useStore((state) => ({
     startup: state.startup,
     setUser: state.setUser,
   }));
   const { t } = useTranslation();
-  const [conversations, setConversations] = useState<TConversation[]>([]);
+  const [convStats, setConvStats] = useState<TConversationStats | null>(null);
   const [alertStats, setAlertStats] = useState<TAlertStats | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [conversationsData, setConversationsData] = useState<
+    TConversationsResponse | null
+  >(null);
+  const [filters, setFilters] = useState<TConversationFilters>(DEFAULT_FILTERS);
+  const [page, setPage] = useState(0);
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
+  const [isLoadingConversations, setIsLoadingConversations] = useState(true);
+
+  const loadUser = useCallback(async () => {
+    try {
+      const user = (await getUser()) as TUserData;
+      setUser(user);
+    } catch (error) {
+      console.error("Error loading user:", error);
+    }
+  }, [setUser]);
 
   useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const user = (await getUser()) as TUserData;
-        setUser(user);
-      } catch (error) {
-        console.error("Error loading user:", error);
-      }
-    };
-
     loadUser();
     startup();
-    loadConversations();
-    loadAlertStats();
-  }, []);
+  }, [loadUser, startup]);
 
-  const loadConversations = async () => {
+  const loadStats = useCallback(async () => {
+    setIsLoadingStats(true);
     try {
-      const data = await getAllConversations("org", { status: "all" });
-      setConversations(data);
+      const [conv, alerts] = await Promise.all([
+        getConversationStats(filters),
+        getAlertStats(),
+      ]);
+      setConvStats(conv);
+      setAlertStats(alerts);
+    } catch (error) {
+      console.error("Error loading stats:", error);
+    } finally {
+      setIsLoadingStats(false);
+    }
+  }, [filters]);
+
+  const loadConversations = useCallback(async () => {
+    setIsLoadingConversations(true);
+    try {
+      const data = await getConversations(filters, page, 50);
+      setConversationsData(data);
     } catch (error) {
       console.error("Error loading conversations:", error);
     } finally {
-      setIsLoading(false);
+      setIsLoadingConversations(false);
     }
-  };
+  }, [filters, page]);
 
-  const loadAlertStats = async () => {
-    try {
-      const stats = await getAlertStats();
-      setAlertStats(stats);
-    } catch (error) {
-      console.error("Error loading alert stats:", error);
-    }
-  };
+  useEffect(() => {
+    loadStats();
+  }, [loadStats]);
+
+  useEffect(() => {
+    loadConversations();
+  }, [loadConversations]);
+
+  const handleFiltersChange = useCallback((newFilters: TConversationFilters) => {
+    setFilters(newFilters);
+    setPage(0);
+  }, []);
+
+  const handlePageChange = useCallback((newPage: number) => {
+    setPage(newPage);
+  }, []);
+
+  const handleConversationsChanged = useCallback(() => {
+    loadStats();
+    loadConversations();
+  }, [loadStats, loadConversations]);
+
+  const isLoading = isLoadingStats && isLoadingConversations;
 
   return (
     <DashboardLayout>
-      {isLoading ? (
+      {isLoading && !convStats ? (
         <Group justify="center" py="xl">
           <Loader />
         </Group>
       ) : (
         <Stack gap="xl">
           <DashboardStats
-            conversations={conversations}
+            convStats={convStats}
             alertStats={alertStats}
+            isLoading={isLoadingStats}
             t={t}
           />
           <Card withBorder padding="lg" radius="md">
             <ConversationsTable
-              conversations={conversations || []}
-              onConversationsChanged={loadConversations}
+              conversations={conversationsData?.results ?? []}
+              total={conversationsData?.total ?? 0}
+              page={page}
+              pageSize={50}
+              filters={filters}
+              filterOptions={conversationsData?.filter_options}
+              onFiltersChange={handleFiltersChange}
+              onPageChange={handlePageChange}
+              onConversationsChanged={handleConversationsChanged}
+              isLoading={isLoadingConversations}
             />
           </Card>
         </Stack>
@@ -105,63 +172,33 @@ export default function DashboardPage() {
 // ─── Stats ──────────────────────────────────────────────────────────────────────
 
 function DashboardStats({
-  conversations,
+  convStats,
   alertStats,
+  isLoading,
   t,
 }: {
-  conversations: TConversation[];
+  convStats: TConversationStats | null;
   alertStats: TAlertStats | null;
-  t: any;
+  isLoading: boolean;
+  t: (key: string) => string;
 }) {
-  const totalConversations = conversations.length;
-  const totalMessages = conversations.reduce(
-    (sum, conv) => sum + (conv.number_of_messages || 0),
-    0
-  );
-
-  const topUsers = React.useMemo(() => {
-    const byUser = new Map<
-      string,
-      { label: string; conversations: number; messages: number }
-    >();
-    conversations.forEach((conv) => {
-      if (conv.user_id == null) return;
-      const key = String(conv.user_id);
-      const label = conv.user_username || `${t("user")} ${conv.user_id}`;
-      const prev = byUser.get(key) || { label, conversations: 0, messages: 0 };
-      prev.conversations += 1;
-      prev.messages += conv.number_of_messages || 0;
-      byUser.set(key, prev);
-    });
-    return Array.from(byUser.values())
-      .sort((a, b) => {
-        if (b.conversations !== a.conversations) {
-          return b.conversations - a.conversations;
-        }
-        return b.messages - a.messages;
-      })
-      .slice(0, 5);
-  }, [conversations, t]);
+  const totalConversations = convStats?.total_conversations ?? 0;
+  const totalMessages = convStats?.total_messages ?? 0;
+  const topUsers = convStats?.top_users ?? [];
+  const weekBreakdown = convStats?.last_7_days_breakdown ?? [];
+  const recentConversations = convStats?.last_7_days ?? 0;
 
   const weekData = React.useMemo(() => {
     const now = new Date();
-    const points = Array.from({ length: 7 }, (_, idx) => {
+    return Array.from({ length: 7 }, (_, idx) => {
       const day = new Date(now);
       day.setHours(0, 0, 0, 0);
       day.setDate(now.getDate() - (6 - idx));
-      return { date: day, count: 0 };
+      const dateStr = day.toISOString().slice(0, 10);
+      const point = weekBreakdown.find((p) => p.date === dateStr);
+      return { date: day, count: point?.count ?? 0 };
     });
-
-    conversations.forEach((conv) => {
-      const convDate = new Date(conv.created_at);
-      convDate.setHours(0, 0, 0, 0);
-      const match = points.find((p) => p.date.getTime() === convDate.getTime());
-      if (match) match.count += 1;
-    });
-
-    return points;
-  }, [conversations]);
-  const recentConversations = weekData.reduce((sum, p) => sum + p.count, 0);
+  }, [weekBreakdown]);
   const maxWeekCount = Math.max(...weekData.map((p) => p.count), 1);
   const summaryStats = [
     {

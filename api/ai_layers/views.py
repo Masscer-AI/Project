@@ -376,9 +376,17 @@ def create_random_agent(request):
         return JsonResponse({"error": "Only POST requests are allowed."}, status=405)
 
     name = fake.name()
-    model_slug = random.choice(["gpt-4o-mini", "gpt-4o"])
     salute = fake.sentence()
-    llm = LanguageModel.objects.get(slug=model_slug)
+    available_models = list(
+        LanguageModel.objects.filter(slug__isnull=False).exclude(slug="")
+    )
+    if not available_models:
+        return JsonResponse(
+            {"error": "No language models available. Please configure LanguageModel entries."},
+            status=400,
+        )
+    llm = random.choice(available_models)
+    model_slug = llm.slug
     act_as = "You are a helpful assistant."
     user = request.user if request.user.is_authenticated else None
     printer.blue("User", user)
@@ -394,8 +402,7 @@ def create_random_agent(request):
 
     agent.save()
 
-    cache_key = f"agent_data_{request.user.id}"
-    cache.delete(cache_key)
+    _invalidate_agent_cache_for_user_and_org(request.user, agent.organization)
 
     return JsonResponse(agent.serialize(), status=201)
 

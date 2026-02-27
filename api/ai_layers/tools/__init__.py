@@ -31,6 +31,7 @@ TOOL_REGISTRY: dict[str, str] = {
     "create_image": "api.ai_layers.tools.create_image",
     "create_speech": "api.ai_layers.tools.create_speech",
     "read_plugin_instructions": "api.ai_layers.tools.read_plugin_instructions",
+    "raise_alert": "api.ai_layers.tools.raise_alert",
 }
 
 

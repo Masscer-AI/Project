@@ -380,24 +380,134 @@ export const deleteConversation = async (conversationId: string) => {
   );
 };
 
+export type TConversationFilters = {
+  scope?: "personal" | "org";
+  search?: string;
+  userId?: string;
+  sortBy?: "newest" | "oldest";
+  dateFrom?: Date | null;
+  dateTo?: Date | null;
+  minMessages?: number;
+  maxMessages?: number;
+  selectedTags?: number[];
+  selectedAlertRules?: string[];
+  chatWidgetId?: string;
+  status?: "active_inactive" | "all" | "active" | "inactive" | "archived" | "deleted";
+  messagesSort?: "none" | "asc" | "desc";
+};
+
+export type TConversationsResponse = {
+  results: TConversation[];
+  total: number;
+  limit: number;
+  offset: number;
+  has_next: boolean;
+  filter_options: { users: { id: number; label: string }[] };
+};
+
+export const getConversations = async (
+  filters: TConversationFilters = {},
+  page: number = 0,
+  limit: number = 50
+) => {
+  const params = new URLSearchParams();
+  params.set("scope", filters.scope ?? "org");
+  params.set("limit", String(limit));
+  params.set("offset", String(page * limit));
+
+  if (filters.status) params.set("status", filters.status);
+  if (filters.chatWidgetId) params.set("chat_widget_id", filters.chatWidgetId);
+  if (filters.search) params.set("search", filters.search);
+  if (filters.userId) params.set("user_id", filters.userId);
+  if (filters.sortBy) params.set("sort_by", filters.sortBy);
+  if (filters.messagesSort && filters.messagesSort !== "none") {
+    params.set("messages_sort", filters.messagesSort);
+  }
+  if (filters.dateFrom) {
+    const d = filters.dateFrom instanceof Date ? filters.dateFrom : new Date(filters.dateFrom);
+    params.set("date_from", `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+  }
+  if (filters.dateTo) {
+    const d = filters.dateTo instanceof Date ? filters.dateTo : new Date(filters.dateTo);
+    params.set("date_to", `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+  }
+  if (filters.minMessages != null && filters.minMessages !== "") {
+    params.set("min_messages", String(filters.minMessages));
+  }
+  if (filters.maxMessages != null && filters.maxMessages !== "") {
+    params.set("max_messages", String(filters.maxMessages));
+  }
+  if (filters.selectedTags?.length) {
+    params.set("tags", filters.selectedTags.join(","));
+  }
+  if (filters.selectedAlertRules?.length) {
+    params.set("alert_rules", filters.selectedAlertRules.join(","));
+  }
+
+  return makeAuthenticatedRequest<TConversationsResponse>(
+    "GET",
+    `/v1/messaging/conversations?${params.toString()}`
+  );
+};
+
+export type TConversationStats = {
+  total_conversations: number;
+  total_messages: number;
+  last_7_days: number;
+  last_7_days_breakdown: { date: string; count: number }[];
+  top_users: { user_id: number; label: string; conversations: number; messages: number }[];
+};
+
+export const getConversationStats = async (
+  filters: TConversationFilters = {}
+): Promise<TConversationStats> => {
+  const params = new URLSearchParams();
+  params.set("scope", filters.scope ?? "org");
+  if (filters.status) params.set("status", filters.status);
+  if (filters.chatWidgetId) params.set("chat_widget_id", filters.chatWidgetId);
+  if (filters.search) params.set("search", filters.search);
+  if (filters.userId) params.set("user_id", filters.userId);
+  if (filters.dateFrom) {
+    const d = filters.dateFrom instanceof Date ? filters.dateFrom : new Date(filters.dateFrom);
+    params.set("date_from", `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+  }
+  if (filters.dateTo) {
+    const d = filters.dateTo instanceof Date ? filters.dateTo : new Date(filters.dateTo);
+    params.set("date_to", `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+  }
+  if (filters.minMessages != null && filters.minMessages !== "") {
+    params.set("min_messages", String(filters.minMessages));
+  }
+  if (filters.maxMessages != null && filters.maxMessages !== "") {
+    params.set("max_messages", String(filters.maxMessages));
+  }
+  if (filters.selectedTags?.length) {
+    params.set("tags", filters.selectedTags.join(","));
+  }
+  if (filters.selectedAlertRules?.length) {
+    params.set("alert_rules", filters.selectedAlertRules.join(","));
+  }
+  return makeAuthenticatedRequest<TConversationStats>(
+    "GET",
+    `/v1/messaging/conversations/stats/?${params.toString()}`
+  );
+};
+
+/** Backward compat: fetches all conversations (paginated, first page only). Use getConversations for pagination. */
 export const getAllConversations = async (
   scope: "personal" | "org" = "org",
   options?: {
     chatWidgetId?: number | "none";
     status?: "active_inactive" | "all" | "active" | "inactive" | "archived" | "deleted";
   }
-) => {
-  const params = new URLSearchParams({ scope });
-  if (options?.chatWidgetId !== undefined) {
-    params.set("chat_widget_id", String(options.chatWidgetId));
-  }
-  if (options?.status) {
-    params.set("status", options.status);
-  }
-  return makeAuthenticatedRequest<TConversation[]>(
-    "GET",
-    `/v1/messaging/conversations?${params.toString()}`
-  );
+): Promise<TConversation[]> => {
+  const filters: TConversationFilters = {
+    scope,
+    status: options?.status ?? "all",
+    chatWidgetId: options?.chatWidgetId ? String(options.chatWidgetId) : undefined,
+  };
+  const res = await getConversations(filters, 0, 100);
+  return res.results;
 };
 
 export const bulkConversationAction = async (

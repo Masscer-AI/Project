@@ -56,6 +56,7 @@ export interface TConversation {
   summary?: string;
   alerts_count?: number;
   alert_rule_ids?: string[];
+  has_pending_alerts?: boolean;
 }
 
 export type TCompletion = {

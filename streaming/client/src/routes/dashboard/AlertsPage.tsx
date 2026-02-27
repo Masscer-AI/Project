@@ -3,7 +3,7 @@ import { useStore } from "../../modules/store";
 import { getAlerts, updateAlertStatus } from "../../modules/apiCalls";
 import { TConversationAlert } from "../../types";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { DashboardLayout } from "./DashboardLayout";
 import {
   Anchor,
@@ -19,12 +19,22 @@ import {
 } from "@mantine/core";
 import { IconEye, IconEyeOff } from "@tabler/icons-react";
 
+/** Converts extraction keys like guest_name, check_in_time to readable labels. */
+function formatExtractionKey(key: string): string {
+  return key
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
+
 export default function AlertsPage() {
   const { startup } = useStore((state) => ({
     startup: state.startup,
   }));
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const conversationId = searchParams.get("conversation");
   const [alerts, setAlerts] = useState<TConversationAlert[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<
@@ -37,18 +47,28 @@ export default function AlertsPage() {
 
   useEffect(() => {
     loadAlerts();
-  }, [statusFilter]);
+  }, [statusFilter, conversationId]);
 
   const loadAlerts = async () => {
     try {
       setIsLoading(true);
-      const data = await getAlerts(statusFilter);
-      setAlerts(data);
+      const fetchStatus = conversationId ? "all" : statusFilter;
+      const data = await getAlerts(fetchStatus);
+      const filtered = conversationId
+        ? data.filter((a) => a.conversation_id === conversationId)
+        : data;
+      setAlerts(filtered);
     } catch (error) {
       console.error("Error loading alerts:", error);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const clearConversationFilter = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete("conversation");
+    setSearchParams(next);
   };
 
   const handleStatusChange = async (
@@ -89,13 +109,25 @@ export default function AlertsPage() {
           {filterOptions.map((opt) => (
             <Button
               key={opt.value}
-              variant={statusFilter === opt.value ? "filled" : "default"}
+              variant={statusFilter === opt.value && !conversationId ? "filled" : "default"}
               size="xs"
               onClick={() => setStatusFilter(opt.value)}
+              disabled={!!conversationId}
             >
               {opt.label}
             </Button>
           ))}
+          {conversationId && (
+            <Badge
+              variant="light"
+              color="violet"
+              size="lg"
+              style={{ cursor: "pointer" }}
+              onClick={clearConversationFilter}
+            >
+              {t("filtered-by-conversation")} ({conversationId.slice(0, 8)}…) ×
+            </Badge>
+          )}
         </Group>
 
         {isLoading ? (
@@ -227,7 +259,7 @@ function AlertCard({
                       <Card key={key} padding="xs" radius="sm" withBorder>
                         <Text size="sm">
                           <Text span c="violet" fw={500}>
-                            {key}:
+                            {formatExtractionKey(key)}:
                           </Text>{" "}
                           {typeof value === "object"
                             ? JSON.stringify(value)
