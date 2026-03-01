@@ -2,7 +2,6 @@ from django.contrib import admin
 from django.utils.html import format_html
 from django.conf import settings
 from django.db.models import Exists, OuterRef
-from api.utils.request_context import get_current_request
 from .models import (
     Conversation,
     Message,
@@ -126,16 +125,10 @@ class ChatWidgetAdmin(admin.ModelAdmin):
         if not obj.token:
             return "Token will be generated after saving"
 
-        # FRONTEND_URL first; if unset, use request host (from browser), else fallbacks
-        base_url = getattr(settings, "FRONTEND_URL", "")
-        if not base_url:
-            request = get_current_request()
-            if request:
-                base_url = f"{'https' if request.is_secure() else 'http'}://{request.get_host()}"
-            else:
-                base_url = getattr(
-                    settings, "STREAMING_SERVER_URL", "http://localhost:8001"
-                )
+        # Prefer FRONTEND_URL, then STREAMING_SERVER_URL, else localhost
+        base_url = getattr(settings, "FRONTEND_URL", "") or getattr(
+            settings, "STREAMING_SERVER_URL", "http://localhost:8001"
+        )
         script_url = f"{base_url}/widget/{obj.token}.js"
         script_tag = f'<script src="{script_url}"></script>'
         
