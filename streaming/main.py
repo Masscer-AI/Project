@@ -62,6 +62,10 @@ async def widget_loader(widget_token: str, request: Request):
         base_url = api_url = streaming_server_url = frontend_url
     else:
         base_url = str(request.base_url).rstrip("/")
+        # Behind proxy (ngrok, nginx): use X-Forwarded-Proto for correct scheme
+        forwarded_proto = request.headers.get("x-forwarded-proto", "").lower()
+        if forwarded_proto == "https" and base_url.startswith("http://"):
+            base_url = "https://" + base_url[7:]
         api_url = base_url
         streaming_server_url = base_url
     
