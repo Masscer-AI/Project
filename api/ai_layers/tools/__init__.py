@@ -67,8 +67,13 @@ def resolve_tools(tool_names: list[str], **context) -> list[dict]:
             tools.append(get_tool_fn(**context))
             logger.info("Resolved tool '%s' from %s", name, module_path)
         except Exception as e:
-            logger.error("Failed to resolve tool '%s': %s", name, e)
-            raise
+            logger.error(
+                "Failed to resolve tool '%s': %s. Skipping (agent will run without it).",
+                name,
+                e,
+            )
+            # Don't add the tool; continue with the rest
+            continue
 
     return tools
 

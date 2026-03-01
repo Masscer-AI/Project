@@ -84,11 +84,21 @@ def get_tool(
 ) -> dict:
     """
     Tool config. Requires user_id and agent_slug via closure.
+    For widget conversations (user_id=None), falls back to the agent owner's collection.
     """
-    if user_id is None:
-        raise ValueError("rag_query requires user_id in tool context")
     if not agent_slug:
         raise ValueError("rag_query requires agent_slug in tool context")
+    # Widget context: use agent owner's RAG collection
+    if user_id is None:
+        from api.ai_layers.models import Agent
+
+        try:
+            agent = Agent.objects.get(slug=agent_slug)
+            user_id = agent.user_id
+        except Agent.DoesNotExist:
+            raise ValueError("rag_query: agent not found")
+        if user_id is None:
+            raise ValueError("rag_query requires user_id in tool context (agent has no owner)")
 
     def rag_query(queries: list[str], n_results: int = 4) -> RagQueryResult:
         return _rag_query_impl(
