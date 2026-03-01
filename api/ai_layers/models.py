@@ -130,8 +130,20 @@ class Agent(models.Model):
             self.slug = slugify(self.name + "-" + str(uuid.uuid4()))[:100]
 
         if not self.llm:
-            llm = LanguageModel.objects.get(slug=self.model_slug)
+            preferred_slug = self.model_slug or "gpt-5.2"
+            llm = LanguageModel.objects.filter(slug=preferred_slug).first()
+            if not llm and self.model_provider:
+                llm = LanguageModel.objects.filter(
+                    provider__name__iexact=self.model_provider
+                ).first()
+            if not llm:
+                llm = LanguageModel.objects.first()
+            if not llm:
+                raise ValueError(
+                    "No LanguageModel records exist. Seed models before creating agents."
+                )
             self.llm = llm
+            self.model_slug = llm.slug
 
         # if not self.profile_picture_url and self.id:
         #     async_generate_agent_profile_picture.delay(self.id)

@@ -9,7 +9,9 @@ def convert_md_to_docx(input_file, output_file):
         assert output == ""
         print(f"Successfully converted {input_file} to {output_file}")
     except Exception as e:
-        print(f"An error occurred: {e}")
+        raise RuntimeError(
+            f"Document conversion failed (markdown -> docx): {e}"
+        ) from e
 
 
 # # Example usage for Markdown
@@ -25,7 +27,9 @@ def convert_md_to_pdf(input_file, output_file):
         assert output == ""
         print(f"Successfully converted {input_file} to {output_file}")
     except Exception as e:
-        print(f"An error occurred: {e}")
+        raise RuntimeError(
+            f"Document conversion failed (markdown -> pdf): {e}"
+        ) from e
 
 
 # # Example usage for PDF
@@ -43,4 +47,6 @@ def convert_html(input_file, output_file, to_type="docx"):
         assert output == ""
         printer.green(f"Successfully converted {input_file} to {output_file}")
     except Exception as e:
-        printer.red(f"An error occurred during conversion: {e}")
+        raise RuntimeError(
+            f"Document conversion failed (html -> {to_type}): {e}"
+        ) from e

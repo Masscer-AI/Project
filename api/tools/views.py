@@ -287,19 +287,55 @@ class PromptNodeView(View):
 @method_decorator(token_required, name="dispatch")
 class DocumentGeneratorView(View):
     def post(self, request):
-        data = json.loads(request.body)
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON body"}, status=400)
+
         source_text = data.get("source_text")
         from_type = data.get("from_type")
         to_type = data.get("to_type")
-        input_document_created_path, output_filepath = document_convertion(
-            source_text, from_type, to_type
-        )
 
-        os.remove(input_document_created_path)
-        # Return only the last section of the path, not the full path
-        file_name = os.path.basename(output_filepath)
+        if not isinstance(source_text, str) or not source_text.strip():
+            return JsonResponse({"error": "source_text is required"}, status=400)
+        if not isinstance(from_type, str) or not from_type.strip():
+            return JsonResponse({"error": "from_type is required"}, status=400)
+        if not isinstance(to_type, str) or not to_type.strip():
+            return JsonResponse({"error": "to_type is required"}, status=400)
 
-        return JsonResponse({"output_filepath": file_name})
+        input_document_created_path = None
+        try:
+            input_document_created_path, output_filepath = document_convertion(
+                source_text, from_type, to_type
+            )
+
+            if not os.path.exists(output_filepath):
+                logger.error(
+                    "Document conversion reported success but output does not exist: %s",
+                    output_filepath,
+                )
+                return JsonResponse(
+                    {
+                        "error": "Document conversion failed: output file was not created."
+                    },
+                    status=500,
+                )
+
+            # Return only the last section of the path, not the full path.
+            file_name = os.path.basename(output_filepath)
+            return JsonResponse({"output_filepath": file_name})
+        except Exception as e:
+            logger.exception("Document conversion failed")
+            return JsonResponse(
+                {
+                    "error": "Document conversion failed",
+                    "details": str(e),
+                },
+                status=400,
+            )
+        finally:
+            if input_document_created_path and os.path.exists(input_document_created_path):
+                os.remove(input_document_created_path)
 
 
 @method_decorator(csrf_exempt, name="dispatch")

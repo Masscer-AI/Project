@@ -307,6 +307,7 @@ export const CustomCodeBlock = ({
         if (!success) {
           toast.dismiss(tid);
           toast.error(t("error-downloading-document"));
+          return;
         }
         toast.success(t("document-downloaded"), {
           id: tid,

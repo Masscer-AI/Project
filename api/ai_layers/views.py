@@ -95,7 +95,7 @@ class AgentView(View):
         
         default_llm = {
             "provider": "openai",
-            "slug": "gpt-4o-mini",
+            "slug": "gpt-5.2",
         }
 
         agent_slug = kwargs.get("slug")
@@ -132,7 +132,18 @@ class AgentView(View):
 
         llm_slug = data.get("llm", default_llm).get("slug")
         llm_provider = data.get("llm", default_llm).get("provider")
-        llm = LanguageModel.objects.get(slug=llm_slug, provider__name=llm_provider)
+        llm = LanguageModel.objects.filter(
+            slug=llm_slug, provider__name__iexact=llm_provider
+        ).first()
+        if not llm:
+            llm = LanguageModel.objects.filter(provider__name__iexact=llm_provider).first()
+        if not llm:
+            llm = LanguageModel.objects.first()
+        if not llm:
+            return JsonResponse(
+                {"error": "No language models configured"},
+                status=500,
+            )
 
         agent.llm = llm
 
