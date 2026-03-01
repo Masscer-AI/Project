@@ -44,6 +44,11 @@ RENDER_EXTERNAL_HOSTNAME = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
 if RENDER_EXTERNAL_HOSTNAME:
     ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
 
+# Extra hosts from env (comma-separated, e.g. masscer-ai.ngrok.app,your-domain.com)
+_allowed_extra = os.environ.get("ALLOWED_EXTRA_HOSTS", "")
+if _allowed_extra:
+    ALLOWED_HOSTS.extend(h.strip() for h in _allowed_extra.split(",") if h.strip())
+
 # Application definition
 
 INSTALLED_APPS = [
