@@ -207,29 +207,22 @@ class ChatWidgetSerializer(serializers.ModelSerializer):
         return obj.agent.name if obj.agent else None
     
     def get_embed_code(self, obj):
-        import os
         from django.conf import settings
-        
-        # Get streaming server URL from environment or settings
-        streaming_url = os.getenv(
-            "STREAMING_SERVER_URL", 
-            getattr(settings, "STREAMING_SERVER_URL", None)
-        )
-        
-        # If not configured, build from request
-        if not streaming_url:
-            request = self.context.get('request')
+
+        # FRONTEND_URL first; if unset, use request host (from browser), else fallbacks
+        base_url = getattr(settings, "FRONTEND_URL", "")
+        if not base_url:
+            request = self.context.get("request")
             if request:
                 host = request.get_host()
-                scheme = 'https' if request.is_secure() else 'http'
-                streaming_url = f"{scheme}://{host}"
+                scheme = "https" if request.is_secure() else "http"
+                base_url = f"{scheme}://{host}"
             else:
-                streaming_url = "https://your-streaming-server.com"
-        
-        # Remove trailing slash if present
-        streaming_url = streaming_url.rstrip('/')
-        
-        return f'<script src="{streaming_url}/widget/{obj.token}.js"></script>'
+                base_url = getattr(
+                    settings, "STREAMING_SERVER_URL", "http://localhost:8001"
+                )
+        base_url = base_url.rstrip("/")
+        return f'<script src="{base_url}/widget/{obj.token}.js"></script>'
 
     def validate_style(self, value):
         if value is None:

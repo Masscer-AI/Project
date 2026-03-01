@@ -485,32 +485,41 @@ const WidgetCard = ({
         )}
       </Group>
 
-      {/* Embed code */}
+      {/* Embed code - use window.location.origin so it reflects current host when FRONTEND_URL not set */}
       <Group gap="xs" wrap="nowrap">
-        <TextInput
-          value={widget.embed_code}
-          readOnly
-          size="xs"
-          leftSection={<IconCode size={14} />}
-          style={{ flex: 1 }}
-          styles={{
-            input: { fontFamily: "monospace", fontSize: 12 },
-          }}
-        />
-        <CopyButton value={widget.embed_code}>
-          {({ copied, copy }) => (
-            <Tooltip label={copied ? t("copied") : t("copy")}>
-              <ActionIcon
-                variant={copied ? "filled" : "default"}
-                color={copied ? "teal" : undefined}
-                size="sm"
-                onClick={copy}
-              >
-                {copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
-              </ActionIcon>
-            </Tooltip>
-          )}
-        </CopyButton>
+        {(() => {
+          const origin =
+            typeof window !== "undefined" ? window.location.origin : "";
+          const embedCode = `<script src="${origin}/widget/${widget.token}.js"></script>`;
+          return (
+            <>
+              <TextInput
+                value={embedCode}
+                readOnly
+                size="xs"
+                leftSection={<IconCode size={14} />}
+                style={{ flex: 1 }}
+                styles={{
+                  input: { fontFamily: "monospace", fontSize: 12 },
+                }}
+              />
+              <CopyButton value={embedCode}>
+                {({ copied, copy }) => (
+                  <Tooltip label={copied ? t("copied") : t("copy")}>
+                    <ActionIcon
+                      variant={copied ? "filled" : "default"}
+                      color={copied ? "teal" : undefined}
+                      size="sm"
+                      onClick={copy}
+                    >
+                      {copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
+                    </ActionIcon>
+                  </Tooltip>
+                )}
+              </CopyButton>
+            </>
+          );
+        })()}
       </Group>
     </Card>
   );

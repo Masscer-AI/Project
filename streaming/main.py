@@ -55,10 +55,15 @@ async def widget_loader(widget_token: str, request: Request):
     """
     Serve the widget loader script with the token embedded.
     This script will fetch widget config and initialize the widget.
+    FRONTEND_URL first; if unset, uses the request host from the browser.
     """
-    base_url = str(request.base_url).rstrip("/")
-    api_url = os.getenv("API_URL", "http://localhost:8000")
-    streaming_server_url = os.getenv("STREAMING_SERVER_URL", base_url)
+    frontend_url = os.getenv("FRONTEND_URL", "").rstrip("/")
+    if frontend_url:
+        base_url = api_url = streaming_server_url = frontend_url
+    else:
+        base_url = str(request.base_url).rstrip("/")
+        api_url = base_url
+        streaming_server_url = base_url
     
     loader_script = f"""
 (function() {{
@@ -100,6 +105,8 @@ async def widget_loader(widget_token: str, request: Request):
                 }});
         }})
         .then(({{ config, sessionToken }}) => {{
+            // Set API URL for widget bundle (it runs on file:// or external origins and needs absolute URLs)
+            window.WIDGET_API_URL = apiUrl;
             // Load widget bundle
             const script = document.createElement('script');
             // Cache-buster to avoid stale widget bundles in embedded pages
