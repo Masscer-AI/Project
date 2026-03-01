@@ -123,3 +123,28 @@
   display: none;
 }
 
+/* In-progress assistant loader */
+.chat-widget-messages .chat-widget-loader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--widget-muted, #666);
+}
+
+.chat-widget-loader-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--widget-border, rgba(0, 0, 0, 0.1));
+  border-top-color: var(--widget-primary, #000);
+  border-radius: 50%;
+  animation: chat-widget-spin 0.8s linear infinite;
+}
+
+@keyframes chat-widget-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+

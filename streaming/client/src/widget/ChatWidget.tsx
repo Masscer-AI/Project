@@ -33,6 +33,8 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
     setMessages,
     setConversation,
     setIsOpen,
+    setAgentTaskStatus,
+    agentTaskStatus,
   } = useWidgetStore();
 
   const chatMessageContainerRef = useRef<HTMLDivElement>(null);
@@ -135,14 +137,47 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
     };
   }, []);
 
+  const toolHoldRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingStatusRef = useRef<string | null>(null);
+  const TOOL_STATUS_MIN_MS = 1500;
+
   useEffect(() => {
     if (!socketReady || !socketRef.current) return;
 
     const socketInstance = socketRef.current;
 
+    const applyStatus = (status: string | null, isToolEvent: boolean) => {
+      if (isToolEvent) {
+        if (toolHoldRef.current) clearTimeout(toolHoldRef.current);
+        useWidgetStore.getState().setAgentTaskStatus(status);
+        pendingStatusRef.current = null;
+        toolHoldRef.current = setTimeout(() => {
+          toolHoldRef.current = null;
+          if (pendingStatusRef.current !== null) {
+            useWidgetStore.getState().setAgentTaskStatus(pendingStatusRef.current);
+            pendingStatusRef.current = null;
+          }
+        }, TOOL_STATUS_MIN_MS);
+      } else {
+        if (toolHoldRef.current) {
+          pendingStatusRef.current = status;
+        } else {
+          useWidgetStore.getState().setAgentTaskStatus(status);
+        }
+      }
+    };
+
     const handleAgentEvents = (raw: {
       user_id?: number;
-      message?: { type: string; conversation_id?: string; version?: TVersion };
+      message?: {
+        type: string;
+        conversation_id?: string;
+        version?: TVersion;
+        tool_name?: string;
+        agent_name?: string;
+        total?: number;
+        index?: number;
+      };
     }) => {
       const data = raw?.message;
       const conv = useWidgetStore.getState().conversation;
@@ -168,16 +203,55 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
         };
         useWidgetStore.getState().setMessages(newMessages);
         scrollToBottom();
+        return;
+      }
+
+      switch (data.type) {
+        case "tool_call_start":
+          applyStatus(
+            `Running tool: ${data.tool_name || "..."}`,
+            true
+          );
+          break;
+        case "tool_call_end":
+          applyStatus(
+            `Tool completed: ${data.tool_name || "..."}`,
+            true
+          );
+          break;
+        case "loop_start":
+        case "iteration_start":
+          applyStatus("Agent is processing...", false);
+          break;
+        case "agent_complete": {
+          const total = data.total as number | undefined;
+          const index = data.index as number | undefined;
+          const agentName = (data.agent_name as string) || "...";
+          const status =
+            total != null && total > 1 && index != null && index < total
+              ? `${agentName} response complete (${index}/${total})`
+              : `${agentName} response complete`;
+          applyStatus(status, false);
+          break;
+        }
+        case "error":
+          if (toolHoldRef.current) {
+            clearTimeout(toolHoldRef.current);
+            toolHoldRef.current = null;
+            pendingStatusRef.current = null;
+          }
+          useWidgetStore.getState().setAgentTaskStatus(null);
+          break;
+        default:
+          break;
       }
     };
 
     const handleAgentFinished = (raw: {
       user_id?: number;
       message?: {
-        type: string;
         conversation_id?: string;
-        user_message_id?: number;
-        ai_message_id?: number;
+        message_id?: number;
         versions?: TVersion[];
         next_agent_slug?: string;
       };
@@ -186,46 +260,44 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
       const conv = useWidgetStore.getState().conversation;
       if (!data || !conv?.id || data.conversation_id !== conv.id) return;
 
-      if (data.type === "agent_loop_finished") {
-        const currentMessages = useWidgetStore.getState().messages;
-        const newMessages = [...currentMessages];
+      if (toolHoldRef.current) {
+        clearTimeout(toolHoldRef.current);
+        toolHoldRef.current = null;
+        pendingStatusRef.current = null;
+      }
+      useWidgetStore.getState().setAgentTaskStatus(null);
 
-        for (let i = newMessages.length - 1; i >= 0; i--) {
-          if (newMessages[i].type === "assistant") {
-            if (data.ai_message_id) newMessages[i].id = data.ai_message_id;
-            if (data.versions) {
-              newMessages[i].versions = data.versions;
-              if (data.versions.length > 0 && data.versions[0].text) {
-                newMessages[i].text = data.versions[0].text;
-              }
+      const currentMessages = useWidgetStore.getState().messages;
+      const newMessages = [...currentMessages];
+
+      for (let i = newMessages.length - 1; i >= 0; i--) {
+        if (newMessages[i].type === "assistant") {
+          if (data.message_id) newMessages[i].id = data.message_id;
+          if (data.versions) {
+            newMessages[i].versions = data.versions;
+            if (data.versions.length > 0 && data.versions[0].text) {
+              newMessages[i].text = data.versions[0].text;
             }
-            break;
           }
+          break;
         }
+      }
 
-        for (let i = newMessages.length - 1; i >= 0; i--) {
-          if (newMessages[i].type === "user") {
-            if (data.user_message_id) newMessages[i].id = data.user_message_id;
-            break;
-          }
-        }
+      useWidgetStore.getState().setMessages(newMessages);
 
-        useWidgetStore.getState().setMessages(newMessages);
-
-        if (data.next_agent_slug) {
-          useWidgetStore.getState().addMessage({
-            type: "assistant",
+      if (data.next_agent_slug) {
+        useWidgetStore.getState().addMessage({
+          type: "assistant",
+          text: "",
+          attachments: [],
+          agent_slug: data.next_agent_slug,
+          versions: [{
             text: "",
-            attachments: [],
+            type: "assistant",
             agent_slug: data.next_agent_slug,
-            versions: [{
-              text: "",
-              type: "assistant",
-              agent_slug: data.next_agent_slug,
-              agent_name: data.next_agent_slug,
-            }],
-          });
-        }
+            agent_name: data.next_agent_slug,
+          }],
+        });
       }
     };
 
@@ -235,6 +307,11 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
     return () => {
       socketInstance.off("agent_events_channel", handleAgentEvents);
       socketInstance.off("agent_loop_finished", handleAgentFinished);
+      if (toolHoldRef.current) {
+        clearTimeout(toolHoldRef.current);
+        toolHoldRef.current = null;
+        pendingStatusRef.current = null;
+      }
     };
   }, [socketReady]);
 
@@ -336,6 +413,12 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
                 key={msg.id ?? `${index}-${msg.type}`}
                 index={index}
                 numberMessages={messages.length}
+                isLastAssistantInProgress={
+                  index === messages.length - 1 &&
+                  msg.type === "assistant" &&
+                  !msg.id
+                }
+                agentTaskStatus={agentTaskStatus}
               />
             ))}
           </div>

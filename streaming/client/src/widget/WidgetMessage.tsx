@@ -11,6 +11,8 @@ interface WidgetMessageProps {
   versions?: { text?: string; agent_slug?: string; agent_name?: string }[];
   attachments?: { type: string; content: string; name: string; text?: string; attachment_id?: string | number; id?: string | number }[];
   numberMessages: number;
+  isLastAssistantInProgress?: boolean;
+  agentTaskStatus?: string | null;
 }
 
 export const WidgetMessage = memo(
@@ -21,6 +23,8 @@ export const WidgetMessage = memo(
     text,
     versions,
     attachments,
+    isLastAssistantInProgress,
+    agentTaskStatus,
   }: WidgetMessageProps) => {
     const currentVersion = versions && versions.length > 0 ? versions.length - 1 : 0;
     const contentToRender = versions?.[currentVersion]?.text || text;
@@ -34,6 +38,13 @@ export const WidgetMessage = memo(
             attachments={attachments}
           />
         </div>
+
+        {isLastAssistantInProgress && (
+          <div className="chat-widget-loader">
+            <div className="chat-widget-loader-spinner" />
+            <span>{agentTaskStatus || "Thinking..."}</span>
+          </div>
+        )}
 
         <section className="message__attachments">
           {attachments &&

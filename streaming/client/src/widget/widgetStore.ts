@@ -25,6 +25,7 @@ interface WidgetStore {
   authToken: string | null;
   widgetToken: string | null;
   isOpen: boolean;
+  agentTaskStatus: string | null;
   setMessages: (messages: TMessage[]) => void;
   addMessage: (message: TMessage) => void;
   updateMessage: (index: number, message: Partial<TMessage>) => void;
@@ -34,6 +35,7 @@ interface WidgetStore {
   setAuthToken: (token: string) => void;
   setWidgetToken: (token: string) => void;
   setIsOpen: (isOpen: boolean) => void;
+  setAgentTaskStatus: (status: string | null) => void;
 }
 
 export const useWidgetStore = create<WidgetStore>()((set, get) => ({
@@ -44,6 +46,7 @@ export const useWidgetStore = create<WidgetStore>()((set, get) => ({
   authToken: null,
   widgetToken: null,
   isOpen: false,
+  agentTaskStatus: null,
   setMessages: (messages) => set({ messages }),
   addMessage: (message) => set((state) => ({ messages: [...state.messages, message] })),
   updateMessage: (index, message) =>
@@ -56,5 +59,6 @@ export const useWidgetStore = create<WidgetStore>()((set, get) => ({
   setAuthToken: (authToken) => set({ authToken }),
   setWidgetToken: (widgetToken) => set({ widgetToken }),
   setIsOpen: (isOpen) => set({ isOpen }),
+  setAgentTaskStatus: (agentTaskStatus) => set({ agentTaskStatus }),
 }));
 
