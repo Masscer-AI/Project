@@ -1,0 +1,150 @@
+name: Deploy AWS ECS (EC2)
+
+on:
+  workflow_dispatch:
+    inputs:
+      stack:
+        description: Pulumi stack name
+        required: true
+        default: dev
+      aws_region:
+        description: AWS region
+        required: true
+        default: us-east-1
+  push:
+    branches:
+      - main
+    paths:
+      - "api/**"
+      - "streaming/**"
+      - "pulumi/**"
+      - "Dockerfile"
+      - "streaming/Dockerfile"
+      - ".github/workflows/deploy-aws-ecs-ec2.yml"
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-aws-ecs-ec2-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      PULUMI_STACK: ${{ github.event.inputs.stack || 'dev' }}
+      AWS_REGION: ${{ github.event.inputs.aws_region || 'us-east-1' }}
+      PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Install Pulumi CLI
+        run: curl -fsSL https://get.pulumi.com | sh
+
+      - name: Add Pulumi to PATH
+        run: echo "$HOME/.pulumi/bin" >> "$GITHUB_PATH"
+
+      - name: Install Pulumi project dependencies
+        working-directory: pulumi
+        run: npm ci
+
+      - name: Select or create Pulumi stack
+        working-directory: pulumi
+        run: pulumi stack select "$PULUMI_STACK" || pulumi stack init "$PULUMI_STACK"
+
+      - name: Bootstrap infrastructure (ensure ECR repos exist)
+        working-directory: pulumi
+        run: pulumi up --yes --skip-preview
+
+      - name: Resolve ECR repositories from Pulumi outputs
+        id: repos
+        working-directory: pulumi
+        run: |
+          echo "django_repo=$(pulumi stack output djangoEcrRepositoryUrl)" >> "$GITHUB_OUTPUT"
+          echo "streaming_repo=$(pulumi stack output streamingEcrRepositoryUrl)" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push Django image
+        run: |
+          docker build -t "${{ steps.repos.outputs.django_repo }}:${GITHUB_SHA}" .
+          docker push "${{ steps.repos.outputs.django_repo }}:${GITHUB_SHA}"
+
+      - name: Build and push Streaming image
+        run: |
+          docker build -t "${{ steps.repos.outputs.streaming_repo }}:${GITHUB_SHA}" ./streaming
+          docker push "${{ steps.repos.outputs.streaming_repo }}:${GITHUB_SHA}"
+
+      - name: Update Pulumi image tags and deploy
+        working-directory: pulumi
+        run: |
+          pulumi config set masscer-infra:djangoImageTag "${GITHUB_SHA}"
+          pulumi config set masscer-infra:streamingImageTag "${GITHUB_SHA}"
+          pulumi up --yes
+
+      - name: Run Django migrations as one-off ECS task
+        working-directory: pulumi
+        run: |
+          CLUSTER=$(pulumi stack output ecsClusterName)
+          TASK_DEF=$(pulumi stack output djangoMigrateTaskDefinitionArn)
+          APP_SG=$(pulumi stack output appTasksSecurityGroupId)
+          SUBNETS_CSV=$(pulumi stack output subnetIds --json | jq -r 'join(",")')
+
+          TASK_ARN=$(aws ecs run-task \
+            --cluster "$CLUSTER" \
+            --task-definition "$TASK_DEF" \
+            --launch-type EC2 \
+            --network-configuration "awsvpcConfiguration={subnets=[$SUBNETS_CSV],securityGroups=[$APP_SG],assignPublicIp=ENABLED}" \
+            --query "tasks[0].taskArn" \
+            --output text)
+
+          if [ -z "$TASK_ARN" ] || [ "$TASK_ARN" = "None" ]; then
+            echo "Failed to start migration task."
+            exit 1
+          fi
+
+          aws ecs wait tasks-stopped --cluster "$CLUSTER" --tasks "$TASK_ARN"
+          EXIT_CODE=$(aws ecs describe-tasks \
+            --cluster "$CLUSTER" \
+            --tasks "$TASK_ARN" \
+            --query "tasks[0].containers[0].exitCode" \
+            --output text)
+
+          echo "Migration task exit code: $EXIT_CODE"
+          if [ "$EXIT_CODE" != "0" ]; then
+            echo "Migration task failed; aborting rollout."
+            exit 1
+          fi
+
+      - name: Force service rollout after successful migration
+        working-directory: pulumi
+        run: |
+          CLUSTER=$(pulumi stack output ecsClusterName)
+          DJANGO_SERVICE=$(pulumi stack output djangoServiceName)
+          FASTAPI_SERVICE=$(pulumi stack output fastapiServiceName)
+          CELERY_WORKER_SERVICE=$(pulumi stack output celeryWorkerServiceName)
+          CELERY_BEAT_SERVICE=$(pulumi stack output celeryBeatServiceName)
+          CHROMA_SERVICE=$(pulumi stack output chromaServiceName)
+
+          for SERVICE in "$DJANGO_SERVICE" "$FASTAPI_SERVICE" "$CELERY_WORKER_SERVICE" "$CELERY_BEAT_SERVICE" "$CHROMA_SERVICE"; do
+            aws ecs update-service \
+              --cluster "$CLUSTER" \
+              --service "$SERVICE" \
+              --force-new-deployment > /dev/null
+          done

@@ -1,0 +1,4 @@
+name: masscer-infra
+runtime:
+  name: nodejs
+description: AWS infrastructure foundation for Masscer
