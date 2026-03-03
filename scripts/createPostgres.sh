@@ -2,6 +2,9 @@
 # exit on error
 set -o errexit
 
+PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$PROJECT_ROOT"
+
 # Function to show usage
 usage() {
     echo "Usage: $0 -u <username> -p <password> -d <database_name> [-e <postgres_port>]"
@@ -105,7 +108,7 @@ fi
 
 # Wait for PostgreSQL to be ready
 echo "Waiting for PostgreSQL to initialize..."
-sleep 10  # Asegúrate de que PostgreSQL tenga tiempo para arrancar
+sleep 10
 
 # Create PgBouncer configuration files in the current directory (PWD)
 echo "Creating PgBouncer configuration files..."
@@ -128,7 +131,7 @@ EOF
 
 # Correctly generate userlist.txt for PgBouncer
 echo "Generating userlist.txt..."
-PASSWORD_HASH=$(echo -n "$PASSWORD$USER" | md5sum | awk '{print $1}')  # Generate MD5 hash of PASSWORD + USER
+PASSWORD_HASH=$(echo -n "$PASSWORD$USER" | md5sum | awk '{print $1}')
 cat > "./userlist.txt" <<EOF
 "$USER" "md5$PASSWORD_HASH"
 EOF
