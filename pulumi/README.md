@@ -2,6 +2,72 @@
 
 This directory uses **Pulumi with Node.js + TypeScript** and deploys the application on **ECS with EC2 capacity**.
 
+## Project structure
+
+- `index.ts`: orchestration/composition layer only.
+- `modules/config.ts`: stack config + secrets.
+- `modules/networking.ts`: VPC, subnets, route tables, IGW.
+- `modules/security-groups.ts`: ALB/ECS/DB/Redis/EFS SGs.
+- `modules/artifacts.ts`: S3 buckets, ECR repos, log group.
+- `modules/ecs-base.ts`: ECS cluster, capacity provider, EC2 ASG, IAM roles.
+- `modules/data-services.ts`: RDS, Redis, EFS + mount targets.
+- `modules/routing.ts`: ALB listeners/rules/target groups.
+- `modules/service-discovery.ts`: Cloud Map namespace/service for Chroma.
+- `modules/ecs-services.ts`: task definitions + ECS services (Django/FastAPI/Celery/Chroma).
+
+## Prerequisites
+
+- [Pulumi CLI](https://www.pulumi.com/docs/iac/download-install/)
+- [direnv](https://direnv.net/)
+- [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
+- Node.js 20+
+
+## Darwin-style workflow with direnv
+
+This project supports the same style workflow you described:
+
+1) Install dependencies:
+
+```bash
+cd pulumi
+npm install
+```
+
+2) Configure AWS profile in `~/.aws/config`:
+
+```ini
+[profile masscer-prod]
+region = us-east-1
+```
+
+3) Configure direnv (simple):
+
+```bash
+cp .envrc.template .envrc
+echo "<your-passphrase>" > .passphrase
+direnv allow
+```
+
+4) Select stack (if needed):
+
+```bash
+pulumi stack select prod || pulumi stack init prod
+```
+
+5) Preview / deploy:
+
+```bash
+pulumi preview
+pulumi up --refresh
+```
+
+Notes:
+- `.envrc` and `.passphrase` are gitignored.
+- `.envrc.template` is intentionally minimal:
+  - loads `PULUMI_CONFIG_PASSPHRASE_FILE` from `.passphrase` (if present)
+  - sets `AWS_PROFILE=masscer-prod`
+  - sets `PULUMI_STACK=prod`
+
 ## What this stack creates
 
 - `ECR` repositories for Django and streaming images.
@@ -25,7 +91,7 @@ This directory uses **Pulumi with Node.js + TypeScript** and deploys the applica
 
 - Cluster is configured to use EC2 capacity provider by default.
 - EC2 instances use ECS-optimized AMI from AWS SSM public parameter.
-- Default networking uses the **default VPC + default subnets** (good for bootstrap; can be migrated later to a custom VPC).
+- Networking is fully provisioned by Pulumi (custom VPC, public/private subnets, route tables, IGW).
 - Chroma is reachable internally through Cloud Map DNS (`chroma.<prefix>.internal`).
 
 ## Quick start
@@ -42,10 +108,10 @@ npm install
 3) Initialize and configure stack:
 
 ```bash
-pulumi stack init dev
+pulumi stack init prod
 pulumi config set aws:region us-east-1
-pulumi config set masscer-infra:environment dev
-pulumi config set masscer-infra:namePrefix masscer-dev
+pulumi config set masscer-infra:environment prod
+pulumi config set masscer-infra:namePrefix masscer-prod
 pulumi config set masscer-infra:instanceType t3.medium
 pulumi config set masscer-infra:asgMinSize 1
 pulumi config set masscer-infra:asgDesiredSize 1
