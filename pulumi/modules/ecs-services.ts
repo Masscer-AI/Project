@@ -1,6 +1,7 @@
 import * as aws from "@pulumi/aws";
 import * as pulumi from "@pulumi/pulumi";
 import { AppConfig, Tags } from "./config";
+import { ProviderParameterArns } from "./parameter-store";
 
 export function createAppServices(args: {
   config: AppConfig;
@@ -27,6 +28,7 @@ export function createAppServices(args: {
   chromaMountTargets: aws.efs.MountTarget[];
   chromaDiscoveryServiceArn: any;
   chromaInternalHost: pulumi.Output<string>;
+  providerParameterArns: ProviderParameterArns;
 }) {
   const { config } = args;
 
@@ -51,15 +53,18 @@ export function createAppServices(args: {
     { name: "CHROMA_PORT", value: "8000" },
     { name: "API_BASE_URL", value: apiBaseUrl },
     { name: "ALLOWED_EXTRA_HOSTS", value: djangoAllowedHosts },
-    { name: "OPENAI_API_KEY", value: config.openAiApiKey },
-    { name: "ANTHROPIC_API_KEY", value: config.anthropicApiKey },
-    { name: "XAI_API_KEY", value: config.xaiApiKey },
-    { name: "PEXELS_API_KEY", value: config.pexelsApiKey },
-    { name: "BRAVE_API_KEY", value: config.braveApiKey },
-    { name: "BFL_API_KEY", value: config.bflApiKey },
-    { name: "RUNWAY_API_KEY", value: config.runwayApiKey },
-    { name: "WHATSAPP_GRAPH_API_TOKEN", value: config.whatsappGraphApiToken },
-    { name: "WHATSAPP_WEBHOOK_VERIFY_TOKEN", value: config.whatsappWebhookVerifyToken },
+  ];
+
+  const providerSecrets = [
+    { name: "OPENAI_API_KEY", valueFrom: args.providerParameterArns.openAiApiKeyArn },
+    { name: "ANTHROPIC_API_KEY", valueFrom: args.providerParameterArns.anthropicApiKeyArn },
+    { name: "XAI_API_KEY", valueFrom: args.providerParameterArns.xaiApiKeyArn },
+    { name: "PEXELS_API_KEY", valueFrom: args.providerParameterArns.pexelsApiKeyArn },
+    { name: "BRAVE_API_KEY", valueFrom: args.providerParameterArns.braveApiKeyArn },
+    { name: "BFL_API_KEY", valueFrom: args.providerParameterArns.bflApiKeyArn },
+    { name: "RUNWAY_API_KEY", valueFrom: args.providerParameterArns.runwayApiKeyArn },
+    { name: "WHATSAPP_GRAPH_API_TOKEN", valueFrom: args.providerParameterArns.whatsappGraphApiTokenArn },
+    { name: "WHATSAPP_WEBHOOK_VERIFY_TOKEN", valueFrom: args.providerParameterArns.whatsappWebhookVerifyTokenArn },
   ];
 
   const fastapiEnv = [
@@ -86,6 +91,7 @@ export function createAppServices(args: {
       portMappings: [{ containerPort: 8000, hostPort: 8000, protocol: "tcp" }],
       command: ["python", "manage.py", "runserver", "0.0.0.0:8000"],
       environment: djangoEnv,
+      secrets: providerSecrets,
       logConfiguration: {
         logDriver: "awslogs",
         options: {
@@ -112,6 +118,7 @@ export function createAppServices(args: {
       essential: true,
       command: ["python", "manage.py", "migrate"],
       environment: djangoEnv,
+      secrets: providerSecrets,
       logConfiguration: {
         logDriver: "awslogs",
         options: {
@@ -139,6 +146,7 @@ export function createAppServices(args: {
       portMappings: [{ containerPort: 8001, hostPort: 8001, protocol: "tcp" }],
       command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"],
       environment: fastapiEnv,
+      secrets: providerSecrets,
       logConfiguration: {
         logDriver: "awslogs",
         options: {
@@ -165,6 +173,7 @@ export function createAppServices(args: {
       essential: true,
       command: ["celery", "-A", "api.celery", "worker", "--pool=gevent", "--loglevel=INFO"],
       environment: djangoEnv,
+      secrets: providerSecrets,
       logConfiguration: {
         logDriver: "awslogs",
         options: {
@@ -191,6 +200,7 @@ export function createAppServices(args: {
       essential: true,
       command: ["celery", "-A", "api.celery", "beat", "--loglevel=INFO"],
       environment: djangoEnv,
+      secrets: providerSecrets,
       logConfiguration: {
         logDriver: "awslogs",
         options: {

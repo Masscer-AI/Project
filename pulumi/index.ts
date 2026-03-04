@@ -9,6 +9,7 @@ import { createDataServices } from "./modules/data-services";
 import { createRouting } from "./modules/routing";
 import { createChromaDiscovery } from "./modules/service-discovery";
 import { createAppServices } from "./modules/ecs-services";
+import { createProviderParameters } from "./modules/parameter-store";
 
 const config = loadConfig();
 const region = aws.getRegionOutput();
@@ -54,6 +55,20 @@ const discovery = createChromaDiscovery({
   vpcId: networking.vpc.id,
 });
 
+const parameterStore = createProviderParameters({
+  namePrefix: config.namePrefix,
+  openAiApiKey: config.openAiApiKey,
+  anthropicApiKey: config.anthropicApiKey,
+  xaiApiKey: config.xaiApiKey,
+  pexelsApiKey: config.pexelsApiKey,
+  braveApiKey: config.braveApiKey,
+  bflApiKey: config.bflApiKey,
+  runwayApiKey: config.runwayApiKey,
+  whatsappGraphApiToken: config.whatsappGraphApiToken,
+  whatsappWebhookVerifyToken: config.whatsappWebhookVerifyToken,
+  taskExecutionRoleName: ecsBase.taskExecutionRole.name,
+});
+
 const services = createAppServices({
   config,
   tags: config.tags,
@@ -79,6 +94,7 @@ const services = createAppServices({
   chromaMountTargets: dataServices.chromaMountTargets,
   chromaDiscoveryServiceArn: discovery.chromaDiscoveryService.arn,
   chromaInternalHost: discovery.chromaInternalHost,
+  providerParameterArns: parameterStore.providerParameterArns,
 });
 
 export const ecsClusterName = ecsBase.cluster.name;
