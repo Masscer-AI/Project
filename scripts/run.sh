@@ -185,7 +185,7 @@ if [[ "$(docker ps -aq -f name=$CHROMA_CONTAINER)" ]]; then
 else
     docker run -d \
         --name $CHROMA_CONTAINER \
-        -v "./vector_storage:/data" \
+        -v "${PROJECT_ROOT}/vector_storage:/data" \
         -p "8002:8000" \
         "$CHROMA_IMAGE" || { error "Failed to create Chroma container"; exit 1; }
 fi
@@ -243,7 +243,7 @@ info "Running Django migrations..."
 docker run --rm \
     --network $NETWORK_NAME \
     "${DJANGO_ENV[@]}" \
-    -v "./storage:/app/storage" \
+    -v "${PROJECT_ROOT}/storage:/app/storage" \
     $DJANGO_IMAGE python manage.py migrate || { error "Migrations failed"; exit 1; }
 
 # ── Django ────────────────────────────────────────────────────────────────────
@@ -255,7 +255,7 @@ docker run -d \
     --network $NETWORK_NAME \
     "${DJANGO_ENV[@]}" \
     -v "${BACKEND_DIR}:/app" \
-    -v "./storage:/app/storage" \
+    -v "${PROJECT_ROOT}/storage:/app/storage" \
     -p "${DJANGO_PORT}:${DJANGO_PORT}" \
     $DJANGO_IMAGE python manage.py runserver "0.0.0.0:${DJANGO_PORT}" \
     || { error "Django failed to start"; exit 1; }
@@ -271,7 +271,7 @@ run_celery_container() {
         --network $NETWORK_NAME \
         "${DJANGO_ENV[@]}" \
         -v "${BACKEND_DIR}:/app" \
-        -v "./storage:/app/storage" \
+        -v "${PROJECT_ROOT}/storage:/app/storage" \
         $DJANGO_IMAGE "$@"
 }
 
@@ -313,7 +313,7 @@ docker run -d \
     -e REDIS_HOST=$REDIS_CONTAINER \
     -e CELERY_BROKER_URL="${REDIS_INTERNAL}/0" \
     -e REDIS_NOTIFICATIONS_URL="${REDIS_INTERNAL}/2" \
-    -v "./streaming:/app" \
+    -v "${PROJECT_ROOT}/streaming:/app" \
     -p "${FASTAPI_PORT}:${FASTAPI_PORT}" \
     $FASTAPI_IMAGE python main.py || { error "FastAPI failed to start"; exit 1; }
 success "FastAPI ready."
@@ -331,7 +331,7 @@ docker run -d \
     -e DJANGO_PORT=$DJANGO_PORT \
     -e FASTAPI_CONTAINER=$FASTAPI_CONTAINER \
     -e FASTAPI_PORT=$FASTAPI_PORT \
-    -v "./nginx:/etc/nginx/templates" \
+    -v "${PROJECT_ROOT}/nginx:/etc/nginx/templates" \
     -p "${NGINX_PORT}:80" \
     nginx:alpine || { error "Nginx failed to start"; exit 1; }
 success "Nginx ready."
