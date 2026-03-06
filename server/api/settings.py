@@ -43,10 +43,32 @@ ALLOWED_HOSTS = [
 _allowed_hosts_env = os.environ.get("ALLOWED_EXTRA_HOSTS") or os.environ.get(
     "ALLOWED_HOSTS", ""
 )
+_allowed_extra_hosts = [
+    h.strip() for h in _allowed_hosts_env.split(",") if h.strip()
+]
 if _allowed_hosts_env:
-    ALLOWED_HOSTS.extend(
-        h.strip() for h in _allowed_hosts_env.split(",") if h.strip()
+    ALLOWED_HOSTS.extend(_allowed_extra_hosts)
+
+# Trusted origins for CSRF-protected endpoints (e.g. Django admin login over ngrok).
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost",
+    "http://127.0.0.1",
+]
+# Reuse ALLOWED_EXTRA_HOSTS by deriving common origin schemes.
+for host in _allowed_extra_hosts:
+    CSRF_TRUSTED_ORIGINS.append(f"https://{host}")
+    CSRF_TRUSTED_ORIGINS.append(f"http://{host}")
+
+_csrf_trusted_origins_env = os.environ.get("CSRF_TRUSTED_ORIGINS", "")
+if _csrf_trusted_origins_env:
+    CSRF_TRUSTED_ORIGINS.extend(
+        origin.strip()
+        for origin in _csrf_trusted_origins_env.split(",")
+        if origin.strip()
     )
+
+# Keep order stable while removing duplicates.
+CSRF_TRUSTED_ORIGINS = list(dict.fromkeys(CSRF_TRUSTED_ORIGINS))
 
 # Application definition
 
