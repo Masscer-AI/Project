@@ -24,6 +24,27 @@ class ChromaManager:
         chroma_host = os.environ.get("CHROMA_HOST", "localhost")
         chroma_port = int(os.environ.get("CHROMA_PORT", "8002"))
         self.client = chromadb.HttpClient(host=chroma_host, port=chroma_port)
+        self.prewarm_default_embedding()
+
+    def prewarm_default_embedding(self):
+        prewarm_enabled = os.environ.get("CHROMA_PREWARM", "true").lower()
+        if prewarm_enabled not in {"1", "true", "yes", "on"}:
+            return
+
+        try:
+            collection_name = os.environ.get(
+                "CHROMA_PREWARM_COLLECTION", "masscer_prewarm"
+            )
+            collection = self.get_or_create_collection(collection_name)
+            collection.upsert(
+                ids=["masscer-prewarm-doc"],
+                documents=["Masscer Chroma prewarm document."],
+                metadatas=[{"system": "prewarm"}],
+            )
+            collection.query(query_texts=["warmup"], n_results=1)
+            print("Chroma prewarm completed.")
+        except Exception as e:
+            print(f"Chroma prewarm skipped: {e}")
 
     def heartbeat(self) -> str:
         if self.client is None:
