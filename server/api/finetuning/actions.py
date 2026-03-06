@@ -6,6 +6,7 @@ from api.ai_layers.models import Agent
 from api.utils.openai_functions import create_structured_completion
 from pydantic import BaseModel, Field
 from .serializers import CompletionSerializer
+from django.db.models import Q
 import math
 
 
@@ -163,5 +164,11 @@ def start_generator(generator_id):
 
 
 def get_user_completions(user):
-    completions = Completion.objects.filter(agent__user=user)
+    user_org = getattr(getattr(user, "profile", None), "organization", None)
+    if user_org:
+        completions = Completion.objects.filter(
+            Q(agent__user=user) | Q(agent__organization=user_org)
+        ).distinct()
+    else:
+        completions = Completion.objects.filter(agent__user=user)
     return CompletionSerializer(completions, many=True).data

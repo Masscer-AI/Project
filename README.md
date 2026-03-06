@@ -2,11 +2,11 @@ Masscer AI Project
 
 ## Local development (current flow)
 
-### 1) Create and activate virtual environment
+### 1) Install UV and sync lockfiles
 
 ```bash
-py -m venv venv
-venv\Scripts\activate
+uv sync --project server --frozen --no-dev
+uv sync --project streaming --frozen --no-dev
 ```
 
 ### 2) Configure environment
@@ -40,7 +40,7 @@ This starts:
 # Rebuild backend + streaming images
 ./taskfile.sh run -r
 
-# Skip host dependency install (pip/npm), useful for quick restarts
+# Skip host dependency install (uv/npm), useful for quick restarts
 ./taskfile.sh run -i
 
 # Run frontend watch build

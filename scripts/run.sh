@@ -46,22 +46,35 @@ export MSYS_NO_PATHCONV=1
 if [[ -d "${PROJECT_ROOT}/server" ]]; then
     BACKEND_DIR="${PROJECT_ROOT}/server"
     BACKEND_CONTEXT_REL="server"
-    BACKEND_REQUIREMENTS_REL="server/requirements.txt"
 else
     BACKEND_DIR="${PROJECT_ROOT}"
     BACKEND_CONTEXT_REL="."
-    BACKEND_REQUIREMENTS_REL="requirements.txt"
 fi
 
 BACKEND_DOCKERFILE="${BACKEND_DIR}/Dockerfile"
-BACKEND_REQUIREMENTS="${PROJECT_ROOT}/${BACKEND_REQUIREMENTS_REL}"
+BACKEND_PYPROJECT="${BACKEND_DIR}/pyproject.toml"
+BACKEND_UV_LOCK="${BACKEND_DIR}/uv.lock"
+STREAMING_PYPROJECT="${PROJECT_ROOT}/streaming/pyproject.toml"
+STREAMING_UV_LOCK="${PROJECT_ROOT}/streaming/uv.lock"
 
 if [[ ! -f "$BACKEND_DOCKERFILE" ]]; then
     error "Backend Dockerfile not found at: $BACKEND_DOCKERFILE"; exit 1
 fi
 
-if [[ ! -f "$BACKEND_REQUIREMENTS" ]]; then
-    error "Backend requirements file not found at: $BACKEND_REQUIREMENTS"; exit 1
+if [[ ! -f "$BACKEND_PYPROJECT" ]]; then
+    error "Backend pyproject not found at: $BACKEND_PYPROJECT"; exit 1
+fi
+
+if [[ ! -f "$BACKEND_UV_LOCK" ]]; then
+    error "Backend uv lockfile not found at: $BACKEND_UV_LOCK"; exit 1
+fi
+
+if [[ ! -f "$STREAMING_PYPROJECT" ]]; then
+    error "Streaming pyproject not found at: $STREAMING_PYPROJECT"; exit 1
+fi
+
+if [[ ! -f "$STREAMING_UV_LOCK" ]]; then
+    error "Streaming uv lockfile not found at: $STREAMING_UV_LOCK"; exit 1
 fi
 
 # ── Ports ─────────────────────────────────────────────────────────────────────
@@ -77,6 +90,7 @@ REDIS_CONTAINER=${REDIS_CONTAINER:-redis-instance}
 DJANGO_CONTAINER=${DJANGO_CONTAINER:-masscer-django}
 DJANGO_IMAGE=${DJANGO_IMAGE:-masscer-django-img}
 CHROMA_CONTAINER=${CHROMA_CONTAINER:-masscer-chroma}
+CHROMA_IMAGE=${CHROMA_IMAGE:-chromadb/chroma:latest}
 FASTAPI_CONTAINER=${FASTAPI_CONTAINER:-masscer-fastapi}
 FASTAPI_IMAGE=${FASTAPI_IMAGE:-masscer-fastapi-img}
 NGINX_CONTAINER=${NGINX_CONTAINER:-masscer-nginx}
@@ -90,13 +104,9 @@ info "  REBUILD: $REBUILD | INSTALL: $INSTALL | WATCH: $WATCH"
 info "  BACKEND_DIR: $BACKEND_DIR"
 info "  BACKEND_CONTEXT: $BACKEND_CONTEXT_REL"
 
-# ── Virtual env (host-side tooling / pip install only) ────────────────────────
-if [[ -f "venv/bin/activate" ]]; then
-    source venv/bin/activate
-elif [[ -f "venv/Scripts/activate" ]]; then
-    source venv/Scripts/activate
-else
-    error "Virtual environment not found. Run: py -m venv venv"; exit 1
+# ── Host tooling check ─────────────────────────────────────────────────────────
+if ! command -v uv >/dev/null 2>&1; then
+    error "uv is required but not installed. Install from https://docs.astral.sh/uv/"; exit 1
 fi
 
 # ── PostgreSQL & PGBouncer ────────────────────────────────────────────────────
@@ -150,7 +160,12 @@ done
 # ── Install (host deps + git pull) ────────────────────────────────────────────
 if [ "$INSTALL" = true ]; then
     git pull
-    pip install -q -r "$BACKEND_REQUIREMENTS_REL" || { error "pip install failed"; exit 1; }
+    uv sync --project "$BACKEND_CONTEXT_REL" --frozen --no-dev || {
+        error "Backend uv sync failed"; exit 1;
+    }
+    uv sync --project "streaming" --frozen --no-dev || {
+        error "Streaming uv sync failed"; exit 1;
+    }
     cd ./streaming
     npm i -q || { error "npm install failed"; exit 1; }
     cd ..
@@ -158,6 +173,13 @@ fi
 
 # ── Chroma ────────────────────────────────────────────────────────────────────
 info "Starting Chroma..."
+if [ "$REBUILD" = true ]; then
+    info "Rebuild mode: refreshing Chroma image/container..."
+    docker pull "$CHROMA_IMAGE" || { error "Failed to pull Chroma image"; exit 1; }
+    docker stop $CHROMA_CONTAINER 2>/dev/null || true
+    docker rm $CHROMA_CONTAINER 2>/dev/null || true
+fi
+
 if [[ "$(docker ps -aq -f name=$CHROMA_CONTAINER)" ]]; then
     docker start $CHROMA_CONTAINER || { error "Failed to start Chroma"; exit 1; }
 else
@@ -165,7 +187,7 @@ else
         --name $CHROMA_CONTAINER \
         -v "./vector_storage:/data" \
         -p "8002:8000" \
-        chromadb/chroma:0.5.11 || { error "Failed to create Chroma container"; exit 1; }
+        "$CHROMA_IMAGE" || { error "Failed to create Chroma container"; exit 1; }
 fi
 
 if ! docker network inspect $NETWORK_NAME \
@@ -232,7 +254,7 @@ docker run -d \
     --name $DJANGO_CONTAINER \
     --network $NETWORK_NAME \
     "${DJANGO_ENV[@]}" \
-    -v "${BACKEND_CONTEXT_REL}:/app" \
+    -v "${BACKEND_DIR}:/app" \
     -v "./storage:/app/storage" \
     -p "${DJANGO_PORT}:${DJANGO_PORT}" \
     $DJANGO_IMAGE python manage.py runserver "0.0.0.0:${DJANGO_PORT}" \
@@ -248,7 +270,7 @@ run_celery_container() {
         --name $name \
         --network $NETWORK_NAME \
         "${DJANGO_ENV[@]}" \
-        -v "${BACKEND_CONTEXT_REL}:/app" \
+        -v "${BACKEND_DIR}:/app" \
         -v "./storage:/app/storage" \
         $DJANGO_IMAGE "$@"
 }

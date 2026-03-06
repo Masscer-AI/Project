@@ -58,7 +58,8 @@ run_cmd mkdir -p "$SERVER_DIR"
 # Move Django backend runtime files.
 move_path "${PROJECT_ROOT}/api" "${SERVER_DIR}/api"
 move_path "${PROJECT_ROOT}/manage.py" "${SERVER_DIR}/manage.py"
-move_path "${PROJECT_ROOT}/requirements.txt" "${SERVER_DIR}/requirements.txt"
+move_path "${PROJECT_ROOT}/pyproject.toml" "${SERVER_DIR}/pyproject.toml"
+move_path "${PROJECT_ROOT}/uv.lock" "${SERVER_DIR}/uv.lock"
 move_path "${PROJECT_ROOT}/Dockerfile" "${SERVER_DIR}/Dockerfile"
 
 echo ""

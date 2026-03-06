@@ -115,6 +115,7 @@ def _explore_web_impl(query: str, limit: int) -> ExploreWebResult:
             debug={"configured": False},
         )
 
+    logger.warning("FIRECRAWL_API_KEY: %s...%s (len=%d)", api_key[:6], api_key[-4:], len(api_key))
     firecrawl = Firecrawl(api_key=api_key)
 
     resp = None
