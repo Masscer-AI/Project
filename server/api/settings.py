@@ -33,21 +33,20 @@ DEBUG = "RENDER" not in os.environ
 
 # settings.py
 ALLOWED_HOSTS = [
-    "http://localhost",
     "127.0.0.1",
     "localhost",
-    "8ldmsxh6-8000.use2.devtunnels.ms",
 ]
 
 
-RENDER_EXTERNAL_HOSTNAME = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
-if RENDER_EXTERNAL_HOSTNAME:
-    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
-
-# Extra hosts from env (comma-separated, e.g. masscer-ai.ngrok.app,your-domain.com)
-_allowed_extra = os.environ.get("ALLOWED_EXTRA_HOSTS", "")
-if _allowed_extra:
-    ALLOWED_HOSTS.extend(h.strip() for h in _allowed_extra.split(",") if h.strip())
+# Extra hosts from env (comma-separated, e.g. masscer-ai.ngrok.app,your-domain.com).
+# Prefer ALLOWED_EXTRA_HOSTS to match infra config, keep ALLOWED_HOSTS as fallback.
+_allowed_hosts_env = os.environ.get("ALLOWED_EXTRA_HOSTS") or os.environ.get(
+    "ALLOWED_HOSTS", ""
+)
+if _allowed_hosts_env:
+    ALLOWED_HOSTS.extend(
+        h.strip() for h in _allowed_hosts_env.split(",") if h.strip()
+    )
 
 # Application definition
 
