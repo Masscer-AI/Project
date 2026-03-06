@@ -1,6 +1,9 @@
 # Use the official Python image from the Docker Hub
 FROM python:3.12-slim
 
+# Install uv from the official image.
+COPY --from=ghcr.io/astral-sh/uv:0.8.13 /uv /uvx /bin/
+
 # Set the working directory in the container
 WORKDIR /app
 
@@ -10,11 +13,13 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends pandoc \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy the requirements file into the container
-COPY requirements.txt .
+# Keep the virtual environment outside /app so host bind mounts do not shadow it.
+ENV UV_PROJECT_ENVIRONMENT=/opt/venv
+ENV PATH="/opt/venv/bin:${PATH}"
 
-# Install the dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy dependency metadata and install locked dependencies.
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev --no-install-project
 
 # Copy the rest of the application code into the container
 COPY . .

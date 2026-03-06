@@ -58,6 +58,9 @@ import {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+const DOCS_POLL_INTERVAL_MS = 5000;
+const DOCS_POLL_RECENT_WINDOW_MS = 10 * 60 * 1000;
+
 export default function KnowledgeBasePage() {
   const { chatState, toggleSidebar, agents, fetchAgents } = useStore((s) => ({
     chatState: s.chatState,
@@ -83,20 +86,30 @@ export default function KnowledgeBasePage() {
   }, []);
 
   useEffect(() => {
-    const hasProcessing = documents.some((doc) => !doc.brief);
-    if (!hasProcessing) return;
-    const id = window.setInterval(loadDocuments, 5000);
+    const hasRecentProcessing = documents.some((doc) => {
+      if (doc.brief?.trim()) return false;
+      if (!doc.created_at) return false;
+      const createdAt = Date.parse(doc.created_at);
+      if (Number.isNaN(createdAt)) return false;
+      return Date.now() - createdAt < DOCS_POLL_RECENT_WINDOW_MS;
+    });
+
+    if (!hasRecentProcessing) return;
+
+    const id = window.setInterval(() => {
+      loadDocuments({ silent: true });
+    }, DOCS_POLL_INTERVAL_MS);
     return () => window.clearInterval(id);
   }, [documents]);
 
-  const loadDocuments = async () => {
-    setLoadingDocs(true);
+  const loadDocuments = async ({ silent = false }: { silent?: boolean } = {}) => {
+    if (!silent) setLoadingDocs(true);
     try {
       setDocuments(await getDocuments());
     } catch {
       toast.error(t("error-loading-documents"));
     } finally {
-      setLoadingDocs(false);
+      if (!silent) setLoadingDocs(false);
     }
   };
 

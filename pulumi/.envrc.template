@@ -1,0 +1,10 @@
+# Load passphrase from file when present
+if [ -f .passphrase ]; then
+  export PULUMI_CONFIG_PASSPHRASE_FILE=.passphrase
+fi
+
+# Project AWS profile
+export AWS_PROFILE=masscer-prod
+
+# Optional fixed stack
+export PULUMI_STACK=prod

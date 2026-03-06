@@ -56,21 +56,25 @@ class ChromaManager:
         query_texts: list[str],
         n_results: int = 4,
         search_string: str = "",
-        where: dict = {},
+        where: dict | None = None,
     ):
         # TODO: This is bad, if the collection doesn't exist, ignore
         collection = self.get_or_create_collection(collection_name)
 
-        if search_string:
-            return collection.query(
-                query_texts=query_texts,
-                n_results=n_results,
-                where_document={"$contains": search_string},
-                where=where,
-            )
-        return collection.query(
-            query_texts=query_texts, n_results=n_results, where=where
-        )
+        query_kwargs = {
+            "query_texts": query_texts,
+            "n_results": n_results,
+        }
+
+        normalized_search_string = (search_string or "").strip()
+        if normalized_search_string:
+            query_kwargs["where_document"] = {"$contains": normalized_search_string}
+
+        normalized_where = where if isinstance(where, dict) and where else None
+        if normalized_where:
+            query_kwargs["where"] = normalized_where
+
+        return collection.query(**query_kwargs)
 
     def get_collection_or_none(self, collection_name: str):
         try:

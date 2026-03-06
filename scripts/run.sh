@@ -33,11 +33,49 @@ while [[ "$#" -gt 0 ]]; do
 done
 
 # ── Load .env ─────────────────────────────────────────────────────────────────
+PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$PROJECT_ROOT"
+
 if [[ -f .env ]]; then
     set -a; source .env; set +a
 fi
 # Prevent Git Bash from converting POSIX paths to Windows paths in Docker args
 export MSYS_NO_PATHCONV=1
+
+# ── Project paths ─────────────────────────────────────────────────────────────
+if [[ -d "${PROJECT_ROOT}/server" ]]; then
+    BACKEND_DIR="${PROJECT_ROOT}/server"
+    BACKEND_CONTEXT_REL="server"
+else
+    BACKEND_DIR="${PROJECT_ROOT}"
+    BACKEND_CONTEXT_REL="."
+fi
+
+BACKEND_DOCKERFILE="${BACKEND_DIR}/Dockerfile"
+BACKEND_PYPROJECT="${BACKEND_DIR}/pyproject.toml"
+BACKEND_UV_LOCK="${BACKEND_DIR}/uv.lock"
+STREAMING_PYPROJECT="${PROJECT_ROOT}/streaming/pyproject.toml"
+STREAMING_UV_LOCK="${PROJECT_ROOT}/streaming/uv.lock"
+
+if [[ ! -f "$BACKEND_DOCKERFILE" ]]; then
+    error "Backend Dockerfile not found at: $BACKEND_DOCKERFILE"; exit 1
+fi
+
+if [[ ! -f "$BACKEND_PYPROJECT" ]]; then
+    error "Backend pyproject not found at: $BACKEND_PYPROJECT"; exit 1
+fi
+
+if [[ ! -f "$BACKEND_UV_LOCK" ]]; then
+    error "Backend uv lockfile not found at: $BACKEND_UV_LOCK"; exit 1
+fi
+
+if [[ ! -f "$STREAMING_PYPROJECT" ]]; then
+    error "Streaming pyproject not found at: $STREAMING_PYPROJECT"; exit 1
+fi
+
+if [[ ! -f "$STREAMING_UV_LOCK" ]]; then
+    error "Streaming uv lockfile not found at: $STREAMING_UV_LOCK"; exit 1
+fi
 
 # ── Ports ─────────────────────────────────────────────────────────────────────
 DJANGO_PORT=${DJANGO_PORT:-8000}
@@ -52,6 +90,7 @@ REDIS_CONTAINER=${REDIS_CONTAINER:-redis-instance}
 DJANGO_CONTAINER=${DJANGO_CONTAINER:-masscer-django}
 DJANGO_IMAGE=${DJANGO_IMAGE:-masscer-django-img}
 CHROMA_CONTAINER=${CHROMA_CONTAINER:-masscer-chroma}
+CHROMA_IMAGE=${CHROMA_IMAGE:-chromadb/chroma:latest}
 FASTAPI_CONTAINER=${FASTAPI_CONTAINER:-masscer-fastapi}
 FASTAPI_IMAGE=${FASTAPI_IMAGE:-masscer-fastapi-img}
 NGINX_CONTAINER=${NGINX_CONTAINER:-masscer-nginx}
@@ -62,14 +101,12 @@ NETWORK_NAME=${NETWORK_NAME:-masscer-net}
 success "Starting Masscer"
 info "  DJANGO_PORT:  $DJANGO_PORT | FASTAPI_PORT: $FASTAPI_PORT | NGINX_PORT: $NGINX_PORT"
 info "  REBUILD: $REBUILD | INSTALL: $INSTALL | WATCH: $WATCH"
+info "  BACKEND_DIR: $BACKEND_DIR"
+info "  BACKEND_CONTEXT: $BACKEND_CONTEXT_REL"
 
-# ── Virtual env (host-side tooling / pip install only) ────────────────────────
-if [[ -f "venv/bin/activate" ]]; then
-    source venv/bin/activate
-elif [[ -f "venv/Scripts/activate" ]]; then
-    source venv/Scripts/activate
-else
-    error "Virtual environment not found. Run: py -m venv venv"; exit 1
+# ── Host tooling check ─────────────────────────────────────────────────────────
+if ! command -v uv >/dev/null 2>&1; then
+    error "uv is required but not installed. Install from https://docs.astral.sh/uv/"; exit 1
 fi
 
 # ── PostgreSQL & PGBouncer ────────────────────────────────────────────────────
@@ -77,7 +114,7 @@ info "Starting PostgreSQL..."
 if [[ "$(docker ps -aq -f name=$POSTGRES_CONTAINER)" ]]; then
     docker start $POSTGRES_CONTAINER || { error "Failed to start PostgreSQL"; exit 1; }
 else
-    error "PostgreSQL container not found. Run ./createPostgres.sh first."; exit 1
+    error "PostgreSQL container not found. Run ./taskfile.sh postgres first."; exit 1
 fi
 success "PostgreSQL ready."
 
@@ -85,7 +122,7 @@ info "Starting PGBouncer..."
 if [[ "$(docker ps -aq -f name=$PGBOUNCER_CONTAINER)" ]]; then
     docker start $PGBOUNCER_CONTAINER || { error "Failed to start PGBouncer"; exit 1; }
 else
-    error "PGBouncer container not found. Run ./createPostgres.sh first."; exit 1
+    error "PGBouncer container not found. Run ./taskfile.sh postgres first."; exit 1
 fi
 success "PGBouncer ready."
 
@@ -123,7 +160,12 @@ done
 # ── Install (host deps + git pull) ────────────────────────────────────────────
 if [ "$INSTALL" = true ]; then
     git pull
-    pip install -q -r requirements.txt || { error "pip install failed"; exit 1; }
+    uv sync --project "$BACKEND_CONTEXT_REL" --frozen --no-dev || {
+        error "Backend uv sync failed"; exit 1;
+    }
+    uv sync --project "streaming" --frozen --no-dev || {
+        error "Streaming uv sync failed"; exit 1;
+    }
     cd ./streaming
     npm i -q || { error "npm install failed"; exit 1; }
     cd ..
@@ -131,14 +173,21 @@ fi
 
 # ── Chroma ────────────────────────────────────────────────────────────────────
 info "Starting Chroma..."
+if [ "$REBUILD" = true ]; then
+    info "Rebuild mode: refreshing Chroma image/container..."
+    docker pull "$CHROMA_IMAGE" || { error "Failed to pull Chroma image"; exit 1; }
+    docker stop $CHROMA_CONTAINER 2>/dev/null || true
+    docker rm $CHROMA_CONTAINER 2>/dev/null || true
+fi
+
 if [[ "$(docker ps -aq -f name=$CHROMA_CONTAINER)" ]]; then
     docker start $CHROMA_CONTAINER || { error "Failed to start Chroma"; exit 1; }
 else
     docker run -d \
         --name $CHROMA_CONTAINER \
-        -v "$(pwd)/vector_storage:/data" \
+        -v "./vector_storage:/data" \
         -p "8002:8000" \
-        chromadb/chroma:0.5.11 || { error "Failed to create Chroma container"; exit 1; }
+        "$CHROMA_IMAGE" || { error "Failed to create Chroma container"; exit 1; }
 fi
 
 if ! docker network inspect $NETWORK_NAME \
@@ -154,7 +203,8 @@ success "Chroma ready."
 # ── Build images ──────────────────────────────────────────────────────────────
 if [ "$REBUILD" = true ] || ! docker image inspect $DJANGO_IMAGE &>/dev/null; then
     info "Building Django image..."
-    docker build -t $DJANGO_IMAGE . || { error "Django image build failed"; exit 1; }
+    docker build -t $DJANGO_IMAGE -f "${BACKEND_CONTEXT_REL}/Dockerfile" "${BACKEND_CONTEXT_REL}" \
+        || { error "Django image build failed"; exit 1; }
 else
     info "Django image exists. Skipping build (use -r to rebuild)."
 fi
@@ -193,7 +243,7 @@ info "Running Django migrations..."
 docker run --rm \
     --network $NETWORK_NAME \
     "${DJANGO_ENV[@]}" \
-    -v "$(pwd)/storage:/app/storage" \
+    -v "./storage:/app/storage" \
     $DJANGO_IMAGE python manage.py migrate || { error "Migrations failed"; exit 1; }
 
 # ── Django ────────────────────────────────────────────────────────────────────
@@ -204,7 +254,8 @@ docker run -d \
     --name $DJANGO_CONTAINER \
     --network $NETWORK_NAME \
     "${DJANGO_ENV[@]}" \
-    -v "$(pwd):/app" \
+    -v "${BACKEND_DIR}:/app" \
+    -v "./storage:/app/storage" \
     -p "${DJANGO_PORT}:${DJANGO_PORT}" \
     $DJANGO_IMAGE python manage.py runserver "0.0.0.0:${DJANGO_PORT}" \
     || { error "Django failed to start"; exit 1; }
@@ -219,7 +270,8 @@ run_celery_container() {
         --name $name \
         --network $NETWORK_NAME \
         "${DJANGO_ENV[@]}" \
-        -v "$(pwd):/app" \
+        -v "${BACKEND_DIR}:/app" \
+        -v "./storage:/app/storage" \
         $DJANGO_IMAGE "$@"
 }
 
@@ -236,7 +288,6 @@ run_celery_container $BEAT_CONTAINER \
 success "Celery beat ready."
 
 # ── Frontend build ────────────────────────────────────────────────────────────
-PROJECT_ROOT=$(pwd)
 cd ./streaming
 
 if [ "$WATCH" = true ]; then
@@ -262,7 +313,7 @@ docker run -d \
     -e REDIS_HOST=$REDIS_CONTAINER \
     -e CELERY_BROKER_URL="${REDIS_INTERNAL}/0" \
     -e REDIS_NOTIFICATIONS_URL="${REDIS_INTERNAL}/2" \
-    -v "${PROJECT_ROOT}/streaming:/app" \
+    -v "./streaming:/app" \
     -p "${FASTAPI_PORT}:${FASTAPI_PORT}" \
     $FASTAPI_IMAGE python main.py || { error "FastAPI failed to start"; exit 1; }
 success "FastAPI ready."
@@ -280,7 +331,7 @@ docker run -d \
     -e DJANGO_PORT=$DJANGO_PORT \
     -e FASTAPI_CONTAINER=$FASTAPI_CONTAINER \
     -e FASTAPI_PORT=$FASTAPI_PORT \
-    -v "${PROJECT_ROOT}/nginx:/etc/nginx/templates" \
+    -v "./nginx:/etc/nginx/templates" \
     -p "${NGINX_PORT}:80" \
     nginx:alpine || { error "Nginx failed to start"; exit 1; }
 success "Nginx ready."

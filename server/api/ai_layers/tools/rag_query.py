@@ -68,11 +68,21 @@ def _rag_query_impl(
         # No data yet; return empty results.
         return RagQueryResult(queries_used=cleaned, results={}, message="No collection found; created new one")
 
-    results = chroma_client.get_results(
-        collection_name=collection.slug,
-        query_texts=cleaned,
-        n_results=n_results,
-    )
+    try:
+        results = chroma_client.get_results(
+            collection_name=collection.slug,
+            query_texts=cleaned,
+            n_results=n_results,
+        )
+    except Exception as exc:
+        logger.exception(
+            "rag_query failed for agent_slug=%s collection=%s user_id=%s queries=%s",
+            agent_slug,
+            collection.slug,
+            user_id,
+            cleaned,
+        )
+        raise ValueError(f"rag_query failed: {str(exc)}") from exc
 
     return RagQueryResult(queries_used=cleaned, results={"results": results})
 

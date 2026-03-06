@@ -167,6 +167,7 @@ export type TDocument = {
   id: number;
   name: string;
   brief: string;
+  created_at?: string;
   chunk_count: number;
   chunk_set: any[];
 };

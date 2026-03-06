@@ -7,11 +7,20 @@
 
 set -e
 
+PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$PROJECT_ROOT"
+
 # Load .env
 if [[ -f .env ]]; then
     set -a; source .env; set +a
 fi
 export MSYS_NO_PATHCONV=1
+
+if [[ -d "${PROJECT_ROOT}/server" ]]; then
+    BACKEND_CONTEXT_REL="server"
+else
+    BACKEND_CONTEXT_REL="."
+fi
 
 # Container / network config — must match run.sh defaults
 DJANGO_IMAGE=${DJANGO_IMAGE:-masscer-django-img}
@@ -21,7 +30,7 @@ REDIS_CONTAINER=${REDIS_CONTAINER:-redis-instance}
 CHROMA_CONTAINER=${CHROMA_CONTAINER:-masscer-chroma}
 
 if ! docker image inspect $DJANGO_IMAGE &>/dev/null; then
-    echo "Django image '$DJANGO_IMAGE' not found. Run ./run.sh -r first."
+    echo "Django image '$DJANGO_IMAGE' not found. Run ./taskfile.sh run -r first."
     exit 1
 fi
 
@@ -48,7 +57,8 @@ run_manage() {
     docker run --rm \
         --network $NETWORK_NAME \
         "${DJANGO_ENV[@]}" \
-        -v "$(pwd):/app" \
+        -v "${BACKEND_CONTEXT_REL}:/app" \
+        -v "./storage:/app/storage" \
         $DJANGO_IMAGE python manage.py "$@"
 }
 

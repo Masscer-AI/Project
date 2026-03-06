@@ -1,0 +1,18 @@
+[project]
+name = "masscer-streaming"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "anthropic",
+    "beautifulsoup4",
+    "colorlog",
+    "fastapi",
+    "openai",
+    "pydantic",
+    "python-dotenv",
+    "python-multipart",
+    "python-socketio",
+    "redis",
+    "requests",
+    "uvicorn",
+]
