@@ -188,7 +188,7 @@ class Agent(models.Model):
 
         printer.blue(f"Getting collection for agent {self.id}")
         try:
-            return Collection.objects.get(agent=self, user=self.user)
+            return Collection.objects.get(agent=self, user=None)
         except Collection.DoesNotExist:
             return None
 

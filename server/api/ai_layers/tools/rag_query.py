@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 
 from pydantic import BaseModel, Field
-
+from django.db.models import Q
 logger = logging.getLogger(__name__)
 
 
@@ -58,12 +58,13 @@ def _rag_query_impl(
     except User.DoesNotExist:
         raise ValueError("User not found")
 
-    try:
-        agent = Agent.objects.get(slug=agent_slug)
-    except Agent.DoesNotExist:
-        raise ValueError("Agent not found")
+    agent = Agent.objects.filter(slug=agent_slug).filter(
+        Q(user=user) | Q(organization__members__user=user) | Q(is_public=True)
+    ).first()
+    if not agent:
+        raise ValueError("Agent not found or user is not allowed to access it")
 
-    collection, created = Collection.objects.get_or_create(user=user, agent=agent)
+    collection, created = Collection.get_or_create_agent_collection(agent=agent)
     if created:
         # No data yet; return empty results.
         return RagQueryResult(queries_used=cleaned, results={}, message="No collection found; created new one")
@@ -94,11 +95,11 @@ def get_tool(
 ) -> dict:
     """
     Tool config. Requires user_id and agent_slug via closure.
-    For widget conversations (user_id=None), falls back to the agent owner's collection.
+    For widget conversations (user_id=None), falls back to the agent owner for auth context.
     """
     if not agent_slug:
         raise ValueError("rag_query requires agent_slug in tool context")
-    # Widget context: use agent owner's RAG collection
+    # Widget context: use agent owner as user context for access check.
     if user_id is None:
         from api.ai_layers.models import Agent
 

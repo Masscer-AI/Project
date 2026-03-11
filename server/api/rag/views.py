@@ -67,8 +67,8 @@ class DocumentView(View):
 
         file = request.FILES.get("file")
 
-        collection, created = Collection.objects.get_or_create(
-            user=request.user, agent=None, conversation=None
+        collection, created = Collection.get_or_create_personal_collection(
+            user=request.user
         )
         if not collection:
             return JsonResponse(
@@ -278,9 +278,7 @@ class QueryCompletions(View):
         if not agent:
             # Return a 404
             return JsonResponse({"error": "Agent not found"}, status=404)
-        collection, created = Collection.objects.get_or_create(
-            user=request.user, agent=agent
-        )
+        collection, created = Collection.get_or_create_agent_collection(agent=agent)
         if created:
             printer.success("No collection found for the agent, creating a new one")
             return JsonResponse([], status=200, safe=False)

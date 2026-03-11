@@ -17,9 +17,9 @@ fi
 export MSYS_NO_PATHCONV=1
 
 if [[ -d "${PROJECT_ROOT}/server" ]]; then
-    BACKEND_CONTEXT_REL="server"
+    BACKEND_CONTEXT_PATH="${PROJECT_ROOT}/server"
 else
-    BACKEND_CONTEXT_REL="."
+    BACKEND_CONTEXT_PATH="${PROJECT_ROOT}"
 fi
 
 # Container / network config — must match run.sh defaults
@@ -57,7 +57,7 @@ run_manage() {
     docker run --rm \
         --network $NETWORK_NAME \
         "${DJANGO_ENV[@]}" \
-        -v "${BACKEND_CONTEXT_REL}:/app" \
+        -v "${BACKEND_CONTEXT_PATH}:/app" \
         -v "./storage:/app/storage" \
         $DJANGO_IMAGE python manage.py "$@"
 }

@@ -107,20 +107,9 @@ class Completion(models.Model):
             printer.red("Completion has no agent, skipping save_in_memory")
             return
 
-        # Match how chat RAG is scoped: Collection is per (user, agent).
-        # Prefer the user who initiated training (training_generator.created_by),
-        # then the user who approved it, then fall back to agent owner.
-        collection_user = None
-        if self.training_generator and getattr(self.training_generator, "created_by_id", None):
-            collection_user = self.training_generator.created_by
-        elif self.approved_by_id:
-            collection_user = self.approved_by
-        else:
-            collection_user = self.agent.user
-
-        collection, created = Collection.objects.get_or_create(
-            agent=self.agent, user=collection_user
-        )
+        # Agent knowledge is shared across users: approved completions are indexed
+        # only in the agent collection.
+        collection, created = Collection.get_or_create_agent_collection(agent=self.agent)
         if created:
             printer.red(
                 f"Collection not found for agent {self.agent.slug}, creating a new one"
@@ -151,17 +140,7 @@ class Completion(models.Model):
             printer.red("Completion has no agent, skipping remove_from_memory")
             return
 
-        collection_user = None
-        if self.training_generator and getattr(self.training_generator, "created_by_id", None):
-            collection_user = self.training_generator.created_by
-        elif self.approved_by_id:
-            collection_user = self.approved_by
-        else:
-            collection_user = self.agent.user
-
-        collection, created = Collection.objects.get_or_create(
-            agent=self.agent, user=collection_user
-        )
+        collection, created = Collection.get_or_create_agent_collection(agent=self.agent)
         if created:
             printer.yellow(
                 f"Collection not found for agent {self.agent.slug} and it was created, skipping removal"
