@@ -255,6 +255,8 @@ export const CustomCodeBlock = ({
   const [input_format, setInputFormat] = useState("md");
   const [usePlugin, setUsePlugin] = useState<boolean>(false);
   const [pluginName, setPluginName] = useState<string | null>(null);
+  const normalizedLanguage = (language || "").toLowerCase();
+  const canExport = ["md", "markdown", "html", "htm"].includes(normalizedLanguage);
 
   useEffect(() => {
     // If the language is HTML, set the output format to HTML
@@ -365,20 +367,22 @@ export const CustomCodeBlock = ({
               {usePlugin ? t("view-code") : t("use-plugin") + ": " + t(pluginName)}
             </Button>
           )}
-          <Group gap={2} wrap="nowrap">
-            <Tooltip label={t("export-to")} position="top" withArrow>
-              <ActionIcon variant="subtle" color="gray" size="sm" onClick={handleTransform}>
-                <IconDownload size={14} />
-              </ActionIcon>
-            </Tooltip>
-            <NativeSelect
-              size="xs"
-              value={output_format}
-              onChange={(e) => setOutputFormat(e.currentTarget.value as TOutputFormat)}
-              data={output_formats.map((f) => ({ value: f, label: f.toUpperCase() }))}
-              styles={{ input: { minWidth: 60, height: 28, fontSize: 12 } }}
-            />
-          </Group>
+          {canExport && (
+            <Group gap={2} wrap="nowrap">
+              <Tooltip label={t("export-to")} position="top" withArrow>
+                <ActionIcon variant="subtle" color="gray" size="sm" onClick={handleTransform}>
+                  <IconDownload size={14} />
+                </ActionIcon>
+              </Tooltip>
+              <NativeSelect
+                size="xs"
+                value={output_format}
+                onChange={(e) => setOutputFormat(e.currentTarget.value as TOutputFormat)}
+                data={output_formats.map((f) => ({ value: f, label: f.toUpperCase() }))}
+                styles={{ input: { minWidth: 60, height: 28, fontSize: 12 } }}
+              />
+            </Group>
+          )}
         </Group>
       </Group>
 
