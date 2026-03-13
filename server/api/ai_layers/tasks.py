@@ -1,4 +1,5 @@
 import logging
+import os
 import time
 import traceback as tb
 import json
@@ -7,6 +8,14 @@ from celery import shared_task
 from .actions import generate_agent_profile_picture
 
 logger = logging.getLogger(__name__)
+
+
+def _masked_secret_tail(secret: str | None, tail: int = 10) -> str:
+    if not secret:
+        return "<missing>"
+    if len(secret) <= tail:
+        return "*" * len(secret)
+    return f"{'*' * (len(secret) - tail)}{secret[-tail:]}"
 
 
 def _serialize_prev_messages(conversation, before_message_id, limit=50):
@@ -583,6 +592,13 @@ def conversation_agent_task(
     logger.info(
         "conversation_agent_task started: conversation=%s user=%s agents=%s tools=%s modality=%s",
         conversation_id, user_id, agent_slugs, tool_names, multiagentic_modality,
+    )
+    openai_key = os.environ.get("OPENAI_API_KEY")
+    logger.info(
+        "conversation_agent_task OpenAI key check: present=%s length=%s suffix10=%s",
+        bool(openai_key),
+        len(openai_key) if openai_key else 0,
+        _masked_secret_tail(openai_key, tail=10),
     )
 
     agent_sessions_created = []

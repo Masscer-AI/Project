@@ -47,6 +47,9 @@ const routing = createRouting({
   vpcId: networking.vpc.id,
   albSecurityGroupId: securityGroups.albSg.id,
   publicSubnetIds: networking.publicSubnetIds,
+  rootDomain: config.rootDomain,
+  appDomain: config.appDomain,
+  coreDomain: config.coreDomain,
 });
 
 const discovery = createChromaDiscovery({
@@ -84,6 +87,8 @@ const services = createAppServices({
   postgres: dataServices.postgres,
   redis: dataServices.redis,
   alb: routing.alb,
+  appBaseUrl: routing.appBaseUrl,
+  coreBaseUrl: routing.coreBaseUrl,
   djangoTargetGroup: routing.djangoTargetGroup,
   fastapiTargetGroup: routing.fastapiTargetGroup,
   httpListener: routing.httpListener,
@@ -108,7 +113,8 @@ export const privateSubnetIdsOutput = pulumi.output(networking.privateSubnetIds)
 export const subnetIds = pulumi.output(networking.publicSubnetIds);
 export const allSubnetIdsOutput = pulumi.output(networking.allSubnetIds);
 export const appAlbDnsName = routing.alb.dnsName;
-export const appBaseUrl = pulumi.interpolate`http://${routing.alb.dnsName}`;
+export const appBaseUrl = routing.appBaseUrl;
+export const coreBaseUrl = routing.coreBaseUrl;
 export const djangoEcrRepositoryUrl = artifacts.djangoRepo.repositoryUrl;
 export const streamingEcrRepositoryUrl = artifacts.streamingRepo.repositoryUrl;
 export const staticBucketName = artifacts.staticBucket.bucket;

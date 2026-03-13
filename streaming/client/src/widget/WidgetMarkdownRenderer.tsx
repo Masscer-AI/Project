@@ -10,7 +10,14 @@ import { twilight } from "react-syntax-highlighter/dist/esm/styles/prism";
 
 const WIDGET_API_URL =
   // @ts-ignore
-  import.meta.env.VITE_API_URL || "http://localhost:8000";
+  (import.meta.env.VITE_API_URL ?? (
+    typeof window !== "undefined" &&
+    window.location.origin &&
+    window.location.origin !== "null" &&
+    !window.location.origin.startsWith("file:")
+      ? window.location.origin
+      : "http://localhost:8000"
+  ));
 
 interface WidgetMarkdownRendererProps {
   markdown: string;

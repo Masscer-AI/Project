@@ -28,8 +28,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get("SECRET_KEY", default="secret-key")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-# DEBUG = True
-DEBUG = "RENDER" not in os.environ
+# Default to False unless explicitly enabled via env.
+DEBUG = os.environ.get("DEBUG", "false").strip().lower() in {"1", "true", "yes", "on"}
 
 # settings.py
 ALLOWED_HOSTS = [

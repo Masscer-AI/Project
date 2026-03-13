@@ -32,5 +32,8 @@ def user_created(sender, instance, created, **kwargs):
 def agent_created(sender, instance, created, **kwargs):
     if created:
         print(f"New agent created for user: {instance.user.username}")
-        collection = Collection.objects.create(agent=instance, user=instance.user)
-        print(f"New collection created for agent: {instance.id}")
+        collection, collection_created = Collection.get_or_create_agent_collection(instance)
+        if collection_created:
+            print(f"New collection created for agent: {instance.id}")
+        else:
+            print(f"Collection already exists for agent: {instance.id} (collection={collection.id})")

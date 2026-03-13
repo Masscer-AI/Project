@@ -15,71 +15,77 @@ export interface ProviderParameterArns {
 
 export function createProviderParameters(args: {
   namePrefix: string;
-  openAiApiKey: pulumi.Output<string>;
-  anthropicApiKey: pulumi.Output<string>;
-  xaiApiKey: pulumi.Output<string>;
-  pexelsApiKey: pulumi.Output<string>;
-  braveApiKey: pulumi.Output<string>;
-  bflApiKey: pulumi.Output<string>;
-  runwayApiKey: pulumi.Output<string>;
-  whatsappGraphApiToken: pulumi.Output<string>;
-  whatsappWebhookVerifyToken: pulumi.Output<string>;
+  openAiApiKey: pulumi.Input<string>;
+  anthropicApiKey: pulumi.Input<string>;
+  xaiApiKey: pulumi.Input<string>;
+  pexelsApiKey: pulumi.Input<string>;
+  braveApiKey: pulumi.Input<string>;
+  bflApiKey: pulumi.Input<string>;
+  runwayApiKey: pulumi.Input<string>;
+  whatsappGraphApiToken: pulumi.Input<string>;
+  whatsappWebhookVerifyToken: pulumi.Input<string>;
   taskExecutionRoleName: pulumi.Input<string>;
 }) {
   const basePath = `/${args.namePrefix}/providers`;
+  const normalizeSecret = (value: pulumi.Input<string>) =>
+    pulumi.output(value).apply((v) => {
+      const trimmed = (v ?? "").trim();
+      // SSM SecureString does not allow empty values.
+      return trimmed.length > 0 ? trimmed : "__UNSET__";
+    });
 
   const openAiApiKey = new aws.ssm.Parameter("openai-api-key-param", {
     name: `${basePath}/OPENAI_API_KEY`,
     type: "SecureString",
-    value: args.openAiApiKey,
+    value: normalizeSecret(args.openAiApiKey),
   });
 
   const anthropicApiKey = new aws.ssm.Parameter("anthropic-api-key-param", {
     name: `${basePath}/ANTHROPIC_API_KEY`,
     type: "SecureString",
-    value: args.anthropicApiKey,
+    value: normalizeSecret(args.anthropicApiKey),
   });
 
   const xaiApiKey = new aws.ssm.Parameter("xai-api-key-param", {
     name: `${basePath}/XAI_API_KEY`,
     type: "SecureString",
-    value: args.xaiApiKey,
+    value: normalizeSecret(args.xaiApiKey),
   });
 
   const pexelsApiKey = new aws.ssm.Parameter("pexels-api-key-param", {
     name: `${basePath}/PEXELS_API_KEY`,
     type: "SecureString",
-    value: args.pexelsApiKey,
+    value: normalizeSecret(args.pexelsApiKey),
   });
 
   const braveApiKey = new aws.ssm.Parameter("brave-api-key-param", {
     name: `${basePath}/BRAVE_API_KEY`,
     type: "SecureString",
-    value: args.braveApiKey,
+    value: normalizeSecret(args.braveApiKey),
   });
 
   const bflApiKey = new aws.ssm.Parameter("bfl-api-key-param", {
     name: `${basePath}/BFL_API_KEY`,
     type: "SecureString",
-    value: args.bflApiKey,
+    value: normalizeSecret(args.bflApiKey),
   });
 
   const runwayApiKey = new aws.ssm.Parameter("runway-api-key-param", {
     name: `${basePath}/RUNWAY_API_KEY`,
     type: "SecureString",
-    value: args.runwayApiKey,
+    value: normalizeSecret(args.runwayApiKey),
   });
 
   const whatsappGraphApiToken = new aws.ssm.Parameter("whatsapp-graph-api-token-param", {
     name: `${basePath}/WHATSAPP_GRAPH_API_TOKEN`,
     type: "SecureString",
-    value: args.whatsappGraphApiToken,
+    value: normalizeSecret(args.whatsappGraphApiToken),
   });
 
   const whatsappWebhookVerifyToken = new aws.ssm.Parameter("whatsapp-webhook-verify-token-param", {
     name: `${basePath}/WHATSAPP_WEBHOOK_VERIFY_TOKEN`,
     type: "SecureString",
-    value: args.whatsappWebhookVerifyToken,
+    value: normalizeSecret(args.whatsappWebhookVerifyToken),
   });
 
   const parameterArns = [

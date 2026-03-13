@@ -18,6 +18,8 @@ export function createAppServices(args: {
   postgres: aws.rds.Instance;
   redis: aws.elasticache.ReplicationGroup;
   alb: aws.lb.LoadBalancer;
+  appBaseUrl: pulumi.Input<string>;
+  coreBaseUrl: pulumi.Input<string>;
   djangoTargetGroup: aws.lb.TargetGroup;
   fastapiTargetGroup: aws.lb.TargetGroup;
   httpListener: aws.lb.Listener;
@@ -37,9 +39,19 @@ export function createAppServices(args: {
   const celeryBrokerUrl = pulumi.interpolate`${redisBaseUrl}/0`;
   const redisCacheUrl = pulumi.interpolate`${redisBaseUrl}/1`;
   const redisNotificationsUrl = pulumi.interpolate`${redisBaseUrl}/2`;
-  const frontendUrl = pulumi.interpolate`http://${args.alb.dnsName}`;
-  const apiBaseUrl = pulumi.interpolate`http://${args.alb.dnsName}`;
-  const djangoAllowedHosts = pulumi.interpolate`${args.alb.dnsName}${config.allowedExtraHosts ? `,${config.allowedExtraHosts}` : ""}`;
+  const frontendUrl = pulumi.output(args.appBaseUrl);
+  const apiBaseUrl = pulumi.output(args.coreBaseUrl);
+  const djangoAllowedHosts = pulumi
+    .all([args.alb.dnsName, config.appDomain, config.coreDomain])
+    .apply(([albDnsName, appDomain, coreDomain]) => {
+      const hosts = [albDnsName, appDomain, coreDomain]
+        .map((v) => (v ?? "").trim())
+        .filter(Boolean);
+      if (config.allowedExtraHosts.trim()) {
+        hosts.push(...config.allowedExtraHosts.split(",").map((h) => h.trim()).filter(Boolean));
+      }
+      return Array.from(new Set(hosts)).join(",");
+    });
 
   const djangoEnv = [
     { name: "DB_CONNECTION_STRING", value: dbConnectionString },
@@ -89,7 +101,8 @@ export function createAppServices(args: {
       image: pulumi.interpolate`${args.djangoRepo.repositoryUrl}:${config.djangoImageTag}`,
       essential: true,
       portMappings: [{ containerPort: 8000, hostPort: 8000, protocol: "tcp" }],
-      command: ["python", "manage.py", "runserver", "0.0.0.0:8000"],
+      // Ensure admin/static assets exist when DEBUG=false in production.
+      command: ["sh", "-c", "python manage.py collectstatic --noinput && python manage.py runserver 0.0.0.0:8000"],
       environment: djangoEnv,
       secrets: providerSecrets,
       logConfiguration: {

@@ -25,6 +25,9 @@ export interface AppConfig {
   chromaImage: string;
   corsOrigins: string;
   allowedExtraHosts: string;
+  rootDomain: string;
+  appDomain: string;
+  coreDomain: string;
   openAiApiKey: pulumi.Output<string>;
   anthropicApiKey: pulumi.Output<string>;
   xaiApiKey: pulumi.Output<string>;
@@ -68,6 +71,9 @@ export function loadConfig(): AppConfig {
     chromaImage: cfg.get("chromaImage") ?? "chromadb/chroma:0.5.11",
     corsOrigins: cfg.get("corsOrigins") ?? "*",
     allowedExtraHosts: cfg.get("allowedExtraHosts") ?? "",
+    rootDomain: cfg.get("rootDomain") ?? "",
+    appDomain: cfg.get("appDomain") ?? "",
+    coreDomain: cfg.get("coreDomain") ?? "",
     openAiApiKey: cfg.getSecret("openAiApiKey") ?? pulumi.output(""),
     anthropicApiKey: cfg.getSecret("anthropicApiKey") ?? pulumi.output(""),
     xaiApiKey: cfg.getSecret("xaiApiKey") ?? pulumi.output(""),

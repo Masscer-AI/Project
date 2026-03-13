@@ -138,26 +138,51 @@ aws ecs run-task \
   --cluster <ecsClusterName-output> \
   --task-definition <djangoMigrateTaskDefinitionArn-output> \
   --launch-type EC2 \
-  --network-configuration "awsvpcConfiguration={subnets=[subnet-xxx],securityGroups=[sg-xxx],assignPublicIp=ENABLED}"
+  --network-configuration "awsvpcConfiguration={subnets=[subnet-xxx],securityGroups=[sg-xxx],assignPublicIp=DISABLED}"
 ```
 
-## Automated deploy with GitHub Actions
+## One-command deploy (local)
 
-Workflow file: `.github/workflows/deploy-aws-ecs-ec2.yml`
+From this `pulumi/` directory (with direnv loaded), you can run:
 
-It automates:
-- Build and push Django + Streaming images to ECR (tag = commit SHA).
-- `pulumi up` using those image tags.
-- Run one-off ECS migration task.
-- If migration succeeds, force new deployment for Django/FastAPI/Celery/Chroma services.
+```bash
+./deploy.sh
+```
 
-Required GitHub secrets:
-- `AWS_DEPLOY_ROLE_ARN`: IAM role for GitHub OIDC.
-- `PULUMI_ACCESS_TOKEN`: Pulumi Cloud token (if using Pulumi Cloud backend).
+Optional flags:
 
-Trigger:
-- On `push` to `main` (paths scoped to app/infra changes).
-- Manual run via `workflow_dispatch` (select stack and region).
+```bash
+./deploy.sh --stack prod --region us-east-1
+./deploy.sh --skip-bootstrap
+./deploy.sh --skip-migrations
+./deploy.sh --require-migrations
+```
+
+Notes:
+- By default, deploy continues even if the one-off migration task cannot be placed (common with EC2 ENI limits).  
+  Use `--require-migrations` when you want deploy to fail hard on migration errors.
+- By default, each deploy generates a unique image tag (`deploy-<UTC timestamp>-<git sha>`) to force a fresh ECS rollout.
+
+## Custom domains (Route53)
+
+To use custom domains with ALB + HTTPS, set these stack config keys:
+
+```yaml
+masscer-infra:rootDomain: masscer.ai
+masscer-infra:appDomain: app.masscer.ai
+masscer-infra:coreDomain: core.masscer.ai
+```
+
+What Pulumi configures automatically when those keys are set:
+- ACM wildcard certificate for `*.masscer.ai` (DNS validation in Route53)
+- HTTPS listener on ALB (443) + HTTP->HTTPS redirect
+- Route53 alias records for `app.masscer.ai` and `core.masscer.ai`
+- Host-based routing:
+  - `core.masscer.ai` -> Django (all paths)
+  - `app.masscer.ai` -> FastAPI by default, Django for `/v1/*`, `/static/*`, `/media/*`
+
+Manual prerequisite:
+- The public hosted zone for `masscer.ai` must already exist in Route53 in this AWS account.
 
 ## Why no Nginx service
 

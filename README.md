@@ -49,6 +49,13 @@ This starts:
 # Django migrations inside the Docker network
 ./taskfile.sh migrate
 
+# Deploy to AWS from Pulumi directory (direnv-friendly)
+cd pulumi && ./deploy.sh
+
+# Skip bootstrap or migrations when needed
+cd pulumi && ./deploy.sh --skip-bootstrap
+cd pulumi && ./deploy.sh --skip-migrations
+
 # Structure migration helper (backend to /server)
 ./taskfile.sh migrate_structure --dry-run
 ./taskfile.sh migrate_structure
