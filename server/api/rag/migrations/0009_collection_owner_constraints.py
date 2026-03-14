@@ -66,6 +66,12 @@ def normalize_collection_ownership(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
+    # This migration performs data moves (updates/deletes) and then adds constraints.
+    # On Postgres, running ALTER TABLE to add constraints in the same transaction as
+    # large update/delete operations can fail with:
+    #   "cannot ALTER TABLE ... because it has pending trigger events"
+    # Running non-atomically ensures the data migration commits before constraints.
+    atomic = False
 
     dependencies = [
         ("rag", "0008_document_total_tokens"),
