@@ -93,13 +93,14 @@ const services = createAppServices({
   fastapiTargetGroup: routing.fastapiTargetGroup,
   httpListener: routing.httpListener,
   appTasksSecurityGroupId: securityGroups.appTasksSg.id,
-  publicSubnetIds: networking.publicSubnetIds,
+  privateSubnetIds: networking.privateSubnetIds,
   chromaImage: config.chromaImage,
   chromaEfsId: dataServices.chromaEfs.id,
   chromaMountTargets: dataServices.chromaMountTargets,
   chromaDiscoveryServiceArn: discovery.chromaDiscoveryService.arn,
   chromaInternalHost: discovery.chromaInternalHost,
   providerParameterArns: parameterStore.providerParameterArns,
+  mediaBucket: artifacts.mediaBucket,
 });
 
 export const ecsClusterName = ecsBase.cluster.name;
@@ -110,7 +111,8 @@ export const appTasksSecurityGroupId = securityGroups.appTasksSg.id;
 export const vpcId = networking.vpc.id;
 export const publicSubnetIdsOutput = pulumi.output(networking.publicSubnetIds);
 export const privateSubnetIdsOutput = pulumi.output(networking.privateSubnetIds);
-export const subnetIds = pulumi.output(networking.publicSubnetIds);
+// Used for one-off ECS tasks like migrations; must be private subnets (NAT-enabled).
+export const subnetIds = pulumi.output(networking.privateSubnetIds);
 export const allSubnetIdsOutput = pulumi.output(networking.allSubnetIds);
 export const appAlbDnsName = routing.alb.dnsName;
 export const appBaseUrl = routing.appBaseUrl;

@@ -1,6 +1,7 @@
 import chromadb
 import os
 import subprocess
+import sys
 
 # Import the settings
 from api.settings import MEDIA_ROOT
@@ -27,6 +28,16 @@ class ChromaManager:
         self.prewarm_default_embedding()
 
     def prewarm_default_embedding(self):
+        # Avoid pulling embedding models during management commands (migrate/makemigrations/etc).
+        # For these commands, Chroma is not required and the container is often ephemeral,
+        # so downloading the ONNX model repeatedly is wasteful.
+        #
+        # You can override behavior by explicitly setting CHROMA_PREWARM.
+        if os.environ.get("CHROMA_PREWARM") is None:
+            mgmt_cmds = {"migrate", "makemigrations", "collectstatic", "test"}
+            if any(arg in mgmt_cmds for arg in sys.argv[1:]):
+                return
+
         prewarm_enabled = os.environ.get("CHROMA_PREWARM", "true").lower()
         if prewarm_enabled not in {"1", "true", "yes", "on"}:
             return

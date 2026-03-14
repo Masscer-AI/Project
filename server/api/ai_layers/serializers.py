@@ -14,6 +14,8 @@ class LanguageModelSerializer(serializers.ModelSerializer):
 class AgentSerializer(serializers.ModelSerializer):
     llm = LanguageModelSerializer(read_only=True)
     organization = serializers.SerializerMethodField()
+    access_mode = serializers.SerializerMethodField()
+    allowed_roles = serializers.SerializerMethodField()
 
     class Meta:
         model = Agent
@@ -26,6 +28,8 @@ class AgentSerializer(serializers.ModelSerializer):
             "act_as",
             "user",
             "organization",
+            "access_mode",
+            "allowed_roles",
             "is_public",
             "model_provider",
             "default",
@@ -43,6 +47,24 @@ class AgentSerializer(serializers.ModelSerializer):
     def get_organization(self, obj):
         """Return organization ID if it exists, None otherwise"""
         return str(obj.organization.id) if obj.organization else None
+
+    def get_access_mode(self, obj):
+        """
+        - personal: no organization
+        - org_all: organization agent with no role restrictions
+        - org_roles: organization agent restricted to specific roles
+        """
+        if not obj.organization_id:
+            return "personal"
+        # If there are any through rows, the agent is role-restricted.
+        has_restrictions = getattr(obj, "role_access_assignments", None) and obj.role_access_assignments.exists()
+        return "org_roles" if has_restrictions else "org_all"
+
+    def get_allowed_roles(self, obj):
+        if not obj.organization_id:
+            return []
+        roles = obj.allowed_roles.all().only("id", "name")
+        return [{"id": str(r.id), "name": r.name} for r in roles]
 
 
 class AgentSessionSerializer(serializers.ModelSerializer):

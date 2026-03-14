@@ -51,6 +51,8 @@ DJANGO_ENV=(
     -e MEDIA_ROOT=/app/storage
     -e CHROMA_HOST="$CHROMA_HOST_CONTAINER"
     -e CHROMA_PORT="$CHROMA_PORT_CONTAINER"
+    -e CHROMA_PREWARM=0
+    -e XDG_CACHE_HOME=/app/storage/.cache
 )
 
 run_manage() {

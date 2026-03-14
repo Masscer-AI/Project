@@ -113,3 +113,11 @@ def invalidate_ff_cache_on_role_change(sender, instance, **kwargs):
 def invalidate_ff_cache_on_role_assignment_change(sender, instance, **kwargs):
     if instance.user_id:
         _invalidate_ff_cache_for_user(instance.user_id)
+        # Role changes can affect which organization agents are visible (role-restricted agents)
+        try:
+            from api.ai_layers.cache_utils import bump_agent_list_version_for_user
+
+            bump_agent_list_version_for_user(instance.user_id, str(instance.organization_id))
+        except Exception:
+            # Keep feature-flag invalidation robust even if ai_layers isn't ready during migrations.
+            pass

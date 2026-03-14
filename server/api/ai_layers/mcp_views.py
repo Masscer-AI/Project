@@ -34,11 +34,11 @@ def get_mcp_config_json(request, agent_slug):
     """
     try:
         user = request.user
-        # Verificar que el usuario tiene acceso al agente
-        agent = Agent.objects.filter(
-            slug=agent_slug
-        ).filter(
-            Q(user=user) | Q(organization__members__user=user) | Q(is_public=True)
+        from api.ai_layers.access import accessible_agents_qs
+
+        # Verificar que el usuario tiene acceso al agente (incluye restricciones por roles)
+        agent = Agent.objects.filter(slug=agent_slug).filter(
+            Q(is_public=True) | Q(id__in=accessible_agents_qs(user).values_list("id", flat=True))
         ).first()
         
         if not agent:

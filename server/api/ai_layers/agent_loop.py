@@ -263,7 +263,11 @@ class AgentLoop:
         self.on_event = on_event
 
         resolved_key = api_key or os.environ.get("OPENAI_API_KEY")
-        self.client = OpenAI(api_key=resolved_key)
+        max_retries = int(os.environ.get("OPENAI_MAX_RETRIES", "2"))
+        self.client = OpenAI(
+            api_key=resolved_key,
+            max_retries=max_retries,
+        )
 
         # Process tools: separate OpenAI definitions from callable functions
         self.tool_definitions: list[dict] = []

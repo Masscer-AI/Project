@@ -222,9 +222,22 @@ MEDIA_URL = "/media/"
 # Set API_BASE_URL in env for production (e.g. https://api.example.com).
 API_BASE_URL = os.environ.get("API_BASE_URL", "")
 
-
-if not os.path.exists(MEDIA_ROOT):
-    os.makedirs(MEDIA_ROOT)
+# S3 media storage — enabled when AWS_STORAGE_BUCKET_NAME is set.
+_s3_media_bucket = os.environ.get("AWS_STORAGE_BUCKET_NAME", "")
+if _s3_media_bucket:
+    _s3_region = os.environ.get("AWS_S3_REGION_NAME", "us-east-1")
+    STORAGES = {
+        "default": {"BACKEND": "storages.backends.s3boto3.S3Boto3Storage"},
+        "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+    }
+    AWS_STORAGE_BUCKET_NAME = _s3_media_bucket
+    AWS_S3_REGION_NAME = _s3_region
+    AWS_S3_FILE_OVERWRITE = False
+    AWS_QUERYSTRING_AUTH = False  # Bucket is publicly readable; no presigned URLs needed.
+    MEDIA_URL = f"https://{_s3_media_bucket}.s3.{_s3_region}.amazonaws.com/"
+else:
+    if not os.path.exists(MEDIA_ROOT):
+        os.makedirs(MEDIA_ROOT)
 
 
 CACHES = {

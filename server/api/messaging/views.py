@@ -1172,16 +1172,9 @@ class ChatWidgetView(View):
 
     def _get_user_agents(self, user):
         """Get agents that belong to the user or their organization."""
-        from api.ai_layers.models import Agent
-        from django.db.models import Q
-        
-        user_org = None
-        if hasattr(user, 'profile') and user.profile.organization:
-            user_org = user.profile.organization
-        
-        if user_org:
-            return Agent.objects.filter(Q(user=user) | Q(organization=user_org))
-        return Agent.objects.filter(user=user)
+        from api.ai_layers.access import accessible_agents_qs
+
+        return accessible_agents_qs(user)
     
     def get(self, request, *args, **kwargs):
         """Get all widgets for user or a single widget by ID."""

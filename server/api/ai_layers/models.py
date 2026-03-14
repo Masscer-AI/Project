@@ -95,6 +95,17 @@ class Agent(models.Model):
         help_text="Organization this agent belongs to. If set, all members of the organization can use it."
     )
 
+    allowed_roles = models.ManyToManyField(
+        "authenticate.Role",
+        through="RoleAgentAssignment",
+        blank=True,
+        related_name="agents_with_access",
+        help_text=(
+            "If empty, all organization members can access this agent. "
+            "If set, only users with any of these roles (or the org owner) can access it."
+        ),
+    )
+
     is_public = models.BooleanField(default=False)
     default = models.BooleanField(default=False)
     temperature = models.FloatField(
@@ -265,3 +276,37 @@ class AgentSession(models.Model):
 
     def __str__(self):
         return f"AgentSession({self.id}) {self.task_type}"
+
+
+class RoleAgentAssignment(models.Model):
+    """
+    Through model: which roles can access a given organization agent.
+
+    If an organization agent has zero assignments, it is accessible to all org members.
+    If it has one or more assignments, it is only accessible to users with an active
+    RoleAssignment for any of those roles (or the organization owner).
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    role = models.ForeignKey(
+        "authenticate.Role",
+        on_delete=models.CASCADE,
+        related_name="agent_access_assignments",
+    )
+    agent = models.ForeignKey(
+        "ai_layers.Agent",
+        on_delete=models.CASCADE,
+        related_name="role_access_assignments",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["role", "agent"],
+                name="unique_role_agent_access",
+            )
+        ]
+
+    def __str__(self):
+        return f"RoleAgentAssignment(role={self.role_id}, agent={self.agent_id})"

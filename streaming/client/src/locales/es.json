@@ -688,5 +688,10 @@
     "agent-processing": "El agente esta procesando...",
     "agent-task-failed": "La tarea del agente fallo",
     "agent-response-complete": "{{agentName}} completado",
-    "agent-response-complete-progress": "{{agentName}} completado ({{index}}/{{total}})"
+    "agent-response-complete-progress": "{{agentName}} completado ({{index}}/{{total}})",
+    "agent-access": "Acceso del agente",
+    "agent-access-org-all": "Todos los miembros de la organizacion",
+    "agent-access-org-roles": "Solo roles especificos",
+    "agent-access-roles": "Roles con acceso",
+    "no-roles": "No hay roles"
 }

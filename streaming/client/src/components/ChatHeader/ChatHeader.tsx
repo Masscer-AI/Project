@@ -8,6 +8,7 @@ import {
   TextInput,
   Textarea,
   NativeSelect,
+  MultiSelect,
   Slider,
   Group,
   Stack,
@@ -20,7 +21,7 @@ import {
   Tooltip,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { createLLM, deleteLLM, updateAgent, makeAuthenticatedRequest, getUserOrganizations } from "../../modules/apiCalls";
+import { createLLM, deleteLLM, updateAgent, makeAuthenticatedRequest, getUserOrganizations, getOrganizationRoles } from "../../modules/apiCalls";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
@@ -90,10 +91,11 @@ const AgentComponent = ({ agent }: TAgentComponentProps) => {
 
   const onSave = async (updatedAgent: TAgent) => {
     try {
-      await updateAgent(updatedAgent.slug, updatedAgent);
+      const saved = await updateAgent(updatedAgent.slug, updatedAgent);
       closeConfig();
       toast.success(t("agent-updated"));
-      updateSingleAgent(updatedAgent);
+      // Use backend response to keep derived fields (access_mode/allowed_roles) in sync.
+      updateSingleAgent(saved as TAgent);
     } catch (e) {
       console.log(e, "error while updating agent");
       toast.error(t("an-error-occurred"));
@@ -245,6 +247,14 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
     agent.organization ? agent.organization : "personal"
   );
 
+  const [accessMode, setAccessMode] = useState<"org_all" | "org_roles">(
+    agent.access_mode === "org_roles" ? "org_roles" : "org_all"
+  );
+  const [orgRoles, setOrgRoles] = useState<{ value: string; label: string }[]>([]);
+  const [allowedRoleIds, setAllowedRoleIds] = useState<string[]>(
+    (agent.allowed_roles || []).map((r) => r.id)
+  );
+
   // Load user organizations when ownership toggle is available
   useEffect(() => {
     if (!canSetOwnership) return;
@@ -252,6 +262,28 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
       .then((orgs) => setUserOrgs(orgs))
       .catch(() => setUserOrgs([]));
   }, [canSetOwnership]);
+
+  useEffect(() => {
+    const orgId = ownership !== "personal" ? ownership : agent.organization || null;
+    if (!orgId || orgId === "personal") {
+      setOrgRoles([]);
+      setAllowedRoleIds([]);
+      setAccessMode("org_all");
+      return;
+    }
+    getOrganizationRoles(orgId)
+      .then((roles) => {
+        const opts = (roles || [])
+          .filter((r) => r.enabled)
+          .map((r) => ({ value: r.id, label: r.name }));
+        setOrgRoles(opts);
+        // Drop any selected roles that no longer exist
+        setAllowedRoleIds((prev) => prev.filter((id) => opts.some((o) => o.value === id)));
+      })
+      .catch(() => {
+        setOrgRoles([]);
+      });
+  }, [ownership, agent.organization]);
 
   const [formState, setFormState] = useState({
     name: agent.name || "",
@@ -375,7 +407,7 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
   };
 
   const save = () => {
-    const updatedAgent: TAgent & { ownership?: string } = {
+    const updatedAgent: TAgent & { ownership?: string; allowed_role_ids?: string[] } = {
       ...agent,
       ...formState,
       conversation_title_prompt: formState.conversation_title_prompt?.trim() || undefined,
@@ -383,6 +415,16 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
     // Include ownership change if the user has the flag
     if (canSetOwnership) {
       updatedAgent.ownership = ownership;
+    }
+    if (ownership !== "personal" && accessMode === "org_roles") {
+      updatedAgent.access_mode = "org_roles";
+      updatedAgent.allowed_role_ids = allowedRoleIds;
+    } else if (ownership !== "personal") {
+      updatedAgent.access_mode = "org_all";
+      updatedAgent.allowed_role_ids = [];
+    } else {
+      updatedAgent.access_mode = "personal";
+      updatedAgent.allowed_role_ids = [];
     }
     onSave(updatedAgent);
   };
@@ -461,6 +503,35 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
             setOwnership(val);
           }}
         />
+      )}
+
+      {ownership !== "personal" && (
+        <>
+          <NativeSelect
+            label={t("agent-access") || "Access"}
+            data={[
+              { value: "org_all", label: t("agent-access-org-all") || "All organization members" },
+              { value: "org_roles", label: t("agent-access-org-roles") || "Only specific roles" },
+            ]}
+            value={accessMode}
+            onChange={(e) => {
+              const val = e.currentTarget.value as "org_all" | "org_roles";
+              setAccessMode(val);
+              if (val === "org_all") setAllowedRoleIds([]);
+            }}
+          />
+
+          {accessMode === "org_roles" && (
+            <MultiSelect
+              label={t("agent-access-roles") || "Roles with access"}
+              data={orgRoles}
+              value={allowedRoleIds}
+              onChange={setAllowedRoleIds}
+              searchable
+              nothingFoundMessage={t("no-roles") || "No roles"}
+            />
+          )}
+        </>
       )}
 
       <Group align="flex-end" gap="xs" wrap="nowrap">

@@ -39,6 +39,7 @@ dependencies = [
     "requests",
     "runwayml",
     "tiktoken",
+    "django-storages[s3]",
     "whitenoise",
     "youtube-transcript-api",
 ]

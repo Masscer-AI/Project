@@ -36,49 +36,40 @@ def _invalidate_agent_cache_for_user_and_org(user, agent_organization=None):
       agents when user has org, and org agents).
     - For org agents: also invalidate all org members (they see org agents).
     """
-    # Always invalidate requester's possible cache keys
-    cache.delete(f"agent_data_{user.id}_no_org")
+    # Always bump requester's possible cache versions
+    from api.ai_layers.cache_utils import bump_agent_list_version_for_user, bump_agent_list_version_for_org_members
+
     user_org = getattr(getattr(user, "profile", None), "organization", None)
-    if user_org:
-        cache.delete(f"agent_data_{user.id}_{user_org.id}")
+    bump_agent_list_version_for_user(user.id, str(user_org.id) if user_org else None)
 
     if not agent_organization:
         return
 
-    # Org agent changed: invalidate for all org members
-    org_members = User.objects.filter(
-        Q(profile__organization=agent_organization) | Q(id=agent_organization.owner_id)
-    ).distinct()
-    for member in org_members:
-        cache.delete(f"agent_data_{member.id}_{agent_organization.id}")
+    # Org agent changed: bump for all org members (their visibility may change)
+    bump_agent_list_version_for_org_members(agent_organization)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class AgentView(View):
     def get(self, request, *args, **kwargs):
+        from api.ai_layers.access import get_user_organization, accessible_agents_qs
+        from api.ai_layers.cache_utils import get_agent_list_cache_key
+
         # Get user's organization first
-        user_org = None
-        if hasattr(request.user, 'profile') and request.user.profile.organization:
-            user_org = request.user.profile.organization
+        user_org = get_user_organization(request.user)
         
-        # Generar una clave única para el caché basado en el usuario Y su organización
-        # Esto asegura que si la organización cambia o se agregan agentes, se invalida el caché
-        org_id = user_org.id if user_org else "no_org"
-        cache_key = f"agent_data_{request.user.id}_{org_id}"
+        # Cache per (user, org) with a monotonic version key (safe invalidation).
+        org_id = str(user_org.id) if user_org else "no_org"
+        cache_key = get_agent_list_cache_key(request.user.id, org_id)
         cached_data = cache.get(cache_key)
 
         # Si los datos están en el caché, devolverlos directamente
         if cached_data:
             return JsonResponse(cached_data, safe=False)
 
-        # Obtener agentes del usuario Y de su organización
-        # TODOS los miembros de la organización pueden VER los agentes de la organización
-        # La feature flag NO afecta la visibilidad, solo los permisos de edición/eliminación
-        if user_org:
-            agents = Agent.objects.filter(Q(user=request.user) | Q(organization=user_org))
-        else:
-            agents = Agent.objects.filter(user=request.user)
+        # Obtener agentes accesibles al usuario (personal + org; org puede estar restringido por roles)
+        agents = accessible_agents_qs(request.user).prefetch_related("allowed_roles")
         
         models = LanguageModel.objects.all()
         agents_data = AgentSerializer(agents, many=True).data
@@ -92,6 +83,8 @@ class AgentView(View):
 
     def put(self, request, *args, **kwargs):
         from api.authenticate.services import FeatureFlagService
+        from api.authenticate.models import Role
+        import uuid
         
         default_llm = {
             "provider": "openai",
@@ -129,6 +122,10 @@ class AgentView(View):
             return JsonResponse({"error": "You don't have permission to edit this agent"}, status=403)
         
         data = JSONParser().parse(request)
+
+        # Optional role-based access control (org agents only)
+        access_mode = data.pop("access_mode", None)  # "org_all" | "org_roles"
+        allowed_role_ids = data.pop("allowed_role_ids", None)  # list[uuid]
 
         llm_slug = data.get("llm", default_llm).get("slug")
         llm_provider = data.get("llm", default_llm).get("provider")
@@ -187,14 +184,50 @@ class AgentView(View):
             if old_org and old_org != agent.organization:
                 _invalidate_agent_cache_for_user_and_org(request.user, old_org)
 
+            # If moved to personal, clear any role restrictions
+            if agent.organization is None:
+                agent.allowed_roles.clear()
+
         serializer = AgentSerializer(agent, data=data, partial=True)
         if serializer.is_valid():
             serializer.save()
 
+            # Apply role access updates (only for organization agents the user can edit)
+            if agent.organization_id:
+                if access_mode == "org_roles":
+                    if not isinstance(allowed_role_ids, list):
+                        return JsonResponse(
+                            {"error": "allowed_role_ids must be a list when access_mode='org_roles'"},
+                            status=400,
+                        )
+                    cleaned_ids = []
+                    for rid in allowed_role_ids:
+                        if not isinstance(rid, str) or not rid.strip():
+                            continue
+                        try:
+                            cleaned_ids.append(str(uuid.UUID(rid)))
+                        except Exception:
+                            return JsonResponse({"error": f"Invalid role id: {rid}"}, status=400)
+                    roles = list(Role.objects.filter(id__in=cleaned_ids, organization_id=agent.organization_id))
+                    if len(roles) != len(set(cleaned_ids)):
+                        return JsonResponse(
+                            {"error": "One or more roles were not found for this organization"},
+                            status=400,
+                        )
+                    agent.allowed_roles.set(roles)
+                elif access_mode in ("org_all", None):
+                    # Default: unrestricted within org
+                    agent.allowed_roles.clear()
+                else:
+                    return JsonResponse({"error": "Invalid access_mode"}, status=400)
+            else:
+                # Personal agents never have role restrictions
+                agent.allowed_roles.clear()
+
             # Invalidar el caché después de actualizar
             _invalidate_agent_cache_for_user_and_org(request.user, agent.organization)
 
-            return JsonResponse(serializer.data, status=200)
+            return JsonResponse(AgentSerializer(agent).data, status=200)
         return JsonResponse(serializer.errors, status=400)
 
     def post(self, request, *args, **kwargs):
@@ -369,8 +402,12 @@ class LanguageModelView(View):
 def get_formatted_system_prompt(request):
     body = json.loads(request.body)
     profile = UserProfile.objects.get(user=request.user)
+    from api.ai_layers.access import accessible_agents_qs
 
-    agent = Agent.objects.get(slug=body.get("agent_slug", "useful-assistant"))
+    agent_slug = body.get("agent_slug", "useful-assistant")
+    agent = accessible_agents_qs(request.user).filter(slug=agent_slug).first()
+    if not agent:
+        return JsonResponse({"error": "Agent not found or not accessible"}, status=404)
     system = agent.format_prompt(context=body.get("context"))
     if profile:
         system += profile.get_as_text()
@@ -510,16 +547,10 @@ class AgentTaskView(View):
                 status=400,
             )
 
-        # --- Look up agents ---
+        # --- Look up agents (respect org role restrictions) ---
+        from api.ai_layers.access import accessible_agents_qs
         user = request.user
-        user_org = getattr(getattr(user, "profile", None), "organization", None)
-
-        from django.db.models import Q
-        base_qs = Agent.objects.all()
-        if user_org:
-            base_qs = base_qs.filter(Q(user=user) | Q(organization=user_org))
-        else:
-            base_qs = base_qs.filter(user=user)
+        base_qs = accessible_agents_qs(user)
 
         agents_found = list(base_qs.filter(slug__in=slugs))
         found_slugs = {a.slug for a in agents_found}

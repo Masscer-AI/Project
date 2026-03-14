@@ -25,9 +25,48 @@ function secureBucket(resourceName: string, bucketName: string, tags: Tags) {
   return bucket;
 }
 
+function publicReadBucket(resourceName: string, bucketName: string, tags: Tags) {
+  const bucket = new aws.s3.BucketV2(resourceName, { bucket: bucketName, tags });
+
+  new aws.s3.BucketServerSideEncryptionConfigurationV2(`${resourceName}-encryption`, {
+    bucket: bucket.id,
+    rules: [{ applyServerSideEncryptionByDefault: { sseAlgorithm: "AES256" } }],
+  });
+
+  new aws.s3.BucketVersioningV2(`${resourceName}-versioning`, {
+    bucket: bucket.id,
+    versioningConfiguration: { status: "Enabled" },
+  });
+
+  // Allow public reads via bucket policy; block ACL-based public access only.
+  const publicAccessBlock = new aws.s3.BucketPublicAccessBlock(`${resourceName}-public-access`, {
+    bucket: bucket.id,
+    blockPublicAcls: true,
+    blockPublicPolicy: false,
+    ignorePublicAcls: true,
+    restrictPublicBuckets: false,
+  });
+
+  new aws.s3.BucketPolicy(`${resourceName}-policy`, {
+    bucket: bucket.id,
+    policy: bucket.arn.apply((arn) => JSON.stringify({
+      Version: "2012-10-17",
+      Statement: [{
+        Sid: "PublicReadGetObject",
+        Effect: "Allow",
+        Principal: "*",
+        Action: "s3:GetObject",
+        Resource: `${arn}/*`,
+      }],
+    })),
+  }, { dependsOn: [publicAccessBlock] });
+
+  return bucket;
+}
+
 export function createArtifacts(namePrefix: string, tags: Tags) {
   const staticBucket = secureBucket("static-assets-bucket", `${namePrefix}-static-assets`, tags);
-  const mediaBucket = secureBucket("media-assets-bucket", `${namePrefix}-media-assets`, tags);
+  const mediaBucket = publicReadBucket("media-assets-bucket", `${namePrefix}-media-assets`, tags);
 
   const djangoRepo = new aws.ecr.Repository("django-repo", {
     name: `${namePrefix}-django`,

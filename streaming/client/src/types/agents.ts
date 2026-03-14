@@ -57,5 +57,7 @@ export type TAgent = {
   conversation_title_prompt?: string;
   organization?: string | null; // Organization ID if the agent belongs to an organization
   user?: number; // User ID if the agent belongs to a user
+  access_mode?: "personal" | "org_all" | "org_roles";
+  allowed_roles?: { id: string; name: string }[];
   // voice?: TOpenaiVoiceOptions;
 };

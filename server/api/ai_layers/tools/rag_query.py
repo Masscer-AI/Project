@@ -58,8 +58,10 @@ def _rag_query_impl(
     except User.DoesNotExist:
         raise ValueError("User not found")
 
+    from api.ai_layers.access import accessible_agents_qs
+
     agent = Agent.objects.filter(slug=agent_slug).filter(
-        Q(user=user) | Q(organization__members__user=user) | Q(is_public=True)
+        Q(is_public=True) | Q(id__in=accessible_agents_qs(user).values_list("id", flat=True))
     ).first()
     if not agent:
         raise ValueError("Agent not found or user is not allowed to access it")

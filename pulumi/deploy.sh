@@ -197,9 +197,8 @@ DJANGO_SERVICE="$(pulumi stack output djangoServiceName)"
 FASTAPI_SERVICE="$(pulumi stack output fastapiServiceName)"
 CELERY_WORKER_SERVICE="$(pulumi stack output celeryWorkerServiceName)"
 CELERY_BEAT_SERVICE="$(pulumi stack output celeryBeatServiceName)"
-CHROMA_SERVICE="$(pulumi stack output chromaServiceName)"
 
-for SERVICE in "$DJANGO_SERVICE" "$FASTAPI_SERVICE" "$CELERY_WORKER_SERVICE" "$CELERY_BEAT_SERVICE" "$CHROMA_SERVICE"; do
+for SERVICE in "$DJANGO_SERVICE" "$FASTAPI_SERVICE" "$CELERY_WORKER_SERVICE" "$CELERY_BEAT_SERVICE"; do
   aws ecs update-service \
     --cluster "$CLUSTER" \
     --service "$SERVICE" \

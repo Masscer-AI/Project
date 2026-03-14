@@ -24,13 +24,14 @@ export function createAppServices(args: {
   fastapiTargetGroup: aws.lb.TargetGroup;
   httpListener: aws.lb.Listener;
   appTasksSecurityGroupId: any;
-  publicSubnetIds: any[];
+  privateSubnetIds: any[];
   chromaImage: string;
   chromaEfsId: any;
   chromaMountTargets: aws.efs.MountTarget[];
   chromaDiscoveryServiceArn: any;
   chromaInternalHost: pulumi.Output<string>;
   providerParameterArns: ProviderParameterArns;
+  mediaBucket: aws.s3.BucketV2;
 }) {
   const { config } = args;
 
@@ -53,6 +54,19 @@ export function createAppServices(args: {
       return Array.from(new Set(hosts)).join(",");
     });
 
+  // Grant the ECS task role read/write access to the media S3 bucket.
+  new aws.iam.RolePolicy("ecs-task-s3-media-policy", {
+    role: args.taskRole.name,
+    policy: args.mediaBucket.arn.apply((arn) => JSON.stringify({
+      Version: "2012-10-17",
+      Statement: [{
+        Effect: "Allow",
+        Action: ["s3:PutObject", "s3:GetObject", "s3:DeleteObject", "s3:ListBucket"],
+        Resource: [arn, `${arn}/*`],
+      }],
+    })),
+  });
+
   const djangoEnv = [
     { name: "DB_CONNECTION_STRING", value: dbConnectionString },
     { name: "SECRET_KEY", value: config.djangoSecretKey },
@@ -60,11 +74,12 @@ export function createAppServices(args: {
     { name: "CELERY_RESULT_BACKEND", value: celeryBrokerUrl },
     { name: "REDIS_CACHE_URL", value: redisCacheUrl },
     { name: "REDIS_NOTIFICATIONS_URL", value: redisNotificationsUrl },
-    { name: "MEDIA_ROOT", value: "/app/storage" },
     { name: "CHROMA_HOST", value: args.chromaInternalHost },
     { name: "CHROMA_PORT", value: "8000" },
     { name: "API_BASE_URL", value: apiBaseUrl },
     { name: "ALLOWED_EXTRA_HOSTS", value: djangoAllowedHosts },
+    { name: "AWS_STORAGE_BUCKET_NAME", value: args.mediaBucket.bucket },
+    { name: "AWS_S3_REGION_NAME", value: args.region.name },
   ];
 
   const providerSecrets = [
@@ -260,7 +275,8 @@ export function createAppServices(args: {
   }, { dependsOn: args.chromaMountTargets });
 
   const serviceNetworkConfiguration = {
-    subnets: args.publicSubnetIds,
+    // Run tasks in private subnets; NAT gateway provides outbound internet access.
+    subnets: args.privateSubnetIds,
     securityGroups: [args.appTasksSecurityGroupId],
   };
 
@@ -301,6 +317,11 @@ export function createAppServices(args: {
     desiredCount: config.celeryWorkerDesiredCount,
     networkConfiguration: serviceNetworkConfiguration,
     capacityProviderStrategies,
+    // Celery has no ALB health checks, and desiredCount is typically 1.
+    // Default ECS rolling deploy (minHealthy=100, max=200) tries to run 2 tasks briefly,
+    // which often fails with RESOURCE:MEMORY on small clusters. Use stop-then-start.
+    deploymentMinimumHealthyPercent: 0,
+    deploymentMaximumPercent: 100,
     waitForSteadyState: false,
     tags: args.tags,
   }, { dependsOn: [args.clusterCapacityProviders] });
@@ -312,6 +333,8 @@ export function createAppServices(args: {
     desiredCount: config.celeryBeatDesiredCount,
     networkConfiguration: serviceNetworkConfiguration,
     capacityProviderStrategies,
+    deploymentMinimumHealthyPercent: 0,
+    deploymentMaximumPercent: 100,
     waitForSteadyState: false,
     tags: args.tags,
   }, { dependsOn: [args.clusterCapacityProviders] });

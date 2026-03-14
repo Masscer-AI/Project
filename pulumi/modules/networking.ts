@@ -61,6 +61,19 @@ export function createNetworking(namePrefix: string, tags: Tags, vpcCidr: string
     tags: { ...tags, Name: `${namePrefix}-igw` },
   });
 
+  // NAT Gateway: allows private subnets (ECS tasks, RDS/Redis clients) to reach the internet
+  // for outbound requests (e.g. OpenAI API) without exposing them publicly.
+  const natEip = new aws.ec2.Eip("nat-eip", {
+    domain: "vpc",
+    tags: { ...tags, Name: `${namePrefix}-nat-eip` },
+  });
+
+  const natGateway = new aws.ec2.NatGateway("nat-gateway", {
+    allocationId: natEip.id,
+    subnetId: publicSubnetA.id,
+    tags: { ...tags, Name: `${namePrefix}-nat` },
+  }, { dependsOn: [internetGateway] });
+
   const publicRouteTable = new aws.ec2.RouteTable("public-route-table", {
     vpcId: vpc.id,
     routes: [{ cidrBlock: "0.0.0.0/0", gatewayId: internetGateway.id }],
@@ -78,6 +91,7 @@ export function createNetworking(namePrefix: string, tags: Tags, vpcCidr: string
 
   const privateRouteTable = new aws.ec2.RouteTable("private-route-table", {
     vpcId: vpc.id,
+    routes: [{ cidrBlock: "0.0.0.0/0", natGatewayId: natGateway.id }],
     tags: { ...tags, Name: `${namePrefix}-private-rt` },
   });
 
