@@ -164,7 +164,9 @@ def start_generator(generator_id):
 
 
 def get_user_completions(user):
-    user_org = getattr(getattr(user, "profile", None), "organization", None)
+    from api.ai_layers.access import get_user_organization
+
+    user_org = get_user_organization(user)
     if user_org:
         completions = Completion.objects.filter(
             Q(agent__user=user) | Q(agent__organization=user_org)

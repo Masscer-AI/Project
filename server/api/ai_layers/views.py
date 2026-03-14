@@ -39,7 +39,9 @@ def _invalidate_agent_cache_for_user_and_org(user, agent_organization=None):
     # Always bump requester's possible cache versions
     from api.ai_layers.cache_utils import bump_agent_list_version_for_user, bump_agent_list_version_for_org_members
 
-    user_org = getattr(getattr(user, "profile", None), "organization", None)
+    from api.ai_layers.access import get_user_organization
+
+    user_org = get_user_organization(user)
     bump_agent_list_version_for_user(user.id, str(user_org.id) if user_org else None)
 
     if not agent_organization:
@@ -548,8 +550,9 @@ class AgentTaskView(View):
             )
 
         # --- Look up agents (respect org role restrictions) ---
-        from api.ai_layers.access import accessible_agents_qs
+        from api.ai_layers.access import accessible_agents_qs, get_user_organization
         user = request.user
+        user_org = get_user_organization(user)
         base_qs = accessible_agents_qs(user)
 
         agents_found = list(base_qs.filter(slug__in=slugs))

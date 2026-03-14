@@ -5,7 +5,19 @@ from django.utils import timezone
 
 
 def get_user_organization(user):
-    return getattr(getattr(user, "profile", None), "organization", None)
+    """
+    Safe accessor for a user's organization.
+
+    IMPORTANT: accessing `user.profile` can raise UserProfile.DoesNotExist for legacy users,
+    so we must guard it.
+    """
+    if not user:
+        return None
+    try:
+        profile = getattr(user, "profile", None)
+    except Exception:
+        return None
+    return getattr(profile, "organization", None)
 
 
 def get_active_role_ids(user, organization):
