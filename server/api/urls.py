@@ -19,6 +19,8 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf.urls.static import static
 from django.conf import settings
+from django.views.static import serve
+from urllib.parse import urlsplit
 
 
 apps = [
@@ -43,7 +45,17 @@ urlpatterns_django = [
 
 urlpatterns_static = static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 
-# add the media URL
-urlpatterns_media = static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# Serve local media files even when DEBUG is False.
+# When MEDIA_URL points to S3 (absolute URL), Django should not serve media.
+_media_url_parts = urlsplit(settings.MEDIA_URL)
+if settings.MEDIA_URL and not _media_url_parts.netloc:
+    _media_prefix = settings.MEDIA_URL.strip("/")
+    urlpatterns_media = (
+        [path(f"{_media_prefix}/<path:path>", serve, {"document_root": settings.MEDIA_ROOT})]
+        if _media_prefix
+        else []
+    )
+else:
+    urlpatterns_media = []
 
 urlpatterns = urlpatterns_apps + urlpatterns_django + urlpatterns_static + urlpatterns_media
