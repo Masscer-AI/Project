@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from typing import Dict, Any, Optional, Literal
 
 
@@ -43,4 +43,43 @@ class ChatWidgetStyle(BaseModel):
         default=None,
         description="Widget theme mode",
     )
+
+
+class ChatWidgetCapability(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(
+        min_length=1,
+        description="Internal tool name, e.g. read_attachment",
+    )
+    type: Literal["internal_tool"] = Field(
+        default="internal_tool",
+        description="Capability type",
+    )
+    enabled: bool = Field(
+        default=True,
+        description="Whether this capability is enabled",
+    )
+
+    @field_validator("name")
+    @classmethod
+    def validate_name_not_blank(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("Capability name cannot be blank")
+        return cleaned
+
+
+class ChatWidgetCapabilitiesPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    capabilities: list[ChatWidgetCapability] = Field(default_factory=list)
+
+    @field_validator("capabilities")
+    @classmethod
+    def validate_unique_capability_names(cls, value: list[ChatWidgetCapability]):
+        names = [cap.name for cap in value]
+        if len(names) != len(set(names)):
+            raise ValueError("Capability names must be unique")
+        return value
 

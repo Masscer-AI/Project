@@ -212,6 +212,33 @@ export interface TConversationAlert {
   updated_at: string;
 }
 
+export interface TNotificationCondition {
+  subject: "n_alerts";
+  condition: string;
+  delivery_method: "app" | "email" | "all";
+  message: string;
+}
+
+export type TNotifyToType = "user" | "role" | "organization";
+
+export interface TNotificationRule {
+  id: string;
+  organization: string;
+  alert_rule_id: string;
+  alert_rule_name: string | null;
+  notify_to_user_id: number | null;
+  notify_to_user_username: string | null;
+  notify_to_role_id: string | null;
+  notify_to_role_name: string | null;
+  notify_to_org_id: string | null;
+  notify_to_org_name: string | null;
+  conditions: TNotificationCondition[];
+  enabled: boolean;
+  created_by: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface TAlertStats {
   total: number;
   pending: number;
@@ -225,16 +252,23 @@ export interface TChatWidget {
   token: string;
   name: string;
   enabled: boolean;
+  first_message: string;
+  capabilities: TWidgetCapability[];
   style: {
     primary_color?: string;
     theme?: "default" | "light" | "dark";
   };
-  web_search_enabled: boolean;
-  rag_enabled: boolean;
-  plugins_enabled: string[];
   agent_slug: string | null;
   agent_name: string | null;
   embed_code: string;
   created_at: string;
   updated_at: string;
+}
+
+export type TWidgetCapabilityType = "internal_tool";
+
+export interface TWidgetCapability {
+  name: string;
+  type: TWidgetCapabilityType;
+  enabled: boolean;
 }

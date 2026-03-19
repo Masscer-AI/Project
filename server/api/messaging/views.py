@@ -41,6 +41,7 @@ from api.authenticate.decorators.widget_session_required import (
     create_widget_session_token,
     widget_session_required,
 )
+from api.ai_layers.tools import list_available_tools
 from .actions import transcribe_audio, complete_message
 from django.core.files.storage import FileSystemStorage
 import os
@@ -1108,12 +1109,22 @@ class ChatWidgetAgentTaskView(View):
         if not request.widget.agent:
             return JsonResponse({"error": "Widget has no configured agent"}, status=400)
 
-        tool_names = ["read_attachment", "list_attachments"]
-        if request.widget.web_search_enabled:
-            tool_names.append("explore_web")
-        if request.widget.rag_enabled:
-            tool_names.append("rag_query")
-        tool_names.extend(request.widget.plugins_enabled or [])
+        available_tools = set(list_available_tools())
+        configured_tools = []
+        for capability in request.widget.capabilities or []:
+            if not isinstance(capability, dict):
+                continue
+            if capability.get("type") != "internal_tool":
+                continue
+            if not capability.get("enabled", False):
+                continue
+            name = capability.get("name")
+            if isinstance(name, str) and name in available_tools:
+                configured_tools.append(name)
+
+        # Keep attachment tools as defaults for widget conversations.
+        base_tools = ["read_attachment", "list_attachments"]
+        tool_names = list(dict.fromkeys(base_tools + configured_tools))
 
         from api.messaging.tasks import widget_conversation_agent_task
 

@@ -25,6 +25,7 @@ import {
   NativeSelect,
   Stack,
   Text,
+  Textarea,
   TextInput,
   Title,
   Tooltip,
@@ -232,15 +233,25 @@ interface WidgetFormData {
   name: string;
   agent_id: number | null;
   enabled: boolean;
+  first_message: string;
+  capabilities: { name: string; type: "internal_tool"; enabled: boolean }[];
   style?: {
     primary_color?: string;
     theme?: "default" | "light" | "dark";
   };
-  web_search_enabled: boolean;
-  rag_enabled: boolean;
 }
 
 type WidgetTheme = "default" | "light" | "dark";
+const DEFAULT_CAPABILITY_NAMES = [
+  "read_attachment",
+  "list_attachments",
+  "explore_web",
+  "rag_query",
+  "create_image",
+  "create_speech",
+  "read_plugin_instructions",
+  "raise_alert",
+];
 
 const WidgetForm = ({
   agents,
@@ -265,16 +276,22 @@ const WidgetForm = ({
     matchedAgent ? String(matchedAgent.id) : ""
   );
   const [enabled, setEnabled] = useState(initialData?.enabled ?? true);
+  const [firstMessage, setFirstMessage] = useState(initialData?.first_message ?? "");
   const [primaryColor, setPrimaryColor] = useState(
     initialData?.style?.primary_color ?? ""
   );
   const [theme, setTheme] = useState<WidgetTheme>(
     initialData?.style?.theme ?? "default"
   );
-  const [webSearch, setWebSearch] = useState(
-    initialData?.web_search_enabled ?? false
-  );
-  const [rag, setRag] = useState(initialData?.rag_enabled ?? false);
+  const [capabilityState, setCapabilityState] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {};
+    for (const name of DEFAULT_CAPABILITY_NAMES) initial[name] = false;
+    for (const capability of initialData?.capabilities ?? []) {
+      if (!capability?.name) continue;
+      initial[capability.name] = Boolean(capability.enabled);
+    }
+    return initial;
+  });
 
   const handleSubmit = async () => {
     if (!name.trim()) {
@@ -301,9 +318,13 @@ const WidgetForm = ({
         name: name.trim(),
         agent_id: agentId ? parseInt(agentId) : null,
         enabled,
+        first_message: firstMessage.trim(),
+        capabilities: Object.entries(capabilityState).map(([name, isEnabled]) => ({
+          name,
+          type: "internal_tool",
+          enabled: isEnabled,
+        })),
         style: stylePayload,
-        web_search_enabled: webSearch,
-        rag_enabled: rag,
       });
     } finally {
       setSaving(false);
@@ -336,6 +357,17 @@ const WidgetForm = ({
               label: a.name,
             })),
           ]}
+        />
+
+        <Textarea
+          label={t("widget-first-message")}
+          description={t("widget-first-message-description")}
+          placeholder={t("widget-first-message-placeholder")}
+          value={firstMessage}
+          onChange={(e) => setFirstMessage(e.currentTarget.value)}
+          autosize
+          minRows={2}
+          maxRows={4}
         />
 
         <ColorInput
@@ -377,17 +409,33 @@ const WidgetForm = ({
             checked={enabled}
             onChange={(e) => setEnabled(e.currentTarget.checked)}
           />
-          <Checkbox
-            label={t("web-search")}
-            checked={webSearch}
-            onChange={(e) => setWebSearch(e.currentTarget.checked)}
-          />
-          <Checkbox
-            label={t("rag")}
-            checked={rag}
-            onChange={(e) => setRag(e.currentTarget.checked)}
-          />
         </Group>
+
+        <Stack gap={6} mt="xs">
+          <Text size="sm" fw={500}>
+            {t("widget-capabilities")}
+          </Text>
+          {Object.keys(capabilityState)
+            .sort()
+            .map((capabilityName) => (
+              <Stack key={capabilityName} gap={2}>
+                <Checkbox
+                  label={t(`widget-capability-${capabilityName}-title`)}
+                  checked={capabilityState[capabilityName]}
+                  onChange={(e) => {
+                    const checked = e.currentTarget.checked;
+                    setCapabilityState((prev) => ({
+                      ...prev,
+                      [capabilityName]: checked,
+                    }));
+                  }}
+                />
+                <Text size="xs" c="dimmed" ml={28}>
+                  {t(`widget-capability-${capabilityName}-description`)}
+                </Text>
+              </Stack>
+            ))}
+        </Stack>
 
         <Group justify="flex-end" mt="sm">
           <Button variant="default" onClick={onCancel}>
@@ -462,6 +510,15 @@ const WidgetCard = ({
         </Text>
       )}
 
+      {widget.first_message && (
+        <Text size="sm" c="dimmed" mb="xs">
+          {t("widget-first-message")}:{" "}
+          <Text span fw={500} c="white">
+            {widget.first_message}
+          </Text>
+        </Text>
+      )}
+
       <Group gap={6} mb="sm">
         {widget.style?.theme && (
           <Badge size="xs" variant="light" color="indigo">
@@ -473,16 +530,13 @@ const WidgetCard = ({
             {t("widget-primary-color")}: {widget.style.primary_color}
           </Badge>
         )}
-        {widget.web_search_enabled && (
-          <Badge size="xs" variant="light" color="blue">
-            {t("web-search")}
-          </Badge>
-        )}
-        {widget.rag_enabled && (
-          <Badge size="xs" variant="light" color="violet">
-            {t("rag")}
-          </Badge>
-        )}
+        {widget.capabilities
+          ?.filter((capability) => capability.enabled)
+          .map((capability) => (
+            <Badge key={capability.name} size="xs" variant="light" color="blue">
+              {capability.name}
+            </Badge>
+          ))}
       </Group>
 
       {/* Embed code - use window.location.origin so it reflects current host when FRONTEND_URL not set */}

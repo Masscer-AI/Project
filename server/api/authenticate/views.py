@@ -8,9 +8,13 @@ from rest_framework.parsers import MultiPartParser, JSONParser, FormParser
 from django.http import JsonResponse
 from django.http.multipartparser import MultiPartParser, MultiPartParserError
 from django.contrib.auth import authenticate, login
+from django.contrib.auth.tokens import default_token_generator
+from django.conf import settings
 from .serializers import (
     SignupSerializer,
     LoginSerializer,
+    PasswordResetRequestSerializer,
+    PasswordResetConfirmSerializer,
     UserSerializer,
     UserProfileSerializer,
     OrganizationSerializer,
@@ -42,6 +46,10 @@ from django.core.cache import cache
 from .models import FeatureFlagAssignment
 from .feature_flags_registry import KNOWN_FEATURE_FLAGS
 from django.core.exceptions import ValidationError
+from django.utils.encoding import force_bytes, force_str
+from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
+
+from api.utils.email_service import EmailService
 
 logger = logging.getLogger(__name__)
 
@@ -128,6 +136,102 @@ class LoginAPIView(APIView):
                 {"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class PasswordResetRequestAPIView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def post(self, request):
+        serializer = PasswordResetRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        email = serializer.validated_data["email"]
+        user = User.objects.filter(email__iexact=email).first()
+
+        if user:
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+            token = default_token_generator.make_token(user)
+
+            frontend_url = getattr(settings, "FRONTEND_URL", "").rstrip("/")
+            if not frontend_url:
+                scheme = "https" if request.is_secure() else "http"
+                frontend_url = f"{scheme}://{request.get_host()}"
+
+            reset_url = f"{frontend_url}/reset-password?uid={uid}&token={token}"
+
+            html = f"""
+                <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+                    <h2>Reset your password</h2>
+                    <p>We received a request to reset your password.</p>
+                    <p>
+                        <a href="{reset_url}" style="display:inline-block;padding:10px 16px;background:#6e5bff;color:#fff;text-decoration:none;border-radius:6px;">
+                            Reset Password
+                        </a>
+                    </p>
+                    <p>If the button does not work, open this link:</p>
+                    <p><a href="{reset_url}">{reset_url}</a></p>
+                    <p>If you did not request this, you can safely ignore this email.</p>
+                </div>
+            """.strip()
+
+            try:
+                email_service = EmailService()
+                email_service.send_email(
+                    to=user.email,
+                    subject="Reset your password",
+                    html=html,
+                    from_name="Masscer",
+                )
+            except Exception:
+                logger.exception("Failed to send password reset email")
+
+        return Response(
+            {
+                "message": "If an account with that email exists, a password reset link has been sent."
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class PasswordResetConfirmAPIView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def post(self, request):
+        serializer = PasswordResetConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        uid = serializer.validated_data["uid"]
+        token = serializer.validated_data["token"]
+        new_password = serializer.validated_data["new_password"]
+
+        try:
+            user_id = force_str(urlsafe_base64_decode(uid))
+            user = User.objects.get(pk=user_id)
+        except Exception:
+            return Response(
+                {"error": "invalid-or-expired-reset-link"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not default_token_generator.check_token(user, token):
+            return Response(
+                {"error": "invalid-or-expired-reset-link"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user.set_password(new_password)
+        user.save(update_fields=["password"])
+
+        Token.objects.filter(user=user, token_type="login").delete()
+
+        return Response(
+            {"message": "Password reset successful."},
+            status=status.HTTP_200_OK,
+        )
 
 
 @method_decorator(csrf_exempt, name="dispatch")

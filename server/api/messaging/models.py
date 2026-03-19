@@ -254,9 +254,8 @@ class ChatWidget(models.Model):
     name = models.CharField(max_length=255)
     enabled = models.BooleanField(default=True)
     style = models.JSONField(default=dict, blank=True)
-    web_search_enabled = models.BooleanField(default=False)
-    rag_enabled = models.BooleanField(default=False)
-    plugins_enabled = models.JSONField(default=list, blank=True)
+    first_message = models.TextField(blank=True, default="")
+    capabilities = models.JSONField(default=list, blank=True)
     agent = models.ForeignKey(
         "ai_layers.Agent", on_delete=models.SET_NULL, null=True, blank=True
     )

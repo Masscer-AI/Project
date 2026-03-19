@@ -17,6 +17,7 @@ import {
   TTag,
   TWebPage,
   TChatWidget,
+  TWidgetCapability,
 } from "../types";
 import { TReactionTemplate, TUserProfile } from "../types/chatTypes";
 import { TAgent, TModel } from "../types/agents";
@@ -262,6 +263,23 @@ export const getUser = async () => {
   return makeAuthenticatedRequest("GET", "v1/auth/user/me");
 };
 
+export const requestPasswordReset = async (email: string) => {
+  const response = await axios.post(`${API_URL}/v1/auth/password-reset/request`, {
+    email,
+  });
+  return response.data;
+};
+
+export const confirmPasswordReset = async (data: {
+  uid: string;
+  token: string;
+  new_password: string;
+  confirm_password: string;
+}) => {
+  const response = await axios.post(`${API_URL}/v1/auth/password-reset/confirm`, data);
+  return response.data;
+};
+
 export const createAgent = async (agent: any) => {
   try {
     const endpoint = `/v1/ai_layers/agents/`;
@@ -431,10 +449,10 @@ export const getConversations = async (
     const d = filters.dateTo instanceof Date ? filters.dateTo : new Date(filters.dateTo);
     params.set("date_to", `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
   }
-  if (filters.minMessages != null && filters.minMessages !== "") {
+  if (filters.minMessages != null) {
     params.set("min_messages", String(filters.minMessages));
   }
-  if (filters.maxMessages != null && filters.maxMessages !== "") {
+  if (filters.maxMessages != null) {
     params.set("max_messages", String(filters.maxMessages));
   }
   if (filters.selectedTags?.length) {
@@ -475,10 +493,10 @@ export const getConversationStats = async (
     const d = filters.dateTo instanceof Date ? filters.dateTo : new Date(filters.dateTo);
     params.set("date_to", `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
   }
-  if (filters.minMessages != null && filters.minMessages !== "") {
+  if (filters.minMessages != null) {
     params.set("min_messages", String(filters.minMessages));
   }
-  if (filters.maxMessages != null && filters.maxMessages !== "") {
+  if (filters.maxMessages != null) {
     params.set("max_messages", String(filters.maxMessages));
   }
   if (filters.selectedTags?.length) {
@@ -654,6 +672,41 @@ export const deleteTag = async (tagId: number) => {
   return makeAuthenticatedRequest<{ message: string; status: number }>(
     "DELETE",
     `/v1/messaging/tags/${tagId}/`
+  );
+};
+
+export const getNotificationRules = async () => {
+  return makeAuthenticatedRequest<TNotificationRule[]>(
+    "GET",
+    "/v1/notify/notification-rules/"
+  );
+};
+
+export const createNotificationRule = async (
+  data: Omit<TNotificationRule, "id" | "organization" | "alert_rule_name" | "notify_to_user_username" | "notify_to_role_name" | "notify_to_org_name" | "created_by" | "created_at" | "updated_at">
+) => {
+  return makeAuthenticatedRequest<TNotificationRule>(
+    "POST",
+    "/v1/notify/notification-rules/",
+    data
+  );
+};
+
+export const updateNotificationRule = async (
+  ruleId: string,
+  data: Partial<TNotificationRule>
+) => {
+  return makeAuthenticatedRequest<TNotificationRule>(
+    "PUT",
+    `/v1/notify/notification-rules/${ruleId}/`,
+    data
+  );
+};
+
+export const deleteNotificationRule = async (ruleId: string) => {
+  return makeAuthenticatedRequest<{ message: string }>(
+    "DELETE",
+    `/v1/notify/notification-rules/${ruleId}/`
   );
 };
 
@@ -1293,13 +1346,12 @@ export const createChatWidget = async (data: {
   name: string;
   agent_id?: number | null;
   enabled?: boolean;
+  first_message?: string;
+  capabilities?: TWidgetCapability[];
   style?: {
     primary_color?: string;
     theme?: "default" | "light" | "dark";
   };
-  web_search_enabled?: boolean;
-  rag_enabled?: boolean;
-  plugins_enabled?: string[];
 }) => {
   return makeAuthenticatedRequest<TChatWidget>(
     "POST",
@@ -1314,13 +1366,12 @@ export const updateChatWidget = async (
     name: string;
     agent_id: number | null;
     enabled: boolean;
+    first_message: string;
+    capabilities: TWidgetCapability[];
     style: {
       primary_color?: string;
       theme?: "default" | "light" | "dark";
     };
-    web_search_enabled: boolean;
-    rag_enabled: boolean;
-    plugins_enabled: string[];
   }>
 ) => {
   return makeAuthenticatedRequest<TChatWidget>(

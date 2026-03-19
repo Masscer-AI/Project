@@ -18,6 +18,8 @@ import Signup from "./routes/signup/page.tsx";
 import ChatView from "./routes/chat/page.tsx";
 import Layout from "./routes/Layout.tsx";
 import Login from "./routes/login/page.tsx";
+import ForgotPassword from "./routes/forgot-password/page.tsx";
+import ResetPassword from "./routes/reset-password/page.tsx";
 
 import Whatsapp from "./routes/whatsapp/page.tsx";
 
@@ -57,6 +59,14 @@ const router = createBrowserRouter([
       {
         path: "/login",
         element: <Login />,
+      },
+      {
+        path: "/forgot-password",
+        element: <ForgotPassword />,
+      },
+      {
+        path: "/reset-password",
+        element: <ResetPassword />,
       },
       {
         path: "/chat",

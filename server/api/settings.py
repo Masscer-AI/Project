@@ -221,6 +221,7 @@ MEDIA_URL = "/media/"
 # Base URL for building absolute URLs (e.g. for MessageAttachment display).
 # Set API_BASE_URL in env for production (e.g. https://api.example.com).
 API_BASE_URL = os.environ.get("API_BASE_URL", "")
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "")
 
 # S3 media storage — enabled when AWS_STORAGE_BUCKET_NAME is set.
 _s3_media_bucket = os.environ.get("AWS_STORAGE_BUCKET_NAME", "")

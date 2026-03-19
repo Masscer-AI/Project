@@ -33,6 +33,7 @@ apps = [
     ("v1/whatsapp/", "api.whatsapp.urls", "whatsapp"),
     ("v1/feedback/", "api.feedback.urls", "feedback"),
     ("v1/preferences/", "api.preferences.urls", "preferences"),
+    ("v1/notify/", "api.notify.urls", "notify"),
 ]
 
 urlpatterns_apps = [

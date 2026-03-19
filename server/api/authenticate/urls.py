@@ -2,6 +2,8 @@ from django.urls import path
 from .views import (
     LoginAPIView,
     SignupAPIView,
+    PasswordResetRequestAPIView,
+    PasswordResetConfirmAPIView,
     UserView,
     OrganizationView,
     OrganizationCredentialsView,
@@ -20,6 +22,16 @@ app_name = "authenticate"
 urlpatterns = [
     path("signup", SignupAPIView.as_view(), name="api_signup"),
     path("login", LoginAPIView.as_view(), name="api_login"),
+    path(
+        "password-reset/request",
+        PasswordResetRequestAPIView.as_view(),
+        name="password_reset_request",
+    ),
+    path(
+        "password-reset/confirm",
+        PasswordResetConfirmAPIView.as_view(),
+        name="password_reset_confirm",
+    ),
     path("user/me", UserView.as_view(), name="user_me"),
     path("organizations/", OrganizationView.as_view(), name="organization"),
     path(

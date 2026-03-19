@@ -3,7 +3,8 @@ from pydantic import ValidationError as PydanticValidationError
 from .models import Message, Conversation, ChatWidget, ConversationAlert, ConversationAlertRule, Tag
 from api.feedback.serializers import ReactionSerializer
 from api.utils.timezone_utils import format_datetime_for_organization, get_organization_timezone_from_request
-from .schemas import ChatWidgetStyle
+from api.ai_layers.tools import list_available_tools
+from .schemas import ChatWidgetStyle, ChatWidgetCapabilitiesPayload
 
 
 class MessageSerializer(serializers.ModelSerializer):
@@ -185,9 +186,8 @@ class ChatWidgetConfigSerializer(serializers.ModelSerializer):
             "name",
             "enabled",
             "style",
-            "web_search_enabled",
-            "rag_enabled",
-            "plugins_enabled",
+            "first_message",
+            "capabilities",
             "agent_slug",
             "agent_name",
         )
@@ -236,6 +236,30 @@ class ChatWidgetSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(exc.errors()) from exc
 
         return parsed.model_dump(exclude_none=True)
+
+    def validate_capabilities(self, value):
+        if value is None:
+            return []
+        if not isinstance(value, list):
+            raise serializers.ValidationError("capabilities must be a JSON array.")
+
+        try:
+            parsed_payload = ChatWidgetCapabilitiesPayload.model_validate(
+                {"capabilities": value}
+            )
+        except PydanticValidationError as exc:
+            raise serializers.ValidationError(exc.errors()) from exc
+
+        available_tools = set(list_available_tools())
+        invalid_names = sorted(
+            cap.name for cap in parsed_payload.capabilities if cap.name not in available_tools
+        )
+        if invalid_names:
+            raise serializers.ValidationError(
+                f"Unknown capabilities: {', '.join(invalid_names)}"
+            )
+
+        return [cap.model_dump() for cap in parsed_payload.capabilities]
     
     class Meta:
         model = ChatWidget
@@ -245,9 +269,8 @@ class ChatWidgetSerializer(serializers.ModelSerializer):
             "name",
             "enabled",
             "style",
-            "web_search_enabled",
-            "rag_enabled",
-            "plugins_enabled",
+            "first_message",
+            "capabilities",
             "agent_slug",
             "agent_name",
             "agent_id",

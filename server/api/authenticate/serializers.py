@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
+from django.contrib.auth.password_validation import validate_password
 from .models import Organization, CredentialsManager, UserProfile, FeatureFlag, FeatureFlagAssignment, Role, RoleAssignment
 from rest_framework.exceptions import ValidationError
 from django.db import transaction
@@ -76,6 +77,24 @@ class SignupSerializer(serializers.ModelSerializer):
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
+
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    uid = serializers.CharField()
+    token = serializers.CharField()
+    new_password = serializers.CharField(write_only=True, min_length=8)
+    confirm_password = serializers.CharField(write_only=True, min_length=8)
+
+    def validate(self, attrs):
+        if attrs["new_password"] != attrs["confirm_password"]:
+            raise ValidationError("Passwords do not match.")
+
+        validate_password(attrs["new_password"])
+        return attrs
 
 
 class UserProfileSerializer(serializers.ModelSerializer):

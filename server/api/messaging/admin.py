@@ -88,7 +88,7 @@ class MessageAdmin(admin.ModelAdmin):
 
 class ChatWidgetAdmin(admin.ModelAdmin):
     list_display = ("name", "token", "agent", "enabled", "created_by", "created_at")
-    list_filter = ("enabled", "web_search_enabled", "rag_enabled", "created_at", "agent")
+    list_filter = ("enabled", "created_at", "agent")
     search_fields = ("name", "token", "agent__name", "agent__slug")
     readonly_fields = ("token", "widget_script_url", "created_at", "updated_at")
     fields = (
@@ -96,10 +96,9 @@ class ChatWidgetAdmin(admin.ModelAdmin):
         "token",
         "widget_script_url",
         "enabled",
+        "first_message",
+        "capabilities",
         "agent",
-        "web_search_enabled",
-        "rag_enabled",
-        "plugins_enabled",
         "created_by",
         "created_at",
         "updated_at",

@@ -116,7 +116,23 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
 
         const conv = await initWidgetConversation(widgetToken, sessionToken);
         setConversation(conv);
-        setMessages(conv.messages || []);
+        const loadedMessages = conv.messages || [];
+        if (
+          loadedMessages.length === 0 &&
+          typeof config.first_message === "string" &&
+          config.first_message.trim()
+        ) {
+          setMessages([
+            {
+              type: "assistant",
+              text: config.first_message.trim(),
+              attachments: [],
+              versions: [],
+            },
+          ]);
+        } else {
+          setMessages(loadedMessages);
+        }
 
         setIsInitialized(true);
       } catch (error) {

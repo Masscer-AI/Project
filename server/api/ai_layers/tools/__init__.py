@@ -23,7 +23,6 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 TOOL_REGISTRY: dict[str, str] = {
-    "print_color": "api.ai_layers.tools.print_color",
     "read_attachment": "api.ai_layers.tools.read_attachment",
     "list_attachments": "api.ai_layers.tools.list_attachments",
     "explore_web": "api.ai_layers.tools.explore_web",
@@ -43,7 +42,7 @@ def resolve_tools(tool_names: list[str], **context) -> list[dict]:
     imported, and its get_tool() function is called.
 
     Args:
-        tool_names: list of registered tool names (e.g. ["print_color"])
+        tool_names: list of registered tool names (e.g. ["read_attachment"])
 
     Returns:
         list of AgentTool dicts ready for AgentLoop(tools=[...])

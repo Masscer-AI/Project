@@ -136,6 +136,9 @@ export default function Login() {
                 variant="filled"
                 size="md"
               />
+              <Anchor component={Link} to="/forgot-password" c="violet" size="sm" ta="right">
+                {t("forgot-password")}
+              </Anchor>
 
               {isDeactivated && (
                 <Alert

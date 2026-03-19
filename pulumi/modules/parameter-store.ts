@@ -9,6 +9,7 @@ export interface ProviderParameterArns {
   braveApiKeyArn: pulumi.Output<string>;
   bflApiKeyArn: pulumi.Output<string>;
   runwayApiKeyArn: pulumi.Output<string>;
+  resendApiKeyArn: pulumi.Output<string>;
   whatsappGraphApiTokenArn: pulumi.Output<string>;
   whatsappWebhookVerifyTokenArn: pulumi.Output<string>;
 }
@@ -76,6 +77,14 @@ export function createProviderParameters(args: {
     value: normalizeSecret(args.runwayApiKey),
   });
 
+  const resendApiKey = new aws.ssm.Parameter("resend-api-key-param", {
+    name: `${basePath}/RESEND_API_KEY`,
+    type: "SecureString",
+    value: "__UNSET__",
+  }, {
+    ignoreChanges: ["value"],
+  });
+
   const whatsappGraphApiToken = new aws.ssm.Parameter("whatsapp-graph-api-token-param", {
     name: `${basePath}/WHATSAPP_GRAPH_API_TOKEN`,
     type: "SecureString",
@@ -96,6 +105,7 @@ export function createProviderParameters(args: {
     braveApiKey.arn,
     bflApiKey.arn,
     runwayApiKey.arn,
+    resendApiKey.arn,
     whatsappGraphApiToken.arn,
     whatsappWebhookVerifyToken.arn,
   ];
@@ -127,6 +137,7 @@ export function createProviderParameters(args: {
     braveApiKeyArn: braveApiKey.arn,
     bflApiKeyArn: bflApiKey.arn,
     runwayApiKeyArn: runwayApiKey.arn,
+    resendApiKeyArn: resendApiKey.arn,
     whatsappGraphApiTokenArn: whatsappGraphApiToken.arn,
     whatsappWebhookVerifyTokenArn: whatsappWebhookVerifyToken.arn,
   };

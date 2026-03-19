@@ -2,17 +2,17 @@ import { create } from "zustand";
 import { TMessage } from "../types/chatTypes";
 import { TAgent } from "../types/agents";
 import { TConversation } from "../types";
+import { TWidgetCapability } from "../types";
 
 export interface WidgetConfig {
   name: string;
   enabled: boolean;
+  first_message: string;
+  capabilities: TWidgetCapability[];
   style?: {
     primary_color?: string;
     theme?: "default" | "light" | "dark";
   };
-  web_search_enabled: boolean;
-  rag_enabled: boolean;
-  plugins_enabled: string[];
   agent_slug: string;
   agent_name: string;
 }

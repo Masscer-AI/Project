@@ -77,6 +77,7 @@ export function createAppServices(args: {
     { name: "CHROMA_HOST", value: args.chromaInternalHost },
     { name: "CHROMA_PORT", value: "8000" },
     { name: "API_BASE_URL", value: apiBaseUrl },
+    { name: "FRONTEND_URL", value: frontendUrl },
     { name: "ALLOWED_EXTRA_HOSTS", value: djangoAllowedHosts },
     { name: "AWS_STORAGE_BUCKET_NAME", value: args.mediaBucket.bucket },
     { name: "AWS_S3_REGION_NAME", value: args.region.name },
@@ -90,6 +91,7 @@ export function createAppServices(args: {
     { name: "BRAVE_API_KEY", valueFrom: args.providerParameterArns.braveApiKeyArn },
     { name: "BFL_API_KEY", valueFrom: args.providerParameterArns.bflApiKeyArn },
     { name: "RUNWAY_API_KEY", valueFrom: args.providerParameterArns.runwayApiKeyArn },
+    { name: "RESEND_API_KEY", valueFrom: args.providerParameterArns.resendApiKeyArn },
     { name: "WHATSAPP_GRAPH_API_TOKEN", valueFrom: args.providerParameterArns.whatsappGraphApiTokenArn },
     { name: "WHATSAPP_WEBHOOK_VERIFY_TOKEN", valueFrom: args.providerParameterArns.whatsappWebhookVerifyTokenArn },
   ];
