@@ -1,6 +1,5 @@
 import requests
 import uuid
-from moviepy.editor import VideoFileClip, concatenate_videoclips, AudioFileClip
 from django.conf import settings
 from django.contrib.auth.models import User
 
@@ -42,6 +41,17 @@ from api.utils.elevenlabs_functions import generate_audio_elevenlabs
 SAVE_PATH = os.path.join(settings.MEDIA_ROOT, "generated")
 
 os.makedirs(SAVE_PATH, exist_ok=True)
+
+
+def _require_moviepy():
+    try:
+        from moviepy.editor import AudioFileClip, VideoFileClip, concatenate_videoclips
+    except ModuleNotFoundError as exc:
+        raise RuntimeError(
+            "moviepy is required for video transcription/generation features."
+        ) from exc
+
+    return VideoFileClip, concatenate_videoclips, AudioFileClip
 
 
 def format_time_vtt(time):
@@ -131,6 +141,7 @@ def transcribe(job_id):
             )
             job.status = "DONE"
         elif job.source_type == "VIDEO":
+            VideoFileClip, _, _ = _require_moviepy()
             video_path = job.video_file.path
             audio_path = os.path.splitext(video_path)[0] + ".wav"
             video_clip = VideoFileClip(video_path)
@@ -230,6 +241,7 @@ def generate_video(video_job_id: int):
 
 def generate_chunk_video(video_chunk_id: int):
     chunk = VideoChunk.objects.get(pk=video_chunk_id)
+    _, concatenate_videoclips, AudioFileClip = _require_moviepy()
 
     # Update status to PROCESSING
     chunk.status = "PROCESSING"

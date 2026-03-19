@@ -7,6 +7,7 @@ import { TWidgetCapability } from "../types";
 export interface WidgetConfig {
   name: string;
   enabled: boolean;
+  avatar_image: string;
   first_message: string;
   capabilities: TWidgetCapability[];
   style?: {

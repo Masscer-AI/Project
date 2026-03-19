@@ -11,6 +11,7 @@ import {
   IconBell,
   IconShield,
   IconHash,
+  IconBellCog,
 } from "@tabler/icons-react";
 
 interface DashboardLayoutProps {
@@ -39,6 +40,12 @@ const TABS: DashboardTab[] = [
     labelKey: "manage-tags",
     featureFlag: "tags-management",
   },
+  {
+    value: "/dashboard/notification-settings",
+    icon: IconBellCog,
+    labelKey: "notification-settings",
+    featureFlag: "can-set-notifications",
+  },
 ];
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
@@ -52,10 +59,12 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const canManageAlertRules = useIsFeatureEnabled("alert-rules-manager");
   const canManageTags = useIsFeatureEnabled("tags-management");
+  const canSetNotifications = useIsFeatureEnabled("can-set-notifications");
 
   const featureFlagMap: Record<string, boolean | null> = {
     "alert-rules-manager": canManageAlertRules,
     "tags-management": canManageTags,
+    "can-set-notifications": canSetNotifications,
   };
 
   const currentTab =

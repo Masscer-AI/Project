@@ -1,6 +1,5 @@
 from django.db import models
 from django.contrib.auth.models import User
-from moviepy.editor import concatenate_videoclips, VideoFileClip
 
 import os
 from django.core.files.storage import default_storage
@@ -101,6 +100,13 @@ class Video(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def concatenate(self):
+        try:
+            from moviepy.editor import concatenate_videoclips, VideoFileClip
+        except ModuleNotFoundError as exc:
+            raise RuntimeError(
+                "moviepy is required for video concatenation features."
+            ) from exc
+
         # Fetch all chunks associated with this video
         chunks = VideoChunk.objects.filter(video=self)
 

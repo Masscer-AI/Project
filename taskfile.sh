@@ -45,7 +45,7 @@ case "$COMMAND" in
     ;;
   front)
     cd "./streaming/client"
-    exec npm run build "$@"
+    exec npm run build:all "$@"
     ;;
   autoupload)
     exec bash "./scripts/autoUpload.sh" "$@"

@@ -246,6 +246,15 @@ docker run --rm \
     -v "${PROJECT_ROOT}/storage:/app/storage" \
     $DJANGO_IMAGE python manage.py migrate || { error "Migrations failed"; exit 1; }
 
+# ── Django static files ───────────────────────────────────────────────────────
+info "Collecting Django static files..."
+docker run --rm \
+    --network $NETWORK_NAME \
+    "${DJANGO_ENV[@]}" \
+    -v "${BACKEND_DIR}:/app" \
+    -v "${PROJECT_ROOT}/storage:/app/storage" \
+    $DJANGO_IMAGE python manage.py collectstatic --noinput || { error "Collectstatic failed"; exit 1; }
+
 # ── Django ────────────────────────────────────────────────────────────────────
 info "Starting Django..."
 docker stop $DJANGO_CONTAINER 2>/dev/null || true

@@ -253,6 +253,7 @@ class ChatWidget(models.Model):
     token = models.CharField(max_length=64, unique=True, db_index=True, blank=True)
     name = models.CharField(max_length=255)
     enabled = models.BooleanField(default=True)
+    avatar_image = models.TextField(blank=True, default="")
     style = models.JSONField(default=dict, blank=True)
     first_message = models.TextField(blank=True, default="")
     capabilities = models.JSONField(default=list, blank=True)

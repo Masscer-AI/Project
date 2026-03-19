@@ -397,23 +397,40 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
           onClick={() => setIsOpen(true)}
           aria-label="Open chat"
         >
-          <svg
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-          </svg>
+          {config.avatar_image ? (
+            <img
+              src={config.avatar_image}
+              alt={config.name || "Chat avatar"}
+              className="chat-widget-bubble-avatar"
+            />
+          ) : (
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+          )}
         </button>
       )}
 
       {isOpen && (
         <div className="chat-widget-container" style={widgetCssVars}>
           <div className="chat-widget-header">
-            <h3>{config.name || "Chat"}</h3>
+            <div className="chat-widget-header-main">
+              {config.avatar_image && (
+                <img
+                  src={config.avatar_image}
+                  alt={config.name || "Chat avatar"}
+                  className="chat-widget-header-avatar"
+                />
+              )}
+              <h3>{config.name || "Chat"}</h3>
+            </div>
             <button
               className="chat-widget-close"
               onClick={() => setIsOpen(false)}
@@ -423,20 +440,30 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
             </button>
           </div>
           <div ref={chatMessageContainerRef} className="chat-widget-messages">
-            {messages.map((msg, index) => (
+            {messages.map((msg, index) => {
+              const hasMessageText =
+                (msg.text ?? "").trim().length > 0 ||
+                (msg.versions ?? []).some(
+                  (version) => (version.text ?? "").trim().length > 0
+                );
+
+              const isInProgress =
+                index === messages.length - 1 &&
+                msg.type === "assistant" &&
+                !msg.id &&
+                !hasMessageText;
+
+              return (
               <WidgetMessage
                 {...msg}
                 key={msg.id ?? `${index}-${msg.type}`}
                 index={index}
                 numberMessages={messages.length}
-                isLastAssistantInProgress={
-                  index === messages.length - 1 &&
-                  msg.type === "assistant" &&
-                  !msg.id
-                }
+                isLastAssistantInProgress={isInProgress}
                 agentTaskStatus={agentTaskStatus}
               />
-            ))}
+              );
+            })}
           </div>
           <div className="chat-widget-input-container">
             <SimpleChatInput

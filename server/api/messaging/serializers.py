@@ -1,3 +1,5 @@
+from urllib.parse import urlparse
+
 from rest_framework import serializers
 from pydantic import ValidationError as PydanticValidationError
 from .models import Message, Conversation, ChatWidget, ConversationAlert, ConversationAlertRule, Tag
@@ -185,6 +187,7 @@ class ChatWidgetConfigSerializer(serializers.ModelSerializer):
         fields = (
             "name",
             "enabled",
+            "avatar_image",
             "style",
             "first_message",
             "capabilities",
@@ -237,6 +240,30 @@ class ChatWidgetSerializer(serializers.ModelSerializer):
 
         return parsed.model_dump(exclude_none=True)
 
+    def validate_avatar_image(self, value):
+        if value is None:
+            return ""
+
+        normalized = str(value).strip()
+        if not normalized:
+            return ""
+
+        lowered = normalized.lower()
+        if lowered.startswith("data:image/"):
+            # Keep validation strict: only base64 encoded image data URLs.
+            if ";base64," not in lowered:
+                raise serializers.ValidationError(
+                    "avatar_image data URL must be base64-encoded (missing ';base64,')."
+                )
+            return normalized
+
+        parsed = urlparse(normalized)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            raise serializers.ValidationError(
+                "avatar_image must be an http(s) URL or a data:image/...;base64,... URL."
+            )
+        return normalized
+
     def validate_capabilities(self, value):
         if value is None:
             return []
@@ -268,6 +295,7 @@ class ChatWidgetSerializer(serializers.ModelSerializer):
             "token",
             "name",
             "enabled",
+            "avatar_image",
             "style",
             "first_message",
             "capabilities",

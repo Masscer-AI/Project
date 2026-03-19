@@ -6,7 +6,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.core.exceptions import PermissionDenied
 
 from api.authenticate.models import Organization, Role
-from api.authenticate.decorators import token_required
+from api.authenticate.decorators.token_required import token_required
 from api.authenticate.services import FeatureFlagService
 from api.notify.models import NotificationRule
 from api.notify.serializers import NotificationRuleSerializer

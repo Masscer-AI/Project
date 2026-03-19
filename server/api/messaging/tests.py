@@ -51,10 +51,30 @@ class ChatWidgetCapabilitiesTests(TestCase):
         self.assertFalse(serializer.is_valid())
         self.assertIn("capabilities", serializer.errors)
 
+    def test_serializer_accepts_data_url_avatar_image(self):
+        serializer = ChatWidgetSerializer(
+            data={
+                "name": "Widget Avatar Data URL",
+                "avatar_image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUA",
+            }
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_serializer_rejects_non_http_and_non_data_avatar_image(self):
+        serializer = ChatWidgetSerializer(
+            data={
+                "name": "Widget Bad Avatar",
+                "avatar_image": "ftp://example.com/avatar.png",
+            }
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("avatar_image", serializer.errors)
+
     def test_widget_config_includes_first_message_and_capabilities(self):
         widget = ChatWidget.objects.create(
             name="Widget C",
             enabled=True,
+            avatar_image="https://cdn.example.com/widget-avatar.png",
             created_by=self.user,
             agent=self.agent,
             first_message="Welcome to the widget",
@@ -69,7 +89,9 @@ class ChatWidgetCapabilitiesTests(TestCase):
         body = response.json()
         self.assertIn("first_message", body)
         self.assertIn("capabilities", body)
+        self.assertIn("avatar_image", body)
         self.assertEqual(body["first_message"], "Welcome to the widget")
+        self.assertEqual(body["avatar_image"], "https://cdn.example.com/widget-avatar.png")
         self.assertEqual(len(body["capabilities"]), 1)
 
     @patch("api.messaging.tasks.widget_conversation_agent_task.delay")

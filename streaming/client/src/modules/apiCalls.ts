@@ -18,6 +18,7 @@ import {
   TWebPage,
   TChatWidget,
   TWidgetCapability,
+  TNotificationRule,
 } from "../types";
 import { TReactionTemplate, TUserProfile } from "../types/chatTypes";
 import { TAgent, TModel } from "../types/agents";
@@ -1346,6 +1347,7 @@ export const createChatWidget = async (data: {
   name: string;
   agent_id?: number | null;
   enabled?: boolean;
+  avatar_image?: string;
   first_message?: string;
   capabilities?: TWidgetCapability[];
   style?: {
@@ -1366,6 +1368,7 @@ export const updateChatWidget = async (
     name: string;
     agent_id: number | null;
     enabled: boolean;
+    avatar_image: string;
     first_message: string;
     capabilities: TWidgetCapability[];
     style: {

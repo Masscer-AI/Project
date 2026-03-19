@@ -233,6 +233,7 @@ interface WidgetFormData {
   name: string;
   agent_id: number | null;
   enabled: boolean;
+  avatar_image: string;
   first_message: string;
   capabilities: { name: string; type: "internal_tool"; enabled: boolean }[];
   style?: {
@@ -276,6 +277,7 @@ const WidgetForm = ({
     matchedAgent ? String(matchedAgent.id) : ""
   );
   const [enabled, setEnabled] = useState(initialData?.enabled ?? true);
+  const [avatarImage, setAvatarImage] = useState(initialData?.avatar_image ?? "");
   const [firstMessage, setFirstMessage] = useState(initialData?.first_message ?? "");
   const [primaryColor, setPrimaryColor] = useState(
     initialData?.style?.primary_color ?? ""
@@ -318,6 +320,7 @@ const WidgetForm = ({
         name: name.trim(),
         agent_id: agentId ? parseInt(agentId) : null,
         enabled,
+        avatar_image: avatarImage.trim(),
         first_message: firstMessage.trim(),
         capabilities: Object.entries(capabilityState).map(([name, isEnabled]) => ({
           name,
@@ -357,6 +360,15 @@ const WidgetForm = ({
               label: a.name,
             })),
           ]}
+        />
+
+        <TextInput
+          label={t("widget-avatar-image")}
+          description={t("widget-avatar-image-description")}
+          placeholder={t("widget-avatar-image-placeholder")}
+          value={avatarImage}
+          onChange={(e) => setAvatarImage(e.currentTarget.value)}
+          type="text"
         />
 
         <Textarea
@@ -507,6 +519,15 @@ const WidgetCard = ({
       {widget.agent_name && (
         <Text size="sm" c="dimmed" mb="xs">
           {t("agent")}: <Text span fw={500} c="white">{widget.agent_name}</Text>
+        </Text>
+      )}
+
+      {widget.avatar_image && (
+        <Text size="sm" c="dimmed" mb="xs">
+          {t("widget-avatar-image")}:{" "}
+          <Text span fw={500}>
+            {widget.avatar_image}
+          </Text>
         </Text>
       )}
 

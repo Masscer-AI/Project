@@ -31,6 +31,8 @@ TOOL_REGISTRY: dict[str, str] = {
     "create_speech": "api.ai_layers.tools.create_speech",
     "read_plugin_instructions": "api.ai_layers.tools.read_plugin_instructions",
     "raise_alert": "api.ai_layers.tools.raise_alert",
+    # Cloudbeds integration tools
+    "cloudbeds_list_hotels": "api.ai_layers.tools.cloudbeds_list_hotels",
 }
 
 

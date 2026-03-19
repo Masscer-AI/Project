@@ -888,6 +888,7 @@ def conversation_agent_task(
                 conversation_id=conversation_id,
                 user_id=actor_user_id,
                 agent_slug=agent.slug,
+                organization_id=organization.id if organization else None,
             )
             if applicable_alert_rules and organization:
                 resolve_kwargs["organization_id"] = organization.id
