@@ -86,4 +86,12 @@ export type Store = {
   setSpecifiedUrls: (urls: TSpecifiedUrl[]) => void;
   setAgentTaskStatus: (status: string | null) => void;
   test: () => void;
+  /** Team feature flags map from GET /v1/auth/feature-flags/; null until first fetch. */
+  featureFlags: Record<string, boolean> | null;
+  featureFlagsCheckedAt: number | null;
+  featureFlagsLoading: boolean;
+  featureFlagsError: Error | null;
+  ensureFeatureFlags: (opts?: { force?: boolean }) => Promise<void>;
+  /** Clear client cache (e.g. logout or future permissions-changed websocket). */
+  invalidateFeatureFlags: () => void;
 };

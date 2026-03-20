@@ -894,19 +894,50 @@ class OrganizationRoleAssignmentsView(View):
         return JsonResponse(RoleAssignmentSerializer(assignment).data, status=status.HTTP_201_CREATED)
 
     def delete(self, request, organization_id):
-        assignment_id = request.GET.get("assignment_id") or (json.loads(request.body) if request.body else {}).get("assignment_id")
-        if not assignment_id:
-            return JsonResponse({"error": "assignment_id required"}, status=status.HTTP_400_BAD_REQUEST)
-        try:
-            assignment = RoleAssignment.objects.get(id=assignment_id, organization_id=organization_id)
-        except RoleAssignment.DoesNotExist:
-            return JsonResponse({"error": "Assignment not found"}, status=status.HTTP_404_NOT_FOUND)
+        payload = json.loads(request.body) if request.body else {}
+        assignment_id = request.GET.get("assignment_id") or payload.get("assignment_id")
+        user_id_raw = request.GET.get("user_id") or payload.get("user_id")
+
         try:
             organization = Organization.objects.get(id=organization_id)
         except Organization.DoesNotExist:
             return JsonResponse({"error": "Organization not found"}, status=status.HTTP_404_NOT_FOUND)
+
         if not _can_manage_organization(request.user, organization):
             return JsonResponse({"error": "You do not have permission"}, status=status.HTTP_403_FORBIDDEN)
+
+        assignment = None
+        if assignment_id:
+            try:
+                assignment = RoleAssignment.objects.get(
+                    id=assignment_id, organization_id=organization_id
+                )
+            except RoleAssignment.DoesNotExist:
+                return JsonResponse({"error": "Assignment not found"}, status=status.HTTP_404_NOT_FOUND)
+        elif user_id_raw is not None:
+            try:
+                user_id_int = int(user_id_raw)
+            except (TypeError, ValueError):
+                return JsonResponse({"error": "user_id invalid"}, status=status.HTTP_400_BAD_REQUEST)
+            today = timezone.now().date()
+            assignment = (
+                RoleAssignment.objects.filter(
+                    organization_id=organization_id,
+                    user_id=user_id_int,
+                    from_date__lte=today,
+                )
+                .filter(Q(to_date__isnull=True) | Q(to_date__gte=today))
+                .order_by("-from_date")
+                .first()
+            )
+            if not assignment:
+                return JsonResponse({"message": "No active assignment"}, status=status.HTTP_200_OK)
+        else:
+            return JsonResponse(
+                {"error": "assignment_id or user_id required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         assignment.delete()
         return JsonResponse({"message": "Assignment removed"}, status=status.HTTP_200_OK)
 
@@ -982,48 +1013,30 @@ class FeatureFlagListView(View):
         if cached_data is not None:
             return JsonResponse(cached_data, status=status.HTTP_200_OK)
 
-        # Get all organizations where user is owner or member
         owned_orgs = Organization.objects.filter(owner=user)
-
-        # Organization owners get registry feature flags enabled automatically.
-        # Flags NOT in KNOWN_FEATURE_FLAGS require explicit assignment.
-        if owned_orgs.exists():
-            all_flags = {name: True for name in KNOWN_FEATURE_FLAGS}
-            # Also include any direct user-level assignments (for non-registry flags)
-            user_assignments = FeatureFlagAssignment.objects.filter(
-                user=user, organization__isnull=True
-            ).select_related("feature_flag")
-            for assignment in user_assignments:
-                all_flags[assignment.feature_flag.name] = assignment.enabled
-            serializer = TeamFeatureFlagsResponseSerializer({
-                "feature_flags": all_flags,
-            })
-            response_data = serializer.data
-            cache.set(cache_key, response_data, timeout=self.CACHE_TIMEOUT)
-            return JsonResponse(response_data, status=status.HTTP_200_OK)
-
-        # Get organization from user profile
         member_orgs = Organization.objects.none()
-        if hasattr(user, 'profile') and user.profile.organization:
+        if hasattr(user, "profile") and user.profile.organization:
             member_orgs = Organization.objects.filter(id=user.profile.organization.id)
         user_organizations = list((owned_orgs | member_orgs).distinct())
 
-        all_flags = {}
+        # Owners start with all registry flags True; members start empty. Both then merge
+        # user assignments, role capabilities, and org_only assignments (matches per-flag checks).
+        if owned_orgs.exists():
+            all_flags = {name: True for name in KNOWN_FEATURE_FLAGS}
+        else:
+            all_flags = {}
 
-        # 1. Direct user-level assignments
         user_assignments = FeatureFlagAssignment.objects.filter(
             user=user, organization__isnull=True
         ).select_related("feature_flag")
         for assignment in user_assignments:
             all_flags[assignment.feature_flag.name] = assignment.enabled
 
-        # 2. Role capabilities (across all user orgs)
         for org in user_organizations:
             for flag_name in FeatureFlagService.get_user_role_capabilities(user, org):
                 if flag_name not in all_flags:
                     all_flags[flag_name] = True
 
-        # 3. Organization-level assignments — only for organization_only flags
         org_only_names = set(
             FeatureFlag.objects.filter(organization_only=True)
             .values_list("name", flat=True)

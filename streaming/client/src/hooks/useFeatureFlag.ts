@@ -1,96 +1,73 @@
-import { useState, useEffect } from "react";
-import { checkFeatureFlag, getTeamFeatureFlags, FeatureFlagStatusResponse, TeamFeatureFlagsResponse } from "../modules/apiCalls";
+import { useEffect } from "react";
+import {
+  FeatureFlagStatusResponse,
+  TeamFeatureFlagsResponse,
+} from "../modules/apiCalls";
 import { useStore } from "../modules/store";
 
 export function useFeatureFlag(featureFlagName: string) {
-  const { user } = useStore((state) => ({ user: state.user }));
-  const [data, setData] = useState<FeatureFlagStatusResponse | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const user = useStore((s) => s.user);
+  const featureFlags = useStore((s) => s.featureFlags);
+  const featureFlagsError = useStore((s) => s.featureFlagsError);
+  const ensureFeatureFlags = useStore((s) => s.ensureFeatureFlags);
 
   useEffect(() => {
-    if (!user) {
-      setIsLoading(false);
-      return;
-    }
+    if (!user) return;
+    void ensureFeatureFlags();
+  }, [user, ensureFeatureFlags]);
 
-    let isCancelled = false;
+  const isLoading = Boolean(
+    user && featureFlags === null && !featureFlagsError
+  );
 
-    const fetchFeatureFlag = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        const result = await checkFeatureFlag(featureFlagName);
-        if (!isCancelled) {
-          setData(result);
+  const data: FeatureFlagStatusResponse | null =
+    user && featureFlags != null
+      ? {
+          enabled: featureFlags[featureFlagName] === true,
+          feature_flag_name: featureFlagName,
+          reason: "client-cache",
         }
-      } catch (err) {
-        if (!isCancelled) {
-          setError(err instanceof Error ? err : new Error("Failed to check feature flag"));
-        }
-      } finally {
-        if (!isCancelled) {
-          setIsLoading(false);
-        }
-      }
-    };
+      : null;
 
-    fetchFeatureFlag();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [featureFlagName, user]);
-
-  return { data, isLoading, error };
+  return {
+    data,
+    isLoading,
+    error: featureFlagsError,
+  };
 }
 
 export function useTeamFeatureFlags() {
-  const { user } = useStore((state) => ({ user: state.user }));
-  const [data, setData] = useState<TeamFeatureFlagsResponse | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const user = useStore((s) => s.user);
+  const featureFlags = useStore((s) => s.featureFlags);
+  const featureFlagsError = useStore((s) => s.featureFlagsError);
+  const ensureFeatureFlags = useStore((s) => s.ensureFeatureFlags);
 
   useEffect(() => {
-    if (!user) {
-      setIsLoading(false);
-      return;
-    }
+    if (!user) return;
+    void ensureFeatureFlags();
+  }, [user, ensureFeatureFlags]);
 
-    let isCancelled = false;
+  const isLoading = Boolean(
+    user && featureFlags === null && !featureFlagsError
+  );
 
-    const fetchFeatureFlags = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        const result = await getTeamFeatureFlags();
-        if (!isCancelled) {
-          setData(result);
-        }
-      } catch (err) {
-        if (!isCancelled) {
-          setError(err instanceof Error ? err : new Error("Failed to fetch team feature flags"));
-        }
-      } finally {
-        if (!isCancelled) {
-          setIsLoading(false);
-        }
-      }
-    };
+  const data: TeamFeatureFlagsResponse | null =
+    user && featureFlags != null
+      ? { feature_flags: featureFlags }
+      : null;
 
-    fetchFeatureFlags();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [user]);
-
-  return { data, isLoading, error };
+  return { data, isLoading, error: featureFlagsError };
 }
 
-// Helper hook to check if a feature is enabled (returns boolean directly)
+/** Clear cached team feature flags (logout already does this; use for permissions-changed later). */
+export function invalidateClientFeatureFlagsCache(): void {
+  useStore.getState().invalidateFeatureFlags();
+}
+
 export function useIsFeatureEnabled(featureFlagName: string): boolean | null {
-  const { data } = useFeatureFlag(featureFlagName);
+  const { data, error } = useFeatureFlag(featureFlagName);
+  if (error && data == null) {
+    return false;
+  }
   return data?.enabled ?? null;
 }
-

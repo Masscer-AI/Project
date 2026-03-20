@@ -6,11 +6,15 @@ import {
   getAgents,
   getConversation,
   getReactionTemplates,
+  getTeamFeatureFlags,
   getUserPreferences,
   initConversation,
   updateUserPreferences,
   uploadDocument,
 } from "./apiCalls";
+import {
+  isFeatureFlagsClientCacheStale,
+} from "./featureFlagsConstants";
 import { SocketManager } from "./socketManager";
 import { STREAMING_BACKEND_URL } from "./constants";
 import { TAgent } from "../types/agents";
@@ -25,6 +29,8 @@ const _initialTheme = (() => {
   }
 })();
 
+/** Dedupe concurrent team feature-flag fetches across components. */
+let featureFlagsFetchInFlight: Promise<void> | null = null;
 
 export const useStore = create<Store>()((set, get) => ({
   socket: new SocketManager(STREAMING_BACKEND_URL),
@@ -62,6 +68,69 @@ export const useStore = create<Store>()((set, get) => ({
   conversation: undefined,
   openedModals: [],
   reactionTemplates: [],
+  featureFlags: null,
+  featureFlagsCheckedAt: null,
+  featureFlagsLoading: false,
+  featureFlagsError: null,
+
+  invalidateFeatureFlags: () => {
+    featureFlagsFetchInFlight = null;
+    set({
+      featureFlags: null,
+      featureFlagsCheckedAt: null,
+      featureFlagsLoading: false,
+      featureFlagsError: null,
+    });
+  },
+
+  ensureFeatureFlags: async (opts) => {
+    const force = opts?.force ?? false;
+    const state = get();
+    if (!state.user) {
+      return;
+    }
+    const { featureFlags, featureFlagsCheckedAt } = state;
+    if (
+      !force &&
+      featureFlags != null &&
+      featureFlagsCheckedAt != null &&
+      !isFeatureFlagsClientCacheStale(featureFlagsCheckedAt)
+    ) {
+      return;
+    }
+    if (featureFlagsFetchInFlight) {
+      return featureFlagsFetchInFlight;
+    }
+    const showLoading = state.featureFlags == null;
+    if (showLoading) {
+      set({ featureFlagsLoading: true, featureFlagsError: null });
+    }
+    featureFlagsFetchInFlight = (async () => {
+      try {
+        set({ featureFlagsError: null });
+        const res = await getTeamFeatureFlags();
+        set({
+          featureFlags: res.feature_flags,
+          featureFlagsCheckedAt: Date.now(),
+          featureFlagsLoading: false,
+          featureFlagsError: null,
+        });
+      } catch (err) {
+        set((s) => ({
+          featureFlagsLoading: false,
+          featureFlagsError:
+            err instanceof Error ? err : new Error(String(err)),
+          // Keep prior featureFlags on background refresh failure
+          featureFlags: showLoading ? null : s.featureFlags,
+          featureFlagsCheckedAt: showLoading ? null : s.featureFlagsCheckedAt,
+        }));
+      } finally {
+        featureFlagsFetchInFlight = null;
+      }
+    })();
+    return featureFlagsFetchInFlight;
+  },
+
   startup: async () => {
     const { fetchAgents } = get();
     const reactionTemplates: TReactionTemplate[] = await getReactionTemplates();
@@ -413,7 +482,14 @@ export const useStore = create<Store>()((set, get) => ({
     }));
   },
   logout: () => {
-    set({ user: undefined });
+    featureFlagsFetchInFlight = null;
+    set({
+      user: undefined,
+      featureFlags: null,
+      featureFlagsCheckedAt: null,
+      featureFlagsLoading: false,
+      featureFlagsError: null,
+    });
     localStorage.removeItem("token");
     localStorage.removeItem("selectedAgents");
     window.location.href = "/";

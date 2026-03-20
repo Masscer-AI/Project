@@ -1167,11 +1167,16 @@ export const assignRoleToMember = async (
 
 export const removeRoleAssignment = async (
   organizationId: string,
-  assignmentId: string
+  opts: { userId: number; assignmentId?: string | null }
 ) => {
+  const params = new URLSearchParams();
+  params.set("user_id", String(opts.userId));
+  if (opts.assignmentId) {
+    params.set("assignment_id", opts.assignmentId);
+  }
   return makeAuthenticatedRequest<{ message: string }>(
     "DELETE",
-    `/v1/auth/organizations/${organizationId}/roles/assignments/?assignment_id=${assignmentId}`
+    `/v1/auth/organizations/${organizationId}/roles/assignments/?${params.toString()}`
   );
 };
 

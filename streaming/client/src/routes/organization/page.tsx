@@ -313,11 +313,11 @@ export default function OrganizationPage() {
         toast.success(t("role-assigned"));
       } else {
         const member = members.find((m) => m.id === userId);
-        const aid = member?.current_role?.assignment_id;
-        if (aid) {
-          await removeRoleAssignment(org.id, aid);
-          toast.success(t("role-removed"));
-        }
+        await removeRoleAssignment(org.id, {
+          userId,
+          assignmentId: member?.current_role?.assignment_id,
+        });
+        toast.success(t("role-removed"));
       }
       reloadMembers();
     } catch {
