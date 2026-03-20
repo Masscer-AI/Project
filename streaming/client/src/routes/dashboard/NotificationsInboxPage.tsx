@@ -4,7 +4,6 @@ import { getMyNotifications, markNotificationRead } from "../../modules/apiCalls
 import { TUserNotification } from "../../types";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
-import { DashboardLayout } from "./DashboardLayout";
 import {
   Badge,
   Button,
@@ -61,8 +60,7 @@ export default function NotificationsInboxPage() {
   const unread = items.filter((n) => !n.read_at);
 
   return (
-    <DashboardLayout>
-      <Stack gap="lg">
+    <Stack gap="lg">
         <Title order={2} ta="center">
           {t("notifications-inbox") || "Notifications"}
         </Title>
@@ -128,6 +126,5 @@ export default function NotificationsInboxPage() {
           </Stack>
         )}
       </Stack>
-    </DashboardLayout>
   );
 }

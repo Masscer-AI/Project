@@ -4,7 +4,6 @@ import { getAlerts, updateAlertStatus } from "../../modules/apiCalls";
 import { TConversationAlert } from "../../types";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { DashboardLayout } from "./DashboardLayout";
 import {
   Anchor,
   Badge,
@@ -99,8 +98,7 @@ export default function AlertsPage() {
   ];
 
   return (
-    <DashboardLayout>
-      <Stack gap="lg">
+    <Stack gap="lg">
         <Title order={2} ta="center">
           {t("alerts")}
         </Title>
@@ -152,7 +150,6 @@ export default function AlertsPage() {
           </Stack>
         )}
       </Stack>
-    </DashboardLayout>
   );
 }
 

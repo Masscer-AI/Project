@@ -8,7 +8,6 @@ import {
 } from "../../modules/apiCalls";
 import { TConversationAlertRule } from "../../types";
 import { useTranslation } from "react-i18next";
-import { DashboardLayout } from "./DashboardLayout";
 import {
   Badge,
   Button,
@@ -135,7 +134,7 @@ export default function AlertRulesPage() {
   };
 
   return (
-    <DashboardLayout>
+    <>
       <Stack gap="lg">
         <Title order={2} ta="center">
           {t("alert-rules") || "Alert Rules"}
@@ -261,7 +260,7 @@ export default function AlertRulesPage() {
           </Group>
         </Stack>
       </Modal>
-    </DashboardLayout>
+    </>
   );
 }
 

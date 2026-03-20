@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom/client";
-import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import { createBrowserRouter, Navigate, RouterProvider } from "react-router-dom";
 import '@mantine/core/styles.css';
 import '@mantine/dates/styles.css';
 import { MantineProvider, createTheme } from '@mantine/core';
@@ -31,11 +31,9 @@ import { ErrorPage } from "./routes/error/Page.tsx";
 import { NotificationListener } from "./components/NotificationListener/NotificationListener.tsx";
 import { AgentTaskListener } from "./components/AgentTaskListener/AgentTaskListener.tsx";
 import DashboardPage from "./routes/dashboard/page.tsx";
-import AlertsPage from "./routes/dashboard/AlertsPage.tsx";
-import AlertRulesPage from "./routes/dashboard/AlertRulesPage.tsx";
+import AlertsHubPage from "./routes/dashboard/AlertsHubPage.tsx";
+import NotificationsHubPage from "./routes/dashboard/NotificationsHubPage.tsx";
 import TagsPage from "./routes/dashboard/TagsPage.tsx";
-import NotificationSettingsPage from "./routes/dashboard/NotificationSettingsPage.tsx";
-import NotificationsInboxPage from "./routes/dashboard/NotificationsInboxPage.tsx";
 import OrganizationPage from "./routes/organization/page.tsx";
 import KnowledgeBasePage from "./routes/knowledge-base/page.tsx";
 import GenerationToolsPage from "./routes/generation-tools/page.tsx";
@@ -101,23 +99,25 @@ const router = createBrowserRouter([
       },
       {
         path: "/dashboard/alerts",
-        element: <AlertsPage />,
-      },
-      {
-        path: "/dashboard/notifications",
-        element: <NotificationsInboxPage />,
+        element: <AlertsHubPage />,
       },
       {
         path: "/dashboard/alert-rules",
-        element: <AlertRulesPage />,
+        element: <Navigate to="/dashboard/alerts?view=rules" replace />,
+      },
+      {
+        path: "/dashboard/notifications",
+        element: <NotificationsHubPage />,
+      },
+      {
+        path: "/dashboard/notification-settings",
+        element: (
+          <Navigate to="/dashboard/notifications?view=rules" replace />
+        ),
       },
       {
         path: "/dashboard/tags",
         element: <TagsPage />,
-      },
-      {
-        path: "/dashboard/notification-settings",
-        element: <NotificationSettingsPage />,
       },
       {
         path: "/organization",

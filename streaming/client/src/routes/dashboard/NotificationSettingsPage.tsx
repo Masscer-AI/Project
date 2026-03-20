@@ -19,7 +19,6 @@ import {
   TOrganization,
 } from "../../types";
 import { useTranslation } from "react-i18next";
-import { DashboardLayout } from "./DashboardLayout";
 import {
   Badge,
   Button,
@@ -205,7 +204,7 @@ export default function NotificationSettingsPage() {
     }));
 
   return (
-    <DashboardLayout>
+    <>
       <Stack gap="lg">
         <Title order={2} ta="center">
           {t("notification-settings") || "Notification Settings"}
@@ -408,7 +407,7 @@ export default function NotificationSettingsPage() {
           </Group>
         </Stack>
       </Modal>
-    </DashboardLayout>
+    </>
   );
 }
 

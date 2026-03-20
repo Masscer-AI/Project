@@ -4,15 +4,12 @@ import { Sidebar } from "../../components/Sidebar/Sidebar";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
-import { useIsOrganizationOwner } from "../../hooks/useIsOrganizationOwner";
 import { ActionIcon, Container, Tabs } from "@mantine/core";
 import {
   IconMenu2,
   IconChartBar,
   IconBell,
-  IconShield,
   IconHash,
-  IconBellCog,
   IconBellRinging,
 } from "@tabler/icons-react";
 
@@ -25,8 +22,6 @@ interface DashboardTab {
   icon: typeof IconChartBar;
   labelKey: string;
   featureFlag?: string;
-  /** When set, org owners still see this tab if the feature flag is off */
-  showForOrgOwnerWithoutFlag?: boolean;
 }
 
 const TABS: DashboardTab[] = [
@@ -35,26 +30,13 @@ const TABS: DashboardTab[] = [
   {
     value: "/dashboard/notifications",
     icon: IconBellRinging,
-    labelKey: "notifications-inbox",
-  },
-  {
-    value: "/dashboard/alert-rules",
-    icon: IconShield,
-    labelKey: "alert-rules",
-    featureFlag: "alert-rules-manager",
+    labelKey: "notifications",
   },
   {
     value: "/dashboard/tags",
     icon: IconHash,
     labelKey: "manage-tags",
     featureFlag: "tags-management",
-  },
-  {
-    value: "/dashboard/notification-settings",
-    icon: IconBellCog,
-    labelKey: "notification-settings",
-    featureFlag: "can-set-notifications",
-    showForOrgOwnerWithoutFlag: true,
   },
 ];
 
@@ -67,15 +49,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const canManageAlertRules = useIsFeatureEnabled("alert-rules-manager");
   const canManageTags = useIsFeatureEnabled("tags-management");
-  const canSetNotifications = useIsFeatureEnabled("can-set-notifications");
-  const isOrgOwner = useIsOrganizationOwner();
 
   const featureFlagMap: Record<string, boolean | null> = {
-    "alert-rules-manager": canManageAlertRules,
     "tags-management": canManageTags,
-    "can-set-notifications": canSetNotifications,
   };
 
   const currentTab =
@@ -117,12 +94,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               {TABS.map((tab) => {
                 const flag = tab.featureFlag;
                 const flagEnabled = flag ? featureFlagMap[flag] : true;
-                const hideForFlag =
-                  flagEnabled === false &&
-                  !(tab.showForOrgOwnerWithoutFlag && isOrgOwner === true);
-                const stillResolving =
-                  flagEnabled === null ||
-                  (tab.showForOrgOwnerWithoutFlag && isOrgOwner === null);
+                const hideForFlag = flagEnabled === false;
+                const stillResolving = flagEnabled === null;
                 if (hideForFlag && !stillResolving) {
                   return null;
                 }
