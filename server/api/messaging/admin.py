@@ -10,6 +10,7 @@ from .models import (
     ConversationAlertRule,
     ConversationAlert,
     AlertSubscription,
+    WidgetVisitorSession,
 )
 
 
@@ -250,6 +251,15 @@ class ConversationAdmin(admin.ModelAdmin):
             return format_html('<span style="color:#ff6b6b;font-weight:600;">⚠️ {} alert(s)</span>', count)
         return format_html('<span style="color:#51cf66;">✓ No alerts</span>')
     has_alerts_display.short_description = "Alerts"
+
+
+@admin.register(WidgetVisitorSession)
+class WidgetVisitorSessionAdmin(admin.ModelAdmin):
+    list_display = ("id", "widget", "visitor_id", "origin", "is_blocked", "expires_at", "last_seen_at", "created_at")
+    list_filter = ("is_blocked", "widget", "created_at")
+    search_fields = ("visitor_id", "origin", "user_agent", "widget__name")
+    readonly_fields = ("id", "last_seen_at", "created_at")
+    ordering = ("-created_at",)
 
 
 admin.site.register(Conversation, ConversationAdmin)

@@ -7,6 +7,7 @@ from .schemas import ConversationAnalysisResult
 from api.authenticate.models import Organization, FeatureFlag, FeatureFlagAssignment, CredentialsManager
 from api.authenticate.services import FeatureFlagService
 from api.utils.openai_functions import create_structured_completion
+from api.notify.alert_dispatch import maybe_dispatch_user_notifications
 from django.db import transaction
 
 logger = logging.getLogger(__name__)
@@ -399,7 +400,7 @@ IMPORTANTE: Solo levanta alertas si la conversación realmente cumple con los re
                             if first_key:
                                 title = f"{alert_rule.name} - {str(extractions.get(first_key, ''))[:30]}"
                         
-                        ConversationAlert.objects.create(
+                        new_alert = ConversationAlert.objects.create(
                             title=title[:50],  # El campo tiene max_length=50
                             reasoning=analysis.reasoning,
                             extractions=extractions,
@@ -407,7 +408,8 @@ IMPORTANTE: Solo levanta alertas si la conversación realmente cumple con los re
                             alert_rule=alert_rule,
                             status="PENDING"
                         )
-                        
+                        maybe_dispatch_user_notifications(new_alert)
+
                         alerts_raised += 1
                         logger.info(f"Alert raised for rule {alert_rule.name} (ID: {alert_data.id}) in conversation {conversation_uuid}")
                         

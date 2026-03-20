@@ -19,6 +19,7 @@ import {
   TChatWidget,
   TWidgetCapability,
   TNotificationRule,
+  TUserNotification,
 } from "../types";
 import { TReactionTemplate, TUserProfile } from "../types/chatTypes";
 import { TAgent, TModel } from "../types/agents";
@@ -709,6 +710,22 @@ export const deleteNotificationRule = async (ruleId: string) => {
   return makeAuthenticatedRequest<{ message: string }>(
     "DELETE",
     `/v1/notify/notification-rules/${ruleId}/`
+  );
+};
+
+export const getMyNotifications = async (opts?: { unread?: boolean }) => {
+  const qs = opts?.unread ? "?unread=true" : "";
+  return makeAuthenticatedRequest<TUserNotification[]>(
+    "GET",
+    `/v1/notify/my-notifications/${qs || ""}`
+  );
+};
+
+export const markNotificationRead = async (notificationId: string) => {
+  return makeAuthenticatedRequest<TUserNotification>(
+    "PATCH",
+    `/v1/notify/my-notifications/${notificationId}/`,
+    {}
   );
 };
 

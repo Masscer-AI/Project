@@ -12,7 +12,8 @@
   border: 1px solid var(--widget-input-border, rgba(0, 0, 0, 0.1));
   border-radius: 20px;
   padding: 10px 16px;
-  font-size: 14px;
+  /* 16px min: prevents iOS Safari zoom-on-focus for inputs < 16px */
+  font-size: 16px;
   font-family: inherit;
   outline: none;
   transition: all 0.2s;

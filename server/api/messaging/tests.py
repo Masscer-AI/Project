@@ -1,11 +1,14 @@
+from datetime import timedelta
 from unittest.mock import Mock, patch
 
 from django.contrib.auth.models import User
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from api.ai_layers.models import Agent, LanguageModel
-from api.messaging.models import ChatWidget
+from api.authenticate.models import Organization
+from api.messaging.models import ChatWidget, Conversation, WidgetVisitorSession
 from api.messaging.serializers import ChatWidgetSerializer
 from api.providers.models import AIProvider
 
@@ -145,3 +148,52 @@ class ChatWidgetCapabilitiesTests(TestCase):
         self.assertIn("explore_web", tool_names)
         self.assertIn("create_image", tool_names)
         self.assertNotIn("rag_query", tool_names)
+
+    @patch("api.ai_layers.tools.create_image.OpenAI")
+    @patch("api.authenticate.services.FeatureFlagService.is_feature_enabled")
+    def test_create_image_widget_conversation_does_not_require_image_tools_flag(
+        self, is_feature_enabled_mock, openai_cls_mock
+    ):
+        """Widget tools are gated by ChatWidget.capabilities; visitors are not users for FF checks."""
+        from api.ai_layers.tools.create_image import _create_image_impl
+
+        org = Organization.objects.create(name="Widget Org", owner=self.user)
+        widget = ChatWidget.objects.create(
+            name="Widget Image",
+            enabled=True,
+            created_by=self.user,
+            agent=self.agent,
+            capabilities=[
+                {"name": "create_image", "type": "internal_tool", "enabled": True},
+            ],
+        )
+        session = WidgetVisitorSession.objects.create(
+            widget=widget,
+            visitor_id="visitor-create-image",
+            expires_at=timezone.now() + timedelta(days=1),
+        )
+        conversation = Conversation.objects.create(
+            user=None,
+            organization=org,
+            chat_widget=widget,
+            widget_visitor_session=session,
+        )
+
+        is_feature_enabled_mock.return_value = (False, "off")
+
+        client_inst = Mock()
+        openai_cls_mock.return_value = client_inst
+        img_obj = Mock(b64_json="iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")
+        client_inst.images.generate.return_value = Mock(data=[img_obj])
+
+        result = _create_image_impl(
+            prompt="test png",
+            model="gpt-image-1.5",
+            aspect_ratio="square",
+            conversation_id=str(conversation.id),
+            user_id=None,
+            agent_slug=self.agent.slug,
+        )
+
+        is_feature_enabled_mock.assert_not_called()
+        self.assertEqual(result.model, "gpt-image-1.5")

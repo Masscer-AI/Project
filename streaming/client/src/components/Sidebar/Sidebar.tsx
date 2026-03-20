@@ -6,6 +6,7 @@ import {
   deleteConversation,
   generateTrainingCompletions,
   getAllConversations,
+  getMyNotifications,
   getUserOrganizations,
   shareConversation,
   getTags,
@@ -19,6 +20,7 @@ import { QRCodeDisplay } from "../QRGenerator/QRGenerator";
 import "./Sidebar.css";
 
 import {
+  Box,
   Button,
   ActionIcon,
   TextInput,
@@ -97,6 +99,7 @@ export const Sidebar: React.FC = () => {
 
   const [orgTags, setOrgTags] = useState<TTag[]>([]);
   const [canManageOrg, setCanManageOrg] = useState(false);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
 
   const navigate = useNavigate();
 
@@ -115,6 +118,37 @@ export const Sidebar: React.FC = () => {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setUnreadNotificationCount(0);
+      return;
+    }
+    let cancelled = false;
+    const refreshUnread = () => {
+      getMyNotifications({ unread: true })
+        .then((rows) => {
+          if (!cancelled) setUnreadNotificationCount(rows.length);
+        })
+        .catch(() => {
+          if (!cancelled) setUnreadNotificationCount(0);
+        });
+    };
+    refreshUnread();
+    const intervalId = window.setInterval(refreshUnread, 45_000);
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") refreshUnread();
+    };
+    const onInboxUpdated = () => refreshUnread();
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("masscer:notifications-updated", onInboxUpdated);
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("masscer:notifications-updated", onInboxUpdated);
+    };
+  }, [user]);
 
   useEffect(() => {
     populateHistory();
@@ -461,14 +495,32 @@ export const Sidebar: React.FC = () => {
                 </Button>
               )}
               {isConversationsDashboardEnabled && (
-                <Button
-                  variant="default"
-                  leftSection={<IconLayoutDashboard size={20} />}
-                  onClick={() => goTo("/dashboard")}
-                  fullWidth
-                >
-                  {t("conversations-dashboard")}
-                </Button>
+                <Box pos="relative">
+                  <Button
+                    variant="default"
+                    leftSection={<IconLayoutDashboard size={20} />}
+                    onClick={() => goTo("/dashboard")}
+                    fullWidth
+                  >
+                    {t("conversations-dashboard")}
+                  </Button>
+                  {unreadNotificationCount > 0 && (
+                    <Badge
+                      color="red"
+                      size="sm"
+                      radius="xl"
+                      variant="filled"
+                      pos="absolute"
+                      top={-4}
+                      right={-4}
+                      styles={{ root: { pointerEvents: "none", minWidth: 20 } }}
+                    >
+                      {unreadNotificationCount > 99
+                        ? "99+"
+                        : unreadNotificationCount}
+                    </Badge>
+                  )}
+                </Box>
               )}
             </Stack>
           )}

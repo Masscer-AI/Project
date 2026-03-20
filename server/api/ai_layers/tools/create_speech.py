@@ -142,7 +142,9 @@ def _create_speech_impl(
 
     # ---- Load conversation + resolve user ----
     try:
-        conversation = Conversation.objects.select_related("organization").get(id=conversation_id)
+        conversation = Conversation.objects.select_related("organization", "chat_widget").get(
+            id=conversation_id
+        )
     except Conversation.DoesNotExist:
         raise ValueError("Conversation not found")
 
@@ -154,13 +156,15 @@ def _create_speech_impl(
             user = None
 
     # ---- Feature gating ----
-    enabled, _reason = FeatureFlagService.is_feature_enabled(
-        "chat-generate-speech",
-        organization=getattr(conversation, "organization", None),
-        user=user,
-    )
-    if not enabled:
-        raise ValueError("The 'chat-generate-speech' feature is not enabled.")
+    # Same as create_image: widget sessions gate tools via ChatWidget.capabilities only.
+    if not conversation.chat_widget_id:
+        enabled, _reason = FeatureFlagService.is_feature_enabled(
+            "chat-generate-speech",
+            organization=getattr(conversation, "organization", None),
+            user=user,
+        )
+        if not enabled:
+            raise ValueError("The 'chat-generate-speech' feature is not enabled.")
 
     # ---- Generate bytes ----
     try:

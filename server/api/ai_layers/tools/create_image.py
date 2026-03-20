@@ -98,7 +98,9 @@ def _create_image_impl(
 
     # ---- Load conversation + resolve user ----
     try:
-        conversation = Conversation.objects.select_related("organization").get(id=conversation_id)
+        conversation = Conversation.objects.select_related("organization", "chat_widget").get(
+            id=conversation_id
+        )
     except Conversation.DoesNotExist:
         raise ValueError("Conversation not found")
 
@@ -109,14 +111,18 @@ def _create_image_impl(
         except User.DoesNotExist:
             user = None
 
-    # ---- Feature gating (must match existing image generation endpoint) ----
-    enabled, _reason = FeatureFlagService.is_feature_enabled(
-        "image-tools",
-        organization=getattr(conversation, "organization", None),
-        user=user,
-    )
-    if not enabled:
-        raise ValueError("The 'image-tools' feature is not enabled.")
+    # ---- Feature gating ----
+    # Embeddable widget: allowed tools are already limited by ChatWidget.capabilities
+    # (see ChatWidgetAgentTaskView). Visitors are not Django users, so org feature flags
+    # for image-tools would wrongly block the model even when the widget enables create_image.
+    if not conversation.chat_widget_id:
+        enabled, _reason = FeatureFlagService.is_feature_enabled(
+            "image-tools",
+            organization=getattr(conversation, "organization", None),
+            user=user,
+        )
+        if not enabled:
+            raise ValueError("The 'image-tools' feature is not enabled.")
 
     # ---- Generate image bytes (OpenAI returns base64) ----
     size_used = _pick_openai_size_str(aspect_ratio)

@@ -3,7 +3,7 @@ import { WidgetMessage } from "./WidgetMessage";
 import { SimpleChatInput } from "./SimpleChatInput";
 import { useWidgetStore, WidgetConfig } from "./widgetStore";
 import { TMessage } from "../types/chatTypes";
-import { TVersion } from "../types";
+import { TAttachment, TVersion } from "../types";
 import {
   initWidgetConversation,
   triggerWidgetAgentTask,
@@ -270,6 +270,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
         conversation_id?: string;
         message_id?: number;
         versions?: TVersion[];
+        attachments?: TAttachment[];
         next_agent_slug?: string;
       };
     }) => {
@@ -295,6 +296,9 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
             if (data.versions.length > 0 && data.versions[0].text) {
               newMessages[i].text = data.versions[0].text;
             }
+          }
+          if (data.attachments && data.attachments.length > 0) {
+            newMessages[i].attachments = data.attachments;
           }
           break;
         }

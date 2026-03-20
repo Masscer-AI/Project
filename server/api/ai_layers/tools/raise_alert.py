@@ -98,6 +98,7 @@ def _raise_alert_impl(
     Otherwise: create a new alert (requires alert_rule_id).
     """
     from api.messaging.models import Conversation, ConversationAlert, ConversationAlertRule
+    from api.notify.alert_dispatch import maybe_dispatch_user_notifications
 
     try:
         conversation = Conversation.objects.select_related(
@@ -163,6 +164,8 @@ def _raise_alert_impl(
 
         alert.save(update_fields=update_fields)
 
+        maybe_dispatch_user_notifications(alert)
+
         logger.info(
             "Alert updated: alert=%s conversation=%s extractions=%s",
             alert_id,
@@ -204,6 +207,7 @@ def _raise_alert_impl(
     ).first()
 
     if existing:
+        maybe_dispatch_user_notifications(existing)
         return RaiseAlertResult(
             success=True,
             message=f"Alert already exists for rule {alert_rule.name} (idempotent)",
@@ -227,6 +231,7 @@ def _raise_alert_impl(
         alert_rule=alert_rule,
         status="PENDING",
     )
+    maybe_dispatch_user_notifications(alert)
 
     logger.info(
         "Alert raised: rule=%s conversation=%s alert=%s",

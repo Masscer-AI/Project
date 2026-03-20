@@ -35,6 +35,7 @@ import AlertsPage from "./routes/dashboard/AlertsPage.tsx";
 import AlertRulesPage from "./routes/dashboard/AlertRulesPage.tsx";
 import TagsPage from "./routes/dashboard/TagsPage.tsx";
 import NotificationSettingsPage from "./routes/dashboard/NotificationSettingsPage.tsx";
+import NotificationsInboxPage from "./routes/dashboard/NotificationsInboxPage.tsx";
 import OrganizationPage from "./routes/organization/page.tsx";
 import KnowledgeBasePage from "./routes/knowledge-base/page.tsx";
 import GenerationToolsPage from "./routes/generation-tools/page.tsx";
@@ -101,6 +102,10 @@ const router = createBrowserRouter([
       {
         path: "/dashboard/alerts",
         element: <AlertsPage />,
+      },
+      {
+        path: "/dashboard/notifications",
+        element: <NotificationsInboxPage />,
       },
       {
         path: "/dashboard/alert-rules",

@@ -10,6 +10,7 @@ Each entry maps a flag name to its metadata:
 KNOWN_FEATURE_FLAGS = {
     "manage-organization": {"organization_only": False},
     "alert-rules-manager": {"organization_only": False},
+    "can-set-notifications": {"organization_only": False},
     "tags-management": {"organization_only": False},
     "conversations-dashboard": {"organization_only": False},
     "edit-organization-agent": {"organization_only": False},

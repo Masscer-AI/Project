@@ -3,17 +3,7 @@
  * Completely isolated from the main app — no store, no i18n, no Mantine.
  */
 import React, { useRef, useState } from "react";
-
-const WIDGET_API_URL =
-  // @ts-ignore
-  (import.meta.env.VITE_API_URL ?? (
-    typeof window !== "undefined" &&
-    window.location.origin &&
-    window.location.origin !== "null" &&
-    !window.location.origin.startsWith("file:")
-      ? window.location.origin
-      : "http://localhost:8000"
-  ));
+import { API_URL } from "../modules/constants";
 
 interface WidgetThumbnailProps {
   src: string;
@@ -33,20 +23,26 @@ export const WidgetThumbnail: React.FC<WidgetThumbnailProps> = ({
   text,
 }) => {
   if (type.startsWith("image")) {
-    return <WidgetImageThumbnail src={src} name={name} />;
+    const imageSrc =
+      src.startsWith("http") ||
+      src.startsWith("https") ||
+      src.startsWith("data:")
+        ? src
+        : `${API_URL}${src.startsWith("/") ? src : `/${src}`}`;
+    return <WidgetImageThumbnail src={imageSrc} name={name} />;
   }
 
   if (type.startsWith("audio_generation") || type.startsWith("audio")) {
     const audioSrc = content.startsWith("http") || content.startsWith("data:")
       ? content
-      : `${WIDGET_API_URL}${content}`;
+      : `${API_URL}${content.startsWith("/") ? content : `/${content}`}`;
     return <WidgetAudioThumbnail src={audioSrc} />;
   }
 
   if (type.startsWith("video_generation")) {
     const videoSrc = src.startsWith("http") || src.startsWith("data:")
       ? src
-      : `${WIDGET_API_URL}${src}`;
+      : `${API_URL}${src.startsWith("/") ? src : `/${src}`}`;
     return <WidgetVideoThumbnail src={videoSrc} text={text} />;
   }
 

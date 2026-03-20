@@ -15,17 +15,11 @@ class NotificationRuleSerializer(serializers.ModelSerializer):
     notify_to_org_name = serializers.SerializerMethodField()
     alert_rule_name = serializers.SerializerMethodField()
 
-    # Write-only IDs accepted from the client
-    notify_to_user_id = serializers.IntegerField(
-        write_only=True, required=False, allow_null=True
-    )
-    notify_to_role_id = serializers.UUIDField(
-        write_only=True, required=False, allow_null=True
-    )
-    notify_to_org_id = serializers.UUIDField(
-        write_only=True, required=False, allow_null=True
-    )
-    alert_rule_id = serializers.UUIDField(write_only=True)
+    # IDs are accepted from the client on write and included on read so the UI can edit rules.
+    notify_to_user_id = serializers.IntegerField(required=False, allow_null=True)
+    notify_to_role_id = serializers.UUIDField(required=False, allow_null=True)
+    notify_to_org_id = serializers.UUIDField(required=False, allow_null=True)
+    alert_rule_id = serializers.UUIDField()
 
     class Meta:
         model = NotificationRule
@@ -114,3 +108,28 @@ class NotificationRuleSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         return super().update(instance, self._resolve_relations(validated_data))
+
+
+class UserNotificationSerializer(serializers.ModelSerializer):
+    organization = serializers.UUIDField(read_only=True, source="organization.id")
+    notification_rule = serializers.UUIDField(
+        read_only=True, source="notification_rule.id"
+    )
+    alert = serializers.UUIDField(read_only=True, source="alert.id")
+
+    class Meta:
+        model = UserNotification
+        fields = (
+            "id",
+            "organization",
+            "notification_rule",
+            "alert",
+            "message",
+            "delivery_method",
+            "delivered_at",
+            "read_at",
+            "ignored_at",
+            "expires_at",
+            "created_at",
+        )
+        read_only_fields = fields

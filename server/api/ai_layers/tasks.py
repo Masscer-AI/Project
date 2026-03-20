@@ -739,20 +739,25 @@ def conversation_agent_task(
             if attachment_ids_instruction:
                 instructions = instructions + attachment_ids_instruction
 
-            # If the user enabled RAG/Web Search, they expect the agent to use it.
+            # RAG / web are available; the model decides per turn whether they help.
             if "rag_query" in (tool_names or []):
                 instructions += (
-                    "\n\nRAG is enabled for this conversation. "
-                    "Before answering, you MUST call rag_query at least once with a small list of queries "
-                    "(1-5) derived from the user's latest request. "
-                    "If rag_query returns no results, say so briefly and continue with best-effort."
+                    "\n\nRAG (knowledge base search) is available. "
+                    "Call rag_query when the user's message would benefit from organization-specific or "
+                    "document-grounded facts that may not be in the chat already. "
+                    "Skip it for small talk, meta requests, or when the thread already contains enough "
+                    "context. You may pass a small list of queries (1-5) derived from the user's request. "
+                    "If rag_query returns no results, mention that briefly if relevant, then answer from "
+                    "general knowledge or the conversation."
                 )
             if "explore_web" in (tool_names or []):
                 instructions += (
-                    "\n\nWeb Search is enabled for this conversation. "
-                    "Before answering, you MUST call explore_web at least once with an appropriate query "
-                    "derived from the user's latest request. "
-                    "Use the results to improve factuality; if it returns no results, say so briefly and continue."
+                    "\n\nWeb search is available. "
+                    "Call explore_web when fresh, external, or time-sensitive information would materially "
+                    "improve the answer (news, live data, URLs, facts you're unsure about). "
+                    "Skip it when a web lookup is unnecessary (e.g. opinion, creative writing, or the "
+                    "answer is already established in the thread). "
+                    "If explore_web returns no useful results, say so briefly if it matters, then continue."
                 )
             if "create_image" in (tool_names or []):
                 instructions += (
@@ -1062,7 +1067,8 @@ def conversation_agent_task(
                         ).update(message=grupal_msg)
                     session.assistant_message = grupal_msg
                     session.save(update_fields=["assistant_message"])
-                    # Reset per-agent attachment accumulators
+                    # Snapshot before reset — needed for agent_loop_finished (embed widget cannot refetch).
+                    attachments_for_notify = list(assistant_message_attachments)
                     assistant_message_attachments = []
                     assistant_attachment_ids = []
 
@@ -1073,6 +1079,7 @@ def conversation_agent_task(
                         "output": output_text,
                         "message_id": grupal_msg.id,
                         "versions": [version],
+                        "attachments": attachments_for_notify,
                         "iterations": total_iterations,
                         "tool_calls_count": total_tool_calls,
                         "next_agent_slug": next_agent_slug,
@@ -1122,6 +1129,7 @@ def conversation_agent_task(
                 "output": primary_text,
                 "message_id": assistant_message_id,
                 "versions": versions,
+                "attachments": list(assistant_message_attachments),
                 "iterations": total_iterations,
                 "tool_calls_count": total_tool_calls,
             })

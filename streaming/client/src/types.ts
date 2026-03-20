@@ -122,6 +122,8 @@ export type TOrganization = {
   id: string;
   name: string;
   description: string;
+  /** Organization owner's Django user id (serialized FK). */
+  owner?: number;
   credentials: TOrganizationCredentials;
   can_manage?: boolean;
   is_owner?: boolean;
@@ -220,6 +222,21 @@ export interface TNotificationCondition {
 }
 
 export type TNotifyToType = "user" | "role" | "organization";
+
+/** In-app notification row (notify.UserNotification). */
+export interface TUserNotification {
+  id: string;
+  organization: string;
+  notification_rule: string;
+  alert: string;
+  message: string;
+  delivery_method: "app" | "email" | "all";
+  delivered_at: string | null;
+  read_at: string | null;
+  ignored_at: string | null;
+  expires_at: string | null;
+  created_at: string;
+}
 
 export interface TNotificationRule {
   id: string;

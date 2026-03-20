@@ -7,17 +7,7 @@ import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { twilight } from "react-syntax-highlighter/dist/esm/styles/prism";
-
-const WIDGET_API_URL =
-  // @ts-ignore
-  (import.meta.env.VITE_API_URL ?? (
-    typeof window !== "undefined" &&
-    window.location.origin &&
-    window.location.origin !== "null" &&
-    !window.location.origin.startsWith("file:")
-      ? window.location.origin
-      : "http://localhost:8000"
-  ));
+import { API_URL } from "../modules/constants";
 
 interface WidgetMarkdownRendererProps {
   markdown: string;
@@ -42,7 +32,7 @@ const WidgetMarkdownRenderer: React.FC<WidgetMarkdownRendererProps> = ({
     const u = (url || "").trim();
     if (!u) return u;
     if (u.startsWith("http://") || u.startsWith("https://") || u.startsWith("data:")) return u;
-    if (u.startsWith("/")) return `${WIDGET_API_URL}${u}`;
+    if (u.startsWith("/")) return `${API_URL}${u}`;
     return u;
   };
 
@@ -54,7 +44,7 @@ const WidgetMarkdownRenderer: React.FC<WidgetMarkdownRendererProps> = ({
       const resolved = id ? attachmentUrlById.get(id) : undefined;
       return resolved ? normalizeUrl(resolved) : u;
     }
-    if (u.startsWith("/media/")) return `${WIDGET_API_URL}${u}`;
+    if (u.startsWith("/media/")) return `${API_URL}${u}`;
     return u;
   };
 

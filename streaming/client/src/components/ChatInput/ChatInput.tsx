@@ -256,7 +256,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             minRows={chatState.writtingMode ? 8 : 1}
             maxRows={chatState.writtingMode ? 20 : 3}
             classNames={{
-              input: "!bg-transparent !border-0 !text-sm !font-sans focus:!ring-0 focus:!outline-none !px-3 md:!px-5 !py-2 md:!py-3",
+              // text-base on small viewports avoids iOS zoom on focus (inputs < 16px)
+              input: "!bg-transparent !border-0 !text-base md:!text-sm !font-sans focus:!ring-0 focus:!outline-none !px-3 md:!px-5 !py-2 md:!py-3",
               wrapper: "!bg-transparent",
               root: "!bg-transparent",
             }}
