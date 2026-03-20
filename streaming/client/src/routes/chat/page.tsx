@@ -305,6 +305,7 @@ export default function ChatView() {
         user_inputs: userInputs,
         tool_names: toolNames,
         multiagentic_modality: userPreferences.multiagentic_modality,
+        client_datetime: buildClientDatetimePayload(),
       });
 
       cleanAttachments();
