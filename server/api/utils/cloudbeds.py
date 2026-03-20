@@ -51,14 +51,18 @@ CLOUDBEDS_API_BASE = "https://hotels.cloudbeds.com/api/v1.2"
 CLOUDBEDS_OAUTH_URL = "https://hotels.cloudbeds.com/api/v1.2/oauth"
 CLOUDBEDS_TOKEN_URL = "https://hotels.cloudbeds.com/api/v1.2/access_token"
 
-# Default scopes requested during OAuth
+# Default scopes requested during OAuth.
+# These map directly to Cloudbeds API endpoint groups — only request what the
+# app actually needs. Invalid scope names cause an invalid_scope OAuth error.
 DEFAULT_SCOPES = [
     "read:reservation",
+    "write:reservation",
     "read:guest",
+    "write:guest",
     "read:room",
+    "write:room",
     "read:rate",
-    "read:dashboard",
-    "read:property",
+    "write:rate",
 ]
 
 _DEFAULT_TIMEOUT = 20  # seconds

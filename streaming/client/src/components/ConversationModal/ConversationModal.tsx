@@ -16,6 +16,7 @@ import { updateConversation, getTags } from "../../modules/apiCalls";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { useStore } from "../../modules/store";
+import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
 import { IconDeviceFloppy } from "@tabler/icons-react";
 
 export const ConversationModal = ({
@@ -32,6 +33,11 @@ export const ConversationModal = ({
   const [loadingTags, setLoadingTags] = useState(false);
 
   const { t } = useTranslation();
+  const canEditConversationMeta =
+    useIsFeatureEnabled("can-edit-conversation-data") === true;
+  /** Viewers may open the modal read-only; participants need the flag to edit title/tags. */
+  const canMutateTitleAndTags = canEditConversationMeta && !readOnly;
+  const canOpenModal = readOnly || canEditConversationMeta;
 
   const { socket } = useStore((s) => ({
     socket: s.socket,
@@ -99,7 +105,11 @@ export const ConversationModal = ({
 
   return (
     <>
-      <p onClick={open} className="cutted-text pressable">
+      <p
+        onClick={canOpenModal ? open : undefined}
+        className={`cutted-text${canOpenModal ? " pressable" : ""}`}
+        style={!canOpenModal ? { cursor: "default" } : undefined}
+      >
         {title ? `${title.slice(0, 25)}...` : t("conversation-without-title")}
       </p>
 
@@ -119,7 +129,7 @@ export const ConversationModal = ({
             label={t("title")}
             value={title ?? ""}
             onChange={(e) => setTitle(e.currentTarget.value)}
-            readOnly={readOnly}
+            readOnly={!canMutateTitleAndTags}
           />
 
           <div>
@@ -142,8 +152,14 @@ export const ConversationModal = ({
                         key={tag.id}
                         variant={isSelected ? "filled" : "outline"}
                         color={tag.color || "violet"}
-                        style={{ cursor: readOnly ? "default" : "pointer" }}
-                        onClick={readOnly ? undefined : () => toggleTag(tag.id)}
+                        style={{
+                          cursor: canMutateTitleAndTags ? "pointer" : "default",
+                        }}
+                        onClick={
+                          canMutateTitleAndTags
+                            ? () => toggleTag(tag.id)
+                            : undefined
+                        }
                       >
                         {tag.title}
                       </Badge>
@@ -157,7 +173,7 @@ export const ConversationModal = ({
             )}
           </div>
 
-          {!readOnly && (
+          {canMutateTitleAndTags && (
             <Button
               onClick={handleSave}
               leftSection={<IconDeviceFloppy size={18} />}

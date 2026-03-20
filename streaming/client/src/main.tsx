@@ -144,7 +144,11 @@ const router = createBrowserRouter([
       },
       {
         path: "/settings",
-        element: <SettingsPage />,
+        element: (
+          <ProtectedRoute featureFlag="can-edit-preferences">
+            <SettingsPage />
+          </ProtectedRoute>
+        ),
       },
     ],
   },

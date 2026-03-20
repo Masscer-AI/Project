@@ -802,6 +802,7 @@ const AgentsModal = () => {
 
   const { t } = useTranslation();
   const [opened, { open, close }] = useDisclosure(false);
+  const canCreateAgents = useIsFeatureEnabled("can-create-agents") === true;
 
   return (
     <>
@@ -819,11 +820,13 @@ const AgentsModal = () => {
         title={
           <Group gap="sm">
             <Title order={4}>{t("agents")}</Title>
-            <Tooltip label={t("add-an-agent")}>
-              <ActionIcon variant="light" onClick={addAgent}>
-                <IconPlus size={18} />
-              </ActionIcon>
-            </Tooltip>
+            {canCreateAgents && (
+              <Tooltip label={t("add-an-agent")}>
+                <ActionIcon variant="light" onClick={addAgent}>
+                  <IconPlus size={18} />
+                </ActionIcon>
+              </Tooltip>
+            )}
           </Group>
         }
         size="xl"

@@ -62,6 +62,7 @@ export const Sidebar: React.FC = () => {
   const isChatWidgetsEnabled = useIsFeatureEnabled("chat-widgets-management");
   const isTrainAgentsEnabled = useIsFeatureEnabled("train-agents");
   const isAudioToolsEnabled = useIsFeatureEnabled("audio-tools");
+  const canEditPreferences = useIsFeatureEnabled("can-edit-preferences") === true;
   const { toggleSidebar, setConversation, user, setOpenedModals, logout } =
     useStore((state) => ({
       toggleSidebar: state.toggleSidebar,
@@ -477,8 +478,11 @@ export const Sidebar: React.FC = () => {
         <Group gap="xs" className="mt-auto">
           <Button
             variant="default"
-            leftSection={<IconSettings size={20} />}
-            onClick={openSettings}
+            leftSection={
+              canEditPreferences ? <IconSettings size={20} /> : undefined
+            }
+            onClick={canEditPreferences ? openSettings : undefined}
+            disabled={!canEditPreferences}
             className="flex-1"
           >
             {user ? user.username : t("you")}
@@ -522,6 +526,8 @@ const ConversationComponent = ({
 
   const { t } = useTranslation();
   const isTrainAgentsEnabled = useIsFeatureEnabled("train-agents");
+  const canEditConversationData =
+    useIsFeatureEnabled("can-edit-conversation-data") === true;
   const [showTrainingModal, setShowTrainingModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -558,31 +564,33 @@ const ConversationComponent = ({
         onClose={() => setShowTrainingModal(false)}
         conversation={conversation}
       />
-      <Modal
-        opened={showDeleteConfirm}
-        onClose={() => setShowDeleteConfirm(false)}
-        title={t("delete-conversation")}
-        size="sm"
-        centered
-      >
-        <Text size="sm" mb="md">
-          {t("sure")}?
-        </Text>
-        <Group justify="flex-end" gap="xs">
-          <Button variant="default" onClick={() => setShowDeleteConfirm(false)}>
-            {t("cancel")}
-          </Button>
-          <Button
-            color="red"
-            onClick={() => {
-              deleteConversationItem(conversation.id);
-              setShowDeleteConfirm(false);
-            }}
-          >
-            {t("delete")}
-          </Button>
-        </Group>
-      </Modal>
+      {canEditConversationData && (
+        <Modal
+          opened={showDeleteConfirm}
+          onClose={() => setShowDeleteConfirm(false)}
+          title={t("delete-conversation")}
+          size="sm"
+          centered
+        >
+          <Text size="sm" mb="md">
+            {t("sure")}?
+          </Text>
+          <Group justify="flex-end" gap="xs">
+            <Button variant="default" onClick={() => setShowDeleteConfirm(false)}>
+              {t("cancel")}
+            </Button>
+            <Button
+              color="red"
+              onClick={() => {
+                deleteConversationItem(conversation.id);
+                setShowDeleteConfirm(false);
+              }}
+            >
+              {t("delete")}
+            </Button>
+          </Group>
+        </Modal>
+      )}
 
       <Menu position="left-start" withArrow shadow="md">
         <Menu.Target>
@@ -591,13 +599,15 @@ const ConversationComponent = ({
           </ActionIcon>
         </Menu.Target>
         <Menu.Dropdown>
-          <Menu.Item
-            color="red"
-            leftSection={<IconTrash size={16} />}
-            onClick={() => setShowDeleteConfirm(true)}
-          >
-            {t("delete")}
-          </Menu.Item>
+          {canEditConversationData && (
+            <Menu.Item
+              color="red"
+              leftSection={<IconTrash size={16} />}
+              onClick={() => setShowDeleteConfirm(true)}
+            >
+              {t("delete")}
+            </Menu.Item>
+          )}
           {isTrainAgentsEnabled && (
             <Menu.Item
               leftSection={<IconBarbell size={16} />}

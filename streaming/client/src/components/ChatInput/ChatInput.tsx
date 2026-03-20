@@ -422,6 +422,8 @@ const ToolsMenu = () => {
   const isWebScrapingEnabled = useIsFeatureEnabled("web-scraping");
   const isImageToolsEnabled = useIsFeatureEnabled("image-tools");
   const isChatSpeechEnabled = useIsFeatureEnabled("chat-generate-speech");
+  const canEditConversationChatSettings =
+    useIsFeatureEnabled("can-edit-conversation-data") === true;
   const {
     chatState,
     toggleUseRag,
@@ -555,15 +557,17 @@ const ToolsMenu = () => {
             {t("turn-on-off-writing-mode") || "Writing mode"}
           </Menu.Item>
 
-          <Menu.Divider />
+          {canEditConversationChatSettings && <Menu.Divider />}
 
-          <Menu.Item
-            leftSection={<IconSettings size={18} />}
-            onClick={openSettings}
-            closeMenuOnClick
-          >
-            {t("conversation-settings") || "Settings"}
-          </Menu.Item>
+          {canEditConversationChatSettings && (
+            <Menu.Item
+              leftSection={<IconSettings size={18} />}
+              onClick={openSettings}
+              closeMenuOnClick
+            >
+              {t("conversation-settings") || "Settings"}
+            </Menu.Item>
+          )}
         </Menu.Dropdown>
       </Menu>
 

@@ -25,4 +25,7 @@ KNOWN_FEATURE_FLAGS = {
     "chat-generate-speech": {"organization_only": False},
     "multi-agent-chat": {"organization_only": False},
     "set-agent-ownership": {"organization_only": False},
+    "can-edit-conversation-data": {"organization_only": False},
+    "can-edit-preferences": {"organization_only": False},
+    "can-create-agents": {"organization_only": False},
 }

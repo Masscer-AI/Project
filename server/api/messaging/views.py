@@ -50,6 +50,43 @@ from django.conf import settings
 from django.core.cache import cache
 
 
+CAN_EDIT_CONVERSATION_DATA_FLAG = "can-edit-conversation-data"
+
+
+def _resolve_organization_for_user_flag(user, conversation=None):
+    if conversation is not None and getattr(conversation, "organization_id", None):
+        return conversation.organization
+    owned = Organization.objects.filter(owner=user).first()
+    if owned:
+        return owned
+    if hasattr(user, "profile") and user.profile.organization_id:
+        return Organization.objects.filter(pk=user.profile.organization_id).first()
+    return None
+
+
+def _deny_unless_can_edit_conversation_data(request, conversation=None):
+    """Require can-edit-conversation-data to edit, delete, or truncate chat history."""
+    user = request.user
+    org = _resolve_organization_for_user_flag(user, conversation)
+    enabled, _ = FeatureFlagService.is_feature_enabled(
+        CAN_EDIT_CONVERSATION_DATA_FLAG,
+        organization=org,
+        user=user,
+    )
+    if not enabled:
+        return JsonResponse(
+            {
+                "message": (
+                    "You are not allowed to change conversation or message content. "
+                    "The 'can-edit-conversation-data' feature is not enabled for you."
+                ),
+                "status": 403,
+            },
+            status=403,
+        )
+    return None
+
+
 def _get_conversation_for_user(request, conversation_id):
     """
     Get conversation if the user has access (owns it or is org member).
@@ -429,8 +466,15 @@ class ConversationView(View):
 
         regenerate = data.get("regenerate", None)
         if regenerate:
+            deny = _deny_unless_can_edit_conversation_data(request, conversation)
+            if deny:
+                return deny
             conversation.cut_from(regenerate["user_message_id"])
             return JsonResponse({"status": "regenerated"})
+
+        deny = _deny_unless_can_edit_conversation_data(request, conversation)
+        if deny:
+            return deny
 
         try:
             # Validate and sanitize tags if present
@@ -480,6 +524,9 @@ class ConversationView(View):
         conversation, err = _get_conversation_for_user(request, conversation_id)
         if err:
             return err
+        deny = _deny_unless_can_edit_conversation_data(request, conversation)
+        if deny:
+            return deny
         conversation.status = "deleted"
         conversation.deleted_at = timezone.now()
         conversation.save(update_fields=["status", "deleted_at", "updated_at"])
@@ -592,13 +639,17 @@ class MessageView(View):
         message_id = kwargs.get("id")
 
         try:
-            message = Message.objects.get(
+            message = Message.objects.select_related("conversation").get(
                 id=message_id, conversation__user=request.user
             )
         except Message.DoesNotExist:
             return JsonResponse(
                 {"message": "Message not found", "status": 404}, status=404
             )
+
+        deny = _deny_unless_can_edit_conversation_data(request, message.conversation)
+        if deny:
+            return deny
 
         serializer = MessageSerializer(message, data=data, partial=True)
 
@@ -612,9 +663,14 @@ class MessageView(View):
         message_id = kwargs.get("id")
 
         try:
-            message = Message.objects.get(
+            message = Message.objects.select_related("conversation").get(
                 id=message_id, conversation__user=request.user
             )
+            deny = _deny_unless_can_edit_conversation_data(
+                request, message.conversation
+            )
+            if deny:
+                return deny
             message.delete()
             return JsonResponse({"status": "deleted"})
         except Message.DoesNotExist:

@@ -7,6 +7,7 @@ import toast from "react-hot-toast";
 import { deleteMessage, updateMessage, getAgentSessionsForMessage } from "../../modules/apiCalls";
 import { useTranslation } from "react-i18next";
 import { useStore } from "../../modules/store";
+import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
 import { Reactions } from "../Reactions/Reactions";
 
 import "./Message.css";
@@ -95,6 +96,8 @@ export const Message = memo(
     const [agentSessions, setAgentSessions] = useState<TAgentSession[] | null>(null);
 
     const { t } = useTranslation();
+    const canEditConversationData =
+      useIsFeatureEnabled("can-edit-conversation-data") === true;
 
     const { agents, reactionTemplates, agentTaskStatus } = useStore(
       (s) => ({
@@ -413,7 +416,7 @@ export const Message = memo(
           )}
 
           {/* Message options menu */}
-          {id && !readOnly && (
+          {id && !readOnly && canEditConversationData && (
             <Menu shadow="md" withArrow position="top-end">
               <Menu.Target>
                 <ActionIcon variant="subtle" color="gray" size="sm">
@@ -452,6 +455,7 @@ export const Message = memo(
         </div>
 
         {/* Delete confirmation modal */}
+        {canEditConversationData && (
         <Modal
           opened={messageState.confirmDeleteOpened}
           onClose={() =>
@@ -490,6 +494,7 @@ export const Message = memo(
             </Group>
           </Stack>
         </Modal>
+        )}
       </div>
     );
   }

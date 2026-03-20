@@ -14,6 +14,7 @@ from api.providers.models import AIProvider
 from rest_framework.parsers import JSONParser
 from api.utils.color_printer import printer
 from api.authenticate.models import UserProfile
+from api.authenticate.services import FeatureFlagService
 from faker import Faker
 import random
 from django.core.cache import cache
@@ -425,6 +426,21 @@ def create_random_agent(request):
     if request.method != "POST":
         return JsonResponse({"error": "Only POST requests are allowed."}, status=405)
 
+    enabled, _ = FeatureFlagService.is_feature_enabled(
+        "can-create-agents",
+        user=request.user,
+    )
+    if not enabled:
+        return JsonResponse(
+            {
+                "error": (
+                    "You are not allowed to create agents. "
+                    "The 'can-create-agents' feature is not enabled for you."
+                ),
+            },
+            status=403,
+        )
+
     name = fake.name()
     salute = fake.sentence()
     available_models = list(
@@ -606,6 +622,21 @@ class AgentTaskView(View):
                 return JsonResponse(
                     {"error": "regenerate_message_id must be an integer"},
                     status=400,
+                )
+            can_edit_data, _ = FeatureFlagService.is_feature_enabled(
+                "can-edit-conversation-data",
+                organization=conversation.organization,
+                user=user,
+            )
+            if not can_edit_data:
+                return JsonResponse(
+                    {
+                        "error": (
+                            "Regenerating from a user message removes later history. "
+                            "The 'can-edit-conversation-data' feature is not enabled for you."
+                        ),
+                    },
+                    status=403,
                 )
 
         # --- Dispatch Celery task ---

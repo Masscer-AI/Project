@@ -3,6 +3,7 @@ from django.http import JsonResponse
 from django.views import View
 from django.utils.decorators import method_decorator
 from api.authenticate.decorators.token_required import token_required
+from api.authenticate.services import FeatureFlagService
 from .models import UserPreferences, UserVoices, WebPage
 from .serializers import UserPreferencesSerializer, WebPageSerializer
 from rest_framework import status
@@ -12,6 +13,23 @@ from api.utils.color_printer import printer
 
 
 CACHE_TIMEOUT = 86400
+
+# Chat/conversation settings stored on UserPreferences; require can-edit-conversation-data
+# when changing these so theme/background can still be updated from Settings without the flag.
+_PREFERENCE_FIELDS_REQUIRE_EDIT_CONVERSATION = (
+    "max_memory_messages",
+    "autoscroll",
+    "multiagentic_modality",
+)
+
+
+def _preferences_chat_settings_changed(instance, validated_data: dict) -> bool:
+    for field in _PREFERENCE_FIELDS_REQUIRE_EDIT_CONVERSATION:
+        if field not in validated_data:
+            continue
+        if validated_data[field] != getattr(instance, field):
+            return True
+    return False
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -50,6 +68,27 @@ class UserPreferencesView(View):
         serializer = UserPreferencesSerializer(user_preferences, data=data)
 
         if serializer.is_valid():
+            if _preferences_chat_settings_changed(
+                user_preferences, serializer.validated_data
+            ):
+                enabled, _ = FeatureFlagService.is_feature_enabled(
+                    "can-edit-conversation-data",
+                    user=request.user,
+                )
+                if not enabled:
+                    return JsonResponse(
+                        {
+                            "message": (
+                                "You are not allowed to change conversation chat settings "
+                                "(memory, scroll, or multi-agent mode). "
+                                "The 'can-edit-conversation-data' feature is not "
+                                "enabled for you."
+                            ),
+                            "status": 403,
+                        },
+                        status=403,
+                    )
+
             serializer.save()
 
             cache_key = f"user_preferences_{request.user.id}"
