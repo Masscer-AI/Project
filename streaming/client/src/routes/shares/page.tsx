@@ -10,7 +10,10 @@ import { TChatLoader, TMessage } from "../../types/chatTypes";
 import { useTranslation } from "react-i18next";
 import { TVersion } from "../../types";
 import toast from "react-hot-toast";
-import { triggerAgentTask } from "../../modules/apiCalls";
+import {
+  triggerAgentTask,
+  buildClientDatetimePayload,
+} from "../../modules/apiCalls";
 
 export default function SharedChatView() {
   const loaderData = useLoaderData() as TChatLoader;
@@ -161,6 +164,7 @@ export default function SharedChatView() {
         user_inputs: [{ type: "input_text", text: newText }],
         tool_names: ["read_attachment", "list_attachments"],
         regenerate_message_id: userMessage.id,
+        client_datetime: buildClientDatetimePayload(),
       });
     } catch (error) {
       console.error("Error regenerating via agent task:", error);

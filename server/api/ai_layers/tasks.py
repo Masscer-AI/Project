@@ -44,6 +44,44 @@ def async_generate_agent_profile_picture(agent_id: int):
     return result
 
 
+def _agent_clock_context(client_datetime: dict | None) -> str:
+    """
+    Text appended to agent instructions so the model can resolve relative times
+    ("in 2 hours", "tomorrow") against the user's device clock when provided.
+    """
+    from datetime import datetime
+
+    if isinstance(client_datetime, dict):
+        loc = client_datetime.get("local_datetime_long")
+        tz = client_datetime.get("timezone")
+        utc = client_datetime.get("utc_iso")
+        locale = client_datetime.get("locale")
+        loc = loc.strip()[:500] if isinstance(loc, str) and loc.strip() else None
+        tz = tz.strip()[:120] if isinstance(tz, str) and tz.strip() else None
+        utc = utc.strip()[:80] if isinstance(utc, str) and utc.strip() else None
+        locale = locale.strip()[:40] if isinstance(locale, str) and locale.strip() else None
+        parts: list[str] = []
+        if loc:
+            parts.append(f"User's local date and time (their device): {loc}.")
+        if tz:
+            parts.append(f"User's IANA timezone: {tz}.")
+        if utc:
+            parts.append(f"Same instant (UTC, ISO-8601): {utc}.")
+        if locale:
+            parts.append(f"User locale: {locale}.")
+        if parts:
+            parts.append(
+                "Interpret relative dates and times (e.g. 'in 2 hours', 'tomorrow', 'next Monday') "
+                "using the user's local clock and timezone above."
+            )
+            return "\n".join(parts)
+    server = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    return (
+        f"The current date and time (server) is {server}.\n"
+        "No client clock was provided; use this for relative time if needed, or ask the user to clarify their timezone."
+    )
+
+
 def _build_user_message_text(user_inputs: list[dict]) -> str:
     """
     Build a plain-text user message from user_inputs.
@@ -509,6 +547,7 @@ def conversation_agent_task(
     max_iterations: int = 10,
     user_id: int | str | None = None,
     regenerate_message_id: int | None = None,
+    client_datetime: dict | None = None,
 ):
     """
     Celery task that runs an AgentLoop for one or more agents in a conversation.
@@ -529,6 +568,8 @@ def conversation_agent_task(
         user_id: Notification route id (user id or widget_session:<id>)
         regenerate_message_id: if set, reuse this user message (update its text,
             delete all subsequent messages) instead of creating a new one.
+        client_datetime: optional dict from the user's browser (utc_iso, timezone,
+            local_datetime_long, locale) to resolve relative times in their locale.
 
     Returns:
         dict with status, output, iterations, tool_calls_count, message_id
@@ -672,10 +713,9 @@ def conversation_agent_task(
             )
 
         # Pre-compute context shared across all agent iterations
-        from datetime import datetime
         from api.authenticate.models import UserProfile
 
-        current_date_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        clock_context = _agent_clock_context(client_datetime)
 
         user_profile_text = ""
         if actor_user_id:
@@ -692,7 +732,7 @@ def conversation_agent_task(
             model_slug = llm.slug if llm else (agent.model_slug or "gpt-5.2")
 
             instructions += f"\n\nYour name is: {agent.name}."
-            instructions += f"\nThe current date and time is {current_date_time}."
+            instructions += f"\n{clock_context}"
             if user_profile_text:
                 instructions += f"\n{user_profile_text}"
 

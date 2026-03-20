@@ -7,6 +7,7 @@ import { TVersion } from "../types";
 import {
   initWidgetConversation,
   triggerWidgetAgentTask,
+  buildClientDatetimePayload,
   getWidgetSocketRoute,
 } from "../modules/apiCalls";
 import { SocketManager } from "../modules/socketManager";
@@ -370,6 +371,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
       await triggerWidgetAgentTask(widgetToken, sessionToken, {
         conversation_id: conversation.id,
         user_inputs: [{ type: "input_text", text: input }],
+        client_datetime: buildClientDatetimePayload(),
       });
 
       scrollToBottom();

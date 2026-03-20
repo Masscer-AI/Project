@@ -85,6 +85,7 @@ export const triggerWidgetAgentTask = async (
   payload: {
     conversation_id: string;
     user_inputs: { type: "input_text"; text: string }[];
+    client_datetime?: ClientDatetimePayload;
   }
 ) => {
   const endpoint = `${API_URL}/v1/messaging/widgets/${widgetToken}/agent-task/`;
@@ -1397,6 +1398,33 @@ export type TAgentTaskInput =
   | { type: "input_text"; text: string }
   | { type: "input_attachment"; attachment_id: string };
 
+/** Built in the browser and sent with agent-task so the model can resolve "in 2 hours", etc. */
+export type ClientDatetimePayload = {
+  utc_iso: string;
+  timezone: string;
+  locale: string;
+  local_datetime_long: string;
+};
+
+export function buildClientDatetimePayload(): ClientDatetimePayload {
+  const now = new Date();
+  return {
+    utc_iso: now.toISOString(),
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    locale: typeof navigator !== "undefined" ? navigator.language : "en",
+    local_datetime_long: now.toLocaleString(undefined, {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      second: "2-digit",
+      timeZoneName: "short",
+    }),
+  };
+}
+
 export type TriggerAgentTaskPayload = {
   conversation_id: string;
   agent_slugs: string[];
@@ -1404,6 +1432,7 @@ export type TriggerAgentTaskPayload = {
   tool_names?: string[];
   multiagentic_modality?: "isolated" | "grupal";
   regenerate_message_id?: number;
+  client_datetime?: ClientDatetimePayload;
 };
 
 export type TriggerAgentTaskResponse = {

@@ -17,6 +17,7 @@ import { IconArrowDown } from "@tabler/icons-react";
 import {
   linkMessageAttachment,
   triggerAgentTask,
+  buildClientDatetimePayload,
   uploadMessageAttachments,
 } from "../../modules/apiCalls";
 
@@ -408,6 +409,7 @@ export default function ChatView() {
         tool_names: toolNames,
         multiagentic_modality: userPreferences.multiagentic_modality,
         regenerate_message_id: userMessage.id,
+        client_datetime: buildClientDatetimePayload(),
       });
 
       scrollChat();

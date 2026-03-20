@@ -12,6 +12,7 @@ usage() {
   echo "  ./taskfile.sh migrate [migrate-flags]"
   echo "  ./taskfile.sh migrate_structure [--dry-run]"
   echo "  ./taskfile.sh front"
+  echo "  ./taskfile.sh shell"
   echo "  ./taskfile.sh autoupload \"commit message\""
   echo ""
   echo "Examples:"
@@ -20,6 +21,7 @@ usage() {
   echo "  ./taskfile.sh migrate"
   echo "  ./taskfile.sh migrate_structure --dry-run"
   echo "  ./taskfile.sh front"
+  echo "  ./taskfile.sh shell"
   echo "  ./taskfile.sh autoupload \"chore: update scripts\""
 }
 
@@ -46,6 +48,13 @@ case "$COMMAND" in
   front)
     cd "./streaming/client"
     exec npm run build:all "$@"
+    ;;
+  shell)
+    if [[ -f .env ]]; then
+      set -a; source .env; set +a
+    fi
+    DJANGO_CONTAINER=${DJANGO_CONTAINER:-masscer-django}
+    exec docker exec -it "$DJANGO_CONTAINER" bash "$@"
     ;;
   autoupload)
     exec bash "./scripts/autoUpload.sh" "$@"

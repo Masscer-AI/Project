@@ -3,12 +3,20 @@ Views for the Cloudbeds OAuth integration.
 
 Endpoints:
   GET  /v1/cloudbeds/connect/       → returns OAuth authorization URL
-  GET  /v1/cloudbeds/callback/      → handles OAuth callback, stores credential
+  GET  /v1/cloudbeds/callback/      → handles OAuth callback, stores credential, redirects to frontend
   GET  /v1/cloudbeds/status/        → returns connection status for the org
   POST /v1/cloudbeds/disconnect/    → deletes stored credential
 
-All views (except /callback/) require a valid Masscer auth token.
-The /callback/ view uses a state parameter to recover the user session.
+OAuth flow:
+  1. Frontend calls GET /connect/ (with auth token) → gets authorization_url.
+  2. Frontend opens that URL (popup or redirect) — user grants access on Cloudbeds.
+  3. Cloudbeds redirects browser to GET /callback/?code=...&state=...
+  4. Backend exchanges code, stores CloudbedsCredential, redirects browser to
+     CLOUDBEDS_FRONTEND_SUCCESS_URL (defaults to /settings/integrations).
+
+The `state` param carries a short-lived cache key that maps back to the
+requesting user's ID, so /callback/ knows which organization to associate
+the credential with — without putting auth tokens in query strings.
 """
 
 from __future__ import annotations
@@ -18,7 +26,8 @@ import logging
 import os
 import secrets
 
-from django.http import JsonResponse
+from django.core.cache import cache
+from django.http import HttpResponseRedirect, JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 
@@ -26,6 +35,9 @@ from api.authenticate.decorators.token_required import token_required
 from api.utils.cloudbeds import CloudBedsIntegration, CloudBedsError
 
 logger = logging.getLogger(__name__)
+
+# How long the state → user_id cache entry lives (seconds).
+_STATE_TTL = 60 * 10  # 10 minutes
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -40,11 +52,28 @@ def _get_client_secret() -> str:
 
 
 def _get_redirect_uri(request) -> str:
-    """Build the absolute callback URI."""
+    """
+    The Cloudbeds callback URL registered in your app settings.
+    Always points to the *backend* — this is where the code exchange happens.
+    Override with CLOUDBEDS_REDIRECT_URI env var if needed (e.g. ngrok in dev).
+    """
     override = os.environ.get("CLOUDBEDS_REDIRECT_URI", "")
     if override:
         return override
     return request.build_absolute_uri("/v1/cloudbeds/callback/")
+
+
+def _get_frontend_success_url() -> str:
+    """Frontend page to redirect the browser to after a successful connection."""
+    base = os.environ.get("FRONTEND_URL", "").rstrip("/")
+    return f"{base}/settings/integrations"
+
+
+def _get_frontend_error_url(reason: str = "") -> str:
+    """Frontend page to redirect to when the OAuth flow fails."""
+    base = os.environ.get("FRONTEND_URL", "").rstrip("/")
+    url = f"{base}/settings/integrations"
+    return f"{url}?cloudbeds_error={reason}" if reason else url
 
 
 def _get_org(user):
@@ -66,7 +95,10 @@ def cloudbeds_connect(request):
     GET /v1/cloudbeds/connect/
 
     Returns the Cloudbeds OAuth authorization URL that the frontend should
-    redirect (or open) to start the connection flow.
+    open (popup or redirect) to start the connection flow.
+
+    The `state` value is a random token stored in Redis that maps back to
+    the requesting user so /callback/ can identify the organization.
 
     Response:
         200 { "authorization_url": "https://hotels.cloudbeds.com/..." }
@@ -79,9 +111,9 @@ def cloudbeds_connect(request):
     if not client_id:
         return JsonResponse({"error": "CLOUDBEDS_CLIENT_ID is not configured"}, status=400)
 
-    # Generate a random state token; in production you'd store this in the
-    # user's session or a short-lived cache key to verify on callback.
+    # Store state → user_id in cache so /callback/ can look it up.
     state = secrets.token_urlsafe(24)
+    cache.set(f"cloudbeds_oauth_state:{state}", request.user.id, timeout=_STATE_TTL)
 
     redirect_uri = _get_redirect_uri(request)
     authorization_url = CloudBedsIntegration.get_authorization_url(
@@ -106,34 +138,54 @@ def cloudbeds_callback(request):
     """
     GET /v1/cloudbeds/callback/?code=...&state=...&propertyID=...
 
-    Exchanges the authorization code for tokens and stores the credential
-    against the user's organization.
-
-    Cloudbeds passes `propertyID` in the query string after authorization,
-    which we persist alongside the token.
-
-    In a real deployment you'd verify `state` against the session value.
+    Handles the Cloudbeds OAuth redirect:
+      1. Validates the state param against the Redis cache entry set in /connect/.
+      2. Exchanges the authorization code for tokens.
+      3. Fetches property metadata.
+      4. Persists a CloudbedsCredential for the user's organization.
+      5. Redirects the browser to CLOUDBEDS_FRONTEND_SUCCESS_URL.
     """
     if request.method != "GET":
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
     code = request.GET.get("code", "")
+    state = request.GET.get("state", "")
     error = request.GET.get("error", "")
     property_id = request.GET.get("propertyID", "")
 
     if error:
         logger.warning("Cloudbeds OAuth error: %s", error)
-        return JsonResponse({"error": f"Cloudbeds authorization denied: {error}"}, status=400)
+        return HttpResponseRedirect(_get_frontend_error_url(error))
 
     if not code:
-        return JsonResponse({"error": "Missing authorization code"}, status=400)
+        return HttpResponseRedirect(_get_frontend_error_url("missing_code"))
+
+    # Recover the user from the state cache entry.
+    user_id = cache.get(f"cloudbeds_oauth_state:{state}") if state else None
+    if not user_id:
+        logger.warning("Cloudbeds callback: invalid or expired state '%s'", state)
+        return HttpResponseRedirect(_get_frontend_error_url("invalid_state"))
+
+    # Consume state (one-time use).
+    cache.delete(f"cloudbeds_oauth_state:{state}")
+
+    from django.contrib.auth.models import User
+
+    try:
+        user = User.objects.select_related("profile__organization").get(id=user_id)
+    except User.DoesNotExist:
+        return HttpResponseRedirect(_get_frontend_error_url("user_not_found"))
+
+    org = _get_org(user)
+    if not org:
+        return HttpResponseRedirect(_get_frontend_error_url("no_organization"))
 
     client_id = _get_client_id()
     client_secret = _get_client_secret()
     if not client_id or not client_secret:
-        return JsonResponse({"error": "Cloudbeds app credentials are not configured"}, status=500)
+        return HttpResponseRedirect(_get_frontend_error_url("server_misconfigured"))
 
-    # Exchange code for tokens
+    # Exchange code for tokens.
     try:
         token_data = CloudBedsIntegration.exchange_code_for_token(
             client_id=client_id,
@@ -143,7 +195,7 @@ def cloudbeds_callback(request):
         )
     except CloudBedsError as exc:
         logger.error("Cloudbeds token exchange failed: %s", exc)
-        return JsonResponse({"error": str(exc)}, status=502)
+        return HttpResponseRedirect(_get_frontend_error_url("token_exchange_failed"))
 
     access_token = token_data["access_token"]
     refresh_token = token_data.get("refresh_token", "")
@@ -154,38 +206,37 @@ def cloudbeds_callback(request):
         else None
     )
 
-    # Fetch property name using the new token
+    # Fetch property metadata with the new token.
     property_name = ""
     try:
         cb = CloudBedsIntegration(access_token=access_token)
         userinfo = cb.get_property_info()
-        property_name = (
-            userinfo.get("data", {}).get("propertyName", "")
-            or userinfo.get("propertyName", "")
-        )
+        data = userinfo.get("data", {}) if isinstance(userinfo, dict) else {}
+        property_name = data.get("propertyName", "") or userinfo.get("propertyName", "")
         if not property_id:
-            property_id = str(
-                userinfo.get("data", {}).get("propertyID", "")
-                or userinfo.get("propertyID", "")
-            )
+            property_id = str(data.get("propertyID", "") or userinfo.get("propertyID", ""))
     except Exception as exc:
         logger.warning("Could not fetch property info after token exchange: %s", exc)
 
-    # We need the user to save the credential. The state param should carry the
-    # user token, but for simplicity we expose the tokens in the response so the
-    # frontend can POST them to a save endpoint, or you can use session-based flow.
-    #
-    # Here we return the token data so the frontend (or a subsequent POST) can
-    # persist it. If you have a server-side session you'd store it directly.
-    return JsonResponse({
-        "success": True,
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "expires_at": expires_at.isoformat() if expires_at else None,
-        "property_id": property_id,
-        "property_name": property_name,
-        "message": "Authorization successful. Send these tokens to POST /v1/cloudbeds/save/ to persist the connection.",
-    })
+    # Persist the credential.
+    from api.cloudbeds.models import CloudbedsCredential
+
+    CloudbedsCredential.objects.update_or_create(
+        organization=org,
+        defaults={
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "expires_at": expires_at,
+            "property_id": property_id,
+            "property_name": property_name,
+        },
+    )
+    logger.info(
+        "Cloudbeds connected: org=%s property=%s (%s)",
+        org.id, property_id, property_name,
+    )
+
+    return HttpResponseRedirect(_get_frontend_success_url())
 
 
 # ---------------------------------------------------------------------------

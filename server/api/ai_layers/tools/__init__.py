@@ -32,7 +32,7 @@ TOOL_REGISTRY: dict[str, str] = {
     "read_plugin_instructions": "api.ai_layers.tools.read_plugin_instructions",
     "raise_alert": "api.ai_layers.tools.raise_alert",
     # Cloudbeds integration tools
-    "cloudbeds_list_hotels": "api.ai_layers.tools.cloudbeds_list_hotels",
+    # "cloudbeds_list_hotels": "api.ai_layers.tools.cloudbeds_list_hotels",
 }
 
 

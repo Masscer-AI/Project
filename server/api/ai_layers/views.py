@@ -471,6 +471,9 @@ class AgentTaskView(View):
               [{"type": "input_text", "text": "Hello"}]
         - tool_names (list[str], optional): tool names from the registry (default [])
         - multiagentic_modality (str, optional): "isolated" or "grupal" (default "isolated")
+        - client_datetime (object, optional): user's browser clock for relative times, e.g.
+              {"utc_iso": "...", "timezone": "Europe/Madrid", "local_datetime_long": "...",
+               "locale": "es-ES"}
 
     The agent's system prompt and LLM model are resolved from the Agent model.
     Messages are always saved to the conversation.
@@ -586,6 +589,14 @@ class AgentTaskView(View):
                 status=403,
             )
 
+        # --- Optional: client clock (browser) for relative dates/times ---
+        client_datetime = data.get("client_datetime")
+        if client_datetime is not None and not isinstance(client_datetime, dict):
+            return JsonResponse(
+                {"error": "client_datetime must be an object when provided"},
+                status=400,
+            )
+
         # --- Optional: regenerate (edit & re-run) ---
         regenerate_message_id = data.get("regenerate_message_id")
         if regenerate_message_id is not None:
@@ -606,6 +617,7 @@ class AgentTaskView(View):
             multiagentic_modality=multiagentic_modality,
             user_id=user.id,
             regenerate_message_id=regenerate_message_id,
+            client_datetime=client_datetime,
         )
 
         return JsonResponse(

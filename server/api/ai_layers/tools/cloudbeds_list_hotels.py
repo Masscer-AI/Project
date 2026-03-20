@@ -62,7 +62,12 @@ def _list_hotels_impl(
     *,
     include_dashboard: bool,
     organization_id: int | None,
+    user_id: int | None,
 ) -> CloudbedsListHotelsResult:
+    from django.contrib.auth.models import User
+
+    from api.authenticate.models import Organization
+    from api.authenticate.services import FeatureFlagService
     from api.cloudbeds.models import CloudbedsCredential
     from api.utils.cloudbeds import CloudBedsIntegration, CloudBedsError
 
@@ -71,6 +76,33 @@ def _list_hotels_impl(
             "cloudbeds_list_hotels requires an organization context. "
             "Make sure the conversation is linked to an organization."
         )
+
+    # --- Authorization: org owner OR feature flag "can-use-cloudbeds" ---
+    try:
+        org = Organization.objects.get(id=organization_id)
+    except Organization.DoesNotExist:
+        raise ValueError("Organization not found.")
+
+    user = None
+    if user_id is not None:
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            pass
+
+    is_owner = user is not None and org.owner_id == user.id
+
+    if not is_owner:
+        enabled, _ = FeatureFlagService.is_feature_enabled(
+            feature_flag_name="can-use-cloudbeds",
+            organization=org,
+            user=user,
+        )
+        if not enabled:
+            raise ValueError(
+                "Access denied: the 'can-use-cloudbeds' feature is not enabled for your account. "
+                "Contact the organization owner to enable it."
+            )
 
     # Load all credentials for this organization
     # (Currently one-to-one, but modelled as a queryset for forward compatibility)
@@ -148,6 +180,7 @@ def _safe_int(value: Any) -> int | None:
 
 def get_tool(
     organization_id: int | None = None,
+    user_id: int | None = None,
     **kwargs,
 ) -> dict:
     """
@@ -162,6 +195,7 @@ def get_tool(
         return _list_hotels_impl(
             include_dashboard=include_dashboard,
             organization_id=organization_id,
+            user_id=user_id,
         )
 
     return {

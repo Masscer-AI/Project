@@ -54,6 +54,7 @@ These are emitted by the streaming server (see `streaming/server/event_triggers.
 
 The frontend calls:
 - `POST /v1/ai_layers/agent-task/conversation/` (see `api/ai_layers/urls.py`, `api/ai_layers/views.py`)
+- **Chat widget:** `POST /v1/messaging/widgets/<token>/agent-task/` (see `api/messaging/views.py:ChatWidgetAgentTaskView`) — same Celery task chain via `widget_conversation_agent_task` → `conversation_agent_task`.
 
 Payload includes:
 - `conversation_id`
@@ -62,6 +63,7 @@ Payload includes:
 - `tool_names[]`
 - `plugin_slugs[]` (optional; selected plugin slugs to inject as extra instructions)
 - `multiagentic_modality`
+- `client_datetime` (optional; browser clock: `utc_iso`, `timezone` IANA, `local_datetime_long`, `locale` — used so the model can resolve relative times like “in 2 hours” in the user’s zone)
 
 ### Backend → Celery task
 

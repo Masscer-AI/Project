@@ -28,6 +28,7 @@ def widget_conversation_agent_task(
     widget_token: str,
     widget_session_id: str,
     regenerate_message_id: int | None = None,
+    client_datetime: dict | None = None,
 ):
     """
     Dedicated widget agent task entrypoint.
@@ -60,6 +61,7 @@ def widget_conversation_agent_task(
         multiagentic_modality="isolated",
         user_id=route_key,
         regenerate_message_id=regenerate_message_id,
+        client_datetime=client_datetime,
     )
 
 

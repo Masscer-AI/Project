@@ -1106,6 +1106,13 @@ class ChatWidgetAgentTaskView(View):
         except Conversation.DoesNotExist:
             return JsonResponse({"error": "Conversation not found"}, status=404)
 
+        client_datetime = data.get("client_datetime")
+        if client_datetime is not None and not isinstance(client_datetime, dict):
+            return JsonResponse(
+                {"error": "client_datetime must be an object when provided"},
+                status=400,
+            )
+
         if not request.widget.agent:
             return JsonResponse({"error": "Widget has no configured agent"}, status=400)
 
@@ -1136,6 +1143,7 @@ class ChatWidgetAgentTaskView(View):
             widget_token=request.widget.token,
             widget_session_id=str(request.widget_visitor_session.id),
             regenerate_message_id=data.get("regenerate_message_id"),
+            client_datetime=client_datetime,
         )
         return JsonResponse({"task_id": task.id, "status": "accepted"}, status=202)
 
