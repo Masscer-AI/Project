@@ -1,11 +1,14 @@
 import React, { useEffect, useState, useRef } from "react";
 import { WidgetMessage } from "./WidgetMessage";
 import { SimpleChatInput } from "./SimpleChatInput";
+import ConversationList from "./ConversationList";
 import { useWidgetStore, WidgetConfig } from "./widgetStore";
 import { TMessage } from "../types/chatTypes";
-import { TAttachment, TVersion } from "../types";
+import { TAttachment, TConversation, TVersion } from "../types";
 import {
   initWidgetConversation,
+  listWidgetConversations,
+  getWidgetConversation,
   triggerWidgetAgentTask,
   buildClientDatetimePayload,
   getWidgetSocketRoute,
@@ -30,13 +33,19 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
   const {
     messages,
     conversation,
+    conversations,
+    view,
     isOpen,
     setMessages,
     setConversation,
+    setConversations,
+    setView,
     setIsOpen,
     setAgentTaskStatus,
     agentTaskStatus,
   } = useWidgetStore();
+
+  const [listLoading, setListLoading] = useState(false);
 
   const chatMessageContainerRef = useRef<HTMLDivElement>(null);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -90,6 +99,28 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
     if (initializationRef.current) return;
     initializationRef.current = true;
 
+    const openConversation = (conv: TConversation) => {
+      setConversation(conv);
+      const loadedMessages = (conv.messages as TMessage[]) || [];
+      if (
+        loadedMessages.length === 0 &&
+        typeof config.first_message === "string" &&
+        config.first_message.trim()
+      ) {
+        setMessages([
+          {
+            type: "assistant",
+            text: config.first_message.trim(),
+            attachments: [],
+            versions: [],
+          },
+        ]);
+      } else {
+        setMessages(loadedMessages);
+      }
+      setView("chat");
+    };
+
     const initializeWidget = async () => {
       try {
         localStorage.setItem(
@@ -115,27 +146,20 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
           newSocket.registerWidgetSession(socketRoute.route_key);
         }
 
-        const conv = await initWidgetConversation(widgetToken, sessionToken);
-        setConversation(conv);
-        const loadedMessages = conv.messages || [];
-        if (
-          loadedMessages.length === 0 &&
-          typeof config.first_message === "string" &&
-          config.first_message.trim()
-        ) {
-          setMessages([
-            {
-              type: "assistant",
-              text: config.first_message.trim(),
-              attachments: [],
-              versions: [],
-            },
-          ]);
-        } else {
-          setMessages(loadedMessages);
-        }
+        // Load previous conversations for this visitor
+        const prevConversations = await listWidgetConversations(widgetToken, sessionToken);
+        setConversations(prevConversations);
 
-        setIsInitialized(true);
+        if (prevConversations.length > 0) {
+          // Show conversation list so user can pick or start a new one
+          setView("list");
+          setIsInitialized(true);
+        } else {
+          // No history — create/get a fresh conversation and jump straight to chat
+          const conv = await initWidgetConversation(widgetToken, sessionToken);
+          openConversation(conv);
+          setIsInitialized(true);
+        }
       } catch (error) {
         console.error("Error initializing widget:", error);
         initializationRef.current = false;
@@ -343,6 +367,54 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
     }
   };
 
+  const handleSelectConversation = async (conv: TConversation) => {
+    const full = await getWidgetConversation(widgetToken, sessionToken, conv.id);
+    setConversation(full);
+    setMessages((full.messages as TMessage[]) || []);
+    setView("chat");
+  };
+
+  const handleNewConversation = async () => {
+    setListLoading(true);
+    try {
+      const conv = await initWidgetConversation(widgetToken, sessionToken);
+      setConversation(conv);
+      const loadedMessages = (conv.messages as TMessage[]) || [];
+      if (
+        loadedMessages.length === 0 &&
+        typeof config.first_message === "string" &&
+        config.first_message.trim()
+      ) {
+        setMessages([
+          {
+            type: "assistant",
+            text: config.first_message.trim(),
+            attachments: [],
+            versions: [],
+          },
+        ]);
+      } else {
+        setMessages(loadedMessages);
+      }
+      setView("chat");
+    } catch (error) {
+      console.error("Error creating new conversation:", error);
+    } finally {
+      setListLoading(false);
+    }
+  };
+
+  const handleBackToList = async () => {
+    // Refresh the list so any new conversation with messages shows up
+    try {
+      const updated = await listWidgetConversations(widgetToken, sessionToken);
+      setConversations(updated);
+    } catch (_) {
+      // non-critical
+    }
+    setView("list");
+  };
+
   const handleSendMessage = async (input: string): Promise<boolean> => {
     if (input.trim() === "" || !conversation) return false;
     const agentSlug = config.agent_slug || "widget-agent";
@@ -428,6 +500,15 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
         <div className="chat-widget-container" style={widgetCssVars}>
           <div className="chat-widget-header">
             <div className="chat-widget-header-main">
+              {view === "chat" && conversations.length > 0 && (
+                <button
+                  className="chat-widget-back"
+                  onClick={handleBackToList}
+                  aria-label="Back to conversations"
+                >
+                  ‹
+                </button>
+              )}
               {config.avatar_image && (
                 <img
                   src={config.avatar_image}
@@ -445,38 +526,50 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
               ×
             </button>
           </div>
-          <div ref={chatMessageContainerRef} className="chat-widget-messages">
-            {messages.map((msg, index) => {
-              const hasMessageText =
-                (msg.text ?? "").trim().length > 0 ||
-                (msg.versions ?? []).some(
-                  (version) => (version.text ?? "").trim().length > 0
-                );
 
-              const isInProgress =
-                index === messages.length - 1 &&
-                msg.type === "assistant" &&
-                !msg.id &&
-                !hasMessageText;
-
-              return (
-              <WidgetMessage
-                {...msg}
-                key={msg.id ?? `${index}-${msg.type}`}
-                index={index}
-                numberMessages={messages.length}
-                isLastAssistantInProgress={isInProgress}
-                agentTaskStatus={agentTaskStatus}
-              />
-              );
-            })}
-          </div>
-          <div className="chat-widget-input-container">
-            <SimpleChatInput
-              onSendMessage={handleSendMessage}
-              disabled={!conversation}
+          {view === "list" ? (
+            <ConversationList
+              conversations={conversations}
+              onSelect={handleSelectConversation}
+              onNewConversation={handleNewConversation}
+              isLoading={listLoading}
             />
-          </div>
+          ) : (
+            <>
+              <div ref={chatMessageContainerRef} className="chat-widget-messages">
+                {messages.map((msg, index) => {
+                  const hasMessageText =
+                    (msg.text ?? "").trim().length > 0 ||
+                    (msg.versions ?? []).some(
+                      (version) => (version.text ?? "").trim().length > 0
+                    );
+
+                  const isInProgress =
+                    index === messages.length - 1 &&
+                    msg.type === "assistant" &&
+                    !msg.id &&
+                    !hasMessageText;
+
+                  return (
+                    <WidgetMessage
+                      {...msg}
+                      key={msg.id ?? `${index}-${msg.type}`}
+                      index={index}
+                      numberMessages={messages.length}
+                      isLastAssistantInProgress={isInProgress}
+                      agentTaskStatus={agentTaskStatus}
+                    />
+                  );
+                })}
+              </div>
+              <div className="chat-widget-input-container">
+                <SimpleChatInput
+                  onSendMessage={handleSendMessage}
+                  disabled={!conversation}
+                />
+              </div>
+            </>
+          )}
         </div>
       )}
     </>

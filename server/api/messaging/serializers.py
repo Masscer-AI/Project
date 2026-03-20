@@ -164,6 +164,24 @@ class BigConversationSerializer(serializers.ModelSerializer):
 
 
 
+class WidgetConversationSummarySerializer(serializers.ModelSerializer):
+    number_of_messages = serializers.SerializerMethodField()
+    last_message_preview = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Conversation
+        fields = ["id", "created_at", "updated_at", "status", "number_of_messages", "last_message_preview"]
+
+    def get_number_of_messages(self, obj):
+        return obj.messages.count()
+
+    def get_last_message_preview(self, obj):
+        last_msg = obj.messages.order_by("-created_at").first()
+        if not last_msg:
+            return None
+        return (last_msg.text or "")[:120]
+
+
 class SharedConversationSerializer(serializers.ModelSerializer):
     conversation = BigConversationSerializer()
 

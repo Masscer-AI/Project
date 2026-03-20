@@ -68,7 +68,7 @@ def get_organization_timezone_from_request(request):
     Returns:
         string con el timezone o 'UTC' por defecto
     """
-    if not request or not hasattr(request, 'user') or not request.user.is_authenticated:
+    if not request or not hasattr(request, 'user') or not request.user or not request.user.is_authenticated:
         return 'UTC'
     
     from api.authenticate.models import Organization

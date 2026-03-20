@@ -12,6 +12,8 @@ from .views import (
     ChatWidgetConfigView,
     ChatWidgetSessionView,
     ChatWidgetConversationView,
+    ChatWidgetConversationsListView,
+    ChatWidgetConversationDetailView,
     ChatWidgetAgentTaskView,
     ChatWidgetSocketAuthView,
     ChatWidgetView,
@@ -72,6 +74,16 @@ urlpatterns = [
         "widgets/<str:token>/socket-auth/",
         ChatWidgetSocketAuthView.as_view(),
         name="widget_socket_auth",
+    ),
+    path(
+        "widgets/<str:token>/conversations/",
+        ChatWidgetConversationsListView.as_view(),
+        name="widget_conversations_list",
+    ),
+    path(
+        "widgets/<str:token>/conversations/<uuid:conversation_id>/",
+        ChatWidgetConversationDetailView.as_view(),
+        name="widget_conversation_detail",
     ),
     # Widget management endpoints (CRUD)
     path("widgets/", ChatWidgetView.as_view(), name="widget_list"),

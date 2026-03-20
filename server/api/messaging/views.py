@@ -22,6 +22,7 @@ from .serializers import (
     ConversationSerializer,
     MessageSerializer,
     BigConversationSerializer,
+    WidgetConversationSummarySerializer,
     SharedConversationSerializer,
     ChatWidgetConfigSerializer,
     ChatWidgetSerializer,
@@ -1217,6 +1218,43 @@ class ChatWidgetSocketAuthView(View):
             },
             status=200,
         )
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(widget_session_required, name="dispatch")
+class ChatWidgetConversationsListView(View):
+    def get(self, request, token):
+        if request.widget.token != token:
+            return JsonResponse({"error": "Widget token mismatch"}, status=403)
+
+        session = request.widget_visitor_session
+        conversations = (
+            Conversation.objects
+            .filter(widget_visitor_session=session, status__in=["active", "inactive"])
+            .annotate(msg_count=Count("messages"))
+            .filter(msg_count__gt=0)
+            .order_by("-created_at")
+        )
+        data = WidgetConversationSummarySerializer(conversations, many=True).data
+        return JsonResponse({"conversations": list(data)}, status=200)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(widget_session_required, name="dispatch")
+class ChatWidgetConversationDetailView(View):
+    def get(self, request, token, conversation_id):
+        if request.widget.token != token:
+            return JsonResponse({"error": "Widget token mismatch"}, status=403)
+        try:
+            conv = Conversation.objects.get(
+                id=conversation_id,
+                widget_visitor_session=request.widget_visitor_session,
+                status__in=["active", "inactive"],
+            )
+        except Conversation.DoesNotExist:
+            return JsonResponse({"error": "Conversation not found"}, status=404)
+        data = BigConversationSerializer(conv, context={"request": request}).data
+        return JsonResponse(data, status=200)
 
 
 @method_decorator(csrf_exempt, name="dispatch")

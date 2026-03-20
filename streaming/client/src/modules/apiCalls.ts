@@ -96,6 +96,29 @@ export const triggerWidgetAgentTask = async (
   return response.data;
 };
 
+export const getWidgetConversation = async (
+  widgetToken: string,
+  sessionToken: string,
+  conversationId: string
+): Promise<TConversation> => {
+  const endpoint = `${API_URL}/v1/messaging/widgets/${widgetToken}/conversations/${conversationId}/`;
+  const response = await axios.get(endpoint, {
+    headers: getWidgetAuthHeaders(sessionToken),
+  });
+  return response.data;
+};
+
+export const listWidgetConversations = async (
+  widgetToken: string,
+  sessionToken: string
+): Promise<TConversation[]> => {
+  const endpoint = `${API_URL}/v1/messaging/widgets/${widgetToken}/conversations/`;
+  const response = await axios.get(endpoint, {
+    headers: getWidgetAuthHeaders(sessionToken),
+  });
+  return response.data.conversations;
+};
+
 export const getWidgetSocketRoute = async (
   widgetToken: string,
   sessionToken: string

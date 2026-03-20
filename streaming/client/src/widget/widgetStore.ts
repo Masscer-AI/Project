@@ -21,6 +21,8 @@ export interface WidgetConfig {
 interface WidgetStore {
   messages: TMessage[];
   conversation: TConversation | null;
+  conversations: TConversation[];
+  view: "list" | "chat";
   agents: TAgent[];
   config: WidgetConfig | null;
   authToken: string | null;
@@ -31,6 +33,8 @@ interface WidgetStore {
   addMessage: (message: TMessage) => void;
   updateMessage: (index: number, message: Partial<TMessage>) => void;
   setConversation: (conversation: TConversation | null) => void;
+  setConversations: (conversations: TConversation[]) => void;
+  setView: (view: "list" | "chat") => void;
   setAgents: (agents: TAgent[]) => void;
   setConfig: (config: WidgetConfig) => void;
   setAuthToken: (token: string) => void;
@@ -42,6 +46,8 @@ interface WidgetStore {
 export const useWidgetStore = create<WidgetStore>()((set, get) => ({
   messages: [],
   conversation: null,
+  conversations: [],
+  view: "chat",
   agents: [],
   config: null,
   authToken: null,
@@ -55,6 +61,8 @@ export const useWidgetStore = create<WidgetStore>()((set, get) => ({
       messages: state.messages.map((m, i) => (i === index ? { ...m, ...message } : m)),
     })),
   setConversation: (conversation) => set({ conversation }),
+  setConversations: (conversations) => set({ conversations }),
+  setView: (view) => set({ view }),
   setAgents: (agents) => set({ agents }),
   setConfig: (config) => set({ config }),
   setAuthToken: (authToken) => set({ authToken }),

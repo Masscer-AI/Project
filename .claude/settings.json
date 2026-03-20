@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(uv lock:*)"
+      "Bash(uv lock:*)",
+      "Bash(grep -r streaming /c/Users/Usuario/projects/startups/masscer/server/config -type f)"
     ]
   }
 }
