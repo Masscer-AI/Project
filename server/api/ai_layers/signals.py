@@ -1,7 +1,7 @@
-from django.db.models.signals import post_save, post_delete
+from django.db.models.signals import post_save, post_delete, pre_delete
 from django.dispatch import receiver
 from django.contrib.auth.models import User
-from .models import Agent, RoleAgentAssignment
+from .models import Agent, LanguageModel, RoleAgentAssignment
 from api.authenticate.models import UserProfile
 from api.rag.models import Collection
 from api.consumption.models import Currency, Wallet
@@ -26,6 +26,26 @@ def user_created(sender, instance, created, **kwargs):
         user_wallet.balance = 5000
         user_wallet.save()
         print(f"New wallet created for user: {instance.username}")
+
+
+@receiver(pre_delete, sender=LanguageModel)
+def reassign_agents_on_llm_delete(sender, instance, **kwargs):
+    """Migrate agents off a LanguageModel before it is deleted."""
+    affected = Agent.objects.filter(llm=instance)
+    if not affected.exists():
+        return
+
+    replacement = (
+        LanguageModel.objects.filter(provider=instance.provider)
+        .exclude(pk=instance.pk)
+        .first()
+    ) or LanguageModel.objects.exclude(pk=instance.pk).first()
+
+    if replacement:
+        count = affected.update(llm=replacement, model_slug=replacement.slug)
+        print(f"Reassigned {count} agent(s) from '{instance.name}' to '{replacement.name}'.")
+    else:
+        print(f"Warning: deleting '{instance.name}' but no replacement model found — affected agents will have llm=NULL.")
 
 
 @receiver(post_save, sender=Agent)

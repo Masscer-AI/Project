@@ -4,6 +4,10 @@ from django.contrib.auth.models import User
 from django import forms
 from django.utils import timezone
 from django.utils.html import format_html
+from django.urls import path, reverse
+from django.http import HttpResponseRedirect
+from django.contrib import messages
+import calendar
 import pytz
 from .models import (
     Token,
@@ -124,7 +128,15 @@ class OrganizationAdmin(admin.ModelAdmin):
     search_fields = ("name", "description", "owner__username")
     list_filter = ("timezone", "owner")
     readonly_fields = ("logo_preview",)
-    
+
+    @property
+    def inlines(self):
+        from api.consumption.models import OrganizationWallet
+        from api.payments.models import Subscription
+        OrganizationWalletInline.model = OrganizationWallet
+        SubscriptionInline.model = Subscription
+        return [OrganizationWalletInline, SubscriptionInline]
+
     fieldsets = (
         ('Información básica', {
             'fields': ('name', 'description', 'owner', 'timezone')
@@ -134,18 +146,153 @@ class OrganizationAdmin(admin.ModelAdmin):
             'description': 'Sube un logo para la organización.'
         }),
     )
-    
+
     class Media:
         css = {
             'all': ('admin/css/organization_logo.css',)
         }
         js = ('admin/js/organization_logo.js',)
-    
+
     def logo_preview(self, obj):
         if obj.logo:
             return format_html('<img src="{}" style="max-height: 50px; max-width: 50px;" />', obj.logo.url)
         return "Sin logo"
     logo_preview.short_description = "Logo"
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom = [
+            path(
+                "subscription/<uuid:subscription_id>/renew/",
+                self.admin_site.admin_view(self._renew_subscription),
+                name="subscription-renew",
+            ),
+            path(
+                "subscription/<uuid:subscription_id>/expire/",
+                self.admin_site.admin_view(self._expire_subscription),
+                name="subscription-expire",
+            ),
+        ]
+        return custom + urls
+
+    def _renew_subscription(self, request, subscription_id):
+        from api.payments.models import Subscription
+        from api.consumption.models import OrganizationWallet, Currency
+        from decimal import Decimal
+        try:
+            sub = Subscription.objects.select_related("plan", "organization").get(pk=subscription_id)
+            now = timezone.now()
+            base = sub.end_date if sub.end_date and sub.end_date > now else now
+            # Advance exactly one month (same day, handle month-end edge cases)
+            month = base.month + 1 if base.month < 12 else 1
+            year = base.year if base.month < 12 else base.year + 1
+            day = min(base.day, calendar.monthrange(year, month)[1])
+            sub.end_date = base.replace(year=year, month=month, day=day)
+            sub.status = "active"
+            sub.renewed_at = now
+            sub.save(update_fields=["end_date", "status", "renewed_at", "updated_at"])
+
+            # Recharge the wallet
+            credits_usd = sub.get_effective_credits_limit_usd()
+            if credits_usd:
+                currency = Currency.objects.filter(name="Compute Unit").first()
+                if currency:
+                    compute_units = Decimal(credits_usd) * Decimal(currency.one_usd_is)
+                    wallet = OrganizationWallet.objects.filter(organization=sub.organization).first()
+                    if wallet:
+                        wallet.recharge(compute_units)
+
+            messages.success(request, f"Subscription renewed until {sub.end_date.strftime('%Y-%m-%d')}.")
+        except Exception as e:
+            messages.error(request, f"Could not renew subscription: {e}")
+
+        org_id = sub.organization_id if 'sub' in dir() else None
+        return HttpResponseRedirect(
+            reverse("admin:authenticate_organization_change", args=[org_id]) if org_id
+            else reverse("admin:authenticate_organization_changelist")
+        )
+
+    def _expire_subscription(self, request, subscription_id):
+        from api.payments.models import Subscription
+        try:
+            sub = Subscription.objects.select_related("organization").get(pk=subscription_id)
+            sub.status = "expired"
+            sub.end_date = timezone.now()
+            sub.save(update_fields=["status", "end_date", "updated_at"])
+            messages.success(request, "Subscription expired.")
+        except Exception as e:
+            messages.error(request, f"Could not expire subscription: {e}")
+
+        org_id = sub.organization_id if 'sub' in dir() else None
+        return HttpResponseRedirect(
+            reverse("admin:authenticate_organization_change", args=[org_id]) if org_id
+            else reverse("admin:authenticate_organization_changelist")
+        )
+
+
+class OrganizationWalletInline(admin.TabularInline):
+    model = None  # set below after import
+    verbose_name = "Wallet"
+    verbose_name_plural = "Wallet"
+    extra = 0
+    max_num = 1
+    readonly_fields = ("balance_display", "unit", "updated_at")
+    fields = ("balance_display", "unit", "updated_at")
+    can_delete = False
+
+    def balance_display(self, obj):
+        if not obj.pk:
+            return "—"
+        usd = float(obj.balance) / float(obj.unit.one_usd_is) if obj.unit else 0
+        return format_html(
+            "<strong>${:.4f} USD</strong> &nbsp;<small style='color:#888'>{} {} · 1 USD = {} {}</small>",
+            usd,
+            f"{float(obj.balance):,.8f}",
+            obj.unit.name if obj.unit else "",
+            obj.unit.one_usd_is if obj.unit else "",
+            obj.unit.name if obj.unit else "",
+        )
+    balance_display.short_description = "Balance"
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
+class SubscriptionInline(admin.StackedInline):
+    model = None  # set below after import
+    verbose_name = "Subscription"
+    verbose_name_plural = "Subscription"
+    extra = 0
+    max_num = 1
+    readonly_fields = ("id", "start_date", "created_at", "updated_at", "subscription_actions")
+    fields = (
+        "plan",
+        "status",
+        "payment_method",
+        "start_date",
+        "end_date",
+        "credits_limit_usd",
+        "stripe_subscription_id",
+        "stripe_customer_id",
+        "subscription_actions",
+    )
+
+    def subscription_actions(self, obj):
+        if not obj.pk:
+            return "—"
+        renew_url = reverse("admin:subscription-renew", args=[obj.pk])
+        expire_url = reverse("admin:subscription-expire", args=[obj.pk])
+        return format_html(
+            '<a class="button" href="{}" style="background:#417690;color:#fff;padding:4px 10px;border-radius:4px;text-decoration:none;margin-right:8px;">↻ Renew</a>'
+            '<a class="button" href="{}" style="background:#ba2121;color:#fff;padding:4px 10px;border-radius:4px;text-decoration:none;" '
+            'onclick="return confirm(\'Expire this subscription now?\')">✕ Expire now</a>',
+            renew_url,
+            expire_url,
+        )
+    subscription_actions.short_description = "Actions"
+
+    def has_add_permission(self, request, obj=None):
+        return False
 
 
 class OrganizationFeatureFlagInline(admin.TabularInline):

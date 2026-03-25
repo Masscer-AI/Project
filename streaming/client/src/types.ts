@@ -130,6 +130,36 @@ export type TOrganization = {
   logo_url?: string | null;
 };
 
+export type TSubscriptionPlan = {
+  slug: string;
+  display_name: string;
+  monthly_price_usd: string;
+  credits_limit_usd: string | null;
+  duration_days: number | null;
+};
+
+export type TOrganizationSubscription = {
+  id: string;
+  status: "trial" | "active" | "expired" | "cancelled" | "pending_payment";
+  payment_method: "stripe" | "manual";
+  is_active: boolean;
+  start_date: string | null;
+  end_date: string | null;
+  plan: TSubscriptionPlan;
+};
+
+export type TOrganizationWallet = {
+  balance: string;
+  unit_name: string;
+  one_usd_is: number;
+  balance_usd: string;
+};
+
+export type TOrganizationBilling = {
+  subscription: TOrganizationSubscription | null;
+  wallet: TOrganizationWallet | null;
+};
+
 export type TOrganizationMember = {
   id: number;
   email: string;

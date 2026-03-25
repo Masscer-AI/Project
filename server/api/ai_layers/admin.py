@@ -453,8 +453,84 @@ class AgentSessionAdmin(admin.ModelAdmin):
         )
 
 
+def _parse_price(raw: str) -> tuple[float, int]:
+    """Parse '21.00 USD / 1000000' → (21.0, 1000000)."""
+    try:
+        price_part, tokens_part = raw.split("/")
+        price = float(price_part.strip().replace(" USD", "").strip())
+        tokens = int(tokens_part.strip())
+        return price, tokens
+    except Exception:
+        return 0.0, 1_000_000
+
+
+class LanguageModelAdminForm(forms.ModelForm):
+    text_prompt_price = forms.DecimalField(
+        label="Prompt price (USD)",
+        min_value=0,
+        decimal_places=6,
+        widget=forms.NumberInput(attrs={"step": "0.000001", "style": "width: 140px;"}),
+        help_text="Cost in USD for the token batch below.",
+    )
+    text_prompt_tokens = forms.IntegerField(
+        label="per tokens",
+        min_value=1,
+        initial=1_000_000,
+        widget=forms.NumberInput(attrs={"style": "width: 120px;"}),
+        help_text="Token batch size (usually 1 000 000).",
+    )
+    text_output_price = forms.DecimalField(
+        label="Output price (USD)",
+        min_value=0,
+        decimal_places=6,
+        widget=forms.NumberInput(attrs={"step": "0.000001", "style": "width: 140px;"}),
+        help_text="Cost in USD for the token batch below.",
+    )
+    text_output_tokens = forms.IntegerField(
+        label="per tokens",
+        min_value=1,
+        initial=1_000_000,
+        widget=forms.NumberInput(attrs={"style": "width: 120px;"}),
+        help_text="Token batch size (usually 1 000 000).",
+    )
+
+    class Meta:
+        model = LanguageModel
+        fields = "__all__"
+        exclude = ("pricing",)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            pricing = self.instance.pricing or {}
+            text = pricing.get("text", {})
+            p_price, p_tokens = _parse_price(text.get("prompt", "0 USD / 1000000"))
+            o_price, o_tokens = _parse_price(text.get("output", "0 USD / 1000000"))
+            self.fields["text_prompt_price"].initial = p_price
+            self.fields["text_prompt_tokens"].initial = p_tokens
+            self.fields["text_output_price"].initial = o_price
+            self.fields["text_output_tokens"].initial = o_tokens
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        p_price = self.cleaned_data["text_prompt_price"]
+        p_tokens = self.cleaned_data["text_prompt_tokens"]
+        o_price = self.cleaned_data["text_output_price"]
+        o_tokens = self.cleaned_data["text_output_tokens"]
+        instance.pricing = {
+            "text": {
+                "prompt": f"{float(p_price):.2f} USD / {p_tokens}",
+                "output": f"{float(o_price):.2f} USD / {o_tokens}",
+            }
+        }
+        if commit:
+            instance.save()
+        return instance
+
+
 @admin.register(LanguageModel)
 class LanguageModelAdmin(admin.ModelAdmin):
+    form = LanguageModelAdminForm
     list_display = (
         "name",
         "slug",
@@ -465,19 +541,65 @@ class LanguageModelAdmin(admin.ModelAdmin):
     )
     search_fields = ("name", "slug", "provider__name")
     list_filter = ("provider",)
+    readonly_fields = ("pricing_table",)
 
-    # pricing table
+    fieldsets = (
+        ("Model", {
+            "fields": ("provider", "name", "slug", "is_reasoning_model"),
+        }),
+        ("Pricing", {
+            "description": (
+                "Set the cost per token batch. "
+                "Use the same units as the provider's official pricing page."
+            ),
+            "fields": ("pricing_table",),
+        }),
+        ("Prompt tokens", {
+            "fields": (("text_prompt_price", "text_prompt_tokens"),),
+            "classes": ("collapse",) if False else (),
+        }),
+        ("Output tokens", {
+            "fields": (("text_output_price", "text_output_tokens"),),
+        }),
+    )
+
     def pricing_table(self, obj):
-        # Show a table with the pricing
-        return mark_safe(
-            f"""<table >
-            <tr>
-                <th>Prompt</th>
-                <th>Output</th>
-            </tr>
-            <tr>
-                <td>{obj.pricing['text']['prompt']}</td>
-                <td>{obj.pricing['text']['output']}</td>
-            </tr>
-            </table>"""
-        )
+        if not obj or not obj.pk:
+            return "—"
+        try:
+            text = obj.pricing.get("text", {})
+            p_price, p_tokens = _parse_price(text.get("prompt", "0 USD / 1000000"))
+            o_price, o_tokens = _parse_price(text.get("output", "0 USD / 1000000"))
+        except Exception:
+            return mark_safe("<span style='color:red'>Invalid pricing JSON</span>")
+
+        return mark_safe(f"""
+            <table style="border-collapse:collapse; font-size:13px; min-width:320px;">
+              <thead>
+                <tr>
+                  <th style="text-align:left; padding:6px 16px 6px 0; border-bottom:1px solid #444; color:#aaa; font-weight:600;">Direction</th>
+                  <th style="text-align:right; padding:6px 16px 6px 0; border-bottom:1px solid #444; color:#aaa; font-weight:600;">USD</th>
+                  <th style="text-align:right; padding:6px 0; border-bottom:1px solid #444; color:#aaa; font-weight:600;">per N tokens</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style="padding:6px 16px 6px 0;">Prompt</td>
+                  <td style="padding:6px 16px 6px 0; text-align:right; font-family:monospace;">${p_price:.4f}</td>
+                  <td style="padding:6px 0; text-align:right; font-family:monospace;">{p_tokens:,}</td>
+                </tr>
+                <tr>
+                  <td style="padding:6px 16px 6px 0;">Output</td>
+                  <td style="padding:6px 16px 6px 0; text-align:right; font-family:monospace;">${o_price:.4f}</td>
+                  <td style="padding:6px 0; text-align:right; font-family:monospace;">{o_tokens:,}</td>
+                </tr>
+                <tr style="border-top:1px solid #444;">
+                  <td style="padding:6px 16px 6px 0; color:#aaa; font-size:11px;" colspan="3">
+                    Effective: prompt ${p_price / p_tokens * 1_000_000:.4f} / 1M · output ${o_price / o_tokens * 1_000_000:.4f} / 1M
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+        """)
+
+    pricing_table.short_description = "Current pricing"

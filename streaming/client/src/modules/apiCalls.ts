@@ -1129,6 +1129,13 @@ export const createOrganization = async (data: TOrganizationData) => {
   return makeAuthenticatedRequest("POST", "/v1/auth/organizations/", data);
 };
 
+export const getOrganizationBilling = async (organizationId: string) => {
+  return makeAuthenticatedRequest<import("../types").TOrganizationBilling>(
+    "GET",
+    `/v1/payments/organizations/${organizationId}/billing/`
+  );
+};
+
 export const deleteOrganization = async (organizationId: string) => {
   return makeAuthenticatedRequest(
     "DELETE",

@@ -1,8 +1,9 @@
 import logging
 
+from django.contrib.auth.models import User
 from django.core.cache import cache
 from django.db import connection, transaction
-from django.db.models.signals import post_save, post_delete
+from django.db.models.signals import post_save, post_delete, pre_delete
 from django.dispatch import receiver
 
 from .models import (
@@ -89,13 +90,108 @@ def _invalidate_ff_cache_for_org_members(organization_id):
 
 
 # ---------------------------------------------------------------------------
-# Organization – create credentials manager
+# Organization – delete all member users before the org is removed
+# ---------------------------------------------------------------------------
+
+@receiver(pre_delete, sender=Organization)
+def delete_organization_members(sender, instance, **kwargs):
+    """Delete every user whose profile belongs to this organization.
+
+    The owner is excluded from the bulk delete because Organization.owner is
+    on_delete=CASCADE — deleting them mid-org-deletion triggers a second
+    cascade on the same org and causes a DB constraint error. The owner user
+    is deleted last, after the org row itself is gone.
+    """
+    member_user_ids = list(
+        UserProfile.objects.filter(organization=instance)
+        .exclude(user_id=instance.owner_id)
+        .values_list("user_id", flat=True)
+    )
+    if member_user_ids:
+        deleted, _ = User.objects.filter(id__in=member_user_ids).delete()
+        logger.info("Deleted %d member users for org %s", deleted, instance.id)
+
+    # Schedule the owner deletion after the org row is committed.
+    owner_id = instance.owner_id
+
+    def _delete_owner():
+        User.objects.filter(id=owner_id).delete()
+        logger.info("Deleted owner user %s after org %s was removed", owner_id, instance.id)
+
+    if connection.in_atomic_block:
+        transaction.on_commit(_delete_owner)
+    else:
+        _delete_owner()
+
+
+# ---------------------------------------------------------------------------
+# Organization – create credentials manager + free trial subscription
 # ---------------------------------------------------------------------------
 
 @receiver(post_save, sender=Organization)
 def create_credentials_manager(sender, instance, created, **kwargs):
     if created:
         CredentialsManager.objects.create(organization=instance)
+
+
+@receiver(post_save, sender=Organization)
+def create_free_trial_subscription(sender, instance, created, **kwargs):
+    """Auto-enroll a new organization in the Free Trial plan."""
+    if not created:
+        return
+
+    def _setup():
+        try:
+            from api.payments.models import Subscription, SubscriptionPlan
+            from api.consumption.models import Currency, OrganizationWallet
+            from django.utils import timezone as tz
+            import datetime
+
+            plan = SubscriptionPlan.objects.filter(slug="free_trial").first()
+            if plan is None:
+                logger.warning(
+                    "free_trial SubscriptionPlan does not exist yet — skipping auto-enrollment for org %s",
+                    instance.id,
+                )
+                return
+
+            end_date = tz.now() + datetime.timedelta(days=plan.duration_days or 3)
+            subscription = Subscription.objects.create(
+                organization=instance,
+                plan=plan,
+                status="trial",
+                payment_method="manual",
+                end_date=end_date,
+            )
+            logger.info("Created free trial subscription %s for org %s", subscription.id, instance.id)
+
+            # Seed the org wallet — convert plan's USD budget to compute units
+            currency = Currency.objects.filter(name="Compute Unit").first()
+            if currency is None:
+                logger.warning("Compute Unit currency not found — org wallet not seeded for org %s", instance.id)
+                return
+
+            from decimal import Decimal
+            credits_usd = plan.credits_limit_usd or Decimal("0")
+            compute_units = credits_usd * Decimal(currency.one_usd_is)
+
+            org_wallet, wallet_created = OrganizationWallet.objects.get_or_create(
+                organization=instance,
+                defaults={"balance": compute_units, "unit": currency},
+            )
+            if not wallet_created:
+                org_wallet.recharge(compute_units)
+
+            logger.info("Seeded org wallet with %s credits for org %s", credits, instance.id)
+
+        except Exception:
+            logger.exception("Failed to set up free trial for org %s", instance.id)
+
+    # Defer until after the DB transaction commits so FKs are resolvable.
+    if connection.in_atomic_block:
+        transaction.on_commit(_setup)
+    else:
+        _setup()
 
 
 # ---------------------------------------------------------------------------

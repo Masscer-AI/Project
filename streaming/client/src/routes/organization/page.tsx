@@ -8,6 +8,7 @@ import {
   deactivateOrganizationMember,
   deleteOrganizationRole,
   getFeatureFlagNames,
+  getOrganizationBilling,
   getOrganizationMembers,
   getOrganizationRoles,
   getUserOrganizations,
@@ -20,6 +21,7 @@ import {
 import { API_URL } from "../../modules/constants";
 import {
   TOrganization,
+  TOrganizationBilling,
   TOrganizationMember,
   TOrganizationRole,
 } from "../../types";
@@ -53,6 +55,7 @@ import {
 import {
   IconBuilding,
   IconCopy,
+  IconCreditCard,
   IconDeviceFloppy,
   IconLink,
   IconMenu2,
@@ -80,6 +83,8 @@ export default function OrganizationPage() {
   const [loading, setLoading] = useState(true);
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [loadingRoles, setLoadingRoles] = useState(false);
+  const [billing, setBilling] = useState<TOrganizationBilling | null>(null);
+  const [loadingBilling, setLoadingBilling] = useState(false);
   const [assigningUserId, setAssigningUserId] = useState<number | null>(null);
 
   // Role form
@@ -172,6 +177,15 @@ export default function OrganizationPage() {
       .then(setRoles)
       .catch(() => setRoles([]))
       .finally(() => setLoadingRoles(false));
+  }, [org?.id]);
+
+  useEffect(() => {
+    if (!org?.id) { setBilling(null); return; }
+    setLoadingBilling(true);
+    getOrganizationBilling(org.id)
+      .then(setBilling)
+      .catch(() => setBilling(null))
+      .finally(() => setLoadingBilling(false));
   }, [org?.id]);
 
   useEffect(() => {
@@ -527,6 +541,12 @@ export default function OrganizationPage() {
                   leftSection={<IconUsers size={16} />}
                 >
                   {t("members")}
+                </Tabs.Tab>
+                <Tabs.Tab
+                  value="billing"
+                  leftSection={<IconCreditCard size={16} />}
+                >
+                  {t("billing")}
                 </Tabs.Tab>
               </Tabs.List>
 
@@ -914,6 +934,132 @@ export default function OrganizationPage() {
                       </Stack>
                     )}
                   </Card>
+                </Stack>
+              </Tabs.Panel>
+
+              {/* ── Billing Tab ── */}
+              <Tabs.Panel value="billing">
+                <Stack gap="md">
+                  {loadingBilling ? (
+                    <Loader size="sm" />
+                  ) : !billing ? (
+                    <Text c="dimmed" size="sm">{t("no-billing-info")}</Text>
+                  ) : (
+                    <>
+                      {/* Subscription card */}
+                      <Card withBorder p="lg">
+                        <Group justify="space-between" mb="md">
+                          <Title order={4}>{t("subscription")}</Title>
+                          {billing.subscription && (
+                            <Badge
+                              color={
+                                billing.subscription.status === "active" ? "green"
+                                : billing.subscription.status === "trial" ? "blue"
+                                : billing.subscription.status === "expired" ? "red"
+                                : billing.subscription.status === "pending_payment" ? "orange"
+                                : "gray"
+                              }
+                              variant="light"
+                              size="lg"
+                            >
+                              {billing.subscription.status.replace("_", " ")}
+                            </Badge>
+                          )}
+                        </Group>
+
+                        {!billing.subscription ? (
+                          <Text c="dimmed" size="sm">{t("no-subscription")}</Text>
+                        ) : (
+                          <Stack gap="xs">
+                            <Group gap="xs">
+                              <Text size="sm" fw={600} w={160}>{t("plan")}</Text>
+                              <Text size="sm">{billing.subscription.plan.display_name}</Text>
+                            </Group>
+                            <Group gap="xs">
+                              <Text size="sm" fw={600} w={160}>{t("payment-method")}</Text>
+                              <Badge variant="outline" size="sm">
+                                {billing.subscription.payment_method}
+                              </Badge>
+                            </Group>
+                            <Group gap="xs">
+                              <Text size="sm" fw={600} w={160}>{t("monthly-price")}</Text>
+                              <Text size="sm">
+                                {parseFloat(billing.subscription.plan.monthly_price_usd) === 0
+                                  ? t("free")
+                                  : `$${billing.subscription.plan.monthly_price_usd} USD / mo`}
+                              </Text>
+                            </Group>
+                            {billing.subscription.end_date && (
+                              <Group gap="xs">
+                                <Text size="sm" fw={600} w={160}>{t("expires")}</Text>
+                                <Text size="sm">
+                                  {new Date(billing.subscription.end_date).toLocaleDateString()}
+                                </Text>
+                              </Group>
+                            )}
+                          </Stack>
+                        )}
+                      </Card>
+
+                      {/* Wallet / credits card */}
+                      <Card withBorder p="lg">
+                        <Title order={4} mb="md">{t("credits")}</Title>
+
+                        {!billing.wallet ? (
+                          <Text c="dimmed" size="sm">{t("no-wallet")}</Text>
+                        ) : (
+                          <Stack gap="sm">
+                            <Group justify="space-between" align="flex-end">
+                              <Stack gap={2}>
+                                <Text size="xs" c="dimmed">{t("available-balance")}</Text>
+                                <Text size="xl" fw={700}>
+                                  ${billing.wallet.balance_usd} USD
+                                </Text>
+                                <Text size="xs" c="dimmed">
+                                  {parseFloat(billing.wallet.balance).toLocaleString(undefined, { maximumFractionDigits: 2 })} {billing.wallet.unit_name}
+                                  {" · "}1 USD = {billing.wallet.one_usd_is.toLocaleString()} {billing.wallet.unit_name}
+                                </Text>
+                              </Stack>
+                              {billing.subscription?.plan.credits_limit_usd && (
+                                <Text size="sm" c="dimmed">
+                                  / ${billing.subscription.plan.credits_limit_usd} USD {t("included")}
+                                </Text>
+                              )}
+                            </Group>
+
+                            {/* Progress bar */}
+                            {billing.subscription?.plan.credits_limit_usd && (
+                              <Box
+                                style={{
+                                  height: 8,
+                                  borderRadius: 4,
+                                  background: "var(--mantine-color-dark-4)",
+                                  overflow: "hidden",
+                                }}
+                              >
+                                <Box
+                                  style={{
+                                    height: "100%",
+                                    borderRadius: 4,
+                                    width: `${Math.min(
+                                      100,
+                                      (parseFloat(billing.wallet.balance_usd) /
+                                        parseFloat(billing.subscription.plan.credits_limit_usd)) * 100
+                                    )}%`,
+                                    background: parseFloat(billing.wallet.balance_usd) /
+                                      parseFloat(billing.subscription.plan.credits_limit_usd) < 0.2
+                                      ? "var(--mantine-color-red-5)"
+                                      : "var(--mantine-color-blue-5)",
+                                    transition: "width 0.3s ease",
+                                  }}
+                                />
+                              </Box>
+                            )}
+                          </Stack>
+                        )}
+                      </Card>
+                    </>
+                  )}
                 </Stack>
               </Tabs.Panel>
             </Tabs>

@@ -2,7 +2,13 @@
   "permissions": {
     "allow": [
       "Bash(uv lock:*)",
-      "Bash(grep -r streaming /c/Users/Usuario/projects/startups/masscer/server/config -type f)"
+      "Bash(grep -r streaming /c/Users/Usuario/projects/startups/masscer/server/config -type f)",
+      "Bash(xargs grep:*)",
+      "Bash(grep -r stripe /c/Users/Usuario/projects/startups/masscer/server --include=*.py)",
+      "Bash(grep -r \"STRIPE\\\\|PAYMENT\\\\|BILLING\" /c/Users/Usuario/projects/startups/masscer/server --include=*.py)",
+      "Bash(grep -r \"wallet\\\\|balance\\\\|credit\" /c/Users/Usuario/projects/startups/masscer/server/api --include=*.py -i)",
+      "Read(//c/Users/Usuario/projects/startups/masscer/**)",
+      "Bash(xargs cat:*)"
     ]
   }
 }

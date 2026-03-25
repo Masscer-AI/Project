@@ -20,17 +20,7 @@ def check_models_for_providers():
     # from api.utils.openai_functions import list_openai_models
 
     openai_models_objects = [
-        {
-            "name": "GPT-5 Nano",
-            "slug": "gpt-5-nano",
-            "is_reasoning_model": True,
-            "pricing": {
-                "text": {
-                    "prompt": "0.05 USD / 1000000",
-                    "output": "0.40 USD / 1000000",
-                }
-            },
-        },
+
         {
             "name": "GPT-5 Mini",
             "slug": "gpt-5-mini",
@@ -53,36 +43,48 @@ def check_models_for_providers():
                 }
             },
         },
+
         {
-            "name": "GPT-5.2",
-            "slug": "gpt-5.2",
+            "name": "GPT-5.4 Nano",
+            "slug": "gpt-5.4-nano",
             "is_reasoning_model": True,
             "pricing": {
                 "text": {
-                    "prompt": "1.75 USD / 1000000",
-                    "output": "14.00 USD / 1000000",
+                    "prompt": "0.20 USD / 1000000",
+                    "output": "1.25 USD / 1000000",
                 }
             },
         },
         {
-            "name": "GPT-5.2 Pro",
-            "slug": "gpt-5.2-pro",
+            "name": "GPT-5.4 Mini",
+            "slug": "gpt-5.4-mini",
             "is_reasoning_model": True,
             "pricing": {
                 "text": {
-                    "prompt": "21.00 USD / 1000000",
-                    "output": "168.00 USD / 1000000",
+                    "prompt": "0.75 USD / 1000000",
+                    "output": "4.50 USD / 1000000",
                 }
             },
         },
         {
-            "name": "GPT-4.1",
-            "slug": "gpt-4.1",
-            "is_reasoning_model": False,
+            "name": "GPT-5.4",
+            "slug": "gpt-5.4",
+            "is_reasoning_model": True,
             "pricing": {
                 "text": {
-                    "prompt": "2.00 USD / 1000000",
-                    "output": "8.00 USD / 1000000",
+                    "prompt": "2.50 USD / 1000000",
+                    "output": "15.00 USD / 1000000",
+                }
+            },
+        },
+        {
+            "name": "GPT-5.4 Pro",
+            "slug": "gpt-5.4-pro",
+            "is_reasoning_model": True,
+            "pricing": {
+                "text": {
+                    "prompt": "30.00 USD / 1000000",
+                    "output": "180.00 USD / 1000000",
                 }
             },
         },

@@ -27,11 +27,17 @@ def message_post_save(sender, instance, **kwargs):
                     printer.error("No user found!")
                     return
 
+                organization_id = instance.conversation.organization_id
+                if not organization_id:
+                    org = get_user_organization(instance.conversation.user)
+                    organization_id = org.id if org else None
+
                 async_register_llm_interaction.delay(
                     instance.conversation.user.id,
                     input_tokens,
                     output_tokens,
                     model_slug,
+                    organization_id,
                 )
         
         # Marcar conversación como pendiente de análisis si corresponde

@@ -68,3 +68,39 @@ class Consumption(models.Model):
 
     def __str__(self):
         return f"<Consumption user={self.user.username} amount={self.amount} is_for={self.is_for} />"
+
+
+class OrganizationWallet(models.Model):
+    """Credit budget wallet at the organization level, tied to its active subscription."""
+
+    organization = models.OneToOneField(
+        "authenticate.Organization",
+        on_delete=models.CASCADE,
+        related_name="wallet",
+    )
+    balance = models.DecimalField(
+        max_digits=14,
+        decimal_places=8,
+        default=0,
+        validators=[MinValueValidator(Decimal("0"))],
+    )
+    unit = models.ForeignKey(Currency, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"<OrganizationWallet org={self.organization.name} balance={self.balance} />"
+
+    def use_balance(self, amount: Decimal) -> bool:
+        """Deduct *amount* from balance. Returns False (and floors at 0) if insufficient funds."""
+        self.balance -= amount
+        if self.balance < 0:
+            self.balance = Decimal("0")
+            self.save()
+            return False
+        self.save()
+        return True
+
+    def recharge(self, amount: Decimal):
+        self.balance += Decimal(amount)
+        self.save()

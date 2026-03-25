@@ -362,28 +362,8 @@ class LanguageModelView(View):
                 status=404,
             )
 
-        # Auto-migrate agents using this LLM to another LLM of the same provider
-        affected_agents = Agent.objects.filter(llm=model)
-        replacement = (
-            LanguageModel.objects.filter(provider=model.provider)
-            .exclude(id=model.id)
-            .first()
-        )
-
-        migrated_count = 0
-        if affected_agents.exists():
-            if not replacement:
-                return JsonResponse(
-                    {
-                        "error": f"Cannot delete '{slug}': {affected_agents.count()} agent(s) use it "
-                        f"and no other model exists for provider '{model.provider.name}' to migrate to."
-                    },
-                    status=409,
-                )
-            migrated_count = affected_agents.update(llm=replacement)
-
         model_name = model.name
-        model.delete()
+        model.delete()  # pre_delete signal handles agent reassignment
 
         user_org = None
         if hasattr(request.user, "profile") and request.user.profile.organization:
