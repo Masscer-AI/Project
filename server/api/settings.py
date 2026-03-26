@@ -224,6 +224,14 @@ MEDIA_URL = "/media/"
 API_BASE_URL = os.environ.get("API_BASE_URL", "")
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "")
 
+# STRIPE
+STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")
+STRIPE_PUBLISHABLE_KEY = os.environ.get("STRIPE_PUBLISHABLE_KEY", "")
+STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+STRIPE_PRICE_ORGANIZATION = os.environ.get("STRIPE_PRICE_ORGANIZATION", "")
+STRIPE_PRICE_PAY_AS_YOU_GO = os.environ.get("STRIPE_PRICE_PAY_AS_YOU_GO", "")
+STRIPE_PRODUCT_CREDITS = os.environ.get("STRIPE_PRODUCT_CREDITS", "")
+
 # S3 media storage — enabled when AWS_STORAGE_BUCKET_NAME is set.
 _s3_media_bucket = os.environ.get("AWS_STORAGE_BUCKET_NAME", "")
 if _s3_media_bucket:

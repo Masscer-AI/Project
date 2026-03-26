@@ -1136,6 +1136,28 @@ export const getOrganizationBilling = async (organizationId: string) => {
   );
 };
 
+export const buyCredits = async (
+  organizationId: string,
+  amountUsd: number
+): Promise<{ checkout_url: string }> => {
+  return makeAuthenticatedRequest(
+    "POST",
+    `/v1/payments/organizations/${organizationId}/buy-credits/`,
+    { amount_usd: amountUsd }
+  );
+};
+
+export const createCheckoutSession = async (
+  organizationId: string,
+  planSlug: "organization" | "pay_as_you_go"
+): Promise<{ checkout_url: string }> => {
+  return makeAuthenticatedRequest(
+    "POST",
+    `/v1/payments/organizations/${organizationId}/checkout/`,
+    { plan_slug: planSlug }
+  );
+};
+
 export const deleteOrganization = async (organizationId: string) => {
   return makeAuthenticatedRequest(
     "DELETE",

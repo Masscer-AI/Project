@@ -8,7 +8,15 @@
       "Bash(grep -r \"STRIPE\\\\|PAYMENT\\\\|BILLING\" /c/Users/Usuario/projects/startups/masscer/server --include=*.py)",
       "Bash(grep -r \"wallet\\\\|balance\\\\|credit\" /c/Users/Usuario/projects/startups/masscer/server/api --include=*.py -i)",
       "Read(//c/Users/Usuario/projects/startups/masscer/**)",
-      "Bash(xargs cat:*)"
+      "Bash(xargs cat:*)",
+      "Read(//c/Users/Usuario/Downloads/stripe_1.38.3_windows_x86_64//**)",
+      "Bash(mkdir -p /c/Users/Usuario/bin)",
+      "Bash(cp /c/Users/Usuario/Downloads/stripe_1.38.3_windows_x86_64/stripe.exe /c/Users/Usuario/bin/stripe.exe)",
+      "Bash(grep -i stripe /c/Users/Usuario/projects/startups/masscer/server/requirements*.txt)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\Usuario\\Downloads\\stripe_1.38.3_windows_x86_64",
+      "C:\\Users\\Usuario"
     ]
   }
 }

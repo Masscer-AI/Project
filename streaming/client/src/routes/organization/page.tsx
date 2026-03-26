@@ -3,6 +3,8 @@ import { useStore } from "../../modules/store";
 import { Sidebar } from "../../components/Sidebar/Sidebar";
 import {
   assignRoleToMember,
+  buyCredits,
+  createCheckoutSession,
   createOrganization,
   createOrganizationRole,
   deactivateOrganizationMember,
@@ -85,6 +87,35 @@ export default function OrganizationPage() {
   const [loadingRoles, setLoadingRoles] = useState(false);
   const [billing, setBilling] = useState<TOrganizationBilling | null>(null);
   const [loadingBilling, setLoadingBilling] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
+  const [creditAmount, setCreditAmount] = useState<number>(25);
+  const [buyingCredits, setBuyingCredits] = useState(false);
+
+  const handleBuyCredits = async () => {
+    if (!org?.id) return;
+    setBuyingCredits(true);
+    try {
+      const { checkout_url } = await buyCredits(org.id, creditAmount);
+      window.location.href = checkout_url;
+    } catch (e) {
+      toast.error("Could not start checkout. Please try again.");
+    } finally {
+      setBuyingCredits(false);
+    }
+  };
+
+  const handleSubscribe = async (planSlug: "organization" | "pay_as_you_go") => {
+    if (!org?.id) return;
+    setCheckoutLoading(planSlug);
+    try {
+      const { checkout_url } = await createCheckoutSession(org.id, planSlug);
+      window.location.href = checkout_url;
+    } catch (e) {
+      toast.error("Could not start checkout. Please try again.");
+    } finally {
+      setCheckoutLoading(null);
+    }
+  };
   const [assigningUserId, setAssigningUserId] = useState<number | null>(null);
 
   // Role form
@@ -1057,6 +1088,123 @@ export default function OrganizationPage() {
                             )}
                           </Stack>
                         )}
+                      </Card>
+
+                      {/* ── Plan selector ── */}
+                      <Title order={5} mt="sm">{t("choose-a-plan")}</Title>
+                      <Group grow align="stretch">
+                        {/* Organization / Business plan */}
+                        <Card withBorder p="lg" style={{ position: "relative" }}>
+                          {billing?.subscription?.plan.slug === "organization" && billing.subscription.is_active && (
+                            <Badge color="green" style={{ position: "absolute", top: 12, right: 12 }}>
+                              {t("current-plan")}
+                            </Badge>
+                          )}
+                          <Stack gap="xs">
+                            <Group gap="xs">
+                              <IconCreditCard size={20} />
+                              <Text fw={700}>Business</Text>
+                            </Group>
+                            <Text size="sm" c="dimmed">{t("plan-organization-desc")}</Text>
+                            <Button
+                              mt="sm"
+                              fullWidth
+                              disabled={
+                                billing?.subscription?.plan.slug === "organization" &&
+                                billing?.subscription?.is_active
+                              }
+                              loading={checkoutLoading === "organization"}
+                              onClick={() => handleSubscribe("organization")}
+                            >
+                              {checkoutLoading === "organization"
+                                ? t("redirecting-to-stripe")
+                                : t("upgrade-to-business")}
+                            </Button>
+                          </Stack>
+                        </Card>
+
+                        {/* Pay As You Go plan */}
+                        <Card withBorder p="lg" style={{ position: "relative" }}>
+                          {billing?.subscription?.plan.slug === "pay_as_you_go" && billing.subscription.is_active && (
+                            <Badge color="green" style={{ position: "absolute", top: 12, right: 12 }}>
+                              {t("current-plan")}
+                            </Badge>
+                          )}
+                          <Stack gap="xs">
+                            <Group gap="xs">
+                              <IconCreditCard size={20} />
+                              <Text fw={700}>Pay As You Go</Text>
+                            </Group>
+                            <Text size="sm" c="dimmed">{t("plan-payg-desc")}</Text>
+                            <Button
+                              mt="sm"
+                              fullWidth
+                              variant="outline"
+                              disabled={
+                                billing?.subscription?.plan.slug === "pay_as_you_go" &&
+                                billing?.subscription?.is_active
+                              }
+                              loading={checkoutLoading === "pay_as_you_go"}
+                              onClick={() => handleSubscribe("pay_as_you_go")}
+                            >
+                              {checkoutLoading === "pay_as_you_go"
+                                ? t("redirecting-to-stripe")
+                                : t("subscribe-pay-as-you-go")}
+                            </Button>
+                          </Stack>
+                        </Card>
+                      </Group>
+
+                      {/* ── Buy credits (top-up) ── */}
+                      <Card withBorder p="lg" mt="sm">
+                        <Stack gap="sm">
+                          <Title order={5}>{t("buy-credits-title")}</Title>
+                          <Text size="sm" c="dimmed">{t("buy-credits-desc")}</Text>
+
+                          {/* Preset amounts */}
+                          <Group gap="xs">
+                            {[10, 25, 50, 100].map((usd) => (
+                              <Button
+                                key={usd}
+                                size="xs"
+                                variant={creditAmount === usd ? "filled" : "outline"}
+                                onClick={() => setCreditAmount(usd)}
+                              >
+                                ${usd}
+                              </Button>
+                            ))}
+                          </Group>
+
+                          {/* Custom amount slider */}
+                          <Group align="center" gap="md">
+                            <input
+                              type="range"
+                              min={10}
+                              max={100}
+                              step={5}
+                              value={creditAmount}
+                              onChange={(e) => setCreditAmount(Number(e.target.value))}
+                              style={{ flex: 1 }}
+                            />
+                            <Text fw={700} w={70} ta="right">${creditAmount} USD</Text>
+                          </Group>
+
+                          {billing?.wallet && (
+                            <Text size="xs" c="dimmed">
+                              {t("credits-after-purchase", {
+                                units: (creditAmount * billing.wallet.one_usd_is).toLocaleString(),
+                              })}
+                            </Text>
+                          )}
+
+                          <Button
+                            loading={buyingCredits}
+                            onClick={handleBuyCredits}
+                            leftSection={<IconCreditCard size={16} />}
+                          >
+                            {buyingCredits ? t("buy-credits-loading") : t("buy-credits-submit")}
+                          </Button>
+                        </Stack>
                       </Card>
                     </>
                   )}
