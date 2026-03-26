@@ -29,7 +29,7 @@ class Currency(models.Model):
 
 class Wallet(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    balance = models.DecimalField(max_digits=12, decimal_places=8, default=0)
+    balance = models.DecimalField(max_digits=20, decimal_places=8, default=0)
     unit = models.ForeignKey(Currency, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -50,7 +50,7 @@ class Wallet(models.Model):
 class Consumption(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     wallet = models.ForeignKey(Wallet, on_delete=models.SET_NULL, null=True)
-    amount = models.DecimalField(max_digits=12, decimal_places=8, default=0.1)
+    amount = models.DecimalField(max_digits=20, decimal_places=8, default=0.1)
     is_for = models.CharField(
         max_length=255,
         choices=[
@@ -79,7 +79,7 @@ class OrganizationWallet(models.Model):
         related_name="wallet",
     )
     balance = models.DecimalField(
-        max_digits=14,
+        max_digits=20,
         decimal_places=8,
         default=0,
         validators=[MinValueValidator(Decimal("0"))],
