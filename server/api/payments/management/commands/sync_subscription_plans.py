@@ -24,7 +24,7 @@ PLANS = [
         "slug": "organization",
         "display_name": "Organization Plan",
         "monthly_price_usd": 225,
-        "credits_limit_usd": None,
+        "credits_limit_usd": 200,  # $200 USD = 2,000,000 compute units at 10,000/USD
         "duration_days": None,
         "is_configurable": False,
     },
