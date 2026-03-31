@@ -165,8 +165,10 @@ export type TOrganizationMember = {
   email: string;
   username: string;
   profile_name: string;
+  bio: string;
   is_owner: boolean;
   is_active: boolean;
+  expires_at: string | null;
   current_role?: { id: string; name: string; assignment_id?: string } | null;
 };
 

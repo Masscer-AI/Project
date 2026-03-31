@@ -6,6 +6,7 @@ import {
   buyCredits,
   createCheckoutSession,
   createOrganization,
+  createOrganizationMember,
   createOrganizationRole,
   deactivateOrganizationMember,
   deleteOrganizationRole,
@@ -18,6 +19,7 @@ import {
   removeRoleAssignment,
   TOrganizationData,
   updateOrganization,
+  updateOrganizationMemberProfile,
   updateOrganizationRole,
 } from "../../modules/apiCalls";
 import { API_URL } from "../../modules/constants";
@@ -59,6 +61,7 @@ import {
   IconCopy,
   IconCreditCard,
   IconDeviceFloppy,
+  IconEdit,
   IconLink,
   IconMenu2,
   IconPlayerPause,
@@ -155,6 +158,30 @@ export default function OrganizationPage() {
     action: "deactivate" | "reactivate" | "remove";
   } | null>(null);
   const [memberActionLoading, setMemberActionLoading] = useState(false);
+
+  // Create member modal
+  const [createMemberOpened, setCreateMemberOpened] = useState(false);
+  const [createMemberForm, setCreateMemberForm] = useState({
+    username: "",
+    email: "",
+    password: "",
+    name: "",
+    bio: "",
+    expires_at: "",
+  });
+  const [createMemberLoading, setCreateMemberLoading] = useState(false);
+
+  // Edit member modal
+  const [editingMember, setEditingMember] = useState<TOrganizationMember | null>(null);
+  const [editMemberForm, setEditMemberForm] = useState({
+    name: "",
+    bio: "",
+    expires_at: "",
+  });
+  const [editMemberLoading, setEditMemberLoading] = useState(false);
+
+  // Members tab filter
+  const [memberTab, setMemberTab] = useState<"active" | "inactive" | "expired">("active");
 
   const loadOrgs = async () => {
     try {
@@ -430,6 +457,77 @@ export default function OrganizationPage() {
     } finally {
       toast.dismiss(tid);
       setMemberActionLoading(false);
+    }
+  };
+
+  const isExpired = (m: TOrganizationMember) => {
+    if (!m.expires_at) return false;
+    return new Date(m.expires_at) < new Date();
+  };
+
+  const handleCreateMember = async () => {
+    if (!org?.id) return;
+    const { username, email, password, name, bio, expires_at } = createMemberForm;
+    if (!username.trim() || !email.trim() || !password) {
+      toast.error(t("username-required-hint"));
+      return;
+    }
+    setCreateMemberLoading(true);
+    const tid = toast.loading(t("loading"));
+    try {
+      const newMember = await createOrganizationMember(org.id, {
+        username: username.trim(),
+        email: email.trim(),
+        password,
+        name: name.trim() || undefined,
+        bio: bio.trim() || undefined,
+        expires_at: expires_at ? new Date(expires_at).toISOString() : null,
+      });
+      setMembers((prev) => [...prev, newMember]);
+      setCreateMemberOpened(false);
+      setCreateMemberForm({ username: "", email: "", password: "", name: "", bio: "", expires_at: "" });
+      toast.success(t("member-created"));
+    } catch (e: any) {
+      toast.error(e?.response?.data?.error || t("an-error-occurred"));
+    } finally {
+      toast.dismiss(tid);
+      setCreateMemberLoading(false);
+    }
+  };
+
+  const openEditMember = (m: TOrganizationMember) => {
+    setEditingMember(m);
+    const localExpires = m.expires_at
+      ? (() => {
+          const d = new Date(m.expires_at);
+          const pad = (n: number) => String(n).padStart(2, "0");
+          return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        })()
+      : "";
+    setEditMemberForm({ name: m.profile_name, bio: m.bio, expires_at: localExpires });
+  };
+
+  const handleEditMember = async () => {
+    if (!org?.id || !editingMember) return;
+    setEditMemberLoading(true);
+    const tid = toast.loading(t("loading"));
+    try {
+      const expiresPayload = editMemberForm.expires_at
+        ? new Date(editMemberForm.expires_at).toISOString()
+        : null;
+      await updateOrganizationMemberProfile(org.id, editingMember.id, {
+        name: editMemberForm.name,
+        bio: editMemberForm.bio,
+        expires_at: expiresPayload,
+      });
+      toast.success(t("member-updated"));
+      setEditingMember(null);
+      reloadMembers();
+    } catch {
+      toast.error(t("an-error-occurred"));
+    } finally {
+      toast.dismiss(tid);
+      setEditMemberLoading(false);
     }
   };
 
@@ -835,28 +933,53 @@ export default function OrganizationPage() {
 
                   {/* Members list */}
                   <Card withBorder p="lg">
-                    <Title order={4} mb="md">
-                      {t("members")}
-                    </Title>
+                    <Group justify="space-between" mb="md">
+                      <Title order={4}>{t("members")}</Title>
+                      <Button
+                        size="xs"
+                        leftSection={<IconPlus size={14} />}
+                        onClick={() => setCreateMemberOpened(true)}
+                      >
+                        {t("create-member")}
+                      </Button>
+                    </Group>
+
+                    <Tabs value={memberTab} onChange={(v) => setMemberTab(v as typeof memberTab)} mb="sm">
+                      <Tabs.List>
+                        <Tabs.Tab value="active">{t("members-tab-active")}</Tabs.Tab>
+                        <Tabs.Tab value="inactive">{t("members-tab-inactive")}</Tabs.Tab>
+                        <Tabs.Tab value="expired">{t("members-tab-expired")}</Tabs.Tab>
+                      </Tabs.List>
+                    </Tabs>
 
                     {loadingMembers ? (
                       <Stack align="center" py="xl">
                         <Loader color="violet" size="sm" />
                       </Stack>
-                    ) : members.length === 0 ? (
+                    ) : members.filter((m) => {
+                        if (memberTab === "expired") return isExpired(m);
+                        if (memberTab === "inactive") return !isExpired(m) && m.is_active === false;
+                        return !isExpired(m) && m.is_active !== false;
+                      }).length === 0 ? (
                       <Text c="dimmed" ta="center" py="xl">
                         {t("no-members-yet")}
                       </Text>
                     ) : (
                       <Stack gap="sm">
-                        {members.map((m) => (
+                        {members
+                          .filter((m) => {
+                            if (memberTab === "expired") return isExpired(m);
+                            if (memberTab === "inactive") return !isExpired(m) && m.is_active === false;
+                            return !isExpired(m) && m.is_active !== false;
+                          })
+                          .map((m) => (
                           <Card
                             key={m.id}
                             withBorder
                             p="sm"
                             style={{
                               background: "rgba(255,255,255,0.02)",
-                              opacity: m.is_active === false ? 0.55 : 1,
+                              opacity: m.is_active === false || isExpired(m) ? 0.55 : 1,
                             }}
                           >
                             <Group
@@ -873,18 +996,32 @@ export default function OrganizationPage() {
                                       String(m.id)}
                                   </Text>
                                   {m.is_active === false && (
-                                    <Badge
-                                      color="gray"
-                                      size="xs"
-                                      variant="outline"
-                                    >
+                                    <Badge color="gray" size="xs" variant="outline">
                                       {t("deactivated")}
                                     </Badge>
                                   )}
+                                  {isExpired(m) && (
+                                    <Badge color="red" size="xs" variant="outline">
+                                      {t("expired")}
+                                    </Badge>
+                                  )}
+                                  {!isExpired(m) && m.expires_at && (() => {
+                                    const hoursLeft = (new Date(m.expires_at).getTime() - Date.now()) / 3600000;
+                                    return hoursLeft < 24 ? (
+                                      <Badge color="yellow" size="xs" variant="outline">
+                                        {t("expires-soon")}
+                                      </Badge>
+                                    ) : null;
+                                  })()}
                                 </Group>
                                 <Text size="sm" c="dimmed" truncate>
                                   {m.email}
                                 </Text>
+                                {m.expires_at && (
+                                  <Text size="xs" c="dimmed">
+                                    {isExpired(m) ? t("expired") : t("expires")}: {new Date(m.expires_at).toLocaleString()}
+                                  </Text>
+                                )}
                               </Stack>
                               <Group gap="xs" wrap="nowrap" align="center">
                                 {m.is_owner && (
@@ -917,6 +1054,15 @@ export default function OrganizationPage() {
                                       ]}
                                       style={{ minWidth: 130 }}
                                     />
+                                    <ActionIcon
+                                      variant="subtle"
+                                      color="blue"
+                                      size="sm"
+                                      title={t("edit-member")}
+                                      onClick={() => openEditMember(m)}
+                                    >
+                                      <IconEdit size={16} />
+                                    </ActionIcon>
                                     <ActionIcon
                                       variant="subtle"
                                       color={
@@ -1367,6 +1513,115 @@ export default function OrganizationPage() {
                   : memberAction.action === "deactivate"
                     ? t("deactivate")
                     : t("reactivate")}
+              </Button>
+            </Group>
+          </Stack>
+        )}
+      </Modal>
+
+      {/* ── Create member modal ── */}
+      <Modal
+        opened={createMemberOpened}
+        onClose={() => {
+          setCreateMemberOpened(false);
+          setCreateMemberForm({ username: "", email: "", password: "", name: "", bio: "", expires_at: "" });
+        }}
+        title={t("create-member")}
+        centered
+      >
+        <Stack gap="md">
+          <TextInput
+            label={t("username")}
+            required
+            value={createMemberForm.username}
+            onChange={(e) => setCreateMemberForm({ ...createMemberForm, username: e.currentTarget.value })}
+          />
+          <TextInput
+            label={t("email")}
+            type="email"
+            required
+            value={createMemberForm.email}
+            onChange={(e) => setCreateMemberForm({ ...createMemberForm, email: e.currentTarget.value })}
+          />
+          <TextInput
+            label={t("password")}
+            type="password"
+            required
+            value={createMemberForm.password}
+            onChange={(e) => setCreateMemberForm({ ...createMemberForm, password: e.currentTarget.value })}
+          />
+          <TextInput
+            label={t("name-optional")}
+            value={createMemberForm.name}
+            onChange={(e) => setCreateMemberForm({ ...createMemberForm, name: e.currentTarget.value })}
+          />
+          <Textarea
+            label={t("notes-bio-optional")}
+            description={t("notes-bio-description")}
+            value={createMemberForm.bio}
+            onChange={(e) => setCreateMemberForm({ ...createMemberForm, bio: e.currentTarget.value })}
+            autosize
+            minRows={2}
+          />
+          <TextInput
+            label={t("expires-at-optional")}
+            type="datetime-local"
+            value={createMemberForm.expires_at}
+            onChange={(e) => setCreateMemberForm({ ...createMemberForm, expires_at: e.currentTarget.value })}
+            description={t("expires-at-description")}
+          />
+          <Group>
+            <Button onClick={handleCreateMember} loading={createMemberLoading} flex={1}>
+              {t("create")}
+            </Button>
+            <Button
+              variant="default"
+              onClick={() => {
+                setCreateMemberOpened(false);
+                setCreateMemberForm({ username: "", email: "", password: "", name: "", bio: "", expires_at: "" });
+              }}
+            >
+              {t("cancel")}
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      {/* ── Edit member modal ── */}
+      <Modal
+        opened={!!editingMember}
+        onClose={() => setEditingMember(null)}
+        title={`${t("edit-member")}: ${editingMember?.profile_name || editingMember?.username || ""}`}
+        centered
+      >
+        {editingMember && (
+          <Stack gap="md">
+            <TextInput
+              label={t("name")}
+              value={editMemberForm.name}
+              onChange={(e) => setEditMemberForm({ ...editMemberForm, name: e.currentTarget.value })}
+            />
+            <Textarea
+              label={t("notes-bio")}
+              description={t("notes-bio-description")}
+              value={editMemberForm.bio}
+              onChange={(e) => setEditMemberForm({ ...editMemberForm, bio: e.currentTarget.value })}
+              autosize
+              minRows={2}
+            />
+            <TextInput
+              label={t("expires-at")}
+              type="datetime-local"
+              value={editMemberForm.expires_at}
+              onChange={(e) => setEditMemberForm({ ...editMemberForm, expires_at: e.currentTarget.value })}
+              description={t("expires-at-clear-description")}
+            />
+            <Group>
+              <Button onClick={handleEditMember} loading={editMemberLoading} flex={1}>
+                {t("save")}
+              </Button>
+              <Button variant="default" onClick={() => setEditingMember(null)}>
+                {t("cancel")}
               </Button>
             </Group>
           </Stack>

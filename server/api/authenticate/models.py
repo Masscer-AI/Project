@@ -289,6 +289,12 @@ class UserProfile(models.Model):
         help_text="Whether the user is active within their organization. "
                   "Deactivated users keep the org link but cannot access org resources."
     )
+    expires_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        default=None,
+        help_text="If set, the user's access expires at this datetime. Useful for temporary guest accounts."
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

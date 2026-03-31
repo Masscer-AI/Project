@@ -1271,6 +1271,47 @@ export const removeOrganizationMember = async (
   );
 };
 
+export const createOrganizationMember = async (
+  organizationId: string,
+  data: {
+    username: string;
+    email: string;
+    password: string;
+    name?: string;
+    bio?: string;
+    expires_at?: string | null;
+  }
+) => {
+  return makeAuthenticatedRequest<TOrganizationMember>(
+    "POST",
+    `/v1/auth/organizations/${organizationId}/members/`,
+    data
+  );
+};
+
+export const updateOrganizationMemberProfile = async (
+  organizationId: string,
+  userId: number,
+  data: {
+    is_active?: boolean;
+    expires_at?: string | null;
+    name?: string;
+    bio?: string;
+  }
+) => {
+  return makeAuthenticatedRequest<{
+    message: string;
+    is_active: boolean;
+    expires_at: string | null;
+    name: string;
+    bio: string;
+  }>(
+    "PATCH",
+    `/v1/auth/organizations/${organizationId}/members/${userId}/`,
+    data
+  );
+};
+
 export type TFeatureFlagInfo = {
   name: string;
   organization_only: boolean;

@@ -268,8 +268,10 @@ class OrganizationMemberSerializer(serializers.Serializer):
     email = serializers.EmailField()
     username = serializers.CharField()
     profile_name = serializers.CharField(allow_blank=True, required=False)
+    bio = serializers.CharField(allow_blank=True, required=False)
     is_owner = serializers.BooleanField()
     is_active = serializers.BooleanField(default=True)
+    expires_at = serializers.CharField(allow_null=True, required=False)
     current_role = serializers.DictField(allow_null=True, required=False)
 
 

@@ -113,11 +113,16 @@ class LoginAPIView(APIView):
                 user = None
 
             if user is not None:
-                # Block deactivated users from logging in
+                # Block deactivated or expired users from logging in
                 profile = getattr(user, "profile", None)
                 if profile and profile.organization_id and not profile.is_active:
                     return Response(
                         {"error": "Your account has been deactivated. Contact your organization administrator."},
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+                if profile and profile.expires_at and profile.expires_at < timezone.now():
+                    return Response(
+                        {"error": "Your access has expired. Contact your organization administrator."},
                         status=status.HTTP_403_FORBIDDEN,
                     )
 
@@ -622,8 +627,10 @@ class OrganizationMembersView(View):
                 "email": owner.email or "",
                 "username": owner.username or "",
                 "profile_name": (owner_profile.name if owner_profile and owner_profile.name else "") or "",
+                "bio": (owner_profile.bio or "") if owner_profile else "",
                 "is_owner": True,
                 "is_active": True,
+                "expires_at": None,
                 "current_role": user_to_role.get(owner.id),
             }
         ]
@@ -639,13 +646,80 @@ class OrganizationMembersView(View):
                 "email": user.email or "",
                 "username": user.username or "",
                 "profile_name": (profile.name or "").strip(),
+                "bio": (profile.bio or "").strip(),
                 "is_owner": False,
                 "is_active": profile.is_active,
+                "expires_at": profile.expires_at.isoformat() if profile.expires_at else None,
                 "current_role": user_to_role.get(user.id),
             })
 
         serializer = OrganizationMemberSerializer(members_data, many=True)
         return JsonResponse(serializer.data, safe=False)
+
+    def post(self, request, organization_id):
+        """Create a new user and add them directly to the organization."""
+        try:
+            organization = Organization.objects.get(id=organization_id)
+        except Organization.DoesNotExist:
+            return JsonResponse({"error": "Organization not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        if not _can_manage_organization(request.user, organization):
+            return JsonResponse({"error": "You do not have permission"}, status=status.HTTP_403_FORBIDDEN)
+
+        data = json.loads(request.body) if request.body else {}
+        username = data.get("username", "").strip()
+        email = data.get("email", "").strip()
+        password = data.get("password", "")
+        name = data.get("name", "").strip()
+        bio = data.get("bio", "").strip()
+        expires_at_raw = data.get("expires_at")
+
+        if not username or not email or not password:
+            return JsonResponse(
+                {"error": "username, email and password are required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if User.objects.filter(email=email).exists():
+            return JsonResponse({"error": "Email already in use"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if User.objects.filter(username=username).exists():
+            return JsonResponse({"error": "Username already in use"}, status=status.HTTP_400_BAD_REQUEST)
+
+        parsed_expires = None
+        if expires_at_raw:
+            from django.utils.dateparse import parse_datetime
+            parsed_expires = parse_datetime(expires_at_raw)
+            if parsed_expires is None:
+                return JsonResponse(
+                    {"error": "Invalid expires_at format, expected ISO 8601"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        from django.db import transaction
+        with transaction.atomic():
+            user = User.objects.create_user(username=username, email=email, password=password)
+            profile, _ = UserProfile.objects.get_or_create(user=user)
+            profile.organization = organization
+            profile.name = name
+            profile.bio = bio
+            profile.expires_at = parsed_expires
+            profile.save()
+
+        return JsonResponse(
+            {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "profile_name": profile.name,
+                "bio": profile.bio,
+                "is_owner": False,
+                "is_active": profile.is_active,
+                "expires_at": profile.expires_at.isoformat() if profile.expires_at else None,
+                "current_role": None,
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -677,19 +751,51 @@ class OrganizationMemberDetailView(View):
             return JsonResponse({"error": "Member not found in this organization"}, status=status.HTTP_404_NOT_FOUND)
 
         data = json.loads(request.body) if request.body else {}
-        new_status = data.get("is_active")
-        if new_status is None or not isinstance(new_status, bool):
-            return JsonResponse(
-                {"error": "is_active (boolean) is required"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        update_fields = ["updated_at"]
 
-        profile.is_active = new_status
-        profile.save(update_fields=["is_active", "updated_at"])
+        if "is_active" in data:
+            new_status = data["is_active"]
+            if not isinstance(new_status, bool):
+                return JsonResponse({"error": "is_active must be a boolean"}, status=status.HTTP_400_BAD_REQUEST)
+            profile.is_active = new_status
+            update_fields.append("is_active")
 
-        action = "reactivated" if new_status else "deactivated"
+        if "expires_at" in data:
+            expires_at_raw = data["expires_at"]
+            if expires_at_raw is None:
+                profile.expires_at = None
+            else:
+                from django.utils.dateparse import parse_datetime
+                parsed = parse_datetime(expires_at_raw)
+                if parsed is None:
+                    return JsonResponse(
+                        {"error": "Invalid expires_at format, expected ISO 8601"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                profile.expires_at = parsed
+            update_fields.append("expires_at")
+
+        if "name" in data:
+            profile.name = data["name"].strip()
+            update_fields.append("name")
+
+        if "bio" in data:
+            profile.bio = data["bio"].strip()
+            update_fields.append("bio")
+
+        if len(update_fields) == 1:
+            return JsonResponse({"error": "No valid fields provided"}, status=status.HTTP_400_BAD_REQUEST)
+
+        profile.save(update_fields=update_fields)
+
         return JsonResponse(
-            {"message": f"Member {action} successfully", "is_active": profile.is_active},
+            {
+                "message": "Member updated successfully",
+                "is_active": profile.is_active,
+                "expires_at": profile.expires_at.isoformat() if profile.expires_at else None,
+                "name": profile.name,
+                "bio": profile.bio,
+            },
             status=status.HTTP_200_OK,
         )
 
