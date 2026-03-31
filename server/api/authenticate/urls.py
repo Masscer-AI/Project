@@ -6,7 +6,6 @@ from .views import (
     PasswordResetConfirmAPIView,
     UserView,
     OrganizationView,
-    OrganizationCredentialsView,
     OrganizationMembersView,
     OrganizationMemberDetailView,
     OrganizationRolesView,
@@ -38,11 +37,6 @@ urlpatterns = [
         "organizations/<str:organization_id>/",
         OrganizationView.as_view(),
         name="organization_id",
-    ),
-    path(
-        "organizations/<str:organization_id>/credentials/",
-        OrganizationCredentialsView.as_view(),
-        name="organization_credentials",
     ),
     path(
         "organizations/<str:organization_id>/members/",

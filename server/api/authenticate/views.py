@@ -18,7 +18,6 @@ from .serializers import (
     UserSerializer,
     UserProfileSerializer,
     OrganizationSerializer,
-    CredentialsManagerSerializer,
     BigOrganizationSerializer,
     FeatureFlagStatusResponseSerializer,
     TeamFeatureFlagsResponseSerializer,
@@ -29,7 +28,7 @@ from .serializers import (
     RoleAssignmentSerializer,
     RoleAssignmentCreateSerializer,
 )
-from .models import Token, Organization, UserProfile, CredentialsManager, Role, RoleAssignment, FeatureFlag
+from .models import Token, Organization, UserProfile, Role, RoleAssignment, FeatureFlag
 from django.contrib.auth.models import User
 from django.utils import timezone
 from django.db.models import Q
@@ -552,34 +551,6 @@ class OrganizationView(View):
             response_data,
             status=status.HTTP_200_OK,
         )
-
-
-@method_decorator(csrf_exempt, name="dispatch")
-@method_decorator(token_required, name="dispatch")
-class OrganizationCredentialsView(View):
-    def get(self, request, organization_id):
-        organization = Organization.objects.get(id=organization_id)
-        if organization.owner != request.user:
-            return JsonResponse(
-                {"error": "You are not the owner of this organization"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-        credentials_manager = CredentialsManager.objects.get(organization=organization)
-        serializer = CredentialsManagerSerializer(credentials_manager)
-        return JsonResponse(serializer.data, safe=False)
-
-    def put(self, request, organization_id):
-        data = json.loads(request.body)
-        organization = Organization.objects.get(id=organization_id)
-        credentials_manager = CredentialsManager.objects.get(organization=organization)
-        serializer = CredentialsManagerSerializer(credentials_manager, data=data)
-        if serializer.is_valid():
-            serializer.save()
-            return JsonResponse(
-                {"message": "Credentials updated successfully"},
-                status=status.HTTP_200_OK,
-            )
-        return JsonResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 def _is_active_member(user, organization):

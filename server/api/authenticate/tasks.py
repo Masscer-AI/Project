@@ -7,7 +7,7 @@ from django.core.files.base import ContentFile
 
 from api.utils.openai_functions import generate_image
 
-from .models import CredentialsManager, Organization
+from .models import Organization
 
 logger = logging.getLogger(__name__)
 
@@ -24,14 +24,7 @@ def generate_organization_logo(organization_id: str):
         logger.warning(f"generate_organization_logo: Organization {organization_id} not found")
         return
 
-    try:
-        credentials = CredentialsManager.objects.get(organization=organization)
-        api_key = credentials.openai_api_key
-    except CredentialsManager.DoesNotExist:
-        api_key = None
-
-    if not api_key:
-        api_key = os.environ.get("OPENAI_API_KEY")
+    api_key = os.environ.get("OPENAI_API_KEY")
 
     if not api_key:
         logger.warning(

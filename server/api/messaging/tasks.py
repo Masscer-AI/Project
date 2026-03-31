@@ -4,7 +4,7 @@ from celery import shared_task
 from .actions import generate_conversation_title
 from .models import Conversation, Message, ConversationAlertRule, ConversationAlert, Tag
 from .schemas import ConversationAnalysisResult
-from api.authenticate.models import Organization, FeatureFlag, FeatureFlagAssignment, CredentialsManager
+from api.authenticate.models import Organization, FeatureFlag, FeatureFlagAssignment
 from api.authenticate.services import FeatureFlagService
 from api.utils.openai_functions import create_structured_completion
 from api.notify.alert_dispatch import maybe_dispatch_user_notifications
@@ -228,18 +228,8 @@ def analyze_single_conversation(conversation_uuid: str):
                 "reason": "No organization"
             }
         
-        # Obtener credenciales de OpenAI
-        api_key = None
-        try:
-            credentials = CredentialsManager.objects.get(organization=organization)
-            api_key = credentials.openai_api_key
-            if not api_key:
-                logger.warning(f"Organization {organization.name} has no OpenAI API key, using default")
-                api_key = None
-        except CredentialsManager.DoesNotExist:
-            logger.warning(f"Organization {organization.name} has no credentials manager, using default API key")
-            api_key = None
-        
+        api_key = os.environ.get("OPENAI_API_KEY")
+
         # Obtener tags habilitadas de la organización
         enabled_tags = Tag.objects.filter(
             organization=organization,

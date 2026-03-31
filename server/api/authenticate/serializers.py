@@ -137,6 +137,8 @@ class OrganizationSerializer(serializers.ModelSerializer):
         return None
 
 
+# NOTE: Unused — kept only because CredentialsManager model/table is retained for historical data.
+# No endpoint reads or writes credentials anymore.
 class CredentialsManagerSerializer(serializers.ModelSerializer):
     class Meta:
         model = CredentialsManager

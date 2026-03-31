@@ -245,6 +245,10 @@ class Organization(models.Model):
         super().save(*args, **kwargs)
 
 
+# NOTE: CredentialsManager is no longer used. Organizations no longer supply their own API keys —
+# all AI calls use the app-level environment variables instead. Usage is charged per organization
+# via Masscer's billing system. The model and table are kept to avoid dropping data, but none of
+# the stored keys are read by any backend code.
 class CredentialsManager(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
