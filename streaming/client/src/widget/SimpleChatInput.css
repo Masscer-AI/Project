@@ -80,3 +80,21 @@
   }
 }
 
+.simple-chat-input-wrapper {
+  background: var(--widget-bg, white);
+  border-top: 1px solid var(--widget-border, rgba(0, 0, 0, 0.06));
+}
+
+.simple-chat-input-wrapper .simple-chat-input-container {
+  border-top: none;
+}
+
+.simple-chat-disclaimer {
+  text-align: center;
+  font-size: 10px;
+  color: var(--widget-placeholder, #999);
+  margin: 0;
+  padding: 2px 0 6px;
+  opacity: 0.7;
+}
+

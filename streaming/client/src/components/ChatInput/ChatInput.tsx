@@ -296,6 +296,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             </div>
           </div>
         </div>
+        <p className="text-center text-xs mt-1" style={{ color: "var(--font-color)", opacity: 0.4 }}>
+          Powered by <strong>Masscer AI</strong>
+        </p>
       </section>
     </div>
   );

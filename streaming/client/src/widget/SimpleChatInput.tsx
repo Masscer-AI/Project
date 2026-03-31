@@ -37,38 +37,43 @@ export const SimpleChatInput: React.FC<SimpleChatInputProps> = ({
   };
 
   return (
-    <div className="simple-chat-input-container">
-      <input
-        type="text"
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        onKeyDown={handleKeyDown}
-        placeholder="Escribe tu mensaje..."
-        disabled={disabled || isSending}
-        className="simple-chat-input"
-      />
-      <button
-        onClick={handleSend}
-        disabled={disabled || isSending || input.trim() === ""}
-        className="simple-chat-send-button"
-        aria-label="Enviar mensaje"
-      >
-        {isSending ? (
-          <div className="simple-chat-spinner"></div>
-        ) : (
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <line x1="22" y1="2" x2="11" y2="13"></line>
-            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-          </svg>
-        )}
-      </button>
+    <div className="simple-chat-input-wrapper">
+      <div className="simple-chat-input-container">
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Escribe tu mensaje..."
+          disabled={disabled || isSending}
+          className="simple-chat-input"
+        />
+        <button
+          onClick={handleSend}
+          disabled={disabled || isSending || input.trim() === ""}
+          className="simple-chat-send-button"
+          aria-label="Enviar mensaje"
+        >
+          {isSending ? (
+            <div className="simple-chat-spinner"></div>
+          ) : (
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <line x1="22" y1="2" x2="11" y2="13"></line>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>
+          )}
+        </button>
+      </div>
+      <p className="simple-chat-disclaimer">
+        Powered by <strong>Masscer AI</strong>
+      </p>
     </div>
   );
 };
