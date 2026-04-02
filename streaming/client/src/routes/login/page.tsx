@@ -4,6 +4,7 @@ import { toast } from "react-hot-toast";
 import { useNavigate, Link } from "react-router-dom";
 import { API_URL } from "../../modules/constants";
 import { useTranslation } from "react-i18next";
+import { useGoogleLogin } from "@react-oauth/google";
 
 import {
   Alert,
@@ -14,8 +15,9 @@ import {
   Text,
   Stack,
   Anchor,
+  Divider,
 } from "@mantine/core";
-import { IconLogin, IconLock, IconSparkles } from "@tabler/icons-react";
+import { IconLogin, IconLock, IconSparkles, IconBrandGoogle } from "@tabler/icons-react";
 
 const panelBase = "flex-1 flex flex-col justify-center items-center p-8";
 const panelLeft =
@@ -84,6 +86,29 @@ export default function Login() {
       handleSubmit();
     }
   };
+
+  const loginWithGoogle = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      setIsLoading(true);
+      try {
+        const response = await axios.post(API_URL + "/v1/auth/google", {
+          access_token: tokenResponse.access_token,
+        });
+        if (response.data.token) {
+          localStorage.setItem("token", response.data.token);
+        }
+        toast.success(t("successfully-logged-in"));
+        navigate("/chat");
+      } catch (error: any) {
+        const msg = error.response?.data?.error || t("an-error-occurred");
+        setErrorMessage(msg);
+        toast.error(msg);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    onError: () => toast.error(t("an-error-occurred")),
+  });
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-[var(--bg-color,#0a0a0a)] text-[var(--font-color,#fff)]">
@@ -169,6 +194,18 @@ export default function Login() {
               </Button>
             </Stack>
           </form>
+
+          <Divider label="or" labelPosition="center" my="lg" />
+
+          <Button
+            onClick={() => loginWithGoogle()}
+            fullWidth
+            size="md"
+            variant="default"
+            leftSection={<IconBrandGoogle size={18} />}
+          >
+            Continue with Google
+          </Button>
 
           <Text ta="center" mt="xl" size="sm">
             <Anchor component={Link} to="/signup" c="violet">

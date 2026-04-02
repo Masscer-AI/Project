@@ -14,7 +14,7 @@ class SignupSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["username", "email", "password", "organization_id", "organization_name"]
+        fields = ["email", "password", "organization_id", "organization_name"]
 
     def validate_email(self, value):
         if User.objects.filter(email=value).exists():
@@ -46,10 +46,18 @@ class SignupSerializer(serializers.ModelSerializer):
         organization_id = validated_data.pop("organization_id", None)
         organization_name = validated_data.pop("organization_name", None)
 
+        email = validated_data["email"]
+        base_username = email.split("@")[0]
+        username = base_username
+        suffix = 1
+        while User.objects.filter(username=username).exists():
+            username = f"{base_username}{suffix}"
+            suffix += 1
+
         with transaction.atomic():
             user = User.objects.create_user(
-                username=validated_data["username"],
-                email=validated_data["email"],
+                username=username,
+                email=email,
                 password=validated_data["password"],
             )
 

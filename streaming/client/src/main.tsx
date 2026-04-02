@@ -4,6 +4,7 @@ import { createBrowserRouter, Navigate, RouterProvider } from "react-router-dom"
 import '@mantine/core/styles.css';
 import '@mantine/dates/styles.css';
 import { MantineProvider, createTheme } from '@mantine/core';
+import { GoogleOAuthProvider } from "@react-oauth/google";
 import { useStore } from "./modules/store";
 
 const theme = createTheme({
@@ -190,6 +191,8 @@ function App() {
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <App />
+    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID || ""}>
+      <App />
+    </GoogleOAuthProvider>
   </React.StrictMode>
 );

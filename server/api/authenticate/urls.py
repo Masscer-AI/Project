@@ -2,6 +2,7 @@ from django.urls import path
 from .views import (
     LoginAPIView,
     SignupAPIView,
+    GoogleLoginAPIView,
     PasswordResetRequestAPIView,
     PasswordResetConfirmAPIView,
     UserView,
@@ -21,6 +22,7 @@ app_name = "authenticate"
 urlpatterns = [
     path("signup", SignupAPIView.as_view(), name="api_signup"),
     path("login", LoginAPIView.as_view(), name="api_login"),
+    path("google", GoogleLoginAPIView.as_view(), name="api_google_login"),
     path(
         "password-reset/request",
         PasswordResetRequestAPIView.as_view(),

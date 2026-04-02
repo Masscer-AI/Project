@@ -49,6 +49,7 @@ from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 
 from api.utils.email_service import EmailService
+import requests as http_requests
 
 logger = logging.getLogger(__name__)
 
@@ -140,6 +141,86 @@ class LoginAPIView(APIView):
                 {"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class GoogleLoginAPIView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def post(self, request):
+        access_token = request.data.get("access_token")
+        if not access_token:
+            return Response({"error": "access_token is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            userinfo_resp = http_requests.get(
+                "https://www.googleapis.com/oauth2/v3/userinfo",
+                headers={"Authorization": f"Bearer {access_token}"},
+                timeout=10,
+            )
+            userinfo_resp.raise_for_status()
+            id_info = userinfo_resp.json()
+        except Exception as e:
+            logger.warning("Failed to fetch Google userinfo: %s", e)
+            return Response({"error": "Invalid Google token"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        google_email = id_info.get("email")
+        google_name = id_info.get("name", "")
+        google_picture = id_info.get("picture", "")
+
+        if not google_email:
+            return Response({"error": "Could not retrieve email from Google"}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = User.objects.filter(email=google_email).first()
+
+        if user is None:
+            # Derive a unique username from the email local part
+            base_username = google_email.split("@")[0]
+            username = base_username
+            suffix = 1
+            while User.objects.filter(username=username).exists():
+                username = f"{base_username}{suffix}"
+                suffix += 1
+
+            user = User.objects.create_user(
+                username=username,
+                email=google_email,
+                password=None,  # no password — Google auth only
+                first_name=google_name.split(" ")[0] if google_name else "",
+                last_name=" ".join(google_name.split(" ")[1:]) if google_name else "",
+            )
+
+            # Create a personal organization for the new user
+            org = Organization.objects.create(name=f"{google_name or username}'s workspace", owner=user)
+            profile, _ = UserProfile.objects.get_or_create(user=user)
+            profile.name = google_name
+            profile.avatar_url = google_picture
+            profile.organization = org
+            profile.save()
+        else:
+            # Check if existing user is deactivated or expired
+            profile = getattr(user, "profile", None)
+            if profile and profile.organization_id and not profile.is_active:
+                return Response(
+                    {"error": "Your account has been deactivated. Contact your organization administrator."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            if profile and profile.expires_at and profile.expires_at < timezone.now():
+                return Response(
+                    {"error": "Your access has expired. Contact your organization administrator."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+        token, _ = Token.get_or_create(user=user, token_type="login")
+        return Response(
+            {
+                "message": "Login successful",
+                "token": token.key,
+                "expires_at": token.expires_at,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 @method_decorator(csrf_exempt, name="dispatch")

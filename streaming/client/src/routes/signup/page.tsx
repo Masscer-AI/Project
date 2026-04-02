@@ -4,6 +4,7 @@ import { toast } from "react-hot-toast";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { API_URL } from "../../modules/constants";
 import { useTranslation } from "react-i18next";
+import { useGoogleLogin } from "@react-oauth/google";
 
 import {
   TextInput,
@@ -14,8 +15,9 @@ import {
   Stack,
   Anchor,
   Loader,
+  Divider,
 } from "@mantine/core";
-import { IconUserPlus, IconSparkles } from "@tabler/icons-react";
+import { IconUserPlus, IconSparkles, IconBrandGoogle } from "@tabler/icons-react";
 
 type Organization = {
   id: string;
@@ -32,7 +34,6 @@ const formCard =
   "w-full max-w-[400px] p-10 rounded-2xl border border-white/[0.08] shadow-2xl bg-[var(--modal-bg-color,rgba(28,28,32,0.98))]";
 
 export default function Signup() {
-  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -88,7 +89,7 @@ export default function Signup() {
     setLoading(true);
     setMessage("");
 
-    const payload: Record<string, string> = { username, email, password };
+    const payload: Record<string, string> = { email, password };
     if (orgId) {
       payload.organization_id = orgId;
     } else {
@@ -117,6 +118,29 @@ export default function Signup() {
       setLoading(false);
     }
   };
+
+  const loginWithGoogle = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      setLoading(true);
+      try {
+        const response = await axios.post(API_URL + "/v1/auth/google", {
+          access_token: tokenResponse.access_token,
+        });
+        if (response.data.token) {
+          localStorage.setItem("token", response.data.token);
+        }
+        toast.success(t("successfully-logged-in"));
+        navigate("/chat");
+      } catch (error: any) {
+        const msg = error.response?.data?.error || t("an-error-occurred");
+        setMessage(msg);
+        toast.error(msg);
+      } finally {
+        setLoading(false);
+      }
+    },
+    onError: () => toast.error(t("an-error-occurred")),
+  });
 
   const getInitialForLogo = (name: string) =>
     name.trim().slice(0, 2).toUpperCase() || "O";
@@ -239,19 +263,21 @@ export default function Signup() {
             {t("signup")}
           </Title>
 
+          <Button
+            onClick={() => loginWithGoogle()}
+            fullWidth
+            size="md"
+            variant="default"
+            leftSection={<IconBrandGoogle size={18} />}
+            mb="xs"
+          >
+            Continue with Google
+          </Button>
+
+          <Divider label="or" labelPosition="center" my="lg" />
+
           <form onSubmit={handleSubmit}>
             <Stack gap="md">
-              <TextInput
-                label={t("username")}
-                placeholder={t("username")}
-                value={username}
-                onChange={(e) => setUsername(e.currentTarget.value)}
-                required
-                name="username"
-                autoComplete="username"
-                variant="filled"
-                size="md"
-              />
               <TextInput
                 label={t("email")}
                 placeholder={t("email")}
