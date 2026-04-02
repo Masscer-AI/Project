@@ -149,78 +149,95 @@ class GoogleLoginAPIView(APIView):
     authentication_classes = []
 
     def post(self, request):
+        import traceback
+
         access_token = request.data.get("access_token")
         if not access_token:
+            logger.error("[Google Login] No access_token in request body")
             return Response({"error": "access_token is required"}, status=status.HTTP_400_BAD_REQUEST)
 
+        logger.info("[Google Login] Fetching userinfo from Google")
         try:
             userinfo_resp = http_requests.get(
                 "https://www.googleapis.com/oauth2/v3/userinfo",
                 headers={"Authorization": f"Bearer {access_token}"},
                 timeout=10,
             )
+            logger.info("[Google Login] Google userinfo status: %s", userinfo_resp.status_code)
+            logger.debug("[Google Login] Google userinfo body: %s", userinfo_resp.text)
             userinfo_resp.raise_for_status()
             id_info = userinfo_resp.json()
         except Exception as e:
-            logger.warning("Failed to fetch Google userinfo: %s", e)
+            logger.error("[Google Login] Failed to fetch Google userinfo: %s\n%s", e, traceback.format_exc())
             return Response({"error": "Invalid Google token"}, status=status.HTTP_401_UNAUTHORIZED)
 
         google_email = id_info.get("email")
         google_name = id_info.get("name", "")
         google_picture = id_info.get("picture", "")
+        logger.info("[Google Login] Google email=%s name=%s", google_email, google_name)
 
         if not google_email:
+            logger.error("[Google Login] No email in Google userinfo response: %s", id_info)
             return Response({"error": "Could not retrieve email from Google"}, status=status.HTTP_400_BAD_REQUEST)
 
-        user = User.objects.filter(email=google_email).first()
+        try:
+            user = User.objects.filter(email=google_email).first()
 
-        if user is None:
-            # Derive a unique username from the email local part
-            base_username = google_email.split("@")[0]
-            username = base_username
-            suffix = 1
-            while User.objects.filter(username=username).exists():
-                username = f"{base_username}{suffix}"
-                suffix += 1
+            if user is None:
+                logger.info("[Google Login] Creating new user for email=%s", google_email)
+                base_username = google_email.split("@")[0]
+                username = base_username
+                suffix = 1
+                while User.objects.filter(username=username).exists():
+                    username = f"{base_username}{suffix}"
+                    suffix += 1
 
-            user = User.objects.create_user(
-                username=username,
-                email=google_email,
-                password=None,  # no password — Google auth only
-                first_name=google_name.split(" ")[0] if google_name else "",
-                last_name=" ".join(google_name.split(" ")[1:]) if google_name else "",
+                user = User.objects.create_user(
+                    username=username,
+                    email=google_email,
+                    password=None,
+                    first_name=google_name.split(" ")[0] if google_name else "",
+                    last_name=" ".join(google_name.split(" ")[1:]) if google_name else "",
+                )
+                logger.info("[Google Login] User created: id=%s username=%s", user.id, user.username)
+
+                org = Organization.objects.create(name=f"{google_name or username}'s workspace", owner=user)
+                logger.info("[Google Login] Organization created: id=%s", org.id)
+
+                profile, created = UserProfile.objects.get_or_create(user=user)
+                logger.info("[Google Login] UserProfile get_or_create: created=%s", created)
+                profile.name = google_name
+                profile.avatar_url = google_picture
+                profile.organization = org
+                profile.save()
+                logger.info("[Google Login] UserProfile saved")
+            else:
+                logger.info("[Google Login] Existing user found: id=%s username=%s", user.id, user.username)
+                profile = getattr(user, "profile", None)
+                if profile and profile.organization_id and not profile.is_active:
+                    return Response(
+                        {"error": "Your account has been deactivated. Contact your organization administrator."},
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+                if profile and profile.expires_at and profile.expires_at < timezone.now():
+                    return Response(
+                        {"error": "Your access has expired. Contact your organization administrator."},
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+
+            token, _ = Token.get_or_create(user=user, token_type="login")
+            logger.info("[Google Login] Token issued for user id=%s", user.id)
+            return Response(
+                {
+                    "message": "Login successful",
+                    "token": token.key,
+                    "expires_at": token.expires_at,
+                },
+                status=status.HTTP_200_OK,
             )
-
-            # Create a personal organization for the new user
-            org = Organization.objects.create(name=f"{google_name or username}'s workspace", owner=user)
-            profile, _ = UserProfile.objects.get_or_create(user=user)
-            profile.name = google_name
-            profile.avatar_url = google_picture
-            profile.organization = org
-            profile.save()
-        else:
-            # Check if existing user is deactivated or expired
-            profile = getattr(user, "profile", None)
-            if profile and profile.organization_id and not profile.is_active:
-                return Response(
-                    {"error": "Your account has been deactivated. Contact your organization administrator."},
-                    status=status.HTTP_403_FORBIDDEN,
-                )
-            if profile and profile.expires_at and profile.expires_at < timezone.now():
-                return Response(
-                    {"error": "Your access has expired. Contact your organization administrator."},
-                    status=status.HTTP_403_FORBIDDEN,
-                )
-
-        token, _ = Token.get_or_create(user=user, token_type="login")
-        return Response(
-            {
-                "message": "Login successful",
-                "token": token.key,
-                "expires_at": token.expires_at,
-            },
-            status=status.HTTP_200_OK,
-        )
+        except Exception as e:
+            logger.error("[Google Login] Unexpected error: %s\n%s", e, traceback.format_exc())
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
