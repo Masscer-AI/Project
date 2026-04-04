@@ -6,6 +6,7 @@ import '@mantine/dates/styles.css';
 import { MantineProvider, createTheme } from '@mantine/core';
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { useStore } from "./modules/store";
+import { hasGoogleOAuthClientId, VITE_GOOGLE_CLIENT_ID } from "./modules/googleEnv";
 
 const theme = createTheme({
   primaryColor: 'violet',
@@ -189,10 +190,14 @@ function App() {
   );
 }
 
+const rootTree = hasGoogleOAuthClientId ? (
+  <GoogleOAuthProvider clientId={VITE_GOOGLE_CLIENT_ID}>
+    <App />
+  </GoogleOAuthProvider>
+) : (
+  <App />
+);
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
-  <React.StrictMode>
-    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID || ""}>
-      <App />
-    </GoogleOAuthProvider>
-  </React.StrictMode>
+  <React.StrictMode>{rootTree}</React.StrictMode>
 );

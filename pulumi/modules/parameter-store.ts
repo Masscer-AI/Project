@@ -25,6 +25,7 @@ export function createProviderParameters(args: {
   runwayApiKey: pulumi.Input<string>;
   whatsappGraphApiToken: pulumi.Input<string>;
   whatsappWebhookVerifyToken: pulumi.Input<string>;
+  googleOauthClientId: pulumi.Input<string>;
   taskExecutionRoleName: pulumi.Input<string>;
 }) {
   const basePath = `/${args.namePrefix}/providers`;
@@ -97,6 +98,12 @@ export function createProviderParameters(args: {
     value: normalizeSecret(args.whatsappWebhookVerifyToken),
   });
 
+  const googleOauthClientId = new aws.ssm.Parameter("google-oauth-client-id-param", {
+    name: `${basePath}/GOOGLE_OAUTH_CLIENT_ID`,
+    type: "String",
+    value: normalizeSecret(args.googleOauthClientId),
+  });
+
   const parameterArns = [
     openAiApiKey.arn,
     anthropicApiKey.arn,
@@ -108,6 +115,7 @@ export function createProviderParameters(args: {
     resendApiKey.arn,
     whatsappGraphApiToken.arn,
     whatsappWebhookVerifyToken.arn,
+    googleOauthClientId.arn,
   ];
 
   new aws.iam.RolePolicy("ecs-task-exec-ssm-policy", {

@@ -33,6 +33,10 @@ RUN cat tsconfig.json
 # Run TypeScript compiler separately to check for errors
 RUN npx tsc --noEmit
 
+# Vite inlines VITE_* at build time — pass when building the streaming image for production.
+ARG VITE_GOOGLE_CLIENT_ID
+ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
+
 # Build the frontend assets (app + widget)
 RUN npm run build:all
 

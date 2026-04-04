@@ -3,6 +3,7 @@ import axios, { AxiosRequestConfig, Method } from "axios";
 import { API_URL, PUBLIC_TOKEN } from "./constants";
 import {
   TAgentSession,
+  TAgentSessionExecutionLogResponse,
   TCompletion,
   TConversation,
   TDocument,
@@ -1587,6 +1588,17 @@ export const getAgentSessionsForMessage = async (
   return makeAuthenticatedRequest<TAgentSession[]>(
     "GET",
     `/v1/ai_layers/agent-sessions/?assistant_message_id=${assistantMessageId}`,
+    {},
+    false
+  );
+};
+
+export const getAgentSessionExecutionLogForMessage = async (
+  assistantMessageId: number
+): Promise<TAgentSessionExecutionLogResponse> => {
+  return makeAuthenticatedRequest<TAgentSessionExecutionLogResponse>(
+    "GET",
+    `/v1/ai_layers/agent-sessions/execution-log/?assistant_message_id=${assistantMessageId}`,
     {},
     false
   );

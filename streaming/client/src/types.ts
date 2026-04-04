@@ -99,6 +99,35 @@ export type TAgentSession = {
   ended_at: string | null;
 };
 
+export type TAgentSessionToolCall = {
+  order: number;
+  iteration: number | null;
+  call_id: string;
+  tool_name: string;
+  arguments: unknown;
+  result: unknown;
+  result_preview: string;
+  error: string | null;
+};
+
+export type TAgentSessionExecutionLog = {
+  session_id: string;
+  agent_index: number;
+  agent_slug: string | null;
+  model_slug: string | null;
+  iterations: number;
+  tool_calls_count: number;
+  total_duration: number | null;
+  started_at: string;
+  ended_at: string | null;
+  status: string;
+  tool_calls: TAgentSessionToolCall[];
+};
+
+export type TAgentSessionExecutionLogResponse = {
+  sessions: TAgentSessionExecutionLog[];
+};
+
 export type TVersion = {
   text: string;
   type: string;

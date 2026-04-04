@@ -37,6 +37,8 @@ export interface AppConfig {
   runwayApiKey: pulumi.Output<string>;
   whatsappGraphApiToken: pulumi.Output<string>;
   whatsappWebhookVerifyToken: pulumi.Output<string>;
+  /** Google OAuth Web client ID (public); used for Vite build + stored in SSM for deploy.sh. */
+  googleOauthClientId: pulumi.Output<string>;
 }
 
 export function loadConfig(): AppConfig {
@@ -85,5 +87,6 @@ export function loadConfig(): AppConfig {
     runwayApiKey: cfg.getSecret("runwayApiKey") ?? pulumi.output(""),
     whatsappGraphApiToken: cfg.getSecret("whatsappGraphApiToken") ?? pulumi.output(""),
     whatsappWebhookVerifyToken: cfg.getSecret("whatsappWebhookVerifyToken") ?? pulumi.output(""),
+    googleOauthClientId: pulumi.output(cfg.get("googleOauthClientId") ?? ""),
   };
 }

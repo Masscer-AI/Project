@@ -6,7 +6,12 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.db.models import Q
 from .models import Agent, LanguageModel, AgentSession
-from .serializers import AgentSerializer, LanguageModelSerializer, AgentSessionSerializer
+from .serializers import (
+    AgentSerializer,
+    LanguageModelSerializer,
+    AgentSessionSerializer,
+    AgentSessionExecutionLogSerializer,
+)
 from api.authenticate.decorators.token_required import token_required
 from api.authenticate.decorators.feature_flag_required import feature_flag_required
 from api.authenticate.models import Organization
@@ -710,3 +715,39 @@ def agent_sessions_for_message(request):
 
     data = AgentSessionSerializer(sessions, many=True).data
     return JsonResponse(data, safe=False)
+
+
+@csrf_exempt
+@token_required
+def agent_session_execution_log_for_message(request):
+    """
+    GET /api/ai_layers/agent-sessions/execution-log/?assistant_message_id=123
+    Returns normalized execution logs for all AgentSessions linked to an
+    assistant message, ordered by agent_index.
+    """
+    from api.messaging.models import Message
+
+    msg_id = request.GET.get("assistant_message_id")
+    if not msg_id:
+        return JsonResponse(
+            {"error": "assistant_message_id is required"}, status=400
+        )
+    try:
+        msg_id = int(msg_id)
+    except (TypeError, ValueError):
+        return JsonResponse({"error": "assistant_message_id must be an integer"}, status=400)
+
+    try:
+        message = Message.objects.get(id=msg_id)
+    except Message.DoesNotExist:
+        return JsonResponse({"error": "Message not found"}, status=404)
+
+    if not _user_can_access_message(request.user, message):
+        return JsonResponse({"error": "Forbidden"}, status=403)
+
+    sessions = AgentSession.objects.filter(
+        assistant_message_id=msg_id
+    ).order_by("agent_index")
+
+    data = AgentSessionExecutionLogSerializer(sessions, many=True).data
+    return JsonResponse({"sessions": data}, safe=False)

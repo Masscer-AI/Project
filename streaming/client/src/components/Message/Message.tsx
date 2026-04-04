@@ -1,10 +1,22 @@
 import React, { useEffect, useRef, useState, memo } from "react";
 import MarkdownRenderer from "../MarkdownRenderer/MarkdownRenderer";
-import { TAttachment, TAgentSession, TSource, TVersion } from "../../types";
+import {
+  TAttachment,
+  TAgentSession,
+  TAgentSessionExecutionLog,
+  TAgentSessionToolCall,
+  TSource,
+  TVersion,
+} from "../../types";
 import { API_URL } from "../../modules/constants";
 import { Thumbnail } from "../Thumbnail/Thumbnail";
 import toast from "react-hot-toast";
-import { deleteMessage, updateMessage, getAgentSessionsForMessage } from "../../modules/apiCalls";
+import {
+  deleteMessage,
+  updateMessage,
+  getAgentSessionsForMessage,
+  getAgentSessionExecutionLogForMessage,
+} from "../../modules/apiCalls";
 import { useTranslation } from "react-i18next";
 import { useStore } from "../../modules/store";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
@@ -80,7 +92,6 @@ export const Message = memo(
     onImageGenerated,
     onMessageEdit,
     onMessageDeleted,
-    numberMessages,
     readOnly = false,
   }: MessageProps) => {
     const [isEditing, setIsEditing] = useState(false);
@@ -92,20 +103,25 @@ export const Message = memo(
     );
     const [messageState, setMessageState] = useState({
       confirmDeleteOpened: false,
+      executionLogOpened: false,
     });
     const [agentSessions, setAgentSessions] = useState<TAgentSession[] | null>(null);
+    const [executionLog, setExecutionLog] = useState<TAgentSessionExecutionLog[] | null>(null);
+    const [executionLogLoading, setExecutionLogLoading] = useState(false);
+    const [executionLogError, setExecutionLogError] = useState<string | null>(null);
 
     const { t } = useTranslation();
     const canEditConversationData =
       useIsFeatureEnabled("can-edit-conversation-data") === true;
 
-    const { agents, reactionTemplates, agentTaskStatus } = useStore(
+    const { reactionTemplates, agentTaskStatus } = useStore(
       (s) => ({
-        agents: s.agents,
         reactionTemplates: s.reactionTemplates,
         agentTaskStatus: s.agentTaskStatus,
       })
     );
+    const canShowExecutionLog =
+      Boolean(id) && type === "assistant" && Boolean(versions?.length);
 
     const copyToClipboard = () => {
       const textToCopy = versions?.[currentVersion]?.text || innerText;
@@ -176,6 +192,29 @@ export const Message = memo(
         toast.error(t("error-deleting-message"));
       }
       setMessageState((prev) => ({ ...prev, confirmDeleteOpened: false }));
+    };
+
+    const handleOpenExecutionLog = async () => {
+      if (!id || !canShowExecutionLog) return;
+
+      if (executionLog) {
+        setMessageState((prev) => ({ ...prev, executionLogOpened: true }));
+        return;
+      }
+
+      setExecutionLogLoading(true);
+      setExecutionLogError(null);
+
+      try {
+        const response = await getAgentSessionExecutionLogForMessage(id);
+        setExecutionLog(response.sessions);
+      } catch (error) {
+        console.error("Error loading execution log:", error);
+        setExecutionLogError("Unable to load the execution log right now.");
+      } finally {
+        setExecutionLogLoading(false);
+        setMessageState((prev) => ({ ...prev, executionLogOpened: true }));
+      }
     };
 
     const finishEditing = () => {
@@ -415,6 +454,27 @@ export const Message = memo(
             </Group>
           )}
 
+          {canShowExecutionLog && (
+            <Tooltip label="Execution log" withArrow>
+              <Button
+                variant="subtle"
+                color="gray"
+                size="xs"
+                leftSection={
+                  executionLogLoading ? (
+                    <MantineLoader size={14} color="gray" />
+                  ) : (
+                    <IconFileText size={16} />
+                  )
+                }
+                onClick={handleOpenExecutionLog}
+                disabled={executionLogLoading}
+              >
+                Execution log
+              </Button>
+            </Tooltip>
+          )}
+
           {/* Message options menu */}
           {id && !readOnly && canEditConversationData && (
             <Menu shadow="md" withArrow position="top-end">
@@ -495,10 +555,198 @@ export const Message = memo(
           </Stack>
         </Modal>
         )}
+
+        <ExecutionLogModal
+          opened={messageState.executionLogOpened}
+          onClose={() =>
+            setMessageState((prev) => ({
+              ...prev,
+              executionLogOpened: false,
+            }))
+          }
+          sessions={executionLog}
+          loading={executionLogLoading}
+          error={executionLogError}
+          currentVersion={currentVersion}
+        />
       </div>
     );
   }
 );
+
+const formatExecutionLogValue = (value: unknown) => {
+  if (value == null) return "";
+  if (typeof value === "string") return value;
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch (error) {
+    console.error("Error stringifying execution log value:", error);
+    return String(value);
+  }
+};
+
+const ExecutionLogToolCall = ({ toolCall }: { toolCall: TAgentSessionToolCall }) => {
+  return (
+    <div
+      className="rounded-xl px-4 py-3"
+      style={{
+        background: "var(--bg-color)",
+        border: "1px solid var(--hovered-color)",
+      }}
+    >
+      <Group justify="space-between" align="flex-start" wrap="wrap" gap="sm">
+        <div>
+          <Text fw={600} size="sm">
+            #{toolCall.order} {toolCall.tool_name}
+          </Text>
+          {toolCall.iteration != null && (
+            <Text size="xs" c="dimmed">
+              Iteration {toolCall.iteration}
+            </Text>
+          )}
+        </div>
+        {toolCall.error ? (
+          <Badge color="red" variant="light">
+            Error
+          </Badge>
+        ) : (
+          <Badge color="gray" variant="light">
+            Completed
+          </Badge>
+        )}
+      </Group>
+
+      {toolCall.result_preview && (
+        <Text
+          size="sm"
+          mt="sm"
+          c="dimmed"
+          style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", lineHeight: 1.5 }}
+        >
+          {toolCall.result_preview}
+        </Text>
+      )}
+
+      <Stack gap="xs" mt="md">
+        <details>
+          <summary style={{ cursor: "pointer", fontWeight: 500 }}>Result</summary>
+          <pre
+            className="whitespace-pre-wrap break-all mt-3 rounded-lg p-3"
+            style={{
+              background: "var(--code-bg-color)",
+              border: "1px solid var(--hovered-color)",
+              fontSize: "0.9rem",
+              lineHeight: 1.55,
+            }}
+          >
+            {formatExecutionLogValue(toolCall.result)}
+          </pre>
+        </details>
+      </Stack>
+    </div>
+  );
+};
+
+const ExecutionLogModal = ({
+  opened,
+  onClose,
+  sessions,
+  loading,
+  error,
+  currentVersion,
+}: {
+  opened: boolean;
+  onClose: () => void;
+  sessions: TAgentSessionExecutionLog[] | null;
+  loading: boolean;
+  error: string | null;
+  currentVersion: number;
+}) => {
+  return (
+    <Modal
+      opened={opened}
+      onClose={onClose}
+      title="Execution log"
+      centered
+      size="xl"
+    >
+      <Stack gap="md">
+        {loading && (
+          <Group gap="xs">
+            <MantineLoader size="sm" color="violet" />
+            <Text size="sm" c="dimmed">
+              Loading execution log...
+            </Text>
+          </Group>
+        )}
+
+        {!loading && error && (
+          <Text size="sm" c="red">
+            {error}
+          </Text>
+        )}
+
+        {!loading && !error && (!sessions || sessions.length === 0) && (
+          <Text size="sm" c="dimmed">
+            No agent session details were found for this message.
+          </Text>
+        )}
+
+        {!loading && !error && sessions && sessions.length > 0 && (
+          <ScrollArea.Autosize mah={500}>
+            <Stack gap="md">
+              {sessions.map((session, sessionIdx) => {
+                const isCurrentVersion = currentVersion === sessionIdx;
+                return (
+                  <div
+                    key={session.session_id}
+                    className="rounded-xl p-4"
+                    style={{
+                      border: `1px solid ${isCurrentVersion ? "var(--highlighted-color-opaque)" : "var(--hovered-color)"}`,
+                      background: "var(--code-bg-color)",
+                    }}
+                  >
+                    <Stack gap="sm">
+                      <Group justify="space-between" align="center" wrap="wrap">
+                        <div>
+                          <Text fw={600}>
+                            {session.agent_slug || `Agent ${session.agent_index + 1}`}
+                          </Text>
+                          <Text size="xs" c="dimmed">
+                            Version {session.agent_index + 1}
+                            {session.model_slug ? ` • ${session.model_slug}` : ""}
+                            {session.total_duration != null
+                              ? ` • ${session.total_duration.toFixed(1)}s`
+                              : ""}
+                          </Text>
+                        </div>
+                      </Group>
+
+                      {session.tool_calls.length === 0 ? (
+                        <Text size="sm" c="dimmed">
+                          No tools were used in this agent session.
+                        </Text>
+                      ) : (
+                        <Stack gap="sm">
+                          {session.tool_calls.map((toolCall) => (
+                            <ExecutionLogToolCall
+                              key={`${session.session_id}-${toolCall.call_id}-${toolCall.order}`}
+                              toolCall={toolCall}
+                            />
+                          ))}
+                        </Stack>
+                      )}
+                    </Stack>
+                  </div>
+                );
+              })}
+            </Stack>
+          </ScrollArea.Autosize>
+        )}
+      </Stack>
+    </Modal>
+  );
+};
 
 // ─── Source ────────────────────────────────────────────────────────────────────
 

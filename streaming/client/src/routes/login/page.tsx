@@ -4,8 +4,6 @@ import { toast } from "react-hot-toast";
 import { useNavigate, Link } from "react-router-dom";
 import { API_URL } from "../../modules/constants";
 import { useTranslation } from "react-i18next";
-import { useGoogleLogin } from "@react-oauth/google";
-
 import {
   Alert,
   TextInput,
@@ -17,7 +15,9 @@ import {
   Anchor,
   Divider,
 } from "@mantine/core";
-import { IconLogin, IconLock, IconSparkles, IconBrandGoogle } from "@tabler/icons-react";
+import { IconLogin, IconLock, IconSparkles } from "@tabler/icons-react";
+import { GoogleSignInButton } from "../../components/GoogleSignInButton/GoogleSignInButton";
+import { hasGoogleOAuthClientId } from "../../modules/googleEnv";
 
 const panelBase = "flex-1 flex flex-col justify-center items-center p-8";
 const panelLeft =
@@ -87,28 +87,25 @@ export default function Login() {
     }
   };
 
-  const loginWithGoogle = useGoogleLogin({
-    onSuccess: async (tokenResponse) => {
-      setIsLoading(true);
-      try {
-        const response = await axios.post(API_URL + "/v1/auth/google", {
-          access_token: tokenResponse.access_token,
-        });
-        if (response.data.token) {
-          localStorage.setItem("token", response.data.token);
-        }
-        toast.success(t("successfully-logged-in"));
-        navigate("/chat");
-      } catch (error: any) {
-        const msg = error.response?.data?.error || t("an-error-occurred");
-        setErrorMessage(msg);
-        toast.error(msg);
-      } finally {
-        setIsLoading(false);
+  const handleGoogleAccessToken = async (accessToken: string) => {
+    setIsLoading(true);
+    try {
+      const response = await axios.post(API_URL + "/v1/auth/google", {
+        access_token: accessToken,
+      });
+      if (response.data.token) {
+        localStorage.setItem("token", response.data.token);
       }
-    },
-    onError: () => toast.error(t("an-error-occurred")),
-  });
+      toast.success(t("successfully-logged-in"));
+      navigate("/chat");
+    } catch (error: any) {
+      const msg = error.response?.data?.error || t("an-error-occurred");
+      setErrorMessage(msg);
+      toast.error(msg);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-[var(--bg-color,#0a0a0a)] text-[var(--font-color,#fff)]">
@@ -195,17 +192,15 @@ export default function Login() {
             </Stack>
           </form>
 
-          <Divider label="or" labelPosition="center" my="lg" />
-
-          <Button
-            onClick={() => loginWithGoogle()}
-            fullWidth
-            size="md"
-            variant="default"
-            leftSection={<IconBrandGoogle size={18} />}
-          >
-            Continue with Google
-          </Button>
+          {hasGoogleOAuthClientId && (
+            <>
+              <Divider label="or" labelPosition="center" my="lg" />
+              <GoogleSignInButton
+                onAccessToken={handleGoogleAccessToken}
+                disabled={isLoading}
+              />
+            </>
+          )}
 
           <Text ta="center" mt="xl" size="sm">
             <Anchor component={Link} to="/signup" c="violet">

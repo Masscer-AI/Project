@@ -127,7 +127,58 @@ docker build -t "${DJANGO_REPO}:${IMAGE_TAG}" "$ROOT_DIR/server"
 docker push "${DJANGO_REPO}:${IMAGE_TAG}"
 
 echo "==> Build and push Streaming image"
-docker build -t "${STREAMING_REPO}:${IMAGE_TAG}" "$ROOT_DIR/streaming"
+# Vite inlines VITE_GOOGLE_CLIENT_ID at build time. Resolve in order: env → root .env → SSM (after Pulumi creates it).
+resolve_vite_google_client_id() {
+  if [[ -n "${VITE_GOOGLE_CLIENT_ID:-}" ]]; then
+    echo "Vite: using VITE_GOOGLE_CLIENT_ID from environment"
+    return 0
+  fi
+  if [[ -n "${GOOGLE_CLIENT_ID:-}" ]]; then
+    export VITE_GOOGLE_CLIENT_ID="$GOOGLE_CLIENT_ID"
+    echo "Vite: using GOOGLE_CLIENT_ID from environment"
+    return 0
+  fi
+  local env_file="$ROOT_DIR/.env"
+  if [[ -f "$env_file" ]]; then
+    local v
+    v=$(grep -E "^[[:space:]]*VITE_GOOGLE_CLIENT_ID=" "$env_file" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//") || true
+    if [[ -n "$v" ]]; then
+      export VITE_GOOGLE_CLIENT_ID="$v"
+      echo "Vite: using VITE_GOOGLE_CLIENT_ID from .env"
+      return 0
+    fi
+    v=$(grep -E "^[[:space:]]*GOOGLE_CLIENT_ID=" "$env_file" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//") || true
+    if [[ -n "$v" ]]; then
+      export VITE_GOOGLE_CLIENT_ID="$v"
+      echo "Vite: using GOOGLE_CLIENT_ID from .env"
+      return 0
+    fi
+  fi
+  local name_prefix
+  name_prefix="$(pulumi config get masscer-infra:namePrefix 2>/dev/null || true)"
+  if [[ -n "$name_prefix" ]]; then
+    local ssm_path="/${name_prefix}/providers/GOOGLE_OAUTH_CLIENT_ID"
+    local val
+    if val=$(aws ssm get-parameter --name "$ssm_path" --query Parameter.Value --output text --region "$AWS_REGION" 2>/dev/null); then
+      if [[ "$val" == "__UNSET__" ]]; then
+        val=""
+      fi
+      if [[ -n "$val" ]]; then
+        export VITE_GOOGLE_CLIENT_ID="$val"
+        echo "Vite: using GOOGLE_OAUTH_CLIENT_ID from SSM ($ssm_path)"
+        return 0
+      fi
+    fi
+  fi
+  echo "Warning: VITE_GOOGLE_CLIENT_ID not found (env, .env, or SSM). Google Sign-In will be omitted in the bundle."
+  return 0
+}
+
+resolve_vite_google_client_id
+
+docker build \
+  --build-arg "VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID:-}" \
+  -t "${STREAMING_REPO}:${IMAGE_TAG}" "$ROOT_DIR/streaming"
 docker push "${STREAMING_REPO}:${IMAGE_TAG}"
 
 echo "==> Update Pulumi image tags and deploy"

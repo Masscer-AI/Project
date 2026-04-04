@@ -69,6 +69,7 @@ const parameterStore = createProviderParameters({
   runwayApiKey: config.runwayApiKey,
   whatsappGraphApiToken: config.whatsappGraphApiToken,
   whatsappWebhookVerifyToken: config.whatsappWebhookVerifyToken,
+  googleOauthClientId: config.googleOauthClientId,
   taskExecutionRoleName: ecsBase.taskExecutionRole.name,
 });
 

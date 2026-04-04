@@ -6,6 +6,7 @@ from .views import (
     get_formatted_system_prompt,
     create_random_agent,
     agent_sessions_for_message,
+    agent_session_execution_log_for_message,
 )
 from .mcp_views import mcp_server_handler, get_mcp_config_json
 
@@ -26,6 +27,11 @@ urlpatterns = [
     path("agent-task/conversation/", AgentTaskView.as_view(), name="agent_task_conversation"),
     # Agent sessions for assistant message (audit/debug)
     path("agent-sessions/", agent_sessions_for_message, name="agent_sessions_for_message"),
+    path(
+        "agent-sessions/execution-log/",
+        agent_session_execution_log_for_message,
+        name="agent_session_execution_log_for_message",
+    ),
     # MCP endpoints
     path("mcp/<slug:agent_slug>/", mcp_server_handler, name="mcp_server"),
     path("mcp/<slug:agent_slug>/config/", get_mcp_config_json, name="mcp_config"),
