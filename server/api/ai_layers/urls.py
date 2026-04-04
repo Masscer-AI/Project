@@ -7,6 +7,7 @@ from .views import (
     create_random_agent,
     agent_sessions_for_message,
     agent_session_execution_log_for_message,
+    cancel_agent_task,
 )
 from .mcp_views import mcp_server_handler, get_mcp_config_json
 
@@ -25,6 +26,7 @@ urlpatterns = [
     path("agents/create/random/", create_random_agent, name="create_random_agent"),
     # Agent task endpoints (Celery-backed AgentLoop execution)
     path("agent-task/conversation/", AgentTaskView.as_view(), name="agent_task_conversation"),
+    path("agent-task/cancel/", cancel_agent_task, name="cancel_agent_task"),
     # Agent sessions for assistant message (audit/debug)
     path("agent-sessions/", agent_sessions_for_message, name="agent_sessions_for_message"),
     path(

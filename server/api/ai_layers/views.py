@@ -625,6 +625,9 @@ class AgentTaskView(View):
                 )
 
         # --- Dispatch Celery task ---
+        from django.core.cache import cache
+        cache.delete(f"cancel_task_{conversation_id}")
+
         task = conversation_agent_task.delay(
             conversation_id=str(conversation_id),
             user_inputs=user_inputs,
@@ -751,3 +754,71 @@ def agent_session_execution_log_for_message(request):
 
     data = AgentSessionExecutionLogSerializer(sessions, many=True).data
     return JsonResponse({"sessions": data}, safe=False)
+
+@csrf_exempt
+@token_required
+def cancel_agent_task(request):
+    """
+    POST /api/ai_layers/agent-task/cancel/
+    Body (JSON):
+        - conversation_id (str, required): UUID of the conversation
+    
+    Finds the active AgentSession for this conversation and marks it as dismissed.
+    """
+    from django.utils import timezone
+    from api.messaging.models import Conversation
+
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON body"}, status=400)
+
+    conversation_id = data.get("conversation_id")
+    if not conversation_id:
+        return JsonResponse({"error": "conversation_id is required"}, status=400)
+
+    try:
+        conversation = Conversation.objects.get(id=conversation_id)
+    except Conversation.DoesNotExist:
+        return JsonResponse({"error": "Conversation not found"}, status=404)
+
+    # Note: Using similar access check as in _user_can_access_message, but reusing existing logic if possible.
+    # We can just rely on the existing _user_can_access_message with a dummy message, 
+    # but since it expects a message, we'll implement a simple check here based on the view's existing logic.
+    user = request.user
+    from api.ai_layers.access import get_user_organization
+    user_org = get_user_organization(user)
+    is_owner = conversation.user_id == user.id
+    is_org_member = (
+        user_org is not None
+        and conversation.organization_id is not None
+        and conversation.organization_id == user_org.id
+    )
+
+    if not is_owner and not is_org_member:
+        return JsonResponse(
+            {"error": "You don't have access to this conversation"},
+            status=403,
+        )
+
+    # Find active sessions (ended_at is null) for this conversation
+    active_sessions = AgentSession.objects.filter(
+        conversation=conversation, 
+        ended_at__isnull=True,
+        dismissed_at__isnull=True
+    )
+    
+    updated_count = active_sessions.update(dismissed_at=timezone.now())
+
+    # Also set a cache flag to handle race conditions where the session
+    # hasn't been created yet by the Celery worker
+    from django.core.cache import cache
+    cache.set(f"cancel_task_{conversation_id}", True, timeout=300)
+
+    return JsonResponse(
+        {"status": "success", "sessions_cancelled": updated_count}, 
+        status=200
+    )

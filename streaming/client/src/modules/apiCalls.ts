@@ -1612,3 +1612,11 @@ export const triggerAgentTask = async (payload: TriggerAgentTaskPayload) => {
   );
 };
 
+export const cancelAgentTask = async (conversationId: string) => {
+  return makeAuthenticatedRequest<{ status: string; sessions_cancelled: number }>(
+    "POST",
+    "/v1/ai_layers/agent-task/cancel/",
+    { conversation_id: conversationId }
+  );
+};
+

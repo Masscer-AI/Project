@@ -46,7 +46,9 @@ import {
   IconTree,
   IconUsers,
   IconAdjustments,
+  IconSquareRounded,
 } from "@tabler/icons-react";
+import { cancelAgentTask } from "../../modules/apiCalls";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -93,12 +95,16 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     chatState,
     toggleWritingMode,
     setSpecifiedUrls,
+    agentTaskStatus,
+    conversationId,
   } = useStore((state) => ({
     attachments: state.chatState.attachments,
     addAttachment: state.addAttachment,
     chatState: state.chatState,
     toggleWritingMode: state.toggleWrittingMode,
     setSpecifiedUrls: state.setSpecifiedUrls,
+    agentTaskStatus: state.agentTaskStatus,
+    conversationId: state.conversation?.id,
   }));
 
   const [textPrompt, setTextPrompt] = useState(initialInput);
@@ -160,8 +166,22 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     if (event.key === "Enter" && chatState.writtingMode) return;
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
+      if (agentTaskStatus) return; // Prevent sending while active
       const result = await handleSendMessage(textPrompt);
       if (result) setTextPrompt("");
+    }
+  };
+
+  const setAgentTaskStatus = useStore((state) => state.setAgentTaskStatus);
+
+  const handleCancelAgentTask = async () => {
+    if (!conversationId) return;
+    try {
+      setAgentTaskStatus(null);
+      await cancelAgentTask(conversationId);
+      toast.success(t("task-cancelled") || "Task cancelled");
+    } catch (error) {
+      toast.error(t("error-cancelling-task") || "Error cancelling task");
     }
   };
 
@@ -283,16 +303,30 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               {isTranscribeEnabled && (
                 <SpeechHandler onTranscript={handleAudioTranscript} />
               )}
-              <ActionIcon
-                onClick={asyncSendMessage}
-                variant="subtle"
-                color="gray"
-                size="lg"
-                radius="xl"
-                aria-label={t("send-message")}
-              >
-                <IconSend size={18} />
-              </ActionIcon>
+              {agentTaskStatus ? (
+                <ActionIcon
+                  onClick={handleCancelAgentTask}
+                  variant="subtle"
+                  color="red"
+                  size="lg"
+                  radius="xl"
+                  aria-label={t("stop-generating") || "Stop generating"}
+                  title={t("stop-generating") || "Stop generating"}
+                >
+                  <IconSquareRounded size={18} fill="currentColor" />
+                </ActionIcon>
+              ) : (
+                <ActionIcon
+                  onClick={asyncSendMessage}
+                  variant="subtle"
+                  color="gray"
+                  size="lg"
+                  radius="xl"
+                  aria-label={t("send-message")}
+                >
+                  <IconSend size={18} />
+                </ActionIcon>
+              )}
             </div>
           </div>
         </div>

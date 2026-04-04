@@ -37,6 +37,11 @@ logger = logging.getLogger(__name__)
 # Types
 # ---------------------------------------------------------------------------
 
+class CancelledError(Exception):
+    """Raised when an agent loop is cancelled before completion."""
+    pass
+
+
 class AgentTool(TypedDict, total=False):
     """
     Tool definition for the agent loop.
@@ -255,12 +260,14 @@ class AgentLoop:
         max_iterations: int = 10,
         on_event: Callable[[str, dict], None] | None = None,
         api_key: str | None = None,
+        check_cancelled: Callable[[], bool] | None = None,
     ):
         self.instructions = instructions
         self.model = model
         self.output_schema = output_schema
         self.max_iterations = max_iterations
         self.on_event = on_event
+        self.check_cancelled = check_cancelled
 
         resolved_key = api_key or os.environ.get("OPENAI_API_KEY")
         max_retries = int(os.environ.get("OPENAI_MAX_RETRIES", "2"))
@@ -347,6 +354,11 @@ class AgentLoop:
         iteration = 0
 
         while iteration < self.max_iterations:
+            if self.check_cancelled and self.check_cancelled():
+                logger.info("Iteration %d: Loop cancelled by check_cancelled", iteration)
+                self._emit(ERROR, {"error": "Cancelled", "iteration": iteration})
+                raise CancelledError("Agent loop was cancelled")
+
             iteration += 1
             self._emit(ITERATION_START, {"iteration": iteration})
 
@@ -396,6 +408,11 @@ class AgentLoop:
                 )
 
                 for tool_call in tool_calls_found:
+                    if self.check_cancelled and self.check_cancelled():
+                        logger.info("Iteration %d: Loop cancelled before executing tool %s", iteration, getattr(tool_call, "name", "unknown"))
+                        self._emit(ERROR, {"error": "Cancelled", "iteration": iteration})
+                        raise CancelledError("Agent loop was cancelled")
+
                     record = self._execute_tool_call(tool_call, iteration)
                     tool_call_log.append(record)
 

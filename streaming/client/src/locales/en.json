@@ -790,5 +790,8 @@
     "expires-at-description": "Leave empty for permanent access",
     "expires-at-clear-description": "Clear to make access permanent",
     "permanent-access": "Leave empty for permanent access",
-    "username-required-hint": "Username, email and password are required"
+    "username-required-hint": "Username, email and password are required",
+    "stop-generating": "Stop generating",
+    "task-cancelled": "Task cancelled",
+    "error-cancelling-task": "Error cancelling task"
 }

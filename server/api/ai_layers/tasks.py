@@ -929,6 +929,12 @@ def conversation_agent_task(
                 }
                 notify_user(notification_route_id, "agent_events_channel", payload)
 
+            def is_cancelled() -> bool:
+                from django.core.cache import cache
+                if cache.get(f"cancel_task_{conversation_id}"):
+                    return True
+                return AgentSession.objects.filter(id=session.id, dismissed_at__isnull=False).exists()
+
             resolve_kwargs = dict(
                 conversation_id=conversation_id,
                 user_id=actor_user_id,
@@ -946,6 +952,7 @@ def conversation_agent_task(
                 model=model_slug,
                 max_iterations=max_iterations,
                 on_event=on_event,
+                check_cancelled=is_cancelled,
             )
 
             openai_inputs = _build_agent_loop_inputs(
@@ -955,7 +962,36 @@ def conversation_agent_task(
                 agent_slug=agent.slug,
                 multiagentic_modality=multiagentic_modality,
             )
-            result = loop.run(openai_inputs)
+            
+            try:
+                from api.ai_layers.agent_loop import CancelledError
+                result = loop.run(openai_inputs)
+            except CancelledError:
+                logger.info("Task cancelled for conversation %s", conversation_id)
+                # Ensure the session has ended_at set if not already set, then break or continue
+                from django.utils import timezone
+                session.ended_at = timezone.now()
+                session.save(update_fields=["ended_at"])
+                
+                # Emit events so the frontend stops loading
+                emit_event("agent_complete", {
+                    "agent_slug": agent.slug,
+                    "agent_name": agent.name,
+                    "index": index + 1,
+                    "total": len(agents_ordered),
+                    "status": "cancelled"
+                })
+                emit_finished({
+                    "output": "Generation stopped by user.",
+                    "message_id": None,
+                    "versions": [],
+                    "attachments": [],
+                    "iterations": total_iterations,
+                    "tool_calls_count": total_tool_calls,
+                    "next_agent_slug": None,
+                    "status": "cancelled"
+                })
+                return
 
             # ---- Update AgentSession (outputs) ----
             from django.utils import timezone

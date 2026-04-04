@@ -807,5 +807,8 @@
     "expires-at-description": "Dejar vacío para acceso permanente",
     "expires-at-clear-description": "Limpiar para hacer el acceso permanente",
     "permanent-access": "Dejar vacío para acceso permanente",
-    "username-required-hint": "Usuario, correo y contraseña son obligatorios"
+    "username-required-hint": "Usuario, correo y contraseña son obligatorios",
+    "stop-generating": "Detener generación",
+    "task-cancelled": "Tarea cancelada",
+    "error-cancelling-task": "Error al cancelar la tarea"
 }
