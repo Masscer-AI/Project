@@ -172,6 +172,12 @@ def _create_image_impl(
         },
     )
 
+    # Bill image generation
+    if user_id is not None:
+        from api.consumption.tasks import async_register_image_generation
+        organization_id = getattr(conversation.organization, "id", None)
+        async_register_image_generation.delay(user_id, model, organization_id)
+
     # Display URL: either absolute (API_BASE_URL) or relative (/media/...)
     api_base = getattr(settings, "API_BASE_URL", None) or ""
     file_url = attachment.file.url if attachment.file else ""

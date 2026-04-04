@@ -68,7 +68,9 @@ export function loadConfig(): AppConfig {
     djangoSecretKey: cfg.requireSecret("djangoSecretKey"),
     djangoImageTag: cfg.get("djangoImageTag") ?? "latest",
     streamingImageTag: cfg.get("streamingImageTag") ?? "latest",
-    chromaImage: cfg.get("chromaImage") ?? "chromadb/chroma:0.5.11",
+    // Must match the Python `chromadb` package (see server/uv.lock). Older server images
+    // (e.g. 0.5.x) lack /api/v2/* routes; chromadb 1.x clients then fail at startup.
+    chromaImage: cfg.get("chromaImage") ?? "chromadb/chroma:1.5.2",
     corsOrigins: cfg.get("corsOrigins") ?? "*",
     allowedExtraHosts: cfg.get("allowedExtraHosts") ?? "",
     rootDomain: cfg.get("rootDomain") ?? "",

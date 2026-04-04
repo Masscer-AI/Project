@@ -130,6 +130,40 @@ def convert_usd_to_currency(amount_in_usd, currency_slug):
     return Decimal(amount_in_usd) * Decimal(currency.one_usd_is)
 
 
+IMAGE_MODEL_PRICING_USD = {
+    "gpt-image-1.5": 0.10,  # $0.10 per image
+}
+
+
+def calculate_consumption_image_generation(model_slug: str) -> float:
+    price = IMAGE_MODEL_PRICING_USD.get(model_slug)
+    if price is None:
+        raise ValueError(f"No pricing configured for image model '{model_slug}'")
+    return price
+
+
+def register_image_generation(user_id, model_slug, organization_id=None):
+    try:
+        consumption_amount = calculate_consumption_image_generation(model_slug)
+
+        winning_rates = WinningRates.objects.get(name="default")
+        rate = winning_rates.image_generation_rate
+        consumption_amount_with_rate = Decimal(consumption_amount) * (1 + rate)
+
+        compute_units_amount = convert_usd_to_currency(consumption_amount_with_rate, "compute-unit")
+
+        register_consumption(
+            user_id,
+            compute_units_amount,
+            "image_generation",
+            organization_id=organization_id,
+        )
+        return True
+    except Exception as e:
+        print(e, "exception trying to register image generation for user", user_id)
+        return False
+
+
 def register_llm_interaction(user_id, input_tokens, output_tokens, model_slug, organization_id=None):
     try:
         consumption_amount = calculate_consumption_llm_interaction(
