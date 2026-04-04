@@ -82,7 +82,6 @@ Stores third-party API keys per organization. Auto-created via Django signal whe
 | `organization`    | FK -> Org     | Required  |
 | `openai_api_key`  | CharField     | Nullable  |
 | `anthropic_api_key` | CharField   | Nullable  |
-| `brave_api_key`   | CharField     | Nullable  |
 | `pexels_api_key`  | CharField     | Nullable  |
 | `elevenlabs_api_key` | CharField  | Nullable  |
 | `heygen_api_key`  | CharField     | Nullable  |

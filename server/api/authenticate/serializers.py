@@ -154,7 +154,6 @@ class CredentialsManagerSerializer(serializers.ModelSerializer):
             "id",
             "organization",
             "openai_api_key",
-            "brave_api_key",
             "anthropic_api_key",
             "pexels_api_key",
             "elevenlabs_api_key",

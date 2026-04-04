@@ -88,7 +88,7 @@ export function createAppServices(args: {
     { name: "ANTHROPIC_API_KEY", valueFrom: args.providerParameterArns.anthropicApiKeyArn },
     { name: "XAI_API_KEY", valueFrom: args.providerParameterArns.xaiApiKeyArn },
     { name: "PEXELS_API_KEY", valueFrom: args.providerParameterArns.pexelsApiKeyArn },
-    { name: "BRAVE_API_KEY", valueFrom: args.providerParameterArns.braveApiKeyArn },
+    { name: "FIRECRAWL_API_KEY", valueFrom: args.providerParameterArns.firecrawlApiKeyArn },
     { name: "BFL_API_KEY", valueFrom: args.providerParameterArns.bflApiKeyArn },
     { name: "RUNWAY_API_KEY", valueFrom: args.providerParameterArns.runwayApiKeyArn },
     { name: "RESEND_API_KEY", valueFrom: args.providerParameterArns.resendApiKeyArn },

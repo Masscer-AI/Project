@@ -253,7 +253,6 @@ class CredentialsManager(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
     openai_api_key = models.CharField(max_length=255, null=True, blank=True)
-    brave_api_key = models.CharField(max_length=255, null=True, blank=True)
     anthropic_api_key = models.CharField(max_length=255, null=True, blank=True)
     pexels_api_key = models.CharField(max_length=255, null=True, blank=True)
     elevenlabs_api_key = models.CharField(max_length=255, null=True, blank=True)

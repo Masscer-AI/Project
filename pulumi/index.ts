@@ -64,7 +64,7 @@ const parameterStore = createProviderParameters({
   anthropicApiKey: config.anthropicApiKey,
   xaiApiKey: config.xaiApiKey,
   pexelsApiKey: config.pexelsApiKey,
-  braveApiKey: config.braveApiKey,
+  firecrawlApiKey: config.firecrawlApiKey,
   bflApiKey: config.bflApiKey,
   runwayApiKey: config.runwayApiKey,
   whatsappGraphApiToken: config.whatsappGraphApiToken,

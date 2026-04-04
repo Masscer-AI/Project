@@ -79,7 +79,6 @@ class CredentialsManagerAdmin(admin.ModelAdmin):
     list_display = (
         "organization",
         "openai_api_key",
-        "brave_api_key",
         "anthropic_api_key",
         "pexels_api_key",
         "elevenlabs_api_key",
@@ -88,7 +87,6 @@ class CredentialsManagerAdmin(admin.ModelAdmin):
     search_fields = (
         "organization",
         "openai_api_key",
-        "brave_api_key",
         "anthropic_api_key",
         "pexels_api_key",
         "elevenlabs_api_key",

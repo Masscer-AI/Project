@@ -6,7 +6,7 @@ export interface ProviderParameterArns {
   anthropicApiKeyArn: pulumi.Output<string>;
   xaiApiKeyArn: pulumi.Output<string>;
   pexelsApiKeyArn: pulumi.Output<string>;
-  braveApiKeyArn: pulumi.Output<string>;
+  firecrawlApiKeyArn: pulumi.Output<string>;
   bflApiKeyArn: pulumi.Output<string>;
   runwayApiKeyArn: pulumi.Output<string>;
   resendApiKeyArn: pulumi.Output<string>;
@@ -20,7 +20,7 @@ export function createProviderParameters(args: {
   anthropicApiKey: pulumi.Input<string>;
   xaiApiKey: pulumi.Input<string>;
   pexelsApiKey: pulumi.Input<string>;
-  braveApiKey: pulumi.Input<string>;
+  firecrawlApiKey: pulumi.Input<string>;
   bflApiKey: pulumi.Input<string>;
   runwayApiKey: pulumi.Input<string>;
   whatsappGraphApiToken: pulumi.Input<string>;
@@ -59,10 +59,10 @@ export function createProviderParameters(args: {
     value: normalizeSecret(args.pexelsApiKey),
   });
 
-  const braveApiKey = new aws.ssm.Parameter("brave-api-key-param", {
-    name: `${basePath}/BRAVE_API_KEY`,
+  const firecrawlApiKey = new aws.ssm.Parameter("firecrawl-api-key-param", {
+    name: `${basePath}/FIRECRAWL_API_KEY`,
     type: "SecureString",
-    value: normalizeSecret(args.braveApiKey),
+    value: normalizeSecret(args.firecrawlApiKey),
   });
 
   const bflApiKey = new aws.ssm.Parameter("bfl-api-key-param", {
@@ -102,7 +102,7 @@ export function createProviderParameters(args: {
     anthropicApiKey.arn,
     xaiApiKey.arn,
     pexelsApiKey.arn,
-    braveApiKey.arn,
+    firecrawlApiKey.arn,
     bflApiKey.arn,
     runwayApiKey.arn,
     resendApiKey.arn,
@@ -134,7 +134,7 @@ export function createProviderParameters(args: {
     anthropicApiKeyArn: anthropicApiKey.arn,
     xaiApiKeyArn: xaiApiKey.arn,
     pexelsApiKeyArn: pexelsApiKey.arn,
-    braveApiKeyArn: braveApiKey.arn,
+    firecrawlApiKeyArn: firecrawlApiKey.arn,
     bflApiKeyArn: bflApiKey.arn,
     runwayApiKeyArn: runwayApiKey.arn,
     resendApiKeyArn: resendApiKey.arn,

@@ -111,7 +111,6 @@ export type TVersion = {
 
 export type TOrganizationCredentials = {
   openai_api_key: string;
-  brave_api_key: string;
   anthropic_api_key: string;
   pexels_api_key: string;
   elevenlabs_api_key: string;

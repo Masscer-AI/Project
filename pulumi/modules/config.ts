@@ -32,7 +32,7 @@ export interface AppConfig {
   anthropicApiKey: pulumi.Output<string>;
   xaiApiKey: pulumi.Output<string>;
   pexelsApiKey: pulumi.Output<string>;
-  braveApiKey: pulumi.Output<string>;
+  firecrawlApiKey: pulumi.Output<string>;
   bflApiKey: pulumi.Output<string>;
   runwayApiKey: pulumi.Output<string>;
   whatsappGraphApiToken: pulumi.Output<string>;
@@ -80,7 +80,7 @@ export function loadConfig(): AppConfig {
     anthropicApiKey: cfg.getSecret("anthropicApiKey") ?? pulumi.output(""),
     xaiApiKey: cfg.getSecret("xaiApiKey") ?? pulumi.output(""),
     pexelsApiKey: cfg.getSecret("pexelsApiKey") ?? pulumi.output(""),
-    braveApiKey: cfg.getSecret("braveApiKey") ?? pulumi.output(""),
+    firecrawlApiKey: cfg.getSecret("firecrawlApiKey") ?? pulumi.output(""),
     bflApiKey: cfg.getSecret("bflApiKey") ?? pulumi.output(""),
     runwayApiKey: cfg.getSecret("runwayApiKey") ?? pulumi.output(""),
     whatsappGraphApiToken: cfg.getSecret("whatsappGraphApiToken") ?? pulumi.output(""),
