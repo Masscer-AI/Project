@@ -662,6 +662,8 @@
     "widget-theme-default": "Default",
     "widget-theme-light": "Light",
     "widget-theme-dark": "Dark",
+    "widget-show-history": "Conversation history",
+    "widget-show-history-description": "When enabled, visitors can open a list of previous chats from the header. The widget always opens in the active chat first.",
     "widget-first-message": "First message",
     "widget-first-message-description": "Optional greeting shown as an assistant bubble when the widget opens with an empty conversation.",
     "widget-first-message-placeholder": "Hi! How can I help you today?",

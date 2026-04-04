@@ -43,6 +43,10 @@ class ChatWidgetStyle(BaseModel):
         default=None,
         description="Widget theme mode",
     )
+    show_history: bool = Field(
+        default=False,
+        description="When true, show previous chats (list + back); when false, skip history UI",
+    )
 
 
 class ChatWidgetCapability(BaseModel):

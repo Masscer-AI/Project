@@ -239,6 +239,7 @@ interface WidgetFormData {
   style?: {
     primary_color?: string;
     theme?: "default" | "light" | "dark";
+    show_history?: boolean;
   };
 }
 
@@ -285,6 +286,9 @@ const WidgetForm = ({
   const [theme, setTheme] = useState<WidgetTheme>(
     initialData?.style?.theme ?? "default"
   );
+  const [showHistory, setShowHistory] = useState(
+    initialData?.style?.show_history === true
+  );
   const [capabilityState, setCapabilityState] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
     for (const name of DEFAULT_CAPABILITY_NAMES) initial[name] = false;
@@ -310,8 +314,13 @@ const WidgetForm = ({
     }
     setSaving(true);
     try {
-      const stylePayload: { primary_color?: string; theme?: WidgetTheme } = {
+      const stylePayload: {
+        primary_color?: string;
+        theme?: WidgetTheme;
+        show_history: boolean;
+      } = {
         theme,
+        show_history: showHistory,
       };
       if (trimmedPrimaryColor) {
         stylePayload.primary_color = trimmedPrimaryColor;
@@ -427,6 +436,16 @@ const WidgetForm = ({
           <Text size="sm" fw={500}>
             {t("widget-capabilities")}
           </Text>
+          <Stack gap={2}>
+            <Checkbox
+              label={t("widget-show-history")}
+              checked={showHistory}
+              onChange={(e) => setShowHistory(e.currentTarget.checked)}
+            />
+            <Text size="xs" c="dimmed" ml={28}>
+              {t("widget-show-history-description")}
+            </Text>
+          </Stack>
           {Object.keys(capabilityState)
             .sort()
             .map((capabilityName) => (
@@ -549,6 +568,11 @@ const WidgetCard = ({
         {widget.style?.primary_color && (
           <Badge size="xs" variant="light" color="gray">
             {t("widget-primary-color")}: {widget.style.primary_color}
+          </Badge>
+        )}
+        {widget.style?.show_history && (
+          <Badge size="xs" variant="light" color="teal">
+            {t("widget-show-history")}
           </Badge>
         )}
         {widget.capabilities

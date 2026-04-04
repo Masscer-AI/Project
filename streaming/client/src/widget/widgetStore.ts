@@ -13,6 +13,7 @@ export interface WidgetConfig {
   style?: {
     primary_color?: string;
     theme?: "default" | "light" | "dark";
+    show_history?: boolean;
   };
   agent_slug: string;
   agent_name: string;

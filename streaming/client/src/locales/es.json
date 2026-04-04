@@ -664,6 +664,8 @@
     "widget-theme-default": "Default",
     "widget-theme-light": "Claro",
     "widget-theme-dark": "Oscuro",
+    "widget-show-history": "Historial de conversaciones",
+    "widget-show-history-description": "Si está activado, los visitantes pueden abrir la lista de chats anteriores desde la cabecera. El widget siempre abre primero en el chat activo.",
     "widget-first-message": "Primer mensaje",
     "widget-first-message-description": "Saludo opcional que se muestra como burbuja del asistente cuando el widget abre una conversación vacia.",
     "widget-first-message-placeholder": "Hola! Como puedo ayudarte hoy?",

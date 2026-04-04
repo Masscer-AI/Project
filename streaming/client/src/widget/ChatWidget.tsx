@@ -53,6 +53,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
   const socketRef = useRef<SocketManager | null>(null);
   const [socketReady, setSocketReady] = useState(false);
   const widgetTheme = config.style?.theme ?? "default";
+  const showHistory = config.style?.show_history === true;
   const isDarkTheme = widgetTheme === "dark";
   const widgetPrimaryColor = config.style?.primary_color?.trim();
   const widgetCssVars = {
@@ -146,20 +147,26 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
           newSocket.registerWidgetSession(socketRoute.route_key);
         }
 
-        // Load previous conversations for this visitor
-        const prevConversations = await listWidgetConversations(widgetToken, sessionToken);
-        setConversations(prevConversations);
+        const showHistoryFlag = config.style?.show_history === true;
 
-        if (prevConversations.length > 0) {
-          // Show conversation list so user can pick or start a new one
-          setView("list");
-          setIsInitialized(true);
+        const conv = await initWidgetConversation(widgetToken, sessionToken);
+        openConversation(conv);
+
+        if (showHistoryFlag) {
+          try {
+            const prevConversations = await listWidgetConversations(
+              widgetToken,
+              sessionToken
+            );
+            setConversations(prevConversations);
+          } catch {
+            setConversations([]);
+          }
         } else {
-          // No history — create/get a fresh conversation and jump straight to chat
-          const conv = await initWidgetConversation(widgetToken, sessionToken);
-          openConversation(conv);
-          setIsInitialized(true);
+          setConversations([]);
         }
+
+        setIsInitialized(true);
       } catch (error) {
         console.error("Error initializing widget:", error);
         initializationRef.current = false;
@@ -405,7 +412,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
   };
 
   const handleBackToList = async () => {
-    // Refresh the list so any new conversation with messages shows up
+    if (!showHistory) return;
     try {
       const updated = await listWidgetConversations(widgetToken, sessionToken);
       setConversations(updated);
@@ -500,7 +507,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
         <div className="chat-widget-container" style={widgetCssVars}>
           <div className="chat-widget-header">
             <div className="chat-widget-header-main">
-              {view === "chat" && conversations.length > 0 && (
+              {view === "chat" && showHistory && conversations.length > 0 && (
                 <button
                   className="chat-widget-back"
                   onClick={handleBackToList}
@@ -527,7 +534,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
             </button>
           </div>
 
-          {view === "list" ? (
+          {view === "list" && showHistory ? (
             <ConversationList
               conversations={conversations}
               onSelect={handleSelectConversation}
