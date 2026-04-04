@@ -1,12 +1,15 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useStore } from "../../modules/store";
 import {
   getAlertRules,
   createAlertRule,
   updateAlertRule,
   deleteAlertRule,
+  getAgents,
+  getUserOrganizations,
 } from "../../modules/apiCalls";
-import { TConversationAlertRule } from "../../types";
+import { TConversationAlertRule, TOrganization } from "../../types";
+import { TAgent } from "../../types/agents";
 import { useTranslation } from "react-i18next";
 import {
   Badge,
@@ -17,6 +20,7 @@ import {
   Group,
   Loader,
   Modal,
+  MultiSelect,
   NativeSelect,
   SimpleGrid,
   Stack,
@@ -33,6 +37,8 @@ export default function AlertRulesPage() {
   }));
   const { t } = useTranslation();
   const [alertRules, setAlertRules] = useState<TConversationAlertRule[]>([]);
+  const [organization, setOrganization] = useState<TOrganization | null>(null);
+  const [orgAgents, setOrgAgents] = useState<TAgent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingRule, setEditingRule] = useState<TConversationAlertRule | null>(
@@ -44,12 +50,43 @@ export default function AlertRulesPage() {
     extractions: {} as Record<string, any>,
     scope: "all_conversations" as "all_conversations" | "selected_agents",
     enabled: true,
-    notify_to: "all_staff" as "all_staff" | "selected_members",
+    agent_ids: [] as number[],
   });
+
+  const agentOptions = useMemo(
+    () =>
+      orgAgents
+        .filter((a) => a.id != null)
+        .map((a) => ({ value: String(a.id), label: a.name })),
+    [orgAgents]
+  );
 
   useEffect(() => {
     startup();
     loadAlertRules();
+    (async () => {
+      try {
+        const [orgs, agentsRes] = await Promise.all([
+          getUserOrganizations(),
+          getAgents(),
+        ]);
+        const org = orgs[0] ?? null;
+        setOrganization(org);
+        const orgId = org?.id;
+        const list = agentsRes.agents ?? [];
+        setOrgAgents(
+          orgId
+            ? list.filter(
+                (a: TAgent) =>
+                  a.organization != null &&
+                  String(a.organization) === String(orgId)
+              )
+            : []
+        );
+      } catch (e) {
+        console.error("Error loading org agents:", e);
+      }
+    })();
   }, [startup]);
 
   const loadAlertRules = async () => {
@@ -72,7 +109,7 @@ export default function AlertRulesPage() {
       extractions: {},
       scope: "all_conversations",
       enabled: true,
-      notify_to: "all_staff",
+      agent_ids: [],
     });
     setShowForm(true);
   };
@@ -85,7 +122,7 @@ export default function AlertRulesPage() {
       extractions: rule.extractions || {},
       scope: rule.scope,
       enabled: rule.enabled,
-      notify_to: rule.notify_to,
+      agent_ids: Array.isArray(rule.agent_ids) ? [...rule.agent_ids] : [],
     });
     setShowForm(true);
   };
@@ -108,20 +145,44 @@ export default function AlertRulesPage() {
     }
   };
 
+  const buildPayload = () => {
+    const agent_ids =
+      formData.scope === "selected_agents" ? formData.agent_ids : [];
+    return {
+      name: formData.name,
+      trigger: formData.trigger,
+      extractions: formData.extractions,
+      scope: formData.scope,
+      enabled: formData.enabled,
+      agent_ids,
+    };
+  };
+
   const handleSubmit = async () => {
+    if (formData.scope === "selected_agents" && formData.agent_ids.length === 0) {
+      alert(
+        t("alert-rule-agents-required") ||
+          "Select at least one agent when using selected agents scope."
+      );
+      return;
+    }
     try {
+      const payload = buildPayload();
       if (editingRule) {
-        await updateAlertRule(editingRule.id, formData);
+        await updateAlertRule(editingRule.id, payload);
       } else {
-        await createAlertRule(formData);
+        await createAlertRule(payload);
       }
       setShowForm(false);
       setEditingRule(null);
       loadAlertRules();
     } catch (error: any) {
       console.error("Error saving alert rule:", error);
+      const errMsg =
+        error.response?.data?.errors?.agent_ids?.[0] ||
+        error.response?.data?.message;
       alert(
-        error.response?.data?.message ||
+        errMsg ||
           t("error-saving-alert-rule") ||
           "Error saving alert rule"
       );
@@ -165,6 +226,7 @@ export default function AlertRulesPage() {
               <AlertRuleCard
                 key={rule.id}
                 rule={rule}
+                orgAgents={orgAgents}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
                 t={t}
@@ -174,7 +236,6 @@ export default function AlertRulesPage() {
         )}
       </Stack>
 
-      {/* Create/Edit Modal */}
       <Modal
         opened={showForm}
         onClose={handleCancel}
@@ -211,7 +272,11 @@ export default function AlertRulesPage() {
               const val = e.currentTarget.value as
                 | "all_conversations"
                 | "selected_agents";
-              setFormData((prev) => ({ ...prev, scope: val }));
+              setFormData((prev) => ({
+                ...prev,
+                scope: val,
+                agent_ids: val === "all_conversations" ? [] : prev.agent_ids,
+              }));
             }}
             data={[
               {
@@ -224,23 +289,31 @@ export default function AlertRulesPage() {
               },
             ]}
           />
-          <NativeSelect
-            label={t("notify-to")}
-            value={formData.notify_to}
-            onChange={(e) => {
-              const val = e.currentTarget.value as
-                | "all_staff"
-                | "selected_members";
-              setFormData((prev) => ({ ...prev, notify_to: val }));
-            }}
-            data={[
-              { value: "all_staff", label: t("all-staff") },
-              {
-                value: "selected_members",
-                label: t("selected-members"),
-              },
-            ]}
-          />
+          {formData.scope === "selected_agents" && (
+            <MultiSelect
+              label={t("alert-rule-agents-label") || "Agents"}
+              placeholder={t("alert-rule-agents-placeholder") || "Choose agents"}
+              data={agentOptions}
+              value={formData.agent_ids.map(String)}
+              onChange={(vals) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  agent_ids: vals.map((v) => Number(v)),
+                }))
+              }
+              searchable
+              nothingFoundMessage={t("multiselect-no-matches") || "No matches"}
+              disabled={!organization || orgAgents.length === 0}
+            />
+          )}
+          {formData.scope === "selected_agents" &&
+            organization &&
+            orgAgents.length === 0 && (
+              <Text size="sm" c="dimmed">
+                {t("alert-rule-no-org-agents") ||
+                  "No agents belong to this organization yet. Create org agents first."}
+              </Text>
+            )}
           <Checkbox
             label={t("enabled")}
             checked={formData.enabled}
@@ -266,15 +339,23 @@ export default function AlertRulesPage() {
 
 function AlertRuleCard({
   rule,
+  orgAgents,
   onEdit,
   onDelete,
   t,
 }: {
   rule: TConversationAlertRule;
+  orgAgents: TAgent[];
   onEdit: (rule: TConversationAlertRule) => void;
   onDelete: (ruleId: string) => void;
   t: any;
 }) {
+  const agentNames = useMemo(() => {
+    if (rule.scope !== "selected_agents" || !rule.agent_ids?.length) return [];
+    const byId = new Map(orgAgents.filter((a) => a.id != null).map((a) => [a.id!, a.name]));
+    return rule.agent_ids.map((id) => byId.get(id) ?? `#${id}`);
+  }, [rule.scope, rule.agent_ids, orgAgents]);
+
   return (
     <Card withBorder padding="lg" radius="md">
       <Stack gap="sm">
@@ -298,12 +379,12 @@ function AlertRuleCard({
               ? t("all-conversations") || "All Conversations"
               : t("selected-agents") || "Selected Agents"}
           </Text>
-          <Text size="xs" c="dimmed">
-            {t("notify-to") || "Notify To"}:{" "}
-            {rule.notify_to === "all_staff"
-              ? t("all-staff") || "All Staff"
-              : t("selected-members") || "Selected Members"}
-          </Text>
+          {rule.scope === "selected_agents" && agentNames.length > 0 && (
+            <Text size="xs" c="dimmed">
+              {t("alert-rule-agents-summary") || "Agents"}:{" "}
+              {agentNames.join(", ")}
+            </Text>
+          )}
         </Stack>
 
         <Divider />

@@ -250,7 +250,8 @@ export interface TConversationAlertRule {
   extractions: Record<string, any>;
   scope: "all_conversations" | "selected_agents";
   enabled: boolean;
-  notify_to: "all_staff" | "selected_members";
+  /** Agents this rule applies to when scope is `selected_agents`. */
+  agent_ids?: number[];
   organization: string;
   created_by: number | null;
   created_at: string;
@@ -296,6 +297,14 @@ export interface TUserNotification {
   ignored_at: string | null;
   expires_at: string | null;
   created_at: string;
+}
+
+/** Response from POST /v1/notify/notification-rules/build/ (LLM draft, not persisted). */
+export interface TNotificationRuleBuildResponse {
+  alert_rule_id: string;
+  alert_rule_name: string | null;
+  conditions: TNotificationCondition[];
+  assistant_summary: string;
 }
 
 export interface TNotificationRule {

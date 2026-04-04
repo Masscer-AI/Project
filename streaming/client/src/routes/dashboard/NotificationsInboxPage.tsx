@@ -102,7 +102,7 @@ export default function NotificationsInboxPage() {
                     </Text>
                     <Text
                       component={Link}
-                      to="/dashboard/alerts"
+                      to="/dashboard/alerts?view=alerts"
                       size="xs"
                       c="violet"
                       style={{ textDecoration: "underline" }}

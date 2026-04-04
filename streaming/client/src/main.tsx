@@ -114,7 +114,7 @@ const router = createBrowserRouter([
       {
         path: "/dashboard/notification-settings",
         element: (
-          <Navigate to="/dashboard/notifications?view=rules" replace />
+          <Navigate to="/dashboard/alerts?view=notify-rules" replace />
         ),
       },
       {

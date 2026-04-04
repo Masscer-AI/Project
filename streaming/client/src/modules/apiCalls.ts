@@ -20,6 +20,7 @@ import {
   TChatWidget,
   TWidgetCapability,
   TNotificationRule,
+  TNotificationRuleBuildResponse,
   TUserNotification,
 } from "../types";
 import { TReactionTemplate, TUserProfile } from "../types/chatTypes";
@@ -570,7 +571,7 @@ export const bulkConversationAction = async (
   });
 };
 
-export const getAlerts = async (status?: "all" | "pending" | "notified" | "resolved" | "dismissed") => {
+export const getAlerts = async (status?: "all" | "pending" | "resolved" | "dismissed") => {
   const endpoint = status && status !== "all" 
     ? `/v1/messaging/alerts?status=${status}`
     : "/v1/messaging/alerts";
@@ -619,7 +620,7 @@ export const createAlertRule = async (data: {
   extractions?: Record<string, any>;
   scope?: "all_conversations" | "selected_agents";
   enabled?: boolean;
-  notify_to?: "all_staff" | "selected_members";
+  agent_ids?: number[];
 }) => {
   return makeAuthenticatedRequest<TConversationAlertRule>(
     "POST",
@@ -636,7 +637,7 @@ export const updateAlertRule = async (
     extractions: Record<string, any>;
     scope: "all_conversations" | "selected_agents";
     enabled: boolean;
-    notify_to: "all_staff" | "selected_members";
+    agent_ids: number[];
   }>
 ) => {
   return makeAuthenticatedRequest<TConversationAlertRule>(
@@ -706,6 +707,18 @@ export const getNotificationRules = async () => {
   return makeAuthenticatedRequest<TNotificationRule[]>(
     "GET",
     "/v1/notify/notification-rules/"
+  );
+};
+
+/** Natural language → draft notification rule (sync); user still picks notify target and saves. */
+export const buildNotificationRuleDraft = async (data: {
+  prompt: string;
+  alert_rule_id: string;
+}) => {
+  return makeAuthenticatedRequest<TNotificationRuleBuildResponse>(
+    "POST",
+    "/v1/notify/notification-rules/build/",
+    data
   );
 };
 

@@ -616,18 +616,7 @@ const ExecutionLogToolCall = ({ toolCall }: { toolCall: TAgentSessionToolCall })
         )}
       </Group>
 
-      {toolCall.result_preview && (
-        <Text
-          size="sm"
-          mt="sm"
-          c="dimmed"
-          style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", lineHeight: 1.5 }}
-        >
-          {toolCall.result_preview}
-        </Text>
-      )}
-
-      <Stack gap="xs" mt="md">
+      <Stack gap="xs" mt="sm">
         <details>
           <summary style={{ cursor: "pointer", fontWeight: 500 }}>Result</summary>
           <pre

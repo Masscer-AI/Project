@@ -37,8 +37,8 @@ export default function AlertsPage() {
   const [alerts, setAlerts] = useState<TConversationAlert[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<
-    "all" | "pending" | "notified" | "resolved" | "dismissed"
-  >("all");
+    "all" | "pending" | "resolved" | "dismissed"
+  >("pending");
 
   useEffect(() => {
     startup();
@@ -92,7 +92,6 @@ export default function AlertsPage() {
   }[] = [
     { value: "all", label: t("all") },
     { value: "pending", label: t("pending") },
-    { value: "notified", label: t("notified") },
     { value: "resolved", label: t("resolved") },
     { value: "dismissed", label: t("dismissed") },
   ];

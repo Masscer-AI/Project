@@ -3,6 +3,7 @@ from urllib.parse import urlparse
 from rest_framework import serializers
 from pydantic import ValidationError as PydanticValidationError
 from .models import Message, Conversation, ChatWidget, ConversationAlert, ConversationAlertRule, Tag
+from api.ai_layers.models import Agent
 from api.feedback.serializers import ReactionSerializer
 from api.utils.timezone_utils import format_datetime_for_organization, get_organization_timezone_from_request
 from api.ai_layers.tools import list_available_tools
@@ -342,9 +343,19 @@ class ChatWidgetSerializer(serializers.ModelSerializer):
 
 
 class ConversationAlertRuleSerializer(serializers.ModelSerializer):
+    """
+    Alert rules scope which chats raise an alert; delivery targets are NotificationRules, not notify_to here.
+    """
+
     organization = serializers.UUIDField(read_only=True, source="organization.id")
     created_by = serializers.IntegerField(read_only=True, source="created_by.id", allow_null=True)
-    
+    agent_ids = serializers.ListField(
+        child=serializers.IntegerField(min_value=1),
+        required=False,
+        allow_empty=True,
+        write_only=True,
+    )
+
     class Meta:
         model = ConversationAlertRule
         fields = (
@@ -354,12 +365,65 @@ class ConversationAlertRuleSerializer(serializers.ModelSerializer):
             "extractions",
             "scope",
             "enabled",
-            "notify_to",
+            "agent_ids",
             "organization",
             "created_by",
             "created_at",
             "updated_at",
         )
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["agent_ids"] = list(instance.agents.values_list("id", flat=True))
+        return data
+
+    def validate(self, attrs):
+        scope = attrs.get("scope")
+        if self.instance is not None and scope is None:
+            scope = self.instance.scope
+        has_agent_ids_key = "agent_ids" in attrs
+        agent_ids = attrs.get("agent_ids")
+        if scope == "selected_agents":
+            if has_agent_ids_key:
+                ids = agent_ids or []
+            elif self.instance is not None:
+                ids = list(self.instance.agents.values_list("id", flat=True))
+            else:
+                ids = []
+            if not ids:
+                raise serializers.ValidationError(
+                    {
+                        "agent_ids": "Select at least one agent when scope is limited to selected agents."
+                    }
+                )
+        return attrs
+
+    def _set_agents(self, instance, agent_ids):
+        org = instance.organization
+        if not agent_ids:
+            instance.agents.clear()
+            return
+        allowed = set(Agent.objects.filter(organization=org).values_list("id", flat=True))
+        bad = set(agent_ids) - allowed
+        if bad:
+            raise serializers.ValidationError(
+                {"agent_ids": f"These agent ids are not in this organization: {sorted(bad)}"}
+            )
+        instance.agents.set(agent_ids)
+
+    def create(self, validated_data):
+        agent_ids = validated_data.pop("agent_ids", None)
+        instance = super().create(validated_data)
+        if agent_ids is not None:
+            self._set_agents(instance, agent_ids)
+        return instance
+
+    def update(self, instance, validated_data):
+        agent_ids = validated_data.pop("agent_ids", serializers.empty)
+        instance = super().update(instance, validated_data)
+        if agent_ids is not serializers.empty:
+            self._set_agents(instance, agent_ids)
+        return instance
 
 
 class ConversationAlertSerializer(serializers.ModelSerializer):

@@ -1,5 +1,7 @@
 import json
+import logging
 from datetime import timedelta
+from uuid import UUID
 
 from django.http import JsonResponse
 from django.utils import timezone
@@ -13,8 +15,11 @@ from api.authenticate.decorators.token_required import token_required
 from api.authenticate.services import FeatureFlagService
 from api.notify.models import NotificationRule, UserNotification
 from api.notify.serializers import NotificationRuleSerializer, UserNotificationSerializer
+from api.notify.builder import run_notification_rule_build
 
 FEATURE_FLAG = "can-set-notifications"
+
+logger = logging.getLogger(__name__)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -112,6 +117,72 @@ class NotificationRuleView(View):
 
         rule.delete()
         return JsonResponse({"message": "Deleted."}, status=200)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class NotificationRuleBuildView(View):
+    """
+    POST: natural language → draft notification rule (alert_rule_id + conditions).
+    Same permission as NotificationRuleView. Does not persist; client creates via POST notification-rules/.
+    """
+
+    def _get_user_organization(self, user):
+        owned = Organization.objects.filter(owner=user).first()
+        if owned:
+            return owned
+        if hasattr(user, "profile") and user.profile.organization:
+            return user.profile.organization
+        return None
+
+    def _check_permission(self, user, organization):
+        if not organization:
+            raise PermissionDenied("User has no organization.")
+        if organization.owner_id == user.id:
+            return
+        enabled, _ = FeatureFlagService.is_feature_enabled(
+            FEATURE_FLAG, organization=organization, user=user
+        )
+        if not enabled:
+            raise PermissionDenied(
+                f"The '{FEATURE_FLAG}' feature flag is not enabled for your organization."
+            )
+
+    def post(self, request, *args, **kwargs):
+        user = request.user
+        organization = self._get_user_organization(user)
+        self._check_permission(user, organization)
+
+        try:
+            body = json.loads(request.body or b"{}")
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON."}, status=400)
+
+        prompt = (body.get("prompt") or "").strip()
+        if not prompt:
+            return JsonResponse({"error": "prompt is required."}, status=400)
+
+        alert_filter = body.get("alert_rule_id")
+        if not alert_filter:
+            return JsonResponse({"error": "alert_rule_id is required."}, status=400)
+        try:
+            alert_uuid = UUID(str(alert_filter))
+        except (ValueError, TypeError):
+            return JsonResponse({"error": "alert_rule_id must be a valid UUID."}, status=400)
+
+        try:
+            payload = run_notification_rule_build(
+                user_prompt=prompt,
+                organization_id=organization.id,
+                alert_rule_id=alert_uuid,
+            )
+        except ValueError as exc:
+            return JsonResponse({"error": str(exc)}, status=400)
+        except RuntimeError as exc:
+            logger.warning("notification rule build failed: %s", exc)
+            return JsonResponse({"error": str(exc)}, status=502)
+
+        return JsonResponse(payload, status=200)
 
 
 @method_decorator(csrf_exempt, name="dispatch")

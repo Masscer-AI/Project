@@ -15,6 +15,7 @@ import {
   Text,
   Title,
   Badge,
+  Box,
   Card,
   Checkbox,
   Divider,
@@ -25,6 +26,10 @@ import { createLLM, deleteLLM, updateAgent, makeAuthenticatedRequest, getUserOrg
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
+import {
+  formatUnreadNotificationBadge,
+  useUnreadNotificationCount,
+} from "../../hooks/useUnreadNotificationCount";
 import {
   IconSparkles,
   IconPlus,
@@ -46,20 +51,37 @@ export const ChatHeader = ({
     toggleSidebar: state.toggleSidebar,
     chatState: state.chatState,
   }));
+  const unreadNotificationCount = useUnreadNotificationCount();
 
   return (
     <div className="flex items-center justify-between p-2 md:p-4 rounded-none md:rounded-xl w-full shadow-lg z-10 gap-2 md:gap-3 min-w-0" style={{ background: "var(--bg-contrast-color)", border: "1px solid var(--hovered-color)" }}>
       <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
         {!chatState.isSidebarOpened && (
-          <ActionIcon
-            variant="subtle"
-            color="gray"
-            size="lg"
-            onClick={toggleSidebar}
-            aria-label="Toggle sidebar"
-          >
-            <IconMenu2 size={20} />
-          </ActionIcon>
+          <Box pos="relative" style={{ display: "inline-block" }}>
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              size="lg"
+              onClick={toggleSidebar}
+              aria-label="Toggle sidebar"
+            >
+              <IconMenu2 size={20} />
+            </ActionIcon>
+            {unreadNotificationCount > 0 && (
+              <Badge
+                color="red"
+                size="sm"
+                radius="xl"
+                variant="filled"
+                pos="absolute"
+                top={-4}
+                right={-4}
+                styles={{ root: { pointerEvents: "none", minWidth: 20 } }}
+              >
+                {formatUnreadNotificationBadge(unreadNotificationCount)}
+              </Badge>
+            )}
+          </Box>
         )}
         <AgentsModal />
       </div>

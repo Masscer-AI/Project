@@ -6,11 +6,11 @@ import {
   deleteConversation,
   generateTrainingCompletions,
   getAllConversations,
-  getMyNotifications,
   getUserOrganizations,
   shareConversation,
   getTags,
 } from "../../modules/apiCalls";
+import { useUnreadNotificationCount } from "../../hooks/useUnreadNotificationCount";
 import { TConversation, TTag } from "../../types";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
@@ -99,7 +99,7 @@ export const Sidebar: React.FC = () => {
 
   const [orgTags, setOrgTags] = useState<TTag[]>([]);
   const [canManageOrg, setCanManageOrg] = useState(false);
-  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  const unreadNotificationCount = useUnreadNotificationCount();
 
   const navigate = useNavigate();
 
@@ -118,37 +118,6 @@ export const Sidebar: React.FC = () => {
       cancelled = true;
     };
   }, []);
-
-  useEffect(() => {
-    if (!user) {
-      setUnreadNotificationCount(0);
-      return;
-    }
-    let cancelled = false;
-    const refreshUnread = () => {
-      getMyNotifications({ unread: true })
-        .then((rows) => {
-          if (!cancelled) setUnreadNotificationCount(rows.length);
-        })
-        .catch(() => {
-          if (!cancelled) setUnreadNotificationCount(0);
-        });
-    };
-    refreshUnread();
-    const intervalId = window.setInterval(refreshUnread, 45_000);
-    const onVisibility = () => {
-      if (document.visibilityState === "visible") refreshUnread();
-    };
-    const onInboxUpdated = () => refreshUnread();
-    document.addEventListener("visibilitychange", onVisibility);
-    window.addEventListener("masscer:notifications-updated", onInboxUpdated);
-    return () => {
-      cancelled = true;
-      window.clearInterval(intervalId);
-      document.removeEventListener("visibilitychange", onVisibility);
-      window.removeEventListener("masscer:notifications-updated", onInboxUpdated);
-    };
-  }, [user]);
 
   useEffect(() => {
     populateHistory();
