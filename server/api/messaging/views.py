@@ -49,7 +49,9 @@ import os
 import uuid
 from django.conf import settings
 from django.core.cache import cache
+import logging
 
+logger = logging.getLogger(__name__)
 
 CAN_EDIT_CONVERSATION_DATA_FLAG = "can-edit-conversation-data"
 
@@ -624,7 +626,12 @@ class MessageView(View):
                 {"message": "Conversation not found", "status": 404}, status=404
             )
 
-        if not conversation.title and data["type"] == "assistant":
+        if not conversation.title and data.get("type") == "assistant":
+            logger.info(
+                "MessageView.post scheduling generate_title (REST assistant message): "
+                "conversation_id=%s",
+                conversation_id,
+            )
             conversation.generate_title()
 
         serializer = MessageSerializer(data=data)

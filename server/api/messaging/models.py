@@ -1,8 +1,13 @@
+import logging
 import uuid
-from django.db import models
+
 from django.contrib.auth.models import User
+from django.db import models
 from django.utils import timezone
+
 from api.authenticate.models import PublishableToken, Organization
+
+logger = logging.getLogger(__name__)
 
 
 def _message_attachment_expires_default():
@@ -74,10 +79,28 @@ class Conversation(models.Model):
         Message.objects.filter(conversation=self, id__gt=message_id).delete()
 
     def generate_title(self):
-        if not self.title:
-            from .tasks import async_generate_conversation_title
+        if self.title:
+            logger.info(
+                "conversation.generate_title skipped (already has title): id=%s title_preview=%r",
+                self.id,
+                (self.title[:80] + "…") if len(self.title) > 80 else self.title,
+            )
+            return
+        from .tasks import async_generate_conversation_title
 
-            async_generate_conversation_title.delay(self.id)
+        cid = str(self.id)
+        logger.info(
+            "conversation.generate_title enqueue async_generate_conversation_title: id=%s",
+            cid,
+        )
+        try:
+            async_generate_conversation_title.delay(cid)
+        except Exception:
+            logger.exception(
+                "conversation.generate_title failed to enqueue Celery task: id=%s",
+                cid,
+            )
+            raise
 
     def get_all_messages_context(self):
         return "\n".join(

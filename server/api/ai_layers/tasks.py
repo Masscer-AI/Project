@@ -1154,6 +1154,13 @@ def conversation_agent_task(
                 for s in agent_sessions_created:
                     s.assistant_message = assistant_msg
                     s.save(update_fields=["assistant_message"])
+                logger.info(
+                    "conversation_agent_task generate_title after assistant message: "
+                    "conversation_id=%s modality=isolated current_title=%r message_id=%s",
+                    conversation_id,
+                    conversation.title,
+                    assistant_message_id,
+                )
                 conversation.generate_title()
             except Conversation.DoesNotExist:
                 logger.warning(
@@ -1172,9 +1179,18 @@ def conversation_agent_task(
 
         if multiagentic_modality == "grupal":
             try:
-                Conversation.objects.get(id=conversation_id).generate_title()
+                conv = Conversation.objects.get(id=conversation_id)
+                logger.info(
+                    "conversation_agent_task generate_title (grupal): conversation_id=%s current_title=%r",
+                    conversation_id,
+                    conv.title,
+                )
+                conv.generate_title()
             except Conversation.DoesNotExist:
-                pass
+                logger.warning(
+                    "conversation_agent_task generate_title skipped: conversation not found id=%s",
+                    conversation_id,
+                )
 
         logger.info(
             "conversation_agent_task completed: conversation=%s agents=%d iterations=%d tool_calls=%d",

@@ -12,18 +12,108 @@ def pricing_calculator(model: str, tokens: int):
     return 0
 
 
+def _text_from_content_part(part: object) -> str | None:
+    """Normalize a single content block from the Responses API to plain text."""
+    if part is None:
+        return None
+    if isinstance(part, dict):
+        typ = part.get("type")
+        txt = part.get("text")
+        if isinstance(txt, str) and txt.strip():
+            if typ in ("output_text", "text", "refusal", None):
+                return txt.strip()
+            # Unknown assistant content types may still carry plain text
+            if typ not in ("input_text", "reasoning"):
+                return txt.strip()
+        return None
+    typ = getattr(part, "type", None)
+    txt = getattr(part, "text", None)
+    if isinstance(txt, str) and txt.strip():
+        if typ in ("output_text", "text", "refusal", None):
+            return txt.strip()
+    return None
+
+
+def _iter_output_content_items(response) -> list:
+    """Flatten content parts from response.output (handles message vs flat shapes)."""
+    out = []
+    raw_output = getattr(response, "output", None) or []
+    for item in raw_output:
+        if hasattr(item, "model_dump"):
+            item = item.model_dump(mode="python")
+        if isinstance(item, dict):
+            if item.get("type") == "reasoning":
+                continue
+            for c in item.get("content") or []:
+                out.append(c)
+        else:
+            if getattr(item, "type", None) == "reasoning":
+                continue
+            for c in getattr(item, "content", []) or []:
+                out.append(c)
+    return out
+
+
+def _extract_output_text_from_dump(d: dict) -> str:
+    """Parse a Responses API object serialized via model_dump (shape drift tolerant)."""
+    parts: list[str] = []
+    for item in d.get("output") or []:
+        if not isinstance(item, dict):
+            continue
+        if item.get("type") == "reasoning":
+            continue
+        # Some responses put assistant text directly on the output item
+        if item.get("type") in ("output_text", "text") and isinstance(item.get("text"), str):
+            t = item.get("text", "").strip()
+            if t:
+                parts.append(t)
+                continue
+        contents = item.get("content")
+        if not isinstance(contents, list):
+            continue
+        for c in contents:
+            t = _text_from_content_part(c)
+            if t:
+                parts.append(t)
+    return "".join(parts).strip()
+
+
 def _extract_output_text(response) -> str:
+    if response is None:
+        return ""
+
+    # Aggregated helper on the SDK Response object (may be empty on some SDK/API combos)
     output_text = getattr(response, "output_text", None)
-    if isinstance(output_text, str) and output_text:
+    if isinstance(output_text, str) and output_text.strip():
         return output_text.strip()
 
-    chunks = []
+    # Prefer model_dump when available — matches server-side JSON shape
+    if hasattr(response, "model_dump"):
+        try:
+            dumped = response.model_dump(mode="python")
+            from_dump = _extract_output_text_from_dump(dumped)
+            if from_dump:
+                return from_dump
+        except Exception:
+            pass
+
+    # Object graph: iterate flattened content items
+    chunks: list[str] = []
+    for part in _iter_output_content_items(response):
+        t = _text_from_content_part(part)
+        if t:
+            chunks.append(t)
+    text = "".join(chunks).strip()
+    if text:
+        return text
+
+    # Last pass: legacy per-item iteration (older SDKs)
     for item in getattr(response, "output", []) or []:
         for content in getattr(item, "content", []) or []:
             if getattr(content, "type", "") in ("output_text", "text"):
-                text = getattr(content, "text", "")
-                if text:
-                    chunks.append(text)
+                raw = getattr(content, "text", "")
+                if isinstance(raw, str) and raw:
+                    chunks.append(raw)
     return "".join(chunks).strip()
 
 

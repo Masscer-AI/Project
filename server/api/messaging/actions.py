@@ -1,3 +1,4 @@
+import logging
 import os
 import requests
 from .models import Conversation
@@ -12,8 +13,18 @@ from api.utils.openai_functions import create_completion_openai
 
 load_dotenv()
 
-# Max tokens for title generation (short string)
-TITLE_MAX_TOKENS = 50
+logger = logging.getLogger(__name__)
+
+# Titles are always generated with this OpenAI model (not the chat agent's model).
+TITLE_MODEL = "gpt-4.1-mini"
+TITLE_MAX_OUTPUT_TOKENS = 256
+
+
+def _preview_text(text: str | None, max_len: int = 200) -> str:
+    if not text:
+        return ""
+    t = text.replace("\n", " ").strip()
+    return (t[:max_len] + "…") if len(t) > max_len else t
 
 
 def generate_conversation_title(conversation_id: str):
@@ -34,9 +45,17 @@ def generate_conversation_title(conversation_id: str):
     Return ONLY the new conversation title with the emoji at the beginning. Both are mandatory, emoji + text. But up to 50 characters are allowed.
     """
 
+    logger.info(
+        "generate_conversation_title START conversation_id=%s",
+        conversation_id,
+    )
     try:
         c = Conversation.objects.get(id=conversation_id)
     except Conversation.DoesNotExist:
+        logger.warning(
+            "generate_conversation_title conversation not found: id=%s",
+            conversation_id,
+        )
         return False
 
     # Obtener el agente usado en la conversación
@@ -61,7 +80,19 @@ def generate_conversation_title(conversation_id: str):
             from api.ai_layers.models import Agent
             agent = Agent.objects.filter(slug=agent_slug).first()
         except Exception:
-            pass
+            logger.exception(
+                "generate_conversation_title Agent lookup failed slug=%s",
+                agent_slug,
+            )
+
+    logger.info(
+        "generate_conversation_title agent resolved: conversation_id=%s agent_slug=%s "
+        "agent_id=%s has_custom_title_prompt=%s",
+        conversation_id,
+        agent_slug,
+        getattr(agent, "id", None),
+        bool(agent and agent.conversation_title_prompt),
+    )
 
     # Usar el prompt personalizado del agente si existe, sino el default
     system = agent.conversation_title_prompt if agent and agent.conversation_title_prompt else default_system
@@ -75,32 +106,51 @@ def generate_conversation_title(conversation_id: str):
 
     user_message = "\n".join(formatted_messages)
 
-    # Use agent's LLM configuration when available; otherwise default to OpenAI
-    provider = (agent.model_provider or "openai").lower() if agent else "openai"
-    model_slug = (agent.llm.slug if agent and agent.llm else (agent.model_slug if agent else "gpt-4o-mini")) or "gpt-4o-mini"
+    msg_count = c.messages.count()
+    logger.info(
+        "generate_conversation_title messages: conversation_id=%s total_messages=%s "
+        "snippet_for_model_messages=%d user_message_preview=%r",
+        conversation_id,
+        msg_count,
+        len(formatted_messages),
+        _preview_text(user_message, 300),
+    )
 
-    if provider == "openai":
+    if not user_message.strip():
+        logger.warning(
+            "generate_conversation_title empty user_message (no text to title on): "
+            "conversation_id=%s",
+            conversation_id,
+        )
+
+    logger.info(
+        "generate_conversation_title LLM call: conversation_id=%s model=%s",
+        conversation_id,
+        TITLE_MODEL,
+    )
+
+    title = None
+    try:
         title = create_completion_openai(
             system,
             user_message,
-            model=model_slug,
-            max_tokens=TITLE_MAX_TOKENS,
-            temperature=agent.temperature if agent else None,
+            model=TITLE_MODEL,
+            max_tokens=TITLE_MAX_OUTPUT_TOKENS,
+            temperature=0.0,
         )
-    elif provider == "ollama":
-        title = create_completion_ollama(
-            system,
-            user_message,
-            model=model_slug,
-            max_tokens=TITLE_MAX_TOKENS,
+    except Exception:
+        logger.exception(
+            "generate_conversation_title LLM call failed: conversation_id=%s model=%s",
+            conversation_id,
+            TITLE_MODEL,
         )
-    else:
-        # anthropic or unknown: fallback to OpenAI (no sync Anthropic completion in api/)
-        title = create_completion_openai(
-            system,
-            user_message,
-            model="gpt-4o-mini",
-            max_tokens=TITLE_MAX_TOKENS,
+        raise
+
+    if not title or not str(title).strip():
+        logger.warning(
+            "generate_conversation_title LLM returned empty title: conversation_id=%s raw=%r",
+            conversation_id,
+            title,
         )
 
     if title and title.startswith('"') and title.endswith('"'):
@@ -112,6 +162,11 @@ def generate_conversation_title(conversation_id: str):
 
     c.title = title
     c.save()
+    logger.info(
+        "generate_conversation_title saved: conversation_id=%s title=%r",
+        conversation_id,
+        title,
+    )
     data = {
         "title": title,
         "conversation_id": str(c.id),
@@ -123,7 +178,32 @@ def generate_conversation_title(conversation_id: str):
         route_id = f"widget_session:{c.widget_visitor_session_id}"
 
     if route_id is not None:
-        notify_user(route_id, event_type="title_updated", data=data)
+        try:
+            notify_user(route_id, event_type="title_updated", data=data)
+            logger.info(
+                "generate_conversation_title notify_user sent: conversation_id=%s route_id=%r",
+                conversation_id,
+                route_id,
+            )
+        except Exception:
+            logger.exception(
+                "generate_conversation_title notify_user failed: conversation_id=%s route_id=%r",
+                conversation_id,
+                route_id,
+            )
+    else:
+        logger.warning(
+            "generate_conversation_title skip notify_user (no route): conversation_id=%s "
+            "user_id=%s widget_visitor_session_id=%s",
+            conversation_id,
+            c.user_id,
+            c.widget_visitor_session_id,
+        )
+
+    logger.info(
+        "generate_conversation_title SUCCESS conversation_id=%s",
+        conversation_id,
+    )
     return True
 
 

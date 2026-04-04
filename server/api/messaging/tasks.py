@@ -15,8 +15,24 @@ logger = logging.getLogger(__name__)
 
 @shared_task
 def async_generate_conversation_title(conversation_id: str):
-    result = generate_conversation_title(conversation_id=conversation_id)
-    return result
+    logger.info(
+        "async_generate_conversation_title START conversation_id=%s",
+        conversation_id,
+    )
+    try:
+        result = generate_conversation_title(conversation_id=conversation_id)
+        logger.info(
+            "async_generate_conversation_title DONE conversation_id=%s result=%s",
+            conversation_id,
+            result,
+        )
+        return result
+    except Exception:
+        logger.exception(
+            "async_generate_conversation_title FAILED conversation_id=%s",
+            conversation_id,
+        )
+        raise
 
 
 @shared_task
