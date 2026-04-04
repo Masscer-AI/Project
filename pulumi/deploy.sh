@@ -138,56 +138,19 @@ pulumi up --yes
 if [[ "$SKIP_MIGRATIONS" -eq 0 ]]; then
   echo "==> Run Django migrations as one-off ECS task"
   CLUSTER="$(pulumi stack output ecsClusterName)"
-  TASK_DEF="$(pulumi stack output djangoMigrateTaskDefinitionArn)"
-  APP_SG="$(pulumi stack output appTasksSecurityGroupId)"
-  SUBNETS_CSV="$(pulumi stack output subnetIds --json | node -e 'const fs=require("fs"); const data=JSON.parse(fs.readFileSync(0,"utf8")); if(!Array.isArray(data)){ process.exit(1); } process.stdout.write(data.join(","));')"
+  DJANGO_SERVICE_NAME="$(pulumi stack output djangoServiceName)"
+  DJANGO_TASK_DEFINITION_ARN="$(pulumi stack output djangoTaskDefinitionArn)"
+  export CLUSTER DJANGO_SERVICE_NAME DJANGO_TASK_DEFINITION_ARN
 
-  RUN_TASK_RESPONSE="$(aws ecs run-task \
-    --cluster "$CLUSTER" \
-    --task-definition "$TASK_DEF" \
-    --launch-type EC2 \
-    --network-configuration "awsvpcConfiguration={subnets=[$SUBNETS_CSV],securityGroups=[$APP_SG],assignPublicIp=DISABLED}" \
-    --output json)"
-
-  TASK_ARN="$(printf '%s' "$RUN_TASK_RESPONSE" | node -e 'const fs=require("fs"); const data=JSON.parse(fs.readFileSync(0,"utf8")); process.stdout.write(data.tasks?.[0]?.taskArn ?? "");')"
-
-  if [[ -z "$TASK_ARN" || "$TASK_ARN" == "None" ]]; then
-    echo "Warning: failed to start migration task."
-    printf '%s\n' "$RUN_TASK_RESPONSE" | node -e '
-      const fs=require("fs");
-      const data=JSON.parse(fs.readFileSync(0,"utf8"));
-      const failures=data.failures ?? [];
-      if (failures.length === 0) {
-        console.error("No ECS failures were returned.");
-        process.exit(0);
-      }
-      console.error("ECS failures:");
-      for (const failure of failures) {
-        console.error(`- arn: ${failure.arn ?? "<none>"}`);
-        console.error(`  reason: ${failure.reason ?? "<none>"}`);
-        console.error(`  detail: ${failure.detail ?? "<none>"}`);
-      }
-    '
+  if bash "$PULUMI_DIR/ecs-run-migrate.sh"; then
+    :
+  else
+    echo "Warning: migration task failed or could not be scheduled."
     if [[ "$REQUIRE_MIGRATIONS" -eq 1 ]]; then
+      echo "Error: --require-migrations set; aborting deploy."
       exit 1
     fi
     echo "Continuing deploy because --require-migrations was not set."
-  else
-    aws ecs wait tasks-stopped --cluster "$CLUSTER" --tasks "$TASK_ARN"
-    EXIT_CODE="$(aws ecs describe-tasks \
-      --cluster "$CLUSTER" \
-      --tasks "$TASK_ARN" \
-      --query "tasks[0].containers[0].exitCode" \
-      --output text)"
-
-    echo "Migration task exit code: $EXIT_CODE"
-    if [[ "$EXIT_CODE" != "0" ]]; then
-      if [[ "$REQUIRE_MIGRATIONS" -eq 1 ]]; then
-        echo "Error: migration task failed. Aborting rollout."
-        exit 1
-      fi
-      echo "Warning: migration task failed; continuing deploy."
-    fi
   fi
 fi
 

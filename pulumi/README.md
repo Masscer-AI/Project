@@ -133,13 +133,18 @@ pulumi up
 
 5) Run Django migrations as a one-off ECS task (after first deploy):
 
+`deploy.sh` uses the **same task definition as the django service** and overrides the container command to `manage.py migrate`, with subnets/SGs/capacity provider read from the django ECS service (same idea as darwin-app’s `release_command.sh`).
+
+Manual run (after `pulumi up` so `djangoTaskDefinitionArn` matches the image you want):
+
 ```bash
-aws ecs run-task \
-  --cluster <ecsClusterName-output> \
-  --task-definition <djangoMigrateTaskDefinitionArn-output> \
-  --launch-type EC2 \
-  --network-configuration "awsvpcConfiguration={subnets=[subnet-xxx],securityGroups=[sg-xxx],assignPublicIp=DISABLED}"
+export CLUSTER="$(pulumi stack output ecsClusterName)"
+export DJANGO_SERVICE_NAME="$(pulumi stack output djangoServiceName)"
+export DJANGO_TASK_DEFINITION_ARN="$(pulumi stack output djangoTaskDefinitionArn)"
+bash ecs-run-migrate.sh
 ```
+
+This uses the **same CPU/memory as the django task** (e.g. 1024 / 2048). If placement fails, scale the ASG or temporarily reduce other services—same as any extra awsvpc task.
 
 ## One-command deploy (local)
 
@@ -159,7 +164,7 @@ Optional flags:
 ```
 
 Notes:
-- By default, deploy continues even if the one-off migration task cannot be placed (common with EC2 ENI limits).  
+- By default, deploy continues even if the one-off migration task cannot be placed (common with EC2 CPU/ENI limits).  
   Use `--require-migrations` when you want deploy to fail hard on migration errors.
 - By default, each deploy generates a unique image tag (`deploy-<UTC timestamp>-<git sha>`) to force a fresh ECS rollout.
 

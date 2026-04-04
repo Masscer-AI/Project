@@ -129,4 +129,4 @@ export const fastapiServiceName = services.fastapiService.name;
 export const celeryWorkerServiceName = services.celeryWorkerService.name;
 export const celeryBeatServiceName = services.celeryBeatService.name;
 export const chromaServiceName = services.chromaService.name;
-export const djangoMigrateTaskDefinitionArn = services.djangoMigrateTaskDefinition.arn;
+export const djangoTaskDefinitionArn = services.djangoTaskDefinition.arn;

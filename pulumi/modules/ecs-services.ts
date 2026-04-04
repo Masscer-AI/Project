@@ -134,33 +134,6 @@ export function createAppServices(args: {
     tags: args.tags,
   });
 
-  const djangoMigrateTaskDefinition = new aws.ecs.TaskDefinition("django-migrate-task", {
-    family: `${config.namePrefix}-django-migrate`,
-    networkMode: "awsvpc",
-    requiresCompatibilities: ["EC2"],
-    executionRoleArn: args.taskExecutionRole.arn,
-    taskRoleArn: args.taskRole.arn,
-    cpu: "512",
-    memory: "1024",
-    containerDefinitions: pulumi.jsonStringify([{
-      name: "django-migrate",
-      image: pulumi.interpolate`${args.djangoRepo.repositoryUrl}:${config.djangoImageTag}`,
-      essential: true,
-      command: ["python", "manage.py", "migrate"],
-      environment: djangoEnv,
-      secrets: providerSecrets,
-      logConfiguration: {
-        logDriver: "awslogs",
-        options: {
-          "awslogs-group": args.appLogs.name,
-          "awslogs-region": args.region.name,
-          "awslogs-stream-prefix": "django-migrate",
-        },
-      },
-    }]),
-    tags: args.tags,
-  });
-
   const fastapiTaskDefinition = new aws.ecs.TaskDefinition("fastapi-task", {
     family: `${config.namePrefix}-fastapi`,
     networkMode: "awsvpc",
@@ -354,7 +327,7 @@ export function createAppServices(args: {
   }, { dependsOn: [args.clusterCapacityProviders, ...args.chromaMountTargets] });
 
   return {
-    djangoMigrateTaskDefinition,
+    djangoTaskDefinition,
     djangoService,
     fastapiService,
     celeryWorkerService,
