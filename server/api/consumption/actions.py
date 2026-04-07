@@ -132,6 +132,7 @@ def convert_usd_to_currency(amount_in_usd, currency_slug):
 
 IMAGE_MODEL_PRICING_USD = {
     "gpt-image-1.5": 0.10,  # $0.10 per image
+    "gemini-3.1-flash-image-preview": 0.10,  # $0.10 per image
 }
 
 

@@ -25,7 +25,6 @@ dependencies = [
     "openai",
     "pillow",
     "pydantic",
-    "pydub",
     "pymupdf",
     "pypandoc",
     "python-crontab",
@@ -42,4 +41,5 @@ dependencies = [
     "django-storages[s3]",
     "whitenoise",
     "youtube-transcript-api",
+    "google-genai>=1.70.0",
 ]

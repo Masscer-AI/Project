@@ -4,9 +4,6 @@ import requests
 from .models import Conversation
 from openai import OpenAI
 from dotenv import load_dotenv
-from django.core.files.uploadedfile import InMemoryUploadedFile
-import io
-from pydub import AudioSegment
 from api.notify.actions import notify_user
 from api.utils.ollama_functions import create_completion_ollama
 from api.utils.openai_functions import create_completion_openai
@@ -205,24 +202,6 @@ def generate_conversation_title(conversation_id: str):
         conversation_id,
     )
     return True
-
-
-def convert_to_audio_file(
-    django_file: InMemoryUploadedFile, output_format: str = "wav"
-) -> io.BytesIO:
-    # Load the audio file using pydub
-    audio = AudioSegment.from_file(django_file)
-
-    # Create a BytesIO object to hold the converted audio
-    audio_io = io.BytesIO()
-
-    # Export the audio in the desired format
-    audio.export(audio_io, format=output_format)
-
-    # Seek to the beginning of the BytesIO object
-    audio_io.seek(0)
-
-    return audio_io
 
 
 def transcribe_audio(audio_file_url, output_format="verbose_json") -> str:

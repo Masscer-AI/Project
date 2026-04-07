@@ -536,6 +536,11 @@ def _extract_rag_sources(tool_calls: list[dict]) -> list[dict]:
     return sources
 
 
+GENERAL_RULES = """
+When referencing an attachment inside your message markdown, prefer this format:
+"![Alt text](attachment:<attachment_id>). Do NOT invent /media/... URLs.
+"""
+
 @shared_task
 def conversation_agent_task(
     conversation_id: str,
@@ -762,10 +767,12 @@ def conversation_agent_task(
             if "create_image" in (tool_names or []):
                 instructions += (
                     "\n\nImage generation is enabled for this conversation. "
-                    "If the user asks you to generate an image, you can call create_image(prompt, model, aspect_ratio). "
-                    "Use model='gpt-image-1.5'. aspect_ratio must be one of: square, landscape, portrait."
-                    "\n\nWhen referencing an attachment inside your message markdown, prefer this format: "
-                    "![Alt text](attachment:<attachment_id>). Do NOT invent /media/... URLs."
+                    "If the user asks you to generate an image, call create_image(prompt, model, aspect_ratio, guidance_attachments). "
+                    "Available models: 'gpt-image-1.5' (OpenAI) or 'gemini-3.1-flash-image-preview' (This model is also know as Nano Banana) (Google). "
+                    "aspect_ratio must be one of: square, landscape, portrait. "
+                    "guidance_attachments is an optional list of MessageAttachment UUIDs for visual reference (supported by both models)."
+                    "Prefer Nano banana for faster generation and better quality."
+   
                 )
             if "create_speech" in (tool_names or []):
                 instructions += (
@@ -895,6 +902,7 @@ def conversation_agent_task(
                 slug=model_slug,
                 provider=llm.provider.name if llm else "openai",
             )
+            instructions += GENERAL_RULES
             inputs_data = AgentSessionInputs(
                 instructions=instructions,
                 user_inputs=resolved_inputs,

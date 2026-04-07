@@ -26,20 +26,28 @@ logger = logging.getLogger(__name__)
 
 AspectRatio = Literal["square", "landscape", "portrait"]
 
-# For now we only allow the most capable OpenAI image model.
 OPENAI_IMAGE_MODELS: set[str] = {"gpt-image-1.5"}
+GOOGLE_IMAGE_MODELS: set[str] = {"gemini-3.1-flash-image-preview"}
+ALL_IMAGE_MODELS: set[str] = OPENAI_IMAGE_MODELS | GOOGLE_IMAGE_MODELS
 
 
 class CreateImageParams(BaseModel):
     prompt: str = Field(description="Text prompt to generate an image from.")
     model: str = Field(
         description=(
-            "Image model slug. Allowed: gpt-image-1.5."
+            "Image model slug. Allowed: gpt-image-1.5, gemini-3.1-flash-image-preview."
         )
     )
     aspect_ratio: AspectRatio = Field(
         default="square",
         description="Aspect ratio choice: square|landscape|portrait.",
+    )
+    guidance_attachments: list[str] = Field(
+        default=[],
+        description=(
+            "Optional list of MessageAttachment UUIDs to use as visual reference when generating the image. "
+            "Supported by both OpenAI and Google models."
+        ),
     )
 
 
@@ -71,11 +79,78 @@ def _guess_filename(prompt: str, content_type: str | None) -> str:
     return f"{base}-{uuid.uuid4().hex[:8]}{ext}"
 
 
+def _generate_image_google(
+    *,
+    prompt: str,
+    model: str,
+    guidance_attachments: list,  # list of MessageAttachment instances
+) -> tuple[bytes, str]:
+    """Call Google Gemini image generation. Returns (raw_bytes, content_type)."""
+    try:
+        from google import genai
+        from google.genai import types as genai_types
+    except ImportError:
+        raise ValueError("google-genai is not installed. Run: uv add google-genai")
+
+    api_key = os.environ.get("GOOGLE_CLOUD_API_KEY")
+    if not api_key:
+        raise ValueError("GOOGLE_CLOUD_API_KEY env var is not set")
+
+    client = genai.Client(api_key=api_key)
+
+    parts = []
+    for att in guidance_attachments:
+        try:
+            with open(att.file.path, "rb") as f:
+                image_bytes = f.read()
+            parts.append(genai_types.Part.from_bytes(data=image_bytes, mime_type=att.content_type or "image/png"))
+        except Exception:
+            logger.warning("Could not read guidance attachment %s, skipping", att.id)
+
+    parts.append(genai_types.Part.from_text(text=prompt))
+
+    contents = [genai_types.Content(role="user", parts=parts)]
+    config = genai_types.GenerateContentConfig(
+        temperature=1,
+        top_p=0.95,
+        max_output_tokens=8192,
+        response_modalities=["TEXT", "IMAGE"],
+        safety_settings=[
+            genai_types.SafetySetting(category="HARM_CATEGORY_HATE_SPEECH", threshold="OFF"),
+            genai_types.SafetySetting(category="HARM_CATEGORY_DANGEROUS_CONTENT", threshold="OFF"),
+            genai_types.SafetySetting(category="HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold="OFF"),
+            genai_types.SafetySetting(category="HARM_CATEGORY_HARASSMENT", threshold="OFF"),
+        ],
+    )
+
+    raw = None
+    content_type = "image/png"
+    for chunk in client.models.generate_content_stream(model=model, contents=contents, config=config):
+        if not chunk.candidates:
+            continue
+        for part in chunk.candidates[0].content.parts:
+            if part.inline_data and part.inline_data.data:
+                data = part.inline_data.data
+                if isinstance(data, str):
+                    data = base64.b64decode(data)
+                raw = data
+                content_type = part.inline_data.mime_type or "image/png"
+                break
+        if raw is not None:
+            break
+
+    if not raw:
+        raise ValueError("Google Gemini returned no image data")
+
+    return raw, content_type
+
+
 def _create_image_impl(
     *,
     prompt: str,
     model: str,
     aspect_ratio: AspectRatio,
+    guidance_attachments: list[str],
     conversation_id: str,
     user_id: int | None,
     agent_slug: str | None,
@@ -88,8 +163,8 @@ def _create_image_impl(
 
     # ---- Validate model allowlist ----
     model = (model or "").strip()
-    if model not in OPENAI_IMAGE_MODELS:
-        allowed = sorted(list(OPENAI_IMAGE_MODELS))
+    if model not in ALL_IMAGE_MODELS:
+        allowed = sorted(list(ALL_IMAGE_MODELS))
         raise ValueError(f"Unsupported image model '{model}'. Allowed: {', '.join(allowed)}")
 
     prompt = (prompt or "").strip()
@@ -124,24 +199,69 @@ def _create_image_impl(
         if not enabled:
             raise ValueError("The 'image-tools' feature is not enabled.")
 
-    # ---- Generate image bytes (OpenAI returns base64) ----
+    # ---- Generate image bytes ----
+    is_google = model in GOOGLE_IMAGE_MODELS
     size_used = _pick_openai_size_str(aspect_ratio)
-    content_type = "image/png"
-    try:
-        client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
-        # Default output_format is png; we persist as a file attachment.
-        resp = client.images.generate(
-            model=model,
-            prompt=prompt,
-            size=size_used,
-        )
-        b64 = resp.data[0].b64_json
-        if not b64:
-            raise ValueError("OpenAI returned empty image data")
-        raw = base64.b64decode(b64)
-    except Exception as e:
-        logger.exception("Failed to generate image via OpenAI")
-        raise ValueError(f"Failed to generate image: {str(e)}")
+
+    if is_google:
+        # Load guidance attachment objects
+        att_objects = []
+        for att_id in guidance_attachments or []:
+            try:
+                att_objects.append(MessageAttachment.objects.get(id=att_id, kind="file"))
+            except MessageAttachment.DoesNotExist:
+                logger.warning("Guidance attachment %s not found, skipping", att_id)
+        try:
+            raw, content_type = _generate_image_google(
+                prompt=prompt,
+                model=model,
+                guidance_attachments=att_objects,
+            )
+        except Exception as e:
+            logger.exception("Failed to generate image via Google")
+            raise ValueError(f"Failed to generate image: {str(e)}")
+        source_image_url = f"google://{model}"
+    else:
+        content_type = "image/png"
+        try:
+            client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+            # Load guidance attachment objects for edit path
+            att_objects = []
+            for att_id in guidance_attachments or []:
+                try:
+                    att_objects.append(MessageAttachment.objects.get(id=att_id, kind="file"))
+                except MessageAttachment.DoesNotExist:
+                    logger.warning("Guidance attachment %s not found, skipping", att_id)
+
+            if att_objects:
+                # Use images.edit() when reference images are provided
+                image_files = [open(att.file.path, "rb") for att in att_objects]
+                try:
+                    resp = client.images.edit(
+                        model=model,
+                        image=image_files,
+                        prompt=prompt,
+                        size=size_used,
+                        quality="medium",
+                    )
+                finally:
+                    for f in image_files:
+                        f.close()
+            else:
+                resp = client.images.generate(
+                    model=model,
+                    prompt=prompt,
+                    size=size_used,
+                    quality="medium",
+                )
+            b64 = resp.data[0].b64_json
+            if not b64:
+                raise ValueError("OpenAI returned empty image data")
+            raw = base64.b64decode(b64)
+        except Exception as e:
+            logger.exception("Failed to generate image via OpenAI")
+            raise ValueError(f"Failed to generate image: {str(e)}")
+        source_image_url = f"openai://{model}"
 
     # ---- Resolve agent (optional) ----
     agent_obj = None
@@ -168,7 +288,7 @@ def _create_image_impl(
             "model": model,
             "aspect_ratio": aspect_ratio,
             "size": size_used,
-            "source_image_url": f"openai://{model}",
+            "source_image_url": source_image_url,
         },
     )
 
@@ -192,7 +312,7 @@ def _create_image_impl(
         content=display_url,
         model=model,
         aspect_ratio=aspect_ratio,
-        source_image_url=f"openai://{model}",
+        source_image_url=source_image_url,
     )
 
 
@@ -205,11 +325,17 @@ def get_tool(
     if not conversation_id:
         raise ValueError("create_image requires conversation_id in tool context")
 
-    def create_image(prompt: str, model: str, aspect_ratio: AspectRatio = "square") -> CreateImageResult:
+    def create_image(
+        prompt: str,
+        model: str,
+        aspect_ratio: AspectRatio = "square",
+        guidance_attachments: list[str] | None = None,
+    ) -> CreateImageResult:
         return _create_image_impl(
             prompt=prompt,
             model=model,
             aspect_ratio=aspect_ratio,
+            guidance_attachments=guidance_attachments or [],
             conversation_id=conversation_id,
             user_id=user_id,
             agent_slug=agent_slug,
@@ -220,7 +346,9 @@ def get_tool(
         "description": (
             "Generate an image from a text prompt and store it as a conversation attachment. "
             "Use this ONLY when the user asks to generate an image. "
-            "Model must be: gpt-image-1.5. "
+            "Allowed models: gpt-image-1.5, gemini-3.1-flash-image-preview. "
+            "guidance_attachments is an optional list of MessageAttachment UUIDs to use as visual reference "
+            "(only supported for Google models). "
             "Returns an attachment_id and a display URL (content) that will appear in the chat."
         ),
         "parameters": CreateImageParams,
