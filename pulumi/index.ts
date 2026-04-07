@@ -70,6 +70,7 @@ const parameterStore = createProviderParameters({
   whatsappGraphApiToken: config.whatsappGraphApiToken,
   whatsappWebhookVerifyToken: config.whatsappWebhookVerifyToken,
   googleOauthClientId: config.googleOauthClientId,
+  googleCloudApiKey: config.googleCloudApiKey,
   taskExecutionRoleName: ecsBase.taskExecutionRole.name,
 });
 

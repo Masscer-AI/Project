@@ -94,6 +94,7 @@ export function createAppServices(args: {
     { name: "RESEND_API_KEY", valueFrom: args.providerParameterArns.resendApiKeyArn },
     { name: "WHATSAPP_GRAPH_API_TOKEN", valueFrom: args.providerParameterArns.whatsappGraphApiTokenArn },
     { name: "WHATSAPP_WEBHOOK_VERIFY_TOKEN", valueFrom: args.providerParameterArns.whatsappWebhookVerifyTokenArn },
+    { name: "GOOGLE_CLOUD_API_KEY", valueFrom: args.providerParameterArns.googleCloudApiKeyArn },
   ];
 
   const fastapiEnv = [
