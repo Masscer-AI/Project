@@ -2,16 +2,21 @@ import base64
 import getpass
 import os
 import sys
+import tempfile
 from pathlib import Path
 
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
 
+from api.ai_layers.tools.create_image import _setup_google_credentials
 from api.messaging.models import MessageAttachment
 
 
 IMAGE_MIME_PREFIXES = ("image/",)
+
+GOOGLE_CLOUD_PROJECT = os.environ.get("GOOGLE_CLOUD_PROJECT", "masscer-492023")
+GOOGLE_CLOUD_LOCATION = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
 
 
 class Command(BaseCommand):
@@ -101,73 +106,97 @@ class Command(BaseCommand):
             self.stderr.write(self.style.ERROR("google-genai is not installed. Run: uv add google-genai"))
             sys.exit(1)
 
-        api_key = os.environ.get("GOOGLE_CLOUD_API_KEY")
-        if not api_key:
-            self.stderr.write(self.style.ERROR("GOOGLE_CLOUD_API_KEY env var is not set."))
-            sys.exit(1)
-
-        client = genai.Client(api_key=api_key)
-
-        parts = []
-        if reference_part is not None:
-            parts.append(reference_part)
-        parts.append(genai_types.Part.from_text(text=prompt))
-
-        contents = [
-            genai_types.Content(role="user", parts=parts)
-        ]
-
-        config = genai_types.GenerateContentConfig(
-            temperature=1,
-            top_p=0.95,
-            max_output_tokens=8192,
-            response_modalities=["TEXT", "IMAGE"],
-            safety_settings=[
-                genai_types.SafetySetting(category="HARM_CATEGORY_HATE_SPEECH", threshold="OFF"),
-                genai_types.SafetySetting(category="HARM_CATEGORY_DANGEROUS_CONTENT", threshold="OFF"),
-                genai_types.SafetySetting(category="HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold="OFF"),
-                genai_types.SafetySetting(category="HARM_CATEGORY_HARASSMENT", threshold="OFF"),
-            ],
-        )
-
-        model = "gemini-3.1-flash-image-preview"
-
-        output_dir = Path(os.environ.get("MEDIA_ROOT", "media")) / "generated_images"
-        output_dir.mkdir(parents=True, exist_ok=True)
-
-        image_saved = False
-        image_index = 0
-
-        for chunk in client.models.generate_content_stream(
-            model=model,
-            contents=contents,
-            config=config,
-        ):
-            if not chunk.candidates:
-                continue
-            for part in chunk.candidates[0].content.parts:
-                if part.text:
-                    self.stdout.write(part.text, ending="")
-                elif part.inline_data and part.inline_data.data:
-                    image_index += 1
-                    ext = part.inline_data.mime_type.split("/")[-1] if part.inline_data.mime_type else "png"
-                    filename = f"generated_{image_index}.{ext}"
-                    output_path = output_dir / filename
-
-                    image_data = part.inline_data.data
-                    # data may arrive as bytes or base64 string
-                    if isinstance(image_data, str):
-                        image_data = base64.b64decode(image_data)
-
-                    with open(output_path, "wb") as f:
-                        f.write(image_data)
-
-                    self.stdout.write(
-                        self.style.SUCCESS(f"\nImage saved: {output_path.resolve()}")
+        tmp_creds_path = None
+        try:
+            tmp_creds_path = _setup_google_credentials()
+            if not os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
+                self.stderr.write(
+                    self.style.ERROR(
+                        "Vertex AI credentials required: set GOOGLE_APPLICATION_CREDENTIALS_JSON "
+                        "(minified service account JSON) or GOOGLE_APPLICATION_CREDENTIALS (path to the key file), "
+                        "same as production. Optional: GOOGLE_CLOUD_PROJECT, GOOGLE_CLOUD_LOCATION."
                     )
-                    image_saved = True
+                )
+                sys.exit(1)
 
-        self.stdout.write("")  # newline after streamed text
+            client = genai.Client(
+                vertexai=True,
+                project=GOOGLE_CLOUD_PROJECT,
+                location=GOOGLE_CLOUD_LOCATION,
+            )
+            self.stdout.write(
+                self.style.NOTICE(
+                    "Auth: Vertex AI (GOOGLE_APPLICATION_CREDENTIALS / GOOGLE_APPLICATION_CREDENTIALS_JSON).\n"
+                )
+            )
 
-        if not image_saved:
-            self.stdout.write(self.style.WARNING("No image was returned. The model may have only produced text."))
+            parts = []
+            if reference_part is not None:
+                parts.append(reference_part)
+            parts.append(genai_types.Part.from_text(text=prompt))
+
+            contents = [
+                genai_types.Content(role="user", parts=parts)
+            ]
+
+            config = genai_types.GenerateContentConfig(
+                temperature=1,
+                top_p=0.95,
+                max_output_tokens=8192,
+                response_modalities=["TEXT", "IMAGE"],
+                image_config=genai_types.ImageConfig(aspect_ratio="1:1"),
+                safety_settings=[
+                    genai_types.SafetySetting(category="HARM_CATEGORY_HATE_SPEECH", threshold="OFF"),
+                    genai_types.SafetySetting(category="HARM_CATEGORY_DANGEROUS_CONTENT", threshold="OFF"),
+                    genai_types.SafetySetting(category="HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold="OFF"),
+                    genai_types.SafetySetting(category="HARM_CATEGORY_HARASSMENT", threshold="OFF"),
+                ],
+            )
+
+            model = "gemini-2.5-flash-image"
+
+            output_dir = Path(os.environ.get("MEDIA_ROOT", "media")) / "generated_images"
+            output_dir.mkdir(parents=True, exist_ok=True)
+
+            image_saved = False
+            image_index = 0
+
+            for chunk in client.models.generate_content_stream(
+                model=model,
+                contents=contents,
+                config=config,
+            ):
+                if not chunk.candidates:
+                    continue
+                for part in chunk.candidates[0].content.parts:
+                    if part.text:
+                        self.stdout.write(part.text, ending="")
+                    elif part.inline_data and part.inline_data.data:
+                        image_index += 1
+                        ext = part.inline_data.mime_type.split("/")[-1] if part.inline_data.mime_type else "png"
+                        filename = f"generated_{image_index}.{ext}"
+                        output_path = output_dir / filename
+
+                        image_data = part.inline_data.data
+                        # data may arrive as bytes or base64 string
+                        if isinstance(image_data, str):
+                            image_data = base64.b64decode(image_data)
+
+                        with open(output_path, "wb") as f:
+                            f.write(image_data)
+
+                        self.stdout.write(
+                            self.style.SUCCESS(f"\nImage saved: {output_path.resolve()}")
+                        )
+                        image_saved = True
+
+            self.stdout.write("")  # newline after streamed text
+
+            if not image_saved:
+                self.stdout.write(self.style.WARNING("No image was returned. The model may have only produced text."))
+        finally:
+            if tmp_creds_path and tmp_creds_path.startswith(tempfile.gettempdir()):
+                try:
+                    os.unlink(tmp_creds_path)
+                except OSError:
+                    pass

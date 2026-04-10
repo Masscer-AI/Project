@@ -122,10 +122,23 @@ const MarkdownRenderer = ({
           const meta = rawId ? attachmentMetaById.get(rawId) : undefined;
           const typeHint = (meta?.type || "").toLowerCase();
           const looksLikeDocumentUrl = !!resolvedSrc && /\.(pdf|doc|docx|xls|xlsx|ppt|pptx|csv|txt)(\?|$)/i.test(resolvedSrc);
+          const looksLikeVideoUrl = !!resolvedSrc && /\.(mp4|webm|ogg|mov)(\?|$)/i.test(resolvedSrc);
+          const isVideoAttachment = typeHint.startsWith("video/") || looksLikeVideoUrl;
           const isNonImageAttachment =
             typeHint === "document" || typeHint === "rag_document" || looksLikeDocumentUrl;
           const unresolvedAttachmentRef =
             !!src && src.toLowerCase().startsWith("attachment:") && resolvedSrc === src;
+
+          // Render videos with a <video> player instead of <img>
+          if (isVideoAttachment && resolvedSrc) {
+            return (
+              <video
+                src={resolvedSrc}
+                controls
+                style={{ maxWidth: "100%", borderRadius: 8 }}
+              />
+            );
+          }
 
           // If the model used image markdown for a non-image attachment
           // (very common with PDFs), render it as a file link instead.

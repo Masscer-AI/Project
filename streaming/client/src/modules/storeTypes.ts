@@ -45,6 +45,7 @@ export type Store = {
     useRag: boolean;
     generateImages: boolean;
     generateSpeech: boolean;
+    generateVideo: boolean;
     selectedAgents: string[];
     specifiedUrls: TSpecifiedUrl[];
   };
@@ -79,6 +80,7 @@ export type Store = {
   toggleUseRag: () => void;
   toggleGenerateImages: () => void;
   toggleGenerateSpeech: () => void;
+  toggleGenerateVideo: () => void;
   toggleAgentSelected: (slug: string) => void;
   setUser: (user: TUserData) => void;
   addAgent: () => void;

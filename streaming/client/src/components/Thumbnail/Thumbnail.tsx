@@ -68,6 +68,7 @@ export const Thumbnail = ({
       )}
       {type.indexOf("audio") !== 0 &&
         type.indexOf("image") !== 0 &&
+        type.indexOf("video/") !== 0 &&
         type.indexOf("video_generation") !== 0 &&
         type.indexOf("audio_generation") !== 0 && (
           type !== "website" && (
@@ -75,8 +76,6 @@ export const Thumbnail = ({
             id={id}
             index={index}
             onDelete={() => deleteAttachment(index)}
-            // type={type}
-
             name={name}
             showFloatingButtons={showFloatingButtons}
             mode={mode}
@@ -97,11 +96,8 @@ export const Thumbnail = ({
         <AudioThumbnail src={content} />
       )}
 
-      {type.indexOf("video_generation") === 0 && (
-        <>
-          <VideoThumbnail id={id} src={src} text={text} />
-
-        </>
+      {(type.indexOf("video_generation") === 0 || type.indexOf("video/") === 0) && (
+        <VideoThumbnail id={id} src={content} text={text} />
       )}
     </>
   );
@@ -419,6 +415,12 @@ const DocumentThumnail = ({
   );
 };
 
+const resolveVideoUrl = (src: string) => {
+  if (!src) return src;
+  if (src.startsWith("http://") || src.startsWith("https://") || src.startsWith("data:")) return src;
+  return `${API_URL}${src.startsWith("/") ? "" : "/"}${src}`;
+};
+
 const VideoThumbnail = ({
   id,
   src,
@@ -427,16 +429,15 @@ const VideoThumbnail = ({
   id?: string | number;
   src: string;
   text?: string;
-  // name: string;
 }) => {
-  id;
+  void id;
   const [openModal, setOpenModal] = useState(false);
 
   return (
     <div className="thumbnail pointer">
       {openModal && (
         <VideoModal
-          url={API_URL + src}
+          url={resolveVideoUrl(src)}
           close={() => setOpenModal(false)}
           text={text}
         />
@@ -462,8 +463,8 @@ const VideoModal = ({
   const download = () => {
     const a = document.createElement("a");
     a.href = url;
-    a.setAttribute("download", "video.mp4");
-    a.setAttribute("target", "_blank");
+    a.download = "video.mp4";
+    a.target = "_blank";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

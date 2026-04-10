@@ -12,7 +12,8 @@ export interface ProviderParameterArns {
   resendApiKeyArn: pulumi.Output<string>;
   whatsappGraphApiTokenArn: pulumi.Output<string>;
   whatsappWebhookVerifyTokenArn: pulumi.Output<string>;
-  googleCloudApiKeyArn: pulumi.Output<string>;
+  googleApplicationCredentialsJsonArn: pulumi.Output<string>;
+  googleCloudProjectArn: pulumi.Output<string>;
 }
 
 export function createProviderParameters(args: {
@@ -27,7 +28,8 @@ export function createProviderParameters(args: {
   whatsappGraphApiToken: pulumi.Input<string>;
   whatsappWebhookVerifyToken: pulumi.Input<string>;
   googleOauthClientId: pulumi.Input<string>;
-  googleCloudApiKey: pulumi.Input<string>;
+  googleApplicationCredentialsJson: pulumi.Input<string>;
+  googleCloudProject: pulumi.Input<string>;
   taskExecutionRoleName: pulumi.Input<string>;
 }) {
   const basePath = `/${args.namePrefix}/providers`;
@@ -106,12 +108,18 @@ export function createProviderParameters(args: {
     value: normalizeSecret(args.googleOauthClientId),
   });
 
-  const googleCloudApiKey = new aws.ssm.Parameter("google-cloud-api-key-param", {
-    name: `${basePath}/GOOGLE_CLOUD_API_KEY`,
+  const googleApplicationCredentialsJson = new aws.ssm.Parameter("google-application-credentials-json-param", {
+    name: `${basePath}/GOOGLE_APPLICATION_CREDENTIALS_JSON`,
     type: "SecureString",
-    value: normalizeSecret(args.googleCloudApiKey),
+    value: "__UNSET__",
   }, {
     ignoreChanges: ["value"],
+  });
+
+  const googleCloudProject = new aws.ssm.Parameter("google-cloud-project-param", {
+    name: `${basePath}/GOOGLE_CLOUD_PROJECT`,
+    type: "String",
+    value: normalizeSecret(args.googleCloudProject),
   });
 
   const parameterArns = [
@@ -126,7 +134,8 @@ export function createProviderParameters(args: {
     whatsappGraphApiToken.arn,
     whatsappWebhookVerifyToken.arn,
     googleOauthClientId.arn,
-    googleCloudApiKey.arn,
+    googleApplicationCredentialsJson.arn,
+    googleCloudProject.arn,
   ];
 
   new aws.iam.RolePolicy("ecs-task-exec-ssm-policy", {
@@ -159,7 +168,8 @@ export function createProviderParameters(args: {
     resendApiKeyArn: resendApiKey.arn,
     whatsappGraphApiTokenArn: whatsappGraphApiToken.arn,
     whatsappWebhookVerifyTokenArn: whatsappWebhookVerifyToken.arn,
-    googleCloudApiKeyArn: googleCloudApiKey.arn,
+    googleApplicationCredentialsJsonArn: googleApplicationCredentialsJson.arn,
+    googleCloudProjectArn: googleCloudProject.arn,
   };
 
   return { providerParameterArns };

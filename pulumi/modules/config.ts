@@ -39,7 +39,8 @@ export interface AppConfig {
   whatsappWebhookVerifyToken: pulumi.Output<string>;
   /** Google OAuth Web client ID (public); used for Vite build + stored in SSM for deploy.sh. */
   googleOauthClientId: pulumi.Output<string>;
-  googleCloudApiKey: pulumi.Output<string>;
+  googleApplicationCredentialsJson: pulumi.Output<string>;
+  googleCloudProject: string;
 }
 
 export function loadConfig(): AppConfig {
@@ -89,6 +90,7 @@ export function loadConfig(): AppConfig {
     whatsappGraphApiToken: cfg.getSecret("whatsappGraphApiToken") ?? pulumi.output(""),
     whatsappWebhookVerifyToken: cfg.getSecret("whatsappWebhookVerifyToken") ?? pulumi.output(""),
     googleOauthClientId: pulumi.output(cfg.get("googleOauthClientId") ?? ""),
-    googleCloudApiKey: cfg.getSecret("googleCloudApiKey") ?? pulumi.output(""),
+    googleApplicationCredentialsJson: cfg.getSecret("googleApplicationCredentialsJson") ?? pulumi.output(""),
+    googleCloudProject: cfg.get("googleCloudProject") ?? "masscer-492023",
   };
 }

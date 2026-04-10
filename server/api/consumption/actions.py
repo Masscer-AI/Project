@@ -132,7 +132,11 @@ def convert_usd_to_currency(amount_in_usd, currency_slug):
 
 IMAGE_MODEL_PRICING_USD = {
     "gpt-image-1.5": 0.10,  # $0.10 per image
-    "gemini-3.1-flash-image-preview": 0.10,  # $0.10 per image
+    "gemini-2.5-flash-image": 0.10,  # $0.10 per image (1K resolution)
+}
+
+VIDEO_MODEL_PRICING_USD_PER_SECOND = {
+    "veo-3.1-generate-001": 0.40,  # $0.40 per second
 }
 
 
@@ -162,6 +166,32 @@ def register_image_generation(user_id, model_slug, organization_id=None):
         return True
     except Exception as e:
         print(e, "exception trying to register image generation for user", user_id)
+        return False
+
+
+def register_video_generation(user_id, model_slug, duration_seconds, organization_id=None):
+    try:
+        price_per_second = VIDEO_MODEL_PRICING_USD_PER_SECOND.get(model_slug)
+        if price_per_second is None:
+            raise ValueError(f"No pricing configured for video model '{model_slug}'")
+
+        consumption_amount = price_per_second * float(duration_seconds)
+
+        winning_rates = WinningRates.objects.get(name="default")
+        rate = winning_rates.image_generation_rate  # reuse same markup rate
+        consumption_amount_with_rate = Decimal(consumption_amount) * (1 + rate)
+
+        compute_units_amount = convert_usd_to_currency(consumption_amount_with_rate, "compute-unit")
+
+        register_consumption(
+            user_id,
+            compute_units_amount,
+            "video_generation",
+            organization_id=organization_id,
+        )
+        return True
+    except Exception as e:
+        print(e, "exception trying to register video generation for user", user_id)
         return False
 
 

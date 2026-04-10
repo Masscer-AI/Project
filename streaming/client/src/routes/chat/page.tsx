@@ -298,6 +298,7 @@ export default function ChatView() {
       if (chatState.useRag) toolNames.push("rag_query");
       if (chatState.generateImages) toolNames.push("create_image");
       if (chatState.generateSpeech) toolNames.push("create_speech");
+      if (chatState.generateVideo) toolNames.push("generate_video");
 
       await triggerAgentTask({
         conversation_id: currentConversation.id,
@@ -402,6 +403,7 @@ export default function ChatView() {
       if (chatState.useRag) toolNames.push("rag_query");
       if (chatState.generateImages) toolNames.push("create_image");
       if (chatState.generateSpeech) toolNames.push("create_speech");
+      if (chatState.generateVideo) toolNames.push("generate_video");
 
       await triggerAgentTask({
         conversation_id: currentConversation.id,

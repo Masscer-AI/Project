@@ -38,6 +38,7 @@ import {
   IconGlobe,
   IconPhoto,
   IconVolume,
+  IconVideo,
   IconSettings,
   IconPlus,
   IconFilePlus,
@@ -460,6 +461,7 @@ const ToolsMenu = () => {
   const isWebScrapingEnabled = useIsFeatureEnabled("web-scraping");
   const isImageToolsEnabled = useIsFeatureEnabled("image-tools");
   const isChatSpeechEnabled = useIsFeatureEnabled("chat-generate-speech");
+  const isVideoToolsEnabled = useIsFeatureEnabled("video-tools");
   const canEditConversationChatSettings =
     useIsFeatureEnabled("can-edit-conversation-data") === true;
   const {
@@ -469,6 +471,7 @@ const ToolsMenu = () => {
     toggleWritingMode,
     toggleGenerateImages,
     toggleGenerateSpeech,
+    toggleGenerateVideo,
   } = useStore((state) => ({
     chatState: state.chatState,
     toggleUseRag: state.toggleUseRag,
@@ -476,6 +479,7 @@ const ToolsMenu = () => {
     toggleWritingMode: state.toggleWrittingMode,
     toggleGenerateImages: state.toggleGenerateImages,
     toggleGenerateSpeech: state.toggleGenerateSpeech,
+    toggleGenerateVideo: state.toggleGenerateVideo,
   }));
 
   const [settingsOpened, { open: openSettings, close: closeSettings }] =
@@ -486,6 +490,7 @@ const ToolsMenu = () => {
     chatState.webSearch ||
     chatState.generateImages ||
     chatState.generateSpeech ||
+    chatState.generateVideo ||
     (chatState.specifiedUrls?.length ?? 0) > 0 ||
     chatState.writtingMode;
 
@@ -577,6 +582,23 @@ const ToolsMenu = () => {
               onClick={() => toggleGenerateSpeech()}
             >
               {t("generate-speech") || "Generate speech"}
+            </Menu.Item>
+          )}
+          {isVideoToolsEnabled && (
+            <Menu.Item
+              leftSection={<IconVideo size={18} />}
+              rightSection={
+                <Switch
+                  checked={chatState.generateVideo}
+                  onChange={() => toggleGenerateVideo()}
+                  color="violet"
+                  size="xs"
+                  styles={{ track: { cursor: "pointer" } }}
+                />
+              }
+              onClick={() => toggleGenerateVideo()}
+            >
+              {t("generate-video") || "Generate video"}
             </Menu.Item>
           )}
           <Menu.Item

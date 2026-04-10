@@ -631,6 +631,8 @@
     "ff-can-edit-conversation-data-desc": "Edit conversation title and tags, user and assistant messages, delete messages and conversations, regenerate or truncate history, and change chat settings (memory limit, auto-scroll, multi-agent mode).",
     "ff-can-edit-preferences": "User preferences & settings page",
     "ff-can-edit-preferences-desc": "Open the Settings page and update profile, theme, background, and other personal preferences.",
+    "ff-can-set-notifications": "Notification rules",
+    "ff-can-set-notifications-desc": "Create and manage notification delivery rules in the alerts hub.",
     "ff-can-create-agents": "Create agents",
     "ff-can-create-agents-desc": "Create new AI agents from the Agents modal (+).",
     "deactivated": "Deactivated",

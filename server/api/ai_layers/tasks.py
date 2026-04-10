@@ -639,13 +639,6 @@ def conversation_agent_task(
         "conversation_agent_task started: conversation=%s user=%s agents=%s tools=%s modality=%s",
         conversation_id, user_id, agent_slugs, tool_names, multiagentic_modality,
     )
-    openai_key = os.environ.get("OPENAI_API_KEY")
-    logger.info(
-        "conversation_agent_task OpenAI key check: present=%s length=%s suffix10=%s",
-        bool(openai_key),
-        len(openai_key) if openai_key else 0,
-        _masked_secret_tail(openai_key, tail=10),
-    )
 
     agent_sessions_created = []
     try:
@@ -768,11 +761,24 @@ def conversation_agent_task(
                 instructions += (
                     "\n\nImage generation is enabled for this conversation. "
                     "If the user asks you to generate an image, call create_image(prompt, model, aspect_ratio, guidance_attachments). "
-                    "Available models: 'gpt-image-1.5' (OpenAI) or 'gemini-3.1-flash-image-preview' (This model is also know as Nano Banana) (Google). "
+                    "Available models: 'gpt-image-1.5' (OpenAI) or 'gemini-2.5-flash-image' (also known as Nano Banana, by Google). "
                     "aspect_ratio must be one of: square, landscape, portrait. "
                     "guidance_attachments is an optional list of MessageAttachment UUIDs for visual reference (supported by both models)."
                     "Prefer Nano banana for faster generation and better quality."
    
+                )
+            if "generate_video" in (tool_names or []):
+                instructions += (
+                    "\n\nVideo generation is enabled using Google Veo 3.1. "
+                    "Call generate_video(prompt, image_attachment_id, aspect_ratio) when the user asks for a video. "
+                    "prompt is always required — describe the motion, camera movement, and scene. "
+                    "aspect_ratio for video must be landscape or portrait only (16:9 or 9:16 — Veo does not support square; default landscape). "
+                    "image_attachment_id is OPTIONAL — provide it only when the user has an existing image in the conversation they want animated as the first frame. "
+                    "If no image is available or the user just wants text-to-video, leave image_attachment_id empty. "
+                    "Do NOT ask the user to provide an image before generating — just call the tool with the prompt alone if no image is available. "
+                    "Video generation takes up to 6 minutes — inform the user it may take a moment. "
+                    "\n\nWhen referencing the video attachment in markdown, link it like: "
+                    "![Video](attachment:<attachment_id>)."
                 )
             if "create_speech" in (tool_names or []):
                 instructions += (
