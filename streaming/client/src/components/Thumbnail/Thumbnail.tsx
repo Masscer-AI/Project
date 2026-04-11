@@ -1,19 +1,13 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import { useStore } from "../../modules/store";
 import { useTranslation } from "react-i18next";
 import { AttatchmentMode } from "../../types";
-import toast from "react-hot-toast";
-import { generateVideo } from "../../modules/apiCalls";
-import { AspectRatio } from "../ImageGenerator/ImageGenerator";
 import { API_URL } from "../../modules/constants";
 import {
   Modal,
-  Button,
   ActionIcon,
   Stack,
   Text,
-  Textarea,
-  NativeSelect,
   Group,
   Tooltip,
 } from "@mantine/core";
@@ -21,12 +15,19 @@ import {
   IconTrash,
   IconFileText,
   IconDownload,
-  IconVideo,
   IconX,
-  IconCheck,
-  IconPlayerPlay,
   IconLink,
 } from "@tabler/icons-react";
+
+const VIDEO_EXT_RE = /\.(mp4|webm|mov|m4v|ogv)(\?|#|$)/i;
+
+/** True for video/* MIME, legacy video_generation, or obvious video filenames (e.g. mis-typed as document). */
+function isVideoAttachmentType(type: string, name: string, content: string): boolean {
+  const t = type || "";
+  if (t.startsWith("video/") || t.startsWith("video_generation")) return true;
+  if (t.startsWith("image") || t.startsWith("audio")) return false;
+  return VIDEO_EXT_RE.test(name || "") || VIDEO_EXT_RE.test(content || "");
+}
 
 interface ThumbnailProps {
   id?: number | string;
@@ -38,7 +39,6 @@ interface ThumbnailProps {
   text?: string;
   showFloatingButtons?: boolean;
   mode?: AttatchmentMode;
-  message_id?: number;
 }
 
 export const Thumbnail = ({
@@ -51,7 +51,6 @@ export const Thumbnail = ({
   index,
   showFloatingButtons = false,
   mode,
-  message_id,
 }: ThumbnailProps) => {
   const { t } = useTranslation();
   const { deleteAttachment } = useStore((state) => ({
@@ -68,8 +67,7 @@ export const Thumbnail = ({
       )}
       {type.indexOf("audio") !== 0 &&
         type.indexOf("image") !== 0 &&
-        type.indexOf("video/") !== 0 &&
-        type.indexOf("video_generation") !== 0 &&
+        !isVideoAttachmentType(type, name, content) &&
         type.indexOf("audio_generation") !== 0 && (
           type !== "website" && (
           <DocumentThumnail
@@ -85,7 +83,6 @@ export const Thumbnail = ({
       {type.indexOf("image") === 0 && (
         <ImageAttachmentThumbnail
           src={src}
-          message_id={message_id}
           name={name}
           showFloatingButtons={showFloatingButtons}
           onDelete={() => deleteAttachment(index)}
@@ -96,8 +93,14 @@ export const Thumbnail = ({
         <AudioThumbnail src={content} />
       )}
 
-      {(type.indexOf("video_generation") === 0 || type.indexOf("video/") === 0) && (
-        <VideoThumbnail id={id} src={content} text={text} />
+      {isVideoAttachmentType(type, name, content) && (
+        <VideoAttachmentThumbnail
+          src={src}
+          name={name}
+          text={text}
+          showFloatingButtons={showFloatingButtons}
+          onDelete={() => deleteAttachment(index)}
+        />
       )}
     </>
   );
@@ -106,13 +109,11 @@ export const Thumbnail = ({
 const ImageAttachmentThumbnail = ({
   src,
   name,
-  message_id,
   showFloatingButtons,
   onDelete,
 }: {
   src: string;
   name: string;
-  message_id?: number;
   showFloatingButtons: boolean;
   onDelete: () => void;
 }) => {
@@ -124,12 +125,7 @@ const ImageAttachmentThumbnail = ({
     return (
       <div className="thumbnail pointer flex-shrink-0">
         {showModal && (
-          <ImageModal
-            src={src}
-            name={name}
-            hide={() => setShowModal(false)}
-            message_id={message_id}
-          />
+          <ImageModal src={src} name={name} hide={() => setShowModal(false)} />
         )}
         <img
           onClick={() => setShowModal(true)}
@@ -145,12 +141,7 @@ const ImageAttachmentThumbnail = ({
   return (
     <div className="width-150 document-attachment bg-contrast rounded padding-small">
       {showModal && (
-        <ImageModal
-          src={src}
-          name={name}
-          hide={() => setShowModal(false)}
-          message_id={message_id}
-        />
+        <ImageModal src={src} name={name} hide={() => setShowModal(false)} />
       )}
       <div className="d-flex gap-small align-center">
         <img
@@ -207,26 +198,16 @@ const WebsiteThumbnail = ({ url, name }: { url: string; name: string }) => {
   );
 };
 
-const aspectRatioOptions = [
-  { label: "1280:768", value: "1280:768" },
-  { label: "768:1280", value: "768:1280" },
-];
-
 const ImageModal = ({
   src,
   name,
   hide,
-  message_id,
 }: {
   src: string;
   name: string;
   hide: () => void;
-  message_id?: number;
 }) => {
-  const [showGenerationOptions, setShowGenerationOptions] = useState(false);
   const { t } = useTranslation();
-  const [videoPrompt, setVideoPrompt] = useState("");
-  const [ratio, setRatio] = useState("768:1280");
 
   const handleDownload = () => {
     const a = document.createElement("a");
@@ -239,24 +220,6 @@ const ImageModal = ({
     document.body.removeChild(a);
   };
 
-  const toggleGenerateVideo = () => {
-    setShowGenerationOptions(!showGenerationOptions);
-  };
-
-  const handleGenerateVideo = async () => {
-    await generateVideo({
-      prompt: videoPrompt,
-      image_b64: src,
-      message_id: message_id!,
-      ratio: ratio,
-    });
-
-    toast.success(t("video-job-started"));
-    setShowGenerationOptions(false);
-  };
-
-  const canGenerateVideo = message_id != null;
-
   return (
     <Modal
       opened={true}
@@ -264,41 +227,18 @@ const ImageModal = ({
       title={
         <Group justify="space-between" wrap="nowrap" style={{ width: "100%" }}>
           <Text fw={600} size="lg">
-            {showGenerationOptions ? t("generate-video") : t("image-preview")}
+            {t("image-preview")}
           </Text>
-          <Group gap="xs" align="center">
-            <Tooltip label={t("download")} withArrow>
-              <ActionIcon
-                variant="subtle"
-                color="gray"
-                size="md"
-                onClick={handleDownload}
-              >
-                <IconDownload size={18} />
-              </ActionIcon>
-            </Tooltip>
-            {canGenerateVideo && (
-              <Tooltip
-                label={
-                  showGenerationOptions ? t("cancel") : t("generate-video")
-                }
-                withArrow
-              >
-                <ActionIcon
-                  variant="light"
-                  color="violet"
-                  size="md"
-                  onClick={toggleGenerateVideo}
-                >
-                  {showGenerationOptions ? (
-                    <IconX size={18} />
-                  ) : (
-                    <IconVideo size={18} />
-                  )}
-                </ActionIcon>
-              </Tooltip>
-            )}
-          </Group>
+          <Tooltip label={t("download")} withArrow>
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              size="md"
+              onClick={handleDownload}
+            >
+              <IconDownload size={18} />
+            </ActionIcon>
+          </Tooltip>
         </Group>
       }
       size="lg"
@@ -309,65 +249,25 @@ const ImageModal = ({
         body: { paddingTop: 8 },
       }}
     >
-      {showGenerationOptions ? (
-        <Stack gap="sm" w="100%" align="center">
-          <Group gap="sm" justify="center">
-            <Text size="sm" fw={500}>
-              {t("aspect-ratio")}
-            </Text>
-            {aspectRatioOptions.map((option) => (
-              <AspectRatio
-                key={option.value}
-                size={option.value}
-                separator=":"
-                selected={ratio === option.value}
-                onClick={() => setRatio(option.value)}
-              />
-            ))}
-          </Group>
-          <Textarea
-            label={t("describe-the-video")}
-            value={videoPrompt}
-            onChange={(e) => setVideoPrompt(e.currentTarget.value)}
-            maxLength={512}
-            w="100%"
-            autosize
-            minRows={2}
-          />
-          <img
-            style={{ width: "40%", maxHeight: "40vh", objectFit: "contain" }}
-            src={src}
-            alt={`attachment-${name}`}
-          />
-          <Button
-            fullWidth
-            leftSection={<IconCheck size={16} />}
-            onClick={handleGenerateVideo}
-          >
-            {t("generate-video")}
-          </Button>
-        </Stack>
-      ) : (
-        <div
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          maxHeight: "calc(100vh - 140px)",
+          overflow: "auto",
+        }}
+      >
+        <img
           style={{
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            maxHeight: "calc(100vh - 140px)",
-            overflow: "auto",
+            maxWidth: "100%",
+            maxHeight: "calc(100vh - 160px)",
+            objectFit: "contain",
           }}
-        >
-          <img
-            style={{
-              maxWidth: "100%",
-              maxHeight: "calc(100vh - 160px)",
-              objectFit: "contain",
-            }}
-            src={src}
-            alt={`attachment-${name}`}
-          />
-        </div>
-      )}
+          src={src}
+          alt={`attachment-${name}`}
+        />
+      </div>
     </Modal>
   );
 };
@@ -421,40 +321,96 @@ const resolveVideoUrl = (src: string) => {
   return `${API_URL}${src.startsWith("/") ? "" : "/"}${src}`;
 };
 
-const VideoThumbnail = ({
-  id,
+const VideoAttachmentThumbnail = ({
   src,
+  name,
   text,
+  showFloatingButtons,
+  onDelete,
 }: {
-  id?: string | number;
   src: string;
+  name: string;
   text?: string;
+  showFloatingButtons: boolean;
+  onDelete: () => void;
 }) => {
-  void id;
-  const [openModal, setOpenModal] = useState(false);
+  const { t } = useTranslation();
+  const [showModal, setShowModal] = useState(false);
+  const videoUrl = resolveVideoUrl(src);
+
+  const preview = (
+    <video
+      src={videoUrl}
+      muted
+      playsInline
+      preload="metadata"
+      tabIndex={0}
+      aria-label={name}
+      onClick={() => setShowModal(true)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          setShowModal(true);
+        }
+      }}
+      className="rounded-md flex-shrink-0 pointer bg-black/40"
+      style={{
+        objectFit: "cover",
+        maxWidth: showFloatingButtons ? 38 : 70,
+        maxHeight: showFloatingButtons ? 38 : 70,
+        width: showFloatingButtons ? 38 : 70,
+        height: showFloatingButtons ? 38 : 70,
+      }}
+    />
+  );
+
+  if (!showFloatingButtons) {
+    return (
+      <div className="thumbnail pointer flex-shrink-0">
+        {showModal && (
+          <VideoModal url={videoUrl} name={name} close={() => setShowModal(false)} text={text} />
+        )}
+        {preview}
+      </div>
+    );
+  }
 
   return (
-    <div className="thumbnail pointer">
-      {openModal && (
-        <VideoModal
-          url={resolveVideoUrl(src)}
-          close={() => setOpenModal(false)}
-          text={text}
-        />
+    <div className="width-150 document-attachment bg-contrast rounded padding-small">
+      {showModal && (
+        <VideoModal url={videoUrl} name={name} close={() => setShowModal(false)} text={text} />
       )}
-      <ActionIcon variant="subtle" color="gray" onClick={() => setOpenModal(true)} title="Open">
-        <IconPlayerPlay size={20} />
-      </ActionIcon>
+      <div className="d-flex gap-small align-center">
+        {preview}
+        <p
+          className="cut-text-to-line"
+          style={{ flex: 1, minWidth: 0, margin: 0 }}
+        >
+          {name}
+        </p>
+        <ActionIcon
+          variant="subtle"
+          color="red"
+          size="sm"
+          onClick={onDelete}
+          title={t("delete")}
+          aria-label={t("delete")}
+        >
+          <IconTrash size={16} />
+        </ActionIcon>
+      </div>
     </div>
   );
 };
 
 const VideoModal = ({
   url,
+  name,
   close,
   text,
 }: {
   url: string;
+  name: string;
   close: () => void;
   text?: string;
 }) => {
@@ -463,24 +419,52 @@ const VideoModal = ({
   const download = () => {
     const a = document.createElement("a");
     a.href = url;
-    a.download = "video.mp4";
+    a.setAttribute("download", name || "video.mp4");
     a.target = "_blank";
+    a.rel = "noopener noreferrer";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
   };
 
   return (
-    <Modal opened={true} onClose={close} title={t("generated-video")} size="lg" centered>
+    <Modal
+      opened={true}
+      onClose={close}
+      title={
+        <Group justify="space-between" wrap="nowrap" style={{ width: "100%" }}>
+          <Text fw={600} size="lg">
+            {t("generated-video")}
+          </Text>
+          <Tooltip label={t("download")} withArrow>
+            <ActionIcon variant="subtle" color="gray" size="md" onClick={download}>
+              <IconDownload size={18} />
+            </ActionIcon>
+          </Tooltip>
+        </Group>
+      }
+      size="lg"
+      centered
+      padding="md"
+      styles={{
+        header: { paddingBottom: 12 },
+        body: { paddingTop: 8 },
+      }}
+    >
       <Stack gap="md">
-        <ActionIcon variant="default" onClick={download} title={t("download")}>
-          <IconDownload size={18} />
-        </ActionIcon>
-        <Text size="sm">
-          <strong>Prompt: </strong>
-          {text}
-        </Text>
-        <video style={{ width: "100%" }} src={url} autoPlay controls />
+        {text ? (
+          <Text size="sm">
+            <strong>{t("prompt")}: </strong>
+            {text}
+          </Text>
+        ) : null}
+        <video
+          style={{ width: "100%", maxHeight: "calc(100vh - 200px)", borderRadius: 8 }}
+          src={url}
+          autoPlay
+          controls
+          playsInline
+        />
       </Stack>
     </Modal>
   );

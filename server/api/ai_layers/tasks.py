@@ -387,6 +387,49 @@ def _extract_create_speech_attachments(tool_calls: list[dict]) -> tuple[list[dic
     return attachments, attachment_ids
 
 
+def _extract_generate_video_attachments(tool_calls: list[dict]) -> tuple[list[dict], list[str]]:
+    """
+    Extract video attachment descriptors from AgentLoop tool_calls.
+
+    generate_video tool returns JSON like:
+      { attachment_id, name, content, model, duration_seconds, ... }
+    """
+    if not tool_calls:
+        return [], []
+
+    attachments: list[dict] = []
+    attachment_ids: list[str] = []
+
+    for call in tool_calls:
+        try:
+            if (call or {}).get("tool_name") != "generate_video":
+                continue
+            raw = (call or {}).get("result") or ""
+            if not isinstance(raw, str) or not raw.strip():
+                continue
+            data = json.loads(raw)
+            if not isinstance(data, dict):
+                continue
+            aid = data.get("attachment_id")
+            content = data.get("content") or ""
+            name = data.get("name") or "video"
+            if not aid or not content:
+                continue
+            attachments.append(
+                {
+                    "type": "video/mp4",
+                    "content": content,
+                    "name": name,
+                    "attachment_id": str(aid),
+                }
+            )
+            attachment_ids.append(str(aid))
+        except Exception:
+            continue
+
+    return attachments, attachment_ids
+
+
 def _message_attachment_to_display_dict(att) -> dict | None:
     """
     Build a Message.attachments-compatible descriptor from a MessageAttachment row.
@@ -426,13 +469,21 @@ def _message_attachment_to_display_dict(att) -> dict | None:
         att_type = "image"
     elif ctype.startswith("audio/"):
         att_type = "audio_generation"
+    elif ctype.startswith("video/"):
+        att_type = ctype
     else:
         att_type = "document"
 
     filename = (
         file_field.name.split("/")[-1]
         if getattr(file_field, "name", None)
-        else ("image" if att_type == "image" else "document")
+        else (
+            "image"
+            if att_type == "image"
+            else "video"
+            if isinstance(att_type, str) and att_type.startswith("video/")
+            else "document"
+        )
     )
 
     return {
@@ -1022,6 +1073,12 @@ def conversation_agent_task(
                 assistant_message_attachments.extend(speech_atts)
             if speech_ids:
                 assistant_attachment_ids.extend(speech_ids)
+
+            video_atts, video_ids = _extract_generate_video_attachments(result.tool_calls or [])
+            if video_atts:
+                assistant_message_attachments.extend(video_atts)
+            if video_ids:
+                assistant_attachment_ids.extend(video_ids)
 
             if isinstance(result.output, str):
                 output_value = OutputValue(type="string", value=result.output)

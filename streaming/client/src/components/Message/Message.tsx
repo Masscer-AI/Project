@@ -297,7 +297,6 @@ export const Message = memo(
                   index={aIdx}
                   src={src}
                   key={aIdx}
-                  message_id={id}
                 />
               );
             })}

@@ -5,6 +5,15 @@
 import React, { useRef, useState } from "react";
 import { API_URL } from "../modules/constants";
 
+const WIDGET_VIDEO_EXT = /\.(mp4|webm|mov|m4v|ogv)(\?|#|$)/i;
+
+function isWidgetVideoType(type: string, name: string): boolean {
+  const t = type || "";
+  if (t.startsWith("video/") || t.startsWith("video_generation")) return true;
+  if (t.startsWith("image") || t.startsWith("audio")) return false;
+  return WIDGET_VIDEO_EXT.test(name || "");
+}
+
 interface WidgetThumbnailProps {
   src: string;
   type: string;
@@ -39,11 +48,12 @@ export const WidgetThumbnail: React.FC<WidgetThumbnailProps> = ({
     return <WidgetAudioThumbnail src={audioSrc} />;
   }
 
-  if (type.startsWith("video_generation")) {
-    const videoSrc = src.startsWith("http") || src.startsWith("data:")
-      ? src
-      : `${API_URL}${src.startsWith("/") ? src : `/${src}`}`;
-    return <WidgetVideoThumbnail src={videoSrc} text={text} />;
+  if (isWidgetVideoType(type, name)) {
+    const videoSrc =
+      src.startsWith("http") || src.startsWith("https") || src.startsWith("data:")
+        ? src
+        : `${API_URL}${src.startsWith("/") ? src : `/${src}`}`;
+    return <WidgetVideoThumbnail src={videoSrc} name={name} text={text} />;
   }
 
   if (type === "website") {
@@ -144,25 +154,34 @@ const WidgetAudioThumbnail: React.FC<{ src: string }> = ({ src }) => {
   return <audio ref={audioRef} controls src={src} playsInline style={{ maxWidth: "100%" }} />;
 };
 
-const WidgetVideoThumbnail: React.FC<{ src: string; text?: string }> = ({ src, text }) => {
+const WidgetVideoThumbnail: React.FC<{ src: string; name: string; text?: string }> = ({
+  src,
+  name,
+  text,
+}) => {
   const [expanded, setExpanded] = useState(false);
 
   return (
     <>
-      <button
+      <video
+        src={src}
+        muted
+        playsInline
+        preload="metadata"
+        aria-label={name}
         onClick={() => setExpanded(true)}
         style={{
-          background: "rgba(255,255,255,0.1)",
-          border: "none",
+          maxWidth: 70,
+          maxHeight: 70,
+          width: 70,
+          height: 70,
+          objectFit: "cover",
           borderRadius: 6,
-          padding: "6px 12px",
           cursor: "pointer",
-          color: "inherit",
-          fontSize: 13,
+          flexShrink: 0,
+          background: "rgba(0,0,0,0.35)",
         }}
-      >
-        ▶ Video
-      </button>
+      />
       {expanded && (
         <div
           onClick={() => setExpanded(false)}
@@ -183,6 +202,7 @@ const WidgetVideoThumbnail: React.FC<{ src: string; text?: string }> = ({ src, t
             src={src}
             controls
             autoPlay
+            playsInline
             onClick={(e) => e.stopPropagation()}
             style={{ maxWidth: "90%", maxHeight: "80vh", borderRadius: 8, cursor: "default" }}
           />
