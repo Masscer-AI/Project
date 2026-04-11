@@ -24,6 +24,7 @@ PLAN_SLUG_TO_STRIPE_PRICE = {
 # Fixed one-time credit packages:
 # purchase amount (USD) -> credited wallet amount (USD)
 CREDIT_PACKAGE_CREDITS_USD = {
+    1: 1,
     50: 45,
     100: 93,
     200: 190,
@@ -241,7 +242,7 @@ class ReactivateSubscriptionView(View):
 class BuyCreditsView(View):
     """
     POST /v1/payments/organizations/<org_id>/buy-credits/
-    Body: { "amount_usd": 50 | 100 | 200 }
+    Body: { "amount_usd": 1 | 50 | 100 | 200 }
 
     Creates a one-time Stripe Checkout Session to purchase compute credits.
     """

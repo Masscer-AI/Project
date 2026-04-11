@@ -74,6 +74,7 @@ import {
   IconTrash,
   IconUsers,
 } from "@tabler/icons-react";
+import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
 
 const CREDIT_PACKAGES = [
   { amountUsd: 50, creditsUsd: 45 },
@@ -103,6 +104,11 @@ export default function OrganizationPage() {
   const [reactivatingSubscription, setReactivatingSubscription] = useState(false);
   const [creditAmount, setCreditAmount] = useState<number>(50);
   const [buyingCredits, setBuyingCredits] = useState(false);
+  const canUseOneDollarPackage =
+    useIsFeatureEnabled("one-dolar-credits-package") === true;
+  const availableCreditPackages = canUseOneDollarPackage
+    ? ([{ amountUsd: 1, creditsUsd: 1 }, ...CREDIT_PACKAGES] as const)
+    : CREDIT_PACKAGES;
 
   const handleBuyCredits = async () => {
     if (!org?.id) return;
@@ -1359,7 +1365,7 @@ export default function OrganizationPage() {
 
                           {/* Fixed package amounts */}
                           <Group gap="xs">
-                            {CREDIT_PACKAGES.map(({ amountUsd, creditsUsd }) => (
+                            {availableCreditPackages.map(({ amountUsd, creditsUsd }) => (
                               <Button
                                 key={amountUsd}
                                 size="xs"
@@ -1378,7 +1384,7 @@ export default function OrganizationPage() {
                             <Text size="xs" c="dimmed">
                               {t("credits-after-purchase", {
                                 units: (
-                                  (CREDIT_PACKAGES.find((pkg) => pkg.amountUsd === creditAmount)?.creditsUsd ?? 0) *
+                                  (availableCreditPackages.find((pkg) => pkg.amountUsd === creditAmount)?.creditsUsd ?? 0) *
                                   billing.wallet.one_usd_is
                                 ).toLocaleString(),
                               })}
