@@ -8,6 +8,7 @@ cd "$ROOT_DIR"
 usage() {
   echo "Usage:"
   echo "  ./taskfile.sh run [run-flags]"
+  echo "  ./taskfile.sh off"
   echo "  ./taskfile.sh postgres [postgres-flags]"
   echo "  ./taskfile.sh migrate [migrate-flags]"
   echo "  ./taskfile.sh migrate_structure [--dry-run]"
@@ -17,6 +18,7 @@ usage() {
   echo ""
   echo "Examples:"
   echo "  ./taskfile.sh run -r"
+  echo "  ./taskfile.sh off"
   echo "  ./taskfile.sh postgres -u user -p pass -d dbname"
   echo "  ./taskfile.sh migrate"
   echo "  ./taskfile.sh migrate_structure --dry-run"
@@ -35,6 +37,9 @@ shift
 case "$COMMAND" in
   run)
     exec bash "./scripts/run.sh" "$@"
+    ;;
+  off)
+    exec bash "./scripts/off.sh" "$@"
     ;;
   postgres)
     exec bash "./scripts/createPostgres.sh" "$@"

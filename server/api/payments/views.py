@@ -1,6 +1,8 @@
 import json
+from datetime import datetime, timezone
 import stripe
 from django.conf import settings
+from django.core.cache import cache
 from django.http import JsonResponse, HttpResponse
 from django.views import View
 from django.utils.decorators import method_decorator
@@ -17,7 +19,14 @@ stripe.api_key = settings.STRIPE_SECRET_KEY
 # Maps our plan slugs to Stripe Price IDs configured in settings
 PLAN_SLUG_TO_STRIPE_PRICE = {
     "organization": settings.STRIPE_PRICE_ORGANIZATION,
-    "pay_as_you_go": settings.STRIPE_PRICE_PAY_AS_YOU_GO,
+}
+
+# Fixed one-time credit packages:
+# purchase amount (USD) -> credited wallet amount (USD)
+CREDIT_PACKAGE_CREDITS_USD = {
+    50: 45,
+    100: 93,
+    200: 190,
 }
 
 
@@ -59,6 +68,7 @@ class OrganizationBillingView(View):
                     "duration_days": subscription.plan.duration_days,
                 },
             }
+            subscription_data.update(_get_stripe_subscription_state(subscription))
 
         wallet_data = None
         if wallet:
@@ -82,7 +92,7 @@ class OrganizationBillingView(View):
 class CreateCheckoutSessionView(View):
     """
     POST /v1/payments/organizations/<org_id>/checkout/
-    Body: { "plan_slug": "organization" | "pay_as_you_go" }
+    Body: { "plan_slug": "organization" }
 
     Creates a Stripe Checkout Session and returns the URL to redirect the user to.
     """
@@ -141,16 +151,12 @@ class CreateCheckoutSessionView(View):
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
-class BuyCreditsView(View):
+class CreateBillingPortalSessionView(View):
     """
-    POST /v1/payments/organizations/<org_id>/buy-credits/
-    Body: { "amount_usd": 25 }   — must be between 10 and 100
+    POST /v1/payments/organizations/<org_id>/billing-portal/
 
-    Creates a one-time Stripe Checkout Session to purchase compute credits.
+    Creates a Stripe Billing Portal session so users can manage/cancel subscriptions.
     """
-
-    MIN_USD = 10
-    MAX_USD = 100
 
     def post(self, request, organization_id, *args, **kwargs):
         try:
@@ -160,6 +166,110 @@ class BuyCreditsView(View):
 
         if org.owner != request.user:
             return JsonResponse({"error": "Forbidden"}, status=403)
+
+        latest_sub = (
+            Subscription.objects.filter(organization=org, stripe_customer_id__isnull=False)
+            .order_by("-created_at")
+            .first()
+        )
+        customer_id = latest_sub.stripe_customer_id if latest_sub else None
+        if not customer_id:
+            return JsonResponse(
+                {"error": "No Stripe customer found for this organization."},
+                status=400,
+            )
+
+        frontend_url = settings.FRONTEND_URL or "http://localhost"
+        return_url = f"{frontend_url}/organization?billing=portal_return"
+
+        try:
+            session = stripe.billing_portal.Session.create(
+                customer=customer_id,
+                return_url=return_url,
+            )
+        except stripe.StripeError as e:
+            return JsonResponse({"error": str(e)}, status=502)
+
+        return JsonResponse({"portal_url": session.url})
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class ReactivateSubscriptionView(View):
+    """
+    POST /v1/payments/organizations/<org_id>/subscriptions/reactivate/
+
+    Clears cancel_at_period_end for an active Stripe subscription.
+    """
+
+    def post(self, request, organization_id, *args, **kwargs):
+        try:
+            org = Organization.objects.get(id=organization_id)
+        except Organization.DoesNotExist:
+            return JsonResponse({"error": "Organization not found"}, status=404)
+
+        if org.owner != request.user:
+            return JsonResponse({"error": "Forbidden"}, status=403)
+
+        sub = (
+            Subscription.objects.filter(
+                organization=org,
+                payment_method="stripe",
+                stripe_subscription_id__isnull=False,
+            )
+            .order_by("-created_at")
+            .first()
+        )
+        if not sub or not sub.stripe_subscription_id:
+            return JsonResponse({"error": "No Stripe subscription found."}, status=400)
+
+        try:
+            stripe.Subscription.modify(
+                sub.stripe_subscription_id,
+                cancel_at_period_end=False,
+            )
+        except stripe.StripeError as e:
+            return JsonResponse({"error": str(e)}, status=502)
+
+        sub.status = "active"
+        sub.save(update_fields=["status", "updated_at"])
+        return JsonResponse({"ok": True})
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class BuyCreditsView(View):
+    """
+    POST /v1/payments/organizations/<org_id>/buy-credits/
+    Body: { "amount_usd": 50 | 100 | 200 }
+
+    Creates a one-time Stripe Checkout Session to purchase compute credits.
+    """
+
+    def post(self, request, organization_id, *args, **kwargs):
+        try:
+            org = Organization.objects.get(id=organization_id)
+        except Organization.DoesNotExist:
+            return JsonResponse({"error": "Organization not found"}, status=404)
+
+        if org.owner != request.user:
+            return JsonResponse({"error": "Forbidden"}, status=403)
+
+        latest_sub = (
+            Subscription.objects.select_related("plan")
+            .filter(organization=org)
+            .order_by("-created_at")
+            .first()
+        )
+        if (
+            not latest_sub
+            or not latest_sub.is_active()
+            or latest_sub.plan.slug != "organization"
+        ):
+            return JsonResponse(
+                {"error": "Active Organization subscription required to buy credits."},
+                status=403,
+            )
 
         try:
             data = json.loads(request.body)
@@ -171,9 +281,10 @@ class BuyCreditsView(View):
         except (TypeError, ValueError):
             return JsonResponse({"error": "amount_usd must be an integer"}, status=400)
 
-        if not (self.MIN_USD <= amount_usd <= self.MAX_USD):
+        credits_usd = CREDIT_PACKAGE_CREDITS_USD.get(amount_usd)
+        if credits_usd is None:
             return JsonResponse(
-                {"error": f"amount_usd must be between {self.MIN_USD} and {self.MAX_USD}"},
+                {"error": f"amount_usd must be one of: {', '.join(map(str, sorted(CREDIT_PACKAGE_CREDITS_USD.keys())))}"},
                 status=400,
             )
 
@@ -202,6 +313,7 @@ class BuyCreditsView(View):
                     "type": "credit_purchase",
                     "organization_id": str(org.id),
                     "amount_usd": str(amount_usd),
+                    "credits_usd": str(credits_usd),
                 },
             )
         except stripe.StripeError as e:
@@ -226,6 +338,13 @@ def stripe_webhook(request):
     except (ValueError, stripe.SignatureVerificationError) as e:
         return HttpResponse(str(e), status=400)
 
+    # Idempotency guard for Stripe webhook retries/duplicates.
+    event_id = event.get("id")
+    if event_id:
+        cache_key = f"stripe_webhook_event:{event_id}"
+        if not cache.add(cache_key, True, timeout=60 * 60 * 24 * 14):
+            return HttpResponse(status=200)
+
     event_type = event["type"]
     data = event["data"]["object"]
 
@@ -237,6 +356,9 @@ def stripe_webhook(request):
 
     elif event_type in ("customer.subscription.deleted", "customer.subscription.paused"):
         _handle_subscription_cancelled(data)
+
+    elif event_type == "customer.subscription.updated":
+        _handle_subscription_updated(data)
 
     elif event_type == "invoice.payment_failed":
         _handle_payment_failed(data)
@@ -258,7 +380,8 @@ def _handle_credit_purchase_completed(session):
 
     org_id = session.get("metadata", {}).get("organization_id")
     amount_usd = session.get("metadata", {}).get("amount_usd")
-    if not org_id or not amount_usd:
+    credits_usd = session.get("metadata", {}).get("credits_usd")
+    if not org_id:
         return
 
     try:
@@ -270,7 +393,11 @@ def _handle_credit_purchase_completed(session):
     if not currency:
         return
 
-    compute_units = Decimal(amount_usd) * Decimal(currency.one_usd_is)
+    credited_usd = credits_usd or amount_usd
+    if not credited_usd:
+        return
+
+    compute_units = Decimal(credited_usd) * Decimal(currency.one_usd_is)
     wallet = OrganizationWallet.objects.filter(organization=org).first()
     if wallet:
         wallet.recharge(compute_units)
@@ -336,6 +463,11 @@ def _handle_invoice_paid(invoice):
     from decimal import Decimal
     import calendar
 
+    # First invoice after subscription creation is already handled on checkout completion.
+    # Avoid double extending period and double crediting.
+    if invoice.get("billing_reason") == "subscription_create":
+        return
+
     stripe_sub_id = invoice.get("subscription")
     if not stripe_sub_id:
         return
@@ -374,9 +506,58 @@ def _handle_subscription_cancelled(stripe_sub):
     )
 
 
+def _handle_subscription_updated(stripe_sub):
+    stripe_sub_id = stripe_sub.get("id")
+    if not stripe_sub_id:
+        return
+
+    current_period_end = stripe_sub.get("current_period_end")
+    end_date = None
+    if current_period_end:
+        end_date = datetime.fromtimestamp(current_period_end, tz=timezone.utc)
+
+    Subscription.objects.filter(stripe_subscription_id=stripe_sub_id).update(
+        status="active",
+        end_date=end_date,
+        updated_at=tz.now(),
+    )
+
+
 def _handle_payment_failed(invoice):
     stripe_sub_id = invoice.get("subscription")
     if stripe_sub_id:
         Subscription.objects.filter(stripe_subscription_id=stripe_sub_id).update(
             status="pending_payment", updated_at=tz.now()
         )
+
+
+def _get_stripe_subscription_state(subscription):
+    if (
+        subscription.payment_method != "stripe"
+        or not subscription.stripe_subscription_id
+    ):
+        return {
+            "cancel_at_period_end": False,
+            "cancel_at": None,
+            "stripe_status": None,
+        }
+
+    try:
+        stripe_sub = stripe.Subscription.retrieve(subscription.stripe_subscription_id)
+    except stripe.StripeError:
+        return {
+            "cancel_at_period_end": False,
+            "cancel_at": None,
+            "stripe_status": None,
+        }
+
+    cancel_at_ts = stripe_sub.get("cancel_at")
+    cancel_at = None
+    if cancel_at_ts:
+        cancel_at = datetime.fromtimestamp(cancel_at_ts, tz=timezone.utc).isoformat()
+
+    return {
+        "cancel_at_period_end": bool(stripe_sub.get("cancel_at_period_end")),
+        "cancel_at": cancel_at,
+        "stripe_status": stripe_sub.get("status"),
+    }

@@ -4,6 +4,7 @@ import { Sidebar } from "../../components/Sidebar/Sidebar";
 import {
   assignRoleToMember,
   buyCredits,
+  createBillingPortalSession,
   createCheckoutSession,
   createOrganization,
   createOrganizationMember,
@@ -15,6 +16,7 @@ import {
   getOrganizationMembers,
   getOrganizationRoles,
   getUserOrganizations,
+  reactivateOrganizationSubscription,
   removeOrganizationMember,
   removeRoleAssignment,
   TOrganizationData,
@@ -73,6 +75,12 @@ import {
   IconUsers,
 } from "@tabler/icons-react";
 
+const CREDIT_PACKAGES = [
+  { amountUsd: 50, creditsUsd: 45 },
+  { amountUsd: 100, creditsUsd: 93 },
+  { amountUsd: 200, creditsUsd: 190 },
+] as const;
+
 export default function OrganizationPage() {
   const { chatState, toggleSidebar } = useStore((s) => ({
     chatState: s.chatState,
@@ -91,7 +99,9 @@ export default function OrganizationPage() {
   const [billing, setBilling] = useState<TOrganizationBilling | null>(null);
   const [loadingBilling, setLoadingBilling] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
-  const [creditAmount, setCreditAmount] = useState<number>(25);
+  const [billingPortalLoading, setBillingPortalLoading] = useState(false);
+  const [reactivatingSubscription, setReactivatingSubscription] = useState(false);
+  const [creditAmount, setCreditAmount] = useState<number>(50);
   const [buyingCredits, setBuyingCredits] = useState(false);
 
   const handleBuyCredits = async () => {
@@ -107,7 +117,7 @@ export default function OrganizationPage() {
     }
   };
 
-  const handleSubscribe = async (planSlug: "organization" | "pay_as_you_go") => {
+  const handleSubscribe = async (planSlug: "organization") => {
     if (!org?.id) return;
     setCheckoutLoading(planSlug);
     try {
@@ -117,6 +127,34 @@ export default function OrganizationPage() {
       toast.error("Could not start checkout. Please try again.");
     } finally {
       setCheckoutLoading(null);
+    }
+  };
+
+  const handleManageSubscription = async () => {
+    if (!org?.id) return;
+    setBillingPortalLoading(true);
+    try {
+      const { portal_url } = await createBillingPortalSession(org.id);
+      window.location.href = portal_url;
+    } catch {
+      toast.error(t("billing-portal-error"));
+    } finally {
+      setBillingPortalLoading(false);
+    }
+  };
+
+  const handleReactivateSubscription = async () => {
+    if (!org?.id) return;
+    setReactivatingSubscription(true);
+    try {
+      await reactivateOrganizationSubscription(org.id);
+      toast.success(t("subscription-reactivated"));
+      const refreshed = await getOrganizationBilling(org.id);
+      setBilling(refreshed);
+    } catch {
+      toast.error(t("subscription-reactivate-error"));
+    } finally {
+      setReactivatingSubscription(false);
     }
   };
   const [assigningUserId, setAssigningUserId] = useState<number | null>(null);
@@ -199,6 +237,11 @@ export default function OrganizationPage() {
   }, []);
 
   const org = orgs[0] ?? null;
+  const hasActiveOrganizationPlan = Boolean(
+    billing?.subscription?.is_active &&
+    billing?.subscription?.plan?.slug === "organization"
+  );
+  const canBuyCredits = hasActiveOrganizationPlan;
 
   useEffect(() => {
     if (org) {
@@ -1174,6 +1217,45 @@ export default function OrganizationPage() {
                                 </Text>
                               </Group>
                             )}
+                            {billing.subscription.cancel_at_period_end && (
+                              <Group gap="xs" align="center" mt={4}>
+                                <Badge color="yellow" variant="light">
+                                  {t("subscription-cancel-scheduled")}
+                                </Badge>
+                                <Text size="sm" c="dimmed">
+                                  {t("subscription-cancel-scheduled-desc", {
+                                    date: billing.subscription.cancel_at
+                                      ? new Date(billing.subscription.cancel_at).toLocaleDateString()
+                                      : (billing.subscription.end_date
+                                          ? new Date(billing.subscription.end_date).toLocaleDateString()
+                                          : "-"),
+                                  })}
+                                </Text>
+                              </Group>
+                            )}
+                            {billing.subscription.payment_method === "stripe" && billing.subscription.is_active && (
+                              <Group mt="sm">
+                                <Button
+                                  variant="default"
+                                  onClick={handleManageSubscription}
+                                  loading={billingPortalLoading}
+                                >
+                                  {billingPortalLoading
+                                    ? t("redirecting-to-stripe")
+                                    : t("manage-subscription")}
+                                </Button>
+                                {billing.subscription.cancel_at_period_end && (
+                                  <Button
+                                    variant="light"
+                                    color="green"
+                                    onClick={handleReactivateSubscription}
+                                    loading={reactivatingSubscription}
+                                  >
+                                    {t("reactivate-subscription")}
+                                  </Button>
+                                )}
+                              </Group>
+                            )}
                           </Stack>
                         )}
                       </Card>
@@ -1237,108 +1319,68 @@ export default function OrganizationPage() {
                       </Card>
 
                       {/* ── Plan selector ── */}
-                      <Title order={5} mt="sm">{t("choose-a-plan")}</Title>
-                      <Group grow align="stretch">
-                        {/* Organization / Business plan */}
-                        <Card withBorder p="lg" style={{ position: "relative" }}>
-                          {billing?.subscription?.plan.slug === "organization" && billing.subscription.is_active && (
-                            <Badge color="green" style={{ position: "absolute", top: 12, right: 12 }}>
-                              {t("current-plan")}
-                            </Badge>
-                          )}
-                          <Stack gap="xs">
-                            <Group gap="xs">
-                              <IconCreditCard size={20} />
-                              <Text fw={700}>Business</Text>
-                            </Group>
-                            <Text size="sm" c="dimmed">{t("plan-organization-desc")}</Text>
-                            <Button
-                              mt="sm"
-                              fullWidth
-                              disabled={
-                                billing?.subscription?.plan.slug === "organization" &&
-                                billing?.subscription?.is_active
-                              }
-                              loading={checkoutLoading === "organization"}
-                              onClick={() => handleSubscribe("organization")}
-                            >
-                              {checkoutLoading === "organization"
-                                ? t("redirecting-to-stripe")
-                                : t("upgrade-to-business")}
-                            </Button>
-                          </Stack>
-                        </Card>
-
-                        {/* Pay As You Go plan */}
-                        <Card withBorder p="lg" style={{ position: "relative" }}>
-                          {billing?.subscription?.plan.slug === "pay_as_you_go" && billing.subscription.is_active && (
-                            <Badge color="green" style={{ position: "absolute", top: 12, right: 12 }}>
-                              {t("current-plan")}
-                            </Badge>
-                          )}
-                          <Stack gap="xs">
-                            <Group gap="xs">
-                              <IconCreditCard size={20} />
-                              <Text fw={700}>Pay As You Go</Text>
-                            </Group>
-                            <Text size="sm" c="dimmed">{t("plan-payg-desc")}</Text>
-                            <Button
-                              mt="sm"
-                              fullWidth
-                              variant="outline"
-                              disabled={
-                                billing?.subscription?.plan.slug === "pay_as_you_go" &&
-                                billing?.subscription?.is_active
-                              }
-                              loading={checkoutLoading === "pay_as_you_go"}
-                              onClick={() => handleSubscribe("pay_as_you_go")}
-                            >
-                              {checkoutLoading === "pay_as_you_go"
-                                ? t("redirecting-to-stripe")
-                                : t("subscribe-pay-as-you-go")}
-                            </Button>
-                          </Stack>
-                        </Card>
-                      </Group>
+                      {!hasActiveOrganizationPlan && (
+                        <>
+                          <Title order={5} mt="sm">{t("choose-a-plan")}</Title>
+                          <Group grow align="stretch">
+                            {/* Organization plan */}
+                            <Card withBorder p="lg" style={{ position: "relative" }}>
+                              <Stack gap="xs">
+                                <Group gap="xs">
+                                  <IconCreditCard size={20} />
+                                  <Text fw={700}>Organization</Text>
+                                </Group>
+                                <Text size="sm" c="dimmed">{t("plan-organization-desc")}</Text>
+                                <Button
+                                  mt="sm"
+                                  fullWidth
+                                  loading={checkoutLoading === "organization"}
+                                  onClick={() => handleSubscribe("organization")}
+                                >
+                                  {checkoutLoading === "organization"
+                                    ? t("redirecting-to-stripe")
+                                    : t("subscribe-organization")}
+                                </Button>
+                              </Stack>
+                            </Card>
+                          </Group>
+                        </>
+                      )}
 
                       {/* ── Buy credits (top-up) ── */}
                       <Card withBorder p="lg" mt="sm">
                         <Stack gap="sm">
                           <Title order={5}>{t("buy-credits-title")}</Title>
-                          <Text size="sm" c="dimmed">{t("buy-credits-desc")}</Text>
+                          <Text size="sm" c="dimmed">
+                            {canBuyCredits
+                              ? t("buy-credits-desc")
+                              : t("buy-credits-disabled-no-subscription")}
+                          </Text>
 
-                          {/* Preset amounts */}
+                          {/* Fixed package amounts */}
                           <Group gap="xs">
-                            {[10, 25, 50, 100].map((usd) => (
+                            {CREDIT_PACKAGES.map(({ amountUsd, creditsUsd }) => (
                               <Button
-                                key={usd}
+                                key={amountUsd}
                                 size="xs"
-                                variant={creditAmount === usd ? "filled" : "outline"}
-                                onClick={() => setCreditAmount(usd)}
+                                variant={creditAmount === amountUsd ? "filled" : "outline"}
+                                onClick={() => setCreditAmount(amountUsd)}
+                                disabled={!canBuyCredits}
                               >
-                                ${usd}
+                                ${amountUsd}
+                                {" · "}
+                                ${creditsUsd} {t("credits")}
                               </Button>
                             ))}
                           </Group>
 
-                          {/* Custom amount slider */}
-                          <Group align="center" gap="md">
-                            <input
-                              type="range"
-                              min={10}
-                              max={100}
-                              step={5}
-                              value={creditAmount}
-                              onChange={(e) => setCreditAmount(Number(e.target.value))}
-                              style={{ flex: 1 }}
-                            />
-                            <Text fw={700} w={70} ta="right">${creditAmount} USD</Text>
-                          </Group>
-
-                          {billing?.wallet && (
+                          {canBuyCredits && billing?.wallet && (
                             <Text size="xs" c="dimmed">
                               {t("credits-after-purchase", {
-                                units: (creditAmount * billing.wallet.one_usd_is).toLocaleString(),
+                                units: (
+                                  (CREDIT_PACKAGES.find((pkg) => pkg.amountUsd === creditAmount)?.creditsUsd ?? 0) *
+                                  billing.wallet.one_usd_is
+                                ).toLocaleString(),
                               })}
                             </Text>
                           )}
@@ -1347,6 +1389,7 @@ export default function OrganizationPage() {
                             loading={buyingCredits}
                             onClick={handleBuyCredits}
                             leftSection={<IconCreditCard size={16} />}
+                            disabled={!canBuyCredits}
                           >
                             {buyingCredits ? t("buy-credits-loading") : t("buy-credits-submit")}
                           </Button>

@@ -5,18 +5,6 @@ error()   { echo -e "\033[31m$1\033[0m"; }
 info()    { echo -e "\033[34m$1\033[0m"; }
 success() { echo -e "\033[32m$1\033[0m"; }
 
-cleanup() {
-    info "Stopping all containers..."
-    docker stop $DJANGO_CONTAINER  2>/dev/null
-    docker stop $FASTAPI_CONTAINER 2>/dev/null
-    docker stop $CHROMA_CONTAINER  2>/dev/null
-    docker stop $NGINX_CONTAINER   2>/dev/null
-    docker stop $WORKER_CONTAINER  2>/dev/null
-    docker stop $BEAT_CONTAINER    2>/dev/null
-    info "Done."
-}
-trap 'cleanup; exit 0' SIGINT SIGTERM
-
 # ── Flags ─────────────────────────────────────────────────────────────────────
 INSTALL=true
 WATCH=false
@@ -238,13 +226,14 @@ DJANGO_ENV=(
     -e CHROMA_PORT="$CHROMA_PORT_CONTAINER"
 )
 
-# ── Django migrations ─────────────────────────────────────────────────────────
-info "Running Django migrations..."
-docker run --rm \
-    --network $NETWORK_NAME \
-    "${DJANGO_ENV[@]}" \
-    -v "${PROJECT_ROOT}/storage:/app/storage" \
-    $DJANGO_IMAGE python manage.py migrate || { error "Migrations failed"; exit 1; }
+run_django_manage_oneoff() {
+    docker run --rm \
+        --network $NETWORK_NAME \
+        "${DJANGO_ENV[@]}" \
+        -v "${BACKEND_DIR}:/app" \
+        -v "${PROJECT_ROOT}/storage:/app/storage" \
+        $DJANGO_IMAGE python manage.py "$@"
+}
 
 # ── Django static files ───────────────────────────────────────────────────────
 info "Collecting Django static files..."
@@ -354,18 +343,22 @@ info "  Django:  http://localhost:${DJANGO_PORT}  ($DJANGO_CONTAINER)"
 info "  FastAPI: http://localhost:${FASTAPI_PORT} ($FASTAPI_CONTAINER)"
 info "  Worker:  $WORKER_CONTAINER"
 info "  Beat:    $BEAT_CONTAINER"
-info "Press Ctrl+C to stop everything."
 echo "============================================"
 echo ""
 
-# ── Monitor ───────────────────────────────────────────────────────────────────
-MONITORED=($DJANGO_CONTAINER $FASTAPI_CONTAINER $NGINX_CONTAINER $WORKER_CONTAINER $BEAT_CONTAINER)
-while true; do
-    for CONTAINER in "${MONITORED[@]}"; do
-        if ! docker ps -q -f name="^${CONTAINER}$" | grep -q .; then
-            error "Container '$CONTAINER' stopped unexpectedly."
-            cleanup; exit 1
-        fi
-    done
-    sleep 5
-done
+# ── Post-start maintenance ────────────────────────────────────────────────────
+info "Running Django migrations..."
+run_django_manage_oneoff migrate || { error "Migrations failed"; exit 1; }
+
+info "Syncing subscription plans..."
+run_django_manage_oneoff sync_subscription_plans || {
+    error "sync_subscription_plans failed"; exit 1;
+}
+
+info "Syncing organization subscriptions..."
+run_django_manage_oneoff sync_organization_subscriptions || {
+    error "sync_organization_subscriptions failed"; exit 1;
+}
+
+success "Startup completed. Services are running in background."
+exit 0

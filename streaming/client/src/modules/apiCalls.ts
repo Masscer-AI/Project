@@ -1163,12 +1163,32 @@ export const buyCredits = async (
 
 export const createCheckoutSession = async (
   organizationId: string,
-  planSlug: "organization" | "pay_as_you_go"
+  planSlug: "organization"
 ): Promise<{ checkout_url: string }> => {
   return makeAuthenticatedRequest(
     "POST",
     `/v1/payments/organizations/${organizationId}/checkout/`,
     { plan_slug: planSlug }
+  );
+};
+
+export const createBillingPortalSession = async (
+  organizationId: string
+): Promise<{ portal_url: string }> => {
+  return makeAuthenticatedRequest(
+    "POST",
+    `/v1/payments/organizations/${organizationId}/billing-portal/`,
+    {}
+  );
+};
+
+export const reactivateOrganizationSubscription = async (
+  organizationId: string
+): Promise<{ ok: boolean }> => {
+  return makeAuthenticatedRequest(
+    "POST",
+    `/v1/payments/organizations/${organizationId}/subscriptions/reactivate/`,
+    {}
   );
 };
 

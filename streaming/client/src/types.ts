@@ -173,6 +173,9 @@ export type TOrganizationSubscription = {
   is_active: boolean;
   start_date: string | null;
   end_date: string | null;
+  cancel_at_period_end?: boolean;
+  cancel_at?: string | null;
+  stripe_status?: string | null;
   plan: TSubscriptionPlan;
 };
 

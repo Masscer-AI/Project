@@ -13,18 +13,10 @@ PLANS = [
         "is_configurable": False,
     },
     {
-        "slug": "pay_as_you_go",
-        "display_name": "Pay As You Go",
-        "monthly_price_usd": 0,
-        "credits_limit_usd": None,
-        "duration_days": None,
-        "is_configurable": True,
-    },
-    {
         "slug": "organization",
         "display_name": "Organization Plan",
-        "monthly_price_usd": 225,
-        "credits_limit_usd": 200,  # $200 USD = 2,000,000 compute units at 10,000/USD
+        "monthly_price_usd": 450,
+        "credits_limit_usd": 270,  # $270 USD = 2,700,000 compute units at 10,000/USD
         "duration_days": None,
         "is_configurable": False,
     },
