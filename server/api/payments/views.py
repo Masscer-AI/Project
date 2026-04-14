@@ -24,10 +24,10 @@ PLAN_SLUG_TO_STRIPE_PRICE = {
 # Fixed one-time credit packages:
 # purchase amount (USD) -> credited wallet amount (USD)
 CREDIT_PACKAGE_CREDITS_USD = {
-    1: 1,
-    50: 45,
-    100: 93,
-    200: 190,
+    1: 0.8,
+    50: 40,
+    100: 80,
+    200: 160,
 }
 
 

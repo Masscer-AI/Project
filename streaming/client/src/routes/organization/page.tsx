@@ -77,9 +77,9 @@ import {
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
 
 const CREDIT_PACKAGES = [
-  { amountUsd: 50, creditsUsd: 45 },
-  { amountUsd: 100, creditsUsd: 93 },
-  { amountUsd: 200, creditsUsd: 190 },
+  { amountUsd: 50, creditsUsd: 40 },
+  { amountUsd: 100, creditsUsd: 80 },
+  { amountUsd: 200, creditsUsd: 160 },
 ] as const;
 
 export default function OrganizationPage() {
@@ -107,7 +107,7 @@ export default function OrganizationPage() {
   const canUseOneDollarPackage =
     useIsFeatureEnabled("one-dolar-credits-package") === true;
   const availableCreditPackages = canUseOneDollarPackage
-    ? ([{ amountUsd: 1, creditsUsd: 1 }, ...CREDIT_PACKAGES] as const)
+    ? ([{ amountUsd: 1, creditsUsd: 0.8 }, ...CREDIT_PACKAGES] as const)
     : CREDIT_PACKAGES;
 
   const handleBuyCredits = async () => {
