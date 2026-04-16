@@ -37,6 +37,7 @@ TOOL_REGISTRY: dict[str, str] = {
     "change_conversation_tags": "api.ai_layers.tools.change_conversation_tags",
     "change_conversation_summary": "api.ai_layers.tools.change_conversation_summary",
     "get_tag_context": "api.ai_layers.tools.get_tag_context",
+    "query_conversation": "api.ai_layers.tools.query_conversation",
     # Cloudbeds integration tools
     # "cloudbeds_list_hotels": "api.ai_layers.tools.cloudbeds_list_hotels",
 }

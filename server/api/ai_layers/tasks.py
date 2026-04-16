@@ -754,6 +754,9 @@ def conversation_agent_task(
         )
         return {"status": "error", "error": "Conversation not found"}
 
+    # Chat widget: no org tagging, cross-thread lookup, or auto-summary tools (app chat only for now).
+    is_widget_chat = conversation.chat_widget_id is not None
+
     # plugin_slugs is no longer used — plugins are now auto-discovered
     # by the agent via the read_plugin_instructions tool.
 
@@ -971,6 +974,18 @@ def conversation_agent_task(
                     organization = getattr(widget_agent, "organization", None)
 
             agent_tool_names = list(tool_names or [])
+            if is_widget_chat:
+                _widget_excluded_tools = frozenset(
+                    {
+                        "query_organization_tags",
+                        "create_organization_tag",
+                        "change_conversation_tags",
+                        "change_conversation_summary",
+                        "get_tag_context",
+                        "query_conversation",
+                    }
+                )
+                agent_tool_names = [t for t in agent_tool_names if t not in _widget_excluded_tools]
             applicable_alert_rules = []
             if organization:
                 from api.messaging.models import ConversationAlertRule, ConversationAlert
@@ -1049,7 +1064,7 @@ def conversation_agent_task(
                 "create_organization_tag",
                 "change_conversation_tags",
             )
-            if organization:
+            if organization and not is_widget_chat:
                 conversation.refresh_from_db(fields=["tags", "summary"])
                 tags_preamble = _conversation_tags_instruction_block(
                     conversation, organization.id
@@ -1057,8 +1072,11 @@ def conversation_agent_task(
                 for _tn in tagging_tools:
                     if _tn not in agent_tool_names:
                         agent_tool_names.append(_tn)
-                if actor_user_id is not None and "get_tag_context" not in agent_tool_names:
-                    agent_tool_names.append("get_tag_context")
+                if actor_user_id is not None:
+                    if "get_tag_context" not in agent_tool_names:
+                        agent_tool_names.append("get_tag_context")
+                    if "query_conversation" not in agent_tool_names:
+                        agent_tool_names.append("query_conversation")
                 if "change_conversation_summary" not in agent_tool_names:
                     agent_tool_names.append("change_conversation_summary")
                 summary_preamble = _conversation_summary_instruction_block(conversation)
@@ -1093,6 +1111,11 @@ def conversation_agent_task(
                         "  **When not to call:** greetings, unrelated small talk, or when no tag clearly applies.\n"
                         "  **Response:** each row has conversation title, summary, n_messages, date — use only as hints; "
                         "empty list means no other threads with that tag for this user.\n"
+                        "- query_conversation: pass `conversation_id` (UUID of **which** thread to read) and `question` "
+                        "(a precise question). A **separate small model** reads up to a few hundred messages from that "
+                        "thread and returns **only a distilled answer** — not the raw logs — so you can answer things like "
+                        "“what did I tell you last week about X?” without overloading context. Use **after** you know "
+                        "which `conversation_id` matters (often from `get_tag_context`). Do not spam it every turn.\n"
                     )
                 instructions += (
                     "\n"

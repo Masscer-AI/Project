@@ -12,6 +12,7 @@ class ConversationTaggingToolsRegistryTests(SimpleTestCase):
             "change_conversation_tags",
             "change_conversation_summary",
             "get_tag_context",
+            "query_conversation",
         ):
             self.assertIn(required, names)
 
