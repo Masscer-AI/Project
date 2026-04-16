@@ -1,6 +1,21 @@
 from django.test import SimpleTestCase
 
 
+class ConversationTaggingToolsRegistryTests(SimpleTestCase):
+    def test_tagging_tools_are_registered(self):
+        from api.ai_layers.tools import list_available_tools
+
+        names = list_available_tools()
+        for required in (
+            "query_organization_tags",
+            "create_organization_tag",
+            "change_conversation_tags",
+            "change_conversation_summary",
+            "get_tag_context",
+        ):
+            self.assertIn(required, names)
+
+
 class PluginRegistryTests(SimpleTestCase):
     def test_format_plugins_instruction_empty_when_none(self):
         from api.ai_layers.plugins import format_plugins_instruction

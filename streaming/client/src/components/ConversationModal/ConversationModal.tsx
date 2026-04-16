@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import {
   Modal,
   TextInput,
+  Textarea,
   Button,
   Badge,
   Group,
@@ -9,15 +10,18 @@ import {
   Title,
   Text,
   Loader,
+  ActionIcon,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { TConversation, TTag } from "../../types";
-import { updateConversation, getTags } from "../../modules/apiCalls";
+import { updateConversation, getTags, getTag } from "../../modules/apiCalls";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { useStore } from "../../modules/store";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
-import { IconDeviceFloppy } from "@tabler/icons-react";
+import { IconDeviceFloppy, IconPlus, IconX } from "@tabler/icons-react";
+
+const MAX_CONVERSATION_TAGS = 3;
 
 export const ConversationModal = ({
   conversation,
@@ -27,10 +31,16 @@ export const ConversationModal = ({
   readOnly?: boolean;
 }) => {
   const [opened, { open, close }] = useDisclosure(false);
+  const [addTagsOpened, { open: openAddTags, close: closeAddTags }] =
+    useDisclosure(false);
   const [title, setTitle] = useState(conversation.title);
+  const [summaryText, setSummaryText] = useState(conversation.summary ?? "");
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
-  const [orgTags, setOrgTags] = useState<TTag[]>([]);
-  const [loadingTags, setLoadingTags] = useState(false);
+  const [resolvedTags, setResolvedTags] = useState<TTag[]>([]);
+  const [loadingResolvedTags, setLoadingResolvedTags] = useState(false);
+  const [orgTagsForPicker, setOrgTagsForPicker] = useState<TTag[]>([]);
+  const [loadingPickerTags, setLoadingPickerTags] = useState(false);
+  const [pickerChosenIds, setPickerChosenIds] = useState<number[]>([]);
 
   const { t } = useTranslation();
   const canEditConversationMeta =
@@ -56,7 +66,7 @@ export const ConversationModal = ({
 
   useEffect(() => {
     setTitle(conversation.title);
-    // conversation.tags is number[] (Tag IDs) from the backend
+    setSummaryText(conversation.summary ?? "");
     setSelectedTagIds(
       Array.isArray(conversation.tags)
         ? conversation.tags.map((t) => Number(t)).filter((n) => !isNaN(n))
@@ -64,44 +74,100 @@ export const ConversationModal = ({
     );
   }, [conversation]);
 
-  // Fetch organization tags when modal opens
   useEffect(() => {
     if (!opened) return;
     let cancelled = false;
-    const loadOrgTags = async () => {
-      setLoadingTags(true);
+    (async () => {
+      setLoadingResolvedTags(true);
       try {
-        const tags = await getTags();
-        if (!cancelled) setOrgTags(tags);
-      } catch {
-        // User may not have tags-management permission — that's ok
-        if (!cancelled) setOrgTags([]);
+        const ids = [...selectedTagIds];
+        if (ids.length === 0) {
+          if (!cancelled) setResolvedTags([]);
+        } else {
+          const results = await Promise.all(
+            ids.map((id) => getTag(id).catch(() => null))
+          );
+          if (cancelled) return;
+          const byId = new Map(
+            (results.filter(Boolean) as TTag[]).map((tag) => [tag.id, tag])
+          );
+          const ordered: TTag[] = [];
+          for (const id of ids.slice(0, MAX_CONVERSATION_TAGS)) {
+            const tag = byId.get(id);
+            if (tag) ordered.push(tag);
+          }
+          setResolvedTags(ordered);
+        }
       } finally {
-        if (!cancelled) setLoadingTags(false);
+        if (!cancelled) setLoadingResolvedTags(false);
       }
-    };
-    loadOrgTags();
+    })();
     return () => {
       cancelled = true;
     };
-  }, [opened]);
+  }, [opened, selectedTagIds]);
 
-  const toggleTag = (tagId: number) => {
-    setSelectedTagIds((prev) =>
-      prev.includes(tagId)
-        ? prev.filter((id) => id !== tagId)
-        : [...prev, tagId]
-    );
+  useEffect(() => {
+    if (!addTagsOpened) return;
+    let cancelled = false;
+    setLoadingPickerTags(true);
+    setPickerChosenIds([]);
+    (async () => {
+      try {
+        const tags = await getTags();
+        if (!cancelled) setOrgTagsForPicker(Array.isArray(tags) ? tags : []);
+      } catch {
+        if (!cancelled) setOrgTagsForPicker([]);
+      } finally {
+        if (!cancelled) setLoadingPickerTags(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [addTagsOpened]);
+
+  const handleCloseMain = () => {
+    closeAddTags();
+    close();
+  };
+
+  const removeTag = (tagId: number) => {
+    setSelectedTagIds((prev) => prev.filter((id) => id !== tagId));
+  };
+
+  const slotsLeft = MAX_CONVERSATION_TAGS - selectedTagIds.length;
+
+  const togglePickerTag = (tagId: number) => {
+    setPickerChosenIds((prev) => {
+      if (prev.includes(tagId)) {
+        return prev.filter((id) => id !== tagId);
+      }
+      if (prev.length >= slotsLeft) return prev;
+      return [...prev, tagId];
+    });
+  };
+
+  const applyPickerSelection = () => {
+    const newIds = pickerChosenIds.filter((id) => !selectedTagIds.includes(id));
+    const merged = [...selectedTagIds, ...newIds].slice(0, MAX_CONVERSATION_TAGS);
+    setSelectedTagIds(merged);
+    closeAddTags();
   };
 
   const handleSave = async () => {
     await updateConversation(conversation.id, {
       title: title,
       tags: selectedTagIds,
+      summary: summaryText.trim() || null,
     });
     toast.success(t("conversation-updated"));
-    close();
+    handleCloseMain();
   };
+
+  const availableToPick = orgTagsForPicker.filter(
+    (tag) => tag.enabled && !selectedTagIds.includes(tag.id)
+  );
 
   return (
     <>
@@ -115,7 +181,7 @@ export const ConversationModal = ({
 
       <Modal
         opened={opened}
-        onClose={close}
+        onClose={handleCloseMain}
         title={<Title order={4}>{t("conversation-editor")}</Title>}
         centered
         size="lg"
@@ -132,44 +198,70 @@ export const ConversationModal = ({
             readOnly={!canMutateTitleAndTags}
           />
 
+          <Textarea
+            label={t("conversation-summary")}
+            description={t("conversation-summary-hint")}
+            placeholder={t("conversation-summary-empty")}
+            value={summaryText}
+            onChange={(e) => setSummaryText(e.currentTarget.value)}
+            readOnly={!canMutateTitleAndTags}
+            minRows={3}
+            maxRows={12}
+            autosize
+          />
+
           <div>
             <Text size="sm" fw={500} mb={4}>
-              {t("tags")}
+              {t("conversation-tags-current")}
             </Text>
 
-            {loadingTags ? (
+            {loadingResolvedTags ? (
               <Group justify="center" py="sm">
                 <Loader size="sm" />
               </Group>
-            ) : orgTags.length > 0 ? (
-              <Group gap="xs" wrap="wrap">
-                {orgTags
-                  .filter((tag) => tag.enabled)
-                  .map((tag) => {
-                    const isSelected = selectedTagIds.includes(tag.id);
-                    return (
-                      <Badge
-                        key={tag.id}
-                        variant={isSelected ? "filled" : "outline"}
-                        color={tag.color || "violet"}
-                        style={{
-                          cursor: canMutateTitleAndTags ? "pointer" : "default",
-                        }}
-                        onClick={
-                          canMutateTitleAndTags
-                            ? () => toggleTag(tag.id)
-                            : undefined
-                        }
-                      >
-                        {tag.title}
-                      </Badge>
-                    );
-                  })}
-              </Group>
-            ) : (
+            ) : selectedTagIds.length === 0 ? (
               <Text size="xs" c="dimmed">
-                {t("no-tags-available")}
+                {t("conversation-no-tags-yet")}
               </Text>
+            ) : (
+              <Group gap="xs" wrap="wrap" align="center">
+                {selectedTagIds.map((id) => {
+                  const meta = resolvedTags.find((x) => x.id === id);
+                  const label = meta?.title ?? `${t("tag-unavailable")} (${id})`;
+                  const color = meta?.color || "violet";
+                  return (
+                    <Group key={id} gap={4} wrap="nowrap">
+                      <Badge variant="filled" color={color}>
+                        {label}
+                      </Badge>
+                      {canMutateTitleAndTags && (
+                        <ActionIcon
+                          variant="subtle"
+                          color="gray"
+                          size="sm"
+                          aria-label="Remove tag"
+                          onClick={() => removeTag(id)}
+                        >
+                          <IconX size={14} />
+                        </ActionIcon>
+                      )}
+                    </Group>
+                  );
+                })}
+              </Group>
+            )}
+
+            {canMutateTitleAndTags && selectedTagIds.length < MAX_CONVERSATION_TAGS && (
+              <Button
+                variant="light"
+                size="xs"
+                mt="xs"
+                leftSection={<IconPlus size={16} />}
+                onClick={openAddTags}
+                title={t("max-tags-on-conversation")}
+              >
+                {t("add-tags")}
+              </Button>
             )}
           </div>
 
@@ -182,6 +274,62 @@ export const ConversationModal = ({
             >
               {t("save")}
             </Button>
+          )}
+        </Stack>
+      </Modal>
+
+      <Modal
+        opened={addTagsOpened}
+        onClose={closeAddTags}
+        title={<Title order={5}>{t("add-tags-modal-title")}</Title>}
+        centered
+        size="md"
+        overlayProps={{
+          backgroundOpacity: 0.45,
+          blur: 2,
+        }}
+      >
+        <Stack gap="sm">
+          <Text size="sm" c="dimmed">
+            {t("add-tags-modal-hint")}
+          </Text>
+          {slotsLeft <= 0 ? (
+            <Text size="sm">{t("max-tags-on-conversation")}</Text>
+          ) : loadingPickerTags ? (
+            <Group justify="center" py="md">
+              <Loader size="sm" />
+            </Group>
+          ) : availableToPick.length === 0 ? (
+            <Text size="sm" c="dimmed">
+              {t("no-additional-tags-available")}
+            </Text>
+          ) : (
+            <>
+              <Group gap="xs" wrap="wrap">
+                {availableToPick.map((tag) => {
+                  const chosen = pickerChosenIds.includes(tag.id);
+                  return (
+                    <Badge
+                      key={tag.id}
+                      variant={chosen ? "filled" : "outline"}
+                      color={tag.color || "violet"}
+                      style={{ cursor: "pointer" }}
+                      onClick={() => togglePickerTag(tag.id)}
+                    >
+                      {tag.title}
+                    </Badge>
+                  );
+                })}
+              </Group>
+              <Button
+                onClick={applyPickerSelection}
+                disabled={pickerChosenIds.length === 0}
+                fullWidth
+                variant="light"
+              >
+                {t("add-tags-apply")}
+              </Button>
+            </>
           )}
         </Stack>
       </Modal>

@@ -82,6 +82,99 @@ def _agent_clock_context(client_datetime: dict | None) -> str:
     )
 
 
+def _conversation_tags_instruction_block(conversation, organization_id: int) -> str:
+    """
+    Human-readable current tags for the agent prompt, plus whether tagging is still required.
+
+    Returns text to append under === CONVERSATION TAGS ===.
+    """
+    from api.messaging.models import Tag
+
+    raw = getattr(conversation, "tags", None) or []
+    stored_ids: list[int] = []
+    if isinstance(raw, list):
+        for t in raw:
+            try:
+                stored_ids.append(int(t))
+            except (TypeError, ValueError):
+                continue
+    stored_ids = stored_ids[:3]
+
+    if not stored_ids:
+        return (
+            "Current conversation tags: **none** (no tag ids stored on this conversation yet).\n"
+            "Tag assignment state: **needs tags** — see rules below.\n"
+            "After you assign tag ids, those integers are what you pass to get_tag_context(tag_id=…) for cross-thread context.\n"
+        )
+
+    rows = list(
+        Tag.objects.filter(
+            id__in=stored_ids,
+            organization_id=organization_id,
+            enabled=True,
+        ).values("id", "title")
+    )
+    id_to_title = {r["id"]: r["title"] for r in rows}
+    lines: list[str] = ["Current conversation tags (id and title, in order):"]
+    any_resolved = False
+    for tid in stored_ids:
+        title = id_to_title.get(tid)
+        if title is not None:
+            any_resolved = True
+            lines.append(f"- tag_id={tid} title={title!r}")
+        else:
+            lines.append(
+                f"- tag_id={tid} (not found, disabled, or not in this organization — replace this id)"
+            )
+
+    if not any_resolved:
+        lines.append(
+            "Tag assignment state: **needs tags** — stored ids are missing or invalid; "
+            "you must assign 1–3 valid organization tags."
+        )
+    else:
+        lines.append(
+            "Tag assignment state: **has tags** — refine only if the latest user message clearly warrants it."
+        )
+    lines.append(
+        "The tag_id numbers above are the exact integers to pass to get_tag_context(tag_id=…) "
+        "(not the title strings)."
+    )
+    return "\n".join(lines) + "\n"
+
+
+def _conversation_summary_instruction_block(conversation) -> str:
+    """
+    Current stored summary for the agent prompt + when to call change_conversation_summary.
+    """
+    raw = getattr(conversation, "summary", None)
+    text = raw.strip() if isinstance(raw, str) else ""
+    if not text:
+        current = "Current conversation summary: **(empty — none stored yet).**"
+        state = (
+            "Summary state: **needs a summary** once there is enough substance in the thread "
+            "(not for pure greetings or empty turns alone)."
+        )
+    else:
+        preview = text[:4000]
+        if len(text) > 4000:
+            preview += "\n… (truncated for this prompt)"
+        current = f"Current conversation summary (verbatim):\n{preview}"
+        state = (
+            "Summary state: **has summary** — only replace it if the conversation’s main topic or "
+            "purpose has **clearly** changed; do not refresh for small clarifications or tangents."
+        )
+    return (
+        f"{current}\n"
+        f"{state}\n"
+        "Tool: **change_conversation_summary** — pass a single `summary` string (concise, 1–4 sentences when possible; "
+        "same language as the conversation when possible).\n"
+        "Rules:\n"
+        "- Call **only** when the summary is empty/whitespace **or** the thread’s central focus has definitely shifted.\n"
+        "- **Do not** call on every turn; if the existing summary still fits, skip the tool.\n"
+    )
+
+
 def _build_user_message_text(user_inputs: list[dict]) -> str:
     """
     Build a plain-text user message from user_inputs.
@@ -949,6 +1042,69 @@ def conversation_agent_task(
             # discover plugin formatting rules on demand.
             if "read_plugin_instructions" not in agent_tool_names:
                 agent_tool_names.append("read_plugin_instructions")
+
+            # Organization tagging: tools always attached when an org exists; current tags are injected below.
+            tagging_tools = (
+                "query_organization_tags",
+                "create_organization_tag",
+                "change_conversation_tags",
+            )
+            if organization:
+                conversation.refresh_from_db(fields=["tags", "summary"])
+                tags_preamble = _conversation_tags_instruction_block(
+                    conversation, organization.id
+                )
+                for _tn in tagging_tools:
+                    if _tn not in agent_tool_names:
+                        agent_tool_names.append(_tn)
+                if actor_user_id is not None and "get_tag_context" not in agent_tool_names:
+                    agent_tool_names.append("get_tag_context")
+                if "change_conversation_summary" not in agent_tool_names:
+                    agent_tool_names.append("change_conversation_summary")
+                summary_preamble = _conversation_summary_instruction_block(conversation)
+                instructions += (
+                    "\n\n=== CONVERSATION SUMMARY ===\n"
+                    f"{summary_preamble}"
+                    "=== END CONVERSATION SUMMARY ===\n"
+                )
+                instructions += (
+                    "\n\n=== CONVERSATION TAGS ===\n"
+                    f"{tags_preamble}"
+                    "Tagging tools are always enabled for this organization on every turn.\n"
+                    "You already have this conversation’s tag ids and titles above — do **not** call "
+                    "query_organization_tags unless you truly need the full organization catalog "
+                    "(for example after creating a new tag, or when comparing many similar labels).\n\n"
+                    "Tools:\n"
+                    "- query_organization_tags: optional; full list of enabled tags for the org.\n"
+                    "- create_organization_tag: when no suitable tag exists yet (short, unique title).\n"
+                    "- change_conversation_tags: set exactly 1–3 tag ids for this conversation (replaces the whole set). "
+                    "Do not use this to clear tags unless the user explicitly asks to remove all labels.\n"
+                )
+                if actor_user_id is not None:
+                    instructions += (
+                        "- get_tag_context: **How to call** — use the tool name `get_tag_context` with argument "
+                        "`tag_id` set to the **integer id** of the tag (the number shown as tag_id=… above or from "
+                        "`query_organization_tags`), e.g. tag_id=14. Do **not** pass the tag’s text title as tag_id.\n"
+                        "  **When to call:** if the user’s message is substantive and you are **about to reuse** or "
+                        "**already using** a tag that could tie this chat to earlier work (same product, codebase, "
+                        "client, or project), call `get_tag_context` for that **one** tag_id **before** your main answer "
+                        "so you can reuse vocabulary, avoid re-asking setup questions, or stay consistent with past summaries. "
+                        "If you are choosing among several tags, you may call once for the best-matching tag_id.\n"
+                        "  **When not to call:** greetings, unrelated small talk, or when no tag clearly applies.\n"
+                        "  **Response:** each row has conversation title, summary, n_messages, date — use only as hints; "
+                        "empty list means no other threads with that tag for this user.\n"
+                    )
+                instructions += (
+                    "\n"
+                    "Rules:\n"
+                    "- If the conversation still **needs tags** (see state above) and the user’s latest message "
+                    "has enough substance to infer topic, intent, product, or problem area — you **must** "
+                    "finish with change_conversation_tags assigning **at least 1** and **at most 3** valid tag ids "
+                    "(create_organization_tag first if needed). Pure greetings, empty input, or purely meta "
+                    "requests with no topic yet: wait for a substantive message before assigning.\n"
+                    "- If the conversation **has tags**, keep them unless the new message clearly warrants different labels.\n"
+                    "=== END CONVERSATION TAGS ===\n"
+                )
 
             # Available plugins summary (agent discovers and uses them on demand).
             instructions += format_available_plugins_summary()

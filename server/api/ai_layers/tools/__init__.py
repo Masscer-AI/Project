@@ -32,6 +32,11 @@ TOOL_REGISTRY: dict[str, str] = {
     "create_speech": "api.ai_layers.tools.create_speech",
     "read_plugin_instructions": "api.ai_layers.tools.read_plugin_instructions",
     "raise_alert": "api.ai_layers.tools.raise_alert",
+    "query_organization_tags": "api.ai_layers.tools.query_organization_tags",
+    "create_organization_tag": "api.ai_layers.tools.create_organization_tag",
+    "change_conversation_tags": "api.ai_layers.tools.change_conversation_tags",
+    "change_conversation_summary": "api.ai_layers.tools.change_conversation_summary",
+    "get_tag_context": "api.ai_layers.tools.get_tag_context",
     # Cloudbeds integration tools
     # "cloudbeds_list_hotels": "api.ai_layers.tools.cloudbeds_list_hotels",
 }

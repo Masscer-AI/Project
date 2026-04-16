@@ -504,8 +504,22 @@ class ConversationView(View):
                     valid_ids = []
                 data["tags"] = valid_ids
 
+            if "summary" in data:
+                raw_summary = data["summary"]
+                if raw_summary is not None and not isinstance(raw_summary, str):
+                    return JsonResponse(
+                        {"message": "summary must be a string or null"},
+                        status=400,
+                    )
+                if isinstance(raw_summary, str):
+                    trimmed = raw_summary.strip()
+                    # Align with agent tool cap; TextField has no DB max
+                    data["summary"] = trimmed[:12000] if trimmed else None
+                else:
+                    data["summary"] = None
+
             # Whitelist of allowed fields to update
-            ALLOWED_FIELDS = {"title", "tags", "background_image_src"}
+            ALLOWED_FIELDS = {"title", "tags", "background_image_src", "summary"}
             for key, value in data.items():
                 if key in ALLOWED_FIELDS:
                     setattr(conversation, key, value)

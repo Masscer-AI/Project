@@ -1,8 +1,9 @@
 import logging
 import json
+import os
 from celery import shared_task
 from .actions import generate_conversation_title
-from .models import Conversation, Message, ConversationAlertRule, ConversationAlert, Tag
+from .models import Conversation, Message, ConversationAlertRule, ConversationAlert
 from .schemas import ConversationAnalysisResult
 from api.authenticate.models import Organization, FeatureFlag, FeatureFlagAssignment
 from api.authenticate.services import FeatureFlagService
@@ -246,16 +247,6 @@ def analyze_single_conversation(conversation_uuid: str):
         
         api_key = os.environ.get("OPENAI_API_KEY")
 
-        # Obtener tags habilitadas de la organización
-        enabled_tags = Tag.objects.filter(
-            organization=organization,
-            enabled=True
-        ).values('id', 'title')
-        
-        enabled_tags_list = list(enabled_tags)
-        enabled_tags_json = json.dumps(enabled_tags_list, ensure_ascii=False, indent=2)
-        logger.info(f"Found {len(enabled_tags_list)} enabled tags for organization {organization.name}")
-        
         # Obtener alert rules activas y habilitadas de la organización
         alert_rules = ConversationAlertRule.objects.filter(
             organization=organization,
@@ -265,16 +256,16 @@ def analyze_single_conversation(conversation_uuid: str):
         alert_rules_list = list(alert_rules)
         logger.info(f"Found {len(alert_rules_list)} active alert rules for organization {organization.name}")
         
-        # Skip analysis if there are no alert rules and no tags configured
-        if not alert_rules_list and not enabled_tags_list:
-            logger.info(f"Organization {organization.name} has no alert rules or tags, skipping analysis for conversation {conversation_uuid}")
+        # Skip analysis if there are no alert rules
+        if not alert_rules_list:
+            logger.info(f"Organization {organization.name} has no alert rules, skipping analysis for conversation {conversation_uuid}")
             conversation.pending_analysis = False
             conversation.save(update_fields=['pending_analysis'])
             return {
                 "conversation_uuid": conversation_uuid,
                 "message_count": message_count,
                 "status": "skipped",
-                "reason": "No alert rules or tags configured"
+                "reason": "No alert rules configured"
             }
         
         # Obtener alertas previamente levantadas para esta conversación (para evitar duplicados)
@@ -315,29 +306,22 @@ def analyze_single_conversation(conversation_uuid: str):
         existing_alerts_json = json.dumps(existing_alerts_info, ensure_ascii=False, indent=2)
         
         system_prompt = f"""Eres un analista experto de conversaciones. Tu tarea es analizar la conversación y:
-1. Generar un resumen de la conversación en el mismo idioma en que se desarrolló
-2. Determinar si debe levantarse alguna alerta según las reglas proporcionadas
-3. Sugerir tags relevantes de la lista de tags habilitadas
+1. Determinar si debe levantarse alguna alerta según las reglas proporcionadas
 
 REGLAS DE ALERTA DISPONIBLES:
 {alert_rules_json}
-
-TAGS HABILITADAS DISPONIBLES (puedes sugerir IDs de estas tags):
-{enabled_tags_json}
 
 ALERTAS YA LEVANTADAS (NO debes levantar alertas duplicadas para las mismas reglas):
 {existing_alerts_json}
 
 INSTRUCCIONES:
 1. Analiza cuidadosamente la conversación
-2. Genera un resumen conciso en el mismo idioma de la conversación
-3. Sugiere tags relevantes (solo IDs de tags de la lista de tags habilitadas)
-4. Evalúa si la conversación cumple con los requerimientos (trigger) de alguna de las reglas de alerta
-5. NO levantes alertas para reglas que ya están en las alertas existentes (a menos que sea necesario por alguna razón especial)
-6. Para cada alerta que levantes, proporciona:
+2. Evalúa si la conversación cumple con los requerimientos (trigger) de alguna de las reglas de alerta
+3. NO levantes alertas para reglas que ya están en las alertas existentes (a menos que sea necesario por alguna razón especial)
+4. Para cada alerta que levantes, proporciona:
    - El ID de la regla correspondiente
    - Los datos extraídos según lo especificado en el campo "extractions" de la regla
-7. En el campo "reasoning", explica claramente por qué se levanta o no cada alerta
+5. En el campo "reasoning", explica claramente por qué se levanta o no cada alerta
 
 IMPORTANTE: Solo levanta alertas si la conversación realmente cumple con los requerimientos especificados en el campo "trigger" de cada regla."""
         
@@ -353,30 +337,11 @@ IMPORTANTE: Solo levanta alertas si la conversación realmente cumple con los re
             
             logger.info(f"Analysis completed for conversation {conversation_uuid}")
             logger.info(f"Reasoning: {(analysis.reasoning or '')[:200]}...")
-            logger.info(f"Summary: {(analysis.summary or '')[:200]}...")
-            logger.info(f"Suggested tags: {analysis.suggested_tags}")
             logger.info(f"Alerts to raise: {len(analysis.alerts)}")
             
             # Procesar y guardar las alertas levantadas
             alerts_raised = 0
             with transaction.atomic():
-                # Guardar el resumen
-                conversation.summary = analysis.summary
-                
-                # Asignar tags sugeridas (solo si existen y están habilitadas)
-                if analysis.suggested_tags:
-                    valid_tag_ids = list(Tag.objects.filter(
-                        id__in=analysis.suggested_tags,
-                        organization=organization,
-                        enabled=True
-                    ).values_list('id', flat=True))
-                    
-                    if valid_tag_ids:
-                        conversation.tags = valid_tag_ids
-                        logger.info(f"Assigned {len(valid_tag_ids)} tags to conversation {conversation_uuid}")
-                    else:
-                        logger.warning(f"No valid tags found from suggested tags: {analysis.suggested_tags}")
-                
                 for alert_data in analysis.alerts:
                     try:
                         # Verificar que la alert rule existe y está activa
@@ -428,7 +393,7 @@ IMPORTANTE: Solo levanta alertas si la conversación realmente cumple con los re
                 
                 # Marcar la conversación como analizada
                 conversation.pending_analysis = False
-                conversation.save(update_fields=['summary', 'tags', 'pending_analysis'])
+                conversation.save(update_fields=['pending_analysis'])
             
             logger.info(f"Conversation {conversation_uuid} analysis completed: {alerts_raised} alerts raised")
             
