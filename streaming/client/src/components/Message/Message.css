@@ -207,6 +207,23 @@
   width: 100%;
 }
 
+/* Editing: full width of the chat column; height comes from content in JS */
+.message.message--editing {
+  width: 100%;
+  max-width: 100%;
+}
+
+.message.user.message--editing > .message-editor-root {
+  width: 100%;
+  max-width: 100%;
+  align-self: flex-end;
+}
+
+.message.assistant.message--editing > .message-editor-root {
+  width: 100%;
+  max-width: 100%;
+}
+
 .message-edition-options {
   position: absolute;
 

@@ -845,6 +845,7 @@
     "agent-tool-completed": "Herramienta completada: {{toolName}}",
     "agent-thinking": "El agente esta pensando...",
     "agent-processing": "El agente esta procesando...",
+    "agent-preparing-request": "Preparando solicitud...",
     "agent-task-failed": "La tarea del agente fallo",
     "agent-response-complete": "{{agentName}} completado",
     "agent-response-complete-progress": "{{agentName}} completado ({{index}}/{{total}})",
