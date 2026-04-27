@@ -843,6 +843,7 @@
     "agent-tool-completed": "Tool completed: {{toolName}}",
     "agent-thinking": "Agent is thinking...",
     "agent-processing": "Agent is processing...",
+    "agent-preparing-request": "Preparing request...",
     "agent-task-failed": "Agent task failed",
     "agent-response-complete": "{{agentName}} completed",
     "agent-response-complete-progress": "{{agentName}} completed ({{index}}/{{total}})",

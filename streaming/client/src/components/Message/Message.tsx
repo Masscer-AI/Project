@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, memo } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState, memo } from "react";
 import MarkdownRenderer from "../MarkdownRenderer/MarkdownRenderer";
 import {
   TAttachment,
@@ -243,6 +243,12 @@ export const Message = memo(
         onMessageEdit(index, newValue, newVersions);
       }
       if (id && type === "user" && newValue) {
+        const trimmedNew = newValue.trim();
+        const trimmedOriginal = text.trim();
+        if (trimmedNew === trimmedOriginal) {
+          setIsEditing(false);
+          return;
+        }
         updateMessage(id, {
           text: newValue,
           type: type,
@@ -250,11 +256,15 @@ export const Message = memo(
         onMessageEdit(index, newValue);
       }
 
-      toggleEditMode();
+      setIsEditing(false);
     };
 
     return (
-      <div className={`message ${type === "user" ? "user" : "assistant"}`}>
+      <div
+        className={`message ${type === "user" ? "user" : "assistant"}${
+          isEditing && !readOnly ? " message--editing" : ""
+        }`}
+      >
         {isEditing && !readOnly ? (
           <MessageEditor
             textareaValueRef={textareaValueRef}
@@ -839,6 +849,9 @@ const WebSearchResultInspector = ({ result }: { result: any }) => {
 
 // ─── MessageEditor ────────────────────────────────────────────────────────────
 
+const MESSAGE_EDIT_MAX_H = () =>
+  Math.min(Math.round(window.innerHeight * 0.72), 640);
+
 const MessageEditor = ({
   text,
   textareaValueRef,
@@ -856,23 +869,36 @@ const MessageEditor = ({
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height =
-        textareaRef.current.scrollHeight + "px";
-    }
-  }, [innerText]);
+    textareaValueRef.current = text;
+  }, [text, textareaValueRef]);
+
+  useLayoutEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const scrollH = el.scrollHeight;
+    const maxH = MESSAGE_EDIT_MAX_H();
+    const next = Math.min(scrollH, maxH);
+    el.style.height = `${next}px`;
+    el.style.overflowY = scrollH > maxH ? "auto" : "hidden";
+  }, [innerText, text]);
 
   return (
-    <div className="w-full">
+    <div className="message-editor-root w-full min-w-0">
       <textarea
         autoComplete="on"
+        rows={1}
         ref={textareaRef}
-        className="w-full px-4 py-3 font-sans rounded-xl text-base leading-6 scrollbar-none resize-none focus:outline-none"
-        style={{ background: "var(--code-bg-color)", color: "var(--font-color)", border: "1px solid var(--highlighted-color-opaque)" }}
+        className="message-editor-textarea w-full min-h-0 max-h-[min(72vh,40rem)] px-4 py-3 font-sans rounded-xl text-base leading-relaxed focus:outline-none resize-y [scrollbar-width:thin]"
+        style={{
+          background: "var(--code-bg-color)",
+          color: "var(--font-color)",
+          border: "1px solid var(--highlighted-color-opaque)",
+        }}
         onChange={(e) => {
-          textareaValueRef.current = e.target.value;
-          setInnerText(e.target.value);
+          const val = e.currentTarget.value;
+          textareaValueRef.current = val;
+          setInnerText(val);
         }}
         defaultValue={text}
       />

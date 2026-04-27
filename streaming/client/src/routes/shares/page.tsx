@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 
 import { Message } from "../../components/Message/Message";
 
@@ -132,63 +132,76 @@ export default function SharedChatView() {
     setMessages(conversation?.messages);
   }, [conversation]);
 
-  const handleRegenerateAgentTask = async (
-    userMessage: TMessage,
-    index: number,
-    newText: string
-  ) => {
-    const currentConversation = conversation ?? loaderData.conversation;
-    if (!currentConversation?.id || !userMessage.id) return;
+  const handleRegenerateAgentTask = useCallback(
+    async (index: number, newText: string) => {
+      const currentConversation = conversation ?? loaderData.conversation;
+      if (!currentConversation?.id) return;
 
-    let selectedAgents = agents.filter((a) => a.selected);
-    if (selectedAgents.length === 0) {
-      toast.error(t("select-at-least-one-agent-to-chat"));
-      return;
-    }
+      let selectedAgents = agents.filter((a) => a.selected);
+      if (selectedAgents.length === 0) {
+        toast.error(t("select-at-least-one-agent-to-chat"));
+        return;
+      }
 
-    const truncated = messages.slice(0, index + 1);
-    truncated[index] = { ...truncated[index], text: newText };
+      const regenPayload = { userId: null as number | null };
+      const assistantMessage: TMessage = {
+        type: "assistant",
+        text: "",
+        attachments: [],
+        agent_slug: selectedAgents[0].slug,
+      };
 
-    const assistantMessage: TMessage = {
-      type: "assistant",
-      text: "",
-      attachments: [],
-      agent_slug: selectedAgents[0].slug,
-    };
-    setMessages([...truncated, assistantMessage]);
-
-    try {
-      await triggerAgentTask({
-        conversation_id: currentConversation.id,
-        agent_slugs: selectedAgents.map((a) => a.slug),
-        user_inputs: [{ type: "input_text", text: newText }],
-        tool_names: ["read_attachment", "list_attachments"],
-        regenerate_message_id: userMessage.id,
-        client_datetime: buildClientDatetimePayload(),
+      setMessages((prev) => {
+        const userMessage = prev[index];
+        if (!userMessage?.id || userMessage.type !== "user") return prev;
+        regenPayload.userId = userMessage.id;
+        const base = prev.slice(0, index + 1).map((m, i) =>
+          i === index ? { ...m, text: newText } : m
+        );
+        return [...base, assistantMessage];
       });
-    } catch (error) {
-      console.error("Error regenerating via agent task:", error);
-      toast.error(t("agent-task-failed"));
-    }
-  };
 
-  const onMessageEdit = (
-    index: number,
-    text: string,
-    versions?: TVersion[]
-  ) => {
-    const message = messages[index];
-    if (!message) return;
+      if (!regenPayload.userId) return;
 
-    if (message.type === "user" && message.id) {
-      handleRegenerateAgentTask(message, index, text);
-    }
-    if (message.type === "assistant" && versions) {
-      const messagesCopy = [...messages];
-      messagesCopy[index].versions = versions;
-      setMessages(messagesCopy);
-    }
-  };
+      try {
+        await triggerAgentTask({
+          conversation_id: currentConversation.id,
+          agent_slugs: selectedAgents.map((a) => a.slug),
+          user_inputs: [{ type: "input_text", text: newText }],
+          tool_names: ["read_attachment", "list_attachments"],
+          regenerate_message_id: regenPayload.userId,
+          client_datetime: buildClientDatetimePayload(),
+        });
+      } catch (error) {
+        console.error("Error regenerating via agent task:", error);
+        toast.error(t("agent-task-failed"));
+        setMessages((prev) => {
+          const last = prev[prev.length - 1];
+          if (last?.type === "assistant" && !last.id) return prev.slice(0, -1);
+          return prev;
+        });
+        void setConversation(currentConversation.id);
+      }
+    },
+    [agents, conversation, loaderData.conversation, setConversation, t]
+  );
+
+  const onMessageEdit = useCallback(
+    (index: number, text: string, versions?: TVersion[]) => {
+      if (versions !== undefined) {
+        setMessages((prev) => {
+          const message = prev[index];
+          if (!message || message.type !== "assistant") return prev;
+          const updated = [...prev];
+          updated[index] = { ...updated[index], versions };
+          return updated;
+        });
+        return;
+      }
+      void handleRegenerateAgentTask(index, text);
+    },
+    [handleRegenerateAgentTask]
+  );
 
   return (
     <>

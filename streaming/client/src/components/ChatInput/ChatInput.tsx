@@ -270,17 +270,21 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           />
         ))}
       </section>
-      <section className="flex-1 w-full flex flex-col items-center justify-center relative overflow-visible">
-        <div className="w-full rounded-none md:rounded-2xl overflow-visible relative" style={{ background: "var(--bg-contrast-color)", border: "1px solid var(--hovered-color)" }}>
+      <section className="w-full flex flex-col items-center justify-center relative overflow-visible">
+        <div
+          className="flex min-h-0 w-full flex-col rounded-none md:rounded-2xl overflow-hidden relative"
+          style={{ background: "var(--bg-contrast-color)", border: "1px solid var(--hovered-color)" }}
+        >
           <MantineTextarea
             autosize
             minRows={chatState.writtingMode ? 8 : 1}
-            maxRows={chatState.writtingMode ? 20 : 3}
             classNames={{
               // text-base on small viewports avoids iOS zoom on focus (inputs < 16px)
-              input: "!bg-transparent !border-0 !text-base md:!text-sm !font-sans focus:!ring-0 focus:!outline-none !px-3 md:!px-5 !py-2 md:!py-3",
-              wrapper: "!bg-transparent",
-              root: "!bg-transparent",
+              // Single scrollbar: scroll only the textarea (no nested overflow-y wrapper).
+              input:
+                "!bg-transparent !border-0 !text-base md:!text-sm !font-sans focus:!ring-0 focus:!outline-none !px-3 md:!px-5 !py-2 md:!py-3 !max-h-[calc(100dvh-12rem)] md:!max-h-[calc(100dvh-14rem)] !min-h-0 !resize-none !overflow-x-hidden !overflow-y-auto",
+              wrapper: "!bg-transparent !min-h-0",
+              root: "!bg-transparent !min-h-0",
             }}
             styles={{
               input: {
@@ -295,7 +299,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             name="chat-input"
             variant="unstyled"
           />
-          <div className="flex items-center justify-between px-1 md:px-4 pb-1 md:pb-4 pt-1 md:pt-3 relative z-10 min-w-0">
+          <div className="flex shrink-0 items-center justify-between px-1 md:px-4 pb-1 md:pb-4 pt-1 md:pt-3 relative z-10 min-w-0">
             <div className="flex gap-2 relative z-20 min-w-0 flex-shrink">
               <PlusMenu />
               <ToolsMenu />

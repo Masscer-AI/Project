@@ -35,6 +35,7 @@ export default function ChatView() {
     userPreferences,
     setConversation,
     setSpecifiedUrls,
+    setAgentTaskStatus,
   } = useStore((state) => ({
     socket: state.socket,
     chatState: state.chatState,
@@ -47,6 +48,7 @@ export default function ChatView() {
     userPreferences: state.userPreferences,
     setConversation: state.setConversation,
     setSpecifiedUrls: state.setSpecifiedUrls,
+    setAgentTaskStatus: state.setAgentTaskStatus,
   }));
 
   const { t } = useTranslation();
@@ -61,7 +63,6 @@ export default function ChatView() {
 
   const chatMessageContainerRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<number | null>(null);
-  const handleRegenerateRef = useRef<(msg: TMessage, idx: number, text: string) => void>(() => {});
   const [showScrollToEnd, setShowScrollToEnd] = useState(false);
 
   useEffect(() => {
@@ -147,7 +148,7 @@ export default function ChatView() {
 
   useEffect(() => {
     if (!conversation?.messages) return;
-    setMessages(conversation?.messages);
+    setMessages(conversation.messages);
   }, [conversation]);
 
   useEffect(() => {
@@ -181,13 +182,6 @@ export default function ChatView() {
 
     if (chatState.writtingMode) return false;
 
-    const userMessage: TMessage = {
-      type: "user",
-      text: input,
-      attachments: chatState.attachments,
-      index: messages.length,
-    };
-
     let selectedAgents = agents.filter((a) => a.selected);
     if (selectedAgents.length === 0) {
       toast.error(t("select-at-least-one-agent-to-chat"));
@@ -206,12 +200,36 @@ export default function ChatView() {
       attachments: [],
       agent_slug: selectedAgents[0].slug,
     };
-    setMessages([...messages, userMessage, assistantMessage]);
+
+    setMessages((prev) => {
+      const userMessage: TMessage = {
+        type: "user",
+        text: input,
+        attachments: chatState.attachments,
+        index: prev.length,
+      };
+      return [...prev, userMessage, assistantMessage];
+    });
+    setAgentTaskStatus(t("agent-preparing-request"));
+
+    const revertOptimisticSend = () => {
+      setAgentTaskStatus(null);
+      setMessages((prev) => {
+        if (prev.length < 2) return prev;
+        const last = prev[prev.length - 1];
+        const before = prev[prev.length - 2];
+        if (last?.type === "assistant" && !last.id && before?.type === "user") {
+          return prev.slice(0, -2);
+        }
+        return prev;
+      });
+    };
 
     try {
       const currentConversation = conversation ?? loaderData.conversation;
       if (!currentConversation?.id) {
         toast.error("No conversation found");
+        revertOptimisticSend();
         return false;
       }
 
@@ -316,6 +334,7 @@ export default function ChatView() {
     } catch (error) {
       console.error("Error triggering agent task:", error);
       toast.error(t("agent-task-failed"));
+      revertOptimisticSend();
       return false;
     }
   };
@@ -346,83 +365,103 @@ export default function ChatView() {
     []
   );
 
+  const handleRegenerateAgentTask = useCallback(
+    async (index: number, newText: string) => {
+      const currentConversation = conversation ?? loaderData.conversation;
+      if (!currentConversation?.id) return;
+
+      let selectedAgents = agents.filter((a) => a.selected);
+      if (selectedAgents.length === 0) {
+        toast.error(t("select-at-least-one-agent-to-chat"));
+        return;
+      }
+      selectedAgents = selectedAgents.sort(
+        (a, b) =>
+          chatState.selectedAgents.indexOf(a.slug) -
+          chatState.selectedAgents.indexOf(b.slug)
+      );
+
+      const regenPayload = { userId: null as number | null };
+      const assistantMessage: TMessage = {
+        type: "assistant",
+        text: "",
+        attachments: [],
+        agent_slug: selectedAgents[0].slug,
+      };
+
+      setMessages((prev) => {
+        const userMessage = prev[index];
+        if (!userMessage?.id || userMessage.type !== "user") return prev;
+        regenPayload.userId = userMessage.id;
+        const base = prev.slice(0, index + 1).map((m, i) =>
+          i === index ? { ...m, text: newText } : m
+        );
+        return [...base, assistantMessage];
+      });
+
+      if (!regenPayload.userId) return;
+
+      setAgentTaskStatus(t("agent-preparing-request"));
+
+      try {
+        const toolNames = ["read_attachment", "list_attachments"];
+        if (chatState.webSearch) toolNames.push("explore_web");
+        if (chatState.useRag) toolNames.push("rag_query");
+        if (chatState.generateImages) toolNames.push("create_image");
+        if (chatState.generateSpeech) toolNames.push("create_speech");
+        if (chatState.generateVideo) toolNames.push("generate_video");
+
+        await triggerAgentTask({
+          conversation_id: currentConversation.id,
+          agent_slugs: selectedAgents.map((a) => a.slug),
+          user_inputs: [{ type: "input_text", text: newText }],
+          tool_names: toolNames,
+          multiagentic_modality: userPreferences.multiagentic_modality,
+          regenerate_message_id: regenPayload.userId,
+          client_datetime: buildClientDatetimePayload(),
+        });
+
+        scrollChat();
+      } catch (error) {
+        console.error("Error regenerating via agent task:", error);
+        toast.error(t("agent-task-failed"));
+        setAgentTaskStatus(null);
+        setMessages((prev) => {
+          const last = prev[prev.length - 1];
+          if (last?.type === "assistant" && !last.id) return prev.slice(0, -1);
+          return prev;
+        });
+        void setConversation(currentConversation.id);
+      }
+    },
+    [
+      agents,
+      chatState,
+      conversation,
+      loaderData.conversation,
+      setAgentTaskStatus,
+      setConversation,
+      t,
+      userPreferences.multiagentic_modality,
+    ]
+  );
+
   const onMessageEdit = useCallback(
     (index: number, text: string, versions?: TVersion[]) => {
-      setMessages((prev) => {
-        const message = prev[index];
-        if (!message) return prev;
-
-        if (message.type === "user" && message.id) {
-          handleRegenerateRef.current(message, index, text);
-          return prev;
-        }
-        if (message.type === "assistant" && versions) {
+      if (versions !== undefined) {
+        setMessages((prev) => {
+          const message = prev[index];
+          if (!message || message.type !== "assistant") return prev;
           const updated = [...prev];
           updated[index] = { ...updated[index], versions };
           return updated;
-        }
-        return prev;
-      });
+        });
+        return;
+      }
+      void handleRegenerateAgentTask(index, text);
     },
-    []
+    [handleRegenerateAgentTask]
   );
-
-  const handleRegenerateAgentTask = async (
-    userMessage: TMessage,
-    index: number,
-    newText: string
-  ) => {
-    const currentConversation = conversation ?? loaderData.conversation;
-    if (!currentConversation?.id || !userMessage.id) return;
-
-    let selectedAgents = agents.filter((a) => a.selected);
-    if (selectedAgents.length === 0) {
-      toast.error(t("select-at-least-one-agent-to-chat"));
-      return;
-    }
-    selectedAgents = selectedAgents.sort(
-      (a, b) =>
-        chatState.selectedAgents.indexOf(a.slug) -
-        chatState.selectedAgents.indexOf(b.slug)
-    );
-
-    const truncated = messages.slice(0, index + 1);
-    truncated[index] = { ...truncated[index], text: newText };
-
-    const assistantMessage: TMessage = {
-      type: "assistant",
-      text: "",
-      attachments: [],
-      agent_slug: selectedAgents[0].slug,
-    };
-    setMessages([...truncated, assistantMessage]);
-
-    try {
-      const toolNames = ["read_attachment", "list_attachments"];
-      if (chatState.webSearch) toolNames.push("explore_web");
-      if (chatState.useRag) toolNames.push("rag_query");
-      if (chatState.generateImages) toolNames.push("create_image");
-      if (chatState.generateSpeech) toolNames.push("create_speech");
-      if (chatState.generateVideo) toolNames.push("generate_video");
-
-      await triggerAgentTask({
-        conversation_id: currentConversation.id,
-        agent_slugs: selectedAgents.map((a) => a.slug),
-        user_inputs: [{ type: "input_text", text: newText }],
-        tool_names: toolNames,
-        multiagentic_modality: userPreferences.multiagentic_modality,
-        regenerate_message_id: userMessage.id,
-        client_datetime: buildClientDatetimePayload(),
-      });
-
-      scrollChat();
-    } catch (error) {
-      console.error("Error regenerating via agent task:", error);
-      toast.error(t("agent-task-failed"));
-    }
-  };
-
-  handleRegenerateRef.current = handleRegenerateAgentTask;
 
   const onMessageDeleted = useCallback((index: number) => {
     setMessages((prev) => prev.filter((_, i) => i !== index));
@@ -438,7 +477,7 @@ export default function ChatView() {
         />
       )}
       {chatState.isSidebarOpened && <Sidebar />}
-      <div className="flex flex-col h-screen w-full md:mx-auto md:max-w-[900px] relative z-10 px-0 md:px-4 py-0 md:py-6 overflow-visible">
+      <div className="flex min-h-0 flex-col h-screen w-full md:mx-auto md:max-w-[900px] relative z-10 px-0 md:px-4 py-0 md:py-6 overflow-visible">
         <ChatHeader
           right={
             <ConversationModal
@@ -450,7 +489,7 @@ export default function ChatView() {
 
         <div
           ref={chatMessageContainerRef}
-          className="flex-1 overflow-y-auto flex flex-col w-full pb-6 mt-6 px-1 md:px-2"
+          className="min-h-0 flex-1 overflow-y-auto flex flex-col w-full pb-6 mt-6 px-1 md:px-2"
         >
           {messages &&
             messages.map((msg, index) => (
@@ -479,13 +518,15 @@ export default function ChatView() {
             <IconArrowDown size={18} />
           </ActionIcon>
         )}
-        <ChatInput
-          handleSendMessage={handleSendMessage}
-          initialInput={
-            loaderData.query && !loaderData.sendQuery ? loaderData.query : ""
-          }
-          readOnly={isViewer}
-        />
+        <div className="shrink-0 min-w-0 w-full">
+          <ChatInput
+            handleSendMessage={handleSendMessage}
+            initialInput={
+              loaderData.query && !loaderData.sendQuery ? loaderData.query : ""
+            }
+            readOnly={isViewer}
+          />
+        </div>
       </div>
     </main>
   );
