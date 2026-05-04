@@ -871,6 +871,44 @@ def conversation_agent_task(
             except UserProfile.DoesNotExist:
                 pass
 
+        from api.authenticate.services import FeatureFlagService
+        from django.contrib.auth.models import User as DjangoUser
+
+        def _organization_for_conversations_dashboard_flag(conv):
+            org = getattr(conv, "organization", None)
+            if org:
+                return org
+            if getattr(conv, "user", None):
+                from api.messaging.tasks import get_user_organization
+
+                return get_user_organization(conv.user)
+            if getattr(conv, "chat_widget", None):
+                w = conv.chat_widget
+                agent = getattr(w, "agent", None) if w else None
+                if agent:
+                    return getattr(agent, "organization", None)
+            return None
+
+        _flag_org = _organization_for_conversations_dashboard_flag(conversation)
+        has_organization_conversations_access = False
+        if not is_widget_chat and _flag_org is not None and actor_user_id is not None:
+            try:
+                _flag_user = DjangoUser.objects.get(pk=actor_user_id)
+                has_organization_conversations_access, _ = (
+                    FeatureFlagService.is_feature_enabled(
+                        "conversations-dashboard",
+                        organization=_flag_org,
+                        user=_flag_user,
+                    )
+                )
+            except DjangoUser.DoesNotExist:
+                pass
+        logger.info(
+            "conversation_agent_task: has_organization_conversations_access=%s org_id=%s",
+            has_organization_conversations_access,
+            getattr(_flag_org, "id", None),
+        )
+
         for index, agent in enumerate(agents_ordered):
             instructions = agent.format_prompt()
             llm = agent.llm
@@ -1099,6 +1137,12 @@ def conversation_agent_task(
                     "Do not use this to clear tags unless the user explicitly asks to remove all labels.\n"
                 )
                 if actor_user_id is not None:
+                    if has_organization_conversations_access:
+                        instructions += (
+                            "- **Org-wide thread visibility:** this user has the same conversation visibility as the "
+                            "organization dashboard — `get_tag_context` may list teammates’ tagged threads, and "
+                            "`query_conversation` may read those threads when you have a `conversation_id`.\n"
+                        )
                     instructions += (
                         "- get_tag_context: **How to call** — use the tool name `get_tag_context` with argument "
                         "`tag_id` set to the **integer id** of the tag (the number shown as tag_id=… above or from "
@@ -1110,7 +1154,9 @@ def conversation_agent_task(
                         "If you are choosing among several tags, you may call once for the best-matching tag_id.\n"
                         "  **When not to call:** greetings, unrelated small talk, or when no tag clearly applies.\n"
                         "  **Response:** each row has conversation title, summary, n_messages, date — use only as hints; "
-                        "empty list means no other threads with that tag for this user.\n"
+                        "empty list means no other threads with that tag"
+                        + (" in the organization" if has_organization_conversations_access else " for this user")
+                        + ".\n"
                         "- query_conversation: pass `conversation_id` (UUID of **which** thread to read) and `question` "
                         "(a precise question). A **separate small model** reads up to a few hundred messages from that "
                         "thread and returns **only a distilled answer** — not the raw logs — so you can answer things like "
@@ -1184,6 +1230,7 @@ def conversation_agent_task(
                 user_id=actor_user_id,
                 agent_slug=agent.slug,
                 organization_id=organization.id if organization else None,
+                has_organization_conversations_access=has_organization_conversations_access,
             )
             if applicable_alert_rules and organization:
                 resolve_kwargs["organization_id"] = organization.id

@@ -1,8 +1,9 @@
 """
 Tool: get_tag_context
 
-Returns other conversations for the same user that share a given tag id,
-so the model can align with prior threads (e.g. same product or project).
+Returns other conversations that share a given tag id: by default only those
+for the same user; when the actor has the conversations-dashboard feature,
+organization-wide threads (same rules as the org conversation list).
 """
 
 from __future__ import annotations
@@ -63,6 +64,7 @@ def _get_tag_context_impl(
     user_id: int,
     organization_id: int,
     current_conversation_id: str,
+    has_organization_conversations_access: bool = False,
 ) -> GetTagContextResult:
     tag = (
         Tag.objects.filter(
@@ -79,10 +81,39 @@ def _get_tag_context_impl(
             message="Tag not found, not in this organization, or disabled.",
         )
 
+    if has_organization_conversations_access:
+        from django.contrib.auth.models import User
+
+        from api.messaging.views import _get_org_user_ids
+
+        try:
+            actor = User.objects.get(pk=user_id)
+        except User.DoesNotExist:
+            return GetTagContextResult(
+                conversations=[],
+                message="User not found for tag context.",
+            )
+        org_user_ids = _get_org_user_ids(actor)
+        if org_user_ids:
+            base = Conversation.objects.filter(
+                Q(user_id__in=org_user_ids)
+                | Q(
+                    user__isnull=True,
+                    chat_widget__created_by_id__in=org_user_ids,
+                )
+            )
+        else:
+            base = Conversation.objects.filter(user_id=user_id)
+    else:
+        base = (
+            Conversation.objects.filter(user_id=user_id)
+            .filter(
+                Q(organization_id=organization_id) | Q(organization_id__isnull=True)
+            )
+        )
+
     qs = (
-        Conversation.objects.filter(user_id=user_id)
-        .filter(Q(organization_id=organization_id) | Q(organization_id__isnull=True))
-        .filter(tags__contains=[tag_id])
+        base.filter(tags__contains=[tag_id])
         .exclude(status="deleted")
         .exclude(id=current_conversation_id)
         .annotate(n_messages=Count("messages"))
@@ -109,27 +140,34 @@ def _get_tag_context_impl(
             )
         )
 
+    scope = "org" if has_organization_conversations_access else "user"
     logger.info(
-        "get_tag_context: user=%s tag_id=%s org=%s current=%s rows=%s",
+        "get_tag_context: user=%s tag_id=%s org=%s current=%s scope=%s rows=%s",
         user_id,
         tag_id,
         organization_id,
         current_conversation_id,
+        scope,
         len(items),
     )
-    return GetTagContextResult(
-        conversations=items,
-        message=(
+    if has_organization_conversations_access:
+        msg = (
+            f"Found {len(items)} other conversation(s) across the organization with tag "
+            f"{tag_id!r} ({tag.title!r})."
+        )
+    else:
+        msg = (
             f"Found {len(items)} other conversation(s) for this user with tag "
             f"{tag_id!r} ({tag.title!r})."
-        ),
-    )
+        )
+    return GetTagContextResult(conversations=items, message=msg)
 
 
 def get_tool(
     conversation_id: str | None = None,
     organization_id: int | None = None,
     user_id: int | None = None,
+    has_organization_conversations_access: bool = False,
     **kwargs,
 ) -> dict:
     if not conversation_id or organization_id is None:
@@ -142,6 +180,7 @@ def get_tool(
     uid = int(user_id)
     oid = int(organization_id)
     cid = str(conversation_id)
+    wide = bool(has_organization_conversations_access)
 
     def get_tag_context(tag_id: int) -> GetTagContextResult:
         return _get_tag_context_impl(
@@ -149,18 +188,30 @@ def get_tool(
             user_id=uid,
             organization_id=oid,
             current_conversation_id=cid,
+            has_organization_conversations_access=wide,
         )
+
+    desc = (
+        "Fetch cross-thread context for ONE tag: pass tag_id as an INTEGER (the tag’s database id), "
+        "e.g. tag_id=7 — never pass the tag title string. Returns other conversations that already have that tag "
+        "(title, summary, n_messages, date; current chat excluded). "
+    )
+    if wide:
+        desc += (
+            "This user has **organization-wide** conversation access: results include teammates’ threads in the org, "
+            "not only their own. "
+        )
+    else:
+        desc += "For this user, results are **only their own** other threads with that tag. "
+    desc += (
+        "Call when the user is working on a topic that matches a tag you are considering or already assigned "
+        "(same app, client, project, product line) so you can align with prior threads; skip for unrelated chit-chat. "
+        "If the list is empty, continue without inventing past chats."
+    )
 
     return {
         "name": "get_tag_context",
-        "description": (
-            "Fetch cross-thread context for ONE tag: pass tag_id as an INTEGER (the tag’s database id), "
-            "e.g. tag_id=7 — never pass the tag title string. Returns other conversations for this same user "
-            "that already have that tag: each with title, summary, n_messages, date (current chat excluded). "
-            "Call when the user is working on a topic that matches a tag you are considering or already assigned "
-            "(same app, client, project, product line) so you can align with prior threads; skip for unrelated chit-chat. "
-            "If the list is empty, continue without inventing past chats."
-        ),
+        "description": desc,
         "parameters": GetTagContextParams,
         "function": get_tag_context,
     }

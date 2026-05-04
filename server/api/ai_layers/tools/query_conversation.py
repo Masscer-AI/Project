@@ -81,10 +81,22 @@ def _user_can_access_conversation(
     conv: Conversation,
     user_id: int,
     organization_id: int,
+    has_organization_conversations_access: bool,
 ) -> bool:
-    if conv.user_id != user_id:
-        return False
     if conv.status == "deleted":
+        return False
+    if has_organization_conversations_access:
+        from django.contrib.auth.models import User
+
+        from api.messaging.views import _user_can_access_conversation as dashboard_can_access
+
+        try:
+            user = User.objects.get(pk=user_id)
+        except User.DoesNotExist:
+            return False
+        return dashboard_can_access(user, conv)
+
+    if conv.user_id != user_id:
         return False
     oid = conv.organization_id
     if oid is None or oid == organization_id:
@@ -115,6 +127,7 @@ def _query_conversation_impl(
     question: str,
     user_id: int,
     organization_id: int,
+    has_organization_conversations_access: bool = False,
 ) -> QueryConversationResult:
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
@@ -134,7 +147,10 @@ def _query_conversation_impl(
         )
 
     if not _user_can_access_conversation(
-        conv=conv, user_id=user_id, organization_id=organization_id
+        conv=conv,
+        user_id=user_id,
+        organization_id=organization_id,
+        has_organization_conversations_access=has_organization_conversations_access,
     ):
         return QueryConversationResult(
             success=False,
@@ -180,12 +196,13 @@ Rules:
         if not ans:
             ans = "No answer was produced."
         logger.info(
-            "query_conversation: user=%s target=%s model=%s q_len=%s ans_len=%s",
+            "query_conversation: user=%s target=%s model=%s q_len=%s ans_len=%s org_wide=%s",
             user_id,
             target_conversation_id,
             INNER_MODEL,
             len(question),
             len(ans),
+            has_organization_conversations_access,
         )
         return QueryConversationResult(
             success=True,
@@ -205,6 +222,7 @@ def get_tool(
     conversation_id: str | None = None,
     organization_id: int | None = None,
     user_id: int | None = None,
+    has_organization_conversations_access: bool = False,
     **kwargs,
 ) -> dict:
     # conversation_id here is the *current* chat from resolve_tools; unused for access check
@@ -215,6 +233,7 @@ def get_tool(
 
     uid = int(user_id)
     oid = int(organization_id)
+    wide = bool(has_organization_conversations_access)
 
     def query_conversation(
         conversation_id: str,
@@ -225,17 +244,29 @@ def get_tool(
             question=question,
             user_id=uid,
             organization_id=oid,
+            has_organization_conversations_access=wide,
         )
+
+    desc = (
+        "Ask a **specific question** about **one** past conversation the user may access. "
+        "Pass `conversation_id` (UUID, often from get_tag_context) and `question`. "
+        "Returns only a distilled **answer** from an inner model over that chat’s messages (not full logs). "
+    )
+    if wide:
+        desc += (
+            "This session has **organization-wide** conversation access (same as the conversations dashboard): "
+            "you may query teammates’ threads when policy allows. "
+        )
+    else:
+        desc += "Only conversations **owned by this user** may be queried. "
+    desc += (
+        "Use for things like “what did we decide last week about X?” after you know which conversation_id to open. "
+        "Requires logged-in user."
+    )
 
     return {
         "name": "query_conversation",
-        "description": (
-            "Ask a **specific question** about **one** past conversation the same user had access to. "
-            "Pass `conversation_id` (UUID, often from get_tag_context) and `question`. "
-            "Returns only a distilled **answer** from an inner model over that chat’s messages (not full logs), "
-            "so the main agent does not get overloaded. Use for things like “what did we decide last week about X?” "
-            "after you know which conversation_id to open. Requires logged-in user."
-        ),
+        "description": desc,
         "parameters": QueryConversationParams,
         "function": query_conversation,
     }
