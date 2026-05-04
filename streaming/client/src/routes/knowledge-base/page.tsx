@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useStore } from "../../modules/store";
 import { Sidebar } from "../../components/Sidebar/Sidebar";
 import {
@@ -78,6 +78,9 @@ export default function KnowledgeBasePage() {
   const [loadingCompletions, setLoadingCompletions] = useState(true);
   const [search, setSearch] = useState("");
   const [agentFilter, setAgentFilter] = useState("all");
+  const [completionStatusFilter, setCompletionStatusFilter] = useState<
+    "all" | "pending" | "approved"
+  >("all");
 
   useEffect(() => {
     loadDocuments();
@@ -133,14 +136,51 @@ export default function KnowledgeBasePage() {
     );
   });
 
-  const filteredCompletions = completions.filter((comp) => {
-    const matchesSearch =
-      comp.prompt.toLowerCase().includes(search.toLowerCase()) ||
-      comp.answer.toLowerCase().includes(search.toLowerCase());
-    const matchesAgent =
-      agentFilter === "all" || comp.agent?.toString() === agentFilter;
-    return matchesSearch && matchesAgent;
-  });
+  const filteredCompletions = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    let list = completions.filter((comp) => {
+      const matchesSearch =
+        !q ||
+        comp.prompt.toLowerCase().includes(q) ||
+        comp.answer.toLowerCase().includes(q);
+      const matchesAgent =
+        agentFilter === "all" || comp.agent?.toString() === agentFilter;
+      return matchesSearch && matchesAgent;
+    });
+
+    if (completionStatusFilter === "pending") {
+      list = list.filter((c) => !c.approved);
+    } else if (completionStatusFilter === "approved") {
+      list = list.filter((c) => c.approved);
+    }
+
+    return [...list].sort((a, b) => {
+      if (completionStatusFilter === "all") {
+        const pa = a.approved ? 1 : 0;
+        const pb = b.approved ? 1 : 0;
+        if (pa !== pb) return pa - pb;
+      }
+      return b.id - a.id;
+    });
+  }, [completions, search, agentFilter, completionStatusFilter]);
+
+  const completionStatusOptions: {
+    value: typeof completionStatusFilter;
+    label: string;
+    hint: string;
+  }[] = [
+    { value: "all", label: t("all"), hint: t("completions-status-filter-all-help") },
+    {
+      value: "pending",
+      label: t("pending"),
+      hint: t("completions-status-filter-pending-help"),
+    },
+    {
+      value: "approved",
+      label: t("approved"),
+      hint: t("completions-status-filter-approved-help"),
+    },
+  ];
 
   return (
     <main className="d-flex pos-relative h-viewport">
@@ -221,6 +261,24 @@ export default function KnowledgeBasePage() {
             )}
           </Group>
 
+          {activeTab === "completions" && (
+            <Group justify="center" wrap="wrap" gap="xs" mb="md">
+              {completionStatusOptions.map((opt) => (
+                <Tooltip key={opt.value} label={opt.hint} withArrow>
+                  <Button
+                    variant={
+                      completionStatusFilter === opt.value ? "filled" : "default"
+                    }
+                    size="xs"
+                    onClick={() => setCompletionStatusFilter(opt.value)}
+                  >
+                    {opt.label}
+                  </Button>
+                </Tooltip>
+              ))}
+            </Group>
+          )}
+
           {/* Content */}
           {activeTab === "documents" ? (
             <DocumentsTab
@@ -232,6 +290,7 @@ export default function KnowledgeBasePage() {
           ) : (
             <CompletionsTab
               completions={filteredCompletions}
+              anyCompletionsExist={completions.length > 0}
               loading={loadingCompletions}
               onRefresh={loadCompletions}
               agents={agents}
@@ -677,11 +736,13 @@ const TrainingModal = ({
 
 const CompletionsTab = ({
   completions,
+  anyCompletionsExist,
   loading,
   onRefresh,
   agents,
 }: {
   completions: TCompletion[];
+  anyCompletionsExist: boolean;
   loading: boolean;
   onRefresh: () => void;
   agents: TAgent[];
@@ -876,12 +937,16 @@ const CompletionsTab = ({
         </Card>
       )}
 
-      {completions.length === 0 && !showCreate ? (
+      {completions.length === 0 && !showCreate && !anyCompletionsExist ? (
         <Card withBorder p="xl" ta="center" style={{ borderStyle: "dashed" }}>
           <Text c="dimmed">{t("no-completions-yet")}</Text>
           <Text size="sm" c="dimmed" mt="xs">
             {t("completions-hint")}
           </Text>
+        </Card>
+      ) : completions.length === 0 && !showCreate && anyCompletionsExist ? (
+        <Card withBorder p="xl" ta="center" style={{ borderStyle: "dashed" }}>
+          <Text c="dimmed">{t("no-completions-match-filters")}</Text>
         </Card>
       ) : (
         completions.map((comp) => (
