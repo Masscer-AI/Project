@@ -119,3 +119,37 @@ class AgentSessionExecutionLogTests(SimpleTestCase):
         tool_calls = extract_tool_calls_from_messages(messages)
 
         self.assertEqual([call["iteration"] for call in tool_calls], [1, 2])
+
+
+class VertexGeminiTextHelpersTests(SimpleTestCase):
+    def test_messages_to_contents_maps_assistant_to_model(self):
+        from google.genai import types as genai_types
+
+        from api.utils.vertex_gemini_text import _openai_style_messages_to_contents
+
+        contents = _openai_style_messages_to_contents(
+            [
+                {"role": "user", "content": "Hi"},
+                {"role": "assistant", "content": "Hello"},
+            ],
+            genai_types=genai_types,
+        )
+        self.assertEqual(len(contents), 2)
+        self.assertEqual(contents[0].role, "user")
+        self.assertEqual(contents[1].role, "model")
+
+    def test_extract_text_concatenates_parts(self):
+        from types import SimpleNamespace
+
+        from api.utils.vertex_gemini_text import _extract_text_from_response
+
+        part = SimpleNamespace(text="ab")
+        content = SimpleNamespace(parts=[part])
+        cand = SimpleNamespace(content=content)
+        resp = SimpleNamespace(candidates=[cand])
+        self.assertEqual(_extract_text_from_response(resp), "ab")
+
+    def test_default_model_constant(self):
+        from api.utils.vertex_gemini_text import DEFAULT_VERTEX_TEXT_MODEL
+
+        self.assertEqual(DEFAULT_VERTEX_TEXT_MODEL, "gemini-3.1-flash-lite-preview")

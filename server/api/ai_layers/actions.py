@@ -43,6 +43,17 @@ def check_models_for_providers():
                 }
             },
         },
+        {
+            "name": "GPT-5.5",
+            "slug": "gpt-5.5",
+            "is_reasoning_model": True,
+            "pricing": {
+                "text": {
+                    "prompt": "5.00 USD / 1000000",
+                    "output": "30.00 USD / 1000000",
+                }
+            },
+        },
 
         {
             "name": "GPT-5.4 Nano",
@@ -85,6 +96,33 @@ def check_models_for_providers():
                 "text": {
                     "prompt": "30.00 USD / 1000000",
                     "output": "180.00 USD / 1000000",
+                }
+            },
+        },
+    ]
+
+    google_models_objects = [
+        {
+            "name": "Gemini 3.1 Flash Lite (Preview)",
+            "slug": "gemini-3.1-flash-lite-preview",
+            "is_reasoning_model": False,
+            "pricing": {
+                # TODO: Search the right pricing for this model
+                "text": {
+                    "prompt": "0.10 USD / 1000000",
+                    "output": "0.40 USD / 1000000",
+                }
+            },
+        },
+        {
+            "name": "Gemini 2.5 Flash",
+            "slug": "gemini-2.5-flash",
+            "is_reasoning_model": False,
+            "pricing": {
+                # TODO: Search the right pricing for this model
+                "text": {
+                    "prompt": "0.30 USD / 1000000",
+                    "output": "2.50 USD / 1000000",
                 }
             },
         },
@@ -135,6 +173,12 @@ def check_models_for_providers():
         printer.red("AIProvider 'openai' does not exist.")
         openai_provider = None
 
+    try:
+        google_provider = AIProvider.objects.get(name__iexact="google")
+    except AIProvider.DoesNotExist:
+        printer.red("AIProvider 'google' does not exist.")
+        google_provider = None
+
     # try:
     #     ollama_provider = AIProvider.objects.get(name__iexact="ollama")
     # except AIProvider.DoesNotExist:
@@ -176,6 +220,41 @@ def check_models_for_providers():
                     language_model.save()
                     printer.yellow(
                         f"Updated LanguageModel '{model['name']}' (OpenAI)."
+                    )
+
+    if google_provider:
+        for model in google_models_objects:
+            language_model, created = LanguageModel.objects.get_or_create(
+                provider=google_provider,
+                slug=model["slug"],
+                defaults={
+                    "name": model["name"],
+                    "pricing": model["pricing"],
+                    "is_reasoning_model": model.get("is_reasoning_model", False),
+                },
+            )
+
+            if created:
+                printer.green(
+                    f"LanguageModel '{model['name']}' created for provider 'Google'."
+                )
+
+            if not created:
+                updated = False
+                if language_model.pricing != model["pricing"]:
+                    language_model.pricing = model["pricing"]
+                    updated = True
+                if language_model.is_reasoning_model != model.get(
+                    "is_reasoning_model", False
+                ):
+                    language_model.is_reasoning_model = model.get(
+                        "is_reasoning_model", False
+                    )
+                    updated = True
+                if updated:
+                    language_model.save()
+                    printer.yellow(
+                        f"Updated LanguageModel '{model['name']}' (Google)."
                     )
 
     # # Create LanguageModels for Ollama

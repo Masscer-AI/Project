@@ -39,9 +39,10 @@ def extract_tool_calls_from_messages(messages):
     """
     Reconstruct ordered tool calls from AgentLoop messages.
 
-    Stored history contains OpenAI response items like `function_call` plus
-    appended `function_call_output` records. This helper pairs them together
-    into a stable, UI-friendly structure.
+    Stored history may contain OpenAI response items (``function_call`` /
+    ``function_call_output``) or the same keys emitted by
+    :class:`api.ai_layers.vertex_gemini_agent_loop.VertexGeminiAgentLoop` for
+    UI compatibility.
     """
     if not isinstance(messages, list):
         return []

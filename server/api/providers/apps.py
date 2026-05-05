@@ -31,6 +31,10 @@ class ProvidersConfig(AppConfig):
                 AIProvider.objects.create(name="OpenAI")
                 printer.green("AIProvider 'OpenAI' created.")
 
+            if not AIProvider.objects.filter(name__iexact="google").exists():
+                AIProvider.objects.create(name="Google")
+                printer.green("AIProvider 'Google' created.")
+
             ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
             # Check if an AIProvider with name.lower() == "anthropic" exists
             if (

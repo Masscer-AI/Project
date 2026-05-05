@@ -1,13 +1,14 @@
 """
-Reusable agent loop for OpenAI function calling with the Responses API.
+Agent loop with pluggable providers (OpenAI today; Google/Gemini planned).
 
-Handles the conversation flow with tool execution, optional structured output
-parsing via Pydantic, and an on_event callback for real-time notifications.
+Use :meth:`AgentLoop.create` to obtain an implementation. For OpenAI, ``run()``
+expects input items in the **OpenAI Responses API** shape (see OpenAI docs).
 
 Usage:
     from api.ai_layers.agent_loop import AgentLoop, make_notifier
 
-    loop = AgentLoop(
+    loop = AgentLoop.create(
+        provider="openai",
         tools=[...],
         instructions="You are a helpful assistant.",
         model="gpt-4o",
@@ -24,13 +25,17 @@ import json
 import logging
 import os
 import time
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Callable, TypedDict
+from typing import Any, Callable, Literal, TypedDict
 
 from openai import OpenAI
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
+
+
+AgentProvider = Literal["openai", "google"]
 
 
 # ---------------------------------------------------------------------------
@@ -72,7 +77,7 @@ class ToolCallRecord(TypedDict, total=False):
 @dataclass
 class AgentLoopResult:
     """
-    Result returned by AgentLoop.run().
+    Result returned by :meth:`BaseAgentLoop.run`.
 
     - output: parsed Pydantic model if output_schema was provided, else raw string
     - messages: full conversation history (for inspection/logging)
@@ -230,7 +235,7 @@ def make_notifier(user_id: int) -> Callable[[str, dict], None]:
     to the frontend via Redis pub/sub -> streaming server -> Socket.IO.
 
     Usage:
-        loop = AgentLoop(..., on_event=make_notifier(user_id=42))
+        loop = AgentLoop.create(..., on_event=make_notifier(user_id=42))
     """
     def _on_event(event_type: str, data: dict) -> None:
         from api.notify.actions import notify_user
@@ -240,15 +245,81 @@ def make_notifier(user_id: int) -> Callable[[str, dict], None]:
 
 
 # ---------------------------------------------------------------------------
-# AgentLoop
+# Base + factory
 # ---------------------------------------------------------------------------
+
+class BaseAgentLoop(ABC):
+    """Abstract agent loop; implementations call different model APIs."""
+
+    @property
+    @abstractmethod
+    def provider(self) -> AgentProvider:
+        ...
+
+    @abstractmethod
+    def run(self, inputs: list[Any]) -> AgentLoopResult:
+        """Run the loop until a final model response or limit/cancellation."""
+        ...
+
 
 class AgentLoop:
     """
-    Reusable agent loop for function calling using OpenAI Responses API.
+    Factory for concrete :class:`BaseAgentLoop` implementations.
 
-    Handles the conversation flow with tool execution and optional
-    structured output parsing.
+    Use :meth:`create` with ``provider="openai"`` (default), or ``provider="google"``
+    for Vertex Gemini when the agent's :class:`~api.ai_layers.models.LanguageModel`
+    belongs to the Google provider. For OpenAI, :meth:`BaseAgentLoop.run` inputs
+    should follow OpenAI Responses API item shapes; Gemini loops accept simple
+    ``role`` / ``content`` turns from :func:`api.ai_layers.tasks._build_agent_loop_inputs`.
+    """
+
+    @staticmethod
+    def create(
+        *,
+        provider: AgentProvider = "openai",
+        tools: list[AgentTool],
+        instructions: str,
+        model: str = "gpt-4o",
+        output_schema: type[BaseModel] | None = None,
+        max_iterations: int = 10,
+        on_event: Callable[[str, dict], None] | None = None,
+        api_key: str | None = None,
+        check_cancelled: Callable[[], bool] | None = None,
+    ) -> BaseAgentLoop:
+        """Return the implementation for *provider* (``openai`` or ``google``)."""
+        if provider == "openai":
+            return OpenAIAgentLoop(
+                tools=tools,
+                instructions=instructions,
+                model=model,
+                output_schema=output_schema,
+                max_iterations=max_iterations,
+                on_event=on_event,
+                api_key=api_key,
+                check_cancelled=check_cancelled,
+            )
+        if provider == "google":
+            from api.ai_layers.vertex_gemini_agent_loop import VertexGeminiAgentLoop
+
+            return VertexGeminiAgentLoop(
+                tools=tools,
+                instructions=instructions,
+                model=model,
+                output_schema=output_schema,
+                max_iterations=max_iterations,
+                on_event=on_event,
+                check_cancelled=check_cancelled,
+            )
+        raise ValueError(f"Unknown agent provider: {provider!r}")
+
+
+# ---------------------------------------------------------------------------
+# OpenAIAgentLoop
+# ---------------------------------------------------------------------------
+
+class OpenAIAgentLoop(BaseAgentLoop):
+    """
+    Agent loop using OpenAI Responses API (function calling, optional structured output).
     """
 
     def __init__(
@@ -283,6 +354,10 @@ class AgentLoop:
 
         for tool in tools:
             self._register_tool(tool)
+
+    @property
+    def provider(self) -> AgentProvider:
+        return "openai"
 
     # ------------------------------------------------------------------
     # Tool registration
@@ -346,7 +421,7 @@ class AgentLoop:
         self._emit(LOOP_START, {"model": self.model, "max_iterations": self.max_iterations})
 
         if not inputs or not isinstance(inputs, list):
-            raise ValueError("AgentLoop.run(inputs=...) requires a non-empty list of input messages")
+            raise ValueError("run(inputs=...) requires a non-empty list of input messages")
 
         messages: list[Any] = list(inputs)
         tool_call_log: list[ToolCallRecord] = []

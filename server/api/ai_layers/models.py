@@ -59,6 +59,7 @@ class Agent(models.Model):
     VOICE_OPTIONS = ["allow", ""]
     MODEL_PROVIDER_CHOICES = [
         ("openai", "OpenAI"),
+        ("google", "Google"),
         ("ollama", "Ollama"),
         ("anthropic", "Anthropic"),
     ]

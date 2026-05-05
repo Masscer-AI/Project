@@ -218,6 +218,19 @@ def _format_attachments_for_model_context(attachments: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def _agent_loop_provider_from_llm(llm) -> str:
+    """Return :class:`~api.ai_layers.agent_loop.AgentLoop` provider: ``openai`` or ``google``."""
+    if llm is None:
+        return "openai"
+    provider = getattr(llm, "provider", None)
+    if provider is None:
+        return "openai"
+    name = (getattr(provider, "name", None) or "").strip().lower()
+    if name == "google":
+        return "google"
+    return "openai"
+
+
 def _build_agent_loop_inputs(
     *,
     prev_messages: list[dict],
@@ -826,7 +839,9 @@ def conversation_agent_task(
         agents_by_slug = {
             a.slug: a
             for a in Agent.objects.filter(slug__in=agent_slugs).select_related(
-                "organization"
+                "organization",
+                "llm",
+                "llm__provider",
             )
         }
         agents_ordered = [agents_by_slug[s] for s in agent_slugs if s in agents_by_slug]
@@ -1237,7 +1252,8 @@ def conversation_agent_task(
 
             tools = resolve_tools(agent_tool_names, **resolve_kwargs)
 
-            loop = AgentLoop(
+            loop = AgentLoop.create(
+                provider=_agent_loop_provider_from_llm(llm),
                 tools=tools,
                 instructions=instructions,
                 model=model_slug,

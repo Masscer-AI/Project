@@ -54,7 +54,7 @@ def resolve_tools(tool_names: list[str], **context) -> list[dict]:
         tool_names: list of registered tool names (e.g. ["read_attachment"])
 
     Returns:
-        list of AgentTool dicts ready for AgentLoop(tools=[...])
+        list of AgentTool dicts ready for ``AgentLoop.create(tools=[...], ...)``
 
     Raises:
         ValueError: if a tool name is not found in the registry
