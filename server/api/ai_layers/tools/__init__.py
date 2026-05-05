@@ -60,6 +60,16 @@ def resolve_tools(tool_names: list[str], **context) -> list[dict]:
         ValueError: if a tool name is not found in the registry
         AttributeError: if a tool module doesn't export get_tool()
     """
+    # Stable dedupe (first occurrence wins). Gemini rejects duplicate function names.
+    _seen: set[str] = set()
+    unique_names: list[str] = []
+    for n in tool_names:
+        if n in _seen:
+            continue
+        _seen.add(n)
+        unique_names.append(n)
+    tool_names = unique_names
+
     tools = []
     for name in tool_names:
         if name not in TOOL_REGISTRY:

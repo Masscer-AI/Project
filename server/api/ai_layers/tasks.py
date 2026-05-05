@@ -1100,7 +1100,8 @@ def conversation_agent_task(
                     f"ALREADY RAISED (id=alert_id for updates):\n{existing_json}\n"
                     f"=== END ALERT RULES ===\n"
                 )
-                agent_tool_names.append("raise_alert")
+                if "raise_alert" not in agent_tool_names:
+                    agent_tool_names.append("raise_alert")
             else:
                 # Remove raise_alert if client sent it but we have no applicable rules
                 if "raise_alert" in agent_tool_names:
