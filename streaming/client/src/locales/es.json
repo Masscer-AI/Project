@@ -692,6 +692,8 @@
     "widget-theme-dark": "Oscuro",
     "widget-show-history": "Historial de conversaciones",
     "widget-show-history-description": "Si está activado, los visitantes pueden abrir la lista de chats anteriores desde la cabecera. El widget siempre abre primero en el chat activo.",
+    "widget-allow-visitor-attachments": "Subida de archivos por visitantes",
+    "widget-allow-visitor-attachments-description": "Si está activado, los visitantes pueden adjuntar documentos e imágenes en el chat. Esto también activa “Listar adjuntos” y “Leer adjuntos” para la IA. Si lo desactivas, esas dos se apagan (puedes volver a activarlas por separado solo en casos excepcionales).",
     "widget-first-message": "Primer mensaje",
     "widget-first-message-description": "Saludo opcional que se muestra como burbuja del asistente cuando el widget abre una conversación vacia.",
     "widget-first-message-placeholder": "Hola! Como puedo ayudarte hoy?",

@@ -87,11 +87,29 @@ export const triggerWidgetAgentTask = async (
   sessionToken: string,
   payload: {
     conversation_id: string;
-    user_inputs: { type: "input_text"; text: string }[];
+    user_inputs: Array<
+      | { type: "input_text"; text: string }
+      | { type: "input_attachment"; attachment_id: string }
+    >;
     client_datetime?: ClientDatetimePayload;
   }
 ) => {
   const endpoint = `${API_URL}/v1/messaging/widgets/${widgetToken}/agent-task/`;
+  const response = await axios.post(endpoint, payload, {
+    headers: getWidgetAuthHeaders(sessionToken),
+  });
+  return response.data;
+};
+
+export const uploadWidgetAttachments = async (
+  widgetToken: string,
+  sessionToken: string,
+  payload: {
+    conversation_id: string;
+    attachments: { content: string; name?: string }[];
+  }
+): Promise<{ attachments: { id: string; url: string }[] }> => {
+  const endpoint = `${API_URL}/v1/messaging/widgets/${widgetToken}/attachments/upload/`;
   const response = await axios.post(endpoint, payload, {
     headers: getWidgetAuthHeaders(sessionToken),
   });
@@ -1503,6 +1521,8 @@ export const createChatWidget = async (data: {
   style?: {
     primary_color?: string;
     theme?: "default" | "light" | "dark";
+    show_history?: boolean;
+    allow_visitor_attachments?: boolean;
   };
 }) => {
   return makeAuthenticatedRequest<TChatWidget>(
@@ -1524,6 +1544,8 @@ export const updateChatWidget = async (
     style: {
       primary_color?: string;
       theme?: "default" | "light" | "dark";
+      show_history?: boolean;
+      allow_visitor_attachments?: boolean;
     };
   }>
 ) => {

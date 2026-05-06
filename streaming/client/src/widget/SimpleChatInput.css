@@ -85,6 +85,75 @@
   border-top: 1px solid var(--widget-border, rgba(0, 0, 0, 0.06));
 }
 
+.simple-chat-pending-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 16px 0;
+}
+
+.simple-chat-pending-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  background: var(--widget-input-bg, #f0f0f0);
+  color: var(--widget-text, #333);
+}
+
+.simple-chat-pending-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 160px;
+}
+
+.simple-chat-pending-remove {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0 2px;
+  color: var(--widget-muted, #666);
+  font-size: 14px;
+  line-height: 1;
+}
+
+.simple-chat-file-input {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.simple-chat-attach-button {
+  width: 40px;
+  height: 40px;
+  border-radius: 20px;
+  border: 1px solid var(--widget-input-border, rgba(0, 0, 0, 0.1));
+  background: var(--widget-input-bg, #f8f9fa);
+  color: var(--widget-text, #333);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.simple-chat-attach-button:hover:not(:disabled) {
+  border-color: var(--widget-primary, #667eea);
+  color: var(--widget-primary, #667eea);
+}
+
+.simple-chat-attach-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .simple-chat-input-wrapper .simple-chat-input-container {
   border-top: none;
 }

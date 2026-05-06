@@ -10,12 +10,41 @@ import {
   listWidgetConversations,
   getWidgetConversation,
   triggerWidgetAgentTask,
+  uploadWidgetAttachments,
   buildClientDatetimePayload,
   getWidgetSocketRoute,
 } from "../modules/apiCalls";
 import { SocketManager } from "../modules/socketManager";
 import "./ChatWidget.css";
 import "./WidgetMessage.css";
+
+function readFileAsDataURL(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result));
+    r.onerror = () => reject(new Error("Failed to read file"));
+    r.readAsDataURL(file);
+  });
+}
+
+/** Build UI attachment rows after widget upload (API returns id + url only). */
+function buildWidgetMessageAttachmentsFromUpload(
+  uploaded: { id: string; url: string }[],
+  files: File[]
+): TAttachment[] {
+  return uploaded.map((att, i) => {
+    const file = files[i];
+    const mime = (file?.type || "").trim() || "application/octet-stream";
+    const name = (file?.name || "").trim() || `attachment-${i + 1}`;
+    return {
+      id: att.id,
+      attachment_id: att.id,
+      type: mime,
+      content: att.url,
+      name,
+    };
+  });
+}
 
 interface ChatWidgetProps {
   config: WidgetConfig;
@@ -56,6 +85,8 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
   const showHistory = config.style?.show_history === true;
   const isDarkTheme = widgetTheme === "dark";
   const widgetPrimaryColor = config.style?.primary_color?.trim();
+  const allowVisitorAttachments =
+    config.style?.allow_visitor_attachments === true;
   const widgetCssVars = {
     "--widget-primary":
       widgetPrimaryColor && widgetPrimaryColor.length > 0
@@ -422,15 +453,48 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
     setView("list");
   };
 
-  const handleSendMessage = async (input: string): Promise<boolean> => {
-    if (input.trim() === "" || !conversation) return false;
+  const handleSendMessage = async (
+    input: string,
+    files: File[]
+  ): Promise<boolean> => {
+    const trimmed = input.trim();
+    if ((!trimmed && files.length === 0) || !conversation) return false;
     const agentSlug = config.agent_slug || "widget-agent";
     const agentName = config.agent_name || "Assistant";
 
+    let attachmentIds: string[] = [];
+    let userAttachments: TAttachment[] = [];
+    if (files.length > 0 && allowVisitorAttachments) {
+      try {
+        const attachments = await Promise.all(
+          files.map(async (f) => ({
+            content: await readFileAsDataURL(f),
+            name: f.name,
+          }))
+        );
+        const up = await uploadWidgetAttachments(
+          widgetToken,
+          sessionToken,
+          {
+            conversation_id: conversation.id,
+            attachments,
+          }
+        );
+        const created = up.attachments ?? [];
+        attachmentIds = created.map((a) => a.id);
+        userAttachments = buildWidgetMessageAttachmentsFromUpload(created, files);
+      } catch (e) {
+        console.error("Widget attachment upload failed:", e);
+        return false;
+      }
+    }
+
+    const userText = trimmed || (attachmentIds.length ? "See attached file(s)." : "");
+
     const userMessage: TMessage = {
       type: "user",
-      text: input,
-      attachments: [],
+      text: userText,
+      attachments: userAttachments,
       index: useWidgetStore.getState().messages.length,
     };
 
@@ -450,10 +514,18 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
     useWidgetStore.getState().addMessage(userMessage);
     useWidgetStore.getState().addMessage(assistantMessage);
 
+    const user_inputs: Array<
+      | { type: "input_text"; text: string }
+      | { type: "input_attachment"; attachment_id: string }
+    > = [{ type: "input_text", text: userText }];
+    for (const id of attachmentIds) {
+      user_inputs.push({ type: "input_attachment", attachment_id: id });
+    }
+
     try {
       await triggerWidgetAgentTask(widgetToken, sessionToken, {
         conversation_id: conversation.id,
-        user_inputs: [{ type: "input_text", text: input }],
+        user_inputs,
         client_datetime: buildClientDatetimePayload(),
       });
 
@@ -573,6 +645,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
                 <SimpleChatInput
                   onSendMessage={handleSendMessage}
                   disabled={!conversation}
+                  allowAttachments={allowVisitorAttachments}
                 />
               </div>
             </>

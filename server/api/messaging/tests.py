@@ -98,7 +98,7 @@ class ChatWidgetCapabilitiesTests(TestCase):
         self.assertEqual(len(body["capabilities"]), 1)
 
     @patch("api.messaging.tasks.widget_conversation_agent_task.delay")
-    def test_widget_agent_task_uses_only_enabled_capabilities_plus_base_tools(
+    def test_widget_agent_task_uses_only_enabled_capabilities(
         self, delay_mock
     ):
         delay_mock.return_value = Mock(id="task-123")
@@ -108,6 +108,8 @@ class ChatWidgetCapabilitiesTests(TestCase):
             created_by=self.user,
             agent=self.agent,
             capabilities=[
+                {"name": "read_attachment", "type": "internal_tool", "enabled": True},
+                {"name": "list_attachments", "type": "internal_tool", "enabled": True},
                 {"name": "explore_web", "type": "internal_tool", "enabled": True},
                 {"name": "rag_query", "type": "internal_tool", "enabled": False},
                 {"name": "create_image", "type": "internal_tool", "enabled": True},
@@ -197,3 +199,46 @@ class ChatWidgetCapabilitiesTests(TestCase):
 
         is_feature_enabled_mock.assert_not_called()
         self.assertEqual(result.model, "gpt-image-1.5")
+
+    def test_widget_agent_task_rejects_input_attachment_when_visitor_uploads_disabled(
+        self,
+    ):
+        widget = ChatWidget.objects.create(
+            name="Widget No Visitor Files",
+            enabled=True,
+            created_by=self.user,
+            agent=self.agent,
+            style={},
+            capabilities=[
+                {"name": "read_attachment", "type": "internal_tool", "enabled": True},
+            ],
+        )
+
+        session_response = self.client.get(f"/v1/messaging/widgets/{widget.token}/session/")
+        self.assertEqual(session_response.status_code, 200)
+        widget_session_token = session_response.json()["token"]
+
+        auth_header = {"HTTP_AUTHORIZATION": f"WidgetSession {widget_session_token}"}
+        conversation_response = self.client.post(
+            f"/v1/messaging/widgets/{widget.token}/conversation/",
+            data={},
+            format="json",
+            **auth_header,
+        )
+        self.assertIn(conversation_response.status_code, [200, 201])
+        conversation_id = conversation_response.json()["id"]
+
+        task_response = self.client.post(
+            f"/v1/messaging/widgets/{widget.token}/agent-task/",
+            data={
+                "conversation_id": conversation_id,
+                "user_inputs": [
+                    {"type": "input_text", "text": "hello"},
+                    {"type": "input_attachment", "attachment_id": "550e8400-e29b-41d4-a716-446655440000"},
+                ],
+            },
+            format="json",
+            **auth_header,
+        )
+
+        self.assertEqual(task_response.status_code, 403)

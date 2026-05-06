@@ -690,6 +690,8 @@
     "widget-theme-dark": "Dark",
     "widget-show-history": "Conversation history",
     "widget-show-history-description": "When enabled, visitors can open a list of previous chats from the header. The widget always opens in the active chat first.",
+    "widget-allow-visitor-attachments": "Visitor file uploads",
+    "widget-allow-visitor-attachments-description": "When enabled, visitors can attach documents and images in the chat. This also turns on “List attachments” and “Read attachment” for the AI. When disabled, those two are turned off (you can re-enable them separately only if you need a rare server-only use case).",
     "widget-first-message": "First message",
     "widget-first-message-description": "Optional greeting shown as an assistant bubble when the widget opens with an empty conversation.",
     "widget-first-message-placeholder": "Hi! How can I help you today?",

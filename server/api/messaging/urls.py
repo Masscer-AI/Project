@@ -15,6 +15,7 @@ from .views import (
     ChatWidgetConversationsListView,
     ChatWidgetConversationDetailView,
     ChatWidgetAgentTaskView,
+    ChatWidgetAttachmentsUploadView,
     ChatWidgetSocketAuthView,
     ChatWidgetView,
     ConversationAlertView,
@@ -69,6 +70,11 @@ urlpatterns = [
         "widgets/<str:token>/agent-task/",
         ChatWidgetAgentTaskView.as_view(),
         name="widget_agent_task",
+    ),
+    path(
+        "widgets/<str:token>/attachments/upload/",
+        ChatWidgetAttachmentsUploadView.as_view(),
+        name="widget_attachments_upload",
     ),
     path(
         "widgets/<str:token>/socket-auth/",

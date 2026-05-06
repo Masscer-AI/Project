@@ -123,6 +123,20 @@
   display: none;
 }
 
+.chat-widget-messages .message__attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+  max-width: 85%;
+  align-items: center;
+}
+
+.chat-widget-messages .message.user .message__attachments {
+  justify-content: flex-end;
+  flex-direction: row-reverse;
+}
+
 /* In-progress assistant loader */
 .chat-widget-messages .chat-widget-loader {
   display: flex;

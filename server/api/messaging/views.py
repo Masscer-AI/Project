@@ -735,6 +735,104 @@ def upload_audio(request):
     return JsonResponse({"error": "Invalid request"}, status=400)
 
 
+def _widget_allow_visitor_attachments(widget: ChatWidget) -> bool:
+    style = getattr(widget, "style", None) or {}
+    if not isinstance(style, dict):
+        return False
+    return bool(style.get("allow_visitor_attachments"))
+
+
+def _create_attachments_from_data_urls(request, conversation, user, attachments_data):
+    """
+    Create MessageAttachment rows from data URL payloads.
+
+    Returns:
+        (result_list, None) on success, or (None, JsonResponse) on validation/storage error.
+    """
+    if not attachments_data or not isinstance(attachments_data, list):
+        return None, JsonResponse(
+            {"error": "attachments must be a non-empty list"}, status=400
+        )
+
+    from django.core.files.base import ContentFile
+
+    result = []
+    for i, att in enumerate(attachments_data):
+        if not isinstance(att, dict):
+            return None, JsonResponse(
+                {"error": f"attachments[{i}] must be an object"}, status=400
+            )
+        content = att.get("content", "")
+
+        if not content or not content.startswith("data:"):
+            return None, JsonResponse(
+                {
+                    "error": f"attachments[{i}].content must be a data URL (data:...;base64,...)"
+                },
+                status=400,
+            )
+
+        try:
+            header, b64_data = content.split(",", 1)
+            ext = "bin"
+            if "image/png" in header or "png" in header:
+                ext = "png"
+            elif "image/jpeg" in header or "jpeg" in header or "jpg" in header:
+                ext = "jpg"
+            elif "image/gif" in header or "gif" in header:
+                ext = "gif"
+            elif "image/webp" in header or "webp" in header:
+                ext = "webp"
+            elif "audio" in header:
+                ext = "webm" if "webm" in header else "mp3" if "mp3" in header else "wav"
+            elif "application/pdf" in header or "pdf" in header:
+                ext = "pdf"
+            elif "wordprocessingml" in header or "docx" in header:
+                ext = "docx"
+            elif "msword" in header or "doc" in header:
+                ext = "doc"
+            elif "text/plain" in header or "plain" in header:
+                ext = "txt"
+            elif "text/html" in header or "html" in header:
+                ext = "html"
+            raw = base64.b64decode(b64_data)
+        except Exception as e:
+            return None, JsonResponse(
+                {"error": f"attachments[{i}] invalid base64: {e}"}, status=400
+            )
+
+        file_obj = ContentFile(raw, name=f"{uuid.uuid4().hex}.{ext}")
+        if att.get("content_type"):
+            content_type = att["content_type"]
+        elif ext in ("png", "jpg", "gif", "webp"):
+            content_type = f"image/{ext}"
+        elif ext in ("webm", "mp3", "wav"):
+            content_type = f"audio/{ext}"
+        elif ext == "pdf":
+            content_type = "application/pdf"
+        elif ext == "docx":
+            content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        elif ext == "doc":
+            content_type = "application/msword"
+        elif ext == "txt":
+            content_type = "text/plain"
+        elif ext == "html":
+            content_type = "text/html"
+        else:
+            content_type = "application/octet-stream"
+        attachment = MessageAttachment.objects.create(
+            conversation=conversation,
+            user=user,
+            kind="file",
+            file=file_obj,
+            content_type=content_type,
+        )
+        url = request.build_absolute_uri(attachment.file.url)
+        result.append({"id": str(attachment.id), "url": url})
+
+    return result, None
+
+
 @csrf_exempt
 @token_required
 def upload_message_attachments(request):
@@ -764,81 +862,11 @@ def upload_message_attachments(request):
     if err:
         return err
 
-    result = []
-    for i, att in enumerate(attachments_data):
-        if not isinstance(att, dict):
-            return JsonResponse(
-                {"error": f"attachments[{i}] must be an object"}, status=400
-            )
-        content = att.get("content", "")
-        name = att.get("name", f"file_{i}")
-
-        if not content or not content.startswith("data:"):
-            return JsonResponse(
-                {"error": f"attachments[{i}].content must be a data URL (data:...;base64,...)"},
-                status=400,
-            )
-
-        try:
-            header, b64_data = content.split(",", 1)
-            ext = "bin"
-            if "image/png" in header or "png" in header:
-                ext = "png"
-            elif "image/jpeg" in header or "jpeg" in header or "jpg" in header:
-                ext = "jpg"
-            elif "image/gif" in header or "gif" in header:
-                ext = "gif"
-            elif "image/webp" in header or "webp" in header:
-                ext = "webp"
-            elif "audio" in header:
-                ext = "webm" if "webm" in header else "mp3" if "mp3" in header else "wav"
-            elif "application/pdf" in header or "pdf" in header:
-                ext = "pdf"
-            elif "wordprocessingml" in header or "docx" in header:
-                ext = "docx"
-            elif "msword" in header or "doc" in header:
-                ext = "doc"
-            elif "text/plain" in header or "plain" in header:
-                ext = "txt"
-            elif "text/html" in header or "html" in header:
-                ext = "html"
-            raw = base64.b64decode(b64_data)
-        except Exception as e:
-            return JsonResponse(
-                {"error": f"attachments[{i}] invalid base64: {e}"}, status=400
-            )
-
-        from django.core.files.base import ContentFile
-
-        file_obj = ContentFile(raw, name=f"{uuid.uuid4().hex}.{ext}")
-        if att.get("content_type"):
-            content_type = att["content_type"]
-        elif ext in ("png", "jpg", "gif", "webp"):
-            content_type = f"image/{ext}"
-        elif ext in ("webm", "mp3", "wav"):
-            content_type = f"audio/{ext}"
-        elif ext == "pdf":
-            content_type = "application/pdf"
-        elif ext == "docx":
-            content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        elif ext == "doc":
-            content_type = "application/msword"
-        elif ext == "txt":
-            content_type = "text/plain"
-        elif ext == "html":
-            content_type = "text/html"
-        else:
-            content_type = "application/octet-stream"
-        attachment = MessageAttachment.objects.create(
-            conversation=conv,
-            user=request.user,
-            kind="file",
-            file=file_obj,
-            content_type=content_type,
-        )
-        url = request.build_absolute_uri(attachment.file.url)
-        result.append({"id": str(attachment.id), "url": url})
-
+    result, resp_err = _create_attachments_from_data_urls(
+        request, conv, request.user, attachments_data
+    )
+    if resp_err is not None:
+        return resp_err
     return JsonResponse({"attachments": result})
 
 
@@ -1184,6 +1212,17 @@ class ChatWidgetAgentTaskView(View):
         except Conversation.DoesNotExist:
             return JsonResponse({"error": "Conversation not found"}, status=404)
 
+        allow_vis_att = _widget_allow_visitor_attachments(request.widget)
+        for item in user_inputs:
+            if isinstance(item, dict) and item.get("type") == "input_attachment":
+                if not allow_vis_att:
+                    return JsonResponse(
+                        {
+                            "error": "Visitor attachments are disabled for this widget",
+                        },
+                        status=403,
+                    )
+
         client_datetime = data.get("client_datetime")
         if client_datetime is not None and not isinstance(client_datetime, dict):
             return JsonResponse(
@@ -1207,9 +1246,7 @@ class ChatWidgetAgentTaskView(View):
             if isinstance(name, str) and name in available_tools:
                 configured_tools.append(name)
 
-        # Keep attachment tools as defaults for widget conversations.
-        base_tools = ["read_attachment", "list_attachments"]
-        tool_names = list(dict.fromkeys(base_tools + configured_tools))
+        tool_names = list(dict.fromkeys(configured_tools))
 
         from api.messaging.tasks import widget_conversation_agent_task
 
@@ -1224,6 +1261,57 @@ class ChatWidgetAgentTaskView(View):
             client_datetime=client_datetime,
         )
         return JsonResponse({"task_id": task.id, "status": "accepted"}, status=202)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(widget_session_required, name="dispatch")
+class ChatWidgetAttachmentsUploadView(View):
+    """Upload visitor attachments using WidgetSession auth (data URLs)."""
+
+    def post(self, request, token):
+        rate_limit_resp = _rate_limit_widget_request(
+            request=request,
+            scope_key=f"attachments:{token}",
+            limit=30,
+            window_seconds=60,
+        )
+        if rate_limit_resp:
+            return rate_limit_resp
+
+        if request.widget.token != token:
+            return JsonResponse({"error": "Widget token mismatch"}, status=403)
+
+        if not _widget_allow_visitor_attachments(request.widget):
+            return JsonResponse(
+                {"error": "Visitor attachments are disabled for this widget"},
+                status=403,
+            )
+
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON body"}, status=400)
+
+        conversation_id = data.get("conversation_id")
+        attachments_data = data.get("attachments", [])
+        if not conversation_id:
+            return JsonResponse({"error": "conversation_id is required"}, status=400)
+
+        try:
+            conversation = Conversation.objects.get(
+                id=conversation_id,
+                chat_widget=request.widget,
+                widget_visitor_session=request.widget_visitor_session,
+            )
+        except Conversation.DoesNotExist:
+            return JsonResponse({"error": "Conversation not found"}, status=404)
+
+        result, resp_err = _create_attachments_from_data_urls(
+            request, conversation, None, attachments_data
+        )
+        if resp_err is not None:
+            return resp_err
+        return JsonResponse({"attachments": result})
 
 
 @method_decorator(csrf_exempt, name="dispatch")

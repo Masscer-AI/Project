@@ -240,6 +240,7 @@ interface WidgetFormData {
     primary_color?: string;
     theme?: "default" | "light" | "dark";
     show_history?: boolean;
+    allow_visitor_attachments?: boolean;
   };
 }
 
@@ -289,6 +290,9 @@ const WidgetForm = ({
   const [showHistory, setShowHistory] = useState(
     initialData?.style?.show_history === true
   );
+  const [allowVisitorAttachments, setAllowVisitorAttachments] = useState(
+    initialData?.style?.allow_visitor_attachments === true
+  );
   const [capabilityState, setCapabilityState] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
     for (const name of DEFAULT_CAPABILITY_NAMES) initial[name] = false;
@@ -318,9 +322,11 @@ const WidgetForm = ({
         primary_color?: string;
         theme?: WidgetTheme;
         show_history: boolean;
+        allow_visitor_attachments: boolean;
       } = {
         theme,
         show_history: showHistory,
+        allow_visitor_attachments: allowVisitorAttachments,
       };
       if (trimmedPrimaryColor) {
         stylePayload.primary_color = trimmedPrimaryColor;
@@ -444,6 +450,32 @@ const WidgetForm = ({
             />
             <Text size="xs" c="dimmed" ml={28}>
               {t("widget-show-history-description")}
+            </Text>
+          </Stack>
+          <Stack gap={2}>
+            <Checkbox
+              label={t("widget-allow-visitor-attachments")}
+              checked={allowVisitorAttachments}
+              onChange={(e) => {
+                const checked = e.currentTarget.checked;
+                setAllowVisitorAttachments(checked);
+                if (checked) {
+                  setCapabilityState((prev) => ({
+                    ...prev,
+                    read_attachment: true,
+                    list_attachments: true,
+                  }));
+                } else {
+                  setCapabilityState((prev) => ({
+                    ...prev,
+                    read_attachment: false,
+                    list_attachments: false,
+                  }));
+                }
+              }}
+            />
+            <Text size="xs" c="dimmed" ml={28}>
+              {t("widget-allow-visitor-attachments-description")}
             </Text>
           </Stack>
           {Object.keys(capabilityState)

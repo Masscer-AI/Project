@@ -40,6 +40,10 @@ class ChatWidgetStyle(BaseModel):
         default=False,
         description="When true, show previous chats (list + back); when false, skip history UI",
     )
+    allow_visitor_attachments: bool = Field(
+        default=False,
+        description="When true, visitors may upload files and send input_attachment in agent-task payloads",
+    )
 
 
 class ChatWidgetCapability(BaseModel):

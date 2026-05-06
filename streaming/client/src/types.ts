@@ -348,6 +348,7 @@ export interface TChatWidget {
     primary_color?: string;
     theme?: "default" | "light" | "dark";
     show_history?: boolean;
+    allow_visitor_attachments?: boolean;
   };
   agent_slug: string | null;
   agent_name: string | null;
