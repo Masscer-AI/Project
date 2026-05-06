@@ -105,24 +105,51 @@ def check_models_for_providers():
         {
             "name": "Gemini 3.1 Flash Lite (Preview)",
             "slug": "gemini-3.1-flash-lite-preview",
-            "is_reasoning_model": False,
+            "is_reasoning_model": True,
             "pricing": {
-                # TODO: Search the right pricing for this model
+                # Paid tier per Google (free tier omitted). Single prompt rate: text/image/video
+                # input $0.25/M; audio input is $0.50/M on Google's side — not modeled separately.
                 "text": {
-                    "prompt": "0.10 USD / 1000000",
-                    "output": "0.40 USD / 1000000",
+                    "prompt": "0.25 USD / 1000000",
+                    "output": "1.50 USD / 1000000",
                 }
             },
         },
         {
             "name": "Gemini 2.5 Flash",
             "slug": "gemini-2.5-flash",
-            "is_reasoning_model": False,
+            "is_reasoning_model": True,
             "pricing": {
-                # TODO: Search the right pricing for this model
+                # Paid tier: input $0.30/M (text/image/video); audio input $1.00/M on Google — single prompt rate.
                 "text": {
                     "prompt": "0.30 USD / 1000000",
                     "output": "2.50 USD / 1000000",
+                }
+            },
+        },
+        {
+            "name": "Gemini 2.5 Pro",
+            "slug": "gemini-2.5-pro",
+            "is_reasoning_model": True,
+            "pricing": {
+                # Standard paid tier (ai.google.dev): input $1.25 / $2.50 per 1M for <= / > 200k tokens;
+                # output $10 / $15 per 1M (incl. thinking). Upper bounds for single-rate billing.
+                "text": {
+                    "prompt": "2.50 USD / 1000000",
+                    "output": "15.00 USD / 1000000",
+                }
+            },
+        },
+        {
+            "name": "Gemini 3.1 Pro (Preview)",
+            "slug": "gemini-3.1-pro-preview",
+            "is_reasoning_model": True,
+            "pricing": {
+                # Paid tier: input max $4 / 1M, output max $18 / 1M (incl. thinking).
+                # We store the upper bounds so billing stays a single rate.
+                "text": {
+                    "prompt": "4.00 USD / 1000000",
+                    "output": "18.00 USD / 1000000",
                 }
             },
         },
