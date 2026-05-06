@@ -8,7 +8,7 @@ class EmailService:
     """Simple Resend email client for backend usage."""
 
     BASE_URL = "https://api.resend.com/emails"
-    DEFAULT_FROM_EMAIL = "no-reply@appcot.masscer.ai"
+    DEFAULT_FROM_EMAIL = "no-reply@mail.masscer.ai"
 
     def __init__(self, api_key: str | None = None, timeout_seconds: int = 20):
         self.api_key = api_key or os.environ.get("RESEND_API_KEY", "")
