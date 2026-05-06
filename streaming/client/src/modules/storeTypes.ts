@@ -71,6 +71,7 @@ export type Store = {
   // setInput: (input: string) => void;
   setModels: (models: TModel[]) => void;
   fetchAgents: () => void;
+  applyAgentSelectionFromConversation: () => void;
   toggleSidebar: () => void;
   cleanAttachments: () => void;
   deleteAttachment: (index: number) => void;

@@ -19,6 +19,7 @@ import {
   triggerAgentTask,
   buildClientDatetimePayload,
   uploadMessageAttachments,
+  updateConversation,
 } from "../../modules/apiCalls";
 
 export default function ChatView() {
@@ -171,7 +172,8 @@ export default function ChatView() {
       loaderData.query &&
       agents.length > 0 &&
       messages.length === 0 &&
-      loaderData.sendQuery
+      loaderData.sendQuery &&
+      agents.some((a) => a.selected)
     ) {
       handleSendMessage(loaderData.query);
     }
@@ -327,6 +329,15 @@ export default function ChatView() {
         client_datetime: buildClientDatetimePayload(),
       });
 
+      const relatedAgents = selectedAgents
+        .filter((a) => a.id != null)
+        .map((a) => ({ id: Number(a.id) }));
+      if (!isViewer) {
+        await updateConversation(currentConversation.id, {
+          metadata: { related_agents: relatedAgents },
+        });
+      }
+
       cleanAttachments();
       setSpecifiedUrls([]);
       scrollChat();
@@ -421,6 +432,15 @@ export default function ChatView() {
           client_datetime: buildClientDatetimePayload(),
         });
 
+        const relatedAgents = selectedAgents
+          .filter((a) => a.id != null)
+          .map((a) => ({ id: Number(a.id) }));
+        if (!isViewer) {
+          await updateConversation(currentConversation.id, {
+            metadata: { related_agents: relatedAgents },
+          });
+        }
+
         scrollChat();
       } catch (error) {
         console.error("Error regenerating via agent task:", error);
@@ -438,6 +458,7 @@ export default function ChatView() {
       agents,
       chatState,
       conversation,
+      isViewer,
       loaderData.conversation,
       setAgentTaskStatus,
       setConversation,

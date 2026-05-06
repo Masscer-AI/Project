@@ -18,6 +18,7 @@ from .models import (
     ConversationAlertRule,
     Tag,
 )
+from .schemas import ConversationMetadata
 from .serializers import (
     ConversationSerializer,
     MessageSerializer,
@@ -37,6 +38,9 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 import base64
 import json
+from pydantic import ValidationError as PydanticValidationError
+
+from api.ai_layers.access import accessible_agents_qs
 from api.authenticate.decorators.token_required import token_required
 from api.authenticate.decorators.widget_session_required import (
     create_widget_session_token,
@@ -518,8 +522,44 @@ class ConversationView(View):
                 else:
                     data["summary"] = None
 
+            if "metadata" in data:
+                raw_meta = data["metadata"]
+                if raw_meta is None:
+                    data["metadata"] = {}
+                    raw_meta = {}
+                if not isinstance(raw_meta, dict):
+                    return JsonResponse(
+                        {"message": "metadata must be a JSON object"},
+                        status=400,
+                    )
+                try:
+                    meta_model = ConversationMetadata.model_validate(raw_meta)
+                except PydanticValidationError as exc:
+                    return JsonResponse(
+                        {"message": "Invalid metadata", "errors": exc.errors()},
+                        status=400,
+                    )
+                allowed_agent_ids = set(
+                    accessible_agents_qs(user).values_list("id", flat=True)
+                )
+                for ra in meta_model.related_agents:
+                    if ra.id not in allowed_agent_ids:
+                        return JsonResponse(
+                            {
+                                "message": f"Agent id {ra.id} is not accessible for this user",
+                            },
+                            status=403,
+                        )
+                data["metadata"] = meta_model.model_dump(mode="json", exclude_none=True)
+
             # Whitelist of allowed fields to update
-            ALLOWED_FIELDS = {"title", "tags", "background_image_src", "summary"}
+            ALLOWED_FIELDS = {
+                "title",
+                "tags",
+                "background_image_src",
+                "summary",
+                "metadata",
+            }
             for key, value in data.items():
                 if key in ALLOWED_FIELDS:
                     setattr(conversation, key, value)

@@ -84,3 +84,22 @@ class ChatWidgetCapabilitiesPayload(BaseModel):
             raise ValueError("Capability names must be unique")
         return value
 
+
+class ConversationRelatedAgent(BaseModel):
+    """Agent reference stored on conversation metadata (avoid name clash with Django Agent)."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    id: int = Field(description="Primary key of the Agent row")
+
+
+class ConversationMetadata(BaseModel):
+    """Validated shape for Conversation.metadata JSON."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    related_agents: list[ConversationRelatedAgent] = Field(
+        default_factory=list,
+        description="Agents associated with this conversation UI selection, in order",
+    )
+

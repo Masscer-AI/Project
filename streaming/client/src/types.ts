@@ -54,6 +54,9 @@ export interface TConversation {
   created_at: string;
   messages?: TMessage[];
   summary?: string;
+  metadata?: {
+    related_agents?: { id: number }[];
+  };
   alerts_count?: number;
   alert_rule_ids?: string[];
   has_pending_alerts?: boolean;

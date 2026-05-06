@@ -67,6 +67,11 @@ class Conversation(models.Model):
         default=False,
         help_text="Indica si la conversación tiene un análisis pendiente de procesar"
     )
+    metadata = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Structured metadata (validated via ConversationMetadata schema), e.g. related_agents",
+    )
 
     def __str__(self):
         if self.title:

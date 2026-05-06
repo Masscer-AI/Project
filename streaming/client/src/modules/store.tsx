@@ -170,6 +170,7 @@ export const useStore = create<Store>()((set, get) => ({
     set(() => ({
       conversation: data,
     }));
+    get().applyAgentSelectionFromConversation();
   },
   setMessages: (messages) => set({ messages }),
   setModels: (models) => set({ models }),
@@ -260,48 +261,63 @@ export const useStore = create<Store>()((set, get) => ({
       },
     }));
   },
+  applyAgentSelectionFromConversation: () => {
+    const { conversation, agents } = get();
+    if (!agents.length) {
+      return;
+    }
+    if (!conversation?.id) {
+      return;
+    }
+    if (conversation.chat_widget_id != null) {
+      const cleared = agents.map((a) => ({ ...a, selected: false }));
+      set({
+        agents: cleared,
+        chatState: { ...get().chatState, selectedAgents: [] },
+      });
+      return;
+    }
+    const related = conversation.metadata?.related_agents ?? [];
+    const slugById = new Map<number, string>();
+    for (const a of agents) {
+      if (a.id != null) slugById.set(Number(a.id), a.slug);
+    }
+    const selectedSlugs: string[] = [];
+    for (const ref of related) {
+      const slug = slugById.get(ref.id);
+      if (slug) selectedSlugs.push(slug);
+    }
+    const copy = agents.map((a) => ({
+      ...a,
+      selected: selectedSlugs.includes(a.slug),
+    }));
+    copy.sort((a, b) => {
+      const ia = selectedSlugs.indexOf(a.slug);
+      const ib = selectedSlugs.indexOf(b.slug);
+      return ia === -1 ? 1 : ib === -1 ? -1 : ia - ib;
+    });
+    set({
+      agents: copy,
+      chatState: { ...get().chatState, selectedAgents: selectedSlugs },
+    });
+  },
   fetchAgents: async () => {
     const { agents, models } = await getAgents();
 
-    let selectFirstAI = false;
-    const selectedAgentsStored = localStorage.getItem("selectedAgents");
-    let selectedAgentsSlugs: string[] = [];
-
-    if (!selectedAgentsStored) {
-      selectFirstAI = true;
-    } else {
-      selectedAgentsSlugs = JSON.parse(selectedAgentsStored);
-    }
-
-    const agentsCopy = agents.map((a, i) => ({
+    const agentsCopy = agents.map((a) => ({
       ...a,
-      selected:
-        (i === 0 && selectFirstAI) || selectedAgentsStored?.includes(a.slug),
+      selected: false,
     }));
-
-    const selectedAgents =
-      selectedAgentsStored && selectedAgentsStored.length > 0
-        ? selectedAgentsSlugs.filter((a) =>
-            agentsCopy.some((a2) => a2.slug === a)
-          )
-        : agentsCopy.filter((a) => a.selected).map((a) => a.slug);
-
-    agentsCopy.sort((a, b) => {
-      const indexA = selectedAgents.indexOf(a.slug);
-      const indexB = selectedAgents.indexOf(b.slug);
-
-      return indexA === -1 ? 1 : indexB === -1 ? -1 : indexA - indexB;
-    });
 
     set({
       agents: agentsCopy,
       models,
       chatState: {
         ...get().chatState,
-        // @ts-ignore
-        selectedAgents: selectedAgents,
+        selectedAgents: [],
       },
     });
+    get().applyAgentSelectionFromConversation();
   },
   toggleSidebar: () =>
     set((state) => ({
@@ -361,11 +377,6 @@ export const useStore = create<Store>()((set, get) => ({
         selectedAgents: newSelectedAgents,
       },
     }));
-    if (newSelectedAgents.length > 0) {
-      localStorage.setItem("selectedAgents", JSON.stringify(newSelectedAgents));
-    } else {
-      localStorage.removeItem("selectedAgents");
-    }
   },
   toggleWebSearch: () => {
     set((state) => ({
@@ -455,7 +466,6 @@ export const useStore = create<Store>()((set, get) => ({
         selectedAgents: selectedAgents,
       },
     }));
-    localStorage.setItem("selectedAgents", JSON.stringify(selectedAgents));
   },
   // This must update partial the chatState
   updateChatState: (partial) => {
@@ -500,7 +510,6 @@ export const useStore = create<Store>()((set, get) => ({
       featureFlagsError: null,
     });
     localStorage.removeItem("token");
-    localStorage.removeItem("selectedAgents");
     window.location.href = "/";
   },
 

@@ -14,26 +14,6 @@ from .models import (
 )
 
 
-class ConversationAdmin(admin.ModelAdmin):
-    list_display = ("id", "user", "title", "pending_analysis", "created_at", "updated_at")
-    list_filter = ("user", "pending_analysis", "created_at", "updated_at")
-    search_fields = ("title", "user__username")
-    ordering = ("-created_at",)
-    fields = (
-        "id",
-        "user",
-        "title",
-        "summary",
-        "pending_analysis",
-        "tags",
-        "background_image_src",
-        "public_token",
-        "created_at",
-        "updated_at",
-    )
-    readonly_fields = ("id", "created_at", "updated_at")
-
-
 @admin.register(MessageAttachment)
 class MessageAttachmentAdmin(admin.ModelAdmin):
     list_display = (
@@ -243,6 +223,8 @@ class HasAlertsFilter(admin.SimpleListFilter):
 class ConversationAdmin(admin.ModelAdmin):
     list_display = ("id", "user", "title", "pending_analysis", "has_alerts_display", "created_at", "updated_at")
     list_filter = ("user", "pending_analysis", HasAlertsFilter, "created_at", "updated_at")
+    search_fields = ("title", "user__username")
+    ordering = ("-created_at",)
     inlines = [MessageInline]
 
     def has_alerts_display(self, obj):
