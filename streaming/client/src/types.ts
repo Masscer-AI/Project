@@ -206,6 +206,18 @@ export type TOrganizationMember = {
   current_role?: { id: string; name: string; assignment_id?: string } | null;
 };
 
+export type TOrganizationInvite = {
+  id: string;
+  email: string;
+  name: string;
+  bio: string;
+  expires_at: string | null;
+  status: string;
+  invite_expires_at: string;
+  created_at: string;
+  accepted_at: string | null;
+};
+
 export type TOrganizationRole = {
   id: string;
   name: string;

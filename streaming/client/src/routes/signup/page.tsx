@@ -26,6 +26,18 @@ type Organization = {
   logo_url?: string | null;
 };
 
+type InviteSignupGetResponse = {
+  invite_valid: boolean;
+  email_already_registered?: boolean;
+  error?: string;
+  organization?: Organization;
+  email?: string;
+  name?: string;
+  bio?: string;
+  expires_at?: string | null;
+  invite_expires_at?: string;
+};
+
 const panelBase = "flex-1 flex flex-col justify-center items-center p-8";
 const panelLeft =
   "bg-[radial-gradient(ellipse_80%_60%_at_30%_50%,rgba(110,91,255,0.15),transparent),linear-gradient(180deg,rgba(20,20,25,0.98)_0%,rgba(15,15,20,0.99)_100%)] border-r border-white/[0.06] md:min-h-0 min-h-[40vh] md:border-b-0 border-b border-white/[0.06]";
@@ -34,41 +46,77 @@ const formCard =
   "w-full max-w-[400px] p-10 rounded-2xl border border-white/[0.08] shadow-2xl bg-[var(--modal-bg-color,rgba(28,28,32,0.98))]";
 
 export default function Signup() {
+  const [searchParams] = useSearchParams();
+  const inviteToken = searchParams.get("invite");
+  const orgId = searchParams.get("orgId");
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [organizationName, setOrganizationName] = useState("");
   const [message, setMessage] = useState("");
   const [organization, setOrganization] = useState<Organization | null>(null);
+  const [inviteData, setInviteData] = useState<InviteSignupGetResponse | null>(null);
   const [loading, setLoading] = useState(false);
-  const [loadingOrg, setLoadingOrg] = useState(false);
-
-  const [searchParams] = useSearchParams();
-  const orgId = searchParams.get("orgId");
+  const [loadingOrg, setLoadingOrg] = useState(() => Boolean(inviteToken || orgId));
 
   const navigate = useNavigate();
   const { t } = useTranslation();
 
-  // If orgId is in the URL, fetch organization details
+  // Invite token signup (email invitation) or orgId link or open signup
   useEffect(() => {
-    if (!orgId) return;
+    let cancelled = false;
 
-    setLoadingOrg(true);
-    const fetchOrganization = async () => {
-      try {
-        const response = await axios.get<Organization>(
-          `${API_URL}/v1/auth/signup?orgId=${orgId}`
-        );
-        setOrganization(response.data);
-      } catch {
-        setOrganization(null);
-      } finally {
-        setLoadingOrg(false);
+    async function load() {
+      if (inviteToken) {
+        setLoadingOrg(true);
+        try {
+          const { data } = await axios.get<InviteSignupGetResponse>(
+            `${API_URL}/v1/auth/signup?invite=${encodeURIComponent(inviteToken)}`
+          );
+          if (!cancelled) setInviteData(data);
+        } catch {
+          if (!cancelled) {
+            setInviteData({
+              invite_valid: false,
+              error: "invalid-or-expired-invite",
+            });
+          }
+        } finally {
+          if (!cancelled) setLoadingOrg(false);
+        }
+        return;
       }
-    };
 
-    fetchOrganization();
-  }, [orgId]);
+      if (orgId) {
+        setLoadingOrg(true);
+        try {
+          const response = await axios.get<Organization>(
+            `${API_URL}/v1/auth/signup?orgId=${orgId}`
+          );
+          if (!cancelled) setOrganization(response.data);
+        } catch {
+          if (!cancelled) setOrganization(null);
+        } finally {
+          if (!cancelled) setLoadingOrg(false);
+        }
+        return;
+      }
+
+      setInviteData(null);
+      setOrganization(null);
+      setLoadingOrg(false);
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [inviteToken, orgId]);
+
+  useEffect(() => {
+    if (inviteData?.email) setEmail(inviteData.email);
+  }, [inviteData?.email]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,6 +129,36 @@ export default function Signup() {
       toast.error(t("passwords-do-not-match"));
       return;
     }
+
+    // Email invitation — password only (email bound to invite)
+    if (inviteToken && inviteData?.invite_valid) {
+      setLoading(true);
+      setMessage("");
+      try {
+        await axios.post(`${API_URL}/v1/auth/signup`, {
+          invite_token: inviteToken,
+          password,
+          confirm_password: confirmPassword,
+        });
+        toast.success(t("user-created-succesfully-please-login"));
+        navigate("/login");
+      } catch (error: any) {
+        const msg =
+          error.response?.data?.error ||
+          error.response?.data?.detail ||
+          error.response?.data?.password?.[0] ||
+          error.response?.data?.confirm_password?.[0] ||
+          error.response?.data?.invite_token?.[0] ||
+          error.response?.data?.non_field_errors?.[0] ||
+          t("an-error-occurred");
+        setMessage(typeof msg === "string" ? msg : t("an-error-occurred"));
+        toast.error(typeof msg === "string" ? msg : t("an-error-occurred"));
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     if (!orgId && !organizationName.trim()) {
       toast.error(t("organization-name-required"));
       return;
@@ -120,6 +198,7 @@ export default function Signup() {
   };
 
   const handleGoogleAccessToken = async (accessToken: string) => {
+    if (inviteToken) return;
     setLoading(true);
     try {
       const response = await axios.post(API_URL + "/v1/auth/google", {
@@ -142,8 +221,11 @@ export default function Signup() {
   const getInitialForLogo = (name: string) =>
     name.trim().slice(0, 2).toUpperCase() || "O";
 
-  // Loading org details
-  if (loadingOrg) {
+  const isEmailInviteFlow = Boolean(inviteToken && inviteData?.invite_valid);
+  const showGoogle = hasGoogleOAuthClientId && !inviteToken;
+
+  // Loading invite or org details
+  if (loadingOrg && (inviteToken || orgId)) {
     return (
       <div className="min-h-screen flex flex-col md:flex-row bg-[var(--bg-color,#0a0a0a)] text-[var(--font-color,#fff)]">
         <div className={`${panelBase} ${panelLeft}`}>
@@ -163,8 +245,74 @@ export default function Signup() {
     );
   }
 
-  // Org ID provided but org not found
-  if (orgId && !loadingOrg && !organization) {
+  // Invalid or expired email invite
+  if (inviteToken && inviteData && !inviteData.invite_valid && !inviteData.email_already_registered) {
+    return (
+      <div className="min-h-screen flex flex-col md:flex-row bg-[var(--bg-color,#0a0a0a)] text-[var(--font-color,#fff)]">
+        <div className={`${panelBase} ${panelLeft}`}>
+          <div className="text-center max-w-[360px]">
+            <Title order={2} mb="sm">
+              {t("signup")}
+            </Title>
+            <Text size="sm" c="dimmed">
+              {t("invite-invalid-or-expired")}
+            </Text>
+          </div>
+        </div>
+        <div className={`${panelBase} ${panelRight}`}>
+          <div className={formCard}>
+            <Title order={2} ta="center" mb="md">
+              {t("signup")}
+            </Title>
+            <Text ta="center" c="dimmed">
+              {t("invite-invalid-or-expired")}
+            </Text>
+            <Text ta="center" mt="xl" size="sm">
+              <Anchor component={Link} to="/login" c="violet">
+                {t("switch-to-login")}
+              </Anchor>
+            </Text>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Email already registered for this invite
+  if (inviteToken && inviteData?.email_already_registered) {
+    return (
+      <div className="min-h-screen flex flex-col md:flex-row bg-[var(--bg-color,#0a0a0a)] text-[var(--font-color,#fff)]">
+        <div className={`${panelBase} ${panelLeft}`}>
+          <div className="text-center max-w-[360px]">
+            <Title order={2} mb="sm">
+              {t("signup")}
+            </Title>
+            <Text size="sm" c="dimmed">
+              {t("invite-email-already-registered")}
+            </Text>
+          </div>
+        </div>
+        <div className={`${panelBase} ${panelRight}`}>
+          <div className={formCard}>
+            <Title order={2} ta="center" mb="md">
+              {t("signup")}
+            </Title>
+            <Text ta="center" c="dimmed">
+              {t("invite-email-already-registered")}
+            </Text>
+            <Text ta="center" mt="xl" size="sm">
+              <Anchor component={Link} to="/login" c="violet">
+                {t("switch-to-login")}
+              </Anchor>
+            </Text>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Org ID provided but org not found (generic link)
+  if (orgId && !inviteToken && !organization) {
     return (
       <div className="min-h-screen flex flex-col md:flex-row bg-[var(--bg-color,#0a0a0a)] text-[var(--font-color,#fff)]">
         <div className={`${panelBase} ${panelLeft}`}>
@@ -199,15 +347,46 @@ export default function Signup() {
     );
   }
 
-  // Invited signup (has org) or open signup (no org)
-  const isInvited = !!orgId && !!organization;
+  const inviteOrg = inviteData?.organization;
+  const isInvitedOrgLink = !!orgId && !!organization && !inviteToken;
+  const leftOrg = isEmailInviteFlow ? inviteOrg : organization;
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-[var(--bg-color,#0a0a0a)] text-[var(--font-color,#fff)]">
       {/* Left panel */}
       <div className={`${panelBase} ${panelLeft}`}>
         <div className="text-center max-w-[380px]">
-          {isInvited ? (
+          {isEmailInviteFlow && leftOrg ? (
+            <>
+              {leftOrg.logo_url ? (
+                <img
+                  src={`${API_URL}${leftOrg.logo_url}`}
+                  alt={leftOrg.name}
+                  className="block w-[88px] h-[88px] mx-auto mb-6 rounded-2xl object-cover border border-white/10 bg-white/5"
+                />
+              ) : (
+                <div className="w-[88px] h-[88px] mx-auto mb-6 rounded-2xl flex items-center justify-center bg-[rgba(110,91,255,0.2)] border border-[rgba(110,91,255,0.3)] text-3xl font-semibold text-white/90 uppercase">
+                  {getInitialForLogo(leftOrg.name)}
+                </div>
+              )}
+              <Text
+                size="xs"
+                c="dimmed"
+                className="uppercase tracking-wider"
+                mb="xs"
+              >
+                {t("joining")}
+              </Text>
+              <Title order={1} className="!text-[1.75rem] !font-semibold !mb-3">
+                {leftOrg.name}
+              </Title>
+              {leftOrg.description && (
+                <Text size="sm" c="dimmed" className="leading-relaxed">
+                  {leftOrg.description}
+                </Text>
+              )}
+            </>
+          ) : isInvitedOrgLink ? (
             <>
               {organization?.logo_url ? (
                 <img
@@ -257,10 +436,10 @@ export default function Signup() {
       <div className={`${panelBase} ${panelRight}`}>
         <div className={formCard}>
           <Title order={2} ta="center" mb="xl">
-            {t("signup")}
+            {isEmailInviteFlow ? t("signup-invite-set-password") : t("signup")}
           </Title>
 
-          {hasGoogleOAuthClientId && (
+          {showGoogle && (
             <>
               <GoogleSignInButton
                 onAccessToken={handleGoogleAccessToken}
@@ -279,6 +458,7 @@ export default function Signup() {
                 value={email}
                 onChange={(e) => setEmail(e.currentTarget.value)}
                 required
+                readOnly={isEmailInviteFlow}
                 name="email"
                 autoComplete="email"
                 variant="filled"
@@ -317,7 +497,7 @@ export default function Signup() {
                 }
               />
 
-              {!isInvited && (
+              {!isEmailInviteFlow && !isInvitedOrgLink && (
                 <TextInput
                   label={t("organization-name")}
                   placeholder={t("organization-name")}
@@ -344,7 +524,7 @@ export default function Signup() {
                 mt="xs"
                 leftSection={!loading ? <IconUserPlus size={18} /> : undefined}
               >
-                {t("signup")}
+                {isEmailInviteFlow ? t("signup-invite-submit") : t("signup")}
               </Button>
             </Stack>
           </form>

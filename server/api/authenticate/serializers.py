@@ -1,7 +1,16 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
-from .models import Organization, CredentialsManager, UserProfile, FeatureFlag, FeatureFlagAssignment, Role, RoleAssignment
+from .models import (
+    Organization,
+    CredentialsManager,
+    UserProfile,
+    FeatureFlag,
+    FeatureFlagAssignment,
+    Role,
+    RoleAssignment,
+    OrganizationInvite,
+)
 from rest_framework.exceptions import ValidationError
 from django.db import transaction
 
@@ -102,6 +111,43 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
             raise ValidationError("Passwords do not match.")
 
         validate_password(attrs["new_password"])
+        return attrs
+
+
+class OrganizationInviteCreateSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    name = serializers.CharField(required=False, allow_blank=True, max_length=255, default="")
+    bio = serializers.CharField(required=False, allow_blank=True, default="")
+    expires_at = serializers.DateTimeField(required=False, allow_null=True)
+
+
+class OrganizationInviteReadSerializer(serializers.ModelSerializer):
+    expires_at = serializers.DateTimeField(source="profile_expires_at", read_only=True)
+
+    class Meta:
+        model = OrganizationInvite
+        fields = [
+            "id",
+            "email",
+            "name",
+            "bio",
+            "expires_at",
+            "status",
+            "invite_expires_at",
+            "created_at",
+            "accepted_at",
+        ]
+
+
+class InviteSignupSerializer(serializers.Serializer):
+    invite_token = serializers.CharField(write_only=True)
+    password = serializers.CharField(write_only=True, min_length=8)
+    confirm_password = serializers.CharField(write_only=True, min_length=8)
+
+    def validate(self, attrs):
+        if attrs["password"] != attrs["confirm_password"]:
+            raise ValidationError({"confirm_password": "Passwords do not match."})
+        validate_password(attrs["password"])
         return attrs
 
 

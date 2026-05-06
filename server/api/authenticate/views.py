@@ -27,8 +27,20 @@ from .serializers import (
     RoleCreateUpdateSerializer,
     RoleAssignmentSerializer,
     RoleAssignmentCreateSerializer,
+    OrganizationInviteCreateSerializer,
+    OrganizationInviteReadSerializer,
+    InviteSignupSerializer,
 )
-from .models import Token, Organization, UserProfile, Role, RoleAssignment, FeatureFlag
+from .models import (
+    Token,
+    Organization,
+    UserProfile,
+    Role,
+    RoleAssignment,
+    FeatureFlag,
+    OrganizationInvite,
+    hash_organization_invite_token,
+)
 from django.contrib.auth.models import User
 from django.utils import timezone
 from django.db.models import Q
@@ -51,7 +63,43 @@ from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from api.utils.email_service import EmailService
 import requests as http_requests
 
+from django.db import transaction
+
 logger = logging.getLogger(__name__)
+
+ORG_INVITE_VALID_DAYS = 7
+
+
+def _frontend_base_url(request):
+    frontend_url = getattr(settings, "FRONTEND_URL", "").rstrip("/")
+    if not frontend_url:
+        scheme = "https" if request.is_secure() else "http"
+        frontend_url = f"{scheme}://{request.get_host()}"
+    return frontend_url
+
+
+def _send_organization_invite_email(request, *, invite_email: str, organization_name: str, signup_url: str) -> None:
+    html = f"""
+        <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+            <h2>You have been invited</h2>
+            <p>You have been invited to join <strong>{organization_name}</strong> on Masscer.</p>
+            <p>
+                <a href="{signup_url}" style="display:inline-block;padding:10px 16px;background:#6e5bff;color:#fff;text-decoration:none;border-radius:6px;">
+                    Accept invitation
+                </a>
+            </p>
+            <p>If the button does not work, open this link:</p>
+            <p><a href="{signup_url}">{signup_url}</a></p>
+            <p>If you did not expect this email, you can ignore it.</p>
+        </div>
+    """.strip()
+    email_service = EmailService()
+    email_service.send_email(
+        to=invite_email,
+        subject=f"Invitation to join {organization_name}",
+        html=html,
+        from_name="Masscer",
+    )
 
 # from api.utils.color_printer import printer
 
@@ -62,32 +110,80 @@ class SignupAPIView(APIView):
     authentication_classes = []  # No auth before signup; avoids DRF SessionAuthentication CSRF
 
     def get(self, request):
-        org_id = request.query_params.get('orgId')
+        invite_token = request.query_params.get("invite")
+        if invite_token:
+            return self._signup_invite_get(request, invite_token.strip())
+
+        org_id = request.query_params.get("orgId")
         if not org_id:
             return Response(
                 {"open_signup": True},
                 status=status.HTTP_200_OK,
             )
-        
+
         try:
             organization = Organization.objects.get(id=org_id)
         except Organization.DoesNotExist:
             return Response(
-                {"error": "Organization not found"}, 
-                status=status.HTTP_404_NOT_FOUND
+                {"error": "Organization not found"},
+                status=status.HTTP_404_NOT_FOUND,
             )
         except (ValueError, ValidationError):
             return Response(
-                {"error": "Invalid organization ID format"}, 
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": "Invalid organization ID format"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
-        
+
         serializer = PublicOrganizationSerializer(
             organization, context={"request": request}
         )
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    def _signup_invite_get(self, request, invite_token: str):
+        invite = OrganizationInvite.lookup_by_raw_token(invite_token)
+        if not invite:
+            return Response(
+                {"invite_valid": False, "error": "invalid-or-expired-invite"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        invite.mark_expired_if_needed()
+        invite.refresh_from_db()
+        if invite.status != OrganizationInvite.Status.PENDING:
+            return Response(
+                {"invite_valid": False, "error": "invalid-or-expired-invite"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if invite.is_invite_expired():
+            invite.mark_expired_if_needed()
+            return Response(
+                {"invite_valid": False, "error": "invalid-or-expired-invite"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        email_registered = User.objects.filter(email__iexact=invite.email).exists()
+        org_data = PublicOrganizationSerializer(
+            invite.organization, context={"request": request}
+        ).data
+        return Response(
+            {
+                "invite_valid": not email_registered,
+                "email_already_registered": email_registered,
+                "organization": org_data,
+                "email": invite.email,
+                "name": invite.name or "",
+                "bio": invite.bio or "",
+                "expires_at": invite.profile_expires_at.isoformat()
+                if invite.profile_expires_at
+                else None,
+                "invite_expires_at": invite.invite_expires_at.isoformat(),
+            },
+            status=status.HTTP_200_OK,
+        )
+
     def post(self, request):
+        if request.data.get("invite_token"):
+            return self._post_invite_signup(request)
+
         serializer = SignupSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
@@ -95,6 +191,84 @@ class SignupAPIView(APIView):
                 {"message": "User created successfully"}, status=status.HTTP_201_CREATED
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def _post_invite_signup(self, request):
+        serializer = InviteSignupSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        raw_token = serializer.validated_data["invite_token"].strip()
+        password = serializer.validated_data["password"]
+
+        invite = OrganizationInvite.lookup_by_raw_token(raw_token)
+        if not invite:
+            return Response(
+                {"error": "invalid-or-expired-invite"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        invite.mark_expired_if_needed()
+        invite.refresh_from_db()
+        if invite.status != OrganizationInvite.Status.PENDING:
+            return Response(
+                {"error": "invalid-or-expired-invite"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if invite.is_invite_expired():
+            return Response(
+                {"error": "invalid-or-expired-invite"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if User.objects.filter(email__iexact=invite.email).exists():
+            return Response(
+                {"error": "email-already-registered"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        with transaction.atomic():
+            invite_locked = OrganizationInvite.objects.select_for_update().get(pk=invite.pk)
+            if invite_locked.status != OrganizationInvite.Status.PENDING:
+                return Response(
+                    {"error": "invalid-or-expired-invite"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            email = invite_locked.email
+            base_username = email.split("@")[0]
+            username = base_username
+            suffix = 1
+            while User.objects.filter(username=username).exists():
+                username = f"{base_username}{suffix}"
+                suffix += 1
+
+            user = User.objects.create_user(
+                username=username,
+                email=email,
+                password=password,
+            )
+            profile, _ = UserProfile.objects.get_or_create(user=user)
+            profile.organization = invite_locked.organization
+            profile.name = invite_locked.name or ""
+            profile.bio = invite_locked.bio or ""
+            profile.expires_at = invite_locked.profile_expires_at
+            profile.save()
+
+            now = timezone.now()
+            invite_locked.status = OrganizationInvite.Status.ACCEPTED
+            invite_locked.accepted_at = now
+            invite_locked.accepted_user = user
+            invite_locked.save(
+                update_fields=[
+                    "status",
+                    "accepted_at",
+                    "accepted_user",
+                    "updated_at",
+                ]
+            )
+
+        return Response(
+            {"message": "User created successfully"},
+            status=status.HTTP_201_CREATED,
+        )
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -794,7 +968,6 @@ class OrganizationMembersView(View):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-        from django.db import transaction
         with transaction.atomic():
             user = User.objects.create_user(username=username, email=email, password=password)
             profile, _ = UserProfile.objects.get_or_create(user=user)
@@ -818,6 +991,152 @@ class OrganizationMembersView(View):
             },
             status=status.HTTP_201_CREATED,
         )
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class OrganizationInvitesView(View):
+    """List (GET) or create + email (POST) organization member invites."""
+
+    def get(self, request, organization_id):
+        try:
+            organization = Organization.objects.get(id=organization_id)
+        except Organization.DoesNotExist:
+            return JsonResponse(
+                {"error": "Organization not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        if not _can_manage_organization(request.user, organization):
+            return JsonResponse(
+                {"error": "You do not have permission"}, status=status.HTTP_403_FORBIDDEN
+            )
+
+        invites = OrganizationInvite.objects.filter(organization=organization).order_by(
+            "-created_at"
+        )[:200]
+        serializer = OrganizationInviteReadSerializer(invites, many=True)
+        return JsonResponse(serializer.data, safe=False)
+
+    def post(self, request, organization_id):
+        try:
+            organization = Organization.objects.get(id=organization_id)
+        except Organization.DoesNotExist:
+            return JsonResponse(
+                {"error": "Organization not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        if not _can_manage_organization(request.user, organization):
+            return JsonResponse(
+                {"error": "You do not have permission"}, status=status.HTTP_403_FORBIDDEN
+            )
+
+        data = json.loads(request.body) if request.body else {}
+        ser = OrganizationInviteCreateSerializer(data=data)
+        if not ser.is_valid():
+            return JsonResponse(ser.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        normalized_email = ser.validated_data["email"].strip().lower()
+        name = (ser.validated_data.get("name") or "").strip()
+        bio = (ser.validated_data.get("bio") or "").strip()
+        profile_expires_at = ser.validated_data.get("expires_at")
+
+        if User.objects.filter(email__iexact=normalized_email).exists():
+            return JsonResponse(
+                {"error": "Email already registered"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        now = timezone.now()
+        invite_deadline = now + timezone.timedelta(days=ORG_INVITE_VALID_DAYS)
+        raw_token = OrganizationInvite.generate_raw_token()
+        digest = hash_organization_invite_token(raw_token)
+
+        pending = OrganizationInvite.objects.filter(
+            organization=organization,
+            email__iexact=normalized_email,
+            status=OrganizationInvite.Status.PENDING,
+        ).first()
+
+        if pending:
+            pending.token_hash = digest
+            pending.invite_expires_at = invite_deadline
+            pending.name = name
+            pending.bio = bio
+            pending.profile_expires_at = profile_expires_at
+            pending.invited_by = request.user
+            pending.save()
+            invite = pending
+        else:
+            invite = OrganizationInvite.objects.create(
+                organization=organization,
+                email=normalized_email,
+                name=name,
+                bio=bio,
+                profile_expires_at=profile_expires_at,
+                invited_by=request.user,
+                token_hash=digest,
+                status=OrganizationInvite.Status.PENDING,
+                invite_expires_at=invite_deadline,
+            )
+
+        signup_url = f"{_frontend_base_url(request)}/signup?invite={raw_token}"
+        try:
+            from django.utils.html import escape
+
+            _send_organization_invite_email(
+                request,
+                invite_email=normalized_email,
+                organization_name=escape(organization.name),
+                signup_url=signup_url,
+            )
+        except Exception:
+            logger.exception("Failed to send organization invite email")
+            return JsonResponse(
+                {"error": "Failed to send invite email"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        out = OrganizationInviteReadSerializer(invite).data
+        return JsonResponse(
+            {"message": "Invitation sent", "invite": out},
+            status=status.HTTP_201_CREATED,
+        )
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class OrganizationInviteDetailView(View):
+    """Revoke (DELETE) a pending invite."""
+
+    def delete(self, request, organization_id, invite_id):
+        try:
+            organization = Organization.objects.get(id=organization_id)
+        except Organization.DoesNotExist:
+            return JsonResponse(
+                {"error": "Organization not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        if not _can_manage_organization(request.user, organization):
+            return JsonResponse(
+                {"error": "You do not have permission"}, status=status.HTTP_403_FORBIDDEN
+            )
+
+        try:
+            invite = OrganizationInvite.objects.get(
+                id=invite_id, organization=organization
+            )
+        except OrganizationInvite.DoesNotExist:
+            return JsonResponse(
+                {"error": "Invite not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        if invite.status != OrganizationInvite.Status.PENDING:
+            return JsonResponse(
+                {"error": "Invite cannot be revoked"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        invite.status = OrganizationInvite.Status.CANCELLED
+        invite.save(update_fields=["status", "updated_at"])
+        return JsonResponse({"message": "Invitation cancelled"}, status=status.HTTP_200_OK)
 
 
 @method_decorator(csrf_exempt, name="dispatch")

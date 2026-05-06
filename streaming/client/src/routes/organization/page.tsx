@@ -7,18 +7,20 @@ import {
   createBillingPortalSession,
   createCheckoutSession,
   createOrganization,
-  createOrganizationMember,
+  createOrganizationInvite,
   createOrganizationRole,
   deactivateOrganizationMember,
   deleteOrganizationRole,
   getFeatureFlagNames,
   getOrganizationBilling,
   getOrganizationMembers,
+  getOrganizationInvites,
   getOrganizationRoles,
   getUserOrganizations,
   reactivateOrganizationSubscription,
   removeOrganizationMember,
   removeRoleAssignment,
+  revokeOrganizationInvite,
   TOrganizationData,
   updateOrganization,
   updateOrganizationMemberProfile,
@@ -29,6 +31,7 @@ import {
   TOrganization,
   TOrganizationBilling,
   TOrganizationMember,
+  TOrganizationInvite,
   TOrganizationRole,
 } from "../../types";
 import { useTranslation } from "react-i18next";
@@ -203,17 +206,17 @@ export default function OrganizationPage() {
   } | null>(null);
   const [memberActionLoading, setMemberActionLoading] = useState(false);
 
-  // Create member modal
+  // Invite member modal (email invite — user sets password via link)
   const [createMemberOpened, setCreateMemberOpened] = useState(false);
   const [createMemberForm, setCreateMemberForm] = useState({
-    username: "",
     email: "",
-    password: "",
     name: "",
     bio: "",
     expires_at: "",
   });
   const [createMemberLoading, setCreateMemberLoading] = useState(false);
+  const [invites, setInvites] = useState<TOrganizationInvite[]>([]);
+  const [loadingInvites, setLoadingInvites] = useState(false);
 
   // Edit member modal
   const [editingMember, setEditingMember] = useState<TOrganizationMember | null>(null);
@@ -296,10 +299,29 @@ export default function OrganizationPage() {
   }, [org?.id]);
 
   useEffect(() => {
+    if (!org?.id) {
+      setInvites([]);
+      return;
+    }
+    setLoadingInvites(true);
+    getOrganizationInvites(org.id)
+      .then(setInvites)
+      .catch(() => setInvites([]))
+      .finally(() => setLoadingInvites(false));
+  }, [org?.id]);
+
+  useEffect(() => {
     getFeatureFlagNames()
       .then(setFeatureFlagNames)
       .catch(() => setFeatureFlagNames([]));
   }, []);
+
+  const reloadInvites = () => {
+    if (org?.id)
+      getOrganizationInvites(org.id)
+        .then(setInvites)
+        .catch(() => setInvites([]));
+  };
 
   const inviteUrl = org
     ? `${window.location.origin}/signup?orgId=${org.id}`
@@ -516,31 +538,43 @@ export default function OrganizationPage() {
 
   const handleCreateMember = async () => {
     if (!org?.id) return;
-    const { username, email, password, name, bio, expires_at } = createMemberForm;
-    if (!username.trim() || !email.trim() || !password) {
-      toast.error(t("username-required-hint"));
+    const { email, name, bio, expires_at } = createMemberForm;
+    if (!email.trim()) {
+      toast.error(t("email-required-hint"));
       return;
     }
     setCreateMemberLoading(true);
     const tid = toast.loading(t("loading"));
     try {
-      const newMember = await createOrganizationMember(org.id, {
-        username: username.trim(),
+      await createOrganizationInvite(org.id, {
         email: email.trim(),
-        password,
         name: name.trim() || undefined,
         bio: bio.trim() || undefined,
         expires_at: expires_at ? new Date(expires_at).toISOString() : null,
       });
-      setMembers((prev) => [...prev, newMember]);
       setCreateMemberOpened(false);
-      setCreateMemberForm({ username: "", email: "", password: "", name: "", bio: "", expires_at: "" });
-      toast.success(t("member-created"));
+      setCreateMemberForm({ email: "", name: "", bio: "", expires_at: "" });
+      toast.success(t("invite-sent-success"));
+      reloadInvites();
     } catch (e: any) {
-      toast.error(e?.response?.data?.error || t("an-error-occurred"));
+      toast.error(e?.response?.data?.error || e?.response?.data?.detail || t("an-error-occurred"));
     } finally {
       toast.dismiss(tid);
       setCreateMemberLoading(false);
+    }
+  };
+
+  const handleRevokeInvite = async (invite: TOrganizationInvite) => {
+    if (!org?.id) return;
+    const tid = toast.loading(t("loading"));
+    try {
+      await revokeOrganizationInvite(org.id, invite.id);
+      toast.success(t("invite-revoked"));
+      reloadInvites();
+    } catch {
+      toast.error(t("an-error-occurred"));
+    } finally {
+      toast.dismiss(tid);
     }
   };
 
@@ -980,6 +1014,49 @@ export default function OrganizationPage() {
                     )}
                   </Card>
 
+                  {/* Pending email invitations */}
+                  <Card withBorder p="lg">
+                    <Group justify="space-between" mb="md">
+                      <Title order={4}>{t("pending-invitations")}</Title>
+                    </Group>
+                    {loadingInvites ? (
+                      <Stack align="center" py="sm">
+                        <Loader color="violet" size="sm" />
+                      </Stack>
+                    ) : invites.filter((i) => i.status === "pending").length === 0 ? (
+                      <Text size="sm" c="dimmed">
+                        {t("no-pending-invitations")}
+                      </Text>
+                    ) : (
+                      <Stack gap="sm">
+                        {invites
+                          .filter((i) => i.status === "pending")
+                          .map((inv) => (
+                            <Card key={inv.id} withBorder p="sm" style={{ background: "rgba(255,255,255,0.02)" }}>
+                              <Group justify="space-between" wrap="nowrap" gap="sm">
+                                <Stack gap={2} style={{ minWidth: 0, flex: 1 }}>
+                                  <Text fw={500} truncate>
+                                    {inv.email}
+                                  </Text>
+                                  <Text size="xs" c="dimmed">
+                                    {t("invite-expires")}: {new Date(inv.invite_expires_at).toLocaleString()}
+                                  </Text>
+                                </Stack>
+                                <Button
+                                  variant="light"
+                                  color="red"
+                                  size="xs"
+                                  onClick={() => handleRevokeInvite(inv)}
+                                >
+                                  {t("cancel-invite")}
+                                </Button>
+                              </Group>
+                            </Card>
+                          ))}
+                      </Stack>
+                    )}
+                  </Card>
+
                   {/* Members list */}
                   <Card withBorder p="lg">
                     <Group justify="space-between" mb="md">
@@ -989,7 +1066,7 @@ export default function OrganizationPage() {
                         leftSection={<IconPlus size={14} />}
                         onClick={() => setCreateMemberOpened(true)}
                       >
-                        {t("create-member")}
+                        {t("invite-member")}
                       </Button>
                     </Group>
 
@@ -1573,31 +1650,18 @@ export default function OrganizationPage() {
         opened={createMemberOpened}
         onClose={() => {
           setCreateMemberOpened(false);
-          setCreateMemberForm({ username: "", email: "", password: "", name: "", bio: "", expires_at: "" });
+          setCreateMemberForm({ email: "", name: "", bio: "", expires_at: "" });
         }}
-        title={t("create-member")}
+        title={t("invite-member")}
         centered
       >
         <Stack gap="md">
-          <TextInput
-            label={t("username")}
-            required
-            value={createMemberForm.username}
-            onChange={(e) => setCreateMemberForm({ ...createMemberForm, username: e.currentTarget.value })}
-          />
           <TextInput
             label={t("email")}
             type="email"
             required
             value={createMemberForm.email}
             onChange={(e) => setCreateMemberForm({ ...createMemberForm, email: e.currentTarget.value })}
-          />
-          <TextInput
-            label={t("password")}
-            type="password"
-            required
-            value={createMemberForm.password}
-            onChange={(e) => setCreateMemberForm({ ...createMemberForm, password: e.currentTarget.value })}
           />
           <TextInput
             label={t("name-optional")}
@@ -1619,15 +1683,18 @@ export default function OrganizationPage() {
             onChange={(e) => setCreateMemberForm({ ...createMemberForm, expires_at: e.currentTarget.value })}
             description={t("expires-at-description")}
           />
+          <Text size="xs" c="dimmed">
+            {t("invite-member-email-hint")}
+          </Text>
           <Group>
             <Button onClick={handleCreateMember} loading={createMemberLoading} flex={1}>
-              {t("create")}
+              {t("send-invite")}
             </Button>
             <Button
               variant="default"
               onClick={() => {
                 setCreateMemberOpened(false);
-                setCreateMemberForm({ username: "", email: "", password: "", name: "", bio: "", expires_at: "" });
+                setCreateMemberForm({ email: "", name: "", bio: "", expires_at: "" });
               }}
             >
               {t("cancel")}

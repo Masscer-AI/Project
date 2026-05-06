@@ -10,6 +10,7 @@ import {
   TOrganization,
   TOrganizationCredentials,
   TOrganizationMember,
+  TOrganizationInvite,
   TOrganizationRole,
   TRoleAssignment,
   TConversationAlert,
@@ -1338,6 +1339,39 @@ export const createOrganizationMember = async (
     "POST",
     `/v1/auth/organizations/${organizationId}/members/`,
     data
+  );
+};
+
+export const createOrganizationInvite = async (
+  organizationId: string,
+  data: {
+    email: string;
+    name?: string;
+    bio?: string;
+    expires_at?: string | null;
+  }
+) => {
+  return makeAuthenticatedRequest<{ message: string; invite: TOrganizationInvite }>(
+    "POST",
+    `/v1/auth/organizations/${organizationId}/invites/`,
+    data
+  );
+};
+
+export const getOrganizationInvites = async (organizationId: string) => {
+  return makeAuthenticatedRequest<TOrganizationInvite[]>(
+    "GET",
+    `/v1/auth/organizations/${organizationId}/invites/`
+  );
+};
+
+export const revokeOrganizationInvite = async (
+  organizationId: string,
+  inviteId: string
+) => {
+  return makeAuthenticatedRequest<{ message: string }>(
+    "DELETE",
+    `/v1/auth/organizations/${organizationId}/invites/${inviteId}/`
   );
 };
 

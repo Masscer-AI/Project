@@ -1,3 +1,5 @@
+import hashlib
+import secrets
 import uuid
 import os
 from django.db import models
@@ -508,3 +510,96 @@ class RoleAssignment(models.Model):
             self.from_date <= today and
             (self.to_date is None or self.to_date >= today)
         )
+
+
+def hash_organization_invite_token(raw_token: str) -> str:
+    """SHA-256 hex digest for storing invite tokens (never store raw tokens)."""
+    return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+
+
+class OrganizationInvite(models.Model):
+    """Email invite to join an organization; user completes signup with password via token link."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        ACCEPTED = "accepted", "Accepted"
+        CANCELLED = "cancelled", "Cancelled"
+        EXPIRED = "expired", "Expired"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name="invites",
+    )
+    email = models.EmailField()
+    name = models.CharField(max_length=255, blank=True, default="")
+    bio = models.TextField(blank=True, default="")
+    profile_expires_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Prefilled membership expiry on UserProfile when invite is accepted.",
+    )
+    invited_by = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="organization_invites_sent",
+    )
+    token_hash = models.CharField(max_length=64, unique=True)
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+        db_index=True,
+    )
+    invite_expires_at = models.DateTimeField()
+    accepted_at = models.DateTimeField(null=True, blank=True)
+    accepted_user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="accepted_organization_invites",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Organization invite"
+        verbose_name_plural = "Organization invites"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "email"],
+                condition=models.Q(status="pending"),
+                name="unique_pending_org_invite_email",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["organization", "status"]),
+        ]
+
+    def __str__(self):
+        return f"Invite<{self.email}>@{self.organization_id} ({self.status})"
+
+    @staticmethod
+    def generate_raw_token() -> str:
+        return secrets.token_urlsafe(48)
+
+    @classmethod
+    def lookup_by_raw_token(cls, raw_token: str):
+        if not raw_token:
+            return None
+        digest = hash_organization_invite_token(raw_token.strip())
+        return cls.objects.filter(token_hash=digest).select_related("organization").first()
+
+    def is_invite_expired(self, now=None):
+        now = now or timezone.now()
+        return self.invite_expires_at <= now
+
+    def mark_expired_if_needed(self, now=None):
+        now = now or timezone.now()
+        if self.status == self.Status.PENDING and self.invite_expires_at <= now:
+            self.status = self.Status.EXPIRED
+            self.save(update_fields=["status", "updated_at"])
+            return True
+        return False
