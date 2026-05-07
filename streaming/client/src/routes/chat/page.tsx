@@ -19,7 +19,6 @@ import {
   triggerAgentTask,
   buildClientDatetimePayload,
   uploadMessageAttachments,
-  updateConversation,
 } from "../../modules/apiCalls";
 
 export default function ChatView() {
@@ -329,15 +328,6 @@ export default function ChatView() {
         client_datetime: buildClientDatetimePayload(),
       });
 
-      const relatedAgents = selectedAgents
-        .filter((a) => a.id != null)
-        .map((a) => ({ id: Number(a.id) }));
-      if (!isViewer) {
-        await updateConversation(currentConversation.id, {
-          metadata: { related_agents: relatedAgents },
-        });
-      }
-
       cleanAttachments();
       setSpecifiedUrls([]);
       scrollChat();
@@ -431,15 +421,6 @@ export default function ChatView() {
           regenerate_message_id: regenPayload.userId,
           client_datetime: buildClientDatetimePayload(),
         });
-
-        const relatedAgents = selectedAgents
-          .filter((a) => a.id != null)
-          .map((a) => ({ id: Number(a.id) }));
-        if (!isViewer) {
-          await updateConversation(currentConversation.id, {
-            metadata: { related_agents: relatedAgents },
-          });
-        }
 
         scrollChat();
       } catch (error) {

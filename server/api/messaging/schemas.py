@@ -103,3 +103,11 @@ class ConversationMetadata(BaseModel):
         description="Agents associated with this conversation UI selection, in order",
     )
 
+
+def metadata_payload_for_related_agents(agent_ids_in_order: list[int]) -> dict:
+    """Build validated ``Conversation.metadata`` for UI agent selection (send order)."""
+    meta = ConversationMetadata(
+        related_agents=[ConversationRelatedAgent(id=aid) for aid in agent_ids_in_order]
+    )
+    return meta.model_dump(mode="json", exclude_none=True)
+

@@ -1,4 +1,8 @@
-from django.test import SimpleTestCase
+from unittest.mock import Mock, patch
+
+from django.contrib.auth.models import User
+from django.test import SimpleTestCase, TestCase
+from rest_framework.test import APIClient
 
 
 class ConversationTaggingToolsRegistryTests(SimpleTestCase):
@@ -153,3 +157,49 @@ class VertexGeminiTextHelpersTests(SimpleTestCase):
         from api.utils.vertex_gemini_text import DEFAULT_VERTEX_TEXT_MODEL
 
         self.assertEqual(DEFAULT_VERTEX_TEXT_MODEL, "gemini-3.1-flash-lite-preview")
+
+
+class AgentTaskConversationMetadataTests(TestCase):
+    """related_agents metadata is written on agent-task POST (not via conversation PUT)."""
+
+    @patch("api.ai_layers.views.conversation_agent_task.delay")
+    def test_post_persists_related_agents_metadata(self, mock_delay):
+        mock_delay.return_value = Mock(id="celery-task-1")
+        user = User.objects.create_user(username="u1", email="u1@e.com", password="x")
+        client = APIClient()
+        client.force_authenticate(user=user)
+
+        from api.ai_layers.models import Agent, LanguageModel
+        from api.messaging.models import Conversation
+        from api.providers.models import AIProvider
+
+        provider = AIProvider.objects.create(name="OpenAI")
+        llm = LanguageModel.objects.create(
+            provider=provider,
+            slug="gpt-test-meta",
+            name="GPT Test",
+        )
+        agent = Agent.objects.create(
+            name="Test Agent",
+            salute="hi",
+            act_as="help",
+            user=user,
+            llm=llm,
+            model_slug=llm.slug,
+            model_provider="openai",
+        )
+        conv = Conversation.objects.create(user=user)
+
+        response = client.post(
+            "/v1/ai_layers/agent-task/conversation/",
+            {
+                "conversation_id": str(conv.id),
+                "agent_slugs": [agent.slug],
+                "user_inputs": [{"type": "input_text", "text": "hello"}],
+                "tool_names": [],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 202, response.json() if response.status_code != 202 else "")
+        conv.refresh_from_db()
+        self.assertEqual(conv.metadata.get("related_agents"), [{"id": agent.id}])

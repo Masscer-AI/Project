@@ -479,6 +479,9 @@ class AgentTaskView(View):
     The agent's system prompt and LLM model are resolved from the Agent model.
     Messages are always saved to the conversation.
 
+    Also updates ``conversation.metadata.related_agents`` to match ``agent_slugs``
+    (no ``can-edit-conversation-data`` check; agents were already access-checked).
+
     Returns 202 Accepted with {"task_id": ..., "status": "accepted"}
     """
 
@@ -589,6 +592,17 @@ class AgentTaskView(View):
                 {"error": "You don't have access to this conversation"},
                 status=403,
             )
+
+        # Persist selected agents on the conversation (same source of truth as the task;
+        # avoids a separate PUT that is gated by can-edit-conversation-data).
+        by_slug = {a.slug: a for a in agents_found}
+        agents_ordered = [by_slug[s] for s in slugs if s in by_slug]
+        from api.messaging.schemas import metadata_payload_for_related_agents
+
+        conversation.metadata = metadata_payload_for_related_agents(
+            [a.id for a in agents_ordered]
+        )
+        conversation.save(update_fields=["metadata", "updated_at"])
 
         # --- Optional: client clock (browser) for relative dates/times ---
         client_datetime = data.get("client_datetime")

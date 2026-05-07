@@ -1288,6 +1288,13 @@ class ChatWidgetAgentTaskView(View):
 
         tool_names = list(dict.fromkeys(configured_tools))
 
+        from api.messaging.schemas import metadata_payload_for_related_agents
+
+        conversation.metadata = metadata_payload_for_related_agents(
+            [request.widget.agent_id]
+        )
+        conversation.save(update_fields=["metadata", "updated_at"])
+
         from api.messaging.tasks import widget_conversation_agent_task
 
         task = widget_conversation_agent_task.delay(
