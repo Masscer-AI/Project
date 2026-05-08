@@ -1194,6 +1194,17 @@ def conversation_agent_task(
             # Available plugins summary (agent discovers and uses them on demand).
             instructions += format_available_plugins_summary()
 
+            from api.document_templates.context import (
+                agent_has_template_assignments,
+                format_assigned_templates_instruction,
+            )
+
+            if not is_widget_chat and agent_has_template_assignments(agent):
+                instructions += format_assigned_templates_instruction(agent)
+                for _tpl_tool in ("list_document_templates", "render_document_template"):
+                    if _tpl_tool not in agent_tool_names:
+                        agent_tool_names.append(_tpl_tool)
+
             # ---- Create AgentSession (inputs) ----
             model_ref = ModelRef(
                 id=llm.id if llm else 0,

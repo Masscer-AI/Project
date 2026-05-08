@@ -161,6 +161,43 @@ export type TOrganization = {
   logo_url?: string | null;
 };
 
+/** Word (.docx) template with Jinja-style placeholders for org agents */
+export type TDocumentTemplateVariable = {
+  description: string;
+  required: boolean;
+  example: string;
+};
+
+export type TDocumentTemplate = {
+  id: string;
+  organization_id: string;
+  name: string;
+  description: string;
+  is_active: boolean;
+  original_filename: string;
+  file_size: number;
+  content_type: string;
+  metadata: {
+    placeholders?: string[];
+    variables?: Record<string, TDocumentTemplateVariable>;
+  };
+  file_url: string;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+export type TAgentTemplateAssignment = {
+  id: string;
+  agent_id: number;
+  agent_slug: string;
+  template_id: string;
+  template_name: string;
+  usage_instructions: string;
+  is_enabled: boolean;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
 export type TSubscriptionPlan = {
   slug: string;
   display_name: string;

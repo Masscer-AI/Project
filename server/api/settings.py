@@ -99,6 +99,7 @@ INSTALLED_APPS = [
     "api.payments",
     "api.consumption",
     "api.cloudbeds",
+    "api.document_templates",
 ]
 
 MIDDLEWARE = [

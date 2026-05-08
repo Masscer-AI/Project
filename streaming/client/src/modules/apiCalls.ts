@@ -20,6 +20,9 @@ import {
   TWebPage,
   TChatWidget,
   TWidgetCapability,
+  TDocumentTemplate,
+  TDocumentTemplateVariable,
+  TAgentTemplateAssignment,
   TNotificationRule,
   TNotificationRuleBuildResponse,
   TUserNotification,
@@ -248,6 +251,80 @@ export const getDocuments = async () => {
     console.error("Error uploading document:", error);
     throw error;
   }
+};
+
+// --- Document templates (organization-scoped .docx for agent tools) ---
+
+export const getDocumentTemplates = async (organizationId: string) => {
+  return makeAuthenticatedRequest<{ templates: TDocumentTemplate[] }>(
+    "GET",
+    `/v1/document-templates/organizations/${organizationId}/templates/`
+  );
+};
+
+export const uploadDocumentTemplate = async (
+  organizationId: string,
+  formData: FormData
+) => {
+  return makeAuthenticatedRequest<{ template: TDocumentTemplate }>(
+    "POST",
+    `/v1/document-templates/organizations/${organizationId}/templates/`,
+    formData
+  );
+};
+
+export const patchDocumentTemplateVariables = async (
+  organizationId: string,
+  templateId: string,
+  variables: Record<string, Partial<TDocumentTemplateVariable>>
+) => {
+  return makeAuthenticatedRequest<{ template: TDocumentTemplate }>(
+    "PATCH",
+    `/v1/document-templates/organizations/${organizationId}/templates/${templateId}/variables/`,
+    { variables }
+  );
+};
+
+export const deleteDocumentTemplate = async (
+  organizationId: string,
+  templateId: string
+) => {
+  return makeAuthenticatedRequest<{ ok: boolean }>(
+    "DELETE",
+    `/v1/document-templates/organizations/${organizationId}/templates/${templateId}/`
+  );
+};
+
+export const getAgentTemplateAssignments = async (agentSlug: string) => {
+  return makeAuthenticatedRequest<{ assignments: TAgentTemplateAssignment[] }>(
+    "GET",
+    `/v1/document-templates/agents/${agentSlug}/template-assignments/`
+  );
+};
+
+export const createAgentTemplateAssignment = async (
+  agentSlug: string,
+  body: {
+    template_id: string;
+    usage_instructions?: string;
+    is_enabled?: boolean;
+  }
+) => {
+  return makeAuthenticatedRequest<{ assignment: TAgentTemplateAssignment }>(
+    "POST",
+    `/v1/document-templates/agents/${agentSlug}/template-assignments/`,
+    body
+  );
+};
+
+export const deleteAgentTemplateAssignment = async (
+  agentSlug: string,
+  assignmentId: string
+) => {
+  return makeAuthenticatedRequest<{ ok: boolean }>(
+    "DELETE",
+    `/v1/document-templates/agents/${agentSlug}/template-assignments/${assignmentId}/`
+  );
 };
 
 export const requestVideoGeneration = async (about, duration, orientation) => {

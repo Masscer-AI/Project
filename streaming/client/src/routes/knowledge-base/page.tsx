@@ -17,6 +17,7 @@ import { TDocument, TCompletion } from "../../types";
 import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
 import { TAgent } from "../../types/agents";
+import { TemplatesTab } from "./TemplatesTab";
 
 import {
   ActionIcon,
@@ -51,6 +52,7 @@ import {
   IconRobot,
   IconSearch,
   IconSparkles,
+  IconTemplate,
   IconTrash,
   IconUpload,
   IconX,
@@ -69,9 +71,9 @@ export default function KnowledgeBasePage() {
     fetchAgents: s.fetchAgents,
   }));
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<"documents" | "completions">(
-    "documents"
-  );
+  const [activeTab, setActiveTab] = useState<
+    "documents" | "completions" | "templates"
+  >("documents");
   const [documents, setDocuments] = useState<TDocument[]>([]);
   const [completions, setCompletions] = useState<TCompletion[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(true);
@@ -231,6 +233,14 @@ export default function KnowledgeBasePage() {
             >
               {t("completions")} ({completions.length})
             </Button>
+            <Button
+              variant={activeTab === "templates" ? "filled" : "default"}
+              leftSection={<IconTemplate size={16} />}
+              size="sm"
+              onClick={() => setActiveTab("templates")}
+            >
+              {t("document-templates-tab")}
+            </Button>
           </Group>
 
           {/* Filters */}
@@ -287,7 +297,7 @@ export default function KnowledgeBasePage() {
               onRefresh={loadDocuments}
               agents={agents}
             />
-          ) : (
+          ) : activeTab === "completions" ? (
             <CompletionsTab
               completions={filteredCompletions}
               anyCompletionsExist={completions.length > 0}
@@ -295,6 +305,8 @@ export default function KnowledgeBasePage() {
               onRefresh={loadCompletions}
               agents={agents}
             />
+          ) : (
+            <TemplatesTab agents={agents} filterQuery={search} />
           )}
         </Box>
       </div>

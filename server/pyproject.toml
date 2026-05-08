@@ -38,6 +38,7 @@ dependencies = [
     "stripe",
     "runwayml",
     "tiktoken",
+    "docxtpl",
     "django-storages[s3]",
     "whitenoise",
     "youtube-transcript-api",
