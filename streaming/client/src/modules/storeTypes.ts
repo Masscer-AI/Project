@@ -63,6 +63,8 @@ export type Store = {
   setOpenedModals: (opts: SetOpenedProps) => void;
   setMessages: (messages: Message[]) => void;
   setConversation: (conversationId: string | null | undefined) => void;
+  /** Apply conversation payload from the route loader (no extra fetch). */
+  hydrateConversation: (conversation: TConversation) => void;
   addAttachment: (newAttachment: TAttachment, saved?: boolean) => void;
   updateAttachment: (
     index: number,

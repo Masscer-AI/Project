@@ -27,6 +27,7 @@ export default function SharedChatView() {
     chatState,
     startup,
     setConversation,
+    hydrateConversation,
   } = useStore((state) => ({
     socket: state.socket,
     conversation: state.conversation,
@@ -35,6 +36,7 @@ export default function SharedChatView() {
     chatState: state.chatState,
     startup: state.startup,
     setConversation: state.setConversation,
+    hydrateConversation: state.hydrateConversation,
   }));
 
   const { t } = useTranslation();
@@ -43,7 +45,7 @@ export default function SharedChatView() {
     setUser(loaderData.user);
     startup();
     if (loaderData.conversation) {
-      setConversation(loaderData.conversation.id);
+      hydrateConversation(loaderData.conversation);
     }
   }, []);
 

@@ -34,6 +34,7 @@ export default function ChatView() {
     agents,
     startup,
     userPreferences,
+    hydrateConversation,
     setConversation,
     setSpecifiedUrls,
     setAgentTaskStatus,
@@ -47,6 +48,7 @@ export default function ChatView() {
     agents: state.agents,
     startup: state.startup,
     userPreferences: state.userPreferences,
+    hydrateConversation: state.hydrateConversation,
     setConversation: state.setConversation,
     setSpecifiedUrls: state.setSpecifiedUrls,
     setAgentTaskStatus: state.setAgentTaskStatus,
@@ -54,7 +56,8 @@ export default function ChatView() {
 
   const { t } = useTranslation();
 
-  const activeConversation = conversation ?? loaderData.conversation;
+  const routeConversation = loaderData.conversation;
+  const activeConversation = routeConversation;
   const isForeignConversation =
     activeConversation?.user_id != null &&
     loaderData.user?.id != null &&
@@ -72,8 +75,12 @@ export default function ChatView() {
   }, [loaderData.user, startup]);
 
   const [messages, setMessages] = useState<TMessage[]>(
-    conversation?.messages || []
+    () => loaderData.conversation?.messages ?? []
   );
+
+  useEffect(() => {
+    hydrateConversation(loaderData.conversation);
+  }, [loaderData.conversation.id, hydrateConversation]);
 
   useEffect(() => {
     const handleAgentEvents = (raw: {
@@ -81,8 +88,8 @@ export default function ChatView() {
       message?: { type: string; conversation_id?: string; version?: TVersion };
     }) => {
       const data = raw?.message;
-      if (!data || !conversation?.id || data.conversation_id !== conversation.id)
-        return;
+      const convId = loaderData.conversation.id;
+      if (!data || !convId || data.conversation_id !== convId) return;
       if (data.type === "agent_version_ready" && data.version) {
         setMessages((prev) => {
           const last = prev[prev.length - 1];
@@ -102,14 +109,10 @@ export default function ChatView() {
 
     socket.on("agent_events_channel", handleAgentEvents);
 
-    if (loaderData.conversation) {
-      setConversation(loaderData.conversation.id);
-    }
-
     return () => {
       socket.off("agent_events_channel", handleAgentEvents);
     };
-  }, [conversation?.id]);
+  }, [loaderData.conversation.id, socket]);
 
   const scrollChat = () => {
     const container = chatMessageContainerRef.current;
@@ -222,8 +225,7 @@ export default function ChatView() {
     };
 
     try {
-      const currentConversation = conversation ?? loaderData.conversation;
-      if (!currentConversation?.id) {
+      if (!routeConversation?.id) {
         toast.error("No conversation found");
         revertOptimisticSend();
         return false;
@@ -251,7 +253,7 @@ export default function ChatView() {
 
         if (toUpload.length > 0) {
           const uploadRes = await uploadMessageAttachments(
-            currentConversation.id,
+            routeConversation.id,
             toUpload
           );
           for (const att of uploadRes.attachments) {
@@ -262,7 +264,7 @@ export default function ChatView() {
         for (const rag of ragDocs) {
           const docId = typeof rag.id === "number" ? rag.id : parseInt(String(rag.id), 10);
           if (!isNaN(docId)) {
-            const linkRes = await linkMessageAttachment(currentConversation.id, {
+            const linkRes = await linkMessageAttachment(routeConversation.id, {
               kind: "rag_document",
               rag_document_id: docId,
             });
@@ -277,7 +279,7 @@ export default function ChatView() {
         for (const item of specifiedUrls) {
           const url = (item as any)?.url;
           if (!url) continue;
-          const linkRes = await linkMessageAttachment(currentConversation.id, {
+          const linkRes = await linkMessageAttachment(routeConversation.id, {
             kind: "website",
             url,
           });
@@ -315,7 +317,7 @@ export default function ChatView() {
       if (chatState.generateVideo) toolNames.push("generate_video");
 
       await triggerAgentTask({
-        conversation_id: currentConversation.id,
+        conversation_id: routeConversation.id,
         agent_slugs: selectedAgents.map((a) => a.slug),
         user_inputs: userInputs,
         tool_names: toolNames,
@@ -363,8 +365,7 @@ export default function ChatView() {
 
   const handleRegenerateAgentTask = useCallback(
     async (index: number, newText: string) => {
-      const currentConversation = conversation ?? loaderData.conversation;
-      if (!currentConversation?.id) return;
+      if (!routeConversation?.id) return;
 
       let selectedAgents = agentsInChatSelectionOrder(agents, chatState.selectedAgents);
       if (selectedAgents.length === 0) {
@@ -403,7 +404,7 @@ export default function ChatView() {
         if (chatState.generateVideo) toolNames.push("generate_video");
 
         await triggerAgentTask({
-          conversation_id: currentConversation.id,
+          conversation_id: routeConversation.id,
           agent_slugs: selectedAgents.map((a) => a.slug),
           user_inputs: [{ type: "input_text", text: newText }],
           tool_names: toolNames,
@@ -422,15 +423,13 @@ export default function ChatView() {
           if (last?.type === "assistant" && !last.id) return prev.slice(0, -1);
           return prev;
         });
-        void setConversation(currentConversation.id);
+        void setConversation(routeConversation.id);
       }
     },
     [
       agents,
       chatState,
-      conversation,
-      isViewer,
-      loaderData.conversation,
+      loaderData.conversation.id,
       setAgentTaskStatus,
       setConversation,
       t,
@@ -473,7 +472,7 @@ export default function ChatView() {
         <ChatHeader
           right={
             <ConversationModal
-              conversation={conversation || loaderData.conversation}
+              conversation={activeConversation}
               readOnly={isViewer}
             />
           }

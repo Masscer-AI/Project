@@ -18,6 +18,7 @@ import {
 import { SocketManager } from "./socketManager";
 import { STREAMING_BACKEND_URL } from "./constants";
 import { TAgent } from "../types/agents";
+import type { TConversation } from "../types";
 import toast from "react-hot-toast";
 import { Store } from "./storeTypes";
 import { sortAgentsBySelectionOrder } from "./agentSelection";
@@ -32,6 +33,9 @@ const _initialTheme = (() => {
 
 /** Dedupe concurrent team feature-flag fetches across components. */
 let featureFlagsFetchInFlight: Promise<void> | null = null;
+
+/** Latest async `setConversation` call wins; prevents stale GETs overwriting the UI after fast navigation. */
+let conversationLoadSeq = 0;
 
 export const useStore = create<Store>()((set, get) => ({
   socket: new SocketManager(STREAMING_BACKEND_URL),
@@ -160,7 +164,8 @@ export const useStore = create<Store>()((set, get) => ({
     set({ openedModals: copy });
   },
   setConversation: async (conversationId) => {
-    let data;
+    const seq = ++conversationLoadSeq;
+    let data: TConversation;
 
     if (!conversationId) {
       data = await initConversation({ isPublic: false });
@@ -168,9 +173,19 @@ export const useStore = create<Store>()((set, get) => ({
       data = await getConversation(conversationId);
     }
 
+    if (seq !== conversationLoadSeq) {
+      return;
+    }
+
     set(() => ({
       conversation: data,
     }));
+    get().applyAgentSelectionFromConversation();
+  },
+
+  hydrateConversation: (conversation: TConversation) => {
+    conversationLoadSeq += 1;
+    set({ conversation });
     get().applyAgentSelectionFromConversation();
   },
   setMessages: (messages) => set({ messages }),

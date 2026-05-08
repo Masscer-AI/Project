@@ -65,18 +65,15 @@ export const Sidebar: React.FC = () => {
   const isTrainAgentsEnabled = useIsFeatureEnabled("train-agents");
   const isAudioToolsEnabled = useIsFeatureEnabled("audio-tools");
   const canEditPreferences = useIsFeatureEnabled("can-edit-preferences") === true;
-  const { toggleSidebar, setConversation, user, setOpenedModals, logout } =
-    useStore((state) => ({
-      toggleSidebar: state.toggleSidebar,
-      setConversation: state.setConversation,
-      user: state.user,
-      setOpenedModals: state.setOpenedModals,
-      logout: state.logout,
-    }));
+  const { toggleSidebar, user, setOpenedModals, logout } = useStore((state) => ({
+    toggleSidebar: state.toggleSidebar,
+    user: state.user,
+    setOpenedModals: state.setOpenedModals,
+    logout: state.logout,
+  }));
 
   const [history, setHistory] = useState<TConversation[]>([]);
   const [filteredHistory, setFilteredHistory] = useState<TConversation[]>([]);
-  const [searchParams, setSearchParams] = useSearchParams();
   const [historyConfig, setHistoryConfig] = useState<{
     isOpen: boolean;
     showFilters: boolean;
@@ -160,13 +157,8 @@ export const Sidebar: React.FC = () => {
   };
 
   const handleNewChat = () => {
-    setConversation(null);
-    if (searchParams.has("conversation")) {
-      searchParams.delete("conversation");
-      setSearchParams(searchParams);
-    }
     toggleSidebar();
-    navigate(`/chat`);
+    navigate("/chat");
   };
 
   const goTo = (to: string) => {
@@ -539,8 +531,7 @@ const ConversationComponent = ({
   deleteConversationItem: (id: string) => void;
 }) => {
   const [_, setSearchParams] = useSearchParams();
-  const { setConversation, toggleSidebar, chatState } = useStore((state) => ({
-    setConversation: state.setConversation,
+  const { toggleSidebar, chatState } = useStore((state) => ({
     toggleSidebar: state.toggleSidebar,
     chatState: state.chatState,
   }));
@@ -555,7 +546,6 @@ const ConversationComponent = ({
   const navigate = useNavigate();
 
   const handleClick = () => {
-    setConversation(conversation.id);
     const queryParams = { conversation: conversation.id };
     setSearchParams(queryParams);
     navigate(`/chat?conversation=${conversation.id}`);
