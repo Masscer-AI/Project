@@ -260,13 +260,21 @@ def _get_agent_for_user(request, slug: str) -> Agent | JsonResponse:
     return agent
 
 
+def _get_agent_for_assignment(request, slug: str) -> Agent | JsonResponse:
+    """Agent must be in the user's accessible set (same as chat); no edit-agent flag."""
+    agent = accessible_agents_qs(request.user).filter(slug=slug).first()
+    if not agent:
+        return JsonResponse({"error": "Agent not found"}, status=404)
+    return agent
+
+
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class AgentDocumentTemplateAssignmentListView(View):
     """GET / POST template assignments for an agent."""
 
     def get(self, request, agent_slug: str):
-        agent = _get_agent_for_user(request, agent_slug)
+        agent = _get_agent_for_assignment(request, agent_slug)
         if isinstance(agent, JsonResponse):
             return agent
         qs = AgentDocumentTemplateAssignment.objects.filter(agent=agent).select_related(
@@ -277,13 +285,9 @@ class AgentDocumentTemplateAssignmentListView(View):
         )
 
     def post(self, request, agent_slug: str):
-        agent = _get_agent_for_user(request, agent_slug)
+        agent = _get_agent_for_assignment(request, agent_slug)
         if isinstance(agent, JsonResponse):
             return agent
-        if not agent.organization_id:
-            return JsonResponse(
-                {"error": "Agent must belong to an organization"}, status=400
-            )
         try:
             data = json.loads(request.body.decode("utf-8") or "{}")
         except json.JSONDecodeError:
@@ -291,11 +295,17 @@ class AgentDocumentTemplateAssignmentListView(View):
         tid = data.get("template_id")
         if not tid:
             return JsonResponse({"error": "template_id is required"}, status=400)
-        template = DocumentTemplate.objects.filter(
-            id=tid, organization_id=agent.organization_id, is_active=True
-        ).first()
+        template = DocumentTemplate.objects.filter(id=tid, is_active=True).first()
         if not template:
-            return JsonResponse({"error": "Template not found in organization"}, status=404)
+            return JsonResponse({"error": "Template not found"}, status=404)
+        if not user_can_manage_org_templates(request.user, template.organization):
+            return JsonResponse({"error": "Forbidden"}, status=403)
+        if agent.organization_id and str(agent.organization_id) != str(
+            template.organization_id
+        ):
+            return JsonResponse(
+                {"error": "Template not found in organization"}, status=404
+            )
         usage = str(data.get("usage_instructions") or "")
         is_enabled = bool(data.get("is_enabled", True))
         a, _created = AgentDocumentTemplateAssignment.objects.update_or_create(
@@ -316,7 +326,7 @@ class AgentDocumentTemplateAssignmentDetailView(View):
     """PATCH / DELETE a template assignment."""
 
     def patch(self, request, agent_slug: str, assignment_id: str):
-        agent = _get_agent_for_user(request, agent_slug)
+        agent = _get_agent_for_assignment(request, agent_slug)
         if isinstance(agent, JsonResponse):
             return agent
         a = AgentDocumentTemplateAssignment.objects.filter(
@@ -324,6 +334,8 @@ class AgentDocumentTemplateAssignmentDetailView(View):
         ).first()
         if not a:
             return JsonResponse({"error": "Assignment not found"}, status=404)
+        if not user_can_manage_org_templates(request.user, a.template.organization):
+            return JsonResponse({"error": "Forbidden"}, status=403)
         try:
             data = json.loads(request.body.decode("utf-8") or "{}")
         except json.JSONDecodeError:
@@ -336,7 +348,7 @@ class AgentDocumentTemplateAssignmentDetailView(View):
         return JsonResponse({"assignment": _assignment_to_dict(a)})
 
     def delete(self, request, agent_slug: str, assignment_id: str):
-        agent = _get_agent_for_user(request, agent_slug)
+        agent = _get_agent_for_assignment(request, agent_slug)
         if isinstance(agent, JsonResponse):
             return agent
         a = AgentDocumentTemplateAssignment.objects.filter(
@@ -344,5 +356,7 @@ class AgentDocumentTemplateAssignmentDetailView(View):
         ).first()
         if not a:
             return JsonResponse({"error": "Assignment not found"}, status=404)
+        if not user_can_manage_org_templates(request.user, a.template.organization):
+            return JsonResponse({"error": "Forbidden"}, status=403)
         a.delete()
         return JsonResponse({"ok": True})

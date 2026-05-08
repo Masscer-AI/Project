@@ -75,6 +75,7 @@ export const Thumbnail = ({
             index={index}
             onDelete={() => deleteAttachment(index)}
             name={name}
+            src={src}
             showFloatingButtons={showFloatingButtons}
             mode={mode}
           />
@@ -275,6 +276,7 @@ const ImageModal = ({
 const DocumentThumnail = ({
   index,
   name,
+  src,
   onDelete,
   id,
   showFloatingButtons,
@@ -282,35 +284,57 @@ const DocumentThumnail = ({
 }: {
   index: number;
   name: string;
+  src: string;
   onDelete: () => void;
   id?: number | string;
   showFloatingButtons: boolean;
   mode?: AttatchmentMode;
 }) => {
+  const cardContent = (
+    <div className="d-flex gap-small align-center">
+      <div>
+        <IconFileText size={20} />
+      </div>
+      <p className="cut-text-to-line" style={{ margin: 0, flex: 1, minWidth: 0 }}>
+        {name}
+      </p>
+      {!showFloatingButtons && <IconDownload size={16} />}
+
+      {showFloatingButtons && (
+        <ActionIcon
+          variant="subtle"
+          color="red"
+          size="sm"
+          onClick={onDelete}
+        >
+          <IconX size={16} />
+        </ActionIcon>
+      )}
+    </div>
+  );
+
+  if (!showFloatingButtons && src) {
+    return (
+      <a
+        href={src}
+        download={name || "document"}
+        target="_blank"
+        rel="noopener noreferrer"
+        title={name}
+        className="width-150 document-attachment bg-contrast rounded padding-small"
+        style={{ textDecoration: "none", color: "inherit", display: "block" }}
+      >
+        {cardContent}
+      </a>
+    );
+  }
+
   return (
     <div
       title={name}
       className="width-150 document-attachment bg-contrast rounded padding-small"
     >
-      <div className="d-flex gap-small align-center">
-        <div>
-          <IconFileText size={20} />
-        </div>
-        <p className="cut-text-to-line" style={{ margin: 0, flex: 1, minWidth: 0 }}>
-          {name}
-        </p>
-
-        {showFloatingButtons && (
-          <ActionIcon
-            variant="subtle"
-            color="red"
-            size="sm"
-            onClick={onDelete}
-          >
-            <IconX size={16} />
-          </ActionIcon>
-        )}
-      </div>
+      {cardContent}
     </div>
   );
 };

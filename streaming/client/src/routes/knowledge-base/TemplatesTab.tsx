@@ -50,10 +50,8 @@ type AssignmentRow = {
   agentName: string;
 };
 
-function orgAgents(agents: TAgent[], orgId: string): TAgent[] {
-  return agents.filter(
-    (a) => a.slug && a.organization && String(a.organization) === orgId
-  );
+function agentsWithSlug(agents: TAgent[]): TAgent[] {
+  return agents.filter((a) => Boolean(a.slug));
 }
 
 export function TemplatesTab({
@@ -93,12 +91,12 @@ export function TemplatesTab({
   const [assignUsage, setAssignUsage] = useState("");
 
   const assignModalCandidates = useMemo(() => {
-    if (!activeTemplate || !orgId) return [];
+    if (!activeTemplate) return [];
     const assigned = assignIndex[activeTemplate.id] ?? [];
-    return orgAgents(agents, orgId).filter(
-      (a) => a.slug && !assigned.some((x) => x.agentSlug === a.slug)
+    return agentsWithSlug(agents).filter(
+      (a) => !assigned.some((x) => x.agentSlug === a.slug)
     );
-  }, [activeTemplate, orgId, agents, assignIndex]);
+  }, [activeTemplate, agents, assignIndex]);
 
   const loadOrgs = useCallback(async () => {
     setLoadingOrgs(true);
@@ -116,8 +114,8 @@ export function TemplatesTab({
   }, [t]);
 
   const refreshAssignments = useCallback(
-    async (oid: string, tpls: TDocumentTemplate[]) => {
-      const oa = orgAgents(agents, oid);
+    async (tpls: TDocumentTemplate[]) => {
+      const oa = agentsWithSlug(agents);
       const next: Record<string, AssignmentRow[]> = {};
       for (const tpl of tpls) {
         next[tpl.id] = [];
@@ -151,7 +149,7 @@ export function TemplatesTab({
       try {
         const { templates: list } = await getDocumentTemplates(oid);
         setTemplates(list);
-        await refreshAssignments(oid, list);
+        await refreshAssignments(list);
       } catch {
         toast.error(t("error-loading-templates"));
       } finally {
@@ -169,6 +167,11 @@ export function TemplatesTab({
     if (!orgId) return;
     void loadTemplates(orgId);
   }, [orgId, loadTemplates]);
+
+  useEffect(() => {
+    if (!orgId || templates.length === 0) return;
+    void refreshAssignments(templates);
+  }, [orgId, templates, agents, refreshAssignments]);
 
   const filteredTemplates = useMemo(() => {
     const q = filterQuery.trim().toLowerCase();

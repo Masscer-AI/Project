@@ -83,8 +83,17 @@ export const WidgetThumbnail: React.FC<WidgetThumbnailProps> = ({
     );
   }
 
+  const documentHref =
+    src && (src.startsWith("http") || src.startsWith("data:"))
+      ? src
+      : `${API_URL}${(src || content).startsWith("/") ? "" : "/"}${src || content}`;
+
   return (
-    <div
+    <a
+      href={documentHref}
+      download={name || "document"}
+      target="_blank"
+      rel="noopener noreferrer"
       style={{
         display: "inline-flex",
         alignItems: "center",
@@ -97,10 +106,12 @@ export const WidgetThumbnail: React.FC<WidgetThumbnailProps> = ({
         overflow: "hidden",
         textOverflow: "ellipsis",
         whiteSpace: "nowrap",
+        color: "inherit",
+        textDecoration: "none",
       }}
     >
       📄 {name}
-    </div>
+    </a>
   );
 };
 

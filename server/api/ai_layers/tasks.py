@@ -536,6 +536,51 @@ def _extract_generate_video_attachments(tool_calls: list[dict]) -> tuple[list[di
     return attachments, attachment_ids
 
 
+def _extract_render_document_template_attachments(
+    tool_calls: list[dict],
+) -> tuple[list[dict], list[str]]:
+    """
+    Extract document attachment descriptors from render_document_template tool calls.
+
+    render_document_template returns JSON like:
+      { attachment_id, name, content, content_type, ... }
+    """
+    if not tool_calls:
+        return [], []
+
+    attachments: list[dict] = []
+    attachment_ids: list[str] = []
+
+    for call in tool_calls:
+        try:
+            if (call or {}).get("tool_name") != "render_document_template":
+                continue
+            raw = (call or {}).get("result") or ""
+            if not isinstance(raw, str) or not raw.strip():
+                continue
+            data = json.loads(raw)
+            if not isinstance(data, dict):
+                continue
+            aid = data.get("attachment_id")
+            content = data.get("content") or ""
+            name = data.get("name") or "document.docx"
+            if not aid or not content:
+                continue
+            attachments.append(
+                {
+                    "type": "document",
+                    "content": content,
+                    "name": name,
+                    "attachment_id": str(aid),
+                }
+            )
+            attachment_ids.append(str(aid))
+        except Exception:
+            continue
+
+    return attachments, attachment_ids
+
+
 def _message_attachment_to_display_dict(att) -> dict | None:
     """
     Build a Message.attachments-compatible descriptor from a MessageAttachment row.
@@ -1315,7 +1360,7 @@ def conversation_agent_task(
             # ---- Update AgentSession (outputs) ----
             from django.utils import timezone
 
-            # ---- Collect any generated attachments (image/audio) ----
+            # ---- Collect any generated attachments (image/audio/video/document) ----
             new_atts, new_ids = _extract_create_image_attachments(result.tool_calls or [])
             if new_atts:
                 assistant_message_attachments.extend(new_atts)
@@ -1333,6 +1378,14 @@ def conversation_agent_task(
                 assistant_message_attachments.extend(video_atts)
             if video_ids:
                 assistant_attachment_ids.extend(video_ids)
+
+            doc_atts, doc_ids = _extract_render_document_template_attachments(
+                result.tool_calls or []
+            )
+            if doc_atts:
+                assistant_message_attachments.extend(doc_atts)
+            if doc_ids:
+                assistant_attachment_ids.extend(doc_ids)
 
             if isinstance(result.output, str):
                 output_value = OutputValue(type="string", value=result.output)

@@ -29,7 +29,9 @@ def format_assigned_templates_instruction(agent: "Agent") -> str:
         "\n\n=== DOCUMENT TEMPLATES ===",
         "The organization attached Word templates to you. When the user needs a filled document, "
         "use `list_document_templates` if you need the full schema, then `render_document_template` "
-        "with a JSON object mapping **exact** placeholder names to string values.",
+        "with a JSON object mapping **exact** placeholder names to string values. "
+        "After rendering, explicitly include the generated attachment in your response markdown "
+        "using `[Download document](attachment:<attachment_id>)`.",
         "",
     ]
     for a in rows:

@@ -102,13 +102,9 @@ class AgentDocumentTemplateAssignment(models.Model):
         if self.agent_id and self.template_id:
             agent_org = getattr(self.agent, "organization_id", None)
             tmpl_org = getattr(self.template, "organization_id", None)
-            if agent_org != tmpl_org:
+            if agent_org is not None and agent_org != tmpl_org:
                 raise ValidationError(
                     "Agent and template must belong to the same organization."
-                )
-            if agent_org is None:
-                raise ValidationError(
-                    "Agent must belong to an organization to use document templates."
                 )
 
     def __str__(self) -> str:

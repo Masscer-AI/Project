@@ -12,6 +12,7 @@ usage() {
   echo "  ./taskfile.sh postgres [postgres-flags]"
   echo "  ./taskfile.sh migrate [migrate-flags]"
   echo "  ./taskfile.sh migrate_structure [--dry-run]"
+  echo "  ./taskfile.sh test [app_label|test_path ...] [django-test-flags]"
   echo "  ./taskfile.sh front"
   echo "  ./taskfile.sh shell"
   echo "  ./taskfile.sh autoupload \"commit message\""
@@ -22,6 +23,9 @@ usage() {
   echo "  ./taskfile.sh postgres -u user -p pass -d dbname"
   echo "  ./taskfile.sh migrate"
   echo "  ./taskfile.sh migrate_structure --dry-run"
+  echo "  ./taskfile.sh test"
+  echo "  ./taskfile.sh test api.document_templates"
+  echo "  ./taskfile.sh test api.document_templates.tests.DocumentTemplateAPITests.test_assignment_and_render_creates_attachment"
   echo "  ./taskfile.sh front"
   echo "  ./taskfile.sh shell"
   echo "  ./taskfile.sh autoupload \"chore: update scripts\""
@@ -49,6 +53,20 @@ case "$COMMAND" in
     ;;
   migrate_structure)
     exec bash "./scripts/migrate_structure.sh" "$@"
+    ;;
+  test)
+    if [[ -f .env ]]; then
+      set -a; source .env; set +a
+    fi
+    DJANGO_CONTAINER=${DJANGO_CONTAINER:-masscer-django}
+    if docker ps -q -f name="^${DJANGO_CONTAINER}$" | grep -q .; then
+      exec docker exec "$DJANGO_CONTAINER" python manage.py test "$@"
+    fi
+
+    if [[ -d "./server" ]]; then
+      cd "./server"
+    fi
+    exec uv run python manage.py test "$@"
     ;;
   front)
     cd "./streaming/client"

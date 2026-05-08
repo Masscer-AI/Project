@@ -159,6 +159,40 @@ class VertexGeminiTextHelpersTests(SimpleTestCase):
         self.assertEqual(DEFAULT_VERTEX_TEXT_MODEL, "gemini-3.1-flash-lite-preview")
 
 
+class ToolAttachmentExtractionTests(SimpleTestCase):
+    def test_extract_render_document_template_attachments(self):
+        from api.ai_layers.tasks import _extract_render_document_template_attachments
+
+        tool_calls = [
+            {
+                "tool_name": "render_document_template",
+                "result": (
+                    '{"attachment_id":"7b2a85f8-0b74-4a0f-b5a0-548df74dc5be",'
+                    '"name":"contract.docx","content":"https://example.com/contract.docx"}'
+                ),
+            },
+            {
+                "tool_name": "create_image",
+                "result": '{"attachment_id":"ignore","content":"https://example.com/image.png"}',
+            },
+        ]
+
+        attachments, attachment_ids = _extract_render_document_template_attachments(tool_calls)
+
+        self.assertEqual(
+            attachments,
+            [
+                {
+                    "type": "document",
+                    "content": "https://example.com/contract.docx",
+                    "name": "contract.docx",
+                    "attachment_id": "7b2a85f8-0b74-4a0f-b5a0-548df74dc5be",
+                }
+            ],
+        )
+        self.assertEqual(attachment_ids, ["7b2a85f8-0b74-4a0f-b5a0-548df74dc5be"])
+
+
 class AgentTaskConversationMetadataTests(TestCase):
     """related_agents metadata is written on agent-task POST (not via conversation PUT)."""
 
