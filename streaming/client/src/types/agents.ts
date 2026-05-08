@@ -40,7 +40,6 @@ export type TAgent = {
   name: string; // The name of the agent
   provider?: string; // The provider of the model, e.g., "openai"
   slug: string; // A unique identifier or slug for the agent
-  selected: boolean; // Indicates if this agent is currently selected or active
   act_as?: string; // Optional description of the agent's role or behavior
   default?: boolean; // Optional flag to indicate if this is the default agent
   id?: number; // Optional identifier for the agent

@@ -83,6 +83,8 @@ export type Store = {
   toggleGenerateSpeech: () => void;
   toggleGenerateVideo: () => void;
   toggleAgentSelected: (slug: string) => void;
+  /** Full replacement of `chatState.selectedAgents` (and list sort). */
+  setChatSelectedAgentSlugs: (slugs: string[]) => void;
   setUser: (user: TUserData) => void;
   addAgent: () => void;
   updateChatState: (state: Partial<Store["chatState"]>) => void;

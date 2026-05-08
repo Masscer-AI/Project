@@ -20,6 +20,7 @@ import {
   buildClientDatetimePayload,
   uploadMessageAttachments,
 } from "../../modules/apiCalls";
+import { agentsInChatSelectionOrder } from "../../modules/agentSelection";
 
 export default function ChatView() {
   const loaderData = useLoaderData() as TChatLoader;
@@ -172,28 +173,22 @@ export default function ChatView() {
       agents.length > 0 &&
       messages.length === 0 &&
       loaderData.sendQuery &&
-      agents.some((a) => a.selected)
+      chatState.selectedAgents.length > 0
     ) {
       handleSendMessage(loaderData.query);
     }
-  }, [loaderData.query, agents]);
+  }, [loaderData.query, agents, chatState.selectedAgents.length]);
 
   const handleSendMessage = async (input: string) => {
     if (input.trim() === "") return false;
 
     if (chatState.writtingMode) return false;
 
-    let selectedAgents = agents.filter((a) => a.selected);
+    let selectedAgents = agentsInChatSelectionOrder(agents, chatState.selectedAgents);
     if (selectedAgents.length === 0) {
       toast.error(t("select-at-least-one-agent-to-chat"));
       return false;
     }
-
-    selectedAgents = selectedAgents.sort(
-      (a, b) =>
-        chatState.selectedAgents.indexOf(a.slug) -
-        chatState.selectedAgents.indexOf(b.slug)
-    );
 
     const assistantMessage: TMessage = {
       type: "assistant",
@@ -371,16 +366,11 @@ export default function ChatView() {
       const currentConversation = conversation ?? loaderData.conversation;
       if (!currentConversation?.id) return;
 
-      let selectedAgents = agents.filter((a) => a.selected);
+      let selectedAgents = agentsInChatSelectionOrder(agents, chatState.selectedAgents);
       if (selectedAgents.length === 0) {
         toast.error(t("select-at-least-one-agent-to-chat"));
         return;
       }
-      selectedAgents = selectedAgents.sort(
-        (a, b) =>
-          chatState.selectedAgents.indexOf(a.slug) -
-          chatState.selectedAgents.indexOf(b.slug)
-      );
 
       const regenPayload = { userId: null as number | null };
       const assistantMessage: TMessage = {

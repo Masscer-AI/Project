@@ -14,6 +14,7 @@ import {
   triggerAgentTask,
   buildClientDatetimePayload,
 } from "../../modules/apiCalls";
+import { agentsInChatSelectionOrder } from "../../modules/agentSelection";
 
 export default function SharedChatView() {
   const loaderData = useLoaderData() as TChatLoader;
@@ -23,6 +24,7 @@ export default function SharedChatView() {
     socket,
     setUser,
     agents,
+    chatState,
     startup,
     setConversation,
   } = useStore((state) => ({
@@ -30,6 +32,7 @@ export default function SharedChatView() {
     conversation: state.conversation,
     setUser: state.setUser,
     agents: state.agents,
+    chatState: state.chatState,
     startup: state.startup,
     setConversation: state.setConversation,
   }));
@@ -137,7 +140,7 @@ export default function SharedChatView() {
       const currentConversation = conversation ?? loaderData.conversation;
       if (!currentConversation?.id) return;
 
-      let selectedAgents = agents.filter((a) => a.selected);
+      let selectedAgents = agentsInChatSelectionOrder(agents, chatState.selectedAgents);
       if (selectedAgents.length === 0) {
         toast.error(t("select-at-least-one-agent-to-chat"));
         return;
@@ -183,7 +186,7 @@ export default function SharedChatView() {
         void setConversation(currentConversation.id);
       }
     },
-    [agents, conversation, loaderData.conversation, setConversation, t]
+    [agents, chatState.selectedAgents, conversation, loaderData.conversation, setConversation, t]
   );
 
   const onMessageEdit = useCallback(

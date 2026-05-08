@@ -97,9 +97,10 @@ type TAgentComponentProps = {
 };
 
 const AgentComponent = ({ agent }: TAgentComponentProps) => {
-  const { toggleAgentSelected, updateSingleAgent, chatState, removeAgent, user } =
+  const { toggleAgentSelected, setChatSelectedAgentSlugs, updateSingleAgent, chatState, removeAgent, user } =
     useStore((state) => ({
       toggleAgentSelected: state.toggleAgentSelected,
+      setChatSelectedAgentSlugs: state.setChatSelectedAgentSlugs,
       updateSingleAgent: state.updateSingleAgent,
       chatState: state.chatState,
       removeAgent: state.removeAgent,
@@ -166,9 +167,7 @@ const AgentComponent = ({ agent }: TAgentComponentProps) => {
             } else {
               // Single-agent mode: switch to this agent only
               if (!isSelected) {
-                // Deselect all first, then select this one
-                chatState.selectedAgents.forEach((s) => toggleAgentSelected(s));
-                toggleAgentSelected(agent.slug);
+                setChatSelectedAgentSlugs([agent.slug]);
               }
             }
           }}

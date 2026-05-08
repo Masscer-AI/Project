@@ -20,6 +20,7 @@ import { STREAMING_BACKEND_URL } from "./constants";
 import { TAgent } from "../types/agents";
 import toast from "react-hot-toast";
 import { Store } from "./storeTypes";
+import { sortAgentsBySelectionOrder } from "./agentSelection";
 
 const _initialTheme = (() => {
   try {
@@ -175,7 +176,7 @@ export const useStore = create<Store>()((set, get) => ({
   setMessages: (messages) => set({ messages }),
   setModels: (models) => set({ models }),
   addAttachment: async (newAttachment, saved = false) => {
-    const { agents } = get();
+    const { chatState } = get();
     const formData = new FormData();
 
     if (newAttachment.type.includes("image")) {
@@ -213,11 +214,8 @@ export const useStore = create<Store>()((set, get) => ({
       return;
     }
 
-    const selectedAgents = agents
-      .filter((a) => a.selected)
-      .map((a) => a.slug)
-      .join(",");
-    if (selectedAgents.length === 0) {
+    const selectedAgents = chatState.selectedAgents.join(",");
+    if (chatState.selectedAgents.length === 0) {
       toast.error(
         "No agents selected, please  at least one to attach the documents on its vector store"
       );
@@ -270,11 +268,10 @@ export const useStore = create<Store>()((set, get) => ({
       return;
     }
     if (conversation.chat_widget_id != null) {
-      const cleared = agents.map((a) => ({ ...a, selected: false }));
-      set({
-        agents: cleared,
-        chatState: { ...get().chatState, selectedAgents: [] },
-      });
+      set((state) => ({
+        agents: sortAgentsBySelectionOrder(state.agents, []),
+        chatState: { ...state.chatState, selectedAgents: [] },
+      }));
       return;
     }
     const related = conversation.metadata?.related_agents ?? [];
@@ -287,27 +284,15 @@ export const useStore = create<Store>()((set, get) => ({
       const slug = slugById.get(ref.id);
       if (slug) selectedSlugs.push(slug);
     }
-    const copy = agents.map((a) => ({
-      ...a,
-      selected: selectedSlugs.includes(a.slug),
+    set((state) => ({
+      agents: sortAgentsBySelectionOrder(state.agents, selectedSlugs),
+      chatState: { ...state.chatState, selectedAgents: selectedSlugs },
     }));
-    copy.sort((a, b) => {
-      const ia = selectedSlugs.indexOf(a.slug);
-      const ib = selectedSlugs.indexOf(b.slug);
-      return ia === -1 ? 1 : ib === -1 ? -1 : ia - ib;
-    });
-    set({
-      agents: copy,
-      chatState: { ...get().chatState, selectedAgents: selectedSlugs },
-    });
   },
   fetchAgents: async () => {
     const { agents, models } = await getAgents();
 
-    const agentsCopy = agents.map((a) => ({
-      ...a,
-      selected: false,
-    }));
+    const agentsCopy = agents.map((a) => ({ ...a }));
 
     set({
       agents: agentsCopy,
@@ -342,39 +327,28 @@ export const useStore = create<Store>()((set, get) => ({
     }));
   },
   toggleAgentSelected: (slug: string) => {
-    const { agents, chatState } = get();
-
-    const selectedAgents = chatState.selectedAgents;
-    let newSelectedAgents: string[] = [];
-    if (selectedAgents.includes(slug)) {
-      newSelectedAgents = selectedAgents.filter((a) => a !== slug);
-    } else {
-      newSelectedAgents = [...selectedAgents, slug];
-    }
-
-    const copy = agents.map((a) => {
-      if (a.slug == slug) {
-        return {
-          ...a,
-          selected: !a.selected,
-        };
-      } else {
-        return a;
-      }
+    set((state) => {
+      const { selectedAgents } = state.chatState;
+      const newSelectedAgents = selectedAgents.includes(slug)
+        ? selectedAgents.filter((s) => s !== slug)
+        : [...selectedAgents, slug];
+      return {
+        agents: sortAgentsBySelectionOrder(state.agents, newSelectedAgents),
+        chatState: {
+          ...state.chatState,
+          selectedAgents: newSelectedAgents,
+        },
+      };
     });
+  },
 
-    copy.sort((a, b) => {
-      const indexA = newSelectedAgents.indexOf(a.slug);
-      const indexB = newSelectedAgents.indexOf(b.slug);
-
-      return indexA === -1 ? 1 : indexB === -1 ? -1 : indexA - indexB;
-    });
-
-    set({ agents: copy });
+  /** Replaces chat agent selection (slug order). Used for single-agent mode and hydration from conversation metadata. */
+  setChatSelectedAgentSlugs: (slugs: string[]) => {
     set((state) => ({
+      agents: sortAgentsBySelectionOrder(state.agents, slugs),
       chatState: {
         ...state.chatState,
-        selectedAgents: newSelectedAgents,
+        selectedAgents: slugs,
       },
     }));
   },
@@ -451,19 +425,12 @@ export const useStore = create<Store>()((set, get) => ({
     }));
   },
   removeAgent: (slug: string) => {
-    const { chatState } = get();
+    deleteAgent(slug);
     set((state) => ({
       agents: state.agents.filter((a) => a.slug !== slug),
-    }));
-    deleteAgent(slug);
-    // Remove the agent from the selectedAgents array
-
-    const selectedAgents = chatState.selectedAgents.filter((a) => a !== slug);
-
-    set((state) => ({
       chatState: {
         ...state.chatState,
-        selectedAgents: selectedAgents,
+        selectedAgents: state.chatState.selectedAgents.filter((s) => s !== slug),
       },
     }));
   },
