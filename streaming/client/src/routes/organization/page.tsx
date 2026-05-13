@@ -272,11 +272,13 @@ export default function OrganizationPage() {
   }, []);
 
   const org = orgs[0] ?? null;
+  const hasCustomSubscription = billing?.subscription?.plan?.slug === "custom";
   const hasActiveOrganizationPlan = Boolean(
     billing?.subscription?.is_active &&
     billing?.subscription?.plan?.slug === "organization"
   );
-  const canBuyCredits = hasActiveOrganizationPlan;
+  const canSubscribeToStripePlan = !hasActiveOrganizationPlan && !hasCustomSubscription;
+  const canBuyCredits = hasActiveOrganizationPlan && !hasCustomSubscription;
 
   useEffect(() => {
     if (org) {
@@ -1424,7 +1426,7 @@ export default function OrganizationPage() {
                       </Card>
 
                       {/* ── Plan selector ── */}
-                      {!hasActiveOrganizationPlan && (
+                      {canSubscribeToStripePlan ? (
                         <>
                           <Title order={5} mt="sm">{t("choose-a-plan")}</Title>
                           <Group grow align="stretch">
@@ -1450,6 +1452,12 @@ export default function OrganizationPage() {
                             </Card>
                           </Group>
                         </>
+                      ) : (
+                        hasCustomSubscription && (
+                          <Text size="sm" c="dimmed" mt="sm">
+                            {t("choose-a-plan-disabled-custom-subscription")}
+                          </Text>
+                        )
                       )}
 
                       {/* ── Buy credits (top-up) ── */}
@@ -1459,7 +1467,9 @@ export default function OrganizationPage() {
                           <Text size="sm" c="dimmed">
                             {canBuyCredits
                               ? t("buy-credits-desc")
-                              : t("buy-credits-disabled-no-subscription")}
+                              : hasCustomSubscription
+                                ? t("buy-credits-disabled-custom-subscription")
+                                : t("buy-credits-disabled-no-subscription")}
                           </Text>
 
                           {/* Fixed package amounts */}
