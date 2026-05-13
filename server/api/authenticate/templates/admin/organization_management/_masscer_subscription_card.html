@@ -1,0 +1,102 @@
+{% load i18n %}
+{% with s=row.subscription live=row.stripe_live show_cancel_actions=row.show_stripe_cancel_actions %}
+<div class="org-mgmt-stripe-card">
+  <div class="org-mgmt-stripe-card__header">
+    <span class="org-mgmt-stripe-card__title">{% trans "Masscer subscription" %}</span>
+    <code class="org-mgmt-stripe-card__id">{{ s.id }}</code>
+    {% if latest_subscription and s.id == latest_subscription.id %}
+      <span class="org-mgmt-stripe-card__badge">{% trans "Latest row (access)" %}</span>
+    {% endif %}
+    <a href="{% url 'admin:payments_subscription_change' s.pk %}" class="org-mgmt-stripe-card__admin-link">{% trans "Edit subscription" %}</a>
+  </div>
+  <div class="org-mgmt-stripe-card__meta">
+    <span><strong>{% trans "Plan" %}</strong> {{ s.plan.slug }}</span>
+    <span class="org-mgmt-stripe-card__meta-sep" aria-hidden="true">·</span>
+    <span><strong>{% trans "Payment method on row" %}</strong> {{ s.get_payment_method_display }}</span>
+    <span class="org-mgmt-stripe-card__meta-sep" aria-hidden="true">·</span>
+    <span><strong>{% trans "Masscer status" %}</strong> {{ s.get_status_display }}</span>
+    {% if s.is_active %}
+      <span class="org-mgmt-stripe-card__badge org-mgmt-stripe-card__badge--ok">{% trans "Masscer access: active" %}</span>
+    {% else %}
+      <span class="org-mgmt-stripe-card__badge org-mgmt-stripe-card__badge--muted">{% trans "Masscer access: inactive" %}</span>
+    {% endif %}
+  </div>
+  <div class="org-mgmt-stripe-card__body">
+    <p class="org-mgmt-stripe-card__row"><strong>{% trans "Created at" %}</strong> {{ s.created_at }}</p>
+    <p class="org-mgmt-stripe-card__row"><strong>{% trans "End date (Masscer)" %}</strong>
+      {% if s.end_date %}{{ s.end_date }}{% else %}<em>—</em>{% endif %}
+    </p>
+    <p class="org-mgmt-stripe-card__row"><strong>{% trans "Display price (USD)" %}</strong>
+      {% if s.get_display_monthly_price_usd != None %}{{ s.get_display_monthly_price_usd }}{% else %}<em>—</em>{% endif %}
+    </p>
+    <p class="org-mgmt-stripe-card__row"><strong>{% trans "Credit budget (USD)" %}</strong>
+      {% with effective_budget=s.get_effective_credits_limit_usd %}
+        {% if effective_budget != None %}{{ effective_budget }}{% else %}<em>—</em>{% endif %}
+      {% endwith %}
+    </p>
+    {% if s.stripe_subscription_id %}
+      <p class="org-mgmt-stripe-card__row"><strong>{% trans "Stripe subscription id" %}</strong> <code>{{ s.stripe_subscription_id }}</code></p>
+    {% endif %}
+    {% if s.stripe_customer_id %}
+      <p class="org-mgmt-stripe-card__row"><strong>{% trans "Stripe customer id" %}</strong> <code>{{ s.stripe_customer_id }}</code></p>
+    {% endif %}
+  </div>
+
+  {% if s.status == "active" or s.status == "expired" %}
+    {% if s.billing_interval != "one_time" and s.billing_interval != "custom" %}
+    <div class="org-mgmt-stripe-cancel-panel">
+      <h3 class="org-mgmt-stripe-cancel-panel__title">{% trans "Manual renewal" %}</h3>
+      <p class="help org-mgmt-stripe-cancel-panel__help">{% trans "Renews this subscription from admin. Active rows extend from their current end date; expired rows restart from now. This action also recharges wallet credits and records a manual payment using contract price (or plan fallback)." %}</p>
+      <form method="post" action="{{ billing_url }}" class="org-mgmt-cancel-form">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="renew_subscription">
+        <input type="hidden" name="masscer_subscription_id" value="{{ s.id }}">
+        <label class="org-mgmt-cancel-form__confirm"><input type="checkbox" name="confirm_manual_renewal" value="on" required> {% trans "I confirm manual renewal" %}</label>
+        <input type="submit" class="button" value="{% trans "Renew subscription" %}">
+      </form>
+    </div>
+    {% endif %}
+  {% endif %}
+
+  {% if live and live.error %}
+    <p class="errornote org-mgmt-stripe-card__footer">{% trans "Stripe lookup" %}: {{ live.error }}</p>
+  {% elif live and live.ok %}
+    <table class="listing org-mgmt-stripe-card__table">
+      <thead>
+        <tr><th scope="col">{% trans "Field" %}</th><th scope="col">{% trans "Value" %}</th></tr>
+      </thead>
+      <tbody>
+        <tr><th scope="row">{% trans "Stripe status" %}</th><td><code>{{ live.stripe_status|default:"—" }}</code></td></tr>
+        <tr><th scope="row">{% trans "Cancel at period end" %}</th><td>{% if live.cancel_at_period_end %}{% trans "Yes" %}{% else %}{% trans "No" %}{% endif %}</td></tr>
+        <tr><th scope="row">{% trans "Current period end (Stripe)" %}</th><td>{{ live.current_period_end_display|default:"—" }}</td></tr>
+        <tr><th scope="row">{% trans "Cancel at (Stripe)" %}</th><td>{{ live.cancel_at_display|default:"—" }}</td></tr>
+      </tbody>
+    </table>
+  {% endif %}
+
+  {% if show_cancel_actions %}
+    <div class="org-mgmt-stripe-cancel-panel">
+      <h3 class="org-mgmt-stripe-cancel-panel__title">{% trans "Cancel this subscription in Stripe" %}</h3>
+      <p class="help org-mgmt-stripe-cancel-panel__help">{% trans "Both actions call the Stripe API. Check the confirmation box on each form before submitting." %}</p>
+      <div class="org-mgmt-inline-actions org-mgmt-stripe-card__actions org-mgmt-stripe-card__actions--cancel">
+        {% trans 'Cancel this Stripe subscription at the end of the current billing period?' as org_mgmt_stripe_cancel_period_end_confirm %}
+        <form method="post" action="{{ billing_url }}" class="org-mgmt-cancel-form" data-org-mgmt-stripe-confirm="{{ org_mgmt_stripe_cancel_period_end_confirm|escape }}">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="stripe_cancel_at_period_end">
+          <input type="hidden" name="masscer_subscription_id" value="{{ s.id }}">
+          <label class="org-mgmt-cancel-form__confirm"><input type="checkbox" name="confirm_stripe_cancel" value="on" required> {% trans "I confirm this Stripe change" %}</label>
+          <input type="submit" class="button" value="{% trans "Cancel at period end (Stripe)" %}">
+        </form>
+        {% trans 'Cancel this Stripe subscription IMMEDIATELY? This cannot be undone in Masscer.' as org_mgmt_stripe_cancel_immediate_confirm %}
+        <form method="post" action="{{ billing_url }}" class="org-mgmt-cancel-form" data-org-mgmt-stripe-confirm="{{ org_mgmt_stripe_cancel_immediate_confirm|escape }}">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="stripe_cancel_immediately">
+          <input type="hidden" name="masscer_subscription_id" value="{{ s.id }}">
+          <label class="org-mgmt-cancel-form__confirm"><input type="checkbox" name="confirm_stripe_cancel" value="on" required> {% trans "I confirm this Stripe change" %}</label>
+          <input type="submit" class="button org-mgmt-submit-danger" value="{% trans "Cancel immediately (Stripe)" %}">
+        </form>
+      </div>
+    </div>
+  {% endif %}
+</div>
+{% endwith %}

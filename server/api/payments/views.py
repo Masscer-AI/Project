@@ -61,6 +61,11 @@ class OrganizationBillingView(View):
                 "is_active": subscription.is_active(),
                 "start_date": subscription.start_date.isoformat() if subscription.start_date else None,
                 "end_date": subscription.end_date.isoformat() if subscription.end_date else None,
+                "display_monthly_price_usd": str(subscription.get_display_monthly_price_usd()),
+                "contract_price_usd": str(subscription.contract_price_usd)
+                if subscription.contract_price_usd is not None
+                else None,
+                "billing_interval": subscription.billing_interval,
                 "plan": {
                     "slug": subscription.plan.slug,
                     "display_name": subscription.plan.display_name,
@@ -406,8 +411,10 @@ def _handle_credit_purchase_completed(session):
 
 def _handle_subscription_checkout_completed(session):
     """Checkout completed → activate subscription and seed wallet."""
-    from decimal import Decimal
-    import calendar
+    from api.payments.billing_helpers import (
+        add_one_calendar_month,
+        recharge_org_wallet_from_credits_usd,
+    )
 
     org_id = session.get("metadata", {}).get("organization_id")
     plan_slug = session.get("metadata", {}).get("plan_slug", "organization")
@@ -427,10 +434,7 @@ def _handle_subscription_checkout_completed(session):
         return
 
     now = tz.now()
-    next_month = now.month + 1 if now.month < 12 else 1
-    next_year = now.year if now.month < 12 else now.year + 1
-    day = min(now.day, calendar.monthrange(next_year, next_month)[1])
-    end_date = now.replace(year=next_year, month=next_month, day=day)
+    end_date = add_one_calendar_month(now)
 
     sub, _ = Subscription.objects.update_or_create(
         organization=org,
@@ -448,21 +452,15 @@ def _handle_subscription_checkout_completed(session):
     # Seed / recharge the org wallet
     credits_usd = sub.get_effective_credits_limit_usd()
     if credits_usd:
-        currency = Currency.objects.filter(name="Compute Unit").first()
-        if currency:
-            compute_units = Decimal(credits_usd) * Decimal(currency.one_usd_is)
-            wallet, created = OrganizationWallet.objects.get_or_create(
-                organization=org,
-                defaults={"balance": compute_units, "unit": currency},
-            )
-            if not created:
-                wallet.recharge(compute_units)
+        recharge_org_wallet_from_credits_usd(org, credits_usd)
 
 
 def _handle_invoice_paid(invoice):
     """Recurring invoice paid → renew subscription end_date and recharge wallet."""
-    from decimal import Decimal
-    import calendar
+    from api.payments.billing_helpers import (
+        extend_subscription_end_date_one_month,
+        recharge_wallet_for_subscription_credits,
+    )
 
     # First invoice after subscription creation is already handled on checkout completion.
     # Avoid double extending period and double crediting.
@@ -481,23 +479,8 @@ def _handle_invoice_paid(invoice):
         return
 
     now = tz.now()
-    base = sub.end_date if sub.end_date and sub.end_date > now else now
-    next_month = base.month + 1 if base.month < 12 else 1
-    next_year = base.year if base.month < 12 else base.year + 1
-    day = min(base.day, calendar.monthrange(next_year, next_month)[1])
-    sub.end_date = base.replace(year=next_year, month=next_month, day=day)
-    sub.status = "active"
-    sub.renewed_at = now
-    sub.save(update_fields=["end_date", "status", "renewed_at", "updated_at"])
-
-    credits_usd = sub.get_effective_credits_limit_usd()
-    if credits_usd:
-        currency = Currency.objects.filter(name="Compute Unit").first()
-        if currency:
-            compute_units = Decimal(credits_usd) * Decimal(currency.one_usd_is)
-            wallet = OrganizationWallet.objects.filter(organization=sub.organization).first()
-            if wallet:
-                wallet.recharge(compute_units)
+    extend_subscription_end_date_one_month(sub, now=now)
+    recharge_wallet_for_subscription_credits(sub)
 
 
 def _handle_subscription_cancelled(stripe_sub):

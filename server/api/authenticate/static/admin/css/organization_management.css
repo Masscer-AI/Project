@@ -1,0 +1,316 @@
+/*
+ * Organizations Management admin — uses Django admin CSS variables so
+ * light and dark (and auto) themes stay consistent.
+ * Variables are defined in django/contrib/admin/static/admin/css/base.css
+ * and dark_mode.css (html[data-theme="dark"] / auto).
+ */
+
+.org-mgmt-end-date-field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.org-mgmt-end-date-field input[type="date"] {
+  min-width: 12em;
+}
+
+.org-mgmt-inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-start;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--hairline-color, #e5e5e5);
+}
+
+.org-mgmt-inline-actions .help-full-row {
+  flex-basis: 100%;
+  margin: 0 0 4px 0;
+}
+
+/* Stripe subscription card — elevated panel for dark/light admin themes */
+.org-mgmt-stripe-card {
+  margin-bottom: 16px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--hairline-color, #e5e5e5);
+  border-radius: 8px;
+  background: var(--body-bg, #fff);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+html[data-theme="dark"] .org-mgmt-stripe-card {
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 4px 14px rgba(0, 0, 0, 0.45);
+  border-color: var(--hairline-color, #3d3d3d);
+}
+
+.org-mgmt-stripe-card__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 12px 14px;
+  background: var(--darkened-bg, rgba(0, 0, 0, 0.04));
+  border-bottom: 1px solid var(--hairline-color, #e5e5e5);
+}
+
+.org-mgmt-stripe-card__admin-link {
+  margin-left: auto;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.org-mgmt-stripe-card__title {
+  font-weight: 700;
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--body-quiet-color, inherit);
+}
+
+.org-mgmt-stripe-card__id {
+  font-size: 0.8125rem;
+  word-break: break-all;
+}
+
+.org-mgmt-stripe-card__badge {
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--primary, #417690);
+  color: var(--button-fg, #fff);
+  white-space: nowrap;
+}
+
+.org-mgmt-stripe-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  padding: 10px 14px;
+  font-size: 0.8125rem;
+  border-bottom: 1px solid var(--hairline-color, #e5e5e5);
+}
+
+.org-mgmt-stripe-card__meta-sep {
+  opacity: 0.55;
+  user-select: none;
+}
+
+.org-mgmt-stripe-card__body {
+  padding: 12px 14px;
+}
+
+.org-mgmt-stripe-card__row {
+  margin: 0 0 8px 0;
+}
+
+.org-mgmt-stripe-card__row:last-child {
+  margin-bottom: 0;
+}
+
+.org-mgmt-stripe-card__table {
+  margin: 0 14px 12px 14px;
+  width: calc(100% - 28px);
+}
+
+.org-mgmt-stripe-card__footer {
+  margin: 0 14px 12px 14px;
+}
+
+.org-mgmt-stripe-card__actions {
+  margin: 0;
+  padding: 12px 14px;
+  border-top: 1px solid var(--hairline-color, #e5e5e5);
+  border-radius: 0;
+}
+
+/* Ensure help text stays readable on themed surfaces (never force light gray on white) */
+fieldset.module .help,
+.org-mgmt-stripe-card .help {
+  color: var(--body-quiet-color, inherit);
+}
+
+.org-mgmt-stripe-card__actions.org-mgmt-inline-actions {
+  margin-top: 0;
+}
+
+.org-mgmt-stripe-card .errornote {
+  margin-top: 8px;
+}
+
+/* Destructive action — use admin delete palette when available */
+.org-mgmt-submit-danger {
+  background: var(--delete-button-bg, #ba2121) !important;
+  color: var(--button-fg, #fff) !important;
+  border-color: var(--delete-button-bg, #ba2121) !important;
+}
+
+.org-mgmt-submit-danger:hover {
+  filter: brightness(1.08);
+}
+
+.org-mgmt-lang-switch {
+  margin-bottom: 1em;
+  padding: 8px 10px;
+  border: 1px solid var(--hairline-color, #e5e5e5);
+  border-radius: 4px;
+  background: var(--darkened-bg, rgba(0, 0, 0, 0.03));
+}
+
+.org-mgmt-stripe-card__badge--ok {
+  background: #2d6a4f;
+  color: #fff;
+}
+
+.org-mgmt-stripe-card__badge--muted {
+  background: var(--darkened-bg, rgba(0, 0, 0, 0.06));
+  color: var(--body-fg, inherit);
+  border: 1px solid var(--hairline-color, #ccc);
+}
+
+.org-mgmt-stripe-subsection {
+  margin-top: 14px;
+}
+
+.org-mgmt-stripe-subsection h3 {
+  margin-bottom: 8px;
+}
+
+.org-mgmt-disclosure {
+  margin: 8px 0 14px;
+}
+
+.org-mgmt-disclosure > summary.button {
+  display: inline-block;
+  cursor: pointer;
+  list-style: none;
+}
+
+.org-mgmt-disclosure > summary.button::-webkit-details-marker {
+  display: none;
+}
+
+.org-mgmt-disclosure > summary.button::before {
+  content: "> ";
+}
+
+.org-mgmt-disclosure[open] > summary.button::before {
+  content: "v ";
+}
+
+.org-mgmt-disclosure__body {
+  margin-top: 14px;
+}
+
+.org-mgmt-empty-hint {
+  margin: 12px 0;
+}
+
+.org-mgmt-stripe-cancel-panel {
+  border-top: 2px solid var(--primary, #417690);
+  background: var(--darkened-bg, rgba(0, 0, 0, 0.03));
+}
+
+.org-mgmt-stripe-cancel-panel__title {
+  margin: 0;
+  padding: 14px 14px 6px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--body-fg, inherit);
+}
+
+.org-mgmt-stripe-cancel-panel__help {
+  margin: 0 14px 12px;
+  max-width: 56rem;
+}
+
+.org-mgmt-stripe-card__actions--cancel.org-mgmt-inline-actions {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+  padding: 0 14px 14px;
+}
+
+.org-mgmt-cancel-form {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--hairline-color, #e5e5e5);
+  border-radius: 6px;
+  background: var(--body-bg, #fff);
+}
+
+.org-mgmt-cancel-form__confirm {
+  display: block;
+  max-width: 100%;
+}
+
+.org-mgmt-lang-switch label {
+  margin-right: 8px;
+}
+
+.org-mgmt-lang-switch select {
+  margin-right: 8px;
+}
+
+.org-mgmt-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.org-mgmt-dialog {
+  max-width: min(36rem, 92vw);
+  padding: 16px 18px;
+  border: 1px solid var(--hairline-color, #e5e5e5);
+  border-radius: 8px;
+  background: var(--body-bg, #fff);
+  color: var(--body-fg, inherit);
+}
+
+.org-mgmt-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.org-mgmt-dialog__summary {
+  margin: 10px 0;
+  padding: 10px 12px;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  background: var(--darkened-bg, rgba(0, 0, 0, 0.04));
+  border: 1px solid var(--hairline-color, #e5e5e5);
+  border-radius: 4px;
+}
+
+.org-mgmt-dialog__actions {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.org-mgmt-manual-panel {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--hairline-color, #e5e5e5);
+}
+
+.org-mgmt-manual-panel__warning {
+  margin-bottom: 14px;
+}

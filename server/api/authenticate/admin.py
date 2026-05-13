@@ -7,7 +7,6 @@ from django.utils.html import format_html
 from django.urls import path, reverse
 from django.http import HttpResponseRedirect
 from django.contrib import messages
-import calendar
 import pytz
 from .models import (
     Token,
@@ -175,36 +174,17 @@ class OrganizationAdmin(admin.ModelAdmin):
 
     def _renew_subscription(self, request, subscription_id):
         from api.payments.models import Subscription
-        from api.consumption.models import OrganizationWallet, Currency
-        from decimal import Decimal
+        from api.payments.billing_helpers import renew_subscription_period_and_recharge_wallet
+
+        sub = None
         try:
             sub = Subscription.objects.select_related("plan", "organization").get(pk=subscription_id)
-            now = timezone.now()
-            base = sub.end_date if sub.end_date and sub.end_date > now else now
-            # Advance exactly one month (same day, handle month-end edge cases)
-            month = base.month + 1 if base.month < 12 else 1
-            year = base.year if base.month < 12 else base.year + 1
-            day = min(base.day, calendar.monthrange(year, month)[1])
-            sub.end_date = base.replace(year=year, month=month, day=day)
-            sub.status = "active"
-            sub.renewed_at = now
-            sub.save(update_fields=["end_date", "status", "renewed_at", "updated_at"])
-
-            # Recharge the wallet
-            credits_usd = sub.get_effective_credits_limit_usd()
-            if credits_usd:
-                currency = Currency.objects.filter(name="Compute Unit").first()
-                if currency:
-                    compute_units = Decimal(credits_usd) * Decimal(currency.one_usd_is)
-                    wallet = OrganizationWallet.objects.filter(organization=sub.organization).first()
-                    if wallet:
-                        wallet.recharge(compute_units)
-
+            renew_subscription_period_and_recharge_wallet(sub, recharge_wallet=True)
             messages.success(request, f"Subscription renewed until {sub.end_date.strftime('%Y-%m-%d')}.")
         except Exception as e:
             messages.error(request, f"Could not renew subscription: {e}")
 
-        org_id = sub.organization_id if 'sub' in dir() else None
+        org_id = sub.organization_id if sub else None
         return HttpResponseRedirect(
             reverse("admin:authenticate_organization_change", args=[org_id]) if org_id
             else reverse("admin:authenticate_organization_changelist")
@@ -212,16 +192,17 @@ class OrganizationAdmin(admin.ModelAdmin):
 
     def _expire_subscription(self, request, subscription_id):
         from api.payments.models import Subscription
+        from api.payments.billing_helpers import expire_subscription_now
+
+        sub = None
         try:
             sub = Subscription.objects.select_related("organization").get(pk=subscription_id)
-            sub.status = "expired"
-            sub.end_date = timezone.now()
-            sub.save(update_fields=["status", "end_date", "updated_at"])
+            expire_subscription_now(sub)
             messages.success(request, "Subscription expired.")
         except Exception as e:
             messages.error(request, f"Could not expire subscription: {e}")
 
-        org_id = sub.organization_id if 'sub' in dir() else None
+        org_id = sub.organization_id if sub else None
         return HttpResponseRedirect(
             reverse("admin:authenticate_organization_change", args=[org_id]) if org_id
             else reverse("admin:authenticate_organization_changelist")
@@ -270,6 +251,9 @@ class SubscriptionInline(admin.StackedInline):
         "start_date",
         "end_date",
         "credits_limit_usd",
+        "contract_price_usd",
+        "billing_interval",
+        "internal_notes",
         "stripe_subscription_id",
         "stripe_customer_id",
         "subscription_actions",
@@ -416,3 +400,7 @@ class RoleAssignmentAdmin(admin.ModelAdmin):
         return obj.is_active()
     is_active_display.boolean = True
     is_active_display.short_description = "Active"
+
+
+import api.authenticate.organization_management_admin  # noqa: F401, E402
+import api.authenticate.system_management_admin  # noqa: F401, E402

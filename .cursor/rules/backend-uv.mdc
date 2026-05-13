@@ -1,0 +1,11 @@
+---
+alwaysApply: true
+---
+
+# Backend Python (uv)
+
+- Use **uv**, not `pip`, for dependencies in this monorepo.
+- Install / lock from repo root (or with explicit `--project`):
+  - Sync: `uv sync --project server --frozen --no-dev` (see [README.md](README.md) and `scripts/run.sh`).
+  - Add a library: `uv add --project server <package>` (adjust flags as needed, e.g. `--dev`).
+- Run Django and tests through uv, e.g. `uv run --project server python manage.py test …` (see `taskfile.sh`).

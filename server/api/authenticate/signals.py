@@ -182,7 +182,11 @@ def create_free_trial_subscription(sender, instance, created, **kwargs):
             if not wallet_created:
                 org_wallet.recharge(compute_units)
 
-            logger.info("Seeded org wallet with %s credits for org %s", credits, instance.id)
+            logger.info(
+                "Seeded org wallet with %s compute units for org %s",
+                compute_units,
+                instance.id,
+            )
 
         except Exception:
             logger.exception("Failed to set up free trial for org %s", instance.id)

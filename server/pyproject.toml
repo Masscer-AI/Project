@@ -44,3 +44,8 @@ dependencies = [
     "youtube-transcript-api",
     "google-genai>=1.70.0",
 ]
+
+[dependency-groups]
+dev = [
+    "polib>=1.2.0",
+]

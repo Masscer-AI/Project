@@ -20,6 +20,14 @@ PLANS = [
         "duration_days": None,
         "is_configurable": False,
     },
+    {
+        "slug": "custom",
+        "display_name": "Custom (admin deals)",
+        "monthly_price_usd": 0,
+        "credits_limit_usd": None,
+        "duration_days": None,
+        "is_configurable": True,
+    },
 ]
 
 

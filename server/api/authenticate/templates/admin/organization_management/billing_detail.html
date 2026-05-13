@@ -1,0 +1,376 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block extrastyle %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'admin/css/organization_management.css' %}">
+{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<script src="{% static 'admin/js/organization_management_billing.js' %}" defer></script>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+  <p><a href="{{ changelist_url }}">&laquo; {% trans "Back to Organizations Management" %}</a></p>
+  <h1>{{ organization.name }}</h1>
+  <p class="help">{% trans "Owner" %}: {{ organization.owner.email|default:organization.owner.username }} · {% trans "Members" %}: {{ member_count }}</p>
+
+  <fieldset class="module aligned">
+    <h2>{% trans "How billing works in Masscer" %}</h2>
+    <p class="help">
+      <strong>{% trans "Usage and access" %}</strong> {% trans "use the" %} <em>{% trans "latest" %}</em> {% trans "subscription row (by creation time): its status, end date, and wallet balance decide whether the org can spend credits." %}
+    </p>
+    <p class="help">
+      <strong>{% trans "Stripe" %}</strong> {% trans "is separate: if a row still has a Stripe subscription id, Stripe may keep charging until you cancel it from that same subscription row here, or the customer cancels in the" %}
+      <strong>{% trans "Stripe Customer Portal" %}</strong> {% trans "from the in-app billing page. Adding a manual row on top does" %} <em>{% trans "not" %}</em> {% trans "automatically stop an older Stripe subscription." %}
+    </p>
+  </fieldset>
+
+  <fieldset class="module aligned">
+    <h2>{% trans "At a glance" %}</h2>
+    <p class="help">
+      {% trans "Active Masscer subscriptions (in this summary and for wallet recharge) are subscription rows where the organization can still use plan benefits: status is trial or active, and the Masscer end date (if set) has not passed yet—including subscriptions that are about to expire. Stripe may already show canceled; billing there is separate from access here." %}
+    </p>
+    <table class="listing">
+      <thead>
+        <tr>
+          <th scope="col">{% trans "Metric" %}</th>
+          <th scope="col">{% trans "Value" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <th scope="row">{% trans "Wallet total balance" %}</th>
+          <td>
+            {% if wallet %}
+              <strong>{{ wallet.balance }} {{ wallet.unit.name }}</strong>
+              {% if wallet_balance_usd is not None %}
+                (~ ${{ wallet_balance_usd|floatformat:4 }} {% trans "USD" %})
+              {% endif %}
+            {% else %}
+              <em>{% trans "No organization wallet." %}</em>
+            {% endif %}
+          </td>
+        </tr>
+        <tr>
+          <th scope="row">{% trans "Active Masscer subscriptions" %}</th>
+          <td>
+            <strong>{{ masscer_active_subscription_count }}</strong>
+          </td>
+        </tr>
+        <tr>
+          <th scope="row">{% trans "Members" %}</th>
+          <td>
+            <strong>{{ member_count }}</strong>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </fieldset>
+
+  <fieldset class="module aligned org-mgmt-masscer-subscriptions-section">
+    <h2>{% trans "Masscer subscriptions" %}</h2>
+    <p class="help">
+      {% trans "All subscription rows stored in Masscer for this organization (manual and Stripe-linked). Usage follows the latest row by creation time; open a row below to edit it in the payments admin. For rows that include a Stripe subscription id, this same card also shows live Stripe status and cancellation actions." %}
+    </p>
+    <p class="help">
+      {% trans "Rows grouped as active below include both currently active and expired rows, so you can quickly find subscriptions that can be reactivated." %}
+    </p>
+
+    <div class="org-mgmt-stripe-subsection">
+      <h3>{% trans "Active + expired rows" %}</h3>
+      {% if masscer_subscriptions_active %}
+        <details class="org-mgmt-disclosure" open>
+          <summary class="button">
+            {% blocktrans count count=masscer_subscriptions_active|length %}View {{ count }} active or expired Masscer subscription row{% plural %}View {{ count }} active or expired Masscer subscription rows{% endblocktrans %}
+          </summary>
+          <div class="org-mgmt-disclosure__body">
+            {% for row in masscer_subscriptions_active %}
+              {% include "admin/organization_management/_masscer_subscription_card.html" with row=row billing_url=billing_url latest_subscription=latest_subscription %}
+            {% endfor %}
+          </div>
+        </details>
+      {% else %}
+        <p class="org-mgmt-empty-hint"><em>{% trans "No active or expired Masscer subscription rows." %}</em></p>
+      {% endif %}
+    </div>
+
+    <div class="org-mgmt-stripe-subsection">
+      <h3>{% trans "Inactive rows" %}</h3>
+      {% if masscer_subscriptions_inactive %}
+        <details class="org-mgmt-disclosure">
+          <summary class="button">
+            {% blocktrans count count=masscer_subscriptions_inactive|length %}View {{ count }} inactive Masscer subscription row{% plural %}View {{ count }} inactive Masscer subscription rows{% endblocktrans %}
+          </summary>
+          <div class="org-mgmt-disclosure__body">
+            {% for row in masscer_subscriptions_inactive %}
+              {% include "admin/organization_management/_masscer_subscription_card.html" with row=row billing_url=billing_url latest_subscription=latest_subscription %}
+            {% endfor %}
+          </div>
+        </details>
+      {% else %}
+        <p class="org-mgmt-empty-hint"><em>{% trans "No inactive Masscer subscription rows." %}</em></p>
+      {% endif %}
+    </div>
+  </fieldset>
+
+  <fieldset class="module aligned">
+    <h2>{% trans "Wallet" %}</h2>
+    <p class="help">{% trans "Organization usage draws from this balance (compute units). Top up here for one-off credits without changing the subscription row." %}</p>
+    {% if wallet %}
+      <p>
+        <strong>{% trans "Balance" %}:</strong> {{ wallet.balance }} {{ wallet.unit.name }}
+        {% if wallet_balance_usd is not None %}
+          (~ ${{ wallet_balance_usd|floatformat:4 }} {% trans "USD at 1 USD =" %} {{ wallet.unit.one_usd_is }} {{ wallet.unit.name }})
+        {% endif %}
+      </p>
+    {% else %}
+      <p><em>{% trans "No organization wallet." %}</em></p>
+    {% endif %}
+
+    <h3>{% trans "Manual credit (USD)" %}</h3>
+    {% if not wallet_recharge_allowed %}
+      <p class="errornote">{% trans "Wallet recharge is disabled until the organization has at least one active Masscer subscription (trial or active, not past its end date)." %}</p>
+    {% endif %}
+    <div class="org-mgmt-sr-only">
+      <span id="org-mgmt-wallet-lbl-before">{% trans "Balance before (compute units)" %}</span>
+      <span id="org-mgmt-wallet-lbl-add">{% trans "Credit added (compute units)" %}</span>
+      <span id="org-mgmt-wallet-lbl-after">{% trans "Balance after (compute units, estimated)" %}</span>
+      <span id="org-mgmt-wallet-lbl-usd">{% trans "Approximate USD equivalent (before → after)" %}</span>
+      <span id="org-mgmt-wallet-msg-invalid-amount">{% trans "Enter a valid positive USD amount." %}</span>
+      <span id="org-mgmt-wallet-msg-no-rate">{% trans "Compute Unit rate is missing; cannot estimate the new balance." %}</span>
+    </div>
+    <form
+      id="org-mgmt-wallet-form"
+      method="post"
+      action="{{ billing_url }}"
+      {% if not wallet_recharge_allowed %}data-org-mgmt-wallet-disabled="1"{% endif %}
+      data-balance-cu="{{ wallet_modal_balance_cu }}"
+      data-one-usd-is="{{ wallet_modal_one_usd_is }}"
+      data-unit-name="{{ wallet_modal_unit_name|escape }}"
+    >
+      {% csrf_token %}
+      <input type="hidden" name="action" value="wallet_recharge">
+      <div class="form-row">
+        <label for="id_amount_usd">{% trans "Amount (USD)" %}</label>
+        <input type="text" name="amount_usd" id="id_amount_usd" placeholder="{% trans "e.g. 100" %}" autocomplete="off" {% if not wallet_recharge_allowed %}disabled{% endif %}>
+        <p class="help">{% trans "Whole or decimal USD amount credited to the org wallet using the same conversion as plan credits (Compute Unit currency must exist)." %}</p>
+      </div>
+      <div class="form-row">
+        <label>
+          <input type="checkbox" name="register_wallet_recharge_payment" value="on" id="id_register_wallet_recharge_payment" {% if not wallet_recharge_allowed %}disabled{% endif %}>
+          {% trans "Register this recharge as a payment" %}
+        </label>
+        <p class="help">
+          {% if wallet_recharge_allowed %}
+            {% trans "Creates a completed manual payment on the newest active Masscer subscription for the same USD amount." %}
+          {% else %}
+            {% trans "Requires an active Masscer subscription before registering wallet recharges as payments." %}
+          {% endif %}
+        </p>
+      </div>
+      <div class="form-row org-mgmt-wallet-payment-note" id="org-mgmt-wallet-payment-note-row" hidden>
+        <label for="id_wallet_recharge_payment_note">{% trans "Payment note" %}</label><br>
+        <textarea name="wallet_recharge_payment_note" id="id_wallet_recharge_payment_note" rows="3" cols="60" {% if not wallet_recharge_allowed %}disabled{% endif %}></textarea>
+        <p class="help">{% trans "Required when registering this recharge as a payment." %}</p>
+      </div>
+      <p>
+        <button type="button" class="default" id="org-mgmt-wallet-open" {% if not wallet_recharge_allowed %}disabled{% endif %}>{% trans "Recharge wallet" %}</button>
+      </p>
+    </form>
+    <dialog id="org-mgmt-wallet-dialog" class="org-mgmt-dialog">
+      <p><strong>{% trans "Confirm wallet recharge" %}</strong></p>
+      <pre id="org-mgmt-wallet-modal-summary" class="org-mgmt-dialog__summary"></pre>
+      <p class="help">{% trans "This is an estimate from the current balance and the Compute Unit conversion; the saved amount is the USD you entered." %}</p>
+      <p class="org-mgmt-dialog__actions">
+        <button type="button" class="default" id="org-mgmt-wallet-confirm">{% trans "Confirm recharge" %}</button>
+        <button type="button" class="button" id="org-mgmt-wallet-cancel">{% trans "Cancel" %}</button>
+      </p>
+    </dialog>
+  </fieldset>
+
+  <fieldset class="module aligned">
+    <h2>{% trans "Manual subscription (enterprise)" %}</h2>
+    <p class="help">
+      {% trans "Create a new bank-transfer / enterprise manual subscription. Saving will mark every existing Masscer subscription row for this organization as cancelled, then add one new manual row. This does not call Stripe; cancel billing in Stripe separately if needed." %}
+    </p>
+    <p>
+      <button type="button" class="default" id="org-mgmt-open-manual-subscription" aria-expanded="false">
+        {% trans "Create subscription" %}
+      </button>
+    </p>
+    <div id="org-mgmt-manual-subscription-panel" class="org-mgmt-manual-panel" hidden>
+      <div class="errornote org-mgmt-manual-panel__warning">
+        {% trans "Warning: submitting this form will immediately mark all previous Masscer subscription rows as cancelled (including Stripe-linked rows in Masscer only) and then create one new manual subscription. Stripe may continue charging until you cancel from the corresponding subscription row below." %}
+      </div>
+      <form method="post" action="{{ billing_url }}">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="manual_subscription">
+
+        {% if not has_manual_subscription_plan %}
+          <p class="errornote">
+            {% trans "The custom subscription plan is missing. Run sync_subscription_plans (or your usual deploy startup) to seed catalog plans." %}
+          </p>
+        {% else %}
+        <div class="form-row">
+          <label for="id_plan">{% trans "Plan" %}</label>
+          <select name="plan_id" id="id_plan" required>
+            {% for p in manual_subscription_plans %}
+              <option value="{{ p.pk }}"
+                {% if latest_subscription and latest_subscription.plan_id == p.pk %}selected{% endif %}>
+                {{ p.slug }} — {{ p.display_name }}
+              </option>
+            {% endfor %}
+          </select>
+          <p class="help">{% trans "This flow always uses the Custom catalog plan for admin-created enterprise deals. It is not tied to Stripe product prices for organization or free trial. Set contract price and credit overrides on this row as needed." %}</p>
+        </div>
+
+        <div class="form-row">
+          <label for="id_status">{% trans "Status" %}</label>
+          <select name="status" id="id_status">
+            {% for val, label in subscription_status_choices %}
+              <option value="{{ val }}"
+                {% if latest_subscription and latest_subscription.status == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+          <p class="help"><strong>{% trans "Active" %}</strong> {% trans "or" %} <strong>{% trans "Trial" %}</strong> {% trans "allows usage (subject to end date). Use" %} <strong>{% trans "Expired" %}</strong> / <strong>{% trans "Cancelled" %}</strong> {% trans "to block access from this row." %}</p>
+        </div>
+
+        <div class="form-row">
+          <label for="id_billing_interval">{% trans "Billing interval" %}</label>
+          <select name="billing_interval" id="id_billing_interval">
+            {% for val, label in billing_interval_choices %}
+              <option value="{{ val }}"
+                {% if latest_subscription and latest_subscription.billing_interval == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+          <p class="help">{% trans "For documentation and negotiations; Stripe renewals are controlled in Stripe, not by this field." %}</p>
+        </div>
+
+        <div class="form-row">
+          <label for="id_end_date">{% trans "End date (optional)" %}</label>
+          <div class="org-mgmt-end-date-field">
+            <input type="date" name="end_date" id="id_end_date"
+              {% if latest_subscription and latest_subscription.end_date %}value="{{ latest_subscription.end_date|date:'Y-m-d' }}"{% endif %}>
+            <button type="button" class="button" id="org-mgmt-calc-end-from-now">{% trans "Calculate from now" %}</button>
+          </div>
+          <p class="help">{% trans "When this manual deal ends in Masscer (end of chosen day, UTC). Leave empty for no fixed end on this row." %}</p>
+        </div>
+
+        <div class="form-row">
+          <label for="id_credits_limit">{% trans "Credit budget (USD)" %}</label>
+          <input type="text" name="credits_limit_usd" id="id_credits_limit" required
+            value="{% if latest_subscription and latest_subscription.credits_limit_usd != None %}{{ latest_subscription.credits_limit_usd }}{% endif %}">
+          <p class="help">{% trans "Monthly (or per-recharge) USD budget for this deal; converted to compute units when you recharge from this subscription. Required for manual custom subscriptions." %}</p>
+        </div>
+
+        <div class="form-row">
+          <label for="id_contract_price">{% trans "Contract price (USD)" %}</label>
+          <input type="text" name="contract_price_usd" id="id_contract_price" required
+            value="{% if latest_subscription and latest_subscription.contract_price_usd != None %}{{ latest_subscription.contract_price_usd }}{% endif %}">
+          <p class="help">{% trans "Negotiated list price for reporting and owner UI. Does not change Stripe prices. Required for manual custom subscriptions." %}</p>
+        </div>
+
+        <div class="form-row">
+          <label for="id_internal_notes">{% trans "Internal notes (admin only)" %}</label><br>
+          <textarea name="internal_notes" id="id_internal_notes" rows="3" cols="60">{% if latest_subscription %}{{ latest_subscription.internal_notes|default:'' }}{% endif %}</textarea>
+          <p class="help">{% trans "Not shown to organization owners in the product API." %}</p>
+        </div>
+
+        <div class="form-row">
+          <label>
+            <input type="checkbox" name="recharge_wallet" value="on">
+            {% trans "Recharge wallet with this subscription's credit budget now" %}
+          </label>
+          <p class="help">{% trans "When checked, after save we add compute units from the USD credit budget set above. Uncheck to only change metadata on the row." %}</p>
+        </div>
+
+        <div class="form-row">
+          <label>
+            <input type="checkbox" name="confirm_manual_subscription_revokes_previous" value="on" required>
+            {% trans "I understand that all existing Masscer subscription rows for this organization will be marked cancelled and one new manual subscription will be created." %}
+          </label>
+        </div>
+
+        <p>
+          <input type="submit" class="default" value="{% trans "Create manual subscription" %}">
+        </p>
+        {% endif %}
+      </form>
+    </div>
+  </fieldset>
+
+  <fieldset class="module aligned">
+    <h2>{% trans "Registered payments" %}</h2>
+    <p class="help">{% trans "SubscriptionPayment records linked to this organization's subscriptions (most recent first)." %}</p>
+    {% if not subscription_payments %}
+      <p><em>{% trans "No subscription payments recorded for this organization." %}</em></p>
+    {% else %}
+      <table class="listing">
+        <thead>
+          <tr>
+            <th scope="col">{% trans "Date" %}</th>
+            <th scope="col">{% trans "Amount (USD)" %}</th>
+            <th scope="col">{% trans "Method" %}</th>
+            <th scope="col">{% trans "Status" %}</th>
+            <th scope="col">{% trans "Subscription" %}</th>
+            <th scope="col">{% trans "Notes" %}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for pay in subscription_payments %}
+          <tr>
+            <td>{{ pay.created_at }}</td>
+            <td>{{ pay.amount_usd }}</td>
+            <td>{{ pay.get_method_display }}</td>
+            <td>{{ pay.get_status_display }}</td>
+            <td>
+              <a href="{% url 'admin:payments_subscription_change' pay.subscription_id %}"><code>{{ pay.subscription_id }}</code></a>
+              · {{ pay.subscription.plan.slug }}
+            </td>
+            <td>{{ pay.notes|default:"—" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+  </fieldset>
+
+  <fieldset class="module aligned">
+    <h2>{% trans "Organization feature flags" %}</h2>
+    <p class="help">{% trans "Only flags marked" %} <strong>{% trans "organization-only" %}</strong> {% trans "in the Feature Flag admin appear here. Toggles apply to this organization only." %}</p>
+    {% if not feature_flag_rows %}
+      <p><em>{% trans "No organization-only feature flags defined." %}</em></p>
+    {% else %}
+    <table class="listing">
+      <thead>
+        <tr>
+          <th>{% trans "Flag" %}</th>
+          <th>{% trans "Enabled" %}</th>
+          <th>{% trans "Action" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in feature_flag_rows %}
+        <tr>
+          <td>{{ row.flag.name }}</td>
+          <td>{% if row.enabled %}{% trans "Yes" %}{% else %}{% trans "No" %}{% endif %}</td>
+          <td>
+            <form method="post" action="{{ billing_url }}" class="inline">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="toggle_feature">
+              <input type="hidden" name="feature_flag_id" value="{{ row.flag.id }}">
+              <input type="hidden" name="enabled" value="{% if row.enabled %}false{% else %}true{% endif %}">
+              <input type="submit" class="button" value="{% if row.enabled %}{% trans "Disable" %}{% else %}{% trans "Enable" %}{% endif %}">
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+  </fieldset>
+</div>
+{% endblock %}

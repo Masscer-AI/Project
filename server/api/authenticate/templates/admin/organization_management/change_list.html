@@ -1,0 +1,75 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block extrastyle %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'admin/css/organization_management.css' %}">
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+  <h1>{% trans "Organizations Management" %}</h1>
+  <p class="help">{% trans "Search organizations by name or owner email. Open billing to manage manual enterprise deals, wallet, and feature flags." %}</p>
+
+  <form method="get" style="margin-bottom: 1.5em;">
+    <label for="q">{% trans "Search" %}:</label>
+    <input type="text" name="q" id="q" value="{{ q|escape }}" size="40">
+    <input type="submit" class="default" value="{% trans "Search" %}">
+    {% if q %}
+      <a href="{% url 'admin:authenticate_organizationmanagementproxy_changelist' %}">{% trans "Clear" %}</a>
+    {% endif %}
+  </form>
+
+  <table class="listing">
+    <thead>
+      <tr>
+        <th>{% trans "Organization" %}</th>
+        <th>{% trans "Owner" %}</th>
+        <th>{% trans "Members" %}</th>
+        <th>{% trans "Subscription" %}</th>
+        <th>{% trans "Wallet (USD)" %}</th>
+        <th>{% trans "Flags" %}</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in org_rows %}
+      <tr class="{% cycle 'row1' 'row2' %}">
+        <th><strong>{{ row.org.name }}</strong></th>
+        <td>{{ row.org.owner.email|default:row.org.owner.username }}</td>
+        <td>{{ row.member_count }}</td>
+        <td>
+          {% if row.latest_subscription %}
+            {{ row.latest_subscription.plan.slug }} /
+            {{ row.latest_subscription.status }} /
+            {{ row.latest_subscription.payment_method }}
+            {% if row.latest_subscription.end_date %}
+              <br><small>{% trans "ends" %} {{ row.latest_subscription.end_date|date:"Y-m-d" }}</small>
+            {% endif %}
+          {% else %}
+            <em>{% trans "none" %}</em>
+          {% endif %}
+        </td>
+        <td>
+          {% if row.wallet_usd is not None %}
+            ${{ row.wallet_usd|floatformat:2 }}
+          {% else %}
+            <em>{% trans "no wallet" %}</em>
+          {% endif %}
+        </td>
+        <td>
+          {% for b in row.badges %}
+            <span class="help" style="display:inline-block;margin-right:4px;">[{{ b }}]</span>
+          {% endfor %}
+        </td>
+        <td>
+          <a class="button" href="{% url 'admin:authenticate_organizationmanagementproxy_billing' row.org.pk %}">{% trans "Billing" %}</a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7">{% trans "No organizations found." %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

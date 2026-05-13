@@ -1,0 +1,699 @@
+# Spanish translations for Masscer admin (organization management).
+msgid ""
+msgstr ""
+"Project-Id-Version: Masscer\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "Language"
+msgstr "Idioma"
+
+msgid "Change language"
+msgstr "Cambiar idioma"
+
+msgid "System Management"
+msgstr "Gestión del sistema"
+
+msgid "Language Settings"
+msgstr "Configuración de idioma"
+
+msgid "Admin language"
+msgstr "Idioma del admin"
+
+msgid "Choose the admin language. Your choice is stored in the session cookie and applies to the Django admin and the System Management pages."
+msgstr "Elige el idioma del admin. Tu elección se guarda en la cookie de sesión y aplica al admin de Django y a las páginas de Gestión del sistema."
+
+msgid "Home"
+msgstr "Inicio"
+
+msgid "Organizations Management"
+msgstr "Gestión de organizaciones"
+
+msgid "Search organizations by name or owner email. Open billing to manage manual enterprise deals, wallet, and feature flags."
+msgstr "Busca organizaciones por nombre o correo del propietario. Abre Facturación para gestionar acuerdos enterprise manuales, monedero y feature flags."
+
+msgid "Search"
+msgstr "Buscar"
+
+msgid "Clear"
+msgstr "Limpiar"
+
+msgid "Organization"
+msgstr "Organización"
+
+msgid "Owner"
+msgstr "Propietario"
+
+msgid "Members"
+msgstr "Miembros"
+
+msgid "Subscription"
+msgstr "Suscripción"
+
+msgid "Wallet (USD)"
+msgstr "Monedero (USD)"
+
+msgid "Flags"
+msgstr "Indicadores"
+
+msgid "ends"
+msgstr "termina"
+
+msgid "none"
+msgstr "ninguno"
+
+msgid "no wallet"
+msgstr "sin monedero"
+
+msgid "Billing"
+msgstr "Facturación"
+
+msgid "No organizations found."
+msgstr "No se encontraron organizaciones."
+
+msgid "Back to Organizations Management"
+msgstr "Volver a Gestión de organizaciones"
+
+msgid "How billing works in Masscer"
+msgstr "Cómo funciona la facturación en Masscer"
+
+msgid "Usage and access"
+msgstr "Uso y acceso"
+
+msgid "use the"
+msgstr "usan la"
+
+msgid "latest"
+msgstr "última"
+
+msgid "subscription row (by creation time): its status, end date, and wallet balance decide whether the org can spend credits."
+msgstr "fila de suscripción (por fecha de creación): su estado, fecha de fin y saldo del monedero determinan si la org puede gastar créditos."
+
+msgid "Stripe"
+msgstr "Stripe"
+
+msgid "is separate: if a row still has a Stripe subscription id, Stripe may keep charging until you cancel it from that same subscription row here, or the customer cancels in the"
+msgstr "es independiente: si una fila sigue teniendo un id de suscripción de Stripe, Stripe puede seguir cobrando hasta que la canceles desde esa misma fila de suscripción aquí, o el cliente cancele en el"
+
+msgid "Stripe Customer Portal"
+msgstr "Portal de clientes de Stripe"
+
+msgid "from the in-app billing page. Adding a manual row on top does"
+msgstr "desde la página de facturación de la app. Añadir una fila manual encima"
+
+msgid "not"
+msgstr "no"
+
+msgid "automatically stop an older Stripe subscription."
+msgstr "detiene automáticamente una suscripción antigua de Stripe."
+
+msgid "At a glance"
+msgstr "Resumen"
+
+msgid "Active Masscer subscriptions (in this summary and for wallet recharge) are subscription rows where the organization can still use plan benefits: status is trial or active, and the Masscer end date (if set) has not passed yet—including subscriptions that are about to expire. Stripe may already show canceled; billing there is separate from access here."
+msgstr "En este resumen y para la recarga del monedero, las suscripciones Masscer activas son filas en las que la organización aún puede usar los beneficios del plan: estado en prueba o activo, y la fecha de fin en Masscer (si existe) aún no ha pasado—incluidas las que están por vencer. En Stripe puede figurar ya como cancelada; el cobro allí es independiente del acceso aquí."
+
+msgid "Metric"
+msgstr "Métrica"
+
+msgid "Value"
+msgstr "Valor"
+
+msgid "Wallet total balance"
+msgstr "Saldo total en monedero"
+
+msgid "USD"
+msgstr "USD"
+
+msgid "Members"
+msgstr "Miembros"
+
+msgid "No subscriptions"
+msgstr "Sin suscripciones"
+
+msgid "Stripe subscriptions"
+msgstr "Suscripciones de Stripe"
+
+msgid "Active Masscer subscriptions"
+msgstr "Suscripciones activas en Masscer"
+
+msgid "Masscer subscriptions"
+msgstr "Suscripciones Masscer"
+
+msgid "All subscription rows stored in Masscer for this organization (manual and Stripe-linked). Usage follows the latest row by creation time; open a row below to edit it in the payments admin. For rows that include a Stripe subscription id, this same card also shows live Stripe status and cancellation actions."
+msgstr "Todas las filas de suscripción guardadas en Masscer para esta organización (manuales y enlazadas a Stripe). El uso sigue la fila más reciente por fecha de creación; abre una fila abajo para editarla en el admin de pagos. Para filas que incluyen un id de suscripción de Stripe, esta misma tarjeta también muestra el estado en vivo en Stripe y acciones de cancelación."
+
+msgid "Rows grouped as active below include both currently active and expired rows, so you can quickly find subscriptions that can be reactivated."
+msgstr "Las filas agrupadas como activas abajo incluyen tanto activas actuales como expiradas, para que puedas encontrar rápido las suscripciones que se pueden reactivar."
+
+msgid "Active + expired rows"
+msgstr "Filas activas + expiradas"
+
+msgid "Inactive rows"
+msgstr "Filas inactivas"
+
+msgid "No active or expired Masscer subscription rows."
+msgstr "No hay filas de suscripción Masscer activas o expiradas."
+
+msgid "No inactive Masscer subscription rows."
+msgstr "No hay filas de suscripción Masscer inactivas."
+
+msgid "Created at"
+msgstr "Creada el"
+
+msgid "Active in Stripe"
+msgstr "Activas en Stripe"
+
+msgid "Past subscriptions"
+msgstr "Suscripciones pasadas"
+
+msgid "No active Stripe subscriptions to cancel here."
+msgstr "Aquí no hay suscripciones activas de Stripe para cancelar."
+
+msgid "No past Stripe subscriptions on file."
+msgstr "No hay suscripciones pasadas de Stripe registradas."
+
+msgid "No Stripe subscription ids on file for this organization."
+msgstr "No hay ids de suscripción de Stripe registrados para esta organización."
+
+msgid "Masscer subscription"
+msgstr "Suscripción Masscer"
+
+msgid "Edit subscription"
+msgstr "Editar suscripción"
+
+msgid "Latest row (access)"
+msgstr "Fila más reciente (acceso)"
+
+msgid "Plan"
+msgstr "Plan"
+
+msgid "Payment method on row"
+msgstr "Método de pago en la fila"
+
+msgid "Stripe subscription id"
+msgstr "Id de suscripción de Stripe"
+
+msgid "Stripe customer id"
+msgstr "Id de cliente de Stripe"
+
+msgid "Stripe lookup"
+msgstr "Consulta Stripe"
+
+msgid "Field"
+msgstr "Campo"
+
+msgid "Value"
+msgstr "Valor"
+
+msgid "Stripe status"
+msgstr "Estado en Stripe"
+
+msgid "Current period end (Stripe)"
+msgstr "Fin del periodo actual (Stripe)"
+
+msgid "Cancel at (Stripe)"
+msgstr "Cancelación en (Stripe)"
+
+msgid "Cancel at period end"
+msgstr "Cancelar al final del periodo"
+
+msgid "Both actions call the Stripe API. Check the confirmation box on each form before submitting."
+msgstr "Ambas acciones llaman a la API de Stripe. Marca la casilla de confirmación en cada formulario antes de enviar."
+
+msgid "Cancel this subscription in Stripe"
+msgstr "Cancelar esta suscripción en Stripe"
+
+msgid "Manual renewal"
+msgstr "Renovación manual"
+
+msgid "Renews this subscription from admin. Active rows extend from their current end date; expired rows restart from now. This action also recharges wallet credits and records a manual payment using contract price (or plan fallback)."
+msgstr "Renueva esta suscripción desde admin. Las filas activas extienden desde su fecha de fin actual; las expiradas reinician desde ahora. Esta acción también recarga créditos del monedero y registra un pago manual usando precio contractual (o fallback del plan)."
+
+msgid "I confirm manual renewal"
+msgstr "Confirmo esta renovación manual"
+
+msgid "Renew subscription"
+msgstr "Renovar suscripción"
+
+msgid "Masscer status"
+msgstr "Estado en Masscer"
+
+msgid "Masscer access: active"
+msgstr "Acceso Masscer: activo"
+
+msgid "Masscer access: inactive"
+msgstr "Acceso Masscer: inactivo"
+
+msgid "None"
+msgstr "Ninguna"
+
+msgid "Cancel this Stripe subscription at the end of the current billing period?"
+msgstr "¿Cancelar esta suscripción de Stripe al final del periodo de facturación actual?"
+
+msgid "I confirm this Stripe change"
+msgstr "Confirmo este cambio en Stripe"
+
+msgid "Cancel at period end (Stripe)"
+msgstr "Cancelar al final del periodo (Stripe)"
+
+msgid "Cancel this Stripe subscription IMMEDIATELY? This cannot be undone in Masscer."
+msgstr "¿Cancelar esta suscripción de Stripe de INMEDIATO? Esto no se puede deshacer en Masscer."
+
+msgid "Cancel immediately (Stripe)"
+msgstr "Cancelar de inmediato (Stripe)"
+
+msgid "Status"
+msgstr "Estado"
+
+msgid "Payment method (on this row)"
+msgstr "Método de pago (en esta fila)"
+
+msgid "Display price (USD)"
+msgstr "Precio mostrado (USD)"
+
+msgid "Billing interval (deal / display)"
+msgstr "Intervalo de facturación (acuerdo / visualización)"
+
+msgid "End date (Masscer)"
+msgstr "Fecha de fin (Masscer)"
+
+msgid "Credit limit override (USD)"
+msgstr "Límite de crédito (USD, anulación)"
+
+msgid "Contract price (USD)"
+msgstr "Precio contractual (USD)"
+
+msgid "Wallet"
+msgstr "Monedero"
+
+msgid "Organization usage draws from this balance (compute units). Top up here for one-off credits without changing the subscription row."
+msgstr "El uso de la organización se descuenta de este saldo (unidades de cómputo). Recarga aquí créditos puntuales sin cambiar la fila de suscripción."
+
+msgid "Balance"
+msgstr "Saldo"
+
+msgid "USD at 1 USD ="
+msgstr "USD a 1 USD ="
+
+msgid "No organization wallet."
+msgstr "No hay monedero de organización."
+
+msgid "Wallet recharge is disabled until the organization has at least one active Masscer subscription (trial or active, not past its end date)."
+msgstr "La recarga del monedero está deshabilitada hasta que la organización tenga al menos una suscripción Masscer activa (prueba o activa, sin superar su fecha de fin)."
+
+msgid "Manual credit (USD)"
+msgstr "Crédito manual (USD)"
+
+msgid "Balance before (compute units)"
+msgstr "Saldo antes (unidades de cómputo)"
+
+msgid "Credit added (compute units)"
+msgstr "Crédito añadido (unidades de cómputo)"
+
+msgid "Balance after (compute units, estimated)"
+msgstr "Saldo después (unidades de cómputo, estimado)"
+
+msgid "Approximate USD equivalent (before → after)"
+msgstr "Equivalente USD aproximado (antes → después)"
+
+msgid "Enter a valid positive USD amount."
+msgstr "Introduce un importe USD válido y positivo."
+
+msgid "Compute Unit rate is missing; cannot estimate the new balance."
+msgstr "Falta la tasa de Unidad de cómputo; no se puede estimar el nuevo saldo."
+
+msgid "Confirm wallet recharge"
+msgstr "Confirmar recarga del monedero"
+
+msgid "This is an estimate from the current balance and the Compute Unit conversion; the saved amount is the USD you entered."
+msgstr "Es una estimación a partir del saldo actual y la conversión a Unidad de cómputo; el importe guardado es el USD que introdujiste."
+
+msgid "Confirm recharge"
+msgstr "Confirmar recarga"
+
+msgid "Cancel"
+msgstr "Cancelar"
+
+msgid "Amount (USD)"
+msgstr "Importe (USD)"
+
+msgid "e.g. 100"
+msgstr "p. ej. 100"
+
+msgid "Whole or decimal USD amount credited to the org wallet using the same conversion as plan credits (Compute Unit currency must exist)."
+msgstr "Importe en USD (entero o decimal) acreditado al monedero de la org con la misma conversión que los créditos del plan (debe existir la moneda Unidad de cómputo)."
+
+msgid "Register this recharge as a payment"
+msgstr "Registrar esta recarga como pago"
+
+msgid "Creates a completed manual payment on the newest active Masscer subscription for the same USD amount."
+msgstr "Crea un pago manual completado en la suscripción Masscer activa más reciente por el mismo importe USD."
+
+msgid "Requires an active Masscer subscription before registering wallet recharges as payments."
+msgstr "Requiere una suscripción Masscer activa antes de registrar recargas del monedero como pagos."
+
+msgid "Payment note"
+msgstr "Nota del pago"
+
+msgid "Required when registering this recharge as a payment."
+msgstr "Obligatoria al registrar esta recarga como pago."
+
+msgid "Recharge wallet"
+msgstr "Recargar monedero"
+
+msgid "Manual subscription (enterprise)"
+msgstr "Suscripción manual (enterprise)"
+
+msgid "Create a new bank-transfer / enterprise manual subscription. Saving will mark every existing Masscer subscription row for this organization as cancelled, then add one new manual row. This does not call Stripe; cancel billing in Stripe separately if needed."
+msgstr "Crea una suscripción manual nueva (transferencia / enterprise). Al guardar se marcarán como canceladas todas las filas de suscripción Masscer existentes de la organización y luego se añadirá una fila manual nueva. No llama a Stripe; cancela el cobro en Stripe aparte si hace falta."
+
+msgid "Create subscription"
+msgstr "Crear suscripción"
+
+msgid "Warning: submitting this form will immediately mark all previous Masscer subscription rows as cancelled (including Stripe-linked rows in Masscer only) and then create one new manual subscription. Stripe may continue charging until you cancel from the corresponding subscription row below."
+msgstr "Aviso: al enviar este formulario se marcarán de inmediato como canceladas todas las filas de suscripción Masscer anteriores (solo en Masscer, incluidas las enlazadas a Stripe) y luego se creará una suscripción manual nueva. Stripe puede seguir cobrando hasta que canceles desde la fila de suscripción correspondiente más abajo."
+
+msgid "I understand that all existing Masscer subscription rows for this organization will be marked cancelled and one new manual subscription will be created."
+msgstr "Entiendo que se marcarán como canceladas todas las filas de suscripción Masscer existentes de esta organización y se creará una suscripción manual nueva."
+
+msgid "Create manual subscription"
+msgstr "Crear suscripción manual"
+
+msgid "The custom subscription plan is missing. Run sync_subscription_plans (or your usual deploy startup) to seed catalog plans."
+msgstr "Falta el plan de suscripción «custom». Ejecuta sync_subscription_plans (o el arranque habitual del despliegue) para sembrar los planes del catálogo."
+
+msgid "This flow always uses the Custom catalog plan for admin-created enterprise deals. It is not tied to Stripe product prices for organization or free trial. Set contract price and credit overrides on this row as needed."
+msgstr "Este flujo siempre usa el plan de catálogo Custom para acuerdos enterprise creados desde el admin. No está ligado a los precios de producto Stripe de organization ni de prueba gratuita. Ajusta precio contractual y anulaciones de crédito en esta fila según convenga."
+
+msgid "Registered payments"
+msgstr "Pagos registrados"
+
+msgid "SubscriptionPayment records linked to this organization's subscriptions (most recent first)."
+msgstr "Registros SubscriptionPayment vinculados a las suscripciones de esta organización (más recientes primero)."
+
+msgid "No subscription payments recorded for this organization."
+msgstr "No hay pagos de suscripción registrados para esta organización."
+
+msgid "Date"
+msgstr "Fecha"
+
+msgid "Method"
+msgstr "Método"
+
+msgid "Notes"
+msgstr "Notas"
+
+msgid "Active"
+msgstr "Activo"
+
+msgid "or"
+msgstr "o"
+
+msgid "Trial"
+msgstr "Prueba"
+
+msgid "allows usage (subject to end date). Use"
+msgstr "permite uso (sujeto a fecha de fin). Usa"
+
+msgid "Expired"
+msgstr "Caducado"
+
+msgid "Cancelled"
+msgstr "Cancelado"
+
+msgid "to block access from this row."
+msgstr "para bloquear el acceso desde esta fila."
+
+msgid "Billing interval"
+msgstr "Intervalo de facturación"
+
+msgid "For documentation and negotiations; Stripe renewals are controlled in Stripe, not by this field."
+msgstr "Para documentación y negociación; las renovaciones de Stripe se controlan en Stripe, no con este campo."
+
+msgid "End date (optional)"
+msgstr "Fecha de fin (opcional)"
+
+msgid "Calculate from now"
+msgstr "Calcular desde ahora"
+
+msgid "When this manual deal ends in Masscer (end of chosen day, UTC). Leave empty for no fixed end on this row."
+msgstr "Cuando termina este acuerdo manual en Masscer (fin del día elegido, UTC). Déjalo vacío para sin fin fijo en esta fila."
+
+msgid "Credit budget (USD)"
+msgstr "Presupuesto de crédito (USD)"
+
+msgid "Monthly (or per-recharge) USD budget for this deal; converted to compute units when you recharge from this subscription. Required for manual custom subscriptions."
+msgstr "Presupuesto mensual (o por recarga) en USD de este acuerdo; se convierte a unidades de cómputo al recargar desde esta suscripción. Obligatorio para suscripciones manuales con plan custom."
+
+msgid "Contract price (USD)"
+msgstr "Precio contractual (USD)"
+
+msgid "Negotiated list price for reporting and owner UI. Does not change Stripe prices. Required for manual custom subscriptions."
+msgstr "Precio de lista negociado para informes y la UI del propietario. No cambia precios en Stripe. Obligatorio para suscripciones manuales con plan custom."
+
+msgid "Internal notes (admin only)"
+msgstr "Notas internas (solo admin)"
+
+msgid "Not shown to organization owners in the product API."
+msgstr "No se muestra a los propietarios de la org en la API del producto."
+
+msgid "Recharge wallet with this subscription's credit budget now"
+msgstr "Recargar monedero ahora con el presupuesto de crédito de esta suscripción"
+
+msgid "When checked, after save we add compute units from the USD credit budget set above. Uncheck to only change metadata on the row."
+msgstr "Si está marcado, tras guardar añadimos unidades de cómputo según el presupuesto de crédito en USD indicado arriba. Desmárcalo para solo cambiar metadatos de la fila."
+
+msgid "Organization feature flags"
+msgstr "Feature flags de la organización"
+
+msgid "Only flags marked"
+msgstr "Solo aparecen flags marcados como"
+
+msgid "organization-only"
+msgstr "solo-organización"
+
+msgid "in the Feature Flag admin appear here. Toggles apply to this organization only."
+msgstr "en el admin de Feature Flag. Los interruptores aplican solo a esta organización."
+
+msgid "No organization-only feature flags defined."
+msgstr "No hay feature flags definidos como solo-organización."
+
+msgid "Flag"
+msgstr "Flag"
+
+msgid "Enabled"
+msgstr "Activado"
+
+msgid "Action"
+msgstr "Acción"
+
+msgid "Disable"
+msgstr "Desactivar"
+
+msgid "Enable"
+msgstr "Activar"
+
+msgid "Invalid decimal: %(value)s"
+msgstr "Decimal no válido: %(value)s"
+
+msgid "Invalid end date"
+msgstr "Fecha de fin no válida"
+
+msgid "No wallet"
+msgstr "Sin monedero"
+
+msgid "Low balance"
+msgstr "Saldo bajo"
+
+msgid "Inactive subscription"
+msgstr "Suscripción inactiva"
+
+msgid "Pending payment"
+msgstr "Pago pendiente"
+
+msgid "No subscription"
+msgstr "Sin suscripción"
+
+msgid "No Stripe subscription id on this row."
+msgstr "No hay id de suscripción de Stripe en esta fila."
+
+msgid "STRIPE_SECRET_KEY is not configured."
+msgstr "STRIPE_SECRET_KEY no está configurada."
+
+msgid "Unknown action."
+msgstr "Acción desconocida."
+
+msgid "Stripe error: %(msg)s"
+msgstr "Error de Stripe: %(msg)s"
+
+msgid "Billing: %(name)s"
+msgstr "Facturación: %(name)s"
+
+msgid "Plan is required."
+msgstr "El plan es obligatorio."
+
+msgid "Invalid plan."
+msgstr "Plan no válido."
+
+msgid "Manual subscriptions from this page must use the custom catalog plan."
+msgstr "Las suscripciones manuales desde esta página deben usar el plan de catálogo custom."
+
+msgid "Credit budget (USD) is required for manual custom subscriptions."
+msgstr "El presupuesto de crédito (USD) es obligatorio para suscripciones manuales con plan custom."
+
+msgid "Contract price (USD) is required for manual custom subscriptions."
+msgstr "El precio contractual (USD) es obligatorio para suscripciones manuales con plan custom."
+
+msgid "Credit budget (USD) cannot be negative."
+msgstr "El presupuesto de crédito (USD) no puede ser negativo."
+
+msgid "Contract price (USD) cannot be negative."
+msgstr "El precio contractual (USD) no puede ser negativo."
+
+msgid "Invalid subscription status."
+msgstr "Estado de suscripción no válido."
+
+msgid "Invalid billing interval."
+msgstr "Intervalo de facturación no válido."
+
+msgid "Only monthly, quarterly, or yearly subscriptions can be renewed."
+msgstr "Solo se pueden renovar suscripciones mensuales, trimestrales o anuales."
+
+msgid "Check \"I confirm manual renewal\" before renewing this subscription."
+msgstr "Marca «Confirmo esta renovación manual» antes de renovar esta suscripción."
+
+msgid "This subscription interval is not renewable from admin."
+msgstr "Este intervalo de suscripción no es renovable desde admin."
+
+msgid "Only active or expired subscriptions can be renewed from admin."
+msgstr "Solo se pueden renovar desde admin suscripciones activas o expiradas."
+
+msgid "Could not recharge wallet from this subscription's USD credit budget."
+msgstr "No se pudo recargar el monedero desde el presupuesto de crédito USD de esta suscripción."
+
+msgid "Manual renewal in admin. Previous end: %(old)s. New end: %(new)s."
+msgstr "Renovación manual en admin. Fin anterior: %(old)s. Nuevo fin: %(new)s."
+
+msgid "Subscription renewed. End date extended, wallet recharged, and payment registered."
+msgstr "Suscripción renovada. Se extendió la fecha de fin, se recargó el monedero y se registró el pago."
+
+msgid "Check the box to confirm that all existing Masscer subscription rows for this organization will be marked cancelled before creating a new manual subscription."
+msgstr "Marca la casilla para confirmar que se marcarán como canceladas todas las filas de suscripción Masscer existentes de esta organización antes de crear una suscripción manual nueva."
+
+msgid "Created new manual subscription."
+msgstr "Nueva suscripción manual creada."
+
+msgid "Created manual subscription."
+msgstr "Suscripción manual creada."
+
+msgid "Wallet recharged from subscription credit budget."
+msgstr "Monedero recargado desde el presupuesto de crédito de la suscripción."
+
+msgid "Recharge skipped: no USD credit budget configured for this subscription."
+msgstr "Recarga omitida: no hay presupuesto de crédito en USD configurado para esta suscripción."
+
+msgid "Enter a positive amount_usd for wallet recharge."
+msgstr "Introduce un amount_usd positivo para recargar el monedero."
+
+msgid "Wallet credited with %(amount)s USD equivalent."
+msgstr "Monedero acreditado con el equivalente a %(amount)s USD."
+
+msgid "Wallet recharge requires at least one active Masscer subscription."
+msgstr "La recarga del monedero requiere al menos una suscripción Masscer activa."
+
+msgid "Use no more than two decimal places when registering a payment."
+msgstr "Usa máximo dos decimales al registrar un pago."
+
+msgid "Payment note is required when registering a payment."
+msgstr "La nota del pago es obligatoria al registrar un pago."
+
+msgid "Registered wallet recharge as a payment."
+msgstr "Recarga del monedero registrada como pago."
+
+msgid "Could not recharge wallet (Compute Unit currency missing?)."
+msgstr "No se pudo recargar el monedero (¿falta la moneda Unidad de cómputo?)."
+
+msgid "Missing feature_flag_id."
+msgstr "Falta feature_flag_id."
+
+msgid "Invalid feature_flag_id."
+msgstr "feature_flag_id no válido."
+
+msgid "Invalid enabled value."
+msgstr "Valor de «enabled» no válido."
+
+msgid "Unknown or non-organization feature flag."
+msgstr "Feature flag desconocido o no es solo-organización."
+
+msgid "Feature flag '%(name)s' set to %(state)s."
+msgstr "Feature flag «%(name)s» establecido en %(state)s."
+
+msgid "On"
+msgstr "Activado"
+
+msgid "Off"
+msgstr "Desactivado"
+
+msgid "Invalid Masscer subscription id."
+msgstr "Id de suscripción Masscer no válido."
+
+msgid "Subscription not found for this organization."
+msgstr "Suscripción no encontrada para esta organización."
+
+msgid "That subscription row has no Stripe subscription id."
+msgstr "Esa fila de suscripción no tiene id de suscripción de Stripe."
+
+msgid "Check \"I confirm this Stripe change\" before cancelling in Stripe."
+msgstr "Marca «Confirmo este cambio en Stripe» antes de cancelar en Stripe."
+
+msgid "Stripe is not configured (STRIPE_SECRET_KEY)."
+msgstr "Stripe no está configurado (STRIPE_SECRET_KEY)."
+
+msgid "Stripe will cancel this subscription at the end of the current billing period. The row in Masscer may stay active until Stripe webhooks run."
+msgstr "Stripe cancelará esta suscripción al final del periodo de facturación actual. La fila en Masscer puede seguir activa hasta que corran los webhooks de Stripe."
+
+msgid "Stripe subscription cancelled immediately. This Masscer subscription row was marked cancelled."
+msgstr "Suscripción de Stripe cancelada de inmediato. La fila de suscripción de Masscer se marcó como cancelada."
+
+msgid "View %(count)s active subscription"
+msgid_plural "View %(count)s active subscriptions"
+msgstr[0] "Ver %(count)s suscripción activa"
+msgstr[1] "Ver %(count)s suscripciones activas"
+
+msgid "View %(count)s past subscription"
+msgid_plural "View %(count)s past subscriptions"
+msgstr[0] "Ver %(count)s suscripción pasada"
+msgstr[1] "Ver %(count)s suscripciones pasadas"
+
+msgid "View %(count)s active or expired Masscer subscription row"
+msgid_plural "View %(count)s active or expired Masscer subscription rows"
+msgstr[0] "Ver %(count)s fila de suscripción Masscer activa o expirada"
+msgstr[1] "Ver %(count)s filas de suscripción Masscer activas o expiradas"
+
+msgid "View %(count)s inactive Masscer subscription row"
+msgid_plural "View %(count)s inactive Masscer subscription rows"
+msgstr[0] "Ver %(count)s fila de suscripción Masscer inactiva"
+msgstr[1] "Ver %(count)s filas de suscripción Masscer inactivas"
+
+msgid "Current language code: <code>%(current)s</code>."
+msgstr "Código de idioma actual: <code>%(current)s</code>."
+
+msgid "Stripe reported missing subscription id(s); cleared stale stripe_subscription_id from one Masscer row."
+msgid_plural "Stripe reported missing subscription id(s); cleared stale stripe_subscription_id from %(count)d Masscer rows."
+msgstr[0] "Stripe informó ids de suscripción faltantes; se limpió el stripe_subscription_id obsoleto de una fila de Masscer."
+msgstr[1] "Stripe informó ids de suscripción faltantes; se limpió el stripe_subscription_id obsoleto de %(count)d filas de Masscer."
+
+msgid "This Stripe subscription no longer exists (removed or expired). Cleared stale stripe_subscription_id from one Masscer row."
+msgid_plural "This Stripe subscription no longer exists (removed or expired). Cleared stale stripe_subscription_id from %(count)d Masscer rows."
+msgstr[0] "Esta suscripción de Stripe ya no existe (eliminada o caducada). Se limpió el stripe_subscription_id obsoleto de una fila de Masscer."
+msgstr[1] "Esta suscripción de Stripe ya no existe (eliminada o caducada). Se limpió el stripe_subscription_id obsoleto de %(count)d filas de Masscer."
+
+msgid "Marked one previous Masscer subscription row as cancelled; created new manual subscription."
+msgid_plural "Marked %(count)d previous Masscer subscription rows as cancelled; created new manual subscription."
+msgstr[0] "Se marcó una fila de suscripción Masscer anterior como cancelada; se creó una nueva suscripción manual."
+msgstr[1] "Se marcaron %(count)d filas de suscripción Masscer anteriores como canceladas; se creó una nueva suscripción manual."
+

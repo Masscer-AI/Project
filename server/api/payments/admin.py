@@ -24,7 +24,18 @@ class SubscriptionPlanAdmin(admin.ModelAdmin):
 
 @admin.register(Subscription)
 class SubscriptionAdmin(admin.ModelAdmin):
-    list_display = ["id", "organization", "plan", "status", "payment_method", "start_date", "end_date", "is_active"]
+    list_display = [
+        "id",
+        "organization",
+        "plan",
+        "status",
+        "payment_method",
+        "contract_price_usd",
+        "billing_interval",
+        "start_date",
+        "end_date",
+        "is_active",
+    ]
     list_filter = ["status", "payment_method", "plan"]
     search_fields = ["organization__name", "stripe_subscription_id", "stripe_customer_id"]
     readonly_fields = ["id", "created_at", "updated_at"]

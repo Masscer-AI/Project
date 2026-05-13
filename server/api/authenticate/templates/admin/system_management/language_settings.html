@@ -1,0 +1,41 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block extrastyle %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'admin/css/organization_management.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+  &rsaquo; {% trans 'System Management' %}
+  &rsaquo; {% trans 'Language Settings' %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+  <h1>{% trans "Language Settings" %}</h1>
+  <p class="help">{% trans "Choose the admin language. Your choice is stored in the session cookie and applies to the Django admin and the System Management pages." %}</p>
+
+  <fieldset class="module aligned">
+    <h2>{% trans "Admin language" %}</h2>
+    <form action="{% url 'set_language' %}" method="post" class="org-mgmt-lang-switch">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+      {% get_current_language as CURRENT_LANGUAGE %}
+      <label for="id_admin_language">{% trans "Language" %}</label>
+      <select name="language" id="id_admin_language">
+        {% for code, name in LANGUAGES %}
+          <option value="{{ code }}" {% if CURRENT_LANGUAGE == code %}selected{% endif %}>{{ name }}</option>
+        {% endfor %}
+      </select>
+      <input type="submit" class="default" value="{% trans "Change language" %}">
+    </form>
+    <p class="help">
+      {% blocktrans with current=CURRENT_LANGUAGE %}Current language code: <code>{{ current }}</code>.{% endblocktrans %}
+    </p>
+  </fieldset>
+</div>
+{% endblock %}

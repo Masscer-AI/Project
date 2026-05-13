@@ -9,6 +9,7 @@ from django.contrib.auth.models import User
 from django.utils import timezone
 from datetime import datetime, timedelta
 from django.core.exceptions import MultipleObjectsReturned, ValidationError
+from django.utils.translation import gettext_lazy as _
 from django.db.models import Q
 from model_utils.models import TimeStampedModel
 import pytz
@@ -245,6 +246,15 @@ class Organization(models.Model):
     def save(self, *args, **kwargs):
         """Guarda la organización. La gestión del logo se hace en la vista."""
         super().save(*args, **kwargs)
+
+
+class OrganizationManagementProxy(Organization):
+    """Proxy for Django admin Organizations Management dashboard (billing, deals, flags)."""
+
+    class Meta:
+        proxy = True
+        verbose_name = _("Organizations Management")
+        verbose_name_plural = _("Organizations Management")
 
 
 # NOTE: CredentialsManager is no longer used. Organizations no longer supply their own API keys —
