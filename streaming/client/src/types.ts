@@ -213,6 +213,9 @@ export type TOrganizationSubscription = {
   is_active: boolean;
   start_date: string | null;
   end_date: string | null;
+  display_monthly_price_usd?: string;
+  contract_price_usd?: string | null;
+  billing_interval?: "monthly" | "quarterly" | "yearly" | "one_time" | "custom";
   cancel_at_period_end?: boolean;
   cancel_at?: string | null;
   stripe_status?: string | null;

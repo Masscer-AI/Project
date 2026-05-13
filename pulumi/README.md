@@ -131,9 +131,14 @@ pulumi preview
 pulumi up
 ```
 
-5) Run Django migrations as a one-off ECS task (after first deploy):
+5) Run Django post-deploy Django manage commands as one-off ECS tasks (after first deploy):
 
-`deploy.sh` uses the **same task definition as the django service** and overrides the container command to `manage.py migrate`, with subnets/SGs/capacity provider read from the django ECS service (same idea as darwin-app’s `release_command.sh`).
+`deploy.sh` uses the **same task definition as the django service** and runs these commands in order:
+- `python manage.py migrate`
+- `python manage.py sync_subscription_plans`
+- `python manage.py sync_organization_subscriptions`
+
+Network/subnets/SGs/capacity provider are read from the django ECS service (same idea as darwin-app’s `release_command.sh`).
 
 Manual run (after `pulumi up` so `djangoTaskDefinitionArn` matches the image you want):
 
@@ -141,7 +146,9 @@ Manual run (after `pulumi up` so `djangoTaskDefinitionArn` matches the image you
 export CLUSTER="$(pulumi stack output ecsClusterName)"
 export DJANGO_SERVICE_NAME="$(pulumi stack output djangoServiceName)"
 export DJANGO_TASK_DEFINITION_ARN="$(pulumi stack output djangoTaskDefinitionArn)"
-bash ecs-run-migrate.sh
+MANAGE_COMMAND_NAME=migrate bash ecs-run-migrate.sh
+MANAGE_COMMAND_NAME=sync_subscription_plans bash ecs-run-migrate.sh
+MANAGE_COMMAND_NAME=sync_organization_subscriptions bash ecs-run-migrate.sh
 ```
 
 This uses the **same CPU/memory as the django task** (e.g. 1024 / 2048). If placement fails, scale the ASG or temporarily reduce other services—same as any extra awsvpc task.
@@ -159,13 +166,19 @@ Optional flags:
 ```bash
 ./deploy.sh --stack prod --region us-east-1
 ./deploy.sh --skip-bootstrap
-./deploy.sh --skip-migrations
+./deploy.sh --skip-migrations  # skips migrate + sync commands
 ./deploy.sh --require-migrations
+./deploy.sh --post-deploy-only
 ```
 
 Notes:
-- By default, deploy continues even if the one-off migration task cannot be placed (common with EC2 CPU/ENI limits).  
-  Use `--require-migrations` when you want deploy to fail hard on migration errors.
+- By default, deploy continues even if one-off Django tasks cannot be placed (common with EC2 CPU/ENI limits).  
+  Use `--require-migrations` when you want deploy to fail hard on migrate/sync errors.
+- One-off ECS tasks print progress every ~30s while waiting. You can tune timeout with:
+  `ECS_ONEOFF_TIMEOUT_SECONDS=900` (default 900 seconds).
+- ENI attach startup failures are retried automatically (default up to 3 attempts):
+  - `ECS_ONEOFF_MAX_RETRIES=3`
+  - `ECS_ONEOFF_RETRY_DELAY_SECONDS=20`
 - By default, each deploy generates a unique image tag (`deploy-<UTC timestamp>-<git sha>`) to force a fresh ECS rollout.
 
 ## Custom domains (Route53)

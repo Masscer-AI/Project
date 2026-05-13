@@ -11,6 +11,7 @@ IMAGE_TAG="${IMAGE_TAG:-}"
 SKIP_BOOTSTRAP=0
 SKIP_MIGRATIONS=0
 REQUIRE_MIGRATIONS=0
+POST_DEPLOY_ONLY=0
 
 # Fallback when direnv was not loaded in current shell.
 if [[ -z "${PULUMI_CONFIG_PASSPHRASE:-}" && -z "${PULUMI_CONFIG_PASSPHRASE_FILE:-}" && -f "$PULUMI_DIR/.passphrase" ]]; then
@@ -26,8 +27,9 @@ usage() {
   echo "  --region <region>      AWS region (default: us-east-1)"
   echo "  --image-tag <tag>      Docker image tag (default: auto timestamp tag)"
   echo "  --skip-bootstrap       Skip initial pulumi up bootstrap step"
-  echo "  --skip-migrations      Skip one-off Django migrations task"
-  echo "  --require-migrations   Fail deploy when migration task cannot run or fails"
+  echo "  --skip-migrations      Skip one-off Django post-deploy tasks (migrate + syncs)"
+  echo "  --require-migrations   Fail deploy when any Django one-off task cannot run or fails"
+  echo "  --post-deploy-only     Run only Django post-deploy tasks (no build/pulumi up/rollout)"
   echo "  -h, --help             Show this help"
   echo ""
   echo "Examples:"
@@ -61,6 +63,10 @@ while [[ $# -gt 0 ]]; do
       REQUIRE_MIGRATIONS=1
       shift
       ;;
+    --post-deploy-only)
+      POST_DEPLOY_ONLY=1
+      shift
+      ;;
     -h|--help)
       usage
       exit 0
@@ -73,36 +79,86 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ -z "$IMAGE_TAG" ]]; then
+if [[ "$POST_DEPLOY_ONLY" -eq 0 && -z "$IMAGE_TAG" ]]; then
   IMAGE_TAG="deploy-$(date -u +%Y%m%d%H%M%S)"
   if GIT_SHA="$(git -C "$ROOT_DIR" rev-parse --short=8 HEAD 2>/dev/null)"; then
     IMAGE_TAG="${IMAGE_TAG}-${GIT_SHA}"
   fi
 fi
 
-for cmd in aws pulumi docker node; do
+for cmd in aws pulumi node; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
     echo "Error: '$cmd' is required but not installed."
     exit 1
   fi
 done
+if [[ "$POST_DEPLOY_ONLY" -eq 0 ]] && ! command -v docker >/dev/null 2>&1; then
+  echo "Error: 'docker' is required but not installed."
+  exit 1
+fi
 
 echo "==> Deploy configuration"
 echo "Stack:      $STACK"
 echo "AWS region: $AWS_REGION"
-echo "Image tag:  $IMAGE_TAG"
+if [[ "$POST_DEPLOY_ONLY" -eq 0 ]]; then
+  echo "Image tag:  $IMAGE_TAG"
+else
+  echo "Mode:       post-deploy-only"
+fi
 echo ""
 
 cd "$PULUMI_DIR"
 
-if [[ -f package-lock.json ]]; then
-  npm ci
-else
-  npm install
+if [[ "$POST_DEPLOY_ONLY" -eq 0 ]]; then
+  if [[ -f package-lock.json ]]; then
+    npm ci
+  else
+    npm install
+  fi
 fi
 
 pulumi stack select "$STACK" || pulumi stack init "$STACK"
 pulumi config set aws:region "$AWS_REGION"
+
+run_django_manage_oneoff() {
+  local command_name="$1"
+  local label="$2"
+  echo "==> ${label}"
+  if MANAGE_COMMAND_NAME="$command_name" TASK_LABEL="$label" bash "$PULUMI_DIR/ecs-run-migrate.sh"; then
+    return 0
+  fi
+  echo "Warning: ${label} task failed or could not be scheduled."
+  if [[ "$REQUIRE_MIGRATIONS" -eq 1 ]]; then
+    echo "Error: --require-migrations set; aborting deploy."
+    exit 1
+  fi
+  echo "Continuing deploy because --require-migrations was not set."
+  return 1
+}
+
+run_post_deploy_tasks() {
+  if [[ "$SKIP_MIGRATIONS" -eq 1 ]]; then
+    echo "==> Skipping Django post-deploy tasks (--skip-migrations)"
+    return 0
+  fi
+  echo "==> Run Django one-off post-deploy tasks"
+  CLUSTER="$(pulumi stack output ecsClusterName)"
+  DJANGO_SERVICE_NAME="$(pulumi stack output djangoServiceName)"
+  DJANGO_TASK_DEFINITION_ARN="$(pulumi stack output djangoTaskDefinitionArn)"
+  export CLUSTER DJANGO_SERVICE_NAME DJANGO_TASK_DEFINITION_ARN
+
+  if run_django_manage_oneoff "migrate" "Django migrate"; then
+    run_django_manage_oneoff "sync_subscription_plans" "Django sync_subscription_plans"
+    run_django_manage_oneoff "sync_organization_subscriptions" "Django sync_organization_subscriptions"
+  fi
+}
+
+if [[ "$POST_DEPLOY_ONLY" -eq 1 ]]; then
+  run_post_deploy_tasks
+  echo ""
+  echo "Post-deploy tasks completed."
+  exit 0
+fi
 
 if [[ "$SKIP_BOOTSTRAP" -eq 0 ]]; then
   echo "==> Bootstrap infrastructure (ensure ECR repos exist)"
@@ -186,24 +242,7 @@ pulumi config set masscer-infra:djangoImageTag "$IMAGE_TAG"
 pulumi config set masscer-infra:streamingImageTag "$IMAGE_TAG"
 pulumi up --yes
 
-if [[ "$SKIP_MIGRATIONS" -eq 0 ]]; then
-  echo "==> Run Django migrations as one-off ECS task"
-  CLUSTER="$(pulumi stack output ecsClusterName)"
-  DJANGO_SERVICE_NAME="$(pulumi stack output djangoServiceName)"
-  DJANGO_TASK_DEFINITION_ARN="$(pulumi stack output djangoTaskDefinitionArn)"
-  export CLUSTER DJANGO_SERVICE_NAME DJANGO_TASK_DEFINITION_ARN
-
-  if bash "$PULUMI_DIR/ecs-run-migrate.sh"; then
-    :
-  else
-    echo "Warning: migration task failed or could not be scheduled."
-    if [[ "$REQUIRE_MIGRATIONS" -eq 1 ]]; then
-      echo "Error: --require-migrations set; aborting deploy."
-      exit 1
-    fi
-    echo "Continuing deploy because --require-migrations was not set."
-  fi
-fi
+run_post_deploy_tasks
 
 echo "==> Force ECS service rollout"
 CLUSTER="$(pulumi stack output ecsClusterName)"

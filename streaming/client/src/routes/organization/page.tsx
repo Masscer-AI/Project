@@ -113,6 +113,32 @@ export default function OrganizationPage() {
     ? ([{ amountUsd: 1, creditsUsd: 0.8 }, ...CREDIT_PACKAGES] as const)
     : CREDIT_PACKAGES;
 
+  const getBillingCycleLabel = (interval?: string) => {
+    switch (interval) {
+      case "monthly":
+        return t("billing-cycle-monthly");
+      case "quarterly":
+        return t("billing-cycle-quarterly");
+      case "yearly":
+        return t("billing-cycle-yearly");
+      case "one_time":
+        return t("billing-cycle-one-time");
+      case "custom":
+        return t("billing-cycle-custom");
+      default:
+        return t("billing-cycle-monthly");
+    }
+  };
+
+  const renderSubscriptionPrice = (subscription: NonNullable<TOrganizationBilling["subscription"]>) => {
+    const raw = subscription.display_monthly_price_usd ?? subscription.plan.monthly_price_usd ?? "0";
+    const amount = Number.parseFloat(raw);
+    if (!Number.isFinite(amount) || amount === 0) {
+      return `${t("free")} (${getBillingCycleLabel(subscription.billing_interval)})`;
+    }
+    return `$${raw} USD (${getBillingCycleLabel(subscription.billing_interval)})`;
+  };
+
   const handleBuyCredits = async () => {
     if (!org?.id) return;
     setBuyingCredits(true);
@@ -1285,12 +1311,8 @@ export default function OrganizationPage() {
                               </Badge>
                             </Group>
                             <Group gap="xs">
-                              <Text size="sm" fw={600} w={160}>{t("monthly-price")}</Text>
-                              <Text size="sm">
-                                {parseFloat(billing.subscription.plan.monthly_price_usd) === 0
-                                  ? t("free")
-                                  : `$${billing.subscription.plan.monthly_price_usd} USD / mo`}
-                              </Text>
+                              <Text size="sm" fw={600} w={160}>{t("price")}</Text>
+                              <Text size="sm">{renderSubscriptionPrice(billing.subscription)}</Text>
                             </Group>
                             {billing.subscription.end_date && (
                               <Group gap="xs">
