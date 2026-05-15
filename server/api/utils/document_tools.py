@@ -19,23 +19,6 @@ def convert_md_to_docx(input_file, output_file):
 # output_docx_file = "output.docx"    # Desired output path for the DOCX file
 # # convert_md_to_docx(input_markdown_file, output_docx_file)
 
-
-def convert_md_to_pdf(input_file, output_file):
-    try:
-        # Convert the Markdown file to PDF
-        output = pypandoc.convert_file(input_file, "pdf", outputfile=output_file)
-        assert output == ""
-        print(f"Successfully converted {input_file} to {output_file}")
-    except Exception as e:
-        raise RuntimeError(
-            f"Document conversion failed (markdown -> pdf): {e}"
-        ) from e
-
-
-# # Example usage for PDF
-# output_pdf_file = "output.pdf"       # Desired output path for the PDF file
-# # convert_md_to_pdf(input_markdown_file, output_pdf_file)
-
 # Convert using PyPandoc to different formats
 # The list of formats is here: https://pandoc.org/MANUAL.html#output-formats
 

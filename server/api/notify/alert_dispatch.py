@@ -9,15 +9,19 @@ from __future__ import annotations
 
 import logging
 from typing import Iterable
+from urllib.parse import urlencode
 
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.db.models import Q
+from django.utils.html import escape
 from django.utils import timezone
 
 from api.authenticate.models import RoleAssignment, UserProfile
 from api.messaging.models import ConversationAlert, ConversationAlertRule
 from api.notify.models import NotificationRule, UserNotification
 from api.notify.schemas import NotificationConditionList
+from api.utils.email_service import EmailService
 
 logger = logging.getLogger(__name__)
 
@@ -80,12 +84,90 @@ def _map_delivery(method: str) -> str:
     return method if method in allowed else UserNotification.DELIVERY_APP
 
 
+def _delivery_includes_email(delivery_method: str) -> bool:
+    return delivery_method in (
+        UserNotification.DELIVERY_EMAIL,
+        UserNotification.DELIVERY_ALL,
+    )
+
+
+def _alerts_dashboard_url() -> str | None:
+    """Deep-link to the alerts queue (pending list is the default when no conversation filter)."""
+    base = (getattr(settings, "FRONTEND_URL", None) or "").strip().rstrip("/")
+    if not base:
+        logger.debug(
+            "FRONTEND_URL is unset; alert notification email will have no dashboard link"
+        )
+        return None
+    query = urlencode({"view": "alerts"})
+    return f"{base}/dashboard/alerts?{query}"
+
+
+def _send_user_notification_email(
+    *,
+    user: User,
+    message: str,
+    alert_title: str,
+    alert_rule_name: str,
+    organization_name: str,
+    alerts_dashboard_url: str | None,
+) -> None:
+    """
+    First-version alert notification email via Resend.
+    Caller should only invoke when a new UserNotification row was created.
+    """
+    to = (user.email or "").strip()
+    if not to:
+        logger.debug("Skipping alert notification email: user %s has no email", user.pk)
+        return
+    try:
+        service = EmailService()
+    except ValueError:
+        logger.warning(
+            "Skipping alert notification email: email provider not configured "
+            "(user_id=%s)",
+            user.pk,
+        )
+        return
+
+    safe_body = escape(message).replace("\n", "<br>\n")
+    footer = (
+        f"{escape(alert_title)} · {escape(alert_rule_name)} · "
+        f"{escape(organization_name)}"
+    )
+    if alerts_dashboard_url:
+        safe_href = escape(alerts_dashboard_url)
+        link_section = (
+            '<p style="margin-top:18px;">'
+            f'<a href="{safe_href}" style="color:#6d28d9;font-weight:600;">'
+            "Ver alertas en el panel"
+            "</a></p>"
+        )
+    else:
+        link_section = ""
+    html = (
+        f"<p>{safe_body}</p>"
+        f"{link_section}"
+        f'<p style="color:#666;font-size:12px;">{footer}</p>'
+    )
+    subject = f"Masscer: {alert_rule_name}"[:200]
+    try:
+        service.send_email(to=to, html=html, subject=subject, from_name="Masscer")
+    except Exception:
+        logger.exception(
+            "Alert notification email failed (user_id=%s, to=%s)",
+            user.pk,
+            to,
+        )
+
+
 def maybe_dispatch_user_notifications(alert: ConversationAlert) -> None:
     """
     For enabled NotificationRules on this alert's ConversationAlertRule, evaluate
     conditions (n_alerts) and create UserNotification rows for resolved targets.
 
     Idempotent per (alert, notification_rule, target_user) via get_or_create.
+    When delivery is email or all, sends one Resend email per new row (not on updates).
     """
     if alert.status not in ACTIONABLE_STATUSES:
         return
@@ -138,6 +220,10 @@ def maybe_dispatch_user_notifications(alert: ConversationAlert) -> None:
             continue
 
         now = timezone.now()
+        org_name = org.name or str(org.id)
+        alert_rule_name = alert_rule.name or "Alert rule"
+        alert_title = alert.title or "Alert"
+        dashboard_url = _alerts_dashboard_url()
         for user in targets:
             try:
                 obj, created = UserNotification.objects.get_or_create(
@@ -157,6 +243,15 @@ def maybe_dispatch_user_notifications(alert: ConversationAlert) -> None:
                     obj.delivered_at = now
                     obj.save(
                         update_fields=["message", "delivery_method", "delivered_at"]
+                    )
+                if created and _delivery_includes_email(delivery_method):
+                    _send_user_notification_email(
+                        user=user,
+                        message=message,
+                        alert_title=alert_title,
+                        alert_rule_name=alert_rule_name,
+                        organization_name=org_name,
+                        alerts_dashboard_url=dashboard_url,
                     )
             except Exception:
                 logger.exception(

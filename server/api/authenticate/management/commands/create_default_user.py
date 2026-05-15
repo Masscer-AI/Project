@@ -87,7 +87,7 @@ class Command(BaseCommand):
                     "2. **Use Tables for Layouts**:  \n"
                     "   For layouts, incorporate tables creatively to enrich the document's structure.\n\n"
                     "3. **Pandoc Compatibility**:  \n"
-                    "   The documents will be converted using **Pandoc**, transforming them into DOCX or PDF formats. "
+                    "   The documents will be converted using **Pandoc**, transforming them into DOCX and other supported formats. "
                     "Ensure your documents are formatted to be compatible with Pandoc's parsing capabilities.\n"
                     "---\n\n"
                     "### Special Instructions\n"

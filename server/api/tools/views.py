@@ -302,6 +302,8 @@ class DocumentGeneratorView(View):
             return JsonResponse({"error": "from_type is required"}, status=400)
         if not isinstance(to_type, str) or not to_type.strip():
             return JsonResponse({"error": "to_type is required"}, status=400)
+        if to_type.strip().lower() == "pdf":
+            return JsonResponse({"error": "PDF export is not supported"}, status=400)
 
         input_document_created_path = None
         try:

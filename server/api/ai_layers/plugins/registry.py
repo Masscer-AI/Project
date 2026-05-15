@@ -38,7 +38,7 @@ PLUGIN_DEFINITIONS: dict[str, PluginDefinition] = {
         description=(
             "Generate formal documents (resumes/CVs, reports, essays, letters, "
             "proposals, etc.) as full HTML pages with metadata. The user can "
-            "then export them to PDF or DOCX directly from the chat. "
+            "then export them to DOCX (or other supported formats) directly from the chat. "
             "USE THIS whenever the user asks you to create, write, or generate "
             "a document, resume, CV, report, letter, or any content they would "
             "want to download or print."

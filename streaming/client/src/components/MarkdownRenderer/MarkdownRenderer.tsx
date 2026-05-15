@@ -222,7 +222,6 @@ const MarkdownRenderer = ({
 
 const output_formats = [
   "docx",
-  "pdf",
   "md",
   "csv",
   "html",
@@ -232,7 +231,6 @@ const output_formats = [
 ];
 type TOutputFormat =
   | "docx"
-  | "pdf"
   | "md"
   | "csv"
   | "html"

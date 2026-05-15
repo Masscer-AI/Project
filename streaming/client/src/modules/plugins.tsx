@@ -94,7 +94,7 @@ This is an example of Markdown content for the document.
    For layouts, incorporate tables creatively to enrich the document's structure.
 
 3. **Pandoc Compatibility**:  
-   The documents will be converted using **Pandoc**, transforming them into DOCX or PDF formats. Ensure your documents are formatted to be compatible with Pandoc's parsing capabilities.
+   The documents will be converted using **Pandoc**, transforming them into DOCX and other supported formats. Ensure your documents are formatted to be compatible with Pandoc's parsing capabilities.
 
 ---
 
