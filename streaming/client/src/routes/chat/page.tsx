@@ -21,6 +21,8 @@ import {
   uploadMessageAttachments,
 } from "../../modules/apiCalls";
 import { agentsInChatSelectionOrder } from "../../modules/agentSelection";
+import { useAgentSelectionPrompt } from "../../hooks/useAgentSelectionPrompt";
+import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
 
 export default function ChatView() {
   const loaderData = useLoaderData() as TChatLoader;
@@ -77,6 +79,16 @@ export default function ChatView() {
   const [messages, setMessages] = useState<TMessage[]>(
     () => loaderData.conversation?.messages ?? []
   );
+
+  const isMultiAgentEnabled = useIsFeatureEnabled("multi-agent-chat") === true;
+  const agentsModal = useAgentSelectionPrompt({
+    conversationId: routeConversation?.id,
+    enabled: !isViewer,
+    hasAgents: agents.length > 0,
+    selectedAgentCount: chatState.selectedAgents.length,
+    messageCount: messages.length,
+    closeOnFirstSelection: !isMultiAgentEnabled,
+  });
 
   useEffect(() => {
     hydrateConversation(loaderData.conversation);
@@ -470,6 +482,11 @@ export default function ChatView() {
       {chatState.isSidebarOpened && <Sidebar />}
       <div className="flex min-h-0 flex-col h-screen w-full md:mx-auto md:max-w-[900px] relative z-10 px-0 md:px-4 py-0 md:py-6 overflow-visible">
         <ChatHeader
+          agentsModal={{
+            opened: agentsModal.opened,
+            onOpen: agentsModal.open,
+            onClose: agentsModal.close,
+          }}
           right={
             <ConversationModal
               conversation={activeConversation}

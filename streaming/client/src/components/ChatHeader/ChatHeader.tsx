@@ -42,10 +42,18 @@ import {
   IconX,
 } from "@tabler/icons-react";
 
+export type AgentsModalControls = {
+  opened: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+};
+
 export const ChatHeader = ({
   right,
+  agentsModal,
 }: {
   right?: React.ReactNode;
+  agentsModal?: AgentsModalControls;
 }) => {
   const { toggleSidebar, chatState } = useStore((state) => ({
     toggleSidebar: state.toggleSidebar,
@@ -83,7 +91,11 @@ export const ChatHeader = ({
             )}
           </Box>
         )}
-        <AgentsModal />
+        <AgentsModal
+          opened={agentsModal?.opened}
+          onOpen={agentsModal?.onOpen}
+          onClose={agentsModal?.onClose}
+        />
       </div>
       <section className="min-w-0 flex-1 md:flex-shrink-0 md:ml-auto overflow-hidden text-right md:text-right">
         {right && right}
@@ -815,14 +827,29 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
   );
 };
 
-const AgentsModal = () => {
+const AgentsModal = ({
+  opened: openedProp,
+  onOpen: onOpenProp,
+  onClose: onCloseProp,
+}: {
+  opened?: boolean;
+  onOpen?: () => void;
+  onClose?: () => void;
+}) => {
   const { agents, addAgent } = useStore((state) => ({
     agents: state.agents,
     addAgent: state.addAgent,
   }));
 
   const { t } = useTranslation();
-  const [opened, { open, close }] = useDisclosure(false);
+  const [internalOpened, internalHandlers] = useDisclosure(false);
+  const isControlled =
+    openedProp !== undefined &&
+    onOpenProp !== undefined &&
+    onCloseProp !== undefined;
+  const opened = isControlled ? openedProp : internalOpened;
+  const open = isControlled ? onOpenProp! : internalHandlers.open;
+  const close = isControlled ? onCloseProp! : internalHandlers.close;
   const canCreateAgents = useIsFeatureEnabled("can-create-agents") === true;
 
   return (
