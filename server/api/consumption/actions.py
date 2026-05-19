@@ -1,8 +1,31 @@
+import logging
+
 from .models import Consumption, Currency, OrganizationWallet, Wallet
+from .wallet_ops import organization_wallet_use_balance
 from api.ai_layers.models import LanguageModel
 from api.payments.models import WinningRates
 from decimal import Decimal
 from api.notify.actions import notify_user
+
+logger = logging.getLogger(__name__)
+
+
+def notify_org_billing_denied(user_id, reason: str) -> None:
+    """Notify the user when org-scoped billing blocks usage (subscription / balance)."""
+    if reason == "subscription_expired":
+        notify_user(user_id, "subscription_expired", {"message": "subscription-expired"})
+    elif reason == "subscription_expired_with_purchased_locked":
+        notify_user(
+            user_id,
+            "subscription_expired_with_purchased_locked",
+            {"message": "subscription-expired-with-purchased-locked"},
+        )
+    elif reason in ("out_of_balance", "no_org_wallet"):
+        notify_user(user_id, "out_of_balance", {"message": "out-of-compute-units"})
+    elif reason == "no_subscription":
+        notify_user(user_id, "no_subscription", {"message": "no-active-subscription"})
+    elif reason == "billing_check_error":
+        notify_user(user_id, "billing_check_error", {"message": "billing-check-failed"})
 
 
 def _check_org_subscription(organization_id) -> tuple[bool, str]:
@@ -12,7 +35,6 @@ def _check_org_subscription(organization_id) -> tuple[bool, str]:
     """
     try:
         from api.payments.models import Subscription
-        from django.utils import timezone as tz
 
         subscription = (
             Subscription.objects.filter(organization_id=organization_id)
@@ -24,23 +46,31 @@ def _check_org_subscription(organization_id) -> tuple[bool, str]:
             return False, "no_subscription"
 
         if not subscription.is_active():
+            try:
+                org_wallet = OrganizationWallet.objects.get(organization_id=organization_id)
+                if org_wallet.purchased_balance > 0:
+                    return False, "subscription_expired_with_purchased_locked"
+            except OrganizationWallet.DoesNotExist:
+                pass
             return False, "subscription_expired"
 
-        # Check org wallet balance
+        # Check org wallet balance (subscription + purchased)
         try:
             org_wallet = OrganizationWallet.objects.get(organization_id=organization_id)
         except OrganizationWallet.DoesNotExist:
-            # Wallet missing — allow but log; shouldn't happen after signal runs
-            return True, "ok"
+            logger.warning(
+                "OrganizationWallet missing for org_id=%s while subscription is active — denying",
+                organization_id,
+            )
+            return False, "no_org_wallet"
 
-        if org_wallet.balance <= 0:
+        if org_wallet.total_balance <= 0:
             return False, "out_of_balance"
 
         return True, "ok"
-    except Exception as e:
-        print(e, "exception checking org subscription for org", organization_id)
-        # Fail open to avoid blocking users on infrastructure errors
-        return True, "ok"
+    except Exception:
+        logger.exception("Billing check failed for org_id=%s", organization_id)
+        return False, "billing_check_error"
 
 
 def register_consumption(
@@ -56,27 +86,24 @@ def register_consumption(
     if organization_id is not None:
         allowed, reason = _check_org_subscription(organization_id)
         if not allowed:
-            if reason == "subscription_expired":
-                notify_user(user_id, "subscription_expired", {"message": "subscription-expired"})
-            elif reason == "out_of_balance":
-                notify_user(user_id, "out_of_balance", {"message": "out-of-compute-units"})
-            elif reason == "no_subscription":
-                notify_user(user_id, "no_subscription", {"message": "no-active-subscription"})
+            notify_org_billing_denied(user_id, reason)
             return False
 
         try:
-            org_wallet = OrganizationWallet.objects.get(organization_id=organization_id)
-            Consumption.objects.create(
-                user_id=user_id, wallet=None, amount=amount, is_for=is_for
-            )
-            if not org_wallet.use_balance(amount):
-                notify_user(user_id, "out_of_balance", {"message": "out-of-compute-units"})
-                return False
-            return True
+            OrganizationWallet.objects.get(organization_id=organization_id)
         except OrganizationWallet.DoesNotExist:
-            pass  # Fall through to per-user wallet below
+            notify_org_billing_denied(user_id, "no_org_wallet")
+            return False
 
-    # --- Per-user wallet (no org context or org wallet missing) ---
+        Consumption.objects.create(
+            user_id=user_id, wallet=None, amount=amount, is_for=is_for
+        )
+        if not organization_wallet_use_balance(organization_id, amount):
+            notify_org_billing_denied(user_id, "out_of_balance")
+            return False
+        return True
+
+    # --- Per-user wallet (no org billing context) ---
     wallet, created = Wallet.objects.get_or_create(
         user_id=user_id, unit=Currency.objects.get(name="Compute Unit")
     )

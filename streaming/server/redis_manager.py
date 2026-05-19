@@ -38,7 +38,8 @@ async def listen_to_notifications():
 
                     sockets = route_ids_to_socket_id.get(str(route_id_to_emit), None)
                     if sockets:
-                        for socket in sockets:
+                        # Same sid can appear twice if older servers registered duplicates; emit once.
+                        for socket in dict.fromkeys(sockets):
                             await sio.emit(event_type, decoded_message, to=socket)
 
         await asyncio.sleep(0.01)

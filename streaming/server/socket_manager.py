@@ -22,7 +22,10 @@ class ProxyNamespaceManager(socketio.AsyncNamespace):
         route_id = str(route_id)
         if route_id not in self.route_id_to_socket_id:
             self.route_id_to_socket_id[route_id] = []
-        self.route_id_to_socket_id[route_id].append(sid)
+        # Avoid duplicate sids: setUser / register_user can run more than once per connection;
+        # redis_manager emits once per sid and the client would otherwise show duplicate toasts.
+        if sid not in self.route_id_to_socket_id[route_id]:
+            self.route_id_to_socket_id[route_id].append(sid)
         self.socket_id_to_route_id[sid] = route_id
         r.set("route_id_to_socket_id", json.dumps(self.route_id_to_socket_id))
         r.set("socket_id_to_route_id", json.dumps(self.socket_id_to_route_id))

@@ -78,13 +78,19 @@ class OrganizationBillingView(View):
 
         wallet_data = None
         if wallet:
+            one_usd = wallet.unit.one_usd_is
+            sub_usd = round(float(wallet.subscription_balance) / one_usd, 4)
+            pur_usd = round(float(wallet.purchased_balance) / one_usd, 4)
+            total = wallet.total_balance
             wallet_data = {
-                "balance": str(wallet.balance),
+                "subscription_balance": str(wallet.subscription_balance),
+                "purchased_balance": str(wallet.purchased_balance),
+                "balance": str(total),
                 "unit_name": wallet.unit.name,
                 "one_usd_is": wallet.unit.one_usd_is,
-                "balance_usd": str(
-                    round(float(wallet.balance) / wallet.unit.one_usd_is, 4)
-                ),
+                "subscription_balance_usd": str(sub_usd),
+                "purchased_balance_usd": str(pur_usd),
+                "balance_usd": str(round(float(total) / one_usd, 4)),
             }
 
         return JsonResponse({
@@ -381,8 +387,11 @@ def _handle_checkout_completed(session):
 
 
 def _handle_credit_purchase_completed(session):
-    """One-time credit purchase → recharge org wallet."""
+    """One-time credit purchase → recharge org wallet purchased bucket."""
     from decimal import Decimal
+
+    from api.consumption.models import OrganizationWalletTransaction
+    from api.payments.billing_helpers import recharge_org_wallet_compute_units
 
     org_id = session.get("metadata", {}).get("organization_id")
     amount_usd = session.get("metadata", {}).get("amount_usd")
@@ -404,13 +413,17 @@ def _handle_credit_purchase_completed(session):
         return
 
     compute_units = Decimal(credited_usd) * Decimal(currency.one_usd_is)
-    wallet = OrganizationWallet.objects.filter(organization=org).first()
-    if wallet:
-        wallet.recharge(compute_units)
+    recharge_org_wallet_compute_units(
+        org,
+        compute_units,
+        bucket=OrganizationWalletTransaction.BUCKET_PURCHASED,
+        reason=OrganizationWalletTransaction.REASON_STRIPE_TOPUP,
+    )
 
 
 def _handle_subscription_checkout_completed(session):
     """Checkout completed → activate subscription and seed wallet."""
+    from api.consumption.models import OrganizationWalletTransaction
     from api.payments.billing_helpers import (
         add_one_calendar_month,
         recharge_org_wallet_from_credits_usd,
@@ -449,14 +462,21 @@ def _handle_subscription_checkout_completed(session):
         },
     )
 
-    # Seed / recharge the org wallet
+    # Seed / recharge the org wallet (subscription bucket)
     credits_usd = sub.get_effective_credits_limit_usd()
     if credits_usd:
-        recharge_org_wallet_from_credits_usd(org, credits_usd)
+        recharge_org_wallet_from_credits_usd(
+            org,
+            credits_usd,
+            bucket=OrganizationWalletTransaction.BUCKET_SUBSCRIPTION,
+            reason=OrganizationWalletTransaction.REASON_STRIPE_CHECKOUT,
+            subscription=sub,
+        )
 
 
 def _handle_invoice_paid(invoice):
     """Recurring invoice paid → renew subscription end_date and recharge wallet."""
+    from api.consumption.models import OrganizationWalletTransaction
     from api.payments.billing_helpers import (
         extend_subscription_end_date_one_month,
         recharge_wallet_for_subscription_credits,
@@ -480,14 +500,28 @@ def _handle_invoice_paid(invoice):
 
     now = tz.now()
     extend_subscription_end_date_one_month(sub, now=now)
-    recharge_wallet_for_subscription_credits(sub)
+    recharge_wallet_for_subscription_credits(
+        sub,
+        reason=OrganizationWalletTransaction.REASON_STRIPE_RENEW,
+    )
 
 
 def _handle_subscription_cancelled(stripe_sub):
+    from api.payments.billing_helpers import forfeit_subscription_credits
+
     stripe_sub_id = stripe_sub.get("id")
+    org_ids = list(
+        Subscription.objects.filter(stripe_subscription_id=stripe_sub_id)
+        .values_list("organization_id", flat=True)
+        .distinct()
+    )
     Subscription.objects.filter(stripe_subscription_id=stripe_sub_id).update(
         status="cancelled", updated_at=tz.now()
     )
+    for oid in org_ids:
+        org = Organization.objects.filter(pk=oid).first()
+        if org:
+            forfeit_subscription_credits(org)
 
 
 def _handle_subscription_updated(stripe_sub):

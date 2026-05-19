@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { useStore } from "../../modules/store";
 import { useTranslation } from "react-i18next";
+import { showOrganizationBillingBlockedToast } from "../../utils/organizationBillingToast";
 
 const TOOL_STATUS_MIN_MS = 1500; // Keep tool call status visible so user notices the AI invoked a function
 
@@ -23,6 +24,10 @@ type AgentFinishedEvent = {
   iterations: number;
   tool_calls_count: number;
   next_agent_slug?: string;
+  /** Present when the agent loop ended without saving an assistant message (e.g. org billing). */
+  status?: string;
+  error?: string;
+  billing_reason?: string;
 };
 
 type RedisNotification<T> = {
@@ -133,6 +138,25 @@ export const AgentTaskListener = () => {
 
       if (data.next_agent_slug) {
         setConversation(conversation.id);
+        return;
+      }
+
+      if (
+        data.status === "error" &&
+        data.error === "organization_billing_blocked"
+      ) {
+        if (toolHoldRef.current) {
+          clearTimeout(toolHoldRef.current);
+          toolHoldRef.current = null;
+          pendingStatusRef.current = null;
+        }
+        showOrganizationBillingBlockedToast(
+          typeof data.billing_reason === "string"
+            ? data.billing_reason
+            : undefined
+        );
+        setAgentTaskStatus(null);
+        void setConversation(conversation.id);
         return;
       }
 

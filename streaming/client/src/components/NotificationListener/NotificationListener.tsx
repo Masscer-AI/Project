@@ -2,8 +2,6 @@ import React, { useEffect } from "react";
 import { useStore } from "../../modules/store";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
-// import toast from "react-hot-toast";
-// import { useTranslation } from "react-i18next";
 
 export const NotificationListener = () => {
   const { t } = useTranslation();
@@ -24,6 +22,10 @@ export const NotificationListener = () => {
       console.log("out of balance", data);
     });
 
+    socket.on("subscription_expired_with_purchased_locked", () => {
+      toast(t("subscription-expired-with-purchased-locked-toast"), { icon: "ℹ️" });
+    });
+
     socket.on("audio_generated", () => {
       toast.success(t("audio-generated-successfully"));
       setConversation(conversation?.id);
@@ -32,8 +34,9 @@ export const NotificationListener = () => {
     return () => {
       socket.off("video_generated");
       socket.off("out_of_balance");
+      socket.off("subscription_expired_with_purchased_locked");
       socket.off("audio_generated");
     };
-  }, [conversation]);
+  }, [conversation, setConversation, socket, t]);
   return <></>;
 };

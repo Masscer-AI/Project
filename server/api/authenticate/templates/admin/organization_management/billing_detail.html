@@ -45,10 +45,15 @@
           <th scope="row">{% trans "Wallet total balance" %}</th>
           <td>
             {% if wallet %}
-              <strong>{{ wallet.balance }} {{ wallet.unit.name }}</strong>
+              <strong>{{ wallet.total_balance }} {{ wallet.unit.name }}</strong>
               {% if wallet_balance_usd is not None %}
                 (~ ${{ wallet_balance_usd|floatformat:4 }} {% trans "USD" %})
               {% endif %}
+              <br/>
+              <small class="help">
+                {% trans "Included (subscription)" %}: {{ wallet.subscription_balance }} {{ wallet.unit.name }}
+                · {% trans "Purchased (top-ups)" %}: {{ wallet.purchased_balance }} {{ wallet.unit.name }}
+              </small>
             {% else %}
               <em>{% trans "No organization wallet." %}</em>
             {% endif %}
@@ -118,13 +123,18 @@
 
   <fieldset class="module aligned">
     <h2>{% trans "Wallet" %}</h2>
-    <p class="help">{% trans "Organization usage draws from this balance (compute units). Top up here for one-off credits without changing the subscription row." %}</p>
+    <p class="help">{% trans "Organization usage draws from included (subscription) credits first, then purchased top-ups. Manual recharge here adds to the purchased bucket only. Subscription-bucket credits are forfeited when the subscription ends." %}</p>
     {% if wallet %}
       <p>
-        <strong>{% trans "Balance" %}:</strong> {{ wallet.balance }} {{ wallet.unit.name }}
+        <strong>{% trans "Total" %}:</strong> {{ wallet.total_balance }} {{ wallet.unit.name }}
         {% if wallet_balance_usd is not None %}
           (~ ${{ wallet_balance_usd|floatformat:4 }} {% trans "USD at 1 USD =" %} {{ wallet.unit.one_usd_is }} {{ wallet.unit.name }})
         {% endif %}
+      </p>
+      <p>
+        <strong>{% trans "Included (subscription)" %}:</strong> {{ wallet.subscription_balance }} {{ wallet.unit.name }}
+        &nbsp;·&nbsp;
+        <strong>{% trans "Purchased (top-ups)" %}:</strong> {{ wallet.purchased_balance }} {{ wallet.unit.name }}
       </p>
     {% else %}
       <p><em>{% trans "No organization wallet." %}</em></p>
@@ -138,6 +148,7 @@
       <span id="org-mgmt-wallet-lbl-before">{% trans "Balance before (compute units)" %}</span>
       <span id="org-mgmt-wallet-lbl-add">{% trans "Credit added (compute units)" %}</span>
       <span id="org-mgmt-wallet-lbl-after">{% trans "Balance after (compute units, estimated)" %}</span>
+      <span id="org-mgmt-wallet-lbl-purchased-after">{% trans "Purchased bucket after (compute units, estimated)" %}</span>
       <span id="org-mgmt-wallet-lbl-usd">{% trans "Approximate USD equivalent (before → after)" %}</span>
       <span id="org-mgmt-wallet-msg-invalid-amount">{% trans "Enter a valid positive USD amount." %}</span>
       <span id="org-mgmt-wallet-msg-no-rate">{% trans "Compute Unit rate is missing; cannot estimate the new balance." %}</span>
@@ -148,6 +159,8 @@
       action="{{ billing_url }}"
       {% if not wallet_recharge_allowed %}data-org-mgmt-wallet-disabled="1"{% endif %}
       data-balance-cu="{{ wallet_modal_balance_cu }}"
+      data-subscription-balance-cu="{{ wallet_modal_subscription_balance_cu }}"
+      data-purchased-balance-cu="{{ wallet_modal_purchased_balance_cu }}"
       data-one-usd-is="{{ wallet_modal_one_usd_is }}"
       data-unit-name="{{ wallet_modal_unit_name|escape }}"
     >

@@ -162,7 +162,7 @@ class OrganizationManagementAdminTests(TestCase):
         self.assertEqual(sub.billing_interval, "yearly")
         self.org.refresh_from_db()
         wallet = self.org.wallet
-        self.assertGreater(wallet.balance, 0)
+        self.assertGreater(wallet.subscription_balance, 0)
 
     def test_manual_subscription_over_stripe_requires_confirm(self):
         self.client.force_login(self.staff)
@@ -314,7 +314,7 @@ class OrganizationManagementAdminTests(TestCase):
             credits_limit_usd=Decimal("25"),
             contract_price_usd=Decimal("199.00"),
         )
-        bal_before = self.org.wallet.balance
+        bal_before = self.org.wallet.total_balance
         response = self.client.post(
             url,
             {
@@ -328,7 +328,7 @@ class OrganizationManagementAdminTests(TestCase):
         self.assertEqual(sub.status, "active")
         self.assertGreater(sub.end_date, current_end)
         self.org.wallet.refresh_from_db()
-        self.assertGreater(self.org.wallet.balance, bal_before)
+        self.assertGreater(self.org.wallet.total_balance, bal_before)
         pay = SubscriptionPayment.objects.filter(subscription=sub).latest("created_at")
         self.assertEqual(pay.amount_usd, Decimal("199.00"))
         self.assertIn("Manual renewal in admin", pay.notes)
@@ -406,7 +406,7 @@ class OrganizationManagementAdminTests(TestCase):
             payment_method="manual",
         )
         self.assertTrue(hasattr(self.org, "wallet"))
-        bal_before = self.org.wallet.balance
+        bal_before = self.org.wallet.purchased_balance
         response = self.client.post(
             url,
             {
@@ -416,7 +416,7 @@ class OrganizationManagementAdminTests(TestCase):
         )
         self.assertEqual(response.status_code, 302)
         self.org.wallet.refresh_from_db()
-        self.assertGreater(self.org.wallet.balance, bal_before)
+        self.assertGreater(self.org.wallet.purchased_balance, bal_before)
         self.assertFalse(SubscriptionPayment.objects.exists())
 
     def test_wallet_recharge_blocked_without_active_masscer_subscription(self):
@@ -432,7 +432,8 @@ class OrganizationManagementAdminTests(TestCase):
             status="cancelled",
             payment_method="manual",
         )
-        bal_before = self.org.wallet.balance
+        bal_before = self.org.wallet.total_balance
+        pur_before = self.org.wallet.purchased_balance
         response = self.client.post(
             url,
             {
@@ -442,7 +443,8 @@ class OrganizationManagementAdminTests(TestCase):
         )
         self.assertEqual(response.status_code, 302)
         self.org.wallet.refresh_from_db()
-        self.assertEqual(self.org.wallet.balance, bal_before)
+        self.assertEqual(self.org.wallet.total_balance, bal_before)
+        self.assertEqual(self.org.wallet.purchased_balance, pur_before)
         self.assertFalse(SubscriptionPayment.objects.exists())
 
     def test_wallet_recharge_can_register_payment(self):

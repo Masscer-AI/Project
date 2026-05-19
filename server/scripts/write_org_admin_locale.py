@@ -177,9 +177,12 @@ def main() -> None:
         ("Contract price (USD)", "Precio contractual (USD)"),
         ("Wallet", "Monedero"),
         (
-            "Organization usage draws from this balance (compute units). Top up here for one-off credits without changing the subscription row.",
-            "El uso de la organización se descuenta de este saldo (unidades de cómputo). Recarga aquí créditos puntuales sin cambiar la fila de suscripción.",
+            "Organization usage draws from included (subscription) credits first, then purchased top-ups. Manual recharge here adds to the purchased bucket only. Subscription-bucket credits are forfeited when the subscription ends.",
+            "El uso de la organización consume primero los créditos incluidos (suscripción) y luego las recargas compradas. La recarga manual aquí solo suma al bucket comprado. Los créditos del bucket de suscripción se pierden al terminar la suscripción.",
         ),
+        ("Total", "Total"),
+        ("Included (subscription)", "Incluidos (suscripción)"),
+        ("Purchased (top-ups)", "Comprados (recargas)"),
         ("Balance", "Saldo"),
         ("USD at 1 USD =", "USD a 1 USD ="),
         ("No organization wallet.", "No hay monedero de organización."),
@@ -191,6 +194,10 @@ def main() -> None:
         ("Balance before (compute units)", "Saldo antes (unidades de cómputo)"),
         ("Credit added (compute units)", "Crédito añadido (unidades de cómputo)"),
         ("Balance after (compute units, estimated)", "Saldo después (unidades de cómputo, estimado)"),
+        (
+            "Purchased bucket after (compute units, estimated)",
+            "Bucket comprado después (unidades de cómputo, estimado)",
+        ),
         ("Approximate USD equivalent (before → after)", "Equivalente USD aproximado (antes → después)"),
         ("Enter a valid positive USD amount.", "Introduce un importe USD válido y positivo."),
         (

@@ -30,9 +30,10 @@ from api.authenticate.models import (
     OrganizationManagementProxy,
     UserProfile,
 )
-from api.consumption.models import Currency, OrganizationWallet
+from api.consumption.models import Currency, OrganizationWallet, OrganizationWalletTransaction
 from api.payments.billing_helpers import (
-    recharge_org_wallet_from_credits_usd,
+    forfeit_subscription_credits,
+    recharge_purchased_credits_usd,
     recharge_wallet_for_subscription_credits,
 )
 from api.payments.models import Subscription, SubscriptionPayment, SubscriptionPlan
@@ -40,12 +41,16 @@ from api.payments.models import Subscription, SubscriptionPayment, SubscriptionP
 
 def _cancel_all_masscer_subscriptions_for_org(org: Organization) -> int:
     """Mark every subscription row for this org as cancelled in Masscer (does not call Stripe)."""
+    had_active = _masscer_active_subscriptions_qs(org).exists()
     now = timezone.now()
-    return Subscription.objects.filter(organization=org).update(
+    n = Subscription.objects.filter(organization=org).update(
         status="cancelled",
         end_date=now,
         updated_at=now,
     )
+    if had_active:
+        forfeit_subscription_credits(org)
+    return n
 
 
 def _parse_optional_decimal(value) -> Decimal | None:
@@ -320,11 +325,11 @@ class OrganizationManagementProxyAdmin(admin.ModelAdmin):
                 wallet = None
             usd_balance = None
             if wallet and wallet.unit_id:
-                usd_balance = float(wallet.balance) / float(wallet.unit.one_usd_is)
+                usd_balance = float(wallet.total_balance) / float(wallet.unit.one_usd_is)
             badge_codes = []
             if not wallet:
                 badge_codes.append("no_wallet")
-            elif wallet.balance <= 0:
+            elif wallet.total_balance <= 0:
                 badge_codes.append("low_balance")
             if latest:
                 if not latest.is_active():
@@ -408,14 +413,18 @@ class OrganizationManagementProxyAdmin(admin.ModelAdmin):
         member_count = UserProfile.objects.filter(organization=org).count()
         wallet_balance_usd = None
         if wallet and wallet.unit_id:
-            wallet_balance_usd = float(wallet.balance) / float(wallet.unit.one_usd_is)
+            wallet_balance_usd = float(wallet.total_balance) / float(wallet.unit.one_usd_is)
         cu_currency = Currency.objects.filter(name="Compute Unit").first()
         if wallet and wallet.unit_id:
-            wallet_modal_balance_cu = str(wallet.balance)
+            wallet_modal_balance_cu = str(wallet.total_balance)
+            wallet_modal_subscription_balance_cu = str(wallet.subscription_balance)
+            wallet_modal_purchased_balance_cu = str(wallet.purchased_balance)
             wallet_modal_one_usd_is = str(wallet.unit.one_usd_is)
             wallet_modal_unit_name = wallet.unit.name
         else:
             wallet_modal_balance_cu = "0"
+            wallet_modal_subscription_balance_cu = "0"
+            wallet_modal_purchased_balance_cu = "0"
             wallet_modal_one_usd_is = (
                 str(cu_currency.one_usd_is) if cu_currency else ""
             )
@@ -515,6 +524,8 @@ class OrganizationManagementProxyAdmin(admin.ModelAdmin):
             "billing_interval_choices": Subscription.BILLING_INTERVAL_CHOICES,
             "wallet_balance_usd": wallet_balance_usd,
             "wallet_modal_balance_cu": wallet_modal_balance_cu,
+            "wallet_modal_subscription_balance_cu": wallet_modal_subscription_balance_cu,
+            "wallet_modal_purchased_balance_cu": wallet_modal_purchased_balance_cu,
             "wallet_modal_one_usd_is": wallet_modal_one_usd_is,
             "wallet_modal_unit_name": wallet_modal_unit_name,
             "subscription_payments": subscription_payments,
@@ -607,7 +618,10 @@ class OrganizationManagementProxyAdmin(admin.ModelAdmin):
             messages.success(request, _("Created new manual subscription."))
 
         if recharge_wallet:
-            if recharge_wallet_for_subscription_credits(sub):
+            if recharge_wallet_for_subscription_credits(
+                sub,
+                reason=OrganizationWalletTransaction.REASON_ADMIN_MANUAL_SUB,
+            ):
                 messages.success(
                     request,
                     _("Wallet recharged from subscription credit budget."),
@@ -643,7 +657,12 @@ class OrganizationManagementProxyAdmin(admin.ModelAdmin):
                     _("Use no more than two decimal places when registering a payment.")
                 )
             sub_for_payment = active_subs_qs.order_by("-created_at").select_related("plan").first()
-        if recharge_org_wallet_from_credits_usd(org, amount):
+        if recharge_purchased_credits_usd(
+            org,
+            amount,
+            reason=OrganizationWalletTransaction.REASON_ADMIN_RECHARGE,
+            subscription=sub_for_payment,
+        ):
             messages.success(
                 request,
                 _("Wallet credited with %(amount)s USD equivalent.") % {"amount": amount},
@@ -739,7 +758,10 @@ class OrganizationManagementProxyAdmin(admin.ModelAdmin):
         sub.status = "active"
         sub.save(update_fields=["status", "end_date", "updated_at"])
 
-        if not recharge_wallet_for_subscription_credits(sub):
+        if not recharge_wallet_for_subscription_credits(
+            sub,
+            reason=OrganizationWalletTransaction.REASON_ADMIN_MANUAL_SUB,
+        ):
             raise ValueError(
                 _("Could not recharge wallet from this subscription's USD credit budget.")
             )
@@ -832,6 +854,7 @@ class OrganizationManagementProxyAdmin(admin.ModelAdmin):
         sub.refresh_from_db()
         sub.status = "cancelled"
         sub.save(update_fields=["status", "updated_at"])
+        forfeit_subscription_credits(org)
         messages.success(
             request,
             _(

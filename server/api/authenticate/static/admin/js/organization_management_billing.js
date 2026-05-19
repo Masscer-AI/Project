@@ -97,6 +97,10 @@
     var oneUsdIs = parseDecimal(form.getAttribute("data-one-usd-is") || "");
     var balanceBefore = parseDecimal(form.getAttribute("data-balance-cu") || "0");
     if (balanceBefore === null) balanceBefore = 0;
+    var subBefore = parseDecimal(form.getAttribute("data-subscription-balance-cu") || "0");
+    if (subBefore === null) subBefore = 0;
+    var purBefore = parseDecimal(form.getAttribute("data-purchased-balance-cu") || "0");
+    if (purBefore === null) purBefore = 0;
     var unitName = form.getAttribute("data-unit-name") || "Compute Unit";
 
     function buildSummary(amountUsd) {
@@ -111,12 +115,14 @@
       }
       var addCu = amountUsd * oneUsdIs;
       var afterCu = balanceBefore + addCu;
+      var purAfter = purBefore + addCu;
       var usdBefore = balanceBefore / oneUsdIs;
       var usdAfter = afterCu / oneUsdIs;
       var beforeLabel = document.getElementById("org-mgmt-wallet-lbl-before");
       var afterLabel = document.getElementById("org-mgmt-wallet-lbl-after");
       var addLabel = document.getElementById("org-mgmt-wallet-lbl-add");
       var usdLabel = document.getElementById("org-mgmt-wallet-lbl-usd");
+      var purAfterLabel = document.getElementById("org-mgmt-wallet-lbl-purchased-after");
       lines.push(
         (beforeLabel ? beforeLabel.textContent : "Before") +
           ":\n  " +
@@ -125,12 +131,23 @@
           unitName +
           (Number.isFinite(usdBefore)
             ? "\n  (~" + fmtNum(usdBefore, 4) + " USD)"
-            : "")
+            : "") +
+          "\n  (subscription " +
+          fmtNum(subBefore, 6) +
+          " + purchased " +
+          fmtNum(purBefore, 6) +
+          ")"
       );
       lines.push(
         (addLabel ? addLabel.textContent : "Credit") +
           ":\n  +" +
           fmtNum(addCu, 6) +
+          " " +
+          unitName +
+          " → " +
+          (purAfterLabel ? purAfterLabel.textContent : "Purchased after") +
+          "\n  " +
+          fmtNum(purAfter, 6) +
           " " +
           unitName +
           "\n  (" +

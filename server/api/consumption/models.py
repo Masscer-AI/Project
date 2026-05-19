@@ -71,14 +71,20 @@ class Consumption(models.Model):
 
 
 class OrganizationWallet(models.Model):
-    """Credit budget wallet at the organization level, tied to its active subscription."""
+    """Org wallet: subscription credits (forfeited when subscription ends) vs purchased (retained)."""
 
     organization = models.OneToOneField(
         "authenticate.Organization",
         on_delete=models.CASCADE,
         related_name="wallet",
     )
-    balance = models.DecimalField(
+    subscription_balance = models.DecimalField(
+        max_digits=20,
+        decimal_places=8,
+        default=0,
+        validators=[MinValueValidator(Decimal("0"))],
+    )
+    purchased_balance = models.DecimalField(
         max_digits=20,
         decimal_places=8,
         default=0,
@@ -88,19 +94,72 @@ class OrganizationWallet(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        verbose_name = "Organization wallet"
+        verbose_name_plural = "Organization wallets"
+
     def __str__(self):
-        return f"<OrganizationWallet org={self.organization.name} balance={self.balance} />"
+        return (
+            f"<OrganizationWallet org={self.organization.name} "
+            f"sub={self.subscription_balance} purchased={self.purchased_balance} />"
+        )
 
-    def use_balance(self, amount: Decimal) -> bool:
-        """Deduct *amount* from balance. Returns False (and floors at 0) if insufficient funds."""
-        self.balance -= amount
-        if self.balance < 0:
-            self.balance = Decimal("0")
-            self.save()
-            return False
-        self.save()
-        return True
+    @property
+    def total_balance(self) -> Decimal:
+        return self.subscription_balance + self.purchased_balance
 
-    def recharge(self, amount: Decimal):
-        self.balance += Decimal(amount)
-        self.save()
+
+class OrganizationWalletTransaction(models.Model):
+    """Audit trail for org wallet subscription vs purchased bucket changes."""
+
+    BUCKET_SUBSCRIPTION = "subscription"
+    BUCKET_PURCHASED = "purchased"
+    BUCKET_CHOICES = [
+        (BUCKET_SUBSCRIPTION, "Subscription"),
+        (BUCKET_PURCHASED, "Purchased"),
+    ]
+
+    REASON_TRIAL_SEED = "trial_seed"
+    REASON_STRIPE_CHECKOUT = "stripe_checkout"
+    REASON_STRIPE_RENEW = "stripe_renew"
+    REASON_STRIPE_TOPUP = "stripe_topup"
+    REASON_ADMIN_RECHARGE = "admin_recharge"
+    REASON_ADMIN_MANUAL_SUB = "admin_manual_sub"
+    REASON_FORFEIT_EXPIRY = "forfeit_expiry"
+    REASON_MIGRATION = "migration"
+    REASON_CHOICES = [
+        (REASON_TRIAL_SEED, "Trial seed"),
+        (REASON_STRIPE_CHECKOUT, "Stripe checkout"),
+        (REASON_STRIPE_RENEW, "Stripe renew"),
+        (REASON_STRIPE_TOPUP, "Stripe top-up"),
+        (REASON_ADMIN_RECHARGE, "Admin wallet recharge"),
+        (REASON_ADMIN_MANUAL_SUB, "Admin manual subscription"),
+        (REASON_FORFEIT_EXPIRY, "Forfeit on subscription end"),
+        (REASON_MIGRATION, "Data migration"),
+    ]
+
+    organization = models.ForeignKey(
+        "authenticate.Organization",
+        on_delete=models.CASCADE,
+        related_name="wallet_transactions",
+    )
+    bucket = models.CharField(max_length=20, choices=BUCKET_CHOICES)
+    delta = models.DecimalField(max_digits=20, decimal_places=8)
+    reason = models.CharField(max_length=32, choices=REASON_CHOICES)
+    subscription = models.ForeignKey(
+        "payments.Subscription",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="wallet_transactions",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["organization", "-created_at"]),
+        ]
+
+    def __str__(self):
+        return f"<OrgWalletTx org={self.organization_id} {self.bucket} {self.delta} {self.reason}>"

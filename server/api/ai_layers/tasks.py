@@ -845,6 +845,40 @@ def conversation_agent_task(
         conversation_id, user_id, agent_slugs, tool_names, multiagentic_modality,
     )
 
+    # Same org resolution as messaging/signals.py (post_save LLM consumption).
+    from api.consumption.actions import _check_org_subscription, notify_org_billing_denied
+    from api.messaging.tasks import get_user_organization
+
+    billing_org_id = conversation.organization_id
+    if not billing_org_id and conversation.user_id:
+        _org = get_user_organization(conversation.user)
+        billing_org_id = _org.id if _org else None
+    if billing_org_id is not None:
+        allowed, billing_reason = _check_org_subscription(billing_org_id)
+        if not allowed:
+            notify_uid = conversation.user_id or actor_user_id or notification_route_id
+            notify_org_billing_denied(notify_uid, billing_reason)
+            # Only agent_loop_finished: agent_events "error" cleared agentTaskStatus and left
+            # the optimistic assistant showing "Thinking..." until refetch (null || fallback).
+            emit_finished(
+                {
+                    "output": "",
+                    "message_id": None,
+                    "versions": [],
+                    "attachments": [],
+                    "iterations": 0,
+                    "tool_calls_count": 0,
+                    "status": "error",
+                    "error": "organization_billing_blocked",
+                    "billing_reason": billing_reason,
+                }
+            )
+            return {
+                "status": "error",
+                "error": "organization_billing_blocked",
+                "billing_reason": billing_reason,
+            }
+
     agent_sessions_created = []
     try:
         # ---- Save or reuse user message ----

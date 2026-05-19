@@ -222,12 +222,23 @@ class OrganizationWalletInline(admin.TabularInline):
     def balance_display(self, obj):
         if not obj.pk:
             return "—"
-        usd = float(obj.balance) / float(obj.unit.one_usd_is) if obj.unit else 0
+        total = obj.total_balance
+        sub = obj.subscription_balance
+        pur = obj.purchased_balance
+        rate = float(obj.unit.one_usd_is) if obj.unit else 1
+        usd_total = float(total) / rate
+        usd_sub = float(sub) / rate
+        usd_pur = float(pur) / rate
         return format_html(
-            "<strong>${:.4f} USD</strong> &nbsp;<small style='color:#888'>{} {} · 1 USD = {} {}</small>",
-            usd,
-            f"{float(obj.balance):,.8f}",
-            obj.unit.name if obj.unit else "",
+            "<strong>${:.4f} USD total</strong><br/>"
+            "<small>Included (subscription): ${:.4f} USD · "
+            "Purchased: ${:.4f} USD<br/>"
+            "{} CU sub + {} CU purchased · 1 USD = {} {}</small>",
+            usd_total,
+            usd_sub,
+            usd_pur,
+            f"{float(sub):,.4f}",
+            f"{float(pur):,.4f}",
             obj.unit.one_usd_is if obj.unit else "",
             obj.unit.name if obj.unit else "",
         )

@@ -223,9 +223,14 @@ export type TOrganizationSubscription = {
 };
 
 export type TOrganizationWallet = {
+  subscription_balance: string;
+  purchased_balance: string;
+  /** Total compute units (subscription + purchased) */
   balance: string;
   unit_name: string;
   one_usd_is: number;
+  subscription_balance_usd: string;
+  purchased_balance_usd: string;
   balance_usd: string;
 };
 

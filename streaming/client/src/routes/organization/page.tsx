@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useStore } from "../../modules/store";
 import { Sidebar } from "../../components/Sidebar/Sidebar";
 import {
@@ -85,12 +86,45 @@ const CREDIT_PACKAGES = [
   { amountUsd: 200, creditsUsd: 160 },
 ] as const;
 
+const ORGANIZATION_TAB_VALUES = [
+  "settings",
+  "roles",
+  "members",
+  "billing",
+] as const;
+
+export type OrganizationTab = (typeof ORGANIZATION_TAB_VALUES)[number];
+
+/** Maps URL ?activeTab= to organization page section (default: settings). */
+export function parseOrganizationActiveTab(
+  searchParams: URLSearchParams
+): OrganizationTab {
+  const raw = (searchParams.get("activeTab") || "").toLowerCase();
+  if ((ORGANIZATION_TAB_VALUES as readonly string[]).includes(raw)) {
+    return raw as OrganizationTab;
+  }
+  return "settings";
+}
+
 export default function OrganizationPage() {
   const { chatState, toggleSidebar } = useStore((s) => ({
     chatState: s.chatState,
     toggleSidebar: s.toggleSidebar,
   }));
   const { t } = useTranslation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const organizationTab = parseOrganizationActiveTab(searchParams);
+
+  const setOrganizationTab = (tab: OrganizationTab) => {
+    const next = new URLSearchParams(searchParams);
+    if (tab === "settings") {
+      next.delete("activeTab");
+    } else {
+      next.set("activeTab", tab);
+    }
+    setSearchParams(next);
+  };
+
   const [orgs, setOrgs] = useState<TOrganization[]>([]);
   const [members, setMembers] = useState<TOrganizationMember[]>([]);
   const [roles, setRoles] = useState<TOrganizationRole[]>([]);
@@ -270,6 +304,16 @@ export default function OrganizationPage() {
   useEffect(() => {
     loadOrgs();
   }, []);
+
+  useEffect(() => {
+    const raw = searchParams.get("activeTab");
+    if (!raw) return;
+    if (parseOrganizationActiveTab(searchParams) !== raw.toLowerCase()) {
+      const next = new URLSearchParams(searchParams);
+      next.delete("activeTab");
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const org = orgs[0] ?? null;
   const hasCustomSubscription = billing?.subscription?.plan?.slug === "custom";
@@ -762,7 +806,13 @@ export default function OrganizationPage() {
             </Card>
           ) : (
             /* ── Organization exists — Tabs ── */
-            <Tabs defaultValue="settings" variant="outline">
+            <Tabs
+              value={organizationTab}
+              onChange={(v) => {
+                if (v) setOrganizationTab(v as OrganizationTab);
+              }}
+              variant="outline"
+            >
               <Tabs.List mb="md">
                 <Tabs.Tab
                   value="settings"
@@ -1385,6 +1435,11 @@ export default function OrganizationPage() {
                                   {parseFloat(billing.wallet.balance).toLocaleString(undefined, { maximumFractionDigits: 2 })} {billing.wallet.unit_name}
                                   {" · "}1 USD = {billing.wallet.one_usd_is.toLocaleString()} {billing.wallet.unit_name}
                                 </Text>
+                                <Text size="xs" c="dimmed">
+                                  {t("wallet-breakdown-subscription")}: ${billing.wallet.subscription_balance_usd} USD
+                                  {" · "}
+                                  {t("wallet-breakdown-purchased")}: ${billing.wallet.purchased_balance_usd} USD
+                                </Text>
                               </Stack>
                               {billing.subscription?.plan.credits_limit_usd && (
                                 <Text size="sm" c="dimmed">
@@ -1393,7 +1448,16 @@ export default function OrganizationPage() {
                               )}
                             </Group>
 
-                            {/* Progress bar */}
+                            {!billing.subscription?.is_active
+                              && parseFloat(billing.wallet.purchased_balance_usd) > 0 && (
+                              <Text size="sm" c="orange">
+                                {t("purchased-locked-after-expiry", {
+                                  usd: billing.wallet.purchased_balance_usd,
+                                })}
+                              </Text>
+                            )}
+
+                            {/* Progress bar — subscription bucket vs plan included credits */}
                             {billing.subscription?.plan.credits_limit_usd && (
                               <Box
                                 style={{
@@ -1409,10 +1473,10 @@ export default function OrganizationPage() {
                                     borderRadius: 4,
                                     width: `${Math.min(
                                       100,
-                                      (parseFloat(billing.wallet.balance_usd) /
+                                      (parseFloat(billing.wallet.subscription_balance_usd) /
                                         parseFloat(billing.subscription.plan.credits_limit_usd)) * 100
                                     )}%`,
-                                    background: parseFloat(billing.wallet.balance_usd) /
+                                    background: parseFloat(billing.wallet.subscription_balance_usd) /
                                       parseFloat(billing.subscription.plan.credits_limit_usd) < 0.2
                                       ? "var(--mantine-color-red-5)"
                                       : "var(--mantine-color-blue-5)",
@@ -1493,9 +1557,10 @@ export default function OrganizationPage() {
                             <Text size="xs" c="dimmed">
                               {t("credits-after-purchase", {
                                 units: (
+                                  parseFloat(billing.wallet.purchased_balance) +
                                   (availableCreditPackages.find((pkg) => pkg.amountUsd === creditAmount)?.creditsUsd ?? 0) *
                                   billing.wallet.one_usd_is
-                                ).toLocaleString(),
+                                ).toLocaleString(undefined, { maximumFractionDigits: 0 }),
                               })}
                             </Text>
                           )}

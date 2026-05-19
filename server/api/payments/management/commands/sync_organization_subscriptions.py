@@ -5,7 +5,8 @@ from django.utils import timezone as tz
 import datetime
 
 from api.authenticate.models import Organization
-from api.consumption.models import Currency, OrganizationWallet
+from api.consumption.models import Currency, OrganizationWallet, OrganizationWalletTransaction
+from api.payments.billing_helpers import recharge_org_wallet_compute_units
 from api.payments.models import Subscription, SubscriptionPlan
 
 
@@ -63,7 +64,8 @@ class Command(BaseCommand):
         for org in orgs:
             has_subscription = Subscription.objects.filter(organization=org).exists()
             wallet = OrganizationWallet.objects.filter(organization=org).first()
-            wallet_needs_topup = wallet is not None and wallet.balance == 0 and compute_units > 0
+            total_bal = wallet.total_balance if wallet else Decimal("0")
+            wallet_needs_topup = wallet is not None and total_bal == 0 and compute_units > 0
 
             if has_subscription and wallet and not wallet_needs_topup:
                 skipped += 1
@@ -101,15 +103,20 @@ class Command(BaseCommand):
             if not wallet:
                 OrganizationWallet.objects.create(
                     organization=org,
-                    balance=compute_units,
+                    subscription_balance=compute_units,
+                    purchased_balance=Decimal("0"),
                     unit=currency,
                 )
                 wallets_created += 1
                 if verbosity >= 1:
                     self.stdout.write(self.style.SUCCESS(f'  Created wallet for "{org.name}"'))
             elif wallet_needs_topup:
-                wallet.balance = compute_units
-                wallet.save(update_fields=["balance"])
+                recharge_org_wallet_compute_units(
+                    org,
+                    compute_units,
+                    bucket=OrganizationWalletTransaction.BUCKET_SUBSCRIPTION,
+                    reason=OrganizationWalletTransaction.REASON_MIGRATION,
+                )
                 wallets_topped_up += 1
                 if verbosity >= 1:
                     self.stdout.write(self.style.SUCCESS(f'  Topped up wallet for "{org.name}" → {compute_units} compute units'))

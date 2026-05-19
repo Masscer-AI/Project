@@ -14,6 +14,7 @@ import {
   buildClientDatetimePayload,
   getWidgetSocketRoute,
 } from "../modules/apiCalls";
+import { showOrganizationBillingBlockedToast } from "../utils/organizationBillingToast";
 import { SocketManager } from "../modules/socketManager";
 import "./ChatWidget.css";
 import "./WidgetMessage.css";
@@ -334,11 +335,41 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
         versions?: TVersion[];
         attachments?: TAttachment[];
         next_agent_slug?: string;
+        status?: string;
+        error?: string;
+        billing_reason?: string;
       };
     }) => {
       const data = raw?.message;
       const conv = useWidgetStore.getState().conversation;
       if (!data || !conv?.id || data.conversation_id !== conv.id) return;
+
+      if (
+        data.status === "error" &&
+        data.error === "organization_billing_blocked"
+      ) {
+        if (toolHoldRef.current) {
+          clearTimeout(toolHoldRef.current);
+          toolHoldRef.current = null;
+          pendingStatusRef.current = null;
+        }
+        useWidgetStore.getState().setAgentTaskStatus(null);
+        showOrganizationBillingBlockedToast(
+          typeof data.billing_reason === "string"
+            ? data.billing_reason
+            : undefined
+        );
+        const msgs = useWidgetStore.getState().messages;
+        if (msgs.length >= 2) {
+          const last = msgs[msgs.length - 1];
+          const before = msgs[msgs.length - 2];
+          if (last?.type === "assistant" && !last.id && before?.type === "user") {
+            useWidgetStore.getState().setMessages(msgs.slice(0, -2));
+          }
+        }
+        scrollToBottom();
+        return;
+      }
 
       if (toolHoldRef.current) {
         clearTimeout(toolHoldRef.current);

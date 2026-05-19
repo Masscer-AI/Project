@@ -143,7 +143,8 @@ def create_free_trial_subscription(sender, instance, created, **kwargs):
     def _setup():
         try:
             from api.payments.models import Subscription, SubscriptionPlan
-            from api.consumption.models import Currency, OrganizationWallet
+            from api.consumption.models import Currency, OrganizationWalletTransaction
+            from api.payments.billing_helpers import recharge_org_wallet_compute_units
             from django.utils import timezone as tz
             import datetime
 
@@ -175,12 +176,13 @@ def create_free_trial_subscription(sender, instance, created, **kwargs):
             credits_usd = plan.credits_limit_usd or Decimal("0")
             compute_units = credits_usd * Decimal(currency.one_usd_is)
 
-            org_wallet, wallet_created = OrganizationWallet.objects.get_or_create(
-                organization=instance,
-                defaults={"balance": compute_units, "unit": currency},
+            recharge_org_wallet_compute_units(
+                instance,
+                compute_units,
+                bucket=OrganizationWalletTransaction.BUCKET_SUBSCRIPTION,
+                reason=OrganizationWalletTransaction.REASON_TRIAL_SEED,
+                subscription=subscription,
             )
-            if not wallet_created:
-                org_wallet.recharge(compute_units)
 
             logger.info(
                 "Seeded org wallet with %s compute units for org %s",

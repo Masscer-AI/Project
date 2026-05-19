@@ -25,6 +25,10 @@ app.conf.beat_schedule = {
         'task': 'api.messaging.tasks.check_pending_conversations',
         'schedule': 180.0,  # Run every 3 minutes (180 seconds)
     },
+    'expire-subscriptions-past-end-date': {
+        'task': 'api.payments.tasks.expire_subscriptions_past_end_date',
+        'schedule': crontab(minute=12),  # hourly
+    },
 }
 
 import api.celery_signals
