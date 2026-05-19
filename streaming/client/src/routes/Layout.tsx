@@ -5,6 +5,7 @@ import i18n from "../i18next";
 import { Toaster } from "react-hot-toast";
 import { Themer } from "../components/Themer/Themer";
 import { PermissionsCacheListener } from "../components/PermissionsCacheListener/PermissionsCacheListener";
+import { OrganizationSubscriptionBanner } from "../components/OrganizationSubscriptionBanner/OrganizationSubscriptionBanner";
 import { useStore } from "../modules/store";
 import { getUser } from "../modules/apiCalls";
 import { TUserData } from "../types/chatTypes";
@@ -33,6 +34,7 @@ const Layout: React.FC = () => {
       <Toaster />
       <Themer />
       <PermissionsCacheListener />
+      <OrganizationSubscriptionBanner />
       <Outlet />
     </I18nextProvider>
   );

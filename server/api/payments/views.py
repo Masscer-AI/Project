@@ -11,6 +11,7 @@ from django.utils import timezone as tz
 
 from api.authenticate.decorators.token_required import token_required
 from api.authenticate.models import Organization
+from api.authenticate.views import _can_manage_organization
 from api.payments.models import Subscription, SubscriptionPlan
 from api.consumption.models import OrganizationWallet, Currency
 
@@ -40,7 +41,7 @@ class OrganizationBillingView(View):
         except Organization.DoesNotExist:
             return JsonResponse({"error": "Organization not found"}, status=404)
 
-        if org.owner != request.user:
+        if not _can_manage_organization(request.user, org):
             return JsonResponse({"error": "Forbidden"}, status=403)
 
         subscription = (
