@@ -10,7 +10,8 @@ import toast from "react-hot-toast";
 import "./MarkdownRenderer.css";
 import { downloadFile, generateDocument } from "../../modules/apiCalls";
 import { useTranslation } from "react-i18next";
-import { Badge, ActionIcon, Tooltip, NativeSelect, Group, Button } from "@mantine/core";
+import { useNavigate } from "react-router-dom";
+import { Badge, ActionIcon, Tooltip, NativeSelect, Group, Button, Anchor } from "@mantine/core";
 import { IconCopy, IconDownload } from "@tabler/icons-react";
 
 import { SYSTEM_PLUGINS } from "../../modules/plugins";
@@ -29,6 +30,7 @@ const MarkdownRenderer = ({
   attachments?: TAttachment[];
 }) => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
 
   const attachmentUrlById = (() => {
     const map = new Map<string, string>();
@@ -51,6 +53,17 @@ const MarkdownRenderer = ({
         name: att.name,
         content: att.content,
       });
+    }
+    return map;
+  })();
+
+  const completionMetaById = (() => {
+    const map = new Map<string, { approved?: boolean; name?: string }>();
+    for (const att of attachments || []) {
+      if ((att.type || "").toLowerCase() !== "completion") continue;
+      const cid = att.completion_id ?? att.id;
+      if (cid == null) continue;
+      map.set(String(cid), { approved: att.approved, name: att.name });
     }
     return map;
   })();
@@ -78,6 +91,10 @@ const MarkdownRenderer = ({
       const id = u.slice("attachment:".length).trim();
       const resolved = id ? attachmentUrlById.get(id) : undefined;
       return resolved ? normalizeUrl(resolved) : u;
+    }
+
+    if (u.toLowerCase().startsWith("completion:")) {
+      return u;
     }
 
     // Legacy: model sometimes outputs /media/... which needs API_URL prefix
@@ -175,6 +192,42 @@ const MarkdownRenderer = ({
         a(props) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const href = (props as any)?.href as string | undefined;
+          const raw = (href || "").trim();
+          if (raw.toLowerCase().startsWith("completion:")) {
+            const id = raw.slice("completion:".length).trim();
+            if (!/^\d+$/.test(id)) {
+              return <span>{(props as any).children}</span>;
+            }
+            const meta = completionMetaById.get(id);
+            return (
+              <Group gap={6} display="inline-flex" align="center" wrap="nowrap" my={2}>
+                <Anchor
+                  component="button"
+                  type="button"
+                  onClick={() =>
+                    navigate(
+                      `/knowledge-base?tab=completions&completion=${encodeURIComponent(id)}`
+                    )
+                  }
+                  size="sm"
+                  underline="hover"
+                >
+                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                  {(props as any).children}
+                </Anchor>
+                {meta && meta.approved === false && (
+                  <Badge size="xs" color="yellow" variant="light">
+                    {t("pending")}
+                  </Badge>
+                )}
+                {meta && meta.approved === true && (
+                  <Badge size="xs" color="green" variant="light">
+                    {t("approved")}
+                  </Badge>
+                )}
+              </Group>
+            );
+          }
           const resolvedHref = href ? urlTransform(href) : href;
           return (
             <a

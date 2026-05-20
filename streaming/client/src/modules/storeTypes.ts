@@ -46,6 +46,7 @@ export type Store = {
     generateImages: boolean;
     generateSpeech: boolean;
     generateVideo: boolean;
+    createCompletions: boolean;
     selectedAgents: string[];
     specifiedUrls: TSpecifiedUrl[];
   };
@@ -84,6 +85,7 @@ export type Store = {
   toggleGenerateImages: () => void;
   toggleGenerateSpeech: () => void;
   toggleGenerateVideo: () => void;
+  toggleCreateCompletions: () => void;
   toggleAgentSelected: (slug: string) => void;
   /** Full replacement of `chatState.selectedAgents` (and list sort). */
   setChatSelectedAgentSlugs: (slugs: string[]) => void;

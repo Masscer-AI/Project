@@ -18,6 +18,7 @@ import {
   getAgentSessionExecutionLogForMessage,
 } from "../../modules/apiCalls";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 import { useStore } from "../../modules/store";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
 import { Reactions } from "../Reactions/Reactions";
@@ -37,6 +38,7 @@ import {
   Title,
   Stack,
   Group,
+  Anchor,
   Loader as MantineLoader,
   ScrollArea,
 } from "@mantine/core";
@@ -111,6 +113,7 @@ export const Message = memo(
     const [executionLogError, setExecutionLogError] = useState<string | null>(null);
 
     const { t } = useTranslation();
+    const navigate = useNavigate();
     const canEditConversationData =
       useIsFeatureEnabled("can-edit-conversation-data") === true;
 
@@ -122,6 +125,23 @@ export const Message = memo(
     );
     const canShowExecutionLog =
       Boolean(id) && type === "assistant" && Boolean(versions?.length);
+
+    const displayMarkdownText = versions?.[currentVersion]?.text || innerText;
+    const completionIdsLinkedInMarkdown = (() => {
+      const ids = new Set<string>();
+      const re = /completion:(\d+)/gi;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(displayMarkdownText)) !== null) {
+        ids.add(m[1]);
+      }
+      return ids;
+    })();
+    const orphanCompletionAttachments = (attachments || []).filter((att) => {
+      if ((att.type || "").toLowerCase() !== "completion") return false;
+      const cid = String(att.completion_id ?? att.id ?? "");
+      if (!/^\d+$/.test(cid)) return false;
+      return !completionIdsLinkedInMarkdown.has(cid);
+    });
 
     const copyToClipboard = () => {
       const textToCopy = versions?.[currentVersion]?.text || innerText;
@@ -275,10 +295,44 @@ export const Message = memo(
         ) : (
           <div>
             <MarkdownRenderer
-              markdown={versions?.[currentVersion]?.text || innerText}
+              markdown={displayMarkdownText}
               extraClass={`message-text ${type === "user" ? "user" : "assistant"}`}
               attachments={attachments}
             />
+            {type === "assistant" && orphanCompletionAttachments.length > 0 && (
+              <Group gap="xs" mt="xs" wrap="wrap" align="center">
+                {orphanCompletionAttachments.map((att) => {
+                  const cid = String(att.completion_id ?? att.id);
+                  return (
+                    <Group key={cid} gap={6} wrap="nowrap">
+                      <Anchor
+                        component="button"
+                        type="button"
+                        size="sm"
+                        underline="hover"
+                        onClick={() =>
+                          navigate(
+                            `/knowledge-base?tab=completions&completion=${encodeURIComponent(cid)}`
+                          )
+                        }
+                      >
+                        {t("edit-training-example")} #{cid}
+                      </Anchor>
+                      {att.approved === false && (
+                        <Badge size="xs" color="yellow" variant="light">
+                          {t("pending")}
+                        </Badge>
+                      )}
+                      {att.approved === true && (
+                        <Badge size="xs" color="green" variant="light">
+                          {t("approved")}
+                        </Badge>
+                      )}
+                    </Group>
+                  );
+                })}
+              </Group>
+            )}
           </div>
         )}
 
@@ -294,8 +348,9 @@ export const Message = memo(
         <section
           className={`message__attachments ${type === "user" ? "user" : ""}`}
         >
-          {attachments &&
-            attachments.map((attachment, aIdx) => {
+          {(attachments || [])
+            .filter((attachment) => (attachment.type || "").toLowerCase() !== "completion")
+            .map((attachment, aIdx) => {
               const src =
                 attachment.content?.startsWith("data:") ||
                 attachment.content?.startsWith("http")

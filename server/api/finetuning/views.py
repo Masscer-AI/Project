@@ -17,6 +17,23 @@ from .actions import create_training_generator, get_user_completions
 from api.authenticate.models import Organization
 from api.authenticate.services import FeatureFlagService
 from django.core.exceptions import PermissionDenied
+from django.db.models import Q
+
+from api.ai_layers.access import get_user_organization
+
+
+def _user_can_access_completion(user, completion: Completion) -> bool:
+    """Same scope as list completions (personal agents or org agents)."""
+    if not user or not user.is_authenticated:
+        return False
+    user_org = get_user_organization(user)
+    if user_org:
+        return (
+            Completion.objects.filter(id=completion.id)
+            .filter(Q(agent__user=user) | Q(agent__organization=user_org))
+            .exists()
+        )
+    return Completion.objects.filter(id=completion.id, agent__user=user).exists()
 
 
 def _check_train_agents_permission(user):
@@ -56,7 +73,12 @@ class GenerateTrainingDataView(View):
 class CompletionsView(View):
     permission_classes = [AllowAny]
 
-    def get(self, request):
+    def get(self, request, completion_id=None):
+        if completion_id is not None:
+            completion = get_object_or_404(Completion, id=completion_id)
+            if not _user_can_access_completion(request.user, completion):
+                return JsonResponse({"message": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+            return JsonResponse(CompletionSerializer(completion).data, safe=False)
         completions = get_user_completions(request.user)
         return JsonResponse(completions, status=status.HTTP_200_OK, safe=False)
 

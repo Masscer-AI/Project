@@ -327,6 +327,7 @@ export default function ChatView() {
       if (chatState.generateImages) toolNames.push("create_image");
       if (chatState.generateSpeech) toolNames.push("create_speech");
       if (chatState.generateVideo) toolNames.push("generate_video");
+      if (chatState.createCompletions) toolNames.push("create_completion");
 
       await triggerAgentTask({
         conversation_id: routeConversation.id,
@@ -414,6 +415,7 @@ export default function ChatView() {
         if (chatState.generateImages) toolNames.push("create_image");
         if (chatState.generateSpeech) toolNames.push("create_speech");
         if (chatState.generateVideo) toolNames.push("generate_video");
+        if (chatState.createCompletions) toolNames.push("create_completion");
 
         await triggerAgentTask({
           conversation_id: routeConversation.id,

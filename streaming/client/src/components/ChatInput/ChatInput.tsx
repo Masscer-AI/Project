@@ -48,6 +48,7 @@ import {
   IconUsers,
   IconAdjustments,
   IconSquareRounded,
+  IconBarbell,
 } from "@tabler/icons-react";
 import { cancelAgentTask } from "../../modules/apiCalls";
 
@@ -476,6 +477,7 @@ const ToolsMenu = () => {
     toggleGenerateImages,
     toggleGenerateSpeech,
     toggleGenerateVideo,
+    toggleCreateCompletions,
   } = useStore((state) => ({
     chatState: state.chatState,
     toggleUseRag: state.toggleUseRag,
@@ -484,6 +486,7 @@ const ToolsMenu = () => {
     toggleGenerateImages: state.toggleGenerateImages,
     toggleGenerateSpeech: state.toggleGenerateSpeech,
     toggleGenerateVideo: state.toggleGenerateVideo,
+    toggleCreateCompletions: state.toggleCreateCompletions,
   }));
 
   const [settingsOpened, { open: openSettings, close: closeSettings }] =
@@ -495,6 +498,7 @@ const ToolsMenu = () => {
     chatState.generateImages ||
     chatState.generateSpeech ||
     chatState.generateVideo ||
+    chatState.createCompletions ||
     (chatState.specifiedUrls?.length ?? 0) > 0 ||
     chatState.writtingMode;
 
@@ -603,6 +607,23 @@ const ToolsMenu = () => {
               onClick={() => toggleGenerateVideo()}
             >
               {t("generate-video") || "Generate video"}
+            </Menu.Item>
+          )}
+          {isTrainAgentsEnabled && (
+            <Menu.Item
+              leftSection={<IconBarbell size={18} />}
+              rightSection={
+                <Switch
+                  checked={chatState.createCompletions}
+                  onChange={() => toggleCreateCompletions()}
+                  color="violet"
+                  size="xs"
+                  styles={{ track: { cursor: "pointer" } }}
+                />
+              }
+              onClick={() => toggleCreateCompletions()}
+            >
+              {t("save-training-examples")}
             </Menu.Item>
           )}
           <Menu.Item

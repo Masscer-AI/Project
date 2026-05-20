@@ -892,6 +892,13 @@ export const getUserCompletions = async () => {
   );
 };
 
+export const getCompletion = async (completionId: string | number) => {
+  return makeAuthenticatedRequest<TCompletion>(
+    "GET",
+    `/v1/finetuning/completions/${completionId}/`
+  );
+};
+
 export const createCompletion = async (data: {
   prompt: string;
   answer: string;

@@ -18,6 +18,7 @@ import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
 import { TAgent } from "../../types/agents";
 import { TemplatesTab } from "./TemplatesTab";
+import { useSearchParams } from "react-router-dom";
 
 import {
   ActionIcon,
@@ -71,6 +72,8 @@ export default function KnowledgeBasePage() {
     fetchAgents: s.fetchAgents,
   }));
   const { t } = useTranslation();
+  const [searchParams] = useSearchParams();
+  const [focusCompletionId, setFocusCompletionId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<
     "documents" | "completions" | "templates"
   >("documents");
@@ -89,6 +92,20 @@ export default function KnowledgeBasePage() {
     loadCompletions();
     if (agents.length === 0) fetchAgents();
   }, []);
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    const cid = searchParams.get("completion");
+    if (tab === "completions") {
+      setActiveTab("completions");
+    }
+    if (cid && /^\d+$/.test(cid)) {
+      setFocusCompletionId(parseInt(cid, 10));
+      setCompletionStatusFilter("all");
+    } else {
+      setFocusCompletionId(null);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const hasRecentProcessing = documents.some((doc) => {
@@ -304,6 +321,7 @@ export default function KnowledgeBasePage() {
               loading={loadingCompletions}
               onRefresh={loadCompletions}
               agents={agents}
+              focusCompletionId={focusCompletionId}
             />
           ) : (
             <TemplatesTab agents={agents} filterQuery={search} />
@@ -752,12 +770,14 @@ const CompletionsTab = ({
   loading,
   onRefresh,
   agents,
+  focusCompletionId,
 }: {
   completions: TCompletion[];
   anyCompletionsExist: boolean;
   loading: boolean;
   onRefresh: () => void;
   agents: TAgent[];
+  focusCompletionId: number | null;
 }) => {
   const { t } = useTranslation();
   const [showCreate, setShowCreate] = useState(false);
@@ -969,6 +989,7 @@ const CompletionsTab = ({
             onRefresh={onRefresh}
             selected={selectedIds.has(comp.id)}
             onToggleSelect={() => toggleSelect(comp.id)}
+            focusCompletionId={focusCompletionId}
           />
         ))
       )}
@@ -984,18 +1005,39 @@ const CompletionItem = ({
   onRefresh,
   selected,
   onToggleSelect,
+  focusCompletionId,
 }: {
   completion: TCompletion;
   agents: TAgent[];
   onRefresh: () => void;
   selected: boolean;
   onToggleSelect: () => void;
+  focusCompletionId: number | null;
 }) => {
   const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
   const [prompt, setPrompt] = useState(completion.prompt);
   const [answer, setAnswer] = useState(completion.answer);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const didAutoFocusRef = useRef(false);
+
+  useEffect(() => {
+    if (focusCompletionId == null) {
+      didAutoFocusRef.current = false;
+    }
+  }, [focusCompletionId]);
+
+  useEffect(() => {
+    if (focusCompletionId !== completion.id) return;
+    if (didAutoFocusRef.current) return;
+    didAutoFocusRef.current = true;
+    const timer = window.setTimeout(() => {
+      cardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      setIsEditing(true);
+    }, 200);
+    return () => window.clearTimeout(timer);
+  }, [focusCompletionId, completion.id]);
 
   const agentName = agents.find((a) => a.id === completion.agent)?.name;
 
@@ -1057,6 +1099,7 @@ const CompletionItem = ({
 
   return (
     <Card
+      ref={cardRef}
       withBorder
       p="md"
       style={{

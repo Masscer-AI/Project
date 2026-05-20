@@ -19,6 +19,7 @@ class ConversationTaggingToolsRegistryTests(SimpleTestCase):
             "query_conversation",
         ):
             self.assertIn(required, names)
+        self.assertIn("create_completion", names)
 
 
 class PluginRegistryTests(SimpleTestCase):
@@ -237,3 +238,153 @@ class AgentTaskConversationMetadataTests(TestCase):
         self.assertEqual(response.status_code, 202, response.json() if response.status_code != 202 else "")
         conv.refresh_from_db()
         self.assertEqual(conv.metadata.get("related_agents"), [{"id": agent.id}])
+
+
+class CreateCompletionToolTests(TestCase):
+    @patch("api.authenticate.services.FeatureFlagService.is_feature_enabled")
+    def test_create_completion_saves_pending(self, mock_ff):
+        mock_ff.return_value = (True, "ok")
+        from api.ai_layers.tools.create_completion import _create_completion_impl
+        from api.ai_layers.models import Agent, LanguageModel
+        from api.messaging.models import Conversation
+        from api.providers.models import AIProvider
+        from api.finetuning.models import Completion
+
+        user = User.objects.create_user(username="ccu", email="ccu@e.com", password="x")
+        provider = AIProvider.objects.create(name="OpenAI-cc")
+        llm = LanguageModel.objects.create(provider=provider, slug="gpt-cc", name="GPT")
+        agent = Agent.objects.create(
+            name="CCA",
+            salute="h",
+            act_as="h",
+            user=user,
+            llm=llm,
+            model_slug=llm.slug,
+            model_provider="openai",
+        )
+        conv = Conversation.objects.create(user=user)
+
+        result = _create_completion_impl(
+            prompt="What is X?",
+            answer="X is Y.",
+            user_id=user.id,
+            agent_slug=agent.slug,
+            conversation_id=str(conv.id),
+        )
+        self.assertFalse(result.approved)
+        c = Completion.objects.get(id=result.completion_id)
+        self.assertEqual(c.prompt, "What is X?")
+        self.assertEqual(c.answer, "X is Y.")
+        self.assertFalse(c.approved)
+
+    @patch("api.authenticate.services.FeatureFlagService.is_feature_enabled")
+    def test_create_completion_requires_train_agents_flag(self, mock_ff):
+        mock_ff.return_value = (False, "no")
+        from api.ai_layers.tools.create_completion import _create_completion_impl
+        from api.ai_layers.models import Agent, LanguageModel
+        from api.messaging.models import Conversation
+        from api.providers.models import AIProvider
+
+        user = User.objects.create_user(username="ccu2", email="ccu2@e.com", password="x")
+        provider = AIProvider.objects.create(name="OpenAI-cc2")
+        llm = LanguageModel.objects.create(provider=provider, slug="gpt-cc2", name="GPT")
+        agent = Agent.objects.create(
+            name="CCA2",
+            salute="h",
+            act_as="h",
+            user=user,
+            llm=llm,
+            model_slug=llm.slug,
+            model_provider="openai",
+        )
+        conv = Conversation.objects.create(user=user)
+
+        with self.assertRaises(ValueError) as ctx:
+            _create_completion_impl(
+                prompt="P",
+                answer="A",
+                user_id=user.id,
+                agent_slug=agent.slug,
+                conversation_id=str(conv.id),
+            )
+        self.assertIn("train-agents", str(ctx.exception).lower())
+
+    def test_extract_create_completion_refs_from_tool_calls(self):
+        import json
+
+        from api.ai_layers.tasks import _extract_create_completion_refs_from_tool_calls
+        from api.ai_layers.models import Agent, LanguageModel
+        from api.providers.models import AIProvider
+        from api.finetuning.models import Completion
+
+        user = User.objects.create_user(username="ccu3", email="ccu3@e.com", password="x")
+        provider = AIProvider.objects.create(name="OpenAI-cc3")
+        llm = LanguageModel.objects.create(provider=provider, slug="gpt-cc3", name="GPT")
+        agent = Agent.objects.create(
+            name="CCA3",
+            salute="h",
+            act_as="h",
+            user=user,
+            llm=llm,
+            model_slug=llm.slug,
+            model_provider="openai",
+        )
+        c = Completion.objects.create(prompt="p", answer="a", agent=agent, approved=False)
+        tool_calls = [
+            {
+                "tool_name": "create_completion",
+                "result": json.dumps(
+                    {"completion_id": c.id, "approved": False, "message": "ok"}
+                ),
+            }
+        ]
+        atts = _extract_create_completion_refs_from_tool_calls(tool_calls)
+        self.assertEqual(len(atts), 1)
+        self.assertEqual(atts[0]["type"], "completion")
+        self.assertEqual(atts[0]["completion_id"], c.id)
+
+    def test_extract_referenced_completions_from_text(self):
+        from api.ai_layers.tasks import _extract_referenced_completions_from_text
+        from api.ai_layers.models import Agent, LanguageModel
+        from api.providers.models import AIProvider
+        from api.finetuning.models import Completion
+
+        user = User.objects.create_user(username="ccu4", email="ccu4@e.com", password="x")
+        provider = AIProvider.objects.create(name="OpenAI-cc4")
+        llm = LanguageModel.objects.create(provider=provider, slug="gpt-cc4", name="GPT")
+        agent = Agent.objects.create(
+            name="CCA4",
+            salute="h",
+            act_as="h",
+            user=user,
+            llm=llm,
+            model_slug=llm.slug,
+            model_provider="openai",
+        )
+        c = Completion.objects.create(prompt="long prompt " * 20, answer="a", agent=agent, approved=False)
+        text = f"Edit [here](completion:{c.id})"
+        atts = _extract_referenced_completions_from_text(text, user)
+        self.assertEqual(len(atts), 1)
+        self.assertEqual(atts[0]["completion_id"], c.id)
+        self.assertEqual(atts[0]["type"], "completion")
+
+    @patch("api.finetuning.models.chroma_client")
+    def test_pending_completion_save_does_not_call_upsert(self, mock_chroma):
+        from api.ai_layers.models import Agent, LanguageModel
+        from api.providers.models import AIProvider
+        from api.finetuning.models import Completion
+
+        user = User.objects.create_user(username="ccu5", email="ccu5@e.com", password="x")
+        provider = AIProvider.objects.create(name="OpenAI-cc5")
+        llm = LanguageModel.objects.create(provider=provider, slug="gpt-cc5", name="GPT")
+        agent = Agent.objects.create(
+            name="CCA5",
+            salute="h",
+            act_as="h",
+            user=user,
+            llm=llm,
+            model_slug=llm.slug,
+            model_provider="openai",
+        )
+        Completion.objects.create(prompt="p", answer="a", agent=agent, approved=False)
+        self.assertFalse(mock_chroma.upsert_chunk.called)

@@ -738,9 +738,119 @@ def _extract_rag_sources(tool_calls: list[dict]) -> list[dict]:
     return sources
 
 
+def _completion_to_message_attachment_dict(completion) -> dict:
+    """Descriptor for Message.attachments so the client can show completion metadata."""
+    from api.finetuning.models import Completion as CompletionModel
+
+    assert isinstance(completion, CompletionModel)
+    prompt_preview = (completion.prompt or "").strip()
+    if len(prompt_preview) > 120:
+        prompt_preview = prompt_preview[:117] + "..."
+    return {
+        "type": "completion",
+        "id": completion.id,
+        "completion_id": completion.id,
+        "content": f"completion:{completion.id}",
+        "name": prompt_preview or "Training example",
+        "approved": bool(completion.approved),
+    }
+
+
+def _extract_create_completion_refs_from_tool_calls(tool_calls: list[dict]) -> list[dict]:
+    """Collect completion descriptors from create_completion tool results."""
+    if not tool_calls:
+        return []
+
+    from api.finetuning.models import Completion
+
+    out: list[dict] = []
+    seen: set[int] = set()
+
+    for call in tool_calls:
+        try:
+            if (call or {}).get("tool_name") != "create_completion":
+                continue
+            raw = (call or {}).get("result") or ""
+            if not isinstance(raw, str) or not raw.strip():
+                continue
+            data = json.loads(raw)
+            if not isinstance(data, dict):
+                continue
+            cid = data.get("completion_id")
+            if cid is None:
+                continue
+            cid = int(cid)
+            if cid in seen:
+                continue
+            seen.add(cid)
+            try:
+                completion = Completion.objects.get(id=cid)
+            except Completion.DoesNotExist:
+                continue
+            out.append(_completion_to_message_attachment_dict(completion))
+        except Exception:
+            continue
+
+    return out
+
+
+def _extract_referenced_completions_from_text(text: str, user) -> list[dict]:
+    """
+    Resolve completion:<id> references in assistant markdown for accessible completions.
+    """
+    if not text or user is None:
+        return []
+
+    ids = re.findall(r"completion:(\d+)", text)
+    if not ids:
+        return []
+
+    ordered_ids: list[int] = []
+    seen: set[int] = set()
+    for raw in ids:
+        try:
+            cid = int(raw)
+        except ValueError:
+            continue
+        if cid in seen:
+            continue
+        seen.add(cid)
+        ordered_ids.append(cid)
+
+    from django.db.models import Q
+
+    from api.ai_layers.access import get_user_organization
+    from api.finetuning.models import Completion
+
+    user_org = get_user_organization(user)
+    if user_org:
+        base_qs = Completion.objects.filter(
+            Q(agent__user=user) | Q(agent__organization=user_org)
+        ).distinct()
+    else:
+        base_qs = Completion.objects.filter(agent__user=user)
+
+    rows = {c.id: c for c in base_qs.filter(id__in=ordered_ids)}
+    out: list[dict] = []
+    for cid in ordered_ids:
+        row = rows.get(cid)
+        if not row:
+            continue
+        out.append(_completion_to_message_attachment_dict(row))
+    return out
+
+
 GENERAL_RULES = """
 When referencing an attachment inside your message markdown, prefer this format:
 "![Alt text](attachment:<attachment_id>). Do NOT invent /media/... URLs.
+
+To link a saved training example (from create_completion), use:
+"[Edit training example](completion:<completion_id>)" where completion_id is the integer returned by the tool.
+Do NOT invent completion ids.
+
+create_completion uses the finetuning "prompt" field as a CUE (when this row applies / retrieval hint),
+and "answer" as the PAYLOAD (what to apply: reply text to prefer, facts to memorize, style rules, fixed openings, etc.).
+They are NOT required to mimic a literal user message + next chat reply.
 """
 
 @shared_task
@@ -1071,6 +1181,22 @@ def conversation_agent_task(
                     "\n\nWhen referencing the audio attachment in markdown, link it like: "
                     "[Listen](attachment:<attachment_id>)."
                 )
+            if "create_completion" in (tool_names or []):
+                instructions += (
+                    "\n\n=== INTERACTIVE TRAINING (create_completion) ===\n"
+                    "This tool saves training rows for the agent (pending approval; later retrievable via RAG when enabled).\n"
+                    "Field semantics (important — do NOT treat this as \"fake user message + reply\" only):\n"
+                    "- prompt: a CUE / hint for WHEN this completion applies. Describe the situation, topic, intent, or "
+                    "phrasing that should trigger it (keywords, scenario, user goal). It does NOT have to be a verbatim "
+                    "user chat message; it is the retrieval/matching side — what this row is \"about\".\n"
+                    "- answer: the PAYLOAD for that cue — the information to memorize or apply: preferred reply wording, "
+                    "facts, procedures, tone, required opening line, step-by-step, etc. Put the teachable content HERE.\n"
+                    "Keep both fields concrete and self-contained. Avoid empty meta in answer (e.g. only \"understood\"); "
+                    "the answer should carry the substance the user wanted stored.\n"
+                    "Call create_completion only when the user clearly teaches, corrects, or asks to persist knowledge.\n"
+                    "After each successful call, include: [Edit training example](completion:<completion_id>) with the returned integer id.\n"
+                    "=== END INTERACTIVE TRAINING ===\n"
+                )
 
             # For grupal: strong context about the group conversation
             if multiagentic_modality == "grupal":
@@ -1115,6 +1241,7 @@ def conversation_agent_task(
                         "change_conversation_summary",
                         "get_tag_context",
                         "query_conversation",
+                        "create_completion",
                     }
                 )
                 agent_tool_names = [t for t in agent_tool_names if t not in _widget_excluded_tools]
@@ -1472,6 +1599,26 @@ def conversation_agent_task(
                     assistant_message_attachments.append(att)
                     if aid:
                         existing_ids.add(aid)
+
+            completion_atts_from_tools = _extract_create_completion_refs_from_tool_calls(
+                result.tool_calls or []
+            )
+            completion_atts_from_text = _extract_referenced_completions_from_text(
+                output_text,
+                getattr(conversation, "user", None),
+            )
+            existing_completion_ids = {
+                str(a.get("completion_id") or a.get("id") or "")
+                for a in assistant_message_attachments
+                if str(a.get("type") or "") == "completion"
+            }
+            for att in completion_atts_from_tools + completion_atts_from_text:
+                cid = str(att.get("completion_id") or att.get("id") or "")
+                if cid and cid in existing_completion_ids:
+                    continue
+                assistant_message_attachments.append(att)
+                if cid:
+                    existing_completion_ids.add(cid)
 
             rag_sources = _extract_rag_sources(result.tool_calls or [])
 

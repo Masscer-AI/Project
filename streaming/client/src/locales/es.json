@@ -329,6 +329,8 @@
     "mermaid-visualizer": "Visualizador de Mermaid",
     "enter-text-to-generate-audio": "Ingresa el texto para generar audio",
     "generate-video": "Generar video",
+    "save-training-examples": "Permitir auto-entrenamiento",
+    "edit-training-example": "Editar ejemplo de entrenamiento",
     "video-job-started": "¡Trabajo de video iniciado!",
     "video-generated": "¡Video generado!",
     "describe-the-video": "Describe el video",

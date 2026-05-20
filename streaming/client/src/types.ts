@@ -19,6 +19,9 @@ export type TAttachment = {
   text?: string;
   id?: number | string;
   attachment_id?: string;
+  /** When type is "completion", links to a finetuning Completion row. */
+  completion_id?: number;
+  approved?: boolean;
   file?: File | null;
   type: string;
   content: string;
