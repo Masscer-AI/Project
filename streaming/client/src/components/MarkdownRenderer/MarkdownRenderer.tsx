@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -17,6 +17,7 @@ import { IconCopy, IconDownload } from "@tabler/icons-react";
 import { SYSTEM_PLUGINS } from "../../modules/plugins";
 import { API_URL } from "../../modules/constants";
 import { TAttachment } from "../../types";
+import { useCompletionFreshApproval } from "../../hooks/useCompletionFreshApproval";
 
 const MarkdownRenderer = ({
   markdown,
@@ -67,6 +68,23 @@ const MarkdownRenderer = ({
     }
     return map;
   })();
+
+  const completionIdsToRefresh = useMemo(() => {
+    const s = new Set<string>();
+    for (const att of attachments || []) {
+      if ((att.type || "").toLowerCase() !== "completion") continue;
+      const cid = String(att.completion_id ?? att.id ?? "");
+      if (/^\d+$/.test(cid)) s.add(cid);
+    }
+    const re = /completion:(\d+)/gi;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(markdown)) !== null) {
+      s.add(m[1]);
+    }
+    return Array.from(s);
+  }, [markdown, attachments]);
+
+  const freshCompletionApprovalById = useCompletionFreshApproval(completionIdsToRefresh);
 
   const normalizeUrl = (url: string) => {
     const u = (url || "").trim();
@@ -199,6 +217,10 @@ const MarkdownRenderer = ({
               return <span>{(props as any).children}</span>;
             }
             const meta = completionMetaById.get(id);
+            const approvedResolved =
+              freshCompletionApprovalById[id] !== undefined
+                ? freshCompletionApprovalById[id]
+                : meta?.approved;
             return (
               <Group gap={6} display="inline-flex" align="center" wrap="nowrap" my={2}>
                 <Anchor
@@ -215,12 +237,12 @@ const MarkdownRenderer = ({
                   {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                   {(props as any).children}
                 </Anchor>
-                {meta && meta.approved === false && (
+                {approvedResolved === false && (
                   <Badge size="xs" color="yellow" variant="light">
                     {t("pending")}
                   </Badge>
                 )}
-                {meta && meta.approved === true && (
+                {approvedResolved === true && (
                   <Badge size="xs" color="green" variant="light">
                     {t("approved")}
                   </Badge>

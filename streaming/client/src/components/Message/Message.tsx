@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useRef, useState, memo } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState, memo } from "react";
 import MarkdownRenderer from "../MarkdownRenderer/MarkdownRenderer";
 import {
   TAttachment,
@@ -21,6 +21,7 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { useStore } from "../../modules/store";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
+import { useCompletionFreshApproval } from "../../hooks/useCompletionFreshApproval";
 import { Reactions } from "../Reactions/Reactions";
 
 import "./Message.css";
@@ -142,6 +143,15 @@ export const Message = memo(
       if (!/^\d+$/.test(cid)) return false;
       return !completionIdsLinkedInMarkdown.has(cid);
     });
+
+    const orphanCompletionIds = useMemo(
+      () =>
+        orphanCompletionAttachments.map((att) =>
+          String(att.completion_id ?? att.id ?? "")
+        ),
+      [orphanCompletionAttachments]
+    );
+    const freshCompletionApprovalById = useCompletionFreshApproval(orphanCompletionIds);
 
     const copyToClipboard = () => {
       const textToCopy = versions?.[currentVersion]?.text || innerText;
@@ -303,6 +313,10 @@ export const Message = memo(
               <Group gap="xs" mt="xs" wrap="wrap" align="center">
                 {orphanCompletionAttachments.map((att) => {
                   const cid = String(att.completion_id ?? att.id);
+                  const approvedResolved =
+                    freshCompletionApprovalById[cid] !== undefined
+                      ? freshCompletionApprovalById[cid]
+                      : att.approved;
                   return (
                     <Group key={cid} gap={6} wrap="nowrap">
                       <Anchor
@@ -318,12 +332,12 @@ export const Message = memo(
                       >
                         {t("edit-training-example")} #{cid}
                       </Anchor>
-                      {att.approved === false && (
+                      {approvedResolved === false && (
                         <Badge size="xs" color="yellow" variant="light">
                           {t("pending")}
                         </Badge>
                       )}
-                      {att.approved === true && (
+                      {approvedResolved === true && (
                         <Badge size="xs" color="green" variant="light">
                           {t("approved")}
                         </Badge>
