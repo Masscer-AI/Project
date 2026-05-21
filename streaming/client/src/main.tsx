@@ -24,8 +24,6 @@ import ForgotPassword from "./routes/forgot-password/page.tsx";
 import ResetPassword from "./routes/reset-password/page.tsx";
 
 import Whatsapp from "./routes/whatsapp/page.tsx";
-
-import { whatsappLoader } from "./routes/whatsapp/loader.ts";
 import WorkflowsPage from "./routes/workflows/page.tsx";
 import Share from "./routes/shares/page.tsx";
 import { sharesLoader } from "./routes/shares/loader.ts";
@@ -83,8 +81,11 @@ const router = createBrowserRouter([
       },
       {
         path: "/whatsapp",
-        element: <Whatsapp />,
-        loader: whatsappLoader,
+        element: (
+          <ProtectedRoute featureFlag="whatsapp-numbers-management">
+            <Whatsapp />
+          </ProtectedRoute>
+        ),
       },
       {
         path: "/workflows",

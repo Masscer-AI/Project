@@ -15,7 +15,7 @@ urlpatterns = [
     path("numbers/<str:number>", WSNumberDetailView.as_view(), name="ws_number_detail"),
     path("conversations", WSConversationsView.as_view(), name="ws_conversations"),
     path(
-        "conversations/<int:pk>",
+        "conversations/<uuid:pk>",
         WSConversationDetailView.as_view(),
         name="ws_conversation_detail",
     ),

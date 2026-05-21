@@ -1,0 +1,30 @@
+---
+description: After frontend edits, run the root taskfile front build to verify the client bundle.
+globs: streaming/client/**/*
+alwaysApply: false
+---
+
+# Frontend changes → run `./taskfile.sh front`
+
+When you **edit, add, or remove** files under `streaming/client/` (React, TS, CSS, locales, assets, etc.), you **must** run the frontend build from the **repository root** before treating the work as done.
+
+## Command
+
+From the masscer repo root (where `taskfile.sh` lives):
+
+```bash
+./taskfile.sh front
+```
+
+This runs `npm run build:all` in `streaming/client` (see `taskfile.sh` → `front`). If your environment uses a **`./taskfile`** wrapper that delegates to `taskfile.sh`, use that instead — same intent.
+
+## When
+
+- **Always** after substantive frontend changes (components, routes, hooks, `apiCalls`, types used by the client, `locales/*.json`, etc.).
+- **Optional skip** for tiny edits where you are certain no TS/build impact (e.g. a single typo in a comment only) — use judgment; when unsure, run it.
+
+## On failure
+
+If the command exits non-zero, fix TypeScript/build errors until `./taskfile.sh front` passes (or report the blocking error clearly).
+
+Do **not** ask the user to run this manually unless the environment cannot execute shell (e.g. sandbox); otherwise run it yourself as part of the same task.

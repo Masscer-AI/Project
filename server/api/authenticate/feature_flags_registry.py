@@ -16,6 +16,7 @@ KNOWN_FEATURE_FLAGS = {
     "edit-organization-agent": {"organization_only": False},
     "conversation-analysis": {"organization_only": True},
     "chat-widgets-management": {"organization_only": False},
+    "whatsapp-numbers-management": {"organization_only": False},
     "train-agents": {"organization_only": False},
     "audio-tools": {"organization_only": False},
     "image-tools": {"organization_only": False},

@@ -232,8 +232,12 @@ CELERY_RESULT_EXPIRES = 3600
 MEDIA_ROOT = os.environ.get("MEDIA_ROOT", os.path.join(BASE_DIR, "media"))
 MEDIA_URL = "/media/"
 # Base URL for building absolute URLs (e.g. for MessageAttachment display).
-# Set API_BASE_URL in env for production (e.g. https://api.example.com).
-API_BASE_URL = os.environ.get("API_BASE_URL", "")
+# Set API_BASE_URL for production, or API_URL (same name as streaming/docker) — if API_BASE_URL
+# is empty, API_URL is used. No trailing slash. Used for Meta WhatsApp webhook callback
+# (…/v1/whatsapp/webhook).
+API_BASE_URL = (
+    (os.environ.get("API_BASE_URL") or os.environ.get("API_URL") or "").strip()
+)
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "")
 
 # STRIPE
@@ -274,5 +278,10 @@ CACHES = {
 
 
 FIRECRAWL_API_KEY = os.environ.get("FIRECRAWL_API_KEY", "")
+
+# WhatsApp Cloud API (Graph). WHATSAPP_APP_SECRET enables X-Hub-Signature-256 verification on POST webhooks.
+WHATSAPP_GRAPH_API_TOKEN = os.environ.get("WHATSAPP_GRAPH_API_TOKEN", "").strip()
+WHATSAPP_WEBHOOK_VERIFY_TOKEN = os.environ.get("WHATSAPP_WEBHOOK_VERIFY_TOKEN", "").strip()
+WHATSAPP_APP_SECRET = os.environ.get("WHATSAPP_APP_SECRET", "").strip()
 
 # CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"

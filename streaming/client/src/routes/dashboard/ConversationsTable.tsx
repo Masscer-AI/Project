@@ -39,6 +39,7 @@ import {
 import { DateInput } from "@mantine/dates";
 import {
   IconAlertTriangle,
+  IconBrandWhatsapp,
   IconDeviceDesktop,
   IconChevronDown,
   IconChevronRight,
@@ -148,6 +149,7 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({
       selectedTags: [],
       selectedAlertRules: [],
       chatWidgetId: "",
+      channel: "all",
       status: "all",
       messagesSort: "none",
     });
@@ -175,12 +177,19 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({
   }, [chatWidgets]);
 
   const chatWidgetOptions = [
-    { value: "", label: "All widgets" },
-    { value: "none", label: "No widget" },
+    { value: "", label: t("dashboard-chat-widget-all") },
+    { value: "none", label: t("dashboard-chat-widget-none") },
     ...chatWidgets.map((widget) => ({
       value: String(widget.id),
       label: widget.name || `Widget ${widget.id}`,
     })),
+  ];
+
+  const channelOptions: { value: "all" | "app" | "widget" | "whatsapp"; label: string }[] = [
+    { value: "all", label: t("dashboard-channel-all") },
+    { value: "whatsapp", label: t("dashboard-channel-whatsapp") },
+    { value: "widget", label: t("dashboard-channel-widget") },
+    { value: "app", label: t("dashboard-channel-app") },
   ];
 
   const toggleMessagesSort = () => {
@@ -380,7 +389,18 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({
             />
 
             <NativeSelect
-              label="Chat widget"
+              label={t("dashboard-channel")}
+              size="sm"
+              data={channelOptions.map((o) => ({ value: o.value, label: o.label }))}
+              value={filters.channel ?? "all"}
+              onChange={(e) => {
+                const val = e.currentTarget.value as TConversationFilters["channel"];
+                updateFilters({ channel: val });
+              }}
+            />
+
+            <NativeSelect
+              label={t("dashboard-widget-instance")}
               size="sm"
               data={chatWidgetOptions}
               value={filters.chatWidgetId ?? ""}
@@ -499,7 +519,7 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({
                   </Table.Th>
                   <Table.Th w={40} />
                   <Table.Th>{t("title")}</Table.Th>
-                  <Table.Th>Identity</Table.Th>
+                  <Table.Th>{t("identity")}</Table.Th>
                   <Table.Th>
                     <UnstyledButton onClick={toggleMessagesSort}>
                       <Group gap={4} wrap="nowrap">
@@ -571,7 +591,18 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({
                           </Text>
                         </Table.Td>
                         <Table.Td>
-                          {conv.chat_widget_id != null ? (
+                          {conv.whatsapp_user_number ? (
+                            <Badge
+                              size="sm"
+                              variant="light"
+                              color="teal"
+                              leftSection={<IconBrandWhatsapp size={12} />}
+                            >
+                              {conv.whatsapp_user_number.startsWith("+")
+                                ? conv.whatsapp_user_number
+                                : `+${conv.whatsapp_user_number}`}
+                            </Badge>
+                          ) : conv.chat_widget_id != null ? (
                             <Badge
                               size="sm"
                               variant="light"

@@ -911,7 +911,12 @@ def conversation_agent_task(
     # Get conversation first (needed for validation in resolve)
     try:
         conversation = Conversation.objects.select_related(
-            "organization", "user", "chat_widget", "chat_widget__agent"
+            "organization",
+            "user",
+            "chat_widget",
+            "chat_widget__agent",
+            "ws_number",
+            "ws_number__agent",
         ).get(id=conversation_id)
     except Conversation.DoesNotExist:
         logger.error("Conversation %s not found", conversation_id)
@@ -922,8 +927,10 @@ def conversation_agent_task(
         )
         return {"status": "error", "error": "Conversation not found"}
 
-    # Chat widget: no org tagging, cross-thread lookup, or auto-summary tools (app chat only for now).
+    # Chat widget / WhatsApp: no org tagging, cross-thread lookup, or auto-summary tools (app chat only for now).
     is_widget_chat = conversation.chat_widget_id is not None
+    is_whatsapp_chat = conversation.ws_number_id is not None
+    is_embedded_channel = is_widget_chat or is_whatsapp_chat
 
     # plugin_slugs is no longer used — plugins are now auto-discovered
     # by the agent via the read_plugin_instructions tool.
@@ -1091,11 +1098,15 @@ def conversation_agent_task(
                 agent = getattr(w, "agent", None) if w else None
                 if agent:
                     return getattr(agent, "organization", None)
+            if getattr(conv, "ws_number", None):
+                agent = getattr(conv.ws_number, "agent", None)
+                if agent:
+                    return getattr(agent, "organization", None)
             return None
 
         _flag_org = _organization_for_conversations_dashboard_flag(conversation)
         has_organization_conversations_access = False
-        if not is_widget_chat and _flag_org is not None and actor_user_id is not None:
+        if not is_embedded_channel and _flag_org is not None and actor_user_id is not None:
             try:
                 _flag_user = DjangoUser.objects.get(pk=actor_user_id)
                 has_organization_conversations_access, _ = (
@@ -1232,7 +1243,7 @@ def conversation_agent_task(
                     organization = getattr(widget_agent, "organization", None)
 
             agent_tool_names = list(tool_names or [])
-            if is_widget_chat:
+            if is_embedded_channel:
                 _widget_excluded_tools = frozenset(
                     {
                         "query_organization_tags",
@@ -1324,7 +1335,7 @@ def conversation_agent_task(
                 "create_organization_tag",
                 "change_conversation_tags",
             )
-            if organization and not is_widget_chat:
+            if organization and not is_embedded_channel:
                 conversation.refresh_from_db(fields=["tags", "summary"])
                 tags_preamble = _conversation_tags_instruction_block(
                     conversation, organization.id
@@ -1405,7 +1416,7 @@ def conversation_agent_task(
                 format_assigned_templates_instruction,
             )
 
-            if not is_widget_chat and agent_has_template_assignments(agent):
+            if not is_embedded_channel and agent_has_template_assignments(agent):
                 instructions += format_assigned_templates_instruction(agent)
                 for _tpl_tool in ("list_document_templates", "render_document_template"):
                     if _tpl_tool not in agent_tool_names:

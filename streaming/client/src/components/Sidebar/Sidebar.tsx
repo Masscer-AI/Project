@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { SVGS } from "../../assets/svgs";
 import { useStore } from "../../modules/store";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import {
@@ -41,6 +40,7 @@ import {
   IconWaveSine,
   IconDatabase,
   IconPuzzle,
+  IconBrandWhatsapp,
   IconBuilding,
   IconLayoutDashboard,
   IconSettings,
@@ -62,6 +62,9 @@ export const Sidebar: React.FC = () => {
     "conversations-dashboard"
   );
   const isChatWidgetsEnabled = useIsFeatureEnabled("chat-widgets-management");
+  const isWhatsappNumbersManagementEnabled = useIsFeatureEnabled(
+    "whatsapp-numbers-management"
+  );
   const isTrainAgentsEnabled = useIsFeatureEnabled("train-agents");
   const isAudioToolsEnabled = useIsFeatureEnabled("audio-tools");
   const canEditPreferences = useIsFeatureEnabled("can-edit-preferences") === true;
@@ -411,20 +414,16 @@ export const Sidebar: React.FC = () => {
                   {t("audio-tools")}
                 </Button>
               )}
-              {/* WhatsApp — disabled until feature is complete
-              <Button
-                variant="default"
-                leftSection={
-                  <div className="w-5 h-5 flex items-center justify-center [&>svg]:w-5 [&>svg]:h-5">
-                    {SVGS.whatsapp}
-                  </div>
-                }
-                onClick={() => goTo("/whatsapp")}
-                fullWidth
-              >
-                {t("whatsapp")}
-              </Button>
-              */}
+              {isWhatsappNumbersManagementEnabled && (
+                <Button
+                  variant="default"
+                  leftSection={<IconBrandWhatsapp size={20} />}
+                  onClick={() => goTo("/whatsapp")}
+                  fullWidth
+                >
+                  {t("whatsapp")}
+                </Button>
+              )}
               {isTrainAgentsEnabled && (
                 <Button
                   variant="default"

@@ -2,23 +2,27 @@ import React, { useEffect, useState } from "react";
 import { Sidebar } from "../../components/Sidebar/Sidebar";
 import { useStore } from "../../modules/store";
 import "./page.css";
-import { useLoaderData } from "react-router-dom";
 import {
   getWhatsappConversations,
   getWhatsappConversationMessages,
+  getWhatsappNumbers,
   sendMessageToConversation,
   updateWhatsappNumber,
 } from "../../modules/apiCalls";
 import MarkdownRenderer from "../../components/MarkdownRenderer/MarkdownRenderer";
 import { AgentSelector } from "../../components/AgentSelector/AgentSelector";
 import toast from "react-hot-toast";
+import { useTranslation } from "react-i18next";
+import { useDisclosure } from "@mantine/hooks";
 
 import {
   ActionIcon,
   Box,
   Button,
   Card,
+  Checkbox,
   Group,
+  Loader,
   Modal,
   Stack,
   Text,
@@ -28,13 +32,83 @@ import {
 } from "@mantine/core";
 import { IconMenu2, IconSend, IconDeviceFloppy } from "@tabler/icons-react";
 
+/** Same internal-tool toggles as chat widgets (`chat-widgets/page.tsx`). */
+const DEFAULT_CAPABILITY_NAMES = [
+  "read_attachment",
+  "list_attachments",
+  "explore_web",
+  "rag_query",
+  "create_image",
+  "create_speech",
+  "read_plugin_instructions",
+  "raise_alert",
+];
+
+function buildCapabilitiesPayload(
+  capabilityState: Record<string, boolean>
+): { name: string; type: "internal_tool"; enabled: boolean }[] {
+  return DEFAULT_CAPABILITY_NAMES.map((name) => ({
+    name,
+    type: "internal_tool",
+    enabled: capabilityState[name] ?? false,
+  }));
+}
+
+type WhatsappLine = {
+  id: number;
+  number: string;
+  agent: { name: string; slug: string };
+  conversations_count: number;
+  name: string | null;
+  capabilities?: { name?: string; type?: string; enabled?: boolean }[] | null;
+};
+
 export default function Whatsapp() {
+  const { t } = useTranslation();
   const { chatState, toggleSidebar } = useStore((s) => ({
     chatState: s.chatState,
     toggleSidebar: s.toggleSidebar,
   }));
 
-  const { numbers } = useLoaderData() as { numbers: any[] };
+  const [numbers, setNumbers] = useState<WhatsappLine[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const refreshNumbers = () => {
+    return getWhatsappNumbers()
+      .then((res) => {
+        setNumbers(res as WhatsappLine[]);
+        setLoadError(null);
+      })
+      .catch(() => {
+        setLoadError(t("whatsapp-load-error"));
+      });
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    getWhatsappNumbers()
+      .then((res) => {
+        if (!cancelled) {
+          setNumbers(res as WhatsappLine[]);
+          setLoadError(null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLoadError(t("whatsapp-load-error"));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [t]);
 
   return (
     <main className="d-flex pos-relative h-viewport">
@@ -61,21 +135,36 @@ export default function Whatsapp() {
 
         <Box px="md" w="100%" maw="42rem" mx="auto">
           <Title order={2} ta="center" mb="lg" mt="md">
-            WhatsApp
+            {t("whatsapp")}
           </Title>
-          <Text mb="md">
-            Masscer AI lets you use AI Agents inside WhatsApp, boosting your
-            customer service and collecting information about your contacts.
+          <Text mb="md">{t("whatsapp-intro")}</Text>
+          <Text size="sm" c="dimmed" mb="md">
+            {t("whatsapp-provision-note")}
           </Text>
 
           <Title order={4} mb="sm">
-            Your WhatsApp numbers
+            {t("whatsapp-your-numbers")}
           </Title>
-          <Stack gap="md">
-            {numbers.map((number) => (
-              <WhatsAppNumber key={number.id} {...number} />
-            ))}
-          </Stack>
+
+          {loading ? (
+            <Stack align="center" py="xl">
+              <Loader color="violet" />
+            </Stack>
+          ) : loadError ? (
+            <Text c="red">{loadError}</Text>
+          ) : numbers.length === 0 ? (
+            <Text c="dimmed">{t("whatsapp-empty-lines")}</Text>
+          ) : (
+            <Stack gap="md">
+              {numbers.map((line) => (
+                <WhatsAppNumber
+                  key={line.id}
+                  line={line}
+                  onRefresh={refreshNumbers}
+                />
+              ))}
+            </Stack>
+          )}
         </Box>
       </div>
     </main>
@@ -83,19 +172,28 @@ export default function Whatsapp() {
 }
 
 const WhatsAppNumber = ({
-  number,
-  agent,
-  conversations_count,
-  name,
+  line,
+  onRefresh,
 }: {
-  number: string;
-  agent: any;
-  conversations_count: number;
-  name: string;
+  line: WhatsappLine;
+  onRefresh: () => Promise<void>;
 }) => {
-  const [isModalVisible, setIsModalVisible] = useState(false);
+  const { t } = useTranslation();
+  const { number, agent, conversations_count, name } = line;
+  const [settingsOpened, { open: openSettings, close: closeSettings }] =
+    useDisclosure(false);
   const [conversations, setConversations] = useState<any[]>([]);
-  const [nameInput, setNameInput] = useState(name ? name : "");
+  const [nameInput, setNameInput] = useState(name ?? "");
+  const [capabilityState, setCapabilityState] = useState<Record<string, boolean>>(
+    () => {
+      const initial: Record<string, boolean> = {};
+      for (const n of DEFAULT_CAPABILITY_NAMES) initial[n] = false;
+      for (const c of line.capabilities ?? []) {
+        if (c?.name) initial[c.name] = Boolean(c.enabled);
+      }
+      return initial;
+    }
+  );
 
   useEffect(() => {
     getWhatsappConversations().then((res) => {
@@ -103,15 +201,36 @@ const WhatsAppNumber = ({
     });
   }, []);
 
+  useEffect(() => {
+    if (!settingsOpened) return;
+    setNameInput(line.name ?? "");
+    const initial: Record<string, boolean> = {};
+    for (const n of DEFAULT_CAPABILITY_NAMES) initial[n] = false;
+    for (const c of line.capabilities ?? []) {
+      if (c?.name) initial[c.name] = Boolean(c.enabled);
+    }
+    setCapabilityState(initial);
+  }, [settingsOpened, line.name, line.capabilities, line.number]);
+
   const changeAgent = (slug: string) => {
     updateWhatsappNumber(number, { slug }).then(() => {
-      toast.success("Agent changed");
+      toast.success(t("whatsapp-agent-changed"));
+      void onRefresh();
     });
   };
 
   const updateName = () => {
     updateWhatsappNumber(number, { name: nameInput }).then(() => {
-      toast.success("Name updated");
+      toast.success(t("whatsapp-name-updated"));
+      void onRefresh();
+    });
+  };
+
+  const saveCapabilities = () => {
+    const capabilities = buildCapabilitiesPayload(capabilityState);
+    updateWhatsappNumber(number, { capabilities }).then(() => {
+      toast.success(t("whatsapp-capabilities-saved"));
+      void onRefresh();
     });
   };
 
@@ -121,10 +240,10 @@ const WhatsAppNumber = ({
         withBorder
         padding="lg"
         style={{ cursor: "pointer" }}
-        onClick={() => setIsModalVisible(true)}
+        onClick={openSettings}
       >
         <Title order={4} ta="center">
-          {name}
+          {name || number}
         </Title>
         <Text ta="center" size="lg">
           📞 {number}
@@ -136,31 +255,34 @@ const WhatsAppNumber = ({
       </Card>
 
       <Modal
-        opened={isModalVisible}
-        onClose={() => setIsModalVisible(false)}
-        title="Conversations"
+        opened={settingsOpened}
+        onClose={closeSettings}
+        title={t("whatsapp-settings-title")}
         centered
         size="lg"
       >
         <Stack gap="md">
           <Group gap="sm" align="flex-end">
             <TextInput
-              label="Name"
+              label={t("whatsapp-display-name")}
               value={nameInput}
-              onChange={(e) => setNameInput(e.currentTarget.value)}
+              onChange={(e) => {
+                const val = e.currentTarget.value;
+                setNameInput(val);
+              }}
               style={{ flex: 1 }}
             />
             <Button
               leftSection={<IconDeviceFloppy size={16} />}
               onClick={updateName}
             >
-              Update
+              {t("whatsapp-update-name")}
             </Button>
           </Group>
 
           <div>
             <Text size="sm" fw={500} mb={4}>
-              Change the agent for this number
+              {t("whatsapp-change-agent")}
             </Text>
             <AgentSelector
               onSelectAgent={changeAgent}
@@ -168,6 +290,37 @@ const WhatsAppNumber = ({
             />
           </div>
 
+          <div>
+            <Text size="sm" fw={500} mb="xs">
+              {t("whatsapp-capabilities")}
+            </Text>
+            <Stack gap="xs">
+              {DEFAULT_CAPABILITY_NAMES.map((capName) => (
+                <Checkbox
+                  key={capName}
+                  label={capName}
+                  checked={capabilityState[capName] ?? false}
+                  onChange={(e) => {
+                    const checked = e.currentTarget.checked;
+                    setCapabilityState((prev) => ({
+                      ...prev,
+                      [capName]: checked,
+                    }));
+                  }}
+                />
+              ))}
+            </Stack>
+            <Button
+              mt="sm"
+              leftSection={<IconDeviceFloppy size={16} />}
+              variant="default"
+              onClick={saveCapabilities}
+            >
+              {t("whatsapp-save-capabilities")}
+            </Button>
+          </div>
+
+          <Title order={5}>{t("whatsapp-conversations")}</Title>
           <Stack gap="sm">
             {conversations.map((conversation) => (
               <ConversationComponent key={conversation.id} {...conversation} />
@@ -181,16 +334,14 @@ const WhatsAppNumber = ({
 
 const ConversationComponent = ({
   title,
-  user_number,
+  whatsapp_user_number,
   id,
   summary,
-  sentiment,
 }: {
-  title: string;
-  user_number: string;
+  title: string | null;
+  whatsapp_user_number: string | null;
   id: string;
-  summary: string;
-  sentiment: string;
+  summary: string | null;
 }) => {
   const [messages, setMessages] = useState<any[]>([]);
   const [showMessages, setShowMessages] = useState(false);
@@ -220,9 +371,7 @@ const ConversationComponent = ({
         onClick={getMessages}
       >
         <Title order={5}>{title}</Title>
-        <Text size="sm">
-          {user_number} <span>{sentiment}</span>
-        </Text>
+        <Text size="sm">{whatsapp_user_number || "—"}</Text>
       </Card>
 
       <Modal
@@ -265,7 +414,10 @@ const ConversationComponent = ({
           <Group gap="sm" align="flex-end">
             <Textarea
               value={messageInput}
-              onChange={(e) => setMessageInput(e.currentTarget.value)}
+              onChange={(e) => {
+                const val = e.currentTarget.value;
+                setMessageInput(val);
+              }}
               placeholder="Write a message"
               autosize
               minRows={1}
@@ -283,16 +435,17 @@ const ConversationComponent = ({
 };
 
 const WhatsAppMessage = ({
-  content,
-  message_type,
+  text,
+  type,
   created_at,
-  reaction,
+  metadata,
 }: {
-  content: string;
-  message_type: string;
+  text: string;
+  type: string;
   created_at: string;
-  reaction: string;
+  metadata?: { whatsapp_reaction?: string } | null;
 }) => {
+  const reaction = metadata?.whatsapp_reaction;
   const date = new Date(created_at);
   const formattedDate = date.toLocaleString(undefined, {
     year: "numeric",
@@ -306,10 +459,10 @@ const WhatsAppMessage = ({
 
   return (
     <div
-      className={`text-center d-flex flex-y message ${message_type.toLowerCase()}`}
+      className={`text-center d-flex flex-y message ${type.toLowerCase()}`}
     >
       <div className="text-left message-text">
-        <MarkdownRenderer markdown={content} />
+        <MarkdownRenderer markdown={text} />
         {reaction && <span className="reaction">{reaction} ✔️✔️</span>}
       </div>
       <Text size="xs" c="dimmed" p="xs">

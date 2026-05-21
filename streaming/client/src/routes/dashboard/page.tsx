@@ -50,6 +50,7 @@ const DEFAULT_FILTERS: TConversationFilters = {
   selectedTags: [],
   selectedAlertRules: [],
   chatWidgetId: "",
+  channel: "all",
   messagesSort: "none",
 };
 

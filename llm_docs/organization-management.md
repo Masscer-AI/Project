@@ -254,10 +254,11 @@ When adding a new feature flag:
 | `manage-organization` | No | Manage org settings, members, roles |
 | `alert-rules-manager` | No | Create/manage conversation alert rules |
 | `tags-management` | No | Create/manage conversation tags |
-| `conversations-dashboard` | No | Access the conversations dashboard |
+| `conversations-dashboard` | No | Access the conversations dashboard (`/dashboard`); org scope includes anonymous **WhatsApp** threads for lines tied to the org (same access rules as `/v1/whatsapp/conversations`). |
 | `edit-organization-agent` | No | Edit org-owned agent configs |
 | `conversation-analysis` | **Yes** | Automatic AI conversation analysis |
 | `chat-widgets-management` | No | Create/manage embeddable chat widgets |
+| `whatsapp-numbers-management` | No | Customize WhatsApp lines (agent, name, tool capabilities); lines are provisioned in Django admin |
 | `train-agents` | No | Upload docs & train agents |
 | `audio-tools` | No | Transcription & text-to-speech |
 | `image-tools` | No | Image generation & editing |

@@ -534,6 +534,7 @@ export type TConversationFilters = {
   selectedTags?: number[];
   selectedAlertRules?: string[];
   chatWidgetId?: string;
+  channel?: "all" | "app" | "widget" | "whatsapp";
   status?: "active_inactive" | "all" | "active" | "inactive" | "archived" | "deleted";
   messagesSort?: "none" | "asc" | "desc";
 };
@@ -559,6 +560,9 @@ export const getConversations = async (
 
   if (filters.status) params.set("status", filters.status);
   if (filters.chatWidgetId) params.set("chat_widget_id", filters.chatWidgetId);
+  if (filters.channel && filters.channel !== "all") {
+    params.set("channel", filters.channel);
+  }
   if (filters.search) params.set("search", filters.search);
   if (filters.userId) params.set("user_id", filters.userId);
   if (filters.sortBy) params.set("sort_by", filters.sortBy);
@@ -607,6 +611,9 @@ export const getConversationStats = async (
   params.set("scope", filters.scope ?? "org");
   if (filters.status) params.set("status", filters.status);
   if (filters.chatWidgetId) params.set("chat_widget_id", filters.chatWidgetId);
+  if (filters.channel && filters.channel !== "all") {
+    params.set("channel", filters.channel);
+  }
   if (filters.search) params.set("search", filters.search);
   if (filters.userId) params.set("user_id", filters.userId);
   if (filters.dateFrom) {

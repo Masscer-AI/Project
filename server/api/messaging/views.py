@@ -100,7 +100,9 @@ def _get_conversation_for_user(request, conversation_id):
     Returns (conversation, None) on success, or (None, JsonResponse) on 404.
     """
     try:
-        conversation = Conversation.objects.get(id=conversation_id)
+        conversation = Conversation.objects.select_related(
+            "chat_widget", "ws_number"
+        ).get(id=conversation_id)
     except Conversation.DoesNotExist:
         return None, JsonResponse(
             {"message": "Conversation not found", "status": 404}, status=404
@@ -135,6 +137,17 @@ def _get_org_user_ids(user):
     return list(owner_ids | member_ids)
 
 
+def _organization_ids_accessible_by_user(user) -> list:
+    """Org UUIDs the user owns or belongs to (via profile). Used for anonymous WhatsApp threads."""
+    ids = list(Organization.objects.filter(owner=user).values_list("id", flat=True))
+    prof = getattr(user, "profile", None)
+    if prof and getattr(prof, "organization_id", None):
+        oid = prof.organization_id
+        if oid not in ids:
+            ids.append(oid)
+    return ids
+
+
 def _user_can_access_conversation(user, conversation):
     if conversation.user_id == user.id:
         return True
@@ -147,6 +160,21 @@ def _user_can_access_conversation(user, conversation):
         or (conversation.user_id is None and widget_owner_id in org_user_ids)
     ):
         return True
+    # Anonymous WhatsApp (same idea as widget: user is null; scope is org / line ownership)
+    if (
+        org_user_ids
+        and conversation.user_id is None
+        and conversation.ws_number_id is not None
+    ):
+        org_ids = _organization_ids_accessible_by_user(user)
+        if conversation.organization_id and conversation.organization_id in org_ids:
+            return True
+        ws = conversation.ws_number if conversation.ws_number_id else None
+        if ws:
+            if ws.organization_id and ws.organization_id in org_ids:
+                return True
+            if ws.user_id and ws.user_id in org_user_ids:
+                return True
     return False
 
 
@@ -163,12 +191,21 @@ def _build_conversation_list_queryset(request, user):
         conversations = Conversation.objects.filter(user=user)
     else:
         org_user_ids = _get_org_user_ids(user)
+        org_org_ids = _organization_ids_accessible_by_user(user)
         if org_user_ids:
             conversations = Conversation.objects.filter(
                 Q(user_id__in=org_user_ids)
                 | Q(
                     user__isnull=True,
                     chat_widget__created_by_id__in=org_user_ids,
+                )
+                | (
+                    Q(user__isnull=True, ws_number__isnull=False)
+                    & (
+                        Q(organization_id__in=org_org_ids)
+                        | Q(ws_number__organization_id__in=org_org_ids)
+                        | Q(ws_number__user_id__in=org_user_ids)
+                    )
                 )
             )
         else:
@@ -207,6 +244,27 @@ def _build_conversation_list_queryset(request, user):
                     status=400,
                 )
 
+    # Channel: app (signed-in) | widget | whatsapp (subset of org list)
+    channel = (request.GET.get("channel") or "").strip().lower()
+    if channel == "whatsapp":
+        conversations = conversations.filter(ws_number__isnull=False)
+    elif channel == "widget":
+        conversations = conversations.filter(chat_widget__isnull=False)
+    elif channel == "app":
+        conversations = conversations.filter(
+            user__isnull=False,
+            chat_widget__isnull=True,
+            ws_number__isnull=True,
+        )
+    elif channel not in ("", "all"):
+        return JsonResponse(
+            {
+                "message": "channel must be one of: all, app, widget, whatsapp",
+                "status": 400,
+            },
+            status=400,
+        )
+
     # Search (title, id, summary)
     search = (request.GET.get("search") or "").strip()
     if search:
@@ -216,6 +274,7 @@ def _build_conversation_list_queryset(request, user):
                 Q(title__icontains=search)
                 | Q(id__icontains=search)
                 | Q(summary__icontains=search)
+                | Q(whatsapp_user_number__icontains=search)
             )
         conversations = conversations.filter(search_q)
 
@@ -618,7 +677,7 @@ class ConversationBulkView(View):
         inactive_threshold = now - timedelta(days=30)
         user = request.user
         conversations = Conversation.objects.filter(id__in=conversation_ids).select_related(
-            "chat_widget"
+            "chat_widget", "ws_number"
         )
         by_id = {str(c.id): c for c in conversations}
 

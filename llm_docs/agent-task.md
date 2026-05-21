@@ -55,6 +55,7 @@ These are emitted by the streaming server (see `streaming/server/event_triggers.
 The frontend calls:
 - `POST /v1/ai_layers/agent-task/conversation/` (see `api/ai_layers/urls.py`, `api/ai_layers/views.py`)
 - **Chat widget:** `POST /v1/messaging/widgets/<token>/agent-task/` (see `api/messaging/views.py:ChatWidgetAgentTaskView`) — same Celery task chain via `widget_conversation_agent_task` → `conversation_agent_task`.
+- **WhatsApp:** Meta webhook → `async_handle_webhook` → `whatsapp_conversation_agent_task` → `conversation_agent_task` (inline), then `deliver_whatsapp_reply` sends the assistant `Message` text via the WhatsApp Graph API. Threads are `messaging.Conversation` rows linked by `ws_number` + `whatsapp_user_number`; **`Conversation.user` is always null** (anonymous visitor, like chat widgets); org comes from the line for billing. Tools come from `WSNumber.capabilities` (same JSON shape as `ChatWidget.capabilities`). POST webhooks verify `X-Hub-Signature-256` when `WHATSAPP_APP_SECRET` is set; inbound WAMIDs are de-duplicated via `Message.metadata.whatsapp_inbound_wamid` before enqueueing the agent. Agent-task events route on `whatsapp:<conversation_uuid>` (same idea as `widget_session:…`). In Django admin, open a **WS number** and use **Register phone number**, **Setup WABA & webhook**, or **Check webhook config** (requires public API origin `API_BASE_URL` or `API_URL`, plus `WHATSAPP_GRAPH_API_TOKEN`, `WHATSAPP_APP_SECRET`, and `WHATSAPP_WEBHOOK_VERIFY_TOKEN`).
 
 Payload includes:
 - `conversation_id`

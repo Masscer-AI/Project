@@ -45,6 +45,8 @@ export interface TConversation {
   user_id?: number | null;
   user_username?: string | null;
   chat_widget_id?: number | null;
+  ws_number?: number | null;
+  whatsapp_user_number?: string | null;
   is_anonymous_widget?: boolean;
   visitor_alias?: string | null;
   status?: "active" | "inactive" | "archived" | "deleted";

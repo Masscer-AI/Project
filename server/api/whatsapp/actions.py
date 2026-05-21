@@ -1,14 +1,21 @@
-import os
-import requests
 import json
-from .models import WSMessage, WSNumber, WSConversation
-from django.core.exceptions import ValidationError
-from api.ai_layers.actions import answer_agent_inquiry
-from api.utils.color_printer import printer
-from api.messaging.actions import transcribe_audio
+import os
+import re
+
+import requests
+from django.conf import settings
 from pydantic import BaseModel, Field
-from api.utils.openai_functions import create_structured_completion
+
+from api.messaging.actions import transcribe_audio
+from api.messaging.models import Conversation, Message
 from api.utils.color_printer import printer
+from api.utils.openai_functions import create_structured_completion
+
+from .models import WSNumber
+
+
+def _graph_token() -> str:
+    return (getattr(settings, "WHATSAPP_GRAPH_API_TOKEN", None) or "").strip()
 
 
 def send_reaction(business_phone_number_id, to, message_id, emoji):
@@ -22,7 +29,7 @@ def send_reaction(business_phone_number_id, to, message_id, emoji):
     """
     url = f"https://graph.facebook.com/v18.0/{business_phone_number_id}/messages"
     headers = {
-        "Authorization": f"Bearer {os.getenv('WHATSAPP_GRAPH_API_TOKEN')}",
+        "Authorization": f"Bearer {_graph_token()}",
         "Content-Type": "application/json",
     }
     data = {
@@ -57,10 +64,9 @@ def send_interactive_message(
     )
     headers = {
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {os.getenv('WHATSAPP_GRAPH_API_TOKEN')}",
+        "Authorization": f"Bearer {_graph_token()}",
     }
     printer.red("Sending interactive message")
-    # Construct the message payload
     message_payload = {
         "messaging_product": "whatsapp",
         "recipient_type": "individual",
@@ -75,10 +81,8 @@ def send_interactive_message(
         },
     }
 
-    # Send the POST request
     response = requests.post(url, headers=headers, data=json.dumps(message_payload))
 
-    # Check the response
     if response.status_code == 200:
         printer.success("Interactive message sent successfully!")
 
@@ -92,21 +96,24 @@ def send_interactive_message(
         return None
 
 
-def send_message(business_phone_number_id, to, message, message_platform_id) -> str:
+def send_message(
+    business_phone_number_id, to, message, message_platform_id=None
+) -> str | None:
     if not to or not message:
         raise ValueError("To and message fields are required.")
 
     url = f"https://graph.facebook.com/v21.0/{business_phone_number_id}/messages"
     headers = {
-        "Authorization": f"Bearer {os.getenv('WHATSAPP_GRAPH_API_TOKEN')}",
+        "Authorization": f"Bearer {_graph_token()}",
         "Content-Type": "application/json",
     }
-    data = {
+    data: dict = {
         "messaging_product": "whatsapp",
         "to": to,
-        "text": {"body": message},
-        "context": {"message_id": message_platform_id},
+        "text": {"body": message[:4090]},
     }
+    if message_platform_id:
+        data["context"] = {"message_id": message_platform_id}
 
     response = requests.post(url, headers=headers, json=data)
     if response.status_code != 200:
@@ -118,25 +125,10 @@ def send_message(business_phone_number_id, to, message, message_platform_id) -> 
 
 
 def verify_whatsapp_number(country_code, phone_number, method, cert, pin=None):
-    """
-    Verifies a WhatsApp number using the local installations API.
-
-    Parameters:
-    - country_code (str): The numeric country code of the phone number.
-    - phone_number (str): The phone number to register (without country code).
-    - method (str): The method to receive the registration code ('sms' or 'voice').
-    - cert (str): The Base64 encoded certificate for validation.
-    - pin (str, optional): The current 6-digit PIN if two-step verification is enabled.
-
-    Returns:
-    - dict: The response from the API.
-    """
-
     url = "http://your-api-url/v1/account"  # Replace with the actual API URL
 
     headers = {"Content-Type": "application/json"}
 
-    # Prepare the request payload
     payload = {
         "cc": country_code,
         "phone_number": phone_number,
@@ -147,107 +139,130 @@ def verify_whatsapp_number(country_code, phone_number, method, cert, pin=None):
     if pin:
         payload["pin"] = pin
 
-    # Send the POST request
     response = requests.post(url, json=payload, headers=headers)
 
-    # Check if the request was successful
     if response.status_code in [201, 202]:
         return response.json()
     else:
         return {"error": response.status_code, "message": response.text}
 
 
-def save_ws_message(
-    conversation,
-    content,
-    message_type,
-    reaction=None,
-    collected_info=None,
-    message_platform_id=None,
-):
-    """
-    Save a WSMessage associated with a WSConversation.
-
-    :param conversation: WSConversation object
-    :param content: The content of the message
-    :param message_type: The type of message ('USER' or 'ASSISTANT')
-    :return: WSMessage instance or raises ValidationError if the message cannot be saved
-    """
-
-    # Validate the message type
-    if message_type not in dict(WSMessage.MESSAGE_TYPE_CHOICES):
-        raise ValueError("Invalid message type. Choose either 'USER' or 'ASSISTANT'.")
-
-    message = WSMessage(
-        conversation=conversation,
-        content=content,
-        message_type=message_type,
-        reaction=reaction,
-        collected_info=collected_info,
-        message_platform_id=message_platform_id,
-    )
-
-    try:
-        message.save()
-    except ValidationError as e:
-        raise ValidationError(f"Error saving message: {e}")
-
-    return message
-
-
 def download_audio(business_phone_number_id, audio_id):
-    url = f"https://graph.facebook.com/v18.0/{business_phone_number_id}/messages/{audio_id}?access_token={os.getenv('WHATSAPP_GRAPH_API_TOKEN')}"
-    response = requests.get(url)
+    from .media import fetch_whatsapp_media_bytes
 
-    if response.status_code != 200:
-        print("Error downloading audio:", response.json())
-        raise Exception("Failed to download audio.")
-
-    # Save the audio file to a temporary path
+    data, _mime = fetch_whatsapp_media_bytes(str(audio_id))
     audio_file_path = f"/tmp/{audio_id}.ogg"
     with open(audio_file_path, "wb") as audio_file:
-        audio_file.write(response.content)
-
+        audio_file.write(data)
     return audio_file_path
 
 
-def handle_transcription(webhook_data, transcription, message):
-    business_phone_number_id = webhook_data["entry"][0]["changes"][0]["value"][
-        "metadata"
-    ]["phone_number_id"]
+def _strip_markdown_for_whatsapp(text: str) -> str:
+    t = re.sub(r"\*\*([^*]+)\*\*", r"\1", text)
+    t = re.sub(r"`([^`]+)`", r"\1", t)
+    return t.strip()
 
-    ws_number = WSNumber.objects.get(platform_id=business_phone_number_id)
 
-    conversation, created = WSConversation.objects.get_or_create(
-        user_number=message["from"],
-        ai_number=ws_number,
-        defaults={
-            "status": "ACTIVE",
-        },
+class ReactionPick(BaseModel):
+    emoji: str = Field(
+        description="Single WhatsApp-valid emoji reaction to the user's last message"
     )
 
-    context = ""
-    if created:
-        context = "This is the first message from the user"
-    else:
-        context = conversation.get_context()
 
-    # Save the transcription as a message
-    save_ws_message(
-        conversation=conversation,
-        content=transcription,
-        message_type="USER",
+def _pick_whatsapp_reaction(user_text: str, assistant_text: str) -> str:
+    system = (
+        "Pick exactly one short emoji suitable as a WhatsApp reaction to the user's message, "
+        "given the assistant reply. Output only common reaction emojis (e.g. thumbs up, check, heart, robot). "
+        "Avoid skin-tone modifiers or multi-codepoint sequences."
+    )
+    user = f"User:\n{user_text[:2000]}\n\nAssistant:\n{assistant_text[:2000]}"
+    out = create_structured_completion(
+        model="gpt-4o-mini",
+        response_format=ReactionPick,
+        system_prompt=system,
+        user_prompt=user,
+    )
+    return (out.emoji or "👍")[:8]
+
+
+def deliver_whatsapp_reply(
+    *,
+    conversation: Conversation,
+    assistant_message_id: int,
+    inbound_wamid: str | None,
+):
+    """Send assistant text to WhatsApp; store WAMIDs; optional reaction on inbound."""
+    ws_number = conversation.ws_number
+    if not ws_number or not ws_number.platform_id:
+        raise ValueError("Conversation has no WSNumber or platform_id")
+
+    assistant = Message.objects.get(
+        id=assistant_message_id, conversation=conversation, type="assistant"
+    )
+    user_msg = (
+        Message.objects.filter(
+            conversation=conversation,
+            type="user",
+            id__lt=assistant.id,
+        )
+        .order_by("-id")
+        .first()
     )
 
-    ai_response = answer_agent_inquiry(
-        agent_slug=ws_number.agent.slug,
-        context=context,
-        user_message=transcription,
+    if inbound_wamid and user_msg:
+        meta = dict(user_msg.metadata or {})
+        meta["whatsapp_wamid"] = inbound_wamid
+        user_msg.metadata = meta
+        user_msg.save(update_fields=["metadata"])
+
+    body = _strip_markdown_for_whatsapp(assistant.text or "")
+    reply_to = conversation.whatsapp_last_inbound_wamid
+
+    out_wamid = send_message(
+        ws_number.platform_id,
+        conversation.whatsapp_user_number,
+        body,
+        reply_to,
     )
 
-    send_message(business_phone_number_id, message["from"], ai_response, message["id"])
-    save_ws_message(
-        conversation=conversation, content=ai_response, message_type="ASSISTANT"
+    ameta = dict(assistant.metadata or {})
+    if out_wamid:
+        ameta["whatsapp_wamid"] = out_wamid
+    assistant.metadata = ameta
+    assistant.save(update_fields=["metadata"])
+
+    if inbound_wamid and user_msg and user_msg.text:
+        try:
+            emoji = _pick_whatsapp_reaction(user_msg.text, body)
+            send_reaction(
+                ws_number.platform_id,
+                conversation.whatsapp_user_number,
+                inbound_wamid,
+                emoji,
+            )
+            umeta = dict(user_msg.metadata or {})
+            umeta["whatsapp_reaction"] = emoji
+            user_msg.metadata = umeta
+            user_msg.save(update_fields=["metadata"])
+        except Exception as e:
+            printer.red(f"WhatsApp reaction skipped: {e}")
+
+
+def send_whatsapp_fallback_text(
+    conversation: Conversation,
+    *,
+    inbound_wamid: str | None = None,
+    text: str | None = None,
+):
+    ws_number = conversation.ws_number
+    if not ws_number or not ws_number.platform_id or not conversation.whatsapp_user_number:
+        return
+    msg = text or "Sorry, something went wrong. Please try again in a moment."
+    send_message(
+        ws_number.platform_id,
+        conversation.whatsapp_user_number,
+        msg,
+        inbound_wamid or conversation.whatsapp_last_inbound_wamid,
     )
 
 
@@ -255,60 +270,83 @@ def handle_interactive_message(webhook_data, message):
     printer.red("Interactive message received")
 
 
+def handle_image_message(webhook_data, message):
+    business_phone_number_id = webhook_data["entry"][0]["changes"][0]["value"][
+        "metadata"
+    ]["phone_number_id"]
+    try:
+        ws_number = WSNumber.objects.get(platform_id=business_phone_number_id)
+    except WSNumber.DoesNotExist:
+        printer.red(
+            f"WSNumber with platform_id {business_phone_number_id} not found"
+        )
+        return
+
+    user_phone = message["from"]
+    from .conversations import get_or_create_whatsapp_conversation
+    from .inbound import process_image_inbound
+
+    conv = get_or_create_whatsapp_conversation(ws_number, user_phone)
+    conv.whatsapp_last_inbound_wamid = message["id"]
+    conv.save(update_fields=["whatsapp_last_inbound_wamid", "updated_at"])
+
+    mark_message_as_read(business_phone_number_id, message["id"])
+
+    image = message.get("image") or {}
+    try:
+        process_image_inbound(
+            ws_number=ws_number,
+            conversation=conv,
+            user_phone=user_phone,
+            inbound_wamid=message["id"],
+            image=image if isinstance(image, dict) else {},
+        )
+    except Exception as e:
+        printer.red(f"WhatsApp image inbound failed: {e}")
+
+
 def handle_audio_message(webhook_data, message):
-    audio_url = message["audio"]["id"]  # Get the audio file ID
+    audio_url = message["audio"]["id"]
     business_phone_number_id = webhook_data["entry"][0]["changes"][0]["value"][
         "metadata"
     ]["phone_number_id"]
 
-    # Download the audio file
     audio_file_path = download_audio(business_phone_number_id, audio_url)
-
-    # Transcribe the audio using Whisper
     transcription = transcribe_audio(audio_file_path)
-
     printer.green("Transcription: ", transcription)
-    # Handle the transcription like a normal message
-    handle_transcription(webhook_data, transcription, message)
+
+    synthetic = dict(message)
+    synthetic["type"] = "text"
+    synthetic["text"] = {"body": transcription}
+    handle_message_received(webhook_data, synthetic)
 
 
 def handle_webhook(webhook_data):
     printer.blue("Handling webhook")
     printer.green(webhook_data)
-    message = (
+    value = (
         webhook_data.get("entry", [{}])[0]
         .get("changes", [{}])[0]
         .get("value", {})
-        .get("messages", [{}])[0]
     )
+    messages = value.get("messages") or []
+    if not messages:
+        return
+    message = messages[0]
     if message.get("type") == "text":
         handle_message_received(webhook_data=webhook_data, message=message)
-
     elif message.get("type") == "audio":
-        printer.blue("Audio message received and handling correctly")
-
+        handle_audio_message(webhook_data=webhook_data, message=message)
+    elif message.get("type") == "image":
+        handle_image_message(webhook_data=webhook_data, message=message)
     elif message.get("type") == "interactive":
         handle_interactive_message(webhook_data=webhook_data, message=message)
-        # handle_audio_message(webhook_data=webhook_data, message=message)
-
-
-class UserInfo(BaseModel):
-    name: str = Field(description="The name of the user")
-    language: str = Field(description="The language of the user")
-    requirements: str = Field(description="The requirements of the user")
-
-
-class WhatsappResponse(BaseModel):
-    response: str = Field(description="The response from the AI")
-    reaction: str = Field(
-        description="One emoji valid for WhatsApp to react to the user's message. Example 1: 🤖 Example 2:✅"
-    )
-    user_info: UserInfo = Field(
-        description="The user info you can collect from the message"
-    )
 
 
 def handle_message_received(webhook_data, message):
+    from .conversations import get_or_create_whatsapp_conversation
+    from .inbound import process_text_inbound
+
     business_phone_number_id = webhook_data["entry"][0]["changes"][0]["value"][
         "metadata"
     ]["phone_number_id"]
@@ -321,101 +359,28 @@ def handle_message_received(webhook_data, message):
         )
         return
 
-    conversation, created = WSConversation.objects.get_or_create(
-        user_number=message["from"],
-        ai_number=ws_number,
-        defaults={
-            "status": "ACTIVE",
-        },
-    )
-
-    context = ""
-    if created:
-        context = "This is the first message from the user"
-    else:
-        context = conversation.get_context()
+    user_phone = message["from"]
+    conv = get_or_create_whatsapp_conversation(ws_number, user_phone)
+    conv.whatsapp_last_inbound_wamid = message["id"]
+    conv.save(update_fields=["whatsapp_last_inbound_wamid", "updated_at"])
 
     mark_message_as_read(business_phone_number_id, message["id"])
 
-    whatsapp_response = ws_number.agent.answer(
-        context=context,
-        user_message=message["text"]["body"],
-        response_format=WhatsappResponse,
+    body = (message.get("text") or {}).get("body") or ""
+    process_text_inbound(
+        ws_number=ws_number,
+        conversation=conv,
+        user_phone=user_phone,
+        inbound_wamid=message["id"],
+        body=body,
     )
-
-    save_ws_message(
-        conversation=conversation,
-        content=message["text"]["body"],
-        message_type="USER",
-        message_platform_id=message["id"],
-        reaction=whatsapp_response.reaction,
-    )
-    ai_wamid = send_message(
-        business_phone_number_id,
-        message["from"],
-        whatsapp_response.response,
-        message["id"],
-    )
-
-    save_ws_message(
-        conversation=conversation,
-        content=whatsapp_response.response,
-        message_type="ASSISTANT",
-        collected_info=json.dumps(whatsapp_response.user_info.model_dump()),
-        message_platform_id=ai_wamid,
-    )
-
-    send_reaction(
-        webhook_data["entry"][0]["changes"][0]["value"]["metadata"]["phone_number_id"],
-        message["from"],
-        message["id"],
-        whatsapp_response.reaction,
-    )
-
-    conversation.update_user_info()
-
-
-# def generate_conversation_context(conversation):
-#     context = ""
-#     for message in conversation.messages.all():
-#         context += f"{message.message_type}: {message.content}\n"
-#     return context
-
-
-class ConversationContext(BaseModel):
-    title: str = Field(description="The title of the conversation")
-    summary: str = Field(description="The summary of the conversation")
-    sentiment: str = Field(description="The sentiment of the conversation")
-
-
-def generate_conversation_context(id: int):
-    """
-    Generate the context of a conversation by answering a message with an empty message
-    """
-    ws_conversation = WSConversation.objects.get(id=id)
-    conversation_context = create_structured_completion(
-        model="gpt-4o-mini",
-        response_format=ConversationContext,
-        system_prompt="You are a helpful assistant that generates conversation context",
-        user_prompt=ws_conversation.get_context(),
-    )
-    ws_conversation.title = conversation_context.title
-    ws_conversation.summary = conversation_context.summary
-    ws_conversation.sentiment = conversation_context.sentiment
-    ws_conversation.save()
 
 
 def mark_message_as_read(business_number_id, ws_message_id):
-    """
-    Marks a message as read using the WhatsApp Business API.
-
-    :param business_number_id: The WhatsApp Business Phone Number ID
-    :param ws_message_id: The ID of the WSMessage to mark as read
-    """
     try:
         url = f"https://graph.facebook.com/v21.0/{business_number_id}/messages"
         headers = {
-            "Authorization": f"Bearer {os.getenv('WHATSAPP_GRAPH_API_TOKEN')}",
+            "Authorization": f"Bearer {_graph_token()}",
             "Content-Type": "application/json",
         }
         data = {
@@ -436,40 +401,3 @@ def mark_message_as_read(business_number_id, ws_message_id):
 
     except Exception as e:
         printer.red(f"Error marking message as read: {str(e)}")
-
-
-# def send_typing_action(business_phone_number_id, user_phone_number):
-#     """
-#     Envía una acción de "escribiendo" a un usuario de WhatsApp.
-
-#     :param business_phone_number_id: ID del número de teléfono de la empresa de WhatsApp
-#     :param user_phone_number: El número de teléfono del destinatario en WhatsApp
-#     """
-#     url = f"https://graph.facebook.com/v21.0/{business_phone_number_id}/messages"
-#     headers = {
-#         "Authorization": f"Bearer {os.getenv('WHATSAPP_GRAPH_API_TOKEN')}",
-#         "Content-Type": "application/json",
-#     }
-#     data = {
-#         "messaging_product": "whatsapp",
-#         "recipient_type": "individual",
-#         "to": user_phone_number,
-#         "type": "action",
-#         "action": {"typing": {"status": "typing_on"}},
-#     }
-
-#     response = requests.post(url, headers=headers, json=data)
-
-#     if response.status_code != 200:
-#         print("Error sending typing action:", response.json())
-#         raise Exception("Failed to send typing action.")
-
-#     printer.success("Typing action sent successfully.")
-
-
-def update_conversation_info(conversation_id):
-    ws_conversation = WSConversation.objects.get(id=conversation_id)
-    if not ws_conversation.title:
-        generate_conversation_context(conversation_id)
-
-    ws_conversation.update_user_info()

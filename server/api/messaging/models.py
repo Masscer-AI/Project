@@ -3,6 +3,7 @@ import uuid
 
 from django.contrib.auth.models import User
 from django.db import models
+from django.db.models import Q
 from django.utils import timezone
 
 from api.authenticate.models import PublishableToken, Organization
@@ -51,6 +52,24 @@ class Conversation(models.Model):
         null=True,
         blank=True,
         related_name="conversations",
+    )
+    ws_number = models.ForeignKey(
+        "whatsapp.WSNumber",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="conversations",
+    )
+    whatsapp_user_number = models.CharField(
+        max_length=30,
+        null=True,
+        blank=True,
+        db_index=True,
+    )
+    whatsapp_last_inbound_wamid = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
     )
     tags = models.JSONField(
         default=list, 
@@ -111,6 +130,16 @@ class Conversation(models.Model):
         return "\n".join(
             [f"{message.type}: {message.text}\n" for message in self.messages.all()]
         )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["ws_number", "whatsapp_user_number"],
+                condition=Q(ws_number__isnull=False)
+                & Q(whatsapp_user_number__isnull=False),
+                name="uniq_whatsapp_thread",
+            ),
+        ]
 
 
 class MessageAttachment(models.Model):
@@ -240,6 +269,11 @@ class Message(models.Model):
     )
     type = models.CharField(max_length=10, choices=TYPE_CHOICES)
     text = models.TextField()
+    metadata = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Channel-specific metadata (e.g. WhatsApp WAMID, reaction emoji)",
+    )
     attachments = models.JSONField(default=list, blank=True)
     versions = models.JSONField(default=list, blank=True)
     rag_sources = models.JSONField(default=list, blank=True)

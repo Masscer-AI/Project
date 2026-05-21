@@ -65,7 +65,9 @@ export default function ChatView() {
     loaderData.user?.id != null &&
     activeConversation.user_id !== loaderData.user.id;
   const isWidgetConversation = activeConversation?.chat_widget_id != null;
-  const isViewer = isForeignConversation || isWidgetConversation;
+  const isWhatsappConversation = Boolean(activeConversation?.whatsapp_user_number);
+  const isViewer =
+    isForeignConversation || isWidgetConversation || isWhatsappConversation;
 
   const chatMessageContainerRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<number | null>(null);
@@ -183,6 +185,7 @@ export default function ChatView() {
   }, [messages.length, updateScrollToEndVisibility]);
 
   useEffect(() => {
+    if (isViewer) return;
     if (
       loaderData.query &&
       agents.length > 0 &&
@@ -192,7 +195,14 @@ export default function ChatView() {
     ) {
       handleSendMessage(loaderData.query);
     }
-  }, [loaderData.query, agents, chatState.selectedAgents.length]);
+  }, [
+    loaderData.query,
+    agents,
+    chatState.selectedAgents.length,
+    isViewer,
+    loaderData.sendQuery,
+    messages.length,
+  ]);
 
   const handleSendMessage = async (input: string) => {
     if (input.trim() === "") return false;
@@ -535,6 +545,9 @@ export default function ChatView() {
               loaderData.query && !loaderData.sendQuery ? loaderData.query : ""
             }
             readOnly={isViewer}
+            readOnlyMessage={
+              isWhatsappConversation ? t("view-only-mode-whatsapp") : undefined
+            }
           />
         </div>
       </div>
