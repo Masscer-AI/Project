@@ -1243,7 +1243,13 @@ def conversation_agent_task(
                     organization = getattr(widget_agent, "organization", None)
 
             agent_tool_names = list(tool_names or [])
-            if is_embedded_channel:
+            if is_whatsapp_chat:
+                from api.whatsapp.capability_tools import WHATSAPP_DISALLOWED_CAPABILITY_TOOLS
+
+                agent_tool_names = [
+                    t for t in agent_tool_names if t not in WHATSAPP_DISALLOWED_CAPABILITY_TOOLS
+                ]
+            elif is_widget_chat:
                 _widget_excluded_tools = frozenset(
                     {
                         "query_organization_tags",
@@ -1255,7 +1261,9 @@ def conversation_agent_task(
                         "create_completion",
                     }
                 )
-                agent_tool_names = [t for t in agent_tool_names if t not in _widget_excluded_tools]
+                agent_tool_names = [
+                    t for t in agent_tool_names if t not in _widget_excluded_tools
+                ]
             applicable_alert_rules = []
             if organization:
                 from api.messaging.models import ConversationAlertRule, ConversationAlert
@@ -1276,7 +1284,7 @@ def conversation_agent_task(
                 getattr(agent, "organization_id", None),
                 len(applicable_alert_rules),
             )
-            if applicable_alert_rules:
+            if applicable_alert_rules and not is_whatsapp_chat:
                 rules_info = [
                     {"id": str(r.id), "name": r.name, "trigger": r.trigger}
                     for r in applicable_alert_rules
@@ -1324,10 +1332,10 @@ def conversation_agent_task(
                 if "raise_alert" in agent_tool_names:
                     agent_tool_names.remove("raise_alert")
 
-            # Always include read_plugin_instructions so the agent can
-            # discover plugin formatting rules on demand.
-            if "read_plugin_instructions" not in agent_tool_names:
-                agent_tool_names.append("read_plugin_instructions")
+            # Web chat only: plugins (mermaid, etc.) are not shown on WhatsApp/widget UIs.
+            if not is_embedded_channel:
+                if "read_plugin_instructions" not in agent_tool_names:
+                    agent_tool_names.append("read_plugin_instructions")
 
             # Organization tagging: tools always attached when an org exists; current tags are injected below.
             tagging_tools = (
@@ -1408,8 +1416,8 @@ def conversation_agent_task(
                     "=== END CONVERSATION TAGS ===\n"
                 )
 
-            # Available plugins summary (agent discovers and uses them on demand).
-            instructions += format_available_plugins_summary()
+            if not is_embedded_channel:
+                instructions += format_available_plugins_summary()
 
             from api.document_templates.context import (
                 agent_has_template_assignments,

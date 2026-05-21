@@ -32,22 +32,21 @@ import {
 } from "@mantine/core";
 import { IconMenu2, IconSend, IconDeviceFloppy } from "@tabler/icons-react";
 
-/** Same internal-tool toggles as chat widgets (`chat-widgets/page.tsx`). */
-const DEFAULT_CAPABILITY_NAMES = [
+/** Tools that make sense on WhatsApp (no plugins / doc templates — web UI only). */
+const WHATSAPP_CAPABILITY_NAMES = [
   "read_attachment",
   "list_attachments",
   "explore_web",
   "rag_query",
   "create_image",
   "create_speech",
-  "read_plugin_instructions",
-  "raise_alert",
-];
+  "generate_video",
+] as const;
 
 function buildCapabilitiesPayload(
   capabilityState: Record<string, boolean>
 ): { name: string; type: "internal_tool"; enabled: boolean }[] {
-  return DEFAULT_CAPABILITY_NAMES.map((name) => ({
+  return WHATSAPP_CAPABILITY_NAMES.map((name) => ({
     name,
     type: "internal_tool",
     enabled: capabilityState[name] ?? false,
@@ -187,7 +186,7 @@ const WhatsAppNumber = ({
   const [capabilityState, setCapabilityState] = useState<Record<string, boolean>>(
     () => {
       const initial: Record<string, boolean> = {};
-      for (const n of DEFAULT_CAPABILITY_NAMES) initial[n] = false;
+      for (const n of WHATSAPP_CAPABILITY_NAMES) initial[n] = false;
       for (const c of line.capabilities ?? []) {
         if (c?.name) initial[c.name] = Boolean(c.enabled);
       }
@@ -205,7 +204,7 @@ const WhatsAppNumber = ({
     if (!settingsOpened) return;
     setNameInput(line.name ?? "");
     const initial: Record<string, boolean> = {};
-    for (const n of DEFAULT_CAPABILITY_NAMES) initial[n] = false;
+    for (const n of WHATSAPP_CAPABILITY_NAMES) initial[n] = false;
     for (const c of line.capabilities ?? []) {
       if (c?.name) initial[c.name] = Boolean(c.enabled);
     }
@@ -294,20 +293,24 @@ const WhatsAppNumber = ({
             <Text size="sm" fw={500} mb="xs">
               {t("whatsapp-capabilities")}
             </Text>
-            <Stack gap="xs">
-              {DEFAULT_CAPABILITY_NAMES.map((capName) => (
-                <Checkbox
-                  key={capName}
-                  label={capName}
-                  checked={capabilityState[capName] ?? false}
-                  onChange={(e) => {
-                    const checked = e.currentTarget.checked;
-                    setCapabilityState((prev) => ({
-                      ...prev,
-                      [capName]: checked,
-                    }));
-                  }}
-                />
+            <Stack gap="sm">
+              {WHATSAPP_CAPABILITY_NAMES.map((capName) => (
+                <Stack key={capName} gap={2}>
+                  <Checkbox
+                    label={t(`widget-capability-${capName}-title`)}
+                    checked={capabilityState[capName] ?? false}
+                    onChange={(e) => {
+                      const checked = e.currentTarget.checked;
+                      setCapabilityState((prev) => ({
+                        ...prev,
+                        [capName]: checked,
+                      }));
+                    }}
+                  />
+                  <Text size="xs" c="dimmed" ml={28}>
+                    {t(`widget-capability-${capName}-description`)}
+                  </Text>
+                </Stack>
               ))}
             </Stack>
             <Button

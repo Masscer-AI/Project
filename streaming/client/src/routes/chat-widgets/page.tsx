@@ -252,6 +252,7 @@ const DEFAULT_CAPABILITY_NAMES = [
   "rag_query",
   "create_image",
   "create_speech",
+  "generate_video",
   "read_plugin_instructions",
   "raise_alert",
 ];

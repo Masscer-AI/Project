@@ -10,7 +10,8 @@ speed, emotional range, whispering, impressions, etc.
 
 Availability:
 - Must be explicitly enabled via AgentTask tool_names (tool registry allowlist)
-- Must pass org/user feature flag: "chat-generate-speech"
+- App chat: org/user feature flag "chat-generate-speech"
+- Widget / WhatsApp: gated only by widget or WSNumber capabilities (no app FF)
 """
 
 from __future__ import annotations
@@ -156,8 +157,9 @@ def _create_speech_impl(
             user = None
 
     # ---- Feature gating ----
-    # Same as create_image: widget sessions gate tools via ChatWidget.capabilities only.
-    if not conversation.chat_widget_id:
+    from api.ai_layers.tools.embedded_channels import conversation_uses_capability_gated_media_tools
+
+    if not conversation_uses_capability_gated_media_tools(conversation):
         enabled, _reason = FeatureFlagService.is_feature_enabled(
             "chat-generate-speech",
             organization=getattr(conversation, "organization", None),

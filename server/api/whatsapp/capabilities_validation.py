@@ -10,6 +10,8 @@ from rest_framework import serializers
 from api.ai_layers.tools import list_available_tools
 from api.messaging.schemas import ChatWidgetCapabilitiesPayload
 
+from .capability_tools import WHATSAPP_ALLOWED_CAPABILITY_TOOLS, filter_capabilities_for_whatsapp
+
 
 def validate_whatsapp_capabilities_list(value: Any) -> list[dict[str, Any]]:
     """
@@ -32,11 +34,24 @@ def validate_whatsapp_capabilities_list(value: Any) -> list[dict[str, Any]]:
 
     available_tools = set(list_available_tools())
     invalid_names = sorted(
-        cap.name for cap in parsed_payload.capabilities if cap.name not in available_tools
+        cap.name
+        for cap in parsed_payload.capabilities
+        if cap.name not in available_tools
     )
     if invalid_names:
         raise serializers.ValidationError(
             f"Unknown capabilities: {', '.join(invalid_names)}"
         )
 
-    return [cap.model_dump() for cap in parsed_payload.capabilities]
+    disallowed = sorted(
+        cap.name
+        for cap in parsed_payload.capabilities
+        if cap.name not in WHATSAPP_ALLOWED_CAPABILITY_TOOLS
+    )
+    if disallowed:
+        raise serializers.ValidationError(
+            f"Capabilities not available on WhatsApp: {', '.join(disallowed)}"
+        )
+
+    dumped = [cap.model_dump() for cap in parsed_payload.capabilities]
+    return filter_capabilities_for_whatsapp(dumped)

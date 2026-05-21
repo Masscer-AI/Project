@@ -191,7 +191,9 @@ def deliver_whatsapp_reply(
     assistant_message_id: int,
     inbound_wamid: str | None,
 ):
-    """Send assistant text to WhatsApp; store WAMIDs; optional reaction on inbound."""
+    """Send assistant attachments and text to WhatsApp; store WAMIDs; optional reaction."""
+    from .outbound_media import deliver_whatsapp_attachments
+
     ws_number = conversation.ws_number
     if not ws_number or not ws_number.platform_id:
         raise ValueError("Conversation has no WSNumber or platform_id")
@@ -217,15 +219,25 @@ def deliver_whatsapp_reply(
 
     body = _strip_markdown_for_whatsapp(assistant.text or "")
     reply_to = conversation.whatsapp_last_inbound_wamid
+    to = conversation.whatsapp_user_number
+    phone_id = ws_number.platform_id
 
-    out_wamid = send_message(
-        ws_number.platform_id,
-        conversation.whatsapp_user_number,
-        body,
-        reply_to,
+    media_wamids = deliver_whatsapp_attachments(
+        phone_number_id=phone_id,
+        to=to,
+        assistant_message=assistant,
+        reply_to_message_id=reply_to,
     )
 
+    out_wamid: str | None = None
+    if body:
+        # Reply context on first outbound only: media if any, otherwise text.
+        text_reply_to = reply_to if not media_wamids else None
+        out_wamid = send_message(phone_id, to, body, text_reply_to)
+
     ameta = dict(assistant.metadata or {})
+    if media_wamids:
+        ameta["whatsapp_media_wamids"] = media_wamids
     if out_wamid:
         ameta["whatsapp_wamid"] = out_wamid
     assistant.metadata = ameta
@@ -321,6 +333,41 @@ def handle_audio_message(webhook_data, message):
     handle_message_received(webhook_data, synthetic)
 
 
+def handle_document_message(webhook_data, message):
+    business_phone_number_id = webhook_data["entry"][0]["changes"][0]["value"][
+        "metadata"
+    ]["phone_number_id"]
+    try:
+        ws_number = WSNumber.objects.get(platform_id=business_phone_number_id)
+    except WSNumber.DoesNotExist:
+        printer.red(
+            f"WSNumber with platform_id {business_phone_number_id} not found"
+        )
+        return
+
+    user_phone = message["from"]
+    from .conversations import get_or_create_whatsapp_conversation
+    from .inbound import process_document_inbound
+
+    conv = get_or_create_whatsapp_conversation(ws_number, user_phone)
+    conv.whatsapp_last_inbound_wamid = message["id"]
+    conv.save(update_fields=["whatsapp_last_inbound_wamid", "updated_at"])
+
+    mark_message_as_read(business_phone_number_id, message["id"])
+
+    document = message.get("document") or {}
+    try:
+        process_document_inbound(
+            ws_number=ws_number,
+            conversation=conv,
+            user_phone=user_phone,
+            inbound_wamid=message["id"],
+            document=document if isinstance(document, dict) else {},
+        )
+    except Exception as e:
+        printer.red(f"WhatsApp document inbound failed: {e}")
+
+
 def handle_webhook(webhook_data):
     printer.blue("Handling webhook")
     printer.green(webhook_data)
@@ -339,6 +386,8 @@ def handle_webhook(webhook_data):
         handle_audio_message(webhook_data=webhook_data, message=message)
     elif message.get("type") == "image":
         handle_image_message(webhook_data=webhook_data, message=message)
+    elif message.get("type") == "document":
+        handle_document_message(webhook_data=webhook_data, message=message)
     elif message.get("type") == "interactive":
         handle_interactive_message(webhook_data=webhook_data, message=message)
 
