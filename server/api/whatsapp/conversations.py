@@ -89,6 +89,7 @@ def tool_names_from_capabilities(capabilities: list | None) -> list[str]:
     from api.ai_layers.tools import list_available_tools
 
     from .capability_tools import (
+        WHATSAPP_REQUIRED_CAPABILITY_TOOLS,
         WHATSAPP_ALLOWED_CAPABILITY_TOOLS,
         filter_capabilities_for_whatsapp,
     )
@@ -103,4 +104,8 @@ def tool_names_from_capabilities(capabilities: list | None) -> list[str]:
         name = capability.get("name")
         if isinstance(name, str) and name in available_tools:
             configured_tools.append(name)
+
+    for required_tool in WHATSAPP_REQUIRED_CAPABILITY_TOOLS:
+        if required_tool in available_tools:
+            configured_tools.append(required_tool)
     return list(dict.fromkeys(configured_tools))

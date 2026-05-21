@@ -46,9 +46,20 @@ class WhatsappConversationBridgeTests(TestCase):
         ]
         names = tool_names_from_capabilities(caps)
         self.assertIn("rag_query", names)
+        self.assertIn("read_attachment", names)
+        self.assertIn("list_attachments", names)
         self.assertNotIn("not_a_real_tool", names)
         self.assertNotIn("explore_web", names)
         self.assertNotIn("read_plugin_instructions", names)
+
+    def test_tool_names_from_capabilities_forces_required_when_disabled(self):
+        caps = [
+            {"name": "read_attachment", "type": "internal_tool", "enabled": False},
+            {"name": "list_attachments", "type": "internal_tool", "enabled": False},
+        ]
+        names = tool_names_from_capabilities(caps)
+        self.assertIn("read_attachment", names)
+        self.assertIn("list_attachments", names)
 
     def test_get_or_create_org_owned_without_ws_user(self):
         owner = User.objects.create_user(username="orgownerwa", password="x")
@@ -308,9 +319,43 @@ class WhatsappNumbersManagementApiTests(TestCase):
             **self._auth_headers(),
         )
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["capabilities"], caps)
+        self.assertEqual(
+            response.json()["capabilities"],
+            [
+                {"name": "rag_query", "type": "internal_tool", "enabled": True},
+                {"name": "read_attachment", "type": "internal_tool", "enabled": True},
+                {"name": "list_attachments", "type": "internal_tool", "enabled": True},
+            ],
+        )
         self.ws.refresh_from_db()
-        self.assertEqual(self.ws.capabilities, caps)
+        self.assertEqual(
+            self.ws.capabilities,
+            [
+                {"name": "rag_query", "type": "internal_tool", "enabled": True},
+                {"name": "read_attachment", "type": "internal_tool", "enabled": True},
+                {"name": "list_attachments", "type": "internal_tool", "enabled": True},
+            ],
+        )
+
+    def test_put_capabilities_forces_required_tools_enabled(self, _mock_ff):
+        caps = [
+            {"name": "read_attachment", "type": "internal_tool", "enabled": False},
+            {"name": "list_attachments", "type": "internal_tool", "enabled": False},
+        ]
+        response = self.client.put(
+            f"/v1/whatsapp/numbers/{self.ws.number}",
+            data=json.dumps({"capabilities": caps}),
+            content_type="application/json",
+            **self._auth_headers(),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json()["capabilities"],
+            [
+                {"name": "read_attachment", "type": "internal_tool", "enabled": True},
+                {"name": "list_attachments", "type": "internal_tool", "enabled": True},
+            ],
+        )
 
 
 @patch("api.authenticate.services.FeatureFlagService.is_feature_enabled")
@@ -546,6 +591,43 @@ class WhatsappDeliverReplyTests(TestCase):
         )
         mock_send_text.assert_called_once()
         self.assertEqual(mock_send_text.call_args[0][3], "wamid.inbound.test")
+
+    @patch("api.whatsapp.actions._pick_whatsapp_reaction", return_value="👍")
+    @patch("api.whatsapp.actions.send_reaction")
+    @patch("api.whatsapp.actions.send_message", return_value="wamid.text.clean")
+    @patch("api.whatsapp.actions.deliver_whatsapp_attachments", return_value=[])
+    def test_deliver_strips_internal_attachment_manifest_from_text(
+        self, _mock_media, mock_send_text, _mock_reaction, _mock_pick
+    ):
+        from api.whatsapp.actions import deliver_whatsapp_reply
+
+        Message.objects.create(
+            conversation=self.conv,
+            type="user",
+            text="months in japanese",
+        )
+        assistant = Message.objects.create(
+            conversation=self.conv,
+            type="assistant",
+            text=(
+                "Aqui tienes el audio con los meses en japones:\n\n"
+                "Attachments available from this message:\n"
+                "- audio/mpeg | name=speech | attachment_id=abc123\n\n"
+                "Espero que sea lo que buscabas."
+            ),
+        )
+        deliver_whatsapp_reply(
+            conversation=self.conv,
+            assistant_message_id=assistant.id,
+            inbound_wamid="wamid.inbound.test",
+        )
+
+        mock_send_text.assert_called_once()
+        self.assertEqual(
+            mock_send_text.call_args[0][2],
+            "Aqui tienes el audio con los meses en japones:\n"
+            "Espero que sea lo que buscabas.",
+        )
 
     @patch("api.whatsapp.outbound_media.requests.post")
     def test_send_attachment_prefers_https_link(self, mock_post):

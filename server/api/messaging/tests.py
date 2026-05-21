@@ -8,7 +8,7 @@ from rest_framework.test import APIClient
 
 from api.ai_layers.models import Agent, LanguageModel
 from api.authenticate.models import Organization
-from api.messaging.models import ChatWidget, Conversation, WidgetVisitorSession
+from api.messaging.models import ChatWidget, Conversation, Message, WidgetVisitorSession
 from api.messaging.serializers import ChatWidgetSerializer
 from api.providers.models import AIProvider
 
@@ -242,3 +242,52 @@ class ChatWidgetCapabilitiesTests(TestCase):
         )
 
         self.assertEqual(task_response.status_code, 403)
+
+
+class MessagePostSaveBillingTests(TestCase):
+    @patch("api.messaging.signals.async_register_llm_interaction")
+    def test_anonymous_conversation_bills_org_owner(self, delay_mock):
+        owner = User.objects.create_user(username="org-owner-bill", password="x")
+        org = Organization.objects.create(name="Bill Org", owner=owner)
+        conversation = Conversation.objects.create(user=None, organization=org)
+
+        Message.objects.create(
+            conversation=conversation,
+            type="assistant",
+            versions=[
+                {
+                    "usage": {
+                        "model_slug": "gpt-4o-mini",
+                        "prompt_tokens": 10,
+                        "completion_tokens": 20,
+                    }
+                }
+            ],
+        )
+
+        delay_mock.delay.assert_called_once_with(
+            owner.id,
+            10,
+            20,
+            "gpt-4o-mini",
+            org.id,
+        )
+
+    @patch("api.messaging.signals.async_register_llm_interaction")
+    def test_conversation_without_user_or_org_skips_billing(self, delay_mock):
+        conversation = Conversation.objects.create(user=None, organization=None)
+        Message.objects.create(
+            conversation=conversation,
+            type="assistant",
+            versions=[
+                {
+                    "usage": {
+                        "model_slug": "gpt-4o-mini",
+                        "prompt_tokens": 5,
+                        "completion_tokens": 7,
+                    }
+                }
+            ],
+        )
+
+        delay_mock.delay.assert_not_called()

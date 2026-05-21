@@ -4,16 +4,14 @@ import { useStore } from "../../modules/store";
 import "./page.css";
 import {
   getWhatsappConversations,
-  getWhatsappConversationMessages,
   getWhatsappNumbers,
-  sendMessageToConversation,
   updateWhatsappNumber,
 } from "../../modules/apiCalls";
-import MarkdownRenderer from "../../components/MarkdownRenderer/MarkdownRenderer";
 import { AgentSelector } from "../../components/AgentSelector/AgentSelector";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { useDisclosure } from "@mantine/hooks";
+import { useNavigate } from "react-router-dom";
 
 import {
   ActionIcon,
@@ -26,11 +24,10 @@ import {
   Modal,
   Stack,
   Text,
-  Textarea,
   TextInput,
   Title,
 } from "@mantine/core";
-import { IconMenu2, IconSend, IconDeviceFloppy } from "@tabler/icons-react";
+import { IconMenu2, IconDeviceFloppy } from "@tabler/icons-react";
 
 /** Tools that make sense on WhatsApp (no plugins / doc templates — web UI only). */
 const WHATSAPP_CAPABILITY_NAMES = [
@@ -42,6 +39,28 @@ const WHATSAPP_CAPABILITY_NAMES = [
   "create_speech",
   "generate_video",
 ] as const;
+
+const WHATSAPP_REQUIRED_CAPABILITY_NAMES = [
+  "read_attachment",
+  "list_attachments",
+] as const;
+const WHATSAPP_REQUIRED_CAPABILITY_SET = new Set<string>(
+  WHATSAPP_REQUIRED_CAPABILITY_NAMES
+);
+
+function buildInitialCapabilityState(
+  capabilities: { name?: string; type?: string; enabled?: boolean }[] | null | undefined
+): Record<string, boolean> {
+  const initial: Record<string, boolean> = {};
+  for (const n of WHATSAPP_CAPABILITY_NAMES) initial[n] = false;
+  for (const c of capabilities ?? []) {
+    if (c?.name) initial[c.name] = Boolean(c.enabled);
+  }
+  for (const requiredName of WHATSAPP_REQUIRED_CAPABILITY_NAMES) {
+    initial[requiredName] = true;
+  }
+  return initial;
+}
 
 function buildCapabilitiesPayload(
   capabilityState: Record<string, boolean>
@@ -178,20 +197,14 @@ const WhatsAppNumber = ({
   onRefresh: () => Promise<void>;
 }) => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { number, agent, conversations_count, name } = line;
   const [settingsOpened, { open: openSettings, close: closeSettings }] =
     useDisclosure(false);
   const [conversations, setConversations] = useState<any[]>([]);
   const [nameInput, setNameInput] = useState(name ?? "");
   const [capabilityState, setCapabilityState] = useState<Record<string, boolean>>(
-    () => {
-      const initial: Record<string, boolean> = {};
-      for (const n of WHATSAPP_CAPABILITY_NAMES) initial[n] = false;
-      for (const c of line.capabilities ?? []) {
-        if (c?.name) initial[c.name] = Boolean(c.enabled);
-      }
-      return initial;
-    }
+    () => buildInitialCapabilityState(line.capabilities)
   );
 
   useEffect(() => {
@@ -203,12 +216,7 @@ const WhatsAppNumber = ({
   useEffect(() => {
     if (!settingsOpened) return;
     setNameInput(line.name ?? "");
-    const initial: Record<string, boolean> = {};
-    for (const n of WHATSAPP_CAPABILITY_NAMES) initial[n] = false;
-    for (const c of line.capabilities ?? []) {
-      if (c?.name) initial[c.name] = Boolean(c.enabled);
-    }
-    setCapabilityState(initial);
+    setCapabilityState(buildInitialCapabilityState(line.capabilities));
   }, [settingsOpened, line.name, line.capabilities, line.number]);
 
   const changeAgent = (slug: string) => {
@@ -296,10 +304,15 @@ const WhatsAppNumber = ({
             <Stack gap="sm">
               {WHATSAPP_CAPABILITY_NAMES.map((capName) => (
                 <Stack key={capName} gap={2}>
+                  {(() => {
+                    const isRequired = WHATSAPP_REQUIRED_CAPABILITY_SET.has(capName);
+                    return (
                   <Checkbox
                     label={t(`widget-capability-${capName}-title`)}
                     checked={capabilityState[capName] ?? false}
+                    disabled={isRequired}
                     onChange={(e) => {
+                      if (isRequired) return;
                       const checked = e.currentTarget.checked;
                       setCapabilityState((prev) => ({
                         ...prev,
@@ -307,6 +320,8 @@ const WhatsAppNumber = ({
                       }));
                     }}
                   />
+                    );
+                  })()}
                   <Text size="xs" c="dimmed" ml={28}>
                     {t(`widget-capability-${capName}-description`)}
                   </Text>
@@ -326,7 +341,13 @@ const WhatsAppNumber = ({
           <Title order={5}>{t("whatsapp-conversations")}</Title>
           <Stack gap="sm">
             {conversations.map((conversation) => (
-              <ConversationComponent key={conversation.id} {...conversation} />
+              <ConversationComponent
+                key={conversation.id}
+                {...conversation}
+                onOpenConversation={(conversationId) =>
+                  navigate(`/chat?conversation=${conversationId}`)
+                }
+              />
             ))}
           </Stack>
         </Stack>
@@ -340,137 +361,33 @@ const ConversationComponent = ({
   whatsapp_user_number,
   id,
   summary,
+  onOpenConversation,
 }: {
   title: string | null;
   whatsapp_user_number: string | null;
   id: string;
   summary: string | null;
+  onOpenConversation: (conversationId: string) => void;
 }) => {
-  const [messages, setMessages] = useState<any[]>([]);
-  const [showMessages, setShowMessages] = useState(false);
-  const [showMore, setShowMore] = useState(false);
-  const [messageInput, setMessageInput] = useState("");
-
-  const getMessages = () => {
-    getWhatsappConversationMessages(id).then((res) => {
-      setMessages((res as any).messages);
-      setShowMessages(true);
-    });
-  };
-
-  const sendMessage = () => {
-    if (messageInput.trim() === "") return;
-    sendMessageToConversation(id, messageInput).then(() => {
-      setMessageInput("");
-    });
-  };
+  const preview = summary ? summary.slice(0, 120) : "";
+  const summaryText = summary
+    ? preview.length < summary.length
+      ? `${preview}...`
+      : preview
+    : "No summary";
 
   return (
-    <>
-      <Card
-        withBorder
-        padding="md"
-        style={{ cursor: "pointer" }}
-        onClick={getMessages}
-      >
-        <Title order={5}>{title}</Title>
-        <Text size="sm">{whatsapp_user_number || "—"}</Text>
-      </Card>
-
-      <Modal
-        opened={showMessages}
-        onClose={() => setShowMessages(false)}
-        title={title || "No title"}
-        centered
-        size="lg"
-      >
-        <Stack gap="md">
-          <Card withBorder p="sm" className="whatsapp-header">
-            <Text size="sm">
-              {summary ? (
-                showMore ? (
-                  summary
-                ) : (
-                  summary.slice(0, 80) + "..."
-                )
-              ) : (
-                "No summary"
-              )}
-            </Text>
-            <Button
-              variant="subtle"
-              size="xs"
-              onClick={() => setShowMore(!showMore)}
-              mt={4}
-            >
-              {showMore ? "Hide" : "Read more →"}
-            </Button>
-          </Card>
-
-          <div className="whatsapp-messages">
-            {messages &&
-              messages.map((message) => (
-                <WhatsAppMessage key={message.id} {...message} />
-              ))}
-          </div>
-
-          <Group gap="sm" align="flex-end">
-            <Textarea
-              value={messageInput}
-              onChange={(e) => {
-                const val = e.currentTarget.value;
-                setMessageInput(val);
-              }}
-              placeholder="Write a message"
-              autosize
-              minRows={1}
-              maxRows={4}
-              style={{ flex: 1 }}
-            />
-            <ActionIcon size="lg" onClick={sendMessage}>
-              <IconSend size={18} />
-            </ActionIcon>
-          </Group>
-        </Stack>
-      </Modal>
-    </>
-  );
-};
-
-const WhatsAppMessage = ({
-  text,
-  type,
-  created_at,
-  metadata,
-}: {
-  text: string;
-  type: string;
-  created_at: string;
-  metadata?: { whatsapp_reaction?: string } | null;
-}) => {
-  const reaction = metadata?.whatsapp_reaction;
-  const date = new Date(created_at);
-  const formattedDate = date.toLocaleString(undefined, {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    timeZoneName: "short",
-  });
-
-  return (
-    <div
-      className={`text-center d-flex flex-y message ${type.toLowerCase()}`}
+    <Card
+      withBorder
+      padding="md"
+      style={{ cursor: "pointer" }}
+      onClick={() => onOpenConversation(id)}
     >
-      <div className="text-left message-text">
-        <MarkdownRenderer markdown={text} />
-        {reaction && <span className="reaction">{reaction} ✔️✔️</span>}
-      </div>
-      <Text size="xs" c="dimmed" p="xs">
-        {formattedDate}
+      <Title order={5}>{title || "No title"}</Title>
+      <Text size="sm">{whatsapp_user_number || "—"}</Text>
+      <Text size="sm" c="dimmed" mt={6}>
+        {summaryText}
       </Text>
-    </div>
+    </Card>
   );
 };

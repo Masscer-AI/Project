@@ -1,10 +1,36 @@
+import logging
+
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from .models import Message
-from api.utils.color_printer import printer
+
+from api.authenticate.services import FeatureFlagService
 from api.consumption.tasks import async_register_llm_interaction
 from api.messaging.tasks import get_user_organization
-from api.authenticate.services import FeatureFlagService
+from api.utils.color_printer import printer
+
+from .models import Conversation, Message
+
+logger = logging.getLogger(__name__)
+
+
+def _resolve_billing_context(conversation: Conversation) -> tuple[int | None, int | None]:
+    """
+    Return (billing_user_id, organization_id) for consumption registration.
+
+    Anonymous channels (widget/WhatsApp) have conversation.user=None; charge the org wallet
+    using organization.owner_id when available.
+    """
+    organization_id = conversation.organization_id
+    if conversation.user_id:
+        if not organization_id and conversation.user:
+            org = get_user_organization(conversation.user)
+            organization_id = org.id if org else None
+        return conversation.user_id, organization_id
+    if organization_id:
+        owner_id = conversation.organization.owner_id
+        if owner_id:
+            return owner_id, organization_id
+    return None, organization_id
 
 
 @receiver(post_save, sender=Message)
@@ -23,17 +49,20 @@ def message_post_save(sender, instance, **kwargs):
                 if not input_tokens or not output_tokens:
                     continue
 
-                if not instance.conversation.user:
-                    printer.error("No user found!")
-                    return
-
-                organization_id = instance.conversation.organization_id
-                if not organization_id:
-                    org = get_user_organization(instance.conversation.user)
-                    organization_id = org.id if org else None
+                billing_user_id, organization_id = _resolve_billing_context(
+                    instance.conversation
+                )
+                if billing_user_id is None:
+                    logger.warning(
+                        "Skipping LLM usage billing: no billing user for conversation_id=%s "
+                        "(organization_id=%s)",
+                        instance.conversation_id,
+                        organization_id,
+                    )
+                    continue
 
                 async_register_llm_interaction.delay(
-                    instance.conversation.user.id,
+                    billing_user_id,
                     input_tokens,
                     output_tokens,
                     model_slug,

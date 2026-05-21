@@ -15,6 +15,11 @@ WHATSAPP_ALLOWED_CAPABILITY_TOOLS: frozenset[str] = frozenset(
     }
 )
 
+WHATSAPP_REQUIRED_CAPABILITY_TOOLS: tuple[str, str] = (
+    "read_attachment",
+    "list_attachments",
+)
+
 WHATSAPP_DISALLOWED_CAPABILITY_TOOLS: frozenset[str] = frozenset(
     {
         "read_plugin_instructions",
@@ -33,13 +38,30 @@ WHATSAPP_DISALLOWED_CAPABILITY_TOOLS: frozenset[str] = frozenset(
 
 
 def filter_capabilities_for_whatsapp(capabilities: list | None) -> list[dict]:
-    """Keep only allowed tools; drop unknown or frontend-only capabilities."""
+    """Keep only allowed tools and enforce WhatsApp-required tools as enabled."""
     out: list[dict] = []
+    seen: set[str] = set()
     for cap in capabilities or []:
         if not isinstance(cap, dict):
             continue
         name = cap.get("name")
         if not isinstance(name, str) or name not in WHATSAPP_ALLOWED_CAPABILITY_TOOLS:
             continue
-        out.append(cap)
+        normalized = dict(cap)
+        if name in WHATSAPP_REQUIRED_CAPABILITY_TOOLS:
+            normalized["type"] = "internal_tool"
+            normalized["enabled"] = True
+        out.append(normalized)
+        seen.add(name)
+
+    for required_name in WHATSAPP_REQUIRED_CAPABILITY_TOOLS:
+        if required_name in seen:
+            continue
+        out.append(
+            {
+                "name": required_name,
+                "type": "internal_tool",
+                "enabled": True,
+            }
+        )
     return out

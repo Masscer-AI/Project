@@ -1424,7 +1424,7 @@ def conversation_agent_task(
                 format_assigned_templates_instruction,
             )
 
-            if not is_embedded_channel and agent_has_template_assignments(agent):
+            if agent_has_template_assignments(agent):
                 instructions += format_assigned_templates_instruction(agent)
                 for _tpl_tool in ("list_document_templates", "render_document_template"):
                     if _tpl_tool not in agent_tool_names:

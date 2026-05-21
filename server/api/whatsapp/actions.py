@@ -163,6 +163,30 @@ def _strip_markdown_for_whatsapp(text: str) -> str:
     return t.strip()
 
 
+def _strip_attachment_manifest_for_whatsapp(text: str) -> str:
+    """
+    Remove internal attachment metadata blocks from outbound WhatsApp text.
+    """
+    if not text:
+        return ""
+
+    lines = text.splitlines()
+    cleaned: list[str] = []
+    i = 0
+    while i < len(lines):
+        if lines[i].strip() == "Attachments available from this message:":
+            i += 1
+            while i < len(lines) and lines[i].strip().startswith("- "):
+                i += 1
+            while i < len(lines) and not lines[i].strip():
+                i += 1
+            continue
+        cleaned.append(lines[i])
+        i += 1
+
+    return "\n".join(cleaned).strip()
+
+
 class ReactionPick(BaseModel):
     emoji: str = Field(
         description="Single WhatsApp-valid emoji reaction to the user's last message"
@@ -218,6 +242,7 @@ def deliver_whatsapp_reply(
         user_msg.save(update_fields=["metadata"])
 
     body = _strip_markdown_for_whatsapp(assistant.text or "")
+    body = _strip_attachment_manifest_for_whatsapp(body)
     reply_to = conversation.whatsapp_last_inbound_wamid
     to = conversation.whatsapp_user_number
     phone_id = ws_number.platform_id
