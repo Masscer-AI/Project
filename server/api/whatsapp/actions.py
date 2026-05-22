@@ -349,7 +349,10 @@ def handle_audio_message(webhook_data, message):
     ]["phone_number_id"]
 
     audio_file_path = download_audio(business_phone_number_id, audio_url)
-    transcription = transcribe_audio(audio_file_path)
+    transcription = (transcribe_audio(audio_file_path) or "").strip()
+    if not transcription:
+        printer.red("Empty transcription for inbound WhatsApp audio; skipping")
+        return
     printer.green("Transcription: ", transcription)
 
     synthetic = dict(message)

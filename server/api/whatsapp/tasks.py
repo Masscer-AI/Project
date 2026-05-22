@@ -1,6 +1,7 @@
 import logging
 
 from celery import shared_task
+from django.core.cache import cache
 
 from .actions import deliver_whatsapp_reply, handle_webhook, send_whatsapp_fallback_text
 
@@ -11,6 +12,55 @@ logger = logging.getLogger(__name__)
 def async_handle_webhook(webhook_data):
     result = handle_webhook(webhook_data=webhook_data)
     return result
+
+
+@shared_task
+def whatsapp_flush_inbound_agent_task(
+    *,
+    conversation_id: str,
+    ws_number_id: int,
+    whatsapp_user_number: str,
+):
+    from .inbound import (
+        whatsapp_inbound_buffer_key,
+        whatsapp_inbound_schedule_lock_key,
+    )
+
+    buffer_key = whatsapp_inbound_buffer_key(conversation_id)
+    schedule_lock_key = whatsapp_inbound_schedule_lock_key(conversation_id)
+
+    buffered_payloads = cache.get(buffer_key) or []
+    cache.delete(buffer_key)
+    cache.delete(schedule_lock_key)
+
+    if not buffered_payloads:
+        return {"status": "skipped", "reason": "empty_buffer"}
+
+    merged_user_inputs: list[dict] = []
+    regenerate_ids: list[int] = []
+    latest_inbound_wamid: str | None = None
+
+    for payload in buffered_payloads:
+        merged_user_inputs.extend(payload.get("user_inputs") or [])
+        regenerate_id = payload.get("regenerate_message_id")
+        if isinstance(regenerate_id, int):
+            regenerate_ids.append(regenerate_id)
+        wamid = payload.get("inbound_wamid")
+        if isinstance(wamid, str) and wamid:
+            latest_inbound_wamid = wamid
+
+    if not merged_user_inputs:
+        return {"status": "skipped", "reason": "empty_user_inputs"}
+
+    regenerate_message_id = min(regenerate_ids) if regenerate_ids else None
+    return whatsapp_conversation_agent_task(
+        conversation_id=conversation_id,
+        user_inputs=merged_user_inputs,
+        ws_number_id=ws_number_id,
+        whatsapp_user_number=whatsapp_user_number,
+        inbound_wamid=latest_inbound_wamid,
+        regenerate_message_id=regenerate_message_id,
+    )
 
 
 @shared_task

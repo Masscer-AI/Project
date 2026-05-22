@@ -78,6 +78,9 @@ class WhatsappConversationBridgeTests(TestCase):
 
 class WhatsappWebhookEnqueueTests(TestCase):
     def setUp(self):
+        from django.core.cache import cache
+
+        cache.clear()
         self.user = User.objects.create_user(username="wsowner2", password="x")
         self.agent = Agent.objects.create(name="Test WA2", salute="hi")
         self.ws = WSNumber.objects.create(
@@ -88,9 +91,8 @@ class WhatsappWebhookEnqueueTests(TestCase):
         )
 
     @patch("api.whatsapp.actions.mark_message_as_read")
-    @patch("api.whatsapp.tasks.whatsapp_conversation_agent_task")
-    def test_handle_message_received_enqueues_task(self, mock_task, _mock_read):
-        mock_task.delay = MagicMock()
+    @patch("api.whatsapp.tasks.whatsapp_flush_inbound_agent_task.apply_async")
+    def test_handle_message_received_enqueues_task(self, mock_apply_async, _mock_read):
         from api.whatsapp.actions import handle_message_received
 
         webhook_data = {
@@ -121,25 +123,22 @@ class WhatsappWebhookEnqueueTests(TestCase):
             ws_number=self.ws, whatsapp_user_number="5490000000000"
         )
         self.assertEqual(conv.whatsapp_last_inbound_wamid, "wamid.inbound")
-        mock_task.delay.assert_called_once()
-        kwargs = mock_task.delay.call_args.kwargs
+        mock_apply_async.assert_called_once()
+        kwargs = mock_apply_async.call_args.kwargs["kwargs"]
+        self.assertEqual(mock_apply_async.call_args.kwargs["countdown"], 3)
         self.assertEqual(kwargs["conversation_id"], str(conv.id))
         self.assertEqual(kwargs["ws_number_id"], self.ws.id)
         self.assertEqual(kwargs["whatsapp_user_number"], "5490000000000")
-        self.assertEqual(kwargs["inbound_wamid"], "wamid.inbound")
-        self.assertIsNotNone(kwargs.get("regenerate_message_id"))
         stub = Message.objects.get(
             conversation=conv,
             type="user",
             metadata__whatsapp_inbound_wamid="wamid.inbound",
         )
-        self.assertEqual(kwargs["regenerate_message_id"], stub.id)
         self.assertEqual(stub.text, ".")
 
     @patch("api.whatsapp.actions.mark_message_as_read")
-    @patch("api.whatsapp.tasks.whatsapp_conversation_agent_task")
-    def test_duplicate_inbound_wamid_skips_second_enqueue(self, mock_task, _mock_read):
-        mock_task.delay = MagicMock()
+    @patch("api.whatsapp.tasks.whatsapp_flush_inbound_agent_task.apply_async")
+    def test_duplicate_inbound_wamid_skips_second_enqueue(self, mock_apply_async, _mock_read):
         from api.whatsapp.actions import handle_message_received
 
         webhook_data = {
@@ -166,15 +165,14 @@ class WhatsappWebhookEnqueueTests(TestCase):
         message = webhook_data["entry"][0]["changes"][0]["value"]["messages"][0]
         handle_message_received(webhook_data, message)
         handle_message_received(webhook_data, message)
-        self.assertEqual(mock_task.delay.call_count, 1)
+        self.assertEqual(mock_apply_async.call_count, 1)
 
     @patch("api.whatsapp.inbound.fetch_whatsapp_media_bytes")
     @patch("api.whatsapp.actions.mark_message_as_read")
-    @patch("api.whatsapp.tasks.whatsapp_conversation_agent_task")
+    @patch("api.whatsapp.tasks.whatsapp_flush_inbound_agent_task.apply_async")
     def test_handle_document_message_enqueues_task_with_attachment(
-        self, mock_task, _mock_read, mock_fetch_media
+        self, mock_apply_async, _mock_read, mock_fetch_media
     ):
-        mock_task.delay = MagicMock()
         mock_fetch_media.return_value = (b"%PDF-1.4 test", "application/pdf")
         from api.whatsapp.actions import handle_webhook
 
@@ -209,17 +207,125 @@ class WhatsappWebhookEnqueueTests(TestCase):
         conv = Conversation.objects.get(
             ws_number=self.ws, whatsapp_user_number="5490000000000"
         )
-        mock_task.delay.assert_called_once()
-        kwargs = mock_task.delay.call_args.kwargs
+        mock_apply_async.assert_called_once()
+        kwargs = mock_apply_async.call_args.kwargs["kwargs"]
         self.assertEqual(kwargs["conversation_id"], str(conv.id))
-        self.assertEqual(kwargs["inbound_wamid"], "wamid.doc.inbound")
-        user_inputs = kwargs["user_inputs"]
+        stub = Message.objects.get(
+            conversation=conv,
+            type="user",
+            metadata__whatsapp_inbound_wamid="wamid.doc.inbound",
+        )
+        from django.core.cache import cache
+        from api.whatsapp.inbound import whatsapp_inbound_buffer_key
+
+        buffered = cache.get(whatsapp_inbound_buffer_key(str(conv.id))) or []
+        self.assertEqual(len(buffered), 1)
+        user_inputs = buffered[0]["user_inputs"]
         self.assertEqual(user_inputs[0]["type"], "input_text")
         self.assertEqual(user_inputs[1]["type"], "input_attachment")
-        att_id = user_inputs[1]["attachment_id"]
-        att = MessageAttachment.objects.get(id=att_id)
+        att = MessageAttachment.objects.get(id=user_inputs[1]["attachment_id"])
         self.assertEqual(att.conversation_id, conv.id)
         self.assertEqual(att.content_type, "application/pdf")
+        self.assertEqual(buffered[0]["regenerate_message_id"], stub.id)
+
+    @patch("api.whatsapp.tasks.whatsapp_conversation_agent_task")
+    def test_flush_task_merges_buffered_inbounds(self, mock_agent_task):
+        from django.core.cache import cache
+
+        from api.whatsapp.inbound import (
+            whatsapp_inbound_buffer_key,
+            whatsapp_inbound_schedule_lock_key,
+        )
+        from api.whatsapp.tasks import whatsapp_flush_inbound_agent_task
+
+        conv = Conversation.objects.create(
+            user=None,
+            ws_number=self.ws,
+            whatsapp_user_number="5490000000001",
+        )
+        first = Message.objects.create(
+            conversation=conv,
+            type="user",
+            text=".",
+            metadata={"whatsapp_inbound_wamid": "wamid.1"},
+        )
+        second = Message.objects.create(
+            conversation=conv,
+            type="user",
+            text=".",
+            metadata={"whatsapp_inbound_wamid": "wamid.2"},
+        )
+        cache.set(
+            whatsapp_inbound_buffer_key(str(conv.id)),
+            [
+                {
+                    "inbound_wamid": "wamid.1",
+                    "user_inputs": [{"type": "input_text", "text": "Hello"}],
+                    "regenerate_message_id": first.id,
+                },
+                {
+                    "inbound_wamid": "wamid.2",
+                    "user_inputs": [{"type": "input_text", "text": "there"}],
+                    "regenerate_message_id": second.id,
+                },
+            ],
+            timeout=120,
+        )
+        cache.set(whatsapp_inbound_schedule_lock_key(str(conv.id)), True, timeout=120)
+
+        whatsapp_flush_inbound_agent_task(
+            conversation_id=str(conv.id),
+            ws_number_id=self.ws.id,
+            whatsapp_user_number="5490000000001",
+        )
+
+        mock_agent_task.assert_called_once_with(
+            conversation_id=str(conv.id),
+            user_inputs=[
+                {"type": "input_text", "text": "Hello"},
+                {"type": "input_text", "text": "there"},
+            ],
+            ws_number_id=self.ws.id,
+            whatsapp_user_number="5490000000001",
+            inbound_wamid="wamid.2",
+            regenerate_message_id=first.id,
+        )
+
+    @patch("api.whatsapp.actions.handle_message_received")
+    @patch("api.whatsapp.actions.transcribe_audio", return_value="Hola desde audio")
+    @patch("api.whatsapp.actions.download_audio", return_value="/tmp/fake.ogg")
+    def test_handle_audio_message_transcribes_and_forwards_as_text(
+        self, _mock_download, _mock_transcribe, mock_handle_message
+    ):
+        from api.whatsapp.actions import handle_audio_message
+
+        webhook_data = {
+            "entry": [
+                {
+                    "changes": [
+                        {
+                            "value": {
+                                "metadata": {"phone_number_id": "pnid-enqueue"},
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+        message = {
+            "from": "5490000000000",
+            "id": "wamid.audio.inbound",
+            "type": "audio",
+            "audio": {"id": "media-audio-1"},
+        }
+
+        handle_audio_message(webhook_data, message)
+
+        mock_handle_message.assert_called_once()
+        forwarded = mock_handle_message.call_args.args[1]
+        self.assertEqual(forwarded["id"], "wamid.audio.inbound")
+        self.assertEqual(forwarded["type"], "text")
+        self.assertEqual(forwarded["text"]["body"], "Hola desde audio")
 
 
 @patch("api.whatsapp.views.FeatureFlagService.is_feature_enabled", return_value=(True, "on"))

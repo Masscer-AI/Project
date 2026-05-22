@@ -9,6 +9,7 @@ import uuid
 from typing import Any
 
 from django.core.files.base import ContentFile
+from django.core.cache import cache
 
 from api.messaging.models import Conversation, Message, MessageAttachment
 
@@ -18,6 +19,16 @@ from .models import WSNumber
 _ALLOWED_IMAGE_MIMES = frozenset(
     {"image/jpeg", "image/png", "image/webp", "image/gif"}
 )
+WHATSAPP_INBOUND_DEBOUNCE_SECONDS = 3
+WHATSAPP_INBOUND_BUFFER_TTL_SECONDS = 120
+
+
+def whatsapp_inbound_buffer_key(conversation_id: str) -> str:
+    return f"whatsapp:inbound:buffer:{conversation_id}"
+
+
+def whatsapp_inbound_schedule_lock_key(conversation_id: str) -> str:
+    return f"whatsapp:inbound:flush_scheduled:{conversation_id}"
 
 
 def inbound_wamid_already_processed(conversation: Conversation, wamid: str) -> bool:
@@ -98,8 +109,8 @@ def enqueue_whatsapp_inbound_agent(
     inbound_wamid: str,
     user_inputs: list[dict[str, Any]],
 ) -> None:
-    """Create placeholder user Message, then run agent task with regenerate_message_id."""
-    from .tasks import whatsapp_conversation_agent_task
+    """Create placeholder user Message, buffer inbound payload, and schedule debounced flush."""
+    from .tasks import whatsapp_flush_inbound_agent_task
 
     stub = Message.objects.create(
         conversation=conversation,
@@ -107,14 +118,29 @@ def enqueue_whatsapp_inbound_agent(
         text=".",
         metadata={"whatsapp_inbound_wamid": inbound_wamid},
     )
-    whatsapp_conversation_agent_task.delay(
-        conversation_id=str(conversation.id),
-        user_inputs=user_inputs,
-        ws_number_id=ws_number.id,
-        whatsapp_user_number=whatsapp_user_number,
-        inbound_wamid=inbound_wamid,
-        regenerate_message_id=stub.id,
+    conversation_id = str(conversation.id)
+    buffer_key = whatsapp_inbound_buffer_key(conversation_id)
+    schedule_lock_key = whatsapp_inbound_schedule_lock_key(conversation_id)
+
+    buffered_payloads = cache.get(buffer_key) or []
+    buffered_payloads.append(
+        {
+            "inbound_wamid": inbound_wamid,
+            "user_inputs": user_inputs,
+            "regenerate_message_id": stub.id,
+        }
     )
+    cache.set(buffer_key, buffered_payloads, timeout=WHATSAPP_INBOUND_BUFFER_TTL_SECONDS)
+
+    if cache.add(schedule_lock_key, True, timeout=WHATSAPP_INBOUND_BUFFER_TTL_SECONDS):
+        whatsapp_flush_inbound_agent_task.apply_async(
+            kwargs={
+                "conversation_id": conversation_id,
+                "ws_number_id": ws_number.id,
+                "whatsapp_user_number": whatsapp_user_number,
+            },
+            countdown=WHATSAPP_INBOUND_DEBOUNCE_SECONDS,
+        )
 
 
 def process_text_inbound(
