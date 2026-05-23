@@ -52,6 +52,20 @@ class WhatsappConversationBridgeTests(TestCase):
         self.assertNotIn("explore_web", names)
         self.assertNotIn("read_plugin_instructions", names)
 
+    def test_generate_document_file_allowed_on_whatsapp(self):
+        from api.whatsapp.capability_tools import WHATSAPP_ALLOWED_CAPABILITY_TOOLS
+
+        self.assertIn("generate_document_file", WHATSAPP_ALLOWED_CAPABILITY_TOOLS)
+        caps = [
+            {
+                "name": "generate_document_file",
+                "type": "internal_tool",
+                "enabled": True,
+            },
+        ]
+        names = tool_names_from_capabilities(caps)
+        self.assertIn("generate_document_file", names)
+
     def test_tool_names_from_capabilities_forces_required_when_disabled(self):
         caps = [
             {"name": "read_attachment", "type": "internal_tool", "enabled": False},
@@ -538,6 +552,29 @@ class WhatsappEmbeddedMediaToolTests(TestCase):
 
         is_feature_enabled_mock.assert_not_called()
         self.assertEqual(result.output_format, "mp3")
+
+    @patch("api.ai_layers.tools.generate_video._generate_video_veo")
+    def test_generate_video_skips_video_tools_flag_for_whatsapp_conversation(
+        self, veo_mock, is_feature_enabled_mock
+    ):
+        from api.ai_layers.tools.generate_video import _generate_video_impl
+        from api.whatsapp.conversations import get_or_create_whatsapp_conversation
+
+        is_feature_enabled_mock.return_value = (False, "off")
+        conv = get_or_create_whatsapp_conversation(self.ws, "5939000000003")
+        veo_mock.return_value = (b"fake-mp4-bytes", 8.0)
+
+        result = _generate_video_impl(
+            prompt="ocean waves at sunset",
+            image_attachment_id="",
+            aspect_ratio="landscape",
+            conversation_id=str(conv.id),
+            user_id=None,
+            agent_slug=self.agent.slug,
+        )
+
+        is_feature_enabled_mock.assert_not_called()
+        self.assertEqual(result.duration_seconds, 8.0)
 
 
 class WhatsappOutboundMediaHelperTests(TestCase):

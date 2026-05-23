@@ -41,6 +41,7 @@ TOOL_REGISTRY: dict[str, str] = {
     "query_conversation": "api.ai_layers.tools.query_conversation",
     "list_document_templates": "api.ai_layers.tools.list_document_templates",
     "render_document_template": "api.ai_layers.tools.render_document_template",
+    "generate_document_file": "api.ai_layers.tools.generate_document_file",
     # Cloudbeds integration tools
     # "cloudbeds_list_hotels": "api.ai_layers.tools.cloudbeds_list_hotels",
 }

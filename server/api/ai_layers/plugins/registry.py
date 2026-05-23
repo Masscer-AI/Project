@@ -32,19 +32,6 @@ PLUGIN_DEFINITIONS: dict[str, PluginDefinition] = {
         ),
         instructions_filename="mermaid-diagrams.md",
     ),
-    "document-maker": PluginDefinition(
-        slug="document-maker",
-        name="Document Maker",
-        description=(
-            "Generate formal documents (resumes/CVs, reports, essays, letters, "
-            "proposals, etc.) as full HTML pages with metadata. The user can "
-            "then export them to DOCX (or other supported formats) directly from the chat. "
-            "USE THIS whenever the user asks you to create, write, or generate "
-            "a document, resume, CV, report, letter, or any content they would "
-            "want to download or print."
-        ),
-        instructions_filename="document-maker.md",
-    ),
 }
 
 AVAILABLE_PLUGIN_SLUGS: set[str] = set(PLUGIN_DEFINITIONS.keys())
@@ -127,9 +114,9 @@ def format_available_plugins_summary() -> str:
 
     lines.append("")
     lines.append(
-        "If the user asks for a document, resume, report, diagram, chart, "
-        "or any exportable content, ALWAYS use the matching plugin. "
-        "Never just paste plain text when a plugin can produce a downloadable result."
+        "If the user asks for a diagram or chart, use the matching plugin. "
+        "For downloadable Word documents from scratch, use generate_document_file "
+        "(not a frontend plugin)."
     )
 
     return "\n".join(lines) + "\n"

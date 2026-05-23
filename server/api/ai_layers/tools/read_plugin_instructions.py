@@ -2,7 +2,7 @@
 Tool: read_plugin_instructions
 
 Lets the agent fetch detailed formatting/usage instructions for a
-frontend rendering plugin (e.g. mermaid-diagrams, document-maker)
+frontend rendering plugin (e.g. mermaid-diagrams)
 on demand, instead of always injecting them into the system prompt.
 """
 
@@ -57,8 +57,7 @@ def get_tool(**kwargs) -> dict:
         "name": "read_plugin_instructions",
         "description": (
             "Fetch the detailed formatting instructions for a frontend "
-            "rendering plugin (e.g. mermaid-diagrams for diagrams, "
-            "document-maker for formal HTML documents). Call this before "
+            "rendering plugin (e.g. mermaid-diagrams for diagrams). Call this before "
             "using a plugin so you follow the correct syntax."
         ),
         "parameters": ReadPluginInstructionsParams,

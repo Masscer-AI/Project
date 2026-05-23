@@ -253,6 +253,7 @@ const DEFAULT_CAPABILITY_NAMES = [
   "create_image",
   "create_speech",
   "generate_video",
+  "generate_document_file",
   "read_plugin_instructions",
   "raise_alert",
 ];

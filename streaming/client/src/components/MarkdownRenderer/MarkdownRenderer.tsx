@@ -362,10 +362,6 @@ export const CustomCodeBlock = ({
       findPlugin();
     }
 
-    if (language === "documentMaker") {
-      setPluginName("documentMaker");
-      setUsePlugin(true);
-    }
   }, [code, language]);
 
   const handleCopy = () => {

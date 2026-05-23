@@ -581,6 +581,51 @@ def _extract_render_document_template_attachments(
     return attachments, attachment_ids
 
 
+def _extract_generate_document_file_attachments(
+    tool_calls: list[dict],
+) -> tuple[list[dict], list[str]]:
+    """
+    Extract document attachment descriptors from generate_document_file tool calls.
+
+    generate_document_file returns JSON like:
+      { attachment_id, name, content, content_type, ... }
+    """
+    if not tool_calls:
+        return [], []
+
+    attachments: list[dict] = []
+    attachment_ids: list[str] = []
+
+    for call in tool_calls:
+        try:
+            if (call or {}).get("tool_name") != "generate_document_file":
+                continue
+            raw = (call or {}).get("result") or ""
+            if not isinstance(raw, str) or not raw.strip():
+                continue
+            data = json.loads(raw)
+            if not isinstance(data, dict):
+                continue
+            aid = data.get("attachment_id")
+            content = data.get("content") or ""
+            name = data.get("name") or "document.docx"
+            if not aid or not content:
+                continue
+            attachments.append(
+                {
+                    "type": "document",
+                    "content": content,
+                    "name": name,
+                    "attachment_id": str(aid),
+                }
+            )
+            attachment_ids.append(str(aid))
+        except Exception:
+            continue
+
+    return attachments, attachment_ids
+
+
 def _message_attachment_to_display_dict(att) -> dict | None:
     """
     Build a Message.attachments-compatible descriptor from a MessageAttachment row.
@@ -1180,6 +1225,17 @@ def conversation_agent_task(
                     "\n\nWhen referencing the video attachment in markdown, link it like: "
                     "![Video](attachment:<attachment_id>)."
                 )
+            instructions += (
+                "\n\nDocument file generation is enabled (generate_document_file). "
+                "When the user wants a downloadable Word document created from scratch "
+                "(report, letter, resume, proposal, etc.) and you are NOT using an "
+                "assigned Word template, call generate_document_file(document_string, extension, output_filename). "
+                "- document_string: the full document body (markdown or HTML). "
+                "- extension: 'md' for markdown or 'html' for HTML. "
+                "- output_filename: optional .docx filename (default document.docx). "
+                "Output is always DOCX. "
+                "After success, include: [Download document](attachment:<attachment_id>)."
+            )
             if "create_speech" in (tool_names or []):
                 instructions += (
                     "\n\nSpeech generation is enabled (model: gpt-4o-mini-tts). "
@@ -1430,6 +1486,9 @@ def conversation_agent_task(
                     if _tpl_tool not in agent_tool_names:
                         agent_tool_names.append(_tpl_tool)
 
+            if "generate_document_file" not in agent_tool_names:
+                agent_tool_names.append("generate_document_file")
+
             # ---- Create AgentSession (inputs) ----
             model_ref = ModelRef(
                 id=llm.id if llm else 0,
@@ -1566,6 +1625,14 @@ def conversation_agent_task(
                 assistant_message_attachments.extend(doc_atts)
             if doc_ids:
                 assistant_attachment_ids.extend(doc_ids)
+
+            gen_doc_atts, gen_doc_ids = _extract_generate_document_file_attachments(
+                result.tool_calls or []
+            )
+            if gen_doc_atts:
+                assistant_message_attachments.extend(gen_doc_atts)
+            if gen_doc_ids:
+                assistant_attachment_ids.extend(gen_doc_ids)
 
             if isinstance(result.output, str):
                 output_value = OutputValue(type="string", value=result.output)

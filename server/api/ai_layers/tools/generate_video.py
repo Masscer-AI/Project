@@ -248,7 +248,11 @@ def _generate_video_impl(
             user = None
 
     # ---- Feature gating ----
-    if not conversation.chat_widget_id:
+    from api.ai_layers.tools.embedded_channels import (
+        conversation_uses_capability_gated_media_tools,
+    )
+
+    if not conversation_uses_capability_gated_media_tools(conversation):
         enabled, _reason = FeatureFlagService.is_feature_enabled(
             "video-tools",
             organization=getattr(conversation, "organization", None),

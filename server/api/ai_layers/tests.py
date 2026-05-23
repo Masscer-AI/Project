@@ -20,6 +20,12 @@ class ConversationTaggingToolsRegistryTests(SimpleTestCase):
         ):
             self.assertIn(required, names)
         self.assertIn("create_completion", names)
+        self.assertIn("generate_document_file", names)
+
+    def test_document_maker_plugin_removed(self):
+        from api.ai_layers.plugins.registry import PLUGIN_DEFINITIONS
+
+        self.assertNotIn("document-maker", PLUGIN_DEFINITIONS)
 
 
 class PluginRegistryTests(SimpleTestCase):
@@ -192,6 +198,77 @@ class ToolAttachmentExtractionTests(SimpleTestCase):
             ],
         )
         self.assertEqual(attachment_ids, ["7b2a85f8-0b74-4a0f-b5a0-548df74dc5be"])
+
+    def test_extract_generate_document_file_attachments(self):
+        from api.ai_layers.tasks import _extract_generate_document_file_attachments
+
+        tool_calls = [
+            {
+                "tool_name": "generate_document_file",
+                "result": (
+                    '{"attachment_id":"a1b2c3d4-e5f6-7890-abcd-ef1234567890",'
+                    '"name":"report.docx","content":"https://example.com/report.docx"}'
+                ),
+            },
+            {
+                "tool_name": "render_document_template",
+                "result": '{"attachment_id":"x","content":"https://example.com/x.docx"}',
+            },
+        ]
+
+        attachments, attachment_ids = _extract_generate_document_file_attachments(
+            tool_calls
+        )
+
+        self.assertEqual(
+            attachments,
+            [
+                {
+                    "type": "document",
+                    "content": "https://example.com/report.docx",
+                    "name": "report.docx",
+                    "attachment_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                }
+            ],
+        )
+        self.assertEqual(
+            attachment_ids, ["a1b2c3d4-e5f6-7890-abcd-ef1234567890"]
+        )
+
+
+class GenerateDocumentFileToolTests(SimpleTestCase):
+    @patch("api.ai_layers.models.Agent")
+    @patch("api.messaging.models.MessageAttachment")
+    @patch("api.utils.document_tools.convert_document_string_to_docx_bytes")
+    @patch("api.messaging.models.Conversation")
+    def test_impl_creates_attachment(
+        self, mock_conversation_cls, mock_convert, mock_attachment_cls, mock_agent
+    ):
+        from api.ai_layers.tools.generate_document_file import _generate_document_file_impl
+
+        mock_conversation_cls.objects.select_related.return_value.get.return_value = (
+            Mock(id="conv-1")
+        )
+        mock_convert.return_value = b"docx-bytes"
+        att = Mock()
+        att.id = "att-uuid"
+        att.file.url = "/media/message_attachments/2026/05/report.docx"
+        mock_attachment_cls.objects.create.return_value = att
+
+        result = _generate_document_file_impl(
+            document_string="# Title\n\nBody",
+            extension="md",
+            output_filename="report.docx",
+            conversation_id="conv-1",
+            user_id=None,
+            agent_slug="test-agent",
+        )
+
+        self.assertEqual(result.attachment_id, "att-uuid")
+        self.assertEqual(result.name, "report.docx")
+        self.assertIn("report.docx", result.content)
+        mock_convert.assert_called_once_with("# Title\n\nBody", "md")
+        mock_attachment_cls.objects.create.assert_called_once()
 
 
 class AgentTaskConversationMetadataTests(TestCase):

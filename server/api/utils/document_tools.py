@@ -1,3 +1,6 @@
+import os
+import tempfile
+
 import pypandoc
 from api.utils.color_printer import printer
 
@@ -33,3 +36,31 @@ def convert_html(input_file, output_file, to_type="docx"):
         raise RuntimeError(
             f"Document conversion failed (html -> {to_type}): {e}"
         ) from e
+
+
+def convert_document_string_to_docx_bytes(
+    document_string: str, extension: str = "md"
+) -> bytes:
+    """
+    Convert markdown or HTML source text to DOCX bytes using Pandoc.
+
+    Uses a temporary directory so input/output never land in process CWD.
+    """
+    text = (document_string or "").strip()
+    if not text:
+        raise ValueError("document_string is required")
+
+    ext = (extension or "md").strip().lower()
+    if ext == "htm":
+        ext = "html"
+    if ext not in ("md", "html"):
+        raise ValueError("extension must be 'md' or 'html'")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        input_path = os.path.join(tmpdir, f"input.{ext}")
+        output_path = os.path.join(tmpdir, "output.docx")
+        with open(input_path, "w", encoding="utf-8") as f:
+            f.write(text)
+        convert_html(input_path, output_path, "docx")
+        with open(output_path, "rb") as f:
+            return f.read()

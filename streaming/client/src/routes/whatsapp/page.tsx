@@ -38,6 +38,7 @@ const WHATSAPP_CAPABILITY_NAMES = [
   "create_image",
   "create_speech",
   "generate_video",
+  "generate_document_file",
 ] as const;
 
 const WHATSAPP_REQUIRED_CAPABILITY_NAMES = [
