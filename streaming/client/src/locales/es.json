@@ -912,6 +912,7 @@
     "human-takeover-conflict": "Otro miembro del equipo ya tiene esta conversación.",
     "human-takeover-failed": "No se pudo actualizar el estado de la toma de control.",
     "human-takeover-send-failed": "No se pudo enviar tu mensaje.",
+    "human-takeover-unsupported-attachment": "En modo takeover humano solo se permiten archivos subidos.",
     "human-takeover-inbound-toast": "Nuevo mensaje del cliente",
     "welcome-to-masscer": "Bienvenido a",
     "landing-hero-description": "La IA está cambiando nuestras vidas. Nuestro enfoque es permitirte crear agentes de IA de nivel profesional, adaptados a tus necesidades únicas.",

@@ -40,14 +40,22 @@ class WSNumber(models.Model):
     def __str__(self):
         return f"WSNumber({self.name} - {self.number})"
 
-    def send_message(self, conversation, message: str):
+    def send_message(
+        self,
+        conversation,
+        message: str,
+        *,
+        reply_to_last_inbound: bool = True,
+    ):
         from api.messaging.models import Message
 
         from .actions import send_message as send_message_action
 
         if not conversation.whatsapp_user_number:
             raise ValueError("Conversation is not linked to a WhatsApp user number")
-        reply_message_platform_id = conversation.whatsapp_last_inbound_wamid
+        reply_message_platform_id = (
+            conversation.whatsapp_last_inbound_wamid if reply_to_last_inbound else None
+        )
         wamid = send_message_action(
             self.platform_id,
             conversation.whatsapp_user_number,

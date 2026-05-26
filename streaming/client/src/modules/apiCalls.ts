@@ -238,11 +238,16 @@ export const uploadDocument = async (documentData: FormData) => {
     throw error;
   }
 };
-export const getDocuments = async () => {
+export const getDocuments = async (opts?: { hasFileOnly?: boolean }) => {
   try {
+    const params = new URLSearchParams();
+    if (opts?.hasFileOnly) params.set("has_file", "true");
+    const endpoint = params.toString()
+      ? `/v1/rag/documents/?${params.toString()}`
+      : "/v1/rag/documents/";
     const response = await makeAuthenticatedRequest<any>(
       "GET",
-      "/v1/rag/documents/",
+      endpoint,
       null,
       false
     );
@@ -519,12 +524,13 @@ export const releaseConversationTakeover = async (conversationId: string) => {
 
 export const sendHumanMessageToConversation = async (
   conversationId: string,
-  message: string
+  message: string,
+  attachmentIds: string[] = []
 ) => {
   return makeAuthenticatedRequest(
     "POST",
     `/v1/messaging/conversations/${conversationId}/human-message/`,
-    { message }
+    { message, attachment_ids: attachmentIds }
   );
 };
 

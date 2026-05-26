@@ -307,6 +307,9 @@ export type TDocument = {
   id: number;
   name: string;
   brief: string;
+  content_type?: string;
+  has_file?: boolean;
+  file_url?: string | null;
   created_at?: string;
   chunk_count: number;
   chunk_set: any[];

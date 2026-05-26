@@ -2236,17 +2236,36 @@ class ConversationHumanMessageView(View):
         except json.JSONDecodeError:
             return JsonResponse({"message": "Invalid JSON", "status": 400}, status=400)
 
-        message_text = body.get("message")
-        if not message_text or not str(message_text).strip():
+        message_text = str(body.get("message") or "").strip()
+        attachment_ids = body.get("attachment_ids") or []
+        if not isinstance(attachment_ids, list):
             return JsonResponse(
-                {"message": "message is required", "status": 400}, status=400
+                {"message": "attachment_ids must be a list", "status": 400},
+                status=400,
+            )
+        if not message_text and not attachment_ids:
+            return JsonResponse(
+                {
+                    "message": "message or attachment_ids is required",
+                    "status": 400,
+                },
+                status=400,
             )
 
         try:
-            msg = deliver_human_message(conversation, takeover, str(message_text))
+            msg = deliver_human_message(
+                conversation,
+                takeover,
+                message_text,
+                attachment_ids=[str(aid) for aid in attachment_ids],
+            )
         except ValueError:
             return JsonResponse(
-                {"message": "message is required", "status": 400}, status=400
+                {
+                    "message": "message or attachment_ids is required",
+                    "status": 400,
+                },
+                status=400,
             )
 
         return JsonResponse(

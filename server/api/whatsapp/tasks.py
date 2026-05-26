@@ -53,7 +53,7 @@ def whatsapp_flush_inbound_agent_task(
         return {"status": "skipped", "reason": "empty_user_inputs"}
 
     from api.messaging.models import Conversation
-    from api.messaging.takeover import is_takeover_active
+    from api.messaging.takeover import emit_message_created, is_takeover_active
 
     try:
         conv = Conversation.objects.get(id=conversation_id)
@@ -105,7 +105,7 @@ def whatsapp_conversation_agent_task(
     if conv.whatsapp_user_number != whatsapp_user_number:
         return {"status": "error", "error": "WhatsApp user mismatch"}
 
-    from api.messaging.takeover import is_takeover_active
+    from api.messaging.takeover import emit_message_created, is_takeover_active
 
     if is_takeover_active(conv):
         return {"status": "skipped", "reason": "takeover_active"}
@@ -140,6 +140,9 @@ def whatsapp_conversation_agent_task(
         return {"status": "skipped", "reason": "invalid_result"}
 
     if result.get("status") == "completed" and result.get("message_id"):
+        assistant_msg = conv.messages.filter(id=result["message_id"]).first()
+        if assistant_msg:
+            emit_message_created(None, conv, assistant_msg)
         try:
             deliver_whatsapp_reply(
                 conversation=conv,

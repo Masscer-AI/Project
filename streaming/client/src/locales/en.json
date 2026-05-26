@@ -910,6 +910,7 @@
     "human-takeover-conflict": "Another team member already has this conversation.",
     "human-takeover-failed": "Could not update takeover state.",
     "human-takeover-send-failed": "Could not send your message.",
+    "human-takeover-unsupported-attachment": "Only uploaded files are supported in human takeover mode.",
     "human-takeover-inbound-toast": "New message from customer",
     "welcome-to-masscer": "Welcome to",
     "landing-hero-description": "AI is changing our lives. Our focus is to let you create professional-grade AI agents, customized to your unique needs.",

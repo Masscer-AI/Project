@@ -129,6 +129,8 @@ class Document(models.Model):
     collection = models.ForeignKey(Collection, on_delete=models.CASCADE)
     text = models.TextField()
     name = models.CharField(max_length=255, null=True, blank=True)
+    file = models.FileField(upload_to="rag_documents/%Y/%m/", null=True, blank=True)
+    content_type = models.CharField(max_length=100, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
     total_tokens = models.IntegerField(null=True, blank=True)
     brief = models.TextField(null=True, blank=True)

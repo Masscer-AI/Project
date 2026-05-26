@@ -228,22 +228,71 @@ export default function ChatView() {
   ]);
 
   const handleHumanSendMessage = async (input: string) => {
-    if (input.trim() === "") return false;
     if (!routeConversation?.id) {
       toast.error("No conversation found");
       return false;
     }
 
+    const fileUploads = chatState.attachments.filter(
+      (a) => typeof a.content === "string" && a.content.startsWith("data:")
+    );
+    const existingDocs = chatState.attachments.filter(
+      (a) =>
+        !(typeof a.content === "string" && a.content.startsWith("data:")) &&
+        a.id != null
+    );
+    const unsupported = chatState.attachments.filter(
+      (a) =>
+        !(typeof a.content === "string" && a.content.startsWith("data:")) &&
+        a.id == null
+    );
+    if (unsupported.length > 0) {
+      toast.error(t("human-takeover-unsupported-attachment"));
+      return false;
+    }
+
+    let attachmentIds: string[] = [];
+    if (fileUploads.length > 0) {
+      const uploadRes = await uploadMessageAttachments(
+        routeConversation.id,
+        fileUploads.map((a) => ({
+          content: a.content,
+          name: a.name || "file",
+        }))
+      );
+      attachmentIds = uploadRes.attachments.map((att: { id: string }) => att.id);
+    }
+
+    for (const doc of existingDocs) {
+      const docId =
+        typeof doc.id === "number" ? doc.id : parseInt(String(doc.id), 10);
+      if (isNaN(docId)) continue;
+      const linkRes = await linkMessageAttachment(routeConversation.id, {
+        kind: "rag_document",
+        rag_document_id: docId,
+      });
+      attachmentIds.push(linkRes.attachment.id);
+    }
+
+    const trimmed = input.trim();
+    if (!trimmed && attachmentIds.length === 0) return false;
+
     const optimistic: TMessage = {
       type: "assistant",
-      text: input.trim(),
-      attachments: [],
+      text: trimmed,
+      attachments: chatState.attachments,
     };
     setMessages((prev) => [...prev, optimistic]);
 
     try {
-      await sendHumanMessageToConversation(routeConversation.id, input.trim());
+      await sendHumanMessageToConversation(
+        routeConversation.id,
+        trimmed,
+        attachmentIds
+      );
       await setConversation(routeConversation.id);
+      cleanAttachments();
+      setSpecifiedUrls([]);
       scrollChat();
       return true;
     } catch (error) {
@@ -251,7 +300,7 @@ export default function ChatView() {
       toast.error(t("human-takeover-send-failed"));
       setMessages((prev) => {
         const last = prev[prev.length - 1];
-        if (last?.type === "assistant" && !last.id && last.text === input.trim()) {
+        if (last?.type === "assistant" && !last.id && last.text === trimmed) {
           return prev.slice(0, -1);
         }
         return prev;

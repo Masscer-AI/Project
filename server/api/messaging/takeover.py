@@ -7,15 +7,17 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from django.contrib.auth.models import User
 from django.core.cache import cache
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 from pydantic import ValidationError as PydanticValidationError
 
+from api.authenticate.models import Organization
 from api.authenticate.services import FeatureFlagService
 from api.notify.actions import notify_user
 
-from .models import Conversation, ConversationTakeover, Message
+from .models import Conversation, ConversationTakeover, Message, MessageAttachment
 from .schemas import ConversationTakeoverMetadata, takeover_metadata_payload
 
 logger = logging.getLogger(__name__)
@@ -90,6 +92,38 @@ def _emit_staff_event(user_id: int, event_type: str, payload: dict[str, Any]) ->
     notify_user(user_id, event_type, payload)
 
 
+def get_conversation_staff_user_ids(conversation: Conversation) -> list[int]:
+    """
+    Best-effort set of internal users that can care about conversation updates.
+    Used for realtime refresh events on read-only viewers.
+    """
+    user_ids: set[int] = set()
+
+    if conversation.user_id:
+        user_ids.add(conversation.user_id)
+
+    org_ids: set[str] = set()
+    if conversation.organization_id:
+        org_ids.add(str(conversation.organization_id))
+    if conversation.ws_number_id and conversation.ws_number.organization_id:
+        org_ids.add(str(conversation.ws_number.organization_id))
+
+    if org_ids:
+        orgs = Organization.objects.filter(id__in=org_ids)
+        user_ids.update(orgs.values_list("owner_id", flat=True))
+        member_ids = User.objects.filter(
+            profile__organization_id__in=org_ids
+        ).values_list("id", flat=True)
+        user_ids.update(member_ids)
+
+    if conversation.chat_widget_id and conversation.chat_widget.created_by_id:
+        user_ids.add(conversation.chat_widget.created_by_id)
+    if conversation.ws_number_id and conversation.ws_number.user_id:
+        user_ids.add(conversation.ws_number.user_id)
+
+    return [uid for uid in user_ids if isinstance(uid, int)]
+
+
 def emit_takeover_updated(
     conversation: Conversation,
     takeover: ConversationTakeover | None,
@@ -104,9 +138,10 @@ def emit_takeover_updated(
         "status": takeover.status if takeover else None,
         "operator_user_id": takeover.user_id if takeover else None,
     }
-    targets = operator_user_ids or []
+    targets = set(operator_user_ids or [])
+    targets.update(get_conversation_staff_user_ids(conversation))
     if takeover and takeover.user_id not in targets:
-        targets.append(takeover.user_id)
+        targets.add(takeover.user_id)
     for uid in targets:
         _emit_staff_event(uid, TAKEOVER_EVENT_UPDATED, payload)
 
@@ -130,7 +165,7 @@ def emit_takeover_inbound(
 
 
 def emit_message_created(
-    user_ids: list[int],
+    user_ids: list[int] | None,
     conversation: Conversation,
     message: Message,
 ) -> None:
@@ -138,7 +173,9 @@ def emit_message_created(
         "conversation_id": str(conversation.id),
         "message_id": message.id,
     }
-    for uid in user_ids:
+    targets = set(user_ids or [])
+    targets.update(get_conversation_staff_user_ids(conversation))
+    for uid in targets:
         _emit_staff_event(uid, TAKEOVER_EVENT_MESSAGE_CREATED, payload)
 
 
@@ -210,7 +247,11 @@ def send_takeover_announcement(
     msg_metadata = {"human_takeover": True, "takeover_announcement": True}
 
     if conversation.ws_number_id and conversation.whatsapp_user_number:
-        conversation.ws_number.send_message(conversation, text)
+        conversation.ws_number.send_message(
+            conversation,
+            text,
+            reply_to_last_inbound=False,
+        )
         msg = (
             conversation.messages.filter(type="assistant")
             .order_by("-id")
@@ -300,9 +341,12 @@ def deliver_human_message(
     conversation: Conversation,
     takeover: ConversationTakeover,
     text: str,
+    *,
+    attachment_ids: list[str] | None = None,
 ) -> Message:
     text = (text or "").strip()
-    if not text:
+    attachment_ids = [str(aid) for aid in (attachment_ids or []) if str(aid).strip()]
+    if not text and not attachment_ids:
         raise ValueError("message_required")
 
     msg_metadata = {
@@ -311,33 +355,97 @@ def deliver_human_message(
         "staff_user_id": takeover.user_id,
     }
 
+    from api.ai_layers.tasks import _resolve_user_inputs_and_attachments
+
+    user_inputs: list[dict] = []
+    if text:
+        user_inputs.append({"type": "input_text", "text": text})
+    for aid in attachment_ids:
+        user_inputs.append({"type": "input_attachment", "attachment_id": aid})
+
+    _resolved_inputs, message_attachments, attachment_objects = (
+        _resolve_user_inputs_and_attachments(
+            user_inputs,
+            conversation_id=str(conversation.id),
+        )
+    )
+
     if conversation.ws_number_id and conversation.whatsapp_user_number:
-        conversation.ws_number.send_message(conversation, text)
-        msg = (
-            conversation.messages.filter(type="assistant")
-            .order_by("-id")
-            .first()
-        )
-        if msg:
-            merged = dict(msg.metadata or {})
-            merged.update(msg_metadata)
-            msg.metadata = merged
-            msg.save(update_fields=["metadata"])
+        normalized_attachments: list[MessageAttachment] = []
+        for att in attachment_objects:
+            if att.kind == "file":
+                normalized_attachments.append(att)
+                continue
+            if att.kind == "rag_document" and att.rag_document_id:
+                doc = att.rag_document
+                file_field = getattr(doc, "file", None) if doc else None
+                if file_field:
+                    cloned = MessageAttachment.objects.create(
+                        conversation=conversation,
+                        user=takeover.user,
+                        kind="file",
+                        file=file_field,
+                        content_type=getattr(doc, "content_type", "") or "",
+                    )
+                    normalized_attachments.append(cloned)
+        if normalized_attachments:
+            attachment_objects = normalized_attachments
+            from api.ai_layers.tasks import _message_attachment_to_display_dict
+
+            message_attachments = [
+                d
+                for d in (
+                    _message_attachment_to_display_dict(att)
+                    for att in attachment_objects
+                )
+                if d is not None
+            ]
+        elif not text:
+            raise ValueError("message_required")
+
+    msg = Message.objects.create(
+        conversation=conversation,
+        type="assistant",
+        text=text,
+        metadata=msg_metadata,
+        attachments=message_attachments,
+    )
+    if attachment_objects:
+        MessageAttachment.objects.filter(
+            id__in=[att.id for att in attachment_objects]
+        ).update(message=msg)
+
+    if conversation.ws_number_id and conversation.whatsapp_user_number:
+        from api.whatsapp.actions import send_message as send_text_message
+        from api.whatsapp.outbound_media import deliver_whatsapp_attachments
+
+        media_wamids = []
+        if attachment_objects:
+            media_wamids = deliver_whatsapp_attachments(
+                phone_number_id=conversation.ws_number.platform_id,
+                to=conversation.whatsapp_user_number,
+                assistant_message=msg,
+                reply_to_message_id=None,
+            )
+
+        text_wamid = None
+        if text:
+            text_wamid = send_text_message(
+                conversation.ws_number.platform_id,
+                conversation.whatsapp_user_number,
+                text,
+                None,
+            )
+
+        merged = dict(msg.metadata or {})
+        if media_wamids:
+            merged["whatsapp_media_wamids"] = media_wamids
+        if text_wamid:
+            merged["whatsapp_wamid"] = text_wamid
+        msg.metadata = merged
+        msg.save(update_fields=["metadata"])
     elif conversation.widget_visitor_session_id:
-        msg = Message.objects.create(
-            conversation=conversation,
-            type="assistant",
-            text=text,
-            metadata=msg_metadata,
-        )
         notify_widget_human_reply(conversation, msg)
-    else:
-        msg = Message.objects.create(
-            conversation=conversation,
-            type="assistant",
-            text=text,
-            metadata=msg_metadata,
-        )
 
     emit_message_created([takeover.user_id], conversation, msg)
     return msg
@@ -355,5 +463,6 @@ def handle_inbound_during_takeover(
         user_inputs,
         message_metadata=message_metadata,
     )
+    emit_message_created(None, conversation, msg)
     emit_takeover_inbound(takeover.user_id, conversation, msg, takeover)
     return msg

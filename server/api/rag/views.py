@@ -8,6 +8,7 @@ from rest_framework.parsers import JSONParser
 import logging
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
+from django.contrib.auth.models import User
 from .models import Document, Collection, Chunk
 from api.authenticate.decorators.token_required import token_required
 from .serializers import DocumentSerializer, ChunkSerializer, BigDocumentSerializer
@@ -36,6 +37,18 @@ def _get_user_organization(user):
     return None
 
 
+def _organization_user_ids(organization: Organization) -> list[int]:
+    owner_ids = set(
+        Organization.objects.filter(id=organization.id).values_list("owner_id", flat=True)
+    )
+    member_ids = set(
+        User.objects.filter(
+            profile__organization=organization
+        ).values_list("id", flat=True)
+    )
+    return list(owner_ids | member_ids)
+
+
 def _check_train_agents_permission(user):
     """Check if user has the train-agents feature flag."""
     organization = _get_user_organization(user)
@@ -55,9 +68,19 @@ class DocumentView(View):
 
     def get(self, request):
         user = request.user
+        organization = _get_user_organization(user)
         _check_train_agents_permission(user)
-        documents = Document.objects.filter(collection__user=user)
-        serializer = DocumentSerializer(documents, many=True)
+        if organization:
+            org_user_ids = _organization_user_ids(organization)
+            documents = Document.objects.filter(collection__user_id__in=org_user_ids)
+        else:
+            documents = Document.objects.filter(collection__user=user)
+
+        has_file_raw = (request.GET.get("has_file") or "").strip().lower()
+        if has_file_raw in {"1", "true", "yes"}:
+            documents = documents.filter(file__isnull=False).exclude(file="")
+
+        serializer = DocumentSerializer(documents, many=True, context={"request": request})
         return JsonResponse(serializer.data, safe=False)
 
     def post(self, request):
@@ -97,8 +120,12 @@ class DocumentView(View):
 
         if document_exists:
             document = Document.objects.get(text=file_content, collection=collection)
+            if file and not document.file:
+                document.file = file
+                document.content_type = getattr(file, "content_type", "") or ""
+                document.save(update_fields=["file", "content_type"])
 
-            serializer = DocumentSerializer(document)
+            serializer = DocumentSerializer(document, context={"request": request})
             return JsonResponse(serializer.data, status=200)
 
         data["collection"] = collection.id
@@ -108,7 +135,10 @@ class DocumentView(View):
         serializer = DocumentSerializer(data=data)
 
         if serializer.is_valid():
-            serializer.save()
+            serializer.save(
+                file=file,
+                content_type=getattr(file, "content_type", "") or "",
+            )
             return JsonResponse(serializer.data, status=201)
 
         return JsonResponse(serializer.errors, status=400)
@@ -126,7 +156,9 @@ class DocumentView(View):
         elif action == "generate_brief":
             document.generate_brief()
 
-        return JsonResponse(DocumentSerializer(document).data, status=200)
+        return JsonResponse(
+            DocumentSerializer(document, context={"request": request}).data, status=200
+        )
 
     def delete(self, request, document_id):
         _check_train_agents_permission(request.user)

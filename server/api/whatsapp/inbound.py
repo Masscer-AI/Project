@@ -43,6 +43,24 @@ def _build_user_inputs_text(body: str) -> list[dict[str, Any]]:
     return [{"type": "input_text", "text": body}]
 
 
+def _build_stub_message_text(user_inputs: list[dict[str, Any]]) -> str:
+    """
+    Best-effort text preview for the temporary inbound Message row.
+    Used so realtime viewers don't see "." for normal text inbound while
+    debounce/agent flush is still pending.
+    """
+    parts: list[str] = []
+    for inp in user_inputs or []:
+        if not isinstance(inp, dict):
+            continue
+        if inp.get("type") != "input_text":
+            continue
+        text = str(inp.get("text") or "").strip()
+        if text:
+            parts.append(text)
+    return "\n".join(parts).strip()
+
+
 def _build_user_inputs_image(
     conversation: Conversation,
     ws_number: WSNumber,
@@ -110,7 +128,11 @@ def enqueue_whatsapp_inbound_agent(
     user_inputs: list[dict[str, Any]],
 ) -> None:
     """Create placeholder user Message, buffer inbound payload, and schedule debounced flush."""
-    from api.messaging.takeover import get_active_takeover, handle_inbound_during_takeover
+    from api.messaging.takeover import (
+        emit_message_created,
+        get_active_takeover,
+        handle_inbound_during_takeover,
+    )
 
     active_takeover = get_active_takeover(conversation)
     if active_takeover:
@@ -124,12 +146,14 @@ def enqueue_whatsapp_inbound_agent(
 
     from .tasks import whatsapp_flush_inbound_agent_task
 
+    stub_text = _build_stub_message_text(user_inputs) or "."
     stub = Message.objects.create(
         conversation=conversation,
         type="user",
-        text=".",
+        text=stub_text,
         metadata={"whatsapp_inbound_wamid": inbound_wamid},
     )
+    emit_message_created(None, conversation, stub)
     conversation_id = str(conversation.id)
     buffer_key = whatsapp_inbound_buffer_key(conversation_id)
     schedule_lock_key = whatsapp_inbound_schedule_lock_key(conversation_id)

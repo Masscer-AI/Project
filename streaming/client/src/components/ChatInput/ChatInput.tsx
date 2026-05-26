@@ -218,15 +218,35 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   if (mode === "human") {
     return (
       <div className="flex flex-col justify-center items-center p-0 w-full max-w-[900px] bg-transparent z-[2] gap-0 mt-4 overflow-visible">
-        <Group align="flex-end" gap="sm" className="w-full px-2">
+        <section className="chat-input-attachments flex gap-2.5 flex-nowrap overflow-x-auto empty:hidden w-full mb-3 px-4 [scrollbar-width:thin] [scrollbar-color:rgba(128,128,128,0.3)_transparent] [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-[rgba(128,128,128,0.3)] [&::-webkit-scrollbar-thumb]:rounded-full">
+          {attachments.map((a, index) => (
+            <Thumbnail
+              {...a}
+              key={index}
+              src={a.content}
+              index={index}
+              showFloatingButtons={true}
+              mode={a.mode}
+            />
+          ))}
+        </section>
+        <div
+          className="flex min-h-0 w-full flex-col rounded-none md:rounded-2xl overflow-hidden relative"
+          style={{ background: "var(--bg-contrast-color)", border: "1px solid var(--hovered-color)" }}
+        >
           <MantineTextarea
-            className="flex-1"
             autosize
             minRows={1}
             maxRows={6}
+            classNames={{
+              input:
+                "!bg-transparent !border-0 !text-base md:!text-sm !font-sans focus:!ring-0 focus:!outline-none !px-3 md:!px-5 !py-2 md:!py-3 !max-h-[calc(100dvh-12rem)] !min-h-0 !resize-none !overflow-x-hidden !overflow-y-auto",
+            }}
+            styles={{ input: { color: "var(--font-color)" } }}
             placeholder={t("human-takeover-composer-placeholder")}
             value={textPrompt}
             onChange={(e) => setTextPrompt(e.currentTarget.value)}
+            onPaste={handlePaste}
             onKeyDown={async (event) => {
               if (event.key === "Enter" && !event.shiftKey) {
                 event.preventDefault();
@@ -235,17 +255,22 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               }
             }}
           />
-          <ActionIcon
-            variant="filled"
-            color="violet"
-            size="lg"
-            radius="md"
-            onClick={() => void asyncSendMessage()}
-            aria-label={t("send")}
-          >
-            <IconSend size={18} />
-          </ActionIcon>
-        </Group>
+          <div className="flex shrink-0 items-center justify-between px-1 md:px-4 pb-1 md:pb-3 pt-1 md:pt-2">
+            <div className="flex gap-2">
+              <PlusMenu existingFilesOnly={true} />
+            </div>
+            <ActionIcon
+              variant="filled"
+              color="violet"
+              size="lg"
+              radius="md"
+              onClick={() => void asyncSendMessage()}
+              aria-label={t("send")}
+            >
+              <IconSend size={18} />
+            </ActionIcon>
+          </div>
+        </div>
       </div>
     );
   }
@@ -346,7 +371,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           />
           <div className="flex shrink-0 items-center justify-between px-1 md:px-4 pb-1 md:pb-4 pt-1 md:pt-3 relative z-10 min-w-0">
             <div className="flex gap-2 relative z-20 min-w-0 flex-shrink">
-              <PlusMenu />
+              <PlusMenu existingFilesOnly={false} />
               <ToolsMenu />
             </div>
             <div className="flex gap-2 items-center flex-shrink-0">
@@ -390,7 +415,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
 // ─── Plus Menu (+) ───────────────────────────────────────────────────────────
 
-const PlusMenu = () => {
+const PlusMenu = ({ existingFilesOnly = false }: { existingFilesOnly?: boolean }) => {
   const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const addAttachment = useStore((s) => s.addAttachment);
@@ -493,7 +518,11 @@ const PlusMenu = () => {
       </Menu>
       )}
 
-      <RagConfig opened={ragConfigOpened} onClose={closeRagConfig} />
+      <RagConfig
+        opened={ragConfigOpened}
+        onClose={closeRagConfig}
+        existingFilesOnly={existingFilesOnly}
+      />
       <WebsiteFetcher
         isOpen={websiteFetcherOpen}
         onClose={() => setWebsiteFetcherOpen(false)}
@@ -776,9 +805,11 @@ export const FileLoader = () => {
 const RagConfig = ({
   opened,
   onClose,
+  existingFilesOnly = false,
 }: {
   opened: boolean;
   onClose: () => void;
+  existingFilesOnly?: boolean;
 }) => {
   const [documents, setDocuments] = useState([] as TDocument[]);
   const [isLoading, setIsLoading] = useState(false);
@@ -791,7 +822,7 @@ const RagConfig = ({
 
   const getDocs = async () => {
     setIsLoading(true);
-    const docs = await getDocuments();
+    const docs = await getDocuments({ hasFileOnly: existingFilesOnly });
     setDocuments(docs);
     setIsLoading(false);
   };
@@ -815,7 +846,9 @@ const RagConfig = ({
           </Stack>
         )}
         {!isLoading &&
-          documents.map((d) => <DocumentCard d={d} key={d.id} />)}
+          documents.map((d) => (
+            <DocumentCard d={d} key={d.id} existingFilesOnly={existingFilesOnly} />
+          ))}
         {!isLoading && documents.length === 0 && (
           <Text c="dimmed" py="xl">
             {t("no-documents-found")}
@@ -828,7 +861,13 @@ const RagConfig = ({
 
 // ─── DocumentCard ────────────────────────────────────────────────────────────
 
-const DocumentCard = ({ d }: { d: TDocument }) => {
+const DocumentCard = ({
+  d,
+  existingFilesOnly = false,
+}: {
+  d: TDocument;
+  existingFilesOnly?: boolean;
+}) => {
   const { addAttatchment, chatState, removeAttatchment } = useStore((s) => ({
     addAttatchment: s.addAttachment,
     chatState: s.chatState,
@@ -844,7 +883,7 @@ const DocumentCard = ({ d }: { d: TDocument }) => {
       const attachment: TAttachment = {
         content: d.text,
         name: d.name,
-        type: "text/plain",
+        type: d.content_type || "text/plain",
         id: d.id,
         mode: "all_possible_text",
         text: d.text,
@@ -884,6 +923,11 @@ const DocumentCard = ({ d }: { d: TDocument }) => {
       {d.brief && (
         <Text size="sm" c="dimmed" title={d.brief} mb="xs">
           {d.brief.slice(0, 200)}...
+        </Text>
+      )}
+      {existingFilesOnly && (
+        <Text size="xs" c="dimmed" mb="xs">
+          {d.has_file ? "File available" : "No source file"}
         </Text>
       )}
       <Group gap="xs">
