@@ -1446,14 +1446,7 @@ class FeatureFlagNamesView(View):
     assignable via roles.
     """
 
-    CACHE_TIMEOUT = 86400  # 24 hours
-
     def get(self, request):
-        cache_key = "feature_flag_names"
-        cached_data = cache.get(cache_key)
-        if cached_data is not None:
-            return JsonResponse(cached_data, safe=False)
-
         flags = sorted(
             [
                 {"name": name, "organization_only": meta.get("organization_only", False)}
@@ -1461,7 +1454,6 @@ class FeatureFlagNamesView(View):
             ],
             key=lambda f: f["name"],
         )
-        cache.set(cache_key, flags, timeout=self.CACHE_TIMEOUT)
         return JsonResponse(flags, safe=False)
 
 

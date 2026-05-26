@@ -701,6 +701,8 @@
     "ff-set-agent-ownership-desc": "Transfer agent ownership to the organization.",
     "ff-can-edit-conversation-data": "Edit chat & history",
     "ff-can-edit-conversation-data-desc": "Edit conversation title and tags, user and assistant messages, delete messages and conversations, regenerate or truncate history, and change chat settings (memory limit, auto-scroll, multi-agent mode).",
+    "ff-can-replace-agent-in-conversations": "Human takeover conversations",
+    "ff-can-replace-agent-in-conversations-desc": "Take temporary control of conversations so inbound messages bypass the AI and operators can reply directly.",
     "ff-can-edit-preferences": "User preferences & settings page",
     "ff-can-edit-preferences-desc": "Open the Settings page and update profile, theme, background, and other personal preferences.",
     "ff-can-set-notifications": "Notification rules",
