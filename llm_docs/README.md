@@ -25,6 +25,7 @@ Code alone doesn't capture architectural decisions, implicit conventions, or the
 | `conventions.md` | Project-wide development conventions (migration policy, etc.) |
 | `organization-management.md` | Full breakdown of the organization system: models, API, permissions, RBAC, member lifecycle |
 | `agent-task.md` | Agent task vs realtime streaming: Celery task flow, AgentLoop, tools, Redis→Socket.IO events, frontend handling |
+| `whatsapp-number-setup.md` | Operator guide: add a line in Meta WhatsApp Manager, then provision `WSNumber` in Django admin (register + webhook) |
 
 ## How to maintain
 
