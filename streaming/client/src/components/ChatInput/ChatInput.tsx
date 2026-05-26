@@ -456,7 +456,7 @@ const PlusMenu = ({ existingFilesOnly = false }: { existingFilesOnly?: boolean }
             type: file.type,
             name: file.name,
             text: "",
-          });
+          }, existingFilesOnly);
         };
         reader.readAsDataURL(file);
       } else {
