@@ -940,7 +940,8 @@ export const getCompletion = async (completionId: string | number) => {
 export const createCompletion = async (data: {
   prompt: string;
   answer: string;
-  agent?: number | null;
+  agents?: number[];
+  context_rules?: import("../types").TCompletionContextRules;
   approved?: boolean;
 }) => {
   return makeAuthenticatedRequest<TCompletion>(
@@ -950,8 +951,17 @@ export const createCompletion = async (data: {
   );
 };
 
-export const updateCompletion = async (completionId: string, data: any) => {
-  return makeAuthenticatedRequest(
+export const updateCompletion = async (
+  completionId: string,
+  data: Partial<{
+    prompt: string;
+    answer: string;
+    approved: boolean;
+    agents: number[];
+    context_rules: import("../types").TCompletionContextRules;
+  }>
+) => {
+  return makeAuthenticatedRequest<TCompletion>(
     "PUT",
     `/v1/finetuning/completions/${completionId}/`,
     data

@@ -3,7 +3,6 @@ from django.db.models import Q
 from .managers import chroma_client
 from django.utils.text import slugify
 from api.ai_layers.models import Agent
-from api.messaging.models import Conversation
 import random
 
 
@@ -75,9 +74,6 @@ class Collection(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     agent = models.ForeignKey(Agent, on_delete=models.CASCADE, null=True, blank=True)
-    conversation = models.ForeignKey(
-        Conversation, on_delete=models.CASCADE, null=True, blank=True
-    )
 
     class Meta:
         constraints = [

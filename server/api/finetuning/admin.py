@@ -1,16 +1,19 @@
 from django.contrib import admin
-from .models import TrainingGenerator, Completion
-from .actions import start_generator
 
-# Register your models here.
+from .actions import start_generator
+from .models import Completion, CompletionAssignment, TrainingGenerator
+
+
+class CompletionAssignmentInline(admin.TabularInline):
+    model = CompletionAssignment
+    extra = 0
 
 
 @admin.register(TrainingGenerator)
 class TrainingGeneratorAdmin(admin.ModelAdmin):
-    list_display = ["id", "agent", "created_at"]
-
-    list_filter = ["agent"]
-    search_fields = ["agent__name"]
+    list_display = ["id", "name", "status", "created_at"]
+    filter_horizontal = ["agents"]
+    search_fields = ["name"]
 
     actions = ["_start_generator"]
 
@@ -21,6 +24,6 @@ class TrainingGeneratorAdmin(admin.ModelAdmin):
 
 @admin.register(Completion)
 class CompletionAdmin(admin.ModelAdmin):
-    list_display = ["id", "prompt", "answer", "created_at"]
-    # list_filter = ["training_generator__agent"]
-    # search_fields = ["training_generator__agent__name"]
+    list_display = ["id", "prompt", "approved", "created_at"]
+    list_filter = ["approved"]
+    inlines = [CompletionAssignmentInline]

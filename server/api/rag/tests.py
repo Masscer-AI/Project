@@ -47,9 +47,12 @@ class SharedAgentRagTests(TestCase):
         completion = Completion.objects.create(
             prompt="prompt",
             answer="answer",
-            agent=self.agent,
+            approved=True,
             approved_by=self.owner,
         )
+        from api.finetuning.models import CompletionAssignment
+
+        CompletionAssignment.objects.create(completion=completion, agent=self.agent)
 
         with patch("api.finetuning.models.chroma_client") as mocked_chroma:
             completion.save_in_memory()

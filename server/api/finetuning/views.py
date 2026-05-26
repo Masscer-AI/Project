@@ -3,6 +3,7 @@ from django.shortcuts import get_object_or_404
 
 from .serializers import CompletionSerializer
 from .models import Completion
+from .actions import _accessible_completions_qs, create_training_generator, get_user_completions
 
 from rest_framework import status
 from django.utils.decorators import method_decorator
@@ -10,15 +11,11 @@ from django.views.decorators.csrf import csrf_exempt
 from api.authenticate.decorators.token_required import token_required
 from django.http import JsonResponse
 
-# from api.utils.color_printer import printer
 from rest_framework.permissions import AllowAny
 from django.views import View
-from .actions import create_training_generator, get_user_completions
 from api.authenticate.models import Organization
 from api.authenticate.services import FeatureFlagService
 from django.core.exceptions import PermissionDenied
-from django.db.models import Q
-
 from api.ai_layers.access import get_user_organization
 
 
@@ -26,14 +23,7 @@ def _user_can_access_completion(user, completion: Completion) -> bool:
     """Same scope as list completions (personal agents or org agents)."""
     if not user or not user.is_authenticated:
         return False
-    user_org = get_user_organization(user)
-    if user_org:
-        return (
-            Completion.objects.filter(id=completion.id)
-            .filter(Q(agent__user=user) | Q(agent__organization=user_org))
-            .exists()
-        )
-    return Completion.objects.filter(id=completion.id, agent__user=user).exists()
+    return _accessible_completions_qs(user).filter(id=completion.id).exists()
 
 
 def _check_train_agents_permission(user):
@@ -75,7 +65,10 @@ class CompletionsView(View):
 
     def get(self, request, completion_id=None):
         if completion_id is not None:
-            completion = get_object_or_404(Completion, id=completion_id)
+            completion = get_object_or_404(
+                Completion.objects.prefetch_related("assignments"),
+                id=completion_id,
+            )
             if not _user_can_access_completion(request.user, completion):
                 return JsonResponse({"message": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
             return JsonResponse(CompletionSerializer(completion).data, safe=False)
@@ -84,32 +77,40 @@ class CompletionsView(View):
 
     def post(self, request):
         data = json.loads(request.body)
-        
+
         prompt = data.get("prompt")
         answer = data.get("answer")
-        agent_id = data.get("agent")
         approved = data.get("approved", False)
-        
+
         if not prompt or not answer:
             return JsonResponse(
                 {"message": "Prompt and answer are required"},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         completion_data = {
             "prompt": prompt,
             "answer": answer,
             "approved": approved,
         }
-        
-        if agent_id:
-            completion_data["agent"] = agent_id
-        
+
+        if "context_rules" in data:
+            completion_data["context_rules"] = data["context_rules"]
+
+        agents = data.get("agents")
+        if agents is None and data.get("agent") is not None:
+            agents = [data.get("agent")]
+        if agents is not None:
+            completion_data["agents"] = agents
+
         serializer = CompletionSerializer(data=completion_data)
         if serializer.is_valid():
-            serializer.save()
+            instance = serializer.save()
+            instance = Completion.objects.prefetch_related("assignments").get(
+                pk=instance.pk
+            )
             return JsonResponse(
-                serializer.data,
+                CompletionSerializer(instance).data,
                 status=status.HTTP_201_CREATED
             )
         return JsonResponse(
@@ -119,27 +120,47 @@ class CompletionsView(View):
 
     def put(self, request, completion_id):
         data = json.loads(request.body)
-        completion = get_object_or_404(Completion, id=completion_id)
+        completion = get_object_or_404(
+            Completion.objects.prefetch_related("assignments"),
+            id=completion_id,
+        )
+
+        if not _user_can_access_completion(request.user, completion):
+            return JsonResponse({"message": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
 
         serializer = CompletionSerializer(completion, data=data, partial=True)
         if serializer.is_valid():
-            serializer.save()
+            was_approved = completion.approved
+            instance = serializer.save()
+            if was_approved != instance.approved:
+                if instance.approved:
+                    instance.save_in_memory()
+                else:
+                    instance.remove_from_memory()
+            elif instance.approved:
+                instance.save_in_memory()
+            instance = Completion.objects.prefetch_related("assignments").get(
+                pk=instance.pk
+            )
             return JsonResponse(
-                {"message": "Completion updated"}, status=status.HTTP_200_OK
+                CompletionSerializer(instance).data,
+                status=status.HTTP_200_OK,
+                safe=False,
             )
         return JsonResponse(
-            {"message": "Invalid data"}, status=status.HTTP_400_BAD_REQUEST
+            {"message": "Invalid data", "errors": serializer.errors},
+            status=status.HTTP_400_BAD_REQUEST
         )
 
     def delete(self, request, completion_id):
         completion = get_object_or_404(Completion, id=completion_id)
+        if not _user_can_access_completion(request.user, completion):
+            return JsonResponse({"message": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
         completion.remove_from_memory()
         completion.delete()
         return JsonResponse(
             {"message": "Completion deleted"}, status=status.HTTP_200_OK
         )
-
-
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -153,28 +174,44 @@ class BulkCompletionView(View):
 
         if not completions_data:
             return JsonResponse(
-                {"message": "No completions provided"}, 
+                {"message": "No completions provided"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         updated_completions = []
         for completion_data in completions_data:
             completion_id = completion_data.get("id")
-            print(completion_id, "COMPLETION ID")
-            completion = get_object_or_404(Completion, id=completion_id)
+            completion = get_object_or_404(
+                Completion.objects.prefetch_related("assignments"),
+                id=completion_id,
+            )
+
+            if not _user_can_access_completion(request.user, completion):
+                return JsonResponse({"message": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
 
             serializer = CompletionSerializer(completion, data=completion_data, partial=True)
             if serializer.is_valid():
-                serializer.save()
-                updated_completions.append(serializer.data)
+                was_approved = completion.approved
+                instance = serializer.save()
+                if was_approved != instance.approved:
+                    if instance.approved:
+                        instance.save_in_memory()
+                    else:
+                        instance.remove_from_memory()
+                elif instance.approved:
+                    instance.save_in_memory()
+                instance = Completion.objects.prefetch_related("assignments").get(
+                    pk=instance.pk
+                )
+                updated_completions.append(CompletionSerializer(instance).data)
             else:
                 return JsonResponse(
-                    {"message": "Invalid data for completion id: {}".format(completion_id)}, 
+                    {"message": "Invalid data for completion id: {}".format(completion_id)},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
         return JsonResponse(
-            {"message": "Completions updated", "updated_completions": updated_completions}, 
+            {"message": "Completions updated", "updated_completions": updated_completions},
             status=status.HTTP_200_OK
         )
 
@@ -184,18 +221,20 @@ class BulkCompletionView(View):
 
         if not completions_ids:
             return JsonResponse(
-                {"message": "No completion IDs provided"}, 
+                {"message": "No completion IDs provided"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         deleted_ids = []
         for completion_id in completions_ids:
             completion = get_object_or_404(Completion, id=completion_id)
-            completion.remove_from_memory()  
+            if not _user_can_access_completion(request.user, completion):
+                return JsonResponse({"message": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+            completion.remove_from_memory()
             completion.delete()
             deleted_ids.append(completion_id)
 
         return JsonResponse(
-            {"message": "Completions deleted", "deleted_ids": deleted_ids}, 
+            {"message": "Completions deleted", "deleted_ids": deleted_ids},
             status=status.HTTP_200_OK
         )

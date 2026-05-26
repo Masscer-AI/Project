@@ -57,7 +57,7 @@ def _create_completion_impl(
     from api.ai_layers.access import accessible_agents_qs
     from api.ai_layers.models import Agent
     from api.authenticate.services import FeatureFlagService
-    from api.finetuning.models import Completion
+    from api.finetuning.models import Completion, CompletionAssignment
     from api.messaging.models import Conversation
 
     prompt = (prompt or "").strip()
@@ -104,8 +104,11 @@ def _create_completion_impl(
     completion = Completion.objects.create(
         prompt=prompt,
         answer=answer,
-        agent=agent,
         approved=False,
+    )
+    CompletionAssignment.objects.get_or_create(
+        completion=completion,
+        agent=agent,
     )
     logger.info(
         "create_completion: id=%s agent=%s user=%s conv=%s",

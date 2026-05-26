@@ -797,6 +797,8 @@ def _completion_to_message_attachment_dict(completion) -> dict:
         "completion_id": completion.id,
         "content": f"completion:{completion.id}",
         "name": prompt_preview or "Training example",
+        "prompt": completion.prompt or "",
+        "answer": completion.answer or "",
         "approved": bool(completion.approved),
     }
 
@@ -870,10 +872,11 @@ def _extract_referenced_completions_from_text(text: str, user) -> list[dict]:
     user_org = get_user_organization(user)
     if user_org:
         base_qs = Completion.objects.filter(
-            Q(agent__user=user) | Q(agent__organization=user_org)
+            Q(assignments__agent__user=user)
+            | Q(assignments__agent__organization=user_org)
         ).distinct()
     else:
-        base_qs = Completion.objects.filter(agent__user=user)
+        base_qs = Completion.objects.filter(assignments__agent__user=user).distinct()
 
     rows = {c.id: c for c in base_qs.filter(id__in=ordered_ids)}
     out: list[dict] = []
@@ -1497,6 +1500,16 @@ def conversation_agent_task(
 
             if "generate_document_file" not in agent_tool_names:
                 agent_tool_names.append("generate_document_file")
+
+            from api.finetuning.context_injection import (
+                format_completions_context_block,
+                get_completions_for_context,
+            )
+
+            auto_completions = get_completions_for_context(agent, conversation)
+            auto_training_block = format_completions_context_block(auto_completions)
+            if auto_training_block:
+                instructions += auto_training_block
 
             # ---- Create AgentSession (inputs) ----
             model_ref = ModelRef(

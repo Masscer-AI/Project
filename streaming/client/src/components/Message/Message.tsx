@@ -18,11 +18,11 @@ import {
   getAgentSessionExecutionLogForMessage,
 } from "../../modules/apiCalls";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
 import { useStore } from "../../modules/store";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
-import { useCompletionFreshApproval } from "../../hooks/useCompletionFreshApproval";
 import { Reactions } from "../Reactions/Reactions";
+import { CompletionDetailModal } from "../Completion/CompletionDetailModal";
+import { CompletionRefsBar } from "../Completion/CompletionRefsBar";
 
 import "./Message.css";
 
@@ -39,7 +39,6 @@ import {
   Title,
   Stack,
   Group,
-  Anchor,
   Loader as MantineLoader,
   ScrollArea,
 } from "@mantine/core";
@@ -113,8 +112,13 @@ export const Message = memo(
     const [executionLogLoading, setExecutionLogLoading] = useState(false);
     const [executionLogError, setExecutionLogError] = useState<string | null>(null);
 
+    const [completionModal, setCompletionModal] = useState<{
+      id: string;
+      content?: string;
+      approved?: boolean;
+    } | null>(null);
+
     const { t } = useTranslation();
-    const navigate = useNavigate();
     const canEditConversationData =
       useIsFeatureEnabled("can-edit-conversation-data") === true;
 
@@ -128,30 +132,21 @@ export const Message = memo(
       Boolean(id) && type === "assistant" && Boolean(versions?.length);
 
     const displayMarkdownText = versions?.[currentVersion]?.text || innerText;
-    const completionIdsLinkedInMarkdown = (() => {
-      const ids = new Set<string>();
-      const re = /completion:(\d+)/gi;
-      let m: RegExpExecArray | null;
-      while ((m = re.exec(displayMarkdownText)) !== null) {
-        ids.add(m[1]);
-      }
-      return ids;
-    })();
-    const orphanCompletionAttachments = (attachments || []).filter((att) => {
-      if ((att.type || "").toLowerCase() !== "completion") return false;
-      const cid = String(att.completion_id ?? att.id ?? "");
-      if (!/^\d+$/.test(cid)) return false;
-      return !completionIdsLinkedInMarkdown.has(cid);
-    });
-
-    const orphanCompletionIds = useMemo(
+    const currentSources = versions?.[currentVersion]?.sources;
+    const nonCompletionSources = useMemo(
       () =>
-        orphanCompletionAttachments.map((att) =>
-          String(att.completion_id ?? att.id ?? "")
+        (currentSources || []).filter(
+          (s) => (s.model_name || "").toLowerCase() !== "completion"
         ),
-      [orphanCompletionAttachments]
+      [currentSources]
     );
-    const freshCompletionApprovalById = useCompletionFreshApproval(orphanCompletionIds);
+
+    const openCompletionModal = (
+      id: string,
+      fallback?: { content?: string; approved?: boolean }
+    ) => {
+      setCompletionModal({ id, ...fallback });
+    };
 
     const copyToClipboard = () => {
       const textToCopy = versions?.[currentVersion]?.text || innerText;
@@ -308,45 +303,8 @@ export const Message = memo(
               markdown={displayMarkdownText}
               extraClass={`message-text ${type === "user" ? "user" : "assistant"}`}
               attachments={attachments}
+              onCompletionLinkClick={(id) => openCompletionModal(id)}
             />
-            {type === "assistant" && orphanCompletionAttachments.length > 0 && (
-              <Group gap="xs" mt="xs" wrap="wrap" align="center">
-                {orphanCompletionAttachments.map((att) => {
-                  const cid = String(att.completion_id ?? att.id);
-                  const approvedResolved =
-                    freshCompletionApprovalById[cid] !== undefined
-                      ? freshCompletionApprovalById[cid]
-                      : att.approved;
-                  return (
-                    <Group key={cid} gap={6} wrap="nowrap">
-                      <Anchor
-                        component="button"
-                        type="button"
-                        size="sm"
-                        underline="hover"
-                        onClick={() =>
-                          navigate(
-                            `/knowledge-base?tab=completions&completion=${encodeURIComponent(cid)}`
-                          )
-                        }
-                      >
-                        {t("edit-training-example")} #{cid}
-                      </Anchor>
-                      {approvedResolved === false && (
-                        <Badge size="xs" color="yellow" variant="light">
-                          {t("pending")}
-                        </Badge>
-                      )}
-                      {approvedResolved === true && (
-                        <Badge size="xs" color="green" variant="light">
-                          {t("approved")}
-                        </Badge>
-                      )}
-                    </Group>
-                  );
-                })}
-              </Group>
-            )}
           </div>
         )}
 
@@ -379,14 +337,21 @@ export const Message = memo(
                 />
               );
             })}
-          {versions?.[currentVersion]?.sources &&
-            versions[currentVersion].sources.length > 0 && (
-              <Group gap="xs" mt="xs" wrap="wrap">
-                {versions[currentVersion].sources.map((s, sIdx) => (
-                  <Source key={sIdx} source={s} />
-                ))}
-              </Group>
-            )}
+          {type === "assistant" && (
+            <CompletionRefsBar
+              attachments={attachments}
+              sources={currentSources}
+              onOpenCompletion={openCompletionModal}
+            />
+          )}
+
+          {nonCompletionSources.length > 0 && (
+            <Group gap="xs" mt="xs" wrap="wrap">
+              {nonCompletionSources.map((s, sIdx) => (
+                <Source key={sIdx} source={s} />
+              ))}
+            </Group>
+          )}
 
           {versions?.[currentVersion]?.web_search_results &&
             versions?.[currentVersion]?.web_search_results.map(
@@ -633,6 +598,14 @@ export const Message = memo(
           </Stack>
         </Modal>
         )}
+
+        <CompletionDetailModal
+          completionId={completionModal?.id ?? null}
+          opened={completionModal != null}
+          onClose={() => setCompletionModal(null)}
+          fallbackContent={completionModal?.content}
+          fallbackApproved={completionModal?.approved}
+        />
 
         <ExecutionLogModal
           opened={messageState.executionLogOpened}

@@ -12,8 +12,9 @@ import {
   generateTrainingCompletions,
   getBigDocument,
   bulkDeleteCompletions,
+  getTags,
 } from "../../modules/apiCalls";
-import { TDocument, TCompletion } from "../../types";
+import { TDocument, TCompletion, TCompletionContextRules, TTag } from "../../types";
 import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
 import { TAgent } from "../../types/agents";
@@ -28,6 +29,7 @@ import {
   Card,
   Checkbox,
   Group,
+  MultiSelect,
   Loader,
   Modal,
   NativeSelect,
@@ -58,6 +60,39 @@ import {
   IconUpload,
   IconX,
 } from "@tabler/icons-react";
+
+function agentIdsFromCompletion(c: TCompletion): string[] {
+  if (Array.isArray(c.agent_ids)) {
+    return c.agent_ids.map(String);
+  }
+  if (c.agent != null) {
+    return [String(c.agent)];
+  }
+  return [];
+}
+
+function normalizeCompletion(raw: TCompletion): TCompletion {
+  return {
+    ...raw,
+    agent_ids: Array.isArray(raw.agent_ids)
+      ? raw.agent_ids
+      : raw.agent != null
+        ? [raw.agent]
+        : [],
+    context_rules: raw.context_rules ?? {
+      include_always: false,
+      include_for_tags: [],
+    },
+  };
+}
+
+function defaultContextRules(
+  c: TCompletion
+): TCompletionContextRules {
+  return (
+    c.context_rules ?? { include_always: false, include_for_tags: [] }
+  );
+}
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -135,15 +170,31 @@ export default function KnowledgeBasePage() {
     }
   };
 
-  const loadCompletions = async () => {
-    setLoadingCompletions(true);
+  const loadCompletions = async ({ silent = false }: { silent?: boolean } = {}) => {
+    if (!silent) setLoadingCompletions(true);
     try {
-      setCompletions(await getUserCompletions());
+      const list = await getUserCompletions();
+      setCompletions(list.map(normalizeCompletion));
     } catch {
       toast.error(t("error-loading-completions"));
     } finally {
-      setLoadingCompletions(false);
+      if (!silent) setLoadingCompletions(false);
     }
+  };
+
+  const patchCompletionInList = (updated: TCompletion) => {
+    const normalized = normalizeCompletion(updated);
+    setCompletions((prev) =>
+      prev.map((c) => (c.id === normalized.id ? normalized : c))
+    );
+  };
+
+  const removeCompletionFromList = (id: number) => {
+    setCompletions((prev) => prev.filter((c) => c.id !== id));
+  };
+
+  const addCompletionToList = (created: TCompletion) => {
+    setCompletions((prev) => [normalizeCompletion(created), ...prev]);
   };
 
   const filteredDocuments = documents.filter((doc) => {
@@ -163,7 +214,8 @@ export default function KnowledgeBasePage() {
         comp.prompt.toLowerCase().includes(q) ||
         comp.answer.toLowerCase().includes(q);
       const matchesAgent =
-        agentFilter === "all" || comp.agent?.toString() === agentFilter;
+        agentFilter === "all" ||
+        (comp.agent_ids ?? []).map(String).includes(agentFilter);
       return matchesSearch && matchesAgent;
     });
 
@@ -319,7 +371,12 @@ export default function KnowledgeBasePage() {
               completions={filteredCompletions}
               anyCompletionsExist={completions.length > 0}
               loading={loadingCompletions}
-              onRefresh={loadCompletions}
+              onCompletionPatched={patchCompletionInList}
+              onCompletionRemoved={removeCompletionFromList}
+              onCompletionAdded={addCompletionToList}
+              onBulkRemoved={(ids) =>
+                setCompletions((prev) => prev.filter((c) => !ids.has(c.id)))
+              }
               agents={agents}
               focusCompletionId={focusCompletionId}
             />
@@ -768,14 +825,20 @@ const CompletionsTab = ({
   completions,
   anyCompletionsExist,
   loading,
-  onRefresh,
+  onCompletionPatched,
+  onCompletionRemoved,
+  onCompletionAdded,
+  onBulkRemoved,
   agents,
   focusCompletionId,
 }: {
   completions: TCompletion[];
   anyCompletionsExist: boolean;
   loading: boolean;
-  onRefresh: () => void;
+  onCompletionPatched: (updated: TCompletion) => void;
+  onCompletionRemoved: (id: number) => void;
+  onCompletionAdded: (created: TCompletion) => void;
+  onBulkRemoved: (ids: Set<number>) => void;
   agents: TAgent[];
   focusCompletionId: number | null;
 }) => {
@@ -783,8 +846,19 @@ const CompletionsTab = ({
   const [showCreate, setShowCreate] = useState(false);
   const [newPrompt, setNewPrompt] = useState("");
   const [newAnswer, setNewAnswer] = useState("");
-  const [newAgentId, setNewAgentId] = useState("");
+  const [newAgentIds, setNewAgentIds] = useState<string[]>([]);
+  const [newContextRules, setNewContextRules] = useState<TCompletionContextRules>({
+    include_always: false,
+    include_for_tags: [],
+  });
+  const [orgTags, setOrgTags] = useState<TTag[]>([]);
   const [creating, setCreating] = useState(false);
+
+  useEffect(() => {
+    getTags()
+      .then((tags) => setOrgTags(tags))
+      .catch(() => setOrgTags([]));
+  }, []);
 
   // Bulk selection state
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -826,9 +900,10 @@ const CompletionsTab = ({
       toast.success(
         t("completions-deleted", { count: selectedIds.size })
       );
+      const deleted = new Set(selectedIds);
       setSelectedIds(new Set());
       setConfirmBulkDelete(false);
-      onRefresh();
+      onBulkRemoved(deleted);
     } catch {
       toast.error(t("error-deleting-completions"));
     } finally {
@@ -844,18 +919,20 @@ const CompletionsTab = ({
     }
     setCreating(true);
     try {
-      await createCompletion({
+      const created = await createCompletion({
         prompt: newPrompt,
         answer: newAnswer,
-        agent: newAgentId ? parseInt(newAgentId) : null,
+        agents: newAgentIds.map((id) => parseInt(id, 10)),
+        context_rules: newContextRules,
         approved: false,
       });
+      onCompletionAdded(created);
       toast.success(t("completion-created"));
       setNewPrompt("");
       setNewAnswer("");
-      setNewAgentId("");
+      setNewAgentIds([]);
+      setNewContextRules({ include_always: false, include_for_tags: [] });
       setShowCreate(false);
-      onRefresh();
     } catch {
       toast.error(t("error-creating-completion"));
     } finally {
@@ -935,19 +1012,49 @@ const CompletionsTab = ({
               minRows={3}
               autosize
             />
-            <NativeSelect
-              label={t("assign-to-agent")}
-              value={newAgentId}
-              onChange={(e) => setNewAgentId(e.currentTarget.value)}
-              data={[
-                { value: "", label: t("no-agent-assigned") },
-                ...agents
-                  .filter((a) => a.id)
-                  .map((a) => ({
-                    value: a.id!.toString(),
-                    label: a.name,
-                  })),
-              ]}
+            <MultiSelect
+              label={t("assign-to-agents")}
+              placeholder={t("select-agents")}
+              value={newAgentIds}
+              onChange={setNewAgentIds}
+              data={agents
+                .filter((a) => a.id)
+                .map((a) => ({
+                  value: a.id!.toString(),
+                  label: a.name,
+                }))}
+              searchable
+              clearable
+            />
+            <Checkbox
+              label={t("completion-include-always")}
+              checked={newContextRules.include_always}
+              onChange={(e) =>
+                setNewContextRules((prev) => ({
+                  ...prev,
+                  include_always: e.currentTarget.checked,
+                }))
+              }
+            />
+            <MultiSelect
+              label={t("completion-include-for-tags")}
+              description={t("completion-include-for-tags-help")}
+              value={newContextRules.include_for_tags.map(String)}
+              onChange={(vals) =>
+                setNewContextRules((prev) => ({
+                  ...prev,
+                  include_for_tags: vals.map((v) => parseInt(v, 10)),
+                }))
+              }
+              data={orgTags
+                .filter((tag) => tag.enabled)
+                .map((tag) => ({
+                  value: tag.id.toString(),
+                  label: tag.title,
+                }))}
+              searchable
+              clearable
+              disabled={newContextRules.include_always}
             />
             <Group justify="flex-end">
               <Button
@@ -956,7 +1063,11 @@ const CompletionsTab = ({
                   setShowCreate(false);
                   setNewPrompt("");
                   setNewAnswer("");
-                  setNewAgentId("");
+                  setNewAgentIds([]);
+                  setNewContextRules({
+                    include_always: false,
+                    include_for_tags: [],
+                  });
                 }}
               >
                 {t("cancel")}
@@ -986,7 +1097,9 @@ const CompletionsTab = ({
             key={comp.id}
             completion={comp}
             agents={agents}
-            onRefresh={onRefresh}
+            orgTags={orgTags}
+            onPatched={onCompletionPatched}
+            onRemoved={onCompletionRemoved}
             selected={selectedIds.has(comp.id)}
             onToggleSelect={() => toggleSelect(comp.id)}
             focusCompletionId={focusCompletionId}
@@ -1002,14 +1115,18 @@ const CompletionsTab = ({
 const CompletionItem = ({
   completion,
   agents,
-  onRefresh,
+  orgTags,
+  onPatched,
+  onRemoved,
   selected,
   onToggleSelect,
   focusCompletionId,
 }: {
   completion: TCompletion;
   agents: TAgent[];
-  onRefresh: () => void;
+  orgTags: TTag[];
+  onPatched: (updated: TCompletion) => void;
+  onRemoved: (id: number) => void;
   selected: boolean;
   onToggleSelect: () => void;
   focusCompletionId: number | null;
@@ -1018,9 +1135,28 @@ const CompletionItem = ({
   const [isEditing, setIsEditing] = useState(false);
   const [prompt, setPrompt] = useState(completion.prompt);
   const [answer, setAnswer] = useState(completion.answer);
+  const [agentIds, setAgentIds] = useState<string[]>(() =>
+    agentIdsFromCompletion(completion)
+  );
+  const [contextRules, setContextRules] = useState<TCompletionContextRules>(() =>
+    defaultContextRules(completion)
+  );
+  const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const didAutoFocusRef = useRef(false);
+
+  const resetDraftFromCompletion = (c: TCompletion) => {
+    setPrompt(c.prompt);
+    setAnswer(c.answer);
+    setAgentIds(agentIdsFromCompletion(c));
+    setContextRules(defaultContextRules(c));
+  };
+
+  useEffect(() => {
+    if (isEditing) return;
+    resetDraftFromCompletion(completion);
+  }, [completion, isEditing]);
 
   useEffect(() => {
     if (focusCompletionId == null) {
@@ -1039,59 +1175,65 @@ const CompletionItem = ({
     return () => window.clearTimeout(timer);
   }, [focusCompletionId, completion.id]);
 
-  const agentName = agents.find((a) => a.id === completion.agent)?.name;
+  const savedAgentIds = agentIdsFromCompletion(completion);
+  const savedRules = defaultContextRules(completion);
+
+  const assignedAgentNames = agents
+    .filter((a) =>
+      a.id && savedAgentIds.includes(a.id.toString())
+    )
+    .map((a) => a.name);
 
   const handleSave = async () => {
+    setSaving(true);
     try {
-      await updateCompletion(completion.id.toString(), {
+      const updated = await updateCompletion(completion.id.toString(), {
         prompt,
         answer,
         approved: completion.approved,
+        agents: agentIds.map((id) => parseInt(id, 10)),
+        context_rules: contextRules,
       });
+      onPatched(updated);
       toast.success(t("completion-updated"));
       setIsEditing(false);
-      onRefresh();
+      resetDraftFromCompletion(normalizeCompletion(updated));
     } catch {
       toast.error(t("error-updating-completion"));
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleApprove = async () => {
+    const nextApproved = !completion.approved;
     try {
-      await updateCompletion(completion.id.toString(), {
+      const updated = await updateCompletion(completion.id.toString(), {
         prompt: completion.prompt,
         answer: completion.answer,
-        approved: !completion.approved,
+        approved: nextApproved,
+        agents: savedAgentIds.map((id) => parseInt(id, 10)),
+        context_rules: savedRules,
       });
+      onPatched(updated);
       toast.success(
-        completion.approved ? t("completion-unapproved") : t("completion-approved")
+        nextApproved ? t("completion-approved") : t("completion-unapproved")
       );
-      onRefresh();
     } catch {
       toast.error(t("error-updating-completion"));
     }
   };
 
-  const handleAssignAgent = async (agentId: string) => {
-    try {
-      await updateCompletion(completion.id.toString(), {
-        prompt: completion.prompt,
-        answer: completion.answer,
-        approved: completion.approved,
-        agent: agentId ? parseInt(agentId) : null,
-      });
-      toast.success(t("agent-assigned"));
-      onRefresh();
-    } catch {
-      toast.error(t("error-assigning-agent"));
-    }
+  const handleCancelEdit = () => {
+    resetDraftFromCompletion(completion);
+    setIsEditing(false);
   };
 
   const handleDelete = async () => {
     try {
       await deleteCompletion(completion.id.toString());
+      onRemoved(completion.id);
       toast.success(t("completion-deleted"));
-      onRefresh();
     } catch {
       toast.error(t("error-deleting-completion"));
     }
@@ -1146,13 +1288,26 @@ const CompletionItem = ({
         >
           {completion.approved ? t("approved") : t("pending")}
         </Badge>
-        {agentName && (
+        {assignedAgentNames.map((name) => (
           <Badge
+            key={name}
             size="xs"
             variant="default"
             leftSection={<IconRobot size={10} />}
           >
-            {agentName}
+            {name}
+          </Badge>
+        ))}
+        {savedRules.include_always && (
+          <Badge size="xs" variant="light" color="violet">
+            {t("completion-include-always")}
+          </Badge>
+        )}
+        {savedRules.include_for_tags.length > 0 && (
+          <Badge size="xs" variant="light" color="blue">
+            {t("completion-tag-rules-count", {
+              count: savedRules.include_for_tags.length,
+            })}
           </Badge>
         )}
       </Group>
@@ -1173,24 +1328,60 @@ const CompletionItem = ({
         </Text>
       )}
 
-      {/* Actions */}
-      <Group gap="xs" wrap="wrap">
-        <NativeSelect
-          size="xs"
-          value={completion.agent?.toString() || ""}
-          onChange={(e) => handleAssignAgent(e.currentTarget.value)}
-          data={[
-            { value: "", label: t("no-agent-assigned") },
-            ...agents
+      {isEditing && (
+        <Stack gap="xs" mb="sm">
+          <MultiSelect
+            size="xs"
+            label={t("assign-to-agents")}
+            value={agentIds}
+            onChange={setAgentIds}
+            data={agents
               .filter((a) => a.id)
               .map((a) => ({
                 value: a.id!.toString(),
                 label: a.name,
-              })),
-          ]}
-          style={{ minWidth: 140 }}
-        />
+              }))}
+            searchable
+            clearable
+          />
+          <Checkbox
+            label={t("completion-include-always")}
+            checked={contextRules.include_always}
+            onChange={(e) =>
+              setContextRules({
+                ...contextRules,
+                include_always: e.currentTarget.checked,
+                include_for_tags: e.currentTarget.checked
+                  ? []
+                  : contextRules.include_for_tags,
+              })
+            }
+          />
+          <MultiSelect
+            size="xs"
+            label={t("completion-include-for-tags")}
+            description={t("completion-include-for-tags-help")}
+            value={contextRules.include_for_tags.map(String)}
+            onChange={(vals) =>
+              setContextRules({
+                ...contextRules,
+                include_for_tags: vals.map((v) => parseInt(v, 10)),
+              })
+            }
+            data={orgTags
+              .filter((tag) => tag.enabled)
+              .map((tag) => ({
+                value: tag.id.toString(),
+                label: tag.title,
+              }))}
+            searchable
+            clearable
+            disabled={contextRules.include_always}
+          />
+        </Stack>
+      )}
 
+      <Group gap="xs" wrap="wrap">
         <Button
           variant="light"
           color={completion.approved ? "green" : "gray"}
@@ -1209,17 +1400,14 @@ const CompletionItem = ({
 
         {isEditing ? (
           <>
-            <Button size="xs" onClick={handleSave}>
+            <Button size="xs" onClick={handleSave} loading={saving}>
               {t("save")}
             </Button>
             <Button
               variant="default"
               size="xs"
-              onClick={() => {
-                setIsEditing(false);
-                setPrompt(completion.prompt);
-                setAnswer(completion.answer);
-              }}
+              onClick={handleCancelEdit}
+              disabled={saving}
             >
               {t("cancel")}
             </Button>

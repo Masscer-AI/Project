@@ -382,7 +382,7 @@ class CreateCompletionToolTests(TestCase):
         from api.ai_layers.models import Agent, LanguageModel
         from api.messaging.models import Conversation
         from api.providers.models import AIProvider
-        from api.finetuning.models import Completion
+        from api.finetuning.models import Completion, CompletionAssignment
 
         user = User.objects.create_user(username="ccu", email="ccu@e.com", password="x")
         provider = AIProvider.objects.create(name="OpenAI-cc")
@@ -410,6 +410,9 @@ class CreateCompletionToolTests(TestCase):
         self.assertEqual(c.prompt, "What is X?")
         self.assertEqual(c.answer, "X is Y.")
         self.assertFalse(c.approved)
+        self.assertTrue(
+            CompletionAssignment.objects.filter(completion=c, agent=agent).exists()
+        )
 
     @patch("api.authenticate.services.FeatureFlagService.is_feature_enabled")
     def test_create_completion_requires_train_agents_flag(self, mock_ff):
@@ -449,7 +452,7 @@ class CreateCompletionToolTests(TestCase):
         from api.ai_layers.tasks import _extract_create_completion_refs_from_tool_calls
         from api.ai_layers.models import Agent, LanguageModel
         from api.providers.models import AIProvider
-        from api.finetuning.models import Completion
+        from api.finetuning.models import Completion, CompletionAssignment
 
         user = User.objects.create_user(username="ccu3", email="ccu3@e.com", password="x")
         provider = AIProvider.objects.create(name="OpenAI-cc3")
@@ -463,7 +466,8 @@ class CreateCompletionToolTests(TestCase):
             model_slug=llm.slug,
             model_provider="openai",
         )
-        c = Completion.objects.create(prompt="p", answer="a", agent=agent, approved=False)
+        c = Completion.objects.create(prompt="p", answer="a", approved=False)
+        CompletionAssignment.objects.create(completion=c, agent=agent)
         tool_calls = [
             {
                 "tool_name": "create_completion",
@@ -481,7 +485,7 @@ class CreateCompletionToolTests(TestCase):
         from api.ai_layers.tasks import _extract_referenced_completions_from_text
         from api.ai_layers.models import Agent, LanguageModel
         from api.providers.models import AIProvider
-        from api.finetuning.models import Completion
+        from api.finetuning.models import Completion, CompletionAssignment
 
         user = User.objects.create_user(username="ccu4", email="ccu4@e.com", password="x")
         provider = AIProvider.objects.create(name="OpenAI-cc4")
@@ -495,7 +499,8 @@ class CreateCompletionToolTests(TestCase):
             model_slug=llm.slug,
             model_provider="openai",
         )
-        c = Completion.objects.create(prompt="long prompt " * 20, answer="a", agent=agent, approved=False)
+        c = Completion.objects.create(prompt="long prompt " * 20, answer="a", approved=False)
+        CompletionAssignment.objects.create(completion=c, agent=agent)
         text = f"Edit [here](completion:{c.id})"
         atts = _extract_referenced_completions_from_text(text, user)
         self.assertEqual(len(atts), 1)
@@ -506,7 +511,7 @@ class CreateCompletionToolTests(TestCase):
     def test_pending_completion_save_does_not_call_upsert(self, mock_chroma):
         from api.ai_layers.models import Agent, LanguageModel
         from api.providers.models import AIProvider
-        from api.finetuning.models import Completion
+        from api.finetuning.models import Completion, CompletionAssignment
 
         user = User.objects.create_user(username="ccu5", email="ccu5@e.com", password="x")
         provider = AIProvider.objects.create(name="OpenAI-cc5")
@@ -520,5 +525,6 @@ class CreateCompletionToolTests(TestCase):
             model_slug=llm.slug,
             model_provider="openai",
         )
-        Completion.objects.create(prompt="p", answer="a", agent=agent, approved=False)
+        c = Completion.objects.create(prompt="p", answer="a", approved=False)
+        CompletionAssignment.objects.create(completion=c, agent=agent)
         self.assertFalse(mock_chroma.upsert_chunk.called)

@@ -1,13 +1,42 @@
-from api.utils.color_printer import printer
+import math
+
+from django.db.models import Q
+from pydantic import BaseModel, Field
+
+from api.ai_layers.models import Agent
 from api.messaging.models import Conversation
 from api.rag.models import Document
-from .models import TrainingGenerator, Completion
-from api.ai_layers.models import Agent
+from api.utils.color_printer import printer
 from api.utils.openai_functions import create_structured_completion
-from pydantic import BaseModel, Field
+
+from .models import Completion, CompletionAssignment, TrainingGenerator
 from .serializers import CompletionSerializer
-from django.db.models import Q
-import math
+
+
+def _agents_from_slugs(slugs: list[str]) -> list[Agent]:
+    agents: list[Agent] = []
+    for slug in slugs:
+        try:
+            agents.append(Agent.objects.get(slug=slug))
+        except Agent.DoesNotExist:
+            printer.error(f"AGENT {slug} NOT FOUND")
+    return agents
+
+
+def _merged_target_description(agents: list[Agent]) -> str:
+    blocks = []
+    for agent in agents:
+        blocks.append(
+            f"""### Agent: {agent.name} (slug={agent.slug})
+```txt agent.act_as
+{agent.act_as}
+```
+```txt agent.system_prompt
+{agent.system_prompt}
+```
+"""
+        )
+    return "\n".join(blocks)
 
 
 def create_training_generator(data, user):
@@ -40,34 +69,20 @@ def create_training_generator(data, user):
 def create_generator_for_conversation(
     conversation, agents, completions_target_number, only_prompt, user
 ):
-    for a in agents:
-        agent = Agent.objects.get(slug=a)
-        if not agent:
-            printer.error(f"AGENT {a} NOT FOUND")
-            continue
+    agent_objs = _agents_from_slugs(agents)
+    if not agent_objs:
+        return
 
-        _description = f"""
-This is how the user described the agent character:
-```txt agent.act_as
-{agent.act_as}
-```
-This is the system prompt of the agent:
-
-```txt agent.system_prompt
-
-{agent.system_prompt}
-```
-"""
-
-        TrainingGenerator.objects.create(
-            name=f"Training for {agent.name} on conversation {conversation.title}",
-            agent=agent,
-            completions_target_number=completions_target_number,
-            target_model_description=_description,
-            only_prompt=only_prompt,
-            created_by=user,
-            source_text=conversation.get_all_messages_context(),
-        )
+    names = ", ".join(a.name for a in agent_objs)
+    generator = TrainingGenerator.objects.create(
+        name=f"Training for {names} on conversation {conversation.title}"[:255],
+        completions_target_number=completions_target_number,
+        target_model_description=_merged_target_description(agent_objs),
+        only_prompt=only_prompt,
+        created_by=user,
+        source_text=conversation.get_all_messages_context(),
+    )
+    generator.agents.set(agent_objs)
 
 
 def create_generator_for_document(
@@ -83,39 +98,23 @@ def create_generator_for_document(
         parts = math.ceil(document.total_tokens / 80000)
     else:
         parts = 1
+
+    agent_objs = _agents_from_slugs(agents)
+    if not agent_objs:
+        return
+
+    names = ", ".join(a.name for a in agent_objs)
     for i in range(parts):
-        for a in agents:
-            agent = Agent.objects.get(slug=a)
-            if not agent:
-                printer.error(f"AGENT {a} NOT FOUND")
-                continue
-
-            _description = f"""
-            This is how the user described the agent character:
-            ```txt agent.act_as
-            {agent.act_as}
-            ```
-            This is the system prompt of the agent: 
-
-            ```txt agent.system_prompt
-
-            {agent.system_prompt}
-            ```
-            """
-            printer.yellow(f"{len(document.text)}")
-            tg_name = (
-                f"Training for {agent.name} on document {document.name} - part {i + 1}"
-            )
-            tg_name = tg_name[:255]
-            TrainingGenerator.objects.create(
-                name=tg_name,
-                agent=agent,
-                completions_target_number=completions_target_number,
-                target_model_description=_description,
-                only_prompt=only_prompt,
-                created_by=user,
-                source_text=document.text[i * 80000 : (i + 1) * 80000],
-            )
+        tg_name = f"Training for {names} on document {document.name} - part {i + 1}"[:255]
+        generator = TrainingGenerator.objects.create(
+            name=tg_name,
+            completions_target_number=completions_target_number,
+            target_model_description=_merged_target_description(agent_objs),
+            only_prompt=only_prompt,
+            created_by=user,
+            source_text=document.text[i * 80000 : (i + 1) * 80000],
+        )
+        generator.agents.set(agent_objs)
 
 
 class CompletionData(BaseModel):
@@ -129,48 +128,65 @@ class CompletionData(BaseModel):
 
 class GeneratorResponse(BaseModel):
     completions: list[CompletionData] = Field(
-        description="The generated completions to train the specified agent"
+        description="The generated completions to train the specified agents"
     )
 
 
 def start_generator(generator_id):
     printer.green(f"STARTING GENERATOR {generator_id}")
-    generator = TrainingGenerator.objects.get(id=generator_id)
+    generator = TrainingGenerator.objects.prefetch_related("agents").get(id=generator_id)
 
     if not generator:
         raise Exception("Generator not found")
 
-    # TODO: register consumption here
+    agent_ids = list(generator.agents.values_list("id", flat=True))
+    if not agent_ids:
+        printer.error(f"Generator {generator_id} has no agents assigned")
+        return False
+
     response = create_structured_completion(
         model="gpt-4o-mini",
         system_prompt=generator.get_system_prompt(),
         response_format=GeneratorResponse,
-        user_prompt="Generate completions for the agent",
+        user_prompt="Generate completions for the agents",
     )
-    # BULK CREATE COMPLETIONS
-    completions = [
+
+    completion_rows = [
         Completion(
             prompt=completion.prompt,
             answer=completion.answer,
             training_generator=generator,
-            agent=generator.agent,
         )
         for completion in response.completions
     ]
-    Completion.objects.bulk_create(completions)
-    printer.green(f"GENERATED {len(completions)} COMPLETIONS")
-    # close_old_connections()
+    created = Completion.objects.bulk_create(completion_rows)
+
+    assignments = [
+        CompletionAssignment(completion=completion, agent_id=agent_id)
+        for completion in created
+        for agent_id in agent_ids
+    ]
+    CompletionAssignment.objects.bulk_create(assignments, ignore_conflicts=True)
+
+    printer.green(
+        f"GENERATED {len(created)} COMPLETIONS with assignments for {len(agent_ids)} agent(s)"
+    )
     return True
 
 
-def get_user_completions(user):
+def _accessible_completions_qs(user):
     from api.ai_layers.access import get_user_organization
 
     user_org = get_user_organization(user)
+    base = Completion.objects.prefetch_related("assignments")
     if user_org:
-        completions = Completion.objects.filter(
-            Q(agent__user=user) | Q(agent__organization=user_org)
+        return base.filter(
+            Q(assignments__agent__user=user)
+            | Q(assignments__agent__organization=user_org)
         ).distinct()
-    else:
-        completions = Completion.objects.filter(agent__user=user)
+    return base.filter(assignments__agent__user=user).distinct()
+
+
+def get_user_completions(user):
+    completions = _accessible_completions_qs(user)
     return CompletionSerializer(completions, many=True).data

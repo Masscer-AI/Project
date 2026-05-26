@@ -77,12 +77,20 @@ export interface TConversation {
   has_pending_alerts?: boolean;
 }
 
+export type TCompletionContextRules = {
+  include_always: boolean;
+  include_for_tags: number[];
+};
+
 export type TCompletion = {
   id: number;
   prompt: string;
   answer: string;
   approved: boolean;
-  agent: number;
+  /** @deprecated use agent_ids */
+  agent?: number;
+  agent_ids: number[];
+  context_rules: TCompletionContextRules;
 };
 
 type TWebSearchResult = {

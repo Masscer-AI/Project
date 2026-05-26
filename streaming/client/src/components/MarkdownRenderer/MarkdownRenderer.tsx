@@ -24,11 +24,13 @@ const MarkdownRenderer = ({
   extraClass,
   onChange,
   attachments,
+  onCompletionLinkClick,
 }: {
   markdown: string;
   extraClass?: string;
   onChange?: (markdown: string) => void;
   attachments?: TAttachment[];
+  onCompletionLinkClick?: (completionId: string) => void;
 }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -226,11 +228,15 @@ const MarkdownRenderer = ({
                 <Anchor
                   component="button"
                   type="button"
-                  onClick={() =>
-                    navigate(
-                      `/knowledge-base?tab=completions&completion=${encodeURIComponent(id)}`
-                    )
-                  }
+                  onClick={() => {
+                    if (onCompletionLinkClick) {
+                      onCompletionLinkClick(id);
+                    } else {
+                      navigate(
+                        `/knowledge-base?tab=completions&completion=${encodeURIComponent(id)}`
+                      );
+                    }
+                  }}
                   size="sm"
                   underline="hover"
                 >
