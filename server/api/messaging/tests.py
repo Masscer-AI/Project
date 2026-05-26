@@ -7,7 +7,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from api.ai_layers.models import Agent, LanguageModel
-from api.authenticate.models import Organization
+from api.authenticate.models import Organization, UserProfile
 from api.messaging.models import ChatWidget, Conversation, Message, WidgetVisitorSession
 from api.messaging.serializers import ChatWidgetSerializer
 from api.providers.models import AIProvider
@@ -291,3 +291,172 @@ class MessagePostSaveBillingTests(TestCase):
         )
 
         delay_mock.delay.assert_not_called()
+
+
+class ConversationTakeoverTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.operator = User.objects.create_user(
+            username="operator",
+            email="op@example.com",
+            password="pass-123456",
+        )
+        self.other = User.objects.create_user(
+            username="other",
+            email="other@example.com",
+            password="pass-123456",
+        )
+        self.org = Organization.objects.create(name="Takeover Org", owner=self.operator)
+        UserProfile.objects.create(user=self.other, organization=self.org)
+        provider = AIProvider.objects.create(name="OpenAI")
+        llm = LanguageModel.objects.create(
+            provider=provider,
+            slug="gpt-4o-mini",
+            name="GPT 4o mini",
+        )
+        self.agent = Agent.objects.create(
+            name="WA Agent",
+            salute="hi",
+            act_as="helpful",
+            user=self.operator,
+            llm=llm,
+            model_slug=llm.slug,
+            model_provider="openai",
+        )
+        from api.whatsapp.models import WSNumber
+
+        self.ws_number = WSNumber.objects.create(
+            organization=self.org,
+            agent=self.agent,
+            number="5215551234567",
+            platform_id="123456",
+        )
+        self.conversation = Conversation.objects.create(
+            user=None,
+            organization=self.org,
+            ws_number=self.ws_number,
+            whatsapp_user_number="5215559999999",
+        )
+        self.client.force_authenticate(user=self.operator)
+
+    @patch("api.messaging.takeover.notify_user")
+    @patch("api.messaging.takeover.send_takeover_announcement")
+    @patch("api.messaging.views.user_can_replace_agent", return_value=True)
+    def test_start_takeover_creates_active_row(
+        self, _flag_mock, announce_mock, notify_mock
+    ):
+        announce_mock.return_value = None
+        response = self.client.post(
+            f"/v1/messaging/conversations/{self.conversation.id}/takeover/"
+        )
+        self.assertEqual(response.status_code, 200)
+        from api.messaging.models import ConversationTakeover
+
+        takeover = ConversationTakeover.objects.get(conversation=self.conversation)
+        self.assertEqual(takeover.status, ConversationTakeover.Status.ACTIVE)
+        self.assertEqual(takeover.user_id, self.operator.id)
+        data = response.json()
+        self.assertIsNotNone(data.get("active_takeover"))
+
+    @patch("api.messaging.takeover.notify_user")
+    @patch("api.messaging.takeover.send_takeover_announcement")
+    @patch("api.messaging.views.user_can_replace_agent", return_value=True)
+    def test_second_operator_gets_conflict(
+        self, _flag_mock, announce_mock, notify_mock
+    ):
+        announce_mock.return_value = None
+        from api.messaging.takeover import start_takeover
+
+        start_takeover(self.conversation, self.operator)
+        self.client.force_authenticate(user=self.other)
+        response = self.client.post(
+            f"/v1/messaging/conversations/{self.conversation.id}/takeover/"
+        )
+        self.assertEqual(response.status_code, 409)
+
+    @patch("api.messaging.takeover.notify_user")
+    @patch("api.messaging.takeover.send_takeover_announcement")
+    @patch("api.messaging.views.user_can_replace_agent", return_value=True)
+    def test_release_sets_inactive_and_metadata_reason(
+        self, _flag_mock, announce_mock, notify_mock
+    ):
+        announce_mock.return_value = None
+        from api.messaging.takeover import start_takeover
+        from api.messaging.models import ConversationTakeover
+
+        takeover = start_takeover(self.conversation, self.operator)
+        response = self.client.delete(
+            f"/v1/messaging/conversations/{self.conversation.id}/takeover/"
+        )
+        self.assertEqual(response.status_code, 200)
+        takeover.refresh_from_db()
+        self.assertEqual(takeover.status, ConversationTakeover.Status.INACTIVE)
+        self.assertIsNotNone(takeover.ended_at)
+        self.assertEqual(takeover.metadata.get("ended_reason"), "manual_release")
+
+    @patch("api.messaging.takeover.emit_message_created")
+    @patch("api.messaging.takeover.notify_widget_human_reply")
+    @patch("api.messaging.views.user_can_replace_agent", return_value=True)
+    def test_human_message_whatsapp_via_takeover(
+        self, _flag_mock, widget_notify_mock, emit_mock
+    ):
+        from api.messaging.takeover import start_takeover
+
+        takeover = start_takeover(self.conversation, self.operator)
+        with patch.object(
+            type(self.ws_number), "send_message", return_value="wamid-1"
+        ) as send_mock:
+            with patch(
+                "api.messaging.takeover.send_takeover_announcement",
+                return_value=None,
+            ):
+                response = self.client.post(
+                    f"/v1/messaging/conversations/{self.conversation.id}/human-message/",
+                    data={"message": "Hola desde humano"},
+                    format="json",
+                )
+        self.assertEqual(response.status_code, 201)
+        send_mock.assert_called_once()
+        msg = Message.objects.filter(
+            conversation=self.conversation, type="assistant"
+        ).order_by("-id").first()
+        self.assertEqual(msg.text, "Hola desde humano")
+        self.assertTrue(msg.metadata.get("human_takeover"))
+
+    @patch("api.messaging.takeover.notify_user")
+    @patch("api.ai_layers.tasks.conversation_agent_task")
+    def test_whatsapp_inbound_skips_agent_when_takeover_active(
+        self, agent_task_mock, notify_mock
+    ):
+        from api.messaging.models import ConversationTakeover
+        from api.messaging.takeover import start_takeover
+        from api.whatsapp.inbound import enqueue_whatsapp_inbound_agent
+
+        with patch(
+            "api.messaging.takeover.send_takeover_announcement",
+            return_value=None,
+        ):
+            start_takeover(self.conversation, self.operator)
+
+        enqueue_whatsapp_inbound_agent(
+            conversation=self.conversation,
+            ws_number=self.ws_number,
+            whatsapp_user_number="5215559999999",
+            inbound_wamid="wamid-in-1",
+            user_inputs=[{"type": "input_text", "text": "Necesito ayuda"}],
+        )
+
+        agent_task_mock.delay.assert_not_called()
+        user_msg = Message.objects.filter(
+            conversation=self.conversation,
+            type="user",
+            metadata__whatsapp_inbound_wamid="wamid-in-1",
+        ).first()
+        self.assertIsNotNone(user_msg)
+        self.assertEqual(user_msg.text, "Necesito ayuda")
+        self.assertTrue(
+            ConversationTakeover.objects.filter(
+                conversation=self.conversation,
+                status=ConversationTakeover.Status.ACTIVE,
+            ).exists()
+        )

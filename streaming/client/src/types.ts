@@ -40,6 +40,15 @@ export interface TTag {
   updated_at: string;
 }
 
+export type TConversationActiveTakeover = {
+  id: string;
+  operator_user_id: number;
+  operator_username: string;
+  operator_display_name: string;
+  status: "ACTIVE" | "INACTIVE";
+  started_at: string | null;
+};
+
 export interface TConversation {
   id: string;
   user_id?: number | null;
@@ -47,6 +56,7 @@ export interface TConversation {
   chat_widget_id?: number | null;
   ws_number?: number | null;
   whatsapp_user_number?: string | null;
+  active_takeover?: TConversationActiveTakeover | null;
   is_anonymous_widget?: boolean;
   visitor_alias?: string | null;
   status?: "active" | "inactive" | "archived" | "deleted";

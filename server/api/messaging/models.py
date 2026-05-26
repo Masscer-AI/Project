@@ -142,6 +142,52 @@ class Conversation(models.Model):
         ]
 
 
+class ConversationTakeover(models.Model):
+    """Human operator temporarily replaces the AI agent on a conversation."""
+
+    class Status(models.TextChoices):
+        ACTIVE = "ACTIVE", "Active"
+        INACTIVE = "INACTIVE", "Inactive"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    conversation = models.ForeignKey(
+        Conversation,
+        on_delete=models.CASCADE,
+        related_name="takeovers",
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        related_name="conversation_takeovers",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.ACTIVE,
+        db_index=True,
+    )
+    started_at = models.DateTimeField(auto_now_add=True)
+    ended_at = models.DateTimeField(null=True, blank=True)
+    metadata = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Validated via ConversationTakeoverMetadata (e.g. ended_reason)",
+    )
+    announcement_sent_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["conversation"],
+                condition=Q(status="ACTIVE"),
+                name="uniq_active_takeover_per_conversation",
+            ),
+        ]
+
+    def __str__(self):
+        return f"ConversationTakeover({self.id}, {self.status})"
+
+
 class MessageAttachment(models.Model):
     """
     Temporary storage for files attached to messages (images, audio, etc.).

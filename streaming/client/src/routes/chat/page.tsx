@@ -19,7 +19,10 @@ import {
   triggerAgentTask,
   buildClientDatetimePayload,
   uploadMessageAttachments,
+  sendHumanMessageToConversation,
 } from "../../modules/apiCalls";
+import { HumanTakeoverBanner } from "../../components/HumanTakeoverBanner/HumanTakeoverBanner";
+import type { TConversation } from "../../types";
 import { agentsInChatSelectionOrder } from "../../modules/agentSelection";
 import { useAgentSelectionPrompt } from "../../hooks/useAgentSelectionPrompt";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
@@ -59,15 +62,35 @@ export default function ChatView() {
   const { t } = useTranslation();
 
   const routeConversation = loaderData.conversation;
-  const activeConversation = routeConversation;
+  const activeConversation =
+    conversation?.id === routeConversation?.id && conversation
+      ? conversation
+      : routeConversation;
   const isForeignConversation =
     activeConversation?.user_id != null &&
     loaderData.user?.id != null &&
     activeConversation.user_id !== loaderData.user.id;
   const isWidgetConversation = activeConversation?.chat_widget_id != null;
   const isWhatsappConversation = Boolean(activeConversation?.whatsapp_user_number);
-  const isViewer =
+  const isViewerBase =
     isForeignConversation || isWidgetConversation || isWhatsappConversation;
+  const canReplaceAgent =
+    useIsFeatureEnabled("can-replace-agent-in-conversations") === true;
+  const activeTakeover = activeConversation?.active_takeover;
+  const isTakeoverOperator =
+    activeTakeover?.status === "ACTIVE" &&
+    activeTakeover.operator_user_id === loaderData.user?.id;
+  const isViewer = isViewerBase && !isTakeoverOperator;
+  const canTakeOver =
+    canReplaceAgent &&
+    isViewerBase &&
+    !isTakeoverOperator &&
+    activeTakeover?.status !== "ACTIVE";
+  const composerMode: "agent" | "human" | "readonly" = isTakeoverOperator
+    ? "human"
+    : isViewer
+      ? "readonly"
+      : "agent";
 
   const chatMessageContainerRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<number | null>(null);
@@ -204,8 +227,45 @@ export default function ChatView() {
     messages.length,
   ]);
 
+  const handleHumanSendMessage = async (input: string) => {
+    if (input.trim() === "") return false;
+    if (!routeConversation?.id) {
+      toast.error("No conversation found");
+      return false;
+    }
+
+    const optimistic: TMessage = {
+      type: "assistant",
+      text: input.trim(),
+      attachments: [],
+    };
+    setMessages((prev) => [...prev, optimistic]);
+
+    try {
+      await sendHumanMessageToConversation(routeConversation.id, input.trim());
+      await setConversation(routeConversation.id);
+      scrollChat();
+      return true;
+    } catch (error) {
+      console.error("Error sending human message:", error);
+      toast.error(t("human-takeover-send-failed"));
+      setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        if (last?.type === "assistant" && !last.id && last.text === input.trim()) {
+          return prev.slice(0, -1);
+        }
+        return prev;
+      });
+      return false;
+    }
+  };
+
   const handleSendMessage = async (input: string) => {
     if (input.trim() === "") return false;
+
+    if (composerMode === "human") {
+      return handleHumanSendMessage(input);
+    }
 
     if (chatState.writtingMode) return false;
 
@@ -507,6 +567,19 @@ export default function ChatView() {
           }
         />
 
+        {(canTakeOver || isTakeoverOperator || activeTakeover) && (
+          <HumanTakeoverBanner
+            conversationId={activeConversation.id}
+            activeTakeover={activeTakeover}
+            canTakeOver={canTakeOver}
+            isTakeoverOperator={isTakeoverOperator}
+            onConversationUpdated={(conv) => {
+              hydrateConversation(conv);
+              setMessages(conv.messages ?? []);
+            }}
+          />
+        )}
+
         <div
           ref={chatMessageContainerRef}
           className="min-h-0 flex-1 overflow-y-auto flex flex-col w-full pb-6 mt-6 px-1 md:px-2"
@@ -544,9 +617,12 @@ export default function ChatView() {
             initialInput={
               loaderData.query && !loaderData.sendQuery ? loaderData.query : ""
             }
+            composerMode={composerMode}
             readOnly={isViewer}
             readOnlyMessage={
-              isWhatsappConversation ? t("view-only-mode-whatsapp") : undefined
+              isWhatsappConversation && composerMode === "readonly"
+                ? t("view-only-mode-whatsapp")
+                : undefined
             }
           />
         </div>

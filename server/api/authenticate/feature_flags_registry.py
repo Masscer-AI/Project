@@ -28,6 +28,7 @@ KNOWN_FEATURE_FLAGS = {
     "multi-agent-chat": {"organization_only": False},
     "set-agent-ownership": {"organization_only": False},
     "can-edit-conversation-data": {"organization_only": False},
+    "can-replace-agent-in-conversations": {"organization_only": False},
     "can-edit-preferences": {"organization_only": False},
     "can-create-agents": {"organization_only": False},
 }

@@ -1,6 +1,8 @@
 from django.urls import path
 from .views import (
     ConversationView,
+    ConversationTakeoverView,
+    ConversationHumanMessageView,
     ConversationStatsView,
     ConversationBulkView,
     MessageView,
@@ -34,6 +36,16 @@ urlpatterns = [
         "conversations/<uuid:id>/",
         ConversationView.as_view(),
         name="conversation_detail",
+    ),
+    path(
+        "conversations/<uuid:id>/takeover/",
+        ConversationTakeoverView.as_view(),
+        name="conversation_takeover",
+    ),
+    path(
+        "conversations/<uuid:id>/human-message/",
+        ConversationHumanMessageView.as_view(),
+        name="conversation_human_message",
     ),
     path("messages", MessageView.as_view(), name="message_list"),
     path("messages/<int:id>/", MessageView.as_view(), name="message_detail"),

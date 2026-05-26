@@ -503,6 +503,31 @@ export const sendMessageToConversation = async (
   );
 };
 
+export const startConversationTakeover = async (conversationId: string) => {
+  return makeAuthenticatedRequest(
+    "POST",
+    `/v1/messaging/conversations/${conversationId}/takeover/`
+  );
+};
+
+export const releaseConversationTakeover = async (conversationId: string) => {
+  return makeAuthenticatedRequest(
+    "DELETE",
+    `/v1/messaging/conversations/${conversationId}/takeover/`
+  );
+};
+
+export const sendHumanMessageToConversation = async (
+  conversationId: string,
+  message: string
+) => {
+  return makeAuthenticatedRequest(
+    "POST",
+    `/v1/messaging/conversations/${conversationId}/human-message/`,
+    { message }
+  );
+};
+
 export const updateWhatsappNumber = async (numberId: string, data: any) => {
   return makeAuthenticatedRequest(
     "PUT",

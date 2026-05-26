@@ -10,6 +10,22 @@ from api.ai_layers.tools import list_available_tools
 from .schemas import ChatWidgetStyle, ChatWidgetCapabilitiesPayload
 
 
+def serialize_active_takeover(conversation) -> dict | None:
+    from .takeover import get_active_takeover, operator_display_name
+
+    takeover = get_active_takeover(conversation)
+    if not takeover:
+        return None
+    return {
+        "id": str(takeover.id),
+        "operator_user_id": takeover.user_id,
+        "operator_username": takeover.user.username,
+        "operator_display_name": operator_display_name(takeover.user),
+        "status": takeover.status,
+        "started_at": takeover.started_at.isoformat() if takeover.started_at else None,
+    }
+
+
 class MessageSerializer(serializers.ModelSerializer):
     reactions = serializers.SerializerMethodField()
     created_at_formatted = serializers.SerializerMethodField()
@@ -53,6 +69,7 @@ class ConversationSerializer(serializers.ModelSerializer):
     is_anonymous_widget = serializers.SerializerMethodField()
     chat_widget_id = serializers.SerializerMethodField()
     visitor_alias = serializers.SerializerMethodField()
+    active_takeover = serializers.SerializerMethodField()
 
     class Meta:
         model = Conversation
@@ -63,6 +80,9 @@ class ConversationSerializer(serializers.ModelSerializer):
         data["user_id"] = instance.user_id if instance.user_id else None
         data["user_username"] = instance.user.username if instance.user else None
         return data
+
+    def get_active_takeover(self, obj):
+        return serialize_active_takeover(obj)
 
     def get_number_of_messages(self, obj):
         return obj.messages.count()
@@ -132,6 +152,7 @@ class BigConversationSerializer(serializers.ModelSerializer):
     is_anonymous_widget = serializers.SerializerMethodField()
     chat_widget_id = serializers.SerializerMethodField()
     visitor_alias = serializers.SerializerMethodField()
+    active_takeover = serializers.SerializerMethodField()
 
     class Meta:
         model = Conversation
@@ -142,6 +163,9 @@ class BigConversationSerializer(serializers.ModelSerializer):
         data["user_id"] = instance.user_id if instance.user_id else None
         data["user_username"] = instance.user.username if instance.user else None
         return data
+
+    def get_active_takeover(self, obj):
+        return serialize_active_takeover(obj)
 
     def get_messages(self, obj):
         # Retrieve messages ordered by ID

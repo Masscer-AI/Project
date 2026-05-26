@@ -209,7 +209,6 @@ class WSConversationDetailView(View):
     def post(self, request, *args, **kwargs):
         printer.blue("Sending a message to a conversation")
         user = request.user
-        _require_whatsapp_numbers_management(user)
         pk = kwargs.get("pk")
         conversation = (
             Conversation.objects.filter(whatsapp_conversation_visible_q(user), id=pk)
@@ -229,6 +228,23 @@ class WSConversationDetailView(View):
         if not message:
             return JsonResponse({"error": "No message provided"}, status=400)
 
+        from api.messaging.takeover import (
+            deliver_human_message,
+            get_active_takeover,
+            user_can_replace_agent,
+        )
+
+        takeover = get_active_takeover(conversation)
+        if takeover and takeover.user_id == user.id and user_can_replace_agent(
+            user, conversation
+        ):
+            msg = deliver_human_message(conversation, takeover, message)
+            return JsonResponse(
+                {"message": "Message sent successfully", "message_id": msg.id},
+                status=201,
+            )
+
+        _require_whatsapp_numbers_management(user)
         conversation.ws_number.send_message(conversation, message)
 
         return JsonResponse({"message": "Message sent successfully"}, status=201)

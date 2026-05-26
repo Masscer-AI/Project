@@ -48,6 +48,15 @@ from api.authenticate.decorators.widget_session_required import (
 )
 from api.ai_layers.tools import list_available_tools
 from .actions import transcribe_audio, complete_message
+from .takeover import (
+    CAN_REPLACE_AGENT_IN_CONVERSATIONS_FLAG,
+    deliver_human_message,
+    get_active_takeover,
+    handle_inbound_during_takeover,
+    release_takeover,
+    start_takeover,
+    user_can_replace_agent,
+)
 from django.core.files.storage import FileSystemStorage
 import os
 import uuid
@@ -58,6 +67,30 @@ import logging
 logger = logging.getLogger(__name__)
 
 CAN_EDIT_CONVERSATION_DATA_FLAG = "can-edit-conversation-data"
+
+
+def _deny_unless_can_replace_agent(request, conversation=None):
+    user = request.user
+    if not user_can_replace_agent(user, conversation):
+        return JsonResponse(
+            {
+                "message": (
+                    f"The '{CAN_REPLACE_AGENT_IN_CONVERSATIONS_FLAG}' feature "
+                    "is not enabled for you."
+                ),
+                "status": 403,
+            },
+            status=403,
+        )
+    return None
+
+
+def _conversation_eligible_for_takeover(conversation, user) -> bool:
+    if conversation.chat_widget_id or conversation.ws_number_id:
+        return True
+    if conversation.user_id and conversation.user_id != user.id:
+        return True
+    return False
 
 
 def _resolve_organization_for_user_flag(user, conversation=None):
@@ -1332,6 +1365,18 @@ class ChatWidgetAgentTaskView(View):
         if not request.widget.agent:
             return JsonResponse({"error": "Widget has no configured agent"}, status=400)
 
+        active_takeover = get_active_takeover(conversation)
+        if active_takeover:
+            handle_inbound_during_takeover(
+                conversation,
+                active_takeover,
+                user_inputs,
+            )
+            return JsonResponse(
+                {"status": "accepted", "takeover": True, "agent_skipped": True},
+                status=202,
+            )
+
         available_tools = set(list_available_tools())
         configured_tools = []
         for capability in request.widget.capabilities or []:
@@ -2081,4 +2126,131 @@ class TagView(View):
                 {"message": "Tag not found", "status": 404}, 
                 status=404
             )
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class ConversationTakeoverView(View):
+    """Start or release human takeover on a conversation."""
+
+    def post(self, request, id):
+        deny = _deny_unless_can_replace_agent(request)
+        if deny:
+            return deny
+
+        conversation, err = _get_conversation_for_user(request, id)
+        if err:
+            return err
+
+        if not _conversation_eligible_for_takeover(conversation, request.user):
+            return JsonResponse(
+                {
+                    "message": "This conversation cannot be taken over.",
+                    "status": 400,
+                },
+                status=400,
+            )
+
+        try:
+            start_takeover(conversation, request.user)
+        except ValueError as exc:
+            if str(exc) == "takeover_already_active":
+                return JsonResponse(
+                    {
+                        "message": "Another operator already has this conversation.",
+                        "status": 409,
+                    },
+                    status=409,
+                )
+            raise
+
+        conversation.refresh_from_db()
+        data = BigConversationSerializer(
+            conversation, context={"request": request}
+        ).data
+        return JsonResponse(data, status=200)
+
+    def delete(self, request, id):
+        deny = _deny_unless_can_replace_agent(request)
+        if deny:
+            return deny
+
+        conversation, err = _get_conversation_for_user(request, id)
+        if err:
+            return err
+
+        takeover = get_active_takeover(conversation)
+        if not takeover:
+            return JsonResponse(
+                {"message": "No active takeover on this conversation.", "status": 404},
+                status=404,
+            )
+        if takeover.user_id != request.user.id:
+            return JsonResponse(
+                {
+                    "message": "Only the active operator can release this takeover.",
+                    "status": 403,
+                },
+                status=403,
+            )
+
+        release_takeover(takeover, ended_reason="manual_release")
+        conversation.refresh_from_db()
+        data = BigConversationSerializer(
+            conversation, context={"request": request}
+        ).data
+        return JsonResponse(data, status=200)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class ConversationHumanMessageView(View):
+    """Send a direct human reply while takeover is active (widget / WhatsApp)."""
+
+    def post(self, request, id):
+        deny = _deny_unless_can_replace_agent(request)
+        if deny:
+            return deny
+
+        conversation, err = _get_conversation_for_user(request, id)
+        if err:
+            return err
+
+        takeover = get_active_takeover(conversation)
+        if not takeover:
+            return JsonResponse(
+                {"message": "No active takeover on this conversation.", "status": 403},
+                status=403,
+            )
+        if takeover.user_id != request.user.id:
+            return JsonResponse(
+                {
+                    "message": "Only the active operator can send messages.",
+                    "status": 403,
+                },
+                status=403,
+            )
+
+        try:
+            body = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({"message": "Invalid JSON", "status": 400}, status=400)
+
+        message_text = body.get("message")
+        if not message_text or not str(message_text).strip():
+            return JsonResponse(
+                {"message": "message is required", "status": 400}, status=400
+            )
+
+        try:
+            msg = deliver_human_message(conversation, takeover, str(message_text))
+        except ValueError:
+            return JsonResponse(
+                {"message": "message is required", "status": 400}, status=400
+            )
+
+        return JsonResponse(
+            {"message": "Message sent", "message_id": msg.id, "status": 201},
+            status=201,
+        )
 

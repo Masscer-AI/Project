@@ -60,6 +60,8 @@ interface ChatInputProps {
   readOnly?: boolean;
   /** When read-only, overrides the default banner text (e.g. WhatsApp channel). */
   readOnlyMessage?: string;
+  /** agent: full composer; human: direct reply during takeover; readonly: banner only */
+  composerMode?: "agent" | "human" | "readonly";
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -92,6 +94,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   initialInput,
   readOnly = false,
   readOnlyMessage,
+  composerMode,
 }) => {
   const { t } = useTranslation();
   const {
@@ -199,12 +202,50 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     enableOnFormTags: true,
   });
 
-  if (readOnly) {
+  const mode =
+    composerMode ?? (readOnly ? "readonly" : "agent");
+
+  if (mode === "readonly") {
     return (
       <div className="flex flex-col justify-center items-center p-0 w-full max-w-[900px] bg-transparent z-[2] gap-0 mt-4 overflow-visible">
         <div className="w-full rounded-lg px-4 py-3 text-center" style={{ background: "var(--bg-contrast-color)", border: "1px solid var(--hovered-color)" }}>
           <Text size="sm" c="dimmed">{readOnlyMessage ?? t("view-only-mode")}</Text>
         </div>
+      </div>
+    );
+  }
+
+  if (mode === "human") {
+    return (
+      <div className="flex flex-col justify-center items-center p-0 w-full max-w-[900px] bg-transparent z-[2] gap-0 mt-4 overflow-visible">
+        <Group align="flex-end" gap="sm" className="w-full px-2">
+          <MantineTextarea
+            className="flex-1"
+            autosize
+            minRows={1}
+            maxRows={6}
+            placeholder={t("human-takeover-composer-placeholder")}
+            value={textPrompt}
+            onChange={(e) => setTextPrompt(e.currentTarget.value)}
+            onKeyDown={async (event) => {
+              if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                const result = await handleSendMessage(textPrompt);
+                if (result) setTextPrompt("");
+              }
+            }}
+          />
+          <ActionIcon
+            variant="filled"
+            color="violet"
+            size="lg"
+            radius="md"
+            onClick={() => void asyncSendMessage()}
+            aria-label={t("send")}
+          >
+            <IconSend size={18} />
+          </ActionIcon>
+        </Group>
       </div>
     );
   }

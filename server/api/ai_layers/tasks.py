@@ -977,6 +977,15 @@ def conversation_agent_task(
     is_whatsapp_chat = conversation.ws_number_id is not None
     is_embedded_channel = is_widget_chat or is_whatsapp_chat
 
+    from api.messaging.takeover import is_takeover_active
+
+    if is_takeover_active(conversation):
+        logger.info(
+            "conversation_agent_task skipped: takeover active conversation=%s",
+            conversation_id,
+        )
+        return {"status": "skipped", "reason": "takeover_active"}
+
     # plugin_slugs is no longer used — plugins are now auto-discovered
     # by the agent via the read_plugin_instructions tool.
 
@@ -1532,7 +1541,10 @@ def conversation_agent_task(
 
             def is_cancelled() -> bool:
                 from django.core.cache import cache
+                from api.messaging.takeover import is_takeover_active
                 if cache.get(f"cancel_task_{conversation_id}"):
+                    return True
+                if is_takeover_active(conversation):
                     return True
                 return AgentSession.objects.filter(id=session.id, dismissed_at__isnull=False).exists()
 
@@ -1594,7 +1606,15 @@ def conversation_agent_task(
                     "next_agent_slug": None,
                     "status": "cancelled"
                 })
-                return
+                return {
+                    "status": "cancelled",
+                    "output": "Generation stopped by user.",
+                    "message_id": None,
+                    "versions": [],
+                    "attachments": [],
+                    "iterations": total_iterations,
+                    "tool_calls_count": total_tool_calls,
+                }
 
             # ---- Update AgentSession (outputs) ----
             from django.utils import timezone

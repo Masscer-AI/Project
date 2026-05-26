@@ -110,6 +110,18 @@ def enqueue_whatsapp_inbound_agent(
     user_inputs: list[dict[str, Any]],
 ) -> None:
     """Create placeholder user Message, buffer inbound payload, and schedule debounced flush."""
+    from api.messaging.takeover import get_active_takeover, handle_inbound_during_takeover
+
+    active_takeover = get_active_takeover(conversation)
+    if active_takeover:
+        handle_inbound_during_takeover(
+            conversation,
+            active_takeover,
+            user_inputs,
+            message_metadata={"whatsapp_inbound_wamid": inbound_wamid},
+        )
+        return
+
     from .tasks import whatsapp_flush_inbound_agent_task
 
     stub = Message.objects.create(

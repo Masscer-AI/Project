@@ -4,6 +4,7 @@ from django.conf import settings
 from django.db.models import Exists, OuterRef
 from .models import (
     Conversation,
+    ConversationTakeover,
     Message,
     MessageAttachment,
     ChatWidget,
@@ -242,6 +243,22 @@ class WidgetVisitorSessionAdmin(admin.ModelAdmin):
     search_fields = ("visitor_id", "origin", "user_agent", "widget__name")
     readonly_fields = ("id", "last_seen_at", "created_at")
     ordering = ("-created_at",)
+
+
+@admin.register(ConversationTakeover)
+class ConversationTakeoverAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "conversation",
+        "user",
+        "status",
+        "started_at",
+        "ended_at",
+    )
+    list_filter = ("status", "started_at")
+    raw_id_fields = ("conversation", "user")
+    readonly_fields = ("id", "started_at", "announcement_sent_at")
+    ordering = ("-started_at",)
 
 
 admin.site.register(Conversation, ConversationAdmin)

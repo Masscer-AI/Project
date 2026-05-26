@@ -30,6 +30,7 @@ import { sharesLoader } from "./routes/shares/loader.ts";
 import { ErrorPage } from "./routes/error/Page.tsx";
 import { NotificationListener } from "./components/NotificationListener/NotificationListener.tsx";
 import { AgentTaskListener } from "./components/AgentTaskListener/AgentTaskListener.tsx";
+import { ConversationTakeoverListener } from "./components/ConversationTakeoverListener/ConversationTakeoverListener.tsx";
 import DashboardPage from "./routes/dashboard/page.tsx";
 import AlertsHubPage from "./routes/dashboard/AlertsHubPage.tsx";
 import NotificationsHubPage from "./routes/dashboard/NotificationsHubPage.tsx";
@@ -75,6 +76,7 @@ const router = createBrowserRouter([
             <ChatView />
             <NotificationListener />
             <AgentTaskListener />
+            <ConversationTakeoverListener />
           </>
         ),
         loader: chatLoader,

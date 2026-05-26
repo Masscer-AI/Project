@@ -52,6 +52,16 @@ def whatsapp_flush_inbound_agent_task(
     if not merged_user_inputs:
         return {"status": "skipped", "reason": "empty_user_inputs"}
 
+    from api.messaging.models import Conversation
+    from api.messaging.takeover import is_takeover_active
+
+    try:
+        conv = Conversation.objects.get(id=conversation_id)
+    except Conversation.DoesNotExist:
+        return {"status": "skipped", "reason": "conversation_not_found"}
+    if is_takeover_active(conv):
+        return {"status": "skipped", "reason": "takeover_active"}
+
     regenerate_message_id = min(regenerate_ids) if regenerate_ids else None
     return whatsapp_conversation_agent_task(
         conversation_id=conversation_id,
@@ -95,6 +105,11 @@ def whatsapp_conversation_agent_task(
     if conv.whatsapp_user_number != whatsapp_user_number:
         return {"status": "error", "error": "WhatsApp user mismatch"}
 
+    from api.messaging.takeover import is_takeover_active
+
+    if is_takeover_active(conv):
+        return {"status": "skipped", "reason": "takeover_active"}
+
     ws_number = conv.ws_number
     tool_names = tool_names_from_capabilities(ws_number.capabilities)
 
@@ -115,6 +130,15 @@ def whatsapp_conversation_agent_task(
         client_datetime=None,
     )
 
+    if not isinstance(result, dict):
+        logger.warning(
+            "whatsapp_conversation_agent_task: unexpected non-dict result; skipping delivery. "
+            "conversation_id=%s result=%r",
+            conversation_id,
+            result,
+        )
+        return {"status": "skipped", "reason": "invalid_result"}
+
     if result.get("status") == "completed" and result.get("message_id"):
         try:
             deliver_whatsapp_reply(
@@ -128,6 +152,11 @@ def whatsapp_conversation_agent_task(
                 conversation_id,
                 result.get("message_id"),
             )
+    elif result.get("status") == "cancelled":
+        logger.info(
+            "whatsapp_conversation_agent_task: cancelled conversation_id=%s",
+            conversation_id,
+        )
     else:
         logger.warning(
             "whatsapp_conversation_agent_task: agent task did not complete; sending fallback. "

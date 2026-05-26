@@ -111,3 +111,20 @@ def metadata_payload_for_related_agents(agent_ids_in_order: list[int]) -> dict:
     )
     return meta.model_dump(mode="json", exclude_none=True)
 
+
+class ConversationTakeoverMetadata(BaseModel):
+    """Validated shape for ConversationTakeover.metadata JSON."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    ended_reason: Optional[str] = Field(
+        default=None,
+        description="Why the takeover ended (e.g. manual_release, inactivity_timeout)",
+    )
+
+
+def takeover_metadata_payload(**fields) -> dict:
+    """Build validated takeover metadata; omit unset optional fields."""
+    meta = ConversationTakeoverMetadata(**fields)
+    return meta.model_dump(mode="json", exclude_none=True)
+
