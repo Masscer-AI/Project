@@ -37,6 +37,7 @@ import {
   NumberInput,
   ScrollArea,
   Stack,
+  Switch,
   Text,
   Textarea,
   TextInput,
@@ -100,6 +101,29 @@ function defaultContextRules(
 const DOCS_POLL_INTERVAL_MS = 5000;
 const DOCS_POLL_RECENT_WINDOW_MS = 10 * 60 * 1000;
 
+const KNOWLEDGE_BASE_TAB_VALUES = [
+  "documents",
+  "completions",
+  "templates",
+] as const;
+
+export type KnowledgeBaseTab = (typeof KNOWLEDGE_BASE_TAB_VALUES)[number];
+
+/** Maps URL ?activeTab= (or legacy ?tab=) to KB section (default: documents). */
+export function parseKnowledgeBaseActiveTab(
+  searchParams: URLSearchParams
+): KnowledgeBaseTab {
+  const raw = (
+    searchParams.get("activeTab") ||
+    searchParams.get("tab") ||
+    ""
+  ).toLowerCase();
+  if ((KNOWLEDGE_BASE_TAB_VALUES as readonly string[]).includes(raw)) {
+    return raw as KnowledgeBaseTab;
+  }
+  return "documents";
+}
+
 export default function KnowledgeBasePage() {
   const { chatState, toggleSidebar, agents, fetchAgents } = useStore((s) => ({
     chatState: s.chatState,
@@ -108,11 +132,20 @@ export default function KnowledgeBasePage() {
     fetchAgents: s.fetchAgents,
   }));
   const { t } = useTranslation();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = parseKnowledgeBaseActiveTab(searchParams);
   const [focusCompletionId, setFocusCompletionId] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<
-    "documents" | "completions" | "templates"
-  >("documents");
+
+  const setKnowledgeBaseTab = (tab: KnowledgeBaseTab) => {
+    const next = new URLSearchParams(searchParams);
+    if (tab === "documents") {
+      next.delete("activeTab");
+    } else {
+      next.set("activeTab", tab);
+    }
+    next.delete("tab");
+    setSearchParams(next);
+  };
   const [documents, setDocuments] = useState<TDocument[]>([]);
   const [completions, setCompletions] = useState<TCompletion[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(true);
@@ -130,11 +163,7 @@ export default function KnowledgeBasePage() {
   }, []);
 
   useEffect(() => {
-    const tab = searchParams.get("tab");
     const cid = searchParams.get("completion");
-    if (tab === "completions") {
-      setActiveTab("completions");
-    }
     if (cid && /^\d+$/.test(cid)) {
       setFocusCompletionId(parseInt(cid, 10));
       setCompletionStatusFilter("all");
@@ -142,6 +171,31 @@ export default function KnowledgeBasePage() {
       setFocusCompletionId(null);
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    const raw = searchParams.get("activeTab");
+    if (!raw) return;
+    if (parseKnowledgeBaseActiveTab(searchParams) !== raw.toLowerCase()) {
+      const next = new URLSearchParams(searchParams);
+      next.delete("activeTab");
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    const legacyTab = searchParams.get("tab");
+    if (!legacyTab || searchParams.get("activeTab")) return;
+    const next = new URLSearchParams(searchParams);
+    next.delete("tab");
+    const normalized = legacyTab.toLowerCase();
+    if (
+      normalized !== "documents" &&
+      (KNOWLEDGE_BASE_TAB_VALUES as readonly string[]).includes(normalized)
+    ) {
+      next.set("activeTab", normalized);
+    }
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     const hasRecentProcessing = documents.some((doc) => {
@@ -291,7 +345,7 @@ export default function KnowledgeBasePage() {
               variant={activeTab === "documents" ? "filled" : "default"}
               leftSection={<IconFileText size={16} />}
               size="sm"
-              onClick={() => setActiveTab("documents")}
+              onClick={() => setKnowledgeBaseTab("documents")}
             >
               {t("documents")} ({documents.length})
             </Button>
@@ -299,7 +353,7 @@ export default function KnowledgeBasePage() {
               variant={activeTab === "completions" ? "filled" : "default"}
               leftSection={<IconSparkles size={16} />}
               size="sm"
-              onClick={() => setActiveTab("completions")}
+              onClick={() => setKnowledgeBaseTab("completions")}
             >
               {t("completions")} ({completions.length})
             </Button>
@@ -307,7 +361,7 @@ export default function KnowledgeBasePage() {
               variant={activeTab === "templates" ? "filled" : "default"}
               leftSection={<IconTemplate size={16} />}
               size="sm"
-              onClick={() => setActiveTab("templates")}
+              onClick={() => setKnowledgeBaseTab("templates")}
             >
               {t("document-templates-tab")}
             </Button>
@@ -1111,6 +1165,99 @@ const CompletionsTab = ({
   );
 };
 
+// ─── Completion approval (two-sided + switch) ─────────────────────────────────
+
+const CompletionApprovalToggle = ({
+  approved,
+  onChange,
+}: {
+  approved: boolean;
+  onChange: (approved: boolean) => void;
+}) => {
+  const { t } = useTranslation();
+
+  const sideStyle = (active: boolean, accent: "yellow" | "green") => ({
+    flex: 1,
+    minWidth: 0,
+    padding: "10px 12px",
+    borderRadius: "var(--mantine-radius-md)",
+    cursor: "pointer",
+    border: `1px solid ${
+      active
+        ? `var(--mantine-color-${accent}-6)`
+        : "var(--mantine-color-dark-4)"
+    }`,
+    background: active
+      ? `var(--mantine-color-${accent}-light)`
+      : "var(--mantine-color-dark-7)",
+    opacity: active ? 1 : 0.55,
+    transition: "border-color 150ms, background 150ms, opacity 150ms",
+  });
+
+  return (
+    <Group align="center" gap="sm" wrap="nowrap" w="100%">
+      <Box
+        style={sideStyle(!approved, "yellow")}
+        onClick={() => onChange(false)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onChange(false);
+          }
+        }}
+      >
+        <Text
+          size="sm"
+          fw={600}
+          c={!approved ? "yellow.4" : "dimmed"}
+          mb={4}
+        >
+          {t("completion-status-pending")}
+        </Text>
+        <Text size="xs" c="dimmed" lh={1.4}>
+          {t("completion-approved-toggle-off")}
+        </Text>
+      </Box>
+
+      <Switch
+        checked={approved}
+        onChange={(e) => onChange(e.currentTarget.checked)}
+        size="md"
+        color="green"
+        styles={{ root: { flexShrink: 0 } }}
+        aria-label={t("approved")}
+      />
+
+      <Box
+        style={sideStyle(approved, "green")}
+        onClick={() => onChange(true)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onChange(true);
+          }
+        }}
+      >
+        <Text
+          size="sm"
+          fw={600}
+          c={approved ? "green.4" : "dimmed"}
+          mb={4}
+        >
+          {t("completion-status-approved")}
+        </Text>
+        <Text size="xs" c="dimmed" lh={1.4}>
+          {t("completion-approved-toggle-on")}
+        </Text>
+      </Box>
+    </Group>
+  );
+};
+
 // ─── Completion Item ──────────────────────────────────────────────────────────
 
 const CompletionItem = ({
@@ -1142,6 +1289,7 @@ const CompletionItem = ({
   const [contextRules, setContextRules] = useState<TCompletionContextRules>(() =>
     defaultContextRules(completion)
   );
+  const [approved, setApproved] = useState(completion.approved);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -1152,6 +1300,7 @@ const CompletionItem = ({
     setAnswer(c.answer);
     setAgentIds(agentIdsFromCompletion(c));
     setContextRules(defaultContextRules(c));
+    setApproved(c.approved);
   };
 
   useEffect(() => {
@@ -1191,7 +1340,7 @@ const CompletionItem = ({
       const updated = await updateCompletion(completion.id.toString(), {
         prompt,
         answer,
-        approved: completion.approved,
+        approved,
         agents: agentIds.map((id) => parseInt(id, 10)),
         context_rules: contextRules,
       });
@@ -1382,6 +1531,10 @@ const CompletionItem = ({
             onChange={(e) => setAnswer(e.currentTarget.value)}
             minRows={4}
             autosize
+          />
+          <CompletionApprovalToggle
+            approved={approved}
+            onChange={setApproved}
           />
           <MultiSelect
             label={t("assign-to-agents")}

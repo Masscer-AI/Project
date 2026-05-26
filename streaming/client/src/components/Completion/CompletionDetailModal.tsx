@@ -76,7 +76,7 @@ export const CompletionDetailModal = ({
   const openInKnowledgeBase = () => {
     if (!completionId) return;
     navigate(
-      `/knowledge-base?tab=completions&completion=${encodeURIComponent(completionId)}`
+      `/knowledge-base?activeTab=completions&completion=${encodeURIComponent(completionId)}`
     );
     onClose();
   };

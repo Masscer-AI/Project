@@ -233,7 +233,7 @@ const MarkdownRenderer = ({
                       onCompletionLinkClick(id);
                     } else {
                       navigate(
-                        `/knowledge-base?tab=completions&completion=${encodeURIComponent(id)}`
+                        `/knowledge-base?activeTab=completions&completion=${encodeURIComponent(id)}`
                       );
                     }
                   }}
