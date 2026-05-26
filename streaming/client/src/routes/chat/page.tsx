@@ -448,7 +448,7 @@ export default function ChatView() {
       if (chatState.generateVideo) toolNames.push("generate_video");
       if (chatState.createCompletions) toolNames.push("create_completion");
 
-      await triggerAgentTask({
+      const taskRes = await triggerAgentTask({
         conversation_id: routeConversation.id,
         agent_slugs: selectedAgents.map((a) => a.slug),
         user_inputs: userInputs,
@@ -456,6 +456,11 @@ export default function ChatView() {
         multiagentic_modality: userPreferences.multiagentic_modality,
         client_datetime: buildClientDatetimePayload(),
       });
+
+      if (taskRes.agent_skipped && taskRes.takeover) {
+        setAgentTaskStatus(null);
+        await setConversation(routeConversation.id);
+      }
 
       cleanAttachments();
       setSpecifiedUrls([]);
@@ -536,7 +541,7 @@ export default function ChatView() {
         if (chatState.generateVideo) toolNames.push("generate_video");
         if (chatState.createCompletions) toolNames.push("create_completion");
 
-        await triggerAgentTask({
+        const taskRes = await triggerAgentTask({
           conversation_id: routeConversation.id,
           agent_slugs: selectedAgents.map((a) => a.slug),
           user_inputs: [{ type: "input_text", text: newText }],
@@ -545,6 +550,11 @@ export default function ChatView() {
           regenerate_message_id: regenPayload.userId,
           client_datetime: buildClientDatetimePayload(),
         });
+
+        if (taskRes.agent_skipped && taskRes.takeover) {
+          setAgentTaskStatus(null);
+          await setConversation(routeConversation.id);
+        }
 
         scrollChat();
       } catch (error) {

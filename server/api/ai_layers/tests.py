@@ -316,6 +316,63 @@ class AgentTaskConversationMetadataTests(TestCase):
         conv.refresh_from_db()
         self.assertEqual(conv.metadata.get("related_agents"), [{"id": agent.id}])
 
+    @patch("api.ai_layers.views.conversation_agent_task.delay")
+    @patch("api.ai_layers.views.handle_inbound_during_takeover")
+    @patch("api.ai_layers.views.get_active_takeover")
+    def test_post_skips_agent_and_persists_inbound_when_takeover_active(
+        self, mock_get_takeover, mock_handle_takeover, mock_delay
+    ):
+        mock_delay.return_value = Mock(id="celery-task-1")
+        user = User.objects.create_user(username="u2", email="u2@e.com", password="x")
+        client = APIClient()
+        client.force_authenticate(user=user)
+
+        from api.ai_layers.models import Agent, LanguageModel
+        from api.messaging.models import Conversation
+        from api.providers.models import AIProvider
+
+        provider = AIProvider.objects.create(name="OpenAI-2")
+        llm = LanguageModel.objects.create(
+            provider=provider,
+            slug="gpt-test-meta-2",
+            name="GPT Test 2",
+        )
+        agent = Agent.objects.create(
+            name="Test Agent 2",
+            salute="hi",
+            act_as="help",
+            user=user,
+            llm=llm,
+            model_slug=llm.slug,
+            model_provider="openai",
+        )
+        conv = Conversation.objects.create(user=user)
+        mock_takeover = Mock(user_id=999, status="ACTIVE")
+        mock_get_takeover.return_value = mock_takeover
+
+        payload = {
+            "conversation_id": str(conv.id),
+            "agent_slugs": [agent.slug],
+            "user_inputs": [{"type": "input_text", "text": "hello takeover"}],
+            "tool_names": [],
+        }
+        response = client.post(
+            "/v1/ai_layers/agent-task/conversation/",
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            202,
+            response.json() if response.status_code != 202 else "",
+        )
+        self.assertEqual(response.json().get("takeover"), True)
+        self.assertEqual(response.json().get("agent_skipped"), True)
+        mock_get_takeover.assert_called_once_with(conv)
+        mock_handle_takeover.assert_called_once()
+        mock_delay.assert_not_called()
+
 
 class CreateCompletionToolTests(TestCase):
     @patch("api.authenticate.services.FeatureFlagService.is_feature_enabled")

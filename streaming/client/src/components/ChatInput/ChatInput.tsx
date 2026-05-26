@@ -230,47 +230,52 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             />
           ))}
         </section>
-        <div
-          className="flex min-h-0 w-full flex-col rounded-none md:rounded-2xl overflow-hidden relative"
-          style={{ background: "var(--bg-contrast-color)", border: "1px solid var(--hovered-color)" }}
-        >
-          <MantineTextarea
-            autosize
-            minRows={1}
-            maxRows={6}
-            classNames={{
-              input:
-                "!bg-transparent !border-0 !text-base md:!text-sm !font-sans focus:!ring-0 focus:!outline-none !px-3 md:!px-5 !py-2 md:!py-3 !max-h-[calc(100dvh-12rem)] !min-h-0 !resize-none !overflow-x-hidden !overflow-y-auto",
-            }}
-            styles={{ input: { color: "var(--font-color)" } }}
-            placeholder={t("human-takeover-composer-placeholder")}
-            value={textPrompt}
-            onChange={(e) => setTextPrompt(e.currentTarget.value)}
-            onPaste={handlePaste}
-            onKeyDown={async (event) => {
-              if (event.key === "Enter" && !event.shiftKey) {
-                event.preventDefault();
-                const result = await handleSendMessage(textPrompt);
-                if (result) setTextPrompt("");
-              }
-            }}
-          />
-          <div className="flex shrink-0 items-center justify-between px-1 md:px-4 pb-1 md:pb-3 pt-1 md:pt-2">
-            <div className="flex gap-2">
-              <PlusMenu existingFilesOnly={true} />
+        <section className="w-full flex flex-col items-center justify-center relative overflow-visible">
+          <div
+            className="flex min-h-0 w-full flex-col rounded-none md:rounded-2xl overflow-hidden relative"
+            style={{ background: "var(--bg-contrast-color)", border: "1px solid var(--hovered-color)" }}
+          >
+            <MantineTextarea
+              autosize
+              minRows={1}
+              maxRows={6}
+              classNames={{
+                input:
+                  "!bg-transparent !border-0 !text-base md:!text-sm !font-sans focus:!ring-0 focus:!outline-none !px-3 md:!px-5 !py-2 md:!py-3 !max-h-[calc(100dvh-12rem)] !min-h-0 !resize-none !overflow-x-hidden !overflow-y-auto",
+              }}
+              styles={{ input: { color: "var(--font-color)" } }}
+              placeholder={t("human-takeover-composer-placeholder")}
+              value={textPrompt}
+              onChange={(e) => setTextPrompt(e.currentTarget.value)}
+              onPaste={handlePaste}
+              onKeyDown={async (event) => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault();
+                  const result = await handleSendMessage(textPrompt);
+                  if (result) setTextPrompt("");
+                }
+              }}
+            />
+            <div className="flex shrink-0 items-center justify-between px-1 md:px-4 pb-1 md:pb-3 pt-1 md:pt-2">
+              <div className="flex gap-2">
+                <PlusMenu existingFilesOnly={true} />
+              </div>
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                size="lg"
+                radius="xl"
+                onClick={() => void asyncSendMessage()}
+                aria-label={t("send-message")}
+              >
+                <IconSend size={18} />
+              </ActionIcon>
             </div>
-            <ActionIcon
-              variant="filled"
-              color="violet"
-              size="lg"
-              radius="md"
-              onClick={() => void asyncSendMessage()}
-              aria-label={t("send")}
-            >
-              <IconSend size={18} />
-            </ActionIcon>
           </div>
-        </div>
+          <p className="text-center text-xs mt-1" style={{ color: "var(--font-color)", opacity: 0.4 }}>
+            Powered by <strong>Masscer AI</strong>
+          </p>
+        </section>
       </div>
     );
   }

@@ -1763,8 +1763,10 @@ export type TriggerAgentTaskPayload = {
 };
 
 export type TriggerAgentTaskResponse = {
-  task_id: string;
+  task_id?: string;
   status: string;
+  takeover?: boolean;
+  agent_skipped?: boolean;
 };
 
 export const uploadMessageAttachments = async (

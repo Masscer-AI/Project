@@ -487,6 +487,10 @@ class AgentTaskView(View):
 
     def post(self, request, *args, **kwargs):
         from api.messaging.models import Conversation
+        from api.messaging.takeover import (
+            get_active_takeover,
+            handle_inbound_during_takeover,
+        )
         from .tasks import conversation_agent_task
         from .tools import list_available_tools
 
@@ -591,6 +595,19 @@ class AgentTaskView(View):
             return JsonResponse(
                 {"error": "You don't have access to this conversation"},
                 status=403,
+            )
+
+        active_takeover = get_active_takeover(conversation)
+        if active_takeover:
+            handle_inbound_during_takeover(
+                conversation,
+                active_takeover,
+                user_inputs,
+                message_metadata={"human_takeover": True, "channel": "chat_app"},
+            )
+            return JsonResponse(
+                {"status": "accepted", "takeover": True, "agent_skipped": True},
+                status=202,
             )
 
         # Persist selected agents on the conversation (same source of truth as the task;
