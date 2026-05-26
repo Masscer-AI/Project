@@ -111,9 +111,8 @@ export const CompletionRefsBar = ({
                     ) : null
                   }
                 >
-                  <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+                  <span>
                     {t("completion")} {ref.id}
-                    {ref.promptPreview ? ` · ${ref.promptPreview}` : ""}
                   </span>
                 </Badge>
               </UnstyledButton>
