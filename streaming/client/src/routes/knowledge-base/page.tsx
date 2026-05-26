@@ -20,6 +20,7 @@ import toast from "react-hot-toast";
 import { TAgent } from "../../types/agents";
 import { TemplatesTab } from "./TemplatesTab";
 import { useSearchParams } from "react-router-dom";
+import { useDisclosure } from "@mantine/hooks";
 
 import {
   ActionIcon,
@@ -1132,7 +1133,7 @@ const CompletionItem = ({
   focusCompletionId: number | null;
 }) => {
   const { t } = useTranslation();
-  const [isEditing, setIsEditing] = useState(false);
+  const [editOpened, { open: openEdit, close: closeEdit }] = useDisclosure(false);
   const [prompt, setPrompt] = useState(completion.prompt);
   const [answer, setAnswer] = useState(completion.answer);
   const [agentIds, setAgentIds] = useState<string[]>(() =>
@@ -1154,9 +1155,9 @@ const CompletionItem = ({
   };
 
   useEffect(() => {
-    if (isEditing) return;
+    if (editOpened) return;
     resetDraftFromCompletion(completion);
-  }, [completion, isEditing]);
+  }, [completion, editOpened]);
 
   useEffect(() => {
     if (focusCompletionId == null) {
@@ -1170,7 +1171,7 @@ const CompletionItem = ({
     didAutoFocusRef.current = true;
     const timer = window.setTimeout(() => {
       cardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-      setIsEditing(true);
+      openEdit();
     }, 200);
     return () => window.clearTimeout(timer);
   }, [focusCompletionId, completion.id]);
@@ -1196,7 +1197,7 @@ const CompletionItem = ({
       });
       onPatched(updated);
       toast.success(t("completion-updated"));
-      setIsEditing(false);
+      closeEdit();
       resetDraftFromCompletion(normalizeCompletion(updated));
     } catch {
       toast.error(t("error-updating-completion"));
@@ -1226,7 +1227,7 @@ const CompletionItem = ({
 
   const handleCancelEdit = () => {
     resetDraftFromCompletion(completion);
-    setIsEditing(false);
+    closeEdit();
   };
 
   const handleDelete = async () => {
@@ -1256,21 +1257,9 @@ const CompletionItem = ({
           style={{ flexShrink: 0 }}
         />
         <Box style={{ flex: 1, minWidth: 0 }}>
-      {/* Prompt */}
-      {isEditing ? (
-        <Textarea
-          value={prompt}
-          onChange={(e) => setPrompt(e.currentTarget.value)}
-          placeholder={t("prompt")}
-          minRows={2}
-          autosize
-          mb="xs"
-        />
-      ) : (
-        <Text fw={600} mb={4}>
-          {completion.prompt}
-        </Text>
-      )}
+      <Text fw={600} mb={4}>
+        {completion.prompt}
+      </Text>
 
       {/* Status badges */}
       <Group gap={6} mb="xs">
@@ -1312,27 +1301,91 @@ const CompletionItem = ({
         )}
       </Group>
 
-      {/* Answer */}
-      {isEditing ? (
-        <Textarea
-          value={answer}
-          onChange={(e) => setAnswer(e.currentTarget.value)}
-          placeholder={t("answer")}
-          minRows={3}
-          autosize
-          mb="sm"
-        />
-      ) : (
-        <Text size="sm" c="dimmed" mb="sm" style={{ whiteSpace: "pre-wrap" }}>
-          {completion.answer}
-        </Text>
-      )}
+      <Text size="sm" c="dimmed" mb="sm" style={{ whiteSpace: "pre-wrap" }}>
+        {completion.answer}
+      </Text>
 
-      {isEditing && (
-        <Stack gap="xs" mb="sm">
+      <Group gap="xs" wrap="wrap">
+        <Button
+          variant="light"
+          color={completion.approved ? "green" : "gray"}
+          size="xs"
+          leftSection={
+            completion.approved ? (
+              <IconX size={14} />
+            ) : (
+              <IconCheck size={14} />
+            )
+          }
+          onClick={handleApprove}
+        >
+          {completion.approved ? t("unapprove") : t("approve")}
+        </Button>
+
+        <Button
+          variant="default"
+          size="xs"
+          leftSection={<IconEdit size={14} />}
+          onClick={openEdit}
+        >
+          {t("edit")}
+        </Button>
+
+        <Button
+          variant="light"
+          color={confirmDelete ? "red" : "gray"}
+          size="xs"
+          leftSection={<IconTrash size={14} />}
+          onClick={() => {
+            if (confirmDelete) {
+              handleDelete();
+              setConfirmDelete(false);
+            } else {
+              setConfirmDelete(true);
+            }
+          }}
+          onBlur={() => setConfirmDelete(false)}
+        >
+          {confirmDelete ? t("im-sure") : t("delete")}
+        </Button>
+      </Group>
+        </Box>
+      </Group>
+
+      <Modal
+        opened={editOpened}
+        onClose={handleCancelEdit}
+        title={
+          <Group gap="xs">
+            <IconEdit size={18} />
+            <Text fw={600} size="sm">
+              {t("edit")} — {t("completion")} {completion.id}
+            </Text>
+          </Group>
+        }
+        centered
+        size="lg"
+      >
+        <Stack gap="md">
+          <Textarea
+            label={t("prompt")}
+            placeholder={t("prompt-placeholder")}
+            value={prompt}
+            onChange={(e) => setPrompt(e.currentTarget.value)}
+            minRows={3}
+            autosize
+          />
+          <Textarea
+            label={t("answer")}
+            placeholder={t("answer-placeholder")}
+            value={answer}
+            onChange={(e) => setAnswer(e.currentTarget.value)}
+            minRows={4}
+            autosize
+          />
           <MultiSelect
-            size="xs"
             label={t("assign-to-agents")}
+            placeholder={t("select-agents")}
             value={agentIds}
             onChange={setAgentIds}
             data={agents
@@ -1358,7 +1411,6 @@ const CompletionItem = ({
             }
           />
           <MultiSelect
-            size="xs"
             label={t("completion-include-for-tags")}
             description={t("completion-include-for-tags-help")}
             value={contextRules.include_for_tags.map(String)}
@@ -1378,71 +1430,20 @@ const CompletionItem = ({
             clearable
             disabled={contextRules.include_always}
           />
-        </Stack>
-      )}
-
-      <Group gap="xs" wrap="wrap">
-        <Button
-          variant="light"
-          color={completion.approved ? "green" : "gray"}
-          size="xs"
-          leftSection={
-            completion.approved ? (
-              <IconX size={14} />
-            ) : (
-              <IconCheck size={14} />
-            )
-          }
-          onClick={handleApprove}
-        >
-          {completion.approved ? t("unapprove") : t("approve")}
-        </Button>
-
-        {isEditing ? (
-          <>
-            <Button size="xs" onClick={handleSave} loading={saving}>
-              {t("save")}
-            </Button>
+          <Group justify="flex-end" gap="sm">
             <Button
               variant="default"
-              size="xs"
               onClick={handleCancelEdit}
               disabled={saving}
             >
               {t("cancel")}
             </Button>
-          </>
-        ) : (
-          <Button
-            variant="default"
-            size="xs"
-            leftSection={<IconEdit size={14} />}
-            onClick={() => setIsEditing(true)}
-          >
-            {t("edit")}
-          </Button>
-        )}
-
-        <Button
-          variant="light"
-          color={confirmDelete ? "red" : "gray"}
-          size="xs"
-          leftSection={<IconTrash size={14} />}
-          onClick={() => {
-            if (confirmDelete) {
-              handleDelete();
-              setConfirmDelete(false);
-            } else {
-              setConfirmDelete(true);
-            }
-          }}
-          onBlur={() => setConfirmDelete(false)}
-        >
-          {confirmDelete ? t("im-sure") : t("delete")}
-        </Button>
-      </Group>
-        </Box>
-      </Group>
+            <Button onClick={handleSave} loading={saving}>
+              {t("save")}
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
     </Card>
   );
 };
