@@ -865,6 +865,7 @@
     "completion-approved-toggle-off": "No se indexa hasta guardar como aprobada.",
     "completion-status-pending": "Pendiente",
     "completion-status-approved": "Aprobada",
+    "multi-select-mobile-summary": "{{count}} seleccionados",
     "completion-unapproved": "Completación desaprobada",
     "error-updating-completion": "Error actualizando completación",
     "error-deleting-completion": "Error eliminando completación",

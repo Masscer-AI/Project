@@ -20,7 +20,8 @@ import toast from "react-hot-toast";
 import { TAgent } from "../../types/agents";
 import { TemplatesTab } from "./TemplatesTab";
 import { useSearchParams } from "react-router-dom";
-import { useDisclosure } from "@mantine/hooks";
+import { useDisclosure, useMediaQuery } from "@mantine/hooks";
+import { MobileFriendlyMultiSelect } from "../../components/MobileFriendlyMultiSelect/MobileFriendlyMultiSelect";
 
 import {
   ActionIcon,
@@ -30,7 +31,6 @@ import {
   Card,
   Checkbox,
   Group,
-  MultiSelect,
   Loader,
   Modal,
   NativeSelect,
@@ -1067,9 +1067,10 @@ const CompletionsTab = ({
               minRows={3}
               autosize
             />
-            <MultiSelect
+            <MobileFriendlyMultiSelect
               label={t("assign-to-agents")}
               placeholder={t("select-agents")}
+              pickerTitle={t("assign-to-agents")}
               value={newAgentIds}
               onChange={setNewAgentIds}
               data={agents
@@ -1078,8 +1079,6 @@ const CompletionsTab = ({
                   value: a.id!.toString(),
                   label: a.name,
                 }))}
-              searchable
-              clearable
             />
             <Checkbox
               label={t("completion-include-always")}
@@ -1091,9 +1090,10 @@ const CompletionsTab = ({
                 }))
               }
             />
-            <MultiSelect
+            <MobileFriendlyMultiSelect
               label={t("completion-include-for-tags")}
               description={t("completion-include-for-tags-help")}
+              pickerTitle={t("completion-include-for-tags")}
               value={newContextRules.include_for_tags.map(String)}
               onChange={(vals) =>
                 setNewContextRules((prev) => ({
@@ -1107,8 +1107,6 @@ const CompletionsTab = ({
                   value: tag.id.toString(),
                   label: tag.title,
                 }))}
-              searchable
-              clearable
               disabled={newContextRules.include_always}
             />
             <Group justify="flex-end">
@@ -1280,6 +1278,7 @@ const CompletionItem = ({
   focusCompletionId: number | null;
 }) => {
   const { t } = useTranslation();
+  const isMobile = useMediaQuery("(max-width: 48em)");
   const [editOpened, { open: openEdit, close: closeEdit }] = useDisclosure(false);
   const [prompt, setPrompt] = useState(completion.prompt);
   const [answer, setAnswer] = useState(completion.answer);
@@ -1514,6 +1513,7 @@ const CompletionItem = ({
         }
         centered
         size="lg"
+        fullScreen={isMobile}
       >
         <Stack gap="md">
           <Textarea
@@ -1536,9 +1536,10 @@ const CompletionItem = ({
             approved={approved}
             onChange={setApproved}
           />
-          <MultiSelect
+          <MobileFriendlyMultiSelect
             label={t("assign-to-agents")}
             placeholder={t("select-agents")}
+            pickerTitle={t("assign-to-agents")}
             value={agentIds}
             onChange={setAgentIds}
             data={agents
@@ -1547,8 +1548,6 @@ const CompletionItem = ({
                 value: a.id!.toString(),
                 label: a.name,
               }))}
-            searchable
-            clearable
           />
           <Checkbox
             label={t("completion-include-always")}
@@ -1563,9 +1562,10 @@ const CompletionItem = ({
               })
             }
           />
-          <MultiSelect
+          <MobileFriendlyMultiSelect
             label={t("completion-include-for-tags")}
             description={t("completion-include-for-tags-help")}
+            pickerTitle={t("completion-include-for-tags")}
             value={contextRules.include_for_tags.map(String)}
             onChange={(vals) =>
               setContextRules({
@@ -1579,8 +1579,6 @@ const CompletionItem = ({
                 value: tag.id.toString(),
                 label: tag.title,
               }))}
-            searchable
-            clearable
             disabled={contextRules.include_always}
           />
           <Group justify="flex-end" gap="sm">

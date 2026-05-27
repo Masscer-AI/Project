@@ -863,6 +863,7 @@
     "completion-approved-toggle-off": "Not indexed until you save as approved.",
     "completion-status-pending": "Pending",
     "completion-status-approved": "Approved",
+    "multi-select-mobile-summary": "{{count}} selected",
     "completion-unapproved": "Completion unapproved",
     "error-updating-completion": "Error updating completion",
     "error-deleting-completion": "Error deleting completion",
