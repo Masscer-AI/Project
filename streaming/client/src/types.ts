@@ -136,6 +136,16 @@ export type TAgentSessionToolCall = {
   error: string | null;
 };
 
+/** One step in the agent loop timeline (live via socket or persisted in event_log). */
+export type TAgentTaskEvent = {
+  type: string;
+  tool_name?: string | null;
+  iteration?: number | null;
+  duration?: number | null;
+  error?: string | null;
+  ts?: string | null;
+};
+
 export type TAgentSessionExecutionLog = {
   session_id: string;
   agent_index: number;
@@ -148,6 +158,7 @@ export type TAgentSessionExecutionLog = {
   ended_at: string | null;
   status: string;
   tool_calls: TAgentSessionToolCall[];
+  event_log: TAgentTaskEvent[];
 };
 
 export type TAgentSessionExecutionLogResponse = {

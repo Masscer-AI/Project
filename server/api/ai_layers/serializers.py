@@ -220,6 +220,7 @@ class AgentSessionExecutionLogSerializer(serializers.ModelSerializer):
     model_slug = serializers.SerializerMethodField()
     status = serializers.SerializerMethodField()
     tool_calls = serializers.SerializerMethodField()
+    event_log = serializers.SerializerMethodField()
 
     class Meta:
         model = AgentSession
@@ -235,6 +236,7 @@ class AgentSessionExecutionLogSerializer(serializers.ModelSerializer):
             "ended_at",
             "status",
             "tool_calls",
+            "event_log",
         ]
         read_only_fields = fields
 
@@ -254,4 +256,8 @@ class AgentSessionExecutionLogSerializer(serializers.ModelSerializer):
     def get_tool_calls(self, obj):
         messages = obj.outputs.get("messages", []) if isinstance(obj.outputs, dict) else []
         return extract_tool_calls_from_messages(messages)
+
+    def get_event_log(self, obj):
+        log = getattr(obj, "event_log", None)
+        return log if isinstance(log, list) else []
 

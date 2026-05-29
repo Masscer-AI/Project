@@ -5,6 +5,7 @@ import {
   TAgentSession,
   TAgentSessionExecutionLog,
   TAgentSessionToolCall,
+  TAgentTaskEvent,
   TSource,
   TVersion,
 } from "../../types";
@@ -41,6 +42,9 @@ import {
   Group,
   Loader as MantineLoader,
   ScrollArea,
+  Popover,
+  ThemeIcon,
+  UnstyledButton,
 } from "@mantine/core";
 import {
   IconCopy,
@@ -50,6 +54,13 @@ import {
   IconTrash,
   IconFileText,
   IconSearch,
+  IconChevronDown,
+  IconPlayerPlay,
+  IconBrain,
+  IconTool,
+  IconCircleCheck,
+  IconAlertTriangle,
+  IconSparkles,
 } from "@tabler/icons-react";
 
 type TReaction = {
@@ -122,10 +133,11 @@ export const Message = memo(
     const canEditConversationData =
       useIsFeatureEnabled("can-edit-conversation-data") === true;
 
-    const { reactionTemplates, agentTaskStatus } = useStore(
+    const { reactionTemplates, agentTaskStatus, agentTaskEvents } = useStore(
       (s) => ({
         reactionTemplates: s.reactionTemplates,
         agentTaskStatus: s.agentTaskStatus,
+        agentTaskEvents: s.agentTaskEvents,
       })
     );
     const canShowExecutionLog =
@@ -309,12 +321,10 @@ export const Message = memo(
         )}
 
         {!id && type === "assistant" && (
-          <Group gap="xs" mt="xs">
-            <MantineLoader size="sm" color="violet" />
-            <Text size="sm" c="dimmed">
-              {agentTaskStatus || t("thinking...")}
-            </Text>
-          </Group>
+          <LiveAgentSteps
+            status={agentTaskStatus}
+            events={agentTaskEvents}
+          />
         )}
 
         <section
@@ -625,6 +635,136 @@ export const Message = memo(
   }
 );
 
+// ─── Agent step timeline (shared by live dropdown + execution log modal) ──────
+
+const AGENT_EVENT_META: Record<
+  string,
+  { icon: React.ComponentType<{ size?: number }>; color: string }
+> = {
+  loop_start: { icon: IconPlayerPlay, color: "gray" },
+  iteration_start: { icon: IconBrain, color: "violet" },
+  tool_call_start: { icon: IconTool, color: "blue" },
+  tool_call_end: { icon: IconCircleCheck, color: "teal" },
+  response: { icon: IconSparkles, color: "violet" },
+  agent_complete: { icon: IconCircleCheck, color: "teal" },
+  error: { icon: IconAlertTriangle, color: "red" },
+};
+
+const useAgentEventLabel = () => {
+  const { t } = useTranslation();
+  return (event: TAgentTaskEvent): string => {
+    const toolName = event.tool_name || "...";
+    switch (event.type) {
+      case "loop_start":
+        return t("agent-step-started");
+      case "iteration_start":
+        return event.iteration != null
+          ? t("agent-step-thinking", { iteration: event.iteration })
+          : t("agent-step-thinking-simple");
+      case "tool_call_start":
+        return t("agent-running-tool", { toolName });
+      case "tool_call_end":
+        return event.duration != null
+          ? `${t("agent-tool-completed", { toolName })} (${event.duration.toFixed(1)}s)`
+          : t("agent-tool-completed", { toolName });
+      case "response":
+        return t("agent-step-generating");
+      case "agent_complete":
+        return t("agent-step-complete");
+      case "error":
+        return t("agent-step-error");
+      default:
+        return event.type;
+    }
+  };
+};
+
+const AgentEventTimeline = ({ events }: { events: TAgentTaskEvent[] }) => {
+  const { t } = useTranslation();
+  const labelFor = useAgentEventLabel();
+
+  if (!events || events.length === 0) {
+    return (
+      <Text size="xs" c="dimmed">
+        {t("agent-no-steps")}
+      </Text>
+    );
+  }
+
+  return (
+    <Stack gap={6}>
+      {events.map((event, idx) => {
+        const meta = AGENT_EVENT_META[event.type] || {
+          icon: IconSparkles,
+          color: "gray",
+        };
+        const Icon = meta.icon;
+        const isError = Boolean(event.error);
+        return (
+          <Group key={`${event.type}-${idx}-${event.ts ?? ""}`} gap="xs" wrap="nowrap" align="center">
+            <ThemeIcon
+              size={20}
+              radius="xl"
+              variant="light"
+              color={isError ? "red" : meta.color}
+            >
+              <Icon size={12} />
+            </ThemeIcon>
+            <Text size="xs" c={isError ? "red" : undefined} style={{ lineHeight: 1.3 }}>
+              {labelFor(event)}
+              {isError ? ` — ${event.error}` : ""}
+            </Text>
+          </Group>
+        );
+      })}
+    </Stack>
+  );
+};
+
+const LiveAgentSteps = ({
+  status,
+  events,
+}: {
+  status: string | null;
+  events: TAgentTaskEvent[];
+}) => {
+  const { t } = useTranslation();
+  const hasEvents = events && events.length > 0;
+
+  return (
+    <Group gap="xs" mt="xs" align="center">
+      <MantineLoader size="sm" color="violet" />
+      <Text size="sm" c="dimmed">
+        {status || t("thinking...")}
+      </Text>
+      {hasEvents && (
+        <Popover width={320} position="top-start" withArrow shadow="md">
+          <Popover.Target>
+            <UnstyledButton>
+              <Group gap={4} align="center">
+                <Badge
+                  size="sm"
+                  variant="light"
+                  color="violet"
+                  rightSection={<IconChevronDown size={12} />}
+                  style={{ cursor: "pointer" }}
+                >
+                  {t("agent-steps")} ({events.length})
+                </Badge>
+              </Group>
+            </UnstyledButton>
+          </Popover.Target>
+          <Popover.Dropdown>
+            <ScrollArea.Autosize mah={280}>
+              <AgentEventTimeline events={events} />
+            </ScrollArea.Autosize>
+          </Popover.Dropdown>
+        </Popover>
+      )}
+    </Group>
+  );
+};
+
 const formatExecutionLogValue = (value: unknown) => {
   if (value == null) return "";
   if (typeof value === "string") return value;
@@ -702,6 +842,7 @@ const ExecutionLogModal = ({
   error: string | null;
   currentVersion: number;
 }) => {
+  const { t } = useTranslation();
   return (
     <Modal
       opened={opened}
@@ -761,6 +902,19 @@ const ExecutionLogModal = ({
                           </Text>
                         </div>
                       </Group>
+
+                      {session.event_log && session.event_log.length > 0 && (
+                        <details>
+                          <summary style={{ cursor: "pointer", fontWeight: 500 }}>
+                            <Text span size="sm">
+                              {t("agent-steps")} ({session.event_log.length})
+                            </Text>
+                          </summary>
+                          <div style={{ marginTop: 12 }}>
+                            <AgentEventTimeline events={session.event_log} />
+                          </div>
+                        </details>
+                      )}
 
                       {session.tool_calls.length === 0 ? (
                         <Text size="sm" c="dimmed">

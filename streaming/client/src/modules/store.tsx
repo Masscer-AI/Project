@@ -18,7 +18,7 @@ import {
 import { SocketManager } from "./socketManager";
 import { STREAMING_BACKEND_URL } from "./constants";
 import { TAgent } from "../types/agents";
-import type { TConversation } from "../types";
+import type { TConversation, TAgentTaskEvent } from "../types";
 import toast from "react-hot-toast";
 import { Store } from "./storeTypes";
 import { sortAgentsBySelectionOrder } from "./agentSelection";
@@ -58,6 +58,7 @@ export const useStore = create<Store>()((set, get) => ({
   },
   organizations: [],
   agentTaskStatus: null,
+  agentTaskEvents: [],
   chatState: {
     isSidebarOpened: false,
     attachments: [],
@@ -515,6 +516,14 @@ export const useStore = create<Store>()((set, get) => ({
 
   setAgentTaskStatus: (status: string | null) => {
     set({ agentTaskStatus: status });
+  },
+
+  pushAgentTaskEvent: (event: TAgentTaskEvent) => {
+    set((state) => ({ agentTaskEvents: [...state.agentTaskEvents, event] }));
+  },
+
+  clearAgentTaskEvents: () => {
+    set({ agentTaskEvents: [] });
   },
 
   test: () => {

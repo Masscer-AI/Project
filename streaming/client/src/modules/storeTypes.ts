@@ -1,4 +1,4 @@
-import { TAttachment, TConversation } from "../types";
+import { TAttachment, TConversation, TAgentTaskEvent } from "../types";
 import { Message, TModel, TAgent } from "../types/agents";
 import { TUserData, TReactionTemplate } from "../types/chatTypes";
 
@@ -54,6 +54,7 @@ export type Store = {
   openedModals: string[];
   reactionTemplates: TReactionTemplate[];
   agentTaskStatus: string | null;
+  agentTaskEvents: TAgentTaskEvent[];
   userPreferences: TUserPreferences;
   setTheming: (theming: Partial<Store["theming"]>) => void;
   setPreferences: (prefs: Partial<TUserPreferences>) => void;
@@ -94,6 +95,8 @@ export type Store = {
   updateChatState: (state: Partial<Store["chatState"]>) => void;
   setSpecifiedUrls: (urls: TSpecifiedUrl[]) => void;
   setAgentTaskStatus: (status: string | null) => void;
+  pushAgentTaskEvent: (event: TAgentTaskEvent) => void;
+  clearAgentTaskEvents: () => void;
   test: () => void;
   /** Team feature flags map from GET /v1/auth/feature-flags/; null until first fetch. */
   featureFlags: Record<string, boolean> | null;

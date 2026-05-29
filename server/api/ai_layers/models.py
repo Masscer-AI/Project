@@ -262,6 +262,9 @@ class AgentSession(models.Model):
     task_type = models.CharField(max_length=50, default="chat_message")
     inputs = models.JSONField(default=dict)
     outputs = models.JSONField(default=dict)
+    # Ordered timeline of agent-loop events (loop_start, iteration_start,
+    # tool_call_start/end, response, error). Used by the execution-log UI.
+    event_log = models.JSONField(default=list, blank=True)
 
     iterations = models.PositiveIntegerField(default=0)
     tool_calls_count = models.PositiveIntegerField(default=0)

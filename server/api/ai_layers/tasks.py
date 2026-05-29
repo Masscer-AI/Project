@@ -1054,6 +1054,7 @@ def conversation_agent_task(
             }
 
     agent_sessions_created = []
+    agent_event_log: list[dict] = []
     try:
         # ---- Save or reuse user message ----
         if regenerate_message_id:
@@ -1542,7 +1543,23 @@ def conversation_agent_task(
             agent_sessions_created.append(session)
             start_time = time.perf_counter()
 
+            # Ordered timeline of loop events for this agent's session (persisted
+            # to AgentSession.event_log and streamed live to the frontend).
+            agent_event_log: list[dict] = []
+
             def on_event(event_type: str, data: dict) -> None:
+                from django.utils import timezone as _tz
+
+                agent_event_log.append(
+                    {
+                        "type": event_type,
+                        "tool_name": data.get("tool_name"),
+                        "iteration": data.get("iteration"),
+                        "duration": data.get("duration"),
+                        "error": data.get("error"),
+                        "ts": _tz.now().isoformat(),
+                    }
+                )
                 payload = {
                     "type": event_type,
                     "conversation_id": conversation_id,
@@ -1599,7 +1616,8 @@ def conversation_agent_task(
                 # Ensure the session has ended_at set if not already set, then break or continue
                 from django.utils import timezone
                 session.ended_at = timezone.now()
-                session.save(update_fields=["ended_at"])
+                session.event_log = agent_event_log
+                session.save(update_fields=["ended_at", "event_log"])
                 
                 # Emit events so the frontend stops loading
                 emit_event("agent_complete", {
@@ -1684,6 +1702,7 @@ def conversation_agent_task(
             ).model_dump()
 
             session.outputs = outputs_data
+            session.event_log = agent_event_log
             session.iterations = result.iterations
             session.tool_calls_count = len(result.tool_calls)
             session.ended_at = timezone.now()
@@ -1903,6 +1922,7 @@ def conversation_agent_task(
                 error=OutputError(message=str(e), traceback=tb.format_exc()),
             ).model_dump()
             last_session.outputs = outputs_data
+            last_session.event_log = agent_event_log
             last_session.ended_at = timezone.now()
             last_session.tool_calls_count = sum(
                 1 for m in last_session.outputs.get("messages", [])
@@ -1913,7 +1933,7 @@ def conversation_agent_task(
                     timezone.now() - last_session.started_at
                 ).total_seconds()
             last_session.save(
-                update_fields=["outputs", "ended_at", "total_duration", "tool_calls_count"]
+                update_fields=["outputs", "event_log", "ended_at", "total_duration", "tool_calls_count"]
             )
 
         return {"status": "error", "error": str(e)}

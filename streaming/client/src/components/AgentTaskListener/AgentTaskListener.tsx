@@ -46,13 +46,21 @@ type RedisNotification<T> = {
  */
 export const AgentTaskListener = () => {
   const { t } = useTranslation();
-  const { socket, conversation, setConversation, setAgentTaskStatus } =
-    useStore((state) => ({
-      socket: state.socket,
-      conversation: state.conversation,
-      setConversation: state.setConversation,
-      setAgentTaskStatus: state.setAgentTaskStatus,
-    }));
+  const {
+    socket,
+    conversation,
+    setConversation,
+    setAgentTaskStatus,
+    pushAgentTaskEvent,
+    clearAgentTaskEvents,
+  } = useStore((state) => ({
+    socket: state.socket,
+    conversation: state.conversation,
+    setConversation: state.setConversation,
+    setAgentTaskStatus: state.setAgentTaskStatus,
+    pushAgentTaskEvent: state.pushAgentTaskEvent,
+    clearAgentTaskEvents: state.clearAgentTaskEvents,
+  }));
 
   const toolHoldRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingStatusRef = useRef<string | null>(null);
@@ -84,6 +92,16 @@ export const AgentTaskListener = () => {
       if (!data) return;
 
       if (!conversation?.id || data.conversation_id !== conversation.id) return;
+
+      // Accumulate the full live timeline so the user can expand all steps.
+      pushAgentTaskEvent({
+        type: data.type,
+        tool_name: (data.tool_name as string) || null,
+        iteration: (data.iteration as number) ?? null,
+        duration: (data.duration as number) ?? null,
+        error: (data.error as string) || null,
+        ts: new Date().toISOString(),
+      });
 
       switch (data.type) {
         case "tool_call_start":
@@ -124,6 +142,7 @@ export const AgentTaskListener = () => {
             pendingStatusRef.current = null;
           }
           setAgentTaskStatus(null);
+          clearAgentTaskEvents();
           break;
         default:
           break;
@@ -156,6 +175,7 @@ export const AgentTaskListener = () => {
             : undefined
         );
         setAgentTaskStatus(null);
+        clearAgentTaskEvents();
         void setConversation(conversation.id);
         return;
       }
@@ -166,6 +186,9 @@ export const AgentTaskListener = () => {
         pendingStatusRef.current = null;
       }
       setAgentTaskStatus(null);
+      // Live timeline is no longer needed: the saved message exposes the
+      // persisted event_log through the execution log modal.
+      clearAgentTaskEvents();
       setConversation(conversation.id);
     };
 
@@ -181,7 +204,15 @@ export const AgentTaskListener = () => {
       }
       pendingStatusRef.current = null;
     };
-  }, [conversation, socket, setConversation, setAgentTaskStatus, t]);
+  }, [
+    conversation,
+    socket,
+    setConversation,
+    setAgentTaskStatus,
+    pushAgentTaskEvent,
+    clearAgentTaskEvents,
+    t,
+  ]);
 
   return null;
 };
