@@ -768,6 +768,8 @@
     "widget-capability-raise_alert-description": "Permite que la IA cree alertas internas segun eventos de la conversacion.",
     "widget-capability-generate_video-title": "Generar video",
     "widget-capability-generate_video-description": "Permite que la IA genere videos cortos a partir de solicitudes del usuario (se envian por WhatsApp si esta activado).",
+    "widget-capability-generate_document_file-title": "Generar documentos",
+    "widget-capability-generate_document_file-description": "Permite que la IA cree archivos descargables a partir del contenido de la conversacion.",
     "widget-avatar-image": "URL de imagen del avatar",
     "widget-avatar-image-description": "Fuente opcional para el avatar. Soporta URLs https:// y strings data:image/...;base64,...",
     "widget-avatar-image-placeholder": "https://tu-dominio.com/avatar.png o data:image/png;base64,...",

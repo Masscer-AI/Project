@@ -13,21 +13,9 @@ WHATSAPP_ALLOWED_CAPABILITY_TOOLS: frozenset[str] = frozenset(
         "create_speech",
         "generate_video",
         "generate_document_file",
-    }
-)
-
-WHATSAPP_REQUIRED_CAPABILITY_TOOLS: tuple[str, str] = (
-    "read_attachment",
-    "list_attachments",
-)
-
-WHATSAPP_DISALLOWED_CAPABILITY_TOOLS: frozenset[str] = frozenset(
-    {
-        "read_plugin_instructions",
-        "raise_alert",
         "list_document_templates",
+        "raise_alert",
         "render_document_template",
-        "create_completion",
         "query_organization_tags",
         "create_organization_tag",
         "change_conversation_tags",
@@ -35,6 +23,24 @@ WHATSAPP_DISALLOWED_CAPABILITY_TOOLS: frozenset[str] = frozenset(
         "get_tag_context",
         "query_conversation",
     }
+)
+
+WHATSAPP_REQUIRED_CAPABILITY_TOOLS: tuple[str, str] = (
+    "read_attachment",
+    "list_attachments",
+    "list_document_templates",
+    "raise_alert",
+    "render_document_template",
+    "query_organization_tags",
+    "create_organization_tag",
+    "change_conversation_tags",
+    "change_conversation_summary",
+    "get_tag_context",
+    "query_conversation",
+)
+
+WHATSAPP_DISALLOWED_CAPABILITY_TOOLS: frozenset[str] = frozenset(
+    {"read_plugin_instructions", "create_completion"}
 )
 
 
