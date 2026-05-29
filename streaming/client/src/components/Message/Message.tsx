@@ -61,6 +61,7 @@ import {
   IconCircleCheck,
   IconAlertTriangle,
   IconSparkles,
+  type Icon,
 } from "@tabler/icons-react";
 
 type TReaction = {
@@ -247,7 +248,7 @@ export const Message = memo(
         setExecutionLog(response.sessions);
       } catch (error) {
         console.error("Error loading execution log:", error);
-        setExecutionLogError("Unable to load the execution log right now.");
+        setExecutionLogError(t("execution-log-load-error"));
       } finally {
         setExecutionLogLoading(false);
         setMessageState((prev) => ({ ...prev, executionLogOpened: true }));
@@ -508,7 +509,7 @@ export const Message = memo(
           )}
 
           {canShowExecutionLog && (
-            <Tooltip label="Execution log" withArrow>
+            <Tooltip label={t("execution-log-title")} withArrow>
               <Button
                 variant="subtle"
                 color="gray"
@@ -523,7 +524,7 @@ export const Message = memo(
                 onClick={handleOpenExecutionLog}
                 disabled={executionLogLoading}
               >
-                Execution log
+                {t("execution-log-title")}
               </Button>
             </Tooltip>
           )}
@@ -637,10 +638,7 @@ export const Message = memo(
 
 // ─── Agent step timeline (shared by live dropdown + execution log modal) ──────
 
-const AGENT_EVENT_META: Record<
-  string,
-  { icon: React.ComponentType<{ size?: number }>; color: string }
-> = {
+const AGENT_EVENT_META: Record<string, { icon: Icon; color: string }> = {
   loop_start: { icon: IconPlayerPlay, color: "gray" },
   iteration_start: { icon: IconBrain, color: "violet" },
   tool_call_start: { icon: IconTool, color: "blue" },
@@ -777,6 +775,7 @@ const formatExecutionLogValue = (value: unknown) => {
 };
 
 const ExecutionLogToolCall = ({ toolCall }: { toolCall: TAgentSessionToolCall }) => {
+  const { t } = useTranslation();
   return (
     <div
       className="rounded-xl px-4 py-3"
@@ -792,24 +791,26 @@ const ExecutionLogToolCall = ({ toolCall }: { toolCall: TAgentSessionToolCall })
           </Text>
           {toolCall.iteration != null && (
             <Text size="xs" c="dimmed">
-              Iteration {toolCall.iteration}
+              {t("execution-log-iteration", { iteration: toolCall.iteration })}
             </Text>
           )}
         </div>
         {toolCall.error ? (
           <Badge color="red" variant="light">
-            Error
+            {t("execution-log-status-error")}
           </Badge>
         ) : (
           <Badge color="gray" variant="light">
-            Completed
+            {t("execution-log-status-completed")}
           </Badge>
         )}
       </Group>
 
       <Stack gap="xs" mt="sm">
         <details>
-          <summary style={{ cursor: "pointer", fontWeight: 500 }}>Result</summary>
+          <summary style={{ cursor: "pointer", fontWeight: 500 }}>
+            {t("execution-log-result")}
+          </summary>
           <pre
             className="whitespace-pre-wrap break-all mt-3 rounded-lg p-3"
             style={{
@@ -847,7 +848,7 @@ const ExecutionLogModal = ({
     <Modal
       opened={opened}
       onClose={onClose}
-      title="Execution log"
+      title={t("execution-log-title")}
       centered
       size="xl"
     >
@@ -856,7 +857,7 @@ const ExecutionLogModal = ({
           <Group gap="xs">
             <MantineLoader size="sm" color="violet" />
             <Text size="sm" c="dimmed">
-              Loading execution log...
+              {t("execution-log-loading")}
             </Text>
           </Group>
         )}
@@ -869,7 +870,7 @@ const ExecutionLogModal = ({
 
         {!loading && !error && (!sessions || sessions.length === 0) && (
           <Text size="sm" c="dimmed">
-            No agent session details were found for this message.
+            {t("execution-log-empty")}
           </Text>
         )}
 
@@ -891,10 +892,15 @@ const ExecutionLogModal = ({
                       <Group justify="space-between" align="center" wrap="wrap">
                         <div>
                           <Text fw={600}>
-                            {session.agent_slug || `Agent ${session.agent_index + 1}`}
+                            {session.agent_slug ||
+                              t("execution-log-agent-fallback", {
+                                index: session.agent_index + 1,
+                              })}
                           </Text>
                           <Text size="xs" c="dimmed">
-                            Version {session.agent_index + 1}
+                            {t("execution-log-version", {
+                              version: session.agent_index + 1,
+                            })}
                             {session.model_slug ? ` • ${session.model_slug}` : ""}
                             {session.total_duration != null
                               ? ` • ${session.total_duration.toFixed(1)}s`
@@ -918,7 +924,7 @@ const ExecutionLogModal = ({
 
                       {session.tool_calls.length === 0 ? (
                         <Text size="sm" c="dimmed">
-                          No tools were used in this agent session.
+                          {t("execution-log-no-tools")}
                         </Text>
                       ) : (
                         <Stack gap="sm">
