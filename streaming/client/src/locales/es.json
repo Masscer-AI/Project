@@ -486,6 +486,8 @@
     "dashboard-channel-app": "App (usuario con sesión)",
     "dashboard-chat-widget-all": "Todos los widgets",
     "dashboard-chat-widget-none": "Sin widget",
+    "dashboard-whatsapp-line": "Linea de WhatsApp",
+    "dashboard-whatsapp-line-all": "Todas las lineas de WhatsApp",
     "dashboard-widget-instance": "Instancia de widget",
     "showing": "Mostrando",
     "of": "de",

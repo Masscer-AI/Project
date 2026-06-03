@@ -528,6 +528,8 @@
     "dashboard-channel-app": "App (signed-in)",
     "dashboard-chat-widget-all": "All widgets",
     "dashboard-chat-widget-none": "No widget",
+    "dashboard-whatsapp-line": "WhatsApp line",
+    "dashboard-whatsapp-line-all": "All WhatsApp lines",
     "dashboard-widget-instance": "Widget instance",
     "showing": "Showing",
     "of": "of",

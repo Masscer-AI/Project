@@ -255,6 +255,23 @@ def _user_can_access_conversation(user, conversation):
     return False
 
 
+def _whatsapp_line_filter_options(user) -> list[dict]:
+    """WhatsApp Business lines visible to this user (for dashboard filters)."""
+    from api.whatsapp.conversations import ws_number_visible_q
+    from api.whatsapp.models import WSNumber
+
+    lines = WSNumber.objects.filter(ws_number_visible_q(user)).order_by("name", "number")
+    out: list[dict] = []
+    for ws in lines:
+        num = (ws.number or "").strip()
+        if num and not num.startswith("+"):
+            num = f"+{num}"
+        name = (ws.name or "").strip()
+        label = f"{name} ({num})" if name else num or f"Line {ws.id}"
+        out.append({"id": ws.id, "label": label})
+    return out
+
+
 def _build_conversation_list_queryset(request, user):
     """
     Build the filtered, annotated, ordered queryset for conversation list.
@@ -320,6 +337,23 @@ def _build_conversation_list_queryset(request, user):
                     },
                     status=400,
                 )
+
+    ws_number_id_param = (request.GET.get("ws_number_id") or "").strip()
+    if ws_number_id_param:
+        try:
+            ws_number_id = int(ws_number_id_param)
+        except ValueError:
+            return JsonResponse(
+                {"message": "ws_number_id must be an integer", "status": 400},
+                status=400,
+            )
+        from api.whatsapp.conversations import ws_number_visible_q
+        from api.whatsapp.models import WSNumber
+
+        if WSNumber.objects.filter(ws_number_visible_q(user), id=ws_number_id).exists():
+            conversations = conversations.filter(ws_number_id=ws_number_id)
+        else:
+            conversations = conversations.none()
 
     # Channel: app (signed-in) | widget | whatsapp (subset of org list)
     channel = (request.GET.get("channel") or "").strip().lower()
@@ -579,6 +613,7 @@ class ConversationView(View):
                             {"id": u["id"], "label": u["username"] or f"User {u['id']}"}
                             for u in user_options
                         ],
+                        "whatsapp_lines": _whatsapp_line_filter_options(user),
                     },
                 },
                 safe=False,

@@ -565,6 +565,8 @@ export type TConversationFilters = {
   selectedTags?: number[];
   selectedAlertRules?: string[];
   chatWidgetId?: string;
+  /** WhatsApp Business line (WSNumber id), not visitor phone */
+  wsNumberId?: string;
   channel?: "all" | "app" | "widget" | "whatsapp";
   status?: "active_inactive" | "all" | "active" | "inactive" | "archived" | "deleted";
   messagesSort?: "none" | "asc" | "desc";
@@ -576,7 +578,10 @@ export type TConversationsResponse = {
   limit: number;
   offset: number;
   has_next: boolean;
-  filter_options: { users: { id: number; label: string }[] };
+  filter_options: {
+    users: { id: number; label: string }[];
+    whatsapp_lines?: { id: number; label: string }[];
+  };
 };
 
 export const getConversations = async (
@@ -591,6 +596,7 @@ export const getConversations = async (
 
   if (filters.status) params.set("status", filters.status);
   if (filters.chatWidgetId) params.set("chat_widget_id", filters.chatWidgetId);
+  if (filters.wsNumberId) params.set("ws_number_id", filters.wsNumberId);
   if (filters.channel && filters.channel !== "all") {
     params.set("channel", filters.channel);
   }
@@ -642,6 +648,7 @@ export const getConversationStats = async (
   params.set("scope", filters.scope ?? "org");
   if (filters.status) params.set("status", filters.status);
   if (filters.chatWidgetId) params.set("chat_widget_id", filters.chatWidgetId);
+  if (filters.wsNumberId) params.set("ws_number_id", filters.wsNumberId);
   if (filters.channel && filters.channel !== "all") {
     params.set("channel", filters.channel);
   }

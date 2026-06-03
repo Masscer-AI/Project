@@ -64,7 +64,10 @@ interface ConversationsTableProps {
   page: number;
   pageSize: number;
   filters: TConversationFilters;
-  filterOptions?: { users: { id: number; label: string }[] };
+  filterOptions?: {
+    users: { id: number; label: string }[];
+    whatsapp_lines?: { id: number; label: string }[];
+  };
   onFiltersChange: (filters: TConversationFilters) => void;
   onPageChange: (page: number) => void;
   onConversationsChanged?: () => Promise<void> | void;
@@ -89,7 +92,6 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({
   const [tags, setTags] = useState<TTag[]>([]);
   const [alertRules, setAlertRules] = useState<TConversationAlertRule[]>([]);
   const [chatWidgets, setChatWidgets] = useState<TChatWidget[]>([]);
-
   useEffect(() => {
     getTags()
       .then((data) => setTags(data))
@@ -149,6 +151,7 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({
       selectedTags: [],
       selectedAlertRules: [],
       chatWidgetId: "",
+      wsNumberId: "",
       channel: "all",
       status: "all",
       messagesSort: "none",
@@ -184,6 +187,17 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({
       label: widget.name || `Widget ${widget.id}`,
     })),
   ];
+
+  const whatsappLineOptions = [
+    { value: "", label: t("dashboard-whatsapp-line-all") },
+    ...(filterOptions?.whatsapp_lines ?? []).map((line) => ({
+      value: String(line.id),
+      label: line.label,
+    })),
+  ];
+
+  const showWhatsappLineFilter =
+    (filters.channel ?? "all") === "all" || filters.channel === "whatsapp";
 
   const channelOptions: { value: "all" | "app" | "widget" | "whatsapp"; label: string }[] = [
     { value: "all", label: t("dashboard-channel-all") },
@@ -395,9 +409,32 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({
               value={filters.channel ?? "all"}
               onChange={(e) => {
                 const val = e.currentTarget.value as TConversationFilters["channel"];
-                updateFilters({ channel: val });
+                const updates: Partial<TConversationFilters> = { channel: val };
+                if (val !== "all" && val !== "whatsapp") {
+                  updates.wsNumberId = "";
+                }
+                updateFilters(updates);
               }}
             />
+
+            {showWhatsappLineFilter && (
+              <NativeSelect
+                label={t("dashboard-whatsapp-line")}
+                size="sm"
+                data={whatsappLineOptions}
+                value={filters.wsNumberId ?? ""}
+                onChange={(e) => {
+                  const val = e.currentTarget.value;
+                  const updates: Partial<TConversationFilters> = {
+                    wsNumberId: val,
+                  };
+                  if (val && (filters.channel ?? "all") === "all") {
+                    updates.channel = "whatsapp";
+                  }
+                  updateFilters(updates);
+                }}
+              />
+            )}
 
             <NativeSelect
               label={t("dashboard-widget-instance")}
