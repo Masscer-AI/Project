@@ -15,6 +15,14 @@ def _extract_slug(value):
     return None
 
 
+def _extract_agent_name(agent_value) -> str | None:
+    if isinstance(agent_value, dict):
+        name = agent_value.get("name")
+        if isinstance(name, str) and name.strip():
+            return name.strip()
+    return None
+
+
 def _parse_maybe_json(value):
     """Parse JSON strings when possible; otherwise return the original value."""
     if isinstance(value, str):
@@ -217,6 +225,7 @@ class AgentSessionSerializer(serializers.ModelSerializer):
 class AgentSessionExecutionLogSerializer(serializers.ModelSerializer):
     session_id = serializers.UUIDField(source="id", read_only=True)
     agent_slug = serializers.SerializerMethodField()
+    agent_name = serializers.SerializerMethodField()
     model_slug = serializers.SerializerMethodField()
     status = serializers.SerializerMethodField()
     tool_calls = serializers.SerializerMethodField()
@@ -228,6 +237,7 @@ class AgentSessionExecutionLogSerializer(serializers.ModelSerializer):
             "session_id",
             "agent_index",
             "agent_slug",
+            "agent_name",
             "model_slug",
             "iterations",
             "tool_calls_count",
@@ -243,6 +253,10 @@ class AgentSessionExecutionLogSerializer(serializers.ModelSerializer):
     def get_agent_slug(self, obj):
         agent = obj.inputs.get("agent") if isinstance(obj.inputs, dict) else None
         return _extract_slug(agent)
+
+    def get_agent_name(self, obj):
+        agent = obj.inputs.get("agent") if isinstance(obj.inputs, dict) else None
+        return _extract_agent_name(agent)
 
     def get_model_slug(self, obj):
         model = obj.inputs.get("model") if isinstance(obj.inputs, dict) else None

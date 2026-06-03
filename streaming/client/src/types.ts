@@ -150,6 +150,7 @@ export type TAgentSessionExecutionLog = {
   session_id: string;
   agent_index: number;
   agent_slug: string | null;
+  agent_name?: string | null;
   model_slug: string | null;
   iterations: number;
   tool_calls_count: number;

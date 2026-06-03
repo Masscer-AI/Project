@@ -24,6 +24,7 @@ import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
 import { Reactions } from "../Reactions/Reactions";
 import { CompletionDetailModal } from "../Completion/CompletionDetailModal";
 import { CompletionRefsBar } from "../Completion/CompletionRefsBar";
+import { useLocalizedToolName } from "../../utils/localizedToolName";
 
 import "./Message.css";
 
@@ -630,6 +631,7 @@ export const Message = memo(
           loading={executionLogLoading}
           error={executionLogError}
           currentVersion={currentVersion}
+          versions={versions}
         />
       </div>
     );
@@ -650,8 +652,9 @@ const AGENT_EVENT_META: Record<string, { icon: Icon; color: string }> = {
 
 const useAgentEventLabel = () => {
   const { t } = useTranslation();
+  const localizeTool = useLocalizedToolName();
   return (event: TAgentTaskEvent): string => {
-    const toolName = event.tool_name || "...";
+    const toolName = localizeTool(event.tool_name);
     switch (event.type) {
       case "loop_start":
         return t("agent-step-started");
@@ -774,8 +777,18 @@ const formatExecutionLogValue = (value: unknown) => {
   }
 };
 
+const hasExecutionLogPayload = (value: unknown): boolean => {
+  if (value == null) return false;
+  if (typeof value === "string") return value.trim().length > 0;
+  if (Array.isArray(value)) return value.length > 0;
+  if (typeof value === "object") return Object.keys(value as object).length > 0;
+  return true;
+};
+
 const ExecutionLogToolCall = ({ toolCall }: { toolCall: TAgentSessionToolCall }) => {
   const { t } = useTranslation();
+  const localizeTool = useLocalizedToolName();
+  const toolLabel = localizeTool(toolCall.tool_name);
   return (
     <div
       className="rounded-xl px-4 py-3"
@@ -787,7 +800,7 @@ const ExecutionLogToolCall = ({ toolCall }: { toolCall: TAgentSessionToolCall })
       <Group justify="space-between" align="flex-start" wrap="wrap" gap="sm">
         <div>
           <Text fw={600} size="sm">
-            #{toolCall.order} {toolCall.tool_name}
+            #{toolCall.order} {toolLabel}
           </Text>
           {toolCall.iteration != null && (
             <Text size="xs" c="dimmed">
@@ -807,22 +820,42 @@ const ExecutionLogToolCall = ({ toolCall }: { toolCall: TAgentSessionToolCall })
       </Group>
 
       <Stack gap="xs" mt="sm">
-        <details>
-          <summary style={{ cursor: "pointer", fontWeight: 500 }}>
-            {t("execution-log-result")}
-          </summary>
-          <pre
-            className="whitespace-pre-wrap break-all mt-3 rounded-lg p-3"
-            style={{
-              background: "var(--code-bg-color)",
-              border: "1px solid var(--hovered-color)",
-              fontSize: "0.9rem",
-              lineHeight: 1.55,
-            }}
-          >
-            {formatExecutionLogValue(toolCall.result)}
-          </pre>
-        </details>
+        {hasExecutionLogPayload(toolCall.arguments) && (
+          <details>
+            <summary style={{ cursor: "pointer", fontWeight: 500 }}>
+              {t("execution-log-input")}
+            </summary>
+            <pre
+              className="whitespace-pre-wrap break-all mt-3 rounded-lg p-3"
+              style={{
+                background: "var(--code-bg-color)",
+                border: "1px solid var(--hovered-color)",
+                fontSize: "0.9rem",
+                lineHeight: 1.55,
+              }}
+            >
+              {formatExecutionLogValue(toolCall.arguments)}
+            </pre>
+          </details>
+        )}
+        {hasExecutionLogPayload(toolCall.result) && (
+          <details>
+            <summary style={{ cursor: "pointer", fontWeight: 500 }}>
+              {t("execution-log-result")}
+            </summary>
+            <pre
+              className="whitespace-pre-wrap break-all mt-3 rounded-lg p-3"
+              style={{
+                background: "var(--code-bg-color)",
+                border: "1px solid var(--hovered-color)",
+                fontSize: "0.9rem",
+                lineHeight: 1.55,
+              }}
+            >
+              {formatExecutionLogValue(toolCall.result)}
+            </pre>
+          </details>
+        )}
       </Stack>
     </div>
   );
@@ -835,6 +868,7 @@ const ExecutionLogModal = ({
   loading,
   error,
   currentVersion,
+  versions,
 }: {
   opened: boolean;
   onClose: () => void;
@@ -842,6 +876,7 @@ const ExecutionLogModal = ({
   loading: boolean;
   error: string | null;
   currentVersion: number;
+  versions?: TVersion[];
 }) => {
   const { t } = useTranslation();
   return (
@@ -879,6 +914,13 @@ const ExecutionLogModal = ({
             <Stack gap="md">
               {sessions.map((session, sessionIdx) => {
                 const isCurrentVersion = currentVersion === sessionIdx;
+                const agentDisplayName =
+                  (session.agent_name && session.agent_name.trim()) ||
+                  versions?.[sessionIdx]?.agent_name?.trim() ||
+                  session.agent_slug ||
+                  t("execution-log-agent-fallback", {
+                    index: session.agent_index + 1,
+                  });
                 return (
                   <div
                     key={session.session_id}
@@ -891,12 +933,7 @@ const ExecutionLogModal = ({
                     <Stack gap="sm">
                       <Group justify="space-between" align="center" wrap="wrap">
                         <div>
-                          <Text fw={600}>
-                            {session.agent_slug ||
-                              t("execution-log-agent-fallback", {
-                                index: session.agent_index + 1,
-                              })}
-                          </Text>
+                          <Text fw={600}>{agentDisplayName}</Text>
                           <Text size="xs" c="dimmed">
                             {t("execution-log-version", {
                               version: session.agent_index + 1,

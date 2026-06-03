@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from "react";
 import { useStore } from "../../modules/store";
 import { useTranslation } from "react-i18next";
 import { showOrganizationBillingBlockedToast } from "../../utils/organizationBillingToast";
+import { useLocalizedToolName } from "../../utils/localizedToolName";
 
 const TOOL_STATUS_MIN_MS = 1500; // Keep tool call status visible so user notices the AI invoked a function
 
@@ -46,6 +47,7 @@ type RedisNotification<T> = {
  */
 export const AgentTaskListener = () => {
   const { t } = useTranslation();
+  const localizeTool = useLocalizedToolName();
   const {
     socket,
     conversation,
@@ -106,13 +108,17 @@ export const AgentTaskListener = () => {
       switch (data.type) {
         case "tool_call_start":
           applyStatus(
-            t("agent-running-tool", { toolName: data.tool_name || "..." }),
+            t("agent-running-tool", {
+              toolName: localizeTool(data.tool_name as string | undefined),
+            }),
             true
           );
           break;
         case "tool_call_end":
           applyStatus(
-            t("agent-tool-completed", { toolName: data.tool_name || "..." }),
+            t("agent-tool-completed", {
+              toolName: localizeTool(data.tool_name as string | undefined),
+            }),
             true
           );
           break;
@@ -212,6 +218,7 @@ export const AgentTaskListener = () => {
     pushAgentTaskEvent,
     clearAgentTaskEvents,
     t,
+    localizeTool,
   ]);
 
   return null;
