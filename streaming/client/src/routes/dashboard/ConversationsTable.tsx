@@ -199,6 +199,9 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({
   const showWhatsappLineFilter =
     (filters.channel ?? "all") === "all" || filters.channel === "whatsapp";
 
+  const showChatWidgetFilter =
+    (filters.channel ?? "all") === "all" || filters.channel === "widget";
+
   const channelOptions: { value: "all" | "app" | "widget" | "whatsapp"; label: string }[] = [
     { value: "all", label: t("dashboard-channel-all") },
     { value: "whatsapp", label: t("dashboard-channel-whatsapp") },
@@ -413,6 +416,9 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({
                 if (val !== "all" && val !== "whatsapp") {
                   updates.wsNumberId = "";
                 }
+                if (val !== "all" && val !== "widget") {
+                  updates.chatWidgetId = "";
+                }
                 updateFilters(updates);
               }}
             />
@@ -436,16 +442,24 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({
               />
             )}
 
-            <NativeSelect
-              label={t("dashboard-widget-instance")}
-              size="sm"
-              data={chatWidgetOptions}
-              value={filters.chatWidgetId ?? ""}
-              onChange={(e) => {
-                const val = e.currentTarget.value;
-                updateFilters({ chatWidgetId: val });
-              }}
-            />
+            {showChatWidgetFilter && (
+              <NativeSelect
+                label={t("dashboard-widget-instance")}
+                size="sm"
+                data={chatWidgetOptions}
+                value={filters.chatWidgetId ?? ""}
+                onChange={(e) => {
+                  const val = e.currentTarget.value;
+                  const updates: Partial<TConversationFilters> = {
+                    chatWidgetId: val,
+                  };
+                  if (val && (filters.channel ?? "all") === "all") {
+                    updates.channel = "widget";
+                  }
+                  updateFilters(updates);
+                }}
+              />
+            )}
 
             <NativeSelect
               label="Status"
