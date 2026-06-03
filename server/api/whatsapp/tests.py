@@ -153,13 +153,12 @@ class WhatsappClearCommandTests(TestCase):
             mock_send.call_args[0][2],
             WHATSAPP_CLEAR_REPLY,
         )
-
-        assistant = Message.objects.get(
-            conversation=new_conv,
-            type="assistant",
-            text=WHATSAPP_CLEAR_REPLY,
+        self.assertFalse(
+            Message.objects.filter(
+                conversation=new_conv,
+                type="assistant",
+            ).exists()
         )
-        self.assertEqual(assistant.metadata.get("whatsapp_wamid"), "wamid-clear-out")
 
     @patch("api.whatsapp.actions.send_message", return_value="wamid-clear-out")
     @patch("api.whatsapp.inbound.enqueue_whatsapp_inbound_agent")

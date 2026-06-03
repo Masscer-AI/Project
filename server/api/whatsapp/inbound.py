@@ -79,25 +79,13 @@ def handle_whatsapp_clear(
 
     new_conversation = create_whatsapp_conversation(ws_number, user_phone)
 
-    out_wamid: str | None = None
     if ws_number.platform_id:
-        out_wamid = send_message(
+        send_message(
             ws_number.platform_id,
             user_phone,
             WHATSAPP_CLEAR_REPLY,
             inbound_wamid,
         )
-
-    assistant_meta: dict[str, Any] = {}
-    if out_wamid:
-        assistant_meta["whatsapp_wamid"] = out_wamid
-    assistant = Message.objects.create(
-        conversation=new_conversation,
-        type="assistant",
-        text=WHATSAPP_CLEAR_REPLY,
-        metadata=assistant_meta,
-    )
-    emit_message_created(None, new_conversation, assistant)
 
     new_conversation.whatsapp_last_inbound_wamid = inbound_wamid
     new_conversation.save(update_fields=["whatsapp_last_inbound_wamid", "updated_at"])
