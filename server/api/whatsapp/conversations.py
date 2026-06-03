@@ -59,26 +59,45 @@ def resolved_organization_for_ws_number(ws_number) -> Organization | None:
     return None
 
 
+def get_active_whatsapp_conversation(ws_number, user_phone: str) -> Conversation | None:
+    """Latest active thread for this line + visitor phone, or None."""
+    return (
+        Conversation.objects.filter(
+            ws_number=ws_number,
+            whatsapp_user_number=user_phone,
+            status="active",
+        )
+        .order_by("-created_at")
+        .first()
+    )
+
+
+def create_whatsapp_conversation(ws_number, user_phone: str) -> Conversation:
+    """Create a new active WhatsApp thread (caller must deactivate any prior active row)."""
+    org = resolved_organization_for_ws_number(ws_number)
+    return Conversation.objects.create(
+        ws_number=ws_number,
+        whatsapp_user_number=user_phone,
+        user=None,
+        organization=org,
+        status="active",
+        metadata=metadata_payload_for_related_agents([ws_number.agent_id]),
+    )
+
+
 def get_or_create_whatsapp_conversation(ws_number, user_phone: str) -> Conversation:
     """
-    One messaging.Conversation per (WSNumber, visitor WhatsApp phone).
+    One **active** messaging.Conversation per (WSNumber, visitor WhatsApp phone).
 
     Like chat-widget threads: ``user`` is always None (anonymous visitor). The
     visitor is identified by ``whatsapp_user_number``. Organization is set for
-    billing and access control.
+    billing and access control. After ``/clear``, older rows are inactive and a
+    new active row is created.
     """
-    org = resolved_organization_for_ws_number(ws_number)
-    defaults = {
-        "user": None,
-        "organization": org,
-        "metadata": metadata_payload_for_related_agents([ws_number.agent_id]),
-    }
-    conversation, _created = Conversation.objects.get_or_create(
-        ws_number=ws_number,
-        whatsapp_user_number=user_phone,
-        defaults=defaults,
-    )
-    return conversation
+    active = get_active_whatsapp_conversation(ws_number, user_phone)
+    if active:
+        return active
+    return create_whatsapp_conversation(ws_number, user_phone)
 
 
 def tool_names_from_capabilities(capabilities: list | None) -> list[str]:

@@ -528,3 +528,112 @@ class CreateCompletionToolTests(TestCase):
         c = Completion.objects.create(prompt="p", answer="a", approved=False)
         CompletionAssignment.objects.create(completion=c, agent=agent)
         self.assertFalse(mock_chroma.upsert_chunk.called)
+
+
+class WhatsappCrossThreadToolsTests(SimpleTestCase):
+    def test_query_conversation_get_tool_whatsapp_org_scoped(self):
+        from api.ai_layers.tools.query_conversation import get_tool
+
+        tool = get_tool(
+            conversation_id="00000000-0000-4000-8000-000000000001",
+            organization_id=1,
+            user_id=None,
+            is_whatsapp_visitor=True,
+        )
+        self.assertEqual(tool["name"], "query_conversation")
+        self.assertIsNotNone(tool["function"])
+        self.assertIn("organization", tool["description"].lower())
+
+
+class GetTagContextOrganizationScopeTests(TestCase):
+    def setUp(self):
+        from api.authenticate.models import Organization
+        from api.ai_layers.tools.get_tag_context import _get_tag_context_organization_impl
+        from api.messaging.models import Conversation, Tag
+        from api.whatsapp.conversations import get_or_create_whatsapp_conversation
+        from api.whatsapp.models import WSNumber
+        from api.ai_layers.models import Agent
+
+        self._get_tag_context_organization_impl = _get_tag_context_organization_impl
+        self.owner = User.objects.create_user(username="tag_ctx_owner", password="x")
+        self.org = Organization.objects.create(name="Tag Ctx Org", owner=self.owner)
+        self.tag = Tag.objects.create(
+            title="Startup IA",
+            organization=self.org,
+            enabled=True,
+        )
+        self.agent = Agent.objects.create(
+            name="Tag Agent", salute="hi", user=self.owner
+        )
+        self.app_conv = Conversation.objects.create(
+            user=self.owner,
+            organization=None,
+            title="App thread with tag",
+            tags=[self.tag.id],
+        )
+        self.ws = WSNumber.objects.create(
+            user=self.owner,
+            organization=self.org,
+            agent=self.agent,
+            number="5550003333",
+            platform_id="pnid-tag-ctx",
+        )
+        self.wa_conv = get_or_create_whatsapp_conversation(self.ws, "593964105554")
+
+    def test_finds_app_chats_without_conversation_organization_id(self):
+        result = self._get_tag_context_organization_impl(
+            tag_id=self.tag.id,
+            organization_id=self.org.id,
+            current_conversation_id=str(self.wa_conv.id),
+        )
+        ids = {c.conversation_id for c in result.conversations}
+        self.assertIn(str(self.app_conv.id), ids)
+        self.assertNotIn(str(self.wa_conv.id), ids)
+
+
+class AgentSessionExecutionLogAccessTests(TestCase):
+    def setUp(self):
+        from api.authenticate.models import Organization, Token
+        from api.ai_layers.models import Agent, AgentSession
+        from api.messaging.models import Conversation, Message
+        from api.whatsapp.conversations import get_or_create_whatsapp_conversation
+        from api.whatsapp.models import WSNumber
+
+        self.client = APIClient()
+        self.owner = User.objects.create_user(
+            username="exec_log_owner", password="x"
+        )
+        self.org = Organization.objects.create(name="Exec Log Org", owner=self.owner)
+        self.agent = Agent.objects.create(
+            name="WA Exec Log", salute="hi", user=self.owner
+        )
+        self.ws = WSNumber.objects.create(
+            user=self.owner,
+            organization=self.org,
+            agent=self.agent,
+            number="5550002222",
+            platform_id="pnid-exec-log",
+        )
+        self.conv = get_or_create_whatsapp_conversation(self.ws, "5493333444555")
+        self.assistant = Message.objects.create(
+            conversation=self.conv,
+            type="assistant",
+            text="WhatsApp reply",
+        )
+        AgentSession.objects.create(
+            conversation=self.conv,
+            assistant_message=self.assistant,
+            event_log=[{"type": "tool_call_start", "tool_name": "rag_query"}],
+        )
+        self.login_token = Token.objects.create(user=self.owner)
+
+    def test_whatsapp_assistant_message_execution_log_accessible(self):
+        res = self.client.get(
+            "/api/v1/ai_layers/agent-sessions/execution-log/",
+            {"assistant_message_id": self.assistant.id},
+            HTTP_AUTHORIZATION=f"Token {self.login_token.key}",
+        )
+        self.assertEqual(res.status_code, 200, res.content)
+        payload = res.json()
+        self.assertEqual(len(payload["sessions"]), 1)
+        self.assertEqual(len(payload["sessions"][0]["event_log"]), 1)

@@ -136,8 +136,9 @@ class Conversation(models.Model):
             models.UniqueConstraint(
                 fields=["ws_number", "whatsapp_user_number"],
                 condition=Q(ws_number__isnull=False)
-                & Q(whatsapp_user_number__isnull=False),
-                name="uniq_whatsapp_thread",
+                & Q(whatsapp_user_number__isnull=False)
+                & Q(status="active"),
+                name="uniq_whatsapp_thread_active",
             ),
         ]
 

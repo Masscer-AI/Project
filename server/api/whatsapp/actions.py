@@ -422,7 +422,7 @@ def handle_webhook(webhook_data):
 
 def handle_message_received(webhook_data, message):
     from .conversations import get_or_create_whatsapp_conversation
-    from .inbound import process_text_inbound
+    from .inbound import is_clear_command, process_text_inbound
 
     business_phone_number_id = webhook_data["entry"][0]["changes"][0]["value"][
         "metadata"
@@ -438,12 +438,23 @@ def handle_message_received(webhook_data, message):
 
     user_phone = message["from"]
     conv = get_or_create_whatsapp_conversation(ws_number, user_phone)
-    conv.whatsapp_last_inbound_wamid = message["id"]
-    conv.save(update_fields=["whatsapp_last_inbound_wamid", "updated_at"])
 
     mark_message_as_read(business_phone_number_id, message["id"])
 
     body = (message.get("text") or {}).get("body") or ""
+    if is_clear_command(body):
+        process_text_inbound(
+            ws_number=ws_number,
+            conversation=conv,
+            user_phone=user_phone,
+            inbound_wamid=message["id"],
+            body=body,
+        )
+        return
+
+    conv.whatsapp_last_inbound_wamid = message["id"]
+    conv.save(update_fields=["whatsapp_last_inbound_wamid", "updated_at"])
+
     process_text_inbound(
         ws_number=ws_number,
         conversation=conv,

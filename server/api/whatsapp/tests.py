@@ -89,6 +89,133 @@ class WhatsappConversationBridgeTests(TestCase):
         self.assertEqual(conv.organization_id, org.id)
         self.assertIsNone(conv.user_id)
 
+    def test_inactive_thread_allows_new_active_same_phone(self):
+        from api.whatsapp.conversations import create_whatsapp_conversation
+
+        c1 = get_or_create_whatsapp_conversation(self.ws, "5492222333444")
+        c1.status = "inactive"
+        c1.save(update_fields=["status", "updated_at"])
+        c2 = create_whatsapp_conversation(self.ws, "5492222333444")
+        self.assertEqual(c2.status, "active")
+        self.assertNotEqual(c1.id, c2.id)
+        c3 = get_or_create_whatsapp_conversation(self.ws, "5492222333444")
+        self.assertEqual(c3.id, c2.id)
+
+
+class WhatsappClearCommandTests(TestCase):
+    def setUp(self):
+        from django.core.cache import cache
+
+        cache.clear()
+        self.user = User.objects.create_user(username="wsclear", password="x")
+        self.agent = Agent.objects.create(name="Test WA Clear", salute="hi")
+        self.ws = WSNumber.objects.create(
+            user=self.user,
+            agent=self.agent,
+            number="5550001111",
+            platform_id="pnid-clear",
+        )
+
+    def test_is_clear_command(self):
+        from api.whatsapp.inbound import is_clear_command
+
+        self.assertTrue(is_clear_command("/clear"))
+        self.assertTrue(is_clear_command("  /clear  "))
+        self.assertFalse(is_clear_command("/CLEAR"))
+        self.assertFalse(is_clear_command("hello"))
+
+    @patch("api.whatsapp.actions.send_message")
+    def test_clear_deactivates_and_creates_new_active(self, mock_send):
+        from api.whatsapp.inbound import (
+            WHATSAPP_CLEAR_REPLY,
+            process_text_inbound,
+        )
+
+        mock_send.return_value = "wamid-clear-out"
+        conv = get_or_create_whatsapp_conversation(self.ws, "5493333444555")
+        process_text_inbound(
+            ws_number=self.ws,
+            conversation=conv,
+            user_phone="5493333444555",
+            inbound_wamid="wamid-clear-1",
+            body="/clear",
+        )
+        conv.refresh_from_db()
+        self.assertEqual(conv.status, "inactive")
+
+        new_conv = get_or_create_whatsapp_conversation(self.ws, "5493333444555")
+        self.assertNotEqual(new_conv.id, conv.id)
+        self.assertEqual(new_conv.status, "active")
+        self.assertEqual(new_conv.whatsapp_last_inbound_wamid, "wamid-clear-1")
+
+        mock_send.assert_called_once()
+        self.assertEqual(
+            mock_send.call_args[0][2],
+            WHATSAPP_CLEAR_REPLY,
+        )
+
+        assistant = Message.objects.get(
+            conversation=new_conv,
+            type="assistant",
+            text=WHATSAPP_CLEAR_REPLY,
+        )
+        self.assertEqual(assistant.metadata.get("whatsapp_wamid"), "wamid-clear-out")
+
+    @patch("api.whatsapp.actions.send_message", return_value="wamid-clear-out")
+    @patch("api.whatsapp.inbound.enqueue_whatsapp_inbound_agent")
+    def test_clear_skips_agent_enqueue(self, mock_enqueue, _mock_send):
+        from api.whatsapp.inbound import process_text_inbound
+
+        conv = get_or_create_whatsapp_conversation(self.ws, "5494444555666")
+        process_text_inbound(
+            ws_number=self.ws,
+            conversation=conv,
+            user_phone="5494444555666",
+            inbound_wamid="wamid-clear-2",
+            body="/clear",
+        )
+        mock_enqueue.assert_not_called()
+
+    @patch("api.whatsapp.actions.send_message", return_value="wamid-clear-out")
+    @patch("api.whatsapp.tasks.whatsapp_flush_inbound_agent_task.apply_async")
+    @patch("api.whatsapp.actions.mark_message_as_read")
+    def test_handle_message_received_clear_skips_flush(
+        self, _mock_read, mock_apply_async, _mock_send
+    ):
+        from api.whatsapp.actions import handle_message_received
+
+        webhook_data = {
+            "entry": [
+                {
+                    "changes": [
+                        {
+                            "value": {
+                                "metadata": {"phone_number_id": "pnid-clear"},
+                                "messages": [
+                                    {
+                                        "from": "5495555666777",
+                                        "id": "wamid.clear.webhook",
+                                        "type": "text",
+                                        "text": {"body": "/clear"},
+                                    }
+                                ],
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+        message = webhook_data["entry"][0]["changes"][0]["value"]["messages"][0]
+        handle_message_received(webhook_data, message)
+
+        mock_apply_async.assert_not_called()
+        active = Conversation.objects.get(
+            ws_number=self.ws,
+            whatsapp_user_number="5495555666777",
+            status="active",
+        )
+        self.assertEqual(active.whatsapp_last_inbound_wamid, "wamid.clear.webhook")
+
 
 class WhatsappWebhookEnqueueTests(TestCase):
     def setUp(self):
@@ -134,7 +261,9 @@ class WhatsappWebhookEnqueueTests(TestCase):
         handle_message_received(webhook_data, message)
 
         conv = Conversation.objects.get(
-            ws_number=self.ws, whatsapp_user_number="5490000000000"
+            ws_number=self.ws,
+            whatsapp_user_number="5490000000000",
+            status="active",
         )
         self.assertEqual(conv.whatsapp_last_inbound_wamid, "wamid.inbound")
         mock_apply_async.assert_called_once()
@@ -219,7 +348,9 @@ class WhatsappWebhookEnqueueTests(TestCase):
         handle_webhook(webhook_data)
 
         conv = Conversation.objects.get(
-            ws_number=self.ws, whatsapp_user_number="5490000000000"
+            ws_number=self.ws,
+            whatsapp_user_number="5490000000000",
+            status="active",
         )
         mock_apply_async.assert_called_once()
         kwargs = mock_apply_async.call_args.kwargs["kwargs"]

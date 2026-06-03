@@ -22,6 +22,9 @@ _ALLOWED_IMAGE_MIMES = frozenset(
 WHATSAPP_INBOUND_DEBOUNCE_SECONDS = 3
 WHATSAPP_INBOUND_BUFFER_TTL_SECONDS = 120
 
+WHATSAPP_CLEAR_COMMAND = "/clear"
+WHATSAPP_CLEAR_REPLY = "A new chat has started!"
+
 
 def whatsapp_inbound_buffer_key(conversation_id: str) -> str:
     return f"whatsapp:inbound:buffer:{conversation_id}"
@@ -29,6 +32,77 @@ def whatsapp_inbound_buffer_key(conversation_id: str) -> str:
 
 def whatsapp_inbound_schedule_lock_key(conversation_id: str) -> str:
     return f"whatsapp:inbound:flush_scheduled:{conversation_id}"
+
+
+def is_clear_command(body: str) -> bool:
+    return body.strip() == WHATSAPP_CLEAR_COMMAND
+
+
+def clear_whatsapp_inbound_buffer(conversation_id: str) -> None:
+    cache.delete(whatsapp_inbound_buffer_key(conversation_id))
+    cache.delete(whatsapp_inbound_schedule_lock_key(conversation_id))
+
+
+def handle_whatsapp_clear(
+    *,
+    ws_number: WSNumber,
+    conversation: Conversation,
+    user_phone: str,
+    inbound_wamid: str,
+) -> Conversation:
+    """
+    End the current active thread (inactive), start a new active one, reply on WhatsApp.
+    Does not enqueue the agent.
+    """
+    from api.messaging.takeover import emit_message_created
+
+    from .actions import send_message
+    from .conversations import create_whatsapp_conversation
+
+    if inbound_wamid_already_processed(conversation, inbound_wamid):
+        from .conversations import get_active_whatsapp_conversation
+
+        return get_active_whatsapp_conversation(ws_number, user_phone) or conversation
+
+    clear_whatsapp_inbound_buffer(str(conversation.id))
+
+    clear_msg = Message.objects.create(
+        conversation=conversation,
+        type="user",
+        text=WHATSAPP_CLEAR_COMMAND,
+        metadata={"whatsapp_inbound_wamid": inbound_wamid},
+    )
+    emit_message_created(None, conversation, clear_msg)
+
+    conversation.status = "inactive"
+    conversation.save(update_fields=["status", "updated_at"])
+
+    new_conversation = create_whatsapp_conversation(ws_number, user_phone)
+
+    out_wamid: str | None = None
+    if ws_number.platform_id:
+        out_wamid = send_message(
+            ws_number.platform_id,
+            user_phone,
+            WHATSAPP_CLEAR_REPLY,
+            inbound_wamid,
+        )
+
+    assistant_meta: dict[str, Any] = {}
+    if out_wamid:
+        assistant_meta["whatsapp_wamid"] = out_wamid
+    assistant = Message.objects.create(
+        conversation=new_conversation,
+        type="assistant",
+        text=WHATSAPP_CLEAR_REPLY,
+        metadata=assistant_meta,
+    )
+    emit_message_created(None, new_conversation, assistant)
+
+    new_conversation.whatsapp_last_inbound_wamid = inbound_wamid
+    new_conversation.save(update_fields=["whatsapp_last_inbound_wamid", "updated_at"])
+
+    return new_conversation
 
 
 def inbound_wamid_already_processed(conversation: Conversation, wamid: str) -> bool:
@@ -190,6 +264,14 @@ def process_text_inbound(
     if not body.strip():
         return
     if inbound_wamid_already_processed(conversation, inbound_wamid):
+        return
+    if is_clear_command(body):
+        handle_whatsapp_clear(
+            ws_number=ws_number,
+            conversation=conversation,
+            user_phone=user_phone,
+            inbound_wamid=inbound_wamid,
+        )
         return
     user_inputs = _build_user_inputs_text(body.strip())
     enqueue_whatsapp_inbound_agent(

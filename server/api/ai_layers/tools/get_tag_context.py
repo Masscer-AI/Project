@@ -163,30 +163,120 @@ def _get_tag_context_impl(
     return GetTagContextResult(conversations=items, message=msg)
 
 
+def _get_tag_context_organization_impl(
+    *,
+    tag_id: int,
+    organization_id,
+    current_conversation_id: str,
+) -> GetTagContextResult:
+    """All org threads with a tag (same visibility as dashboard scope=org)."""
+    from api.messaging.views import organization_conversations_q
+
+    tag = (
+        Tag.objects.filter(
+            id=tag_id,
+            organization_id=organization_id,
+            enabled=True,
+        )
+        .only("id", "title")
+        .first()
+    )
+    if not tag:
+        return GetTagContextResult(
+            conversations=[],
+            message="Tag not found, not in this organization, or disabled.",
+        )
+
+    tag_match = Q(tags__contains=[tag_id]) | Q(tags__contains=[str(tag_id)])
+
+    qs = (
+        Conversation.objects.filter(organization_conversations_q(organization_id))
+        .filter(tag_match)
+        .exclude(status="deleted")
+        .exclude(id=current_conversation_id)
+        .annotate(n_messages=Count("messages"))
+        .annotate(
+            sort_date=Coalesce(
+                "last_message_at",
+                "updated_at",
+                output_field=DateTimeField(),
+            )
+        )
+        .order_by("-sort_date")[:MAX_CONVERSATIONS]
+    )
+
+    items: list[TagContextConversationItem] = []
+    for conv in qs:
+        dt = getattr(conv, "sort_date", None) or conv.updated_at
+        items.append(
+            TagContextConversationItem(
+                conversation_id=str(conv.id),
+                title=(conv.title or "").strip(),
+                summary=(conv.summary or "").strip(),
+                n_messages=int(getattr(conv, "n_messages", 0) or 0),
+                date=_iso(dt),
+            )
+        )
+
+    msg = (
+        f"Found {len(items)} other conversation(s) across the organization with tag "
+        f"{tag_id!r} ({tag.title!r})."
+    )
+    logger.info(
+        "get_tag_context: org=%s tag_id=%s current=%s scope=org_embedded rows=%s",
+        organization_id,
+        tag_id,
+        current_conversation_id,
+        len(items),
+    )
+    return GetTagContextResult(conversations=items, message=msg)
+
+
 def get_tool(
     conversation_id: str | None = None,
     organization_id: int | None = None,
     user_id: int | None = None,
     has_organization_conversations_access: bool = False,
+    is_whatsapp_visitor: bool = False,
     **kwargs,
 ) -> dict:
     if not conversation_id or organization_id is None:
         raise ValueError(
             "get_tag_context requires conversation_id and organization_id in context"
         )
+    cid = str(conversation_id)
+
+    if is_whatsapp_visitor:
+        def get_tag_context(tag_id: int) -> GetTagContextResult:
+            return _get_tag_context_organization_impl(
+                tag_id=tag_id,
+                organization_id=organization_id,
+                current_conversation_id=cid,
+            )
+
+        return {
+            "name": "get_tag_context",
+            "description": (
+                "Fetch cross-thread context for ONE tag in this organization: pass tag_id as an INTEGER. "
+                "Returns other conversations with that tag **across the organization** "
+                "(WhatsApp, web, teammates; title, summary, n_messages, date). "
+                "Call before reusing a topic when a tag applies."
+            ),
+            "parameters": GetTagContextParams,
+            "function": get_tag_context,
+        }
+
     if user_id is None or not isinstance(user_id, int):
         raise ValueError("get_tag_context requires a logged-in user_id in context")
 
     uid = int(user_id)
-    oid = int(organization_id)
-    cid = str(conversation_id)
     wide = bool(has_organization_conversations_access)
 
     def get_tag_context(tag_id: int) -> GetTagContextResult:
         return _get_tag_context_impl(
             tag_id=tag_id,
             user_id=uid,
-            organization_id=oid,
+            organization_id=organization_id,
             current_conversation_id=cid,
             has_organization_conversations_access=wide,
         )

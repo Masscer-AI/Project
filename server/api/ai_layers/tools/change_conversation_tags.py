@@ -67,6 +67,9 @@ def _conversation_in_organization(conversation: Conversation, organization_id: i
     agent = getattr(cw, "agent", None) if cw else None
     if agent and getattr(agent, "organization_id", None) == organization_id:
         return True
+    ws = getattr(conversation, "ws_number", None)
+    if ws and getattr(ws, "organization_id", None) == organization_id:
+        return True
     return False
 
 

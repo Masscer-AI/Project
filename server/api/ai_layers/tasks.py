@@ -1406,37 +1406,54 @@ def conversation_agent_task(
                 if "read_plugin_instructions" not in agent_tool_names:
                     agent_tool_names.append("read_plugin_instructions")
 
-            # Organization tagging: tools always attached when an org exists; current tags are injected below.
+            # Organization tagging (web app always; WhatsApp when line capabilities include tag tools).
             tagging_tools = (
                 "query_organization_tags",
                 "create_organization_tag",
                 "change_conversation_tags",
             )
-            if organization and not is_embedded_channel:
+            _wa_cross_thread = frozenset({"get_tag_context", "query_conversation"})
+            supports_web_org_tagging = organization and not is_embedded_channel
+            supports_whatsapp_org_tagging = (
+                organization
+                and is_whatsapp_chat
+                and bool(_wa_cross_thread.intersection(agent_tool_names))
+            )
+            if supports_web_org_tagging or supports_whatsapp_org_tagging:
                 conversation.refresh_from_db(fields=["tags", "summary"])
                 tags_preamble = _conversation_tags_instruction_block(
                     conversation, organization.id
                 )
-                for _tn in tagging_tools:
-                    if _tn not in agent_tool_names:
-                        agent_tool_names.append(_tn)
-                if actor_user_id is not None:
-                    if "get_tag_context" not in agent_tool_names:
-                        agent_tool_names.append("get_tag_context")
-                    if "query_conversation" not in agent_tool_names:
-                        agent_tool_names.append("query_conversation")
-                if "change_conversation_summary" not in agent_tool_names:
-                    agent_tool_names.append("change_conversation_summary")
-                summary_preamble = _conversation_summary_instruction_block(conversation)
-                instructions += (
-                    "\n\n=== CONVERSATION SUMMARY ===\n"
-                    f"{summary_preamble}"
-                    "=== END CONVERSATION SUMMARY ===\n"
+                if supports_web_org_tagging:
+                    for _tn in tagging_tools:
+                        if _tn not in agent_tool_names:
+                            agent_tool_names.append(_tn)
+                    if actor_user_id is not None:
+                        if "get_tag_context" not in agent_tool_names:
+                            agent_tool_names.append("get_tag_context")
+                        if "query_conversation" not in agent_tool_names:
+                            agent_tool_names.append("query_conversation")
+                    if "change_conversation_summary" not in agent_tool_names:
+                        agent_tool_names.append("change_conversation_summary")
+                tag_tools_intro = (
+                    "Tagging tools are always enabled for this organization on every turn.\n"
+                    if supports_web_org_tagging
+                    else "Tag and cross-thread tools are enabled on this WhatsApp line.\n"
                 )
+                if (
+                    supports_whatsapp_org_tagging
+                    or "change_conversation_summary" in agent_tool_names
+                ):
+                    summary_preamble = _conversation_summary_instruction_block(conversation)
+                    instructions += (
+                        "\n\n=== CONVERSATION SUMMARY ===\n"
+                        f"{summary_preamble}"
+                        "=== END CONVERSATION SUMMARY ===\n"
+                    )
                 instructions += (
                     "\n\n=== CONVERSATION TAGS ===\n"
                     f"{tags_preamble}"
-                    "Tagging tools are always enabled for this organization on every turn.\n"
+                    f"{tag_tools_intro}"
                     "You already have this conversation’s tag ids and titles above — do **not** call "
                     "query_organization_tags unless you truly need the full organization catalog "
                     "(for example after creating a new tag, or when comparing many similar labels).\n\n"
@@ -1446,7 +1463,7 @@ def conversation_agent_task(
                     "- change_conversation_tags: set exactly 1–3 tag ids for this conversation (replaces the whole set). "
                     "Do not use this to clear tags unless the user explicitly asks to remove all labels.\n"
                 )
-                if actor_user_id is not None:
+                if supports_web_org_tagging and actor_user_id is not None:
                     if has_organization_conversations_access:
                         instructions += (
                             "- **Org-wide thread visibility:** this user has the same conversation visibility as the "
@@ -1473,6 +1490,19 @@ def conversation_agent_task(
                         "“what did I tell you last week about X?” without overloading context. Use **after** you know "
                         "which `conversation_id` matters (often from `get_tag_context`). Do not spam it every turn.\n"
                     )
+                elif supports_whatsapp_org_tagging:
+                    if "get_tag_context" in agent_tool_names:
+                        instructions += (
+                            "- get_tag_context: pass `tag_id` as the **integer id** (not the title). Lists other "
+                            "threads **across the organization** with that tag (title, summary, n_messages, date). "
+                            "Call before reusing a topic when a tag applies.\n"
+                        )
+                    if "query_conversation" in agent_tool_names:
+                        instructions += (
+                            "- query_conversation: pass `conversation_id` (from get_tag_context) and `question`. "
+                            "Returns a distilled answer from that thread’s messages (any org conversation you have an id for). "
+                            "Use after you know which conversation_id matters.\n"
+                        )
                 instructions += (
                     "\n"
                     "Rules:\n"
@@ -1587,6 +1617,8 @@ def conversation_agent_task(
             )
             if applicable_alert_rules and organization:
                 resolve_kwargs["organization_id"] = organization.id
+            if is_whatsapp_chat:
+                resolve_kwargs["is_whatsapp_visitor"] = True
 
             tools = resolve_tools(agent_tool_names, **resolve_kwargs)
 

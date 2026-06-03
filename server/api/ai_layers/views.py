@@ -677,42 +677,13 @@ class AgentTaskView(View):
 
 
 def _user_can_access_message(user, message):
-    """Check if user can access the message's conversation."""
-    from api.messaging.models import Message
-    from api.authenticate.models import Organization
-
+    """Check if user can access the message's conversation (incl. WhatsApp threads)."""
     conv = message.conversation
     if not conv:
         return False
-    if conv.user_id == user.id:
-        return True
-    org_user_ids = []
-    owned_orgs = Organization.objects.filter(owner=user)
-    if hasattr(user, "profile") and user.profile.organization_id:
-        member_orgs = Organization.objects.filter(id=user.profile.organization_id)
-        orgs = (owned_orgs | member_orgs).distinct()
-    else:
-        orgs = owned_orgs
-    if orgs.exists():
-        owner_ids = set(
-            Organization.objects.filter(id__in=orgs).values_list("owner_id", flat=True)
-        )
-        member_ids = set(
-            User.objects.filter(
-                profile__organization__in=orgs
-            ).values_list("id", flat=True)
-        )
-        org_user_ids = list(owner_ids | member_ids)
-    if org_user_ids and (
-        conv.user_id in org_user_ids
-        or (
-            conv.user_id is None
-            and conv.chat_widget
-            and conv.chat_widget.created_by_id in org_user_ids
-        )
-    ):
-        return True
-    return False
+    from api.messaging.views import _user_can_access_conversation
+
+    return _user_can_access_conversation(user, conv)
 
 
 @csrf_exempt

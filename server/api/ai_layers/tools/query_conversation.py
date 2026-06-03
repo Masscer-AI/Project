@@ -125,9 +125,10 @@ def _query_conversation_impl(
     *,
     target_conversation_id: str,
     question: str,
-    user_id: int,
     organization_id: int,
+    user_id: int | None = None,
     has_organization_conversations_access: bool = False,
+    organization_scoped_embedded: bool = False,
 ) -> QueryConversationResult:
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
@@ -146,7 +147,27 @@ def _query_conversation_impl(
             message="Conversation not found.",
         )
 
-    if not _user_can_access_conversation(
+    if organization_scoped_embedded:
+        from api.ai_layers.tools.embedded_channels import organization_can_access_conversation
+
+        if not organization_can_access_conversation(
+            conv=conv,
+            organization_id=organization_id,
+        ):
+            return QueryConversationResult(
+                success=False,
+                answer="",
+                message=(
+                    "You cannot access this conversation (wrong organization or deleted)."
+                ),
+            )
+    elif user_id is None:
+        return QueryConversationResult(
+            success=False,
+            answer="",
+            message="query_conversation requires a logged-in user or organization context.",
+        )
+    elif not _user_can_access_conversation(
         conv=conv,
         user_id=user_id,
         organization_id=organization_id,
@@ -196,8 +217,9 @@ Rules:
         if not ans:
             ans = "No answer was produced."
         logger.info(
-            "query_conversation: user=%s target=%s model=%s q_len=%s ans_len=%s org_wide=%s",
+            "query_conversation: user=%s embedded_org=%s target=%s model=%s q_len=%s ans_len=%s org_wide=%s",
             user_id,
+            organization_scoped_embedded,
             target_conversation_id,
             INNER_MODEL,
             len(question),
@@ -223,16 +245,39 @@ def get_tool(
     organization_id: int | None = None,
     user_id: int | None = None,
     has_organization_conversations_access: bool = False,
+    is_whatsapp_visitor: bool = False,
     **kwargs,
 ) -> dict:
-    # conversation_id here is the *current* chat from resolve_tools; unused for access check
     if organization_id is None:
         raise ValueError("query_conversation requires organization_id in context")
+    if is_whatsapp_visitor:
+        def query_conversation(
+            conversation_id: str,
+            question: str,
+        ) -> QueryConversationResult:
+            return _query_conversation_impl(
+                target_conversation_id=conversation_id.strip().lower(),
+                question=question,
+                organization_id=organization_id,
+                organization_scoped_embedded=True,
+            )
+
+        return {
+            "name": "query_conversation",
+            "description": (
+                "Ask a **specific question** about **one** conversation in this organization. "
+                "Pass `conversation_id` (UUID from get_tag_context) and `question`. "
+                "Returns a distilled answer from an inner model over that chat’s messages. "
+                "Any org thread (WhatsApp, web, teammates) may be queried when you have its id."
+            ),
+            "parameters": QueryConversationParams,
+            "function": query_conversation,
+        }
+
     if user_id is None or not isinstance(user_id, int):
         raise ValueError("query_conversation requires a logged-in user_id in context")
 
     uid = int(user_id)
-    oid = int(organization_id)
     wide = bool(has_organization_conversations_access)
 
     def query_conversation(
@@ -243,7 +288,7 @@ def get_tool(
             target_conversation_id=conversation_id.strip().lower(),
             question=question,
             user_id=uid,
-            organization_id=oid,
+            organization_id=organization_id,
             has_organization_conversations_access=wide,
         )
 
