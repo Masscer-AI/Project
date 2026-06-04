@@ -65,8 +65,8 @@ export const ConversationModal = ({
   const { t } = useTranslation();
   const canEditConversationMeta =
     useIsFeatureEnabled("can-edit-conversation-data") === true;
-  /** Viewers may open the modal read-only; participants need the flag to edit title/tags. */
-  const canMutateTitleAndTags = canEditConversationMeta && !readOnly;
+  /** Channel threads (widget/WhatsApp) use readOnly for the composer only; metadata edits use the flag. */
+  const canMutateTitleAndTags = canEditConversationMeta;
   const canOpenModal = readOnly || canEditConversationMeta;
 
   const { socket } = useStore((s) => ({

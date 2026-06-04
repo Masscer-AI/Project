@@ -77,6 +77,8 @@ export default function ChatView() {
     isForeignConversation || isWidgetConversation || isWhatsappConversation;
   const canReplaceAgent =
     useIsFeatureEnabled("can-replace-agent-in-conversations") === true;
+  const canEditConversationData =
+    useIsFeatureEnabled("can-edit-conversation-data") === true;
   const activeTakeover = activeConversation?.active_takeover;
   const isTakeoverOperator =
     activeTakeover?.status === "ACTIVE" &&
@@ -622,7 +624,8 @@ export default function ChatView() {
           right={
             <ConversationHeaderActions
               conversation={activeConversation}
-              readOnly={isViewer}
+              readOnly={isViewer && !canEditConversationData}
+              showActions={!isForeignConversation}
               onDeleted={() => {
                 setConversation(null);
                 navigate("/chat");
