@@ -78,6 +78,7 @@ class ChatWidgetAdmin(admin.ModelAdmin):
         "token",
         "widget_script_url",
         "enabled",
+        "avatar",
         "avatar_image",
         "first_message",
         "capabilities",

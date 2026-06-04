@@ -8,6 +8,7 @@ from api.feedback.serializers import ReactionSerializer
 from api.utils.timezone_utils import format_datetime_for_organization, get_organization_timezone_from_request
 from api.ai_layers.tools import list_available_tools
 from .schemas import ChatWidgetStyle, ChatWidgetCapabilitiesPayload
+from .widget_avatar_urls import clear_widget_uploaded_avatar, resolved_avatar_image
 
 
 def serialize_active_takeover(conversation) -> dict | None:
@@ -218,13 +219,17 @@ class SharedConversationSerializer(serializers.ModelSerializer):
 class ChatWidgetConfigSerializer(serializers.ModelSerializer):
     agent_slug = serializers.SerializerMethodField()
     agent_name = serializers.SerializerMethodField()
-    
+    avatar_image = serializers.SerializerMethodField()
+
     def get_agent_slug(self, obj):
         return obj.agent.slug if obj.agent else None
-    
+
     def get_agent_name(self, obj):
         return obj.agent.name if obj.agent else None
-    
+
+    def get_avatar_image(self, obj):
+        return resolved_avatar_image(obj)
+
     class Meta:
         model = ChatWidget
         fields = (
@@ -330,7 +335,16 @@ class ChatWidgetSerializer(serializers.ModelSerializer):
             )
 
         return [cap.model_dump() for cap in parsed_payload.capabilities]
-    
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["avatar_image"] = resolved_avatar_image(instance)
+        return data
+
+    def _apply_avatar_image_url(self, instance, avatar_image_value: str) -> None:
+        clear_widget_uploaded_avatar(instance)
+        instance.avatar_image = avatar_image_value
+
     class Meta:
         model = ChatWidget
         fields = (
@@ -350,20 +364,34 @@ class ChatWidgetSerializer(serializers.ModelSerializer):
             "updated_at",
         )
         read_only_fields = ("id", "token", "created_at", "updated_at")
-    
+
     def create(self, validated_data):
-        agent_id = validated_data.pop('agent_id', None)
+        agent_id = validated_data.pop("agent_id", None)
+        avatar_image_in_data = "avatar_image" in validated_data
+        avatar_image_value = validated_data.pop("avatar_image", "")
         if agent_id:
             from api.ai_layers.models import Agent
-            validated_data['agent'] = Agent.objects.get(id=agent_id)
-        return super().create(validated_data)
-    
+
+            validated_data["agent"] = Agent.objects.get(id=agent_id)
+        instance = super().create(validated_data)
+        if avatar_image_in_data:
+            self._apply_avatar_image_url(instance, avatar_image_value)
+            instance.save(update_fields=["avatar_image", "avatar"])
+        return instance
+
     def update(self, instance, validated_data):
-        agent_id = validated_data.pop('agent_id', None)
+        agent_id = validated_data.pop("agent_id", None)
+        avatar_image_in_data = "avatar_image" in validated_data
+        avatar_image_value = validated_data.pop("avatar_image", "")
         if agent_id is not None:
             from api.ai_layers.models import Agent
-            validated_data['agent'] = Agent.objects.get(id=agent_id) if agent_id else None
-        return super().update(instance, validated_data)
+
+            validated_data["agent"] = Agent.objects.get(id=agent_id) if agent_id else None
+        instance = super().update(instance, validated_data)
+        if avatar_image_in_data:
+            self._apply_avatar_image_url(instance, avatar_image_value)
+            instance.save(update_fields=["avatar_image", "avatar"])
+        return instance
 
 
 class ConversationAlertRuleSerializer(serializers.ModelSerializer):

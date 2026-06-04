@@ -47,6 +47,7 @@ from api.authenticate.decorators.widget_session_required import (
     widget_session_required,
 )
 from api.ai_layers.tools import list_available_tools
+from .widget_avatar_urls import clear_widget_uploaded_avatar
 from .actions import transcribe_audio, complete_message
 from .takeover import (
     CAN_REPLACE_AGENT_IN_CONVERSATIONS_FLAG,
@@ -1753,6 +1754,94 @@ class ChatWidgetView(View):
             return JsonResponse(
                 {"message": "Widget not found", "status": 404}, status=404
             )
+
+
+WIDGET_AVATAR_MAX_BYTES = 2 * 1024 * 1024
+WIDGET_AVATAR_ALLOWED_CONTENT_TYPES = {
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "image/gif",
+}
+WIDGET_AVATAR_ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "gif"}
+
+
+def _validate_widget_avatar_file(uploaded_file):
+    if not uploaded_file:
+        return "avatar file is required"
+    size = getattr(uploaded_file, "size", None)
+    if size is not None and size > WIDGET_AVATAR_MAX_BYTES:
+        return "avatar file must be 2 MB or smaller"
+    content_type = (getattr(uploaded_file, "content_type", None) or "").lower()
+    if content_type and content_type not in WIDGET_AVATAR_ALLOWED_CONTENT_TYPES:
+        return "avatar must be a JPEG, PNG, WebP, or GIF image"
+    name = getattr(uploaded_file, "name", "") or ""
+    ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
+    if ext and ext not in WIDGET_AVATAR_ALLOWED_EXTENSIONS:
+        return "avatar must be a JPEG, PNG, WebP, or GIF image"
+    return None
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class ChatWidgetAvatarView(ChatWidgetView):
+    """Upload or remove the stored avatar image for a chat widget."""
+
+    def _get_owned_widget(self, request, widget_id):
+        if not widget_id:
+            return None, JsonResponse(
+                {"message": "Widget ID is required", "status": 400}, status=400
+            )
+        try:
+            return (
+                ChatWidget.objects.get(id=widget_id, created_by=request.user),
+                None,
+            )
+        except ChatWidget.DoesNotExist:
+            return None, JsonResponse(
+                {"message": "Widget not found", "status": 404}, status=404
+            )
+
+    def post(self, request, *args, **kwargs):
+        user = request.user
+        organization = self._get_user_organization(user)
+        self._check_permission(user, organization)
+        widget_id = kwargs.get("id")
+        widget, error_response = self._get_owned_widget(request, widget_id)
+        if error_response:
+            return error_response
+
+        avatar_file = request.FILES.get("avatar")
+        validation_error = _validate_widget_avatar_file(avatar_file)
+        if validation_error:
+            return JsonResponse(
+                {"message": validation_error, "status": 400},
+                status=400,
+            )
+
+        clear_widget_uploaded_avatar(widget)
+        widget.avatar = avatar_file
+        widget.avatar_image = ""
+        widget.save(update_fields=["avatar", "avatar_image", "updated_at"])
+
+        serializer = ChatWidgetSerializer(widget, context={"request": request})
+        return JsonResponse(serializer.data, status=200)
+
+    def delete(self, request, *args, **kwargs):
+        user = request.user
+        organization = self._get_user_organization(user)
+        self._check_permission(user, organization)
+        widget_id = kwargs.get("id")
+        widget, error_response = self._get_owned_widget(request, widget_id)
+        if error_response:
+            return error_response
+
+        clear_widget_uploaded_avatar(widget)
+        widget.avatar_image = ""
+        widget.save(update_fields=["avatar", "avatar_image", "updated_at"])
+
+        serializer = ChatWidgetSerializer(widget, context={"request": request})
+        return JsonResponse(serializer.data, status=200)
 
 
 @method_decorator(csrf_exempt, name="dispatch")

@@ -20,6 +20,7 @@ from .views import (
     ChatWidgetAttachmentsUploadView,
     ChatWidgetSocketAuthView,
     ChatWidgetView,
+    ChatWidgetAvatarView,
     ConversationAlertView,
     ConversationAlertStatsView,
     ConversationAlertRuleView,
@@ -105,6 +106,11 @@ urlpatterns = [
     ),
     # Widget management endpoints (CRUD)
     path("widgets/", ChatWidgetView.as_view(), name="widget_list"),
+    path(
+        "widgets/<int:id>/avatar/",
+        ChatWidgetAvatarView.as_view(),
+        name="widget_avatar",
+    ),
     path("widgets/<int:id>/", ChatWidgetView.as_view(), name="widget_detail"),
     path("alerts", ConversationAlertView.as_view(), name="alert_list"),
     path("alerts/<uuid:id>/", ConversationAlertView.as_view(), name="alert_detail"),

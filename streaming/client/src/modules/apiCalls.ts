@@ -1736,6 +1736,23 @@ export const deleteChatWidget = async (widgetId: number) => {
   );
 };
 
+export const uploadChatWidgetAvatar = async (widgetId: number, file: File) => {
+  const formData = new FormData();
+  formData.append("avatar", file);
+  return makeAuthenticatedRequest<TChatWidget>(
+    "POST",
+    `/v1/messaging/widgets/${widgetId}/avatar/`,
+    formData
+  );
+};
+
+export const deleteChatWidgetAvatar = async (widgetId: number) => {
+  return makeAuthenticatedRequest<TChatWidget>(
+    "DELETE",
+    `/v1/messaging/widgets/${widgetId}/avatar/`
+  );
+};
+
 // ---- Agent Task ----
 
 export type TAgentTaskInput =

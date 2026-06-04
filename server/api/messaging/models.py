@@ -1,4 +1,5 @@
 import logging
+import os
 import uuid
 
 from django.contrib.auth.models import User
@@ -358,11 +359,21 @@ class SharedConversation(models.Model):
         super().save(*args, **kwargs)
 
 
+def chat_widget_avatar_upload_path(instance, filename):
+    ext = filename.split(".")[-1].lower()
+    return os.path.join("chat_widgets", "avatars", f"{instance.id}.{ext}")
+
+
 class ChatWidget(models.Model):
     token = models.CharField(max_length=64, unique=True, db_index=True, blank=True)
     name = models.CharField(max_length=255)
     enabled = models.BooleanField(default=True)
     avatar_image = models.TextField(blank=True, default="")
+    avatar = models.ImageField(
+        upload_to=chat_widget_avatar_upload_path,
+        null=True,
+        blank=True,
+    )
     style = models.JSONField(default=dict, blank=True)
     first_message = models.TextField(blank=True, default="")
     capabilities = models.JSONField(default=list, blank=True)

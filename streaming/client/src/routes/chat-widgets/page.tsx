@@ -6,7 +6,10 @@ import {
   createChatWidget,
   updateChatWidget,
   deleteChatWidget,
+  uploadChatWidgetAvatar,
+  deleteChatWidgetAvatar,
 } from "../../modules/apiCalls";
+import { API_URL } from "../../modules/constants";
 import { TChatWidget } from "../../types";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
@@ -17,6 +20,8 @@ import {
   Box,
   Button,
   Card,
+  FileButton,
+  Image,
   Checkbox,
   ColorInput,
   CopyButton,
@@ -157,10 +162,13 @@ const WidgetList = () => {
       {showCreateForm && (
         <WidgetForm
           agents={agents}
-          onSave={async (data) => {
+          onSave={async (data, avatarOpts) => {
             try {
-              const newWidget = await createChatWidget(data);
-              setWidgets((prev) => [newWidget, ...prev]);
+              let saved = await createChatWidget(data);
+              if (avatarOpts?.avatarFile) {
+                saved = await uploadChatWidgetAvatar(saved.id, avatarOpts.avatarFile);
+              }
+              setWidgets((prev) => [saved, ...prev]);
               setShowCreateForm(false);
               toast.success(t("widget-created"));
             } catch {
@@ -196,11 +204,16 @@ const WidgetList = () => {
               key={widget.id}
               agents={agents}
               initialData={widget}
-              onSave={async (data) => {
+              onSave={async (data, avatarOpts) => {
                 try {
-                  const updated = await updateChatWidget(widget.id, data);
+                  let saved = await updateChatWidget(widget.id, data);
+                  if (avatarOpts?.avatarFile) {
+                    saved = await uploadChatWidgetAvatar(widget.id, avatarOpts.avatarFile);
+                  } else if (avatarOpts?.deleteAvatar) {
+                    saved = await deleteChatWidgetAvatar(widget.id);
+                  }
                   setWidgets((prev) =>
-                    prev.map((w) => (w.id === updated.id ? updated : w))
+                    prev.map((w) => (w.id === saved.id ? saved : w))
                   );
                   setEditingId(null);
                   toast.success(t("widget-updated"));
@@ -233,7 +246,7 @@ interface WidgetFormData {
   name: string;
   agent_id: number | null;
   enabled: boolean;
-  avatar_image: string;
+  avatar_image?: string;
   first_message: string;
   capabilities: { name: string; type: "internal_tool"; enabled: boolean }[];
   style?: {
@@ -245,6 +258,19 @@ interface WidgetFormData {
 }
 
 type WidgetTheme = "default" | "light" | "dark";
+
+type WidgetSaveOptions = {
+  avatarFile?: File | null;
+  deleteAvatar?: boolean;
+};
+
+const widgetAvatarDisplaySrc = (url: string) => {
+  const trimmed = url.trim();
+  if (!trimmed) return "";
+  if (trimmed.startsWith("http") || trimmed.startsWith("data:")) return trimmed;
+  return `${API_URL}${trimmed.startsWith("/") ? trimmed : `/${trimmed}`}`;
+};
+
 const DEFAULT_CAPABILITY_NAMES = [
   "read_attachment",
   "list_attachments",
@@ -266,11 +292,13 @@ const WidgetForm = ({
 }: {
   agents: { id?: number; name: string; slug: string }[];
   initialData?: TChatWidget;
-  onSave: (data: WidgetFormData) => Promise<void>;
+  onSave: (data: WidgetFormData, avatarOpts?: WidgetSaveOptions) => Promise<void>;
   onCancel: () => void;
 }) => {
   const { t } = useTranslation();
   const [saving, setSaving] = useState(false);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [deleteAvatar, setDeleteAvatar] = useState(false);
 
   const matchedAgent = initialData
     ? agents.find((a) => a.slug === initialData.agent_slug)
@@ -333,11 +361,10 @@ const WidgetForm = ({
       if (trimmedPrimaryColor) {
         stylePayload.primary_color = trimmedPrimaryColor;
       }
-      await onSave({
+      const payload: WidgetFormData = {
         name: name.trim(),
         agent_id: agentId ? parseInt(agentId) : null,
         enabled,
-        avatar_image: avatarImage.trim(),
         first_message: firstMessage.trim(),
         capabilities: Object.entries(capabilityState).map(([name, isEnabled]) => ({
           name,
@@ -345,7 +372,19 @@ const WidgetForm = ({
           enabled: isEnabled,
         })),
         style: stylePayload,
-      });
+      };
+
+      const avatarOpts: WidgetSaveOptions = {};
+      if (avatarFile) {
+        avatarOpts.avatarFile = avatarFile;
+      } else if (deleteAvatar) {
+        avatarOpts.deleteAvatar = true;
+        payload.avatar_image = "";
+      } else {
+        payload.avatar_image = avatarImage.trim();
+      }
+
+      await onSave(payload, avatarOpts);
     } finally {
       setSaving(false);
     }
@@ -379,13 +418,96 @@ const WidgetForm = ({
           ]}
         />
 
+        <Stack gap={4}>
+          <Text size="sm" fw={500}>
+            {t("widget-avatar-image")}
+          </Text>
+          <Text size="xs" c="dimmed">
+            {t("widget-avatar-upload-description")}
+          </Text>
+          <Group gap="md" align="center">
+            {avatarFile ? (
+              <WidgetAvatarFilePreview file={avatarFile} />
+            ) : !deleteAvatar &&
+              (avatarImage.trim() || initialData?.avatar_image) ? (
+              <Image
+                src={widgetAvatarDisplaySrc(
+                  avatarImage.trim() || initialData?.avatar_image || ""
+                )}
+                alt={name || initialData?.name || "avatar"}
+                radius="xl"
+                w={56}
+                h={56}
+                fit="cover"
+              />
+            ) : (
+              <Box
+                w={56}
+                h={56}
+                bg="rgba(255,255,255,0.05)"
+                style={{
+                  borderRadius: "50%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Text size="xs" c="dimmed" ta="center" px={4}>
+                  {t("no-logo")}
+                </Text>
+              </Box>
+            )}
+            <Group gap="xs">
+              <FileButton
+                onChange={(f) => {
+                  if (f) {
+                    setAvatarFile(f);
+                    setDeleteAvatar(false);
+                  }
+                }}
+                accept="image/png,image/jpeg,image/webp,image/gif"
+              >
+                {(props) => (
+                  <Button variant="default" size="xs" {...props}>
+                    {t("widget-avatar-upload")}
+                  </Button>
+                )}
+              </FileButton>
+              {(avatarFile ||
+                (!deleteAvatar &&
+                  (initialData?.avatar_image || avatarImage.trim()))) && (
+                <Button
+                  variant="default"
+                  size="xs"
+                  color="red"
+                  onClick={() => {
+                    setDeleteAvatar(true);
+                    setAvatarFile(null);
+                    setAvatarImage("");
+                  }}
+                >
+                  {t("widget-avatar-remove")}
+                </Button>
+              )}
+            </Group>
+          </Group>
+        </Stack>
+
         <TextInput
-          label={t("widget-avatar-image")}
+          label={t("widget-avatar-or-url")}
           description={t("widget-avatar-image-description")}
           placeholder={t("widget-avatar-image-placeholder")}
           value={avatarImage}
-          onChange={(e) => setAvatarImage(e.currentTarget.value)}
+          onChange={(e) => {
+            const val = e.currentTarget.value;
+            setAvatarImage(val);
+            if (val.trim()) {
+              setAvatarFile(null);
+              setDeleteAvatar(false);
+            }
+          }}
           type="text"
+          disabled={!!avatarFile}
         />
 
         <Textarea
@@ -576,12 +698,19 @@ const WidgetCard = ({
       )}
 
       {widget.avatar_image && (
-        <Text size="sm" c="dimmed" mb="xs">
-          {t("widget-avatar-image")}:{" "}
-          <Text span fw={500}>
-            {widget.avatar_image}
+        <Group gap="sm" mb="xs" align="center">
+          <Image
+            src={widgetAvatarDisplaySrc(widget.avatar_image)}
+            alt={widget.name}
+            radius="xl"
+            w={32}
+            h={32}
+            fit="cover"
+          />
+          <Text size="sm" c="dimmed">
+            {t("widget-avatar-image")}
           </Text>
-        </Text>
+        </Group>
       )}
 
       {widget.first_message && (
@@ -655,5 +784,18 @@ const WidgetCard = ({
         })()}
       </Group>
     </Card>
+  );
+};
+
+const WidgetAvatarFilePreview = ({ file }: { file: File }) => {
+  const [src, setSrc] = useState("");
+  useEffect(() => {
+    const url = URL.createObjectURL(file);
+    setSrc(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+  if (!src) return null;
+  return (
+    <Image src={src} alt="Preview" radius="xl" w={56} h={56} fit="cover" />
   );
 };

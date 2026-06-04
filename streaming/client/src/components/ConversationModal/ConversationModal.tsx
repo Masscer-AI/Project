@@ -26,11 +26,31 @@ const MAX_CONVERSATION_TAGS = 3;
 export const ConversationModal = ({
   conversation,
   readOnly = false,
+  showTitleTrigger = true,
+  editorOpened: editorOpenedProp,
+  onEditorOpen,
+  onEditorClose,
 }: {
   conversation: TConversation;
   readOnly?: boolean;
+  /** When false, only editor modals render (e.g. mobile menu opens editor). */
+  showTitleTrigger?: boolean;
+  editorOpened?: boolean;
+  onEditorOpen?: () => void;
+  onEditorClose?: () => void;
 }) => {
-  const [opened, { open, close }] = useDisclosure(false);
+  const [internalOpened, { open: internalOpen, close: internalClose }] =
+    useDisclosure(false);
+  const isEditorControlled = editorOpenedProp !== undefined;
+  const opened = isEditorControlled ? editorOpenedProp : internalOpened;
+  const openEditor = () => {
+    if (isEditorControlled) onEditorOpen?.();
+    else internalOpen();
+  };
+  const closeEditor = () => {
+    if (isEditorControlled) onEditorClose?.();
+    else internalClose();
+  };
   const [addTagsOpened, { open: openAddTags, close: closeAddTags }] =
     useDisclosure(false);
   const [title, setTitle] = useState(conversation.title);
@@ -129,7 +149,7 @@ export const ConversationModal = ({
 
   const handleCloseMain = () => {
     closeAddTags();
-    close();
+    closeEditor();
   };
 
   const removeTag = (tagId: number) => {
@@ -171,13 +191,15 @@ export const ConversationModal = ({
 
   return (
     <>
-      <p
-        onClick={canOpenModal ? open : undefined}
-        className={`cutted-text${canOpenModal ? " pressable" : ""}`}
-        style={!canOpenModal ? { cursor: "default" } : undefined}
-      >
-        {title ? `${title.slice(0, 25)}...` : t("conversation-without-title")}
-      </p>
+      {showTitleTrigger && (
+        <p
+          onClick={canOpenModal ? openEditor : undefined}
+          className={`cutted-text${canOpenModal ? " pressable" : ""}`}
+          style={!canOpenModal ? { cursor: "default" } : undefined}
+        >
+          {title ? `${title.slice(0, 25)}...` : t("conversation-without-title")}
+        </p>
+      )}
 
       <Modal
         opened={opened}

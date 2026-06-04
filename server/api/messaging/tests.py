@@ -1,16 +1,25 @@
+import base64
+import json
+import tempfile
 from datetime import timedelta
 from unittest.mock import Mock, patch
 
 from django.contrib.auth.models import User
-from django.test import TestCase
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import TestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
 
 from api.ai_layers.models import Agent, LanguageModel
-from api.authenticate.models import Organization, UserProfile
+from api.authenticate.models import Organization, Token, UserProfile
 from api.messaging.models import ChatWidget, Conversation, Message, WidgetVisitorSession
 from api.messaging.serializers import ChatWidgetSerializer
+from api.messaging.widget_avatar_urls import resolved_avatar_image
 from api.providers.models import AIProvider
+
+MINIMAL_PNG_BYTES = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+)
 
 
 class ChatWidgetCapabilitiesTests(TestCase):
@@ -460,3 +469,161 @@ class ConversationTakeoverTests(TestCase):
                 status=ConversationTakeover.Status.ACTIVE,
             ).exists()
         )
+
+
+@override_settings(API_BASE_URL="https://api.example.com")
+class ChatWidgetAvatarUploadTests(TestCase):
+    def setUp(self):
+        self.media_dir = tempfile.mkdtemp()
+        self.settings_override = override_settings(MEDIA_ROOT=self.media_dir)
+        self.settings_override.enable()
+
+        self.client = APIClient()
+        self.user = User.objects.create_user(
+            username="widget-avatar-owner",
+            email="avatar-owner@example.com",
+            password="pass-123456",
+        )
+        self.login_token, _ = Token.get_or_create(user=self.user, token_type="login")
+        self.auth = {"HTTP_AUTHORIZATION": f"Token {self.login_token.key}"}
+
+        provider = AIProvider.objects.create(name="OpenAI Avatar")
+        llm = LanguageModel.objects.create(
+            provider=provider,
+            slug="gpt-4o-mini-avatar",
+            name="GPT 4o mini avatar",
+        )
+        self.agent = Agent.objects.create(
+            name="Avatar Agent",
+            salute="hello",
+            act_as="helpful assistant",
+            user=self.user,
+            llm=llm,
+            model_slug=llm.slug,
+            model_provider="openai",
+        )
+        self.widget = ChatWidget.objects.create(
+            name="Avatar Widget",
+            enabled=True,
+            created_by=self.user,
+            agent=self.agent,
+        )
+
+    def tearDown(self):
+        self.settings_override.disable()
+
+    def _upload_avatar(self, widget_id=None, filename="avatar.png"):
+        widget_id = widget_id or self.widget.id
+        uploaded = SimpleUploadedFile(
+            filename,
+            MINIMAL_PNG_BYTES,
+            content_type="image/png",
+        )
+        return self.client.post(
+            f"/v1/messaging/widgets/{widget_id}/avatar/",
+            {"avatar": uploaded},
+            format="multipart",
+            **self.auth,
+        )
+
+    @patch(
+        "api.authenticate.services.FeatureFlagService.is_feature_enabled",
+        return_value=(True, "on"),
+    )
+    def test_upload_avatar_returns_absolute_url_in_widget_and_config(self, _ff_mock):
+        response = self._upload_avatar()
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertTrue(body["avatar_image"].startswith("https://api.example.com/"))
+
+        self.widget.refresh_from_db()
+        self.assertTrue(self.widget.avatar)
+        self.assertEqual(self.widget.avatar_image, "")
+
+        config_response = self.client.get(
+            f"/v1/messaging/widgets/{self.widget.token}/config/"
+        )
+        self.assertEqual(config_response.status_code, 200)
+        self.assertTrue(
+            config_response.json()["avatar_image"].startswith("https://api.example.com/")
+        )
+
+    @patch(
+        "api.authenticate.services.FeatureFlagService.is_feature_enabled",
+        return_value=(True, "on"),
+    )
+    def test_upload_replaces_previous_avatar_file(self, _ff_mock):
+        first = self._upload_avatar()
+        self.assertEqual(first.status_code, 200)
+        self.widget.refresh_from_db()
+        first_path = self.widget.avatar.name
+
+        second = self._upload_avatar(filename="avatar2.png")
+        self.assertEqual(second.status_code, 200)
+        self.widget.refresh_from_db()
+        self.assertNotEqual(self.widget.avatar.name, first_path)
+
+    @patch(
+        "api.authenticate.services.FeatureFlagService.is_feature_enabled",
+        return_value=(True, "on"),
+    )
+    def test_delete_avatar_clears_file_and_config(self, _ff_mock):
+        self._upload_avatar()
+        delete_response = self.client.delete(
+            f"/v1/messaging/widgets/{self.widget.id}/avatar/",
+            **self.auth,
+        )
+        self.assertEqual(delete_response.status_code, 200)
+        self.assertEqual(delete_response.json().get("avatar_image"), "")
+
+        self.widget.refresh_from_db()
+        self.assertFalse(self.widget.avatar)
+        self.assertEqual(self.widget.avatar_image, "")
+
+        config_response = self.client.get(
+            f"/v1/messaging/widgets/{self.widget.token}/config/"
+        )
+        self.assertEqual(config_response.json().get("avatar_image"), "")
+
+    @patch(
+        "api.authenticate.services.FeatureFlagService.is_feature_enabled",
+        return_value=(True, "on"),
+    )
+    def test_put_avatar_image_url_clears_uploaded_file(self, _ff_mock):
+        self._upload_avatar()
+        self.widget.refresh_from_db()
+        self.assertTrue(self.widget.avatar)
+
+        external_url = "https://cdn.example.com/widget-avatar.png"
+        put_response = self.client.put(
+            f"/v1/messaging/widgets/{self.widget.id}/",
+            data=json.dumps({"avatar_image": external_url}),
+            content_type="application/json",
+            **self.auth,
+        )
+        self.assertEqual(put_response.status_code, 200)
+        self.assertEqual(put_response.json().get("avatar_image"), external_url)
+
+        self.widget.refresh_from_db()
+        self.assertFalse(self.widget.avatar)
+        self.assertEqual(self.widget.avatar_image, external_url)
+        self.assertEqual(resolved_avatar_image(self.widget), external_url)
+
+    @patch(
+        "api.authenticate.services.FeatureFlagService.is_feature_enabled",
+        return_value=(True, "on"),
+    )
+    def test_upload_rejects_oversized_file(self, _ff_mock):
+        oversized = SimpleUploadedFile(
+            "big.png",
+            MINIMAL_PNG_BYTES,
+            content_type="image/png",
+        )
+        oversized.size = 3 * 1024 * 1024
+        response = self.client.post(
+            f"/v1/messaging/widgets/{self.widget.id}/avatar/",
+            {"avatar": oversized},
+            format="multipart",
+            **self.auth,
+        )
+        self.assertEqual(response.status_code, 400)

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Message } from "../../components/Message/Message";
 import { ChatInput } from "../../components/ChatInput/ChatInput";
 
-import { useLoaderData } from "react-router-dom";
+import { useLoaderData, useNavigate } from "react-router-dom";
 import { Sidebar } from "../../components/Sidebar/Sidebar";
 import { useStore } from "../../modules/store";
 import { TChatLoader, TMessage } from "../../types/chatTypes";
@@ -11,7 +11,7 @@ import toast from "react-hot-toast";
 
 import { useTranslation } from "react-i18next";
 import { TVersion } from "../../types";
-import { ConversationModal } from "../../components/ConversationModal/ConversationModal";
+import { ConversationHeaderActions } from "../../components/ConversationActions/ConversationHeaderActions";
 import { ActionIcon } from "@mantine/core";
 import { IconArrowDown } from "@tabler/icons-react";
 import {
@@ -60,6 +60,7 @@ export default function ChatView() {
   }));
 
   const { t } = useTranslation();
+  const navigate = useNavigate();
 
   const routeConversation = loaderData.conversation;
   const activeConversation =
@@ -619,9 +620,14 @@ export default function ChatView() {
             onClose: agentsModal.close,
           }}
           right={
-            <ConversationModal
+            <ConversationHeaderActions
               conversation={activeConversation}
               readOnly={isViewer}
+              onDeleted={() => {
+                setConversation(null);
+                navigate("/chat");
+                window.dispatchEvent(new Event("conversations-changed"));
+              }}
             />
           }
         />
