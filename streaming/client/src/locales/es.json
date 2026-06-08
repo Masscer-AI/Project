@@ -289,6 +289,7 @@
     "choose-relevant-content": "Selecciona contenido relevante",
     "website-content-fetcher": "Agrega sitios web",
     "conversation-editor": "Editor de conversación",
+    "conversation-created-at": "Fecha de creación",
     "conversation-summary": "Resumen",
     "conversation-summary-hint": "Descripción breve del hilo. Lo va rellenando el asistente; puedes editarlo aquí.",
     "conversation-summary-empty": "Aún no hay resumen.",

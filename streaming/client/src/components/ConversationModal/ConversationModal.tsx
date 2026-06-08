@@ -189,6 +189,10 @@ export const ConversationModal = ({
     (tag) => tag.enabled && !selectedTagIds.includes(tag.id)
   );
 
+  const createdAtLabel = conversation.created_at
+    ? new Date(conversation.created_at).toLocaleString()
+    : null;
+
   return (
     <>
       {showTitleTrigger && (
@@ -213,6 +217,17 @@ export const ConversationModal = ({
         }}
       >
         <Stack gap="md">
+          {createdAtLabel && (
+            <div>
+              <Text size="sm" fw={500} mb={4}>
+                {t("conversation-created-at")}
+              </Text>
+              <Text size="sm" c="dimmed">
+                {createdAtLabel}
+              </Text>
+            </div>
+          )}
+
           <TextInput
             label={t("title")}
             value={title ?? ""}

@@ -332,6 +332,7 @@
     "choose-relevant-content": "Choose relevant content",
     "website-content-fetcher": "Add websites",
     "conversation-editor": "Conversation editor",
+    "conversation-created-at": "Created",
     "conversation-summary": "Summary",
     "conversation-summary-hint": "Short description of the thread. Filled by the assistant over time; you can edit it here.",
     "conversation-summary-empty": "No summary yet.",
