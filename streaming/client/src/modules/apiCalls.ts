@@ -1888,3 +1888,44 @@ export const cancelAgentTask = async (conversationId: string) => {
   );
 };
 
+export const getAssignments = async (params?: {
+  status?: string;
+  key?: string;
+}) => {
+  const search = new URLSearchParams();
+  if (params?.status) search.set("status", params.status);
+  if (params?.key) search.set("key", params.key);
+  const qs = search.toString();
+  return makeAuthenticatedRequest<import("../types/assignments").TUserAssignmentsListResponse>(
+    "GET",
+    `v1/assignments${qs ? `?${qs}` : ""}`
+  );
+};
+
+export const getAssignment = async (assignmentId: string) => {
+  return makeAuthenticatedRequest<import("../types/assignments").TUserAssignment>(
+    "GET",
+    `v1/assignments/${assignmentId}/`
+  );
+};
+
+export const updateAssignmentStep = async (
+  assignmentId: string,
+  stepId: string,
+  status: "pending" | "in_progress" | "done"
+) => {
+  return makeAuthenticatedRequest<import("../types/assignments").TUserAssignment>(
+    "PATCH",
+    `v1/assignments/${assignmentId}/steps/${encodeURIComponent(stepId)}/`,
+    { status }
+  );
+};
+
+export const archiveAssignment = async (assignmentId: string) => {
+  return makeAuthenticatedRequest<import("../types/assignments").TUserAssignment>(
+    "POST",
+    `v1/assignments/${assignmentId}/archive/`,
+    {}
+  );
+};
+

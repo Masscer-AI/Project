@@ -76,6 +76,12 @@ class SignupSerializer(serializers.ModelSerializer):
                     name=organization_name,
                     owner=user,
                 )
+                try:
+                    from api.assignments.actions import ensure_owner_onboarding
+
+                    ensure_owner_onboarding(user, organization)
+                except Exception:
+                    pass
             else:
                 # Invited signup: join existing org
                 organization = getattr(self, "_organization", None)

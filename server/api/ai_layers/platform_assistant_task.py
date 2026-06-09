@@ -321,6 +321,14 @@ def platform_assistant_task(
         session.assistant_message = assistant_msg
         session.save(update_fields=["assistant_message"])
 
+        if not conversation.title:
+            logger.info(
+                "platform_assistant_task generate_title: conversation_id=%s agent_slug=%s",
+                conversation_id,
+                agent.slug,
+            )
+            conversation.generate_title()
+
         emit_finished(
             {
                 "output": output_text,

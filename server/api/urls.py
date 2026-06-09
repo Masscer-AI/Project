@@ -34,6 +34,7 @@ apps = [
     ("v1/whatsapp/", "api.whatsapp.urls", "whatsapp"),
     ("v1/feedback/", "api.feedback.urls", "feedback"),
     ("v1/preferences/", "api.preferences.urls", "preferences"),
+    ("v1/assignments/", "api.assignments.urls", "assignments"),
     ("v1/notify/", "api.notify.urls", "notify"),
     ("v1/payments/", "api.payments.urls", "payments"),
     ("v1/cloudbeds/", "api.cloudbeds.urls", "cloudbeds"),

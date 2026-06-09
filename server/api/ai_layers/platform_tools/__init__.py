@@ -17,6 +17,9 @@ PLATFORM_TOOL_REGISTRY: dict[str, str] = {
     "list_attachments": "api.ai_layers.tools.list_attachments",
     "get_masscer_help_topic": "api.ai_layers.tools.get_masscer_help_topic",
     "list_masscer_help_topics": "api.ai_layers.tools.list_masscer_help_topics",
+    "create_user_assignment": "api.ai_layers.tools.create_user_assignment",
+    "list_user_assignments": "api.ai_layers.tools.list_user_assignments",
+    "read_masscer_instructions": "api.ai_layers.tools.read_masscer_instructions",
 }
 
 

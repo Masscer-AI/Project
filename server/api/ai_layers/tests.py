@@ -717,6 +717,19 @@ class PlatformAssistantTests(TestCase):
         self.member_token = Token.objects.create(user=self.member)
         self.client = APIClient()
 
+    def test_provision_platform_assistant_has_title_prompt(self):
+        from api.ai_layers.platform_assistant import (
+            PLATFORM_ASSISTANT_CONVERSATION_TITLE_PROMPT,
+            provision_platform_assistant,
+        )
+
+        agent, _ = provision_platform_assistant(self.org)
+        self.assertTrue(agent.conversation_title_prompt)
+        self.assertEqual(
+            agent.conversation_title_prompt,
+            PLATFORM_ASSISTANT_CONVERSATION_TITLE_PROMPT,
+        )
+
     def test_provision_platform_assistant_idempotent(self):
         from api.ai_layers.platform_assistant import provision_platform_assistant
 

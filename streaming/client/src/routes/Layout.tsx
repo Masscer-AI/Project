@@ -6,6 +6,7 @@ import { Toaster } from "react-hot-toast";
 import { Themer } from "../components/Themer/Themer";
 import { PermissionsCacheListener } from "../components/PermissionsCacheListener/PermissionsCacheListener";
 import { OrganizationSubscriptionBanner } from "../components/OrganizationSubscriptionBanner/OrganizationSubscriptionBanner";
+import { AssignmentsPanel } from "../components/AssignmentsPanel/AssignmentsPanel";
 import { useStore } from "../modules/store";
 import { getUser } from "../modules/apiCalls";
 import { TUserData } from "../types/chatTypes";
@@ -36,6 +37,7 @@ const Layout: React.FC = () => {
       <PermissionsCacheListener />
       <OrganizationSubscriptionBanner />
       <Outlet />
+      <AssignmentsPanel floating />
     </I18nextProvider>
   );
 };

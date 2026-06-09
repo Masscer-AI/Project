@@ -93,6 +93,7 @@ INSTALLED_APPS = [
     "api.whatsapp",
     "api.feedback",
     "api.preferences",
+    "api.assignments",
     "api.prompting",
     "api.notify",
     "api.generations",

@@ -849,6 +849,7 @@ const AgentsModal = ({
         variant="light"
         leftSection={<IconSparkles size={18} />}
         onClick={open}
+        data-onboarding-target="agents-modal-trigger"
       >
         {t("agents")}
       </Button>
