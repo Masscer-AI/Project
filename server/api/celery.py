@@ -18,6 +18,7 @@ app.autodiscover_tasks()
 
 # Explicitly import api.tasks to register tasks in the api module
 import api.tasks
+import api.ai_layers.platform_assistant_task  # noqa: F401
 
 # Configure periodic tasks
 app.conf.beat_schedule = {

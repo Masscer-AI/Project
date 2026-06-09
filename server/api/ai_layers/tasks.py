@@ -1969,3 +1969,7 @@ def conversation_agent_task(
             )
 
         return {"status": "error", "error": str(e)}
+
+
+# Celery autodiscover only loads this module — register tasks defined elsewhere.
+from api.ai_layers.platform_assistant_task import platform_assistant_task  # noqa: F401
