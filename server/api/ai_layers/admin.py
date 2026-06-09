@@ -75,17 +75,16 @@ class AgentAdminForm(forms.ModelForm):
 @admin.register(Agent)
 class AgentAdmin(admin.ModelAdmin):
     form = AgentAdminForm
-    list_display = ("name", "slug", "user", "organization", "is_public", "generate_widget_link")
+    list_display = ("name", "slug", "agent_kind", "user", "organization", "is_public", "generate_widget_link")
     search_fields = ("name", "slug", "user__username", "organization__name")
-    list_filter = ("is_public", "organization", "user")
+    list_filter = ("agent_kind", "is_public", "organization", "user")
     
     fieldsets = (
         ("Basic Information", {
-            "fields": ("name", "slug", "user", "organization")
+            "fields": ("name", "slug", "agent_kind", "user", "organization")
         }),
         ("Model Configuration", {
-            "fields": ("model_provider", "model_slug", "llm", "temperature", "max_tokens", "top_p", 
-                      "frequency_penalty", "presence_penalty")
+            "fields": ("model_provider", "model_slug", "llm", "max_tokens")
         }),
         ("Agent Behavior", {
             "fields": ("system_prompt", "act_as", "salute", "conversation_title_prompt")

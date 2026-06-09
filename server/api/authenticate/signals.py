@@ -135,6 +135,33 @@ def create_credentials_manager(sender, instance, created, **kwargs):
 
 
 @receiver(post_save, sender=Organization)
+def provision_platform_assistant_on_org_create(sender, instance, created, **kwargs):
+    if not created:
+        return
+
+    def _provision():
+        try:
+            from api.ai_layers.platform_assistant import provision_platform_assistant
+
+            agent, was_created = provision_platform_assistant(instance)
+            logger.info(
+                "Platform assistant for org %s: agent=%s created=%s",
+                instance.id,
+                agent.id,
+                was_created,
+            )
+        except Exception:
+            logger.exception(
+                "Failed to provision platform assistant for org %s", instance.id
+            )
+
+    if connection.in_atomic_block:
+        transaction.on_commit(_provision)
+    else:
+        _provision()
+
+
+@receiver(post_save, sender=Organization)
 def create_free_trial_subscription(sender, instance, created, **kwargs):
     """Auto-enroll a new organization in the Free Trial plan."""
     if not created:

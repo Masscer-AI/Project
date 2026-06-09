@@ -17,6 +17,8 @@ import { IconArrowDown } from "@tabler/icons-react";
 import {
   linkMessageAttachment,
   triggerAgentTask,
+  triggerPlatformAssistantTask,
+  isPlatformAssistant,
   buildClientDatetimePayload,
   uploadMessageAttachments,
   sendHumanMessageToConversation,
@@ -451,14 +453,23 @@ export default function ChatView() {
       if (chatState.generateVideo) toolNames.push("generate_video");
       if (chatState.createCompletions) toolNames.push("create_completion");
 
-      const taskRes = await triggerAgentTask({
-        conversation_id: routeConversation.id,
-        agent_slugs: selectedAgents.map((a) => a.slug),
-        user_inputs: userInputs,
-        tool_names: toolNames,
-        multiagentic_modality: userPreferences.multiagentic_modality,
-        client_datetime: buildClientDatetimePayload(),
-      });
+      const isPlatform =
+        selectedAgents.length === 1 && isPlatformAssistant(selectedAgents[0]);
+      const taskRes = isPlatform
+        ? await triggerPlatformAssistantTask({
+            conversation_id: routeConversation.id,
+            agent_slug: selectedAgents[0].slug,
+            user_inputs: userInputs,
+            client_datetime: buildClientDatetimePayload(),
+          })
+        : await triggerAgentTask({
+            conversation_id: routeConversation.id,
+            agent_slugs: selectedAgents.map((a) => a.slug),
+            user_inputs: userInputs,
+            tool_names: toolNames,
+            multiagentic_modality: userPreferences.multiagentic_modality,
+            client_datetime: buildClientDatetimePayload(),
+          });
 
       if (taskRes.agent_skipped && taskRes.takeover) {
         setAgentTaskStatus(null);
@@ -544,15 +555,25 @@ export default function ChatView() {
         if (chatState.generateVideo) toolNames.push("generate_video");
         if (chatState.createCompletions) toolNames.push("create_completion");
 
-        const taskRes = await triggerAgentTask({
-          conversation_id: routeConversation.id,
-          agent_slugs: selectedAgents.map((a) => a.slug),
-          user_inputs: [{ type: "input_text", text: newText }],
-          tool_names: toolNames,
-          multiagentic_modality: userPreferences.multiagentic_modality,
-          regenerate_message_id: regenPayload.userId,
-          client_datetime: buildClientDatetimePayload(),
-        });
+        const isPlatform =
+          selectedAgents.length === 1 && isPlatformAssistant(selectedAgents[0]);
+        const taskRes = isPlatform
+          ? await triggerPlatformAssistantTask({
+              conversation_id: routeConversation.id,
+              agent_slug: selectedAgents[0].slug,
+              user_inputs: [{ type: "input_text", text: newText }],
+              regenerate_message_id: regenPayload.userId,
+              client_datetime: buildClientDatetimePayload(),
+            })
+          : await triggerAgentTask({
+              conversation_id: routeConversation.id,
+              agent_slugs: selectedAgents.map((a) => a.slug),
+              user_inputs: [{ type: "input_text", text: newText }],
+              tool_names: toolNames,
+              multiagentic_modality: userPreferences.multiagentic_modality,
+              regenerate_message_id: regenPayload.userId,
+              client_datetime: buildClientDatetimePayload(),
+            });
 
         if (taskRes.agent_skipped && taskRes.takeover) {
           setAgentTaskStatus(null);

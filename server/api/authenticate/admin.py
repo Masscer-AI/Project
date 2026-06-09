@@ -125,6 +125,7 @@ class OrganizationAdmin(admin.ModelAdmin):
     search_fields = ("name", "description", "owner__username")
     list_filter = ("timezone", "owner")
     readonly_fields = ("logo_preview",)
+    actions = ["provision_platform_assistant_action"]
 
     @property
     def inlines(self):
@@ -155,6 +156,21 @@ class OrganizationAdmin(admin.ModelAdmin):
             return format_html('<img src="{}" style="max-height: 50px; max-width: 50px;" />', obj.logo.url)
         return "Sin logo"
     logo_preview.short_description = "Logo"
+
+    @admin.action(description="Provision platform assistant")
+    def provision_platform_assistant_action(self, request, queryset):
+        from api.ai_layers.platform_assistant import provision_platform_assistant
+
+        created_count = 0
+        for org in queryset:
+            _agent, was_created = provision_platform_assistant(org)
+            if was_created:
+                created_count += 1
+        self.message_user(
+            request,
+            f"Provisioned {created_count} new platform assistant(s). "
+            f"Existing orgs were skipped (idempotent).",
+        )
 
     def get_urls(self):
         urls = super().get_urls()

@@ -5,7 +5,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.db.models import Q
-from .models import Agent, LanguageModel, AgentSession
+from .models import Agent, AgentKind, LanguageModel, AgentSession
 from .serializers import (
     AgentSerializer,
     LanguageModelSerializer,
@@ -24,6 +24,9 @@ from faker import Faker
 import random
 from django.core.cache import cache
 from django.contrib.auth.models import User
+import logging
+
+logger = logging.getLogger(__name__)
 
 CACHE_TIMEOUT = 60 * 60 * 24
 
@@ -61,29 +64,84 @@ def _invalidate_agent_cache_for_user_and_org(user, agent_organization=None):
 @method_decorator(token_required, name="dispatch")
 class AgentView(View):
     def get(self, request, *args, **kwargs):
-        from api.ai_layers.access import get_user_organization, accessible_agents_qs
+        from api.ai_layers.access import (
+            get_user_organization,
+            get_user_organizations_for_access,
+            accessible_agents_qs,
+        )
         from api.ai_layers.cache_utils import get_agent_list_cache_key
+        from api.ai_layers.models import AgentKind
+        from api.authenticate.services import FeatureFlagService
 
-        # Get user's organization first
-        user_org = get_user_organization(request.user)
-        
+        user = request.user
+        user_org = get_user_organization(user)
+        orgs_for_access = get_user_organizations_for_access(user)
+
         # Cache per (user, org) with a monotonic version key (safe invalidation).
         org_id = str(user_org.id) if user_org else "no_org"
-        cache_key = get_agent_list_cache_key(request.user.id, org_id)
+        cache_key = get_agent_list_cache_key(user.id, org_id)
         cached_data = cache.get(cache_key)
 
-        # Si los datos están en el caché, devolverlos directamente
         if cached_data:
+            cached_agents = cached_data.get("agents") or []
+            logger.info(
+                "GET /agents cache_hit user_id=%s username=%s profile_org_id=%s "
+                "cache_key=%s agent_count=%d agent_kinds=%s",
+                user.id,
+                user.username,
+                org_id,
+                cache_key,
+                len(cached_agents),
+                [
+                    (a.get("slug"), a.get("agent_kind"))
+                    for a in cached_agents
+                ],
+            )
             return JsonResponse(cached_data, safe=False)
 
-        # Obtener agentes accesibles al usuario (personal + org; org puede estar restringido por roles)
-        agents = accessible_agents_qs(request.user).prefetch_related("allowed_roles")
-        
+        agents = accessible_agents_qs(user).prefetch_related("allowed_roles")
+
+        platform_in_db = list(
+            agents.filter(agent_kind=AgentKind.PLATFORM_ASSISTANT).values_list(
+                "slug", "organization_id"
+            )
+        )
+        platform_flag_checks = [
+            {
+                "org_id": str(o.id),
+                "org_name": o.name,
+                "is_owner": o.owner_id == user.id,
+                **dict(
+                    zip(
+                        ("enabled", "reason"),
+                        FeatureFlagService.is_feature_enabled(
+                            "platform-assistant", organization=o, user=user
+                        ),
+                    )
+                ),
+            }
+            for o in orgs_for_access
+        ]
+
         models = LanguageModel.objects.all()
         agents_data = AgentSerializer(agents, many=True).data
         models_data = LanguageModelSerializer(models, many=True).data
 
         data = {"models": models_data, "agents": agents_data}
+
+        logger.info(
+            "GET /agents cache_miss user_id=%s username=%s profile_org_id=%s "
+            "orgs_for_access=%s platform_flag_checks=%s platform_in_result=%s "
+            "agent_count=%d slugs=%s",
+            user.id,
+            user.username,
+            org_id,
+            [{"id": str(o.id), "name": o.name} for o in orgs_for_access],
+            platform_flag_checks,
+            platform_in_db,
+            len(agents_data),
+            [(a.get("slug"), a.get("agent_kind")) for a in agents_data],
+        )
 
         cache.set(cache_key, data, timeout=CACHE_TIMEOUT)
 
@@ -112,18 +170,12 @@ class AgentView(View):
             organization=user_org,
             user=request.user
         )
-        
-        # Build query for agent
-        if has_admin_flag and user_org:
-            agent = get_object_or_404(
-                Agent.objects.filter(
-                    Q(user=request.user) | Q(organization=user_org),
-                    slug=agent_slug
-                )
-            )
-        else:
-            agent = get_object_or_404(Agent, slug=agent_slug, user=request.user)
-        
+
+        agent = _get_agent_for_user_mutation(request.user, agent_slug)
+
+        if agent.agent_kind != AgentKind.CONVERSATIONAL_AGENT:
+            return JsonResponse({"error": "This agent cannot be edited"}, status=403)
+
         # Check if user can actually edit this agent
         can_edit = (agent.user == request.user) or (has_admin_flag and agent.organization == user_org)
         if not can_edit:
@@ -270,18 +322,12 @@ class AgentView(View):
             organization=user_org,
             user=request.user
         )
-        
-        # Build query for agent
-        if has_admin_flag and user_org:
-            agent = get_object_or_404(
-                Agent.objects.filter(
-                    Q(user=request.user) | Q(organization=user_org),
-                    slug=agent_slug
-                )
-            )
-        else:
-            agent = get_object_or_404(Agent, slug=agent_slug, user=request.user)
-        
+
+        agent = _get_agent_for_user_mutation(request.user, agent_slug)
+
+        if agent.agent_kind != AgentKind.CONVERSATIONAL_AGENT:
+            return JsonResponse({"error": "This agent cannot be deleted"}, status=403)
+
         # Check if user can actually delete this agent
         can_delete = (agent.user == request.user) or (has_admin_flag and agent.organization == user_org)
         if not can_delete:
@@ -575,6 +621,16 @@ class AgentTaskView(View):
                 status=404,
             )
 
+        if any(a.agent_kind == AgentKind.PLATFORM_ASSISTANT for a in agents_found):
+            return JsonResponse(
+                {
+                    "error": (
+                        "Platform assistants must use POST /api/ai_layers/agent-task/platform/"
+                    ),
+                },
+                status=400,
+            )
+
         # --- Validate conversation belongs to the user ---
         try:
             conversation = Conversation.objects.get(id=conversation_id)
@@ -584,18 +640,9 @@ class AgentTaskView(View):
                 status=404,
             )
 
-        is_owner = conversation.user_id == user.id
-        is_org_member = (
-            user_org is not None
-            and conversation.organization_id is not None
-            and conversation.organization_id == user_org.id
-        )
-
-        if not is_owner and not is_org_member:
-            return JsonResponse(
-                {"error": "You don't have access to this conversation"},
-                status=403,
-            )
+        conv_access_error = _validate_conversation_access(conversation, user, user_org)
+        if conv_access_error:
+            return conv_access_error
 
         active_takeover = get_active_takeover(conversation)
         if active_takeover:
@@ -621,39 +668,17 @@ class AgentTaskView(View):
         )
         conversation.save(update_fields=["metadata", "updated_at"])
 
-        # --- Optional: client clock (browser) for relative dates/times ---
-        client_datetime = data.get("client_datetime")
-        if client_datetime is not None and not isinstance(client_datetime, dict):
-            return JsonResponse(
-                {"error": "client_datetime must be an object when provided"},
-                status=400,
-            )
+        client_datetime, client_dt_error = _parse_client_datetime(data.get("client_datetime"))
+        if client_dt_error:
+            return client_dt_error
 
-        # --- Optional: regenerate (edit & re-run) ---
-        regenerate_message_id = data.get("regenerate_message_id")
-        if regenerate_message_id is not None:
-            try:
-                regenerate_message_id = int(regenerate_message_id)
-            except (TypeError, ValueError):
-                return JsonResponse(
-                    {"error": "regenerate_message_id must be an integer"},
-                    status=400,
-                )
-            can_edit_data, _ = FeatureFlagService.is_feature_enabled(
-                "can-edit-conversation-data",
-                organization=conversation.organization,
-                user=user,
-            )
-            if not can_edit_data:
-                return JsonResponse(
-                    {
-                        "error": (
-                            "Regenerating from a user message removes later history. "
-                            "The 'can-edit-conversation-data' feature is not enabled for you."
-                        ),
-                    },
-                    status=403,
-                )
+        regenerate_message_id, regen_error = _parse_regenerate_message_id(
+            data.get("regenerate_message_id"),
+            conversation=conversation,
+            user=user,
+        )
+        if regen_error:
+            return regen_error
 
         # --- Dispatch Celery task ---
         from django.core.cache import cache
@@ -665,6 +690,210 @@ class AgentTaskView(View):
             tool_names=tool_names,
             agent_slugs=slugs,
             multiagentic_modality=multiagentic_modality,
+            user_id=user.id,
+            regenerate_message_id=regenerate_message_id,
+            client_datetime=client_datetime,
+        )
+
+        return JsonResponse(
+            {"task_id": task.id, "status": "accepted"},
+            status=202,
+        )
+
+
+def _get_agent_for_user_mutation(user, agent_slug):
+    """Resolve an agent the user might attempt to edit/delete (incl. owned org)."""
+    from api.ai_layers.access import get_user_organizations_for_access
+
+    org_ids = [o.id for o in get_user_organizations_for_access(user)]
+    qs = Agent.objects.filter(slug=agent_slug)
+    if org_ids:
+        qs = qs.filter(Q(user=user) | Q(organization_id__in=org_ids))
+    else:
+        qs = qs.filter(user=user)
+    return get_object_or_404(qs)
+
+
+def _validate_conversation_access(conversation, user, user_org):
+    is_owner = conversation.user_id == user.id
+    is_org_member = (
+        user_org is not None
+        and conversation.organization_id is not None
+        and conversation.organization_id == user_org.id
+    )
+    if not is_owner and not is_org_member:
+        return JsonResponse(
+            {"error": "You don't have access to this conversation"},
+            status=403,
+        )
+    return None
+
+
+def _parse_client_datetime(client_datetime):
+    if client_datetime is not None and not isinstance(client_datetime, dict):
+        return None, JsonResponse(
+            {"error": "client_datetime must be an object when provided"},
+            status=400,
+        )
+    return client_datetime, None
+
+
+def _parse_regenerate_message_id(regenerate_message_id, *, conversation, user):
+    if regenerate_message_id is None:
+        return None, None
+    try:
+        regenerate_message_id = int(regenerate_message_id)
+    except (TypeError, ValueError):
+        return None, JsonResponse(
+            {"error": "regenerate_message_id must be an integer"},
+            status=400,
+        )
+    can_edit_data, _ = FeatureFlagService.is_feature_enabled(
+        "can-edit-conversation-data",
+        organization=conversation.organization,
+        user=user,
+    )
+    if not can_edit_data:
+        return None, JsonResponse(
+            {
+                "error": (
+                    "Regenerating from a user message removes later history. "
+                    "The 'can-edit-conversation-data' feature is not enabled for you."
+                ),
+            },
+            status=403,
+        )
+    return regenerate_message_id, None
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class PlatformAgentTaskView(View):
+    """
+    Trigger platform assistant execution (onboarding / org help).
+
+    POST /api/ai_layers/agent-task/platform/
+    Body (JSON):
+        - conversation_id (str, required)
+        - agent_slug (str, required): platform assistant for the user's org
+        - user_inputs (list, required)
+        - client_datetime (object, optional)
+        - regenerate_message_id (int, optional)
+    """
+
+    def post(self, request, *args, **kwargs):
+        from api.messaging.models import Conversation
+        from api.messaging.takeover import (
+            get_active_takeover,
+            handle_inbound_during_takeover,
+        )
+        from api.ai_layers.access import accessible_agents_qs, get_user_organization
+        from .platform_assistant_task import platform_assistant_task
+
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON body"}, status=400)
+
+        conversation_id = data.get("conversation_id")
+        agent_slug = data.get("agent_slug")
+        user_inputs = data.get("user_inputs")
+
+        if not conversation_id:
+            return JsonResponse({"error": "conversation_id is required"}, status=400)
+        if not agent_slug or not isinstance(agent_slug, str):
+            return JsonResponse({"error": "agent_slug is required"}, status=400)
+        if not user_inputs or not isinstance(user_inputs, list):
+            return JsonResponse(
+                {"error": "user_inputs (must be a non-empty list) is required"},
+                status=400,
+            )
+
+        for i, inp in enumerate(user_inputs):
+            if not isinstance(inp, dict) or "type" not in inp:
+                return JsonResponse(
+                    {"error": f"user_inputs[{i}] must be an object with a 'type' field"},
+                    status=400,
+                )
+
+        user = request.user
+        user_org = get_user_organization(user)
+
+        try:
+            agent = accessible_agents_qs(user).get(
+                slug=agent_slug.strip(),
+                agent_kind=AgentKind.PLATFORM_ASSISTANT,
+            )
+        except Agent.DoesNotExist:
+            return JsonResponse(
+                {"error": "Platform assistant not found or not accessible"},
+                status=404,
+            )
+
+        if not agent.organization_id:
+            return JsonResponse(
+                {"error": "Invalid platform assistant configuration"},
+                status=500,
+            )
+
+        enabled, _ = FeatureFlagService.is_feature_enabled(
+            "platform-assistant", organization=agent.organization, user=user
+        )
+        if not enabled:
+            return JsonResponse(
+                {"error": "Platform assistant is not enabled for your account"},
+                status=403,
+            )
+
+        try:
+            conversation = Conversation.objects.get(id=conversation_id)
+        except Conversation.DoesNotExist:
+            return JsonResponse({"error": "Conversation not found"}, status=404)
+
+        conv_access_error = _validate_conversation_access(
+            conversation, user, user_org or agent.organization
+        )
+        if conv_access_error:
+            return conv_access_error
+
+        active_takeover = get_active_takeover(conversation)
+        if active_takeover:
+            handle_inbound_during_takeover(
+                conversation,
+                active_takeover,
+                user_inputs,
+                message_metadata={"human_takeover": True, "channel": "chat_app"},
+            )
+            return JsonResponse(
+                {"status": "accepted", "takeover": True, "agent_skipped": True},
+                status=202,
+            )
+
+        from api.messaging.schemas import metadata_payload_for_related_agents
+
+        conversation.metadata = metadata_payload_for_related_agents([agent.id])
+        conversation.save(update_fields=["metadata", "updated_at"])
+
+        client_datetime, client_dt_error = _parse_client_datetime(data.get("client_datetime"))
+        if client_dt_error:
+            return client_dt_error
+
+        regenerate_message_id, regen_error = _parse_regenerate_message_id(
+            data.get("regenerate_message_id"),
+            conversation=conversation,
+            user=user,
+        )
+        if regen_error:
+            return regen_error
+
+        from django.core.cache import cache
+
+        cache.delete(f"cancel_task_{conversation_id}")
+
+        task = platform_assistant_task.delay(
+            conversation_id=str(conversation_id),
+            user_inputs=user_inputs,
+            agent_slug=agent.slug,
             user_id=user.id,
             regenerate_message_id=regenerate_message_id,
             client_datetime=client_datetime,

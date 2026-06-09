@@ -1,7 +1,7 @@
 from django.db.models.signals import post_save, post_delete, pre_delete
 from django.dispatch import receiver
 from django.contrib.auth.models import User
-from .models import Agent, LanguageModel, RoleAgentAssignment
+from .models import Agent, AgentKind, LanguageModel, RoleAgentAssignment
 from api.authenticate.models import UserProfile
 from api.rag.models import Collection
 from api.consumption.models import Currency, Wallet
@@ -50,13 +50,17 @@ def reassign_agents_on_llm_delete(sender, instance, **kwargs):
 
 @receiver(post_save, sender=Agent)
 def agent_created(sender, instance, created, **kwargs):
-    if created:
-        print(f"New agent created for user: {instance.user.username}")
-        collection, collection_created = Collection.get_or_create_agent_collection(instance)
-        if collection_created:
-            print(f"New collection created for agent: {instance.id}")
-        else:
-            print(f"Collection already exists for agent: {instance.id} (collection={collection.id})")
+    if not created:
+        return
+    if instance.agent_kind == AgentKind.PLATFORM_ASSISTANT:
+        return
+    username = getattr(instance.user, "username", None) or "unknown"
+    print(f"New agent created for user: {username}")
+    collection, collection_created = Collection.get_or_create_agent_collection(instance)
+    if collection_created:
+        print(f"New collection created for agent: {instance.id}")
+    else:
+        print(f"Collection already exists for agent: {instance.id} (collection={collection.id})")
 
 
 @receiver(post_save, sender=RoleAgentAssignment)

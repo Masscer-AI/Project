@@ -50,7 +50,7 @@ import {
   IconSquareRounded,
   IconBarbell,
 } from "@tabler/icons-react";
-import { cancelAgentTask } from "../../modules/apiCalls";
+import { cancelAgentTask, isPlatformAssistant } from "../../modules/apiCalls";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -105,6 +105,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     setSpecifiedUrls,
     agentTaskStatus,
     conversationId,
+    agents,
   } = useStore((state) => ({
     attachments: state.chatState.attachments,
     addAttachment: state.addAttachment,
@@ -113,7 +114,16 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     setSpecifiedUrls: state.setSpecifiedUrls,
     agentTaskStatus: state.agentTaskStatus,
     conversationId: state.conversation?.id,
+    agents: state.agents,
   }));
+
+  const isPlatformAssistantChat =
+    chatState.selectedAgents.length === 1 &&
+    (() => {
+      const slug = chatState.selectedAgents[0];
+      const agent = agents.find((a) => a.slug === slug);
+      return agent != null && isPlatformAssistant(agent);
+    })();
 
   const [textPrompt, setTextPrompt] = useState(initialInput);
   const isTranscribeEnabled = useIsFeatureEnabled("transcribe-on-chat");
@@ -377,7 +387,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           <div className="flex shrink-0 items-center justify-between px-1 md:px-4 pb-1 md:pb-4 pt-1 md:pt-3 relative z-10 min-w-0">
             <div className="flex gap-2 relative z-20 min-w-0 flex-shrink">
               <PlusMenu existingFilesOnly={false} />
-              <ToolsMenu />
+              {!isPlatformAssistantChat && <ToolsMenu />}
             </div>
             <div className="flex gap-2 items-center flex-shrink-0">
               {isTranscribeEnabled && (

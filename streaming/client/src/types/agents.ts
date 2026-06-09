@@ -36,10 +36,13 @@ type TLLM = {
   slug: string;
 };
 
+export type TAgentKind = "conversational_agent" | "platform_assistant";
+
 export type TAgent = {
   name: string; // The name of the agent
   provider?: string; // The provider of the model, e.g., "openai"
   slug: string; // A unique identifier or slug for the agent
+  agent_kind?: TAgentKind;
   act_as?: string; // Optional description of the agent's role or behavior
   default?: boolean; // Optional flag to indicate if this is the default agent
   id?: number; // Optional identifier for the agent
@@ -51,12 +54,10 @@ export type TAgent = {
   openai_voice?: TOpenaiVoiceOptions; // Use the new type for voice options
   profile_picture_url?: string;
   system_prompt: string;
-  temperature: number;
-  top_p?: number;
   conversation_title_prompt?: string;
   organization?: string | null; // Organization ID if the agent belongs to an organization
   user?: number; // User ID if the agent belongs to a user
-  access_mode?: "personal" | "org_all" | "org_roles";
+  access_mode?: "personal" | "org_all" | "org_roles" | "platform";
   allowed_roles?: { id: string; name: string }[];
   // voice?: TOpenaiVoiceOptions;
 };

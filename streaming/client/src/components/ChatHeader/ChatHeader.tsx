@@ -109,15 +109,23 @@ type TAgentComponentProps = {
 };
 
 const AgentComponent = ({ agent }: TAgentComponentProps) => {
-  const { toggleAgentSelected, setChatSelectedAgentSlugs, updateSingleAgent, chatState, removeAgent, user } =
-    useStore((state) => ({
-      toggleAgentSelected: state.toggleAgentSelected,
-      setChatSelectedAgentSlugs: state.setChatSelectedAgentSlugs,
-      updateSingleAgent: state.updateSingleAgent,
-      chatState: state.chatState,
-      removeAgent: state.removeAgent,
-      user: state.user,
-    }));
+  const {
+    toggleAgentSelected,
+    setChatSelectedAgentSlugs,
+    updateSingleAgent,
+    chatState,
+    removeAgent,
+    user,
+    agents,
+  } = useStore((state) => ({
+    toggleAgentSelected: state.toggleAgentSelected,
+    setChatSelectedAgentSlugs: state.setChatSelectedAgentSlugs,
+    updateSingleAgent: state.updateSingleAgent,
+    chatState: state.chatState,
+    removeAgent: state.removeAgent,
+    user: state.user,
+    agents: state.agents,
+  }));
 
   const { t } = useTranslation();
   const [configOpened, { open: openConfig, close: closeConfig }] = useDisclosure(false);
@@ -151,11 +159,38 @@ const AgentComponent = ({ agent }: TAgentComponentProps) => {
   const isSelected = chatState.selectedAgents.indexOf(agent.slug) !== -1;
   const selectionIndex = chatState.selectedAgents.indexOf(agent.slug);
 
+  const isPlatformAgent = agent.agent_kind === "platform_assistant";
+  const hasPlatformSelected = chatState.selectedAgents.some((slug) => {
+    const a = agents.find((x) => x.slug === slug);
+    return a?.agent_kind === "platform_assistant";
+  });
   // Users can ALWAYS manage their own personal agents (no feature flag needed)
   // Users can manage organization agents ONLY if they have the feature flag
   const isPersonalAgent = agent.organization === null || agent.organization === undefined;
   const isOwnAgent = user && agent.user === user.id;
-  const canEditDelete = (isPersonalAgent && isOwnAgent) || (canManageAgents && !isPersonalAgent);
+  const canEditDelete =
+    !isPlatformAgent &&
+    ((isPersonalAgent && isOwnAgent) || (canManageAgents && !isPersonalAgent));
+
+  const handleAgentSelect = () => {
+    if (isPlatformAgent) {
+      setChatSelectedAgentSlugs([agent.slug]);
+      return;
+    }
+    if (isMultiAgentEnabled) {
+      const hasPlatform = chatState.selectedAgents.some((slug) => {
+        const a = useStore.getState().agents.find((x) => x.slug === slug);
+        return a?.agent_kind === "platform_assistant";
+      });
+      if (hasPlatform) {
+        setChatSelectedAgentSlugs([agent.slug]);
+      } else {
+        toggleAgentSelected(agent.slug);
+      }
+    } else if (!isSelected) {
+      setChatSelectedAgentSlugs([agent.slug]);
+    }
+  };
 
   return (
     <>
@@ -171,21 +206,8 @@ const AgentComponent = ({ agent }: TAgentComponentProps) => {
           cursor: "pointer",
         }}
       >
-        <Group
-          gap="sm"
-          onClick={() => {
-            if (isMultiAgentEnabled) {
-              toggleAgentSelected(agent.slug);
-            } else {
-              // Single-agent mode: switch to this agent only
-              if (!isSelected) {
-                setChatSelectedAgentSlugs([agent.slug]);
-              }
-            }
-          }}
-          wrap="nowrap"
-        >
-          {isMultiAgentEnabled && (
+        <Group gap="sm" onClick={handleAgentSelect} wrap="nowrap">
+          {isMultiAgentEnabled && !isPlatformAgent && !hasPlatformSelected && (
             <div style={{ position: "relative" }}>
               <Checkbox
                 checked={isSelected}
@@ -214,9 +236,14 @@ const AgentComponent = ({ agent }: TAgentComponentProps) => {
               )}
             </div>
           )}
-          <Text fw={500} truncate>
+          <Text fw={500} truncate style={{ flex: 1 }}>
             {agent.name}
           </Text>
+          {isPlatformAgent && (
+            <Badge size="sm" color="violet" variant="light">
+              {t("platform-assistant-badge")}
+            </Badge>
+          )}
         </Group>
 
         {canEditDelete && (
@@ -326,8 +353,6 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
     act_as: agent.act_as || "",
     system_prompt: agent.system_prompt || "",
     conversation_title_prompt: agent.conversation_title_prompt || "",
-    temperature: agent.temperature || 0.7,
-    top_p: agent.top_p || 1.0,
     llm: agent.llm || {
       name: "",
       provider: "",
@@ -340,9 +365,8 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
   ) => {
     const { name, value } = e.target;
 
-    const floatNames = ["temperature", "top_p"];
     const integerNames = ["max_tokens"];
-    let newValue: string | number = floatNames.includes(name) ? parseFloat(value) : value;
+    let newValue: string | number = value;
     if (integerNames.includes(name)) {
       newValue = parseInt(value);
     }
@@ -507,9 +531,12 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
   }));
 
   // Permission check for delete
+  const isPlatformAgent = agent.agent_kind === "platform_assistant";
   const isPersonalAgent = agent.organization === null || agent.organization === undefined;
   const isOwnAgent = user && agent.user === user.id;
-  const canEditDelete = (isPersonalAgent && isOwnAgent) || (canManageAgents && !isPersonalAgent);
+  const canEditDelete =
+    !isPlatformAgent &&
+    ((isPersonalAgent && isOwnAgent) || (canManageAgents && !isPersonalAgent));
 
   return (
     <Stack gap="md">
@@ -684,42 +711,6 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
         minRows={2}
         maxRows={6}
       />
-
-      <div>
-        <Text size="sm" fw={500} mb={4}>
-          {t("temperature")}: {formState.temperature}
-        </Text>
-        <Slider
-          min={0}
-          max={2.0}
-          step={0.1}
-          value={formState.temperature}
-          onChange={(val) => setFormState((prev) => ({ ...prev, temperature: val }))}
-          marks={[
-            { value: 0, label: "0" },
-            { value: 1, label: "1" },
-            { value: 2, label: "2" },
-          ]}
-        />
-      </div>
-
-      <div>
-        <Text size="sm" fw={500} mb={4}>
-          {t("top-p")}: {formState.top_p}
-        </Text>
-        <Slider
-          min={0.1}
-          max={1.0}
-          step={0.1}
-          value={formState.top_p ?? 1.0}
-          onChange={(val) => setFormState((prev) => ({ ...prev, top_p: val }))}
-          marks={[
-            { value: 0.1, label: "0.1" },
-            { value: 0.5, label: "0.5" },
-            { value: 1.0, label: "1.0" },
-          ]}
-        />
-      </div>
 
       <Divider />
 

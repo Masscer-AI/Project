@@ -1,0 +1,201 @@
+{
+  "version": 1,
+  "topics": [
+    {
+      "id": "invite_user",
+      "title": "Invite a user to the organization",
+      "summary": "Add members to your organization by email from the Members tab.",
+      "steps": [
+        {
+          "order": 1,
+          "text": "Open the Organization page (sidebar → Organization)."
+        },
+        {
+          "order": 2,
+          "text": "Go to the Members tab."
+        },
+        {
+          "order": 3,
+          "text": "Click Invite member, enter the email address, and send the invitation."
+        },
+        {
+          "order": 4,
+          "text": "The invitee will receive a link to join your organization."
+        }
+      ],
+      "app_path": "/organization",
+      "query_params": { "activeTab": "members" },
+      "keywords": ["user", "member", "invite", "add", "email", "invitar", "miembro"],
+      "required_flag": "manage-organization"
+    },
+    {
+      "id": "manage_roles",
+      "title": "Create and assign roles",
+      "summary": "Define roles with capabilities (permissions) and assign them to members.",
+      "steps": [
+        {
+          "order": 1,
+          "text": "Open Organization → Roles tab."
+        },
+        {
+          "order": 2,
+          "text": "Create a role with a name and description."
+        },
+        {
+          "order": 3,
+          "text": "Select the capabilities (permissions) that role should have."
+        },
+        {
+          "order": 4,
+          "text": "On the Members tab, assign the role to each user, with effective dates if needed."
+        }
+      ],
+      "app_path": "/organization",
+      "query_params": { "activeTab": "roles" },
+      "keywords": ["role", "roles", "permissions", "capabilities", "assign", "rol", "permisos"],
+      "required_flag": "manage-organization"
+    },
+    {
+      "id": "create_agent",
+      "title": "Create an AI agent",
+      "summary": "Create custom conversational agents from the chat.",
+      "steps": [
+        {
+          "order": 1,
+          "text": "Open the chat (/chat)."
+        },
+        {
+          "order": 2,
+          "text": "Open the agent picker in the chat header."
+        },
+        {
+          "order": 3,
+          "text": "Click the + button to create a new agent."
+        },
+        {
+          "order": 4,
+          "text": "Configure name, model, system prompt, and save."
+        }
+      ],
+      "app_path": "/chat",
+      "query_params": null,
+      "keywords": ["agent", "create agent", "assistant", "bot", "ai", "agente"],
+      "required_flag": "can-create-agents"
+    },
+    {
+      "id": "organization_settings",
+      "title": "Organization settings",
+      "summary": "Edit your organization's name, description, logo, and time zone.",
+      "steps": [
+        {
+          "order": 1,
+          "text": "Open Organization in the sidebar."
+        },
+        {
+          "order": 2,
+          "text": "On the Settings tab, update the fields you need."
+        },
+        {
+          "order": 3,
+          "text": "Save your changes."
+        }
+      ],
+      "app_path": "/organization",
+      "query_params": null,
+      "keywords": ["organization", "settings", "logo", "name", "organización", "ajustes"],
+      "required_flag": "manage-organization"
+    },
+    {
+      "id": "billing",
+      "title": "Billing and credits",
+      "summary": "View your plan, purchase credits, or manage your subscription.",
+      "steps": [
+        {
+          "order": 1,
+          "text": "Open Organization → Billing tab."
+        },
+        {
+          "order": 2,
+          "text": "Review your current plan and credit balance."
+        },
+        {
+          "order": 3,
+          "text": "Use the available actions to buy credits or open the billing portal."
+        }
+      ],
+      "app_path": "/organization",
+      "query_params": { "activeTab": "billing" },
+      "keywords": ["billing", "credits", "plan", "subscription", "payment", "facturación", "créditos"],
+      "required_flag": "manage-organization"
+    },
+    {
+      "id": "knowledge_base",
+      "title": "Knowledge base (train agents)",
+      "summary": "Upload documents and train agents with your knowledge.",
+      "steps": [
+        {
+          "order": 1,
+          "text": "Open Knowledge base in the sidebar."
+        },
+        {
+          "order": 2,
+          "text": "Create or select a collection and upload documents."
+        },
+        {
+          "order": 3,
+          "text": "Link the collection to one or more agents and train."
+        }
+      ],
+      "app_path": "/knowledge-base",
+      "query_params": null,
+      "keywords": ["rag", "documents", "train", "knowledge", "knowledge base", "documentos", "entrenar"],
+      "required_flag": "train-agents"
+    },
+    {
+      "id": "chat_widgets",
+      "title": "Embeddable chat widgets",
+      "summary": "Publish a chat with an agent on your website via a widget.",
+      "steps": [
+        {
+          "order": 1,
+          "text": "Open Chat widgets in the sidebar."
+        },
+        {
+          "order": 2,
+          "text": "Create a widget and choose the agent that will handle it."
+        },
+        {
+          "order": 3,
+          "text": "Copy the install snippet and paste it into your site."
+        }
+      ],
+      "app_path": "/chat-widgets",
+      "query_params": null,
+      "keywords": ["widget", "embed", "website", "site", "embebido"],
+      "required_flag": "chat-widgets-management"
+    },
+    {
+      "id": "platform_assistant",
+      "title": "Use the Masscer Assistant",
+      "summary": "Internal assistant for onboarding and help on how to use Masscer.",
+      "steps": [
+        {
+          "order": 1,
+          "text": "Open the chat and select Masscer Assistant in the agent picker."
+        },
+        {
+          "order": 2,
+          "text": "Ask in natural language (e.g. \"How do I invite a user?\")."
+        },
+        {
+          "order": 3,
+          "text": "The assistant will give you steps and a direct link to the relevant page."
+        }
+      ],
+      "app_path": "/chat",
+      "query_params": null,
+      "keywords": ["masscer assistant", "help", "onboarding", "platform assistant", "ayuda"],
+      "required_flag": "platform-assistant"
+    }
+  ]
+}

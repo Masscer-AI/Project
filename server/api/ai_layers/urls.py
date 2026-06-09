@@ -2,6 +2,7 @@ from django.urls import path
 from .views import (
     AgentView,
     AgentTaskView,
+    PlatformAgentTaskView,
     LanguageModelView,
     get_formatted_system_prompt,
     create_random_agent,
@@ -26,6 +27,7 @@ urlpatterns = [
     path("agents/create/random/", create_random_agent, name="create_random_agent"),
     # Agent task endpoints (Celery-backed AgentLoop execution)
     path("agent-task/conversation/", AgentTaskView.as_view(), name="agent_task_conversation"),
+    path("agent-task/platform/", PlatformAgentTaskView.as_view(), name="agent_task_platform"),
     path("agent-task/cancel/", cancel_agent_task, name="cancel_agent_task"),
     # Agent sessions for assistant message (audit/debug)
     path("agent-sessions/", agent_sessions_for_message, name="agent_sessions_for_message"),

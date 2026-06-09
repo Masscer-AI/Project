@@ -143,6 +143,7 @@ class AgentSerializer(serializers.ModelSerializer):
             "id",
             "name",
             "slug",
+            "agent_kind",
             "system_prompt",
             "salute",
             "act_as",
@@ -153,16 +154,13 @@ class AgentSerializer(serializers.ModelSerializer):
             "is_public",
             "model_provider",
             "default",
-            "presence_penalty",
-            "frequency_penalty",
-            "top_p",
             "openai_voice",
             "profile_picture_url",
             "max_tokens",
-            "temperature",
             "llm",
             "conversation_title_prompt",
         ]
+        read_only_fields = ["agent_kind"]
     
     def get_organization(self, obj):
         """Return organization ID if it exists, None otherwise"""
@@ -173,7 +171,12 @@ class AgentSerializer(serializers.ModelSerializer):
         - personal: no organization
         - org_all: organization agent with no role restrictions
         - org_roles: organization agent restricted to specific roles
+        - platform: platform assistant (feature-flag gated)
         """
+        from api.ai_layers.models import AgentKind
+
+        if obj.agent_kind == AgentKind.PLATFORM_ASSISTANT:
+            return "platform"
         if not obj.organization_id:
             return "personal"
         # If there are any through rows, the agent is role-restricted.

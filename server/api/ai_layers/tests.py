@@ -5,6 +5,45 @@ from django.test import SimpleTestCase, TestCase
 from rest_framework.test import APIClient
 
 
+class MasscerHelpCatalogTests(SimpleTestCase):
+    def test_help_topics_json_validates(self):
+        from api.ai_layers.masscer_help import load_help_topic_catalog, reload_help_topic_catalog_for_tests
+
+        reload_help_topic_catalog_for_tests()
+        catalog = load_help_topic_catalog()
+        self.assertGreaterEqual(catalog.version, 1)
+        self.assertGreater(len(catalog.topics), 0)
+        invite = catalog.by_id("invite_user")
+        self.assertIsNotNone(invite)
+        self.assertIn("activeTab=members", invite.build_app_url())
+
+    def test_platform_tools_include_masscer_help(self):
+        from api.ai_layers.platform_tools import list_platform_tools
+
+        names = list_platform_tools()
+        self.assertIn("get_masscer_help_topic", names)
+        self.assertIn("list_masscer_help_topics", names)
+
+
+class MasscerHelpTopicToolTests(TestCase):
+    def test_get_masscer_help_topic_returns_url_and_steps(self):
+        from api.ai_layers.tools.get_masscer_help_topic import _get_masscer_help_topic_impl
+
+        result = _get_masscer_help_topic_impl("invite_user", user_id=None)
+        self.assertEqual(result.id, "invite_user")
+        self.assertIn("/organization", result.app_url)
+        self.assertGreater(len(result.steps), 0)
+        self.assertTrue(result.access_allowed)
+
+    def test_list_masscer_help_topics(self):
+        from api.ai_layers.tools.list_masscer_help_topics import _list_masscer_help_topics_impl
+
+        result = _list_masscer_help_topics_impl()
+        ids = {t.id for t in result.topics}
+        self.assertIn("invite_user", ids)
+        self.assertIn("create_agent", ids)
+
+
 class ConversationTaggingToolsRegistryTests(SimpleTestCase):
     def test_tagging_tools_are_registered(self):
         from api.ai_layers.tools import list_available_tools
@@ -637,3 +676,156 @@ class AgentSessionExecutionLogAccessTests(TestCase):
         payload = res.json()
         self.assertEqual(len(payload["sessions"]), 1)
         self.assertEqual(len(payload["sessions"][0]["event_log"]), 1)
+
+
+class PlatformAssistantTests(TestCase):
+    def setUp(self):
+        from api.authenticate.models import Organization, Token, UserProfile
+        from api.ai_layers.models import Agent, AgentKind, LanguageModel
+        from api.ai_layers.platform_assistant import provision_platform_assistant
+        from api.messaging.models import Conversation
+        from api.providers.models import AIProvider
+
+        self.owner = User.objects.create_user(
+            username="plat_owner", email="plat_owner@e.com", password="x"
+        )
+        self.member = User.objects.create_user(
+            username="plat_member", email="plat_member@e.com", password="x"
+        )
+        self.org = Organization.objects.create(name="Platform Org", owner=self.owner)
+        UserProfile.objects.update_or_create(
+            user=self.member,
+            defaults={"organization": self.org},
+        )
+        self.platform_agent, _ = provision_platform_assistant(self.org)
+
+        provider = AIProvider.objects.create(name="OpenAI-plat")
+        self.llm = LanguageModel.objects.create(
+            provider=provider, slug="gpt-plat", name="GPT Plat"
+        )
+        self.conv_agent = Agent.objects.create(
+            name="Conv Agent",
+            salute="hi",
+            act_as="help",
+            user=self.owner,
+            llm=self.llm,
+            model_slug=self.llm.slug,
+            model_provider="openai",
+        )
+        self.conv = Conversation.objects.create(user=self.owner)
+        self.owner_token = Token.objects.create(user=self.owner)
+        self.member_token = Token.objects.create(user=self.member)
+        self.client = APIClient()
+
+    def test_provision_platform_assistant_idempotent(self):
+        from api.ai_layers.platform_assistant import provision_platform_assistant
+
+        agent2, created = provision_platform_assistant(self.org)
+        self.assertFalse(created)
+        self.assertEqual(agent2.id, self.platform_agent.id)
+        self.assertEqual(
+            Agent.objects.filter(
+                organization=self.org,
+                agent_kind=AgentKind.PLATFORM_ASSISTANT,
+            ).count(),
+            1,
+        )
+
+    def test_accessible_agents_qs_owner_includes_platform_assistant(self):
+        from api.ai_layers.access import accessible_agents_qs
+
+        slugs = set(accessible_agents_qs(self.owner).values_list("slug", flat=True))
+        self.assertIn(self.platform_agent.slug, slugs)
+
+    def test_accessible_agents_qs_owner_without_profile_org_includes_platform(self):
+        """Org owners must see platform assistant even if profile.organization is unset."""
+        from api.authenticate.models import UserProfile
+        from api.ai_layers.access import accessible_agents_qs
+
+        UserProfile.objects.filter(user=self.owner).update(organization=None)
+        slugs = set(accessible_agents_qs(self.owner).values_list("slug", flat=True))
+        self.assertIn(self.platform_agent.slug, slugs)
+
+    @patch("api.authenticate.services.FeatureFlagService.is_feature_enabled")
+    def test_accessible_agents_qs_member_excluded_without_flag(self, mock_ff):
+        from api.ai_layers.access import accessible_agents_qs
+
+        def _side_effect(name, organization=None, user=None):
+            if name == "platform-assistant":
+                return False, "not-assigned"
+            return False, "not-assigned"
+
+        mock_ff.side_effect = _side_effect
+        slugs = set(accessible_agents_qs(self.member).values_list("slug", flat=True))
+        self.assertNotIn(self.platform_agent.slug, slugs)
+
+    @patch("api.ai_layers.views.conversation_agent_task.delay")
+    def test_conversation_endpoint_rejects_platform_assistant(self, mock_delay):
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.post(
+            "/v1/ai_layers/agent-task/conversation/",
+            {
+                "conversation_id": str(self.conv.id),
+                "agent_slugs": [self.platform_agent.slug],
+                "user_inputs": [{"type": "input_text", "text": "hello"}],
+                "tool_names": [],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        mock_delay.assert_not_called()
+
+    @patch("api.ai_layers.views.platform_assistant_task.delay")
+    def test_platform_endpoint_accepts_owner(self, mock_delay):
+        mock_delay.return_value = Mock(id="celery-plat-1")
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.post(
+            "/v1/ai_layers/agent-task/platform/",
+            {
+                "conversation_id": str(self.conv.id),
+                "agent_slug": self.platform_agent.slug,
+                "user_inputs": [{"type": "input_text", "text": "help me onboard"}],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 202, response.json())
+        mock_delay.assert_called_once()
+
+    @patch("api.authenticate.services.FeatureFlagService.is_feature_enabled")
+    def test_platform_endpoint_forbidden_without_flag(self, mock_ff):
+        mock_ff.return_value = (False, "not-assigned")
+        self.client.force_authenticate(user=self.member)
+        response = self.client.post(
+            "/v1/ai_layers/agent-task/platform/",
+            {
+                "conversation_id": str(self.conv.id),
+                "agent_slug": self.platform_agent.slug,
+                "user_inputs": [{"type": "input_text", "text": "help"}],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_put_platform_assistant_forbidden(self):
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.put(
+            f"/v1/ai_layers/agents/{self.platform_agent.slug}/",
+            {"name": "Hacked"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_unique_platform_assistant_per_org_constraint(self):
+        from django.db import IntegrityError
+
+        with self.assertRaises(IntegrityError):
+            Agent.objects.create(
+                name="Duplicate Platform",
+                salute="hi",
+                act_as="help",
+                organization=self.org,
+                agent_kind=AgentKind.PLATFORM_ASSISTANT,
+                slug="duplicate-platform-assistant",
+                llm=self.llm,
+                model_slug=self.llm.slug,
+            )

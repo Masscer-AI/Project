@@ -1859,6 +1859,27 @@ export const triggerAgentTask = async (payload: TriggerAgentTaskPayload) => {
   );
 };
 
+export type TriggerPlatformAssistantTaskPayload = {
+  conversation_id: string;
+  agent_slug: string;
+  user_inputs: TAgentTaskInput[];
+  regenerate_message_id?: number;
+  client_datetime?: ClientDatetimePayload;
+};
+
+export const isPlatformAssistant = (agent: { agent_kind?: string }) =>
+  agent.agent_kind === "platform_assistant";
+
+export const triggerPlatformAssistantTask = async (
+  payload: TriggerPlatformAssistantTaskPayload
+) => {
+  return makeAuthenticatedRequest<TriggerAgentTaskResponse>(
+    "POST",
+    "/v1/ai_layers/agent-task/platform/",
+    payload
+  );
+};
+
 export const cancelAgentTask = async (conversationId: string) => {
   return makeAuthenticatedRequest<{ status: string; sessions_cancelled: number }>(
     "POST",

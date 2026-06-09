@@ -31,4 +31,5 @@ KNOWN_FEATURE_FLAGS = {
     "can-replace-agent-in-conversations": {"organization_only": False},
     "can-edit-preferences": {"organization_only": False},
     "can-create-agents": {"organization_only": False},
+    "platform-assistant": {"organization_only": False},
 }

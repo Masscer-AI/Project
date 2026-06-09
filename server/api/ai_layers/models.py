@@ -1,7 +1,6 @@
 from django.db import models
 import uuid
 from django.utils.text import slugify
-from django.core.validators import MinValueValidator, MaxValueValidator
 from api.providers.models import AIProvider
 from api.utils.openai_functions import create_structured_completion
 from pydantic import BaseModel, Field
@@ -52,6 +51,11 @@ class LanguageModel(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.provider.name})"
+
+
+class AgentKind(models.TextChoices):
+    CONVERSATIONAL_AGENT = "conversational_agent", "Conversational agent"
+    PLATFORM_ASSISTANT = "platform_assistant", "Platform assistant"
 
 
 class Agent(models.Model):
@@ -107,21 +111,15 @@ class Agent(models.Model):
         ),
     )
 
+    agent_kind = models.CharField(
+        max_length=32,
+        choices=AgentKind.choices,
+        default=AgentKind.CONVERSATIONAL_AGENT,
+    )
+
     is_public = models.BooleanField(default=False)
     default = models.BooleanField(default=False)
-    temperature = models.FloatField(
-        validators=[MinValueValidator(0.00), MaxValueValidator(2.00)], default=0.7
-    )
     max_tokens = models.IntegerField(null=True, blank=True, default=4000)
-    top_p = models.FloatField(
-        validators=[MinValueValidator(0.00), MaxValueValidator(1.00)], default=1.00
-    )
-    frequency_penalty = models.FloatField(
-        validators=[MinValueValidator(-2.00), MaxValueValidator(2.00)], default=0
-    )
-    presence_penalty = models.FloatField(
-        validators=[MinValueValidator(-2.00), MaxValueValidator(2.00)], default=0
-    )
     profile_picture_url = models.URLField(null=True, blank=True, max_length=500)
 
     profile_picture_src = models.TextField(null=True, blank=True)
@@ -132,8 +130,25 @@ class Agent(models.Model):
         help_text="Prompt personalizado para generar títulos de conversaciones. Si está vacío, se usa el prompt por defecto."
     )
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization"],
+                condition=models.Q(agent_kind=AgentKind.PLATFORM_ASSISTANT),
+                name="unique_platform_assistant_per_org",
+            ),
+        ]
+
     def __str__(self):
         return self.name
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        if self.agent_kind == AgentKind.PLATFORM_ASSISTANT and not self.organization_id:
+            raise ValidationError(
+                {"organization": "Platform assistants must belong to an organization."}
+            )
 
     def save(self, *args, **kwargs):
         # from .tasks import async_generate_agent_profile_picture
