@@ -41,6 +41,7 @@ import GenerationToolsPage from "./routes/generation-tools/page.tsx";
 import ChatWidgetsPage from "./routes/chat-widgets/page.tsx";
 import { ProtectedRoute } from "./components/ProtectedRoute/ProtectedRoute.tsx";
 import SettingsPage from "./routes/settings/page.tsx";
+import IntegrationsPage from "./routes/settings/integrations/page.tsx";
 
 const router = createBrowserRouter([
   {
@@ -157,6 +158,14 @@ const router = createBrowserRouter([
         element: (
           <ProtectedRoute featureFlag="can-edit-preferences">
             <SettingsPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/settings/integrations",
+        element: (
+          <ProtectedRoute featureFlag="can-connect-drive-account">
+            <IntegrationsPage />
           </ProtectedRoute>
         ),
       },

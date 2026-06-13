@@ -38,6 +38,7 @@ apps = [
     ("v1/notify/", "api.notify.urls", "notify"),
     ("v1/payments/", "api.payments.urls", "payments"),
     ("v1/cloudbeds/", "api.cloudbeds.urls", "cloudbeds"),
+    ("v1/integrations/", "api.integrations.urls", "integrations"),
     ("v1/document-templates/", "api.document_templates.urls", "document_templates"),
 ]
 

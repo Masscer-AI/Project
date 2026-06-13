@@ -131,6 +131,16 @@ async def get_dashboard(full_path: str):
         return HTMLResponse(content=html_content)
     return HTMLResponse(content="Page not found", status_code=404)
 
+
+@router.get("/settings/{full_path:path}", response_class=HTMLResponse)
+async def get_settings(full_path: str):
+    file_path = os.path.join("client", "dist", "index.html")
+    if os.path.exists(file_path):
+        with open(file_path, "r") as file:
+            html_content = file.read()
+        return HTMLResponse(content=html_content)
+    return HTMLResponse(content="Page not found", status_code=404)
+
 @router.post("/webhook")
 async def webhook(request: Request):
     print(await request.json())

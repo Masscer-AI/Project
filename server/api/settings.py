@@ -100,6 +100,7 @@ INSTALLED_APPS = [
     "api.payments",
     "api.consumption",
     "api.cloudbeds",
+    "api.integrations",
     "api.document_templates",
 ]
 

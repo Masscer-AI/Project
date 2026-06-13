@@ -27,7 +27,7 @@ import {
   TNotificationRuleBuildResponse,
   TUserNotification,
 } from "../types";
-import { TReactionTemplate, TUserProfile } from "../types/chatTypes";
+import { TReactionTemplate, TUserData, TUserProfile } from "../types/chatTypes";
 import { TAgent, TModel } from "../types/agents";
 import { TUserPreferences } from "./storeTypes";
 
@@ -389,7 +389,7 @@ export const deleteLLM = async (slug: string) => {
 };
 
 export const getUser = async () => {
-  return makeAuthenticatedRequest("GET", "v1/auth/user/me");
+  return makeAuthenticatedRequest<TUserData>("GET", "v1/auth/user/me");
 };
 
 export const requestPasswordReset = async (email: string) => {
@@ -1926,6 +1926,55 @@ export const archiveAssignment = async (assignmentId: string) => {
     "POST",
     `v1/assignments/${assignmentId}/archive/`,
     {}
+  );
+};
+
+export type IntegrationOwnerType = "user" | "organization";
+
+export type TIntegration = {
+  id: number;
+  provider: string;
+  owner_type: IntegrationOwnerType;
+  owner_label: string;
+  account_email: string;
+  account_label: string;
+  status: string;
+  scopes: string;
+  metadata: Record<string, unknown>;
+  expires_at: string | null;
+  is_expired: boolean;
+  connected: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export const getIntegrations = async () => {
+  return makeAuthenticatedRequest<{ integrations: TIntegration[] }>(
+    "GET",
+    "v1/integrations/"
+  );
+};
+
+export const connectIntegration = async (
+  provider: string,
+  owner: IntegrationOwnerType
+) => {
+  const params = new URLSearchParams({ owner });
+  return makeAuthenticatedRequest<{
+    authorization_url: string;
+    owner_type: IntegrationOwnerType;
+    provider: string;
+  }>("GET", `v1/integrations/${provider}/connect/?${params.toString()}`);
+};
+
+export const disconnectIntegration = async (
+  provider: string,
+  owner: IntegrationOwnerType
+) => {
+  return makeAuthenticatedRequest<{ success: boolean; disconnected: boolean }>(
+    "POST",
+    `v1/integrations/${provider}/disconnect/`,
+    { owner }
   );
 };
 
