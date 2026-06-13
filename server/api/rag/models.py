@@ -127,6 +127,27 @@ class Document(models.Model):
     name = models.CharField(max_length=255, null=True, blank=True)
     file = models.FileField(upload_to="rag_documents/%Y/%m/", null=True, blank=True)
     content_type = models.CharField(max_length=100, blank=True, default="")
+    drive_file_id = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="Google Drive file ID when imported from Drive.",
+    )
+    drive_integration = models.ForeignKey(
+        "integrations.Integration",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="rag_documents",
+        help_text="Integration used to import/sync this document from Drive.",
+    )
+    drive_modified_time = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        help_text="Drive modifiedTime at last import/sync (ISO string).",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     total_tokens = models.IntegerField(null=True, blank=True)
     brief = models.TextField(null=True, blank=True)
@@ -174,6 +195,23 @@ class Document(models.Model):
             except Exception:
                 pass  # ChromaDB not available, skip
         self.delete()
+
+    def clear_chunks(self) -> None:
+        """Remove all chunks from Chroma and DB without deleting the document."""
+        collection_name = self.collection.slug
+        chunks = Chunk.objects.filter(document=self)
+        chunks_ids = [str(c.id) for c in chunks]
+        if chunks_ids and chroma_client:
+            try:
+                chroma_client.bulk_delete_chunks(collection_name, chunks_ids)
+            except Exception:
+                pass
+        chunks.delete()
+
+    def reindex_rag(self) -> None:
+        """Re-chunk and index document text after content update."""
+        self.clear_chunks()
+        self.add_to_rag()
 
     def generate_brief(self):
         from .tasks import async_generate_document_brief

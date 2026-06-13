@@ -19,6 +19,19 @@ GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
 GOOGLE_DRIVE_FILES_URL = "https://www.googleapis.com/drive/v3/files"
 
+GOOGLE_EXPORT_MIME: dict[str, str] = {
+    "application/vnd.google-apps.document": "text/plain",
+    "application/vnd.google-apps.spreadsheet": "text/csv",
+    "application/vnd.google-apps.presentation": "text/plain",
+}
+
+_IMPORTABLE_MIME_PREFIXES = (
+    "application/vnd.google-apps.",
+    "application/pdf",
+    "application/vnd.openxmlformats-officedocument",
+    "text/",
+)
+
 DRIVE_READONLY_SCOPE = "https://www.googleapis.com/auth/drive.readonly"
 IDENTITY_SCOPES = "openid email profile"
 ALL_SCOPES = f"{IDENTITY_SCOPES} {DRIVE_READONLY_SCOPE}"
@@ -128,6 +141,83 @@ class GoogleDriveProvider(IntegrationProvider):
             }
             for f in files
         ]
+
+    def get_file_metadata(self, access_token: str, file_id: str) -> dict[str, Any]:
+        try:
+            resp = requests.get(
+                f"{GOOGLE_DRIVE_FILES_URL}/{file_id}",
+                params={"fields": "id,name,mimeType,modifiedTime"},
+                headers={"Authorization": f"Bearer {access_token}"},
+                timeout=_DEFAULT_TIMEOUT,
+            )
+            data = resp.json()
+        except Exception as exc:
+            raise IntegrationProviderError(f"Drive get file failed: {exc}") from exc
+
+        if resp.status_code != 200:
+            raise IntegrationProviderError(
+                f"Drive get file failed: {data}",
+                status_code=resp.status_code,
+                response_data=data if isinstance(data, dict) else {},
+            )
+        return data
+
+    def download_file_content(
+        self,
+        access_token: str,
+        file_id: str,
+        *,
+        mime_type: str | None = None,
+        file_name: str | None = None,
+    ) -> tuple[bytes, str, str]:
+        """
+        Download file bytes from Drive.
+
+        Returns (content_bytes, file_name, mime_type).
+        Google Workspace files are exported to text-friendly formats.
+        """
+        meta = self.get_file_metadata(access_token, file_id)
+        mime_type = mime_type or meta.get("mimeType") or ""
+        file_name = file_name or meta.get("name") or file_id
+
+        if mime_type == "application/vnd.google-apps.folder":
+            raise IntegrationProviderError("Cannot import a Drive folder.")
+
+        if mime_type in GOOGLE_EXPORT_MIME:
+            export_mime = GOOGLE_EXPORT_MIME[mime_type]
+            url = f"{GOOGLE_DRIVE_FILES_URL}/{file_id}/export"
+            params = {"mimeType": export_mime}
+            effective_mime = export_mime
+        else:
+            if not any(mime_type.startswith(p) for p in _IMPORTABLE_MIME_PREFIXES):
+                raise IntegrationProviderError(
+                    f"Unsupported Drive file type: {mime_type or 'unknown'}"
+                )
+            url = f"{GOOGLE_DRIVE_FILES_URL}/{file_id}"
+            params = {"alt": "media"}
+            effective_mime = mime_type
+
+        try:
+            resp = requests.get(
+                url,
+                params=params,
+                headers={"Authorization": f"Bearer {access_token}"},
+                timeout=60,
+            )
+        except Exception as exc:
+            raise IntegrationProviderError(f"Drive download failed: {exc}") from exc
+
+        if resp.status_code != 200:
+            try:
+                err = resp.json()
+            except Exception:
+                err = resp.text
+            raise IntegrationProviderError(
+                f"Drive download failed: {err}",
+                status_code=resp.status_code,
+            )
+
+        return resp.content, file_name, effective_mime
 
     def build_metadata_from_token_response(
         self,

@@ -5,9 +5,10 @@ import { useStore } from "../../modules/store";
 import toast from "react-hot-toast";
 import { Thumbnail } from "../Thumbnail/Thumbnail";
 import { useTranslation } from "react-i18next";
-import { generateDocumentBrief, getDocuments } from "../../modules/apiCalls";
+import { generateDocumentBrief, getDocuments, syncDriveDocument } from "../../modules/apiCalls";
 import { SpeechHandler } from "../SpeechHandler/SpeechHandler";
 import { WebsiteFetcher } from "../WebsiteFetcher/WebsiteFetcher";
+import { DriveFilePicker } from "../DriveFilePicker/DriveFilePicker";
 import { TAttachment, TDocument } from "../../types";
 
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
@@ -44,6 +45,8 @@ import {
   IconFilePlus,
   IconLink,
   IconTrash,
+  IconBrandGoogleDrive,
+  IconRefresh,
   IconTree,
   IconUsers,
   IconAdjustments,
@@ -438,10 +441,14 @@ const PlusMenu = ({ existingFilesOnly = false }: { existingFilesOnly?: boolean }
   const isAddFilesEnabled = useIsFeatureEnabled("add-files-to-chat");
   const isTrainAgentsEnabled = useIsFeatureEnabled("train-agents");
   const isWebScrapingEnabled = useIsFeatureEnabled("web-scraping");
+  const isDriveImportEnabled =
+    useIsFeatureEnabled("can-connect-drive-account") === true &&
+    isTrainAgentsEnabled === true;
 
   const [ragConfigOpened, { open: openRagConfig, close: closeRagConfig }] =
     useDisclosure(false);
   const [websiteFetcherOpen, setWebsiteFetcherOpen] = useState(false);
+  const [drivePickerOpen, setDrivePickerOpen] = useState(false);
 
   const hasAttachments = attachments.length > 0;
 
@@ -477,7 +484,11 @@ const PlusMenu = ({ existingFilesOnly = false }: { existingFilesOnly?: boolean }
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const hasAnyPlusOption = isAddFilesEnabled || isTrainAgentsEnabled || isWebScrapingEnabled;
+  const hasAnyPlusOption =
+    isAddFilesEnabled ||
+    isTrainAgentsEnabled ||
+    isWebScrapingEnabled ||
+    isDriveImportEnabled;
 
   return (
     <>
@@ -521,6 +532,14 @@ const PlusMenu = ({ existingFilesOnly = false }: { existingFilesOnly?: boolean }
               {t("add-existing-documents")}
             </Menu.Item>
           )}
+          {isDriveImportEnabled && (
+            <Menu.Item
+              leftSection={<IconBrandGoogleDrive size={18} />}
+              onClick={() => setDrivePickerOpen(true)}
+            >
+              {t("drive-import-menu")}
+            </Menu.Item>
+          )}
           {isWebScrapingEnabled && (
             <Menu.Item
               leftSection={<IconLink size={18} />}
@@ -541,6 +560,10 @@ const PlusMenu = ({ existingFilesOnly = false }: { existingFilesOnly?: boolean }
       <WebsiteFetcher
         isOpen={websiteFetcherOpen}
         onClose={() => setWebsiteFetcherOpen(false)}
+      />
+      <DriveFilePicker
+        opened={drivePickerOpen}
+        onClose={() => setDrivePickerOpen(false)}
       />
     </>
   );
@@ -916,6 +939,31 @@ const DocumentCard = ({
     await generateDocumentBrief(String(d.id));
   };
 
+  const syncFromDrive = async () => {
+    try {
+      toast.loading(t("drive-sync-loading"), { id: `sync-${d.id}` });
+      const updated = await syncDriveDocument(d.id);
+      if (isAttached) {
+        const attachment: TAttachment = {
+          content: updated.text,
+          name: updated.name,
+          type: updated.content_type || "text/plain",
+          id: updated.id,
+          mode: "all_possible_text",
+          text: updated.text,
+        };
+        const idx = chatState.attachments.findIndex((a) => a.id == d.id);
+        if (idx !== -1) {
+          removeAttatchment(idx);
+          addAttatchment(attachment, true);
+        }
+      }
+      toast.success(t("drive-sync-success"), { id: `sync-${d.id}` });
+    } catch {
+      toast.error(t("drive-sync-error"), { id: `sync-${d.id}` });
+    }
+  };
+
   return (
     <Card
       shadow="sm"
@@ -943,6 +991,7 @@ const DocumentCard = ({
       {existingFilesOnly && (
         <Text size="xs" c="dimmed" mb="xs">
           {d.has_file ? "File available" : "No source file"}
+          {d.is_drive_linked ? ` · ${t("drive-linked-badge")}` : ""}
         </Text>
       )}
       <Group gap="xs">
@@ -955,6 +1004,16 @@ const DocumentCard = ({
         >
           {isAttached ? t("remove-document") : t("add-document")}
         </Button>
+        {d.is_drive_linked && (
+          <Button
+            onClick={syncFromDrive}
+            leftSection={<IconRefresh size={16} />}
+            variant="light"
+            size="xs"
+          >
+            {t("drive-sync-action")}
+          </Button>
+        )}
         {!d.brief && (
           <Button
             onClick={generateBrief}

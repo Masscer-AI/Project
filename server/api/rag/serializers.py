@@ -22,6 +22,7 @@ class DocumentSerializer(serializers.ModelSerializer):
     chunk_count = serializers.SerializerMethodField()
     has_file = serializers.SerializerMethodField()
     file_url = serializers.SerializerMethodField()
+    is_drive_linked = serializers.SerializerMethodField()
 
     class Meta:
         model = Document
@@ -38,7 +39,13 @@ class DocumentSerializer(serializers.ModelSerializer):
             "total_tokens",
             "has_file",
             "file_url",
+            "drive_file_id",
+            "drive_modified_time",
+            "is_drive_linked",
         ]
+
+    def get_is_drive_linked(self, obj):
+        return bool(getattr(obj, "drive_file_id", None))
 
     def get_chunk_count(self, obj):
         return obj.chunk_set.count()

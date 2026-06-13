@@ -6,6 +6,7 @@ from .views import (
     QueryDocument,
     ChunkSetView,
     QueryCompletions,
+    sync_drive_document,
 )
 
 app_name = "rag"
@@ -15,6 +16,11 @@ urlpatterns = [
     path("documents/", DocumentView.as_view(), name="documents"),
     path(
         "documents/<int:document_id>/", DocumentView.as_view(), name="documents_detail"
+    ),
+    path(
+        "documents/<int:document_id>/sync-drive/",
+        sync_drive_document,
+        name="documents_sync_drive",
     ),
     path(
         "documents/<int:document_id>/query/",

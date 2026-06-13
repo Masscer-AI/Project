@@ -1978,3 +1978,40 @@ export const disconnectIntegration = async (
   );
 };
 
+export type TDriveFile = {
+  id: string;
+  name: string;
+  mimeType: string;
+  modifiedTime?: string;
+};
+
+export const listDriveFiles = async (
+  owner: IntegrationOwnerType = "user",
+  limit = 50
+) => {
+  const params = new URLSearchParams({ owner, limit: String(limit) });
+  return makeAuthenticatedRequest<{ files: TDriveFile[]; owner_type: IntegrationOwnerType }>(
+    "GET",
+    `v1/integrations/google_drive/files/?${params.toString()}`
+  );
+};
+
+export const importDriveFile = async (
+  fileId: string,
+  owner: IntegrationOwnerType = "user"
+) => {
+  return makeAuthenticatedRequest<{ document: TDocument; created: boolean }>(
+    "POST",
+    "v1/integrations/google_drive/import/",
+    { file_id: fileId, owner }
+  );
+};
+
+export const syncDriveDocument = async (documentId: number | string) => {
+  return makeAuthenticatedRequest<TDocument>(
+    "POST",
+    `v1/rag/documents/${documentId}/sync-drive/`,
+    {}
+  );
+};
+

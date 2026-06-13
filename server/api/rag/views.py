@@ -174,6 +174,50 @@ class DocumentView(View):
 
 @csrf_exempt
 @token_required
+def sync_drive_document(request, document_id):
+    """
+    POST /v1/rag/documents/<id>/sync-drive/
+
+    Re-download content from Google Drive and re-index the document.
+    """
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    try:
+        _check_train_agents_permission(request.user)
+    except Exception as exc:
+        return JsonResponse({"error": str(exc)}, status=403)
+
+    try:
+        document = Document.objects.select_related("collection", "drive_integration").get(
+            id=document_id
+        )
+    except Document.DoesNotExist:
+        return JsonResponse({"error": "Document not found"}, status=404)
+
+    collection, _ = Collection.get_or_create_personal_collection(user=request.user)
+    if document.collection_id != collection.id:
+        return JsonResponse({"error": "Document not accessible"}, status=403)
+
+    if not document.drive_file_id:
+        return JsonResponse({"error": "Document is not linked to Google Drive"}, status=400)
+
+    from api.integrations.drive_import import sync_document_from_drive
+    from api.integrations.providers import IntegrationProviderError
+
+    try:
+        document = sync_document_from_drive(document)
+    except IntegrationProviderError as exc:
+        return JsonResponse({"error": str(exc)}, status=400)
+
+    return JsonResponse(
+        DocumentSerializer(document, context={"request": request}).data,
+        status=200,
+    )
+
+
+@csrf_exempt
+@token_required
 def query_collection(request):
     data = json.loads(request.body)
     # agent_slug = data.get("agent_slug", None)

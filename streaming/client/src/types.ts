@@ -332,7 +332,9 @@ export type TDocument = {
   file_url?: string | null;
   created_at?: string;
   chunk_count: number;
-  chunk_set: any[];
+  drive_file_id?: string | null;
+  drive_modified_time?: string | null;
+  is_drive_linked?: boolean;
 };
 
 export type TWebPage = {
