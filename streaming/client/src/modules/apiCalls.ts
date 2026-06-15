@@ -26,6 +26,9 @@ import {
   TNotificationRule,
   TNotificationRuleBuildResponse,
   TUserNotification,
+  TDataExportJob,
+  TOrganizationDataPolicy,
+  TDataExportManifest,
 } from "../types";
 import { TReactionTemplate, TUserData, TUserProfile } from "../types/chatTypes";
 import { TAgent, TModel } from "../types/agents";
@@ -2013,5 +2016,73 @@ export const syncDriveDocument = async (documentId: number | string) => {
     `v1/rag/documents/${documentId}/sync-drive/`,
     {}
   );
+};
+
+// --- Data Governance ---
+
+export const getOrganizationDataPolicy = async (organizationId: string) => {
+  return makeAuthenticatedRequest<TOrganizationDataPolicy>(
+    "GET",
+    `v1/data-governance/organizations/${organizationId}/policy/`
+  );
+};
+
+export const updateOrganizationDataPolicy = async (
+  organizationId: string,
+  data: {
+    deleted_conversation_retention_days?: number | null;
+    attachment_retention_days?: number | null;
+  }
+) => {
+  return makeAuthenticatedRequest<TOrganizationDataPolicy>(
+    "PATCH",
+    `v1/data-governance/organizations/${organizationId}/policy/`,
+    data
+  );
+};
+
+export const listDataExportJobs = async (organizationId: string) => {
+  return makeAuthenticatedRequest<TDataExportJob[]>(
+    "GET",
+    `v1/data-governance/organizations/${organizationId}/exports/`
+  );
+};
+
+export const createDataExportJob = async (
+  organizationId: string,
+  body: {
+    notify_via: "app" | "email" | "both";
+    manifest: TDataExportManifest;
+  }
+) => {
+  return makeAuthenticatedRequest<TDataExportJob>(
+    "POST",
+    `v1/data-governance/organizations/${organizationId}/exports/`,
+    body
+  );
+};
+
+export const downloadDataExport = async (
+  organizationId: string,
+  jobId: string
+) => {
+  const token = localStorage.getItem("token");
+  if (!token) throw new Error("No token found");
+  const url = `${API_URL}/v1/data-governance/organizations/${organizationId}/exports/${jobId}/download/`;
+  const response = await fetch(url, {
+    headers: { Authorization: `Token ${token}` },
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || "Download failed");
+  }
+  const blob = await response.blob();
+  const link = document.createElement("a");
+  link.href = window.URL.createObjectURL(blob);
+  link.download = `masscer-export-${jobId}.zip`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(link.href);
 };
 

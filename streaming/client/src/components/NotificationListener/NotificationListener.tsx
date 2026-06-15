@@ -31,11 +31,19 @@ export const NotificationListener = () => {
       setConversation(conversation?.id);
     });
 
+    socket.on("data_export_ready", (data: { job_id?: string }) => {
+      toast.success(t("data-export-ready-toast"));
+      window.dispatchEvent(
+        new CustomEvent("masscer:data-export-ready", { detail: data })
+      );
+    });
+
     return () => {
       socket.off("video_generated");
       socket.off("out_of_balance");
       socket.off("subscription_expired_with_purchased_locked");
       socket.off("audio_generated");
+      socket.off("data_export_ready");
     };
   }, [conversation, setConversation, socket, t]);
   return <></>;

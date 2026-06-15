@@ -30,6 +30,14 @@ app.conf.beat_schedule = {
         'task': 'api.payments.tasks.expire_subscriptions_past_end_date',
         'schedule': crontab(minute=12),  # hourly
     },
+    'purge-expired-data': {
+        'task': 'api.data_governance.tasks.purge_expired_data',
+        'schedule': crontab(hour=3, minute=0),  # daily at 03:00 UTC
+    },
+    'expire-stale-data-exports': {
+        'task': 'api.data_governance.tasks.expire_stale_data_exports',
+        'schedule': crontab(hour=4, minute=0),  # daily at 04:00 UTC
+    },
 }
 
 import api.celery_signals

@@ -308,6 +308,50 @@ export type TOrganizationRole = {
   updated_at: string;
 };
 
+export type TOrganizationDataPolicy = {
+  deleted_conversation_retention_days: number | null;
+  attachment_retention_days: number | null;
+  updated_at: string | null;
+  updated_by_id: number | null;
+};
+
+export type TDataExportManifest = {
+  date_from: string;
+  date_to: string;
+  categories: {
+    conversations?: {
+      enabled: boolean;
+      include_attachments?: boolean;
+      include_deleted?: boolean;
+    };
+    agents?: { enabled: boolean };
+    completions?: { enabled: boolean };
+    documents?: { enabled: boolean; include_files?: boolean };
+  };
+};
+
+export type TDataExportJob = {
+  id: string;
+  organization_id: string;
+  requested_by_id: number | null;
+  status:
+    | "pending"
+    | "processing"
+    | "ready"
+    | "failed"
+    | "expired"
+    | "downloaded";
+  notify_via: "app" | "email" | "both";
+  manifest: TDataExportManifest;
+  file_size_bytes: number | null;
+  download_count: number;
+  downloaded_at: string | null;
+  expires_at: string | null;
+  error_message: string;
+  created_at: string | null;
+  completed_at: string | null;
+};
+
 export type TRoleAssignment = {
   id: string;
   user: number;

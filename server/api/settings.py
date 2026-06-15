@@ -102,6 +102,7 @@ INSTALLED_APPS = [
     "api.cloudbeds",
     "api.integrations",
     "api.document_templates",
+    "api.data_governance",
 ]
 
 MIDDLEWARE = [

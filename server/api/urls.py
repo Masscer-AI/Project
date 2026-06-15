@@ -40,6 +40,7 @@ apps = [
     ("v1/cloudbeds/", "api.cloudbeds.urls", "cloudbeds"),
     ("v1/integrations/", "api.integrations.urls", "integrations"),
     ("v1/document-templates/", "api.document_templates.urls", "document_templates"),
+    ("v1/data-governance/", "api.data_governance.urls", "data_governance"),
 ]
 
 urlpatterns_apps = [

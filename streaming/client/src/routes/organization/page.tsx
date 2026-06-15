@@ -77,8 +77,10 @@ import {
   IconShield,
   IconTrash,
   IconUsers,
+  IconDatabase,
 } from "@tabler/icons-react";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
+import { DataGovernanceTab } from "./DataGovernanceTab";
 
 const CREDIT_PACKAGES = [
   { amountUsd: 50, creditsUsd: 40 },
@@ -91,6 +93,7 @@ const ORGANIZATION_TAB_VALUES = [
   "roles",
   "members",
   "billing",
+  "data",
 ] as const;
 
 export type OrganizationTab = (typeof ORGANIZATION_TAB_VALUES)[number];
@@ -838,6 +841,12 @@ export default function OrganizationPage() {
                 >
                   {t("billing")}
                 </Tabs.Tab>
+                <Tabs.Tab
+                  value="data"
+                  leftSection={<IconDatabase size={16} />}
+                >
+                  {t("data-governance-tab")}
+                </Tabs.Tab>
               </Tabs.List>
 
               {/* ── Settings Tab ── */}
@@ -1578,6 +1587,12 @@ export default function OrganizationPage() {
                     </>
                   )}
                 </Stack>
+              </Tabs.Panel>
+
+              <Tabs.Panel value="data">
+                {org?.id ? (
+                  <DataGovernanceTab organizationId={org.id} />
+                ) : null}
               </Tabs.Panel>
             </Tabs>
           )}

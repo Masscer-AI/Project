@@ -183,47 +183,17 @@ def _organization_ids_accessible_by_user(user) -> list:
 
 
 def _org_member_user_ids(organization_id) -> list[int]:
-    """User ids that belong to an organization (owner + profile members)."""
-    from api.authenticate.models import Organization
+    from api.messaging.organization_scope import org_member_user_ids
 
-    org = Organization.objects.filter(id=organization_id).only("owner_id").first()
-    if not org:
-        return []
-    owner_ids = {org.owner_id} if org.owner_id else set()
-    member_ids = set(
-        User.objects.filter(profile__organization_id=organization_id).values_list(
-            "id", flat=True
-        )
-    )
-    return list(owner_ids | member_ids)
+    return org_member_user_ids(organization_id)
 
 
 def organization_conversations_q(organization_id) -> Q:
-    """
-    Conversations visible in org scope on the dashboard (scope=org).
-
-    Includes app chats owned by org members (often organization_id is null on the row),
-    widget threads, and WhatsApp threads linked via organization or ws_number.
-    """
-    org_user_ids = _org_member_user_ids(organization_id)
-    if not org_user_ids:
-        return Q(pk__in=[])
-    org_org_ids = [organization_id]
-    return (
-        Q(user_id__in=org_user_ids)
-        | Q(
-            user__isnull=True,
-            chat_widget__created_by_id__in=org_user_ids,
-        )
-        | (
-            Q(user__isnull=True, ws_number__isnull=False)
-            & (
-                Q(organization_id__in=org_org_ids)
-                | Q(ws_number__organization_id__in=org_org_ids)
-                | Q(ws_number__user_id__in=org_user_ids)
-            )
-        )
+    from api.messaging.organization_scope import (
+        organization_conversations_q as _organization_conversations_q,
     )
+
+    return _organization_conversations_q(organization_id)
 
 
 def _user_can_access_conversation(user, conversation):
