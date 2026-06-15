@@ -54,6 +54,12 @@ class DocumentsExportCategory(BaseModel):
     include_files: bool = False
 
 
+class DocumentTemplatesExportCategory(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = False
+
+
 class ExportCategoriesSchema(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -61,6 +67,9 @@ class ExportCategoriesSchema(BaseModel):
     agents: AgentsExportCategory = Field(default_factory=AgentsExportCategory)
     completions: CompletionsExportCategory = Field(default_factory=CompletionsExportCategory)
     documents: DocumentsExportCategory = Field(default_factory=DocumentsExportCategory)
+    document_templates: DocumentTemplatesExportCategory = Field(
+        default_factory=DocumentTemplatesExportCategory
+    )
 
 
 class DataExportManifestSchema(BaseModel):
@@ -85,6 +94,7 @@ class DataExportManifestSchema(BaseModel):
                 self.categories.agents.enabled,
                 self.categories.completions.enabled,
                 self.categories.documents.enabled,
+                self.categories.document_templates.enabled,
             ]
         ):
             raise ValueError("At least one export category must be enabled")

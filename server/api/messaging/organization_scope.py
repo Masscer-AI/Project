@@ -67,3 +67,38 @@ def conversation_activity_in_range_q(start: datetime, end: datetime) -> Q:
         | Q(last_message_at__gte=start, last_message_at__lte=end)
         | Q(deleted_at__gte=start, deleted_at__lte=end)
     )
+
+
+def model_created_or_updated_in_range_q(start: datetime, end: datetime) -> Q:
+    """Generic created_at / updated_at window (models without last_message_at)."""
+    return Q(created_at__gte=start, created_at__lte=end) | Q(
+        updated_at__gte=start, updated_at__lte=end
+    )
+
+
+def model_created_in_range_q(start: datetime, end: datetime) -> Q:
+    return Q(created_at__gte=start, created_at__lte=end)
+
+
+def organization_documents_q(organization_id) -> Q:
+    """
+    RAG documents visible in org knowledge base scope.
+
+    Member personal collections plus agent collections owned by the organization.
+    """
+    org_user_ids = org_member_user_ids(organization_id)
+    if not org_user_ids:
+        return Q(collection__agent__organization_id=organization_id)
+    return Q(collection__user_id__in=org_user_ids) | Q(
+        collection__agent__organization_id=organization_id
+    )
+
+
+def organization_completions_q(organization_id) -> Q:
+    """Completions assigned to org agents or org members' personal agents."""
+    org_user_ids = org_member_user_ids(organization_id)
+    if not org_user_ids:
+        return Q(assignments__agent__organization_id=organization_id)
+    return Q(assignments__agent__organization_id=organization_id) | Q(
+        assignments__agent__user_id__in=org_user_ids
+    )

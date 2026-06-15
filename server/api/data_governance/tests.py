@@ -8,8 +8,27 @@ from api.authenticate.models import Organization, Token, UserProfile
 from api.data_governance.models import DataExportJob, OrganizationDataPolicy
 from api.data_governance.schemas import parse_export_manifest, parse_policy_patch
 from api.data_governance.exporters.conversations import ConversationsExporter
-from api.data_governance.schemas import DataExportManifestSchema, ExportCategoriesSchema, ConversationsExportCategory, AgentsExportCategory
+from api.data_governance.exporters.knowledge_base import (
+    CompletionsExporter,
+    DocumentTemplatesExporter,
+    DocumentsExporter,
+)
+from api.data_governance.schemas import (
+    AgentsExportCategory,
+    CompletionsExportCategory,
+    DataExportManifestSchema,
+    DocumentTemplatesExportCategory,
+    DocumentsExportCategory,
+    ExportCategoriesSchema,
+    ConversationsExportCategory,
+)
 from api.messaging.models import Conversation
+from api.ai_layers.models import Agent, LanguageModel
+from api.providers.models import AIProvider
+from api.finetuning.models import Completion, CompletionAssignment
+from api.rag.models import Chunk, Collection, Document
+from api.document_templates.models import DocumentTemplate
+from django.core.files.uploadedfile import SimpleUploadedFile
 from datetime import date
 from pathlib import Path
 import tempfile
@@ -31,6 +50,7 @@ class DataGovernanceSchemaTests(TestCase):
                         "agents": {"enabled": False},
                         "completions": {"enabled": False},
                         "documents": {"enabled": False},
+                        "document_templates": {"enabled": False},
                     },
                 }
             )
@@ -129,6 +149,100 @@ class ConversationsExporterTests(TestCase):
             )
         self.assertEqual(result.summary.get("conversations_exported"), 1)
         self.assertTrue(any("conversations" in a.relative_path for a in result.artifacts))
+
+
+class KnowledgeBaseExporterTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="kbexport", password="pass")
+        self.org = Organization.objects.create(name="KB Org", owner=self.user)
+        UserProfile.objects.create(user=self.user, organization=self.org)
+        self.provider = AIProvider.objects.create(name="OpenAI")
+        self.llm = LanguageModel.objects.create(
+            provider=self.provider,
+            name="Test LLM",
+            slug="test-llm-kb",
+        )
+        self.agent = Agent.objects.create(
+            name="Org Agent",
+            salute="hello",
+            user=self.user,
+            organization=self.org,
+            llm=self.llm,
+            model_slug=self.llm.slug,
+        )
+
+    def _manifest(self, **category_kwargs) -> DataExportManifestSchema:
+        today = timezone.now().date()
+        defaults = {
+            "conversations": ConversationsExportCategory(enabled=False),
+            "agents": AgentsExportCategory(enabled=False),
+            "completions": CompletionsExportCategory(enabled=False),
+            "documents": DocumentsExportCategory(enabled=False),
+            "document_templates": DocumentTemplatesExportCategory(enabled=False),
+        }
+        defaults.update(category_kwargs)
+        return DataExportManifestSchema(
+            date_from=today - timedelta(days=7),
+            date_to=today,
+            categories=ExportCategoriesSchema(**defaults),
+        )
+
+    def test_exports_org_completion(self):
+        completion = Completion.objects.create(prompt="p", answer="a", approved=True)
+        CompletionAssignment.objects.create(completion=completion, agent=self.agent)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            result = CompletionsExporter().export(
+                organization=self.org,
+                manifest=self._manifest(
+                    completions=CompletionsExportCategory(enabled=True)
+                ),
+                output_dir=Path(tmp),
+            )
+        self.assertEqual(result.summary.get("completions_exported"), 1)
+
+    def test_exports_member_personal_collection_document(self):
+        collection, _ = Collection.get_or_create_personal_collection(user=self.user)
+        doc = Document.objects.create(
+            collection=collection,
+            name="Policy",
+            text="Some knowledge",
+        )
+        Chunk.objects.create(document=doc, content="chunk one")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            result = DocumentsExporter().export(
+                organization=self.org,
+                manifest=self._manifest(
+                    documents=DocumentsExportCategory(enabled=True)
+                ),
+                output_dir=Path(tmp),
+            )
+        self.assertEqual(result.summary.get("documents_exported"), 1)
+
+    def test_exports_org_document_template(self):
+        template = DocumentTemplate.objects.create(
+            organization=self.org,
+            created_by=self.user,
+            name="Contract",
+            file=SimpleUploadedFile(
+                "contract.docx",
+                b"fake-docx",
+                content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            ),
+            original_filename="contract.docx",
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            result = DocumentTemplatesExporter().export(
+                organization=self.org,
+                manifest=self._manifest(
+                    document_templates=DocumentTemplatesExportCategory(enabled=True)
+                ),
+                output_dir=Path(tmp),
+            )
+        self.assertEqual(result.summary.get("document_templates_exported"), 1)
+        self.assertEqual(result.summary.get("document_template_files_exported"), 1)
 
 
 class RetentionPurgeTests(TestCase):

@@ -86,6 +86,10 @@ export function DataGovernanceTab({ organizationId }: Props) {
   const [includeAttachments, setIncludeAttachments] = useState(false);
   const [includeDeleted, setIncludeDeleted] = useState(false);
   const [exportAgents, setExportAgents] = useState(true);
+  const [exportCompletions, setExportCompletions] = useState(false);
+  const [exportDocuments, setExportDocuments] = useState(false);
+  const [includeDocumentFiles, setIncludeDocumentFiles] = useState(false);
+  const [exportTemplates, setExportTemplates] = useState(false);
   const [notifyVia, setNotifyVia] = useState<"app" | "email" | "both">("both");
 
   const loadPolicy = useCallback(async () => {
@@ -159,7 +163,13 @@ export function DataGovernanceTab({ organizationId }: Props) {
   };
 
   const handleCreateExport = async () => {
-    if (!exportConversations && !exportAgents) {
+    if (
+      !exportConversations &&
+      !exportAgents &&
+      !exportCompletions &&
+      !exportDocuments &&
+      !exportTemplates
+    ) {
       toast.error(t("data-governance-export-category-required"));
       return;
     }
@@ -177,8 +187,12 @@ export function DataGovernanceTab({ organizationId }: Props) {
               include_deleted: includeDeleted,
             },
             agents: { enabled: exportAgents },
-            completions: { enabled: false },
-            documents: { enabled: false },
+            completions: { enabled: exportCompletions },
+            documents: {
+              enabled: exportDocuments,
+              include_files: includeDocumentFiles,
+            },
+            document_templates: { enabled: exportTemplates },
           },
         },
       });
@@ -305,6 +319,31 @@ export function DataGovernanceTab({ organizationId }: Props) {
             label={t("data-governance-export-agents")}
             checked={exportAgents}
             onChange={(e) => setExportAgents(e.currentTarget.checked)}
+          />
+          <Checkbox
+            label={t("data-governance-export-completions")}
+            checked={exportCompletions}
+            onChange={(e) => setExportCompletions(e.currentTarget.checked)}
+          />
+          <Checkbox
+            label={t("data-governance-export-documents")}
+            checked={exportDocuments}
+            onChange={(e) => setExportDocuments(e.currentTarget.checked)}
+          />
+          {exportDocuments && (
+            <Checkbox
+              pl="md"
+              label={t("data-governance-include-document-files")}
+              checked={includeDocumentFiles}
+              onChange={(e) =>
+                setIncludeDocumentFiles(e.currentTarget.checked)
+              }
+            />
+          )}
+          <Checkbox
+            label={t("data-governance-export-templates")}
+            checked={exportTemplates}
+            onChange={(e) => setExportTemplates(e.currentTarget.checked)}
           />
           <NativeSelect
             label={t("data-governance-notify-via")}

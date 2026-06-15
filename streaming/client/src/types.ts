@@ -327,6 +327,7 @@ export type TDataExportManifest = {
     agents?: { enabled: boolean };
     completions?: { enabled: boolean };
     documents?: { enabled: boolean; include_files?: boolean };
+    document_templates?: { enabled: boolean };
   };
 };
 
