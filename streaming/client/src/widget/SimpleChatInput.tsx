@@ -1,4 +1,5 @@
 import React, { useState, useRef, KeyboardEvent } from "react";
+import { PoweredByMasscer } from "../components/PoweredByMasscer/PoweredByMasscer";
 import "./SimpleChatInput.css";
 
 interface SimpleChatInputProps {
@@ -133,9 +134,7 @@ export const SimpleChatInput: React.FC<SimpleChatInputProps> = ({
           )}
         </button>
       </div>
-      <p className="simple-chat-disclaimer">
-        Powered by <strong>Masscer AI</strong>
-      </p>
+      <PoweredByMasscer className="simple-chat-disclaimer" />
     </div>
   );
 };

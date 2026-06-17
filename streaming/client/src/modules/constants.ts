@@ -28,3 +28,5 @@ export const PUBLIC_TOKEN =
 export const DEFAULT_ORGANIZATION_ID =
   // @ts-ignore
   import.meta.env.VITE_DEFAULT_ORGANIZATION_ID || null;
+
+export const MASSCER_WHATSAPP_URL = "https://wa.me/525580338745";

@@ -1,0 +1,8 @@
+.powered-by-masscer-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.powered-by-masscer-link:hover {
+  text-decoration: underline;
+}

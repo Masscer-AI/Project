@@ -12,6 +12,7 @@ import { DriveFilePicker } from "../DriveFilePicker/DriveFilePicker";
 import { TAttachment, TDocument } from "../../types";
 
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
+import { PoweredByMasscer } from "../PoweredByMasscer/PoweredByMasscer";
 import "./ChatInput.css";
 
 import {
@@ -285,9 +286,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               </ActionIcon>
             </div>
           </div>
-          <p className="text-center text-xs mt-1" style={{ color: "var(--font-color)", opacity: 0.4 }}>
-            Powered by <strong>Masscer AI</strong>
-          </p>
+          <PoweredByMasscer
+            className="text-center text-xs mt-1"
+            style={{ color: "var(--font-color)", opacity: 0.4 }}
+          />
         </section>
       </div>
     );
@@ -423,9 +425,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             </div>
           </div>
         </div>
-        <p className="text-center text-xs mt-1" style={{ color: "var(--font-color)", opacity: 0.4 }}>
-          Powered by <strong>Masscer AI</strong>
-        </p>
+        <PoweredByMasscer
+          className="text-center text-xs mt-1"
+          style={{ color: "var(--font-color)", opacity: 0.4 }}
+        />
       </section>
     </div>
   );
