@@ -3,7 +3,6 @@ import { Sidebar } from "../../components/Sidebar/Sidebar";
 import { useStore } from "../../modules/store";
 import "./page.css";
 import {
-  getWhatsappConversations,
   getWhatsappNumbers,
   updateWhatsappNumber,
 } from "../../modules/apiCalls";
@@ -202,17 +201,10 @@ const WhatsAppNumber = ({
   const { number, agent, conversations_count, name } = line;
   const [settingsOpened, { open: openSettings, close: closeSettings }] =
     useDisclosure(false);
-  const [conversations, setConversations] = useState<any[]>([]);
   const [nameInput, setNameInput] = useState(name ?? "");
   const [capabilityState, setCapabilityState] = useState<Record<string, boolean>>(
     () => buildInitialCapabilityState(line.capabilities)
   );
-
-  useEffect(() => {
-    getWhatsappConversations().then((res) => {
-      setConversations(res as any[]);
-    });
-  }, []);
 
   useEffect(() => {
     if (!settingsOpened) return;
@@ -259,6 +251,15 @@ const WhatsAppNumber = ({
         <Group justify="center" gap="md" mt="xs">
           <Text size="sm">🧠 {agent.name}</Text>
           <Text size="sm">💬 {conversations_count}</Text>
+        </Group>
+        <Group justify="center" mt="sm" onClick={(e) => e.stopPropagation()}>
+          <Button
+            size="xs"
+            variant="light"
+            onClick={() => navigate(`/dashboard?wsNumberId=${line.id}&channel=whatsapp`)}
+          >
+            {t("view-conversations")}
+          </Button>
         </Group>
       </Card>
 
@@ -339,56 +340,19 @@ const WhatsAppNumber = ({
             </Button>
           </div>
 
-          <Title order={5}>{t("whatsapp-conversations")}</Title>
-          <Stack gap="sm">
-            {conversations.map((conversation) => (
-              <ConversationComponent
-                key={conversation.id}
-                {...conversation}
-                onOpenConversation={(conversationId) =>
-                  navigate(`/chat?conversation=${conversationId}`)
-                }
-              />
-            ))}
-          </Stack>
+          <Button
+            variant="light"
+            fullWidth
+            onClick={() => {
+              closeSettings();
+              navigate(`/dashboard?wsNumberId=${line.id}&channel=whatsapp`);
+            }}
+          >
+            {t("view-conversations")}
+          </Button>
         </Stack>
       </Modal>
     </>
   );
 };
 
-const ConversationComponent = ({
-  title,
-  whatsapp_user_number,
-  id,
-  summary,
-  onOpenConversation,
-}: {
-  title: string | null;
-  whatsapp_user_number: string | null;
-  id: string;
-  summary: string | null;
-  onOpenConversation: (conversationId: string) => void;
-}) => {
-  const preview = summary ? summary.slice(0, 120) : "";
-  const summaryText = summary
-    ? preview.length < summary.length
-      ? `${preview}...`
-      : preview
-    : "No summary";
-
-  return (
-    <Card
-      withBorder
-      padding="md"
-      style={{ cursor: "pointer" }}
-      onClick={() => onOpenConversation(id)}
-    >
-      <Title order={5}>{title || "No title"}</Title>
-      <Text size="sm">{whatsapp_user_number || "—"}</Text>
-      <Text size="sm" c="dimmed" mt={6}>
-        {summaryText}
-      </Text>
-    </Card>
-  );
-};

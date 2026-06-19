@@ -1,6 +1,13 @@
+import re
+
 from django.db import models
 from django.contrib.auth.models import User
 from api.ai_layers.models import Agent
+
+
+def _normalize_phone(value: str) -> str:
+    """Strip everything except digits. Accepts any formatting (+, spaces, dashes, parens)."""
+    return re.sub(r"[^\d]", "", value or "")
 
 
 class WSNumber(models.Model):
@@ -23,7 +30,10 @@ class WSNumber(models.Model):
     )
     name = models.CharField(max_length=100, null=True, blank=True)
     capabilities = models.JSONField(default=list, blank=True)
-    number = models.CharField(max_length=15)
+    number = models.CharField(
+        max_length=30,
+        help_text="Phone number in any format — spaces, dashes, parentheses and + are stripped automatically.",
+    )
     platform_id = models.CharField(max_length=50, null=True, blank=True)
     waba_id = models.CharField(
         max_length=100,
@@ -36,6 +46,13 @@ class WSNumber(models.Model):
     certicate_b64 = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def clean(self):
+        self.number = _normalize_phone(self.number)
+
+    def save(self, *args, **kwargs):
+        self.number = _normalize_phone(self.number)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"WSNumber({self.name} - {self.number})"

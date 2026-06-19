@@ -13,6 +13,7 @@
     "whatsapp-intro": "Use AI agents on WhatsApp for customer support and to gather information from contacts.",
     "whatsapp-provision-note": "Lines are created by an administrator in the admin site. Here you only customize how each line behaves.",
     "whatsapp-your-numbers": "Your WhatsApp numbers",
+    "view-conversations": "View conversations",
     "whatsapp-empty-lines": "No WhatsApp numbers yet. Ask an administrator to connect a line for your organization.",
     "whatsapp-load-error": "Could not load WhatsApp numbers.",
     "whatsapp-settings-title": "Customize line",

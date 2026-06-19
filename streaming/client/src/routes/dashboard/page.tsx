@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useStore } from "../../modules/store";
 import {
   getConversations,
@@ -15,7 +16,7 @@ import { TAlertStats } from "../../types";
 import { TUserData } from "../../types/chatTypes";
 import { useTranslation } from "react-i18next";
 import { DashboardLayout } from "./DashboardLayout";
-import { ConversationsTable } from "./ConversationsTable";
+import { ConversationsTable, parseDateForPicker } from "./ConversationsTable";
 import {
   Badge,
   Card,
@@ -37,23 +38,46 @@ import {
   IconUsers,
 } from "@tabler/icons-react";
 
-const DEFAULT_FILTERS: TConversationFilters = {
-  scope: "org",
-  status: "all",
-  sortBy: "newest",
-  search: "",
-  userId: "",
-  dateFrom: null,
-  dateTo: null,
-  minMessages: 1,
-  maxMessages: "" as unknown as number,
-  selectedTags: [],
-  selectedAlertRules: [],
-  chatWidgetId: "",
-  wsNumberId: "",
-  channel: "all",
-  messagesSort: "none",
-};
+function filtersToParams(f: TConversationFilters): Record<string, string> {
+  const p: Record<string, string> = {};
+  if (f.scope && f.scope !== "org") p.scope = f.scope;
+  if (f.status && f.status !== "all") p.status = f.status;
+  if (f.sortBy && f.sortBy !== "newest") p.sortBy = f.sortBy;
+  if (f.search) p.search = f.search;
+  if (f.userId) p.userId = f.userId;
+  if (f.dateFrom) p.dateFrom = f.dateFrom.toISOString().slice(0, 10);
+  if (f.dateTo) p.dateTo = f.dateTo.toISOString().slice(0, 10);
+  if (f.minMessages && f.minMessages !== 1) p.minMessages = String(f.minMessages);
+  if (f.maxMessages) p.maxMessages = String(f.maxMessages);
+  if (f.selectedTags?.length) p.selectedTags = f.selectedTags.join(",");
+  if (f.selectedAlertRules?.length) p.selectedAlertRules = f.selectedAlertRules.join(",");
+  if (f.chatWidgetId) p.chatWidgetId = f.chatWidgetId;
+  if (f.wsNumberId) p.wsNumberId = f.wsNumberId;
+  if (f.channel && f.channel !== "all") p.channel = f.channel;
+  if (f.messagesSort && f.messagesSort !== "none") p.messagesSort = f.messagesSort;
+  return p;
+}
+
+function paramsToFilters(sp: URLSearchParams): TConversationFilters {
+  const get = (k: string) => sp.get(k) ?? "";
+  return {
+    scope: (get("scope") || "org") as TConversationFilters["scope"],
+    status: (get("status") || "all") as TConversationFilters["status"],
+    sortBy: (get("sortBy") || "newest") as TConversationFilters["sortBy"],
+    search: get("search"),
+    userId: get("userId"),
+    dateFrom: get("dateFrom") ? parseDateForPicker(get("dateFrom")) : null,
+    dateTo: get("dateTo") ? parseDateForPicker(get("dateTo")) : null,
+    minMessages: get("minMessages") ? Number(get("minMessages")) : 1,
+    maxMessages: get("maxMessages") ? Number(get("maxMessages")) : ("" as unknown as number),
+    selectedTags: get("selectedTags") ? get("selectedTags").split(",").map(Number) : [],
+    selectedAlertRules: get("selectedAlertRules") ? get("selectedAlertRules").split(",") : [],
+    chatWidgetId: get("chatWidgetId"),
+    wsNumberId: get("wsNumberId"),
+    channel: (get("channel") || "all") as TConversationFilters["channel"],
+    messagesSort: (get("messagesSort") || "none") as TConversationFilters["messagesSort"],
+  };
+}
 
 export default function DashboardPage() {
   const { startup, setUser } = useStore((state) => ({
@@ -61,12 +85,13 @@ export default function DashboardPage() {
     setUser: state.setUser,
   }));
   const { t } = useTranslation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [convStats, setConvStats] = useState<TConversationStats | null>(null);
   const [alertStats, setAlertStats] = useState<TAlertStats | null>(null);
   const [conversationsData, setConversationsData] = useState<
     TConversationsResponse | null
   >(null);
-  const [filters, setFilters] = useState<TConversationFilters>(DEFAULT_FILTERS);
+  const [filters, setFilters] = useState<TConversationFilters>(() => paramsToFilters(searchParams));
   const [page, setPage] = useState(0);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
   const [isLoadingConversations, setIsLoadingConversations] = useState(true);
@@ -123,8 +148,9 @@ export default function DashboardPage() {
 
   const handleFiltersChange = useCallback((newFilters: TConversationFilters) => {
     setFilters(newFilters);
+    setSearchParams(filtersToParams(newFilters), { replace: true });
     setPage(0);
-  }, []);
+  }, [setSearchParams]);
 
   const handlePageChange = useCallback((newPage: number) => {
     setPage(newPage);

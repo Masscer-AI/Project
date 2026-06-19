@@ -49,7 +49,7 @@ import {
 } from "@tabler/icons-react";
 
 /** Parse date from picker (string or Date) as local noon to avoid timezone display bugs. */
-function parseDateForPicker(val: string | Date): Date {
+export function parseDateForPicker(val: string | Date): Date {
   if (typeof val === "string" && /^\d{4}-\d{2}-\d{2}/.test(val)) {
     const [y, m, d] = val.slice(0, 10).split("-").map(Number);
     return new Date(y, m - 1, d, 12, 0, 0);
