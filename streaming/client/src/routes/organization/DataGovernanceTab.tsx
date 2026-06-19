@@ -15,7 +15,7 @@ import {
   Text,
   Title,
 } from "@mantine/core";
-import { IconDownload } from "@tabler/icons-react";
+import { IconDownload, IconPackageExport } from "@tabler/icons-react";
 import {
   createDataExportJob,
   downloadDataExport,
@@ -24,6 +24,7 @@ import {
   updateOrganizationDataPolicy,
 } from "../../modules/apiCalls";
 import { TDataExportJob, TOrganizationDataPolicy } from "../../types";
+import { GovernanceSummaryCards } from "./GovernanceSummaryCards";
 
 type Props = {
   organizationId: string;
@@ -221,6 +222,12 @@ export function DataGovernanceTab({ organizationId }: Props) {
 
   return (
     <Stack gap="lg">
+      <GovernanceSummaryCards
+        organizationId={organizationId}
+        policy={policy}
+        policyLoading={loadingPolicy}
+      />
+
       <Card withBorder p="lg">
         <Title order={4} mb="xs">
           {t("data-governance-retention-title")}
@@ -265,102 +272,58 @@ export function DataGovernanceTab({ organizationId }: Props) {
       </Card>
 
       <Card withBorder p="lg">
-        <Title order={4} mb="xs">
-          {t("data-governance-export-title")}
-        </Title>
-        <Text size="sm" c="dimmed" mb="md">
-          {t("data-governance-export-description")}
-        </Text>
-        <Stack gap="sm">
-          <Group grow align="flex-end">
-            <Stack gap={4}>
-              <Text size="sm" fw={500}>
-                {t("data-governance-date-from")}
-              </Text>
-              <input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-              />
+        <Group justify="space-between" wrap="wrap" gap="xl" align="flex-start">
+          {/* Left: description */}
+          <Stack gap="xs" style={{ flex: 1, minWidth: 200 }}>
+            <Title order={4}>{t("data-governance-export-title")}</Title>
+            <Text size="sm" c="dimmed">{t("data-governance-export-description")}</Text>
+            <Stack gap={4} mt="xs">
+              <Group gap="xs">
+                <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+                <Text size="xs" c="dimmed">→</Text>
+                <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+              </Group>
             </Stack>
-            <Stack gap={4}>
-              <Text size="sm" fw={500}>
-                {t("data-governance-date-to")}
-              </Text>
-              <input
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-              />
+          </Stack>
+
+          {/* Right: categories + button */}
+          <Stack gap="sm" style={{ flex: 1, minWidth: 220 }}>
+            <Stack gap={6}>
+              <Checkbox label={t("data-governance-export-conversations")} checked={exportConversations} onChange={(e) => setExportConversations(e.currentTarget.checked)} />
+              {exportConversations && (
+                <Stack gap={4} pl="md">
+                  <Checkbox label={t("data-governance-include-attachments")} checked={includeAttachments} onChange={(e) => setIncludeAttachments(e.currentTarget.checked)} />
+                  <Checkbox label={t("data-governance-include-deleted")} checked={includeDeleted} onChange={(e) => setIncludeDeleted(e.currentTarget.checked)} />
+                </Stack>
+              )}
+              <Checkbox label={t("data-governance-export-agents")} checked={exportAgents} onChange={(e) => setExportAgents(e.currentTarget.checked)} />
+              <Checkbox label={t("data-governance-export-completions")} checked={exportCompletions} onChange={(e) => setExportCompletions(e.currentTarget.checked)} />
+              <Checkbox label={t("data-governance-export-documents")} checked={exportDocuments} onChange={(e) => setExportDocuments(e.currentTarget.checked)} />
+              {exportDocuments && (
+                <Checkbox pl="md" label={t("data-governance-include-document-files")} checked={includeDocumentFiles} onChange={(e) => setIncludeDocumentFiles(e.currentTarget.checked)} />
+              )}
+              <Checkbox label={t("data-governance-export-templates")} checked={exportTemplates} onChange={(e) => setExportTemplates(e.currentTarget.checked)} />
             </Stack>
-          </Group>
-          <Checkbox
-            label={t("data-governance-export-conversations")}
-            checked={exportConversations}
-            onChange={(e) => setExportConversations(e.currentTarget.checked)}
-          />
-          {exportConversations && (
-            <Stack gap={4} pl="md">
-              <Checkbox
-                label={t("data-governance-include-attachments")}
-                checked={includeAttachments}
-                onChange={(e) =>
-                  setIncludeAttachments(e.currentTarget.checked)
-                }
-              />
-              <Checkbox
-                label={t("data-governance-include-deleted")}
-                checked={includeDeleted}
-                onChange={(e) => setIncludeDeleted(e.currentTarget.checked)}
-              />
-            </Stack>
-          )}
-          <Checkbox
-            label={t("data-governance-export-agents")}
-            checked={exportAgents}
-            onChange={(e) => setExportAgents(e.currentTarget.checked)}
-          />
-          <Checkbox
-            label={t("data-governance-export-completions")}
-            checked={exportCompletions}
-            onChange={(e) => setExportCompletions(e.currentTarget.checked)}
-          />
-          <Checkbox
-            label={t("data-governance-export-documents")}
-            checked={exportDocuments}
-            onChange={(e) => setExportDocuments(e.currentTarget.checked)}
-          />
-          {exportDocuments && (
-            <Checkbox
-              pl="md"
-              label={t("data-governance-include-document-files")}
-              checked={includeDocumentFiles}
-              onChange={(e) =>
-                setIncludeDocumentFiles(e.currentTarget.checked)
-              }
+            <NativeSelect
+              size="xs"
+              value={notifyVia}
+              onChange={(e) => setNotifyVia(e.currentTarget.value as typeof notifyVia)}
+              data={[
+                { value: "both", label: t("data-governance-notify-both") },
+                { value: "app", label: t("data-governance-notify-app") },
+                { value: "email", label: t("data-governance-notify-email") },
+              ]}
             />
-          )}
-          <Checkbox
-            label={t("data-governance-export-templates")}
-            checked={exportTemplates}
-            onChange={(e) => setExportTemplates(e.currentTarget.checked)}
-          />
-          <NativeSelect
-            label={t("data-governance-notify-via")}
-            value={notifyVia}
-            onChange={(e) =>
-              setNotifyVia(e.currentTarget.value as typeof notifyVia)
-            }
-            data={[
-              { value: "both", label: t("data-governance-notify-both") },
-              { value: "app", label: t("data-governance-notify-app") },
-              { value: "email", label: t("data-governance-notify-email") },
-            ]}
-          />
-          <Button loading={submittingExport} onClick={handleCreateExport}>
-            {t("data-governance-request-export")}
-          </Button>
-        </Stack>
+            <Button
+              loading={submittingExport}
+              onClick={handleCreateExport}
+              leftSection={<IconPackageExport size={16} />}
+              fullWidth
+            >
+              {t("data-governance-request-export")}
+            </Button>
+          </Stack>
+        </Group>
       </Card>
 
       <Card withBorder p="lg">
