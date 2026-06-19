@@ -1,0 +1,85 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block extrastyle %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'admin/css/organization_management.css' %}">
+  <style>
+    #sql-console-wrap { max-width: 1200px; }
+    #sql-query { width: 100%; font-family: monospace; font-size: 13px; padding: 8px; box-sizing: border-box; resize: vertical; border: 1px solid #ccc; border-radius: 4px; }
+    #sql-actions { margin-top: 8px; display: flex; align-items: center; gap: 12px; }
+    #sql-results { margin-top: 24px; overflow-x: auto; }
+    #sql-results table { border-collapse: collapse; width: 100%; font-size: 13px; }
+    #sql-results th { background: #417690; color: #fff; padding: 6px 10px; text-align: left; white-space: nowrap; }
+    #sql-results td { padding: 5px 10px; border-bottom: 1px solid #e0e0e0; white-space: nowrap; font-family: monospace; }
+    #sql-results tr:nth-child(even) td { background: #f9f9f9; }
+    .sql-error { background: #fde8e8; border-left: 4px solid #ba2121; padding: 10px 14px; margin-top: 16px; font-family: monospace; font-size: 13px; color: #ba2121; border-radius: 2px; }
+    .sql-meta { color: #666; font-size: 12px; margin-top: 8px; }
+    .sql-hint { font-size: 12px; color: #888; margin-top: 6px; }
+  </style>
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+  &rsaquo; {% trans 'System Management' %}
+  &rsaquo; {% trans 'SQL Console' %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="sql-console-wrap">
+  <h1>{% trans "SQL Console" %}</h1>
+  <p class="help">{% trans "Run read-only SELECT queries against the database. Mutations (INSERT, UPDATE, DELETE, DROP, etc.) are blocked. Results are capped at 500 rows." %}</p>
+
+  <form method="post">
+    {% csrf_token %}
+    <fieldset class="module aligned">
+      <h2>{% trans "Query" %}</h2>
+      <textarea id="sql-query" name="query" rows="8" placeholder="SELECT ..." spellcheck="false">{{ query }}</textarea>
+      <p class="sql-hint">{% trans "Tip: press Ctrl+Enter / Cmd+Enter to submit." %}</p>
+      <div id="sql-actions">
+        <input type="submit" class="default" value="{% trans 'Run query' %}">
+        {% if rows %}
+          <span class="sql-meta">{{ row_count }} row{{ row_count|pluralize }} returned{% if row_count == 500 %} (capped at 500){% endif %}</span>
+        {% endif %}
+      </div>
+    </fieldset>
+  </form>
+
+  {% if error %}
+    <div class="sql-error">{{ error }}</div>
+  {% endif %}
+
+  {% if rows %}
+  <div id="sql-results">
+    <table>
+      <thead>
+        <tr>
+          {% for col in columns %}<th>{{ col }}</th>{% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          {% for cell in row %}
+          <td>{% if cell is None %}<span style="color:#aaa">NULL</span>{% else %}{{ cell }}{% endif %}</td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% elif query and not error %}
+    <p class="sql-meta" style="margin-top:16px">{% trans "Query returned no rows." %}</p>
+  {% endif %}
+</div>
+
+<script>
+  document.getElementById('sql-query').addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      this.closest('form').submit();
+    }
+  });
+</script>
+{% endblock %}
