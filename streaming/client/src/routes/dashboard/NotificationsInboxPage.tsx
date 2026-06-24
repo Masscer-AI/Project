@@ -116,6 +116,11 @@ export default function NotificationsInboxPage() {
                       size="xs"
                       c="violet"
                       style={{ textDecoration: "underline" }}
+                      onClick={() => {
+                        if (!n.read_at) {
+                          void handleMarkRead(n.id);
+                        }
+                      }}
                     >
                       {t("open-alerts-dashboard") || "View alerts"}
                     </Text>
