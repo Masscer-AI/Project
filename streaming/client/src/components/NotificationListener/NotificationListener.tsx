@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import { useStore } from "../../modules/store";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
+import { playNotificationSound } from "../../utils/notificationSound";
 
 export const NotificationListener = () => {
   const { t } = useTranslation();
@@ -13,11 +14,13 @@ export const NotificationListener = () => {
 
   useEffect(() => {
     socket.on("video_generated", () => {
+      playNotificationSound("success");
       toast.success(t("video-generated-successfully"));
       setConversation(conversation?.id);
     });
 
     socket.on("out_of_balance", (data) => {
+      playNotificationSound("error");
       // toast.error(t("out-of-compute-units"));
       console.log("out of balance", data);
     });
@@ -27,11 +30,13 @@ export const NotificationListener = () => {
     });
 
     socket.on("audio_generated", () => {
+      playNotificationSound("success");
       toast.success(t("audio-generated-successfully"));
       setConversation(conversation?.id);
     });
 
     socket.on("data_export_ready", (data: { job_id?: string }) => {
+      playNotificationSound("success");
       toast.success(t("data-export-ready-toast"));
       window.dispatchEvent(
         new CustomEvent("masscer:data-export-ready", { detail: data })

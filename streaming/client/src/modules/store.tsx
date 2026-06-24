@@ -22,6 +22,10 @@ import type { TConversation, TAgentTaskEvent } from "../types";
 import toast from "react-hot-toast";
 import { Store } from "./storeTypes";
 import { sortAgentsBySelectionOrder } from "./agentSelection";
+import {
+  DEFAULT_NOTIFICATION_SETTINGS,
+  syncNotificationSoundSettings,
+} from "../utils/notificationSound";
 
 const _initialTheme = (() => {
   try {
@@ -55,6 +59,7 @@ export const useStore = create<Store>()((set, get) => ({
     background_image_source: "",
     multiagentic_modality: "isolated",
     background_image_opacity: 0.5,
+    notification_settings: { ...DEFAULT_NOTIFICATION_SETTINGS },
   },
   organizations: [],
   agentTaskStatus: null,
@@ -147,7 +152,13 @@ export const useStore = create<Store>()((set, get) => ({
     const pref = await getUserPreferences();
     // const bodySize = new TextEncoder().encode(JSON.stringify(pref)).length;
 
-    set({ userPreferences: pref });
+    const notification_settings = {
+      ...DEFAULT_NOTIFICATION_SETTINGS,
+      ...(pref.notification_settings ?? {}),
+    };
+    const normalizedPref = { ...pref, notification_settings };
+    syncNotificationSoundSettings(notification_settings);
+    set({ userPreferences: normalizedPref });
     try {
       if (pref.theme) localStorage.setItem("cached_theme", pref.theme);
     } catch {}
@@ -473,6 +484,13 @@ export const useStore = create<Store>()((set, get) => ({
   },
   setPreferences: async (prefs) => {
     const newPref = { ...get().userPreferences, ...prefs };
+    if (prefs.notification_settings) {
+      newPref.notification_settings = {
+        ...get().userPreferences.notification_settings,
+        ...prefs.notification_settings,
+      };
+    }
+    syncNotificationSoundSettings(newPref.notification_settings);
     set({ userPreferences: newPref });
     try {
       if (newPref.theme) localStorage.setItem("cached_theme", newPref.theme);

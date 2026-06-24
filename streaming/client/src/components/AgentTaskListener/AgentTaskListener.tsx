@@ -3,6 +3,7 @@ import { useStore } from "../../modules/store";
 import { useTranslation } from "react-i18next";
 import { showOrganizationBillingBlockedToast } from "../../utils/organizationBillingToast";
 import { useLocalizedToolName } from "../../utils/localizedToolName";
+import { playNotificationSound } from "../../utils/notificationSound";
 
 const TOOL_STATUS_MIN_MS = 1500; // Keep tool call status visible so user notices the AI invoked a function
 
@@ -147,6 +148,7 @@ export const AgentTaskListener = () => {
             toolHoldRef.current = null;
             pendingStatusRef.current = null;
           }
+          playNotificationSound("error");
           setAgentTaskStatus(null);
           clearAgentTaskEvents();
           break;
@@ -166,20 +168,32 @@ export const AgentTaskListener = () => {
         return;
       }
 
-      if (
-        data.status === "error" &&
-        data.error === "organization_billing_blocked"
-      ) {
+      if (data.status === "cancelled") {
         if (toolHoldRef.current) {
           clearTimeout(toolHoldRef.current);
           toolHoldRef.current = null;
           pendingStatusRef.current = null;
         }
-        showOrganizationBillingBlockedToast(
-          typeof data.billing_reason === "string"
-            ? data.billing_reason
-            : undefined
-        );
+        setAgentTaskStatus(null);
+        clearAgentTaskEvents();
+        void setConversation(conversation.id);
+        return;
+      }
+
+      if (data.status === "error") {
+        if (toolHoldRef.current) {
+          clearTimeout(toolHoldRef.current);
+          toolHoldRef.current = null;
+          pendingStatusRef.current = null;
+        }
+        playNotificationSound("error");
+        if (data.error === "organization_billing_blocked") {
+          showOrganizationBillingBlockedToast(
+            typeof data.billing_reason === "string"
+              ? data.billing_reason
+              : undefined
+          );
+        }
         setAgentTaskStatus(null);
         clearAgentTaskEvents();
         void setConversation(conversation.id);
@@ -191,6 +205,7 @@ export const AgentTaskListener = () => {
         toolHoldRef.current = null;
         pendingStatusRef.current = null;
       }
+      playNotificationSound("success");
       setAgentTaskStatus(null);
       // Live timeline is no longer needed: the saved message exposes the
       // persisted event_log through the execution log modal.

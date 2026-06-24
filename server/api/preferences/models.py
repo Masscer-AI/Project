@@ -1,6 +1,8 @@
 from django.db import models
 from django.contrib.auth.models import User
 
+from .notification_settings import default_notification_settings_dict
+
 
 class UserPreferences(models.Model):
     THEME_CHOICES = [
@@ -25,6 +27,7 @@ class UserPreferences(models.Model):
     multiagentic_modality = models.CharField(
         max_length=50, default="isolated", choices=MULTIAGENTIC_CHOICES
     )
+    notification_settings = models.JSONField(default=default_notification_settings_dict)
 
     def __str__(self):
         return f"UserPreferences for {self.user.username}: max_memory_messages={self.max_memory_messages}, autoscroll={self.autoscroll}, autoplay={self.autoplay}"

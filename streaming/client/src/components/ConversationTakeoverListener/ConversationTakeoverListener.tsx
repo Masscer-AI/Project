@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import { useStore } from "../../modules/store";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
+import { playNotificationSound } from "../../utils/notificationSound";
 
 type TakeoverSocketPayload = {
   conversation_id?: string;
@@ -44,6 +45,7 @@ export const ConversationTakeoverListener = () => {
         return;
       }
       toast(t("human-takeover-inbound-toast"), { icon: "💬" });
+      playNotificationSound("success");
       void setConversation(conversation.id);
     };
 

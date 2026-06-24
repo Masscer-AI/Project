@@ -5,6 +5,7 @@ import i18n from "../i18next";
 import { Toaster } from "react-hot-toast";
 import { Themer } from "../components/Themer/Themer";
 import { PermissionsCacheListener } from "../components/PermissionsCacheListener/PermissionsCacheListener";
+import { InAppNotificationListener } from "../components/InAppNotificationListener/InAppNotificationListener";
 import { OrganizationSubscriptionBanner } from "../components/OrganizationSubscriptionBanner/OrganizationSubscriptionBanner";
 import { AssignmentsPanel } from "../components/AssignmentsPanel/AssignmentsPanel";
 import { useStore } from "../modules/store";
@@ -35,6 +36,7 @@ const Layout: React.FC = () => {
       <Toaster />
       <Themer />
       <PermissionsCacheListener />
+      <InAppNotificationListener />
       <OrganizationSubscriptionBanner />
       <Outlet />
       <AssignmentsPanel floating />

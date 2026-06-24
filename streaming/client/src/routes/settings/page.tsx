@@ -4,6 +4,15 @@ import { useStore } from "../../modules/store";
 import { Sidebar } from "../../components/Sidebar/Sidebar";
 import { getUser, updateUser } from "../../modules/apiCalls";
 import { debounce } from "../../modules/utils";
+import {
+  DEFAULT_NOTIFICATION_SETTINGS,
+  previewNotificationSound,
+  type TNotificationSettings,
+} from "../../utils/notificationSound";
+import {
+  NOTIFICATION_TONE_CATALOG,
+  type NotificationToneRef,
+} from "../../utils/notificationTones";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import i18n from "../../i18next";
@@ -24,6 +33,7 @@ import {
   SegmentedControl,
   Slider,
   Stack,
+  Switch,
   Text,
   Textarea,
   TextInput,
@@ -38,6 +48,8 @@ import {
   IconSun,
   IconUpload,
   IconPlugConnected,
+  IconVolume,
+  IconPlayerPlay,
 } from "@tabler/icons-react";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
 
@@ -92,6 +104,8 @@ export default function SettingsPage() {
             <IntegrationsLinkSection />
             <Divider />
             <PreferencesSection />
+            <Divider />
+            <NotificationSoundsSection />
             <Divider />
             <ProfileSection />
           </Stack>
@@ -400,6 +414,124 @@ const PreferencesSection = () => {
           />
           <MermaidPreview />
         </div>
+      </Stack>
+    </Card>
+  );
+};
+
+// ─── Notification sounds ──────────────────────────────────────────────────────
+
+const NotificationSoundsSection = () => {
+  const { t } = useTranslation();
+  const { userPreferences, setPreferences } = useStore((s) => ({
+    userPreferences: s.userPreferences,
+    setPreferences: s.setPreferences,
+  }));
+
+  const settings: TNotificationSettings = {
+    ...DEFAULT_NOTIFICATION_SETTINGS,
+    ...(userPreferences.notification_settings ?? {}),
+  };
+
+  const updateNotificationSettings = (
+    patch: Partial<TNotificationSettings>
+  ) => {
+    setPreferences({
+      notification_settings: {
+        ...settings,
+        ...patch,
+      },
+    });
+  };
+
+  const toneOptions = NOTIFICATION_TONE_CATALOG.map((tone) => ({
+    value: tone.ref,
+    label: t(tone.labelKey),
+  }));
+
+  const preview = (kind: "success" | "error") => {
+    previewNotificationSound(kind, settings);
+  };
+
+  return (
+    <Card withBorder p="lg">
+      <Group gap="xs" mb="md">
+        <IconVolume size={20} />
+        <Title order={4}>{t("notification-sounds")}</Title>
+      </Group>
+
+      <Stack gap="md">
+        <Switch
+          label={t("notification-sounds-enabled")}
+          description={t("notification-sounds-enabled-description")}
+          checked={settings.activated}
+          onChange={(e) =>
+            updateNotificationSettings({ activated: e.currentTarget.checked })
+          }
+        />
+
+        <div>
+          <Text size="sm" fw={500} mb={4}>
+            {t("notification-sounds-volume")}
+          </Text>
+          <Slider
+            value={settings.volume}
+            min={0}
+            max={1}
+            step={0.01}
+            disabled={!settings.activated}
+            onChangeEnd={(volume) => updateNotificationSettings({ volume })}
+            label={(v) => `${Math.round(v * 100)}%`}
+          />
+        </div>
+
+        <NativeSelect
+          label={t("notification-sounds-success-tone")}
+          description={t("notification-sounds-tone-description")}
+          value={settings.success_tone_ref}
+          disabled={!settings.activated}
+          onChange={(e) =>
+            updateNotificationSettings({
+              success_tone_ref: e.currentTarget.value as NotificationToneRef,
+            })
+          }
+          data={toneOptions}
+        />
+
+        <NativeSelect
+          label={t("notification-sounds-failure-tone")}
+          description={t("notification-sounds-tone-description")}
+          value={settings.failure_tone_ref}
+          disabled={!settings.activated}
+          onChange={(e) =>
+            updateNotificationSettings({
+              failure_tone_ref: e.currentTarget.value as NotificationToneRef,
+            })
+          }
+          data={toneOptions}
+        />
+
+        <Group gap="sm">
+          <Button
+            variant="light"
+            size="xs"
+            leftSection={<IconPlayerPlay size={14} />}
+            disabled={!settings.activated || settings.volume <= 0}
+            onClick={() => preview("success")}
+          >
+            {t("notification-sounds-preview-success")}
+          </Button>
+          <Button
+            variant="light"
+            size="xs"
+            color="red"
+            leftSection={<IconPlayerPlay size={14} />}
+            disabled={!settings.activated || settings.volume <= 0}
+            onClick={() => preview("error")}
+          >
+            {t("notification-sounds-preview-failure")}
+          </Button>
+        </Group>
       </Stack>
     </Card>
   );

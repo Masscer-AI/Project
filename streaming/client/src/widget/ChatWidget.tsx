@@ -15,6 +15,7 @@ import {
   getWidgetSocketRoute,
 } from "../modules/apiCalls";
 import { showOrganizationBillingBlockedToast } from "../utils/organizationBillingToast";
+import { playNotificationSound } from "../utils/notificationSound";
 import { SocketManager } from "../modules/socketManager";
 import "./ChatWidget.css";
 import "./WidgetMessage.css";
@@ -320,6 +321,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
             toolHoldRef.current = null;
             pendingStatusRef.current = null;
           }
+          playNotificationSound("error");
           useWidgetStore.getState().setAgentTaskStatus(null);
           break;
         default:
@@ -344,29 +346,40 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
       const conv = useWidgetStore.getState().conversation;
       if (!data || !conv?.id || data.conversation_id !== conv.id) return;
 
-      if (
-        data.status === "error" &&
-        data.error === "organization_billing_blocked"
-      ) {
+      if (data.status === "cancelled") {
         if (toolHoldRef.current) {
           clearTimeout(toolHoldRef.current);
           toolHoldRef.current = null;
           pendingStatusRef.current = null;
         }
         useWidgetStore.getState().setAgentTaskStatus(null);
-        showOrganizationBillingBlockedToast(
-          typeof data.billing_reason === "string"
-            ? data.billing_reason
-            : undefined
-        );
-        const msgs = useWidgetStore.getState().messages;
-        if (msgs.length >= 2) {
-          const last = msgs[msgs.length - 1];
-          const before = msgs[msgs.length - 2];
-          if (last?.type === "assistant" && !last.id && before?.type === "user") {
-            useWidgetStore.getState().setMessages(msgs.slice(0, -2));
+        scrollToBottom();
+        return;
+      }
+
+      if (data.status === "error") {
+        if (toolHoldRef.current) {
+          clearTimeout(toolHoldRef.current);
+          toolHoldRef.current = null;
+          pendingStatusRef.current = null;
+        }
+        playNotificationSound("error");
+        if (data.error === "organization_billing_blocked") {
+          showOrganizationBillingBlockedToast(
+            typeof data.billing_reason === "string"
+              ? data.billing_reason
+              : undefined
+          );
+          const msgs = useWidgetStore.getState().messages;
+          if (msgs.length >= 2) {
+            const last = msgs[msgs.length - 1];
+            const before = msgs[msgs.length - 2];
+            if (last?.type === "assistant" && !last.id && before?.type === "user") {
+              useWidgetStore.getState().setMessages(msgs.slice(0, -2));
+            }
           }
         }
+        useWidgetStore.getState().setAgentTaskStatus(null);
         scrollToBottom();
         return;
       }
@@ -412,6 +425,8 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
             agent_name: data.next_agent_slug,
           }],
         });
+      } else {
+        playNotificationSound("success");
       }
     };
 

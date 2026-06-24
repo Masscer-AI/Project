@@ -9,6 +9,8 @@ type SetOpenedProps = {
 
 type TTheme = "light" | "dark" | "system";
 
+import type { TNotificationSettings } from "../utils/notificationSound";
+
 export type TUserPreferences = {
   theme: TTheme;
   max_memory_messages: number;
@@ -16,6 +18,7 @@ export type TUserPreferences = {
   background_image_source: string;
   multiagentic_modality: "isolated" | "grupal";
   background_image_opacity: number;
+  notification_settings: TNotificationSettings;
 };
 
 export type TMermaidTheme = "dark" | "forest" | "neutral" | "base" | "light";

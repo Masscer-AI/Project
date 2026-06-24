@@ -28,6 +28,7 @@ import type { TConversation } from "../../types";
 import { agentsInChatSelectionOrder } from "../../modules/agentSelection";
 import { useAgentSelectionPrompt } from "../../hooks/useAgentSelectionPrompt";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
+import { playNotificationSound } from "../../utils/notificationSound";
 
 export default function ChatView() {
   const loaderData = useLoaderData() as TChatLoader;
@@ -325,6 +326,7 @@ export default function ChatView() {
 
     let selectedAgents = agentsInChatSelectionOrder(agents, chatState.selectedAgents);
     if (selectedAgents.length === 0) {
+      playNotificationSound("error");
       toast.error(t("select-at-least-one-agent-to-chat"));
       return false;
     }
@@ -520,6 +522,7 @@ export default function ChatView() {
 
       let selectedAgents = agentsInChatSelectionOrder(agents, chatState.selectedAgents);
       if (selectedAgents.length === 0) {
+        playNotificationSound("error");
         toast.error(t("select-at-least-one-agent-to-chat"));
         return;
       }

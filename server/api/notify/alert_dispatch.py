@@ -84,6 +84,24 @@ def _map_delivery(method: str) -> str:
     return method if method in allowed else UserNotification.DELIVERY_APP
 
 
+def _delivery_includes_app(delivery_method: str) -> bool:
+    return delivery_method in (
+        UserNotification.DELIVERY_APP,
+        UserNotification.DELIVERY_ALL,
+    )
+
+
+def emit_in_app_notification_created(notification: UserNotification) -> None:
+    """Push a new inbox notification to the target user over Socket.IO."""
+    if not _delivery_includes_app(notification.delivery_method):
+        return
+    from api.notify.actions import notify_user
+    from api.notify.serializers import UserNotificationSerializer
+
+    payload = UserNotificationSerializer(notification).data
+    notify_user(notification.target_user_id, "in_app_notification_created", payload)
+
+
 def _delivery_includes_email(delivery_method: str) -> bool:
     return delivery_method in (
         UserNotification.DELIVERY_EMAIL,
@@ -253,6 +271,8 @@ def maybe_dispatch_user_notifications(alert: ConversationAlert) -> None:
                         organization_name=org_name,
                         alerts_dashboard_url=dashboard_url,
                     )
+                if created:
+                    emit_in_app_notification_created(obj)
             except Exception:
                 logger.exception(
                     "Failed to create UserNotification alert=%s rule=%s user=%s",

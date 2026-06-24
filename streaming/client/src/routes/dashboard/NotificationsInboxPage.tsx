@@ -15,10 +15,10 @@ import {
   Title,
 } from "@mantine/core";
 import { IconCheck } from "@tabler/icons-react";
-
-function notifyInboxUpdated() {
-  window.dispatchEvent(new CustomEvent("masscer:notifications-updated"));
-}
+import {
+  NOTIFICATIONS_INBOX_UPDATED_EVENT,
+  notifyInboxUpdated,
+} from "../../utils/notificationInboxEvents";
 
 export default function NotificationsInboxPage() {
   const { startup } = useStore((state) => ({ startup: state.startup }));
@@ -42,6 +42,16 @@ export default function NotificationsInboxPage() {
     startup();
     load();
   }, [startup, load]);
+
+  useEffect(() => {
+    const onInboxUpdated = () => {
+      void load();
+    };
+    window.addEventListener(NOTIFICATIONS_INBOX_UPDATED_EVENT, onInboxUpdated);
+    return () => {
+      window.removeEventListener(NOTIFICATIONS_INBOX_UPDATED_EVENT, onInboxUpdated);
+    };
+  }, [load]);
 
   const handleMarkRead = async (id: string) => {
     try {

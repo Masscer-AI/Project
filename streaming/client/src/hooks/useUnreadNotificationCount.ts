@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useStore } from "../modules/store";
 import { getMyNotifications } from "../modules/apiCalls";
+import { NOTIFICATIONS_INBOX_UPDATED_EVENT } from "../utils/notificationInboxEvents";
 
 export function formatUnreadNotificationBadge(count: number): string {
   return count > 99 ? "99+" : String(count);
@@ -8,7 +9,7 @@ export function formatUnreadNotificationBadge(count: number): string {
 
 /**
  * Unread in-app notifications (same source as Sidebar dashboard badge).
- * Listens for `masscer:notifications-updated` and visibility / poll.
+ * Listens for inbox push (`masscer:notifications-updated`) and visibility / poll.
  */
 export function useUnreadNotificationCount(): number {
   const user = useStore((s) => s.user);
@@ -36,12 +37,12 @@ export function useUnreadNotificationCount(): number {
     };
     const onInboxUpdated = () => refreshUnread();
     document.addEventListener("visibilitychange", onVisibility);
-    window.addEventListener("masscer:notifications-updated", onInboxUpdated);
+    window.addEventListener(NOTIFICATIONS_INBOX_UPDATED_EVENT, onInboxUpdated);
     return () => {
       cancelled = true;
       window.clearInterval(intervalId);
       document.removeEventListener("visibilitychange", onVisibility);
-      window.removeEventListener("masscer:notifications-updated", onInboxUpdated);
+      window.removeEventListener(NOTIFICATIONS_INBOX_UPDATED_EVENT, onInboxUpdated);
     };
   }, [user]);
 
