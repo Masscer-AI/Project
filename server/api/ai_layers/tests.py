@@ -274,6 +274,38 @@ class ToolAttachmentExtractionTests(SimpleTestCase):
             attachment_ids, ["a1b2c3d4-e5f6-7890-abcd-ef1234567890"]
         )
 
+    def test_extract_generate_excel_file_attachments(self):
+        from api.ai_layers.tasks import _extract_generate_excel_file_attachments
+
+        tool_calls = [
+            {
+                "tool_name": "generate_excel_file",
+                "result": (
+                    '{"attachment_id":"b2c3d4e5-f6a7-8901-bcde-f12345678901",'
+                    '"name":"budget.xlsx","content":"https://example.com/budget.xlsx"}'
+                ),
+            }
+        ]
+
+        attachments, attachment_ids = _extract_generate_excel_file_attachments(
+            tool_calls
+        )
+
+        self.assertEqual(
+            attachments,
+            [
+                {
+                    "type": "document",
+                    "content": "https://example.com/budget.xlsx",
+                    "name": "budget.xlsx",
+                    "attachment_id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+                }
+            ],
+        )
+        self.assertEqual(
+            attachment_ids, ["b2c3d4e5-f6a7-8901-bcde-f12345678901"]
+        )
+
 
 class GenerateDocumentFileToolTests(SimpleTestCase):
     @patch("api.ai_layers.models.Agent")
@@ -308,6 +340,45 @@ class GenerateDocumentFileToolTests(SimpleTestCase):
         self.assertIn("report.docx", result.content)
         mock_convert.assert_called_once_with("# Title\n\nBody", "md")
         mock_attachment_cls.objects.create.assert_called_once()
+
+
+class GenerateExcelFileToolTests(SimpleTestCase):
+    @patch("api.ai_layers.models.Agent")
+    @patch("api.messaging.models.MessageAttachment")
+    @patch("api.utils.spreadsheet_tools.build_xlsx_bytes_from_sheets")
+    @patch("api.messaging.models.Conversation")
+    def test_impl_creates_attachment(
+        self, mock_conversation_cls, mock_build, mock_attachment_cls, mock_agent
+    ):
+        from api.ai_layers.tools.generate_excel_file import _generate_excel_file_impl
+
+        mock_conversation_cls.objects.select_related.return_value.get.return_value = (
+            Mock(id="conv-1")
+        )
+        mock_build.return_value = b"PK\x03\x04fake-xlsx"
+        att = Mock()
+        att.id = "att-uuid"
+        att.file.url = "/media/message_attachments/2026/05/budget.xlsx"
+        mock_attachment_cls.objects.create.return_value = att
+
+        result = _generate_excel_file_impl(
+            sheets_json='[{"name":"Sales","headers":["Month"],"rows":[["Jan"]]}]',
+            output_filename="budget.xlsx",
+            conversation_id="conv-1",
+            user_id=None,
+            agent_slug="test-agent",
+        )
+
+        self.assertEqual(result.attachment_id, "att-uuid")
+        self.assertEqual(result.name, "budget.xlsx")
+        self.assertIn("budget.xlsx", result.content)
+        mock_build.assert_called_once()
+        mock_attachment_cls.objects.create.assert_called_once()
+
+    def test_generate_excel_file_is_registered(self):
+        from api.ai_layers.tools import list_available_tools
+
+        self.assertIn("generate_excel_file", list_available_tools())
 
 
 class AgentTaskConversationMetadataTests(TestCase):

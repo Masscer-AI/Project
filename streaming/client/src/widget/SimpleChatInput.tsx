@@ -83,6 +83,7 @@ export const SimpleChatInput: React.FC<SimpleChatInputProps> = ({
               className="simple-chat-file-input"
               aria-hidden
               tabIndex={-1}
+              accept=".png,.jpeg,.jpg,.gif,.webp,.pdf,.txt,.html,.doc,.docx,.xlsx"
               onChange={onPickFiles}
             />
             <button

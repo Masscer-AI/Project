@@ -33,6 +33,11 @@ def read_file_content(file):
         doc = DocxDocument(BytesIO(file.read()))
         text = "\n".join([para.text for para in doc.paragraphs])
         return text, file_name
+    elif file_extension == "xlsx":
+        from api.utils.spreadsheet_tools import extract_xlsx_text_from_bytes
+
+        text = extract_xlsx_text_from_bytes(file.read())
+        return text, file_name
     else:
         file_encoding = detect_file_encoding(file)
         return file.read().decode(file_encoding), file_name

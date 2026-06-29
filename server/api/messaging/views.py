@@ -971,6 +971,8 @@ def _create_attachments_from_data_urls(request, conversation, user, attachments_
                 ext = "pdf"
             elif "wordprocessingml" in header or "docx" in header:
                 ext = "docx"
+            elif "spreadsheetml" in header or "xlsx" in header:
+                ext = "xlsx"
             elif "msword" in header or "doc" in header:
                 ext = "doc"
             elif "text/plain" in header or "plain" in header:
@@ -994,6 +996,8 @@ def _create_attachments_from_data_urls(request, conversation, user, attachments_
             content_type = "application/pdf"
         elif ext == "docx":
             content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        elif ext == "xlsx":
+            content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         elif ext == "doc":
             content_type = "application/msword"
         elif ext == "txt":

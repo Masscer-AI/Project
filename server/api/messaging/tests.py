@@ -627,3 +627,48 @@ class ChatWidgetAvatarUploadTests(TestCase):
             **self.auth,
         )
         self.assertEqual(response.status_code, 400)
+
+
+class MessageAttachmentXlsxUploadTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="u-xlsx", password="x")
+        self.conversation = Conversation.objects.create(user=self.user)
+
+    def test_create_attachments_from_data_urls_maps_xlsx_mime(self):
+        from api.messaging.views import _create_attachments_from_data_urls
+        from api.utils.spreadsheet_tools import build_xlsx_bytes_from_sheets
+
+        raw = build_xlsx_bytes_from_sheets(
+            [
+                {
+                    "name": "Sheet1",
+                    "headers": ["A"],
+                    "rows": [["1"]],
+                }
+            ]
+        )
+        b64 = base64.b64encode(raw).decode("ascii")
+        data_url = (
+            "data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,"
+            + b64
+        )
+        request = Mock()
+        request.build_absolute_uri = lambda url: f"https://example.com{url}"
+
+        result, err = _create_attachments_from_data_urls(
+            request,
+            self.conversation,
+            self.user,
+            [{"content": data_url, "name": "sheet.xlsx"}],
+        )
+
+        self.assertIsNone(err)
+        self.assertEqual(len(result), 1)
+        from api.messaging.models import MessageAttachment
+
+        att = MessageAttachment.objects.get(id=result[0]["id"])
+        self.assertEqual(
+            att.content_type,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        self.assertTrue(att.file.name.endswith(".xlsx"))

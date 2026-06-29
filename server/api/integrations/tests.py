@@ -185,3 +185,27 @@ class IntegrationsViewsTests(TestCase):
                 provider=IntegrationProvider.GOOGLE_DRIVE,
             ).exists()
         )
+
+
+class DriveXlsxImportTests(SimpleTestCase):
+    def test_extract_text_from_drive_xlsx_bytes(self):
+        from api.integrations.drive_import import _extract_text_from_drive_bytes
+        from api.utils.spreadsheet_tools import build_xlsx_bytes_from_sheets
+
+        raw = build_xlsx_bytes_from_sheets(
+            [
+                {
+                    "name": "Inventory",
+                    "headers": ["SKU", "Qty"],
+                    "rows": [["A-1", 5]],
+                }
+            ]
+        )
+        text, file_name = _extract_text_from_drive_bytes(
+            raw,
+            "inventory.xlsx",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        self.assertEqual(file_name, "inventory.xlsx")
+        self.assertIn("SKU | Qty", text)
+        self.assertIn("A-1 | 5", text)

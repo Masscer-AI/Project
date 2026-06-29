@@ -76,6 +76,7 @@ const allowedDocumentTypes = [
   "text/html",
   "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 ];
 
 const allowedImageTypes = [
@@ -501,7 +502,7 @@ const PlusMenu = ({ existingFilesOnly = false }: { existingFilesOnly?: boolean }
         multiple
         onChange={addDocument}
         style={{ display: "none" }}
-        accept=".png,.jpeg,.jpg,.gif,.webp,.pdf,.txt,.html,.doc,.docx"
+        accept=".png,.jpeg,.jpg,.gif,.webp,.pdf,.txt,.html,.doc,.docx,.xlsx"
       />
 
       {hasAnyPlusOption && (
@@ -824,7 +825,7 @@ export const FileLoader = () => {
         onChange={addDocument}
         style={{ display: "none" }}
         id="fileInput"
-        accept=".png,.jpeg,.jpg,.gif,.webp,.pdf,.txt,.html,.doc,.docx"
+        accept=".png,.jpeg,.jpg,.gif,.webp,.pdf,.txt,.html,.doc,.docx,.xlsx"
       />
       <label htmlFor="fileInput">
         <Button

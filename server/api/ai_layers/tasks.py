@@ -536,6 +536,55 @@ def _extract_generate_video_attachments(tool_calls: list[dict]) -> tuple[list[di
     return attachments, attachment_ids
 
 
+def _extract_generated_document_attachments(
+    tool_calls: list[dict],
+    *,
+    tool_names: tuple[str, ...],
+    default_name: str = "document",
+) -> tuple[list[dict], list[str]]:
+    """
+    Extract document attachment descriptors from document-generation tool calls.
+
+    Supported tools return JSON like:
+      { attachment_id, name, content, content_type, ... }
+    """
+    if not tool_calls:
+        return [], []
+
+    attachments: list[dict] = []
+    attachment_ids: list[str] = []
+
+    for call in tool_calls:
+        try:
+            tool_name = (call or {}).get("tool_name")
+            if tool_name not in tool_names:
+                continue
+            raw = (call or {}).get("result") or ""
+            if not isinstance(raw, str) or not raw.strip():
+                continue
+            data = json.loads(raw)
+            if not isinstance(data, dict):
+                continue
+            aid = data.get("attachment_id")
+            content = data.get("content") or ""
+            name = data.get("name") or default_name
+            if not aid or not content:
+                continue
+            attachments.append(
+                {
+                    "type": "document",
+                    "content": content,
+                    "name": name,
+                    "attachment_id": str(aid),
+                }
+            )
+            attachment_ids.append(str(aid))
+        except Exception:
+            continue
+
+    return attachments, attachment_ids
+
+
 def _extract_render_document_template_attachments(
     tool_calls: list[dict],
 ) -> tuple[list[dict], list[str]]:
@@ -584,46 +633,21 @@ def _extract_render_document_template_attachments(
 def _extract_generate_document_file_attachments(
     tool_calls: list[dict],
 ) -> tuple[list[dict], list[str]]:
-    """
-    Extract document attachment descriptors from generate_document_file tool calls.
+    return _extract_generated_document_attachments(
+        tool_calls,
+        tool_names=("generate_document_file",),
+        default_name="document.docx",
+    )
 
-    generate_document_file returns JSON like:
-      { attachment_id, name, content, content_type, ... }
-    """
-    if not tool_calls:
-        return [], []
 
-    attachments: list[dict] = []
-    attachment_ids: list[str] = []
-
-    for call in tool_calls:
-        try:
-            if (call or {}).get("tool_name") != "generate_document_file":
-                continue
-            raw = (call or {}).get("result") or ""
-            if not isinstance(raw, str) or not raw.strip():
-                continue
-            data = json.loads(raw)
-            if not isinstance(data, dict):
-                continue
-            aid = data.get("attachment_id")
-            content = data.get("content") or ""
-            name = data.get("name") or "document.docx"
-            if not aid or not content:
-                continue
-            attachments.append(
-                {
-                    "type": "document",
-                    "content": content,
-                    "name": name,
-                    "attachment_id": str(aid),
-                }
-            )
-            attachment_ids.append(str(aid))
-        except Exception:
-            continue
-
-    return attachments, attachment_ids
+def _extract_generate_excel_file_attachments(
+    tool_calls: list[dict],
+) -> tuple[list[dict], list[str]]:
+    return _extract_generated_document_attachments(
+        tool_calls,
+        tool_names=("generate_excel_file",),
+        default_name="spreadsheet.xlsx",
+    )
 
 
 def _message_attachment_to_display_dict(att) -> dict | None:
@@ -1249,6 +1273,17 @@ def conversation_agent_task(
                 "Output is always DOCX. "
                 "After success, include: [Download document](attachment:<attachment_id>)."
             )
+            instructions += (
+                "\n\nExcel file generation is enabled (generate_excel_file). "
+                "When the user wants a downloadable spreadsheet (tables, budgets, "
+                "lists, exports, etc.), call generate_excel_file(sheets_json, output_filename). "
+                "- sheets_json: JSON array of sheet objects with name, optional headers, and rows. "
+                "Example: "
+                '[{"name":"Sales","headers":["Month","Revenue"],"rows":[["Jan",1000],["Feb",1200]]}]. '
+                "- output_filename: optional .xlsx filename (default spreadsheet.xlsx). "
+                "Output is always XLSX. "
+                "After success, include: [Download spreadsheet](attachment:<attachment_id>)."
+            )
             if "create_speech" in (tool_names or []):
                 instructions += (
                     "\n\nSpeech generation is enabled (model: gpt-4o-mini-tts). "
@@ -1531,6 +1566,8 @@ def conversation_agent_task(
 
             if "generate_document_file" not in agent_tool_names:
                 agent_tool_names.append("generate_document_file")
+            if "generate_excel_file" not in agent_tool_names:
+                agent_tool_names.append("generate_excel_file")
 
             from api.finetuning.context_injection import (
                 format_completions_context_block,
@@ -1716,6 +1753,14 @@ def conversation_agent_task(
                 assistant_message_attachments.extend(gen_doc_atts)
             if gen_doc_ids:
                 assistant_attachment_ids.extend(gen_doc_ids)
+
+            gen_xlsx_atts, gen_xlsx_ids = _extract_generate_excel_file_attachments(
+                result.tool_calls or []
+            )
+            if gen_xlsx_atts:
+                assistant_message_attachments.extend(gen_xlsx_atts)
+            if gen_xlsx_ids:
+                assistant_attachment_ids.extend(gen_xlsx_ids)
 
             if isinstance(result.output, str):
                 output_value = OutputValue(type="string", value=result.output)
