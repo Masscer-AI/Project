@@ -67,3 +67,24 @@ class SpreadsheetToolsTests(SimpleTestCase):
         text, file_name = read_file_content(buffer)
         self.assertEqual(file_name, "report.xlsx")
         self.assertIn("Month | Revenue", text)
+
+    def test_read_file_content_xlsx_without_extension_uses_mime(self):
+        from api.rag.actions import read_file_content
+
+        raw = self._sample_workbook_bytes()
+        buffer = BytesIO(raw)
+        buffer.name = "upload"
+        buffer.content_type = (
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        text, _ = read_file_content(buffer)
+        self.assertIn("Month | Revenue", text)
+
+    def test_read_file_content_xlsx_without_extension_uses_magic_bytes(self):
+        from api.rag.actions import read_file_content
+
+        raw = self._sample_workbook_bytes()
+        buffer = BytesIO(raw)
+        buffer.name = "upload.bin"
+        text, _ = read_file_content(buffer)
+        self.assertIn("Month | Revenue", text)

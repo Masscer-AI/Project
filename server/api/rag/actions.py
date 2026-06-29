@@ -18,8 +18,103 @@ def detect_file_encoding(file):
     return result["encoding"]
 
 
-def read_file_content(file):
-    file_extension = file.name.split(".")[-1].lower()
+def _read_file_head(file, n: int = 8) -> bytes:
+    pos = file.tell()
+    head = file.read(n)
+    file.seek(pos)
+    return head
+
+
+def infer_upload_format(file, *, content_type: str | None = None) -> str:
+    """
+    Resolve the upload format from filename, MIME type, and magic bytes.
+
+    Production uploads sometimes arrive without a useful extension; MIME and
+    file signatures are used as fallbacks.
+    """
+    name = getattr(file, "name", "") or ""
+    extension = name.rsplit(".", 1)[-1].lower() if "." in name else ""
+    ctype = (
+        (content_type or getattr(file, "content_type", "") or "")
+        .lower()
+        .split(";")[0]
+        .strip()
+    )
+
+    if extension in ("pdf", "docx", "xlsx", "xlsm", "xls", "txt", "html", "csv"):
+        return extension
+
+    if ctype in ("application/pdf",) or ctype.endswith("/pdf"):
+        return "pdf"
+    if "wordprocessingml" in ctype:
+        return "docx"
+    if "spreadsheetml" in ctype or ctype in (
+        "application/vnd.ms-excel",
+        "application/msexcel",
+    ):
+        return "xlsx"
+    if ctype.startswith("text/"):
+        return "html" if "html" in ctype else "txt"
+
+    head = _read_file_head(file, 5)
+    if head.startswith(b"%PDF"):
+        return "pdf"
+    if head.startswith(b"PK\x03\x04"):
+        lower_name = name.lower()
+        if any(token in lower_name for token in ("xls", "sheet", "excel")):
+            return "xlsx"
+        if "doc" in lower_name:
+            return "docx"
+        if "spreadsheet" in ctype or "excel" in ctype:
+            return "xlsx"
+        if "wordprocessing" in ctype or "msword" in ctype:
+            return "docx"
+        return "office_zip"
+
+    return extension or "txt"
+
+
+def _read_xlsx_content(raw: bytes, file_name: str) -> tuple[str, str]:
+    try:
+        from api.utils.spreadsheet_tools import extract_xlsx_text_from_bytes
+    except ModuleNotFoundError as exc:
+        raise ValueError(
+            "Excel support is not installed on this server (missing openpyxl). "
+            "Rebuild and redeploy the Django image."
+        ) from exc
+
+    try:
+        text = extract_xlsx_text_from_bytes(raw)
+    except Exception as exc:
+        raise ValueError(f"Could not read Excel file: {exc}") from exc
+    return text, file_name
+
+
+def _read_office_zip_content(raw: bytes, file_name: str) -> tuple[str, str]:
+    try:
+        from api.utils.spreadsheet_tools import extract_xlsx_text_from_bytes
+    except ModuleNotFoundError as exc:
+        raise ValueError(
+            "Excel support is not installed on this server (missing openpyxl). "
+            "Rebuild and redeploy the Django image."
+        ) from exc
+
+    try:
+        return extract_xlsx_text_from_bytes(raw), file_name
+    except ValueError:
+        raise
+    except Exception:
+        doc = DocxDocument(BytesIO(raw))
+        text = "\n".join([para.text for para in doc.paragraphs])
+        if not text.strip():
+            raise ValueError(
+                "Could not read Office file. Rename it to .xlsx or .docx and try again."
+            )
+        return text, file_name
+
+
+def read_file_content(file, content_type: str | None = None):
+    file_extension = infer_upload_format(file, content_type=content_type)
     file_name = file.name
 
     if file_extension == "pdf":
@@ -38,22 +133,37 @@ def read_file_content(file):
         text = "\n".join([para.text for para in doc.paragraphs])
         return text, file_name
     elif file_extension in ("xlsx", "xlsm"):
-        from api.utils.spreadsheet_tools import extract_xlsx_text_from_bytes
-
+        raw = file.read()
+        file.seek(0)
+        return _read_xlsx_content(raw, file_name)
+    elif file_extension == "office_zip":
         raw = file.read()
         file.seek(0)
         try:
-            text = extract_xlsx_text_from_bytes(raw)
+            return _read_office_zip_content(raw, file_name)
         except Exception as exc:
-            raise ValueError(f"Could not read Excel file: {exc}") from exc
-        return text, file_name
+            raise ValueError(
+                "Could not read Office file. Rename it to .xlsx or .docx and try again."
+            ) from exc
     elif file_extension == "xls":
         raise ValueError(
             "Legacy .xls files are not supported. Save the file as .xlsx and try again."
         )
     else:
+        head = _read_file_head(file, 4)
+        if head.startswith(b"PK\x03\x04"):
+            raw = file.read()
+            file.seek(0)
+            return _read_office_zip_content(raw, file_name)
+
         file_encoding = detect_file_encoding(file)
-        text = file.read().decode(file_encoding)
+        try:
+            text = file.read().decode(file_encoding)
+        except UnicodeDecodeError as exc:
+            raise ValueError(
+                "Could not decode file as text. If this is an Excel file, "
+                "ensure it is saved as .xlsx and uploaded with that extension."
+            ) from exc
         file.seek(0)
         return text, file_name
 

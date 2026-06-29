@@ -112,7 +112,10 @@ class DocumentView(View):
             )
 
         try:
-            file_content, file_name = read_file_content(file)
+            file_content, file_name = read_file_content(
+                file,
+                content_type=getattr(file, "content_type", "") or "",
+            )
         except ValueError as exc:
             logger.warning("Document upload rejected for %s: %s", file.name, exc)
             return JsonResponse(
@@ -122,12 +125,23 @@ class DocumentView(View):
                 },
                 status=400,
             )
-        except Exception:
-            logger.exception("Failed to read uploaded document %s", file.name)
+        except Exception as exc:
+            logger.exception(
+                "Failed to read uploaded document %s (content_type=%s)",
+                file.name,
+                getattr(file, "content_type", ""),
+            )
+            from django.conf import settings
+
+            error = (
+                str(exc)
+                if settings.DEBUG
+                else "Failed to read the uploaded file."
+            )
             return JsonResponse(
                 {
                     "message": "Internal server error",
-                    "error": "Failed to read the uploaded file.",
+                    "error": error,
                 },
                 status=500,
             )
