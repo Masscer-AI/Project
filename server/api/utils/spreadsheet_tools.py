@@ -40,20 +40,36 @@ def extract_xlsx_text_from_bytes(raw: bytes) -> str:
       === Sheet: <name> ===
       col1 | col2 | ...
     """
-    workbook = load_workbook(BytesIO(raw), read_only=True, data_only=True)
+    text = _extract_workbook_text(raw, data_only=True)
+    if not text:
+        text = _extract_workbook_text(raw, data_only=False)
+    if not text:
+        raise ValueError(
+            "The Excel file has no readable cell content. "
+            "If it uses formulas only, open it in Excel and save so values are cached."
+        )
+    return text
+
+
+def _extract_workbook_text(raw: bytes, *, data_only: bool) -> str:
+    workbook = load_workbook(
+        BytesIO(raw), read_only=True, data_only=data_only
+    )
     parts: list[str] = []
 
-    for sheet_name in workbook.sheetnames:
-        sheet = workbook[sheet_name]
-        rows: list[str] = []
-        for row in sheet.iter_rows(values_only=True):
-            cells = [_cell_to_text(cell) for cell in row]
-            if any(cells):
-                rows.append(" | ".join(cells))
-        if rows:
-            parts.append(f"=== Sheet: {sheet_name} ===\n" + "\n".join(rows))
+    try:
+        for sheet_name in workbook.sheetnames:
+            sheet = workbook[sheet_name]
+            rows: list[str] = []
+            for row in sheet.iter_rows(values_only=True):
+                cells = [_cell_to_text(cell) for cell in row]
+                if any(cells):
+                    rows.append(" | ".join(cells))
+            if rows:
+                parts.append(f"=== Sheet: {sheet_name} ===\n" + "\n".join(rows))
+    finally:
+        workbook.close()
 
-    workbook.close()
     return "\n\n".join(parts).strip()
 
 

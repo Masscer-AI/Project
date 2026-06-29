@@ -38,6 +38,15 @@ class SpreadsheetToolsTests(SimpleTestCase):
         self.assertIn("=== Sheet: Notes ===", text)
         self.assertIn("Summary | Q1 growth", text)
 
+    def test_extract_xlsx_rejects_empty_workbook(self):
+        from io import BytesIO
+        from openpyxl import Workbook
+
+        buf = BytesIO()
+        Workbook().save(buf)
+        with self.assertRaises(ValueError):
+            extract_xlsx_text_from_bytes(buf.getvalue())
+
     def test_parse_sheets_json(self):
         sheets = parse_sheets_json(
             '[{"name":"A","headers":["H"],"rows":[["1"]]}]'

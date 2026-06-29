@@ -1,9 +1,11 @@
-
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver, Signal
+import logging
 from .models import Document, Chunk, Collection
 from .managers import chroma_client
 from .tasks import async_generate_document_brief
+
+logger = logging.getLogger(__name__)
 
 chunks_created = Signal()
 
@@ -24,6 +26,9 @@ def collection_deleted(sender, instance, **kwargs):
 
 @receiver(chunks_created)
 def chunks_created_handler(sender, **kwargs):
+    if not chroma_client:
+        return
+
     chunks = Chunk.objects.filter(document=sender)
 
     chunks_text = []
@@ -41,9 +46,19 @@ def chunks_created_handler(sender, **kwargs):
             }
         )
 
-    chroma_client.bulk_upsert_chunks(
-        sender.collection.slug,
-        documents=chunks_text,
-        chunk_ids=chunks_ids,
-        metadatas=chunks_metadatas,
-    )
+    if not chunks_ids:
+        return
+
+    try:
+        chroma_client.bulk_upsert_chunks(
+            sender.collection.slug,
+            documents=chunks_text,
+            chunk_ids=chunks_ids,
+            metadatas=chunks_metadatas,
+        )
+    except Exception:
+        logger.exception(
+            "Failed to upsert chunks for document %s into collection %s",
+            getattr(sender, "id", None),
+            getattr(getattr(sender, "collection", None), "slug", None),
+        )

@@ -111,8 +111,36 @@ class DocumentView(View):
                 status=400,
             )
 
-        file_content, file_name = read_file_content(file)
+        try:
+            file_content, file_name = read_file_content(file)
+        except ValueError as exc:
+            logger.warning("Document upload rejected for %s: %s", file.name, exc)
+            return JsonResponse(
+                {
+                    "message": "Bad request",
+                    "error": str(exc),
+                },
+                status=400,
+            )
+        except Exception:
+            logger.exception("Failed to read uploaded document %s", file.name)
+            return JsonResponse(
+                {
+                    "message": "Internal server error",
+                    "error": "Failed to read the uploaded file.",
+                },
+                status=500,
+            )
+
         file_content = file_content.strip()
+        if not file_content:
+            return JsonResponse(
+                {
+                    "message": "Bad request",
+                    "error": "The uploaded file has no extractable text content.",
+                },
+                status=400,
+            )
 
         document_exists = Document.objects.filter(
             text=file_content, collection=collection

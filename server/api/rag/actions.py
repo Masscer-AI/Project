@@ -23,24 +23,39 @@ def read_file_content(file):
     file_name = file.name
 
     if file_extension == "pdf":
-        doc = fitz.open(stream=file.read(), filetype="pdf")
+        raw = file.read()
+        file.seek(0)
+        doc = fitz.open(stream=raw, filetype="pdf")
         text = ""
         for page_num in range(doc.page_count):
             page = doc.load_page(page_num)
             text += page.get_text()
         return text, file_name
     elif file_extension == "docx":
-        doc = DocxDocument(BytesIO(file.read()))
+        raw = file.read()
+        file.seek(0)
+        doc = DocxDocument(BytesIO(raw))
         text = "\n".join([para.text for para in doc.paragraphs])
         return text, file_name
-    elif file_extension == "xlsx":
+    elif file_extension in ("xlsx", "xlsm"):
         from api.utils.spreadsheet_tools import extract_xlsx_text_from_bytes
 
-        text = extract_xlsx_text_from_bytes(file.read())
+        raw = file.read()
+        file.seek(0)
+        try:
+            text = extract_xlsx_text_from_bytes(raw)
+        except Exception as exc:
+            raise ValueError(f"Could not read Excel file: {exc}") from exc
         return text, file_name
+    elif file_extension == "xls":
+        raise ValueError(
+            "Legacy .xls files are not supported. Save the file as .xlsx and try again."
+        )
     else:
         file_encoding = detect_file_encoding(file)
-        return file.read().decode(file_encoding), file_name
+        text = file.read().decode(file_encoding)
+        file.seek(0)
+        return text, file_name
 
 
 class ChunkBriefModel(BaseModel):
