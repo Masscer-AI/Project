@@ -25,14 +25,22 @@ def _read_file_head(file, n: int = 8) -> bytes:
     return head
 
 
-def infer_upload_format(file, *, content_type: str | None = None) -> str:
+def infer_upload_format(
+    file,
+    *,
+    content_type: str | None = None,
+    fallback_name: str | None = None,
+) -> str:
     """
     Resolve the upload format from filename, MIME type, and magic bytes.
 
     Production uploads sometimes arrive without a useful extension; MIME and
-    file signatures are used as fallbacks.
+    file signatures are used as fallbacks. ``fallback_name`` (e.g. form field
+    ``name``) is used when the multipart filename is missing or has no suffix.
     """
     name = getattr(file, "name", "") or ""
+    if fallback_name and ("." not in name or not name.strip()):
+        name = fallback_name
     extension = name.rsplit(".", 1)[-1].lower() if "." in name else ""
     ctype = (
         (content_type or getattr(file, "content_type", "") or "")
@@ -113,9 +121,17 @@ def _read_office_zip_content(raw: bytes, file_name: str) -> tuple[str, str]:
         return text, file_name
 
 
-def read_file_content(file, content_type: str | None = None):
-    file_extension = infer_upload_format(file, content_type=content_type)
-    file_name = file.name
+def read_file_content(
+    file,
+    content_type: str | None = None,
+    fallback_name: str | None = None,
+):
+    file_extension = infer_upload_format(
+        file,
+        content_type=content_type,
+        fallback_name=fallback_name,
+    )
+    file_name = (fallback_name or "").strip() or file.name
 
     if file_extension == "pdf":
         raw = file.read()

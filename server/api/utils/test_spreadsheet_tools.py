@@ -80,6 +80,19 @@ class SpreadsheetToolsTests(SimpleTestCase):
         text, _ = read_file_content(buffer)
         self.assertIn("Month | Revenue", text)
 
+    def test_read_file_content_xlsx_uses_post_name_fallback(self):
+        from api.rag.actions import read_file_content
+
+        raw = self._sample_workbook_bytes()
+        buffer = BytesIO(raw)
+        buffer.name = "upload"
+        text, file_name = read_file_content(
+            buffer,
+            fallback_name="MEDIOS DIGITALES- JUNIO 2026 (1).xlsx",
+        )
+        self.assertIn("Month | Revenue", text)
+        self.assertEqual(file_name, "MEDIOS DIGITALES- JUNIO 2026 (1).xlsx")
+
     def test_read_file_content_xlsx_without_extension_uses_magic_bytes(self):
         from api.rag.actions import read_file_content
 

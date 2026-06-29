@@ -115,6 +115,7 @@ class DocumentView(View):
             file_content, file_name = read_file_content(
                 file,
                 content_type=getattr(file, "content_type", "") or "",
+                fallback_name=(data.get("name") or "").strip() or None,
             )
         except ValueError as exc:
             logger.warning("Document upload rejected for %s: %s", file.name, exc)
