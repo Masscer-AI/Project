@@ -29,11 +29,13 @@ logger = logging.getLogger(__name__)
 AspectRatio = Literal["square", "landscape", "portrait"]
 
 OPENAI_IMAGE_MODELS: set[str] = {"gpt-image-1.5"}
-GOOGLE_IMAGE_MODELS: set[str] = {"gemini-2.5-flash-image"}
+# Temporary: gemini-3.1-flash-lite-image (Nano Banana 2 Lite) replaces gemini-2.5-flash-image.
+GOOGLE_IMAGE_MODELS: set[str] = {"gemini-3.1-flash-lite-image"}
 ALL_IMAGE_MODELS: set[str] = OPENAI_IMAGE_MODELS | GOOGLE_IMAGE_MODELS
 
 GOOGLE_CLOUD_PROJECT = os.environ.get("GOOGLE_CLOUD_PROJECT", "masscer-492023")
-GOOGLE_CLOUD_LOCATION = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
+# gemini-3.1-flash-lite-image is global-endpoint only (unlike Veo, which uses GOOGLE_CLOUD_LOCATION).
+GOOGLE_IMAGE_LOCATION = "global"
 
 _ASPECT_RATIO_TO_GOOGLE = {
     "square": "1:1",
@@ -55,7 +57,7 @@ _ASPECT_RATIO_TO_OPENAI = {
 class CreateImageParams(BaseModel):
     prompt: str = Field(description="Text prompt to generate an image from.")
     model: str = Field(
-        description="Image model slug. Allowed: gpt-image-1.5, gemini-2.5-flash-image."
+        description="Image model slug. Allowed: gpt-image-1.5, gemini-3.1-flash-lite-image."
     )
     aspect_ratio: AspectRatio = Field(
         default="square",
@@ -188,7 +190,7 @@ def _generate_image_google(
         client = genai.Client(
             vertexai=True,
             project=GOOGLE_CLOUD_PROJECT,
-            location=GOOGLE_CLOUD_LOCATION,
+            location=GOOGLE_IMAGE_LOCATION,
         )
 
         parts = []
@@ -402,7 +404,7 @@ def get_tool(
         "description": (
             "Generate an image from a text prompt and store it as a conversation attachment. "
             "Use this ONLY when the user asks to generate an image. "
-            "Allowed models: gpt-image-1.5, gemini-2.5-flash-image. "
+            "Allowed models: gpt-image-1.5, gemini-3.1-flash-lite-image. "
             "guidance_attachments is an optional list of MessageAttachment UUIDs to use as visual reference. "
             "Returns an attachment_id and a display URL (content) that will appear in the chat."
         ),

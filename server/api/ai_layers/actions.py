@@ -153,6 +153,17 @@ def check_models_for_providers():
                 }
             },
         },
+        {
+            "name": "Gemini 3.5 Flash",
+            "slug": "gemini-3.5-flash",
+            "is_reasoning_model": True,
+            "pricing": {
+                "text": {
+                    "prompt": "1.50 USD / 1000000",
+                    "output": "9.00 USD / 1000000",
+                }
+            },
+        },
     ]
 
     # anthropic_models_objects = [

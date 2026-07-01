@@ -9,18 +9,17 @@ from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
 
-from api.ai_layers.tools.create_image import _setup_google_credentials
+from api.ai_layers.tools.create_image import GOOGLE_IMAGE_LOCATION, _setup_google_credentials
 from api.messaging.models import MessageAttachment
 
 
 IMAGE_MIME_PREFIXES = ("image/",)
 
 GOOGLE_CLOUD_PROJECT = os.environ.get("GOOGLE_CLOUD_PROJECT", "masscer-492023")
-GOOGLE_CLOUD_LOCATION = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
 
 
 class Command(BaseCommand):
-    help = "Interactively generate images using Gemini (nano banana 2)"
+    help = "Interactively generate images using Gemini (Nano Banana 2 Lite)"
 
     def add_arguments(self, parser):
         parser.add_argument("--email", type=str, default=None, help="User email")
@@ -114,7 +113,7 @@ class Command(BaseCommand):
                     self.style.ERROR(
                         "Vertex AI credentials required: set GOOGLE_APPLICATION_CREDENTIALS_JSON "
                         "(minified service account JSON) or GOOGLE_APPLICATION_CREDENTIALS (path to the key file), "
-                        "same as production. Optional: GOOGLE_CLOUD_PROJECT, GOOGLE_CLOUD_LOCATION."
+                        "same as production. Optional: GOOGLE_CLOUD_PROJECT."
                     )
                 )
                 sys.exit(1)
@@ -122,7 +121,7 @@ class Command(BaseCommand):
             client = genai.Client(
                 vertexai=True,
                 project=GOOGLE_CLOUD_PROJECT,
-                location=GOOGLE_CLOUD_LOCATION,
+                location=GOOGLE_IMAGE_LOCATION,
             )
             self.stdout.write(
                 self.style.NOTICE(
@@ -153,7 +152,7 @@ class Command(BaseCommand):
                 ],
             )
 
-            model = "gemini-2.5-flash-image"
+            model = "gemini-3.1-flash-lite-image"
 
             output_dir = Path(os.environ.get("MEDIA_ROOT", "media")) / "generated_images"
             output_dir.mkdir(parents=True, exist_ok=True)
