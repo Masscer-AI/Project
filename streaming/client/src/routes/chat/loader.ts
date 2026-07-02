@@ -6,17 +6,18 @@ import {
 } from "../../modules/apiCalls";
 import { TChatLoader, TUserData } from "../../types/chatTypes";
 import { TConversation } from "../../types";
+import { loginUrlWithNext } from "../../utils/loginRedirect";
 
 export const chatLoader: LoaderFunction = async ({
   request,
 }): Promise<TChatLoader | Response> => {
+  const requestUrl = new URL(request.url);
   let c: TConversation;
   try {
-    const url = new URL(request.url);
-    const conversationId = url.searchParams.get("conversation");
-    const token = url.searchParams.get("token");
-    const query = url.searchParams.get("query");
-    const sendQuery: boolean = url.searchParams.get("sendQuery") === "true";
+    const conversationId = requestUrl.searchParams.get("conversation");
+    const token = requestUrl.searchParams.get("token");
+    const query = requestUrl.searchParams.get("query");
+    const sendQuery: boolean = requestUrl.searchParams.get("sendQuery") === "true";
 
     if (token) {
       localStorage.setItem("token", token);
@@ -36,6 +37,7 @@ export const chatLoader: LoaderFunction = async ({
     return { conversation: c, user: user, query: query, sendQuery };
   } catch (error) {
     console.error("Error loading conversation in chat loader:", error);
-    return redirect("/login");
+    const returnPath = requestUrl.pathname + requestUrl.search;
+    return redirect(loginUrlWithNext(returnPath));
   }
 };

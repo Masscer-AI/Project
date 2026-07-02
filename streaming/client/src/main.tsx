@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom/client";
-import { createBrowserRouter, Navigate, RouterProvider } from "react-router-dom";
+import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import '@mantine/core/styles.css';
 import '@mantine/dates/styles.css';
 import { MantineProvider, createTheme } from '@mantine/core';
@@ -33,7 +33,6 @@ import { AgentTaskListener } from "./components/AgentTaskListener/AgentTaskListe
 import { ConversationTakeoverListener } from "./components/ConversationTakeoverListener/ConversationTakeoverListener.tsx";
 import DashboardPage from "./routes/dashboard/page.tsx";
 import AlertsHubPage from "./routes/dashboard/AlertsHubPage.tsx";
-import NotificationsHubPage from "./routes/dashboard/NotificationsHubPage.tsx";
 import TagsPage from "./routes/dashboard/TagsPage.tsx";
 import OrganizationPage from "./routes/organization/page.tsx";
 import KnowledgeBasePage from "./routes/knowledge-base/page.tsx";
@@ -92,7 +91,11 @@ const router = createBrowserRouter([
       },
       {
         path: "/workflows",
-        element: <WorkflowsPage />,
+        element: (
+          <ProtectedRoute>
+            <WorkflowsPage />
+          </ProtectedRoute>
+        ),
       },
       {
         path: "/s",
@@ -101,33 +104,35 @@ const router = createBrowserRouter([
       },
       {
         path: "/dashboard",
-        element: <DashboardPage />,
+        element: (
+          <ProtectedRoute>
+            <DashboardPage />
+          </ProtectedRoute>
+        ),
       },
       {
         path: "/dashboard/alerts",
-        element: <AlertsHubPage />,
-      },
-      {
-        path: "/dashboard/alert-rules",
-        element: <Navigate to="/dashboard/alerts?view=rules" replace />,
-      },
-      {
-        path: "/dashboard/notifications",
-        element: <NotificationsHubPage />,
-      },
-      {
-        path: "/dashboard/notification-settings",
         element: (
-          <Navigate to="/dashboard/alerts?view=notify-rules" replace />
+          <ProtectedRoute>
+            <AlertsHubPage />
+          </ProtectedRoute>
         ),
       },
       {
         path: "/dashboard/tags",
-        element: <TagsPage />,
+        element: (
+          <ProtectedRoute>
+            <TagsPage />
+          </ProtectedRoute>
+        ),
       },
       {
         path: "/organization",
-        element: <OrganizationPage />,
+        element: (
+          <ProtectedRoute>
+            <OrganizationPage />
+          </ProtectedRoute>
+        ),
       },
       {
         path: "/knowledge-base",

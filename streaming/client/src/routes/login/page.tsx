@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { toast } from "react-hot-toast";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { API_URL } from "../../modules/constants";
+import { resolvePostLoginPath } from "../../utils/loginRedirect";
 import { useTranslation } from "react-i18next";
 import {
   Alert,
@@ -33,7 +34,12 @@ export default function Login() {
   const [isDeactivated, setIsDeactivated] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { t } = useTranslation();
+
+  const redirectAfterLogin = () => {
+    navigate(resolvePostLoginPath(searchParams.get("next")));
+  };
 
   const handleSubmit = async () => {
     if (!email || !password) {
@@ -53,7 +59,7 @@ export default function Login() {
         localStorage.setItem("token", response.data.token);
       }
       toast.success(t("successfully-logged-in"));
-      navigate("/chat");
+      redirectAfterLogin();
     } catch (error: any) {
       console.error("LOGIN ERROR: ", error);
       const status = error.response?.status;
@@ -97,7 +103,7 @@ export default function Login() {
         localStorage.setItem("token", response.data.token);
       }
       toast.success(t("successfully-logged-in"));
-      navigate("/chat");
+      redirectAfterLogin();
     } catch (error: any) {
       const msg = error.response?.data?.error || t("an-error-occurred");
       setErrorMessage(msg);
