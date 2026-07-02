@@ -339,6 +339,7 @@ class Command(BaseCommand):
 
             if function_calls:
                 contents.append(cand.content)
+                response_parts: list[Any] = []
                 for fc in function_calls:
                     name = getattr(fc, "name", "") or ""
                     args = getattr(fc, "args", None)
@@ -352,11 +353,13 @@ class Command(BaseCommand):
                     if call_id:
                         fr_kw["id"] = call_id
                     fr = genai_types.FunctionResponse(**fr_kw)
+                    response_parts.append(
+                        genai_types.Part(function_response=fr)
+                    )
+
+                if response_parts:
                     contents.append(
-                        genai_types.Content(
-                            role="user",
-                            parts=[genai_types.Part(function_response=fr)],
-                        )
+                        genai_types.Content(role="user", parts=response_parts)
                     )
                 continue
 

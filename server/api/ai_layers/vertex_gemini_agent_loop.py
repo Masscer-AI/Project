@@ -326,6 +326,7 @@ class VertexGeminiAgentLoop(BaseAgentLoop):
 
                 if function_calls:
                     contents.append(cand.content)
+                    response_parts: list[Any] = []
 
                     for fc in function_calls:
                         if self.check_cancelled and self.check_cancelled():
@@ -382,10 +383,17 @@ class VertexGeminiAgentLoop(BaseAgentLoop):
                         if call_id:
                             fr_kw["id"] = str(call_id)
                         fr = genai_types.FunctionResponse(**fr_kw)
+                        response_parts.append(
+                            genai_types.Part(function_response=fr)
+                        )
+
+                    # Gemini requires one user turn with N functionResponse parts
+                    # for N parallel functionCall parts in the preceding model turn.
+                    if response_parts:
                         contents.append(
                             genai_types.Content(
                                 role="user",
-                                parts=[genai_types.Part(function_response=fr)],
+                                parts=response_parts,
                             )
                         )
 

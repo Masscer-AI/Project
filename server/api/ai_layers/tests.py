@@ -1,3 +1,4 @@
+from typing import Any
 from unittest.mock import Mock, patch
 
 from django.contrib.auth.models import User
@@ -203,6 +204,100 @@ class VertexGeminiTextHelpersTests(SimpleTestCase):
         from api.utils.vertex_gemini_text import DEFAULT_VERTEX_TEXT_MODEL
 
         self.assertEqual(DEFAULT_VERTEX_TEXT_MODEL, "gemini-3.1-flash-lite-preview")
+
+
+class VertexGeminiAgentLoopParallelFunctionCallTests(SimpleTestCase):
+    def test_parallel_tool_responses_batched_in_single_user_turn(self):
+        from google.genai import types as genai_types
+
+        from api.ai_layers.vertex_gemini_agent_loop import VertexGeminiAgentLoop
+
+        fc1 = genai_types.FunctionCall(name="tool_a", args={"x": 1})
+        fc2 = genai_types.FunctionCall(name="tool_b", args={"y": 2})
+        parallel_model_turn = genai_types.Content(
+            role="model",
+            parts=[
+                genai_types.Part(function_call=fc1),
+                genai_types.Part(function_call=fc2),
+            ],
+        )
+        parallel_response = Mock()
+        parallel_response.candidates = [Mock(content=parallel_model_turn)]
+        parallel_response.usage_metadata = None
+
+        final_model_turn = genai_types.Content(
+            role="model",
+            parts=[genai_types.Part.from_text(text="Done")],
+        )
+        final_response = Mock()
+        final_response.candidates = [Mock(content=final_model_turn)]
+        final_response.usage_metadata = None
+
+        captured_contents: list[list[Any]] = []
+
+        def fake_generate(*, model, contents, config):
+            captured_contents.append(list(contents))
+            if len(captured_contents) == 1:
+                return parallel_response
+            return final_response
+
+        mock_client = Mock()
+        mock_client.models.generate_content.side_effect = fake_generate
+
+        def tool_a(**_kwargs):
+            return {"ok": True, "tool": "a"}
+
+        def tool_b(**_kwargs):
+            return {"ok": True, "tool": "b"}
+
+        schema = {"type": "object", "properties": {}}
+        loop = VertexGeminiAgentLoop(
+            tools=[
+                {
+                    "name": "tool_a",
+                    "description": "tool a",
+                    "parameters": schema,
+                    "function": tool_a,
+                },
+                {
+                    "name": "tool_b",
+                    "description": "tool b",
+                    "parameters": schema,
+                    "function": tool_b,
+                },
+            ],
+            instructions="test",
+            model="gemini-test",
+        )
+
+        with patch(
+            "api.ai_layers.vertex_gemini_agent_loop.VertexGeminiText"
+        ) as mock_vx_cls:
+            mock_vx_cls.return_value._get_client.return_value = mock_client
+            result = loop.run([{"role": "user", "content": "run tools"}])
+
+        self.assertEqual(result.output, "Done")
+        self.assertEqual(len(captured_contents), 2)
+
+        follow_up_contents = captured_contents[1]
+        user_turns_with_function_responses = [
+            c
+            for c in follow_up_contents
+            if getattr(c, "role", None) == "user"
+            and any(
+                getattr(p, "function_response", None) is not None
+                for p in (getattr(c, "parts", None) or [])
+            )
+        ]
+        self.assertEqual(len(user_turns_with_function_responses), 1)
+        fr_parts = [
+            p
+            for p in user_turns_with_function_responses[0].parts
+            if getattr(p, "function_response", None) is not None
+        ]
+        self.assertEqual(len(fr_parts), 2)
+        names = {p.function_response.name for p in fr_parts}
+        self.assertEqual(names, {"tool_a", "tool_b"})
 
 
 class ToolAttachmentExtractionTests(SimpleTestCase):
