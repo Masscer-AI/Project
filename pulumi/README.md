@@ -22,51 +22,108 @@ This directory uses **Pulumi with Node.js + TypeScript** and deploys the applica
 - [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
 - Node.js 20+
 
-## Darwin-style workflow with direnv
+## Quick start on a new machine
 
-This project supports the same style workflow you described:
+Use this checklist when setting up deploy on any computer (laptop, CI runner, etc.).
 
-1) Install dependencies:
+### 1. Clone and install
 
 ```bash
-cd pulumi
+git clone <repo-url> masscer
+cd masscer/pulumi
 npm install
 ```
 
-2) Configure AWS profile in `~/.aws/config`:
+### 2. AWS credentials
+
+Add the `masscer-prod` profile to `~/.aws/config` and `~/.aws/credentials` (or SSO). At minimum in `~/.aws/config`:
 
 ```ini
 [profile masscer-prod]
 region = us-east-1
 ```
 
-3) Configure direnv (simple):
+The IAM user needs deploy permissions **and** read/write access to the Pulumi state bucket `masscer-pulumi-state`.
+
+Verify:
+
+```bash
+aws sts get-caller-identity --profile masscer-prod
+```
+
+On Git Bash / Windows, pass `--profile masscer-prod` explicitly if direnv is not loaded yet.
+
+### 3. Pulumi passphrase
+
+Create `pulumi/.passphrase` with the team passphrase (shared out-of-band — never commit it):
+
+```bash
+echo "<passphrase>" > .passphrase
+```
+
+### 4. direnv
 
 ```bash
 cp .envrc.template .envrc
-echo "<your-passphrase>" > .passphrase
 direnv allow
 ```
 
-4) Select stack (if needed):
+This sets `AWS_PROFILE=masscer-prod`, `PULUMI_STACK=prod`, and loads the passphrase file.
+
+### 5. Pulumi backend (S3) and stack
+
+State is stored in S3, not on disk. Run once per machine:
 
 ```bash
-pulumi stack select prod || pulumi stack init prod
+pulumi login 's3://masscer-pulumi-state?region=us-east-1'
+pulumi stack select prod
 ```
 
-5) Preview / deploy:
+Verify:
 
 ```bash
+pulumi about | grep -A2 Backend
+# URL should be s3://masscer-pulumi-state?region=us-east-1
+
 pulumi preview
-pulumi up --refresh
+# Should show mostly "unchanged" resources, not a full recreate
 ```
 
-Notes:
+### 6. Deploy
+
+```bash
+./deploy.sh
+```
+
+## Pulumi state and secrets
+
+| What | Where | In git? |
+|------|-------|---------|
+| IaC code | `pulumi/*.ts` | Yes |
+| Stack config | `Pulumi.prod.yaml` | Yes (secrets encrypted) |
+| Decryption key | `.passphrase` | No |
+| Resource state | `s3://masscer-pulumi-state` | No (in AWS) |
+
+- `Pulumi.prod.yaml` is committed. Secrets use `pulumi config set --secret` and appear as `secure: v1:...` in the file.
 - `.envrc` and `.passphrase` are gitignored.
-- `.envrc.template` is intentionally minimal:
-  - loads `PULUMI_CONFIG_PASSPHRASE_FILE` from `.passphrase` (if present)
-  - sets `AWS_PROFILE=masscer-prod`
-  - sets `PULUMI_STACK=prod`
+- You do **not** copy `~/.pulumi/stacks/` between machines — state lives in S3.
+
+### Migrating state to S3 (already done for prod)
+
+If you ever need to move from a local backend again:
+
+```bash
+pulumi login --local
+pulumi stack select prod
+pulumi stack export --file prod-state-backup.json
+
+pulumi login 's3://masscer-pulumi-state?region=us-east-1'
+pulumi stack init prod    # skip if stack already exists on S3
+pulumi stack import --file prod-state-backup.json
+pulumi preview
+```
+
+Keep `prod-state-backup.json` offline as a backup; it is gitignored.
 
 ## What this stack creates
 
@@ -94,20 +151,14 @@ Notes:
 - Networking is fully provisioned by Pulumi (custom VPC, public/private subnets, route tables, IGW).
 - Chroma is reachable internally through Cloud Map DNS (`chroma.<prefix>.internal`).
 
-## Quick start
+## Greenfield stack (first-time only)
 
-1) Install Pulumi CLI and authenticate (`pulumi login`).
-
-2) Install dependencies:
+If you are creating infrastructure from scratch (not joining existing prod):
 
 ```bash
 cd pulumi
 npm install
-```
-
-3) Initialize and configure stack:
-
-```bash
+pulumi login 's3://masscer-pulumi-state?region=us-east-1'
 pulumi stack init prod
 pulumi config set aws:region us-east-1
 pulumi config set masscer-infra:environment prod
@@ -124,16 +175,16 @@ pulumi config set masscer-infra:djangoImageTag latest
 pulumi config set masscer-infra:streamingImageTag latest
 ```
 
-4) Deploy:
+Then deploy:
 
 ```bash
 pulumi preview
 pulumi up
 ```
 
-5) Run Django post-deploy Django manage commands as one-off ECS tasks (after first deploy):
+## Django post-deploy tasks
 
-`deploy.sh` uses the **same task definition as the django service** and runs these commands in order:
+`deploy.sh` runs these one-off ECS tasks after each deploy (same task definition as the django service):
 - `python manage.py migrate`
 - `python manage.py sync_subscription_plans`
 - `python manage.py sync_organization_subscriptions`
