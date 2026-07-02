@@ -22,74 +22,108 @@ This directory uses **Pulumi with Node.js + TypeScript** and deploys the applica
 - [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
 - Node.js 20+
 
-## Darwin-style workflow with direnv
+## Quick start on a new machine
 
-This project supports the same style workflow you described:
+Use this checklist when setting up deploy on any computer (laptop, CI runner, etc.).
 
-1) Install dependencies:
+### 1. Clone and install
 
 ```bash
-cd pulumi
+git clone <repo-url> masscer
+cd masscer/pulumi
 npm install
 ```
 
-2) Configure AWS profile `masscer-prod` in `~/.aws/config` (and credentials or SSO in `~/.aws/credentials` if needed). At minimum:
+### 2. AWS credentials
+
+Add the `masscer-prod` profile to `~/.aws/config` and `~/.aws/credentials` (or SSO). At minimum in `~/.aws/config`:
 
 ```ini
 [profile masscer-prod]
 region = us-east-1
 ```
 
-Verify: `aws sts get-caller-identity --profile masscer-prod`
+The IAM user needs deploy permissions **and** read/write access to the Pulumi state bucket `masscer-pulumi-state`.
 
-3) Configure direnv (simple):
+Verify:
+
+```bash
+aws sts get-caller-identity --profile masscer-prod
+```
+
+On Git Bash / Windows, pass `--profile masscer-prod` explicitly if direnv is not loaded yet.
+
+### 3. Pulumi passphrase
+
+Create `pulumi/.passphrase` with the team passphrase (shared out-of-band — never commit it):
+
+```bash
+echo "<passphrase>" > .passphrase
+```
+
+### 4. direnv
 
 ```bash
 cp .envrc.template .envrc
-echo "<your-passphrase>" > .passphrase
 direnv allow
 ```
 
-4) Select stack (if needed):
+This sets `AWS_PROFILE=masscer-prod`, `PULUMI_STACK=prod`, and loads the passphrase file.
+
+### 5. Pulumi backend (S3) and stack
+
+State is stored in S3, not on disk. Run once per machine:
 
 ```bash
-pulumi stack select prod || pulumi stack init prod
+pulumi login 's3://masscer-pulumi-state?region=us-east-1'
+pulumi stack select prod
 ```
 
-5) Preview / deploy:
+Verify:
 
 ```bash
+pulumi about | grep -A2 Backend
+# URL should be s3://masscer-pulumi-state?region=us-east-1
+
 pulumi preview
-pulumi up --refresh
+# Should show mostly "unchanged" resources, not a full recreate
 ```
 
-Notes:
-- `Pulumi.prod.yaml` is committed (stack config; secrets are encrypted with `pulumi config set --secret`).
-- `.envrc` and `.passphrase` are gitignored — share the passphrase out-of-band, never commit it.
-- `.envrc.template` is intentionally minimal:
-  - loads `PULUMI_CONFIG_PASSPHRASE_FILE` from `.passphrase` (if present)
-  - sets `AWS_PROFILE=masscer-prod`
-  - sets `PULUMI_STACK=prod`
+### 6. Deploy
+
+```bash
+./deploy.sh
+```
 
 ## Pulumi state and secrets
-
-This project uses a **local Pulumi backend** (`file://~`). Stack config and state are separate:
 
 | What | Where | In git? |
 |------|-------|---------|
 | IaC code | `pulumi/*.ts` | Yes |
 | Stack config | `Pulumi.prod.yaml` | Yes (secrets encrypted) |
 | Decryption key | `.passphrase` | No |
-| Resource state | `~/.pulumi/stacks/masscer-infra/` | No |
+| Resource state | `s3://masscer-pulumi-state` | No (in AWS) |
 
-After `pulumi login --local` and `pulumi stack select prod`, `deploy.sh` works on any machine that has:
+- `Pulumi.prod.yaml` is committed. Secrets use `pulumi config set --secret` and appear as `secure: v1:...` in the file.
+- `.envrc` and `.passphrase` are gitignored.
+- You do **not** copy `~/.pulumi/stacks/` between machines — state lives in S3.
 
-1. This repo (includes `Pulumi.prod.yaml`)
-2. `pulumi/.passphrase` (same passphrase used when secrets were encrypted)
-3. Pulumi state copied from the machine that last deployed: `~/.pulumi/stacks/masscer-infra/`
-4. Working AWS auth for `masscer-prod`
+### Migrating state to S3 (already done for prod)
 
-Without the state folder, Pulumi does not know about existing AWS resources and may try to recreate them.
+If you ever need to move from a local backend again:
+
+```bash
+pulumi login --local
+pulumi stack select prod
+pulumi stack export --file prod-state-backup.json
+
+pulumi login 's3://masscer-pulumi-state?region=us-east-1'
+pulumi stack init prod    # skip if stack already exists on S3
+pulumi stack import --file prod-state-backup.json
+pulumi preview
+```
+
+Keep `prod-state-backup.json` offline as a backup; it is gitignored.
 
 ## What this stack creates
 
@@ -117,37 +151,14 @@ Without the state folder, Pulumi does not know about existing AWS resources and 
 - Networking is fully provisioned by Pulumi (custom VPC, public/private subnets, route tables, IGW).
 - Chroma is reachable internally through Cloud Map DNS (`chroma.<prefix>.internal`).
 
-## Quick start
-
-### Deploy to existing prod (usual case)
-
-1) Install [Pulumi CLI](https://www.pulumi.com/docs/iac/download-install/), Node.js 20+, AWS CLI, and [direnv](https://direnv.net/).
-
-2) Install dependencies and log in to the local backend:
-
-```bash
-cd pulumi
-npm install
-pulumi login --local
-pulumi stack select prod
-```
-
-3) Add `pulumi/.passphrase`, copy `~/.pulumi/stacks/masscer-infra/` from a machine that already deploys prod, and configure the `masscer-prod` AWS profile (see **Darwin-style workflow** above).
-
-4) Deploy:
-
-```bash
-./deploy.sh
-```
-
-### Greenfield stack (first-time only)
+## Greenfield stack (first-time only)
 
 If you are creating infrastructure from scratch (not joining existing prod):
 
 ```bash
 cd pulumi
 npm install
-pulumi login --local
+pulumi login 's3://masscer-pulumi-state?region=us-east-1'
 pulumi stack init prod
 pulumi config set aws:region us-east-1
 pulumi config set masscer-infra:environment prod
