@@ -11,6 +11,24 @@ type TTheme = "light" | "dark" | "system";
 
 import type { TNotificationSettings } from "../utils/notificationSound";
 
+export type TTenantBranding = {
+  app_name?: string;
+  logo_url?: string | null;
+  favicon_url?: string | null;
+  subdomain?: string;
+  theme?: { primary_color?: string };
+  hide_powered_by?: boolean;
+};
+
+export type TOrganizationTenant = {
+  subdomain: string | null;
+  app_name: string;
+  theme: { primary_color?: string };
+  hide_powered_by: boolean;
+  favicon_url?: string | null;
+  logo_url?: string | null;
+};
+
 export type TUserPreferences = {
   theme: TTheme;
   max_memory_messages: number;
@@ -39,6 +57,7 @@ export type Store = {
   models: TModel[];
   agents: TAgent[];
   user?: TUserData;
+  tenantBranding: TTenantBranding | null;
   modelsAndAgents: TAgent[];
   chatState: {
     isSidebarOpened: boolean;
@@ -94,6 +113,7 @@ export type Store = {
   /** Full replacement of `chatState.selectedAgents` (and list sort). */
   setChatSelectedAgentSlugs: (slugs: string[]) => void;
   setUser: (user: TUserData) => void;
+  setTenantBranding: (branding: TTenantBranding | null) => void;
   addAgent: () => void;
   updateChatState: (state: Partial<Store["chatState"]>) => void;
   setSpecifiedUrls: (urls: TSpecifiedUrl[]) => void;

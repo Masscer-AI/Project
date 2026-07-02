@@ -35,7 +35,12 @@ DEBUG = os.environ.get("DEBUG", "false").strip().lower() in {"1", "true", "yes",
 ALLOWED_HOSTS = [
     "127.0.0.1",
     "localhost",
+    ".localhost",
+    ".masscer.ai",
 ]
+
+# Tenant subdomain base domain (e.g. acme.masscer.ai -> acme).
+BASE_DOMAIN = os.environ.get("BASE_DOMAIN", "masscer.ai").strip().lower() or "masscer.ai"
 
 
 # Extra hosts from env (comma-separated, e.g. masscer-ai.ngrok.app,your-domain.com).

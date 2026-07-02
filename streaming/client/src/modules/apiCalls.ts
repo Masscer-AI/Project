@@ -29,10 +29,12 @@ import {
   TDataExportJob,
   TOrganizationDataPolicy,
   TDataExportManifest,
+  TOrganizationTenant,
 } from "../types";
 import { TReactionTemplate, TUserData, TUserProfile } from "../types/chatTypes";
 import { TAgent, TModel } from "../types/agents";
 import { TUserPreferences } from "./storeTypes";
+import type { TTenantBranding } from "./storeTypes";
 
 const getToken = (isPublic: boolean) => {
   if (isPublic) {
@@ -1350,6 +1352,57 @@ export const reactivateOrganizationSubscription = async (
     "POST",
     `/v1/payments/organizations/${organizationId}/subscriptions/reactivate/`,
     {}
+  );
+};
+
+export const getTenantConfig = async (): Promise<TTenantBranding> => {
+  const { data } = await axios.get<TTenantBranding>(
+    `${API_URL}/v1/auth/public/tenant-config`
+  );
+  return data ?? {};
+};
+
+export const getOrganizationTenant = async (
+  organizationId: string
+): Promise<TOrganizationTenant> => {
+  return makeAuthenticatedRequest<TOrganizationTenant>(
+    "GET",
+    `/v1/auth/organizations/${organizationId}/tenant/`
+  );
+};
+
+export const updateOrganizationTenant = async (
+  organizationId: string,
+  data: {
+    app_name?: string;
+    hide_powered_by?: boolean;
+    theme?: { primary_color?: string };
+  }
+): Promise<TOrganizationTenant> => {
+  return makeAuthenticatedRequest<TOrganizationTenant>(
+    "PUT",
+    `/v1/auth/organizations/${organizationId}/tenant/`,
+    data
+  );
+};
+
+export const claimTenantSubdomain = async (
+  organizationId: string,
+  subdomain: string
+): Promise<TOrganizationTenant> => {
+  return makeAuthenticatedRequest<TOrganizationTenant>(
+    "POST",
+    `/v1/auth/organizations/${organizationId}/tenant/subdomain/`,
+    { subdomain }
+  );
+};
+
+export const releaseTenantSubdomain = async (
+  organizationId: string
+): Promise<TOrganizationTenant> => {
+  return makeAuthenticatedRequest<TOrganizationTenant>(
+    "DELETE",
+    `/v1/auth/organizations/${organizationId}/tenant/subdomain/`
   );
 };
 

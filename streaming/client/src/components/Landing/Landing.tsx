@@ -18,6 +18,7 @@ import {
   Stack,
   Text,
   Title,
+  useMantineTheme,
 } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
 import {
@@ -29,6 +30,13 @@ import {
   IconWorldWww,
 } from "@tabler/icons-react";
 import { DEFAULT_ORGANIZATION_ID } from "../../modules/constants";
+import { useStore } from "../../modules/store";
+import {
+  LANDING_HERO_BACKGROUND,
+  primaryAlpha,
+  PRIMARY_COLOR_3,
+  PRIMARY_COLOR_VAR,
+} from "../../utils/tenantTheme";
 
 const FEATURES = [
   {
@@ -65,7 +73,7 @@ const getMockupSection = (progress: number): MockupSection => {
 
 const bubbleStyle = (align: "start" | "end") => ({
   alignSelf: align === "start" ? ("flex-start" as const) : ("flex-end" as const),
-  background: "rgba(139, 92, 246, 0.2)",
+  background: primaryAlpha(0.2),
   borderRadius: 12,
   borderBottomLeftRadius: align === "start" ? 4 : 12,
   borderBottomRightRadius: align === "end" ? 4 : 12,
@@ -233,8 +241,8 @@ const MockupContent = ({
             p="xs"
             style={{
               ...bubbleStyle("end"),
-              background: "rgba(139, 92, 246, 0.25)",
-              border: "1px solid rgba(139, 92, 246, 0.3)",
+              background: primaryAlpha(0.25),
+              border: `1px solid ${primaryAlpha(0.3)}`,
             }}
           >
             <Text size="xs" c="gray.2">
@@ -260,7 +268,7 @@ const MockupContent = ({
             <Box
               w={8}
               h={8}
-              style={{ borderRadius: 4, background: "#8b5cf6" }}
+              style={{ borderRadius: 4, background: PRIMARY_COLOR_VAR }}
             />
             <Text size="xs" c="dimmed" fw={600}>
               {t("landing-mockup-media-title")}
@@ -291,13 +299,17 @@ const MockupContent = ({
                     p="sm"
                     style={{
                       borderRadius: 12,
-                      background: "rgba(139, 92, 246, 0.2)",
-                      border: "1px solid rgba(139, 92, 246, 0.3)",
+                      background: primaryAlpha(0.2),
+                      border: `1px solid ${primaryAlpha(0.3)}`,
                       minWidth: 80,
                       textAlign: "center",
                     }}
                   >
-                    <Text size="xs" c="violet.3" fw={600}>
+                    <Text
+                      size="xs"
+                      fw={600}
+                      style={{ color: PRIMARY_COLOR_3 }}
+                    >
                       {t(key)}
                     </Text>
                   </Box>
@@ -321,7 +333,7 @@ const MockupContent = ({
         }}
       >
         <Group gap="xs">
-          <Box w={8} h={8} style={{ borderRadius: 4, background: "#8b5cf6" }} />
+          <Box w={8} h={8} style={{ borderRadius: 4, background: PRIMARY_COLOR_VAR }} />
           <Text size="xs" c="dimmed" fw={600}>
             {t("landing-mockup-title")}
           </Text>
@@ -337,8 +349,8 @@ const MockupContent = ({
           p="xs"
           style={{
             ...bubbleStyle("end"),
-            background: "rgba(139, 92, 246, 0.15)",
-            border: "1px solid rgba(139, 92, 246, 0.2)",
+            background: primaryAlpha(0.15),
+            border: `1px solid ${primaryAlpha(0.2)}`,
           }}
         >
           <Text size="xs" c="gray.2">
@@ -362,7 +374,7 @@ const MockupContent = ({
                   width: 6,
                   height: 6,
                   borderRadius: "50%",
-                  background: "var(--mantine-color-violet-5)",
+                  background: PRIMARY_COLOR_VAR,
                 }}
                 animate={{ opacity: [0.3, 1, 0.3] }}
                 transition={{
@@ -444,9 +456,8 @@ const StickyMockup = ({
           backdropFilter: "blur(16px)",
           WebkitBackdropFilter: "blur(16px)",
           borderRadius: 24,
-          border: "1px solid rgba(139, 92, 246, 0.3)",
-          boxShadow:
-            "0 50px 100px -20px rgba(0,0,0,0.6), 0 0 40px rgba(139, 92, 246, 0.15), inset 0 1px 0 rgba(255,255,255,0.05), inset 0 0 0 1px rgba(139, 92, 246, 0.1)",
+          border: `1px solid ${primaryAlpha(0.3)}`,
+          boxShadow: `0 50px 100px -20px rgba(0,0,0,0.6), 0 0 40px ${primaryAlpha(0.15)}, inset 0 1px 0 rgba(255,255,255,0.05), inset 0 0 0 1px ${primaryAlpha(0.1)}`,
           overflow: "hidden",
           display: "flex",
           flexDirection: "column",
@@ -472,6 +483,10 @@ const StickyMockup = ({
 export const Landing = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const theme = useMantineTheme();
+  const tenantBranding = useStore((s) => s.tenantBranding);
+  const primaryColor = theme.primaryColor;
+  const heroAppName = tenantBranding?.app_name?.trim() || "Masscer AI";
   const containerRef = useRef<HTMLDivElement>(null);
   const isMobile = useMediaQuery("(max-width: 900px)");
 
@@ -491,8 +506,7 @@ export const Landing = () => {
     <Box
       style={{
         minHeight: "100vh",
-        background:
-          "radial-gradient(ellipse 100% 80% at 50% -10%, rgba(67, 56, 202, 0.4) 0%, transparent 55%), radial-gradient(circle at 80% 90%, rgba(139, 92, 246, 0.12) 0%, transparent 50%), radial-gradient(circle at 20% 30%, rgba(88, 28, 135, 0.15) 0%, transparent 50%), #050508",
+        background: LANDING_HERO_BACKGROUND,
         // overflowX: "clip",
       }}
     >
@@ -517,16 +531,14 @@ export const Landing = () => {
                 component="span"
                 inherit
                 fw={800}
-                c="violet.4"
-                style={{
-                  background:
-                    "linear-gradient(135deg, var(--mantine-color-violet-4) 0%, var(--mantine-color-violet-6) 100%)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  backgroundClip: "text",
+                variant="gradient"
+                gradient={{
+                  from: `${primaryColor}.4`,
+                  to: `${primaryColor}.6`,
+                  deg: 135,
                 }}
               >
-                Masscer AI
+                {heroAppName}
               </Text>
             </Title>
             <Text
@@ -544,21 +556,21 @@ export const Landing = () => {
                 component={motion.button}
                 size="xl"
                 variant="gradient"
-                gradient={{ from: "violet.6", to: "violet.8" }}
+                gradient={{ from: `${primaryColor}.6`, to: `${primaryColor}.8` }}
                 leftSection={<IconSparkles size={22} />}
                 onClick={handleGetStarted}
                 px={40}
                 animate={{
                   boxShadow: [
-                    "0 0 20px rgba(139, 92, 246, 0.3)",
-                    "0 0 30px rgba(139, 92, 246, 0.5)",
-                    "0 0 20px rgba(139, 92, 246, 0.3)",
+                    `0 0 20px ${primaryAlpha(0.3)}`,
+                    `0 0 30px ${primaryAlpha(0.5)}`,
+                    `0 0 20px ${primaryAlpha(0.3)}`,
                   ],
                 }}
                 transition={{ duration: 3, repeat: Infinity }}
                 whileHover={{
                   scale: 1.05,
-                  boxShadow: "0 0 25px rgba(139, 92, 246, 0.5)",
+                  boxShadow: `0 0 25px ${primaryAlpha(0.5)}`,
                 }}
                 whileTap={{ scale: 0.98 }}
               >
@@ -624,6 +636,9 @@ const FeatureScrollBlock = ({
   mobile?: boolean;
 }) => {
   const { t } = useTranslation();
+  const theme = useMantineTheme();
+  const primaryColor = theme.primaryColor;
+
   return (
     <Box
       style={{
@@ -638,20 +653,15 @@ const FeatureScrollBlock = ({
         <Title
           order={2}
           size={mobile ? "h2" : "h1"}
-          c={mobile ? "violet.3" : undefined}
           fw={800}
           ta={mobile ? "center" : undefined}
-          style={
+          variant={mobile ? undefined : "gradient"}
+          gradient={
             mobile
               ? undefined
-              : {
-                  background:
-                    "linear-gradient(135deg, var(--mantine-color-violet-3) 0%, var(--mantine-color-white) 100%)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  backgroundClip: "text",
-                }
+              : { from: `${primaryColor}.3`, to: "white", deg: 135 }
           }
+          c={mobile ? `${primaryColor}.3` : undefined}
         >
           {t(titleKey)}
         </Title>
@@ -671,6 +681,9 @@ const FeatureScrollBlock = ({
 
 const GenerateMediaBlock = ({ mobile = false }: { mobile?: boolean } = {}) => {
   const { t } = useTranslation();
+  const theme = useMantineTheme();
+  const primaryColor = theme.primaryColor;
+
   return (
     <Box
       style={{
@@ -686,29 +699,24 @@ const GenerateMediaBlock = ({ mobile = false }: { mobile?: boolean } = {}) => {
             p="sm"
             style={{
               borderRadius: 12,
-              background:
-                "linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(139, 92, 246, 0.06) 100%)",
-              border: "1px solid rgba(139, 92, 246, 0.3)",
+              background: `linear-gradient(135deg, ${primaryAlpha(0.2)} 0%, ${primaryAlpha(0.06)} 100%)`,
+              border: `1px solid ${primaryAlpha(0.3)}`,
             }}
           >
-            <IconPhoto size={32} color="var(--mantine-color-violet-5)" />
+            <IconPhoto size={32} color={PRIMARY_COLOR_VAR} />
           </Box>
           <Title
             order={2}
             size={mobile ? "h2" : "h1"}
-            c={mobile ? "violet.3" : undefined}
             fw={800}
-            style={
+            ta={mobile ? "center" : undefined}
+            variant={mobile ? undefined : "gradient"}
+            gradient={
               mobile
-                ? { textAlign: "center" }
-                : {
-                    background:
-                      "linear-gradient(135deg, var(--mantine-color-violet-3) 0%, var(--mantine-color-white) 100%)",
-                    WebkitBackgroundClip: "text",
-                    WebkitTextFillColor: "transparent",
-                    backgroundClip: "text",
-                  }
+                ? undefined
+                : { from: `${primaryColor}.3`, to: "white", deg: 135 }
             }
+            c={mobile ? `${primaryColor}.3` : undefined}
           >
             {t("landing-generate-media-title")}
           </Title>
@@ -754,9 +762,8 @@ const InlineMockup = ({ section }: { section: MockupSection }) => {
         backdropFilter: "blur(16px)",
         WebkitBackdropFilter: "blur(16px)",
         borderRadius: 24,
-        border: "1px solid rgba(139, 92, 246, 0.3)",
-        boxShadow:
-          "0 24px 48px -12px rgba(0,0,0,0.5), 0 0 24px rgba(139, 92, 246, 0.1)",
+        border: `1px solid ${primaryAlpha(0.3)}`,
+        boxShadow: `0 24px 48px -12px rgba(0,0,0,0.5), 0 0 24px ${primaryAlpha(0.1)}`,
         overflow: "hidden",
         display: "flex",
         flexDirection: "column",

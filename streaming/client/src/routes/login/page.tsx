@@ -15,19 +15,28 @@ import {
   Stack,
   Anchor,
   Divider,
+  useMantineTheme,
 } from "@mantine/core";
 import { IconLogin, IconLock, IconSparkles } from "@tabler/icons-react";
 import { GoogleSignInButton } from "../../components/GoogleSignInButton/GoogleSignInButton";
 import { hasGoogleOAuthClientId } from "../../modules/googleEnv";
+import {
+  AUTH_FORM_CARD_CLASS,
+  AUTH_FORM_CARD_STYLE,
+  AUTH_INPUT_STYLES,
+  AUTH_PANEL_LEFT_BACKGROUND,
+  BRANDING_ICON_BOX_STYLE,
+} from "../../utils/tenantTheme";
 
 const panelBase = "flex-1 flex flex-col justify-center items-center p-8";
-const panelLeft =
-  "bg-[radial-gradient(ellipse_80%_60%_at_30%_50%,rgba(110,91,255,0.15),transparent),linear-gradient(180deg,rgba(20,20,25,0.98)_0%,rgba(15,15,20,0.99)_100%)] border-r border-white/[0.06] md:min-h-0 min-h-[40vh] md:border-b-0 border-b border-white/[0.06]";
+const panelLeftLayout =
+  "border-r border-white/[0.06] md:min-h-0 min-h-[40vh] md:border-b-0 border-b border-white/[0.06]";
 const panelRight = "bg-[var(--bg-color,#0a0a0a)] md:min-h-0 min-h-[60vh]";
-const formCard =
-  "w-full max-w-[400px] p-10 rounded-2xl border border-white/[0.08] shadow-2xl bg-[var(--modal-bg-color,rgba(28,28,32,0.98))]";
+const brandingIconBoxClass =
+  "w-[88px] h-[88px] mx-auto mb-6 rounded-2xl flex items-center justify-center";
 
 export default function Login() {
+  const theme = useMantineTheme();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -116,9 +125,12 @@ export default function Login() {
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-[var(--bg-color,#0a0a0a)] text-[var(--font-color,#fff)]">
       {/* Left panel — branding */}
-      <div className={`${panelBase} ${panelLeft}`}>
+      <div
+        className={`${panelBase} ${panelLeftLayout}`}
+        style={{ background: AUTH_PANEL_LEFT_BACKGROUND }}
+      >
         <div className="text-center max-w-[380px]">
-          <div className="w-[88px] h-[88px] mx-auto mb-6 rounded-2xl flex items-center justify-center bg-[rgba(110,91,255,0.2)] border border-[rgba(110,91,255,0.3)]">
+          <div className={brandingIconBoxClass} style={BRANDING_ICON_BOX_STYLE}>
             <IconSparkles size={40} className="text-white/90" />
           </div>
           <Title order={1} className="!text-[1.75rem] !font-semibold !mb-3">
@@ -132,7 +144,7 @@ export default function Login() {
 
       {/* Right panel — form */}
       <div className={`${panelBase} ${panelRight}`}>
-        <div className={formCard}>
+        <div className={AUTH_FORM_CARD_CLASS} style={AUTH_FORM_CARD_STYLE}>
           <Title order={2} ta="center" mb="xl">
             {t("login")}
           </Title>
@@ -151,6 +163,7 @@ export default function Login() {
                 autoComplete="email"
                 variant="filled"
                 size="md"
+                styles={AUTH_INPUT_STYLES}
               />
               <PasswordInput
                 label={t("password")}
@@ -163,8 +176,15 @@ export default function Login() {
                 autoComplete="current-password"
                 variant="filled"
                 size="md"
+                styles={AUTH_INPUT_STYLES}
               />
-              <Anchor component={Link} to="/forgot-password" c="violet" size="sm" ta="right">
+              <Anchor
+                component={Link}
+                to="/forgot-password"
+                c={theme.primaryColor}
+                size="sm"
+                ta="right"
+              >
                 {t("forgot-password")}
               </Anchor>
 
@@ -209,7 +229,7 @@ export default function Login() {
           )}
 
           <Text ta="center" mt="xl" size="sm">
-            <Anchor component={Link} to="/signup" c="violet">
+            <Anchor component={Link} to="/signup" c={theme.primaryColor}>
               {t("go-to-signup")}
             </Anchor>
           </Text>

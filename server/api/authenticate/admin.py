@@ -13,6 +13,7 @@ from .models import (
     PublishableToken,
     CredentialsManager,
     Organization,
+    OrganizationTenant,
     FeatureFlag,
     FeatureFlagAssignment,
     UserProfile,
@@ -118,6 +119,15 @@ class OrganizationAdminForm(forms.ModelForm):
         }
 
 
+class OrganizationTenantInline(admin.StackedInline):
+    model = OrganizationTenant
+    extra = 0
+    max_num = 1
+    can_delete = False
+    fields = ("subdomain", "app_name", "theme", "hide_powered_by", "favicon")
+    readonly_fields = ("favicon",)
+
+
 @admin.register(Organization)
 class OrganizationAdmin(admin.ModelAdmin):
     form = OrganizationAdminForm
@@ -133,7 +143,7 @@ class OrganizationAdmin(admin.ModelAdmin):
         from api.payments.models import Subscription
         OrganizationWalletInline.model = OrganizationWallet
         SubscriptionInline.model = Subscription
-        return [OrganizationWalletInline, SubscriptionInline]
+        return [OrganizationTenantInline, OrganizationWalletInline, SubscriptionInline]
 
     fieldsets = (
         ('Información básica', {

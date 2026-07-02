@@ -14,10 +14,18 @@ import {
   Anchor,
   Loader,
   Divider,
+  useMantineTheme,
 } from "@mantine/core";
 import { IconUserPlus, IconSparkles } from "@tabler/icons-react";
 import { GoogleSignInButton } from "../../components/GoogleSignInButton/GoogleSignInButton";
 import { hasGoogleOAuthClientId } from "../../modules/googleEnv";
+import {
+  AUTH_FORM_CARD_CLASS,
+  AUTH_FORM_CARD_STYLE,
+  AUTH_INPUT_STYLES,
+  AUTH_PANEL_LEFT_BACKGROUND,
+  BRANDING_ICON_BOX_STYLE,
+} from "../../utils/tenantTheme";
 
 type Organization = {
   id: string;
@@ -39,13 +47,14 @@ type InviteSignupGetResponse = {
 };
 
 const panelBase = "flex-1 flex flex-col justify-center items-center p-8";
-const panelLeft =
-  "bg-[radial-gradient(ellipse_80%_60%_at_30%_50%,rgba(110,91,255,0.15),transparent),linear-gradient(180deg,rgba(20,20,25,0.98)_0%,rgba(15,15,20,0.99)_100%)] border-r border-white/[0.06] md:min-h-0 min-h-[40vh] md:border-b-0 border-b border-white/[0.06]";
+const panelLeftLayout =
+  "border-r border-white/[0.06] md:min-h-0 min-h-[40vh] md:border-b-0 border-b border-white/[0.06]";
 const panelRight = "bg-[var(--bg-color,#0a0a0a)] md:min-h-0 min-h-[60vh]";
-const formCard =
-  "w-full max-w-[400px] p-10 rounded-2xl border border-white/[0.08] shadow-2xl bg-[var(--modal-bg-color,rgba(28,28,32,0.98))]";
+const brandingIconBoxClass =
+  "w-[88px] h-[88px] mx-auto mb-6 rounded-2xl flex items-center justify-center";
 
 export default function Signup() {
+  const theme = useMantineTheme();
   const [searchParams] = useSearchParams();
   const inviteToken = searchParams.get("invite");
   const orgId = searchParams.get("orgId");
@@ -228,11 +237,14 @@ export default function Signup() {
   if (loadingOrg && (inviteToken || orgId)) {
     return (
       <div className="min-h-screen flex flex-col md:flex-row bg-[var(--bg-color,#0a0a0a)] text-[var(--font-color,#fff)]">
-        <div className={`${panelBase} ${panelLeft}`}>
-          <Loader color="violet" />
+        <div
+          className={`${panelBase} ${panelLeftLayout}`}
+          style={{ background: AUTH_PANEL_LEFT_BACKGROUND }}
+        >
+          <Loader color={theme.primaryColor} />
         </div>
         <div className={`${panelBase} ${panelRight}`}>
-          <div className={formCard}>
+          <div className={AUTH_FORM_CARD_CLASS} style={AUTH_FORM_CARD_STYLE}>
             <Title order={2} ta="center" mb="md">
               {t("signup")}
             </Title>
@@ -249,7 +261,10 @@ export default function Signup() {
   if (inviteToken && inviteData && !inviteData.invite_valid && !inviteData.email_already_registered) {
     return (
       <div className="min-h-screen flex flex-col md:flex-row bg-[var(--bg-color,#0a0a0a)] text-[var(--font-color,#fff)]">
-        <div className={`${panelBase} ${panelLeft}`}>
+        <div
+          className={`${panelBase} ${panelLeftLayout}`}
+          style={{ background: AUTH_PANEL_LEFT_BACKGROUND }}
+        >
           <div className="text-center max-w-[360px]">
             <Title order={2} mb="sm">
               {t("signup")}
@@ -260,7 +275,7 @@ export default function Signup() {
           </div>
         </div>
         <div className={`${panelBase} ${panelRight}`}>
-          <div className={formCard}>
+          <div className={AUTH_FORM_CARD_CLASS} style={AUTH_FORM_CARD_STYLE}>
             <Title order={2} ta="center" mb="md">
               {t("signup")}
             </Title>
@@ -268,7 +283,7 @@ export default function Signup() {
               {t("invite-invalid-or-expired")}
             </Text>
             <Text ta="center" mt="xl" size="sm">
-              <Anchor component={Link} to="/login" c="violet">
+              <Anchor component={Link} to="/login" c={theme.primaryColor}>
                 {t("switch-to-login")}
               </Anchor>
             </Text>
@@ -282,7 +297,10 @@ export default function Signup() {
   if (inviteToken && inviteData?.email_already_registered) {
     return (
       <div className="min-h-screen flex flex-col md:flex-row bg-[var(--bg-color,#0a0a0a)] text-[var(--font-color,#fff)]">
-        <div className={`${panelBase} ${panelLeft}`}>
+        <div
+          className={`${panelBase} ${panelLeftLayout}`}
+          style={{ background: AUTH_PANEL_LEFT_BACKGROUND }}
+        >
           <div className="text-center max-w-[360px]">
             <Title order={2} mb="sm">
               {t("signup")}
@@ -293,7 +311,7 @@ export default function Signup() {
           </div>
         </div>
         <div className={`${panelBase} ${panelRight}`}>
-          <div className={formCard}>
+          <div className={AUTH_FORM_CARD_CLASS} style={AUTH_FORM_CARD_STYLE}>
             <Title order={2} ta="center" mb="md">
               {t("signup")}
             </Title>
@@ -301,7 +319,7 @@ export default function Signup() {
               {t("invite-email-already-registered")}
             </Text>
             <Text ta="center" mt="xl" size="sm">
-              <Anchor component={Link} to="/login" c="violet">
+              <Anchor component={Link} to="/login" c={theme.primaryColor}>
                 {t("switch-to-login")}
               </Anchor>
             </Text>
@@ -315,7 +333,10 @@ export default function Signup() {
   if (orgId && !inviteToken && !organization) {
     return (
       <div className="min-h-screen flex flex-col md:flex-row bg-[var(--bg-color,#0a0a0a)] text-[var(--font-color,#fff)]">
-        <div className={`${panelBase} ${panelLeft}`}>
+        <div
+          className={`${panelBase} ${panelLeftLayout}`}
+          style={{ background: AUTH_PANEL_LEFT_BACKGROUND }}
+        >
           <div className="text-center max-w-[360px]">
             <Title order={2} mb="sm">
               {t("signup")}
@@ -329,7 +350,7 @@ export default function Signup() {
           </div>
         </div>
         <div className={`${panelBase} ${panelRight}`}>
-          <div className={formCard}>
+          <div className={AUTH_FORM_CARD_CLASS} style={AUTH_FORM_CARD_STYLE}>
             <Title order={2} ta="center" mb="md">
               {t("signup")}
             </Title>
@@ -337,7 +358,7 @@ export default function Signup() {
               {t("organization-not-found")}
             </Text>
             <Text ta="center" mt="xl" size="sm">
-              <Anchor component={Link} to="/login" c="violet">
+              <Anchor component={Link} to="/login" c={theme.primaryColor}>
                 {t("switch-to-login")}
               </Anchor>
             </Text>
@@ -354,7 +375,10 @@ export default function Signup() {
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-[var(--bg-color,#0a0a0a)] text-[var(--font-color,#fff)]">
       {/* Left panel */}
-      <div className={`${panelBase} ${panelLeft}`}>
+      <div
+        className={`${panelBase} ${panelLeftLayout}`}
+        style={{ background: AUTH_PANEL_LEFT_BACKGROUND }}
+      >
         <div className="text-center max-w-[380px]">
           {isEmailInviteFlow && leftOrg ? (
             <>
@@ -365,7 +389,10 @@ export default function Signup() {
                   className="block w-[88px] h-[88px] mx-auto mb-6 rounded-2xl object-cover border border-white/10 bg-white/5"
                 />
               ) : (
-                <div className="w-[88px] h-[88px] mx-auto mb-6 rounded-2xl flex items-center justify-center bg-[rgba(110,91,255,0.2)] border border-[rgba(110,91,255,0.3)] text-3xl font-semibold text-white/90 uppercase">
+                <div
+                  className={`${brandingIconBoxClass} text-3xl font-semibold text-white/90 uppercase`}
+                  style={BRANDING_ICON_BOX_STYLE}
+                >
                   {getInitialForLogo(leftOrg.name)}
                 </div>
               )}
@@ -395,7 +422,10 @@ export default function Signup() {
                   className="block w-[88px] h-[88px] mx-auto mb-6 rounded-2xl object-cover border border-white/10 bg-white/5"
                 />
               ) : (
-                <div className="w-[88px] h-[88px] mx-auto mb-6 rounded-2xl flex items-center justify-center bg-[rgba(110,91,255,0.2)] border border-[rgba(110,91,255,0.3)] text-3xl font-semibold text-white/90 uppercase">
+                <div
+                  className={`${brandingIconBoxClass} text-3xl font-semibold text-white/90 uppercase`}
+                  style={BRANDING_ICON_BOX_STYLE}
+                >
                   {organization ? getInitialForLogo(organization.name) : "O"}
                 </div>
               )}
@@ -418,7 +448,7 @@ export default function Signup() {
             </>
           ) : (
             <>
-              <div className="w-[88px] h-[88px] mx-auto mb-6 rounded-2xl flex items-center justify-center bg-[rgba(110,91,255,0.2)] border border-[rgba(110,91,255,0.3)]">
+              <div className={brandingIconBoxClass} style={BRANDING_ICON_BOX_STYLE}>
                 <IconSparkles size={40} className="text-white/90" />
               </div>
               <Title order={1} className="!text-[1.75rem] !font-semibold !mb-3">
@@ -434,7 +464,7 @@ export default function Signup() {
 
       {/* Right panel — form */}
       <div className={`${panelBase} ${panelRight}`}>
-        <div className={formCard}>
+        <div className={AUTH_FORM_CARD_CLASS} style={AUTH_FORM_CARD_STYLE}>
           <Title order={2} ta="center" mb="xl">
             {isEmailInviteFlow ? t("signup-invite-set-password") : t("signup")}
           </Title>
@@ -463,6 +493,7 @@ export default function Signup() {
                 autoComplete="email"
                 variant="filled"
                 size="md"
+                styles={AUTH_INPUT_STYLES}
               />
               <PasswordInput
                 label={t("password")}
@@ -474,6 +505,7 @@ export default function Signup() {
                 autoComplete="new-password"
                 variant="filled"
                 size="md"
+                styles={AUTH_INPUT_STYLES}
                 error={
                   password.length > 0 && password.length < 8
                     ? t("password-min-length")
@@ -490,6 +522,7 @@ export default function Signup() {
                 autoComplete="new-password"
                 variant="filled"
                 size="md"
+                styles={AUTH_INPUT_STYLES}
                 error={
                   confirmPassword.length > 0 && password !== confirmPassword
                     ? t("passwords-do-not-match")
@@ -507,6 +540,7 @@ export default function Signup() {
                   name="organization_name"
                   variant="filled"
                   size="md"
+                  styles={AUTH_INPUT_STYLES}
                 />
               )}
 
@@ -530,7 +564,7 @@ export default function Signup() {
           </form>
 
           <Text ta="center" mt="xl" size="sm">
-            <Anchor component={Link} to="/login" c="violet">
+            <Anchor component={Link} to="/login" c={theme.primaryColor}>
               {t("switch-to-login")}
             </Anchor>
           </Text>

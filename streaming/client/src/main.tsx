@@ -1,16 +1,17 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import ReactDOM from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import '@mantine/core/styles.css';
 import '@mantine/dates/styles.css';
-import { MantineProvider, createTheme } from '@mantine/core';
+import { MantineProvider } from '@mantine/core';
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { useStore } from "./modules/store";
 import { hasGoogleOAuthClientId, VITE_GOOGLE_CLIENT_ID } from "./modules/googleEnv";
-
-const theme = createTheme({
-  primaryColor: 'violet',
-});
+import { getTenantConfig } from "./modules/apiCalls";
+import {
+  applyTenantDocumentBranding,
+  buildMantineTheme,
+} from "./utils/tenantTheme";
 
 import Root from "./routes/root/page.tsx";
 
@@ -51,7 +52,6 @@ const router = createBrowserRouter([
       {
         path: "/",
         element: <Root />,
-        // loader: rootLoader,
       },
       {
         path: "/signup",
@@ -178,13 +178,38 @@ const router = createBrowserRouter([
   },
 ]);
 
-
-
 function App() {
-  const userTheme = useStore((s) => s.userPreferences.theme);
+  const { userTheme, tenantBranding, setTenantBranding } = useStore((s) => ({
+    userTheme: s.userPreferences.theme,
+    tenantBranding: s.tenantBranding,
+    setTenantBranding: s.setTenantBranding,
+  }));
   const [systemDark, setSystemDark] = useState(
     window.matchMedia("(prefers-color-scheme: dark)").matches
   );
+
+  useEffect(() => {
+    getTenantConfig()
+      .then((config) => {
+        const hasBranding = Boolean(
+          config.app_name ||
+            config.logo_url ||
+            config.favicon_url ||
+            config.theme?.primary_color ||
+            config.hide_powered_by
+        );
+        const branding = hasBranding ? config : null;
+        setTenantBranding(branding);
+        applyTenantDocumentBranding(config);
+      })
+      .catch(() => {
+        setTenantBranding(null);
+      });
+  }, [setTenantBranding]);
+
+  useEffect(() => {
+    applyTenantDocumentBranding(tenantBranding ?? undefined);
+  }, [tenantBranding]);
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
@@ -199,6 +224,11 @@ function App() {
         ? "dark"
         : "light"
       : (userTheme as "light" | "dark") || "dark";
+
+  const theme = useMemo(
+    () => buildMantineTheme(tenantBranding),
+    [tenantBranding]
+  );
 
   return (
     <MantineProvider theme={theme} forceColorScheme={colorScheme}>

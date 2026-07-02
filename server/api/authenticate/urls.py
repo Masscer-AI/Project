@@ -7,6 +7,9 @@ from .views import (
     PasswordResetConfirmAPIView,
     UserView,
     OrganizationView,
+    OrganizationTenantView,
+    OrganizationTenantSubdomainView,
+    TenantConfigView,
     OrganizationMembersView,
     OrganizationMemberDetailView,
     OrganizationInvitesView,
@@ -25,6 +28,7 @@ urlpatterns = [
     path("signup", SignupAPIView.as_view(), name="api_signup"),
     path("login", LoginAPIView.as_view(), name="api_login"),
     path("google", GoogleLoginAPIView.as_view(), name="api_google_login"),
+    path("public/tenant-config", TenantConfigView.as_view(), name="tenant_config"),
     path(
         "password-reset/request",
         PasswordResetRequestAPIView.as_view(),
@@ -41,6 +45,16 @@ urlpatterns = [
         "organizations/<str:organization_id>/",
         OrganizationView.as_view(),
         name="organization_id",
+    ),
+    path(
+        "organizations/<str:organization_id>/tenant/",
+        OrganizationTenantView.as_view(),
+        name="organization_tenant",
+    ),
+    path(
+        "organizations/<str:organization_id>/tenant/subdomain/",
+        OrganizationTenantSubdomainView.as_view(),
+        name="organization_tenant_subdomain",
     ),
     path(
         "organizations/<str:organization_id>/members/",

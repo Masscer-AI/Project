@@ -34,6 +34,7 @@ from .serializers import (
 from .models import (
     Token,
     Organization,
+    OrganizationTenant,
     UserProfile,
     Role,
     RoleAssignment,
@@ -63,7 +64,17 @@ from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from api.utils.email_service import EmailService
 import requests as http_requests
 
-from django.db import transaction
+from .subdomain_utils import extract_subdomain, validate_subdomain
+from .tenant_schemas import validate_tenant_theme
+from .tenant_favicon import regenerate_tenant_favicon_from_logo, clear_tenant_favicon
+from .tenant_services import (
+    build_public_tenant_config,
+    get_or_create_tenant,
+    get_tenant_for_organization,
+    serialize_tenant_for_manage,
+)
+from api.payments.models import Subscription
+from django.db import IntegrityError
 
 logger = logging.getLogger(__name__)
 
@@ -785,6 +796,7 @@ class OrganizationView(View):
             # Guardar con update_fields para asegurar que solo se actualiza el logo
             organization.save(update_fields=['logo', 'name', 'description', 'updated_at'])
             print(f"After save: organization.logo = {organization.logo}")
+            _sync_tenant_favicon(organization)
             
             # Verificar en la base de datos
             org_from_db = Organization.objects.get(id=organization_id)
@@ -805,6 +817,7 @@ class OrganizationView(View):
             organization.logo = logo_file
             organization.save()
             print(f"New logo saved: {organization.logo.name if organization.logo else 'None'}")
+            _sync_tenant_favicon(organization)
         
         else:
             print(">>> No logo changes, updating text fields only")
@@ -1539,3 +1552,236 @@ class FeatureFlagListView(View):
         response_data = serializer.data
         cache.set(cache_key, response_data, timeout=self.CACHE_TIMEOUT)
         return JsonResponse(response_data, status=status.HTTP_200_OK)
+
+
+def _organization_has_active_subscription(organization) -> bool:
+    subscription = (
+        Subscription.objects.filter(organization=organization)
+        .order_by("-created_at")
+        .first()
+    )
+    return bool(subscription and subscription.is_active())
+
+
+def _sync_tenant_favicon(organization: Organization) -> None:
+    tenant = get_tenant_for_organization(organization)
+    if not tenant:
+        return
+    if organization.logo:
+        regenerate_tenant_favicon_from_logo(organization)
+    else:
+        clear_tenant_favicon(tenant)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class OrganizationTenantView(View):
+    """Read or update portal branding for an organization."""
+
+    def get(self, request, organization_id):
+        try:
+            organization = Organization.objects.get(id=organization_id)
+        except Organization.DoesNotExist:
+            return JsonResponse(
+                {"error": "Organization not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if not _can_manage_organization(request.user, organization):
+            return JsonResponse(
+                {"error": "You do not have permission to manage this organization"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        tenant = get_tenant_for_organization(organization)
+        if not tenant:
+            return JsonResponse(
+                {
+                    "subdomain": None,
+                    "app_name": "",
+                    "theme": {},
+                    "hide_powered_by": False,
+                    "favicon_url": organization.logo.url if organization.logo else None,
+                    "logo_url": organization.logo.url if organization.logo else None,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        return JsonResponse(
+            serialize_tenant_for_manage(tenant, request),
+            status=status.HTTP_200_OK,
+        )
+
+    def put(self, request, organization_id):
+        try:
+            organization = Organization.objects.get(id=organization_id)
+        except Organization.DoesNotExist:
+            return JsonResponse(
+                {"error": "Organization not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if not _can_manage_organization(request.user, organization):
+            return JsonResponse(
+                {"error": "You do not have permission to manage this organization"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if not _organization_has_active_subscription(organization):
+            return JsonResponse(
+                {"error": "An active subscription is required to customize portal branding"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        try:
+            data = json.loads(request.body or "{}")
+        except json.JSONDecodeError:
+            return JsonResponse(
+                {"error": "Invalid JSON"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        tenant = get_or_create_tenant(organization)
+
+        if "app_name" in data:
+            tenant.app_name = (data.get("app_name") or "").strip()
+
+        if "hide_powered_by" in data:
+            tenant.hide_powered_by = bool(data.get("hide_powered_by"))
+
+        if "theme" in data:
+            try:
+                tenant.theme = validate_tenant_theme(data.get("theme") or {})
+            except ValueError as exc:
+                return JsonResponse(
+                    {"error": str(exc)},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        tenant.save()
+        return JsonResponse(
+            serialize_tenant_for_manage(tenant, request),
+            status=status.HTTP_200_OK,
+        )
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class OrganizationTenantSubdomainView(View):
+    """Claim or release an organization's tenant subdomain."""
+
+    def post(self, request, organization_id):
+        try:
+            organization = Organization.objects.get(id=organization_id)
+        except Organization.DoesNotExist:
+            return JsonResponse(
+                {"error": "Organization not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if not _can_manage_organization(request.user, organization):
+            return JsonResponse(
+                {"error": "You do not have permission to manage this organization"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if not _organization_has_active_subscription(organization):
+            return JsonResponse(
+                {"error": "An active subscription is required to claim a subdomain"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        try:
+            data = json.loads(request.body or "{}")
+        except json.JSONDecodeError:
+            return JsonResponse(
+                {"error": "Invalid JSON"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        raw_subdomain = data.get("subdomain", "")
+        try:
+            subdomain = validate_subdomain(raw_subdomain)
+        except ValidationError as exc:
+            return JsonResponse(
+                {"error": exc.messages[0] if exc.messages else str(exc)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        tenant = get_or_create_tenant(organization)
+        existing = (
+            OrganizationTenant.objects.filter(subdomain=subdomain)
+            .exclude(pk=tenant.pk)
+            .exists()
+        )
+        if existing:
+            return JsonResponse(
+                {"error": "This subdomain is already taken"},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        tenant.subdomain = subdomain
+        try:
+            tenant.save(update_fields=["subdomain", "updated_at"])
+        except IntegrityError:
+            return JsonResponse(
+                {"error": "This subdomain is already taken"},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        _sync_tenant_favicon(organization)
+        return JsonResponse(
+            serialize_tenant_for_manage(tenant, request),
+            status=status.HTTP_200_OK,
+        )
+
+    def delete(self, request, organization_id):
+        try:
+            organization = Organization.objects.get(id=organization_id)
+        except Organization.DoesNotExist:
+            return JsonResponse(
+                {"error": "Organization not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if not _can_manage_organization(request.user, organization):
+            return JsonResponse(
+                {"error": "You do not have permission to manage this organization"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        tenant = get_tenant_for_organization(organization)
+        if not tenant or not tenant.subdomain:
+            return JsonResponse(
+                {"error": "No subdomain is currently claimed"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        tenant.subdomain = None
+        tenant.save(update_fields=["subdomain", "updated_at"])
+        return JsonResponse(
+            serialize_tenant_for_manage(tenant, request),
+            status=status.HTTP_200_OK,
+        )
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class TenantConfigView(View):
+    """Public tenant branding resolved from the request Host header."""
+
+    def get(self, request):
+        subdomain = extract_subdomain(request.get_host())
+        if not subdomain:
+            return JsonResponse({}, status=status.HTTP_200_OK)
+
+        try:
+            tenant = OrganizationTenant.objects.select_related("organization").get(
+                subdomain=subdomain
+            )
+        except OrganizationTenant.DoesNotExist:
+            return JsonResponse({}, status=status.HTTP_200_OK)
+
+        return JsonResponse(
+            build_public_tenant_config(tenant, request),
+            status=status.HTTP_200_OK,
+        )

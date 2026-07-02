@@ -248,6 +248,40 @@ class Organization(models.Model):
         super().save(*args, **kwargs)
 
 
+class OrganizationTenant(models.Model):
+    organization = models.OneToOneField(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name="tenant",
+    )
+    subdomain = models.SlugField(
+        max_length=63,
+        unique=True,
+        null=True,
+        blank=True,
+        help_text="Claimed tenant subdomain (e.g. acme for acme.masscer.ai)",
+    )
+    app_name = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        help_text="Portal display name; blank falls back to organization.name",
+    )
+    theme = models.JSONField(default=dict, blank=True)
+    hide_powered_by = models.BooleanField(default=False)
+    favicon = models.ImageField(
+        upload_to="organizations/tenants/favicons/",
+        null=True,
+        blank=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        label = self.subdomain or self.organization_id
+        return f"OrganizationTenant({label})"
+
+
 class OrganizationManagementProxy(Organization):
     """Proxy for Django admin Organizations Management dashboard (billing, deals, flags)."""
 

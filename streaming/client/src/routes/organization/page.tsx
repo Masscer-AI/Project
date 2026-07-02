@@ -10,17 +10,21 @@ import {
   createOrganization,
   createOrganizationInvite,
   createOrganizationRole,
+  claimTenantSubdomain,
   deactivateOrganizationMember,
   deleteOrganizationRole,
   getFeatureFlagNames,
   getOrganizationBilling,
+  getOrganizationTenant,
   getOrganizationMembers,
   getOrganizationInvites,
   getOrganizationRoles,
   getUserOrganizations,
   reactivateOrganizationSubscription,
   removeOrganizationMember,
+  releaseTenantSubdomain,
   removeRoleAssignment,
+  updateOrganizationTenant,
   revokeOrganizationInvite,
   TOrganizationData,
   updateOrganization,
@@ -34,6 +38,7 @@ import {
   TOrganizationMember,
   TOrganizationInvite,
   TOrganizationRole,
+  TOrganizationTenant,
 } from "../../types";
 import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
@@ -42,11 +47,13 @@ import { useForm } from "@mantine/form";
 
 import {
   ActionIcon,
+  Anchor,
   Badge,
   Box,
   Button,
   Card,
   Checkbox,
+  ColorInput,
   Divider,
   FileButton,
   Group,
@@ -55,6 +62,7 @@ import {
   Modal,
   NativeSelect,
   Stack,
+  Switch,
   Tabs,
   Text,
   Textarea,
@@ -81,6 +89,11 @@ import {
 } from "@tabler/icons-react";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
 import { DataGovernanceTab } from "./DataGovernanceTab";
+import {
+  buildTenantSubdomainUrl,
+  formatTenantSubdomainHost,
+  isValidSubdomainInput,
+} from "../../utils/tenantSubdomain";
 
 const CREDIT_PACKAGES = [
   { amountUsd: 50, creditsUsd: 40 },
@@ -144,6 +157,15 @@ export default function OrganizationPage() {
   const [reactivatingSubscription, setReactivatingSubscription] = useState(false);
   const [creditAmount, setCreditAmount] = useState<number>(50);
   const [buyingCredits, setBuyingCredits] = useState(false);
+  const [subdomainInput, setSubdomainInput] = useState("");
+  const [claimingSubdomain, setClaimingSubdomain] = useState(false);
+  const [releasingSubdomain, setReleasingSubdomain] = useState(false);
+  const [tenant, setTenant] = useState<TOrganizationTenant | null>(null);
+  const [loadingTenant, setLoadingTenant] = useState(false);
+  const [portalAppName, setPortalAppName] = useState("");
+  const [portalPrimaryColor, setPortalPrimaryColor] = useState("");
+  const [portalHidePoweredBy, setPortalHidePoweredBy] = useState(false);
+  const [savingPortalBranding, setSavingPortalBranding] = useState(false);
   const canUseOneDollarPackage =
     useIsFeatureEnabled("one-dolar-credits-package") === true;
   const availableCreditPackages = canUseOneDollarPackage
@@ -201,6 +223,78 @@ export default function OrganizationPage() {
       setCheckoutLoading(null);
     }
   };
+
+  const handleClaimSubdomain = async () => {
+    if (!org?.id) return;
+    const normalized = subdomainInput.trim().toLowerCase();
+    if (!isValidSubdomainInput(normalized)) {
+      toast.error(t("subdomain-invalid"));
+      return;
+    }
+    setClaimingSubdomain(true);
+    try {
+      const updated = await claimTenantSubdomain(org.id, normalized);
+      setTenant(updated);
+      setSubdomainInput(updated.subdomain || normalized);
+      toast.success(t("subdomain-claimed"));
+    } catch (e: any) {
+      const message =
+        e?.response?.data?.error || e?.message || t("subdomain-claim-error");
+      toast.error(message);
+    } finally {
+      setClaimingSubdomain(false);
+    }
+  };
+
+  const handleReleaseSubdomain = async () => {
+    if (!org?.id) return;
+    setReleasingSubdomain(true);
+    try {
+      const updated = await releaseTenantSubdomain(org.id);
+      setTenant(updated);
+      setSubdomainInput("");
+      toast.success(t("subdomain-released"));
+    } catch (e: any) {
+      const message =
+        e?.response?.data?.error || e?.message || t("subdomain-release-error");
+      toast.error(message);
+    } finally {
+      setReleasingSubdomain(false);
+    }
+  };
+
+  const handleSavePortalBranding = async () => {
+    if (!org?.id) return;
+    const trimmedColor = portalPrimaryColor.trim();
+    if (trimmedColor && !/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(trimmedColor)) {
+      toast.error(t("portal-branding-invalid-color"));
+      return;
+    }
+    setSavingPortalBranding(true);
+    try {
+      const theme = trimmedColor ? { primary_color: trimmedColor } : {};
+      const updated = await updateOrganizationTenant(org.id, {
+        app_name: portalAppName.trim(),
+        hide_powered_by: portalHidePoweredBy,
+        theme,
+      });
+      setTenant(updated);
+      setPortalAppName(updated.app_name || "");
+      setPortalPrimaryColor(updated.theme?.primary_color || "");
+      setPortalHidePoweredBy(updated.hide_powered_by);
+      toast.success(t("portal-branding-saved"));
+    } catch (e: any) {
+      const message =
+        e?.response?.data?.error || e?.message || t("portal-branding-save-error");
+      toast.error(message);
+    } finally {
+      setSavingPortalBranding(false);
+    }
+  };
+
+  const subdomainPreviewHost = subdomainInput.trim()
+    ? formatTenantSubdomainHost(subdomainInput.trim().toLowerCase())
+    : "";
 
   const handleManageSubscription = async () => {
     if (!org?.id) return;
@@ -319,6 +413,7 @@ export default function OrganizationPage() {
   }, [searchParams, setSearchParams]);
 
   const org = orgs[0] ?? null;
+  const hasActiveSubscription = Boolean(billing?.subscription?.is_active);
   const hasCustomSubscription = billing?.subscription?.plan?.slug === "custom";
   const hasActiveOrganizationPlan = Boolean(
     billing?.subscription?.is_active &&
@@ -338,6 +433,29 @@ export default function OrganizationPage() {
       setDeleteLogo(false);
       setLogoCacheKey(Date.now());
     }
+  }, [org?.id]);
+
+  useEffect(() => {
+    if (!org?.id) {
+      setTenant(null);
+      setPortalAppName("");
+      setPortalPrimaryColor("");
+      setPortalHidePoweredBy(false);
+      return;
+    }
+    setLoadingTenant(true);
+    getOrganizationTenant(org.id)
+      .then((data) => {
+        setTenant(data);
+        setSubdomainInput(data.subdomain || "");
+        setPortalAppName(data.app_name || "");
+        setPortalPrimaryColor(data.theme?.primary_color || "");
+        setPortalHidePoweredBy(data.hide_powered_by);
+      })
+      .catch(() => {
+        setTenant(null);
+      })
+      .finally(() => setLoadingTenant(false));
   }, [org?.id]);
 
   useEffect(() => {
@@ -459,6 +577,14 @@ export default function OrganizationPage() {
       orgForm.resetDirty();
       setLogoCacheKey(Date.now());
       await loadOrgs();
+      if (options) {
+        try {
+          const refreshedTenant = await getOrganizationTenant(org.id);
+          setTenant(refreshedTenant);
+        } catch {
+          /* favicon preview is optional */
+        }
+      }
     } catch (e: any) {
       toast.error(
         e?.response?.data?.detail || t("error-updating-organization")
@@ -851,6 +977,7 @@ export default function OrganizationPage() {
 
               {/* ── Settings Tab ── */}
               <Tabs.Panel value="settings">
+                <Stack gap="md">
                 <Card withBorder p="lg">
                   <Group justify="space-between" mb="md">
                     <Title order={4}>{t("organization-settings")}</Title>
@@ -963,6 +1090,174 @@ export default function OrganizationPage() {
                     </Group>
                   </Stack>
                 </Card>
+
+                <Card withBorder p="lg">
+                  <Title order={4} mb="xs">
+                    {t("custom-subdomain")}
+                  </Title>
+                  <Text size="sm" c="dimmed" mb="md">
+                    {t("custom-subdomain-description")}
+                  </Text>
+
+                  {loadingBilling || loadingTenant ? (
+                    <Loader size="sm" />
+                  ) : !hasActiveSubscription ? (
+                    <Text size="sm" c="dimmed">
+                      {t("custom-subdomain-requires-subscription")}
+                    </Text>
+                  ) : tenant?.subdomain ? (
+                    <Stack gap="sm">
+                      <Group gap="xs">
+                        <IconLink size={16} />
+                        <Anchor
+                          href={buildTenantSubdomainUrl(tenant.subdomain)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          size="sm"
+                        >
+                          {formatTenantSubdomainHost(tenant.subdomain)}
+                        </Anchor>
+                      </Group>
+                      <Group gap="sm" align="flex-end">
+                        <TextInput
+                          label={t("custom-subdomain-change-label")}
+                          value={subdomainInput}
+                          onChange={(e) => {
+                            const val = e.currentTarget.value;
+                            setSubdomainInput(val.toLowerCase());
+                          }}
+                          placeholder="acme"
+                          style={{ flex: 1 }}
+                        />
+                        <Button
+                          onClick={handleClaimSubdomain}
+                          loading={claimingSubdomain}
+                          disabled={
+                            !subdomainInput.trim() ||
+                            subdomainInput.trim().toLowerCase() === tenant.subdomain
+                          }
+                        >
+                          {t("custom-subdomain-change")}
+                        </Button>
+                        <Button
+                          variant="default"
+                          color="red"
+                          onClick={handleReleaseSubdomain}
+                          loading={releasingSubdomain}
+                        >
+                          {t("custom-subdomain-release")}
+                        </Button>
+                      </Group>
+                    </Stack>
+                  ) : (
+                    <Stack gap="sm">
+                      <TextInput
+                        label={t("custom-subdomain-input-label")}
+                        value={subdomainInput}
+                        onChange={(e) => {
+                          const val = e.currentTarget.value;
+                          setSubdomainInput(val.toLowerCase());
+                        }}
+                        placeholder="acme"
+                        description={
+                          subdomainPreviewHost
+                            ? t("custom-subdomain-preview", {
+                                host: subdomainPreviewHost,
+                              })
+                            : undefined
+                        }
+                      />
+                      <Button
+                        onClick={handleClaimSubdomain}
+                        loading={claimingSubdomain}
+                        disabled={!isValidSubdomainInput(subdomainInput)}
+                        w="fit-content"
+                      >
+                        {t("custom-subdomain-claim")}
+                      </Button>
+                    </Stack>
+                  )}
+                </Card>
+
+                <Card withBorder p="lg">
+                  <Title order={4} mb="xs">
+                    {t("portal-branding")}
+                  </Title>
+                  <Text size="sm" c="dimmed" mb="md">
+                    {t("portal-branding-description")}
+                  </Text>
+
+                  {loadingBilling || loadingTenant ? (
+                    <Loader size="sm" />
+                  ) : !hasActiveSubscription ? (
+                    <Text size="sm" c="dimmed">
+                      {t("portal-branding-requires-subscription")}
+                    </Text>
+                  ) : (
+                    <Stack gap="md">
+                      <TextInput
+                        label={t("portal-branding-app-name")}
+                        value={portalAppName}
+                        onChange={(e) => {
+                          const val = e.currentTarget.value;
+                          setPortalAppName(val);
+                        }}
+                        placeholder={org.name}
+                        description={t("portal-branding-app-name-hint")}
+                      />
+                      <ColorInput
+                        label={t("portal-branding-primary-color")}
+                        description={t("portal-branding-primary-color-description")}
+                        placeholder="#6e5bff"
+                        value={portalPrimaryColor}
+                        format="hex"
+                        withPicker
+                        swatches={[
+                          "#6e5bff",
+                          "#667eea",
+                          "#7c3aed",
+                          "#0ea5e9",
+                          "#10b981",
+                          "#f59e0b",
+                          "#ef4444",
+                          "#ec4899",
+                          "#111827",
+                        ]}
+                        onChange={setPortalPrimaryColor}
+                        __clearable
+                      />
+                      <Switch
+                        label={t("portal-branding-hide-powered-by")}
+                        checked={portalHidePoweredBy}
+                        onChange={(e) => {
+                          setPortalHidePoweredBy(e.currentTarget.checked);
+                        }}
+                      />
+                      {(tenant?.favicon_url || org.logo_url) && (
+                        <Group gap="sm" align="center">
+                          <Text size="sm" c="dimmed">
+                            {t("portal-branding-favicon-preview")}
+                          </Text>
+                          <Image
+                            src={`${API_URL}${tenant?.favicon_url || org.logo_url}?v=${logoCacheKey}`}
+                            alt={t("portal-branding-favicon-preview")}
+                            w={32}
+                            h={32}
+                            fit="contain"
+                          />
+                        </Group>
+                      )}
+                      <Button
+                        onClick={handleSavePortalBranding}
+                        loading={savingPortalBranding}
+                        w="fit-content"
+                      >
+                        {t("portal-branding-save")}
+                      </Button>
+                    </Stack>
+                  )}
+                </Card>
+                </Stack>
               </Tabs.Panel>
 
               {/* ── Roles Tab ── */}

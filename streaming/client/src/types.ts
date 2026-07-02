@@ -196,6 +196,15 @@ export type TOrganization = {
   logo_url?: string | null;
 };
 
+export type TOrganizationTenant = {
+  subdomain: string | null;
+  app_name: string;
+  theme: { primary_color?: string };
+  hide_powered_by: boolean;
+  favicon_url?: string | null;
+  logo_url?: string | null;
+};
+
 /** Word (.docx) template with Jinja-style placeholders for org agents */
 export type TDocumentTemplateVariable = {
   description: string;
