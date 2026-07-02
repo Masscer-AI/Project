@@ -25,6 +25,7 @@ from api.authenticate.services import FeatureFlagService
 from .models import Integration, IntegrationStatus
 from .providers import IntegrationProviderError, get_provider
 from .services import (
+    build_integrations_return_url,
     ensure_valid_access_token,
     get_frontend_integrations_url,
     get_google_client_id,
@@ -34,6 +35,7 @@ from .services import (
     get_user_organization,
     integration_queryset_for_user,
     parse_owner_type,
+    resolve_integrations_return_to,
     serialize_integration,
     user_can_manage_integrations,
     validate_provider_key,
@@ -76,6 +78,11 @@ def _require_capability(request, owner_type: str):
     return None
 
 
+def _redirect_after_oauth(state_data: dict | None, *, error: str = "") -> HttpResponseRedirect:
+    return_to = (state_data or {}).get("return_to") or get_frontend_integrations_url()
+    return HttpResponseRedirect(build_integrations_return_url(return_to, error=error))
+
+
 @csrf_exempt
 @token_required
 def integrations_list(request):
@@ -115,12 +122,14 @@ def integrations_connect(request, provider: str):
         return JsonResponse({"error": "GOOGLE_CLIENT_ID is not configured"}, status=400)
 
     state = secrets.token_urlsafe(24)
+    return_to = resolve_integrations_return_to(request.GET.get("return_to"))
     cache.set(
         f"{_STATE_CACHE_PREFIX}{state}",
         {
             "user_id": request.user.id,
             "provider": provider_key,
             "owner_type": owner_type,
+            "return_to": return_to,
         },
         timeout=_STATE_TTL,
     )
@@ -185,7 +194,7 @@ def integrations_callback(request, provider: str):
     cache.delete(f"{_STATE_CACHE_PREFIX}{state}")
 
     if state_data.get("provider") != provider_key:
-        return HttpResponseRedirect(get_frontend_integrations_url(error="provider_mismatch"))
+        return _redirect_after_oauth(state_data, error="provider_mismatch")
 
     from django.contrib.auth.models import User
 
@@ -194,13 +203,13 @@ def integrations_callback(request, provider: str):
             id=state_data["user_id"]
         )
     except User.DoesNotExist:
-        return HttpResponseRedirect(get_frontend_integrations_url(error="user_not_found"))
+        return _redirect_after_oauth(state_data, error="user_not_found")
 
     owner_type = state_data.get("owner_type", "user")
     org = get_user_organization(user)
 
     if owner_type == "organization" and org is None:
-        return HttpResponseRedirect(get_frontend_integrations_url(error="no_organization"))
+        return _redirect_after_oauth(state_data, error="no_organization")
 
     enabled, _ = FeatureFlagService.is_feature_enabled(
         "can-connect-drive-account",
@@ -208,12 +217,12 @@ def integrations_callback(request, provider: str):
         user=user,
     )
     if not enabled:
-        return HttpResponseRedirect(get_frontend_integrations_url(error="access_denied"))
+        return _redirect_after_oauth(state_data, error="access_denied")
 
     client_id = get_google_client_id()
     client_secret = get_google_client_secret()
     if not client_id or not client_secret:
-        return HttpResponseRedirect(get_frontend_integrations_url(error="server_misconfigured"))
+        return _redirect_after_oauth(state_data, error="server_misconfigured")
 
     redirect_uri = get_redirect_uri(request, provider_key)
     provider_instance = get_provider(
@@ -229,7 +238,7 @@ def integrations_callback(request, provider: str):
         account_info = provider_instance.fetch_account_info(access_token)
     except IntegrationProviderError as exc:
         logger.error("Integration token exchange failed: %s", exc)
-        return HttpResponseRedirect(get_frontend_integrations_url(error="token_exchange_failed"))
+        return _redirect_after_oauth(state_data, error="token_exchange_failed")
 
     refresh_token = token_data.get("refresh_token", "")
     expires_in = token_data.get("expires_in")
@@ -284,9 +293,9 @@ def integrations_callback(request, provider: str):
             exc,
             exc_info=True,
         )
-        return HttpResponseRedirect(get_frontend_integrations_url(error="save_failed"))
+        return _redirect_after_oauth(state_data, error="save_failed")
 
-    return HttpResponseRedirect(get_frontend_integrations_url())
+    return _redirect_after_oauth(state_data)
 
 
 @csrf_exempt

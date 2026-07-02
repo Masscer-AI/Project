@@ -23,6 +23,8 @@ import Layout from "./routes/Layout.tsx";
 import Login from "./routes/login/page.tsx";
 import ForgotPassword from "./routes/forgot-password/page.tsx";
 import ResetPassword from "./routes/reset-password/page.tsx";
+import AuthCallback from "./routes/auth/callback/page.tsx";
+import AuthGoogleBridge from "./routes/auth/google/page.tsx";
 
 import Whatsapp from "./routes/whatsapp/page.tsx";
 import WorkflowsPage from "./routes/workflows/page.tsx";
@@ -68,6 +70,14 @@ const router = createBrowserRouter([
       {
         path: "/reset-password",
         element: <ResetPassword />,
+      },
+      {
+        path: "/auth/callback",
+        element: <AuthCallback />,
+      },
+      {
+        path: "/auth/google",
+        element: <AuthGoogleBridge />,
       },
       {
         path: "/chat",

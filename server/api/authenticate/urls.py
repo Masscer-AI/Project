@@ -3,6 +3,7 @@ from .views import (
     LoginAPIView,
     SignupAPIView,
     GoogleLoginAPIView,
+    AuthHandoffExchangeAPIView,
     PasswordResetRequestAPIView,
     PasswordResetConfirmAPIView,
     UserView,
@@ -28,6 +29,7 @@ urlpatterns = [
     path("signup", SignupAPIView.as_view(), name="api_signup"),
     path("login", LoginAPIView.as_view(), name="api_login"),
     path("google", GoogleLoginAPIView.as_view(), name="api_google_login"),
+    path("handoff/exchange", AuthHandoffExchangeAPIView.as_view(), name="auth_handoff_exchange"),
     path("public/tenant-config", TenantConfigView.as_view(), name="tenant_config"),
     path(
         "password-reset/request",

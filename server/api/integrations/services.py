@@ -6,12 +6,17 @@ from __future__ import annotations
 
 import os
 from typing import Literal
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from django.contrib.auth.models import User
 from django.utils import timezone
 
 from api.authenticate.models import Organization
 from api.authenticate.services import FeatureFlagService
+from api.authenticate.subdomain_utils import (
+    get_frontend_base_url,
+    is_allowed_return_to_host,
+)
 
 from .models import Integration, IntegrationProvider as IntegrationProviderChoices
 from .providers import IntegrationProviderError, get_provider
@@ -19,6 +24,8 @@ from .providers import IntegrationProviderError, get_provider
 OwnerType = Literal["user", "organization"]
 VALID_OWNERS: frozenset[str] = frozenset({"user", "organization"})
 VALID_PROVIDERS: frozenset[str] = frozenset({c.value for c in IntegrationProviderChoices})
+
+INTEGRATIONS_RETURN_PATH_PREFIX = "/settings/integrations"
 
 
 def get_google_client_id() -> str:
@@ -30,24 +37,78 @@ def get_google_client_secret() -> str:
 
 
 def get_redirect_uri(request, provider: str) -> str:
-    """Backend callback URL for OAuth redirect."""
+    """Backend callback URL for OAuth redirect (canonical, not tenant host)."""
     env_key = f"{provider.upper()}_REDIRECT_URI"
     override = os.environ.get(env_key, "").strip()
     if override:
         return override
-    # Fallback generic env for Drive (plan name)
     generic = os.environ.get("GOOGLE_DRIVE_REDIRECT_URI", "").strip()
     if generic:
         return generic
+    frontend_base = get_frontend_base_url()
+    if frontend_base:
+        return f"{frontend_base}/v1/integrations/{provider}/callback/"
     return request.build_absolute_uri(f"/v1/integrations/{provider}/callback/")
 
 
 def get_frontend_integrations_url(*, error: str = "") -> str:
-    base = os.environ.get("FRONTEND_URL", "").rstrip("/")
+    base = get_frontend_base_url()
     url = f"{base}/settings/integrations"
     if error:
         return f"{url}?error={error}"
     return url
+
+
+def validate_return_to(url: str) -> str | None:
+    """Return normalized return URL or None if unsafe."""
+    raw = (url or "").strip()
+    if not raw:
+        return None
+    parsed = urlparse(raw)
+    if parsed.scheme not in {"http", "https"}:
+        return None
+    if not is_allowed_return_to_host(parsed.hostname or ""):
+        return None
+    path = parsed.path or ""
+    if not path.startswith(INTEGRATIONS_RETURN_PATH_PREFIX):
+        return None
+    normalized = urlunparse(
+        (
+            parsed.scheme,
+            parsed.netloc,
+            path.rstrip("/") or INTEGRATIONS_RETURN_PATH_PREFIX,
+            "",
+            "",
+            "",
+        )
+    )
+    return normalized
+
+
+def resolve_integrations_return_to(raw: str | None) -> str:
+    validated = validate_return_to(raw or "")
+    if validated:
+        return validated
+    return get_frontend_integrations_url()
+
+
+def build_integrations_return_url(return_to: str, *, error: str = "") -> str:
+    base_url = resolve_integrations_return_to(return_to)
+    if not error:
+        return base_url
+    parsed = urlparse(base_url)
+    query = dict(parse_qsl(parsed.query, keep_blank_values=True))
+    query["error"] = error
+    return urlunparse(
+        (
+            parsed.scheme,
+            parsed.netloc,
+            parsed.path,
+            parsed.params,
+            urlencode(query),
+            parsed.fragment,
+        )
+    )
 
 
 def get_user_organization(user: User) -> Organization | None:

@@ -21,6 +21,13 @@ import { IconLogin, IconLock, IconSparkles } from "@tabler/icons-react";
 import { GoogleSignInButton } from "../../components/GoogleSignInButton/GoogleSignInButton";
 import { hasGoogleOAuthClientId } from "../../modules/googleEnv";
 import {
+  buildTenantGoogleBridgeUrl,
+  isTenantSubdomainHost,
+} from "../../utils/tenantSubdomain";
+import {
+  redirectToTenantHandoff,
+} from "../../utils/googleAuthHandoff";
+import {
   AUTH_FORM_CARD_CLASS,
   AUTH_FORM_CARD_STYLE,
   AUTH_INPUT_STYLES,
@@ -49,6 +56,14 @@ export default function Login() {
   const redirectAfterLogin = () => {
     navigate(resolvePostLoginPath(searchParams.get("next")));
   };
+
+  const onTenantSubdomain = isTenantSubdomainHost();
+  const googleAuthHref = onTenantSubdomain
+    ? buildTenantGoogleBridgeUrl({
+        returnTo: window.location.origin,
+        next: searchParams.get("next"),
+      })
+    : undefined;
 
   const handleSubmit = async () => {
     if (!email || !password) {
@@ -105,9 +120,21 @@ export default function Login() {
   const handleGoogleAccessToken = async (accessToken: string) => {
     setIsLoading(true);
     try {
+      const returnTo = searchParams.get("return_to");
       const response = await axios.post(API_URL + "/v1/auth/google", {
         access_token: accessToken,
+        ...(returnTo ? { return_to: returnTo } : {}),
       });
+
+      if (returnTo && response.data.handoff_code) {
+        redirectToTenantHandoff(
+          response.data.handoff_code,
+          returnTo,
+          searchParams.get("next")
+        );
+        return;
+      }
+
       if (response.data.token) {
         localStorage.setItem("token", response.data.token);
       }
@@ -222,7 +249,8 @@ export default function Login() {
             <>
               <Divider label="or" labelPosition="center" my="lg" />
               <GoogleSignInButton
-                onAccessToken={handleGoogleAccessToken}
+                onAccessToken={googleAuthHref ? undefined : handleGoogleAccessToken}
+                href={googleAuthHref}
                 disabled={isLoading}
               />
             </>

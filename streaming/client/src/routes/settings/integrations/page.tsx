@@ -103,7 +103,12 @@ export default function IntegrationsPage() {
     }
     setConnecting(true);
     try {
-      const data = await connectIntegration(GOOGLE_DRIVE_PROVIDER, ownerScope);
+      const returnTo = `${window.location.origin}/settings/integrations`;
+      const data = await connectIntegration(
+        GOOGLE_DRIVE_PROVIDER,
+        ownerScope,
+        returnTo
+      );
       if (data.authorization_url) {
         window.location.href = data.authorization_url;
       }
@@ -126,9 +131,9 @@ export default function IntegrationsPage() {
     }
   };
 
-  const renderOwnerStatus = (owner: IntegrationOwnerType, label: string) => {
+  const renderConnectedOwner = (owner: IntegrationOwnerType, label: string) => {
     const integration = driveByOwner[owner];
-    const connected = Boolean(integration?.connected);
+    if (!integration?.connected) return null;
 
     return (
       <Group key={owner} justify="space-between" wrap="nowrap">
@@ -136,35 +141,31 @@ export default function IntegrationsPage() {
           <Text size="sm" fw={500}>
             {label}
           </Text>
-          {connected ? (
-            <Text size="xs" c="dimmed">
-              {t("integrations-account")}: {integration?.account_email || integration?.account_label}
-            </Text>
-          ) : (
-            <Text size="xs" c="dimmed">
-              {t("integrations-not-connected")}
-            </Text>
-          )}
+          <Text size="xs" c="dimmed">
+            {t("integrations-account")}: {integration.account_email || integration.account_label}
+          </Text>
         </Stack>
         <Group gap="xs">
-          <Badge color={connected ? "green" : "gray"} variant="light">
-            {connected ? t("integrations-connected") : t("integrations-not-connected")}
+          <Badge color="green" variant="light">
+            {t("integrations-connected")}
           </Badge>
-          {connected && (
-            <Button
-              size="xs"
-              variant="subtle"
-              color="red"
-              loading={disconnecting === owner}
-              onClick={() => handleDisconnect(owner)}
-            >
-              {t("integrations-disconnect")}
-            </Button>
-          )}
+          <Button
+            size="xs"
+            variant="subtle"
+            color="red"
+            loading={disconnecting === owner}
+            onClick={() => handleDisconnect(owner)}
+          >
+            {t("integrations-disconnect")}
+          </Button>
         </Group>
       </Group>
     );
   };
+
+  const hasConnectedDrive =
+    Boolean(driveByOwner.user?.connected) ||
+    Boolean(driveByOwner.organization?.connected);
 
   return (
     <main className="d-flex pos-relative h-viewport">
@@ -233,14 +234,16 @@ export default function IntegrationsPage() {
                 {t("integrations-connect")}
               </Button>
 
-              <Stack gap="sm">
-                {renderOwnerStatus("user", t("integrations-owner-me"))}
-                {hasOrganization &&
-                  renderOwnerStatus(
-                    "organization",
-                    `${t("integrations-owner-organization")}${organizationName ? `: ${organizationName}` : ""}`
-                  )}
-              </Stack>
+              {hasConnectedDrive && (
+                <Stack gap="sm">
+                  {renderConnectedOwner("user", t("integrations-owner-me"))}
+                  {hasOrganization &&
+                    renderConnectedOwner(
+                      "organization",
+                      `${t("integrations-owner-organization")}${organizationName ? `: ${organizationName}` : ""}`
+                    )}
+                </Stack>
+              )}
             </Stack>
           </Card>
         </Stack>

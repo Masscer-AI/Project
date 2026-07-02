@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import os
 import re
+from urllib.parse import urlparse, urlunparse
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -85,3 +87,67 @@ def extract_subdomain(host: str) -> str | None:
     if not label or label in RESERVED_SUBDOMAINS:
         return None
     return label
+
+
+def get_frontend_base_url() -> str:
+    return (
+        getattr(settings, "FRONTEND_URL", None) or os.environ.get("FRONTEND_URL", "")
+    ).strip().rstrip("/")
+
+
+def is_allowed_return_to_host(hostname: str) -> bool:
+    if not hostname:
+        return False
+    host = hostname.lower()
+    if host in {"localhost", "127.0.0.1"}:
+        return True
+    if extract_subdomain(host):
+        return True
+    frontend_base = get_frontend_base_url()
+    if frontend_base:
+        frontend_host = urlparse(frontend_base).hostname
+        if frontend_host and frontend_host.lower() == host:
+            return True
+    base_domain = get_base_domain()
+    if host in {base_domain, f"app.{base_domain}"}:
+        return True
+    return False
+
+
+def validate_auth_return_to_origin(url: str) -> str | None:
+    """Return normalized origin (scheme + netloc) or None if unsafe."""
+    raw = (url or "").strip()
+    if not raw:
+        return None
+    parsed = urlparse(raw)
+    if parsed.scheme not in {"http", "https"}:
+        return None
+    if not is_allowed_return_to_host(parsed.hostname or ""):
+        return None
+    if parsed.path not in {"", "/"}:
+        return None
+    if parsed.params or parsed.query or parsed.fragment:
+        return None
+    return urlunparse((parsed.scheme, parsed.netloc, "", "", "", ""))
+
+
+def validate_google_auth_redirect_uri(url: str) -> str | None:
+    """Return normalized redirect URI for GIS auth-code flow or None if unsafe."""
+    raw = (url or "").strip()
+    if not raw:
+        return None
+    parsed = urlparse(raw)
+    if parsed.scheme not in {"http", "https"}:
+        return None
+    origin = validate_auth_return_to_origin(f"{parsed.scheme}://{parsed.netloc}")
+    if not origin:
+        return None
+    hostname = urlparse(origin).hostname or ""
+    if extract_subdomain(hostname):
+        return None
+    path = (parsed.path or "").rstrip("/") or "/"
+    if path != "/auth/google":
+        return None
+    if parsed.params or parsed.query or parsed.fragment:
+        return None
+    return urlunparse((parsed.scheme, parsed.netloc, "/auth/google", "", "", ""))

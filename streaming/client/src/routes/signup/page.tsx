@@ -19,6 +19,12 @@ import {
 import { IconUserPlus, IconSparkles } from "@tabler/icons-react";
 import { GoogleSignInButton } from "../../components/GoogleSignInButton/GoogleSignInButton";
 import { hasGoogleOAuthClientId } from "../../modules/googleEnv";
+import { redirectToTenantHandoff } from "../../utils/googleAuthHandoff";
+import { resolvePostLoginPath } from "../../utils/loginRedirect";
+import {
+  buildTenantGoogleBridgeUrl,
+  isTenantSubdomainHost,
+} from "../../utils/tenantSubdomain";
 import {
   AUTH_FORM_CARD_CLASS,
   AUTH_FORM_CARD_STYLE,
@@ -210,14 +216,26 @@ export default function Signup() {
     if (inviteToken) return;
     setLoading(true);
     try {
+      const returnTo = searchParams.get("return_to");
       const response = await axios.post(API_URL + "/v1/auth/google", {
         access_token: accessToken,
+        ...(returnTo ? { return_to: returnTo } : {}),
       });
+
+      if (returnTo && response.data.handoff_code) {
+        redirectToTenantHandoff(
+          response.data.handoff_code,
+          returnTo,
+          searchParams.get("next")
+        );
+        return;
+      }
+
       if (response.data.token) {
         localStorage.setItem("token", response.data.token);
       }
       toast.success(t("successfully-logged-in"));
-      navigate("/chat");
+      navigate(resolvePostLoginPath(searchParams.get("next")));
     } catch (error: any) {
       const msg = error.response?.data?.error || t("an-error-occurred");
       setMessage(msg);
@@ -232,6 +250,13 @@ export default function Signup() {
 
   const isEmailInviteFlow = Boolean(inviteToken && inviteData?.invite_valid);
   const showGoogle = hasGoogleOAuthClientId && !inviteToken;
+  const onTenantSubdomain = isTenantSubdomainHost();
+  const googleAuthHref =
+    showGoogle && onTenantSubdomain
+      ? buildTenantGoogleBridgeUrl({
+          returnTo: window.location.origin,
+        })
+      : undefined;
 
   // Loading invite or org details
   if (loadingOrg && (inviteToken || orgId)) {
@@ -472,7 +497,8 @@ export default function Signup() {
           {showGoogle && (
             <>
               <GoogleSignInButton
-                onAccessToken={handleGoogleAccessToken}
+                onAccessToken={googleAuthHref ? undefined : handleGoogleAccessToken}
+                href={googleAuthHref}
                 disabled={loading}
               />
               <Divider label="or" labelPosition="center" my="lg" />

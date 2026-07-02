@@ -2013,9 +2013,13 @@ export const getIntegrations = async () => {
 
 export const connectIntegration = async (
   provider: string,
-  owner: IntegrationOwnerType
+  owner: IntegrationOwnerType,
+  returnTo?: string
 ) => {
   const params = new URLSearchParams({ owner });
+  if (returnTo) {
+    params.set("return_to", returnTo);
+  }
   return makeAuthenticatedRequest<{
     authorization_url: string;
     owner_type: IntegrationOwnerType;

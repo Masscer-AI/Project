@@ -64,7 +64,13 @@ from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from api.utils.email_service import EmailService
 import requests as http_requests
 
-from .subdomain_utils import extract_subdomain, validate_subdomain
+from .auth_handoff import create_handoff_code, exchange_handoff_code, issue_login_token_for_handoff
+from .subdomain_utils import (
+    extract_subdomain,
+    validate_auth_return_to_origin,
+    validate_google_auth_redirect_uri,
+    validate_subdomain,
+)
 from .tenant_schemas import validate_tenant_theme
 from .tenant_favicon import regenerate_tenant_favicon_from_logo, clear_tenant_favicon
 from .tenant_services import (
@@ -79,6 +85,71 @@ from django.db import IntegrityError
 logger = logging.getLogger(__name__)
 
 ORG_INVITE_VALID_DAYS = 7
+
+
+def _exchange_google_auth_code(code: str, redirect_uri: str) -> str | None:
+    client_id = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
+    client_secret = os.environ.get("GOOGLE_CLIENT_SECRET", "").strip()
+    if not client_id or not client_secret:
+        logger.error("[Google Login] GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET not configured")
+        return None
+    logger.info(
+        "[Google Login] Exchanging auth code (redirect_uri=%s, client_id=%s…)",
+        redirect_uri,
+        client_id[:20],
+    )
+    try:
+        token_resp = http_requests.post(
+            "https://oauth2.googleapis.com/token",
+            data={
+                "code": code,
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "redirect_uri": redirect_uri,
+                "grant_type": "authorization_code",
+            },
+            timeout=10,
+        )
+        if not token_resp.ok:
+            logger.error(
+                "[Google Login] Token exchange failed: status=%s body=%s redirect_uri=%s",
+                token_resp.status_code,
+                token_resp.text,
+                redirect_uri,
+            )
+            return None
+        return token_resp.json().get("access_token")
+    except Exception as e:
+        logger.error("[Google Login] Failed to exchange auth code: %s", e, exc_info=True)
+        return None
+
+
+def _resolve_google_access_token(request) -> tuple[str | None, Response | None]:
+    access_token = (request.data.get("access_token") or "").strip()
+    if access_token:
+        return access_token, None
+
+    code = (request.data.get("code") or "").strip()
+    if not code:
+        return None, Response(
+            {"error": "access_token or code is required"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    redirect_uri = validate_google_auth_redirect_uri(request.data.get("redirect_uri") or "")
+    if not redirect_uri:
+        return None, Response(
+            {"error": "A valid redirect_uri is required for code exchange"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    exchanged = _exchange_google_auth_code(code, redirect_uri)
+    if not exchanged:
+        return None, Response(
+            {"error": "Invalid or expired Google authorization code"},
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
+    return exchanged, None
 
 
 def _frontend_base_url(request):
@@ -336,10 +407,9 @@ class GoogleLoginAPIView(APIView):
     def post(self, request):
         import traceback
 
-        access_token = request.data.get("access_token")
-        if not access_token:
-            logger.error("[Google Login] No access_token in request body")
-            return Response({"error": "access_token is required"}, status=status.HTTP_400_BAD_REQUEST)
+        access_token, token_error = _resolve_google_access_token(request)
+        if token_error:
+            return token_error
 
         logger.info("[Google Login] Fetching userinfo from Google")
         try:
@@ -365,8 +435,26 @@ class GoogleLoginAPIView(APIView):
             logger.error("[Google Login] No email in Google userinfo response: %s", id_info)
             return Response({"error": "Could not retrieve email from Google"}, status=status.HTTP_400_BAD_REQUEST)
 
+        return_to_raw = request.data.get("return_to")
+        return_to_origin = validate_auth_return_to_origin(return_to_raw or "")
+
         try:
             user = User.objects.filter(email=google_email).first()
+
+            if return_to_origin and user is None:
+                logger.info(
+                    "[Google Login] Blocked new signup for tenant handoff email=%s",
+                    google_email,
+                )
+                return Response(
+                    {
+                        "error": (
+                            "No account found for this email. "
+                            "Contact your organization administrator for an invite."
+                        )
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
 
             if user is None:
                 logger.info("[Google Login] Creating new user for email=%s", google_email)
@@ -412,6 +500,18 @@ class GoogleLoginAPIView(APIView):
 
             token, _ = Token.get_or_create(user=user, token_type="login")
             logger.info("[Google Login] Token issued for user id=%s", user.id)
+
+            if return_to_origin:
+                handoff_code = create_handoff_code(user.id, return_to_origin)
+                return Response(
+                    {
+                        "message": "Login successful",
+                        "handoff_code": handoff_code,
+                        "return_to": return_to_origin,
+                    },
+                    status=status.HTTP_200_OK,
+                )
+
             return Response(
                 {
                     "message": "Login successful",
@@ -423,6 +523,46 @@ class GoogleLoginAPIView(APIView):
         except Exception as e:
             logger.error("[Google Login] Unexpected error: %s\n%s", e, traceback.format_exc())
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class AuthHandoffExchangeAPIView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def post(self, request):
+        code = (request.data.get("code") or "").strip()
+        if not code:
+            return Response({"error": "code is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        result = exchange_handoff_code(code)
+        if not result:
+            return Response(
+                {"error": "Invalid or expired handoff code"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user, _return_to = result
+        profile = getattr(user, "profile", None)
+        if profile and profile.organization_id and not profile.is_active:
+            return Response(
+                {"error": "Your account has been deactivated. Contact your organization administrator."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if profile and profile.expires_at and profile.expires_at < timezone.now():
+            return Response(
+                {"error": "Your access has expired. Contact your organization administrator."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        token = issue_login_token_for_handoff(user)
+        return Response(
+            {
+                "token": token.key,
+                "expires_at": token.expires_at,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 @method_decorator(csrf_exempt, name="dispatch")
