@@ -33,12 +33,14 @@ cd pulumi
 npm install
 ```
 
-2) Configure AWS profile in `~/.aws/config`:
+2) Configure AWS profile `masscer-prod` in `~/.aws/config` (and credentials or SSO in `~/.aws/credentials` if needed). At minimum:
 
 ```ini
 [profile masscer-prod]
 region = us-east-1
 ```
+
+Verify: `aws sts get-caller-identity --profile masscer-prod`
 
 3) Configure direnv (simple):
 
@@ -62,11 +64,32 @@ pulumi up --refresh
 ```
 
 Notes:
-- `.envrc` and `.passphrase` are gitignored.
+- `Pulumi.prod.yaml` is committed (stack config; secrets are encrypted with `pulumi config set --secret`).
+- `.envrc` and `.passphrase` are gitignored — share the passphrase out-of-band, never commit it.
 - `.envrc.template` is intentionally minimal:
   - loads `PULUMI_CONFIG_PASSPHRASE_FILE` from `.passphrase` (if present)
   - sets `AWS_PROFILE=masscer-prod`
   - sets `PULUMI_STACK=prod`
+
+## Pulumi state and secrets
+
+This project uses a **local Pulumi backend** (`file://~`). Stack config and state are separate:
+
+| What | Where | In git? |
+|------|-------|---------|
+| IaC code | `pulumi/*.ts` | Yes |
+| Stack config | `Pulumi.prod.yaml` | Yes (secrets encrypted) |
+| Decryption key | `.passphrase` | No |
+| Resource state | `~/.pulumi/stacks/masscer-infra/` | No |
+
+After `pulumi login --local` and `pulumi stack select prod`, `deploy.sh` works on any machine that has:
+
+1. This repo (includes `Pulumi.prod.yaml`)
+2. `pulumi/.passphrase` (same passphrase used when secrets were encrypted)
+3. Pulumi state copied from the machine that last deployed: `~/.pulumi/stacks/masscer-infra/`
+4. Working AWS auth for `masscer-prod`
+
+Without the state folder, Pulumi does not know about existing AWS resources and may try to recreate them.
 
 ## What this stack creates
 
@@ -96,18 +119,35 @@ Notes:
 
 ## Quick start
 
-1) Install Pulumi CLI and authenticate (`pulumi login`).
+### Deploy to existing prod (usual case)
 
-2) Install dependencies:
+1) Install [Pulumi CLI](https://www.pulumi.com/docs/iac/download-install/), Node.js 20+, AWS CLI, and [direnv](https://direnv.net/).
+
+2) Install dependencies and log in to the local backend:
 
 ```bash
 cd pulumi
 npm install
+pulumi login --local
+pulumi stack select prod
 ```
 
-3) Initialize and configure stack:
+3) Add `pulumi/.passphrase`, copy `~/.pulumi/stacks/masscer-infra/` from a machine that already deploys prod, and configure the `masscer-prod` AWS profile (see **Darwin-style workflow** above).
+
+4) Deploy:
 
 ```bash
+./deploy.sh
+```
+
+### Greenfield stack (first-time only)
+
+If you are creating infrastructure from scratch (not joining existing prod):
+
+```bash
+cd pulumi
+npm install
+pulumi login --local
 pulumi stack init prod
 pulumi config set aws:region us-east-1
 pulumi config set masscer-infra:environment prod
@@ -124,16 +164,16 @@ pulumi config set masscer-infra:djangoImageTag latest
 pulumi config set masscer-infra:streamingImageTag latest
 ```
 
-4) Deploy:
+Then deploy:
 
 ```bash
 pulumi preview
 pulumi up
 ```
 
-5) Run Django post-deploy Django manage commands as one-off ECS tasks (after first deploy):
+## Django post-deploy tasks
 
-`deploy.sh` uses the **same task definition as the django service** and runs these commands in order:
+`deploy.sh` runs these one-off ECS tasks after each deploy (same task definition as the django service):
 - `python manage.py migrate`
 - `python manage.py sync_subscription_plans`
 - `python manage.py sync_organization_subscriptions`

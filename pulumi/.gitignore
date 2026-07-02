@@ -2,7 +2,6 @@
 node_modules/
 bin/
 *.tsbuildinfo
-Pulumi.*.yaml
 .envrc
 .envrc.local
 .passphrase

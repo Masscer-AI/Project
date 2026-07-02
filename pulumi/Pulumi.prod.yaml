@@ -1,0 +1,27 @@
+encryptionsalt: v1:odG6w8NQuRY=:v1:YlefVYWYwChDnuyR:bv9s+AW+uG21sYNrULCOlIaqrt8aLA==
+config:
+  masscer-infra:dbPassword:
+    secure: v1:8NmlyOZmuq7pIwi7:wVSVAUp9sWZs6PI6o8jn5c35gVX5nBLNCIKkSOiTuw==
+  masscer-infra:djangoSecretKey:
+    secure: v1:+GyhdmI16NkQ9jpu:GQNUXQpvzaZwVVjUVhf7cH/JBDB6RuqmkQHY72de3w==
+  masscer-infra:environment: prod
+  aws:region: us-east-1
+  masscer-infra:namePrefix: masscer-prod
+  masscer-infra:rootDomain: masscer.ai
+  masscer-infra:appDomain: app.masscer.ai
+  masscer-infra:coreDomain: core.masscer.ai
+  masscer-infra:instanceType: t3.large
+  masscer-infra:asgMinSize: "1"
+  masscer-infra:asgDesiredSize: "2"
+  masscer-infra:asgMaxSize: "3"
+  masscer-infra:djangoDesiredCount: "1"
+  masscer-infra:fastapiDesiredCount: "1"
+  masscer-infra:celeryWorkerDesiredCount: "1"
+  masscer-infra:celeryBeatDesiredCount: "1"
+  masscer-infra:chromaDesiredCount: "1"
+  masscer-infra:chromaImage: chromadb/chroma:1.5.2
+  masscer-infra:dbName: masscer
+  masscer-infra:dbUsername: masscer
+  masscer-infra:djangoImageTag: deploy-20260702182904-835e02a0
+  masscer-infra:streamingImageTag: deploy-20260702182904-835e02a0
+  masscer-infra:googleOauthClientId: 173464276003-6q2goma7u5v65rtqs6pbtj9q0keqsd33.apps.googleusercontent.com
