@@ -111,12 +111,17 @@ export function createRouting(args: {
       tags: args.tags,
     });
 
+    // Cover the canonical app host AND tenant subdomains (e.g. acme.masscer.ai).
+    // The wildcard also matches core.masscer.ai, but the higher-priority core rule
+    // (priority 10) forwards all core paths to Django first, so this is safe.
+    const appHostValues = [args.appDomain, `*.${args.rootDomain}`];
+
     new aws.lb.ListenerRule("app-django-path-rules", {
       listenerArn: httpsListener.arn,
       priority: 20,
       actions: [{ type: "forward", targetGroupArn: djangoTargetGroup.arn }],
       conditions: [
-        { hostHeader: { values: [args.appDomain] } },
+        { hostHeader: { values: appHostValues } },
         { pathPattern: { values: ["/v1/*", "/static/*", "/media/*"] } },
       ],
       tags: args.tags,
@@ -127,7 +132,7 @@ export function createRouting(args: {
       priority: 30,
       actions: [{ type: "forward", targetGroupArn: fastapiTargetGroup.arn }],
       conditions: [
-        { hostHeader: { values: [args.appDomain] } },
+        { hostHeader: { values: appHostValues } },
         { pathPattern: { values: ["/socket.io/*"] } },
       ],
       tags: args.tags,
@@ -143,6 +148,15 @@ export function createRouting(args: {
     new aws.route53.Record("core-domain-alias-a", {
       zoneId: zone.zoneId,
       name: args.coreDomain,
+      type: "A",
+      aliases: [{ name: alb.dnsName, zoneId: alb.zoneId, evaluateTargetHealth: true }],
+    });
+
+    // Wildcard record so tenant subdomains (e.g. acme.masscer.ai) resolve to the ALB.
+    // Covered by the *.rootDomain ACM certificate above.
+    new aws.route53.Record("wildcard-domain-alias-a", {
+      zoneId: zone.zoneId,
+      name: `*.${args.rootDomain}`,
       type: "A",
       aliases: [{ name: alb.dnsName, zoneId: alb.zoneId, evaluateTargetHealth: true }],
     });

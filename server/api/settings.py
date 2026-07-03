@@ -64,6 +64,11 @@ for host in _allowed_extra_hosts:
     CSRF_TRUSTED_ORIGINS.append(f"https://{host}")
     CSRF_TRUSTED_ORIGINS.append(f"http://{host}")
 
+# Trust tenant subdomains under the base domain (Django supports scheme + wildcard).
+if BASE_DOMAIN:
+    CSRF_TRUSTED_ORIGINS.append(f"https://*.{BASE_DOMAIN}")
+    CSRF_TRUSTED_ORIGINS.append(f"https://{BASE_DOMAIN}")
+
 _csrf_trusted_origins_env = os.environ.get("CSRF_TRUSTED_ORIGINS", "")
 if _csrf_trusted_origins_env:
     CSRF_TRUSTED_ORIGINS.extend(
