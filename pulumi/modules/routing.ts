@@ -122,7 +122,19 @@ export function createRouting(args: {
       actions: [{ type: "forward", targetGroupArn: djangoTargetGroup.arn }],
       conditions: [
         { hostHeader: { values: appHostValues } },
-        { pathPattern: { values: ["/v1/*", "/admin/*", "/static/*", "/media/*"] } },
+        { pathPattern: { values: ["/v1/*", "/static/*", "/media/*"] } },
+      ],
+      tags: args.tags,
+    });
+
+    // ALB allows at most 5 condition values per rule (2 hosts + 3 paths above).
+    new aws.lb.ListenerRule("app-django-admin-path-rule", {
+      listenerArn: httpsListener.arn,
+      priority: 21,
+      actions: [{ type: "forward", targetGroupArn: djangoTargetGroup.arn }],
+      conditions: [
+        { hostHeader: { values: appHostValues } },
+        { pathPattern: { values: ["/admin/*"] } },
       ],
       tags: args.tags,
     });
