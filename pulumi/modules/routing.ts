@@ -122,7 +122,7 @@ export function createRouting(args: {
       actions: [{ type: "forward", targetGroupArn: djangoTargetGroup.arn }],
       conditions: [
         { hostHeader: { values: appHostValues } },
-        { pathPattern: { values: ["/v1/*", "/static/*", "/media/*"] } },
+        { pathPattern: { values: ["/v1/*", "/admin/*", "/static/*", "/media/*"] } },
       ],
       tags: args.tags,
     });
