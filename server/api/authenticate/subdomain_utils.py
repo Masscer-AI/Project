@@ -76,7 +76,7 @@ def extract_subdomain(host: str) -> str | None:
             return label
         return None
 
-    base_domain = get_base_domain()
+    base_domain = get_tenant_base_domain()
     suffix = f".{base_domain}"
     if hostname == base_domain or not hostname.endswith(suffix):
         return None
@@ -87,6 +87,68 @@ def extract_subdomain(host: str) -> str | None:
     if not label or label in RESERVED_SUBDOMAINS:
         return None
     return label
+
+
+def get_tenant_base_domain() -> str:
+    """
+    Hostname suffix for tenant portals: acme.{return value}.
+
+    Derived from FRONTEND_URL when set (localhost, app.masscer.ai, tunnels),
+    else BASE_DOMAIN for production.
+    """
+    frontend = get_frontend_base_url()
+    if frontend:
+        host = (urlparse(frontend).hostname or "").lower()
+        if host in {"localhost", "127.0.0.1"}:
+            return "localhost"
+        if host.startswith("app.") and len(host) > len("app."):
+            return host[len("app.") :]
+        if host:
+            return host
+    return get_base_domain()
+
+
+def get_tenant_label(hostname: str) -> str | None:
+    """Return tenant subdomain label if host is a tenant portal, else None."""
+    if not hostname:
+        return None
+
+    host = hostname.split(":", 1)[0].strip().lower().rstrip(".")
+    if not host or host in {"localhost", "127.0.0.1"}:
+        return None
+
+    if host.endswith(".localhost"):
+        label = host[: -len(".localhost")]
+        if label.count(".") == 0 and label and label not in RESERVED_SUBDOMAINS:
+            return label
+        return None
+
+    if host.startswith("app."):
+        return None
+
+    base_domain = get_base_domain()
+    prod_suffix = f".{base_domain}"
+    if host.endswith(prod_suffix):
+        label = host[: -len(prod_suffix)]
+        if label.count(".") == 0 and label and label not in RESERVED_SUBDOMAINS:
+            return label
+        return None
+
+    tenant_base = get_tenant_base_domain()
+    if tenant_base in {"localhost", base_domain}:
+        return None
+
+    suffix = f".{tenant_base}"
+    if not host.endswith(suffix):
+        return None
+    label = host[: -len(suffix)]
+    if label.count(".") != 0 or not label or label in RESERVED_SUBDOMAINS:
+        return None
+    return label
+
+
+def build_tenant_portal_host(subdomain: str) -> str:
+    return f"{subdomain}.{get_tenant_base_domain()}"
 
 
 def get_frontend_base_url() -> str:

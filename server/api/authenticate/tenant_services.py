@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from api.authenticate.models import Organization, OrganizationTenant
+from api.authenticate.subdomain_utils import build_tenant_portal_host
 from api.authenticate.tenant_schemas import tenant_theme_for_response
 
 
@@ -25,6 +26,8 @@ def build_public_tenant_config(tenant: OrganizationTenant, request) -> dict:
     app_name = (tenant.app_name or "").strip() or organization.name
 
     return {
+        "subdomain": tenant.subdomain,
+        "portal_host": build_tenant_portal_host(tenant.subdomain) if tenant.subdomain else None,
         "app_name": app_name,
         "logo_url": logo_url,
         "favicon_url": favicon_url,
@@ -42,6 +45,7 @@ def serialize_tenant_for_manage(tenant: OrganizationTenant, request) -> dict:
 
     return {
         "subdomain": tenant.subdomain,
+        "portal_host": build_tenant_portal_host(tenant.subdomain) if tenant.subdomain else None,
         "app_name": tenant.app_name,
         "theme": tenant_theme_for_response(tenant.theme),
         "hide_powered_by": tenant.hide_powered_by,

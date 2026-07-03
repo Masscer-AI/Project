@@ -24,6 +24,21 @@ class SubdomainUtilsTests(TestCase):
         self.assertIsNone(extract_subdomain("app.localhost"))
         self.assertIsNone(extract_subdomain("localhost"))
 
+    @override_settings(FRONTEND_URL="https://masscer-ai.ngrok.app")
+    def test_extract_subdomain_tunnel_host(self):
+        self.assertEqual(extract_subdomain("charly.masscer-ai.ngrok.app"), "charly")
+        self.assertIsNone(extract_subdomain("masscer-ai.ngrok.app"))
+
+    def test_get_tenant_base_domain_from_frontend_url(self):
+        from api.authenticate.subdomain_utils import get_tenant_base_domain
+
+        with self.settings(FRONTEND_URL="http://localhost"):
+            self.assertEqual(get_tenant_base_domain(), "localhost")
+        with self.settings(FRONTEND_URL="https://app.masscer.ai"):
+            self.assertEqual(get_tenant_base_domain(), "masscer.ai")
+        with self.settings(FRONTEND_URL="https://masscer-ai.ngrok.app"):
+            self.assertEqual(get_tenant_base_domain(), "masscer-ai.ngrok.app")
+
     def test_validate_subdomain_reserved_and_format(self):
         self.assertEqual(validate_subdomain("acme-corp"), "acme-corp")
         with self.assertRaises(ValidationError):

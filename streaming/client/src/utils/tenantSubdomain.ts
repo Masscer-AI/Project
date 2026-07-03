@@ -1,12 +1,97 @@
-/** Build tenant subdomain URLs for dev (*.localhost) and prod (*.masscer.ai). */
+/** Build tenant subdomain URLs from the current browser host (localhost, prod, tunnels). */
 
-export function getTenantBaseDomain(): string {
-  if (typeof window === "undefined") return "masscer.ai";
-  const hostname = window.location.hostname;
-  if (hostname === "localhost" || hostname.endsWith(".localhost")) {
+const PROD_TENANT_SUFFIX = ".masscer.ai";
+
+const RESERVED_HOST_LABELS = new Set([
+  "app",
+  "core",
+  "www",
+  "api",
+  "admin",
+  "static",
+  "media",
+  "mail",
+  "ftp",
+  "localhost",
+]);
+
+function currentHostname(): string {
+  if (typeof window === "undefined") return "";
+  return window.location.hostname.toLowerCase();
+}
+
+/**
+ * If hostname is a tenant portal host, return its single subdomain label; else null.
+ * Examples: acme.localhost → acme; charly.masscer-ai.ngrok.app → charly.
+ */
+function getTenantLabel(hostname: string): string | null {
+  if (!hostname || hostname === "localhost" || hostname === "127.0.0.1") {
+    return null;
+  }
+
+  if (hostname.endsWith(".localhost")) {
+    const label = hostname.slice(0, -".localhost".length);
+    if (label.length > 0 && !label.includes(".") && !RESERVED_HOST_LABELS.has(label)) {
+      return label;
+    }
+    return null;
+  }
+
+  if (hostname.startsWith("app.")) {
+    return null;
+  }
+
+  if (hostname.endsWith(PROD_TENANT_SUFFIX)) {
+    const label = hostname.slice(0, -PROD_TENANT_SUFFIX.length);
+    if (label.length > 0 && !label.includes(".") && !RESERVED_HOST_LABELS.has(label)) {
+      return label;
+    }
+    return null;
+  }
+
+  // Tunnels / custom hosts: tenant = one extra label on the canonical host.
+  // e.g. charly.masscer-ai.ngrok.app (4 parts) vs masscer-ai.ngrok.app (3 parts).
+  const firstDot = hostname.indexOf(".");
+  if (firstDot <= 0) return null;
+  const label = hostname.slice(0, firstDot);
+  const rest = hostname.slice(firstDot + 1);
+  if (
+    label &&
+    !label.includes(".") &&
+    !RESERVED_HOST_LABELS.has(label) &&
+    rest.includes(".") &&
+    hostname.split(".").length >= 4
+  ) {
+    return label;
+  }
+
+  return null;
+}
+
+/**
+ * Domain suffix for tenant portals: acme.{return value}.
+ * Derived from window.location.hostname (canonical or tenant host).
+ */
+export function getTenantBaseDomain(hostname: string = currentHostname()): string {
+  if (!hostname || hostname === "localhost" || hostname === "127.0.0.1") {
     return "localhost";
   }
-  return "masscer.ai";
+
+  if (hostname.endsWith(".localhost")) {
+    return "localhost";
+  }
+
+  if (hostname.startsWith("app.")) {
+    return hostname.slice("app.".length);
+  }
+
+  const tenantLabel = getTenantLabel(hostname);
+  if (tenantLabel) {
+    return hostname.slice(tenantLabel.length + 1);
+  }
+
+  // Canonical app host (e.g. masscer-ai.ngrok.app, masscer.ai) — tenants are {sub}.{this}.
+  return hostname;
 }
 
 export function buildTenantSubdomainUrl(subdomain: string): string {
@@ -32,54 +117,32 @@ export function isValidSubdomainInput(value: string): boolean {
   return SUBDOMAIN_INPUT_RE.test(normalized);
 }
 
-const RESERVED_HOST_LABELS = new Set([
-  "app",
-  "core",
-  "www",
-  "api",
-  "admin",
-  "static",
-  "media",
-  "mail",
-  "ftp",
-  "localhost",
-]);
-
 /** True when the current host is a tenant portal (e.g. acme.localhost), not the canonical app. */
 export function isTenantSubdomainHost(): boolean {
-  if (typeof window === "undefined") return false;
-  const hostname = window.location.hostname;
-  if (!hostname || hostname === "localhost" || hostname === "127.0.0.1") {
-    return false;
-  }
-  if (hostname.endsWith(".localhost")) {
-    const label = hostname.slice(0, -".localhost".length);
-    return label.length > 0 && !label.includes(".") && !RESERVED_HOST_LABELS.has(label);
-  }
-  const base = getTenantBaseDomain();
-  if (hostname === base || hostname === `app.${base}` || hostname === `www.${base}`) {
-    return false;
-  }
-  if (hostname.endsWith(`.${base}`)) {
-    const label = hostname.slice(0, -(base.length + 1));
-    return label.length > 0 && !label.includes(".") && !RESERVED_HOST_LABELS.has(label);
-  }
-  return false;
+  return getTenantLabel(currentHostname()) !== null;
 }
 
 /** Canonical app origin where Google Sign-In JavaScript origins are registered. */
 export function getCanonicalAppOrigin(): string {
-  const base = getTenantBaseDomain();
+  const hostname = currentHostname();
   const port =
     typeof window !== "undefined" && window.location.port
       ? `:${window.location.port}`
       : "";
   const protocol =
     typeof window !== "undefined" ? window.location.protocol : "https:";
+  const base = getTenantBaseDomain(hostname);
+
   if (base === "localhost") {
     return `${protocol}//localhost${port}`;
   }
-  return `https://app.${base}`;
+
+  if (base === "masscer.ai") {
+    return `${protocol}//app.masscer.ai`;
+  }
+
+  // Tunnel / custom canonical host (e.g. masscer-ai.ngrok.app).
+  return `${protocol}//${base}${port}`;
 }
 
 export function buildTenantGoogleBridgeUrl(options: {
