@@ -39,10 +39,6 @@ ALLOWED_HOSTS = [
     ".masscer.ai",
 ]
 
-# Tenant subdomain base domain (e.g. acme.masscer.ai -> acme).
-BASE_DOMAIN = os.environ.get("BASE_DOMAIN", "masscer.ai").strip().lower() or "masscer.ai"
-
-
 # Extra hosts from env (comma-separated, e.g. masscer-ai.ngrok.app,your-domain.com).
 # Prefer ALLOWED_EXTRA_HOSTS to match infra config, keep ALLOWED_HOSTS as fallback.
 _allowed_hosts_env = os.environ.get("ALLOWED_EXTRA_HOSTS") or os.environ.get(
@@ -54,6 +50,29 @@ _allowed_extra_hosts = [
 if _allowed_hosts_env:
     ALLOWED_HOSTS.extend(_allowed_extra_hosts)
 
+# Derive host/origins from FRONTEND_URL so the canonical app (and its tenant
+# subdomains) work without also having to set ALLOWED_EXTRA_HOSTS.
+from urllib.parse import urlparse as _urlparse  # noqa: E402
+
+_frontend_url_env = os.environ.get("FRONTEND_URL", "").strip().rstrip("/")
+_frontend_parsed = _urlparse(_frontend_url_env) if _frontend_url_env else None
+_frontend_host = (_frontend_parsed.hostname or "").lower() if _frontend_parsed else ""
+_frontend_scheme = (_frontend_parsed.scheme or "https") if _frontend_parsed else "https"
+
+# Tenant base domain for the frontend host (e.g. app.masscer-ai.com -> masscer-ai.com).
+_frontend_tenant_base = ""
+if _frontend_host and _frontend_host not in {"localhost", "127.0.0.1"}:
+    if _frontend_host.startswith("app.") and len(_frontend_host) > len("app."):
+        _frontend_tenant_base = _frontend_host[len("app.") :]
+    else:
+        _frontend_tenant_base = _frontend_host
+
+if _frontend_host:
+    ALLOWED_HOSTS.append(_frontend_host)
+    if _frontend_tenant_base and _frontend_tenant_base not in {"localhost", "127.0.0.1"}:
+        # Accept tenant subdomains under the frontend base (e.g. charly.masscer-ai.com).
+        ALLOWED_HOSTS.append(f".{_frontend_tenant_base}")
+
 # Trusted origins for CSRF-protected endpoints (e.g. Django admin login over ngrok).
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost",
@@ -64,10 +83,13 @@ for host in _allowed_extra_hosts:
     CSRF_TRUSTED_ORIGINS.append(f"https://{host}")
     CSRF_TRUSTED_ORIGINS.append(f"http://{host}")
 
-# Trust tenant subdomains under the base domain (Django supports scheme + wildcard).
-if BASE_DOMAIN:
-    CSRF_TRUSTED_ORIGINS.append(f"https://*.{BASE_DOMAIN}")
-    CSRF_TRUSTED_ORIGINS.append(f"https://{BASE_DOMAIN}")
+# Trust the frontend URL (and its tenant subdomains) for CSRF-protected POSTs
+# (Django admin login, session forms) without extra env vars.
+if _frontend_host:
+    CSRF_TRUSTED_ORIGINS.append(f"{_frontend_scheme}://{_frontend_host}")
+    if _frontend_tenant_base and _frontend_tenant_base not in {"localhost", "127.0.0.1"}:
+        CSRF_TRUSTED_ORIGINS.append(f"{_frontend_scheme}://*.{_frontend_tenant_base}")
+        CSRF_TRUSTED_ORIGINS.append(f"{_frontend_scheme}://{_frontend_tenant_base}")
 
 _csrf_trusted_origins_env = os.environ.get("CSRF_TRUSTED_ORIGINS", "")
 if _csrf_trusted_origins_env:

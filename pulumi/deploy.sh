@@ -8,6 +8,8 @@ ROOT_DIR="$(cd "$PULUMI_DIR/.." && pwd)"
 STACK="${PULUMI_STACK:-prod}"
 AWS_REGION="${AWS_REGION:-us-east-1}"
 IMAGE_TAG="${IMAGE_TAG:-}"
+# ECS nodes are x86 (e.g. t3.*). Building on Apple Silicon without this yields arm64-only images.
+DOCKER_PLATFORM="${DOCKER_PLATFORM:-linux/amd64}"
 SKIP_BOOTSTRAP=0
 SKIP_MIGRATIONS=0
 REQUIRE_MIGRATIONS=0
@@ -178,8 +180,8 @@ ECR_REGISTRY="${DJANGO_REPO%%/*}"
 echo "==> Login to ECR registry: $ECR_REGISTRY"
 aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$ECR_REGISTRY"
 
-echo "==> Build and push Django image"
-docker build -t "${DJANGO_REPO}:${IMAGE_TAG}" "$ROOT_DIR/server"
+echo "==> Build and push Django image (platform: ${DOCKER_PLATFORM})"
+docker build --platform "$DOCKER_PLATFORM" -t "${DJANGO_REPO}:${IMAGE_TAG}" "$ROOT_DIR/server"
 docker push "${DJANGO_REPO}:${IMAGE_TAG}"
 
 echo "==> Build and push Streaming image"
@@ -232,7 +234,7 @@ resolve_vite_google_client_id() {
 
 resolve_vite_google_client_id
 
-docker build \
+docker build --platform "$DOCKER_PLATFORM" \
   --build-arg "VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID:-}" \
   -t "${STREAMING_REPO}:${IMAGE_TAG}" "$ROOT_DIR/streaming"
 docker push "${STREAMING_REPO}:${IMAGE_TAG}"

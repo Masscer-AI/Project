@@ -91,6 +91,7 @@ Optional flags:
 ```
 
 Notes:
+- Images are built for `linux/amd64` by default (ECS uses x86 instances). Override with `DOCKER_PLATFORM=linux/arm64` only if your cluster is ARM.
 - By default deploy continues even if one-off Django tasks cannot be placed (common with EC2 CPU/ENI limits). Use `--require-migrations` to fail hard.
 - One-off ECS tasks print progress every ~30s. Tune timeout with `ECS_ONEOFF_TIMEOUT_SECONDS=900` (default 900s).
 - ENI attach failures are retried automatically: `ECS_ONEOFF_MAX_RETRIES=3`, `ECS_ONEOFF_RETRY_DELAY_SECONDS=20`.

@@ -12,7 +12,7 @@ from django.core.exceptions import ValidationError
 
 
 class SubdomainUtilsTests(TestCase):
-    @override_settings(BASE_DOMAIN="masscer.ai")
+    @override_settings(FRONTEND_URL="https://app.masscer.ai")
     def test_extract_subdomain_prod_host(self):
         self.assertEqual(extract_subdomain("acme.masscer.ai"), "acme")
         self.assertIsNone(extract_subdomain("app.masscer.ai"))
@@ -150,7 +150,7 @@ class OrganizationTenantAPITests(TestCase):
         )
         self.assertEqual(response.status_code, 400)
 
-    @override_settings(BASE_DOMAIN="masscer.ai")
+    @override_settings(FRONTEND_URL="https://app.masscer.ai")
     def test_tenant_config_returns_branding(self):
         OrganizationTenant.objects.create(
             organization=self.org,

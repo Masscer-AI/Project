@@ -27,8 +27,8 @@ RESERVED_SUBDOMAINS = frozenset(
 _SUBDOMAIN_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
 
 
-def get_base_domain() -> str:
-    return getattr(settings, "BASE_DOMAIN", "masscer.ai").strip().lower() or "masscer.ai"
+# Fallback tenant base domain when FRONTEND_URL is not set (e.g. management commands).
+DEFAULT_TENANT_BASE_DOMAIN = "masscer.ai"
 
 
 def normalize_subdomain(value: str) -> str:
@@ -94,7 +94,7 @@ def get_tenant_base_domain() -> str:
     Hostname suffix for tenant portals: acme.{return value}.
 
     Derived from FRONTEND_URL when set (localhost, app.masscer.ai, tunnels),
-    else BASE_DOMAIN for production.
+    else DEFAULT_TENANT_BASE_DOMAIN.
     """
     frontend = get_frontend_base_url()
     if frontend:
@@ -105,7 +105,7 @@ def get_tenant_base_domain() -> str:
             return host[len("app.") :]
         if host:
             return host
-    return get_base_domain()
+    return DEFAULT_TENANT_BASE_DOMAIN
 
 
 def get_tenant_label(hostname: str) -> str | None:
@@ -126,16 +126,8 @@ def get_tenant_label(hostname: str) -> str | None:
     if host.startswith("app."):
         return None
 
-    base_domain = get_base_domain()
-    prod_suffix = f".{base_domain}"
-    if host.endswith(prod_suffix):
-        label = host[: -len(prod_suffix)]
-        if label.count(".") == 0 and label and label not in RESERVED_SUBDOMAINS:
-            return label
-        return None
-
     tenant_base = get_tenant_base_domain()
-    if tenant_base in {"localhost", base_domain}:
+    if tenant_base == "localhost":
         return None
 
     suffix = f".{tenant_base}"
@@ -170,8 +162,8 @@ def is_allowed_return_to_host(hostname: str) -> bool:
         frontend_host = urlparse(frontend_base).hostname
         if frontend_host and frontend_host.lower() == host:
             return True
-    base_domain = get_base_domain()
-    if host in {base_domain, f"app.{base_domain}"}:
+    tenant_base = get_tenant_base_domain()
+    if tenant_base != "localhost" and host in {tenant_base, f"app.{tenant_base}"}:
         return True
     return False
 
