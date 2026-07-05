@@ -1,7 +1,7 @@
 /** Build tenant subdomain URLs from the current browser host (localhost, prod, tunnels). */
 
-const PROD_TENANT_SUFFIX = ".masscer.ai";
-
+// App convention: the canonical app is always served at `app.<base>` (or plain
+// `localhost` in dev). Any other `<label>.<base>` host is a tenant portal.
 const RESERVED_HOST_LABELS = new Set([
   "app",
   "core",
@@ -22,7 +22,11 @@ function currentHostname(): string {
 
 /**
  * If hostname is a tenant portal host, return its single subdomain label; else null.
- * Examples: acme.localhost → acme; charly.masscer-ai.ngrok.app → charly.
+ *
+ * Canonical hosts (return null): localhost, 127.0.0.1, app.<base> (any depth),
+ * and bare base domains (< 3 labels, e.g. masscer-ai.com / masscer.ai).
+ * Tenant hosts (return the label): acme.localhost, charly.masscer-ai.com,
+ * acme.masscer.ai, charly.masscer-ai.ngrok.app.
  */
 function getTenantLabel(hostname: string): string | null {
   if (!hostname || hostname === "localhost" || hostname === "127.0.0.1") {
@@ -37,35 +41,18 @@ function getTenantLabel(hostname: string): string | null {
     return null;
   }
 
-  if (hostname.startsWith("app.")) {
+  const parts = hostname.split(".");
+  const label = parts[0];
+
+  // Canonical app host (app.<base>) or a bare base domain (masscer-ai.com) → not a tenant.
+  if (RESERVED_HOST_LABELS.has(label)) {
+    return null;
+  }
+  if (parts.length < 3) {
     return null;
   }
 
-  if (hostname.endsWith(PROD_TENANT_SUFFIX)) {
-    const label = hostname.slice(0, -PROD_TENANT_SUFFIX.length);
-    if (label.length > 0 && !label.includes(".") && !RESERVED_HOST_LABELS.has(label)) {
-      return label;
-    }
-    return null;
-  }
-
-  // Tunnels / custom hosts: tenant = one extra label on the canonical host.
-  // e.g. charly.masscer-ai.ngrok.app (4 parts) vs masscer-ai.ngrok.app (3 parts).
-  const firstDot = hostname.indexOf(".");
-  if (firstDot <= 0) return null;
-  const label = hostname.slice(0, firstDot);
-  const rest = hostname.slice(firstDot + 1);
-  if (
-    label &&
-    !label.includes(".") &&
-    !RESERVED_HOST_LABELS.has(label) &&
-    rest.includes(".") &&
-    hostname.split(".").length >= 4
-  ) {
-    return label;
-  }
-
-  return null;
+  return label;
 }
 
 /**
@@ -137,12 +124,8 @@ export function getCanonicalAppOrigin(): string {
     return `${protocol}//localhost${port}`;
   }
 
-  if (base === "masscer.ai") {
-    return `${protocol}//app.masscer.ai`;
-  }
-
-  // Tunnel / custom canonical host (e.g. masscer-ai.ngrok.app).
-  return `${protocol}//${base}${port}`;
+  // Canonical app is always served at app.<base> (prod, tunnels, custom domains).
+  return `${protocol}//app.${base}${port}`;
 }
 
 export function buildTenantGoogleBridgeUrl(options: {
