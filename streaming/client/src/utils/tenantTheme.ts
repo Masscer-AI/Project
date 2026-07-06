@@ -2,6 +2,19 @@ import { createTheme, type MantineTheme } from "@mantine/core";
 import { API_URL } from "../modules/constants";
 import type { TTenantBranding } from "../modules/storeTypes";
 
+type MantineShades = [
+  string,
+  string,
+  string,
+  string,
+  string,
+  string,
+  string,
+  string,
+  string,
+  string,
+];
+
 const DEFAULT_THEME = createTheme({
   primaryColor: "violet",
 });
@@ -105,23 +118,48 @@ export function buildMantineTheme(
   const shades = shadesFromHex(primaryColor);
   if (shades.length !== 10) return DEFAULT_THEME;
 
+  // Override the violet palette so existing color="violet" and
+  // var(--mantine-color-violet-*) usages follow tenant branding.
   return createTheme({
-    primaryColor: "brand",
+    primaryColor: "violet",
     colors: {
-      brand: shades as [
-        string,
-        string,
-        string,
-        string,
-        string,
-        string,
-        string,
-        string,
-        string,
-        string,
-      ],
+      violet: shades as MantineShades,
     },
   });
+}
+
+function applyTenantLegacyColorVariables(
+  primaryColor: string | null | undefined
+): void {
+  const root = document.documentElement;
+  const hex = primaryColor?.trim();
+  if (!hex) {
+    root.style.removeProperty("--active-color");
+    root.style.removeProperty("--highlighted-color");
+    root.style.removeProperty("--highlighted-color-opaque");
+    return;
+  }
+
+  const rgb = hexToRgb(hex);
+  if (!rgb) return;
+
+  const { r, g, b } = rgb;
+  root.style.setProperty("--active-color", `rgb(${r}, ${g}, ${b})`);
+  root.style.setProperty(
+    "--highlighted-color",
+    `rgba(${r}, ${g}, ${b}, 0.8)`
+  );
+  root.style.setProperty(
+    "--highlighted-color-opaque",
+    `rgba(${r}, ${g}, ${b}, 0.35)`
+  );
+}
+
+export function applyTenantBranding(
+  branding: TTenantBranding | null | undefined
+): void {
+  applyTenantDocumentBranding(branding);
+  applyTenantLegacyColorVariables(branding?.theme?.primary_color);
 }
 
 export const DEFAULT_DOCUMENT_TITLE = "Masscer AI - Everything in the same place";

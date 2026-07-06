@@ -9,7 +9,7 @@ import { useStore } from "./modules/store";
 import { hasGoogleOAuthClientId, VITE_GOOGLE_CLIENT_ID } from "./modules/googleEnv";
 import { getTenantConfig } from "./modules/apiCalls";
 import {
-  applyTenantDocumentBranding,
+  applyTenantBranding,
   buildMantineTheme,
 } from "./utils/tenantTheme";
 
@@ -210,7 +210,7 @@ function App() {
         );
         const branding = hasBranding ? config : null;
         setTenantBranding(branding);
-        applyTenantDocumentBranding(config);
+        applyTenantBranding(config);
       })
       .catch(() => {
         setTenantBranding(null);
@@ -218,7 +218,7 @@ function App() {
   }, [setTenantBranding]);
 
   useEffect(() => {
-    applyTenantDocumentBranding(tenantBranding ?? undefined);
+    applyTenantBranding(tenantBranding ?? undefined);
   }, [tenantBranding]);
 
   useEffect(() => {

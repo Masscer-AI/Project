@@ -11,6 +11,7 @@ import {
   Stack,
   Text,
   Title,
+  useMantineColorScheme,
 } from "@mantine/core";
 import { IconChevronDown, IconChevronUp, IconListCheck } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
@@ -43,6 +44,7 @@ export const AssignmentsPanel: React.FC<AssignmentsPanelProps> = ({
   floating = false,
 }) => {
   const { t } = useTranslation();
+  const { colorScheme } = useMantineColorScheme();
   const location = useLocation();
   const navigate = useNavigate();
   const agentTaskStatus = useStore((s) => s.agentTaskStatus);
@@ -151,7 +153,7 @@ export const AssignmentsPanel: React.FC<AssignmentsPanelProps> = ({
     return null;
   }
 
-  const cardStyle: React.CSSProperties = floating
+  const cardStyle: React.CSSProperties | undefined = floating
     ? {
         position: "fixed",
         bottom: 24,
@@ -161,12 +163,12 @@ export const AssignmentsPanel: React.FC<AssignmentsPanelProps> = ({
         maxHeight: opened ? "min(70vh, 520px)" : undefined,
         display: "flex",
         flexDirection: "column",
-        backgroundColor: "var(--mantine-color-dark-7)",
-        boxShadow: "0 8px 32px rgba(0, 0, 0, 0.45)",
+        boxShadow:
+          colorScheme === "dark"
+            ? "0 8px 32px rgba(0, 0, 0, 0.45)"
+            : "var(--mantine-shadow-md)",
       }
-    : {
-        backgroundColor: "var(--mantine-color-dark-7)",
-      };
+    : undefined;
 
   return (
     <Card
