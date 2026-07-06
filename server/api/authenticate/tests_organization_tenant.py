@@ -178,3 +178,38 @@ class OrganizationTenantAPITests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {})
+
+    @override_settings(FRONTEND_URL="https://app.masscer.ai")
+    def test_tenant_config_on_canonical_host_uses_authenticated_org(self):
+        OrganizationTenant.objects.create(
+            organization=self.org,
+            app_name="Acme Portal",
+            theme={"primary_color": "#445566"},
+            hide_powered_by=True,
+        )
+
+        response = self.client.get(
+            "/v1/auth/public/tenant-config",
+            HTTP_HOST="app.masscer.ai",
+            **self._auth_headers(),
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data.get("app_name"), "Acme Portal")
+        self.assertEqual(data.get("theme", {}).get("primary_color"), "#445566")
+        self.assertTrue(data.get("hide_powered_by"))
+
+    @override_settings(FRONTEND_URL="https://app.masscer.ai")
+    def test_tenant_config_on_canonical_host_empty_without_auth(self):
+        OrganizationTenant.objects.create(
+            organization=self.org,
+            app_name="Acme Portal",
+            theme={"primary_color": "#445566"},
+        )
+
+        response = self.client.get(
+            "/v1/auth/public/tenant-config",
+            HTTP_HOST="app.masscer.ai",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {})

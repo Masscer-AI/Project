@@ -77,7 +77,9 @@ from .tenant_services import (
     build_public_tenant_config,
     get_or_create_tenant,
     get_tenant_for_organization,
+    get_user_organization,
     serialize_tenant_for_manage,
+    user_from_optional_auth_header,
 )
 from api.payments.models import Subscription
 from django.db import IntegrityError
@@ -1907,21 +1909,32 @@ class OrganizationTenantSubdomainView(View):
 
 @method_decorator(csrf_exempt, name="dispatch")
 class TenantConfigView(View):
-    """Public tenant branding resolved from the request Host header."""
+    """Public tenant branding resolved from Host header or authenticated user's org."""
 
     def get(self, request):
         subdomain = extract_subdomain(request.get_host())
-        if not subdomain:
-            return JsonResponse({}, status=status.HTTP_200_OK)
+        if subdomain:
+            try:
+                tenant = OrganizationTenant.objects.select_related("organization").get(
+                    subdomain=subdomain
+                )
+            except OrganizationTenant.DoesNotExist:
+                return JsonResponse({}, status=status.HTTP_200_OK)
 
-        try:
-            tenant = OrganizationTenant.objects.select_related("organization").get(
-                subdomain=subdomain
+            return JsonResponse(
+                build_public_tenant_config(tenant, request),
+                status=status.HTTP_200_OK,
             )
-        except OrganizationTenant.DoesNotExist:
-            return JsonResponse({}, status=status.HTTP_200_OK)
 
-        return JsonResponse(
-            build_public_tenant_config(tenant, request),
-            status=status.HTTP_200_OK,
-        )
+        user = user_from_optional_auth_header(request)
+        if user:
+            organization = get_user_organization(user)
+            if organization:
+                tenant = get_tenant_for_organization(organization)
+                if tenant:
+                    return JsonResponse(
+                        build_public_tenant_config(tenant, request),
+                        status=status.HTTP_200_OK,
+                    )
+
+        return JsonResponse({}, status=status.HTTP_200_OK)

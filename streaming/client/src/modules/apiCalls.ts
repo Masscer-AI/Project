@@ -1356,8 +1356,11 @@ export const reactivateOrganizationSubscription = async (
 };
 
 export const getTenantConfig = async (): Promise<TTenantBranding> => {
+  const token =
+    typeof window !== "undefined" ? localStorage.getItem("token") : null;
   const { data } = await axios.get<TTenantBranding>(
-    `${API_URL}/v1/auth/public/tenant-config`
+    `${API_URL}/v1/auth/public/tenant-config`,
+    token ? { headers: { Authorization: `Token ${token}` } } : undefined
   );
   return data ?? {};
 };

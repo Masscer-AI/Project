@@ -94,6 +94,10 @@ import {
   formatTenantSubdomainHost,
   isValidSubdomainInput,
 } from "../../utils/tenantSubdomain";
+import {
+  applyTenantBranding,
+  resolveTenantBranding,
+} from "../../utils/tenantTheme";
 
 const CREDIT_PACKAGES = [
   { amountUsd: 50, creditsUsd: 40 },
@@ -123,9 +127,10 @@ export function parseOrganizationActiveTab(
 }
 
 export default function OrganizationPage() {
-  const { chatState, toggleSidebar } = useStore((s) => ({
+  const { chatState, toggleSidebar, setTenantBranding } = useStore((s) => ({
     chatState: s.chatState,
     toggleSidebar: s.toggleSidebar,
+    setTenantBranding: s.setTenantBranding,
   }));
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -282,6 +287,16 @@ export default function OrganizationPage() {
       setPortalAppName(updated.app_name || "");
       setPortalPrimaryColor(updated.theme?.primary_color || "");
       setPortalHidePoweredBy(updated.hide_powered_by);
+      const branding = resolveTenantBranding({
+        app_name: updated.app_name,
+        logo_url: updated.logo_url,
+        favicon_url: updated.favicon_url,
+        theme: updated.theme,
+        hide_powered_by: updated.hide_powered_by,
+        subdomain: updated.subdomain ?? undefined,
+      });
+      setTenantBranding(branding);
+      applyTenantBranding(branding);
       toast.success(t("portal-branding-saved"));
     } catch (e: any) {
       const message =

@@ -162,6 +162,20 @@ export function applyTenantBranding(
   applyTenantLegacyColorVariables(branding?.theme?.primary_color);
 }
 
+export function resolveTenantBranding(
+  config: TTenantBranding | null | undefined
+): TTenantBranding | null {
+  if (!config) return null;
+  const hasBranding = Boolean(
+    config.app_name ||
+      config.logo_url ||
+      config.favicon_url ||
+      config.theme?.primary_color ||
+      config.hide_powered_by
+  );
+  return hasBranding ? config : null;
+}
+
 export const DEFAULT_DOCUMENT_TITLE = "Masscer AI - Everything in the same place";
 
 export function applyTenantDocumentBranding(

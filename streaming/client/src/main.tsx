@@ -11,6 +11,7 @@ import { getTenantConfig } from "./modules/apiCalls";
 import {
   applyTenantBranding,
   buildMantineTheme,
+  resolveTenantBranding,
 } from "./utils/tenantTheme";
 
 import Root from "./routes/root/page.tsx";
@@ -189,10 +190,11 @@ const router = createBrowserRouter([
 ]);
 
 function App() {
-  const { userTheme, tenantBranding, setTenantBranding } = useStore((s) => ({
+  const { userTheme, tenantBranding, setTenantBranding, user } = useStore((s) => ({
     userTheme: s.userPreferences.theme,
     tenantBranding: s.tenantBranding,
     setTenantBranding: s.setTenantBranding,
+    user: s.user,
   }));
   const [systemDark, setSystemDark] = useState(
     window.matchMedia("(prefers-color-scheme: dark)").matches
@@ -201,21 +203,13 @@ function App() {
   useEffect(() => {
     getTenantConfig()
       .then((config) => {
-        const hasBranding = Boolean(
-          config.app_name ||
-            config.logo_url ||
-            config.favicon_url ||
-            config.theme?.primary_color ||
-            config.hide_powered_by
-        );
-        const branding = hasBranding ? config : null;
-        setTenantBranding(branding);
+        setTenantBranding(resolveTenantBranding(config));
         applyTenantBranding(config);
       })
       .catch(() => {
         setTenantBranding(null);
       });
-  }, [setTenantBranding]);
+  }, [setTenantBranding, user?.id]);
 
   useEffect(() => {
     applyTenantBranding(tenantBranding ?? undefined);

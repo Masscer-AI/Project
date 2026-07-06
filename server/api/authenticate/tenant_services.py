@@ -2,9 +2,41 @@
 
 from __future__ import annotations
 
-from api.authenticate.models import Organization, OrganizationTenant
+from api.authenticate.models import Organization, OrganizationTenant, Token
 from api.authenticate.subdomain_utils import build_tenant_portal_host
 from api.authenticate.tenant_schemas import tenant_theme_for_response
+
+
+def get_user_organization(user) -> Organization | None:
+    """Resolve the user's primary organization (owned org, else member org)."""
+    if not user:
+        return None
+    owned_org = Organization.objects.filter(owner=user).first()
+    if owned_org:
+        return owned_org
+    profile = getattr(user, "profile", None)
+    if profile and profile.organization_id:
+        return profile.organization
+    return None
+
+
+def user_from_optional_auth_header(request) -> object | None:
+    """Return the authenticated user from Authorization header, or None."""
+    auth_header = request.headers.get("Authorization")
+    if not auth_header:
+        return None
+    try:
+        _token_type, token_key = auth_header.split(" ", 1)
+    except ValueError:
+        return None
+    token = Token.get_valid(token_key)
+    if not token:
+        return None
+    user = token.user
+    profile = getattr(user, "profile", None)
+    if profile and profile.organization_id and not profile.is_active:
+        return None
+    return user
 
 
 def get_tenant_for_organization(organization: Organization) -> OrganizationTenant | None:
