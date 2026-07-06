@@ -10,6 +10,7 @@ import {
   AUTH_FORM_CARD_STYLE,
   AUTH_PANEL_LEFT_BACKGROUND,
 } from "../../../utils/tenantTheme";
+import { handleTenantPortalAccessError } from "../../../utils/tenantPortalAccess";
 
 const panelBase = "flex-1 flex flex-col justify-center items-center p-8";
 const panelLeftLayout =
@@ -43,6 +44,9 @@ export default function AuthCallback() {
         navigate(resolvePostLoginPath(searchParams.get("next")), { replace: true });
       } catch (err: unknown) {
         if (cancelled) return;
+        if (handleTenantPortalAccessError(err)) {
+          return;
+        }
         const axiosErr = err as { response?: { data?: { error?: string } } };
         setError(axiosErr.response?.data?.error || t("an-error-occurred"));
       }

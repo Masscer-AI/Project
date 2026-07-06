@@ -25,6 +25,10 @@ import {
   isTenantSubdomainHost,
 } from "../../utils/tenantSubdomain";
 import {
+  getPortalOriginPayload,
+  handleTenantPortalAccessError,
+} from "../../utils/tenantPortalAccess";
+import {
   redirectToTenantHandoff,
 } from "../../utils/googleAuthHandoff";
 import {
@@ -78,6 +82,7 @@ export default function Login() {
       const response = await axios.post(API_URL + "/v1/auth/login", {
         email,
         password,
+        ...(onTenantSubdomain ? getPortalOriginPayload() : {}),
       });
       if (response.data.token) {
         localStorage.setItem("token", response.data.token);
@@ -86,6 +91,9 @@ export default function Login() {
       redirectAfterLogin();
     } catch (error: any) {
       console.error("LOGIN ERROR: ", error);
+      if (handleTenantPortalAccessError(error)) {
+        return;
+      }
       const status = error.response?.status;
       const serverMsg =
         error.response?.data?.error ||
@@ -141,6 +149,9 @@ export default function Login() {
       toast.success(t("successfully-logged-in"));
       redirectAfterLogin();
     } catch (error: any) {
+      if (handleTenantPortalAccessError(error)) {
+        return;
+      }
       const msg = error.response?.data?.error || t("an-error-occurred");
       setErrorMessage(msg);
       toast.error(msg);

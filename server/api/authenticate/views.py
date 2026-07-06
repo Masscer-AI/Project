@@ -81,6 +81,11 @@ from .tenant_services import (
     serialize_tenant_for_manage,
     user_from_optional_auth_header,
 )
+from .tenant_portal_access import (
+    check_tenant_portal_signup_allowed,
+    check_user_tenant_portal_access,
+    get_portal_origin_from_data,
+)
 from api.payments.models import Subscription
 from django.db import IntegrityError
 
@@ -268,6 +273,10 @@ class SignupAPIView(APIView):
         if request.data.get("invite_token"):
             return self._post_invite_signup(request)
 
+        signup_denied = check_tenant_portal_signup_allowed(request.data)
+        if signup_denied is not None:
+            return signup_denied
+
         serializer = SignupSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
@@ -290,6 +299,14 @@ class SignupAPIView(APIView):
                 {"error": "invalid-or-expired-invite"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        signup_denied = check_tenant_portal_signup_allowed(
+            request.data,
+            invite_organization_id=invite.organization_id,
+        )
+        if signup_denied is not None:
+            return signup_denied
+
         invite.mark_expired_if_needed()
         invite.refresh_from_db()
         if invite.status != OrganizationInvite.Status.PENDING:
@@ -384,6 +401,11 @@ class LoginAPIView(APIView):
                         {"error": "Your access has expired. Contact your organization administrator."},
                         status=status.HTTP_403_FORBIDDEN,
                     )
+
+                portal_origin = get_portal_origin_from_data(request.data)
+                portal_denied = check_user_tenant_portal_access(user, portal_origin)
+                if portal_denied is not None:
+                    return portal_denied
 
                 login(request, user)
                 token, created = Token.get_or_create(user=user, token_type="login")
@@ -500,6 +522,10 @@ class GoogleLoginAPIView(APIView):
                         status=status.HTTP_403_FORBIDDEN,
                     )
 
+            portal_denied = check_user_tenant_portal_access(user, return_to_origin)
+            if portal_denied is not None:
+                return portal_denied
+
             token, _ = Token.get_or_create(user=user, token_type="login")
             logger.info("[Google Login] Token issued for user id=%s", user.id)
 
@@ -544,7 +570,7 @@ class AuthHandoffExchangeAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        user, _return_to = result
+        user, return_to = result
         profile = getattr(user, "profile", None)
         if profile and profile.organization_id and not profile.is_active:
             return Response(
@@ -556,6 +582,10 @@ class AuthHandoffExchangeAPIView(APIView):
                 {"error": "Your access has expired. Contact your organization administrator."},
                 status=status.HTTP_403_FORBIDDEN,
             )
+
+        portal_denied = check_user_tenant_portal_access(user, return_to)
+        if portal_denied is not None:
+            return portal_denied
 
         token = issue_login_token_for_handoff(user)
         return Response(

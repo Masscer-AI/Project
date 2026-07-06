@@ -30,6 +30,7 @@ import {
   IconWorldWww,
 } from "@tabler/icons-react";
 import { DEFAULT_ORGANIZATION_ID } from "../../modules/constants";
+import { isTenantSubdomainHost } from "../../utils/tenantSubdomain";
 import { useStore } from "../../modules/store";
 import {
   LANDING_HERO_BACKGROUND,
@@ -496,6 +497,10 @@ export const Landing = () => {
   });
 
   const handleGetStarted = () => {
+    if (isTenantSubdomainHost()) {
+      navigate("/login");
+      return;
+    }
     const signupUrl = DEFAULT_ORGANIZATION_ID
       ? `/signup?orgId=${DEFAULT_ORGANIZATION_ID}`
       : "/signup";

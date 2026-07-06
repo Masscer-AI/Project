@@ -6,7 +6,7 @@ from django.test import SimpleTestCase, TestCase, override_settings
 from rest_framework.test import APIClient
 
 from api.authenticate.auth_handoff import create_handoff_code, exchange_handoff_code
-from api.authenticate.models import Organization, Token
+from api.authenticate.models import Organization, OrganizationTenant, Token, UserProfile
 from api.authenticate.subdomain_utils import validate_auth_return_to_origin, validate_google_auth_redirect_uri
 
 
@@ -51,11 +51,26 @@ class AuthHandoffTests(TestCase):
     def setUp(self):
         cache.clear()
         self.client = APIClient()
+        self.acme_org = Organization.objects.create(
+            name="Acme",
+            owner=User.objects.create_user(
+                username="acmeowner",
+                email="acmeowner@example.com",
+                password="password-123",
+            ),
+        )
+        OrganizationTenant.objects.create(
+            organization=self.acme_org,
+            subdomain="acme",
+        )
         self.user = User.objects.create_user(
             username="member",
             email="member@example.com",
             password="password-123",
         )
+        profile, _ = UserProfile.objects.get_or_create(user=self.user)
+        profile.organization = self.acme_org
+        profile.save()
 
     def tearDown(self):
         cache.clear()
@@ -99,11 +114,26 @@ class TenantGoogleLoginHandoffTests(TestCase):
     def setUp(self):
         cache.clear()
         self.client = APIClient()
+        self.acme_org = Organization.objects.create(
+            name="Acme Org",
+            owner=User.objects.create_user(
+                username="acmeowner",
+                email="owner@acme.test",
+                password="password-123",
+            ),
+        )
+        OrganizationTenant.objects.create(
+            organization=self.acme_org,
+            subdomain="acme",
+        )
         self.existing_user = User.objects.create_user(
             username="existing",
             email="existing@example.com",
             password="password-123",
         )
+        profile, _ = UserProfile.objects.get_or_create(user=self.existing_user)
+        profile.organization = self.acme_org
+        profile.save()
         Token.get_or_create(user=self.existing_user, token_type="login")
 
     def tearDown(self):

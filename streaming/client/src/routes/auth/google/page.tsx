@@ -16,6 +16,7 @@ import {
   saveGoogleHandoffSession,
   tryAcquireGoogleCodeExchangeLock,
 } from "../../../utils/googleAuthHandoff";
+import { handleTenantPortalAccessError } from "../../../utils/tenantPortalAccess";
 
 export default function AuthGoogleBridge() {
   const [searchParams] = useSearchParams();
@@ -68,6 +69,9 @@ export default function AuthGoogleBridge() {
             return;
           }
           releaseGoogleCodeExchangeLock(code);
+          if (handleTenantPortalAccessError(err)) {
+            return;
+          }
           const axiosErr = err as { response?: { data?: { error?: string } } };
           setError(axiosErr.response?.data?.error || t("an-error-occurred"));
           setIsRedirecting(false);

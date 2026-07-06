@@ -23,8 +23,13 @@ import { redirectToTenantHandoff } from "../../utils/googleAuthHandoff";
 import { resolvePostLoginPath } from "../../utils/loginRedirect";
 import {
   buildTenantGoogleBridgeUrl,
+  getCanonicalAppOrigin,
   isTenantSubdomainHost,
 } from "../../utils/tenantSubdomain";
+import {
+  getPortalOriginPayload,
+  handleTenantPortalAccessError,
+} from "../../utils/tenantPortalAccess";
 import {
   AUTH_FORM_CARD_CLASS,
   AUTH_FORM_CARD_STYLE,
@@ -154,10 +159,14 @@ export default function Signup() {
           invite_token: inviteToken,
           password,
           confirm_password: confirmPassword,
+          ...getPortalOriginPayload(),
         });
         toast.success(t("user-created-succesfully-please-login"));
         navigate("/login");
       } catch (error: any) {
+        if (handleTenantPortalAccessError(error)) {
+          return;
+        }
         const msg =
           error.response?.data?.error ||
           error.response?.data?.detail ||
@@ -182,7 +191,11 @@ export default function Signup() {
     setLoading(true);
     setMessage("");
 
-    const payload: Record<string, string> = { email, password };
+    const payload: Record<string, string> = {
+      email,
+      password,
+      ...getPortalOriginPayload(),
+    };
     if (orgId) {
       payload.organization_id = orgId;
     } else {
@@ -197,6 +210,9 @@ export default function Signup() {
       toast.success(t("user-created-succesfully-please-login"));
       navigate("/login");
     } catch (error: any) {
+      if (handleTenantPortalAccessError(error)) {
+        return;
+      }
       const msg =
         error.response?.data?.detail ||
         error.response?.data?.email?.[0] ||
@@ -216,7 +232,9 @@ export default function Signup() {
     if (inviteToken) return;
     setLoading(true);
     try {
-      const returnTo = searchParams.get("return_to");
+      const returnTo = onTenantSubdomain
+        ? window.location.origin
+        : searchParams.get("return_to");
       const response = await axios.post(API_URL + "/v1/auth/google", {
         access_token: accessToken,
         ...(returnTo ? { return_to: returnTo } : {}),
@@ -237,6 +255,9 @@ export default function Signup() {
       toast.success(t("successfully-logged-in"));
       navigate(resolvePostLoginPath(searchParams.get("next")));
     } catch (error: any) {
+      if (handleTenantPortalAccessError(error)) {
+        return;
+      }
       const msg = error.response?.data?.error || t("an-error-occurred");
       setMessage(msg);
       toast.error(msg);
@@ -257,6 +278,40 @@ export default function Signup() {
           returnTo: window.location.origin,
         })
       : undefined;
+
+  if (onTenantSubdomain && !inviteToken && !orgId) {
+    const mainAppSignup = `${getCanonicalAppOrigin()}/signup`;
+    return (
+      <div className="min-h-screen flex flex-col md:flex-row bg-[var(--bg-color,#0a0a0a)] text-[var(--font-color,#fff)]">
+        <div
+          className={`${panelBase} ${panelLeftLayout}`}
+          style={{ background: AUTH_PANEL_LEFT_BACKGROUND }}
+        />
+        <div className={`${panelBase} ${panelRight}`}>
+          <div className={AUTH_FORM_CARD_CLASS} style={AUTH_FORM_CARD_STYLE}>
+            <Title order={2} ta="center" mb="md">
+              {t("signup")}
+            </Title>
+            <Text ta="center" c="dimmed" mb="md">
+              {t("tenant-portal-signup-forbidden")}
+            </Text>
+            <Stack gap="sm">
+              <Text ta="center" size="sm">
+                <Anchor component={Link} to="/login" c={theme.primaryColor}>
+                  {t("switch-to-login")}
+                </Anchor>
+              </Text>
+              <Text ta="center" size="sm">
+                <Anchor href={mainAppSignup} c={theme.primaryColor}>
+                  {t("tenant-portal-go-to-main-app")}
+                </Anchor>
+              </Text>
+            </Stack>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Loading invite or org details
   if (loadingOrg && (inviteToken || orgId)) {

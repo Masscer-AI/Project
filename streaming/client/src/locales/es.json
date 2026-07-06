@@ -220,6 +220,8 @@
     "scroll-to-end": "Ir al final",
     "signup": "Registrarse",
     "switch-to-login": "Cambiar a Iniciar sesión",
+    "tenant-portal-signup-forbidden": "El registro abierto no está disponible en este portal de organización. Pide una invitación a tu administrador o inicia sesión si ya tienes cuenta.",
+    "tenant-portal-go-to-main-app": "Crear cuenta en la aplicación principal",
     "create-your-account": "Crea tu cuenta",
     "signup-open-description": "Registrate para empezar a usar la plataforma. Crearas tu propia organizacion y podras invitar a otros despues.",
     "joining": "Uniéndote a",

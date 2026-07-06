@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Box, Button, Group } from "@mantine/core";
 import { API_URL, DEFAULT_ORGANIZATION_ID } from "../../modules/constants";
 import { useStore } from "../../modules/store";
+import { isTenantSubdomainHost } from "../../utils/tenantSubdomain";
 
 /** Logo: replace `streaming/client/public/assets/masscer.png` with your image,
  *  or change the `src` below to another path (e.g. `assets/your-logo.png`). */
@@ -20,11 +21,17 @@ export const Navbar = () => {
   const appName = tenantBranding?.app_name || "Masscer";
 
   const handleSignupClick = () => {
+    if (isTenantSubdomainHost()) {
+      navigate("/login");
+      return;
+    }
     const signupUrl = DEFAULT_ORGANIZATION_ID
       ? `/signup?orgId=${DEFAULT_ORGANIZATION_ID}`
       : "/signup";
     navigate(signupUrl);
   };
+
+  const onTenantPortal = isTenantSubdomainHost();
 
   return (
     <Box
@@ -49,9 +56,11 @@ export const Navbar = () => {
           />
         </Link>
         <Group gap="sm">
-          <Button variant="filled" onClick={handleSignupClick}>
-            {t("signup")}
-          </Button>
+          {!onTenantPortal && (
+            <Button variant="filled" onClick={handleSignupClick}>
+              {t("signup")}
+            </Button>
+          )}
           <Button component={Link} to="/login" variant="default">
             {t("login")}
           </Button>

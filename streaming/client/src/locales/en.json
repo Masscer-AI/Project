@@ -263,6 +263,8 @@
     "scroll-to-end": "Scroll to end",
     "signup": "Sign Up",
     "switch-to-login": "Switch to Login",
+    "tenant-portal-signup-forbidden": "Open signup is not available on this organization portal. Ask your administrator for an invite, or sign in if you already have an account.",
+    "tenant-portal-go-to-main-app": "Create an account on the main application",
     "create-your-account": "Create your account",
     "signup-open-description": "Sign up to start using the platform. You'll create your own organization and can invite others later.",
     "joining": "Joining",
