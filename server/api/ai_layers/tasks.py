@@ -1285,16 +1285,12 @@ def conversation_agent_task(
                 "After success, include: [Download spreadsheet](attachment:<attachment_id>)."
             )
             if "create_speech" in (tool_names or []):
-                instructions += (
-                    "\n\nSpeech generation is enabled (model: gpt-4o-mini-tts). "
-                    "If the user asks for an audio version, call create_speech(text, voice, instructions, output_format). "
-                    "voices: alloy, ash, ballad, coral, echo, fable, nova, onyx, sage, shimmer, verse, marin, cedar. "
-                    "For best quality use marin or cedar. "
-                    "The 'instructions' parameter lets you control accent, tone, speed, emotional range, whispering, etc. "
-                    "Example: instructions='Speak slowly with a calm, soothing British accent.' "
-                    "output_format must be mp3 or wav."
-                    "\n\nWhen referencing the audio attachment in markdown, link it like: "
-                    "[Listen](attachment:<attachment_id>)."
+                from api.voices.instructions import build_create_speech_tool_instructions
+
+                instructions += build_create_speech_tool_instructions(
+                    conversation=conversation,
+                    agent=agent,
+                    user=getattr(conversation, "user", None),
                 )
             if "create_completion" in (tool_names or []):
                 instructions += (

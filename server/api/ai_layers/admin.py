@@ -90,7 +90,7 @@ class AgentAdmin(admin.ModelAdmin):
             "fields": ("system_prompt", "act_as", "salute", "conversation_title_prompt")
         }),
         ("Appearance", {
-            "fields": ("profile_picture_url", "profile_picture_src", "openai_voice")
+            "fields": ("profile_picture_url", "profile_picture_src", "default_voice")
         }),
         ("Settings", {
             "fields": ("is_public", "default")

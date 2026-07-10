@@ -87,7 +87,13 @@ class Agent(models.Model):
         default=DEFAULT_CHARACTER, help_text="How should the AI act?"
     )
 
-    openai_voice = models.CharField(max_length=100, null=True, blank=True)
+    default_voice = models.ForeignKey(
+        "voices.Voice",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="agents",
+    )
     user = models.ForeignKey(
         "auth.User", on_delete=models.CASCADE, null=True, blank=True
     )

@@ -22,10 +22,11 @@ import {
   Tooltip,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { createLLM, deleteLLM, updateAgent, makeAuthenticatedRequest, getUserOrganizations, getOrganizationRoles } from "../../modules/apiCalls";
+import { createLLM, deleteLLM, updateAgent, makeAuthenticatedRequest, getUserOrganizations, getOrganizationRoles, getVoices } from "../../modules/apiCalls";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
+import type { TVoiceCatalogEntry } from "../../types/agents";
 import {
   formatUnreadNotificationBadge,
   useUnreadNotificationCount,
@@ -37,7 +38,6 @@ import {
   IconTrash,
   IconDeviceFloppy,
   IconCopy,
-  IconExternalLink,
   IconMenu2,
   IconX,
 } from "@tabler/icons-react";
@@ -347,7 +347,7 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
 
   const [formState, setFormState] = useState({
     name: agent.name || "",
-    openai_voice: agent.openai_voice || "shimmer",
+    default_voice_id: agent.default_voice_id ?? null,
     default: agent.default || false,
     max_tokens: agent.max_tokens || 1000,
     act_as: agent.act_as || "",
@@ -520,9 +520,17 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
     }
   };
 
-  const voiceOptions = ["shimmer", "alloy", "echo", "fable", "onyx", "nova"].map((v) => ({
-    value: v,
-    label: v.charAt(0).toUpperCase() + v.slice(1),
+  const [voices, setVoices] = useState<TVoiceCatalogEntry[]>([]);
+
+  useEffect(() => {
+    getVoices()
+      .then((list) => setVoices(list || []))
+      .catch(() => setVoices([]));
+  }, []);
+
+  const voiceOptions = voices.map((v) => ({
+    value: v.id,
+    label: `${v.name} (${v.provider})`,
   }));
 
   const modelOptions = models.map((m) => ({
@@ -628,30 +636,20 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
         )}
       </Group>
 
-      <Group align="flex-end" gap="xs">
-        <NativeSelect
-          label={t("voice")}
-          data={voiceOptions}
-          value={formState.openai_voice}
-          onChange={(e) => {
-            const val = e.currentTarget.value;
-            setFormState((prev) => ({ ...prev, openai_voice: val as any }));
-          }}
-          style={{ flex: 1 }}
-        />
-        <Tooltip label="OpenAI voice reference">
-          <ActionIcon
-            variant="light"
-            size="lg"
-            onClick={() => {
-              const url = `https://platform.openai.com/docs/guides/text-to-speech#${formState.openai_voice}`;
-              window.open(url, "_blank");
-            }}
-          >
-            <IconExternalLink size={18} />
-          </ActionIcon>
-        </Tooltip>
-      </Group>
+      <NativeSelect
+        label={t("voice")}
+        data={voiceOptions}
+        value={formState.default_voice_id ?? ""}
+        onChange={(e) => {
+          const val = e.currentTarget.value;
+          setFormState((prev) => ({
+            ...prev,
+            default_voice_id: val || null,
+          }));
+        }}
+        disabled={voiceOptions.length === 0}
+        style={{ flex: 1 }}
+      />
 
       <div>
         <Text size="sm" fw={500} mb={4}>

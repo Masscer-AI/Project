@@ -135,6 +135,7 @@ INSTALLED_APPS = [
     "api.integrations",
     "api.document_templates",
     "api.data_governance",
+    "api.voices",
 ]
 
 MIDDLEWARE = [
@@ -313,6 +314,8 @@ CACHES = {
 
 
 FIRECRAWL_API_KEY = os.environ.get("FIRECRAWL_API_KEY", "")
+
+ELEVENLABS_API_KEY = os.environ.get("ELEVENLABS_API_KEY", "")
 
 # WhatsApp Cloud API (Graph). WHATSAPP_APP_SECRET enables X-Hub-Signature-256 verification on POST webhooks.
 WHATSAPP_GRAPH_API_TOKEN = os.environ.get("WHATSAPP_GRAPH_API_TOKEN", "").strip()

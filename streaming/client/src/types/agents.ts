@@ -21,15 +21,6 @@ export type TModel = {
   };
 };
 
-export type TOpenaiVoiceOptions =
-  | "allow"
-  | "shimmer"
-  | "alloy"
-  | "echo"
-  | "fable"
-  | "onyx"
-  | "nova";
-
 type TLLM = {
   name: string;
   provider: string;
@@ -38,26 +29,33 @@ type TLLM = {
 
 export type TAgentKind = "conversational_agent" | "platform_assistant";
 
+export type TVoiceCatalogEntry = {
+  id: string;
+  name: string;
+  slug: string;
+  provider: string;
+  scope: string;
+};
+
 export type TAgent = {
-  name: string; // The name of the agent
-  provider?: string; // The provider of the model, e.g., "openai"
-  slug: string; // A unique identifier or slug for the agent
+  name: string;
+  provider?: string;
+  slug: string;
   agent_kind?: TAgentKind;
-  act_as?: string; // Optional description of the agent's role or behavior
-  default?: boolean; // Optional flag to indicate if this is the default agent
-  id?: number; // Optional identifier for the agent
-  is_public?: boolean; // Optional flag to indicate if the agent is public
-  max_tokens?: number | null; // Optional maximum number of tokens the agent can use
-  model_provider?: string; // Optional provider of the model
+  act_as?: string;
+  default?: boolean;
+  id?: number;
+  is_public?: boolean;
+  max_tokens?: number | null;
+  model_provider?: string;
   salute?: string;
   llm: TLLM;
-  openai_voice?: TOpenaiVoiceOptions; // Use the new type for voice options
+  default_voice_id?: string | null;
   profile_picture_url?: string;
   system_prompt: string;
   conversation_title_prompt?: string;
-  organization?: string | null; // Organization ID if the agent belongs to an organization
-  user?: number; // User ID if the agent belongs to a user
+  organization?: string | null;
+  user?: number;
   access_mode?: "personal" | "org_all" | "org_roles" | "platform";
   allowed_roles?: { id: string; name: string }[];
-  // voice?: TOpenaiVoiceOptions;
 };

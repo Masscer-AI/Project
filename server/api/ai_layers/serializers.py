@@ -1,6 +1,10 @@
 import json
 
 from rest_framework import serializers
+
+from api.voices.access import voice_is_accessible
+from api.voices.models import Voice
+
 from .models import Agent, LanguageModel, AgentSession
 
 
@@ -136,6 +140,12 @@ class AgentSerializer(serializers.ModelSerializer):
     organization = serializers.SerializerMethodField()
     access_mode = serializers.SerializerMethodField()
     allowed_roles = serializers.SerializerMethodField()
+    default_voice_id = serializers.PrimaryKeyRelatedField(
+        queryset=Voice.objects.filter(is_active=True),
+        source="default_voice",
+        allow_null=True,
+        required=False,
+    )
 
     class Meta:
         model = Agent
@@ -154,13 +164,29 @@ class AgentSerializer(serializers.ModelSerializer):
             "is_public",
             "model_provider",
             "default",
-            "openai_voice",
+            "default_voice_id",
             "profile_picture_url",
             "max_tokens",
             "llm",
             "conversation_title_prompt",
         ]
         read_only_fields = ["agent_kind"]
+
+    def validate_default_voice_id(self, voice):
+        if voice is None:
+            return voice
+        request = self.context.get("request")
+        user = getattr(request, "user", None) if request else None
+        organization = None
+        if user is not None and user.is_authenticated:
+            from api.messaging.tasks import get_user_organization
+
+            organization = get_user_organization(user)
+        if user is not None and not voice_is_accessible(
+            voice, user=user, organization=organization
+        ):
+            raise serializers.ValidationError("Voice is not accessible to this user.")
+        return voice
     
     def get_organization(self, obj):
         """Return organization ID if it exists, None otherwise"""

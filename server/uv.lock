@@ -806,7 +806,7 @@ sdist = { url = "https://files.pythonhosted.org/packages/8b/b8/074abdcc251bec87d
 
 [[package]]
 name = "elevenlabs"
-version = "1.50.3"
+version = "2.57.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "httpx" },
@@ -816,9 +816,9 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d8/27/44aa5109e76ab41f4695fa1fbc5473e2d158fec89cedce2085520a9e0431/elevenlabs-1.50.3.tar.gz", hash = "sha256:fa6ad18be07f4b24106dd549cb97c9a72bb76fbb943ce9078a44d13abe3d3154", size = 101709, upload-time = "2024-12-18T09:51:24.128Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/79/6d/8a6ec10cfa0988dd8491430f5d2b9bf069c8f36b7dfd3dc7bd60346223b9/elevenlabs-2.57.0.tar.gz", hash = "sha256:968bd5498f0871482eb9b149c451daeb77479c56afe62a6cc59a6e3b722361f1", size = 684218, upload-time = "2026-07-09T08:56:26.226Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/48/43/77c7266f50b2e2eca5b155f15a35ef2a30cbd377d02a7f3ca32c077cb072/elevenlabs-1.50.3-py3-none-any.whl", hash = "sha256:13622d27f5ccd4c8bc793abbc252d43cdddc261805f378ae9a032a6458687589", size = 228427, upload-time = "2024-12-18T09:51:22.694Z" },
+    { url = "https://files.pythonhosted.org/packages/fa/48/85c4a572061cbf83a0c1eb5239173140b3bdb51480833a5e113358b436d0/elevenlabs-2.57.0-py3-none-any.whl", hash = "sha256:93d30db0dbb8574c7f00c667818a15d2fa5e6f4f61ea27c6962040e6c4da929b", size = 1839832, upload-time = "2026-07-09T08:56:24.363Z" },
 ]
 
 [[package]]
@@ -1575,7 +1575,7 @@ requires-dist = [
     { name = "django-storages", extras = ["s3"] },
     { name = "djangorestframework" },
     { name = "docxtpl" },
-    { name = "elevenlabs" },
+    { name = "elevenlabs", specifier = ">=2.53.0" },
     { name = "faker" },
     { name = "firecrawl-py" },
     { name = "gevent" },

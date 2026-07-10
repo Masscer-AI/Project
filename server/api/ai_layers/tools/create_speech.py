@@ -1,12 +1,8 @@
 """
 Tool: create_speech
 
-Generates speech audio from text using OpenAI gpt-4o-mini-tts and stores it
-as a MessageAttachment(kind="file"), so it can be rendered in the frontend
-and later referenced by attachment_id.
-
-The model supports an `instructions` parameter that controls accent, tone,
-speed, emotional range, whispering, impressions, etc.
+Generates speech audio from text using voices from the catalog (OpenAI or
+ElevenLabs) and stores it as a MessageAttachment(kind="file").
 
 Availability:
 - Must be explicitly enabled via AgentTask tool_names (tool registry allowlist)
@@ -17,54 +13,30 @@ Availability:
 from __future__ import annotations
 
 import logging
-import os
 import uuid
 from typing import Literal
 
-import requests
 from django.core.files.base import ContentFile
 from django.utils.text import slugify
 from pydantic import BaseModel, Field
 
+from api.voices.access import resolve_voice_for_speech
+from api.voices.synthesis import OutputFormat, synthesize_speech_bytes
+
 logger = logging.getLogger(__name__)
-
-OutputFormat = Literal["mp3", "wav"]
-
-# Full voice list for gpt-4o-mini-tts (per OpenAI docs 2026).
-# For best quality OpenAI recommends "marin" or "cedar".
-OPENAI_VOICES: set[str] = {
-    "alloy",
-    "ash",
-    "ballad",
-    "coral",
-    "echo",
-    "fable",
-    "nova",
-    "onyx",
-    "sage",
-    "shimmer",
-    "verse",
-    "marin",
-    "cedar",
-}
 
 
 class CreateSpeechParams(BaseModel):
     text: str = Field(description="Text to convert into speech audio.")
-    voice: str = Field(
-        default="coral",
-        description=(
-            "Voice id. Options: alloy, ash, ballad, coral, echo, fable, "
-            "nova, onyx, sage, shimmer, verse, marin, cedar. "
-            "For best quality use marin or cedar."
-        ),
+    voice_id: str | None = Field(
+        default=None,
+        description="UUID of a voice from the accessible voices catalog.",
     )
     instructions: str = Field(
         default="",
         description=(
-            "Optional speech style instructions for gpt-4o-mini-tts. "
-            "Controls accent, tone, speed, emotional range, whispering, etc. "
-            "Example: 'Speak in a warm, cheerful tone with a slight British accent.'"
+            "Optional speech style instructions (OpenAI voices only). "
+            "Controls accent, tone, speed, emotional range, whispering, etc."
         ),
     )
     output_format: OutputFormat = Field(
@@ -78,7 +50,8 @@ class CreateSpeechResult(BaseModel):
     name: str = Field(description="Display name (slugified).")
     content: str = Field(description="Attachment file URL (relative /media/... path).")
     content_type: str = Field(description="MIME type, e.g. audio/mpeg.")
-    voice: str = Field(description="Voice used.")
+    voice_id: str = Field(description="Catalog voice UUID used.")
+    voice_name: str = Field(description="Display name of the voice used.")
     output_format: OutputFormat = Field(description="Output format used.")
 
 
@@ -86,40 +59,27 @@ def _mime_for_format(fmt: OutputFormat) -> str:
     return "audio/mpeg" if fmt == "mp3" else "audio/wav"
 
 
-def _generate_openai_tts_bytes(
-    *,
-    text: str,
-    voice: str,
-    instructions: str,
-    output_format: OutputFormat,
-) -> bytes:
-    api_key = os.environ.get("OPENAI_API_KEY")
-    if not api_key:
-        raise ValueError("OPENAI_API_KEY is not configured")
+def _resolve_organization(conversation):
+    organization = getattr(conversation, "organization", None)
+    if organization is not None:
+        return organization
+    user = getattr(conversation, "user", None)
+    if user is not None:
+        from api.messaging.tasks import get_user_organization
 
-    payload: dict = {
-        "model": "gpt-4o-mini-tts",
-        "input": text,
-        "voice": voice,
-        "response_format": output_format,
-    }
-    if instructions:
-        payload["instructions"] = instructions
-
-    resp = requests.post(
-        "https://api.openai.com/v1/audio/speech",
-        headers={"Authorization": f"Bearer {api_key}"},
-        json=payload,
-        timeout=120,
-    )
-    resp.raise_for_status()
-    return resp.content
+        return get_user_organization(user)
+    widget = getattr(conversation, "chat_widget", None)
+    if widget is not None:
+        widget_agent = getattr(widget, "agent", None)
+        if widget_agent is not None:
+            return getattr(widget_agent, "organization", None)
+    return None
 
 
 def _create_speech_impl(
     *,
     text: str,
-    voice: str,
+    voice_id: str | None,
     instructions: str,
     output_format: OutputFormat,
     conversation_id: str,
@@ -135,13 +95,8 @@ def _create_speech_impl(
     if not text:
         raise ValueError("text is required")
 
-    voice = (voice or "").strip() or "coral"
-    if voice not in OPENAI_VOICES:
-        raise ValueError(f"Unsupported voice '{voice}'. Allowed: {', '.join(sorted(OPENAI_VOICES))}")
-
     instructions = (instructions or "").strip()
 
-    # ---- Load conversation + resolve user ----
     try:
         conversation = Conversation.objects.select_related("organization", "chat_widget").get(
             id=conversation_id
@@ -156,7 +111,6 @@ def _create_speech_impl(
         except User.DoesNotExist:
             user = None
 
-    # ---- Feature gating ----
     from api.ai_layers.tools.embedded_channels import conversation_uses_capability_gated_media_tools
 
     if not conversation_uses_capability_gated_media_tools(conversation):
@@ -168,27 +122,36 @@ def _create_speech_impl(
         if not enabled:
             raise ValueError("The 'chat-generate-speech' feature is not enabled.")
 
-    # ---- Generate bytes ----
-    try:
-        audio_bytes = _generate_openai_tts_bytes(
-            text=text,
-            voice=voice,
-            instructions=instructions,
-            output_format=output_format,
-        )
-    except Exception as e:
-        logger.exception("Failed to generate speech via OpenAI")
-        raise ValueError(f"Failed to generate speech: {str(e)}")
-
-    # ---- Resolve agent (optional) ----
     agent_obj = None
     if agent_slug:
         try:
             from api.ai_layers.models import Agent
 
-            agent_obj = Agent.objects.get(slug=agent_slug)
+            agent_obj = Agent.objects.select_related("default_voice").get(slug=agent_slug)
         except Exception:
             agent_obj = None
+
+    organization = _resolve_organization(conversation)
+    if organization is None and agent_obj is not None:
+        organization = getattr(agent_obj, "organization", None)
+
+    voice = resolve_voice_for_speech(
+        voice_id=voice_id,
+        agent=agent_obj,
+        user=user or getattr(conversation, "user", None),
+        organization=organization,
+    )
+
+    try:
+        audio_bytes, model_used = synthesize_speech_bytes(
+            voice=voice,
+            text=text,
+            instructions=instructions,
+            output_format=output_format,
+        )
+    except Exception as e:
+        logger.exception("Failed to generate speech for voice=%s", voice.id)
+        raise ValueError(f"Failed to generate speech: {str(e)}") from e
 
     safe_name = slugify(text[:60]) or "speech"
     filename = f"{safe_name}-{uuid.uuid4().hex[:8]}.{output_format}"
@@ -204,11 +167,13 @@ def _create_speech_impl(
         content_type=content_type,
         metadata={
             "text": text[:5000],
-            "voice": voice,
+            "voice_id": str(voice.id),
+            "voice_name": voice.name,
+            "provider_voice_id": voice.provider_voice_id,
             "instructions": instructions[:2000],
             "output_format": output_format,
-            "model": "gpt-4o-mini-tts",
-            "provider": "openai",
+            "model": model_used,
+            "provider": voice.provider,
         },
     )
 
@@ -219,7 +184,8 @@ def _create_speech_impl(
         name=safe_name,
         content=content_url,
         content_type=content_type,
-        voice=voice,
+        voice_id=str(voice.id),
+        voice_name=voice.name,
         output_format=output_format,
     )
 
@@ -235,13 +201,13 @@ def get_tool(
 
     def create_speech(
         text: str,
-        voice: str = "coral",
+        voice_id: str | None = None,
         instructions: str = "",
         output_format: OutputFormat = "mp3",
     ) -> CreateSpeechResult:
         return _create_speech_impl(
             text=text,
-            voice=voice,
+            voice_id=voice_id,
             instructions=instructions,
             output_format=output_format,
             conversation_id=conversation_id,
@@ -252,13 +218,11 @@ def get_tool(
     return {
         "name": "create_speech",
         "description": (
-            "Generate speech audio from text using OpenAI gpt-4o-mini-tts. "
+            "Generate speech audio from text using a voice from the catalog. "
             "Use this when the user asks for an audio/speech version of content. "
-            "You can control accent, tone, speed, emotional range, whispering, "
-            "and other speech characteristics via the 'instructions' parameter. "
-            "Available voices: alloy, ash, ballad, coral, echo, fable, nova, "
-            "onyx, sage, shimmer, verse, marin, cedar. "
-            "For best quality use marin or cedar. "
+            "Pass voice_id (UUID) from the available voices list in your instructions. "
+            "For OpenAI voices you can control accent, tone, speed, and style via "
+            "the instructions parameter. "
             "Returns an attachment_id and a file URL that will appear in the chat."
         ),
         "parameters": CreateSpeechParams,

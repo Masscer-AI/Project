@@ -124,7 +124,7 @@ class AgentView(View):
         ]
 
         models = LanguageModel.objects.all()
-        agents_data = AgentSerializer(agents, many=True).data
+        agents_data = AgentSerializer(agents, many=True, context={"request": request}).data
         models_data = LanguageModelSerializer(models, many=True).data
 
         data = {"models": models_data, "agents": agents_data}
@@ -248,7 +248,7 @@ class AgentView(View):
             if agent.organization is None:
                 agent.allowed_roles.clear()
 
-        serializer = AgentSerializer(agent, data=data, partial=True)
+        serializer = AgentSerializer(agent, data=data, partial=True, context={"request": request})
         if serializer.is_valid():
             serializer.save()
 
@@ -287,13 +287,13 @@ class AgentView(View):
             # Invalidar el caché después de actualizar
             _invalidate_agent_cache_for_user_and_org(request.user, agent.organization)
 
-            return JsonResponse(AgentSerializer(agent).data, status=200)
+            return JsonResponse(AgentSerializer(agent, context={"request": request}).data, status=200)
         return JsonResponse(serializer.errors, status=400)
 
     def post(self, request, *args, **kwargs):
         data = JSONParser().parse(request)
 
-        serializer = AgentSerializer(data=data)
+        serializer = AgentSerializer(data=data, context={"request": request})
         if serializer.is_valid():
             serializer.save(user=request.user)
 
@@ -445,7 +445,7 @@ def get_formatted_system_prompt(request):
     system = agent.format_prompt(context=body.get("context"))
     if profile:
         system += profile.get_as_text()
-    agent_data = AgentSerializer(agent).data
+    agent_data = AgentSerializer(agent, context={"request": request}).data
     agent_data["formatted"] = system
     return JsonResponse(agent_data)
 

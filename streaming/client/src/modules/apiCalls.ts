@@ -1684,6 +1684,14 @@ export type TVoice = {
   provider: string;
 };
 
+export type TVoiceCatalogEntry = {
+  id: string;
+  name: string;
+  slug: string;
+  provider: string;
+  scope: string;
+};
+
 type TGenerateAudioData = {
   text: string;
   voice: TVoice;
@@ -1692,6 +1700,10 @@ type TGenerateAudioData = {
 
 export const generateAudio = async (data: TGenerateAudioData) => {
   return makeAuthenticatedRequest("POST", "/v1/tools/audio_generator/", data);
+};
+
+export const getVoices = async () => {
+  return makeAuthenticatedRequest<TVoiceCatalogEntry[]>("GET", "/v1/voices/");
 };
 
 export const getUserVoices = async () => {

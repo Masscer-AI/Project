@@ -35,6 +35,8 @@ class UserPreferences(models.Model):
 
 
 class UserVoices(models.Model):
+    """Deprecated: use api.voices.Voice catalog instead. Kept for existing data."""
+
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="voices")
     voices = models.JSONField(default=list)
 

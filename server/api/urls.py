@@ -41,6 +41,7 @@ apps = [
     ("v1/integrations/", "api.integrations.urls", "integrations"),
     ("v1/document-templates/", "api.document_templates.urls", "document_templates"),
     ("v1/data-governance/", "api.data_governance.urls", "data_governance"),
+    ("v1/voices/", "api.voices.urls", "voices"),
 ]
 
 urlpatterns_apps = [
