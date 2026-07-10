@@ -61,6 +61,7 @@ const discovery = createChromaDiscovery({
 const parameterStore = createProviderParameters({
   namePrefix: config.namePrefix,
   openAiApiKey: config.openAiApiKey,
+  elevenLabsApiKey: config.elevenLabsApiKey,
   anthropicApiKey: config.anthropicApiKey,
   xaiApiKey: config.xaiApiKey,
   pexelsApiKey: config.pexelsApiKey,

@@ -22,6 +22,6 @@ config:
   masscer-infra:chromaImage: chromadb/chroma:1.5.2
   masscer-infra:dbName: masscer
   masscer-infra:dbUsername: masscer
-  masscer-infra:djangoImageTag: deploy-20260710195737-afeaf46c
-  masscer-infra:streamingImageTag: deploy-20260710195737-afeaf46c
+  masscer-infra:djangoImageTag: deploy-20260710230415-4656fcf0
+  masscer-infra:streamingImageTag: deploy-20260710230415-4656fcf0
   masscer-infra:googleOauthClientId: 173464276003-6q2goma7u5v65rtqs6pbtj9q0keqsd33.apps.googleusercontent.com

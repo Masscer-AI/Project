@@ -29,6 +29,7 @@ export interface AppConfig {
   appDomain: string;
   coreDomain: string;
   openAiApiKey: pulumi.Output<string>;
+  elevenLabsApiKey: pulumi.Output<string>;
   anthropicApiKey: pulumi.Output<string>;
   xaiApiKey: pulumi.Output<string>;
   pexelsApiKey: pulumi.Output<string>;
@@ -81,6 +82,7 @@ export function loadConfig(): AppConfig {
     appDomain: cfg.get("appDomain") ?? "",
     coreDomain: cfg.get("coreDomain") ?? "",
     openAiApiKey: cfg.getSecret("openAiApiKey") ?? pulumi.output(""),
+    elevenLabsApiKey: cfg.getSecret("elevenLabsApiKey") ?? pulumi.output(""),
     anthropicApiKey: cfg.getSecret("anthropicApiKey") ?? pulumi.output(""),
     xaiApiKey: cfg.getSecret("xaiApiKey") ?? pulumi.output(""),
     pexelsApiKey: cfg.getSecret("pexelsApiKey") ?? pulumi.output(""),

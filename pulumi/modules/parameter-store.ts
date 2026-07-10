@@ -3,6 +3,7 @@ import * as pulumi from "@pulumi/pulumi";
 
 export interface ProviderParameterArns {
   openAiApiKeyArn: pulumi.Output<string>;
+  elevenLabsApiKeyArn: pulumi.Output<string>;
   anthropicApiKeyArn: pulumi.Output<string>;
   xaiApiKeyArn: pulumi.Output<string>;
   pexelsApiKeyArn: pulumi.Output<string>;
@@ -19,6 +20,7 @@ export interface ProviderParameterArns {
 export function createProviderParameters(args: {
   namePrefix: string;
   openAiApiKey: pulumi.Input<string>;
+  elevenLabsApiKey: pulumi.Input<string>;
   anthropicApiKey: pulumi.Input<string>;
   xaiApiKey: pulumi.Input<string>;
   pexelsApiKey: pulumi.Input<string>;
@@ -44,6 +46,12 @@ export function createProviderParameters(args: {
     name: `${basePath}/OPENAI_API_KEY`,
     type: "SecureString",
     value: normalizeSecret(args.openAiApiKey),
+  });
+
+  const elevenLabsApiKey = new aws.ssm.Parameter("elevenlabs-api-key-param", {
+    name: `${basePath}/ELEVENLABS_API_KEY`,
+    type: "SecureString",
+    value: normalizeSecret(args.elevenLabsApiKey),
   });
 
   const anthropicApiKey = new aws.ssm.Parameter("anthropic-api-key-param", {
@@ -124,6 +132,7 @@ export function createProviderParameters(args: {
 
   const parameterArns = [
     openAiApiKey.arn,
+    elevenLabsApiKey.arn,
     anthropicApiKey.arn,
     xaiApiKey.arn,
     pexelsApiKey.arn,
@@ -159,6 +168,7 @@ export function createProviderParameters(args: {
 
   const providerParameterArns: ProviderParameterArns = {
     openAiApiKeyArn: openAiApiKey.arn,
+    elevenLabsApiKeyArn: elevenLabsApiKey.arn,
     anthropicApiKeyArn: anthropicApiKey.arn,
     xaiApiKeyArn: xaiApiKey.arn,
     pexelsApiKeyArn: pexelsApiKey.arn,

@@ -72,6 +72,14 @@ pulumi about | grep -A2 Backend   # URL should be s3://masscer-pulumi-state?regi
 pulumi preview                    # mostly "unchanged", not a full recreate
 ```
 
+### 6. Provider secrets
+
+Set provider credentials as Pulumi secrets rather than committing them to a stack file:
+
+```bash
+pulumi config set-secret elevenLabsApiKey '<ELEVENLABS_API_KEY>'
+```
+
 ## Deploy
 
 From the `pulumi/` directory (with direnv loaded):

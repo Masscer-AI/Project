@@ -85,6 +85,7 @@ export function createAppServices(args: {
 
   const providerSecrets = [
     { name: "OPENAI_API_KEY", valueFrom: args.providerParameterArns.openAiApiKeyArn },
+    { name: "ELEVENLABS_API_KEY", valueFrom: args.providerParameterArns.elevenLabsApiKeyArn },
     { name: "ANTHROPIC_API_KEY", valueFrom: args.providerParameterArns.anthropicApiKeyArn },
     { name: "XAI_API_KEY", valueFrom: args.providerParameterArns.xaiApiKeyArn },
     { name: "PEXELS_API_KEY", valueFrom: args.providerParameterArns.pexelsApiKeyArn },

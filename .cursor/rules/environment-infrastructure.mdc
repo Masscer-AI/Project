@@ -1,0 +1,24 @@
+---
+description: Review Pulumi infrastructure when environment configuration changes
+alwaysApply: true
+---
+
+# Environment Configuration and Pulumi
+
+When adding, removing, or changing an environment-specific feature, configuration value, or
+external service integration, review `pulumi/` before completing the work.
+
+- Check whether the setting belongs in Pulumi stack configuration (`pulumi/modules/config.ts`).
+- For secrets or provider credentials, check `pulumi/modules/parameter-store.ts`:
+  - Add or remove the SSM parameter when needed.
+  - Include its ARN in the task execution role's allowed parameter list.
+  - Wire the value through the parameter interface and the service/task environment.
+- Check ECS services, task definitions, deployment scripts, and image-build configuration for
+  references that must receive the new setting.
+- Keep local `.env` use, application settings, Pulumi configuration, and deployed environment
+  variable names consistent.
+- Do not add secrets to source control. Use Pulumi secrets and SSM SecureString parameters for
+  deployed credentials.
+
+Example: adding `NEW_PROVIDER_API_KEY` may require a Pulumi config secret, an SSM SecureString,
+its IAM ARN, task-definition injection, and application-side settings—not only `.env`.
