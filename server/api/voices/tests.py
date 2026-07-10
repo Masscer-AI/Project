@@ -189,3 +189,49 @@ class CreateSpeechVoiceResolutionTests(TestCase):
         audio, model = synthesize_speech_bytes(voice=voice, text="test")
         self.assertEqual(audio, b"el-audio")
         self.assertEqual(model, "eleven_multilingual_v2")
+
+
+class VoicePreviewTests(TestCase):
+    def setUp(self):
+        self.org = Organization.objects.create(name="Preview Org")
+        self.user = User.objects.create_user(username="previewuser", password="test")
+
+        self.system_voice = Voice.objects.create(
+            name="Coral",
+            slug="coral",
+            provider=VoiceProvider.OPENAI,
+            provider_voice_id="coral",
+            scope=VoiceScope.SYSTEM,
+        )
+
+    @patch("api.voices.preview.synthesize_speech_bytes", return_value=(b"preview-mp3", "gpt-4o-mini-tts"))
+    def test_get_or_create_voice_preview_url_caches_file(self, _mock):
+        from django.test import override_settings
+
+        from api.voices.preview import get_or_create_voice_preview_url
+
+        with override_settings(MEDIA_ROOT="/tmp/masscer-test-media"):
+            url1 = get_or_create_voice_preview_url(voice=self.system_voice)
+            url2 = get_or_create_voice_preview_url(voice=self.system_voice)
+        self.assertIn("voice_previews", url1)
+        self.assertEqual(url1, url2)
+        _mock.assert_called_once()
+
+    @patch("api.voices.views.get_or_create_voice_preview_url", return_value="/media/voice_previews/x.mp3")
+    def test_voice_preview_endpoint(self, _mock):
+        from django.test import Client
+
+        from api.authenticate.models import Token
+
+        token = Token.objects.create(user=self.user, token_type="permanent")
+        client = Client()
+        response = client.post(
+            "/v1/voices/preview/",
+            data='{"voice_id": "%s"}' % self.system_voice.id,
+            content_type="application/json",
+            HTTP_AUTHORIZATION=f"Token {token.key}",
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        body = response.json()
+        self.assertEqual(body["voice_id"], str(self.system_voice.id))
+        self.assertIn("url", body)

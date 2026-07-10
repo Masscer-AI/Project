@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useStore } from "../../modules/store";
 import { TAgent } from "../../types/agents";
 import {
@@ -22,7 +22,7 @@ import {
   Tooltip,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { createLLM, deleteLLM, updateAgent, makeAuthenticatedRequest, getUserOrganizations, getOrganizationRoles, getVoices } from "../../modules/apiCalls";
+import { createLLM, deleteLLM, updateAgent, makeAuthenticatedRequest, getUserOrganizations, getOrganizationRoles, getVoices, previewVoice } from "../../modules/apiCalls";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
@@ -39,6 +39,8 @@ import {
   IconDeviceFloppy,
   IconCopy,
   IconMenu2,
+  IconPlayerStopFilled,
+  IconVolume,
   IconX,
 } from "@tabler/icons-react";
 
@@ -521,12 +523,62 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
   };
 
   const [voices, setVoices] = useState<TVoiceCatalogEntry[]>([]);
+  const [voicePreviewLoading, setVoicePreviewLoading] = useState(false);
+  const [voicePreviewPlaying, setVoicePreviewPlaying] = useState(false);
+  const voicePreviewAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    return () => {
+      voicePreviewAudioRef.current?.pause();
+      voicePreviewAudioRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     getVoices()
       .then((list) => setVoices(list || []))
       .catch(() => setVoices([]));
   }, []);
+
+  const stopVoicePreview = () => {
+    const el = voicePreviewAudioRef.current;
+    if (el) {
+      el.pause();
+      el.currentTime = 0;
+    }
+    setVoicePreviewPlaying(false);
+  };
+
+  const handlePlayVoicePreview = async () => {
+    const voiceId = formState.default_voice_id;
+    if (!voiceId) {
+      toast.error(t("select-voice-to-preview"));
+      return;
+    }
+    if (voicePreviewPlaying) {
+      stopVoicePreview();
+      return;
+    }
+    setVoicePreviewLoading(true);
+    try {
+      const { url } = await previewVoice(voiceId);
+      stopVoicePreview();
+      const audio = new Audio(url);
+      voicePreviewAudioRef.current = audio;
+      audio.onended = () => setVoicePreviewPlaying(false);
+      audio.onerror = () => {
+        setVoicePreviewPlaying(false);
+        toast.error(t("voice-preview-failed"));
+      };
+      await audio.play();
+      setVoicePreviewPlaying(true);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.error || t("voice-preview-failed"));
+      setVoicePreviewPlaying(false);
+    } finally {
+      setVoicePreviewLoading(false);
+    }
+  };
 
   const voiceOptions = voices.map((v) => ({
     value: v.id,
@@ -636,20 +688,49 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
         )}
       </Group>
 
-      <NativeSelect
-        label={t("voice")}
-        data={voiceOptions}
-        value={formState.default_voice_id ?? ""}
-        onChange={(e) => {
-          const val = e.currentTarget.value;
-          setFormState((prev) => ({
-            ...prev,
-            default_voice_id: val || null,
-          }));
-        }}
-        disabled={voiceOptions.length === 0}
-        style={{ flex: 1 }}
-      />
+      <Group align="flex-end" gap="xs">
+        <NativeSelect
+          label={t("voice")}
+          data={voiceOptions}
+          value={formState.default_voice_id ?? ""}
+          onChange={(e) => {
+            const val = e.currentTarget.value;
+            stopVoicePreview();
+            setFormState((prev) => ({
+              ...prev,
+              default_voice_id: val || null,
+            }));
+          }}
+          disabled={voiceOptions.length === 0}
+          style={{ flex: 1 }}
+        />
+        <Tooltip
+          label={
+            voicePreviewPlaying
+              ? t("stop-voice-preview")
+              : t("play-voice-preview")
+          }
+        >
+          <ActionIcon
+            variant="light"
+            size="lg"
+            loading={voicePreviewLoading}
+            disabled={!formState.default_voice_id || voiceOptions.length === 0}
+            onClick={handlePlayVoicePreview}
+            aria-label={
+              voicePreviewPlaying
+                ? t("stop-voice-preview")
+                : t("play-voice-preview")
+            }
+          >
+            {voicePreviewPlaying ? (
+              <IconPlayerStopFilled size={18} />
+            ) : (
+              <IconVolume size={18} />
+            )}
+          </ActionIcon>
+        </Tooltip>
+      </Group>
 
       <div>
         <Text size="sm" fw={500} mb={4}>

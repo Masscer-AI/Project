@@ -1706,6 +1706,17 @@ export const getVoices = async () => {
   return makeAuthenticatedRequest<TVoiceCatalogEntry[]>("GET", "/v1/voices/");
 };
 
+export type TVoicePreviewResponse = {
+  voice_id: string;
+  url: string;
+};
+
+export const previewVoice = async (voiceId: string) => {
+  return makeAuthenticatedRequest<TVoicePreviewResponse>("POST", "/v1/voices/preview/", {
+    voice_id: voiceId,
+  });
+};
+
 export const getUserVoices = async () => {
   return makeAuthenticatedRequest<TVoice[]>("GET", "/v1/preferences/voices/");
 };

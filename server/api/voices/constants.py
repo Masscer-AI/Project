@@ -21,3 +21,5 @@ DEFAULT_OPENAI_VOICE_ID = "coral"
 OPENAI_TTS_MODEL = "gpt-4o-mini-tts"
 ELEVENLABS_DEFAULT_MODEL = "eleven_multilingual_v2"
 ELEVENLABS_OUTPUT_FORMAT = "mp3_44100_128"
+
+DEFAULT_VOICE_PREVIEW_TEXT = "Hello! This is a sample of how I sound."
