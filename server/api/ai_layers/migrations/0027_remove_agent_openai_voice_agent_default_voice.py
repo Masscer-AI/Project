@@ -8,7 +8,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('ai_layers', '0026_agent_kind_platform_assistant'),
-        ('voices', '0002_seed_system_openai_voices'),
+        ('voices', '0001_initial'),
     ]
 
     operations = [
