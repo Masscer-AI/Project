@@ -451,7 +451,9 @@ export default function ChatView() {
       if (chatState.webSearch) toolNames.push("explore_web");
       if (chatState.useRag) toolNames.push("rag_query");
       if (chatState.generateImages) toolNames.push("create_image");
-      if (chatState.generateSpeech) toolNames.push("create_speech");
+      if (chatState.generateSpeech) {
+        toolNames.push("create_speech", "generate_dialogue");
+      }
       if (chatState.generateVideo) toolNames.push("generate_video");
       if (chatState.createCompletions) toolNames.push("create_completion");
 
@@ -554,7 +556,9 @@ export default function ChatView() {
         if (chatState.webSearch) toolNames.push("explore_web");
         if (chatState.useRag) toolNames.push("rag_query");
         if (chatState.generateImages) toolNames.push("create_image");
-        if (chatState.generateSpeech) toolNames.push("create_speech");
+        if (chatState.generateSpeech) {
+          toolNames.push("create_speech", "generate_dialogue");
+        }
         if (chatState.generateVideo) toolNames.push("generate_video");
         if (chatState.createCompletions) toolNames.push("create_completion");
 

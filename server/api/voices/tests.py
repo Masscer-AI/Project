@@ -135,6 +135,7 @@ class ListVoicesToolTests(TestCase):
         from api.ai_layers.tools.list_voices import _list_voices_impl
 
         result = _list_voices_impl(
+            target="speech",
             conversation_id=str(self.conversation.id),
             user_id=self.user.id,
             agent_slug=self.agent.slug,
@@ -149,7 +150,21 @@ class ListVoicesToolTests(TestCase):
         default_item = next(voice for voice in result.voices if voice.is_default)
         self.assertEqual(default_item.voice_id, str(self.default_voice.id))
 
-    def test_list_voices_is_resolved_only_with_create_speech(self):
+    def test_list_dialogue_voices_returns_only_elevenlabs_voices(self):
+        from api.ai_layers.tools.list_voices import _list_voices_impl
+
+        result = _list_voices_impl(
+            target="dialogue",
+            conversation_id=str(self.conversation.id),
+            user_id=self.user.id,
+            agent_slug=self.agent.slug,
+        )
+
+        self.assertEqual([voice.voice_id for voice in result.voices], [str(self.user_voice.id)])
+        self.assertIsNone(result.default_voice_id)
+        self.assertFalse(result.voices[0].is_default)
+
+    def test_list_voices_is_resolved_with_speech_or_dialogue_generation(self):
         from api.ai_layers.tools import resolve_tools
 
         context = {
@@ -160,11 +175,15 @@ class ListVoicesToolTests(TestCase):
         speech_tool_names = {
             tool["name"] for tool in resolve_tools(["create_speech"], **context)
         }
+        dialogue_tool_names = {
+            tool["name"] for tool in resolve_tools(["generate_dialogue"], **context)
+        }
         standalone_tool_names = {
             tool["name"] for tool in resolve_tools(["list_voices"], **context)
         }
 
         self.assertEqual(speech_tool_names, {"create_speech", "list_voices"})
+        self.assertEqual(dialogue_tool_names, {"generate_dialogue", "list_voices"})
         self.assertEqual(standalone_tool_names, set())
 
 
@@ -270,6 +289,83 @@ class CreateSpeechVoiceResolutionTests(TestCase):
         audio, model = synthesize_speech_bytes(voice=voice, text="test")
         self.assertEqual(audio, b"el-audio")
         self.assertEqual(model, "eleven_multilingual_v2")
+
+    @patch(
+        "api.ai_layers.tools.generate_dialogue.generate_elevenlabs_dialogue_bytes",
+        return_value=(b"dialogue-audio", "eleven_v3"),
+    )
+    def test_generate_dialogue_uses_only_elevenlabs_voices(self, _mock):
+        from api.ai_layers.tools.generate_dialogue import DialogueTurn, _generate_dialogue_impl
+        from api.messaging.models import Conversation
+
+        elevenlabs_voice = Voice.objects.create(
+            name="Dialogue Clone",
+            slug="dialogue-clone",
+            provider=VoiceProvider.ELEVENLABS,
+            provider_voice_id="el-dialogue-123",
+            scope=VoiceScope.USER,
+            user=self.user,
+        )
+        conv = Conversation.objects.create(user=self.user, organization=self.org)
+
+        with patch(
+            "api.ai_layers.tools.embedded_channels.conversation_uses_capability_gated_media_tools",
+            return_value=False,
+        ), patch(
+            "api.authenticate.services.FeatureFlagService.is_feature_enabled",
+            return_value=(True, "on"),
+        ):
+            result = _generate_dialogue_impl(
+                turns=[
+                    DialogueTurn(
+                        text="Hello there.",
+                        voice_id=str(elevenlabs_voice.id),
+                        instructions="cheerfully",
+                    ),
+                    DialogueTurn(
+                        text="Hello back.",
+                        voice_id=str(elevenlabs_voice.id),
+                    ),
+                ],
+                seed=42,
+                conversation_id=str(conv.id),
+                user_id=self.user.id,
+                agent_slug=self.agent.slug,
+            )
+
+        self.assertEqual(result.model, "eleven_v3")
+        self.assertEqual(result.turn_count, 2)
+        self.assertEqual(result.voices[0].voice_id, str(elevenlabs_voice.id))
+        _mock.assert_called_once_with(
+            inputs=[
+                {"text": "[cheerfully] Hello there.", "voice_id": "el-dialogue-123"},
+                {"text": "Hello back.", "voice_id": "el-dialogue-123"},
+            ],
+            seed=42,
+        )
+
+    def test_generate_dialogue_rejects_openai_voice(self):
+        from api.ai_layers.tools.generate_dialogue import DialogueTurn, _generate_dialogue_impl
+        from api.messaging.models import Conversation
+
+        conv = Conversation.objects.create(user=self.user, organization=self.org)
+        with patch(
+            "api.ai_layers.tools.embedded_channels.conversation_uses_capability_gated_media_tools",
+            return_value=False,
+        ), patch(
+            "api.authenticate.services.FeatureFlagService.is_feature_enabled",
+            return_value=(True, "on"),
+        ), self.assertRaisesRegex(ValueError, "requires an ElevenLabs voice"):
+            _generate_dialogue_impl(
+                turns=[
+                    DialogueTurn(text="First.", voice_id=str(self.system_coral.id)),
+                    DialogueTurn(text="Second.", voice_id=str(self.system_coral.id)),
+                ],
+                seed=None,
+                conversation_id=str(conv.id),
+                user_id=self.user.id,
+                agent_slug=self.agent.slug,
+            )
 
 
 class VoicePreviewTests(TestCase):

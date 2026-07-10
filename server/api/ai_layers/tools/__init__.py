@@ -30,6 +30,7 @@ TOOL_REGISTRY: dict[str, str] = {
     "create_image": "api.ai_layers.tools.create_image",
     "generate_video": "api.ai_layers.tools.generate_video",
     "create_speech": "api.ai_layers.tools.create_speech",
+    "generate_dialogue": "api.ai_layers.tools.generate_dialogue",
     "list_voices": "api.ai_layers.tools.list_voices",
     "create_completion": "api.ai_layers.tools.create_completion",
     "read_plugin_instructions": "api.ai_layers.tools.read_plugin_instructions",
@@ -48,8 +49,8 @@ TOOL_REGISTRY: dict[str, str] = {
     # "cloudbeds_list_hotels": "api.ai_layers.tools.cloudbeds_list_hotels",
 }
 
-DEPENDENT_TOOL_REQUIREMENTS: dict[str, str] = {
-    "list_voices": "create_speech",
+DEPENDENT_TOOL_REQUIREMENTS: dict[str, tuple[str, ...]] = {
+    "list_voices": ("create_speech", "generate_dialogue"),
 }
 
 
@@ -81,9 +82,14 @@ def resolve_tools(tool_names: list[str], **context) -> list[dict]:
     tool_names = [
         name for name in unique_names if name not in DEPENDENT_TOOL_REQUIREMENTS
     ]
-    for dependent_tool, required_tool in DEPENDENT_TOOL_REQUIREMENTS.items():
-        if required_tool in tool_names:
-            required_index = tool_names.index(required_tool)
+    for dependent_tool, required_tools in DEPENDENT_TOOL_REQUIREMENTS.items():
+        required_indexes = [
+            tool_names.index(required_tool)
+            for required_tool in required_tools
+            if required_tool in tool_names
+        ]
+        if required_indexes:
+            required_index = min(required_indexes)
             tool_names.insert(required_index + 1, dependent_tool)
 
     tools = []

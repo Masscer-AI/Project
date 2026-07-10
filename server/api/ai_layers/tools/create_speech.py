@@ -222,8 +222,8 @@ def get_tool(
         "description": (
             "Generate speech audio from text using a voice from the catalog. "
             "Use this when the user asks for an audio/speech version of content. "
-            "Omit voice_id to use the default, or call list_voices first when a "
-            "specific voice is requested. "
+            "Omit voice_id to use the default, or call list_voices with "
+            "target='speech' first when a specific voice is requested. "
             "For OpenAI voices you can control accent, tone, speed, and style via "
             "the instructions parameter. "
             "Returns an attachment_id and a file URL that will appear in the chat."

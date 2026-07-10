@@ -493,6 +493,43 @@ def _extract_create_speech_attachments(tool_calls: list[dict]) -> tuple[list[dic
     return attachments, attachment_ids
 
 
+def _extract_generate_dialogue_attachments(tool_calls: list[dict]) -> tuple[list[dict], list[str]]:
+    """Extract audio attachment descriptors returned by generate_dialogue."""
+    if not tool_calls:
+        return [], []
+
+    attachments: list[dict] = []
+    attachment_ids: list[str] = []
+    for call in tool_calls:
+        try:
+            if (call or {}).get("tool_name") != "generate_dialogue":
+                continue
+            raw = (call or {}).get("result") or ""
+            if not isinstance(raw, str) or not raw.strip():
+                continue
+            data = json.loads(raw)
+            if not isinstance(data, dict):
+                continue
+            aid = data.get("attachment_id")
+            content = data.get("content") or ""
+            name = data.get("name") or "dialogue"
+            if not aid or not content:
+                continue
+            attachments.append(
+                {
+                    "type": "audio_generation",
+                    "content": content,
+                    "name": name,
+                    "attachment_id": str(aid),
+                }
+            )
+            attachment_ids.append(str(aid))
+        except Exception:
+            continue
+
+    return attachments, attachment_ids
+
+
 def _extract_generate_video_attachments(tool_calls: list[dict]) -> tuple[list[dict], list[str]]:
     """
     Extract video attachment descriptors from AgentLoop tool_calls.
@@ -1288,6 +1325,10 @@ def conversation_agent_task(
                 from api.voices.instructions import build_create_speech_tool_instructions
 
                 instructions += build_create_speech_tool_instructions()
+            if "generate_dialogue" in (tool_names or []):
+                from api.voices.instructions import build_generate_dialogue_tool_instructions
+
+                instructions += build_generate_dialogue_tool_instructions()
             if "create_completion" in (tool_names or []):
                 instructions += (
                     "\n\n=== INTERACTIVE TRAINING (create_completion) ===\n"
@@ -1723,6 +1764,14 @@ def conversation_agent_task(
                 assistant_message_attachments.extend(speech_atts)
             if speech_ids:
                 assistant_attachment_ids.extend(speech_ids)
+
+            dialogue_atts, dialogue_ids = _extract_generate_dialogue_attachments(
+                result.tool_calls or []
+            )
+            if dialogue_atts:
+                assistant_message_attachments.extend(dialogue_atts)
+            if dialogue_ids:
+                assistant_attachment_ids.extend(dialogue_ids)
 
             video_atts, video_ids = _extract_generate_video_attachments(result.tool_calls or [])
             if video_atts:

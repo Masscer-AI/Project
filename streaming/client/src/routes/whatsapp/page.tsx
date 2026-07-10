@@ -36,6 +36,7 @@ const WHATSAPP_CAPABILITY_NAMES = [
   "rag_query",
   "create_image",
   "create_speech",
+  "generate_dialogue",
   "generate_video",
   "generate_document_file",
 ] as const;

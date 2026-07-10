@@ -11,6 +11,7 @@ WHATSAPP_ALLOWED_CAPABILITY_TOOLS: frozenset[str] = frozenset(
         "rag_query",
         "create_image",
         "create_speech",
+        "generate_dialogue",
         "generate_video",
         "generate_document_file",
         "list_document_templates",

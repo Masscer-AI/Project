@@ -11,6 +11,7 @@ from elevenlabs.client import ElevenLabs
 from elevenlabs.core.api_error import ApiError
 
 from .constants import (
+    ELEVENLABS_DIALOGUE_MODEL,
     ELEVENLABS_DEFAULT_MODEL,
     ELEVENLABS_OUTPUT_FORMAT,
     OPENAI_TTS_MODEL,
@@ -119,6 +120,45 @@ def _generate_elevenlabs_tts_bytes(
                 delay = _CONCURRENCY_BASE_DELAY * (2**attempt)
                 logger.warning(
                     "ElevenLabs 429 concurrency limit; retrying in %.1fs (attempt %d/%d)",
+                    delay,
+                    attempt + 1,
+                    _CONCURRENCY_MAX_RETRIES,
+                )
+                time.sleep(delay)
+    assert last_error is not None
+    raise last_error
+
+
+def generate_elevenlabs_dialogue_bytes(
+    *,
+    inputs: list[dict[str, str]],
+    seed: int | None = None,
+) -> tuple[bytes, str]:
+    """Generate a multi-speaker Eleven v3 dialogue and return its MP3 bytes."""
+    api_key = getattr(settings, "ELEVENLABS_API_KEY", "") or os.environ.get("ELEVENLABS_API_KEY", "")
+    if not api_key:
+        raise ValueError("ELEVENLABS_API_KEY is not configured")
+
+    client = ElevenLabs(api_key=api_key)
+    last_error: ApiError | None = None
+    for attempt in range(_CONCURRENCY_MAX_RETRIES):
+        try:
+            chunks = client.text_to_dialogue.convert(
+                inputs=inputs,
+                model_id=ELEVENLABS_DIALOGUE_MODEL,
+                output_format=ELEVENLABS_OUTPUT_FORMAT,
+                seed=seed,
+            )
+            return b"".join(chunks), ELEVENLABS_DIALOGUE_MODEL
+        except ApiError as exc:
+            if exc.status_code != 429:
+                raise
+            last_error = exc
+            if attempt < _CONCURRENCY_MAX_RETRIES - 1:
+                delay = _CONCURRENCY_BASE_DELAY * (2**attempt)
+                logger.warning(
+                    "ElevenLabs 429 concurrency limit; retrying dialogue in %.1fs "
+                    "(attempt %d/%d)",
                     delay,
                     attempt + 1,
                     _CONCURRENCY_MAX_RETRIES,

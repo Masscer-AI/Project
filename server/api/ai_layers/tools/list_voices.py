@@ -1,16 +1,28 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
-from api.voices.access import resolve_accessible_voices, resolve_voice_for_speech
+from api.voices.access import (
+    resolve_accessible_voices,
+    resolve_voice_for_speech,
+    voice_is_accessible,
+)
+from api.voices.models import VoiceProvider
 
 
 class ListVoicesParams(BaseModel):
-    pass
+    target: Literal["speech", "dialogue"] = Field(
+        description=(
+            "Use 'speech' before create_speech. Use 'dialogue' before "
+            "generate_dialogue, which creates one multi-speaker audio."
+        )
+    )
 
 
 class VoiceListItem(BaseModel):
-    voice_id: str = Field(description="UUID to pass to create_speech.")
+    voice_id: str = Field(description="UUID to pass to the requested generation tool.")
     name: str
     provider: str
     scope: str
@@ -19,13 +31,17 @@ class VoiceListItem(BaseModel):
 
 class ListVoicesResult(BaseModel):
     voices: list[VoiceListItem]
-    default_voice_id: str = Field(
-        description="Effective default voice UUID used when create_speech omits voice_id."
+    default_voice_id: str | None = Field(
+        description=(
+            "Effective compatible default voice UUID, or null when no compatible "
+            "agent default exists for the requested target."
+        )
     )
 
 
 def _list_voices_impl(
     *,
+    target: Literal["speech", "dialogue"],
     conversation_id: str,
     user_id: int | None,
     agent_slug: str | None,
@@ -75,18 +91,26 @@ def _list_voices_impl(
         )
 
     voices = list(
-        resolve_accessible_voices(
+        resolve_accessible_voices(user=user, organization=organization)
+    )
+    if target == "dialogue":
+        voices = [voice for voice in voices if voice.provider == VoiceProvider.ELEVENLABS]
+        agent_default = getattr(agent, "default_voice", None) if agent else None
+        default_voice_id = (
+            str(agent_default.id)
+            if agent_default is not None
+            and agent_default.provider == VoiceProvider.ELEVENLABS
+            and voice_is_accessible(agent_default, user=user, organization=organization)
+            else None
+        )
+    else:
+        default_voice = resolve_voice_for_speech(
+            voice_id=None,
+            agent=agent,
             user=user,
             organization=organization,
         )
-    )
-    default_voice = resolve_voice_for_speech(
-        voice_id=None,
-        agent=agent,
-        user=user,
-        organization=organization,
-    )
-    default_voice_id = str(default_voice.id)
+        default_voice_id = str(default_voice.id)
 
     items = [
         VoiceListItem(
@@ -113,8 +137,9 @@ def get_tool(
     if not conversation_id:
         raise ValueError("list_voices requires conversation_id in tool context")
 
-    def list_voices() -> ListVoicesResult:
+    def list_voices(target: Literal["speech", "dialogue"]) -> ListVoicesResult:
         return _list_voices_impl(
+            target=target,
             conversation_id=conversation_id,
             user_id=user_id,
             agent_slug=agent_slug,
@@ -124,8 +149,9 @@ def get_tool(
         "name": "list_voices",
         "description": (
             "List voices accessible in the current conversation and their UUIDs. "
-            "Call this before create_speech when the user requests a specific voice "
-            "or you need to choose one. Do not call it when the default voice is sufficient."
+            "Use target='speech' before create_speech; it returns OpenAI and ElevenLabs "
+            "voices. Use target='dialogue' before generate_dialogue; it returns only "
+            "ElevenLabs voices suitable for multi-speaker dialogue."
         ),
         "parameters": ListVoicesParams,
         "function": list_voices,
