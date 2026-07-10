@@ -30,7 +30,9 @@ class CreateSpeechParams(BaseModel):
     text: str = Field(description="Text to convert into speech audio.")
     voice_id: str | None = Field(
         default=None,
-        description="UUID of a voice from the accessible voices catalog.",
+        description=(
+            "UUID returned by list_voices. Omit to use the agent or system default voice."
+        ),
     )
     instructions: str = Field(
         default="",
@@ -220,7 +222,8 @@ def get_tool(
         "description": (
             "Generate speech audio from text using a voice from the catalog. "
             "Use this when the user asks for an audio/speech version of content. "
-            "Pass voice_id (UUID) from the available voices list in your instructions. "
+            "Omit voice_id to use the default, or call list_voices first when a "
+            "specific voice is requested. "
             "For OpenAI voices you can control accent, tone, speed, and style via "
             "the instructions parameter. "
             "Returns an attachment_id and a file URL that will appear in the chat."

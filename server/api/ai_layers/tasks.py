@@ -1287,11 +1287,7 @@ def conversation_agent_task(
             if "create_speech" in (tool_names or []):
                 from api.voices.instructions import build_create_speech_tool_instructions
 
-                instructions += build_create_speech_tool_instructions(
-                    conversation=conversation,
-                    agent=agent,
-                    user=getattr(conversation, "user", None),
-                )
+                instructions += build_create_speech_tool_instructions()
             if "create_completion" in (tool_names or []):
                 instructions += (
                     "\n\n=== INTERACTIVE TRAINING (create_completion) ===\n"

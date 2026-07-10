@@ -87,6 +87,87 @@ class VoiceAccessTests(TestCase):
         self.assertEqual(voice.provider_voice_id, DEFAULT_OPENAI_VOICE_ID)
 
 
+class ListVoicesToolTests(TestCase):
+    def setUp(self):
+        from api.ai_layers.models import Agent
+        from api.messaging.models import Conversation
+
+        self.org = Organization.objects.create(name="Voice List Org")
+        self.user = User.objects.create_user(username="voicelistuser", password="test")
+        self.other = User.objects.create_user(username="voicelistother", password="test")
+        self.default_voice = Voice.objects.create(
+            name="Coral",
+            slug="coral",
+            provider=VoiceProvider.OPENAI,
+            provider_voice_id="coral",
+            scope=VoiceScope.SYSTEM,
+        )
+        self.user_voice = Voice.objects.create(
+            name="My Voice",
+            slug="my-voice",
+            provider=VoiceProvider.ELEVENLABS,
+            provider_voice_id="my-voice-id",
+            scope=VoiceScope.USER,
+            user=self.user,
+        )
+        Voice.objects.create(
+            name="Other Voice",
+            slug="other-voice",
+            provider=VoiceProvider.ELEVENLABS,
+            provider_voice_id="other-voice-id",
+            scope=VoiceScope.USER,
+            user=self.other,
+        )
+        self.agent = Agent.objects.create(
+            name="Voice List Agent",
+            slug="voice-list-agent",
+            salute="Hi",
+            default_voice=self.default_voice,
+            organization=self.org,
+            user=self.user,
+        )
+        self.conversation = Conversation.objects.create(
+            user=self.user,
+            organization=self.org,
+        )
+
+    def test_list_voices_returns_only_accessible_voices_and_marks_default(self):
+        from api.ai_layers.tools.list_voices import _list_voices_impl
+
+        result = _list_voices_impl(
+            conversation_id=str(self.conversation.id),
+            user_id=self.user.id,
+            agent_slug=self.agent.slug,
+        )
+
+        ids = {voice.voice_id for voice in result.voices}
+        self.assertEqual(
+            ids,
+            {str(self.default_voice.id), str(self.user_voice.id)},
+        )
+        self.assertEqual(result.default_voice_id, str(self.default_voice.id))
+        default_item = next(voice for voice in result.voices if voice.is_default)
+        self.assertEqual(default_item.voice_id, str(self.default_voice.id))
+
+    def test_list_voices_is_resolved_only_with_create_speech(self):
+        from api.ai_layers.tools import resolve_tools
+
+        context = {
+            "conversation_id": str(self.conversation.id),
+            "user_id": self.user.id,
+            "agent_slug": self.agent.slug,
+        }
+        speech_tool_names = {
+            tool["name"] for tool in resolve_tools(["create_speech"], **context)
+        }
+        standalone_tool_names = {
+            tool["name"] for tool in resolve_tools(["list_voices"], **context)
+        }
+
+        self.assertEqual(speech_tool_names, {"create_speech", "list_voices"})
+        self.assertEqual(standalone_tool_names, set())
+
+
 class CreateSpeechVoiceResolutionTests(TestCase):
     def setUp(self):
         from api.ai_layers.models import Agent
