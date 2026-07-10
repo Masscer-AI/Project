@@ -235,3 +235,32 @@ class VoicePreviewTests(TestCase):
         body = response.json()
         self.assertEqual(body["voice_id"], str(self.system_voice.id))
         self.assertIn("url", body)
+
+
+class SyncSystemVoicesTests(TestCase):
+    def test_sync_creates_openai_and_elevenlabs_system_voices(self):
+        from api.voices.constants import SYSTEM_ELEVENLABS_VOICES, SYSTEM_OPENAI_VOICES
+        from api.voices.seed import sync_system_voices
+
+        created, updated, unchanged = sync_system_voices()
+        self.assertGreater(len(created), 0)
+
+        from api.voices.models import Voice, VoiceProvider, VoiceScope
+
+        self.assertEqual(
+            Voice.objects.filter(scope=VoiceScope.SYSTEM, provider=VoiceProvider.OPENAI).count(),
+            len(SYSTEM_OPENAI_VOICES),
+        )
+        self.assertEqual(
+            Voice.objects.filter(
+                scope=VoiceScope.SYSTEM,
+                provider=VoiceProvider.ELEVENLABS,
+                is_active=True,
+            ).count(),
+            len(SYSTEM_ELEVENLABS_VOICES),
+        )
+
+        created2, updated2, unchanged2 = sync_system_voices()
+        self.assertEqual(created2, [])
+        self.assertEqual(updated2, [])
+        self.assertEqual(len(unchanged2), len(SYSTEM_OPENAI_VOICES) + len(SYSTEM_ELEVENLABS_VOICES))

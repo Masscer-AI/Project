@@ -355,6 +355,11 @@ run_django_manage_oneoff sync_subscription_plans || {
     error "sync_subscription_plans failed"; exit 1;
 }
 
+info "Syncing system voices..."
+run_django_manage_oneoff sync_system_voices || {
+    error "sync_system_voices failed"; exit 1;
+}
+
 info "Syncing organization subscriptions..."
 run_django_manage_oneoff sync_organization_subscriptions || {
     error "sync_organization_subscriptions failed"; exit 1;

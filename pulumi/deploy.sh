@@ -151,6 +151,7 @@ run_post_deploy_tasks() {
 
   if run_django_manage_oneoff "migrate" "Django migrate"; then
     run_django_manage_oneoff "sync_subscription_plans" "Django sync_subscription_plans"
+    run_django_manage_oneoff "sync_system_voices" "Django sync_system_voices"
     run_django_manage_oneoff "sync_organization_subscriptions" "Django sync_organization_subscriptions"
   fi
 }
