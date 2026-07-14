@@ -25,7 +25,8 @@ OwnerType = Literal["user", "organization"]
 VALID_OWNERS: frozenset[str] = frozenset({"user", "organization"})
 VALID_PROVIDERS: frozenset[str] = frozenset({c.value for c in IntegrationProviderChoices})
 
-INTEGRATIONS_RETURN_PATH_PREFIX = "/settings/integrations"
+INTEGRATIONS_MANAGE_FEATURE_FLAG = "can-manage-integrations"
+INTEGRATIONS_RETURN_PATH_PREFIX = "/integrations"
 
 
 def get_google_client_id() -> str:
@@ -53,7 +54,7 @@ def get_redirect_uri(request, provider: str) -> str:
 
 def get_frontend_integrations_url(*, error: str = "") -> str:
     base = get_frontend_base_url()
-    url = f"{base}/settings/integrations"
+    url = f"{base}{INTEGRATIONS_RETURN_PATH_PREFIX}"
     if error:
         return f"{url}?error={error}"
     return url
@@ -121,9 +122,16 @@ def get_user_organization(user: User) -> Organization | None:
     return None
 
 
+def integrations_capability_denied_message() -> str:
+    return (
+        f"The '{INTEGRATIONS_MANAGE_FEATURE_FLAG}' feature is not enabled "
+        "for your account."
+    )
+
+
 def user_can_manage_integrations(user: User, organization: Organization | None) -> bool:
     enabled, _ = FeatureFlagService.is_feature_enabled(
-        "can-connect-drive-account",
+        INTEGRATIONS_MANAGE_FEATURE_FLAG,
         organization=organization,
         user=user,
     )

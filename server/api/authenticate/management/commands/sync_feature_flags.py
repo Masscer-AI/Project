@@ -1,7 +1,63 @@
 from django.core.management.base import BaseCommand
 
 from api.authenticate.feature_flags_registry import KNOWN_FEATURE_FLAGS
-from api.authenticate.models import FeatureFlag
+from api.authenticate.models import FeatureFlag, FeatureFlagAssignment, Role
+
+LEGACY_INTEGRATIONS_FLAG = "can-connect-drive-account"
+INTEGRATIONS_MANAGE_FLAG = "can-manage-integrations"
+
+
+def _migrate_legacy_integrations_flag(*, dry_run: bool = False) -> tuple[int, int]:
+    """
+    Copy role capabilities and user/org flag assignments from the retired
+    can-connect-drive-account slug to can-manage-integrations.
+    """
+    migrated_roles = 0
+    migrated_assignments = 0
+
+    for role in Role.objects.all():
+        caps = list(role.capabilities or [])
+        if LEGACY_INTEGRATIONS_FLAG not in caps:
+            continue
+        new_caps: list[str] = []
+        for cap in caps:
+            if cap == LEGACY_INTEGRATIONS_FLAG:
+                if INTEGRATIONS_MANAGE_FLAG not in new_caps:
+                    new_caps.append(INTEGRATIONS_MANAGE_FLAG)
+            elif cap not in new_caps:
+                new_caps.append(cap)
+        if not dry_run:
+            role.capabilities = new_caps
+            role.save(update_fields=["capabilities", "updated_at"])
+        migrated_roles += 1
+
+    new_flag = FeatureFlag.objects.filter(name=INTEGRATIONS_MANAGE_FLAG).first()
+    old_flag = FeatureFlag.objects.filter(name=LEGACY_INTEGRATIONS_FLAG).first()
+    if new_flag and old_flag:
+        for assignment in FeatureFlagAssignment.objects.filter(
+            feature_flag=old_flag, enabled=True
+        ):
+            lookup = {
+                "feature_flag": new_flag,
+                "enabled": True,
+            }
+            if assignment.organization_id:
+                lookup["organization_id"] = assignment.organization_id
+                lookup["user"] = None
+            else:
+                lookup["user_id"] = assignment.user_id
+                lookup["organization"] = None
+            if dry_run:
+                migrated_assignments += 1
+                continue
+            _, created = FeatureFlagAssignment.objects.get_or_create(
+                defaults={"enabled": True},
+                **lookup,
+            )
+            if created:
+                migrated_assignments += 1
+
+    return migrated_roles, migrated_assignments
 
 
 class Command(BaseCommand):
@@ -92,3 +148,13 @@ class Command(BaseCommand):
             self.stdout.write(
                 self.style.SUCCESS("All known feature flags already exist and are up to date.")
             )
+
+        if not dry_run:
+            migrated_roles, migrated_assignments = _migrate_legacy_integrations_flag()
+            if verbosity >= 1 and (migrated_roles or migrated_assignments):
+                self.stdout.write(
+                    self.style.SUCCESS(
+                        f"Migrated integrations flag: {migrated_roles} role(s), "
+                        f"{migrated_assignments} assignment(s)."
+                    )
+                )

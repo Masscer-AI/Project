@@ -33,6 +33,7 @@ import {
   IconWaveSine,
   IconDatabase,
   IconPuzzle,
+  IconPlugConnected,
   IconBrandWhatsapp,
   IconBuilding,
   IconLayoutDashboard,
@@ -49,6 +50,7 @@ export const Sidebar: React.FC = () => {
     "conversations-dashboard"
   );
   const isChatWidgetsEnabled = useIsFeatureEnabled("chat-widgets-management");
+  const isIntegrationsEnabled = useIsFeatureEnabled("can-manage-integrations");
   const isWhatsappNumbersManagementEnabled = useIsFeatureEnabled(
     "whatsapp-numbers-management"
   );
@@ -425,6 +427,16 @@ export const Sidebar: React.FC = () => {
                   fullWidth
                 >
                   {t("chat-widgets")}
+                </Button>
+              )}
+              {isIntegrationsEnabled && (
+                <Button
+                  variant="default"
+                  leftSection={<IconPlugConnected size={20} />}
+                  onClick={() => goTo("/integrations")}
+                  fullWidth
+                >
+                  {t("integrations-title")}
                 </Button>
               )}
               {canManageOrg && (

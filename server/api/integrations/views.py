@@ -64,7 +64,7 @@ def _require_capability(request, owner_type: str):
         return JsonResponse(
             {
                 "error": (
-                    "The 'can-connect-drive-account' feature is not enabled "
+                    f"The 'can-manage-integrations' feature is not enabled "
                     "for your account."
                 )
             },
@@ -212,7 +212,7 @@ def integrations_callback(request, provider: str):
         return _redirect_after_oauth(state_data, error="no_organization")
 
     enabled, _ = FeatureFlagService.is_feature_enabled(
-        "can-connect-drive-account",
+        "can-manage-integrations",
         organization=org,
         user=user,
     )

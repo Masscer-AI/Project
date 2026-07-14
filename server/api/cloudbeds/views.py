@@ -12,7 +12,7 @@ OAuth flow:
   2. Frontend opens that URL (popup or redirect) — user grants access on Cloudbeds.
   3. Cloudbeds redirects browser to GET /callback/?code=...&state=...
   4. Backend exchanges code, stores CloudbedsCredential, redirects browser to
-     CLOUDBEDS_FRONTEND_SUCCESS_URL (defaults to /settings/integrations).
+     CLOUDBEDS_FRONTEND_SUCCESS_URL (defaults to /integrations).
 
 The `state` param carries a short-lived cache key that maps back to the
 requesting user's ID, so /callback/ knows which organization to associate
@@ -66,13 +66,13 @@ def _get_redirect_uri(request) -> str:
 def _get_frontend_success_url() -> str:
     """Frontend page to redirect the browser to after a successful connection."""
     base = os.environ.get("FRONTEND_URL", "").rstrip("/")
-    return f"{base}/settings/integrations"
+    return f"{base}/integrations"
 
 
 def _get_frontend_error_url(reason: str = "") -> str:
     """Frontend page to redirect to when the OAuth flow fails."""
     base = os.environ.get("FRONTEND_URL", "").rstrip("/")
-    url = f"{base}/settings/integrations"
+    url = f"{base}/integrations"
     return f"{url}?cloudbeds_error={reason}" if reason else url
 
 

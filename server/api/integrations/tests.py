@@ -60,23 +60,23 @@ class IntegrationOAuthServicesTests(SimpleTestCase):
 
     def test_validate_return_to_accepts_tenant_subdomain(self):
         self.assertEqual(
-            validate_return_to("http://acme.localhost/settings/integrations"),
-            "http://acme.localhost/settings/integrations",
+            validate_return_to("http://acme.localhost/integrations"),
+            "http://acme.localhost/integrations",
         )
 
     def test_validate_return_to_rejects_external_host(self):
         self.assertIsNone(
-            validate_return_to("https://evil.com/settings/integrations")
+            validate_return_to("https://evil.com/integrations")
         )
 
     def test_build_integrations_return_url_appends_error(self):
         url = build_integrations_return_url(
-            "http://acme.localhost/settings/integrations",
+            "http://acme.localhost/integrations",
             error="token_exchange_failed",
         )
         self.assertEqual(
             url,
-            "http://acme.localhost/settings/integrations?error=token_exchange_failed",
+            "http://acme.localhost/integrations?error=token_exchange_failed",
         )
 
 
@@ -193,7 +193,7 @@ class IntegrationsViewsTests(TestCase):
         mock_get_provider.return_value = provider_instance
 
         url = reverse("integrations:connect", kwargs={"provider": "google_drive"})
-        return_to = "http://acme.localhost/settings/integrations"
+        return_to = "http://acme.localhost/integrations"
         resp = self.client.get(
             f"{url}?owner=user&return_to={return_to}",
             **self._auth_headers(),
@@ -215,7 +215,7 @@ class IntegrationsViewsTests(TestCase):
     @patch("api.integrations.views.get_provider")
     def test_callback_creates_integration(self, mock_get_provider, *_ff):
         state = "test-state-token"
-        return_to = "http://acme.localhost/settings/integrations"
+        return_to = "http://acme.localhost/integrations"
         cache.set(
             "integrations_oauth_state:test-state-token",
             {

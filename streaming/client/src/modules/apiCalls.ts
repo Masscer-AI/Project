@@ -2024,7 +2024,7 @@ export const getMCPConnectionConfig = async (credentialId: string) => {
     mcp_url: string;
     key: string;
     name: string;
-    cursor_config_json: string;
+    mcp_config_json: string;
     claude_instructions: string;
   }>("GET", `/v1/ai_layers/mcp/connection-config/?credential_id=${credentialId}`);
 };

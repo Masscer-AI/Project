@@ -269,7 +269,7 @@ export function DriveFilePicker({ opened, onClose, onImported }: Props) {
                 </Text>
                 <Button
                   component={Link}
-                  to="/settings/integrations"
+                  to="/integrations"
                   variant="light"
                   leftSection={<IconPlugConnected size={18} />}
                   onClick={handleClose}

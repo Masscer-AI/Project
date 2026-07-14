@@ -1112,7 +1112,8 @@ class MCPGatewayTests(TestCase):
         )
         self.assertEqual(res.status_code, 404)
 
-    def test_create_credential_via_user_token(self):
+    @patch("api.ai_layers.mcp_views.user_can_manage_integrations", return_value=True)
+    def test_create_credential_via_user_token(self, _can_manage):
         res = self.client.post(
             "/v1/ai_layers/mcp/credentials/",
             {"name": "Cursor", "allowed_agent_slugs": ["mcp-agent"]},
@@ -1125,7 +1126,18 @@ class MCPGatewayTests(TestCase):
         self.assertIn("mcp_config", data)
         self.assertIn("/mcp", data["mcp_url"])
 
-    def test_revoke_credential(self):
+    @patch("api.ai_layers.mcp_views.user_can_manage_integrations", return_value=False)
+    def test_create_credential_requires_integrations_capability(self, _can_manage):
+        res = self.client.post(
+            "/v1/ai_layers/mcp/credentials/",
+            {"name": "Cursor", "allowed_agent_slugs": ["mcp-agent"]},
+            format="json",
+            HTTP_AUTHORIZATION=f"Token {self.login_token.key}",
+        )
+        self.assertEqual(res.status_code, 403, res.content)
+
+    @patch("api.ai_layers.mcp_views.user_can_manage_integrations", return_value=True)
+    def test_revoke_credential(self, _can_manage):
         res = self.client.delete(
             f"/v1/ai_layers/mcp/credentials/{self.mcp_client.id}/",
             HTTP_AUTHORIZATION=f"Token {self.login_token.key}",

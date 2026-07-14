@@ -446,7 +446,7 @@ const PlusMenu = ({ existingFilesOnly = false }: { existingFilesOnly?: boolean }
   const isTrainAgentsEnabled = useIsFeatureEnabled("train-agents");
   const isWebScrapingEnabled = useIsFeatureEnabled("web-scraping");
   const isDriveImportEnabled =
-    useIsFeatureEnabled("can-connect-drive-account") === true &&
+    useIsFeatureEnabled("can-manage-integrations") === true &&
     isTrainAgentsEnabled === true;
 
   const [ragConfigOpened, { open: openRagConfig, close: closeRagConfig }] =

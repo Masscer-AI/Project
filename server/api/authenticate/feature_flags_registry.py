@@ -32,5 +32,5 @@ KNOWN_FEATURE_FLAGS = {
     "can-edit-preferences": {"organization_only": False},
     "can-create-agents": {"organization_only": False},
     "platform-assistant": {"organization_only": False},
-    "can-connect-drive-account": {"organization_only": False},
+    "can-manage-integrations": {"organization_only": False},
 }

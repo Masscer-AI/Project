@@ -1,5 +1,4 @@
 import React, { useEffect, useState, useRef } from "react";
-import { Link } from "react-router-dom";
 import { useStore } from "../../modules/store";
 import { Sidebar } from "../../components/Sidebar/Sidebar";
 import { getUser, updateUser } from "../../modules/apiCalls";
@@ -47,7 +46,6 @@ import {
   IconDeviceDesktop,
   IconSun,
   IconUpload,
-  IconPlugConnected,
   IconVolume,
   IconPlayerPlay,
 } from "@tabler/icons-react";
@@ -101,8 +99,6 @@ export default function SettingsPage() {
           <Stack gap="lg">
             <UserSection />
             <Divider />
-            <IntegrationsLinkSection />
-            <Divider />
             <PreferencesSection />
             <Divider />
             <NotificationSoundsSection />
@@ -114,38 +110,6 @@ export default function SettingsPage() {
     </main>
   );
 }
-
-// ─── Integrations link ────────────────────────────────────────────────────────
-
-const IntegrationsLinkSection = () => {
-  const { t } = useTranslation();
-  const canConnectDrive = useIsFeatureEnabled("can-connect-drive-account");
-
-  if (!canConnectDrive) {
-    return null;
-  }
-
-  return (
-    <Card withBorder p="lg">
-      <Group justify="space-between" align="center" wrap="nowrap">
-        <Stack gap={4}>
-          <Title order={4}>{t("integrations-title")}</Title>
-          <Text size="sm" c="dimmed">
-            {t("integrations-description")}
-          </Text>
-        </Stack>
-        <Button
-          component={Link}
-          to="/settings/integrations"
-          variant="default"
-          leftSection={<IconPlugConnected size={18} />}
-        >
-          {t("integrations-title")}
-        </Button>
-      </Group>
-    </Card>
-  );
-};
 
 // ─── User Section ─────────────────────────────────────────────────────────────
 

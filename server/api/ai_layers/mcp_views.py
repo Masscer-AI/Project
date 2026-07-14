@@ -30,9 +30,25 @@ from api.ai_layers.mcp_access import (
 from api.ai_layers.models import MCPClient
 from api.authenticate.decorators.mcp_token_required import mcp_token_required
 from api.authenticate.decorators.token_required import token_required
+from api.integrations.services import get_user_organization, user_can_manage_integrations
 from api.messaging.models import Conversation
 
 logger = logging.getLogger(__name__)
+
+
+def _require_integrations_management(request):
+    org = get_user_organization(request.user)
+    if not user_can_manage_integrations(request.user, org):
+        return JsonResponse(
+            {
+                "error": (
+                    "The 'can-manage-integrations' feature is not enabled "
+                    "for your account."
+                )
+            },
+            status=403,
+        )
+    return None
 
 
 def _mcp_task_authorized(request, task_id: str) -> bool:
@@ -197,6 +213,10 @@ def mcp_task_result(request, task_id: str):
 @require_http_methods(["GET", "POST"])
 def mcp_credentials(request):
     """List or create MCP credentials for the authenticated user."""
+    denied = _require_integrations_management(request)
+    if denied:
+        return denied
+
     user = request.user
 
     if request.method == "GET":
@@ -314,6 +334,10 @@ def mcp_accessible_agents_qs_for_user(user, mcp_client=None):
 @require_http_methods(["DELETE"])
 def mcp_revoke_credential(request, credential_id):
     """Revoke an MCP credential."""
+    denied = _require_integrations_management(request)
+    if denied:
+        return denied
+
     try:
         mcp_client = MCPClient.objects.get(id=credential_id, user=request.user)
     except MCPClient.DoesNotExist:
@@ -332,6 +356,10 @@ def mcp_connection_config(request):
     Return MCP connection info for an existing credential (by id) or template.
     Query: ?credential_id=<uuid>
     """
+    denied = _require_integrations_management(request)
+    if denied:
+        return denied
+
     credential_id = request.GET.get("credential_id")
     if not credential_id:
         return JsonResponse({"error": "credential_id is required"}, status=400)

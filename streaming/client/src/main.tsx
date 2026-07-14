@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import ReactDOM from "react-dom/client";
-import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import { createBrowserRouter, Navigate, RouterProvider } from "react-router-dom";
 import '@mantine/core/styles.css';
 import '@mantine/dates/styles.css';
 import { MantineProvider } from '@mantine/core';
@@ -44,7 +44,7 @@ import GenerationToolsPage from "./routes/generation-tools/page.tsx";
 import ChatWidgetsPage from "./routes/chat-widgets/page.tsx";
 import { ProtectedRoute } from "./components/ProtectedRoute/ProtectedRoute.tsx";
 import SettingsPage from "./routes/settings/page.tsx";
-import IntegrationsPage from "./routes/settings/integrations/page.tsx";
+import IntegrationsPage from "./routes/integrations/page.tsx";
 
 const router = createBrowserRouter([
   {
@@ -178,12 +178,16 @@ const router = createBrowserRouter([
         ),
       },
       {
-        path: "/settings/integrations",
+        path: "/integrations",
         element: (
-          <ProtectedRoute featureFlag="can-connect-drive-account">
+          <ProtectedRoute featureFlag="can-manage-integrations">
             <IntegrationsPage />
           </ProtectedRoute>
         ),
+      },
+      {
+        path: "/settings/integrations",
+        element: <Navigate to="/integrations" replace />,
       },
     ],
   },

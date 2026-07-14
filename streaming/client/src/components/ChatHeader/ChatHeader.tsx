@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { Link } from "react-router-dom";
 import { useStore } from "../../modules/store";
 import { TAgent } from "../../types/agents";
 import {
@@ -20,9 +21,10 @@ import {
   Checkbox,
   Divider,
   Tooltip,
+  Anchor,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { createLLM, deleteLLM, updateAgent, makeAuthenticatedRequest, getUserOrganizations, getOrganizationRoles, getVoices, previewVoice, listMCPCredentials, createMCPCredential, revokeMCPCredential, getMCPConnectionConfig, type TMCPCredentialSummary, type TMCPCredentialCreated } from "../../modules/apiCalls";
+import { createLLM, deleteLLM, updateAgent, makeAuthenticatedRequest, getUserOrganizations, getOrganizationRoles, getVoices, previewVoice, createMCPCredential, getMCPConnectionConfig, type TMCPCredentialCreated } from "../../modules/apiCalls";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
@@ -500,34 +502,17 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
   };
 
   const [mcpOpened, { open: openMcpModal, close: closeMcpModal }] = useDisclosure(false);
-  const [mcpCredentials, setMcpCredentials] = useState<TMCPCredentialSummary[]>([]);
-  const [mcpLoading, setMcpLoading] = useState(false);
   const [mcpCredentialName, setMcpCredentialName] = useState("");
-  const [mcpLimitToAgent, setMcpLimitToAgent] = useState(true);
   const [mcpCreated, setMcpCreated] = useState<TMCPCredentialCreated | null>(null);
 
   const handleOpenMcpModal = () => {
     openMcpModal();
   };
 
-  const loadMcpCredentials = async () => {
-    setMcpLoading(true);
-    try {
-      const res = await listMCPCredentials();
-      setMcpCredentials(res.credentials || []);
-    } catch (error: any) {
-      toast.error(error?.response?.data?.error || "Error loading MCP credentials");
-    } finally {
-      setMcpLoading(false);
-    }
-  };
-
   useEffect(() => {
     if (mcpOpened) {
-      void loadMcpCredentials();
       setMcpCreated(null);
       setMcpCredentialName(agent.name);
-      setMcpLimitToAgent(true);
     }
   }, [mcpOpened, agent.name]);
 
@@ -540,23 +525,12 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
     try {
       const created = await createMCPCredential({
         name,
-        allowed_agent_slugs: mcpLimitToAgent ? [agent.slug] : undefined,
+        allowed_agent_slugs: [agent.slug],
       });
       setMcpCreated(created);
       toast.success(t("mcp-credential-created"));
-      await loadMcpCredentials();
     } catch (error: any) {
       toast.error(error?.response?.data?.error || "Error creating MCP credential");
-    }
-  };
-
-  const handleRevokeMcpCredential = async (id: string) => {
-    try {
-      await revokeMCPCredential(id);
-      toast.success(t("mcp-credential-revoked"));
-      await loadMcpCredentials();
-    } catch (error: any) {
-      toast.error(error?.response?.data?.error || "Error revoking credential");
     }
   };
 
@@ -911,60 +885,12 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
                 value={mcpCredentialName}
                 onChange={(e) => setMcpCredentialName(e.currentTarget.value)}
               />
-              <Checkbox
-                label={t("mcp-limit-to-this-agent")}
-                checked={mcpLimitToAgent}
-                onChange={(e) => setMcpLimitToAgent(e.currentTarget.checked)}
-              />
               <Button onClick={() => void handleCreateMcpCredential()}>
                 {t("mcp-create-credential")}
               </Button>
-            </Stack>
-          )}
-
-          <Divider label={t("mcp-existing-credentials")} />
-
-          {mcpLoading ? (
-            <Text size="sm" c="dimmed">…</Text>
-          ) : mcpCredentials.length === 0 ? (
-            <Text size="sm" c="dimmed">{t("mcp-no-credentials")}</Text>
-          ) : (
-            <Stack gap="xs">
-              {mcpCredentials.map((cred) => (
-                <Card key={cred.id} withBorder padding="sm" radius="md">
-                  <Group justify="space-between" align="flex-start">
-                    <Stack gap={2}>
-                      <Text size="sm" fw={600}>{cred.name}</Text>
-                      <Text size="xs" c="dimmed">{cred.key_prefix}</Text>
-                      {cred.allowed_agent_slugs.length > 0 && (
-                        <Group gap={4}>
-                          {cred.allowed_agent_slugs.map((slug) => (
-                            <Badge key={slug} size="xs" variant="light">{slug}</Badge>
-                          ))}
-                        </Group>
-                      )}
-                    </Stack>
-                    <Group gap="xs">
-                      <Button
-                        size="xs"
-                        variant="subtle"
-                        leftSection={<IconCopy size={14} />}
-                        onClick={() => void handleCopyMcpCursorConfig(cred.id)}
-                      >
-                        {t("mcp-copy-cursor-config")}
-                      </Button>
-                      <Button
-                        size="xs"
-                        variant="subtle"
-                        color="red"
-                        onClick={() => void handleRevokeMcpCredential(cred.id)}
-                      >
-                        {t("mcp-revoke-credential")}
-                      </Button>
-                    </Group>
-                  </Group>
-                </Card>
-              ))}
+              <Anchor component={Link} to="/integrations" size="sm">
+                {t("integrations-manage-all")}
+              </Anchor>
             </Stack>
           )}
         </Stack>

@@ -31,7 +31,7 @@ def _require_drive_access(request, owner_type: str):
     org = get_user_organization(request.user)
     if not user_can_manage_integrations(request.user, org):
         return JsonResponse(
-            {"error": "The 'can-connect-drive-account' feature is not enabled."},
+            {"error": "The 'can-manage-integrations' feature is not enabled."},
             status=403,
         )
     if owner_type == "organization" and org is None:
