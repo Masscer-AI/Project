@@ -1088,8 +1088,15 @@ const WebSearchResultInspector = ({ result }: { result: any }) => {
 
 // ─── MessageEditor ────────────────────────────────────────────────────────────
 
-const MESSAGE_EDIT_MAX_H = () =>
-  Math.min(Math.round(window.innerHeight * 0.72), 640);
+/** Leave room for header, chat input, and the message action bar below the editor. */
+const MESSAGE_EDIT_MAX_H = () => {
+  const rem =
+    parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+  return Math.min(
+    Math.round(window.innerHeight - 18 * rem),
+    Math.round(20 * rem)
+  );
+};
 
 const MessageEditor = ({
   text,
@@ -1128,7 +1135,7 @@ const MessageEditor = ({
         autoComplete="on"
         rows={1}
         ref={textareaRef}
-        className="message-editor-textarea w-full min-h-0 max-h-[min(72vh,40rem)] px-4 py-3 font-sans rounded-xl text-base leading-relaxed focus:outline-none resize-y [scrollbar-width:thin]"
+        className="message-editor-textarea w-full min-h-0 max-h-[min(calc(100dvh-18rem),20rem)] px-4 py-3 font-sans rounded-xl text-base leading-relaxed focus:outline-none resize-none overflow-y-auto [scrollbar-width:thin]"
         style={{
           background: "var(--code-bg-color)",
           color: "var(--font-color)",
