@@ -18,6 +18,7 @@ export function createRouting(args: {
     loadBalancerType: "application",
     securityGroups: [args.albSecurityGroupId],
     subnets: args.publicSubnetIds,
+    idleTimeout: 300,
     tags: args.tags,
   });
 
@@ -146,6 +147,17 @@ export function createRouting(args: {
       conditions: [
         { hostHeader: { values: appHostValues } },
         { pathPattern: { values: ["/socket.io/*"] } },
+      ],
+      tags: args.tags,
+    });
+
+    new aws.lb.ListenerRule("app-mcp-path-rule", {
+      listenerArn: httpsListener.arn,
+      priority: 31,
+      actions: [{ type: "forward", targetGroupArn: fastapiTargetGroup.arn }],
+      conditions: [
+        { hostHeader: { values: appHostValues } },
+        { pathPattern: { values: ["/mcp", "/mcp/*"] } },
       ],
       tags: args.tags,
     });

@@ -1,93 +1,372 @@
 """
-Vistas HTTP para el servidor MCP y configuración.
+MCP gateway HTTP endpoints (authenticated via MCPClient Bearer tokens).
+
+These endpoints are called by the FastAPI MCP protocol server, not directly by
+external MCP clients in production.
 """
+
+from __future__ import annotations
+
 import json
 import logging
-import platform
+
+from celery.result import AsyncResult
+from django.core.cache import cache
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.db.models import Q
-from .models import Agent
-from .mcp.server import MCPServerHandler
+from django.views.decorators.http import require_http_methods
+
+from api.ai_layers.agent_task_dispatch import (
+    DEFAULT_MCP_TOOL_NAMES,
+    dispatch_conversation_agent_task,
+)
+from api.ai_layers.mcp_access import (
+    agent_to_mcp_tool_payload,
+    get_mcp_user_org,
+    mcp_accessible_agents_qs,
+    resolve_mcp_agent,
+    sanitize_mcp_tool_name,
+)
+from api.ai_layers.models import MCPClient
+from api.authenticate.decorators.mcp_token_required import mcp_token_required
 from api.authenticate.decorators.token_required import token_required
+from api.messaging.models import Conversation
 
 logger = logging.getLogger(__name__)
 
 
+def _mcp_task_authorized(request, task_id: str) -> bool:
+    meta = cache.get(f"mcp_task_{task_id}")
+    if not meta:
+        return False
+    return (
+        meta.get("user_id") == request.user.id
+        and meta.get("mcp_client_id") == str(request.mcp_client.id)
+    )
+
+
 @csrf_exempt
-def mcp_server_handler(request, agent_slug):
-    """
-    Endpoint HTTP para el servidor MCP de un agente específico.
-    No requiere autenticación (público) para que Claude Desktop pueda llamarlo.
-    """
-    if request.method != "POST":
-        return JsonResponse({"error": "Only POST requests are allowed"}, status=405)
-    
-    return MCPServerHandler.handle_request(request, agent_slug)
+@mcp_token_required
+@require_http_methods(["GET"])
+def mcp_list_agents(request):
+    """List agents exposed as MCP tools for this credential."""
+    agents = list(mcp_accessible_agents_qs(request.mcp_client))
+    return JsonResponse(
+        {
+            "agents": [agent_to_mcp_tool_payload(a) for a in agents],
+        }
+    )
 
 
-@token_required
-def get_mcp_config_json(request, agent_slug):
+@csrf_exempt
+@mcp_token_required
+@require_http_methods(["POST"])
+def mcp_run_agent(request):
     """
-    Genera la configuración JSON para Claude Desktop.
-    Requiere autenticación para verificar permisos del agente.
+    Dispatch a Masscer agent via the production AgentLoop.
+
+    Body: { "agent_slug": "...", "message": "...", "conversation_id": "..."? }
     """
     try:
-        user = request.user
-        from api.ai_layers.access import accessible_agents_qs
+        data = json.loads(request.body or b"{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON body"}, status=400)
 
-        # Verificar que el usuario tiene acceso al agente (incluye restricciones por roles)
-        agent = Agent.objects.filter(slug=agent_slug).filter(
-            Q(is_public=True) | Q(id__in=accessible_agents_qs(user).values_list("id", flat=True))
-        ).first()
-        
-        if not agent:
-            return JsonResponse({
-                "error": "Agent not found or you don't have permission to access it"
-            }, status=404)
-        
-        # Construir URL dinámicamente desde el request
-        base_url = request.build_absolute_uri('/').rstrip('/')
-        mcp_url = f"{base_url}/v1/ai_layers/mcp/{agent_slug}/"
-        
-        # Generar configuración HTTP para Claude Desktop
-        config = {
-            "mcpServers": {
-                f"masscer-{agent.slug}": {
-                    "url": mcp_url
-                }
-            }
-        }
-        
-        # Instrucciones según el OS
-        os_type = platform.system()
-        if os_type == "Darwin":  # macOS
-            config_path = "~/Library/Application Support/Claude/claude_desktop_config.json"
-        elif os_type == "Windows":
-            config_path = "%APPDATA%\\Claude\\claude_desktop_config.json"
-        else:  # Linux
-            config_path = "~/.config/claude/claude_desktop_config.json"
-        
-        instructions = (
-            f"1. Copy the config_json content below\n"
-            f"2. Open or create the file: {config_path}\n"
-            f"3. Merge the content into the existing 'mcpServers' object (or create it if it doesn't exist)\n"
-            f"4. Save the file and restart Claude Desktop\n"
-            f"5. You should see '{agent.name}' available in the connectors menu"
+    agent_slug = (data.get("agent_slug") or "").strip()
+    message = (data.get("message") or "").strip()
+    conversation_id = data.get("conversation_id")
+
+    if not agent_slug:
+        return JsonResponse({"error": "agent_slug is required"}, status=400)
+    if not message:
+        return JsonResponse({"error": "message is required"}, status=400)
+
+    agent = resolve_mcp_agent(request.mcp_client, agent_slug)
+    if not agent:
+        return JsonResponse(
+            {"error": f"Agent '{agent_slug}' not found or not accessible"},
+            status=404,
         )
-        
-        return JsonResponse({
-            "config": config,
-            "config_json": json.dumps(config, indent=2),
-            "agent_name": agent.name,
-            "agent_slug": agent.slug,
-            "instructions": instructions,
-            "config_path": config_path
-        })
-    
-    except Exception as e:
-        logger.error(f"Error generating MCP config: {str(e)}", exc_info=True)
-        return JsonResponse({
-            "error": f"Error generating configuration: {str(e)}"
-        }, status=500)
 
+    user = request.user
+    mcp_client = request.mcp_client
+
+    if conversation_id:
+        try:
+            conversation = Conversation.objects.get(id=conversation_id)
+        except Conversation.DoesNotExist:
+            return JsonResponse({"error": "Conversation not found"}, status=404)
+        from api.ai_layers.agent_task_helpers import validate_conversation_access
+
+        err = validate_conversation_access(
+            conversation, user, get_mcp_user_org(mcp_client)
+        )
+        if err:
+            return err
+    else:
+        org = mcp_client.organization
+        metadata = {
+            "source": "mcp",
+            "mcp_client_id": str(mcp_client.id),
+            "related_agents": [agent.id],
+        }
+        conversation = Conversation.objects.create(
+            user=user,
+            organization=org,
+            metadata=metadata,
+        )
+        conversation_id = str(conversation.id)
+
+    result = dispatch_conversation_agent_task(
+        user=user,
+        conversation_id=str(conversation_id),
+        agent_slugs=[agent.slug],
+        user_inputs=[{"type": "input_text", "text": message}],
+        tool_names=list(DEFAULT_MCP_TOOL_NAMES),
+        multiagentic_modality="isolated",
+        mcp_client_id=str(mcp_client.id),
+    )
+
+    if not result.ok:
+        return result.response
+
+    if result.takeover:
+        return result.response
+
+    return JsonResponse(
+        {
+            "task_id": result.task_id,
+            "conversation_id": result.conversation_id,
+            "status": "accepted",
+            "tool_name": sanitize_mcp_tool_name(agent.slug),
+        },
+        status=202,
+    )
+
+
+@csrf_exempt
+@mcp_token_required
+@require_http_methods(["GET"])
+def mcp_task_result(request, task_id: str):
+    """Poll Celery task result for an MCP-dispatched agent run."""
+    if not _mcp_task_authorized(request, task_id):
+        return JsonResponse({"error": "Task not found or access denied"}, status=404)
+
+    async_result = AsyncResult(task_id)
+
+    if not async_result.ready():
+        return JsonResponse({"status": "pending", "task_id": task_id})
+
+    if async_result.failed():
+        err = str(async_result.result) if async_result.result else "Task failed"
+        return JsonResponse(
+            {"status": "failed", "task_id": task_id, "error": err},
+            status=500,
+        )
+
+    payload = async_result.result or {}
+    if not isinstance(payload, dict):
+        return JsonResponse(
+            {
+                "status": "completed",
+                "task_id": task_id,
+                "output": str(payload),
+            }
+        )
+
+    return JsonResponse(
+        {
+            "status": payload.get("status", "completed"),
+            "task_id": task_id,
+            "output": payload.get("output", ""),
+            "message_id": payload.get("message_id"),
+            "iterations": payload.get("iterations"),
+            "tool_calls_count": payload.get("tool_calls_count"),
+            "conversation_id": cache.get(f"mcp_task_{task_id}", {}).get(
+                "conversation_id"
+            ),
+        }
+    )
+
+
+# ─── Credential management (user Token auth, for UI) ─────────────────────────
+
+
+@csrf_exempt
+@token_required
+@require_http_methods(["GET", "POST"])
+def mcp_credentials(request):
+    """List or create MCP credentials for the authenticated user."""
+    user = request.user
+
+    if request.method == "GET":
+        clients = MCPClient.objects.filter(user=user, revoked=False).prefetch_related(
+            "allowed_agents"
+        )
+        data = []
+        for c in clients:
+            allowed = list(c.allowed_agents.values_list("slug", flat=True))
+            data.append(
+                {
+                    "id": str(c.id),
+                    "name": c.name,
+                    "created_at": c.created_at.isoformat(),
+                    "last_used_at": (
+                        c.last_used_at.isoformat() if c.last_used_at else None
+                    ),
+                    "allowed_agent_slugs": allowed,
+                    "key_prefix": c.key[:8] + "…" if c.key else None,
+                }
+            )
+        return JsonResponse({"credentials": data})
+
+    try:
+        body = json.loads(request.body or b"{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON body"}, status=400)
+
+    name = (body.get("name") or "").strip()
+    if not name:
+        return JsonResponse({"error": "name is required"}, status=400)
+
+    allowed_slugs = body.get("allowed_agent_slugs") or []
+    if allowed_slugs and not isinstance(allowed_slugs, list):
+        return JsonResponse(
+            {"error": "allowed_agent_slugs must be a list of slugs"},
+            status=400,
+        )
+
+    from api.ai_layers.mcp_access import get_mcp_user_org
+
+    org = get_mcp_user_org_for_user(user)
+    mcp_client = MCPClient.objects.create(
+        name=name,
+        user=user,
+        organization=org,
+    )
+
+    if allowed_slugs:
+        agents = list(mcp_accessible_agents_qs_for_user(user, mcp_client=None))
+        slug_set = {a.slug for a in agents}
+        invalid = [s for s in allowed_slugs if s not in slug_set]
+        if invalid:
+            mcp_client.delete()
+            return JsonResponse(
+                {
+                    "error": (
+                        f"Agent(s) not accessible: {', '.join(invalid)}"
+                    )
+                },
+                status=400,
+            )
+        allowed = [a for a in agents if a.slug in allowed_slugs]
+        mcp_client.allowed_agents.set(allowed)
+
+    base_url = request.build_absolute_uri("/").rstrip("/")
+    mcp_url = f"{base_url}/mcp/"
+
+    return JsonResponse(
+        {
+            "id": str(mcp_client.id),
+            "name": mcp_client.name,
+            "key": mcp_client.key,
+            "mcp_url": mcp_url,
+            "allowed_agent_slugs": list(
+                mcp_client.allowed_agents.values_list("slug", flat=True)
+            ),
+            "mcp_config": {
+                "mcpServers": {
+                    f"masscer-{name}": {
+                        "url": mcp_url,
+                        "headers": {
+                            "Authorization": f"Bearer {mcp_client.key}",
+                        },
+                    }
+                }
+            },
+            "claude_instructions": (
+                "In Claude: Settings → Connectors → Add custom connector. "
+                f"Enter URL: {mcp_url}. "
+                "Use the Bearer token as authentication if prompted."
+            ),
+        },
+        status=201,
+    )
+
+
+def get_mcp_user_org_for_user(user):
+    from api.ai_layers.access import get_user_organization
+
+    return get_user_organization(user)
+
+
+def mcp_accessible_agents_qs_for_user(user, mcp_client=None):
+    from api.ai_layers.access import accessible_agents_qs
+    from api.ai_layers.models import AgentKind
+
+    return accessible_agents_qs(user).filter(
+        agent_kind=AgentKind.CONVERSATIONAL_AGENT
+    )
+
+
+@csrf_exempt
+@token_required
+@require_http_methods(["DELETE"])
+def mcp_revoke_credential(request, credential_id):
+    """Revoke an MCP credential."""
+    try:
+        mcp_client = MCPClient.objects.get(id=credential_id, user=request.user)
+    except MCPClient.DoesNotExist:
+        return JsonResponse({"error": "Credential not found"}, status=404)
+
+    mcp_client.revoked = True
+    mcp_client.save(update_fields=["revoked", "updated_at"])
+    return JsonResponse({"status": "revoked", "id": str(mcp_client.id)})
+
+
+@csrf_exempt
+@token_required
+@require_http_methods(["GET"])
+def mcp_connection_config(request):
+    """
+    Return MCP connection info for an existing credential (by id) or template.
+    Query: ?credential_id=<uuid>
+    """
+    credential_id = request.GET.get("credential_id")
+    if not credential_id:
+        return JsonResponse({"error": "credential_id is required"}, status=400)
+
+    try:
+        mcp_client = MCPClient.objects.get(
+            id=credential_id, user=request.user, revoked=False
+        )
+    except MCPClient.DoesNotExist:
+        return JsonResponse({"error": "Credential not found"}, status=404)
+
+    base_url = request.build_absolute_uri("/").rstrip("/")
+    mcp_url = f"{base_url}/mcp/"
+
+    return JsonResponse(
+        {
+            "mcp_url": mcp_url,
+            "key": mcp_client.key,
+            "name": mcp_client.name,
+            "mcp_config_json": json.dumps(
+                {
+                    "mcpServers": {
+                        f"masscer-{mcp_client.name}": {
+                            "url": mcp_url,
+                            "headers": {
+                                "Authorization": f"Bearer {mcp_client.key}",
+                            },
+                        }
+                    }
+                },
+                indent=2,
+            ),
+            "claude_instructions": (
+                "Claude: Settings → Connectors → Add custom connector. "
+                f"URL: {mcp_url}"
+            ),
+        }
+    )

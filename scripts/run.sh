@@ -313,7 +313,8 @@ docker run -d \
     -e REDIS_NOTIFICATIONS_URL="${REDIS_INTERNAL}/2" \
     -v "${PROJECT_ROOT}/streaming:/app" \
     -p "${FASTAPI_PORT}:${FASTAPI_PORT}" \
-    $FASTAPI_IMAGE python main.py || { error "FastAPI failed to start"; exit 1; }
+    $FASTAPI_IMAGE sh -c 'uv sync --frozen --no-dev --no-install-project && exec python main.py' \
+    || { error "FastAPI failed to start"; exit 1; }
 success "FastAPI ready."
 
 # ── Nginx ─────────────────────────────────────────────────────────────────────

@@ -1,0 +1,76 @@
+from __future__ import annotations
+
+import re
+
+from api.ai_layers.access import accessible_agents_qs, get_user_organization
+from api.ai_layers.models import Agent, AgentKind, MCPClient
+
+_SLUG_RE = re.compile(r"[^a-z0-9_]+")
+
+
+def sanitize_mcp_tool_name(agent_slug: str) -> str:
+    """Map agent slug to MCP tool name: ask_<sanitized_slug>."""
+    sanitized = _SLUG_RE.sub("_", agent_slug.lower()).strip("_")
+    return f"ask_{sanitized}"
+
+
+def tool_name_to_agent_slug(tool_name: str) -> str | None:
+    if not tool_name.startswith("ask_"):
+        return None
+    return tool_name[len("ask_") :]
+
+
+def mcp_accessible_agents_qs(mcp_client: MCPClient):
+    """Agents this MCP credential may expose (user access ∩ optional allowlist)."""
+    user = mcp_client.user
+    qs = accessible_agents_qs(user).filter(agent_kind=AgentKind.CONVERSATIONAL_AGENT)
+    allowed_ids = list(mcp_client.allowed_agents.values_list("id", flat=True))
+    if allowed_ids:
+        qs = qs.filter(id__in=allowed_ids)
+    return qs.distinct()
+
+
+def agent_to_mcp_tool_payload(agent: Agent) -> dict:
+    description = agent.act_as[:500] if agent.act_as else f"Masscer agent: {agent.name}"
+    return {
+        "slug": agent.slug,
+        "name": agent.name,
+        "tool_name": sanitize_mcp_tool_name(agent.slug),
+        "description": description,
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "description": "The message or question to send to the agent",
+                },
+                "conversation_id": {
+                    "type": "string",
+                    "description": (
+                        "Optional conversation UUID for multi-turn context. "
+                        "Omit to start a new MCP conversation."
+                    ),
+                },
+            },
+            "required": ["message"],
+        },
+    }
+
+
+def resolve_mcp_agent(mcp_client: MCPClient, agent_slug: str) -> Agent | None:
+    return mcp_accessible_agents_qs(mcp_client).filter(slug=agent_slug).first()
+
+
+def resolve_mcp_agent_by_tool_name(mcp_client: MCPClient, tool_name: str) -> Agent | None:
+    slug = tool_name_to_agent_slug(tool_name)
+    if not slug:
+        return None
+    agents = list(mcp_accessible_agents_qs(mcp_client))
+    for agent in agents:
+        if sanitize_mcp_tool_name(agent.slug) == tool_name:
+            return agent
+    return None
+
+
+def get_mcp_user_org(mcp_client: MCPClient):
+    return mcp_client.organization or get_user_organization(mcp_client.user)

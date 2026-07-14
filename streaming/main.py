@@ -9,17 +9,16 @@ from server.redis_manager import listen_to_notifications
 from contextlib import asynccontextmanager
 from server.routes import router
 from server.socket import sio
+from server.mcp.server import handle_streamable_http, mcp_lifespan
 import socketio
 import asyncio
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # await database.connect()
     asyncio.create_task(listen_to_notifications())
-    yield
-
-    # await database.disconnect()
+    async with mcp_lifespan():
+        yield
 
 
 app = FastAPI(lifespan=lifespan)
@@ -30,11 +29,14 @@ origins = os.getenv("CORS_ORIGINS", "*").split(",")
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
     allow_headers=["*"],
     allow_origins=["*"],
+    expose_headers=["Mcp-Session-Id"],
 )
 
+# MCP Streamable HTTP — mount before SPA catch-all routes
+app.mount("/mcp", handle_streamable_http)
 
 sio_asgi_app = socketio.ASGIApp(socketio_server=sio, other_asgi_app=app)
 

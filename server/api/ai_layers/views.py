@@ -13,6 +13,12 @@ from .serializers import (
     AgentSessionExecutionLogSerializer,
 )
 from api.authenticate.decorators.token_required import token_required
+from api.ai_layers.agent_task_helpers import (
+    parse_client_datetime as _parse_client_datetime,
+    parse_regenerate_message_id as _parse_regenerate_message_id,
+    validate_conversation_access as _validate_conversation_access,
+)
+from api.ai_layers.agent_task_dispatch import dispatch_conversation_agent_task
 from api.authenticate.decorators.feature_flag_required import feature_flag_required
 from api.authenticate.models import Organization
 from api.providers.models import AIProvider
@@ -532,20 +538,11 @@ class AgentTaskView(View):
     """
 
     def post(self, request, *args, **kwargs):
-        from api.messaging.models import Conversation
-        from api.messaging.takeover import (
-            get_active_takeover,
-            handle_inbound_during_takeover,
-        )
-        from .tasks import conversation_agent_task
-        from .tools import list_available_tools
-
         try:
             data = json.loads(request.body)
         except json.JSONDecodeError:
             return JsonResponse({"error": "Invalid JSON body"}, status=400)
 
-        # --- Validate required fields ---
         conversation_id = data.get("conversation_id")
         agent_slugs = data.get("agent_slugs")
         user_inputs = data.get("user_inputs")
@@ -571,132 +568,25 @@ class AgentTaskView(View):
                 status=400,
             )
 
-        # --- Validate user_inputs structure ---
-        for i, inp in enumerate(user_inputs):
-            if not isinstance(inp, dict) or "type" not in inp:
-                return JsonResponse(
-                    {"error": f"user_inputs[{i}] must be an object with a 'type' field"},
-                    status=400,
-                )
-
-        # --- Validate optional tool_names ---
-        tool_names = data.get("tool_names", [])
-
-        if not isinstance(tool_names, list):
-            return JsonResponse(
-                {"error": "tool_names must be a list of strings"},
-                status=400,
-            )
-
-        multiagentic_modality = data.get("multiagentic_modality", "isolated")
-        if multiagentic_modality not in ("isolated", "grupal"):
-            return JsonResponse(
-                {"error": "multiagentic_modality must be 'isolated' or 'grupal'"},
-                status=400,
-            )
-
-        available = list_available_tools()
-        unknown = [t for t in tool_names if t not in available]
-        if unknown:
-            return JsonResponse(
-                {
-                    "error": f"Unknown tools: {', '.join(unknown)}",
-                    "available_tools": available,
-                },
-                status=400,
-            )
-
-        # --- Look up agents (respect org role restrictions) ---
-        from api.ai_layers.access import accessible_agents_qs, get_user_organization
-        user = request.user
-        user_org = get_user_organization(user)
-        base_qs = accessible_agents_qs(user)
-
-        agents_found = list(base_qs.filter(slug__in=slugs))
-        found_slugs = {a.slug for a in agents_found}
-        not_found = [s for s in slugs if s not in found_slugs]
-        if not_found:
-            return JsonResponse(
-                {"error": f"Agent(s) not found or not accessible: {', '.join(not_found)}"},
-                status=404,
-            )
-
-        if any(a.agent_kind == AgentKind.PLATFORM_ASSISTANT for a in agents_found):
-            return JsonResponse(
-                {
-                    "error": (
-                        "Platform assistants must use POST /api/ai_layers/agent-task/platform/"
-                    ),
-                },
-                status=400,
-            )
-
-        # --- Validate conversation belongs to the user ---
-        try:
-            conversation = Conversation.objects.get(id=conversation_id)
-        except Conversation.DoesNotExist:
-            return JsonResponse(
-                {"error": "Conversation not found"},
-                status=404,
-            )
-
-        conv_access_error = _validate_conversation_access(conversation, user, user_org)
-        if conv_access_error:
-            return conv_access_error
-
-        active_takeover = get_active_takeover(conversation)
-        if active_takeover:
-            handle_inbound_during_takeover(
-                conversation,
-                active_takeover,
-                user_inputs,
-                message_metadata={"human_takeover": True, "channel": "chat_app"},
-            )
-            return JsonResponse(
-                {"status": "accepted", "takeover": True, "agent_skipped": True},
-                status=202,
-            )
-
-        # Persist selected agents on the conversation (same source of truth as the task;
-        # avoids a separate PUT that is gated by can-edit-conversation-data).
-        by_slug = {a.slug: a for a in agents_found}
-        agents_ordered = [by_slug[s] for s in slugs if s in by_slug]
-        from api.messaging.schemas import metadata_payload_for_related_agents
-
-        conversation.metadata = metadata_payload_for_related_agents(
-            [a.id for a in agents_ordered]
-        )
-        conversation.save(update_fields=["metadata", "updated_at"])
-
-        client_datetime, client_dt_error = _parse_client_datetime(data.get("client_datetime"))
-        if client_dt_error:
-            return client_dt_error
-
-        regenerate_message_id, regen_error = _parse_regenerate_message_id(
-            data.get("regenerate_message_id"),
-            conversation=conversation,
-            user=user,
-        )
-        if regen_error:
-            return regen_error
-
-        # --- Dispatch Celery task ---
-        from django.core.cache import cache
-        cache.delete(f"cancel_task_{conversation_id}")
-
-        task = conversation_agent_task.delay(
+        result = dispatch_conversation_agent_task(
+            user=request.user,
             conversation_id=str(conversation_id),
-            user_inputs=user_inputs,
-            tool_names=tool_names,
             agent_slugs=slugs,
-            multiagentic_modality=multiagentic_modality,
-            user_id=user.id,
-            regenerate_message_id=regenerate_message_id,
-            client_datetime=client_datetime,
+            user_inputs=user_inputs,
+            tool_names=data.get("tool_names", []),
+            multiagentic_modality=data.get("multiagentic_modality", "isolated"),
+            client_datetime=data.get("client_datetime"),
+            regenerate_message_id=data.get("regenerate_message_id"),
         )
+
+        if not result.ok:
+            return result.response
+
+        if result.takeover:
+            return result.response
 
         return JsonResponse(
-            {"task_id": task.id, "status": "accepted"},
+            {"task_id": result.task_id, "status": "accepted"},
             status=202,
         )
 
@@ -712,58 +602,6 @@ def _get_agent_for_user_mutation(user, agent_slug):
     else:
         qs = qs.filter(user=user)
     return get_object_or_404(qs)
-
-
-def _validate_conversation_access(conversation, user, user_org):
-    is_owner = conversation.user_id == user.id
-    is_org_member = (
-        user_org is not None
-        and conversation.organization_id is not None
-        and conversation.organization_id == user_org.id
-    )
-    if not is_owner and not is_org_member:
-        return JsonResponse(
-            {"error": "You don't have access to this conversation"},
-            status=403,
-        )
-    return None
-
-
-def _parse_client_datetime(client_datetime):
-    if client_datetime is not None and not isinstance(client_datetime, dict):
-        return None, JsonResponse(
-            {"error": "client_datetime must be an object when provided"},
-            status=400,
-        )
-    return client_datetime, None
-
-
-def _parse_regenerate_message_id(regenerate_message_id, *, conversation, user):
-    if regenerate_message_id is None:
-        return None, None
-    try:
-        regenerate_message_id = int(regenerate_message_id)
-    except (TypeError, ValueError):
-        return None, JsonResponse(
-            {"error": "regenerate_message_id must be an integer"},
-            status=400,
-        )
-    can_edit_data, _ = FeatureFlagService.is_feature_enabled(
-        "can-edit-conversation-data",
-        organization=conversation.organization,
-        user=user,
-    )
-    if not can_edit_data:
-        return None, JsonResponse(
-            {
-                "error": (
-                    "Regenerating from a user message removes later history. "
-                    "The 'can-edit-conversation-data' feature is not enabled for you."
-                ),
-            },
-            status=403,
-        )
-    return regenerate_message_id, None
 
 
 @method_decorator(csrf_exempt, name="dispatch")

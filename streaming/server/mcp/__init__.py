@@ -1,0 +1,1 @@
+"""Masscer MCP server package."""

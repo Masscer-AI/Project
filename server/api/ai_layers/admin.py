@@ -4,7 +4,7 @@ from django.urls import reverse
 from django.utils.safestring import mark_safe
 from django import forms
 from django.db.models import Q
-from .models import Agent, LanguageModel, AgentSession
+from .models import Agent, LanguageModel, AgentSession, MCPClient
 from api.authenticate.services import FeatureFlagService
 from api.authenticate.models import Organization
 from api.messaging.models import ChatWidget
@@ -602,3 +602,12 @@ class LanguageModelAdmin(admin.ModelAdmin):
         """)
 
     pricing_table.short_description = "Current pricing"
+
+
+@admin.register(MCPClient)
+class MCPClientAdmin(admin.ModelAdmin):
+    list_display = ("name", "user", "organization", "revoked", "last_used_at", "created_at")
+    list_filter = ("revoked", "organization")
+    search_fields = ("name", "user__username", "key")
+    readonly_fields = ("key", "last_used_at", "created_at", "updated_at")
+    filter_horizontal = ("allowed_agents",)

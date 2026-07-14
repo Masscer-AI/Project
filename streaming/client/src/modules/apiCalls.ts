@@ -1970,6 +1970,65 @@ export const cancelAgentTask = async (conversationId: string) => {
   );
 };
 
+export type TMCPCredentialSummary = {
+  id: string;
+  name: string;
+  created_at: string;
+  last_used_at: string | null;
+  allowed_agent_slugs: string[];
+  key_prefix: string | null;
+};
+
+export type TMCPCredentialCreated = {
+  id: string;
+  name: string;
+  key: string;
+  mcp_url: string;
+  allowed_agent_slugs: string[];
+  mcp_config: {
+    mcpServers: Record<
+      string,
+      { url: string; headers: { Authorization: string } }
+    >;
+  };
+  claude_instructions: string;
+};
+
+export const listMCPCredentials = async () => {
+  return makeAuthenticatedRequest<{ credentials: TMCPCredentialSummary[] }>(
+    "GET",
+    "/v1/ai_layers/mcp/credentials/"
+  );
+};
+
+export const createMCPCredential = async (payload: {
+  name: string;
+  allowed_agent_slugs?: string[];
+}) => {
+  return makeAuthenticatedRequest<TMCPCredentialCreated>(
+    "POST",
+    "/v1/ai_layers/mcp/credentials/",
+    payload
+  );
+};
+
+export const revokeMCPCredential = async (credentialId: string) => {
+  return makeAuthenticatedRequest<{ status: string; id: string }>(
+    "DELETE",
+    `/v1/ai_layers/mcp/credentials/${credentialId}/`
+  );
+};
+
+export const getMCPConnectionConfig = async (credentialId: string) => {
+  return makeAuthenticatedRequest<{
+    mcp_url: string;
+    key: string;
+    name: string;
+    cursor_config_json: string;
+    claude_instructions: string;
+  }>("GET", `/v1/ai_layers/mcp/connection-config/?credential_id=${credentialId}`);
+};
+
 export const getAssignments = async (params?: {
   status?: string;
   key?: string;

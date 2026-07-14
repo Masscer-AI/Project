@@ -106,6 +106,8 @@ export function createAppServices(args: {
     { name: "REDIS_NOTIFICATIONS_URL", value: redisNotificationsUrl },
     { name: "CORS_ORIGINS", value: config.corsOrigins },
     { name: "FRONTEND_URL", value: frontendUrl },
+    { name: "MCP_POLL_TIMEOUT_SEC", value: "240" },
+    { name: "MCP_POLL_INTERVAL_SEC", value: "2" },
   ];
 
   const djangoTaskDefinition = new aws.ecs.TaskDefinition("django-task", {

@@ -1,4 +1,1 @@
-"""
-MCP (Model Context Protocol) server implementation for Masscer agents.
-"""
-
+"""MCP integration package for Masscer agents."""

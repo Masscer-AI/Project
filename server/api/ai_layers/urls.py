@@ -10,7 +10,14 @@ from .views import (
     agent_session_execution_log_for_message,
     cancel_agent_task,
 )
-from .mcp_views import mcp_server_handler, get_mcp_config_json
+from .mcp_views import (
+    mcp_list_agents,
+    mcp_run_agent,
+    mcp_task_result,
+    mcp_credentials,
+    mcp_revoke_credential,
+    mcp_connection_config,
+)
 
 app_name = "ai_layers"
 
@@ -36,7 +43,16 @@ urlpatterns = [
         agent_session_execution_log_for_message,
         name="agent_session_execution_log_for_message",
     ),
-    # MCP endpoints
-    path("mcp/<slug:agent_slug>/", mcp_server_handler, name="mcp_server"),
-    path("mcp/<slug:agent_slug>/config/", get_mcp_config_json, name="mcp_config"),
+    # MCP gateway (Bearer MCPClient auth — called by FastAPI MCP server)
+    path("mcp/agents/", mcp_list_agents, name="mcp_list_agents"),
+    path("mcp/run/", mcp_run_agent, name="mcp_run_agent"),
+    path("mcp/result/<str:task_id>/", mcp_task_result, name="mcp_task_result"),
+    # MCP credential management (user Token auth — UI)
+    path("mcp/credentials/", mcp_credentials, name="mcp_credentials"),
+    path(
+        "mcp/credentials/<uuid:credential_id>/",
+        mcp_revoke_credential,
+        name="mcp_revoke_credential",
+    ),
+    path("mcp/connection-config/", mcp_connection_config, name="mcp_connection_config"),
 ]

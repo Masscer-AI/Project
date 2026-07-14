@@ -14,5 +14,7 @@ dependencies = [
     "python-socketio",
     "redis",
     "requests",
+    "httpx",
+    "mcp>=1.27,<2",
     "uvicorn",
 ]

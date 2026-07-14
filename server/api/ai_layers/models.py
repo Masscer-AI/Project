@@ -335,3 +335,56 @@ class RoleAgentAssignment(models.Model):
 
     def __str__(self):
         return f"RoleAgentAssignment(role={self.role_id}, agent={self.agent_id})"
+
+
+class MCPClient(models.Model):
+    """
+    API credential for external MCP clients (Cursor, Claude, other services).
+
+    Each credential is scoped to a user and optionally limited to specific agents.
+    When allowed_agents is empty, all agents accessible to the user are exposed.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    key = models.CharField(max_length=64, unique=True, db_index=True, blank=True)
+    name = models.CharField(max_length=255)
+    user = models.ForeignKey(
+        "auth.User",
+        on_delete=models.CASCADE,
+        related_name="mcp_clients",
+    )
+    organization = models.ForeignKey(
+        "authenticate.Organization",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="mcp_clients",
+    )
+    allowed_agents = models.ManyToManyField(
+        "ai_layers.Agent",
+        blank=True,
+        related_name="mcp_clients",
+        help_text="If empty, all accessible agents are exposed via MCP.",
+    )
+    scopes = models.JSONField(default=list, blank=True)
+    revoked = models.BooleanField(default=False)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"MCPClient({self.name}, user={self.user_id})"
+
+    def save(self, *args, **kwargs):
+        if not self.key:
+            self.key = uuid.uuid4().hex + uuid.uuid4().hex[:16]
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def get_valid(cls, key: str):
+        if not key:
+            return None
+        return cls.objects.filter(key=key, revoked=False).select_related("user").first()

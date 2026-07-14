@@ -37,6 +37,7 @@ ALLOWED_HOSTS = [
     "localhost",
     ".localhost",
     ".masscer.ai",
+    "masscer-django",  # Docker internal hostname for service-to-service calls
 ]
 
 # Extra hosts from env (comma-separated, e.g. masscer-ai.ngrok.app,your-domain.com).

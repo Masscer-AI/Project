@@ -22,7 +22,7 @@ import {
   Tooltip,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { createLLM, deleteLLM, updateAgent, makeAuthenticatedRequest, getUserOrganizations, getOrganizationRoles, getVoices, previewVoice } from "../../modules/apiCalls";
+import { createLLM, deleteLLM, updateAgent, makeAuthenticatedRequest, getUserOrganizations, getOrganizationRoles, getVoices, previewVoice, listMCPCredentials, createMCPCredential, revokeMCPCredential, getMCPConnectionConfig, type TMCPCredentialSummary, type TMCPCredentialCreated } from "../../modules/apiCalls";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
@@ -38,6 +38,7 @@ import {
   IconTrash,
   IconDeviceFloppy,
   IconCopy,
+  IconPlug,
   IconMenu2,
   IconPlayerStopFilled,
   IconVolume,
@@ -498,28 +499,89 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
     setConfirmDelete(false);
   };
 
-  const handleCopyMCPConfig = async () => {
+  const [mcpOpened, { open: openMcpModal, close: closeMcpModal }] = useDisclosure(false);
+  const [mcpCredentials, setMcpCredentials] = useState<TMCPCredentialSummary[]>([]);
+  const [mcpLoading, setMcpLoading] = useState(false);
+  const [mcpCredentialName, setMcpCredentialName] = useState("");
+  const [mcpLimitToAgent, setMcpLimitToAgent] = useState(true);
+  const [mcpCreated, setMcpCreated] = useState<TMCPCredentialCreated | null>(null);
+
+  const handleOpenMcpModal = () => {
+    openMcpModal();
+  };
+
+  const loadMcpCredentials = async () => {
+    setMcpLoading(true);
     try {
-      const response = await makeAuthenticatedRequest<{
-        config_json: string;
-        agent_name: string;
-        instructions: string;
-        config_path: string;
-      }>("GET", `v1/ai_layers/mcp/${agent.slug}/config/`, {});
-
-      await navigator.clipboard.writeText(response.config_json);
-
-      toast.success(
-        `MCP configuration for "${response.agent_name}" copied!\n\n${response.instructions}\n\nPath: ${response.config_path}`,
-        {
-          duration: 10000,
-          style: { whiteSpace: "pre-line", maxWidth: "500px" },
-        }
-      );
+      const res = await listMCPCredentials();
+      setMcpCredentials(res.credentials || []);
     } catch (error: any) {
-      console.error("Error fetching MCP config:", error);
-      toast.error(error.response?.data?.error || "Error fetching MCP configuration");
+      toast.error(error?.response?.data?.error || "Error loading MCP credentials");
+    } finally {
+      setMcpLoading(false);
     }
+  };
+
+  useEffect(() => {
+    if (mcpOpened) {
+      void loadMcpCredentials();
+      setMcpCreated(null);
+      setMcpCredentialName(agent.name);
+      setMcpLimitToAgent(true);
+    }
+  }, [mcpOpened, agent.name]);
+
+  const handleCreateMcpCredential = async () => {
+    const name = mcpCredentialName.trim();
+    if (!name) {
+      toast.error(t("mcp-credential-name"));
+      return;
+    }
+    try {
+      const created = await createMCPCredential({
+        name,
+        allowed_agent_slugs: mcpLimitToAgent ? [agent.slug] : undefined,
+      });
+      setMcpCreated(created);
+      toast.success(t("mcp-credential-created"));
+      await loadMcpCredentials();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.error || "Error creating MCP credential");
+    }
+  };
+
+  const handleRevokeMcpCredential = async (id: string) => {
+    try {
+      await revokeMCPCredential(id);
+      toast.success(t("mcp-credential-revoked"));
+      await loadMcpCredentials();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.error || "Error revoking credential");
+    }
+  };
+
+  const handleCopyMcpCursorConfig = async (credentialId?: string) => {
+    try {
+      let configText: string;
+      if (mcpCreated) {
+        configText = JSON.stringify(mcpCreated.mcp_config, null, 2);
+      } else if (credentialId) {
+        const res = await getMCPConnectionConfig(credentialId);
+        configText = res.mcp_config_json;
+      } else {
+        return;
+      }
+      await navigator.clipboard.writeText(configText);
+      toast.success(t("mcp-copy-cursor-config"));
+    } catch (error: any) {
+      toast.error(error?.response?.data?.error || "Error copying config");
+    }
+  };
+
+  const handleCopyMcpKey = async () => {
+    if (!mcpCreated?.key) return;
+    await navigator.clipboard.writeText(mcpCreated.key);
+    toast.success(t("mcp-copy-key"));
   };
 
   const [voices, setVoices] = useState<TVoiceCatalogEntry[]>([]);
@@ -795,12 +857,118 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
 
       <Button
         variant="light"
-        leftSection={<IconCopy size={18} />}
-        onClick={handleCopyMCPConfig}
+        leftSection={<IconPlug size={18} />}
+        onClick={handleOpenMcpModal}
         fullWidth
       >
-        Copiar MCP Config
+        {t("mcp-connection")}
       </Button>
+
+      <Modal
+        opened={mcpOpened}
+        onClose={closeMcpModal}
+        title={t("mcp-connection-title")}
+        size="lg"
+      >
+        <Stack gap="md">
+          <Text size="sm" c="dimmed">
+            {t("mcp-connection-description")}
+          </Text>
+
+          {mcpCreated ? (
+            <Stack gap="sm">
+              <Text size="sm" fw={600}>
+                {t("mcp-credential-created")}
+              </Text>
+              <TextInput label="MCP URL" value={mcpCreated.mcp_url} readOnly />
+              <Textarea
+                label="Bearer token"
+                value={mcpCreated.key}
+                readOnly
+                autosize
+                minRows={2}
+              />
+              <Group>
+                <Button variant="light" leftSection={<IconCopy size={16} />} onClick={handleCopyMcpKey}>
+                  {t("mcp-copy-key")}
+                </Button>
+                <Button variant="light" leftSection={<IconCopy size={16} />} onClick={() => void handleCopyMcpCursorConfig()}>
+                  {t("mcp-copy-cursor-config")}
+                </Button>
+              </Group>
+              <Text size="xs" c="dimmed">
+                {t("mcp-cursor-hint")}
+              </Text>
+              <Text size="xs" c="dimmed">
+                {mcpCreated.claude_instructions || t("mcp-claude-hint")}
+              </Text>
+            </Stack>
+          ) : (
+            <Stack gap="sm">
+              <TextInput
+                label={t("mcp-credential-name")}
+                placeholder={t("mcp-credential-name-placeholder")}
+                value={mcpCredentialName}
+                onChange={(e) => setMcpCredentialName(e.currentTarget.value)}
+              />
+              <Checkbox
+                label={t("mcp-limit-to-this-agent")}
+                checked={mcpLimitToAgent}
+                onChange={(e) => setMcpLimitToAgent(e.currentTarget.checked)}
+              />
+              <Button onClick={() => void handleCreateMcpCredential()}>
+                {t("mcp-create-credential")}
+              </Button>
+            </Stack>
+          )}
+
+          <Divider label={t("mcp-existing-credentials")} />
+
+          {mcpLoading ? (
+            <Text size="sm" c="dimmed">…</Text>
+          ) : mcpCredentials.length === 0 ? (
+            <Text size="sm" c="dimmed">{t("mcp-no-credentials")}</Text>
+          ) : (
+            <Stack gap="xs">
+              {mcpCredentials.map((cred) => (
+                <Card key={cred.id} withBorder padding="sm" radius="md">
+                  <Group justify="space-between" align="flex-start">
+                    <Stack gap={2}>
+                      <Text size="sm" fw={600}>{cred.name}</Text>
+                      <Text size="xs" c="dimmed">{cred.key_prefix}</Text>
+                      {cred.allowed_agent_slugs.length > 0 && (
+                        <Group gap={4}>
+                          {cred.allowed_agent_slugs.map((slug) => (
+                            <Badge key={slug} size="xs" variant="light">{slug}</Badge>
+                          ))}
+                        </Group>
+                      )}
+                    </Stack>
+                    <Group gap="xs">
+                      <Button
+                        size="xs"
+                        variant="subtle"
+                        leftSection={<IconCopy size={14} />}
+                        onClick={() => void handleCopyMcpCursorConfig(cred.id)}
+                      >
+                        {t("mcp-copy-cursor-config")}
+                      </Button>
+                      <Button
+                        size="xs"
+                        variant="subtle"
+                        color="red"
+                        onClick={() => void handleRevokeMcpCredential(cred.id)}
+                      >
+                        {t("mcp-revoke-credential")}
+                      </Button>
+                    </Group>
+                  </Group>
+                </Card>
+              ))}
+            </Stack>
+          )}
+        </Stack>
+      </Modal>
 
       <Group>
         <Button

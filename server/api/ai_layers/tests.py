@@ -1008,3 +1008,128 @@ class PlatformAssistantTests(TestCase):
                 llm=self.llm,
                 model_slug=self.llm.slug,
             )
+
+
+class MCPAccessTests(SimpleTestCase):
+    def test_sanitize_mcp_tool_name(self):
+        from api.ai_layers.mcp_access import sanitize_mcp_tool_name, tool_name_to_agent_slug
+
+        self.assertEqual(sanitize_mcp_tool_name("my-agent"), "ask_my_agent")
+        self.assertEqual(tool_name_to_agent_slug("ask_my_agent"), "my_agent")
+
+
+class MCPGatewayTests(TestCase):
+    def setUp(self):
+        from api.ai_layers.models import Agent, LanguageModel, MCPClient
+        from api.authenticate.models import Token
+        from api.providers.models import AIProvider
+
+        self.user = User.objects.create_user(
+            username="mcp_user", email="mcp@e.com", password="x"
+        )
+        self.other = User.objects.create_user(
+            username="mcp_other", email="other@e.com", password="x"
+        )
+        provider = AIProvider.objects.create(name="OpenAI-mcp")
+        llm = LanguageModel.objects.create(
+            provider=provider, slug="gpt-mcp", name="GPT MCP"
+        )
+        self.agent = Agent.objects.create(
+            name="MCP Agent",
+            slug="mcp-agent",
+            salute="hi",
+            act_as="helpful assistant",
+            user=self.user,
+            llm=llm,
+            model_slug=llm.slug,
+            model_provider="openai",
+        )
+        self.private_other = Agent.objects.create(
+            name="Other Agent",
+            slug="other-agent",
+            salute="hi",
+            act_as="secret",
+            user=self.other,
+            llm=llm,
+            model_slug=llm.slug,
+            model_provider="openai",
+        )
+        self.mcp_client = MCPClient.objects.create(name="Test MCP", user=self.user)
+        self.mcp_client.allowed_agents.add(self.agent)
+        self.login_token = Token.objects.create(user=self.user, token_type="permanent")
+        self.client = APIClient()
+
+    def test_list_agents_requires_bearer(self):
+        res = self.client.get("/v1/ai_layers/mcp/agents/")
+        self.assertEqual(res.status_code, 401)
+
+    def test_list_agents_returns_allowed_agent(self):
+        res = self.client.get(
+            "/v1/ai_layers/mcp/agents/",
+            HTTP_AUTHORIZATION=f"Bearer {self.mcp_client.key}",
+        )
+        self.assertEqual(res.status_code, 200, res.content)
+        agents = res.json()["agents"]
+        self.assertEqual(len(agents), 1)
+        self.assertEqual(agents[0]["slug"], "mcp-agent")
+        self.assertEqual(agents[0]["tool_name"], "ask_mcp_agent")
+
+    def test_revoked_credential_rejected(self):
+        self.mcp_client.revoked = True
+        self.mcp_client.save(update_fields=["revoked"])
+        res = self.client.get(
+            "/v1/ai_layers/mcp/agents/",
+            HTTP_AUTHORIZATION=f"Bearer {self.mcp_client.key}",
+        )
+        self.assertEqual(res.status_code, 401)
+
+    @patch("api.ai_layers.tasks.conversation_agent_task")
+    def test_run_agent_dispatches_task(self, mock_task):
+        mock_task.delay.return_value = Mock(id="task-abc-123")
+
+        res = self.client.post(
+            "/v1/ai_layers/mcp/run/",
+            {"agent_slug": "mcp-agent", "message": "Hello MCP"},
+            format="json",
+            HTTP_AUTHORIZATION=f"Bearer {self.mcp_client.key}",
+        )
+        self.assertEqual(res.status_code, 202, res.content)
+        payload = res.json()
+        self.assertEqual(payload["task_id"], "task-abc-123")
+        self.assertIn("conversation_id", payload)
+        from api.messaging.models import Conversation
+
+        conversation = Conversation.objects.get(id=payload["conversation_id"])
+        self.assertFalse(conversation.title)
+        mock_task.delay.assert_called_once()
+
+    def test_run_agent_denies_inaccessible_slug(self):
+        res = self.client.post(
+            "/v1/ai_layers/mcp/run/",
+            {"agent_slug": "other-agent", "message": "nope"},
+            format="json",
+            HTTP_AUTHORIZATION=f"Bearer {self.mcp_client.key}",
+        )
+        self.assertEqual(res.status_code, 404)
+
+    def test_create_credential_via_user_token(self):
+        res = self.client.post(
+            "/v1/ai_layers/mcp/credentials/",
+            {"name": "Cursor", "allowed_agent_slugs": ["mcp-agent"]},
+            format="json",
+            HTTP_AUTHORIZATION=f"Token {self.login_token.key}",
+        )
+        self.assertEqual(res.status_code, 201, res.content)
+        data = res.json()
+        self.assertIn("key", data)
+        self.assertIn("mcp_config", data)
+        self.assertIn("/mcp", data["mcp_url"])
+
+    def test_revoke_credential(self):
+        res = self.client.delete(
+            f"/v1/ai_layers/mcp/credentials/{self.mcp_client.id}/",
+            HTTP_AUTHORIZATION=f"Token {self.login_token.key}",
+        )
+        self.assertEqual(res.status_code, 200)
+        self.mcp_client.refresh_from_db()
+        self.assertTrue(self.mcp_client.revoked)
