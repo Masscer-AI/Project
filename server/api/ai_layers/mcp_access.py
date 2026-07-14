@@ -7,6 +7,33 @@ from api.ai_layers.models import Agent, AgentKind, MCPClient
 
 _SLUG_RE = re.compile(r"[^a-z0-9_]+")
 
+MCP_BASIC_TOOL_NAMES: tuple[str, ...] = (
+    "read_attachment",
+    "list_attachments",
+    "rag_query",
+    "explore_web",
+)
+
+MCP_MEDIA_TOOL_NAMES: tuple[str, ...] = (
+    "create_image",
+    "create_speech",
+    "generate_video",
+    "generate_dialogue",
+)
+
+MCP_DOCUMENT_TOOL_NAMES: tuple[str, ...] = (
+    "generate_document_file",
+    "generate_excel_file",
+    "list_document_templates",
+    "render_document_template",
+)
+
+MCP_TOOL_PRESETS: dict[str, tuple[str, ...]] = {
+    "basic": MCP_BASIC_TOOL_NAMES,
+    "media": MCP_MEDIA_TOOL_NAMES,
+    "documents": MCP_DOCUMENT_TOOL_NAMES,
+}
+
 
 def sanitize_mcp_tool_name(agent_slug: str) -> str:
     """Map agent slug to MCP tool name: ask_<sanitized_slug>."""
@@ -28,6 +55,60 @@ def mcp_accessible_agents_qs(mcp_client: MCPClient):
     if allowed_ids:
         qs = qs.filter(id__in=allowed_ids)
     return qs.distinct()
+
+
+def normalize_mcp_tool_names(raw: list | None) -> tuple[list[str] | None, str | None]:
+    """
+    Validate and dedupe tool names for storage on MCPClient.
+    Empty list means "use basic preset at runtime".
+    """
+    if raw is None:
+        return [], None
+    if not isinstance(raw, list):
+        return None, "allowed_tool_names must be a list of strings"
+
+    from api.ai_layers.tools import list_available_tools
+
+    available = set(list_available_tools())
+    names: list[str] = []
+    seen: set[str] = set()
+    for item in raw:
+        if not isinstance(item, str) or not item.strip():
+            continue
+        name = item.strip()
+        if name not in available:
+            return None, f"Unknown tool: {name}"
+        if name not in seen:
+            seen.add(name)
+            names.append(name)
+    return names, None
+
+
+def resolve_mcp_tool_names(mcp_client: MCPClient) -> list[str]:
+    """Resolve agent tool allowlist for an MCP credential run."""
+    stored = list(mcp_client.allowed_tool_names or [])
+    if not stored:
+        return list(MCP_BASIC_TOOL_NAMES)
+    return stored
+
+
+def mcp_attachment_download_url(request, attachment_id: str) -> str:
+    base = request.build_absolute_uri("/").rstrip("/")
+    return f"{base}/v1/ai_layers/mcp/attachments/{attachment_id}/"
+
+
+def serialize_attachments_for_mcp(request, attachments: list | None) -> list[dict]:
+    """Add MCP-authenticated download_url to attachment descriptors."""
+    result: list[dict] = []
+    for att in attachments or []:
+        if not isinstance(att, dict):
+            continue
+        item = dict(att)
+        aid = item.get("attachment_id")
+        if aid:
+            item["download_url"] = mcp_attachment_download_url(request, str(aid))
+        result.append(item)
+    return result
 
 
 def agent_to_mcp_tool_payload(agent: Agent) -> dict:

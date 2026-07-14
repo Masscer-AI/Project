@@ -12,20 +12,21 @@ import logging
 
 from celery.result import AsyncResult
 from django.core.cache import cache
-from django.http import JsonResponse
+from django.http import FileResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
-from api.ai_layers.agent_task_dispatch import (
-    DEFAULT_MCP_TOOL_NAMES,
-    dispatch_conversation_agent_task,
-)
+from api.ai_layers.agent_task_dispatch import dispatch_conversation_agent_task
 from api.ai_layers.mcp_access import (
+    MCP_TOOL_PRESETS,
     agent_to_mcp_tool_payload,
     get_mcp_user_org,
     mcp_accessible_agents_qs,
+    normalize_mcp_tool_names,
     resolve_mcp_agent,
+    resolve_mcp_tool_names,
     sanitize_mcp_tool_name,
+    serialize_attachments_for_mcp,
 )
 from api.ai_layers.models import MCPClient
 from api.authenticate.decorators.mcp_token_required import mcp_token_required
@@ -138,7 +139,7 @@ def mcp_run_agent(request):
         conversation_id=str(conversation_id),
         agent_slugs=[agent.slug],
         user_inputs=[{"type": "input_text", "text": message}],
-        tool_names=list(DEFAULT_MCP_TOOL_NAMES),
+        tool_names=resolve_mcp_tool_names(mcp_client),
         multiagentic_modality="isolated",
         mcp_client_id=str(mcp_client.id),
     )
@@ -190,6 +191,10 @@ def mcp_task_result(request, task_id: str):
             }
         )
 
+    attachments = serialize_attachments_for_mcp(
+        request, payload.get("attachments") or []
+    )
+
     return JsonResponse(
         {
             "status": payload.get("status", "completed"),
@@ -198,6 +203,7 @@ def mcp_task_result(request, task_id: str):
             "message_id": payload.get("message_id"),
             "iterations": payload.get("iterations"),
             "tool_calls_count": payload.get("tool_calls_count"),
+            "attachments": attachments,
             "conversation_id": cache.get(f"mcp_task_{task_id}", {}).get(
                 "conversation_id"
             ),
@@ -206,6 +212,77 @@ def mcp_task_result(request, task_id: str):
 
 
 # ─── Credential management (user Token auth, for UI) ─────────────────────────
+
+
+def _credential_summary(c) -> dict:
+    allowed = list(c.allowed_agents.values_list("slug", flat=True))
+    return {
+        "id": str(c.id),
+        "name": c.name,
+        "created_at": c.created_at.isoformat(),
+        "last_used_at": c.last_used_at.isoformat() if c.last_used_at else None,
+        "allowed_agent_slugs": allowed,
+        "allowed_tool_names": list(c.allowed_tool_names or []),
+        "key_prefix": c.key[:8] + "…" if c.key else None,
+    }
+
+
+@csrf_exempt
+@mcp_token_required
+@require_http_methods(["GET"])
+def mcp_download_attachment(request, attachment_id):
+    """Download a file attachment using MCP Bearer auth."""
+    from api.ai_layers.agent_task_helpers import validate_conversation_access
+    from api.messaging.models import MessageAttachment
+
+    try:
+        attachment = MessageAttachment.objects.select_related(
+            "conversation",
+            "conversation__organization",
+            "conversation__user",
+        ).get(id=attachment_id)
+    except MessageAttachment.DoesNotExist:
+        return JsonResponse({"error": "Attachment not found"}, status=404)
+
+    err = validate_conversation_access(
+        attachment.conversation,
+        request.user,
+        get_mcp_user_org(request.mcp_client),
+    )
+    if err:
+        return err
+
+    if attachment.kind != "file" or not attachment.file:
+        return JsonResponse(
+            {"error": "Attachment is not a downloadable file"},
+            status=400,
+        )
+
+    filename = (attachment.metadata or {}).get("name") or attachment.file.name.split("/")[-1]
+    response = FileResponse(
+        attachment.file.open("rb"),
+        content_type=attachment.content_type or "application/octet-stream",
+    )
+    response["Content-Disposition"] = f'inline; filename="{filename}"'
+    return response
+
+
+@csrf_exempt
+@token_required
+@require_http_methods(["GET"])
+def mcp_tool_presets(request):
+    """Return MCP tool preset groupings for the Integrations UI."""
+    denied = _require_integrations_management(request)
+    if denied:
+        return denied
+
+    return JsonResponse(
+        {
+            "presets": {
+                name: list(tools) for name, tools in MCP_TOOL_PRESETS.items()
+            },
+        }
+    )
 
 
 @csrf_exempt
@@ -223,21 +300,7 @@ def mcp_credentials(request):
         clients = MCPClient.objects.filter(user=user, revoked=False).prefetch_related(
             "allowed_agents"
         )
-        data = []
-        for c in clients:
-            allowed = list(c.allowed_agents.values_list("slug", flat=True))
-            data.append(
-                {
-                    "id": str(c.id),
-                    "name": c.name,
-                    "created_at": c.created_at.isoformat(),
-                    "last_used_at": (
-                        c.last_used_at.isoformat() if c.last_used_at else None
-                    ),
-                    "allowed_agent_slugs": allowed,
-                    "key_prefix": c.key[:8] + "…" if c.key else None,
-                }
-            )
+        data = [_credential_summary(c) for c in clients]
         return JsonResponse({"credentials": data})
 
     try:
@@ -256,13 +319,22 @@ def mcp_credentials(request):
             status=400,
         )
 
-    from api.ai_layers.mcp_access import get_mcp_user_org
+    allowed_tool_names_raw = body.get("allowed_tool_names")
+    if allowed_tool_names_raw is not None and not isinstance(allowed_tool_names_raw, list):
+        return JsonResponse(
+            {"error": "allowed_tool_names must be a list of tool names"},
+            status=400,
+        )
+    tool_names, tool_err = normalize_mcp_tool_names(allowed_tool_names_raw)
+    if tool_err:
+        return JsonResponse({"error": tool_err}, status=400)
 
     org = get_mcp_user_org_for_user(user)
     mcp_client = MCPClient.objects.create(
         name=name,
         user=user,
         organization=org,
+        allowed_tool_names=tool_names or [],
     )
 
     if allowed_slugs:
@@ -294,6 +366,7 @@ def mcp_credentials(request):
             "allowed_agent_slugs": list(
                 mcp_client.allowed_agents.values_list("slug", flat=True)
             ),
+            "allowed_tool_names": list(mcp_client.allowed_tool_names or []),
             "mcp_config": {
                 "mcpServers": {
                     f"masscer-{name}": {
@@ -331,9 +404,9 @@ def mcp_accessible_agents_qs_for_user(user, mcp_client=None):
 
 @csrf_exempt
 @token_required
-@require_http_methods(["DELETE"])
-def mcp_revoke_credential(request, credential_id):
-    """Revoke an MCP credential."""
+@require_http_methods(["DELETE", "PATCH"])
+def mcp_credential_detail(request, credential_id):
+    """Revoke or update an MCP credential."""
     denied = _require_integrations_management(request)
     if denied:
         return denied
@@ -343,9 +416,52 @@ def mcp_revoke_credential(request, credential_id):
     except MCPClient.DoesNotExist:
         return JsonResponse({"error": "Credential not found"}, status=404)
 
-    mcp_client.revoked = True
-    mcp_client.save(update_fields=["revoked", "updated_at"])
-    return JsonResponse({"status": "revoked", "id": str(mcp_client.id)})
+    if request.method == "DELETE":
+        mcp_client.revoked = True
+        mcp_client.save(update_fields=["revoked", "updated_at"])
+        return JsonResponse({"status": "revoked", "id": str(mcp_client.id)})
+
+    try:
+        body = json.loads(request.body or b"{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON body"}, status=400)
+
+    update_fields = ["updated_at"]
+
+    if "name" in body:
+        name = (body.get("name") or "").strip()
+        if not name:
+            return JsonResponse({"error": "name cannot be empty"}, status=400)
+        mcp_client.name = name
+        update_fields.append("name")
+
+    if "allowed_agent_slugs" in body:
+        allowed_slugs = body.get("allowed_agent_slugs") or []
+        if not isinstance(allowed_slugs, list):
+            return JsonResponse(
+                {"error": "allowed_agent_slugs must be a list of slugs"},
+                status=400,
+            )
+        agents = list(mcp_accessible_agents_qs_for_user(request.user))
+        slug_set = {a.slug for a in agents}
+        invalid = [s for s in allowed_slugs if s not in slug_set]
+        if invalid:
+            return JsonResponse(
+                {"error": f"Agent(s) not accessible: {', '.join(invalid)}"},
+                status=400,
+            )
+        allowed = [a for a in agents if a.slug in allowed_slugs]
+        mcp_client.allowed_agents.set(allowed)
+
+    if "allowed_tool_names" in body:
+        tool_names, tool_err = normalize_mcp_tool_names(body.get("allowed_tool_names"))
+        if tool_err:
+            return JsonResponse({"error": tool_err}, status=400)
+        mcp_client.allowed_tool_names = tool_names or []
+        update_fields.append("allowed_tool_names")
+
+    mcp_client.save(update_fields=update_fields)
+    return JsonResponse(_credential_summary(mcp_client))
 
 
 @csrf_exempt

@@ -1041,6 +1041,15 @@ def conversation_agent_task(
     is_whatsapp_chat = conversation.ws_number_id is not None
     is_embedded_channel = is_widget_chat or is_whatsapp_chat
 
+    conv_metadata = conversation.metadata or {}
+    is_mcp_chat = conv_metadata.get("source") == "mcp"
+    mcp_tool_allowlist = frozenset(tool_names or [])
+
+    def _may_auto_inject_tool(tool: str) -> bool:
+        if not is_mcp_chat:
+            return True
+        return tool in mcp_tool_allowlist
+
     from api.messaging.takeover import is_takeover_active
 
     if is_takeover_active(conversation):
@@ -1169,6 +1178,9 @@ def conversation_agent_task(
         total_tool_calls = 0
         assistant_message_attachments: list[dict] = []
         assistant_attachment_ids: list[str] = []
+        primary_text = ""
+        assistant_message_id = None
+        task_return_attachments: list[dict] = []
 
         prev_messages = _serialize_prev_messages(conversation, user_message.id)
 
@@ -1462,7 +1474,7 @@ def conversation_agent_task(
                     f"ALREADY RAISED (id=alert_id for updates):\n{existing_json}\n"
                     f"=== END ALERT RULES ===\n"
                 )
-                if "raise_alert" not in agent_tool_names:
+                if "raise_alert" not in agent_tool_names and _may_auto_inject_tool("raise_alert"):
                     agent_tool_names.append("raise_alert")
             else:
                 # Remove raise_alert if client sent it but we have no applicable rules
@@ -1471,7 +1483,10 @@ def conversation_agent_task(
 
             # Web chat only: plugins (mermaid, etc.) are not shown on WhatsApp/widget UIs.
             if not is_embedded_channel:
-                if "read_plugin_instructions" not in agent_tool_names:
+                if (
+                    "read_plugin_instructions" not in agent_tool_names
+                    and _may_auto_inject_tool("read_plugin_instructions")
+                ):
                     agent_tool_names.append("read_plugin_instructions")
 
             # Organization tagging (web app always; WhatsApp when line capabilities include tag tools).
@@ -1494,14 +1509,23 @@ def conversation_agent_task(
                 )
                 if supports_web_org_tagging:
                     for _tn in tagging_tools:
-                        if _tn not in agent_tool_names:
+                        if _tn not in agent_tool_names and _may_auto_inject_tool(_tn):
                             agent_tool_names.append(_tn)
                     if actor_user_id is not None:
-                        if "get_tag_context" not in agent_tool_names:
+                        if (
+                            "get_tag_context" not in agent_tool_names
+                            and _may_auto_inject_tool("get_tag_context")
+                        ):
                             agent_tool_names.append("get_tag_context")
-                        if "query_conversation" not in agent_tool_names:
+                        if (
+                            "query_conversation" not in agent_tool_names
+                            and _may_auto_inject_tool("query_conversation")
+                        ):
                             agent_tool_names.append("query_conversation")
-                    if "change_conversation_summary" not in agent_tool_names:
+                    if (
+                        "change_conversation_summary" not in agent_tool_names
+                        and _may_auto_inject_tool("change_conversation_summary")
+                    ):
                         agent_tool_names.append("change_conversation_summary")
                 tag_tools_intro = (
                     "Tagging tools are always enabled for this organization on every turn.\n"
@@ -1594,12 +1618,18 @@ def conversation_agent_task(
             if agent_has_template_assignments(agent):
                 instructions += format_assigned_templates_instruction(agent)
                 for _tpl_tool in ("list_document_templates", "render_document_template"):
-                    if _tpl_tool not in agent_tool_names:
+                    if _tpl_tool not in agent_tool_names and _may_auto_inject_tool(_tpl_tool):
                         agent_tool_names.append(_tpl_tool)
 
-            if "generate_document_file" not in agent_tool_names:
+            if (
+                "generate_document_file" not in agent_tool_names
+                and _may_auto_inject_tool("generate_document_file")
+            ):
                 agent_tool_names.append("generate_document_file")
-            if "generate_excel_file" not in agent_tool_names:
+            if (
+                "generate_excel_file" not in agent_tool_names
+                and _may_auto_inject_tool("generate_excel_file")
+            ):
                 agent_tool_names.append("generate_excel_file")
 
             from api.finetuning.context_injection import (
@@ -1991,6 +2021,7 @@ def conversation_agent_task(
                 "iterations": total_iterations,
                 "tool_calls_count": total_tool_calls,
             })
+            task_return_attachments = list(assistant_message_attachments)
 
         if multiagentic_modality == "grupal":
             try:
@@ -2018,6 +2049,7 @@ def conversation_agent_task(
             "iterations": total_iterations,
             "tool_calls_count": total_tool_calls,
             "message_id": assistant_message_id,
+            "attachments": task_return_attachments,
         }
 
     except Exception as e:

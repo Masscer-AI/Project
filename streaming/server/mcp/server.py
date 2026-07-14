@@ -130,6 +130,7 @@ def create_mcp_server() -> Server:
                 "conversation_id": conv_id,
                 "message_id": result.get("message_id"),
                 "task_id": task_id,
+                "attachments": result.get("attachments") or [],
             }
             return [
                 types.TextContent(

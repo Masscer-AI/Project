@@ -1017,6 +1017,20 @@ class MCPAccessTests(SimpleTestCase):
         self.assertEqual(sanitize_mcp_tool_name("my-agent"), "ask_my_agent")
         self.assertEqual(tool_name_to_agent_slug("ask_my_agent"), "my_agent")
 
+    def test_resolve_mcp_tool_names_basic_preset(self):
+        from api.ai_layers.mcp_access import MCP_BASIC_TOOL_NAMES, resolve_mcp_tool_names
+        from api.ai_layers.models import MCPClient
+
+        client = MCPClient(allowed_tool_names=[])
+        self.assertEqual(resolve_mcp_tool_names(client), list(MCP_BASIC_TOOL_NAMES))
+
+    def test_normalize_mcp_tool_names_rejects_unknown(self):
+        from api.ai_layers.mcp_access import normalize_mcp_tool_names
+
+        names, err = normalize_mcp_tool_names(["not_a_real_tool"])
+        self.assertIsNone(names)
+        self.assertIn("Unknown tool", err)
+
 
 class MCPGatewayTests(TestCase):
     def setUp(self):
@@ -1085,6 +1099,8 @@ class MCPGatewayTests(TestCase):
 
     @patch("api.ai_layers.tasks.conversation_agent_task")
     def test_run_agent_dispatches_task(self, mock_task):
+        from api.ai_layers.mcp_access import MCP_BASIC_TOOL_NAMES
+
         mock_task.delay.return_value = Mock(id="task-abc-123")
 
         res = self.client.post(
@@ -1102,6 +1118,26 @@ class MCPGatewayTests(TestCase):
         conversation = Conversation.objects.get(id=payload["conversation_id"])
         self.assertFalse(conversation.title)
         mock_task.delay.assert_called_once()
+        kwargs = mock_task.delay.call_args.kwargs
+        self.assertEqual(kwargs["tool_names"], list(MCP_BASIC_TOOL_NAMES))
+
+    @patch("api.ai_layers.tasks.conversation_agent_task")
+    def test_run_agent_uses_credential_tool_allowlist(self, mock_task):
+        from api.ai_layers.mcp_access import MCP_MEDIA_TOOL_NAMES
+
+        self.mcp_client.allowed_tool_names = list(MCP_MEDIA_TOOL_NAMES)
+        self.mcp_client.save(update_fields=["allowed_tool_names"])
+        mock_task.delay.return_value = Mock(id="task-media-1")
+
+        res = self.client.post(
+            "/v1/ai_layers/mcp/run/",
+            {"agent_slug": "mcp-agent", "message": "draw a cat"},
+            format="json",
+            HTTP_AUTHORIZATION=f"Bearer {self.mcp_client.key}",
+        )
+        self.assertEqual(res.status_code, 202, res.content)
+        kwargs = mock_task.delay.call_args.kwargs
+        self.assertEqual(kwargs["tool_names"], list(MCP_MEDIA_TOOL_NAMES))
 
     def test_run_agent_denies_inaccessible_slug(self):
         res = self.client.post(
@@ -1135,6 +1171,167 @@ class MCPGatewayTests(TestCase):
             HTTP_AUTHORIZATION=f"Token {self.login_token.key}",
         )
         self.assertEqual(res.status_code, 403, res.content)
+
+    @patch("api.ai_layers.mcp_views.user_can_manage_integrations", return_value=True)
+    def test_create_credential_with_custom_tools(self, _can_manage):
+        res = self.client.post(
+            "/v1/ai_layers/mcp/credentials/",
+            {
+                "name": "Media Cursor",
+                "allowed_agent_slugs": ["mcp-agent"],
+                "allowed_tool_names": ["create_image", "read_attachment"],
+            },
+            format="json",
+            HTTP_AUTHORIZATION=f"Token {self.login_token.key}",
+        )
+        self.assertEqual(res.status_code, 201, res.content)
+        data = res.json()
+        self.assertEqual(
+            sorted(data["allowed_tool_names"]),
+            sorted(["create_image", "read_attachment"]),
+        )
+
+    @patch("api.ai_layers.mcp_views.AsyncResult")
+    def test_mcp_task_result_includes_attachments(self, mock_async_result):
+        from django.core.cache import cache
+
+        attachment_id = "11111111-1111-1111-1111-111111111111"
+        cache.set(
+            "mcp_task_task-with-atts",
+            {
+                "user_id": self.user.id,
+                "mcp_client_id": str(self.mcp_client.id),
+                "conversation_id": "conv-1",
+            },
+            timeout=60,
+        )
+        mock_async_result.return_value.ready.return_value = True
+        mock_async_result.return_value.failed.return_value = False
+        mock_async_result.return_value.result = {
+            "status": "completed",
+            "output": "Here is your image",
+            "message_id": 42,
+            "attachments": [
+                {
+                    "type": "image/png",
+                    "name": "cat.png",
+                    "attachment_id": attachment_id,
+                }
+            ],
+        }
+
+        res = self.client.get(
+            "/v1/ai_layers/mcp/result/task-with-atts/",
+            HTTP_AUTHORIZATION=f"Bearer {self.mcp_client.key}",
+        )
+        self.assertEqual(res.status_code, 200, res.content)
+        data = res.json()
+        self.assertEqual(len(data["attachments"]), 1)
+        self.assertIn("download_url", data["attachments"][0])
+        self.assertIn(attachment_id, data["attachments"][0]["download_url"])
+
+    def test_mcp_download_attachment_requires_bearer(self):
+        from api.messaging.models import Conversation, MessageAttachment
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        conversation = Conversation.objects.create(
+            user=self.user,
+            metadata={"source": "mcp"},
+        )
+        attachment = MessageAttachment.objects.create(
+            conversation=conversation,
+            kind="file",
+            file=SimpleUploadedFile("test.png", b"png-bytes", content_type="image/png"),
+            content_type="image/png",
+            metadata={"name": "test.png"},
+        )
+        res = self.client.get(f"/v1/ai_layers/mcp/attachments/{attachment.id}/")
+        self.assertEqual(res.status_code, 401)
+
+    def test_mcp_download_attachment_success(self):
+        from api.messaging.models import Conversation, MessageAttachment
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        conversation = Conversation.objects.create(
+            user=self.user,
+            metadata={"source": "mcp"},
+        )
+        attachment = MessageAttachment.objects.create(
+            conversation=conversation,
+            kind="file",
+            file=SimpleUploadedFile("test.png", b"png-bytes", content_type="image/png"),
+            content_type="image/png",
+            metadata={"name": "test.png"},
+        )
+        res = self.client.get(
+            f"/v1/ai_layers/mcp/attachments/{attachment.id}/",
+            HTTP_AUTHORIZATION=f"Bearer {self.mcp_client.key}",
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.content, b"png-bytes")
+
+    def test_mcp_download_attachment_denies_other_user(self):
+        from api.messaging.models import Conversation, MessageAttachment
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        conversation = Conversation.objects.create(
+            user=self.other,
+            metadata={"source": "mcp"},
+        )
+        attachment = MessageAttachment.objects.create(
+            conversation=conversation,
+            kind="file",
+            file=SimpleUploadedFile("secret.png", b"x", content_type="image/png"),
+            content_type="image/png",
+        )
+        res = self.client.get(
+            f"/v1/ai_layers/mcp/attachments/{attachment.id}/",
+            HTTP_AUTHORIZATION=f"Bearer {self.mcp_client.key}",
+        )
+        self.assertEqual(res.status_code, 403)
+
+    @patch("api.notify.actions.notify_user")
+    @patch("api.consumption.actions._check_org_subscription", return_value=(True, None))
+    @patch("api.ai_layers.agent_loop.AgentLoop")
+    @patch("api.ai_layers.tools.resolve_tools")
+    def test_mcp_basic_credential_no_document_auto_inject(
+        self, mock_resolve_tools, mock_agent_loop, _billing, _notify
+    ):
+        from api.ai_layers.agent_loop import AgentLoopResult
+        from api.ai_layers.mcp_access import MCP_BASIC_TOOL_NAMES
+        from api.ai_layers.tasks import conversation_agent_task
+        from api.messaging.models import Conversation
+
+        captured: list[list[str]] = []
+
+        def capture(names, **kwargs):
+            captured.append(list(names))
+            return []
+
+        mock_resolve_tools.side_effect = capture
+        mock_agent_loop.create.return_value.run.return_value = AgentLoopResult(
+            output="ok",
+            messages=[],
+            iterations=1,
+            tool_calls=[],
+        )
+
+        conversation = Conversation.objects.create(
+            user=self.user,
+            metadata={"source": "mcp", "mcp_client_id": str(self.mcp_client.id)},
+        )
+
+        result = conversation_agent_task(
+            conversation_id=str(conversation.id),
+            user_inputs=[{"type": "input_text", "text": "hello"}],
+            tool_names=list(MCP_BASIC_TOOL_NAMES),
+            agent_slugs=[self.agent.slug],
+            user_id=self.user.id,
+        )
+        self.assertEqual(result["status"], "completed")
+        self.assertTrue(captured)
+        self.assertNotIn("generate_document_file", captured[0])
+        self.assertNotIn("generate_excel_file", captured[0])
 
     @patch("api.ai_layers.mcp_views.user_can_manage_integrations", return_value=True)
     def test_revoke_credential(self, _can_manage):

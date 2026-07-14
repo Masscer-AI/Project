@@ -25,13 +25,9 @@ from api.messaging.schemas import metadata_payload_for_related_agents
 from api.messaging.takeover import get_active_takeover, handle_inbound_during_takeover
 
 
-DEFAULT_MCP_TOOL_NAMES = [
-    "read_attachment",
-    "list_attachments",
-    "rag_query",
-    "explore_web",
-    "create_image",
-]
+from api.ai_layers.mcp_access import MCP_BASIC_TOOL_NAMES
+
+DEFAULT_MCP_TOOL_NAMES = list(MCP_BASIC_TOOL_NAMES)
 
 
 @dataclass

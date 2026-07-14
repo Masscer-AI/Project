@@ -14,9 +14,11 @@ from .mcp_views import (
     mcp_list_agents,
     mcp_run_agent,
     mcp_task_result,
+    mcp_download_attachment,
     mcp_credentials,
-    mcp_revoke_credential,
+    mcp_credential_detail,
     mcp_connection_config,
+    mcp_tool_presets,
 )
 
 app_name = "ai_layers"
@@ -47,12 +49,18 @@ urlpatterns = [
     path("mcp/agents/", mcp_list_agents, name="mcp_list_agents"),
     path("mcp/run/", mcp_run_agent, name="mcp_run_agent"),
     path("mcp/result/<str:task_id>/", mcp_task_result, name="mcp_task_result"),
+    path(
+        "mcp/attachments/<uuid:attachment_id>/",
+        mcp_download_attachment,
+        name="mcp_download_attachment",
+    ),
     # MCP credential management (user Token auth — UI)
     path("mcp/credentials/", mcp_credentials, name="mcp_credentials"),
     path(
         "mcp/credentials/<uuid:credential_id>/",
-        mcp_revoke_credential,
-        name="mcp_revoke_credential",
+        mcp_credential_detail,
+        name="mcp_credential_detail",
     ),
     path("mcp/connection-config/", mcp_connection_config, name="mcp_connection_config"),
+    path("mcp/tool-presets/", mcp_tool_presets, name="mcp_tool_presets"),
 ]

@@ -611,3 +611,16 @@ class MCPClientAdmin(admin.ModelAdmin):
     search_fields = ("name", "user__username", "key")
     readonly_fields = ("key", "last_used_at", "created_at", "updated_at")
     filter_horizontal = ("allowed_agents",)
+    fields = (
+        "name",
+        "user",
+        "organization",
+        "key",
+        "revoked",
+        "allowed_agents",
+        "allowed_tool_names",
+        "scopes",
+        "last_used_at",
+        "created_at",
+        "updated_at",
+    )

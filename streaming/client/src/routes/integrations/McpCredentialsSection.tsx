@@ -20,14 +20,17 @@ import {
   createMCPCredential,
   getMCPConnectionConfig,
   listMCPCredentials,
+  MCP_TOOL_PRESET_GROUPS,
   revokeMCPCredential,
   TMCPCredentialCreated,
   TMCPCredentialSummary,
 } from "../../modules/apiCalls";
 import { useStore } from "../../modules/store";
+import { useLocalizedToolName } from "../../utils/localizedToolName";
 
 export const McpCredentialsSection = () => {
   const { t } = useTranslation();
+  const localizedToolName = useLocalizedToolName();
   const { agents, fetchAgents } = useStore((s) => ({
     agents: s.agents,
     fetchAgents: s.fetchAgents,
@@ -39,6 +42,7 @@ export const McpCredentialsSection = () => {
   const [revokeTarget, setRevokeTarget] = useState<TMCPCredentialSummary | null>(null);
   const [credentialName, setCredentialName] = useState("");
   const [selectedAgentSlugs, setSelectedAgentSlugs] = useState<string[]>([]);
+  const [selectedToolNames, setSelectedToolNames] = useState<string[]>([]);
   const [created, setCreated] = useState<TMCPCredentialCreated | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -57,6 +61,24 @@ export const McpCredentialsSection = () => {
         label: a.name,
       })),
     [conversationalAgents]
+  );
+
+  const toolOptions = useMemo(
+    () =>
+      MCP_TOOL_PRESET_GROUPS.map((group) => ({
+        group: t(
+          group.group === "Basic"
+            ? "integrations-mcp-tools-basic"
+            : group.group === "Media"
+              ? "integrations-mcp-tools-media"
+              : "integrations-mcp-tools-documents"
+        ),
+        items: group.items.map((item) => ({
+          value: item.value,
+          label: localizedToolName(item.value),
+        })),
+      })),
+    [t, localizedToolName]
   );
 
   const loadCredentials = useCallback(async () => {
@@ -82,6 +104,7 @@ export const McpCredentialsSection = () => {
   const resetCreateForm = () => {
     setCredentialName("");
     setSelectedAgentSlugs([]);
+    setSelectedToolNames([]);
     setCreated(null);
   };
 
@@ -104,9 +127,16 @@ export const McpCredentialsSection = () => {
     }
     setSubmitting(true);
     try {
-      const payload: { name: string; allowed_agent_slugs?: string[] } = { name };
+      const payload: {
+        name: string;
+        allowed_agent_slugs?: string[];
+        allowed_tool_names?: string[];
+      } = { name };
       if (selectedAgentSlugs.length > 0) {
         payload.allowed_agent_slugs = selectedAgentSlugs;
+      }
+      if (selectedToolNames.length > 0) {
+        payload.allowed_tool_names = selectedToolNames;
       }
       const result = await createMCPCredential(payload);
       setCreated(result);
@@ -199,6 +229,17 @@ export const McpCredentialsSection = () => {
                   ) : (
                     <Text size="xs" c="dimmed">{t("integrations-mcp-all-agents")}</Text>
                   )}
+                  {cred.allowed_tool_names.length > 0 ? (
+                    <Group gap={4}>
+                      {cred.allowed_tool_names.map((tool) => (
+                        <Badge key={tool} size="xs" variant="outline" color="violet">
+                          {localizedToolName(tool)}
+                        </Badge>
+                      ))}
+                    </Group>
+                  ) : (
+                    <Text size="xs" c="dimmed">{t("integrations-mcp-tools-basic-preset")}</Text>
+                  )}
                 </Stack>
                 <Group gap="xs">
                   <Button
@@ -271,6 +312,16 @@ export const McpCredentialsSection = () => {
               data={agentOptions}
               value={selectedAgentSlugs}
               onChange={setSelectedAgentSlugs}
+              searchable
+              clearable
+            />
+            <MultiSelect
+              label={t("integrations-mcp-tools-label")}
+              description={t("integrations-mcp-tools-desc")}
+              placeholder={t("integrations-mcp-tools-placeholder")}
+              data={toolOptions}
+              value={selectedToolNames}
+              onChange={setSelectedToolNames}
               searchable
               clearable
             />

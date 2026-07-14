@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
 import { useStore } from "../../modules/store";
 import { TAgent } from "../../types/agents";
 import {
@@ -19,12 +18,10 @@ import {
   Box,
   Card,
   Checkbox,
-  Divider,
   Tooltip,
-  Anchor,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { createLLM, deleteLLM, updateAgent, makeAuthenticatedRequest, getUserOrganizations, getOrganizationRoles, getVoices, previewVoice, createMCPCredential, getMCPConnectionConfig, type TMCPCredentialCreated } from "../../modules/apiCalls";
+import { createLLM, deleteLLM, updateAgent, makeAuthenticatedRequest, getUserOrganizations, getOrganizationRoles, getVoices, previewVoice } from "../../modules/apiCalls";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
@@ -39,8 +36,6 @@ import {
   IconSettings,
   IconTrash,
   IconDeviceFloppy,
-  IconCopy,
-  IconPlug,
   IconMenu2,
   IconPlayerStopFilled,
   IconVolume,
@@ -501,63 +496,6 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
     setConfirmDelete(false);
   };
 
-  const [mcpOpened, { open: openMcpModal, close: closeMcpModal }] = useDisclosure(false);
-  const [mcpCredentialName, setMcpCredentialName] = useState("");
-  const [mcpCreated, setMcpCreated] = useState<TMCPCredentialCreated | null>(null);
-
-  const handleOpenMcpModal = () => {
-    openMcpModal();
-  };
-
-  useEffect(() => {
-    if (mcpOpened) {
-      setMcpCreated(null);
-      setMcpCredentialName(agent.name);
-    }
-  }, [mcpOpened, agent.name]);
-
-  const handleCreateMcpCredential = async () => {
-    const name = mcpCredentialName.trim();
-    if (!name) {
-      toast.error(t("mcp-credential-name"));
-      return;
-    }
-    try {
-      const created = await createMCPCredential({
-        name,
-        allowed_agent_slugs: [agent.slug],
-      });
-      setMcpCreated(created);
-      toast.success(t("mcp-credential-created"));
-    } catch (error: any) {
-      toast.error(error?.response?.data?.error || "Error creating MCP credential");
-    }
-  };
-
-  const handleCopyMcpCursorConfig = async (credentialId?: string) => {
-    try {
-      let configText: string;
-      if (mcpCreated) {
-        configText = JSON.stringify(mcpCreated.mcp_config, null, 2);
-      } else if (credentialId) {
-        const res = await getMCPConnectionConfig(credentialId);
-        configText = res.mcp_config_json;
-      } else {
-        return;
-      }
-      await navigator.clipboard.writeText(configText);
-      toast.success(t("mcp-copy-cursor-config"));
-    } catch (error: any) {
-      toast.error(error?.response?.data?.error || "Error copying config");
-    }
-  };
-
-  const handleCopyMcpKey = async () => {
-    if (!mcpCreated?.key) return;
-    await navigator.clipboard.writeText(mcpCreated.key);
-    toast.success(t("mcp-copy-key"));
-  };
-
   const [voices, setVoices] = useState<TVoiceCatalogEntry[]>([]);
   const [voicePreviewLoading, setVoicePreviewLoading] = useState(false);
   const [voicePreviewPlaying, setVoicePreviewPlaying] = useState(false);
@@ -826,75 +764,6 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
         minRows={2}
         maxRows={6}
       />
-
-      <Divider />
-
-      <Button
-        variant="light"
-        leftSection={<IconPlug size={18} />}
-        onClick={handleOpenMcpModal}
-        fullWidth
-      >
-        {t("mcp-connection")}
-      </Button>
-
-      <Modal
-        opened={mcpOpened}
-        onClose={closeMcpModal}
-        title={t("mcp-connection-title")}
-        size="lg"
-      >
-        <Stack gap="md">
-          <Text size="sm" c="dimmed">
-            {t("mcp-connection-description")}
-          </Text>
-
-          {mcpCreated ? (
-            <Stack gap="sm">
-              <Text size="sm" fw={600}>
-                {t("mcp-credential-created")}
-              </Text>
-              <TextInput label="MCP URL" value={mcpCreated.mcp_url} readOnly />
-              <Textarea
-                label="Bearer token"
-                value={mcpCreated.key}
-                readOnly
-                autosize
-                minRows={2}
-              />
-              <Group>
-                <Button variant="light" leftSection={<IconCopy size={16} />} onClick={handleCopyMcpKey}>
-                  {t("mcp-copy-key")}
-                </Button>
-                <Button variant="light" leftSection={<IconCopy size={16} />} onClick={() => void handleCopyMcpCursorConfig()}>
-                  {t("mcp-copy-cursor-config")}
-                </Button>
-              </Group>
-              <Text size="xs" c="dimmed">
-                {t("mcp-cursor-hint")}
-              </Text>
-              <Text size="xs" c="dimmed">
-                {mcpCreated.claude_instructions || t("mcp-claude-hint")}
-              </Text>
-            </Stack>
-          ) : (
-            <Stack gap="sm">
-              <TextInput
-                label={t("mcp-credential-name")}
-                placeholder={t("mcp-credential-name-placeholder")}
-                value={mcpCredentialName}
-                onChange={(e) => setMcpCredentialName(e.currentTarget.value)}
-              />
-              <Button onClick={() => void handleCreateMcpCredential()}>
-                {t("mcp-create-credential")}
-              </Button>
-              <Anchor component={Link} to="/integrations" size="sm">
-                {t("integrations-manage-all")}
-              </Anchor>
-            </Stack>
-          )}
-        </Stack>
-      </Modal>
 
       <Group>
         <Button

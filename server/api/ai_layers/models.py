@@ -366,6 +366,11 @@ class MCPClient(models.Model):
         related_name="mcp_clients",
         help_text="If empty, all accessible agents are exposed via MCP.",
     )
+    allowed_tool_names = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Agent tools enabled for runs via this credential. Empty = basic MCP preset.",
+    )
     scopes = models.JSONField(default=list, blank=True)
     revoked = models.BooleanField(default=False)
     last_used_at = models.DateTimeField(null=True, blank=True)

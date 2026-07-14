@@ -1976,6 +1976,7 @@ export type TMCPCredentialSummary = {
   created_at: string;
   last_used_at: string | null;
   allowed_agent_slugs: string[];
+  allowed_tool_names: string[];
   key_prefix: string | null;
 };
 
@@ -1985,6 +1986,7 @@ export type TMCPCredentialCreated = {
   key: string;
   mcp_url: string;
   allowed_agent_slugs: string[];
+  allowed_tool_names: string[];
   mcp_config: {
     mcpServers: Record<
       string,
@@ -1993,6 +1995,40 @@ export type TMCPCredentialCreated = {
   };
   claude_instructions: string;
 };
+
+export type TMCPToolPresets = {
+  presets: Record<string, string[]>;
+};
+
+export const MCP_TOOL_PRESET_GROUPS = [
+  {
+    group: "Basic",
+    items: [
+      { value: "read_attachment", label: "read_attachment" },
+      { value: "list_attachments", label: "list_attachments" },
+      { value: "rag_query", label: "rag_query" },
+      { value: "explore_web", label: "explore_web" },
+    ],
+  },
+  {
+    group: "Media",
+    items: [
+      { value: "create_image", label: "create_image" },
+      { value: "create_speech", label: "create_speech" },
+      { value: "generate_video", label: "generate_video" },
+      { value: "generate_dialogue", label: "generate_dialogue" },
+    ],
+  },
+  {
+    group: "Documents",
+    items: [
+      { value: "generate_document_file", label: "generate_document_file" },
+      { value: "generate_excel_file", label: "generate_excel_file" },
+      { value: "list_document_templates", label: "list_document_templates" },
+      { value: "render_document_template", label: "render_document_template" },
+    ],
+  },
+] as const;
 
 export const listMCPCredentials = async () => {
   return makeAuthenticatedRequest<{ credentials: TMCPCredentialSummary[] }>(
@@ -2004,11 +2040,34 @@ export const listMCPCredentials = async () => {
 export const createMCPCredential = async (payload: {
   name: string;
   allowed_agent_slugs?: string[];
+  allowed_tool_names?: string[];
 }) => {
   return makeAuthenticatedRequest<TMCPCredentialCreated>(
     "POST",
     "/v1/ai_layers/mcp/credentials/",
     payload
+  );
+};
+
+export const updateMCPCredential = async (
+  credentialId: string,
+  payload: {
+    name?: string;
+    allowed_agent_slugs?: string[];
+    allowed_tool_names?: string[];
+  }
+) => {
+  return makeAuthenticatedRequest<TMCPCredentialSummary>(
+    "PATCH",
+    `/v1/ai_layers/mcp/credentials/${credentialId}/`,
+    payload
+  );
+};
+
+export const getMCPToolPresets = async () => {
+  return makeAuthenticatedRequest<TMCPToolPresets>(
+    "GET",
+    "/v1/ai_layers/mcp/tool-presets/"
   );
 };
 
