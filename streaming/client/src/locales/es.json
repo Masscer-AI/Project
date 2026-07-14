@@ -70,7 +70,7 @@
     "mcp-existing-credentials": "Credenciales existentes",
     "mcp-no-credentials": "Aún no hay credenciales MCP.",
     "mcp-credential-created": "Credencial MCP creada. Copia la config — la clave solo se muestra una vez.",
-    "mcp-copy-cursor-config": "Copiar config de Cursor",
+    "mcp-copy-cursor-config": "Copiar config MCP",
     "mcp-copy-key": "Copiar token Bearer",
     "mcp-revoke-credential": "Revocar",
     "mcp-credential-revoked": "Credencial MCP revocada",

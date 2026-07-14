@@ -115,7 +115,7 @@
     "mcp-existing-credentials": "Existing credentials",
     "mcp-no-credentials": "No MCP credentials yet.",
     "mcp-credential-created": "MCP credential created. Copy the config below — the key is shown only once.",
-    "mcp-copy-cursor-config": "Copy Cursor config",
+    "mcp-copy-cursor-config": "Copy MCP config",
     "mcp-copy-key": "Copy Bearer token",
     "mcp-revoke-credential": "Revoke",
     "mcp-credential-revoked": "MCP credential revoked",

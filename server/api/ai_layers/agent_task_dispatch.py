@@ -30,6 +30,7 @@ DEFAULT_MCP_TOOL_NAMES = [
     "list_attachments",
     "rag_query",
     "explore_web",
+    "create_image",
 ]
 
 
