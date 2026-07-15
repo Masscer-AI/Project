@@ -2,7 +2,7 @@ from typing import Any
 from unittest.mock import Mock, patch
 
 from django.contrib.auth.models import User
-from django.test import SimpleTestCase, TestCase
+from django.test import SimpleTestCase, TestCase, override_settings
 from rest_framework.test import APIClient
 
 
@@ -1148,6 +1148,7 @@ class MCPGatewayTests(TestCase):
         )
         self.assertEqual(res.status_code, 404)
 
+    @override_settings(FRONTEND_URL="https://app.masscer-ai.com")
     @patch("api.ai_layers.mcp_views.user_can_manage_integrations", return_value=True)
     def test_create_credential_via_user_token(self, _can_manage):
         res = self.client.post(
@@ -1160,7 +1161,11 @@ class MCPGatewayTests(TestCase):
         data = res.json()
         self.assertIn("key", data)
         self.assertIn("mcp_config", data)
-        self.assertIn("/mcp", data["mcp_url"])
+        self.assertEqual(data["mcp_url"], "https://app.masscer-ai.com/mcp/")
+        self.assertEqual(
+            data["mcp_config"]["mcpServers"]["masscer-Cursor"]["url"],
+            "https://app.masscer-ai.com/mcp/",
+        )
 
     @patch("api.ai_layers.mcp_views.user_can_manage_integrations", return_value=False)
     def test_create_credential_requires_integrations_capability(self, _can_manage):

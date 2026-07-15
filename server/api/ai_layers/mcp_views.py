@@ -23,6 +23,7 @@ from api.ai_layers.mcp_access import (
     get_mcp_user_org,
     mcp_accessible_agents_qs,
     normalize_mcp_tool_names,
+    public_mcp_url,
     resolve_mcp_agent,
     resolve_mcp_tool_names,
     sanitize_mcp_tool_name,
@@ -354,8 +355,7 @@ def mcp_credentials(request):
         allowed = [a for a in agents if a.slug in allowed_slugs]
         mcp_client.allowed_agents.set(allowed)
 
-    base_url = request.build_absolute_uri("/").rstrip("/")
-    mcp_url = f"{base_url}/mcp/"
+    mcp_url = public_mcp_url(request)
 
     return JsonResponse(
         {
@@ -487,8 +487,7 @@ def mcp_connection_config(request):
     except MCPClient.DoesNotExist:
         return JsonResponse({"error": "Credential not found"}, status=404)
 
-    base_url = request.build_absolute_uri("/").rstrip("/")
-    mcp_url = f"{base_url}/mcp/"
+    mcp_url = public_mcp_url(request)
 
     return JsonResponse(
         {

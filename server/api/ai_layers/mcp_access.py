@@ -2,10 +2,27 @@ from __future__ import annotations
 
 import re
 
+from django.conf import settings
+
 from api.ai_layers.access import accessible_agents_qs, get_user_organization
 from api.ai_layers.models import Agent, AgentKind, MCPClient
 
 _SLUG_RE = re.compile(r"[^a-z0-9_]+")
+
+
+def public_app_base_url(request=None) -> str:
+    """Public app origin for MCP and other client-facing URLs."""
+    frontend = (getattr(settings, "FRONTEND_URL", None) or "").strip().rstrip("/")
+    if frontend:
+        return frontend
+    if request is not None:
+        return request.build_absolute_uri("/").rstrip("/")
+    return ""
+
+
+def public_mcp_url(request=None) -> str:
+    base = public_app_base_url(request)
+    return f"{base}/mcp/" if base else "/mcp/"
 
 MCP_BASIC_TOOL_NAMES: tuple[str, ...] = (
     "read_attachment",
