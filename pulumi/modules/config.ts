@@ -42,6 +42,8 @@ export interface AppConfig {
   googleOauthClientId: pulumi.Output<string>;
   googleApplicationCredentialsJson: pulumi.Output<string>;
   googleCloudProject: string;
+  /** Shared secret for Django/Celery → FastAPI internal MCP proxy routes. */
+  internalMcpProxyToken: pulumi.Output<string>;
 }
 
 export function loadConfig(): AppConfig {
@@ -94,5 +96,6 @@ export function loadConfig(): AppConfig {
     googleOauthClientId: pulumi.output(cfg.get("googleOauthClientId") ?? ""),
     googleApplicationCredentialsJson: cfg.getSecret("googleApplicationCredentialsJson") ?? pulumi.output(""),
     googleCloudProject: cfg.get("googleCloudProject") ?? "masscer-492023",
+    internalMcpProxyToken: cfg.requireSecret("internalMcpProxyToken"),
   };
 }

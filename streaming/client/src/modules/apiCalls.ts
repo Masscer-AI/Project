@@ -2088,6 +2088,92 @@ export const getMCPConnectionConfig = async (credentialId: string) => {
   }>("GET", `/v1/ai_layers/mcp/connection-config/?credential_id=${credentialId}`);
 };
 
+export type TMCPExternalCatalogEntry = {
+  key: string;
+  name: string;
+  description: string;
+  docs_url: string;
+  transport: string;
+  default_remote_tool_names: string[];
+};
+
+export type TMCPExternalConnectionSummary = {
+  id: string;
+  name: string;
+  slug: string;
+  catalog_key: string;
+  transport: string;
+  allowed_agent_slugs: string[];
+  allowed_remote_tool_names: string[];
+  cached_remote_tools: Array<{
+    name: string;
+    description?: string;
+    inputSchema?: Record<string, unknown>;
+  }>;
+  last_synced_at: string | null;
+  enabled: boolean;
+  owner_type: "user" | "organization";
+  created_at: string;
+};
+
+export const listMCPExternalCatalog = async () => {
+  return makeAuthenticatedRequest<{ catalog: TMCPExternalCatalogEntry[] }>(
+    "GET",
+    "/v1/ai_layers/mcp/external/catalog/"
+  );
+};
+
+export const listMCPExternalConnections = async () => {
+  return makeAuthenticatedRequest<{ connections: TMCPExternalConnectionSummary[] }>(
+    "GET",
+    "/v1/ai_layers/mcp/external/connections/"
+  );
+};
+
+export const createMCPExternalConnection = async (payload: {
+  catalog_key: string;
+  name: string;
+  owner_type?: "user" | "organization";
+  allowed_agent_slugs?: string[];
+  allowed_remote_tool_names?: string[];
+}) => {
+  return makeAuthenticatedRequest<TMCPExternalConnectionSummary>(
+    "POST",
+    "/v1/ai_layers/mcp/external/connections/",
+    payload
+  );
+};
+
+export const updateMCPExternalConnection = async (
+  connectionId: string,
+  payload: {
+    name?: string;
+    enabled?: boolean;
+    allowed_agent_slugs?: string[];
+    allowed_remote_tool_names?: string[];
+  }
+) => {
+  return makeAuthenticatedRequest<TMCPExternalConnectionSummary>(
+    "PATCH",
+    `/v1/ai_layers/mcp/external/connections/${connectionId}/`,
+    payload
+  );
+};
+
+export const revokeMCPExternalConnection = async (connectionId: string) => {
+  return makeAuthenticatedRequest<{ status: string; id: string }>(
+    "DELETE",
+    `/v1/ai_layers/mcp/external/connections/${connectionId}/`
+  );
+};
+
+export const syncMCPExternalConnection = async (connectionId: string) => {
+  return makeAuthenticatedRequest<TMCPExternalConnectionSummary>(
+    "POST",
+    `/v1/ai_layers/mcp/external/connections/${connectionId}/sync/`
+  );
+};
+
 export const getAssignments = async (params?: {
   status?: string;
   key?: string;

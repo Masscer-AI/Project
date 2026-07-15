@@ -277,6 +277,14 @@ API_BASE_URL = (
 )
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "")
 
+# FastAPI internal URL for service-to-service calls (MCP outbound proxy).
+FASTAPI_INTERNAL_URL = (
+    os.environ.get("FASTAPI_INTERNAL_URL")
+    or os.environ.get("STREAMING_SERVER_URL")
+    or "http://localhost:8001"
+).rstrip("/")
+INTERNAL_MCP_PROXY_TOKEN = os.environ.get("INTERNAL_MCP_PROXY_TOKEN", "")
+
 # STRIPE
 STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")
 STRIPE_PUBLISHABLE_KEY = os.environ.get("STRIPE_PUBLISHABLE_KEY", "")

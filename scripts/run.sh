@@ -224,6 +224,7 @@ DJANGO_ENV=(
     -e MEDIA_ROOT=/app/storage
     -e CHROMA_HOST="$CHROMA_HOST_CONTAINER"
     -e CHROMA_PORT="$CHROMA_PORT_CONTAINER"
+    -e FASTAPI_INTERNAL_URL="http://${FASTAPI_CONTAINER}:${FASTAPI_PORT}"
 )
 
 run_django_manage_oneoff() {

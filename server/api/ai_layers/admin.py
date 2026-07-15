@@ -4,7 +4,7 @@ from django.urls import reverse
 from django.utils.safestring import mark_safe
 from django import forms
 from django.db.models import Q
-from .models import Agent, LanguageModel, AgentSession, MCPClient
+from .models import Agent, LanguageModel, AgentSession, MCPClient, MCPExternalConnection
 from api.authenticate.services import FeatureFlagService
 from api.authenticate.models import Organization
 from api.messaging.models import ChatWidget
@@ -624,3 +624,21 @@ class MCPClientAdmin(admin.ModelAdmin):
         "created_at",
         "updated_at",
     )
+
+
+@admin.register(MCPExternalConnection)
+class MCPExternalConnectionAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "slug",
+        "catalog_key",
+        "user",
+        "organization",
+        "enabled",
+        "revoked",
+        "last_synced_at",
+    )
+    list_filter = ("catalog_key", "enabled", "revoked", "transport")
+    search_fields = ("name", "slug", "user__username")
+    readonly_fields = ("created_at", "updated_at", "last_synced_at")
+    filter_horizontal = ("allowed_agents",)

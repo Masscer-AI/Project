@@ -5,6 +5,7 @@ import { Tags } from "./config";
 export function createChromaDiscovery(args: { namePrefix: string; tags: Tags; vpcId: any }) {
   const serviceDiscoveryNamespaceName = `${args.namePrefix}.internal`;
   const chromaInternalHost = pulumi.interpolate`chroma.${serviceDiscoveryNamespaceName}`;
+  const fastapiInternalHost = pulumi.interpolate`fastapi.${serviceDiscoveryNamespaceName}`;
 
   const privateNamespace = new aws.servicediscovery.PrivateDnsNamespace("private-namespace", {
     name: serviceDiscoveryNamespaceName,
@@ -24,5 +25,22 @@ export function createChromaDiscovery(args: { namePrefix: string; tags: Tags; vp
     tags: args.tags,
   });
 
-  return { chromaInternalHost, privateNamespace, chromaDiscoveryService };
+  const fastapiDiscoveryService = new aws.servicediscovery.Service("fastapi-discovery-service", {
+    name: "fastapi",
+    dnsConfig: {
+      namespaceId: privateNamespace.id,
+      dnsRecords: [{ ttl: 10, type: "A" }],
+      routingPolicy: "MULTIVALUE",
+    },
+    healthCheckCustomConfig: { failureThreshold: 1 },
+    tags: args.tags,
+  });
+
+  return {
+    chromaInternalHost,
+    fastapiInternalHost,
+    privateNamespace,
+    chromaDiscoveryService,
+    fastapiDiscoveryService,
+  };
 }

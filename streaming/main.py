@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager
 from server.routes import router
 from server.socket import sio
 from server.mcp.server import handle_streamable_http, mcp_lifespan
+from server.mcp.outbound.routes import router as mcp_outbound_router
 import socketio
 import asyncio
 
@@ -44,6 +45,7 @@ AUDIO_DIR = "audios"
 os.makedirs(AUDIO_DIR, exist_ok=True)
 
 app.include_router(router)
+app.include_router(mcp_outbound_router)
 app.mount("/assets", StaticFiles(directory="client/dist/assets"), name="static")
 app.add_route("/socket.io/", route=sio_asgi_app, methods=["GET", "POST"])
 app.add_websocket_route("/socket.io/", route=sio_asgi_app)

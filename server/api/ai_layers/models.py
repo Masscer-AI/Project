@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import Q
 import uuid
 from django.utils.text import slugify
 from api.providers.models import AIProvider
@@ -393,3 +394,104 @@ class MCPClient(models.Model):
         if not key:
             return None
         return cls.objects.filter(key=key, revoked=False).select_related("user").first()
+
+
+class MCPExternalConnection(models.Model):
+    """
+    Inbound MCP connection: Masscer agents call tools on an external MCP server.
+
+    Owned by exactly one user OR one organization (not both).
+    When allowed_agents is empty, all accessible agents for the owner may use it.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=255)
+    slug = models.SlugField(max_length=100)
+    user = models.ForeignKey(
+        "auth.User",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="mcp_external_connections",
+    )
+    organization = models.ForeignKey(
+        "authenticate.Organization",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="mcp_external_connections",
+    )
+    catalog_key = models.CharField(max_length=64, blank=True, default="")
+    transport = models.CharField(max_length=32, default="stdio")
+    command = models.CharField(max_length=255, default="")
+    args = models.JSONField(default=list, blank=True)
+    env = models.JSONField(default=dict, blank=True)
+    allowed_remote_tool_names = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Remote MCP tool names enabled for this connection. Empty = catalog default.",
+    )
+    cached_remote_tools = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Snapshot from last sync: name, description, inputSchema.",
+    )
+    last_synced_at = models.DateTimeField(null=True, blank=True)
+    enabled = models.BooleanField(default=True)
+    revoked = models.BooleanField(default=False)
+    allowed_agents = models.ManyToManyField(
+        "ai_layers.Agent",
+        blank=True,
+        related_name="mcp_external_connections",
+        help_text="If empty, all accessible agents for the owner may use this connection.",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    Q(user__isnull=False, organization__isnull=True)
+                    | Q(user__isnull=True, organization__isnull=False)
+                ),
+                name="mcp_external_connection_exactly_one_owner",
+            ),
+            models.UniqueConstraint(
+                fields=["user", "slug"],
+                condition=Q(user__isnull=False),
+                name="mcp_external_connection_unique_user_slug",
+            ),
+            models.UniqueConstraint(
+                fields=["organization", "slug"],
+                condition=Q(organization__isnull=False),
+                name="mcp_external_connection_unique_org_slug",
+            ),
+        ]
+
+    def __str__(self):
+        return f"MCPExternalConnection({self.name}, slug={self.slug})"
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        has_user = self.user_id is not None
+        has_org = self.organization_id is not None
+        if has_user == has_org:
+            raise ValidationError(
+                "Exactly one of user or organization must be set (not both, not neither)."
+            )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def connection_config(self) -> dict:
+        return {
+            "connection_id": str(self.id),
+            "transport": self.transport,
+            "command": self.command,
+            "args": list(self.args or []),
+            "env": dict(self.env or {}),
+        }

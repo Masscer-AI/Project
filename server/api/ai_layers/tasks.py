@@ -1720,6 +1720,18 @@ def conversation_agent_task(
             if is_whatsapp_chat:
                 resolve_kwargs["is_whatsapp_visitor"] = True
 
+            from api.ai_layers.mcp_external_access import mcp_external_connections_for_agent
+
+            mcp_owner_user = conversation.user
+            mcp_external = []
+            if mcp_owner_user:
+                mcp_external = mcp_external_connections_for_agent(
+                    agent,
+                    mcp_owner_user,
+                    organization,
+                )
+            resolve_kwargs["mcp_external_connections"] = mcp_external
+
             tools = resolve_tools(agent_tool_names, **resolve_kwargs)
 
             loop = AgentLoop.create(

@@ -16,6 +16,7 @@ import { useStore } from "../../modules/store";
 import { getUser } from "../../modules/apiCalls";
 import { DriveIntegrationCard } from "./DriveIntegrationCard";
 import { McpCredentialsSection } from "./McpCredentialsSection";
+import { ExternalMcpConnectionsSection } from "./ExternalMcpConnectionsSection";
 
 export default function IntegrationsPage() {
   const { t } = useTranslation();
@@ -78,6 +79,10 @@ export default function IntegrationsPage() {
           <Divider />
 
           <McpCredentialsSection />
+
+          <Divider />
+
+          <ExternalMcpConnectionsSection />
         </Stack>
       </div>
     </main>

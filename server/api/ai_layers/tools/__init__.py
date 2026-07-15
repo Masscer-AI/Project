@@ -115,6 +115,12 @@ def resolve_tools(tool_names: list[str], **context) -> list[dict]:
             # Don't add the tool; continue with the rest
             continue
 
+    mcp_external_connections = context.pop("mcp_external_connections", None) or []
+    if mcp_external_connections:
+        from api.ai_layers.mcp_external_tools import build_external_mcp_tools
+
+        tools.extend(build_external_mcp_tools(mcp_external_connections))
+
     return tools
 
 

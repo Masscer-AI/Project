@@ -1342,3 +1342,201 @@ class MCPGatewayTests(TestCase):
         self.assertEqual(res.status_code, 200)
         self.mcp_client.refresh_from_db()
         self.assertTrue(self.mcp_client.revoked)
+
+
+class MCPExternalConnectionTests(TestCase):
+    def setUp(self):
+        from api.ai_layers.models import Agent, LanguageModel
+        from api.authenticate.models import Token
+        from api.providers.models import AIProvider
+
+        self.user = User.objects.create_user(
+            username="ext_mcp_user", email="ext@m.com", password="x"
+        )
+        self.login_token = Token.objects.create(user=self.user)
+        provider = AIProvider.objects.create(name="OpenAI-ext-mcp")
+        llm = LanguageModel.objects.create(
+            provider=provider, slug="gpt-ext-mcp", name="GPT Ext MCP"
+        )
+        self.agent = Agent.objects.create(
+            name="Weather Agent",
+            salute="hi",
+            act_as="help",
+            user=self.user,
+            slug="weather-agent",
+            llm=llm,
+            model_slug=llm.slug,
+        )
+
+    def test_model_requires_exactly_one_owner(self):
+        from django.core.exceptions import ValidationError
+        from api.ai_layers.models import MCPExternalConnection
+
+        conn = MCPExternalConnection(
+            name="Bad",
+            slug="bad",
+            user=self.user,
+            organization_id=1,
+            catalog_key="weather-mcp",
+            command="npx",
+        )
+        with self.assertRaises(ValidationError):
+            conn.full_clean()
+
+    def test_weather_catalog_entry(self):
+        from api.ai_layers.mcp_external_catalog import get_catalog_entry
+
+        entry = get_catalog_entry("weather-mcp")
+        self.assertIsNotNone(entry)
+        self.assertEqual(entry.command, "npx")
+        self.assertIn("@dangahagan/weather-mcp", entry.args[1])
+        self.assertEqual(entry.env.get("ENABLED_TOOLS"), "basic")
+        self.assertIn("get_weather_summary", entry.default_remote_tool_names)
+
+    def test_prefixed_tool_name(self):
+        from api.ai_layers.mcp_external_access import prefixed_tool_name
+        from api.ai_layers.models import MCPExternalConnection
+
+        conn = MCPExternalConnection(name="Weather", slug="weather", user=self.user)
+        self.assertEqual(
+            prefixed_tool_name(conn, "get_weather_summary"),
+            "weather__get_weather_summary",
+        )
+
+    @patch("api.ai_layers.mcp_external_tools.call_external_mcp_tool")
+    def test_build_external_mcp_tools_registers_proxy(self, mock_call):
+        from api.ai_layers.mcp_external_tools import build_external_mcp_tools
+        from api.ai_layers.models import MCPExternalConnection
+
+        mock_call.return_value = "Sunny, 72F"
+        conn = MCPExternalConnection.objects.create(
+            name="Weather",
+            slug="weather",
+            user=self.user,
+            catalog_key="weather-mcp",
+            transport="stdio",
+            command="npx",
+            args=["-y", "@dangahagan/weather-mcp@latest"],
+            env={"ENABLED_TOOLS": "basic"},
+            cached_remote_tools=[
+                {
+                    "name": "get_weather_summary",
+                    "description": "Get weather summary",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {"location": {"type": "string"}},
+                    },
+                }
+            ],
+        )
+        tools = build_external_mcp_tools([conn])
+        self.assertEqual(len(tools), 1)
+        self.assertEqual(tools[0]["name"], "weather__get_weather_summary")
+        self.assertEqual(
+            tools[0]["parameters"]["properties"]["location"]["type"], "string"
+        )
+        result = tools[0]["function"](location="Tokyo")
+        self.assertEqual(result, "Sunny, 72F")
+        mock_call.assert_called_once()
+        self.assertEqual(mock_call.call_args.kwargs["tool_name"], "get_weather_summary")
+        self.assertEqual(mock_call.call_args.kwargs["arguments"], {"location": "Tokyo"})
+
+    @patch("api.ai_layers.mcp_external_tools.call_external_mcp_tool")
+    def test_resolve_tools_includes_external_mcp_tools(self, mock_call):
+        from api.ai_layers.models import MCPExternalConnection
+        from api.ai_layers.tools import resolve_tools
+
+        mock_call.return_value = "ok"
+        conn = MCPExternalConnection.objects.create(
+            name="Weather",
+            slug="weather",
+            user=self.user,
+            catalog_key="weather-mcp",
+            transport="stdio",
+            command="npx",
+            args=["-y", "@dangahagan/weather-mcp@latest"],
+            env={"ENABLED_TOOLS": "basic"},
+            cached_remote_tools=[
+                {
+                    "name": "get_forecast",
+                    "description": "Forecast",
+                    "inputSchema": {"type": "object", "properties": {}},
+                }
+            ],
+        )
+        tools = resolve_tools(
+            [],
+            mcp_external_connections=[conn],
+        )
+        names = [t["name"] for t in tools]
+        self.assertIn("weather__get_forecast", names)
+
+    def test_mcp_external_connections_for_agent_filters_by_allowed_agents(self):
+        from api.ai_layers.mcp_external_access import mcp_external_connections_for_agent
+        from api.ai_layers.models import Agent, LanguageModel, MCPExternalConnection
+        from api.providers.models import AIProvider
+
+        provider = AIProvider.objects.create(name="OpenAI-ext-mcp-2")
+        llm = LanguageModel.objects.create(
+            provider=provider, slug="gpt-ext-mcp-2", name="GPT Ext MCP 2"
+        )
+        other_agent = Agent.objects.create(
+            name="Other Agent",
+            salute="hi",
+            act_as="help",
+            user=self.user,
+            slug="other-agent",
+            llm=llm,
+            model_slug=llm.slug,
+        )
+        conn = MCPExternalConnection.objects.create(
+            name="Weather",
+            slug="weather",
+            user=self.user,
+            catalog_key="weather-mcp",
+            transport="stdio",
+            command="npx",
+            args=[],
+            cached_remote_tools=[{"name": "get_forecast"}],
+        )
+        conn.allowed_agents.add(self.agent)
+
+        attached = mcp_external_connections_for_agent(self.agent, self.user)
+        self.assertEqual(len(attached), 1)
+        not_attached = mcp_external_connections_for_agent(other_agent, self.user)
+        self.assertEqual(len(not_attached), 0)
+
+    @patch("api.ai_layers.mcp_external_views.list_external_mcp_tools")
+    @patch("api.ai_layers.mcp_external_views.user_can_manage_integrations", return_value=True)
+    def test_external_catalog_and_create(self, _can_manage, mock_list_tools):
+        from api.ai_layers.models import MCPExternalConnection
+
+        mock_list_tools.return_value = [
+            {"name": "get_weather_summary", "description": "Summary"},
+        ]
+        catalog_res = self.client.get(
+            "/v1/ai_layers/mcp/external/catalog/",
+            HTTP_AUTHORIZATION=f"Token {self.login_token.key}",
+        )
+        self.assertEqual(catalog_res.status_code, 200)
+        keys = [e["key"] for e in catalog_res.json()["catalog"]]
+        self.assertIn("weather-mcp", keys)
+
+        create_res = self.client.post(
+            "/v1/ai_layers/mcp/external/connections/",
+            data={
+                "catalog_key": "weather-mcp",
+                "name": "My Weather",
+                "allowed_agent_slugs": [self.agent.slug],
+            },
+            content_type="application/json",
+            HTTP_AUTHORIZATION=f"Token {self.login_token.key}",
+        )
+        self.assertEqual(create_res.status_code, 201)
+        data = create_res.json()
+        self.assertEqual(data["name"], "My Weather")
+        self.assertEqual(data["catalog_key"], "weather-mcp")
+        self.assertIn(self.agent.slug, data["allowed_agent_slugs"])
+        conn = MCPExternalConnection.objects.get(id=data["id"])
+        self.assertEqual(conn.command, "npx")
+        self.assertTrue(conn.cached_remote_tools)

@@ -73,6 +73,7 @@ const parameterStore = createProviderParameters({
   googleOauthClientId: config.googleOauthClientId,
   googleApplicationCredentialsJson: config.googleApplicationCredentialsJson,
   googleCloudProject: config.googleCloudProject,
+  internalMcpProxyToken: config.internalMcpProxyToken,
   taskExecutionRoleName: ecsBase.taskExecutionRole.name,
 });
 
@@ -103,6 +104,8 @@ const services = createAppServices({
   chromaMountTargets: dataServices.chromaMountTargets,
   chromaDiscoveryServiceArn: discovery.chromaDiscoveryService.arn,
   chromaInternalHost: discovery.chromaInternalHost,
+  fastapiDiscoveryServiceArn: discovery.fastapiDiscoveryService.arn,
+  fastapiInternalHost: discovery.fastapiInternalHost,
   providerParameterArns: parameterStore.providerParameterArns,
   mediaBucket: artifacts.mediaBucket,
 });

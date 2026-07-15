@@ -30,6 +30,8 @@ export function createAppServices(args: {
   chromaMountTargets: aws.efs.MountTarget[];
   chromaDiscoveryServiceArn: any;
   chromaInternalHost: pulumi.Output<string>;
+  fastapiDiscoveryServiceArn: any;
+  fastapiInternalHost: pulumi.Output<string>;
   providerParameterArns: ProviderParameterArns;
   mediaBucket: aws.s3.BucketV2;
 }) {
@@ -81,6 +83,10 @@ export function createAppServices(args: {
     { name: "ALLOWED_EXTRA_HOSTS", value: djangoAllowedHosts },
     { name: "AWS_STORAGE_BUCKET_NAME", value: args.mediaBucket.bucket },
     { name: "AWS_S3_REGION_NAME", value: args.region.name },
+    {
+      name: "FASTAPI_INTERNAL_URL",
+      value: pulumi.interpolate`http://${args.fastapiInternalHost}:8001`,
+    },
   ];
 
   const providerSecrets = [
@@ -97,6 +103,7 @@ export function createAppServices(args: {
     { name: "WHATSAPP_WEBHOOK_VERIFY_TOKEN", valueFrom: args.providerParameterArns.whatsappWebhookVerifyTokenArn },
     { name: "GOOGLE_APPLICATION_CREDENTIALS_JSON", valueFrom: args.providerParameterArns.googleApplicationCredentialsJsonArn },
     { name: "GOOGLE_CLOUD_PROJECT", valueFrom: args.providerParameterArns.googleCloudProjectArn },
+    { name: "INTERNAL_MCP_PROXY_TOKEN", valueFrom: args.providerParameterArns.internalMcpProxyTokenArn },
   ];
 
   const fastapiEnv = [
@@ -109,6 +116,8 @@ export function createAppServices(args: {
     { name: "MCP_POLL_TIMEOUT_SEC", value: "240" },
     { name: "MCP_POLL_INTERVAL_SEC", value: "2" },
   ];
+
+  const fastapiSecrets = providerSecrets;
 
   const djangoTaskDefinition = new aws.ecs.TaskDefinition("django-task", {
     family: `${config.namePrefix}-django`,
@@ -154,7 +163,7 @@ export function createAppServices(args: {
       portMappings: [{ containerPort: 8001, hostPort: 8001, protocol: "tcp" }],
       command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"],
       environment: fastapiEnv,
-      secrets: providerSecrets,
+      secrets: fastapiSecrets,
       logConfiguration: {
         logDriver: "awslogs",
         options: {
@@ -283,6 +292,7 @@ export function createAppServices(args: {
     desiredCount: config.fastapiDesiredCount,
     networkConfiguration: serviceNetworkConfiguration,
     loadBalancers: [{ targetGroupArn: args.fastapiTargetGroup.arn, containerName: "fastapi", containerPort: 8001 }],
+    serviceRegistries: { registryArn: args.fastapiDiscoveryServiceArn },
     capacityProviderStrategies,
     deploymentMinimumHealthyPercent: 50,
     deploymentMaximumPercent: 200,

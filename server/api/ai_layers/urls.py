@@ -20,6 +20,12 @@ from .mcp_views import (
     mcp_connection_config,
     mcp_tool_presets,
 )
+from .mcp_external_views import (
+    mcp_external_catalog,
+    mcp_external_connections,
+    mcp_external_connection_detail,
+    mcp_external_connection_sync,
+)
 
 app_name = "ai_layers"
 
@@ -63,4 +69,21 @@ urlpatterns = [
     ),
     path("mcp/connection-config/", mcp_connection_config, name="mcp_connection_config"),
     path("mcp/tool-presets/", mcp_tool_presets, name="mcp_tool_presets"),
+    # Inbound MCP connections (Masscer agents call external MCP servers)
+    path("mcp/external/catalog/", mcp_external_catalog, name="mcp_external_catalog"),
+    path(
+        "mcp/external/connections/",
+        mcp_external_connections,
+        name="mcp_external_connections",
+    ),
+    path(
+        "mcp/external/connections/<uuid:connection_id>/",
+        mcp_external_connection_detail,
+        name="mcp_external_connection_detail",
+    ),
+    path(
+        "mcp/external/connections/<uuid:connection_id>/sync/",
+        mcp_external_connection_sync,
+        name="mcp_external_connection_sync",
+    ),
 ]

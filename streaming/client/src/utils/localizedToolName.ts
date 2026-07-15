@@ -17,10 +17,38 @@ export function localizedToolName(
   return toolSlug.replace(/_/g, " ");
 }
 
+export function externalMcpToolTitleKey(
+  catalogKey: string,
+  remoteToolName: string
+): string {
+  const catalog = catalogKey.replace(/-/g, "_");
+  return `external-mcp-${catalog}-${remoteToolName}-title`;
+}
+
+export function localizedExternalMcpToolName(
+  t: (key: string) => string,
+  catalogKey: string,
+  remoteToolName: string
+): string {
+  const key = externalMcpToolTitleKey(catalogKey, remoteToolName);
+  const label = t(key);
+  if (label !== key) return label;
+  return localizedToolName(t, remoteToolName);
+}
+
 export function useLocalizedToolName() {
   const { t } = useTranslation();
   return useCallback(
     (toolSlug: string | null | undefined) => localizedToolName(t, toolSlug),
+    [t]
+  );
+}
+
+export function useLocalizedExternalMcpToolName() {
+  const { t } = useTranslation();
+  return useCallback(
+    (catalogKey: string, remoteToolName: string) =>
+      localizedExternalMcpToolName(t, catalogKey, remoteToolName),
     [t]
   );
 }
