@@ -61,3 +61,5 @@ data/
 storage/
 
 server/staticfiles/
+
+scripts/local_tunnel.sh
