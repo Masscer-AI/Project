@@ -3,11 +3,21 @@
 from __future__ import annotations
 
 import os
+import re
 from typing import Any
 
 import httpx
 
 API_URL = os.getenv("API_URL", "http://localhost:8000").rstrip("/")
+
+_CONTENT_DISPOSITION_FILENAME = re.compile(r'filename="([^"]+)"')
+
+
+def _filename_from_content_disposition(header: str | None) -> str | None:
+    if not header:
+        return None
+    match = _CONTENT_DISPOSITION_FILENAME.search(header)
+    return match.group(1) if match else None
 
 
 class DjangoMCPClient:
@@ -61,3 +71,33 @@ class DjangoMCPClient:
                 return resp.json()
             resp.raise_for_status()
             return resp.json()
+
+    async def download_attachment(
+        self, attachment_id: str
+    ) -> tuple[bytes, str, str | None]:
+        """Fetch attachment bytes from the Django MCP gateway."""
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            resp = await client.get(
+                f"{self.api_url}/v1/ai_layers/mcp/attachments/{attachment_id}/",
+                headers=self._headers,
+            )
+            if resp.status_code == 404:
+                raise ValueError("Attachment not found")
+            if resp.status_code in (401, 403):
+                raise ValueError("Access denied for this attachment")
+            if resp.status_code == 400:
+                try:
+                    detail = resp.json().get("error", "Attachment is not downloadable")
+                except Exception:
+                    detail = "Attachment is not downloadable"
+                raise ValueError(detail)
+            resp.raise_for_status()
+            content_type = (
+                resp.headers.get("content-type", "application/octet-stream")
+                .split(";")[0]
+                .strip()
+            )
+            filename = _filename_from_content_disposition(
+                resp.headers.get("content-disposition")
+            )
+            return resp.content, content_type, filename

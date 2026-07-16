@@ -73,6 +73,7 @@ const parameterStore = createProviderParameters({
   googleOauthClientId: config.googleOauthClientId,
   googleApplicationCredentialsJson: config.googleApplicationCredentialsJson,
   googleCloudProject: config.googleCloudProject,
+  internalMcpIntrospectToken: config.internalMcpIntrospectToken,
   taskExecutionRoleName: ecsBase.taskExecutionRole.name,
 });
 

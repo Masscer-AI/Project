@@ -1,13 +1,11 @@
 import React from "react";
-import { useTranslation } from "react-i18next";
+import i18n from "../../i18next";
 
 export const ErrorPage = () => {
-  const { t } = useTranslation();
-
   return (
-    <div >
-      <h1>{t("sorry-an-unexpected-error-happen")}</h1>
-      <p>{t("notify-developers")}</p>
+    <div>
+      <h1>{i18n.t("sorry-an-unexpected-error-happen")}</h1>
+      <p>{i18n.t("notify-developers")}</p>
     </div>
   );
 };

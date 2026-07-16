@@ -23,6 +23,8 @@ from django.views.static import serve
 from django.views.i18n import set_language
 from urllib.parse import urlsplit
 
+from api.mcp_oauth import views as mcp_oauth_views
+
 
 apps = [
     ("v1/auth/", "api.authenticate.urls", "auth"),
@@ -42,6 +44,7 @@ apps = [
     ("v1/document-templates/", "api.document_templates.urls", "document_templates"),
     ("v1/data-governance/", "api.data_governance.urls", "data_governance"),
     ("v1/voices/", "api.voices.urls", "voices"),
+    ("v1/mcp_oauth/", "api.mcp_oauth.urls", "mcp_oauth"),
 ]
 
 urlpatterns_apps = [
@@ -51,6 +54,14 @@ urlpatterns_apps = [
 urlpatterns_django = [
     path("i18n/setlang/", set_language, name="set_language"),
     path("admin/", admin.site.urls),
+    path(
+        ".well-known/oauth-authorization-server",
+        mcp_oauth_views.authorization_server_metadata,
+        name="oauth_authorization_server_metadata",
+    ),
+    path("oauth/authorize", mcp_oauth_views.oauth_authorize, name="oauth_authorize"),
+    path("oauth/token", mcp_oauth_views.oauth_token, name="oauth_token"),
+    path("oauth/register", mcp_oauth_views.oauth_register, name="oauth_register"),
 ]
 
 urlpatterns_static = static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

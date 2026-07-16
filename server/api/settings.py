@@ -137,6 +137,7 @@ INSTALLED_APPS = [
     "api.document_templates",
     "api.data_governance",
     "api.voices",
+    "api.mcp_oauth",
 ]
 
 MIDDLEWARE = [
@@ -276,6 +277,17 @@ API_BASE_URL = (
     (os.environ.get("API_BASE_URL") or os.environ.get("API_URL") or "").strip()
 )
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "")
+
+# MCP OAuth 2.1 authorization server
+MCP_OAUTH_ACCESS_TOKEN_TTL = int(os.environ.get("MCP_OAUTH_ACCESS_TOKEN_TTL", "3600"))
+MCP_OAUTH_REFRESH_TOKEN_TTL = int(
+    os.environ.get("MCP_OAUTH_REFRESH_TOKEN_TTL", str(60 * 60 * 24 * 30))
+)
+MCP_OAUTH_AUTH_CODE_TTL = int(os.environ.get("MCP_OAUTH_AUTH_CODE_TTL", "60"))
+INTERNAL_MCP_INTROSPECT_TOKEN = os.environ.get("INTERNAL_MCP_INTROSPECT_TOKEN", "")
+
+# Trust X-Forwarded-Proto from nginx/ALB/Cloudflare for HTTPS-aware URLs.
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 # STRIPE
 STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")

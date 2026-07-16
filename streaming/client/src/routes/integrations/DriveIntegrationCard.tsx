@@ -72,7 +72,7 @@ export const DriveIntegrationCard = () => {
     }
     setConnecting(true);
     try {
-      const returnTo = `${window.location.origin}/integrations`;
+      const returnTo = `${window.location.origin}/integrations?tab=drive`;
       const data = await connectIntegration(
         GOOGLE_DRIVE_PROVIDER,
         ownerScope,

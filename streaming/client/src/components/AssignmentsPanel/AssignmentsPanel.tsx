@@ -39,6 +39,12 @@ const AUTH_PATHS = new Set([
   "/reset-password",
 ]);
 
+function isAuthOrOAuthPath(pathname: string): boolean {
+  if (AUTH_PATHS.has(pathname)) return true;
+  // Keep onboarding widgets off OAuth consent (and any future /oauth/* SPA pages).
+  return pathname === "/oauth" || pathname.startsWith("/oauth/");
+}
+
 export const AssignmentsPanel: React.FC<AssignmentsPanelProps> = ({
   disabled = false,
   floating = false,
@@ -58,7 +64,7 @@ export const AssignmentsPanel: React.FC<AssignmentsPanelProps> = ({
 
   const hasToken =
     typeof window !== "undefined" && Boolean(localStorage.getItem("token"));
-  const isAuthPage = AUTH_PATHS.has(location.pathname);
+  const isAuthPage = isAuthOrOAuthPath(location.pathname);
 
   const activeAssignments = assignments.filter(
     (a) => a.status !== "done" && a.status !== "archived"
@@ -225,7 +231,7 @@ export const AssignmentsPanel: React.FC<AssignmentsPanelProps> = ({
                 color="violet"
               />
               <Stack gap={4}>
-                {assignment.metadata.steps.map((step) => (
+                {(assignment.metadata?.steps ?? []).map((step) => (
                   <Group key={step.id} gap="xs" wrap="nowrap" align="flex-start">
                     <Checkbox
                       checked={step.status === "done"}

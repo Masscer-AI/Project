@@ -97,6 +97,7 @@ export function createAppServices(args: {
     { name: "WHATSAPP_WEBHOOK_VERIFY_TOKEN", valueFrom: args.providerParameterArns.whatsappWebhookVerifyTokenArn },
     { name: "GOOGLE_APPLICATION_CREDENTIALS_JSON", valueFrom: args.providerParameterArns.googleApplicationCredentialsJsonArn },
     { name: "GOOGLE_CLOUD_PROJECT", valueFrom: args.providerParameterArns.googleCloudProjectArn },
+    { name: "INTERNAL_MCP_INTROSPECT_TOKEN", valueFrom: args.providerParameterArns.internalMcpIntrospectTokenArn },
   ];
 
   const fastapiEnv = [
@@ -108,6 +109,10 @@ export function createAppServices(args: {
     { name: "FRONTEND_URL", value: frontendUrl },
     { name: "MCP_POLL_TIMEOUT_SEC", value: "240" },
     { name: "MCP_POLL_INTERVAL_SEC", value: "2" },
+  ];
+
+  const fastapiSecrets = [
+    { name: "INTERNAL_MCP_INTROSPECT_TOKEN", valueFrom: args.providerParameterArns.internalMcpIntrospectTokenArn },
   ];
 
   const djangoTaskDefinition = new aws.ecs.TaskDefinition("django-task", {
@@ -154,7 +159,7 @@ export function createAppServices(args: {
       portMappings: [{ containerPort: 8001, hostPort: 8001, protocol: "tcp" }],
       command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"],
       environment: fastapiEnv,
-      secrets: providerSecrets,
+      secrets: [...providerSecrets, ...fastapiSecrets],
       logConfiguration: {
         logDriver: "awslogs",
         options: {

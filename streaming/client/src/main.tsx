@@ -45,6 +45,7 @@ import ChatWidgetsPage from "./routes/chat-widgets/page.tsx";
 import { ProtectedRoute } from "./components/ProtectedRoute/ProtectedRoute.tsx";
 import SettingsPage from "./routes/settings/page.tsx";
 import IntegrationsPage from "./routes/integrations/page.tsx";
+import OAuthConsentPage from "./routes/oauth/consent/page.tsx";
 
 const router = createBrowserRouter([
   {
@@ -176,6 +177,10 @@ const router = createBrowserRouter([
             <SettingsPage />
           </ProtectedRoute>
         ),
+      },
+      {
+        path: "/oauth/consent",
+        element: <OAuthConsentPage />,
       },
       {
         path: "/integrations",

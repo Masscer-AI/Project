@@ -1031,6 +1031,55 @@ class MCPAccessTests(SimpleTestCase):
         self.assertIsNone(names)
         self.assertIn("Unknown tool", err)
 
+    @override_settings(FRONTEND_URL="")
+    def test_serialize_attachments_for_mcp_strips_internal_fields(self):
+        from api.ai_layers.mcp_access import serialize_attachments_for_mcp
+
+        result = serialize_attachments_for_mcp(
+            None,
+            [
+                {
+                    "attachment_id": "550e8400-e29b-41d4-a716-446655440000",
+                    "type": "audio_generation",
+                    "name": "clip.mp3",
+                    "content": "/media/attachments/clip.mp3",
+                    "download_url": "http://internal:8001/attachments/550e8400/",
+                }
+            ],
+        )
+        self.assertEqual(len(result), 1)
+        self.assertEqual(
+            result[0],
+            {
+                "attachment_id": "550e8400-e29b-41d4-a716-446655440000",
+                "type": "audio_generation",
+                "name": "clip.mp3",
+            },
+        )
+
+    @override_settings(FRONTEND_URL="https://app.example.com")
+    def test_serialize_attachments_for_mcp_adds_signed_download_url(self):
+        from urllib.parse import parse_qs, urlparse
+
+        from api.ai_layers.mcp_access import (
+            serialize_attachments_for_mcp,
+            verify_mcp_attachment_download_token,
+        )
+
+        aid = "550e8400-e29b-41d4-a716-446655440000"
+        result = serialize_attachments_for_mcp(
+            None,
+            [{"attachment_id": aid, "type": "audio_generation", "name": "clip.mp3"}],
+        )
+        self.assertEqual(len(result), 1)
+        att = result[0]
+        self.assertTrue(att["download_url"].startswith(
+            f"https://app.example.com/v1/ai_layers/mcp/attachments/{aid}/?token="
+        ))
+        self.assertIn("expires_at", att)
+        token = parse_qs(urlparse(att["download_url"]).query)["token"][0]
+        self.assertEqual(verify_mcp_attachment_download_token(token), aid)
+
 
 class MCPGatewayTests(TestCase):
     def setUp(self):
@@ -1096,6 +1145,39 @@ class MCPGatewayTests(TestCase):
             HTTP_AUTHORIZATION=f"Bearer {self.mcp_client.key}",
         )
         self.assertEqual(res.status_code, 401)
+
+    def test_gateway_accepts_oauth_access_token(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from api.mcp_oauth.crypto import generate_token, hash_secret
+        from api.mcp_oauth.models import OAuthAccessToken, OAuthClient
+
+        oauth_client, _ = OAuthClient.create_manual(
+            client_name="Gateway OAuth",
+            redirect_uris=["https://claude.ai/api/mcp/auth_callback"],
+            owner_user=self.user,
+            confidential=False,
+        )
+        raw_access = generate_token(48)
+        OAuthAccessToken.objects.create(
+            token_hash=hash_secret(raw_access),
+            client=oauth_client,
+            user=self.user,
+            mcp_client=self.mcp_client,
+            scope="mcp",
+            resource="https://app.masscer-ai.com/mcp",
+            expires_at=timezone.now() + timedelta(hours=1),
+        )
+        res = self.client.get(
+            "/v1/ai_layers/mcp/agents/",
+            HTTP_AUTHORIZATION=f"Bearer {raw_access}",
+        )
+        self.assertEqual(res.status_code, 200, res.content)
+        agents = res.json()["agents"]
+        self.assertEqual(len(agents), 1)
+        self.assertEqual(agents[0]["slug"], "mcp-agent")
 
     @patch("api.ai_layers.tasks.conversation_agent_task")
     def test_run_agent_dispatches_task(self, mock_task):
@@ -1225,15 +1307,25 @@ class MCPGatewayTests(TestCase):
             ],
         }
 
-        res = self.client.get(
-            "/v1/ai_layers/mcp/result/task-with-atts/",
-            HTTP_AUTHORIZATION=f"Bearer {self.mcp_client.key}",
-        )
+        with override_settings(FRONTEND_URL="https://app.example.com"):
+            res = self.client.get(
+                "/v1/ai_layers/mcp/result/task-with-atts/",
+                HTTP_AUTHORIZATION=f"Bearer {self.mcp_client.key}",
+            )
         self.assertEqual(res.status_code, 200, res.content)
         data = res.json()
         self.assertEqual(len(data["attachments"]), 1)
-        self.assertIn("download_url", data["attachments"][0])
-        self.assertIn(attachment_id, data["attachments"][0]["download_url"])
+        att = data["attachments"][0]
+        self.assertEqual(att["attachment_id"], attachment_id)
+        self.assertEqual(att["name"], "cat.png")
+        self.assertNotIn("content", att)
+        self.assertIn("download_url", att)
+        self.assertIn("expires_at", att)
+        self.assertTrue(
+            att["download_url"].startswith(
+                f"https://app.example.com/v1/ai_layers/mcp/attachments/{attachment_id}/?token="
+            )
+        )
 
     def test_mcp_download_attachment_requires_bearer(self):
         from api.messaging.models import Conversation, MessageAttachment
@@ -1274,6 +1366,51 @@ class MCPGatewayTests(TestCase):
         )
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.content, b"png-bytes")
+
+    def test_mcp_download_attachment_with_signed_token(self):
+        from api.ai_layers.mcp_access import mint_mcp_attachment_download_token
+        from api.messaging.models import Conversation, MessageAttachment
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        conversation = Conversation.objects.create(
+            user=self.user,
+            metadata={"source": "mcp"},
+        )
+        attachment = MessageAttachment.objects.create(
+            conversation=conversation,
+            kind="file",
+            file=SimpleUploadedFile("test.png", b"signed-png", content_type="image/png"),
+            content_type="image/png",
+            metadata={"name": "test.png"},
+        )
+        token, _expires = mint_mcp_attachment_download_token(str(attachment.id))
+        res = self.client.get(
+            f"/v1/ai_layers/mcp/attachments/{attachment.id}/?token={token}"
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.content, b"signed-png")
+
+    def test_mcp_download_attachment_rejects_token_for_other_id(self):
+        from api.ai_layers.mcp_access import mint_mcp_attachment_download_token
+        from api.messaging.models import Conversation, MessageAttachment
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from uuid import uuid4
+
+        conversation = Conversation.objects.create(
+            user=self.user,
+            metadata={"source": "mcp"},
+        )
+        attachment = MessageAttachment.objects.create(
+            conversation=conversation,
+            kind="file",
+            file=SimpleUploadedFile("test.png", b"x", content_type="image/png"),
+            content_type="image/png",
+        )
+        token, _ = mint_mcp_attachment_download_token(str(uuid4()))
+        res = self.client.get(
+            f"/v1/ai_layers/mcp/attachments/{attachment.id}/?token={token}"
+        )
+        self.assertEqual(res.status_code, 401)
 
     def test_mcp_download_attachment_denies_other_user(self):
         from api.messaging.models import Conversation, MessageAttachment

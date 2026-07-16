@@ -1,21 +1,33 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
 import {
   ActionIcon,
   Box,
-  Divider,
   Stack,
+  Tabs,
   Text,
   Title,
 } from "@mantine/core";
-import { IconMenu2 } from "@tabler/icons-react";
+import {
+  IconBrandGoogleDrive,
+  IconMenu2,
+  IconPlug,
+} from "@tabler/icons-react";
 import { Sidebar } from "../../components/Sidebar/Sidebar";
 import { useStore } from "../../modules/store";
 import { getUser } from "../../modules/apiCalls";
 import { DriveIntegrationCard } from "./DriveIntegrationCard";
 import { McpCredentialsSection } from "./McpCredentialsSection";
+import { McpServerUrlCard } from "./McpServerUrlCard";
+import { OAuthClientsSection } from "./OAuthClientsSection";
+
+type IntegrationsTab = "drive" | "mcp";
+
+function parseIntegrationsTab(raw: string | null): IntegrationsTab {
+  return raw === "mcp" ? "mcp" : "drive";
+}
 
 export default function IntegrationsPage() {
   const { t } = useTranslation();
@@ -26,6 +38,9 @@ export default function IntegrationsPage() {
     user: s.user,
     setUser: s.setUser,
   }));
+
+  const activeTab = parseIntegrationsTab(searchParams.get("tab"));
+  const [credentialsRefreshKey, setCredentialsRefreshKey] = useState(0);
 
   useEffect(() => {
     if (!user) {
@@ -41,6 +56,17 @@ export default function IntegrationsPage() {
       setSearchParams(searchParams, { replace: true });
     }
   }, [searchParams, setSearchParams, t]);
+
+  const setActiveTab = (value: string | null) => {
+    if (!value) return;
+    const next = new URLSearchParams(searchParams);
+    if (value === "drive") {
+      next.delete("tab");
+    } else {
+      next.set("tab", value);
+    }
+    setSearchParams(next, { replace: true });
+  };
 
   return (
     <main className="d-flex pos-relative h-viewport">
@@ -73,13 +99,37 @@ export default function IntegrationsPage() {
             </Text>
           </Stack>
 
-          <DriveIntegrationCard />
+          <Tabs value={activeTab} onChange={setActiveTab} variant="outline">
+            <Tabs.List mb="md">
+              <Tabs.Tab
+                value="drive"
+                leftSection={<IconBrandGoogleDrive size={16} />}
+              >
+                {t("integrations-tab-drive")}
+              </Tabs.Tab>
+              <Tabs.Tab value="mcp" leftSection={<IconPlug size={16} />}>
+                {t("integrations-tab-mcp")}
+              </Tabs.Tab>
+            </Tabs.List>
 
-          <Divider />
+            <Tabs.Panel value="drive">
+              <DriveIntegrationCard />
+            </Tabs.Panel>
 
-          <McpCredentialsSection />
+            <Tabs.Panel value="mcp">
+              <Stack gap="lg">
+                <McpServerUrlCard />
+                <McpCredentialsSection key={credentialsRefreshKey} />
+                <OAuthClientsSection
+                  onManualCredentialCreated={() =>
+                    setCredentialsRefreshKey((k) => k + 1)
+                  }
+                />
+              </Stack>
+            </Tabs.Panel>
+          </Tabs>
         </Stack>
       </div>
     </main>
   );
-};
+}

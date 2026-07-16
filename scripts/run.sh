@@ -224,6 +224,7 @@ DJANGO_ENV=(
     -e MEDIA_ROOT=/app/storage
     -e CHROMA_HOST="$CHROMA_HOST_CONTAINER"
     -e CHROMA_PORT="$CHROMA_PORT_CONTAINER"
+    -e INTERNAL_MCP_INTROSPECT_TOKEN="${INTERNAL_MCP_INTROSPECT_TOKEN:-}"
 )
 
 run_django_manage_oneoff() {
@@ -311,6 +312,7 @@ docker run -d \
     -e REDIS_HOST=$REDIS_CONTAINER \
     -e CELERY_BROKER_URL="${REDIS_INTERNAL}/0" \
     -e REDIS_NOTIFICATIONS_URL="${REDIS_INTERNAL}/2" \
+    -e INTERNAL_MCP_INTROSPECT_TOKEN="${INTERNAL_MCP_INTROSPECT_TOKEN:-}" \
     -v "${PROJECT_ROOT}/streaming:/app" \
     -p "${FASTAPI_PORT}:${FASTAPI_PORT}" \
     $FASTAPI_IMAGE sh -c 'uv sync --frozen --no-dev --no-install-project && exec python main.py' \

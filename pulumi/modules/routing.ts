@@ -140,6 +140,28 @@ export function createRouting(args: {
       tags: args.tags,
     });
 
+    new aws.lb.ListenerRule("app-django-oauth-path-rule", {
+      listenerArn: httpsListener.arn,
+      priority: 22,
+      actions: [{ type: "forward", targetGroupArn: djangoTargetGroup.arn }],
+      conditions: [
+        { hostHeader: { values: appHostValues } },
+        { pathPattern: { values: ["/oauth/authorize", "/oauth/token", "/oauth/register", "/.well-known/oauth-authorization-server"] } },
+      ],
+      tags: args.tags,
+    });
+
+    new aws.lb.ListenerRule("app-fastapi-oauth-resource-metadata-rule", {
+      listenerArn: httpsListener.arn,
+      priority: 32,
+      actions: [{ type: "forward", targetGroupArn: fastapiTargetGroup.arn }],
+      conditions: [
+        { hostHeader: { values: appHostValues } },
+        { pathPattern: { values: ["/.well-known/oauth-protected-resource"] } },
+      ],
+      tags: args.tags,
+    });
+
     new aws.lb.ListenerRule("app-socketio-path-rule", {
       listenerArn: httpsListener.arn,
       priority: 30,
@@ -201,6 +223,22 @@ export function createRouting(args: {
     priority: 10,
     actions: [{ type: "forward", targetGroupArn: djangoTargetGroup.arn }],
     conditions: [{ pathPattern: { values: ["/v1/*", "/admin/*", "/static/*", "/media/*"] } }],
+    tags: args.tags,
+  });
+
+  new aws.lb.ListenerRule("django-oauth-path-rule", {
+    listenerArn: httpListener.arn,
+    priority: 11,
+    actions: [{ type: "forward", targetGroupArn: djangoTargetGroup.arn }],
+    conditions: [{ pathPattern: { values: ["/oauth/authorize", "/oauth/token", "/oauth/register", "/.well-known/oauth-authorization-server"] } }],
+    tags: args.tags,
+  });
+
+  new aws.lb.ListenerRule("fastapi-oauth-resource-metadata-rule", {
+    listenerArn: httpListener.arn,
+    priority: 21,
+    actions: [{ type: "forward", targetGroupArn: fastapiTargetGroup.arn }],
+    conditions: [{ pathPattern: { values: ["/.well-known/oauth-protected-resource"] } }],
     tags: args.tags,
   });
 

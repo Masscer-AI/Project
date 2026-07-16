@@ -28,9 +28,13 @@ from api.ai_layers.mcp_access import (
     resolve_mcp_tool_names,
     sanitize_mcp_tool_name,
     serialize_attachments_for_mcp,
+    verify_mcp_attachment_download_token,
 )
 from api.ai_layers.models import MCPClient
-from api.authenticate.decorators.mcp_token_required import mcp_token_required
+from api.authenticate.decorators.mcp_token_required import (
+    authenticate_mcp_request,
+    mcp_token_required,
+)
 from api.authenticate.decorators.token_required import token_required
 from api.integrations.services import get_user_organization, user_can_manage_integrations
 from api.messaging.models import Conversation
@@ -215,8 +219,13 @@ def mcp_task_result(request, task_id: str):
 # ─── Credential management (user Token auth, for UI) ─────────────────────────
 
 
-def _credential_summary(c) -> dict:
+def _credential_summary(c, *, auth_via_oauth: bool | None = None) -> dict:
     allowed = list(c.allowed_agents.values_list("slug", flat=True))
+    if auth_via_oauth is None:
+        auth_via_oauth = bool(
+            getattr(c, "_has_oauth_access", False)
+            or getattr(c, "_has_oauth_refresh", False)
+        )
     return {
         "id": str(c.id),
         "name": c.name,
@@ -225,16 +234,33 @@ def _credential_summary(c) -> dict:
         "allowed_agent_slugs": allowed,
         "allowed_tool_names": list(c.allowed_tool_names or []),
         "key_prefix": c.key[:8] + "…" if c.key else None,
+        "auth_via_oauth": bool(auth_via_oauth),
     }
 
 
 @csrf_exempt
-@mcp_token_required
 @require_http_methods(["GET"])
 def mcp_download_attachment(request, attachment_id):
-    """Download a file attachment using MCP Bearer auth."""
+    """
+    Download a file attachment via:
+    - Authorization: Bearer (MCP key / OAuth), with conversation access checks, or
+    - ?token= short-lived signed capability URL (no Bearer; ~1h expiry).
+    """
     from api.ai_layers.agent_task_helpers import validate_conversation_access
     from api.messaging.models import MessageAttachment
+
+    signed_token = (request.GET.get("token") or "").strip()
+    if signed_token:
+        verified_id = verify_mcp_attachment_download_token(signed_token)
+        if verified_id is None or str(verified_id) != str(attachment_id):
+            return JsonResponse(
+                {"error": "Invalid or expired download token"},
+                status=401,
+            )
+    else:
+        auth_error = authenticate_mcp_request(request)
+        if auth_error is not None:
+            return auth_error
 
     try:
         attachment = MessageAttachment.objects.select_related(
@@ -245,13 +271,14 @@ def mcp_download_attachment(request, attachment_id):
     except MessageAttachment.DoesNotExist:
         return JsonResponse({"error": "Attachment not found"}, status=404)
 
-    err = validate_conversation_access(
-        attachment.conversation,
-        request.user,
-        get_mcp_user_org(request.mcp_client),
-    )
-    if err:
-        return err
+    if not signed_token:
+        err = validate_conversation_access(
+            attachment.conversation,
+            request.user,
+            get_mcp_user_org(request.mcp_client),
+        )
+        if err:
+            return err
 
     if attachment.kind != "file" or not attachment.file:
         return JsonResponse(
@@ -298,8 +325,21 @@ def mcp_credentials(request):
     user = request.user
 
     if request.method == "GET":
-        clients = MCPClient.objects.filter(user=user, revoked=False).prefetch_related(
-            "allowed_agents"
+        from django.db.models import Exists, OuterRef
+
+        from api.mcp_oauth.models import OAuthAccessToken, OAuthRefreshToken
+
+        clients = (
+            MCPClient.objects.filter(user=user, revoked=False)
+            .prefetch_related("allowed_agents")
+            .annotate(
+                _has_oauth_access=Exists(
+                    OAuthAccessToken.objects.filter(mcp_client_id=OuterRef("pk"))
+                ),
+                _has_oauth_refresh=Exists(
+                    OAuthRefreshToken.objects.filter(mcp_client_id=OuterRef("pk"))
+                ),
+            )
         )
         data = [_credential_summary(c) for c in clients]
         return JsonResponse({"credentials": data})

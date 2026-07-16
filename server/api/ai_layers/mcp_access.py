@@ -1,13 +1,20 @@
 from __future__ import annotations
 
 import re
+from datetime import datetime, timedelta
+from urllib.parse import urlencode
 
 from django.conf import settings
+from django.core.signing import BadSignature, SignatureExpired, TimestampSigner
+from django.utils import timezone
 
 from api.ai_layers.access import accessible_agents_qs, get_user_organization
 from api.ai_layers.models import Agent, AgentKind, MCPClient
 
 _SLUG_RE = re.compile(r"[^a-z0-9_]+")
+
+MCP_ATTACHMENT_DOWNLOAD_TOKEN_SALT = "mcp-attachment-download"
+MCP_ATTACHMENT_DOWNLOAD_MAX_AGE_SEC = 60 * 60  # 1 hour
 
 
 def public_app_base_url(request=None) -> str:
@@ -23,6 +30,45 @@ def public_app_base_url(request=None) -> str:
 def public_mcp_url(request=None) -> str:
     base = public_app_base_url(request)
     return f"{base}/mcp/" if base else "/mcp/"
+
+
+def _attachment_download_signer() -> TimestampSigner:
+    return TimestampSigner(salt=MCP_ATTACHMENT_DOWNLOAD_TOKEN_SALT)
+
+
+def mint_mcp_attachment_download_token(attachment_id: str) -> tuple[str, datetime]:
+    """Return (signed token, expires_at) for a short-lived public download link."""
+    expires_at = timezone.now() + timedelta(seconds=MCP_ATTACHMENT_DOWNLOAD_MAX_AGE_SEC)
+    token = _attachment_download_signer().sign(str(attachment_id))
+    return token, expires_at
+
+
+def verify_mcp_attachment_download_token(token: str) -> str | None:
+    """Return attachment_id if token is valid and unexpired, else None."""
+    if not token:
+        return None
+    try:
+        return _attachment_download_signer().unsign(
+            token, max_age=MCP_ATTACHMENT_DOWNLOAD_MAX_AGE_SEC
+        )
+    except (BadSignature, SignatureExpired):
+        return None
+
+
+def mcp_attachment_signed_download_url(
+    request, attachment_id: str
+) -> tuple[str, datetime] | None:
+    """
+    Public absolute download URL using FRONTEND_URL + short-lived signed token.
+    Returns None when no public base URL is configured.
+    """
+    base = public_app_base_url(request)
+    if not base:
+        return None
+    token, expires_at = mint_mcp_attachment_download_token(str(attachment_id))
+    query = urlencode({"token": token})
+    url = f"{base}/v1/ai_layers/mcp/attachments/{attachment_id}/?{query}"
+    return url, expires_at
 
 MCP_BASIC_TOOL_NAMES: tuple[str, ...] = (
     "read_attachment",
@@ -109,21 +155,32 @@ def resolve_mcp_tool_names(mcp_client: MCPClient) -> list[str]:
     return stored
 
 
-def mcp_attachment_download_url(request, attachment_id: str) -> str:
-    base = request.build_absolute_uri("/").rstrip("/")
-    return f"{base}/v1/ai_layers/mcp/attachments/{attachment_id}/"
+# Fields exposed to MCP clients in agent tool results (plus signed download_url).
+_MCP_ATTACHMENT_FIELDS = frozenset(
+    {"attachment_id", "type", "name", "content_type", "text"}
+)
 
 
 def serialize_attachments_for_mcp(request, attachments: list | None) -> list[dict]:
-    """Add MCP-authenticated download_url to attachment descriptors."""
+    """
+    Client-safe attachment metadata for MCP tool results.
+
+    Strips internal media paths. Adds a short-lived absolute download_url
+    (FRONTEND_URL + signed token, ~1h) when a public base URL is available.
+    """
     result: list[dict] = []
     for att in attachments or []:
         if not isinstance(att, dict):
             continue
-        item = dict(att)
+        item = {k: v for k, v in att.items() if k in _MCP_ATTACHMENT_FIELDS and v}
         aid = item.get("attachment_id")
-        if aid:
-            item["download_url"] = mcp_attachment_download_url(request, str(aid))
+        if not aid:
+            continue
+        signed = mcp_attachment_signed_download_url(request, str(aid))
+        if signed:
+            url, expires_at = signed
+            item["download_url"] = url
+            item["expires_at"] = expires_at.isoformat()
         result.append(item)
     return result
 

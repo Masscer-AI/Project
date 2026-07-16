@@ -15,6 +15,7 @@ export interface ProviderParameterArns {
   whatsappWebhookVerifyTokenArn: pulumi.Output<string>;
   googleApplicationCredentialsJsonArn: pulumi.Output<string>;
   googleCloudProjectArn: pulumi.Output<string>;
+  internalMcpIntrospectTokenArn: pulumi.Output<string>;
 }
 
 export function createProviderParameters(args: {
@@ -32,6 +33,7 @@ export function createProviderParameters(args: {
   googleOauthClientId: pulumi.Input<string>;
   googleApplicationCredentialsJson: pulumi.Input<string>;
   googleCloudProject: pulumi.Input<string>;
+  internalMcpIntrospectToken: pulumi.Input<string>;
   taskExecutionRoleName: pulumi.Input<string>;
 }) {
   const basePath = `/${args.namePrefix}/providers`;
@@ -130,6 +132,12 @@ export function createProviderParameters(args: {
     value: normalizeSecret(args.googleCloudProject),
   });
 
+  const internalMcpIntrospectToken = new aws.ssm.Parameter("internal-mcp-introspect-token-param", {
+    name: `${basePath}/INTERNAL_MCP_INTROSPECT_TOKEN`,
+    type: "SecureString",
+    value: normalizeSecret(args.internalMcpIntrospectToken),
+  });
+
   const parameterArns = [
     openAiApiKey.arn,
     elevenLabsApiKey.arn,
@@ -145,6 +153,7 @@ export function createProviderParameters(args: {
     googleOauthClientId.arn,
     googleApplicationCredentialsJson.arn,
     googleCloudProject.arn,
+    internalMcpIntrospectToken.arn,
   ];
 
   new aws.iam.RolePolicy("ecs-task-exec-ssm-policy", {
@@ -180,6 +189,7 @@ export function createProviderParameters(args: {
     whatsappWebhookVerifyTokenArn: whatsappWebhookVerifyToken.arn,
     googleApplicationCredentialsJsonArn: googleApplicationCredentialsJson.arn,
     googleCloudProjectArn: googleCloudProject.arn,
+    internalMcpIntrospectTokenArn: internalMcpIntrospectToken.arn,
   };
 
   return { providerParameterArns };

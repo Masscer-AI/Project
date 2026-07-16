@@ -7,7 +7,6 @@ the Django MCP gateway which runs the production Celery AgentLoop.
 
 from __future__ import annotations
 
-import asyncio
 import contextlib
 import json
 import logging
@@ -22,6 +21,11 @@ from mcp.server.lowlevel import Server
 from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 from starlette.types import Receive, Scope, Send
 
+from server.mcp.attachment_content import (
+    DOWNLOAD_ATTACHMENT_TOOL,
+    attachment_bytes_to_content_blocks,
+    download_attachment_tool,
+)
 from server.mcp.auth import extract_bearer_from_scope, get_mcp_bearer_token, set_mcp_bearer_token
 from server.mcp.django_client import DjangoMCPClient
 
@@ -46,6 +50,103 @@ def _agent_tool_from_payload(agent: dict[str, Any]) -> types.Tool:
     )
 
 
+async def _handle_download_attachment(
+    client: DjangoMCPClient, arguments: dict[str, Any]
+) -> list[types.ContentBlock]:
+    attachment_id = (arguments or {}).get("attachment_id", "").strip()
+    if not attachment_id:
+        raise ValueError("attachment_id is required")
+
+    data, mime_type, filename = await client.download_attachment(attachment_id)
+    return attachment_bytes_to_content_blocks(
+        attachment_id=attachment_id,
+        data=data,
+        mime_type=mime_type,
+        filename=filename,
+    )
+
+
+async def _handle_agent_tool(
+    app: Server,
+    client: DjangoMCPClient,
+    name: str,
+    arguments: dict[str, Any],
+) -> list[types.ContentBlock]:
+    message = (arguments or {}).get("message", "").strip()
+    if not message:
+        raise ValueError("message is required")
+
+    conversation_id = (arguments or {}).get("conversation_id")
+    agents = await client.list_agents()
+    agent = next((a for a in agents if a.get("tool_name") == name), None)
+    if not agent:
+        raise ValueError(f"Unknown tool: {name}")
+
+    run_resp = await client.run_agent(
+        agent_slug=agent["slug"],
+        message=message,
+        conversation_id=conversation_id,
+    )
+
+    if run_resp.get("takeover"):
+        return [
+            types.TextContent(
+                type="text",
+                text="Message accepted during human takeover; agent was skipped.",
+            )
+        ]
+
+    task_id = run_resp.get("task_id")
+    if not task_id:
+        raise ValueError("Agent task was not started")
+
+    ctx = app.request_context
+    elapsed = 0.0
+    while elapsed < MCP_POLL_TIMEOUT_SEC:
+        result = await client.get_task_result(task_id)
+        status = result.get("status")
+
+        if status == "pending":
+            if ctx and ctx.session:
+                await ctx.session.send_log_message(
+                    level="info",
+                    data=f"Agent still running ({int(elapsed)}s)…",
+                    logger="masscer-mcp",
+                    related_request_id=ctx.request_id,
+                )
+            await anyio.sleep(MCP_POLL_INTERVAL_SEC)
+            elapsed += MCP_POLL_INTERVAL_SEC
+            continue
+
+        if status == "failed":
+            err = result.get("error", "Agent task failed")
+            raise RuntimeError(err)
+
+        output = result.get("output", "")
+        conv_id = result.get("conversation_id") or run_resp.get("conversation_id")
+        payload = {
+            "answer": output,
+            "conversation_id": conv_id,
+            "message_id": result.get("message_id"),
+            "task_id": task_id,
+            "attachments": result.get("attachments") or [],
+            "download_hint": (
+                "Open attachments[].download_url (signed, expires in ~1 hour) "
+                "or call download_attachment with attachments[].attachment_id."
+            ),
+        }
+        return [
+            types.TextContent(
+                type="text",
+                text=json.dumps(payload, ensure_ascii=False, indent=2),
+            )
+        ]
+
+    raise TimeoutError(
+        f"Agent task timed out after {int(MCP_POLL_TIMEOUT_SEC)} seconds"
+    )
+
+
 def create_mcp_server() -> Server:
     app = Server("masscer-agents")
 
@@ -63,7 +164,7 @@ def create_mcp_server() -> Server:
                 raise ValueError("Invalid or revoked MCP credential") from exc
             raise
 
-        return [_agent_tool_from_payload(a) for a in agents]
+        return [download_attachment_tool(), *[_agent_tool_from_payload(a) for a in agents]]
 
     @app.call_tool()
     async def call_tool(name: str, arguments: dict[str, Any]) -> list[types.ContentBlock]:
@@ -71,77 +172,10 @@ def create_mcp_server() -> Server:
         if not token:
             raise ValueError("Authorization Bearer token required")
 
-        message = (arguments or {}).get("message", "").strip()
-        if not message:
-            raise ValueError("message is required")
-
-        conversation_id = (arguments or {}).get("conversation_id")
         client = DjangoMCPClient(token)
-
-        agents = await client.list_agents()
-        agent = next((a for a in agents if a.get("tool_name") == name), None)
-        if not agent:
-            raise ValueError(f"Unknown tool: {name}")
-
-        run_resp = await client.run_agent(
-            agent_slug=agent["slug"],
-            message=message,
-            conversation_id=conversation_id,
-        )
-
-        if run_resp.get("takeover"):
-            return [
-                types.TextContent(
-                    type="text",
-                    text="Message accepted during human takeover; agent was skipped.",
-                )
-            ]
-
-        task_id = run_resp.get("task_id")
-        if not task_id:
-            raise ValueError("Agent task was not started")
-
-        ctx = app.request_context
-        elapsed = 0.0
-        while elapsed < MCP_POLL_TIMEOUT_SEC:
-            result = await client.get_task_result(task_id)
-            status = result.get("status")
-
-            if status == "pending":
-                if ctx and ctx.session:
-                    await ctx.session.send_log_message(
-                        level="info",
-                        data=f"Agent still running ({int(elapsed)}s)…",
-                        logger="masscer-mcp",
-                        related_request_id=ctx.request_id,
-                    )
-                await anyio.sleep(MCP_POLL_INTERVAL_SEC)
-                elapsed += MCP_POLL_INTERVAL_SEC
-                continue
-
-            if status == "failed":
-                err = result.get("error", "Agent task failed")
-                raise RuntimeError(err)
-
-            output = result.get("output", "")
-            conv_id = result.get("conversation_id") or run_resp.get("conversation_id")
-            payload = {
-                "answer": output,
-                "conversation_id": conv_id,
-                "message_id": result.get("message_id"),
-                "task_id": task_id,
-                "attachments": result.get("attachments") or [],
-            }
-            return [
-                types.TextContent(
-                    type="text",
-                    text=json.dumps(payload, ensure_ascii=False, indent=2),
-                )
-            ]
-
-        raise TimeoutError(
-            f"Agent task timed out after {int(MCP_POLL_TIMEOUT_SEC)} seconds"
-        )
+        if name == DOWNLOAD_ATTACHMENT_TOOL:
+            return await _handle_download_attachment(client, arguments or {})
+        return await _handle_agent_tool(app, client, name, arguments or {})
 
     return app
 

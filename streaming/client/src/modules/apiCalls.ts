@@ -1978,6 +1978,8 @@ export type TMCPCredentialSummary = {
   allowed_agent_slugs: string[];
   allowed_tool_names: string[];
   key_prefix: string | null;
+  /** True when this credential was granted via OAuth (Claude/ChatGPT), not a manual API key. */
+  auth_via_oauth?: boolean;
 };
 
 export type TMCPCredentialCreated = {
@@ -2086,6 +2088,88 @@ export const getMCPConnectionConfig = async (credentialId: string) => {
     mcp_config_json: string;
     claude_instructions: string;
   }>("GET", `/v1/ai_layers/mcp/connection-config/?credential_id=${credentialId}`);
+};
+
+export type TOAuthAuthorizeRequest = {
+  id: string;
+  client_name: string;
+  client_id: string;
+  scope: string;
+  resource: string;
+  redirect_uri: string;
+  state: string;
+  agents: Array<{ slug: string; name: string }>;
+  tool_presets: Array<{ group: string; items: string[] }>;
+};
+
+export const getOAuthAuthorizeRequest = async (requestId: string) => {
+  return makeAuthenticatedRequest<TOAuthAuthorizeRequest>(
+    "GET",
+    `/v1/mcp_oauth/authorize-request/${requestId}/`
+  );
+};
+
+export const approveOAuthAuthorizeRequest = async (
+  requestId: string,
+  payload: {
+    credential_name?: string;
+    allowed_agent_slugs?: string[];
+    allowed_tool_names?: string[];
+  }
+) => {
+  return makeAuthenticatedRequest<{ redirect_url: string }>(
+    "POST",
+    `/v1/mcp_oauth/authorize-request/${requestId}/approve/`,
+    payload
+  );
+};
+
+export const denyOAuthAuthorizeRequest = async (requestId: string) => {
+  return makeAuthenticatedRequest<{ redirect_url: string }>(
+    "POST",
+    `/v1/mcp_oauth/authorize-request/${requestId}/deny/`,
+    {}
+  );
+};
+
+export type TOAuthClientSummary = {
+  id: string;
+  client_id: string;
+  client_name: string;
+  redirect_uris: string[];
+  token_endpoint_auth_method: string;
+  created_at: string;
+};
+
+export type TOAuthClientCreated = TOAuthClientSummary & {
+  client_secret?: string;
+  mcp_url?: string;
+};
+
+export const listOAuthClients = async () => {
+  return makeAuthenticatedRequest<{ mcp_url: string; clients: TOAuthClientSummary[] }>(
+    "GET",
+    "/v1/mcp_oauth/clients/"
+  );
+};
+
+export const createOAuthClient = async (payload: {
+  client_name: string;
+  redirect_uris: string[];
+  confidential?: boolean;
+}) => {
+  return makeAuthenticatedRequest<TOAuthClientCreated>(
+    "POST",
+    "/v1/mcp_oauth/clients/",
+    payload
+  );
+};
+
+export const revokeOAuthClient = async (clientId: string) => {
+  return makeAuthenticatedRequest<{ status: string; id: string }>(
+    "DELETE",
+    `/v1/mcp_oauth/clients/${clientId}/`
+  );
 };
 
 export const getAssignments = async (params?: {

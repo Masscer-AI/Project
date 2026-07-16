@@ -10,6 +10,8 @@ from contextlib import asynccontextmanager
 from server.routes import router
 from server.socket import sio
 from server.mcp.server import handle_streamable_http, mcp_lifespan
+from server.mcp.resource_auth import wrap_mcp_app
+from server.mcp.oauth_metadata import router as oauth_metadata_router
 import socketio
 import asyncio
 
@@ -21,7 +23,10 @@ async def lifespan(app: FastAPI):
         yield
 
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(lifespan=lifespan, redirect_slashes=False)
+
+# OAuth discovery (before MCP mount)
+app.include_router(oauth_metadata_router)
 
 # CORS origins from environment variable
 origins = os.getenv("CORS_ORIGINS", "*").split(",")
@@ -35,8 +40,28 @@ app.add_middleware(
     expose_headers=["Mcp-Session-Id"],
 )
 
+
+class _McpNoRedirectSlashMiddleware:
+    """Rewrite /mcp → /mcp/ in-process so clients posting to the resource URL
+    (no trailing slash) keep Authorization headers. Starlette Mount would
+    otherwise 307-redirect and many clients drop the Bearer token."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope.get("type") == "http" and scope.get("path") == "/mcp":
+            scope = dict(scope)
+            scope["path"] = "/mcp/"
+            if scope.get("raw_path") == b"/mcp":
+                scope["raw_path"] = b"/mcp/"
+        await self.app(scope, receive, send)
+
+
 # MCP Streamable HTTP — mount before SPA catch-all routes
-app.mount("/mcp", handle_streamable_http)
+app.mount("/mcp", wrap_mcp_app(handle_streamable_http))
+# Outermost (added last): normalize /mcp before Starlette Mount redirect.
+app.add_middleware(_McpNoRedirectSlashMiddleware)
 
 sio_asgi_app = socketio.ASGIApp(socketio_server=sio, other_asgi_app=app)
 
