@@ -54,6 +54,39 @@ def check_models_for_providers():
                 }
             },
         },
+        {
+            "name": "GPT-5.6 Sol",
+            "slug": "gpt-5.6-sol",
+            "is_reasoning_model": True,
+            "pricing": {
+                "text": {
+                    "prompt": "5.00 USD / 1000000",
+                    "output": "30.00 USD / 1000000",
+                }
+            },
+        },
+        {
+            "name": "GPT-5.6 Terra",
+            "slug": "gpt-5.6-terra",
+            "is_reasoning_model": True,
+            "pricing": {
+                "text": {
+                    "prompt": "2.50 USD / 1000000",
+                    "output": "15.00 USD / 1000000",
+                }
+            },
+        },
+        {
+            "name": "GPT-5.6 Luna",
+            "slug": "gpt-5.6-luna",
+            "is_reasoning_model": True,
+            "pricing": {
+                "text": {
+                    "prompt": "1.00 USD / 1000000",
+                    "output": "6.00 USD / 1000000",
+                }
+            },
+        },
 
         {
             "name": "GPT-5.4 Nano",
