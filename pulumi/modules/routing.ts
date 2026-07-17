@@ -140,13 +140,34 @@ export function createRouting(args: {
       tags: args.tags,
     });
 
+    // ALB max 5 condition values total: 2 hosts + 3 paths here.
     new aws.lb.ListenerRule("app-django-oauth-path-rule", {
       listenerArn: httpsListener.arn,
       priority: 22,
       actions: [{ type: "forward", targetGroupArn: djangoTargetGroup.arn }],
       conditions: [
         { hostHeader: { values: appHostValues } },
-        { pathPattern: { values: ["/oauth/authorize", "/oauth/token", "/oauth/register", "/.well-known/oauth-authorization-server"] } },
+        {
+          pathPattern: {
+            values: ["/oauth/authorize", "/oauth/token", "/oauth/register"],
+          },
+        },
+      ],
+      tags: args.tags,
+    });
+
+    // Split well-known AS metadata so host+paths stay within the 5-value limit.
+    new aws.lb.ListenerRule("app-django-oauth-as-metadata-rule", {
+      listenerArn: httpsListener.arn,
+      priority: 23,
+      actions: [{ type: "forward", targetGroupArn: djangoTargetGroup.arn }],
+      conditions: [
+        { hostHeader: { values: appHostValues } },
+        {
+          pathPattern: {
+            values: ["/.well-known/oauth-authorization-server"],
+          },
+        },
       ],
       tags: args.tags,
     });

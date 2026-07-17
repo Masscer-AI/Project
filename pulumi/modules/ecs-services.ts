@@ -111,9 +111,8 @@ export function createAppServices(args: {
     { name: "MCP_POLL_INTERVAL_SEC", value: "2" },
   ];
 
-  const fastapiSecrets = [
-    { name: "INTERNAL_MCP_INTROSPECT_TOKEN", valueFrom: args.providerParameterArns.internalMcpIntrospectTokenArn },
-  ];
+  // FastAPI needs INTERNAL_MCP_INTROSPECT_TOKEN (already in providerSecrets).
+  // Do not append a second secrets list with the same name — ECS rejects duplicates.
 
   const djangoTaskDefinition = new aws.ecs.TaskDefinition("django-task", {
     family: `${config.namePrefix}-django`,
@@ -159,7 +158,7 @@ export function createAppServices(args: {
       portMappings: [{ containerPort: 8001, hostPort: 8001, protocol: "tcp" }],
       command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"],
       environment: fastapiEnv,
-      secrets: [...providerSecrets, ...fastapiSecrets],
+      secrets: providerSecrets,
       logConfiguration: {
         logDriver: "awslogs",
         options: {
