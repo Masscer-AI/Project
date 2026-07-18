@@ -1632,6 +1632,29 @@ def conversation_agent_task(
             ):
                 agent_tool_names.append("generate_excel_file")
 
+            if (
+                not is_embedded_channel
+                and actor_user_id is not None
+                and organization is not None
+            ):
+                _actor_has_email = False
+                try:
+                    _actor_user = DjangoUser.objects.get(pk=actor_user_id)
+                    _actor_has_email = bool((_actor_user.email or "").strip())
+                except DjangoUser.DoesNotExist:
+                    _actor_has_email = False
+                if _actor_has_email:
+                    for _email_tool in (
+                        "send_email",
+                        "list_organization_members",
+                        "list_organization_roles",
+                    ):
+                        if (
+                            _email_tool not in agent_tool_names
+                            and _may_auto_inject_tool(_email_tool)
+                        ):
+                            agent_tool_names.append(_email_tool)
+
             from api.finetuning.context_injection import (
                 format_completions_context_block,
                 get_completions_for_context,

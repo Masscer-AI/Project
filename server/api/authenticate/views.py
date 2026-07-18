@@ -45,6 +45,7 @@ from .models import (
 from django.contrib.auth.models import User
 from django.utils import timezone
 from django.db.models import Q
+from django.db import transaction
 from .services import FeatureFlagService
 from .tasks import generate_organization_logo
 from rest_framework.permissions import AllowAny

@@ -91,11 +91,73 @@ MCP_DOCUMENT_TOOL_NAMES: tuple[str, ...] = (
     "render_document_template",
 )
 
+MCP_EMAIL_TOOL_NAMES: tuple[str, ...] = (
+    "send_email",
+    "list_organization_members",
+    "list_organization_roles",
+)
+
+MCP_CONVERSATION_TOOL_NAMES: tuple[str, ...] = (
+    "raise_alert",
+    "change_conversation_summary",
+    "change_conversation_tags",
+    "get_tag_context",
+    "query_conversation",
+)
+
+MCP_TAGGING_TOOL_NAMES: tuple[str, ...] = (
+    "query_organization_tags",
+    "create_organization_tag",
+)
+
+MCP_TRAINING_TOOL_NAMES: tuple[str, ...] = (
+    "create_completion",
+)
+
+MCP_PLUGIN_TOOL_NAMES: tuple[str, ...] = (
+    "read_plugin_instructions",
+)
+
+MCP_TOOL_PRESET_ORDER: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("basic", MCP_BASIC_TOOL_NAMES),
+    ("media", MCP_MEDIA_TOOL_NAMES),
+    ("documents", MCP_DOCUMENT_TOOL_NAMES),
+    ("email", MCP_EMAIL_TOOL_NAMES),
+    ("conversation", MCP_CONVERSATION_TOOL_NAMES),
+    ("tagging", MCP_TAGGING_TOOL_NAMES),
+    ("training", MCP_TRAINING_TOOL_NAMES),
+    ("plugins", MCP_PLUGIN_TOOL_NAMES),
+)
+
 MCP_TOOL_PRESETS: dict[str, tuple[str, ...]] = {
-    "basic": MCP_BASIC_TOOL_NAMES,
-    "media": MCP_MEDIA_TOOL_NAMES,
-    "documents": MCP_DOCUMENT_TOOL_NAMES,
+    name: tools for name, tools in MCP_TOOL_PRESET_ORDER
 }
+
+
+def mcp_all_tool_names() -> list[str]:
+    from api.ai_layers.tools import list_available_tools
+
+    return list_available_tools()
+
+
+def mcp_tool_preset_groups() -> list[dict[str, list[str]]]:
+    """
+    Grouped tool names for MCP / OAuth UIs.
+
+    Every registered tool appears exactly once. Uncategorized tools land in "other".
+    """
+    available_set = set(mcp_all_tool_names())
+    assigned: set[str] = set()
+    groups: list[dict[str, list[str]]] = []
+    for group_name, tools in MCP_TOOL_PRESET_ORDER:
+        items = [tool for tool in tools if tool in available_set]
+        if items:
+            groups.append({"group": group_name, "items": items})
+            assigned.update(items)
+    remaining = sorted(available_set - assigned)
+    if remaining:
+        groups.append({"group": "other", "items": remaining})
+    return groups
 
 
 def sanitize_mcp_tool_name(agent_slug: str) -> str:

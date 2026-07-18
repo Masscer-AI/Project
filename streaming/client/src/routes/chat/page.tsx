@@ -447,7 +447,7 @@ export default function ChatView() {
         }
       }
 
-      const toolNames = ["read_attachment", "list_attachments", "generate_document_file"];
+      const toolNames = ["read_attachment", "list_attachments", "generate_document_file", "send_email", "list_organization_members", "list_organization_roles"];
       if (chatState.webSearch) toolNames.push("explore_web");
       if (chatState.useRag) toolNames.push("rag_query");
       if (chatState.generateImages) toolNames.push("create_image");
@@ -552,7 +552,7 @@ export default function ChatView() {
       setAgentTaskStatus(t("agent-preparing-request"));
 
       try {
-        const toolNames = ["read_attachment", "list_attachments", "generate_document_file"];
+        const toolNames = ["read_attachment", "list_attachments", "generate_document_file", "send_email", "list_organization_members", "list_organization_roles"];
         if (chatState.webSearch) toolNames.push("explore_web");
         if (chatState.useRag) toolNames.push("rag_query");
         if (chatState.generateImages) toolNames.push("create_image");

@@ -1,7 +1,12 @@
 import os
-from typing import Iterable
+from typing import Iterable, TypedDict
 
 import requests
+
+
+class EmailAttachment(TypedDict):
+    filename: str
+    content: str
 
 
 class EmailService:
@@ -24,6 +29,7 @@ class EmailService:
         subject: str,
         from_email: str | None = None,
         from_name: str | None = None,
+        attachments: list[EmailAttachment] | None = None,
     ) -> dict:
         """
         Send an email with Resend.
@@ -32,8 +38,9 @@ class EmailService:
             to: recipient email or iterable of recipients.
             html: html body content.
             subject: email subject.
-            from_email: sender email (defaults to no-reply@appcot.masscer.ai).
+            from_email: sender email (defaults to no-reply@mail.masscer.ai).
             from_name: optional sender display name, e.g. "Masscer".
+            attachments: optional list of {filename, content} with base64 content.
         """
         recipients = [to] if isinstance(to, str) else list(to)
         if not recipients:
@@ -46,12 +53,15 @@ class EmailService:
         sender_email = from_email or self.DEFAULT_FROM_EMAIL
         sender = f"{from_name} <{sender_email}>" if from_name else sender_email
 
-        payload = {
+        payload: dict = {
             "from": sender,
             "to": recipients,
             "subject": subject,
             "html": html,
         }
+        if attachments:
+            payload["attachments"] = attachments
+
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",

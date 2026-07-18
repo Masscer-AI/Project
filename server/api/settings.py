@@ -335,4 +335,7 @@ WHATSAPP_GRAPH_API_TOKEN = os.environ.get("WHATSAPP_GRAPH_API_TOKEN", "").strip(
 WHATSAPP_WEBHOOK_VERIFY_TOKEN = os.environ.get("WHATSAPP_WEBHOOK_VERIFY_TOKEN", "").strip()
 WHATSAPP_APP_SECRET = os.environ.get("WHATSAPP_APP_SECRET", "").strip()
 
+# Resend outbound email domain (verified in Resend dashboard).
+RESEND_FROM_DOMAIN = os.environ.get("RESEND_FROM_DOMAIN", "mail.masscer.ai").strip()
+
 # CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"

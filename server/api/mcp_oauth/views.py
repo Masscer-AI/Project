@@ -280,17 +280,9 @@ def authorize_request_detail(request, request_id):
         {"slug": a.slug, "name": a.name}
         for a in _conversational_agents(request.user)
     ]
-    from api.ai_layers.mcp_access import (
-        MCP_BASIC_TOOL_NAMES,
-        MCP_DOCUMENT_TOOL_NAMES,
-        MCP_MEDIA_TOOL_NAMES,
-    )
+    from api.ai_layers.mcp_access import mcp_tool_preset_groups
 
-    tool_presets = [
-        {"group": "basic", "items": list(MCP_BASIC_TOOL_NAMES)},
-        {"group": "media", "items": list(MCP_MEDIA_TOOL_NAMES)},
-        {"group": "documents", "items": list(MCP_DOCUMENT_TOOL_NAMES)},
-    ]
+    tool_presets = mcp_tool_preset_groups()
     return JsonResponse(
         {
             "id": str(auth_req.id),

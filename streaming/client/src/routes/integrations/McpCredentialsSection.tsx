@@ -26,18 +26,16 @@ import {
 import {
   createMCPCredential,
   getMCPConnectionConfig,
+  getMCPToolPresets,
   listMCPCredentials,
-  MCP_TOOL_PRESET_GROUPS,
   revokeMCPCredential,
   TMCPCredentialCreated,
   TMCPCredentialSummary,
+  TMCPToolPresetGroup,
 } from "../../modules/apiCalls";
 import { useStore } from "../../modules/store";
 import { useLocalizedToolName } from "../../utils/localizedToolName";
-
-const ALL_TOOL_VALUES = MCP_TOOL_PRESET_GROUPS.flatMap((g) =>
-  g.items.map((item) => item.value)
-);
+import { mcpToolGroupLabel } from "../../utils/mcpToolGroupLabel";
 
 type McpCredentialsSectionProps = {
   /** "list" = active connections. "create-advanced" = manual API-key create for Advanced settings. */
@@ -66,6 +64,8 @@ export const McpCredentialsSection = ({
   const [selectedToolNames, setSelectedToolNames] = useState<string[]>([]);
   const [created, setCreated] = useState<TMCPCredentialCreated | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [toolPresetGroups, setToolPresetGroups] = useState<TMCPToolPresetGroup[]>([]);
+  const [allToolNames, setAllToolNames] = useState<string[]>([]);
 
   const conversationalAgents = useMemo(
     () =>
@@ -91,21 +91,26 @@ export const McpCredentialsSection = ({
 
   const toolOptions = useMemo(
     () =>
-      MCP_TOOL_PRESET_GROUPS.map((group) => ({
-        group: t(
-          group.group === "Basic"
-            ? "integrations-mcp-tools-basic"
-            : group.group === "Media"
-              ? "integrations-mcp-tools-media"
-              : "integrations-mcp-tools-documents"
-        ),
-        items: group.items.map((item) => ({
-          value: item.value,
-          label: localizedToolName(item.value),
+      toolPresetGroups.map((group) => ({
+        group: mcpToolGroupLabel(group.group, t),
+        items: group.items.map((tool) => ({
+          value: tool,
+          label: localizedToolName(tool),
         })),
       })),
-    [t, localizedToolName]
+    [toolPresetGroups, t, localizedToolName]
   );
+
+  const loadToolPresets = useCallback(async () => {
+    try {
+      const res = await getMCPToolPresets();
+      setToolPresetGroups(res.groups ?? []);
+      setAllToolNames(res.all_tools ?? []);
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { error?: string } } };
+      toast.error(err?.response?.data?.error || t("an-error-occurred"));
+    }
+  }, [t]);
 
   const loadCredentials = useCallback(async () => {
     setLoading(true);
@@ -121,13 +126,14 @@ export const McpCredentialsSection = ({
   }, [t]);
 
   useEffect(() => {
+    void loadToolPresets();
     if (variant === "list") {
       void loadCredentials();
     }
     if (agents.length === 0) {
       void fetchAgents();
     }
-  }, [loadCredentials, fetchAgents, agents.length, variant]);
+  }, [loadToolPresets, loadCredentials, fetchAgents, agents.length, variant]);
 
   const resetCreateForm = () => {
     setCredentialName("");
@@ -346,7 +352,7 @@ export const McpCredentialsSection = ({
                   <Button
                     size="xs"
                     variant="subtle"
-                    onClick={() => setSelectedToolNames([...ALL_TOOL_VALUES])}
+                    onClick={() => setSelectedToolNames([...allToolNames])}
                   >
                     {t("select-all")}
                   </Button>

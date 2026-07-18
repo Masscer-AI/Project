@@ -20,6 +20,7 @@ import {
 } from "../../../modules/apiCalls";
 import { loginUrlWithNext } from "../../../utils/loginRedirect";
 import { useLocalizedToolName } from "../../../utils/localizedToolName";
+import { mcpToolGroupLabel } from "../../../utils/mcpToolGroupLabel";
 
 export default function OAuthConsentPage() {
   const { t } = useTranslation();
@@ -43,13 +44,13 @@ export default function OAuthConsentPage() {
   const toolOptions = useMemo(() => {
     if (!detail?.tool_presets?.length) return [];
     return detail.tool_presets.map((preset) => ({
-      group: preset.group,
+      group: mcpToolGroupLabel(preset.group, t),
       items: (preset.items ?? []).map((tool) => ({
         value: tool,
         label: localizedToolName(tool),
       })),
     }));
-  }, [detail, localizedToolName]);
+  }, [detail, localizedToolName, t]);
 
   const agentOptions = useMemo(
     () =>

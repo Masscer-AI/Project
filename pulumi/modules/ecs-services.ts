@@ -81,6 +81,7 @@ export function createAppServices(args: {
     { name: "ALLOWED_EXTRA_HOSTS", value: djangoAllowedHosts },
     { name: "AWS_STORAGE_BUCKET_NAME", value: args.mediaBucket.bucket },
     { name: "AWS_S3_REGION_NAME", value: args.region.name },
+    { name: "RESEND_FROM_DOMAIN", value: "mail.masscer.ai" },
   ];
 
   const providerSecrets = [

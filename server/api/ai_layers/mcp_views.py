@@ -304,11 +304,15 @@ def mcp_tool_presets(request):
     if denied:
         return denied
 
+    from api.ai_layers.mcp_access import mcp_all_tool_names, mcp_tool_preset_groups
+
     return JsonResponse(
         {
             "presets": {
                 name: list(tools) for name, tools in MCP_TOOL_PRESETS.items()
             },
+            "groups": mcp_tool_preset_groups(),
+            "all_tools": mcp_all_tool_names(),
         }
     )
 

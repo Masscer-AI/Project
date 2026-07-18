@@ -3,7 +3,10 @@ from unittest.mock import Mock, patch
 
 from django.contrib.auth.models import User
 from django.test import SimpleTestCase, TestCase, override_settings
+from django.utils import timezone
 from rest_framework.test import APIClient
+
+from api.authenticate.models import Organization
 
 
 class MasscerHelpCatalogTests(SimpleTestCase):
@@ -474,6 +477,295 @@ class GenerateExcelFileToolTests(SimpleTestCase):
         from api.ai_layers.tools import list_available_tools
 
         self.assertIn("generate_excel_file", list_available_tools())
+
+
+class SendEmailToolTests(SimpleTestCase):
+    def test_agent_from_local_part_truncates_and_sanitizes(self):
+        from api.ai_layers.tools.send_email import _agent_from_local_part
+
+        self.assertEqual(
+            _agent_from_local_part("my-sales-agent-abc123def456"),
+            "my-sales-agent-abc123def4",
+        )
+        self.assertEqual(_agent_from_local_part(""), "agent")
+        self.assertEqual(_agent_from_local_part("!!!"), "agent")
+
+    def test_get_tool_requires_organization_id(self):
+        from api.ai_layers.tools.send_email import get_tool
+
+        with patch("django.contrib.auth.models.User") as mock_user_cls:
+            mock_user_cls.objects.get.return_value = Mock(email="user@example.com")
+            with self.assertRaises(ValueError) as ctx:
+                get_tool(
+                    conversation_id="conv-1",
+                    user_id=1,
+                    agent_slug="agent-1",
+                )
+        self.assertIn("organization_id", str(ctx.exception).lower())
+
+    def test_get_tool_requires_user_email(self):
+        from api.ai_layers.tools.send_email import get_tool
+
+        with patch("django.contrib.auth.models.User") as mock_user_cls:
+            mock_user_cls.objects.get.return_value = Mock(email="")
+            with self.assertRaises(ValueError) as ctx:
+                get_tool(
+                    conversation_id="conv-1",
+                    user_id=1,
+                    agent_slug="agent-1",
+                    organization_id=1,
+                )
+        self.assertIn("email", str(ctx.exception).lower())
+
+    @patch("api.ai_layers.tools.send_email.EmailService")
+    @patch("api.ai_layers.tools.send_email.resolve_email_recipients")
+    @patch("api.ai_layers.tools.send_email.Organization")
+    @patch("api.ai_layers.models.Agent")
+    @override_settings(RESEND_FROM_DOMAIN="mail.example.com")
+    def test_impl_sends_email_with_agent_from_and_attachments(
+        self,
+        mock_agent_cls,
+        mock_org_cls,
+        mock_resolve,
+        mock_email_service_cls,
+    ):
+        from api.ai_layers.tools.send_email import EmailRecipient, _send_email_impl
+
+        mock_org_cls.objects.filter.return_value.first.return_value = Mock(id=1)
+        agent = Mock()
+        agent.name = "Sales Bot"
+        agent.slug = "my-sales-agent-abc123def456"
+        mock_agent_cls.objects.filter.return_value.first.return_value = agent
+        mock_resolve.return_value = (["user@example.com"], 0)
+        email_service = mock_email_service_cls.return_value
+
+        with patch("api.ai_layers.tools.send_email._load_email_attachment") as mock_load:
+            mock_load.return_value = {
+                "filename": "report.docx",
+                "content": "YmFzZTY0",
+            }
+            result = _send_email_impl(
+                subject="Your report",
+                html="<p>Report</p>",
+                recipients=[EmailRecipient(type="user", identifier=1)],
+                attachment_ids=["att-1"],
+                conversation_id="conv-1",
+                user_id=1,
+                agent_slug="my-sales-agent-abc123def456",
+                organization_id=1,
+            )
+
+        self.assertTrue(result.sent)
+        self.assertEqual(result.recipient_count, 1)
+        self.assertEqual(result.attachment_count, 1)
+        email_service.send_email.assert_called_once_with(
+            to=["user@example.com"],
+            html="<p>Report</p>",
+            subject="Your report",
+            from_email="my-sales-agent-abc123def4@mail.example.com",
+            from_name="Sales Bot",
+            attachments=[{"filename": "report.docx", "content": "YmFzZTY0"}],
+        )
+
+    @patch("api.ai_layers.tools.send_email.EmailService")
+    @patch("api.ai_layers.tools.send_email.resolve_email_recipients")
+    @patch("api.ai_layers.tools.send_email.Organization")
+    @patch("api.ai_layers.models.Agent")
+    def test_impl_batches_recipients_over_fifty(
+        self,
+        mock_agent_cls,
+        mock_org_cls,
+        mock_resolve,
+        mock_email_service_cls,
+    ):
+        from api.ai_layers.tools.send_email import EmailRecipient, _send_email_impl
+
+        mock_org_cls.objects.filter.return_value.first.return_value = Mock(id=1)
+        mock_agent_cls.objects.filter.return_value.first.return_value = Mock(
+            name="Bot",
+            slug="bot",
+        )
+        emails = [f"user{i}@example.com" for i in range(55)]
+        mock_resolve.return_value = (emails, 0)
+        email_service = mock_email_service_cls.return_value
+
+        result = _send_email_impl(
+            subject="Bulk",
+            html="<p>Hi</p>",
+            recipients=[EmailRecipient(type="organization")],
+            attachment_ids=[],
+            conversation_id="conv-1",
+            user_id=1,
+            agent_slug="bot",
+            organization_id=1,
+        )
+
+        self.assertEqual(result.recipient_count, 55)
+        self.assertEqual(email_service.send_email.call_count, 2)
+        first_batch = email_service.send_email.call_args_list[0].kwargs["to"]
+        second_batch = email_service.send_email.call_args_list[1].kwargs["to"]
+        self.assertEqual(len(first_batch), 50)
+        self.assertEqual(len(second_batch), 5)
+
+    def test_load_email_attachment_rejects_other_conversation(self):
+        from api.ai_layers.tools.send_email import _load_email_attachment
+
+        att = Mock()
+        att.conversation_id = "other-conv"
+        att.user_id = None
+        att.kind = "file"
+        att.file = Mock()
+        att.metadata = {}
+
+        with patch("api.messaging.models.MessageAttachment") as mock_attachment_cls:
+            mock_attachment_cls.objects.get.return_value = att
+            with self.assertRaises(ValueError) as ctx:
+                _load_email_attachment(
+                    "att-1",
+                    conversation_id="conv-1",
+                    user_id=1,
+                )
+        self.assertIn("does not belong", str(ctx.exception))
+
+    def test_send_email_tools_are_registered(self):
+        from api.ai_layers.tools import list_available_tools
+
+        names = list_available_tools()
+        self.assertIn("send_email", names)
+        self.assertIn("list_organization_members", names)
+        self.assertIn("list_organization_roles", names)
+        self.assertNotIn("send_email_to_user", names)
+
+
+class OrgMembershipHelpersTests(TestCase):
+    def setUp(self):
+        from api.authenticate.models import Role, RoleAssignment, UserProfile
+
+        self.owner = User.objects.create_user(
+            username="owner",
+            email="owner@example.com",
+            password="x",
+        )
+        self.member = User.objects.create_user(
+            username="member",
+            email="member@example.com",
+            password="x",
+        )
+        self.role_user = User.objects.create_user(
+            username="roleuser",
+            email="roleuser@example.com",
+            password="x",
+        )
+        self.no_email_user = User.objects.create_user(
+            username="noemail",
+            email="",
+            password="x",
+        )
+        self.org = Organization.objects.create(name="Acme", owner=self.owner)
+        UserProfile.objects.create(
+            user=self.member,
+            organization=self.org,
+            is_active=True,
+            name="Member One",
+        )
+        self.role = Role.objects.create(
+            organization=self.org,
+            name="Managers",
+            enabled=True,
+        )
+        RoleAssignment.objects.create(
+            user=self.role_user,
+            organization=self.org,
+            role=self.role,
+            from_date=timezone.now().date(),
+        )
+        RoleAssignment.objects.create(
+            user=self.no_email_user,
+            organization=self.org,
+            role=self.role,
+            from_date=timezone.now().date(),
+        )
+
+    def test_iter_organization_member_users_includes_owner_profile_and_role_users(self):
+        from api.authenticate.org_membership import iter_organization_member_users
+
+        ids = {u.id for u in iter_organization_member_users(self.org)}
+        self.assertEqual(
+            ids,
+            {self.owner.id, self.member.id, self.role_user.id, self.no_email_user.id},
+        )
+
+    def test_resolve_email_recipients_dedupes_and_skips_no_email(self):
+        from api.ai_layers.tools.send_email import EmailRecipient, resolve_email_recipients
+
+        emails, skipped = resolve_email_recipients(
+            [
+                EmailRecipient(type="organization"),
+                EmailRecipient(type="user", identifier=self.member.id),
+            ],
+            self.org,
+        )
+        self.assertEqual(skipped, 1)
+        self.assertEqual(
+            set(emails),
+            {
+                "owner@example.com",
+                "member@example.com",
+                "roleuser@example.com",
+            },
+        )
+
+    def test_resolve_email_recipients_accepts_dict_entries(self):
+        from api.ai_layers.tools.send_email import resolve_email_recipients
+
+        emails, skipped = resolve_email_recipients(
+            [{"type": "organization"}],
+            self.org,
+        )
+        self.assertEqual(skipped, 1)
+        self.assertEqual(
+            set(emails),
+            {
+                "owner@example.com",
+                "member@example.com",
+                "roleuser@example.com",
+            },
+        )
+
+    def test_resolve_email_recipients_rejects_outside_user(self):
+        from api.ai_layers.tools.send_email import EmailRecipient, resolve_email_recipients
+
+        outsider = User.objects.create_user(
+            username="outsider",
+            email="outsider@example.com",
+            password="x",
+        )
+        with self.assertRaises(ValueError) as ctx:
+            resolve_email_recipients(
+                [EmailRecipient(type="user", identifier=outsider.id)],
+                self.org,
+            )
+        self.assertIn("not a member", str(ctx.exception).lower())
+
+    def test_list_organization_members_marks_current_user(self):
+        from api.ai_layers.tools.list_organization_members import (
+            _list_organization_members_impl,
+        )
+
+        result = _list_organization_members_impl(self.org.id, self.member.id)
+        current = [m for m in result.members if m.is_current_user]
+        self.assertEqual(len(current), 1)
+        self.assertEqual(current[0].user_id, self.member.id)
+
+    def test_list_organization_roles_counts_active_members(self):
+        from api.ai_layers.tools.list_organization_roles import (
+            _list_organization_roles_impl,
+        )
+
+        result = _list_organization_roles_impl(self.org.id)
+        role = next(r for r in result.roles if r.name == "Managers")
+        self.assertEqual(role.active_member_count, 2)
+        self.assertIn(self.role_user.id, role.member_user_ids)
 
 
 class AgentTaskConversationMetadataTests(TestCase):
@@ -1030,6 +1322,17 @@ class MCPAccessTests(SimpleTestCase):
         names, err = normalize_mcp_tool_names(["not_a_real_tool"])
         self.assertIsNone(names)
         self.assertIn("Unknown tool", err)
+
+    def test_mcp_tool_preset_groups_cover_all_registered_tools(self):
+        from api.ai_layers.mcp_access import mcp_all_tool_names, mcp_tool_preset_groups
+        from api.ai_layers.tools import list_available_tools
+
+        all_tools = set(list_available_tools())
+        grouped = {tool for group in mcp_tool_preset_groups() for tool in group["items"]}
+        self.assertEqual(grouped, all_tools)
+        self.assertEqual(mcp_all_tool_names(), sorted(all_tools))
+        self.assertIn("send_email", all_tools)
+        self.assertIn("list_organization_members", all_tools)
 
     @override_settings(FRONTEND_URL="")
     def test_serialize_attachments_for_mcp_strips_internal_fields(self):
