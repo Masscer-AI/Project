@@ -22,6 +22,7 @@ from api.integrations.providers import IntegrationProviderError
 from api.integrations.services import (
     get_user_organization,
     parse_owner_type,
+    reject_user_only_provider_org_owner,
     user_can_manage_integrations,
 )
 
@@ -29,6 +30,10 @@ logger = logging.getLogger(__name__)
 
 
 def _require_calendar_access(request, owner_type: str):
+    try:
+        reject_user_only_provider_org_owner("google_calendar", owner_type)
+    except ValueError as exc:
+        return JsonResponse({"error": str(exc)}, status=400)
     org = get_user_organization(request.user)
     if not user_can_manage_integrations(request.user, org):
         return JsonResponse(

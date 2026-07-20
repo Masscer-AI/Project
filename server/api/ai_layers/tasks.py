@@ -44,7 +44,11 @@ def async_generate_agent_profile_picture(agent_id: int):
     return result
 
 
-def _agent_clock_context(client_datetime: dict | None) -> str:
+def _agent_clock_context(
+    client_datetime: dict | None,
+    *,
+    organization_id: int | None = None,
+) -> str:
     """
     Text appended to agent instructions so the model can resolve relative times
     ("in 2 hours", "tomorrow") against the user's device clock when provided.
@@ -74,12 +78,23 @@ def _agent_clock_context(client_datetime: dict | None) -> str:
                 "Interpret relative dates and times (e.g. 'in 2 hours', 'tomorrow', 'next Monday') "
                 "using the user's local clock and timezone above."
             )
+            if organization_id is not None:
+                from api.ai_layers.tools.calendar_tool_helpers import (
+                    format_org_timezone_clock_line,
+                )
+
+                parts.append(format_org_timezone_clock_line(organization_id))
             return "\n".join(parts)
     server = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    return (
-        f"The current date and time (server) is {server}.\n"
-        "No client clock was provided; use this for relative time if needed, or ask the user to clarify their timezone."
-    )
+    lines = [
+        f"The current date and time (server) is {server}.",
+        "No client clock was provided; use this for relative time if needed, or ask the user to clarify their timezone.",
+    ]
+    if organization_id is not None:
+        from api.ai_layers.tools.calendar_tool_helpers import format_org_timezone_clock_line
+
+        lines.append(format_org_timezone_clock_line(organization_id))
+    return "\n".join(lines)
 
 
 def _conversation_tags_instruction_block(conversation, organization_id: int) -> str:
@@ -1202,8 +1217,6 @@ def conversation_agent_task(
         # Pre-compute context shared across all agent iterations
         from api.authenticate.models import UserProfile
 
-        clock_context = _agent_clock_context(client_datetime)
-
         user_profile_text = ""
         if actor_user_id:
             try:
@@ -1253,6 +1266,11 @@ def conversation_agent_task(
             "conversation_agent_task: has_organization_conversations_access=%s org_id=%s",
             has_organization_conversations_access,
             getattr(_flag_org, "id", None),
+        )
+
+        clock_context = _agent_clock_context(
+            client_datetime,
+            organization_id=getattr(_flag_org, "id", None),
         )
 
         for index, agent in enumerate(agents_ordered):
@@ -1392,6 +1410,21 @@ def conversation_agent_task(
                     organization = getattr(widget_agent, "organization", None)
 
             agent_tool_names = list(tool_names or [])
+            from api.ai_layers.tools.calendar_tool_helpers import CALENDAR_AGENT_TOOL_NAMES
+            from api.integrations.services import user_has_personal_google_calendar
+
+            _has_personal_calendar = user_has_personal_google_calendar(actor_user_id)
+            agent_tool_names = [
+                t for t in agent_tool_names if t not in CALENDAR_AGENT_TOOL_NAMES
+            ]
+            if (
+                _has_personal_calendar
+                and not is_embedded_channel
+                and actor_user_id is not None
+            ):
+                for _cal_tool in CALENDAR_AGENT_TOOL_NAMES:
+                    if _cal_tool not in agent_tool_names and _may_auto_inject_tool(_cal_tool):
+                        agent_tool_names.append(_cal_tool)
             if is_whatsapp_chat:
                 from api.whatsapp.capability_tools import WHATSAPP_DISALLOWED_CAPABILITY_TOOLS
 
@@ -1654,6 +1687,15 @@ def conversation_agent_task(
                             and _may_auto_inject_tool(_email_tool)
                         ):
                             agent_tool_names.append(_email_tool)
+
+            if any(t in agent_tool_names for t in CALENDAR_AGENT_TOOL_NAMES):
+                instructions += (
+                    "\n\nGoogle Calendar is connected for this user. "
+                    "Use list_calendar_events to read schedules (today, this_week, next_week, last_week, day, custom). "
+                    "Use create_calendar_event and update_calendar_event with start/end as YYYY-MM-DDTHH:MM:SS "
+                    "in the organization timezone unless you include an offset. "
+                    "Invite org members using guest_user_ids from list_organization_members (not raw emails)."
+                )
 
             from api.finetuning.context_injection import (
                 format_completions_context_block,

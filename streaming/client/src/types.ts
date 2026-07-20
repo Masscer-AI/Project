@@ -188,6 +188,7 @@ export type TOrganization = {
   id: string;
   name: string;
   description: string;
+  timezone?: string;
   /** Organization owner's Django user id (serialized FK). */
   owner?: number;
   credentials: TOrganizationCredentials;

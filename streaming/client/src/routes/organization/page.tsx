@@ -44,6 +44,10 @@ import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
 import { QRCodeDisplay } from "../../components/QRGenerator/QRGenerator";
 import { useForm } from "@mantine/form";
+import {
+  DEFAULT_ORGANIZATION_TIMEZONE,
+  getOrganizationTimezoneOptions,
+} from "../../utils/organizationTimezones";
 
 import {
   ActionIcon,
@@ -61,6 +65,7 @@ import {
   Loader,
   Modal,
   NativeSelect,
+  Select,
   Stack,
   Switch,
   Tabs,
@@ -356,8 +361,10 @@ export default function OrganizationPage() {
     initialValues: {
       name: "",
       description: "",
+      timezone: DEFAULT_ORGANIZATION_TIMEZONE,
     },
   });
+  const timezoneOptions = React.useMemo(() => getOrganizationTimezoneOptions(), []);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [deleteLogo, setDeleteLogo] = useState(false);
   const [savingOrg, setSavingOrg] = useState(false);
@@ -442,6 +449,7 @@ export default function OrganizationPage() {
       orgForm.setValues({
         name: org.name,
         description: org.description || "",
+        timezone: org.timezone || DEFAULT_ORGANIZATION_TIMEZONE,
       });
       orgForm.resetDirty();
       setLogoFile(null);
@@ -1077,6 +1085,14 @@ export default function OrganizationPage() {
                       minRows={3}
                       {...orgForm.getInputProps("description")}
                     />
+                    <Select
+                      label={t("organization-timezone")}
+                      description={t("organization-timezone-description")}
+                      searchable
+                      nothingFoundMessage={t("no-results")}
+                      data={timezoneOptions}
+                      {...orgForm.getInputProps("timezone")}
+                    />
                     <Group gap="sm">
                       <Button
                         leftSection={<IconDeviceFloppy size={16} />}
@@ -1094,6 +1110,7 @@ export default function OrganizationPage() {
                           orgForm.setValues({
                             name: org.name,
                             description: org.description || "",
+                            timezone: org.timezone || DEFAULT_ORGANIZATION_TIMEZONE,
                           });
                           orgForm.resetDirty();
                           setLogoFile(null);

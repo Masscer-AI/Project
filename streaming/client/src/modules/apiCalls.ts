@@ -1295,6 +1295,7 @@ export const generateVideo = async (data: TGenerateVideoData) => {
 export type TOrganizationData = {
   name: string;
   description: string;
+  timezone?: string;
 };
 
 export type TUpdateOrganizationOptions = {
@@ -1639,6 +1640,9 @@ export const updateOrganization = async (
     const formData = new FormData();
     formData.append("name", data.name ?? "");
     formData.append("description", data.description ?? "");
+    if (data.timezone) {
+      formData.append("timezone", data.timezone);
+    }
     formData.append("delete_logo", shouldDeleteLogo ? "true" : "false");
     
     if (hasLogoFile && options.logoFile) {

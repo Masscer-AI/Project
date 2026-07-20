@@ -35,6 +35,7 @@ from .services import (
     get_user_organization,
     integration_queryset_for_user,
     parse_owner_type,
+    reject_user_only_provider_org_owner,
     resolve_integrations_return_to,
     serialize_integration,
     user_can_manage_integrations,
@@ -110,6 +111,7 @@ def integrations_connect(request, provider: str):
     try:
         provider_key = validate_provider_key(provider)
         owner_type = parse_owner_type(request.GET.get("owner"))
+        reject_user_only_provider_org_owner(provider_key, owner_type)
     except ValueError as exc:
         return JsonResponse({"error": str(exc)}, status=400)
 
@@ -207,6 +209,11 @@ def integrations_callback(request, provider: str):
 
     owner_type = state_data.get("owner_type", "user")
     org = get_user_organization(user)
+
+    try:
+        reject_user_only_provider_org_owner(provider_key, owner_type)
+    except ValueError:
+        return _redirect_after_oauth(state_data, error="organization_owner_not_allowed")
 
     if owner_type == "organization" and org is None:
         return _redirect_after_oauth(state_data, error="no_organization")
@@ -313,6 +320,7 @@ def integrations_disconnect(request, provider: str):
         provider_key = validate_provider_key(provider)
         body = _json_body(request)
         owner_type = parse_owner_type(body.get("owner"))
+        reject_user_only_provider_org_owner(provider_key, owner_type)
     except ValueError as exc:
         return JsonResponse({"error": str(exc)}, status=400)
 

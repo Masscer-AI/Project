@@ -2,6 +2,7 @@ from rest_framework.views import APIView
 import json
 import os
 import logging
+import pytz
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser, JSONParser, FormParser
@@ -874,10 +875,17 @@ class OrganizationView(View):
     def put(self, request, organization_id):
         # Use print statements to ensure logs show in dev server output
         
-        organization = Organization.objects.get(id=organization_id)
-        if organization.owner != request.user:
+        try:
+            organization = Organization.objects.get(id=organization_id)
+        except Organization.DoesNotExist:
             return JsonResponse(
-                {"error": "You are not the owner of this organization"},
+                {"error": "Organization not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if not _can_manage_organization(request.user, organization):
+            return JsonResponse(
+                {"error": "You don't have permission to manage this organization"},
                 status=status.HTTP_403_FORBIDDEN,
             )
         
@@ -945,6 +953,19 @@ class OrganizationView(View):
             organization.name = data['name']
         if 'description' in data:
             organization.description = data.get('description', '')
+        if 'timezone' in data and (is_owner or can_manage):
+            tz_val = (data.get('timezone') or '').strip()
+            if not tz_val:
+                return JsonResponse(
+                    {"error": "timezone cannot be empty"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if tz_val not in pytz.all_timezones:
+                return JsonResponse(
+                    {"error": f"Invalid timezone: {tz_val}"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            organization.timezone = tz_val
         
         # Manejar cambios de logo
         if delete_logo:
@@ -967,7 +988,7 @@ class OrganizationView(View):
             print(f"After setting None: organization.logo = {organization.logo}")
             
             # Guardar con update_fields para asegurar que solo se actualiza el logo
-            organization.save(update_fields=['logo', 'name', 'description', 'updated_at'])
+            organization.save(update_fields=['logo', 'name', 'description', 'timezone', 'updated_at'])
             print(f"After save: organization.logo = {organization.logo}")
             _sync_tenant_favicon(organization)
             

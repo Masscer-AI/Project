@@ -28,6 +28,30 @@ VALID_PROVIDERS: frozenset[str] = frozenset({c.value for c in IntegrationProvide
 INTEGRATIONS_MANAGE_FEATURE_FLAG = "can-manage-integrations"
 INTEGRATIONS_RETURN_PATH_PREFIX = "/integrations"
 
+# google_calendar is personal-only (no organization-owned connection).
+USER_ONLY_INTEGRATION_PROVIDERS: frozenset[str] = frozenset(
+    {IntegrationProviderChoices.GOOGLE_CALENDAR.value}
+)
+
+
+def reject_user_only_provider_org_owner(provider: str, owner_type: str) -> None:
+    if provider in USER_ONLY_INTEGRATION_PROVIDERS and owner_type == "organization":
+        raise ValueError(
+            f"{provider} can only be connected for your personal account, not the organization."
+        )
+
+
+def user_has_personal_google_calendar(user_id: int | None) -> bool:
+    if not user_id:
+        return False
+    from .models import Integration, IntegrationStatus
+
+    return Integration.objects.filter(
+        user_id=user_id,
+        provider=IntegrationProviderChoices.GOOGLE_CALENDAR,
+        status=IntegrationStatus.ACTIVE,
+    ).exists()
+
 
 def get_google_client_id() -> str:
     return os.environ.get("GOOGLE_CLIENT_ID", "").strip()

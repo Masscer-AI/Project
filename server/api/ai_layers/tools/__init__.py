@@ -48,6 +48,9 @@ TOOL_REGISTRY: dict[str, str] = {
     "send_email": "api.ai_layers.tools.send_email",
     "list_organization_members": "api.ai_layers.tools.list_organization_members",
     "list_organization_roles": "api.ai_layers.tools.list_organization_roles",
+    "list_calendar_events": "api.ai_layers.tools.list_calendar_events",
+    "create_calendar_event": "api.ai_layers.tools.create_calendar_event",
+    "update_calendar_event": "api.ai_layers.tools.update_calendar_event",
     # Cloudbeds integration tools
     # "cloudbeds_list_hotels": "api.ai_layers.tools.cloudbeds_list_hotels",
 }

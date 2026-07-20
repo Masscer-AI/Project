@@ -290,6 +290,18 @@ class IntegrationsViewsTests(TestCase):
         self.assertEqual(data["provider"], "google_calendar")
         self.assertIn("accounts.google.com", data["authorization_url"])
 
+    @patch("api.integrations.views.user_can_manage_integrations", return_value=True)
+    @patch("api.integrations.views.get_google_client_id", return_value="client-id")
+    @patch("api.integrations.views.get_google_client_secret", return_value="secret")
+    def test_connect_calendar_rejects_organization_owner(self, *_mocks):
+        url = reverse("integrations:connect", kwargs={"provider": "google_calendar"})
+        resp = self.client.get(
+            f"{url}?owner=organization",
+            **self._auth_headers(),
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("personal", resp.json().get("error", "").lower())
+
 
 @override_settings(FRONTEND_URL="http://localhost")
 class GoogleCalendarViewsTests(TestCase):

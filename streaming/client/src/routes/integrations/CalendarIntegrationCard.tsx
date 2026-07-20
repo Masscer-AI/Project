@@ -6,7 +6,6 @@ import {
   Button,
   Card,
   Group,
-  SegmentedControl,
   Stack,
   Text,
 } from "@mantine/core";
@@ -15,45 +14,32 @@ import {
   connectIntegration,
   disconnectIntegration,
   getIntegrations,
-  getUserOrganizations,
-  IntegrationOwnerType,
   TIntegration,
 } from "../../modules/apiCalls";
-import { TOrganization } from "../../types";
 
 const GOOGLE_CALENDAR_PROVIDER = "google_calendar";
 
 export const CalendarIntegrationCard = () => {
   const { t } = useTranslation();
   const [integrations, setIntegrations] = useState<TIntegration[]>([]);
-  const [organizations, setOrganizations] = useState<TOrganization[]>([]);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
-  const [disconnecting, setDisconnecting] = useState<IntegrationOwnerType | null>(null);
-  const [ownerScope, setOwnerScope] = useState<IntegrationOwnerType>("user");
+  const [disconnecting, setDisconnecting] = useState(false);
 
-  const organizationName = organizations[0]?.name || "";
-  const hasOrganization = organizations.length > 0;
-
-  const calendarByOwner = useMemo(() => {
-    const map: Partial<Record<IntegrationOwnerType, TIntegration>> = {};
-    for (const item of integrations) {
-      if (item.provider === GOOGLE_CALENDAR_PROVIDER) {
-        map[item.owner_type] = item;
-      }
-    }
-    return map;
-  }, [integrations]);
+  const personalCalendar = useMemo(
+    () =>
+      integrations.find(
+        (item) =>
+          item.provider === GOOGLE_CALENDAR_PROVIDER && item.owner_type === "user"
+      ),
+    [integrations]
+  );
 
   const loadIntegrations = useCallback(async () => {
     setLoading(true);
     try {
-      const [integrationsData, orgs] = await Promise.all([
-        getIntegrations(),
-        getUserOrganizations().catch(() => [] as TOrganization[]),
-      ]);
+      const integrationsData = await getIntegrations();
       setIntegrations(integrationsData.integrations || []);
-      setOrganizations(orgs || []);
     } catch {
       toast.error(t("an-error-occurred"));
     } finally {
@@ -66,16 +52,12 @@ export const CalendarIntegrationCard = () => {
   }, [loadIntegrations]);
 
   const handleConnect = async () => {
-    if (ownerScope === "organization" && !hasOrganization) {
-      toast.error(t("integrations-no-organization"));
-      return;
-    }
     setConnecting(true);
     try {
       const returnTo = `${window.location.origin}/integrations?tab=calendar`;
       const data = await connectIntegration(
         GOOGLE_CALENDAR_PROVIDER,
-        ownerScope,
+        "user",
         returnTo
       );
       if (data.authorization_url) {
@@ -87,54 +69,20 @@ export const CalendarIntegrationCard = () => {
     }
   };
 
-  const handleDisconnect = async (owner: IntegrationOwnerType) => {
-    setDisconnecting(owner);
+  const handleDisconnect = async () => {
+    setDisconnecting(true);
     try {
-      await disconnectIntegration(GOOGLE_CALENDAR_PROVIDER, owner);
+      await disconnectIntegration(GOOGLE_CALENDAR_PROVIDER, "user");
       toast.success(t("integrations-disconnect-success"));
       await loadIntegrations();
     } catch {
       toast.error(t("an-error-occurred"));
     } finally {
-      setDisconnecting(null);
+      setDisconnecting(false);
     }
   };
 
-  const renderConnectedOwner = (owner: IntegrationOwnerType, label: string) => {
-    const integration = calendarByOwner[owner];
-    if (!integration?.connected) return null;
-
-    return (
-      <Group key={owner} justify="space-between" wrap="nowrap">
-        <Stack gap={2}>
-          <Text size="sm" fw={500}>
-            {label}
-          </Text>
-          <Text size="xs" c="dimmed">
-            {t("integrations-account")}: {integration.account_email || integration.account_label}
-          </Text>
-        </Stack>
-        <Group gap="xs">
-          <Badge color="green" variant="light">
-            {t("integrations-connected")}
-          </Badge>
-          <Button
-            size="xs"
-            variant="subtle"
-            color="red"
-            loading={disconnecting === owner}
-            onClick={() => void handleDisconnect(owner)}
-          >
-            {t("integrations-disconnect")}
-          </Button>
-        </Group>
-      </Group>
-    );
-  };
-
-  const hasConnectedCalendar =
-    Boolean(calendarByOwner.user?.connected) ||
-    Boolean(calendarByOwner.organization?.connected);
+  const isConnected = Boolean(personalCalendar?.connected);
 
   return (
     <Card withBorder padding="lg" radius="md">
@@ -149,39 +97,40 @@ export const CalendarIntegrationCard = () => {
           </Stack>
         </Group>
 
-        <SegmentedControl
-          value={ownerScope}
-          onChange={(v) => setOwnerScope(v as IntegrationOwnerType)}
-          data={[
-            { label: t("integrations-owner-me"), value: "user" },
-            {
-              label: hasOrganization
-                ? `${t("integrations-owner-organization")}${organizationName ? `: ${organizationName}` : ""}`
-                : t("integrations-owner-organization"),
-              value: "organization",
-              disabled: !hasOrganization,
-            },
-          ]}
-        />
-
-        <Button
-          leftSection={<IconPlugConnected size={18} />}
-          onClick={() => void handleConnect()}
-          loading={connecting || loading}
-          disabled={ownerScope === "organization" && !hasOrganization}
-        >
-          {t("integrations-connect")}
-        </Button>
-
-        {hasConnectedCalendar && (
-          <Stack gap="sm">
-            {renderConnectedOwner("user", t("integrations-owner-me"))}
-            {hasOrganization &&
-              renderConnectedOwner(
-                "organization",
-                `${t("integrations-owner-organization")}${organizationName ? `: ${organizationName}` : ""}`
-              )}
-          </Stack>
+        {!isConnected ? (
+          <Button
+            leftSection={<IconPlugConnected size={18} />}
+            onClick={() => void handleConnect()}
+            loading={connecting || loading}
+          >
+            {t("integrations-connect")}
+          </Button>
+        ) : (
+          <Group justify="space-between" wrap="nowrap">
+            <Stack gap={2}>
+              <Text size="sm" fw={500}>
+                {t("integrations-owner-me")}
+              </Text>
+              <Text size="xs" c="dimmed">
+                {t("integrations-account")}:{" "}
+                {personalCalendar?.account_email || personalCalendar?.account_label}
+              </Text>
+            </Stack>
+            <Group gap="xs">
+              <Badge color="green" variant="light">
+                {t("integrations-connected")}
+              </Badge>
+              <Button
+                size="xs"
+                variant="subtle"
+                color="red"
+                loading={disconnecting}
+                onClick={() => void handleDisconnect()}
+              >
+                {t("integrations-disconnect")}
+              </Button>
+            </Group>
+          </Group>
         )}
       </Stack>
     </Card>
