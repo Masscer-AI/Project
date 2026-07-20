@@ -31,6 +31,7 @@ import {
 import {
   redirectToTenantHandoff,
 } from "../../utils/googleAuthHandoff";
+import { LegalFooterLinks } from "../../components/LegalFooter/LegalFooterLinks";
 import {
   AUTH_FORM_CARD_CLASS,
   AUTH_FORM_CARD_STYLE,
@@ -272,6 +273,8 @@ export default function Login() {
               {t("go-to-signup")}
             </Anchor>
           </Text>
+
+          <LegalFooterLinks mt="lg" />
         </div>
       </div>
     </div>

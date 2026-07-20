@@ -1,0 +1,31 @@
+.legal-markdown {
+  color: var(--mantine-color-gray-3);
+  font-size: var(--mantine-font-size-sm);
+  line-height: 1.65;
+  max-width: 42rem;
+}
+
+.legal-markdown h2 {
+  color: var(--mantine-color-gray-0);
+  font-size: var(--mantine-font-size-lg);
+  font-weight: 600;
+  margin-top: 1.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.legal-markdown h2:first-child {
+  margin-top: 0;
+}
+
+.legal-markdown p,
+.legal-markdown li {
+  margin-bottom: 0.75rem;
+}
+
+.legal-markdown ul {
+  padding-left: 1.25rem;
+}
+
+.legal-markdown strong {
+  color: var(--mantine-color-gray-1);
+}

@@ -30,6 +30,7 @@ import {
   getPortalOriginPayload,
   handleTenantPortalAccessError,
 } from "../../utils/tenantPortalAccess";
+import { LegalFooterLinks } from "../../components/LegalFooter/LegalFooterLinks";
 import {
   AUTH_FORM_CARD_CLASS,
   AUTH_FORM_CARD_STYLE,
@@ -641,6 +642,10 @@ export default function Signup() {
               >
                 {isEmailInviteFlow ? t("signup-invite-submit") : t("signup")}
               </Button>
+
+              <Text size="xs" c="dimmed" ta="center" mt="sm">
+                {t("signup-legal-notice")}
+              </Text>
             </Stack>
           </form>
 
@@ -649,6 +654,8 @@ export default function Signup() {
               {t("switch-to-login")}
             </Anchor>
           </Text>
+
+          <LegalFooterLinks mt="md" />
         </div>
       </div>
     </div>
