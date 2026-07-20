@@ -5,10 +5,12 @@ Provider registry for integrations.
 from __future__ import annotations
 
 from .base import IntegrationProvider
+from .google_calendar import GoogleCalendarProvider
 from .google_drive import GoogleDriveProvider
 
 PROVIDER_REGISTRY: dict[str, type[IntegrationProvider]] = {
     GoogleDriveProvider.provider_key: GoogleDriveProvider,
+    GoogleCalendarProvider.provider_key: GoogleCalendarProvider,
 }
 
 

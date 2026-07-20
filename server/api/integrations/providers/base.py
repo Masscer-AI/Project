@@ -56,9 +56,9 @@ class IntegrationProvider(ABC):
     def fetch_account_info(self, access_token: str) -> dict[str, Any]:
         """Fetch account metadata after connect (email, label, etc.)."""
 
-    @abstractmethod
     def list_files(self, access_token: str, *, limit: int = 20) -> list[dict[str, Any]]:
-        """List files in the linked account (provider-specific)."""
+        """List files in the linked account (Drive-only; optional for other providers)."""
+        raise NotImplementedError(f"{self.provider_key} does not support list_files")
 
     def build_metadata_from_token_response(
         self,

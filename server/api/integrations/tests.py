@@ -4,6 +4,7 @@ Tests for the integrations app.
 
 from __future__ import annotations
 
+import json
 from unittest.mock import MagicMock, patch
 
 from django.contrib.auth.models import User
@@ -39,6 +40,19 @@ class GoogleDriveMetadataTests(SimpleTestCase):
         self.assertEqual(validate_provider_metadata("other", {"x": 1}), {"x": 1})
 
 
+class GoogleCalendarMetadataTests(SimpleTestCase):
+    def test_valid_metadata(self):
+        meta = validate_provider_metadata(
+            "google_calendar",
+            {"account_email": "a@b.com", "granted_scopes": ["calendar"]},
+        )
+        self.assertEqual(meta["account_email"], "a@b.com")
+
+    def test_rejects_unknown_fields(self):
+        with self.assertRaises(Exception):
+            validate_provider_metadata("google_calendar", {"root_folder_id": "x"})
+
+
 class ParseOwnerTypeTests(SimpleTestCase):
     def test_defaults_to_user(self):
         self.assertEqual(parse_owner_type(None), "user")
@@ -56,6 +70,12 @@ class IntegrationOAuthServicesTests(SimpleTestCase):
         self.assertEqual(
             get_redirect_uri(request, "google_drive"),
             "http://localhost/v1/integrations/google_drive/callback/",
+        )
+        request_cal = RequestFactory().get("/v1/integrations/google_calendar/connect/")
+        request_cal.META["HTTP_HOST"] = "acme.localhost"
+        self.assertEqual(
+            get_redirect_uri(request_cal, "google_calendar"),
+            "http://localhost/v1/integrations/google_calendar/callback/",
         )
 
     def test_validate_return_to_accepts_tenant_subdomain(self):
@@ -254,6 +274,94 @@ class IntegrationsViewsTests(TestCase):
                 provider=IntegrationProvider.GOOGLE_DRIVE,
             ).exists()
         )
+
+    @patch("api.integrations.views.user_can_manage_integrations", return_value=True)
+    @patch("api.integrations.views.get_google_client_id", return_value="client-id")
+    @patch("api.integrations.views.get_google_client_secret", return_value="secret")
+    def test_connect_calendar_returns_authorization_url(self, *_mocks):
+        url = reverse("integrations:connect", kwargs={"provider": "google_calendar"})
+        resp = self.client.get(
+            f"{url}?owner=user",
+            **self._auth_headers(),
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertIn("authorization_url", data)
+        self.assertEqual(data["provider"], "google_calendar")
+        self.assertIn("accounts.google.com", data["authorization_url"])
+
+
+@override_settings(FRONTEND_URL="http://localhost")
+class GoogleCalendarViewsTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(username="cal", email="cal@test.com", password="pass")
+        self.org = Organization.objects.create(name="Cal Org", owner=self.user)
+        UserProfile.objects.create(user=self.user, organization=self.org, name="Cal")
+        from api.authenticate.models import Token
+
+        self.token, _ = Token.get_or_create(user=self.user, token_type="permanent")
+        Integration.objects.create(
+            user=self.user,
+            provider=IntegrationProvider.GOOGLE_CALENDAR,
+            access_token="at",
+            refresh_token="rt",
+            account_email="cal@test.com",
+            metadata={"account_email": "cal@test.com", "granted_scopes": []},
+        )
+
+    def _auth_headers(self):
+        return {"HTTP_AUTHORIZATION": f"Token {self.token.key}"}
+
+    @patch("api.integrations.calendar_views.user_can_manage_integrations", return_value=True)
+    @patch("api.integrations.calendar_views.list_calendars_for_user")
+    def test_list_calendars(self, mock_list, _cap):
+        mock_list.return_value = [{"id": "primary", "summary": "Home", "primary": True}]
+        url = reverse("integrations:google_calendar_calendars")
+        resp = self.client.get(f"{url}?owner=user", **self._auth_headers())
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()["calendars"][0]["id"], "primary")
+
+    @patch("api.integrations.calendar_views.user_can_manage_integrations", return_value=True)
+    @patch("api.integrations.calendar_views.list_events_for_user")
+    def test_list_events(self, mock_list, _cap):
+        mock_list.return_value = [{"id": "evt1", "summary": "Meet"}]
+        url = reverse("integrations:google_calendar_events")
+        resp = self.client.get(f"{url}?owner=user", **self._auth_headers())
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()["events"][0]["id"], "evt1")
+
+    @patch("api.integrations.calendar_views.user_can_manage_integrations", return_value=True)
+    @patch("api.integrations.calendar_views.create_event_for_user")
+    def test_create_event(self, mock_create, _cap):
+        mock_create.return_value = {"id": "evt2", "summary": "New"}
+        url = reverse("integrations:google_calendar_events")
+        resp = self.client.post(
+            url,
+            data=json.dumps(
+                {
+                    "owner": "user",
+                    "summary": "New",
+                    "start": {"dateTime": "2026-07-20T10:00:00Z"},
+                    "end": {"dateTime": "2026-07-20T11:00:00Z"},
+                }
+            ),
+            content_type="application/json",
+            **self._auth_headers(),
+        )
+        self.assertEqual(resp.status_code, 201)
+        self.assertEqual(resp.json()["event"]["id"], "evt2")
+
+    @patch("api.integrations.calendar_views.user_can_manage_integrations", return_value=True)
+    @patch("api.integrations.calendar_views.delete_event_for_user")
+    def test_delete_event(self, mock_delete, _cap):
+        url = reverse(
+            "integrations:google_calendar_event_detail",
+            kwargs={"event_id": "evt1"},
+        )
+        resp = self.client.delete(f"{url}?owner=user", **self._auth_headers())
+        self.assertEqual(resp.status_code, 200)
+        mock_delete.assert_called_once()
 
 
 class DriveXlsxImportTests(SimpleTestCase):

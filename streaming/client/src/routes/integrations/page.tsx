@@ -12,21 +12,25 @@ import {
 } from "@mantine/core";
 import {
   IconBrandGoogleDrive,
+  IconCalendar,
   IconMenu2,
   IconPlug,
 } from "@tabler/icons-react";
 import { Sidebar } from "../../components/Sidebar/Sidebar";
 import { useStore } from "../../modules/store";
 import { getUser } from "../../modules/apiCalls";
+import { CalendarIntegrationCard } from "./CalendarIntegrationCard";
 import { DriveIntegrationCard } from "./DriveIntegrationCard";
 import { McpCredentialsSection } from "./McpCredentialsSection";
 import { McpServerUrlCard } from "./McpServerUrlCard";
 import { OAuthClientsSection } from "./OAuthClientsSection";
 
-type IntegrationsTab = "drive" | "mcp";
+type IntegrationsTab = "drive" | "calendar" | "mcp";
 
 function parseIntegrationsTab(raw: string | null): IntegrationsTab {
-  return raw === "mcp" ? "mcp" : "drive";
+  if (raw === "mcp") return "mcp";
+  if (raw === "calendar") return "calendar";
+  return "drive";
 }
 
 export default function IntegrationsPage() {
@@ -107,6 +111,12 @@ export default function IntegrationsPage() {
               >
                 {t("integrations-tab-drive")}
               </Tabs.Tab>
+              <Tabs.Tab
+                value="calendar"
+                leftSection={<IconCalendar size={16} />}
+              >
+                {t("integrations-tab-calendar")}
+              </Tabs.Tab>
               <Tabs.Tab value="mcp" leftSection={<IconPlug size={16} />}>
                 {t("integrations-tab-mcp")}
               </Tabs.Tab>
@@ -114,6 +124,10 @@ export default function IntegrationsPage() {
 
             <Tabs.Panel value="drive">
               <DriveIntegrationCard />
+            </Tabs.Panel>
+
+            <Tabs.Panel value="calendar">
+              <CalendarIntegrationCard />
             </Tabs.Panel>
 
             <Tabs.Panel value="mcp">

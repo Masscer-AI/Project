@@ -17,8 +17,18 @@ class GoogleDriveMetadata(BaseModel):
     granted_scopes: list[str] = []
 
 
+class GoogleCalendarMetadata(BaseModel):
+    """Metadata stored on Integration.metadata for google_calendar."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    account_email: str | None = None
+    granted_scopes: list[str] = []
+
+
 PROVIDER_METADATA_SCHEMAS: dict[str, type[BaseModel]] = {
     "google_drive": GoogleDriveMetadata,
+    "google_calendar": GoogleCalendarMetadata,
 }
 
 

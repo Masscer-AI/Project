@@ -2280,6 +2280,102 @@ export const syncDriveDocument = async (documentId: number | string) => {
   );
 };
 
+export type TGoogleCalendarListItem = {
+  id: string;
+  summary?: string;
+  description?: string;
+  primary?: boolean;
+  accessRole?: string;
+};
+
+export type TGoogleCalendarEventTime = {
+  dateTime?: string;
+  timeZone?: string;
+  date?: string;
+};
+
+export type TGoogleCalendarEvent = {
+  id?: string;
+  summary?: string;
+  description?: string;
+  location?: string;
+  htmlLink?: string;
+  status?: string;
+  start?: TGoogleCalendarEventTime;
+  end?: TGoogleCalendarEventTime;
+  attendees?: { email?: string }[];
+};
+
+export const listGoogleCalendars = async (owner: IntegrationOwnerType = "user") => {
+  const params = new URLSearchParams({ owner });
+  return makeAuthenticatedRequest<{
+    calendars: TGoogleCalendarListItem[];
+    owner_type: IntegrationOwnerType;
+  }>("GET", `v1/integrations/google_calendar/calendars/?${params.toString()}`);
+};
+
+export const listGoogleCalendarEvents = async (
+  owner: IntegrationOwnerType = "user",
+  options?: {
+    calendarId?: string;
+    timeMin?: string;
+    timeMax?: string;
+    maxResults?: number;
+  }
+) => {
+  const params = new URLSearchParams({ owner });
+  if (options?.calendarId) params.set("calendar_id", options.calendarId);
+  if (options?.timeMin) params.set("time_min", options.timeMin);
+  if (options?.timeMax) params.set("time_max", options.timeMax);
+  if (options?.maxResults != null) {
+    params.set("max_results", String(options.maxResults));
+  }
+  return makeAuthenticatedRequest<{
+    events: TGoogleCalendarEvent[];
+    owner_type: IntegrationOwnerType;
+    calendar_id: string;
+  }>("GET", `v1/integrations/google_calendar/events/?${params.toString()}`);
+};
+
+export const createGoogleCalendarEvent = async (
+  payload: TGoogleCalendarEvent & {
+    owner: IntegrationOwnerType;
+    calendar_id?: string;
+  }
+) => {
+  return makeAuthenticatedRequest<{ event: TGoogleCalendarEvent }>(
+    "POST",
+    "v1/integrations/google_calendar/events/",
+    payload
+  );
+};
+
+export const updateGoogleCalendarEvent = async (
+  eventId: string,
+  payload: Partial<TGoogleCalendarEvent> & {
+    owner: IntegrationOwnerType;
+    calendar_id?: string;
+  }
+) => {
+  return makeAuthenticatedRequest<{ event: TGoogleCalendarEvent }>(
+    "PATCH",
+    `v1/integrations/google_calendar/events/${encodeURIComponent(eventId)}/`,
+    payload
+  );
+};
+
+export const deleteGoogleCalendarEvent = async (
+  eventId: string,
+  owner: IntegrationOwnerType = "user",
+  calendarId = "primary"
+) => {
+  const params = new URLSearchParams({ owner, calendar_id: calendarId });
+  return makeAuthenticatedRequest<{ success: boolean; deleted: boolean }>(
+    "DELETE",
+    `v1/integrations/google_calendar/events/${encodeURIComponent(eventId)}/?${params.toString()}`
+  );
+};
+
 // --- Data Governance ---
 
 export const getOrganizationDataPolicy = async (organizationId: string) => {

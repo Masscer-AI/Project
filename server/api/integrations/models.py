@@ -17,6 +17,7 @@ from .schemas import validate_provider_metadata
 
 class IntegrationProvider(models.TextChoices):
     GOOGLE_DRIVE = "google_drive", "Google Drive"
+    GOOGLE_CALENDAR = "google_calendar", "Google Calendar"
 
 
 class IntegrationStatus(models.TextChoices):
