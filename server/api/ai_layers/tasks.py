@@ -989,6 +989,7 @@ def conversation_agent_task(
     user_id: int | str | None = None,
     regenerate_message_id: int | None = None,
     client_datetime: dict | None = None,
+    user_message_metadata: dict | None = None,
 ):
     """
     Celery task that runs an AgentLoop for one or more agents in a conversation.
@@ -1011,9 +1012,11 @@ def conversation_agent_task(
             delete all subsequent messages) instead of creating a new one.
         client_datetime: optional dict from the user's browser (utc_iso, timezone,
             local_datetime_long, locale) to resolve relative times in their locale.
+        user_message_metadata: optional metadata merged onto the user Message
+            (e.g. scheduled_task source markers).
 
     Returns:
-        dict with status, output, iterations, tool_calls_count, message_id
+        dict with status, output, iterations, tool_calls_count, message_id, user_message_id
     """
     from api.ai_layers.agent_loop import AgentLoop
     from api.ai_layers.models import Agent, AgentSession
@@ -1142,6 +1145,11 @@ def conversation_agent_task(
     agent_event_log: list[dict] = []
     try:
         # ---- Save or reuse user message ----
+        meta_update = (
+            dict(user_message_metadata)
+            if isinstance(user_message_metadata, dict) and user_message_metadata
+            else None
+        )
         if regenerate_message_id:
             try:
                 user_message = Message.objects.get(
@@ -1151,7 +1159,13 @@ def conversation_agent_task(
                 )
                 user_message.text = user_message_text
                 user_message.attachments = message_attachments
-                user_message.save(update_fields=["text", "attachments"])
+                update_fields = ["text", "attachments"]
+                if meta_update:
+                    merged = dict(user_message.metadata or {})
+                    merged.update(meta_update)
+                    user_message.metadata = merged
+                    update_fields.append("metadata")
+                user_message.save(update_fields=update_fields)
                 Message.objects.filter(
                     conversation=conversation,
                     id__gt=user_message.id,
@@ -1161,12 +1175,15 @@ def conversation_agent_task(
                 return {"status": "error", "error": "Message to regenerate not found"}
         else:
             try:
-                user_message = Message.objects.create(
+                create_kwargs = dict(
                     conversation=conversation,
                     type="user",
                     text=user_message_text,
                     attachments=message_attachments,
                 )
+                if meta_update:
+                    create_kwargs["metadata"] = meta_update
+                user_message = Message.objects.create(**create_kwargs)
                 for att in attachment_objects:
                     att.message = user_message
                     att.save(update_fields=["message"])
@@ -1688,6 +1705,33 @@ def conversation_agent_task(
                         ):
                             agent_tool_names.append(_email_tool)
 
+                from api.ai_layers.tools import SCHEDULE_AGENT_TOOL_NAMES
+
+                _schedule_injected = False
+                for _sched_tool in SCHEDULE_AGENT_TOOL_NAMES:
+                    if (
+                        _sched_tool not in agent_tool_names
+                        and _may_auto_inject_tool(_sched_tool)
+                    ):
+                        agent_tool_names.append(_sched_tool)
+                        _schedule_injected = True
+                if _schedule_injected or any(
+                    t in agent_tool_names for t in SCHEDULE_AGENT_TOOL_NAMES
+                ):
+                    from api.ai_layers.tools.calendar_tool_helpers import (
+                        resolve_org_timezone,
+                    )
+
+                    _sched_tz = resolve_org_timezone(organization.id)
+                    instructions += (
+                        "\n\nYou can schedule future agent work in this conversation with "
+                        "schedule_task (one-off or recurring). "
+                        "Write the instruction as a self-contained imperative user task "
+                        "(second person / command form); it will be injected later as a user message. "
+                        f"Organization timezone for task scheduling: {_sched_tz}. "
+                        "Use list_scheduled_tasks and cancel_scheduled_task to manage schedules."
+                    )
+
             if any(t in agent_tool_names for t in CALENDAR_AGENT_TOOL_NAMES):
                 instructions += (
                     "\n\nGoogle Calendar is connected for this user. "
@@ -1779,6 +1823,8 @@ def conversation_agent_task(
                 agent_slug=agent.slug,
                 organization_id=organization.id if organization else None,
                 has_organization_conversations_access=has_organization_conversations_access,
+                agent_slugs=agent_slugs,
+                multiagentic_modality=multiagentic_modality,
             )
             if applicable_alert_rules and organization:
                 resolve_kwargs["organization_id"] = organization.id
@@ -2114,6 +2160,7 @@ def conversation_agent_task(
             "iterations": total_iterations,
             "tool_calls_count": total_tool_calls,
             "message_id": assistant_message_id,
+            "user_message_id": user_message.id,
             "attachments": task_return_attachments,
         }
 

@@ -62,8 +62,10 @@ import {
   IconCircleCheck,
   IconAlertTriangle,
   IconSparkles,
+  IconClock,
   type Icon,
 } from "@tabler/icons-react";
+import type { TMessageMetadata } from "../../types/chatTypes";
 
 type TReaction = {
   id: number;
@@ -82,6 +84,7 @@ interface MessageProps {
   index: number;
   versions?: TVersion[];
   attachments?: TAttachment[];
+  metadata?: TMessageMetadata;
   readOnly?: boolean;
 
   onImageGenerated: (
@@ -104,11 +107,14 @@ export const Message = memo(
     versions,
     reactions,
     attachments,
+    metadata,
     onImageGenerated,
     onMessageEdit,
     onMessageDeleted,
     readOnly = false,
   }: MessageProps) => {
+    const isScheduledUserMessage =
+      type === "user" && metadata?.source === "scheduled_task";
     const [isEditing, setIsEditing] = useState(false);
     const [innerText, setInnerText] = useState(text);
     const textareaValueRef = useRef<string | null>(null);
@@ -313,6 +319,20 @@ export const Message = memo(
           />
         ) : (
           <div>
+            {isScheduledUserMessage && (
+              <Group justify="flex-end" mb={6}>
+                <Tooltip label={t("scheduled-task-message-tooltip")}>
+                  <Badge
+                    variant="light"
+                    color="gray"
+                    size="sm"
+                    leftSection={<IconClock size={12} />}
+                  >
+                    {t("scheduled-task-badge")}
+                  </Badge>
+                </Tooltip>
+              </Group>
+            )}
             <MarkdownRenderer
               markdown={displayMarkdownText}
               extraClass={`message-text ${type === "user" ? "user" : "assistant"}`}

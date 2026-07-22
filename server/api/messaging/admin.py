@@ -12,6 +12,7 @@ from .models import (
     ConversationAlert,
     AlertSubscription,
     WidgetVisitorSession,
+    ScheduledConversationTask,
 )
 
 
@@ -260,6 +261,26 @@ class ConversationTakeoverAdmin(admin.ModelAdmin):
     raw_id_fields = ("conversation", "user")
     readonly_fields = ("id", "started_at", "announcement_sent_at")
     ordering = ("-started_at",)
+
+
+@admin.register(ScheduledConversationTask)
+class ScheduledConversationTaskAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "conversation",
+        "organization",
+        "schedule_type",
+        "status",
+        "timezone",
+        "next_run_at",
+        "created_by",
+        "created_at",
+    )
+    list_filter = ("status", "schedule_type", "timezone", "created_at")
+    search_fields = ("id", "instruction_text", "conversation__title", "cron")
+    raw_id_fields = ("conversation", "organization", "created_by")
+    readonly_fields = ("id", "created_at", "updated_at", "last_run_at", "created_message_id")
+    ordering = ("next_run_at",)
 
 
 admin.site.register(Conversation, ConversationAdmin)

@@ -624,3 +624,106 @@ class Tag(models.Model):
 
     def __str__(self):
         return f"{self.title} ({self.organization.name})"
+
+
+class ScheduledConversationTask(models.Model):
+    """Durable one-off or recurring agent task that re-enters a conversation as a user message."""
+
+    class ScheduleType(models.TextChoices):
+        ONCE = "once", "Once"
+        RECURRING = "recurring", "Recurring"
+
+    class Recurrence(models.TextChoices):
+        DAILY = "daily", "Daily"
+        WEEKLY = "weekly", "Weekly"
+        MONTHLY = "monthly", "Monthly"
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        RUNNING = "running", "Running"
+        DONE = "done", "Done"
+        CANCELLED = "cancelled", "Cancelled"
+        FAILED = "failed", "Failed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    conversation = models.ForeignKey(
+        Conversation,
+        on_delete=models.CASCADE,
+        related_name="scheduled_tasks",
+    )
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name="scheduled_conversation_tasks",
+    )
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="scheduled_conversation_tasks",
+    )
+    instruction_text = models.TextField(
+        help_text="Imperative task text injected as a user message when the schedule fires.",
+    )
+    schedule_type = models.CharField(max_length=16, choices=ScheduleType.choices)
+    timezone = models.CharField(
+        max_length=50,
+        help_text="IANA timezone snapshot used for wall-clock scheduling.",
+    )
+    run_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="UTC instant for one-off schedules.",
+    )
+    recurrence = models.CharField(
+        max_length=16,
+        choices=Recurrence.choices,
+        null=True,
+        blank=True,
+    )
+    time_of_day = models.CharField(
+        max_length=5,
+        null=True,
+        blank=True,
+        help_text="Local HH:MM for structured recurrence.",
+    )
+    weekdays = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Weekdays for weekly recurrence: 0=Mon … 6=Sun.",
+    )
+    day_of_month = models.PositiveSmallIntegerField(null=True, blank=True)
+    cron = models.CharField(
+        max_length=64,
+        null=True,
+        blank=True,
+        help_text="Optional 5-field cron in organization timezone.",
+    )
+    next_run_at = models.DateTimeField(db_index=True)
+    status = models.CharField(
+        max_length=16,
+        choices=Status.choices,
+        default=Status.PENDING,
+        db_index=True,
+    )
+    celery_task_id = models.CharField(max_length=255, null=True, blank=True)
+    agent_slugs = models.JSONField(default=list, blank=True)
+    multiagentic_modality = models.CharField(max_length=32, default="isolated")
+    created_message_id = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Last user Message id created when this schedule fired.",
+    )
+    last_run_at = models.DateTimeField(null=True, blank=True)
+    last_error = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["status", "next_run_at"]),
+            models.Index(fields=["conversation", "status"]),
+        ]
+        ordering = ["next_run_at"]
+
+    def __str__(self):
+        return f"ScheduledConversationTask({self.id}, {self.schedule_type}, {self.status})"

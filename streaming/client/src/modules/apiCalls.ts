@@ -717,6 +717,67 @@ export const bulkConversationAction = async (
   });
 };
 
+export type TScheduledConversationTask = {
+  id: string;
+  status: string;
+  schedule_type: string;
+  timezone: string;
+  next_run_at_utc?: string | null;
+  next_run_at_local?: string | null;
+  schedule_summary?: string | null;
+  instruction?: string;
+  recurrence?: string | null;
+  time_of_day?: string | null;
+  weekdays?: number[];
+  day_of_month?: number | null;
+  cron?: string | null;
+  conversation_id?: string | null;
+  conversation_title?: string | null;
+};
+
+export type TScheduledTasksListResponse = {
+  success: boolean;
+  timezone: string;
+  tasks: TScheduledConversationTask[];
+  count: number;
+};
+
+export const listScheduledTasks = async (
+  conversationId: string,
+  options?: { includeFinished?: boolean; limit?: number }
+) => {
+  const params = new URLSearchParams();
+  if (options?.includeFinished) params.set("include_finished", "true");
+  if (options?.limit != null) params.set("limit", String(options.limit));
+  const query = params.toString();
+  const endpoint = `/v1/messaging/conversations/${conversationId}/scheduled-tasks/${
+    query ? `?${query}` : ""
+  }`;
+  return makeAuthenticatedRequest<TScheduledTasksListResponse>("GET", endpoint);
+};
+
+/** Pending/running scheduled tasks created by the current user (all conversations). */
+export const listMyScheduledTasks = async (options?: {
+  includeFinished?: boolean;
+  limit?: number;
+}) => {
+  const params = new URLSearchParams();
+  if (options?.includeFinished) params.set("include_finished", "true");
+  if (options?.limit != null) params.set("limit", String(options.limit));
+  const query = params.toString();
+  const endpoint = `/v1/messaging/scheduled-tasks/${query ? `?${query}` : ""}`;
+  return makeAuthenticatedRequest<TScheduledTasksListResponse>("GET", endpoint);
+};
+
+export const cancelScheduledTask = async (taskId: string) => {
+  return makeAuthenticatedRequest<{
+    success: boolean;
+    message: string;
+    task_id?: string;
+    status?: string;
+  }>("DELETE", `/v1/messaging/scheduled-tasks/${taskId}/`);
+};
+
 export const getAlerts = async (status?: "all" | "pending" | "resolved" | "dismissed") => {
   const endpoint = status && status !== "all" 
     ? `/v1/messaging/alerts?status=${status}`

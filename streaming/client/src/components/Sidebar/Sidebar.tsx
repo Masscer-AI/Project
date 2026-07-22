@@ -40,6 +40,7 @@ import {
   IconSettings,
   IconLogout,
   IconFilter,
+  IconCalendarTime,
 } from "@tabler/icons-react";
 
 // ─── Main Sidebar ─────────────────────────────────────────────────────────────
@@ -389,6 +390,14 @@ export const Sidebar: React.FC = () => {
 
           {!historyConfig.isOpen && (
             <Stack gap="xs">
+              <Button
+                variant="default"
+                leftSection={<IconCalendarTime size={20} />}
+                onClick={() => goTo("/scheduled-tasks")}
+                fullWidth
+              >
+                {t("scheduled-tasks-title")}
+              </Button>
               {isAudioToolsEnabled && (
                 <Button
                   variant="default"

@@ -17,6 +17,7 @@ from .models import (
     ConversationAlert,
     ConversationAlertRule,
     Tag,
+    ScheduledConversationTask,
 )
 from .schemas import ConversationMetadata
 from .serializers import (
@@ -2414,4 +2415,121 @@ class ConversationHumanMessageView(View):
             {"message": "Message sent", "message_id": msg.id, "status": 201},
             status=201,
         )
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class UserScheduledTasksView(View):
+    """List scheduled tasks created by the authenticated user (all conversations)."""
+
+    def get(self, request):
+        user = request.user
+        if not user or not getattr(user, "id", None):
+            return JsonResponse({"message": "Unauthorized", "status": 401}, status=401)
+
+        include_finished_raw = (request.GET.get("include_finished") or "").strip().lower()
+        include_finished = include_finished_raw in ("1", "true", "yes")
+        try:
+            limit = int(request.GET.get("limit") or 50)
+        except (TypeError, ValueError):
+            limit = 50
+
+        from api.messaging.schedule_service import list_scheduled_tasks_for_user
+
+        result = list_scheduled_tasks_for_user(
+            user_id=user.id,
+            include_finished=include_finished,
+            limit=limit,
+        )
+        return JsonResponse(result, safe=False)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class ConversationScheduledTasksView(View):
+    """List scheduled tasks for a conversation."""
+
+    def get(self, request, conversation_id):
+        user = request.user
+        try:
+            conversation = Conversation.objects.get(id=conversation_id)
+        except Conversation.DoesNotExist:
+            return JsonResponse(
+                {"message": "Conversation not found", "status": 404},
+                status=404,
+            )
+
+        if not _user_can_access_conversation(user, conversation):
+            return JsonResponse(
+                {"message": "Conversation not found", "status": 404},
+                status=404,
+            )
+
+        include_finished_raw = (request.GET.get("include_finished") or "").strip().lower()
+        include_finished = include_finished_raw in ("1", "true", "yes")
+        try:
+            limit = int(request.GET.get("limit") or 50)
+        except (TypeError, ValueError):
+            limit = 50
+
+        from api.messaging.schedule_service import list_scheduled_tasks_for_conversation
+
+        result = list_scheduled_tasks_for_conversation(
+            conversation_id=str(conversation.id),
+            organization_id=conversation.organization_id,
+            include_finished=include_finished,
+            limit=limit,
+        )
+        return JsonResponse(result, safe=False)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class ScheduledConversationTaskDetailView(View):
+    """Cancel a scheduled conversation task."""
+
+    def delete(self, request, task_id):
+        user = request.user
+        try:
+            task = ScheduledConversationTask.objects.select_related(
+                "conversation"
+            ).get(id=task_id)
+        except (ScheduledConversationTask.DoesNotExist, ValueError, TypeError):
+            return JsonResponse(
+                {"message": "Scheduled task not found", "status": 404},
+                status=404,
+            )
+
+        if not _user_can_access_conversation(user, task.conversation):
+            return JsonResponse(
+                {"message": "Scheduled task not found", "status": 404},
+                status=404,
+            )
+
+        from api.messaging.schedule_service import (
+            ScheduleServiceError,
+            cancel_scheduled_task,
+        )
+
+        try:
+            result = cancel_scheduled_task(
+                task_id=str(task.id),
+                conversation_id=str(task.conversation_id),
+            )
+        except ScheduleServiceError as exc:
+            return JsonResponse(
+                {"message": exc.message, "status": exc.status_code},
+                status=exc.status_code,
+            )
+
+        if not result.get("success"):
+            return JsonResponse(
+                {
+                    "message": result.get("message") or "Cannot cancel task",
+                    "status": 400,
+                    **result,
+                },
+                status=400,
+            )
+        return JsonResponse(result, safe=False)
 

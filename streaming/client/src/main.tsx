@@ -45,6 +45,7 @@ import ChatWidgetsPage from "./routes/chat-widgets/page.tsx";
 import { ProtectedRoute } from "./components/ProtectedRoute/ProtectedRoute.tsx";
 import SettingsPage from "./routes/settings/page.tsx";
 import IntegrationsPage from "./routes/integrations/page.tsx";
+import ScheduledTasksPage from "./routes/scheduled-tasks/page.tsx";
 import PrivacyPolicyPage from "./routes/legal/privacy/page.tsx";
 import TermsOfServicePage from "./routes/legal/terms/page.tsx";
 import OAuthConsentPage from "./routes/oauth/consent/page.tsx";
@@ -197,6 +198,14 @@ const router = createBrowserRouter([
         element: (
           <ProtectedRoute featureFlag="can-manage-integrations">
             <IntegrationsPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/scheduled-tasks",
+        element: (
+          <ProtectedRoute>
+            <ScheduledTasksPage />
           </ProtectedRoute>
         ),
       },

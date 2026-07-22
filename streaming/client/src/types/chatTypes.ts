@@ -25,6 +25,12 @@ export type TChatLoader = {
   sendQuery: boolean;
 };
 
+export type TMessageMetadata = {
+  source?: string;
+  scheduled_task_id?: string;
+  [key: string]: unknown;
+};
+
 export type TMessage = {
   id?: number;
   type: string;
@@ -34,6 +40,7 @@ export type TMessage = {
   versions?: TVersion[];
   agents?: Partial<TAgent>[];
   index?: number;
+  metadata?: TMessageMetadata;
 };
 
 export type TReactionTemplate = {

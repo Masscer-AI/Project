@@ -25,6 +25,9 @@ from .views import (
     ConversationAlertStatsView,
     ConversationAlertRuleView,
     TagView,
+    ConversationScheduledTasksView,
+    ScheduledConversationTaskDetailView,
+    UserScheduledTasksView,
 )
 
 app_name = "messaging"
@@ -47,6 +50,21 @@ urlpatterns = [
         "conversations/<uuid:id>/human-message/",
         ConversationHumanMessageView.as_view(),
         name="conversation_human_message",
+    ),
+    path(
+        "conversations/<uuid:conversation_id>/scheduled-tasks/",
+        ConversationScheduledTasksView.as_view(),
+        name="conversation_scheduled_tasks",
+    ),
+    path(
+        "scheduled-tasks/",
+        UserScheduledTasksView.as_view(),
+        name="user_scheduled_tasks",
+    ),
+    path(
+        "scheduled-tasks/<uuid:task_id>/",
+        ScheduledConversationTaskDetailView.as_view(),
+        name="scheduled_task_detail",
     ),
     path("messages", MessageView.as_view(), name="message_list"),
     path("messages/<int:id>/", MessageView.as_view(), name="message_detail"),

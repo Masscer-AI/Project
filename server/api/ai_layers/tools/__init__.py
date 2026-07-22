@@ -51,9 +51,18 @@ TOOL_REGISTRY: dict[str, str] = {
     "list_calendar_events": "api.ai_layers.tools.list_calendar_events",
     "create_calendar_event": "api.ai_layers.tools.create_calendar_event",
     "update_calendar_event": "api.ai_layers.tools.update_calendar_event",
+    "schedule_task": "api.ai_layers.tools.schedule_task",
+    "list_scheduled_tasks": "api.ai_layers.tools.list_scheduled_tasks",
+    "cancel_scheduled_task": "api.ai_layers.tools.cancel_scheduled_task",
     # Cloudbeds integration tools
     # "cloudbeds_list_hotels": "api.ai_layers.tools.cloudbeds_list_hotels",
 }
+
+SCHEDULE_AGENT_TOOL_NAMES: tuple[str, ...] = (
+    "schedule_task",
+    "list_scheduled_tasks",
+    "cancel_scheduled_task",
+)
 
 DEPENDENT_TOOL_REQUIREMENTS: dict[str, tuple[str, ...]] = {
     "list_voices": ("create_speech", "generate_dialogue"),

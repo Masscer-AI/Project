@@ -3,15 +3,69 @@ import json
 import os
 from celery import shared_task
 from .actions import generate_conversation_title
-from .models import Conversation, Message, ConversationAlertRule, ConversationAlert
+from .models import (
+    Conversation,
+    Message,
+    ConversationAlertRule,
+    ConversationAlert,
+    ScheduledConversationTask,
+)
 from .schemas import ConversationAnalysisResult
 from api.authenticate.models import Organization, FeatureFlag, FeatureFlagAssignment
 from api.authenticate.services import FeatureFlagService
 from api.utils.openai_functions import create_structured_completion
 from api.notify.alert_dispatch import maybe_dispatch_user_notifications
 from django.db import transaction
+from django.utils import timezone
 
 logger = logging.getLogger(__name__)
+
+SCHEDULER_BASELINE_TOOL_NAMES: list[str] = [
+    "read_attachment",
+    "list_attachments",
+    "generate_document_file",
+    "generate_excel_file",
+    "send_email",
+    "list_organization_members",
+    "list_organization_roles",
+    "explore_web",
+    "rag_query",
+]
+
+
+def _resolve_agent_slugs_for_scheduled_task(task: ScheduledConversationTask) -> list[str]:
+    if task.agent_slugs:
+        return [str(s) for s in task.agent_slugs if s]
+
+    from api.ai_layers.models import Agent
+
+    meta = task.conversation.metadata or {}
+    related = meta.get("related_agents") or []
+    agent_ids: list[int] = []
+    for item in related:
+        if isinstance(item, dict) and item.get("id") is not None:
+            try:
+                agent_ids.append(int(item["id"]))
+            except (TypeError, ValueError):
+                continue
+    if not agent_ids:
+        return []
+    agents = Agent.objects.filter(id__in=agent_ids)
+    by_id = {a.id: a.slug for a in agents}
+    return [by_id[i] for i in agent_ids if i in by_id]
+
+
+def enqueue_scheduled_conversation_task(task: ScheduledConversationTask) -> str | None:
+    """Enqueue Celery ETA for a pending scheduled task; persist celery_task_id."""
+    if task.status != ScheduledConversationTask.Status.PENDING or not task.next_run_at:
+        return None
+    async_result = run_scheduled_conversation_task.apply_async(
+        args=[str(task.id)],
+        eta=task.next_run_at,
+    )
+    task.celery_task_id = async_result.id
+    task.save(update_fields=["celery_task_id", "updated_at"])
+    return async_result.id
 
 
 @shared_task
@@ -437,3 +491,196 @@ IMPORTANTE: Solo levanta alertas si la conversación realmente cumple con los re
             "status": "error",
             "error": str(e)
         }
+
+
+@shared_task
+def run_due_scheduled_conversation_tasks():
+    """Beat catch-up: enqueue overdue pending scheduled conversation tasks."""
+    now = timezone.now()
+    due_ids = list(
+        ScheduledConversationTask.objects.filter(
+            status=ScheduledConversationTask.Status.PENDING,
+            next_run_at__lte=now,
+        ).values_list("id", flat=True)[:200]
+    )
+    for task_id in due_ids:
+        run_scheduled_conversation_task.delay(str(task_id))
+    if due_ids:
+        logger.info(
+            "run_due_scheduled_conversation_tasks enqueued %d overdue task(s)",
+            len(due_ids),
+        )
+    return {"enqueued": len(due_ids)}
+
+
+@shared_task
+def run_scheduled_conversation_task(scheduled_task_id: str):
+    """
+    Claim a due ScheduledConversationTask and re-enter conversation_agent_task
+    with the stored instruction as a user message.
+    """
+    from api.ai_layers.tasks import conversation_agent_task
+    from api.messaging.schedule_helpers import (
+        RECURRING_ADVANCE_EPSILON,
+        compute_next_run_at,
+    )
+    from api.messaging.takeover import is_takeover_active
+
+    from datetime import timedelta
+
+    now = timezone.now()
+    with transaction.atomic():
+        try:
+            task = (
+                ScheduledConversationTask.objects.select_for_update()
+                .select_related("conversation", "organization", "created_by")
+                .get(id=scheduled_task_id)
+            )
+        except ScheduledConversationTask.DoesNotExist:
+            logger.warning(
+                "run_scheduled_conversation_task: task %s not found",
+                scheduled_task_id,
+            )
+            return {"status": "error", "error": "not_found"}
+
+        if task.status != ScheduledConversationTask.Status.PENDING:
+            return {"status": "skipped", "reason": f"status_{task.status}"}
+        if task.next_run_at and task.next_run_at > now:
+            return {"status": "skipped", "reason": "not_due"}
+
+        conversation = task.conversation
+        if conversation is None or conversation.status == "deleted":
+            task.status = ScheduledConversationTask.Status.CANCELLED
+            task.last_error = "Conversation missing or deleted"
+            task.save(update_fields=["status", "last_error", "updated_at"])
+            return {"status": "skipped", "reason": "conversation_unavailable"}
+
+        if is_takeover_active(conversation):
+            # Defer without claiming; bump next_run_at to avoid Beat spam.
+            task.next_run_at = now + timedelta(minutes=5)
+            task.last_error = "Takeover active; deferred"
+            task.save(update_fields=["next_run_at", "last_error", "updated_at"])
+            logger.info(
+                "run_scheduled_conversation_task deferred: takeover active task=%s",
+                scheduled_task_id,
+            )
+            return {"status": "skipped", "reason": "takeover_active"}
+
+        task.status = ScheduledConversationTask.Status.RUNNING
+        task.save(update_fields=["status", "updated_at"])
+
+    agent_slugs = _resolve_agent_slugs_for_scheduled_task(task)
+    if not agent_slugs:
+        task.status = ScheduledConversationTask.Status.FAILED
+        task.last_error = "No agent_slugs available for scheduled run"
+        task.last_run_at = now
+        task.save(update_fields=["status", "last_error", "last_run_at", "updated_at"])
+        return {"status": "error", "error": "no_agents"}
+
+    try:
+        result = conversation_agent_task(
+            conversation_id=str(conversation.id),
+            user_inputs=[{"type": "input_text", "text": task.instruction_text}],
+            tool_names=list(SCHEDULER_BASELINE_TOOL_NAMES),
+            agent_slugs=agent_slugs,
+            multiagentic_modality=task.multiagentic_modality or "isolated",
+            user_id=task.created_by_id,
+            user_message_metadata={
+                "source": "scheduled_task",
+                "scheduled_task_id": str(task.id),
+            },
+        )
+    except Exception as exc:
+        logger.exception(
+            "run_scheduled_conversation_task agent failed task=%s",
+            scheduled_task_id,
+        )
+        result = {"status": "error", "error": str(exc)}
+
+    run_finished_at = timezone.now()
+    task.last_run_at = run_finished_at
+    user_message_id = None
+    if isinstance(result, dict):
+        user_message_id = result.get("user_message_id")
+    if user_message_id is not None:
+        task.created_message_id = int(user_message_id)
+
+    agent_status = result.get("status") if isinstance(result, dict) else None
+    agent_ok = agent_status == "completed"
+    if not agent_ok:
+        err = ""
+        if isinstance(result, dict):
+            err = str(result.get("error") or result.get("reason") or agent_status or "error")
+        task.last_error = err[:2000]
+        logger.error(
+            "run_scheduled_conversation_task incomplete task=%s status=%s error=%s",
+            scheduled_task_id,
+            agent_status,
+            task.last_error,
+        )
+    else:
+        task.last_error = ""
+
+    if task.schedule_type == ScheduledConversationTask.ScheduleType.ONCE:
+        task.status = (
+            ScheduledConversationTask.Status.DONE
+            if agent_ok
+            else ScheduledConversationTask.Status.FAILED
+        )
+        task.celery_task_id = None
+        task.save(
+            update_fields=[
+                "status",
+                "last_run_at",
+                "last_error",
+                "created_message_id",
+                "celery_task_id",
+                "updated_at",
+            ]
+        )
+        return {"status": task.status, "agent_status": agent_status}
+
+    # Recurring: always advance so one failure does not kill the series.
+    try:
+        next_run = compute_next_run_at(
+            schedule_type="recurring",
+            tz_name=task.timezone,
+            cron=task.cron,
+            after=run_finished_at + RECURRING_ADVANCE_EPSILON,
+        )
+        task.next_run_at = next_run
+        task.status = ScheduledConversationTask.Status.PENDING
+        task.save(
+            update_fields=[
+                "status",
+                "next_run_at",
+                "last_run_at",
+                "last_error",
+                "created_message_id",
+                "updated_at",
+            ]
+        )
+        enqueue_scheduled_conversation_task(task)
+    except Exception as exc:
+        logger.exception(
+            "run_scheduled_conversation_task failed to advance recurrence task=%s",
+            scheduled_task_id,
+        )
+        task.status = ScheduledConversationTask.Status.FAILED
+        task.last_error = (task.last_error + f"; advance_failed: {exc}").strip("; ")[:2000]
+        task.save(
+            update_fields=[
+                "status",
+                "last_run_at",
+                "last_error",
+                "created_message_id",
+                "updated_at",
+            ]
+        )
+        return {"status": "failed", "error": "advance_failed"}
+
+    return {
+        "status": "completed" if agent_ok else "completed_with_error",
+        "agent_status": agent_status,
+        "next_run_at": task.next_run_at.isoformat() if task.next_run_at else None,
+    }
