@@ -67,6 +67,24 @@ export function createAppServices(args: {
     })),
   });
 
+  // ECS Exec uses Systems Manager channels from inside the running task.
+  new aws.iam.RolePolicy("ecs-task-exec-command-policy", {
+    role: args.taskRole.name,
+    policy: JSON.stringify({
+      Version: "2012-10-17",
+      Statement: [{
+        Effect: "Allow",
+        Action: [
+          "ssmmessages:CreateControlChannel",
+          "ssmmessages:CreateDataChannel",
+          "ssmmessages:OpenControlChannel",
+          "ssmmessages:OpenDataChannel",
+        ],
+        Resource: "*",
+      }],
+    }),
+  });
+
   const djangoEnv = [
     { name: "DB_CONNECTION_STRING", value: dbConnectionString },
     { name: "SECRET_KEY", value: config.djangoSecretKey },
@@ -272,6 +290,9 @@ export function createAppServices(args: {
     cluster: args.cluster.arn,
     taskDefinition: djangoTaskDefinition.arn,
     desiredCount: config.djangoDesiredCount,
+    enableExecuteCommand: true,
+    // ECS Exec is initialized only for newly started tasks.
+    forceNewDeployment: true,
     networkConfiguration: serviceNetworkConfiguration,
     loadBalancers: [{ targetGroupArn: args.djangoTargetGroup.arn, containerName: "django", containerPort: 8000 }],
     capacityProviderStrategies,

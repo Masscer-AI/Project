@@ -24,17 +24,20 @@ MINIMAL_PNG_BYTES = base64.b64decode(
 
 class ChatWidgetCapabilitiesTests(TestCase):
     def setUp(self):
+        from api.consumption.models import Currency
+
         self.client = APIClient()
-        self.user = User.objects.create_user(
-            username="widget-owner",
-            email="owner@example.com",
-            password="pass-123456",
-        )
+        Currency.objects.get_or_create(name="Compute Unit", defaults={"one_usd_is": 1000})
         provider = AIProvider.objects.create(name="OpenAI")
         llm = LanguageModel.objects.create(
             provider=provider,
             slug="gpt-4o-mini",
             name="GPT 4o mini",
+        )
+        self.user = User.objects.create_user(
+            username="widget-owner",
+            email="owner@example.com",
+            password="pass-123456",
         )
         self.agent = Agent.objects.create(
             name="Widget Agent",
@@ -199,15 +202,16 @@ class ChatWidgetCapabilitiesTests(TestCase):
 
         result = _create_image_impl(
             prompt="test png",
-            model="gpt-image-1.5",
+            model="gpt-image-2",
             aspect_ratio="square",
+            guidance_attachments=[],
             conversation_id=str(conversation.id),
             user_id=None,
             agent_slug=self.agent.slug,
         )
 
         is_feature_enabled_mock.assert_not_called()
-        self.assertEqual(result.model, "gpt-image-1.5")
+        self.assertEqual(result.model, "gpt-image-2")
 
     def test_widget_agent_task_rejects_input_attachment_when_visitor_uploads_disabled(
         self,

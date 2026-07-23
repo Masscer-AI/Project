@@ -1324,14 +1324,13 @@ def conversation_agent_task(
                     "If explore_web returns no useful results, say so briefly if it matters, then continue."
                 )
             if "create_image" in (tool_names or []):
+                from api.ai_layers.tools.create_image import (
+                    image_models_agent_instructions_snippet,
+                )
+
                 instructions += (
                     "\n\nImage generation is enabled for this conversation. "
-                    "If the user asks you to generate an image, call create_image(prompt, model, aspect_ratio, guidance_attachments). "
-                    "Available models: 'gpt-image-1.5' (OpenAI) or 'gemini-3.1-flash-lite-image' (Nano Banana 2 Lite, by Google). "
-                    "aspect_ratio must be one of: square, landscape, portrait. "
-                    "guidance_attachments is an optional list of MessageAttachment UUIDs for visual reference (supported by both models)."
-                    "Prefer Nano Banana 2 Lite for faster generation and lower cost."
-   
+                    f"{image_models_agent_instructions_snippet()}"
                 )
             if "generate_video" in (tool_names or []):
                 instructions += (

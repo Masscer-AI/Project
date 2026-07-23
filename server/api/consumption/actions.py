@@ -158,7 +158,8 @@ def convert_usd_to_currency(amount_in_usd, currency_slug):
 
 
 IMAGE_MODEL_PRICING_USD = {
-    "gpt-image-1.5": 0.10,  # $0.10 per image
+    "gpt-image-2": 0.053,  # conservative flat for medium-quality output (~$0.053 square)
+    "gpt-image-1.5": 0.10,  # $0.10 per image — legacy tool catalog
     "gemini-2.5-flash-image": 0.10,  # $0.10 per image (1K resolution) — legacy
     "gemini-3.1-flash-lite-image": 0.034,  # $0.034 per 1K image (Nano Banana 2 Lite)
 }

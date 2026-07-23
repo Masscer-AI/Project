@@ -303,6 +303,141 @@ class VertexGeminiAgentLoopParallelFunctionCallTests(SimpleTestCase):
         self.assertEqual(names, {"tool_a", "tool_b"})
 
 
+class CreateImageModelCatalogTests(SimpleTestCase):
+    def test_catalog_exposes_default_and_supported_slugs(self):
+        from api.ai_layers.tools.create_image import (
+            ALL_IMAGE_MODELS,
+            DEFAULT_IMAGE_MODEL,
+            IMAGE_GENERATION_MODELS,
+            OPENAI_IMAGE_MODELS,
+            GOOGLE_IMAGE_MODELS,
+        )
+
+        self.assertEqual(DEFAULT_IMAGE_MODEL, "gpt-image-2")
+        slugs = {m["slug"] for m in IMAGE_GENERATION_MODELS}
+        self.assertEqual(slugs, {"gpt-image-2", "gemini-3.1-flash-lite-image"})
+        self.assertEqual(ALL_IMAGE_MODELS, slugs)
+        self.assertIn("gpt-image-2", OPENAI_IMAGE_MODELS)
+        self.assertIn("gemini-3.1-flash-lite-image", GOOGLE_IMAGE_MODELS)
+        self.assertNotIn("gpt-image-1.5", ALL_IMAGE_MODELS)
+
+    def test_dynamic_descriptions_include_catalog_slugs(self):
+        from api.ai_layers.tools.create_image import (
+            get_tool,
+            image_models_agent_instructions_snippet,
+            image_models_param_description,
+            image_models_tool_description_snippet,
+        )
+
+        for text in (
+            image_models_param_description(),
+            image_models_tool_description_snippet(),
+            image_models_agent_instructions_snippet(),
+        ):
+            self.assertIn("gpt-image-2", text)
+            self.assertIn("gemini-3.1-flash-lite-image", text)
+            self.assertIn("clear rendered text", text)
+            self.assertIn("blazingly fast", text)
+
+        tool = get_tool(conversation_id="00000000-0000-0000-0000-000000000001")
+        self.assertIn("gpt-image-2", tool["description"])
+        self.assertIn("gemini-3.1-flash-lite-image", tool["description"])
+        self.assertIsNone(tool["parameters"].model_fields["model"].default)
+
+
+class CreateImageToolBehaviorTests(TestCase):
+    def setUp(self):
+        from api.ai_layers.models import Agent, LanguageModel
+        from api.consumption.models import Currency
+        from api.messaging.models import Conversation
+        from api.providers.models import AIProvider
+
+        Currency.objects.get_or_create(name="Compute Unit", defaults={"one_usd_is": 1000})
+        provider = AIProvider.objects.create(name="OpenAI-img")
+        self.llm = LanguageModel.objects.create(
+            provider=provider, slug="gpt-img-test", name="GPT Img Test"
+        )
+        self.user = User.objects.create_user(username="img_tool_user", password="x")
+        self.org = Organization.objects.create(name="Img Tool Org", owner=self.user)
+        self.agent = Agent.objects.create(
+            name="Img Tool Agent",
+            salute="hi",
+            organization=self.org,
+            llm=self.llm,
+            model_slug=self.llm.slug,
+            model_provider="openai",
+        )
+        self.conversation = Conversation.objects.create(
+            user=self.user, organization=self.org
+        )
+
+    @patch("api.ai_layers.tools.create_image.OpenAI")
+    @patch("api.authenticate.services.FeatureFlagService.is_feature_enabled")
+    def test_create_image_defaults_to_gpt_image_2(self, is_feature_enabled_mock, openai_cls_mock):
+        from api.ai_layers.tools.create_image import _create_image_impl
+
+        is_feature_enabled_mock.return_value = (True, "ok")
+
+        client_inst = Mock()
+        openai_cls_mock.return_value = client_inst
+        img_obj = Mock(
+            b64_json=(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+            )
+        )
+        client_inst.images.generate.return_value = Mock(data=[img_obj])
+
+        result = _create_image_impl(
+            prompt="default model please",
+            model=None,
+            aspect_ratio="square",
+            guidance_attachments=[],
+            conversation_id=str(self.conversation.id),
+            user_id=self.user.id,
+            agent_slug=self.agent.slug,
+        )
+
+        self.assertEqual(result.model, "gpt-image-2")
+        client_inst.images.generate.assert_called_once()
+        self.assertEqual(client_inst.images.generate.call_args.kwargs["model"], "gpt-image-2")
+
+    @patch("api.ai_layers.tools.create_image._generate_image_google")
+    @patch("api.authenticate.services.FeatureFlagService.is_feature_enabled")
+    def test_create_image_accepts_gemini_model(self, is_feature_enabled_mock, google_gen_mock):
+        from api.ai_layers.tools.create_image import _create_image_impl
+
+        is_feature_enabled_mock.return_value = (True, "ok")
+        google_gen_mock.return_value = (b"\x89PNG\r\n\x1a\n", "image/png")
+
+        result = _create_image_impl(
+            prompt="fast gemini image",
+            model="gemini-3.1-flash-lite-image",
+            aspect_ratio="square",
+            guidance_attachments=[],
+            conversation_id=str(self.conversation.id),
+            user_id=self.user.id,
+            agent_slug=self.agent.slug,
+        )
+
+        self.assertEqual(result.model, "gemini-3.1-flash-lite-image")
+        google_gen_mock.assert_called_once()
+
+    def test_create_image_rejects_unsupported_model(self):
+        from api.ai_layers.tools.create_image import _create_image_impl
+
+        with self.assertRaises(ValueError) as ctx:
+            _create_image_impl(
+                prompt="nope",
+                model="gpt-image-1.5",
+                aspect_ratio="square",
+                guidance_attachments=[],
+                conversation_id=str(self.conversation.id),
+                user_id=self.user.id,
+                agent_slug=self.agent.slug,
+            )
+        self.assertIn("Unsupported image model", str(ctx.exception))
+
+
 class ToolAttachmentExtractionTests(SimpleTestCase):
     def test_extract_render_document_template_attachments(self):
         from api.ai_layers.tasks import _extract_render_document_template_attachments

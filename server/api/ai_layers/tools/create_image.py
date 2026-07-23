@@ -28,10 +28,74 @@ logger = logging.getLogger(__name__)
 
 AspectRatio = Literal["square", "landscape", "portrait"]
 
-OPENAI_IMAGE_MODELS: set[str] = {"gpt-image-1.5"}
-# Temporary: gemini-3.1-flash-lite-image (Nano Banana 2 Lite) replaces gemini-2.5-flash-image.
-GOOGLE_IMAGE_MODELS: set[str] = {"gemini-3.1-flash-lite-image"}
-ALL_IMAGE_MODELS: set[str] = OPENAI_IMAGE_MODELS | GOOGLE_IMAGE_MODELS
+# ---------------------------------------------------------------------------
+# Image model catalog — single source of truth for allowlist + AI guidance.
+# ---------------------------------------------------------------------------
+
+DEFAULT_IMAGE_MODEL = "gpt-image-2"
+
+IMAGE_GENERATION_MODELS: tuple[dict[str, str], ...] = (
+    {
+        "slug": "gpt-image-2",
+        "provider": "openai",
+        "description": (
+            "Best for long-running highest-quality images with clear rendered text."
+        ),
+    },
+    {
+        "slug": "gemini-3.1-flash-lite-image",
+        "provider": "google",
+        "description": (
+            "Best for blazingly fast image generation at great quality "
+            "(Nano Banana 2 Lite)."
+        ),
+    },
+)
+
+OPENAI_IMAGE_MODELS: set[str] = {
+    m["slug"] for m in IMAGE_GENERATION_MODELS if m["provider"] == "openai"
+}
+GOOGLE_IMAGE_MODELS: set[str] = {
+    m["slug"] for m in IMAGE_GENERATION_MODELS if m["provider"] == "google"
+}
+ALL_IMAGE_MODELS: set[str] = {m["slug"] for m in IMAGE_GENERATION_MODELS}
+
+
+def _image_models_brief_lines() -> str:
+    """slug + brief description for each catalog entry (one line each)."""
+    return "\n".join(
+        f"- {m['slug']}: {m['description']}" for m in IMAGE_GENERATION_MODELS
+    )
+
+
+def image_models_param_description() -> str:
+    return (
+        "Optional image model slug. Omit or pass null to use the default "
+        f"({DEFAULT_IMAGE_MODEL}). Supported models:\n"
+        f"{_image_models_brief_lines()}"
+    )
+
+
+def image_models_tool_description_snippet() -> str:
+    return (
+        f"Default model: {DEFAULT_IMAGE_MODEL}. "
+        "Optionally pass `model` to choose among:\n"
+        f"{_image_models_brief_lines()}"
+    )
+
+
+def image_models_agent_instructions_snippet() -> str:
+    return (
+        "If the user asks you to generate an image, call "
+        "create_image(prompt, model, aspect_ratio, guidance_attachments). "
+        f"`model` is optional and defaults to '{DEFAULT_IMAGE_MODEL}'. "
+        "Choose a model when it matters:\n"
+        f"{_image_models_brief_lines()}\n"
+        "aspect_ratio must be one of: square, landscape, portrait. "
+        "guidance_attachments is an optional list of MessageAttachment UUIDs "
+        "for visual reference (supported by both models)."
+    )
+
 
 GOOGLE_CLOUD_PROJECT = os.environ.get("GOOGLE_CLOUD_PROJECT", "masscer-492023")
 # gemini-3.1-flash-lite-image is global-endpoint only (unlike Veo, which uses GOOGLE_CLOUD_LOCATION).
@@ -56,8 +120,9 @@ _ASPECT_RATIO_TO_OPENAI = {
 
 class CreateImageParams(BaseModel):
     prompt: str = Field(description="Text prompt to generate an image from.")
-    model: str = Field(
-        description="Image model slug. Allowed: gpt-image-1.5, gemini-3.1-flash-lite-image."
+    model: str | None = Field(
+        default=None,
+        description=image_models_param_description(),
     )
     aspect_ratio: AspectRatio = Field(
         default="square",
@@ -251,7 +316,7 @@ def _generate_image_google(
 def _create_image_impl(
     *,
     prompt: str,
-    model: str,
+    model: str | None,
     aspect_ratio: AspectRatio,
     guidance_attachments: list[str],
     conversation_id: str,
@@ -265,9 +330,12 @@ def _create_image_impl(
     from api.messaging.models import Conversation, MessageAttachment
 
     # ---- Validate ----
-    model = (model or "").strip()
+    model = (model or "").strip() or DEFAULT_IMAGE_MODEL
     if model not in ALL_IMAGE_MODELS:
-        raise ValueError(f"Unsupported image model '{model}'. Allowed: {', '.join(sorted(ALL_IMAGE_MODELS))}")
+        raise ValueError(
+            f"Unsupported image model '{model}'. "
+            f"Allowed: {', '.join(sorted(ALL_IMAGE_MODELS))}"
+        )
 
     prompt = (prompt or "").strip()
     if not prompt:
@@ -385,7 +453,7 @@ def get_tool(
 
     def create_image(
         prompt: str,
-        model: str,
+        model: str | None = None,
         aspect_ratio: AspectRatio = "square",
         guidance_attachments: list[str] | None = None,
     ) -> CreateImageResult:
@@ -404,7 +472,7 @@ def get_tool(
         "description": (
             "Generate an image from a text prompt and store it as a conversation attachment. "
             "Use this ONLY when the user asks to generate an image. "
-            "Allowed models: gpt-image-1.5, gemini-3.1-flash-lite-image. "
+            f"{image_models_tool_description_snippet()} "
             "guidance_attachments is an optional list of MessageAttachment UUIDs to use as visual reference. "
             "Returns an attachment_id and a display URL (content) that will appear in the chat."
         ),

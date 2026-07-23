@@ -613,12 +613,24 @@ class WhatsappEmbeddedMediaToolTests(TestCase):
     """WhatsApp lines gate create_image / create_speech via capabilities, not app feature flags."""
 
     def setUp(self):
+        from api.ai_layers.models import LanguageModel
+        from api.consumption.models import Currency
+        from api.providers.models import AIProvider
+
+        Currency.objects.get_or_create(name="Compute Unit", defaults={"one_usd_is": 1000})
+        provider = AIProvider.objects.create(name="OpenAI-wa-media")
+        llm = LanguageModel.objects.create(
+            provider=provider, slug="gpt-wa-media", name="GPT WA Media"
+        )
         self.owner = User.objects.create_user(username="wa_media_owner", password="x")
         self.org = Organization.objects.create(name="WA Media Org", owner=self.owner)
         self.agent = Agent.objects.create(
             name="WA Media Agent",
             salute="hi",
             organization=self.org,
+            llm=llm,
+            model_slug=llm.slug,
+            model_provider="openai",
         )
         self.ws = WSNumber.objects.create(
             user=None,
@@ -650,15 +662,16 @@ class WhatsappEmbeddedMediaToolTests(TestCase):
 
         result = _create_image_impl(
             prompt="cat shrimp fusion",
-            model="gpt-image-1.5",
+            model="gpt-image-2",
             aspect_ratio="square",
+            guidance_attachments=[],
             conversation_id=str(conv.id),
             user_id=None,
             agent_slug=self.agent.slug,
         )
 
         is_feature_enabled_mock.assert_not_called()
-        self.assertEqual(result.model, "gpt-image-1.5")
+        self.assertEqual(result.model, "gpt-image-2")
 
     @patch("api.ai_layers.tools.create_speech.synthesize_speech_bytes", return_value=(b"fake-audio", "gpt-4o-mini-tts"))
     def test_create_speech_skips_chat_generate_speech_flag_for_whatsapp_conversation(
