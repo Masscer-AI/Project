@@ -32,6 +32,7 @@ import WorkflowsPage from "./routes/workflows/page.tsx";
 import Share from "./routes/shares/page.tsx";
 import { sharesLoader } from "./routes/shares/loader.ts";
 import { ErrorPage } from "./routes/error/Page.tsx";
+import { NotFoundPage } from "./routes/not-found/Page.tsx";
 import { NotificationListener } from "./components/NotificationListener/NotificationListener.tsx";
 import { AgentTaskListener } from "./components/AgentTaskListener/AgentTaskListener.tsx";
 import { ConversationTakeoverListener } from "./components/ConversationTakeoverListener/ConversationTakeoverListener.tsx";
@@ -212,6 +213,10 @@ const router = createBrowserRouter([
       {
         path: "/settings/integrations",
         element: <Navigate to="/integrations" replace />,
+      },
+      {
+        path: "*",
+        element: <NotFoundPage />,
       },
     ],
   },
