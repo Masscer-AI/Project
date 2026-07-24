@@ -8,6 +8,7 @@ from api.authenticate.models import Organization, UserProfile
 from api.messaging.models import Conversation, Message
 from api.whatsapp.models import WSNumber
 from api.whatsapp.template_registry import (
+    SOLICITUD_COMPLETADA,
     TASK_COMPLETED,
     get_template,
     list_enabled_templates,
@@ -85,6 +86,18 @@ class WhatsAppTemplateRegistryTests(SimpleTestCase):
     def test_list_enabled_includes_task_completed(self):
         ids = {t.id for t in list_enabled_templates()}
         self.assertIn(TASK_COMPLETED.id, ids)
+
+    def test_solicitud_completada_spanish_registered(self):
+        tpl = get_template("solicitud_completada_es")
+        self.assertIsNotNone(tpl)
+        self.assertEqual(tpl.meta_name, "solicitud_completada")
+        self.assertEqual(tpl.language_code, "es")
+        self.assertEqual(tpl.body_variable_count, 2)
+        self.assertEqual(tpl.button_variable_count, 1)
+        self.assertTrue(tpl.buttons[0].use_source_conversation_id)
+
+        ids = {t.id for t in list_enabled_templates()}
+        self.assertIn(SOLICITUD_COMPLETADA.id, ids)
 
     def test_unknown_template_returns_none(self):
         self.assertIsNone(get_template("does_not_exist"))

@@ -81,9 +81,39 @@ TASK_COMPLETED = WhatsAppTemplateDefinition(
     enabled=True,
 )
 
+SOLICITUD_COMPLETADA = WhatsAppTemplateDefinition(
+    id="solicitud_completada_es",
+    meta_name="solicitud_completada",
+    language_code="es",
+    category="UTILITY",
+    description=(
+        "Notifica en español que una tarea solicitada fue completada, incluye "
+        "un resumen y un boton que regresa a la conversacion de Masscer."
+    ),
+    body_variable_count=2,
+    body_variable_descriptions=(
+        "Descripcion corta de la tarea (completa *{{1}}*).",
+        "Resumen del resultado (completa {{2}}).",
+    ),
+    buttons=(
+        WhatsAppTemplateButton(
+            index=0,
+            sub_type="url",
+            use_source_conversation_id=True,
+            description=(
+                "Sufijo dinamico para "
+                "https://app.charlytoc.dev/chat?conversation={{1}} "
+                "(UUID de la conversacion)."
+            ),
+        ),
+    ),
+    enabled=True,
+)
+
 
 WHATSAPP_TEMPLATES: dict[str, WhatsAppTemplateDefinition] = {
     TASK_COMPLETED.id: TASK_COMPLETED,
+    SOLICITUD_COMPLETADA.id: SOLICITUD_COMPLETADA,
 }
 
 
