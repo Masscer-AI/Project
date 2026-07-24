@@ -279,7 +279,14 @@ class ScheduledConversationTaskAdmin(admin.ModelAdmin):
     list_filter = ("status", "schedule_type", "timezone", "created_at")
     search_fields = ("id", "instruction_text", "conversation__title", "cron")
     raw_id_fields = ("conversation", "organization", "created_by")
-    readonly_fields = ("id", "created_at", "updated_at", "last_run_at", "created_message_id")
+    readonly_fields = (
+        "id",
+        "created_at",
+        "updated_at",
+        "last_run_at",
+        "created_message_id",
+        "capabilities",
+    )
     ordering = ("next_run_at",)
 
 

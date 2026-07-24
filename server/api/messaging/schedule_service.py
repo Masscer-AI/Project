@@ -74,7 +74,9 @@ def list_scheduled_tasks_for_user(
     limit = max(1, min(int(limit), 100))
     qs = ScheduledConversationTask.objects.filter(
         created_by_id=user_id
-    ).select_related("conversation")
+    ).select_related("conversation").exclude(
+        status=ScheduledConversationTask.Status.CANCELLED,
+    )
 
     if not include_finished:
         qs = qs.filter(
@@ -85,6 +87,7 @@ def list_scheduled_tasks_for_user(
         )
         qs = qs.order_by("next_run_at", "-created_at")
     else:
+        # "Show finished" means completed/failed — never cancelled.
         qs = qs.order_by("-created_at")
 
     tasks = [schedule_payload_dict(t) for t in qs[:limit]]

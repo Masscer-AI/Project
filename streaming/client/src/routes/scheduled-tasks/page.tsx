@@ -63,7 +63,8 @@ export default function ScheduledTasksPage() {
         includeFinished,
         limit: 100,
       });
-      setTasks(res.tasks || []);
+      // Defensive: cancelled tasks should never appear in the UI.
+      setTasks((res.tasks || []).filter((task) => task.status !== "cancelled"));
     } catch (err) {
       console.error(err);
       toast.error(t("scheduled-tasks-load-error"));

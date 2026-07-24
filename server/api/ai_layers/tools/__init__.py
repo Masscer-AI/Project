@@ -14,6 +14,7 @@ get_tool() to produce the AgentTool dicts that AgentLoop expects.
 from __future__ import annotations
 
 import importlib
+import json
 import logging
 
 logger = logging.getLogger(__name__)
@@ -139,7 +140,43 @@ def resolve_tools(tool_names: list[str], **context) -> list[dict]:
             # Don't add the tool; continue with the rest
             continue
 
+    _append_schedule_task_capability_catalog(tools)
     return tools
+
+
+def _concise_tool_description(description: str, *, max_len: int = 160) -> str:
+    text = " ".join((description or "").split())
+    if not text:
+        return ""
+    first = text.split(". ", 1)[0].rstrip(".")
+    if first:
+        text = first + "."
+    if len(text) > max_len:
+        return text[: max_len - 1].rstrip() + "…"
+    return text
+
+
+def _append_schedule_task_capability_catalog(tools: list[dict]) -> None:
+    """Tell schedule_task which tools the future turn will inherit."""
+    schedule_tool = next((t for t in tools if t.get("name") == "schedule_task"), None)
+    if schedule_tool is None:
+        return
+
+    catalog: dict[str, str] = {}
+    for tool in tools:
+        name = tool.get("name")
+        if not isinstance(name, str) or not name:
+            continue
+        catalog[name] = _concise_tool_description(str(tool.get("description") or ""))
+
+    if not catalog:
+        return
+
+    schedule_tool["description"] = (
+        f"{schedule_tool.get('description', '').rstrip()} "
+        "The future scheduled turn inherits exactly these enabled capabilities "
+        f"(tool_name → description): {json.dumps(catalog, ensure_ascii=False)}"
+    )
 
 
 def list_available_tools() -> list[str]:

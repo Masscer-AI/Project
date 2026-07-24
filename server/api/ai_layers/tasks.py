@@ -990,6 +990,7 @@ def conversation_agent_task(
     regenerate_message_id: int | None = None,
     client_datetime: dict | None = None,
     user_message_metadata: dict | None = None,
+    capabilities_override: list[str] | None = None,
 ):
     """
     Celery task that runs an AgentLoop for one or more agents in a conversation.
@@ -1014,6 +1015,9 @@ def conversation_agent_task(
             local_datetime_long, locale) to resolve relative times in their locale.
         user_message_metadata: optional metadata merged onto the user Message
             (e.g. scheduled_task source markers).
+        capabilities_override: optional authoritative capability allowlist (e.g.
+            scheduled-task snapshot). When set, auto-injection cannot add tools
+            outside this list; runtime safety filters still apply.
 
     Returns:
         dict with status, output, iterations, tool_calls_count, message_id, user_message_id
@@ -1032,6 +1036,7 @@ def conversation_agent_task(
     )
     from api.notify.actions import notify_user
     from api.messaging.models import Conversation, Message
+    from api.messaging.schedule_helpers import normalize_capability_names
     notification_route_id = user_id
     actor_user_id = user_id if isinstance(user_id, int) else None
 
@@ -1059,11 +1064,20 @@ def conversation_agent_task(
     is_whatsapp_chat = conversation.ws_number_id is not None
     is_embedded_channel = is_widget_chat or is_whatsapp_chat
 
+    override_allowlist: frozenset[str] | None = None
+    if capabilities_override is not None:
+        normalized_override = normalize_capability_names(capabilities_override)
+        override_allowlist = frozenset(normalized_override)
+        # Authoritative allowlist for this special turn.
+        tool_names = list(normalized_override)
+
     conv_metadata = conversation.metadata or {}
     is_mcp_chat = conv_metadata.get("source") == "mcp"
     mcp_tool_allowlist = frozenset(tool_names or [])
 
     def _may_auto_inject_tool(tool: str) -> bool:
+        if override_allowlist is not None and tool not in override_allowlist:
+            return False
         if not is_mcp_chat:
             return True
         return tool in mcp_tool_allowlist
@@ -1345,28 +1359,39 @@ def conversation_agent_task(
                     "\n\nWhen referencing the video attachment in markdown, link it like: "
                     "![Video](attachment:<attachment_id>)."
                 )
-            instructions += (
-                "\n\nDocument file generation is enabled (generate_document_file). "
-                "When the user wants a downloadable Word document created from scratch "
-                "(report, letter, resume, proposal, etc.) and you are NOT using an "
-                "assigned Word template, call generate_document_file(document_string, extension, output_filename). "
-                "- document_string: the full document body (markdown or HTML). "
-                "- extension: 'md' for markdown or 'html' for HTML. "
-                "- output_filename: optional .docx filename (default document.docx). "
-                "Output is always DOCX. "
-                "After success, include: [Download document](attachment:<attachment_id>)."
+            # With a capability override, only advertise tools that remain allowed.
+            _doc_tools_ok = (
+                override_allowlist is None
+                or "generate_document_file" in (tool_names or [])
             )
-            instructions += (
-                "\n\nExcel file generation is enabled (generate_excel_file). "
-                "When the user wants a downloadable spreadsheet (tables, budgets, "
-                "lists, exports, etc.), call generate_excel_file(sheets_json, output_filename). "
-                "- sheets_json: JSON array of sheet objects with name, optional headers, and rows. "
-                "Example: "
-                '[{"name":"Sales","headers":["Month","Revenue"],"rows":[["Jan",1000],["Feb",1200]]}]. '
-                "- output_filename: optional .xlsx filename (default spreadsheet.xlsx). "
-                "Output is always XLSX. "
-                "After success, include: [Download spreadsheet](attachment:<attachment_id>)."
+            _excel_tools_ok = (
+                override_allowlist is None
+                or "generate_excel_file" in (tool_names or [])
             )
+            if _doc_tools_ok:
+                instructions += (
+                    "\n\nDocument file generation is enabled (generate_document_file). "
+                    "When the user wants a downloadable Word document created from scratch "
+                    "(report, letter, resume, proposal, etc.) and you are NOT using an "
+                    "assigned Word template, call generate_document_file(document_string, extension, output_filename). "
+                    "- document_string: the full document body (markdown or HTML). "
+                    "- extension: 'md' for markdown or 'html' for HTML. "
+                    "- output_filename: optional .docx filename (default document.docx). "
+                    "Output is always DOCX. "
+                    "After success, include: [Download document](attachment:<attachment_id>)."
+                )
+            if _excel_tools_ok:
+                instructions += (
+                    "\n\nExcel file generation is enabled (generate_excel_file). "
+                    "When the user wants a downloadable spreadsheet (tables, budgets, "
+                    "lists, exports, etc.), call generate_excel_file(sheets_json, output_filename). "
+                    "- sheets_json: JSON array of sheet objects with name, optional headers, and rows. "
+                    "Example: "
+                    '[{"name":"Sales","headers":["Month","Revenue"],"rows":[["Jan",1000],["Feb",1200]]}]. '
+                    "- output_filename: optional .xlsx filename (default spreadsheet.xlsx). "
+                    "Output is always XLSX. "
+                    "After success, include: [Download spreadsheet](attachment:<attachment_id>)."
+                )
             if "create_speech" in (tool_names or []):
                 from api.voices.instructions import build_create_speech_tool_instructions
 
@@ -1854,6 +1879,8 @@ def conversation_agent_task(
                 has_organization_conversations_access=has_organization_conversations_access,
                 agent_slugs=agent_slugs,
                 multiagentic_modality=multiagentic_modality,
+                # Final per-agent allowlist for schedule_task capability snapshots.
+                enabled_capabilities=list(agent_tool_names),
             )
             if applicable_alert_rules and organization:
                 resolve_kwargs["organization_id"] = organization.id

@@ -10,9 +10,10 @@ from django.contrib.auth.models import User
 from django.test import SimpleTestCase, TestCase
 from django.utils import timezone
 
-from api.ai_layers.models import Agent
+from api.ai_layers.models import Agent, LanguageModel
 from api.ai_layers.tools.calendar_tool_helpers import resolve_org_timezone
 from api.authenticate.models import Organization, UserProfile
+from api.consumption.models import Currency
 from api.messaging.models import Conversation, ConversationTakeover, ScheduledConversationTask
 from api.messaging.schedule_helpers import (
     build_cron_from_structured,
@@ -21,6 +22,17 @@ from api.messaging.schedule_helpers import (
     parse_run_at_to_utc,
     resolve_cron_expression,
 )
+from api.providers.models import AIProvider
+
+
+def _seed_llm_and_currency():
+    Currency.objects.get_or_create(name="Compute Unit", defaults={"one_usd_is": 1000})
+    provider = AIProvider.objects.create(name=f"OpenAI-{LanguageModel.objects.count()}")
+    return LanguageModel.objects.create(
+        provider=provider,
+        slug=f"gpt-sched-{LanguageModel.objects.count()}",
+        name="GPT Sched",
+    )
 
 
 class ScheduleHelperTests(SimpleTestCase):
@@ -102,19 +114,25 @@ class ScheduleToolRegistryTests(SimpleTestCase):
 
 class ScheduleTaskToolTests(TestCase):
     def setUp(self):
+        self.llm = _seed_llm_and_currency()
         self.user = User.objects.create_user(
             username="sched", email="sched@test.com", password="x"
         )
         self.org = Organization.objects.create(
             name="Org", owner=self.user, timezone="America/Guayaquil"
         )
-        UserProfile.objects.create(user=self.user, organization=self.org, name="Sched")
+        UserProfile.objects.filter(user=self.user).update(
+            organization=self.org, name="Sched"
+        )
         self.agent = Agent.objects.create(
             name="Sched Agent",
             salute="hi",
             act_as="help",
             user=self.user,
             organization=self.org,
+            llm=self.llm,
+            model_slug=self.llm.slug,
+            model_provider="openai",
         )
         self.conversation = Conversation.objects.create(
             user=self.user,
@@ -137,6 +155,13 @@ class ScheduleTaskToolTests(TestCase):
             user_id=self.user.id,
             agent_slugs=[self.agent.slug],
             multiagentic_modality="isolated",
+            enabled_capabilities=[
+                "explore_web",
+                "create_speech",
+                "generate_document_file",
+                "not_a_real_tool",
+                "explore_web",
+            ],
             run_at=future_local.strftime("%Y-%m-%dT%H:%M:%S"),
         )
         self.assertTrue(result.success)
@@ -146,7 +171,47 @@ class ScheduleTaskToolTests(TestCase):
         self.assertEqual(task.status, ScheduledConversationTask.Status.PENDING)
         self.assertEqual(task.agent_slugs, [self.agent.slug])
         self.assertEqual(task.celery_task_id, "celery-once-1")
+        self.assertEqual(
+            task.capabilities,
+            ["explore_web", "create_speech", "generate_document_file"],
+        )
         mock_apply.assert_called_once()
+
+    @patch("api.messaging.tasks.run_scheduled_conversation_task.apply_async")
+    def test_schedule_persists_full_enabled_capability_snapshot(self, mock_apply):
+        mock_apply.return_value = MagicMock(id="celery-caps-1")
+        from api.ai_layers.tools.schedule_task import get_tool
+
+        tool = get_tool(
+            conversation_id=str(self.conversation.id),
+            organization_id=self.org.id,
+            user_id=self.user.id,
+            agent_slugs=[self.agent.slug],
+            multiagentic_modality="isolated",
+            enabled_capabilities=[
+                "create_speech",
+                "list_voices",
+                "send_email",
+                "explore_web",
+                # Unknown / unenabled names must be dropped even if somehow supplied.
+                "totally_fake_capability",
+            ],
+        )
+        future_local = (
+            datetime.now(ZoneInfo("America/Guayaquil")) + timedelta(days=3)
+        ).replace(hour=9, minute=30, second=0, microsecond=0)
+        result = tool["function"](
+            instruction="Generate a spoken morning brief.",
+            schedule_type="once",
+            run_at=future_local.strftime("%Y-%m-%dT%H:%M:%S"),
+        )
+        self.assertTrue(result.success)
+        task = ScheduledConversationTask.objects.get(id=result.task_id)
+        self.assertEqual(
+            task.capabilities,
+            ["create_speech", "list_voices", "send_email", "explore_web"],
+        )
+        self.assertNotIn("totally_fake_capability", task.capabilities)
 
     @patch("api.messaging.tasks.run_scheduled_conversation_task.apply_async")
     def test_schedule_weekly_and_cancel(self, mock_apply):
@@ -192,19 +257,25 @@ class ScheduleTaskToolTests(TestCase):
 
 class ScheduleFirePathTests(TestCase):
     def setUp(self):
+        self.llm = _seed_llm_and_currency()
         self.user = User.objects.create_user(
             username="fire", email="fire@test.com", password="x"
         )
         self.org = Organization.objects.create(
             name="Fire Org", owner=self.user, timezone="America/Guayaquil"
         )
-        UserProfile.objects.create(user=self.user, organization=self.org, name="Fire")
+        UserProfile.objects.filter(user=self.user).update(
+            organization=self.org, name="Fire"
+        )
         self.agent = Agent.objects.create(
             name="Fire Agent",
             salute="hi",
             act_as="help",
             user=self.user,
             organization=self.org,
+            llm=self.llm,
+            model_slug=self.llm.slug,
+            model_provider="openai",
         )
         self.conversation = Conversation.objects.create(
             user=self.user,
@@ -246,14 +317,49 @@ class ScheduleFirePathTests(TestCase):
             kwargs["user_inputs"],
             [{"type": "input_text", "text": "Write a short status update."}],
         )
+        from api.messaging.schedule_helpers import SCHEDULER_BASELINE_TOOL_NAMES
+
+        self.assertEqual(kwargs["tool_names"], list(SCHEDULER_BASELINE_TOOL_NAMES))
+        self.assertEqual(
+            kwargs["capabilities_override"], list(SCHEDULER_BASELINE_TOOL_NAMES)
+        )
         self.assertEqual(
             kwargs["user_message_metadata"],
-            {"source": "scheduled_task", "scheduled_task_id": str(task.id)},
+            {
+                "source": "scheduled_task",
+                "scheduled_task_id": str(task.id),
+                "capabilities_override": list(SCHEDULER_BASELINE_TOOL_NAMES),
+            },
         )
         self.assertEqual(kwargs["agent_slugs"], [self.agent.slug])
         task.refresh_from_db()
         self.assertEqual(task.status, ScheduledConversationTask.Status.DONE)
         self.assertEqual(task.created_message_id, 42)
+
+    @patch("api.ai_layers.tasks.conversation_agent_task")
+    def test_fire_passes_saved_capabilities_as_override(self, mock_agent):
+        mock_agent.return_value = {
+            "status": "completed",
+            "user_message_id": 43,
+            "message_id": 100,
+        }
+        caps = [
+            "create_speech",
+            "list_voices",
+            "generate_document_file",
+            "explore_web",
+        ]
+        task = self._make_pending(capabilities=caps)
+        from api.messaging.tasks import run_scheduled_conversation_task
+
+        run_scheduled_conversation_task(str(task.id))
+        kwargs = mock_agent.call_args.kwargs
+        self.assertEqual(kwargs["tool_names"], caps)
+        self.assertEqual(kwargs["capabilities_override"], caps)
+        self.assertEqual(
+            kwargs["user_message_metadata"]["capabilities_override"], caps
+        )
+        self.assertIn("create_speech", kwargs["tool_names"])
 
     @patch("api.ai_layers.tasks.conversation_agent_task")
     def test_fire_skips_takeover(self, mock_agent):
@@ -311,12 +417,171 @@ class ScheduleFirePathTests(TestCase):
         mock_enqueue.assert_called_once()
 
 
+class ScheduledCapabilityOverrideTests(TestCase):
+    def setUp(self):
+        self.llm = _seed_llm_and_currency()
+        self.user = User.objects.create_user(
+            username="cap_override", email="cap_override@test.com", password="x"
+        )
+        self.org = Organization.objects.create(
+            name="Cap Org", owner=self.user, timezone="America/Guayaquil"
+        )
+        UserProfile.objects.filter(user=self.user).update(
+            organization=self.org, name="Cap"
+        )
+        self.agent = Agent.objects.create(
+            name="Cap Agent",
+            salute="hi",
+            act_as="help",
+            user=self.user,
+            organization=self.org,
+            llm=self.llm,
+            model_slug=self.llm.slug,
+            model_provider="openai",
+        )
+        self.conversation = Conversation.objects.create(
+            user=self.user,
+            organization=self.org,
+        )
+
+    def test_legacy_empty_capabilities_fallback(self):
+        from api.messaging.schedule_helpers import (
+            SCHEDULER_BASELINE_TOOL_NAMES,
+            resolve_scheduled_task_capabilities,
+        )
+
+        task = ScheduledConversationTask(
+            capabilities=[],
+        )
+        self.assertEqual(
+            resolve_scheduled_task_capabilities(task),
+            list(SCHEDULER_BASELINE_TOOL_NAMES),
+        )
+
+    def test_resolve_tools_appends_capability_catalog_to_schedule_task(self):
+        from api.ai_layers.tools import resolve_tools
+
+        tools = resolve_tools(
+            ["explore_web", "schedule_task", "create_speech"],
+            conversation_id=str(self.conversation.id),
+            organization_id=self.org.id,
+            user_id=self.user.id,
+            agent_slugs=[self.agent.slug],
+            multiagentic_modality="isolated",
+            enabled_capabilities=["explore_web", "schedule_task", "create_speech"],
+        )
+        by_name = {t["name"]: t for t in tools}
+        self.assertIn("schedule_task", by_name)
+        self.assertIn("list_voices", by_name)  # dependent of create_speech
+        desc = by_name["schedule_task"]["description"]
+        self.assertIn(
+            "The future scheduled turn inherits exactly these enabled capabilities",
+            desc,
+        )
+        self.assertIn("create_speech", desc)
+        self.assertIn("explore_web", desc)
+        self.assertIn("list_voices", desc)
+
+    @patch("api.notify.actions.notify_user")
+    @patch("api.consumption.actions._check_org_subscription", return_value=(True, None))
+    @patch("api.ai_layers.agent_loop.AgentLoop")
+    @patch("api.ai_layers.tools.resolve_tools")
+    def test_capabilities_override_blocks_auto_injection(
+        self, mock_resolve_tools, mock_agent_loop, _billing, _notify
+    ):
+        from api.ai_layers.agent_loop import AgentLoopResult
+        from api.ai_layers.tasks import conversation_agent_task
+
+        captured: list[list[str]] = []
+
+        def capture(names, **kwargs):
+            captured.append(list(names))
+            return []
+
+        mock_resolve_tools.side_effect = capture
+        mock_agent_loop.create.return_value.run.return_value = AgentLoopResult(
+            output="ok",
+            messages=[],
+            iterations=1,
+            tool_calls=[],
+        )
+
+        override = ["explore_web", "create_speech"]
+        result = conversation_agent_task(
+            conversation_id=str(self.conversation.id),
+            user_inputs=[{"type": "input_text", "text": "hello"}],
+            tool_names=list(override),
+            agent_slugs=[self.agent.slug],
+            user_id=self.user.id,
+            capabilities_override=list(override),
+        )
+        self.assertEqual(result["status"], "completed")
+        self.assertTrue(captured)
+        self.assertEqual(set(captured[0]), set(override))
+        self.assertNotIn("generate_document_file", captured[0])
+        self.assertNotIn("send_email", captured[0])
+        self.assertNotIn("schedule_task", captured[0])
+
+    def test_cancelled_excluded_from_user_list_even_when_finished(self):
+        from api.messaging.schedule_service import list_scheduled_tasks_for_user
+
+        pending = ScheduledConversationTask.objects.create(
+            conversation=self.conversation,
+            organization=self.org,
+            created_by=self.user,
+            instruction_text="Pending",
+            schedule_type=ScheduledConversationTask.ScheduleType.ONCE,
+            timezone="America/Guayaquil",
+            run_at=timezone.now() + timedelta(days=1),
+            next_run_at=timezone.now() + timedelta(days=1),
+            status=ScheduledConversationTask.Status.PENDING,
+            agent_slugs=[self.agent.slug],
+        )
+        done = ScheduledConversationTask.objects.create(
+            conversation=self.conversation,
+            organization=self.org,
+            created_by=self.user,
+            instruction_text="Done",
+            schedule_type=ScheduledConversationTask.ScheduleType.ONCE,
+            timezone="America/Guayaquil",
+            run_at=timezone.now() - timedelta(days=1),
+            next_run_at=timezone.now() - timedelta(days=1),
+            status=ScheduledConversationTask.Status.DONE,
+            agent_slugs=[self.agent.slug],
+        )
+        cancelled = ScheduledConversationTask.objects.create(
+            conversation=self.conversation,
+            organization=self.org,
+            created_by=self.user,
+            instruction_text="Cancelled",
+            schedule_type=ScheduledConversationTask.ScheduleType.ONCE,
+            timezone="America/Guayaquil",
+            run_at=timezone.now() + timedelta(days=2),
+            next_run_at=timezone.now() + timedelta(days=2),
+            status=ScheduledConversationTask.Status.CANCELLED,
+            agent_slugs=[self.agent.slug],
+        )
+
+        active = list_scheduled_tasks_for_user(user_id=self.user.id, include_finished=False)
+        active_ids = {t["id"] for t in active["tasks"]}
+        self.assertEqual(active_ids, {str(pending.id)})
+        self.assertNotIn(str(cancelled.id), active_ids)
+
+        finished = list_scheduled_tasks_for_user(
+            user_id=self.user.id, include_finished=True
+        )
+        finished_ids = {t["id"] for t in finished["tasks"]}
+        self.assertEqual(finished_ids, {str(pending.id), str(done.id)})
+        self.assertNotIn(str(cancelled.id), finished_ids)
+
+
 class ScheduledTasksApiTests(TestCase):
     def setUp(self):
         from api.authenticate.models import Token
         from rest_framework.test import APIClient
 
         self.client = APIClient()
+        self.llm = _seed_llm_and_currency()
         self.user = User.objects.create_user(
             username="api_sched", email="api_sched@test.com", password="x"
         )
@@ -326,7 +591,9 @@ class ScheduledTasksApiTests(TestCase):
         self.org = Organization.objects.create(
             name="API Org", owner=self.user, timezone="America/Guayaquil"
         )
-        UserProfile.objects.create(user=self.user, organization=self.org, name="API")
+        UserProfile.objects.filter(user=self.user).update(
+            organization=self.org, name="API"
+        )
         self.conversation = Conversation.objects.create(
             user=self.user,
             organization=self.org,

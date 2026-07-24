@@ -10,6 +10,10 @@ from .models import (
     ConversationAlert,
     ScheduledConversationTask,
 )
+from .schedule_helpers import (
+    SCHEDULER_BASELINE_TOOL_NAMES,
+    resolve_scheduled_task_capabilities,
+)
 from .schemas import ConversationAnalysisResult
 from api.authenticate.models import Organization, FeatureFlag, FeatureFlagAssignment
 from api.authenticate.services import FeatureFlagService
@@ -19,18 +23,6 @@ from django.db import transaction
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
-
-SCHEDULER_BASELINE_TOOL_NAMES: list[str] = [
-    "read_attachment",
-    "list_attachments",
-    "generate_document_file",
-    "generate_excel_file",
-    "send_email",
-    "list_organization_members",
-    "list_organization_roles",
-    "explore_web",
-    "rag_query",
-]
 
 
 def _resolve_agent_slugs_for_scheduled_task(task: ScheduledConversationTask) -> list[str]:
@@ -577,17 +569,20 @@ def run_scheduled_conversation_task(scheduled_task_id: str):
         task.save(update_fields=["status", "last_error", "last_run_at", "updated_at"])
         return {"status": "error", "error": "no_agents"}
 
+    capabilities = resolve_scheduled_task_capabilities(task)
     try:
         result = conversation_agent_task(
             conversation_id=str(conversation.id),
             user_inputs=[{"type": "input_text", "text": task.instruction_text}],
-            tool_names=list(SCHEDULER_BASELINE_TOOL_NAMES),
+            tool_names=list(capabilities),
             agent_slugs=agent_slugs,
             multiagentic_modality=task.multiagentic_modality or "isolated",
             user_id=task.created_by_id,
+            capabilities_override=list(capabilities),
             user_message_metadata={
                 "source": "scheduled_task",
                 "scheduled_task_id": str(task.id),
+                "capabilities_override": list(capabilities),
             },
         )
     except Exception as exc:

@@ -20,6 +20,19 @@ _CRON_FIELD_RE = re.compile(r"^[\d*/,\-]+$")
 
 WEEKDAY_NAMES = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
 
+# Legacy fallback when a scheduled task has an empty capabilities snapshot.
+SCHEDULER_BASELINE_TOOL_NAMES: list[str] = [
+    "read_attachment",
+    "list_attachments",
+    "generate_document_file",
+    "generate_excel_file",
+    "send_email",
+    "list_organization_members",
+    "list_organization_roles",
+    "explore_web",
+    "rag_query",
+]
+
 # Our weekdays: 0=Mon … 6=Sun. Standard cron (croniter): 0=Sun, 1=Mon … 6=Sat.
 def mon0_to_cron_dow(weekday: int) -> int:
     return (int(weekday) + 1) % 7
@@ -269,9 +282,38 @@ def schedule_payload_dict(task: Any) -> dict[str, Any]:
         "weekdays": task.weekdays or [],
         "day_of_month": task.day_of_month,
         "cron": task.cron,
+        "capabilities": list(getattr(task, "capabilities", None) or []),
         "conversation_id": conversation_id,
         "conversation_title": conversation_title,
     }
+
+
+def normalize_capability_names(raw: list | None) -> list[str]:
+    """Deduplicate and keep only names registered in TOOL_REGISTRY (order preserved)."""
+    from api.ai_layers.tools import TOOL_REGISTRY
+
+    seen: set[str] = set()
+    out: list[str] = []
+    for item in raw or []:
+        if not isinstance(item, str):
+            continue
+        name = item.strip()
+        if not name or name not in TOOL_REGISTRY or name in seen:
+            continue
+        seen.add(name)
+        out.append(name)
+    return out
+
+
+def resolve_scheduled_task_capabilities(task) -> list[str]:
+    """
+    Capabilities for a scheduled run. Empty/legacy snapshots fall back to the
+    former scheduler baseline so existing tasks keep working.
+    """
+    caps = normalize_capability_names(getattr(task, "capabilities", None) or [])
+    if caps:
+        return caps
+    return list(SCHEDULER_BASELINE_TOOL_NAMES)
 
 
 # Small epsilon used when advancing recurring schedules after a run.

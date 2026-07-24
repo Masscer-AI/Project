@@ -708,6 +708,14 @@ class ScheduledConversationTask(models.Model):
     celery_task_id = models.CharField(max_length=255, null=True, blank=True)
     agent_slugs = models.JSONField(default=list, blank=True)
     multiagentic_modality = models.CharField(max_length=32, default="isolated")
+    capabilities = models.JSONField(
+        default=list,
+        blank=True,
+        help_text=(
+            "Snapshot of enabled tool names from the scheduling turn. "
+            "Used as the capability override when the task fires."
+        ),
+    )
     created_message_id = models.IntegerField(
         null=True,
         blank=True,

@@ -78,6 +78,7 @@ def _schedule_task_impl(
     user_id: int,
     agent_slugs: list[str] | None,
     multiagentic_modality: str,
+    enabled_capabilities: list[str] | None = None,
     run_at: str | None = None,
     recurrence: Literal["daily", "weekly", "monthly"] | None = None,
     time_of_day: str | None = None,
@@ -89,6 +90,7 @@ def _schedule_task_impl(
     from api.messaging.models import Conversation, ScheduledConversationTask
     from api.messaging.schedule_helpers import (
         compute_next_run_at,
+        normalize_capability_names,
         parse_run_at_to_utc,
         resolve_cron_expression,
         schedule_payload_dict,
@@ -99,6 +101,8 @@ def _schedule_task_impl(
     instruction = (instruction or "").strip()
     if not instruction:
         raise ValueError("instruction is required.")
+
+    capabilities = normalize_capability_names(enabled_capabilities)
 
     try:
         conversation = Conversation.objects.select_related("organization").get(
@@ -167,6 +171,7 @@ def _schedule_task_impl(
         status=ScheduledConversationTask.Status.PENDING,
         agent_slugs=slugs,
         multiagentic_modality=multiagentic_modality or "isolated",
+        capabilities=capabilities,
     )
     enqueue_scheduled_conversation_task(task)
     payload = schedule_payload_dict(task)
@@ -193,6 +198,7 @@ def get_tool(
     user_id: int | None = None,
     agent_slugs: list[str] | None = None,
     multiagentic_modality: str = "isolated",
+    enabled_capabilities: list[str] | None = None,
     **kwargs,
 ) -> dict:
     if not conversation_id:
@@ -203,6 +209,10 @@ def get_tool(
         raise ValueError("schedule_task requires user_id in context")
 
     from api.ai_layers.tools.calendar_tool_helpers import resolve_org_timezone
+    from api.messaging.schedule_helpers import normalize_capability_names
+
+    # Snapshot is server-controlled from the originating turn; model cannot author it.
+    capability_snapshot = normalize_capability_names(enabled_capabilities)
 
     tz_name = resolve_org_timezone(organization_id)
     tz_line = (
@@ -228,6 +238,7 @@ def get_tool(
             user_id=user_id,
             agent_slugs=agent_slugs,
             multiagentic_modality=multiagentic_modality,
+            enabled_capabilities=capability_snapshot,
             run_at=run_at,
             recurrence=recurrence,
             time_of_day=time_of_day,
@@ -240,7 +251,8 @@ def get_tool(
         "name": "schedule_task",
         "description": (
             "Schedule a one-off or recurring task that will later run in this conversation "
-            "as a user message (the full agent with tools will execute it). "
+            "as a user message. The future turn inherits this conversation's currently enabled "
+            "capabilities (see catalog appended below); you cannot grant extra tools. "
             "Write instruction as a self-contained imperative user task, not as an assistant reply. "
             f"{tz_line} "
             "All schedule wall times use the organization timezone unless run_at includes an offset. "
