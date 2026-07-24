@@ -340,9 +340,29 @@ class UserProfile(models.Model):
         default=None,
         help_text="If set, the user's access expires at this datetime. Useful for temporary guest accounts."
     )
+    _phone_numbers = models.JSONField(
+        default=list,
+        blank=True,
+        help_text=(
+            "Validated phone numbers for the user. "
+            "Use the phone_numbers property for Pydantic-validated access."
+        ),
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def phone_numbers(self):
+        from api.authenticate.phone_numbers import parse_phone_numbers
+
+        return parse_phone_numbers(self._phone_numbers)
+
+    @phone_numbers.setter
+    def phone_numbers(self, value) -> None:
+        from api.authenticate.phone_numbers import validate_phone_numbers_for_storage
+
+        self._phone_numbers = validate_phone_numbers_for_storage(value)
 
     def __str__(self):
         return f"USER_PROFILE(user={self.user.username or self.user.email})"

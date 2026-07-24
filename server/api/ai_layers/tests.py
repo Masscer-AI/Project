@@ -774,7 +774,18 @@ class SendEmailToolTests(SimpleTestCase):
 
 class OrgMembershipHelpersTests(TestCase):
     def setUp(self):
+        from api.ai_layers.models import LanguageModel
         from api.authenticate.models import Role, RoleAssignment, UserProfile
+        from api.consumption.models import Currency
+        from api.providers.models import AIProvider
+
+        Currency.objects.get_or_create(
+            name="Compute Unit", defaults={"one_usd_is": 1000}
+        )
+        provider = AIProvider.objects.create(name="OpenAI-org-members")
+        LanguageModel.objects.create(
+            provider=provider, slug="gpt-org-members", name="GPT Org Members"
+        )
 
         self.owner = User.objects.create_user(
             username="owner",
@@ -797,12 +808,11 @@ class OrgMembershipHelpersTests(TestCase):
             password="x",
         )
         self.org = Organization.objects.create(name="Acme", owner=self.owner)
-        UserProfile.objects.create(
-            user=self.member,
-            organization=self.org,
-            is_active=True,
-            name="Member One",
-        )
+        member_profile, _ = UserProfile.objects.get_or_create(user=self.member)
+        member_profile.organization = self.org
+        member_profile.is_active = True
+        member_profile.name = "Member One"
+        member_profile.save()
         self.role = Role.objects.create(
             organization=self.org,
             name="Managers",
@@ -891,6 +901,27 @@ class OrgMembershipHelpersTests(TestCase):
         current = [m for m in result.members if m.is_current_user]
         self.assertEqual(len(current), 1)
         self.assertEqual(current[0].user_id, self.member.id)
+
+    def test_list_organization_members_includes_owner_phones_without_org_fk(self):
+        """Owner may lack profile.organization; phones still come from user.profile."""
+        from api.ai_layers.tools.list_organization_members import (
+            _list_organization_members_impl,
+        )
+        from api.authenticate.models import UserProfile
+
+        owner_profile, _ = UserProfile.objects.get_or_create(user=self.owner)
+        # Keep organization unset to mirror common owner edge case.
+        owner_profile.organization = None
+        owner_profile.phone_numbers = [
+            {"country_code": "1", "number": "2025550100", "is_default": True}
+        ]
+        owner_profile.save()
+
+        result = _list_organization_members_impl(self.org.id, self.owner.id)
+        owner = next(m for m in result.members if m.user_id == self.owner.id)
+        self.assertEqual(len(owner.phone_numbers), 1)
+        self.assertEqual(owner.phone_numbers[0].number, "2025550100")
+        self.assertTrue(owner.is_owner)
 
     def test_list_organization_roles_counts_active_members(self):
         from api.ai_layers.tools.list_organization_roles import (
@@ -1468,6 +1499,9 @@ class MCPAccessTests(SimpleTestCase):
         self.assertEqual(mcp_all_tool_names(), sorted(all_tools))
         self.assertIn("send_email", all_tools)
         self.assertIn("list_organization_members", all_tools)
+        self.assertIn("send_ws_template_message", all_tools)
+        self.assertIn("list_accessible_whatsapp_senders", all_tools)
+        self.assertIn("list_whatsapp_templates", all_tools)
 
     @override_settings(FRONTEND_URL="")
     def test_serialize_attachments_for_mcp_strips_internal_fields(self):

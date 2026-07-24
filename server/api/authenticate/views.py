@@ -765,23 +765,37 @@ class UserView(View):
 
         # Actualizar el perfil del usuario si se incluye en los datos
         if "profile" in data:
-            profile = request.user.profile
-            if not profile:
-                profile = UserProfile.objects.create(
-                    user=request.user, **data["profile"]
+            profile, _ = UserProfile.objects.get_or_create(user=request.user)
+            profile_serializer = UserProfileSerializer(
+                profile, data=data["profile"], partial=True
+            )
+            if not profile_serializer.is_valid():
+                return JsonResponse(
+                    {"error": "invalid-profile", "details": profile_serializer.errors},
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
-            serializer = UserProfileSerializer(profile, data=data["profile"])
-            if serializer.is_valid():
-                serializer.save()
+            profile_serializer.save()
+            # Drop the cached reverse OneToOne: token auth / earlier access may have
+            # pinned an in-memory profile on request.user. Serializing that stale
+            # instance would re-cache old phone_numbers and the UI would restore them.
+            request.user.__dict__.pop("profile", None)
 
-        # Invalidar y actualizar el caché con los nuevos datos
+        # Rebuild user payload from DB (select_related) so phone_numbers matches storage.
         cache_key = f"user_data_{request.user.id}"
-        serializer = UserSerializer(request.user)
-        response_data = serializer.data
+        cache.delete(cache_key)
+        fresh_user = (
+            User.objects.select_related("profile").filter(pk=request.user.pk).first()
+            or request.user
+        )
+        response_data = UserSerializer(fresh_user).data
         cache.set(cache_key, response_data, timeout=self.CACHE_TIMEOUT)
 
         return JsonResponse(
-            {"message": "user-updated-successfully"}, status=status.HTTP_200_OK
+            {
+                "message": "user-updated-successfully",
+                "user": response_data,
+            },
+            status=status.HTTP_200_OK,
         )
 
 

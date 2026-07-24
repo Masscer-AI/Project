@@ -124,6 +124,72 @@ def send_message(
     return response.json().get("messages")[0].get("id")
 
 
+def send_template_message(
+    business_phone_number_id: str,
+    to: str,
+    *,
+    template_name: str,
+    language_code: str,
+    components: list[dict] | None = None,
+) -> str | None:
+    """
+    Send an approved WhatsApp Cloud API template message.
+
+    ``components`` follows Meta's template component format (body/button parameters).
+    Returns the outbound WAMID on success.
+    """
+    if not business_phone_number_id:
+        raise ValueError("business_phone_number_id is required")
+    if not to:
+        raise ValueError("to is required")
+    if not template_name:
+        raise ValueError("template_name is required")
+    if not language_code:
+        raise ValueError("language_code is required")
+
+    url = f"https://graph.facebook.com/v21.0/{business_phone_number_id}/messages"
+    headers = {
+        "Authorization": f"Bearer {_graph_token()}",
+        "Content-Type": "application/json",
+    }
+    template_payload: dict = {
+        "name": template_name,
+        "language": {"code": language_code},
+    }
+    if components:
+        template_payload["components"] = components
+
+    data = {
+        "messaging_product": "whatsapp",
+        "to": to,
+        "type": "template",
+        "template": template_payload,
+    }
+
+    response = requests.post(url, headers=headers, json=data)
+    if response.status_code != 200:
+        try:
+            err_body = response.json()
+        except Exception:
+            err_body = {"raw": response.text}
+        printer.red(f"Error sending template message: {err_body}")
+        meta_error = (
+            err_body.get("error", {}).get("message")
+            if isinstance(err_body, dict)
+            else None
+        )
+        raise Exception(
+            meta_error
+            or f"Failed to send WhatsApp template message (HTTP {response.status_code})."
+        )
+
+    printer.success(f"Template '{template_name}' sent successfully.")
+    messages = response.json().get("messages") or []
+    if not messages:
+        return None
+    return messages[0].get("id")
+
+
 def verify_whatsapp_number(country_code, phone_number, method, cert, pin=None):
     url = "http://your-api-url/v1/account"  # Replace with the actual API URL
 

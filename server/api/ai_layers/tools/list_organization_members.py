@@ -1,7 +1,8 @@
 """
 Tool: list_organization_members
 
-Lists members of the conversation organization for send_email recipient selection.
+Lists members of the conversation organization for send_email recipient selection
+and WhatsApp template targeting (includes phone_numbers).
 """
 
 from __future__ import annotations
@@ -13,6 +14,7 @@ from api.authenticate.org_membership import (
     active_role_assignments_for_org,
     iter_organization_member_users,
 )
+from api.authenticate.phone_numbers import normalize_phone_numbers
 
 
 class ListOrganizationMembersParams(BaseModel):
@@ -24,6 +26,12 @@ class MemberRoleSummary(BaseModel):
     role_name: str
 
 
+class MemberPhoneNumber(BaseModel):
+    country_code: str
+    number: str
+    is_default: bool = False
+
+
 class OrganizationMemberSummary(BaseModel):
     user_id: int
     email: str
@@ -33,6 +41,7 @@ class OrganizationMemberSummary(BaseModel):
     roles: list[MemberRoleSummary] = Field(default_factory=list)
     member_since: str
     is_current_user: bool
+    phone_numbers: list[MemberPhoneNumber] = Field(default_factory=list)
 
 
 class ListOrganizationMembersResult(BaseModel):
@@ -64,15 +73,15 @@ def _list_organization_members_impl(
             )
         )
 
+    members_list = list(iter_organization_member_users(organization))
+    user_ids = [u.id for u in members_list]
     profiles = {
         p.user_id: p
-        for p in UserProfile.objects.filter(organization=organization).select_related(
-            "user"
-        )
+        for p in UserProfile.objects.filter(user_id__in=user_ids)
     }
 
     members: list[OrganizationMemberSummary] = []
-    for user in iter_organization_member_users(organization):
+    for user in members_list:
         profile = profiles.get(user.id)
         is_owner = organization.owner_id == user.id
         is_active = True if is_owner else bool(profile.is_active if profile else True)
@@ -81,6 +90,11 @@ def _list_organization_members_impl(
             display_name = profile.name.strip()
         elif user.username:
             display_name = user.username
+
+        phone_raw = normalize_phone_numbers(
+            getattr(profile, "_phone_numbers", None) if profile else None
+        )
+        phone_numbers = [MemberPhoneNumber.model_validate(p) for p in phone_raw]
 
         members.append(
             OrganizationMemberSummary(
@@ -92,6 +106,7 @@ def _list_organization_members_impl(
                 roles=roles_by_user.get(user.id, []),
                 member_since=_member_since_iso(user, profile, is_owner),
                 is_current_user=current_user_id is not None and user.id == current_user_id,
+                phone_numbers=phone_numbers,
             )
         )
 
@@ -116,8 +131,10 @@ def get_tool(
         "name": "list_organization_members",
         "description": (
             "List members of the current organization with user_id, email, display_name, "
-            "roles, member_since, and is_current_user (true for the person chatting). "
-            "Use before send_email to pick type=user recipients. "
+            "roles, member_since, phone_numbers (country_code, number, is_default), "
+            "and is_current_user (true for the person chatting). "
+            "Use before send_email to pick type=user recipients, or before "
+            "send_ws_template_message to pick target_user_id and a registered phone. "
             "For role-wide or org-wide sends, use list_organization_roles or "
             "send_email with type=organization."
         ),

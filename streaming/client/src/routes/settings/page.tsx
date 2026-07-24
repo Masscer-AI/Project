@@ -16,7 +16,7 @@ import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import i18n from "../../i18next";
 import mermaid from "mermaid";
-import { TUserProfile } from "../../types/chatTypes";
+import { TPhoneNumber, TUserProfile } from "../../types/chatTypes";
 
 import {
   ActionIcon,
@@ -30,6 +30,7 @@ import {
   NativeSelect,
   PasswordInput,
   SegmentedControl,
+  Select,
   Slider,
   Stack,
   Switch,
@@ -44,12 +45,19 @@ import {
   IconMenu2,
   IconMoon,
   IconDeviceDesktop,
+  IconPlus,
   IconSun,
+  IconTrash,
   IconUpload,
   IconVolume,
   IconPlayerPlay,
 } from "@tabler/icons-react";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
+import {
+  countrySelectData,
+  getDialCodeForIso,
+  isoFromDialCode,
+} from "../../utils/countryDialCodes";
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -136,7 +144,9 @@ const UserSection = () => {
 
   const handleSave = async () => {
     try {
-      await updateUser({ username, email, profile: user?.profile });
+      // Do not resubmit profile here — that can overwrite phone_numbers edits
+      // still pending in the Profile section.
+      await updateUser({ username, email });
       toast.success(t("user-updated"));
       setUser({ ...user, username, email });
     } catch (e: any) {
@@ -157,7 +167,6 @@ const UserSection = () => {
       await updateUser({
         username: user?.username || username,
         email: user?.email || email,
-        profile: user?.profile,
         current_password: currentPassword,
         new_password: newPassword,
       });
@@ -555,6 +564,14 @@ const MermaidPreview = () => {
 
 // ─── Profile Section ──────────────────────────────────────────────────────────
 
+const emptyPhoneNumber = (): TPhoneNumber => ({
+  country_code: "",
+  number: "",
+  is_default: false,
+});
+
+const COUNTRY_SELECT_OPTIONS = countrySelectData();
+
 const ProfileSection = () => {
   const { t } = useTranslation();
   const { user, setUser } = useStore((s) => ({
@@ -565,14 +582,35 @@ const ProfileSection = () => {
   const [profile, setProfile] = useState<Partial<TUserProfile>>(
     user?.profile || {}
   );
+  // Dedicated list so deletes/saves never depend on a stale profile spread.
+  const [phoneNumbers, setPhoneNumbers] = useState<TPhoneNumber[]>(
+    user?.profile?.phone_numbers || []
+  );
+  const [phoneIsos, setPhoneIsos] = useState<(string | null)[]>(
+    (user?.profile?.phone_numbers || []).map((p) =>
+      isoFromDialCode(p.country_code)
+    )
+  );
   const [saving, setSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
+  const isDirtyRef = useRef(false);
+  const phoneNumbersRef = useRef(phoneNumbers);
+  phoneNumbersRef.current = phoneNumbers;
 
   useEffect(() => {
-    if (user?.profile) {
-      setProfile(user.profile);
-      setIsDirty(false);
-    }
+    isDirtyRef.current = isDirty;
+  }, [isDirty]);
+
+  useEffect(() => {
+    // Don't clobber in-progress edits if the store user object is refreshed.
+    if (!user?.profile || isDirtyRef.current) return;
+    const phones = user.profile.phone_numbers || [];
+    setProfile({
+      ...user.profile,
+      phone_numbers: phones,
+    });
+    setPhoneNumbers(phones);
+    setPhoneIsos(phones.map((p) => isoFromDialCode(p.country_code)));
   }, [user]);
 
   const updateField = (key: string, value: any) => {
@@ -580,20 +618,110 @@ const ProfileSection = () => {
     setIsDirty(true);
   };
 
+  const updatePhoneAt = (index: number, patch: Partial<TPhoneNumber>) => {
+    setPhoneNumbers((prev) => {
+      const next = prev.map((phone, i) => {
+        if (i !== index) {
+          if (patch.is_default === true) {
+            return { ...phone, is_default: false };
+          }
+          return phone;
+        }
+        return { ...phone, ...patch };
+      });
+      phoneNumbersRef.current = next;
+      return next;
+    });
+    setIsDirty(true);
+  };
+
+  const setPhoneCountry = (index: number, iso: string | null) => {
+    setPhoneIsos((prev) => {
+      const next = [...prev];
+      while (next.length <= index) next.push(null);
+      next[index] = iso;
+      return next;
+    });
+    updatePhoneAt(index, {
+      country_code: iso ? getDialCodeForIso(iso) : "",
+    });
+  };
+
+  const addPhoneNumber = () => {
+    setPhoneNumbers((prev) => {
+      const next = [...prev, emptyPhoneNumber()];
+      if (next.length === 1) {
+        next[0] = { ...next[0], is_default: true };
+      }
+      phoneNumbersRef.current = next;
+      return next;
+    });
+    setPhoneIsos((prev) => [...prev, null]);
+    setIsDirty(true);
+  };
+
+  const removePhoneAt = (index: number) => {
+    setPhoneNumbers((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      if (next.length > 0 && !next.some((p) => p.is_default)) {
+        next[0] = { ...next[0], is_default: true };
+      }
+      phoneNumbersRef.current = next;
+      return next;
+    });
+    setPhoneIsos((prev) => prev.filter((_, i) => i !== index));
+    setIsDirty(true);
+  };
+
   const handleSave = async () => {
     if (!user) return;
     setSaving(true);
     try {
-      await updateUser({
+      const cleanedPhones = phoneNumbersRef.current
+        .map((p) => ({
+          country_code: (p.country_code || "").replace(/\D/g, ""),
+          number: (p.number || "").replace(/\D/g, ""),
+          is_default: Boolean(p.is_default),
+        }))
+        .filter((p) => p.country_code && p.number);
+
+      // Only writable profile fields — never spread id/organization/timestamps.
+      // birthday must be YYYY-MM-DD or null ("" is invalid for DateField).
+      const payloadProfile: Record<string, unknown> = {
+        name: profile.name || "",
+        bio: profile.bio || "",
+        sex: profile.sex || "",
+        birthday: profile.birthday ? profile.birthday : null,
+        avatar_url: profile.avatar_url || "",
+        phone_numbers: cleanedPhones,
+      };
+
+      const response = await updateUser({
         username: user.username,
         email: user.email,
-        profile: profile as TUserProfile,
+        profile: payloadProfile as unknown as TUserProfile,
       });
       toast.success(t("user-updated"));
-      setUser({ ...user, profile: profile as TUserProfile });
+      isDirtyRef.current = false;
       setIsDirty(false);
+      if (response?.user) {
+        setUser(response.user);
+      } else {
+        setUser(await getUser());
+      }
     } catch (e: any) {
-      toast.error(t(e.response?.data?.error || "an-error-occurred"));
+      const details = e.response?.data?.details;
+      const phoneError = details?.phone_numbers;
+      if (phoneError) {
+        const msg = Array.isArray(phoneError)
+          ? typeof phoneError[0] === "string"
+            ? phoneError[0]
+            : JSON.stringify(phoneError[0])
+          : String(phoneError);
+        toast.error(msg);
+      } else {
+        toast.error(t(e.response?.data?.error || "an-error-occurred"));
+      }
     } finally {
       setSaving(false);
     }
@@ -671,6 +799,93 @@ const ProfileSection = () => {
               style={{ flex: 1 }}
             />
           </Group>
+        </div>
+
+        <Divider my="xs" />
+
+        <div>
+          <Text size="sm" fw={500}>
+            {t("phone-numbers")}
+          </Text>
+          <Text size="xs" c="dimmed" mb="sm">
+            {t("phone-numbers-helptext")}
+          </Text>
+
+          <Stack gap="sm">
+            {phoneNumbers.length === 0 && (
+              <Text size="sm" c="dimmed">
+                {t("phone-numbers-empty")}
+              </Text>
+            )}
+            {phoneNumbers.map((phone, index) => (
+              <Box
+                key={index}
+                p="sm"
+                style={{
+                  border: "1px solid var(--mantine-color-dark-4)",
+                  borderRadius: "var(--mantine-radius-default)",
+                }}
+              >
+                <Stack gap="sm">
+                  <Select
+                    label={t("phone-country")}
+                    placeholder={t("phone-country-placeholder")}
+                    data={COUNTRY_SELECT_OPTIONS}
+                    value={phoneIsos[index] || null}
+                    onChange={(val) => setPhoneCountry(index, val)}
+                    searchable
+                    clearable
+                    nothingFoundMessage={t("phone-country-not-found")}
+                    comboboxProps={{ withinPortal: true }}
+                  />
+                  <TextInput
+                    label={t("phone-number")}
+                    placeholder="5512345678"
+                    description={
+                      phone.country_code
+                        ? `+${phone.country_code}`
+                        : t("phone-number-pick-country-first")
+                    }
+                    value={phone.number}
+                    onChange={(e) => {
+                      const val = e.currentTarget.value;
+                      updatePhoneAt(index, { number: val });
+                    }}
+                  />
+                  <Group justify="space-between" align="center" wrap="nowrap">
+                    <Switch
+                      label={t("phone-default")}
+                      checked={Boolean(phone.is_default)}
+                      onChange={(e) =>
+                        updatePhoneAt(index, {
+                          is_default: e.currentTarget.checked,
+                        })
+                      }
+                    />
+                    <ActionIcon
+                      variant="subtle"
+                      color="gray"
+                      onClick={() => removePhoneAt(index)}
+                      aria-label={t("phone-remove")}
+                    >
+                      <IconTrash size={16} />
+                    </ActionIcon>
+                  </Group>
+                </Stack>
+              </Box>
+            ))}
+            <Group>
+              <Button
+                variant="default"
+                size="xs"
+                leftSection={<IconPlus size={14} />}
+                onClick={addPhoneNumber}
+                disabled={phoneNumbers.length >= 10}
+              >
+                {t("phone-add")}
+              </Button>
+            </Group>
+          </Stack>
         </div>
 
         <Group justify="flex-end" mt="xs">

@@ -97,6 +97,12 @@ MCP_EMAIL_TOOL_NAMES: tuple[str, ...] = (
     "list_organization_roles",
 )
 
+MCP_WHATSAPP_TOOL_NAMES: tuple[str, ...] = (
+    "list_accessible_whatsapp_senders",
+    "list_whatsapp_templates",
+    "send_ws_template_message",
+)
+
 MCP_CALENDAR_TOOL_NAMES: tuple[str, ...] = (
     "list_calendar_events",
     "create_calendar_event",
@@ -129,6 +135,7 @@ MCP_TOOL_PRESET_ORDER: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("media", MCP_MEDIA_TOOL_NAMES),
     ("documents", MCP_DOCUMENT_TOOL_NAMES),
     ("email", MCP_EMAIL_TOOL_NAMES),
+    ("whatsapp", MCP_WHATSAPP_TOOL_NAMES),
     ("calendar", MCP_CALENDAR_TOOL_NAMES),
     ("conversation", MCP_CONVERSATION_TOOL_NAMES),
     ("tagging", MCP_TAGGING_TOOL_NAMES),

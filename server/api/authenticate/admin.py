@@ -377,6 +377,7 @@ class UserProfileInline(admin.StackedInline):
         "sex",
         "age",
         "birthday",
+        "_phone_numbers",
     )
 
 

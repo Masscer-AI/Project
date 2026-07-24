@@ -1276,7 +1276,11 @@ type TUpdateUserData = {
 };
 
 export const updateUser = async (data: TUpdateUserData) => {
-  return makeAuthenticatedRequest("PUT", "/v1/auth/user/me", data);
+  return makeAuthenticatedRequest<{ message: string; user?: TUserData }>(
+    "PUT",
+    "/v1/auth/user/me",
+    data
+  );
 };
 
 type TFetchUrlContentResponse = {

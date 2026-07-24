@@ -1704,7 +1704,37 @@ def conversation_agent_task(
                         ):
                             agent_tool_names.append(_email_tool)
 
-                from api.ai_layers.tools import SCHEDULE_AGENT_TOOL_NAMES
+                from api.ai_layers.tools import (
+                    SCHEDULE_AGENT_TOOL_NAMES,
+                    WHATSAPP_TEMPLATE_AGENT_TOOL_NAMES,
+                )
+
+                _wa_tpl_injected = False
+                for _wa_tool in WHATSAPP_TEMPLATE_AGENT_TOOL_NAMES:
+                    if (
+                        _wa_tool not in agent_tool_names
+                        and _may_auto_inject_tool(_wa_tool)
+                    ):
+                        agent_tool_names.append(_wa_tool)
+                        _wa_tpl_injected = True
+                if _wa_tpl_injected or any(
+                    t in agent_tool_names for t in WHATSAPP_TEMPLATE_AGENT_TOOL_NAMES
+                ):
+                    # list_organization_members is needed for target phone selection
+                    if (
+                        "list_organization_members" not in agent_tool_names
+                        and _may_auto_inject_tool("list_organization_members")
+                    ):
+                        agent_tool_names.append("list_organization_members")
+                    instructions += (
+                        "\n\nYou can notify organization members on WhatsApp with approved "
+                        "templates. Use list_accessible_whatsapp_senders, "
+                        "list_whatsapp_templates, and list_organization_members "
+                        "(phone_numbers), then send_ws_template_message. "
+                        "Only members who previously contacted that WhatsApp sender "
+                        "can be messaged, and target_phone_number must match a registered "
+                        "phone on their profile."
+                    )
 
                 _schedule_injected = False
                 for _sched_tool in SCHEDULE_AGENT_TOOL_NAMES:

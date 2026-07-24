@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
+from pydantic import ValidationError as PydanticValidationError
 from .models import (
     Organization,
     CredentialsManager,
@@ -10,6 +11,11 @@ from .models import (
     Role,
     RoleAssignment,
     OrganizationInvite,
+)
+from .phone_numbers import (
+    default_phone_numbers_list,
+    normalize_phone_numbers,
+    validate_phone_numbers_for_storage,
 )
 from rest_framework.exceptions import ValidationError
 from django.db import transaction
@@ -158,6 +164,9 @@ class InviteSignupSerializer(serializers.Serializer):
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
+    # Extra API field (model column is _phone_numbers).
+    phone_numbers = serializers.JSONField(required=False)
+
     class Meta:
         model = UserProfile
         fields = [
@@ -170,9 +179,57 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "birthday",
             "name",
             "organization",
+            "phone_numbers",
             "created_at",
             "updated_at",
         ]
+        read_only_fields = [
+            "id",
+            "user",
+            "organization",
+            "created_at",
+            "updated_at",
+        ]
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["phone_numbers"] = normalize_phone_numbers(
+            getattr(instance, "_phone_numbers", None)
+        )
+        return data
+
+    def validate_phone_numbers(self, value):
+        if value is None:
+            return default_phone_numbers_list()
+        try:
+            return validate_phone_numbers_for_storage(value)
+        except PydanticValidationError as exc:
+            raise serializers.ValidationError(exc.errors()) from exc
+        except ValueError as exc:
+            raise serializers.ValidationError(str(exc)) from exc
+
+    def update(self, instance, validated_data):
+        # Pop before ModelSerializer.update — phone_numbers is not a model field.
+        # Empty list [] must clear stored numbers when the key is present in input.
+        initial = getattr(self, "initial_data", {}) or {}
+        phone_numbers_provided = isinstance(initial, dict) and "phone_numbers" in initial
+        phone_numbers = validated_data.pop("phone_numbers", serializers.empty)
+        instance = super().update(instance, validated_data)
+        if phone_numbers_provided:
+            value = [] if phone_numbers is serializers.empty else phone_numbers
+            if value is None:
+                value = []
+            instance.phone_numbers = value
+            instance.save(update_fields=["_phone_numbers", "updated_at"])
+        return instance
+
+    def create(self, validated_data):
+        phone_numbers = validated_data.pop("phone_numbers", None)
+        instance = super().create(validated_data)
+        if phone_numbers is not None:
+            instance.phone_numbers = phone_numbers
+            instance.save(update_fields=["_phone_numbers", "updated_at"])
+        return instance
 
 
 class UserSerializer(serializers.ModelSerializer):

@@ -1,6 +1,12 @@
 import { TAttachment, TConversation, TVersion } from "../types";
 import { TAgent } from "./agents";
 
+export type TPhoneNumber = {
+  country_code: string;
+  number: string;
+  is_default: boolean;
+};
+
 export type TUserProfile = {
   id: string;
   avatar_url: string;
@@ -9,6 +15,7 @@ export type TUserProfile = {
   age: number;
   birthday: string;
   name: string;
+  phone_numbers?: TPhoneNumber[];
 };
 
 export type TUserData = {
