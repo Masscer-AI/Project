@@ -1057,6 +1057,9 @@ def conversation_agent_task(
             "agent_events_channel",
             {"type": "error", "conversation_id": conversation_id, "error": f"Conversation {conversation_id} not found"},
         )
+        from api.ai_layers.agent_task_helpers import clear_agent_task_active
+
+        clear_agent_task_active(conversation_id)
         return {"status": "error", "error": "Conversation not found"}
 
     # Chat widget / WhatsApp: no org tagging, cross-thread lookup, or auto-summary tools (app chat only for now).
@@ -1089,6 +1092,9 @@ def conversation_agent_task(
             "conversation_agent_task skipped: takeover active conversation=%s",
             conversation_id,
         )
+        from api.ai_layers.agent_task_helpers import clear_agent_task_active
+
+        clear_agent_task_active(conversation_id)
         return {"status": "skipped", "reason": "takeover_active"}
 
     # plugin_slugs is no longer used — plugins are now auto-discovered
@@ -1105,6 +1111,9 @@ def conversation_agent_task(
             "agent_events_channel",
             {"type": "error", "conversation_id": conversation_id, "error": str(e)},
         )
+        from api.ai_layers.agent_task_helpers import clear_agent_task_active
+
+        clear_agent_task_active(conversation_id)
         return {"status": "error", "error": str(e)}
     user_message_text = _build_user_message_text(resolved_inputs)
 
@@ -1115,6 +1124,11 @@ def conversation_agent_task(
     def emit_finished(data: dict) -> None:
         payload = {"conversation_id": conversation_id, **data}
         notify_user(notification_route_id, "agent_loop_finished", payload)
+        # Keep active through multi-agent handoffs (next_agent_slug set).
+        if not data.get("next_agent_slug"):
+            from api.ai_layers.agent_task_helpers import clear_agent_task_active
+
+            clear_agent_task_active(conversation_id)
 
     logger.info(
         "conversation_agent_task started: conversation=%s user=%s agents=%s tools=%s modality=%s",
@@ -1186,6 +1200,9 @@ def conversation_agent_task(
                 ).delete()
             except Message.DoesNotExist:
                 emit_event("error", {"error": "Message to regenerate not found"})
+                from api.ai_layers.agent_task_helpers import clear_agent_task_active
+
+                clear_agent_task_active(conversation_id)
                 return {"status": "error", "error": "Message to regenerate not found"}
         else:
             try:
@@ -1203,6 +1220,9 @@ def conversation_agent_task(
                     att.save(update_fields=["message"])
             except Exception:
                 emit_event("error", {"error": "Failed to save user message"})
+                from api.ai_layers.agent_task_helpers import clear_agent_task_active
+
+                clear_agent_task_active(conversation_id)
                 return {"status": "error", "error": "Failed to save user message"}
 
         # ---- Resolve agents in order ----
@@ -1217,6 +1237,9 @@ def conversation_agent_task(
         agents_ordered = [agents_by_slug[s] for s in agent_slugs if s in agents_by_slug]
         if not agents_ordered:
             emit_event("error", {"error": "No valid agents found"})
+            from api.ai_layers.agent_task_helpers import clear_agent_task_active
+
+            clear_agent_task_active(conversation_id)
             return {"status": "error", "error": "No valid agents found"}
 
         versions = []
@@ -2254,6 +2277,9 @@ def conversation_agent_task(
                 update_fields=["outputs", "event_log", "ended_at", "total_duration", "tool_calls_count"]
             )
 
+        from api.ai_layers.agent_task_helpers import clear_agent_task_active
+
+        clear_agent_task_active(conversation_id)
         return {"status": "error", "error": str(e)}
 
 

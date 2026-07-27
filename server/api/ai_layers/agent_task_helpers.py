@@ -1,8 +1,56 @@
 """Shared validation helpers for agent task dispatch."""
 
+from django.core.cache import cache
 from django.http import JsonResponse
 
 from api.authenticate.services import FeatureFlagService
+
+AGENT_TASK_ACTIVE_CACHE_TIMEOUT = 3600
+
+
+def agent_task_active_cache_key(conversation_id: str) -> str:
+    return f"agent_task_active_{conversation_id}"
+
+
+def mark_agent_task_active(conversation_id: str) -> None:
+    """Mark a conversation as having an in-flight agent task (covers enqueue→session gap)."""
+    cache.set(
+        agent_task_active_cache_key(str(conversation_id)),
+        True,
+        timeout=AGENT_TASK_ACTIVE_CACHE_TIMEOUT,
+    )
+
+
+def clear_agent_task_active(conversation_id: str) -> None:
+    cache.delete(agent_task_active_cache_key(str(conversation_id)))
+
+
+def is_agent_task_marked_active(conversation_id: str) -> bool:
+    return bool(cache.get(agent_task_active_cache_key(str(conversation_id))))
+
+
+def conversation_has_active_agent_session(conversation) -> bool:
+    from api.ai_layers.models import AgentSession
+
+    return AgentSession.objects.filter(
+        conversation=conversation,
+        ended_at__isnull=True,
+        dismissed_at__isnull=True,
+    ).exists()
+
+
+def is_agent_task_active_for_conversation(conversation) -> bool:
+    """
+    Server truth for stop-button reconciliation.
+
+    True while a Celery run is pending/running: either the dispatch cache flag
+    is set, or an AgentSession is still open. Multi-agent gaps keep the cache
+    flag until the final finish (no next_agent_slug).
+    """
+    conversation_id = str(conversation.id)
+    if is_agent_task_marked_active(conversation_id):
+        return True
+    return conversation_has_active_agent_session(conversation)
 
 
 def validate_conversation_access(conversation, user, user_org):

@@ -1,11 +1,16 @@
 import React, { useEffect, useRef } from "react";
 import { useStore } from "../../modules/store";
+import { getAgentTaskStatus } from "../../modules/apiCalls";
 import { useTranslation } from "react-i18next";
 import { showOrganizationBillingBlockedToast } from "../../utils/organizationBillingToast";
 import { useLocalizedToolName } from "../../utils/localizedToolName";
 import { playNotificationSound } from "../../utils/notificationSound";
 
 const TOOL_STATUS_MIN_MS = 1500; // Keep tool call status visible so user notices the AI invoked a function
+const AGENT_TASK_POLL_INTERVAL_MS = 3000;
+const AGENT_TASK_POLL_FIRST_MS = 4000;
+/** Don't clear from "inactive" until we've seen active:true, or this grace elapsed (enqueue race). */
+const AGENT_TASK_POLL_INACTIVE_GRACE_MS = 15000;
 
 // The Redis notification bridge wraps payloads as:
 // { user_id, event_type, message: { ...actual_payload } }
@@ -44,6 +49,7 @@ type RedisNotification<T> = {
  *
  * Tool call status is kept visible for TOOL_STATUS_MIN_MS so users notice function invocations.
  * On agent_loop_finished, refreshes the conversation so the new message appears.
+ * Also polls task status as a fallback when websocket finish events are missed.
  * Renders nothing — purely a side-effect listener.
  */
 export const AgentTaskListener = () => {
@@ -51,24 +57,41 @@ export const AgentTaskListener = () => {
   const localizeTool = useLocalizedToolName();
   const {
     socket,
-    conversation,
     setConversation,
     setAgentTaskStatus,
     pushAgentTaskEvent,
     clearAgentTaskEvents,
+    agentTaskStatus,
+    agentTaskConversationId,
   } = useStore((state) => ({
     socket: state.socket,
-    conversation: state.conversation,
     setConversation: state.setConversation,
     setAgentTaskStatus: state.setAgentTaskStatus,
     pushAgentTaskEvent: state.pushAgentTaskEvent,
     clearAgentTaskEvents: state.clearAgentTaskEvents,
+    agentTaskStatus: state.agentTaskStatus,
+    agentTaskConversationId: state.agentTaskConversationId,
   }));
 
   const toolHoldRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingStatusRef = useRef<string | null>(null);
 
   useEffect(() => {
+    const eventBelongsToTrackedTask = (eventConversationId: string) => {
+      const trackedId = useStore.getState().agentTaskConversationId;
+      const currentId = useStore.getState().conversation?.id;
+      if (trackedId) return eventConversationId === trackedId;
+      return !!currentId && eventConversationId === currentId;
+    };
+
+    const clearToolHold = () => {
+      if (toolHoldRef.current) {
+        clearTimeout(toolHoldRef.current);
+        toolHoldRef.current = null;
+        pendingStatusRef.current = null;
+      }
+    };
+
     const applyStatus = (status: string | null, isToolEvent: boolean) => {
       if (isToolEvent) {
         if (toolHoldRef.current) clearTimeout(toolHoldRef.current);
@@ -94,7 +117,7 @@ export const AgentTaskListener = () => {
       const data = raw.message;
       if (!data) return;
 
-      if (!conversation?.id || data.conversation_id !== conversation.id) return;
+      if (!eventBelongsToTrackedTask(data.conversation_id)) return;
 
       // Accumulate the full live timeline so the user can expand all steps.
       pushAgentTaskEvent({
@@ -143,11 +166,7 @@ export const AgentTaskListener = () => {
           break;
         }
         case "error":
-          if (toolHoldRef.current) {
-            clearTimeout(toolHoldRef.current);
-            toolHoldRef.current = null;
-            pendingStatusRef.current = null;
-          }
+          clearToolHold();
           playNotificationSound("error");
           setAgentTaskStatus(null);
           clearAgentTaskEvents();
@@ -161,31 +180,30 @@ export const AgentTaskListener = () => {
       const data = raw.message;
       if (!data) return;
 
-      if (!conversation?.id || data.conversation_id !== conversation.id) return;
+      if (!eventBelongsToTrackedTask(data.conversation_id)) return;
+
+      const viewingThisConversation =
+        useStore.getState().conversation?.id === data.conversation_id;
 
       if (data.next_agent_slug) {
-        setConversation(conversation.id);
+        if (viewingThisConversation) {
+          setConversation(data.conversation_id);
+        }
         return;
       }
 
       if (data.status === "cancelled") {
-        if (toolHoldRef.current) {
-          clearTimeout(toolHoldRef.current);
-          toolHoldRef.current = null;
-          pendingStatusRef.current = null;
-        }
+        clearToolHold();
         setAgentTaskStatus(null);
         clearAgentTaskEvents();
-        void setConversation(conversation.id);
+        if (viewingThisConversation) {
+          void setConversation(data.conversation_id);
+        }
         return;
       }
 
       if (data.status === "error") {
-        if (toolHoldRef.current) {
-          clearTimeout(toolHoldRef.current);
-          toolHoldRef.current = null;
-          pendingStatusRef.current = null;
-        }
+        clearToolHold();
         playNotificationSound("error");
         if (data.error === "organization_billing_blocked") {
           showOrganizationBillingBlockedToast(
@@ -196,21 +214,21 @@ export const AgentTaskListener = () => {
         }
         setAgentTaskStatus(null);
         clearAgentTaskEvents();
-        void setConversation(conversation.id);
+        if (viewingThisConversation) {
+          void setConversation(data.conversation_id);
+        }
         return;
       }
 
-      if (toolHoldRef.current) {
-        clearTimeout(toolHoldRef.current);
-        toolHoldRef.current = null;
-        pendingStatusRef.current = null;
-      }
+      clearToolHold();
       playNotificationSound("success");
       setAgentTaskStatus(null);
       // Live timeline is no longer needed: the saved message exposes the
       // persisted event_log through the execution log modal.
       clearAgentTaskEvents();
-      setConversation(conversation.id);
+      if (viewingThisConversation) {
+        setConversation(data.conversation_id);
+      }
     };
 
     socket.on("agent_events_channel", handleAgentEvent);
@@ -219,14 +237,9 @@ export const AgentTaskListener = () => {
     return () => {
       socket.off("agent_events_channel", handleAgentEvent);
       socket.off("agent_loop_finished", handleAgentFinished);
-      if (toolHoldRef.current) {
-        clearTimeout(toolHoldRef.current);
-        toolHoldRef.current = null;
-      }
-      pendingStatusRef.current = null;
+      clearToolHold();
     };
   }, [
-    conversation,
     socket,
     setConversation,
     setAgentTaskStatus,
@@ -234,6 +247,62 @@ export const AgentTaskListener = () => {
     clearAgentTaskEvents,
     t,
     localizeTool,
+  ]);
+
+  // Polling fallback: clear stuck stop when the server says the task is done.
+  useEffect(() => {
+    if (!agentTaskStatus || !agentTaskConversationId) return;
+
+    let cancelled = false;
+    let sawActive = false;
+    const startedAt = Date.now();
+    const trackedConversationId = agentTaskConversationId;
+
+    const tick = async () => {
+      try {
+        const res = await getAgentTaskStatus(trackedConversationId);
+        if (cancelled) return;
+
+        if (res.active) {
+          sawActive = true;
+          return;
+        }
+
+        const elapsed = Date.now() - startedAt;
+        if (!sawActive && elapsed < AGENT_TASK_POLL_INACTIVE_GRACE_MS) {
+          return;
+        }
+
+        if (toolHoldRef.current) {
+          clearTimeout(toolHoldRef.current);
+          toolHoldRef.current = null;
+          pendingStatusRef.current = null;
+        }
+        setAgentTaskStatus(null);
+        clearAgentTaskEvents();
+        const currentId = useStore.getState().conversation?.id;
+        if (currentId === trackedConversationId) {
+          void setConversation(trackedConversationId);
+        }
+      } catch {
+        // Ignore transient poll errors; websocket path or next tick may recover.
+      }
+    };
+
+    const firstTimer = setTimeout(tick, AGENT_TASK_POLL_FIRST_MS);
+    const intervalId = setInterval(tick, AGENT_TASK_POLL_INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(firstTimer);
+      clearInterval(intervalId);
+    };
+  }, [
+    agentTaskStatus,
+    agentTaskConversationId,
+    setAgentTaskStatus,
+    clearAgentTaskEvents,
+    setConversation,
   ]);
 
   return null;

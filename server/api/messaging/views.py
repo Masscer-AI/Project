@@ -1455,7 +1455,9 @@ class ChatWidgetAgentTaskView(View):
         conversation.save(update_fields=["metadata", "updated_at"])
 
         from api.messaging.tasks import widget_conversation_agent_task
+        from api.ai_layers.agent_task_helpers import mark_agent_task_active
 
+        mark_agent_task_active(str(conversation.id))
         task = widget_conversation_agent_task.delay(
             conversation_id=str(conversation.id),
             user_inputs=user_inputs,

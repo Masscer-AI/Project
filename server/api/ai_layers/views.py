@@ -14,6 +14,9 @@ from .serializers import (
 )
 from api.authenticate.decorators.token_required import token_required
 from api.ai_layers.agent_task_helpers import (
+    clear_agent_task_active,
+    is_agent_task_active_for_conversation,
+    mark_agent_task_active,
     parse_client_datetime as _parse_client_datetime,
     parse_regenerate_message_id as _parse_regenerate_message_id,
     validate_conversation_access as _validate_conversation_access,
@@ -727,6 +730,7 @@ class PlatformAgentTaskView(View):
         from django.core.cache import cache
 
         cache.delete(f"cancel_task_{conversation_id}")
+        mark_agent_task_active(str(conversation_id))
 
         task = platform_assistant_task.delay(
             conversation_id=str(conversation_id),
@@ -886,8 +890,50 @@ def cancel_agent_task(request):
     # hasn't been created yet by the Celery worker
     from django.core.cache import cache
     cache.set(f"cancel_task_{conversation_id}", True, timeout=300)
+    clear_agent_task_active(str(conversation_id))
 
     return JsonResponse(
         {"status": "success", "sessions_cancelled": updated_count}, 
         status=200
+    )
+
+
+@csrf_exempt
+@token_required
+def agent_task_status(request):
+    """
+    GET /api/ai_layers/agent-task/status/?conversation_id=<uuid>
+
+    Returns whether an agent task is still active for the conversation.
+    Used by the client as a polling fallback when websocket finish events are missed.
+    """
+    from api.messaging.models import Conversation
+
+    if request.method != "GET":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    conversation_id = request.GET.get("conversation_id")
+    if not conversation_id:
+        return JsonResponse({"error": "conversation_id is required"}, status=400)
+
+    try:
+        conversation = Conversation.objects.get(id=conversation_id)
+    except Conversation.DoesNotExist:
+        return JsonResponse({"error": "Conversation not found"}, status=404)
+
+    user = request.user
+    from api.ai_layers.access import get_user_organization
+
+    user_org = get_user_organization(user)
+    access_error = _validate_conversation_access(conversation, user, user_org)
+    if access_error:
+        return access_error
+
+    active = is_agent_task_active_for_conversation(conversation)
+    return JsonResponse(
+        {
+            "conversation_id": str(conversation.id),
+            "active": active,
+        },
+        status=200,
     )

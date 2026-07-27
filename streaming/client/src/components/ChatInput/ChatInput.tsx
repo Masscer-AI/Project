@@ -109,6 +109,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     toggleWritingMode,
     setSpecifiedUrls,
     agentTaskStatus,
+    agentTaskConversationId,
     conversationId,
     agents,
   } = useStore((state) => ({
@@ -118,9 +119,14 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     toggleWritingMode: state.toggleWrittingMode,
     setSpecifiedUrls: state.setSpecifiedUrls,
     agentTaskStatus: state.agentTaskStatus,
+    agentTaskConversationId: state.agentTaskConversationId,
     conversationId: state.conversation?.id,
     agents: state.agents,
   }));
+
+  const showStopButton =
+    !!agentTaskStatus &&
+    (!agentTaskConversationId || agentTaskConversationId === conversationId);
 
   const isPlatformAssistantChat =
     chatState.selectedAgents.length === 1 &&
@@ -189,7 +195,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     if (event.key === "Enter" && chatState.writtingMode) return;
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
-      if (agentTaskStatus) return; // Prevent sending while active
+      if (showStopButton) return; // Prevent sending while active
       const result = await handleSendMessage(textPrompt);
       if (result) setTextPrompt("");
     }
@@ -399,7 +405,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               {isTranscribeEnabled && (
                 <SpeechHandler onTranscript={handleAudioTranscript} />
               )}
-              {agentTaskStatus ? (
+              {showStopButton ? (
                 <ActionIcon
                   onClick={handleCancelAgentTask}
                   variant="subtle"

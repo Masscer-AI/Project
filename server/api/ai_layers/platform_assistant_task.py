@@ -58,6 +58,9 @@ def platform_assistant_task(
     def emit_finished(data: dict) -> None:
         payload = {"conversation_id": conversation_id, **data}
         notify_user(notification_route_id, "agent_loop_finished", payload)
+        from api.ai_layers.agent_task_helpers import clear_agent_task_active
+
+        clear_agent_task_active(conversation_id)
 
     try:
         conversation = Conversation.objects.select_related("organization", "user").get(
@@ -65,9 +68,15 @@ def platform_assistant_task(
         )
     except Conversation.DoesNotExist:
         emit_event("error", {"error": f"Conversation {conversation_id} not found"})
+        from api.ai_layers.agent_task_helpers import clear_agent_task_active
+
+        clear_agent_task_active(conversation_id)
         return {"status": "error", "error": "Conversation not found"}
 
     if is_takeover_active(conversation):
+        from api.ai_layers.agent_task_helpers import clear_agent_task_active
+
+        clear_agent_task_active(conversation_id)
         return {"status": "skipped", "reason": "takeover_active"}
 
     try:
@@ -77,11 +86,17 @@ def platform_assistant_task(
         )
     except Agent.DoesNotExist:
         emit_event("error", {"error": f"Platform assistant '{agent_slug}' not found"})
+        from api.ai_layers.agent_task_helpers import clear_agent_task_active
+
+        clear_agent_task_active(conversation_id)
         return {"status": "error", "error": "Platform assistant not found"}
 
     organization = agent.organization or conversation.organization
     if not organization:
         emit_event("error", {"error": "No organization context for platform assistant"})
+        from api.ai_layers.agent_task_helpers import clear_agent_task_active
+
+        clear_agent_task_active(conversation_id)
         return {"status": "error", "error": "No organization context"}
 
     from api.consumption.actions import _check_org_subscription, notify_org_billing_denied
@@ -113,6 +128,9 @@ def platform_assistant_task(
         )
     except ValueError as e:
         emit_event("error", {"error": str(e)})
+        from api.ai_layers.agent_task_helpers import clear_agent_task_active
+
+        clear_agent_task_active(conversation_id)
         return {"status": "error", "error": str(e)}
 
     user_message_text = _build_user_message_text(resolved_inputs)
@@ -135,6 +153,9 @@ def platform_assistant_task(
                 ).delete()
             except Message.DoesNotExist:
                 emit_event("error", {"error": "Message to regenerate not found"})
+                from api.ai_layers.agent_task_helpers import clear_agent_task_active
+
+                clear_agent_task_active(conversation_id)
                 return {"status": "error", "error": "Message to regenerate not found"}
         else:
             user_message = Message.objects.create(

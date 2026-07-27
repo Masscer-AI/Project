@@ -8,6 +8,7 @@ import { PermissionsCacheListener } from "../components/PermissionsCacheListener
 import { InAppNotificationListener } from "../components/InAppNotificationListener/InAppNotificationListener";
 import { OrganizationSubscriptionBanner } from "../components/OrganizationSubscriptionBanner/OrganizationSubscriptionBanner";
 import { AssignmentsPanel } from "../components/AssignmentsPanel/AssignmentsPanel";
+import { AgentTaskListener } from "../components/AgentTaskListener/AgentTaskListener";
 import { useStore } from "../modules/store";
 import { getUser } from "../modules/apiCalls";
 import { TUserData } from "../types/chatTypes";
@@ -38,6 +39,7 @@ const Layout: React.FC = () => {
       <PermissionsCacheListener />
       <InAppNotificationListener />
       <OrganizationSubscriptionBanner />
+      <AgentTaskListener />
       <Outlet />
       <AssignmentsPanel floating />
     </I18nextProvider>

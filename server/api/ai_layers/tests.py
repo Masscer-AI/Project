@@ -979,6 +979,80 @@ class AgentTaskConversationMetadataTests(TestCase):
         conv.refresh_from_db()
         self.assertEqual(conv.metadata.get("related_agents"), [{"id": agent.id}])
 
+    @patch("api.ai_layers.tasks.conversation_agent_task.delay")
+    def test_agent_task_status_reflects_active_cache_and_cancel(self, mock_delay):
+        mock_delay.return_value = Mock(id="celery-task-status-1")
+        user = User.objects.create_user(
+            username="status-u", email="status@e.com", password="x"
+        )
+        client = APIClient()
+        client.force_authenticate(user=user)
+
+        from api.ai_layers.agent_task_helpers import (
+            clear_agent_task_active,
+            is_agent_task_marked_active,
+        )
+        from api.ai_layers.models import Agent, LanguageModel
+        from api.messaging.models import Conversation
+        from api.providers.models import AIProvider
+
+        provider = AIProvider.objects.create(name="OpenAI")
+        llm = LanguageModel.objects.create(
+            provider=provider,
+            slug="gpt-test-status",
+            name="GPT Status",
+        )
+        agent = Agent.objects.create(
+            name="Status Agent",
+            salute="hi",
+            act_as="help",
+            user=user,
+            llm=llm,
+            model_slug=llm.slug,
+            model_provider="openai",
+        )
+        conv = Conversation.objects.create(user=user)
+
+        idle = client.get(
+            f"/v1/ai_layers/agent-task/status/?conversation_id={conv.id}"
+        )
+        self.assertEqual(idle.status_code, 200)
+        self.assertFalse(idle.json()["active"])
+
+        post = client.post(
+            "/v1/ai_layers/agent-task/conversation/",
+            {
+                "conversation_id": str(conv.id),
+                "agent_slugs": [agent.slug],
+                "user_inputs": [{"type": "input_text", "text": "hello"}],
+                "tool_names": [],
+            },
+            format="json",
+        )
+        self.assertEqual(post.status_code, 202, post.json())
+        self.assertTrue(is_agent_task_marked_active(str(conv.id)))
+
+        active = client.get(
+            f"/v1/ai_layers/agent-task/status/?conversation_id={conv.id}"
+        )
+        self.assertEqual(active.status_code, 200)
+        self.assertTrue(active.json()["active"])
+
+        cancel = client.post(
+            "/v1/ai_layers/agent-task/cancel/",
+            {"conversation_id": str(conv.id)},
+            format="json",
+        )
+        self.assertEqual(cancel.status_code, 200)
+        self.assertFalse(is_agent_task_marked_active(str(conv.id)))
+
+        after_cancel = client.get(
+            f"/v1/ai_layers/agent-task/status/?conversation_id={conv.id}"
+        )
+        self.assertEqual(after_cancel.status_code, 200)
+        self.assertFalse(after_cancel.json()["active"])
+        clear_agent_task_active(str(conv.id))
+
     @patch("api.ai_layers.views.conversation_agent_task.delay")
     @patch("api.ai_layers.views.handle_inbound_during_takeover")
     @patch("api.ai_layers.views.get_active_takeover")

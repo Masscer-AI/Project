@@ -347,7 +347,7 @@ export default function ChatView() {
       };
       return [...prev, userMessage, assistantMessage];
     });
-    setAgentTaskStatus(t("agent-preparing-request"));
+    setAgentTaskStatus(t("agent-preparing-request"), routeConversation?.id ?? null);
 
     const revertOptimisticSend = () => {
       setAgentTaskStatus(null);
@@ -549,7 +549,7 @@ export default function ChatView() {
 
       if (!regenPayload.userId) return;
 
-      setAgentTaskStatus(t("agent-preparing-request"));
+      setAgentTaskStatus(t("agent-preparing-request"), routeConversation.id);
 
       try {
         const toolNames = ["read_attachment", "list_attachments", "generate_document_file", "send_email", "list_organization_members", "list_organization_roles"];

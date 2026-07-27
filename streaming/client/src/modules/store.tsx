@@ -41,8 +41,18 @@ let featureFlagsFetchInFlight: Promise<void> | null = null;
 /** Latest async `setConversation` call wins; prevents stale GETs overwriting the UI after fast navigation. */
 let conversationLoadSeq = 0;
 
-export const useStore = create<Store>()((set, get) => ({
-  socket: new SocketManager(STREAMING_BACKEND_URL),
+export const useStore = create<Store>()((set, get) => {
+  const socket = new SocketManager(STREAMING_BACKEND_URL);
+  // Re-bind user routing after reconnects (disconnect drops the server map).
+  socket.on("connect", () => {
+    const user = get().user;
+    if (user?.id) {
+      socket.emit("register_user", user.id);
+    }
+  });
+
+  return {
+  socket,
   messages: [],
   modelsAndAgents: [],
   theme: _initialTheme as "dark" | "light" | "system",
@@ -64,6 +74,7 @@ export const useStore = create<Store>()((set, get) => ({
   },
   organizations: [],
   agentTaskStatus: null,
+  agentTaskConversationId: null,
   agentTaskEvents: [],
   chatState: {
     isSidebarOpened: false,
@@ -537,8 +548,17 @@ export const useStore = create<Store>()((set, get) => ({
     }));
   },
 
-  setAgentTaskStatus: (status: string | null) => {
-    set({ agentTaskStatus: status });
+  setAgentTaskStatus: (status: string | null, conversationId?: string | null) => {
+    if (status === null) {
+      set({ agentTaskStatus: null, agentTaskConversationId: null });
+      return;
+    }
+    set((state) => ({
+      agentTaskStatus: status,
+      ...(conversationId !== undefined
+        ? { agentTaskConversationId: conversationId }
+        : {}),
+    }));
   },
 
   pushAgentTaskEvent: (event: TAgentTaskEvent) => {
@@ -570,4 +590,5 @@ export const useStore = create<Store>()((set, get) => ({
     //   console.log("WEB SEARCH", data);
     // });
   },
-}));
+  };
+});

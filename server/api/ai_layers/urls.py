@@ -9,6 +9,7 @@ from .views import (
     agent_sessions_for_message,
     agent_session_execution_log_for_message,
     cancel_agent_task,
+    agent_task_status,
 )
 from .mcp_views import (
     mcp_list_agents,
@@ -38,6 +39,7 @@ urlpatterns = [
     path("agent-task/conversation/", AgentTaskView.as_view(), name="agent_task_conversation"),
     path("agent-task/platform/", PlatformAgentTaskView.as_view(), name="agent_task_platform"),
     path("agent-task/cancel/", cancel_agent_task, name="cancel_agent_task"),
+    path("agent-task/status/", agent_task_status, name="agent_task_status"),
     # Agent sessions for assistant message (audit/debug)
     path("agent-sessions/", agent_sessions_for_message, name="agent_sessions_for_message"),
     path(

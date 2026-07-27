@@ -76,6 +76,8 @@ export type Store = {
   openedModals: string[];
   reactionTemplates: TReactionTemplate[];
   agentTaskStatus: string | null;
+  /** Conversation the current agentTaskStatus belongs to (stop button scoping). */
+  agentTaskConversationId: string | null;
   agentTaskEvents: TAgentTaskEvent[];
   userPreferences: TUserPreferences;
   setTheming: (theming: Partial<Store["theming"]>) => void;
@@ -117,7 +119,10 @@ export type Store = {
   addAgent: () => void;
   updateChatState: (state: Partial<Store["chatState"]>) => void;
   setSpecifiedUrls: (urls: TSpecifiedUrl[]) => void;
-  setAgentTaskStatus: (status: string | null) => void;
+  setAgentTaskStatus: (
+    status: string | null,
+    conversationId?: string | null
+  ) => void;
   pushAgentTaskEvent: (event: TAgentTaskEvent) => void;
   clearAgentTaskEvents: () => void;
   test: () => void;

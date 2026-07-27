@@ -2039,6 +2039,13 @@ export const cancelAgentTask = async (conversationId: string) => {
   );
 };
 
+export const getAgentTaskStatus = async (conversationId: string) => {
+  return makeAuthenticatedRequest<{ conversation_id: string; active: boolean }>(
+    "GET",
+    `/v1/ai_layers/agent-task/status/?conversation_id=${encodeURIComponent(conversationId)}`,
+  );
+};
+
 export type TMCPCredentialSummary = {
   id: string;
   name: string;

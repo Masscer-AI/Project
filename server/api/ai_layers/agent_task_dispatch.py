@@ -213,6 +213,9 @@ def dispatch_conversation_agent_task(
         return AgentTaskDispatchResult(ok=False, response=regen_error)
 
     cache.delete(f"cancel_task_{conversation_id}")
+    from api.ai_layers.agent_task_helpers import mark_agent_task_active
+
+    mark_agent_task_active(str(conversation_id))
 
     task = conversation_agent_task.delay(
         conversation_id=str(conversation_id),

@@ -141,13 +141,24 @@ export const Message = memo(
     const canEditConversationData =
       useIsFeatureEnabled("can-edit-conversation-data") === true;
 
-    const { reactionTemplates, agentTaskStatus, agentTaskEvents } = useStore(
+    const { reactionTemplates, agentTaskStatus, agentTaskEvents, agentTaskConversationId, conversationId } = useStore(
       (s) => ({
         reactionTemplates: s.reactionTemplates,
         agentTaskStatus: s.agentTaskStatus,
         agentTaskEvents: s.agentTaskEvents,
+        agentTaskConversationId: s.agentTaskConversationId,
+        conversationId: s.conversation?.id,
       })
     );
+    const liveAgentTaskStatus =
+      agentTaskStatus &&
+      (!agentTaskConversationId || agentTaskConversationId === conversationId)
+        ? agentTaskStatus
+        : null;
+    const liveAgentTaskEvents =
+      !agentTaskConversationId || agentTaskConversationId === conversationId
+        ? agentTaskEvents
+        : [];
     const canShowExecutionLog =
       Boolean(id) && type === "assistant" && Boolean(versions?.length);
 
@@ -342,10 +353,10 @@ export const Message = memo(
           </div>
         )}
 
-        {!id && type === "assistant" && (
+        {!id && type === "assistant" && !!liveAgentTaskStatus && (
           <LiveAgentSteps
-            status={agentTaskStatus}
-            events={agentTaskEvents}
+            status={liveAgentTaskStatus}
+            events={liveAgentTaskEvents}
           />
         )}
 
