@@ -1,6 +1,6 @@
 """
 Canonical list of feature flag names used across the codebase.
-Keep in sync with FEATURE_FLAGS.md. Used by sync_feature_flags command and app startup.
+Keep in sync with FEATURE_FLAGS.md. Used by sync_feature_flags / sync_system_data.
 
 Each entry maps a flag name to its metadata:
   - organization_only: if True the flag can only be assigned at the organization level

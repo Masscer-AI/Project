@@ -1,5 +1,13 @@
 Subscriptions testing
 
+Preferred (all system seeds, including plans):
+
+```bash
+python manage.py sync_system_data
+```
+
+Or individually:
+
 1. Sync Subscriptions 
 
 ```bash

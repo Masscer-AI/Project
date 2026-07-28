@@ -64,7 +64,7 @@ class Command(BaseCommand):
     help = (
         "Ensure all known feature flags exist in the DB. "
         "Creates any missing flags; existing ones are left unchanged. "
-        "Run after migrate or on startup to keep flags in sync with the codebase."
+        "Run via sync_system_data (deploy / taskfile run) to keep flags in sync with the codebase."
     )
 
     def add_arguments(self, parser):
@@ -158,3 +158,17 @@ class Command(BaseCommand):
                         f"{migrated_assignments} assignment(s)."
                     )
                 )
+            self._clear_feature_flag_cache(verbosity=verbosity)
+
+    @staticmethod
+    def _clear_feature_flag_cache(*, verbosity: int = 1) -> None:
+        """Clear feature-flag caches so stale data is never served after sync."""
+        from django.core.cache import cache
+
+        cache.delete("feature_flag_names")
+        cache.delete_pattern("*ff_check_*")
+        cache.delete_pattern("*ff_list_*")
+        if verbosity >= 1:
+            from api.utils.color_printer import printer
+
+            printer.green("Feature-flag cache cleared.")

@@ -242,7 +242,7 @@ When checking `is_feature_enabled(flag_name, organization, user)`:
 
 ### Feature Flags Registry
 
-All feature flags are defined in `api/authenticate/feature_flags_registry.py` (`KNOWN_FEATURE_FLAGS` dict). A management command syncs them to the database on startup, so this file is the **single source of truth** for which flags exist.
+All feature flags are defined in `api/authenticate/feature_flags_registry.py` (`KNOWN_FEATURE_FLAGS` dict). `sync_system_data` (via `sync_feature_flags`) syncs them to the database on deploy / local run, so this file is the **single source of truth** for which flags exist.
 
 When adding a new feature flag:
 1. Add it to `KNOWN_FEATURE_FLAGS` in `feature_flags_registry.py`

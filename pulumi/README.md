@@ -109,8 +109,7 @@ Notes:
 
 `deploy.sh` runs these one-off ECS tasks after each deploy (same task definition as the django service):
 - `python manage.py migrate`
-- `python manage.py sync_subscription_plans`
-- `python manage.py sync_organization_subscriptions`
+- `python manage.py sync_system_data` (feature flags, providers, models, reactions, currency, plans, voices, org subscriptions)
 
 Manual run (after `pulumi up` so `djangoTaskDefinitionArn` matches the image you want):
 
@@ -119,6 +118,5 @@ export CLUSTER="$(pulumi stack output ecsClusterName)"
 export DJANGO_SERVICE_NAME="$(pulumi stack output djangoServiceName)"
 export DJANGO_TASK_DEFINITION_ARN="$(pulumi stack output djangoTaskDefinitionArn)"
 MANAGE_COMMAND_NAME=migrate bash ecs-run-migrate.sh
-MANAGE_COMMAND_NAME=sync_subscription_plans bash ecs-run-migrate.sh
-MANAGE_COMMAND_NAME=sync_organization_subscriptions bash ecs-run-migrate.sh
+MANAGE_COMMAND_NAME=sync_system_data bash ecs-run-migrate.sh
 ```

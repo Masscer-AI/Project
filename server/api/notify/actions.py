@@ -1,11 +1,18 @@
-import redis
-import os
 import json
+import os
 
-from api.utils.color_printer import printer
+import redis
 
-r = redis.Redis.from_url(os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0"))
-printer.green(r, "REDIS DJANGO")
+_redis_client = None
+
+
+def _get_redis():
+    global _redis_client
+    if _redis_client is None:
+        _redis_client = redis.Redis.from_url(
+            os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
+        )
+    return _redis_client
 
 
 def notify_route(route_id, event_type, data):
@@ -14,7 +21,7 @@ def notify_route(route_id, event_type, data):
         "message": data,
         "event_type": event_type,
     }
-    r.publish("notifications", json.dumps(data))
+    _get_redis().publish("notifications", json.dumps(data))
 
 
 def notify_user(user_id, event_type, data):

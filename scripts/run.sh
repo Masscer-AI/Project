@@ -353,19 +353,9 @@ echo ""
 info "Running Django migrations..."
 run_django_manage_oneoff migrate || { error "Migrations failed"; exit 1; }
 
-info "Syncing subscription plans..."
-run_django_manage_oneoff sync_subscription_plans || {
-    error "sync_subscription_plans failed"; exit 1;
-}
-
-info "Syncing system voices..."
-run_django_manage_oneoff sync_system_voices || {
-    error "sync_system_voices failed"; exit 1;
-}
-
-info "Syncing organization subscriptions..."
-run_django_manage_oneoff sync_organization_subscriptions || {
-    error "sync_organization_subscriptions failed"; exit 1;
+info "Syncing system data..."
+run_django_manage_oneoff sync_system_data || {
+    error "sync_system_data failed"; exit 1;
 }
 
 success "Startup completed. Services are running in background."
