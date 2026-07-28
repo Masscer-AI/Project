@@ -29,7 +29,7 @@ git clone https://github.com/Masscer-AI/Project.git .
 ./createPostgres.sh -u USUARIO -p CONTRASEÑA -d NOMBREDELABASE
 ```
 
-Este comando va a retornar una cadena de conexión a la base de datos. DB_CONNECTION_STRING= que tiene la forma:
+Este comando va a retornar cadenas de conexión. Usa la misma URL directa a Postgres para ambas variables (los contenedores reescriben `DB_CONNECTION_STRING` hacia PgBouncer; los tests usan `DB_DIRECT_CONNECTION_STRING` sin pooler):
 
 ```bash
 postgres://USUARIO:CONTRASEÑA@localhost:5432/NOMBREDELABASE
@@ -45,6 +45,7 @@ cp .env.example .env
 
 ```bash
 DB_CONNECTION_STRING=postgres://USUARIO:CONTRASEÑA@localhost:5432/NOMBREDELABASE
+DB_DIRECT_CONNECTION_STRING=postgres://USUARIO:CONTRASEÑA@localhost:5432/NOMBREDELABASE
 OPENAI_API_KEY=sk-your-openai-key
 ```
 

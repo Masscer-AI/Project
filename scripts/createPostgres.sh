@@ -163,5 +163,8 @@ fi
 
 # Print connection strings
 echo "PostgreSQL and PgBouncer are running."
-echo "PostgreSQL (direct): postgres://$USER:$PASSWORD@localhost:$PG_PORT/$DB_NAME"
-echo "PgBouncer: postgres://$USER:$PASSWORD@localhost:6432/$DB_NAME"
+echo "Add both to .env (see .env.example):"
+echo "DB_CONNECTION_STRING=postgres://$USER:$PASSWORD@localhost:$PG_PORT/$DB_NAME"
+echo "DB_DIRECT_CONNECTION_STRING=postgres://$USER:$PASSWORD@localhost:$PG_PORT/$DB_NAME"
+echo "(App containers rewrite DB_CONNECTION_STRING → PgBouncer; tests use DB_DIRECT_CONNECTION_STRING → Postgres.)"
+echo "PgBouncer URL (optional / reference): postgres://$USER:$PASSWORD@localhost:6432/$DB_NAME"

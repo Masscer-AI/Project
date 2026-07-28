@@ -28,6 +28,7 @@ usage() {
   echo "  ./taskfile.sh test api.document_templates.tests.DocumentTemplateAPITests.test_assignment_and_render_creates_attachment"
   echo "  ./taskfile.sh test api.foo --keepdb   # reuse test DB (skips CREATE; fastest iteration)"
   echo ""
+  echo "  Note: 'test' requires DB_DIRECT_CONNECTION_STRING in .env (direct Postgres, not PgBouncer)."
   echo "  Note: 'test' appends --noinput unless you pass --keepdb or --noinput, so a leftover"
   echo "        test_* database is dropped automatically instead of failing on CREATE."
   echo "  ./taskfile.sh front"
@@ -62,6 +63,11 @@ case "$COMMAND" in
     if [[ -f .env ]]; then
       set -a; source .env; set +a
     fi
+    if [[ -z "${DB_DIRECT_CONNECTION_STRING:-}" ]]; then
+      echo "error: DB_DIRECT_CONNECTION_STRING is required for tests (direct Postgres, not PgBouncer)." >&2
+      echo "Add it to .env — see .env.example. Django must CREATE/DROP test_* databases." >&2
+      exit 1
+    fi
     # If test_mydatabase (or similar) already exists, Django otherwise prompts or errors on CREATE.
     # --noinput lets Django drop a stale test DB first. Skip when the caller passes --keepdb (reuse)
     # or already passes --noinput.
@@ -77,14 +83,22 @@ case "$COMMAND" in
       TEST_ARGS+=(--noinput)
     fi
     DJANGO_CONTAINER=${DJANGO_CONTAINER:-masscer-django}
+    POSTGRES_CONTAINER=${POSTGRES_CONTAINER:-postgres_container}
     if docker ps -q -f name="^${DJANGO_CONTAINER}$" | grep -q .; then
-      exec docker exec "$DJANGO_CONTAINER" python manage.py test "${TEST_ARGS[@]}"
+      # Bypass PgBouncer: rewrite host URL to the Postgres container on the Docker network.
+      DB_URL_TEST=$(echo "$DB_DIRECT_CONNECTION_STRING" | sed \
+        -e "s|localhost:[0-9]*|${POSTGRES_CONTAINER}:5432|g" \
+        -e "s|127\.0\.0\.1:[0-9]*|${POSTGRES_CONTAINER}:5432|g" \
+        -e "s|pgbouncer_container:6432|${POSTGRES_CONTAINER}:5432|g")
+      exec docker exec -e DB_CONNECTION_STRING="$DB_URL_TEST" \
+        "$DJANGO_CONTAINER" python manage.py test "${TEST_ARGS[@]}"
     fi
 
     if [[ -d "./server" ]]; then
       cd "./server"
     fi
-    exec uv run python manage.py test "${TEST_ARGS[@]}"
+    exec env DB_CONNECTION_STRING="$DB_DIRECT_CONNECTION_STRING" \
+      uv run python manage.py test "${TEST_ARGS[@]}"
     ;;
   front)
     cd "./streaming/client"
