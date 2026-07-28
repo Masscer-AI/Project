@@ -1,3 +1,5 @@
+import logging
+
 from django.db.models.signals import post_save, post_delete, pre_delete
 from django.dispatch import receiver
 from django.contrib.auth.models import User
@@ -6,6 +8,8 @@ from api.authenticate.models import UserProfile
 from api.rag.models import Collection
 from api.consumption.models import Currency, Wallet
 
+logger = logging.getLogger(__name__)
+
 
 @receiver(post_save, sender=User)
 def user_created(sender, instance, created, **kwargs):
@@ -13,11 +17,11 @@ def user_created(sender, instance, created, **kwargs):
         Agent.objects.create(
             name=f"{instance.username}'s Agent", salute="Welcome!", user=instance
         )
-        print(f"New user created, creating agent for user: {instance.username}")
+        logger.debug("New user created, creating agent for user: %s", instance.username)
 
     _, created = UserProfile.objects.get_or_create(user=instance)
     if created:
-        print(f"New user profile created for user: {instance.username}")
+        logger.debug("New user profile created for user: %s", instance.username)
 
     user_wallet, created = Wallet.objects.get_or_create(
         user=instance, unit=Currency.objects.get(name="Compute Unit")
@@ -25,7 +29,7 @@ def user_created(sender, instance, created, **kwargs):
     if created:
         user_wallet.balance = 5000
         user_wallet.save()
-        print(f"New wallet created for user: {instance.username}")
+        logger.debug("New wallet created for user: %s", instance.username)
 
 
 @receiver(pre_delete, sender=LanguageModel)
@@ -43,9 +47,17 @@ def reassign_agents_on_llm_delete(sender, instance, **kwargs):
 
     if replacement:
         count = affected.update(llm=replacement, model_slug=replacement.slug)
-        print(f"Reassigned {count} agent(s) from '{instance.name}' to '{replacement.name}'.")
+        logger.info(
+            "Reassigned %s agent(s) from '%s' to '%s'.",
+            count,
+            instance.name,
+            replacement.name,
+        )
     else:
-        print(f"Warning: deleting '{instance.name}' but no replacement model found — affected agents will have llm=NULL.")
+        logger.warning(
+            "Deleting '%s' but no replacement model found — affected agents will have llm=NULL.",
+            instance.name,
+        )
 
 
 @receiver(post_save, sender=Agent)
@@ -55,12 +67,16 @@ def agent_created(sender, instance, created, **kwargs):
     if instance.agent_kind == AgentKind.PLATFORM_ASSISTANT:
         return
     username = getattr(instance.user, "username", None) or "unknown"
-    print(f"New agent created for user: {username}")
+    logger.debug("New agent created for user: %s", username)
     collection, collection_created = Collection.get_or_create_agent_collection(instance)
     if collection_created:
-        print(f"New collection created for agent: {instance.id}")
+        logger.debug("New collection created for agent: %s", instance.id)
     else:
-        print(f"Collection already exists for agent: {instance.id} (collection={collection.id})")
+        logger.debug(
+            "Collection already exists for agent: %s (collection=%s)",
+            instance.id,
+            collection.id,
+        )
 
 
 @receiver(post_save, sender=RoleAgentAssignment)

@@ -90,15 +90,19 @@ case "$COMMAND" in
         -e "s|localhost:[0-9]*|${POSTGRES_CONTAINER}:5432|g" \
         -e "s|127\.0\.0\.1:[0-9]*|${POSTGRES_CONTAINER}:5432|g" \
         -e "s|pgbouncer_container:6432|${POSTGRES_CONTAINER}:5432|g")
-      exec docker exec -e DB_CONNECTION_STRING="$DB_URL_TEST" \
-        "$DJANGO_CONTAINER" python manage.py test "${TEST_ARGS[@]}"
+      # -u / PYTHONUNBUFFERED: keep stdout (fixture logs) in order with stderr summary
+      # so "OK" / "Destroying test database" appear as the real end of output.
+      exec docker exec \
+        -e DB_CONNECTION_STRING="$DB_URL_TEST" \
+        -e PYTHONUNBUFFERED=1 \
+        "$DJANGO_CONTAINER" python -u manage.py test "${TEST_ARGS[@]}"
     fi
 
     if [[ -d "./server" ]]; then
       cd "./server"
     fi
-    exec env DB_CONNECTION_STRING="$DB_DIRECT_CONNECTION_STRING" \
-      uv run python manage.py test "${TEST_ARGS[@]}"
+    exec env DB_CONNECTION_STRING="$DB_DIRECT_CONNECTION_STRING" PYTHONUNBUFFERED=1 \
+      uv run python -u manage.py test "${TEST_ARGS[@]}"
     ;;
   front)
     cd "./streaming/client"

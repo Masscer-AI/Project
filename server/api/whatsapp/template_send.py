@@ -304,11 +304,12 @@ def send_ws_template_to_member(
             components=components or None,
         )
     except Exception as exc:
-        logger.exception(
-            "send_ws_template_to_member failed (sender=%s, contact=%s, template=%s)",
+        logger.warning(
+            "send_ws_template_to_member failed (sender=%s, contact=%s, template=%s): %s",
             sender_id,
             ws_contact_id,
             template_id,
+            exc,
         )
         raise ValueError(f"Failed to send WhatsApp template: {exc}") from exc
 

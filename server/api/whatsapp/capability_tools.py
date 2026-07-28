@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-# Plugins (mermaid, etc.) and document templates are web-chat only — not visible on WhatsApp.
+# Plugins / training tools stay web-chat only. Document templates and org tagging
+# tools are allowed (and some are required) on WhatsApp visitor lines.
 WHATSAPP_ALLOWED_CAPABILITY_TOOLS: frozenset[str] = frozenset(
     {
         "read_attachment",
@@ -26,7 +27,7 @@ WHATSAPP_ALLOWED_CAPABILITY_TOOLS: frozenset[str] = frozenset(
     }
 )
 
-WHATSAPP_REQUIRED_CAPABILITY_TOOLS: tuple[str, str] = (
+WHATSAPP_REQUIRED_CAPABILITY_TOOLS: tuple[str, ...] = (
     "read_attachment",
     "list_attachments",
     "list_document_templates",

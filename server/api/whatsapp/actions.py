@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import re
 
@@ -12,6 +13,8 @@ from api.utils.color_printer import printer
 from api.utils.openai_functions import create_structured_completion
 
 from .models import WSNumber
+
+logger = logging.getLogger(__name__)
 
 
 def _graph_token() -> str:
@@ -172,7 +175,7 @@ def send_template_message(
             err_body = response.json()
         except Exception:
             err_body = {"raw": response.text}
-        printer.red(f"Error sending template message: {err_body}")
+        logger.warning("Error sending template message: %s", err_body)
         meta_error = (
             err_body.get("error", {}).get("message")
             if isinstance(err_body, dict)
@@ -183,7 +186,7 @@ def send_template_message(
             or f"Failed to send WhatsApp template message (HTTP {response.status_code})."
         )
 
-    printer.success(f"Template '{template_name}' sent successfully.")
+    logger.info("Template '%s' sent successfully.", template_name)
     messages = response.json().get("messages") or []
     if not messages:
         return None

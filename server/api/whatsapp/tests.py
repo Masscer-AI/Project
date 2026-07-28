@@ -9,11 +9,19 @@ from rest_framework.test import APIClient
 from api.authenticate.models import Organization, Token
 from api.ai_layers.models import Agent
 from api.messaging.models import Conversation, Message, MessageAttachment
+from api.whatsapp.capability_tools import WHATSAPP_REQUIRED_CAPABILITY_TOOLS
 from api.whatsapp.conversations import (
     get_or_create_whatsapp_conversation,
     tool_names_from_capabilities,
 )
 from api.whatsapp.models import WSContact, WSNumber
+
+
+def _required_capability_entries() -> list[dict]:
+    return [
+        {"name": name, "type": "internal_tool", "enabled": True}
+        for name in WHATSAPP_REQUIRED_CAPABILITY_TOOLS
+    ]
 
 User = get_user_model()
 
@@ -87,8 +95,8 @@ class WhatsappConversationBridgeTests(TestCase):
             {"name": "list_attachments", "type": "internal_tool", "enabled": False},
         ]
         names = tool_names_from_capabilities(caps)
-        self.assertIn("read_attachment", names)
-        self.assertIn("list_attachments", names)
+        for required_name in WHATSAPP_REQUIRED_CAPABILITY_TOOLS:
+            self.assertIn(required_name, names)
 
     def test_get_or_create_org_owned_without_ws_user(self):
         owner = User.objects.create_user(username="orgownerwa", password="x")
@@ -617,23 +625,13 @@ class WhatsappNumbersManagementApiTests(TestCase):
             **self._auth_headers(),
         )
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(
-            response.json()["capabilities"],
-            [
-                {"name": "rag_query", "type": "internal_tool", "enabled": True},
-                {"name": "read_attachment", "type": "internal_tool", "enabled": True},
-                {"name": "list_attachments", "type": "internal_tool", "enabled": True},
-            ],
-        )
+        expected = [
+            {"name": "rag_query", "type": "internal_tool", "enabled": True},
+            *_required_capability_entries(),
+        ]
+        self.assertEqual(response.json()["capabilities"], expected)
         self.ws.refresh_from_db()
-        self.assertEqual(
-            self.ws.capabilities,
-            [
-                {"name": "rag_query", "type": "internal_tool", "enabled": True},
-                {"name": "read_attachment", "type": "internal_tool", "enabled": True},
-                {"name": "list_attachments", "type": "internal_tool", "enabled": True},
-            ],
-        )
+        self.assertEqual(self.ws.capabilities, expected)
 
     def test_put_capabilities_forces_required_tools_enabled(self, _mock_ff):
         caps = [
@@ -649,10 +647,7 @@ class WhatsappNumbersManagementApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
             response.json()["capabilities"],
-            [
-                {"name": "read_attachment", "type": "internal_tool", "enabled": True},
-                {"name": "list_attachments", "type": "internal_tool", "enabled": True},
-            ],
+            _required_capability_entries(),
         )
 
     def test_list_and_link_contacts(self, _mock_ff):
