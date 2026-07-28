@@ -49,7 +49,7 @@ TOOL_REGISTRY: dict[str, str] = {
     "send_email": "api.ai_layers.tools.send_email",
     "list_organization_members": "api.ai_layers.tools.list_organization_members",
     "list_organization_roles": "api.ai_layers.tools.list_organization_roles",
-    "list_accessible_whatsapp_senders": "api.ai_layers.tools.list_accessible_whatsapp_senders",
+    "list_whatsapp_resources": "api.ai_layers.tools.list_whatsapp_resources",
     "list_whatsapp_templates": "api.ai_layers.tools.list_whatsapp_templates",
     "send_ws_template_message": "api.ai_layers.tools.send_ws_template_message",
     "list_calendar_events": "api.ai_layers.tools.list_calendar_events",
@@ -63,7 +63,7 @@ TOOL_REGISTRY: dict[str, str] = {
 }
 
 WHATSAPP_TEMPLATE_AGENT_TOOL_NAMES: tuple[str, ...] = (
-    "list_accessible_whatsapp_senders",
+    "list_whatsapp_resources",
     "list_whatsapp_templates",
     "send_ws_template_message",
 )

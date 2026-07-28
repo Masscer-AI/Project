@@ -13,7 +13,7 @@ from api.whatsapp.conversations import (
     get_or_create_whatsapp_conversation,
     tool_names_from_capabilities,
 )
-from api.whatsapp.models import WSNumber
+from api.whatsapp.models import WSContact, WSNumber
 
 User = get_user_model()
 
@@ -36,6 +36,10 @@ class WhatsappConversationBridgeTests(TestCase):
         self.assertEqual(c1.whatsapp_user_number, "5491111222333")
         self.assertEqual(c1.ws_number_id, self.ws.id)
         self.assertIsNone(c1.user_id)
+        self.assertIsNotNone(c1.ws_contact_id)
+        self.assertEqual(c1.ws_contact.number, "5491111222333")
+        self.assertIsNone(c1.ws_contact.user_id)
+        self.assertEqual(c2.ws_contact_id, c1.ws_contact_id)
 
     def test_tool_names_from_capabilities_filters(self):
         caps = [
@@ -606,6 +610,66 @@ class WhatsappNumbersManagementApiTests(TestCase):
                 {"name": "list_attachments", "type": "internal_tool", "enabled": True},
             ],
         )
+
+    def test_list_and_link_contacts(self, _mock_ff):
+        from api.authenticate.models import UserProfile
+
+        member = User.objects.create_user(
+            username="wa_link_member", email="link@example.com", password="x"
+        )
+        profile = UserProfile.objects.get(user=member)
+        profile.organization = self.org
+        profile.is_active = True
+        profile.save()
+
+        contact = WSContact.objects.create(
+            ws_number=self.ws, number="15550009999"
+        )
+
+        list_resp = self.client.get(
+            f"/v1/whatsapp/numbers/{self.ws.id}/contacts",
+            **self._auth_headers(),
+        )
+        self.assertEqual(list_resp.status_code, 200)
+        data = list_resp.json()
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]["number"], "15550009999")
+        self.assertIsNone(data[0]["user_id"])
+
+        link_resp = self.client.patch(
+            f"/v1/whatsapp/contacts/{contact.id}",
+            data=json.dumps({"user_id": member.id}),
+            content_type="application/json",
+            **self._auth_headers(),
+        )
+        self.assertEqual(link_resp.status_code, 200)
+        self.assertEqual(link_resp.json()["user_id"], member.id)
+        contact.refresh_from_db()
+        self.assertEqual(contact.user_id, member.id)
+
+        unlink_resp = self.client.patch(
+            f"/v1/whatsapp/contacts/{contact.id}",
+            data=json.dumps({"user_id": None}),
+            content_type="application/json",
+            **self._auth_headers(),
+        )
+        self.assertEqual(unlink_resp.status_code, 200)
+        self.assertIsNone(unlink_resp.json()["user_id"])
+
+    def test_link_contact_rejects_non_member(self, _mock_ff):
+        outsider = User.objects.create_user(
+            username="wa_outsider", email="out@example.com", password="x"
+        )
+        contact = WSContact.objects.create(
+            ws_number=self.ws, number="15550008888"
+        )
+        resp = self.client.patch(
+            f"/v1/whatsapp/contacts/{contact.id}",
+            data=json.dumps({"user_id": outsider.id}),
+            content_type="application/json",
+            **self._auth_headers(),
+        )
+        self.assertEqual(resp.status_code, 400)
 
 
 @patch("api.authenticate.services.FeatureFlagService.is_feature_enabled")

@@ -98,7 +98,7 @@ MCP_EMAIL_TOOL_NAMES: tuple[str, ...] = (
 )
 
 MCP_WHATSAPP_TOOL_NAMES: tuple[str, ...] = (
-    "list_accessible_whatsapp_senders",
+    "list_whatsapp_resources",
     "list_whatsapp_templates",
     "send_ws_template_message",
 )

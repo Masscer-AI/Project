@@ -6,7 +6,11 @@ from django.test import SimpleTestCase, TestCase
 from api.ai_layers.models import Agent
 from api.authenticate.models import Organization, UserProfile
 from api.messaging.models import Conversation, Message
-from api.whatsapp.models import WSNumber
+from api.whatsapp.conversations import (
+    create_whatsapp_conversation,
+    get_or_create_whatsapp_conversation,
+)
+from api.whatsapp.models import WSContact, WSNumber
 from api.whatsapp.template_registry import (
     SOLICITUD_COMPLETADA,
     TASK_COMPLETED,
@@ -136,6 +140,82 @@ class WhatsAppTemplateRegistryTests(SimpleTestCase):
         self.assertEqual(summary["body_variable_count"], 2)
 
 
+class WhatsAppContactBridgeTests(TestCase):
+    def setUp(self):
+        from api.ai_layers.models import LanguageModel
+        from api.consumption.models import Currency
+        from api.providers.models import AIProvider
+
+        Currency.objects.get_or_create(
+            name="Compute Unit", defaults={"one_usd_is": 1000}
+        )
+        provider = AIProvider.objects.create(name="OpenAI-wa-contact")
+        llm = LanguageModel.objects.create(
+            provider=provider, slug="gpt-wa-contact", name="GPT WA Contact"
+        )
+        self.owner = User.objects.create_user(
+            username="wa_contact_owner",
+            email="contact-owner@example.com",
+            password="x",
+        )
+        self.org = Organization.objects.create(name="Contact Org", owner=self.owner)
+        profile = UserProfile.objects.get(user=self.owner)
+        profile.organization = self.org
+        profile.save(update_fields=["organization", "updated_at"])
+        self.agent = Agent.objects.create(
+            name="Contact Agent",
+            salute="hi",
+            organization=self.org,
+            user=self.owner,
+            llm=llm,
+            model_slug=llm.slug,
+        )
+        self.ws = WSNumber.objects.create(
+            organization=self.org,
+            agent=self.agent,
+            number="525500000001",
+            platform_id="pnid-contact",
+        )
+
+    def test_get_or_create_conversation_creates_contact(self):
+        conv = get_or_create_whatsapp_conversation(self.ws, "525511122233")
+        self.assertIsNotNone(conv.ws_contact_id)
+        contact = conv.ws_contact
+        self.assertEqual(contact.number, "525511122233")
+        self.assertIsNone(contact.user_id)
+
+        again = get_or_create_whatsapp_conversation(self.ws, "525511122233")
+        self.assertEqual(again.id, conv.id)
+        self.assertEqual(again.ws_contact_id, contact.id)
+
+    def test_clear_reuses_same_contact(self):
+        first = create_whatsapp_conversation(self.ws, "525544455566")
+        first.status = "inactive"
+        first.save(update_fields=["status", "updated_at"])
+        second = create_whatsapp_conversation(self.ws, "525544455566")
+        self.assertNotEqual(first.id, second.id)
+        self.assertEqual(first.ws_contact_id, second.ws_contact_id)
+
+    def test_same_user_can_link_two_contacts(self):
+        member = User.objects.create_user(
+            username="multi_phone", email="mp@example.com", password="x"
+        )
+        profile = UserProfile.objects.get(user=member)
+        profile.organization = self.org
+        profile.is_active = True
+        profile.save()
+
+        c1 = WSContact.objects.create(ws_number=self.ws, number="525511111111")
+        c2 = WSContact.objects.create(ws_number=self.ws, number="525522222222")
+        c1.user = member
+        c1.save(update_fields=["user", "updated_at"])
+        c2.user = member
+        c2.save(update_fields=["user", "updated_at"])
+        self.assertEqual(
+            WSContact.objects.filter(ws_number=self.ws, user=member).count(), 2
+        )
+
+
 class WhatsAppTemplateSendTests(TestCase):
     def setUp(self):
         from api.ai_layers.models import LanguageModel
@@ -168,13 +248,6 @@ class WhatsAppTemplateSendTests(TestCase):
         member_profile = UserProfile.objects.get(user=self.member)
         member_profile.organization = self.org
         member_profile.is_active = True
-        member_profile.phone_numbers = [
-            {
-                "country_code": "52",
-                "number": "5512345678",
-                "is_default": True,
-            }
-        ]
         member_profile.save()
 
         self.agent = Agent.objects.create(
@@ -200,10 +273,16 @@ class WhatsAppTemplateSendTests(TestCase):
             title="Source web chat",
         )
         self.target_phone = "525512345678"
+        self.contact = WSContact.objects.create(
+            ws_number=self.ws,
+            number=self.target_phone,
+            user=self.member,
+        )
         self.wa_conversation = Conversation.objects.create(
             user=None,
             organization=self.org,
             ws_number=self.ws,
+            ws_contact=self.contact,
             whatsapp_user_number=self.target_phone,
             status="active",
             title="WA visitor thread",
@@ -216,8 +295,7 @@ class WhatsAppTemplateSendTests(TestCase):
             actor_user_id=self.owner.id,
             organization_id=self.org.id,
             sender_id=self.ws.id,
-            target_user_id=self.member.id,
-            target_phone_number=self.target_phone,
+            ws_contact_id=self.contact.id,
             template_id="task_completed_en",
             template_variables={
                 "body": ["Finish weekly report", "All good this week"],
@@ -229,6 +307,7 @@ class WhatsAppTemplateSendTests(TestCase):
         self.assertEqual(
             result.delivery_conversation_id, str(self.wa_conversation.id)
         )
+        self.assertEqual(result.ws_contact_id, self.contact.id)
 
         mock_send.assert_called_once()
         kwargs = mock_send.call_args.kwargs
@@ -246,11 +325,11 @@ class WhatsAppTemplateSendTests(TestCase):
         )
         self.assertEqual(msg.metadata.get("whatsapp_wamid"), "wamid.template.1")
         self.assertEqual(msg.metadata.get("whatsapp_template_id"), "task_completed_en")
+        self.assertEqual(msg.metadata.get("ws_contact_id"), self.contact.id)
         self.assertEqual(
             msg.metadata.get("source_conversation_id"),
             str(self.source_conversation.id),
         )
-        # Must not create messages on the web source conversation.
         self.assertFalse(
             Message.objects.filter(conversation=self.source_conversation).exists()
         )
@@ -265,8 +344,7 @@ class WhatsAppTemplateSendTests(TestCase):
             actor_user_id=self.owner.id,
             organization_id=self.org.id,
             sender_id=self.ws.id,
-            target_user_id=self.member.id,
-            target_phone_number=self.target_phone,
+            ws_contact_id=self.contact.id,
             template_id="task_completed_en",
             template_variables={
                 "body": ["Task", "Summary"],
@@ -280,6 +358,36 @@ class WhatsAppTemplateSendTests(TestCase):
         new_conv = Conversation.objects.get(id=result.delivery_conversation_id)
         self.assertEqual(new_conv.status, "active")
         self.assertEqual(new_conv.whatsapp_user_number, self.target_phone)
+        self.assertEqual(new_conv.ws_contact_id, self.contact.id)
+
+    @patch("api.whatsapp.template_send.send_template_message")
+    def test_multi_phone_user_uses_chosen_contact(self, mock_send):
+        mock_send.return_value = "wamid.phone2"
+        other_phone = "525598765432"
+        contact2 = WSContact.objects.create(
+            ws_number=self.ws,
+            number=other_phone,
+            user=self.member,
+        )
+        Conversation.objects.create(
+            user=None,
+            organization=self.org,
+            ws_number=self.ws,
+            ws_contact=contact2,
+            whatsapp_user_number=other_phone,
+            status="active",
+        )
+        result = send_ws_template_to_member(
+            actor_user_id=self.owner.id,
+            organization_id=self.org.id,
+            sender_id=self.ws.id,
+            ws_contact_id=contact2.id,
+            template_id="task_completed_en",
+            template_variables={"body": ["a", "b"]},
+            source_conversation_id=str(self.source_conversation.id),
+        )
+        self.assertEqual(result.target_phone, other_phone)
+        self.assertEqual(mock_send.call_args.args[1], other_phone)
 
     def test_rejects_unknown_template(self):
         with self.assertRaises(ValueError) as ctx:
@@ -287,53 +395,27 @@ class WhatsAppTemplateSendTests(TestCase):
                 actor_user_id=self.owner.id,
                 organization_id=self.org.id,
                 sender_id=self.ws.id,
-                target_user_id=self.member.id,
-                target_phone_number=self.target_phone,
+                ws_contact_id=self.contact.id,
                 template_id="not_registered",
                 template_variables={"body": ["a", "b"]},
                 source_conversation_id=str(self.source_conversation.id),
             )
         self.assertIn("Unknown or disabled", str(ctx.exception))
 
-    def test_rejects_unregistered_phone(self):
+    def test_rejects_unlinked_contact(self):
+        self.contact.user = None
+        self.contact.save(update_fields=["user", "updated_at"])
         with self.assertRaises(ValueError) as ctx:
             send_ws_template_to_member(
                 actor_user_id=self.owner.id,
                 organization_id=self.org.id,
                 sender_id=self.ws.id,
-                target_user_id=self.member.id,
-                target_phone_number="525599999999",
+                ws_contact_id=self.contact.id,
                 template_id="task_completed_en",
                 template_variables={"body": ["a", "b"]},
                 source_conversation_id=str(self.source_conversation.id),
             )
-        self.assertIn("not registered", str(ctx.exception))
-
-    def test_rejects_no_prior_contact(self):
-        member2 = User.objects.create_user(
-            username="wa_tpl_member2",
-            email="member2@example.com",
-            password="x",
-        )
-        profile = UserProfile.objects.get(user=member2)
-        profile.organization = self.org
-        profile.phone_numbers = [
-            {"country_code": "52", "number": "5599998888", "is_default": True}
-        ]
-        profile.save()
-
-        with self.assertRaises(ValueError) as ctx:
-            send_ws_template_to_member(
-                actor_user_id=self.owner.id,
-                organization_id=self.org.id,
-                sender_id=self.ws.id,
-                target_user_id=member2.id,
-                target_phone_number="525599998888",
-                template_id="task_completed_en",
-                template_variables={"body": ["a", "b"]},
-                source_conversation_id=str(self.source_conversation.id),
-            )
-        self.assertIn("never contacted", str(ctx.exception))
+        self.assertIn("not verified", str(ctx.exception))
 
     def test_rejects_cross_org_sender(self):
         other_owner = User.objects.create_user(
@@ -359,8 +441,7 @@ class WhatsAppTemplateSendTests(TestCase):
                 actor_user_id=self.owner.id,
                 organization_id=self.org.id,
                 sender_id=other_ws.id,
-                target_user_id=self.member.id,
-                target_phone_number=self.target_phone,
+                ws_contact_id=self.contact.id,
                 template_id="task_completed_en",
                 template_variables={"body": ["a", "b"]},
                 source_conversation_id=str(self.source_conversation.id),
@@ -375,8 +456,7 @@ class WhatsAppTemplateSendTests(TestCase):
                 actor_user_id=self.owner.id,
                 organization_id=self.org.id,
                 sender_id=self.ws.id,
-                target_user_id=self.member.id,
-                target_phone_number=self.target_phone,
+                ws_contact_id=self.contact.id,
                 template_id="task_completed_en",
                 template_variables={"body": ["a", "b"]},
                 source_conversation_id=str(self.source_conversation.id),
@@ -403,13 +483,19 @@ class WhatsAppTemplateToolsTests(TestCase):
             email="tools-owner@example.com",
             password="x",
         )
+        self.member = User.objects.create_user(
+            username="wa_tools_member",
+            email="tools-member@example.com",
+            password="x",
+        )
         self.org = Organization.objects.create(name="Tools Org", owner=self.owner)
         profile = UserProfile.objects.get(user=self.owner)
         profile.organization = self.org
-        profile.phone_numbers = [
-            {"country_code": "1", "number": "5550001111", "is_default": True}
-        ]
-        profile.save()
+        profile.save(update_fields=["organization", "updated_at"])
+        member_profile = UserProfile.objects.get(user=self.member)
+        member_profile.organization = self.org
+        member_profile.is_active = True
+        member_profile.save()
         self.agent = Agent.objects.create(
             name="Tools Agent",
             salute="hi",
@@ -425,14 +511,24 @@ class WhatsAppTemplateToolsTests(TestCase):
             platform_id="pnid-tools",
             name="Main",
         )
+        self.linked = WSContact.objects.create(
+            ws_number=self.ws,
+            number="15550003333",
+            user=self.member,
+        )
+        self.unlinked = WSContact.objects.create(
+            ws_number=self.ws,
+            number="15550004444",
+        )
 
     def test_tools_registered(self):
         from api.ai_layers.tools import list_available_tools
 
         names = list_available_tools()
-        self.assertIn("list_accessible_whatsapp_senders", names)
+        self.assertIn("list_whatsapp_resources", names)
         self.assertIn("list_whatsapp_templates", names)
         self.assertIn("send_ws_template_message", names)
+        self.assertNotIn("list_accessible_whatsapp_senders", names)
 
     def test_send_tool_nested_schema_has_no_ref_siblings(self):
         from api.ai_layers.tools.send_ws_template_message import (
@@ -454,17 +550,21 @@ class WhatsAppTemplateToolsTests(TestCase):
         ids = {t.template_id for t in result.templates}
         self.assertIn("task_completed_en", ids)
 
-    def test_list_senders_tool(self):
-        from api.ai_layers.tools.list_accessible_whatsapp_senders import get_tool
+    def test_list_resources_tool_nests_verified_contacts_only(self):
+        from api.ai_layers.tools.list_whatsapp_resources import get_tool
 
         tool = get_tool(organization_id=self.org.id, user_id=self.owner.id)
         result = tool["function"]()
-        self.assertEqual(len(result.senders), 1)
-        self.assertEqual(result.senders[0].sender_id, self.ws.id)
-        self.assertEqual(result.senders[0].agent_slug, self.agent.slug)
+        self.assertEqual(len(result.resources), 1)
+        resource = result.resources[0]
+        self.assertEqual(resource.sender_id, self.ws.id)
+        self.assertEqual(resource.agent_slug, self.agent.slug)
+        self.assertEqual(len(resource.contacts), 1)
+        self.assertEqual(resource.contacts[0].ws_contact_id, self.linked.id)
+        self.assertEqual(resource.contacts[0].user_id, self.member.id)
 
-    def test_list_senders_requires_authenticated_int_user(self):
-        from api.ai_layers.tools.list_accessible_whatsapp_senders import get_tool
+    def test_list_resources_requires_authenticated_int_user(self):
+        from api.ai_layers.tools.list_whatsapp_resources import get_tool
 
         with self.assertRaises(ValueError):
             get_tool(organization_id=self.org.id, user_id="whatsapp:uuid")
@@ -486,22 +586,11 @@ class WhatsAppTemplateToolsTests(TestCase):
             "send_ws_template_message", WHATSAPP_ALLOWED_CAPABILITY_TOOLS
         )
         self.assertNotIn(
-            "list_accessible_whatsapp_senders", WHATSAPP_ALLOWED_CAPABILITY_TOOLS
+            "list_whatsapp_resources", WHATSAPP_ALLOWED_CAPABILITY_TOOLS
         )
         self.assertNotIn(
             "list_whatsapp_templates", WHATSAPP_ALLOWED_CAPABILITY_TOOLS
         )
-
-    def test_list_organization_members_includes_phone_numbers(self):
-        from api.ai_layers.tools.list_organization_members import (
-            _list_organization_members_impl,
-        )
-
-        result = _list_organization_members_impl(self.org.id, self.owner.id)
-        owner = next(m for m in result.members if m.user_id == self.owner.id)
-        self.assertEqual(len(owner.phone_numbers), 1)
-        self.assertEqual(owner.phone_numbers[0].country_code, "1")
-        self.assertEqual(owner.phone_numbers[0].number, "5550001111")
 
     def test_mcp_preset_includes_whatsapp_group(self):
         from api.ai_layers.mcp_access import mcp_tool_preset_groups
@@ -509,3 +598,5 @@ class WhatsAppTemplateToolsTests(TestCase):
         groups = {g["group"]: g["items"] for g in mcp_tool_preset_groups()}
         self.assertIn("whatsapp", groups)
         self.assertIn("send_ws_template_message", groups["whatsapp"])
+        self.assertIn("list_whatsapp_resources", groups["whatsapp"])
+        self.assertNotIn("list_accessible_whatsapp_senders", groups["whatsapp"])

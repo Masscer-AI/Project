@@ -4,7 +4,11 @@ import { useStore } from "../../modules/store";
 import "./page.css";
 import {
   getWhatsappNumbers,
+  getWhatsappContacts,
+  updateWhatsappContact,
+  getOrganizationMembers,
   updateWhatsappNumber,
+  TWhatsappContact,
 } from "../../modules/apiCalls";
 import { AgentSelector } from "../../components/AgentSelector/AgentSelector";
 import toast from "react-hot-toast";
@@ -21,12 +25,14 @@ import {
   Group,
   Loader,
   Modal,
+  NativeSelect,
   Stack,
   Text,
   TextInput,
   Title,
 } from "@mantine/core";
-import { IconMenu2, IconDeviceFloppy } from "@tabler/icons-react";
+import { IconMenu2, IconDeviceFloppy, IconUsers } from "@tabler/icons-react";
+import { TOrganizationMember } from "../../types";
 
 /** Tools that make sense on WhatsApp (no plugins / doc templates — web UI only). */
 const WHATSAPP_CAPABILITY_NAMES = [
@@ -79,6 +85,7 @@ type WhatsappLine = {
   agent: { name: string; slug: string };
   conversations_count: number;
   name: string | null;
+  organization?: number | string | null;
   capabilities?: { name?: string; type?: string; enabled?: boolean }[] | null;
 };
 
@@ -202,16 +209,63 @@ const WhatsAppNumber = ({
   const { number, agent, conversations_count, name } = line;
   const [settingsOpened, { open: openSettings, close: closeSettings }] =
     useDisclosure(false);
+  const [contactsOpened, { open: openContacts, close: closeContacts }] =
+    useDisclosure(false);
   const [nameInput, setNameInput] = useState(name ?? "");
   const [capabilityState, setCapabilityState] = useState<Record<string, boolean>>(
     () => buildInitialCapabilityState(line.capabilities)
   );
+  const [contacts, setContacts] = useState<TWhatsappContact[]>([]);
+  const [contactsLoading, setContactsLoading] = useState(false);
+  const [contactsError, setContactsError] = useState<string | null>(null);
+  const [members, setMembers] = useState<TOrganizationMember[]>([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [linkSelection, setLinkSelection] = useState<Record<number, string>>({});
+  const [linkingId, setLinkingId] = useState<number | null>(null);
 
   useEffect(() => {
     if (!settingsOpened) return;
     setNameInput(line.name ?? "");
     setCapabilityState(buildInitialCapabilityState(line.capabilities));
   }, [settingsOpened, line.name, line.capabilities, line.number]);
+
+  useEffect(() => {
+    if (!contactsOpened) return;
+    let cancelled = false;
+    setContactsLoading(true);
+    setContactsError(null);
+    getWhatsappContacts(line.id)
+      .then((res) => {
+        if (!cancelled) setContacts(res);
+      })
+      .catch(() => {
+        if (!cancelled) setContactsError(t("whatsapp-contacts-load-error"));
+      })
+      .finally(() => {
+        if (!cancelled) setContactsLoading(false);
+      });
+
+    const orgId = line.organization;
+    if (orgId != null && orgId !== "") {
+      setMembersLoading(true);
+      getOrganizationMembers(String(orgId))
+        .then((res) => {
+          if (!cancelled) setMembers(res.filter((m) => m.is_active || m.is_owner));
+        })
+        .catch(() => {
+          if (!cancelled) setMembers([]);
+        })
+        .finally(() => {
+          if (!cancelled) setMembersLoading(false);
+        });
+    } else {
+      setMembers([]);
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [contactsOpened, line.id, line.organization, t]);
 
   const changeAgent = (slug: string) => {
     updateWhatsappNumber(number, { slug }).then(() => {
@@ -233,6 +287,40 @@ const WhatsAppNumber = ({
       toast.success(t("whatsapp-capabilities-saved"));
       void onRefresh();
     });
+  };
+
+  const linkContact = async (contact: TWhatsappContact) => {
+    const selected = linkSelection[contact.id];
+    if (!selected) return;
+    setLinkingId(contact.id);
+    try {
+      const updated = await updateWhatsappContact(contact.id, {
+        user_id: Number(selected),
+      });
+      setContacts((prev) =>
+        prev.map((c) => (c.id === contact.id ? updated : c))
+      );
+      toast.success(t("whatsapp-contact-linked"));
+    } catch {
+      toast.error(t("whatsapp-contact-link-error"));
+    } finally {
+      setLinkingId(null);
+    }
+  };
+
+  const unlinkContact = async (contact: TWhatsappContact) => {
+    setLinkingId(contact.id);
+    try {
+      const updated = await updateWhatsappContact(contact.id, { user_id: null });
+      setContacts((prev) =>
+        prev.map((c) => (c.id === contact.id ? updated : c))
+      );
+      toast.success(t("whatsapp-contact-unlinked-toast"));
+    } catch {
+      toast.error(t("whatsapp-contact-link-error"));
+    } finally {
+      setLinkingId(null);
+    }
   };
 
   return (
@@ -257,12 +345,116 @@ const WhatsAppNumber = ({
           <Button
             size="xs"
             variant="light"
+            leftSection={<IconUsers size={14} />}
+            onClick={openContacts}
+          >
+            {t("whatsapp-contacts")}
+          </Button>
+          <Button
+            size="xs"
+            variant="light"
             onClick={() => navigate(`/dashboard?wsNumberId=${line.id}&channel=whatsapp`)}
           >
             {t("view-conversations")}
           </Button>
         </Group>
       </Card>
+
+      <Modal
+        opened={contactsOpened}
+        onClose={closeContacts}
+        title={t("whatsapp-contacts-title")}
+        centered
+        size="lg"
+      >
+        {contactsLoading ? (
+          <Stack align="center" py="md">
+            <Loader color="violet" size="sm" />
+          </Stack>
+        ) : contactsError ? (
+          <Text c="red">{contactsError}</Text>
+        ) : contacts.length === 0 ? (
+          <Text c="dimmed">{t("whatsapp-contacts-empty")}</Text>
+        ) : (
+          <Stack gap="sm">
+            {contacts.map((contact) => {
+              const memberLabel =
+                contact.user_display_name ||
+                contact.user_email ||
+                (contact.user_id != null ? `#${contact.user_id}` : null);
+              return (
+                <Card key={contact.id} withBorder padding="sm">
+                  <Group justify="space-between" align="flex-start" wrap="wrap">
+                    <Stack gap={2}>
+                      <Text size="sm" fw={500}>
+                        {t("whatsapp-contact-phone")}: +{contact.number}
+                      </Text>
+                      {contact.display_name ? (
+                        <Text size="xs" c="dimmed">
+                          {contact.display_name}
+                        </Text>
+                      ) : null}
+                      <Text size="sm">
+                        {t("whatsapp-contact-member")}:{" "}
+                        {memberLabel || t("whatsapp-contact-unlinked")}
+                      </Text>
+                    </Stack>
+                    <Stack gap="xs" style={{ minWidth: 180 }}>
+                      {contact.user_id != null ? (
+                        <Button
+                          size="xs"
+                          variant="default"
+                          loading={linkingId === contact.id}
+                          onClick={() => void unlinkContact(contact)}
+                        >
+                          {t("whatsapp-contact-unlink")}
+                        </Button>
+                      ) : (
+                        <>
+                          <NativeSelect
+                            size="xs"
+                            data={[
+                              {
+                                value: "",
+                                label: t("whatsapp-contact-select-member"),
+                              },
+                              ...members.map((m) => ({
+                                value: String(m.id),
+                                label:
+                                  m.profile_name ||
+                                  m.email ||
+                                  m.username ||
+                                  String(m.id),
+                              })),
+                            ]}
+                            value={linkSelection[contact.id] ?? ""}
+                            onChange={(e) => {
+                              const val = e.currentTarget.value;
+                              setLinkSelection((prev) => ({
+                                ...prev,
+                                [contact.id]: val,
+                              }));
+                            }}
+                            disabled={membersLoading || members.length === 0}
+                          />
+                          <Button
+                            size="xs"
+                            loading={linkingId === contact.id}
+                            disabled={!linkSelection[contact.id]}
+                            onClick={() => void linkContact(contact)}
+                          >
+                            {t("whatsapp-contact-link")}
+                          </Button>
+                        </>
+                      )}
+                    </Stack>
+                  </Group>
+                </Card>
+              );
+            })}
+          </Stack>
+        )}
+      </Modal>
 
       <Modal
         opened={settingsOpened}

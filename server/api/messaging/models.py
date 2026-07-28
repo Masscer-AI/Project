@@ -61,6 +61,13 @@ class Conversation(models.Model):
         blank=True,
         related_name="conversations",
     )
+    ws_contact = models.ForeignKey(
+        "whatsapp.WSContact",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="conversations",
+    )
     whatsapp_user_number = models.CharField(
         max_length=30,
         null=True,

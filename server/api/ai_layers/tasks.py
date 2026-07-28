@@ -1768,20 +1768,12 @@ def conversation_agent_task(
                 if _wa_tpl_injected or any(
                     t in agent_tool_names for t in WHATSAPP_TEMPLATE_AGENT_TOOL_NAMES
                 ):
-                    # list_organization_members is needed for target phone selection
-                    if (
-                        "list_organization_members" not in agent_tool_names
-                        and _may_auto_inject_tool("list_organization_members")
-                    ):
-                        agent_tool_names.append("list_organization_members")
                     instructions += (
                         "\n\nYou can notify organization members on WhatsApp with approved "
-                        "templates. Use list_accessible_whatsapp_senders, "
-                        "list_whatsapp_templates, and list_organization_members "
-                        "(phone_numbers), then send_ws_template_message. "
-                        "Only members who previously contacted that WhatsApp sender "
-                        "can be messaged, and target_phone_number must match a registered "
-                        "phone on their profile."
+                        "templates. Use list_whatsapp_resources (lines with verified "
+                        "contacts), list_whatsapp_templates, then send_ws_template_message "
+                        "with sender_id and ws_contact_id. A member may have multiple "
+                        "verified contacts (phones); pick the exact ws_contact_id."
                     )
 
                 _schedule_injected = False

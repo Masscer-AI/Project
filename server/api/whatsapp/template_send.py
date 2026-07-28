@@ -4,8 +4,7 @@ Scoped WhatsApp template delivery for organization-member tooling.
 Security invariants:
 - Template id must be in the local allowlist.
 - Sender must be a WSNumber in the actor's organization with an accessible agent.
-- Target phone must belong to an active organization member.
-- Target must have previously contacted the selected WSNumber.
+- Target must be a WSContact on that sender with user linked to an active org member.
 """
 
 from __future__ import annotations
@@ -23,7 +22,6 @@ from api.authenticate.org_membership import (
     iter_organization_member_users,
     user_belongs_to_organization,
 )
-from api.authenticate.phone_numbers import parse_phone_numbers
 from api.messaging.models import Conversation, Message
 from api.whatsapp.actions import send_template_message
 from api.whatsapp.conversations import (
@@ -31,7 +29,7 @@ from api.whatsapp.conversations import (
     get_active_whatsapp_conversation,
     resolved_organization_for_ws_number,
 )
-from api.whatsapp.models import WSNumber
+from api.whatsapp.models import WSContact, WSNumber
 from api.whatsapp.template_registry import (
     WhatsAppTemplateDefinition,
     get_template,
@@ -65,29 +63,11 @@ class SendWsTemplateResult(BaseModel):
     delivery_conversation_id: str | None = None
     template_id: str | None = None
     target_phone: str | None = None
+    ws_contact_id: int | None = None
 
 
 def _digits_only(value: str) -> str:
     return _DIGITS_RE.sub("", value or "")
-
-
-def _profile_phone_e164_set(user: User) -> set[str]:
-    try:
-        profile = user.profile
-    except Exception:
-        return set()
-    return parse_phone_numbers(getattr(profile, "_phone_numbers", None)).as_e164_set()
-
-
-def _member_has_phone(user: User, phone_digits: str) -> bool:
-    return phone_digits in _profile_phone_e164_set(user)
-
-
-def _has_prior_whatsapp_contact(ws_number: WSNumber, phone_digits: str) -> bool:
-    return Conversation.objects.filter(
-        ws_number=ws_number,
-        whatsapp_user_number=phone_digits,
-    ).exists()
 
 
 def _resolve_sender(
@@ -122,22 +102,42 @@ def _resolve_sender(
     return ws_number
 
 
-def _resolve_target_user(
+def _resolve_verified_contact(
     *,
-    target_user_id: int,
+    ws_contact_id: int | str,
+    ws_number: WSNumber,
     organization: Organization,
-) -> User:
-    user = User.objects.filter(pk=target_user_id).first()
-    if not user:
-        raise ValueError(f"User {target_user_id} not found")
-    if not user_belongs_to_organization(user, organization):
-        raise ValueError(f"User {target_user_id} is not a member of this organization")
+) -> WSContact:
+    try:
+        pk = int(ws_contact_id)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"Invalid ws_contact_id: {ws_contact_id}") from exc
 
-    # Ensure the user is among active members (owners always included).
+    contact = (
+        WSContact.objects.filter(pk=pk)
+        .select_related("user", "ws_number")
+        .first()
+    )
+    if not contact:
+        raise ValueError(f"WhatsApp contact {ws_contact_id} not found")
+    if contact.ws_number_id != ws_number.id:
+        raise ValueError("WhatsApp contact does not belong to this sender")
+    if not contact.user_id:
+        raise ValueError(
+            "WhatsApp contact is not verified (no linked organization member)"
+        )
+
+    target_user = contact.user
+    if not user_belongs_to_organization(target_user, organization):
+        raise ValueError(
+            "Linked user is not a member of this organization"
+        )
     active_ids = {u.id for u in iter_organization_member_users(organization)}
-    if user.id not in active_ids:
-        raise ValueError(f"User {target_user_id} is not an active organization member")
-    return user
+    if target_user.id not in active_ids:
+        raise ValueError(
+            "Linked user is not an active organization member"
+        )
+    return contact
 
 
 def build_template_components(
@@ -212,19 +212,31 @@ def build_template_components(
 def get_or_create_delivery_conversation(
     ws_number: WSNumber,
     phone_digits: str,
+    *,
+    ws_contact: WSContact | None = None,
 ) -> Conversation:
     """
     Prefer the active WhatsApp thread; if only historical (inactive) contact
     exists, open a new active delivery conversation.
     """
-    active = get_active_whatsapp_conversation(ws_number, phone_digits)
+    phone = _digits_only(phone_digits)
+    active = get_active_whatsapp_conversation(ws_number, phone)
     if active:
+        contact = ws_contact or active.ws_contact
+        if active.ws_contact_id is None and contact is not None:
+            active.ws_contact = contact
+            active.save(update_fields=["ws_contact", "updated_at"])
         return active
-    if not _has_prior_whatsapp_contact(ws_number, phone_digits):
+    # Contact rows are created on inbound; existence implies prior contact.
+    if ws_contact is None:
+        ws_contact = WSContact.objects.filter(
+            ws_number=ws_number, number=phone
+        ).first()
+    if ws_contact is None:
         raise ValueError(
             "This phone number has never contacted this WhatsApp sender"
         )
-    return create_whatsapp_conversation(ws_number, phone_digits)
+    return create_whatsapp_conversation(ws_number, phone)
 
 
 def send_ws_template_to_member(
@@ -232,8 +244,7 @@ def send_ws_template_to_member(
     actor_user_id: int,
     organization_id,
     sender_id: int | str,
-    target_user_id: int,
-    target_phone_number: str,
+    ws_contact_id: int | str,
     template_id: str,
     template_variables: TemplateVariables | dict[str, Any],
     source_conversation_id: str | None,
@@ -265,22 +276,12 @@ def send_ws_template_to_member(
         organization=organization,
         actor=actor,
     )
-    target_user = _resolve_target_user(
-        target_user_id=target_user_id,
+    contact = _resolve_verified_contact(
+        ws_contact_id=ws_contact_id,
+        ws_number=ws_number,
         organization=organization,
     )
-
-    phone_digits = _digits_only(target_phone_number)
-    if not phone_digits:
-        raise ValueError("target_phone_number is required")
-    if not _member_has_phone(target_user, phone_digits):
-        raise ValueError(
-            "target_phone_number is not registered on the target member's profile"
-        )
-    if not _has_prior_whatsapp_contact(ws_number, phone_digits):
-        raise ValueError(
-            "This phone number has never contacted this WhatsApp sender"
-        )
+    phone_digits = contact.number
 
     components = build_template_components(
         template,
@@ -289,7 +290,9 @@ def send_ws_template_to_member(
     )
 
     delivery_conversation = get_or_create_delivery_conversation(
-        ws_number, phone_digits
+        ws_number,
+        phone_digits,
+        ws_contact=contact,
     )
 
     try:
@@ -302,9 +305,9 @@ def send_ws_template_to_member(
         )
     except Exception as exc:
         logger.exception(
-            "send_ws_template_to_member failed (sender=%s, target=%s, template=%s)",
+            "send_ws_template_to_member failed (sender=%s, contact=%s, template=%s)",
             sender_id,
-            target_user_id,
+            ws_contact_id,
             template_id,
         )
         raise ValueError(f"Failed to send WhatsApp template: {exc}") from exc
@@ -325,7 +328,8 @@ def send_ws_template_to_member(
             "source_conversation_id": str(source_conversation_id)
             if source_conversation_id
             else None,
-            "target_user_id": target_user_id,
+            "target_user_id": contact.user_id,
+            "ws_contact_id": contact.id,
         },
     )
 
@@ -336,4 +340,5 @@ def send_ws_template_to_member(
         delivery_conversation_id=str(delivery_conversation.id),
         template_id=template.id,
         target_phone=phone_digits,
+        ws_contact_id=contact.id,
     )

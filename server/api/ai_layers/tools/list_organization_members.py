@@ -133,8 +133,9 @@ def get_tool(
             "List members of the current organization with user_id, email, display_name, "
             "roles, member_since, phone_numbers (country_code, number, is_default), "
             "and is_current_user (true for the person chatting). "
-            "Use before send_email to pick type=user recipients, or before "
-            "send_ws_template_message to pick target_user_id and a registered phone. "
+            "Use before send_email to pick type=user recipients. "
+            "For WhatsApp template targeting, use list_whatsapp_resources instead "
+            "(verified contacts). "
             "For role-wide or org-wide sends, use list_organization_roles or "
             "send_email with type=organization."
         ),

@@ -489,6 +489,37 @@ export const getWhatsappNumbers = async () => {
   return makeAuthenticatedRequest("GET", "/v1/whatsapp/numbers");
 };
 
+export type TWhatsappContact = {
+  id: number;
+  ws_number: number;
+  number: string;
+  display_name: string;
+  user_id: number | null;
+  user_email: string | null;
+  user_display_name: string | null;
+  last_activity_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export const getWhatsappContacts = async (wsNumberId: number) => {
+  return makeAuthenticatedRequest<TWhatsappContact[]>(
+    "GET",
+    `/v1/whatsapp/numbers/${wsNumberId}/contacts`
+  );
+};
+
+export const updateWhatsappContact = async (
+  contactId: number,
+  data: { user_id: number | null }
+) => {
+  return makeAuthenticatedRequest<TWhatsappContact>(
+    "PATCH",
+    `/v1/whatsapp/contacts/${contactId}`,
+    data
+  );
+};
+
 export const getWhatsappConversations = async () => {
   return makeAuthenticatedRequest("GET", "/v1/whatsapp/conversations");
 };

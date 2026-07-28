@@ -10,6 +10,54 @@ def _normalize_phone(value: str) -> str:
     return re.sub(r"[^\d]", "", value or "")
 
 
+class WSContact(models.Model):
+    """
+    Stable WhatsApp visitor identity for a business line.
+
+    Created on first inbound with user=None. Org members with WhatsApp access
+    may link the contact to an organization member (a user may own multiple
+    contacts / phones on the same line).
+    """
+
+    ws_number = models.ForeignKey(
+        "WSNumber",
+        on_delete=models.CASCADE,
+        related_name="contacts",
+    )
+    number = models.CharField(
+        max_length=30,
+        help_text="Visitor phone digits (country code included). Normalized on save.",
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="whatsapp_contacts",
+    )
+    display_name = models.CharField(max_length=100, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["ws_number", "number"],
+                name="uniq_wscontact_ws_number_number",
+            ),
+        ]
+
+    def clean(self):
+        self.number = _normalize_phone(self.number)
+
+    def save(self, *args, **kwargs):
+        self.number = _normalize_phone(self.number)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"WSContact({self.number} @ {self.ws_number_id})"
+
+
 class WSNumber(models.Model):
     organization = models.ForeignKey(
         "authenticate.Organization",

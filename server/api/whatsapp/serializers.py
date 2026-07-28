@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from api.ai_layers.serializers import AgentSerializer
 
-from .models import WSNumber
+from .models import WSContact, WSNumber
 
 
 class WSNumberSerializer(serializers.ModelSerializer):
@@ -15,3 +15,50 @@ class WSNumberSerializer(serializers.ModelSerializer):
     class Meta:
         model = WSNumber
         fields = "__all__"
+
+
+class WSContactSerializer(serializers.ModelSerializer):
+    user_id = serializers.IntegerField(source="user.id", read_only=True, allow_null=True)
+    user_email = serializers.SerializerMethodField()
+    user_display_name = serializers.SerializerMethodField()
+    last_activity_at = serializers.SerializerMethodField()
+
+    class Meta:
+        model = WSContact
+        fields = [
+            "id",
+            "ws_number",
+            "number",
+            "display_name",
+            "user_id",
+            "user_email",
+            "user_display_name",
+            "last_activity_at",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+    def get_user_email(self, obj) -> str | None:
+        if not obj.user_id:
+            return None
+        return obj.user.email or None
+
+    def get_user_display_name(self, obj) -> str | None:
+        if not obj.user_id:
+            return None
+        profile = getattr(obj.user, "profile", None)
+        if profile and (profile.name or "").strip():
+            return profile.name.strip()
+        return obj.user.username or obj.user.email or None
+
+    def get_last_activity_at(self, obj):
+        conv = (
+            obj.conversations.order_by("-last_message_at", "-updated_at")
+            .values_list("last_message_at", "updated_at")
+            .first()
+        )
+        if not conv:
+            return None
+        last_message_at, updated_at = conv
+        return last_message_at or updated_at

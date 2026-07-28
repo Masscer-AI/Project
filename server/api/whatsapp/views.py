@@ -2,6 +2,7 @@ import json
 import os
 
 from django.conf import settings
+from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -14,15 +15,23 @@ from api.ai_layers.access import accessible_agents_qs
 from api.ai_layers.models import Agent
 from api.authenticate.decorators.token_required import token_required
 from api.authenticate.models import Organization
+from api.authenticate.org_membership import (
+    iter_organization_member_users,
+    user_belongs_to_organization,
+)
 from api.authenticate.services import FeatureFlagService
 from api.messaging.models import Conversation
 from api.messaging.serializers import BigConversationSerializer, ConversationSerializer
 from api.utils.color_printer import printer
 
 from .capabilities_validation import validate_whatsapp_capabilities_list
-from .conversations import whatsapp_conversation_visible_q, ws_number_visible_q
-from .models import WSNumber
-from .serializers import WSNumberSerializer
+from .conversations import (
+    resolved_organization_for_ws_number,
+    whatsapp_conversation_visible_q,
+    ws_number_visible_q,
+)
+from .models import WSContact, WSNumber
+from .serializers import WSContactSerializer, WSNumberSerializer
 from .tasks import async_handle_webhook
 from .webhook_signature import verify_meta_webhook_signature
 
@@ -169,6 +178,101 @@ class WSNumberDetailView(View):
             return JsonResponse(WSNumberSerializer(ws_number).data, status=200)
 
         return JsonResponse({"error": "No recognized fields to update"}, status=400)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class WSNumberContactsView(View):
+    def get(self, request, *args, **kwargs):
+        user = request.user
+        _require_whatsapp_numbers_management(user)
+        pk = kwargs.get("pk")
+        ws_number = (
+            WSNumber.objects.filter(ws_number_visible_q(user), pk=pk).first()
+        )
+        if not ws_number:
+            return JsonResponse({"error": "WSNumber not found"}, status=404)
+
+        contacts = (
+            WSContact.objects.filter(ws_number=ws_number)
+            .select_related("user", "user__profile")
+            .order_by("-updated_at", "number")
+        )
+        serializer = WSContactSerializer(contacts, many=True)
+        return JsonResponse(serializer.data, safe=False)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class WSContactDetailView(View):
+    def patch(self, request, *args, **kwargs):
+        user = request.user
+        _require_whatsapp_numbers_management(user)
+        pk = kwargs.get("pk")
+        contact = (
+            WSContact.objects.filter(pk=pk, ws_number__in=WSNumber.objects.filter(
+                ws_number_visible_q(user)
+            ))
+            .select_related("ws_number", "user", "user__profile")
+            .first()
+        )
+        if not contact:
+            return JsonResponse({"error": "Contact not found"}, status=404)
+
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+        if "user_id" not in data:
+            return JsonResponse({"error": "user_id is required"}, status=400)
+
+        user_id = data.get("user_id")
+        if user_id is None:
+            contact.user = None
+            contact.save(update_fields=["user", "updated_at"])
+            contact = (
+                WSContact.objects.filter(pk=contact.pk)
+                .select_related("user", "user__profile")
+                .get()
+            )
+            return JsonResponse(WSContactSerializer(contact).data, status=200)
+
+        try:
+            target_user_id = int(user_id)
+        except (TypeError, ValueError):
+            return JsonResponse({"error": "user_id must be an integer or null"}, status=400)
+
+        org = resolved_organization_for_ws_number(contact.ws_number)
+        if not org:
+            return JsonResponse(
+                {"error": "WhatsApp line has no organization"},
+                status=400,
+            )
+
+        target = User.objects.filter(pk=target_user_id).first()
+        if not target:
+            return JsonResponse({"error": "User not found"}, status=404)
+        if not user_belongs_to_organization(target, org):
+            return JsonResponse(
+                {"error": "User is not an active member of this organization"},
+                status=400,
+            )
+        active_ids = {u.id for u in iter_organization_member_users(org)}
+        if target.id not in active_ids:
+            return JsonResponse(
+                {"error": "User is not an active member of this organization"},
+                status=400,
+            )
+
+        contact.user = target
+        contact.save(update_fields=["user", "updated_at"])
+        contact = (
+            WSContact.objects.filter(pk=contact.pk)
+            .select_related("user", "user__profile")
+            .get()
+        )
+        return JsonResponse(WSContactSerializer(contact).data, status=200)
 
 
 @method_decorator(csrf_exempt, name="dispatch")

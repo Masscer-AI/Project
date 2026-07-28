@@ -4,12 +4,19 @@ WhatsApp channel: bridge Meta threads to messaging.Conversation.
 
 from __future__ import annotations
 
+import re
+
 from django.contrib.auth.models import User
 from django.db.models import Q
 
 from api.authenticate.models import Organization
 from api.messaging.models import Conversation
 from api.messaging.schemas import metadata_payload_for_related_agents
+from api.whatsapp.models import WSContact
+
+
+def _digits_only(value: str) -> str:
+    return re.sub(r"[^\d]", "", value or "")
 
 
 def organization_for_user(user: User) -> Organization | None:
@@ -59,12 +66,24 @@ def resolved_organization_for_ws_number(ws_number) -> Organization | None:
     return None
 
 
+def get_or_create_ws_contact(ws_number, user_phone: str) -> WSContact:
+    """Stable contact for (WSNumber, visitor phone); created with user=None."""
+    phone = _digits_only(user_phone)
+    contact, _ = WSContact.objects.get_or_create(
+        ws_number=ws_number,
+        number=phone,
+        defaults={"display_name": ""},
+    )
+    return contact
+
+
 def get_active_whatsapp_conversation(ws_number, user_phone: str) -> Conversation | None:
     """Latest active thread for this line + visitor phone, or None."""
+    phone = _digits_only(user_phone)
     return (
         Conversation.objects.filter(
             ws_number=ws_number,
-            whatsapp_user_number=user_phone,
+            whatsapp_user_number=phone,
             status="active",
         )
         .order_by("-created_at")
@@ -74,10 +93,13 @@ def get_active_whatsapp_conversation(ws_number, user_phone: str) -> Conversation
 
 def create_whatsapp_conversation(ws_number, user_phone: str) -> Conversation:
     """Create a new active WhatsApp thread (caller must deactivate any prior active row)."""
+    phone = _digits_only(user_phone)
+    contact = get_or_create_ws_contact(ws_number, phone)
     org = resolved_organization_for_ws_number(ws_number)
     return Conversation.objects.create(
         ws_number=ws_number,
-        whatsapp_user_number=user_phone,
+        ws_contact=contact,
+        whatsapp_user_number=phone,
         user=None,
         organization=org,
         status="active",
@@ -90,14 +112,19 @@ def get_or_create_whatsapp_conversation(ws_number, user_phone: str) -> Conversat
     One **active** messaging.Conversation per (WSNumber, visitor WhatsApp phone).
 
     Like chat-widget threads: ``user`` is always None (anonymous visitor). The
-    visitor is identified by ``whatsapp_user_number``. Organization is set for
-    billing and access control. After ``/clear``, older rows are inactive and a
-    new active row is created.
+    visitor is identified by ``whatsapp_user_number`` / ``ws_contact``. Organization
+    is set for billing and access control. After ``/clear``, older rows are
+    inactive and a new active row is created (same WSContact is reused).
     """
-    active = get_active_whatsapp_conversation(ws_number, user_phone)
+    phone = _digits_only(user_phone)
+    contact = get_or_create_ws_contact(ws_number, phone)
+    active = get_active_whatsapp_conversation(ws_number, phone)
     if active:
+        if active.ws_contact_id is None:
+            active.ws_contact = contact
+            active.save(update_fields=["ws_contact", "updated_at"])
         return active
-    return create_whatsapp_conversation(ws_number, user_phone)
+    return create_whatsapp_conversation(ws_number, phone)
 
 
 def tool_names_from_capabilities(capabilities: list | None) -> list[str]:

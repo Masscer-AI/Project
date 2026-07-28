@@ -5,6 +5,8 @@ from .views import (
     WSConversationsView,
     WSConversationDetailView,
     WSNumberDetailView,
+    WSNumberContactsView,
+    WSContactDetailView,
 )
 
 app_name = "whatsapp"
@@ -12,7 +14,17 @@ app_name = "whatsapp"
 urlpatterns = [
     path("webhook", webhook, name="webhook_handler"),
     path("numbers", WSNumbersView.as_view(), name="ws_numbers"),
+    path(
+        "numbers/<int:pk>/contacts",
+        WSNumberContactsView.as_view(),
+        name="ws_number_contacts",
+    ),
     path("numbers/<str:number>", WSNumberDetailView.as_view(), name="ws_number_detail"),
+    path(
+        "contacts/<int:pk>",
+        WSContactDetailView.as_view(),
+        name="ws_contact_detail",
+    ),
     path("conversations", WSConversationsView.as_view(), name="ws_conversations"),
     path(
         "conversations/<uuid:pk>",

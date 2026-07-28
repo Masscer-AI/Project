@@ -7,7 +7,29 @@ from django.urls import path, reverse
 from django.utils.html import format_html
 
 from . import graph_webhook_setup as wa_graph
-from .models import WSNumber
+from .models import WSContact, WSNumber
+
+
+@admin.register(WSContact)
+class WSContactAdmin(admin.ModelAdmin):
+    list_display = (
+        "number",
+        "ws_number",
+        "user",
+        "display_name",
+        "created_at",
+        "updated_at",
+    )
+    search_fields = (
+        "number",
+        "display_name",
+        "user__username",
+        "user__email",
+        "ws_number__number",
+        "ws_number__name",
+    )
+    list_filter = ("created_at",)
+    raw_id_fields = ("ws_number", "user")
 
 
 @admin.register(WSNumber)

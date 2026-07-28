@@ -1574,7 +1574,7 @@ class MCPAccessTests(SimpleTestCase):
         self.assertIn("send_email", all_tools)
         self.assertIn("list_organization_members", all_tools)
         self.assertIn("send_ws_template_message", all_tools)
-        self.assertIn("list_accessible_whatsapp_senders", all_tools)
+        self.assertIn("list_whatsapp_resources", all_tools)
         self.assertIn("list_whatsapp_templates", all_tools)
 
     @override_settings(FRONTEND_URL="")

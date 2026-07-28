@@ -1,8 +1,8 @@
 """
 Tool: send_ws_template_message
 
-Send an allowlisted WhatsApp Cloud API template to an organization member
-who previously contacted the selected WhatsApp sender.
+Send an allowlisted WhatsApp Cloud API template to a verified WhatsApp contact
+(linked organization member) on a selected sender line.
 """
 
 from __future__ import annotations
@@ -19,17 +19,14 @@ from api.whatsapp.template_send import (
 
 
 class SendWsTemplateMessageParams(BaseModel):
-    target_user_id: int = Field(
-        description="Organization member user_id from list_organization_members."
-    )
-    target_phone_number: str = Field(
-        description=(
-            "Full international phone digits (country_code + number, no +) that "
-            "must be registered on the target member's phone_numbers."
-        )
-    )
     sender_id: int = Field(
-        description="WhatsApp sender_id from list_accessible_whatsapp_senders."
+        description="WhatsApp sender_id from list_whatsapp_resources."
+    )
+    ws_contact_id: int = Field(
+        description=(
+            "Verified contact ws_contact_id from list_whatsapp_resources "
+            "(contact must be linked to an organization member)."
+        )
     )
     template_id: str = Field(
         description="Local template_id from list_whatsapp_templates."
@@ -64,9 +61,8 @@ def get_tool(
         )
 
     def send_ws_template_message(
-        target_user_id: int,
-        target_phone_number: str,
         sender_id: int,
+        ws_contact_id: int,
         template_id: str,
         template_variables: TemplateVariables | dict[str, Any] | None = None,
     ) -> SendWsTemplateResult:
@@ -74,8 +70,7 @@ def get_tool(
             actor_user_id=user_id,
             organization_id=organization_id,
             sender_id=sender_id,
-            target_user_id=target_user_id,
-            target_phone_number=target_phone_number,
+            ws_contact_id=ws_contact_id,
             template_id=template_id,
             template_variables=template_variables or {},
             source_conversation_id=conversation_id,
@@ -84,13 +79,12 @@ def get_tool(
     return {
         "name": "send_ws_template_message",
         "description": (
-            "Send an approved WhatsApp template message to an organization member. "
-            "Use list_organization_members for target_user_id and their phone_numbers, "
-            "list_accessible_whatsapp_senders for sender_id, and list_whatsapp_templates "
-            "for template_id and required variables. "
-            "The target phone must already have contacted that WhatsApp sender before. "
-            "For templates with a conversation URL button, the current conversation id "
-            "is used automatically — leave buttons null/omitted."
+            "Send an approved WhatsApp template message to a verified WhatsApp "
+            "contact (organization member linked to a phone on that sender). "
+            "Use list_whatsapp_resources for sender_id and ws_contact_id, and "
+            "list_whatsapp_templates for template_id and required variables. "
+            "For templates with a conversation URL button, the current conversation "
+            "id is used automatically — leave buttons null/omitted."
         ),
         "parameters": SendWsTemplateMessageParams,
         "function": send_ws_template_message,
