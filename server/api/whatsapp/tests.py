@@ -20,6 +20,17 @@ User = get_user_model()
 
 class WhatsappConversationBridgeTests(TestCase):
     def setUp(self):
+        from api.ai_layers.models import LanguageModel
+        from api.consumption.models import Currency
+        from api.providers.models import AIProvider
+
+        Currency.objects.get_or_create(
+            name="Compute Unit", defaults={"one_usd_is": 1000}
+        )
+        provider = AIProvider.objects.create(name="OpenAI-wa-bridge")
+        LanguageModel.objects.create(
+            provider=provider, slug="gpt-wa-bridge", name="GPT WA Bridge"
+        )
         self.user = User.objects.create_user(username="wsowner", password="x")
         self.agent = Agent.objects.create(name="Test WA", salute="hi")
         self.ws = WSNumber.objects.create(
@@ -110,7 +121,18 @@ class WhatsappClearCommandTests(TestCase):
     def setUp(self):
         from django.core.cache import cache
 
+        from api.ai_layers.models import LanguageModel
+        from api.consumption.models import Currency
+        from api.providers.models import AIProvider
+
         cache.clear()
+        Currency.objects.get_or_create(
+            name="Compute Unit", defaults={"one_usd_is": 1000}
+        )
+        provider = AIProvider.objects.create(name="OpenAI-wa-clear")
+        LanguageModel.objects.create(
+            provider=provider, slug="gpt-wa-clear", name="GPT WA Clear"
+        )
         self.user = User.objects.create_user(username="wsclear", password="x")
         self.agent = Agent.objects.create(name="Test WA Clear", salute="hi")
         self.ws = WSNumber.objects.create(
@@ -224,7 +246,18 @@ class WhatsappWebhookEnqueueTests(TestCase):
     def setUp(self):
         from django.core.cache import cache
 
+        from api.ai_layers.models import LanguageModel
+        from api.consumption.models import Currency
+        from api.providers.models import AIProvider
+
         cache.clear()
+        Currency.objects.get_or_create(
+            name="Compute Unit", defaults={"one_usd_is": 1000}
+        )
+        provider = AIProvider.objects.create(name="OpenAI-wa-enqueue")
+        LanguageModel.objects.create(
+            provider=provider, slug="gpt-wa-enqueue", name="GPT WA Enqueue"
+        )
         self.user = User.objects.create_user(username="wsowner2", password="x")
         self.agent = Agent.objects.create(name="Test WA2", salute="hi")
         self.ws = WSNumber.objects.create(
@@ -481,6 +514,17 @@ class WhatsappNumbersManagementApiTests(TestCase):
     """Authenticated WhatsApp customization API (flag-gated; lines are provisioned in admin)."""
 
     def setUp(self):
+        from api.ai_layers.models import LanguageModel
+        from api.consumption.models import Currency
+        from api.providers.models import AIProvider
+
+        Currency.objects.get_or_create(
+            name="Compute Unit", defaults={"one_usd_is": 1000}
+        )
+        provider = AIProvider.objects.create(name="OpenAI-wa-mgmt")
+        LanguageModel.objects.create(
+            provider=provider, slug="gpt-wa-mgmt", name="GPT WA Mgmt"
+        )
         self.client = APIClient()
         self.owner = User.objects.create_user(username="wa_mgmt_owner", password="x")
         self.org = Organization.objects.create(name="WA Mgmt Org", owner=self.owner)
@@ -820,6 +864,17 @@ class WhatsappOutboundMediaHelperTests(TestCase):
 
 class WhatsappDeliverReplyTests(TestCase):
     def setUp(self):
+        from api.ai_layers.models import LanguageModel
+        from api.consumption.models import Currency
+        from api.providers.models import AIProvider
+
+        Currency.objects.get_or_create(
+            name="Compute Unit", defaults={"one_usd_is": 1000}
+        )
+        provider = AIProvider.objects.create(name="OpenAI-wa-deliver")
+        LanguageModel.objects.create(
+            provider=provider, slug="gpt-wa-deliver", name="GPT WA Deliver"
+        )
         self.owner = User.objects.create_user(username="wa_deliver_owner", password="x")
         self.org = Organization.objects.create(name="WA Deliver Org", owner=self.owner)
         self.agent = Agent.objects.create(
