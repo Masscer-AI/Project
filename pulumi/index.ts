@@ -68,6 +68,7 @@ const parameterStore = createProviderParameters({
   firecrawlApiKey: config.firecrawlApiKey,
   bflApiKey: config.bflApiKey,
   runwayApiKey: config.runwayApiKey,
+  gammaApiKey: config.gammaApiKey,
   whatsappGraphApiToken: config.whatsappGraphApiToken,
   whatsappWebhookVerifyToken: config.whatsappWebhookVerifyToken,
   googleOauthClientId: config.googleOauthClientId,

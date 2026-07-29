@@ -394,6 +394,7 @@
   "mermaid-visualizer": "Visualizador de Mermaid",
   "enter-text-to-generate-audio": "Ingresa el texto para generar audio",
   "generate-video": "Generar video",
+  "generate-presentation": "Generar presentación",
   "save-training-examples": "Permitir auto-entrenamiento",
   "edit-training-example": "Editar ejemplo de entrenamiento",
   "training-examples-used": "Ejemplos de entrenamiento usados",

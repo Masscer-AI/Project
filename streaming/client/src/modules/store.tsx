@@ -85,6 +85,7 @@ export const useStore = create<Store>()((set, get) => {
     generateImages: false,
     generateSpeech: false,
     generateVideo: false,
+    generateGammaPresentation: false,
     createCompletions: false,
 
     selectedAgents: [],
@@ -437,6 +438,14 @@ export const useStore = create<Store>()((set, get) => {
       chatState: {
         ...state.chatState,
         generateVideo: !state.chatState.generateVideo,
+      },
+    }));
+  },
+  toggleGenerateGammaPresentation: () => {
+    set((state) => ({
+      chatState: {
+        ...state.chatState,
+        generateGammaPresentation: !state.chatState.generateGammaPresentation,
       },
     }));
   },

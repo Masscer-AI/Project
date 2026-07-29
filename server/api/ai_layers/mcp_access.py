@@ -87,6 +87,7 @@ MCP_MEDIA_TOOL_NAMES: tuple[str, ...] = (
 MCP_DOCUMENT_TOOL_NAMES: tuple[str, ...] = (
     "generate_document_file",
     "generate_excel_file",
+    "generate_gamma_presentation",
     "list_document_templates",
     "render_document_template",
 )

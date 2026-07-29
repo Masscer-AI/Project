@@ -53,6 +53,7 @@ import {
   IconAdjustments,
   IconSquareRounded,
   IconBarbell,
+  IconPresentation,
 } from "@tabler/icons-react";
 import { cancelAgentTask, isPlatformAssistant } from "../../modules/apiCalls";
 
@@ -598,6 +599,7 @@ const ToolsMenu = () => {
     toggleGenerateImages,
     toggleGenerateSpeech,
     toggleGenerateVideo,
+    toggleGenerateGammaPresentation,
     toggleCreateCompletions,
   } = useStore((state) => ({
     chatState: state.chatState,
@@ -607,6 +609,7 @@ const ToolsMenu = () => {
     toggleGenerateImages: state.toggleGenerateImages,
     toggleGenerateSpeech: state.toggleGenerateSpeech,
     toggleGenerateVideo: state.toggleGenerateVideo,
+    toggleGenerateGammaPresentation: state.toggleGenerateGammaPresentation,
     toggleCreateCompletions: state.toggleCreateCompletions,
   }));
 
@@ -619,6 +622,7 @@ const ToolsMenu = () => {
     chatState.generateImages ||
     chatState.generateSpeech ||
     chatState.generateVideo ||
+    chatState.generateGammaPresentation ||
     chatState.createCompletions ||
     (chatState.specifiedUrls?.length ?? 0) > 0 ||
     chatState.writtingMode;
@@ -730,6 +734,21 @@ const ToolsMenu = () => {
               {t("generate-video") || "Generate video"}
             </Menu.Item>
           )}
+          <Menu.Item
+            leftSection={<IconPresentation size={18} />}
+            rightSection={
+              <Switch
+                checked={chatState.generateGammaPresentation}
+                onChange={() => toggleGenerateGammaPresentation()}
+                color="violet"
+                size="xs"
+                styles={{ track: { cursor: "pointer" } }}
+              />
+            }
+            onClick={() => toggleGenerateGammaPresentation()}
+          >
+            {t("generate-presentation") || "Generate presentation"}
+          </Menu.Item>
           {isTrainAgentsEnabled && (
             <Menu.Item
               leftSection={<IconBarbell size={18} />}

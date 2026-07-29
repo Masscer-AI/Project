@@ -46,6 +46,7 @@ TOOL_REGISTRY: dict[str, str] = {
     "render_document_template": "api.ai_layers.tools.render_document_template",
     "generate_document_file": "api.ai_layers.tools.generate_document_file",
     "generate_excel_file": "api.ai_layers.tools.generate_excel_file",
+    "generate_gamma_presentation": "api.ai_layers.tools.generate_gamma_presentation",
     "send_email": "api.ai_layers.tools.send_email",
     "list_organization_members": "api.ai_layers.tools.list_organization_members",
     "list_organization_roles": "api.ai_layers.tools.list_organization_roles",

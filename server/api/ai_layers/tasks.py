@@ -702,6 +702,16 @@ def _extract_generate_excel_file_attachments(
     )
 
 
+def _extract_generate_gamma_presentation_attachments(
+    tool_calls: list[dict],
+) -> tuple[list[dict], list[str]]:
+    return _extract_generated_document_attachments(
+        tool_calls,
+        tool_names=("generate_gamma_presentation",),
+        default_name="presentation.pdf",
+    )
+
+
 def _message_attachment_to_display_dict(att) -> dict | None:
     """
     Build a Message.attachments-compatible descriptor from a MessageAttachment row.
@@ -1415,6 +1425,18 @@ def conversation_agent_task(
                     "Output is always XLSX. "
                     "After success, include: [Download spreadsheet](attachment:<attachment_id>)."
                 )
+            if "generate_gamma_presentation" in (tool_names or []):
+                instructions += (
+                    "\n\nGamma presentation generation is enabled (generate_gamma_presentation). "
+                    "When the user wants a downloadable slide deck / presentation, call "
+                    "generate_gamma_presentation(input_text, title, num_cards, text_mode, "
+                    "language, additional_instructions, export_format, output_filename). "
+                    "- input_text: topic or outline (required). "
+                    "- export_format: default 'pdf' for sharing; use 'pptx' only if the user "
+                    "needs an editable PowerPoint. "
+                    "Generation can take up to a few minutes — tell the user it may take a moment. "
+                    "After success, include: [Download presentation](attachment:<attachment_id>)."
+                )
             if "create_speech" in (tool_names or []):
                 from api.voices.instructions import build_create_speech_tool_instructions
 
@@ -2014,6 +2036,16 @@ def conversation_agent_task(
                 assistant_message_attachments.extend(gen_xlsx_atts)
             if gen_xlsx_ids:
                 assistant_attachment_ids.extend(gen_xlsx_ids)
+
+            gen_gamma_atts, gen_gamma_ids = (
+                _extract_generate_gamma_presentation_attachments(
+                    result.tool_calls or []
+                )
+            )
+            if gen_gamma_atts:
+                assistant_message_attachments.extend(gen_gamma_atts)
+            if gen_gamma_ids:
+                assistant_attachment_ids.extend(gen_gamma_ids)
 
             if isinstance(result.output, str):
                 output_value = OutputValue(type="string", value=result.output)

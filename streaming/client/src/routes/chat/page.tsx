@@ -455,6 +455,9 @@ export default function ChatView() {
         toolNames.push("create_speech", "generate_dialogue");
       }
       if (chatState.generateVideo) toolNames.push("generate_video");
+      if (chatState.generateGammaPresentation) {
+        toolNames.push("generate_gamma_presentation");
+      }
       if (chatState.createCompletions) toolNames.push("create_completion");
 
       const isPlatform =
@@ -560,6 +563,9 @@ export default function ChatView() {
           toolNames.push("create_speech", "generate_dialogue");
         }
         if (chatState.generateVideo) toolNames.push("generate_video");
+        if (chatState.generateGammaPresentation) {
+          toolNames.push("generate_gamma_presentation");
+        }
         if (chatState.createCompletions) toolNames.push("create_completion");
 
         const isPlatform =

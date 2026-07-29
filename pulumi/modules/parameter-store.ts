@@ -10,6 +10,7 @@ export interface ProviderParameterArns {
   firecrawlApiKeyArn: pulumi.Output<string>;
   bflApiKeyArn: pulumi.Output<string>;
   runwayApiKeyArn: pulumi.Output<string>;
+  gammaApiKeyArn: pulumi.Output<string>;
   resendApiKeyArn: pulumi.Output<string>;
   whatsappGraphApiTokenArn: pulumi.Output<string>;
   whatsappWebhookVerifyTokenArn: pulumi.Output<string>;
@@ -28,6 +29,7 @@ export function createProviderParameters(args: {
   firecrawlApiKey: pulumi.Input<string>;
   bflApiKey: pulumi.Input<string>;
   runwayApiKey: pulumi.Input<string>;
+  gammaApiKey: pulumi.Input<string>;
   whatsappGraphApiToken: pulumi.Input<string>;
   whatsappWebhookVerifyToken: pulumi.Input<string>;
   googleOauthClientId: pulumi.Input<string>;
@@ -92,6 +94,12 @@ export function createProviderParameters(args: {
     value: normalizeSecret(args.runwayApiKey),
   });
 
+  const gammaApiKey = new aws.ssm.Parameter("gamma-api-key-param", {
+    name: `${basePath}/GAMMA_API_KEY`,
+    type: "SecureString",
+    value: normalizeSecret(args.gammaApiKey),
+  });
+
   const resendApiKey = new aws.ssm.Parameter("resend-api-key-param", {
     name: `${basePath}/RESEND_API_KEY`,
     type: "SecureString",
@@ -147,6 +155,7 @@ export function createProviderParameters(args: {
     firecrawlApiKey.arn,
     bflApiKey.arn,
     runwayApiKey.arn,
+    gammaApiKey.arn,
     resendApiKey.arn,
     whatsappGraphApiToken.arn,
     whatsappWebhookVerifyToken.arn,
@@ -184,6 +193,7 @@ export function createProviderParameters(args: {
     firecrawlApiKeyArn: firecrawlApiKey.arn,
     bflApiKeyArn: bflApiKey.arn,
     runwayApiKeyArn: runwayApiKey.arn,
+    gammaApiKeyArn: gammaApiKey.arn,
     resendApiKeyArn: resendApiKey.arn,
     whatsappGraphApiTokenArn: whatsappGraphApiToken.arn,
     whatsappWebhookVerifyTokenArn: whatsappWebhookVerifyToken.arn,

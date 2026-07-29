@@ -614,6 +614,154 @@ class GenerateExcelFileToolTests(SimpleTestCase):
         self.assertIn("generate_excel_file", list_available_tools())
 
 
+class GenerateGammaPresentationToolTests(SimpleTestCase):
+    def test_generate_gamma_presentation_is_registered(self):
+        from api.ai_layers.tools import list_available_tools
+
+        self.assertIn("generate_gamma_presentation", list_available_tools())
+
+    def test_extract_generate_gamma_presentation_attachments(self):
+        from api.ai_layers.tasks import _extract_generate_gamma_presentation_attachments
+
+        tool_calls = [
+            {
+                "tool_name": "generate_gamma_presentation",
+                "result": (
+                    '{"attachment_id":"c3d4e5f6-a7b8-9012-cdef-123456789012",'
+                    '"name":"deck.pdf","content":"https://example.com/deck.pdf",'
+                    '"content_type":"application/pdf","export_format":"pdf"}'
+                ),
+            },
+            {
+                "tool_name": "generate_document_file",
+                "result": '{"attachment_id":"x","content":"https://example.com/x.docx"}',
+            },
+        ]
+
+        attachments, attachment_ids = (
+            _extract_generate_gamma_presentation_attachments(tool_calls)
+        )
+
+        self.assertEqual(
+            attachments,
+            [
+                {
+                    "type": "document",
+                    "content": "https://example.com/deck.pdf",
+                    "name": "deck.pdf",
+                    "attachment_id": "c3d4e5f6-a7b8-9012-cdef-123456789012",
+                }
+            ],
+        )
+        self.assertEqual(
+            attachment_ids, ["c3d4e5f6-a7b8-9012-cdef-123456789012"]
+        )
+
+    @patch.dict("os.environ", {"GAMMA_API_KEY": "test-gamma-key"})
+    @patch("api.ai_layers.tools.generate_gamma_presentation.time.sleep", return_value=None)
+    @patch("api.ai_layers.tools.generate_gamma_presentation.requests.get")
+    @patch("api.ai_layers.tools.generate_gamma_presentation.requests.post")
+    @patch("api.ai_layers.models.Agent")
+    @patch("api.messaging.models.MessageAttachment")
+    @patch("api.messaging.models.Conversation")
+    def test_impl_creates_attachment(
+        self,
+        mock_conversation_cls,
+        mock_attachment_cls,
+        mock_agent,
+        mock_post,
+        mock_get,
+        _mock_sleep,
+    ):
+        from api.ai_layers.tools.generate_gamma_presentation import (
+            _generate_gamma_presentation_impl,
+        )
+
+        mock_conversation_cls.objects.select_related.return_value.get.return_value = (
+            Mock(id="conv-1")
+        )
+        att = Mock()
+        att.id = "att-uuid"
+        att.file.url = "/media/message_attachments/2026/07/deck.pdf"
+        mock_attachment_cls.objects.create.return_value = att
+
+        create_resp = Mock()
+        create_resp.status_code = 200
+        create_resp.json.return_value = {"generationId": "gen-123"}
+        create_resp.text = ""
+        mock_post.return_value = create_resp
+
+        status_resp = Mock()
+        status_resp.status_code = 200
+        status_resp.json.return_value = {
+            "generationId": "gen-123",
+            "status": "completed",
+            "exportUrl": "https://gamma.example/export.pdf",
+            "gammaUrl": "https://gamma.app/docs/abc",
+            "gammaId": "g_abc",
+        }
+        status_resp.text = ""
+
+        download_resp = Mock()
+        download_resp.status_code = 200
+        download_resp.content = b"%PDF-1.4 fake"
+
+        mock_get.side_effect = [status_resp, download_resp]
+
+        result = _generate_gamma_presentation_impl(
+            input_text="Renewable energy overview",
+            title="Energy",
+            num_cards=8,
+            text_mode="generate",
+            language="en",
+            additional_instructions="",
+            export_format="pdf",
+            output_filename="deck.pdf",
+            conversation_id="conv-1",
+            user_id=None,
+            agent_slug="test-agent",
+        )
+
+        self.assertEqual(result.attachment_id, "att-uuid")
+        self.assertEqual(result.name, "deck.pdf")
+        self.assertEqual(result.export_format, "pdf")
+        self.assertEqual(result.content_type, "application/pdf")
+        self.assertIn("deck.pdf", result.content)
+        self.assertEqual(result.generation_id, "gen-123")
+        mock_post.assert_called_once()
+        self.assertEqual(mock_get.call_count, 2)
+        mock_attachment_cls.objects.create.assert_called_once()
+        create_kwargs = mock_attachment_cls.objects.create.call_args.kwargs
+        self.assertEqual(create_kwargs["content_type"], "application/pdf")
+        self.assertEqual(create_kwargs["kind"], "file")
+
+    @patch.dict("os.environ", {"GAMMA_API_KEY": ""})
+    @patch("api.messaging.models.Conversation")
+    def test_impl_requires_api_key(self, mock_conversation_cls):
+        from api.ai_layers.tools.generate_gamma_presentation import (
+            _generate_gamma_presentation_impl,
+        )
+
+        mock_conversation_cls.objects.select_related.return_value.get.return_value = (
+            Mock(id="conv-1")
+        )
+        with self.assertRaises(ValueError) as ctx:
+            _generate_gamma_presentation_impl(
+                input_text="Topic",
+                title="",
+                num_cards=10,
+                text_mode="generate",
+                language="en",
+                additional_instructions="",
+                export_format="pdf",
+                output_filename="",
+                conversation_id="conv-1",
+                user_id=None,
+                agent_slug=None,
+            )
+        self.assertIn("GAMMA_API_KEY", str(ctx.exception))
+
+
 class SendEmailToolTests(SimpleTestCase):
     def test_agent_from_local_part_truncates_and_sanitizes(self):
         from api.ai_layers.tools.send_email import _agent_from_local_part

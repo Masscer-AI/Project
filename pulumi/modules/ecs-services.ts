@@ -111,6 +111,7 @@ export function createAppServices(args: {
     { name: "FIRECRAWL_API_KEY", valueFrom: args.providerParameterArns.firecrawlApiKeyArn },
     { name: "BFL_API_KEY", valueFrom: args.providerParameterArns.bflApiKeyArn },
     { name: "RUNWAY_API_KEY", valueFrom: args.providerParameterArns.runwayApiKeyArn },
+    { name: "GAMMA_API_KEY", valueFrom: args.providerParameterArns.gammaApiKeyArn },
     { name: "RESEND_API_KEY", valueFrom: args.providerParameterArns.resendApiKeyArn },
     { name: "WHATSAPP_GRAPH_API_TOKEN", valueFrom: args.providerParameterArns.whatsappGraphApiTokenArn },
     { name: "WHATSAPP_WEBHOOK_VERIFY_TOKEN", valueFrom: args.providerParameterArns.whatsappWebhookVerifyTokenArn },
