@@ -1,8 +1,8 @@
 """
 Tool: list_whatsapp_resources
 
-Lists accessible WhatsApp Business lines with nested verified contacts
-(contacts linked to an organization member).
+Lists WhatsApp Business lines assigned to the current agent, with nested
+verified contacts (contacts linked to an organization member).
 """
 
 from __future__ import annotations
@@ -10,7 +10,6 @@ from __future__ import annotations
 from django.db.models import Prefetch
 from pydantic import BaseModel, Field
 
-from api.ai_layers.access import accessible_agents_qs
 from api.authenticate.models import Organization
 from api.authenticate.org_membership import user_belongs_to_organization
 from api.whatsapp.conversations import resolved_organization_for_ws_number
@@ -59,6 +58,7 @@ def _list_whatsapp_resources_impl(
     *,
     organization_id,
     user_id: int,
+    agent_id: int,
 ) -> ListWhatsappResourcesResult:
     from django.contrib.auth.models import User
 
@@ -72,12 +72,16 @@ def _list_whatsapp_resources_impl(
     if not user_belongs_to_organization(actor, organization):
         raise ValueError("User is not a member of this organization")
 
-    accessible_agent_ids = set(
-        accessible_agents_qs(actor).values_list("id", flat=True)
-    )
+    try:
+        resolved_agent_id = int(agent_id)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"Invalid agent_id: {agent_id}") from exc
 
     qs = (
-        WSNumber.objects.filter(organization=organization)
+        WSNumber.objects.filter(
+            organization=organization,
+            agent_id=resolved_agent_id,
+        )
         .exclude(platform_id__isnull=True)
         .exclude(platform_id="")
         .select_related("agent")
@@ -96,8 +100,6 @@ def _list_whatsapp_resources_impl(
     for ws in qs:
         org = resolved_organization_for_ws_number(ws)
         if not org or org.id != organization.id:
-            continue
-        if ws.agent_id not in accessible_agent_ids:
             continue
         agent = ws.agent
         contacts = [
@@ -131,6 +133,7 @@ def _list_whatsapp_resources_impl(
 def get_tool(
     organization_id=None,
     user_id: int | None = None,
+    agent_id: int | None = None,
     **kwargs,
 ) -> dict:
     if organization_id is None:
@@ -145,22 +148,27 @@ def get_tool(
         raise ValueError(
             "list_whatsapp_resources requires an authenticated web user"
         )
+    if agent_id is None:
+        raise ValueError(
+            "list_whatsapp_resources requires agent_id in tool context"
+        )
 
     def list_whatsapp_resources() -> ListWhatsappResourcesResult:
         return _list_whatsapp_resources_impl(
             organization_id=organization_id,
             user_id=user_id,
+            agent_id=agent_id,
         )
 
     return {
         "name": "list_whatsapp_resources",
         "description": (
-            "List WhatsApp Business lines in the current organization that you can "
+            "List WhatsApp Business lines assigned to you (this agent) that you can "
             "use with send_ws_template_message, each with nested verified contacts "
             "(contacts linked to an organization member). "
             "Returns sender_id, line number/name, linked agent, and contacts with "
             "ws_contact_id, user_id, and phone number. "
-            "Only lines with a configured Meta platform_id and an agent you can access "
+            "Only lines with a configured Meta platform_id assigned to this agent "
             "are included. Use a contact's ws_contact_id when sending a template."
         ),
         "parameters": ListWhatsappResourcesParams,

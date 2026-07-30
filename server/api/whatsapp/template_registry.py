@@ -110,10 +110,50 @@ SOLICITUD_COMPLETADA = WhatsAppTemplateDefinition(
     enabled=True,
 )
 
+APROBACION_PENDIENTE = WhatsAppTemplateDefinition(
+    id="aprobacion_pendiente_es",
+    meta_name="aprobacion_pendiente",
+    language_code="es",
+    category="UTILITY",
+    description=(
+        "Pide aprobacion humana en espanol para continuar un flujo. "
+        "Incluye un boton de respuesta rapida 'Si, permiso concedido.'; "
+        "el usuario puede rechazar respondiendo en texto libre."
+    ),
+    body_variable_count=2,
+    body_variable_descriptions=(
+        "Nombre corto de la tarea (completa *{{1}}*).",
+        "Resumen de lo que el agente va a hacer si aprueban (completa {{2}}).",
+    ),
+    buttons=(),
+    enabled=True,
+)
+
+APPROVAL_PENDING = WhatsAppTemplateDefinition(
+    id="approval_pending_en",
+    meta_name="approval_pending",
+    language_code="en",
+    category="UTILITY",
+    description=(
+        "Ask for human approval in English before continuing a flow. "
+        "Includes a quick-reply button 'Yes, permission granted'; "
+        "the user can reject by replying with free-form text."
+    ),
+    body_variable_count=2,
+    body_variable_descriptions=(
+        "Short task name (fills *{{1}}*).",
+        "Summary of what the agent will do if approved (fills {{2}}).",
+    ),
+    buttons=(),
+    enabled=True,
+)
+
 
 WHATSAPP_TEMPLATES: dict[str, WhatsAppTemplateDefinition] = {
     TASK_COMPLETED.id: TASK_COMPLETED,
     SOLICITUD_COMPLETADA.id: SOLICITUD_COMPLETADA,
+    APROBACION_PENDIENTE.id: APROBACION_PENDIENTE,
+    APPROVAL_PENDING.id: APPROVAL_PENDING,
 }
 
 

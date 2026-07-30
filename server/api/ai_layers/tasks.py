@@ -1496,8 +1496,10 @@ def conversation_agent_task(
                     organization = getattr(widget_agent, "organization", None)
 
             agent_tool_names = list(tool_names or [])
+            from api.ai_layers.tools import WHATSAPP_TEMPLATE_AGENT_TOOL_NAMES
             from api.ai_layers.tools.calendar_tool_helpers import CALENDAR_AGENT_TOOL_NAMES
             from api.integrations.services import user_has_personal_google_calendar
+            from api.whatsapp.models import WSNumber
 
             _has_personal_calendar = user_has_personal_google_calendar(actor_user_id)
             agent_tool_names = [
@@ -1511,6 +1513,22 @@ def conversation_agent_task(
                 for _cal_tool in CALENDAR_AGENT_TOOL_NAMES:
                     if _cal_tool not in agent_tool_names and _may_auto_inject_tool(_cal_tool):
                         agent_tool_names.append(_cal_tool)
+
+            # WhatsApp template tools are only available when this agent owns a
+            # configured business line. Apply before any later injection.
+            _wa_line_qs = WSNumber.objects.filter(agent_id=agent.id).exclude(
+                platform_id__isnull=True
+            ).exclude(platform_id="")
+            if organization is not None:
+                _wa_line_qs = _wa_line_qs.filter(organization=organization)
+            _agent_has_whatsapp_line = _wa_line_qs.exists()
+            if not _agent_has_whatsapp_line:
+                agent_tool_names = [
+                    t
+                    for t in agent_tool_names
+                    if t not in WHATSAPP_TEMPLATE_AGENT_TOOL_NAMES
+                ]
+
             if is_whatsapp_chat:
                 from api.whatsapp.capability_tools import WHATSAPP_DISALLOWED_CAPABILITY_TOOLS
 
@@ -1774,29 +1792,29 @@ def conversation_agent_task(
                         ):
                             agent_tool_names.append(_email_tool)
 
-                from api.ai_layers.tools import (
-                    SCHEDULE_AGENT_TOOL_NAMES,
-                    WHATSAPP_TEMPLATE_AGENT_TOOL_NAMES,
-                )
+                from api.ai_layers.tools import SCHEDULE_AGENT_TOOL_NAMES
 
                 _wa_tpl_injected = False
-                for _wa_tool in WHATSAPP_TEMPLATE_AGENT_TOOL_NAMES:
-                    if (
-                        _wa_tool not in agent_tool_names
-                        and _may_auto_inject_tool(_wa_tool)
+                if _agent_has_whatsapp_line:
+                    for _wa_tool in WHATSAPP_TEMPLATE_AGENT_TOOL_NAMES:
+                        if (
+                            _wa_tool not in agent_tool_names
+                            and _may_auto_inject_tool(_wa_tool)
+                        ):
+                            agent_tool_names.append(_wa_tool)
+                            _wa_tpl_injected = True
+                    if _wa_tpl_injected or any(
+                        t in agent_tool_names
+                        for t in WHATSAPP_TEMPLATE_AGENT_TOOL_NAMES
                     ):
-                        agent_tool_names.append(_wa_tool)
-                        _wa_tpl_injected = True
-                if _wa_tpl_injected or any(
-                    t in agent_tool_names for t in WHATSAPP_TEMPLATE_AGENT_TOOL_NAMES
-                ):
-                    instructions += (
-                        "\n\nYou can notify organization members on WhatsApp with approved "
-                        "templates. Use list_whatsapp_resources (lines with verified "
-                        "contacts), list_whatsapp_templates, then send_ws_template_message "
-                        "with sender_id and ws_contact_id. A member may have multiple "
-                        "verified contacts (phones); pick the exact ws_contact_id."
-                    )
+                        instructions += (
+                            "\n\nYou can notify organization members on WhatsApp with approved "
+                            "templates, using only WhatsApp lines assigned to you. "
+                            "Use list_whatsapp_resources (your lines with verified "
+                            "contacts), list_whatsapp_templates, then send_ws_template_message "
+                            "with sender_id and ws_contact_id. A member may have multiple "
+                            "verified contacts (phones); pick the exact ws_contact_id."
+                        )
 
                 _schedule_injected = False
                 for _sched_tool in SCHEDULE_AGENT_TOOL_NAMES:
@@ -1911,6 +1929,7 @@ def conversation_agent_task(
             resolve_kwargs = dict(
                 conversation_id=conversation_id,
                 user_id=actor_user_id,
+                agent_id=agent.id,
                 agent_slug=agent.slug,
                 organization_id=organization.id if organization else None,
                 has_organization_conversations_access=has_organization_conversations_access,

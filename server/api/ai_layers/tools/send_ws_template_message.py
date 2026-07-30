@@ -2,7 +2,7 @@
 Tool: send_ws_template_message
 
 Send an allowlisted WhatsApp Cloud API template to a verified WhatsApp contact
-(linked organization member) on a selected sender line.
+(linked organization member) on a sender line assigned to the current agent.
 """
 
 from __future__ import annotations
@@ -41,6 +41,7 @@ def get_tool(
     conversation_id: str | None = None,
     user_id: int | None = None,
     organization_id=None,
+    agent_id: int | None = None,
     **kwargs,
 ) -> dict:
     if not conversation_id:
@@ -59,6 +60,10 @@ def get_tool(
         raise ValueError(
             "send_ws_template_message requires organization_id in tool context"
         )
+    if agent_id is None:
+        raise ValueError(
+            "send_ws_template_message requires agent_id in tool context"
+        )
 
     def send_ws_template_message(
         sender_id: int,
@@ -69,6 +74,7 @@ def get_tool(
         return send_ws_template_to_member(
             actor_user_id=user_id,
             organization_id=organization_id,
+            agent_id=agent_id,
             sender_id=sender_id,
             ws_contact_id=ws_contact_id,
             template_id=template_id,
@@ -80,7 +86,8 @@ def get_tool(
         "name": "send_ws_template_message",
         "description": (
             "Send an approved WhatsApp template message to a verified WhatsApp "
-            "contact (organization member linked to a phone on that sender). "
+            "contact (organization member linked to a phone on a sender line "
+            "assigned to you). "
             "Use list_whatsapp_resources for sender_id and ws_contact_id, and "
             "list_whatsapp_templates for template_id and required variables. "
             "For templates with a conversation URL button, the current conversation "

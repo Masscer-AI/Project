@@ -264,6 +264,9 @@ export function createAppServices(args: {
       name: "chroma",
       image: args.chromaImage,
       essential: true,
+      // Chroma stores the default ONNX embedding model at $HOME/.cache/chroma.
+      // Point HOME at the EFS mount so the ~80MB model survives task restarts.
+      environment: [{ name: "HOME", value: "/data" }],
       portMappings: [{ containerPort: 8000, hostPort: 8000, protocol: "tcp" }],
       mountPoints: [{ sourceVolume: "chroma-data", containerPath: "/data", readOnly: false }],
       logConfiguration: {

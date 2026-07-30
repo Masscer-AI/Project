@@ -12,6 +12,8 @@ from api.whatsapp.conversations import (
 )
 from api.whatsapp.models import WSContact, WSNumber
 from api.whatsapp.template_registry import (
+    APROBACION_PENDIENTE,
+    APPROVAL_PENDING,
     SOLICITUD_COMPLETADA,
     TASK_COMPLETED,
     get_template,
@@ -102,6 +104,66 @@ class WhatsAppTemplateRegistryTests(SimpleTestCase):
 
         ids = {t.id for t in list_enabled_templates()}
         self.assertIn(SOLICITUD_COMPLETADA.id, ids)
+
+    def test_aprobacion_pendiente_spanish_registered(self):
+        tpl = get_template("aprobacion_pendiente_es")
+        self.assertIsNotNone(tpl)
+        self.assertEqual(tpl.meta_name, "aprobacion_pendiente")
+        self.assertEqual(tpl.language_code, "es")
+        self.assertEqual(tpl.body_variable_count, 2)
+        self.assertEqual(tpl.button_variable_count, 0)
+        self.assertEqual(tpl.buttons, ())
+
+        ids = {t.id for t in list_enabled_templates()}
+        self.assertIn(APROBACION_PENDIENTE.id, ids)
+
+    def test_approval_pending_english_registered(self):
+        tpl = get_template("approval_pending_en")
+        self.assertIsNotNone(tpl)
+        self.assertEqual(tpl.meta_name, "approval_pending")
+        self.assertEqual(tpl.language_code, "en")
+        self.assertEqual(tpl.body_variable_count, 2)
+        self.assertEqual(tpl.button_variable_count, 0)
+        self.assertEqual(tpl.buttons, ())
+
+        ids = {t.id for t in list_enabled_templates()}
+        self.assertIn(APPROVAL_PENDING.id, ids)
+
+    def test_build_components_for_aprobacion_pendiente(self):
+        components = build_template_components(
+            APROBACION_PENDIENTE,
+            TemplateVariables(
+                body=[
+                    "indexación del contrato marco Q3",
+                    (
+                        "Procesar el PDF, indexarlo en la base de conocimiento "
+                        "y avisar al equipo cuando esté listo."
+                    ),
+                ],
+            ),
+            source_conversation_id="11111111-1111-1111-1111-111111111111",
+        )
+        self.assertEqual(len(components), 1)
+        self.assertEqual(components[0]["type"], "body")
+        self.assertEqual(len(components[0]["parameters"]), 2)
+
+    def test_build_components_for_approval_pending(self):
+        components = build_template_components(
+            APPROVAL_PENDING,
+            TemplateVariables(
+                body=[
+                    "ACME quote review",
+                    (
+                        "Send the $45,000 quote to the vendor and update "
+                        "the status in Masscer."
+                    ),
+                ],
+            ),
+            source_conversation_id="11111111-1111-1111-1111-111111111111",
+        )
+        self.assertEqual(len(components), 1)
+        self.assertEqual(components[0]["type"], "body")
+        self.assertEqual(len(components[0]["parameters"]), 2)
 
     def test_unknown_template_returns_none(self):
         self.assertIsNone(get_template("does_not_exist"))
@@ -294,6 +356,7 @@ class WhatsAppTemplateSendTests(TestCase):
         result = send_ws_template_to_member(
             actor_user_id=self.owner.id,
             organization_id=self.org.id,
+            agent_id=self.agent.id,
             sender_id=self.ws.id,
             ws_contact_id=self.contact.id,
             template_id="task_completed_en",
@@ -343,6 +406,7 @@ class WhatsAppTemplateSendTests(TestCase):
         result = send_ws_template_to_member(
             actor_user_id=self.owner.id,
             organization_id=self.org.id,
+            agent_id=self.agent.id,
             sender_id=self.ws.id,
             ws_contact_id=self.contact.id,
             template_id="task_completed_en",
@@ -380,6 +444,7 @@ class WhatsAppTemplateSendTests(TestCase):
         result = send_ws_template_to_member(
             actor_user_id=self.owner.id,
             organization_id=self.org.id,
+            agent_id=self.agent.id,
             sender_id=self.ws.id,
             ws_contact_id=contact2.id,
             template_id="task_completed_en",
@@ -394,6 +459,7 @@ class WhatsAppTemplateSendTests(TestCase):
             send_ws_template_to_member(
                 actor_user_id=self.owner.id,
                 organization_id=self.org.id,
+                agent_id=self.agent.id,
                 sender_id=self.ws.id,
                 ws_contact_id=self.contact.id,
                 template_id="not_registered",
@@ -409,6 +475,7 @@ class WhatsAppTemplateSendTests(TestCase):
             send_ws_template_to_member(
                 actor_user_id=self.owner.id,
                 organization_id=self.org.id,
+                agent_id=self.agent.id,
                 sender_id=self.ws.id,
                 ws_contact_id=self.contact.id,
                 template_id="task_completed_en",
@@ -440,6 +507,7 @@ class WhatsAppTemplateSendTests(TestCase):
             send_ws_template_to_member(
                 actor_user_id=self.owner.id,
                 organization_id=self.org.id,
+                agent_id=self.agent.id,
                 sender_id=other_ws.id,
                 ws_contact_id=self.contact.id,
                 template_id="task_completed_en",
@@ -448,6 +516,28 @@ class WhatsAppTemplateSendTests(TestCase):
             )
         self.assertIn("does not belong", str(ctx.exception))
 
+    def test_rejects_sender_assigned_to_other_agent(self):
+        other_agent = Agent.objects.create(
+            name="Sibling Agent",
+            salute="hi",
+            organization=self.org,
+            user=self.owner,
+            llm=self.llm,
+            model_slug=self.llm.slug,
+        )
+        with self.assertRaises(ValueError) as ctx:
+            send_ws_template_to_member(
+                actor_user_id=self.owner.id,
+                organization_id=self.org.id,
+                agent_id=other_agent.id,
+                sender_id=self.ws.id,
+                ws_contact_id=self.contact.id,
+                template_id="task_completed_en",
+                template_variables={"body": ["a", "b"]},
+                source_conversation_id=str(self.source_conversation.id),
+            )
+        self.assertIn("not assigned to the current agent", str(ctx.exception))
+
     @patch("api.whatsapp.template_send.send_template_message")
     def test_surfaces_graph_failure(self, mock_send):
         mock_send.side_effect = Exception("Template paused")
@@ -455,6 +545,7 @@ class WhatsAppTemplateSendTests(TestCase):
             send_ws_template_to_member(
                 actor_user_id=self.owner.id,
                 organization_id=self.org.id,
+                agent_id=self.agent.id,
                 sender_id=self.ws.id,
                 ws_contact_id=self.contact.id,
                 template_id="task_completed_en",
@@ -553,7 +644,7 @@ class WhatsAppTemplateToolsTests(TestCase):
     def test_list_resources_tool_nests_verified_contacts_only(self):
         from api.ai_layers.tools.list_whatsapp_resources import get_tool
 
-        tool = get_tool(organization_id=self.org.id, user_id=self.owner.id)
+        tool = get_tool(organization_id=self.org.id, user_id=self.owner.id, agent_id=self.agent.id)
         result = tool["function"]()
         self.assertEqual(len(result.resources), 1)
         resource = result.resources[0]
@@ -563,11 +654,59 @@ class WhatsAppTemplateToolsTests(TestCase):
         self.assertEqual(resource.contacts[0].ws_contact_id, self.linked.id)
         self.assertEqual(resource.contacts[0].user_id, self.member.id)
 
+    def test_list_resources_only_lines_assigned_to_agent(self):
+        from api.ai_layers.models import LanguageModel
+        from api.ai_layers.tools.list_whatsapp_resources import get_tool
+        from api.providers.models import AIProvider
+
+        provider = AIProvider.objects.create(name="OpenAI-wa-other-agent")
+        llm = LanguageModel.objects.create(
+            provider=provider, slug="gpt-wa-other", name="GPT WA Other"
+        )
+        other_agent = Agent.objects.create(
+            name="Other Tools Agent",
+            salute="hi",
+            organization=self.org,
+            user=self.owner,
+            llm=llm,
+            model_slug=llm.slug,
+        )
+        WSNumber.objects.create(
+            organization=self.org,
+            agent=other_agent,
+            number="15550009999",
+            platform_id="pnid-other-agent",
+            name="Other",
+        )
+
+        own = get_tool(
+            organization_id=self.org.id,
+            user_id=self.owner.id,
+            agent_id=self.agent.id,
+        )["function"]()
+        self.assertEqual([r.sender_id for r in own.resources], [self.ws.id])
+
+        other = get_tool(
+            organization_id=self.org.id,
+            user_id=self.owner.id,
+            agent_id=other_agent.id,
+        )["function"]()
+        self.assertEqual(len(other.resources), 1)
+        self.assertEqual(other.resources[0].agent_id, other_agent.id)
+        self.assertNotEqual(other.resources[0].sender_id, self.ws.id)
+
     def test_list_resources_requires_authenticated_int_user(self):
         from api.ai_layers.tools.list_whatsapp_resources import get_tool
 
         with self.assertRaises(ValueError):
-            get_tool(organization_id=self.org.id, user_id="whatsapp:uuid")
+            get_tool(organization_id=self.org.id, user_id="whatsapp:uuid", agent_id=self.agent.id)
+
+    def test_list_resources_requires_agent_id(self):
+        from api.ai_layers.tools.list_whatsapp_resources import get_tool
+
+        with self.assertRaises(ValueError) as ctx:
+            get_tool(organization_id=self.org.id, user_id=self.owner.id)
+        self.assertIn("agent_id", str(ctx.exception))
 
     def test_send_tool_requires_web_user(self):
         from api.ai_layers.tools.send_ws_template_message import get_tool
@@ -577,7 +716,19 @@ class WhatsAppTemplateToolsTests(TestCase):
                 conversation_id="11111111-1111-1111-1111-111111111111",
                 user_id="whatsapp:abc",
                 organization_id=self.org.id,
+                agent_id=1,
             )
+
+    def test_send_tool_requires_agent_id(self):
+        from api.ai_layers.tools.send_ws_template_message import get_tool
+
+        with self.assertRaises(ValueError) as ctx:
+            get_tool(
+                conversation_id="11111111-1111-1111-1111-111111111111",
+                user_id=self.owner.id,
+                organization_id=self.org.id,
+            )
+        self.assertIn("agent_id", str(ctx.exception))
 
     def test_not_in_whatsapp_visitor_capabilities(self):
         from api.whatsapp.capability_tools import WHATSAPP_ALLOWED_CAPABILITY_TOOLS

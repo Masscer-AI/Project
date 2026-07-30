@@ -119,6 +119,12 @@ if [[ "$POST_DEPLOY_ONLY" -eq 0 ]]; then
   fi
 fi
 
+# Pulumi's current backend is global per machine; pin Masscer state so another
+# project's `pulumi login` cannot steal this deploy.
+PULUMI_BACKEND_URL="${PULUMI_BACKEND_URL:-s3://masscer-pulumi-state?region=${AWS_REGION}}"
+echo "==> Pulumi login ($PULUMI_BACKEND_URL)"
+pulumi login "$PULUMI_BACKEND_URL"
+
 pulumi stack select "$STACK" || pulumi stack init "$STACK"
 pulumi config set aws:region "$AWS_REGION"
 

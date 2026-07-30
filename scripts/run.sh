@@ -160,12 +160,25 @@ if [ "$INSTALL" = true ]; then
 fi
 
 # ── Chroma ────────────────────────────────────────────────────────────────────
+# Persist the default ONNX embedding model under /data (vector_storage). Chroma
+# writes it to $HOME/.cache/chroma; without HOME=/data it lands on the ephemeral
+# container FS and re-downloads (~80MB) on every recreate.
 info "Starting Chroma..."
+mkdir -p "${PROJECT_ROOT}/vector_storage"
+
 if [ "$REBUILD" = true ]; then
     info "Rebuild mode: refreshing Chroma image/container..."
     docker pull "$CHROMA_IMAGE" || { error "Failed to pull Chroma image"; exit 1; }
     docker stop $CHROMA_CONTAINER 2>/dev/null || true
     docker rm $CHROMA_CONTAINER 2>/dev/null || true
+elif [[ "$(docker ps -aq -f name=$CHROMA_CONTAINER)" ]]; then
+    # Recreate if an older container lacks the persistent model-cache HOME.
+    CHROMA_HOME=$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$CHROMA_CONTAINER" 2>/dev/null | grep '^HOME=' || true)
+    if [ "$CHROMA_HOME" != "HOME=/data" ]; then
+        info "Recreating Chroma container to persist ONNX model cache on /data..."
+        docker stop $CHROMA_CONTAINER 2>/dev/null || true
+        docker rm $CHROMA_CONTAINER 2>/dev/null || true
+    fi
 fi
 
 if [[ "$(docker ps -aq -f name=$CHROMA_CONTAINER)" ]]; then
@@ -173,6 +186,7 @@ if [[ "$(docker ps -aq -f name=$CHROMA_CONTAINER)" ]]; then
 else
     docker run -d \
         --name $CHROMA_CONTAINER \
+        -e HOME=/data \
         -v "${PROJECT_ROOT}/vector_storage:/data" \
         -p "8002:8000" \
         "$CHROMA_IMAGE" || { error "Failed to create Chroma container"; exit 1; }

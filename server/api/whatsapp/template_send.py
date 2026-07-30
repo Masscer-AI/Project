@@ -3,7 +3,8 @@ Scoped WhatsApp template delivery for organization-member tooling.
 
 Security invariants:
 - Template id must be in the local allowlist.
-- Sender must be a WSNumber in the actor's organization with an accessible agent.
+- Sender must be a WSNumber in the actor's organization assigned to the
+  calling agent (the agent currently running the turn).
 - Target must be a WSContact on that sender with user linked to an active org member.
 """
 
@@ -16,7 +17,6 @@ from typing import Any
 from django.contrib.auth.models import User
 from pydantic import BaseModel, ConfigDict, Field
 
-from api.ai_layers.access import accessible_agents_qs
 from api.authenticate.models import Organization
 from api.authenticate.org_membership import (
     iter_organization_member_users,
@@ -74,7 +74,7 @@ def _resolve_sender(
     *,
     sender_id: int | str,
     organization: Organization,
-    actor: User,
+    agent_id: int,
 ) -> WSNumber:
     try:
         pk = int(sender_id)
@@ -96,8 +96,10 @@ def _resolve_sender(
     if not (ws_number.platform_id or "").strip():
         raise ValueError("WhatsApp sender is missing platform_id")
 
-    if not accessible_agents_qs(actor).filter(pk=ws_number.agent_id).exists():
-        raise ValueError("You do not have access to the agent linked to this sender")
+    if ws_number.agent_id != agent_id:
+        raise ValueError(
+            "WhatsApp sender is not assigned to the current agent"
+        )
 
     return ws_number
 
@@ -243,6 +245,7 @@ def send_ws_template_to_member(
     *,
     actor_user_id: int,
     organization_id,
+    agent_id: int,
     sender_id: int | str,
     ws_contact_id: int | str,
     template_id: str,
@@ -260,6 +263,11 @@ def send_ws_template_to_member(
     if not user_belongs_to_organization(actor, organization):
         raise ValueError("Actor is not a member of this organization")
 
+    try:
+        resolved_agent_id = int(agent_id)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"Invalid agent_id: {agent_id}") from exc
+
     template = get_template(template_id)
     if not template:
         raise ValueError(
@@ -274,7 +282,7 @@ def send_ws_template_to_member(
     ws_number = _resolve_sender(
         sender_id=sender_id,
         organization=organization,
-        actor=actor,
+        agent_id=resolved_agent_id,
     )
     contact = _resolve_verified_contact(
         ws_contact_id=ws_contact_id,
