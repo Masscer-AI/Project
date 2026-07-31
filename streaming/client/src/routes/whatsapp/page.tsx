@@ -8,6 +8,7 @@ import { useNavigate } from "react-router-dom";
 
 import {
   ActionIcon,
+  Badge,
   Box,
   Button,
   Card,
@@ -15,14 +16,177 @@ import {
   Loader,
   Stack,
   Text,
+  ThemeIcon,
   Title,
+  Tooltip,
 } from "@mantine/core";
-import { IconMenu2, IconMessages, IconPhone } from "@tabler/icons-react";
-import type { WhatsappLine } from "./shared";
+import {
+  IconBrandWhatsapp,
+  IconChevronRight,
+  IconMenu2,
+  IconMessages,
+  IconRobot,
+  IconSettings,
+  IconSparkles,
+  IconUsers,
+} from "@tabler/icons-react";
+import {
+  countEnabledCapabilities,
+  formatWhatsappPhone,
+  type WhatsappLine,
+} from "./shared";
+
+function StatChip({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string | number;
+}) {
+  return (
+    <Tooltip label={label} withArrow>
+      <Group
+        gap={6}
+        wrap="nowrap"
+        px="sm"
+        py={6}
+        style={{
+          borderRadius: "var(--mantine-radius-sm)",
+          background: "var(--mantine-color-dark-6)",
+          border: "1px solid var(--mantine-color-dark-4)",
+        }}
+      >
+        <ThemeIcon size={22} radius="sm" variant="light" color="gray">
+          {icon}
+        </ThemeIcon>
+        <Stack gap={0}>
+          <Text size="xs" c="dimmed" lh={1.2}>
+            {label}
+          </Text>
+          <Text size="sm" fw={600} lh={1.2}>
+            {value}
+          </Text>
+        </Stack>
+      </Group>
+    </Tooltip>
+  );
+}
+
+function WhatsappLineCard({ line }: { line: WhatsappLine }) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const phone = formatWhatsappPhone(line.number);
+  const toolsEnabled = countEnabledCapabilities(line.capabilities);
+  const displayName = (line.name || "").trim() || phone;
+
+  return (
+    <Card
+      withBorder
+      padding="md"
+      radius="md"
+      style={{ cursor: "pointer" }}
+      onClick={() => navigate(`/whatsapp/${line.id}`)}
+    >
+      <Group justify="space-between" align="flex-start" wrap="nowrap" gap="md">
+        <Group gap="md" wrap="nowrap" style={{ minWidth: 0, flex: 1 }}>
+          <ThemeIcon
+            size={48}
+            radius="md"
+            variant="light"
+            color="teal"
+            style={{ flexShrink: 0 }}
+          >
+            <IconBrandWhatsapp size={28} />
+          </ThemeIcon>
+
+          <Stack gap={4} style={{ minWidth: 0, flex: 1 }}>
+            <Group gap="xs" wrap="wrap">
+              <Text fw={700} size="lg" lineClamp={1}>
+                {displayName}
+              </Text>
+              {line.verified ? (
+                <Badge size="sm" variant="light" color="teal">
+                  {t("whatsapp-verified")}
+                </Badge>
+              ) : (
+                <Badge size="sm" variant="light" color="gray">
+                  {t("whatsapp-unverified")}
+                </Badge>
+              )}
+            </Group>
+
+            <Text size="sm" c="dimmed" ff="monospace">
+              {phone}
+            </Text>
+
+            <Group gap="xs" mt={6} wrap="wrap">
+              <StatChip
+                icon={<IconRobot size={14} />}
+                label={t("agent")}
+                value={line.agent?.name || "—"}
+              />
+              <StatChip
+                icon={<IconMessages size={14} />}
+                label={t("whatsapp-conversations")}
+                value={line.conversations_count ?? 0}
+              />
+              <StatChip
+                icon={<IconSparkles size={14} />}
+                label={t("whatsapp-tools-enabled")}
+                value={toolsEnabled}
+              />
+            </Group>
+          </Stack>
+        </Group>
+
+        <IconChevronRight
+          size={20}
+          style={{ flexShrink: 0, opacity: 0.45, marginTop: 4 }}
+        />
+      </Group>
+
+      <Group
+        justify="flex-end"
+        gap="xs"
+        mt="md"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <Button
+          size="xs"
+          variant="default"
+          leftSection={<IconUsers size={14} />}
+          onClick={() => navigate(`/whatsapp/${line.id}?tab=contacts`)}
+        >
+          {t("whatsapp-contacts")}
+        </Button>
+        <Button
+          size="xs"
+          variant="default"
+          leftSection={<IconSettings size={14} />}
+          onClick={() => navigate(`/whatsapp/${line.id}?tab=settings`)}
+        >
+          {t("whatsapp-tab-settings")}
+        </Button>
+        <Button
+          size="xs"
+          variant="light"
+          color="teal"
+          leftSection={<IconMessages size={14} />}
+          onClick={() =>
+            navigate(`/dashboard?wsNumberId=${line.id}&channel=whatsapp`)
+          }
+        >
+          {t("view-conversations")}
+        </Button>
+      </Group>
+    </Card>
+  );
+}
 
 export default function Whatsapp() {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const { chatState, toggleSidebar } = useStore((s) => ({
     chatState: s.chatState,
     toggleSidebar: s.toggleSidebar,
@@ -80,67 +244,50 @@ export default function Whatsapp() {
           </Box>
         )}
 
-        <Box px="md" w="100%" maw="42rem" mx="auto">
-          <Title order={2} ta="center" mb="lg" mt="md">
-            {t("whatsapp")}
-          </Title>
-          <Text mb="md">{t("whatsapp-intro")}</Text>
-          <Text size="sm" c="dimmed" mb="md">
+        <Box px="md" w="100%" maw="48rem" mx="auto">
+          <Group gap="sm" justify="center" mb="sm" mt="md">
+            <ThemeIcon size={40} radius="md" variant="light" color="teal">
+              <IconBrandWhatsapp size={24} />
+            </ThemeIcon>
+            <Title order={2}>{t("whatsapp")}</Title>
+          </Group>
+          <Text ta="center" mb="xs">
+            {t("whatsapp-intro")}
+          </Text>
+          <Text ta="center" size="sm" c="dimmed" mb="xl">
             {t("whatsapp-provision-note")}
           </Text>
 
-          <Title order={4} mb="sm">
-            {t("whatsapp-your-numbers")}
-          </Title>
+          <Group justify="space-between" align="baseline" mb="sm">
+            <Title order={4}>{t("whatsapp-your-numbers")}</Title>
+            {!loading && !loadError ? (
+              <Text size="sm" c="dimmed">
+                {t("whatsapp-lines-count", { count: numbers.length })}
+              </Text>
+            ) : null}
+          </Group>
 
           {loading ? (
             <Stack align="center" py="xl">
-              <Loader color="violet" />
+              <Loader color="teal" />
             </Stack>
           ) : loadError ? (
             <Text c="red">{loadError}</Text>
           ) : numbers.length === 0 ? (
-            <Text c="dimmed">{t("whatsapp-empty-lines")}</Text>
+            <Card withBorder padding="xl" radius="md">
+              <Stack align="center" gap="sm">
+                <ThemeIcon size={48} radius="md" variant="light" color="gray">
+                  <IconBrandWhatsapp size={28} />
+                </ThemeIcon>
+                <Text c="dimmed" ta="center">
+                  {t("whatsapp-empty-lines")}
+                </Text>
+              </Stack>
+            </Card>
           ) : (
             <Stack gap="md">
               {numbers.map((line) => (
-                <Card
-                  key={line.id}
-                  withBorder
-                  padding="lg"
-                  style={{ cursor: "pointer" }}
-                  onClick={() => navigate(`/whatsapp/${line.id}`)}
-                >
-                  <Title order={4} ta="center">
-                    {line.name || line.number}
-                  </Title>
-                  <Group justify="center" gap="xs" mt={4}>
-                    <IconPhone size={16} />
-                    <Text size="lg">{line.number}</Text>
-                  </Group>
-                  <Group justify="center" gap="md" mt="xs">
-                    <Text size="sm">🧠 {line.agent.name}</Text>
-                    <Text size="sm">💬 {line.conversations_count}</Text>
-                  </Group>
-                  <Group
-                    justify="center"
-                    mt="sm"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <Button
-                      size="xs"
-                      variant="light"
-                      leftSection={<IconMessages size={14} />}
-                      onClick={() =>
-                        navigate(
-                          `/dashboard?wsNumberId=${line.id}&channel=whatsapp`
-                        )
-                      }
-                    >
-                      {t("view-conversations")}
-                    </Button>
-                  </Group>
-                </Card>
+                <WhatsappLineCard key={line.id} line={line} />
               ))}
             </Stack>
           )}

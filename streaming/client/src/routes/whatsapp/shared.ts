@@ -4,9 +4,23 @@ export type WhatsappLine = {
   agent: { name: string; slug: string };
   conversations_count: number;
   name: string | null;
+  verified?: boolean;
   organization?: number | string | null;
   capabilities?: { name?: string; type?: string; enabled?: boolean }[] | null;
 };
+
+export function formatWhatsappPhone(number: string): string {
+  const digits = (number || "").replace(/\D/g, "");
+  if (!digits) return number || "";
+  return digits.startsWith("+") ? digits : `+${digits}`;
+}
+
+export function countEnabledCapabilities(
+  capabilities: WhatsappLine["capabilities"]
+): number {
+  if (!capabilities?.length) return 0;
+  return capabilities.filter((c) => c?.enabled).length;
+}
 
 /**
  * Tools toggled on a WhatsApp line (Personalizar linea).

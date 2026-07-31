@@ -20,7 +20,6 @@ import {
   Box,
   Button,
   Card,
-  Checkbox,
   Group,
   Loader,
   NativeSelect,
@@ -39,9 +38,10 @@ import {
   IconUsers,
 } from "@tabler/icons-react";
 import { TOrganizationMember } from "../../../types";
+import { CapabilitiesChecklist } from "../../../components/CapabilitiesChecklist/CapabilitiesChecklist";
 import {
   WHATSAPP_CAPABILITY_NAMES,
-  WHATSAPP_REQUIRED_CAPABILITY_SET,
+  WHATSAPP_REQUIRED_CAPABILITY_NAMES,
   WhatsappLine,
   buildCapabilitiesPayload,
   buildInitialCapabilityState,
@@ -58,14 +58,22 @@ export default function WhatsappLineDetail() {
   const navigate = useNavigate();
   const { wsNumberId } = useParams<{ wsNumberId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { chatState, toggleSidebar } = useStore((s) => ({
+  const { chatState, toggleSidebar, agents, fetchAgents } = useStore((s) => ({
     chatState: s.chatState,
     toggleSidebar: s.toggleSidebar,
+    agents: s.agents,
+    fetchAgents: s.fetchAgents,
   }));
 
   const [line, setLine] = useState<WhatsappLine | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (agents.length === 0) {
+      void fetchAgents();
+    }
+  }, [agents.length, fetchAgents]);
 
   const activeTab: DetailTab = isDetailTab(searchParams.get("tab"))
     ? (searchParams.get("tab") as DetailTab)
@@ -464,34 +472,13 @@ function SettingsPanel({
       </div>
 
       <div>
-        <Text size="sm" fw={500} mb="xs">
-          {t("whatsapp-capabilities")}
-        </Text>
-        <Stack gap="sm">
-          {WHATSAPP_CAPABILITY_NAMES.map((capName) => {
-            const isRequired = WHATSAPP_REQUIRED_CAPABILITY_SET.has(capName);
-            return (
-              <Stack key={capName} gap={2}>
-                <Checkbox
-                  label={t(`widget-capability-${capName}-title`)}
-                  checked={capabilityState[capName] ?? false}
-                  disabled={isRequired}
-                  onChange={(e) => {
-                    if (isRequired) return;
-                    const checked = e.currentTarget.checked;
-                    setCapabilityState((prev) => ({
-                      ...prev,
-                      [capName]: checked,
-                    }));
-                  }}
-                />
-                <Text size="xs" c="dimmed" ml={28}>
-                  {t(`widget-capability-${capName}-description`)}
-                </Text>
-              </Stack>
-            );
-          })}
-        </Stack>
+        <CapabilitiesChecklist
+          label={t("whatsapp-capabilities")}
+          names={WHATSAPP_CAPABILITY_NAMES}
+          requiredNames={WHATSAPP_REQUIRED_CAPABILITY_NAMES}
+          value={capabilityState}
+          onChange={setCapabilityState}
+        />
         <Button
           mt="sm"
           leftSection={<IconDeviceFloppy size={16} />}

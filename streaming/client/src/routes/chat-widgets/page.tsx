@@ -47,6 +47,7 @@ import {
   IconTrash,
   IconX,
 } from "@tabler/icons-react";
+import { CapabilitiesChecklist } from "../../components/CapabilitiesChecklist/CapabilitiesChecklist";
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -603,26 +604,11 @@ const WidgetForm = ({
               {t("widget-allow-visitor-attachments-description")}
             </Text>
           </Stack>
-          {Object.keys(capabilityState)
-            .sort()
-            .map((capabilityName) => (
-              <Stack key={capabilityName} gap={2}>
-                <Checkbox
-                  label={t(`widget-capability-${capabilityName}-title`)}
-                  checked={capabilityState[capabilityName]}
-                  onChange={(e) => {
-                    const checked = e.currentTarget.checked;
-                    setCapabilityState((prev) => ({
-                      ...prev,
-                      [capabilityName]: checked,
-                    }));
-                  }}
-                />
-                <Text size="xs" c="dimmed" ml={28}>
-                  {t(`widget-capability-${capabilityName}-description`)}
-                </Text>
-              </Stack>
-            ))}
+          <CapabilitiesChecklist
+            names={DEFAULT_CAPABILITY_NAMES}
+            value={capabilityState}
+            onChange={setCapabilityState}
+          />
         </Stack>
 
         <Group justify="flex-end" mt="sm">
