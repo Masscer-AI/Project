@@ -28,6 +28,7 @@ import AuthCallback from "./routes/auth/callback/page.tsx";
 import AuthGoogleBridge from "./routes/auth/google/page.tsx";
 
 import Whatsapp from "./routes/whatsapp/page.tsx";
+import WhatsappLineDetail from "./routes/whatsapp/detail/page.tsx";
 import WorkflowsPage from "./routes/workflows/page.tsx";
 import Share from "./routes/shares/page.tsx";
 import { sharesLoader } from "./routes/shares/loader.ts";
@@ -100,6 +101,14 @@ const router = createBrowserRouter([
         element: (
           <ProtectedRoute featureFlag="whatsapp-numbers-management">
             <Whatsapp />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/whatsapp/:wsNumberId",
+        element: (
+          <ProtectedRoute featureFlag="whatsapp-numbers-management">
+            <WhatsappLineDetail />
           </ProtectedRoute>
         ),
       },
