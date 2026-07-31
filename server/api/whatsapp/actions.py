@@ -441,6 +441,45 @@ def handle_button_message(webhook_data, message):
     _forward_as_text_inbound(webhook_data, message, body)
 
 
+def _reject_restricted_whatsapp_sender(
+    ws_number: WSNumber,
+    user_phone: str,
+    inbound_wamid: str | None,
+) -> None:
+    from .access import WHATSAPP_RESTRICTED_ACCESS_REPLY
+
+    if not (ws_number.platform_id or "").strip():
+        return
+    send_message(
+        ws_number.platform_id,
+        user_phone,
+        WHATSAPP_RESTRICTED_ACCESS_REPLY,
+        inbound_wamid,
+    )
+
+
+def _gate_whatsapp_inbound(
+    ws_number: WSNumber,
+    user_phone: str,
+    inbound_wamid: str | None,
+) -> bool:
+    """
+    Return True if the sender may proceed (and autolink contact when matched).
+    On deny, send the restricted-access reply and return False.
+    """
+    from .access import (
+        ensure_ws_contact_for_inbound,
+        resolve_whatsapp_sender_access,
+    )
+
+    access = resolve_whatsapp_sender_access(ws_number, user_phone)
+    if not access.allowed:
+        _reject_restricted_whatsapp_sender(ws_number, user_phone, inbound_wamid)
+        return False
+    ensure_ws_contact_for_inbound(ws_number, user_phone, user=access.user)
+    return True
+
+
 def handle_image_message(webhook_data, message):
     business_phone_number_id = webhook_data["entry"][0]["changes"][0]["value"][
         "metadata"
@@ -454,6 +493,10 @@ def handle_image_message(webhook_data, message):
         return
 
     user_phone = message["from"]
+    inbound_wamid = message.get("id")
+    if not _gate_whatsapp_inbound(ws_number, user_phone, inbound_wamid):
+        return
+
     from .conversations import get_or_create_whatsapp_conversation
     from .inbound import process_image_inbound
 
@@ -508,6 +551,10 @@ def handle_document_message(webhook_data, message):
         return
 
     user_phone = message["from"]
+    inbound_wamid = message.get("id")
+    if not _gate_whatsapp_inbound(ws_number, user_phone, inbound_wamid):
+        return
+
     from .conversations import get_or_create_whatsapp_conversation
     from .inbound import process_document_inbound
 
@@ -573,6 +620,10 @@ def handle_message_received(webhook_data, message):
         return
 
     user_phone = message["from"]
+    inbound_wamid = message.get("id")
+    if not _gate_whatsapp_inbound(ws_number, user_phone, inbound_wamid):
+        return
+
     conv = get_or_create_whatsapp_conversation(ws_number, user_phone)
 
     mark_message_as_read(business_phone_number_id, message["id"])

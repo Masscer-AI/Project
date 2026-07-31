@@ -1142,3 +1142,370 @@ class WhatsappDeliverReplyTests(TestCase):
         payload = mock_post.call_args.kwargs.get("json") or mock_post.call_args[1].get("json")
         self.assertEqual(payload["type"], "image")
         self.assertIn("link", payload["image"])
+
+
+class WhatsappNumberAccessScopeTests(TestCase):
+    def setUp(self):
+        from django.utils import timezone
+
+        from api.ai_layers.models import LanguageModel
+        from api.authenticate.models import Role, RoleAssignment, UserProfile
+        from api.consumption.models import Currency
+        from api.providers.models import AIProvider
+
+        Currency.objects.get_or_create(
+            name="Compute Unit", defaults={"one_usd_is": 1000}
+        )
+        provider = AIProvider.objects.create(name="OpenAI-wa-access")
+        LanguageModel.objects.create(
+            provider=provider, slug="gpt-wa-access", name="GPT WA Access"
+        )
+        self.owner = User.objects.create_user(username="wa_access_owner", password="x")
+        self.org = Organization.objects.create(name="WA Access Org", owner=self.owner)
+        self.agent = Agent.objects.create(
+            name="WA Access Agent", salute="hi", organization=self.org
+        )
+        self.ws = WSNumber.objects.create(
+            user=None,
+            organization=self.org,
+            agent=self.agent,
+            number="15551110000",
+            platform_id="pnid-access",
+            access_mode=WSNumber.ACCESS_MODE_PUBLIC,
+        )
+
+        self.member = User.objects.create_user(
+            username="wa_access_member", email="member@example.com", password="x"
+        )
+        member_profile = UserProfile.objects.get(user=self.member)
+        member_profile.organization = self.org
+        member_profile.is_active = True
+        member_profile.phone_numbers = [
+            {"country_code": "1", "number": "5552223333", "is_default": True}
+        ]
+        member_profile.save()
+        self.member_phone = "15552223333"
+
+        self.outsider = User.objects.create_user(
+            username="wa_access_outsider", email="out@example.com", password="x"
+        )
+        outsider_profile = UserProfile.objects.get(user=self.outsider)
+        outsider_profile.phone_numbers = [
+            {"country_code": "1", "number": "5559998888", "is_default": True}
+        ]
+        outsider_profile.save()
+        self.outsider_phone = "15559998888"
+
+        self.role = Role.objects.create(organization=self.org, name="Access Role")
+        self.other_role = Role.objects.create(organization=self.org, name="Other Role")
+        RoleAssignment.objects.create(
+            user=self.member,
+            organization=self.org,
+            role=self.role,
+            from_date=timezone.now().date(),
+        )
+
+        self.client = APIClient()
+        self.login_token, _ = Token.get_or_create(user=self.owner, token_type="login")
+
+    def _auth_headers(self):
+        return {"HTTP_AUTHORIZATION": f"Token {self.login_token.key}"}
+
+    def _text_webhook(self, phone: str, wamid: str = "wamid.access"):
+        return {
+            "entry": [
+                {
+                    "changes": [
+                        {
+                            "value": {
+                                "metadata": {"phone_number_id": "pnid-access"},
+                                "messages": [
+                                    {
+                                        "from": phone,
+                                        "id": wamid,
+                                        "type": "text",
+                                        "text": {"body": "Hello"},
+                                    }
+                                ],
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+
+    @patch("api.whatsapp.actions.mark_message_as_read")
+    @patch("api.whatsapp.tasks.whatsapp_flush_inbound_agent_task.apply_async")
+    def test_public_unknown_phone_creates_conversation(
+        self, mock_apply_async, _mock_read
+    ):
+        from api.whatsapp.actions import handle_message_received
+
+        message = self._text_webhook("15550001111")["entry"][0]["changes"][0]["value"][
+            "messages"
+        ][0]
+        handle_message_received(self._text_webhook("15550001111"), message)
+
+        self.assertTrue(
+            Conversation.objects.filter(
+                ws_number=self.ws,
+                whatsapp_user_number="15550001111",
+                status="active",
+            ).exists()
+        )
+        mock_apply_async.assert_called_once()
+
+    @patch("api.whatsapp.actions.send_message", return_value="wamid.reject")
+    @patch("api.whatsapp.actions.mark_message_as_read")
+    @patch("api.whatsapp.tasks.whatsapp_flush_inbound_agent_task.apply_async")
+    def test_organization_allows_member_and_autolinks(
+        self, mock_apply_async, _mock_read, mock_send
+    ):
+        from api.whatsapp.access import WHATSAPP_RESTRICTED_ACCESS_REPLY
+        from api.whatsapp.actions import handle_message_received
+
+        self.ws.access_mode = WSNumber.ACCESS_MODE_ORGANIZATION
+        self.ws.save(update_fields=["access_mode", "updated_at"])
+
+        webhook = self._text_webhook(self.member_phone, "wamid.member")
+        message = webhook["entry"][0]["changes"][0]["value"]["messages"][0]
+        handle_message_received(webhook, message)
+
+        contact = WSContact.objects.get(ws_number=self.ws, number=self.member_phone)
+        self.assertEqual(contact.user_id, self.member.id)
+        self.assertTrue(
+            Conversation.objects.filter(
+                ws_number=self.ws,
+                whatsapp_user_number=self.member_phone,
+                status="active",
+            ).exists()
+        )
+        mock_apply_async.assert_called_once()
+        mock_send.assert_not_called()
+
+        mock_apply_async.reset_mock()
+        webhook_out = self._text_webhook(self.outsider_phone, "wamid.out")
+        message_out = webhook_out["entry"][0]["changes"][0]["value"]["messages"][0]
+        handle_message_received(webhook_out, message_out)
+
+        self.assertFalse(
+            Conversation.objects.filter(
+                ws_number=self.ws,
+                whatsapp_user_number=self.outsider_phone,
+            ).exists()
+        )
+        mock_apply_async.assert_not_called()
+        mock_send.assert_called_once()
+        self.assertEqual(
+            mock_send.call_args[0][2], WHATSAPP_RESTRICTED_ACCESS_REPLY
+        )
+
+    @patch("api.whatsapp.actions.send_message", return_value="wamid.reject")
+    @patch("api.whatsapp.actions.mark_message_as_read")
+    @patch("api.whatsapp.tasks.whatsapp_flush_inbound_agent_task.apply_async")
+    def test_roles_only_allows_assignee(
+        self, mock_apply_async, _mock_read, mock_send
+    ):
+        from api.authenticate.models import UserProfile
+        from api.whatsapp.actions import handle_message_received
+
+        other_member = User.objects.create_user(
+            username="wa_access_other", email="other@example.com", password="x"
+        )
+        other_profile = UserProfile.objects.get(user=other_member)
+        other_profile.organization = self.org
+        other_profile.is_active = True
+        other_profile.phone_numbers = [
+            {"country_code": "1", "number": "5554445555", "is_default": True}
+        ]
+        other_profile.save()
+        other_phone = "15554445555"
+
+        self.ws.access_mode = WSNumber.ACCESS_MODE_ROLES
+        self.ws.save(update_fields=["access_mode", "updated_at"])
+        self.ws.allowed_roles.set([self.role])
+
+        webhook = self._text_webhook(self.member_phone, "wamid.role-ok")
+        handle_message_received(
+            webhook, webhook["entry"][0]["changes"][0]["value"]["messages"][0]
+        )
+        mock_apply_async.assert_called_once()
+
+        mock_apply_async.reset_mock()
+        webhook_other = self._text_webhook(other_phone, "wamid.role-deny")
+        handle_message_received(
+            webhook_other,
+            webhook_other["entry"][0]["changes"][0]["value"]["messages"][0],
+        )
+        mock_apply_async.assert_not_called()
+        mock_send.assert_called_once()
+
+    @patch("api.whatsapp.actions.send_message", return_value="wamid.reject")
+    @patch("api.whatsapp.actions.mark_message_as_read")
+    @patch("api.whatsapp.tasks.whatsapp_flush_inbound_agent_task.apply_async")
+    def test_user_mode_only_allows_access_user(
+        self, mock_apply_async, _mock_read, mock_send
+    ):
+        from api.whatsapp.actions import handle_message_received
+
+        self.ws.access_mode = WSNumber.ACCESS_MODE_USER
+        self.ws.access_user = self.member
+        self.ws.save(update_fields=["access_mode", "access_user", "updated_at"])
+
+        webhook = self._text_webhook(self.member_phone, "wamid.user-ok")
+        handle_message_received(
+            webhook, webhook["entry"][0]["changes"][0]["value"]["messages"][0]
+        )
+        mock_apply_async.assert_called_once()
+        contact = WSContact.objects.get(ws_number=self.ws, number=self.member_phone)
+        self.assertEqual(contact.user_id, self.member.id)
+
+        mock_apply_async.reset_mock()
+        webhook_out = self._text_webhook(self.outsider_phone, "wamid.user-deny")
+        handle_message_received(
+            webhook_out,
+            webhook_out["entry"][0]["changes"][0]["value"]["messages"][0],
+        )
+        mock_apply_async.assert_not_called()
+        mock_send.assert_called_once()
+
+    @patch("api.whatsapp.actions.send_message", return_value="wamid.reject")
+    @patch("api.whatsapp.actions.mark_message_as_read")
+    @patch("api.whatsapp.tasks.whatsapp_flush_inbound_agent_task.apply_async")
+    def test_restricted_without_org_denies(
+        self, mock_apply_async, _mock_read, mock_send
+    ):
+        from api.whatsapp.actions import handle_message_received
+
+        # Personal line whose owner has no organization → resolved org is None.
+        solo = User.objects.create_user(username="wa_access_solo", password="x")
+        personal = WSNumber.objects.create(
+            user=solo,
+            organization=None,
+            agent=self.agent,
+            number="15551112222",
+            platform_id="pnid-access-personal",
+            access_mode=WSNumber.ACCESS_MODE_ORGANIZATION,
+        )
+        webhook = {
+            "entry": [
+                {
+                    "changes": [
+                        {
+                            "value": {
+                                "metadata": {
+                                    "phone_number_id": "pnid-access-personal"
+                                },
+                                "messages": [
+                                    {
+                                        "from": self.member_phone,
+                                        "id": "wamid.no-org",
+                                        "type": "text",
+                                        "text": {"body": "Hello"},
+                                    }
+                                ],
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+        handle_message_received(
+            webhook, webhook["entry"][0]["changes"][0]["value"]["messages"][0]
+        )
+        self.assertFalse(
+            Conversation.objects.filter(ws_number=personal).exists()
+        )
+        mock_apply_async.assert_not_called()
+        mock_send.assert_called_once()
+
+    @patch(
+        "api.whatsapp.views.FeatureFlagService.is_feature_enabled",
+        return_value=(True, "on"),
+    )
+    def test_put_access_mode_organization(self, _mock_ff):
+        response = self.client.put(
+            f"/v1/whatsapp/numbers/{self.ws.number}",
+            data=json.dumps({"access_mode": "organization"}),
+            content_type="application/json",
+            **self._auth_headers(),
+        )
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["access_mode"], "organization")
+        self.assertIsNone(body["access_user_id"])
+        self.assertEqual(body["allowed_roles"], [])
+        self.ws.refresh_from_db()
+        self.assertEqual(self.ws.access_mode, WSNumber.ACCESS_MODE_ORGANIZATION)
+
+    @patch(
+        "api.whatsapp.views.FeatureFlagService.is_feature_enabled",
+        return_value=(True, "on"),
+    )
+    def test_put_access_mode_roles_and_user_validation(self, _mock_ff):
+        bad_roles = self.client.put(
+            f"/v1/whatsapp/numbers/{self.ws.number}",
+            data=json.dumps({"access_mode": "roles", "allowed_role_ids": []}),
+            content_type="application/json",
+            **self._auth_headers(),
+        )
+        self.assertEqual(bad_roles.status_code, 400)
+
+        ok_roles = self.client.put(
+            f"/v1/whatsapp/numbers/{self.ws.number}",
+            data=json.dumps(
+                {
+                    "access_mode": "roles",
+                    "allowed_role_ids": [str(self.role.id)],
+                }
+            ),
+            content_type="application/json",
+            **self._auth_headers(),
+        )
+        self.assertEqual(ok_roles.status_code, 200)
+        self.assertEqual(ok_roles.json()["access_mode"], "roles")
+        self.assertEqual(
+            [r["id"] for r in ok_roles.json()["allowed_roles"]],
+            [str(self.role.id)],
+        )
+
+        bad_user = self.client.put(
+            f"/v1/whatsapp/numbers/{self.ws.number}",
+            data=json.dumps(
+                {"access_mode": "user", "access_user_id": self.outsider.id}
+            ),
+            content_type="application/json",
+            **self._auth_headers(),
+        )
+        self.assertEqual(bad_user.status_code, 400)
+
+        ok_user = self.client.put(
+            f"/v1/whatsapp/numbers/{self.ws.number}",
+            data=json.dumps(
+                {"access_mode": "user", "access_user_id": self.member.id}
+            ),
+            content_type="application/json",
+            **self._auth_headers(),
+        )
+        self.assertEqual(ok_user.status_code, 200)
+        self.assertEqual(ok_user.json()["access_mode"], "user")
+        self.assertEqual(ok_user.json()["access_user_id"], self.member.id)
+        self.assertEqual(ok_user.json()["allowed_roles"], [])
+
+    @patch(
+        "api.whatsapp.views.resolved_organization_for_ws_number",
+        return_value=None,
+    )
+    @patch(
+        "api.whatsapp.views.FeatureFlagService.is_feature_enabled",
+        return_value=(True, "on"),
+    )
+    def test_put_restricted_requires_organization(self, _mock_ff, _mock_org):
+        response = self.client.put(
+            f"/v1/whatsapp/numbers/{self.ws.number}",
+            data=json.dumps({"access_mode": "organization"}),
+            content_type="application/json",
+            **self._auth_headers(),
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Organization is required", response.json()["error"])

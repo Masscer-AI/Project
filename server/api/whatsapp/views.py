@@ -1,5 +1,6 @@
 import json
 import os
+import uuid
 
 from django.conf import settings
 from django.contrib.auth.models import User
@@ -14,7 +15,7 @@ from rest_framework import serializers
 from api.ai_layers.access import accessible_agents_qs
 from api.ai_layers.models import Agent
 from api.authenticate.decorators.token_required import token_required
-from api.authenticate.models import Organization
+from api.authenticate.models import Organization, Role
 from api.authenticate.org_membership import (
     iter_organization_member_users,
     user_belongs_to_organization,
@@ -34,6 +35,188 @@ from .models import WSContact, WSNumber
 from .serializers import WSContactSerializer, WSNumberSerializer
 from .tasks import async_handle_webhook
 from .webhook_signature import verify_meta_webhook_signature
+
+_WS_ACCESS_MODES = {
+    WSNumber.ACCESS_MODE_PUBLIC,
+    WSNumber.ACCESS_MODE_ORGANIZATION,
+    WSNumber.ACCESS_MODE_ROLES,
+    WSNumber.ACCESS_MODE_USER,
+}
+
+
+def _apply_ws_number_access_fields(ws_number: WSNumber, data: dict):
+    """
+    Validate and apply access_mode / access_user_id / allowed_role_ids.
+
+    Returns (error_response_or_None, updated, roles_to_set).
+    ``roles_to_set`` is None (leave M2M unchanged), [] (clear), or a list of Role.
+    """
+    keys = ("access_mode", "access_user_id", "allowed_role_ids")
+    if not any(k in data for k in keys):
+        return None, False, None
+
+    mode = data.get("access_mode", ws_number.access_mode) or WSNumber.ACCESS_MODE_PUBLIC
+    if mode not in _WS_ACCESS_MODES:
+        return (
+            JsonResponse(
+                {
+                    "error": (
+                        "Invalid access_mode; expected public, organization, "
+                        "roles, or user"
+                    )
+                },
+                status=400,
+            ),
+            False,
+            None,
+        )
+
+    org = resolved_organization_for_ws_number(ws_number)
+    if mode != WSNumber.ACCESS_MODE_PUBLIC and not org:
+        return (
+            JsonResponse(
+                {
+                    "error": (
+                        "Organization is required for access_mode "
+                        f"'{mode}'"
+                    )
+                },
+                status=400,
+            ),
+            False,
+            None,
+        )
+
+    roles_to_set = None
+    access_user = None
+
+    if mode == WSNumber.ACCESS_MODE_PUBLIC:
+        access_user = None
+        roles_to_set = []
+    elif mode == WSNumber.ACCESS_MODE_ORGANIZATION:
+        access_user = None
+        roles_to_set = []
+    elif mode == WSNumber.ACCESS_MODE_ROLES:
+        access_user = None
+        if "allowed_role_ids" in data:
+            role_ids = data.get("allowed_role_ids")
+            if not isinstance(role_ids, list) or not role_ids:
+                return (
+                    JsonResponse(
+                        {
+                            "error": (
+                                "allowed_role_ids must be a non-empty list "
+                                "when access_mode='roles'"
+                            )
+                        },
+                        status=400,
+                    ),
+                    False,
+                    None,
+                )
+            cleaned_ids: list[str] = []
+            for rid in role_ids:
+                if not isinstance(rid, str) or not rid.strip():
+                    return (
+                        JsonResponse(
+                            {"error": f"Invalid role id: {rid}"},
+                            status=400,
+                        ),
+                        False,
+                        None,
+                    )
+                try:
+                    cleaned_ids.append(str(uuid.UUID(rid)))
+                except Exception:
+                    return (
+                        JsonResponse(
+                            {"error": f"Invalid role id: {rid}"},
+                            status=400,
+                        ),
+                        False,
+                        None,
+                    )
+            roles = list(
+                Role.objects.filter(id__in=cleaned_ids, organization_id=org.id)
+            )
+            if len(roles) != len(set(cleaned_ids)):
+                return (
+                    JsonResponse(
+                        {
+                            "error": (
+                                "One or more roles were not found for this "
+                                "organization"
+                            )
+                        },
+                        status=400,
+                    ),
+                    False,
+                    None,
+                )
+            roles_to_set = roles
+        elif not ws_number.allowed_roles.exists():
+            return (
+                JsonResponse(
+                    {
+                        "error": (
+                            "allowed_role_ids must be a non-empty list "
+                            "when access_mode='roles'"
+                        )
+                    },
+                    status=400,
+                ),
+                False,
+                None,
+            )
+    elif mode == WSNumber.ACCESS_MODE_USER:
+        roles_to_set = []
+        if "access_user_id" in data:
+            uid = data.get("access_user_id")
+        else:
+            uid = ws_number.access_user_id
+        if uid is None:
+            return (
+                JsonResponse(
+                    {
+                        "error": (
+                            "access_user_id is required when "
+                            "access_mode='user'"
+                        )
+                    },
+                    status=400,
+                ),
+                False,
+                None,
+            )
+        try:
+            uid_int = int(uid)
+        except (TypeError, ValueError):
+            return (
+                JsonResponse({"error": "Invalid access_user_id"}, status=400),
+                False,
+                None,
+            )
+        target = User.objects.filter(id=uid_int).first()
+        if not target or not user_belongs_to_organization(target, org):
+            return (
+                JsonResponse(
+                    {
+                        "error": (
+                            "access_user_id must be an active member of "
+                            "this organization"
+                        )
+                    },
+                    status=400,
+                ),
+                False,
+                None,
+            )
+        access_user = target
+
+    ws_number.access_mode = mode
+    ws_number.access_user = access_user
+    return None, True, roles_to_set
+
 
 load_dotenv()
 
@@ -172,8 +355,18 @@ class WSNumberDetailView(View):
                 )
             updated = True
 
+        access_error, access_updated, roles_to_set = _apply_ws_number_access_fields(
+            ws_number, data
+        )
+        if access_error is not None:
+            return access_error
+        if access_updated:
+            updated = True
+
         if updated:
             ws_number.save()
+            if roles_to_set is not None:
+                ws_number.allowed_roles.set(roles_to_set)
             printer.success("WSNumber updated successfully")
             return JsonResponse(WSNumberSerializer(ws_number).data, status=200)
 

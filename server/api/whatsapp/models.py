@@ -59,6 +59,17 @@ class WSContact(models.Model):
 
 
 class WSNumber(models.Model):
+    ACCESS_MODE_PUBLIC = "public"
+    ACCESS_MODE_ORGANIZATION = "organization"
+    ACCESS_MODE_ROLES = "roles"
+    ACCESS_MODE_USER = "user"
+    ACCESS_MODE_CHOICES = [
+        (ACCESS_MODE_PUBLIC, "Public"),
+        (ACCESS_MODE_ORGANIZATION, "Organization"),
+        (ACCESS_MODE_ROLES, "Roles"),
+        (ACCESS_MODE_USER, "Single user"),
+    ]
+
     organization = models.ForeignKey(
         "authenticate.Organization",
         on_delete=models.CASCADE,
@@ -89,6 +100,26 @@ class WSNumber(models.Model):
         blank=True,
         help_text="WhatsApp Business Account id (optional). Used for admin webhook setup; "
         "left blank it is resolved from platform_id via Graph when possible.",
+    )
+    access_mode = models.CharField(
+        max_length=20,
+        choices=ACCESS_MODE_CHOICES,
+        default=ACCESS_MODE_PUBLIC,
+        help_text="Who may message this WhatsApp line.",
+    )
+    access_user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="whatsapp_numbers_single_access",
+        help_text="When access_mode=user, only this member may message (matched by profile phone).",
+    )
+    allowed_roles = models.ManyToManyField(
+        "authenticate.Role",
+        blank=True,
+        related_name="whatsapp_numbers_with_access",
+        help_text="When access_mode=roles, members with any of these roles may message.",
     )
     verified = models.BooleanField(default=False)
     certicate_b64 = models.TextField(null=True, blank=True)

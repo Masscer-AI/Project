@@ -7,6 +7,7 @@ import {
   getWhatsappContacts,
   updateWhatsappContact,
   getOrganizationMembers,
+  getOrganizationRoles,
   updateWhatsappNumber,
   TWhatsappContact,
 } from "../../../modules/apiCalls";
@@ -22,6 +23,7 @@ import {
   Card,
   Group,
   Loader,
+  MultiSelect,
   NativeSelect,
   Stack,
   Tabs,
@@ -37,11 +39,12 @@ import {
   IconSettings,
   IconUsers,
 } from "@tabler/icons-react";
-import { TOrganizationMember } from "../../../types";
+import { TOrganizationMember, TOrganizationRole } from "../../../types";
 import { CapabilitiesChecklist } from "../../../components/CapabilitiesChecklist/CapabilitiesChecklist";
 import {
   WHATSAPP_CAPABILITY_NAMES,
   WHATSAPP_REQUIRED_CAPABILITY_NAMES,
+  WhatsappAccessMode,
   WhatsappLine,
   buildCapabilitiesPayload,
   buildInitialCapabilityState,
@@ -405,15 +408,69 @@ function SettingsPanel({
   onRefresh: () => Promise<WhatsappLine | null>;
 }) {
   const { t } = useTranslation();
+  const hasOrg = line.organization != null && line.organization !== "";
   const [nameInput, setNameInput] = useState(line.name ?? "");
   const [capabilityState, setCapabilityState] = useState<Record<string, boolean>>(
     () => buildInitialCapabilityState(line.capabilities)
   );
+  const [accessMode, setAccessMode] = useState<WhatsappAccessMode>(
+    line.access_mode ?? "public"
+  );
+  const [allowedRoleIds, setAllowedRoleIds] = useState<string[]>(
+    () => (line.allowed_roles || []).map((r) => r.id)
+  );
+  const [accessUserId, setAccessUserId] = useState<string>(
+    line.access_user_id != null ? String(line.access_user_id) : ""
+  );
+  const [members, setMembers] = useState<TOrganizationMember[]>([]);
+  const [roles, setRoles] = useState<TOrganizationRole[]>([]);
+  const [accessSaving, setAccessSaving] = useState(false);
 
   useEffect(() => {
     setNameInput(line.name ?? "");
     setCapabilityState(buildInitialCapabilityState(line.capabilities));
-  }, [line.name, line.capabilities, line.number, line.id]);
+    setAccessMode(line.access_mode ?? "public");
+    setAllowedRoleIds((line.allowed_roles || []).map((r) => r.id));
+    setAccessUserId(
+      line.access_user_id != null ? String(line.access_user_id) : ""
+    );
+  }, [
+    line.name,
+    line.capabilities,
+    line.number,
+    line.id,
+    line.access_mode,
+    line.access_user_id,
+    line.allowed_roles,
+  ]);
+
+  useEffect(() => {
+    if (!hasOrg) {
+      setMembers([]);
+      setRoles([]);
+      return;
+    }
+    let cancelled = false;
+    const orgId = String(line.organization);
+    Promise.all([
+      getOrganizationMembers(orgId),
+      getOrganizationRoles(orgId),
+    ])
+      .then(([memberRes, roleRes]) => {
+        if (cancelled) return;
+        setMembers(memberRes.filter((m) => m.is_active || m.is_owner));
+        setRoles(roleRes.filter((r) => r.enabled));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setMembers([]);
+          setRoles([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [hasOrg, line.organization]);
 
   const changeAgent = (slug: string) => {
     updateWhatsappNumber(line.number, { slug }).then(() => {
@@ -436,6 +493,69 @@ function SettingsPanel({
       void onRefresh();
     });
   };
+
+  const saveAccess = async () => {
+    const payload: {
+      access_mode: WhatsappAccessMode;
+      access_user_id?: number | null;
+      allowed_role_ids?: string[];
+    } = { access_mode: accessMode };
+
+    if (accessMode === "roles") {
+      payload.allowed_role_ids = allowedRoleIds;
+    } else if (accessMode === "user") {
+      payload.access_user_id = accessUserId ? Number(accessUserId) : null;
+    } else {
+      payload.access_user_id = null;
+      payload.allowed_role_ids = [];
+    }
+
+    setAccessSaving(true);
+    try {
+      await updateWhatsappNumber(line.number, payload);
+      toast.success(t("whatsapp-access-saved"));
+      void onRefresh();
+    } catch {
+      toast.error(t("whatsapp-access-save-error"));
+    } finally {
+      setAccessSaving(false);
+    }
+  };
+
+  const accessModeOptions = [
+    { value: "public", label: t("whatsapp-access-public") },
+    {
+      value: "organization",
+      label: t("whatsapp-access-organization"),
+      disabled: !hasOrg,
+    },
+    {
+      value: "roles",
+      label: t("whatsapp-access-roles"),
+      disabled: !hasOrg,
+    },
+    {
+      value: "user",
+      label: t("whatsapp-access-user"),
+      disabled: !hasOrg,
+    },
+  ];
+
+  const memberOptions = useMemo(
+    () => [
+      { value: "", label: t("whatsapp-access-select-user") },
+      ...members.map((m) => ({
+        value: String(m.id),
+        label: m.profile_name || m.email || m.username || String(m.id),
+      })),
+    ],
+    [members, t]
+  );
+
+  const roleOptions = useMemo(
+    () => roles.map((r) => ({ value: r.id, label: r.name })),
+    [roles]
+  );
 
   return (
     <Stack gap="md">
@@ -470,6 +590,57 @@ function SettingsPanel({
           selectedSlug={line.agent.slug}
         />
       </div>
+
+      <Stack gap="sm">
+        <NativeSelect
+          label={t("whatsapp-access-mode")}
+          data={accessModeOptions}
+          value={accessMode}
+          onChange={(e) => {
+            const val = e.currentTarget.value as WhatsappAccessMode;
+            setAccessMode(val);
+            if (val === "public" || val === "organization") {
+              setAllowedRoleIds([]);
+              setAccessUserId("");
+            }
+          }}
+        />
+        {!hasOrg && accessMode !== "public" && (
+          <Text size="xs" c="dimmed">
+            {t("whatsapp-access-no-org")}
+          </Text>
+        )}
+        {accessMode === "roles" && hasOrg && (
+          <MultiSelect
+            label={t("whatsapp-access-roles-label")}
+            data={roleOptions}
+            value={allowedRoleIds}
+            onChange={setAllowedRoleIds}
+            searchable
+            nothingFoundMessage={t("whatsapp-access-no-roles")}
+          />
+        )}
+        {accessMode === "user" && hasOrg && (
+          <NativeSelect
+            label={t("whatsapp-access-user-label")}
+            data={memberOptions}
+            value={accessUserId}
+            onChange={(e) => {
+              const val = e.currentTarget.value;
+              setAccessUserId(val);
+            }}
+          />
+        )}
+        <Button
+          leftSection={<IconDeviceFloppy size={16} />}
+          variant="default"
+          loading={accessSaving}
+          onClick={() => void saveAccess()}
+          disabled={!hasOrg && accessMode !== "public"}
+        >
+          {t("whatsapp-save-access")}
+        </Button>
+      </Stack>
 
       <div>
         <CapabilitiesChecklist

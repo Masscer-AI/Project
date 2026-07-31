@@ -1,3 +1,5 @@
+export type WhatsappAccessMode = "public" | "organization" | "roles" | "user";
+
 export type WhatsappLine = {
   id: number;
   number: string;
@@ -7,6 +9,9 @@ export type WhatsappLine = {
   verified?: boolean;
   organization?: number | string | null;
   capabilities?: { name?: string; type?: string; enabled?: boolean }[] | null;
+  access_mode?: WhatsappAccessMode;
+  access_user_id?: number | null;
+  allowed_roles?: { id: string; name: string }[];
 };
 
 export function formatWhatsappPhone(number: string): string {

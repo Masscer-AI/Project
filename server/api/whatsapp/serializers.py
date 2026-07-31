@@ -8,13 +8,37 @@ from .models import WSContact, WSNumber
 class WSNumberSerializer(serializers.ModelSerializer):
     conversations_count = serializers.SerializerMethodField()
     agent = AgentSerializer(read_only=True)
+    access_user_id = serializers.IntegerField(allow_null=True, read_only=True)
+    allowed_roles = serializers.SerializerMethodField()
 
     def get_conversations_count(self, obj):
         return obj.conversations.count()
 
+    def get_allowed_roles(self, obj):
+        roles = obj.allowed_roles.all().only("id", "name")
+        return [{"id": str(r.id), "name": r.name} for r in roles]
+
     class Meta:
         model = WSNumber
-        fields = "__all__"
+        fields = [
+            "id",
+            "organization",
+            "user",
+            "agent",
+            "name",
+            "capabilities",
+            "number",
+            "platform_id",
+            "waba_id",
+            "access_mode",
+            "access_user_id",
+            "allowed_roles",
+            "verified",
+            "certicate_b64",
+            "created_at",
+            "updated_at",
+            "conversations_count",
+        ]
 
 
 class WSContactSerializer(serializers.ModelSerializer):
