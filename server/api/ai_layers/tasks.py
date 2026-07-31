@@ -51,9 +51,16 @@ def _agent_clock_context(
 ) -> str:
     """
     Text appended to agent instructions so the model can resolve relative times
-    ("in 2 hours", "tomorrow") against the user's device clock when provided.
+    ("in 2 hours", "tomorrow").
+
+    Cascade: user device clock → organization timezone clock → server clock.
     """
-    from datetime import datetime
+    from datetime import datetime, timezone as dt_timezone
+
+    from api.ai_layers.tools.calendar_tool_helpers import (
+        format_org_timezone_clock_line,
+        resolve_org_timezone,
+    )
 
     if isinstance(client_datetime, dict):
         loc = client_datetime.get("local_datetime_long")
@@ -79,22 +86,43 @@ def _agent_clock_context(
                 "using the user's local clock and timezone above."
             )
             if organization_id is not None:
-                from api.ai_layers.tools.calendar_tool_helpers import (
-                    format_org_timezone_clock_line,
-                )
-
                 parts.append(format_org_timezone_clock_line(organization_id))
             return "\n".join(parts)
-    server = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    lines = [
-        f"The current date and time (server) is {server}.",
-        "No client clock was provided; use this for relative time if needed, or ask the user to clarify their timezone.",
-    ]
-    if organization_id is not None:
-        from api.ai_layers.tools.calendar_tool_helpers import format_org_timezone_clock_line
 
-        lines.append(format_org_timezone_clock_line(organization_id))
-    return "\n".join(lines)
+    if organization_id is not None:
+        from zoneinfo import ZoneInfo
+
+        tz_name = resolve_org_timezone(organization_id)
+        try:
+            tzinfo = ZoneInfo(tz_name)
+        except Exception:
+            tzinfo = ZoneInfo("UTC")
+            tz_name = "UTC"
+        now_utc = datetime.now(dt_timezone.utc)
+        now_local = now_utc.astimezone(tzinfo)
+        local_long = now_local.strftime("%A, %B %d, %Y at %I:%M:%S %p %Z").replace(
+            " 0", " "
+        )
+        return "\n".join(
+            [
+                "No client clock was provided; using the organization timezone as the default clock.",
+                f"Current date and time in organization timezone ({tz_name}): {local_long}.",
+                f"Organization IANA timezone: {tz_name}.",
+                f"Same instant (UTC, ISO-8601): {now_utc.isoformat().replace('+00:00', 'Z')}.",
+                "Interpret relative dates and times (e.g. 'in 2 hours', 'tomorrow', 'next Monday') "
+                "using the organization clock and timezone above.",
+                format_org_timezone_clock_line(organization_id),
+            ]
+        )
+
+    server = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    return "\n".join(
+        [
+            f"The current date and time (server) is {server}.",
+            "No client clock or organization timezone was available; use this for relative "
+            "time if needed, or ask the user to clarify their timezone.",
+        ]
+    )
 
 
 def _conversation_tags_instruction_block(conversation, organization_id: int) -> str:
