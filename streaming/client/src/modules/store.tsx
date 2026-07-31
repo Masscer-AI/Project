@@ -558,10 +558,28 @@ export const useStore = create<Store>()((set, get) => {
   },
 
   setAgentTaskStatus: (status: string | null, conversationId?: string | null) => {
+    const prev = get();
     if (status === null) {
+      console.debug("[agent-task] status → null (clears stop)", {
+        prevStatus: prev.agentTaskStatus,
+        prevConversationId: prev.agentTaskConversationId,
+      });
       set({ agentTaskStatus: null, agentTaskConversationId: null });
       return;
     }
+    const nextConversationId =
+      conversationId !== undefined
+        ? conversationId
+        : prev.agentTaskConversationId;
+    console.debug("[agent-task] status → set (stop may show)", {
+      status,
+      conversationIdArg: conversationId,
+      nextConversationId,
+      prevStatus: prev.agentTaskStatus,
+      prevConversationId: prev.agentTaskConversationId,
+      // Without conversationId, stop can show but status poll cannot heal a stuck button.
+      pollEnabled: !!nextConversationId,
+    });
     set((state) => ({
       agentTaskStatus: status,
       ...(conversationId !== undefined

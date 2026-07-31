@@ -134,6 +134,17 @@ export default function ChatView() {
       const convId = loaderData.conversation.id;
       if (!data || !convId || data.conversation_id !== convId) return;
       if (data.type === "agent_version_ready" && data.version) {
+        // Text can appear here while stop still shows — only agent_loop_finished clears it.
+        console.debug(
+          "[agent-task] agent_version_ready (does not clear stop)",
+          {
+            conversation_id: data.conversation_id,
+            agent_slug: data.version.agent_slug,
+            agentTaskStatus: useStore.getState().agentTaskStatus,
+            agentTaskConversationId:
+              useStore.getState().agentTaskConversationId,
+          }
+        );
         setMessages((prev) => {
           const last = prev[prev.length - 1];
           if (!last || last.type !== "assistant") return prev;
@@ -479,6 +490,9 @@ export default function ChatView() {
           });
 
       if (taskRes.agent_skipped && taskRes.takeover) {
+        console.debug("[agent-task] trigger skipped (takeover) → clear stop", {
+          conversationId: routeConversation.id,
+        });
         setAgentTaskStatus(null);
         await setConversation(routeConversation.id);
       }
@@ -490,6 +504,10 @@ export default function ChatView() {
     } catch (error) {
       console.error("Error triggering agent task:", error);
       toast.error(t("agent-task-failed"));
+      console.debug("[agent-task] trigger failed → clear stop", {
+        conversationId: routeConversation?.id,
+        error,
+      });
       revertOptimisticSend();
       return false;
     }
@@ -589,6 +607,10 @@ export default function ChatView() {
             });
 
         if (taskRes.agent_skipped && taskRes.takeover) {
+          console.debug(
+            "[agent-task] regenerate skipped (takeover) → clear stop",
+            { conversationId: routeConversation.id }
+          );
           setAgentTaskStatus(null);
           await setConversation(routeConversation.id);
         }
@@ -597,6 +619,10 @@ export default function ChatView() {
       } catch (error) {
         console.error("Error regenerating via agent task:", error);
         toast.error(t("agent-task-failed"));
+        console.debug("[agent-task] regenerate failed → clear stop", {
+          conversationId: routeConversation.id,
+          error,
+        });
         setAgentTaskStatus(null);
         setMessages((prev) => {
           const last = prev[prev.length - 1];

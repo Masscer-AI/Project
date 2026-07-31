@@ -77,11 +77,27 @@ export const AgentTaskListener = () => {
   const pendingStatusRef = useRef<string | null>(null);
 
   useEffect(() => {
+    console.debug("[agent-task] listener attached", {
+      socketConnected: socket.connected,
+      socketId: socket.id,
+    });
+
     const eventBelongsToTrackedTask = (eventConversationId: string) => {
       const trackedId = useStore.getState().agentTaskConversationId;
       const currentId = useStore.getState().conversation?.id;
       if (trackedId) return eventConversationId === trackedId;
       return !!currentId && eventConversationId === currentId;
+    };
+
+    const trackingSnapshot = (eventConversationId: string) => {
+      const state = useStore.getState();
+      return {
+        eventConversationId,
+        trackedId: state.agentTaskConversationId,
+        currentId: state.conversation?.id,
+        agentTaskStatus: state.agentTaskStatus,
+        belongs: eventBelongsToTrackedTask(eventConversationId),
+      };
     };
 
     const clearToolHold = () => {
@@ -100,12 +116,18 @@ export const AgentTaskListener = () => {
         toolHoldRef.current = setTimeout(() => {
           toolHoldRef.current = null;
           if (pendingStatusRef.current !== null) {
+            console.debug("[agent-task] tool-hold released → pending status", {
+              pendingStatus: pendingStatusRef.current,
+            });
             setAgentTaskStatus(pendingStatusRef.current);
             pendingStatusRef.current = null;
           }
         }, TOOL_STATUS_MIN_MS);
       } else {
         if (toolHoldRef.current) {
+          console.debug("[agent-task] status deferred (tool-hold active)", {
+            status,
+          });
           pendingStatusRef.current = status;
         } else {
           setAgentTaskStatus(status);
@@ -115,9 +137,27 @@ export const AgentTaskListener = () => {
 
     const handleAgentEvent = (raw: RedisNotification<AgentEvent>) => {
       const data = raw.message;
-      if (!data) return;
+      if (!data) {
+        console.debug("[agent-task] agent_events_channel: empty message", raw);
+        return;
+      }
 
-      if (!eventBelongsToTrackedTask(data.conversation_id)) return;
+      const snap = trackingSnapshot(data.conversation_id);
+      if (!snap.belongs) {
+        console.debug("[agent-task] agent_events ignored (conv mismatch)", {
+          type: data.type,
+          ...snap,
+        });
+        return;
+      }
+
+      console.debug("[agent-task] agent_events", {
+        type: data.type,
+        tool_name: data.tool_name,
+        conversation_id: data.conversation_id,
+        error: data.error,
+        trackedId: snap.trackedId,
+      });
 
       // Accumulate the full live timeline so the user can expand all steps.
       pushAgentTaskEvent({
@@ -162,10 +202,15 @@ export const AgentTaskListener = () => {
                   total: String(total),
                 })
               : t("agent-response-complete", { agentName });
+          // Status text only — does not clear stop button.
           applyStatus(status, false);
           break;
         }
         case "error":
+          console.debug("[agent-task] agent_events error → clear stop", {
+            conversation_id: data.conversation_id,
+            error: data.error,
+          });
           clearToolHold();
           playNotificationSound("error");
           setAgentTaskStatus(null);
@@ -178,14 +223,40 @@ export const AgentTaskListener = () => {
 
     const handleAgentFinished = (raw: RedisNotification<AgentFinishedEvent>) => {
       const data = raw.message;
-      if (!data) return;
+      if (!data) {
+        console.debug("[agent-task] agent_loop_finished: empty message", raw);
+        return;
+      }
 
-      if (!eventBelongsToTrackedTask(data.conversation_id)) return;
+      const snap = trackingSnapshot(data.conversation_id);
+      if (!snap.belongs) {
+        console.debug("[agent-task] agent_loop_finished ignored (conv mismatch)", {
+          message_id: data.message_id,
+          status: data.status,
+          next_agent_slug: data.next_agent_slug,
+          ...snap,
+        });
+        return;
+      }
 
       const viewingThisConversation =
         useStore.getState().conversation?.id === data.conversation_id;
 
+      console.debug("[agent-task] agent_loop_finished", {
+        conversation_id: data.conversation_id,
+        message_id: data.message_id,
+        status: data.status,
+        next_agent_slug: data.next_agent_slug,
+        viewingThisConversation,
+        willClearStop: !data.next_agent_slug,
+        trackedId: snap.trackedId,
+      });
+
       if (data.next_agent_slug) {
+        console.debug(
+          "[agent-task] handoff — keep stop visible until final finish",
+          { next_agent_slug: data.next_agent_slug }
+        );
         if (viewingThisConversation) {
           setConversation(data.conversation_id);
         }
@@ -193,6 +264,7 @@ export const AgentTaskListener = () => {
       }
 
       if (data.status === "cancelled") {
+        console.debug("[agent-task] finish cancelled → clear stop");
         clearToolHold();
         setAgentTaskStatus(null);
         clearAgentTaskEvents();
@@ -203,6 +275,9 @@ export const AgentTaskListener = () => {
       }
 
       if (data.status === "error") {
+        console.debug("[agent-task] finish error → clear stop", {
+          error: data.error,
+        });
         clearToolHold();
         playNotificationSound("error");
         if (data.error === "organization_billing_blocked") {
@@ -220,6 +295,7 @@ export const AgentTaskListener = () => {
         return;
       }
 
+      console.debug("[agent-task] finish success → clear stop");
       clearToolHold();
       playNotificationSound("success");
       setAgentTaskStatus(null);
@@ -235,6 +311,7 @@ export const AgentTaskListener = () => {
     socket.on("agent_loop_finished", handleAgentFinished);
 
     return () => {
+      console.debug("[agent-task] listener detached");
       socket.off("agent_events_channel", handleAgentEvent);
       socket.off("agent_loop_finished", handleAgentFinished);
       clearToolHold();
@@ -261,20 +338,45 @@ export const AgentTaskListener = () => {
     const startedAt = Date.now();
     const trackedConversationId = agentTaskConversationId;
 
+    console.debug("[agent-task] poll started", {
+      trackedConversationId,
+      firstMs: AGENT_TASK_POLL_FIRST_MS,
+      intervalMs: AGENT_TASK_POLL_INTERVAL_MS,
+      inactiveGraceMs: AGENT_TASK_POLL_INACTIVE_GRACE_MS,
+    });
+
     const tick = async () => {
       try {
         const res = await getAgentTaskStatus(trackedConversationId);
         if (cancelled) return;
 
+        const elapsed = Date.now() - startedAt;
+
         if (res.active) {
           sawActive = true;
+          console.debug("[agent-task] poll active", {
+            trackedConversationId,
+            elapsed,
+            sawActive,
+          });
           return;
         }
 
-        const elapsed = Date.now() - startedAt;
         if (!sawActive && elapsed < AGENT_TASK_POLL_INACTIVE_GRACE_MS) {
+          console.debug("[agent-task] poll inactive — waiting grace", {
+            trackedConversationId,
+            elapsed,
+            graceMs: AGENT_TASK_POLL_INACTIVE_GRACE_MS,
+            sawActive,
+          });
           return;
         }
+
+        console.debug("[agent-task] poll inactive → clear stop", {
+          trackedConversationId,
+          elapsed,
+          sawActive,
+        });
 
         if (toolHoldRef.current) {
           clearTimeout(toolHoldRef.current);
@@ -287,7 +389,11 @@ export const AgentTaskListener = () => {
         if (currentId === trackedConversationId) {
           void setConversation(trackedConversationId);
         }
-      } catch {
+      } catch (error) {
+        console.debug("[agent-task] poll error (ignored)", {
+          trackedConversationId,
+          error,
+        });
         // Ignore transient poll errors; websocket path or next tick may recover.
       }
     };
@@ -296,6 +402,7 @@ export const AgentTaskListener = () => {
     const intervalId = setInterval(tick, AGENT_TASK_POLL_INTERVAL_MS);
 
     return () => {
+      console.debug("[agent-task] poll stopped", { trackedConversationId });
       cancelled = true;
       clearTimeout(firstTimer);
       clearInterval(intervalId);

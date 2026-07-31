@@ -129,6 +129,24 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     !!agentTaskStatus &&
     (!agentTaskConversationId || agentTaskConversationId === conversationId);
 
+  useEffect(() => {
+    console.debug("[agent-task] stop button visibility", {
+      showStopButton,
+      agentTaskStatus,
+      agentTaskConversationId,
+      conversationId,
+      scopedOut:
+        !!agentTaskStatus &&
+        !!agentTaskConversationId &&
+        agentTaskConversationId !== conversationId,
+    });
+  }, [
+    showStopButton,
+    agentTaskStatus,
+    agentTaskConversationId,
+    conversationId,
+  ]);
+
   const isPlatformAssistantChat =
     chatState.selectedAgents.length === 1 &&
     (() => {
@@ -206,11 +224,19 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
   const handleCancelAgentTask = async () => {
     if (!conversationId) return;
+    console.debug("[agent-task] stop clicked — optimistic clear", {
+      conversationId,
+    });
     try {
       setAgentTaskStatus(null);
       await cancelAgentTask(conversationId);
+      console.debug("[agent-task] cancel API ok", { conversationId });
       toast.success(t("task-cancelled") || "Task cancelled");
     } catch (error) {
+      console.debug("[agent-task] cancel API failed (stop already cleared)", {
+        conversationId,
+        error,
+      });
       toast.error(t("error-cancelling-task") || "Error cancelling task");
     }
   };
