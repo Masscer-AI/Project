@@ -1132,13 +1132,14 @@ def conversation_agent_task(
         notify_user(notification_route_id, "agent_events_channel", payload)
 
     def emit_finished(data: dict) -> None:
-        payload = {"conversation_id": conversation_id, **data}
-        notify_user(notification_route_id, "agent_loop_finished", payload)
+        # Clear before notify so a notify failure cannot leave the stop button stuck.
         # Keep active through multi-agent handoffs (next_agent_slug set).
         if not data.get("next_agent_slug"):
             from api.ai_layers.agent_task_helpers import clear_agent_task_active
 
             clear_agent_task_active(conversation_id)
+        payload = {"conversation_id": conversation_id, **data}
+        notify_user(notification_route_id, "agent_loop_finished", payload)
 
     logger.info(
         "conversation_agent_task started: conversation=%s user=%s agents=%s tools=%s modality=%s",

@@ -1139,8 +1139,9 @@ class AgentTaskConversationMetadataTests(TestCase):
         from api.ai_layers.agent_task_helpers import (
             clear_agent_task_active,
             is_agent_task_marked_active,
+            mark_agent_task_active,
         )
-        from api.ai_layers.models import Agent, LanguageModel
+        from api.ai_layers.models import Agent, AgentSession, LanguageModel
         from api.messaging.models import Conversation
         from api.providers.models import AIProvider
 
@@ -1199,6 +1200,25 @@ class AgentTaskConversationMetadataTests(TestCase):
         )
         self.assertEqual(after_cancel.status_code, 200)
         self.assertFalse(after_cancel.json()["active"])
+
+        # Stale cache + finished session (execution log exists) must report inactive.
+        from datetime import timedelta
+
+        mark_agent_task_active(str(conv.id))
+        session = AgentSession.objects.create(
+            conversation=conv,
+            task_type="chat_message",
+            inputs={},
+            outputs={},
+            ended_at=timezone.now() - timedelta(seconds=120),
+        )
+        healed = client.get(
+            f"/v1/ai_layers/agent-task/status/?conversation_id={conv.id}"
+        )
+        self.assertEqual(healed.status_code, 200)
+        self.assertFalse(healed.json()["active"])
+        self.assertFalse(is_agent_task_marked_active(str(conv.id)))
+        session.delete()
         clear_agent_task_active(str(conv.id))
 
     @patch("api.ai_layers.views.conversation_agent_task.delay")

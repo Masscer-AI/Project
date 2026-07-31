@@ -8,9 +8,9 @@ import { playNotificationSound } from "../../utils/notificationSound";
 
 const TOOL_STATUS_MIN_MS = 1500; // Keep tool call status visible so user notices the AI invoked a function
 const AGENT_TASK_POLL_INTERVAL_MS = 3000;
-const AGENT_TASK_POLL_FIRST_MS = 4000;
+const AGENT_TASK_POLL_FIRST_MS = 2500;
 /** Don't clear from "inactive" until we've seen active:true, or this grace elapsed (enqueue race). */
-const AGENT_TASK_POLL_INACTIVE_GRACE_MS = 15000;
+const AGENT_TASK_POLL_INACTIVE_GRACE_MS = 12000;
 
 // The Redis notification bridge wraps payloads as:
 // { user_id, event_type, message: { ...actual_payload } }
@@ -249,9 +249,12 @@ export const AgentTaskListener = () => {
     localizeTool,
   ]);
 
-  // Polling fallback: clear stuck stop when the server says the task is done.
+  // Poll while a task is tracked. Depend on conversation id + running boolean only —
+  // not the status *text*, or tool/loop updates would reset the grace timer forever.
+  const isAgentTaskRunning = Boolean(agentTaskStatus && agentTaskConversationId);
+
   useEffect(() => {
-    if (!agentTaskStatus || !agentTaskConversationId) return;
+    if (!isAgentTaskRunning || !agentTaskConversationId) return;
 
     let cancelled = false;
     let sawActive = false;
@@ -298,7 +301,7 @@ export const AgentTaskListener = () => {
       clearInterval(intervalId);
     };
   }, [
-    agentTaskStatus,
+    isAgentTaskRunning,
     agentTaskConversationId,
     setAgentTaskStatus,
     clearAgentTaskEvents,

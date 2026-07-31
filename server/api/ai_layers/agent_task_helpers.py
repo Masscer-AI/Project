@@ -1,11 +1,19 @@
 """Shared validation helpers for agent task dispatch."""
 
+import time
+
 from django.core.cache import cache
 from django.http import JsonResponse
+from django.utils import timezone
 
 from api.authenticate.services import FeatureFlagService
 
 AGENT_TASK_ACTIVE_CACHE_TIMEOUT = 3600
+# After the latest AgentSession ends, keep trusting the cache briefly for
+# multi-agent handoffs (next session not created yet). Beyond this, heal stale cache.
+AGENT_TASK_HANDOFF_GRACE_SECONDS = 60
+# Enqueue gap with zero sessions: if cache is older than this, treat as dead worker.
+AGENT_TASK_ENQUEUE_GRACE_SECONDS = 120
 
 
 def agent_task_active_cache_key(conversation_id: str) -> str:
@@ -16,7 +24,7 @@ def mark_agent_task_active(conversation_id: str) -> None:
     """Mark a conversation as having an in-flight agent task (covers enqueue→session gap)."""
     cache.set(
         agent_task_active_cache_key(str(conversation_id)),
-        True,
+        time.time(),
         timeout=AGENT_TASK_ACTIVE_CACHE_TIMEOUT,
     )
 
@@ -26,7 +34,7 @@ def clear_agent_task_active(conversation_id: str) -> None:
 
 
 def is_agent_task_marked_active(conversation_id: str) -> bool:
-    return bool(cache.get(agent_task_active_cache_key(str(conversation_id))))
+    return cache.get(agent_task_active_cache_key(str(conversation_id))) is not None
 
 
 def conversation_has_active_agent_session(conversation) -> bool:
@@ -43,14 +51,44 @@ def is_agent_task_active_for_conversation(conversation) -> bool:
     """
     Server truth for stop-button reconciliation.
 
-    True while a Celery run is pending/running: either the dispatch cache flag
-    is set, or an AgentSession is still open. Multi-agent gaps keep the cache
-    flag until the final finish (no next_agent_slug).
+    Open AgentSessions are authoritative. The dispatch cache covers the enqueue
+    gap and multi-agent handoffs, but is healed when the latest session has been
+    ended long enough that a finished run (execution log available) is clear.
     """
-    conversation_id = str(conversation.id)
-    if is_agent_task_marked_active(conversation_id):
+    from api.ai_layers.models import AgentSession
+
+    if conversation_has_active_agent_session(conversation):
         return True
-    return conversation_has_active_agent_session(conversation)
+
+    conversation_id = str(conversation.id)
+    marked_at = cache.get(agent_task_active_cache_key(conversation_id))
+    if marked_at is None:
+        return False
+
+    latest = (
+        AgentSession.objects.filter(conversation=conversation)
+        .order_by("-started_at")
+        .first()
+    )
+
+    # Enqueued but worker has not created a session yet.
+    if latest is None:
+        if isinstance(marked_at, (int, float)):
+            if time.time() - float(marked_at) > AGENT_TASK_ENQUEUE_GRACE_SECONDS:
+                clear_agent_task_active(conversation_id)
+                return False
+        return True
+
+    # Latest session finished. Allow a short handoff window, then heal stale cache
+    # (e.g. worker finished without clearing, or Celery not restarted with clear code).
+    if latest.ended_at is not None:
+        age = (timezone.now() - latest.ended_at).total_seconds()
+        if age <= AGENT_TASK_HANDOFF_GRACE_SECONDS:
+            return True
+        clear_agent_task_active(conversation_id)
+        return False
+
+    return True
 
 
 def validate_conversation_access(conversation, user, user_org):
