@@ -125,9 +125,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     agents: state.agents,
   }));
 
+  // Require a tracked conversation id so a stray status string (e.g. late
+  // agent_complete after finish cleared the task) cannot re-show stop.
   const showStopButton =
     !!agentTaskStatus &&
-    (!agentTaskConversationId || agentTaskConversationId === conversationId);
+    !!agentTaskConversationId &&
+    agentTaskConversationId === conversationId;
 
   useEffect(() => {
     console.debug("[agent-task] stop button visibility", {

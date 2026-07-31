@@ -305,6 +305,8 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
           applyStatus("Agent is processing...", false);
           break;
         case "agent_complete": {
+          // Ignore after finish cleared status — late events must not revive UI.
+          if (!useWidgetStore.getState().agentTaskStatus) break;
           const total = data.total as number | undefined;
           const index = data.index as number | undefined;
           const agentName = (data.agent_name as string) || "...";

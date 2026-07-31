@@ -152,7 +152,8 @@ export const Message = memo(
     );
     const liveAgentTaskStatus =
       agentTaskStatus &&
-      (!agentTaskConversationId || agentTaskConversationId === conversationId)
+      agentTaskConversationId &&
+      agentTaskConversationId === conversationId
         ? agentTaskStatus
         : null;
     const liveAgentTaskEvents =

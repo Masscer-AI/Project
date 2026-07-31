@@ -84,9 +84,10 @@ export const AgentTaskListener = () => {
 
     const eventBelongsToTrackedTask = (eventConversationId: string) => {
       const trackedId = useStore.getState().agentTaskConversationId;
-      const currentId = useStore.getState().conversation?.id;
-      if (trackedId) return eventConversationId === trackedId;
-      return !!currentId && eventConversationId === currentId;
+      // After finish/cancel clears the tracked id, ignore late agent_events so
+      // e.g. agent_complete cannot re-set status and re-show the stop button.
+      if (!trackedId) return false;
+      return eventConversationId === trackedId;
     };
 
     const trackingSnapshot = (eventConversationId: string) => {
@@ -202,7 +203,7 @@ export const AgentTaskListener = () => {
                   total: String(total),
                 })
               : t("agent-response-complete", { agentName });
-          // Status text only — does not clear stop button.
+          // Progress text while tracked task is still running (membership gated above).
           applyStatus(status, false);
           break;
         }
