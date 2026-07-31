@@ -116,6 +116,7 @@ MCP_CONVERSATION_TOOL_NAMES: tuple[str, ...] = (
     "change_conversation_tags",
     "get_tag_context",
     "query_conversation",
+    "list_conversations",
 )
 
 MCP_TAGGING_TOOL_NAMES: tuple[str, ...] = (

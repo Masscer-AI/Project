@@ -2,8 +2,8 @@
 Tool: get_tag_context
 
 Returns other conversations that share a given tag id: by default only those
-for the same user; when the actor has the conversations-dashboard feature,
-organization-wide threads (same rules as the org conversation list).
+for the same user (owned + WhatsApp linked via WSContact.user); when the actor
+has the conversations-dashboard feature, organization-wide threads.
 """
 
 from __future__ import annotations
@@ -15,6 +15,7 @@ from django.db.models import Count, DateTimeField, Q
 from django.db.models.functions import Coalesce
 from pydantic import BaseModel, ConfigDict, Field
 
+from api.messaging.conversation_access import user_accessible_conversations_q
 from api.messaging.models import Conversation, Tag
 
 logger = logging.getLogger(__name__)
@@ -58,6 +59,45 @@ def _iso(dt: datetime | None) -> str:
     return str(dt)
 
 
+def _rows_to_items(qs) -> list[TagContextConversationItem]:
+    items: list[TagContextConversationItem] = []
+    for conv in qs:
+        dt = getattr(conv, "sort_date", None) or conv.updated_at
+        items.append(
+            TagContextConversationItem(
+                conversation_id=str(conv.id),
+                title=(conv.title or "").strip(),
+                summary=(conv.summary or "").strip(),
+                n_messages=int(getattr(conv, "n_messages", 0) or 0),
+                date=_iso(dt),
+            )
+        )
+    return items
+
+
+def _annotated_tag_qs(
+    *,
+    base,
+    tag_id: int,
+    current_conversation_id: str,
+):
+    tag_match = Q(tags__contains=[tag_id]) | Q(tags__contains=[str(tag_id)])
+    return (
+        base.filter(tag_match)
+        .exclude(status="deleted")
+        .exclude(id=current_conversation_id)
+        .annotate(n_messages=Count("messages"))
+        .annotate(
+            sort_date=Coalesce(
+                "last_message_at",
+                "updated_at",
+                output_field=DateTimeField(),
+            )
+        )
+        .order_by("-sort_date")[:MAX_CONVERSATIONS]
+    )
+
+
 def _get_tag_context_impl(
     *,
     tag_id: int,
@@ -81,64 +121,19 @@ def _get_tag_context_impl(
             message="Tag not found, not in this organization, or disabled.",
         )
 
-    if has_organization_conversations_access:
-        from django.contrib.auth.models import User
-
-        from api.messaging.views import _get_org_user_ids
-
-        try:
-            actor = User.objects.get(pk=user_id)
-        except User.DoesNotExist:
-            return GetTagContextResult(
-                conversations=[],
-                message="User not found for tag context.",
-            )
-        org_user_ids = _get_org_user_ids(actor)
-        if org_user_ids:
-            base = Conversation.objects.filter(
-                Q(user_id__in=org_user_ids)
-                | Q(
-                    user__isnull=True,
-                    chat_widget__created_by_id__in=org_user_ids,
-                )
-            )
-        else:
-            base = Conversation.objects.filter(user_id=user_id)
-    else:
-        base = (
-            Conversation.objects.filter(user_id=user_id)
-            .filter(
-                Q(organization_id=organization_id) | Q(organization_id__isnull=True)
-            )
+    base = Conversation.objects.filter(
+        user_accessible_conversations_q(
+            user_id=user_id,
+            organization_id=organization_id,
+            has_organization_conversations_access=has_organization_conversations_access,
         )
-
-    qs = (
-        base.filter(tags__contains=[tag_id])
-        .exclude(status="deleted")
-        .exclude(id=current_conversation_id)
-        .annotate(n_messages=Count("messages"))
-        .annotate(
-            sort_date=Coalesce(
-                "last_message_at",
-                "updated_at",
-                output_field=DateTimeField(),
-            )
-        )
-        .order_by("-sort_date")[:MAX_CONVERSATIONS]
     )
-
-    items: list[TagContextConversationItem] = []
-    for conv in qs:
-        dt = getattr(conv, "sort_date", None) or conv.updated_at
-        items.append(
-            TagContextConversationItem(
-                conversation_id=str(conv.id),
-                title=(conv.title or "").strip(),
-                summary=(conv.summary or "").strip(),
-                n_messages=int(getattr(conv, "n_messages", 0) or 0),
-                date=_iso(dt),
-            )
-        )
+    qs = _annotated_tag_qs(
+        base=base,
+        tag_id=tag_id,
+        current_conversation_id=current_conversation_id,
+    )
+    items = _rows_to_items(qs)
 
     scope = "org" if has_organization_conversations_access else "user"
     logger.info(
@@ -187,36 +182,12 @@ def _get_tag_context_organization_impl(
             message="Tag not found, not in this organization, or disabled.",
         )
 
-    tag_match = Q(tags__contains=[tag_id]) | Q(tags__contains=[str(tag_id)])
-
-    qs = (
-        Conversation.objects.filter(organization_conversations_q(organization_id))
-        .filter(tag_match)
-        .exclude(status="deleted")
-        .exclude(id=current_conversation_id)
-        .annotate(n_messages=Count("messages"))
-        .annotate(
-            sort_date=Coalesce(
-                "last_message_at",
-                "updated_at",
-                output_field=DateTimeField(),
-            )
-        )
-        .order_by("-sort_date")[:MAX_CONVERSATIONS]
+    qs = _annotated_tag_qs(
+        base=Conversation.objects.filter(organization_conversations_q(organization_id)),
+        tag_id=tag_id,
+        current_conversation_id=current_conversation_id,
     )
-
-    items: list[TagContextConversationItem] = []
-    for conv in qs:
-        dt = getattr(conv, "sort_date", None) or conv.updated_at
-        items.append(
-            TagContextConversationItem(
-                conversation_id=str(conv.id),
-                title=(conv.title or "").strip(),
-                summary=(conv.summary or "").strip(),
-                n_messages=int(getattr(conv, "n_messages", 0) or 0),
-                date=_iso(dt),
-            )
-        )
+    items = _rows_to_items(qs)
 
     msg = (
         f"Found {len(items)} other conversation(s) across the organization with tag "
@@ -285,6 +256,7 @@ def get_tool(
         "Fetch cross-thread context for ONE tag: pass tag_id as an INTEGER (the tag’s database id), "
         "e.g. tag_id=7 — never pass the tag title string. Returns other conversations that already have that tag "
         "(title, summary, n_messages, date; current chat excluded). "
+        "Includes this user’s app chats and WhatsApp threads linked to them. "
     )
     if wide:
         desc += (

@@ -1059,6 +1059,7 @@ def conversation_agent_task(
             "chat_widget__agent",
             "ws_number",
             "ws_number__agent",
+            "ws_contact",
         ).get(id=conversation_id)
     except Conversation.DoesNotExist:
         logger.error("Conversation %s not found", conversation_id)
@@ -1076,6 +1077,17 @@ def conversation_agent_task(
     is_widget_chat = conversation.chat_widget_id is not None
     is_whatsapp_chat = conversation.ws_number_id is not None
     is_embedded_channel = is_widget_chat or is_whatsapp_chat
+
+    # Linked WhatsApp contact → same actor as web chat for conversation tools.
+    if actor_user_id is None and is_whatsapp_chat:
+        contact = getattr(conversation, "ws_contact", None)
+        if contact is not None and contact.user_id:
+            actor_user_id = int(contact.user_id)
+            logger.info(
+                "conversation_agent_task: linked WhatsApp contact user=%s conversation=%s",
+                actor_user_id,
+                conversation_id,
+            )
 
     override_allowlist: frozenset[str] | None = None
     if capabilities_override is not None:
@@ -1315,7 +1327,11 @@ def conversation_agent_task(
 
         _flag_org = _organization_for_conversations_dashboard_flag(conversation)
         has_organization_conversations_access = False
-        if not is_embedded_channel and _flag_org is not None and actor_user_id is not None:
+        # Web chat, or WhatsApp when contact is linked to a user (same-user access).
+        _may_eval_org_dashboard = not is_widget_chat and (
+            not is_whatsapp_chat or actor_user_id is not None
+        )
+        if _may_eval_org_dashboard and _flag_org is not None and actor_user_id is not None:
             try:
                 _flag_user = DjangoUser.objects.get(pk=actor_user_id)
                 has_organization_conversations_access, _ = (
@@ -1633,22 +1649,36 @@ def conversation_agent_task(
                 "create_organization_tag",
                 "change_conversation_tags",
             )
-            _wa_cross_thread = frozenset({"get_tag_context", "query_conversation"})
+            _wa_cross_thread = frozenset(
+                {"get_tag_context", "query_conversation", "list_conversations"}
+            )
+            # Linked WhatsApp uses the same user-scoped conversation tools as web.
+            is_linked_whatsapp_actor = is_whatsapp_chat and actor_user_id is not None
             supports_web_org_tagging = organization and not is_embedded_channel
             supports_whatsapp_org_tagging = (
                 organization
                 and is_whatsapp_chat
                 and bool(_wa_cross_thread.intersection(agent_tool_names))
             )
-            if supports_web_org_tagging or supports_whatsapp_org_tagging:
+            supports_same_user_conversation_tools = (
+                organization
+                and actor_user_id is not None
+                and (supports_web_org_tagging or is_linked_whatsapp_actor)
+            )
+            if (
+                supports_web_org_tagging
+                or supports_whatsapp_org_tagging
+                or supports_same_user_conversation_tools
+            ):
                 conversation.refresh_from_db(fields=["tags", "summary"])
                 tags_preamble = _conversation_tags_instruction_block(
                     conversation, organization.id
                 )
-                if supports_web_org_tagging:
-                    for _tn in tagging_tools:
-                        if _tn not in agent_tool_names and _may_auto_inject_tool(_tn):
-                            agent_tool_names.append(_tn)
+                if supports_web_org_tagging or is_linked_whatsapp_actor:
+                    if supports_web_org_tagging:
+                        for _tn in tagging_tools:
+                            if _tn not in agent_tool_names and _may_auto_inject_tool(_tn):
+                                agent_tool_names.append(_tn)
                     if actor_user_id is not None:
                         if (
                             "get_tag_context" not in agent_tool_names
@@ -1660,7 +1690,12 @@ def conversation_agent_task(
                             and _may_auto_inject_tool("query_conversation")
                         ):
                             agent_tool_names.append("query_conversation")
-                    if (
+                        if (
+                            "list_conversations" not in agent_tool_names
+                            and _may_auto_inject_tool("list_conversations")
+                        ):
+                            agent_tool_names.append("list_conversations")
+                    if supports_web_org_tagging and (
                         "change_conversation_summary" not in agent_tool_names
                         and _may_auto_inject_tool("change_conversation_summary")
                     ):
@@ -1693,14 +1728,17 @@ def conversation_agent_task(
                     "- change_conversation_tags: set exactly 1–3 tag ids for this conversation (replaces the whole set). "
                     "Do not use this to clear tags unless the user explicitly asks to remove all labels.\n"
                 )
-                if supports_web_org_tagging and actor_user_id is not None:
+                if supports_same_user_conversation_tools:
                     if has_organization_conversations_access:
                         instructions += (
                             "- **Org-wide thread visibility:** this user has the same conversation visibility as the "
-                            "organization dashboard — `get_tag_context` may list teammates’ tagged threads, and "
-                            "`query_conversation` may read those threads when you have a `conversation_id`.\n"
+                            "organization dashboard — `list_conversations` / `get_tag_context` may include teammates’ "
+                            "threads, and `query_conversation` may read those threads when you have a `conversation_id`.\n"
                         )
                     instructions += (
+                        "- list_conversations: list **active** conversations this user can access (app + linked "
+                        "WhatsApp). Use when you need to find another thread for the same person; each row has "
+                        "conversation_id, title, summary, channel, is_current. Then call `query_conversation`.\n"
                         "- get_tag_context: **How to call** — use the tool name `get_tag_context` with argument "
                         "`tag_id` set to the **integer id** of the tag (the number shown as tag_id=… above or from "
                         "`query_organization_tags`), e.g. tag_id=14. Do **not** pass the tag’s text title as tag_id.\n"
@@ -1718,7 +1756,8 @@ def conversation_agent_task(
                         "(a precise question). A **separate small model** reads up to a few hundred messages from that "
                         "thread and returns **only a distilled answer** — not the raw logs — so you can answer things like "
                         "“what did I tell you last week about X?” without overloading context. Use **after** you know "
-                        "which `conversation_id` matters (often from `get_tag_context`). Do not spam it every turn.\n"
+                        "which `conversation_id` matters (often from `list_conversations` or `get_tag_context`). "
+                        "Do not spam it every turn.\n"
                     )
                 elif supports_whatsapp_org_tagging:
                     if "get_tag_context" in agent_tool_names:
@@ -1941,8 +1980,14 @@ def conversation_agent_task(
             )
             if applicable_alert_rules and organization:
                 resolve_kwargs["organization_id"] = organization.id
-            if is_whatsapp_chat:
+            # Unlinked WhatsApp visitors use org-embedded cross-thread tools.
+            # Linked contacts use the same user-scoped tools as web chat.
+            if is_whatsapp_chat and actor_user_id is None:
                 resolve_kwargs["is_whatsapp_visitor"] = True
+                if "list_conversations" in agent_tool_names:
+                    agent_tool_names = [
+                        n for n in agent_tool_names if n != "list_conversations"
+                    ]
 
             tools = resolve_tools(agent_tool_names, **resolve_kwargs)
 

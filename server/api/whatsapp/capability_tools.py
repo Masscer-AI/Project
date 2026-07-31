@@ -24,6 +24,7 @@ WHATSAPP_ALLOWED_CAPABILITY_TOOLS: frozenset[str] = frozenset(
         "change_conversation_summary",
         "get_tag_context",
         "query_conversation",
+        "list_conversations",
     }
 )
 

@@ -32,7 +32,10 @@ class QueryConversationParams(BaseModel):
     conversation_id: str = Field(
         min_length=36,
         max_length=36,
-        description="UUID of the conversation to inspect (same user; often from get_tag_context).",
+        description=(
+            "UUID of the conversation to inspect (same user; often from "
+            "list_conversations or get_tag_context)."
+        ),
     )
     question: str = Field(
         min_length=1,
@@ -83,25 +86,14 @@ def _user_can_access_conversation(
     organization_id: int,
     has_organization_conversations_access: bool,
 ) -> bool:
-    if conv.status == "deleted":
-        return False
-    if has_organization_conversations_access:
-        from django.contrib.auth.models import User
+    from api.messaging.conversation_access import user_can_access_conversation
 
-        from api.messaging.views import _user_can_access_conversation as dashboard_can_access
-
-        try:
-            user = User.objects.get(pk=user_id)
-        except User.DoesNotExist:
-            return False
-        return dashboard_can_access(user, conv)
-
-    if conv.user_id != user_id:
-        return False
-    oid = conv.organization_id
-    if oid is None or oid == organization_id:
-        return True
-    return False
+    return user_can_access_conversation(
+        conv=conv,
+        user_id=user_id,
+        organization_id=organization_id,
+        has_organization_conversations_access=has_organization_conversations_access,
+    )
 
 
 def _build_transcript(conv: Conversation) -> str:
@@ -303,10 +295,13 @@ def get_tool(
             "you may query teammates’ threads when policy allows. "
         )
     else:
-        desc += "Only conversations **owned by this user** may be queried. "
+        desc += (
+            "Only this user’s conversations may be queried (app chats they own and "
+            "WhatsApp threads linked to them via contact). "
+        )
     desc += (
-        "Use for things like “what did we decide last week about X?” after you know which conversation_id to open. "
-        "Requires logged-in user."
+        "Use for things like “what did we decide last week about X?” after you know which conversation_id to open "
+        "(from list_conversations or get_tag_context). Requires logged-in user."
     )
 
     return {

@@ -96,6 +96,7 @@ def whatsapp_conversation_agent_task(
         conv = Conversation.objects.select_related(
             "ws_number",
             "ws_number__agent",
+            "ws_contact",
         ).get(id=conversation_id)
     except Conversation.DoesNotExist:
         return {"status": "error", "error": "Conversation not found"}
@@ -116,7 +117,8 @@ def whatsapp_conversation_agent_task(
     conv.metadata = metadata_payload_for_related_agents([ws_number.agent_id])
     conv.save(update_fields=["metadata", "updated_at"])
 
-    # Anonymous like widgets: string route so actor_user_id stays unset (no UserProfile in prompt).
+    # Keep string notification route. Linked WSContact.user is resolved inside
+    # conversation_agent_task for same-user conversation tool access.
     route_key = f"whatsapp:{conv.id}"
 
     result = conversation_agent_task(

@@ -60,6 +60,7 @@ class ConversationTaggingToolsRegistryTests(SimpleTestCase):
             "change_conversation_summary",
             "get_tag_context",
             "query_conversation",
+            "list_conversations",
         ):
             self.assertIn(required, names)
         self.assertIn("create_completion", names)
@@ -1457,9 +1458,18 @@ class GetTagContextOrganizationScopeTests(TestCase):
         from api.messaging.models import Conversation, Tag
         from api.whatsapp.conversations import get_or_create_whatsapp_conversation
         from api.whatsapp.models import WSNumber
-        from api.ai_layers.models import Agent
+        from api.ai_layers.models import Agent, LanguageModel
+        from api.consumption.models import Currency
+        from api.providers.models import AIProvider
 
         self._get_tag_context_organization_impl = _get_tag_context_organization_impl
+        Currency.objects.get_or_create(
+            name="Compute Unit", defaults={"one_usd_is": 1000}
+        )
+        provider = AIProvider.objects.create(name="OpenAI-tag-ctx")
+        LanguageModel.objects.create(
+            provider=provider, slug="gpt-tag-ctx", name="GPT"
+        )
         self.owner = User.objects.create_user(username="tag_ctx_owner", password="x")
         self.org = Organization.objects.create(name="Tag Ctx Org", owner=self.owner)
         self.tag = Tag.objects.create(
@@ -1494,6 +1504,196 @@ class GetTagContextOrganizationScopeTests(TestCase):
         ids = {c.conversation_id for c in result.conversations}
         self.assertIn(str(self.app_conv.id), ids)
         self.assertNotIn(str(self.wa_conv.id), ids)
+
+
+class SameUserConversationAccessTests(TestCase):
+    """Linked WSContact.user shares conversation access with web chat for that user."""
+
+    def setUp(self):
+        from api.authenticate.models import Organization, UserProfile
+        from api.ai_layers.models import Agent, LanguageModel
+        from api.consumption.models import Currency
+        from api.messaging.models import Conversation, Tag
+        from api.providers.models import AIProvider
+        from api.whatsapp.conversations import get_or_create_whatsapp_conversation
+        from api.whatsapp.models import WSContact, WSNumber
+
+        Currency.objects.get_or_create(
+            name="Compute Unit", defaults={"one_usd_is": 1000}
+        )
+        provider = AIProvider.objects.create(name="OpenAI-same-user")
+        LanguageModel.objects.create(
+            provider=provider, slug="gpt-same-user", name="GPT"
+        )
+        self.owner = User.objects.create_user(username="same_user_owner", password="x")
+        self.member = User.objects.create_user(username="same_user_member", password="x")
+        self.org = Organization.objects.create(name="Same User Org", owner=self.owner)
+        profile, _ = UserProfile.objects.get_or_create(user=self.member)
+        profile.organization = self.org
+        profile.save(update_fields=["organization"])
+
+        self.tag = Tag.objects.create(
+            title="Shared Topic",
+            organization=self.org,
+            enabled=True,
+        )
+        self.agent = Agent.objects.create(
+            name="Same User Agent", salute="hi", user=self.owner
+        )
+        self.app_conv = Conversation.objects.create(
+            user=self.member,
+            organization=self.org,
+            title="Member web chat",
+            summary="web summary",
+            tags=[self.tag.id],
+            status="active",
+        )
+        self.ws = WSNumber.objects.create(
+            user=self.owner,
+            organization=self.org,
+            agent=self.agent,
+            number="5550004444",
+            platform_id="pnid-same-user",
+        )
+        self.wa_active = get_or_create_whatsapp_conversation(self.ws, "5939000111222")
+        self.wa_active.title = "Member WhatsApp"
+        self.wa_active.summary = "wa summary"
+        self.wa_active.tags = [self.tag.id]
+        self.wa_active.save(update_fields=["title", "summary", "tags", "updated_at"])
+
+        contact = WSContact.objects.get(pk=self.wa_active.ws_contact_id)
+        contact.user = self.member
+        contact.save(update_fields=["user", "updated_at"])
+
+        # Prior thread after /clear — inactive, same contact
+        self.wa_inactive = Conversation.objects.create(
+            ws_number=self.ws,
+            ws_contact=contact,
+            whatsapp_user_number=self.wa_active.whatsapp_user_number,
+            user=None,
+            organization=self.org,
+            status="inactive",
+            title="Old WhatsApp",
+            tags=[self.tag.id],
+        )
+
+    def test_list_conversations_web_includes_linked_active_whatsapp(self):
+        from api.ai_layers.tools.list_conversations import _list_conversations_impl
+
+        result = _list_conversations_impl(
+            user_id=self.member.id,
+            organization_id=self.org.id,
+            current_conversation_id=str(self.app_conv.id),
+        )
+        ids = {c.conversation_id for c in result.conversations}
+        self.assertIn(str(self.app_conv.id), ids)
+        self.assertIn(str(self.wa_active.id), ids)
+        self.assertNotIn(str(self.wa_inactive.id), ids)
+        wa_item = next(
+            c for c in result.conversations if c.conversation_id == str(self.wa_active.id)
+        )
+        self.assertEqual(wa_item.channel, "whatsapp")
+        self.assertFalse(wa_item.is_current)
+
+    def test_list_conversations_from_linked_whatsapp_matches_web(self):
+        from api.ai_layers.tools.list_conversations import _list_conversations_impl
+
+        from_web = _list_conversations_impl(
+            user_id=self.member.id,
+            organization_id=self.org.id,
+            current_conversation_id=str(self.app_conv.id),
+        )
+        from_wa = _list_conversations_impl(
+            user_id=self.member.id,
+            organization_id=self.org.id,
+            current_conversation_id=str(self.wa_active.id),
+        )
+        self.assertEqual(
+            {c.conversation_id for c in from_web.conversations},
+            {c.conversation_id for c in from_wa.conversations},
+        )
+        current = next(
+            c
+            for c in from_wa.conversations
+            if c.conversation_id == str(self.wa_active.id)
+        )
+        self.assertTrue(current.is_current)
+
+    def test_list_conversations_unavailable_for_unlinked_visitor(self):
+        from api.ai_layers.tools.list_conversations import get_tool
+
+        with self.assertRaises(ValueError):
+            get_tool(
+                conversation_id=str(self.wa_active.id),
+                organization_id=self.org.id,
+                user_id=None,
+                is_whatsapp_visitor=True,
+            )
+
+    def test_get_tag_context_user_scope_includes_linked_whatsapp(self):
+        from api.ai_layers.tools.get_tag_context import _get_tag_context_impl
+
+        result = _get_tag_context_impl(
+            tag_id=self.tag.id,
+            user_id=self.member.id,
+            organization_id=self.org.id,
+            current_conversation_id=str(self.app_conv.id),
+        )
+        ids = {c.conversation_id for c in result.conversations}
+        self.assertIn(str(self.wa_active.id), ids)
+        self.assertIn(str(self.wa_inactive.id), ids)
+        self.assertNotIn(str(self.app_conv.id), ids)
+
+    def test_query_conversation_web_can_read_linked_whatsapp(self):
+        from api.ai_layers.tools.query_conversation import _user_can_access_conversation
+
+        self.assertTrue(
+            _user_can_access_conversation(
+                conv=self.wa_active,
+                user_id=self.member.id,
+                organization_id=self.org.id,
+                has_organization_conversations_access=False,
+            )
+        )
+        self.assertFalse(
+            _user_can_access_conversation(
+                conv=self.wa_active,
+                user_id=self.owner.id,
+                organization_id=self.org.id,
+                has_organization_conversations_access=False,
+            )
+        )
+
+    def test_query_conversation_get_tool_linked_uses_user_scope(self):
+        from api.ai_layers.tools.query_conversation import get_tool
+        from api.ai_layers.tools.list_conversations import get_tool as list_get_tool
+
+        tool = get_tool(
+            conversation_id=str(self.wa_active.id),
+            organization_id=self.org.id,
+            user_id=self.member.id,
+            is_whatsapp_visitor=False,
+        )
+        self.assertIn("whatsapp", tool["description"].lower())
+
+        list_tool = list_get_tool(
+            conversation_id=str(self.wa_active.id),
+            organization_id=self.org.id,
+            user_id=self.member.id,
+            is_whatsapp_visitor=False,
+        )
+        self.assertEqual(list_tool["name"], "list_conversations")
+
+    def test_unlinked_query_conversation_stays_org_embedded(self):
+        from api.ai_layers.tools.query_conversation import get_tool
+
+        tool = get_tool(
+            conversation_id=str(self.wa_active.id),
+            organization_id=self.org.id,
+            user_id=None,
+            is_whatsapp_visitor=True,
+        )
+        self.assertIn("organization", tool["description"].lower())
 
 
 class AgentSessionExecutionLogAccessTests(TestCase):
