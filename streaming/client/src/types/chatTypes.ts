@@ -35,6 +35,9 @@ export type TChatLoader = {
 export type TMessageMetadata = {
   source?: string;
   scheduled_task_id?: string;
+  scheduled_task_title?: string;
+  scheduled_task_kind?: string;
+  schedule_type?: string;
   [key: string]: unknown;
 };
 

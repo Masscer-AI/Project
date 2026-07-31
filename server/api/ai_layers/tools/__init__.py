@@ -164,10 +164,11 @@ def _append_schedule_task_capability_catalog(tools: list[dict]) -> None:
     if schedule_tool is None:
         return
 
+    blocked = frozenset(SCHEDULE_AGENT_TOOL_NAMES)
     catalog: dict[str, str] = {}
     for tool in tools:
         name = tool.get("name")
-        if not isinstance(name, str) or not name:
+        if not isinstance(name, str) or not name or name in blocked:
             continue
         catalog[name] = _concise_tool_description(str(tool.get("description") or ""))
 
@@ -177,6 +178,8 @@ def _append_schedule_task_capability_catalog(tools: list[dict]) -> None:
     schedule_tool["description"] = (
         f"{schedule_tool.get('description', '').rstrip()} "
         "The future scheduled turn inherits exactly these enabled capabilities "
+        "(schedule_task / list_scheduled_tasks / cancel_scheduled_task are never available "
+        "during execution): "
         f"(tool_name → description): {json.dumps(catalog, ensure_ascii=False)}"
     )
 

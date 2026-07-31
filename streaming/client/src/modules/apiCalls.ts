@@ -750,6 +750,7 @@ export const bulkConversationAction = async (
 
 export type TScheduledConversationTask = {
   id: string;
+  title?: string | null;
   status: string;
   schedule_type: string;
   timezone: string;

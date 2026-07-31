@@ -148,7 +148,12 @@ class ScheduleTaskToolTests(TestCase):
             datetime.now(ZoneInfo("America/Guayaquil")) + timedelta(days=2)
         ).replace(hour=11, minute=0, second=0, microsecond=0)
         result = _schedule_task_impl(
-            instruction="Write a weekly competitor report and email it to all members.",
+            title="Weekly competitor report",
+            instruction=(
+                "1. Research competitors with explore_web. "
+                "2. Write a weekly competitor report. "
+                "3. Email it to all organization members."
+            ),
             schedule_type="once",
             conversation_id=str(self.conversation.id),
             organization_id=self.org.id,
@@ -166,9 +171,11 @@ class ScheduleTaskToolTests(TestCase):
         )
         self.assertTrue(result.success)
         self.assertEqual(result.timezone, "America/Guayaquil")
+        self.assertEqual(result.title, "Weekly competitor report")
         self.assertIn("Once at", result.schedule_summary or "")
         task = ScheduledConversationTask.objects.get(id=result.task_id)
         self.assertEqual(task.status, ScheduledConversationTask.Status.PENDING)
+        self.assertEqual(task.title, "Weekly competitor report")
         self.assertEqual(task.agent_slugs, [self.agent.slug])
         self.assertEqual(task.celery_task_id, "celery-once-1")
         self.assertEqual(
@@ -201,7 +208,8 @@ class ScheduleTaskToolTests(TestCase):
             datetime.now(ZoneInfo("America/Guayaquil")) + timedelta(days=3)
         ).replace(hour=9, minute=30, second=0, microsecond=0)
         result = tool["function"](
-            instruction="Generate a spoken morning brief.",
+            title="Morning spoken brief",
+            instruction="1. Draft a morning brief. 2. Generate spoken audio with create_speech.",
             schedule_type="once",
             run_at=future_local.strftime("%Y-%m-%dT%H:%M:%S"),
         )
@@ -221,7 +229,11 @@ class ScheduleTaskToolTests(TestCase):
         from api.ai_layers.tools.schedule_task import _schedule_task_impl
 
         result = _schedule_task_impl(
-            instruction="Send the morning status docx to all organization members.",
+            title="Monday morning status",
+            instruction=(
+                "1. Generate a morning status docx. "
+                "2. Email it to all organization members."
+            ),
             schedule_type="recurring",
             conversation_id=str(self.conversation.id),
             organization_id=self.org.id,
@@ -239,6 +251,7 @@ class ScheduleTaskToolTests(TestCase):
         )
         self.assertEqual(listed.count, 1)
         self.assertEqual(listed.tasks[0]["id"], result.task_id)
+        self.assertEqual(listed.tasks[0]["title"], "Monday morning status")
 
         with patch("api.celery.app.control.revoke") as mock_revoke:
             cancelled = _cancel_scheduled_task_impl(
@@ -253,6 +266,25 @@ class ScheduleTaskToolTests(TestCase):
 
     def test_resolve_org_timezone(self):
         self.assertEqual(resolve_org_timezone(self.org.id), "America/Guayaquil")
+
+    @patch("api.messaging.tasks.run_scheduled_conversation_task.apply_async")
+    def test_schedule_requires_title(self, mock_apply):
+        from api.ai_layers.tools.schedule_task import _schedule_task_impl
+
+        with self.assertRaises(ValueError):
+            _schedule_task_impl(
+                title="  ",
+                instruction="1. Do something.",
+                schedule_type="recurring",
+                conversation_id=str(self.conversation.id),
+                organization_id=self.org.id,
+                user_id=self.user.id,
+                agent_slugs=[self.agent.slug],
+                multiagentic_modality="isolated",
+                recurrence="daily",
+                time_of_day="10:00",
+            )
+        mock_apply.assert_not_called()
 
 
 class ScheduleFirePathTests(TestCase):
@@ -287,7 +319,8 @@ class ScheduleFirePathTests(TestCase):
             conversation=self.conversation,
             organization=self.org,
             created_by=self.user,
-            instruction_text="Write a short status update.",
+            title="Short status update",
+            instruction_text="1. Write a short status update.",
             schedule_type=ScheduledConversationTask.ScheduleType.ONCE,
             timezone="America/Guayaquil",
             run_at=timezone.now() - timedelta(minutes=1),
@@ -313,10 +346,12 @@ class ScheduleFirePathTests(TestCase):
         self.assertEqual(result["status"], ScheduledConversationTask.Status.DONE)
         mock_agent.assert_called_once()
         kwargs = mock_agent.call_args.kwargs
-        self.assertEqual(
-            kwargs["user_inputs"],
-            [{"type": "input_text", "text": "Write a short status update."}],
-        )
+        user_text = kwargs["user_inputs"][0]["text"]
+        self.assertIn("=== SCHEDULED TASK EXECUTION ===", user_text)
+        self.assertIn("one-off scheduled task", user_text)
+        self.assertIn("Title: Short status update", user_text)
+        self.assertIn("1. Write a short status update.", user_text)
+        self.assertIn("Do NOT create, list, or cancel schedules", user_text)
         from api.messaging.schedule_helpers import SCHEDULER_BASELINE_TOOL_NAMES
 
         self.assertEqual(kwargs["tool_names"], list(SCHEDULER_BASELINE_TOOL_NAMES))
@@ -328,6 +363,9 @@ class ScheduleFirePathTests(TestCase):
             {
                 "source": "scheduled_task",
                 "scheduled_task_id": str(task.id),
+                "scheduled_task_title": "Short status update",
+                "scheduled_task_kind": "one-off",
+                "schedule_type": ScheduledConversationTask.ScheduleType.ONCE,
                 "capabilities_override": list(SCHEDULER_BASELINE_TOOL_NAMES),
             },
         )
@@ -348,18 +386,30 @@ class ScheduleFirePathTests(TestCase):
             "list_voices",
             "generate_document_file",
             "explore_web",
+            "schedule_task",
+            "list_scheduled_tasks",
+            "cancel_scheduled_task",
+        ]
+        expected = [
+            "create_speech",
+            "list_voices",
+            "generate_document_file",
+            "explore_web",
         ]
         task = self._make_pending(capabilities=caps)
         from api.messaging.tasks import run_scheduled_conversation_task
 
         run_scheduled_conversation_task(str(task.id))
         kwargs = mock_agent.call_args.kwargs
-        self.assertEqual(kwargs["tool_names"], caps)
-        self.assertEqual(kwargs["capabilities_override"], caps)
+        self.assertEqual(kwargs["tool_names"], expected)
+        self.assertEqual(kwargs["capabilities_override"], expected)
         self.assertEqual(
-            kwargs["user_message_metadata"]["capabilities_override"], caps
+            kwargs["user_message_metadata"]["capabilities_override"], expected
         )
         self.assertIn("create_speech", kwargs["tool_names"])
+        self.assertNotIn("schedule_task", kwargs["tool_names"])
+        self.assertNotIn("list_scheduled_tasks", kwargs["tool_names"])
+        self.assertNotIn("cancel_scheduled_task", kwargs["tool_names"])
 
     @patch("api.ai_layers.tasks.conversation_agent_task")
     def test_fire_skips_takeover(self, mock_agent):
@@ -400,6 +450,7 @@ class ScheduleFirePathTests(TestCase):
         mock_agent.return_value = {"status": "completed", "user_message_id": 7}
         cron = "0 11 * * 1"
         task = self._make_pending(
+            title="Weekly Monday status",
             schedule_type=ScheduledConversationTask.ScheduleType.RECURRING,
             recurrence=ScheduledConversationTask.Recurrence.WEEKLY,
             time_of_day="11:00",
@@ -411,6 +462,14 @@ class ScheduleFirePathTests(TestCase):
 
         result = run_scheduled_conversation_task(str(task.id))
         self.assertIn(result["status"], ("completed", "completed_with_error"))
+        kwargs = mock_agent.call_args.kwargs
+        user_text = kwargs["user_inputs"][0]["text"]
+        self.assertIn("recurring scheduled task", user_text)
+        self.assertEqual(kwargs["user_message_metadata"]["scheduled_task_kind"], "recurring")
+        self.assertEqual(
+            kwargs["user_message_metadata"]["scheduled_task_title"],
+            "Weekly Monday status",
+        )
         task.refresh_from_db()
         self.assertEqual(task.status, ScheduledConversationTask.Status.PENDING)
         self.assertGreater(task.next_run_at, timezone.now())
@@ -457,6 +516,22 @@ class ScheduledCapabilityOverrideTests(TestCase):
             resolve_scheduled_task_capabilities(task),
             list(SCHEDULER_BASELINE_TOOL_NAMES),
         )
+        self.assertNotIn("schedule_task", resolve_scheduled_task_capabilities(task))
+
+    def test_resolve_strips_schedule_tools_from_snapshot(self):
+        from api.messaging.schedule_helpers import resolve_scheduled_task_capabilities
+
+        task = ScheduledConversationTask(
+            capabilities=[
+                "explore_web",
+                "schedule_task",
+                "list_scheduled_tasks",
+                "cancel_scheduled_task",
+                "send_email",
+            ],
+        )
+        resolved = resolve_scheduled_task_capabilities(task)
+        self.assertEqual(resolved, ["explore_web", "send_email"])
 
     def test_resolve_tools_appends_capability_catalog_to_schedule_task(self):
         from api.ai_layers.tools import resolve_tools
@@ -478,9 +553,12 @@ class ScheduledCapabilityOverrideTests(TestCase):
             "The future scheduled turn inherits exactly these enabled capabilities",
             desc,
         )
+        self.assertIn("never available during execution", desc)
         self.assertIn("create_speech", desc)
         self.assertIn("explore_web", desc)
         self.assertIn("list_voices", desc)
+        # Schedule tools themselves must not appear in the inherited catalog payload.
+        self.assertNotIn('"schedule_task"', desc)
 
     @patch("api.notify.actions.notify_user")
     @patch("api.consumption.actions._check_org_subscription", return_value=(True, None))

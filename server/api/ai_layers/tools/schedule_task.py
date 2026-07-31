@@ -2,7 +2,8 @@
 Tool: schedule_task
 
 Schedule a one-off or recurring agent turn in a conversation. The instruction is
-stored and later injected as a user message that re-enters conversation_agent_task.
+stored as a step-by-step execution plan and later injected as a scheduled-run
+user message that re-enters conversation_agent_task.
 """
 
 from __future__ import annotations
@@ -16,12 +17,26 @@ logger = logging.getLogger(__name__)
 
 
 class ScheduleTaskParams(BaseModel):
+    title: str = Field(
+        description=(
+            "Short human-readable title for the task (max ~120 chars). "
+            "Example: 'Daily regulatory radar DOF/SAT'."
+        ),
+    )
     instruction: str = Field(
         description=(
-            "Self-contained imperative task written as a future user message "
-            "(second person / command form). Example: 'Write a competitor report "
-            "covering the last week as a docx and email it to all organization members.' "
-            "Do not write as an assistant reply."
+            "Step-by-step execution plan for the future scheduled run. "
+            "Write numbered concrete steps that say which tools/actions to use "
+            "and in what order — not a natural-language user request to schedule work. "
+            "Example: "
+            "'1. Use explore_web to check DOF, SAT, and Chevez for operational regulatory news. "
+            "2. Draft an executive summary (max two pages) with impact, recommended action, "
+            "effective date, and risk traffic light. "
+            "3. Generate a downloadable document with the summary if available. "
+            "4. If speech tools are available, produce a two-voice audio brief; otherwise leave a ready script. "
+            "5. Notify the verified WhatsApp contact if templates allow; otherwise report the limitation. "
+            "6. Email the summary to the matching org member if permitted. "
+            "7. Create today's 20:00–20:30 calendar review event if it does not already exist.'"
         ),
     )
     schedule_type: Literal["once", "recurring"] = Field(
@@ -63,6 +78,7 @@ class ScheduleTaskResult(BaseModel):
     success: bool
     message: str
     task_id: str | None = None
+    title: str | None = None
     timezone: str | None = None
     next_run_at_local: str | None = None
     next_run_at_utc: str | None = None
@@ -71,6 +87,7 @@ class ScheduleTaskResult(BaseModel):
 
 def _schedule_task_impl(
     *,
+    title: str,
     instruction: str,
     schedule_type: Literal["once", "recurring"],
     conversation_id: str,
@@ -97,6 +114,12 @@ def _schedule_task_impl(
     )
     from api.messaging.tasks import enqueue_scheduled_conversation_task
     from django.contrib.auth.models import User
+
+    title = (title or "").strip()
+    if not title:
+        raise ValueError("title is required.")
+    if len(title) > 120:
+        title = title[:120].rstrip()
 
     instruction = (instruction or "").strip()
     if not instruction:
@@ -158,6 +181,7 @@ def _schedule_task_impl(
         conversation=conversation,
         organization_id=organization_id,
         created_by=user,
+        title=title,
         instruction_text=instruction,
         schedule_type=schedule_type,
         timezone=tz_name,
@@ -176,8 +200,9 @@ def _schedule_task_impl(
     enqueue_scheduled_conversation_task(task)
     payload = schedule_payload_dict(task)
     logger.info(
-        "Scheduled conversation task created id=%s conversation=%s next=%s",
+        "Scheduled conversation task created id=%s title=%r conversation=%s next=%s",
         task.id,
+        title,
         conversation_id,
         payload.get("next_run_at_local"),
     )
@@ -185,6 +210,7 @@ def _schedule_task_impl(
         success=True,
         message="Scheduled task created.",
         task_id=str(task.id),
+        title=title,
         timezone=tz_name,
         next_run_at_local=payload.get("next_run_at_local"),
         next_run_at_utc=payload.get("next_run_at_utc"),
@@ -221,6 +247,7 @@ def get_tool(
     )
 
     def schedule_task(
+        title: str,
         instruction: str,
         schedule_type: Literal["once", "recurring"],
         run_at: str | None = None,
@@ -231,6 +258,7 @@ def get_tool(
         cron: str | None = None,
     ) -> ScheduleTaskResult:
         return _schedule_task_impl(
+            title=title,
             instruction=instruction,
             schedule_type=schedule_type,
             conversation_id=conversation_id,
@@ -251,9 +279,12 @@ def get_tool(
         "name": "schedule_task",
         "description": (
             "Schedule a one-off or recurring task that will later run in this conversation "
-            "as a user message. The future turn inherits this conversation's currently enabled "
-            "capabilities (see catalog appended below); you cannot grant extra tools. "
-            "Write instruction as a self-contained imperative user task, not as an assistant reply. "
+            "as an automatic scheduled execution. "
+            "Provide a short title and a numbered step-by-step execution plan (which tools "
+            "to use and in what order) — not a user-style request to schedule work. "
+            "The future turn inherits this conversation's currently enabled capabilities "
+            "except schedule-management tools (see catalog appended below); you cannot grant "
+            "extra tools. "
             f"{tz_line} "
             "All schedule wall times use the organization timezone unless run_at includes an offset. "
             "For recurring, prefer recurrence + time_of_day (+ weekdays/day_of_month); cron is optional."

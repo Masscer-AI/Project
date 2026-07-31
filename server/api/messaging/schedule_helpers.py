@@ -270,6 +270,7 @@ def schedule_payload_dict(task: Any) -> dict[str, Any]:
 
     return {
         "id": str(task.id),
+        "title": (getattr(task, "title", None) or "").strip() or None,
         "status": task.status,
         "schedule_type": task.schedule_type,
         "timezone": task.timezone,
@@ -309,11 +310,83 @@ def resolve_scheduled_task_capabilities(task) -> list[str]:
     """
     Capabilities for a scheduled run. Empty/legacy snapshots fall back to the
     former scheduler baseline so existing tasks keep working.
+
+    Schedule-management tools are never available during execution so the agent
+    cannot nest/recreate schedules instead of doing the work.
     """
+    from api.ai_layers.tools import SCHEDULE_AGENT_TOOL_NAMES
+
     caps = normalize_capability_names(getattr(task, "capabilities", None) or [])
-    if caps:
-        return caps
-    return list(SCHEDULER_BASELINE_TOOL_NAMES)
+    if not caps:
+        caps = list(SCHEDULER_BASELINE_TOOL_NAMES)
+    blocked = frozenset(SCHEDULE_AGENT_TOOL_NAMES)
+    return [name for name in caps if name not in blocked]
+
+
+def build_scheduled_task_execution_message(task: Any) -> str:
+    """
+    Build the user-message text injected when a scheduled task fires.
+
+    Frames the turn as an automatic scheduled execution and asks the agent to
+    follow the stored step-by-step plan (not to create another schedule).
+    """
+    schedule_type = getattr(task, "schedule_type", None) or "once"
+    kind = "recurring" if schedule_type == "recurring" else "one-off"
+    title = (getattr(task, "title", None) or "").strip() or "(untitled)"
+    tz_name = getattr(task, "timezone", None) or "UTC"
+    instruction = (getattr(task, "instruction_text", None) or "").strip()
+    summary = format_schedule_summary(
+        schedule_type=schedule_type,
+        tz_name=tz_name,
+        next_run_at_utc=getattr(task, "next_run_at", None)
+        or datetime.now(ZoneInfo("UTC")),
+        recurrence=getattr(task, "recurrence", None),
+        time_of_day=getattr(task, "time_of_day", None),
+        weekdays=getattr(task, "weekdays", None) or [],
+        day_of_month=getattr(task, "day_of_month", None),
+        cron=getattr(task, "cron", None),
+    )
+    capabilities = resolve_scheduled_task_capabilities(task)
+    caps_line = ", ".join(capabilities) if capabilities else "(none)"
+
+    next_run = getattr(task, "next_run_at", None)
+    next_local = None
+    if next_run is not None:
+        if getattr(next_run, "tzinfo", None) is None:
+            from django.utils import timezone as dj_tz
+
+            next_run = dj_tz.make_aware(next_run, ZoneInfo("UTC"))
+        next_local = local_iso_from_utc(next_run, tz_name)
+
+    lines = [
+        "=== SCHEDULED TASK EXECUTION ===",
+        (
+            f"You are running a {kind} scheduled task for this conversation. "
+            "This is an automatic execution, not a live user request to schedule work."
+        ),
+        "Do NOT create, list, or cancel schedules on this turn. Scheduling tools are unavailable.",
+        "Execute the step-by-step plan below end-to-end using the available tools.",
+        "If a step cannot be completed (missing tool, auth, or data), report that limitation clearly and continue with the rest.",
+        "When finished, summarize what you completed and what remains blocked.",
+        "",
+        f"Title: {title}",
+        f"Task ID: {task.id}",
+        f"Schedule type: {schedule_type}",
+        f"Schedule: {summary}",
+        f"Timezone: {tz_name}",
+    ]
+    if next_local:
+        lines.append(f"Current run local time: {next_local}")
+    lines.extend(
+        [
+            f"Available tools for this run: {caps_line}",
+            "",
+            "Step-by-step execution plan:",
+            instruction or "(no steps provided)",
+            "=== END SCHEDULED TASK EXECUTION ===",
+        ]
+    )
+    return "\n".join(lines)
 
 
 # Small epsilon used when advancing recurring schedules after a run.

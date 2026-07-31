@@ -11,7 +11,7 @@ from .models import (
     ScheduledConversationTask,
 )
 from .schedule_helpers import (
-    SCHEDULER_BASELINE_TOOL_NAMES,
+    build_scheduled_task_execution_message,
     resolve_scheduled_task_capabilities,
 )
 from .schemas import ConversationAnalysisResult
@@ -570,10 +570,16 @@ def run_scheduled_conversation_task(scheduled_task_id: str):
         return {"status": "error", "error": "no_agents"}
 
     capabilities = resolve_scheduled_task_capabilities(task)
+    execution_text = build_scheduled_task_execution_message(task)
+    schedule_kind = (
+        "recurring"
+        if task.schedule_type == ScheduledConversationTask.ScheduleType.RECURRING
+        else "one-off"
+    )
     try:
         result = conversation_agent_task(
             conversation_id=str(conversation.id),
-            user_inputs=[{"type": "input_text", "text": task.instruction_text}],
+            user_inputs=[{"type": "input_text", "text": execution_text}],
             tool_names=list(capabilities),
             agent_slugs=agent_slugs,
             multiagentic_modality=task.multiagentic_modality or "isolated",
@@ -582,6 +588,9 @@ def run_scheduled_conversation_task(scheduled_task_id: str):
             user_message_metadata={
                 "source": "scheduled_task",
                 "scheduled_task_id": str(task.id),
+                "scheduled_task_title": (task.title or "").strip() or None,
+                "scheduled_task_kind": schedule_kind,
+                "schedule_type": task.schedule_type,
                 "capabilities_override": list(capabilities),
             },
         )

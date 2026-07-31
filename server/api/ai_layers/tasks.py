@@ -1903,11 +1903,37 @@ def conversation_agent_task(
                     instructions += (
                         "\n\nYou can schedule future agent work in this conversation with "
                         "schedule_task (one-off or recurring). "
-                        "Write the instruction as a self-contained imperative user task "
-                        "(second person / command form); it will be injected later as a user message. "
+                        "When calling schedule_task: provide a short title, and write instruction "
+                        "as a numbered step-by-step execution plan (which tools/actions to use and "
+                        "in what order) — not as a natural-language user request to schedule work. "
+                        "That plan will be injected later as an automatic scheduled-execution message. "
                         f"Organization timezone for task scheduling: {_sched_tz}. "
                         "Use list_scheduled_tasks and cancel_scheduled_task to manage schedules."
                     )
+
+            _is_scheduled_run = (
+                isinstance(user_message_metadata, dict)
+                and user_message_metadata.get("source") == "scheduled_task"
+            )
+            if _is_scheduled_run:
+                _sched_title = user_message_metadata.get("scheduled_task_title") or ""
+                _sched_kind = user_message_metadata.get("scheduled_task_kind") or "scheduled"
+                _sched_id = user_message_metadata.get("scheduled_task_id") or ""
+                instructions += (
+                    "\n\n=== SCHEDULED TASK RUN ===\n"
+                    f"This turn is an automatic {_sched_kind} scheduled-task execution "
+                    "for this conversation (not a live interactive user request). "
+                    f"Title: {_sched_title or '(untitled)'}. "
+                    f"Task ID: {_sched_id}. "
+                    "Scheduling tools are unavailable on this turn — do not try to create, "
+                    "list, or cancel schedules. "
+                    "Follow the step-by-step execution plan in the user message end-to-end. "
+                    "Use the available tools to complete each step. "
+                    "If a required capability is missing or fails, report that limitation "
+                    "clearly and continue with what you can. "
+                    "When finished, summarize what you completed and what remains blocked.\n"
+                    "=== END SCHEDULED TASK RUN ==="
+                )
 
             if any(t in agent_tool_names for t in CALENDAR_AGENT_TOOL_NAMES):
                 instructions += (

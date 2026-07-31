@@ -267,6 +267,7 @@ class ConversationTakeoverAdmin(admin.ModelAdmin):
 class ScheduledConversationTaskAdmin(admin.ModelAdmin):
     list_display = (
         "id",
+        "title",
         "conversation",
         "organization",
         "schedule_type",
@@ -277,7 +278,7 @@ class ScheduledConversationTaskAdmin(admin.ModelAdmin):
         "created_at",
     )
     list_filter = ("status", "schedule_type", "timezone", "created_at")
-    search_fields = ("id", "instruction_text", "conversation__title", "cron")
+    search_fields = ("id", "title", "instruction_text", "conversation__title", "cron")
     raw_id_fields = ("conversation", "organization", "created_by")
     readonly_fields = (
         "id",

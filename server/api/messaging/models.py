@@ -668,8 +668,17 @@ class ScheduledConversationTask(models.Model):
         on_delete=models.CASCADE,
         related_name="scheduled_conversation_tasks",
     )
+    title = models.CharField(
+        max_length=120,
+        blank=True,
+        default="",
+        help_text="Short human-readable label for the scheduled task.",
+    )
     instruction_text = models.TextField(
-        help_text="Imperative task text injected as a user message when the schedule fires.",
+        help_text=(
+            "Step-by-step execution plan injected when the schedule fires "
+            "(not a natural-language user request)."
+        ),
     )
     schedule_type = models.CharField(max_length=16, choices=ScheduleType.choices)
     timezone = models.CharField(
@@ -741,4 +750,5 @@ class ScheduledConversationTask(models.Model):
         ordering = ["next_run_at"]
 
     def __str__(self):
-        return f"ScheduledConversationTask({self.id}, {self.schedule_type}, {self.status})"
+        label = (self.title or "").strip() or str(self.id)
+        return f"ScheduledConversationTask({label}, {self.schedule_type}, {self.status})"

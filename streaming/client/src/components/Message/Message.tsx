@@ -333,14 +333,24 @@ export const Message = memo(
           <div>
             {isScheduledUserMessage && (
               <Group justify="flex-end" mb={6}>
-                <Tooltip label={t("scheduled-task-message-tooltip")}>
+                <Tooltip
+                  label={
+                    metadata?.scheduled_task_title
+                      ? `${t("scheduled-task-message-tooltip")} — ${metadata.scheduled_task_title}`
+                      : t("scheduled-task-message-tooltip")
+                  }
+                >
                   <Badge
                     variant="light"
                     color="gray"
                     size="sm"
                     leftSection={<IconClock size={12} />}
                   >
-                    {t("scheduled-task-badge")}
+                    {metadata?.scheduled_task_title
+                      ? metadata.scheduled_task_title.length > 40
+                        ? `${metadata.scheduled_task_title.slice(0, 39)}…`
+                        : metadata.scheduled_task_title
+                      : t("scheduled-task-badge")}
                   </Badge>
                 </Tooltip>
               </Group>
