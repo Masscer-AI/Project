@@ -1981,13 +1981,24 @@ def conversation_agent_task(
             if applicable_alert_rules and organization:
                 resolve_kwargs["organization_id"] = organization.id
             # Unlinked WhatsApp visitors use org-embedded cross-thread tools.
-            # Linked contacts use the same user-scoped tools as web chat.
+            # Linked contacts use the same user-scoped tools as web chat
+            # (including WhatsApp template tools if granted on the line).
             if is_whatsapp_chat and actor_user_id is None:
                 resolve_kwargs["is_whatsapp_visitor"] = True
-                if "list_conversations" in agent_tool_names:
-                    agent_tool_names = [
-                        n for n in agent_tool_names if n != "list_conversations"
-                    ]
+                _strip_unlinked = {"list_conversations", *WHATSAPP_TEMPLATE_AGENT_TOOL_NAMES}
+                agent_tool_names = [
+                    n for n in agent_tool_names if n not in _strip_unlinked
+                ]
+            elif is_whatsapp_chat and actor_user_id is not None:
+                if any(t in agent_tool_names for t in WHATSAPP_TEMPLATE_AGENT_TOOL_NAMES):
+                    instructions += (
+                        "\n\nYou can notify organization members on WhatsApp with approved "
+                        "templates, using only WhatsApp lines assigned to you. "
+                        "Use list_whatsapp_resources (your lines with verified "
+                        "contacts), list_whatsapp_templates, then send_ws_template_message "
+                        "with sender_id and ws_contact_id. A member may have multiple "
+                        "verified contacts (phones); pick the exact ws_contact_id."
+                    )
 
             tools = resolve_tools(agent_tool_names, **resolve_kwargs)
 

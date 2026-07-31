@@ -87,7 +87,9 @@ def get_tool(
         "description": (
             "Send an approved WhatsApp template message to a verified WhatsApp "
             "contact (organization member linked to a phone on a sender line "
-            "assigned to you). "
+            "assigned to you). The template is recorded on that contact's "
+            "**active WhatsApp conversation** so their reply (text or quick-reply "
+            "button) continues in that thread. "
             "Use list_whatsapp_resources for sender_id and ws_contact_id, and "
             "list_whatsapp_templates for template_id and required variables. "
             "For templates with a conversation URL button, the current conversation "

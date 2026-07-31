@@ -372,8 +372,73 @@ def send_whatsapp_fallback_text(
     )
 
 
+def _interactive_reply_text(message: dict) -> str | None:
+    """Extract human-readable text from interactive button/list replies."""
+    interactive = message.get("interactive") or {}
+    if not isinstance(interactive, dict):
+        return None
+    itype = interactive.get("type")
+    if itype == "button_reply":
+        reply = interactive.get("button_reply") or {}
+        if not isinstance(reply, dict):
+            return None
+        title = (reply.get("title") or "").strip()
+        payload = (reply.get("id") or "").strip()
+        return title or payload or None
+    if itype == "list_reply":
+        reply = interactive.get("list_reply") or {}
+        if not isinstance(reply, dict):
+            return None
+        title = (reply.get("title") or "").strip()
+        description = (reply.get("description") or "").strip()
+        payload = (reply.get("id") or "").strip()
+        if title and description:
+            return f"{title}: {description}"
+        return title or payload or None
+    return None
+
+
+def _legacy_button_reply_text(message: dict) -> str | None:
+    """Extract text from legacy WhatsApp Cloud API ``type=button`` replies."""
+    button = message.get("button") or {}
+    if not isinstance(button, dict):
+        return None
+    text = (button.get("text") or "").strip()
+    payload = (button.get("payload") or "").strip()
+    return text or payload or None
+
+
+def _forward_as_text_inbound(webhook_data, message, body: str) -> None:
+    """Reuse the text inbound path (conversation, /clear, agent enqueue)."""
+    synthetic = dict(message)
+    synthetic["type"] = "text"
+    synthetic["text"] = {"body": body}
+    handle_message_received(webhook_data, synthetic)
+
+
 def handle_interactive_message(webhook_data, message):
     printer.red("Interactive message received")
+    printer.green(message)
+    body = _interactive_reply_text(message)
+    if not body:
+        printer.red(
+            "Interactive message missing button_reply/list_reply text; skipping"
+        )
+        return
+    printer.green("Interactive reply → text inbound: ", body)
+    _forward_as_text_inbound(webhook_data, message, body)
+
+
+def handle_button_message(webhook_data, message):
+    """Template quick-reply / legacy button tap (type=button)."""
+    printer.red("Button message received")
+    printer.green(message)
+    body = _legacy_button_reply_text(message)
+    if not body:
+        printer.red("Button message missing text/payload; skipping")
+        return
+    printer.green("Button reply → text inbound: ", body)
+    _forward_as_text_inbound(webhook_data, message, body)
 
 
 def handle_image_message(webhook_data, message):
@@ -487,6 +552,8 @@ def handle_webhook(webhook_data):
         handle_document_message(webhook_data=webhook_data, message=message)
     elif message.get("type") == "interactive":
         handle_interactive_message(webhook_data=webhook_data, message=message)
+    elif message.get("type") == "button":
+        handle_button_message(webhook_data=webhook_data, message=message)
 
 
 def handle_message_received(webhook_data, message):

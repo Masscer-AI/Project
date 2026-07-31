@@ -34,7 +34,10 @@ import {
 import { IconMenu2, IconDeviceFloppy, IconUsers } from "@tabler/icons-react";
 import { TOrganizationMember } from "../../types";
 
-/** Tools that make sense on WhatsApp (no plugins / doc templates — web UI only). */
+/**
+ * Tools toggled on a WhatsApp line (Personalizar linea).
+ * Template tools only resolve at runtime for linked (authenticated) contacts.
+ */
 const WHATSAPP_CAPABILITY_NAMES = [
   "read_attachment",
   "list_attachments",
@@ -45,6 +48,9 @@ const WHATSAPP_CAPABILITY_NAMES = [
   "generate_dialogue",
   "generate_video",
   "generate_document_file",
+  "list_whatsapp_resources",
+  "list_whatsapp_templates",
+  "send_ws_template_message",
 ] as const;
 
 const WHATSAPP_REQUIRED_CAPABILITY_NAMES = [

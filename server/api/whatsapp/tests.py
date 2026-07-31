@@ -321,7 +321,8 @@ class WhatsappWebhookEnqueueTests(TestCase):
             type="user",
             metadata__whatsapp_inbound_wamid="wamid.inbound",
         )
-        self.assertEqual(stub.text, ".")
+        # Stub shows inbound text preview while debounce/agent flush is pending.
+        self.assertEqual(stub.text, "Hello")
 
     @patch("api.whatsapp.actions.mark_message_as_read")
     @patch("api.whatsapp.tasks.whatsapp_flush_inbound_agent_task.apply_async")
@@ -515,6 +516,91 @@ class WhatsappWebhookEnqueueTests(TestCase):
         self.assertEqual(forwarded["id"], "wamid.audio.inbound")
         self.assertEqual(forwarded["type"], "text")
         self.assertEqual(forwarded["text"]["body"], "Hola desde audio")
+
+    @patch("api.whatsapp.actions.handle_message_received")
+    def test_handle_interactive_button_reply_forwards_as_text(
+        self, mock_handle_message
+    ):
+        from api.whatsapp.actions import handle_interactive_message, handle_webhook
+
+        webhook_data = {
+            "entry": [
+                {
+                    "changes": [
+                        {
+                            "value": {
+                                "metadata": {"phone_number_id": "pnid-enqueue"},
+                                "messages": [
+                                    {
+                                        "from": "5490000000000",
+                                        "id": "wamid.interactive.yes",
+                                        "type": "interactive",
+                                        "interactive": {
+                                            "type": "button_reply",
+                                            "button_reply": {
+                                                "id": "approve",
+                                                "title": "Yes, permission granted",
+                                            },
+                                        },
+                                    }
+                                ],
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+        message = webhook_data["entry"][0]["changes"][0]["value"]["messages"][0]
+        handle_interactive_message(webhook_data, message)
+
+        mock_handle_message.assert_called_once()
+        forwarded = mock_handle_message.call_args.args[1]
+        self.assertEqual(forwarded["id"], "wamid.interactive.yes")
+        self.assertEqual(forwarded["type"], "text")
+        self.assertEqual(forwarded["text"]["body"], "Yes, permission granted")
+
+        mock_handle_message.reset_mock()
+        handle_webhook(webhook_data)
+        mock_handle_message.assert_called_once()
+
+    @patch("api.whatsapp.actions.handle_message_received")
+    def test_handle_legacy_button_reply_forwards_as_text(self, mock_handle_message):
+        from api.whatsapp.actions import handle_button_message, handle_webhook
+
+        webhook_data = {
+            "entry": [
+                {
+                    "changes": [
+                        {
+                            "value": {
+                                "metadata": {"phone_number_id": "pnid-enqueue"},
+                                "messages": [
+                                    {
+                                        "from": "5490000000000",
+                                        "id": "wamid.button.yes",
+                                        "type": "button",
+                                        "button": {
+                                            "text": "Si, permiso concedido.",
+                                            "payload": "approve",
+                                        },
+                                    }
+                                ],
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+        message = webhook_data["entry"][0]["changes"][0]["value"]["messages"][0]
+        handle_button_message(webhook_data, message)
+
+        mock_handle_message.assert_called_once()
+        forwarded = mock_handle_message.call_args.args[1]
+        self.assertEqual(forwarded["text"]["body"], "Si, permiso concedido.")
+
+        mock_handle_message.reset_mock()
+        handle_webhook(webhook_data)
+        mock_handle_message.assert_called_once()
 
 
 @patch("api.whatsapp.views.FeatureFlagService.is_feature_enabled", return_value=(True, "on"))

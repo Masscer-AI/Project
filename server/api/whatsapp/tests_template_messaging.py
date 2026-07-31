@@ -23,6 +23,7 @@ from api.whatsapp.template_registry import (
 from api.whatsapp.template_send import (
     TemplateVariables,
     build_template_components,
+    format_template_delivery_message,
     send_ws_template_to_member,
 )
 
@@ -77,6 +78,33 @@ class WhatsAppSendTemplateMessageGraphTests(SimpleTestCase):
                 language_code="en",
             )
         self.assertIn("Template name does not exist", str(ctx.exception))
+
+
+class WhatsAppTemplateDeliveryMessageFormatTests(SimpleTestCase):
+    def test_format_matches_dashboard_markdown(self):
+        text = format_template_delivery_message(
+            APPROVAL_PENDING,
+            TemplateVariables(
+                body=[
+                    "Send test WhatsApp message",
+                    "I will send a test message when you grant approval.",
+                ]
+            ),
+            source_conversation_id="11111111-1111-4111-8111-111111111111",
+        )
+        self.assertEqual(
+            text,
+            (
+                "---\n"
+                "[Send from another conversation](/chat?conversation="
+                "11111111-1111-4111-8111-111111111111)\n"
+                "\n"
+                "### Send test WhatsApp message\n"
+                "\n"
+                "I will send a test message when you grant approval.\n"
+                "---"
+            ),
+        )
 
 
 class WhatsAppTemplateRegistryTests(SimpleTestCase):
@@ -393,6 +421,13 @@ class WhatsAppTemplateSendTests(TestCase):
             msg.metadata.get("source_conversation_id"),
             str(self.source_conversation.id),
         )
+        self.assertIn("---", msg.text)
+        self.assertIn(
+            f"[Send from another conversation](/chat?conversation={self.source_conversation.id})",
+            msg.text,
+        )
+        self.assertIn("### Finish weekly report", msg.text)
+        self.assertIn("All good this week", msg.text)
         self.assertFalse(
             Message.objects.filter(conversation=self.source_conversation).exists()
         )
@@ -730,18 +765,49 @@ class WhatsAppTemplateToolsTests(TestCase):
             )
         self.assertIn("agent_id", str(ctx.exception))
 
-    def test_not_in_whatsapp_visitor_capabilities(self):
-        from api.whatsapp.capability_tools import WHATSAPP_ALLOWED_CAPABILITY_TOOLS
+    def test_template_tools_allowed_on_whatsapp_line_capabilities(self):
+        """Grantable on the phone line; runtime still requires a linked contact."""
+        from api.whatsapp.capability_tools import (
+            WHATSAPP_ALLOWED_CAPABILITY_TOOLS,
+            filter_capabilities_for_whatsapp,
+        )
+        from api.whatsapp.conversations import tool_names_from_capabilities
 
-        self.assertNotIn(
-            "send_ws_template_message", WHATSAPP_ALLOWED_CAPABILITY_TOOLS
+        for name in (
+            "send_ws_template_message",
+            "list_whatsapp_resources",
+            "list_whatsapp_templates",
+        ):
+            self.assertIn(name, WHATSAPP_ALLOWED_CAPABILITY_TOOLS)
+
+        filtered = filter_capabilities_for_whatsapp(
+            [
+                {
+                    "name": "send_ws_template_message",
+                    "type": "internal_tool",
+                    "enabled": True,
+                },
+                {
+                    "name": "list_whatsapp_resources",
+                    "type": "internal_tool",
+                    "enabled": True,
+                },
+                {
+                    "name": "list_whatsapp_templates",
+                    "type": "internal_tool",
+                    "enabled": True,
+                },
+            ]
         )
-        self.assertNotIn(
-            "list_whatsapp_resources", WHATSAPP_ALLOWED_CAPABILITY_TOOLS
-        )
-        self.assertNotIn(
-            "list_whatsapp_templates", WHATSAPP_ALLOWED_CAPABILITY_TOOLS
-        )
+        names = {c["name"] for c in filtered if c.get("enabled")}
+        self.assertIn("send_ws_template_message", names)
+        self.assertIn("list_whatsapp_resources", names)
+        self.assertIn("list_whatsapp_templates", names)
+
+        resolved = tool_names_from_capabilities(filtered)
+        self.assertIn("send_ws_template_message", resolved)
+        self.assertIn("list_whatsapp_resources", resolved)
+        self.assertIn("list_whatsapp_templates", resolved)
 
     def test_mcp_preset_includes_whatsapp_group(self):
         from api.ai_layers.mcp_access import mcp_tool_preset_groups

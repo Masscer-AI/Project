@@ -211,6 +211,47 @@ def build_template_components(
     return components
 
 
+def format_template_delivery_message(
+    template: WhatsAppTemplateDefinition,
+    variables: TemplateVariables,
+    *,
+    source_conversation_id: str | None,
+) -> str:
+    """
+    Markdown stored on the WhatsApp delivery conversation for dashboard + agent context.
+
+    ---
+    [Send from another conversation](/chat?conversation=<uuid>)
+
+    ### Title
+
+    Body
+    ---
+    """
+    body_values = [str(v).strip() for v in (variables.body or []) if str(v).strip()]
+    if len(body_values) >= 2:
+        title = body_values[0]
+        body = "\n\n".join(body_values[1:])
+    elif len(body_values) == 1:
+        title = (template.meta_name or template.id).replace("_", " ").strip()
+        body = body_values[0]
+    else:
+        title = (template.meta_name or template.id).replace("_", " ").strip()
+        body = (template.description or "").strip() or "(no body)"
+
+    lines = ["---"]
+    if source_conversation_id:
+        lines.append(
+            f"[Send from another conversation](/chat?conversation={source_conversation_id})"
+        )
+        lines.append("")
+    lines.append(f"### {title}")
+    lines.append("")
+    lines.append(body)
+    lines.append("---")
+    return "\n".join(lines)[:4000]
+
+
 def get_or_create_delivery_conversation(
     ws_number: WSNumber,
     phone_digits: str,
@@ -321,15 +362,18 @@ def send_ws_template_to_member(
         )
         raise ValueError(f"Failed to send WhatsApp template: {exc}") from exc
 
-    preview_body = " ".join(variables.body).strip()
-    text = (
-        f"[WhatsApp template:{template.id}] {preview_body}".strip()
-        or f"[WhatsApp template:{template.id}]"
+    # Persist on the contact's active WhatsApp thread so inbound replies
+    # (including quick-reply buttons) see this template in conversation history.
+    text = format_template_delivery_message(
+        template,
+        variables,
+        source_conversation_id=source_conversation_id,
     )
-    Message.objects.create(
+
+    assistant_msg = Message.objects.create(
         conversation=delivery_conversation,
         type="assistant",
-        text=text[:4000],
+        text=text,
         metadata={
             "whatsapp_wamid": wamid,
             "whatsapp_template_id": template.id,
@@ -339,8 +383,18 @@ def send_ws_template_to_member(
             else None,
             "target_user_id": contact.user_id,
             "ws_contact_id": contact.id,
+            "delivery_conversation_id": str(delivery_conversation.id),
         },
     )
+    try:
+        from api.messaging.takeover import emit_message_created
+
+        emit_message_created(None, delivery_conversation, assistant_msg)
+    except Exception:
+        logger.exception(
+            "emit_message_created failed after template send conversation=%s",
+            delivery_conversation.id,
+        )
 
     return SendWsTemplateResult(
         sent=True,
