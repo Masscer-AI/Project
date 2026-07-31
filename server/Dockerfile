@@ -21,6 +21,12 @@ ENV PATH="/opt/venv/bin:${PATH}"
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 
+# Bake Chroma's default embedding model into the image. The chromadb client
+# embeds text in-process, so a container without this cache stalls on an ~80MB
+# download before it can serve the first RAG query.
+COPY scripts/prefetch_chroma_model.py ./scripts/prefetch_chroma_model.py
+RUN python ./scripts/prefetch_chroma_model.py
+
 # Copy the rest of the application code into the container
 COPY . .
 

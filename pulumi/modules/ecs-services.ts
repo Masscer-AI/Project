@@ -264,8 +264,10 @@ export function createAppServices(args: {
       name: "chroma",
       image: args.chromaImage,
       essential: true,
-      // Chroma stores the default ONNX embedding model at $HOME/.cache/chroma.
-      // Point HOME at the EFS mount so the ~80MB model survives task restarts.
+      // Keep any cache Chroma writes to $HOME on EFS rather than the ephemeral
+      // task FS. The ONNX embedding model is not downloaded here: the chromadb
+      // client embeds in-process, so it is baked into the Django image instead
+      // (see server/scripts/prefetch_chroma_model.py).
       environment: [{ name: "HOME", value: "/data" }],
       portMappings: [{ containerPort: 8000, hostPort: 8000, protocol: "tcp" }],
       mountPoints: [{ sourceVolume: "chroma-data", containerPath: "/data", readOnly: false }],

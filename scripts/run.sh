@@ -79,6 +79,7 @@ DJANGO_CONTAINER=${DJANGO_CONTAINER:-masscer-django}
 DJANGO_IMAGE=${DJANGO_IMAGE:-masscer-django-img}
 CHROMA_CONTAINER=${CHROMA_CONTAINER:-masscer-chroma}
 CHROMA_IMAGE=${CHROMA_IMAGE:-chromadb/chroma:1.5.2}
+CHROMA_MODEL_CACHE_VOLUME=${CHROMA_MODEL_CACHE_VOLUME:-masscer-chroma-model-cache}
 FASTAPI_CONTAINER=${FASTAPI_CONTAINER:-masscer-fastapi}
 FASTAPI_IMAGE=${FASTAPI_IMAGE:-masscer-fastapi-img}
 NGINX_CONTAINER=${NGINX_CONTAINER:-masscer-nginx}
@@ -160,9 +161,10 @@ if [ "$INSTALL" = true ]; then
 fi
 
 # ── Chroma ────────────────────────────────────────────────────────────────────
-# Persist the default ONNX embedding model under /data (vector_storage). Chroma
-# writes it to $HOME/.cache/chroma; without HOME=/data it lands on the ephemeral
-# container FS and re-downloads (~80MB) on every recreate.
+# HOME=/data keeps any cache Chroma writes on the vector_storage volume instead
+# of the ephemeral container FS. Note the ONNX embedding model is NOT downloaded
+# here: the chromadb client embeds in-process, so the model lives in the Django
+# and Celery containers (see CHROMA_MODEL_CACHE_VOLUME below).
 info "Starting Chroma..."
 mkdir -p "${PROJECT_ROOT}/vector_storage"
 
@@ -227,6 +229,12 @@ REDIS_INTERNAL="redis://${REDIS_CONTAINER}:6379"
 CHROMA_HOST_CONTAINER=${CHROMA_HOST_CONTAINER:-$CHROMA_CONTAINER}
 CHROMA_PORT_CONTAINER=${CHROMA_PORT_CONTAINER:-8000}
 
+# Shared cache for Chroma's ONNX embedding model. The image ships it under
+# /root/.cache/chroma; the volume keeps it across image rebuilds so a cold build
+# never re-downloads the ~80MB model.
+docker volume create "$CHROMA_MODEL_CACHE_VOLUME" >/dev/null \
+    || { error "Failed to create Chroma model cache volume"; exit 1; }
+
 # Bash array so we don't repeat these 8 overrides on every docker run
 DJANGO_ENV=(
     --env-file .env
@@ -241,12 +249,17 @@ DJANGO_ENV=(
     -e INTERNAL_MCP_INTROSPECT_TOKEN="${INTERNAL_MCP_INTROSPECT_TOKEN:-}"
 )
 
+DJANGO_MOUNTS=(
+    -v "${BACKEND_DIR}:/app"
+    -v "${PROJECT_ROOT}/storage:/app/storage"
+    -v "${CHROMA_MODEL_CACHE_VOLUME}:/root/.cache/chroma"
+)
+
 run_django_manage_oneoff() {
     docker run --rm \
         --network $NETWORK_NAME \
         "${DJANGO_ENV[@]}" \
-        -v "${BACKEND_DIR}:/app" \
-        -v "${PROJECT_ROOT}/storage:/app/storage" \
+        "${DJANGO_MOUNTS[@]}" \
         $DJANGO_IMAGE python manage.py "$@"
 }
 
@@ -255,8 +268,7 @@ info "Collecting Django static files..."
 docker run --rm \
     --network $NETWORK_NAME \
     "${DJANGO_ENV[@]}" \
-    -v "${BACKEND_DIR}:/app" \
-    -v "${PROJECT_ROOT}/storage:/app/storage" \
+    "${DJANGO_MOUNTS[@]}" \
     $DJANGO_IMAGE python manage.py collectstatic --noinput || { error "Collectstatic failed"; exit 1; }
 
 # ── Django ────────────────────────────────────────────────────────────────────
@@ -267,8 +279,7 @@ docker run -d \
     --name $DJANGO_CONTAINER \
     --network $NETWORK_NAME \
     "${DJANGO_ENV[@]}" \
-    -v "${BACKEND_DIR}:/app" \
-    -v "${PROJECT_ROOT}/storage:/app/storage" \
+    "${DJANGO_MOUNTS[@]}" \
     -p "${DJANGO_PORT}:${DJANGO_PORT}" \
     $DJANGO_IMAGE python manage.py runserver "0.0.0.0:${DJANGO_PORT}" \
     || { error "Django failed to start"; exit 1; }
@@ -283,8 +294,7 @@ run_celery_container() {
         --name $name \
         --network $NETWORK_NAME \
         "${DJANGO_ENV[@]}" \
-        -v "${BACKEND_DIR}:/app" \
-        -v "${PROJECT_ROOT}/storage:/app/storage" \
+        "${DJANGO_MOUNTS[@]}" \
         $DJANGO_IMAGE "$@"
 }
 

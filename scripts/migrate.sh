@@ -28,6 +28,7 @@ NETWORK_NAME=${NETWORK_NAME:-masscer-net}
 PGBOUNCER_CONTAINER=${PGBOUNCER_CONTAINER:-pgbouncer_container}
 REDIS_CONTAINER=${REDIS_CONTAINER:-redis-instance}
 CHROMA_CONTAINER=${CHROMA_CONTAINER:-masscer-chroma}
+CHROMA_MODEL_CACHE_VOLUME=${CHROMA_MODEL_CACHE_VOLUME:-masscer-chroma-model-cache}
 
 if ! docker image inspect $DJANGO_IMAGE &>/dev/null; then
     echo "Django image '$DJANGO_IMAGE' not found. Run ./taskfile.sh run -r first."
@@ -61,6 +62,7 @@ run_manage() {
         "${DJANGO_ENV[@]}" \
         -v "${BACKEND_CONTEXT_PATH}:/app" \
         -v "./storage:/app/storage" \
+        -v "${CHROMA_MODEL_CACHE_VOLUME}:/root/.cache/chroma" \
         $DJANGO_IMAGE python manage.py "$@"
 }
 
