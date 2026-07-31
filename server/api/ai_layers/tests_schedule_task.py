@@ -36,6 +36,32 @@ def _seed_llm_and_currency():
 
 
 class ScheduleHelperTests(SimpleTestCase):
+    def test_execution_message_hides_details_in_html_comment(self):
+        from api.messaging.schedule_helpers import build_scheduled_task_execution_message
+        from types import SimpleNamespace
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+
+        task = SimpleNamespace(
+            id="11111111-1111-1111-1111-111111111111",
+            title="Pedir permiso para imagen",
+            instruction_text="1. Usa send_ws_template_message.\n2. Reporta el resultado.",
+            schedule_type="once",
+            timezone="America/Guayaquil",
+            next_run_at=datetime(2026, 7, 31, 18, 51, tzinfo=ZoneInfo("UTC")),
+            recurrence=None,
+            time_of_day=None,
+            weekdays=[],
+            day_of_month=None,
+            cron=None,
+            capabilities=["explore_web", "schedule_task"],
+        )
+        text = build_scheduled_task_execution_message(task)
+        self.assertTrue(text.startswith("Ejecutando tarea: Pedir permiso para imagen"))
+        self.assertIn("<!--", text)
+        self.assertIn("1. Usa send_ws_template_message.", text)
+        self.assertNotIn("schedule_task", text.split("<!--", 1)[0])
+
     def test_parse_run_at_naive_uses_org_timezone(self):
         utc = parse_run_at_to_utc("2026-07-27T11:00:00", "America/Guayaquil")
         # Guayaquil is UTC-5 → 16:00 UTC
@@ -347,11 +373,14 @@ class ScheduleFirePathTests(TestCase):
         mock_agent.assert_called_once()
         kwargs = mock_agent.call_args.kwargs
         user_text = kwargs["user_inputs"][0]["text"]
-        self.assertIn("=== SCHEDULED TASK EXECUTION ===", user_text)
+        self.assertTrue(user_text.startswith("Executing task: Short status update"))
+        self.assertIn("<!--", user_text)
+        self.assertIn("SCHEDULED_TASK_EXECUTION", user_text)
         self.assertIn("one-off scheduled task", user_text)
         self.assertIn("Title: Short status update", user_text)
         self.assertIn("1. Write a short status update.", user_text)
         self.assertIn("Do NOT create, list, or cancel schedules", user_text)
+        self.assertIn("-->", user_text)
         from api.messaging.schedule_helpers import SCHEDULER_BASELINE_TOOL_NAMES
 
         self.assertEqual(kwargs["tool_names"], list(SCHEDULER_BASELINE_TOOL_NAMES))
@@ -366,6 +395,7 @@ class ScheduleFirePathTests(TestCase):
                 "scheduled_task_title": "Short status update",
                 "scheduled_task_kind": "one-off",
                 "schedule_type": ScheduledConversationTask.ScheduleType.ONCE,
+                "scheduled_task_plan": "1. Write a short status update.",
                 "capabilities_override": list(SCHEDULER_BASELINE_TOOL_NAMES),
             },
         )

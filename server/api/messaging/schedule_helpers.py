@@ -323,12 +323,65 @@ def resolve_scheduled_task_capabilities(task) -> list[str]:
     return [name for name in caps if name not in blocked]
 
 
+def _html_comment_safe(text: str) -> str:
+    """Avoid terminating an HTML comment early (`--` is illegal inside comments)."""
+    return (text or "").replace("--", "—")
+
+
+def infer_schedule_ui_language(*parts: str | None) -> str:
+    """
+    Best-effort UI language for the short visible scheduled-task label.
+
+    User language is frontend-only today, so infer from title/instruction text.
+    """
+    sample = " ".join(p for p in parts if p).lower()
+    if not sample.strip():
+        return "en"
+    spanish_markers = (
+        "ción",
+        "ñ",
+        "á",
+        "é",
+        "í",
+        "ó",
+        "ú",
+        "¿",
+        "¡",
+        " que ",
+        " para ",
+        " con ",
+        " una ",
+        " los ",
+        " las ",
+        " del ",
+        " usa ",
+        " genera ",
+        " envía ",
+        " enviar ",
+        " crear ",
+        " revisa ",
+        " pedir ",
+        " permiso ",
+    )
+    score = sum(1 for marker in spanish_markers if marker in sample)
+    return "es" if score >= 2 else "en"
+
+
+def format_scheduled_task_visible_label(title: str, language: str) -> str:
+    clean_title = (title or "").strip() or (
+        "Tarea sin título" if language == "es" else "Untitled task"
+    )
+    if language == "es":
+        return f"Ejecutando tarea: {clean_title}"
+    return f"Executing task: {clean_title}"
+
+
 def build_scheduled_task_execution_message(task: Any) -> str:
     """
     Build the user-message text injected when a scheduled task fires.
 
-    Frames the turn as an automatic scheduled execution and asks the agent to
-    follow the stored step-by-step plan (not to create another schedule).
+    Visible line is a short localized label; full execution context lives in an
+    HTML comment so Markdown UIs (skipHtml) hide it while the model still sees it.
     """
     schedule_type = getattr(task, "schedule_type", None) or "once"
     kind = "recurring" if schedule_type == "recurring" else "one-off"
@@ -358,8 +411,11 @@ def build_scheduled_task_execution_message(task: Any) -> str:
             next_run = dj_tz.make_aware(next_run, ZoneInfo("UTC"))
         next_local = local_iso_from_utc(next_run, tz_name)
 
-    lines = [
-        "=== SCHEDULED TASK EXECUTION ===",
+    language = infer_schedule_ui_language(title, instruction)
+    visible = format_scheduled_task_visible_label(title, language)
+
+    detail_lines = [
+        "SCHEDULED_TASK_EXECUTION",
         (
             f"You are running a {kind} scheduled task for this conversation. "
             "This is an automatic execution, not a live user request to schedule work."
@@ -376,17 +432,18 @@ def build_scheduled_task_execution_message(task: Any) -> str:
         f"Timezone: {tz_name}",
     ]
     if next_local:
-        lines.append(f"Current run local time: {next_local}")
-    lines.extend(
+        detail_lines.append(f"Current run local time: {next_local}")
+    detail_lines.extend(
         [
             f"Available tools for this run: {caps_line}",
             "",
             "Step-by-step execution plan:",
             instruction or "(no steps provided)",
-            "=== END SCHEDULED TASK EXECUTION ===",
+            "END_SCHEDULED_TASK_EXECUTION",
         ]
     )
-    return "\n".join(lines)
+    comment_body = _html_comment_safe("\n".join(detail_lines))
+    return f"{visible}\n\n<!--\n{comment_body}\n-->"
 
 
 # Small epsilon used when advancing recurring schedules after a run.

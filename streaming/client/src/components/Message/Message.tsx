@@ -163,7 +163,14 @@ export const Message = memo(
     const canShowExecutionLog =
       Boolean(id) && type === "assistant" && Boolean(versions?.length);
 
-    const displayMarkdownText = versions?.[currentVersion]?.text || innerText;
+    const rawDisplayMarkdownText = versions?.[currentVersion]?.text || innerText;
+    const displayMarkdownText = isScheduledUserMessage
+      ? t("scheduled-task-executing", {
+          title:
+            metadata?.scheduled_task_title?.trim() ||
+            t("scheduled-task-untitled"),
+        })
+      : rawDisplayMarkdownText;
     const currentSources = versions?.[currentVersion]?.sources;
     const nonCompletionSources = useMemo(
       () =>

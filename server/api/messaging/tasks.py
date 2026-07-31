@@ -591,6 +591,7 @@ def run_scheduled_conversation_task(scheduled_task_id: str):
                 "scheduled_task_title": (task.title or "").strip() or None,
                 "scheduled_task_kind": schedule_kind,
                 "schedule_type": task.schedule_type,
+                "scheduled_task_plan": (task.instruction_text or "").strip() or None,
                 "capabilities_override": list(capabilities),
             },
         )

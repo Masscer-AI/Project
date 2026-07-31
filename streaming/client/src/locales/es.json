@@ -1402,6 +1402,7 @@
   "task-cancelled": "Tarea cancelada",
   "error-cancelling-task": "Error al cancelar la tarea",
   "scheduled-task-badge": "Programada",
+  "scheduled-task-executing": "Ejecutando tarea: {{title}}",
   "scheduled-task-message-tooltip": "Este mensaje lo creó una tarea programada.",
   "scheduled-tasks-title": "Tareas programadas",
   "scheduled-tasks-empty": "Aún no hay tareas programadas",

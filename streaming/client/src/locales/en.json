@@ -1400,6 +1400,7 @@
   "task-cancelled": "Task cancelled",
   "error-cancelling-task": "Error cancelling task",
   "scheduled-task-badge": "Scheduled",
+  "scheduled-task-executing": "Executing task: {{title}}",
   "scheduled-task-message-tooltip": "This message was created by a scheduled task.",
   "scheduled-tasks-title": "Scheduled tasks",
   "scheduled-tasks-empty": "No scheduled tasks yet",

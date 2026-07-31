@@ -1919,6 +1919,9 @@ def conversation_agent_task(
                 _sched_title = user_message_metadata.get("scheduled_task_title") or ""
                 _sched_kind = user_message_metadata.get("scheduled_task_kind") or "scheduled"
                 _sched_id = user_message_metadata.get("scheduled_task_id") or ""
+                _sched_plan = (
+                    user_message_metadata.get("scheduled_task_plan") or ""
+                ).strip()
                 instructions += (
                     "\n\n=== SCHEDULED TASK RUN ===\n"
                     f"This turn is an automatic {_sched_kind} scheduled-task execution "
@@ -1927,13 +1930,20 @@ def conversation_agent_task(
                     f"Task ID: {_sched_id}. "
                     "Scheduling tools are unavailable on this turn — do not try to create, "
                     "list, or cancel schedules. "
-                    "Follow the step-by-step execution plan in the user message end-to-end. "
+                    "The user message shows only a short label; the full execution context "
+                    "and step-by-step plan are inside the HTML comment in that message "
+                    "(and repeated below). Follow that plan end-to-end. "
                     "Use the available tools to complete each step. "
                     "If a required capability is missing or fails, report that limitation "
                     "clearly and continue with what you can. "
                     "When finished, summarize what you completed and what remains blocked.\n"
-                    "=== END SCHEDULED TASK RUN ==="
                 )
+                if _sched_plan:
+                    instructions += (
+                        "\nStep-by-step execution plan:\n"
+                        f"{_sched_plan}\n"
+                    )
+                instructions += "=== END SCHEDULED TASK RUN ==="
 
             if any(t in agent_tool_names for t in CALENDAR_AGENT_TOOL_NAMES):
                 instructions += (
