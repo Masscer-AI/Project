@@ -8,7 +8,10 @@ from api.authenticate.phone_numbers import (
     PhoneNumbers,
     default_phone_numbers_list,
     parse_phone_numbers,
+    phones_match_whatsapp,
+    to_meta_whatsapp_digits,
     validate_phone_numbers_for_storage,
+    whatsapp_phone_match_keys,
 )
 from api.authenticate.serializers import UserProfileSerializer
 
@@ -25,7 +28,8 @@ class PhoneNumbersSchemaTests(TestCase):
             ]
         )
         self.assertEqual(data[0]["country_code"], "52")
-        self.assertEqual(data[0]["number"], "5512345678")
+        # Mexico is auto-normalized to Meta/WhatsApp form (insert "1").
+        self.assertEqual(data[0]["number"], "15512345678")
         self.assertTrue(data[0]["is_default"])
 
     def test_rejects_duplicate_e164(self):
@@ -40,6 +44,23 @@ class PhoneNumbersSchemaTests(TestCase):
                     {
                         "country_code": "+52",
                         "number": "55-1234-5678",
+                        "is_default": False,
+                    },
+                ]
+            )
+
+    def test_rejects_duplicate_mexico_e164_and_meta_forms(self):
+        with self.assertRaises(ValidationError):
+            PhoneNumbers.model_validate(
+                [
+                    {
+                        "country_code": "52",
+                        "number": "5512345678",
+                        "is_default": True,
+                    },
+                    {
+                        "country_code": "52",
+                        "number": "15512345678",
                         "is_default": False,
                     },
                 ]
@@ -72,11 +93,51 @@ class PhoneNumbersSchemaTests(TestCase):
                 }
             )
 
-    def test_e164_digits(self):
+    def test_e164_digits_mexico_becomes_meta(self):
         pn = PhoneNumber.model_validate(
             {"country_code": "52", "number": "5512345678", "is_default": True}
         )
-        self.assertEqual(pn.e164_digits(), "525512345678")
+        self.assertEqual(pn.number, "15512345678")
+        self.assertEqual(pn.e164_digits(), "5215512345678")
+        self.assertEqual(pn.whatsapp_digits(), "5215512345678")
+
+    def test_mexico_already_meta_unchanged(self):
+        pn = PhoneNumber.model_validate(
+            {"country_code": "52", "number": "15512345678", "is_default": True}
+        )
+        self.assertEqual(pn.e164_digits(), "5215512345678")
+
+    def test_mexico_country_code_521_normalized(self):
+        pn = PhoneNumber.model_validate(
+            {"country_code": "521", "number": "5512345678", "is_default": True}
+        )
+        self.assertEqual(pn.country_code, "52")
+        self.assertEqual(pn.number, "15512345678")
+
+    def test_to_meta_whatsapp_digits_and_match_keys(self):
+        self.assertEqual(
+            to_meta_whatsapp_digits("525512345678"), "5215512345678"
+        )
+        self.assertEqual(
+            to_meta_whatsapp_digits("5215512345678"), "5215512345678"
+        )
+        self.assertEqual(to_meta_whatsapp_digits("15551234567"), "15551234567")
+        self.assertTrue(
+            phones_match_whatsapp("525512345678", "5215512345678")
+        )
+        self.assertEqual(
+            whatsapp_phone_match_keys("525512345678"),
+            {"525512345678", "5215512345678"},
+        )
+
+    def test_as_whatsapp_match_set_includes_both_mexico_forms(self):
+        # Simulate legacy DB row that still has plain E.164 (bypass model save).
+        phones = PhoneNumbers.model_validate(
+            [{"country_code": "52", "number": "5512345678", "is_default": True}]
+        )
+        # After validate, stored shape is Meta; match set still has both.
+        self.assertIn("5215512345678", phones.as_whatsapp_match_set())
+        self.assertIn("525512345678", phones.as_whatsapp_match_set())
 
 
 class UserProfilePhoneNumbersTests(TestCase):
@@ -123,7 +184,9 @@ class UserProfilePhoneNumbersTests(TestCase):
         serializer.save()
         self.profile.refresh_from_db()
         data = UserProfileSerializer(self.profile).data
-        self.assertEqual(data["phone_numbers"][0]["number"], "5511112222")
+        self.assertEqual(data["phone_numbers"][0]["country_code"], "52")
+        self.assertEqual(data["phone_numbers"][0]["number"], "15511112222")
+        self.assertEqual(self.profile._phone_numbers[0]["number"], "15511112222")
 
     def test_serializer_rejects_invalid(self):
         serializer = UserProfileSerializer(

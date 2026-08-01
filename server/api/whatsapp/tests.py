@@ -1509,3 +1509,63 @@ class WhatsappNumberAccessScopeTests(TestCase):
         )
         self.assertEqual(response.status_code, 400)
         self.assertIn("Organization is required", response.json()["error"])
+
+    @patch("api.whatsapp.actions.send_message", return_value="wamid.reject")
+    @patch("api.whatsapp.actions.mark_message_as_read")
+    @patch("api.whatsapp.tasks.whatsapp_flush_inbound_agent_task.apply_async")
+    def test_mexico_e164_profile_matches_meta_inbound(
+        self, mock_apply_async, _mock_read, mock_send
+    ):
+        """
+        Member saved ITU E.164 (+52 + 10 digits); Meta webhook sends 521…
+        """
+        from api.authenticate.models import UserProfile
+        from api.whatsapp.actions import handle_message_received
+
+        mx_member = User.objects.create_user(
+            username="wa_mx_member", email="mx@example.com", password="x"
+        )
+        profile = UserProfile.objects.get(user=mx_member)
+        profile.organization = self.org
+        profile.is_active = True
+        # Legacy / user-entered E.164 without Meta's "1" (bypass setter transform
+        # is unnecessary: setter also normalizes — use raw column to simulate
+        # pre-normalization rows still in DB).
+        profile._phone_numbers = [
+            {"country_code": "52", "number": "5512345678", "is_default": True}
+        ]
+        profile.save()
+
+        self.ws.access_mode = WSNumber.ACCESS_MODE_ORGANIZATION
+        self.ws.save(update_fields=["access_mode", "updated_at"])
+
+        meta_from = "5215512345678"
+        webhook = {
+            "entry": [
+                {
+                    "changes": [
+                        {
+                            "value": {
+                                "metadata": {"phone_number_id": "pnid-access"},
+                                "messages": [
+                                    {
+                                        "from": meta_from,
+                                        "id": "wamid.mx-meta",
+                                        "type": "text",
+                                        "text": {"body": "Hola"},
+                                    }
+                                ],
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+        handle_message_received(
+            webhook, webhook["entry"][0]["changes"][0]["value"]["messages"][0]
+        )
+
+        mock_apply_async.assert_called_once()
+        mock_send.assert_not_called()
+        contact = WSContact.objects.get(ws_number=self.ws, number=meta_from)
+        self.assertEqual(contact.user_id, mx_member.id)

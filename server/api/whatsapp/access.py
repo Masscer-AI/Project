@@ -17,7 +17,10 @@ from api.authenticate.org_membership import (
     iter_organization_member_users,
     user_belongs_to_organization,
 )
-from api.authenticate.phone_numbers import parse_phone_numbers
+from api.authenticate.phone_numbers import (
+    parse_phone_numbers,
+    whatsapp_phone_match_keys,
+)
 from api.whatsapp.conversations import (
     get_or_create_ws_contact,
     resolved_organization_for_ws_number,
@@ -42,20 +45,23 @@ def _digits_only(value: str) -> str:
     return _DIGITS_RE.sub("", value or "")
 
 
-def _profile_phone_e164_set(user: User) -> set[str]:
+def _profile_whatsapp_match_set(user: User) -> set[str]:
+    """Profile phones expanded for Meta Mexico (521…) ↔ E.164 (52…) equivalence."""
     try:
         profile = user.profile
     except Exception:
         return set()
-    return parse_phone_numbers(getattr(profile, "_phone_numbers", None)).as_e164_set()
+    return parse_phone_numbers(
+        getattr(profile, "_phone_numbers", None)
+    ).as_whatsapp_match_set()
 
 
 def _match_user_by_phone(candidates: list[User], phone_digits: str) -> User | None:
-    phone = _digits_only(phone_digits)
-    if not phone:
+    inbound_keys = whatsapp_phone_match_keys(phone_digits)
+    if not inbound_keys:
         return None
     for user in candidates:
-        if phone in _profile_phone_e164_set(user):
+        if inbound_keys & _profile_whatsapp_match_set(user):
             return user
     return None
 
