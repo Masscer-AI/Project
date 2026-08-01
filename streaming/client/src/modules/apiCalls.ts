@@ -763,6 +763,7 @@ export type TScheduledConversationTask = {
   weekdays?: number[];
   day_of_month?: number | null;
   cron?: string | null;
+  capabilities?: string[];
   conversation_id?: string | null;
   conversation_title?: string | null;
 };
@@ -772,6 +773,7 @@ export type TScheduledTasksListResponse = {
   timezone: string;
   tasks: TScheduledConversationTask[];
   count: number;
+  available_tools?: string[];
 };
 
 export const listScheduledTasks = async (
@@ -808,6 +810,18 @@ export const cancelScheduledTask = async (taskId: string) => {
     task_id?: string;
     status?: string;
   }>("DELETE", `/v1/messaging/scheduled-tasks/${taskId}/`);
+};
+
+export const updateScheduledTaskCapabilities = async (
+  taskId: string,
+  capabilities: string[]
+) => {
+  return makeAuthenticatedRequest<{
+    success: boolean;
+    message: string;
+    task: TScheduledConversationTask;
+    available_tools?: string[];
+  }>("PATCH", `/v1/messaging/scheduled-tasks/${taskId}/`, { capabilities });
 };
 
 export const getAlerts = async (status?: "all" | "pending" | "resolved" | "dismissed") => {

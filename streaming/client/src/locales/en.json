@@ -1424,6 +1424,14 @@
   "scheduled-task-status-failed": "Failed",
   "scheduled-task-type-once": "One-off",
   "scheduled-task-type-recurring": "Recurring",
+  "scheduled-task-tools": "Tools",
+  "scheduled-task-tools-all": "All tools",
+  "scheduled-task-tools-constrained": "{{count}} tools",
+  "scheduled-task-tools-placeholder": "All tools (no constraint)",
+  "scheduled-task-tools-hint": "Leave empty for all tools, or pick a subset to constrain the run.",
+  "scheduled-task-tools-none": "No tools found",
+  "scheduled-task-tools-updated": "Task tools updated.",
+  "scheduled-task-tools-update-error": "Could not update task tools.",
   "scheduled-tasks-page-description": "Tasks you scheduled across conversations. Click a card to jump to the thread.",
   "scheduled-tasks-include-finished": "Show finished"
 }

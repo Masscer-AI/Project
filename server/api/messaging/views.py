@@ -2488,21 +2488,64 @@ class ConversationScheduledTasksView(View):
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class ScheduledConversationTaskDetailView(View):
-    """Cancel a scheduled conversation task."""
+    """Update or cancel a scheduled conversation task."""
 
-    def delete(self, request, task_id):
-        user = request.user
+    def _get_accessible_task(self, user, task_id):
         try:
             task = ScheduledConversationTask.objects.select_related(
                 "conversation"
             ).get(id=task_id)
         except (ScheduledConversationTask.DoesNotExist, ValueError, TypeError):
+            return None
+        if not _user_can_access_conversation(user, task.conversation):
+            return None
+        return task
+
+    def patch(self, request, task_id):
+        user = request.user
+        task = self._get_accessible_task(user, task_id)
+        if task is None:
             return JsonResponse(
                 {"message": "Scheduled task not found", "status": 404},
                 status=404,
             )
 
-        if not _user_can_access_conversation(user, task.conversation):
+        try:
+            body = json.loads(request.body or b"{}")
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return JsonResponse(
+                {"message": "Invalid JSON body", "status": 400},
+                status=400,
+            )
+
+        if "capabilities" not in body:
+            return JsonResponse(
+                {"message": "capabilities is required", "status": 400},
+                status=400,
+            )
+
+        from api.messaging.schedule_service import (
+            ScheduleServiceError,
+            update_scheduled_task_capabilities,
+        )
+
+        try:
+            result = update_scheduled_task_capabilities(
+                task_id=str(task.id),
+                capabilities=body.get("capabilities"),
+                conversation_id=str(task.conversation_id),
+            )
+        except ScheduleServiceError as exc:
+            return JsonResponse(
+                {"message": exc.message, "status": exc.status_code},
+                status=exc.status_code,
+            )
+        return JsonResponse(result, safe=False)
+
+    def delete(self, request, task_id):
+        user = request.user
+        task = self._get_accessible_task(user, task_id)
+        if task is None:
             return JsonResponse(
                 {"message": "Scheduled task not found", "status": 404},
                 status=404,

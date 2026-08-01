@@ -1,5 +1,5 @@
 """
-Shared list/cancel logic for ScheduledConversationTask (agent tools + REST).
+Shared list/cancel/update logic for ScheduledConversationTask (agent tools + REST).
 """
 
 from __future__ import annotations
@@ -11,12 +11,24 @@ logger = logging.getLogger(__name__)
 
 
 class ScheduleServiceError(Exception):
-    """Raised for not-found / invalid cancel operations."""
+    """Raised for not-found / invalid cancel/update operations."""
 
     def __init__(self, message: str, *, status_code: int = 400):
         super().__init__(message)
         self.message = message
         self.status_code = status_code
+
+
+def _list_envelope(tasks: list[dict[str, Any]], timezone: str) -> dict[str, Any]:
+    from api.messaging.schedule_helpers import selectable_scheduled_task_tool_names
+
+    return {
+        "success": True,
+        "timezone": timezone,
+        "tasks": tasks,
+        "count": len(tasks),
+        "available_tools": selectable_scheduled_task_tool_names(),
+    }
 
 
 def list_scheduled_tasks_for_conversation(
@@ -53,12 +65,7 @@ def list_scheduled_tasks_for_conversation(
     if organization_id is None and tasks:
         tz_name = tasks[0].get("timezone") or tz_name
 
-    return {
-        "success": True,
-        "timezone": tz_name,
-        "tasks": tasks,
-        "count": len(tasks),
-    }
+    return _list_envelope(tasks, tz_name)
 
 
 def list_scheduled_tasks_for_user(
@@ -92,11 +99,96 @@ def list_scheduled_tasks_for_user(
 
     tasks = [schedule_payload_dict(t) for t in qs[:limit]]
     tz_name = tasks[0].get("timezone") if tasks else "UTC"
+    return _list_envelope(tasks, tz_name or "UTC")
+
+
+def update_scheduled_task_capabilities(
+    *,
+    task_id: str,
+    capabilities: list[str] | None,
+    conversation_id: str | None = None,
+    organization_id: int | None = None,
+    user_id: int | None = None,
+) -> dict[str, Any]:
+    """Replace the tool allowlist for a pending/running scheduled task."""
+    from api.ai_layers.tools import SCHEDULE_AGENT_TOOL_NAMES
+    from api.messaging.models import ScheduledConversationTask
+    from api.messaging.schedule_helpers import (
+        normalize_capability_names,
+        schedule_payload_dict,
+        selectable_scheduled_task_tool_names,
+    )
+
+    filters: dict[str, Any] = {"id": task_id}
+    if conversation_id is not None:
+        filters["conversation_id"] = conversation_id
+    if organization_id is not None:
+        filters["organization_id"] = organization_id
+    if user_id is not None:
+        filters["created_by_id"] = user_id
+
+    try:
+        task = ScheduledConversationTask.objects.select_related("conversation").get(
+            **filters
+        )
+    except (ScheduledConversationTask.DoesNotExist, ValueError, TypeError) as exc:
+        raise ScheduleServiceError(
+            "Scheduled task not found.",
+            status_code=404,
+        ) from exc
+
+    if task.status not in (
+        ScheduledConversationTask.Status.PENDING,
+        ScheduledConversationTask.Status.RUNNING,
+    ):
+        raise ScheduleServiceError(
+            f"Cannot update tools for a task with status {task.status}.",
+            status_code=400,
+        )
+
+    if capabilities is None:
+        raise ScheduleServiceError("capabilities must be a list of tool names.")
+
+    if not isinstance(capabilities, list):
+        raise ScheduleServiceError("capabilities must be a list of tool names.")
+
+    selectable = set(selectable_scheduled_task_tool_names())
+    blocked = frozenset(SCHEDULE_AGENT_TOOL_NAMES)
+    unknown: list[str] = []
+    for item in capabilities:
+        if not isinstance(item, str):
+            raise ScheduleServiceError("Each capability must be a string tool name.")
+        name = item.strip()
+        if not name:
+            continue
+        if name in blocked:
+            raise ScheduleServiceError(
+                f"Schedule-management tool '{name}' cannot be assigned to a task."
+            )
+        if name not in selectable:
+            unknown.append(name)
+    if unknown:
+        raise ScheduleServiceError(
+            f"Unknown tools: {', '.join(sorted(set(unknown)))}."
+        )
+
+    normalized = [
+        name
+        for name in normalize_capability_names(capabilities)
+        if name not in blocked
+    ]
+    task.capabilities = normalized
+    task.save(update_fields=["capabilities", "updated_at"])
+    logger.info(
+        "Updated scheduled task capabilities id=%s tools=%s",
+        task.id,
+        normalized or "ALL",
+    )
     return {
         "success": True,
-        "timezone": tz_name or "UTC",
-        "tasks": tasks,
-        "count": len(tasks),
+        "message": "Scheduled task tools updated.",
+        "task": schedule_payload_dict(task),
+        "available_tools": selectable_scheduled_task_tool_names(),
     }
 
 

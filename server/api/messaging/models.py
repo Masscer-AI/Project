@@ -728,8 +728,8 @@ class ScheduledConversationTask(models.Model):
         default=list,
         blank=True,
         help_text=(
-            "Snapshot of enabled tool names from the scheduling turn. "
-            "Used as the capability override when the task fires."
+            "Optional tool allowlist for execution. Empty means all available tools; "
+            "non-empty constrains the scheduled run to those tool names."
         ),
     )
     created_message_id = models.IntegerField(

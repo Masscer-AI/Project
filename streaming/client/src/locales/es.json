@@ -1426,6 +1426,14 @@
   "scheduled-task-status-failed": "Fallida",
   "scheduled-task-type-once": "Única",
   "scheduled-task-type-recurring": "Recurrente",
+  "scheduled-task-tools": "Herramientas",
+  "scheduled-task-tools-all": "Todas las herramientas",
+  "scheduled-task-tools-constrained": "{{count}} herramientas",
+  "scheduled-task-tools-placeholder": "Todas las herramientas (sin restricción)",
+  "scheduled-task-tools-hint": "Déjalo vacío para todas las herramientas, o elige un subconjunto para restringir la ejecución.",
+  "scheduled-task-tools-none": "No se encontraron herramientas",
+  "scheduled-task-tools-updated": "Herramientas de la tarea actualizadas.",
+  "scheduled-task-tools-update-error": "No se pudieron actualizar las herramientas.",
   "scheduled-tasks-page-description": "Tareas que programaste en tus conversaciones. Haz clic en una tarjeta para ir al hilo.",
   "scheduled-tasks-include-finished": "Mostrar finalizadas"
 }

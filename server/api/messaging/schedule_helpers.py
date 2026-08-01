@@ -306,21 +306,40 @@ def normalize_capability_names(raw: list | None) -> list[str]:
     return out
 
 
-def resolve_scheduled_task_capabilities(task) -> list[str]:
+def selectable_scheduled_task_tool_names() -> list[str]:
     """
-    Capabilities for a scheduled run. Empty/legacy snapshots fall back to the
-    former scheduler baseline so existing tasks keep working.
+    Tools that may be used or assigned on a scheduled-task execution.
 
-    Schedule-management tools are never available during execution so the agent
-    cannot nest/recreate schedules instead of doing the work.
+    Schedule-management tools are excluded so executions cannot nest schedules.
+    """
+    from api.ai_layers.tools import SCHEDULE_AGENT_TOOL_NAMES, TOOL_REGISTRY
+
+    blocked = frozenset(SCHEDULE_AGENT_TOOL_NAMES)
+    return [name for name in TOOL_REGISTRY if name not in blocked]
+
+
+def resolve_scheduled_task_capabilities(task) -> list[str] | None:
+    """
+    Explicit capability allowlist for a scheduled run, or None for unconstrained.
+
+    - Empty ``task.capabilities`` → None (all selectable tools at fire time).
+    - Non-empty → normalized allowlist (schedule tools always stripped).
     """
     from api.ai_layers.tools import SCHEDULE_AGENT_TOOL_NAMES
 
     caps = normalize_capability_names(getattr(task, "capabilities", None) or [])
     if not caps:
-        caps = list(SCHEDULER_BASELINE_TOOL_NAMES)
+        return None
     blocked = frozenset(SCHEDULE_AGENT_TOOL_NAMES)
     return [name for name in caps if name not in blocked]
+
+
+def effective_scheduled_task_tool_names(task) -> list[str]:
+    """Concrete tool list used when a scheduled task fires."""
+    resolved = resolve_scheduled_task_capabilities(task)
+    if resolved is None:
+        return selectable_scheduled_task_tool_names()
+    return resolved
 
 
 def _html_comment_safe(text: str) -> str:
@@ -399,8 +418,11 @@ def build_scheduled_task_execution_message(task: Any) -> str:
         day_of_month=getattr(task, "day_of_month", None),
         cron=getattr(task, "cron", None),
     )
-    capabilities = resolve_scheduled_task_capabilities(task)
-    caps_line = ", ".join(capabilities) if capabilities else "(none)"
+    explicit_caps = resolve_scheduled_task_capabilities(task)
+    if explicit_caps is None:
+        caps_line = "all available tools (no constraint)"
+    else:
+        caps_line = ", ".join(explicit_caps) if explicit_caps else "(none)"
 
     next_run = getattr(task, "next_run_at", None)
     next_local = None

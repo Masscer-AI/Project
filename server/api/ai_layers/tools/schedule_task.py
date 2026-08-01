@@ -42,6 +42,15 @@ class ScheduleTaskParams(BaseModel):
     schedule_type: Literal["once", "recurring"] = Field(
         description="once for a single future run; recurring for repeating runs.",
     )
+    tools: list[str] | None = Field(
+        default=None,
+        description=(
+            "Optional allowlist of tool names for the future execution. "
+            "Omit or pass an empty list to allow all available tools. "
+            "Pass a subset to constrain the run (e.g. ['explore_web', 'send_email']). "
+            "Schedule-management tools cannot be granted."
+        ),
+    )
     run_at: str | None = Field(
         default=None,
         description=(
@@ -83,6 +92,8 @@ class ScheduleTaskResult(BaseModel):
     next_run_at_local: str | None = None
     next_run_at_utc: str | None = None
     schedule_summary: str | None = None
+    capabilities: list[str] | None = None
+    tools_constrained: bool = False
 
 
 def _schedule_task_impl(
@@ -95,7 +106,7 @@ def _schedule_task_impl(
     user_id: int,
     agent_slugs: list[str] | None,
     multiagentic_modality: str,
-    enabled_capabilities: list[str] | None = None,
+    tools: list[str] | None = None,
     run_at: str | None = None,
     recurrence: Literal["daily", "weekly", "monthly"] | None = None,
     time_of_day: str | None = None,
@@ -103,6 +114,7 @@ def _schedule_task_impl(
     day_of_month: int | None = None,
     cron: str | None = None,
 ) -> ScheduleTaskResult:
+    from api.ai_layers.tools import SCHEDULE_AGENT_TOOL_NAMES
     from api.ai_layers.tools.calendar_tool_helpers import resolve_org_timezone
     from api.messaging.models import Conversation, ScheduledConversationTask
     from api.messaging.schedule_helpers import (
@@ -125,7 +137,14 @@ def _schedule_task_impl(
     if not instruction:
         raise ValueError("instruction is required.")
 
-    capabilities = normalize_capability_names(enabled_capabilities)
+    # Empty/omitted tools → unconstrained (all tools at fire time).
+    # Explicit list → allowlist constraint (schedule tools never granted).
+    blocked = frozenset(SCHEDULE_AGENT_TOOL_NAMES)
+    capabilities = [
+        name
+        for name in normalize_capability_names(tools)
+        if name not in blocked
+    ]
 
     try:
         conversation = Conversation.objects.select_related("organization").get(
@@ -200,10 +219,12 @@ def _schedule_task_impl(
     enqueue_scheduled_conversation_task(task)
     payload = schedule_payload_dict(task)
     logger.info(
-        "Scheduled conversation task created id=%s title=%r conversation=%s next=%s",
+        "Scheduled conversation task created id=%s title=%r conversation=%s "
+        "tools=%s next=%s",
         task.id,
         title,
         conversation_id,
+        capabilities or "ALL",
         payload.get("next_run_at_local"),
     )
     return ScheduleTaskResult(
@@ -215,6 +236,8 @@ def _schedule_task_impl(
         next_run_at_local=payload.get("next_run_at_local"),
         next_run_at_utc=payload.get("next_run_at_utc"),
         schedule_summary=payload.get("schedule_summary"),
+        capabilities=capabilities,
+        tools_constrained=bool(capabilities),
     )
 
 
@@ -235,10 +258,10 @@ def get_tool(
         raise ValueError("schedule_task requires user_id in context")
 
     from api.ai_layers.tools.calendar_tool_helpers import resolve_org_timezone
-    from api.messaging.schedule_helpers import normalize_capability_names
 
-    # Snapshot is server-controlled from the originating turn; model cannot author it.
-    capability_snapshot = normalize_capability_names(enabled_capabilities)
+    # enabled_capabilities is intentionally ignored for snapshots — tools are either
+    # chosen explicitly via the tools param, or left unconstrained (all tools).
+    _ = enabled_capabilities
 
     tz_name = resolve_org_timezone(organization_id)
     tz_line = (
@@ -250,6 +273,7 @@ def get_tool(
         title: str,
         instruction: str,
         schedule_type: Literal["once", "recurring"],
+        tools: list[str] | None = None,
         run_at: str | None = None,
         recurrence: Literal["daily", "weekly", "monthly"] | None = None,
         time_of_day: str | None = None,
@@ -266,7 +290,7 @@ def get_tool(
             user_id=user_id,
             agent_slugs=agent_slugs,
             multiagentic_modality=multiagentic_modality,
-            enabled_capabilities=capability_snapshot,
+            tools=tools,
             run_at=run_at,
             recurrence=recurrence,
             time_of_day=time_of_day,
@@ -282,9 +306,9 @@ def get_tool(
             "as an automatic scheduled execution. "
             "Provide a short title and a numbered step-by-step execution plan (which tools "
             "to use and in what order) — not a user-style request to schedule work. "
-            "The future turn inherits this conversation's currently enabled capabilities "
-            "except schedule-management tools (see catalog appended below); you cannot grant "
-            "extra tools. "
+            "By default the future run may use all available tools. Optionally pass tools "
+            "to constrain which tools are allowed during execution (see catalog appended below). "
+            "Schedule-management tools are never available during execution. "
             f"{tz_line} "
             "All schedule wall times use the organization timezone unless run_at includes an offset. "
             "For recurring, prefer recurrence + time_of_day (+ weekdays/day_of_month); cron is optional."

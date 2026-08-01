@@ -1906,6 +1906,8 @@ def conversation_agent_task(
                         "When calling schedule_task: provide a short title, and write instruction "
                         "as a numbered step-by-step execution plan (which tools/actions to use and "
                         "in what order) — not as a natural-language user request to schedule work. "
+                        "By default omit tools so the future run may use all available tools; "
+                        "pass tools only when you want to constrain the execution allowlist. "
                         "That plan will be injected later as an automatic scheduled-execution message. "
                         f"Organization timezone for task scheduling: {_sched_tz}. "
                         "Use list_scheduled_tasks and cancel_scheduled_task to manage schedules."

@@ -12,6 +12,7 @@ import {
   Group,
   Loader,
   Modal,
+  MultiSelect,
   SimpleGrid,
   Stack,
   Switch,
@@ -29,6 +30,7 @@ import {
   IconMessage,
   IconPlayerPlay,
   IconRepeat,
+  IconTool,
   IconTrash,
 } from "@tabler/icons-react";
 import { Sidebar } from "../../components/Sidebar/Sidebar";
@@ -37,7 +39,9 @@ import {
   cancelScheduledTask,
   listMyScheduledTasks,
   TScheduledConversationTask,
+  updateScheduledTaskCapabilities,
 } from "../../modules/apiCalls";
+import { useLocalizedToolName } from "../../utils/localizedToolName";
 
 function parseInstructionSteps(instruction: string): string[] {
   const trimmed = (instruction || "").trim();
@@ -102,9 +106,17 @@ function statusColor(status: string): string {
   }
 }
 
+function sameToolList(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  const sa = [...a].sort();
+  const sb = [...b].sort();
+  return sa.every((v, i) => v === sb[i]);
+}
+
 export default function ScheduledTasksPage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const localizedToolName = useLocalizedToolName();
   const { chatState, toggleSidebar } = useStore((s) => ({
     chatState: s.chatState,
     toggleSidebar: s.toggleSidebar,
@@ -113,6 +125,8 @@ export default function ScheduledTasksPage() {
   const [loading, setLoading] = useState(true);
   const [includeFinished, setIncludeFinished] = useState(false);
   const [tasks, setTasks] = useState<TScheduledConversationTask[]>([]);
+  const [availableTools, setAvailableTools] = useState<string[]>([]);
+  const [savingToolsFor, setSavingToolsFor] = useState<string | null>(null);
   const [cancelTarget, setCancelTarget] =
     useState<TScheduledConversationTask | null>(null);
   const [cancelling, setCancelling] = useState(false);
@@ -128,6 +142,9 @@ export default function ScheduledTasksPage() {
       });
       // Defensive: cancelled tasks should never appear in the UI.
       setTasks((res.tasks || []).filter((task) => task.status !== "cancelled"));
+      if (Array.isArray(res.available_tools)) {
+        setAvailableTools(res.available_tools);
+      }
     } catch (err) {
       console.error(err);
       toast.error(t("scheduled-tasks-load-error"));
@@ -146,6 +163,15 @@ export default function ScheduledTasksPage() {
         (task) => task.status === "pending" || task.status === "running"
       ).length,
     [tasks]
+  );
+
+  const toolOptions = useMemo(
+    () =>
+      availableTools.map((name) => ({
+        value: name,
+        label: localizedToolName(name),
+      })),
+    [availableTools, localizedToolName]
   );
 
   const requestCancel = (task: TScheduledConversationTask, e: React.MouseEvent) => {
@@ -174,6 +200,48 @@ export default function ScheduledTasksPage() {
   const openConversation = (task: TScheduledConversationTask) => {
     if (!task.conversation_id) return;
     navigate(`/chat?conversation=${task.conversation_id}`);
+  };
+
+  const handleToolsChange = async (
+    task: TScheduledConversationTask,
+    nextTools: string[]
+  ) => {
+    const current = task.capabilities || [];
+    if (sameToolList(current, nextTools)) return;
+
+    const canEdit = task.status === "pending" || task.status === "running";
+    if (!canEdit) return;
+
+    setSavingToolsFor(task.id);
+    // Optimistic update
+    setTasks((prev) =>
+      prev.map((item) =>
+        item.id === task.id ? { ...item, capabilities: nextTools } : item
+      )
+    );
+    try {
+      const res = await updateScheduledTaskCapabilities(task.id, nextTools);
+      if (res.task) {
+        setTasks((prev) =>
+          prev.map((item) => (item.id === task.id ? { ...item, ...res.task } : item))
+        );
+      }
+      if (Array.isArray(res.available_tools)) {
+        setAvailableTools(res.available_tools);
+      }
+      toast.success(t("scheduled-task-tools-updated"));
+    } catch (err) {
+      console.error(err);
+      toast.error(t("scheduled-task-tools-update-error"));
+      // Revert
+      setTasks((prev) =>
+        prev.map((item) =>
+          item.id === task.id ? { ...item, capabilities: current } : item
+        )
+      );
+    } finally {
+      setSavingToolsFor(null);
+    }
   };
 
   return (
@@ -255,6 +323,7 @@ export default function ScheduledTasksPage() {
               {tasks.map((task) => {
                 const canCancel =
                   task.status === "pending" || task.status === "running";
+                const canEditTools = canCancel;
                 const isRecurring = task.schedule_type === "recurring";
                 const title =
                   task.title?.trim() ||
@@ -268,6 +337,8 @@ export default function ScheduledTasksPage() {
                 );
                 const statusKey = (task.status || "").toLowerCase();
                 const accent = statusColor(statusKey);
+                const selectedTools = task.capabilities || [];
+                const allTools = selectedTools.length === 0;
 
                 return (
                   <Card
@@ -351,6 +422,45 @@ export default function ScheduledTasksPage() {
                           )}
                         </Stack>
                       </Group>
+
+                      <Stack gap={6} onClick={(e) => e.stopPropagation()}>
+                        <Group gap={6} justify="space-between" wrap="nowrap">
+                          <Group gap={6}>
+                            <IconTool size={14} style={{ opacity: 0.7 }} />
+                            <Text size="xs" c="dimmed" tt="uppercase" fw={600}>
+                              {t("scheduled-task-tools")}
+                            </Text>
+                          </Group>
+                          {allTools ? (
+                            <Badge size="xs" variant="light" color="teal">
+                              {t("scheduled-task-tools-all")}
+                            </Badge>
+                          ) : (
+                            <Badge size="xs" variant="light" color="violet">
+                              {t("scheduled-task-tools-constrained", {
+                                count: selectedTools.length,
+                              })}
+                            </Badge>
+                          )}
+                        </Group>
+                        <MultiSelect
+                          size="xs"
+                          data={toolOptions}
+                          value={selectedTools}
+                          onChange={(value) => {
+                            void handleToolsChange(task, value);
+                          }}
+                          placeholder={t("scheduled-task-tools-placeholder")}
+                          searchable
+                          clearable
+                          disabled={!canEditTools || savingToolsFor === task.id}
+                          nothingFoundMessage={t("scheduled-task-tools-none")}
+                          maxDropdownHeight={220}
+                        />
+                        <Text size="xs" c="dimmed">
+                          {t("scheduled-task-tools-hint")}
+                        </Text>
+                      </Stack>
 
                       {previewSteps.length > 0 && (
                         <Stack gap={4}>

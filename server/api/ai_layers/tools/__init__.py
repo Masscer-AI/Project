@@ -159,26 +159,30 @@ def _concise_tool_description(description: str, *, max_len: int = 160) -> str:
 
 
 def _append_schedule_task_capability_catalog(tools: list[dict]) -> None:
-    """Tell schedule_task which tools the future turn will inherit."""
+    """Tell schedule_task which tools it may optionally constrain the future run to."""
     schedule_tool = next((t for t in tools if t.get("name") == "schedule_task"), None)
     if schedule_tool is None:
         return
 
-    blocked = frozenset(SCHEDULE_AGENT_TOOL_NAMES)
+    from api.messaging.schedule_helpers import selectable_scheduled_task_tool_names
+
+    # Prefer descriptions from currently resolved tools; fall back to bare names.
+    by_name = {
+        t.get("name"): _concise_tool_description(str(t.get("description") or ""))
+        for t in tools
+        if isinstance(t.get("name"), str) and t.get("name")
+    }
     catalog: dict[str, str] = {}
-    for tool in tools:
-        name = tool.get("name")
-        if not isinstance(name, str) or not name or name in blocked:
-            continue
-        catalog[name] = _concise_tool_description(str(tool.get("description") or ""))
+    for name in selectable_scheduled_task_tool_names():
+        catalog[name] = by_name.get(name) or name.replace("_", " ")
 
     if not catalog:
         return
 
     schedule_tool["description"] = (
         f"{schedule_tool.get('description', '').rstrip()} "
-        "The future scheduled turn inherits exactly these enabled capabilities "
-        "(schedule_task / list_scheduled_tasks / cancel_scheduled_task are never available "
+        "Optional tools allowlist names you may pass in tools "
+        "(omit tools for all available; schedule-management tools are never available "
         "during execution): "
         f"(tool_name → description): {json.dumps(catalog, ensure_ascii=False)}"
     )

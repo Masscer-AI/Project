@@ -186,18 +186,20 @@ class ScheduleTaskToolTests(TestCase):
             user_id=self.user.id,
             agent_slugs=[self.agent.slug],
             multiagentic_modality="isolated",
-            enabled_capabilities=[
+            tools=[
                 "explore_web",
                 "create_speech",
                 "generate_document_file",
                 "not_a_real_tool",
                 "explore_web",
+                "schedule_task",
             ],
             run_at=future_local.strftime("%Y-%m-%dT%H:%M:%S"),
         )
         self.assertTrue(result.success)
         self.assertEqual(result.timezone, "America/Guayaquil")
         self.assertEqual(result.title, "Weekly competitor report")
+        self.assertTrue(result.tools_constrained)
         self.assertIn("Once at", result.schedule_summary or "")
         task = ScheduledConversationTask.objects.get(id=result.task_id)
         self.assertEqual(task.status, ScheduledConversationTask.Status.PENDING)
@@ -211,7 +213,7 @@ class ScheduleTaskToolTests(TestCase):
         mock_apply.assert_called_once()
 
     @patch("api.messaging.tasks.run_scheduled_conversation_task.apply_async")
-    def test_schedule_persists_full_enabled_capability_snapshot(self, mock_apply):
+    def test_schedule_omitting_tools_means_all_tools(self, mock_apply):
         mock_apply.return_value = MagicMock(id="celery-caps-1")
         from api.ai_layers.tools.schedule_task import get_tool
 
@@ -221,13 +223,12 @@ class ScheduleTaskToolTests(TestCase):
             user_id=self.user.id,
             agent_slugs=[self.agent.slug],
             multiagentic_modality="isolated",
+            # Create-time enabled tools must NOT be snapshotted.
             enabled_capabilities=[
                 "create_speech",
                 "list_voices",
                 "send_email",
                 "explore_web",
-                # Unknown / unenabled names must be dropped even if somehow supplied.
-                "totally_fake_capability",
             ],
         )
         future_local = (
@@ -240,12 +241,9 @@ class ScheduleTaskToolTests(TestCase):
             run_at=future_local.strftime("%Y-%m-%dT%H:%M:%S"),
         )
         self.assertTrue(result.success)
+        self.assertFalse(result.tools_constrained)
         task = ScheduledConversationTask.objects.get(id=result.task_id)
-        self.assertEqual(
-            task.capabilities,
-            ["create_speech", "list_voices", "send_email", "explore_web"],
-        )
-        self.assertNotIn("totally_fake_capability", task.capabilities)
+        self.assertEqual(task.capabilities, [])
 
     @patch("api.messaging.tasks.run_scheduled_conversation_task.apply_async")
     def test_schedule_weekly_and_cancel(self, mock_apply):
@@ -380,13 +378,14 @@ class ScheduleFirePathTests(TestCase):
         self.assertIn("Title: Short status update", user_text)
         self.assertIn("1. Write a short status update.", user_text)
         self.assertIn("Do NOT create, list, or cancel schedules", user_text)
+        self.assertIn("all available tools (no constraint)", user_text)
         self.assertIn("-->", user_text)
-        from api.messaging.schedule_helpers import SCHEDULER_BASELINE_TOOL_NAMES
+        from api.messaging.schedule_helpers import selectable_scheduled_task_tool_names
 
-        self.assertEqual(kwargs["tool_names"], list(SCHEDULER_BASELINE_TOOL_NAMES))
-        self.assertEqual(
-            kwargs["capabilities_override"], list(SCHEDULER_BASELINE_TOOL_NAMES)
-        )
+        all_tools = selectable_scheduled_task_tool_names()
+        self.assertEqual(kwargs["tool_names"], all_tools)
+        self.assertEqual(kwargs["capabilities_override"], all_tools)
+        self.assertNotIn("schedule_task", kwargs["tool_names"])
         self.assertEqual(
             kwargs["user_message_metadata"],
             {
@@ -396,7 +395,8 @@ class ScheduleFirePathTests(TestCase):
                 "scheduled_task_kind": "one-off",
                 "schedule_type": ScheduledConversationTask.ScheduleType.ONCE,
                 "scheduled_task_plan": "1. Write a short status update.",
-                "capabilities_override": list(SCHEDULER_BASELINE_TOOL_NAMES),
+                "tools_constrained": False,
+                "capabilities_override": all_tools,
             },
         )
         self.assertEqual(kwargs["agent_slugs"], [self.agent.slug])
@@ -436,6 +436,7 @@ class ScheduleFirePathTests(TestCase):
         self.assertEqual(
             kwargs["user_message_metadata"]["capabilities_override"], expected
         )
+        self.assertTrue(kwargs["user_message_metadata"]["tools_constrained"])
         self.assertIn("create_speech", kwargs["tool_names"])
         self.assertNotIn("schedule_task", kwargs["tool_names"])
         self.assertNotIn("list_scheduled_tasks", kwargs["tool_names"])
@@ -533,20 +534,20 @@ class ScheduledCapabilityOverrideTests(TestCase):
             organization=self.org,
         )
 
-    def test_legacy_empty_capabilities_fallback(self):
+    def test_empty_capabilities_means_unconstrained(self):
         from api.messaging.schedule_helpers import (
-            SCHEDULER_BASELINE_TOOL_NAMES,
+            effective_scheduled_task_tool_names,
             resolve_scheduled_task_capabilities,
+            selectable_scheduled_task_tool_names,
         )
 
         task = ScheduledConversationTask(
             capabilities=[],
         )
-        self.assertEqual(
-            resolve_scheduled_task_capabilities(task),
-            list(SCHEDULER_BASELINE_TOOL_NAMES),
-        )
-        self.assertNotIn("schedule_task", resolve_scheduled_task_capabilities(task))
+        self.assertIsNone(resolve_scheduled_task_capabilities(task))
+        effective = effective_scheduled_task_tool_names(task)
+        self.assertEqual(effective, selectable_scheduled_task_tool_names())
+        self.assertNotIn("schedule_task", effective)
 
     def test_resolve_strips_schedule_tools_from_snapshot(self):
         from api.messaging.schedule_helpers import resolve_scheduled_task_capabilities
@@ -579,15 +580,12 @@ class ScheduledCapabilityOverrideTests(TestCase):
         self.assertIn("schedule_task", by_name)
         self.assertIn("list_voices", by_name)  # dependent of create_speech
         desc = by_name["schedule_task"]["description"]
-        self.assertIn(
-            "The future scheduled turn inherits exactly these enabled capabilities",
-            desc,
-        )
+        self.assertIn("Optional tools allowlist", desc)
         self.assertIn("never available during execution", desc)
         self.assertIn("create_speech", desc)
         self.assertIn("explore_web", desc)
-        self.assertIn("list_voices", desc)
-        # Schedule tools themselves must not appear in the inherited catalog payload.
+        self.assertIn("send_email", desc)  # from full selectable catalog
+        # Schedule tools themselves must not appear in the catalog JSON payload.
         self.assertNotIn('"schedule_task"', desc)
 
     @patch("api.notify.actions.notify_user")
@@ -748,6 +746,42 @@ class ScheduledTasksApiTests(TestCase):
         data = response.json()
         self.assertEqual(data["count"], 1)
         self.assertEqual(data["tasks"][0]["id"], str(self.pending.id))
+        self.assertIn("available_tools", data)
+        self.assertIn("explore_web", data["available_tools"])
+        self.assertNotIn("schedule_task", data["available_tools"])
+
+    def test_patch_updates_capabilities(self):
+        response = self.client.patch(
+            f"/v1/messaging/scheduled-tasks/{self.pending.id}/",
+            data={"capabilities": ["explore_web", "send_email", "schedule_task"]},
+            format="json",
+            **self._auth(self.token),
+        )
+        self.assertEqual(response.status_code, 400)
+
+        response = self.client.patch(
+            f"/v1/messaging/scheduled-tasks/{self.pending.id}/",
+            data={"capabilities": ["explore_web", "send_email"]},
+            format="json",
+            **self._auth(self.token),
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data["success"])
+        self.assertEqual(data["task"]["capabilities"], ["explore_web", "send_email"])
+        self.pending.refresh_from_db()
+        self.assertEqual(self.pending.capabilities, ["explore_web", "send_email"])
+
+        # Empty list clears constraint → all tools.
+        response = self.client.patch(
+            f"/v1/messaging/scheduled-tasks/{self.pending.id}/",
+            data={"capabilities": []},
+            format="json",
+            **self._auth(self.token),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.pending.refresh_from_db()
+        self.assertEqual(self.pending.capabilities, [])
 
     def test_list_include_finished(self):
         response = self.client.get(
