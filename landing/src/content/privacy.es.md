@@ -1,6 +1,6 @@
 ## Introducción
 
-Masscer ("nosotros") opera la plataforma Masscer en [https://masscer.ai](https://masscer.ai) y [https://app.masscer.ai](https://app.masscer.ai) y servicios relacionados. Esta Política de Privacidad explica qué información recopilamos, cómo la usamos y tus opciones. Contacto: [masscer.ai@gmail.com](mailto:masscer.ai@gmail.com).
+MasscerAI ("nosotros", también referido como Masscer) opera la plataforma MasscerAI en [https://masscer.ai](https://masscer.ai) y [https://app.masscer.ai](https://app.masscer.ai) y servicios relacionados. Esta Política de Privacidad explica qué información recopilamos, cómo la usamos y tus opciones. Contacto: [masscer.ai@gmail.com](mailto:masscer.ai@gmail.com).
 
 **Este documento es una plantilla de producto y debe ser revisada por asesoría legal calificada antes de uso en producción.**
 

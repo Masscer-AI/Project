@@ -1,6 +1,6 @@
 ## Acuerdo
 
-Al crear una cuenta o usar Masscer, aceptas estos Términos de Servicio. Si usas Masscer en nombre de una organización, declaras que tienes autoridad para vincularla.
+Al crear una cuenta o usar MasscerAI (también referido como Masscer), aceptas estos Términos de Servicio. Si usas MasscerAI en nombre de una organización, declaras que tienes autoridad para vincularla.
 
 **Este documento es una plantilla de producto y debe ser revisada por asesoría legal calificada antes de uso en producción.**
 

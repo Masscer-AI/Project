@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { Brand } from "./Brand";
 import { Markdown } from "./markdown";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { SiteFooter } from "./SiteFooter";
@@ -32,10 +33,13 @@ export function LegalPage({ docId }: { docId: DocId }) {
 
       <header className="topbar">
         <Link className="logo" to="/">
-          Masscer
+          <Brand />
         </Link>
         <nav className="topbar__nav">
           <LanguageSwitcher />
+          <Link className="topbar__link" to="/about">
+            {t("nav-about")}
+          </Link>
           <Link className="topbar__link" to="/privacy">
             {t("nav-privacy")}
           </Link>

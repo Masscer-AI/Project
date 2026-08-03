@@ -1,6 +1,6 @@
 ## Agreement
 
-By creating an account or using Masscer, you agree to these Terms of Service. If you use Masscer on behalf of an organization, you represent that you have authority to bind that organization.
+By creating an account or using MasscerAI (also referred to as Masscer), you agree to these Terms of Service. If you use MasscerAI on behalf of an organization, you represent that you have authority to bind that organization.
 
 **This document is a product template and should be reviewed by qualified legal counsel before production use.**
 

@@ -248,17 +248,17 @@ main,
   margin: 0;
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: clamp(1.6rem, 3.8vw, 2.4rem);
+  font-size: clamp(1.45rem, 3.4vw, 2.2rem);
   letter-spacing: -0.03em;
-  line-height: 1.15;
+  line-height: 1.2;
   color: rgba(255, 255, 255, 0.88);
-  max-width: 16ch;
+  max-width: 22ch;
 }
 
 .hero__lede {
   margin: 1.25rem 0 0;
-  max-width: 42rem;
-  font-size: clamp(1.05rem, 2vw, 1.25rem);
+  max-width: 46rem;
+  font-size: clamp(1.05rem, 2vw, 1.2rem);
   line-height: 1.55;
   color: var(--ink-soft);
 }
@@ -274,6 +274,88 @@ main,
   margin: 0.9rem 0 0;
   font-size: 0.9rem;
   color: var(--ink-muted);
+}
+
+.purpose,
+.mission {
+  padding: 0.5rem clamp(1.25rem, 4vw, 3rem) 3rem;
+  max-width: 960px;
+}
+
+.purpose__title,
+.mission__heading,
+.about__block h2 {
+  margin: 0 0 1rem;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+
+.purpose__body,
+.about__intro,
+.about__block p {
+  margin: 0 0 1.25rem;
+  color: var(--ink-soft);
+  line-height: 1.65;
+  font-size: 1.05rem;
+  max-width: 48rem;
+}
+
+.purpose__grid,
+.mission__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+.purpose__card,
+.mission__card {
+  padding: 1.25rem 1.3rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.purpose__card h3,
+.mission__card h3 {
+  margin: 0 0 0.5rem;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  color: #fff;
+}
+
+.purpose__card p,
+.mission__card p {
+  margin: 0;
+  color: var(--ink-soft);
+  line-height: 1.55;
+  font-size: 0.98rem;
+}
+
+.mission__more {
+  margin: 1.25rem 0 0;
+}
+
+.mission__more a {
+  color: var(--violet-bright);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.mission__more a:hover {
+  text-decoration: underline;
+}
+
+.about__cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 2rem;
+}
+
+.about__block {
+  margin-top: 2rem;
 }
 
 .features {

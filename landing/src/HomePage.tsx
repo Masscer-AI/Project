@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { Brand } from "./Brand";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { SiteFooter } from "./SiteFooter";
 
@@ -21,10 +22,13 @@ export function HomePage() {
 
       <header className="topbar">
         <a className="logo" href="/">
-          Masscer
+          <Brand />
         </a>
         <nav className="topbar__nav">
           <LanguageSwitcher />
+          <Link className="topbar__link" to="/about">
+            {t("nav-about")}
+          </Link>
           <Link className="topbar__link" to="/privacy">
             {t("nav-privacy")}
           </Link>
@@ -39,7 +43,9 @@ export function HomePage() {
 
       <main>
         <section className="hero">
-          <p className="hero__brand">Masscer</p>
+          <p className="hero__brand">
+            <Brand />
+          </p>
           <h1 className="hero__headline">{t("hero-headline")}</h1>
           <p className="hero__lede">{t("hero-lede")}</p>
           <div className="hero__cta">
@@ -51,6 +57,23 @@ export function HomePage() {
             </a>
           </div>
           <p className="hero__note">{t("hero-no-card")}</p>
+        </section>
+
+        <section className="purpose" aria-labelledby="purpose-title">
+          <h2 id="purpose-title" className="purpose__title">
+            {t("purpose-title")}
+          </h2>
+          <p className="purpose__body">{t("purpose-body")}</p>
+          <div className="purpose__grid">
+            <article className="purpose__card">
+              <h3>{t("purpose-who")}</h3>
+              <p>{t("purpose-who-body")}</p>
+            </article>
+            <article className="purpose__card">
+              <h3>{t("purpose-how")}</h3>
+              <p>{t("purpose-how-body")}</p>
+            </article>
+          </div>
         </section>
 
         <section className="features" aria-labelledby="features-title">
@@ -65,6 +88,25 @@ export function HomePage() {
               </li>
             ))}
           </ul>
+        </section>
+
+        <section className="mission" aria-labelledby="mission-heading">
+          <h2 id="mission-heading" className="mission__heading">
+            {t("nav-about")}
+          </h2>
+          <div className="mission__grid">
+            <article className="mission__card">
+              <h3>{t("mission-title")}</h3>
+              <p>{t("mission-body")}</p>
+            </article>
+            <article className="mission__card">
+              <h3>{t("vision-title")}</h3>
+              <p>{t("vision-body")}</p>
+            </article>
+          </div>
+          <p className="mission__more">
+            <Link to="/about">{t("footer-about")} →</Link>
+          </p>
         </section>
       </main>
 

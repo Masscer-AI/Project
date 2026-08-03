@@ -1,6 +1,6 @@
 ## Introduction
 
-Masscer ("we", "us") operates the Masscer platform at [https://masscer.ai](https://masscer.ai) and [https://app.masscer.ai](https://app.masscer.ai) and related services. This Privacy Policy explains what information we collect, how we use it, and your choices. Contact: [masscer.ai@gmail.com](mailto:masscer.ai@gmail.com).
+MasscerAI ("we", "us", also referred to as Masscer) operates the MasscerAI platform at [https://masscer.ai](https://masscer.ai) and [https://app.masscer.ai](https://app.masscer.ai) and related services. This Privacy Policy explains what information we collect, how we use it, and your choices. Contact: [masscer.ai@gmail.com](mailto:masscer.ai@gmail.com).
 
 **This document is a product template and should be reviewed by qualified legal counsel before production use.**
 
