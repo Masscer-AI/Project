@@ -100,16 +100,18 @@ Optional flags:
 
 ### Marketing site (apex `masscer.ai`)
 
-The public landing site is a separate Vite app in `../landing`, served via **S3 + CloudFront**
-(apex + `www`). Infrastructure is created by `pulumi up` (`modules/landing.ts`).
+The public landing site is a Vite app in `../landing`, served via **S3 + CloudFront**
+(apex + `www`). Infra is created by `pulumi up` (`modules/landing.ts`); **content** is
+published by `deploy-landing.sh`.
 
-After the stack has the landing resources:
+`./deploy.sh` runs the landing publish step automatically after `pulumi up`.
+Use `./deploy.sh --skip-landing` to skip it, or deploy the site alone (faster when
+only marketing copy/CSS changed):
 
 ```bash
 ./deploy-landing.sh
 ```
 
-This builds `landing/`, syncs `dist/` to the landing bucket, and invalidates CloudFront.
 Outputs: `landingUrl`, `landingBucketName`, `landingDistributionId`.
 
 Notes:

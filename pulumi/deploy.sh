@@ -12,6 +12,7 @@ IMAGE_TAG="${IMAGE_TAG:-}"
 DOCKER_PLATFORM="${DOCKER_PLATFORM:-linux/amd64}"
 SKIP_BOOTSTRAP=0
 SKIP_MIGRATIONS=0
+SKIP_LANDING=0
 REQUIRE_MIGRATIONS=0
 POST_DEPLOY_ONLY=0
 
@@ -30,6 +31,7 @@ usage() {
   echo "  --image-tag <tag>      Docker image tag (default: auto timestamp tag)"
   echo "  --skip-bootstrap       Skip initial pulumi up bootstrap step"
   echo "  --skip-migrations      Skip one-off Django post-deploy tasks (migrate + syncs)"
+  echo "  --skip-landing         Skip marketing site (masscer.ai) build/sync to CloudFront"
   echo "  --require-migrations   Fail deploy when any Django one-off task cannot run or fails"
   echo "  --post-deploy-only     Run only Django post-deploy tasks (no build/pulumi up/rollout)"
   echo "  -h, --help             Show this help"
@@ -59,6 +61,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --skip-migrations)
       SKIP_MIGRATIONS=1
+      shift
+      ;;
+    --skip-landing)
+      SKIP_LANDING=1
       shift
       ;;
     --require-migrations)
@@ -249,6 +255,13 @@ pulumi config set masscer-infra:djangoImageTag "$IMAGE_TAG"
 pulumi config set masscer-infra:streamingImageTag "$IMAGE_TAG"
 pulumi up --yes
 
+if [[ "$SKIP_LANDING" -eq 0 ]]; then
+  echo "==> Deploy marketing site (masscer.ai)"
+  bash "$PULUMI_DIR/deploy-landing.sh" --stack "$STACK" --region "$AWS_REGION"
+else
+  echo "==> Skipping marketing site deploy (--skip-landing)"
+fi
+
 run_post_deploy_tasks
 
 echo "==> Force ECS service rollout"
@@ -267,4 +280,7 @@ done
 
 echo ""
 echo "Deploy completed successfully."
-echo "ALB URL: $(pulumi stack output appBaseUrl)"
+echo "ALB URL:     $(pulumi stack output appBaseUrl)"
+if LANDING_URL="$(pulumi stack output landingUrl 2>/dev/null)"; then
+  echo "Landing URL: $LANDING_URL"
+fi
