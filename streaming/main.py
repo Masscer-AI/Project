@@ -70,6 +70,10 @@ os.makedirs(AUDIO_DIR, exist_ok=True)
 
 app.include_router(router)
 app.mount("/assets", StaticFiles(directory="client/dist/assets"), name="static")
+# Notification tone WAVs from Vite public/sounds → client/dist/sounds
+SOUNDS_DIR = os.path.join("client", "dist", "sounds")
+os.makedirs(SOUNDS_DIR, exist_ok=True)
+app.mount("/sounds", StaticFiles(directory=SOUNDS_DIR), name="sounds")
 app.add_route("/socket.io/", route=sio_asgi_app, methods=["GET", "POST"])
 app.add_websocket_route("/socket.io/", route=sio_asgi_app)
 

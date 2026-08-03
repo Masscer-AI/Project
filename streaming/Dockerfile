@@ -41,7 +41,7 @@ ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
 RUN npm run build:all
 
 # Verify that the directory was created
-RUN ls -la client/dist/assets
+RUN ls -la client/dist/assets && ls -la client/dist/sounds
 
 # Expose port 8001
 EXPOSE 8001
