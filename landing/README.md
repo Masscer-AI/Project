@@ -2,6 +2,10 @@
 
 Public site for [https://masscer.ai](https://masscer.ai) (Google OAuth consent home page + privacy/terms).
 
+Localized in **English** and **Spanish**. Language is detected from the browser
+(`navigator.language`), persisted in `localStorage` (`language`), and can be
+overridden with the EN/ES control in the header/footer.
+
 ## Local
 
 ```bash
