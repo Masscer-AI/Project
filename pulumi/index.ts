@@ -10,6 +10,7 @@ import { createRouting } from "./modules/routing";
 import { createChromaDiscovery } from "./modules/service-discovery";
 import { createAppServices } from "./modules/ecs-services";
 import { createProviderParameters } from "./modules/parameter-store";
+import { createLandingSite } from "./modules/landing";
 
 const config = loadConfig();
 const region = aws.getRegionOutput();
@@ -78,6 +79,12 @@ const parameterStore = createProviderParameters({
   taskExecutionRoleName: ecsBase.taskExecutionRole.name,
 });
 
+const landing = createLandingSite({
+  namePrefix: config.namePrefix,
+  tags: config.tags,
+  rootDomain: config.rootDomain,
+});
+
 const services = createAppServices({
   config,
   tags: config.tags,
@@ -136,3 +143,6 @@ export const celeryWorkerServiceName = services.celeryWorkerService.name;
 export const celeryBeatServiceName = services.celeryBeatService.name;
 export const chromaServiceName = services.chromaService.name;
 export const djangoTaskDefinitionArn = services.djangoTaskDefinition.arn;
+export const landingBucketName = landing?.bucket.bucket;
+export const landingDistributionId = landing?.distribution.id;
+export const landingUrl = landing?.landingUrl;

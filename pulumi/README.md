@@ -98,6 +98,20 @@ Optional flags:
 ./deploy.sh --post-deploy-only
 ```
 
+### Marketing site (apex `masscer.ai`)
+
+The public landing site is a separate Vite app in `../landing`, served via **S3 + CloudFront**
+(apex + `www`). Infrastructure is created by `pulumi up` (`modules/landing.ts`).
+
+After the stack has the landing resources:
+
+```bash
+./deploy-landing.sh
+```
+
+This builds `landing/`, syncs `dist/` to the landing bucket, and invalidates CloudFront.
+Outputs: `landingUrl`, `landingBucketName`, `landingDistributionId`.
+
 Notes:
 - Images are built for `linux/amd64` by default (ECS uses x86 instances). Override with `DOCKER_PLATFORM=linux/arm64` only if your cluster is ARM.
 - By default deploy continues even if one-off Django tasks cannot be placed (common with EC2 CPU/ENI limits). Use `--require-migrations` to fail hard.

@@ -56,6 +56,9 @@ cd pulumi && ./deploy.sh
 cd pulumi && ./deploy.sh --skip-bootstrap
 cd pulumi && ./deploy.sh --skip-migrations
 
+# Deploy public marketing site (masscer.ai via S3 + CloudFront)
+cd pulumi && ./deploy-landing.sh
+
 # Structure migration helper (backend to /server)
 ./taskfile.sh migrate_structure --dry-run
 ./taskfile.sh migrate_structure
