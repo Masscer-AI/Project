@@ -463,11 +463,15 @@ const NotificationSoundsSection = () => {
           description={t("notification-sounds-tone-description")}
           value={settings.success_tone_ref}
           disabled={!settings.activated}
-          onChange={(e) =>
-            updateNotificationSettings({
-              success_tone_ref: e.currentTarget.value as NotificationToneRef,
-            })
-          }
+          onChange={(e) => {
+            const success_tone_ref = e.currentTarget
+              .value as NotificationToneRef;
+            updateNotificationSettings({ success_tone_ref });
+            previewNotificationSound("success", {
+              ...settings,
+              success_tone_ref,
+            });
+          }}
           data={toneOptions}
         />
 
@@ -476,11 +480,15 @@ const NotificationSoundsSection = () => {
           description={t("notification-sounds-tone-description")}
           value={settings.failure_tone_ref}
           disabled={!settings.activated}
-          onChange={(e) =>
-            updateNotificationSettings({
-              failure_tone_ref: e.currentTarget.value as NotificationToneRef,
-            })
-          }
+          onChange={(e) => {
+            const failure_tone_ref = e.currentTarget
+              .value as NotificationToneRef;
+            updateNotificationSettings({ failure_tone_ref });
+            previewNotificationSound("error", {
+              ...settings,
+              failure_tone_ref,
+            });
+          }}
           data={toneOptions}
         />
 

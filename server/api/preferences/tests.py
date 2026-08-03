@@ -37,6 +37,16 @@ class NotificationSettingsSchemaTests(TestCase):
                 {"success_tone_ref": "nonexistent_tone"}
             )
 
+    def test_accepts_sample_tone_refs(self):
+        data = NotificationSettings.model_validate(
+            {
+                "success_tone_ref": "magic_notification_riser",
+                "failure_tone_ref": "error_beep_short",
+            }
+        ).model_dump()
+        self.assertEqual(data["success_tone_ref"], "magic_notification_riser")
+        self.assertEqual(data["failure_tone_ref"], "error_beep_short")
+
 
 class UserPreferencesSerializerNotificationTests(TestCase):
     def setUp(self):

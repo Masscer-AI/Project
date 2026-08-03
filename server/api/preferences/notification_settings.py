@@ -10,14 +10,34 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 NotificationToneRef = Literal[
     "chime_success_ascending",
     "chime_error_descending",
+    "magic_notification_riser",
+    "magic_ascending_three_1",
+    "magic_ascending_three_2",
+    "magic_ascending_three_3",
+    "magic_ascending_three_4",
+    "magic_descending_two",
+    "error_beep_short",
+    "error_sharp_high",
+    "error_descending_two_a",
+    "error_descending_two_b",
 ]
 
 NOTIFICATION_TONE_REFS: tuple[str, ...] = (
     "chime_success_ascending",
     "chime_error_descending",
+    "magic_notification_riser",
+    "magic_ascending_three_1",
+    "magic_ascending_three_2",
+    "magic_ascending_three_3",
+    "magic_ascending_three_4",
+    "magic_descending_two",
+    "error_beep_short",
+    "error_sharp_high",
+    "error_descending_two_a",
+    "error_descending_two_b",
 )
 
-# Catalog for future tone-picker UIs / public API.
+# Catalog for tone-picker UIs / public API.
 NOTIFICATION_TONE_CATALOG: list[dict[str, str]] = [
     {
         "ref": "chime_success_ascending",
@@ -27,6 +47,56 @@ NOTIFICATION_TONE_CATALOG: list[dict[str, str]] = [
     {
         "ref": "chime_error_descending",
         "label_key": "notification-tone-chime-error-descending",
+        "kind": "error",
+    },
+    {
+        "ref": "magic_notification_riser",
+        "label_key": "notification-tone-magic-notification-riser",
+        "kind": "success",
+    },
+    {
+        "ref": "magic_ascending_three_1",
+        "label_key": "notification-tone-magic-ascending-three-1",
+        "kind": "success",
+    },
+    {
+        "ref": "magic_ascending_three_2",
+        "label_key": "notification-tone-magic-ascending-three-2",
+        "kind": "success",
+    },
+    {
+        "ref": "magic_ascending_three_3",
+        "label_key": "notification-tone-magic-ascending-three-3",
+        "kind": "success",
+    },
+    {
+        "ref": "magic_ascending_three_4",
+        "label_key": "notification-tone-magic-ascending-three-4",
+        "kind": "success",
+    },
+    {
+        "ref": "magic_descending_two",
+        "label_key": "notification-tone-magic-descending-two",
+        "kind": "success",
+    },
+    {
+        "ref": "error_beep_short",
+        "label_key": "notification-tone-error-beep-short",
+        "kind": "error",
+    },
+    {
+        "ref": "error_sharp_high",
+        "label_key": "notification-tone-error-sharp-high",
+        "kind": "error",
+    },
+    {
+        "ref": "error_descending_two_a",
+        "label_key": "notification-tone-error-descending-two-a",
+        "kind": "error",
+    },
+    {
+        "ref": "error_descending_two_b",
+        "label_key": "notification-tone-error-descending-two-b",
         "kind": "error",
     },
 ]

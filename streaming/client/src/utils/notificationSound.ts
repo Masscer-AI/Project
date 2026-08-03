@@ -1,7 +1,9 @@
 import {
   NOTIFICATION_TONES,
+  NOTIFICATION_TONE_SAMPLES,
   NotificationToneRef,
   isNotificationToneRef,
+  notificationToneSampleUrl,
 } from "./notificationTones";
 
 export type NotificationSoundKind = "success" | "error";
@@ -25,6 +27,7 @@ let activeSettings: TNotificationSettings = { ...DEFAULT_NOTIFICATION_SETTINGS }
 let audioContext: AudioContext | null = null;
 let unlockListenersAttached = false;
 let lastErrorSoundAt = 0;
+let activeSample: HTMLAudioElement | null = null;
 
 const ERROR_DEBOUNCE_MS = 800;
 
@@ -86,6 +89,33 @@ function attachUnlockListeners() {
   window.addEventListener("keydown", unlock, { once: true });
 }
 
+function stopActiveSample() {
+  if (!activeSample) return;
+  activeSample.pause();
+  activeSample = null;
+}
+
+function playSample(filename: string, volume: number) {
+  if (typeof window === "undefined" || volume <= 0) return;
+
+  attachUnlockListeners();
+  stopActiveSample();
+
+  const audio = new Audio(notificationToneSampleUrl(filename));
+  audio.volume = Math.min(1, Math.max(0, volume));
+  activeSample = audio;
+  void audio.play().catch(() => {
+    if (activeSample === audio) activeSample = null;
+  });
+  audio.addEventListener(
+    "ended",
+    () => {
+      if (activeSample === audio) activeSample = null;
+    },
+    { once: true }
+  );
+}
+
 function playToneSteps(
   toneRef: NotificationToneRef,
   volume: number,
@@ -97,6 +127,7 @@ function playToneSteps(
   if (!ctx) return;
 
   attachUnlockListeners();
+  stopActiveSample();
 
   if (ctx.state === "suspended") {
     void ctx.resume();
@@ -140,11 +171,17 @@ function playWithSettings(
   if (!settings.activated || settings.volume <= 0) return;
 
   const toneRef = resolveToneRef(kind, settings);
+  const sample = NOTIFICATION_TONE_SAMPLES[toneRef];
+  if (sample) {
+    playSample(sample, settings.volume);
+    return;
+  }
+
   playToneSteps(toneRef, settings.volume);
 }
 
 /**
- * Short UI feedback tones (Web Audio — no asset files).
+ * Short UI feedback tones (Web Audio synth or WAV samples).
  * Errors are debounced so paired agent_events + agent_loop_finished do not double-play.
  */
 export function playNotificationSound(kind: NotificationSoundKind): void {
