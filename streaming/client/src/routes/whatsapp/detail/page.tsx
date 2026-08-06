@@ -650,6 +650,9 @@ function SettingsPanel({
           value={capabilityState}
           onChange={setCapabilityState}
         />
+        <Text size="xs" c="dimmed" mt="xs">
+          {t("whatsapp-capabilities-risk-note")}
+        </Text>
         <Button
           mt="sm"
           leftSection={<IconDeviceFloppy size={16} />}

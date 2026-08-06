@@ -66,19 +66,18 @@ class WhatsappConversationBridgeTests(TestCase):
             {"name": "not_a_real_tool", "type": "internal_tool", "enabled": True},
             {"name": "explore_web", "type": "internal_tool", "enabled": False},
             {"name": "read_plugin_instructions", "type": "internal_tool", "enabled": True},
+            {"name": "send_email", "type": "internal_tool", "enabled": True},
         ]
         names = tool_names_from_capabilities(caps)
         self.assertIn("rag_query", names)
         self.assertIn("read_attachment", names)
         self.assertIn("list_attachments", names)
+        self.assertIn("read_plugin_instructions", names)
+        self.assertIn("send_email", names)
         self.assertNotIn("not_a_real_tool", names)
         self.assertNotIn("explore_web", names)
-        self.assertNotIn("read_plugin_instructions", names)
 
     def test_generate_document_file_allowed_on_whatsapp(self):
-        from api.whatsapp.capability_tools import WHATSAPP_ALLOWED_CAPABILITY_TOOLS
-
-        self.assertIn("generate_document_file", WHATSAPP_ALLOWED_CAPABILITY_TOOLS)
         caps = [
             {
                 "name": "generate_document_file",
@@ -663,7 +662,7 @@ class WhatsappNumbersManagementApiTests(TestCase):
         )
         self.assertEqual(response.status_code, 403)
 
-    def test_put_capabilities_rejects_plugin_tools(self, _mock_ff):
+    def test_put_capabilities_accepts_any_registered_tool(self, _mock_ff):
         response = self.client.put(
             f"/v1/whatsapp/numbers/{self.ws.number}",
             data=json.dumps(
@@ -673,17 +672,28 @@ class WhatsappNumbersManagementApiTests(TestCase):
                             "name": "read_plugin_instructions",
                             "type": "internal_tool",
                             "enabled": True,
-                        }
+                        },
+                        {
+                            "name": "generate_excel_file",
+                            "type": "internal_tool",
+                            "enabled": True,
+                        },
+                        {
+                            "name": "send_email",
+                            "type": "internal_tool",
+                            "enabled": True,
+                        },
                     ]
                 }
             ),
             content_type="application/json",
             **self._auth_headers(),
         )
-        self.assertEqual(response.status_code, 400)
-        body = response.json()
-        details_str = json.dumps(body.get("details", ""))
-        self.assertIn("not available on WhatsApp", details_str)
+        self.assertEqual(response.status_code, 200)
+        names = {c["name"] for c in response.json()["capabilities"] if c.get("enabled")}
+        self.assertIn("read_plugin_instructions", names)
+        self.assertIn("generate_excel_file", names)
+        self.assertIn("send_email", names)
 
     def test_put_capabilities_validates_tool_names(self, _mock_ff):
         response = self.client.put(

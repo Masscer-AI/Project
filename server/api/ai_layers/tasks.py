@@ -1574,13 +1574,7 @@ def conversation_agent_task(
                     if t not in WHATSAPP_TEMPLATE_AGENT_TOOL_NAMES
                 ]
 
-            if is_whatsapp_chat:
-                from api.whatsapp.capability_tools import WHATSAPP_DISALLOWED_CAPABILITY_TOOLS
-
-                agent_tool_names = [
-                    t for t in agent_tool_names if t not in WHATSAPP_DISALLOWED_CAPABILITY_TOOLS
-                ]
-            elif is_widget_chat:
+            if is_widget_chat:
                 _widget_excluded_tools = frozenset(
                     {
                         "query_organization_tags",

@@ -767,18 +767,8 @@ class WhatsAppTemplateToolsTests(TestCase):
 
     def test_template_tools_allowed_on_whatsapp_line_capabilities(self):
         """Grantable on the phone line; runtime still requires a linked contact."""
-        from api.whatsapp.capability_tools import (
-            WHATSAPP_ALLOWED_CAPABILITY_TOOLS,
-            filter_capabilities_for_whatsapp,
-        )
+        from api.whatsapp.capability_tools import filter_capabilities_for_whatsapp
         from api.whatsapp.conversations import tool_names_from_capabilities
-
-        for name in (
-            "send_ws_template_message",
-            "list_whatsapp_resources",
-            "list_whatsapp_templates",
-        ):
-            self.assertIn(name, WHATSAPP_ALLOWED_CAPABILITY_TOOLS)
 
         filtered = filter_capabilities_for_whatsapp(
             [

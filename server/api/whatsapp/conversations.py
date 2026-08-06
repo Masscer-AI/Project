@@ -129,18 +129,17 @@ def get_or_create_whatsapp_conversation(ws_number, user_phone: str) -> Conversat
 
 def tool_names_from_capabilities(capabilities: list | None) -> list[str]:
     """
-    Same resolution as ChatWidgetAgentTaskView: internal_tool + enabled + registry,
-    restricted to tools that make sense on WhatsApp (no plugins / doc templates).
+    Same resolution as ChatWidgetAgentTaskView: internal_tool + enabled + registry.
+    Required WhatsApp tools are always included.
     """
     from api.ai_layers.tools import list_available_tools
 
     from .capability_tools import (
         WHATSAPP_REQUIRED_CAPABILITY_TOOLS,
-        WHATSAPP_ALLOWED_CAPABILITY_TOOLS,
         filter_capabilities_for_whatsapp,
     )
 
-    available_tools = set(list_available_tools()) & WHATSAPP_ALLOWED_CAPABILITY_TOOLS
+    available_tools = set(list_available_tools())
     configured_tools: list[str] = []
     for capability in filter_capabilities_for_whatsapp(capabilities or []):
         if capability.get("type") != "internal_tool":

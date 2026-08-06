@@ -28,12 +28,24 @@ export function countEnabledCapabilities(
 }
 
 /**
- * Tools toggled on a WhatsApp line (Personalizar linea).
- * Template tools only resolve at runtime for linked (authenticated) contacts.
+ * All agent tools that can be toggled on a WhatsApp line (Personalizar linea).
+ * Matches list_available_tools() (TOOL_REGISTRY minus dependent tools like list_voices).
+ * Required tools stay on; everything else is optional at the owner's risk.
  */
 export const WHATSAPP_CAPABILITY_NAMES = [
+  // Always on (backend-enforced)
   "read_attachment",
   "list_attachments",
+  "list_document_templates",
+  "render_document_template",
+  "raise_alert",
+  "query_organization_tags",
+  "create_organization_tag",
+  "change_conversation_tags",
+  "change_conversation_summary",
+  "get_tag_context",
+  "query_conversation",
+  // Common optional
   "explore_web",
   "rag_query",
   "create_image",
@@ -41,14 +53,38 @@ export const WHATSAPP_CAPABILITY_NAMES = [
   "generate_dialogue",
   "generate_video",
   "generate_document_file",
+  "generate_excel_file",
+  "generate_gamma_presentation",
   "list_whatsapp_resources",
   "list_whatsapp_templates",
   "send_ws_template_message",
+  // Advanced (under owner's risk)
+  "send_email",
+  "list_organization_members",
+  "list_organization_roles",
+  "list_conversations",
+  "list_calendar_events",
+  "create_calendar_event",
+  "update_calendar_event",
+  "schedule_task",
+  "list_scheduled_tasks",
+  "cancel_scheduled_task",
+  "read_plugin_instructions",
+  "create_completion",
 ] as const;
 
 export const WHATSAPP_REQUIRED_CAPABILITY_NAMES = [
   "read_attachment",
   "list_attachments",
+  "list_document_templates",
+  "render_document_template",
+  "raise_alert",
+  "query_organization_tags",
+  "create_organization_tag",
+  "change_conversation_tags",
+  "change_conversation_summary",
+  "get_tag_context",
+  "query_conversation",
 ] as const;
 
 export const WHATSAPP_REQUIRED_CAPABILITY_SET = new Set<string>(

@@ -1,37 +1,9 @@
-"""Which internal tools may be enabled on a WhatsApp line (visitor-facing channel)."""
+"""WhatsApp line capabilities: any registered tool may be enabled; some are always on."""
 
 from __future__ import annotations
 
-# Plugins / training tools stay web-chat only. Document templates and org tagging
-# tools are allowed (and some are required) on WhatsApp visitor lines.
-WHATSAPP_ALLOWED_CAPABILITY_TOOLS: frozenset[str] = frozenset(
-    {
-        "read_attachment",
-        "list_attachments",
-        "explore_web",
-        "rag_query",
-        "create_image",
-        "create_speech",
-        "generate_dialogue",
-        "generate_video",
-        "generate_document_file",
-        "list_document_templates",
-        "raise_alert",
-        "render_document_template",
-        "query_organization_tags",
-        "create_organization_tag",
-        "change_conversation_tags",
-        "change_conversation_summary",
-        "get_tag_context",
-        "query_conversation",
-        "list_conversations",
-        # Optional at phone-number level; runtime requires linked (authenticated) contact.
-        "list_whatsapp_resources",
-        "list_whatsapp_templates",
-        "send_ws_template_message",
-    }
-)
-
+# Always enabled on visitor WhatsApp lines (attachments, templates, tagging/cross-thread).
+# Owners may enable any other tool from the registry at their own risk.
 WHATSAPP_REQUIRED_CAPABILITY_TOOLS: tuple[str, ...] = (
     "read_attachment",
     "list_attachments",
@@ -46,20 +18,19 @@ WHATSAPP_REQUIRED_CAPABILITY_TOOLS: tuple[str, ...] = (
     "query_conversation",
 )
 
-WHATSAPP_DISALLOWED_CAPABILITY_TOOLS: frozenset[str] = frozenset(
-    {"read_plugin_instructions", "create_completion"}
-)
-
 
 def filter_capabilities_for_whatsapp(capabilities: list | None) -> list[dict]:
-    """Keep only allowed tools and enforce WhatsApp-required tools as enabled."""
+    """Keep registered tools and enforce WhatsApp-required tools as enabled."""
+    from api.ai_layers.tools import list_available_tools
+
+    available = set(list_available_tools())
     out: list[dict] = []
     seen: set[str] = set()
     for cap in capabilities or []:
         if not isinstance(cap, dict):
             continue
         name = cap.get("name")
-        if not isinstance(name, str) or name not in WHATSAPP_ALLOWED_CAPABILITY_TOOLS:
+        if not isinstance(name, str) or name not in available:
             continue
         normalized = dict(cap)
         if name in WHATSAPP_REQUIRED_CAPABILITY_TOOLS:
@@ -70,6 +41,8 @@ def filter_capabilities_for_whatsapp(capabilities: list | None) -> list[dict]:
 
     for required_name in WHATSAPP_REQUIRED_CAPABILITY_TOOLS:
         if required_name in seen:
+            continue
+        if required_name not in available:
             continue
         out.append(
             {
