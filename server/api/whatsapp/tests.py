@@ -73,9 +73,14 @@ class WhatsappConversationBridgeTests(TestCase):
         self.assertIn("read_attachment", names)
         self.assertIn("list_attachments", names)
         self.assertIn("read_plugin_instructions", names)
-        self.assertIn("send_email", names)
+        # Unlinked visitor: USER_REQUIRED tools are stripped.
+        self.assertNotIn("send_email", names)
         self.assertNotIn("not_a_real_tool", names)
         self.assertNotIn("explore_web", names)
+
+        linked = tool_names_from_capabilities(caps, user=self.user)
+        self.assertIn("send_email", linked)
+        self.assertIn("rag_query", linked)
 
     def test_generate_document_file_allowed_on_whatsapp(self):
         caps = [

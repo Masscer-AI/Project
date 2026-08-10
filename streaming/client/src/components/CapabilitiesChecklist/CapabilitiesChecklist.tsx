@@ -11,6 +11,8 @@ export type CapabilitiesChecklistProps = {
   requiredNames?: readonly string[];
   /** Optional section title above the list. */
   label?: string;
+  /** Show Select all / Unselect all for this list. Default true. */
+  showBulkActions?: boolean;
   /** i18n key prefix; default widget-capability-{name}-title/description */
   titleKey?: (name: string) => string;
   descriptionKey?: (name: string) => string;
@@ -26,6 +28,7 @@ export function CapabilitiesChecklist({
   onChange,
   requiredNames = [],
   label,
+  showBulkActions = true,
   titleKey = (name) => `widget-capability-${name}-title`,
   descriptionKey = (name) => `widget-capability-${name}-description`,
 }: CapabilitiesChecklistProps) {
@@ -58,9 +61,11 @@ export function CapabilitiesChecklist({
     onChange(next);
   };
 
+  const showHeader = Boolean(label) || (showBulkActions && toggleableNames.length > 0);
+
   return (
     <Stack gap="sm">
-      {(label || toggleableNames.length > 0) && (
+      {showHeader && (
         <Group justify="space-between" align="center" wrap="wrap" gap="xs">
           {label ? (
             <Text size="sm" fw={500}>
@@ -69,7 +74,7 @@ export function CapabilitiesChecklist({
           ) : (
             <span />
           )}
-          {toggleableNames.length > 0 ? (
+          {showBulkActions && toggleableNames.length > 0 ? (
             <Group gap="xs">
               <Button
                 size="xs"

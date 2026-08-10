@@ -754,12 +754,36 @@ const SelectToolsModal = ({
           </Tabs.List>
           {selectedAgents.map((a) => {
             const selected = new Set(chatState.toolsByAgent[a.slug] ?? []);
+            const allToolNames = toolGroups.flatMap((g) => g.items);
+            const allSelected =
+              allToolNames.length > 0 &&
+              allToolNames.every((name) => selected.has(name));
             return (
               <Tabs.Panel key={a.slug} value={a.slug} pt="sm">
                 <Stack gap="xs">
                   <Text size="xs" c="dimmed">
                     {t("pre-approved-tools-desc")}
                   </Text>
+                  {allToolNames.length > 0 ? (
+                    <Group justify="flex-end" gap="xs">
+                      <Button
+                        size="xs"
+                        variant="subtle"
+                        disabled={allSelected}
+                        onClick={() => setAgentToolNames(a.slug, allToolNames)}
+                      >
+                        {t("select-all")}
+                      </Button>
+                      <Button
+                        size="xs"
+                        variant="subtle"
+                        color="gray"
+                        onClick={() => setAgentToolNames(a.slug, [])}
+                      >
+                        {t("unselect-all")}
+                      </Button>
+                    </Group>
+                  ) : null}
                   <Accordion multiple defaultValue={toolGroups.map((g) => g.group)}>
                     {toolGroups.map((group) => (
                       <Accordion.Item key={group.group} value={group.group}>
@@ -769,6 +793,7 @@ const SelectToolsModal = ({
                         <Accordion.Panel>
                           <CapabilitiesChecklist
                             names={group.items}
+                            showBulkActions={false}
                             value={Object.fromEntries(
                               group.items.map((name) => [name, selected.has(name)])
                             )}

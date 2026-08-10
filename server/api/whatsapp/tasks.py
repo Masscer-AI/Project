@@ -97,6 +97,7 @@ def whatsapp_conversation_agent_task(
             "ws_number",
             "ws_number__agent",
             "ws_contact",
+            "ws_contact__user",
         ).get(id=conversation_id)
     except Conversation.DoesNotExist:
         return {"status": "error", "error": "Conversation not found"}
@@ -112,13 +113,23 @@ def whatsapp_conversation_agent_task(
         return {"status": "skipped", "reason": "takeover_active"}
 
     ws_number = conv.ws_number
-    tool_names = tool_names_from_capabilities(ws_number.capabilities)
+    # Resolve linked org member before stripping USER_REQUIRED tools so
+    # line capabilities like send_ws_template_message survive when the
+    # contact is associated with a Masscer user.
+    linked_user = None
+    contact = getattr(conv, "ws_contact", None)
+    if contact is not None and contact.user_id:
+        linked_user = contact.user
+    tool_names = tool_names_from_capabilities(
+        ws_number.capabilities,
+        user=linked_user,
+    )
 
     conv.metadata = metadata_payload_for_related_agents([ws_number.agent_id])
     conv.save(update_fields=["metadata", "updated_at"])
 
-    # Keep string notification route. Linked WSContact.user is resolved inside
-    # conversation_agent_task for same-user conversation tool access.
+    # Keep string notification route. Linked WSContact.user is also resolved
+    # inside conversation_agent_task for same-user conversation tool access.
     route_key = f"whatsapp:{conv.id}"
 
     result = conversation_agent_task(

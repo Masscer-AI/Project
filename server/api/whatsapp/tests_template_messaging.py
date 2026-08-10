@@ -975,7 +975,7 @@ class WhatsAppTemplateToolsTests(TestCase):
         self.assertIn("agent_id", str(ctx.exception))
 
     def test_template_tools_allowed_on_whatsapp_line_capabilities(self):
-        """Grantable on the phone line; runtime still requires a linked contact."""
+        """Grantable on the phone line; kept only when contact is linked."""
         from api.whatsapp.capability_tools import filter_capabilities_for_whatsapp
         from api.whatsapp.conversations import tool_names_from_capabilities
 
@@ -1003,10 +1003,15 @@ class WhatsAppTemplateToolsTests(TestCase):
         self.assertIn("list_whatsapp_resources", names)
         self.assertIn("list_whatsapp_templates", names)
 
-        resolved = tool_names_from_capabilities(filtered)
-        self.assertIn("send_ws_template_message", resolved)
-        self.assertIn("list_whatsapp_resources", resolved)
-        self.assertIn("list_whatsapp_templates", resolved)
+        unlinked = tool_names_from_capabilities(filtered)
+        self.assertNotIn("send_ws_template_message", unlinked)
+        self.assertNotIn("list_whatsapp_resources", unlinked)
+        self.assertNotIn("list_whatsapp_templates", unlinked)
+
+        linked = tool_names_from_capabilities(filtered, user=self.owner)
+        self.assertIn("send_ws_template_message", linked)
+        self.assertIn("list_whatsapp_resources", linked)
+        self.assertIn("list_whatsapp_templates", linked)
 
     def test_mcp_preset_includes_whatsapp_group(self):
         from api.ai_layers.mcp_access import mcp_tool_preset_groups

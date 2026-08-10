@@ -127,10 +127,17 @@ def get_or_create_whatsapp_conversation(ws_number, user_phone: str) -> Conversat
     return create_whatsapp_conversation(ws_number, phone)
 
 
-def tool_names_from_capabilities(capabilities: list | None) -> list[str]:
+def tool_names_from_capabilities(
+    capabilities: list | None,
+    user=None,
+) -> list[str]:
     """
     Same resolution as ChatWidgetAgentTaskView: internal_tool + enabled + registry.
     Required WhatsApp tools are always included.
+
+    Pass the linked organization member (WSContact.user) when known so
+    USER_REQUIRED tools enabled on the line are kept. Unlinked visitors
+    (user=None) still lose those tools — same trust floor as chat widgets.
     """
     from api.ai_layers.tools import list_available_tools, resolve_allowed_tools
 
@@ -154,6 +161,4 @@ def tool_names_from_capabilities(capabilities: list | None) -> list[str]:
         if required_tool in available_tools:
             configured_tools.append(required_tool)
 
-    # WhatsApp senders are phone numbers, never an authenticated Masscer
-    # User — drop any tool that requires one, same as the chat widget.
-    return resolve_allowed_tools(configured_tools, user=None)
+    return resolve_allowed_tools(configured_tools, user=user)
