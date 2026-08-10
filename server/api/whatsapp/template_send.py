@@ -30,10 +30,8 @@ from api.whatsapp.conversations import (
     resolved_organization_for_ws_number,
 )
 from api.whatsapp.models import WSContact, WSNumber
-from api.whatsapp.template_registry import (
-    WhatsAppTemplateDefinition,
-    get_template,
-)
+from api.whatsapp.template_access import get_template_for_organization
+from api.whatsapp.template_registry import WhatsAppTemplateDefinition
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +50,14 @@ class TemplateVariables(BaseModel):
         description=(
             "Manual button variables in positional order. Omit or use null when "
             "URL buttons are filled automatically from the source conversation."
+        ),
+    )
+    header_image_attachment_id: str | None = Field(
+        default=None,
+        description=(
+            "MessageAttachment UUID of an image in the current conversation. "
+            "Required for templates with header_type=image (e.g. from an "
+            "uploaded/inbound image the user attached)."
         ),
     )
 
@@ -142,11 +148,72 @@ def _resolve_verified_contact(
     return contact
 
 
+def resolve_header_image_from_attachment(
+    *,
+    attachment_id: str,
+    conversation_id: str | None,
+    phone_number_id: str,
+) -> dict[str, Any]:
+    """
+    Resolve a MessageAttachment UUID into a Meta template header image param.
+
+    Prefers a public HTTPS link; falls back to uploading bytes to WhatsApp media.
+    """
+    from api.messaging.attachment_urls import absolute_file_url_for_attachment
+    from api.messaging.models import MessageAttachment
+    from api.whatsapp.outbound_media import (
+        read_attachment_file_bytes,
+        upload_whatsapp_media,
+        whatsapp_media_type_for_attachment,
+    )
+
+    att_id = (attachment_id or "").strip()
+    if not att_id:
+        raise ValueError("header_image_attachment_id is required")
+    if not conversation_id:
+        raise ValueError(
+            "header_image_attachment_id requires the current conversation context"
+        )
+
+    try:
+        att = MessageAttachment.objects.get(id=att_id)
+    except (MessageAttachment.DoesNotExist, ValueError, TypeError) as exc:
+        raise ValueError(
+            f"Attachment '{att_id}' not found"
+        ) from exc
+
+    if str(att.conversation_id) != str(conversation_id):
+        raise ValueError(
+            f"Attachment '{att_id}' does not belong to this conversation"
+        )
+
+    wa_type = whatsapp_media_type_for_attachment(att)
+    if wa_type != "image":
+        raise ValueError(
+            f"Attachment '{att_id}' must be an image for the template header"
+        )
+
+    link = absolute_file_url_for_attachment(att)
+    if link and link.startswith("https://"):
+        return {"link": link}
+
+    file_bytes, mime_type, filename = read_attachment_file_bytes(att)
+    media_id = upload_whatsapp_media(
+        phone_number_id,
+        file_bytes=file_bytes,
+        mime_type=mime_type,
+        wa_type="image",
+        filename=filename,
+    )
+    return {"id": media_id}
+
+
 def build_template_components(
     template: WhatsAppTemplateDefinition,
     variables: TemplateVariables,
     *,
     source_conversation_id: str | None,
+    header_image: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """Build Meta Cloud API template components from validated variables."""
     body_values = list(variables.body or [])
@@ -156,7 +223,26 @@ def build_template_components(
             f"body variable(s), got {len(body_values)}"
         )
 
+    has_header_att = bool((variables.header_image_attachment_id or "").strip())
+    if template.header_type != "image" and has_header_att:
+        raise ValueError(
+            f"Template '{template.id}' does not accept a header image"
+        )
+    if template.header_type == "image" and not header_image:
+        raise ValueError(
+            "This template requires header_image_attachment_id "
+            "(MessageAttachment UUID of an image in the current conversation)"
+        )
+
     components: list[dict[str, Any]] = []
+    if template.header_type == "image" and header_image:
+        components.append(
+            {
+                "type": "header",
+                "parameters": [{"type": "image", "image": header_image}],
+            }
+        )
+
     if body_values:
         components.append(
             {
@@ -167,16 +253,17 @@ def build_template_components(
             }
         )
 
-    button_defs = list(template.buttons)
-    if not button_defs:
+    # Only dynamic URL buttons need send-time parameters.
+    url_button_defs = [b for b in template.buttons if b.sub_type == "url"]
+    if not url_button_defs:
         if variables.buttons:
             raise ValueError(
                 f"Template '{template.id}' does not accept button variables"
             )
         return components
 
-    auto_count = sum(1 for b in button_defs if b.use_source_conversation_id)
-    manual_count = len(button_defs) - auto_count
+    auto_count = sum(1 for b in url_button_defs if b.use_source_conversation_id)
+    manual_count = len(url_button_defs) - auto_count
     provided_buttons = list(variables.buttons or [])
 
     if variables.buttons is not None and len(provided_buttons) != manual_count:
@@ -190,7 +277,7 @@ def build_template_components(
         )
 
     manual_iter = iter(provided_buttons)
-    for btn in button_defs:
+    for btn in url_button_defs:
         if btn.use_source_conversation_id:
             if not source_conversation_id:
                 raise ValueError(
@@ -202,7 +289,7 @@ def build_template_components(
         components.append(
             {
                 "type": "button",
-                "sub_type": btn.sub_type,
+                "sub_type": "url",
                 "index": str(btn.index),
                 "parameters": [{"type": "text", "text": value}],
             }
@@ -309,10 +396,10 @@ def send_ws_template_to_member(
     except (TypeError, ValueError) as exc:
         raise ValueError(f"Invalid agent_id: {agent_id}") from exc
 
-    template = get_template(template_id)
+    template = get_template_for_organization(template_id, organization)
     if not template:
         raise ValueError(
-            f"Unknown or disabled WhatsApp template id: {template_id}"
+            f"Unknown, disabled, or unavailable WhatsApp template id: {template_id}"
         )
 
     if isinstance(template_variables, TemplateVariables):
@@ -332,10 +419,19 @@ def send_ws_template_to_member(
     )
     phone_digits = contact.number
 
+    header_image: dict[str, Any] | None = None
+    if template.header_type == "image":
+        header_image = resolve_header_image_from_attachment(
+            attachment_id=variables.header_image_attachment_id or "",
+            conversation_id=source_conversation_id,
+            phone_number_id=ws_number.platform_id,
+        )
+
     components = build_template_components(
         template,
         variables,
         source_conversation_id=source_conversation_id,
+        header_image=header_image,
     )
 
     delivery_conversation = get_or_create_delivery_conversation(

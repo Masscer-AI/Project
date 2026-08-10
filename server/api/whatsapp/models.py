@@ -164,3 +164,102 @@ class WSNumber(models.Model):
             text=message,
             metadata={"whatsapp_wamid": wamid} if wamid else {},
         )
+
+
+class WSTemplate(models.Model):
+    """
+    DB mirror of an in-code WhatsApp template allowlist entry.
+
+    Seeded via sync from template_registry.WHATSAPP_TEMPLATES. Subscriptions
+    gate which organizations may list/send the template (none = public).
+    """
+
+    CATEGORY_UTILITY = "UTILITY"
+    CATEGORY_MARKETING = "MARKETING"
+    CATEGORY_AUTHENTICATION = "AUTHENTICATION"
+    CATEGORY_CHOICES = [
+        (CATEGORY_UTILITY, "Utility"),
+        (CATEGORY_MARKETING, "Marketing"),
+        (CATEGORY_AUTHENTICATION, "Authentication"),
+    ]
+
+    HEADER_NONE = "none"
+    HEADER_TEXT = "text"
+    HEADER_IMAGE = "image"
+    HEADER_TYPE_CHOICES = [
+        (HEADER_NONE, "None"),
+        (HEADER_TEXT, "Text"),
+        (HEADER_IMAGE, "Image"),
+    ]
+
+    slug = models.CharField(
+        max_length=100,
+        unique=True,
+        help_text="Stable local template id (registry id), e.g. task_completed_en.",
+    )
+    meta_name = models.CharField(max_length=200)
+    language_code = models.CharField(max_length=20)
+    category = models.CharField(
+        max_length=20,
+        choices=CATEGORY_CHOICES,
+        default=CATEGORY_UTILITY,
+    )
+    description = models.TextField(blank=True, default="")
+    header_type = models.CharField(
+        max_length=10,
+        choices=HEADER_TYPE_CHOICES,
+        default=HEADER_NONE,
+    )
+    body_variable_count = models.PositiveIntegerField(default=0)
+    body_variable_descriptions = models.JSONField(default=list, blank=True)
+    buttons = models.JSONField(
+        default=list,
+        blank=True,
+        help_text=(
+            "List of {index, sub_type, use_source_conversation_id, description}."
+        ),
+    )
+    enabled = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["slug"]
+
+    def __str__(self):
+        return f"WSTemplate({self.slug})"
+
+    @property
+    def is_public(self) -> bool:
+        return not self.subscriptions.exists()
+
+
+class WSTemplateSubscription(models.Model):
+    """
+    Allow an organization to use a WSTemplate.
+
+    If a template has zero subscriptions, it is public to all orgs.
+    """
+
+    template = models.ForeignKey(
+        WSTemplate,
+        on_delete=models.CASCADE,
+        related_name="subscriptions",
+    )
+    organization = models.ForeignKey(
+        "authenticate.Organization",
+        on_delete=models.CASCADE,
+        related_name="whatsapp_template_subscriptions",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["template", "organization"],
+                name="uniq_wstemplate_subscription_template_org",
+            ),
+        ]
+
+    def __str__(self):
+        return f"WSTemplateSubscription({self.template_id} → org {self.organization_id})"

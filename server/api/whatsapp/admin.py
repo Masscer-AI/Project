@@ -1,13 +1,153 @@
 import random
 
+from django import forms
 from django.conf import settings
 from django.contrib import admin, messages
+from django.db.models import Count
 from django.http import HttpRequest, HttpResponseRedirect
 from django.urls import path, reverse
 from django.utils.html import format_html
 
 from . import graph_webhook_setup as wa_graph
-from .models import WSContact, WSNumber
+from .models import WSContact, WSNumber, WSTemplate, WSTemplateSubscription
+from .template_sync import sync_default_whatsapp_templates
+
+
+class AgentByOrganizationSelect(forms.Select):
+    """Select widget that tags each agent option with its organization id."""
+
+    def __init__(self, *args, agent_org_map=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.agent_org_map = agent_org_map or {}
+
+    def create_option(
+        self, name, value, label, selected, index, subindex=None, attrs=None
+    ):
+        option = super().create_option(
+            name, value, label, selected, index, subindex=subindex, attrs=attrs
+        )
+        if value:
+            key = str(getattr(value, "value", value))
+            org_id = self.agent_org_map.get(key)
+            if org_id:
+                option["attrs"]["data-organization-id"] = str(org_id)
+        return option
+
+
+class WSTemplateSubscriptionInline(admin.TabularInline):
+    model = WSTemplateSubscription
+    extra = 0
+    autocomplete_fields = ("organization",)
+    readonly_fields = ("created_at",)
+
+
+@admin.register(WSTemplate)
+class WSTemplateAdmin(admin.ModelAdmin):
+    change_list_template = "admin/whatsapp/wstemplate/change_list.html"
+    list_display = (
+        "slug",
+        "meta_name",
+        "language_code",
+        "category",
+        "header_type",
+        "enabled",
+        "access_label",
+        "subscription_count",
+        "updated_at",
+    )
+    list_filter = ("enabled", "category", "header_type", "language_code")
+    search_fields = ("slug", "meta_name", "description")
+    readonly_fields = (
+        "slug",
+        "meta_name",
+        "language_code",
+        "category",
+        "description",
+        "header_type",
+        "body_variable_count",
+        "body_variable_descriptions",
+        "buttons",
+        "created_at",
+        "updated_at",
+    )
+    fields = (
+        "slug",
+        "meta_name",
+        "language_code",
+        "category",
+        "header_type",
+        "enabled",
+        "description",
+        "body_variable_count",
+        "body_variable_descriptions",
+        "buttons",
+        "created_at",
+        "updated_at",
+    )
+    inlines = [WSTemplateSubscriptionInline]
+    actions = ["sync_default_templates"]
+
+    def get_urls(self):
+        urls = super().get_urls()
+        info = self.opts.app_label, self.opts.model_name
+        custom = [
+            path(
+                "sync-defaults/",
+                self.admin_site.admin_view(self.sync_defaults_view),
+                name="%s_%s_sync_defaults" % info,
+            ),
+        ]
+        return custom + urls
+
+    def _changelist_url(self) -> str:
+        return reverse(
+            "admin:%s_%s_changelist" % (self.opts.app_label, self.opts.model_name)
+        )
+
+    def sync_defaults_view(self, request: HttpRequest) -> HttpResponseRedirect:
+        changelist_url = self._changelist_url()
+        if request.method != "POST":
+            return HttpResponseRedirect(changelist_url)
+        if not self.has_change_permission(request):
+            self.message_user(request, "Permission denied.", level=messages.ERROR)
+            return HttpResponseRedirect(changelist_url)
+
+        created, updated, unchanged = sync_default_whatsapp_templates(dry_run=False)
+        self.message_user(
+            request,
+            (
+                f"Synced WhatsApp templates: {len(created)} created, "
+                f"{len(updated)} updated, {len(unchanged)} unchanged."
+            ),
+        )
+        return HttpResponseRedirect(changelist_url)
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.annotate(_subscription_count=Count("subscriptions"))
+
+    @admin.display(description="Access")
+    def access_label(self, obj: WSTemplate) -> str:
+        count = getattr(obj, "_subscription_count", None)
+        if count is None:
+            count = obj.subscriptions.count()
+        return "Public" if count == 0 else "Subscribed orgs"
+
+    @admin.display(description="Subscriptions", ordering="_subscription_count")
+    def subscription_count(self, obj: WSTemplate) -> int:
+        return getattr(obj, "_subscription_count", obj.subscriptions.count())
+
+    @admin.action(description="Sync default templates")
+    def sync_default_templates(self, request, queryset):
+        del queryset  # sync always runs against the full code registry
+        created, updated, unchanged = sync_default_whatsapp_templates(dry_run=False)
+        self.message_user(
+            request,
+            (
+                f"Synced WhatsApp templates: {len(created)} created, "
+                f"{len(updated)} updated, {len(unchanged)} unchanged."
+            ),
+        )
 
 
 @admin.register(WSContact)
@@ -54,6 +194,27 @@ class WhatsAppNumberAdmin(admin.ModelAdmin):
     )
     list_filter = ("verified", "created_at")
     readonly_fields = ("created_at", "updated_at", "webhook_callback_preview")
+
+    class Media:
+        js = ("admin/js/wsnumber_agent_filter.js",)
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        field = super().formfield_for_foreignkey(db_field, request, **kwargs)
+        if db_field.name == "agent" and field is not None:
+            agent_org_map = {
+                str(pk): org_id
+                for pk, org_id in field.queryset.values_list("id", "organization_id")
+                if org_id
+            }
+            field.widget = AgentByOrganizationSelect(
+                agent_org_map=agent_org_map,
+                attrs=field.widget.attrs,
+            )
+            field.help_text = (
+                "When an organization is selected, only agents belonging to that "
+                "organization are listed."
+            )
+        return field
 
     @admin.display(description="Webhook callback URL")
     def webhook_callback_preview(self, obj: WSNumber | None) -> str:

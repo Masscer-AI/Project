@@ -93,7 +93,10 @@ def get_tool(
             "Use list_whatsapp_resources for sender_id and ws_contact_id, and "
             "list_whatsapp_templates for template_id and required variables. "
             "For templates with a conversation URL button, the current conversation "
-            "id is used automatically — leave buttons null/omitted."
+            "id is used automatically — leave buttons null/omitted. "
+            "For templates with header_type=image, set "
+            "header_image_attachment_id to a MessageAttachment UUID (image) "
+            "from the current conversation."
         ),
         "parameters": SendWsTemplateMessageParams,
         "function": send_ws_template_message,

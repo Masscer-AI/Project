@@ -13,6 +13,7 @@ SYNC_STEPS = (
     "sync_subscription_plans",
     "sync_system_voices",
     "sync_organization_subscriptions",
+    "sync_whatsapp_templates",
 )
 
 DRY_RUN_SUPPORTED = frozenset(
@@ -21,6 +22,7 @@ DRY_RUN_SUPPORTED = frozenset(
         "sync_subscription_plans",
         "sync_system_voices",
         "sync_organization_subscriptions",
+        "sync_whatsapp_templates",
     }
 )
 
@@ -28,7 +30,7 @@ DRY_RUN_SUPPORTED = frozenset(
 class Command(BaseCommand):
     help = (
         "Run all idempotent system data syncs (feature flags, providers, models, "
-        "reactions, currency, plans, voices, org subscriptions). "
+        "reactions, currency, plans, voices, org subscriptions, WhatsApp templates). "
         "Intended for deploy and local ./taskfile.sh run — not for migrate."
     )
 

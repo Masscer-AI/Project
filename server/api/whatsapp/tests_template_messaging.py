@@ -10,12 +10,20 @@ from api.whatsapp.conversations import (
     create_whatsapp_conversation,
     get_or_create_whatsapp_conversation,
 )
-from api.whatsapp.models import WSContact, WSNumber
+from api.whatsapp.models import WSContact, WSNumber, WSTemplate, WSTemplateSubscription
+from api.whatsapp.template_access import (
+    get_template_for_organization,
+    templates_for_organization,
+)
 from api.whatsapp.template_registry import (
     APROBACION_PENDIENTE,
     APPROVAL_PENDING,
+    EXPRESO_FISCAL_PREFERENCIAS,
+    EXPRESO_FISCAL_RECORDATORIO,
+    EXPRESO_FISCAL_SEMANAL,
     SOLICITUD_COMPLETADA,
     TASK_COMPLETED,
+    WHATSAPP_TEMPLATES,
     get_template,
     list_enabled_templates,
     template_summary,
@@ -24,8 +32,10 @@ from api.whatsapp.template_send import (
     TemplateVariables,
     build_template_components,
     format_template_delivery_message,
+    resolve_header_image_from_attachment,
     send_ws_template_to_member,
 )
+from api.whatsapp.template_sync import sync_default_whatsapp_templates
 
 
 class WhatsAppSendTemplateMessageGraphTests(SimpleTestCase):
@@ -156,6 +166,111 @@ class WhatsAppTemplateRegistryTests(SimpleTestCase):
 
         ids = {t.id for t in list_enabled_templates()}
         self.assertIn(APPROVAL_PENDING.id, ids)
+
+    def test_expreso_fiscal_semanal_registered(self):
+        tpl = get_template("expreso_fiscal_semanal_es_mx")
+        self.assertIsNotNone(tpl)
+        self.assertEqual(tpl.meta_name, "expreso_fiscal_semanal")
+        self.assertEqual(tpl.language_code, "es_MX")
+        self.assertEqual(tpl.category, "MARKETING")
+        self.assertEqual(tpl.header_type, "image")
+        self.assertTrue(tpl.requires_header_image)
+        self.assertEqual(tpl.body_variable_count, 2)
+        self.assertEqual(tpl.button_variable_count, 2)
+        summary = template_summary(tpl)
+        self.assertTrue(summary["requires_header_image"])
+        self.assertIn(EXPRESO_FISCAL_SEMANAL.id, {t.id for t in list_enabled_templates()})
+
+    def test_expreso_fiscal_recordatorio_registered(self):
+        tpl = get_template("expreso_fiscal_recordatorio_es_mx")
+        self.assertIsNotNone(tpl)
+        self.assertEqual(tpl.meta_name, "expreso_fiscal_recordatorio")
+        self.assertEqual(tpl.language_code, "es_MX")
+        self.assertEqual(tpl.header_type, "text")
+        self.assertEqual(tpl.body_variable_count, 2)
+        self.assertEqual(tpl.button_variable_count, 1)
+        self.assertFalse(tpl.buttons[0].use_source_conversation_id)
+        self.assertIn(
+            EXPRESO_FISCAL_RECORDATORIO.id,
+            {t.id for t in list_enabled_templates()},
+        )
+
+    def test_expreso_fiscal_preferencias_registered(self):
+        tpl = get_template("expreso_fiscal_preferencias_es_mx")
+        self.assertIsNotNone(tpl)
+        self.assertEqual(tpl.meta_name, "expreso_fiscal_preferencias")
+        self.assertEqual(tpl.category, "UTILITY")
+        self.assertEqual(tpl.body_variable_count, 0)
+        self.assertEqual(tpl.button_variable_count, 0)
+        self.assertEqual(len(tpl.buttons), 3)
+        self.assertTrue(all(b.sub_type == "quick_reply" for b in tpl.buttons))
+        self.assertIn(
+            EXPRESO_FISCAL_PREFERENCIAS.id,
+            {t.id for t in list_enabled_templates()},
+        )
+
+    def test_build_components_for_expreso_fiscal_semanal_with_header_image(self):
+        components = build_template_components(
+            EXPRESO_FISCAL_SEMANAL,
+            TemplateVariables(
+                body=[
+                    "Al cierre del 8 de agosto de 2026",
+                    "modificaciones en PLD/FT e indicadores financieros",
+                ],
+                buttons=["2026-08-08", "2026-08-08"],
+                header_image_attachment_id="11111111-1111-1111-1111-111111111111",
+            ),
+            source_conversation_id="22222222-2222-2222-2222-222222222222",
+            header_image={"link": "https://cdn.example.com/expreso.png"},
+        )
+        self.assertEqual(components[0]["type"], "header")
+        self.assertEqual(
+            components[0]["parameters"][0]["image"]["link"],
+            "https://cdn.example.com/expreso.png",
+        )
+        self.assertEqual(components[1]["type"], "body")
+        self.assertEqual(len(components[1]["parameters"]), 2)
+        self.assertEqual(components[2]["type"], "button")
+        self.assertEqual(components[2]["index"], "0")
+        self.assertEqual(components[2]["parameters"][0]["text"], "2026-08-08")
+        self.assertEqual(components[3]["index"], "1")
+
+    def test_build_components_expreso_fiscal_semanal_requires_header_image(self):
+        with self.assertRaises(ValueError) as ctx:
+            build_template_components(
+                EXPRESO_FISCAL_SEMANAL,
+                TemplateVariables(
+                    body=["edicion", "temas"],
+                    buttons=["2026-08-08", "2026-08-08"],
+                ),
+                source_conversation_id=None,
+            )
+        self.assertIn("header_image_attachment_id", str(ctx.exception))
+
+    def test_build_components_for_expreso_fiscal_recordatorio(self):
+        components = build_template_components(
+            EXPRESO_FISCAL_RECORDATORIO,
+            TemplateVariables(
+                body=[
+                    "Al cierre del 8 de agosto de 2026",
+                    "PLD/FT e indicadores financieros",
+                ],
+                buttons=["2026-08-08"],
+            ),
+            source_conversation_id=None,
+        )
+        self.assertEqual(len(components), 2)
+        self.assertEqual(components[0]["type"], "body")
+        self.assertEqual(components[1]["type"], "button")
+        self.assertEqual(components[1]["parameters"][0]["text"], "2026-08-08")
+
+    def test_build_components_for_expreso_fiscal_preferencias_no_vars(self):
+        components = build_template_components(
+            EXPRESO_FISCAL_PREFERENCIAS,
+            TemplateVariables(),
+            source_conversation_id=None,
+        )
+        self.assertEqual(components, [])
 
     def test_build_components_for_aprobacion_pendiente(self):
         components = build_template_components(
@@ -377,6 +492,92 @@ class WhatsAppTemplateSendTests(TestCase):
             status="active",
             title="WA visitor thread",
         )
+        sync_default_whatsapp_templates()
+
+    def test_resolve_header_image_from_attachment_uses_https_link(self):
+        from django.core.files.base import ContentFile
+        from django.test import override_settings
+
+        from api.messaging.models import MessageAttachment
+
+        att = MessageAttachment.objects.create(
+            conversation=self.source_conversation,
+            user=self.owner,
+            kind="file",
+            content_type="image/png",
+            file=ContentFile(b"\x89PNG\r\n\x1a\n", name="cover.png"),
+        )
+        with override_settings(API_BASE_URL="https://api.example.com", MEDIA_URL="/media/"):
+            image = resolve_header_image_from_attachment(
+                attachment_id=str(att.id),
+                conversation_id=str(self.source_conversation.id),
+                phone_number_id=self.ws.platform_id,
+            )
+        self.assertIn("link", image)
+        self.assertTrue(image["link"].startswith("https://"))
+
+    def test_resolve_header_image_rejects_wrong_conversation(self):
+        from django.core.files.base import ContentFile
+
+        from api.messaging.models import MessageAttachment
+
+        other = Conversation.objects.create(
+            user=self.owner, organization=self.org, title="Other"
+        )
+        att = MessageAttachment.objects.create(
+            conversation=other,
+            user=self.owner,
+            kind="file",
+            content_type="image/png",
+            file=ContentFile(b"\x89PNG\r\n\x1a\n", name="other.png"),
+        )
+        with self.assertRaises(ValueError) as ctx:
+            resolve_header_image_from_attachment(
+                attachment_id=str(att.id),
+                conversation_id=str(self.source_conversation.id),
+                phone_number_id=self.ws.platform_id,
+            )
+        self.assertIn("does not belong", str(ctx.exception))
+
+    @patch("api.whatsapp.template_send.send_template_message")
+    def test_send_image_header_template_resolves_attachment(self, mock_send):
+        from django.core.files.base import ContentFile
+        from django.test import override_settings
+
+        from api.messaging.models import MessageAttachment
+
+        mock_send.return_value = "wamid.template.img"
+        att = MessageAttachment.objects.create(
+            conversation=self.source_conversation,
+            user=self.owner,
+            kind="file",
+            content_type="image/jpeg",
+            file=ContentFile(b"\xff\xd8\xff", name="semanal.jpg"),
+        )
+        with override_settings(API_BASE_URL="https://api.example.com", MEDIA_URL="/media/"):
+            result = send_ws_template_to_member(
+                actor_user_id=self.owner.id,
+                organization_id=self.org.id,
+                agent_id=self.agent.id,
+                sender_id=self.ws.id,
+                ws_contact_id=self.contact.id,
+                template_id="expreso_fiscal_semanal_es_mx",
+                template_variables={
+                    "body": [
+                        "Al cierre del 8 de agosto de 2026",
+                        "temas de la semana",
+                    ],
+                    "buttons": ["2026-08-08", "2026-08-08"],
+                    "header_image_attachment_id": str(att.id),
+                },
+                source_conversation_id=str(self.source_conversation.id),
+            )
+        self.assertTrue(result.sent)
+        components = mock_send.call_args.kwargs["components"]
+        self.assertEqual(components[0]["type"], "header")
+        self.assertIn("link", components[0]["parameters"][0]["image"])
+        self.assertEqual(mock_send.call_args.kwargs["template_name"], "expreso_fiscal_semanal")
+        self.assertEqual(mock_send.call_args.kwargs["language_code"], "es_MX")
 
     @patch("api.whatsapp.template_send.send_template_message")
     def test_send_success_persists_on_delivery_conversation(self, mock_send):
@@ -501,7 +702,7 @@ class WhatsAppTemplateSendTests(TestCase):
                 template_variables={"body": ["a", "b"]},
                 source_conversation_id=str(self.source_conversation.id),
             )
-        self.assertIn("Unknown or disabled", str(ctx.exception))
+        self.assertIn("unavailable", str(ctx.exception).lower())
 
     def test_rejects_unlinked_contact(self):
         self.contact.user = None
@@ -646,6 +847,7 @@ class WhatsAppTemplateToolsTests(TestCase):
             ws_number=self.ws,
             number="15550004444",
         )
+        sync_default_whatsapp_templates()
 
     def test_tools_registered(self):
         from api.ai_layers.tools import list_available_tools
@@ -671,10 +873,17 @@ class WhatsAppTemplateToolsTests(TestCase):
     def test_list_templates_tool(self):
         from api.ai_layers.tools.list_whatsapp_templates import get_tool
 
-        tool = get_tool()
+        tool = get_tool(organization_id=self.org.id)
         result = tool["function"]()
         ids = {t.template_id for t in result.templates}
         self.assertIn("task_completed_en", ids)
+
+    def test_list_templates_tool_requires_organization_id(self):
+        from api.ai_layers.tools.list_whatsapp_templates import get_tool
+
+        with self.assertRaises(ValueError) as ctx:
+            get_tool()
+        self.assertIn("organization_id", str(ctx.exception))
 
     def test_list_resources_tool_nests_verified_contacts_only(self):
         from api.ai_layers.tools.list_whatsapp_resources import get_tool
@@ -807,3 +1016,173 @@ class WhatsAppTemplateToolsTests(TestCase):
         self.assertIn("send_ws_template_message", groups["whatsapp"])
         self.assertIn("list_whatsapp_resources", groups["whatsapp"])
         self.assertNotIn("list_accessible_whatsapp_senders", groups["whatsapp"])
+
+
+class WhatsAppTemplateSubscriptionAccessTests(TestCase):
+    def setUp(self):
+        from api.ai_layers.models import LanguageModel
+        from api.consumption.models import Currency
+        from api.providers.models import AIProvider
+
+        Currency.objects.get_or_create(
+            name="Compute Unit", defaults={"one_usd_is": 1000}
+        )
+        provider = AIProvider.objects.create(name="OpenAI-wa-sub")
+        self.llm = LanguageModel.objects.create(
+            provider=provider, slug="gpt-wa-sub", name="GPT WA Sub"
+        )
+
+        self.owner_a = User.objects.create_user(
+            username="wa_sub_a", email="a@example.com", password="x"
+        )
+        self.owner_b = User.objects.create_user(
+            username="wa_sub_b", email="b@example.com", password="x"
+        )
+        self.org_a = Organization.objects.create(name="Org A", owner=self.owner_a)
+        self.org_b = Organization.objects.create(name="Org B", owner=self.owner_b)
+        for owner, org in ((self.owner_a, self.org_a), (self.owner_b, self.org_b)):
+            profile = UserProfile.objects.get(user=owner)
+            profile.organization = org
+            profile.save(update_fields=["organization", "updated_at"])
+
+        self.agent_a = Agent.objects.create(
+            name="Agent A",
+            salute="hi",
+            organization=self.org_a,
+            user=self.owner_a,
+            llm=self.llm,
+            model_slug=self.llm.slug,
+        )
+        self.ws_a = WSNumber.objects.create(
+            organization=self.org_a,
+            agent=self.agent_a,
+            number="15550001111",
+            platform_id="pnid-sub-a",
+        )
+        self.member_a = User.objects.create_user(
+            username="wa_sub_member_a", email="ma@example.com", password="x"
+        )
+        member_profile = UserProfile.objects.get(user=self.member_a)
+        member_profile.organization = self.org_a
+        member_profile.is_active = True
+        member_profile.save()
+        self.contact_a = WSContact.objects.create(
+            ws_number=self.ws_a,
+            number="15550009999",
+            user=self.member_a,
+        )
+        self.source_a = Conversation.objects.create(
+            user=self.owner_a,
+            organization=self.org_a,
+            title="Source A",
+        )
+        Conversation.objects.create(
+            user=None,
+            organization=self.org_a,
+            ws_number=self.ws_a,
+            ws_contact=self.contact_a,
+            whatsapp_user_number="15550009999",
+            status="active",
+        )
+
+        created, updated, unchanged = sync_default_whatsapp_templates()
+        self.assertEqual(len(created), len(WHATSAPP_TEMPLATES))
+        self.assertEqual(updated, [])
+        self.assertEqual(unchanged, [])
+        # Image header survives sync.
+        semanal = WSTemplate.objects.get(slug="expreso_fiscal_semanal_es_mx")
+        self.assertEqual(semanal.header_type, "image")
+
+    def test_sync_is_idempotent(self):
+        created, updated, unchanged = sync_default_whatsapp_templates()
+        self.assertEqual(created, [])
+        self.assertEqual(updated, [])
+        self.assertEqual(len(unchanged), len(WHATSAPP_TEMPLATES))
+
+    def test_public_template_visible_to_all_orgs(self):
+        ids_a = {t.slug for t in templates_for_organization(self.org_a)}
+        ids_b = {t.slug for t in templates_for_organization(self.org_b)}
+        self.assertIn("task_completed_en", ids_a)
+        self.assertIn("task_completed_en", ids_b)
+        self.assertIsNotNone(
+            get_template_for_organization("task_completed_en", self.org_a)
+        )
+        self.assertIsNotNone(
+            get_template_for_organization("task_completed_en", self.org_b)
+        )
+
+    def test_subscribed_template_only_for_subscribed_org(self):
+        tpl = WSTemplate.objects.get(slug="task_completed_en")
+        WSTemplateSubscription.objects.create(
+            template=tpl, organization=self.org_a
+        )
+
+        ids_a = {t.slug for t in templates_for_organization(self.org_a)}
+        ids_b = {t.slug for t in templates_for_organization(self.org_b)}
+        self.assertIn("task_completed_en", ids_a)
+        self.assertNotIn("task_completed_en", ids_b)
+        self.assertIsNotNone(
+            get_template_for_organization("task_completed_en", self.org_a)
+        )
+        self.assertIsNone(
+            get_template_for_organization("task_completed_en", self.org_b)
+        )
+
+    def test_list_tool_filters_by_subscription(self):
+        from api.ai_layers.tools.list_whatsapp_templates import get_tool
+
+        tpl = WSTemplate.objects.get(slug="expreso_fiscal_semanal_es_mx")
+        WSTemplateSubscription.objects.create(
+            template=tpl, organization=self.org_a
+        )
+
+        tool_a = get_tool(organization_id=self.org_a.id)
+        tool_b = get_tool(organization_id=self.org_b.id)
+        ids_a = {t.template_id for t in tool_a["function"]().templates}
+        ids_b = {t.template_id for t in tool_b["function"]().templates}
+        self.assertIn("expreso_fiscal_semanal_es_mx", ids_a)
+        self.assertNotIn("expreso_fiscal_semanal_es_mx", ids_b)
+        # Other public templates still visible to B.
+        self.assertIn("task_completed_en", ids_b)
+
+    @patch("api.whatsapp.template_send.send_template_message")
+    def test_send_rejects_non_subscribed_org(self, mock_send):
+        tpl = WSTemplate.objects.get(slug="task_completed_en")
+        WSTemplateSubscription.objects.create(
+            template=tpl, organization=self.org_b
+        )
+
+        with self.assertRaises(ValueError) as ctx:
+            send_ws_template_to_member(
+                actor_user_id=self.owner_a.id,
+                organization_id=self.org_a.id,
+                agent_id=self.agent_a.id,
+                sender_id=self.ws_a.id,
+                ws_contact_id=self.contact_a.id,
+                template_id="task_completed_en",
+                template_variables={"body": ["a", "b"]},
+                source_conversation_id=str(self.source_a.id),
+            )
+        self.assertIn("unavailable", str(ctx.exception).lower())
+        mock_send.assert_not_called()
+
+    @patch("api.whatsapp.template_send.send_template_message")
+    def test_send_allows_subscribed_org(self, mock_send):
+        mock_send.return_value = "wamid.sub.ok"
+        tpl = WSTemplate.objects.get(slug="task_completed_en")
+        WSTemplateSubscription.objects.create(
+            template=tpl, organization=self.org_a
+        )
+
+        result = send_ws_template_to_member(
+            actor_user_id=self.owner_a.id,
+            organization_id=self.org_a.id,
+            agent_id=self.agent_a.id,
+            sender_id=self.ws_a.id,
+            ws_contact_id=self.contact_a.id,
+            template_id="task_completed_en",
+            template_variables={"body": ["a", "b"]},
+            source_conversation_id=str(self.source_a.id),
+        )
+        self.assertTrue(result.sent)
+        mock_send.assert_called_once()

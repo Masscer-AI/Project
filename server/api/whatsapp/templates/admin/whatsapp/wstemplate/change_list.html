@@ -1,0 +1,13 @@
+{% extends "admin/change_list.html" %}
+
+{% block object-tools-items %}
+  <li>
+    <form id="wstemplate-sync-defaults-form" method="post" action="{% url 'admin:whatsapp_wstemplate_sync_defaults' %}" style="display:none">
+      {% csrf_token %}
+    </form>
+    <a href="#" onclick="document.getElementById('wstemplate-sync-defaults-form').submit(); return false;">
+      Sync default templates
+    </a>
+  </li>
+  {{ block.super }}
+{% endblock %}
