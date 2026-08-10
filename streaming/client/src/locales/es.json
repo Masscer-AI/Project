@@ -812,7 +812,7 @@
   "ff-set-agent-ownership": "Asignar propiedad de agente",
   "ff-set-agent-ownership-desc": "Transferir la propiedad de un agente a la organizacion.",
   "ff-can-edit-conversation-data": "Editar chat e historial",
-  "ff-can-edit-conversation-data-desc": "Permite editar titulo y etiquetas, mensajes de usuario y del asistente, borrar mensajes y conversaciones, regenerar o truncar historial, y ajustar opciones del chat (memoria, auto-desplazamiento, modo multi-agente).",
+  "ff-can-edit-conversation-data-desc": "Permite editar titulo y etiquetas, mensajes de usuario y del asistente, borrar mensajes y conversaciones, y regenerar o truncar historial.",
   "ff-can-replace-agent-in-conversations": "Tomar conversaciones",
   "ff-can-replace-agent-in-conversations-desc": "Reemplazar temporalmente al agente de IA en chats de widget o WhatsApp para que los mensajes entrantes no pasen por la IA y el operador responda directamente.",
   "ff-can-edit-preferences": "Preferencias y pagina de ajustes",

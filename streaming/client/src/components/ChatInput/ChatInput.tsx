@@ -612,8 +612,6 @@ const PlusMenu = ({ existingFilesOnly = false }: { existingFilesOnly?: boolean }
 
 const ToolsMenu = () => {
   const { t } = useTranslation();
-  const canEditConversationChatSettings =
-    useIsFeatureEnabled("can-edit-conversation-data") === true;
   const { chatState, toggleWritingMode } = useStore((state) => ({
     chatState: state.chatState,
     toggleWritingMode: state.toggleWrittingMode,
@@ -666,14 +664,12 @@ const ToolsMenu = () => {
           >
             {t("turn-on-off-writing-mode") || "Writing mode"}
           </Menu.Item>
-          {canEditConversationChatSettings && (
-            <Menu.Item
-              leftSection={<IconSettings size={18} />}
-              onClick={openSettings}
-            >
-              {t("conversation-settings") || "Settings"}
-            </Menu.Item>
-          )}
+          <Menu.Item
+            leftSection={<IconSettings size={18} />}
+            onClick={openSettings}
+          >
+            {t("conversation-settings") || "Settings"}
+          </Menu.Item>
         </Menu.Dropdown>
       </Menu>
 

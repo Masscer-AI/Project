@@ -810,7 +810,7 @@
   "ff-set-agent-ownership": "Set Agent Ownership",
   "ff-set-agent-ownership-desc": "Transfer agent ownership to the organization.",
   "ff-can-edit-conversation-data": "Edit chat & history",
-  "ff-can-edit-conversation-data-desc": "Edit conversation title and tags, user and assistant messages, delete messages and conversations, regenerate or truncate history, and change chat settings (memory limit, auto-scroll, multi-agent mode).",
+  "ff-can-edit-conversation-data-desc": "Edit conversation title and tags, user and assistant messages, delete messages and conversations, and regenerate or truncate history.",
   "ff-can-replace-agent-in-conversations": "Take over conversations",
   "ff-can-replace-agent-in-conversations-desc": "Temporarily replace the AI agent on widget or WhatsApp threads so inbound messages bypass the AI and operators can reply directly.",
   "ff-can-edit-preferences": "User preferences & settings page",
