@@ -1397,6 +1397,24 @@ export const generateDocumentBrief = async (documentId: string) => {
   });
 };
 
+export const updateDocumentOwnership = async (
+  documentId: number | string,
+  payload: {
+    visibility: "personal" | "organization" | "roles";
+    role_ids?: string[];
+  }
+) => {
+  return makeAuthenticatedRequest<TDocument>(
+    "PUT",
+    `/v1/rag/documents/${documentId}/`,
+    {
+      action: "update_ownership",
+      visibility: payload.visibility,
+      role_ids: payload.role_ids ?? [],
+    }
+  );
+};
+
 type TCreateWebPagePayload = {
   url: string;
   title?: string;

@@ -122,6 +122,11 @@ class Collection(models.Model):
 
 
 class Document(models.Model):
+    class Visibility(models.TextChoices):
+        PERSONAL = "personal", "Personal"
+        ORGANIZATION = "organization", "Organization"
+        ROLES = "roles", "Roles"
+
     collection = models.ForeignKey(Collection, on_delete=models.CASCADE)
     text = models.TextField()
     name = models.CharField(max_length=255, null=True, blank=True)
@@ -148,9 +153,58 @@ class Document(models.Model):
         default="",
         help_text="Drive modifiedTime at last import/sync (ISO string).",
     )
+    visibility = models.CharField(
+        max_length=20,
+        choices=Visibility.choices,
+        default=Visibility.PERSONAL,
+        db_index=True,
+        help_text="Who can see this document in the knowledge base: me, organization, or selected roles.",
+    )
+    organization = models.ForeignKey(
+        "authenticate.Organization",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="rag_documents",
+        help_text="Organization scope when visibility is organization or roles.",
+    )
+    allowed_roles = models.ManyToManyField(
+        "authenticate.Role",
+        blank=True,
+        related_name="rag_documents",
+        help_text="When visibility is roles, users with any of these roles (or the org owner) can access.",
+    )
+    created_by = models.ForeignKey(
+        "auth.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_rag_documents",
+        help_text="User who uploaded/created this document.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     total_tokens = models.IntegerField(null=True, blank=True)
     brief = models.TextField(null=True, blank=True)
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        vis = self.visibility or self.Visibility.PERSONAL
+        if vis == self.Visibility.PERSONAL:
+            if self.organization_id:
+                raise ValidationError(
+                    {"organization": "Must be empty when visibility is personal."}
+                )
+        elif vis == self.Visibility.ORGANIZATION:
+            if not self.organization_id:
+                raise ValidationError(
+                    {"organization": "Required when visibility is organization."}
+                )
+        elif vis == self.Visibility.ROLES:
+            if not self.organization_id:
+                raise ValidationError(
+                    {"organization": "Required when visibility is roles."}
+                )
 
     def save(self, *args, **kwargs):
         from api.utils.openai_functions import count_tokens_from_text

@@ -376,6 +376,8 @@ export type TRoleAssignment = {
   updated_at: string;
 };
 
+export type TDocumentVisibility = "personal" | "organization" | "roles";
+
 export type TDocument = {
   text: string;
   total_tokens: number;
@@ -390,6 +392,10 @@ export type TDocument = {
   drive_file_id?: string | null;
   drive_modified_time?: string | null;
   is_drive_linked?: boolean;
+  visibility?: TDocumentVisibility;
+  organization_id?: string | null;
+  allowed_role_ids?: string[];
+  created_by_id?: number | null;
 };
 
 export type TWebPage = {

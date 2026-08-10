@@ -9,7 +9,7 @@ import logging
 
 from django.contrib.auth.models import User
 
-from api.integrations.models import IntegrationProvider
+from api.integrations.models import Integration, IntegrationProvider
 from api.integrations.providers import IntegrationProviderError, get_provider
 from api.integrations.services import (
     ensure_valid_access_token,
@@ -18,6 +18,7 @@ from api.integrations.services import (
     get_integration_for_owner,
     parse_owner_type,
 )
+from api.rag.access import apply_document_ownership
 from api.rag.actions import read_file_content
 from api.rag.models import Collection, Document
 
@@ -99,9 +100,14 @@ def import_drive_file_to_document(
     file_id: str,
     owner_type: str,
     organization,
+    visibility: str | None = None,
+    role_ids: list[str] | None = None,
 ) -> tuple[Document, bool]:
     """
     Download a Drive file and create or update a RAG Document.
+
+    Ownership defaults: organization when the Drive integration is org-owned,
+    otherwise personal. Callers may override via visibility / role_ids.
 
     Returns (document, created).
     """
@@ -127,6 +133,12 @@ def import_drive_file_to_document(
     if not collection:
         raise IntegrationProviderError("Could not resolve knowledge base collection.")
 
+    if visibility is None:
+        if integration.organization_id:
+            visibility = Document.Visibility.ORGANIZATION
+        else:
+            visibility = Document.Visibility.PERSONAL
+
     existing = Document.objects.filter(
         collection=collection,
         drive_file_id=file_id,
@@ -142,6 +154,16 @@ def import_drive_file_to_document(
         existing.total_tokens = None
         existing.save()
         existing.reindex_rag()
+        try:
+            apply_document_ownership(
+                existing,
+                user=user,
+                visibility=visibility,
+                role_ids=role_ids,
+                organization=organization or integration.organization,
+            )
+        except ValueError as exc:
+            raise IntegrationProviderError(str(exc)) from exc
         from api.rag.tasks import async_generate_document_brief
 
         async_generate_document_brief.delay(existing.id)
@@ -155,7 +177,19 @@ def import_drive_file_to_document(
         drive_file_id=file_id,
         drive_integration=integration,
         drive_modified_time=modified_time,
+        created_by=user,
     )
+    try:
+        apply_document_ownership(
+            document,
+            user=user,
+            visibility=visibility,
+            role_ids=role_ids,
+            organization=organization or integration.organization,
+        )
+    except ValueError as exc:
+        document.delete()
+        raise IntegrationProviderError(str(exc)) from exc
     # post_save signal runs add_to_rag + brief
     return document, True
 

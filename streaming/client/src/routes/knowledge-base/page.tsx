@@ -13,8 +13,18 @@ import {
   getBigDocument,
   bulkDeleteCompletions,
   getTags,
+  getUserOrganizations,
+  getOrganizationRoles,
+  updateDocumentOwnership,
 } from "../../modules/apiCalls";
-import { TDocument, TCompletion, TCompletionContextRules, TTag } from "../../types";
+import {
+  TDocument,
+  TDocumentVisibility,
+  TCompletion,
+  TCompletionContextRules,
+  TTag,
+  TOrganizationRole,
+} from "../../types";
 import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
 import { TAgent } from "../../types/agents";
@@ -60,8 +70,16 @@ import {
   IconTemplate,
   IconTrash,
   IconUpload,
+  IconUsers,
+  IconUser,
   IconX,
 } from "@tabler/icons-react";
+
+function visibilityLabelKey(visibility?: TDocumentVisibility): string {
+  if (visibility === "organization") return "document-visibility-organization";
+  if (visibility === "roles") return "document-visibility-roles";
+  return "document-visibility-personal";
+}
 
 function agentIdsFromCompletion(c: TCompletion): string[] {
   if (Array.isArray(c.agent_ids)) {
@@ -418,7 +436,7 @@ export default function KnowledgeBasePage() {
             <DocumentsTab
               documents={filteredDocuments}
               loading={loadingDocs}
-              onRefresh={loadDocuments}
+              onRefresh={() => loadDocuments()}
               agents={agents}
             />
           ) : activeTab === "completions" ? (
@@ -458,21 +476,109 @@ const DocumentsTab = ({
   agents: TAgent[];
 }) => {
   const { t } = useTranslation();
+  const [uploadOpened, uploadHandlers] = useDisclosure(false);
   const [uploading, setUploading] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadVisibility, setUploadVisibility] =
+    useState<TDocumentVisibility>("organization");
+  const [uploadRoleIds, setUploadRoleIds] = useState<string[]>([]);
+  const [orgRoles, setOrgRoles] = useState<TOrganizationRole[]>([]);
+  const [hasOrg, setHasOrg] = useState(false);
 
-  const handleFileUpload = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const orgs = await getUserOrganizations();
+        const org = orgs[0];
+        if (!org || cancelled) {
+          if (!cancelled) {
+            setHasOrg(false);
+            setUploadVisibility("personal");
+          }
+          return;
+        }
+        setHasOrg(true);
+        const roles = await getOrganizationRoles(org.id);
+        if (!cancelled) setOrgRoles(roles.filter((r) => r.enabled));
+      } catch {
+        if (!cancelled) setHasOrg(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const roleOptions = useMemo(
+    () => orgRoles.map((r) => ({ value: r.id, label: r.name })),
+    [orgRoles]
+  );
+
+  const resetUploadForm = () => {
+    setSelectedFiles([]);
+    setDragging(false);
+    setUploadRoleIds([]);
+    setUploadVisibility(hasOrg ? "organization" : "personal");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const openUploadModal = () => {
+    resetUploadForm();
+    uploadHandlers.open();
+  };
+
+  const closeUploadModal = () => {
+    if (uploading) return;
+    uploadHandlers.close();
+    resetUploadForm();
+  };
+
+  const addFiles = (files: FileList | File[] | null) => {
+    if (!files) return;
+    const next = Array.from(files);
+    if (next.length === 0) return;
+    setSelectedFiles((prev) => {
+      const names = new Set(prev.map((f) => `${f.name}:${f.size}`));
+      const merged = [...prev];
+      for (const file of next) {
+        const key = `${file.name}:${file.size}`;
+        if (!names.has(key)) {
+          names.add(key);
+          merged.push(file);
+        }
+      }
+      return merged;
+    });
+  };
+
+  const handleUploadSubmit = async () => {
+    if (selectedFiles.length === 0) {
+      toast.error(t("document-upload-select-files"));
+      return;
+    }
+    if (uploadVisibility === "roles" && uploadRoleIds.length === 0) {
+      toast.error(t("document-visibility-roles-required"));
+      return;
+    }
     setUploading(true);
     const toastId = toast.loading(t("uploading-document"));
     try {
-      for (const file of Array.from(files)) {
+      for (const file of selectedFiles) {
         const fd = new FormData();
         fd.append("file", file);
+        fd.append("source", "knowledge_base");
+        fd.append("visibility", uploadVisibility);
+        for (const roleId of uploadRoleIds) {
+          fd.append("role_ids", roleId);
+        }
         await uploadDocument(fd);
       }
       toast.success(t("document-uploaded"));
+      uploadHandlers.close();
+      resetUploadForm();
       onRefresh();
     } catch {
       toast.error(t("error-uploading-document"));
@@ -480,12 +586,6 @@ const DocumentsTab = ({
       toast.dismiss(toastId);
       setUploading(false);
     }
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragging(false);
-    handleFileUpload(e.dataTransfer.files);
   };
 
   const handleDelete = async (docId: number) => {
@@ -511,51 +611,172 @@ const DocumentsTab = ({
 
   return (
     <Stack gap="md">
-      {/* Upload area */}
-      <Card
-        withBorder
-        p="xl"
-        ta="center"
-        style={{
-          cursor: "pointer",
-          borderStyle: "dashed",
-          borderColor: dragging
-            ? "var(--mantine-color-violet-6)"
-            : undefined,
-          background: dragging
-            ? "rgba(110,91,255,0.06)"
-            : undefined,
-        }}
-        onClick={() => fileInputRef.current?.click()}
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDragging(true);
-        }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={handleDrop}
-      >
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          style={{ display: "none" }}
-          onChange={(e) => handleFileUpload(e.target.files)}
-        />
-        <IconUpload
-          size={32}
-          style={{ margin: "0 auto 8px", opacity: 0.4 }}
-        />
-        <Text c="dimmed" size="sm">
-          {uploading
-            ? t("uploading") + "..."
-            : t("drag-drop-or-click-to-upload")}
-        </Text>
-      </Card>
+      <Group justify="flex-end">
+        <Button
+          size="sm"
+          leftSection={<IconPlus size={16} />}
+          onClick={openUploadModal}
+        >
+          {t("upload-document")}
+        </Button>
+      </Group>
 
-      {/* Documents list */}
+      <Modal
+        opened={uploadOpened}
+        onClose={closeUploadModal}
+        title={t("upload-document")}
+        size="md"
+      >
+        <Stack gap="md">
+          {hasOrg && (
+            <Stack gap="sm">
+              <NativeSelect
+                size="sm"
+                label={t("document-visibility-label")}
+                value={uploadVisibility}
+                onChange={(e) => {
+                  const val = e.currentTarget.value as TDocumentVisibility;
+                  setUploadVisibility(val);
+                  if (val !== "roles") setUploadRoleIds([]);
+                }}
+                data={[
+                  {
+                    value: "personal",
+                    label: t("document-visibility-personal"),
+                  },
+                  {
+                    value: "organization",
+                    label: t("document-visibility-organization"),
+                  },
+                  {
+                    value: "roles",
+                    label: t("document-visibility-roles"),
+                  },
+                ]}
+              />
+              {uploadVisibility === "roles" && (
+                <MobileFriendlyMultiSelect
+                  label={t("document-visibility-select-roles")}
+                  placeholder={t("document-visibility-select-roles")}
+                  data={roleOptions}
+                  value={uploadRoleIds}
+                  onChange={setUploadRoleIds}
+                />
+              )}
+            </Stack>
+          )}
+
+          <Card
+            withBorder
+            p="lg"
+            ta="center"
+            style={{
+              cursor: "pointer",
+              borderStyle: "dashed",
+              borderColor: dragging
+                ? "var(--mantine-color-violet-6)"
+                : undefined,
+              background: dragging
+                ? "rgba(110,91,255,0.06)"
+                : undefined,
+            }}
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragging(true);
+            }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragging(false);
+              addFiles(e.dataTransfer.files);
+            }}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              style={{ display: "none" }}
+              onChange={(e) => {
+                addFiles(e.currentTarget.files);
+                e.currentTarget.value = "";
+              }}
+            />
+            <IconUpload
+              size={28}
+              style={{ margin: "0 auto 8px", opacity: 0.4 }}
+            />
+            <Text c="dimmed" size="sm">
+              {t("drag-drop-or-click-to-upload")}
+            </Text>
+          </Card>
+
+          {selectedFiles.length > 0 && (
+            <Stack gap={6}>
+              {selectedFiles.map((file) => (
+                <Group
+                  key={`${file.name}:${file.size}`}
+                  justify="space-between"
+                  gap="xs"
+                >
+                  <Text size="sm" lineClamp={1} style={{ flex: 1 }}>
+                    {file.name}
+                  </Text>
+                  <ActionIcon
+                    variant="subtle"
+                    color="gray"
+                    size="sm"
+                    aria-label={t("remove")}
+                    onClick={() =>
+                      setSelectedFiles((prev) =>
+                        prev.filter(
+                          (f) =>
+                            !(f.name === file.name && f.size === file.size)
+                        )
+                      )
+                    }
+                  >
+                    <IconX size={14} />
+                  </ActionIcon>
+                </Group>
+              ))}
+            </Stack>
+          )}
+
+          <Group justify="flex-end" mt="xs">
+            <Button
+              variant="default"
+              size="sm"
+              onClick={closeUploadModal}
+              disabled={uploading}
+            >
+              {t("cancel")}
+            </Button>
+            <Button
+              size="sm"
+              leftSection={<IconUpload size={16} />}
+              loading={uploading}
+              onClick={handleUploadSubmit}
+            >
+              {t("upload")}
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
       {documents.length === 0 ? (
         <Card withBorder p="xl" ta="center" style={{ borderStyle: "dashed" }}>
-          <Text c="dimmed">{t("no-documents-yet")}</Text>
+          <Stack align="center" gap="sm">
+            <Text c="dimmed">{t("no-documents-yet")}</Text>
+            <Button
+              size="sm"
+              variant="default"
+              leftSection={<IconPlus size={16} />}
+              onClick={openUploadModal}
+            >
+              {t("upload-document")}
+            </Button>
+          </Stack>
         </Card>
       ) : (
         documents.map((doc) => (
@@ -563,7 +784,10 @@ const DocumentsTab = ({
             key={doc.id}
             document={doc}
             agents={agents}
+            orgRoles={orgRoles}
+            hasOrg={hasOrg}
             onDelete={() => handleDelete(doc.id)}
+            onUpdated={onRefresh}
           />
         ))
       )}
@@ -576,17 +800,72 @@ const DocumentsTab = ({
 const DocumentItem = ({
   document,
   agents,
+  orgRoles,
+  hasOrg,
   onDelete,
+  onUpdated,
 }: {
   document: TDocument;
   agents: TAgent[];
+  orgRoles: TOrganizationRole[];
+  hasOrg: boolean;
   onDelete: () => void;
+  onUpdated: () => void;
 }) => {
   const { t } = useTranslation();
   const [showChunks, setShowChunks] = useState(false);
   const [showTraining, setShowTraining] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [ownershipOpened, ownershipHandlers] = useDisclosure(false);
+  const [editVisibility, setEditVisibility] = useState<TDocumentVisibility>(
+    document.visibility || "personal"
+  );
+  const [editRoleIds, setEditRoleIds] = useState<string[]>(
+    document.allowed_role_ids || []
+  );
+  const [savingOwnership, setSavingOwnership] = useState(false);
   const isProcessing = !document.brief;
+
+  const roleOptions = useMemo(
+    () => orgRoles.map((r) => ({ value: r.id, label: r.name })),
+    [orgRoles]
+  );
+
+  const openOwnership = () => {
+    setEditVisibility(document.visibility || "personal");
+    setEditRoleIds(document.allowed_role_ids || []);
+    ownershipHandlers.open();
+  };
+
+  const saveOwnership = async () => {
+    if (editVisibility === "roles" && editRoleIds.length === 0) {
+      toast.error(t("document-visibility-roles-required"));
+      return;
+    }
+    setSavingOwnership(true);
+    try {
+      await updateDocumentOwnership(document.id, {
+        visibility: editVisibility,
+        role_ids: editVisibility === "roles" ? editRoleIds : [],
+      });
+      toast.success(t("document-visibility-updated"));
+      ownershipHandlers.close();
+      onUpdated();
+    } catch {
+      toast.error(t("document-visibility-update-error"));
+    } finally {
+      setSavingOwnership(false);
+    }
+  };
+
+  const visibilityIcon =
+    document.visibility === "organization" ? (
+      <IconUsers size={10} />
+    ) : document.visibility === "roles" ? (
+      <IconRobot size={10} />
+    ) : (
+      <IconUser size={10} />
+    );
 
   return (
     <>
@@ -601,6 +880,64 @@ const DocumentItem = ({
         document={document}
         agents={agents}
       />
+      <Modal
+        opened={ownershipOpened}
+        onClose={ownershipHandlers.close}
+        title={t("document-visibility-edit")}
+        size="md"
+      >
+        <Stack gap="sm">
+          <NativeSelect
+            size="sm"
+            label={t("document-visibility-label")}
+            value={editVisibility}
+            onChange={(e) => {
+              const val = e.currentTarget.value as TDocumentVisibility;
+              setEditVisibility(val);
+              if (val !== "roles") setEditRoleIds([]);
+            }}
+            data={[
+              {
+                value: "personal",
+                label: t("document-visibility-personal"),
+              },
+              {
+                value: "organization",
+                label: t("document-visibility-organization"),
+              },
+              {
+                value: "roles",
+                label: t("document-visibility-roles"),
+              },
+            ]}
+          />
+          {editVisibility === "roles" && (
+            <MobileFriendlyMultiSelect
+              label={t("document-visibility-select-roles")}
+              placeholder={t("document-visibility-select-roles")}
+              data={roleOptions}
+              value={editRoleIds}
+              onChange={setEditRoleIds}
+            />
+          )}
+          <Group justify="flex-end" mt="sm">
+            <Button
+              variant="default"
+              size="sm"
+              onClick={ownershipHandlers.close}
+            >
+              {t("cancel")}
+            </Button>
+            <Button
+              size="sm"
+              loading={savingOwnership}
+              onClick={saveOwnership}
+            >
+              {t("save")}
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
 
       <Card withBorder p="md">
         <Text fw={600} mb={4}>
@@ -608,6 +945,18 @@ const DocumentItem = ({
         </Text>
 
         <Group gap={6} mb="xs">
+          <Badge
+            size="xs"
+            variant="light"
+            color="violet"
+            leftSection={visibilityIcon}
+          >
+            {t(visibilityLabelKey(document.visibility))}
+            {document.visibility === "roles" &&
+            (document.allowed_role_ids?.length || 0) > 0
+              ? ` (${document.allowed_role_ids!.length})`
+              : ""}
+          </Badge>
           <Badge
             size="xs"
             variant="default"
@@ -659,6 +1008,16 @@ const DocumentItem = ({
           >
             {t("train-on-this-document")}
           </Button>
+          {hasOrg && (
+            <Button
+              variant="default"
+              size="xs"
+              leftSection={<IconUsers size={14} />}
+              onClick={openOwnership}
+            >
+              {t("document-visibility-edit")}
+            </Button>
+          )}
           <Button
             variant="light"
             color={confirmDelete ? "red" : "gray"}

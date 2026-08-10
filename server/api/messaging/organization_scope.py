@@ -82,15 +82,26 @@ def model_created_in_range_q(start: datetime, end: datetime) -> Q:
 
 def organization_documents_q(organization_id) -> Q:
     """
-    RAG documents visible in org knowledge base scope.
+    RAG documents visible in org knowledge base / export scope.
 
-    Member personal collections plus agent collections owned by the organization.
+    Includes documents scoped to this organization (visibility organization/roles),
+    personal docs created by org members, and agent collections owned by the org.
     """
     org_user_ids = org_member_user_ids(organization_id)
+    org_scoped = Q(organization_id=organization_id) & Q(
+        visibility__in=["organization", "roles"]
+    )
     if not org_user_ids:
-        return Q(collection__agent__organization_id=organization_id)
-    return Q(collection__user_id__in=org_user_ids) | Q(
-        collection__agent__organization_id=organization_id
+        return org_scoped | Q(collection__agent__organization_id=organization_id)
+    return (
+        org_scoped
+        | Q(visibility="personal", created_by_id__in=org_user_ids)
+        | Q(
+            visibility="personal",
+            created_by__isnull=True,
+            collection__user_id__in=org_user_ids,
+        )
+        | Q(collection__agent__organization_id=organization_id)
     )
 
 

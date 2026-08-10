@@ -23,6 +23,9 @@ class DocumentSerializer(serializers.ModelSerializer):
     has_file = serializers.SerializerMethodField()
     file_url = serializers.SerializerMethodField()
     is_drive_linked = serializers.SerializerMethodField()
+    organization_id = serializers.SerializerMethodField()
+    allowed_role_ids = serializers.SerializerMethodField()
+    created_by_id = serializers.IntegerField(read_only=True, allow_null=True)
 
     class Meta:
         model = Document
@@ -42,7 +45,23 @@ class DocumentSerializer(serializers.ModelSerializer):
             "drive_file_id",
             "drive_modified_time",
             "is_drive_linked",
+            "visibility",
+            "organization_id",
+            "allowed_role_ids",
+            "created_by_id",
         ]
+        read_only_fields = [
+            "visibility",
+            "organization_id",
+            "allowed_role_ids",
+            "created_by_id",
+        ]
+
+    def get_organization_id(self, obj):
+        return str(obj.organization_id) if obj.organization_id else None
+
+    def get_allowed_role_ids(self, obj):
+        return [str(rid) for rid in obj.allowed_roles.values_list("id", flat=True)]
 
     def get_is_drive_linked(self, obj):
         return bool(getattr(obj, "drive_file_id", None))

@@ -24,6 +24,7 @@ from api.data_governance.schemas import (
 )
 from api.messaging.models import Conversation
 from api.ai_layers.models import Agent, LanguageModel
+from api.consumption.models import Currency
 from api.providers.models import AIProvider
 from api.finetuning.models import Completion, CompletionAssignment
 from api.rag.models import Chunk, Collection, Document
@@ -153,15 +154,20 @@ class ConversationsExporterTests(TestCase):
 
 class KnowledgeBaseExporterTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user(username="kbexport", password="pass")
-        self.org = Organization.objects.create(name="KB Org", owner=self.user)
-        UserProfile.objects.create(user=self.user, organization=self.org)
+        Currency.objects.get_or_create(
+            name="Compute Unit", defaults={"one_usd_is": 1000}
+        )
         self.provider = AIProvider.objects.create(name="OpenAI")
         self.llm = LanguageModel.objects.create(
             provider=self.provider,
             name="Test LLM",
             slug="test-llm-kb",
         )
+        self.user = User.objects.create_user(username="kbexport", password="pass")
+        self.org = Organization.objects.create(name="KB Org", owner=self.user)
+        profile = UserProfile.objects.get(user=self.user)
+        profile.organization = self.org
+        profile.save(update_fields=["organization"])
         self.agent = Agent.objects.create(
             name="Org Agent",
             salute="hello",
@@ -207,6 +213,9 @@ class KnowledgeBaseExporterTests(TestCase):
             collection=collection,
             name="Policy",
             text="Some knowledge",
+            created_by=self.user,
+            visibility=Document.Visibility.ORGANIZATION,
+            organization=self.org,
         )
         Chunk.objects.create(document=doc, content="chunk one")
 

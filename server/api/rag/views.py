@@ -8,7 +8,6 @@ from rest_framework.parsers import JSONParser
 import logging
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
-from django.contrib.auth.models import User
 from .models import Document, Collection, Chunk
 from api.authenticate.decorators.token_required import token_required
 from .serializers import DocumentSerializer, ChunkSerializer, BigDocumentSerializer
@@ -17,36 +16,23 @@ from rest_framework.parsers import MultiPartParser
 from .actions import read_file_content
 from api.messaging.models import Message
 from api.utils.color_printer import printer
-from api.authenticate.models import Organization
 from api.authenticate.services import FeatureFlagService
 from django.core.exceptions import PermissionDenied
 from .actions import querify_context
+from .access import (
+    apply_document_ownership,
+    documents_accessible_q,
+    parse_role_ids,
+    resolve_user_organization,
+    user_can_manage_document,
+)
 
 logger = logging.getLogger(__name__)
 
 
 def _get_user_organization(user):
     """Get user's organization (owner or member)."""
-    if not user:
-        return None
-    owned_org = Organization.objects.filter(owner=user).first()
-    if owned_org:
-        return owned_org
-    if hasattr(user, 'profile') and user.profile.organization:
-        return user.profile.organization
-    return None
-
-
-def _organization_user_ids(organization: Organization) -> list[int]:
-    owner_ids = set(
-        Organization.objects.filter(id=organization.id).values_list("owner_id", flat=True)
-    )
-    member_ids = set(
-        User.objects.filter(
-            profile__organization=organization
-        ).values_list("id", flat=True)
-    )
-    return list(owner_ids | member_ids)
+    return resolve_user_organization(user)
 
 
 def _check_train_agents_permission(user):
@@ -61,6 +47,36 @@ def _check_train_agents_permission(user):
         raise PermissionDenied("You are not allowed to manage the knowledge base. The 'train-agents' feature flag is not enabled for your organization.")
 
 
+def _ownership_from_request(request, data=None):
+    """
+    Resolve visibility + role_ids for create/update.
+
+    Chat uploads → always personal.
+    Missing visibility → personal (chat / legacy callers).
+    KB should send visibility (+ role_ids when roles).
+    """
+    payload = data if data is not None else request.POST
+    source = (payload.get("source") or "").strip().lower()
+    visibility = payload.get("visibility")
+    if visibility is not None:
+        visibility = str(visibility).strip().lower() or None
+
+    role_raw = payload.get("role_ids")
+    if role_raw is None and hasattr(request, "POST"):
+        # Support repeated form fields: role_ids=a&role_ids=b
+        multi = request.POST.getlist("role_ids") if hasattr(request.POST, "getlist") else []
+        if multi:
+            role_raw = multi
+
+    role_ids = parse_role_ids(role_raw)
+
+    if source == "chat":
+        return Document.Visibility.PERSONAL, [], True
+    if visibility is None:
+        return Document.Visibility.PERSONAL, [], False
+    return visibility, role_ids, True
+
+
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class DocumentView(View):
@@ -68,13 +84,8 @@ class DocumentView(View):
 
     def get(self, request):
         user = request.user
-        organization = _get_user_organization(user)
         _check_train_agents_permission(user)
-        if organization:
-            org_user_ids = _organization_user_ids(organization)
-            documents = Document.objects.filter(collection__user_id__in=org_user_ids)
-        else:
-            documents = Document.objects.filter(collection__user=user)
+        documents = Document.objects.filter(documents_accessible_q(user)).distinct()
 
         has_file_raw = (request.GET.get("has_file") or "").strip().lower()
         if has_file_raw in {"1", "true", "yes"}:
@@ -157,6 +168,10 @@ class DocumentView(View):
                 status=400,
             )
 
+        visibility, role_ids, ownership_explicit = _ownership_from_request(
+            request, data
+        )
+
         document_exists = Document.objects.filter(
             text=file_content, collection=collection
         ).exists()
@@ -167,6 +182,20 @@ class DocumentView(View):
                 document.file = file
                 document.content_type = getattr(file, "content_type", "") or ""
                 document.save(update_fields=["file", "content_type"])
+            # Avoid demoting org/role docs when chat re-uploads the same text.
+            if ownership_explicit:
+                try:
+                    apply_document_ownership(
+                        document,
+                        user=request.user,
+                        visibility=visibility,
+                        role_ids=role_ids,
+                    )
+                except ValueError as exc:
+                    return JsonResponse(
+                        {"message": "Bad request", "error": str(exc)},
+                        status=400,
+                    )
 
             serializer = DocumentSerializer(document, context={"request": request})
             return JsonResponse(serializer.data, status=200)
@@ -175,14 +204,35 @@ class DocumentView(View):
         if not data.get("name") and file_name:
             data["name"] = file_name
         data["text"] = file_content.replace("\0", "")
+        # Ownership is applied after create (serializer fields are read-only).
+        data.pop("visibility", None)
+        data.pop("role_ids", None)
+        data.pop("source", None)
         serializer = DocumentSerializer(data=data)
 
         if serializer.is_valid():
-            serializer.save(
+            document = serializer.save(
                 file=file,
                 content_type=getattr(file, "content_type", "") or "",
+                created_by=request.user,
             )
-            return JsonResponse(serializer.data, status=201)
+            try:
+                apply_document_ownership(
+                    document,
+                    user=request.user,
+                    visibility=visibility,
+                    role_ids=role_ids,
+                )
+            except ValueError as exc:
+                document.delete()
+                return JsonResponse(
+                    {"message": "Bad request", "error": str(exc)},
+                    status=400,
+                )
+            return JsonResponse(
+                DocumentSerializer(document, context={"request": request}).data,
+                status=201,
+            )
 
         return JsonResponse(serializer.errors, status=400)
 
@@ -191,13 +241,33 @@ class DocumentView(View):
         data = json.loads(request.body)
         action = data.get("action", None)
 
-        document = Document.objects.get(id=document_id)
+        try:
+            document = Document.objects.get(id=document_id)
+        except Document.DoesNotExist:
+            return JsonResponse({"error": "Document not found"}, status=404)
+
+        if not user_can_manage_document(request.user, document):
+            return JsonResponse({"error": "Document not accessible"}, status=403)
+
         if action == "add":
             document.add_to_rag()
         elif action == "remove":
             document.remove_from_rag()
         elif action == "generate_brief":
             document.generate_brief()
+        elif action == "update_ownership" or "visibility" in data:
+            visibility = data.get("visibility")
+            role_ids = parse_role_ids(data.get("role_ids"))
+            try:
+                apply_document_ownership(
+                    document,
+                    user=request.user,
+                    visibility=visibility,
+                    role_ids=role_ids,
+                )
+            except ValueError as exc:
+                return JsonResponse({"error": str(exc)}, status=400)
+            document.refresh_from_db()
 
         return JsonResponse(
             DocumentSerializer(document, context={"request": request}).data, status=200
@@ -207,12 +277,16 @@ class DocumentView(View):
         _check_train_agents_permission(request.user)
         try:
             document = Document.objects.get(id=document_id)
-            document.remove_from_rag()
-            return JsonResponse(
-                {"message": "Document deleted successfully"}, status=200
-            )
         except Document.DoesNotExist:
             return JsonResponse({"error": "Document not found"}, status=404)
+
+        if not user_can_manage_document(request.user, document):
+            return JsonResponse({"error": "Document not accessible"}, status=403)
+
+        document.remove_from_rag()
+        return JsonResponse(
+            {"message": "Document deleted successfully"}, status=200
+        )
 
 
 @csrf_exempt
@@ -238,8 +312,7 @@ def sync_drive_document(request, document_id):
     except Document.DoesNotExist:
         return JsonResponse({"error": "Document not found"}, status=404)
 
-    collection, _ = Collection.get_or_create_personal_collection(user=request.user)
-    if document.collection_id != collection.id:
+    if not user_can_manage_document(request.user, document):
         return JsonResponse({"error": "Document not accessible"}, status=403)
 
     if not document.drive_file_id:

@@ -1102,7 +1102,9 @@ def link_message_attachment(request):
         except Exception:
             return JsonResponse({"error": "RAG document not found"}, status=404)
 
-        if getattr(doc.collection, "user_id", None) != request.user.id:
+        from api.rag.access import user_can_access_document
+
+        if not user_can_access_document(request.user, doc):
             return JsonResponse({"error": "RAG document not accessible"}, status=403)
 
         attachment = MessageAttachment.objects.create(

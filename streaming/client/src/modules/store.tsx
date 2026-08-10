@@ -277,6 +277,8 @@ export const useStore = create<Store>()((set, get) => {
     // formData.append("agents", selectedAgents);
     formData.append("name", newAttachment.name);
     // formData.append("conversation_id", String(conversation_id));
+    formData.append("source", "chat");
+    formData.append("visibility", "personal");
 
     const loadingID = toast.loading("Uploading document...");
     // @ts-ignore
