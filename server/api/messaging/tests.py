@@ -781,3 +781,61 @@ class GalleryViewTests(TestCase):
     def test_requires_auth(self):
         response = self.client.get("/v1/messaging/gallery/?type=image")
         self.assertIn(response.status_code, (401, 403))
+
+    def test_delete_removes_attachment_and_message_refs(self):
+        from api.messaging.models import MessageAttachment
+
+        msg = Message.objects.create(
+            conversation=self.conversation,
+            type="assistant",
+            text=f"See [file](attachment:{self.image.id})",
+            attachments=[
+                {
+                    "type": "image",
+                    "content": "https://api.example.com/media/gen.png",
+                    "name": "gen.png",
+                    "attachment_id": str(self.image.id),
+                },
+                {
+                    "type": "image",
+                    "content": "https://api.example.com/media/keep.png",
+                    "name": "keep.png",
+                    "attachment_id": "00000000-0000-0000-0000-000000000099",
+                },
+            ],
+        )
+        self.image.message = msg
+        self.image.save(update_fields=["message"])
+
+        response = self.client.delete(
+            f"/v1/messaging/gallery/{self.image.id}/",
+            **self.auth,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["status"], "deleted")
+        self.assertFalse(
+            MessageAttachment.objects.filter(id=self.image.id).exists()
+        )
+
+        msg.refresh_from_db()
+        self.assertEqual(len(msg.attachments), 1)
+        self.assertEqual(
+            msg.attachments[0]["attachment_id"],
+            "00000000-0000-0000-0000-000000000099",
+        )
+        self.assertNotIn(str(self.image.id), msg.text)
+
+    def test_cannot_delete_other_users_attachment(self):
+        from api.messaging.models import MessageAttachment
+
+        other_att = MessageAttachment.objects.filter(
+            conversation=self.other_conversation
+        ).first()
+        response = self.client.delete(
+            f"/v1/messaging/gallery/{other_att.id}/",
+            **self.auth,
+        )
+        self.assertEqual(response.status_code, 404)
+        self.assertTrue(
+            MessageAttachment.objects.filter(id=other_att.id).exists()
+        )

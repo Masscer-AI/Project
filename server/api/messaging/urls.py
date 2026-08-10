@@ -29,6 +29,7 @@ from .views import (
     ScheduledConversationTaskDetailView,
     UserScheduledTasksView,
     GalleryView,
+    GalleryItemView,
 )
 
 app_name = "messaging"
@@ -73,6 +74,11 @@ urlpatterns = [
     path("attachments/upload/", upload_message_attachments, name="upload_message_attachments"),
     path("attachments/link/", link_message_attachment, name="link_message_attachment"),
     path("gallery/", GalleryView.as_view(), name="gallery"),
+    path(
+        "gallery/<uuid:attachment_id>/",
+        GalleryItemView.as_view(),
+        name="gallery_item",
+    ),
     path("get-suggestion/", get_suggestion, name="get_suggestion"),
     path(
         "shared-conversations/",

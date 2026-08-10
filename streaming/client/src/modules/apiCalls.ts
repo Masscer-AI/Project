@@ -843,6 +843,13 @@ export const getGalleryItems = async (options: {
   );
 };
 
+export const deleteGalleryItem = async (attachmentId: string) => {
+  return makeAuthenticatedRequest<{ status: string; id: string }>(
+    "DELETE",
+    `/v1/messaging/gallery/${attachmentId}/`
+  );
+};
+
 export const cancelScheduledTask = async (taskId: string) => {
   return makeAuthenticatedRequest<{
     success: boolean;

@@ -31,11 +31,13 @@ import {
   IconPhoto,
   IconPlayerPlay,
   IconPresentation,
+  IconTrash,
   IconVideo,
 } from "@tabler/icons-react";
 import { Sidebar } from "../../components/Sidebar/Sidebar";
 import { useStore } from "../../modules/store";
 import {
+  deleteGalleryItem,
   getGalleryItems,
   TGalleryItem,
   TGalleryType,
@@ -117,9 +119,11 @@ function documentMeta(ext: string): {
 function GalleryCardActions({
   item,
   onOpenChat,
+  onRequestDelete,
 }: {
   item: TGalleryItem;
   onOpenChat: () => void;
+  onRequestDelete: () => void;
 }) {
   const { t } = useTranslation();
   return (
@@ -135,21 +139,34 @@ function GalleryCardActions({
           {t("gallery-open-conversation")}
         </Button>
       </Tooltip>
-      <Tooltip label={t("download")}>
-        <ActionIcon
-          component="a"
-          href={item.url}
-          download={item.name}
-          target="_blank"
-          rel="noopener noreferrer"
-          variant="subtle"
-          color="gray"
-          size="sm"
-          aria-label={t("download")}
-        >
-          <IconDownload size={16} />
-        </ActionIcon>
-      </Tooltip>
+      <Group gap={4} wrap="nowrap">
+        <Tooltip label={t("download")}>
+          <ActionIcon
+            component="a"
+            href={item.url}
+            download={item.name}
+            target="_blank"
+            rel="noopener noreferrer"
+            variant="subtle"
+            color="gray"
+            size="sm"
+            aria-label={t("download")}
+          >
+            <IconDownload size={16} />
+          </ActionIcon>
+        </Tooltip>
+        <Tooltip label={t("gallery-delete")}>
+          <ActionIcon
+            variant="subtle"
+            color="red"
+            size="sm"
+            onClick={onRequestDelete}
+            aria-label={t("gallery-delete")}
+          >
+            <IconTrash size={16} />
+          </ActionIcon>
+        </Tooltip>
+      </Group>
     </Group>
   );
 }
@@ -158,10 +175,12 @@ function ImageGalleryCard({
   item,
   dateLabel,
   onOpenChat,
+  onRequestDelete,
 }: {
   item: TGalleryItem;
   dateLabel: string;
   onOpenChat: () => void;
+  onRequestDelete: () => void;
 }) {
   const { t } = useTranslation();
   const [opened, { open, close }] = useDisclosure(false);
@@ -202,7 +221,11 @@ function ImageGalleryCard({
           <Text size="xs" c="dimmed">
             {dateLabel}
           </Text>
-          <GalleryCardActions item={item} onOpenChat={onOpenChat} />
+          <GalleryCardActions
+            item={item}
+            onOpenChat={onOpenChat}
+            onRequestDelete={onRequestDelete}
+          />
         </Stack>
       </Card>
 
@@ -258,10 +281,12 @@ function VideoGalleryCard({
   item,
   dateLabel,
   onOpenChat,
+  onRequestDelete,
 }: {
   item: TGalleryItem;
   dateLabel: string;
   onOpenChat: () => void;
+  onRequestDelete: () => void;
 }) {
   const { t } = useTranslation();
   const [opened, { open, close }] = useDisclosure(false);
@@ -328,7 +353,11 @@ function VideoGalleryCard({
           <Text size="xs" c="dimmed">
             {dateLabel}
           </Text>
-          <GalleryCardActions item={item} onOpenChat={onOpenChat} />
+          <GalleryCardActions
+            item={item}
+            onOpenChat={onOpenChat}
+            onRequestDelete={onRequestDelete}
+          />
         </Stack>
       </Card>
 
@@ -385,10 +414,12 @@ function AudioGalleryCard({
   item,
   dateLabel,
   onOpenChat,
+  onRequestDelete,
 }: {
   item: TGalleryItem;
   dateLabel: string;
   onOpenChat: () => void;
+  onRequestDelete: () => void;
 }) {
   return (
     <Card padding="md" withBorder radius="md">
@@ -432,7 +463,11 @@ function AudioGalleryCard({
           </Text>
         )}
 
-        <GalleryCardActions item={item} onOpenChat={onOpenChat} />
+        <GalleryCardActions
+          item={item}
+          onOpenChat={onOpenChat}
+          onRequestDelete={onRequestDelete}
+        />
       </Stack>
     </Card>
   );
@@ -442,10 +477,12 @@ function DocumentGalleryCard({
   item,
   dateLabel,
   onOpenChat,
+  onRequestDelete,
 }: {
   item: TGalleryItem;
   dateLabel: string;
   onOpenChat: () => void;
+  onRequestDelete: () => void;
 }) {
   const { t } = useTranslation();
   const ext = fileExtension(item.name, item.content_type);
@@ -497,7 +534,11 @@ function DocumentGalleryCard({
           {t("download")}
         </Button>
 
-        <GalleryCardActions item={item} onOpenChat={onOpenChat} />
+        <GalleryCardActions
+          item={item}
+          onOpenChat={onOpenChat}
+          onRequestDelete={onRequestDelete}
+        />
       </Stack>
     </Card>
   );
@@ -506,48 +547,73 @@ function DocumentGalleryCard({
 function GalleryItemCard({
   item,
   locale,
+  onDeleted,
 }: {
   item: TGalleryItem;
   locale: string;
+  onDeleted: (id: string) => void;
 }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const dateLabel = formatDate(item.created_at, locale);
+  const [confirmOpened, { open: openConfirm, close: closeConfirm }] =
+    useDisclosure(false);
+  const [deleting, setDeleting] = useState(false);
+
   const openChat = () =>
     navigate(`/chat?conversation=${item.conversation_id}`);
 
-  if (item.type === "image") {
-    return (
-      <ImageGalleryCard
-        item={item}
-        dateLabel={dateLabel}
-        onOpenChat={openChat}
-      />
-    );
-  }
-  if (item.type === "video") {
-    return (
-      <VideoGalleryCard
-        item={item}
-        dateLabel={dateLabel}
-        onOpenChat={openChat}
-      />
-    );
-  }
-  if (item.type === "audio") {
-    return (
-      <AudioGalleryCard
-        item={item}
-        dateLabel={dateLabel}
-        onOpenChat={openChat}
-      />
-    );
-  }
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      await deleteGalleryItem(item.id);
+      toast.success(t("gallery-deleted"));
+      closeConfirm();
+      onDeleted(item.id);
+    } catch {
+      toast.error(t("gallery-delete-error"));
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const cardProps = {
+    item,
+    dateLabel,
+    onOpenChat: openChat,
+    onRequestDelete: openConfirm,
+  };
+
   return (
-    <DocumentGalleryCard
-      item={item}
-      dateLabel={dateLabel}
-      onOpenChat={openChat}
-    />
+    <>
+      {item.type === "image" && <ImageGalleryCard {...cardProps} />}
+      {item.type === "video" && <VideoGalleryCard {...cardProps} />}
+      {item.type === "audio" && <AudioGalleryCard {...cardProps} />}
+      {item.type === "document" && <DocumentGalleryCard {...cardProps} />}
+
+      <Modal
+        opened={confirmOpened}
+        onClose={closeConfirm}
+        title={t("gallery-delete-confirm-title")}
+        centered
+      >
+        <Stack gap="md">
+          <Text size="sm">{t("gallery-delete-confirm")}</Text>
+          <Group justify="flex-end" gap="sm">
+            <Button
+              variant="default"
+              onClick={closeConfirm}
+              disabled={deleting}
+            >
+              {t("cancel")}
+            </Button>
+            <Button color="red" loading={deleting} onClick={() => void handleDelete()}>
+              {t("gallery-delete")}
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+    </>
   );
 }
 
@@ -694,6 +760,10 @@ export default function GalleryPage() {
                       key={item.id}
                       item={item}
                       locale={i18n.language}
+                      onDeleted={(id) => {
+                        setItems((prev) => prev.filter((x) => x.id !== id));
+                        setTotal((prev) => Math.max(0, prev - 1));
+                      }}
                     />
                   ))}
                 </SimpleGrid>
