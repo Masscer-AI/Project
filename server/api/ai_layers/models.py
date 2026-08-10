@@ -136,6 +136,16 @@ class Agent(models.Model):
         help_text="Prompt personalizado para generar títulos de conversaciones. Si está vacío, se usa el prompt por defecto."
     )
 
+    pre_approved_tools = models.JSONField(
+        default=list,
+        blank=True,
+        help_text=(
+            "Tool names used to pre-fill tool selection when this agent is picked in "
+            "the main chat. Not enforced server-side — the user can still toggle tools "
+            "freely per message; edit this list here to change the default."
+        ),
+    )
+
     class Meta:
         constraints = [
             models.UniqueConstraint(

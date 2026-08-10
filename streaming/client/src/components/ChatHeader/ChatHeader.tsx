@@ -21,11 +21,14 @@ import {
   Tooltip,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { createLLM, deleteLLM, updateAgent, makeAuthenticatedRequest, getUserOrganizations, getOrganizationRoles, getVoices, previewVoice } from "../../modules/apiCalls";
+import { createLLM, deleteLLM, updateAgent, makeAuthenticatedRequest, getUserOrganizations, getOrganizationRoles, getVoices, previewVoice, getAgentToolGroups } from "../../modules/apiCalls";
+import type { TMCPToolPresetGroup } from "../../modules/apiCalls";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
 import type { TVoiceCatalogEntry } from "../../types/agents";
+import { mcpToolGroupLabel } from "../../utils/mcpToolGroupLabel";
+import { useLocalizedToolName } from "../../utils/localizedToolName";
 import {
   formatUnreadNotificationBadge,
   useUnreadNotificationCount,
@@ -353,12 +356,34 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
     act_as: agent.act_as || "",
     system_prompt: agent.system_prompt || "",
     conversation_title_prompt: agent.conversation_title_prompt || "",
+    pre_approved_tools: agent.pre_approved_tools || [],
     llm: agent.llm || {
       name: "",
       provider: "",
       slug: "",
     },
   } as TAgent);
+
+  const localizedToolName = useLocalizedToolName();
+  const [toolGroups, setToolGroups] = useState<TMCPToolPresetGroup[]>([]);
+
+  useEffect(() => {
+    getAgentToolGroups()
+      .then((res) => setToolGroups(res.groups ?? []))
+      .catch(() => setToolGroups([]));
+  }, []);
+
+  const toolOptions = React.useMemo(
+    () =>
+      toolGroups.map((group) => ({
+        group: mcpToolGroupLabel(group.group, t),
+        items: group.items.map((tool) => ({
+          value: tool,
+          label: localizedToolName(tool),
+        })),
+      })),
+    [toolGroups, t, localizedToolName]
+  );
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -763,6 +788,19 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
         autosize
         minRows={2}
         maxRows={6}
+      />
+
+      <MultiSelect
+        label={t("pre-approved-tools")}
+        description={t("pre-approved-tools-desc")}
+        placeholder={t("pre-approved-tools-placeholder")}
+        data={toolOptions}
+        value={formState.pre_approved_tools || []}
+        onChange={(selected) =>
+          setFormState((prev) => ({ ...prev, pre_approved_tools: selected }))
+        }
+        searchable
+        clearable
       />
 
       <Group>

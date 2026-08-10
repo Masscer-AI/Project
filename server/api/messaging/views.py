@@ -47,7 +47,7 @@ from api.authenticate.decorators.widget_session_required import (
     create_widget_session_token,
     widget_session_required,
 )
-from api.ai_layers.tools import list_available_tools
+from api.ai_layers.tools import list_available_tools, resolve_allowed_tools
 from .widget_avatar_urls import clear_widget_uploaded_avatar
 from .actions import transcribe_audio, complete_message
 from .takeover import (
@@ -1445,7 +1445,9 @@ class ChatWidgetAgentTaskView(View):
             if isinstance(name, str) and name in available_tools:
                 configured_tools.append(name)
 
-        tool_names = list(dict.fromkeys(configured_tools))
+        # No authenticated Masscer user behind a public widget visitor —
+        # drop any tool that requires one (e.g. calendar, org membership).
+        tool_names = resolve_allowed_tools(configured_tools, user=None)
 
         from api.messaging.schemas import metadata_payload_for_related_agents
 

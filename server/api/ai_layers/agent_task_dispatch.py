@@ -58,7 +58,7 @@ def dispatch_conversation_agent_task(
     Returns AgentTaskDispatchResult with either a JsonResponse error or task metadata.
     """
     from api.ai_layers.tasks import conversation_agent_task
-    from api.ai_layers.tools import list_available_tools
+    from api.ai_layers.tools import list_available_tools, resolve_allowed_tools
 
     slugs = [s for s in agent_slugs if isinstance(s, str) and s.strip()]
     if not conversation_id:
@@ -129,6 +129,9 @@ def dispatch_conversation_agent_task(
                 status=400,
             ),
         )
+    # user is always authenticated on this path (chat + MCP), so this only
+    # dedupes/validates here — the trust filter is a no-op with a real user.
+    tool_names = resolve_allowed_tools(tool_names, user)
 
     user_org = get_user_organization(user)
     base_qs = accessible_agents_qs(user)

@@ -93,7 +93,7 @@ class AgentAdmin(admin.ModelAdmin):
             "fields": ("profile_picture_url", "profile_picture_src", "default_voice")
         }),
         ("Settings", {
-            "fields": ("is_public", "default")
+            "fields": ("is_public", "default", "pre_approved_tools")
         }),
     )
     

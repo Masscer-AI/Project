@@ -58,4 +58,5 @@ export type TAgent = {
   user?: number;
   access_mode?: "personal" | "org_all" | "org_roles" | "platform";
   allowed_roles?: { id: string; name: string }[];
+  pre_approved_tools?: string[];
 };

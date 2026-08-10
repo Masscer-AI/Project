@@ -461,6 +461,15 @@ def get_formatted_system_prompt(request):
 
 @csrf_exempt
 @token_required
+def agent_tool_groups(request):
+    """Grouped tool names for the agent settings 'pre-approved tools' checklist."""
+    from api.ai_layers.mcp_access import mcp_tool_preset_groups
+
+    return JsonResponse({"groups": mcp_tool_preset_groups()})
+
+
+@csrf_exempt
+@token_required
 def create_random_agent(request):
     printer.yellow("Creating random agent")
     if request.method != "POST":

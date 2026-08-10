@@ -27,6 +27,35 @@ import {
   syncNotificationSoundSettings,
 } from "../utils/notificationSound";
 
+/**
+ * Derives the chat tool-toggle booleans from the pre_approved_tools of the
+ * currently selected agents (union across multi-agent selection). This only
+ * seeds the initial toggle state when an agent is picked — the user can
+ * still freely change toggles afterwards; nothing here is enforced.
+ */
+function toggleStateFromPreApprovedTools(
+  agents: TAgent[],
+  selectedSlugs: string[]
+) {
+  const bySlug = new Map(agents.map((a) => [a.slug, a] as const));
+  const approved = new Set<string>();
+  for (const slug of selectedSlugs) {
+    for (const name of bySlug.get(slug)?.pre_approved_tools ?? []) {
+      approved.add(name);
+    }
+  }
+  return {
+    webSearch: approved.has("explore_web"),
+    useRag: approved.has("rag_query"),
+    generateImages: approved.has("create_image"),
+    generateSpeech:
+      approved.has("create_speech") || approved.has("generate_dialogue"),
+    generateVideo: approved.has("generate_video"),
+    generateGammaPresentation: approved.has("generate_gamma_presentation"),
+    createCompletions: approved.has("create_completion"),
+  };
+}
+
 const _initialTheme = (() => {
   try {
     return localStorage.getItem("cached_theme") || "dark";
@@ -327,7 +356,11 @@ export const useStore = create<Store>()((set, get) => {
     }
     set((state) => ({
       agents: sortAgentsBySelectionOrder(state.agents, selectedSlugs),
-      chatState: { ...state.chatState, selectedAgents: selectedSlugs },
+      chatState: {
+        ...state.chatState,
+        selectedAgents: selectedSlugs,
+        ...toggleStateFromPreApprovedTools(state.agents, selectedSlugs),
+      },
     }));
   },
   fetchAgents: async () => {
@@ -378,6 +411,7 @@ export const useStore = create<Store>()((set, get) => {
         chatState: {
           ...state.chatState,
           selectedAgents: newSelectedAgents,
+          ...toggleStateFromPreApprovedTools(state.agents, newSelectedAgents),
         },
       };
     });
@@ -390,6 +424,7 @@ export const useStore = create<Store>()((set, get) => {
       chatState: {
         ...state.chatState,
         selectedAgents: slugs,
+        ...toggleStateFromPreApprovedTools(state.agents, slugs),
       },
     }));
   },

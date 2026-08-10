@@ -80,6 +80,29 @@ DEPENDENT_TOOL_REQUIREMENTS: dict[str, tuple[str, ...]] = {
     "list_voices": ("create_speech", "generate_dialogue"),
 }
 
+# Tools that act on behalf of an authenticated Masscer user (account-scoped
+# calendar, org membership/roles, email-as-user, WhatsApp resource/template
+# management, scheduled-task management). Never offered to anonymous callers
+# (chat widget visitors, WhatsApp senders) — there is no Django User to scope
+# them to. Conversation/tagging tools are deliberately excluded: those work
+# fine for anonymous visitors and WhatsApp already forces some of them on.
+USER_REQUIRED_TOOL_NAMES: frozenset[str] = frozenset(
+    {
+        "list_organization_members",
+        "list_organization_roles",
+        "send_email",
+        "list_whatsapp_resources",
+        "list_whatsapp_templates",
+        "send_ws_template_message",
+        "list_calendar_events",
+        "create_calendar_event",
+        "update_calendar_event",
+        "schedule_task",
+        "list_scheduled_tasks",
+        "cancel_scheduled_task",
+    }
+)
+
 
 def resolve_tools(tool_names: list[str], **context) -> list[dict]:
     """
@@ -191,3 +214,33 @@ def _append_schedule_task_capability_catalog(tools: list[dict]) -> None:
 def list_available_tools() -> list[str]:
     """Return a sorted list of all registered tool names."""
     return sorted(set(TOOL_REGISTRY) - set(DEPENDENT_TOOL_REQUIREMENTS))
+
+
+def resolve_allowed_tools(requested_names: list[str] | None, user) -> list[str]:
+    """
+    Shared validation/trust filter for every surface that turns a requested
+    tool list into what an agent run may actually use.
+
+    - Drops names not in the registry (list_available_tools()).
+    - Drops names in USER_REQUIRED_TOOL_NAMES when user is None (no
+      authenticated Masscer user backing this conversation, e.g. a public
+      chat widget visitor or a WhatsApp sender).
+
+    This does not enforce any per-surface or per-agent allowlist — callers
+    are still responsible for deciding *which* names to request (widget
+    capabilities, WhatsApp line capabilities, MCP credential allowlist,
+    chat tool toggles). This function only enforces the trust floor.
+    """
+    available = set(list_available_tools())
+    names: list[str] = []
+    seen: set[str] = set()
+    for name in requested_names or []:
+        if not isinstance(name, str) or name not in available:
+            continue
+        if name in seen:
+            continue
+        if user is None and name in USER_REQUIRED_TOOL_NAMES:
+            continue
+        seen.add(name)
+        names.append(name)
+    return names

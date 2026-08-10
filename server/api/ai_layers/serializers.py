@@ -169,8 +169,29 @@ class AgentSerializer(serializers.ModelSerializer):
             "max_tokens",
             "llm",
             "conversation_title_prompt",
+            "pre_approved_tools",
         ]
         read_only_fields = ["agent_kind"]
+
+    def validate_pre_approved_tools(self, value):
+        if not isinstance(value, list):
+            raise serializers.ValidationError("pre_approved_tools must be a list of strings.")
+
+        from api.ai_layers.tools import list_available_tools
+
+        available = set(list_available_tools())
+        names: list[str] = []
+        seen: set[str] = set()
+        for item in value:
+            if not isinstance(item, str) or not item.strip():
+                continue
+            name = item.strip()
+            if name not in available:
+                raise serializers.ValidationError(f"Unknown tool: {name}")
+            if name not in seen:
+                seen.add(name)
+                names.append(name)
+        return names
 
     def validate_default_voice_id(self, voice):
         if voice is None:

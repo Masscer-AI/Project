@@ -132,7 +132,7 @@ def tool_names_from_capabilities(capabilities: list | None) -> list[str]:
     Same resolution as ChatWidgetAgentTaskView: internal_tool + enabled + registry.
     Required WhatsApp tools are always included.
     """
-    from api.ai_layers.tools import list_available_tools
+    from api.ai_layers.tools import list_available_tools, resolve_allowed_tools
 
     from .capability_tools import (
         WHATSAPP_REQUIRED_CAPABILITY_TOOLS,
@@ -153,4 +153,7 @@ def tool_names_from_capabilities(capabilities: list | None) -> list[str]:
     for required_tool in WHATSAPP_REQUIRED_CAPABILITY_TOOLS:
         if required_tool in available_tools:
             configured_tools.append(required_tool)
-    return list(dict.fromkeys(configured_tools))
+
+    # WhatsApp senders are phone numbers, never an authenticated Masscer
+    # User — drop any tool that requires one, same as the chat widget.
+    return resolve_allowed_tools(configured_tools, user=None)

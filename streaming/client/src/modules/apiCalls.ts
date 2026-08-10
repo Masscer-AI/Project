@@ -2172,6 +2172,16 @@ export const getMCPToolPresets = async () => {
   );
 };
 
+/** Same grouping as getMCPToolPresets, but available to any authenticated
+ * user (not gated behind the integrations-management feature flag) — used
+ * for the agent settings "pre-approved tools" picker. */
+export const getAgentToolGroups = async () => {
+  return makeAuthenticatedRequest<{ groups: TMCPToolPresetGroup[] }>(
+    "GET",
+    "/v1/ai_layers/agents/tool-groups/"
+  );
+};
+
 export const revokeMCPCredential = async (credentialId: string) => {
   return makeAuthenticatedRequest<{ status: string; id: string }>(
     "DELETE",

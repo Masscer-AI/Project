@@ -10,6 +10,7 @@ from .views import (
     agent_session_execution_log_for_message,
     cancel_agent_task,
     agent_task_status,
+    agent_tool_groups,
 )
 from .mcp_views import (
     mcp_list_agents,
@@ -26,6 +27,10 @@ app_name = "ai_layers"
 
 urlpatterns = [
     path("agents/", AgentView.as_view(), name="agents_list"),
+    # Specific /agents/... paths must come before the <slug:slug> catch-all below,
+    # or Django routes them to AgentView with slug="create"/"tool-groups" instead.
+    path("agents/create/random/", create_random_agent, name="create_random_agent"),
+    path("agents/tool-groups/", agent_tool_groups, name="agent_tool_groups"),
     path("agents/<slug:slug>/", AgentView.as_view(), name="agents_single"),
     path("models/", LanguageModelView.as_view(), name="models_list"),
     path("models/<str:slug>/", LanguageModelView.as_view(), name="models_single"),
@@ -34,7 +39,6 @@ urlpatterns = [
         get_formatted_system_prompt,
         name="get_formatted_system_prompt",
     ),
-    path("agents/create/random/", create_random_agent, name="create_random_agent"),
     # Agent task endpoints (Celery-backed AgentLoop execution)
     path("agent-task/conversation/", AgentTaskView.as_view(), name="agent_task_conversation"),
     path("agent-task/platform/", PlatformAgentTaskView.as_view(), name="agent_task_platform"),
