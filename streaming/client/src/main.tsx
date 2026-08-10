@@ -47,6 +47,7 @@ import { ProtectedRoute } from "./components/ProtectedRoute/ProtectedRoute.tsx";
 import SettingsPage from "./routes/settings/page.tsx";
 import IntegrationsPage from "./routes/integrations/page.tsx";
 import ScheduledTasksPage from "./routes/scheduled-tasks/page.tsx";
+import GalleryPage from "./routes/gallery/page.tsx";
 import PrivacyPolicyPage from "./routes/legal/privacy/page.tsx";
 import TermsOfServicePage from "./routes/legal/terms/page.tsx";
 import OAuthConsentPage from "./routes/oauth/consent/page.tsx";
@@ -214,6 +215,14 @@ const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <ScheduledTasksPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/gallery",
+        element: (
+          <ProtectedRoute>
+            <GalleryPage />
           </ProtectedRoute>
         ),
       },

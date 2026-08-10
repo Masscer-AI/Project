@@ -28,6 +28,7 @@ from .views import (
     ConversationScheduledTasksView,
     ScheduledConversationTaskDetailView,
     UserScheduledTasksView,
+    GalleryView,
 )
 
 app_name = "messaging"
@@ -71,6 +72,7 @@ urlpatterns = [
     path("upload-audio/", upload_audio, name="upload_audio"),
     path("attachments/upload/", upload_message_attachments, name="upload_message_attachments"),
     path("attachments/link/", link_message_attachment, name="link_message_attachment"),
+    path("gallery/", GalleryView.as_view(), name="gallery"),
     path("get-suggestion/", get_suggestion, name="get_suggestion"),
     path(
         "shared-conversations/",

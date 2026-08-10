@@ -676,3 +676,108 @@ class MessageAttachmentXlsxUploadTests(TestCase):
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
         self.assertTrue(att.file.name.endswith(".xlsx"))
+
+
+@override_settings(API_BASE_URL="https://api.example.com")
+class GalleryViewTests(TestCase):
+    def setUp(self):
+        self.media_dir = tempfile.mkdtemp()
+        self.settings_override = override_settings(MEDIA_ROOT=self.media_dir)
+        self.settings_override.enable()
+
+        self.client = APIClient()
+        self.user = User.objects.create_user(
+            username="gallery-user",
+            email="gallery@example.com",
+            password="pass-123456",
+        )
+        self.other = User.objects.create_user(
+            username="gallery-other",
+            email="other@example.com",
+            password="pass-123456",
+        )
+        self.login_token, _ = Token.get_or_create(user=self.user, token_type="login")
+        self.auth = {"HTTP_AUTHORIZATION": f"Token {self.login_token.key}"}
+
+        provider = AIProvider.objects.create(name="OpenAI Gallery")
+        llm = LanguageModel.objects.create(
+            provider=provider,
+            slug="gpt-4o-mini-gallery",
+            name="GPT 4o mini gallery",
+        )
+        self.agent = Agent.objects.create(
+            name="Gallery Agent",
+            salute="hello",
+            act_as="helpful",
+            user=self.user,
+            llm=llm,
+            model_slug=llm.slug,
+            model_provider="openai",
+        )
+        self.conversation = Conversation.objects.create(
+            user=self.user, title="Gallery chat"
+        )
+        self.other_conversation = Conversation.objects.create(
+            user=self.other, title="Other chat"
+        )
+
+        from django.core.files.base import ContentFile
+        from api.messaging.models import MessageAttachment
+
+        self.image = MessageAttachment.objects.create(
+            conversation=self.conversation,
+            user=self.user,
+            agent=self.agent,
+            kind="file",
+            file=ContentFile(MINIMAL_PNG_BYTES, name="gen.png"),
+            content_type="image/png",
+            metadata={"prompt": "a cat", "model": "test"},
+        )
+        self.upload = MessageAttachment.objects.create(
+            conversation=self.conversation,
+            user=self.user,
+            agent=None,
+            kind="file",
+            file=ContentFile(MINIMAL_PNG_BYTES, name="upload.png"),
+            content_type="image/png",
+            metadata={},
+        )
+        MessageAttachment.objects.create(
+            conversation=self.other_conversation,
+            user=self.other,
+            agent=self.agent,
+            kind="file",
+            file=ContentFile(MINIMAL_PNG_BYTES, name="other.png"),
+            content_type="image/png",
+            metadata={"prompt": "secret"},
+        )
+
+    def tearDown(self):
+        self.settings_override.disable()
+
+    def test_lists_own_generations_not_uploads_or_others(self):
+        response = self.client.get(
+            "/v1/messaging/gallery/?type=image",
+            **self.auth,
+        )
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["total"], 1)
+        self.assertEqual(len(body["results"]), 1)
+        item = body["results"][0]
+        self.assertEqual(item["id"], str(self.image.id))
+        self.assertEqual(item["type"], "image")
+        self.assertEqual(item["prompt"], "a cat")
+        self.assertEqual(item["conversation_id"], str(self.conversation.id))
+        self.assertTrue(item["url"].startswith("https://api.example.com/"))
+
+    def test_rejects_invalid_type(self):
+        response = self.client.get(
+            "/v1/messaging/gallery/?type=gif",
+            **self.auth,
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_requires_auth(self):
+        response = self.client.get("/v1/messaging/gallery/?type=image")
+        self.assertIn(response.status_code, (401, 403))

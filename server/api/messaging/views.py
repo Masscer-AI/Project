@@ -2423,6 +2423,46 @@ class ConversationHumanMessageView(View):
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
+class GalleryView(View):
+    """List agent-generated attachments across the user's conversations."""
+
+    def get(self, request):
+        user = request.user
+        if not user or not getattr(user, "id", None):
+            return JsonResponse({"message": "Unauthorized", "status": 401}, status=401)
+
+        gallery_type = (request.GET.get("type") or "image").strip().lower()
+        from api.messaging.gallery import GALLERY_TYPES, list_gallery_items
+
+        if gallery_type not in GALLERY_TYPES:
+            return JsonResponse(
+                {
+                    "message": f"type must be one of: {', '.join(GALLERY_TYPES)}",
+                    "status": 400,
+                },
+                status=400,
+            )
+
+        try:
+            limit = int(request.GET.get("limit") or 48)
+        except (TypeError, ValueError):
+            limit = 48
+        try:
+            offset = int(request.GET.get("offset") or 0)
+        except (TypeError, ValueError):
+            offset = 0
+
+        result = list_gallery_items(
+            user=user,
+            gallery_type=gallery_type,
+            limit=limit,
+            offset=offset,
+        )
+        return JsonResponse(result, safe=False)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
 class UserScheduledTasksView(View):
     """List scheduled tasks created by the authenticated user (all conversations)."""
 

@@ -803,6 +803,46 @@ export const listMyScheduledTasks = async (options?: {
   return makeAuthenticatedRequest<TScheduledTasksListResponse>("GET", endpoint);
 };
 
+export type TGalleryType = "image" | "video" | "audio" | "document";
+
+export type TGalleryItem = {
+  id: string;
+  url: string;
+  content_type: string;
+  type: TGalleryType;
+  name: string;
+  prompt: string | null;
+  metadata: Record<string, unknown>;
+  conversation_id: string;
+  conversation_title: string;
+  message_id: number | null;
+  created_at: string | null;
+};
+
+export type TGalleryListResponse = {
+  results: TGalleryItem[];
+  total: number;
+  limit: number;
+  offset: number;
+  has_next: boolean;
+  type: TGalleryType;
+};
+
+export const getGalleryItems = async (options: {
+  type: TGalleryType;
+  limit?: number;
+  offset?: number;
+}) => {
+  const params = new URLSearchParams();
+  params.set("type", options.type);
+  if (options.limit != null) params.set("limit", String(options.limit));
+  if (options.offset != null) params.set("offset", String(options.offset));
+  return makeAuthenticatedRequest<TGalleryListResponse>(
+    "GET",
+    `/v1/messaging/gallery/?${params.toString()}`
+  );
+};
+
 export const cancelScheduledTask = async (taskId: string) => {
   return makeAuthenticatedRequest<{
     success: boolean;

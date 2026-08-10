@@ -41,6 +41,7 @@ import {
   IconLogout,
   IconFilter,
   IconCalendarTime,
+  IconPhoto,
 } from "@tabler/icons-react";
 
 // ─── Main Sidebar ─────────────────────────────────────────────────────────────
@@ -397,6 +398,14 @@ export const Sidebar: React.FC = () => {
                 fullWidth
               >
                 {t("scheduled-tasks-title")}
+              </Button>
+              <Button
+                variant="default"
+                leftSection={<IconPhoto size={20} />}
+                onClick={() => goTo("/gallery")}
+                fullWidth
+              >
+                {t("gallery-title")}
               </Button>
               {isAudioToolsEnabled && (
                 <Button
