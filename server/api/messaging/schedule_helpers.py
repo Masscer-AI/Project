@@ -31,6 +31,8 @@ SCHEDULER_BASELINE_TOOL_NAMES: list[str] = [
     "list_organization_roles",
     "explore_web",
     "rag_query",
+    "list_knowledge_base_documents",
+    "read_knowledge_base_document",
 ]
 
 # Our weekdays: 0=Mon … 6=Sun. Standard cron (croniter): 0=Sun, 1=Mon … 6=Sat.

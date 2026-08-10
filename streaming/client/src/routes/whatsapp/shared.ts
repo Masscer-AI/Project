@@ -48,6 +48,8 @@ export const WHATSAPP_CAPABILITY_NAMES = [
   // Common optional
   "explore_web",
   "rag_query",
+  "list_knowledge_base_documents",
+  "read_knowledge_base_document",
   "create_image",
   "create_speech",
   "generate_dialogue",

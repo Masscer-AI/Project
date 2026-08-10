@@ -74,6 +74,8 @@ MCP_BASIC_TOOL_NAMES: tuple[str, ...] = (
     "read_attachment",
     "list_attachments",
     "rag_query",
+    "list_knowledge_base_documents",
+    "read_knowledge_base_document",
     "explore_web",
 )
 

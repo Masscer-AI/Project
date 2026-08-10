@@ -124,8 +124,11 @@ def get_tool(
     return {
         "name": "rag_query",
         "description": (
-            "Query the vector store for the current agent using the provided list of queries. "
-            "Returns relevant chunks/metadata to help answer the user's question."
+            "Semantic search over the current agent's trained memory "
+            "(approved completions in the agent vector store). "
+            "Not a catalog of uploaded knowledge-base documents — "
+            "use list_knowledge_base_documents / read_knowledge_base_document for those. "
+            "Pass 1-5 queries derived from the user's request."
         ),
         "parameters": RagQueryParams,
         "function": rag_query,

@@ -265,3 +265,82 @@ class DocumentAclApiTests(TestCase):
         )
         self.assertEqual(resp.status_code, 200)
         self.assertIn("attachment", resp.json())
+
+
+class KnowledgeBaseDocumentToolsTests(TestCase):
+    def setUp(self):
+        self.rag_chroma_patch = patch("api.rag.models.chroma_client", None)
+        self.rag_chroma_patch.start()
+        self.brief_patch = patch("api.rag.signals.async_generate_document_brief.delay")
+        self.brief_patch.start()
+        _ensure_user_bootstrap()
+        self.owner = User.objects.create_user(username="kb-tools-owner", password="x")
+        self.member = User.objects.create_user(username="kb-tools-member", password="x")
+        self.org = Organization.objects.create(name="KB Tools Org", owner=self.owner)
+        UserProfile.objects.filter(user=self.member).update(organization=self.org)
+        self.member = User.objects.select_related("profile").get(pk=self.member.pk)
+        self.collection, _ = Collection.get_or_create_personal_collection(user=self.owner)
+
+    def tearDown(self):
+        self.brief_patch.stop()
+        self.rag_chroma_patch.stop()
+
+    def test_list_and_read_respect_acl(self):
+        from api.ai_layers.tools.list_knowledge_base_documents import _list_impl
+        from api.ai_layers.tools.read_knowledge_base_document import _read_impl
+
+        personal = Document.objects.create(
+            collection=self.collection,
+            text="personal secret body",
+            name="Personal Doc",
+            brief="only mine",
+            created_by=self.owner,
+            visibility=Document.Visibility.PERSONAL,
+            total_tokens=3,
+        )
+        shared = Document.objects.create(
+            collection=self.collection,
+            text="organization shared body",
+            name="Org Policy",
+            brief="shared brief",
+            created_by=self.owner,
+            visibility=Document.Visibility.ORGANIZATION,
+            organization=self.org,
+            total_tokens=12,
+        )
+
+        member_list = json.loads(_list_impl(user_id=self.member.id))
+        member_ids = {d["id"] for d in member_list["documents"]}
+        self.assertNotIn(personal.id, member_ids)
+        self.assertIn(shared.id, member_ids)
+        shared_item = next(d for d in member_list["documents"] if d["id"] == shared.id)
+        self.assertEqual(shared_item["belongs_to"]["type"], "organization")
+        self.assertEqual(shared_item["total_tokens"], 12)
+
+        owner_list = json.loads(_list_impl(user_id=self.owner.id))
+        owner_ids = {d["id"] for d in owner_list["documents"]}
+        self.assertIn(personal.id, owner_ids)
+        personal_item = next(d for d in owner_list["documents"] if d["id"] == personal.id)
+        self.assertEqual(personal_item["belongs_to"]["type"], "you")
+
+        read_shared = json.loads(
+            _read_impl(user_id=self.member.id, document_id=shared.id)
+        )
+        self.assertEqual(read_shared["text"], "organization shared body")
+
+        with self.assertRaises(ValueError):
+            _read_impl(user_id=self.member.id, document_id=personal.id)
+
+    def test_tools_registered_and_user_required(self):
+        from api.ai_layers.tools import (
+            TOOL_REGISTRY,
+            USER_REQUIRED_TOOL_NAMES,
+            list_available_tools,
+        )
+
+        self.assertIn("list_knowledge_base_documents", TOOL_REGISTRY)
+        self.assertIn("read_knowledge_base_document", TOOL_REGISTRY)
+        self.assertIn("list_knowledge_base_documents", list_available_tools())
+        self.assertIn("read_knowledge_base_document", list_available_tools())
+        self.assertIn("list_knowledge_base_documents", USER_REQUIRED_TOOL_NAMES)
+        self.assertIn("read_knowledge_base_document", USER_REQUIRED_TOOL_NAMES)

@@ -18,7 +18,7 @@ class UserPreferences(models.Model):
     user = models.OneToOneField(
         User, on_delete=models.CASCADE, related_name="preferences"
     )
-    max_memory_messages = models.IntegerField(default=20)
+    max_memory_messages = models.IntegerField(default=100)
     autoscroll = models.BooleanField(default=False)
     autoplay = models.BooleanField(default=False)
     background_image_source = models.TextField(blank=True)

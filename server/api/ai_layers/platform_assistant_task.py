@@ -169,7 +169,11 @@ def platform_assistant_task(
                 att.message = user_message
                 att.save(update_fields=["message"])
 
-        prev_messages = _serialize_prev_messages(conversation, user_message.id)
+        prev_messages = _serialize_prev_messages(
+            conversation,
+            user_message.id,
+            user_id=user_id or conversation.user_id,
+        )
         clock_context = _agent_clock_context(
             client_datetime,
             organization_id=organization.id,

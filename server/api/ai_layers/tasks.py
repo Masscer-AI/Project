@@ -18,9 +18,39 @@ def _masked_secret_tail(secret: str | None, tail: int = 10) -> str:
     return f"{'*' * (len(secret) - tail)}{secret[-tail:]}"
 
 
-def _serialize_prev_messages(conversation, before_message_id, limit=50):
-    """Load and serialize prev messages for reproducibility."""
+DEFAULT_MAX_MEMORY_MESSAGES = 100
+
+
+def _resolve_max_memory_messages(user_id=None) -> int:
+    """Return the user's max_memory_messages preference, or the product default."""
+    if not user_id:
+        return DEFAULT_MAX_MEMORY_MESSAGES
+    from api.preferences.models import UserPreferences
+
+    prefs = (
+        UserPreferences.objects.filter(user_id=user_id)
+        .values_list("max_memory_messages", flat=True)
+        .first()
+    )
+    if prefs is None:
+        return DEFAULT_MAX_MEMORY_MESSAGES
+    return max(0, int(prefs))
+
+
+def _serialize_prev_messages(conversation, before_message_id, limit=None, *, user_id=None):
+    """Load and serialize prev messages for reproducibility.
+
+    Bounded by ``UserPreferences.max_memory_messages`` (default 100) unless
+    an explicit ``limit`` is passed.
+    """
     from api.messaging.models import Message
+
+    if limit is None:
+        limit = _resolve_max_memory_messages(
+            user_id
+            if user_id is not None
+            else getattr(conversation, "user_id", None)
+        )
 
     qs = Message.objects.filter(
         conversation=conversation,
@@ -1311,7 +1341,11 @@ def conversation_agent_task(
         assistant_message_id = None
         task_return_attachments: list[dict] = []
 
-        prev_messages = _serialize_prev_messages(conversation, user_message.id)
+        prev_messages = _serialize_prev_messages(
+            conversation,
+            user_message.id,
+            user_id=actor_user_id or conversation.user_id,
+        )
 
         attachment_ids = [
             inp.get("attachment_id") or inp.get("id")
@@ -1415,13 +1449,26 @@ def conversation_agent_task(
             # RAG / web are available; the model decides per turn whether they help.
             if "rag_query" in (agent_tool_names or []):
                 instructions += (
-                    "\n\nRAG (knowledge base search) is available. "
-                    "Call rag_query when the user's message would benefit from organization-specific or "
-                    "document-grounded facts that may not be in the chat already. "
+                    "\n\nRAG (agent trained-memory search) is available via rag_query. "
+                    "Call it when the user's message would benefit from facts stored as approved "
+                    "completions in this agent's vector memory that may not be in the chat already. "
                     "Skip it for small talk, meta requests, or when the thread already contains enough "
-                    "context. You may pass a small list of queries (1-5) derived from the user's request. "
+                    "context. Pass a small list of queries (1-5) derived from the user's request. "
                     "If rag_query returns no results, mention that briefly if relevant, then answer from "
-                    "general knowledge or the conversation."
+                    "general knowledge or the conversation. "
+                    "rag_query does not list uploaded knowledge-base files — use "
+                    "list_knowledge_base_documents / read_knowledge_base_document for those when enabled."
+                )
+            if "list_knowledge_base_documents" in (agent_tool_names or []) or (
+                "read_knowledge_base_document" in (agent_tool_names or [])
+            ):
+                instructions += (
+                    "\n\nKnowledge-base document tools are available. "
+                    "Use list_knowledge_base_documents to discover uploaded documents the user can "
+                    "access (personal, organization, or role-scoped), including briefs, tokens, and "
+                    "belongs_to. Use read_knowledge_base_document with a document id to load full text. "
+                    "Prefer listing first when you need to choose among documents. "
+                    "These tools are separate from rag_query (trained agent memory)."
                 )
             if "explore_web" in (agent_tool_names or []):
                 instructions += (

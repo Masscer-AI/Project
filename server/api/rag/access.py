@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from django.contrib.auth.models import User
 from django.db.models import Q
 
@@ -77,6 +79,49 @@ def user_can_access_document(user, doc: Document) -> bool:
     if not user or not doc:
         return False
     return Document.objects.filter(documents_accessible_q(user), pk=doc.pk).exists()
+
+
+def document_belongs_to_payload(doc: Document, user: User | None = None) -> dict[str, Any]:
+    """
+    Compact ownership summary for agents / APIs.
+
+    Examples:
+      {"type": "you"}
+      {"type": "organization", "organization": "Acme", "organization_id": "..."}
+      {"type": "roles", "organization": "Acme", "organization_id": "...",
+       "roles": [{"id": "...", "name": "Analysts"}]}
+    """
+    vis = doc.visibility or VISIBILITY_PERSONAL
+    if vis == VISIBILITY_PERSONAL:
+        owner_id = document_owner_user_id(doc)
+        if user is not None and owner_id == getattr(user, "id", None):
+            return {"type": "you"}
+        return {
+            "type": "personal",
+            "created_by_id": owner_id,
+        }
+
+    org = getattr(doc, "organization", None)
+    org_name = getattr(org, "name", None) if org is not None else None
+    org_id = str(doc.organization_id) if doc.organization_id else None
+
+    if vis == VISIBILITY_ORGANIZATION:
+        return {
+            "type": "organization",
+            "organization": org_name,
+            "organization_id": org_id,
+        }
+
+    roles = [
+        {"id": str(r.id), "name": r.name}
+        for r in doc.allowed_roles.all()
+    ]
+    return {
+        "type": "roles",
+        "organization": org_name,
+        "organization_id": org_id,
+        "roles": roles,
+    }
 
 
 def user_can_manage_document(user, doc: Document) -> bool:

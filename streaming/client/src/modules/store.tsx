@@ -84,7 +84,7 @@ export const useStore = create<Store>()((set, get) => {
   agents: [],
   userPreferences: {
     theme: _initialTheme as "dark" | "light" | "system",
-    max_memory_messages: 20,
+    max_memory_messages: 100,
     autoscroll: false,
     background_image_source: "",
     multiagentic_modality: "isolated",
