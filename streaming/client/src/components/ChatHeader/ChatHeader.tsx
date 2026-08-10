@@ -21,18 +21,17 @@ import {
   Tooltip,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { createLLM, deleteLLM, updateAgent, makeAuthenticatedRequest, getUserOrganizations, getOrganizationRoles, getVoices, previewVoice, getAgentToolGroups } from "../../modules/apiCalls";
-import type { TMCPToolPresetGroup } from "../../modules/apiCalls";
+import { createLLM, deleteLLM, updateAgent, makeAuthenticatedRequest, getUserOrganizations, getOrganizationRoles, getVoices, previewVoice } from "../../modules/apiCalls";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
 import type { TVoiceCatalogEntry } from "../../types/agents";
-import { mcpToolGroupLabel } from "../../utils/mcpToolGroupLabel";
 import { useLocalizedToolName } from "../../utils/localizedToolName";
 import {
   formatUnreadNotificationBadge,
   useUnreadNotificationCount,
 } from "../../hooks/useUnreadNotificationCount";
+import { ToolsSelectorModal } from "../ToolsSelectorModal/ToolsSelectorModal";
 import {
   IconSparkles,
   IconPlus,
@@ -43,6 +42,7 @@ import {
   IconPlayerStopFilled,
   IconVolume,
   IconX,
+  IconAdjustments,
 } from "@tabler/icons-react";
 
 export type AgentsModalControls = {
@@ -365,25 +365,8 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
   } as TAgent);
 
   const localizedToolName = useLocalizedToolName();
-  const [toolGroups, setToolGroups] = useState<TMCPToolPresetGroup[]>([]);
-
-  useEffect(() => {
-    getAgentToolGroups()
-      .then((res) => setToolGroups(res.groups ?? []))
-      .catch(() => setToolGroups([]));
-  }, []);
-
-  const toolOptions = React.useMemo(
-    () =>
-      toolGroups.map((group) => ({
-        group: mcpToolGroupLabel(group.group, t),
-        items: group.items.map((tool) => ({
-          value: tool,
-          label: localizedToolName(tool),
-        })),
-      })),
-    [toolGroups, t, localizedToolName]
-  );
+  const [toolsOpened, { open: openTools, close: closeTools }] =
+    useDisclosure(false);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -790,17 +773,51 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
         maxRows={6}
       />
 
-      <MultiSelect
-        label={t("pre-approved-tools")}
+      <Stack gap={6}>
+        <Text size="sm" fw={500}>
+          {t("pre-approved-tools")}
+        </Text>
+        <Text size="xs" c="dimmed">
+          {t("pre-approved-tools-desc")}
+        </Text>
+        <Group gap="sm" align="center">
+          <Button
+            variant="default"
+            size="sm"
+            leftSection={<IconAdjustments size={16} />}
+            onClick={openTools}
+          >
+            {t("select-tools")}
+          </Button>
+          <Text size="sm" c="dimmed">
+            {(formState.pre_approved_tools || []).length > 0
+              ? t("pre-approved-tools-count", {
+                  count: (formState.pre_approved_tools || []).length,
+                })
+              : t("pre-approved-tools-placeholder")}
+          </Text>
+        </Group>
+        {(formState.pre_approved_tools || []).length > 0 ? (
+          <Text size="xs" c="dimmed" lineClamp={2}>
+            {(formState.pre_approved_tools || [])
+              .map((name) => localizedToolName(name))
+              .join(", ")}
+          </Text>
+        ) : null}
+      </Stack>
+
+      <ToolsSelectorModal
+        opened={toolsOpened}
+        onClose={closeTools}
+        title={t("pre-approved-tools")}
         description={t("pre-approved-tools-desc")}
-        placeholder={t("pre-approved-tools-placeholder")}
-        data={toolOptions}
-        value={formState.pre_approved_tools || []}
-        onChange={(selected) =>
-          setFormState((prev) => ({ ...prev, pre_approved_tools: selected }))
+        agents={[{ slug: agent.slug, name: formState.name || agent.name }]}
+        valueByAgent={{
+          [agent.slug]: formState.pre_approved_tools || [],
+        }}
+        onChange={(_slug, names) =>
+          setFormState((prev) => ({ ...prev, pre_approved_tools: names }))
         }
-        searchable
-        clearable
       />
 
       <Group>

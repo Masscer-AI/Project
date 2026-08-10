@@ -5,6 +5,8 @@ const GROUP_I18N_KEYS: Record<string, string> = {
   media: "integrations-mcp-tools-media",
   documents: "integrations-mcp-tools-documents",
   email: "integrations-mcp-tools-email",
+  whatsapp: "integrations-mcp-tools-whatsapp",
+  calendar: "integrations-mcp-tools-calendar",
   conversation: "integrations-mcp-tools-conversation",
   tagging: "integrations-mcp-tools-tagging",
   training: "integrations-mcp-tools-training",

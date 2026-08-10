@@ -29,8 +29,6 @@ import {
   Divider,
   Indicator,
   Menu,
-  Tabs,
-  Accordion,
   Textarea as MantineTextarea,
   Loader as MantineLoader,
 } from "@mantine/core";
@@ -54,12 +52,9 @@ import {
 import {
   cancelAgentTask,
   isPlatformAssistant,
-  getAgentToolGroups,
 } from "../../modules/apiCalls";
-import type { TMCPToolPresetGroup } from "../../modules/apiCalls";
-import { mcpToolGroupLabel } from "../../utils/mcpToolGroupLabel";
-import { CapabilitiesChecklist } from "../CapabilitiesChecklist/CapabilitiesChecklist";
 import { agentsInChatSelectionOrder } from "../../modules/agentSelection";
+import { ToolsSelectorModal } from "../ToolsSelectorModal/ToolsSelectorModal";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -707,116 +702,23 @@ const SelectToolsModal = ({
     agents: state.agents,
     setAgentToolNames: state.setAgentToolNames,
   }));
-  const [toolGroups, setToolGroups] = useState<TMCPToolPresetGroup[]>([]);
-
-  useEffect(() => {
-    if (!opened) return;
-    getAgentToolGroups()
-      .then((res) => setToolGroups(res.groups ?? []))
-      .catch(() => setToolGroups([]));
-  }, [opened]);
 
   const selectedAgents = agentsInChatSelectionOrder(
     agents,
     chatState.selectedAgents
   );
-  const [activeTab, setActiveTab] = useState<string | null>(
-    selectedAgents[0]?.slug ?? null
-  );
-
-  useEffect(() => {
-    if (!opened) return;
-    if (!selectedAgents.some((a) => a.slug === activeTab)) {
-      setActiveTab(selectedAgents[0]?.slug ?? null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [opened, chatState.selectedAgents.join(",")]);
 
   return (
-    <Modal
+    <ToolsSelectorModal
       opened={opened}
       onClose={onClose}
       title={t("select-tools") || "Select tools"}
-      size="lg"
-    >
-      {selectedAgents.length === 0 ? (
-        <Text size="sm" c="dimmed">
-          {t("select-at-least-one-agent-to-chat")}
-        </Text>
-      ) : (
-        <Tabs value={activeTab} onChange={setActiveTab}>
-          <Tabs.List>
-            {selectedAgents.map((a) => (
-              <Tabs.Tab key={a.slug} value={a.slug}>
-                {a.name}
-              </Tabs.Tab>
-            ))}
-          </Tabs.List>
-          {selectedAgents.map((a) => {
-            const selected = new Set(chatState.toolsByAgent[a.slug] ?? []);
-            const allToolNames = toolGroups.flatMap((g) => g.items);
-            const allSelected =
-              allToolNames.length > 0 &&
-              allToolNames.every((name) => selected.has(name));
-            return (
-              <Tabs.Panel key={a.slug} value={a.slug} pt="sm">
-                <Stack gap="xs">
-                  <Text size="xs" c="dimmed">
-                    {t("pre-approved-tools-desc")}
-                  </Text>
-                  {allToolNames.length > 0 ? (
-                    <Group justify="flex-end" gap="xs">
-                      <Button
-                        size="xs"
-                        variant="subtle"
-                        disabled={allSelected}
-                        onClick={() => setAgentToolNames(a.slug, allToolNames)}
-                      >
-                        {t("select-all")}
-                      </Button>
-                      <Button
-                        size="xs"
-                        variant="subtle"
-                        color="gray"
-                        onClick={() => setAgentToolNames(a.slug, [])}
-                      >
-                        {t("unselect-all")}
-                      </Button>
-                    </Group>
-                  ) : null}
-                  <Accordion multiple defaultValue={toolGroups.map((g) => g.group)}>
-                    {toolGroups.map((group) => (
-                      <Accordion.Item key={group.group} value={group.group}>
-                        <Accordion.Control>
-                          {mcpToolGroupLabel(group.group, t)}
-                        </Accordion.Control>
-                        <Accordion.Panel>
-                          <CapabilitiesChecklist
-                            names={group.items}
-                            showBulkActions={false}
-                            value={Object.fromEntries(
-                              group.items.map((name) => [name, selected.has(name)])
-                            )}
-                            onChange={(next) => {
-                              const nextSelected = new Set(selected);
-                              for (const name of group.items) {
-                                if (next[name]) nextSelected.add(name);
-                                else nextSelected.delete(name);
-                              }
-                              setAgentToolNames(a.slug, Array.from(nextSelected));
-                            }}
-                          />
-                        </Accordion.Panel>
-                      </Accordion.Item>
-                    ))}
-                  </Accordion>
-                </Stack>
-              </Tabs.Panel>
-            );
-          })}
-        </Tabs>
-      )}
-    </Modal>
+      description={t("chat-tools-desc")}
+      agents={selectedAgents.map((a) => ({ slug: a.slug, name: a.name }))}
+      valueByAgent={chatState.toolsByAgent}
+      onChange={setAgentToolNames}
+      emptyMessage={t("select-at-least-one-agent-to-chat")}
+    />
   );
 };
 
