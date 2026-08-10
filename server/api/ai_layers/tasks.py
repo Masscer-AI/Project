@@ -1029,6 +1029,7 @@ def conversation_agent_task(
     client_datetime: dict | None = None,
     user_message_metadata: dict | None = None,
     capabilities_override: list[str] | None = None,
+    tool_names_by_agent: dict[str, list[str]] | None = None,
 ):
     """
     Celery task that runs an AgentLoop for one or more agents in a conversation.
@@ -1043,7 +1044,8 @@ def conversation_agent_task(
     Args:
         conversation_id: UUID of the conversation
         user_inputs: list of input dicts, e.g. [{"type": "input_text", "text": "..."}]
-        tool_names: list of tool names to resolve from the registry
+        tool_names: list of tool names to resolve from the registry, shared by
+            every agent in agent_slugs unless overridden per-agent below.
         agent_slugs: list of Agent slugs to run (in order)
         multiagentic_modality: "isolated" or "grupal"
         user_id: Notification route id (user id or widget_session:<id>)
@@ -1056,6 +1058,11 @@ def conversation_agent_task(
         capabilities_override: optional authoritative capability allowlist (e.g.
             scheduled-task snapshot). When set, auto-injection cannot add tools
             outside this list; runtime safety filters still apply.
+        tool_names_by_agent: optional {agent_slug: tool_names} map. When an
+            agent's slug is present here, its list replaces the shared
+            tool_names for that agent only. Agents not in the map fall back to
+            tool_names. Ignored (like tool_names) when capabilities_override
+            is set, since that override is authoritative for every agent.
 
     Returns:
         dict with status, output, iterations, tool_calls_count, message_id, user_message_id
@@ -1121,8 +1128,10 @@ def conversation_agent_task(
     if capabilities_override is not None:
         normalized_override = normalize_capability_names(capabilities_override)
         override_allowlist = frozenset(normalized_override)
-        # Authoritative allowlist for this special turn.
+        # Authoritative allowlist for this special turn — wins over both the
+        # shared tool_names and any per-agent overrides.
         tool_names = list(normalized_override)
+        tool_names_by_agent = None
 
     conv_metadata = conversation.metadata or {}
     is_mcp_chat = conv_metadata.get("source") == "mcp"
@@ -1387,6 +1396,14 @@ def conversation_agent_task(
             llm = agent.llm
             model_slug = llm.slug if llm else (agent.model_slug or "gpt-5.2")
 
+            # Per-agent tool list: overridden by tool_names_by_agent[agent.slug]
+            # when present, otherwise every agent shares tool_names. Further
+            # mutated below (calendar/WhatsApp/widget filters) before resolution.
+            if tool_names_by_agent and agent.slug in tool_names_by_agent:
+                agent_tool_names = list(tool_names_by_agent[agent.slug] or [])
+            else:
+                agent_tool_names = list(tool_names or [])
+
             instructions += f"\n\nYour name is: {agent.name}."
             instructions += f"\n{clock_context}"
             if user_profile_text:
@@ -1396,7 +1413,7 @@ def conversation_agent_task(
                 instructions = instructions + attachment_ids_instruction
 
             # RAG / web are available; the model decides per turn whether they help.
-            if "rag_query" in (tool_names or []):
+            if "rag_query" in (agent_tool_names or []):
                 instructions += (
                     "\n\nRAG (knowledge base search) is available. "
                     "Call rag_query when the user's message would benefit from organization-specific or "
@@ -1406,7 +1423,7 @@ def conversation_agent_task(
                     "If rag_query returns no results, mention that briefly if relevant, then answer from "
                     "general knowledge or the conversation."
                 )
-            if "explore_web" in (tool_names or []):
+            if "explore_web" in (agent_tool_names or []):
                 instructions += (
                     "\n\nWeb search is available. "
                     "Call explore_web when fresh, external, or time-sensitive information would materially "
@@ -1415,7 +1432,7 @@ def conversation_agent_task(
                     "answer is already established in the thread). "
                     "If explore_web returns no useful results, say so briefly if it matters, then continue."
                 )
-            if "create_image" in (tool_names or []):
+            if "create_image" in (agent_tool_names or []):
                 from api.ai_layers.tools.create_image import (
                     image_models_agent_instructions_snippet,
                 )
@@ -1424,7 +1441,7 @@ def conversation_agent_task(
                     "\n\nImage generation is enabled for this conversation. "
                     f"{image_models_agent_instructions_snippet()}"
                 )
-            if "generate_video" in (tool_names or []):
+            if "generate_video" in (agent_tool_names or []):
                 instructions += (
                     "\n\nVideo generation is enabled using Google Veo 3.1. "
                     "Call generate_video(prompt, image_attachment_id, aspect_ratio) when the user asks for a video. "
@@ -1440,11 +1457,11 @@ def conversation_agent_task(
             # With a capability override, only advertise tools that remain allowed.
             _doc_tools_ok = (
                 override_allowlist is None
-                or "generate_document_file" in (tool_names or [])
+                or "generate_document_file" in (agent_tool_names or [])
             )
             _excel_tools_ok = (
                 override_allowlist is None
-                or "generate_excel_file" in (tool_names or [])
+                or "generate_excel_file" in (agent_tool_names or [])
             )
             if _doc_tools_ok:
                 instructions += (
@@ -1470,7 +1487,7 @@ def conversation_agent_task(
                     "Output is always XLSX. "
                     "After success, include: [Download spreadsheet](attachment:<attachment_id>)."
                 )
-            if "generate_gamma_presentation" in (tool_names or []):
+            if "generate_gamma_presentation" in (agent_tool_names or []):
                 instructions += (
                     "\n\nGamma presentation generation is enabled (generate_gamma_presentation). "
                     "When the user wants a downloadable slide deck / presentation, call "
@@ -1482,15 +1499,15 @@ def conversation_agent_task(
                     "Generation can take up to a few minutes — tell the user it may take a moment. "
                     "After success, include: [Download presentation](attachment:<attachment_id>)."
                 )
-            if "create_speech" in (tool_names or []):
+            if "create_speech" in (agent_tool_names or []):
                 from api.voices.instructions import build_create_speech_tool_instructions
 
                 instructions += build_create_speech_tool_instructions()
-            if "generate_dialogue" in (tool_names or []):
+            if "generate_dialogue" in (agent_tool_names or []):
                 from api.voices.instructions import build_generate_dialogue_tool_instructions
 
                 instructions += build_generate_dialogue_tool_instructions()
-            if "create_completion" in (tool_names or []):
+            if "create_completion" in (agent_tool_names or []):
                 instructions += (
                     "\n\n=== INTERACTIVE TRAINING (create_completion) ===\n"
                     "This tool saves training rows for the agent (pending approval; later retrievable via RAG when enabled).\n"
@@ -1540,7 +1557,6 @@ def conversation_agent_task(
                 if widget_agent:
                     organization = getattr(widget_agent, "organization", None)
 
-            agent_tool_names = list(tool_names or [])
             from api.ai_layers.tools import WHATSAPP_TEMPLATE_AGENT_TOOL_NAMES
             from api.ai_layers.tools.calendar_tool_helpers import CALENDAR_AGENT_TOOL_NAMES
             from api.integrations.services import user_has_personal_google_calendar

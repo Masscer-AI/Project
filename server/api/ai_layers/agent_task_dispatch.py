@@ -47,6 +47,7 @@ def dispatch_conversation_agent_task(
     agent_slugs: list[str],
     user_inputs: list[dict[str, Any]],
     tool_names: list[str] | None = None,
+    tool_names_by_agent: dict[str, list[str]] | None = None,
     multiagentic_modality: str = "isolated",
     client_datetime: dict | None = None,
     regenerate_message_id: int | None = None,
@@ -54,6 +55,10 @@ def dispatch_conversation_agent_task(
 ) -> AgentTaskDispatchResult:
     """
     Validate and enqueue conversation_agent_task.
+
+    tool_names_by_agent, when provided, overrides tool_names on a per-agent-slug
+    basis (agents not present in the dict get no tools). When omitted, every
+    agent in agent_slugs shares the flat tool_names list, as before.
 
     Returns AgentTaskDispatchResult with either a JsonResponse error or task metadata.
     """
@@ -132,6 +137,40 @@ def dispatch_conversation_agent_task(
     # user is always authenticated on this path (chat + MCP), so this only
     # dedupes/validates here — the trust filter is a no-op with a real user.
     tool_names = resolve_allowed_tools(tool_names, user)
+
+    if tool_names_by_agent is not None:
+        if not isinstance(tool_names_by_agent, dict):
+            return AgentTaskDispatchResult(
+                ok=False,
+                response=JsonResponse(
+                    {"error": "tool_names_by_agent must be an object of agent_slug -> tool names"},
+                    status=400,
+                ),
+            )
+        resolved_by_agent: dict[str, list[str]] = {}
+        for agent_slug, names in tool_names_by_agent.items():
+            if not isinstance(names, list):
+                return AgentTaskDispatchResult(
+                    ok=False,
+                    response=JsonResponse(
+                        {"error": f"tool_names_by_agent[{agent_slug}] must be a list of strings"},
+                        status=400,
+                    ),
+                )
+            unknown = [t for t in names if t not in available]
+            if unknown:
+                return AgentTaskDispatchResult(
+                    ok=False,
+                    response=JsonResponse(
+                        {
+                            "error": f"Unknown tools for agent '{agent_slug}': {', '.join(unknown)}",
+                            "available_tools": available,
+                        },
+                        status=400,
+                    ),
+                )
+            resolved_by_agent[agent_slug] = resolve_allowed_tools(names, user)
+        tool_names_by_agent = resolved_by_agent
 
     user_org = get_user_organization(user)
     base_qs = accessible_agents_qs(user)
@@ -224,6 +263,7 @@ def dispatch_conversation_agent_task(
         conversation_id=str(conversation_id),
         user_inputs=user_inputs,
         tool_names=tool_names,
+        tool_names_by_agent=tool_names_by_agent,
         agent_slugs=slugs,
         multiagentic_modality=multiagentic_modality,
         user_id=user.id,

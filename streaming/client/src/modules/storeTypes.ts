@@ -62,14 +62,9 @@ export type Store = {
   chatState: {
     isSidebarOpened: boolean;
     attachments: TAttachment[];
-    webSearch: boolean;
     writtingMode: boolean;
-    useRag: boolean;
-    generateImages: boolean;
-    generateSpeech: boolean;
-    generateVideo: boolean;
-    generateGammaPresentation: boolean;
-    createCompletions: boolean;
+    /** Selected tool names per agent slug, edited via the "Select tools" modal. */
+    toolsByAgent: Record<string, string[]>;
     selectedAgents: string[];
     specifiedUrls: TSpecifiedUrl[];
   };
@@ -104,15 +99,10 @@ export type Store = {
   toggleSidebar: () => void;
   cleanAttachments: () => void;
   deleteAttachment: (index: number) => void;
-  toggleWebSearch: () => void;
   toggleWrittingMode: () => void;
   logout: () => void;
-  toggleUseRag: () => void;
-  toggleGenerateImages: () => void;
-  toggleGenerateSpeech: () => void;
-  toggleGenerateVideo: () => void;
-  toggleGenerateGammaPresentation: () => void;
-  toggleCreateCompletions: () => void;
+  /** Replaces the selected tool list for one agent (used by the tool selection modal). */
+  setAgentToolNames: (slug: string, names: string[]) => void;
   toggleAgentSelected: (slug: string) => void;
   /** Full replacement of `chatState.selectedAgents` (and list sort). */
   setChatSelectedAgentSlugs: (slugs: string[]) => void;

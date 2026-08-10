@@ -29,6 +29,7 @@ import { agentsInChatSelectionOrder } from "../../modules/agentSelection";
 import { useAgentSelectionPrompt } from "../../hooks/useAgentSelectionPrompt";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
 import { playNotificationSound } from "../../utils/notificationSound";
+import { buildToolNamesByAgent } from "../../modules/chatToolNames";
 
 export default function ChatView() {
   const loaderData = useLoaderData() as TChatLoader;
@@ -458,18 +459,10 @@ export default function ChatView() {
         }
       }
 
-      const toolNames = ["read_attachment", "list_attachments", "generate_document_file", "send_email", "list_organization_members", "list_organization_roles"];
-      if (chatState.webSearch) toolNames.push("explore_web");
-      if (chatState.useRag) toolNames.push("rag_query");
-      if (chatState.generateImages) toolNames.push("create_image");
-      if (chatState.generateSpeech) {
-        toolNames.push("create_speech", "generate_dialogue");
-      }
-      if (chatState.generateVideo) toolNames.push("generate_video");
-      if (chatState.generateGammaPresentation) {
-        toolNames.push("generate_gamma_presentation");
-      }
-      if (chatState.createCompletions) toolNames.push("create_completion");
+      const toolNamesByAgent = buildToolNamesByAgent(
+        selectedAgents.map((a) => a.slug),
+        chatState.toolsByAgent
+      );
 
       const isPlatform =
         selectedAgents.length === 1 && isPlatformAssistant(selectedAgents[0]);
@@ -484,7 +477,7 @@ export default function ChatView() {
             conversation_id: routeConversation.id,
             agent_slugs: selectedAgents.map((a) => a.slug),
             user_inputs: userInputs,
-            tool_names: toolNames,
+            tool_names_by_agent: toolNamesByAgent,
             multiagentic_modality: userPreferences.multiagentic_modality,
             client_datetime: buildClientDatetimePayload(),
           });
@@ -573,18 +566,10 @@ export default function ChatView() {
       setAgentTaskStatus(t("agent-preparing-request"), routeConversation.id);
 
       try {
-        const toolNames = ["read_attachment", "list_attachments", "generate_document_file", "send_email", "list_organization_members", "list_organization_roles"];
-        if (chatState.webSearch) toolNames.push("explore_web");
-        if (chatState.useRag) toolNames.push("rag_query");
-        if (chatState.generateImages) toolNames.push("create_image");
-        if (chatState.generateSpeech) {
-          toolNames.push("create_speech", "generate_dialogue");
-        }
-        if (chatState.generateVideo) toolNames.push("generate_video");
-        if (chatState.generateGammaPresentation) {
-          toolNames.push("generate_gamma_presentation");
-        }
-        if (chatState.createCompletions) toolNames.push("create_completion");
+        const toolNamesByAgent = buildToolNamesByAgent(
+          selectedAgents.map((a) => a.slug),
+          chatState.toolsByAgent
+        );
 
         const isPlatform =
           selectedAgents.length === 1 && isPlatformAssistant(selectedAgents[0]);
@@ -600,7 +585,7 @@ export default function ChatView() {
               conversation_id: routeConversation.id,
               agent_slugs: selectedAgents.map((a) => a.slug),
               user_inputs: [{ type: "input_text", text: newText }],
-              tool_names: toolNames,
+              tool_names_by_agent: toolNamesByAgent,
               multiagentic_modality: userPreferences.multiagentic_modality,
               regenerate_message_id: regenPayload.userId,
               client_datetime: buildClientDatetimePayload(),

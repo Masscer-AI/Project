@@ -684,6 +684,7 @@
   "pre-approved-tools": "Pre-approved tools (chat default)",
   "pre-approved-tools-desc": "Pre-fills the tool toggles in chat when this agent is selected. Not enforced — the user can still turn tools on or off per message.",
   "pre-approved-tools-placeholder": "No tools pre-approved",
+  "select-tools": "Tools",
   "conversation": "Conversation",
   "tags": "Tags",
   "manage-tags": "Manage Tags",

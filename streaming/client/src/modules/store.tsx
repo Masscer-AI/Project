@@ -28,32 +28,22 @@ import {
 } from "../utils/notificationSound";
 
 /**
- * Derives the chat tool-toggle booleans from the pre_approved_tools of the
- * currently selected agents (union across multi-agent selection). This only
- * seeds the initial toggle state when an agent is picked — the user can
- * still freely change toggles afterwards; nothing here is enforced.
+ * Reconciles chatState.toolsByAgent against the current agent selection:
+ * agents no longer selected are dropped, newly selected agents are seeded
+ * from their own pre_approved_tools, and agents that stay selected keep
+ * whatever the user already picked for them (no clobbering mid-conversation).
  */
-function toggleStateFromPreApprovedTools(
+function reconcileToolsByAgent(
   agents: TAgent[],
-  selectedSlugs: string[]
-) {
+  selectedSlugs: string[],
+  previous: Record<string, string[]>
+): Record<string, string[]> {
   const bySlug = new Map(agents.map((a) => [a.slug, a] as const));
-  const approved = new Set<string>();
+  const next: Record<string, string[]> = {};
   for (const slug of selectedSlugs) {
-    for (const name of bySlug.get(slug)?.pre_approved_tools ?? []) {
-      approved.add(name);
-    }
+    next[slug] = previous[slug] ?? [...(bySlug.get(slug)?.pre_approved_tools ?? [])];
   }
-  return {
-    webSearch: approved.has("explore_web"),
-    useRag: approved.has("rag_query"),
-    generateImages: approved.has("create_image"),
-    generateSpeech:
-      approved.has("create_speech") || approved.has("generate_dialogue"),
-    generateVideo: approved.has("generate_video"),
-    generateGammaPresentation: approved.has("generate_gamma_presentation"),
-    createCompletions: approved.has("create_completion"),
-  };
+  return next;
 }
 
 const _initialTheme = (() => {
@@ -108,14 +98,8 @@ export const useStore = create<Store>()((set, get) => {
   chatState: {
     isSidebarOpened: false,
     attachments: [],
-    webSearch: false,
     writtingMode: false,
-    useRag: false,
-    generateImages: false,
-    generateSpeech: false,
-    generateVideo: false,
-    generateGammaPresentation: false,
-    createCompletions: false,
+    toolsByAgent: {},
 
     selectedAgents: [],
     specifiedUrls: [],
@@ -307,13 +291,22 @@ export const useStore = create<Store>()((set, get) => {
 
       newAttachment.mode = "all_possible_text";
 
-      set((state) => ({
-        chatState: {
-          ...state.chatState,
-          attachments: [...state.chatState.attachments, newAttachment],
-          useRag: true,
-        },
-      }));
+      set((state) => {
+        const toolsByAgent = { ...state.chatState.toolsByAgent };
+        for (const slug of state.chatState.selectedAgents) {
+          const current = toolsByAgent[slug] ?? [];
+          if (!current.includes("rag_query")) {
+            toolsByAgent[slug] = [...current, "rag_query"];
+          }
+        }
+        return {
+          chatState: {
+            ...state.chatState,
+            attachments: [...state.chatState.attachments, newAttachment],
+            toolsByAgent,
+          },
+        };
+      });
     } catch (e) {
       console.log(e, "ERROR DURING FILE UPLOAD");
       toast.dismiss(loadingID);
@@ -359,7 +352,11 @@ export const useStore = create<Store>()((set, get) => {
       chatState: {
         ...state.chatState,
         selectedAgents: selectedSlugs,
-        ...toggleStateFromPreApprovedTools(state.agents, selectedSlugs),
+        toolsByAgent: reconcileToolsByAgent(
+          state.agents,
+          selectedSlugs,
+          state.chatState.toolsByAgent
+        ),
       },
     }));
   },
@@ -411,7 +408,11 @@ export const useStore = create<Store>()((set, get) => {
         chatState: {
           ...state.chatState,
           selectedAgents: newSelectedAgents,
-          ...toggleStateFromPreApprovedTools(state.agents, newSelectedAgents),
+          toolsByAgent: reconcileToolsByAgent(
+            state.agents,
+            newSelectedAgents,
+            state.chatState.toolsByAgent
+          ),
         },
       };
     });
@@ -424,15 +425,21 @@ export const useStore = create<Store>()((set, get) => {
       chatState: {
         ...state.chatState,
         selectedAgents: slugs,
-        ...toggleStateFromPreApprovedTools(state.agents, slugs),
+        toolsByAgent: reconcileToolsByAgent(
+          state.agents,
+          slugs,
+          state.chatState.toolsByAgent
+        ),
       },
     }));
   },
-  toggleWebSearch: () => {
+
+  /** Replaces the selected tool list for one agent (used by the tool selection modal). */
+  setAgentToolNames: (slug: string, names: string[]) => {
     set((state) => ({
       chatState: {
         ...state.chatState,
-        webSearch: !state.chatState.webSearch,
+        toolsByAgent: { ...state.chatState.toolsByAgent, [slug]: names },
       },
     }));
   },
@@ -441,54 +448,6 @@ export const useStore = create<Store>()((set, get) => {
       chatState: {
         ...state.chatState,
         writtingMode: !state.chatState.writtingMode,
-      },
-    }));
-  },
-  toggleUseRag: () => {
-    set((state) => ({
-      chatState: {
-        ...state.chatState,
-        useRag: !state.chatState.useRag,
-      },
-    }));
-  },
-  toggleGenerateImages: () => {
-    set((state) => ({
-      chatState: {
-        ...state.chatState,
-        generateImages: !state.chatState.generateImages,
-      },
-    }));
-  },
-  toggleGenerateSpeech: () => {
-    set((state) => ({
-      chatState: {
-        ...state.chatState,
-        generateSpeech: !state.chatState.generateSpeech,
-      },
-    }));
-  },
-  toggleGenerateVideo: () => {
-    set((state) => ({
-      chatState: {
-        ...state.chatState,
-        generateVideo: !state.chatState.generateVideo,
-      },
-    }));
-  },
-  toggleGenerateGammaPresentation: () => {
-    set((state) => ({
-      chatState: {
-        ...state.chatState,
-        generateGammaPresentation: !state.chatState.generateGammaPresentation,
-      },
-    }));
-  },
-  toggleCreateCompletions: () => {
-    set((state) => ({
-      chatState: {
-        ...state.chatState,
-        createCompletions: !state.chatState.createCompletions,
       },
     }));
   },

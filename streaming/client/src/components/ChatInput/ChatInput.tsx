@@ -29,6 +29,8 @@ import {
   Divider,
   Indicator,
   Menu,
+  Tabs,
+  Accordion,
   Textarea as MantineTextarea,
   Loader as MantineLoader,
 } from "@mantine/core";
@@ -37,10 +39,6 @@ import {
   IconSend,
   IconPencil,
   IconFileText,
-  IconGlobe,
-  IconPhoto,
-  IconVolume,
-  IconVideo,
   IconSettings,
   IconPlus,
   IconFilePlus,
@@ -52,10 +50,16 @@ import {
   IconUsers,
   IconAdjustments,
   IconSquareRounded,
-  IconBarbell,
-  IconPresentation,
 } from "@tabler/icons-react";
-import { cancelAgentTask, isPlatformAssistant } from "../../modules/apiCalls";
+import {
+  cancelAgentTask,
+  isPlatformAssistant,
+  getAgentToolGroups,
+} from "../../modules/apiCalls";
+import type { TMCPToolPresetGroup } from "../../modules/apiCalls";
+import { mcpToolGroupLabel } from "../../utils/mcpToolGroupLabel";
+import { CapabilitiesChecklist } from "../CapabilitiesChecklist/CapabilitiesChecklist";
+import { agentsInChatSelectionOrder } from "../../modules/agentSelection";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -613,58 +617,26 @@ const PlusMenu = ({ existingFilesOnly = false }: { existingFilesOnly?: boolean }
 
 const ToolsMenu = () => {
   const { t } = useTranslation();
-  const isTrainAgentsEnabled = useIsFeatureEnabled("train-agents");
-  const isWebScrapingEnabled = useIsFeatureEnabled("web-scraping");
-  const isImageToolsEnabled = useIsFeatureEnabled("image-tools");
-  const isChatSpeechEnabled = useIsFeatureEnabled("chat-generate-speech");
-  const isVideoToolsEnabled = useIsFeatureEnabled("video-tools");
   const canEditConversationChatSettings =
     useIsFeatureEnabled("can-edit-conversation-data") === true;
-  const {
-    chatState,
-    toggleUseRag,
-    toggleWebSearch,
-    toggleWritingMode,
-    toggleGenerateImages,
-    toggleGenerateSpeech,
-    toggleGenerateVideo,
-    toggleGenerateGammaPresentation,
-    toggleCreateCompletions,
-  } = useStore((state) => ({
+  const { chatState, toggleWritingMode } = useStore((state) => ({
     chatState: state.chatState,
-    toggleUseRag: state.toggleUseRag,
-    toggleWebSearch: state.toggleWebSearch,
     toggleWritingMode: state.toggleWrittingMode,
-    toggleGenerateImages: state.toggleGenerateImages,
-    toggleGenerateSpeech: state.toggleGenerateSpeech,
-    toggleGenerateVideo: state.toggleGenerateVideo,
-    toggleGenerateGammaPresentation: state.toggleGenerateGammaPresentation,
-    toggleCreateCompletions: state.toggleCreateCompletions,
   }));
 
   const [settingsOpened, { open: openSettings, close: closeSettings }] =
     useDisclosure(false);
+  const [toolsOpened, { open: openTools, close: closeTools }] =
+    useDisclosure(false);
 
   const hasActiveTools =
-    chatState.useRag ||
-    chatState.webSearch ||
-    chatState.generateImages ||
-    chatState.generateSpeech ||
-    chatState.generateVideo ||
-    chatState.generateGammaPresentation ||
-    chatState.createCompletions ||
+    Object.values(chatState.toolsByAgent).some((names) => names.length > 0) ||
     (chatState.specifiedUrls?.length ?? 0) > 0 ||
     chatState.writtingMode;
 
   return (
     <>
-      <Menu
-        shadow="md"
-        width={260}
-        position="top-start"
-        withArrow
-        closeOnItemClick={false}
-      >
+      <Menu shadow="md" width={220} position="top-start" withArrow>
         <Menu.Target>
           <Indicator
             disabled={!hasActiveTools}
@@ -673,128 +645,17 @@ const ToolsMenu = () => {
             size={8}
           >
             <ActionIcon variant="subtle" color="gray" size="lg">
-              <IconAdjustments size={20} />
+              <IconSettings size={20} />
             </ActionIcon>
           </Indicator>
         </Menu.Target>
         <Menu.Dropdown>
-          {isTrainAgentsEnabled && (
-            <Menu.Item
-              leftSection={<IconFileText size={18} />}
-              rightSection={
-                <Switch
-                  checked={chatState.useRag}
-                  onChange={() => toggleUseRag()}
-                  color="violet"
-                  size="xs"
-                  styles={{ track: { cursor: "pointer" } }}
-                />
-              }
-              onClick={() => toggleUseRag()}
-            >
-              RAG
-            </Menu.Item>
-          )}
-          {isWebScrapingEnabled && (
-            <Menu.Item
-              leftSection={<IconGlobe size={18} />}
-              rightSection={
-                <Switch
-                  checked={chatState.webSearch}
-                  onChange={() => toggleWebSearch()}
-                  color="violet"
-                  size="xs"
-                  styles={{ track: { cursor: "pointer" } }}
-                />
-              }
-              onClick={() => toggleWebSearch()}
-            >
-              {t("auto-search") || "Web Search"}
-            </Menu.Item>
-          )}
-          {isImageToolsEnabled && (
-            <Menu.Item
-              leftSection={<IconPhoto size={18} />}
-              rightSection={
-                <Switch
-                  checked={chatState.generateImages}
-                  onChange={() => toggleGenerateImages()}
-                  color="violet"
-                  size="xs"
-                  styles={{ track: { cursor: "pointer" } }}
-                />
-              }
-              onClick={() => toggleGenerateImages()}
-            >
-              {t("generate-image") || "Generate image"}
-            </Menu.Item>
-          )}
-          {isChatSpeechEnabled && (
-            <Menu.Item
-              leftSection={<IconVolume size={18} />}
-              rightSection={
-                <Switch
-                  checked={chatState.generateSpeech}
-                  onChange={() => toggleGenerateSpeech()}
-                  color="violet"
-                  size="xs"
-                  styles={{ track: { cursor: "pointer" } }}
-                />
-              }
-              onClick={() => toggleGenerateSpeech()}
-            >
-              {t("generate-speech") || "Generate speech"}
-            </Menu.Item>
-          )}
-          {isVideoToolsEnabled && (
-            <Menu.Item
-              leftSection={<IconVideo size={18} />}
-              rightSection={
-                <Switch
-                  checked={chatState.generateVideo}
-                  onChange={() => toggleGenerateVideo()}
-                  color="violet"
-                  size="xs"
-                  styles={{ track: { cursor: "pointer" } }}
-                />
-              }
-              onClick={() => toggleGenerateVideo()}
-            >
-              {t("generate-video") || "Generate video"}
-            </Menu.Item>
-          )}
           <Menu.Item
-            leftSection={<IconPresentation size={18} />}
-            rightSection={
-              <Switch
-                checked={chatState.generateGammaPresentation}
-                onChange={() => toggleGenerateGammaPresentation()}
-                color="violet"
-                size="xs"
-                styles={{ track: { cursor: "pointer" } }}
-              />
-            }
-            onClick={() => toggleGenerateGammaPresentation()}
+            leftSection={<IconAdjustments size={18} />}
+            onClick={openTools}
           >
-            {t("generate-presentation") || "Generate presentation"}
+            {t("select-tools") || "Select tools"}
           </Menu.Item>
-          {isTrainAgentsEnabled && (
-            <Menu.Item
-              leftSection={<IconBarbell size={18} />}
-              rightSection={
-                <Switch
-                  checked={chatState.createCompletions}
-                  onChange={() => toggleCreateCompletions()}
-                  color="violet"
-                  size="xs"
-                  styles={{ track: { cursor: "pointer" } }}
-                />
-              }
-              onClick={() => toggleCreateCompletions()}
-            >
-              {t("save-training-examples")}
-            </Menu.Item>
-          )}
           <Menu.Item
             leftSection={<IconPencil size={18} />}
             rightSection={
@@ -810,14 +671,10 @@ const ToolsMenu = () => {
           >
             {t("turn-on-off-writing-mode") || "Writing mode"}
           </Menu.Item>
-
-          {canEditConversationChatSettings && <Menu.Divider />}
-
           {canEditConversationChatSettings && (
             <Menu.Item
               leftSection={<IconSettings size={18} />}
               onClick={openSettings}
-              closeMenuOnClick
             >
               {t("conversation-settings") || "Settings"}
             </Menu.Item>
@@ -825,11 +682,116 @@ const ToolsMenu = () => {
         </Menu.Dropdown>
       </Menu>
 
+      <SelectToolsModal opened={toolsOpened} onClose={closeTools} />
+
       <ConversationConfigModal
         opened={settingsOpened}
         onClose={closeSettings}
       />
     </>
+  );
+};
+
+// ─── Select Tools Modal ──────────────────────────────────────────────────────
+
+const SelectToolsModal = ({
+  opened,
+  onClose,
+}: {
+  opened: boolean;
+  onClose: () => void;
+}) => {
+  const { t } = useTranslation();
+  const { chatState, agents, setAgentToolNames } = useStore((state) => ({
+    chatState: state.chatState,
+    agents: state.agents,
+    setAgentToolNames: state.setAgentToolNames,
+  }));
+  const [toolGroups, setToolGroups] = useState<TMCPToolPresetGroup[]>([]);
+
+  useEffect(() => {
+    if (!opened) return;
+    getAgentToolGroups()
+      .then((res) => setToolGroups(res.groups ?? []))
+      .catch(() => setToolGroups([]));
+  }, [opened]);
+
+  const selectedAgents = agentsInChatSelectionOrder(
+    agents,
+    chatState.selectedAgents
+  );
+  const [activeTab, setActiveTab] = useState<string | null>(
+    selectedAgents[0]?.slug ?? null
+  );
+
+  useEffect(() => {
+    if (!opened) return;
+    if (!selectedAgents.some((a) => a.slug === activeTab)) {
+      setActiveTab(selectedAgents[0]?.slug ?? null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [opened, chatState.selectedAgents.join(",")]);
+
+  return (
+    <Modal
+      opened={opened}
+      onClose={onClose}
+      title={t("select-tools") || "Select tools"}
+      size="lg"
+    >
+      {selectedAgents.length === 0 ? (
+        <Text size="sm" c="dimmed">
+          {t("select-at-least-one-agent-to-chat")}
+        </Text>
+      ) : (
+        <Tabs value={activeTab} onChange={setActiveTab}>
+          <Tabs.List>
+            {selectedAgents.map((a) => (
+              <Tabs.Tab key={a.slug} value={a.slug}>
+                {a.name}
+              </Tabs.Tab>
+            ))}
+          </Tabs.List>
+          {selectedAgents.map((a) => {
+            const selected = new Set(chatState.toolsByAgent[a.slug] ?? []);
+            return (
+              <Tabs.Panel key={a.slug} value={a.slug} pt="sm">
+                <Stack gap="xs">
+                  <Text size="xs" c="dimmed">
+                    {t("pre-approved-tools-desc")}
+                  </Text>
+                  <Accordion multiple defaultValue={toolGroups.map((g) => g.group)}>
+                    {toolGroups.map((group) => (
+                      <Accordion.Item key={group.group} value={group.group}>
+                        <Accordion.Control>
+                          {mcpToolGroupLabel(group.group, t)}
+                        </Accordion.Control>
+                        <Accordion.Panel>
+                          <CapabilitiesChecklist
+                            names={group.items}
+                            value={Object.fromEntries(
+                              group.items.map((name) => [name, selected.has(name)])
+                            )}
+                            onChange={(next) => {
+                              const nextSelected = new Set(selected);
+                              for (const name of group.items) {
+                                if (next[name]) nextSelected.add(name);
+                                else nextSelected.delete(name);
+                              }
+                              setAgentToolNames(a.slug, Array.from(nextSelected));
+                            }}
+                          />
+                        </Accordion.Panel>
+                      </Accordion.Item>
+                    ))}
+                  </Accordion>
+                </Stack>
+              </Tabs.Panel>
+            );
+          })}
+        </Tabs>
+      )}
+    </Modal>
   );
 };
 

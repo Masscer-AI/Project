@@ -1988,6 +1988,8 @@ export type TriggerAgentTaskPayload = {
   agent_slugs: string[];
   user_inputs: TAgentTaskInput[];
   tool_names?: string[];
+  /** Per-agent-slug tool override; agents not present fall back to tool_names. */
+  tool_names_by_agent?: Record<string, string[]>;
   multiagentic_modality?: "isolated" | "grupal";
   regenerate_message_id?: number;
   client_datetime?: ClientDatetimePayload;

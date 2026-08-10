@@ -534,7 +534,10 @@ class AgentTaskView(View):
         - agent_slugs (list[str], required): slugs of one or more Agents
         - user_inputs (list, required): list of input objects, e.g.
               [{"type": "input_text", "text": "Hello"}]
-        - tool_names (list[str], optional): tool names from the registry (default [])
+        - tool_names (list[str], optional): tool names from the registry (default []),
+              shared by every agent in agent_slugs unless overridden below
+        - tool_names_by_agent (object, optional): {agent_slug: tool_names} — overrides
+              tool_names for the agents present as keys
         - multiagentic_modality (str, optional): "isolated" or "grupal" (default "isolated")
         - client_datetime (object, optional): user's browser clock for relative times, e.g.
               {"utc_iso": "...", "timezone": "Europe/Madrid", "local_datetime_long": "...",
@@ -586,6 +589,7 @@ class AgentTaskView(View):
             agent_slugs=slugs,
             user_inputs=user_inputs,
             tool_names=data.get("tool_names", []),
+            tool_names_by_agent=data.get("tool_names_by_agent"),
             multiagentic_modality=data.get("multiagentic_modality", "isolated"),
             client_datetime=data.get("client_datetime"),
             regenerate_message_id=data.get("regenerate_message_id"),
