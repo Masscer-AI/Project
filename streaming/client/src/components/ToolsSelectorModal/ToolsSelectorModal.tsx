@@ -1,18 +1,9 @@
 import React, { useEffect, useState } from "react";
-import {
-  Accordion,
-  Button,
-  Group,
-  Modal,
-  Stack,
-  Tabs,
-  Text,
-} from "@mantine/core";
+import { Modal, Tabs, Text } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import { getAgentToolGroups } from "../../modules/apiCalls";
 import type { TMCPToolPresetGroup } from "../../modules/apiCalls";
-import { mcpToolGroupLabel } from "../../utils/mcpToolGroupLabel";
-import { CapabilitiesChecklist } from "../CapabilitiesChecklist/CapabilitiesChecklist";
+import { ToolsSelectorContent } from "./ToolsSelectorContent";
 
 export type ToolsSelectorAgent = {
   slug: string;
@@ -66,70 +57,6 @@ export function ToolsSelectorModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opened, agents.map((a) => a.slug).join(",")]);
 
-  const renderAgentPanel = (agent: ToolsSelectorAgent) => {
-    const selected = new Set(valueByAgent[agent.slug] ?? []);
-    const allToolNames = toolGroups.flatMap((g) => g.items);
-    const allSelected =
-      allToolNames.length > 0 &&
-      allToolNames.every((name) => selected.has(name));
-
-    return (
-      <Stack gap="xs">
-        {description ? (
-          <Text size="xs" c="dimmed">
-            {description}
-          </Text>
-        ) : null}
-        {allToolNames.length > 0 ? (
-          <Group justify="flex-end" gap="xs">
-            <Button
-              size="xs"
-              variant="subtle"
-              disabled={allSelected}
-              onClick={() => onChange(agent.slug, allToolNames)}
-            >
-              {t("select-all")}
-            </Button>
-            <Button
-              size="xs"
-              variant="subtle"
-              color="gray"
-              onClick={() => onChange(agent.slug, [])}
-            >
-              {t("unselect-all")}
-            </Button>
-          </Group>
-        ) : null}
-        <Accordion multiple defaultValue={toolGroups.map((g) => g.group)}>
-          {toolGroups.map((group) => (
-            <Accordion.Item key={group.group} value={group.group}>
-              <Accordion.Control>
-                {mcpToolGroupLabel(group.group, t)}
-              </Accordion.Control>
-              <Accordion.Panel>
-                <CapabilitiesChecklist
-                  names={group.items}
-                  showBulkActions={false}
-                  value={Object.fromEntries(
-                    group.items.map((name) => [name, selected.has(name)])
-                  )}
-                  onChange={(next) => {
-                    const nextSelected = new Set(selected);
-                    for (const name of group.items) {
-                      if (next[name]) nextSelected.add(name);
-                      else nextSelected.delete(name);
-                    }
-                    onChange(agent.slug, Array.from(nextSelected));
-                  }}
-                />
-              </Accordion.Panel>
-            </Accordion.Item>
-          ))}
-        </Accordion>
-      </Stack>
-    );
-  };
-
   return (
     <Modal opened={opened} onClose={onClose} title={title} size="lg">
       {agents.length === 0 ? (
@@ -147,12 +74,26 @@ export function ToolsSelectorModal({
           </Tabs.List>
           {agents.map((a) => (
             <Tabs.Panel key={a.slug} value={a.slug} pt="sm">
-              {renderAgentPanel(a)}
+              <ToolsSelectorContent
+                key={toolGroups.map((g) => g.group).join(",") || "empty"}
+                description={description}
+                loadGroups={false}
+                toolGroups={toolGroups}
+                value={valueByAgent[a.slug] ?? []}
+                onChange={(names) => onChange(a.slug, names)}
+              />
             </Tabs.Panel>
           ))}
         </Tabs>
       ) : (
-        renderAgentPanel(agents[0])
+        <ToolsSelectorContent
+          key={toolGroups.map((g) => g.group).join(",") || "empty"}
+          description={description}
+          loadGroups={false}
+          toolGroups={toolGroups}
+          value={valueByAgent[agents[0].slug] ?? []}
+          onChange={(names) => onChange(agents[0].slug, names)}
+        />
       )}
     </Modal>
   );

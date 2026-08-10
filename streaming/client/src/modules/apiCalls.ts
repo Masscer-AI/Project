@@ -2127,6 +2127,12 @@ export type TMCPToolPresetGroup = {
   items: string[];
 };
 
+export type TAgentToolGroupsResponse = {
+  groups: TMCPToolPresetGroup[];
+  user_required?: string[];
+  widget_unavailable?: string[];
+};
+
 export type TMCPToolPresets = {
   presets: Record<string, string[]>;
   groups: TMCPToolPresetGroup[];
@@ -2178,7 +2184,7 @@ export const getMCPToolPresets = async () => {
  * user (not gated behind the integrations-management feature flag) — used
  * for the agent settings "pre-approved tools" picker. */
 export const getAgentToolGroups = async () => {
-  return makeAuthenticatedRequest<{ groups: TMCPToolPresetGroup[] }>(
+  return makeAuthenticatedRequest<TAgentToolGroupsResponse>(
     "GET",
     "/v1/ai_layers/agents/tool-groups/"
   );

@@ -8,7 +8,9 @@ import {
   deleteChatWidget,
   uploadChatWidgetAvatar,
   deleteChatWidgetAvatar,
+  getAgentToolGroups,
 } from "../../modules/apiCalls";
+import type { TMCPToolPresetGroup } from "../../modules/apiCalls";
 import { API_URL } from "../../modules/constants";
 import { TChatWidget } from "../../types";
 import toast from "react-hot-toast";
@@ -20,6 +22,7 @@ import {
   Box,
   Button,
   Card,
+  Divider,
   FileButton,
   Image,
   Checkbox,
@@ -47,7 +50,9 @@ import {
   IconTrash,
   IconX,
 } from "@tabler/icons-react";
-import { CapabilitiesChecklist } from "../../components/CapabilitiesChecklist/CapabilitiesChecklist";
+import { ToolsSelectorContent } from "../../components/ToolsSelectorModal/ToolsSelectorContent";
+
+const VISITOR_ATTACHMENT_TOOLS = ["read_attachment", "list_attachments"] as const;
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -272,20 +277,6 @@ const widgetAvatarDisplaySrc = (url: string) => {
   return `${API_URL}${trimmed.startsWith("/") ? trimmed : `/${trimmed}`}`;
 };
 
-const DEFAULT_CAPABILITY_NAMES = [
-  "read_attachment",
-  "list_attachments",
-  "explore_web",
-  "rag_query",
-  "create_image",
-  "create_speech",
-  "generate_dialogue",
-  "generate_video",
-  "generate_document_file",
-  "read_plugin_instructions",
-  "raise_alert",
-];
-
 const WidgetForm = ({
   agents,
   initialData,
@@ -325,15 +316,56 @@ const WidgetForm = ({
   const [allowVisitorAttachments, setAllowVisitorAttachments] = useState(
     initialData?.style?.allow_visitor_attachments === true
   );
-  const [capabilityState, setCapabilityState] = useState<Record<string, boolean>>(() => {
-    const initial: Record<string, boolean> = {};
-    for (const name of DEFAULT_CAPABILITY_NAMES) initial[name] = false;
-    for (const capability of initialData?.capabilities ?? []) {
-      if (!capability?.name) continue;
-      initial[capability.name] = Boolean(capability.enabled);
+  const [selectedTools, setSelectedTools] = useState<string[]>(() => {
+    const enabled = (initialData?.capabilities ?? [])
+      .filter((c) => c?.name && c.enabled)
+      .map((c) => c.name as string);
+    if (initialData?.style?.allow_visitor_attachments === true) {
+      for (const tool of VISITOR_ATTACHMENT_TOOLS) {
+        if (!enabled.includes(tool)) enabled.push(tool);
+      }
     }
-    return initial;
+    return enabled;
   });
+  const [toolGroups, setToolGroups] = useState<TMCPToolPresetGroup[]>([]);
+  const [userRequiredTools, setUserRequiredTools] = useState<string[]>([]);
+  const [widgetUnavailableTools, setWidgetUnavailableTools] = useState<string[]>(
+    []
+  );
+
+  useEffect(() => {
+    getAgentToolGroups()
+      .then((res) => {
+        setToolGroups(res.groups ?? []);
+        setUserRequiredTools(res.user_required ?? []);
+        setWidgetUnavailableTools(res.widget_unavailable ?? []);
+      })
+      .catch(() => {
+        setToolGroups([]);
+        setUserRequiredTools([]);
+        setWidgetUnavailableTools([]);
+      });
+  }, []);
+
+  const lockedOffTools = React.useMemo(() => {
+    const set = new Set([...userRequiredTools, ...widgetUnavailableTools]);
+    return Array.from(set);
+  }, [userRequiredTools, widgetUnavailableTools]);
+
+  const requiredToolNames = allowVisitorAttachments
+    ? [...VISITOR_ATTACHMENT_TOOLS]
+    : [];
+
+  const handleVisitorAttachmentsChange = (checked: boolean) => {
+    setAllowVisitorAttachments(checked);
+    if (checked) {
+      setSelectedTools((prev) => {
+        const next = new Set(prev);
+        for (const tool of VISITOR_ATTACHMENT_TOOLS) next.add(tool);
+        return Array.from(next);
+      });
+    }
+  };
 
   const handleSubmit = async () => {
     if (!name.trim()) {
@@ -363,15 +395,22 @@ const WidgetForm = ({
       if (trimmedPrimaryColor) {
         stylePayload.primary_color = trimmedPrimaryColor;
       }
+      const lockedOff = new Set(lockedOffTools);
+      const enabledTools = new Set(
+        selectedTools.filter((name) => !lockedOff.has(name))
+      );
+      if (allowVisitorAttachments) {
+        for (const tool of VISITOR_ATTACHMENT_TOOLS) enabledTools.add(tool);
+      }
       const payload: WidgetFormData = {
         name: name.trim(),
         agent_id: agentId ? parseInt(agentId) : null,
         enabled,
         first_message: firstMessage.trim(),
-        capabilities: Object.entries(capabilityState).map(([name, isEnabled]) => ({
+        capabilities: Array.from(enabledTools).map((name) => ({
           name,
-          type: "internal_tool",
-          enabled: isEnabled,
+          type: "internal_tool" as const,
+          enabled: true,
         })),
         style: stylePayload,
       };
@@ -564,51 +603,60 @@ const WidgetForm = ({
           />
         </Group>
 
-        <Stack gap={6} mt="xs">
-          <Text size="sm" fw={500}>
-            {t("widget-capabilities")}
-          </Text>
-          <Stack gap={2}>
-            <Checkbox
-              label={t("widget-show-history")}
-              checked={showHistory}
-              onChange={(e) => setShowHistory(e.currentTarget.checked)}
-            />
-            <Text size="xs" c="dimmed" ml={28}>
-              {t("widget-show-history-description")}
+        <Stack gap="md" mt="xs">
+          <Stack gap={6}>
+            <Text size="sm" fw={500}>
+              {t("widget-options")}
             </Text>
-          </Stack>
-          <Stack gap={2}>
-            <Checkbox
-              label={t("widget-allow-visitor-attachments")}
-              checked={allowVisitorAttachments}
-              onChange={(e) => {
-                const checked = e.currentTarget.checked;
-                setAllowVisitorAttachments(checked);
-                if (checked) {
-                  setCapabilityState((prev) => ({
-                    ...prev,
-                    read_attachment: true,
-                    list_attachments: true,
-                  }));
-                } else {
-                  setCapabilityState((prev) => ({
-                    ...prev,
-                    read_attachment: false,
-                    list_attachments: false,
-                  }));
+            <Text size="xs" c="dimmed">
+              {t("widget-options-desc")}
+            </Text>
+            <Stack gap={2}>
+              <Checkbox
+                label={t("widget-show-history")}
+                checked={showHistory}
+                onChange={(e) => setShowHistory(e.currentTarget.checked)}
+              />
+              <Text size="xs" c="dimmed" ml={28}>
+                {t("widget-show-history-description")}
+              </Text>
+            </Stack>
+            <Stack gap={2}>
+              <Checkbox
+                label={t("widget-allow-visitor-attachments")}
+                checked={allowVisitorAttachments}
+                onChange={(e) =>
+                  handleVisitorAttachmentsChange(e.currentTarget.checked)
                 }
-              }}
-            />
-            <Text size="xs" c="dimmed" ml={28}>
-              {t("widget-allow-visitor-attachments-description")}
-            </Text>
+              />
+              <Text size="xs" c="dimmed" ml={28}>
+                {t("widget-allow-visitor-attachments-description")}
+              </Text>
+            </Stack>
           </Stack>
-          <CapabilitiesChecklist
-            names={DEFAULT_CAPABILITY_NAMES}
-            value={capabilityState}
-            onChange={setCapabilityState}
-          />
+
+          <Divider />
+
+          <Stack gap={6}>
+            <Text size="sm" fw={500}>
+              {t("widget-agent-tools")}
+            </Text>
+            <ToolsSelectorContent
+              key={toolGroups.map((g) => g.group).join(",") || "empty"}
+              description={t("widget-agent-tools-desc")}
+              loadGroups={false}
+              toolGroups={toolGroups}
+              value={selectedTools}
+              onChange={setSelectedTools}
+              requiredNames={requiredToolNames}
+              disabledOffNames={lockedOffTools}
+              disabledOffHint={(name) =>
+                userRequiredTools.includes(name)
+                  ? t("tool-requires-user-hint")
+                  : t("tool-unavailable-on-widget-hint")
+              }
+            />
+          </Stack>
         </Stack>
 
         <Group justify="flex-end" mt="sm">

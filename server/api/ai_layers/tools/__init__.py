@@ -82,14 +82,16 @@ DEPENDENT_TOOL_REQUIREMENTS: dict[str, tuple[str, ...]] = {
 
 # Tools that act on behalf of an authenticated Masscer user (account-scoped
 # calendar, org membership/roles, email-as-user, WhatsApp resource/template
-# management, scheduled-task management). Never offered to anonymous callers
-# (chat widget visitors, WhatsApp senders) — there is no Django User to scope
-# them to. Conversation/tagging tools are deliberately excluded: those work
-# fine for anonymous visitors and WhatsApp already forces some of them on.
+# management, scheduled-task management, listing the actor's conversations).
+# Never offered to anonymous callers (chat widget visitors, unlinked WhatsApp
+# senders) — there is no Django User to scope them to. Org tagging /
+# query_conversation are deliberately not listed here: WhatsApp may enable
+# them for the line; widgets hard-strip them separately.
 USER_REQUIRED_TOOL_NAMES: frozenset[str] = frozenset(
     {
         "list_organization_members",
         "list_organization_roles",
+        "list_conversations",
         "send_email",
         "list_whatsapp_resources",
         "list_whatsapp_templates",
@@ -100,6 +102,22 @@ USER_REQUIRED_TOOL_NAMES: frozenset[str] = frozenset(
         "schedule_task",
         "list_scheduled_tasks",
         "cancel_scheduled_task",
+    }
+)
+
+# Always removed on public chat-widget agent runs (even if saved on the widget).
+# Shown disabled in the widget capabilities UI. Distinct from USER_REQUIRED:
+# some of these can run on WhatsApp lines.
+WIDGET_UNAVAILABLE_TOOL_NAMES: frozenset[str] = frozenset(
+    {
+        "query_organization_tags",
+        "create_organization_tag",
+        "change_conversation_tags",
+        "change_conversation_summary",
+        "get_tag_context",
+        "query_conversation",
+        "list_conversations",
+        "create_completion",
     }
 )
 

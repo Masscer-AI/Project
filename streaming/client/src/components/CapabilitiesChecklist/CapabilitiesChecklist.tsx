@@ -9,6 +9,10 @@ export type CapabilitiesChecklistProps = {
   onChange: (next: Record<string, boolean>) => void;
   /** Always enabled; cannot be unchecked; always on after Select all / Clear. */
   requiredNames?: readonly string[];
+  /** Always off; cannot be checked (e.g. user-required tools on widgets). */
+  disabledOffNames?: readonly string[];
+  /** Extra description under a locked-off tool (after the normal description). */
+  disabledOffHint?: (name: string) => string;
   /** Optional section title above the list. */
   label?: string;
   /** Show Select all / Unselect all for this list. Default true. */
@@ -27,6 +31,8 @@ export function CapabilitiesChecklist({
   value,
   onChange,
   requiredNames = [],
+  disabledOffNames = [],
+  disabledOffHint,
   label,
   showBulkActions = true,
   titleKey = (name) => `widget-capability-${name}-title`,
@@ -37,10 +43,15 @@ export function CapabilitiesChecklist({
     () => new Set(requiredNames),
     [requiredNames]
   );
+  const disabledOffSet = useMemo(
+    () => new Set(disabledOffNames),
+    [disabledOffNames]
+  );
 
   const toggleableNames = useMemo(
-    () => names.filter((n) => !requiredSet.has(n)),
-    [names, requiredSet]
+    () =>
+      names.filter((n) => !requiredSet.has(n) && !disabledOffSet.has(n)),
+    [names, requiredSet, disabledOffSet]
   );
 
   const allToggleableOn =
@@ -49,7 +60,10 @@ export function CapabilitiesChecklist({
 
   const selectAll = () => {
     const next = { ...value };
-    for (const name of names) next[name] = true;
+    for (const name of names) {
+      if (disabledOffSet.has(name)) next[name] = false;
+      else next[name] = true;
+    }
     onChange(next);
   };
 
@@ -100,14 +114,18 @@ export function CapabilitiesChecklist({
       <Stack gap="sm">
         {names.map((capName) => {
           const isRequired = requiredSet.has(capName);
+          const isLockedOff = disabledOffSet.has(capName);
+          const hint = isLockedOff && disabledOffHint
+            ? disabledOffHint(capName)
+            : "";
           return (
             <Stack key={capName} gap={2}>
               <Checkbox
                 label={t(titleKey(capName))}
-                checked={value[capName] ?? false}
-                disabled={isRequired}
+                checked={isLockedOff ? false : (value[capName] ?? false)}
+                disabled={isRequired || isLockedOff}
                 onChange={(e) => {
-                  if (isRequired) return;
+                  if (isRequired || isLockedOff) return;
                   const checked = e.currentTarget.checked;
                   onChange({
                     ...value,
@@ -117,6 +135,7 @@ export function CapabilitiesChecklist({
               />
               <Text size="xs" c="dimmed" ml={28}>
                 {t(descriptionKey(capName))}
+                {hint ? ` ${hint}` : ""}
               </Text>
             </Stack>
           );

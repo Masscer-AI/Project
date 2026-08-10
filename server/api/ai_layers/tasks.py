@@ -1591,19 +1591,12 @@ def conversation_agent_task(
                 ]
 
             if is_widget_chat:
-                _widget_excluded_tools = frozenset(
-                    {
-                        "query_organization_tags",
-                        "create_organization_tag",
-                        "change_conversation_tags",
-                        "change_conversation_summary",
-                        "get_tag_context",
-                        "query_conversation",
-                        "create_completion",
-                    }
-                )
+                from api.ai_layers.tools import WIDGET_UNAVAILABLE_TOOL_NAMES
+
                 agent_tool_names = [
-                    t for t in agent_tool_names if t not in _widget_excluded_tools
+                    t
+                    for t in agent_tool_names
+                    if t not in WIDGET_UNAVAILABLE_TOOL_NAMES
                 ]
             applicable_alert_rules = []
             if organization:

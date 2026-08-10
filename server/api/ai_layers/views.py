@@ -462,10 +462,20 @@ def get_formatted_system_prompt(request):
 @csrf_exempt
 @token_required
 def agent_tool_groups(request):
-    """Grouped tool names for the agent settings 'pre-approved tools' checklist."""
+    """Grouped tool names for agent / chat / widget tool pickers."""
     from api.ai_layers.mcp_access import mcp_tool_preset_groups
+    from api.ai_layers.tools import (
+        USER_REQUIRED_TOOL_NAMES,
+        WIDGET_UNAVAILABLE_TOOL_NAMES,
+    )
 
-    return JsonResponse({"groups": mcp_tool_preset_groups()})
+    return JsonResponse(
+        {
+            "groups": mcp_tool_preset_groups(),
+            "user_required": sorted(USER_REQUIRED_TOOL_NAMES),
+            "widget_unavailable": sorted(WIDGET_UNAVAILABLE_TOOL_NAMES),
+        }
+    )
 
 
 @csrf_exempt
