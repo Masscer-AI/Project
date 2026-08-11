@@ -463,6 +463,25 @@ class GoogleLoginAPIView(APIView):
 
         return_to_raw = request.data.get("return_to")
         return_to_origin = validate_auth_return_to_origin(return_to_raw or "")
+        organization_id = request.data.get("organization_id")
+        join_organization = None
+
+        if organization_id:
+            signup_denied = check_tenant_portal_signup_allowed(request.data)
+            if signup_denied is not None:
+                return signup_denied
+            try:
+                join_organization = Organization.objects.get(id=organization_id)
+            except Organization.DoesNotExist:
+                return Response(
+                    {"error": "Organization not found"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            except (ValueError, ValidationError, TypeError):
+                return Response(
+                    {"error": "Invalid organization ID format"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         try:
             user = User.objects.filter(email=google_email).first()
@@ -491,25 +510,42 @@ class GoogleLoginAPIView(APIView):
                     username = f"{base_username}{suffix}"
                     suffix += 1
 
-                user = User.objects.create_user(
-                    username=username,
-                    email=google_email,
-                    password=None,
-                    first_name=google_name.split(" ")[0] if google_name else "",
-                    last_name=" ".join(google_name.split(" ")[1:]) if google_name else "",
-                )
-                logger.info("[Google Login] User created: id=%s username=%s", user.id, user.username)
+                with transaction.atomic():
+                    user = User.objects.create_user(
+                        username=username,
+                        email=google_email,
+                        password=None,
+                        first_name=google_name.split(" ")[0] if google_name else "",
+                        last_name=" ".join(google_name.split(" ")[1:]) if google_name else "",
+                    )
+                    logger.info(
+                        "[Google Login] User created: id=%s username=%s",
+                        user.id,
+                        user.username,
+                    )
 
-                org = Organization.objects.create(name=f"{google_name or username}'s workspace", owner=user)
-                logger.info("[Google Login] Organization created: id=%s", org.id)
+                    if join_organization is not None:
+                        org = join_organization
+                        logger.info(
+                            "[Google Login] Joining invited organization: id=%s",
+                            org.id,
+                        )
+                    else:
+                        org = Organization.objects.create(
+                            name=f"{google_name or username}'s workspace",
+                            owner=user,
+                        )
+                        logger.info("[Google Login] Organization created: id=%s", org.id)
 
-                profile, created = UserProfile.objects.get_or_create(user=user)
-                logger.info("[Google Login] UserProfile get_or_create: created=%s", created)
-                profile.name = google_name
-                profile.avatar_url = google_picture
-                profile.organization = org
-                profile.save()
-                logger.info("[Google Login] UserProfile saved")
+                    profile, created = UserProfile.objects.get_or_create(user=user)
+                    logger.info(
+                        "[Google Login] UserProfile get_or_create: created=%s", created
+                    )
+                    profile.name = google_name
+                    profile.avatar_url = google_picture
+                    profile.organization = org
+                    profile.save()
+                    logger.info("[Google Login] UserProfile saved")
             else:
                 logger.info("[Google Login] Existing user found: id=%s username=%s", user.id, user.username)
                 profile = getattr(user, "profile", None)
@@ -1491,8 +1527,13 @@ class OrganizationRolesView(View):
             organization = Organization.objects.get(id=organization_id)
         except Organization.DoesNotExist:
             return JsonResponse({"error": "Organization not found"}, status=status.HTTP_404_NOT_FOUND)
-        if not _can_manage_organization(request.user, organization):
-            return JsonResponse({"error": "You do not have permission to manage roles"}, status=status.HTTP_403_FORBIDDEN)
+        # Listing roles is available to any active org member (e.g. KB document ownership).
+        # Creating/updating/deleting roles still requires manage-organization.
+        if not _is_active_member(request.user, organization):
+            return JsonResponse(
+                {"error": "You do not have permission to view roles"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         roles = Role.objects.filter(organization=organization).order_by("name")
         serializer = RoleSerializer(roles, many=True)
         return JsonResponse(serializer.data, safe=False)
@@ -1523,8 +1564,11 @@ class OrganizationRoleDetailView(View):
             role = Role.objects.get(id=role_id, organization=organization)
         except (Organization.DoesNotExist, Role.DoesNotExist):
             return JsonResponse({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
-        if not _can_manage_organization(request.user, organization):
-            return JsonResponse({"error": "You do not have permission"}, status=status.HTTP_403_FORBIDDEN)
+        if not _is_active_member(request.user, organization):
+            return JsonResponse(
+                {"error": "You do not have permission"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         return JsonResponse(RoleSerializer(role).data)
 
     def put(self, request, organization_id, role_id):

@@ -48,6 +48,7 @@ import {
   ScrollArea,
   Stack,
   Switch,
+  Tabs,
   Text,
   Textarea,
   TextInput,
@@ -357,33 +358,40 @@ export default function KnowledgeBasePage() {
             {t("knowledge-base-description")}
           </Text>
 
-          {/* Tabs */}
-          <Group gap="xs" mb="md">
-            <Button
-              variant={activeTab === "documents" ? "filled" : "default"}
-              leftSection={<IconFileText size={16} />}
-              size="sm"
-              onClick={() => setKnowledgeBaseTab("documents")}
-            >
-              {t("documents")} ({documents.length})
-            </Button>
-            <Button
-              variant={activeTab === "completions" ? "filled" : "default"}
-              leftSection={<IconSparkles size={16} />}
-              size="sm"
-              onClick={() => setKnowledgeBaseTab("completions")}
-            >
-              {t("completions")} ({completions.length})
-            </Button>
-            <Button
-              variant={activeTab === "templates" ? "filled" : "default"}
-              leftSection={<IconTemplate size={16} />}
-              size="sm"
-              onClick={() => setKnowledgeBaseTab("templates")}
-            >
-              {t("document-templates-tab")}
-            </Button>
-          </Group>
+          <Tabs
+            value={activeTab}
+            onChange={(value) => {
+              if (
+                value === "documents" ||
+                value === "completions" ||
+                value === "templates"
+              ) {
+                setKnowledgeBaseTab(value);
+              }
+            }}
+            mb="md"
+          >
+            <Tabs.List>
+              <Tabs.Tab
+                value="documents"
+                leftSection={<IconFileText size={16} />}
+              >
+                {t("documents")} ({documents.length})
+              </Tabs.Tab>
+              <Tabs.Tab
+                value="completions"
+                leftSection={<IconSparkles size={16} />}
+              >
+                {t("completions")} ({completions.length})
+              </Tabs.Tab>
+              <Tabs.Tab
+                value="templates"
+                leftSection={<IconTemplate size={16} />}
+              >
+                {t("document-templates-tab")}
+              </Tabs.Tab>
+            </Tabs.List>
+          </Tabs>
 
           {/* Filters */}
           <Group gap="sm" mb="md">
@@ -497,14 +505,27 @@ const DocumentsTab = ({
           if (!cancelled) {
             setHasOrg(false);
             setUploadVisibility("personal");
+            setOrgRoles([]);
           }
           return;
         }
-        setHasOrg(true);
-        const roles = await getOrganizationRoles(org.id);
-        if (!cancelled) setOrgRoles(roles.filter((r) => r.enabled));
+        if (!cancelled) {
+          setHasOrg(true);
+          setUploadVisibility("organization");
+        }
+        try {
+          const roles = await getOrganizationRoles(org.id);
+          if (!cancelled) setOrgRoles(roles.filter((r) => r.enabled));
+        } catch {
+          // Ownership UI still works without roles (me / organization).
+          if (!cancelled) setOrgRoles([]);
+        }
       } catch {
-        if (!cancelled) setHasOrg(false);
+        if (!cancelled) {
+          setHasOrg(false);
+          setUploadVisibility("personal");
+          setOrgRoles([]);
+        }
       }
     })();
     return () => {

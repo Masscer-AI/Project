@@ -8,6 +8,9 @@ from rest_framework.test import APIClient
 from api.authenticate.auth_handoff import create_handoff_code, exchange_handoff_code
 from api.authenticate.models import Organization, OrganizationTenant, Token, UserProfile
 from api.authenticate.subdomain_utils import validate_auth_return_to_origin, validate_google_auth_redirect_uri
+from api.ai_layers.models import LanguageModel
+from api.consumption.models import Currency
+from api.providers.models import AIProvider
 
 
 @override_settings(FRONTEND_URL="http://localhost")
@@ -114,6 +117,14 @@ class TenantGoogleLoginHandoffTests(TestCase):
     def setUp(self):
         cache.clear()
         self.client = APIClient()
+        Currency.objects.get_or_create(
+            name="Compute Unit", defaults={"one_usd_is": 1000}
+        )
+        LanguageModel.objects.create(
+            provider=AIProvider.objects.create(name="OpenAI"),
+            name="Test LLM",
+            slug="test-llm-google-handoff",
+        )
         self.acme_org = Organization.objects.create(
             name="Acme Org",
             owner=User.objects.create_user(
@@ -193,3 +204,50 @@ class TenantGoogleLoginHandoffTests(TestCase):
         self.assertIn("token", response.data)
         self.assertTrue(User.objects.filter(email="brandnew@example.com").exists())
         self.assertTrue(Organization.objects.filter(owner__email="brandnew@example.com").exists())
+
+    @patch("api.authenticate.views.http_requests.get")
+    def test_google_login_with_organization_id_joins_existing_org(self, mock_get):
+        mock_get.return_value = self._mock_google_userinfo("invited@example.com")
+        response = self.client.post(
+            "/v1/auth/google",
+            data={
+                "access_token": "fake-token",
+                "organization_id": str(self.acme_org.id),
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("token", response.data)
+        user = User.objects.get(email="invited@example.com")
+        self.assertEqual(user.profile.organization_id, self.acme_org.id)
+        self.assertFalse(
+            Organization.objects.filter(owner__email="invited@example.com").exists()
+        )
+
+    @patch("api.authenticate.views.http_requests.get")
+    def test_google_login_with_invalid_organization_id_rejects(self, mock_get):
+        mock_get.return_value = self._mock_google_userinfo("nobody@example.com")
+        response = self.client.post(
+            "/v1/auth/google",
+            data={
+                "access_token": "fake-token",
+                "organization_id": "not-a-uuid",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(User.objects.filter(email="nobody@example.com").exists())
+
+    @patch("api.authenticate.views.http_requests.get")
+    def test_google_login_with_missing_organization_id_rejects(self, mock_get):
+        mock_get.return_value = self._mock_google_userinfo("nobody@example.com")
+        response = self.client.post(
+            "/v1/auth/google",
+            data={
+                "access_token": "fake-token",
+                "organization_id": "00000000-0000-0000-0000-000000000000",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 404)
+        self.assertFalse(User.objects.filter(email="nobody@example.com").exists())

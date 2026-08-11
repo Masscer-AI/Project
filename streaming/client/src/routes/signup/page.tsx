@@ -239,6 +239,8 @@ export default function Signup() {
       const response = await axios.post(API_URL + "/v1/auth/google", {
         access_token: accessToken,
         ...(returnTo ? { return_to: returnTo } : {}),
+        ...(orgId ? { organization_id: orgId } : {}),
+        ...getPortalOriginPayload(),
       });
 
       if (returnTo && response.data.handoff_code) {
