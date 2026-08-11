@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { useStore } from "../../modules/store";
+import { isForceDarkPublicPath } from "../../utils/forceDarkPublicPath";
 
 export const Themer = () => {
+  const { pathname } = useLocation();
   const { userPreferences } = useStore((s) => ({
     userPreferences: s.userPreferences,
   }));
@@ -17,8 +20,9 @@ export const Themer = () => {
     return () => mq.removeEventListener("change", handler);
   }, []);
 
-  const resolved =
-    userPreferences.theme === "system"
+  const resolved = isForceDarkPublicPath(pathname)
+    ? "dark"
+    : userPreferences.theme === "system"
       ? systemDark
         ? "dark"
         : "light"

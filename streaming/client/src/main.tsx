@@ -51,6 +51,7 @@ import GalleryPage from "./routes/gallery/page.tsx";
 import PrivacyPolicyPage from "./routes/legal/privacy/page.tsx";
 import TermsOfServicePage from "./routes/legal/terms/page.tsx";
 import OAuthConsentPage from "./routes/oauth/consent/page.tsx";
+import { ForceDarkColorScheme } from "./components/ForceDarkColorScheme/ForceDarkColorScheme.tsx";
 
 const router = createBrowserRouter([
   {
@@ -59,32 +60,38 @@ const router = createBrowserRouter([
     errorElement: <ErrorPage />,
     children: [
       {
-        path: "/",
-        element: <Root />,
-      },
-      {
-        path: "/signup",
-        element: <Signup />,
-      },
-      {
-        path: "/login",
-        element: <Login />,
-      },
-      {
-        path: "/forgot-password",
-        element: <ForgotPassword />,
-      },
-      {
-        path: "/reset-password",
-        element: <ResetPassword />,
-      },
-      {
-        path: "/auth/callback",
-        element: <AuthCallback />,
-      },
-      {
-        path: "/auth/google",
-        element: <AuthGoogleBridge />,
+        // Landing + auth: always dark UI (hardcoded dark panels break in light scheme).
+        element: <ForceDarkColorScheme />,
+        children: [
+          {
+            path: "/",
+            element: <Root />,
+          },
+          {
+            path: "/signup",
+            element: <Signup />,
+          },
+          {
+            path: "/login",
+            element: <Login />,
+          },
+          {
+            path: "/forgot-password",
+            element: <ForgotPassword />,
+          },
+          {
+            path: "/reset-password",
+            element: <ResetPassword />,
+          },
+          {
+            path: "/auth/callback",
+            element: <AuthCallback />,
+          },
+          {
+            path: "/auth/google",
+            element: <AuthGoogleBridge />,
+          },
+        ],
       },
       {
         path: "/chat",
