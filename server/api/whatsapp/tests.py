@@ -1370,6 +1370,38 @@ class WhatsappNumberAccessScopeTests(TestCase):
     @patch("api.whatsapp.actions.send_message", return_value="wamid.reject")
     @patch("api.whatsapp.actions.mark_message_as_read")
     @patch("api.whatsapp.tasks.whatsapp_flush_inbound_agent_task.apply_async")
+    def test_roles_always_allows_organization_owner(
+        self, mock_apply_async, _mock_read, mock_send
+    ):
+        from api.authenticate.models import UserProfile
+        from api.whatsapp.actions import handle_message_received
+
+        owner_profile = UserProfile.objects.get(user=self.owner)
+        owner_profile.organization = self.org
+        owner_profile.is_active = True
+        owner_profile.phone_numbers = [
+            {"country_code": "1", "number": "5557776666", "is_default": True}
+        ]
+        owner_profile.save()
+        owner_phone = "15557776666"
+
+        self.ws.access_mode = WSNumber.ACCESS_MODE_ROLES
+        self.ws.save(update_fields=["access_mode", "updated_at"])
+        self.ws.allowed_roles.set([self.role])
+
+        webhook = self._text_webhook(owner_phone, "wamid.owner-role")
+        handle_message_received(
+            webhook, webhook["entry"][0]["changes"][0]["value"]["messages"][0]
+        )
+
+        mock_apply_async.assert_called_once()
+        mock_send.assert_not_called()
+        contact = WSContact.objects.get(ws_number=self.ws, number=owner_phone)
+        self.assertEqual(contact.user_id, self.owner.id)
+
+    @patch("api.whatsapp.actions.send_message", return_value="wamid.reject")
+    @patch("api.whatsapp.actions.mark_message_as_read")
+    @patch("api.whatsapp.tasks.whatsapp_flush_inbound_agent_task.apply_async")
     def test_user_mode_only_allows_access_user(
         self, mock_apply_async, _mock_read, mock_send
     ):

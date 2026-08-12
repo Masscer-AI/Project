@@ -67,14 +67,17 @@ def _match_user_by_phone(candidates: list[User], phone_digits: str) -> User | No
 
 
 def _candidate_users_for_roles(ws_number: WSNumber, organization) -> list[User]:
+    """Role assignees plus the organization owner (owner always has access)."""
     role_ids = list(ws_number.allowed_roles.values_list("id", flat=True))
-    if not role_ids:
-        return []
-    user_ids = {
-        assignment.user_id
-        for assignment in active_role_assignments_for_org(organization)
-        if assignment.role_id in role_ids
-    }
+    user_ids: set[int] = set()
+    if organization.owner_id:
+        user_ids.add(organization.owner_id)
+    if role_ids:
+        user_ids.update(
+            assignment.user_id
+            for assignment in active_role_assignments_for_org(organization)
+            if assignment.role_id in role_ids
+        )
     if not user_ids:
         return []
     return list(User.objects.filter(id__in=user_ids).order_by("id"))

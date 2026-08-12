@@ -119,7 +119,10 @@ class WSNumber(models.Model):
         "authenticate.Role",
         blank=True,
         related_name="whatsapp_numbers_with_access",
-        help_text="When access_mode=roles, members with any of these roles may message.",
+        help_text=(
+            "When access_mode=roles, members with any of these roles may message. "
+            "The organization owner always has access."
+        ),
     )
     verified = models.BooleanField(default=False)
     certicate_b64 = models.TextField(null=True, blank=True)
