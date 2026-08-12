@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import mimetypes
+import re
 from typing import Any
 
 import requests
@@ -11,6 +12,11 @@ from django.conf import settings
 
 from api.messaging.attachment_urls import absolute_file_url_for_attachment
 from api.messaging.models import Message, MessageAttachment
+
+_ATTACHMENT_ID_RE = re.compile(
+    r"attachment:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
+    r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12})"
+)
 
 logger = logging.getLogger(__name__)
 
@@ -221,9 +227,38 @@ def send_attachment_to_whatsapp(
     )
 
 
+def extract_attachment_ids_from_text(text: str) -> list[str]:
+    """Return attachment UUIDs mentioned in text, order-preserving and deduped."""
+    if not text:
+        return []
+    ordered: list[str] = []
+    seen: set[str] = set()
+    for aid in _ATTACHMENT_ID_RE.findall(text):
+        key = aid.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        ordered.append(aid)
+    return ordered
+
+
 def collect_assistant_file_attachments(assistant_message: Message) -> list[MessageAttachment]:
-    """File attachments linked to this assistant message, oldest first."""
-    return list(
+    """
+    File attachments for WhatsApp media send: text-referenced first (mention order),
+    then any remaining rows linked to this assistant message.
+    """
+    text_ids = extract_attachment_ids_from_text(assistant_message.text or "")
+    by_id: dict[str, MessageAttachment] = {}
+
+    if text_ids:
+        for row in MessageAttachment.objects.filter(
+            conversation_id=assistant_message.conversation_id,
+            id__in=text_ids,
+            kind="file",
+        ).exclude(file=""):
+            by_id[str(row.id).lower()] = row
+
+    linked = list(
         MessageAttachment.objects.filter(
             message=assistant_message,
             kind="file",
@@ -231,6 +266,25 @@ def collect_assistant_file_attachments(assistant_message: Message) -> list[Messa
         .exclude(file="")
         .order_by("created_at")
     )
+    for row in linked:
+        by_id.setdefault(str(row.id).lower(), row)
+
+    ordered: list[MessageAttachment] = []
+    seen: set[str] = set()
+    for aid in text_ids:
+        key = aid.lower()
+        row = by_id.get(key)
+        if row is None or key in seen:
+            continue
+        seen.add(key)
+        ordered.append(row)
+    for row in linked:
+        key = str(row.id).lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        ordered.append(row)
+    return ordered
 
 
 def deliver_whatsapp_attachments(

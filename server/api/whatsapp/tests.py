@@ -1007,7 +1007,7 @@ class WhatsappDeliverReplyTests(TestCase):
     @patch("api.whatsapp.actions.send_reaction")
     @patch("api.whatsapp.actions.send_message", return_value="wamid.text.out")
     @patch(
-        "api.whatsapp.actions.deliver_whatsapp_attachments",
+        "api.whatsapp.outbound_media.deliver_whatsapp_attachments",
         return_value=["wamid.media.out"],
     )
     def test_deliver_whatsapp_reply_sends_media_then_text(
@@ -1052,7 +1052,7 @@ class WhatsappDeliverReplyTests(TestCase):
     @patch("api.whatsapp.actions.send_reaction")
     @patch("api.whatsapp.actions.send_message")
     @patch(
-        "api.whatsapp.actions.deliver_whatsapp_attachments",
+        "api.whatsapp.outbound_media.deliver_whatsapp_attachments",
         return_value=["wamid.media.only"],
     )
     def test_deliver_skips_text_when_body_empty(
@@ -1081,7 +1081,7 @@ class WhatsappDeliverReplyTests(TestCase):
     @patch("api.whatsapp.actions._pick_whatsapp_reaction", return_value="👍")
     @patch("api.whatsapp.actions.send_reaction")
     @patch("api.whatsapp.actions.send_message", return_value="wamid.text.only")
-    @patch("api.whatsapp.actions.deliver_whatsapp_attachments", return_value=[])
+    @patch("api.whatsapp.outbound_media.deliver_whatsapp_attachments", return_value=[])
     def test_deliver_text_uses_reply_when_no_media(
         self, _mock_media, mock_send_text, _mock_reaction, _mock_pick
     ):
@@ -1108,7 +1108,7 @@ class WhatsappDeliverReplyTests(TestCase):
     @patch("api.whatsapp.actions._pick_whatsapp_reaction", return_value="👍")
     @patch("api.whatsapp.actions.send_reaction")
     @patch("api.whatsapp.actions.send_message", return_value="wamid.text.clean")
-    @patch("api.whatsapp.actions.deliver_whatsapp_attachments", return_value=[])
+    @patch("api.whatsapp.outbound_media.deliver_whatsapp_attachments", return_value=[])
     def test_deliver_strips_internal_attachment_manifest_from_text(
         self, _mock_media, mock_send_text, _mock_reaction, _mock_pick
     ):
@@ -1138,7 +1138,7 @@ class WhatsappDeliverReplyTests(TestCase):
         mock_send_text.assert_called_once()
         self.assertEqual(
             mock_send_text.call_args[0][2],
-            "Aqui tienes el audio con los meses en japones:\n"
+            "Aqui tienes el audio con los meses en japones:\n\n"
             "Espero que sea lo que buscabas.",
         )
 
@@ -1169,6 +1169,130 @@ class WhatsappDeliverReplyTests(TestCase):
         payload = mock_post.call_args.kwargs.get("json") or mock_post.call_args[1].get("json")
         self.assertEqual(payload["type"], "image")
         self.assertIn("link", payload["image"])
+
+    def test_collect_includes_text_referenced_unlinked_attachment(self):
+        from django.core.files.base import ContentFile
+
+        from api.whatsapp.outbound_media import collect_assistant_file_attachments
+
+        prior = MessageAttachment.objects.create(
+            conversation=self.conv,
+            message=None,
+            kind="file",
+            content_type=(
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            ),
+        )
+        prior.file.save("boletin.docx", ContentFile(b"PK\x03\x04docx"), save=True)
+
+        assistant = Message.objects.create(
+            conversation=self.conv,
+            type="assistant",
+            text=(
+                f"Aqui tienes el boletin:\n\n"
+                f"[Descargar boletin Word](attachment:{prior.id})"
+            ),
+        )
+        collected = collect_assistant_file_attachments(assistant)
+        self.assertEqual([str(a.id) for a in collected], [str(prior.id)])
+
+    @patch("api.whatsapp.actions._pick_whatsapp_reaction", return_value="👍")
+    @patch("api.whatsapp.actions.send_reaction")
+    @patch("api.whatsapp.actions.send_message", return_value="wamid.text.att")
+    @patch(
+        "api.whatsapp.outbound_media.send_attachment_to_whatsapp",
+        return_value="wamid.media.att",
+    )
+    def test_deliver_sends_text_referenced_attachment_and_strips_link(
+        self, mock_send_att, mock_send_text, _mock_reaction, _mock_pick
+    ):
+        from django.core.files.base import ContentFile
+
+        from api.whatsapp.actions import deliver_whatsapp_reply
+
+        prior = MessageAttachment.objects.create(
+            conversation=self.conv,
+            message=None,
+            kind="file",
+            content_type=(
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            ),
+        )
+        prior.file.save("boletin.docx", ContentFile(b"PK\x03\x04docx"), save=True)
+
+        Message.objects.create(
+            conversation=self.conv,
+            type="user",
+            text="enviamelo",
+        )
+        assistant = Message.objects.create(
+            conversation=self.conv,
+            type="assistant",
+            text=(
+                f"Claro. Aqui tienes el boletin semanal:\n\n"
+                f"[Descargar boletin Word](attachment:{prior.id})"
+            ),
+        )
+
+        deliver_whatsapp_reply(
+            conversation=self.conv,
+            assistant_message_id=assistant.id,
+            inbound_wamid="wamid.inbound.test",
+        )
+
+        mock_send_att.assert_called_once()
+        self.assertEqual(mock_send_att.call_args[0][2].id, prior.id)
+        mock_send_text.assert_called_once()
+        body = mock_send_text.call_args[0][2]
+        self.assertIn("Descargar boletin Word", body)
+        self.assertNotIn("attachment:", body)
+        self.assertNotIn(str(prior.id), body)
+        assistant.refresh_from_db()
+        self.assertEqual(assistant.text.count("attachment:"), 1)
+        self.assertEqual(
+            assistant.metadata.get("whatsapp_media_wamids"), ["wamid.media.att"]
+        )
+
+    @patch("api.whatsapp.actions._pick_whatsapp_reaction", return_value="👍")
+    @patch("api.whatsapp.actions.send_reaction")
+    @patch("api.whatsapp.actions.send_message", return_value="wamid.text.img")
+    @patch(
+        "api.whatsapp.outbound_media.send_attachment_to_whatsapp",
+        return_value="wamid.media.img",
+    )
+    def test_deliver_strips_image_attachment_markdown(
+        self, mock_send_att, mock_send_text, _mock_reaction, _mock_pick
+    ):
+        from django.core.files.base import ContentFile
+
+        from api.whatsapp.actions import deliver_whatsapp_reply
+
+        image = MessageAttachment.objects.create(
+            conversation=self.conv,
+            message=None,
+            kind="file",
+            content_type="image/png",
+        )
+        image.file.save("chart.png", ContentFile(b"\x89PNG\r\n\x1a\n"), save=True)
+
+        assistant = Message.objects.create(
+            conversation=self.conv,
+            type="assistant",
+            text=f"Aqui el grafico:\n\n![Grafico](attachment:{image.id})\n\nListo.",
+        )
+
+        deliver_whatsapp_reply(
+            conversation=self.conv,
+            assistant_message_id=assistant.id,
+            inbound_wamid=None,
+        )
+
+        mock_send_att.assert_called_once()
+        self.assertEqual(mock_send_att.call_args[0][2].id, image.id)
+        body = mock_send_text.call_args[0][2]
+        self.assertEqual(body, "Aqui el grafico:\n\nListo.")
+        self.assertNotIn("attachment:", body)
+        self.assertNotIn("Grafico", body)
 
 
 class WhatsappNumberAccessScopeTests(TestCase):

@@ -256,6 +256,41 @@ def _strip_attachment_manifest_for_whatsapp(text: str) -> str:
     return "\n".join(cleaned).strip()
 
 
+_ATTACHMENT_MD_IMAGE_RE = re.compile(
+    r"!\[([^\]]*)\]\(attachment:"
+    r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
+    r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\)",
+    re.IGNORECASE,
+)
+_ATTACHMENT_MD_LINK_RE = re.compile(
+    r"\[([^\]]*)\]\(attachment:"
+    r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
+    r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\)",
+    re.IGNORECASE,
+)
+_ATTACHMENT_BARE_RE = re.compile(
+    r"attachment:"
+    r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
+    r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
+    re.IGNORECASE,
+)
+
+
+def _strip_attachment_links_for_whatsapp(text: str) -> str:
+    """
+    Replace markdown attachment links with labels (or remove image/bare refs)
+    so WhatsApp users do not see raw attachment:uuid URLs. Media is sent separately.
+    """
+    if not text:
+        return ""
+    cleaned = _ATTACHMENT_MD_IMAGE_RE.sub("", text)
+    cleaned = _ATTACHMENT_MD_LINK_RE.sub(r"\1", cleaned)
+    cleaned = _ATTACHMENT_BARE_RE.sub("", cleaned)
+    cleaned = re.sub(r"[ \t]+\n", "\n", cleaned)
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    return cleaned.strip()
+
+
 class ReactionPick(BaseModel):
     emoji: str = Field(
         description="Single WhatsApp-valid emoji reaction to the user's last message"
@@ -312,6 +347,7 @@ def deliver_whatsapp_reply(
 
     body = _strip_markdown_for_whatsapp(assistant.text or "")
     body = _strip_attachment_manifest_for_whatsapp(body)
+    body = _strip_attachment_links_for_whatsapp(body)
     reply_to = conversation.whatsapp_last_inbound_wamid
     to = conversation.whatsapp_user_number
     phone_id = ws_number.platform_id
