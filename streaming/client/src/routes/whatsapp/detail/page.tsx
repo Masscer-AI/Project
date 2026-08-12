@@ -611,14 +611,19 @@ function SettingsPanel({
           </Text>
         )}
         {accessMode === "roles" && hasOrg && (
-          <MultiSelect
-            label={t("whatsapp-access-roles-label")}
-            data={roleOptions}
-            value={allowedRoleIds}
-            onChange={setAllowedRoleIds}
-            searchable
-            nothingFoundMessage={t("whatsapp-access-no-roles")}
-          />
+          <>
+            <MultiSelect
+              label={t("whatsapp-access-roles-label")}
+              data={roleOptions}
+              value={allowedRoleIds}
+              onChange={setAllowedRoleIds}
+              searchable
+              nothingFoundMessage={t("whatsapp-access-no-roles")}
+            />
+            <Text size="xs" c="dimmed">
+              {t("whatsapp-access-roles-owner-note")}
+            </Text>
+          </>
         )}
         {accessMode === "user" && hasOrg && (
           <NativeSelect

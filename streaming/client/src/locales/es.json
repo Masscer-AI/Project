@@ -55,6 +55,7 @@
   "whatsapp-access-roles": "Roles especificos",
   "whatsapp-access-user": "Un solo usuario",
   "whatsapp-access-roles-label": "Roles con acceso",
+  "whatsapp-access-roles-owner-note": "El owner de la organizacion siempre tiene acceso.",
   "whatsapp-access-user-label": "Miembro permitido",
   "whatsapp-access-select-user": "Seleccionar miembro",
   "whatsapp-access-no-org": "Se requiere organizacion para modos de acceso restringido.",
