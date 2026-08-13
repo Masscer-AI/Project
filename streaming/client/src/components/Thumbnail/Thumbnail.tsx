@@ -10,14 +10,17 @@ import {
   Text,
   Group,
   Tooltip,
+  UnstyledButton,
 } from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
 import {
   IconTrash,
-  IconFileText,
   IconDownload,
   IconX,
   IconLink,
 } from "@tabler/icons-react";
+import { AttachmentDetailsModal } from "../AttachmentVisibility/AttachmentVisibilityModal";
+import { DocumentFileIcon } from "../../modules/documentFileMeta";
 
 const VIDEO_EXT_RE = /\.(mp4|webm|mov|m4v|ogv)(\?|#|$)/i;
 
@@ -31,6 +34,8 @@ function isVideoAttachmentType(type: string, name: string, content: string): boo
 
 interface ThumbnailProps {
   id?: number | string;
+  attachment_id?: string;
+  visibility?: "personal" | "organization" | "roles" | "link";
   src: string;
   type: string;
   content: string;
@@ -43,6 +48,8 @@ interface ThumbnailProps {
 
 export const Thumbnail = ({
   id,
+  attachment_id,
+  visibility,
   src,
   text,
   content,
@@ -52,7 +59,6 @@ export const Thumbnail = ({
   showFloatingButtons = false,
   mode,
 }: ThumbnailProps) => {
-  const { t } = useTranslation();
   const { deleteAttachment } = useStore((state) => ({
     deleteAttachment: state.deleteAttachment,
   }));
@@ -72,12 +78,13 @@ export const Thumbnail = ({
           type !== "website" && (
           <DocumentThumnail
             id={id}
+            attachmentId={attachment_id}
+            visibility={visibility}
             index={index}
             onDelete={() => deleteAttachment(index)}
             name={name}
             src={src}
             showFloatingButtons={showFloatingButtons}
-            mode={mode}
           />
           )
         )}
@@ -274,68 +281,101 @@ const ImageModal = ({
 };
 
 const DocumentThumnail = ({
-  index,
   name,
   src,
   onDelete,
   id,
+  attachmentId,
+  visibility,
   showFloatingButtons,
-  mode,
 }: {
   index: number;
   name: string;
   src: string;
   onDelete: () => void;
   id?: number | string;
+  attachmentId?: string;
+  visibility?: "personal" | "organization" | "roles" | "link";
   showFloatingButtons: boolean;
-  mode?: AttatchmentMode;
 }) => {
-  const cardContent = (
-    <div className="d-flex gap-small align-center">
-      <div>
-        <IconFileText size={20} />
-      </div>
-      <p className="cut-text-to-line" style={{ margin: 0, flex: 1, minWidth: 0 }}>
-        {name}
-      </p>
-      {!showFloatingButtons && <IconDownload size={16} />}
+  const [opened, { open, close }] = useDisclosure(false);
+  const fileId =
+    (attachmentId && String(attachmentId)) ||
+    (typeof id === "string" && id.includes("-") ? id : undefined);
 
-      {showFloatingButtons && (
-        <ActionIcon
-          variant="subtle"
-          color="red"
-          size="sm"
-          onClick={onDelete}
-        >
-          <IconX size={16} />
-        </ActionIcon>
-      )}
-    </div>
-  );
-
-  if (!showFloatingButtons && src) {
+  if (showFloatingButtons) {
     return (
-      <a
-        href={src}
-        download={name || "document"}
-        target="_blank"
-        rel="noopener noreferrer"
+      <div
         title={name}
         className="width-150 document-attachment bg-contrast rounded padding-small"
-        style={{ textDecoration: "none", color: "inherit", display: "block" }}
       >
-        {cardContent}
-      </a>
+        <div className="d-flex gap-small align-center">
+          <DocumentFileIcon name={name} size={20} />
+          <p className="cut-text-to-line" style={{ margin: 0, flex: 1, minWidth: 0 }}>
+            {name}
+          </p>
+          <ActionIcon
+            variant="subtle"
+            color="red"
+            size="sm"
+            onClick={onDelete}
+          >
+            <IconX size={16} />
+          </ActionIcon>
+        </div>
+      </div>
     );
   }
 
   return (
-    <div
-      title={name}
-      className="width-150 document-attachment bg-contrast rounded padding-small"
-    >
-      {cardContent}
-    </div>
+    <>
+      <UnstyledButton
+        onClick={open}
+        title={name}
+        aria-label={name}
+        className="width-150 document-attachment bg-contrast rounded padding-small"
+        style={{
+          display: "inline-flex",
+          width: 150,
+          maxWidth: "100%",
+          alignSelf: "flex-start",
+          textAlign: "left",
+          cursor: "pointer",
+        }}
+      >
+        <div className="d-flex gap-small align-center" style={{ width: "100%", minWidth: 0 }}>
+          <DocumentFileIcon name={name} size={20} />
+          <p className="cut-text-to-line" style={{ margin: 0, flex: 1, minWidth: 0 }}>
+            {name}
+          </p>
+        </div>
+      </UnstyledButton>
+      <AttachmentDetailsModal
+        opened={opened}
+        onClose={close}
+        attachmentId={fileId}
+        fallbackName={name}
+        fallbackUrl={src}
+        initialItem={
+          fileId
+            ? {
+                id: fileId,
+                url: src,
+                content_type: "",
+                type: "document",
+                name,
+                prompt: null,
+                metadata: {},
+                conversation_id: "",
+                conversation_title: "",
+                message_id: null,
+                created_at: null,
+                visibility: visibility || "personal",
+              }
+            : null
+        }
+      />
+    </>
   );
 };
 

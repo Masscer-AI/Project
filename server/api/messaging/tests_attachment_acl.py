@@ -147,6 +147,19 @@ class AttachmentVisibilityAclTests(TestCase):
         self.assertTrue(user_can_access_attachment(att, user=self.owner))
         self.assertFalse(user_can_access_attachment(att, user=outsider_member))
 
+    def test_create_without_visibility_defaults_to_personal(self):
+        att = MessageAttachment.objects.create(
+            conversation=self.owner_conv,
+            user=self.owner,
+            kind="file",
+            file=self._file(),
+            content_type="image/png",
+        )
+        self.assertEqual(att.visibility, MessageAttachment.Visibility.PERSONAL)
+        att.refresh_from_db()
+        self.assertEqual(att.visibility, "personal")
+        self.assertIsNone(att.organization_id)
+
     def test_conversation_owner_and_org_owner_can_manage(self):
         att = self._att(conversation=self.member_conv, user=self.member)
         self.assertTrue(user_can_manage_attachment(att, self.member))
@@ -198,10 +211,39 @@ class AttachmentVisibilityAclTests(TestCase):
         self.assertEqual(att.visibility, "personal")
 
     def test_update_attachment_visibility_tool_is_registered(self):
-        from api.ai_layers.tools import USER_REQUIRED_TOOL_NAMES, list_available_tools
+        from api.ai_layers.tools import (
+            DEPENDENT_TOOL_REQUIREMENTS,
+            TOOL_REGISTRY,
+            USER_REQUIRED_TOOL_NAMES,
+            list_available_tools,
+            resolve_tools,
+        )
 
-        self.assertIn("update_attachment_visibility", list_available_tools())
+        self.assertIn("update_attachment_visibility", TOOL_REGISTRY)
         self.assertIn("update_attachment_visibility", USER_REQUIRED_TOOL_NAMES)
+        self.assertIn("update_attachment_visibility", DEPENDENT_TOOL_REQUIREMENTS)
+        self.assertNotIn("update_attachment_visibility", list_available_tools())
+        from api.ai_layers.tools import list_registered_tools, resolve_allowed_tools
+
+        self.assertIn("update_attachment_visibility", list_registered_tools())
+        self.assertIn(
+            "update_attachment_visibility",
+            resolve_allowed_tools(
+                ["list_attachments", "update_attachment_visibility"],
+                self.owner,
+            ),
+        )
+
+        names = {
+            t["name"]
+            for t in resolve_tools(
+                ["list_attachments", "generate_document_file"],
+                conversation_id=str(self.owner_conv.id),
+                user_id=self.owner.id,
+            )
+        }
+        self.assertIn("update_attachment_visibility", names)
+        self.assertIn("generate_document_file", names)
 
     def test_member_cannot_apply_ownership_on_others_file(self):
         att = self._att(conversation=self.owner_conv, user=self.owner)

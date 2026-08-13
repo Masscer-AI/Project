@@ -269,6 +269,7 @@ class MessageAttachment(models.Model):
         max_length=20,
         choices=Visibility.choices,
         default=Visibility.PERSONAL,
+        db_default="personal",
         db_index=True,
         help_text=(
             "Who can list/read this attachment: me, organization, selected roles, "
@@ -356,6 +357,11 @@ class MessageAttachment(models.Model):
                 raise ValidationError(
                     {"organization": f"Required when visibility is {vis}."}
                 )
+
+    def save(self, *args, **kwargs):
+        if not (self.visibility or "").strip():
+            self.visibility = self.Visibility.PERSONAL
+        super().save(*args, **kwargs)
 
 
 class Message(models.Model):

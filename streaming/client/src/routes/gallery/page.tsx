@@ -11,8 +11,6 @@ import {
   Group,
   Loader,
   Modal,
-  MultiSelect,
-  NativeSelect,
   SimpleGrid,
   Stack,
   Tabs,
@@ -24,34 +22,34 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import {
   IconDownload,
-  IconFileSpreadsheet,
   IconFileText,
-  IconFileTypePdf,
   IconLink,
   IconMenu2,
   IconMessage,
   IconMusic,
   IconPhoto,
   IconPlayerPlay,
-  IconPresentation,
   IconTrash,
   IconUser,
   IconUsers,
   IconVideo,
 } from "@tabler/icons-react";
 import { Sidebar } from "../../components/Sidebar/Sidebar";
+import {
+  AttachmentVisibilityModal,
+  visibilityLabelKey,
+} from "../../components/AttachmentVisibility/AttachmentVisibilityModal";
+import {
+  DocumentFileIcon,
+  getDocumentFileMeta,
+} from "../../modules/documentFileMeta";
 import { useStore } from "../../modules/store";
 import {
   deleteGalleryItem,
   getGalleryItems,
-  getOrganizationRoles,
-  getUserOrganizations,
-  TAttachmentVisibility,
   TGalleryItem,
   TGalleryType,
-  updateGalleryItemVisibility,
 } from "../../modules/apiCalls";
-import { TOrganizationRole } from "../../types";
 
 const PAGE_SIZE = 48;
 
@@ -63,74 +61,6 @@ function formatDate(iso: string | null, locale: string): string {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(d);
-}
-
-function fileExtension(name: string, contentType: string): string {
-  const fromName = name.split(".").pop()?.toLowerCase() || "";
-  if (fromName && fromName.length <= 5 && fromName !== name.toLowerCase()) {
-    return fromName;
-  }
-  if (contentType.includes("pdf")) return "pdf";
-  if (contentType.includes("spreadsheet") || contentType.includes("excel")) {
-    return "xlsx";
-  }
-  if (contentType.includes("presentation") || contentType.includes("powerpoint")) {
-    return "pptx";
-  }
-  if (contentType.includes("wordprocessing") || contentType.includes("msword")) {
-    return "docx";
-  }
-  return "file";
-}
-
-function documentMeta(ext: string): {
-  icon: React.ReactNode;
-  color: string;
-  label: string;
-} {
-  switch (ext) {
-    case "pdf":
-      return {
-        icon: <IconFileTypePdf size={28} />,
-        color: "red",
-        label: "PDF",
-      };
-    case "xlsx":
-    case "xls":
-    case "csv":
-      return {
-        icon: <IconFileSpreadsheet size={28} />,
-        color: "teal",
-        label: ext.toUpperCase(),
-      };
-    case "pptx":
-    case "ppt":
-      return {
-        icon: <IconPresentation size={28} />,
-        color: "orange",
-        label: ext.toUpperCase(),
-      };
-    case "docx":
-    case "doc":
-      return {
-        icon: <IconFileText size={28} />,
-        color: "blue",
-        label: ext.toUpperCase(),
-      };
-    default:
-      return {
-        icon: <IconFileText size={28} />,
-        color: "gray",
-        label: ext.toUpperCase() || "FILE",
-      };
-  }
-}
-
-function visibilityLabelKey(visibility?: TAttachmentVisibility): string {
-  if (visibility === "organization") return "gallery-visibility-organization";
-  if (visibility === "roles") return "gallery-visibility-roles";
-  if (visibility === "link") return "gallery-visibility-link";
-  return "gallery-visibility-personal";
 }
 
 function GalleryCardActions({
@@ -539,8 +469,7 @@ function DocumentGalleryCard({
   onRequestVisibility: () => void;
 }) {
   const { t } = useTranslation();
-  const ext = fileExtension(item.name, item.content_type);
-  const meta = documentMeta(ext);
+  const meta = getDocumentFileMeta(item.name, item.content_type);
 
   return (
     <Card padding="md" withBorder radius="md">
@@ -558,7 +487,12 @@ function DocumentGalleryCard({
               flexShrink: 0,
             }}
           >
-            {meta.icon}
+            <DocumentFileIcon
+              name={item.name}
+              contentType={item.content_type}
+              size={28}
+              color="white"
+            />
           </Box>
           <Box style={{ minWidth: 0, flex: 1 }}>
             <Group gap={6} mb={4}>
@@ -617,38 +551,9 @@ function GalleryItemCard({
     useDisclosure(false);
   const [visibilityOpened, visibilityHandlers] = useDisclosure(false);
   const [deleting, setDeleting] = useState(false);
-  const [savingVisibility, setSavingVisibility] = useState(false);
-  const [editVisibility, setEditVisibility] = useState<TAttachmentVisibility>(
-    item.visibility || "personal"
-  );
-  const [editRoleIds, setEditRoleIds] = useState<string[]>(
-    (item.belongs_to?.roles || []).map((r) => r.id)
-  );
-  const [orgRoles, setOrgRoles] = useState<TOrganizationRole[]>([]);
-  const [hasOrg, setHasOrg] = useState(false);
 
   const openChat = () =>
     navigate(`/chat?conversation=${item.conversation_id}`);
-
-  const openVisibility = async () => {
-    setEditVisibility(item.visibility || "personal");
-    setEditRoleIds((item.belongs_to?.roles || []).map((r) => r.id));
-    visibilityHandlers.open();
-    try {
-      const orgs = await getUserOrganizations();
-      const org = orgs[0];
-      setHasOrg(Boolean(org));
-      if (!org) {
-        setOrgRoles([]);
-        return;
-      }
-      const roles = await getOrganizationRoles(org.id);
-      setOrgRoles(roles.filter((r) => r.enabled));
-    } catch {
-      setHasOrg(false);
-      setOrgRoles([]);
-    }
-  };
 
   const handleDelete = async () => {
     setDeleting(true);
@@ -664,50 +569,13 @@ function GalleryItemCard({
     }
   };
 
-  const handleSaveVisibility = async () => {
-    if (editVisibility === "roles" && editRoleIds.length === 0) {
-      toast.error(t("document-visibility-roles-required"));
-      return;
-    }
-    setSavingVisibility(true);
-    try {
-      const res = await updateGalleryItemVisibility(item.id, {
-        visibility: editVisibility,
-        role_ids: editVisibility === "roles" ? editRoleIds : [],
-      });
-      toast.success(t("gallery-visibility-updated"));
-      visibilityHandlers.close();
-      onUpdated(res.item);
-    } catch {
-      toast.error(t("gallery-visibility-update-error"));
-    } finally {
-      setSavingVisibility(false);
-    }
-  };
-
   const cardProps = {
     item,
     dateLabel,
     onOpenChat: openChat,
     onRequestDelete: openConfirm,
-    onRequestVisibility: () => {
-      void openVisibility();
-    },
+    onRequestVisibility: visibilityHandlers.open,
   };
-
-  const visibilityOptions = [
-    { value: "personal", label: t("gallery-visibility-personal") },
-    ...(hasOrg
-      ? [
-          {
-            value: "organization",
-            label: t("gallery-visibility-organization"),
-          },
-          { value: "roles", label: t("gallery-visibility-roles") },
-        ]
-      : []),
-    { value: "link", label: t("gallery-visibility-link") },
-  ];
 
   return (
     <>
@@ -739,52 +607,13 @@ function GalleryItemCard({
         </Stack>
       </Modal>
 
-      <Modal
+      <AttachmentVisibilityModal
         opened={visibilityOpened}
         onClose={visibilityHandlers.close}
-        title={t("gallery-visibility")}
-        centered
-      >
-        <Stack gap="sm">
-          <NativeSelect
-            size="sm"
-            label={t("gallery-visibility")}
-            value={editVisibility}
-            onChange={(e) => {
-              const val = e.currentTarget.value as TAttachmentVisibility;
-              setEditVisibility(val);
-              if (val !== "roles") setEditRoleIds([]);
-            }}
-            data={visibilityOptions}
-          />
-          {editVisibility === "roles" && (
-            <MultiSelect
-              size="sm"
-              label={t("document-visibility-select-roles")}
-              placeholder={t("document-visibility-select-roles")}
-              data={orgRoles.map((r) => ({ value: r.id, label: r.name }))}
-              value={editRoleIds}
-              onChange={setEditRoleIds}
-              searchable
-            />
-          )}
-          <Group justify="flex-end" gap="sm">
-            <Button
-              variant="default"
-              onClick={visibilityHandlers.close}
-              disabled={savingVisibility}
-            >
-              {t("cancel")}
-            </Button>
-            <Button
-              loading={savingVisibility}
-              onClick={() => void handleSaveVisibility()}
-            >
-              {t("save")}
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
+        attachmentId={item.id}
+        initialItem={item}
+        onUpdated={onUpdated}
+      />
     </>
   );
 }

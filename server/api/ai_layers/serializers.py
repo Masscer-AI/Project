@@ -177,9 +177,9 @@ class AgentSerializer(serializers.ModelSerializer):
         if not isinstance(value, list):
             raise serializers.ValidationError("pre_approved_tools must be a list of strings.")
 
-        from api.ai_layers.tools import list_available_tools
+        from api.ai_layers.tools import list_registered_tools
 
-        available = set(list_available_tools())
+        available = set(list_registered_tools())
         names: list[str] = []
         seen: set[str] = set()
         for item in value:

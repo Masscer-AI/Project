@@ -151,12 +151,12 @@ Behavior:
 
 ### Tool: `list_attachments`
 
-Lists attachments for the authenticated user **across conversations** (metadata only). Anonymous widget / unlinked WhatsApp sessions fall back to the current conversation.
+Lists attachments the user can access (metadata only): personal files, organization- and role-shared files, public (`link`) files in their org, plus everything in the current conversation.
 
 - `list_attachments(kind, from_date?) -> { attachments: [...] }`
 - `kind` is required: `image` | `document` | `video` | `audio`
 - `from_date` is optional (`YYYY-MM-DD` or ISO datetime)
-- Returns items like: `attachment_id`, media `kind`, `attachment_kind`, `content_type`, `name/url`, `conversation_id`, `message_id`, timestamps.
+- Returns items like: `attachment_id`, media `kind`, `attachment_kind`, `content_type`, `name/url`, `conversation_id`, `visibility`, `belongs_to`, `message_id`, timestamps.
 
 ### Tool: `explore_web`
 

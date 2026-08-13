@@ -12,6 +12,7 @@ from api.messaging.attachment_access import (
     apply_attachment_ownership,
     attachment_belongs_to_payload,
     attachments_visible_q,
+    user_can_access_attachment,
     user_can_manage_attachment,
 )
 from api.messaging.attachment_urls import absolute_file_url_for_attachment
@@ -89,6 +90,26 @@ def serialize_gallery_item(att: MessageAttachment, user=None) -> dict | None:
         "belongs_to": attachment_belongs_to_payload(att, user),
         "can_manage": bool(user and user_can_manage_attachment(att, user)),
     }
+
+
+def get_gallery_attachment(*, user, attachment_id) -> dict:
+    """Serialize one attachment the actor can read (not limited to generated gallery)."""
+    try:
+        att = (
+            MessageAttachment.objects.select_related(
+                "conversation", "organization", "user"
+            )
+            .prefetch_related("allowed_roles")
+            .get(id=attachment_id)
+        )
+    except MessageAttachment.DoesNotExist:
+        return {"ok": False, "error": "not_found"}
+    if not user_can_access_attachment(att, user=user):
+        return {"ok": False, "error": "not_found"}
+    item = serialize_gallery_item(att, user)
+    if not item:
+        return {"ok": False, "error": "not_found"}
+    return {"ok": True, "item": item}
 
 
 def list_gallery_items(

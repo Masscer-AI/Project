@@ -26,6 +26,7 @@ export type TAttachment = {
   type: string;
   content: string;
   name: string;
+  visibility?: "personal" | "organization" | "roles" | "link";
   mode?: AttatchmentMode;
 };
 

@@ -112,6 +112,7 @@ def _generate_document_file_impl(
         kind="file",
         file=file_obj,
         content_type=DOCX_CONTENT_TYPE,
+        visibility=MessageAttachment.Visibility.PERSONAL,
         expires_at=expires_at,
         metadata={
             "source": "generate_document_file",

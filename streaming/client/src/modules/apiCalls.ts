@@ -857,6 +857,13 @@ export const getGalleryItems = async (options: {
   );
 };
 
+export const getGalleryItem = async (attachmentId: string) => {
+  return makeAuthenticatedRequest<{ status: string; item: TGalleryItem }>(
+    "GET",
+    `/v1/messaging/gallery/${attachmentId}/`
+  );
+};
+
 export const deleteGalleryItem = async (attachmentId: string) => {
   return makeAuthenticatedRequest<{ status: string; id: string }>(
     "DELETE",

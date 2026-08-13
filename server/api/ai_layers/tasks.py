@@ -831,6 +831,8 @@ def _message_attachment_to_display_dict(att) -> dict | None:
         "content": url,
         "name": filename,
         "attachment_id": aid,
+        "id": aid,
+        "visibility": getattr(att, "visibility", None) or "personal",
     }
 
 

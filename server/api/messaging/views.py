@@ -2466,7 +2466,22 @@ class GalleryView(View):
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class GalleryItemView(View):
-    """Delete a single gallery attachment (DB row, file, and message refs)."""
+    """Get, patch visibility, or delete a gallery attachment."""
+
+    def get(self, request, attachment_id):
+        user = request.user
+        if not user or not getattr(user, "id", None):
+            return JsonResponse({"message": "Unauthorized", "status": 401}, status=401)
+
+        from api.messaging.gallery import get_gallery_attachment
+
+        result = get_gallery_attachment(user=user, attachment_id=attachment_id)
+        if not result.get("ok"):
+            return JsonResponse(
+                {"message": "Attachment not found", "status": 404},
+                status=404,
+            )
+        return JsonResponse({"status": "ok", "item": result["item"]})
 
     def delete(self, request, attachment_id):
         user = request.user

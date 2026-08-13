@@ -859,6 +859,17 @@ class GalleryViewTests(TestCase):
         self.image.refresh_from_db()
         self.assertEqual(self.image.visibility, "link")
 
+    def test_get_gallery_item_returns_visibility(self):
+        response = self.client.get(
+            f"/v1/messaging/gallery/{self.image.id}/",
+            **self.auth,
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        body = response.json()
+        self.assertEqual(body["item"]["id"], str(self.image.id))
+        self.assertEqual(body["item"]["visibility"], "personal")
+        self.assertTrue(body["item"]["can_manage"])
+
     def test_patch_visibility_forbidden_for_other_user(self):
         other_att = self.other_conversation.message_attachments.first()
         response = self.client.patch(

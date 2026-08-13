@@ -81,6 +81,12 @@ SCHEDULE_AGENT_TOOL_NAMES: tuple[str, ...] = (
 
 DEPENDENT_TOOL_REQUIREMENTS: dict[str, tuple[str, ...]] = {
     "list_voices": ("create_speech", "generate_dialogue"),
+    "update_attachment_visibility": (
+        "generate_document_file",
+        "generate_excel_file",
+        "generate_gamma_presentation",
+        "list_attachments",
+    ),
 }
 
 # Tools that act on behalf of an authenticated Masscer user (account-scoped
@@ -141,9 +147,8 @@ def resolve_tools(tool_names: list[str], **context) -> list[dict]:
     Returns:
         list of AgentTool dicts ready for ``AgentLoop.create(tools=[...], ...)``
 
-    Raises:
-        ValueError: if a tool name is not found in the registry
-        AttributeError: if a tool module doesn't export get_tool()
+    Unknown names are skipped. get_tool() failures are skipped so the agent
+    can still run with the remaining tools.
     """
     # Stable dedupe (first occurrence wins). Gemini rejects duplicate function names.
     _seen: set[str] = set()
@@ -156,7 +161,10 @@ def resolve_tools(tool_names: list[str], **context) -> list[dict]:
     tool_names = [
         name for name in unique_names if name not in DEPENDENT_TOOL_REQUIREMENTS
     ]
+    actor_user_id = context.get("user_id")
     for dependent_tool, required_tools in DEPENDENT_TOOL_REQUIREMENTS.items():
+        if dependent_tool in USER_REQUIRED_TOOL_NAMES and actor_user_id is None:
+            continue
         required_indexes = [
             tool_names.index(required_tool)
             for required_tool in required_tools
@@ -169,10 +177,12 @@ def resolve_tools(tool_names: list[str], **context) -> list[dict]:
     tools = []
     for name in tool_names:
         if name not in TOOL_REGISTRY:
-            available = ", ".join(sorted(TOOL_REGISTRY.keys()))
-            raise ValueError(
-                f"Unknown tool '{name}'. Available tools: {available}"
+            logger.warning(
+                "Skipping unknown tool '%s'. Available: %s",
+                name,
+                ", ".join(sorted(TOOL_REGISTRY.keys())),
             )
+            continue
 
         module_path = TOOL_REGISTRY[name]
         try:
@@ -235,8 +245,13 @@ def _append_schedule_task_capability_catalog(tools: list[dict]) -> None:
     )
 
 
+def list_registered_tools() -> list[str]:
+    """All names in TOOL_REGISTRY, including dependent tools (list_voices, …)."""
+    return sorted(TOOL_REGISTRY)
+
+
 def list_available_tools() -> list[str]:
-    """Return a sorted list of all registered tool names."""
+    """Tools that can be toggled in UIs (excludes dependents like list_voices)."""
     return sorted(set(TOOL_REGISTRY) - set(DEPENDENT_TOOL_REQUIREMENTS))
 
 
@@ -245,7 +260,7 @@ def resolve_allowed_tools(requested_names: list[str] | None, user) -> list[str]:
     Shared validation/trust filter for every surface that turns a requested
     tool list into what an agent run may actually use.
 
-    - Drops names not in the registry (list_available_tools()).
+    - Drops names not in TOOL_REGISTRY (dependent tools are allowed).
     - Drops names in USER_REQUIRED_TOOL_NAMES when user is None (no
       authenticated Masscer user backing this conversation, e.g. a public
       chat widget visitor or a WhatsApp sender).
@@ -255,11 +270,11 @@ def resolve_allowed_tools(requested_names: list[str] | None, user) -> list[str]:
     capabilities, WhatsApp line capabilities, MCP credential allowlist,
     chat tool toggles). This function only enforces the trust floor.
     """
-    available = set(list_available_tools())
+    registered = set(TOOL_REGISTRY)
     names: list[str] = []
     seen: set[str] = set()
     for name in requested_names or []:
-        if not isinstance(name, str) or name not in available:
+        if not isinstance(name, str) or name not in registered:
             continue
         if name in seen:
             continue
