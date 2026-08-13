@@ -686,6 +686,17 @@ class GalleryViewTests(TestCase):
         self.settings_override.enable()
 
         self.client = APIClient()
+        from api.consumption.models import Currency
+
+        Currency.objects.get_or_create(
+            name="Compute Unit", defaults={"one_usd_is": 1000}
+        )
+        provider = AIProvider.objects.create(name="OpenAI Gallery")
+        llm = LanguageModel.objects.create(
+            provider=provider,
+            slug="gpt-4o-mini-gallery",
+            name="GPT 4o mini gallery",
+        )
         self.user = User.objects.create_user(
             username="gallery-user",
             email="gallery@example.com",
@@ -699,12 +710,6 @@ class GalleryViewTests(TestCase):
         self.login_token, _ = Token.get_or_create(user=self.user, token_type="login")
         self.auth = {"HTTP_AUTHORIZATION": f"Token {self.login_token.key}"}
 
-        provider = AIProvider.objects.create(name="OpenAI Gallery")
-        llm = LanguageModel.objects.create(
-            provider=provider,
-            slug="gpt-4o-mini-gallery",
-            name="GPT 4o mini gallery",
-        )
         self.agent = Agent.objects.create(
             name="Gallery Agent",
             salute="hello",
@@ -839,3 +844,27 @@ class GalleryViewTests(TestCase):
         self.assertTrue(
             MessageAttachment.objects.filter(id=other_att.id).exists()
         )
+
+    def test_patch_visibility_to_link(self):
+        response = self.client.patch(
+            f"/v1/messaging/gallery/{self.image.id}/",
+            data={"visibility": "link"},
+            format="json",
+            **self.auth,
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        body = response.json()
+        self.assertEqual(body["item"]["visibility"], "link")
+        self.assertEqual(body["item"]["belongs_to"]["type"], "link")
+        self.image.refresh_from_db()
+        self.assertEqual(self.image.visibility, "link")
+
+    def test_patch_visibility_forbidden_for_other_user(self):
+        other_att = self.other_conversation.message_attachments.first()
+        response = self.client.patch(
+            f"/v1/messaging/gallery/{other_att.id}/",
+            data={"visibility": "link"},
+            format="json",
+            **self.auth,
+        )
+        self.assertEqual(response.status_code, 403)

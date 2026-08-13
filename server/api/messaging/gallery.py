@@ -6,19 +6,20 @@ import logging
 import re
 
 from django.db import transaction
-from django.db.models import Q, QuerySet
+from django.db.models import Q
 
+from api.messaging.attachment_access import (
+    apply_attachment_ownership,
+    attachment_belongs_to_payload,
+    attachments_visible_q,
+    user_can_manage_attachment,
+)
 from api.messaging.attachment_urls import absolute_file_url_for_attachment
-from api.messaging.models import Conversation, Message, MessageAttachment
+from api.messaging.models import Message, MessageAttachment
 
 logger = logging.getLogger(__name__)
 
 GALLERY_TYPES = ("image", "video", "audio", "document")
-
-
-def _accessible_conversations_qs(user) -> QuerySet[Conversation]:
-    """Personal chats the user owns, excluding soft-deleted."""
-    return Conversation.objects.filter(user=user).exclude(status="deleted")
 
 
 def _generations_q() -> Q:
@@ -57,7 +58,7 @@ def gallery_display_type(content_type: str) -> str:
     return "document"
 
 
-def serialize_gallery_item(att: MessageAttachment) -> dict | None:
+def serialize_gallery_item(att: MessageAttachment, user=None) -> dict | None:
     url = absolute_file_url_for_attachment(att)
     if not url:
         return None
@@ -84,6 +85,9 @@ def serialize_gallery_item(att: MessageAttachment) -> dict | None:
         "conversation_title": (conversation.title if conversation else None) or "",
         "message_id": att.message_id,
         "created_at": att.created_at.isoformat() if att.created_at else None,
+        "visibility": att.visibility or "personal",
+        "belongs_to": attachment_belongs_to_payload(att, user),
+        "can_manage": bool(user and user_can_manage_attachment(att, user)),
     }
 
 
@@ -100,17 +104,18 @@ def list_gallery_items(
     limit = min(max(1, limit), 100)
     offset = max(0, offset)
 
-    conversations = _accessible_conversations_qs(user)
     qs = (
         MessageAttachment.objects.filter(
+            attachments_visible_q(user=user),
             kind="file",
-            conversation__in=conversations,
         )
         .exclude(file__isnull=True)
         .exclude(file="")
         .filter(_generations_q())
         .filter(_type_filter(gallery_type))
-        .select_related("conversation")
+        .select_related("conversation", "organization", "user")
+        .prefetch_related("allowed_roles")
+        .distinct()
         .order_by("-created_at")
     )
 
@@ -118,7 +123,7 @@ def list_gallery_items(
     page = list(qs[offset : offset + limit])
     results = []
     for att in page:
-        item = serialize_gallery_item(att)
+        item = serialize_gallery_item(att, user)
         if item:
             results.append(item)
 
@@ -197,17 +202,16 @@ def _delete_attachment_file(attachment: MessageAttachment) -> None:
 
 def delete_gallery_attachment(*, user, attachment_id) -> dict:
     """
-    Delete a gallery attachment the user owns: storage file, MessageAttachment row,
-    and references on the linked Message (attachments JSON + markdown refs).
+    Delete a gallery attachment the user may manage: storage file,
+    MessageAttachment row, and references on the linked Message.
     """
-    conversations = _accessible_conversations_qs(user)
     try:
-        att = (
-            MessageAttachment.objects.select_related("message", "conversation")
-            .filter(conversation__in=conversations)
-            .get(id=attachment_id)
-        )
+        att = MessageAttachment.objects.select_related(
+            "message", "conversation", "organization"
+        ).get(id=attachment_id)
     except MessageAttachment.DoesNotExist:
+        return {"ok": False, "error": "not_found"}
+    if not user_can_manage_attachment(att, user):
         return {"ok": False, "error": "not_found"}
 
     attachment_id_str = str(att.id)
@@ -239,3 +243,32 @@ def delete_gallery_attachment(*, user, attachment_id) -> dict:
         att.delete()
 
     return {"ok": True, "id": attachment_id_str}
+
+
+def update_gallery_attachment_visibility(
+    *,
+    user,
+    attachment_id,
+    visibility: str,
+    role_ids: list[str] | None = None,
+) -> dict:
+    try:
+        att = MessageAttachment.objects.select_related(
+            "conversation", "organization", "user"
+        ).prefetch_related("allowed_roles").get(id=attachment_id)
+    except MessageAttachment.DoesNotExist:
+        return {"ok": False, "error": "not_found"}
+    if not user_can_manage_attachment(att, user):
+        return {"ok": False, "error": "forbidden"}
+    try:
+        apply_attachment_ownership(
+            att,
+            user=user,
+            visibility=visibility,
+            role_ids=role_ids,
+        )
+    except ValueError as exc:
+        return {"ok": False, "error": "invalid", "message": str(exc)}
+    att.refresh_from_db()
+    item = serialize_gallery_item(att, user)
+    return {"ok": True, "item": item}

@@ -73,6 +73,7 @@ def mcp_attachment_signed_download_url(
 MCP_BASIC_TOOL_NAMES: tuple[str, ...] = (
     "read_attachment",
     "list_attachments",
+    "update_attachment_visibility",
     "rag_query",
     "list_knowledge_base_documents",
     "read_knowledge_base_document",

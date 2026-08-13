@@ -369,7 +369,9 @@ def get_tool(
             "(topic or outline). Default export_format is 'pdf'; use 'pptx' only "
             "when the user needs an editable PowerPoint. Generation can take up to "
             "a few minutes. After success, include in your reply: "
-            "[Download presentation](attachment:<attachment_id>)."
+            "[Download presentation](attachment:<attachment_id>). "
+            "Files start as personal; call update_attachment_visibility if other "
+            "org members need to list or receive the file."
         ),
         "parameters": GenerateGammaPresentationParams,
         "function": generate_gamma_presentation,

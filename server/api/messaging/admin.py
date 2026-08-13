@@ -21,9 +21,11 @@ class MessageAttachmentAdmin(admin.ModelAdmin):
     list_display = (
         "id",
         "kind",
+        "visibility",
         "message",
         "conversation",
         "user",
+        "organization",
         "agent",
         "content_type",
         "rag_document",
@@ -31,9 +33,10 @@ class MessageAttachmentAdmin(admin.ModelAdmin):
         "expires_at",
         "created_at",
     )
-    list_filter = ("kind", "content_type", "expires_at", "created_at")
+    list_filter = ("kind", "visibility", "content_type", "expires_at", "created_at")
     readonly_fields = ("id", "file", "created_at")
-    raw_id_fields = ("message", "conversation", "user", "agent")
+    raw_id_fields = ("message", "conversation", "user", "agent", "organization")
+    filter_horizontal = ("allowed_roles",)
     ordering = ("-created_at",)
 
 

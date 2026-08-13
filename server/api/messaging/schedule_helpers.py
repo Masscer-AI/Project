@@ -24,6 +24,7 @@ WEEKDAY_NAMES = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturd
 SCHEDULER_BASELINE_TOOL_NAMES: list[str] = [
     "read_attachment",
     "list_attachments",
+    "update_attachment_visibility",
     "generate_document_file",
     "generate_excel_file",
     "send_email",

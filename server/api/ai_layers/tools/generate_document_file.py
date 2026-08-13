@@ -162,7 +162,10 @@ def get_tool(
             "Create a Word (.docx) file from scratch. Pass the full document as "
             "document_string in markdown (extension='md') or HTML (extension='html'). "
             "Returns attachment_id and a download URL. After generating, include in your "
-            "reply: [Download document](attachment:<attachment_id>)."
+            "reply: [Download document](attachment:<attachment_id>). "
+            "Files start as personal; call update_attachment_visibility "
+            "(organization, roles, or link) so other org members can list and "
+            "receive the file (including on WhatsApp)."
         ),
         "parameters": GenerateDocumentFileParams,
         "function": generate_document_file,

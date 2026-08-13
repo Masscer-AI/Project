@@ -17,7 +17,10 @@ from django.db.models import Q
 from django.utils import timezone
 from pydantic import BaseModel, Field
 
-from api.ai_layers.tools.attachment_access import attachments_visible_q
+from api.ai_layers.tools.attachment_access import (
+    attachment_belongs_to_payload,
+    attachments_visible_q,
+)
 from api.messaging.gallery import gallery_display_type
 
 AttachmentMediaKind = Literal["image", "document", "video", "audio"]
@@ -65,6 +68,14 @@ class AttachmentListItem(BaseModel):
     is_current: bool = Field(
         default=False,
         description="True when the attachment belongs to the current conversation",
+    )
+    visibility: str = Field(
+        default="personal",
+        description="Access: personal, organization, roles, or link",
+    )
+    belongs_to: dict = Field(
+        default_factory=dict,
+        description="Ownership summary (you / organization / roles / link)",
     )
 
 
@@ -135,7 +146,13 @@ def _list_attachments_impl(
     conversation_id: str | None = None,
     organization_id: int | None = None,
 ) -> ListAttachmentsResult:
+    from django.contrib.auth.models import User
+
     from api.messaging.models import MessageAttachment
+
+    actor = None
+    if user_id is not None:
+        actor = User.objects.filter(pk=int(user_id)).first()
 
     qs = (
         MessageAttachment.objects.filter(
@@ -146,7 +163,8 @@ def _list_attachments_impl(
             )
         )
         .filter(_media_type_filter(kind))
-        .select_related("rag_document", "message", "conversation")
+        .select_related("rag_document", "message", "conversation", "organization", "user")
+        .prefetch_related("allowed_roles")
         .distinct()
         .order_by("-created_at")
     )
@@ -183,6 +201,8 @@ def _list_attachments_impl(
                 created_at=created_at,
                 expires_at=expires_at,
                 is_current=bool(current_id and conv_id == current_id),
+                visibility=getattr(att, "visibility", None) or "personal",
+                belongs_to=attachment_belongs_to_payload(att, actor),
             )
         )
 
@@ -234,13 +254,18 @@ def get_tool(
 
     if user_id is not None:
         description = (
-            "List this user's attachments across all of their conversations "
-            "(not only the current thread). "
+            "List attachments this user can access: their personal files, "
+            "organization- and role-shared files, and public (link) files in their org, "
+            "plus anything in the current conversation. "
             "kind is required: image, document, video, or audio. "
             "Optionally pass from_date (YYYY-MM-DD or ISO datetime) to only include "
             "attachments created since that instant. "
             "Returns attachment IDs and metadata; then call "
-            "read_attachment(attachment_id, question) to read one."
+            "read_attachment(attachment_id, question) to read one. "
+            "To send a listed file on WhatsApp, include "
+            "[Download name](attachment:<attachment_id>) in the reply. "
+            "Use update_attachment_visibility after generating a file if other "
+            "org members need to list or receive it."
         )
     else:
         description = (

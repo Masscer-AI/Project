@@ -1196,6 +1196,76 @@ class WhatsappDeliverReplyTests(TestCase):
         collected = collect_assistant_file_attachments(assistant)
         self.assertEqual([str(a.id) for a in collected], [str(prior.id)])
 
+    def test_collect_includes_org_shared_file_from_other_conversation(self):
+        from django.core.files.base import ContentFile
+
+        from api.authenticate.models import UserProfile
+        from api.messaging.attachment_access import apply_attachment_ownership
+        from api.whatsapp.outbound_media import collect_assistant_file_attachments
+
+        member = User.objects.create_user(username="wa_acl_member", password="x")
+        UserProfile.objects.filter(user=member).update(organization=self.org)
+        contact = self.conv.ws_contact
+        contact.user = member
+        contact.save(update_fields=["user"])
+
+        owner_conv = Conversation.objects.create(
+            user=self.owner,
+            organization=self.org,
+            title="Scheduled bulletin",
+        )
+        att = MessageAttachment.objects.create(
+            conversation=owner_conv,
+            user=self.owner,
+            kind="file",
+            content_type=(
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            ),
+        )
+        att.file.save("boletin.docx", ContentFile(b"PK\x03\x04docx"), save=True)
+        apply_attachment_ownership(att, user=self.owner, visibility="organization")
+
+        assistant = Message.objects.create(
+            conversation=self.conv,
+            type="assistant",
+            text=f"Aqui tienes el boletin:\n\n[Descargar](attachment:{att.id})",
+        )
+        collected = collect_assistant_file_attachments(assistant)
+        self.assertEqual([str(a.id) for a in collected], [str(att.id)])
+
+    def test_collect_excludes_personal_file_from_other_conversation(self):
+        from django.core.files.base import ContentFile
+
+        from api.authenticate.models import UserProfile
+        from api.whatsapp.outbound_media import collect_assistant_file_attachments
+
+        member = User.objects.create_user(username="wa_acl_member2", password="x")
+        UserProfile.objects.filter(user=member).update(organization=self.org)
+        contact = self.conv.ws_contact
+        contact.user = member
+        contact.save(update_fields=["user"])
+
+        owner_conv = Conversation.objects.create(
+            user=self.owner,
+            organization=self.org,
+            title="Private file chat",
+        )
+        att = MessageAttachment.objects.create(
+            conversation=owner_conv,
+            user=self.owner,
+            kind="file",
+            content_type="application/pdf",
+        )
+        att.file.save("secret.pdf", ContentFile(b"%PDF-1.4"), save=True)
+
+        assistant = Message.objects.create(
+            conversation=self.conv,
+            type="assistant",
+            text=f"[Descargar](attachment:{att.id})",
+        )
+        collected = collect_assistant_file_attachments(assistant)
+        self.assertEqual(collected, [])
+
     @patch("api.whatsapp.actions._pick_whatsapp_reaction", return_value="👍")
     @patch("api.whatsapp.actions.send_reaction")
     @patch("api.whatsapp.actions.send_message", return_value="wamid.text.att")

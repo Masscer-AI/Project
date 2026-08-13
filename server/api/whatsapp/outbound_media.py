@@ -242,20 +242,45 @@ def extract_attachment_ids_from_text(text: str) -> list[str]:
     return ordered
 
 
+def _actor_user_id_for_message(assistant_message: Message) -> int | None:
+    """Web conversation owner, or linked WhatsApp contact user."""
+    conv = getattr(assistant_message, "conversation", None)
+    if conv is None:
+        return None
+    if getattr(conv, "user_id", None):
+        return int(conv.user_id)
+    contact = getattr(conv, "ws_contact", None)
+    if contact is not None and getattr(contact, "user_id", None):
+        return int(contact.user_id)
+    return None
+
+
 def collect_assistant_file_attachments(assistant_message: Message) -> list[MessageAttachment]:
     """
     File attachments for WhatsApp media send: text-referenced first (mention order),
     then any remaining rows linked to this assistant message.
+
+    Text-referenced UUIDs may live in another conversation if the WhatsApp actor
+    can access them (org / roles / link visibility, or they own the file).
+    Unlinked visitors only receive files from the current conversation.
     """
+    from api.messaging.attachment_access import attachments_visible_q
+
     text_ids = extract_attachment_ids_from_text(assistant_message.text or "")
     by_id: dict[str, MessageAttachment] = {}
+    conversation_id = assistant_message.conversation_id
+    actor_id = _actor_user_id_for_message(assistant_message)
 
     if text_ids:
+        visible = attachments_visible_q(
+            user_id=actor_id,
+            conversation_id=str(conversation_id) if conversation_id else None,
+        )
         for row in MessageAttachment.objects.filter(
-            conversation_id=assistant_message.conversation_id,
+            visible,
             id__in=text_ids,
             kind="file",
-        ).exclude(file=""):
+        ).exclude(file="").distinct():
             by_id[str(row.id).lower()] = row
 
     linked = list(

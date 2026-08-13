@@ -11,6 +11,8 @@ import {
   Group,
   Loader,
   Modal,
+  MultiSelect,
+  NativeSelect,
   SimpleGrid,
   Stack,
   Tabs,
@@ -25,6 +27,7 @@ import {
   IconFileSpreadsheet,
   IconFileText,
   IconFileTypePdf,
+  IconLink,
   IconMenu2,
   IconMessage,
   IconMusic,
@@ -32,6 +35,8 @@ import {
   IconPlayerPlay,
   IconPresentation,
   IconTrash,
+  IconUser,
+  IconUsers,
   IconVideo,
 } from "@tabler/icons-react";
 import { Sidebar } from "../../components/Sidebar/Sidebar";
@@ -39,9 +44,14 @@ import { useStore } from "../../modules/store";
 import {
   deleteGalleryItem,
   getGalleryItems,
+  getOrganizationRoles,
+  getUserOrganizations,
+  TAttachmentVisibility,
   TGalleryItem,
   TGalleryType,
+  updateGalleryItemVisibility,
 } from "../../modules/apiCalls";
+import { TOrganizationRole } from "../../types";
 
 const PAGE_SIZE = 48;
 
@@ -116,16 +126,36 @@ function documentMeta(ext: string): {
   }
 }
 
+function visibilityLabelKey(visibility?: TAttachmentVisibility): string {
+  if (visibility === "organization") return "gallery-visibility-organization";
+  if (visibility === "roles") return "gallery-visibility-roles";
+  if (visibility === "link") return "gallery-visibility-link";
+  return "gallery-visibility-personal";
+}
+
 function GalleryCardActions({
   item,
   onOpenChat,
   onRequestDelete,
+  onRequestVisibility,
 }: {
   item: TGalleryItem;
   onOpenChat: () => void;
   onRequestDelete: () => void;
+  onRequestVisibility: () => void;
 }) {
   const { t } = useTranslation();
+  const vis = item.visibility || "personal";
+  const visIcon =
+    vis === "organization" ? (
+      <IconUsers size={16} />
+    ) : vis === "link" ? (
+      <IconLink size={16} />
+    ) : vis === "roles" ? (
+      <IconUsers size={16} />
+    ) : (
+      <IconUser size={16} />
+    );
   return (
     <Group gap="xs" justify="space-between" wrap="nowrap">
       <Tooltip label={item.conversation_title || t("gallery-open-conversation")}>
@@ -140,6 +170,19 @@ function GalleryCardActions({
         </Button>
       </Tooltip>
       <Group gap={4} wrap="nowrap">
+        {item.can_manage !== false && (
+          <Tooltip label={t(visibilityLabelKey(vis))}>
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              size="sm"
+              onClick={onRequestVisibility}
+              aria-label={t("gallery-visibility")}
+            >
+              {visIcon}
+            </ActionIcon>
+          </Tooltip>
+        )}
         <Tooltip label={t("download")}>
           <ActionIcon
             component="a"
@@ -176,11 +219,13 @@ function ImageGalleryCard({
   dateLabel,
   onOpenChat,
   onRequestDelete,
+  onRequestVisibility,
 }: {
   item: TGalleryItem;
   dateLabel: string;
   onOpenChat: () => void;
   onRequestDelete: () => void;
+  onRequestVisibility: () => void;
 }) {
   const { t } = useTranslation();
   const [opened, { open, close }] = useDisclosure(false);
@@ -225,6 +270,7 @@ function ImageGalleryCard({
             item={item}
             onOpenChat={onOpenChat}
             onRequestDelete={onRequestDelete}
+            onRequestVisibility={onRequestVisibility}
           />
         </Stack>
       </Card>
@@ -282,11 +328,13 @@ function VideoGalleryCard({
   dateLabel,
   onOpenChat,
   onRequestDelete,
+  onRequestVisibility,
 }: {
   item: TGalleryItem;
   dateLabel: string;
   onOpenChat: () => void;
   onRequestDelete: () => void;
+  onRequestVisibility: () => void;
 }) {
   const { t } = useTranslation();
   const [opened, { open, close }] = useDisclosure(false);
@@ -357,6 +405,7 @@ function VideoGalleryCard({
             item={item}
             onOpenChat={onOpenChat}
             onRequestDelete={onRequestDelete}
+            onRequestVisibility={onRequestVisibility}
           />
         </Stack>
       </Card>
@@ -415,11 +464,13 @@ function AudioGalleryCard({
   dateLabel,
   onOpenChat,
   onRequestDelete,
+  onRequestVisibility,
 }: {
   item: TGalleryItem;
   dateLabel: string;
   onOpenChat: () => void;
   onRequestDelete: () => void;
+  onRequestVisibility: () => void;
 }) {
   return (
     <Card padding="md" withBorder radius="md">
@@ -467,6 +518,7 @@ function AudioGalleryCard({
           item={item}
           onOpenChat={onOpenChat}
           onRequestDelete={onRequestDelete}
+          onRequestVisibility={onRequestVisibility}
         />
       </Stack>
     </Card>
@@ -478,11 +530,13 @@ function DocumentGalleryCard({
   dateLabel,
   onOpenChat,
   onRequestDelete,
+  onRequestVisibility,
 }: {
   item: TGalleryItem;
   dateLabel: string;
   onOpenChat: () => void;
   onRequestDelete: () => void;
+  onRequestVisibility: () => void;
 }) {
   const { t } = useTranslation();
   const ext = fileExtension(item.name, item.content_type);
@@ -538,6 +592,7 @@ function DocumentGalleryCard({
           item={item}
           onOpenChat={onOpenChat}
           onRequestDelete={onRequestDelete}
+          onRequestVisibility={onRequestVisibility}
         />
       </Stack>
     </Card>
@@ -548,20 +603,52 @@ function GalleryItemCard({
   item,
   locale,
   onDeleted,
+  onUpdated,
 }: {
   item: TGalleryItem;
   locale: string;
   onDeleted: (id: string) => void;
+  onUpdated: (item: TGalleryItem) => void;
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const dateLabel = formatDate(item.created_at, locale);
   const [confirmOpened, { open: openConfirm, close: closeConfirm }] =
     useDisclosure(false);
+  const [visibilityOpened, visibilityHandlers] = useDisclosure(false);
   const [deleting, setDeleting] = useState(false);
+  const [savingVisibility, setSavingVisibility] = useState(false);
+  const [editVisibility, setEditVisibility] = useState<TAttachmentVisibility>(
+    item.visibility || "personal"
+  );
+  const [editRoleIds, setEditRoleIds] = useState<string[]>(
+    (item.belongs_to?.roles || []).map((r) => r.id)
+  );
+  const [orgRoles, setOrgRoles] = useState<TOrganizationRole[]>([]);
+  const [hasOrg, setHasOrg] = useState(false);
 
   const openChat = () =>
     navigate(`/chat?conversation=${item.conversation_id}`);
+
+  const openVisibility = async () => {
+    setEditVisibility(item.visibility || "personal");
+    setEditRoleIds((item.belongs_to?.roles || []).map((r) => r.id));
+    visibilityHandlers.open();
+    try {
+      const orgs = await getUserOrganizations();
+      const org = orgs[0];
+      setHasOrg(Boolean(org));
+      if (!org) {
+        setOrgRoles([]);
+        return;
+      }
+      const roles = await getOrganizationRoles(org.id);
+      setOrgRoles(roles.filter((r) => r.enabled));
+    } catch {
+      setHasOrg(false);
+      setOrgRoles([]);
+    }
+  };
 
   const handleDelete = async () => {
     setDeleting(true);
@@ -577,12 +664,50 @@ function GalleryItemCard({
     }
   };
 
+  const handleSaveVisibility = async () => {
+    if (editVisibility === "roles" && editRoleIds.length === 0) {
+      toast.error(t("document-visibility-roles-required"));
+      return;
+    }
+    setSavingVisibility(true);
+    try {
+      const res = await updateGalleryItemVisibility(item.id, {
+        visibility: editVisibility,
+        role_ids: editVisibility === "roles" ? editRoleIds : [],
+      });
+      toast.success(t("gallery-visibility-updated"));
+      visibilityHandlers.close();
+      onUpdated(res.item);
+    } catch {
+      toast.error(t("gallery-visibility-update-error"));
+    } finally {
+      setSavingVisibility(false);
+    }
+  };
+
   const cardProps = {
     item,
     dateLabel,
     onOpenChat: openChat,
     onRequestDelete: openConfirm,
+    onRequestVisibility: () => {
+      void openVisibility();
+    },
   };
+
+  const visibilityOptions = [
+    { value: "personal", label: t("gallery-visibility-personal") },
+    ...(hasOrg
+      ? [
+          {
+            value: "organization",
+            label: t("gallery-visibility-organization"),
+          },
+          { value: "roles", label: t("gallery-visibility-roles") },
+        ]
+      : []),
+    { value: "link", label: t("gallery-visibility-link") },
+  ];
 
   return (
     <>
@@ -609,6 +734,53 @@ function GalleryItemCard({
             </Button>
             <Button color="red" loading={deleting} onClick={() => void handleDelete()}>
               {t("gallery-delete")}
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      <Modal
+        opened={visibilityOpened}
+        onClose={visibilityHandlers.close}
+        title={t("gallery-visibility")}
+        centered
+      >
+        <Stack gap="sm">
+          <NativeSelect
+            size="sm"
+            label={t("gallery-visibility")}
+            value={editVisibility}
+            onChange={(e) => {
+              const val = e.currentTarget.value as TAttachmentVisibility;
+              setEditVisibility(val);
+              if (val !== "roles") setEditRoleIds([]);
+            }}
+            data={visibilityOptions}
+          />
+          {editVisibility === "roles" && (
+            <MultiSelect
+              size="sm"
+              label={t("document-visibility-select-roles")}
+              placeholder={t("document-visibility-select-roles")}
+              data={orgRoles.map((r) => ({ value: r.id, label: r.name }))}
+              value={editRoleIds}
+              onChange={setEditRoleIds}
+              searchable
+            />
+          )}
+          <Group justify="flex-end" gap="sm">
+            <Button
+              variant="default"
+              onClick={visibilityHandlers.close}
+              disabled={savingVisibility}
+            >
+              {t("cancel")}
+            </Button>
+            <Button
+              loading={savingVisibility}
+              onClick={() => void handleSaveVisibility()}
+            >
+              {t("save")}
             </Button>
           </Group>
         </Stack>
@@ -763,6 +935,11 @@ export default function GalleryPage() {
                       onDeleted={(id) => {
                         setItems((prev) => prev.filter((x) => x.id !== id));
                         setTotal((prev) => Math.max(0, prev - 1));
+                      }}
+                      onUpdated={(updated) => {
+                        setItems((prev) =>
+                          prev.map((x) => (x.id === updated.id ? updated : x))
+                        );
                       }}
                     />
                   ))}

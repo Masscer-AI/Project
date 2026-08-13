@@ -805,6 +805,12 @@ export const listMyScheduledTasks = async (options?: {
 
 export type TGalleryType = "image" | "video" | "audio" | "document";
 
+export type TAttachmentVisibility =
+  | "personal"
+  | "organization"
+  | "roles"
+  | "link";
+
 export type TGalleryItem = {
   id: string;
   url: string;
@@ -817,6 +823,14 @@ export type TGalleryItem = {
   conversation_title: string;
   message_id: number | null;
   created_at: string | null;
+  visibility?: TAttachmentVisibility;
+  belongs_to?: {
+    type: string;
+    organization?: string | null;
+    organization_id?: string | null;
+    roles?: { id: string; name: string }[];
+  };
+  can_manage?: boolean;
 };
 
 export type TGalleryListResponse = {
@@ -847,6 +861,17 @@ export const deleteGalleryItem = async (attachmentId: string) => {
   return makeAuthenticatedRequest<{ status: string; id: string }>(
     "DELETE",
     `/v1/messaging/gallery/${attachmentId}/`
+  );
+};
+
+export const updateGalleryItemVisibility = async (
+  attachmentId: string,
+  payload: { visibility: TAttachmentVisibility; role_ids?: string[] }
+) => {
+  return makeAuthenticatedRequest<{ status: string; item: TGalleryItem }>(
+    "PATCH",
+    `/v1/messaging/gallery/${attachmentId}/`,
+    payload
   );
 };
 

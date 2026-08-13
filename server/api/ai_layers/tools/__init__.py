@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 TOOL_REGISTRY: dict[str, str] = {
     "read_attachment": "api.ai_layers.tools.read_attachment",
     "list_attachments": "api.ai_layers.tools.list_attachments",
+    "update_attachment_visibility": "api.ai_layers.tools.update_attachment_visibility",
     "explore_web": "api.ai_layers.tools.explore_web",
     "rag_query": "api.ai_layers.tools.rag_query",
     "list_knowledge_base_documents": "api.ai_layers.tools.list_knowledge_base_documents",
@@ -96,6 +97,7 @@ USER_REQUIRED_TOOL_NAMES: frozenset[str] = frozenset(
         "list_conversations",
         "list_knowledge_base_documents",
         "read_knowledge_base_document",
+        "update_attachment_visibility",
         "send_email",
         "list_whatsapp_resources",
         "list_whatsapp_templates",

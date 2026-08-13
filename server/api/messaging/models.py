@@ -199,13 +199,17 @@ class ConversationTakeover(models.Model):
 
 class MessageAttachment(models.Model):
     """
-    Temporary storage for files attached to messages (images, audio, etc.).
-    Files expire after 30 days and can be cleaned up by a periodic task.
+    Files attached to messages (images, audio, generated docs, etc.).
 
-    Primary relation is to Message. Conversation is also stored for cases where
-    the attachment is uploaded before the message exists (e.g. agent task flow).
-    User and agent are optional (e.g. user-uploaded vs agent-generated).
+    Visibility (personal / organization / roles / link) is independent of the
+    conversation the file was created in. Conversation/message are provenance.
     """
+
+    class Visibility(models.TextChoices):
+        PERSONAL = "personal", "Personal"
+        ORGANIZATION = "organization", "Organization"
+        ROLES = "roles", "Roles"
+        LINK = "link", "Anyone with the link"
 
     KIND_CHOICES = [
         ("file", "File"),
@@ -230,17 +234,19 @@ class MessageAttachment(models.Model):
     )
     user = models.ForeignKey(
         User,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name="message_attachments",
+        help_text="Owner (uploader or the user who ran the generating agent).",
     )
     agent = models.ForeignKey(
         "ai_layers.Agent",
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name="message_attachments",
+        help_text="Agent that generated this file, if any. Attribution only.",
     )
     kind = models.CharField(
         max_length=20,
@@ -259,6 +265,33 @@ class MessageAttachment(models.Model):
     url = models.URLField(null=True, blank=True)
     metadata = models.JSONField(default=dict, blank=True)
     content_type = models.CharField(max_length=100, blank=True, default="")
+    visibility = models.CharField(
+        max_length=20,
+        choices=Visibility.choices,
+        default=Visibility.PERSONAL,
+        db_index=True,
+        help_text=(
+            "Who can list/read this attachment: me, organization, selected roles, "
+            "or anyone with the id/link."
+        ),
+    )
+    organization = models.ForeignKey(
+        "authenticate.Organization",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="message_attachments",
+        help_text="Organization scope when visibility is organization, roles, or link.",
+    )
+    allowed_roles = models.ManyToManyField(
+        "authenticate.Role",
+        blank=True,
+        related_name="allowed_message_attachments",
+        help_text=(
+            "When visibility is roles, users with any of these roles "
+            "(or the org owner) can access."
+        ),
+    )
     expires_at = models.DateTimeField(
         default=_message_attachment_expires_default,
         help_text="After this date the attachment can be deleted (default: 30 days)",
@@ -311,6 +344,18 @@ class MessageAttachment(models.Model):
             self.content_type = self.content_type or "text/html"
         else:
             raise ValidationError({"kind": f"Unknown kind '{self.kind}'."})
+
+        vis = self.visibility or self.Visibility.PERSONAL
+        if vis == self.Visibility.PERSONAL:
+            if self.organization_id:
+                raise ValidationError(
+                    {"organization": "Must be empty when visibility is personal."}
+                )
+        elif vis in (self.Visibility.ORGANIZATION, self.Visibility.ROLES):
+            if not self.organization_id:
+                raise ValidationError(
+                    {"organization": f"Required when visibility is {vis}."}
+                )
 
 
 class Message(models.Model):

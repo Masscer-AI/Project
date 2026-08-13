@@ -2483,6 +2483,51 @@ class GalleryItemView(View):
             )
         return JsonResponse({"status": "deleted", "id": result["id"]})
 
+    def patch(self, request, attachment_id):
+        user = request.user
+        if not user or not getattr(user, "id", None):
+            return JsonResponse({"message": "Unauthorized", "status": 401}, status=401)
+
+        try:
+            data = json.loads(request.body) if request.body else {}
+        except json.JSONDecodeError:
+            return JsonResponse({"message": "Invalid JSON", "status": 400}, status=400)
+
+        visibility = data.get("visibility")
+        if not visibility or not isinstance(visibility, str):
+            return JsonResponse(
+                {"message": "visibility is required", "status": 400},
+                status=400,
+            )
+
+        from api.messaging.gallery import update_gallery_attachment_visibility
+
+        result = update_gallery_attachment_visibility(
+            user=user,
+            attachment_id=attachment_id,
+            visibility=visibility,
+            role_ids=data.get("role_ids"),
+        )
+        if result.get("error") == "not_found":
+            return JsonResponse(
+                {"message": "Attachment not found", "status": 404},
+                status=404,
+            )
+        if result.get("error") == "forbidden":
+            return JsonResponse(
+                {"message": "Not allowed to change this attachment", "status": 403},
+                status=403,
+            )
+        if not result.get("ok"):
+            return JsonResponse(
+                {
+                    "message": result.get("message") or "Invalid visibility",
+                    "status": 400,
+                },
+                status=400,
+            )
+        return JsonResponse({"status": "updated", "item": result["item"]})
+
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")

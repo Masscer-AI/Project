@@ -157,7 +157,9 @@ def get_tool(
             "Pass sheets_json as a JSON array of sheet objects with name, optional "
             "headers, and rows. Returns attachment_id and a download URL. After "
             "generating, include in your reply: "
-            "[Download spreadsheet](attachment:<attachment_id>)."
+            "[Download spreadsheet](attachment:<attachment_id>). "
+            "Files start as personal; call update_attachment_visibility if other "
+            "org members need to list or receive the file."
         ),
         "parameters": GenerateExcelFileParams,
         "function": generate_excel_file,
