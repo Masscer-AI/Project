@@ -18,6 +18,7 @@ from api.whatsapp.template_access import (
 from api.whatsapp.template_registry import (
     APROBACION_PENDIENTE,
     APPROVAL_PENDING,
+    EXPRESO_FISCAL_BOLETIN_SEMANAL,
     EXPRESO_FISCAL_PREFERENCIAS,
     EXPRESO_FISCAL_RECORDATORIO,
     EXPRESO_FISCAL_SEMANAL,
@@ -209,6 +210,26 @@ class WhatsAppTemplateRegistryTests(SimpleTestCase):
             {t.id for t in list_enabled_templates()},
         )
 
+    def test_expreso_fiscal_boletin_semanal_registered(self):
+        tpl = get_template("expreso_fiscal_boletin_semanal_es_mx")
+        self.assertIsNotNone(tpl)
+        self.assertEqual(tpl.meta_name, "expreso_fiscal_boletin_semanal")
+        self.assertEqual(tpl.language_code, "es_MX")
+        self.assertEqual(tpl.category, "MARKETING")
+        self.assertEqual(tpl.header_type, "none")
+        self.assertFalse(tpl.requires_header_image)
+        self.assertEqual(tpl.body_variable_count, 1)
+        self.assertEqual(tpl.button_variable_count, 0)
+        self.assertEqual(len(tpl.buttons), 3)
+        self.assertTrue(all(b.sub_type == "quick_reply" for b in tpl.buttons))
+        self.assertEqual(tpl.buttons[0].description, "Leer por WhatsApp")
+        self.assertEqual(tpl.buttons[1].description, "Solicitar resumen en audio")
+        self.assertEqual(tpl.buttons[2].description, "No deseo recibir avisos")
+        self.assertIn(
+            EXPRESO_FISCAL_BOLETIN_SEMANAL.id,
+            {t.id for t in list_enabled_templates()},
+        )
+
     def test_build_components_for_expreso_fiscal_semanal_with_header_image(self):
         components = build_template_components(
             EXPRESO_FISCAL_SEMANAL,
@@ -271,6 +292,16 @@ class WhatsAppTemplateRegistryTests(SimpleTestCase):
             source_conversation_id=None,
         )
         self.assertEqual(components, [])
+
+    def test_build_components_for_expreso_fiscal_boletin_semanal(self):
+        components = build_template_components(
+            EXPRESO_FISCAL_BOLETIN_SEMANAL,
+            TemplateVariables(body=["Maria"]),
+            source_conversation_id=None,
+        )
+        self.assertEqual(len(components), 1)
+        self.assertEqual(components[0]["type"], "body")
+        self.assertEqual(components[0]["parameters"][0]["text"], "Maria")
 
     def test_build_components_for_aprobacion_pendiente(self):
         components = build_template_components(

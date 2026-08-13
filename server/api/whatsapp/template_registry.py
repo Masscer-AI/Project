@@ -266,6 +266,42 @@ EXPRESO_FISCAL_PREFERENCIAS = WhatsAppTemplateDefinition(
     enabled=True,
 )
 
+EXPRESO_FISCAL_BOLETIN_SEMANAL = WhatsAppTemplateDefinition(
+    id="expreso_fiscal_boletin_semanal_es_mx",
+    meta_name="expreso_fiscal_boletin_semanal",
+    language_code="es_MX",
+    category="MARKETING",
+    description=(
+        "Aviso de boletin semanal Integrarem (Expreso Fiscal). Sin header; "
+        "cuerpo con nombre del destinatario ({{1}}). "
+        "Tres botones de respuesta rapida: 'Leer por WhatsApp', "
+        "'Solicitar resumen en audio', 'No deseo recibir avisos'."
+    ),
+    header_type="none",
+    body_variable_count=1,
+    body_variable_descriptions=(
+        "Nombre del destinatario (completa {{1}}), ej. 'Maria'.",
+    ),
+    buttons=(
+        WhatsAppTemplateButton(
+            index=0,
+            sub_type="quick_reply",
+            description="Leer por WhatsApp",
+        ),
+        WhatsAppTemplateButton(
+            index=1,
+            sub_type="quick_reply",
+            description="Solicitar resumen en audio",
+        ),
+        WhatsAppTemplateButton(
+            index=2,
+            sub_type="quick_reply",
+            description="No deseo recibir avisos",
+        ),
+    ),
+    enabled=True,
+)
+
 
 WHATSAPP_TEMPLATES: dict[str, WhatsAppTemplateDefinition] = {
     TASK_COMPLETED.id: TASK_COMPLETED,
@@ -275,6 +311,7 @@ WHATSAPP_TEMPLATES: dict[str, WhatsAppTemplateDefinition] = {
     EXPRESO_FISCAL_SEMANAL.id: EXPRESO_FISCAL_SEMANAL,
     EXPRESO_FISCAL_RECORDATORIO.id: EXPRESO_FISCAL_RECORDATORIO,
     EXPRESO_FISCAL_PREFERENCIAS.id: EXPRESO_FISCAL_PREFERENCIAS,
+    EXPRESO_FISCAL_BOLETIN_SEMANAL.id: EXPRESO_FISCAL_BOLETIN_SEMANAL,
 }
 
 
