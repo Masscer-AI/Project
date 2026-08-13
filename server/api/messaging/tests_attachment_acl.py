@@ -12,6 +12,7 @@ from api.messaging.attachment_access import (
     apply_attachment_ownership,
     attachments_visible_q,
     user_can_access_attachment,
+    user_can_agent_update_attachment_visibility,
     user_can_manage_attachment,
 )
 from api.messaging.models import Conversation, MessageAttachment
@@ -193,7 +194,24 @@ class AttachmentVisibilityAclTests(TestCase):
         ids = {item.attachment_id for item in listed.attachments}
         self.assertIn(str(att.id), ids)
 
-    def test_update_attachment_visibility_tool_forbidden_for_member(self):
+    def test_update_attachment_visibility_tool_allows_org_member(self):
+        from api.ai_layers.tools.update_attachment_visibility import (
+            _update_attachment_visibility_impl,
+        )
+
+        att = self._att(conversation=self.owner_conv, user=self.owner)
+        result = _update_attachment_visibility_impl(
+            attachment_id=str(att.id),
+            visibility="organization",
+            role_ids=None,
+            user_id=self.member.id,
+        )
+        self.assertTrue(result.success)
+        att.refresh_from_db()
+        self.assertEqual(att.visibility, "organization")
+        self.assertEqual(att.organization_id, self.org.id)
+
+    def test_update_attachment_visibility_tool_forbidden_for_outsider(self):
         from api.ai_layers.tools.update_attachment_visibility import (
             _update_attachment_visibility_impl,
         )
@@ -204,9 +222,9 @@ class AttachmentVisibilityAclTests(TestCase):
                 attachment_id=str(att.id),
                 visibility="organization",
                 role_ids=None,
-                user_id=self.member.id,
+                user_id=self.outsider.id,
             )
-        self.assertIn("cannot change visibility", str(ctx.exception))
+        self.assertIn("not in your organization", str(ctx.exception))
         att.refresh_from_db()
         self.assertEqual(att.visibility, "personal")
 
@@ -221,8 +239,8 @@ class AttachmentVisibilityAclTests(TestCase):
 
         self.assertIn("update_attachment_visibility", TOOL_REGISTRY)
         self.assertIn("update_attachment_visibility", USER_REQUIRED_TOOL_NAMES)
-        self.assertIn("update_attachment_visibility", DEPENDENT_TOOL_REQUIREMENTS)
-        self.assertNotIn("update_attachment_visibility", list_available_tools())
+        self.assertNotIn("update_attachment_visibility", DEPENDENT_TOOL_REQUIREMENTS)
+        self.assertIn("update_attachment_visibility", list_available_tools())
         from api.ai_layers.tools import list_registered_tools, resolve_allowed_tools
 
         self.assertIn("update_attachment_visibility", list_registered_tools())
@@ -237,7 +255,7 @@ class AttachmentVisibilityAclTests(TestCase):
         names = {
             t["name"]
             for t in resolve_tools(
-                ["list_attachments", "generate_document_file"],
+                ["list_attachments", "generate_document_file", "update_attachment_visibility"],
                 conversation_id=str(self.owner_conv.id),
                 user_id=self.owner.id,
             )
@@ -248,6 +266,8 @@ class AttachmentVisibilityAclTests(TestCase):
     def test_member_cannot_apply_ownership_on_others_file(self):
         att = self._att(conversation=self.owner_conv, user=self.owner)
         self.assertFalse(user_can_manage_attachment(att, self.member))
+        self.assertTrue(user_can_agent_update_attachment_visibility(att, self.member))
+        self.assertFalse(user_can_agent_update_attachment_visibility(att, self.outsider))
 
     def test_visible_q_anonymous_is_conversation_only(self):
         mine = self._att(conversation=self.owner_conv, user=self.owner)

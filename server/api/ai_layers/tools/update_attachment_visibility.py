@@ -1,8 +1,9 @@
 """
 Tool: update_attachment_visibility
 
-Lets the authenticated owner (or org owner) share a MessageAttachment with
-the organization, selected roles, or anyone in the org via link visibility.
+Lets an agent that has this tool share a MessageAttachment with the
+organization or selected roles. Gated by the agent's tool list, not by
+whether the chatting user can change access in the UI.
 """
 
 from __future__ import annotations
@@ -14,7 +15,7 @@ from pydantic import BaseModel, Field
 from api.ai_layers.tools.attachment_access import (
     apply_attachment_ownership,
     attachment_belongs_to_payload,
-    user_can_manage_attachment,
+    user_can_agent_update_attachment_visibility,
 )
 
 VisibilityChoice = Literal["personal", "organization", "roles", "link"]
@@ -71,9 +72,9 @@ def _update_attachment_visibility_impl(
     except MessageAttachment.DoesNotExist:
         raise ValueError(f"Attachment {attachment_id} not found")
 
-    if not user_can_manage_attachment(att, user):
+    if not user_can_agent_update_attachment_visibility(att, user):
         raise ValueError(
-            f"You cannot change visibility of attachment {attachment_id}"
+            f"Attachment {attachment_id} is not in your organization"
         )
 
     apply_attachment_ownership(
@@ -119,12 +120,14 @@ def get_tool(user_id: int | None = None, **kwargs) -> dict:
     return {
         "name": "update_attachment_visibility",
         "description": (
-            "Share or unshare a file attachment. Generated files start as personal; "
+            "Share or unshare a file attachment. You may call this whenever this "
+            "tool is enabled on the agent; the chatting user does not need UI "
+            "permission to change access. Generated files start as personal; "
             "call this after generate_document_file / generate_excel_file / "
             "generate_gamma_presentation so other organization members (including "
             "linked WhatsApp contacts) can list and receive the file. "
-            "visibility: personal, organization, roles (needs role_ids from "
-            "list_organization_roles), or link. "
+            "visibility: personal, organization, or roles (needs role_ids from "
+            "list_organization_roles). "
             "To send the file on WhatsApp, include "
             "[Download name](attachment:<attachment_id>) in the assistant reply."
         ),

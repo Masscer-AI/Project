@@ -100,10 +100,20 @@ def user_can_access_attachment(
     ).exists()
 
 
+def _attachment_organization(att):
+    org = getattr(att, "organization", None)
+    if org is not None:
+        return org
+    conv = getattr(att, "conversation", None)
+    if conv is not None:
+        return getattr(conv, "organization", None)
+    return None
+
+
 def user_can_manage_attachment(att, user) -> bool:
     """
-    Change visibility or delete: conversation owner, organization owner,
-    or the attachment owner (fallback for widget / WhatsApp).
+    Change visibility or delete from the UI: conversation owner, organization
+    owner, or the attachment owner (fallback for widget / WhatsApp).
     """
     if not user or not att:
         return False
@@ -114,12 +124,26 @@ def user_can_manage_attachment(att, user) -> bool:
     if conv is not None and conv.user_id is not None and int(conv.user_id) == int(user.id):
         return True
 
-    org = getattr(att, "organization", None)
-    if org is None and conv is not None:
-        org = getattr(conv, "organization", None)
+    org = _attachment_organization(att)
     if org is not None and org.owner_id == user.id:
         return True
     return False
+
+
+def user_can_agent_update_attachment_visibility(att, user) -> bool:
+    """
+    Agent tool gate: if the agent has update_attachment_visibility, any member
+    of the attachment's organization may change ACL. UI manage permission is
+    not required. Outsiders still cannot.
+    """
+    if user_can_manage_attachment(att, user):
+        return True
+    if not user or not att:
+        return False
+    org = _attachment_organization(att)
+    if org is None:
+        return False
+    return org.id in {o.id for o in get_user_organizations_for_access(user)}
 
 
 def attachment_belongs_to_payload(

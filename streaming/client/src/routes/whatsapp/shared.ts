@@ -57,6 +57,7 @@ export const WHATSAPP_CAPABILITY_NAMES = [
   "generate_document_file",
   "generate_excel_file",
   "generate_gamma_presentation",
+  "update_attachment_visibility",
   "list_whatsapp_resources",
   "list_whatsapp_templates",
   "send_ws_template_message",

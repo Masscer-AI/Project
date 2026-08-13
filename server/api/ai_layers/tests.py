@@ -1949,6 +1949,13 @@ class MCPAccessTests(SimpleTestCase):
         self.assertIn("send_ws_template_message", all_tools)
         self.assertIn("list_whatsapp_resources", all_tools)
         self.assertIn("list_whatsapp_templates", all_tools)
+        self.assertIn("update_attachment_visibility", all_tools)
+        documents = next(
+            group["items"]
+            for group in mcp_tool_preset_groups()
+            if group["group"] == "documents"
+        )
+        self.assertIn("update_attachment_visibility", documents)
 
     @override_settings(FRONTEND_URL="")
     def test_serialize_attachments_for_mcp_strips_internal_fields(self):

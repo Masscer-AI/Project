@@ -977,7 +977,7 @@
   "widget-capability-list_attachments-title": "List attachments",
   "widget-capability-list_attachments-description": "Allows the AI to list this user's attachments across conversations, filtered by type (image, document, video, audio).",
   "widget-capability-update_attachment_visibility-title": "Share attachments",
-  "widget-capability-update_attachment_visibility-description": "Allows the AI to share a generated file with the organization, selected roles, or as a link so other members (including WhatsApp) can receive it.",
+  "widget-capability-update_attachment_visibility-description": "Allows the AI to share a generated file with the organization or selected roles so other members (including WhatsApp) can receive it.",
   "widget-capability-explore_web-title": "Web search",
   "widget-capability-explore_web-description": "Allows the AI to search and fetch web information in real time.",
   "widget-capability-rag_query-title": "RAG query",

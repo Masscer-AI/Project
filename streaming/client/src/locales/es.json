@@ -979,7 +979,7 @@
   "widget-capability-list_attachments-title": "Listar adjuntos",
   "widget-capability-list_attachments-description": "Permite que la IA liste los adjuntos de este usuario en todas sus conversaciones, filtrados por tipo (imagen, documento, video, audio).",
   "widget-capability-update_attachment_visibility-title": "Compartir adjuntos",
-  "widget-capability-update_attachment_visibility-description": "Permite que la IA comparta un archivo generado con la organizacion, roles seleccionados o por enlace para que otros miembros (incluido WhatsApp) puedan recibirlo.",
+  "widget-capability-update_attachment_visibility-description": "Permite que la IA comparta un archivo generado con la organizacion o roles seleccionados para que otros miembros (incluido WhatsApp) puedan recibirlo.",
   "widget-capability-explore_web-title": "Busqueda web",
   "widget-capability-explore_web-description": "Permite que la IA busque y obtenga informacion de internet en tiempo real.",
   "widget-capability-rag_query-title": "Consulta RAG",

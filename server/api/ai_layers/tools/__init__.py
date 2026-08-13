@@ -81,12 +81,6 @@ SCHEDULE_AGENT_TOOL_NAMES: tuple[str, ...] = (
 
 DEPENDENT_TOOL_REQUIREMENTS: dict[str, tuple[str, ...]] = {
     "list_voices": ("create_speech", "generate_dialogue"),
-    "update_attachment_visibility": (
-        "generate_document_file",
-        "generate_excel_file",
-        "generate_gamma_presentation",
-        "list_attachments",
-    ),
 }
 
 # Tools that act on behalf of an authenticated Masscer user (account-scoped

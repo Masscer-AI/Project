@@ -5,6 +5,7 @@ from api.messaging.attachment_access import (
     attachment_belongs_to_payload,
     attachments_visible_q,
     user_can_access_attachment,
+    user_can_agent_update_attachment_visibility,
     user_can_manage_attachment,
 )
 
@@ -13,5 +14,6 @@ __all__ = [
     "attachment_belongs_to_payload",
     "attachments_visible_q",
     "user_can_access_attachment",
+    "user_can_agent_update_attachment_visibility",
     "user_can_manage_attachment",
 ]
