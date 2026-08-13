@@ -55,8 +55,9 @@ class SendEmailParams(BaseModel):
     attachment_ids: list[str] = Field(
         default_factory=list,
         description=(
-            "Optional MessageAttachment UUIDs from this conversation "
-            "(documents, images, audio, video, spreadsheets, etc.)."
+            "Optional MessageAttachment UUIDs the user can access "
+            "(this conversation or other conversations they own). "
+            "Use list_attachments to discover IDs."
         ),
     )
 
@@ -108,7 +109,9 @@ def _load_email_attachment(
     *,
     conversation_id: str,
     user_id: int | None,
+    organization_id: int | None = None,
 ) -> EmailAttachment:
+    from api.ai_layers.tools.attachment_access import user_can_access_attachment
     from api.messaging.models import MessageAttachment
 
     try:
@@ -116,12 +119,12 @@ def _load_email_attachment(
     except MessageAttachment.DoesNotExist:
         raise ValueError(f"Attachment {attachment_id} not found")
 
-    if str(att.conversation_id) != str(conversation_id):
-        raise ValueError(
-            f"Attachment {attachment_id} does not belong to this conversation"
-        )
-
-    if user_id is not None and att.user_id is not None and att.user_id != user_id:
+    if not user_can_access_attachment(
+        att,
+        user_id=user_id,
+        conversation_id=conversation_id,
+        organization_id=organization_id,
+    ):
         raise ValueError(f"Attachment {attachment_id} is not accessible")
 
     kind = getattr(att, "kind", None) or "file"
@@ -237,6 +240,7 @@ def _send_email_impl(
                 attachment_id,
                 conversation_id=conversation_id,
                 user_id=user_id,
+                organization_id=organization_id,
             )
         )
 
@@ -329,9 +333,9 @@ def get_tool(
             "a role (type=role, identifier=<role_id>), or everyone "
             "(type=organization, identifier=null). "
             "Combine multiple entries; duplicates are removed. "
-            "Pass subject, html, and optional attachment_ids from this conversation. "
-            "Use list_attachments for attachment IDs; generate files with "
-            "generate_document_file or generate_excel_file when needed."
+            "Pass subject, html, and optional attachment_ids from list_attachments "
+            "(including files from other conversations this user owns). "
+            "Generate files with generate_document_file or generate_excel_file when needed."
         ),
         "parameters": SendEmailParams,
         "function": send_email,

@@ -975,7 +975,7 @@
   "widget-capability-read_attachment-title": "Read attachment",
   "widget-capability-read_attachment-description": "Allows the AI to read uploaded attachments when the user asks about their content.",
   "widget-capability-list_attachments-title": "List attachments",
-  "widget-capability-list_attachments-description": "Allows the AI to discover which attachments are available in the current conversation.",
+  "widget-capability-list_attachments-description": "Allows the AI to list this user's attachments across conversations, filtered by type (image, document, video, audio).",
   "widget-capability-explore_web-title": "Web search",
   "widget-capability-explore_web-description": "Allows the AI to search and fetch web information in real time.",
   "widget-capability-rag_query-title": "RAG query",

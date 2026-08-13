@@ -143,7 +143,7 @@ Implementation:
 - `api/ai_layers/tools/read_attachment.py`
 
 Behavior:
-- validates the attachment belongs to the conversation (and user when available)
+- validates the attachment is in the current conversation **or** belongs to the same user (cross-conversation)
 - routes by attachment kind:
   - `file`: sends the file to OpenAI (vision for images; `input_file` for docs)
   - `rag_document`: sends `Document.text` to OpenAI (with a size cap)
@@ -151,10 +151,12 @@ Behavior:
 
 ### Tool: `list_attachments`
 
-Lists all attachments for the current conversation (metadata only). Use this to discover `attachment_id` values from older messages.
+Lists attachments for the authenticated user **across conversations** (metadata only). Anonymous widget / unlinked WhatsApp sessions fall back to the current conversation.
 
-- `list_attachments() -> { attachments: [...] }`
-- Returns items like: `attachment_id`, `kind`, `content_type`, `name/url`, `message_id`, timestamps.
+- `list_attachments(kind, from_date?) -> { attachments: [...] }`
+- `kind` is required: `image` | `document` | `video` | `audio`
+- `from_date` is optional (`YYYY-MM-DD` or ISO datetime)
+- Returns items like: `attachment_id`, media `kind`, `attachment_kind`, `content_type`, `name/url`, `conversation_id`, `message_id`, timestamps.
 
 ### Tool: `explore_web`
 

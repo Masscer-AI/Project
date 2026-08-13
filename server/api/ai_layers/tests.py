@@ -891,7 +891,7 @@ class SendEmailToolTests(SimpleTestCase):
         self.assertEqual(len(first_batch), 50)
         self.assertEqual(len(second_batch), 5)
 
-    def test_load_email_attachment_rejects_other_conversation(self):
+    def test_load_email_attachment_rejects_inaccessible(self):
         from api.ai_layers.tools.send_email import _load_email_attachment
 
         att = Mock()
@@ -903,13 +903,18 @@ class SendEmailToolTests(SimpleTestCase):
 
         with patch("api.messaging.models.MessageAttachment") as mock_attachment_cls:
             mock_attachment_cls.objects.get.return_value = att
-            with self.assertRaises(ValueError) as ctx:
-                _load_email_attachment(
-                    "att-1",
-                    conversation_id="conv-1",
-                    user_id=1,
-                )
-        self.assertIn("does not belong", str(ctx.exception))
+            with patch(
+                "api.ai_layers.tools.attachment_access.user_can_access_attachment",
+                return_value=False,
+            ):
+                with self.assertRaises(ValueError) as ctx:
+                    _load_email_attachment(
+                        "att-1",
+                        conversation_id="conv-1",
+                        user_id=1,
+                        organization_id=1,
+                    )
+        self.assertIn("not accessible", str(ctx.exception))
 
     def test_send_email_tools_are_registered(self):
         from api.ai_layers.tools import list_available_tools
@@ -2398,3 +2403,213 @@ class MCPGatewayTests(TestCase):
         self.assertEqual(res.status_code, 200)
         self.mcp_client.refresh_from_db()
         self.assertTrue(self.mcp_client.revoked)
+
+
+class ListAttachmentsToolTests(TestCase):
+    def setUp(self):
+        from django.core.files.base import ContentFile
+
+        from api.ai_layers.models import LanguageModel
+        from api.authenticate.models import Organization
+        from api.consumption.models import Currency
+        from api.messaging.models import Conversation, MessageAttachment
+        from api.providers.models import AIProvider
+
+        Currency.objects.get_or_create(
+            name="Compute Unit", defaults={"one_usd_is": 1000}
+        )
+        provider = AIProvider.objects.create(name="OpenAI-list-att")
+        LanguageModel.objects.create(
+            provider=provider, slug="gpt-list-att", name="GPT List Att"
+        )
+        self.user = User.objects.create_user(username="list-att-owner", password="x")
+        self.other = User.objects.create_user(username="list-att-other", password="x")
+        self.org = Organization.objects.create(name="List Att Org", owner=self.user)
+        self.conv_a = Conversation.objects.create(
+            user=self.user, organization=self.org, title="Chat A"
+        )
+        self.conv_b = Conversation.objects.create(
+            user=self.user, organization=self.org, title="Chat B"
+        )
+        self.conv_other = Conversation.objects.create(
+            user=self.other, organization=self.org, title="Other"
+        )
+
+        png = ContentFile(b"png-bytes", name="photo.png")
+        pdf = ContentFile(b"%PDF-1.4", name="report.pdf")
+        mp3 = ContentFile(b"id3", name="voice.mp3")
+
+        self.image_a = MessageAttachment.objects.create(
+            conversation=self.conv_a,
+            user=self.user,
+            kind="file",
+            file=png,
+            content_type="image/png",
+        )
+        self.image_b = MessageAttachment.objects.create(
+            conversation=self.conv_b,
+            user=self.user,
+            kind="file",
+            file=ContentFile(b"png-b", name="other-chat.png"),
+            content_type="image/png",
+        )
+        self.doc_b = MessageAttachment.objects.create(
+            conversation=self.conv_b,
+            user=self.user,
+            kind="file",
+            file=pdf,
+            content_type="application/pdf",
+        )
+        self.audio_a = MessageAttachment.objects.create(
+            conversation=self.conv_a,
+            user=self.user,
+            kind="file",
+            file=mp3,
+            content_type="audio/mpeg",
+        )
+        self.other_image = MessageAttachment.objects.create(
+            conversation=self.conv_other,
+            user=self.other,
+            kind="file",
+            file=ContentFile(b"secret", name="secret.png"),
+            content_type="image/png",
+        )
+
+    def test_lists_images_across_user_conversations(self):
+        from api.ai_layers.tools.list_attachments import _list_attachments_impl
+
+        result = _list_attachments_impl(
+            kind="image",
+            user_id=self.user.id,
+            conversation_id=str(self.conv_a.id),
+            organization_id=self.org.id,
+        )
+        ids = {item.attachment_id for item in result.attachments}
+        self.assertIn(str(self.image_a.id), ids)
+        self.assertIn(str(self.image_b.id), ids)
+        self.assertNotIn(str(self.other_image.id), ids)
+        self.assertNotIn(str(self.doc_b.id), ids)
+        current = next(
+            item
+            for item in result.attachments
+            if item.attachment_id == str(self.image_a.id)
+        )
+        other_chat = next(
+            item
+            for item in result.attachments
+            if item.attachment_id == str(self.image_b.id)
+        )
+        self.assertTrue(current.is_current)
+        self.assertFalse(other_chat.is_current)
+        self.assertEqual(other_chat.conversation_id, str(self.conv_b.id))
+        self.assertEqual(other_chat.kind, "image")
+
+    def test_kind_document_excludes_media(self):
+        from api.ai_layers.tools.list_attachments import _list_attachments_impl
+
+        result = _list_attachments_impl(
+            kind="document",
+            user_id=self.user.id,
+            conversation_id=str(self.conv_a.id),
+            organization_id=self.org.id,
+        )
+        ids = {item.attachment_id for item in result.attachments}
+        self.assertEqual(ids, {str(self.doc_b.id)})
+        self.assertEqual(result.attachments[0].kind, "document")
+
+    def test_from_date_filters_older_rows(self):
+        from datetime import timedelta
+
+        from api.ai_layers.tools.list_attachments import _list_attachments_impl
+        from api.messaging.models import MessageAttachment
+
+        old_at = timezone.now() - timedelta(days=10)
+        MessageAttachment.objects.filter(pk=self.image_a.id).update(created_at=old_at)
+
+        result = _list_attachments_impl(
+            kind="image",
+            from_date=(timezone.now() - timedelta(days=1)).date().isoformat(),
+            user_id=self.user.id,
+            conversation_id=str(self.conv_a.id),
+            organization_id=self.org.id,
+        )
+        ids = {item.attachment_id for item in result.attachments}
+        self.assertNotIn(str(self.image_a.id), ids)
+        self.assertIn(str(self.image_b.id), ids)
+
+    def test_anonymous_falls_back_to_current_conversation(self):
+        from api.ai_layers.tools.list_attachments import _list_attachments_impl
+
+        result = _list_attachments_impl(
+            kind="image",
+            user_id=None,
+            conversation_id=str(self.conv_a.id),
+        )
+        ids = {item.attachment_id for item in result.attachments}
+        self.assertEqual(ids, {str(self.image_a.id)})
+
+    def test_read_attachment_allows_same_user_other_conversation(self):
+        from api.ai_layers.tools.read_attachment import (
+            ReadAttachmentResult,
+            _read_attachment_impl,
+        )
+
+        with patch(
+            "api.ai_layers.tools.read_attachment._process_image",
+            return_value=ReadAttachmentResult(answer="ok"),
+        ) as mock_process:
+            result = _read_attachment_impl(
+                attachment_id=str(self.image_b.id),
+                question="what is this?",
+                conversation_id=str(self.conv_a.id),
+                user_id=self.user.id,
+                organization_id=self.org.id,
+            )
+        self.assertEqual(result.answer, "ok")
+        mock_process.assert_called_once()
+
+    def test_read_attachment_rejects_other_user(self):
+        from api.ai_layers.tools.read_attachment import _read_attachment_impl
+
+        with self.assertRaises(ValueError) as ctx:
+            _read_attachment_impl(
+                attachment_id=str(self.other_image.id),
+                question="what is this?",
+                conversation_id=str(self.conv_a.id),
+                user_id=self.user.id,
+                organization_id=self.org.id,
+            )
+        self.assertIn("not accessible", str(ctx.exception))
+
+    def test_send_email_allows_same_user_other_conversation(self):
+        from api.ai_layers.tools.send_email import _load_email_attachment
+
+        loaded = _load_email_attachment(
+            str(self.doc_b.id),
+            conversation_id=str(self.conv_a.id),
+            user_id=self.user.id,
+            organization_id=self.org.id,
+        )
+        self.assertTrue(loaded["filename"].endswith(".pdf"))
+        self.assertTrue(loaded["content"])
+
+    def test_send_email_rejects_other_user_attachment(self):
+        from api.ai_layers.tools.send_email import _load_email_attachment
+
+        with self.assertRaises(ValueError) as ctx:
+            _load_email_attachment(
+                str(self.other_image.id),
+                conversation_id=str(self.conv_a.id),
+                user_id=self.user.id,
+                organization_id=self.org.id,
+            )
+        self.assertIn("not accessible", str(ctx.exception))
+
+    def test_get_tool_requires_kind(self):
+        from api.ai_layers.tools.list_attachments import ListAttachmentsParams
+
+        with self.assertRaises(Exception):
+            ListAttachmentsParams()
+        params = ListAttachmentsParams(kind="audio")
+        self.assertEqual(params.kind, "audio")
+        self.assertIsNone(params.from_date)

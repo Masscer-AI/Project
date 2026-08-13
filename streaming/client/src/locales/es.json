@@ -977,7 +977,7 @@
   "widget-capability-read_attachment-title": "Leer adjuntos",
   "widget-capability-read_attachment-description": "Permite que la IA lea archivos adjuntos cuando el usuario pregunta por su contenido.",
   "widget-capability-list_attachments-title": "Listar adjuntos",
-  "widget-capability-list_attachments-description": "Permite que la IA descubra que adjuntos estan disponibles en la conversacion actual.",
+  "widget-capability-list_attachments-description": "Permite que la IA liste los adjuntos de este usuario en todas sus conversaciones, filtrados por tipo (imagen, documento, video, audio).",
   "widget-capability-explore_web-title": "Busqueda web",
   "widget-capability-explore_web-description": "Permite que la IA busque y obtenga informacion de internet en tiempo real.",
   "widget-capability-rag_query-title": "Consulta RAG",

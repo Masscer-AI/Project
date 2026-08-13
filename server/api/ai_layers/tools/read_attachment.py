@@ -29,7 +29,10 @@ class ReadAttachmentParams(BaseModel):
     """Parameters for the read_attachment tool."""
 
     attachment_id: str = Field(
-        description="The UUID of the attachment to read. Use one of the attachment IDs provided by the user."
+        description=(
+            "The UUID of the attachment to read. Use an ID from list_attachments "
+            "or from the current message."
+        )
     )
     question: str = Field(
         description="A specific question about the document or image content. Be precise."
@@ -62,13 +65,16 @@ def _read_attachment_impl(
     question: str,
     conversation_id: str,
     user_id: int | None,
+    organization_id: int | None = None,
 ) -> ReadAttachmentResult:
     """
     Read an attachment and answer a question about it.
 
-    Validates that the attachment belongs to the conversation.
+    Validates that the attachment is in the current conversation, or belongs
+    to the same user (cross-conversation).
     For images: uses vision API. For documents: uses input_file with base64.
     """
+    from api.ai_layers.tools.attachment_access import user_can_access_attachment
     from api.messaging.models import MessageAttachment
 
     try:
@@ -76,12 +82,12 @@ def _read_attachment_impl(
     except MessageAttachment.DoesNotExist:
         raise ValueError(f"Attachment {attachment_id} not found")
 
-    if str(att.conversation_id) != str(conversation_id):
-        raise ValueError(
-            f"Attachment {attachment_id} does not belong to this conversation"
-        )
-
-    if user_id is not None and att.user_id is not None and att.user_id != user_id:
+    if not user_can_access_attachment(
+        att,
+        user_id=user_id,
+        conversation_id=conversation_id,
+        organization_id=organization_id,
+    ):
         raise ValueError(f"Attachment {attachment_id} is not accessible")
 
     kind = getattr(att, "kind", None) or "file"
@@ -382,6 +388,7 @@ def _extract_output_text(response) -> str:
 def get_tool(
     conversation_id: str | None = None,
     user_id: int | None = None,
+    organization_id: int | str | None = None,
     **kwargs,
 ) -> dict:
     """
@@ -389,32 +396,29 @@ def get_tool(
 
     When conversation_id and user_id are provided, the tool validates access.
     """
-    if conversation_id is not None and user_id is not None:
+    org_id = None
+    if organization_id is not None and organization_id != "":
+        try:
+            org_id = int(organization_id)
+        except (TypeError, ValueError):
+            org_id = None
 
-        def read_attachment(attachment_id: str, question: str) -> ReadAttachmentResult:
-            return _read_attachment_impl(
-                attachment_id=attachment_id,
-                question=question,
-                conversation_id=conversation_id,
-                user_id=user_id,
-            )
-
-    else:
-
-        def read_attachment(attachment_id: str, question: str) -> ReadAttachmentResult:
-            return _read_attachment_impl(
-                attachment_id=attachment_id,
-                question=question,
-                conversation_id=conversation_id or "",
-                user_id=user_id,
-            )
+    def read_attachment(attachment_id: str, question: str) -> ReadAttachmentResult:
+        return _read_attachment_impl(
+            attachment_id=attachment_id,
+            question=question,
+            conversation_id=conversation_id or "",
+            user_id=user_id,
+            organization_id=org_id,
+        )
 
     return {
         "name": "read_attachment",
         "description": (
             "Read an attachment by its ID and answer a question about it. "
-            "Use this when the user has attached documents or images and you need to extract specific information. "
-            "Provide the attachment_id (from the list of available IDs) and a specific question."
+            "Use attachment IDs from list_attachments (including files from other "
+            "conversations owned by this user) or from the current message. "
+            "Provide the attachment_id and a specific question."
         ),
         "parameters": ReadAttachmentParams,
         "function": read_attachment,
