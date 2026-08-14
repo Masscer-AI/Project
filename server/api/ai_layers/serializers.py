@@ -177,7 +177,7 @@ class AgentSerializer(serializers.ModelSerializer):
         if not isinstance(value, list):
             raise serializers.ValidationError("pre_approved_tools must be a list of strings.")
 
-        from api.ai_layers.tools import list_registered_tools
+        from api.ai_layers.tools import canonical_tool_name, list_registered_tools
 
         available = set(list_registered_tools())
         names: list[str] = []
@@ -185,13 +185,30 @@ class AgentSerializer(serializers.ModelSerializer):
         for item in value:
             if not isinstance(item, str) or not item.strip():
                 continue
-            name = item.strip()
+            name = canonical_tool_name(item.strip())
             if name not in available:
                 raise serializers.ValidationError(f"Unknown tool: {name}")
             if name not in seen:
                 seen.add(name)
                 names.append(name)
         return names
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        from api.ai_layers.tools import canonical_tool_name
+
+        tools = data.get("pre_approved_tools") or []
+        seen: set[str] = set()
+        names: list[str] = []
+        for item in tools:
+            if not isinstance(item, str):
+                continue
+            name = canonical_tool_name(item)
+            if name not in seen:
+                seen.add(name)
+                names.append(name)
+        data["pre_approved_tools"] = names
+        return data
 
     def validate_default_voice_id(self, voice):
         if voice is None:

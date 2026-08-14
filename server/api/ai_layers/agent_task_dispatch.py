@@ -63,7 +63,7 @@ def dispatch_conversation_agent_task(
     Returns AgentTaskDispatchResult with either a JsonResponse error or task metadata.
     """
     from api.ai_layers.tasks import conversation_agent_task
-    from api.ai_layers.tools import list_registered_tools, resolve_allowed_tools
+    from api.ai_layers.tools import canonical_tool_name, list_registered_tools, resolve_allowed_tools
 
     slugs = [s for s in agent_slugs if isinstance(s, str) and s.strip()]
     if not conversation_id:
@@ -122,7 +122,7 @@ def dispatch_conversation_agent_task(
         )
 
     available = list_registered_tools()
-    unknown = [t for t in tool_names if t not in available]
+    unknown = [t for t in tool_names if canonical_tool_name(t) not in available]
     if unknown:
         return AgentTaskDispatchResult(
             ok=False,
@@ -157,7 +157,7 @@ def dispatch_conversation_agent_task(
                         status=400,
                     ),
                 )
-            unknown = [t for t in names if t not in available]
+            unknown = [t for t in names if canonical_tool_name(t) not in available]
             if unknown:
                 return AgentTaskDispatchResult(
                     ok=False,

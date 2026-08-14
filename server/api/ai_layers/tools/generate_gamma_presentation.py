@@ -1,9 +1,12 @@
 """
-Tool: generate_gamma_presentation
+Tool: generate_gamma_attachment
 
-Generates a presentation via the Gamma public API, downloads the export
-(PDF by default, PPTX optional), stores it as a MessageAttachment, and
-returns attachment metadata for download in chat.
+Generates a Gamma file (presentation or document) via the public API,
+downloads the export (PDF by default, PPTX optional), stores it as a
+MessageAttachment, and returns attachment metadata for download in chat.
+
+The public tool name is generate_gamma_attachment. generate_gamma_presentation
+is kept as a registry alias for agents/lines that still have the old name.
 """
 
 from __future__ import annotations
@@ -30,7 +33,13 @@ POLL_INTERVAL_SECONDS = 10
 MAX_WAIT_SECONDS = 360
 
 ExportFormat = Literal["pdf", "pptx"]
+GammaFormat = Literal["document", "presentation"]
 TextMode = Literal["generate", "condense", "preserve"]
+
+_CARD_DIMENSIONS: dict[GammaFormat, str] = {
+    "presentation": "16x9",
+    "document": "pageless",
+}
 
 PDF_CONTENT_TYPE = "application/pdf"
 PPTX_CONTENT_TYPE = (
@@ -43,22 +52,29 @@ _CONTENT_TYPES: dict[ExportFormat, str] = {
 }
 
 
-class GenerateGammaPresentationParams(BaseModel):
+class GenerateGammaAttachmentParams(BaseModel):
     input_text: str = Field(
         description=(
-            "Topic, outline, or full content to generate the presentation from. "
+            "Topic, outline, or full content to generate from. "
             "Can be a short topic or a detailed outline; use \\n---\\n to hint card breaks."
+        ),
+    )
+    format: GammaFormat = Field(
+        default="presentation",
+        description=(
+            "Gamma layout: 'presentation' for slides (16:9), 'document' for a "
+            "pageless document. Choose from the user's request."
         ),
     )
     title: str = Field(
         default="",
-        description="Optional custom title for the presentation (1-500 chars).",
+        description="Optional custom title for the generated file (1-500 chars).",
     )
     num_cards: int = Field(
         default=10,
         ge=1,
         le=60,
-        description="Target number of slides/cards (default 10).",
+        description="Target number of cards/sections (default 10).",
     )
     text_mode: TextMode = Field(
         default="generate",
@@ -79,7 +95,7 @@ class GenerateGammaPresentationParams(BaseModel):
         default="pdf",
         description=(
             "Download format. Default 'pdf' for sharing. Use 'pptx' only when "
-            "the user needs an editable PowerPoint deck."
+            "the user needs an editable PowerPoint (presentations)."
         ),
     )
     output_filename: str = Field(
@@ -91,11 +107,12 @@ class GenerateGammaPresentationParams(BaseModel):
     )
 
 
-class GenerateGammaPresentationResult(BaseModel):
+class GenerateGammaAttachmentResult(BaseModel):
     attachment_id: str
     name: str
     content: str
     content_type: str
+    format: GammaFormat
     export_format: ExportFormat
     gamma_url: str = ""
     generation_id: str = ""
@@ -138,14 +155,15 @@ def _create_generation(
     language: str,
     additional_instructions: str,
     export_format: ExportFormat,
+    gamma_format: GammaFormat,
 ) -> str:
     body: dict = {
         "inputText": input_text,
         "textMode": text_mode,
-        "format": "presentation",
+        "format": gamma_format,
         "exportAs": export_format,
         "numCards": num_cards,
-        "cardOptions": {"dimensions": "16x9"},
+        "cardOptions": {"dimensions": _CARD_DIMENSIONS[gamma_format]},
         "sharingOptions": {"externalAccess": "noAccess"},
         "textOptions": {"language": language or "en"},
     }
@@ -193,7 +211,7 @@ def _poll_generation(api_key: str, generation_id: str) -> dict:
         time.sleep(POLL_INTERVAL_SECONDS)
         elapsed += POLL_INTERVAL_SECONDS
 
-    raise ValueError("Gamma presentation generation timed out after 6 minutes.")
+    raise ValueError("Gamma generation timed out after 6 minutes.")
 
 
 def _download_export(export_url: str) -> bytes:
@@ -208,9 +226,13 @@ def _download_export(export_url: str) -> bytes:
     return raw
 
 
-def _normalize_filename(output_filename: str, export_format: ExportFormat) -> str:
+def _normalize_filename(
+    output_filename: str,
+    export_format: ExportFormat,
+    gamma_format: GammaFormat = "presentation",
+) -> str:
     ext = f".{export_format}"
-    default = f"presentation{ext}"
+    default = f"{'document' if gamma_format == 'document' else 'presentation'}{ext}"
     fname = (output_filename or "").strip() or default
     lower = fname.lower()
     if lower.endswith(".pdf") or lower.endswith(".pptx"):
@@ -223,7 +245,7 @@ def _normalize_filename(output_filename: str, export_format: ExportFormat) -> st
     return fname
 
 
-def _generate_gamma_presentation_impl(
+def _generate_gamma_attachment_impl(
     *,
     input_text: str,
     title: str,
@@ -236,7 +258,8 @@ def _generate_gamma_presentation_impl(
     conversation_id: str,
     user_id: int | None,
     agent_slug: str | None,
-) -> GenerateGammaPresentationResult:
+    gamma_format: GammaFormat = "presentation",
+) -> GenerateGammaAttachmentResult:
     from django.contrib.auth.models import User
 
     from api.messaging.models import Conversation, MessageAttachment
@@ -247,6 +270,8 @@ def _generate_gamma_presentation_impl(
 
     if export_format not in ("pdf", "pptx"):
         raise ValueError("export_format must be 'pdf' or 'pptx'")
+    if gamma_format not in ("document", "presentation"):
+        raise ValueError("format must be 'document' or 'presentation'")
 
     try:
         conversation = Conversation.objects.select_related(
@@ -265,6 +290,7 @@ def _generate_gamma_presentation_impl(
         language=language,
         additional_instructions=additional_instructions,
         export_format=export_format,
+        gamma_format=gamma_format,
     )
     status_data = _poll_generation(api_key, generation_id)
     export_url = (status_data.get("exportUrl") or "").strip()
@@ -291,7 +317,7 @@ def _generate_gamma_presentation_impl(
         except Exception:
             agent_obj = None
 
-    fname = _normalize_filename(output_filename, export_format)
+    fname = _normalize_filename(output_filename, export_format, gamma_format)
     stem = fname[: -len(f".{export_format}")]
     storage_name = f"{stem}-{uuid.uuid4().hex[:8]}.{export_format}"
     content_type = _CONTENT_TYPES[export_format]
@@ -307,7 +333,8 @@ def _generate_gamma_presentation_impl(
         content_type=content_type,
         expires_at=expires_at,
         metadata={
-            "source": "generate_gamma_presentation",
+            "source": "generate_gamma_attachment",
+            "format": gamma_format,
             "export_format": export_format,
             "generation_id": generation_id,
             "gamma_id": status_data.get("gammaId") or "",
@@ -315,11 +342,12 @@ def _generate_gamma_presentation_impl(
         },
     )
     content_url = attachment.file.url if attachment.file else ""
-    return GenerateGammaPresentationResult(
+    return GenerateGammaAttachmentResult(
         attachment_id=str(attachment.id),
         name=fname,
         content=content_url,
         content_type=content_type,
+        format=gamma_format,
         export_format=export_format,
         gamma_url=str(status_data.get("gammaUrl") or ""),
         generation_id=generation_id,
@@ -335,11 +363,12 @@ def get_tool(
 ) -> dict:
     if not conversation_id:
         raise ValueError(
-            "generate_gamma_presentation requires conversation_id in tool context"
+            "generate_gamma_attachment requires conversation_id in tool context"
         )
 
-    def generate_gamma_presentation(
+    def generate_gamma_attachment(
         input_text: str,
+        format: GammaFormat = "presentation",
         title: str = "",
         num_cards: int = 10,
         text_mode: TextMode = "generate",
@@ -347,8 +376,8 @@ def get_tool(
         additional_instructions: str = "",
         export_format: ExportFormat = "pdf",
         output_filename: str = "",
-    ) -> GenerateGammaPresentationResult:
-        return _generate_gamma_presentation_impl(
+    ) -> GenerateGammaAttachmentResult:
+        return _generate_gamma_attachment_impl(
             input_text=input_text,
             title=title,
             num_cards=num_cards,
@@ -360,19 +389,21 @@ def get_tool(
             conversation_id=conversation_id,
             user_id=user_id,
             agent_slug=agent_slug,
+            gamma_format=format,
         )
 
     return {
-        "name": "generate_gamma_presentation",
+        "name": "generate_gamma_attachment",
         "description": (
-            "Create a downloadable presentation via Gamma AI. Pass input_text "
-            "(topic or outline). Default export_format is 'pdf'; use 'pptx' only "
-            "when the user needs an editable PowerPoint. Generation can take up to "
-            "a few minutes. After success, include in your reply: "
-            "[Download presentation](attachment:<attachment_id>). "
+            "Create a downloadable Gamma file. Pass input_text (topic or outline) "
+            "and format: 'presentation' for slides or 'document' for a pageless "
+            "document. Default export_format is 'pdf'; use 'pptx' only when the "
+            "user needs an editable PowerPoint. Generation can take up to a few "
+            "minutes. After success, include in your reply: "
+            "[Download file](attachment:<attachment_id>). "
             "Files start as personal; call update_attachment_visibility if other "
             "org members need to list or receive the file."
         ),
-        "parameters": GenerateGammaPresentationParams,
-        "function": generate_gamma_presentation,
+        "parameters": GenerateGammaAttachmentParams,
+        "function": generate_gamma_attachment,
     }

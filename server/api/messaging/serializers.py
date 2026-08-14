@@ -6,7 +6,7 @@ from .models import Message, Conversation, ChatWidget, ConversationAlert, Conver
 from api.ai_layers.models import Agent
 from api.feedback.serializers import ReactionSerializer
 from api.utils.timezone_utils import format_datetime_for_organization, get_organization_timezone_from_request
-from api.ai_layers.tools import list_available_tools
+from api.ai_layers.tools import canonical_tool_name, list_available_tools
 from .schemas import ChatWidgetStyle, ChatWidgetCapabilitiesPayload
 from .widget_avatar_urls import clear_widget_uploaded_avatar, resolved_avatar_image
 
@@ -327,18 +327,48 @@ class ChatWidgetSerializer(serializers.ModelSerializer):
 
         available_tools = set(list_available_tools())
         invalid_names = sorted(
-            cap.name for cap in parsed_payload.capabilities if cap.name not in available_tools
+            {
+                cap.name
+                for cap in parsed_payload.capabilities
+                if canonical_tool_name(cap.name) not in available_tools
+            }
         )
         if invalid_names:
             raise serializers.ValidationError(
                 f"Unknown capabilities: {', '.join(invalid_names)}"
             )
 
-        return [cap.model_dump() for cap in parsed_payload.capabilities]
+        dumped: list[dict] = []
+        seen: set[str] = set()
+        for cap in parsed_payload.capabilities:
+            payload = cap.model_dump()
+            payload["name"] = canonical_tool_name(payload["name"])
+            if payload["name"] in seen:
+                continue
+            seen.add(payload["name"])
+            dumped.append(payload)
+        return dumped
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data["avatar_image"] = resolved_avatar_image(instance)
+        caps = data.get("capabilities") or []
+        seen: set[str] = set()
+        normalized: list[dict] = []
+        for cap in caps:
+            if not isinstance(cap, dict):
+                continue
+            payload = dict(cap)
+            name = payload.get("name")
+            if isinstance(name, str):
+                payload["name"] = canonical_tool_name(name)
+            canon = payload.get("name")
+            if isinstance(canon, str) and canon in seen:
+                continue
+            if isinstance(canon, str):
+                seen.add(canon)
+            normalized.append(payload)
+        data["capabilities"] = normalized
         return data
 
     def _apply_avatar_image_url(self, instance, avatar_image_value: str) -> None:

@@ -89,7 +89,7 @@ MCP_MEDIA_TOOL_NAMES: tuple[str, ...] = (
 MCP_DOCUMENT_TOOL_NAMES: tuple[str, ...] = (
     "generate_document_file",
     "generate_excel_file",
-    "generate_gamma_presentation",
+    "generate_gamma_attachment",
     "update_attachment_visibility",
     "list_document_templates",
     "render_document_template",
@@ -211,7 +211,7 @@ def normalize_mcp_tool_names(raw: list | None) -> tuple[list[str] | None, str | 
     if not isinstance(raw, list):
         return None, "allowed_tool_names must be a list of strings"
 
-    from api.ai_layers.tools import list_available_tools
+    from api.ai_layers.tools import canonical_tool_name, list_available_tools
 
     available = set(list_available_tools())
     names: list[str] = []
@@ -219,7 +219,7 @@ def normalize_mcp_tool_names(raw: list | None) -> tuple[list[str] | None, str | 
     for item in raw:
         if not isinstance(item, str) or not item.strip():
             continue
-        name = item.strip()
+        name = canonical_tool_name(item.strip())
         if name not in available:
             return None, f"Unknown tool: {name}"
         if name not in seen:

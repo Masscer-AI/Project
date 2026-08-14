@@ -760,12 +760,12 @@ def _extract_generate_excel_file_attachments(
     )
 
 
-def _extract_generate_gamma_presentation_attachments(
+def _extract_generate_gamma_attachment_attachments(
     tool_calls: list[dict],
 ) -> tuple[list[dict], list[str]]:
     return _extract_generated_document_attachments(
         tool_calls,
-        tool_names=("generate_gamma_presentation",),
+        tool_names=("generate_gamma_attachment", "generate_gamma_presentation"),
         default_name="presentation.pdf",
     )
 
@@ -1536,17 +1536,22 @@ def conversation_agent_task(
                     "Output is always XLSX. "
                     "After success, include: [Download spreadsheet](attachment:<attachment_id>)."
                 )
-            if "generate_gamma_presentation" in (agent_tool_names or []):
+            if (
+                "generate_gamma_attachment" in (agent_tool_names or [])
+                or "generate_gamma_presentation" in (agent_tool_names or [])
+            ):
                 instructions += (
-                    "\n\nGamma presentation generation is enabled (generate_gamma_presentation). "
-                    "When the user wants a downloadable slide deck / presentation, call "
-                    "generate_gamma_presentation(input_text, title, num_cards, text_mode, "
-                    "language, additional_instructions, export_format, output_filename). "
+                    "\n\nGamma file generation is enabled (generate_gamma_attachment). "
+                    "When the user wants a downloadable slide deck or a designed document, "
+                    "call generate_gamma_attachment(input_text, format, title, num_cards, "
+                    "text_mode, language, additional_instructions, export_format, "
+                    "output_filename). "
+                    "- format: 'presentation' for slides, 'document' for a pageless document. "
                     "- input_text: topic or outline (required). "
                     "- export_format: default 'pdf' for sharing; use 'pptx' only if the user "
                     "needs an editable PowerPoint. "
                     "Generation can take up to a few minutes — tell the user it may take a moment. "
-                    "After success, include: [Download presentation](attachment:<attachment_id>)."
+                    "After success, include: [Download file](attachment:<attachment_id>)."
                 )
             if "create_speech" in (agent_tool_names or []):
                 from api.voices.instructions import build_create_speech_tool_instructions
@@ -2232,7 +2237,7 @@ def conversation_agent_task(
                 assistant_attachment_ids.extend(gen_xlsx_ids)
 
             gen_gamma_atts, gen_gamma_ids = (
-                _extract_generate_gamma_presentation_attachments(
+                _extract_generate_gamma_attachment_attachments(
                     result.tool_calls or []
                 )
             )

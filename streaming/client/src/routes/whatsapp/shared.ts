@@ -82,7 +82,7 @@ export const WHATSAPP_CAPABILITY_NAMES = [
   "generate_video",
   "generate_document_file",
   "generate_excel_file",
-  "generate_gamma_presentation",
+  "generate_gamma_attachment",
   "update_attachment_visibility",
   "list_whatsapp_resources",
   "list_whatsapp_templates",
@@ -126,7 +126,12 @@ export function buildInitialCapabilityState(
   const initial: Record<string, boolean> = {};
   for (const n of WHATSAPP_CAPABILITY_NAMES) initial[n] = false;
   for (const c of capabilities ?? []) {
-    if (c?.name) initial[c.name] = Boolean(c.enabled);
+    if (!c?.name) continue;
+    const name =
+      c.name === "generate_gamma_presentation"
+        ? "generate_gamma_attachment"
+        : c.name;
+    initial[name] = Boolean(c.enabled);
   }
   for (const requiredName of WHATSAPP_REQUIRED_CAPABILITY_NAMES) {
     initial[requiredName] = true;

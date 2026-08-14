@@ -124,7 +124,7 @@ def get_tool(user_id: int | None = None, **kwargs) -> dict:
             "tool is enabled on the agent; the chatting user does not need UI "
             "permission to change access. Generated files start as personal; "
             "call this after generate_document_file / generate_excel_file / "
-            "generate_gamma_presentation so other organization members (including "
+            "generate_gamma_attachment so other organization members (including "
             "linked WhatsApp contacts) can list and receive the file. "
             "visibility: personal, organization, or roles (needs role_ids from "
             "list_organization_roles). "

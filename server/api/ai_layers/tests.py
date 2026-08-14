@@ -615,22 +615,61 @@ class GenerateExcelFileToolTests(SimpleTestCase):
         self.assertIn("generate_excel_file", list_available_tools())
 
 
-class GenerateGammaPresentationToolTests(SimpleTestCase):
-    def test_generate_gamma_presentation_is_registered(self):
+class GenerateGammaAttachmentToolTests(SimpleTestCase):
+    def test_generate_gamma_attachment_is_registered(self):
         from api.ai_layers.tools import list_available_tools
 
-        self.assertIn("generate_gamma_presentation", list_available_tools())
+        names = list_available_tools()
+        self.assertIn("generate_gamma_attachment", names)
+        self.assertNotIn("generate_gamma_presentation", names)
 
-    def test_extract_generate_gamma_presentation_attachments(self):
-        from api.ai_layers.tasks import _extract_generate_gamma_presentation_attachments
+    def test_legacy_name_canonicalizes(self):
+        from api.ai_layers.tools import canonical_tool_name, resolve_allowed_tools
+
+        self.assertEqual(
+            canonical_tool_name("generate_gamma_presentation"),
+            "generate_gamma_attachment",
+        )
+        self.assertEqual(
+            resolve_allowed_tools(["generate_gamma_presentation"], user=object()),
+            ["generate_gamma_attachment"],
+        )
+
+    def test_whatsapp_capabilities_rewrite_legacy_name(self):
+        from api.whatsapp.capability_tools import filter_capabilities_for_whatsapp
+
+        filtered = filter_capabilities_for_whatsapp(
+            [
+                {
+                    "name": "generate_gamma_presentation",
+                    "type": "internal_tool",
+                    "enabled": True,
+                }
+            ]
+        )
+        names = [c["name"] for c in filtered]
+        self.assertIn("generate_gamma_attachment", names)
+        self.assertNotIn("generate_gamma_presentation", names)
+
+    def test_extract_generate_gamma_attachment_attachments(self):
+        from api.ai_layers.tasks import _extract_generate_gamma_attachment_attachments
 
         tool_calls = [
             {
-                "tool_name": "generate_gamma_presentation",
+                "tool_name": "generate_gamma_attachment",
                 "result": (
                     '{"attachment_id":"c3d4e5f6-a7b8-9012-cdef-123456789012",'
                     '"name":"deck.pdf","content":"https://example.com/deck.pdf",'
-                    '"content_type":"application/pdf","export_format":"pdf"}'
+                    '"content_type":"application/pdf","export_format":"pdf",'
+                    '"format":"presentation"}'
+                ),
+            },
+            {
+                "tool_name": "generate_gamma_presentation",
+                "result": (
+                    '{"attachment_id":"aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",'
+                    '"name":"legacy.pdf","content":"https://example.com/legacy.pdf",'
+                    '"content_type":"application/pdf"}'
                 ),
             },
             {
@@ -640,7 +679,7 @@ class GenerateGammaPresentationToolTests(SimpleTestCase):
         ]
 
         attachments, attachment_ids = (
-            _extract_generate_gamma_presentation_attachments(tool_calls)
+            _extract_generate_gamma_attachment_attachments(tool_calls)
         )
 
         self.assertEqual(
@@ -651,11 +690,21 @@ class GenerateGammaPresentationToolTests(SimpleTestCase):
                     "content": "https://example.com/deck.pdf",
                     "name": "deck.pdf",
                     "attachment_id": "c3d4e5f6-a7b8-9012-cdef-123456789012",
-                }
+                },
+                {
+                    "type": "document",
+                    "content": "https://example.com/legacy.pdf",
+                    "name": "legacy.pdf",
+                    "attachment_id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+                },
             ],
         )
         self.assertEqual(
-            attachment_ids, ["c3d4e5f6-a7b8-9012-cdef-123456789012"]
+            attachment_ids,
+            [
+                "c3d4e5f6-a7b8-9012-cdef-123456789012",
+                "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+            ],
         )
 
     @patch.dict("os.environ", {"GAMMA_API_KEY": "test-gamma-key"})
@@ -675,7 +724,7 @@ class GenerateGammaPresentationToolTests(SimpleTestCase):
         _mock_sleep,
     ):
         from api.ai_layers.tools.generate_gamma_presentation import (
-            _generate_gamma_presentation_impl,
+            _generate_gamma_attachment_impl,
         )
 
         mock_conversation_cls.objects.select_related.return_value.get.return_value = (
@@ -709,7 +758,7 @@ class GenerateGammaPresentationToolTests(SimpleTestCase):
 
         mock_get.side_effect = [status_resp, download_resp]
 
-        result = _generate_gamma_presentation_impl(
+        result = _generate_gamma_attachment_impl(
             input_text="Renewable energy overview",
             title="Energy",
             num_cards=8,
@@ -725,29 +774,105 @@ class GenerateGammaPresentationToolTests(SimpleTestCase):
 
         self.assertEqual(result.attachment_id, "att-uuid")
         self.assertEqual(result.name, "deck.pdf")
+        self.assertEqual(result.format, "presentation")
         self.assertEqual(result.export_format, "pdf")
         self.assertEqual(result.content_type, "application/pdf")
         self.assertIn("deck.pdf", result.content)
         self.assertEqual(result.generation_id, "gen-123")
         mock_post.assert_called_once()
+        payload = mock_post.call_args.kwargs["json"]
+        self.assertEqual(payload["format"], "presentation")
+        self.assertEqual(payload["cardOptions"]["dimensions"], "16x9")
         self.assertEqual(mock_get.call_count, 2)
         mock_attachment_cls.objects.create.assert_called_once()
         create_kwargs = mock_attachment_cls.objects.create.call_args.kwargs
         self.assertEqual(create_kwargs["content_type"], "application/pdf")
         self.assertEqual(create_kwargs["kind"], "file")
 
+    @patch.dict("os.environ", {"GAMMA_API_KEY": "test-gamma-key"})
+    @patch("api.ai_layers.tools.generate_gamma_presentation.time.sleep", return_value=None)
+    @patch("api.ai_layers.tools.generate_gamma_presentation.requests.get")
+    @patch("api.ai_layers.tools.generate_gamma_presentation.requests.post")
+    @patch("api.ai_layers.models.Agent")
+    @patch("api.messaging.models.MessageAttachment")
+    @patch("api.messaging.models.Conversation")
+    def test_impl_document_format_uses_pageless_dimensions(
+        self,
+        mock_conversation_cls,
+        mock_attachment_cls,
+        mock_agent,
+        mock_post,
+        mock_get,
+        _mock_sleep,
+    ):
+        from api.ai_layers.tools.generate_gamma_presentation import (
+            _generate_gamma_attachment_impl,
+        )
+
+        mock_conversation_cls.objects.select_related.return_value.get.return_value = (
+            Mock(id="conv-1")
+        )
+        att = Mock()
+        att.id = "att-doc"
+        att.file.url = "/media/message_attachments/2026/07/brief.pdf"
+        mock_attachment_cls.objects.create.return_value = att
+
+        create_resp = Mock()
+        create_resp.status_code = 200
+        create_resp.json.return_value = {"generationId": "gen-doc"}
+        create_resp.text = ""
+        mock_post.return_value = create_resp
+
+        status_resp = Mock()
+        status_resp.status_code = 200
+        status_resp.json.return_value = {
+            "generationId": "gen-doc",
+            "status": "completed",
+            "exportUrl": "https://gamma.example/export.pdf",
+        }
+        status_resp.text = ""
+        download_resp = Mock()
+        download_resp.status_code = 200
+        download_resp.content = b"%PDF-1.4 fake"
+        mock_get.side_effect = [status_resp, download_resp]
+
+        result = _generate_gamma_attachment_impl(
+            input_text="Weekly tax brief",
+            title="Expreso Fiscal",
+            num_cards=6,
+            text_mode="generate",
+            language="es-mx",
+            additional_instructions="",
+            export_format="pdf",
+            output_filename="brief.pdf",
+            conversation_id="conv-1",
+            user_id=None,
+            agent_slug=None,
+            gamma_format="document",
+        )
+
+        self.assertEqual(result.format, "document")
+        payload = mock_post.call_args.kwargs["json"]
+        self.assertEqual(payload["format"], "document")
+        self.assertEqual(payload["cardOptions"]["dimensions"], "pageless")
+        self.assertEqual(payload["exportAs"], "pdf")
+        self.assertEqual(
+            mock_attachment_cls.objects.create.call_args.kwargs["metadata"]["format"],
+            "document",
+        )
+
     @patch.dict("os.environ", {"GAMMA_API_KEY": ""})
     @patch("api.messaging.models.Conversation")
     def test_impl_requires_api_key(self, mock_conversation_cls):
         from api.ai_layers.tools.generate_gamma_presentation import (
-            _generate_gamma_presentation_impl,
+            _generate_gamma_attachment_impl,
         )
 
         mock_conversation_cls.objects.select_related.return_value.get.return_value = (
             Mock(id="conv-1")
         )
         with self.assertRaises(ValueError) as ctx:
-            _generate_gamma_presentation_impl(
+            _generate_gamma_attachment_impl(
                 input_text="Topic",
                 title="",
                 num_cards=10,

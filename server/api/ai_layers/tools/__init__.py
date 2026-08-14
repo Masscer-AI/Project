@@ -50,7 +50,7 @@ TOOL_REGISTRY: dict[str, str] = {
     "render_document_template": "api.ai_layers.tools.render_document_template",
     "generate_document_file": "api.ai_layers.tools.generate_document_file",
     "generate_excel_file": "api.ai_layers.tools.generate_excel_file",
-    "generate_gamma_presentation": "api.ai_layers.tools.generate_gamma_presentation",
+    "generate_gamma_attachment": "api.ai_layers.tools.generate_gamma_presentation",
     "send_email": "api.ai_layers.tools.send_email",
     "list_organization_members": "api.ai_layers.tools.list_organization_members",
     "list_organization_roles": "api.ai_layers.tools.list_organization_roles",
@@ -82,6 +82,15 @@ SCHEDULE_AGENT_TOOL_NAMES: tuple[str, ...] = (
 DEPENDENT_TOOL_REQUIREMENTS: dict[str, tuple[str, ...]] = {
     "list_voices": ("create_speech", "generate_dialogue"),
 }
+
+# Old public names still stored on agents / WhatsApp lines / widgets.
+TOOL_NAME_ALIASES: dict[str, str] = {
+    "generate_gamma_presentation": "generate_gamma_attachment",
+}
+
+
+def canonical_tool_name(name: str) -> str:
+    return TOOL_NAME_ALIASES.get(name, name)
 
 # Tools that act on behalf of an authenticated Masscer user (account-scoped
 # calendar, org membership/roles, email-as-user, WhatsApp resource/template
@@ -148,10 +157,11 @@ def resolve_tools(tool_names: list[str], **context) -> list[dict]:
     _seen: set[str] = set()
     unique_names: list[str] = []
     for n in tool_names:
-        if n in _seen:
+        canonical = canonical_tool_name(n) if isinstance(n, str) else n
+        if canonical in _seen:
             continue
-        _seen.add(n)
-        unique_names.append(n)
+        _seen.add(canonical)
+        unique_names.append(canonical)
     tool_names = [
         name for name in unique_names if name not in DEPENDENT_TOOL_REQUIREMENTS
     ]
@@ -268,7 +278,10 @@ def resolve_allowed_tools(requested_names: list[str] | None, user) -> list[str]:
     names: list[str] = []
     seen: set[str] = set()
     for name in requested_names or []:
-        if not isinstance(name, str) or name not in registered:
+        if not isinstance(name, str):
+            continue
+        name = canonical_tool_name(name)
+        if name not in registered:
             continue
         if name in seen:
             continue

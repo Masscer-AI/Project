@@ -7,7 +7,7 @@ from typing import Any
 from pydantic import ValidationError as PydanticValidationError
 from rest_framework import serializers
 
-from api.ai_layers.tools import list_available_tools
+from api.ai_layers.tools import canonical_tool_name, list_available_tools
 from api.messaging.schemas import ChatWidgetCapabilitiesPayload
 
 from .capability_tools import filter_capabilities_for_whatsapp
@@ -34,14 +34,24 @@ def validate_whatsapp_capabilities_list(value: Any) -> list[dict[str, Any]]:
 
     available_tools = set(list_available_tools())
     invalid_names = sorted(
-        cap.name
-        for cap in parsed_payload.capabilities
-        if cap.name not in available_tools
+        {
+            cap.name
+            for cap in parsed_payload.capabilities
+            if canonical_tool_name(cap.name) not in available_tools
+        }
     )
     if invalid_names:
         raise serializers.ValidationError(
             f"Unknown capabilities: {', '.join(invalid_names)}"
         )
 
-    dumped = [cap.model_dump() for cap in parsed_payload.capabilities]
+    dumped = []
+    seen: set[str] = set()
+    for cap in parsed_payload.capabilities:
+        payload = cap.model_dump()
+        payload["name"] = canonical_tool_name(payload["name"])
+        if payload["name"] in seen:
+            continue
+        seen.add(payload["name"])
+        dumped.append(payload)
     return filter_capabilities_for_whatsapp(dumped)

@@ -294,14 +294,14 @@ def schedule_payload_dict(task: Any) -> dict[str, Any]:
 
 def normalize_capability_names(raw: list | None) -> list[str]:
     """Deduplicate and keep only names registered in TOOL_REGISTRY (order preserved)."""
-    from api.ai_layers.tools import TOOL_REGISTRY
+    from api.ai_layers.tools import TOOL_REGISTRY, canonical_tool_name
 
     seen: set[str] = set()
     out: list[str] = []
     for item in raw or []:
         if not isinstance(item, str):
             continue
-        name = item.strip()
+        name = canonical_tool_name(item.strip())
         if not name or name not in TOOL_REGISTRY or name in seen:
             continue
         seen.add(name)

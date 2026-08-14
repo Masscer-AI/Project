@@ -21,7 +21,7 @@ WHATSAPP_REQUIRED_CAPABILITY_TOOLS: tuple[str, ...] = (
 
 def filter_capabilities_for_whatsapp(capabilities: list | None) -> list[dict]:
     """Keep registered tools and enforce WhatsApp-required tools as enabled."""
-    from api.ai_layers.tools import list_available_tools
+    from api.ai_layers.tools import canonical_tool_name, list_available_tools
 
     available = set(list_available_tools())
     out: list[dict] = []
@@ -29,10 +29,14 @@ def filter_capabilities_for_whatsapp(capabilities: list | None) -> list[dict]:
     for cap in capabilities or []:
         if not isinstance(cap, dict):
             continue
-        name = cap.get("name")
-        if not isinstance(name, str) or name not in available:
+        raw_name = cap.get("name")
+        if not isinstance(raw_name, str):
+            continue
+        name = canonical_tool_name(raw_name)
+        if name not in available:
             continue
         normalized = dict(cap)
+        normalized["name"] = name
         if name in WHATSAPP_REQUIRED_CAPABILITY_TOOLS:
             normalized["type"] = "internal_tool"
             normalized["enabled"] = True
