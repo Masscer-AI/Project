@@ -3,13 +3,31 @@ In-memory WhatsApp Cloud API message-template allowlist.
 
 Templates are defined in code (not DB). Meta remains authoritative for
 approval/quality; this registry only decides which templates the AI may invoke.
+Copy fields (body_text / header_text / footer_text / button labels) mirror the
+approved Meta template so stored conversation messages can be interpolated.
 """
 
 from __future__ import annotations
 
+import re
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+_PLACEHOLDER_RE = re.compile(r"\{\{(\d+)\}\}")
+
+
+def fill_template_placeholders(text: str, values: list[str] | tuple[str, ...]) -> str:
+    """Replace Meta-style {{1}}, {{2}} placeholders with positional values."""
+    vals = [str(v) for v in values]
+
+    def repl(match: re.Match[str]) -> str:
+        idx = int(match.group(1)) - 1
+        if 0 <= idx < len(vals):
+            return vals[idx]
+        return ""
+
+    return _PLACEHOLDER_RE.sub(repl, text or "")
 
 
 class WhatsAppTemplateButton(BaseModel):
@@ -22,6 +40,8 @@ class WhatsAppTemplateButton(BaseModel):
     # When True, send_ws_template_message fills the dynamic URL suffix from the
     # authenticated source conversation UUID (chat?conversation=<uuid>).
     use_source_conversation_id: bool = False
+    label: str = ""
+    url: str = ""
     description: str = ""
 
 
@@ -35,13 +55,16 @@ class WhatsAppTemplateDefinition(BaseModel):
     description: str = ""
     # none/text: no header component at send time. image: requires header media.
     header_type: Literal["none", "text", "image"] = "none"
+    header_text: str = ""
+    body_text: str = ""
+    footer_text: str = ""
     body_variable_count: int = Field(ge=0)
     body_variable_descriptions: tuple[str, ...] = ()
     buttons: tuple[WhatsAppTemplateButton, ...] = ()
     enabled: bool = True
 
     @model_validator(mode="after")
-    def validate_descriptions_length(self) -> WhatsAppTemplateDefinition:
+    def validate_copy_and_descriptions(self) -> WhatsAppTemplateDefinition:
         if (
             self.body_variable_descriptions
             and len(self.body_variable_descriptions) != self.body_variable_count
@@ -49,6 +72,14 @@ class WhatsAppTemplateDefinition(BaseModel):
             raise ValueError(
                 "body_variable_descriptions length must match body_variable_count"
             )
+        if self.body_text:
+            nums = sorted({int(n) for n in _PLACEHOLDER_RE.findall(self.body_text)})
+            expected = list(range(1, self.body_variable_count + 1))
+            if nums != expected:
+                raise ValueError(
+                    "body_text placeholders must be {{1}}…{{N}} matching "
+                    "body_variable_count"
+                )
         return self
 
     @property
@@ -70,6 +101,15 @@ TASK_COMPLETED = WhatsAppTemplateDefinition(
         "Notify a user that a requested task was completed, with a short summary "
         "and a button linking back to the source Masscer conversation."
     ),
+    header_type="text",
+    header_text="Task completed",
+    body_text=(
+        "I have finished completing the requested task: *{{1}}*, here is a summary:\n"
+        "\n"
+        "{{2}}\n"
+        "\n"
+        "Let me know what you think!"
+    ),
     body_variable_count=2,
     body_variable_descriptions=(
         "Short task description (fills *{{1}}*).",
@@ -80,6 +120,8 @@ TASK_COMPLETED = WhatsAppTemplateDefinition(
             index=0,
             sub_type="url",
             use_source_conversation_id=True,
+            label="Visit website",
+            url="https://app.charlytoc.dev/chat?conversation=",
             description=(
                 "Dynamic URL suffix for "
                 "https://app.charlytoc.dev/chat?conversation={{1}} "
@@ -99,6 +141,15 @@ SOLICITUD_COMPLETADA = WhatsAppTemplateDefinition(
         "Notifica en español que una tarea solicitada fue completada, incluye "
         "un resumen y un boton que regresa a la conversacion de Masscer."
     ),
+    header_type="text",
+    header_text="Tarea completada",
+    body_text=(
+        "He terminado de realizar la tarea solicitada: *{{1}}*, aquí tienes un resumen:\n"
+        "\n"
+        "{{2}}\n"
+        "\n"
+        "¡Déjame saber tu opinión!"
+    ),
     body_variable_count=2,
     body_variable_descriptions=(
         "Descripcion corta de la tarea (completa *{{1}}*).",
@@ -109,6 +160,8 @@ SOLICITUD_COMPLETADA = WhatsAppTemplateDefinition(
             index=0,
             sub_type="url",
             use_source_conversation_id=True,
+            label="Ver en Masscer",
+            url="https://app.charlytoc.dev/chat?conversation=",
             description=(
                 "Sufijo dinamico para "
                 "https://app.charlytoc.dev/chat?conversation={{1}} "
@@ -129,12 +182,29 @@ APROBACION_PENDIENTE = WhatsAppTemplateDefinition(
         "Incluye un boton de respuesta rapida 'Si, permiso concedido.'; "
         "el usuario puede rechazar respondiendo en texto libre."
     ),
+    header_type="text",
+    header_text="Aprobación pendiente",
+    body_text=(
+        "Hola, necesito tu aprobación para continuar en la tarea *{{1}}*.\n"
+        "\n"
+        "Resumen de lo que voy a hacer:\n"
+        "{{2}}\n"
+        "\n"
+        "¿Apruebas este flujo?"
+    ),
     body_variable_count=2,
     body_variable_descriptions=(
         "Nombre corto de la tarea (completa *{{1}}*).",
         "Resumen de lo que el agente va a hacer si aprueban (completa {{2}}).",
     ),
-    buttons=(),
+    buttons=(
+        WhatsAppTemplateButton(
+            index=0,
+            sub_type="quick_reply",
+            label="Sí, permiso concedido.",
+            description="Sí, permiso concedido.",
+        ),
+    ),
     enabled=True,
 )
 
@@ -148,12 +218,29 @@ APPROVAL_PENDING = WhatsAppTemplateDefinition(
         "Includes a quick-reply button 'Yes, permission granted'; "
         "the user can reject by replying with free-form text."
     ),
+    header_type="text",
+    header_text="Pending approval",
+    body_text=(
+        "Hi, I need your approval to continue with the task *{{1}}*.\n"
+        "\n"
+        "Here's what I'm going to do:\n"
+        "{{2}}\n"
+        "\n"
+        "Do you approve this flow?"
+    ),
     body_variable_count=2,
     body_variable_descriptions=(
         "Short task name (fills *{{1}}*).",
         "Summary of what the agent will do if approved (fills {{2}}).",
     ),
-    buttons=(),
+    buttons=(
+        WhatsAppTemplateButton(
+            index=0,
+            sub_type="quick_reply",
+            label="Yes, permission granted",
+            description="Yes, permission granted",
+        ),
+    ),
     enabled=True,
 )
 
@@ -170,6 +257,17 @@ EXPRESO_FISCAL_SEMANAL = WhatsAppTemplateDefinition(
         "MessageAttachment de imagen en la conversacion actual)."
     ),
     header_type="image",
+    body_text=(
+        "*Expreso Fiscal | Integrarem*\n"
+        "\n"
+        "Actualización semanal: *{{1}}*\n"
+        "\n"
+        "Le compartimos los temas relevantes de esta edición:\n"
+        "\n"
+        "{{2}}\n"
+        "\n"
+        "Consulte el boletín completo y escuche el resumen ejecutivo en los enlaces siguientes."
+    ),
     body_variable_count=2,
     body_variable_descriptions=(
         "Fecha o etiqueta de la edicion (completa *{{1}}*), "
@@ -181,6 +279,8 @@ EXPRESO_FISCAL_SEMANAL = WhatsAppTemplateDefinition(
             index=0,
             sub_type="url",
             use_source_conversation_id=False,
+            label="Ver boletín completo",
+            url="https://integrarem.com.mx/expreso-fiscal/",
             description=(
                 "Sufijo dinamico para "
                 "https://integrarem.com.mx/expreso-fiscal/{{1}} "
@@ -191,6 +291,8 @@ EXPRESO_FISCAL_SEMANAL = WhatsAppTemplateDefinition(
             index=1,
             sub_type="url",
             use_source_conversation_id=False,
+            label="Escuchar resumen",
+            url="https://integrarem.com.mx/expreso-fiscal/audio/",
             description=(
                 "Sufijo dinamico para "
                 "https://integrarem.com.mx/expreso-fiscal/audio/{{1}} "
@@ -212,6 +314,16 @@ EXPRESO_FISCAL_RECORDATORIO = WhatsAppTemplateDefinition(
         "dinamico 'Consultar edicion'."
     ),
     header_type="text",
+    header_text="Expreso Fiscal | Integrarem",
+    body_text=(
+        "Ya está disponible la edición correspondiente a {{1}}.\n"
+        "\n"
+        "Incluye información general sobre {{2}}.\n"
+        "\n"
+        "Puede consultar el material completo en el siguiente enlace.\n"
+        "\n"
+        "La información es general e informativa y requiere validación conforme a la operación y documentación de cada caso."
+    ),
     body_variable_count=2,
     body_variable_descriptions=(
         "Edicion / periodo (completa {{1}}), "
@@ -223,6 +335,8 @@ EXPRESO_FISCAL_RECORDATORIO = WhatsAppTemplateDefinition(
             index=0,
             sub_type="url",
             use_source_conversation_id=False,
+            label="Consultar edición",
+            url="https://integrarem.com.mx/expreso-fiscal/",
             description=(
                 "Sufijo dinamico para "
                 "https://integrarem.com.mx/expreso-fiscal/{{1}} "
@@ -244,22 +358,33 @@ EXPRESO_FISCAL_PREFERENCIAS = WhatsAppTemplateDefinition(
         "'Continuar recibiendo', 'Actualizar preferencias', 'Solicitar baja'."
     ),
     header_type="text",
+    header_text="Integrarem",
+    body_text=(
+        "Recibimos su solicitud relacionada con las comunicaciones del Expreso Fiscal.\n"
+        "\n"
+        "Indíquenos la opción que desea gestionar.\n"
+        "\n"
+        "Sus datos serán tratados conforme al aviso de privacidad de Integrarem."
+    ),
     body_variable_count=0,
     body_variable_descriptions=(),
     buttons=(
         WhatsAppTemplateButton(
             index=0,
             sub_type="quick_reply",
+            label="Continuar recibiendo",
             description="Continuar recibiendo",
         ),
         WhatsAppTemplateButton(
             index=1,
             sub_type="quick_reply",
+            label="Actualizar preferencias",
             description="Actualizar preferencias",
         ),
         WhatsAppTemplateButton(
             index=2,
             sub_type="quick_reply",
+            label="Solicitar baja",
             description="Solicitar baja",
         ),
     ),
@@ -278,6 +403,11 @@ EXPRESO_FISCAL_BOLETIN_SEMANAL = WhatsAppTemplateDefinition(
         "'Solicitar resumen en audio', 'No deseo recibir avisos'."
     ),
     header_type="none",
+    body_text=(
+        "Hola {{1}}, el boletín semanal de Integrarem ya está listo.\n"
+        "\n"
+        "Le enviamos una copia a su correo registrado. Si desea consultarlo por WhatsApp, seleccione una opción:"
+    ),
     body_variable_count=1,
     body_variable_descriptions=(
         "Nombre del destinatario (completa {{1}}), ej. 'Maria'.",
@@ -286,16 +416,19 @@ EXPRESO_FISCAL_BOLETIN_SEMANAL = WhatsAppTemplateDefinition(
         WhatsAppTemplateButton(
             index=0,
             sub_type="quick_reply",
+            label="Leer por WhatsApp",
             description="Leer por WhatsApp",
         ),
         WhatsAppTemplateButton(
             index=1,
             sub_type="quick_reply",
+            label="Solicitar resumen en audio",
             description="Solicitar resumen en audio",
         ),
         WhatsAppTemplateButton(
             index=2,
             sub_type="quick_reply",
+            label="No deseo recibir avisos",
             description="No deseo recibir avisos",
         ),
     ),
@@ -335,6 +468,9 @@ def template_summary(template: WhatsAppTemplateDefinition) -> dict:
         "description": template.description,
         "header_type": template.header_type,
         "requires_header_image": template.requires_header_image,
+        "header_text": template.header_text,
+        "body_text": template.body_text,
+        "footer_text": template.footer_text,
         "body_variable_count": template.body_variable_count,
         "body_variable_descriptions": list(template.body_variable_descriptions),
         "button_variable_count": template.button_variable_count,
@@ -343,6 +479,8 @@ def template_summary(template: WhatsAppTemplateDefinition) -> dict:
                 "index": b.index,
                 "sub_type": b.sub_type,
                 "use_source_conversation_id": b.use_source_conversation_id,
+                "label": b.label,
+                "url": b.url,
                 "description": b.description,
             }
             for b in template.buttons

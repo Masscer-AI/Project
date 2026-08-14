@@ -13,6 +13,9 @@ def _definition_fields(defn) -> dict:
         "category": defn.category,
         "description": defn.description or "",
         "header_type": defn.header_type,
+        "header_text": defn.header_text or "",
+        "body_text": defn.body_text or "",
+        "footer_text": defn.footer_text or "",
         "body_variable_count": defn.body_variable_count,
         "body_variable_descriptions": list(defn.body_variable_descriptions),
         "buttons": [
@@ -20,6 +23,8 @@ def _definition_fields(defn) -> dict:
                 "index": b.index,
                 "sub_type": b.sub_type,
                 "use_source_conversation_id": b.use_source_conversation_id,
+                "label": b.label or "",
+                "url": b.url or "",
                 "description": b.description or "",
             }
             for b in defn.buttons

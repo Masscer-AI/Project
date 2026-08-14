@@ -46,6 +46,8 @@ def wstemplate_to_definition(row: WSTemplate) -> WhatsAppTemplateDefinition:
             use_source_conversation_id=bool(
                 b.get("use_source_conversation_id", False)
             ),
+            label=b.get("label") or "",
+            url=b.get("url") or "",
             description=b.get("description") or "",
         )
         for b in (row.buttons or [])
@@ -58,6 +60,9 @@ def wstemplate_to_definition(row: WSTemplate) -> WhatsAppTemplateDefinition:
         category=row.category,
         description=row.description or "",
         header_type=row.header_type or "none",
+        header_text=getattr(row, "header_text", "") or "",
+        body_text=getattr(row, "body_text", "") or "",
+        footer_text=getattr(row, "footer_text", "") or "",
         body_variable_count=row.body_variable_count,
         body_variable_descriptions=tuple(row.body_variable_descriptions or []),
         buttons=buttons,

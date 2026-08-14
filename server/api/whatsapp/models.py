@@ -213,13 +213,17 @@ class WSTemplate(models.Model):
         choices=HEADER_TYPE_CHOICES,
         default=HEADER_NONE,
     )
+    header_text = models.CharField(max_length=60, blank=True, default="")
+    body_text = models.TextField(blank=True, default="")
+    footer_text = models.CharField(max_length=60, blank=True, default="")
     body_variable_count = models.PositiveIntegerField(default=0)
     body_variable_descriptions = models.JSONField(default=list, blank=True)
     buttons = models.JSONField(
         default=list,
         blank=True,
         help_text=(
-            "List of {index, sub_type, use_source_conversation_id, description}."
+            "List of {index, sub_type, use_source_conversation_id, "
+            "label, url, description}."
         ),
     )
     enabled = models.BooleanField(default=True)

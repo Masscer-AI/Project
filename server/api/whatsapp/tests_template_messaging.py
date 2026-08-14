@@ -92,13 +92,13 @@ class WhatsAppSendTemplateMessageGraphTests(SimpleTestCase):
 
 
 class WhatsAppTemplateDeliveryMessageFormatTests(SimpleTestCase):
-    def test_format_matches_dashboard_markdown(self):
+    def test_format_interpolates_approved_copy(self):
         text = format_template_delivery_message(
-            APPROVAL_PENDING,
+            TASK_COMPLETED,
             TemplateVariables(
                 body=[
-                    "Send test WhatsApp message",
-                    "I will send a test message when you grant approval.",
+                    "Send a weekly summary every Monday at 7 AM",
+                    "Last week there was a large number of new users.",
                 ]
             ),
             source_conversation_id="11111111-1111-4111-8111-111111111111",
@@ -110,9 +110,18 @@ class WhatsAppTemplateDeliveryMessageFormatTests(SimpleTestCase):
                 "[Send from another conversation](/chat?conversation="
                 "11111111-1111-4111-8111-111111111111)\n"
                 "\n"
-                "### Send test WhatsApp message\n"
+                "### Task completed\n"
                 "\n"
-                "I will send a test message when you grant approval.\n"
+                "I have finished completing the requested task: "
+                "*Send a weekly summary every Monday at 7 AM*, here is a summary:\n"
+                "\n"
+                "Last week there was a large number of new users.\n"
+                "\n"
+                "Let me know what you think!\n"
+                "\n"
+                "- [Visit website](https://app.charlytoc.dev/chat?conversation="
+                "11111111-1111-4111-8111-111111111111)\n"
+                "\n"
                 "---"
             ),
         )
@@ -124,9 +133,17 @@ class WhatsAppTemplateRegistryTests(SimpleTestCase):
         self.assertIsNotNone(tpl)
         self.assertEqual(tpl.meta_name, "task_completed")
         self.assertEqual(tpl.language_code, "en")
+        self.assertEqual(tpl.header_type, "text")
+        self.assertEqual(tpl.header_text, "Task completed")
+        self.assertIn("*{{1}}*", tpl.body_text)
         self.assertEqual(tpl.body_variable_count, 2)
         self.assertEqual(tpl.button_variable_count, 1)
         self.assertTrue(tpl.buttons[0].use_source_conversation_id)
+        self.assertEqual(tpl.buttons[0].label, "Visit website")
+        self.assertEqual(
+            tpl.buttons[0].url,
+            "https://app.charlytoc.dev/chat?conversation=",
+        )
 
     def test_list_enabled_includes_task_completed(self):
         ids = {t.id for t in list_enabled_templates()}
@@ -137,9 +154,18 @@ class WhatsAppTemplateRegistryTests(SimpleTestCase):
         self.assertIsNotNone(tpl)
         self.assertEqual(tpl.meta_name, "solicitud_completada")
         self.assertEqual(tpl.language_code, "es")
+        self.assertEqual(tpl.header_type, "text")
+        self.assertEqual(tpl.header_text, "Tarea completada")
+        self.assertIn("*{{1}}*", tpl.body_text)
+        self.assertIn("¡Déjame saber tu opinión!", tpl.body_text)
         self.assertEqual(tpl.body_variable_count, 2)
         self.assertEqual(tpl.button_variable_count, 1)
         self.assertTrue(tpl.buttons[0].use_source_conversation_id)
+        self.assertEqual(tpl.buttons[0].label, "Ver en Masscer")
+        self.assertEqual(
+            tpl.buttons[0].url,
+            "https://app.charlytoc.dev/chat?conversation=",
+        )
 
         ids = {t.id for t in list_enabled_templates()}
         self.assertIn(SOLICITUD_COMPLETADA.id, ids)
@@ -149,9 +175,15 @@ class WhatsAppTemplateRegistryTests(SimpleTestCase):
         self.assertIsNotNone(tpl)
         self.assertEqual(tpl.meta_name, "aprobacion_pendiente")
         self.assertEqual(tpl.language_code, "es")
+        self.assertEqual(tpl.header_type, "text")
+        self.assertEqual(tpl.header_text, "Aprobación pendiente")
+        self.assertIn("*{{1}}*", tpl.body_text)
+        self.assertIn("¿Apruebas este flujo?", tpl.body_text)
         self.assertEqual(tpl.body_variable_count, 2)
         self.assertEqual(tpl.button_variable_count, 0)
-        self.assertEqual(tpl.buttons, ())
+        self.assertEqual(len(tpl.buttons), 1)
+        self.assertEqual(tpl.buttons[0].sub_type, "quick_reply")
+        self.assertEqual(tpl.buttons[0].label, "Sí, permiso concedido.")
 
         ids = {t.id for t in list_enabled_templates()}
         self.assertIn(APROBACION_PENDIENTE.id, ids)
@@ -161,9 +193,15 @@ class WhatsAppTemplateRegistryTests(SimpleTestCase):
         self.assertIsNotNone(tpl)
         self.assertEqual(tpl.meta_name, "approval_pending")
         self.assertEqual(tpl.language_code, "en")
+        self.assertEqual(tpl.header_type, "text")
+        self.assertEqual(tpl.header_text, "Pending approval")
+        self.assertIn("*{{1}}*", tpl.body_text)
+        self.assertIn("Do you approve this flow?", tpl.body_text)
         self.assertEqual(tpl.body_variable_count, 2)
         self.assertEqual(tpl.button_variable_count, 0)
-        self.assertEqual(tpl.buttons, ())
+        self.assertEqual(len(tpl.buttons), 1)
+        self.assertEqual(tpl.buttons[0].sub_type, "quick_reply")
+        self.assertEqual(tpl.buttons[0].label, "Yes, permission granted")
 
         ids = {t.id for t in list_enabled_templates()}
         self.assertIn(APPROVAL_PENDING.id, ids)
@@ -176,6 +214,15 @@ class WhatsAppTemplateRegistryTests(SimpleTestCase):
         self.assertEqual(tpl.category, "MARKETING")
         self.assertEqual(tpl.header_type, "image")
         self.assertTrue(tpl.requires_header_image)
+        self.assertIn("*Expreso Fiscal | Integrarem*", tpl.body_text)
+        self.assertEqual(tpl.buttons[0].label, "Ver boletín completo")
+        self.assertEqual(
+            tpl.buttons[0].url, "https://integrarem.com.mx/expreso-fiscal/"
+        )
+        self.assertEqual(tpl.buttons[1].label, "Escuchar resumen")
+        self.assertEqual(
+            tpl.buttons[1].url, "https://integrarem.com.mx/expreso-fiscal/audio/"
+        )
         self.assertEqual(tpl.body_variable_count, 2)
         self.assertEqual(tpl.button_variable_count, 2)
         summary = template_summary(tpl)
@@ -188,6 +235,12 @@ class WhatsAppTemplateRegistryTests(SimpleTestCase):
         self.assertEqual(tpl.meta_name, "expreso_fiscal_recordatorio")
         self.assertEqual(tpl.language_code, "es_MX")
         self.assertEqual(tpl.header_type, "text")
+        self.assertEqual(tpl.header_text, "Expreso Fiscal | Integrarem")
+        self.assertIn("Ya está disponible la edición", tpl.body_text)
+        self.assertEqual(tpl.buttons[0].label, "Consultar edición")
+        self.assertEqual(
+            tpl.buttons[0].url, "https://integrarem.com.mx/expreso-fiscal/"
+        )
         self.assertEqual(tpl.body_variable_count, 2)
         self.assertEqual(tpl.button_variable_count, 1)
         self.assertFalse(tpl.buttons[0].use_source_conversation_id)
@@ -201,10 +254,16 @@ class WhatsAppTemplateRegistryTests(SimpleTestCase):
         self.assertIsNotNone(tpl)
         self.assertEqual(tpl.meta_name, "expreso_fiscal_preferencias")
         self.assertEqual(tpl.category, "UTILITY")
+        self.assertEqual(tpl.header_type, "text")
+        self.assertEqual(tpl.header_text, "Integrarem")
+        self.assertIn("comunicaciones del Expreso Fiscal", tpl.body_text)
         self.assertEqual(tpl.body_variable_count, 0)
         self.assertEqual(tpl.button_variable_count, 0)
         self.assertEqual(len(tpl.buttons), 3)
         self.assertTrue(all(b.sub_type == "quick_reply" for b in tpl.buttons))
+        self.assertEqual(tpl.buttons[0].label, "Continuar recibiendo")
+        self.assertEqual(tpl.buttons[1].label, "Actualizar preferencias")
+        self.assertEqual(tpl.buttons[2].label, "Solicitar baja")
         self.assertIn(
             EXPRESO_FISCAL_PREFERENCIAS.id,
             {t.id for t in list_enabled_templates()},
@@ -223,6 +282,8 @@ class WhatsAppTemplateRegistryTests(SimpleTestCase):
         self.assertEqual(len(tpl.buttons), 3)
         self.assertTrue(all(b.sub_type == "quick_reply" for b in tpl.buttons))
         self.assertEqual(tpl.buttons[0].description, "Leer por WhatsApp")
+        self.assertEqual(tpl.buttons[0].label, "Leer por WhatsApp")
+        self.assertIn("Hola {{1}}", tpl.body_text)
         self.assertEqual(tpl.buttons[1].description, "Solicitar resumen en audio")
         self.assertEqual(tpl.buttons[2].description, "No deseo recibir avisos")
         self.assertIn(
@@ -374,6 +435,8 @@ class WhatsAppTemplateRegistryTests(SimpleTestCase):
         summary = template_summary(TASK_COMPLETED)
         self.assertEqual(summary["template_id"], "task_completed_en")
         self.assertEqual(summary["body_variable_count"], 2)
+        self.assertEqual(summary["header_text"], "Task completed")
+        self.assertTrue(summary["body_text"])
 
 
 class WhatsAppContactBridgeTests(TestCase):
@@ -653,13 +716,12 @@ class WhatsAppTemplateSendTests(TestCase):
             msg.metadata.get("source_conversation_id"),
             str(self.source_conversation.id),
         )
-        self.assertIn("---", msg.text)
-        self.assertIn(
-            f"[Send from another conversation](/chat?conversation={self.source_conversation.id})",
-            msg.text,
-        )
-        self.assertIn("### Finish weekly report", msg.text)
+        self.assertIn("### Task completed", msg.text)
+        self.assertIn("I have finished completing the requested task:", msg.text)
+        self.assertIn("*Finish weekly report*", msg.text)
         self.assertIn("All good this week", msg.text)
+        self.assertIn("Let me know what you think!", msg.text)
+        self.assertIn("Visit website", msg.text)
         self.assertFalse(
             Message.objects.filter(conversation=self.source_conversation).exists()
         )

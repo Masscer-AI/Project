@@ -31,7 +31,10 @@ from api.whatsapp.conversations import (
 )
 from api.whatsapp.models import WSContact, WSNumber
 from api.whatsapp.template_access import get_template_for_organization
-from api.whatsapp.template_registry import WhatsAppTemplateDefinition
+from api.whatsapp.template_registry import (
+    WhatsAppTemplateDefinition,
+    fill_template_placeholders,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -305,36 +308,56 @@ def format_template_delivery_message(
     source_conversation_id: str | None,
 ) -> str:
     """
-    Markdown stored on the WhatsApp delivery conversation for dashboard + agent context.
+    Markdown stored on the WhatsApp delivery conversation.
 
-    ---
-    [Send from another conversation](/chat?conversation=<uuid>)
-
-    ### Title
-
-    Body
-    ---
+    Interpolates the approved Meta copy (header/body/footer/buttons) so the
+    stored message looks like what was sent, plus a source-conversation link.
     """
-    body_values = [str(v).strip() for v in (variables.body or []) if str(v).strip()]
-    if len(body_values) >= 2:
-        title = body_values[0]
-        body = "\n\n".join(body_values[1:])
-    elif len(body_values) == 1:
-        title = (template.meta_name or template.id).replace("_", " ").strip()
-        body = body_values[0]
-    else:
-        title = (template.meta_name or template.id).replace("_", " ").strip()
-        body = (template.description or "").strip() or "(no body)"
-
+    body_values = [str(v) for v in (variables.body or [])]
     lines = ["---"]
     if source_conversation_id:
         lines.append(
             f"[Send from another conversation](/chat?conversation={source_conversation_id})"
         )
         lines.append("")
-    lines.append(f"### {title}")
+    if template.header_text:
+        lines.append(
+            f"### {fill_template_placeholders(template.header_text, body_values)}"
+        )
+        lines.append("")
+    if template.body_text:
+        lines.append(
+            fill_template_placeholders(template.body_text, body_values).strip()
+        )
+    else:
+        filled = [v.strip() for v in body_values if str(v).strip()]
+        if filled:
+            lines.append("\n\n".join(filled))
+    if template.footer_text:
+        lines.append("")
+        lines.append(
+            fill_template_placeholders(template.footer_text, body_values).strip()
+        )
+    if template.buttons:
+        lines.append("")
+        manual_button_suffixes = iter(str(v) for v in (variables.buttons or []))
+        for btn in template.buttons:
+            label = (btn.label or "").strip()
+            if not label:
+                continue
+            href = ""
+            if btn.sub_type == "url" and btn.url:
+                suffix = ""
+                if btn.use_source_conversation_id and source_conversation_id:
+                    suffix = str(source_conversation_id)
+                elif not btn.use_source_conversation_id:
+                    suffix = str(next(manual_button_suffixes, ""))
+                href = f"{btn.url}{suffix}"
+            if href:
+                lines.append(f"- [{label}]({href})")
+            else:
+                lines.append(f"- {label}")
     lines.append("")
-    lines.append(body)
     lines.append("---")
     return "\n".join(lines)[:4000]
 
