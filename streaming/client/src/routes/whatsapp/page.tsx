@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Sidebar } from "../../components/Sidebar/Sidebar";
 import { useStore } from "../../modules/store";
 import "./page.css";
-import { getWhatsappNumbers } from "../../modules/apiCalls";
+import { getWhatsappNumbers, getWhatsappTemplates } from "../../modules/apiCalls";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 
@@ -28,12 +28,14 @@ import {
   IconRobot,
   IconSettings,
   IconSparkles,
+  IconTemplate,
   IconUsers,
 } from "@tabler/icons-react";
 import {
   countEnabledCapabilities,
   formatWhatsappPhone,
   type WhatsappLine,
+  type WhatsappTemplate,
 } from "./shared";
 
 function StatChip({
@@ -185,6 +187,106 @@ function WhatsappLineCard({ line }: { line: WhatsappLine }) {
   );
 }
 
+function templateCategoryColor(category: string): string {
+  const key = (category || "").toUpperCase();
+  if (key === "MARKETING") return "violet";
+  if (key === "AUTHENTICATION") return "gray";
+  return "blue";
+}
+
+function WhatsappTemplateCard({ template }: { template: WhatsappTemplate }) {
+  const { t } = useTranslation();
+  const category = (template.category || "").toUpperCase();
+  const categoryLabel =
+    category === "MARKETING"
+      ? t("whatsapp-template-category-marketing")
+      : category === "AUTHENTICATION"
+        ? t("whatsapp-template-category-authentication")
+        : t("whatsapp-template-category-utility");
+  const buttonLabels = (template.buttons || [])
+    .map((b) => (b.label || "").trim())
+    .filter(Boolean);
+  const bodyPreview = (template.body_text || "").trim();
+
+  return (
+    <Card withBorder padding="md" radius="md">
+      <Stack gap="sm">
+        <Group justify="space-between" align="flex-start" wrap="nowrap" gap="md">
+          <Group gap="md" wrap="nowrap" style={{ minWidth: 0, flex: 1 }}>
+            <ThemeIcon
+              size={40}
+              radius="md"
+              variant="light"
+              color="violet"
+              style={{ flexShrink: 0 }}
+            >
+              <IconTemplate size={22} />
+            </ThemeIcon>
+            <Stack gap={4} style={{ minWidth: 0, flex: 1 }}>
+              <Group gap="xs" wrap="wrap">
+                <Text fw={700} size="md" lineClamp={1}>
+                  {template.meta_name}
+                </Text>
+                <Badge size="sm" variant="light" color={templateCategoryColor(category)}>
+                  {categoryLabel}
+                </Badge>
+                {template.language_code ? (
+                  <Badge size="sm" variant="light" color="gray">
+                    {template.language_code}
+                  </Badge>
+                ) : null}
+                {template.requires_header_image ? (
+                  <Badge size="sm" variant="light" color="teal">
+                    {t("whatsapp-template-header-image")}
+                  </Badge>
+                ) : null}
+              </Group>
+              <Text size="xs" c="dimmed" ff="monospace">
+                {template.template_id}
+              </Text>
+            </Stack>
+          </Group>
+          {template.body_variable_count > 0 ? (
+            <Badge size="sm" variant="outline" color="gray">
+              {t("whatsapp-template-variables", {
+                count: template.body_variable_count,
+              })}
+            </Badge>
+          ) : null}
+        </Group>
+
+        {template.description ? (
+          <Text size="sm" c="dimmed">
+            {template.description}
+          </Text>
+        ) : null}
+
+        {template.header_text ? (
+          <Text size="sm" fw={600}>
+            {template.header_text}
+          </Text>
+        ) : null}
+
+        {bodyPreview ? (
+          <Text size="sm" style={{ whiteSpace: "pre-wrap" }} lineClamp={4}>
+            {bodyPreview}
+          </Text>
+        ) : null}
+
+        {buttonLabels.length > 0 ? (
+          <Group gap="xs" wrap="wrap">
+            {buttonLabels.map((label) => (
+              <Badge key={label} size="sm" variant="default">
+                {label}
+              </Badge>
+            ))}
+          </Group>
+        ) : null}
+      </Stack>
+    </Card>
+  );
+}
+
 export default function Whatsapp() {
   const { t } = useTranslation();
   const { chatState, toggleSidebar } = useStore((s) => ({
@@ -195,10 +297,14 @@ export default function Whatsapp() {
   const [numbers, setNumbers] = useState<WhatsappLine[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [templates, setTemplates] = useState<WhatsappTemplate[]>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(true);
+  const [templatesError, setTemplatesError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setTemplatesLoading(true);
     getWhatsappNumbers()
       .then((res) => {
         if (!cancelled) {
@@ -214,6 +320,23 @@ export default function Whatsapp() {
       .finally(() => {
         if (!cancelled) {
           setLoading(false);
+        }
+      });
+    getWhatsappTemplates()
+      .then((res) => {
+        if (!cancelled) {
+          setTemplates(res.templates || []);
+          setTemplatesError(null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setTemplatesError(t("whatsapp-templates-load-error"));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setTemplatesLoading(false);
         }
       });
     return () => {
@@ -288,6 +411,46 @@ export default function Whatsapp() {
             <Stack gap="md">
               {numbers.map((line) => (
                 <WhatsappLineCard key={line.id} line={line} />
+              ))}
+            </Stack>
+          )}
+
+          <Group justify="space-between" align="baseline" mb="xs" mt="xl">
+            <Title order={4}>{t("whatsapp-templates")}</Title>
+            {!templatesLoading && !templatesError ? (
+              <Text size="sm" c="dimmed">
+                {t("whatsapp-templates-count", { count: templates.length })}
+              </Text>
+            ) : null}
+          </Group>
+          <Text size="sm" c="dimmed" mb="sm">
+            {t("whatsapp-templates-intro")}
+          </Text>
+
+          {templatesLoading ? (
+            <Stack align="center" py="xl">
+              <Loader color="violet" />
+            </Stack>
+          ) : templatesError ? (
+            <Text c="red">{templatesError}</Text>
+          ) : templates.length === 0 ? (
+            <Card withBorder padding="xl" radius="md">
+              <Stack align="center" gap="sm">
+                <ThemeIcon size={48} radius="md" variant="light" color="gray">
+                  <IconTemplate size={28} />
+                </ThemeIcon>
+                <Text c="dimmed" ta="center">
+                  {t("whatsapp-templates-empty")}
+                </Text>
+              </Stack>
+            </Card>
+          ) : (
+            <Stack gap="md">
+              {templates.map((template) => (
+                <WhatsappTemplateCard
+                  key={template.template_id}
+                  template={template}
+                />
               ))}
             </Stack>
           )}

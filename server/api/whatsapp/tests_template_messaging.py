@@ -2,9 +2,10 @@ from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.test import SimpleTestCase, TestCase
+from rest_framework.test import APIClient
 
 from api.ai_layers.models import Agent
-from api.authenticate.models import Organization, UserProfile
+from api.authenticate.models import Organization, Token, UserProfile
 from api.messaging.models import Conversation, Message
 from api.whatsapp.conversations import (
     create_whatsapp_conversation,
@@ -1284,3 +1285,84 @@ class WhatsAppTemplateSubscriptionAccessTests(TestCase):
         )
         self.assertTrue(result.sent)
         mock_send.assert_called_once()
+
+
+@patch("api.whatsapp.views.FeatureFlagService.is_feature_enabled", return_value=(True, "on"))
+class WhatsAppTemplatesApiTests(TestCase):
+    def setUp(self):
+        from api.ai_layers.models import LanguageModel
+        from api.consumption.models import Currency
+        from api.providers.models import AIProvider
+
+        Currency.objects.get_or_create(
+            name="Compute Unit", defaults={"one_usd_is": 1000}
+        )
+        provider = AIProvider.objects.create(name="OpenAI-wa-tpl-api")
+        LanguageModel.objects.create(
+            provider=provider, slug="gpt-wa-tpl-api", name="GPT WA Tpl API"
+        )
+        self.client = APIClient()
+        self.owner = User.objects.create_user(
+            username="wa_tpl_api_owner", email="tpl-api@example.com", password="x"
+        )
+        self.other = User.objects.create_user(
+            username="wa_tpl_api_other", email="tpl-other@example.com", password="x"
+        )
+        self.org = Organization.objects.create(name="Tpl API Org", owner=self.owner)
+        self.other_org = Organization.objects.create(
+            name="Tpl API Other Org", owner=self.other
+        )
+        for user, org in ((self.owner, self.org), (self.other, self.other_org)):
+            profile = UserProfile.objects.get(user=user)
+            profile.organization = org
+            profile.save(update_fields=["organization", "updated_at"])
+        self.login_token, _ = Token.get_or_create(user=self.owner, token_type="login")
+        self.other_token, _ = Token.get_or_create(user=self.other, token_type="login")
+        sync_default_whatsapp_templates()
+
+    def _auth_headers(self, token=None):
+        key = (token or self.login_token).key
+        return {"HTTP_AUTHORIZATION": f"Token {key}"}
+
+    def test_lists_public_templates_for_organization(self, _mock_ff):
+        response = self.client.get("/v1/whatsapp/templates", **self._auth_headers())
+        self.assertEqual(response.status_code, 200)
+        templates = response.json()["templates"]
+        ids = {t["template_id"] for t in templates}
+        self.assertIn("task_completed_en", ids)
+        self.assertIn("expreso_fiscal_preferencias_es_mx", ids)
+        preferencias = next(
+            t for t in templates if t["template_id"] == "expreso_fiscal_preferencias_es_mx"
+        )
+        self.assertEqual(preferencias["meta_name"], "expreso_fiscal_preferencias")
+        self.assertEqual(preferencias["language_code"], "es_MX")
+        self.assertEqual(preferencias["category"], "UTILITY")
+        self.assertIn("comunicaciones del Expreso Fiscal", preferencias["body_text"])
+        labels = {b["label"] for b in preferencias["buttons"]}
+        self.assertEqual(
+            labels,
+            {"Continuar recibiendo", "Actualizar preferencias", "Solicitar baja"},
+        )
+
+    def test_hides_templates_not_subscribed_by_org(self, _mock_ff):
+        tpl = WSTemplate.objects.get(slug="task_completed_en")
+        WSTemplateSubscription.objects.create(template=tpl, organization=self.org)
+
+        mine = self.client.get("/v1/whatsapp/templates", **self._auth_headers())
+        other = self.client.get(
+            "/v1/whatsapp/templates", **self._auth_headers(self.other_token)
+        )
+        self.assertIn(
+            "task_completed_en",
+            {t["template_id"] for t in mine.json()["templates"]},
+        )
+        self.assertNotIn(
+            "task_completed_en",
+            {t["template_id"] for t in other.json()["templates"]},
+        )
+
+    def test_403_when_flag_off(self, mock_ff):
+        mock_ff.return_value = (False, "off")
+        response = self.client.get("/v1/whatsapp/templates", **self._auth_headers())
+        self.assertEqual(response.status_code, 403)
+

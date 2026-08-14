@@ -33,6 +33,8 @@ from .conversations import (
 )
 from .models import WSContact, WSNumber
 from .serializers import WSContactSerializer, WSNumberSerializer
+from .template_access import templates_for_organization, wstemplate_to_definition
+from .template_registry import template_summary
 from .tasks import async_handle_webhook
 from .webhook_signature import verify_meta_webhook_signature
 
@@ -295,6 +297,22 @@ class WSNumbersView(View):
         ws_numbers = WSNumber.objects.filter(ws_number_visible_q(user)).distinct()
         serializer = WSNumberSerializer(ws_numbers, many=True)
         return JsonResponse(serializer.data, safe=False)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class WSTemplatesView(View):
+    def get(self, request, *args, **kwargs):
+        user = request.user
+        _require_whatsapp_numbers_management(user)
+        organization = _whatsapp_get_user_organization(user)
+        if not organization:
+            return JsonResponse({"templates": []})
+        templates = [
+            template_summary(wstemplate_to_definition(row))
+            for row in templates_for_organization(organization)
+        ]
+        return JsonResponse({"templates": templates})
 
 
 @method_decorator(csrf_exempt, name="dispatch")

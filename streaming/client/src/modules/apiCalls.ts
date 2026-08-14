@@ -35,6 +35,7 @@ import { TReactionTemplate, TUserData, TUserProfile } from "../types/chatTypes";
 import { TAgent, TModel } from "../types/agents";
 import { TUserPreferences } from "./storeTypes";
 import type { TTenantBranding } from "./storeTypes";
+import type { WhatsappTemplate } from "../routes/whatsapp/shared";
 
 const getToken = (isPublic: boolean) => {
   if (isPublic) {
@@ -487,6 +488,13 @@ export const getMedia = async (
 
 export const getWhatsappNumbers = async () => {
   return makeAuthenticatedRequest("GET", "/v1/whatsapp/numbers");
+};
+
+export const getWhatsappTemplates = async () => {
+  return makeAuthenticatedRequest<{ templates: WhatsappTemplate[] }>(
+    "GET",
+    "/v1/whatsapp/templates"
+  );
 };
 
 export type TWhatsappContact = {

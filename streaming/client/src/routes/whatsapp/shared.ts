@@ -1,5 +1,31 @@
 export type WhatsappAccessMode = "public" | "organization" | "roles" | "user";
 
+export type WhatsappTemplateButton = {
+  index: number;
+  sub_type: "url" | "quick_reply" | string;
+  use_source_conversation_id?: boolean;
+  label: string;
+  url?: string;
+  description?: string;
+};
+
+export type WhatsappTemplate = {
+  template_id: string;
+  meta_name: string;
+  language_code: string;
+  category: string;
+  description: string;
+  header_type: string;
+  requires_header_image?: boolean;
+  header_text?: string;
+  body_text?: string;
+  footer_text?: string;
+  body_variable_count: number;
+  body_variable_descriptions?: string[];
+  button_variable_count?: number;
+  buttons: WhatsappTemplateButton[];
+};
+
 export type WhatsappLine = {
   id: number;
   number: string;

@@ -2,6 +2,7 @@ from django.urls import path
 from .views import (
     webhook,
     WSNumbersView,
+    WSTemplatesView,
     WSConversationsView,
     WSConversationDetailView,
     WSNumberDetailView,
@@ -14,6 +15,7 @@ app_name = "whatsapp"
 urlpatterns = [
     path("webhook", webhook, name="webhook_handler"),
     path("numbers", WSNumbersView.as_view(), name="ws_numbers"),
+    path("templates", WSTemplatesView.as_view(), name="ws_templates"),
     path(
         "numbers/<int:pk>/contacts",
         WSNumberContactsView.as_view(),
