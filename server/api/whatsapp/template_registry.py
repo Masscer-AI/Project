@@ -435,6 +435,79 @@ EXPRESO_FISCAL_BOLETIN_SEMANAL = WhatsAppTemplateDefinition(
     enabled=True,
 )
 
+EXPRESO_FISCAL_RESUMEN_SEMANAL = WhatsAppTemplateDefinition(
+    id="expreso_fiscal_resumen_semanal_es_mx",
+    meta_name="expreso_fiscal_resumen_semanal_es_mx",
+    language_code="es_MX",
+    category="MARKETING",
+    description=(
+        "Resumen semanal Expreso Fiscal (Integrarem) por WhatsApp. "
+        "Sin header ni footer. Cuerpo con 7 variables: destinatario, "
+        "periodo, titular, dos puntos a vigilar, dolar FIX y CETES. "
+        "Tres botones de respuesta rapida: 'Leer boletin completo', "
+        "'Solicitar resumen en audio', 'No deseo recibir avisos'."
+    ),
+    header_type="none",
+    body_text=(
+        "*INTEGRAREM | EXPRESO FISCAL*\n"
+        "\n"
+        "Hola, {{1}}.\n"
+        "\n"
+        "🗓️ *Resumen fiscal — {{2}}*\n"
+        "\n"
+        "🔎 *Titular principal:*\n"
+        "{{3}}\n"
+        "\n"
+        "📌 *Otros puntos a vigilar:*\n"
+        "• {{4}}\n"
+        "• {{5}}\n"
+        "\n"
+        "📈 *Pulso económico:*\n"
+        "Dólar FIX: {{6}}\n"
+        "CETES de referencia: {{7}}\n"
+        "\n"
+        "Consulte las fuentes oficiales y el análisis general de esta edición "
+        "en los recursos compartidos por Integrarem.\n"
+        "\n"
+        "_Información general; su aplicación puede variar según la operación "
+        "y documentación de cada caso._"
+    ),
+    body_variable_count=7,
+    body_variable_descriptions=(
+        "Nombre del destinatario (completa {{1}}), ej. 'Maria'.",
+        "Fecha o periodo de la edicion (completa {{2}}), "
+        "ej. '14 de agosto de 2026'.",
+        "Titular principal breve (completa {{3}}).",
+        "Nota de radar fiscal 1 (completa {{4}}).",
+        "Nota de radar fiscal 2 (completa {{5}}).",
+        "Tipo de cambio FIX y fecha de corte (completa {{6}}), "
+        "ej. '$17.0530 MXN/USD · 14 ago. 2026'.",
+        "CETES de referencia y fecha de corte (completa {{7}}), "
+        "ej. '28 dias: 6.40% · 91 dias: 6.48%'.",
+    ),
+    buttons=(
+        WhatsAppTemplateButton(
+            index=0,
+            sub_type="quick_reply",
+            label="Leer boletín completo",
+            description="Leer boletín completo",
+        ),
+        WhatsAppTemplateButton(
+            index=1,
+            sub_type="quick_reply",
+            label="Solicitar resumen en audio",
+            description="Solicitar resumen en audio",
+        ),
+        WhatsAppTemplateButton(
+            index=2,
+            sub_type="quick_reply",
+            label="No deseo recibir avisos",
+            description="No deseo recibir avisos",
+        ),
+    ),
+    enabled=True,
+)
+
 
 WHATSAPP_TEMPLATES: dict[str, WhatsAppTemplateDefinition] = {
     TASK_COMPLETED.id: TASK_COMPLETED,
@@ -445,6 +518,7 @@ WHATSAPP_TEMPLATES: dict[str, WhatsAppTemplateDefinition] = {
     EXPRESO_FISCAL_RECORDATORIO.id: EXPRESO_FISCAL_RECORDATORIO,
     EXPRESO_FISCAL_PREFERENCIAS.id: EXPRESO_FISCAL_PREFERENCIAS,
     EXPRESO_FISCAL_BOLETIN_SEMANAL.id: EXPRESO_FISCAL_BOLETIN_SEMANAL,
+    EXPRESO_FISCAL_RESUMEN_SEMANAL.id: EXPRESO_FISCAL_RESUMEN_SEMANAL,
 }
 
 

@@ -22,6 +22,7 @@ from api.whatsapp.template_registry import (
     EXPRESO_FISCAL_BOLETIN_SEMANAL,
     EXPRESO_FISCAL_PREFERENCIAS,
     EXPRESO_FISCAL_RECORDATORIO,
+    EXPRESO_FISCAL_RESUMEN_SEMANAL,
     EXPRESO_FISCAL_SEMANAL,
     SOLICITUD_COMPLETADA,
     TASK_COMPLETED,
@@ -292,6 +293,28 @@ class WhatsAppTemplateRegistryTests(SimpleTestCase):
             {t.id for t in list_enabled_templates()},
         )
 
+    def test_expreso_fiscal_resumen_semanal_registered(self):
+        tpl = get_template("expreso_fiscal_resumen_semanal_es_mx")
+        self.assertIsNotNone(tpl)
+        self.assertEqual(tpl.meta_name, "expreso_fiscal_resumen_semanal_es_mx")
+        self.assertEqual(tpl.language_code, "es_MX")
+        self.assertEqual(tpl.category, "MARKETING")
+        self.assertEqual(tpl.header_type, "none")
+        self.assertFalse(tpl.requires_header_image)
+        self.assertEqual(tpl.body_variable_count, 7)
+        self.assertEqual(tpl.button_variable_count, 0)
+        self.assertEqual(len(tpl.buttons), 3)
+        self.assertTrue(all(b.sub_type == "quick_reply" for b in tpl.buttons))
+        self.assertEqual(tpl.buttons[0].label, "Leer boletín completo")
+        self.assertEqual(tpl.buttons[1].label, "Solicitar resumen en audio")
+        self.assertEqual(tpl.buttons[2].label, "No deseo recibir avisos")
+        self.assertIn("*INTEGRAREM | EXPRESO FISCAL*", tpl.body_text)
+        self.assertIn("{{7}}", tpl.body_text)
+        self.assertIn(
+            EXPRESO_FISCAL_RESUMEN_SEMANAL.id,
+            {t.id for t in list_enabled_templates()},
+        )
+
     def test_build_components_for_expreso_fiscal_semanal_with_header_image(self):
         components = build_template_components(
             EXPRESO_FISCAL_SEMANAL,
@@ -364,6 +387,27 @@ class WhatsAppTemplateRegistryTests(SimpleTestCase):
         self.assertEqual(len(components), 1)
         self.assertEqual(components[0]["type"], "body")
         self.assertEqual(components[0]["parameters"][0]["text"], "Maria")
+
+    def test_build_components_for_expreso_fiscal_resumen_semanal(self):
+        body = [
+            "Maria",
+            "14 de agosto de 2026",
+            "Nuevas disposiciones en materia de PLD",
+            "Publicaciones vigentes en RMF 2026",
+            "Fechas y obligaciones a vigilar durante agosto",
+            "$17.0530 MXN/USD · 14 ago. 2026",
+            "28 dias: 6.40% · 91 dias: 6.48%",
+        ]
+        components = build_template_components(
+            EXPRESO_FISCAL_RESUMEN_SEMANAL,
+            TemplateVariables(body=body),
+            source_conversation_id=None,
+        )
+        self.assertEqual(len(components), 1)
+        self.assertEqual(components[0]["type"], "body")
+        self.assertEqual(len(components[0]["parameters"]), 7)
+        self.assertEqual(components[0]["parameters"][0]["text"], "Maria")
+        self.assertEqual(components[0]["parameters"][6]["text"], body[6])
 
     def test_build_components_for_aprobacion_pendiente(self):
         components = build_template_components(
