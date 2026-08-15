@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useState } from "react";
 import { useStore } from "../../modules/store";
 import { useTranslation } from "react-i18next";
 import { AttatchmentMode } from "../../types";
@@ -18,9 +18,11 @@ import {
   IconDownload,
   IconX,
   IconLink,
+  IconMusic,
 } from "@tabler/icons-react";
 import { AttachmentDetailsModal } from "../AttachmentVisibility/AttachmentVisibilityModal";
 import { DocumentFileIcon } from "../../modules/documentFileMeta";
+import type { TGalleryItem } from "../../modules/apiCalls";
 
 const VIDEO_EXT_RE = /\.(mp4|webm|mov|m4v|ogv)(\?|#|$)/i;
 
@@ -30,6 +32,45 @@ function isVideoAttachmentType(type: string, name: string, content: string): boo
   if (t.startsWith("video/") || t.startsWith("video_generation")) return true;
   if (t.startsWith("image") || t.startsWith("audio")) return false;
   return VIDEO_EXT_RE.test(name || "") || VIDEO_EXT_RE.test(content || "");
+}
+
+function isAudioAttachmentType(type: string): boolean {
+  const t = type || "";
+  return t.indexOf("audio") === 0;
+}
+
+function resolveAttachmentFileId(
+  attachmentId?: string,
+  id?: number | string
+): string | undefined {
+  if (attachmentId) return String(attachmentId);
+  if (typeof id === "string" && id.includes("-")) return id;
+  return undefined;
+}
+
+function detailsInitialItem(opts: {
+  fileId?: string;
+  src: string;
+  name: string;
+  visibility?: "personal" | "organization" | "roles" | "link";
+  type: TGalleryItem["type"];
+  contentType?: string;
+}): TGalleryItem | null {
+  if (!opts.fileId) return null;
+  return {
+    id: opts.fileId,
+    url: opts.src,
+    content_type: opts.contentType || "",
+    type: opts.type,
+    name: opts.name,
+    prompt: null,
+    metadata: {},
+    conversation_id: "",
+    conversation_title: "",
+    message_id: null,
+    created_at: null,
+    visibility: opts.visibility || "personal",
+  };
 }
 
 interface ThumbnailProps {
@@ -74,8 +115,7 @@ export const Thumbnail = ({
       {type.indexOf("audio") !== 0 &&
         type.indexOf("image") !== 0 &&
         !isVideoAttachmentType(type, name, content) &&
-        type.indexOf("audio_generation") !== 0 && (
-          type !== "website" && (
+        type !== "website" && (
           <DocumentThumnail
             id={id}
             attachmentId={attachment_id}
@@ -86,23 +126,35 @@ export const Thumbnail = ({
             src={src}
             showFloatingButtons={showFloatingButtons}
           />
-          )
         )}
       {type.indexOf("image") === 0 && (
         <ImageAttachmentThumbnail
+          id={id}
+          attachmentId={attachment_id}
+          visibility={visibility}
           src={src}
           name={name}
           showFloatingButtons={showFloatingButtons}
           onDelete={() => deleteAttachment(index)}
         />
       )}
-      {/* Audio type currently unused */}
-      {type.indexOf("audio_generation") === 0 && (
-        <AudioThumbnail src={content} />
+      {isAudioAttachmentType(type) && (
+        <AudioThumbnail
+          id={id}
+          attachmentId={attachment_id}
+          visibility={visibility}
+          src={content || src}
+          name={name}
+          showFloatingButtons={showFloatingButtons}
+          onDelete={() => deleteAttachment(index)}
+        />
       )}
 
       {isVideoAttachmentType(type, name, content) && (
         <VideoAttachmentThumbnail
+          id={id}
+          attachmentId={attachment_id}
+          visibility={visibility}
           src={src}
           name={name}
           text={text}
@@ -115,45 +167,66 @@ export const Thumbnail = ({
 };
 
 const ImageAttachmentThumbnail = ({
+  id,
+  attachmentId,
+  visibility,
   src,
   name,
   showFloatingButtons,
   onDelete,
 }: {
+  id?: number | string;
+  attachmentId?: string;
+  visibility?: "personal" | "organization" | "roles" | "link";
   src: string;
   name: string;
   showFloatingButtons: boolean;
   onDelete: () => void;
 }) => {
   const { t } = useTranslation();
-  const [showModal, setShowModal] = useState(false);
+  const [previewOpened, setPreviewOpened] = useState(false);
+  const [detailsOpened, { open: openDetails, close: closeDetails }] =
+    useDisclosure(false);
+  const fileId = resolveAttachmentFileId(attachmentId, id);
 
   if (!showFloatingButtons) {
-    // In-message rendering (compact square preview)
     return (
-      <div className="thumbnail pointer flex-shrink-0">
-        {showModal && (
-          <ImageModal src={src} name={name} hide={() => setShowModal(false)} />
-        )}
-        <img
-          onClick={() => setShowModal(true)}
-          src={src}
-          alt={`attachment-${name}`}
-          className="max-w-[70px] max-h-[70px] w-[70px] h-[70px] object-contain rounded-md flex-shrink-0"
+      <>
+        <div className="thumbnail pointer flex-shrink-0">
+          <img
+            onClick={openDetails}
+            src={src}
+            alt={`attachment-${name}`}
+            className="max-w-[70px] max-h-[70px] w-[70px] h-[70px] object-contain rounded-md flex-shrink-0"
+          />
+        </div>
+        <AttachmentDetailsModal
+          opened={detailsOpened}
+          onClose={closeDetails}
+          attachmentId={fileId}
+          fallbackName={name}
+          fallbackUrl={src}
+          initialItem={detailsInitialItem({
+            fileId,
+            src,
+            name,
+            visibility,
+            type: "image",
+            contentType: "image/*",
+          })}
         />
-      </div>
+      </>
     );
   }
 
-  // Input strip rendering (match document/website chips)
   return (
     <div className="width-150 document-attachment bg-contrast rounded padding-small">
-      {showModal && (
-        <ImageModal src={src} name={name} hide={() => setShowModal(false)} />
+      {previewOpened && (
+        <ImageModal src={src} name={name} hide={() => setPreviewOpened(false)} />
       )}
       <div className="d-flex gap-small align-center">
         <img
-          onClick={() => setShowModal(true)}
+          onClick={() => setPreviewOpened(true)}
           src={src}
           alt={`attachment-${name}`}
           className="w-[38px] h-[38px] object-cover rounded-md flex-shrink-0 pointer"
@@ -299,9 +372,7 @@ const DocumentThumnail = ({
   showFloatingButtons: boolean;
 }) => {
   const [opened, { open, close }] = useDisclosure(false);
-  const fileId =
-    (attachmentId && String(attachmentId)) ||
-    (typeof id === "string" && id.includes("-") ? id : undefined);
+  const fileId = resolveAttachmentFileId(attachmentId, id);
 
   if (showFloatingButtons) {
     return (
@@ -356,24 +427,13 @@ const DocumentThumnail = ({
         attachmentId={fileId}
         fallbackName={name}
         fallbackUrl={src}
-        initialItem={
-          fileId
-            ? {
-                id: fileId,
-                url: src,
-                content_type: "",
-                type: "document",
-                name,
-                prompt: null,
-                metadata: {},
-                conversation_id: "",
-                conversation_title: "",
-                message_id: null,
-                created_at: null,
-                visibility: visibility || "personal",
-              }
-            : null
-        }
+        initialItem={detailsInitialItem({
+          fileId,
+          src,
+          name,
+          visibility,
+          type: "document",
+        })}
       />
     </>
   );
@@ -386,12 +446,18 @@ const resolveVideoUrl = (src: string) => {
 };
 
 const VideoAttachmentThumbnail = ({
+  id,
+  attachmentId,
+  visibility,
   src,
   name,
   text,
   showFloatingButtons,
   onDelete,
 }: {
+  id?: number | string;
+  attachmentId?: string;
+  visibility?: "personal" | "organization" | "roles" | "link";
   src: string;
   name: string;
   text?: string;
@@ -399,8 +465,11 @@ const VideoAttachmentThumbnail = ({
   onDelete: () => void;
 }) => {
   const { t } = useTranslation();
-  const [showModal, setShowModal] = useState(false);
+  const [previewOpened, setPreviewOpened] = useState(false);
+  const [detailsOpened, { open: openDetails, close: closeDetails }] =
+    useDisclosure(false);
   const videoUrl = resolveVideoUrl(src);
+  const fileId = resolveAttachmentFileId(attachmentId, id);
 
   const preview = (
     <video
@@ -410,11 +479,15 @@ const VideoAttachmentThumbnail = ({
       preload="metadata"
       tabIndex={0}
       aria-label={name}
-      onClick={() => setShowModal(true)}
+      onClick={() => {
+        if (showFloatingButtons) setPreviewOpened(true);
+        else openDetails();
+      }}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          setShowModal(true);
+          if (showFloatingButtons) setPreviewOpened(true);
+          else openDetails();
         }
       }}
       className="rounded-md flex-shrink-0 pointer bg-black/40"
@@ -430,19 +503,36 @@ const VideoAttachmentThumbnail = ({
 
   if (!showFloatingButtons) {
     return (
-      <div className="thumbnail pointer flex-shrink-0">
-        {showModal && (
-          <VideoModal url={videoUrl} name={name} close={() => setShowModal(false)} text={text} />
-        )}
-        {preview}
-      </div>
+      <>
+        <div className="thumbnail pointer flex-shrink-0">{preview}</div>
+        <AttachmentDetailsModal
+          opened={detailsOpened}
+          onClose={closeDetails}
+          attachmentId={fileId}
+          fallbackName={name}
+          fallbackUrl={videoUrl}
+          initialItem={detailsInitialItem({
+            fileId,
+            src: videoUrl,
+            name,
+            visibility,
+            type: "video",
+            contentType: "video/*",
+          })}
+        />
+      </>
     );
   }
 
   return (
     <div className="width-150 document-attachment bg-contrast rounded padding-small">
-      {showModal && (
-        <VideoModal url={videoUrl} name={name} close={() => setShowModal(false)} text={text} />
+      {previewOpened && (
+        <VideoModal
+          url={videoUrl}
+          name={name}
+          close={() => setPreviewOpened(false)}
+          text={text}
+        />
       )}
       <div className="d-flex gap-small align-center">
         {preview}
@@ -534,12 +624,97 @@ const VideoModal = ({
   );
 };
 
-const AudioThumbnail = ({ src }: { src: string }) => {
-  const audioRef = useRef<HTMLAudioElement>(null);
+const AudioThumbnail = ({
+  id,
+  attachmentId,
+  visibility,
+  src,
+  name,
+  showFloatingButtons,
+  onDelete,
+}: {
+  id?: number | string;
+  attachmentId?: string;
+  visibility?: "personal" | "organization" | "roles" | "link";
+  src: string;
+  name: string;
+  showFloatingButtons: boolean;
+  onDelete: () => void;
+}) => {
+  const audioUrl =
+    !src
+      ? ""
+      : src.startsWith("http://") ||
+          src.startsWith("https://") ||
+          src.startsWith("data:")
+        ? src
+        : `${API_URL}${src.startsWith("/") ? "" : "/"}${src}`;
+  const [opened, { open, close }] = useDisclosure(false);
+  const fileId = resolveAttachmentFileId(attachmentId, id);
+  const label = (name || "").trim() || "audio";
+
+  if (showFloatingButtons) {
+    return (
+      <div
+        title={label}
+        className="width-150 document-attachment bg-contrast rounded padding-small"
+      >
+        <div className="d-flex gap-small align-center">
+          <IconMusic size={20} />
+          <p className="cut-text-to-line" style={{ margin: 0, flex: 1, minWidth: 0 }}>
+            {label}
+          </p>
+          <ActionIcon
+            variant="subtle"
+            color="red"
+            size="sm"
+            onClick={onDelete}
+          >
+            <IconX size={16} />
+          </ActionIcon>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="">
-      <audio ref={audioRef} controls src={API_URL + src} playsInline />
-    </div>
+    <>
+      <UnstyledButton
+        onClick={open}
+        title={label}
+        aria-label={label}
+        className="width-150 document-attachment bg-contrast rounded padding-small"
+        style={{
+          display: "inline-flex",
+          width: 150,
+          maxWidth: "100%",
+          alignSelf: "flex-start",
+          textAlign: "left",
+          cursor: "pointer",
+        }}
+      >
+        <div className="d-flex gap-small align-center" style={{ width: "100%", minWidth: 0 }}>
+          <IconMusic size={20} />
+          <p className="cut-text-to-line" style={{ margin: 0, flex: 1, minWidth: 0 }}>
+            {label}
+          </p>
+        </div>
+      </UnstyledButton>
+      <AttachmentDetailsModal
+        opened={opened}
+        onClose={close}
+        attachmentId={fileId}
+        fallbackName={label}
+        fallbackUrl={audioUrl}
+        initialItem={detailsInitialItem({
+          fileId,
+          src: audioUrl,
+          name: label,
+          visibility,
+          type: "audio",
+          contentType: "audio/*",
+        })}
+      />
+    </>
   );
 };

@@ -258,6 +258,40 @@ export function AttachmentVisibilityModal({
   );
 }
 
+function attachmentMediaKind(
+  item: TGalleryItem | null | undefined,
+  name: string,
+  contentType: string
+): "image" | "video" | "audio" | "document" {
+  const galleryType = item?.type;
+  if (
+    galleryType === "image" ||
+    galleryType === "video" ||
+    galleryType === "audio" ||
+    galleryType === "document"
+  ) {
+    return galleryType;
+  }
+  const ct = (contentType || "").toLowerCase();
+  const lowerName = (name || "").toLowerCase();
+  if (ct.startsWith("image/") || /\.(png|jpe?g|gif|webp|bmp|svg)(\?|#|$)/i.test(lowerName)) {
+    return "image";
+  }
+  if (
+    ct.startsWith("video/") ||
+    /\.(mp4|webm|mov|m4v|ogv)(\?|#|$)/i.test(lowerName)
+  ) {
+    return "video";
+  }
+  if (
+    ct.startsWith("audio/") ||
+    /\.(mp3|wav|ogg|m4a|aac|flac)(\?|#|$)/i.test(lowerName)
+  ) {
+    return "audio";
+  }
+  return "document";
+}
+
 export function AttachmentDetailsModal({
   opened,
   onClose,
@@ -283,28 +317,44 @@ export function AttachmentDetailsModal({
   );
   const name = editor.item?.name || fallbackName;
   const url = editor.item?.url || fallbackUrl || "";
+  const contentType =
+    editor.item?.content_type || initialItem?.content_type || "";
   const created = formatCreatedAt(editor.item?.created_at, i18n.language);
-  const typeLabel = getDocumentFileMeta(
+  const mediaKind = attachmentMediaKind(
+    editor.item || initialItem,
     name,
-    editor.item?.content_type || ""
-  ).label;
+    contentType
+  );
+  const typeLabel =
+    mediaKind === "image"
+      ? t("attachment-type-image")
+      : mediaKind === "video"
+        ? t("attachment-type-video")
+        : mediaKind === "audio"
+          ? t("attachment-type-audio")
+          : getDocumentFileMeta(name, contentType).label;
   const currentVisibility = editor.item?.visibility || initialItem?.visibility;
   const showAccess = Boolean(attachmentId);
+  const isMedia =
+    mediaKind === "image" || mediaKind === "video" || mediaKind === "audio";
 
   return (
     <Modal
       opened={opened}
       onClose={onClose}
       title={t("attachment-details")}
+      size={isMedia ? "lg" : "md"}
       centered
     >
       <Stack gap="md">
         <Group gap="sm" wrap="nowrap" align="flex-start">
-          <DocumentFileIcon
-            name={name}
-            contentType={editor.item?.content_type}
-            size={28}
-          />
+          {mediaKind === "document" ? (
+            <DocumentFileIcon
+              name={name}
+              contentType={contentType}
+              size={28}
+            />
+          ) : null}
           <Stack gap={2} style={{ minWidth: 0, flex: 1 }}>
             <Text size="sm" fw={600} lineClamp={3}>
               {name}
@@ -318,6 +368,35 @@ export function AttachmentDetailsModal({
             </Text>
           </Stack>
         </Group>
+        {url && mediaKind === "image" ? (
+          <img
+            src={url}
+            alt={name}
+            style={{
+              maxWidth: "100%",
+              maxHeight: "min(50vh, 420px)",
+              objectFit: "contain",
+              borderRadius: 8,
+              alignSelf: "center",
+            }}
+          />
+        ) : null}
+        {url && mediaKind === "video" ? (
+          <video
+            src={url}
+            controls
+            playsInline
+            style={{
+              width: "100%",
+              maxHeight: "min(50vh, 420px)",
+              borderRadius: 8,
+              background: "rgba(0,0,0,0.35)",
+            }}
+          />
+        ) : null}
+        {url && mediaKind === "audio" ? (
+          <audio src={url} controls playsInline style={{ width: "100%" }} />
+        ) : null}
         {url ? (
           <Button
             component="a"
