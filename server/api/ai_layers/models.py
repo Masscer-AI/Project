@@ -86,6 +86,14 @@ class Agent(models.Model):
     act_as = models.TextField(
         default=DEFAULT_CHARACTER, help_text="How should the AI act?"
     )
+    description = models.TextField(
+        blank=True,
+        default="",
+        help_text=(
+            "Short specialty description for humans and other agents "
+            "(e.g. list_agents / handoff). Not injected into the system prompt."
+        ),
+    )
 
     default_voice = models.ForeignKey(
         "voices.Voice",

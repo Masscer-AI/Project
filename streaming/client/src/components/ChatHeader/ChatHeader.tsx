@@ -354,6 +354,7 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
     default: agent.default || false,
     max_tokens: agent.max_tokens || 1000,
     act_as: agent.act_as || "",
+    description: agent.description || "",
     system_prompt: agent.system_prompt || "",
     conversation_title_prompt: agent.conversation_title_prompt || "",
     pre_approved_tools: agent.pre_approved_tools || [],
@@ -743,6 +744,20 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
         autosize
         minRows={2}
         maxRows={8}
+      />
+
+      <Textarea
+        label={t("agent-description-for-handoff")}
+        description={t("agent-description-for-handoff-help")}
+        placeholder={t("agent-description-for-handoff-placeholder")}
+        value={formState.description || ""}
+        onChange={(e) => {
+          const val = e.currentTarget.value;
+          setFormState((prev) => ({ ...prev, description: val }));
+        }}
+        autosize
+        minRows={2}
+        maxRows={5}
       />
 
       <Textarea

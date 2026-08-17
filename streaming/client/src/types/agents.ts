@@ -43,6 +43,7 @@ export type TAgent = {
   slug: string;
   agent_kind?: TAgentKind;
   act_as?: string;
+  description?: string;
   default?: boolean;
   id?: number;
   is_public?: boolean;

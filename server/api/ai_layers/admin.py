@@ -87,7 +87,13 @@ class AgentAdmin(admin.ModelAdmin):
             "fields": ("model_provider", "model_slug", "llm", "max_tokens")
         }),
         ("Agent Behavior", {
-            "fields": ("system_prompt", "act_as", "salute", "conversation_title_prompt")
+            "fields": (
+                "system_prompt",
+                "act_as",
+                "description",
+                "salute",
+                "conversation_title_prompt",
+            )
         }),
         ("Appearance", {
             "fields": ("profile_picture_url", "profile_picture_src", "default_voice")

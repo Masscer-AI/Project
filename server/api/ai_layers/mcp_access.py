@@ -120,6 +120,8 @@ MCP_CONVERSATION_TOOL_NAMES: tuple[str, ...] = (
     "get_tag_context",
     "query_conversation",
     "list_conversations",
+    "list_agents",
+    "handoff_to_agent",
 )
 
 MCP_TAGGING_TOOL_NAMES: tuple[str, ...] = (
@@ -267,7 +269,11 @@ def serialize_attachments_for_mcp(request, attachments: list | None) -> list[dic
 
 
 def agent_to_mcp_tool_payload(agent: Agent) -> dict:
-    description = agent.act_as[:500] if agent.act_as else f"Masscer agent: {agent.name}"
+    description = (
+        (agent.description or "").strip()
+        or (agent.act_as[:500] if agent.act_as else "")
+        or f"Masscer agent: {agent.name}"
+    )
     return {
         "slug": agent.slug,
         "name": agent.name,

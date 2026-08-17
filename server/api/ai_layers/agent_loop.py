@@ -188,6 +188,26 @@ def _serialize_tool_result(result: Any) -> str:
     return json.dumps({"result": str(result)}, default=str)
 
 
+def successful_handoff_user_message(record: ToolCallRecord) -> str | None:
+    """
+    If this tool record is a successful handoff_to_agent call, return the
+    user-visible message that should become the agent's final output.
+    """
+    if record.get("tool_name") != "handoff_to_agent" or record.get("error"):
+        return None
+    try:
+        payload = json.loads(record.get("result") or "{}")
+    except (json.JSONDecodeError, TypeError):
+        return None
+    if not isinstance(payload, dict) or not payload.get("success"):
+        return None
+    args = record.get("arguments") or {}
+    if not isinstance(args, dict):
+        return None
+    text = (args.get("user_message") or "").strip()
+    return text or None
+
+
 def _extract_output_text(response) -> str:
     """Extract text content from an OpenAI Responses API response object."""
     output_text = getattr(response, "output_text", None)
@@ -497,6 +517,25 @@ class OpenAIAgentLoop(BaseAgentLoop):
                         "call_id": getattr(tool_call, "call_id", f"call_{record['tool_name']}"),
                         "output": record.get("result", ""),
                     })
+
+                    handoff_text = successful_handoff_user_message(record)
+                    if handoff_text is not None:
+                        logger.info(
+                            "Iteration %d: successful handoff_to_agent — ending loop",
+                            iteration,
+                        )
+                        self._emit(RESPONSE, {
+                            "output": handoff_text,
+                            "iterations": iteration,
+                            "handoff": True,
+                        })
+                        return AgentLoopResult(
+                            output=handoff_text,
+                            messages=messages,
+                            iterations=iteration,
+                            tool_calls=tool_call_log,
+                            usage=total_usage,
+                        )
 
                 continue  # next iteration
 

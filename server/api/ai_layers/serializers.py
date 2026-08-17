@@ -157,6 +157,7 @@ class AgentSerializer(serializers.ModelSerializer):
             "system_prompt",
             "salute",
             "act_as",
+            "description",
             "user",
             "organization",
             "access_mode",

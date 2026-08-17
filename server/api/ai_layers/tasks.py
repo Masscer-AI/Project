@@ -311,14 +311,22 @@ def _build_agent_loop_inputs(
     current_user_attachments: list[dict],
     agent_slug: str,
     multiagentic_modality: str,
+    tag_other_agent_versions: bool = False,
 ) -> list[dict]:
     """
     Build the ordered OpenAI input messages for AgentLoop, including previous turns.
 
     We include attachment metadata inside the message content so the model can
     reference attachment IDs across many turns.
+
+    When ``tag_other_agent_versions`` is True (agent handoff continuation), other
+    agents' assistant versions are tagged as user-role turns (same as grupal)
+    so the receiving agent does not treat them as its own prior replies.
     """
     inputs: list[dict] = []
+    use_tagged_others = (
+        multiagentic_modality == "grupal" or tag_other_agent_versions
+    )
 
     for m in prev_messages or []:
         m_type = m.get("type")
@@ -334,7 +342,7 @@ def _build_agent_loop_inputs(
         if m_type == "assistant":
             versions = m.get("versions") or []
 
-            if multiagentic_modality == "grupal" and versions:
+            if use_tagged_others and versions:
                 for v in versions:
                     v_text = v.get("text") or ""
                     if not v_text:
@@ -1062,6 +1070,8 @@ def conversation_agent_task(
     user_message_metadata: dict | None = None,
     capabilities_override: list[str] | None = None,
     tool_names_by_agent: dict[str, list[str]] | None = None,
+    skip_persist_user_message: bool = False,
+    existing_user_message_id: int | None = None,
 ):
     """
     Celery task that runs an AgentLoop for one or more agents in a conversation.
@@ -1086,7 +1096,8 @@ def conversation_agent_task(
         client_datetime: optional dict from the user's browser (utc_iso, timezone,
             local_datetime_long, locale) to resolve relative times in their locale.
         user_message_metadata: optional metadata merged onto the user Message
-            (e.g. scheduled_task source markers).
+            (e.g. scheduled_task source markers). For agent_handoff continuations
+            this is task-only context and is not written onto the user Message.
         capabilities_override: optional authoritative capability allowlist (e.g.
             scheduled-task snapshot). When set, auto-injection cannot add tools
             outside this list; runtime safety filters still apply.
@@ -1095,6 +1106,10 @@ def conversation_agent_task(
             tool_names for that agent only. Agents not in the map fall back to
             tool_names. Ignored (like tool_names) when capabilities_override
             is set, since that override is authoritative for every agent.
+        skip_persist_user_message: when True with existing_user_message_id,
+            reuse that user Message without creating/deleting messages (handoff).
+        existing_user_message_id: user Message pk to attach AgentSessions to
+            when skip_persist_user_message is True.
 
     Returns:
         dict with status, output, iterations, tool_calls_count, message_id, user_message_id
@@ -1263,14 +1278,45 @@ def conversation_agent_task(
 
     agent_sessions_created = []
     agent_event_log: list[dict] = []
+    _is_handoff_continuation = (
+        isinstance(user_message_metadata, dict)
+        and user_message_metadata.get("source") == "agent_handoff"
+    )
     try:
         # ---- Save or reuse user message ----
         meta_update = (
             dict(user_message_metadata)
-            if isinstance(user_message_metadata, dict) and user_message_metadata
+            if isinstance(user_message_metadata, dict)
+            and user_message_metadata
+            and not _is_handoff_continuation
             else None
         )
-        if regenerate_message_id:
+        if skip_persist_user_message:
+            if not existing_user_message_id:
+                emit_event("error", {"error": "existing_user_message_id required for handoff"})
+                from api.ai_layers.agent_task_helpers import clear_agent_task_active
+
+                clear_agent_task_active(conversation_id)
+                return {
+                    "status": "error",
+                    "error": "existing_user_message_id required for handoff",
+                }
+            try:
+                user_message = Message.objects.get(
+                    id=existing_user_message_id,
+                    conversation=conversation,
+                    type="user",
+                )
+            except Message.DoesNotExist:
+                emit_event("error", {"error": "User message for handoff not found"})
+                from api.ai_layers.agent_task_helpers import clear_agent_task_active
+
+                clear_agent_task_active(conversation_id)
+                return {"status": "error", "error": "User message for handoff not found"}
+            # Keep the original user text/attachments; synthetic continue text is
+            # only for the model input below.
+            message_attachments = list(user_message.attachments or [])
+        elif regenerate_message_id:
             try:
                 user_message = Message.objects.get(
                     id=regenerate_message_id,
@@ -1348,6 +1394,42 @@ def conversation_agent_task(
             user_message.id,
             user_id=actor_user_id or conversation.user_id,
         )
+        loop_current_user_text = user_message_text
+        loop_current_attachments = message_attachments
+        tag_other_agent_versions = False
+        if _is_handoff_continuation:
+            # Include the original user turn + later assistant messages (e.g. A)
+            # so B sees the full handoff thread; do not persist a new user bubble.
+            prev_messages = list(prev_messages)
+            prev_messages.append(
+                {
+                    "id": user_message.id,
+                    "type": "user",
+                    "text": user_message.text,
+                    "versions": user_message.versions or [],
+                    "attachments": user_message.attachments or [],
+                }
+            )
+            later_msgs = Message.objects.filter(
+                conversation=conversation,
+                id__gt=user_message.id,
+            ).order_by("id")
+            for m in later_msgs:
+                prev_messages.append(
+                    {
+                        "id": m.id,
+                        "type": m.type,
+                        "text": m.text,
+                        "versions": m.versions or [],
+                        "attachments": m.attachments or [],
+                    }
+                )
+            loop_current_user_text = (
+                "Continue from the agent handoff. "
+                "Follow the AGENT HANDOFF block in your instructions."
+            )
+            loop_current_attachments = []
+            tag_other_agent_versions = True
 
         attachment_ids = [
             inp.get("attachment_id") or inp.get("id")
@@ -1651,6 +1733,12 @@ def conversation_agent_task(
                     t
                     for t in agent_tool_names
                     if t not in WIDGET_UNAVAILABLE_TOOL_NAMES
+                ]
+            if is_whatsapp_chat:
+                agent_tool_names = [
+                    t
+                    for t in agent_tool_names
+                    if t not in ("list_agents", "handoff_to_agent")
                 ]
             applicable_alert_rules = []
             if organization:
@@ -2004,6 +2092,44 @@ def conversation_agent_task(
                     )
                 instructions += "=== END SCHEDULED TASK RUN ==="
 
+            if _is_handoff_continuation and isinstance(user_message_metadata, dict):
+                _from_name = user_message_metadata.get("handoff_from_name") or "another agent"
+                _from_slug = user_message_metadata.get("handoff_from_slug") or ""
+                _handoff_summary = (
+                    user_message_metadata.get("handoff_summary") or ""
+                ).strip()
+                instructions += (
+                    "\n\n=== AGENT HANDOFF ===\n"
+                    "This turn continues work started by another assistant. "
+                    f"From: {_from_name}"
+                    + (f" ({_from_slug})" if _from_slug else "")
+                    + ".\n"
+                    "You are the specialist taking over. The conversation history includes "
+                    "the user's request and the previous assistant's visible handoff message. "
+                    "Follow the private summary below; do not invent a second handoff.\n"
+                )
+                if _handoff_summary:
+                    instructions += f"\nBrief from previous agent:\n{_handoff_summary}\n"
+                instructions += "=== END AGENT HANDOFF ===\n"
+
+            if (
+                not is_embedded_channel
+                and "handoff_to_agent" in agent_tool_names
+            ):
+                instructions += (
+                    "\n\n=== AGENT HANDOFF TOOLS ===\n"
+                    "You can transfer this conversation to another specialist. "
+                    "Use list_agents to see accessible agents (slug, name, description). "
+                    "Then call handoff_to_agent with:\n"
+                    "- agent_slug: target from list_agents\n"
+                    "- user_message: required text shown to the user as YOUR assistant reply "
+                    "(explain that you are handing off and why)\n"
+                    "- summary: private brief for the next agent only (what you did, what remains, "
+                    "why them) — never shown as a chat bubble\n"
+                    "After a successful handoff, stop — do not continue working.\n"
+                    "=== END AGENT HANDOFF TOOLS ===\n"
+                )
+
             if any(t in agent_tool_names for t in CALENDAR_AGENT_TOOL_NAMES):
                 instructions += (
                     "\n\nGoogle Calendar is connected for this user. "
@@ -2089,17 +2215,22 @@ def conversation_agent_task(
                     return True
                 return AgentSession.objects.filter(id=session.id, dismissed_at__isnull=False).exists()
 
+            handoff_request: dict = {}
             resolve_kwargs = dict(
                 conversation_id=conversation_id,
                 user_id=actor_user_id,
                 agent_id=agent.id,
                 agent_slug=agent.slug,
+                current_agent_slug=agent.slug,
                 organization_id=organization.id if organization else None,
                 has_organization_conversations_access=has_organization_conversations_access,
                 agent_slugs=agent_slugs,
                 multiagentic_modality=multiagentic_modality,
                 # Final per-agent allowlist for schedule_task capability snapshots.
                 enabled_capabilities=list(agent_tool_names),
+                handoff_request=handoff_request,
+                is_whatsapp_chat=is_whatsapp_chat,
+                chat_widget_id=getattr(conversation, "chat_widget_id", None),
             )
             if applicable_alert_rules and organization:
                 resolve_kwargs["organization_id"] = organization.id
@@ -2137,10 +2268,11 @@ def conversation_agent_task(
 
             openai_inputs = _build_agent_loop_inputs(
                 prev_messages=prev_messages,
-                current_user_text=user_message_text,
-                current_user_attachments=message_attachments,
+                current_user_text=loop_current_user_text,
+                current_user_attachments=loop_current_attachments,
                 agent_slug=agent.slug,
                 multiagentic_modality=multiagentic_modality,
+                tag_other_agent_versions=tag_other_agent_versions,
             )
             
             try:
@@ -2341,6 +2473,161 @@ def conversation_agent_task(
 
             # Emit version immediately so frontend can display it in real time
             emit_event("agent_version_ready", {"version": version})
+
+            # ---- Agent-to-agent handoff: finish A, enqueue B ----
+            if handoff_request.get("requested"):
+                from api.ai_layers.agent_task_helpers import mark_agent_task_active
+                from api.ai_layers.tools import resolve_allowed_tools
+                from api.messaging.schemas import metadata_payload_for_related_agents
+
+                to_slug = handoff_request.get("to_agent_slug")
+                to_name = handoff_request.get("to_agent_name") or to_slug
+                to_id = handoff_request.get("to_agent_id")
+                handoff_user_message = (
+                    handoff_request.get("user_message") or output_text
+                ).strip()
+                handoff_summary = (handoff_request.get("summary") or "").strip()
+                version["text"] = handoff_user_message
+                versions[-1] = version
+                output_text = handoff_user_message
+
+                try:
+                    conv_ref = Conversation.objects.get(id=conversation_id)
+                except Conversation.DoesNotExist:
+                    logger.warning(
+                        "Conversation %s not found (handoff save)", conversation_id
+                    )
+                    emit_finished(
+                        {
+                            "output": output_text,
+                            "message_id": None,
+                            "versions": [version],
+                            "attachments": list(assistant_message_attachments),
+                            "iterations": total_iterations,
+                            "tool_calls_count": total_tool_calls,
+                            "status": "error",
+                            "error": "conversation_not_found",
+                        }
+                    )
+                    return {
+                        "status": "error",
+                        "error": "conversation_not_found",
+                    }
+
+                handoff_msg = Message.objects.create(
+                    conversation=conv_ref,
+                    type="assistant",
+                    text=handoff_user_message,
+                    versions=[version],
+                    attachments=assistant_message_attachments,
+                    metadata={
+                        "handoff": {
+                            "to_slug": to_slug,
+                            "to_name": to_name,
+                            "from_slug": agent.slug,
+                            "from_name": agent.name,
+                        }
+                    },
+                )
+                if assistant_attachment_ids:
+                    from api.messaging.models import MessageAttachment
+
+                    MessageAttachment.objects.filter(
+                        conversation_id=conversation_id,
+                        id__in=assistant_attachment_ids,
+                    ).update(message=handoff_msg)
+                session.assistant_message = handoff_msg
+                session.save(update_fields=["assistant_message"])
+
+                if to_id:
+                    conv_ref.metadata = metadata_payload_for_related_agents([to_id])
+                    conv_ref.save(update_fields=["metadata", "updated_at"])
+
+                emit_event(
+                    "agent_complete",
+                    {
+                        "agent_slug": agent.slug,
+                        "agent_name": agent.name,
+                        "index": index + 1,
+                        "total": len(agents_ordered),
+                        "handoff_to": to_slug,
+                    },
+                )
+                emit_finished(
+                    {
+                        "output": handoff_user_message,
+                        "message_id": handoff_msg.id,
+                        "versions": [version],
+                        "attachments": list(assistant_message_attachments),
+                        "iterations": total_iterations,
+                        "tool_calls_count": total_tool_calls,
+                        "next_agent_slug": to_slug,
+                        "handoff": True,
+                    }
+                )
+
+                # Tools for B: target pre_approved_tools + chat required baseline
+                chat_required = [
+                    "read_attachment",
+                    "list_attachments",
+                    "generate_document_file",
+                    "send_email",
+                    "list_organization_members",
+                    "list_organization_roles",
+                ]
+                target_agent = Agent.objects.filter(slug=to_slug).first()
+                b_pre = list(
+                    (target_agent.pre_approved_tools if target_agent else None) or []
+                )
+                b_user = None
+                if actor_user_id:
+                    from django.contrib.auth.models import User as DjangoUser
+
+                    b_user = DjangoUser.objects.filter(pk=actor_user_id).first()
+                b_tools = resolve_allowed_tools(
+                    list(dict.fromkeys([*chat_required, *b_pre])),
+                    b_user,
+                )
+
+                mark_agent_task_active(str(conversation_id))
+                conversation_agent_task.delay(
+                    conversation_id=str(conversation_id),
+                    user_inputs=[
+                        {
+                            "type": "input_text",
+                            "text": user_message.text or "",
+                        }
+                    ],
+                    tool_names=b_tools,
+                    agent_slugs=[to_slug],
+                    multiagentic_modality="isolated",
+                    user_id=actor_user_id or notification_route_id,
+                    client_datetime=client_datetime,
+                    skip_persist_user_message=True,
+                    existing_user_message_id=user_message.id,
+                    user_message_metadata={
+                        "source": "agent_handoff",
+                        "handoff_from_slug": agent.slug,
+                        "handoff_from_name": agent.name,
+                        "handoff_summary": handoff_summary,
+                    },
+                )
+                logger.info(
+                    "conversation_agent_task handoff: conversation=%s from=%s to=%s",
+                    conversation_id,
+                    agent.slug,
+                    to_slug,
+                )
+                return {
+                    "status": "completed",
+                    "output": handoff_user_message,
+                    "iterations": total_iterations,
+                    "tool_calls_count": total_tool_calls,
+                    "message_id": handoff_msg.id,
+                    "user_message_id": user_message.id,
+                    "handoff_to": to_slug,
+                    "attachments": list(assistant_message_attachments),
+                }
 
             # Grupal: save a separate assistant message per agent (matches streaming behaviour)
             if multiagentic_modality == "grupal":

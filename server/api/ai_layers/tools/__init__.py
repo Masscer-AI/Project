@@ -46,6 +46,8 @@ TOOL_REGISTRY: dict[str, str] = {
     "get_tag_context": "api.ai_layers.tools.get_tag_context",
     "query_conversation": "api.ai_layers.tools.query_conversation",
     "list_conversations": "api.ai_layers.tools.list_conversations",
+    "list_agents": "api.ai_layers.tools.list_agents",
+    "handoff_to_agent": "api.ai_layers.tools.handoff_to_agent",
     "list_document_templates": "api.ai_layers.tools.list_document_templates",
     "render_document_template": "api.ai_layers.tools.render_document_template",
     "generate_document_file": "api.ai_layers.tools.generate_document_file",
@@ -81,6 +83,7 @@ SCHEDULE_AGENT_TOOL_NAMES: tuple[str, ...] = (
 
 DEPENDENT_TOOL_REQUIREMENTS: dict[str, tuple[str, ...]] = {
     "list_voices": ("create_speech", "generate_dialogue"),
+    "list_agents": ("handoff_to_agent",),
 }
 
 # Old public names still stored on agents / WhatsApp lines / widgets.
@@ -104,6 +107,8 @@ USER_REQUIRED_TOOL_NAMES: frozenset[str] = frozenset(
         "list_organization_members",
         "list_organization_roles",
         "list_conversations",
+        "list_agents",
+        "handoff_to_agent",
         "list_knowledge_base_documents",
         "read_knowledge_base_document",
         "update_attachment_visibility",
@@ -132,6 +137,8 @@ WIDGET_UNAVAILABLE_TOOL_NAMES: frozenset[str] = frozenset(
         "get_tag_context",
         "query_conversation",
         "list_conversations",
+        "list_agents",
+        "handoff_to_agent",
         "create_completion",
     }
 )

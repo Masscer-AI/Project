@@ -32,6 +32,7 @@ from api.ai_layers.agent_loop import (
     _extract_json_from_text,
     _is_pydantic_class,
     _serialize_tool_result,
+    successful_handoff_user_message,
 )
 from api.utils.vertex_gemini_text import (
     VertexGeminiText,
@@ -386,6 +387,35 @@ class VertexGeminiAgentLoop(BaseAgentLoop):
                         response_parts.append(
                             genai_types.Part(function_response=fr)
                         )
+
+                        handoff_text = successful_handoff_user_message(record)
+                        if handoff_text is not None:
+                            if response_parts:
+                                contents.append(
+                                    genai_types.Content(
+                                        role="user",
+                                        parts=response_parts,
+                                    )
+                                )
+                            logger.info(
+                                "Iteration %d: successful handoff_to_agent — ending loop",
+                                iteration,
+                            )
+                            self._emit(
+                                RESPONSE,
+                                {
+                                    "output": handoff_text,
+                                    "iterations": iteration,
+                                    "handoff": True,
+                                },
+                            )
+                            return AgentLoopResult(
+                                output=handoff_text,
+                                messages=trace,
+                                iterations=iteration,
+                                tool_calls=tool_call_log,
+                                usage=total_usage,
+                            )
 
                     # Gemini requires one user turn with N functionResponse parts
                     # for N parallel functionCall parts in the preceding model turn.

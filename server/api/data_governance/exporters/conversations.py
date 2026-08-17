@@ -144,6 +144,7 @@ class AgentsExporter(BaseExporter):
                 "system_prompt": agent.system_prompt,
                 "salute": agent.salute,
                 "act_as": agent.act_as,
+                "description": agent.description,
                 "agent_kind": agent.agent_kind,
                 "is_public": agent.is_public,
                 "default": agent.default,
