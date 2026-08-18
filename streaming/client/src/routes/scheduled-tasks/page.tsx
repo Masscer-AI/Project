@@ -106,10 +106,28 @@ function statusColor(status: string): string {
 export default function ScheduledTasksPage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
-  const { chatState, toggleSidebar } = useStore((s) => ({
+  const { chatState, toggleSidebar, agents, fetchAgents } = useStore((s) => ({
     chatState: s.chatState,
     toggleSidebar: s.toggleSidebar,
+    agents: s.agents,
+    fetchAgents: s.fetchAgents,
   }));
+
+  const agentNameBySlug = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const agent of agents) {
+      if (agent.slug) {
+        map.set(agent.slug, agent.name?.trim() || agent.slug);
+      }
+    }
+    return map;
+  }, [agents]);
+
+  useEffect(() => {
+    if (agents.length === 0) {
+      void fetchAgents();
+    }
+  }, [agents.length, fetchAgents]);
 
   const [loading, setLoading] = useState(true);
   const [includeFinished, setIncludeFinished] = useState(false);
@@ -357,8 +375,14 @@ export default function ScheduledTasksPage() {
                           </Group>
                           <Group gap={6}>
                             {agentSlugs.map((slug) => (
-                              <Badge key={slug} size="xs" variant="light" color="gray">
-                                {slug}
+                              <Badge
+                                key={slug}
+                                size="xs"
+                                variant="light"
+                                color="gray"
+                                title={slug}
+                              >
+                                {agentNameBySlug.get(slug) || slug}
                               </Badge>
                             ))}
                           </Group>
