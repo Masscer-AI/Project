@@ -29,19 +29,18 @@ import {
 
 /**
  * Reconciles chatState.toolsByAgent against the current agent selection:
- * agents no longer selected are dropped, newly selected agents are seeded
- * from their own pre_approved_tools, and agents that stay selected keep
- * whatever the user already picked for them (no clobbering mid-conversation).
+ * agents no longer selected are dropped; selected agents mirror
+ * Agent.pre_approved_tools (the durable source of truth).
  */
 function reconcileToolsByAgent(
   agents: TAgent[],
   selectedSlugs: string[],
-  previous: Record<string, string[]>
+  _previous?: Record<string, string[]>
 ): Record<string, string[]> {
   const bySlug = new Map(agents.map((a) => [a.slug, a] as const));
   const next: Record<string, string[]> = {};
   for (const slug of selectedSlugs) {
-    next[slug] = previous[slug] ?? [...(bySlug.get(slug)?.pre_approved_tools ?? [])];
+    next[slug] = [...(bySlug.get(slug)?.pre_approved_tools ?? [])];
   }
   return next;
 }
@@ -294,18 +293,10 @@ export const useStore = create<Store>()((set, get) => {
       newAttachment.mode = "all_possible_text";
 
       set((state) => {
-        const toolsByAgent = { ...state.chatState.toolsByAgent };
-        for (const slug of state.chatState.selectedAgents) {
-          const current = toolsByAgent[slug] ?? [];
-          if (!current.includes("rag_query")) {
-            toolsByAgent[slug] = [...current, "rag_query"];
-          }
-        }
         return {
           chatState: {
             ...state.chatState,
             attachments: [...state.chatState.attachments, newAttachment],
-            toolsByAgent,
           },
         };
       });
@@ -436,9 +427,12 @@ export const useStore = create<Store>()((set, get) => {
     }));
   },
 
-  /** Replaces the selected tool list for one agent (used by the tool selection modal). */
+  /** Syncs local tool selection with Agent.pre_approved_tools (caller persists via API). */
   setAgentToolNames: (slug: string, names: string[]) => {
     set((state) => ({
+      agents: state.agents.map((a) =>
+        a.slug === slug ? { ...a, pre_approved_tools: names } : a
+      ),
       chatState: {
         ...state.chatState,
         toolsByAgent: { ...state.chatState.toolsByAgent, [slug]: names },

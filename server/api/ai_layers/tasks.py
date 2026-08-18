@@ -1514,13 +1514,27 @@ def conversation_agent_task(
             llm = agent.llm
             model_slug = llm.slug if llm else (agent.model_slug or "gpt-5.2")
 
-            # Per-agent tool list: overridden by tool_names_by_agent[agent.slug]
-            # when present, otherwise every agent shares tool_names. Further
-            # mutated below (calendar/WhatsApp/widget filters) before resolution.
-            if tool_names_by_agent and agent.slug in tool_names_by_agent:
-                agent_tool_names = list(tool_names_by_agent[agent.slug] or [])
+            # Per-agent tool list:
+            # 1) capabilities_override (legacy/special) → already flattened into tool_names
+            # 2) tool_names_by_agent when explicitly provided (per-slug; missing → [])
+            # 3) shared tool_names when non-empty (WhatsApp / widget / MCP)
+            # 4) else Agent.pre_approved_tools (main chat + scheduled SoT)
+            # Further mutated below (calendar/WhatsApp/widget filters + auto-inject).
+            if tool_names_by_agent is not None:
+                agent_tool_names = list(tool_names_by_agent.get(agent.slug) or [])
+            elif tool_names:
+                agent_tool_names = list(tool_names)
             else:
-                agent_tool_names = list(tool_names or [])
+                agent_tool_names = list(agent.pre_approved_tools or [])
+
+            # Web chat / scheduled web-style runs: always offer the former CHAT_REQUIRED
+            # baseline (attachments, email helpers). Channels keep their own allowlists.
+            if not is_embedded_channel and actor_user_id is not None:
+                from api.ai_layers.tools import CHAT_REQUIRED_TOOL_NAMES
+
+                for _req in CHAT_REQUIRED_TOOL_NAMES:
+                    if _req not in agent_tool_names and _may_auto_inject_tool(_req):
+                        agent_tool_names.append(_req)
 
             instructions += f"\n\nYour name is: {agent.name}."
             instructions += f"\n{clock_context}"
@@ -2051,8 +2065,11 @@ def conversation_agent_task(
                         "When calling schedule_task: provide a short title, and write instruction "
                         "as a numbered step-by-step execution plan (which tools/actions to use and "
                         "in what order) — not as a natural-language user request to schedule work. "
-                        "By default omit tools so the future run may use all available tools; "
-                        "pass tools only when you want to constrain the execution allowlist. "
+                        "Omit agent_slugs to keep the agents currently selected in this chat; "
+                        "pass agent_slugs to choose who participates — you may keep the current "
+                        "agents and add more accessible specialists (use list_agents when available). "
+                        "Each agent runs with its own pre_approved_tools at fire time "
+                        "(no shared tools allowlist on the schedule). "
                         "That plan will be injected later as an automatic scheduled-execution message. "
                         f"Organization timezone for task scheduling: {_sched_tz}. "
                         "Use list_scheduled_tasks and cancel_scheduled_task to manage schedules."
@@ -2063,6 +2080,14 @@ def conversation_agent_task(
                 and user_message_metadata.get("source") == "scheduled_task"
             )
             if _is_scheduled_run:
+                from api.ai_layers.tools import SCHEDULE_AGENT_TOOL_NAMES
+
+                # Nested scheduling is never allowed on a scheduled fire.
+                agent_tool_names = [
+                    t
+                    for t in agent_tool_names
+                    if t not in SCHEDULE_AGENT_TOOL_NAMES
+                ]
                 _sched_title = user_message_metadata.get("scheduled_task_title") or ""
                 _sched_kind = user_message_metadata.get("scheduled_task_kind") or "scheduled"
                 _sched_id = user_message_metadata.get("scheduled_task_id") or ""
@@ -2566,29 +2591,7 @@ def conversation_agent_task(
                     }
                 )
 
-                # Tools for B: target pre_approved_tools + chat required baseline
-                chat_required = [
-                    "read_attachment",
-                    "list_attachments",
-                    "generate_document_file",
-                    "send_email",
-                    "list_organization_members",
-                    "list_organization_roles",
-                ]
-                target_agent = Agent.objects.filter(slug=to_slug).first()
-                b_pre = list(
-                    (target_agent.pre_approved_tools if target_agent else None) or []
-                )
-                b_user = None
-                if actor_user_id:
-                    from django.contrib.auth.models import User as DjangoUser
-
-                    b_user = DjangoUser.objects.filter(pk=actor_user_id).first()
-                b_tools = resolve_allowed_tools(
-                    list(dict.fromkeys([*chat_required, *b_pre])),
-                    b_user,
-                )
-
+                # B uses its own pre_approved_tools (resolved inside the new task).
                 mark_agent_task_active(str(conversation_id))
                 conversation_agent_task.delay(
                     conversation_id=str(conversation_id),
@@ -2598,7 +2601,7 @@ def conversation_agent_task(
                             "text": user_message.text or "",
                         }
                     ],
-                    tool_names=b_tools,
+                    tool_names=[],
                     agent_slugs=[to_slug],
                     multiagentic_modality="isolated",
                     user_id=actor_user_id or notification_route_id,

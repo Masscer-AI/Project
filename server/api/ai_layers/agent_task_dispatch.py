@@ -57,8 +57,10 @@ def dispatch_conversation_agent_task(
     Validate and enqueue conversation_agent_task.
 
     tool_names_by_agent, when provided, overrides tool_names on a per-agent-slug
-    basis (agents not present in the dict get no tools). When omitted, every
-    agent in agent_slugs shares the flat tool_names list, as before.
+    basis (agents not present in the dict get no tools). When omitted (main chat
+    and schedules), conversation_agent_task loads each agent's
+    Agent.pre_approved_tools. Channel callers may still pass a shared tool_names
+    list (WhatsApp / widget / MCP).
 
     Returns AgentTaskDispatchResult with either a JsonResponse error or task metadata.
     """

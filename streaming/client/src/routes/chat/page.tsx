@@ -29,7 +29,6 @@ import { agentsInChatSelectionOrder } from "../../modules/agentSelection";
 import { useAgentSelectionPrompt } from "../../hooks/useAgentSelectionPrompt";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
 import { playNotificationSound } from "../../utils/notificationSound";
-import { buildToolNamesByAgent } from "../../modules/chatToolNames";
 
 export default function ChatView() {
   const loaderData = useLoaderData() as TChatLoader;
@@ -459,11 +458,6 @@ export default function ChatView() {
         }
       }
 
-      const toolNamesByAgent = buildToolNamesByAgent(
-        selectedAgents.map((a) => a.slug),
-        chatState.toolsByAgent
-      );
-
       const isPlatform =
         selectedAgents.length === 1 && isPlatformAssistant(selectedAgents[0]);
       const taskRes = isPlatform
@@ -477,7 +471,6 @@ export default function ChatView() {
             conversation_id: routeConversation.id,
             agent_slugs: selectedAgents.map((a) => a.slug),
             user_inputs: userInputs,
-            tool_names_by_agent: toolNamesByAgent,
             multiagentic_modality: userPreferences.multiagentic_modality,
             client_datetime: buildClientDatetimePayload(),
           });
@@ -566,11 +559,6 @@ export default function ChatView() {
       setAgentTaskStatus(t("agent-preparing-request"), routeConversation.id);
 
       try {
-        const toolNamesByAgent = buildToolNamesByAgent(
-          selectedAgents.map((a) => a.slug),
-          chatState.toolsByAgent
-        );
-
         const isPlatform =
           selectedAgents.length === 1 && isPlatformAssistant(selectedAgents[0]);
         const taskRes = isPlatform
@@ -585,7 +573,6 @@ export default function ChatView() {
               conversation_id: routeConversation.id,
               agent_slugs: selectedAgents.map((a) => a.slug),
               user_inputs: [{ type: "input_text", text: newText }],
-              tool_names_by_agent: toolNamesByAgent,
               multiagentic_modality: userPreferences.multiagentic_modality,
               regenerate_message_id: regenPayload.userId,
               client_datetime: buildClientDatetimePayload(),

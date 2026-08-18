@@ -5,7 +5,7 @@ import { useStore } from "../../modules/store";
 import toast from "react-hot-toast";
 import { Thumbnail } from "../Thumbnail/Thumbnail";
 import { useTranslation } from "react-i18next";
-import { generateDocumentBrief, getDocuments, syncDriveDocument } from "../../modules/apiCalls";
+import { generateDocumentBrief, getDocuments, syncDriveDocument, updateAgent } from "../../modules/apiCalls";
 import { SpeechHandler } from "../SpeechHandler/SpeechHandler";
 import { WebsiteFetcher } from "../WebsiteFetcher/WebsiteFetcher";
 import { DriveFilePicker } from "../DriveFilePicker/DriveFilePicker";
@@ -698,11 +698,32 @@ const SelectToolsModal = ({
     agents: state.agents,
     setAgentToolNames: state.setAgentToolNames,
   }));
+  const savingRef = useRef<Record<string, string[]>>({});
 
   const selectedAgents = agentsInChatSelectionOrder(
     agents,
     chatState.selectedAgents
   );
+
+  const handleChange = async (slug: string, names: string[]) => {
+    const previous =
+      chatState.toolsByAgent[slug] ??
+      agents.find((a) => a.slug === slug)?.pre_approved_tools ??
+      [];
+    setAgentToolNames(slug, names);
+    savingRef.current[slug] = previous;
+    try {
+      const saved = await updateAgent(slug, { pre_approved_tools: names });
+      const savedTools = Array.isArray(saved?.pre_approved_tools)
+        ? saved.pre_approved_tools
+        : names;
+      setAgentToolNames(slug, savedTools);
+    } catch (e) {
+      console.error(e);
+      setAgentToolNames(slug, savingRef.current[slug] ?? previous);
+      toast.error(t("agent-tools-save-error") || "Could not save agent tools");
+    }
+  };
 
   return (
     <ToolsSelectorModal
@@ -712,7 +733,7 @@ const SelectToolsModal = ({
       description={t("chat-tools-desc")}
       agents={selectedAgents.map((a) => ({ slug: a.slug, name: a.name }))}
       valueByAgent={chatState.toolsByAgent}
-      onChange={setAgentToolNames}
+      onChange={handleChange}
       emptyMessage={t("select-at-least-one-agent-to-chat")}
     />
   );

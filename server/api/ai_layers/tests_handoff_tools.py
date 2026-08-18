@@ -407,10 +407,75 @@ class HandoffConversationTaskTests(TestCase):
             delay_kwargs["existing_user_message_id"],
             user_msgs.get().id,
         )
+        # B resolves tools from its own pre_approved_tools inside the new task.
+        self.assertEqual(delay_kwargs["tool_names"], [])
+        self.assertNotIn("capabilities_override", delay_kwargs)
         meta = delay_kwargs["user_message_metadata"]
         self.assertEqual(meta["source"], "agent_handoff")
         self.assertEqual(meta["handoff_summary"], "Private brief for Tax only.")
         self.assertEqual(meta["handoff_from_slug"], self.agent_a.slug)
+
+    @patch("api.notify.actions.notify_user")
+    @patch("api.consumption.actions._check_org_subscription", return_value=(True, None))
+    @patch("api.ai_layers.tasks.conversation_agent_task.delay")
+    @patch("api.ai_layers.agent_loop.AgentLoop")
+    @patch("api.ai_layers.tools.resolve_tools")
+    def test_handoff_does_not_pass_capabilities_override_to_b(
+        self,
+        mock_resolve_tools,
+        mock_agent_loop,
+        mock_delay,
+        _billing,
+        _notify,
+    ):
+        """Handoff target B uses B's pre_approved_tools, not A's schedule fence."""
+        from api.ai_layers.agent_loop import AgentLoopResult
+        from api.ai_layers.tasks import conversation_agent_task
+
+        handoff_payload = {
+            "requested": True,
+            "to_agent_slug": self.agent_b.slug,
+            "to_agent_name": self.agent_b.name,
+            "to_agent_id": self.agent_b.id,
+            "summary": "Continue the scheduled plan.",
+            "user_message": "Handing to Tax for the next steps.",
+            "from_agent_slug": self.agent_a.slug,
+        }
+
+        def fake_resolve(names, **kwargs):
+            req = kwargs.get("handoff_request")
+            if isinstance(req, dict):
+                req.clear()
+                req.update(handoff_payload)
+            return []
+
+        mock_resolve_tools.side_effect = fake_resolve
+        mock_agent_loop.create.return_value.run.return_value = AgentLoopResult(
+            output=handoff_payload["user_message"],
+            messages=[],
+            iterations=1,
+            tool_calls=[],
+        )
+
+        override = ["explore_web", "send_email", "handoff_to_agent", "list_agents"]
+        result = conversation_agent_task(
+            conversation_id=str(self.conversation.id),
+            user_inputs=[{"type": "input_text", "text": "Scheduled work"}],
+            tool_names=["explore_web"],
+            agent_slugs=[self.agent_a.slug],
+            user_id=self.user.id,
+            capabilities_override=override,
+            user_message_metadata={
+                "source": "scheduled_task",
+                "scheduled_task_plan": "1. Research. 2. Email.",
+            },
+        )
+        self.assertEqual(result["status"], "completed")
+        mock_delay.assert_called_once()
+        delay_kwargs = mock_delay.call_args.kwargs
+        self.assertEqual(delay_kwargs["tool_names"], [])
+        self.assertNotIn("capabilities_override", delay_kwargs)
+        self.assertEqual(delay_kwargs["agent_slugs"], [self.agent_b.slug])
 
     @patch("api.notify.actions.notify_user")
     @patch("api.consumption.actions._check_org_subscription", return_value=(True, None))

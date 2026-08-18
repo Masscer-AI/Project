@@ -148,9 +148,9 @@ class Agent(models.Model):
         default=list,
         blank=True,
         help_text=(
-            "Tool names used to pre-fill tool selection when this agent is picked in "
-            "the main chat. Not enforced server-side — the user can still toggle tools "
-            "freely per message; edit this list here to change the default."
+            "Tool names this agent may use in main chat and scheduled runs. "
+            "Source of truth for web chat (and schedules); channel surfaces "
+            "(WhatsApp / widget / MCP) keep their own capability lists."
         ),
     )
 

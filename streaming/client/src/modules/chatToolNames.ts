@@ -1,6 +1,7 @@
 /**
- * Always-on tools for the main chat, regardless of per-agent selection.
- * Mirrors the previous hardcoded baseline in chat/page.tsx.
+ * Former client-side chat required baseline.
+ * Web chat now auto-injects these server-side in conversation_agent_task;
+ * keep the list here for documentation / shared reference only.
  */
 export const CHAT_REQUIRED_TOOL_NAMES = [
   "read_attachment",
@@ -10,23 +11,3 @@ export const CHAT_REQUIRED_TOOL_NAMES = [
   "list_organization_members",
   "list_organization_roles",
 ] as const;
-
-/** Effective tool_names for one agent: required baseline + its own selection, deduped. */
-export function effectiveChatToolNames(selected: string[] | undefined): string[] {
-  return Array.from(new Set([...CHAT_REQUIRED_TOOL_NAMES, ...(selected ?? [])]));
-}
-
-/**
- * Builds the per-agent tool_names_by_agent map for a set of selected agent
- * slugs, using each agent's chosen tools from chatState.toolsByAgent.
- */
-export function buildToolNamesByAgent(
-  agentSlugs: string[],
-  toolsByAgent: Record<string, string[]>
-): Record<string, string[]> {
-  const byAgent: Record<string, string[]> = {};
-  for (const slug of agentSlugs) {
-    byAgent[slug] = effectiveChatToolNames(toolsByAgent[slug]);
-  }
-  return byAgent;
-}

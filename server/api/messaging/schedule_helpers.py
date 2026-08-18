@@ -287,6 +287,8 @@ def schedule_payload_dict(task: Any) -> dict[str, Any]:
         "day_of_month": task.day_of_month,
         "cron": task.cron,
         "capabilities": list(getattr(task, "capabilities", None) or []),
+        "agent_slugs": list(getattr(task, "agent_slugs", None) or []),
+        "multiagentic_modality": getattr(task, "multiagentic_modality", None) or "isolated",
         "conversation_id": conversation_id,
         "conversation_title": conversation_title,
     }
@@ -311,9 +313,10 @@ def normalize_capability_names(raw: list | None) -> list[str]:
 
 def selectable_scheduled_task_tool_names() -> list[str]:
     """
-    Tools that may be used or assigned on a scheduled-task execution.
+    Legacy helper: tools that used to be assignable on a scheduled-task allowlist.
 
-    Schedule-management tools are excluded so executions cannot nest schedules.
+    Schedule-management tools are excluded. Prefer Agent.pre_approved_tools for
+    execution; this remains for older callers/tests.
     """
     from api.ai_layers.tools import SCHEDULE_AGENT_TOOL_NAMES, TOOL_REGISTRY
 
@@ -323,10 +326,9 @@ def selectable_scheduled_task_tool_names() -> list[str]:
 
 def resolve_scheduled_task_capabilities(task) -> list[str] | None:
     """
-    Explicit capability allowlist for a scheduled run, or None for unconstrained.
+    Legacy: explicit capability allowlist, or None for unconstrained.
 
-    - Empty ``task.capabilities`` → None (all selectable tools at fire time).
-    - Non-empty → normalized allowlist (schedule tools always stripped).
+    Scheduled execution no longer reads this field; kept for older payloads/tests.
     """
     from api.ai_layers.tools import SCHEDULE_AGENT_TOOL_NAMES
 
@@ -338,7 +340,7 @@ def resolve_scheduled_task_capabilities(task) -> list[str] | None:
 
 
 def effective_scheduled_task_tool_names(task) -> list[str]:
-    """Concrete tool list used when a scheduled task fires."""
+    """Legacy concrete tool list; scheduled fire path no longer uses this."""
     resolved = resolve_scheduled_task_capabilities(task)
     if resolved is None:
         return selectable_scheduled_task_tool_names()
@@ -423,8 +425,12 @@ def build_scheduled_task_execution_message(task: Any) -> str:
     )
     explicit_caps = resolve_scheduled_task_capabilities(task)
     if explicit_caps is None:
-        caps_line = "all available tools (no constraint)"
+        caps_line = (
+            "each agent's pre_approved_tools (plus server auto-injection; "
+            "no shared schedule allowlist)"
+        )
     else:
+        # Legacy tasks that still have a capabilities snapshot in the DB.
         caps_line = ", ".join(explicit_caps) if explicit_caps else "(none)"
 
     next_run = getattr(task, "next_run_at", None)

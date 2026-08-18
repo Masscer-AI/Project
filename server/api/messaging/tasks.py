@@ -10,10 +10,7 @@ from .models import (
     ConversationAlert,
     ScheduledConversationTask,
 )
-from .schedule_helpers import (
-    build_scheduled_task_execution_message,
-    effective_scheduled_task_tool_names,
-)
+from .schedule_helpers import build_scheduled_task_execution_message
 from .schemas import ConversationAnalysisResult
 from api.authenticate.models import Organization, FeatureFlag, FeatureFlagAssignment
 from api.authenticate.services import FeatureFlagService
@@ -569,25 +566,23 @@ def run_scheduled_conversation_task(scheduled_task_id: str):
         task.save(update_fields=["status", "last_error", "last_run_at", "updated_at"])
         return {"status": "error", "error": "no_agents"}
 
-    tool_names = effective_scheduled_task_tool_names(task)
     execution_text = build_scheduled_task_execution_message(task)
     schedule_kind = (
         "recurring"
         if task.schedule_type == ScheduledConversationTask.ScheduleType.RECURRING
         else "one-off"
     )
-    tools_constrained = bool(task.capabilities)
     try:
+        # Tools resolve per agent from Agent.pre_approved_tools (+ web baseline /
+        # trust floors). Schedule-management tools are stripped inside the task
+        # when source=scheduled_task.
         result = conversation_agent_task(
             conversation_id=str(conversation.id),
             user_inputs=[{"type": "input_text", "text": execution_text}],
-            tool_names=list(tool_names),
+            tool_names=[],
             agent_slugs=agent_slugs,
             multiagentic_modality=task.multiagentic_modality or "isolated",
             user_id=task.created_by_id,
-            # Always override so schedule-management tools cannot be auto-injected.
-            # Empty task.capabilities → full selectable tool set ("all tools").
-            capabilities_override=list(tool_names),
             user_message_metadata={
                 "source": "scheduled_task",
                 "scheduled_task_id": str(task.id),
@@ -595,8 +590,6 @@ def run_scheduled_conversation_task(scheduled_task_id: str):
                 "scheduled_task_kind": schedule_kind,
                 "schedule_type": task.schedule_type,
                 "scheduled_task_plan": (task.instruction_text or "").strip() or None,
-                "tools_constrained": tools_constrained,
-                "capabilities_override": list(tool_names),
             },
         )
     except Exception as exc:

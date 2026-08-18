@@ -4,6 +4,9 @@ Tool: schedule_task
 Schedule a one-off or recurring agent turn in a conversation. The instruction is
 stored as a step-by-step execution plan and later injected as a scheduled-run
 user message that re-enters conversation_agent_task.
+
+Each participating agent runs with its own Agent.pre_approved_tools (plus
+server auto-injection / trust floors). There is no shared tools allowlist.
 """
 
 from __future__ import annotations
@@ -42,13 +45,16 @@ class ScheduleTaskParams(BaseModel):
     schedule_type: Literal["once", "recurring"] = Field(
         description="once for a single future run; recurring for repeating runs.",
     )
-    tools: list[str] | None = Field(
+    agent_slugs: list[str] | None = Field(
         default=None,
         description=(
-            "Optional allowlist of tool names for the future execution. "
-            "Omit or pass an empty list to allow all available tools. "
-            "Pass a subset to constrain the run (e.g. ['explore_web', 'send_email']). "
-            "Schedule-management tools cannot be granted."
+            "Optional list of conversational agent slugs that should run when this "
+            "schedule fires. Omit to use the agents currently selected in this chat "
+            "(pre-selected). Pass an explicit list to replace that default — you may "
+            "keep the current agents and add more specialists if needed. "
+            "Use list_agents when available to discover slugs. "
+            "All listed agents must be accessible to the user. "
+            "Each agent uses its own pre_approved_tools at fire time."
         ),
     )
     run_at: str | None = Field(
@@ -92,8 +98,8 @@ class ScheduleTaskResult(BaseModel):
     next_run_at_local: str | None = None
     next_run_at_utc: str | None = None
     schedule_summary: str | None = None
-    capabilities: list[str] | None = None
-    tools_constrained: bool = False
+    agent_slugs: list[str] | None = None
+    multiagentic_modality: str | None = None
 
 
 def _schedule_task_impl(
@@ -106,7 +112,7 @@ def _schedule_task_impl(
     user_id: int,
     agent_slugs: list[str] | None,
     multiagentic_modality: str,
-    tools: list[str] | None = None,
+    requested_agent_slugs: list[str] | None = None,
     run_at: str | None = None,
     recurrence: Literal["daily", "weekly", "monthly"] | None = None,
     time_of_day: str | None = None,
@@ -114,12 +120,12 @@ def _schedule_task_impl(
     day_of_month: int | None = None,
     cron: str | None = None,
 ) -> ScheduleTaskResult:
-    from api.ai_layers.tools import SCHEDULE_AGENT_TOOL_NAMES
+    from api.ai_layers.access import accessible_agents_qs
+    from api.ai_layers.models import AgentKind
     from api.ai_layers.tools.calendar_tool_helpers import resolve_org_timezone
     from api.messaging.models import Conversation, ScheduledConversationTask
     from api.messaging.schedule_helpers import (
         compute_next_run_at,
-        normalize_capability_names,
         parse_run_at_to_utc,
         resolve_cron_expression,
         schedule_payload_dict,
@@ -136,15 +142,6 @@ def _schedule_task_impl(
     instruction = (instruction or "").strip()
     if not instruction:
         raise ValueError("instruction is required.")
-
-    # Empty/omitted tools → unconstrained (all tools at fire time).
-    # Explicit list → allowlist constraint (schedule tools never granted).
-    blocked = frozenset(SCHEDULE_AGENT_TOOL_NAMES)
-    capabilities = [
-        name
-        for name in normalize_capability_names(tools)
-        if name not in blocked
-    ]
 
     try:
         conversation = Conversation.objects.select_related("organization").get(
@@ -166,6 +163,48 @@ def _schedule_task_impl(
         user = User.objects.get(pk=user_id)
     except User.DoesNotExist as exc:
         raise ValueError("Authenticated user not found.") from exc
+
+    # Resolve participants: explicit agent_slugs from the model, else chat selection.
+    default_slugs = [str(s) for s in (agent_slugs or []) if s]
+    if requested_agent_slugs is None:
+        slugs = default_slugs
+    else:
+        # Stable dedupe, preserve order
+        seen: set[str] = set()
+        slugs = []
+        for raw in requested_agent_slugs:
+            if not isinstance(raw, str):
+                continue
+            s = raw.strip()
+            if not s or s in seen:
+                continue
+            seen.add(s)
+            slugs.append(s)
+        if not slugs:
+            raise ValueError(
+                "agent_slugs cannot be empty when provided. "
+                "Omit the field to use the agents currently selected in this chat."
+            )
+        accessible = {
+            a.slug: a
+            for a in accessible_agents_qs(user).filter(
+                agent_kind=AgentKind.CONVERSATIONAL_AGENT,
+                slug__in=slugs,
+            )
+        }
+        missing = [s for s in slugs if s not in accessible]
+        if missing:
+            raise ValueError(
+                "Agent(s) not found or not accessible: "
+                + ", ".join(missing)
+                + ". Use list_agents to pick valid conversational agent slugs."
+            )
+
+    if not slugs:
+        raise ValueError(
+            "No agents available for this schedule. Select at least one agent in the "
+            "chat, or pass agent_slugs explicitly."
+        )
 
     tz_name = resolve_org_timezone(organization_id)
     run_at_utc = None
@@ -195,7 +234,6 @@ def _schedule_task_impl(
             cron=cron_expr,
         )
 
-    slugs = [str(s) for s in (agent_slugs or []) if s]
     task = ScheduledConversationTask.objects.create(
         conversation=conversation,
         organization_id=organization_id,
@@ -214,17 +252,17 @@ def _schedule_task_impl(
         status=ScheduledConversationTask.Status.PENDING,
         agent_slugs=slugs,
         multiagentic_modality=multiagentic_modality or "isolated",
-        capabilities=capabilities,
+        capabilities=[],  # legacy unused; tools resolve from each agent's pre_approved_tools
     )
     enqueue_scheduled_conversation_task(task)
     payload = schedule_payload_dict(task)
     logger.info(
         "Scheduled conversation task created id=%s title=%r conversation=%s "
-        "tools=%s next=%s",
+        "agents=%s next=%s",
         task.id,
         title,
         conversation_id,
-        capabilities or "ALL",
+        slugs,
         payload.get("next_run_at_local"),
     )
     return ScheduleTaskResult(
@@ -236,8 +274,8 @@ def _schedule_task_impl(
         next_run_at_local=payload.get("next_run_at_local"),
         next_run_at_utc=payload.get("next_run_at_utc"),
         schedule_summary=payload.get("schedule_summary"),
-        capabilities=capabilities,
-        tools_constrained=bool(capabilities),
+        agent_slugs=slugs,
+        multiagentic_modality=multiagentic_modality or "isolated",
     )
 
 
@@ -259,8 +297,7 @@ def get_tool(
 
     from api.ai_layers.tools.calendar_tool_helpers import resolve_org_timezone
 
-    # enabled_capabilities is intentionally ignored for snapshots — tools are either
-    # chosen explicitly via the tools param, or left unconstrained (all tools).
+    # Legacy kwarg from resolve_tools; tools are no longer snapshotted at schedule time.
     _ = enabled_capabilities
 
     tz_name = resolve_org_timezone(organization_id)
@@ -269,11 +306,16 @@ def get_tool(
         "Use this timezone for run_at and recurrence wall times unless an offset is provided."
     )
 
+    default_slugs = [str(s) for s in (agent_slugs or []) if s]
+    default_slugs_hint = (
+        ", ".join(default_slugs) if default_slugs else "(none selected in this chat)"
+    )
+
     def schedule_task(
         title: str,
         instruction: str,
         schedule_type: Literal["once", "recurring"],
-        tools: list[str] | None = None,
+        agent_slugs: list[str] | None = None,
         run_at: str | None = None,
         recurrence: Literal["daily", "weekly", "monthly"] | None = None,
         time_of_day: str | None = None,
@@ -288,9 +330,9 @@ def get_tool(
             conversation_id=conversation_id,
             organization_id=organization_id,
             user_id=user_id,
-            agent_slugs=agent_slugs,
+            agent_slugs=default_slugs,
             multiagentic_modality=multiagentic_modality,
-            tools=tools,
+            requested_agent_slugs=agent_slugs,
             run_at=run_at,
             recurrence=recurrence,
             time_of_day=time_of_day,
@@ -302,16 +344,14 @@ def get_tool(
     return {
         "name": "schedule_task",
         "description": (
-            "Schedule a one-off or recurring task that will later run in this conversation "
-            "as an automatic scheduled execution. "
+            "Schedule a one-off or recurring agent turn in this conversation. "
             "Provide a short title and a numbered step-by-step execution plan (which tools "
-            "to use and in what order) — not a user-style request to schedule work. "
-            "By default the future run may use all available tools. Optionally pass tools "
-            "to constrain which tools are allowed during execution (see catalog appended below). "
-            "Schedule-management tools are never available during execution. "
-            f"{tz_line} "
-            "All schedule wall times use the organization timezone unless run_at includes an offset. "
-            "For recurring, prefer recurrence + time_of_day (+ weekdays/day_of_month); cron is optional."
+            "and actions to use, in order). "
+            f"Default participating agents (omit agent_slugs to keep these): {default_slugs_hint}. "
+            "Pass agent_slugs to choose who runs — you may keep the defaults and add more "
+            "accessible specialists (use list_agents when available). "
+            "Each agent uses its own pre_approved_tools at fire time (no shared tools allowlist). "
+            f"{tz_line}"
         ),
         "parameters": ScheduleTaskParams,
         "function": schedule_task,

@@ -101,7 +101,7 @@ export type Store = {
   deleteAttachment: (index: number) => void;
   toggleWrittingMode: () => void;
   logout: () => void;
-  /** Replaces the selected tool list for one agent (used by the tool selection modal). */
+  /** Replaces the selected tool list for one agent and mirrors Agent.pre_approved_tools in store. */
   setAgentToolNames: (slug: string, names: string[]) => void;
   toggleAgentSelected: (slug: string) => void;
   /** Full replacement of `chatState.selectedAgents` (and list sort). */

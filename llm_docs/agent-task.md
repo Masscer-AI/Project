@@ -61,10 +61,15 @@ Payload includes:
 - `conversation_id`
 - `agent_slugs[]` (which agents to run, in order)
 - `user_inputs[]`
-- `tool_names[]`
+- `tool_names[]` / `tool_names_by_agent` (optional overrides; **main chat omits these**)
 - `plugin_slugs[]` (optional; selected plugin slugs to inject as extra instructions)
 - `multiagentic_modality`
 - `client_datetime` (optional; browser clock: `utc_iso`, `timezone` IANA, `local_datetime_long`, `locale` — used so the model can resolve relative times like “in 2 hours” in the user’s zone)
+
+**Tool allowlists (source of truth):**
+- **Main chat + scheduled runs:** each agent’s `Agent.pre_approved_tools` (chat UI persists tool toggles to that field). Web chat also auto-injects a small required baseline (attachments / email helpers). Trust floors and other auto-injection still apply. Schedules do **not** carry a shared tools allowlist; nested schedule-management tools are stripped on scheduled turns.
+- **WhatsApp / chat widget / MCP:** unchanged channel allowlists (`WSNumber.capabilities`, `ChatWidget.capabilities`, `MCPClient.allowed_tool_names`).
+- **Handoff:** the target agent uses **its own** `pre_approved_tools` (not the previous agent’s turn list).
 
 ### Backend → Celery task
 

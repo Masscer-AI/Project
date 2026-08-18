@@ -22,8 +22,8 @@ export type ToolsSelectorModalProps = {
 };
 
 /**
- * Shared accordion tools picker for chat (session tools) and agent settings
- * (pre-approved tools). Controlled — callers own persistence.
+ * Shared accordion tools picker for chat and agent settings
+ * (both write Agent.pre_approved_tools — callers own persistence).
  */
 export function ToolsSelectorModal({
   opened,

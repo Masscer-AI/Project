@@ -186,34 +186,86 @@ class ScheduleTaskToolTests(TestCase):
             user_id=self.user.id,
             agent_slugs=[self.agent.slug],
             multiagentic_modality="isolated",
-            tools=[
-                "explore_web",
-                "create_speech",
-                "generate_document_file",
-                "not_a_real_tool",
-                "explore_web",
-                "schedule_task",
-            ],
             run_at=future_local.strftime("%Y-%m-%dT%H:%M:%S"),
         )
         self.assertTrue(result.success)
         self.assertEqual(result.timezone, "America/Guayaquil")
         self.assertEqual(result.title, "Weekly competitor report")
-        self.assertTrue(result.tools_constrained)
         self.assertIn("Once at", result.schedule_summary or "")
         task = ScheduledConversationTask.objects.get(id=result.task_id)
         self.assertEqual(task.status, ScheduledConversationTask.Status.PENDING)
         self.assertEqual(task.title, "Weekly competitor report")
         self.assertEqual(task.agent_slugs, [self.agent.slug])
         self.assertEqual(task.celery_task_id, "celery-once-1")
-        self.assertEqual(
-            task.capabilities,
-            ["explore_web", "create_speech", "generate_document_file"],
-        )
+        self.assertEqual(task.capabilities, [])
         mock_apply.assert_called_once()
 
     @patch("api.messaging.tasks.run_scheduled_conversation_task.apply_async")
-    def test_schedule_omitting_tools_means_all_tools(self, mock_apply):
+    def test_schedule_explicit_agent_slugs_can_add_specialists(self, mock_apply):
+        mock_apply.return_value = MagicMock(id="celery-agents-1")
+        specialist = Agent.objects.create(
+            name="Tax Specialist",
+            slug="tax-sched-specialist",
+            salute="hi",
+            act_as="tax",
+            description="Tax specialist",
+            user=self.user,
+            organization=self.org,
+            llm=self.llm,
+            model_slug=self.llm.slug,
+            model_provider="openai",
+        )
+        from api.ai_layers.tools.schedule_task import _schedule_task_impl
+
+        future_local = (
+            datetime.now(ZoneInfo("America/Guayaquil")) + timedelta(days=1)
+        ).replace(hour=10, minute=0, second=0, microsecond=0)
+        result = _schedule_task_impl(
+            title="Multi-agent schedule",
+            instruction="1. Legal drafts. 2. Tax reviews.",
+            schedule_type="once",
+            conversation_id=str(self.conversation.id),
+            organization_id=self.org.id,
+            user_id=self.user.id,
+            agent_slugs=[self.agent.slug],  # chat pre-selection
+            multiagentic_modality="grupal",
+            requested_agent_slugs=[self.agent.slug, specialist.slug],
+            run_at=future_local.strftime("%Y-%m-%dT%H:%M:%S"),
+        )
+        self.assertTrue(result.success)
+        self.assertEqual(
+            result.agent_slugs,
+            [self.agent.slug, specialist.slug],
+        )
+        task = ScheduledConversationTask.objects.get(id=result.task_id)
+        self.assertEqual(task.agent_slugs, [self.agent.slug, specialist.slug])
+        self.assertEqual(task.multiagentic_modality, "grupal")
+
+    @patch("api.messaging.tasks.run_scheduled_conversation_task.apply_async")
+    def test_schedule_rejects_inaccessible_agent_slug(self, mock_apply):
+        from api.ai_layers.tools.schedule_task import _schedule_task_impl
+
+        future_local = (
+            datetime.now(ZoneInfo("America/Guayaquil")) + timedelta(days=1)
+        ).replace(hour=10, minute=0, second=0, microsecond=0)
+        with self.assertRaises(ValueError) as ctx:
+            _schedule_task_impl(
+                title="Bad agents",
+                instruction="1. Do work.",
+                schedule_type="once",
+                conversation_id=str(self.conversation.id),
+                organization_id=self.org.id,
+                user_id=self.user.id,
+                agent_slugs=[self.agent.slug],
+                multiagentic_modality="isolated",
+                requested_agent_slugs=[self.agent.slug, "not-a-real-agent"],
+                run_at=future_local.strftime("%Y-%m-%dT%H:%M:%S"),
+            )
+        self.assertIn("not found or not accessible", str(ctx.exception).lower())
+        mock_apply.assert_not_called()
+
+    @patch("api.messaging.tasks.run_scheduled_conversation_task.apply_async")
+    def test_schedule_does_not_snapshot_tools(self, mock_apply):
         mock_apply.return_value = MagicMock(id="celery-caps-1")
         from api.ai_layers.tools.schedule_task import get_tool
 
@@ -241,9 +293,10 @@ class ScheduleTaskToolTests(TestCase):
             run_at=future_local.strftime("%Y-%m-%dT%H:%M:%S"),
         )
         self.assertTrue(result.success)
-        self.assertFalse(result.tools_constrained)
+        self.assertEqual(result.agent_slugs, [self.agent.slug])
         task = ScheduledConversationTask.objects.get(id=result.task_id)
         self.assertEqual(task.capabilities, [])
+        self.assertNotIn("Optional tools allowlist", tool["description"])
 
     @patch("api.messaging.tasks.run_scheduled_conversation_task.apply_async")
     def test_schedule_weekly_and_cancel(self, mock_apply):
@@ -378,14 +431,10 @@ class ScheduleFirePathTests(TestCase):
         self.assertIn("Title: Short status update", user_text)
         self.assertIn("1. Write a short status update.", user_text)
         self.assertIn("Do NOT create, list, or cancel schedules", user_text)
-        self.assertIn("all available tools (no constraint)", user_text)
+        self.assertIn("each agent's pre_approved_tools", user_text)
         self.assertIn("-->", user_text)
-        from api.messaging.schedule_helpers import selectable_scheduled_task_tool_names
-
-        all_tools = selectable_scheduled_task_tool_names()
-        self.assertEqual(kwargs["tool_names"], all_tools)
-        self.assertEqual(kwargs["capabilities_override"], all_tools)
-        self.assertNotIn("schedule_task", kwargs["tool_names"])
+        self.assertEqual(kwargs["tool_names"], [])
+        self.assertNotIn("capabilities_override", kwargs)
         self.assertEqual(
             kwargs["user_message_metadata"],
             {
@@ -395,8 +444,6 @@ class ScheduleFirePathTests(TestCase):
                 "scheduled_task_kind": "one-off",
                 "schedule_type": ScheduledConversationTask.ScheduleType.ONCE,
                 "scheduled_task_plan": "1. Write a short status update.",
-                "tools_constrained": False,
-                "capabilities_override": all_tools,
             },
         )
         self.assertEqual(kwargs["agent_slugs"], [self.agent.slug])
@@ -405,7 +452,7 @@ class ScheduleFirePathTests(TestCase):
         self.assertEqual(task.created_message_id, 42)
 
     @patch("api.ai_layers.tasks.conversation_agent_task")
-    def test_fire_passes_saved_capabilities_as_override(self, mock_agent):
+    def test_fire_ignores_legacy_capabilities_field(self, mock_agent):
         mock_agent.return_value = {
             "status": "completed",
             "user_message_id": 43,
@@ -420,27 +467,15 @@ class ScheduleFirePathTests(TestCase):
             "list_scheduled_tasks",
             "cancel_scheduled_task",
         ]
-        expected = [
-            "create_speech",
-            "list_voices",
-            "generate_document_file",
-            "explore_web",
-        ]
         task = self._make_pending(capabilities=caps)
         from api.messaging.tasks import run_scheduled_conversation_task
 
         run_scheduled_conversation_task(str(task.id))
         kwargs = mock_agent.call_args.kwargs
-        self.assertEqual(kwargs["tool_names"], expected)
-        self.assertEqual(kwargs["capabilities_override"], expected)
-        self.assertEqual(
-            kwargs["user_message_metadata"]["capabilities_override"], expected
-        )
-        self.assertTrue(kwargs["user_message_metadata"]["tools_constrained"])
-        self.assertIn("create_speech", kwargs["tool_names"])
-        self.assertNotIn("schedule_task", kwargs["tool_names"])
-        self.assertNotIn("list_scheduled_tasks", kwargs["tool_names"])
-        self.assertNotIn("cancel_scheduled_task", kwargs["tool_names"])
+        self.assertEqual(kwargs["tool_names"], [])
+        self.assertNotIn("capabilities_override", kwargs)
+        self.assertNotIn("tools_constrained", kwargs["user_message_metadata"])
+        self.assertEqual(kwargs["agent_slugs"], [self.agent.slug])
 
     @patch("api.ai_layers.tasks.conversation_agent_task")
     def test_fire_skips_takeover(self, mock_agent):
@@ -564,7 +599,7 @@ class ScheduledCapabilityOverrideTests(TestCase):
         resolved = resolve_scheduled_task_capabilities(task)
         self.assertEqual(resolved, ["explore_web", "send_email"])
 
-    def test_resolve_tools_appends_capability_catalog_to_schedule_task(self):
+    def test_resolve_tools_schedule_task_has_no_capability_catalog(self):
         from api.ai_layers.tools import resolve_tools
 
         tools = resolve_tools(
@@ -580,13 +615,8 @@ class ScheduledCapabilityOverrideTests(TestCase):
         self.assertIn("schedule_task", by_name)
         self.assertIn("list_voices", by_name)  # dependent of create_speech
         desc = by_name["schedule_task"]["description"]
-        self.assertIn("Optional tools allowlist", desc)
-        self.assertIn("never available during execution", desc)
-        self.assertIn("create_speech", desc)
-        self.assertIn("explore_web", desc)
-        self.assertIn("send_email", desc)  # from full selectable catalog
-        # Schedule tools themselves must not appear in the catalog JSON payload.
-        self.assertNotIn('"schedule_task"', desc)
+        self.assertNotIn("Optional tools allowlist", desc)
+        self.assertIn("pre_approved_tools", desc)
 
     @patch("api.notify.actions.notify_user")
     @patch("api.consumption.actions._check_org_subscription", return_value=(True, None))
@@ -746,40 +776,17 @@ class ScheduledTasksApiTests(TestCase):
         data = response.json()
         self.assertEqual(data["count"], 1)
         self.assertEqual(data["tasks"][0]["id"], str(self.pending.id))
-        self.assertIn("available_tools", data)
-        self.assertIn("explore_web", data["available_tools"])
-        self.assertNotIn("schedule_task", data["available_tools"])
+        self.assertNotIn("available_tools", data)
+        self.assertIn("agent_slugs", data["tasks"][0])
 
-    def test_patch_updates_capabilities(self):
-        response = self.client.patch(
-            f"/v1/messaging/scheduled-tasks/{self.pending.id}/",
-            data={"capabilities": ["explore_web", "send_email", "schedule_task"]},
-            format="json",
-            **self._auth(self.token),
-        )
-        self.assertEqual(response.status_code, 400)
-
+    def test_patch_capabilities_is_gone(self):
         response = self.client.patch(
             f"/v1/messaging/scheduled-tasks/{self.pending.id}/",
             data={"capabilities": ["explore_web", "send_email"]},
             format="json",
             **self._auth(self.token),
         )
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertTrue(data["success"])
-        self.assertEqual(data["task"]["capabilities"], ["explore_web", "send_email"])
-        self.pending.refresh_from_db()
-        self.assertEqual(self.pending.capabilities, ["explore_web", "send_email"])
-
-        # Empty list clears constraint → all tools.
-        response = self.client.patch(
-            f"/v1/messaging/scheduled-tasks/{self.pending.id}/",
-            data={"capabilities": []},
-            format="json",
-            **self._auth(self.token),
-        )
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 410)
         self.pending.refresh_from_db()
         self.assertEqual(self.pending.capabilities, [])
 

@@ -14,7 +14,6 @@ get_tool() to produce the AgentTool dicts that AgentLoop expects.
 from __future__ import annotations
 
 import importlib
-import json
 import logging
 
 logger = logging.getLogger(__name__)
@@ -79,6 +78,17 @@ SCHEDULE_AGENT_TOOL_NAMES: tuple[str, ...] = (
     "schedule_task",
     "list_scheduled_tasks",
     "cancel_scheduled_task",
+)
+
+# Always offered on authenticated main-web chat runs (auto-injected server-side).
+# Not a second allowlist — merged onto Agent.pre_approved_tools for non-embedded chats.
+CHAT_REQUIRED_TOOL_NAMES: tuple[str, ...] = (
+    "read_attachment",
+    "list_attachments",
+    "generate_document_file",
+    "send_email",
+    "list_organization_members",
+    "list_organization_roles",
 )
 
 DEPENDENT_TOOL_REQUIREMENTS: dict[str, tuple[str, ...]] = {
@@ -210,50 +220,7 @@ def resolve_tools(tool_names: list[str], **context) -> list[dict]:
             # Don't add the tool; continue with the rest
             continue
 
-    _append_schedule_task_capability_catalog(tools)
     return tools
-
-
-def _concise_tool_description(description: str, *, max_len: int = 160) -> str:
-    text = " ".join((description or "").split())
-    if not text:
-        return ""
-    first = text.split(". ", 1)[0].rstrip(".")
-    if first:
-        text = first + "."
-    if len(text) > max_len:
-        return text[: max_len - 1].rstrip() + "…"
-    return text
-
-
-def _append_schedule_task_capability_catalog(tools: list[dict]) -> None:
-    """Tell schedule_task which tools it may optionally constrain the future run to."""
-    schedule_tool = next((t for t in tools if t.get("name") == "schedule_task"), None)
-    if schedule_tool is None:
-        return
-
-    from api.messaging.schedule_helpers import selectable_scheduled_task_tool_names
-
-    # Prefer descriptions from currently resolved tools; fall back to bare names.
-    by_name = {
-        t.get("name"): _concise_tool_description(str(t.get("description") or ""))
-        for t in tools
-        if isinstance(t.get("name"), str) and t.get("name")
-    }
-    catalog: dict[str, str] = {}
-    for name in selectable_scheduled_task_tool_names():
-        catalog[name] = by_name.get(name) or name.replace("_", " ")
-
-    if not catalog:
-        return
-
-    schedule_tool["description"] = (
-        f"{schedule_tool.get('description', '').rstrip()} "
-        "Optional tools allowlist names you may pass in tools "
-        "(omit tools for all available; schedule-management tools are never available "
-        "during execution): "
-        f"(tool_name → description): {json.dumps(catalog, ensure_ascii=False)}"
-    )
 
 
 def list_registered_tools() -> list[str]:

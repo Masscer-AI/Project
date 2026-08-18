@@ -12,7 +12,6 @@ import {
   Group,
   Loader,
   Modal,
-  MultiSelect,
   SimpleGrid,
   Stack,
   Switch,
@@ -30,7 +29,7 @@ import {
   IconMessage,
   IconPlayerPlay,
   IconRepeat,
-  IconTool,
+  IconRobot,
   IconTrash,
 } from "@tabler/icons-react";
 import { Sidebar } from "../../components/Sidebar/Sidebar";
@@ -39,9 +38,7 @@ import {
   cancelScheduledTask,
   listMyScheduledTasks,
   TScheduledConversationTask,
-  updateScheduledTaskCapabilities,
 } from "../../modules/apiCalls";
-import { useLocalizedToolName } from "../../utils/localizedToolName";
 
 function parseInstructionSteps(instruction: string): string[] {
   const trimmed = (instruction || "").trim();
@@ -106,17 +103,9 @@ function statusColor(status: string): string {
   }
 }
 
-function sameToolList(a: string[], b: string[]): boolean {
-  if (a.length !== b.length) return false;
-  const sa = [...a].sort();
-  const sb = [...b].sort();
-  return sa.every((v, i) => v === sb[i]);
-}
-
 export default function ScheduledTasksPage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
-  const localizedToolName = useLocalizedToolName();
   const { chatState, toggleSidebar } = useStore((s) => ({
     chatState: s.chatState,
     toggleSidebar: s.toggleSidebar,
@@ -125,8 +114,6 @@ export default function ScheduledTasksPage() {
   const [loading, setLoading] = useState(true);
   const [includeFinished, setIncludeFinished] = useState(false);
   const [tasks, setTasks] = useState<TScheduledConversationTask[]>([]);
-  const [availableTools, setAvailableTools] = useState<string[]>([]);
-  const [savingToolsFor, setSavingToolsFor] = useState<string | null>(null);
   const [cancelTarget, setCancelTarget] =
     useState<TScheduledConversationTask | null>(null);
   const [cancelling, setCancelling] = useState(false);
@@ -142,9 +129,6 @@ export default function ScheduledTasksPage() {
       });
       // Defensive: cancelled tasks should never appear in the UI.
       setTasks((res.tasks || []).filter((task) => task.status !== "cancelled"));
-      if (Array.isArray(res.available_tools)) {
-        setAvailableTools(res.available_tools);
-      }
     } catch (err) {
       console.error(err);
       toast.error(t("scheduled-tasks-load-error"));
@@ -163,15 +147,6 @@ export default function ScheduledTasksPage() {
         (task) => task.status === "pending" || task.status === "running"
       ).length,
     [tasks]
-  );
-
-  const toolOptions = useMemo(
-    () =>
-      availableTools.map((name) => ({
-        value: name,
-        label: localizedToolName(name),
-      })),
-    [availableTools, localizedToolName]
   );
 
   const requestCancel = (task: TScheduledConversationTask, e: React.MouseEvent) => {
@@ -200,48 +175,6 @@ export default function ScheduledTasksPage() {
   const openConversation = (task: TScheduledConversationTask) => {
     if (!task.conversation_id) return;
     navigate(`/chat?conversation=${task.conversation_id}`);
-  };
-
-  const handleToolsChange = async (
-    task: TScheduledConversationTask,
-    nextTools: string[]
-  ) => {
-    const current = task.capabilities || [];
-    if (sameToolList(current, nextTools)) return;
-
-    const canEdit = task.status === "pending" || task.status === "running";
-    if (!canEdit) return;
-
-    setSavingToolsFor(task.id);
-    // Optimistic update
-    setTasks((prev) =>
-      prev.map((item) =>
-        item.id === task.id ? { ...item, capabilities: nextTools } : item
-      )
-    );
-    try {
-      const res = await updateScheduledTaskCapabilities(task.id, nextTools);
-      if (res.task) {
-        setTasks((prev) =>
-          prev.map((item) => (item.id === task.id ? { ...item, ...res.task } : item))
-        );
-      }
-      if (Array.isArray(res.available_tools)) {
-        setAvailableTools(res.available_tools);
-      }
-      toast.success(t("scheduled-task-tools-updated"));
-    } catch (err) {
-      console.error(err);
-      toast.error(t("scheduled-task-tools-update-error"));
-      // Revert
-      setTasks((prev) =>
-        prev.map((item) =>
-          item.id === task.id ? { ...item, capabilities: current } : item
-        )
-      );
-    } finally {
-      setSavingToolsFor(null);
-    }
   };
 
   return (
@@ -280,40 +213,33 @@ export default function ScheduledTasksPage() {
                 <IconCalendarTime size={24} />
               </ThemeIcon>
               <Stack gap={4}>
-                <Group gap="sm" align="center">
-                  <Title order={2}>{t("scheduled-tasks-title")}</Title>
-                  {!loading && (
-                    <Badge variant="light" color="violet" size="sm">
-                      {activeCount}
-                    </Badge>
-                  )}
-                </Group>
-                <Text c="dimmed" size="sm" maw="36rem">
+                <Title order={2}>{t("scheduled-tasks-title")}</Title>
+                <Text size="sm" c="dimmed">
                   {t("scheduled-tasks-page-description")}
                 </Text>
               </Stack>
             </Group>
-            <Switch
-              label={t("scheduled-tasks-include-finished")}
-              checked={includeFinished}
-              onChange={(e) => setIncludeFinished(e.currentTarget.checked)}
-            />
+            <Group gap="sm">
+              <Badge variant="light" color="violet" leftSection={<IconCalendarEvent size={12} />}>
+                {activeCount}
+              </Badge>
+              <Switch
+                label={t("scheduled-tasks-include-finished")}
+                checked={includeFinished}
+                onChange={(e) => setIncludeFinished(e.currentTarget.checked)}
+              />
+            </Group>
           </Group>
 
           {loading ? (
             <Group justify="center" py="xl">
-              <Loader size="sm" />
+              <Loader />
             </Group>
           ) : tasks.length === 0 ? (
             <Card withBorder padding="xl" radius="md">
-              <Stack align="center" gap="sm" py="md">
-                <ThemeIcon size={56} radius="xl" variant="light" color="gray">
-                  <IconCalendarEvent size={28} />
-                </ThemeIcon>
-                <Text fw={600} size="sm">
-                  {t("scheduled-tasks-empty")}
-                </Text>
-                <Text c="dimmed" size="sm" ta="center" maw="28rem">
+              <Stack align="center" gap="sm">
+                <Text fw={600}>{t("scheduled-tasks-empty")}</Text>
+                <Text size="sm" c="dimmed" ta="center" maw="28rem">
                   {t("scheduled-tasks-empty-hint")}
                 </Text>
               </Stack>
@@ -323,7 +249,6 @@ export default function ScheduledTasksPage() {
               {tasks.map((task) => {
                 const canCancel =
                   task.status === "pending" || task.status === "running";
-                const canEditTools = canCancel;
                 const isRecurring = task.schedule_type === "recurring";
                 const title =
                   task.title?.trim() ||
@@ -337,8 +262,7 @@ export default function ScheduledTasksPage() {
                 );
                 const statusKey = (task.status || "").toLowerCase();
                 const accent = statusColor(statusKey);
-                const selectedTools = task.capabilities || [];
-                const allTools = selectedTools.length === 0;
+                const agentSlugs = task.agent_slugs || [];
 
                 return (
                   <Card
@@ -423,44 +347,23 @@ export default function ScheduledTasksPage() {
                         </Stack>
                       </Group>
 
-                      <Stack gap={6} onClick={(e) => e.stopPropagation()}>
-                        <Group gap={6} justify="space-between" wrap="nowrap">
+                      {agentSlugs.length > 0 && (
+                        <Stack gap={6}>
                           <Group gap={6}>
-                            <IconTool size={14} style={{ opacity: 0.7 }} />
+                            <IconRobot size={14} style={{ opacity: 0.7 }} />
                             <Text size="xs" c="dimmed" tt="uppercase" fw={600}>
-                              {t("scheduled-task-tools")}
+                              {t("scheduled-task-agents")}
                             </Text>
                           </Group>
-                          {allTools ? (
-                            <Badge size="xs" variant="light" color="teal">
-                              {t("scheduled-task-tools-all")}
-                            </Badge>
-                          ) : (
-                            <Badge size="xs" variant="light" color="violet">
-                              {t("scheduled-task-tools-constrained", {
-                                count: selectedTools.length,
-                              })}
-                            </Badge>
-                          )}
-                        </Group>
-                        <MultiSelect
-                          size="xs"
-                          data={toolOptions}
-                          value={selectedTools}
-                          onChange={(value) => {
-                            void handleToolsChange(task, value);
-                          }}
-                          placeholder={t("scheduled-task-tools-placeholder")}
-                          searchable
-                          clearable
-                          disabled={!canEditTools || savingToolsFor === task.id}
-                          nothingFoundMessage={t("scheduled-task-tools-none")}
-                          maxDropdownHeight={220}
-                        />
-                        <Text size="xs" c="dimmed">
-                          {t("scheduled-task-tools-hint")}
-                        </Text>
-                      </Stack>
+                          <Group gap={6}>
+                            {agentSlugs.map((slug) => (
+                              <Badge key={slug} size="xs" variant="light" color="gray">
+                                {slug}
+                              </Badge>
+                            ))}
+                          </Group>
+                        </Stack>
+                      )}
 
                       {previewSteps.length > 0 && (
                         <Stack gap={4}>
