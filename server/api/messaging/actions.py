@@ -12,10 +12,8 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-# Titles are always generated with this OpenAI model (not the chat agent's model).
 TITLE_MODEL = "gpt-4.1-mini"
 TITLE_MAX_OUTPUT_TOKENS = 256
-
 
 def _preview_text(text: str | None, max_len: int = 200) -> str:
     if not text:
@@ -23,9 +21,7 @@ def _preview_text(text: str | None, max_len: int = 200) -> str:
     t = text.replace("\n", " ").strip()
     return (t[:max_len] + "…") if len(t) > max_len else t
 
-
 def generate_conversation_title(conversation_id: str):
-    # Prompt por defecto
     default_system = """
     Given some conversation messages, please generate a title related to the conversation. The title must have an emoji at the beginning.
 
@@ -55,23 +51,18 @@ def generate_conversation_title(conversation_id: str):
         )
         return False
 
-    # Obtener el agente usado en la conversación
     agent = None
     agent_slug = None
 
-    # Buscar el primer mensaje assistant para obtener el agente
     first_assistant_message = c.messages.filter(type="assistant").first()
     if first_assistant_message:
-        # Intentar obtener el agent_slug de versions
         if first_assistant_message.versions and len(first_assistant_message.versions) > 0:
             agent_slug = first_assistant_message.versions[0].get("agent_slug")
 
-        # Si no está en versions, intentar en agents
         if not agent_slug and first_assistant_message.agents:
             if isinstance(first_assistant_message.agents, list) and len(first_assistant_message.agents) > 0:
                 agent_slug = first_assistant_message.agents[0].get("slug")
 
-    # Si encontramos un agent_slug, obtener el agente
     if agent_slug:
         try:
             from api.ai_layers.models import Agent
@@ -91,7 +82,6 @@ def generate_conversation_title(conversation_id: str):
         bool(agent and agent.conversation_title_prompt),
     )
 
-    # Usar el prompt personalizado del agente si existe, sino el default
     system = agent.conversation_title_prompt if agent and agent.conversation_title_prompt else default_system
     system += "\n\nIMPORTANT: The title must be at most 50 characters long."
 
@@ -153,7 +143,6 @@ def generate_conversation_title(conversation_id: str):
     if title and title.startswith('"') and title.endswith('"'):
         title = title[1:-1]
 
-    # Enforce 50 character limit regardless of prompt or LLM response
     if title and len(title) > 50:
         title = title[:50].rstrip()
 
@@ -203,7 +192,6 @@ def generate_conversation_title(conversation_id: str):
     )
     return True
 
-
 def transcribe_audio(audio_file_url, output_format="verbose_json") -> str:
     """Transcribe audio using the centralized TranscriptionService."""
     from api.utils.transcription import transcription_service
@@ -212,7 +200,6 @@ def transcribe_audio(audio_file_url, output_format="verbose_json") -> str:
         return transcription_service.transcribe_to_vtt(audio_file_url, delete_after=True)
 
     return transcription_service.transcribe_to_text(audio_file_url, delete_after=True)
-
 
 def generate_speech_api(
     text: str,
@@ -239,19 +226,18 @@ def generate_speech_api(
 
         audio = b""
         for chunk in response.iter_content(chunk_size=2097152):
-            audio += chunk  # Accumulate audio data
+            audio += chunk
 
         print(output_path, "AUDIO WILL LIVE IN")
         with open(output_path, "wb") as audio_file:
             audio_file.write(audio)
 
         print(f"Audio saved to {output_path}")
-        return audio  # Return the audio bytes
+        return audio
 
     except requests.exceptions.RequestException as e:
         print(f"An error occurred generaeting speech: {e}")
         return b""
-
 
 def complete_message(text: str):
     system = """

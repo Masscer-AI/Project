@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 
-/** Keep <title> and meta description in sync with the active language. */
 export function DocumentMeta() {
   const { t, i18n } = useTranslation();
 

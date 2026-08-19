@@ -18,7 +18,6 @@ from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
-
 class ScheduleTaskParams(BaseModel):
     title: str = Field(
         description=(
@@ -88,7 +87,6 @@ class ScheduleTaskParams(BaseModel):
         ),
     )
 
-
 class ScheduleTaskResult(BaseModel):
     success: bool
     message: str
@@ -100,7 +98,6 @@ class ScheduleTaskResult(BaseModel):
     schedule_summary: str | None = None
     agent_slugs: list[str] | None = None
     multiagentic_modality: str | None = None
-
 
 def _schedule_task_impl(
     *,
@@ -150,9 +147,6 @@ def _schedule_task_impl(
     except Conversation.DoesNotExist as exc:
         raise ValueError("Conversation not found.") from exc
 
-    # Web chats often leave Conversation.organization_id null; the agent task then
-    # resolves org from the user/agent. Only reject when the conversation is tied
-    # to a *different* org than the tool context.
     if (
         conversation.organization_id is not None
         and conversation.organization_id != organization_id
@@ -164,12 +158,10 @@ def _schedule_task_impl(
     except User.DoesNotExist as exc:
         raise ValueError("Authenticated user not found.") from exc
 
-    # Resolve participants: explicit agent_slugs from the model, else chat selection.
     default_slugs = [str(s) for s in (agent_slugs or []) if s]
     if requested_agent_slugs is None:
         slugs = default_slugs
     else:
-        # Stable dedupe, preserve order
         seen: set[str] = set()
         slugs = []
         for raw in requested_agent_slugs:
@@ -252,7 +244,7 @@ def _schedule_task_impl(
         status=ScheduledConversationTask.Status.PENDING,
         agent_slugs=slugs,
         multiagentic_modality=multiagentic_modality or "isolated",
-        capabilities=[],  # legacy unused; tools resolve from each agent's pre_approved_tools
+        capabilities=[],
     )
     enqueue_scheduled_conversation_task(task)
     payload = schedule_payload_dict(task)
@@ -278,7 +270,6 @@ def _schedule_task_impl(
         multiagentic_modality=multiagentic_modality or "isolated",
     )
 
-
 def get_tool(
     conversation_id: str | None = None,
     organization_id: int | None = None,
@@ -297,7 +288,6 @@ def get_tool(
 
     from api.ai_layers.tools.calendar_tool_helpers import resolve_org_timezone
 
-    # Legacy kwarg from resolve_tools; tools are no longer snapshotted at schedule time.
     _ = enabled_capabilities
 
     tz_name = resolve_org_timezone(organization_id)

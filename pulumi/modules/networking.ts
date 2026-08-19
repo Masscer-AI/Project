@@ -61,8 +61,6 @@ export function createNetworking(namePrefix: string, tags: Tags, vpcCidr: string
     tags: { ...tags, Name: `${namePrefix}-igw` },
   });
 
-  // NAT Gateway: allows private subnets (ECS tasks, RDS/Redis clients) to reach the internet
-  // for outbound requests (e.g. OpenAI API) without exposing them publicly.
   const natEip = new aws.ec2.Eip("nat-eip", {
     domain: "vpc",
     tags: { ...tags, Name: `${namePrefix}-nat-eip` },

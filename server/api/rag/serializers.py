@@ -2,12 +2,10 @@ from rest_framework import serializers
 from .models import Collection, Document, Chunk
 from api.ai_layers.serializers import AgentSerializer
 
-
 class ChunkSerializer(serializers.ModelSerializer):
     class Meta:
         model = Chunk
         fields = ["id", "document", "content", "brief", "tags", "created_at"]
-
 
 class MiniCollectionSerializer(serializers.ModelSerializer):
     agent = AgentSerializer()
@@ -16,9 +14,7 @@ class MiniCollectionSerializer(serializers.ModelSerializer):
         model = Collection
         fields = ["id", "name", "chunk_size", "chunk_overlap", "agent"]
 
-
 class DocumentSerializer(serializers.ModelSerializer):
-    # chunk_set = ChunkSerializer(many=True, read_only=True)
     chunk_count = serializers.SerializerMethodField()
     has_file = serializers.SerializerMethodField()
     file_url = serializers.SerializerMethodField()
@@ -85,7 +81,6 @@ class DocumentSerializer(serializers.ModelSerializer):
             return request.build_absolute_uri(url)
         return url
 
-
 class BigDocumentSerializer(serializers.ModelSerializer):
     chunk_set = ChunkSerializer(many=True, read_only=True)
     chunk_count = serializers.SerializerMethodField()
@@ -107,7 +102,6 @@ class BigDocumentSerializer(serializers.ModelSerializer):
 
     def get_chunk_count(self, obj):
         return obj.chunk_set.count()
-
 
 class CollectionSerializer(serializers.ModelSerializer):
     documents = DocumentSerializer(many=True, read_only=True)

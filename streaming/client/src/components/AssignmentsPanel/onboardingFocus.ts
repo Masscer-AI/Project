@@ -1,11 +1,6 @@
 const HIGHLIGHT_CLASS = "onboarding-focus-highlight";
 const HIGHLIGHT_MS = 2600;
 
-/**
- * Find an element marked with data-onboarding-target="<key>", scroll it into
- * view and highlight it briefly. Polls a few times so it works right after a
- * route change (element may not be mounted yet).
- */
 export function focusOnboardingTarget(
   key: string,
   { attempts = 20, intervalMs = 150 }: { attempts?: number; intervalMs?: number } = {}

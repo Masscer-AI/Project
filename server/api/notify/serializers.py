@@ -2,20 +2,17 @@ from rest_framework import serializers
 from api.notify.models import NotificationRule, UserNotification
 from api.notify.schemas import NotificationConditionList
 
-
 class NotificationRuleSerializer(serializers.ModelSerializer):
     organization = serializers.UUIDField(read_only=True, source="organization.id")
     created_by = serializers.IntegerField(
         read_only=True, source="created_by.id", allow_null=True
     )
 
-    # Read-only resolved labels for display
     notify_to_user_username = serializers.SerializerMethodField()
     notify_to_role_name = serializers.SerializerMethodField()
     notify_to_org_name = serializers.SerializerMethodField()
     alert_rule_name = serializers.SerializerMethodField()
 
-    # IDs are accepted from the client on write and included on read so the UI can edit rules.
     notify_to_user_id = serializers.IntegerField(required=False, allow_null=True)
     notify_to_role_id = serializers.UUIDField(required=False, allow_null=True)
     notify_to_org_id = serializers.UUIDField(required=False, allow_null=True)
@@ -66,7 +63,6 @@ class NotificationRuleSerializer(serializers.ModelSerializer):
         role_id = data.get("notify_to_role_id")
         org_id = data.get("notify_to_org_id")
 
-        # On update, check existing values too
         if self.instance:
             if "notify_to_user_id" not in data:
                 user_id = self.instance.notify_to_user_id
@@ -108,7 +104,6 @@ class NotificationRuleSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         return super().update(instance, self._resolve_relations(validated_data))
-
 
 class UserNotificationSerializer(serializers.ModelSerializer):
     organization = serializers.UUIDField(read_only=True, source="organization.id")

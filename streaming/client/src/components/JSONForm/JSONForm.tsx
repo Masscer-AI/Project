@@ -113,7 +113,6 @@ export const JSONForm: React.FC<JSONFormProps> = ({
               accept="image/*"
               className="input"
               onChange={(e) => {
-                // Save the iamge as B64
                 const file = e.target.files?.[0];
                 if (!file) return;
                 const reader = new FileReader();
@@ -135,7 +134,6 @@ export const JSONForm: React.FC<JSONFormProps> = ({
     }
   };
 
-  // Collect all keys: from data + from fieldMapping (for fields not in data yet)
   const allKeys = new Set([
     ...Object.keys(data),
     ...Object.keys(fieldMapping),

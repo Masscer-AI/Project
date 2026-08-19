@@ -20,7 +20,6 @@ CALENDAR_AGENT_TOOL_NAMES: tuple[str, ...] = (
     "update_calendar_event",
 )
 
-
 def require_calendar_tool_context(
     *,
     user_id: int | None,
@@ -51,7 +50,6 @@ def require_calendar_tool_context(
     tz_name = resolve_org_timezone(organization_id)
     return user, org, tz_name
 
-
 TimeframePreset = Literal[
     "today",
     "tomorrow",
@@ -64,7 +62,6 @@ TimeframePreset = Literal[
 
 _OFFSET_RE = re.compile(r"([zZ]|[+-]\d{2}:\d{2})$")
 
-
 def resolve_org_timezone(organization_id: int | None) -> str:
     if not organization_id:
         return "UTC"
@@ -74,7 +71,6 @@ def resolve_org_timezone(organization_id: int | None) -> str:
         return "UTC"
     tz = (org.timezone or "").strip()
     return tz or "UTC"
-
 
 def window_for_timeframe(
     *,
@@ -118,7 +114,6 @@ def window_for_timeframe(
         end = start + timedelta(days=1)
         return to_rfc(start), to_rfc(end)
 
-    # Week boundaries: Monday 00:00 local
     this_monday = day_start(now_local.date() - timedelta(days=now_local.weekday()))
 
     if timeframe == "this_week":
@@ -134,7 +129,6 @@ def window_for_timeframe(
 
     raise ValueError(f"Unknown timeframe: {timeframe}")
 
-
 def _ensure_rfc3339(value: str, tz_name: str) -> str:
     raw = value.strip()
     if _OFFSET_RE.search(raw):
@@ -148,7 +142,6 @@ def _ensure_rfc3339(value: str, tz_name: str) -> str:
         return naive.replace(tzinfo=tz).isoformat()
     return naive.isoformat()
 
-
 def google_event_time(value: str, tz_name: str) -> dict[str, str]:
     """
     Build Google Calendar start/end object.
@@ -161,7 +154,6 @@ def google_event_time(value: str, tz_name: str) -> dict[str, str]:
     if "T" not in raw:
         return {"date": raw}
     return {"dateTime": raw, "timeZone": tz_name}
-
 
 def resolve_guest_emails(
     guest_user_ids: list[int] | None,
@@ -190,7 +182,6 @@ def resolve_guest_emails(
         else:
             skipped += 1
     return attendees, skipped
-
 
 def format_org_timezone_clock_line(organization_id: int | None) -> str:
     tz_name = resolve_org_timezone(organization_id)

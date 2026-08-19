@@ -9,16 +9,11 @@ from django.utils import timezone
 from api.authenticate.services import FeatureFlagService
 
 AGENT_TASK_ACTIVE_CACHE_TIMEOUT = 3600
-# After the latest AgentSession ends, keep trusting the cache briefly for
-# multi-agent handoffs (next session not created yet). Beyond this, heal stale cache.
 AGENT_TASK_HANDOFF_GRACE_SECONDS = 60
-# Enqueue gap with zero sessions: if cache is older than this, treat as dead worker.
 AGENT_TASK_ENQUEUE_GRACE_SECONDS = 120
-
 
 def agent_task_active_cache_key(conversation_id: str) -> str:
     return f"agent_task_active_{conversation_id}"
-
 
 def mark_agent_task_active(conversation_id: str) -> None:
     """Mark a conversation as having an in-flight agent task (covers enqueue→session gap)."""
@@ -28,14 +23,11 @@ def mark_agent_task_active(conversation_id: str) -> None:
         timeout=AGENT_TASK_ACTIVE_CACHE_TIMEOUT,
     )
 
-
 def clear_agent_task_active(conversation_id: str) -> None:
     cache.delete(agent_task_active_cache_key(str(conversation_id)))
 
-
 def is_agent_task_marked_active(conversation_id: str) -> bool:
     return cache.get(agent_task_active_cache_key(str(conversation_id))) is not None
-
 
 def conversation_has_active_agent_session(conversation) -> bool:
     from api.ai_layers.models import AgentSession
@@ -45,7 +37,6 @@ def conversation_has_active_agent_session(conversation) -> bool:
         ended_at__isnull=True,
         dismissed_at__isnull=True,
     ).exists()
-
 
 def is_agent_task_active_for_conversation(conversation) -> bool:
     """
@@ -71,7 +62,6 @@ def is_agent_task_active_for_conversation(conversation) -> bool:
         .first()
     )
 
-    # Enqueued but worker has not created a session yet.
     if latest is None:
         if isinstance(marked_at, (int, float)):
             if time.time() - float(marked_at) > AGENT_TASK_ENQUEUE_GRACE_SECONDS:
@@ -79,8 +69,6 @@ def is_agent_task_active_for_conversation(conversation) -> bool:
                 return False
         return True
 
-    # Latest session finished. Allow a short handoff window, then heal stale cache
-    # (e.g. worker finished without clearing, or Celery not restarted with clear code).
     if latest.ended_at is not None:
         age = (timezone.now() - latest.ended_at).total_seconds()
         if age <= AGENT_TASK_HANDOFF_GRACE_SECONDS:
@@ -89,7 +77,6 @@ def is_agent_task_active_for_conversation(conversation) -> bool:
         return False
 
     return True
-
 
 def validate_conversation_access(conversation, user, user_org):
     is_owner = conversation.user_id == user.id
@@ -105,7 +92,6 @@ def validate_conversation_access(conversation, user, user_org):
         )
     return None
 
-
 def parse_client_datetime(client_datetime):
     if client_datetime is not None and not isinstance(client_datetime, dict):
         return None, JsonResponse(
@@ -113,7 +99,6 @@ def parse_client_datetime(client_datetime):
             status=400,
         )
     return client_datetime, None
-
 
 def parse_regenerate_message_id(regenerate_message_id, *, conversation, user):
     if regenerate_message_id is None:

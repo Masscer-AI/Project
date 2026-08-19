@@ -17,7 +17,6 @@ from api.whatsapp.template_send import (
     send_ws_template_to_member,
 )
 
-
 class SendWsTemplateMessageParams(BaseModel):
     sender_id: int = Field(
         description="WhatsApp sender_id from list_whatsapp_resources."
@@ -31,11 +30,7 @@ class SendWsTemplateMessageParams(BaseModel):
     template_id: str = Field(
         description="Local template_id from list_whatsapp_templates."
     )
-    # Do not attach Field(description=...) here. Pydantic represents this nested
-    # model with $ref, and OpenAI rejects schema nodes that combine $ref with
-    # sibling keywords such as description.
     template_variables: TemplateVariables = Field(default_factory=TemplateVariables)
-
 
 def get_tool(
     conversation_id: str | None = None,

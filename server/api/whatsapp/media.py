@@ -8,16 +8,13 @@ import requests
 from django.conf import settings
 
 _GRAPH_API_BASE = "https://graph.facebook.com/v21.0"
-# Hosts Meta returns for media download URLs (see Darwin security-app WhatsappService).
 _WHATSAPP_MEDIA_HOST_SUFFIXES = ("fbsbx.com", "fbcdn.net", "facebook.com")
-
 
 def _allowed_media_host(host: str) -> bool:
     host = (host or "").lower()
     return any(
         host == s or host.endswith(f".{s}") for s in _WHATSAPP_MEDIA_HOST_SUFFIXES
     )
-
 
 def fetch_whatsapp_media_bytes(
     media_id: str, *, direct_url: str | None = None

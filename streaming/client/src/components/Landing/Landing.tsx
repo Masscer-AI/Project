@@ -162,7 +162,7 @@ const MockupContent = ({
             </Text>
           </Group>
         </Box>
-        {/* Blurred website background + floating chat widget */}
+        {}
         <Box
           p={stackP}
           style={{
@@ -323,7 +323,6 @@ const MockupContent = ({
     );
   }
 
-  // Default: chat
   return (
     <>
       <Box
@@ -365,7 +364,7 @@ const MockupContent = ({
             </Text>
           </Box>
         )}
-        {/* Typing indicator */}
+        {}
         <Box p="xs" style={{ ...bubbleStyle("start"), alignSelf: "flex-start" }}>
           <Group gap={4}>
             {[0, 1, 2].map((i) => (
@@ -512,10 +511,9 @@ export const Landing = () => {
       style={{
         minHeight: "100vh",
         background: LANDING_HERO_BACKGROUND,
-        // overflowX: "clip",
       }}
     >
-      {/* Hero */}
+      {}
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
@@ -589,7 +587,7 @@ export const Landing = () => {
         </Box>
       </motion.div>
 
-      {/* Sticky showcase (desktop) | Vertical feature+mockup (mobile) */}
+      {}
       {isMobile ? (
         <MobileFeaturesVertical />
       ) : (
@@ -599,7 +597,7 @@ export const Landing = () => {
         >
           <Box maw={1200} mx="auto" px="lg" pb={120}>
             <Flex gap={60} align="flex-start" wrap="nowrap">
-              {/* Left: Sticky mockup - same height as right for 1:1 scroll mapping */}
+              {}
               <Box
                 style={{
                   flex: "0 0 45%",
@@ -612,7 +610,7 @@ export const Landing = () => {
                 <StickyMockup scrollYProgress={scrollYProgress} />
               </Box>
 
-              {/* Right: Scrolling features */}
+              {}
               <Box style={{ flex: "1 1 55%", minWidth: 0 }}>
                 {FEATURES.map((f) => (
                   <FeatureScrollBlock
@@ -754,7 +752,6 @@ const GenerateMediaBlock = ({ mobile = false }: { mobile?: boolean } = {}) => {
   );
 };
 
-/** Inline mockup for mobile: each feature card is followed by its visual */
 const InlineMockup = ({ section }: { section: MockupSection }) => {
   return (
     <Box

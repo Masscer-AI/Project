@@ -14,8 +14,7 @@ from api.ai_layers.models import Agent, AgentKind, MCPClient
 _SLUG_RE = re.compile(r"[^a-z0-9_]+")
 
 MCP_ATTACHMENT_DOWNLOAD_TOKEN_SALT = "mcp-attachment-download"
-MCP_ATTACHMENT_DOWNLOAD_MAX_AGE_SEC = 60 * 60  # 1 hour
-
+MCP_ATTACHMENT_DOWNLOAD_MAX_AGE_SEC = 60 * 60
 
 def public_app_base_url(request=None) -> str:
     """Public app origin for MCP and other client-facing URLs."""
@@ -26,22 +25,18 @@ def public_app_base_url(request=None) -> str:
         return request.build_absolute_uri("/").rstrip("/")
     return ""
 
-
 def public_mcp_url(request=None) -> str:
     base = public_app_base_url(request)
     return f"{base}/mcp/" if base else "/mcp/"
 
-
 def _attachment_download_signer() -> TimestampSigner:
     return TimestampSigner(salt=MCP_ATTACHMENT_DOWNLOAD_TOKEN_SALT)
-
 
 def mint_mcp_attachment_download_token(attachment_id: str) -> tuple[str, datetime]:
     """Return (signed token, expires_at) for a short-lived public download link."""
     expires_at = timezone.now() + timedelta(seconds=MCP_ATTACHMENT_DOWNLOAD_MAX_AGE_SEC)
     token = _attachment_download_signer().sign(str(attachment_id))
     return token, expires_at
-
 
 def verify_mcp_attachment_download_token(token: str) -> str | None:
     """Return attachment_id if token is valid and unexpired, else None."""
@@ -53,7 +48,6 @@ def verify_mcp_attachment_download_token(token: str) -> str | None:
         )
     except (BadSignature, SignatureExpired):
         return None
-
 
 def mcp_attachment_signed_download_url(
     request, attachment_id: str
@@ -154,12 +148,10 @@ MCP_TOOL_PRESETS: dict[str, tuple[str, ...]] = {
     name: tools for name, tools in MCP_TOOL_PRESET_ORDER
 }
 
-
 def mcp_all_tool_names() -> list[str]:
     from api.ai_layers.tools import list_available_tools
 
     return list_available_tools()
-
 
 def mcp_tool_preset_groups() -> list[dict[str, list[str]]]:
     """
@@ -180,18 +172,15 @@ def mcp_tool_preset_groups() -> list[dict[str, list[str]]]:
         groups.append({"group": "other", "items": remaining})
     return groups
 
-
 def sanitize_mcp_tool_name(agent_slug: str) -> str:
     """Map agent slug to MCP tool name: ask_<sanitized_slug>."""
     sanitized = _SLUG_RE.sub("_", agent_slug.lower()).strip("_")
     return f"ask_{sanitized}"
 
-
 def tool_name_to_agent_slug(tool_name: str) -> str | None:
     if not tool_name.startswith("ask_"):
         return None
     return tool_name[len("ask_") :]
-
 
 def mcp_accessible_agents_qs(mcp_client: MCPClient):
     """Agents this MCP credential may expose (user access ∩ optional allowlist)."""
@@ -201,7 +190,6 @@ def mcp_accessible_agents_qs(mcp_client: MCPClient):
     if allowed_ids:
         qs = qs.filter(id__in=allowed_ids)
     return qs.distinct()
-
 
 def normalize_mcp_tool_names(raw: list | None) -> tuple[list[str] | None, str | None]:
     """
@@ -229,7 +217,6 @@ def normalize_mcp_tool_names(raw: list | None) -> tuple[list[str] | None, str | 
             names.append(name)
     return names, None
 
-
 def resolve_mcp_tool_names(mcp_client: MCPClient) -> list[str]:
     """Resolve agent tool allowlist for an MCP credential run."""
     stored = list(mcp_client.allowed_tool_names or [])
@@ -237,12 +224,9 @@ def resolve_mcp_tool_names(mcp_client: MCPClient) -> list[str]:
         return list(MCP_BASIC_TOOL_NAMES)
     return stored
 
-
-# Fields exposed to MCP clients in agent tool results (plus signed download_url).
 _MCP_ATTACHMENT_FIELDS = frozenset(
     {"attachment_id", "type", "name", "content_type", "text"}
 )
-
 
 def serialize_attachments_for_mcp(request, attachments: list | None) -> list[dict]:
     """
@@ -266,7 +250,6 @@ def serialize_attachments_for_mcp(request, attachments: list | None) -> list[dic
             item["expires_at"] = expires_at.isoformat()
         result.append(item)
     return result
-
 
 def agent_to_mcp_tool_payload(agent: Agent) -> dict:
     description = (
@@ -298,10 +281,8 @@ def agent_to_mcp_tool_payload(agent: Agent) -> dict:
         },
     }
 
-
 def resolve_mcp_agent(mcp_client: MCPClient, agent_slug: str) -> Agent | None:
     return mcp_accessible_agents_qs(mcp_client).filter(slug=agent_slug).first()
-
 
 def resolve_mcp_agent_by_tool_name(mcp_client: MCPClient, tool_name: str) -> Agent | None:
     slug = tool_name_to_agent_slug(tool_name)
@@ -312,7 +293,6 @@ def resolve_mcp_agent_by_tool_name(mcp_client: MCPClient, tool_name: str) -> Age
         if sanitize_mcp_tool_name(agent.slug) == tool_name:
             return agent
     return None
-
 
 def get_mcp_user_org(mcp_client: MCPClient):
     return mcp_client.organization or get_user_organization(mcp_client.user)

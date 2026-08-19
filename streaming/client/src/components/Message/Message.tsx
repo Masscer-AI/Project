@@ -425,7 +425,7 @@ export const Message = memo(
             )}
         </section>
 
-        {/* ── Action bar ── */}
+        {}
         <div className="message-buttons">
           <Tooltip label={t("copy-to-clipboard")} withArrow>
             <ActionIcon
@@ -464,7 +464,7 @@ export const Message = memo(
             </>
           )}
 
-          {/* Reaction emojis – show in both edit and read-only mode */}
+          {}
           {id && innerReactions && innerReactions.length > 0 && (
             <Group gap={4} align="center">
               {innerReactions.map((r) => {
@@ -476,7 +476,7 @@ export const Message = memo(
             </Group>
           )}
 
-          {/* Version selector (each badge shows agent + token info on hover) */}
+          {}
           {versions && (
             <Group gap={4} align="center">
               {versions.map((v, vIdx) => (
@@ -579,7 +579,7 @@ export const Message = memo(
             </Tooltip>
           )}
 
-          {/* Message options menu */}
+          {}
           {id && !readOnly && canEditConversationData && (
             <Menu shadow="md" withArrow position="top-end">
               <Menu.Target>
@@ -618,7 +618,7 @@ export const Message = memo(
           )}
         </div>
 
-        {/* Delete confirmation modal */}
+        {}
         {canEditConversationData && (
         <Modal
           opened={messageState.confirmDeleteOpened}
@@ -686,8 +686,6 @@ export const Message = memo(
     );
   }
 );
-
-// ─── Agent step timeline (shared by live dropdown + execution log modal) ──────
 
 const AGENT_EVENT_META: Record<string, { icon: Icon; color: string }> = {
   loop_start: { icon: IconPlayerPlay, color: "gray" },
@@ -1034,8 +1032,6 @@ const ExecutionLogModal = ({
   );
 };
 
-// ─── Source ────────────────────────────────────────────────────────────────────
-
 const Source = ({ source }: { source: TSource }) => {
   const [isVisible, setIsVisible] = useState(false);
   const { t } = useTranslation();
@@ -1087,8 +1083,6 @@ const Source = ({ source }: { source: TSource }) => {
   );
 };
 
-// ─── WebSearchResultInspector ─────────────────────────────────────────────────
-
 const WebSearchResultInspector = ({ result }: { result: any }) => {
   const { t } = useTranslation();
   const [isVisible, setIsVisible] = useState(false);
@@ -1135,9 +1129,6 @@ const WebSearchResultInspector = ({ result }: { result: any }) => {
   );
 };
 
-// ─── MessageEditor ────────────────────────────────────────────────────────────
-
-/** Leave room for header, chat input, and the message action bar below the editor. */
 const MESSAGE_EDIT_MAX_H = () => {
   const rem =
     parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
@@ -1200,4 +1191,3 @@ const MessageEditor = ({
     </div>
   );
 };
-

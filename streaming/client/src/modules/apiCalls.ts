@@ -196,7 +196,6 @@ export const makeAuthenticatedRequest = async <T>(
     url: `${API_URL}/${endpoint}`,
     headers: {
       Authorization: `${tokenType} ${token}`,
-      // DON'T set Content-Type for FormData - axios sets it automatically with the correct boundary
     },
     data,
   };
@@ -263,8 +262,6 @@ export const getDocuments = async (opts?: { hasFileOnly?: boolean }) => {
     throw error;
   }
 };
-
-// --- Document templates (organization-scoped .docx for agent tools) ---
 
 export const getDocumentTemplates = async (organizationId: string) => {
   return makeAuthenticatedRequest<{ templates: TDocumentTemplate[] }>(
@@ -433,22 +430,6 @@ export const createAgent = async (agent: any) => {
   }
 };
 
-// export const getChunk = async (chunkId: string) => {
-//   try {
-//     const endpoint = `/v1/rag/chunks/${chunkId}/`;
-//     const response = await makeAuthenticatedRequest<any>(
-//       "GET",
-//       endpoint,
-//       null,
-//       false
-//     );
-//     return response;
-//   } catch (error) {
-//     console.error(`Error fetching chunk with ID ${chunkId}:`, error);
-//     throw error;
-//   }
-// };
-
 export const getVideos = async () => {
   try {
     const response = await makeAuthenticatedRequest<any>(
@@ -609,7 +590,6 @@ export type TConversationFilters = {
   selectedTags?: number[];
   selectedAlertRules?: string[];
   chatWidgetId?: string;
-  /** WhatsApp Business line (WSNumber id), not visitor phone */
   wsNumberId?: string;
   channel?: "all" | "app" | "widget" | "whatsapp";
   status?: "active_inactive" | "all" | "active" | "inactive" | "archived" | "deleted";
@@ -724,7 +704,6 @@ export const getConversationStats = async (
   );
 };
 
-/** Backward compat: fetches all conversations (paginated, first page only). Use getConversations for pagination. */
 export const getAllConversations = async (
   scope: "personal" | "org" = "org",
   options?: {
@@ -799,7 +778,6 @@ export const listScheduledTasks = async (
   return makeAuthenticatedRequest<TScheduledTasksListResponse>("GET", endpoint);
 };
 
-/** Pending/running scheduled tasks created by the current user (all conversations). */
 export const listMyScheduledTasks = async (options?: {
   includeFinished?: boolean;
   limit?: number;
@@ -928,7 +906,6 @@ export const updateAlertStatus = async (
   );
 };
 
-// Alert Rules API functions
 export const getAlertRules = async () => {
   return makeAuthenticatedRequest<TConversationAlertRule[]>(
     "GET",
@@ -983,7 +960,6 @@ export const deleteAlertRule = async (ruleId: string) => {
   );
 };
 
-// Tags API functions
 export const getTags = async () => {
   return makeAuthenticatedRequest<TTag[]>(
     "GET",
@@ -1039,7 +1015,6 @@ export const getNotificationRules = async () => {
   );
 };
 
-/** Natural language → draft notification rule (sync); user still picks notify target and saves. */
 export const buildNotificationRuleDraft = async (data: {
   prompt: string;
   alert_rule_id: string;
@@ -1308,7 +1283,6 @@ export const downloadFile = async (file_path: string) => {
       },
     });
 
-    // Check if the response is OK
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -1418,7 +1392,6 @@ export const fetchUrlContent = async (url: string) => {
     }
   );
 };
-
 
 export const generateDocumentBrief = async (documentId: string) => {
   return makeAuthenticatedRequest("PUT", `/v1/rag/documents/${documentId}/`, {
@@ -1827,7 +1800,6 @@ export const updateOrganization = async (
   data: TOrganizationData,
   options?: TUpdateOrganizationOptions
 ): Promise<TOrganization> => {
-  // Determine if we need to send FormData (for file upload or delete)
   const hasLogoFile = options?.logoFile instanceof File;
   const shouldDeleteLogo = options?.deleteLogo === true;
   const needsFormData = hasLogoFile || shouldDeleteLogo;
@@ -1855,7 +1827,6 @@ export const updateOrganization = async (
       console.log("📎 Added logo to FormData:", options.logoFile.name, options.logoFile.size, "bytes");
     }
     
-    // Debug: log all FormData entries
     console.log("📦 FormData contents:");
     for (const [key, value] of formData.entries()) {
       if (value instanceof File) {
@@ -1872,7 +1843,6 @@ export const updateOrganization = async (
     );
   }
   
-  // No logo changes, send JSON
   return makeAuthenticatedRequest<TOrganization>(
     "PUT",
     `/v1/auth/organizations/${organizationId}/`,
@@ -1960,7 +1930,6 @@ export const getTeamFeatureFlags = async (): Promise<TeamFeatureFlagsResponse> =
   );
 };
 
-// Chat Widget API functions
 export const getChatWidgets = async () => {
   return makeAuthenticatedRequest<TChatWidget[]>(
     "GET",
@@ -2044,13 +2013,10 @@ export const deleteChatWidgetAvatar = async (widgetId: number) => {
   );
 };
 
-// ---- Agent Task ----
-
 export type TAgentTaskInput =
   | { type: "input_text"; text: string }
   | { type: "input_attachment"; attachment_id: string };
 
-/** Built in the browser and sent with agent-task so the model can resolve "in 2 hours", etc. */
 export type ClientDatetimePayload = {
   utc_iso: string;
   timezone: string;
@@ -2082,7 +2048,6 @@ export type TriggerAgentTaskPayload = {
   agent_slugs: string[];
   user_inputs: TAgentTaskInput[];
   tool_names?: string[];
-  /** Per-agent-slug tool override; agents not present fall back to tool_names. */
   tool_names_by_agent?: Record<string, string[]>;
   multiagentic_modality?: "isolated" | "grupal";
   regenerate_message_id?: number;
@@ -2196,7 +2161,6 @@ export type TMCPCredentialSummary = {
   allowed_agent_slugs: string[];
   allowed_tool_names: string[];
   key_prefix: string | null;
-  /** True when this credential was granted via OAuth (Claude/ChatGPT), not a manual API key. */
   auth_via_oauth?: boolean;
 };
 
@@ -2274,9 +2238,6 @@ export const getMCPToolPresets = async () => {
   );
 };
 
-/** Same grouping as getMCPToolPresets, but available to any authenticated
- * user (not gated behind the integrations-management feature flag) — used
- * for the agent settings "pre-approved tools" picker. */
 export const getAgentToolGroups = async () => {
   return makeAuthenticatedRequest<TAgentToolGroupsResponse>(
     "GET",
@@ -2610,8 +2571,6 @@ export const deleteGoogleCalendarEvent = async (
   );
 };
 
-// --- Data Governance ---
-
 export const getOrganizationDataPolicy = async (organizationId: string) => {
   return makeAuthenticatedRequest<TOrganizationDataPolicy>(
     "GET",
@@ -2677,4 +2636,3 @@ export const downloadDataExport = async (
   link.remove();
   window.URL.revokeObjectURL(link.href);
 };
-

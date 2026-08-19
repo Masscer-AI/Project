@@ -16,7 +16,6 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 _PLACEHOLDER_RE = re.compile(r"\{\{(\d+)\}\}")
 
-
 def fill_template_placeholders(text: str, values: list[str] | tuple[str, ...]) -> str:
     """Replace Meta-style {{1}}, {{2}} placeholders with positional values."""
     vals = [str(v) for v in values]
@@ -29,21 +28,15 @@ def fill_template_placeholders(text: str, values: list[str] | tuple[str, ...]) -
 
     return _PLACEHOLDER_RE.sub(repl, text or "")
 
-
 class WhatsAppTemplateButton(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     index: int = Field(ge=0, description="Zero-based button index in the Meta template.")
-    # url: dynamic Visit website CTA (needs a suffix at send time, unless
-    # use_source_conversation_id). quick_reply: static; no send-time parameter.
     sub_type: Literal["url", "quick_reply"] = "url"
-    # When True, send_ws_template_message fills the dynamic URL suffix from the
-    # authenticated source conversation UUID (chat?conversation=<uuid>).
     use_source_conversation_id: bool = False
     label: str = ""
     url: str = ""
     description: str = ""
-
 
 class WhatsAppTemplateDefinition(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -53,7 +46,6 @@ class WhatsAppTemplateDefinition(BaseModel):
     language_code: str = Field(description="Meta language code, e.g. 'en'.")
     category: Literal["UTILITY", "MARKETING", "AUTHENTICATION"] = "UTILITY"
     description: str = ""
-    # none/text: no header component at send time. image: requires header media.
     header_type: Literal["none", "text", "image"] = "none"
     header_text: str = ""
     body_text: str = ""
@@ -90,7 +82,6 @@ class WhatsAppTemplateDefinition(BaseModel):
     @property
     def requires_header_image(self) -> bool:
         return self.header_type == "image"
-
 
 TASK_COMPLETED = WhatsAppTemplateDefinition(
     id="task_completed_en",
@@ -508,7 +499,6 @@ EXPRESO_FISCAL_RESUMEN_SEMANAL = WhatsAppTemplateDefinition(
     enabled=True,
 )
 
-
 WHATSAPP_TEMPLATES: dict[str, WhatsAppTemplateDefinition] = {
     TASK_COMPLETED.id: TASK_COMPLETED,
     SOLICITUD_COMPLETADA.id: SOLICITUD_COMPLETADA,
@@ -521,17 +511,14 @@ WHATSAPP_TEMPLATES: dict[str, WhatsAppTemplateDefinition] = {
     EXPRESO_FISCAL_RESUMEN_SEMANAL.id: EXPRESO_FISCAL_RESUMEN_SEMANAL,
 }
 
-
 def get_template(template_id: str) -> WhatsAppTemplateDefinition | None:
     tpl = WHATSAPP_TEMPLATES.get(template_id)
     if tpl is None or not tpl.enabled:
         return None
     return tpl
 
-
 def list_enabled_templates() -> list[WhatsAppTemplateDefinition]:
     return [t for t in WHATSAPP_TEMPLATES.values() if t.enabled]
-
 
 def template_summary(template: WhatsAppTemplateDefinition) -> dict:
     return {

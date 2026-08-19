@@ -11,10 +11,8 @@ from api.authenticate.models import PublishableToken, Organization
 
 logger = logging.getLogger(__name__)
 
-
 def _message_attachment_expires_default():
     return timezone.now() + timezone.timedelta(days=30)
-
 
 class Conversation(models.Model):
     STATUS_CHOICES = [
@@ -107,7 +105,6 @@ class Conversation(models.Model):
         return f"Conversation({self.id})"
 
     def cut_from(self, message_id):
-        # This must delete all messages after the given message id
         Message.objects.filter(conversation=self, id__gt=message_id).delete()
 
     def generate_title(self):
@@ -149,7 +146,6 @@ class Conversation(models.Model):
                 name="uniq_whatsapp_thread_active",
             ),
         ]
-
 
 class ConversationTakeover(models.Model):
     """Human operator temporarily replaces the AI agent on a conversation."""
@@ -195,7 +191,6 @@ class ConversationTakeover(models.Model):
 
     def __str__(self):
         return f"ConversationTakeover({self.id}, {self.status})"
-
 
 class MessageAttachment(models.Model):
     """
@@ -363,7 +358,6 @@ class MessageAttachment(models.Model):
             self.visibility = self.Visibility.PERSONAL
         super().save(*args, **kwargs)
 
-
 class Message(models.Model):
     TYPE_CHOICES = [
         ("user", "User"),
@@ -401,7 +395,6 @@ class Message(models.Model):
                 conv.status = "active"
             conv.save(update_fields=["last_message_at", "status", "updated_at"])
 
-
 class SharedConversation(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE)
@@ -416,11 +409,9 @@ class SharedConversation(models.Model):
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
 
-
 def chat_widget_avatar_upload_path(instance, filename):
     ext = filename.split(".")[-1].lower()
     return os.path.join("chat_widgets", "avatars", f"{instance.id}.{ext}")
-
 
 class ChatWidget(models.Model):
     token = models.CharField(max_length=64, unique=True, db_index=True, blank=True)
@@ -452,7 +443,6 @@ class ChatWidget(models.Model):
     def __str__(self):
         return f"ChatWidget({self.name})"
 
-
 class WidgetVisitorSession(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     widget = models.ForeignKey(
@@ -471,7 +461,6 @@ class WidgetVisitorSession(models.Model):
 
     def __str__(self):
         return f"WidgetVisitorSession(widget={self.widget_id}, visitor={self.visitor_id})"
-
 
 class ConversationAlertRule(models.Model):
     """
@@ -551,7 +540,6 @@ class ConversationAlertRule(models.Model):
     def __str__(self):
         return f"{self.name} ({self.organization.name})"
 
-
 class ConversationAlert(models.Model):
     """
     Define las alertas que han sido detectadas por el sistema.
@@ -622,7 +610,6 @@ class ConversationAlert(models.Model):
     def __str__(self):
         return f"{self.title} - {self.alert_rule.name} ({self.status})"
 
-
 class AlertSubscription(models.Model):
     """
     Suscripciones de usuarios a reglas de alerta.
@@ -654,7 +641,6 @@ class AlertSubscription(models.Model):
     def __str__(self):
         return f"{self.user.username} subscribed to {self.alert_rule.name}"
 
-
 class Tag(models.Model):
     """
     Modelo para etiquetas de conversaciones.
@@ -678,11 +664,10 @@ class Tag(models.Model):
         verbose_name = "Tag"
         verbose_name_plural = "Tags"
         ordering = ["title"]
-        unique_together = [["title", "organization"]]  # Evitar tags duplicadas en la misma org
+        unique_together = [["title", "organization"]]
 
     def __str__(self):
         return f"{self.title} ({self.organization.name})"
-
 
 class ScheduledConversationTask(models.Model):
     """Durable one-off or recurring agent task that re-enters a conversation as a user message."""

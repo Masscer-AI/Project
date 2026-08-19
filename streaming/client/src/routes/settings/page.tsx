@@ -59,8 +59,6 @@ import {
   isoFromDialCode,
 } from "../../utils/countryDialCodes";
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
-
 export default function SettingsPage() {
   const { chatState, toggleSidebar, user, setUser } = useStore((s) => ({
     chatState: s.chatState,
@@ -119,8 +117,6 @@ export default function SettingsPage() {
   );
 }
 
-// ─── User Section ─────────────────────────────────────────────────────────────
-
 const UserSection = () => {
   const { t } = useTranslation();
   const { user, setUser } = useStore((s) => ({
@@ -144,8 +140,6 @@ const UserSection = () => {
 
   const handleSave = async () => {
     try {
-      // Do not resubmit profile here — that can overwrite phone_numbers edits
-      // still pending in the Profile section.
       await updateUser({ username, email });
       toast.success(t("user-updated"));
       setUser({ ...user, username, email });
@@ -261,8 +255,6 @@ const UserSection = () => {
   );
 };
 
-// ─── Preferences Section (Appearance + Language) ──────────────────────────────
-
 const MERMAID_THEMES = ["dark", "forest", "neutral", "base", "light"];
 
 const PreferencesSection = () => {
@@ -294,7 +286,7 @@ const PreferencesSection = () => {
       </Title>
 
       <Stack gap="md">
-        {/* Language */}
+        {}
         <NativeSelect
           label={t("language")}
           value={currentLang}
@@ -305,7 +297,7 @@ const PreferencesSection = () => {
           ]}
         />
 
-        {/* Theme */}
+        {}
         <div>
           <Text size="sm" fw={500} mb={4}>
             {t("theme")}
@@ -345,7 +337,7 @@ const PreferencesSection = () => {
           />
         </div>
 
-        {/* Background image */}
+        {}
         <div>
           <Text size="sm" fw={500} mb={4}>
             {t("chat-background-image")}
@@ -368,7 +360,7 @@ const PreferencesSection = () => {
           />
         </div>
 
-        {/* Mermaid / Diagrams */}
+        {}
         <div>
           <Text size="sm" fw={500} mb={4}>
             {t("mermaid-theme")}
@@ -391,8 +383,6 @@ const PreferencesSection = () => {
     </Card>
   );
 };
-
-// ─── Notification sounds ──────────────────────────────────────────────────────
 
 const NotificationSoundsSection = () => {
   const { t } = useTranslation();
@@ -570,8 +560,6 @@ const MermaidPreview = () => {
   );
 };
 
-// ─── Profile Section ──────────────────────────────────────────────────────────
-
 const emptyPhoneNumber = (): TPhoneNumber => ({
   country_code: "",
   number: "",
@@ -590,7 +578,6 @@ const ProfileSection = () => {
   const [profile, setProfile] = useState<Partial<TUserProfile>>(
     user?.profile || {}
   );
-  // Dedicated list so deletes/saves never depend on a stale profile spread.
   const [phoneNumbers, setPhoneNumbers] = useState<TPhoneNumber[]>(
     user?.profile?.phone_numbers || []
   );
@@ -610,7 +597,6 @@ const ProfileSection = () => {
   }, [isDirty]);
 
   useEffect(() => {
-    // Don't clobber in-progress edits if the store user object is refreshed.
     if (!user?.profile || isDirtyRef.current) return;
     const phones = user.profile.phone_numbers || [];
     setProfile({
@@ -693,8 +679,6 @@ const ProfileSection = () => {
         }))
         .filter((p) => p.country_code && p.number);
 
-      // Only writable profile fields — never spread id/organization/timestamps.
-      // birthday must be YYYY-MM-DD or null ("" is invalid for DateField).
       const payloadProfile: Record<string, unknown> = {
         name: profile.name || "",
         bio: profile.bio || "",

@@ -7,14 +7,12 @@ from api.authenticate.models import Organization, Role
 from api.messaging.models import ConversationAlertRule, ConversationAlert
 from api.notify.schemas import NotificationConditionList
 
-
 class Notification(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     message = models.TextField()
 
     read_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-
 
 class NotificationRule(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -30,7 +28,6 @@ class NotificationRule(models.Model):
         related_name="notification_rules",
     )
 
-    # Exactly one of these three must be set — enforced in clean()
     notify_to_user = models.ForeignKey(
         User,
         null=True,
@@ -53,7 +50,6 @@ class NotificationRule(models.Model):
         related_name="notification_rules_as_target",
     )
 
-    # List of NotificationCondition objects — validated via NotificationConditionList schema
     conditions = models.JSONField(
         default=list,
         help_text=(
@@ -84,7 +80,6 @@ class NotificationRule(models.Model):
                 "Exactly one of notify_to_user, notify_to_role, or notify_to_org must be set."
             )
 
-        # Validate conditions schema
         try:
             NotificationConditionList(conditions=self.conditions)
         except Exception as exc:
@@ -101,7 +96,6 @@ class NotificationRule(models.Model):
         if self.notify_to_org_id:
             return f"org:{self.notify_to_org_id}"
         return "unset"
-
 
 class UserNotification(models.Model):
     DELIVERY_APP = "app"
@@ -143,7 +137,6 @@ class UserNotification(models.Model):
     )
     message = models.TextField()
 
-    # Lifecycle timestamps
     delivered_at = models.DateTimeField(
         null=True,
         blank=True,
@@ -152,7 +145,6 @@ class UserNotification(models.Model):
     read_at = models.DateTimeField(null=True, blank=True)
     ignored_at = models.DateTimeField(null=True, blank=True)
 
-    # Set to now+30d when read_at or ignored_at is set — cleanup task will use this
     expires_at = models.DateTimeField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)

@@ -19,9 +19,7 @@ from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
-# Reasonable bounds (DB is TextField; keep payloads sane for LLM tool calls)
 PROMPT_ANSWER_MAX_LEN = 50_000
-
 
 class CreateCompletionParams(BaseModel):
     prompt: str = Field(
@@ -37,12 +35,10 @@ class CreateCompletionParams(BaseModel):
         )
     )
 
-
 class CreateCompletionResult(BaseModel):
     completion_id: int = Field(description="Database id of the saved Completion.")
     approved: bool = Field(description="Always false until reviewed in Knowledge base.")
     message: str = Field(description="Short status for the model to relay to the user.")
-
 
 def _create_completion_impl(
     *,
@@ -126,7 +122,6 @@ def _create_completion_impl(
             f"using markdown: [Edit training example](completion:{completion.id})."
         ),
     )
-
 
 def get_tool(
     conversation_id: str | None = None,

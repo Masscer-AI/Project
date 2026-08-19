@@ -26,7 +26,6 @@ import type { TGalleryItem } from "../../modules/apiCalls";
 
 const VIDEO_EXT_RE = /\.(mp4|webm|mov|m4v|ogv)(\?|#|$)/i;
 
-/** True for video/* MIME, legacy video_generation, or obvious video filenames (e.g. mis-typed as document). */
 function isVideoAttachmentType(type: string, name: string, content: string): boolean {
   const t = type || "";
   if (t.startsWith("video/") || t.startsWith("video_generation")) return true;

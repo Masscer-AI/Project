@@ -95,7 +95,6 @@ logger = logging.getLogger(__name__)
 
 ORG_INVITE_VALID_DAYS = 7
 
-
 def _exchange_google_auth_code(code: str, redirect_uri: str) -> str | None:
     client_id = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
     client_secret = os.environ.get("GOOGLE_CLIENT_SECRET", "").strip()
@@ -132,7 +131,6 @@ def _exchange_google_auth_code(code: str, redirect_uri: str) -> str | None:
         logger.error("[Google Login] Failed to exchange auth code: %s", e, exc_info=True)
         return None
 
-
 def _resolve_google_access_token(request) -> tuple[str | None, Response | None]:
     access_token = (request.data.get("access_token") or "").strip()
     if access_token:
@@ -160,14 +158,12 @@ def _resolve_google_access_token(request) -> tuple[str | None, Response | None]:
         )
     return exchanged, None
 
-
 def _frontend_base_url(request):
     frontend_url = getattr(settings, "FRONTEND_URL", "").rstrip("/")
     if not frontend_url:
         scheme = "https" if request.is_secure() else "http"
         frontend_url = f"{scheme}://{request.get_host()}"
     return frontend_url
-
 
 def _send_organization_invite_email(request, *, invite_email: str, organization_name: str, signup_url: str) -> None:
     html = f"""
@@ -192,13 +188,10 @@ def _send_organization_invite_email(request, *, invite_email: str, organization_
         from_name="Masscer",
     )
 
-# from api.utils.color_printer import printer
-
-
 @method_decorator(csrf_exempt, name="dispatch")
 class SignupAPIView(APIView):
     permission_classes = [AllowAny]
-    authentication_classes = []  # No auth before signup; avoids DRF SessionAuthentication CSRF
+    authentication_classes = []
 
     def get(self, request):
         invite_token = request.query_params.get("invite")
@@ -373,11 +366,10 @@ class SignupAPIView(APIView):
             status=status.HTTP_201_CREATED,
         )
 
-
 @method_decorator(csrf_exempt, name="dispatch")
 class LoginAPIView(APIView):
     permission_classes = [AllowAny]
-    authentication_classes = []  # No session/token before login; avoids DRF SessionAuthentication CSRF
+    authentication_classes = []
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
@@ -391,7 +383,6 @@ class LoginAPIView(APIView):
                 user = None
 
             if user is not None:
-                # Block deactivated or expired users from logging in
                 profile = getattr(user, "profile", None)
                 if profile and profile.organization_id and not profile.is_active:
                     return Response(
@@ -423,7 +414,6 @@ class LoginAPIView(APIView):
                 {"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
 @method_decorator(csrf_exempt, name="dispatch")
 class GoogleLoginAPIView(APIView):
@@ -590,7 +580,6 @@ class GoogleLoginAPIView(APIView):
             logger.error("[Google Login] Unexpected error: %s\n%s", e, traceback.format_exc())
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
 @method_decorator(csrf_exempt, name="dispatch")
 class AuthHandoffExchangeAPIView(APIView):
     permission_classes = [AllowAny]
@@ -633,7 +622,6 @@ class AuthHandoffExchangeAPIView(APIView):
             },
             status=status.HTTP_200_OK,
         )
-
 
 @method_decorator(csrf_exempt, name="dispatch")
 class PasswordResetRequestAPIView(APIView):
@@ -691,7 +679,6 @@ class PasswordResetRequestAPIView(APIView):
             status=status.HTTP_200_OK,
         )
 
-
 @method_decorator(csrf_exempt, name="dispatch")
 class PasswordResetConfirmAPIView(APIView):
     permission_classes = [AllowAny]
@@ -730,7 +717,6 @@ class PasswordResetConfirmAPIView(APIView):
             status=status.HTTP_200_OK,
         )
 
-
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class UserView(View):
@@ -738,16 +724,13 @@ class UserView(View):
     CACHE_TIMEOUT = 86400
 
     def get(self, request, *args, **kwargs):
-        # Generar una clave única para el caché basado en el usuario
         cache_key = f"user_data_{request.user.id}"
         cached_data = cache.get(cache_key)
 
-        # Si los datos están en el caché, devolverlos directamente
         if cached_data:
 
             return JsonResponse(cached_data, status=status.HTTP_200_OK)
 
-        # Si no hay datos en el caché, serializar y guardar en el caché
         serializer = UserSerializer(request.user)
         response_data = serializer.data
         cache.set(cache_key, response_data, timeout=self.CACHE_TIMEOUT)
@@ -757,7 +740,6 @@ class UserView(View):
     def put(self, request, *args, **kwargs):
         data = json.loads(request.body)
 
-        # Validar si el username está disponible
         if (
             User.objects.filter(username=data["username"])
             .exclude(id=request.user.id)
@@ -768,7 +750,6 @@ class UserView(View):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Validar si el email está disponible
         if (
             User.objects.filter(email=data["email"])
             .exclude(id=request.user.id)
@@ -779,11 +760,9 @@ class UserView(View):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Actualizar los datos del usuario
         request.user.username = data["username"]
         request.user.email = data["email"]
 
-        # Cambiar la contraseña si se proporciona
         if data.get("current_password") and data.get("new_password"):
             if not request.user.check_password(data["current_password"]):
                 return JsonResponse(
@@ -799,7 +778,6 @@ class UserView(View):
 
         request.user.save()
 
-        # Actualizar el perfil del usuario si se incluye en los datos
         if "profile" in data:
             profile, _ = UserProfile.objects.get_or_create(user=request.user)
             profile_serializer = UserProfileSerializer(
@@ -811,12 +789,8 @@ class UserView(View):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             profile_serializer.save()
-            # Drop the cached reverse OneToOne: token auth / earlier access may have
-            # pinned an in-memory profile on request.user. Serializing that stale
-            # instance would re-cache old phone_numbers and the UI would restore them.
             request.user.__dict__.pop("profile", None)
 
-        # Rebuild user payload from DB (select_related) so phone_numbers matches storage.
         cache_key = f"user_data_{request.user.id}"
         cache.delete(cache_key)
         fresh_user = (
@@ -834,7 +808,6 @@ class UserView(View):
             status=status.HTTP_200_OK,
         )
 
-
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class OrganizationView(View):
@@ -850,15 +823,12 @@ class OrganizationView(View):
         return enabled
     
     def get(self, request):
-        # Obtener organizaciones donde el usuario es owner
         owned_orgs = Organization.objects.filter(owner=request.user)
         
-        # Obtener organizaciones donde el usuario es miembro activo (a través de su profile)
         member_orgs = Organization.objects.none()
         if hasattr(request.user, 'profile') and request.user.profile.organization and request.user.profile.is_active:
             member_orgs = Organization.objects.filter(id=request.user.profile.organization.id)
         
-        # Combinar ambas y eliminar duplicados
         organizations = (owned_orgs | member_orgs).distinct()
         
         serializer = BigOrganizationSerializer(
@@ -882,7 +852,6 @@ class OrganizationView(View):
 
     def post(self, request):
         try:
-            # Manejar datos JSON o multipart
             if request.content_type and 'multipart/form-data' in request.content_type:
                 data = request.POST.dict()
                 logo_file = request.FILES.get('logo')
@@ -899,12 +868,9 @@ class OrganizationView(View):
             if serializer.is_valid():
                 organization = serializer.save()
                 
-                # El usuario que crea la organización siempre es el owner, así que puede gestionar el logo
-                # Si hay archivo de logo, actualizarlo
                 if logo_file:
                     organization.logo = logo_file
                     organization.save()
-                # Si no hay logo y no tiene la feature flag, encolar generación async con Celery
                 elif not self._can_manage_logo(request.user, organization):
                     generate_organization_logo.delay(str(organization.id))
                 
@@ -923,7 +889,6 @@ class OrganizationView(View):
             return JsonResponse({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
     def put(self, request, organization_id):
-        # Use print statements to ensure logs show in dev server output
         
         try:
             organization = Organization.objects.get(id=organization_id)
@@ -939,18 +904,14 @@ class OrganizationView(View):
                 status=status.HTTP_403_FORBIDDEN,
             )
         
-        # Verificar permisos
         can_manage = self._can_manage_logo(request.user, organization)
         is_owner = organization.owner == request.user
         
-        # DEBUG: Log request info
         print(f"=== PUT Organization {organization_id} ===")
         print(f"Content-Type: {request.content_type}")
         print(f"is_owner: {is_owner}, can_manage: {can_manage}")
         
-        # Manejar datos JSON o multipart
         if request.content_type and 'multipart/form-data' in request.content_type:
-            # Django no parsea multipart en PUT, hay que hacerlo manualmente
             try:
                 parser = MultiPartParser(request.META, request, request.upload_handlers)
                 data, files = parser.parse()
@@ -972,7 +933,6 @@ class OrganizationView(View):
         
         print(f"delete_logo={delete_logo} (type: {type(delete_logo)}), has_logo_file={logo_file is not None}")
         
-        # Verificar permisos para nombre
         if 'name' in data and data.get('name') != organization.name:
             if not (is_owner or can_manage):
                 return JsonResponse(
@@ -980,14 +940,12 @@ class OrganizationView(View):
                     status=status.HTTP_403_FORBIDDEN,
                 )
         
-        # Verificar permisos para logo
         if (logo_file or delete_logo) and not (is_owner or can_manage):
             return JsonResponse(
                 {"error": "You don't have permission to modify organization logo."},
                 status=status.HTTP_403_FORBIDDEN,
             )
         
-        # Guardar la ruta del logo anterior ANTES de cualquier cambio
         old_logo_path = None
         old_logo_name = None
         if organization.logo and organization.logo.name:
@@ -998,7 +956,6 @@ class OrganizationView(View):
             except Exception as e:
                 print(f"Error getting logo path: {e}")
         
-        # Actualizar campos de texto (name, description)
         if 'name' in data and (is_owner or can_manage):
             organization.name = data['name']
         if 'description' in data:
@@ -1017,11 +974,9 @@ class OrganizationView(View):
                 )
             organization.timezone = tz_val
         
-        # Manejar cambios de logo
         if delete_logo:
             print(f">>> DELETING LOGO for organization {organization_id}")
             
-            # Eliminar el archivo del disco
             if old_logo_path:
                 if os.path.exists(old_logo_path):
                     try:
@@ -1032,24 +987,20 @@ class OrganizationView(View):
                 else:
                     print(f"File not found on disk: {old_logo_path}")
             
-            # Limpiar el campo en el modelo
             print(f"Before: organization.logo = {organization.logo}")
             organization.logo = None
             print(f"After setting None: organization.logo = {organization.logo}")
             
-            # Guardar con update_fields para asegurar que solo se actualiza el logo
             organization.save(update_fields=['logo', 'name', 'description', 'timezone', 'updated_at'])
             print(f"After save: organization.logo = {organization.logo}")
             _sync_tenant_favicon(organization)
             
-            # Verificar en la base de datos
             org_from_db = Organization.objects.get(id=organization_id)
             print(f"From DB: logo = {org_from_db.logo}, logo.name = {org_from_db.logo.name if org_from_db.logo else 'None'}")
         
         elif logo_file:
             print(f">>> UPLOADING NEW LOGO: {logo_file.name}, size={logo_file.size}")
             
-            # Eliminar el archivo anterior del disco
             if old_logo_path and os.path.exists(old_logo_path):
                 try:
                     os.remove(old_logo_path)
@@ -1057,7 +1008,6 @@ class OrganizationView(View):
                 except OSError as e:
                     print(f"Failed to delete old file: {e}")
             
-            # Asignar el nuevo logo directamente
             organization.logo = logo_file
             organization.save()
             print(f"New logo saved: {organization.logo.name if organization.logo else 'None'}")
@@ -1067,7 +1017,6 @@ class OrganizationView(View):
             print(">>> No logo changes, updating text fields only")
             organization.save()
         
-        # Refrescar desde la base de datos
         organization.refresh_from_db()
         print(f"After refresh_from_db: logo = {organization.logo.name if organization.logo else 'None'}")
         
@@ -1086,7 +1035,6 @@ class OrganizationView(View):
             status=status.HTTP_200_OK,
         )
 
-
 def _is_active_member(user, organization):
     """Return True if user is an active member (or owner) of the organization."""
     if organization.owner_id == user.id:
@@ -1095,7 +1043,6 @@ def _is_active_member(user, organization):
     if profile and profile.organization_id == organization.id and profile.is_active:
         return True
     return False
-
 
 def _can_manage_organization(user, organization):
     """Return True if user is owner or has manage-organization feature flag.
@@ -1110,7 +1057,6 @@ def _can_manage_organization(user, organization):
         user=user,
     )
     return enabled
-
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
@@ -1249,7 +1195,6 @@ class OrganizationMembersView(View):
             status=status.HTTP_201_CREATED,
         )
 
-
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class OrganizationInvitesView(View):
@@ -1358,7 +1303,6 @@ class OrganizationInvitesView(View):
             status=status.HTTP_201_CREATED,
         )
 
-
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class OrganizationInviteDetailView(View):
@@ -1395,7 +1339,6 @@ class OrganizationInviteDetailView(View):
         invite.save(update_fields=["status", "updated_at"])
         return JsonResponse({"message": "Invitation cancelled"}, status=status.HTTP_200_OK)
 
-
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class OrganizationMemberDetailView(View):
@@ -1413,7 +1356,6 @@ class OrganizationMemberDetailView(View):
         if not _can_manage_organization(request.user, organization):
             return JsonResponse({"error": "You do not have permission"}, status=status.HTTP_403_FORBIDDEN)
 
-        # Cannot deactivate the owner
         if organization.owner_id == user_id:
             return JsonResponse({"error": "Cannot deactivate the organization owner"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -1482,7 +1424,6 @@ class OrganizationMemberDetailView(View):
         if not _can_manage_organization(request.user, organization):
             return JsonResponse({"error": "You do not have permission"}, status=status.HTTP_403_FORBIDDEN)
 
-        # Cannot remove the owner
         if organization.owner_id == user_id:
             return JsonResponse({"error": "Cannot remove the organization owner"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -1493,29 +1434,23 @@ class OrganizationMemberDetailView(View):
         except UserProfile.DoesNotExist:
             return JsonResponse({"error": "Member not found in this organization"}, status=status.HTTP_404_NOT_FOUND)
 
-        # --- Cleanup org-scoped data for this user ---
         from api.messaging.models import ConversationAlertRule, AlertSubscription
 
-        # 1. Remove role assignments
         RoleAssignment.objects.filter(user_id=user_id, organization=organization).delete()
 
-        # 2. Remove from alert rule selected_members (M2M)
         for rule in ConversationAlertRule.objects.filter(organization=organization):
             rule.selected_members.remove(profile.user)
 
-        # 3. Remove alert subscriptions for this org's rules
         AlertSubscription.objects.filter(
             user_id=user_id,
             alert_rule__organization=organization,
         ).delete()
 
-        # 4. Unlink profile from organization
         profile.organization = None
-        profile.is_active = True  # Reset so user is clean if they join another org
+        profile.is_active = True
         profile.save(update_fields=["organization", "is_active", "updated_at"])
 
         return JsonResponse({"message": "Member removed successfully"}, status=status.HTTP_200_OK)
-
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
@@ -1527,8 +1462,6 @@ class OrganizationRolesView(View):
             organization = Organization.objects.get(id=organization_id)
         except Organization.DoesNotExist:
             return JsonResponse({"error": "Organization not found"}, status=status.HTTP_404_NOT_FOUND)
-        # Listing roles is available to any active org member (e.g. KB document ownership).
-        # Creating/updating/deleting roles still requires manage-organization.
         if not _is_active_member(request.user, organization):
             return JsonResponse(
                 {"error": "You do not have permission to view roles"},
@@ -1551,7 +1484,6 @@ class OrganizationRolesView(View):
             role = serializer.save(organization=organization)
             return JsonResponse(RoleSerializer(role).data, status=status.HTTP_201_CREATED)
         return JsonResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
@@ -1596,7 +1528,6 @@ class OrganizationRoleDetailView(View):
             return JsonResponse({"error": "You do not have permission"}, status=status.HTTP_403_FORBIDDEN)
         role.delete()
         return JsonResponse({"message": "Role deleted"}, status=status.HTTP_200_OK)
-
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
@@ -1700,7 +1631,6 @@ class OrganizationRoleAssignmentsView(View):
         assignment.delete()
         return JsonResponse({"message": "Assignment removed"}, status=status.HTTP_200_OK)
 
-
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class FeatureFlagNamesView(View):
@@ -1721,13 +1651,12 @@ class FeatureFlagNamesView(View):
         )
         return JsonResponse(flags, safe=False)
 
-
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class FeatureFlagCheckView(View):
     """Check if a specific feature flag is enabled for the current user."""
 
-    CACHE_TIMEOUT = 86400  # 24 hours
+    CACHE_TIMEOUT = 86400
 
     def get(self, request, feature_flag_name):
         user = request.user
@@ -1749,13 +1678,12 @@ class FeatureFlagCheckView(View):
         cache.set(cache_key, response_data, timeout=self.CACHE_TIMEOUT)
         return JsonResponse(response_data, status=status.HTTP_200_OK)
 
-
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class FeatureFlagListView(View):
     """Get all feature flags for the user's organizations."""
 
-    CACHE_TIMEOUT = 86400  # 24 hours
+    CACHE_TIMEOUT = 86400
 
     def get(self, request):
         user = request.user
@@ -1770,8 +1698,6 @@ class FeatureFlagListView(View):
             member_orgs = Organization.objects.filter(id=user.profile.organization.id)
         user_organizations = list((owned_orgs | member_orgs).distinct())
 
-        # Owners start with all registry flags True; members start empty. Both then merge
-        # user assignments, role capabilities, and org_only assignments (matches per-flag checks).
         if owned_orgs.exists():
             all_flags = {name: True for name in KNOWN_FEATURE_FLAGS}
         else:
@@ -1805,7 +1731,6 @@ class FeatureFlagListView(View):
         cache.set(cache_key, response_data, timeout=self.CACHE_TIMEOUT)
         return JsonResponse(response_data, status=status.HTTP_200_OK)
 
-
 def _organization_has_active_subscription(organization) -> bool:
     subscription = (
         Subscription.objects.filter(organization=organization)
@@ -1813,7 +1738,6 @@ def _organization_has_active_subscription(organization) -> bool:
         .first()
     )
     return bool(subscription and subscription.is_active())
-
 
 def _sync_tenant_favicon(organization: Organization) -> None:
     tenant = get_tenant_for_organization(organization)
@@ -1823,7 +1747,6 @@ def _sync_tenant_favicon(organization: Organization) -> None:
         regenerate_tenant_favicon_from_logo(organization)
     else:
         clear_tenant_favicon(tenant)
-
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
@@ -1915,7 +1838,6 @@ class OrganizationTenantView(View):
             serialize_tenant_for_manage(tenant, request),
             status=status.HTTP_200_OK,
         )
-
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
@@ -2015,7 +1937,6 @@ class OrganizationTenantSubdomainView(View):
             serialize_tenant_for_manage(tenant, request),
             status=status.HTTP_200_OK,
         )
-
 
 @method_decorator(csrf_exempt, name="dispatch")
 class TenantConfigView(View):

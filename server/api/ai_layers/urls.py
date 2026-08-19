@@ -27,8 +27,6 @@ app_name = "ai_layers"
 
 urlpatterns = [
     path("agents/", AgentView.as_view(), name="agents_list"),
-    # Specific /agents/... paths must come before the <slug:slug> catch-all below,
-    # or Django routes them to AgentView with slug="create"/"tool-groups" instead.
     path("agents/create/random/", create_random_agent, name="create_random_agent"),
     path("agents/tool-groups/", agent_tool_groups, name="agent_tool_groups"),
     path("agents/<slug:slug>/", AgentView.as_view(), name="agents_single"),
@@ -39,19 +37,16 @@ urlpatterns = [
         get_formatted_system_prompt,
         name="get_formatted_system_prompt",
     ),
-    # Agent task endpoints (Celery-backed AgentLoop execution)
     path("agent-task/conversation/", AgentTaskView.as_view(), name="agent_task_conversation"),
     path("agent-task/platform/", PlatformAgentTaskView.as_view(), name="agent_task_platform"),
     path("agent-task/cancel/", cancel_agent_task, name="cancel_agent_task"),
     path("agent-task/status/", agent_task_status, name="agent_task_status"),
-    # Agent sessions for assistant message (audit/debug)
     path("agent-sessions/", agent_sessions_for_message, name="agent_sessions_for_message"),
     path(
         "agent-sessions/execution-log/",
         agent_session_execution_log_for_message,
         name="agent_session_execution_log_for_message",
     ),
-    # MCP gateway (Bearer MCPClient auth — called by FastAPI MCP server)
     path("mcp/agents/", mcp_list_agents, name="mcp_list_agents"),
     path("mcp/run/", mcp_run_agent, name="mcp_run_agent"),
     path("mcp/result/<str:task_id>/", mcp_task_result, name="mcp_task_result"),
@@ -60,7 +55,6 @@ urlpatterns = [
         mcp_download_attachment,
         name="mcp_download_attachment",
     ),
-    # MCP credential management (user Token auth — UI)
     path("mcp/credentials/", mcp_credentials, name="mcp_credentials"),
     path(
         "mcp/credentials/<uuid:credential_id>/",

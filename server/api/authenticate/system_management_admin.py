@@ -22,7 +22,6 @@ from django.urls import path, reverse
 from django.urls.exceptions import NoReverseMatch
 from django.utils.translation import gettext_lazy as _
 
-
 SYSTEM_MANAGEMENT_LABEL = "system_management"
 SYSTEM_MANAGEMENT_NAME = _("System Management")
 LANGUAGE_SETTINGS_URL_NAME = "system_management_language_settings"
@@ -33,7 +32,6 @@ _FORBIDDEN_PATTERN = re.compile(
     r"\b(INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|TRUNCATE|GRANT|REVOKE|REPLACE|MERGE|CALL|EXECUTE|EXEC)\b",
     re.IGNORECASE,
 )
-
 
 def _strip_leading_sql_comments(sql: str) -> str:
     sql = sql.strip()
@@ -47,7 +45,6 @@ def _strip_leading_sql_comments(sql: str) -> str:
         else:
             break
     return sql
-
 
 def sql_console_view(request):
     user = getattr(request, "user", None)
@@ -92,7 +89,6 @@ def sql_console_view(request):
     request.current_app = admin.site.name
     return TemplateResponse(request, "admin/system_management/sql_console.html", context)
 
-
 def language_settings_view(request):
     """Dedicated admin page for switching the active language."""
     user = getattr(request, "user", None)
@@ -108,9 +104,7 @@ def language_settings_view(request):
         request, "admin/system_management/language_settings.html", context
     )
 
-
 _orig_get_urls = admin.AdminSite.get_urls
-
 
 def _patched_get_urls(self):
     custom = [
@@ -127,12 +121,9 @@ def _patched_get_urls(self):
     ]
     return custom + _orig_get_urls(self)
 
-
 admin.AdminSite.get_urls = _patched_get_urls
 
-
 _orig_get_app_list = admin.AdminSite.get_app_list
-
 
 def _patched_get_app_list(self, request, app_label=None):
     """Custom admin index that groups Organizations Management + Language Settings under System Management."""
@@ -214,7 +205,6 @@ def _patched_get_app_list(self, request, app_label=None):
     if app_label:
         return [app_dict[app_label]] if app_label in app_dict else []
 
-    # Pin System Management first; other apps stay alphabetically sorted (Django default style).
     apps = list(app_dict.values())
     sysmgmt_app = None
     other_apps: list = []
@@ -229,6 +219,5 @@ def _patched_get_app_list(self, request, app_label=None):
     for app in app_list:
         app["models"].sort(key=lambda x: x["name"])
     return app_list
-
 
 admin.AdminSite.get_app_list = _patched_get_app_list

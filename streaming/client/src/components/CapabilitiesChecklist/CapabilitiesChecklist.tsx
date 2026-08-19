@@ -3,29 +3,18 @@ import { Button, Checkbox, Group, Stack, Text } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 
 export type CapabilitiesChecklistProps = {
-  /** Tool slugs shown as checkboxes (order preserved). */
   names: readonly string[];
   value: Record<string, boolean>;
   onChange: (next: Record<string, boolean>) => void;
-  /** Always enabled; cannot be unchecked; always on after Select all / Clear. */
   requiredNames?: readonly string[];
-  /** Always off; cannot be checked (e.g. user-required tools on widgets). */
   disabledOffNames?: readonly string[];
-  /** Extra description under a locked-off tool (after the normal description). */
   disabledOffHint?: (name: string) => string;
-  /** Optional section title above the list. */
   label?: string;
-  /** Show Select all / Unselect all for this list. Default true. */
   showBulkActions?: boolean;
-  /** i18n key prefix; default widget-capability-{name}-title/description */
   titleKey?: (name: string) => string;
   descriptionKey?: (name: string) => string;
 };
 
-/**
- * Shared checkbox list for agent tool capabilities (WhatsApp lines, chat widgets, …).
- * Uses the same widget-capability-* locale keys across surfaces.
- */
 export function CapabilitiesChecklist({
   names,
   value,

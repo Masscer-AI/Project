@@ -7,32 +7,23 @@ Validates and documents structures used across the module. Reusable for other sc
 from typing import Any, Literal, Union
 from pydantic import BaseModel, Field
 
-
-# ---- Reusable refs ----
-
 class AgentRef(BaseModel):
     id: int
     slug: str
     name: str
-
 
 class ModelRef(BaseModel):
     id: int
     slug: str
     provider: str
 
-
-# ---- User inputs (discriminated union) ----
-
 class UserInputText(BaseModel):
     type: Literal["input_text"] = "input_text"
     text: str
 
-
 class UserInputAttachment(BaseModel):
     type: Literal["input_attachment"] = "input_attachment"
     attachment_id: str
-
 
 class UserInputOther(BaseModel):
     """Catch-all for future input types. Extend Union when adding new typed variants."""
@@ -40,11 +31,7 @@ class UserInputOther(BaseModel):
     type: str
     model_config = {"extra": "allow"}
 
-
 UserInput = Union[UserInputText, UserInputAttachment, UserInputOther]
-
-
-# ---- Prev messages ----
 
 class PrevMessage(BaseModel):
     type: Literal["user", "assistant"]
@@ -52,9 +39,6 @@ class PrevMessage(BaseModel):
     text: str
     versions: list[dict[str, Any]] = Field(default_factory=list)
     attachments: list[dict[str, Any]] = Field(default_factory=list)
-
-
-# ---- AgentSession inputs ----
 
 class AgentSessionInputs(BaseModel):
     """Inputs to an agent session. Validated before persisting."""
@@ -79,14 +63,10 @@ class AgentSessionInputs(BaseModel):
     )
     max_iterations: int = Field(default=10, ge=1, le=100)
 
-
-# ---- Output schemas ----
-
 class Usage(BaseModel):
     prompt_tokens: int = 0
     completion_tokens: int = 0
     total_tokens: int = 0
-
 
 class OutputValue(BaseModel):
     """Structured output: string or JSON."""
@@ -94,13 +74,11 @@ class OutputValue(BaseModel):
     type: Literal["string", "json"]
     value: str | dict[str, Any]
 
-
 class OutputError(BaseModel):
     """Error details when status is error."""
 
     message: str
     traceback: str = ""
-
 
 class AgentSessionOutputs(BaseModel):
     """Outputs from an agent session. Validated before persisting."""
@@ -113,8 +91,5 @@ class AgentSessionOutputs(BaseModel):
     usage: Usage = Field(default_factory=Usage)
     status: Literal["completed", "error"] = "completed"
     error: OutputError | None = Field(default=None, description="Set when status is error")
-
-
-# ---- Task type ----
 
 TASK_TYPE_CHAT_MESSAGE = "chat_message"

@@ -1,6 +1,5 @@
 import axios from "axios";
 
-/** Turn a slug like "manage-organization" or "some_capability" into "Manage Organization" / "Some Capability". */
 export const titlelify = (slug: string): string =>
   slug
     .split(/[-_]/)
@@ -127,9 +126,9 @@ export const createAudioPlayerWithAppend = (
       .then(() => {
         isPlaying = true;
         audioElement.onended = () => {
-          isPlaying = false; // Reset the flag when playback ends
+          isPlaying = false;
           if (typeof onFinish === "function") {
-            onFinish(); // Call onFinish if provided
+            onFinish();
           }
         };
       })
@@ -226,31 +225,6 @@ export const getStoredPreferences = () => {
   return null;
 };
 
-// type TResponseFormat = "text" | "json";
-// export const fetchUrlContent = async (
-//   url: string,
-//   responseFormat: TResponseFormat
-// ) => {
-//   try {
-//     const response = await axios.get(url, { timeout: 5000 });
-//     if (responseFormat === "text") {
-//       return response.data;
-//     } else if (responseFormat === "json") {
-//       return response.data;
-//     }
-//   } catch (error) {
-//     if (axios.isAxiosError(error)) {
-//       console.error("Error fetching the URL content:", {
-//         message: error.message,
-//         code: error.code,
-//         config: error.config,
-//       });
-//     } else {
-//       console.error("Unexpected error:", error);
-//     }
-//     throw error; // Consider whether to throw or return a fallback value
-//   }
-// };
 type Operation =
   | "sum"
   | "rest"
@@ -313,7 +287,6 @@ export const calculateOperations = (
   operations.forEach((op) => {
     const args = op.arguments.map(resolveArgument);
 
-    // Verificar si la operación existe y es válida
     if (!(op.name in operators)) {
       throw new Error(`Unsupported operation: ${op.name}`);
     }
@@ -321,14 +294,12 @@ export const calculateOperations = (
     let result: number;
 
     if (["sum", "rest", "multiply"].includes(op.name)) {
-      // Operaciones con múltiples argumentos
       // @ts-ignore
       result = operators[op.name](...args);
     } else if (args.length === 1) {
       // @ts-ignore
       result = operators[op.name](args[0]);
     } else if (args.length === 2) {
-      // Operaciones binarias
       const [a, b] = args;
       // @ts-ignore
       console.log(a, b, "calculating, operation: ", op.name);
@@ -344,10 +315,7 @@ export const calculateOperations = (
   return operations;
 };
 
-
-// Example pricing: "3.00 USD / 1000000"
 export const calculatePricing = (pricing: string, tokens: number) => {
-  // Separate the pricing by /
   const pricingParts = pricing.split("/");
   const [price, units] = pricingParts;
   const pricePerTokenQuantity = parseFloat(price);

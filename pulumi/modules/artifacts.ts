@@ -38,7 +38,6 @@ function publicReadBucket(resourceName: string, bucketName: string, tags: Tags) 
     versioningConfiguration: { status: "Enabled" },
   });
 
-  // Allow public reads via bucket policy; block ACL-based public access only.
   const publicAccessBlock = new aws.s3.BucketPublicAccessBlock(`${resourceName}-public-access`, {
     bucket: bucket.id,
     blockPublicAcls: true,

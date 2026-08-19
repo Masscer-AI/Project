@@ -21,7 +21,6 @@ export const NotificationListener = () => {
 
     socket.on("out_of_balance", (data) => {
       playNotificationSound("error");
-      // toast.error(t("out-of-compute-units"));
       console.log("out of balance", data);
     });
 

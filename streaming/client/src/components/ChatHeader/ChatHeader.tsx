@@ -140,7 +140,6 @@ const AgentComponent = ({ agent }: TAgentComponentProps) => {
       const saved = await updateAgent(updatedAgent.slug, updatedAgent);
       closeConfig();
       toast.success(t("agent-updated"));
-      // Use backend response to keep derived fields (access_mode/allowed_roles) in sync.
       updateSingleAgent(saved as TAgent);
     } catch (e) {
       console.log(e, "error while updating agent");
@@ -167,8 +166,6 @@ const AgentComponent = ({ agent }: TAgentComponentProps) => {
     const a = agents.find((x) => x.slug === slug);
     return a?.agent_kind === "platform_assistant";
   });
-  // Users can ALWAYS manage their own personal agents (no feature flag needed)
-  // Users can manage organization agents ONLY if they have the feature flag
   const isPersonalAgent = agent.organization === null || agent.organization === undefined;
   const isOwnAgent = user && agent.user === user.id;
   const canEditDelete =
@@ -318,7 +315,6 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
     (agent.allowed_roles || []).map((r) => r.id)
   );
 
-  // Load user organizations when ownership toggle is available
   useEffect(() => {
     if (!canSetOwnership) return;
     getUserOrganizations()
@@ -340,7 +336,6 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
           .filter((r) => r.enabled)
           .map((r) => ({ value: r.id, label: r.name }));
         setOrgRoles(opts);
-        // Drop any selected roles that no longer exist
         setAllowedRoleIds((prev) => prev.filter((id) => opts.some((o) => o.value === id)));
       })
       .catch(() => {
@@ -478,7 +473,6 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
       ...formState,
       conversation_title_prompt: formState.conversation_title_prompt?.trim() || undefined,
     };
-    // Include ownership change if the user has the flag
     if (canSetOwnership) {
       updatedAgent.ownership = ownership;
     }
@@ -573,7 +567,6 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
     label: m.name,
   }));
 
-  // Permission check for delete
   const isPlatformAgent = agent.agent_kind === "platform_assistant";
   const isPersonalAgent = agent.organization === null || agent.organization === undefined;
   const isOwnAgent = user && agent.user === user.id;

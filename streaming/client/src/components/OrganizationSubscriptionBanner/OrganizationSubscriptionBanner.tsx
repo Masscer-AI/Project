@@ -17,9 +17,6 @@ const MESSAGE_KEY: Record<
   inactive_with_purchased: "org-subscription-banner-inactive-with-purchased",
 };
 
-/**
- * Sticky warning for org managers when the organization subscription is missing or inactive.
- */
 export const OrganizationSubscriptionBanner: React.FC = () => {
   const { t } = useTranslation();
   const location = useLocation();

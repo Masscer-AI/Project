@@ -1,6 +1,5 @@
 import io, { Socket } from "socket.io-client";
 
-// Clase para manejar WebSocket
 export class SocketManager {
   socket: Socket;
 

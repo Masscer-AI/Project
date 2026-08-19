@@ -33,7 +33,6 @@ export const Calculator = ({ operations }: TCalculationSchema) => {
             <span>{op.result_name}=</span>
             <code
               onClick={() => {
-                // Copy the content to clipboard
                 if (op.result_value) {
                   navigator.clipboard.writeText(op.result_value.toString());
                   toast.success(t("copied"))

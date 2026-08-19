@@ -38,7 +38,6 @@ import { useLocalizedToolName } from "../../utils/localizedToolName";
 import { mcpToolGroupLabel } from "../../utils/mcpToolGroupLabel";
 
 type McpCredentialsSectionProps = {
-  /** "list" = active connections. "create-advanced" = manual API-key create for Advanced settings. */
   variant?: "list" | "create-advanced";
   onCreated?: () => void;
 };

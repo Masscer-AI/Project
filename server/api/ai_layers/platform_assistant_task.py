@@ -14,7 +14,6 @@ from celery import shared_task
 
 logger = logging.getLogger(__name__)
 
-
 @shared_task
 def platform_assistant_task(
     conversation_id: str,
@@ -58,7 +57,6 @@ def platform_assistant_task(
     def emit_finished(data: dict) -> None:
         from api.ai_layers.agent_task_helpers import clear_agent_task_active
 
-        # Clear before notify so a notify failure cannot leave the stop button stuck.
         clear_agent_task_active(conversation_id)
         payload = {"conversation_id": conversation_id, **data}
         notify_user(notification_route_id, "agent_loop_finished", payload)

@@ -12,11 +12,9 @@ from django.core.management.base import BaseCommand
 from api.ai_layers.tools.create_image import GOOGLE_IMAGE_LOCATION, _setup_google_credentials
 from api.messaging.models import MessageAttachment
 
-
 IMAGE_MIME_PREFIXES = ("image/",)
 
 GOOGLE_CLOUD_PROJECT = os.environ.get("GOOGLE_CLOUD_PROJECT", "masscer-492023")
-
 
 class Command(BaseCommand):
     help = "Interactively generate images using Gemini (Nano Banana 2 Lite)"
@@ -26,7 +24,6 @@ class Command(BaseCommand):
         parser.add_argument("--password", type=str, default=None, help="User password")
 
     def handle(self, *args, **kwargs):
-        # --- Auth ---
         self.stdout.write(self.style.MIGRATE_HEADING("=== Gemini Image Generator ===\n"))
         email = kwargs.get("email") or input("Email: ").strip()
         password = kwargs.get("password") or getpass.getpass("Password: ")
@@ -44,14 +41,12 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS(f"Authenticated as {user.username}\n"))
 
-        # --- Prompt ---
         self.stdout.write("Describe the image you want to generate:")
         prompt = input("> ").strip()
         if not prompt:
             self.stderr.write(self.style.ERROR("Prompt cannot be empty."))
             sys.exit(1)
 
-        # --- Optional reference attachment ---
         reference_part = None
         use_ref = input("\nUse an existing image attachment as reference? [y/N]: ").strip().lower()
 
@@ -95,7 +90,6 @@ class Command(BaseCommand):
                             mime_type=mime_type,
                         )
 
-        # --- Generate ---
         self.stdout.write(self.style.MIGRATE_HEADING("\nGenerating image...\n"))
 
         try:
@@ -177,7 +171,6 @@ class Command(BaseCommand):
                         output_path = output_dir / filename
 
                         image_data = part.inline_data.data
-                        # data may arrive as bytes or base64 string
                         if isinstance(image_data, str):
                             image_data = base64.b64decode(image_data)
 
@@ -189,7 +182,7 @@ class Command(BaseCommand):
                         )
                         image_saved = True
 
-            self.stdout.write("")  # newline after streamed text
+            self.stdout.write("")
 
             if not image_saved:
                 self.stdout.write(self.style.WARNING("No image was returned. The model may have only produced text."))

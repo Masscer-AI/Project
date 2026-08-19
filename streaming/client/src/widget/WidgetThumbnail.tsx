@@ -1,7 +1,3 @@
-/**
- * Lightweight read-only thumbnail for the chat widget.
- * Completely isolated from the main app — no store, no i18n, no Mantine.
- */
 import React, { useRef, useState } from "react";
 import { API_URL } from "../modules/constants";
 

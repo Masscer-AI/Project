@@ -1,7 +1,6 @@
 import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
 
-/** i18n key prefix shared with widget/WhatsApp capability labels. */
 export function toolCapabilityTitleKey(toolSlug: string): string {
   return `widget-capability-${toolSlug}-title`;
 }

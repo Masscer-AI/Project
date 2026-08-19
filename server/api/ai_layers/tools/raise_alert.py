@@ -19,13 +19,11 @@ from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
-
 class ExtractionField(BaseModel):
     """A single extracted key-value pair from the conversation."""
 
     key: str = Field(description="Field name, e.g. room_type, phone, nights, check_in_date, guest_name.")
     value: str = Field(description="Extracted value as a string, e.g. 'Single', '0964105554', '2', '2026-02-28'.")
-
 
 class RaiseAlertParams(BaseModel):
     """Parameters for the raise_alert tool."""
@@ -55,7 +53,6 @@ class RaiseAlertParams(BaseModel):
         description="When provided, updates the existing alert instead of creating. Use the id from ALREADY RAISED when the user adds more info.",
     )
 
-
 class RaiseAlertResult(BaseModel):
     """Result returned by raise_alert."""
 
@@ -63,7 +60,6 @@ class RaiseAlertResult(BaseModel):
     message: str = Field(description="Status message.")
     alert_id: str | None = Field(default=None, description="UUID of the created or updated alert.")
     updated: bool = Field(default=False, description="True if an existing alert was updated.")
-
 
 def _fields_to_dict(fields: list[ExtractionField] | None) -> dict[str, Any]:
     """Convert a list of ExtractionField items (or raw dicts) into a plain dict."""
@@ -74,13 +70,11 @@ def _fields_to_dict(fields: list[ExtractionField] | None) -> dict[str, Any]:
         if isinstance(f, ExtractionField):
             result[f.key] = f.value
         elif isinstance(f, dict):
-            # Agent loop delivers JSON-decoded dicts at runtime instead of Pydantic objects
             key = f.get("key")
             value = f.get("value")
             if key is not None:
                 result[str(key)] = str(value) if value is not None else ""
     return result
-
 
 def _raise_alert_impl(
     reasoning: str,
@@ -118,7 +112,6 @@ def _raise_alert_impl(
 
         extractions_dict = _fields_to_dict(extractions)
 
-        # Push back if extractions are empty but the conversation likely has data
         if not extractions_dict:
             logger.warning(
                 "raise_alert UPDATE: empty extractions for alert=%s — model should provide extracted fields.",
@@ -179,7 +172,6 @@ def _raise_alert_impl(
             updated=True,
         )
 
-    # Create new alert
     logger.info(
         "raise_alert CREATE called: alert_rule_id=%s conversation=%s extractions_provided=%s",
         alert_rule_id,
@@ -244,7 +236,6 @@ def _raise_alert_impl(
         message=f"Alert raised for rule {alert_rule.name}",
         alert_id=str(alert.id),
     )
-
 
 def get_tool(
     conversation_id: str | None = None,

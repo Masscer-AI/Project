@@ -40,7 +40,6 @@ from typing import Any
 
 DEFAULT_VERTEX_TEXT_MODEL = "gemini-3.1-flash-lite-preview"
 
-
 def _setup_google_credentials() -> str | None:
     """
     Write GOOGLE_APPLICATION_CREDENTIALS_JSON to a temp file when needed.
@@ -65,7 +64,6 @@ def _setup_google_credentials() -> str | None:
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = tmp.name
     return tmp.name
 
-
 def _cleanup_temp_credentials(path: str | None) -> None:
     if not path:
         return
@@ -74,7 +72,6 @@ def _cleanup_temp_credentials(path: str | None) -> None:
             os.unlink(path)
         except OSError:
             pass
-
 
 def _openai_style_messages_to_contents(
     messages: list[dict[str, Any]],
@@ -107,7 +104,6 @@ def _openai_style_messages_to_contents(
         raise ValueError("messages produced no non-empty user/model turns")
     return contents
 
-
 def _extract_text_from_response(response: Any) -> str:
     """Concatenate text parts from the first candidate."""
     candidates = getattr(response, "candidates", None) or []
@@ -124,7 +120,6 @@ def _extract_text_from_response(response: Any) -> str:
             chunks.append(t)
     return "".join(chunks).strip()
 
-
 def _usage_to_dict(usage_metadata: Any) -> dict[str, int]:
     """
     Map Vertex usage_metadata to a simple dict.
@@ -137,7 +132,6 @@ def _usage_to_dict(usage_metadata: Any) -> dict[str, int]:
     pt = int(getattr(usage_metadata, "prompt_token_count", 0) or 0)
     ct = int(getattr(usage_metadata, "response_token_count", 0) or 0)
     tt = int(getattr(usage_metadata, "total_token_count", 0) or 0)
-    # Vertex sometimes omits response_token_count; approximate from total − prompt when possible.
     if ct == 0 and tt > 0 and pt >= 0:
         approx = tt - pt
         if approx >= 0:
@@ -148,7 +142,6 @@ def _usage_to_dict(usage_metadata: Any) -> dict[str, int]:
         "total_tokens": tt,
     }
 
-
 @dataclass
 class VertexGeminiInferResult:
     """Result of a single :meth:`VertexGeminiText.infer` call."""
@@ -157,7 +150,6 @@ class VertexGeminiInferResult:
     usage: dict[str, int]
     model: str
     raw_response: Any | None = None
-
 
 class VertexGeminiText:
     """
@@ -279,8 +271,6 @@ class VertexGeminiText:
             raw_response=response if include_raw_response else None,
         )
 
-
-# Alias for callers who prefer a provider-agnostic name
 GoogleAIInference = VertexGeminiText
 
 __all__ = [

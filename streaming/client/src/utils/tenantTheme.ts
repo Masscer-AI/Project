@@ -77,7 +77,6 @@ export const PRIMARY_COLOR_3 = "var(--mantine-primary-color-3)";
 export const PRIMARY_COLOR_7 = "var(--mantine-primary-color-7)";
 export const PRIMARY_COLOR_9 = "var(--mantine-primary-color-9)";
 
-/** Translucent tint from tenant primary color (alpha 0–1). */
 export const primaryAlpha = (alpha: number) =>
   `color-mix(in srgb, ${PRIMARY_COLOR_VAR} ${Math.round(alpha * 100)}%, transparent)`;
 
@@ -118,8 +117,6 @@ export function buildMantineTheme(
   const shades = shadesFromHex(primaryColor);
   if (shades.length !== 10) return DEFAULT_THEME;
 
-  // Override the violet palette so existing color="violet" and
-  // var(--mantine-color-violet-*) usages follow tenant branding.
   return createTheme({
     primaryColor: "violet",
     colors: {

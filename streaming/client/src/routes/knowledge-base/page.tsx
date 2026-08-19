@@ -115,8 +115,6 @@ function defaultContextRules(
   );
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
-
 const DOCS_POLL_INTERVAL_MS = 5000;
 const DOCS_POLL_RECENT_WINDOW_MS = 10 * 60 * 1000;
 
@@ -128,7 +126,6 @@ const KNOWLEDGE_BASE_TAB_VALUES = [
 
 export type KnowledgeBaseTab = (typeof KNOWLEDGE_BASE_TAB_VALUES)[number];
 
-/** Maps URL ?activeTab= (or legacy ?tab=) to KB section (default: documents). */
 export function parseKnowledgeBaseActiveTab(
   searchParams: URLSearchParams
 ): KnowledgeBaseTab {
@@ -393,7 +390,7 @@ export default function KnowledgeBasePage() {
             </Tabs.List>
           </Tabs>
 
-          {/* Filters */}
+          {}
           <Group gap="sm" mb="md">
             <TextInput
               placeholder={t("search")}
@@ -439,7 +436,7 @@ export default function KnowledgeBasePage() {
             </Group>
           )}
 
-          {/* Content */}
+          {}
           {activeTab === "documents" ? (
             <DocumentsTab
               documents={filteredDocuments}
@@ -469,8 +466,6 @@ export default function KnowledgeBasePage() {
     </main>
   );
 }
-
-// ─── Documents Tab ────────────────────────────────────────────────────────────
 
 const DocumentsTab = ({
   documents,
@@ -517,7 +512,6 @@ const DocumentsTab = ({
           const roles = await getOrganizationRoles(org.id);
           if (!cancelled) setOrgRoles(roles.filter((r) => r.enabled));
         } catch {
-          // Ownership UI still works without roles (me / organization).
           if (!cancelled) setOrgRoles([]);
         }
       } catch {
@@ -816,8 +810,6 @@ const DocumentsTab = ({
   );
 };
 
-// ─── Document Item ────────────────────────────────────────────────────────────
-
 const DocumentItem = ({
   document,
   agents,
@@ -1062,8 +1054,6 @@ const DocumentItem = ({
   );
 };
 
-// ─── Chunks Modal ─────────────────────────────────────────────────────────────
-
 const ChunksModal = ({
   opened,
   onClose,
@@ -1151,8 +1141,6 @@ const ChunkItem = ({ content, id }: { content: string; id: number }) => {
     </Card>
   );
 };
-
-// ─── Training Modal ───────────────────────────────────────────────────────────
 
 const TrainingModal = ({
   opened,
@@ -1254,8 +1242,6 @@ const TrainingModal = ({
   );
 };
 
-// ─── Completions Tab ──────────────────────────────────────────────────────────
-
 const CompletionsTab = ({
   completions,
   anyCompletionsExist,
@@ -1295,7 +1281,6 @@ const CompletionsTab = ({
       .catch(() => setOrgTags([]));
   }, []);
 
-  // Bulk selection state
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
@@ -1385,7 +1370,7 @@ const CompletionsTab = ({
 
   return (
     <Stack gap="md">
-      {/* Action bar */}
+      {}
       <Group justify="space-between">
         <Group gap="xs">
           {completions.length > 0 && (
@@ -1543,8 +1528,6 @@ const CompletionsTab = ({
   );
 };
 
-// ─── Completion approval (two-sided + switch) ─────────────────────────────────
-
 const CompletionApprovalToggle = ({
   approved,
   onChange,
@@ -1635,8 +1618,6 @@ const CompletionApprovalToggle = ({
     </Group>
   );
 };
-
-// ─── Completion Item ──────────────────────────────────────────────────────────
 
 const CompletionItem = ({
   completion,
@@ -1789,7 +1770,7 @@ const CompletionItem = ({
         {completion.prompt}
       </Text>
 
-      {/* Status badges */}
+      {}
       <Group gap={6} mb="xs">
         <Badge
           size="xs"

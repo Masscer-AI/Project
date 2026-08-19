@@ -29,11 +29,9 @@ type Props = {
   onChange: (value: string[]) => void;
   data: MultiSelectOption[];
   disabled?: boolean;
-  /** Shown on the mobile drawer trigger button. */
   pickerTitle?: string;
 };
 
-/** MultiSelect that uses a bottom drawer on narrow viewports (avoids keyboard vs dropdown fights). */
 export const MobileFriendlyMultiSelect = ({
   label,
   description,

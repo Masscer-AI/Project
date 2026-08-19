@@ -32,7 +32,6 @@ function googleCodeExchangeLockKey(code: string): string {
   return `masscer_google_exchange:${code}`;
 }
 
-/** Prevent duplicate code exchange (React StrictMode runs effects twice in dev). */
 export function tryAcquireGoogleCodeExchangeLock(code: string): boolean {
   const key = googleCodeExchangeLockKey(code);
   const state = sessionStorage.getItem(key);

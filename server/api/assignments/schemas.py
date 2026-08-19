@@ -17,18 +17,15 @@ from api.assignments.onboarding_actions import (
     resolve_navigate_path,
 )
 
-
 class StepStatus(str, Enum):
     pending = "pending"
     in_progress = "in_progress"
     done = "done"
 
-
 class StepActionType(str, Enum):
     navigate = "navigate"
     focus_element = "focus_element"
     none = "none"
-
 
 class StepButton(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -36,7 +33,6 @@ class StepButton(BaseModel):
     text: str = Field(min_length=1)
     action_type: StepActionType = StepActionType.navigate
     action_target: str | None = None
-
 
 class AssignmentStep(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -48,11 +44,9 @@ class AssignmentStep(BaseModel):
     status: StepStatus = StepStatus.pending
     route: str | None = None
     button: StepButton | None = None
-    # Deprecated: kept for backward compatibility with early assignments.
     app_url: str | None = None
     help_topic_id: str | None = None
     completed_at: datetime | None = None
-
 
 class AssignmentMetadata(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -75,14 +69,12 @@ class AssignmentMetadata(BaseModel):
         done = sum(1 for s in self.steps if s.status == StepStatus.done)
         return done / len(self.steps)
 
-
 class StepButtonInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     text: str = Field(min_length=1)
     action_type: StepActionType = StepActionType.navigate
     action_target: str | None = None
-
 
 class AssignmentStepInput(BaseModel):
     """Input for creating steps (tool / templates)."""
@@ -93,11 +85,9 @@ class AssignmentStepInput(BaseModel):
     description: str = ""
     route: str | None = None
     button: StepButtonInput | None = None
-    # Deprecated alias: a bare frontend path. Converted to a navigate button.
     app_url: str | None = None
     help_topic_id: str | None = None
     id: str | None = None
-
 
 def _unique_step_id(base: str, used: set[str]) -> str:
     candidate = base or "step"
@@ -110,7 +100,6 @@ def _unique_step_id(base: str, used: set[str]) -> str:
     final = f"{candidate}_{n}"
     used.add(final)
     return final
-
 
 def _resolve_button_and_route(
     inp: AssignmentStepInput,
@@ -125,7 +114,6 @@ def _resolve_button_and_route(
     route = inp.route
     app_url = inp.app_url
 
-    # Backward-compat: a bare app_url becomes a navigate button.
     if button is None and app_url:
         button = StepButtonInput(
             text="Open page",
@@ -161,7 +149,6 @@ def _resolve_button_and_route(
         action_target=button.action_target,
     )
     return final_button, route, app_url
-
 
 def build_metadata_from_steps(
     steps_input: list[AssignmentStepInput | dict],
@@ -204,10 +191,8 @@ def build_metadata_from_steps(
     meta = AssignmentMetadata(version=version, steps=built_steps)
     return meta.model_dump(mode="json")
 
-
 def validate_assignment_metadata(raw: dict | None) -> AssignmentMetadata:
     return AssignmentMetadata.model_validate(raw or {"version": 1, "steps": []})
-
 
 def metadata_to_json(meta: AssignmentMetadata) -> dict:
     return meta.model_dump(mode="json")

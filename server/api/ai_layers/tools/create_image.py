@@ -28,10 +28,6 @@ logger = logging.getLogger(__name__)
 
 AspectRatio = Literal["square", "landscape", "portrait"]
 
-# ---------------------------------------------------------------------------
-# Image model catalog — single source of truth for allowlist + AI guidance.
-# ---------------------------------------------------------------------------
-
 DEFAULT_IMAGE_MODEL = "gpt-image-2"
 
 IMAGE_GENERATION_MODELS: tuple[dict[str, str], ...] = (
@@ -60,13 +56,11 @@ GOOGLE_IMAGE_MODELS: set[str] = {
 }
 ALL_IMAGE_MODELS: set[str] = {m["slug"] for m in IMAGE_GENERATION_MODELS}
 
-
 def _image_models_brief_lines() -> str:
     """slug + brief description for each catalog entry (one line each)."""
     return "\n".join(
         f"- {m['slug']}: {m['description']}" for m in IMAGE_GENERATION_MODELS
     )
-
 
 def image_models_param_description() -> str:
     return (
@@ -75,14 +69,12 @@ def image_models_param_description() -> str:
         f"{_image_models_brief_lines()}"
     )
 
-
 def image_models_tool_description_snippet() -> str:
     return (
         f"Default model: {DEFAULT_IMAGE_MODEL}. "
         "Optionally pass `model` to choose among:\n"
         f"{_image_models_brief_lines()}"
     )
-
 
 def image_models_agent_instructions_snippet() -> str:
     return (
@@ -96,9 +88,7 @@ def image_models_agent_instructions_snippet() -> str:
         "for visual reference (supported by both models)."
     )
 
-
 GOOGLE_CLOUD_PROJECT = os.environ.get("GOOGLE_CLOUD_PROJECT", "masscer-492023")
-# gemini-3.1-flash-lite-image is global-endpoint only (unlike Veo, which uses GOOGLE_CLOUD_LOCATION).
 GOOGLE_IMAGE_LOCATION = "global"
 
 _ASPECT_RATIO_TO_GOOGLE = {
@@ -112,11 +102,6 @@ _ASPECT_RATIO_TO_OPENAI = {
     "landscape": (1536, 1024),
     "portrait": (1024, 1536),
 }
-
-
-# ---------------------------------------------------------------------------
-# Pydantic schemas
-# ---------------------------------------------------------------------------
 
 class CreateImageParams(BaseModel):
     prompt: str = Field(description="Text prompt to generate an image from.")
@@ -136,7 +121,6 @@ class CreateImageParams(BaseModel):
         ),
     )
 
-
 class CreateImageResult(BaseModel):
     attachment_id: str = Field(description="UUID of the created MessageAttachment.")
     name: str = Field(description="A short name for display (slugified).")
@@ -145,16 +129,10 @@ class CreateImageResult(BaseModel):
     aspect_ratio: AspectRatio = Field(description="Aspect ratio requested.")
     source_image_url: str = Field(description="Provider reference for the created image (debug/audit).")
 
-
-# ---------------------------------------------------------------------------
-# Small utilities
-# ---------------------------------------------------------------------------
-
 def _guess_filename(prompt: str, content_type: str | None) -> str:
     base = slugify((prompt or "").strip()[:80] or "image")
     ext = mimetypes.guess_extension((content_type or "").split(";")[0].strip()) or ".png"
     return f"{base}-{uuid.uuid4().hex[:8]}{ext}"
-
 
 def _setup_google_credentials() -> str | None:
     """
@@ -181,7 +159,6 @@ def _setup_google_credentials() -> str | None:
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = tmp.name
     return tmp.name
 
-
 def _load_guidance_attachments(attachment_ids: list[str], MessageAttachment) -> list:
     """Resolve a list of attachment UUIDs to MessageAttachment instances, skipping missing ones."""
     objects = []
@@ -191,11 +168,6 @@ def _load_guidance_attachments(attachment_ids: list[str], MessageAttachment) -> 
         except MessageAttachment.DoesNotExist:
             logger.warning("Guidance attachment %s not found, skipping", att_id)
     return objects
-
-
-# ---------------------------------------------------------------------------
-# Provider-specific generators — each returns (raw_bytes, content_type)
-# ---------------------------------------------------------------------------
 
 def _generate_image_openai(
     *,
@@ -234,7 +206,6 @@ def _generate_image_openai(
     if not b64:
         raise ValueError("OpenAI returned empty image data")
     return base64.b64decode(b64), "image/png"
-
 
 def _generate_image_google(
     *,
@@ -308,11 +279,6 @@ def _generate_image_google(
             except Exception:
                 pass
 
-
-# ---------------------------------------------------------------------------
-# Main implementation
-# ---------------------------------------------------------------------------
-
 def _create_image_impl(
     *,
     prompt: str,
@@ -329,7 +295,6 @@ def _create_image_impl(
     from api.authenticate.services import FeatureFlagService
     from api.messaging.models import Conversation, MessageAttachment
 
-    # ---- Validate ----
     model = (model or "").strip() or DEFAULT_IMAGE_MODEL
     if model not in ALL_IMAGE_MODELS:
         raise ValueError(
@@ -341,7 +306,6 @@ def _create_image_impl(
     if not prompt:
         raise ValueError("prompt is required")
 
-    # ---- Load conversation + user ----
     try:
         conversation = Conversation.objects.select_related("organization", "chat_widget").get(id=conversation_id)
     except Conversation.DoesNotExist:
@@ -354,7 +318,6 @@ def _create_image_impl(
         except User.DoesNotExist:
             pass
 
-    # ---- Feature gate ----
     from api.ai_layers.tools.embedded_channels import conversation_uses_capability_gated_media_tools
 
     if not conversation_uses_capability_gated_media_tools(conversation):
@@ -366,10 +329,8 @@ def _create_image_impl(
         if not enabled:
             raise ValueError("The 'image-tools' feature is not enabled.")
 
-    # ---- Load guidance attachments ----
     att_objects = _load_guidance_attachments(guidance_attachments, MessageAttachment)
 
-    # ---- Generate ----
     try:
         if model in GOOGLE_IMAGE_MODELS:
             raw, content_type = _generate_image_google(
@@ -385,7 +346,6 @@ def _create_image_impl(
         logger.exception("Failed to generate image (model=%s)", model)
         raise ValueError(f"Failed to generate image: {e}")
 
-    # ---- Resolve agent ----
     agent_obj = None
     if agent_slug:
         try:
@@ -394,7 +354,6 @@ def _create_image_impl(
         except Exception:
             pass
 
-    # ---- Save attachment ----
     attachment = MessageAttachment.objects.create(
         conversation=conversation,
         user=user,
@@ -410,7 +369,6 @@ def _create_image_impl(
         },
     )
 
-    # ---- Bill ----
     if user_id is not None:
         try:
             from api.consumption.tasks import async_register_image_generation
@@ -419,7 +377,6 @@ def _create_image_impl(
         except Exception:
             logger.warning("Failed to queue image billing task", exc_info=True)
 
-    # ---- Build display URL ----
     api_base = getattr(settings, "API_BASE_URL", None) or ""
     file_url = attachment.file.url if attachment.file else ""
     display_url = (
@@ -436,11 +393,6 @@ def _create_image_impl(
         aspect_ratio=aspect_ratio,
         source_image_url=source_image_url,
     )
-
-
-# ---------------------------------------------------------------------------
-# Tool entry point
-# ---------------------------------------------------------------------------
 
 def get_tool(
     conversation_id: str | None = None,

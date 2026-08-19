@@ -14,10 +14,10 @@ import {
 import { IconSparkles } from "@tabler/icons-react";
 
 const FLUX_SIZES = [
-  "512x512", // 1:1
-  "1024x1024", // 1:1
-  "1440x1440", // 1:1
-  "1440x768", //
+  "512x512",
+  "1024x1024",
+  "1440x1440",
+  "1440x768",
   "1024x768",
   "1280x768",
   "768x1440",
@@ -162,19 +162,19 @@ const DynamicAspectRatio = ({
   selected = false,
   onChange = (size: string) => {},
 }) => {
-  const [width, setWidth] = useState(1); // Start with a default width
-  const [height, setHeight] = useState(1); // Start with a default height
+  const [width, setWidth] = useState(1);
+  const [height, setHeight] = useState(1);
 
   const handleWidthChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const newWidth = Number(event.target.value);
     setWidth(newWidth);
-    onChange(`${newWidth}:${height}`); // Update the aspect ratio format
+    onChange(`${newWidth}:${height}`);
   };
 
   const handleHeightChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const newHeight = Number(event.target.value);
     setHeight(newHeight);
-    onChange(`${width}:${newHeight}`); // Update the aspect ratio format
+    onChange(`${width}:${newHeight}`);
   };
 
   return (
@@ -187,7 +187,7 @@ const DynamicAspectRatio = ({
           <input
             type="range"
             min="1"
-            max="16" // You can configure the maximum value as needed
+            max="16"
             value={width}
             onChange={handleWidthChange}
             style={{ width: "150px" }}
@@ -200,7 +200,7 @@ const DynamicAspectRatio = ({
           <input
             type="range"
             min="1"
-            max="16" // You can configure the maximum value as needed
+            max="16"
             value={height}
             onChange={handleHeightChange}
             style={{ width: "150px" }}

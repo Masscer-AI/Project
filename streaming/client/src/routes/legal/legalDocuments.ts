@@ -10,7 +10,6 @@ const LEGAL_DOCS: Record<LegalDocId, { en: string; es: string }> = {
   terms: { en: termsEn, es: termsEs },
 };
 
-/** Shown on legal pages; bump when markdown content changes. */
 export const LEGAL_LAST_UPDATED = "2026-07-20";
 
 export function getLegalMarkdown(docId: LegalDocId, language: string): string {

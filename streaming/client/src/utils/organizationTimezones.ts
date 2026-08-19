@@ -1,4 +1,3 @@
-/** IANA timezones for organization settings (searchable Select). */
 export function getOrganizationTimezoneOptions(): { value: string; label: string }[] {
   try {
     const zones = Intl.supportedValuesOf("timeZone");

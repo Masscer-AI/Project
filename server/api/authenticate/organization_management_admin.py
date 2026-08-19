@@ -38,7 +38,6 @@ from api.payments.billing_helpers import (
 )
 from api.payments.models import Subscription, SubscriptionPayment, SubscriptionPlan
 
-
 def _cancel_all_masscer_subscriptions_for_org(org: Organization) -> int:
     """Mark every subscription row for this org as cancelled in Masscer (does not call Stripe)."""
     had_active = _masscer_active_subscriptions_qs(org).exists()
@@ -52,7 +51,6 @@ def _cancel_all_masscer_subscriptions_for_org(org: Organization) -> int:
         forfeit_subscription_credits(org)
     return n
 
-
 def _parse_optional_decimal(value) -> Decimal | None:
     if value is None:
         return None
@@ -64,7 +62,6 @@ def _parse_optional_decimal(value) -> Decimal | None:
     except InvalidOperation as exc:
         raise ValueError(_("Invalid decimal: %(value)s") % {"value": repr(value)}) from exc
 
-
 def _parse_end_datetime(date_str) -> datetime | None:
     if not date_str or not str(date_str).strip():
         return None
@@ -73,7 +70,6 @@ def _parse_end_datetime(date_str) -> datetime | None:
         raise ValueError(_("Invalid end date"))
     return timezone.make_aware(datetime.combine(d, dt_time(23, 59, 59)))
 
-
 def _add_months_clamped(base: datetime, months: int) -> datetime:
     """Add months keeping day where possible; clamp to month end otherwise."""
     month_idx = (base.month - 1) + months
@@ -81,7 +77,6 @@ def _add_months_clamped(base: datetime, months: int) -> datetime:
     month = (month_idx % 12) + 1
     day = min(base.day, monthrange(year, month)[1])
     return base.replace(year=year, month=month, day=day)
-
 
 def _renewed_end_date(base: datetime, billing_interval: str) -> datetime:
     if billing_interval == "monthly":
@@ -92,7 +87,6 @@ def _renewed_end_date(base: datetime, billing_interval: str) -> datetime:
         return _add_months_clamped(base, 12)
     raise ValueError(_("Only monthly, quarterly, or yearly subscriptions can be renewed."))
 
-
 def _badge_label(code: str) -> str:
     labels = {
         "no_wallet": _("No wallet"),
@@ -102,7 +96,6 @@ def _badge_label(code: str) -> str:
         "no_subscription": _("No subscription"),
     }
     return labels.get(code, code)
-
 
 def _stripe_error_is_unknown_subscription(exc: BaseException) -> bool:
     """True when Stripe says the subscription id does not exist (deleted, wrong account, etc.)."""
@@ -116,7 +109,6 @@ def _stripe_error_is_unknown_subscription(exc: BaseException) -> bool:
         return True
     return False
 
-
 def _clear_matching_stripe_subscription_id(stripe_subscription_id: str) -> int:
     """Clear stale Stripe subscription id from all Masscer rows pointing at it."""
     sid = (stripe_subscription_id or "").strip()
@@ -126,7 +118,6 @@ def _clear_matching_stripe_subscription_id(stripe_subscription_id: str) -> int:
         stripe_subscription_id=None,
         updated_at=timezone.now(),
     )
-
 
 def _stripe_live_view(stripe_subscription_id: str) -> dict:
     """Live Stripe subscription fields for admin (read-only)."""
@@ -182,9 +173,7 @@ def _stripe_live_view(stripe_subscription_id: str) -> dict:
         "current_period_end_display": cpe_display,
     }
 
-
 _STRIPE_SUBSCRIPTION_TERMINAL = frozenset({"canceled", "incomplete_expired"})
-
 
 def _masscer_active_subscriptions_qs(org: Organization):
     """Rows where the org can still use plan benefits (same rule as Subscription.is_active())."""
@@ -193,7 +182,6 @@ def _masscer_active_subscriptions_qs(org: Organization):
         organization=org,
         status__in=("trial", "active"),
     ).filter(Q(end_date__isnull=True) | Q(end_date__gte=now))
-
 
 def _split_stripe_subscription_rows_for_cancel_ui(rows: list[dict]) -> tuple[list[dict], list[dict]]:
     """Rows that still accept Stripe cancel API vs informational-only rows."""
@@ -213,7 +201,6 @@ def _split_stripe_subscription_rows_for_cancel_ui(rows: list[dict]) -> tuple[lis
         else:
             other.append(row)
     return active_cancel, other
-
 
 def _stripe_subscription_rows_for_org(org):
     subs = list(
@@ -235,11 +222,9 @@ def _stripe_subscription_rows_for_org(org):
         rows.append({"subscription": s, "live": live})
     return rows, stale_rows_cleared
 
-
 def _stripe_cancel_at_period_end(stripe_subscription_id: str) -> None:
     stripe.api_key = settings.STRIPE_SECRET_KEY
     stripe.Subscription.modify(stripe_subscription_id, cancel_at_period_end=True)
-
 
 def _stripe_cancel_immediately(stripe_subscription_id: str) -> None:
     stripe.api_key = settings.STRIPE_SECRET_KEY
@@ -247,7 +232,6 @@ def _stripe_cancel_immediately(stripe_subscription_id: str) -> None:
         stripe.Subscription.cancel(stripe_subscription_id)
     else:
         stripe.Subscription.delete(stripe_subscription_id)
-
 
 @admin.register(OrganizationManagementProxy)
 class OrganizationManagementProxyAdmin(admin.ModelAdmin):
@@ -393,7 +377,6 @@ class OrganizationManagementProxyAdmin(admin.ModelAdmin):
         manual_subscription_plans = list(
             SubscriptionPlan.objects.filter(slug="custom").order_by("slug")
         )
-        # Only flags that are defined as organization-level (not user-only product flags).
         feature_flags = FeatureFlag.objects.filter(organization_only=True).order_by("name")
         assignments = {
             a.feature_flag_id: a

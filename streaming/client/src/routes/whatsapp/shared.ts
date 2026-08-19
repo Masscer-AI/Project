@@ -53,13 +53,7 @@ export function countEnabledCapabilities(
   return capabilities.filter((c) => c?.enabled).length;
 }
 
-/**
- * All agent tools that can be toggled on a WhatsApp line (Personalizar linea).
- * Matches list_available_tools() (TOOL_REGISTRY minus dependent tools like list_voices).
- * Required tools stay on; everything else is optional at the owner's risk.
- */
 export const WHATSAPP_CAPABILITY_NAMES = [
-  // Always on (backend-enforced)
   "read_attachment",
   "list_attachments",
   "list_document_templates",
@@ -71,7 +65,6 @@ export const WHATSAPP_CAPABILITY_NAMES = [
   "change_conversation_summary",
   "get_tag_context",
   "query_conversation",
-  // Common optional
   "explore_web",
   "rag_query",
   "list_knowledge_base_documents",
@@ -87,7 +80,6 @@ export const WHATSAPP_CAPABILITY_NAMES = [
   "list_whatsapp_resources",
   "list_whatsapp_templates",
   "send_ws_template_message",
-  // Advanced (under owner's risk)
   "send_email",
   "list_organization_members",
   "list_organization_roles",

@@ -4,24 +4,8 @@ import random
 import time
 from .color_printer import printer
 
-# request = requests.post(
-#     'https://api.bfl.ml/v1/flux-pro-1.1',
-#     headers={
-#         'accept': 'application/json',
-#         'x-key': os.environ.get("BFL_API_KEY"),
-#         'Content-Type': 'application/json',
-#     },
-#     json={
-#         'prompt': 'A cat on its back legs running like a human is holding a big silver fish with its arms. The cat is running away from the shop owner and has a panicked look on his face. The scene is situated in a crowded market.',
-#         'width': 1024,
-#         'height': 768,
-#     },
-# ).json()
-
-
 def create_random_seed():
     return random.randint(1, 100000)
-
 
 flux_models_to_endpoint = {
     "flux-pro-1.1-ultra": "https://api.bfl.ml/v1/flux-pro-1.1-ultra",
@@ -29,7 +13,6 @@ flux_models_to_endpoint = {
     "flux-pro": "https://api.bfl.ml/v1/flux-pro",
     "flux-dev": "https://api.bfl.ml/v1/flux-dev",
 }
-
 
 def request_flux_generation(
     prompt: str,
@@ -51,7 +34,6 @@ def request_flux_generation(
         "prompt_upsampling": prompt_upsampling,
         "safety_tolerance": 6,
     }
-    # print("USING KEY", api_key)
     if model == "flux-pro-1.1-ultra":
         payload["aspect_ratio"] = f"{width}:{height}"
     try:
@@ -65,8 +47,7 @@ def request_flux_generation(
             json=payload,
         )
 
-        # Check if the request was successful
-        req.raise_for_status()  # Raises an error for bad responses (4xx or 5xx)
+        req.raise_for_status()
 
         return req.json()["id"]
 
@@ -80,7 +61,6 @@ def request_flux_generation(
             print(f"An unexpected error occurred while generating flux image: {e}")
 
     return None
-
 
 def get_result_url(result_id: str, api_key: str = os.environ.get("BFL_API_KEY")):
     url = f"https://api.bfl.ml/v1/get_result?id={result_id}"
@@ -101,7 +81,6 @@ def get_result_url(result_id: str, api_key: str = os.environ.get("BFL_API_KEY"))
                 "Waiting to retry...", "STATUS NOT READY", response.get("status")
             )
             time.sleep(1.5)
-
 
 def request_image_edit_with_mask(
     image_base64: str,
@@ -136,7 +115,7 @@ def request_image_edit_with_mask(
 
     try:
         response = requests.post(url, json=payload, headers=headers)
-        response.raise_for_status()  # Raises an error for bad responses (4xx or 5xx)
+        response.raise_for_status()
         return response.json()["id"]
 
     except requests.exceptions.HTTPError as e:
@@ -150,14 +129,10 @@ def request_image_edit_with_mask(
 
     return None
 
-
-
-
-
 def generate_with_control_image(
     prompt: str,
     control_image_base64: str,
-    model: str = "flux-pro-1.0-canny",  # Default to Canny
+    model: str = "flux-pro-1.0-canny",
     steps: int = 50,
     seed: int = create_random_seed(),
     prompt_upsampling: bool = False,
@@ -166,7 +141,6 @@ def generate_with_control_image(
     safety_tolerance: int = 2,
     api_key: str = os.environ.get("BFL_API_KEY"),
 ):
-    # Define the endpoint for the chosen model
     model_to_endpoint = {
         "flux-pro-1.0-canny": "https://api.bfl.ml/v1/flux-pro-1.0-canny",
         "flux-pro-1.0-depth": "https://api.bfl.ml/v1/flux-pro-1.0-depth",
@@ -177,10 +151,9 @@ def generate_with_control_image(
 
     url = model_to_endpoint[model]
 
-    # Create the payload
     payload = {
         "prompt": prompt,
-        "control_image": control_image_base64,  # Base64-encoded control image
+        "control_image": control_image_base64,
         "steps": steps,
         "seed": seed,
         "prompt_upsampling": prompt_upsampling,
@@ -195,11 +168,9 @@ def generate_with_control_image(
     }
 
     try:
-        # Make the POST request to the API
         response = requests.post(url, json=payload, headers=headers)
-        response.raise_for_status()  # Check for HTTP errors
+        response.raise_for_status()
 
-        # Return the task ID to fetch the generated image later
         return response.json()["id"]
 
     except requests.exceptions.HTTPError as e:

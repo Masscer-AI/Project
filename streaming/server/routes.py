@@ -26,11 +26,8 @@ SUPPORTED_FORMATS = {
 }
 AUDIO_DIR = "audios"
 
-
-# Definir el modelo de datos para la solicitud de generación de discurso
 class SpeechRequest(BaseModel):
     text: str
-
 
 @router.post("/upload-audio/")
 async def upload_audio(file: UploadFile = File(...)):
@@ -50,7 +47,6 @@ async def upload_audio(file: UploadFile = File(...)):
         "transcription": transcription,
     }
 
-
 @router.get("/", response_class=HTMLResponse)
 async def get_root(request: Request):
     file_path = os.path.join("client", "dist", "index.html")
@@ -61,24 +57,16 @@ async def get_root(request: Request):
         return HTMLResponse(content=html_content)
     return HTMLResponse(content="Page not found", status_code=404)
 
-
 @router.get("/{page_name}", response_class=HTMLResponse)
 async def get_page():
     file_path = os.path.join("client", "dist", "index.html")
     if os.path.exists(file_path):
         with open(file_path, "r") as file:
             html_content = file.read()
-        # data = routes_meta.get(page_name, routes_meta["defaults"])
-
-        # for key, value in data.items():
-        #     placeholder = f"{{{{{key}}}}}"
-        #     html_content = html_content.replace(placeholder, value)
 
         return HTMLResponse(content=html_content)
     return HTMLResponse(content="Page not found", status_code=404)
 
-
-# Simple mapping of file extensions to media types
 MEDIA_TYPES = {
     "jpg": "image/jpeg",
     "jpeg": "image/jpeg",
@@ -88,9 +76,7 @@ MEDIA_TYPES = {
     "txt": "text/plain",
     "html": "text/html",
     "ico": "image/x-icon",
-    # Add more as needed
 }
-
 
 @router.get("assets/{asset_name}")
 async def get_asset(request: Request, asset_name: str):
@@ -98,19 +84,17 @@ async def get_asset(request: Request, asset_name: str):
     file_path = os.path.join(assets_directory, asset_name)
 
     if os.path.exists(file_path):
-        # Get the file extension
         file_extension = asset_name.split(".")[-1].lower()
         media_type = MEDIA_TYPES.get(
             file_extension, "application/octet-stream"
-        )  # Default to binary stream
+        )
 
-        with open(file_path, "rb") as file:  # Use "rb" to read binary files
+        with open(file_path, "rb") as file:
             file_content = file.read()
 
         return Response(content=file_content, media_type=media_type)
 
     return Response(status_code=404, content="File not found.")
-
 
 @router.get("/chat/c/{conversation_id}", response_class=HTMLResponse)
 async def get_conversation():
@@ -131,7 +115,6 @@ async def get_dashboard(full_path: str):
         return HTMLResponse(content=html_content)
     return HTMLResponse(content="Page not found", status_code=404)
 
-
 @router.get("/whatsapp/{full_path:path}", response_class=HTMLResponse)
 async def get_whatsapp_spa(full_path: str):
     """SPA shell for WhatsApp line detail routes (e.g. /whatsapp/1?tab=settings)."""
@@ -142,7 +125,6 @@ async def get_whatsapp_spa(full_path: str):
         return HTMLResponse(content=html_content)
     return HTMLResponse(content="Page not found", status_code=404)
 
-
 @router.get("/settings/{full_path:path}", response_class=HTMLResponse)
 async def get_settings(full_path: str):
     file_path = os.path.join("client", "dist", "index.html")
@@ -151,7 +133,6 @@ async def get_settings(full_path: str):
             html_content = file.read()
         return HTMLResponse(content=html_content)
     return HTMLResponse(content="Page not found", status_code=404)
-
 
 @router.get("/auth/{full_path:path}", response_class=HTMLResponse)
 async def get_auth_spa(full_path: str):
@@ -162,7 +143,6 @@ async def get_auth_spa(full_path: str):
             html_content = file.read()
         return HTMLResponse(content=html_content)
     return HTMLResponse(content="Page not found", status_code=404)
-
 
 @router.get("/oauth/{full_path:path}", response_class=HTMLResponse)
 async def get_oauth_spa(full_path: str):

@@ -1,13 +1,9 @@
-# import base64
 from openai import OpenAI
 import anthropic
 from ..logger import get_custom_logger
 from types import SimpleNamespace
 
-# import fitz
-
 logger = get_custom_logger("completions")
-
 
 class TextStreamingFactory:
     client = None
@@ -107,7 +103,6 @@ AI_RESPONSE:
 
                 messages.append({"role": "user", "content": prev_ai_context})
 
-        # Build current user message: combine text + images in one multimodal message
         if len(self.attachments) > 0:
             image_parts = [a for a in self.attachments if "image" in a.get("type", "")]
             if image_parts:
@@ -133,7 +128,7 @@ AI_RESPONSE:
         kwargs = {
             "model": model,
             "instructions": system,
-            "input": messages[1:],  # keep prior/user turns as input; instructions holds system prompt
+            "input": messages[1:],
             "max_output_tokens": int(self.config.get("max_tokens", 3000)),
         }
         if not is_reasoning_model:
@@ -141,7 +136,6 @@ AI_RESPONSE:
             kwargs["top_p"] = float(self.config.get("top_p", 1.0))
 
         with self.client.responses.stream(**kwargs) as stream:
-            # SDK compatibility: some versions expose text deltas as events only.
             if hasattr(stream, "text_deltas"):
                 for delta in stream.text_deltas:
                     if delta:
@@ -238,39 +232,6 @@ AI_RESPONSE:
         for a in attachments:
             if "image" in a["type"]:
                 processed.append(a)
-
-            # elif "audio" in a["type"]:
-            #     processed.append(a)
-            # elif "pdf" in a["type"]:
-            #     base64_content = a["content"]
-            #     if base64_content.startswith("data:application/pdf;base64,"):
-            #         base64_content = base64_content.split(",")[1]
-
-            #     try:
-            #         binary_content = base64.b64decode(base64_content)
-            #     except base64.binascii.Error as e:
-            #         logger.error("Invalid base64 content")
-            #         logger.error(e)
-            #         continue
-
-            #     if not binary_content.startswith(b"%PDF"):
-            #         logger.error("The decoded content is not a valid PDF")
-            #         continue
-
-            #     try:
-            #         pdf_data = fitz.open(stream=binary_content, filetype="pdf")
-            #     except fitz.fitz.FileDataError as e:
-            #         logger.error("Failed to open the PDF document")
-            #         logger.error(e)
-            #         continue
-
-            #     text = ""
-            #     for page in pdf_data:
-            #         text += page.get_text()
-            #     a["content"] = text
-            #     # Cut to the first 50000 characters
-            #     a["content"] = a["content"][:50000]
-            #     processed.append(a)
 
         logger.debug(f"Appending {len(processed)} attachments to the chat context")
         self.attachments = processed

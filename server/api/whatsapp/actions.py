@@ -16,10 +16,8 @@ from .models import WSNumber
 
 logger = logging.getLogger(__name__)
 
-
 def _graph_token() -> str:
     return (getattr(settings, "WHATSAPP_GRAPH_API_TOKEN", None) or "").strip()
-
 
 def send_reaction(business_phone_number_id, to, message_id, emoji):
     """
@@ -52,7 +50,6 @@ def send_reaction(business_phone_number_id, to, message_id, emoji):
         raise Exception("Failed to send reaction.")
 
     printer.success(f"Reaction {emoji} sent successfully.")
-
 
 def send_interactive_message(
     whatsapp_business_phone_number_id,
@@ -98,7 +95,6 @@ def send_interactive_message(
         print(f"Failed to send message: {response.status_code}, {response.text}")
         return None
 
-
 def send_message(
     business_phone_number_id, to, message, message_platform_id=None
 ) -> str | None:
@@ -125,7 +121,6 @@ def send_message(
     printer.success("Message sent successfully.")
 
     return response.json().get("messages")[0].get("id")
-
 
 def send_template_message(
     business_phone_number_id: str,
@@ -192,9 +187,8 @@ def send_template_message(
         return None
     return messages[0].get("id")
 
-
 def verify_whatsapp_number(country_code, phone_number, method, cert, pin=None):
-    url = "http://your-api-url/v1/account"  # Replace with the actual API URL
+    url = "http://your-api-url/v1/account"
 
     headers = {"Content-Type": "application/json"}
 
@@ -215,7 +209,6 @@ def verify_whatsapp_number(country_code, phone_number, method, cert, pin=None):
     else:
         return {"error": response.status_code, "message": response.text}
 
-
 def download_audio(business_phone_number_id, audio_id):
     from .media import fetch_whatsapp_media_bytes
 
@@ -225,12 +218,10 @@ def download_audio(business_phone_number_id, audio_id):
         audio_file.write(data)
     return audio_file_path
 
-
 def _strip_markdown_for_whatsapp(text: str) -> str:
     t = re.sub(r"\*\*([^*]+)\*\*", r"\1", text)
     t = re.sub(r"`([^`]+)`", r"\1", t)
     return t.strip()
-
 
 def _strip_attachment_manifest_for_whatsapp(text: str) -> str:
     """
@@ -255,7 +246,6 @@ def _strip_attachment_manifest_for_whatsapp(text: str) -> str:
 
     return "\n".join(cleaned).strip()
 
-
 _ATTACHMENT_MD_IMAGE_RE = re.compile(
     r"!\[([^\]]*)\]\(attachment:"
     r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
@@ -275,7 +265,6 @@ _ATTACHMENT_BARE_RE = re.compile(
     re.IGNORECASE,
 )
 
-
 def _strip_attachment_links_for_whatsapp(text: str) -> str:
     """
     Replace markdown attachment links with labels (or remove image/bare refs)
@@ -290,12 +279,10 @@ def _strip_attachment_links_for_whatsapp(text: str) -> str:
     cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
     return cleaned.strip()
 
-
 class ReactionPick(BaseModel):
     emoji: str = Field(
         description="Single WhatsApp-valid emoji reaction to the user's last message"
     )
-
 
 def _pick_whatsapp_reaction(user_text: str, assistant_text: str) -> str:
     system = (
@@ -311,7 +298,6 @@ def _pick_whatsapp_reaction(user_text: str, assistant_text: str) -> str:
         user_prompt=user,
     )
     return (out.emoji or "👍")[:8]
-
 
 def deliver_whatsapp_reply(
     *,
@@ -361,7 +347,6 @@ def deliver_whatsapp_reply(
 
     out_wamid: str | None = None
     if body:
-        # Reply context on first outbound only: media if any, otherwise text.
         text_reply_to = reply_to if not media_wamids else None
         out_wamid = send_message(phone_id, to, body, text_reply_to)
 
@@ -389,7 +374,6 @@ def deliver_whatsapp_reply(
         except Exception as e:
             printer.red(f"WhatsApp reaction skipped: {e}")
 
-
 def send_whatsapp_fallback_text(
     conversation: Conversation,
     *,
@@ -406,7 +390,6 @@ def send_whatsapp_fallback_text(
         msg,
         inbound_wamid or conversation.whatsapp_last_inbound_wamid,
     )
-
 
 def _interactive_reply_text(message: dict) -> str | None:
     """Extract human-readable text from interactive button/list replies."""
@@ -433,7 +416,6 @@ def _interactive_reply_text(message: dict) -> str | None:
         return title or payload or None
     return None
 
-
 def _legacy_button_reply_text(message: dict) -> str | None:
     """Extract text from legacy WhatsApp Cloud API ``type=button`` replies."""
     button = message.get("button") or {}
@@ -443,14 +425,12 @@ def _legacy_button_reply_text(message: dict) -> str | None:
     payload = (button.get("payload") or "").strip()
     return text or payload or None
 
-
 def _forward_as_text_inbound(webhook_data, message, body: str) -> None:
     """Reuse the text inbound path (conversation, /clear, agent enqueue)."""
     synthetic = dict(message)
     synthetic["type"] = "text"
     synthetic["text"] = {"body": body}
     handle_message_received(webhook_data, synthetic)
-
 
 def handle_interactive_message(webhook_data, message):
     printer.red("Interactive message received")
@@ -464,7 +444,6 @@ def handle_interactive_message(webhook_data, message):
     printer.green("Interactive reply → text inbound: ", body)
     _forward_as_text_inbound(webhook_data, message, body)
 
-
 def handle_button_message(webhook_data, message):
     """Template quick-reply / legacy button tap (type=button)."""
     printer.red("Button message received")
@@ -475,7 +454,6 @@ def handle_button_message(webhook_data, message):
         return
     printer.green("Button reply → text inbound: ", body)
     _forward_as_text_inbound(webhook_data, message, body)
-
 
 def _reject_restricted_whatsapp_sender(
     ws_number: WSNumber,
@@ -492,7 +470,6 @@ def _reject_restricted_whatsapp_sender(
         WHATSAPP_RESTRICTED_ACCESS_REPLY,
         inbound_wamid,
     )
-
 
 def _gate_whatsapp_inbound(
     ws_number: WSNumber,
@@ -514,7 +491,6 @@ def _gate_whatsapp_inbound(
         return False
     ensure_ws_contact_for_inbound(ws_number, user_phone, user=access.user)
     return True
-
 
 def handle_image_message(webhook_data, message):
     business_phone_number_id = webhook_data["entry"][0]["changes"][0]["value"][
@@ -554,7 +530,6 @@ def handle_image_message(webhook_data, message):
     except Exception as e:
         printer.red(f"WhatsApp image inbound failed: {e}")
 
-
 def handle_audio_message(webhook_data, message):
     audio_url = message["audio"]["id"]
     business_phone_number_id = webhook_data["entry"][0]["changes"][0]["value"][
@@ -572,7 +547,6 @@ def handle_audio_message(webhook_data, message):
     synthetic["type"] = "text"
     synthetic["text"] = {"body": transcription}
     handle_message_received(webhook_data, synthetic)
-
 
 def handle_document_message(webhook_data, message):
     business_phone_number_id = webhook_data["entry"][0]["changes"][0]["value"][
@@ -612,7 +586,6 @@ def handle_document_message(webhook_data, message):
     except Exception as e:
         printer.red(f"WhatsApp document inbound failed: {e}")
 
-
 def handle_webhook(webhook_data):
     printer.blue("Handling webhook")
     printer.green(webhook_data)
@@ -637,7 +610,6 @@ def handle_webhook(webhook_data):
         handle_interactive_message(webhook_data=webhook_data, message=message)
     elif message.get("type") == "button":
         handle_button_message(webhook_data=webhook_data, message=message)
-
 
 def handle_message_received(webhook_data, message):
     from .conversations import get_or_create_whatsapp_conversation
@@ -685,7 +657,6 @@ def handle_message_received(webhook_data, message):
         inbound_wamid=message["id"],
         body=body,
     )
-
 
 def mark_message_as_read(business_number_id, ws_message_id):
     try:

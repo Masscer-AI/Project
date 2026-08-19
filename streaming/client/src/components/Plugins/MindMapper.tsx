@@ -208,18 +208,6 @@ const MindMapper = () => {
         type: "promptNode",
         ...nodeDefaults,
       },
-      // {
-      //   id: "3",
-      //   position: { x: 350, y: 200 },
-      //   data: {
-      //     label: "default style 3",
-      //     // url: "https://www.google.com",
-      //     // fetchWebsite: fetchWebsite,
-      //     isActive: false,
-      //   },
-      //   type: "customNode",
-      //   ...nodeDefaults,
-      // },
     ];
 
     const initialEdges = [

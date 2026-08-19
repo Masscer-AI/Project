@@ -16,11 +16,9 @@ from api.authenticate.models import Organization, Role
 from api.authenticate.services import FeatureFlagService
 from api.rag.models import Document
 
-
 VISIBILITY_PERSONAL = Document.Visibility.PERSONAL
 VISIBILITY_ORGANIZATION = Document.Visibility.ORGANIZATION
 VISIBILITY_ROLES = Document.Visibility.ROLES
-
 
 def user_has_train_agents(user) -> bool:
     organization = get_user_organization(user)
@@ -33,12 +31,10 @@ def user_has_train_agents(user) -> bool:
     )
     return bool(enabled)
 
-
 def document_owner_user_id(doc: Document) -> int | None:
     if getattr(doc, "created_by_id", None):
         return doc.created_by_id
     return getattr(getattr(doc, "collection", None), "user_id", None)
-
 
 def documents_accessible_q(user) -> Q:
     """
@@ -74,12 +70,10 @@ def documents_accessible_q(user) -> Q:
 
     return q
 
-
 def user_can_access_document(user, doc: Document) -> bool:
     if not user or not doc:
         return False
     return Document.objects.filter(documents_accessible_q(user), pk=doc.pk).exists()
-
 
 def document_belongs_to_payload(doc: Document, user: User | None = None) -> dict[str, Any]:
     """
@@ -123,13 +117,11 @@ def document_belongs_to_payload(doc: Document, user: User | None = None) -> dict
         "roles": roles,
     }
 
-
 def user_can_manage_document(user, doc: Document) -> bool:
     """Manage requires train-agents plus access (same visibility rules)."""
     if not user_has_train_agents(user):
         return False
     return user_can_access_document(user, doc)
-
 
 def resolve_user_organization(user) -> Organization | None:
     if not user:
@@ -138,7 +130,6 @@ def resolve_user_organization(user) -> Organization | None:
     if owned:
         return owned
     return get_user_organization(user)
-
 
 def parse_role_ids(raw) -> list[str]:
     """Normalize role_ids from JSON list, comma-separated string, or repeated form values."""
@@ -159,7 +150,6 @@ def parse_role_ids(raw) -> list[str]:
         except json.JSONDecodeError:
             pass
     return [part.strip() for part in text.split(",") if part.strip()]
-
 
 def apply_document_ownership(
     document: Document,
@@ -207,7 +197,6 @@ def apply_document_ownership(
         document.allowed_roles.clear()
         return
 
-    # roles
     if not roles:
         raise ValueError("role_ids is required when visibility is roles.")
 

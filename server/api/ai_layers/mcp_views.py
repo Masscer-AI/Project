@@ -41,7 +41,6 @@ from api.messaging.models import Conversation
 
 logger = logging.getLogger(__name__)
 
-
 def _require_integrations_management(request):
     org = get_user_organization(request.user)
     if not user_can_manage_integrations(request.user, org):
@@ -56,7 +55,6 @@ def _require_integrations_management(request):
         )
     return None
 
-
 def _mcp_task_authorized(request, task_id: str) -> bool:
     meta = cache.get(f"mcp_task_{task_id}")
     if not meta:
@@ -65,7 +63,6 @@ def _mcp_task_authorized(request, task_id: str) -> bool:
         meta.get("user_id") == request.user.id
         and meta.get("mcp_client_id") == str(request.mcp_client.id)
     )
-
 
 @csrf_exempt
 @mcp_token_required
@@ -78,7 +75,6 @@ def mcp_list_agents(request):
             "agents": [agent_to_mcp_tool_payload(a) for a in agents],
         }
     )
-
 
 @csrf_exempt
 @mcp_token_required
@@ -165,7 +161,6 @@ def mcp_run_agent(request):
         status=202,
     )
 
-
 @csrf_exempt
 @mcp_token_required
 @require_http_methods(["GET"])
@@ -215,10 +210,6 @@ def mcp_task_result(request, task_id: str):
         }
     )
 
-
-# ─── Credential management (user Token auth, for UI) ─────────────────────────
-
-
 def _credential_summary(c, *, auth_via_oauth: bool | None = None) -> dict:
     allowed = list(c.allowed_agents.values_list("slug", flat=True))
     if auth_via_oauth is None:
@@ -236,7 +227,6 @@ def _credential_summary(c, *, auth_via_oauth: bool | None = None) -> dict:
         "key_prefix": c.key[:8] + "…" if c.key else None,
         "auth_via_oauth": bool(auth_via_oauth),
     }
-
 
 @csrf_exempt
 @require_http_methods(["GET"])
@@ -294,7 +284,6 @@ def mcp_download_attachment(request, attachment_id):
     response["Content-Disposition"] = f'inline; filename="{filename}"'
     return response
 
-
 @csrf_exempt
 @token_required
 @require_http_methods(["GET"])
@@ -315,7 +304,6 @@ def mcp_tool_presets(request):
             "all_tools": mcp_all_tool_names(),
         }
     )
-
 
 @csrf_exempt
 @token_required
@@ -430,12 +418,10 @@ def mcp_credentials(request):
         status=201,
     )
 
-
 def get_mcp_user_org_for_user(user):
     from api.ai_layers.access import get_user_organization
 
     return get_user_organization(user)
-
 
 def mcp_accessible_agents_qs_for_user(user, mcp_client=None):
     from api.ai_layers.access import accessible_agents_qs
@@ -444,7 +430,6 @@ def mcp_accessible_agents_qs_for_user(user, mcp_client=None):
     return accessible_agents_qs(user).filter(
         agent_kind=AgentKind.CONVERSATIONAL_AGENT
     )
-
 
 @csrf_exempt
 @token_required
@@ -506,7 +491,6 @@ def mcp_credential_detail(request, credential_id):
 
     mcp_client.save(update_fields=update_fields)
     return JsonResponse(_credential_summary(mcp_client))
-
 
 @csrf_exempt
 @token_required

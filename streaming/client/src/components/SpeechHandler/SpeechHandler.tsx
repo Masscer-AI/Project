@@ -6,13 +6,12 @@ import axios from "axios";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 
-// Function to convert Blob to Base64
 const convertToBase64 = (file) => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
     reader.onload = () => {
-      resolve(reader.result); // This will be the Base64 string
+      resolve(reader.result);
     };
     reader.onerror = (error) => {
       reject(error);

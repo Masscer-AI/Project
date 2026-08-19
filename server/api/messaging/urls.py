@@ -130,7 +130,6 @@ urlpatterns = [
         ChatWidgetConversationDetailView.as_view(),
         name="widget_conversation_detail",
     ),
-    # Widget management endpoints (CRUD)
     path("widgets/", ChatWidgetView.as_view(), name="widget_list"),
     path(
         "widgets/<int:id>/avatar/",

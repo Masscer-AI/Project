@@ -54,8 +54,6 @@ import { ToolsSelectorContent } from "../../components/ToolsSelectorModal/ToolsS
 
 const VISITOR_ATTACHMENT_TOOLS = ["read_attachment", "list_attachments"] as const;
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
-
 export default function ChatWidgetsPage() {
   const { chatState, toggleSidebar } = useStore((s) => ({
     chatState: s.chatState,
@@ -105,8 +103,6 @@ export default function ChatWidgetsPage() {
     </main>
   );
 }
-
-// ─── Widget List ──────────────────────────────────────────────────────────────
 
 const WidgetList = () => {
   const { t } = useTranslation();
@@ -245,8 +241,6 @@ const WidgetList = () => {
     </Stack>
   );
 };
-
-// ─── Widget Form ──────────────────────────────────────────────────────────────
 
 interface WidgetFormData {
   name: string;
@@ -672,8 +666,6 @@ const WidgetForm = ({
   );
 };
 
-// ─── Widget Card ──────────────────────────────────────────────────────────────
-
 const WidgetCard = ({
   widget,
   onEdit,
@@ -782,7 +774,7 @@ const WidgetCard = ({
           ))}
       </Group>
 
-      {/* Embed code - use window.location.origin so it reflects current host when FRONTEND_URL not set */}
+      {}
       <Group gap="xs" wrap="nowrap">
         {(() => {
           const origin =

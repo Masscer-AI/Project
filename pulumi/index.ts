@@ -124,7 +124,6 @@ export const appTasksSecurityGroupId = securityGroups.appTasksSg.id;
 export const vpcId = networking.vpc.id;
 export const publicSubnetIdsOutput = pulumi.output(networking.publicSubnetIds);
 export const privateSubnetIdsOutput = pulumi.output(networking.privateSubnetIds);
-// Used for one-off ECS tasks like migrations; must be private subnets (NAT-enabled).
 export const subnetIds = pulumi.output(networking.privateSubnetIds);
 export const allSubnetIdsOutput = pulumi.output(networking.allSubnetIds);
 export const appAlbDnsName = routing.alb.dnsName;

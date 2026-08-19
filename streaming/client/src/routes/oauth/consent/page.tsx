@@ -40,7 +40,6 @@ export default function OAuthConsentPage() {
     return loginUrlWithNext(path);
   }, [requestId]);
 
-  // Mantine MultiSelect grouped format: { group, items: [{ value, label }] }
   const toolOptions = useMemo(() => {
     if (!detail?.tool_presets?.length) return [];
     return detail.tool_presets.map((preset) => ({

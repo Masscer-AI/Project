@@ -10,20 +10,17 @@ from api.utils.openai_functions import (
 )
 from pydantic import BaseModel, Field
 
-
 def detect_file_encoding(file):
     raw_data = file.read(10000)
     result = chardet.detect(raw_data)
     file.seek(0)
     return result["encoding"]
 
-
 def _read_file_head(file, n: int = 8) -> bytes:
     pos = file.tell()
     head = file.read(n)
     file.seek(pos)
     return head
-
 
 def infer_upload_format(
     file,
@@ -81,7 +78,6 @@ def infer_upload_format(
 
     return extension or "txt"
 
-
 def _read_xlsx_content(raw: bytes, file_name: str) -> tuple[str, str]:
     try:
         from api.utils.spreadsheet_tools import extract_xlsx_text_from_bytes
@@ -96,7 +92,6 @@ def _read_xlsx_content(raw: bytes, file_name: str) -> tuple[str, str]:
     except Exception as exc:
         raise ValueError(f"Could not read Excel file: {exc}") from exc
     return text, file_name
-
 
 def _read_office_zip_content(raw: bytes, file_name: str) -> tuple[str, str]:
     try:
@@ -119,7 +114,6 @@ def _read_office_zip_content(raw: bytes, file_name: str) -> tuple[str, str]:
                 "Could not read Office file. Rename it to .xlsx or .docx and try again."
             )
         return text, file_name
-
 
 def read_file_content(
     file,
@@ -183,7 +177,6 @@ def read_file_content(
         file.seek(0)
         return text, file_name
 
-
 class ChunkBriefModel(BaseModel):
     tags: str = Field(
         ...,
@@ -193,7 +186,6 @@ class ChunkBriefModel(BaseModel):
         ...,
         description="A brief summary of max 25 words that describes the chunk content",
     )
-
 
 def generate_chunk_brief(chunk_id):
     _system = """
@@ -206,7 +198,6 @@ Everything must be in the same language as the chunk.
     c = Chunk.objects.get(pk=chunk_id)
     printer.red(f"Generating chunk brief for {c.pk}")
     printer.blue(c.content)
-    # TODO: register consumption here
     chunkito = create_structured_completion(
         model="gpt-4o-mini",
         system_prompt=_system,
@@ -219,7 +210,6 @@ Everything must be in the same language as the chunk.
     c.save()
     return True
 
-
 def generate_document_brief(document_id: int):
     number_of_characters = 50000
     _system = f"""
@@ -231,13 +221,11 @@ The brief must be in the same language as the document.
 """
     d = Document.objects.get(pk=document_id)
     first_20000_chars = d.text[:number_of_characters]
-    # TODO: register consumption here
     brief = create_completion_openai(
         system_prompt=_system, user_message=first_20000_chars
     )
     d.brief = brief
     d.save()
-
 
 class SelectedChunks(BaseModel):
     queries: list[str] = Field(
@@ -253,12 +241,7 @@ class SelectedChunks(BaseModel):
         description="A one up to three words string that can be in the texts stored in the vector storage system",
     )
 
-
 def querify_context(context: str) -> SelectedChunks:
-    # TODO: Instead, get the collection summary to understand the context better
-    # chunks = get_chunks_for_collection(collection)
-    # printer.yellow(len(chunks), "Number of chunks for the collection")
-    # chunks_str = " ".join([json.dumps({"brief": c.content[100:500]}) for c in chunks[:300]])
 
     _system = f"""
 You are a AI and Machine Learning specialist.
@@ -271,7 +254,6 @@ CONVERSATION CONTEXT:
 ---
 
 """
-    # TODO: register consumption here
     queries = create_structured_completion(
         model="gpt-4o-mini",
         system_prompt=_system,
@@ -280,16 +262,12 @@ CONVERSATION CONTEXT:
     )
     return queries
 
-
 def get_chunks_for_collection(collection):
-    # Get all documents associated with the collection
     documents = Document.objects.filter(collection=collection)
 
-    # Get all chunks associated with those documents
     chunks = Chunk.objects.filter(document__in=documents)
 
     return chunks
-
 
 def extract_rag_results(rag_results, context):
     documents_context = ""

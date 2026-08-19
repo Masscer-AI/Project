@@ -19,7 +19,6 @@ export type TAttachment = {
   text?: string;
   id?: number | string;
   attachment_id?: string;
-  /** When type is "completion", links to a finetuning Completion row. */
   completion_id?: number;
   approved?: boolean;
   file?: File | null;
@@ -88,7 +87,6 @@ export type TCompletion = {
   prompt: string;
   answer: string;
   approved: boolean;
-  /** @deprecated use agent_ids */
   agent?: number;
   agent_ids: number[];
   context_rules: TCompletionContextRules;
@@ -137,7 +135,6 @@ export type TAgentSessionToolCall = {
   error: string | null;
 };
 
-/** One step in the agent loop timeline (live via socket or persisted in event_log). */
 export type TAgentTaskEvent = {
   type: string;
   tool_name?: string | null;
@@ -190,7 +187,6 @@ export type TOrganization = {
   name: string;
   description: string;
   timezone?: string;
-  /** Organization owner's Django user id (serialized FK). */
   owner?: number;
   credentials: TOrganizationCredentials;
   can_manage?: boolean;
@@ -207,7 +203,6 @@ export type TOrganizationTenant = {
   logo_url?: string | null;
 };
 
-/** Word (.docx) template with Jinja-style placeholders for org agents */
 export type TDocumentTemplateVariable = {
   description: string;
   required: boolean;
@@ -271,7 +266,6 @@ export type TOrganizationSubscription = {
 export type TOrganizationWallet = {
   subscription_balance: string;
   purchased_balance: string;
-  /** Total compute units (subscription + purchased) */
   balance: string;
   unit_name: string;
   one_usd_is: number;
@@ -415,7 +409,6 @@ export interface TConversationAlertRule {
   extractions: Record<string, any>;
   scope: "all_conversations" | "selected_agents";
   enabled: boolean;
-  /** Agents this rule applies to when scope is `selected_agents`. */
   agent_ids?: number[];
   organization: string;
   created_by: number | null;
@@ -449,7 +442,6 @@ export interface TNotificationCondition {
 
 export type TNotifyToType = "user" | "role" | "organization";
 
-/** In-app notification row (notify.UserNotification). */
 export interface TUserNotification {
   id: string;
   organization: string;
@@ -464,7 +456,6 @@ export interface TUserNotification {
   created_at: string;
 }
 
-/** Response from POST /v1/notify/notification-rules/build/ (LLM draft, not persisted). */
 export interface TNotificationRuleBuildResponse {
   alert_rule_id: string;
   alert_rule_name: string | null;

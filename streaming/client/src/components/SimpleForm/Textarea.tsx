@@ -20,7 +20,6 @@ export const Textarea = ({
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
-  // Function to resize the textarea
   const autoResize = () => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";

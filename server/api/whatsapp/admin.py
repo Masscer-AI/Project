@@ -12,7 +12,6 @@ from . import graph_webhook_setup as wa_graph
 from .models import WSContact, WSNumber, WSTemplate, WSTemplateSubscription
 from .template_sync import sync_default_whatsapp_templates
 
-
 class AgentByOrganizationSelect(forms.Select):
     """Select widget that tags each agent option with its organization id."""
 
@@ -33,13 +32,11 @@ class AgentByOrganizationSelect(forms.Select):
                 option["attrs"]["data-organization-id"] = str(org_id)
         return option
 
-
 class WSTemplateSubscriptionInline(admin.TabularInline):
     model = WSTemplateSubscription
     extra = 0
     autocomplete_fields = ("organization",)
     readonly_fields = ("created_at",)
-
 
 @admin.register(WSTemplate)
 class WSTemplateAdmin(admin.ModelAdmin):
@@ -145,7 +142,7 @@ class WSTemplateAdmin(admin.ModelAdmin):
 
     @admin.action(description="Sync default templates")
     def sync_default_templates(self, request, queryset):
-        del queryset  # sync always runs against the full code registry
+        del queryset
         created, updated, unchanged = sync_default_whatsapp_templates(dry_run=False)
         self.message_user(
             request,
@@ -154,7 +151,6 @@ class WSTemplateAdmin(admin.ModelAdmin):
                 f"{len(updated)} updated, {len(unchanged)} unchanged."
             ),
         )
-
 
 @admin.register(WSContact)
 class WSContactAdmin(admin.ModelAdmin):
@@ -176,7 +172,6 @@ class WSContactAdmin(admin.ModelAdmin):
     )
     list_filter = ("created_at",)
     raw_id_fields = ("ws_number", "user")
-
 
 @admin.register(WSNumber)
 class WhatsAppNumberAdmin(admin.ModelAdmin):
@@ -224,7 +219,7 @@ class WhatsAppNumberAdmin(admin.ModelAdmin):
 
     @admin.display(description="Webhook callback URL")
     def webhook_callback_preview(self, obj: WSNumber | None) -> str:
-        del obj  # shown on add and change; does not depend on instance
+        del obj
         try:
             url = wa_graph.whatsapp_webhook_callback_url()
             return format_html(

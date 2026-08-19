@@ -8,11 +8,6 @@ export type LandingSite = {
   landingUrl: pulumi.Output<string>;
 };
 
-/**
- * Public marketing site at the apex domain (masscer.ai).
- * S3 (private) + CloudFront (OAC) + ACM + Route53.
- * Content is uploaded separately via deploy-landing.sh.
- */
 export function createLandingSite(args: {
   namePrefix: string;
   tags: Tags;
@@ -58,7 +53,6 @@ export function createLandingSite(args: {
     signingProtocol: "sigv4",
   });
 
-  // CloudFront requires ACM certificates in us-east-1 (stack region is already us-east-1).
   const wwwDomain = `www.${args.rootDomain}`;
   const cert = new aws.acm.Certificate("landing-cert", {
     domainName: args.rootDomain,
@@ -126,7 +120,6 @@ export function createLandingSite(args: {
       defaultTtl: 3600,
       maxTtl: 86400,
     },
-    // SPA routes (/privacy, /terms) fall back to index.html.
     customErrorResponses: [
       { errorCode: 403, responseCode: 200, responsePagePath: "/index.html", errorCachingMinTtl: 0 },
       { errorCode: 404, responseCode: 200, responsePagePath: "/index.html", errorCachingMinTtl: 0 },

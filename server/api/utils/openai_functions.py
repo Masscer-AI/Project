@@ -5,12 +5,8 @@ import os
 import tiktoken
 import json
 
-
-
-
 def pricing_calculator(model: str, tokens: int):
     return 0
-
 
 def _text_from_content_part(part: object) -> str | None:
     """Normalize a single content block from the Responses API to plain text."""
@@ -22,7 +18,6 @@ def _text_from_content_part(part: object) -> str | None:
         if isinstance(txt, str) and txt.strip():
             if typ in ("output_text", "text", "refusal", None):
                 return txt.strip()
-            # Unknown assistant content types may still carry plain text
             if typ not in ("input_text", "reasoning"):
                 return txt.strip()
         return None
@@ -32,7 +27,6 @@ def _text_from_content_part(part: object) -> str | None:
         if typ in ("output_text", "text", "refusal", None):
             return txt.strip()
     return None
-
 
 def _iter_output_content_items(response) -> list:
     """Flatten content parts from response.output (handles message vs flat shapes)."""
@@ -53,7 +47,6 @@ def _iter_output_content_items(response) -> list:
                 out.append(c)
     return out
 
-
 def _extract_output_text_from_dump(d: dict) -> str:
     """Parse a Responses API object serialized via model_dump (shape drift tolerant)."""
     parts: list[str] = []
@@ -62,7 +55,6 @@ def _extract_output_text_from_dump(d: dict) -> str:
             continue
         if item.get("type") == "reasoning":
             continue
-        # Some responses put assistant text directly on the output item
         if item.get("type") in ("output_text", "text") and isinstance(item.get("text"), str):
             t = item.get("text", "").strip()
             if t:
@@ -77,17 +69,14 @@ def _extract_output_text_from_dump(d: dict) -> str:
                 parts.append(t)
     return "".join(parts).strip()
 
-
 def _extract_output_text(response) -> str:
     if response is None:
         return ""
 
-    # Aggregated helper on the SDK Response object (may be empty on some SDK/API combos)
     output_text = getattr(response, "output_text", None)
     if isinstance(output_text, str) and output_text.strip():
         return output_text.strip()
 
-    # Prefer model_dump when available — matches server-side JSON shape
     if hasattr(response, "model_dump"):
         try:
             dumped = response.model_dump(mode="python")
@@ -97,7 +86,6 @@ def _extract_output_text(response) -> str:
         except Exception:
             pass
 
-    # Object graph: iterate flattened content items
     chunks: list[str] = []
     for part in _iter_output_content_items(response):
         t = _text_from_content_part(part)
@@ -107,7 +95,6 @@ def _extract_output_text(response) -> str:
     if text:
         return text
 
-    # Last pass: legacy per-item iteration (older SDKs)
     for item in getattr(response, "output", []) or []:
         for content in getattr(item, "content", []) or []:
             if getattr(content, "type", "") in ("output_text", "text"):
@@ -115,7 +102,6 @@ def _extract_output_text(response) -> str:
                 if isinstance(raw, str) and raw:
                     chunks.append(raw)
     return "".join(chunks).strip()
-
 
 def _fix_schema_for_openai_strict(schema: dict) -> dict:
     """Recursively patch a JSON schema so it passes OpenAI strict-mode validation.
@@ -149,7 +135,6 @@ def _fix_schema_for_openai_strict(schema: dict) -> dict:
 
     return schema
 
-
 def _response_text_format_from_pydantic(response_format):
     schema = (
         response_format.model_json_schema()
@@ -163,7 +148,6 @@ def _response_text_format_from_pydantic(response_format):
         "schema": schema,
         "strict": True,
     }
-
 
 def _extract_json_from_text(text: str) -> dict:
     raw = (text or "").strip()
@@ -182,7 +166,6 @@ def _extract_json_from_text(text: str) -> dict:
                 except json.JSONDecodeError:
                     continue
         raise
-
 
 def create_completion_openai(
     system_prompt: str,
@@ -207,10 +190,8 @@ def create_completion_openai(
     completion = client.responses.create(**kwargs)
     return _extract_output_text(completion)
 
-
 class ExampleStructure(BaseModel):
     salute: str
-
 
 def create_structured_completion(
     model="gpt-4o",
@@ -231,7 +212,6 @@ def create_structured_completion(
     if hasattr(response_format, "model_validate"):
         return response_format.model_validate(parsed_dict)
     return response_format.parse_obj(parsed_dict)
-
 
 def generate_speech_api(
     text: str,
@@ -274,7 +254,6 @@ def generate_speech_api(
         print(f"An error occurred generating speech API: {e}")
         return b""
 
-
 def list_openai_models():
     client = OpenAI(
         api_key=os.environ.get("OPENAI_API_KEY"),
@@ -282,12 +261,10 @@ def list_openai_models():
 
     return client.models.list()
 
-
 def count_tokens_from_text(text: str, model: str = "gpt-4o-mini"):
     encoding = tiktoken.encoding_for_model(model)
     tokens = encoding.encode(text)
     return len(tokens)
-
 
 def generate_image(
     prompt: str,

@@ -10,7 +10,6 @@ from api.ai_layers.tools import canonical_tool_name, list_available_tools
 from .schemas import ChatWidgetStyle, ChatWidgetCapabilitiesPayload
 from .widget_avatar_urls import clear_widget_uploaded_avatar, resolved_avatar_image
 
-
 def serialize_active_takeover(conversation) -> dict | None:
     from .takeover import get_active_takeover, operator_display_name
 
@@ -25,7 +24,6 @@ def serialize_active_takeover(conversation) -> dict | None:
         "status": takeover.status,
         "started_at": takeover.started_at.isoformat() if takeover.started_at else None,
     }
-
 
 class MessageSerializer(serializers.ModelSerializer):
     reactions = serializers.SerializerMethodField()
@@ -49,7 +47,6 @@ class MessageSerializer(serializers.ModelSerializer):
         )
 
     def validate(self, data):
-        # Add custom validation logic here
         if data["type"] not in ["user", "assistant"]:
             raise serializers.ValidationError(
                 "Invalid type. Must be 'user' or 'assistant'."
@@ -57,7 +54,6 @@ class MessageSerializer(serializers.ModelSerializer):
         if not data["text"]:
             raise serializers.ValidationError("Text field cannot be empty.")
         return data
-
 
 class ConversationSerializer(serializers.ModelSerializer):
     number_of_messages = serializers.SerializerMethodField()
@@ -137,7 +133,6 @@ class ConversationSerializer(serializers.ModelSerializer):
             return None
         return f"visitor-{session.visitor_id[:8]}"
 
-
 class TagSerializer(serializers.ModelSerializer):
     organization = serializers.UUIDField(read_only=True, source="organization.id")
     
@@ -146,9 +141,8 @@ class TagSerializer(serializers.ModelSerializer):
         fields = ['id', 'title', 'description', 'color', 'enabled', 'organization', 'created_at', 'updated_at']
         read_only_fields = ['id', 'created_at', 'updated_at']
 
-
 class BigConversationSerializer(serializers.ModelSerializer):
-    messages = serializers.SerializerMethodField()  # Change to SerializerMethodField
+    messages = serializers.SerializerMethodField()
     number_of_messages = serializers.SerializerMethodField()
     is_anonymous_widget = serializers.SerializerMethodField()
     chat_widget_id = serializers.SerializerMethodField()
@@ -169,12 +163,11 @@ class BigConversationSerializer(serializers.ModelSerializer):
         return serialize_active_takeover(obj)
 
     def get_messages(self, obj):
-        # Retrieve messages ordered by ID
         ordered_messages = obj.messages.order_by('id')
-        return MessageSerializer(ordered_messages, many=True, context=self.context).data  # Serialize the ordered messages with context
+        return MessageSerializer(ordered_messages, many=True, context=self.context).data
 
     def get_number_of_messages(self, obj):
-        return obj.messages.count()  # This can stay the same
+        return obj.messages.count()
 
     def get_is_anonymous_widget(self, obj):
         return obj.user_id is None and obj.chat_widget_id is not None
@@ -187,8 +180,6 @@ class BigConversationSerializer(serializers.ModelSerializer):
         if not session:
             return None
         return f"visitor-{session.visitor_id[:8]}"
-
-
 
 class WidgetConversationSummarySerializer(serializers.ModelSerializer):
     number_of_messages = serializers.SerializerMethodField()
@@ -207,14 +198,12 @@ class WidgetConversationSummarySerializer(serializers.ModelSerializer):
             return None
         return (last_msg.text or "")[:120]
 
-
 class SharedConversationSerializer(serializers.ModelSerializer):
     conversation = BigConversationSerializer()
 
     class Meta:
         model = Conversation
         fields = "__all__"
-
 
 class ChatWidgetConfigSerializer(serializers.ModelSerializer):
     agent_slug = serializers.SerializerMethodField()
@@ -243,7 +232,6 @@ class ChatWidgetConfigSerializer(serializers.ModelSerializer):
             "agent_name",
         )
 
-
 class ChatWidgetSerializer(serializers.ModelSerializer):
     """Full serializer for CRUD operations on ChatWidget"""
     agent_slug = serializers.SerializerMethodField()
@@ -260,7 +248,6 @@ class ChatWidgetSerializer(serializers.ModelSerializer):
     def get_embed_code(self, obj):
         from django.conf import settings
 
-        # FRONTEND_URL first; if unset, use request host (from browser), else fallbacks
         base_url = getattr(settings, "FRONTEND_URL", "")
         if not base_url:
             request = self.context.get("request")
@@ -298,7 +285,6 @@ class ChatWidgetSerializer(serializers.ModelSerializer):
 
         lowered = normalized.lower()
         if lowered.startswith("data:image/"):
-            # Keep validation strict: only base64 encoded image data URLs.
             if ";base64," not in lowered:
                 raise serializers.ValidationError(
                     "avatar_image data URL must be base64-encoded (missing ';base64,')."
@@ -423,7 +409,6 @@ class ChatWidgetSerializer(serializers.ModelSerializer):
             instance.save(update_fields=["avatar_image", "avatar"])
         return instance
 
-
 class ConversationAlertRuleSerializer(serializers.ModelSerializer):
     """
     Alert rules scope which chats raise an alert; delivery targets are NotificationRules, not notify_to here.
@@ -506,7 +491,6 @@ class ConversationAlertRuleSerializer(serializers.ModelSerializer):
         if agent_ids is not serializers.empty:
             self._set_agents(instance, agent_ids)
         return instance
-
 
 class ConversationAlertSerializer(serializers.ModelSerializer):
     alert_rule = ConversationAlertRuleSerializer(read_only=True)

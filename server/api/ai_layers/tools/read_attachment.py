@@ -19,12 +19,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
-# ---------------------------------------------------------------------------
-# Schemas
-# ---------------------------------------------------------------------------
-
-
 class ReadAttachmentParams(BaseModel):
     """Parameters for the read_attachment tool."""
 
@@ -38,12 +32,10 @@ class ReadAttachmentParams(BaseModel):
         description="A specific question about the document or image content. Be precise."
     )
 
-
 class DocumentAnswer(BaseModel):
     """Schema for document answer from OpenAI."""
 
     answer: str
-
 
 class ReadAttachmentResult(BaseModel):
     """Result returned by read_attachment."""
@@ -53,12 +45,6 @@ class ReadAttachmentResult(BaseModel):
         default="Successfully analyzed attachment",
         description="Status message",
     )
-
-
-# ---------------------------------------------------------------------------
-# Tool implementation
-# ---------------------------------------------------------------------------
-
 
 def _read_attachment_impl(
     attachment_id: str,
@@ -96,10 +82,8 @@ def _read_attachment_impl(
     if kind == "website":
         return _process_website(att, question)
 
-    # Default: file attachment (image or generic document)
     is_image = bool(att.content_type and att.content_type.startswith("image/"))
     return _process_image(att, question) if is_image else _process_document(att, question)
-
 
 def _process_image(att, question: str) -> ReadAttachmentResult:
     """Process image via vision API."""
@@ -137,7 +121,6 @@ def _process_image(att, question: str) -> ReadAttachmentResult:
     except Exception as e:
         logger.exception("Error analyzing image %s", att.id)
         raise ValueError(f"Failed to analyze image: {str(e)}")
-
 
 def _process_document(att, question: str) -> ReadAttachmentResult:
     """Process document (PDF, DOCX, etc.) via input_file."""
@@ -179,7 +162,6 @@ def _process_document(att, question: str) -> ReadAttachmentResult:
     except Exception as e:
         logger.exception("Error analyzing document %s", att.id)
         raise ValueError(f"Failed to analyze document: {str(e)}")
-
 
 def _search_document_collection(doc, question: str) -> str:
     """
@@ -234,7 +216,6 @@ def _search_document_collection(doc, question: str) -> str:
         logger.debug("Collection search failed for document %s", doc.id, exc_info=True)
         return ""
 
-
 def _process_rag_document(att, question: str) -> ReadAttachmentResult:
     """Process a RAG document: full text + semantic search on its collection."""
     import os
@@ -287,7 +268,6 @@ def _process_rag_document(att, question: str) -> ReadAttachmentResult:
         logger.exception("Error analyzing RAG document attachment %s", att.id)
         raise ValueError(f"Failed to analyze RAG document: {str(e)}")
 
-
 def _process_website(att, question: str) -> ReadAttachmentResult:
     """Fetch a website URL and answer a question about its content."""
     import os
@@ -298,12 +278,10 @@ def _process_website(att, question: str) -> ReadAttachmentResult:
     if not url:
         raise ValueError(f"URL not available for attachment {att.id}")
 
-    # Prefer stored snapshot (no refetch).
     metadata = getattr(att, "metadata", None) or {}
     text = metadata.get("content") if isinstance(metadata, dict) else None
 
     if not text:
-        # Fallback: fetch live if snapshot missing.
         import re
         import requests
         from html import unescape
@@ -320,7 +298,6 @@ def _process_website(att, question: str) -> ReadAttachmentResult:
             logger.exception("Error fetching website %s", url)
             raise ValueError(f"Failed to fetch website: {str(e)}")
 
-        # Very lightweight text extraction (no external deps)
         html = re.sub(r"(?is)<(script|style|noscript).*?>.*?</\\1>", " ", html)
         html = re.sub(r"(?is)<br\\s*/?>", "\n", html)
         text = re.sub(r"(?is)<.*?>", " ", html)
@@ -378,12 +355,6 @@ def _extract_output_text(response) -> str:
                     if text:
                         chunks.append(text)
     return "".join(chunks).strip()
-
-
-# ---------------------------------------------------------------------------
-# Tool config
-# ---------------------------------------------------------------------------
-
 
 def get_tool(
     conversation_id: str | None = None,

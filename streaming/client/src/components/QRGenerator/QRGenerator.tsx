@@ -7,10 +7,6 @@ const isValidURL = (string) => {
   return res !== null;
 };
 
-// import React, { useRef } from "react";
-// import { QRCodeSVG } from "qrcode.react";
-// import "./QRGenerator.css";
-
 type TQRCodeDisplayProps = {
   url: string;
   size?: number;
@@ -43,7 +39,6 @@ export const QRGenerator = ({ url }: { url }) => {
   const [bgColor, setBgColor] = React.useState("white");
   const svgContainer = useRef<HTMLDivElement>(null);
 
-
     const downloadQRCode = () => {
       const container = svgContainer.current;
       if (!container) return;
@@ -55,13 +50,12 @@ export const QRGenerator = ({ url }: { url }) => {
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
 
-      const padding = 30; // Adjust this if your padding changes
-      const totalSize = size + padding * 2; // Total size including padding
+      const padding = 30;
+      const totalSize = size + padding * 2;
 
       canvas.width = totalSize;
       canvas.height = totalSize;
 
-      // Fill canvas with background color
       ctx.fillStyle = bgColor;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -69,7 +63,6 @@ export const QRGenerator = ({ url }: { url }) => {
       const img = new Image();
 
       img.onload = () => {
-        // Draw the QR code in the center
         ctx.drawImage(img, padding, padding, size, size);
         const png = canvas.toDataURL("image/png");
 
@@ -81,7 +74,6 @@ export const QRGenerator = ({ url }: { url }) => {
 
       img.src = `data:image/svg+xml;base64,${btoa(svgData)}`;
     };
-
 
   return (
     <div className="qr-generator" style={{ background: bgColor }}>
@@ -123,7 +115,6 @@ export const QRGenerator = ({ url }: { url }) => {
       <div
         ref={svgContainer}
         className="qr-container"
-        // style={{ padding: "20px" }}
       >
         <QRCodeDisplay
           url={input}

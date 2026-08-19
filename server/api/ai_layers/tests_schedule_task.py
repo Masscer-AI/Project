@@ -24,7 +24,6 @@ from api.messaging.schedule_helpers import (
 )
 from api.providers.models import AIProvider
 
-
 def _seed_llm_and_currency():
     Currency.objects.get_or_create(name="Compute Unit", defaults={"one_usd_is": 1000})
     provider = AIProvider.objects.create(name=f"OpenAI-{LanguageModel.objects.count()}")
@@ -33,7 +32,6 @@ def _seed_llm_and_currency():
         slug=f"gpt-sched-{LanguageModel.objects.count()}",
         name="GPT Sched",
     )
-
 
 class ScheduleHelperTests(SimpleTestCase):
     def test_execution_message_hides_details_in_html_comment(self):
@@ -64,7 +62,6 @@ class ScheduleHelperTests(SimpleTestCase):
 
     def test_parse_run_at_naive_uses_org_timezone(self):
         utc = parse_run_at_to_utc("2026-07-27T11:00:00", "America/Guayaquil")
-        # Guayaquil is UTC-5 → 16:00 UTC
         self.assertEqual(utc, datetime(2026, 7, 27, 16, 0, 0, tzinfo=ZoneInfo("UTC")))
 
     def test_parse_run_at_with_offset(self):
@@ -72,8 +69,8 @@ class ScheduleHelperTests(SimpleTestCase):
         self.assertEqual(utc, datetime(2026, 7, 27, 16, 0, 0, tzinfo=ZoneInfo("UTC")))
 
     def test_weekly_cron_monday_conversion(self):
-        self.assertEqual(mon0_to_cron_dow(0), 1)  # Mon
-        self.assertEqual(mon0_to_cron_dow(6), 0)  # Sun
+        self.assertEqual(mon0_to_cron_dow(0), 1)
+        self.assertEqual(mon0_to_cron_dow(6), 0)
         cron = build_cron_from_structured(
             recurrence="weekly",
             time_of_day="11:00",
@@ -82,7 +79,6 @@ class ScheduleHelperTests(SimpleTestCase):
         self.assertEqual(cron, "0 11 * * 1")
 
     def test_compute_next_weekly_monday_11(self):
-        # Fixed: Sunday 2026-07-26 12:00 Guayaquil
         after = datetime(2026, 7, 26, 17, 0, 0, tzinfo=ZoneInfo("UTC"))
         cron = resolve_cron_expression(
             schedule_type="recurring",
@@ -97,7 +93,7 @@ class ScheduleHelperTests(SimpleTestCase):
             after=after,
         )
         local = next_run.astimezone(ZoneInfo("America/Guayaquil"))
-        self.assertEqual(local.weekday(), 0)  # Monday
+        self.assertEqual(local.weekday(), 0)
         self.assertEqual(local.hour, 11)
         self.assertEqual(local.minute, 0)
 
@@ -128,7 +124,6 @@ class ScheduleHelperTests(SimpleTestCase):
                 after=datetime(2026, 1, 1, tzinfo=ZoneInfo("UTC")),
             )
 
-
 class ScheduleToolRegistryTests(SimpleTestCase):
     def test_schedule_tools_registered(self):
         from api.ai_layers.tools import SCHEDULE_AGENT_TOOL_NAMES, list_available_tools
@@ -136,7 +131,6 @@ class ScheduleToolRegistryTests(SimpleTestCase):
         names = list_available_tools()
         for tool in SCHEDULE_AGENT_TOOL_NAMES:
             self.assertIn(tool, names)
-
 
 class ScheduleTaskToolTests(TestCase):
     def setUp(self):
@@ -227,7 +221,7 @@ class ScheduleTaskToolTests(TestCase):
             conversation_id=str(self.conversation.id),
             organization_id=self.org.id,
             user_id=self.user.id,
-            agent_slugs=[self.agent.slug],  # chat pre-selection
+            agent_slugs=[self.agent.slug],
             multiagentic_modality="grupal",
             requested_agent_slugs=[self.agent.slug, specialist.slug],
             run_at=future_local.strftime("%Y-%m-%dT%H:%M:%S"),
@@ -275,7 +269,6 @@ class ScheduleTaskToolTests(TestCase):
             user_id=self.user.id,
             agent_slugs=[self.agent.slug],
             multiagentic_modality="isolated",
-            # Create-time enabled tools must NOT be snapshotted.
             enabled_capabilities=[
                 "create_speech",
                 "list_voices",
@@ -362,7 +355,6 @@ class ScheduleTaskToolTests(TestCase):
                 time_of_day="10:00",
             )
         mock_apply.assert_not_called()
-
 
 class ScheduleFirePathTests(TestCase):
     def setUp(self):
@@ -541,7 +533,6 @@ class ScheduleFirePathTests(TestCase):
         self.assertGreater(task.next_run_at, timezone.now())
         mock_enqueue.assert_called_once()
 
-
 class ScheduledCapabilityOverrideTests(TestCase):
     def setUp(self):
         self.llm = _seed_llm_and_currency()
@@ -613,7 +604,7 @@ class ScheduledCapabilityOverrideTests(TestCase):
         )
         by_name = {t["name"]: t for t in tools}
         self.assertIn("schedule_task", by_name)
-        self.assertIn("list_voices", by_name)  # dependent of create_speech
+        self.assertIn("list_voices", by_name)
         desc = by_name["schedule_task"]["description"]
         self.assertNotIn("Optional tools allowlist", desc)
         self.assertIn("pre_approved_tools", desc)
@@ -709,7 +700,6 @@ class ScheduledCapabilityOverrideTests(TestCase):
         finished_ids = {t["id"] for t in finished["tasks"]}
         self.assertEqual(finished_ids, {str(pending.id), str(done.id)})
         self.assertNotIn(str(cancelled.id), finished_ids)
-
 
 class ScheduledTasksApiTests(TestCase):
     def setUp(self):
@@ -849,7 +839,6 @@ class ScheduledTasksApiTests(TestCase):
             status=ScheduledConversationTask.Status.PENDING,
             agent_slugs=["agent"],
         )
-        # Stranger's task must not appear
         stranger_conv = Conversation.objects.create(
             user=self.stranger,
             title="Stranger",

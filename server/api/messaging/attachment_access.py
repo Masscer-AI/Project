@@ -20,14 +20,12 @@ VISIBILITY_ORGANIZATION = MessageAttachment.Visibility.ORGANIZATION
 VISIBILITY_ROLES = MessageAttachment.Visibility.ROLES
 VISIBILITY_LINK = MessageAttachment.Visibility.LINK
 
-
 def _resolve_user(*, user=None, user_id: int | None = None):
     if user is not None:
         return user
     if user_id is None:
         return None
     return User.objects.filter(pk=int(user_id)).first()
-
 
 def attachments_visible_q(
     *,
@@ -43,7 +41,7 @@ def attachments_visible_q(
     (or owned by them) + everything in the current conversation.
     Anonymous (widget / unlinked WhatsApp): current conversation only.
     """
-    del organization_id  # access is derived from the user, not the tool org hint
+    del organization_id
     actor = _resolve_user(user=user, user_id=user_id)
     if actor is None:
         if conversation_id:
@@ -77,7 +75,6 @@ def attachments_visible_q(
 
     return q
 
-
 def user_can_access_attachment(
     att,
     *,
@@ -99,7 +96,6 @@ def user_can_access_attachment(
         pk=att.pk,
     ).exists()
 
-
 def _attachment_organization(att):
     org = getattr(att, "organization", None)
     if org is not None:
@@ -108,7 +104,6 @@ def _attachment_organization(att):
     if conv is not None:
         return getattr(conv, "organization", None)
     return None
-
 
 def user_can_manage_attachment(att, user) -> bool:
     """
@@ -129,7 +124,6 @@ def user_can_manage_attachment(att, user) -> bool:
         return True
     return False
 
-
 def user_can_agent_update_attachment_visibility(att, user) -> bool:
     """
     Agent tool gate: if the agent has update_attachment_visibility, any member
@@ -144,7 +138,6 @@ def user_can_agent_update_attachment_visibility(att, user) -> bool:
     if org is None:
         return False
     return org.id in {o.id for o in get_user_organizations_for_access(user)}
-
 
 def attachment_belongs_to_payload(
     att: MessageAttachment, user: User | None = None
@@ -180,7 +173,6 @@ def attachment_belongs_to_payload(
         "roles": roles,
     }
 
-
 def _home_organization(att: MessageAttachment, user: User) -> Organization | None:
     if att.organization_id:
         return att.organization
@@ -188,7 +180,6 @@ def _home_organization(att: MessageAttachment, user: User) -> Organization | Non
     if conv is not None and getattr(conv, "organization_id", None):
         return conv.organization
     return resolve_user_organization(user)
-
 
 def apply_attachment_ownership(
     att: MessageAttachment,

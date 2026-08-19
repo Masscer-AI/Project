@@ -134,7 +134,6 @@ export default function ChatView() {
       const convId = loaderData.conversation.id;
       if (!data || !convId || data.conversation_id !== convId) return;
       if (data.type === "agent_version_ready" && data.version) {
-        // Text can appear here while stop still shows — only agent_loop_finished clears it.
         console.debug(
           "[agent-task] agent_version_ready (does not clear stop)",
           {

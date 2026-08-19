@@ -9,7 +9,6 @@ from api.notify.actions import notify_user
 
 logger = logging.getLogger(__name__)
 
-
 def notify_org_billing_denied(user_id, reason: str) -> None:
     """Notify the user when org-scoped billing blocks usage (subscription / balance)."""
     if reason == "subscription_expired":
@@ -26,7 +25,6 @@ def notify_org_billing_denied(user_id, reason: str) -> None:
         notify_user(user_id, "no_subscription", {"message": "no-active-subscription"})
     elif reason == "billing_check_error":
         notify_user(user_id, "billing_check_error", {"message": "billing-check-failed"})
-
 
 def _check_org_subscription(organization_id) -> tuple[bool, str]:
     """
@@ -54,7 +52,6 @@ def _check_org_subscription(organization_id) -> tuple[bool, str]:
                 pass
             return False, "subscription_expired"
 
-        # Check org wallet balance (subscription + purchased)
         try:
             org_wallet = OrganizationWallet.objects.get(organization_id=organization_id)
         except OrganizationWallet.DoesNotExist:
@@ -72,7 +69,6 @@ def _check_org_subscription(organization_id) -> tuple[bool, str]:
         logger.exception("Billing check failed for org_id=%s", organization_id)
         return False, "billing_check_error"
 
-
 def register_consumption(
     user_id: int,
     amount: Decimal,
@@ -82,7 +78,6 @@ def register_consumption(
     amount = Decimal(amount)
     amount = amount.quantize(Decimal("1.00000000"))
 
-    # --- Organization context: check subscription + deduct from org wallet ---
     if organization_id is not None:
         allowed, reason = _check_org_subscription(organization_id)
         if not allowed:
@@ -103,7 +98,6 @@ def register_consumption(
             return False
         return True
 
-    # --- Per-user wallet (no org billing context) ---
     wallet, created = Wallet.objects.get_or_create(
         user_id=user_id, unit=Currency.objects.get(name="Compute Unit")
     )
@@ -119,11 +113,9 @@ def register_consumption(
         return False
     return True
 
-
 def split_price(price):
     usd_price, tokens = price.split("/")
     return float(usd_price.strip().replace(" USD", "").strip()), int(tokens.strip())
-
 
 def calculate_consumption_llm_interaction(
     input_tokens: float, output_tokens: float, model_slug: str
@@ -138,7 +130,6 @@ def calculate_consumption_llm_interaction(
 
     return usd_input_price + usd_output_price
 
-
 def apply_winning_rate_to_consumption(
     consumption_amount_usd: Decimal, type: str = "llm_interaction"
 ):
@@ -151,30 +142,26 @@ def apply_winning_rate_to_consumption(
     consumption_amount_usd = Decimal(consumption_amount_usd)
     return consumption_amount_usd * (1 + winning_rate)
 
-
 def convert_usd_to_currency(amount_in_usd, currency_slug):
     currency = Currency.objects.get(slug=currency_slug)
     return Decimal(amount_in_usd) * Decimal(currency.one_usd_is)
 
-
 IMAGE_MODEL_PRICING_USD = {
-    "gpt-image-2": 0.053,  # conservative flat for medium-quality output (~$0.053 square)
-    "gpt-image-1.5": 0.10,  # $0.10 per image — legacy tool catalog
-    "gemini-2.5-flash-image": 0.10,  # $0.10 per image (1K resolution) — legacy
-    "gemini-3.1-flash-lite-image": 0.034,  # $0.034 per 1K image (Nano Banana 2 Lite)
+    "gpt-image-2": 0.053,
+    "gpt-image-1.5": 0.10,
+    "gemini-2.5-flash-image": 0.10,
+    "gemini-3.1-flash-lite-image": 0.034,
 }
 
 VIDEO_MODEL_PRICING_USD_PER_SECOND = {
-    "veo-3.1-generate-001": 0.40,  # $0.40 per second
+    "veo-3.1-generate-001": 0.40,
 }
-
 
 def calculate_consumption_image_generation(model_slug: str) -> float:
     price = IMAGE_MODEL_PRICING_USD.get(model_slug)
     if price is None:
         raise ValueError(f"No pricing configured for image model '{model_slug}'")
     return price
-
 
 def register_image_generation(user_id, model_slug, organization_id=None):
     try:
@@ -197,7 +184,6 @@ def register_image_generation(user_id, model_slug, organization_id=None):
         print(e, "exception trying to register image generation for user", user_id)
         return False
 
-
 def register_video_generation(user_id, model_slug, duration_seconds, organization_id=None):
     try:
         price_per_second = VIDEO_MODEL_PRICING_USD_PER_SECOND.get(model_slug)
@@ -207,7 +193,7 @@ def register_video_generation(user_id, model_slug, duration_seconds, organizatio
         consumption_amount = price_per_second * float(duration_seconds)
 
         winning_rates = WinningRates.objects.get(name="default")
-        rate = winning_rates.image_generation_rate  # reuse same markup rate
+        rate = winning_rates.image_generation_rate
         consumption_amount_with_rate = Decimal(consumption_amount) * (1 + rate)
 
         compute_units_amount = convert_usd_to_currency(consumption_amount_with_rate, "compute-unit")
@@ -222,7 +208,6 @@ def register_video_generation(user_id, model_slug, duration_seconds, organizatio
     except Exception as e:
         print(e, "exception trying to register video generation for user", user_id)
         return False
-
 
 def register_llm_interaction(user_id, input_tokens, output_tokens, model_slug, organization_id=None):
     try:

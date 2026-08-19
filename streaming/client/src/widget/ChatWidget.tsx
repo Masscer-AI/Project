@@ -29,7 +29,6 @@ function readFileAsDataURL(file: File): Promise<string> {
   });
 }
 
-/** Build UI attachment rows after widget upload (API returns id + url only). */
 function buildWidgetMessageAttachmentsFromUpload(
   uploaded: { id: string; url: string }[],
   files: File[]
@@ -305,7 +304,6 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
           applyStatus("Agent is processing...", false);
           break;
         case "agent_complete": {
-          // Ignore after finish cleared status — late events must not revive UI.
           if (!useWidgetStore.getState().agentTaskStatus) break;
           const total = data.total as number | undefined;
           const index = data.index as number | undefined;
@@ -496,7 +494,6 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
       const updated = await listWidgetConversations(widgetToken, sessionToken);
       setConversations(updated);
     } catch (_) {
-      // non-critical
     }
     setView("list");
   };

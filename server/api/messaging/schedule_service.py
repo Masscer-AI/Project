@@ -9,7 +9,6 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-
 class ScheduleServiceError(Exception):
     """Raised for not-found / invalid cancel/update operations."""
 
@@ -18,7 +17,6 @@ class ScheduleServiceError(Exception):
         self.message = message
         self.status_code = status_code
 
-
 def _list_envelope(tasks: list[dict[str, Any]], timezone: str) -> dict[str, Any]:
     return {
         "success": True,
@@ -26,7 +24,6 @@ def _list_envelope(tasks: list[dict[str, Any]], timezone: str) -> dict[str, Any]
         "tasks": tasks,
         "count": len(tasks),
     }
-
 
 def list_scheduled_tasks_for_conversation(
     *,
@@ -64,7 +61,6 @@ def list_scheduled_tasks_for_conversation(
 
     return _list_envelope(tasks, tz_name)
 
-
 def list_scheduled_tasks_for_user(
     *,
     user_id: int,
@@ -91,13 +87,11 @@ def list_scheduled_tasks_for_user(
         )
         qs = qs.order_by("next_run_at", "-created_at")
     else:
-        # "Show finished" means completed/failed — never cancelled.
         qs = qs.order_by("-created_at")
 
     tasks = [schedule_payload_dict(t) for t in qs[:limit]]
     tz_name = tasks[0].get("timezone") if tasks else "UTC"
     return _list_envelope(tasks, tz_name or "UTC")
-
 
 def update_scheduled_task_capabilities(
     *,
@@ -113,7 +107,6 @@ def update_scheduled_task_capabilities(
         "Edit each agent's pre_approved_tools instead.",
         status_code=410,
     )
-
 
 def cancel_scheduled_task(
     *,

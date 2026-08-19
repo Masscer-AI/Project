@@ -134,7 +134,6 @@ export function TemplatesTab({
               });
             }
           } catch {
-            /* ignore per-agent */
           }
         })
       );

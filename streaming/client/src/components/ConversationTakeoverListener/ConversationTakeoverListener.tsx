@@ -17,9 +17,6 @@ type RedisNotification<T> = {
   message?: T;
 };
 
-/**
- * Refreshes the open conversation when human takeover or direct messages change.
- */
 export const ConversationTakeoverListener = () => {
   const { t } = useTranslation();
   const { socket, conversation, setConversation } = useStore((state) => ({

@@ -1,7 +1,3 @@
-/**
- * Organization Management billing: wallet recharge confirmation dialog,
- * manual subscription panel toggle, end date from billing interval.
- */
 (function () {
   "use strict";
 
@@ -17,7 +13,6 @@
     return y + "-" + m + "-" + day;
   }
 
-  /** Add whole calendar months in UTC; clamps to last day of target month when needed. */
   function addCalendarMonthsUTC(base, months) {
     var y = base.getUTCFullYear();
     var mo = base.getUTCMonth();

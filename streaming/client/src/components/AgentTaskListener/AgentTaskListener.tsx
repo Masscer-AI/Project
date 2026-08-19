@@ -6,15 +6,10 @@ import { showOrganizationBillingBlockedToast } from "../../utils/organizationBil
 import { useLocalizedToolName } from "../../utils/localizedToolName";
 import { playNotificationSound } from "../../utils/notificationSound";
 
-const TOOL_STATUS_MIN_MS = 1500; // Keep tool call status visible so user notices the AI invoked a function
+const TOOL_STATUS_MIN_MS = 1500;
 const AGENT_TASK_POLL_INTERVAL_MS = 3000;
 const AGENT_TASK_POLL_FIRST_MS = 2500;
-/** Don't clear from "inactive" until we've seen active:true, or this grace elapsed (enqueue race). */
 const AGENT_TASK_POLL_INACTIVE_GRACE_MS = 12000;
-
-// The Redis notification bridge wraps payloads as:
-// { user_id, event_type, message: { ...actual_payload } }
-// So we unwrap `data.message` to get the real event data.
 
 type AgentEvent = {
   type: string;
@@ -31,7 +26,6 @@ type AgentFinishedEvent = {
   iterations: number;
   tool_calls_count: number;
   next_agent_slug?: string;
-  /** Present when the agent loop ended without saving an assistant message (e.g. org billing). */
   status?: string;
   error?: string;
   billing_reason?: string;
@@ -43,15 +37,6 @@ type RedisNotification<T> = {
   message: T;
 };
 
-/**
- * Listens for agent task events (agent_events_channel + agent_loop_finished)
- * and updates the store's agentTaskStatus so the Message component can display it.
- *
- * Tool call status is kept visible for TOOL_STATUS_MIN_MS so users notice function invocations.
- * On agent_loop_finished, refreshes the conversation so the new message appears.
- * Also polls task status as a fallback when websocket finish events are missed.
- * Renders nothing — purely a side-effect listener.
- */
 export const AgentTaskListener = () => {
   const { t } = useTranslation();
   const localizeTool = useLocalizedToolName();
@@ -84,8 +69,6 @@ export const AgentTaskListener = () => {
 
     const eventBelongsToTrackedTask = (eventConversationId: string) => {
       const trackedId = useStore.getState().agentTaskConversationId;
-      // After finish/cancel clears the tracked id, ignore late agent_events so
-      // e.g. agent_complete cannot re-set status and re-show the stop button.
       if (!trackedId) return false;
       return eventConversationId === trackedId;
     };
@@ -160,7 +143,6 @@ export const AgentTaskListener = () => {
         trackedId: snap.trackedId,
       });
 
-      // Accumulate the full live timeline so the user can expand all steps.
       pushAgentTaskEvent({
         type: data.type,
         tool_name: (data.tool_name as string) || null,
@@ -203,7 +185,6 @@ export const AgentTaskListener = () => {
                   total: String(total),
                 })
               : t("agent-response-complete", { agentName });
-          // Progress text while tracked task is still running (membership gated above).
           applyStatus(status, false);
           break;
         }
@@ -300,8 +281,6 @@ export const AgentTaskListener = () => {
       clearToolHold();
       playNotificationSound("success");
       setAgentTaskStatus(null);
-      // Live timeline is no longer needed: the saved message exposes the
-      // persisted event_log through the execution log modal.
       clearAgentTaskEvents();
       if (viewingThisConversation) {
         setConversation(data.conversation_id);
@@ -327,8 +306,6 @@ export const AgentTaskListener = () => {
     localizeTool,
   ]);
 
-  // Poll while a task is tracked. Depend on conversation id + running boolean only —
-  // not the status *text*, or tool/loop updates would reset the grace timer forever.
   const isAgentTaskRunning = Boolean(agentTaskStatus && agentTaskConversationId);
 
   useEffect(() => {
@@ -395,7 +372,6 @@ export const AgentTaskListener = () => {
           trackedConversationId,
           error,
         });
-        // Ignore transient poll errors; websocket path or next tick may recover.
       }
     };
 

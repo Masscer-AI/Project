@@ -12,10 +12,6 @@ type InAppNotificationSocketPayload = {
   message?: TUserNotification;
 };
 
-/**
- * Real-time push when a UserNotification row is created (alert → notification rule).
- * Replaces slow poll-only discovery for the inbox badge and list.
- */
 export function InAppNotificationListener() {
   const socket = useStore((s) => s.socket);
 

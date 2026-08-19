@@ -1,10 +1,6 @@
 import { useEffect, useState } from "react";
 import { getCompletion } from "../modules/apiCalls";
 
-/**
- * Fetches current `approved` from the API for the given completion ids.
- * Message attachments store a snapshot at send time; this keeps badges in sync after KB approval.
- */
 export function useCompletionFreshApproval(completionIds: string[]): Record<string, boolean> {
   const [approvedById, setApprovedById] = useState<Record<string, boolean>>({});
 
@@ -27,7 +23,6 @@ export function useCompletionFreshApproval(completionIds: string[]): Record<stri
             const c = await getCompletion(id);
             updates[id] = Boolean(c.approved);
           } catch {
-            /* keep previous / fall back to attachment snapshot */
           }
         })
       );

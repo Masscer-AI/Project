@@ -15,7 +15,6 @@ from .models import (
     ScheduledConversationTask,
 )
 
-
 @admin.register(MessageAttachment)
 class MessageAttachmentAdmin(admin.ModelAdmin):
     list_display = (
@@ -39,7 +38,6 @@ class MessageAttachmentAdmin(admin.ModelAdmin):
     filter_horizontal = ("allowed_roles",)
     ordering = ("-created_at",)
 
-
 class MessageInline(admin.TabularInline):
     model = Message
     extra = 0
@@ -52,7 +50,6 @@ class MessageInline(admin.TabularInline):
         return obj.text[:80] + ("..." if len(obj.text) > 80 else "")
 
     short_text_display.short_description = "Text"
-
 
 class MessageAdmin(admin.ModelAdmin):
     list_display = (
@@ -67,10 +64,9 @@ class MessageAdmin(admin.ModelAdmin):
     ordering = ("-created_at",)
 
     def short_text(self, obj):
-        return obj.text[:30]  # Return the first 30 characters
+        return obj.text[:30]
 
     short_text.short_description = "Message Text"
-
 
 class ChatWidgetAdmin(admin.ModelAdmin):
     list_display = ("name", "token", "agent", "enabled", "created_by", "created_at")
@@ -94,7 +90,6 @@ class ChatWidgetAdmin(admin.ModelAdmin):
 
     def get_form(self, request, obj=None, **kwargs):
         form = super().get_form(request, obj, **kwargs)
-        # Pre-select agent if passed in URL
         if 'agent' in request.GET and not obj:
             try:
                 agent_id = int(request.GET['agent'])
@@ -104,7 +99,7 @@ class ChatWidgetAdmin(admin.ModelAdmin):
         return form
     
     def save_model(self, request, obj, form, change):
-        if not change:  # Only set created_by on creation
+        if not change:
             obj.created_by = request.user
         super().save_model(request, obj, form, change)
 
@@ -112,7 +107,6 @@ class ChatWidgetAdmin(admin.ModelAdmin):
         if not obj.token:
             return "Token will be generated after saving"
 
-        # Prefer FRONTEND_URL, then STREAMING_SERVER_URL, else localhost
         base_url = getattr(settings, "FRONTEND_URL", "") or getattr(
             settings, "STREAMING_SERVER_URL", "http://localhost:8001"
         )
@@ -129,7 +123,6 @@ class ChatWidgetAdmin(admin.ModelAdmin):
         )
     
     widget_script_url.short_description = "Widget Script URL"
-
 
 class ConversationAlertRuleAdmin(admin.ModelAdmin):
     list_display = (
@@ -160,7 +153,6 @@ class ConversationAlertRuleAdmin(admin.ModelAdmin):
         "created_at",
         "updated_at",
     )
-
 
 class ConversationAlertAdmin(admin.ModelAdmin):
     list_display = (
@@ -194,7 +186,6 @@ class ConversationAlertAdmin(admin.ModelAdmin):
         "created_at",
         "updated_at",
     )
-
 
 class AlertSubscriptionAdmin(admin.ModelAdmin):
     list_display = ("user", "alert_rule", "created_at")
@@ -240,7 +231,6 @@ class ConversationAdmin(admin.ModelAdmin):
         return format_html('<span style="color:#51cf66;">✓ No alerts</span>')
     has_alerts_display.short_description = "Alerts"
 
-
 @admin.register(WidgetVisitorSession)
 class WidgetVisitorSessionAdmin(admin.ModelAdmin):
     list_display = ("id", "widget", "visitor_id", "origin", "is_blocked", "expires_at", "last_seen_at", "created_at")
@@ -248,7 +238,6 @@ class WidgetVisitorSessionAdmin(admin.ModelAdmin):
     search_fields = ("visitor_id", "origin", "user_agent", "widget__name")
     readonly_fields = ("id", "last_seen_at", "created_at")
     ordering = ("-created_at",)
-
 
 @admin.register(ConversationTakeover)
 class ConversationTakeoverAdmin(admin.ModelAdmin):
@@ -264,7 +253,6 @@ class ConversationTakeoverAdmin(admin.ModelAdmin):
     raw_id_fields = ("conversation", "user")
     readonly_fields = ("id", "started_at", "announcement_sent_at")
     ordering = ("-started_at",)
-
 
 @admin.register(ScheduledConversationTask)
 class ScheduledConversationTaskAdmin(admin.ModelAdmin):
@@ -292,7 +280,6 @@ class ScheduledConversationTaskAdmin(admin.ModelAdmin):
         "capabilities",
     )
     ordering = ("next_run_at",)
-
 
 admin.site.register(Conversation, ConversationAdmin)
 admin.site.register(Message, MessageAdmin)

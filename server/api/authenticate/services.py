@@ -8,7 +8,6 @@ from .feature_flags_registry import KNOWN_FEATURE_FLAGS
 
 logger = logging.getLogger(__name__)
 
-
 class FeatureFlagService:
     """Service for managing and querying feature flags."""
 
@@ -35,8 +34,6 @@ class FeatureFlagService:
             "organization-assignment", "not-assigned"
         """
 
-        # Organization owners get registry feature flags enabled automatically.
-        # Flags NOT in KNOWN_FEATURE_FLAGS require explicit assignment.
         if user is not None:
             is_owner = False
             if organization and organization.owner_id == user.id:
@@ -46,7 +43,6 @@ class FeatureFlagService:
             if is_owner and feature_flag_name in KNOWN_FEATURE_FLAGS:
                 return True, "is-owner"
 
-        # Check user-level assignment first (highest priority)
         if user is not None:
             try:
                 user_assignment = FeatureFlagAssignment.objects.select_related(
@@ -60,7 +56,6 @@ class FeatureFlagService:
             except FeatureFlagAssignment.DoesNotExist:
                 pass
 
-        # Resolve the user's organizations once
         orgs_to_check = []
         if organization:
             orgs_to_check = [organization]
@@ -71,13 +66,11 @@ class FeatureFlagService:
                 member_orgs = Organization.objects.filter(id=user.profile.organization.id)
             orgs_to_check = list((owned_orgs | member_orgs).distinct())
 
-        # Check role capabilities (applies to ALL flags)
         if user:
             for org in orgs_to_check:
                 if cls._user_has_capability_via_role(user, org, feature_flag_name):
                     return True, "role-assignment"
 
-        # Check organization-level assignment ONLY for organization_only flags
         is_org_only = FeatureFlag.objects.filter(
             name=feature_flag_name, organization_only=True
         ).exists()

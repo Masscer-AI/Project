@@ -13,7 +13,6 @@ from api.consumption.models import Currency
 from api.messaging.models import Conversation, Message
 from api.providers.models import AIProvider
 
-
 def _seed_llm():
     Currency.objects.get_or_create(name="Compute Unit", defaults={"one_usd_is": 1000})
     provider = AIProvider.objects.create(name=f"OpenAI-ho-{LanguageModel.objects.count()}")
@@ -22,7 +21,6 @@ def _seed_llm():
         slug=f"gpt-ho-{LanguageModel.objects.count()}",
         name="GPT Handoff",
     )
-
 
 class SuccessfulHandoffUserMessageTests(SimpleTestCase):
     def test_extracts_user_message_on_success(self):
@@ -65,7 +63,6 @@ class SuccessfulHandoffUserMessageTests(SimpleTestCase):
         }
         self.assertIsNone(successful_handoff_user_message(record))
 
-
 class BuildAgentLoopInputsHandoffTests(SimpleTestCase):
     def test_build_inputs_tags_other_agents_on_handoff_flag(self):
         from api.ai_layers.tasks import _build_agent_loop_inputs
@@ -102,7 +99,6 @@ class BuildAgentLoopInputsHandoffTests(SimpleTestCase):
         self.assertIn("Legal", inputs[1]["content"])
         self.assertEqual(inputs[2]["role"], "user")
         self.assertEqual(inputs[2]["content"], "Continue")
-
 
 class ListAgentsToolTests(TestCase):
     def setUp(self):
@@ -168,7 +164,6 @@ class ListAgentsToolTests(TestCase):
 
         self.assertIn("handoff_to_agent", list_available_tools())
         self.assertIn("list_agents", list_registered_tools())
-        # Dependent: not toggleable alone
         self.assertNotIn("list_agents", list_available_tools())
         self.assertEqual(
             DEPENDENT_TOOL_REQUIREMENTS.get("list_agents"),
@@ -178,7 +173,6 @@ class ListAgentsToolTests(TestCase):
         self.assertIn("handoff_to_agent", USER_REQUIRED_TOOL_NAMES)
         self.assertIn("list_agents", WIDGET_UNAVAILABLE_TOOL_NAMES)
         self.assertIn("handoff_to_agent", WIDGET_UNAVAILABLE_TOOL_NAMES)
-
 
 class HandoffToAgentToolTests(TestCase):
     def setUp(self):
@@ -273,7 +267,6 @@ class HandoffToAgentToolTests(TestCase):
             handoff_request=req,
         )
         self.assertFalse(result.success)
-
 
 class HandoffConversationTaskTests(TestCase):
     def setUp(self):
@@ -407,7 +400,6 @@ class HandoffConversationTaskTests(TestCase):
             delay_kwargs["existing_user_message_id"],
             user_msgs.get().id,
         )
-        # B resolves tools from its own pre_approved_tools inside the new task.
         self.assertEqual(delay_kwargs["tool_names"], [])
         self.assertNotIn("capabilities_override", delay_kwargs)
         meta = delay_kwargs["user_message_metadata"]
@@ -580,7 +572,6 @@ class HandoffConversationTaskTests(TestCase):
         self.assertIn("AGENT HANDOFF", captured_instructions[0])
         self.assertIn("Private brief for Tax only.", captured_instructions[0])
 
-        # A's visible message must appear as tagged other-assistant, not B's own assistant turn
         self.assertTrue(captured_inputs)
         roles_and_content = [
             (m.get("role"), m.get("content", "")) for m in captured_inputs[0]

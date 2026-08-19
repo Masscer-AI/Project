@@ -1,4 +1,3 @@
-# import os
 import json
 from django.http import JsonResponse
 from .managers import chroma_client
@@ -29,11 +28,9 @@ from .access import (
 
 logger = logging.getLogger(__name__)
 
-
 def _get_user_organization(user):
     """Get user's organization (owner or member)."""
     return resolve_user_organization(user)
-
 
 def _check_train_agents_permission(user):
     """Check if user has the train-agents feature flag."""
@@ -45,7 +42,6 @@ def _check_train_agents_permission(user):
     )
     if not enabled:
         raise PermissionDenied("You are not allowed to manage the knowledge base. The 'train-agents' feature flag is not enabled for your organization.")
-
 
 def _ownership_from_request(request, data=None):
     """
@@ -63,7 +59,6 @@ def _ownership_from_request(request, data=None):
 
     role_raw = payload.get("role_ids")
     if role_raw is None and hasattr(request, "POST"):
-        # Support repeated form fields: role_ids=a&role_ids=b
         multi = request.POST.getlist("role_ids") if hasattr(request.POST, "getlist") else []
         if multi:
             role_raw = multi
@@ -75,7 +70,6 @@ def _ownership_from_request(request, data=None):
     if visibility is None:
         return Document.Visibility.PERSONAL, [], False
     return visibility, role_ids, True
-
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
@@ -182,7 +176,6 @@ class DocumentView(View):
                 document.file = file
                 document.content_type = getattr(file, "content_type", "") or ""
                 document.save(update_fields=["file", "content_type"])
-            # Avoid demoting org/role docs when chat re-uploads the same text.
             if ownership_explicit:
                 try:
                     apply_document_ownership(
@@ -204,7 +197,6 @@ class DocumentView(View):
         if not data.get("name") and file_name:
             data["name"] = file_name
         data["text"] = file_content.replace("\0", "")
-        # Ownership is applied after create (serializer fields are read-only).
         data.pop("visibility", None)
         data.pop("role_ids", None)
         data.pop("source", None)
@@ -288,7 +280,6 @@ class DocumentView(View):
             {"message": "Document deleted successfully"}, status=200
         )
 
-
 @csrf_exempt
 @token_required
 def sync_drive_document(request, document_id):
@@ -331,12 +322,10 @@ def sync_drive_document(request, document_id):
         status=200,
     )
 
-
 @csrf_exempt
 @token_required
 def query_collection(request):
     data = json.loads(request.body)
-    # agent_slug = data.get("agent_slug", None)
     conversation_id = data.get("conversation_id", None)
     document_id = data.get("document_id", None)
     query_text = data.get("query", None)
@@ -385,7 +374,6 @@ def query_collection(request):
 
     return JsonResponse({"error": "No collection found"}, status=404)
 
-
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class ChunkSetView(View):
@@ -393,7 +381,6 @@ class ChunkSetView(View):
         document = Document.objects.get(id=document_id)
         data = BigDocumentSerializer(document).data
         return JsonResponse(data, status=201)
-
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
@@ -407,7 +394,6 @@ class ChunkDetailView(View):
             return JsonResponse(serializer.data, safe=False, status=200)
         except Chunk.DoesNotExist:
             return JsonResponse({"error": "Chunk not found"}, status=404)
-
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
@@ -456,7 +442,6 @@ class QueryDocument(View):
         data = {"results": results}
         return JsonResponse(data, safe=False)
 
-
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class QueryCompletions(View):
@@ -468,7 +453,6 @@ class QueryCompletions(View):
         agent = Agent.objects.get(slug=agent_slug)
 
         if not agent:
-            # Return a 404
             return JsonResponse({"error": "Agent not found"}, status=404)
         collection, created = Collection.get_or_create_agent_collection(agent=agent)
         if created:

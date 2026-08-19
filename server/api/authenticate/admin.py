@@ -21,15 +21,10 @@ from .models import (
     RoleAssignment,
 )
 
-
 class TokenAdminForm(forms.ModelForm):
     class Meta:
         model = Token
         fields = "__all__"
-        # widgets = {
-        #     "key": forms.HiddenInput(),
-        # }
-
 
 @admin.register(Token)
 class TokenAdmin(admin.ModelAdmin):
@@ -52,7 +47,6 @@ class TokenAdmin(admin.ModelAdmin):
 
     actions = [revoke_immediately]
 
-
 @admin.register(PublishableToken)
 class PublishableTokenAdmin(admin.ModelAdmin):
     list_display = (
@@ -72,7 +66,6 @@ class PublishableTokenAdmin(admin.ModelAdmin):
     revoke_immediately.short_description = "Revoke selected tokens immediately"
 
     actions = [revoke_immediately]
-
 
 @admin.register(CredentialsManager)
 class CredentialsManagerAdmin(admin.ModelAdmin):
@@ -94,7 +87,6 @@ class CredentialsManagerAdmin(admin.ModelAdmin):
     )
     list_filter = ("organization",)
 
-
 class LogoFileWidget(forms.ClearableFileInput):
     template_name = 'admin/widgets/clearable_file_input_simple.html'
     
@@ -102,7 +94,6 @@ class LogoFileWidget(forms.ClearableFileInput):
         kwargs.setdefault('attrs', {})
         kwargs['attrs']['accept'] = 'image/*'
         super().__init__(*args, **kwargs)
-
 
 class OrganizationAdminForm(forms.ModelForm):
     timezone = forms.ChoiceField(
@@ -118,7 +109,6 @@ class OrganizationAdminForm(forms.ModelForm):
             'logo': LogoFileWidget()
         }
 
-
 class OrganizationTenantInline(admin.StackedInline):
     model = OrganizationTenant
     extra = 0
@@ -126,7 +116,6 @@ class OrganizationTenantInline(admin.StackedInline):
     can_delete = False
     fields = ("subdomain", "app_name", "theme", "hide_powered_by", "favicon")
     readonly_fields = ("favicon",)
-
 
 @admin.register(Organization)
 class OrganizationAdmin(admin.ModelAdmin):
@@ -234,9 +223,8 @@ class OrganizationAdmin(admin.ModelAdmin):
             else reverse("admin:authenticate_organization_changelist")
         )
 
-
 class OrganizationWalletInline(admin.TabularInline):
-    model = None  # set below after import
+    model = None
     verbose_name = "Wallet"
     verbose_name_plural = "Wallet"
     extra = 0
@@ -273,9 +261,8 @@ class OrganizationWalletInline(admin.TabularInline):
     def has_add_permission(self, request, obj=None):
         return False
 
-
 class SubscriptionInline(admin.StackedInline):
-    model = None  # set below after import
+    model = None
     verbose_name = "Subscription"
     verbose_name_plural = "Subscription"
     extra = 0
@@ -313,7 +300,6 @@ class SubscriptionInline(admin.StackedInline):
     def has_add_permission(self, request, obj=None):
         return False
 
-
 class OrganizationFeatureFlagInline(admin.TabularInline):
     model = FeatureFlagAssignment
     extra = 1
@@ -329,7 +315,6 @@ class OrganizationFeatureFlagInline(admin.TabularInline):
         if db_field.name == "user":
             kwargs["required"] = False
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
-
 
 class UserFeatureFlagInline(admin.TabularInline):
     model = FeatureFlagAssignment
@@ -347,7 +332,6 @@ class UserFeatureFlagInline(admin.TabularInline):
             kwargs["required"] = False
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
-
 @admin.register(FeatureFlag)
 class FeatureFlagAdmin(admin.ModelAdmin):
     list_display = ("name", "created", "modified")
@@ -355,13 +339,11 @@ class FeatureFlagAdmin(admin.ModelAdmin):
     list_filter = ("created", "modified")
     inlines = [OrganizationFeatureFlagInline, UserFeatureFlagInline]
 
-
 @admin.register(FeatureFlagAssignment)
 class FeatureFlagAssignmentAdmin(admin.ModelAdmin):
     list_display = ("feature_flag", "organization", "user", "enabled", "created", "modified")
     search_fields = ("feature_flag__name", "organization__name", "user__email", "user__username")
     list_filter = ("enabled", "created", "modified", "feature_flag")
-
 
 class UserProfileInline(admin.StackedInline):
     model = UserProfile
@@ -380,10 +362,7 @@ class UserProfileInline(admin.StackedInline):
         "_phone_numbers",
     )
 
-
-# Extend the default User admin to include the profile inline
 admin.site.unregister(User)
-
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
@@ -416,14 +395,12 @@ class UserAdmin(BaseUserAdmin):
             return None
         return profile.is_active
 
-
 @admin.register(Role)
 class RoleAdmin(admin.ModelAdmin):
     list_display = ("name", "organization", "enabled", "created_at", "updated_at")
     search_fields = ("name", "organization__name", "description")
     list_filter = ("enabled", "organization", "created_at", "updated_at")
     readonly_fields = ("id", "created_at", "updated_at")
-
 
 @admin.register(RoleAssignment)
 class RoleAssignmentAdmin(admin.ModelAdmin):
@@ -438,7 +415,6 @@ class RoleAssignmentAdmin(admin.ModelAdmin):
         return obj.is_active()
     is_active_display.boolean = True
     is_active_display.short_description = "Active"
-
 
 import api.authenticate.organization_management_admin  # noqa: F401, E402
 import api.authenticate.system_management_admin  # noqa: F401, E402

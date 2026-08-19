@@ -21,7 +21,6 @@ FEATURE_FLAG = "can-set-notifications"
 
 logger = logging.getLogger(__name__)
 
-
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class NotificationRuleView(View):
@@ -37,7 +36,6 @@ class NotificationRuleView(View):
     def _check_permission(self, user, organization):
         if not organization:
             raise PermissionDenied("User has no organization.")
-        # Organization owners can always manage notification rules; others need the flag.
         if organization.owner_id == user.id:
             return
         enabled, _ = FeatureFlagService.is_feature_enabled(
@@ -118,7 +116,6 @@ class NotificationRuleView(View):
         rule.delete()
         return JsonResponse({"message": "Deleted."}, status=200)
 
-
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class NotificationRuleBuildView(View):
@@ -183,7 +180,6 @@ class NotificationRuleBuildView(View):
             return JsonResponse({"error": str(exc)}, status=502)
 
         return JsonResponse(payload, status=200)
-
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")

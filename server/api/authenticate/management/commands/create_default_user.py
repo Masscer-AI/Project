@@ -2,7 +2,6 @@ from django.core.management.base import BaseCommand
 from django.contrib.auth.models import User
 from api.ai_layers.models import Agent
 
-
 class Command(BaseCommand):
     help = "Create or update a user and their default agents"
 
@@ -16,22 +15,19 @@ class Command(BaseCommand):
         email = kwargs["email"]
         password = kwargs["password"]
 
-        # Check if the user already exists
         user, created = User.objects.get_or_create(
             username=username,
             defaults={'email': email, 'password': password}
         )
 
         if not created:
-            # If user already exists, update the email and password if necessary
             user.email = email
-            user.set_password(password)  # Use set_password to hash the password
+            user.set_password(password)
             user.save()
             self.stdout.write(self.style.SUCCESS(f'Updated existing user "{username}".'))
         else:
             self.stdout.write(self.style.SUCCESS(f'Created new user "{username}".'))
 
-        # Default agents data for the user
         agents_data = [
             {
                 "name": "Document Writer",
@@ -126,7 +122,6 @@ class Command(BaseCommand):
             },
         ]
 
-        # Create or update agents for the user
         for agent_data in agents_data:
             agent, created = Agent.objects.get_or_create(
                 name=agent_data["name"],
@@ -135,7 +130,6 @@ class Command(BaseCommand):
             )
 
             if not created:
-                # Update agent's act_as if it differs
                 if agent.act_as != agent_data["act_as"]:
                     agent.act_as = agent_data["act_as"]
                     agent.save()

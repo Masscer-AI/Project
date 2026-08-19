@@ -24,7 +24,6 @@ from api.rag.models import Collection, Document
 
 logger = logging.getLogger(__name__)
 
-
 def _drive_provider(access_token: str):
     return get_provider(
         IntegrationProvider.GOOGLE_DRIVE,
@@ -33,7 +32,6 @@ def _drive_provider(access_token: str):
         redirect_uri="",
         access_token=access_token,
     )
-
 
 def get_drive_integration_for_owner(
     *,
@@ -48,7 +46,6 @@ def get_drive_integration_for_owner(
         user=user,
         organization=organization,
     )
-
 
 def list_drive_files_for_user(
     *,
@@ -69,7 +66,6 @@ def list_drive_files_for_user(
     provider = _drive_provider(access_token)
     files = provider.list_files(access_token, limit=limit)
     return [f for f in files if f.get("mimeType") != "application/vnd.google-apps.folder"]
-
 
 def _extract_text_from_drive_bytes(
     content: bytes,
@@ -92,7 +88,6 @@ def _extract_text_from_drive_bytes(
     buffer.name = file_name
     text, resolved_name = read_file_content(buffer)
     return text.strip(), resolved_name
-
 
 def import_drive_file_to_document(
     *,
@@ -190,9 +185,7 @@ def import_drive_file_to_document(
     except ValueError as exc:
         document.delete()
         raise IntegrationProviderError(str(exc)) from exc
-    # post_save signal runs add_to_rag + brief
     return document, True
-
 
 def sync_document_from_drive(document: Document) -> Document:
     """Re-download linked Drive file and re-index the document."""

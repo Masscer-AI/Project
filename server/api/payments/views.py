@@ -17,20 +17,16 @@ from api.consumption.models import OrganizationWallet, Currency
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
-# Maps our plan slugs to Stripe Price IDs configured in settings
 PLAN_SLUG_TO_STRIPE_PRICE = {
     "organization": settings.STRIPE_PRICE_ORGANIZATION,
 }
 
-# Fixed one-time credit packages:
-# purchase amount (USD) -> credited wallet amount (USD)
 CREDIT_PACKAGE_CREDITS_USD = {
     1: 0.8,
     50: 40,
     100: 80,
     200: 160,
 }
-
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
@@ -99,7 +95,6 @@ class OrganizationBillingView(View):
             "wallet": wallet_data,
         })
 
-
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class CreateCheckoutSessionView(View):
@@ -129,7 +124,6 @@ class CreateCheckoutSessionView(View):
         if not price_id:
             return JsonResponse({"error": f"No Stripe price configured for plan '{plan_slug}'"}, status=400)
 
-        # Reuse existing Stripe customer if we already have one
         existing_sub = Subscription.objects.filter(
             organization=org, stripe_customer_id__isnull=False
         ).order_by("-created_at").first()
@@ -160,7 +154,6 @@ class CreateCheckoutSessionView(View):
             return JsonResponse({"error": str(e)}, status=502)
 
         return JsonResponse({"checkout_url": session.url})
-
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
@@ -205,7 +198,6 @@ class CreateBillingPortalSessionView(View):
 
         return JsonResponse({"portal_url": session.url})
 
-
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class ReactivateSubscriptionView(View):
@@ -247,7 +239,6 @@ class ReactivateSubscriptionView(View):
         sub.status = "active"
         sub.save(update_fields=["status", "updated_at"])
         return JsonResponse({"ok": True})
-
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
@@ -315,7 +306,7 @@ class BuyCreditsView(View):
                 line_items=[{
                     "price_data": {
                         "currency": "usd",
-                        "unit_amount": amount_usd * 100,  # Stripe uses cents
+                        "unit_amount": amount_usd * 100,
                         "product": product_id,
                     },
                     "quantity": 1,
@@ -334,7 +325,6 @@ class BuyCreditsView(View):
 
         return JsonResponse({"checkout_url": session.url})
 
-
 @csrf_exempt
 def stripe_webhook(request):
     """
@@ -351,7 +341,6 @@ def stripe_webhook(request):
     except (ValueError, stripe.SignatureVerificationError) as e:
         return HttpResponse(str(e), status=400)
 
-    # Idempotency guard for Stripe webhook retries/duplicates.
     event_id = event.get("id")
     if event_id:
         cache_key = f"stripe_webhook_event:{event_id}"
@@ -378,14 +367,12 @@ def stripe_webhook(request):
 
     return HttpResponse(status=200)
 
-
 def _handle_checkout_completed(session):
     """Route to the right handler based on metadata.type."""
     if session.get("metadata", {}).get("type") == "credit_purchase":
         _handle_credit_purchase_completed(session)
     else:
         _handle_subscription_checkout_completed(session)
-
 
 def _handle_credit_purchase_completed(session):
     """One-time credit purchase → recharge org wallet purchased bucket."""
@@ -420,7 +407,6 @@ def _handle_credit_purchase_completed(session):
         bucket=OrganizationWalletTransaction.BUCKET_PURCHASED,
         reason=OrganizationWalletTransaction.REASON_STRIPE_TOPUP,
     )
-
 
 def _handle_subscription_checkout_completed(session):
     """Checkout completed → activate subscription and seed wallet."""
@@ -463,7 +449,6 @@ def _handle_subscription_checkout_completed(session):
         },
     )
 
-    # Seed / recharge the org wallet (subscription bucket)
     credits_usd = sub.get_effective_credits_limit_usd()
     if credits_usd:
         recharge_org_wallet_from_credits_usd(
@@ -474,7 +459,6 @@ def _handle_subscription_checkout_completed(session):
             subscription=sub,
         )
 
-
 def _handle_invoice_paid(invoice):
     """Recurring invoice paid → renew subscription end_date and recharge wallet."""
     from api.consumption.models import OrganizationWalletTransaction
@@ -483,8 +467,6 @@ def _handle_invoice_paid(invoice):
         recharge_wallet_for_subscription_credits,
     )
 
-    # First invoice after subscription creation is already handled on checkout completion.
-    # Avoid double extending period and double crediting.
     if invoice.get("billing_reason") == "subscription_create":
         return
 
@@ -506,7 +488,6 @@ def _handle_invoice_paid(invoice):
         reason=OrganizationWalletTransaction.REASON_STRIPE_RENEW,
     )
 
-
 def _handle_subscription_cancelled(stripe_sub):
     from api.payments.billing_helpers import forfeit_subscription_credits
 
@@ -524,7 +505,6 @@ def _handle_subscription_cancelled(stripe_sub):
         if org:
             forfeit_subscription_credits(org)
 
-
 def _handle_subscription_updated(stripe_sub):
     stripe_sub_id = stripe_sub.get("id")
     if not stripe_sub_id:
@@ -541,14 +521,12 @@ def _handle_subscription_updated(stripe_sub):
         updated_at=tz.now(),
     )
 
-
 def _handle_payment_failed(invoice):
     stripe_sub_id = invoice.get("subscription")
     if stripe_sub_id:
         Subscription.objects.filter(stripe_subscription_id=stripe_sub_id).update(
             status="pending_payment", updated_at=tz.now()
         )
-
 
 def _get_stripe_subscription_state(subscription):
     if (

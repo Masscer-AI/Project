@@ -20,7 +20,6 @@ from .phone_numbers import (
 from rest_framework.exceptions import ValidationError
 from django.db import transaction
 
-
 class SignupSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8)
     email = serializers.EmailField(required=True)
@@ -77,7 +76,6 @@ class SignupSerializer(serializers.ModelSerializer):
             )
 
             if organization_name:
-                # New independent signup: create org with user as owner
                 organization = Organization.objects.create(
                     name=organization_name,
                     owner=user,
@@ -89,7 +87,6 @@ class SignupSerializer(serializers.ModelSerializer):
                 except Exception:
                     pass
             else:
-                # Invited signup: join existing org
                 organization = getattr(self, "_organization", None)
                 if organization is None:
                     organization = Organization.objects.select_for_update().get(
@@ -102,15 +99,12 @@ class SignupSerializer(serializers.ModelSerializer):
 
             return user
 
-
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
 
-
 class PasswordResetRequestSerializer(serializers.Serializer):
     email = serializers.EmailField()
-
 
 class PasswordResetConfirmSerializer(serializers.Serializer):
     uid = serializers.CharField()
@@ -125,13 +119,11 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
         validate_password(attrs["new_password"])
         return attrs
 
-
 class OrganizationInviteCreateSerializer(serializers.Serializer):
     email = serializers.EmailField()
     name = serializers.CharField(required=False, allow_blank=True, max_length=255, default="")
     bio = serializers.CharField(required=False, allow_blank=True, default="")
     expires_at = serializers.DateTimeField(required=False, allow_null=True)
-
 
 class OrganizationInviteReadSerializer(serializers.ModelSerializer):
     expires_at = serializers.DateTimeField(source="profile_expires_at", read_only=True)
@@ -150,7 +142,6 @@ class OrganizationInviteReadSerializer(serializers.ModelSerializer):
             "accepted_at",
         ]
 
-
 class InviteSignupSerializer(serializers.Serializer):
     invite_token = serializers.CharField(write_only=True)
     password = serializers.CharField(write_only=True, min_length=8)
@@ -162,9 +153,7 @@ class InviteSignupSerializer(serializers.Serializer):
         validate_password(attrs["password"])
         return attrs
 
-
 class UserProfileSerializer(serializers.ModelSerializer):
-    # Extra API field (model column is _phone_numbers).
     phone_numbers = serializers.JSONField(required=False)
 
     class Meta:
@@ -209,8 +198,6 @@ class UserProfileSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(str(exc)) from exc
 
     def update(self, instance, validated_data):
-        # Pop before ModelSerializer.update — phone_numbers is not a model field.
-        # Empty list [] must clear stored numbers when the key is present in input.
         initial = getattr(self, "initial_data", {}) or {}
         phone_numbers_provided = isinstance(initial, dict) and "phone_numbers" in initial
         phone_numbers = validated_data.pop("phone_numbers", serializers.empty)
@@ -231,14 +218,12 @@ class UserProfileSerializer(serializers.ModelSerializer):
             instance.save(update_fields=["_phone_numbers", "updated_at"])
         return instance
 
-
 class UserSerializer(serializers.ModelSerializer):
     profile = UserProfileSerializer(read_only=True)
 
     class Meta:
         model = User
         fields = ["id", "username", "email", "profile"]
-
 
 class OrganizationSerializer(serializers.ModelSerializer):
     logo_url = serializers.SerializerMethodField()
@@ -253,9 +238,6 @@ class OrganizationSerializer(serializers.ModelSerializer):
             return obj.logo.url
         return None
 
-
-# NOTE: Unused — kept only because CredentialsManager model/table is retained for historical data.
-# No endpoint reads or writes credentials anymore.
 class CredentialsManagerSerializer(serializers.ModelSerializer):
     class Meta:
         model = CredentialsManager
@@ -270,7 +252,6 @@ class CredentialsManagerSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-
 
 class BigOrganizationSerializer(serializers.ModelSerializer):
     credentials = serializers.SerializerMethodField()
@@ -314,10 +295,8 @@ class BigOrganizationSerializer(serializers.ModelSerializer):
         """Verifica si el usuario actual puede gestionar la organización (es owner o tiene la feature flag)"""
         request = self.context.get('request')
         if request and request.user:
-            # Los owners siempre pueden gestionar
             if obj.owner == request.user:
                 return True
-            # Si no es owner, verificar la feature flag
             from .services import FeatureFlagService
             enabled, _ = FeatureFlagService.is_feature_enabled(
                 feature_flag_name="manage-organization",
@@ -327,12 +306,10 @@ class BigOrganizationSerializer(serializers.ModelSerializer):
             return enabled
         return False
 
-
 class FeatureFlagSerializer(serializers.ModelSerializer):
     class Meta:
         model = FeatureFlag
         fields = ["id", "name", "created", "modified"]
-
 
 class FeatureFlagAssignmentSerializer(serializers.ModelSerializer):
     feature_flag = FeatureFlagSerializer(read_only=True)
@@ -353,16 +330,13 @@ class FeatureFlagAssignmentSerializer(serializers.ModelSerializer):
             "modified",
         ]
 
-
 class FeatureFlagStatusResponseSerializer(serializers.Serializer):
     enabled = serializers.BooleanField()
     feature_flag_name = serializers.CharField()
     reason = serializers.CharField()
 
-
 class TeamFeatureFlagsResponseSerializer(serializers.Serializer):
     feature_flags = serializers.DictField(child=serializers.BooleanField())
-
 
 class PublicOrganizationSerializer(serializers.ModelSerializer):
     logo_url = serializers.SerializerMethodField()
@@ -375,7 +349,6 @@ class PublicOrganizationSerializer(serializers.ModelSerializer):
         if obj.logo:
             return obj.logo.url
         return None
-
 
 class OrganizationMemberSerializer(serializers.Serializer):
     """Read-only representation of an organization member for list API."""
@@ -390,13 +363,11 @@ class OrganizationMemberSerializer(serializers.Serializer):
     expires_at = serializers.CharField(allow_null=True, required=False)
     current_role = serializers.DictField(allow_null=True, required=False)
 
-
 class RoleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Role
         fields = ["id", "name", "description", "enabled", "capabilities", "created_at", "updated_at"]
         read_only_fields = ["id", "created_at", "updated_at"]
-
 
 class RoleCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
@@ -436,7 +407,6 @@ class RoleCreateUpdateSerializer(serializers.ModelSerializer):
         validated_data.pop("organization", None)
         return Role.objects.create(organization=org, **validated_data)
 
-
 class RoleAssignmentSerializer(serializers.ModelSerializer):
     role_name = serializers.CharField(source="role.name", read_only=True)
 
@@ -444,7 +414,6 @@ class RoleAssignmentSerializer(serializers.ModelSerializer):
         model = RoleAssignment
         fields = ["id", "user", "organization", "role", "role_name", "from_date", "to_date", "created_at", "updated_at"]
         read_only_fields = ["id", "created_at", "updated_at"]
-
 
 class RoleAssignmentCreateSerializer(serializers.Serializer):
     user_id = serializers.IntegerField()

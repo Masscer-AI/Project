@@ -18,11 +18,6 @@ from .models import (
 
 logger = logging.getLogger(__name__)
 
-
-# ---------------------------------------------------------------------------
-# Helpers – feature-flag cache invalidation
-# ---------------------------------------------------------------------------
-
 def _notify_invalidate_permissions_cache(user_id):
     """Tell connected clients to refetch team feature flags (Socket.IO via Redis)."""
     if not user_id:
@@ -37,7 +32,6 @@ def _notify_invalidate_permissions_cache(user_id):
             user_id,
             exc_info=True,
         )
-
 
 def _invalidate_ff_cache_for_user(user_id):
     """Delete every feature-flag cache entry that belongs to *user_id*, then push WS refresh."""
@@ -57,17 +51,14 @@ def _invalidate_ff_cache_for_user(user_id):
         logger.debug("Invalidated feature-flag cache for user %s", user_id)
         _notify_invalidate_permissions_cache(user_id)
 
-    # Defer until DB commit so GET /feature-flags/ and the websocket refetch see updated roles.
     if connection.in_atomic_block:
         transaction.on_commit(_run)
     else:
         _run()
 
-
 def _invalidate_ff_names_cache():
     """Delete the global feature-flag names cache."""
     cache.delete("feature_flag_names")
-
 
 def _invalidate_ff_cache_for_org_members(organization_id):
     """Invalidate feature-flag caches for every member (and owner) of an org."""
@@ -76,22 +67,15 @@ def _invalidate_ff_cache_for_org_members(organization_id):
     except Organization.DoesNotExist:
         return
 
-    # Owner
     if org.owner_id:
         _invalidate_ff_cache_for_user(org.owner_id)
 
-    # Members (users whose profile points to this org)
     member_user_ids = (
         UserProfile.objects.filter(organization_id=organization_id)
         .values_list("user_id", flat=True)
     )
     for uid in member_user_ids:
         _invalidate_ff_cache_for_user(uid)
-
-
-# ---------------------------------------------------------------------------
-# Organization – delete all member users before the org is removed
-# ---------------------------------------------------------------------------
 
 @receiver(pre_delete, sender=Organization)
 def delete_organization_members(sender, instance, **kwargs):
@@ -111,7 +95,6 @@ def delete_organization_members(sender, instance, **kwargs):
         deleted, _ = User.objects.filter(id__in=member_user_ids).delete()
         logger.info("Deleted %d member users for org %s", deleted, instance.id)
 
-    # Schedule the owner deletion after the org row is committed.
     owner_id = instance.owner_id
 
     def _delete_owner():
@@ -123,16 +106,10 @@ def delete_organization_members(sender, instance, **kwargs):
     else:
         _delete_owner()
 
-
-# ---------------------------------------------------------------------------
-# Organization – create credentials manager + free trial subscription
-# ---------------------------------------------------------------------------
-
 @receiver(post_save, sender=Organization)
 def create_credentials_manager(sender, instance, created, **kwargs):
     if created:
         CredentialsManager.objects.create(organization=instance)
-
 
 @receiver(post_save, sender=Organization)
 def provision_platform_assistant_on_org_create(sender, instance, created, **kwargs):
@@ -159,7 +136,6 @@ def provision_platform_assistant_on_org_create(sender, instance, created, **kwar
         transaction.on_commit(_provision)
     else:
         _provision()
-
 
 @receiver(post_save, sender=Organization)
 def create_free_trial_subscription(sender, instance, created, **kwargs):
@@ -193,7 +169,6 @@ def create_free_trial_subscription(sender, instance, created, **kwargs):
             )
             logger.info("Created free trial subscription %s for org %s", subscription.id, instance.id)
 
-            # Seed the org wallet — convert plan's USD budget to compute units
             currency = Currency.objects.filter(name="Compute Unit").first()
             if currency is None:
                 logger.warning("Compute Unit currency not found — org wallet not seeded for org %s", instance.id)
@@ -220,41 +195,23 @@ def create_free_trial_subscription(sender, instance, created, **kwargs):
         except Exception:
             logger.exception("Failed to set up free trial for org %s", instance.id)
 
-    # Defer until after the DB transaction commits so FKs are resolvable.
     if connection.in_atomic_block:
         transaction.on_commit(_setup)
     else:
         _setup()
-
-
-# ---------------------------------------------------------------------------
-# FeatureFlag – invalidate names cache on any change
-# ---------------------------------------------------------------------------
 
 @receiver(post_save, sender=FeatureFlag)
 @receiver(post_delete, sender=FeatureFlag)
 def invalidate_ff_names_on_change(sender, instance, **kwargs):
     _invalidate_ff_names_cache()
 
-
-# ---------------------------------------------------------------------------
-# FeatureFlagAssignment – invalidate per-user (or per-org-members) caches
-# ---------------------------------------------------------------------------
-
 @receiver(post_save, sender=FeatureFlagAssignment)
 @receiver(post_delete, sender=FeatureFlagAssignment)
 def invalidate_ff_cache_on_assignment_change(sender, instance, **kwargs):
     if instance.user_id:
-        # User-level assignment → only that user is affected
         _invalidate_ff_cache_for_user(instance.user_id)
     elif instance.organization_id:
-        # Org-level assignment → every member of the org is affected
         _invalidate_ff_cache_for_org_members(instance.organization_id)
-
-
-# ---------------------------------------------------------------------------
-# Role – capabilities may have changed → invalidate users who hold this role
-# ---------------------------------------------------------------------------
 
 @receiver(post_save, sender=Role)
 def invalidate_ff_cache_on_role_change(sender, instance, **kwargs):
@@ -266,11 +223,6 @@ def invalidate_ff_cache_on_role_change(sender, instance, **kwargs):
     for uid in user_ids:
         _invalidate_ff_cache_for_user(uid)
 
-
-# ---------------------------------------------------------------------------
-# RoleAssignment – user gained / lost a role → invalidate that user
-# ---------------------------------------------------------------------------
-
 @receiver(post_save, sender=RoleAssignment)
 @receiver(post_delete, sender=RoleAssignment)
 def invalidate_ff_cache_on_role_assignment_change(sender, instance, **kwargs):
@@ -278,7 +230,6 @@ def invalidate_ff_cache_on_role_assignment_change(sender, instance, **kwargs):
     org_id = getattr(instance, "organization_id", None)
     if uid:
         _invalidate_ff_cache_for_user(uid)
-        # Role changes can affect which organization agents are visible (role-restricted agents)
         if org_id:
             try:
                 from api.ai_layers.cache_utils import bump_agent_list_version_for_user
@@ -291,5 +242,4 @@ def invalidate_ff_cache_on_role_assignment_change(sender, instance, **kwargs):
                 else:
                     _bump()
             except Exception:
-                # Keep feature-flag invalidation robust even if ai_layers isn't ready during migrations.
                 pass

@@ -7,12 +7,10 @@ from .actions import deliver_whatsapp_reply, handle_webhook, send_whatsapp_fallb
 
 logger = logging.getLogger(__name__)
 
-
 @shared_task
 def async_handle_webhook(webhook_data):
     result = handle_webhook(webhook_data=webhook_data)
     return result
-
 
 @shared_task
 def whatsapp_flush_inbound_agent_task(
@@ -72,7 +70,6 @@ def whatsapp_flush_inbound_agent_task(
         regenerate_message_id=regenerate_message_id,
     )
 
-
 @shared_task
 def whatsapp_conversation_agent_task(
     *,
@@ -113,9 +110,6 @@ def whatsapp_conversation_agent_task(
         return {"status": "skipped", "reason": "takeover_active"}
 
     ws_number = conv.ws_number
-    # Resolve linked org member before stripping USER_REQUIRED tools so
-    # line capabilities like send_ws_template_message survive when the
-    # contact is associated with a Masscer user.
     linked_user = None
     contact = getattr(conv, "ws_contact", None)
     if contact is not None and contact.user_id:
@@ -128,8 +122,6 @@ def whatsapp_conversation_agent_task(
     conv.metadata = metadata_payload_for_related_agents([ws_number.agent_id])
     conv.save(update_fields=["metadata", "updated_at"])
 
-    # Keep string notification route. Linked WSContact.user is also resolved
-    # inside conversation_agent_task for same-user conversation tool access.
     route_key = f"whatsapp:{conv.id}"
 
     result = conversation_agent_task(

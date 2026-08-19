@@ -43,12 +43,10 @@ from api.utils.vertex_gemini_text import (
 
 logger = logging.getLogger(__name__)
 
-
 def _merge_usage(acc: dict[str, int], usage_metadata: Any) -> None:
     d = _usage_to_dict(usage_metadata)
     for k in ("prompt_tokens", "completion_tokens", "total_tokens"):
         acc[k] = acc.get(k, 0) + d.get(k, 0)
-
 
 def _fc_args_to_dict(raw: Any) -> dict[str, Any]:
     if raw is None:
@@ -67,7 +65,6 @@ def _fc_args_to_dict(raw: Any) -> dict[str, Any]:
         except Exception:
             pass
     return {}
-
 
 class VertexGeminiAgentLoop(BaseAgentLoop):
     """Agent loop using Vertex Gemini ``generate_content`` with tools."""
@@ -417,8 +414,6 @@ class VertexGeminiAgentLoop(BaseAgentLoop):
                                 usage=total_usage,
                             )
 
-                    # Gemini requires one user turn with N functionResponse parts
-                    # for N parallel functionCall parts in the preceding model turn.
                     if response_parts:
                         contents.append(
                             genai_types.Content(

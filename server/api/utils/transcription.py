@@ -4,12 +4,10 @@ import time
 
 from openai import OpenAI
 
-
 SUPPORTED_AUDIO_FORMATS = [
     "flac", "m4a", "mp3", "mp4", "mpeg",
     "mpga", "oga", "ogg", "wav", "webm",
 ]
-
 
 def _delete_file_after_delay(file_path: str, delay: int = 5):
     """Delete a file after a specified delay."""
@@ -19,7 +17,6 @@ def _delete_file_after_delay(file_path: str, delay: int = 5):
         print(f"File {file_path} deleted successfully.")
     except Exception as e:
         print(f"Error deleting file {file_path}: {e}")
-
 
 class TranscriptionService:
     """
@@ -74,15 +71,12 @@ class TranscriptionService:
                 target=_delete_file_after_delay, args=(file_path,)
             ).start()
 
-        # For 'vtt' and 'srt' formats the API returns a raw string
         if output_format in ("vtt", "srt"):
             return transcription
 
-        # For 'verbose_json' the response is an object with .text, .language, etc.
         if output_format == "verbose_json":
             return transcription
 
-        # For 'text' format
         return transcription
 
     def transcribe_to_vtt(
@@ -106,6 +100,4 @@ class TranscriptionService:
         )
         return result.text
 
-
-# Module-level singleton for easy import
 transcription_service = TranscriptionService()

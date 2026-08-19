@@ -6,7 +6,6 @@ from api.authenticate.models import FeatureFlag, FeatureFlagAssignment, Role
 LEGACY_INTEGRATIONS_FLAG = "can-connect-drive-account"
 INTEGRATIONS_MANAGE_FLAG = "can-manage-integrations"
 
-
 def _migrate_legacy_integrations_flag(*, dry_run: bool = False) -> tuple[int, int]:
     """
     Copy role capabilities and user/org flag assignments from the retired
@@ -59,7 +58,6 @@ def _migrate_legacy_integrations_flag(*, dry_run: bool = False) -> tuple[int, in
 
     return migrated_roles, migrated_assignments
 
-
 class Command(BaseCommand):
     help = (
         "Ensure all known feature flags exist in the DB. "
@@ -105,7 +103,6 @@ class Command(BaseCommand):
             if was_created:
                 created.append(name)
             else:
-                # Update organization_only if it changed in the registry
                 if flag.organization_only != org_only:
                     flag.organization_only = org_only
                     flag.save(update_fields=["organization_only"])

@@ -1,23 +1,17 @@
 from api.utils.openai_functions import (
     generate_image,
     create_completion_openai,
-    # list_openai_models,
 )
 from .models import Agent
 from api.utils.color_printer import printer
 
-
-# MANDATORY_MODELS = ["llama3.2:1b", "qwen2.5:0.5b"]
 MANDATORY_MODELS = ["llama3.2:1b"]
-
 
 def check_models_for_providers():
     from api.utils.color_printer import printer
     from .models import LanguageModel
     from api.providers.models import AIProvider
     from api.utils.ollama_functions import list_ollama_models, pull_ollama_model
-
-    # from api.utils.openai_functions import list_openai_models
 
     openai_models_objects = [
 
@@ -140,8 +134,6 @@ def check_models_for_providers():
             "slug": "gemini-3.1-flash-lite-preview",
             "is_reasoning_model": True,
             "pricing": {
-                # Paid tier per Google (free tier omitted). Single prompt rate: text/image/video
-                # input $0.25/M; audio input is $0.50/M on Google's side — not modeled separately.
                 "text": {
                     "prompt": "0.25 USD / 1000000",
                     "output": "1.50 USD / 1000000",
@@ -153,7 +145,6 @@ def check_models_for_providers():
             "slug": "gemini-2.5-flash",
             "is_reasoning_model": True,
             "pricing": {
-                # Paid tier: input $0.30/M (text/image/video); audio input $1.00/M on Google — single prompt rate.
                 "text": {
                     "prompt": "0.30 USD / 1000000",
                     "output": "2.50 USD / 1000000",
@@ -165,8 +156,6 @@ def check_models_for_providers():
             "slug": "gemini-2.5-pro",
             "is_reasoning_model": True,
             "pricing": {
-                # Standard paid tier (ai.google.dev): input $1.25 / $2.50 per 1M for <= / > 200k tokens;
-                # output $10 / $15 per 1M (incl. thinking). Upper bounds for single-rate billing.
                 "text": {
                     "prompt": "2.50 USD / 1000000",
                     "output": "15.00 USD / 1000000",
@@ -178,8 +167,6 @@ def check_models_for_providers():
             "slug": "gemini-3.1-pro-preview",
             "is_reasoning_model": True,
             "pricing": {
-                # Paid tier: input max $4 / 1M, output max $18 / 1M (incl. thinking).
-                # We store the upper bounds so billing stays a single rate.
                 "text": {
                     "prompt": "4.00 USD / 1000000",
                     "output": "18.00 USD / 1000000",
@@ -199,45 +186,6 @@ def check_models_for_providers():
         },
     ]
 
-    # anthropic_models_objects = [
-    #     {
-    #         "name": "Claude 3.5 Sonnet",
-    #         "slug": "claude-3-5-sonnet-20241022",
-    #         "pricing": {
-    #             "text": {
-    #                 "prompt": "3.00 USD / 1000000",
-    #                 "output": "15.00 USD / 1000000",
-    #             }
-    #         },
-    #     },
-    #     {
-    #         "name": "Claude 3.5 Haiku",
-    #         "slug": "claude-3-5-haiku-20241022",
-    #         "pricing": {
-    #             "text": {
-    #                 "prompt": "0.80 USD / 1000000",
-    #                 "output": "4.00 USD / 1000000",
-    #             }
-    #         },
-    #     },
-    # ]
-    # openai_models_from_api = list_openai_models()
-    # printer.red(openai_models_from_api, "OPENAI MODELS FROM API")
-
-    # ollama_models = list_ollama_models()
-    # ollama_models = [{"name": m["name"], "slug": m["model"]} for m in ollama_models]
-    # ollama_models_slugs = [m["slug"] for m in ollama_models]
-    #
-    # should_list_again = False
-    # for model in MANDATORY_MODELS:
-    #     if model not in ollama_models_slugs:
-    #         pull_ollama_model(model)
-    #         should_list_again = True
-    #
-    # if should_list_again:
-    #     ollama_models = list_ollama_models()
-    #     ollama_models = [{"name": m["name"], "slug": m["model"]} for m in ollama_models]
-
     try:
         openai_provider = AIProvider.objects.get(name__iexact="openai")
     except AIProvider.DoesNotExist:
@@ -249,18 +197,6 @@ def check_models_for_providers():
     except AIProvider.DoesNotExist:
         printer.red("AIProvider 'google' does not exist.")
         google_provider = None
-
-    # try:
-    #     ollama_provider = AIProvider.objects.get(name__iexact="ollama")
-    # except AIProvider.DoesNotExist:
-    #     printer.red("AIProvider 'ollama' does not exist.")
-    #     ollama_provider = None
-
-    # try:
-    #     anthropic_provider = AIProvider.objects.get(name__iexact="anthropic")
-    # except AIProvider.DoesNotExist:
-    #     printer.red("AIProvider 'anthropic' does not exist.")
-    #     anthropic_provider = None
 
     if openai_provider:
         for model in openai_models_objects:
@@ -328,40 +264,7 @@ def check_models_for_providers():
                         f"Updated LanguageModel '{model['name']}' (Google)."
                     )
 
-    # # Create LanguageModels for Ollama
-    # if ollama_provider:
-    #     for model in ollama_models:
-    #         language_model, created = LanguageModel.objects.get_or_create(
-    #             provider=ollama_provider,
-    #             slug=model["slug"],
-    #             defaults={"name": model["name"]},
-    #         )
-    #         if created:
-    #             printer.green(
-    #                 f"LanguageModel '{model['name']}' created for provider 'Ollama'."
-    #             )
-
-    # # Create LanguageModels for Anthropic
-    # if anthropic_provider:
-    #     for model in anthropic_models_objects:
-    #         language_model, created = LanguageModel.objects.get_or_create(
-    #             provider=anthropic_provider,
-    #             slug=model["slug"],
-    #             defaults={"name": model["name"], "pricing": model["pricing"]},
-    #         )
-    #         if created:
-    #             printer.green(
-    #                 f"LanguageModel '{model['name']}' created for provider 'Anthropic'."
-    #             )
-    #         if not created and language_model.pricing != model["pricing"]:
-    #             language_model.pricing = model["pricing"]
-    #             language_model.save()
-    #             printer.yellow(
-    #                 f"Updated pricing for LanguageModel '{model['name']}' (Anthropic)."
-    #             )
-
     printer.success("All LLMs are now in the DB!")
-
 
 def answer_agent_inquiry(agent_slug: str, context: str, user_message: str):
     """
@@ -371,15 +274,12 @@ def answer_agent_inquiry(agent_slug: str, context: str, user_message: str):
     answer = agent.answer(context=context, user_message=user_message)
     return answer
 
-
 def generate_agent_profile_picture(agent_id: int):
     """
     Generate a profile picture for the agent
     """
     printer.blue(f"Generating profile picture for agent with id {agent_id}")
     agent = Agent.objects.get(id=agent_id)
-    # agent.generate_profile_picture()
-    # return agent.profile_picture_url
     prompt = agent.format_prompt(context="This is a test prompt")
 
     _system = f"""You are an artist, designer and web developer. Your task is to provide the description of an antropomorphic representation of an AI Agent based in the system prompt of that AI Agent.

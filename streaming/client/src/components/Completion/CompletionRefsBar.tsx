@@ -11,7 +11,6 @@ import { CompletionDetailModal } from "./CompletionDetailModal";
 type Props = {
   attachments?: TAttachment[];
   sources?: TSource[];
-  /** When set, parent renders CompletionDetailModal and handles open. */
   onOpenCompletion?: (
     id: string,
     fallback?: { content?: string; approved?: boolean }

@@ -62,10 +62,8 @@ export const WebsiteFetcher = ({
   }>({ isOpen: false, url: "", content: "" });
   const hasInitializedRef = useRef(false);
 
-  // Load existing URLs from store when modal opens
   useEffect(() => {
     if (!isOpen) {
-      // Reset transient input on close
       setUrlInput("");
       hasInitializedRef.current = false;
       return;
@@ -132,7 +130,6 @@ export const WebsiteFetcher = ({
       return;
     }
 
-    // Basic URL validation
     try {
       new URL(urlInput.trim());
     } catch {
@@ -237,7 +234,6 @@ export const WebsiteFetcher = ({
     }
   };
 
-
   const handleSavePage = async (url: string, title?: string) => {
     try {
       const saved = await createWebPage({ url, title });
@@ -321,7 +317,7 @@ export const WebsiteFetcher = ({
           </ActionIcon>
         </Group>
 
-        {/* Saved pages */}
+        {}
         {isLoadingSaved && <Text size="xs">{t("loading") || "Loading..."}</Text>}
         {!isLoadingSaved && savedPages.length === 0 && (
           <Text size="xs" c="dimmed">{t("no-saved-pages-yet") || "No saved pages yet"}</Text>
@@ -358,7 +354,7 @@ export const WebsiteFetcher = ({
           );
         })}
 
-        {/* Unsaved fetched URLs */}
+        {}
         {fetchedUrls
           .filter((f) => !savedPages.some((p) => p.url === f.url))
           .map((fetchedUrl, index) => (
@@ -399,7 +395,7 @@ export const WebsiteFetcher = ({
             </div>
           ))}
 
-        {/* Content preview modal */}
+        {}
         <Modal
           opened={contentModal.isOpen}
           onClose={() => setContentModal({ isOpen: false, url: "", content: "" })}

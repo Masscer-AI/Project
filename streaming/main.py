@@ -1,4 +1,3 @@
-# main.py
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,20 +14,16 @@ from server.mcp.oauth_metadata import router as oauth_metadata_router
 import socketio
 import asyncio
 
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     asyncio.create_task(listen_to_notifications())
     async with mcp_lifespan():
         yield
 
-
 app = FastAPI(lifespan=lifespan, redirect_slashes=False)
 
-# OAuth discovery (before MCP mount)
 app.include_router(oauth_metadata_router)
 
-# CORS origins from environment variable
 origins = os.getenv("CORS_ORIGINS", "*").split(",")
 
 app.add_middleware(
@@ -39,7 +34,6 @@ app.add_middleware(
     allow_origins=["*"],
     expose_headers=["Mcp-Session-Id"],
 )
-
 
 class _McpNoRedirectSlashMiddleware:
     """Rewrite /mcp → /mcp/ in-process so clients posting to the resource URL
@@ -57,10 +51,7 @@ class _McpNoRedirectSlashMiddleware:
                 scope["raw_path"] = b"/mcp/"
         await self.app(scope, receive, send)
 
-
-# MCP Streamable HTTP — mount before SPA catch-all routes
 app.mount("/mcp", wrap_mcp_app(handle_streamable_http))
-# Outermost (added last): normalize /mcp before Starlette Mount redirect.
 app.add_middleware(_McpNoRedirectSlashMiddleware)
 
 sio_asgi_app = socketio.ASGIApp(socketio_server=sio, other_asgi_app=app)
@@ -70,14 +61,12 @@ os.makedirs(AUDIO_DIR, exist_ok=True)
 
 app.include_router(router)
 app.mount("/assets", StaticFiles(directory="client/dist/assets"), name="static")
-# Notification tone WAVs from Vite public/sounds → client/dist/sounds
 SOUNDS_DIR = os.path.join("client", "dist", "sounds")
 os.makedirs(SOUNDS_DIR, exist_ok=True)
 app.mount("/sounds", StaticFiles(directory=SOUNDS_DIR), name="sounds")
 app.add_route("/socket.io/", route=sio_asgi_app, methods=["GET", "POST"])
 app.add_websocket_route("/socket.io/", route=sio_asgi_app)
 
-# Widget loader route
 from fastapi.responses import Response
 from fastapi import Request
 
@@ -93,7 +82,6 @@ async def widget_loader(widget_token: str, request: Request):
         base_url = api_url = streaming_server_url = frontend_url
     else:
         base_url = str(request.base_url).rstrip("/")
-        # Behind proxy (ngrok, nginx): use X-Forwarded-Proto for correct scheme
         forwarded_proto = request.headers.get("x-forwarded-proto", "").lower()
         if forwarded_proto == "https" and base_url.startswith("http://"):
             base_url = "https://" + base_url[7:]

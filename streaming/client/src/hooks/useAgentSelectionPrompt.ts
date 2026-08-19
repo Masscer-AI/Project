@@ -3,19 +3,13 @@ import { useDisclosure } from "@mantine/hooks";
 
 type UseAgentSelectionPromptOptions = {
   conversationId: string | undefined;
-  /** When false (viewer/read-only), the modal is never auto-opened. */
   enabled: boolean;
   hasAgents: boolean;
   selectedAgentCount: number;
   messageCount: number;
-  /** When true, close the modal as soon as at least one agent is selected. */
   closeOnFirstSelection?: boolean;
 };
 
-/**
- * Auto-opens the agents modal on empty chats with no selection.
- * Remembers dismissal per conversation so closing without selecting does not loop.
- */
 export function useAgentSelectionPrompt({
   conversationId,
   enabled,

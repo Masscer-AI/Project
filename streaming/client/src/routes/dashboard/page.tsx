@@ -197,8 +197,6 @@ export default function DashboardPage() {
   );
 }
 
-// ─── Stats ──────────────────────────────────────────────────────────────────────
-
 function DashboardStats({
   convStats,
   alertStats,

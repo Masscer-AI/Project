@@ -60,7 +60,6 @@ const router = createBrowserRouter([
     errorElement: <ErrorPage />,
     children: [
       {
-        // Landing + auth: always dark UI (hardcoded dark panels break in light scheme).
         element: <ForceDarkColorScheme />,
         children: [
           {

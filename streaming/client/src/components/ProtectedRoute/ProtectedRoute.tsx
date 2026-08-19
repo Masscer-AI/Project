@@ -9,7 +9,6 @@ import { Loader, Stack } from "@mantine/core";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  /** When omitted, only authentication is required (login redirect with ?next=). */
   featureFlag?: string;
 }
 
@@ -21,8 +20,6 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   const location = useLocation();
   const [authFailed, setAuthFailed] = useState(false);
 
-  // On hard reload the store has no user yet — fetch it so the feature-flag
-  // hook (which depends on `user`) can proceed.
   useEffect(() => {
     if (user || authFailed) return;
     getUser()
@@ -30,7 +27,6 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
       .catch(() => setAuthFailed(true));
   }, [user, authFailed, setUser]);
 
-  // Always call hooks; result is only used when featureFlag is set.
   const isEnabled = useIsFeatureEnabled(featureFlag ?? "__auth_only__");
 
   if (authFailed) {

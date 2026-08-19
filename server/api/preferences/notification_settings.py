@@ -6,7 +6,6 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-# Built-in tone identifiers — add new refs here as more tones ship.
 NotificationToneRef = Literal[
     "chime_success_ascending",
     "chime_error_descending",
@@ -37,7 +36,6 @@ NOTIFICATION_TONE_REFS: tuple[str, ...] = (
     "error_descending_two_b",
 )
 
-# Catalog for tone-picker UIs / public API.
 NOTIFICATION_TONE_CATALOG: list[dict[str, str]] = [
     {
         "ref": "chime_success_ascending",
@@ -101,7 +99,6 @@ NOTIFICATION_TONE_CATALOG: list[dict[str, str]] = [
     },
 ]
 
-
 class NotificationSettings(BaseModel):
     """User notification sound preferences."""
 
@@ -126,10 +123,8 @@ class NotificationSettings(BaseModel):
         description="Tone played on error events.",
     )
 
-
 def default_notification_settings_dict() -> dict[str, Any]:
     return NotificationSettings().model_dump()
-
 
 def normalize_notification_settings(raw: dict[str, Any] | None) -> dict[str, Any]:
     """Merge stored JSON with defaults and validate."""

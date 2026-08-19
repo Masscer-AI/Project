@@ -8,7 +8,6 @@ from rest_framework.test import APIClient
 
 from api.authenticate.models import Organization
 
-
 class MasscerHelpCatalogTests(SimpleTestCase):
     def test_help_topics_json_validates(self):
         from api.ai_layers.masscer_help import load_help_topic_catalog, reload_help_topic_catalog_for_tests
@@ -28,7 +27,6 @@ class MasscerHelpCatalogTests(SimpleTestCase):
         self.assertIn("get_masscer_help_topic", names)
         self.assertIn("list_masscer_help_topics", names)
 
-
 class MasscerHelpTopicToolTests(TestCase):
     def test_get_masscer_help_topic_returns_url_and_steps(self):
         from api.ai_layers.tools.get_masscer_help_topic import _get_masscer_help_topic_impl
@@ -46,7 +44,6 @@ class MasscerHelpTopicToolTests(TestCase):
         ids = {t.id for t in result.topics}
         self.assertIn("invite_user", ids)
         self.assertIn("create_agent", ids)
-
 
 class ConversationTaggingToolsRegistryTests(SimpleTestCase):
     def test_tagging_tools_are_registered(self):
@@ -71,7 +68,6 @@ class ConversationTaggingToolsRegistryTests(SimpleTestCase):
 
         self.assertNotIn("document-maker", PLUGIN_DEFINITIONS)
 
-
 class PluginRegistryTests(SimpleTestCase):
     def test_format_plugins_instruction_empty_when_none(self):
         from api.ai_layers.plugins import format_plugins_instruction
@@ -91,7 +87,6 @@ class PluginRegistryTests(SimpleTestCase):
         from api.ai_layers.plugins import format_plugins_instruction
 
         self.assertEqual(format_plugins_instruction(["not-a-real-plugin"]), "")
-
 
 class AgentSessionExecutionLogTests(SimpleTestCase):
     def test_extract_tool_calls_pairs_function_calls_with_outputs(self):
@@ -175,7 +170,6 @@ class AgentSessionExecutionLogTests(SimpleTestCase):
 
         self.assertEqual([call["iteration"] for call in tool_calls], [1, 2])
 
-
 class VertexGeminiTextHelpersTests(SimpleTestCase):
     def test_messages_to_contents_maps_assistant_to_model(self):
         from google.genai import types as genai_types
@@ -208,7 +202,6 @@ class VertexGeminiTextHelpersTests(SimpleTestCase):
         from api.utils.vertex_gemini_text import DEFAULT_VERTEX_TEXT_MODEL
 
         self.assertEqual(DEFAULT_VERTEX_TEXT_MODEL, "gemini-3.1-flash-lite-preview")
-
 
 class VertexGeminiAgentLoopParallelFunctionCallTests(SimpleTestCase):
     def test_parallel_tool_responses_batched_in_single_user_turn(self):
@@ -303,7 +296,6 @@ class VertexGeminiAgentLoopParallelFunctionCallTests(SimpleTestCase):
         names = {p.function_response.name for p in fr_parts}
         self.assertEqual(names, {"tool_a", "tool_b"})
 
-
 class CreateImageModelCatalogTests(SimpleTestCase):
     def test_catalog_exposes_default_and_supported_slugs(self):
         from api.ai_layers.tools.create_image import (
@@ -344,7 +336,6 @@ class CreateImageModelCatalogTests(SimpleTestCase):
         self.assertIn("gpt-image-2", tool["description"])
         self.assertIn("gemini-3.1-flash-lite-image", tool["description"])
         self.assertIsNone(tool["parameters"].model_fields["model"].default)
-
 
 class CreateImageToolBehaviorTests(TestCase):
     def setUp(self):
@@ -437,7 +428,6 @@ class CreateImageToolBehaviorTests(TestCase):
                 agent_slug=self.agent.slug,
             )
         self.assertIn("Unsupported image model", str(ctx.exception))
-
 
 class ToolAttachmentExtractionTests(SimpleTestCase):
     def test_extract_render_document_template_attachments(self):
@@ -540,7 +530,6 @@ class ToolAttachmentExtractionTests(SimpleTestCase):
             attachment_ids, ["b2c3d4e5-f6a7-8901-bcde-f12345678901"]
         )
 
-
 class GenerateDocumentFileToolTests(SimpleTestCase):
     @patch("api.ai_layers.models.Agent")
     @patch("api.messaging.models.MessageAttachment")
@@ -574,7 +563,6 @@ class GenerateDocumentFileToolTests(SimpleTestCase):
         self.assertIn("report.docx", result.content)
         mock_convert.assert_called_once_with("# Title\n\nBody", "md")
         mock_attachment_cls.objects.create.assert_called_once()
-
 
 class GenerateExcelFileToolTests(SimpleTestCase):
     @patch("api.ai_layers.models.Agent")
@@ -613,7 +601,6 @@ class GenerateExcelFileToolTests(SimpleTestCase):
         from api.ai_layers.tools import list_available_tools
 
         self.assertIn("generate_excel_file", list_available_tools())
-
 
 class GenerateGammaAttachmentToolTests(SimpleTestCase):
     def test_generate_gamma_attachment_is_registered(self):
@@ -887,7 +874,6 @@ class GenerateGammaAttachmentToolTests(SimpleTestCase):
             )
         self.assertIn("GAMMA_API_KEY", str(ctx.exception))
 
-
 class SendEmailToolTests(SimpleTestCase):
     def test_agent_from_local_part_truncates_and_sanitizes(self):
         from api.ai_layers.tools.send_email import _agent_from_local_part
@@ -1050,7 +1036,6 @@ class SendEmailToolTests(SimpleTestCase):
         self.assertIn("list_organization_roles", names)
         self.assertNotIn("send_email_to_user", names)
 
-
 class OrgMembershipHelpersTests(TestCase):
     def setUp(self):
         from api.ai_layers.models import LanguageModel
@@ -1189,7 +1174,6 @@ class OrgMembershipHelpersTests(TestCase):
         from api.authenticate.models import UserProfile
 
         owner_profile, _ = UserProfile.objects.get_or_create(user=self.owner)
-        # Keep organization unset to mirror common owner edge case.
         owner_profile.organization = None
         owner_profile.phone_numbers = [
             {"country_code": "1", "number": "2025550100", "is_default": True}
@@ -1211,7 +1195,6 @@ class OrgMembershipHelpersTests(TestCase):
         role = next(r for r in result.roles if r.name == "Managers")
         self.assertEqual(role.active_member_count, 2)
         self.assertIn(self.role_user.id, role.member_user_ids)
-
 
 class AgentTaskConversationMetadataTests(TestCase):
     """related_agents metadata is written on agent-task POST (not via conversation PUT)."""
@@ -1332,7 +1315,6 @@ class AgentTaskConversationMetadataTests(TestCase):
         self.assertEqual(after_cancel.status_code, 200)
         self.assertFalse(after_cancel.json()["active"])
 
-        # Stale cache + finished session (execution log exists) must report inactive.
         from datetime import timedelta
 
         mark_agent_task_active(str(conv.id))
@@ -1408,7 +1390,6 @@ class AgentTaskConversationMetadataTests(TestCase):
         mock_get_takeover.assert_called_once_with(conv)
         mock_handle_takeover.assert_called_once()
         mock_delay.assert_not_called()
-
 
 class CreateCompletionToolTests(TestCase):
     @patch("api.authenticate.services.FeatureFlagService.is_feature_enabled")
@@ -1565,7 +1546,6 @@ class CreateCompletionToolTests(TestCase):
         CompletionAssignment.objects.create(completion=c, agent=agent)
         self.assertFalse(mock_chroma.upsert_chunk.called)
 
-
 class WhatsappCrossThreadToolsTests(SimpleTestCase):
     def test_query_conversation_get_tool_whatsapp_org_scoped(self):
         from api.ai_layers.tools.query_conversation import get_tool
@@ -1579,7 +1559,6 @@ class WhatsappCrossThreadToolsTests(SimpleTestCase):
         self.assertEqual(tool["name"], "query_conversation")
         self.assertIsNotNone(tool["function"])
         self.assertIn("organization", tool["description"].lower())
-
 
 class GetTagContextOrganizationScopeTests(TestCase):
     def setUp(self):
@@ -1634,7 +1613,6 @@ class GetTagContextOrganizationScopeTests(TestCase):
         ids = {c.conversation_id for c in result.conversations}
         self.assertIn(str(self.app_conv.id), ids)
         self.assertNotIn(str(self.wa_conv.id), ids)
-
 
 class SameUserConversationAccessTests(TestCase):
     """Linked WSContact.user shares conversation access with web chat for that user."""
@@ -1695,7 +1673,6 @@ class SameUserConversationAccessTests(TestCase):
         contact.user = self.member
         contact.save(update_fields=["user", "updated_at"])
 
-        # Prior thread after /clear — inactive, same contact
         self.wa_inactive = Conversation.objects.create(
             ws_number=self.ws,
             ws_contact=contact,
@@ -1825,7 +1802,6 @@ class SameUserConversationAccessTests(TestCase):
         )
         self.assertIn("organization", tool["description"].lower())
 
-
 class AgentSessionExecutionLogAccessTests(TestCase):
     def setUp(self):
         from api.authenticate.models import Organization, Token
@@ -1872,7 +1848,6 @@ class AgentSessionExecutionLogAccessTests(TestCase):
         payload = res.json()
         self.assertEqual(len(payload["sessions"]), 1)
         self.assertEqual(len(payload["sessions"][0]["event_log"]), 1)
-
 
 class PlatformAssistantTests(TestCase):
     def setUp(self):
@@ -2039,7 +2014,6 @@ class PlatformAssistantTests(TestCase):
                 model_slug=self.llm.slug,
             )
 
-
 class MCPAccessTests(SimpleTestCase):
     def test_sanitize_mcp_tool_name(self):
         from api.ai_layers.mcp_access import sanitize_mcp_tool_name, tool_name_to_agent_slug
@@ -2130,7 +2104,6 @@ class MCPAccessTests(SimpleTestCase):
         self.assertIn("expires_at", att)
         token = parse_qs(urlparse(att["download_url"]).query)["token"][0]
         self.assertEqual(verify_mcp_attachment_download_token(token), aid)
-
 
 class MCPGatewayTests(TestCase):
     def setUp(self):
@@ -2535,7 +2508,6 @@ class MCPGatewayTests(TestCase):
         self.assertEqual(res.status_code, 200)
         self.mcp_client.refresh_from_db()
         self.assertTrue(self.mcp_client.revoked)
-
 
 class ListAttachmentsToolTests(TestCase):
     def setUp(self):

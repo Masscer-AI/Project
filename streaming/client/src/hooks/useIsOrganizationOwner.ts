@@ -14,7 +14,6 @@ function orgIndicatesCurrentUserOwns(
   );
 }
 
-/** True if the user owns at least one organization returned by /v1/auth/organizations/. */
 export function useIsOrganizationOwner(): boolean | null {
   const user = useStore((s) => s.user);
   const [isOwner, setIsOwner] = useState<boolean | null>(null);

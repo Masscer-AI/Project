@@ -7,7 +7,6 @@ can make authenticated Cloudbeds API calls on behalf of each property.
 
 from django.db import models
 
-
 class CloudbedsCredential(models.Model):
     """
     OAuth 2.0 credentials for a single Cloudbeds property, scoped to an
@@ -20,7 +19,6 @@ class CloudbedsCredential(models.Model):
         related_name="cloudbeds_credential",
     )
 
-    # OAuth tokens
     access_token = models.TextField(help_text="Cloudbeds OAuth access token.")
     refresh_token = models.TextField(
         blank=True,
@@ -34,7 +32,6 @@ class CloudbedsCredential(models.Model):
         help_text="UTC datetime when the access_token expires. Null = non-expiring.",
     )
 
-    # Property metadata (cached at connect time)
     property_id = models.CharField(
         max_length=100,
         blank=True,

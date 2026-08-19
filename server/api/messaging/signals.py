@@ -12,7 +12,6 @@ from .models import Conversation, Message
 
 logger = logging.getLogger(__name__)
 
-
 def _resolve_billing_context(conversation: Conversation) -> tuple[int | None, int | None]:
     """
     Return (billing_user_id, organization_id) for consumption registration.
@@ -31,7 +30,6 @@ def _resolve_billing_context(conversation: Conversation) -> tuple[int | None, in
         if owner_id:
             return owner_id, organization_id
     return None, organization_id
-
 
 @receiver(post_save, sender=Message)
 def message_post_save(sender, instance, **kwargs):
@@ -69,7 +67,6 @@ def message_post_save(sender, instance, **kwargs):
                     organization_id,
                 )
         
-        # Marcar conversación como pendiente de análisis si corresponde
         conversation = instance.conversation
         if conversation.user:
             organization = get_user_organization(conversation.user)
@@ -80,7 +77,6 @@ def message_post_save(sender, instance, **kwargs):
             else:
                 enabled = False
             if enabled:
-                # Solo marcar si no está ya marcada (evitar updates innecesarios)
                 if not conversation.pending_analysis:
                     conversation.pending_analysis = True
                     conversation.save(update_fields=['pending_analysis'])

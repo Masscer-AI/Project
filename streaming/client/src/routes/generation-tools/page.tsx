@@ -42,8 +42,6 @@ import {
   IconWaveSine,
 } from "@tabler/icons-react";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 interface Transcription {
   id: number;
   format: string;
@@ -61,8 +59,6 @@ interface TranscriptionJob {
   transcriptions: Transcription[];
   status_text: string;
 }
-
-// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function GenerationToolsPage() {
   const { chatState, toggleSidebar } = useStore((s) => ({
@@ -113,19 +109,15 @@ export default function GenerationToolsPage() {
   );
 }
 
-// ─── Transcription Section ────────────────────────────────────────────────────
-
 const TranscriptionSection = () => {
   const { t } = useTranslation();
   const [jobs, setJobs] = useState<TranscriptionJob[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Source options
   const [sourceType, setSourceType] = useState("youtube");
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [audioFile, setAudioFile] = useState<File | null>(null);
 
-  // Recording
   const [recording, setRecording] = useState(false);
   const [recordingStarted, setRecordingStarted] = useState(false);
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
@@ -167,8 +159,6 @@ const TranscriptionSection = () => {
     }
   };
 
-  // ── Recording controls ──
-
   const startRecording = async () => {
     setRecording(true);
     setRecordingStarted(true);
@@ -205,8 +195,6 @@ const TranscriptionSection = () => {
       setRecording(true);
     }
   };
-
-  // ── Submit ──
 
   const handleSubmit = async () => {
     if (sourceType === "youtube" && !youtubeUrl) {
@@ -252,11 +240,9 @@ const TranscriptionSection = () => {
     }
   };
 
-  // ── Render ──
-
   return (
     <>
-      {/* ── New transcription ── */}
+      {}
       <Card withBorder p="lg">
         <Title order={4} mb="md">
           {t("transcribe")}
@@ -343,7 +329,7 @@ const TranscriptionSection = () => {
         </Stack>
       </Card>
 
-      {/* ── Jobs list ── */}
+      {}
       {jobs.length > 0 && (
         <Card withBorder p="lg">
           <Title order={4} mb="md">
@@ -364,8 +350,6 @@ const TranscriptionSection = () => {
     </>
   );
 };
-
-// ─── Job Card ─────────────────────────────────────────────────────────────────
 
 const TranscriptionJobCard = ({
   job,
@@ -396,7 +380,7 @@ const TranscriptionJobCard = ({
 
   return (
     <>
-      {/* Preview modal */}
+      {}
       <Modal
         opened={previewContent !== null}
         onClose={() => setPreviewContent(null)}

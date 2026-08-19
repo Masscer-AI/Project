@@ -25,7 +25,6 @@ export function getPortalAccessErrorData(
   return axiosErr.response?.data ?? null;
 }
 
-/** Redirect to the main app when the user cannot access this tenant portal. */
 export function handleTenantPortalAccessError(error: unknown): boolean {
   const data = getPortalAccessErrorData(error);
   if (!data?.code) return false;

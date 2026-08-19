@@ -28,18 +28,15 @@ VALID_PROVIDERS: frozenset[str] = frozenset({c.value for c in IntegrationProvide
 INTEGRATIONS_MANAGE_FEATURE_FLAG = "can-manage-integrations"
 INTEGRATIONS_RETURN_PATH_PREFIX = "/integrations"
 
-# google_calendar is personal-only (no organization-owned connection).
 USER_ONLY_INTEGRATION_PROVIDERS: frozenset[str] = frozenset(
     {IntegrationProviderChoices.GOOGLE_CALENDAR.value}
 )
-
 
 def reject_user_only_provider_org_owner(provider: str, owner_type: str) -> None:
     if provider in USER_ONLY_INTEGRATION_PROVIDERS and owner_type == "organization":
         raise ValueError(
             f"{provider} can only be connected for your personal account, not the organization."
         )
-
 
 def user_has_personal_google_calendar(user_id: int | None) -> bool:
     if not user_id:
@@ -52,14 +49,11 @@ def user_has_personal_google_calendar(user_id: int | None) -> bool:
         status=IntegrationStatus.ACTIVE,
     ).exists()
 
-
 def get_google_client_id() -> str:
     return os.environ.get("GOOGLE_CLIENT_ID", "").strip()
 
-
 def get_google_client_secret() -> str:
     return os.environ.get("GOOGLE_CLIENT_SECRET", "").strip()
-
 
 def get_redirect_uri(request, provider: str) -> str:
     """Backend callback URL for OAuth redirect (canonical, not tenant host)."""
@@ -75,14 +69,12 @@ def get_redirect_uri(request, provider: str) -> str:
         return f"{frontend_base}/v1/integrations/{provider}/callback/"
     return request.build_absolute_uri(f"/v1/integrations/{provider}/callback/")
 
-
 def get_frontend_integrations_url(*, error: str = "") -> str:
     base = get_frontend_base_url()
     url = f"{base}{INTEGRATIONS_RETURN_PATH_PREFIX}"
     if error:
         return f"{url}?error={error}"
     return url
-
 
 def validate_return_to(url: str) -> str | None:
     """Return normalized return URL or None if unsafe."""
@@ -109,13 +101,11 @@ def validate_return_to(url: str) -> str | None:
     )
     return normalized
 
-
 def resolve_integrations_return_to(raw: str | None) -> str:
     validated = validate_return_to(raw or "")
     if validated:
         return validated
     return get_frontend_integrations_url()
-
 
 def build_integrations_return_url(return_to: str, *, error: str = "") -> str:
     base_url = resolve_integrations_return_to(return_to)
@@ -135,7 +125,6 @@ def build_integrations_return_url(return_to: str, *, error: str = "") -> str:
         )
     )
 
-
 def get_user_organization(user: User) -> Organization | None:
     owned = Organization.objects.filter(owner=user).first()
     if owned:
@@ -145,13 +134,11 @@ def get_user_organization(user: User) -> Organization | None:
         return profile.organization
     return None
 
-
 def integrations_capability_denied_message() -> str:
     return (
         f"The '{INTEGRATIONS_MANAGE_FEATURE_FLAG}' feature is not enabled "
         "for your account."
     )
-
 
 def user_can_manage_integrations(user: User, organization: Organization | None) -> bool:
     enabled, _ = FeatureFlagService.is_feature_enabled(
@@ -161,20 +148,17 @@ def user_can_manage_integrations(user: User, organization: Organization | None) 
     )
     return enabled
 
-
 def parse_owner_type(raw: str | None, default: str = "user") -> OwnerType:
     value = (raw or default).strip().lower()
     if value not in VALID_OWNERS:
         raise ValueError(f"owner must be one of: {', '.join(sorted(VALID_OWNERS))}")
     return value  # type: ignore[return-value]
 
-
 def validate_provider_key(provider: str) -> str:
     key = (provider or "").strip().lower()
     if key not in VALID_PROVIDERS:
         raise ValueError(f"Unknown provider: {provider}")
     return key
-
 
 def integration_queryset_for_user(user: User):
     org = get_user_organization(user)
@@ -184,7 +168,6 @@ def integration_queryset_for_user(user: User):
     if org:
         q |= Q(organization=org)
     return Integration.objects.filter(q).select_related("user", "organization")
-
 
 def get_integration_for_owner(
     *,
@@ -198,7 +181,6 @@ def get_integration_for_owner(
     if organization is None:
         return None
     return Integration.objects.filter(provider=provider, organization=organization).first()
-
 
 def ensure_valid_access_token(integration: Integration) -> str:
     """
@@ -214,7 +196,7 @@ def ensure_valid_access_token(integration: Integration) -> str:
         integration.provider,
         client_id=get_google_client_id(),
         client_secret=get_google_client_secret(),
-        redirect_uri="",  # not needed for refresh
+        redirect_uri="",
     )
     token_data = provider.refresh_access_token(integration.refresh_token)
     integration.access_token = token_data["access_token"]
@@ -230,7 +212,6 @@ def ensure_valid_access_token(integration: Integration) -> str:
         update_fields=["access_token", "refresh_token", "expires_at", "updated_at"]
     )
     return integration.access_token
-
 
 def serialize_integration(integration: Integration) -> dict:
     return {

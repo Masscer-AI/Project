@@ -18,7 +18,6 @@ import {
 } from "@mantine/core";
 import { IconEye, IconEyeOff } from "@tabler/icons-react";
 
-/** Converts extraction keys like guest_name, check_in_time to readable labels. */
 function formatExtractionKey(key: string): string {
   return key
     .split("_")

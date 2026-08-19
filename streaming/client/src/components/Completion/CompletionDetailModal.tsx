@@ -22,7 +22,6 @@ type Props = {
   completionId: string | null;
   opened: boolean;
   onClose: () => void;
-  /** Fallback when API fetch fails (e.g. from RAG source content). */
   fallbackContent?: string;
   fallbackApproved?: boolean;
 };
