@@ -366,6 +366,26 @@ export const updateAgent = async (agentSlug: string, updatedData: any) => {
   }
 };
 
+export const regenerateAgentDescription = async (
+  agentSlug: string,
+  draft?: {
+    name?: string;
+    act_as?: string;
+    system_prompt?: string;
+    salute?: string;
+  }
+) => {
+  return makeAuthenticatedRequest<{
+    description: string;
+    agent: TAgent;
+  }>(
+    "POST",
+    `/v1/ai_layers/agents/${agentSlug}/regenerate-description/`,
+    draft || {},
+    false
+  );
+};
+
 type TCreateLlmPayload = {
   provider: string;
   slug: string;

@@ -2042,8 +2042,10 @@ def conversation_agent_task(
             if _is_handoff_continuation and isinstance(user_message_metadata, dict):
                 _from_name = user_message_metadata.get("handoff_from_name") or "another agent"
                 _from_slug = user_message_metadata.get("handoff_from_slug") or ""
-                _handoff_summary = (
-                    user_message_metadata.get("handoff_summary") or ""
+                _handoff_instructions = (
+                    user_message_metadata.get("handoff_agent_instructions")
+                    or user_message_metadata.get("handoff_summary")
+                    or ""
                 ).strip()
                 instructions += (
                     "\n\n=== AGENT HANDOFF ===\n"
@@ -2053,10 +2055,12 @@ def conversation_agent_task(
                     + ".\n"
                     "You are the specialist taking over. The conversation history includes "
                     "the user's request and the previous assistant's visible handoff message. "
-                    "Follow the private summary below; do not invent a second handoff.\n"
+                    "Follow the private instructions below; do not invent a second handoff.\n"
                 )
-                if _handoff_summary:
-                    instructions += f"\nBrief from previous agent:\n{_handoff_summary}\n"
+                if _handoff_instructions:
+                    instructions += (
+                        f"\nInstructions from previous agent:\n{_handoff_instructions}\n"
+                    )
                 instructions += "=== END AGENT HANDOFF ===\n"
 
             if (
@@ -2069,10 +2073,10 @@ def conversation_agent_task(
                     "Use list_agents to see accessible agents (slug, name, description). "
                     "Then call handoff_to_agent with:\n"
                     "- agent_slug: target from list_agents\n"
-                    "- user_message: required text shown to the user as YOUR assistant reply "
+                    "- message_for_user: required text shown to the user as YOUR assistant reply "
                     "(explain that you are handing off and why)\n"
-                    "- summary: private brief for the next agent only (what you did, what remains, "
-                    "why them) — never shown as a chat bubble\n"
+                    "- agent_instructions: private instructions the next agent must follow "
+                    "(what you did, what remains, why them) — never shown as a chat bubble\n"
                     "After a successful handoff, stop — do not continue working.\n"
                     "=== END AGENT HANDOFF TOOLS ===\n"
                 )
@@ -2407,16 +2411,19 @@ def conversation_agent_task(
 
             if handoff_request.get("requested"):
                 from api.ai_layers.agent_task_helpers import mark_agent_task_active
-                from api.ai_layers.tools import resolve_allowed_tools
-                from api.messaging.schemas import metadata_payload_for_related_agents
 
                 to_slug = handoff_request.get("to_agent_slug")
                 to_name = handoff_request.get("to_agent_name") or to_slug
-                to_id = handoff_request.get("to_agent_id")
                 handoff_user_message = (
-                    handoff_request.get("user_message") or output_text
+                    handoff_request.get("message_for_user")
+                    or handoff_request.get("user_message")
+                    or output_text
                 ).strip()
-                handoff_summary = (handoff_request.get("summary") or "").strip()
+                handoff_agent_instructions = (
+                    handoff_request.get("agent_instructions")
+                    or handoff_request.get("summary")
+                    or ""
+                ).strip()
                 version["text"] = handoff_user_message
                 versions[-1] = version
                 output_text = handoff_user_message
@@ -2469,9 +2476,8 @@ def conversation_agent_task(
                 session.assistant_message = handoff_msg
                 session.save(update_fields=["assistant_message"])
 
-                if to_id:
-                    conv_ref.metadata = metadata_payload_for_related_agents([to_id])
-                    conv_ref.save(update_fields=["metadata", "updated_at"])
+                # Do not rewrite conversation.metadata.related_agents — the user's
+                # chat selection must stay as they left it after a handoff.
 
                 emit_event(
                     "agent_complete",
@@ -2516,7 +2522,7 @@ def conversation_agent_task(
                         "source": "agent_handoff",
                         "handoff_from_slug": agent.slug,
                         "handoff_from_name": agent.name,
-                        "handoff_summary": handoff_summary,
+                        "handoff_agent_instructions": handoff_agent_instructions,
                     },
                 )
                 logger.info(

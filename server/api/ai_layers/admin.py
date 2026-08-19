@@ -1,4 +1,4 @@
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.utils.html import format_html
 from django.urls import reverse
 from django.utils.safestring import mark_safe
@@ -64,9 +64,10 @@ class AgentAdminForm(forms.ModelForm):
 @admin.register(Agent)
 class AgentAdmin(admin.ModelAdmin):
     form = AgentAdminForm
-    list_display = ("name", "slug", "agent_kind", "user", "organization", "is_public", "generate_widget_link")
-    search_fields = ("name", "slug", "user__username", "organization__name")
+    list_display = ("name", "slug", "agent_kind", "user", "organization", "is_public", "has_description", "generate_widget_link")
+    search_fields = ("name", "slug", "user__username", "organization__name", "description")
     list_filter = ("agent_kind", "is_public", "organization", "user")
+    actions = ["fill_empty_descriptions"]
     
     fieldsets = (
         ("Basic Information", {
@@ -184,7 +185,49 @@ class AgentAdmin(admin.ModelAdmin):
         )
     
     generate_widget_link.short_description = "Chat Widget"
-    
+
+    @admin.display(description="Description", boolean=True)
+    def has_description(self, obj):
+        return bool((obj.description or "").strip())
+
+    @admin.action(description="Fill empty descriptions (LLM, billed to org)")
+    def fill_empty_descriptions(self, request, queryset):
+        from api.ai_layers.agent_description import fill_empty_agent_description
+
+        filled = 0
+        skipped = 0
+        errors = 0
+        qs = queryset.select_related("organization", "user")
+        for agent in qs:
+            if (agent.description or "").strip():
+                skipped += 1
+                continue
+            try:
+                result = fill_empty_agent_description(
+                    agent,
+                    billing_user_id=request.user.id,
+                )
+            except Exception as exc:
+                errors += 1
+                self.message_user(
+                    request,
+                    f"{agent.slug}: {exc}",
+                    level=messages.ERROR,
+                )
+                continue
+            if result:
+                filled += 1
+            else:
+                skipped += 1
+
+        level = messages.SUCCESS if filled and not errors else messages.WARNING
+        self.message_user(
+            request,
+            f"Descriptions: {filled} filled, {skipped} skipped, {errors} errors. "
+            "LLM cost registered against each agent's organization.",
+            level=level,
+        )
+
     def changelist_view(self, request, extra_context=None):
         self._request = request
         return super().changelist_view(request, extra_context)

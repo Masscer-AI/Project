@@ -11,6 +11,7 @@ from .views import (
     cancel_agent_task,
     agent_task_status,
     agent_tool_groups,
+    regenerate_agent_description_view,
 )
 from .mcp_views import (
     mcp_list_agents,
@@ -30,6 +31,11 @@ urlpatterns = [
     path("agents/create/random/", create_random_agent, name="create_random_agent"),
     path("agents/tool-groups/", agent_tool_groups, name="agent_tool_groups"),
     path("agents/<slug:slug>/", AgentView.as_view(), name="agents_single"),
+    path(
+        "agents/<slug:slug>/regenerate-description/",
+        regenerate_agent_description_view,
+        name="agents_regenerate_description",
+    ),
     path("models/", LanguageModelView.as_view(), name="models_list"),
     path("models/<str:slug>/", LanguageModelView.as_view(), name="models_single"),
     path(

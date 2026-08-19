@@ -417,6 +417,94 @@ class LanguageModelView(View):
 
 @csrf_exempt
 @token_required
+def regenerate_agent_description_view(request, slug):
+    """
+    POST /v1/ai_layers/agents/<slug>/regenerate-description/
+
+    Regenerates Agent.description via LLM and persists it. Cost is billed to the
+    agent's organization (or the user's personal wallet for personal agents).
+
+    Optional JSON body fields (draft overrides for generation): name, act_as,
+    system_prompt, salute.
+    """
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    from api.ai_layers.agent_description import regenerate_agent_description
+
+    user_org = None
+    if hasattr(request.user, "profile") and request.user.profile.organization:
+        user_org = request.user.profile.organization
+
+    has_admin_flag, _ = FeatureFlagService.is_feature_enabled(
+        "edit-organization-agent",
+        organization=user_org,
+        user=request.user,
+    )
+
+    agent = _get_agent_for_user_mutation(request.user, slug)
+    if agent.agent_kind != AgentKind.CONVERSATIONAL_AGENT:
+        return JsonResponse({"error": "This agent cannot be edited"}, status=403)
+
+    can_edit = (agent.user == request.user) or (
+        has_admin_flag and agent.organization == user_org
+    )
+    if not can_edit:
+        return JsonResponse(
+            {"error": "You don't have permission to edit this agent"},
+            status=403,
+        )
+
+    try:
+        body = JSONParser().parse(request) if request.body else {}
+    except Exception:
+        body = {}
+    if not isinstance(body, dict):
+        body = {}
+
+    def _opt_str(key: str) -> str | None:
+        val = body.get(key)
+        if val is None:
+            return None
+        if not isinstance(val, str):
+            return None
+        return val
+
+    try:
+        description = regenerate_agent_description(
+            agent,
+            billing_user_id=request.user.id,
+            name=_opt_str("name"),
+            act_as=_opt_str("act_as"),
+            system_prompt=_opt_str("system_prompt"),
+            salute=_opt_str("salute"),
+            persist=True,
+        )
+    except ValueError as exc:
+        return JsonResponse({"error": str(exc)}, status=400)
+    except Exception:
+        logger.exception(
+            "regenerate_agent_description failed slug=%s user=%s",
+            slug,
+            request.user.id,
+        )
+        return JsonResponse(
+            {"error": "Failed to regenerate description"},
+            status=500,
+        )
+
+    _invalidate_agent_cache_for_user_and_org(request.user, agent.organization)
+    return JsonResponse(
+        {
+            "description": description,
+            "agent": AgentSerializer(agent, context={"request": request}).data,
+        },
+        status=200,
+    )
+
+
+@csrf_exempt
+@token_required
 def get_formatted_system_prompt(request):
     body = json.loads(request.body)
     profile = UserProfile.objects.get(user=request.user)

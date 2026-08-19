@@ -21,7 +21,7 @@ import {
   Tooltip,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { createLLM, deleteLLM, updateAgent, makeAuthenticatedRequest, getUserOrganizations, getOrganizationRoles, getVoices, previewVoice } from "../../modules/apiCalls";
+import { createLLM, deleteLLM, updateAgent, regenerateAgentDescription, makeAuthenticatedRequest, getUserOrganizations, getOrganizationRoles, getVoices, previewVoice } from "../../modules/apiCalls";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
@@ -43,6 +43,7 @@ import {
   IconVolume,
   IconX,
   IconAdjustments,
+  IconRefresh,
 } from "@tabler/icons-react";
 
 export type AgentsModalControls = {
@@ -288,11 +289,12 @@ type TAgentConfigProps = {
 };
 
 const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
-  const { models, removeAgent, user, fetchAgents } = useStore((state) => ({
+  const { models, removeAgent, user, fetchAgents, updateSingleAgent } = useStore((state) => ({
     models: state.models,
     removeAgent: state.removeAgent,
     user: state.user,
     fetchAgents: state.fetchAgents,
+    updateSingleAgent: state.updateSingleAgent,
   }));
 
   const { t } = useTranslation();
@@ -300,6 +302,7 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
   const canAddLlm = useIsFeatureEnabled("manage-llm");
   const canSetOwnership = useIsFeatureEnabled("set-agent-ownership");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [regeneratingDescription, setRegeneratingDescription] = useState(false);
   const [addLlmOpened, { open: openAddLlm, close: closeAddLlm }] = useDisclosure(false);
   const [deleteLlmOpened, { open: openDeleteLlm, close: closeDeleteLlm }] = useDisclosure(false);
   const [userOrgs, setUserOrgs] = useState<{ id: string; name: string; is_owner?: boolean }[]>([]);
@@ -739,19 +742,60 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
         maxRows={8}
       />
 
-      <Textarea
-        label={t("agent-description-for-handoff")}
-        description={t("agent-description-for-handoff-help")}
-        placeholder={t("agent-description-for-handoff-placeholder")}
-        value={formState.description || ""}
-        onChange={(e) => {
-          const val = e.currentTarget.value;
-          setFormState((prev) => ({ ...prev, description: val }));
-        }}
-        autosize
-        minRows={2}
-        maxRows={5}
-      />
+      <Stack gap={6}>
+        <Group justify="space-between" align="flex-start" wrap="nowrap" gap="sm">
+          <Stack gap={2} style={{ minWidth: 0, flex: 1 }}>
+            <Text size="sm" fw={500}>
+              {t("agent-description-for-handoff")}
+            </Text>
+            <Text size="xs" c="dimmed">
+              {t("agent-description-for-handoff-help")}
+            </Text>
+          </Stack>
+          <Tooltip label={t("agent-description-regenerate")}>
+            <Button
+              variant="default"
+              size="compact-xs"
+              leftSection={<IconRefresh size={14} />}
+              loading={regeneratingDescription}
+              onClick={async () => {
+                setRegeneratingDescription(true);
+                try {
+                  const res = await regenerateAgentDescription(agent.slug, {
+                    name: formState.name,
+                    act_as: formState.act_as,
+                    system_prompt: formState.system_prompt,
+                  });
+                  const next = res.description || "";
+                  setFormState((prev) => ({ ...prev, description: next }));
+                  if (res.agent) {
+                    updateSingleAgent(res.agent as TAgent);
+                  }
+                  toast.success(t("agent-description-regenerated"));
+                } catch (e) {
+                  console.error(e);
+                  toast.error(t("agent-description-regenerate-error"));
+                } finally {
+                  setRegeneratingDescription(false);
+                }
+              }}
+            >
+              {t("agent-description-regenerate")}
+            </Button>
+          </Tooltip>
+        </Group>
+        <Textarea
+          placeholder={t("agent-description-for-handoff-placeholder")}
+          value={formState.description || ""}
+          onChange={(e) => {
+            const val = e.currentTarget.value;
+            setFormState((prev) => ({ ...prev, description: val }));
+          }}
+          autosize
+          minRows={2}
+          maxRows={5}
+        />
+      </Stack>
 
       <Textarea
         label={t("structure-the-ai-system-prompt")}

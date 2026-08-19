@@ -11,7 +11,6 @@ app.config_from_object("django.conf:settings", namespace="CELERY")
 
 app.autodiscover_tasks()
 
-import api.tasks
 import api.ai_layers.platform_assistant_task  # noqa: F401
 
 app.conf.beat_schedule = {

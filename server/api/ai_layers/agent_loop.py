@@ -176,7 +176,9 @@ def successful_handoff_user_message(record: ToolCallRecord) -> str | None:
     args = record.get("arguments") or {}
     if not isinstance(args, dict):
         return None
-    text = (args.get("user_message") or "").strip()
+    text = (
+        args.get("message_for_user") or args.get("user_message") or ""
+    ).strip()
     return text or None
 
 def _extract_output_text(response) -> str:
