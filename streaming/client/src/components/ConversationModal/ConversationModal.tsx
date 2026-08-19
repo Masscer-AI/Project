@@ -33,7 +33,6 @@ export const ConversationModal = ({
 }: {
   conversation: TConversation;
   readOnly?: boolean;
-  /** When false, only editor modals render (e.g. mobile menu opens editor). */
   showTitleTrigger?: boolean;
   editorOpened?: boolean;
   onEditorOpen?: () => void;
@@ -65,7 +64,6 @@ export const ConversationModal = ({
   const { t } = useTranslation();
   const canEditConversationMeta =
     useIsFeatureEnabled("can-edit-conversation-data") === true;
-  /** Channel threads (widget/WhatsApp) use readOnly for the composer only; metadata edits use the flag. */
   const canMutateTitleAndTags = canEditConversationMeta;
   const canOpenModal = readOnly || canEditConversationMeta;
 

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-# Always enabled on visitor WhatsApp lines (attachments, templates, tagging/cross-thread).
-# Owners may enable any other tool from the registry at their own risk.
 WHATSAPP_REQUIRED_CAPABILITY_TOOLS: tuple[str, ...] = (
     "read_attachment",
     "list_attachments",
@@ -17,7 +15,6 @@ WHATSAPP_REQUIRED_CAPABILITY_TOOLS: tuple[str, ...] = (
     "get_tag_context",
     "query_conversation",
 )
-
 
 def filter_capabilities_for_whatsapp(capabilities: list | None) -> list[dict]:
     """Keep registered tools and enforce WhatsApp-required tools as enabled."""

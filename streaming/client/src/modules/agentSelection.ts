@@ -1,9 +1,5 @@
 import type { TAgent } from "../types/agents";
 
-/**
- * Chat agent selection is owned exclusively by `chatState.selectedAgents` (slug order).
- * `related_agents` on the conversation is hydrated into that list via `applyAgentSelectionFromConversation`.
- */
 export function agentsInChatSelectionOrder(
   agents: TAgent[],
   selectedSlugs: string[]
@@ -14,7 +10,6 @@ export function agentsInChatSelectionOrder(
     .filter((a): a is TAgent => a != null);
 }
 
-/** Selected agents first (in slug-list order), then the rest in list order. */
 export function sortAgentsBySelectionOrder(
   agents: TAgent[],
   selectedSlugs: string[]

@@ -8,7 +8,6 @@ type Props = {
   className?: string;
 };
 
-/** Lightweight markdown for static legal pages (no chat plugins or code export). */
 export function LegalMarkdown({ markdown, className }: Props) {
   return (
     <div className={className ?? "legal-markdown"}>

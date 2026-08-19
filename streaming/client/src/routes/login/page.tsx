@@ -163,7 +163,7 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-[var(--bg-color,#0a0a0a)] text-[var(--font-color,#fff)]">
-      {/* Left panel — branding */}
+      {}
       <div
         className={`${panelBase} ${panelLeftLayout}`}
         style={{ background: AUTH_PANEL_LEFT_BACKGROUND }}
@@ -181,7 +181,7 @@ export default function Login() {
         </div>
       </div>
 
-      {/* Right panel — form */}
+      {}
       <div className={`${panelBase} ${panelRight}`}>
         <div className={AUTH_FORM_CARD_CLASS} style={AUTH_FORM_CARD_STYLE}>
           <Title order={2} ta="center" mb="xl">

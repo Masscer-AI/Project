@@ -16,7 +16,6 @@ from api.whatsapp.conversations import (
 )
 from api.whatsapp.models import WSContact, WSNumber
 
-
 def _required_capability_entries() -> list[dict]:
     return [
         {"name": name, "type": "internal_tool", "enabled": True}
@@ -24,7 +23,6 @@ def _required_capability_entries() -> list[dict]:
     ]
 
 User = get_user_model()
-
 
 class WhatsappConversationBridgeTests(TestCase):
     def setUp(self):
@@ -73,7 +71,6 @@ class WhatsappConversationBridgeTests(TestCase):
         self.assertIn("read_attachment", names)
         self.assertIn("list_attachments", names)
         self.assertIn("read_plugin_instructions", names)
-        # Unlinked visitor: USER_REQUIRED tools are stripped.
         self.assertNotIn("send_email", names)
         self.assertNotIn("list_conversations", names)
         self.assertNotIn("not_a_real_tool", names)
@@ -139,7 +136,6 @@ class WhatsappConversationBridgeTests(TestCase):
         self.assertNotEqual(c1.id, c2.id)
         c3 = get_or_create_whatsapp_conversation(self.ws, "5492222333444")
         self.assertEqual(c3.id, c2.id)
-
 
 class WhatsappClearCommandTests(TestCase):
     def setUp(self):
@@ -265,7 +261,6 @@ class WhatsappClearCommandTests(TestCase):
         )
         self.assertEqual(active.whatsapp_last_inbound_wamid, "wamid.clear.webhook")
 
-
 class WhatsappWebhookEnqueueTests(TestCase):
     def setUp(self):
         from django.core.cache import cache
@@ -337,7 +332,6 @@ class WhatsappWebhookEnqueueTests(TestCase):
             type="user",
             metadata__whatsapp_inbound_wamid="wamid.inbound",
         )
-        # Stub shows inbound text preview while debounce/agent flush is pending.
         self.assertEqual(stub.text, "Hello")
 
     @patch("api.whatsapp.actions.mark_message_as_read")
@@ -618,7 +612,6 @@ class WhatsappWebhookEnqueueTests(TestCase):
         handle_webhook(webhook_data)
         mock_handle_message.assert_called_once()
 
-
 @patch("api.whatsapp.views.FeatureFlagService.is_feature_enabled", return_value=(True, "on"))
 class WhatsappNumbersManagementApiTests(TestCase):
     """Authenticated WhatsApp customization API (flag-gated; lines are provisioned in admin)."""
@@ -823,7 +816,6 @@ class WhatsappNumbersManagementApiTests(TestCase):
         )
         self.assertEqual(resp.status_code, 400)
 
-
 @patch("api.authenticate.services.FeatureFlagService.is_feature_enabled")
 class WhatsappEmbeddedMediaToolTests(TestCase):
     """WhatsApp lines gate create_image / create_speech via capabilities, not app feature flags."""
@@ -935,7 +927,6 @@ class WhatsappEmbeddedMediaToolTests(TestCase):
         is_feature_enabled_mock.assert_not_called()
         self.assertEqual(result.duration_seconds, 8.0)
 
-
 class WhatsappOutboundMediaHelperTests(TestCase):
     def test_whatsapp_media_type_mapping(self):
         from django.core.files.base import ContentFile
@@ -968,7 +959,6 @@ class WhatsappOutboundMediaHelperTests(TestCase):
             url,
             "https://api.example.com/media/message_attachments/2026/05/x.png",
         )
-
 
 class WhatsappDeliverReplyTests(TestCase):
     def setUp(self):
@@ -1364,7 +1354,6 @@ class WhatsappDeliverReplyTests(TestCase):
         self.assertNotIn("attachment:", body)
         self.assertNotIn("Grafico", body)
 
-
 class WhatsappNumberAccessScopeTests(TestCase):
     def setUp(self):
         from django.utils import timezone
@@ -1630,7 +1619,6 @@ class WhatsappNumberAccessScopeTests(TestCase):
     ):
         from api.whatsapp.actions import handle_message_received
 
-        # Personal line whose owner has no organization → resolved org is None.
         solo = User.objects.create_user(username="wa_access_solo", password="x")
         personal = WSNumber.objects.create(
             user=solo,
@@ -1781,9 +1769,6 @@ class WhatsappNumberAccessScopeTests(TestCase):
         profile = UserProfile.objects.get(user=mx_member)
         profile.organization = self.org
         profile.is_active = True
-        # Legacy / user-entered E.164 without Meta's "1" (bypass setter transform
-        # is unnecessary: setter also normalizes — use raw column to simulate
-        # pre-normalization rows still in DB).
         profile._phone_numbers = [
             {"country_code": "52", "number": "5512345678", "is_default": True}
         ]

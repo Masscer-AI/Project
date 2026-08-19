@@ -56,19 +56,13 @@ import {
 import { agentsInChatSelectionOrder } from "../../modules/agentSelection";
 import { ToolsSelectorModal } from "../ToolsSelectorModal/ToolsSelectorModal";
 
-// ─── Types ───────────────────────────────────────────────────────────────────
-
 interface ChatInputProps {
   handleSendMessage: (input: string) => Promise<boolean>;
   initialInput: string;
   readOnly?: boolean;
-  /** When read-only, overrides the default banner text (e.g. WhatsApp channel). */
   readOnlyMessage?: string;
-  /** agent: full composer; human: direct reply during takeover; readonly: banner only */
   composerMode?: "agent" | "human" | "readonly";
 }
-
-// ─── Constants ───────────────────────────────────────────────────────────────
 
 const allowedDocumentTypes = [
   "application/pdf",
@@ -91,8 +85,6 @@ const getCommand = (text: string): string | null => {
   const match = text.match(regex);
   return match ? match[1] : null;
 };
-
-// ─── Main ChatInput ──────────────────────────────────────────────────────────
 
 export const ChatInput: React.FC<ChatInputProps> = ({
   handleSendMessage,
@@ -124,8 +116,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     agents: state.agents,
   }));
 
-  // Require a tracked conversation id so a stray status string (e.g. late
-  // agent_complete after finish cleared the task) cannot re-show stop.
   const showStopButton =
     !!agentTaskStatus &&
     !!agentTaskConversationId &&
@@ -182,14 +172,14 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         reader.onload = (event) => {
           const target = event.target;
           if (!target) return;
-          const result = target.result;
-          if (!result) return;
+          const dataUrl = target.result;
+          if (!dataUrl) return;
           const id = uuidv4();
 
           if (!blob) return;
 
           addAttachment({
-            content: result as string,
+            content: dataUrl as string,
             type: "image",
             name: id,
             file: blob,
@@ -216,9 +206,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     if (event.key === "Enter" && chatState.writtingMode) return;
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
-      if (showStopButton) return; // Prevent sending while active
-      const result = await handleSendMessage(textPrompt);
-      if (result) setTextPrompt("");
+      if (showStopButton) return;
+      const messageSent = await handleSendMessage(textPrompt);
+      if (messageSent) setTextPrompt("");
     }
   };
 
@@ -244,8 +234,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   };
 
   const asyncSendMessage = async () => {
-    const result = await handleSendMessage(textPrompt);
-    if (result) setTextPrompt("");
+    const messageSent = await handleSendMessage(textPrompt);
+    if (messageSent) setTextPrompt("");
   };
 
   useHotkeys("ctrl+alt+w", () => toggleWritingMode(), {
@@ -301,8 +291,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               onKeyDown={async (event) => {
                 if (event.key === "Enter" && !event.shiftKey) {
                   event.preventDefault();
-                  const result = await handleSendMessage(textPrompt);
-                  if (result) setTextPrompt("");
+                  const messageSent = await handleSendMessage(textPrompt);
+                  if (messageSent) setTextPrompt("");
                 }
               }}
             />
@@ -405,8 +395,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             autosize
             minRows={chatState.writtingMode ? 8 : 1}
             classNames={{
-              // text-base on small viewports avoids iOS zoom on focus (inputs < 16px)
-              // Single scrollbar: scroll only the textarea (no nested overflow-y wrapper).
               input:
                 "!bg-transparent !border-0 !text-base md:!text-sm !font-sans focus:!ring-0 focus:!outline-none !px-3 md:!px-5 !py-2 md:!py-3 !max-h-[calc(100dvh-12rem)] md:!max-h-[calc(100dvh-14rem)] !min-h-0 !resize-none !overflow-x-hidden !overflow-y-auto",
               wrapper: "!bg-transparent !min-h-0",
@@ -470,8 +458,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   );
 };
 
-// ─── Plus Menu (+) ───────────────────────────────────────────────────────────
-
 const PlusMenu = ({ existingFilesOnly = false }: { existingFilesOnly?: boolean }) => {
   const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -504,10 +490,10 @@ const PlusMenu = ({ existingFilesOnly = false }: { existingFilesOnly?: boolean }
         reader.onload = (event) => {
           const target = event.target;
           if (!target) return;
-          const result = target.result;
-          if (!result) return;
+          const dataUrl = target.result;
+          if (!dataUrl) return;
           addAttachment({
-            content: result as string,
+            content: dataUrl as string,
             file: file,
             type: file.type,
             name: file.name,
@@ -519,7 +505,6 @@ const PlusMenu = ({ existingFilesOnly = false }: { existingFilesOnly?: boolean }
         toast.error(t("file-type-not-allowed"));
       }
     }
-    // Reset input so the same file can be selected again
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -608,8 +593,6 @@ const PlusMenu = ({ existingFilesOnly = false }: { existingFilesOnly?: boolean }
   );
 };
 
-// ─── Tools Menu ──────────────────────────────────────────────────────────────
-
 const ToolsMenu = () => {
   const { t } = useTranslation();
   const { chatState, toggleWritingMode } = useStore((state) => ({
@@ -683,8 +666,6 @@ const ToolsMenu = () => {
   );
 };
 
-// ─── Select Tools Modal ──────────────────────────────────────────────────────
-
 const SelectToolsModal = ({
   opened,
   onClose,
@@ -739,8 +720,6 @@ const SelectToolsModal = ({
   );
 };
 
-// ─── FileLoader (exported for use elsewhere) ─────────────────────────────────
-
 export const FileLoader = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { t } = useTranslation();
@@ -759,10 +738,10 @@ export const FileLoader = () => {
         reader.onload = (event) => {
           const target = event.target;
           if (!target) return;
-          const result = target.result;
-          if (!result) return;
+          const dataUrl = target.result;
+          if (!dataUrl) return;
           addAttachment({
-            content: result as string,
+            content: dataUrl as string,
             file: file,
             type: file.type,
             name: file.name,
@@ -801,8 +780,6 @@ export const FileLoader = () => {
     </>
   );
 };
-
-// ─── RagConfig Modal ─────────────────────────────────────────────────────────
 
 const RagConfig = ({
   opened,
@@ -860,8 +837,6 @@ const RagConfig = ({
     </Modal>
   );
 };
-
-// ─── DocumentCard ────────────────────────────────────────────────────────────
 
 const DocumentCard = ({
   d,
@@ -993,8 +968,6 @@ const DocumentCard = ({
   );
 };
 
-// ─── ConversationConfig Modal ────────────────────────────────────────────────
-
 const ConversationConfigModal = ({
   opened,
   onClose,
@@ -1102,4 +1075,3 @@ const ConversationConfigModal = ({
     </Modal>
   );
 };
-

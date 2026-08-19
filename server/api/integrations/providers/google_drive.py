@@ -21,7 +21,6 @@ GOOGLE_DRIVE_FILES_URL = "https://www.googleapis.com/drive/v3/files"
 
 GOOGLE_EXPORT_MIME: dict[str, str] = {
     "application/vnd.google-apps.document": "text/plain",
-    # Google Sheets export as CSV (text). Native .xlsx uploads use read_file_content.
     "application/vnd.google-apps.spreadsheet": "text/csv",
     "application/vnd.google-apps.presentation": "text/plain",
 }
@@ -37,7 +36,6 @@ DRIVE_READONLY_SCOPE = "https://www.googleapis.com/auth/drive.readonly"
 IDENTITY_SCOPES = "openid email profile"
 ALL_SCOPES = f"{IDENTITY_SCOPES} {DRIVE_READONLY_SCOPE}"
 _DEFAULT_TIMEOUT = 20
-
 
 class GoogleDriveProvider(IntegrationProvider):
     provider_key = "google_drive"

@@ -100,13 +100,10 @@ const MarkdownRenderer = ({
     return u;
   };
 
-  // react-markdown URL rewrite hook (for links + images)
   const urlTransform = (url: string) => {
     const u = (url || "").trim();
     if (!u) return u;
 
-    // Preferred: attachment UUID reference
-    // Example: ![Alt](attachment:550e8400-e29b-41d4-a716-446655440000)
     if (u.toLowerCase().startsWith("attachment:")) {
       const id = u.slice("attachment:".length).trim();
       const resolved = id ? attachmentUrlById.get(id) : undefined;
@@ -117,7 +114,6 @@ const MarkdownRenderer = ({
       return u;
     }
 
-    // Legacy: model sometimes outputs /media/... which needs API_URL prefix
     if (u.startsWith("/media/")) {
       return `${API_URL}${u}`;
     }
@@ -139,13 +135,11 @@ const MarkdownRenderer = ({
       remarkPlugins={[
         [remarkGfm, { singleTilde: false }],
         [remarkMath],
-        // [docx, { output: "blob" }],
       ]}
       rehypePlugins={[rehypeKatex]}
       skipHtml={true}
       components={{
         img(props) {
-          // react-markdown passes src/alt on props
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const src = (props as any)?.src as string | undefined;
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -166,7 +160,6 @@ const MarkdownRenderer = ({
           const unresolvedAttachmentRef =
             !!src && src.toLowerCase().startsWith("attachment:") && resolvedSrc === src;
 
-          // Render videos with a <video> player instead of <img>
           if (isVideoAttachment && resolvedSrc) {
             return (
               <video
@@ -177,8 +170,6 @@ const MarkdownRenderer = ({
             );
           }
 
-          // If the model used image markdown for a non-image attachment
-          // (very common with PDFs), render it as a file link instead.
           if (isNonImageAttachment && resolvedSrc) {
             const label = alt || meta?.name || t("open-attachment") || "Open attachment";
             return (
@@ -188,7 +179,6 @@ const MarkdownRenderer = ({
             );
           }
 
-          // Avoid browser GET attachment:... for unresolved refs.
           if (unresolvedAttachmentRef) {
             const label = alt || t("attachment-not-found") || "Attachment not found";
             return <span>{label}</span>;
@@ -283,7 +273,6 @@ const MarkdownRenderer = ({
             };
           });
           if (!codeBlocks || codeBlocks.length === 0) {
-            // toast.success("No code blocks found");
             return <pre>{props.children}</pre>;
           }
           return (
@@ -322,9 +311,7 @@ type TOutputFormat =
 const text_only_formats = ["csv", "txt", "json", "latex"];
 
 const downloadTextAsFile = (text: string, format: TOutputFormat) => {
-  // Download the text as a CSV file
   const blob = new Blob([text], { type: "text/csv" });
-  // use as title the first 50 characters of the text
   const title = text.slice(0, 50);
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -351,7 +338,6 @@ export const CustomCodeBlock = ({
   const canExport = ["md", "markdown", "html", "htm"].includes(normalizedLanguage);
 
   useEffect(() => {
-    // If the language is HTML, set the output format to HTML
     if (language === "html") {
       setInputFormat("html");
     }
@@ -415,7 +401,6 @@ export const CustomCodeBlock = ({
     try {
       const json = JSON.parse(code);
       if (json.plugin) {
-        // setUsePlugin(true);
         setPluginName(json.plugin);
       }
     } catch (e) {

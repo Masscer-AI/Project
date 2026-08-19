@@ -9,7 +9,6 @@ from .actions import generate_agent_profile_picture
 
 logger = logging.getLogger(__name__)
 
-
 def _masked_secret_tail(secret: str | None, tail: int = 10) -> str:
     if not secret:
         return "<missing>"
@@ -17,9 +16,7 @@ def _masked_secret_tail(secret: str | None, tail: int = 10) -> str:
         return "*" * len(secret)
     return f"{'*' * (len(secret) - tail)}{secret[-tail:]}"
 
-
 DEFAULT_MAX_MEMORY_MESSAGES = 100
-
 
 def _resolve_max_memory_messages(user_id=None) -> int:
     """Return the user's max_memory_messages preference, or the product default."""
@@ -35,7 +32,6 @@ def _resolve_max_memory_messages(user_id=None) -> int:
     if prefs is None:
         return DEFAULT_MAX_MEMORY_MESSAGES
     return max(0, int(prefs))
-
 
 def _serialize_prev_messages(conversation, before_message_id, limit=None, *, user_id=None):
     """Load and serialize prev messages for reproducibility.
@@ -67,12 +63,10 @@ def _serialize_prev_messages(conversation, before_message_id, limit=None, *, use
         for m in reversed(list(qs))
     ]
 
-
 @shared_task
 def async_generate_agent_profile_picture(agent_id: int):
-    result = generate_agent_profile_picture(agent_id)
-    return result
-
+    profile_picture_url = generate_agent_profile_picture(agent_id)
+    return profile_picture_url
 
 def _agent_clock_context(
     client_datetime: dict | None,
@@ -154,7 +148,6 @@ def _agent_clock_context(
         ]
     )
 
-
 def _conversation_tags_instruction_block(conversation, organization_id: int) -> str:
     """
     Human-readable current tags for the agent prompt, plus whether tagging is still required.
@@ -215,7 +208,6 @@ def _conversation_tags_instruction_block(conversation, organization_id: int) -> 
     )
     return "\n".join(lines) + "\n"
 
-
 def _conversation_summary_instruction_block(conversation) -> str:
     """
     Current stored summary for the agent prompt + when to call change_conversation_summary.
@@ -247,7 +239,6 @@ def _conversation_summary_instruction_block(conversation) -> str:
         "- **Do not** call on every turn; if the existing summary still fits, skip the tool.\n"
     )
 
-
 def _build_user_message_text(user_inputs: list[dict]) -> str:
     """
     Build a plain-text user message from user_inputs.
@@ -260,7 +251,6 @@ def _build_user_message_text(user_inputs: list[dict]) -> str:
             if text:
                 parts.append(text)
     return "\n".join(parts) if parts else ""
-
 
 def _format_attachments_for_model_context(attachments: list[dict]) -> str:
     """
@@ -290,7 +280,6 @@ def _format_attachments_for_model_context(attachments: list[dict]) -> str:
 
     return "\n".join(lines)
 
-
 def _agent_loop_provider_from_llm(llm) -> str:
     """Return :class:`~api.ai_layers.agent_loop.AgentLoop` provider: ``openai`` or ``google``."""
     if llm is None:
@@ -302,7 +291,6 @@ def _agent_loop_provider_from_llm(llm) -> str:
     if name == "google":
         return "google"
     return "openai"
-
 
 def _build_agent_loop_inputs(
     *,
@@ -363,7 +351,6 @@ def _build_agent_loop_inputs(
                         inputs.append({"role": "user", "content": tagged})
                 continue
 
-            # isolated: pick this agent's version if present, else fall back to message text
             picked = None
             for v in versions:
                 if v.get("agent_slug") == agent_slug and v.get("text"):
@@ -375,7 +362,6 @@ def _build_agent_loop_inputs(
             inputs.append({"role": "assistant", "content": text})
             continue
 
-    # Current user turn (last)
     final_text = current_user_text or ""
     current_block = _format_attachments_for_model_context(current_user_attachments or [])
     if current_block:
@@ -383,7 +369,6 @@ def _build_agent_loop_inputs(
     inputs.append({"role": "user", "content": final_text})
 
     return inputs
-
 
 def _resolve_user_inputs_and_attachments(
     user_inputs: list[dict],
@@ -441,7 +426,6 @@ def _resolve_user_inputs_and_attachments(
             attachment_objects.append(att)
             resolved.append({"type": "input_attachment", "attachment_id": str(att.id)})
 
-            # Attachments shown in Message history (UI)
             kind = getattr(att, "kind", "") or ""
             if kind == "website":
                 message_attachments.append(
@@ -461,7 +445,6 @@ def _resolve_user_inputs_and_attachments(
                     }
                 )
             else:
-                # Default: file attachment (image or generic document)
                 display_url = _display_url_for_file(att)
                 is_image = bool(att.content_type and att.content_type.startswith("image/"))
                 filename = (
@@ -482,7 +465,6 @@ def _resolve_user_inputs_and_attachments(
         raise ValueError(f"Unsupported user input type '{input_type}'")
 
     return resolved, message_attachments, attachment_objects
-
 
 def _extract_create_image_attachments(tool_calls: list[dict]) -> tuple[list[dict], list[str]]:
     """
@@ -507,12 +489,12 @@ def _extract_create_image_attachments(tool_calls: list[dict]) -> tuple[list[dict
             raw = (call or {}).get("result") or ""
             if not isinstance(raw, str) or not raw.strip():
                 continue
-            data = json.loads(raw)
-            if not isinstance(data, dict):
+            tool_payload = json.loads(raw)
+            if not isinstance(tool_payload, dict):
                 continue
-            aid = data.get("attachment_id")
-            content = data.get("content") or ""
-            name = data.get("name") or "image"
+            aid = tool_payload.get("attachment_id")
+            content = tool_payload.get("content") or ""
+            name = tool_payload.get("name") or "image"
             if not aid or not content:
                 continue
             attachments.append(
@@ -525,11 +507,9 @@ def _extract_create_image_attachments(tool_calls: list[dict]) -> tuple[list[dict
             )
             attachment_ids.append(str(aid))
         except Exception:
-            # Never fail the whole agent task because of attachment parsing
             continue
 
     return attachments, attachment_ids
-
 
 def _extract_create_speech_attachments(tool_calls: list[dict]) -> tuple[list[dict], list[str]]:
     """
@@ -551,12 +531,12 @@ def _extract_create_speech_attachments(tool_calls: list[dict]) -> tuple[list[dic
             raw = (call or {}).get("result") or ""
             if not isinstance(raw, str) or not raw.strip():
                 continue
-            data = json.loads(raw)
-            if not isinstance(data, dict):
+            tool_payload = json.loads(raw)
+            if not isinstance(tool_payload, dict):
                 continue
-            aid = data.get("attachment_id")
-            content = data.get("content") or ""
-            name = data.get("name") or "speech"
+            aid = tool_payload.get("attachment_id")
+            content = tool_payload.get("content") or ""
+            name = tool_payload.get("name") or "speech"
             if not aid or not content:
                 continue
             attachments.append(
@@ -572,7 +552,6 @@ def _extract_create_speech_attachments(tool_calls: list[dict]) -> tuple[list[dic
             continue
 
     return attachments, attachment_ids
-
 
 def _extract_generate_dialogue_attachments(tool_calls: list[dict]) -> tuple[list[dict], list[str]]:
     """Extract audio attachment descriptors returned by generate_dialogue."""
@@ -588,12 +567,12 @@ def _extract_generate_dialogue_attachments(tool_calls: list[dict]) -> tuple[list
             raw = (call or {}).get("result") or ""
             if not isinstance(raw, str) or not raw.strip():
                 continue
-            data = json.loads(raw)
-            if not isinstance(data, dict):
+            tool_payload = json.loads(raw)
+            if not isinstance(tool_payload, dict):
                 continue
-            aid = data.get("attachment_id")
-            content = data.get("content") or ""
-            name = data.get("name") or "dialogue"
+            aid = tool_payload.get("attachment_id")
+            content = tool_payload.get("content") or ""
+            name = tool_payload.get("name") or "dialogue"
             if not aid or not content:
                 continue
             attachments.append(
@@ -609,7 +588,6 @@ def _extract_generate_dialogue_attachments(tool_calls: list[dict]) -> tuple[list
             continue
 
     return attachments, attachment_ids
-
 
 def _extract_generate_video_attachments(tool_calls: list[dict]) -> tuple[list[dict], list[str]]:
     """
@@ -631,12 +609,12 @@ def _extract_generate_video_attachments(tool_calls: list[dict]) -> tuple[list[di
             raw = (call or {}).get("result") or ""
             if not isinstance(raw, str) or not raw.strip():
                 continue
-            data = json.loads(raw)
-            if not isinstance(data, dict):
+            tool_payload = json.loads(raw)
+            if not isinstance(tool_payload, dict):
                 continue
-            aid = data.get("attachment_id")
-            content = data.get("content") or ""
-            name = data.get("name") or "video"
+            aid = tool_payload.get("attachment_id")
+            content = tool_payload.get("content") or ""
+            name = tool_payload.get("name") or "video"
             if not aid or not content:
                 continue
             attachments.append(
@@ -652,7 +630,6 @@ def _extract_generate_video_attachments(tool_calls: list[dict]) -> tuple[list[di
             continue
 
     return attachments, attachment_ids
-
 
 def _extract_generated_document_attachments(
     tool_calls: list[dict],
@@ -680,12 +657,12 @@ def _extract_generated_document_attachments(
             raw = (call or {}).get("result") or ""
             if not isinstance(raw, str) or not raw.strip():
                 continue
-            data = json.loads(raw)
-            if not isinstance(data, dict):
+            tool_payload = json.loads(raw)
+            if not isinstance(tool_payload, dict):
                 continue
-            aid = data.get("attachment_id")
-            content = data.get("content") or ""
-            name = data.get("name") or default_name
+            aid = tool_payload.get("attachment_id")
+            content = tool_payload.get("content") or ""
+            name = tool_payload.get("name") or default_name
             if not aid or not content:
                 continue
             attachments.append(
@@ -701,7 +678,6 @@ def _extract_generated_document_attachments(
             continue
 
     return attachments, attachment_ids
-
 
 def _extract_render_document_template_attachments(
     tool_calls: list[dict],
@@ -725,12 +701,12 @@ def _extract_render_document_template_attachments(
             raw = (call or {}).get("result") or ""
             if not isinstance(raw, str) or not raw.strip():
                 continue
-            data = json.loads(raw)
-            if not isinstance(data, dict):
+            tool_payload = json.loads(raw)
+            if not isinstance(tool_payload, dict):
                 continue
-            aid = data.get("attachment_id")
-            content = data.get("content") or ""
-            name = data.get("name") or "document.docx"
+            aid = tool_payload.get("attachment_id")
+            content = tool_payload.get("content") or ""
+            name = tool_payload.get("name") or "document.docx"
             if not aid or not content:
                 continue
             attachments.append(
@@ -747,7 +723,6 @@ def _extract_render_document_template_attachments(
 
     return attachments, attachment_ids
 
-
 def _extract_generate_document_file_attachments(
     tool_calls: list[dict],
 ) -> tuple[list[dict], list[str]]:
@@ -756,7 +731,6 @@ def _extract_generate_document_file_attachments(
         tool_names=("generate_document_file",),
         default_name="document.docx",
     )
-
 
 def _extract_generate_excel_file_attachments(
     tool_calls: list[dict],
@@ -767,7 +741,6 @@ def _extract_generate_excel_file_attachments(
         default_name="spreadsheet.xlsx",
     )
 
-
 def _extract_generate_gamma_attachment_attachments(
     tool_calls: list[dict],
 ) -> tuple[list[dict], list[str]]:
@@ -776,7 +749,6 @@ def _extract_generate_gamma_attachment_attachments(
         tool_names=("generate_gamma_attachment", "generate_gamma_presentation"),
         default_name="presentation.pdf",
     )
-
 
 def _message_attachment_to_display_dict(att) -> dict | None:
     """
@@ -802,7 +774,6 @@ def _message_attachment_to_display_dict(att) -> dict | None:
             "attachment_id": aid,
         }
 
-    # Default: file-like attachment
     file_field = getattr(att, "file", None)
     if not file_field:
         return None
@@ -843,7 +814,6 @@ def _message_attachment_to_display_dict(att) -> dict | None:
         "visibility": getattr(att, "visibility", None) or "personal",
     }
 
-
 def _extract_referenced_attachments_from_text(
     text: str,
     conversation_id: str,
@@ -862,7 +832,6 @@ def _extract_referenced_attachments_from_text(
     if not ids:
         return []
 
-    # Keep mention order but dedupe.
     ordered_ids: list[str] = []
     seen: set[str] = set()
     for aid in ids:
@@ -889,7 +858,6 @@ def _extract_referenced_attachments_from_text(
             resolved.append(descriptor)
     return resolved
 
-
 def _extract_rag_sources(tool_calls: list[dict]) -> list[dict]:
     """
     Extract RAG sources from rag_query tool calls so they can be displayed
@@ -911,10 +879,10 @@ def _extract_rag_sources(tool_calls: list[dict]) -> list[dict]:
             raw = (call or {}).get("result") or ""
             if not isinstance(raw, str) or not raw.strip():
                 continue
-            data = json.loads(raw)
-            if not isinstance(data, dict):
+            tool_payload = json.loads(raw)
+            if not isinstance(tool_payload, dict):
                 continue
-            results_wrapper = data.get("results") or {}
+            results_wrapper = tool_payload.get("results") or {}
             inner = results_wrapper.get("results") or results_wrapper
             metadatas = inner.get("metadatas") or []
             for meta_list in metadatas:
@@ -936,7 +904,6 @@ def _extract_rag_sources(tool_calls: list[dict]) -> list[dict]:
 
     return sources
 
-
 def _completion_to_message_attachment_dict(completion) -> dict:
     """Descriptor for Message.attachments so the client can show completion metadata."""
     from api.finetuning.models import Completion as CompletionModel
@@ -956,7 +923,6 @@ def _completion_to_message_attachment_dict(completion) -> dict:
         "approved": bool(completion.approved),
     }
 
-
 def _extract_create_completion_refs_from_tool_calls(tool_calls: list[dict]) -> list[dict]:
     """Collect completion descriptors from create_completion tool results."""
     if not tool_calls:
@@ -974,10 +940,10 @@ def _extract_create_completion_refs_from_tool_calls(tool_calls: list[dict]) -> l
             raw = (call or {}).get("result") or ""
             if not isinstance(raw, str) or not raw.strip():
                 continue
-            data = json.loads(raw)
-            if not isinstance(data, dict):
+            tool_payload = json.loads(raw)
+            if not isinstance(tool_payload, dict):
                 continue
-            cid = data.get("completion_id")
+            cid = tool_payload.get("completion_id")
             if cid is None:
                 continue
             cid = int(cid)
@@ -993,7 +959,6 @@ def _extract_create_completion_refs_from_tool_calls(tool_calls: list[dict]) -> l
             continue
 
     return out
-
 
 def _extract_referenced_completions_from_text(text: str, user) -> list[dict]:
     """
@@ -1040,7 +1005,6 @@ def _extract_referenced_completions_from_text(text: str, user) -> list[dict]:
             continue
         out.append(_completion_to_message_attachment_dict(row))
     return out
-
 
 GENERAL_RULES = """
 When referencing an attachment inside your message markdown, prefer this format:
@@ -1132,7 +1096,6 @@ def conversation_agent_task(
     notification_route_id = user_id
     actor_user_id = user_id if isinstance(user_id, int) else None
 
-    # Get conversation first (needed for validation in resolve)
     try:
         conversation = Conversation.objects.select_related(
             "organization",
@@ -1155,12 +1118,10 @@ def conversation_agent_task(
         clear_agent_task_active(conversation_id)
         return {"status": "error", "error": "Conversation not found"}
 
-    # Chat widget / WhatsApp: no org tagging, cross-thread lookup, or auto-summary tools (app chat only for now).
     is_widget_chat = conversation.chat_widget_id is not None
     is_whatsapp_chat = conversation.ws_number_id is not None
     is_embedded_channel = is_widget_chat or is_whatsapp_chat
 
-    # Linked WhatsApp contact → same actor as web chat for conversation tools.
     if actor_user_id is None and is_whatsapp_chat:
         contact = getattr(conversation, "ws_contact", None)
         if contact is not None and contact.user_id:
@@ -1175,8 +1136,6 @@ def conversation_agent_task(
     if capabilities_override is not None:
         normalized_override = normalize_capability_names(capabilities_override)
         override_allowlist = frozenset(normalized_override)
-        # Authoritative allowlist for this special turn — wins over both the
-        # shared tool_names and any per-agent overrides.
         tool_names = list(normalized_override)
         tool_names_by_agent = None
 
@@ -1203,10 +1162,6 @@ def conversation_agent_task(
         clear_agent_task_active(conversation_id)
         return {"status": "skipped", "reason": "takeover_active"}
 
-    # plugin_slugs is no longer used — plugins are now auto-discovered
-    # by the agent via the read_plugin_instructions tool.
-
-    # Normalize inputs and collect attachments for Message (strict contract)
     try:
         resolved_inputs, message_attachments, attachment_objects = _resolve_user_inputs_and_attachments(
             user_inputs, conversation_id=conversation_id
@@ -1223,18 +1178,16 @@ def conversation_agent_task(
         return {"status": "error", "error": str(e)}
     user_message_text = _build_user_message_text(resolved_inputs)
 
-    def emit_event(event_type: str, data: dict) -> None:
-        payload = {"type": event_type, "conversation_id": conversation_id, **data}
+    def emit_event(event_type: str, event_data: dict) -> None:
+        payload = {"type": event_type, "conversation_id": conversation_id, **event_data}
         notify_user(notification_route_id, "agent_events_channel", payload)
 
-    def emit_finished(data: dict) -> None:
-        # Clear before notify so a notify failure cannot leave the stop button stuck.
-        # Keep active through multi-agent handoffs (next_agent_slug set).
-        if not data.get("next_agent_slug"):
+    def emit_finished(event_data: dict) -> None:
+        if not event_data.get("next_agent_slug"):
             from api.ai_layers.agent_task_helpers import clear_agent_task_active
 
             clear_agent_task_active(conversation_id)
-        payload = {"conversation_id": conversation_id, **data}
+        payload = {"conversation_id": conversation_id, **event_data}
         notify_user(notification_route_id, "agent_loop_finished", payload)
 
     logger.info(
@@ -1242,7 +1195,6 @@ def conversation_agent_task(
         conversation_id, user_id, agent_slugs, tool_names, multiagentic_modality,
     )
 
-    # Same org resolution as messaging/signals.py (post_save LLM consumption).
     from api.consumption.actions import _check_org_subscription, notify_org_billing_denied
     from api.messaging.tasks import get_user_organization
 
@@ -1255,8 +1207,6 @@ def conversation_agent_task(
         if not allowed:
             notify_uid = conversation.user_id or actor_user_id or notification_route_id
             notify_org_billing_denied(notify_uid, billing_reason)
-            # Only agent_loop_finished: agent_events "error" cleared agentTaskStatus and left
-            # the optimistic assistant showing "Thinking..." until refetch (null || fallback).
             emit_finished(
                 {
                     "output": "",
@@ -1283,7 +1233,6 @@ def conversation_agent_task(
         and user_message_metadata.get("source") == "agent_handoff"
     )
     try:
-        # ---- Save or reuse user message ----
         meta_update = (
             dict(user_message_metadata)
             if isinstance(user_message_metadata, dict)
@@ -1313,8 +1262,6 @@ def conversation_agent_task(
 
                 clear_agent_task_active(conversation_id)
                 return {"status": "error", "error": "User message for handoff not found"}
-            # Keep the original user text/attachments; synthetic continue text is
-            # only for the model input below.
             message_attachments = list(user_message.attachments or [])
         elif regenerate_message_id:
             try:
@@ -1363,7 +1310,6 @@ def conversation_agent_task(
                 clear_agent_task_active(conversation_id)
                 return {"status": "error", "error": "Failed to save user message"}
 
-        # ---- Resolve agents in order ----
         agents_by_slug = {
             a.slug: a
             for a in Agent.objects.filter(slug__in=agent_slugs).select_related(
@@ -1398,8 +1344,6 @@ def conversation_agent_task(
         loop_current_attachments = message_attachments
         tag_other_agent_versions = False
         if _is_handoff_continuation:
-            # Include the original user turn + later assistant messages (e.g. A)
-            # so B sees the full handoff thread; do not persist a new user bubble.
             prev_messages = list(prev_messages)
             prev_messages.append(
                 {
@@ -1446,7 +1390,6 @@ def conversation_agent_task(
                 "- For documents/audio/other files, use [Label](attachment:<attachment_id>) instead.\n"
             )
 
-        # Pre-compute context shared across all agent iterations
         from api.authenticate.models import UserProfile
 
         user_profile_text = ""
@@ -1482,7 +1425,6 @@ def conversation_agent_task(
 
         _flag_org = _organization_for_conversations_dashboard_flag(conversation)
         has_organization_conversations_access = False
-        # Web chat, or WhatsApp when contact is linked to a user (same-user access).
         _may_eval_org_dashboard = not is_widget_chat and (
             not is_whatsapp_chat or actor_user_id is not None
         )
@@ -1514,12 +1456,6 @@ def conversation_agent_task(
             llm = agent.llm
             model_slug = llm.slug if llm else (agent.model_slug or "gpt-5.2")
 
-            # Per-agent tool list:
-            # 1) capabilities_override (legacy/special) → already flattened into tool_names
-            # 2) tool_names_by_agent when explicitly provided (per-slug; missing → [])
-            # 3) shared tool_names when non-empty (WhatsApp / widget / MCP)
-            # 4) else Agent.pre_approved_tools (main chat + scheduled SoT)
-            # Further mutated below (calendar/WhatsApp/widget filters + auto-inject).
             if tool_names_by_agent is not None:
                 agent_tool_names = list(tool_names_by_agent.get(agent.slug) or [])
             elif tool_names:
@@ -1527,8 +1463,6 @@ def conversation_agent_task(
             else:
                 agent_tool_names = list(agent.pre_approved_tools or [])
 
-            # Web chat / scheduled web-style runs: always offer the former CHAT_REQUIRED
-            # baseline (attachments, email helpers). Channels keep their own allowlists.
             if not is_embedded_channel and actor_user_id is not None:
                 from api.ai_layers.tools import CHAT_REQUIRED_TOOL_NAMES
 
@@ -1544,7 +1478,6 @@ def conversation_agent_task(
             if attachment_ids_instruction:
                 instructions = instructions + attachment_ids_instruction
 
-            # RAG / web are available; the model decides per turn whether they help.
             if "rag_query" in (agent_tool_names or []):
                 instructions += (
                     "\n\nRAG (agent trained-memory search) is available via rag_query. "
@@ -1599,7 +1532,6 @@ def conversation_agent_task(
                     "\n\nWhen referencing the video attachment in markdown, link it like: "
                     "![Video](attachment:<attachment_id>)."
                 )
-            # With a capability override, only advertise tools that remain allowed.
             _doc_tools_ok = (
                 override_allowlist is None
                 or "generate_document_file" in (agent_tool_names or [])
@@ -1674,7 +1606,6 @@ def conversation_agent_task(
                     "=== END INTERACTIVE TRAINING ===\n"
                 )
 
-            # For grupal: strong context about the group conversation
             if multiagentic_modality == "grupal":
                 grupal_preamble = (
                     "\n\n=== GROUP CONVERSATION ===\n"
@@ -1693,7 +1624,6 @@ def conversation_agent_task(
                         grupal_preamble += f"\n--- {v.get('agent_name', 'Unknown')} ---\n{v.get('text', '')}\n"
                 instructions = instructions + grupal_preamble
 
-            # ---- Alert rules: inject when org has rules that apply to this agent ----
             organization = (
                 getattr(conversation, "organization", None)
                 or getattr(agent, "organization", None)
@@ -1725,8 +1655,6 @@ def conversation_agent_task(
                     if _cal_tool not in agent_tool_names and _may_auto_inject_tool(_cal_tool):
                         agent_tool_names.append(_cal_tool)
 
-            # WhatsApp template tools are only available when this agent owns a
-            # configured business line. Apply before any later injection.
             _wa_line_qs = WSNumber.objects.filter(agent_id=agent.id).exclude(
                 platform_id__isnull=True
             ).exclude(platform_id="")
@@ -1792,7 +1720,6 @@ def conversation_agent_task(
                         "alert_rule_id": str(a["alert_rule_id"]),
                         "status": a["status"],
                         "title": a["title"],
-                        # Show as key/value list so the model knows the format to re-use on update
                         "extractions": [
                             {"key": k, "value": str(v)}
                             for k, v in (a["extractions"] or {}).items()
@@ -1818,11 +1745,9 @@ def conversation_agent_task(
                 if "raise_alert" not in agent_tool_names and _may_auto_inject_tool("raise_alert"):
                     agent_tool_names.append("raise_alert")
             else:
-                # Remove raise_alert if client sent it but we have no applicable rules
                 if "raise_alert" in agent_tool_names:
                     agent_tool_names.remove("raise_alert")
 
-            # Web chat only: plugins (mermaid, etc.) are not shown on WhatsApp/widget UIs.
             if not is_embedded_channel:
                 if (
                     "read_plugin_instructions" not in agent_tool_names
@@ -1830,7 +1755,6 @@ def conversation_agent_task(
                 ):
                     agent_tool_names.append("read_plugin_instructions")
 
-            # Organization tagging (web app always; WhatsApp when line capabilities include tag tools).
             tagging_tools = (
                 "query_organization_tags",
                 "create_organization_tag",
@@ -1839,7 +1763,6 @@ def conversation_agent_task(
             _wa_cross_thread = frozenset(
                 {"get_tag_context", "query_conversation", "list_conversations"}
             )
-            # Linked WhatsApp uses the same user-scoped conversation tools as web.
             is_linked_whatsapp_actor = is_whatsapp_chat and actor_user_id is not None
             supports_web_org_tagging = organization and not is_embedded_channel
             supports_whatsapp_org_tagging = (
@@ -2082,7 +2005,6 @@ def conversation_agent_task(
             if _is_scheduled_run:
                 from api.ai_layers.tools import SCHEDULE_AGENT_TOOL_NAMES
 
-                # Nested scheduling is never allowed on a scheduled fire.
                 agent_tool_names = [
                     t
                     for t in agent_tool_names
@@ -2120,8 +2042,10 @@ def conversation_agent_task(
             if _is_handoff_continuation and isinstance(user_message_metadata, dict):
                 _from_name = user_message_metadata.get("handoff_from_name") or "another agent"
                 _from_slug = user_message_metadata.get("handoff_from_slug") or ""
-                _handoff_summary = (
-                    user_message_metadata.get("handoff_summary") or ""
+                _handoff_instructions = (
+                    user_message_metadata.get("handoff_agent_instructions")
+                    or user_message_metadata.get("handoff_summary")
+                    or ""
                 ).strip()
                 instructions += (
                     "\n\n=== AGENT HANDOFF ===\n"
@@ -2131,10 +2055,12 @@ def conversation_agent_task(
                     + ".\n"
                     "You are the specialist taking over. The conversation history includes "
                     "the user's request and the previous assistant's visible handoff message. "
-                    "Follow the private summary below; do not invent a second handoff.\n"
+                    "Follow the private instructions below; do not invent a second handoff.\n"
                 )
-                if _handoff_summary:
-                    instructions += f"\nBrief from previous agent:\n{_handoff_summary}\n"
+                if _handoff_instructions:
+                    instructions += (
+                        f"\nInstructions from previous agent:\n{_handoff_instructions}\n"
+                    )
                 instructions += "=== END AGENT HANDOFF ===\n"
 
             if (
@@ -2147,10 +2073,10 @@ def conversation_agent_task(
                     "Use list_agents to see accessible agents (slug, name, description). "
                     "Then call handoff_to_agent with:\n"
                     "- agent_slug: target from list_agents\n"
-                    "- user_message: required text shown to the user as YOUR assistant reply "
+                    "- message_for_user: required text shown to the user as YOUR assistant reply "
                     "(explain that you are handing off and why)\n"
-                    "- summary: private brief for the next agent only (what you did, what remains, "
-                    "why them) — never shown as a chat bubble\n"
+                    "- agent_instructions: private instructions the next agent must follow "
+                    "(what you did, what remains, why them) — never shown as a chat bubble\n"
                     "After a successful handoff, stop — do not continue working.\n"
                     "=== END AGENT HANDOFF TOOLS ===\n"
                 )
@@ -2174,7 +2100,6 @@ def conversation_agent_task(
             if auto_training_block:
                 instructions += auto_training_block
 
-            # ---- Create AgentSession (inputs) ----
             model_ref = ModelRef(
                 id=llm.id if llm else 0,
                 slug=model_slug,
@@ -2205,20 +2130,18 @@ def conversation_agent_task(
             agent_sessions_created.append(session)
             start_time = time.perf_counter()
 
-            # Ordered timeline of loop events for this agent's session (persisted
-            # to AgentSession.event_log and streamed live to the frontend).
             agent_event_log: list[dict] = []
 
-            def on_event(event_type: str, data: dict) -> None:
+            def on_event(event_type: str, event_data: dict) -> None:
                 from django.utils import timezone as _tz
 
                 agent_event_log.append(
                     {
                         "type": event_type,
-                        "tool_name": data.get("tool_name"),
-                        "iteration": data.get("iteration"),
-                        "duration": data.get("duration"),
-                        "error": data.get("error"),
+                        "tool_name": event_data.get("tool_name"),
+                        "iteration": event_data.get("iteration"),
+                        "duration": event_data.get("duration"),
+                        "error": event_data.get("error"),
                         "ts": _tz.now().isoformat(),
                     }
                 )
@@ -2227,7 +2150,7 @@ def conversation_agent_task(
                     "conversation_id": conversation_id,
                     "agent_slug": agent.slug,
                     "agent_name": agent.name,
-                    **data,
+                    **event_data,
                 }
                 notify_user(notification_route_id, "agent_events_channel", payload)
 
@@ -2251,7 +2174,6 @@ def conversation_agent_task(
                 has_organization_conversations_access=has_organization_conversations_access,
                 agent_slugs=agent_slugs,
                 multiagentic_modality=multiagentic_modality,
-                # Final per-agent allowlist for schedule_task capability snapshots.
                 enabled_capabilities=list(agent_tool_names),
                 handoff_request=handoff_request,
                 is_whatsapp_chat=is_whatsapp_chat,
@@ -2259,9 +2181,6 @@ def conversation_agent_task(
             )
             if applicable_alert_rules and organization:
                 resolve_kwargs["organization_id"] = organization.id
-            # Unlinked WhatsApp visitors use org-embedded cross-thread tools.
-            # Linked contacts use the same user-scoped tools as web chat
-            # (including WhatsApp template tools if granted on the line).
             if is_whatsapp_chat and actor_user_id is None:
                 resolve_kwargs["is_whatsapp_visitor"] = True
                 _strip_unlinked = {"list_conversations", *WHATSAPP_TEMPLATE_AGENT_TOOL_NAMES}
@@ -2302,16 +2221,14 @@ def conversation_agent_task(
             
             try:
                 from api.ai_layers.agent_loop import CancelledError
-                result = loop.run(openai_inputs)
+                agent_run_result = loop.run(openai_inputs)
             except CancelledError:
                 logger.info("Task cancelled for conversation %s", conversation_id)
-                # Ensure the session has ended_at set if not already set, then break or continue
                 from django.utils import timezone
                 session.ended_at = timezone.now()
                 session.event_log = agent_event_log
                 session.save(update_fields=["ended_at", "event_log"])
                 
-                # Emit events so the frontend stops loading
                 emit_event("agent_complete", {
                     "agent_slug": agent.slug,
                     "agent_name": agent.name,
@@ -2339,38 +2256,36 @@ def conversation_agent_task(
                     "tool_calls_count": total_tool_calls,
                 }
 
-            # ---- Update AgentSession (outputs) ----
             from django.utils import timezone
 
-            # ---- Collect any generated attachments (image/audio/video/document) ----
-            new_atts, new_ids = _extract_create_image_attachments(result.tool_calls or [])
+            new_atts, new_ids = _extract_create_image_attachments(agent_run_result.tool_calls or [])
             if new_atts:
                 assistant_message_attachments.extend(new_atts)
             if new_ids:
                 assistant_attachment_ids.extend(new_ids)
  
-            speech_atts, speech_ids = _extract_create_speech_attachments(result.tool_calls or [])
+            speech_atts, speech_ids = _extract_create_speech_attachments(agent_run_result.tool_calls or [])
             if speech_atts:
                 assistant_message_attachments.extend(speech_atts)
             if speech_ids:
                 assistant_attachment_ids.extend(speech_ids)
 
             dialogue_atts, dialogue_ids = _extract_generate_dialogue_attachments(
-                result.tool_calls or []
+                agent_run_result.tool_calls or []
             )
             if dialogue_atts:
                 assistant_message_attachments.extend(dialogue_atts)
             if dialogue_ids:
                 assistant_attachment_ids.extend(dialogue_ids)
 
-            video_atts, video_ids = _extract_generate_video_attachments(result.tool_calls or [])
+            video_atts, video_ids = _extract_generate_video_attachments(agent_run_result.tool_calls or [])
             if video_atts:
                 assistant_message_attachments.extend(video_atts)
             if video_ids:
                 assistant_attachment_ids.extend(video_ids)
 
             doc_atts, doc_ids = _extract_render_document_template_attachments(
-                result.tool_calls or []
+                agent_run_result.tool_calls or []
             )
             if doc_atts:
                 assistant_message_attachments.extend(doc_atts)
@@ -2378,7 +2293,7 @@ def conversation_agent_task(
                 assistant_attachment_ids.extend(doc_ids)
 
             gen_doc_atts, gen_doc_ids = _extract_generate_document_file_attachments(
-                result.tool_calls or []
+                agent_run_result.tool_calls or []
             )
             if gen_doc_atts:
                 assistant_message_attachments.extend(gen_doc_atts)
@@ -2386,7 +2301,7 @@ def conversation_agent_task(
                 assistant_attachment_ids.extend(gen_doc_ids)
 
             gen_xlsx_atts, gen_xlsx_ids = _extract_generate_excel_file_attachments(
-                result.tool_calls or []
+                agent_run_result.tool_calls or []
             )
             if gen_xlsx_atts:
                 assistant_message_attachments.extend(gen_xlsx_atts)
@@ -2395,7 +2310,7 @@ def conversation_agent_task(
 
             gen_gamma_atts, gen_gamma_ids = (
                 _extract_generate_gamma_attachment_attachments(
-                    result.tool_calls or []
+                    agent_run_result.tool_calls or []
                 )
             )
             if gen_gamma_atts:
@@ -2403,42 +2318,38 @@ def conversation_agent_task(
             if gen_gamma_ids:
                 assistant_attachment_ids.extend(gen_gamma_ids)
 
-            if isinstance(result.output, str):
-                output_value = OutputValue(type="string", value=result.output)
-            elif hasattr(result.output, "model_dump"):
-                dump = result.output.model_dump(mode="json")
+            if isinstance(agent_run_result.output, str):
+                output_value = OutputValue(type="string", value=agent_run_result.output)
+            elif hasattr(agent_run_result.output, "model_dump"):
+                dump = agent_run_result.output.model_dump(mode="json")
                 output_value = OutputValue(type="json", value=dump)
             else:
-                output_value = OutputValue(type="string", value=str(result.output))
+                output_value = OutputValue(type="string", value=str(agent_run_result.output))
 
             outputs_data = AgentSessionOutputs(
-                messages=result.messages,
+                messages=agent_run_result.messages,
                 output=output_value,
-                usage=result.usage,
+                usage=agent_run_result.usage,
                 status="completed",
                 error=None,
             ).model_dump()
 
             session.outputs = outputs_data
             session.event_log = agent_event_log
-            session.iterations = result.iterations
-            session.tool_calls_count = len(result.tool_calls)
+            session.iterations = agent_run_result.iterations
+            session.tool_calls_count = len(agent_run_result.tool_calls)
             session.ended_at = timezone.now()
             session.total_duration = time.perf_counter() - start_time
             session.save()
 
-            # ---- Extract output text for version ----
             import json as _json
-            if isinstance(result.output, str):
-                output_text = result.output
-            elif hasattr(result.output, "model_dump"):
-                output_text = _json.dumps(result.output.model_dump(), default=str)
+            if isinstance(agent_run_result.output, str):
+                output_text = agent_run_result.output
+            elif hasattr(agent_run_result.output, "model_dump"):
+                output_text = _json.dumps(agent_run_result.output.model_dump(), default=str)
             else:
-                output_text = str(result.output)
+                output_text = str(agent_run_result.output)
 
-            # Also include attachments referenced in assistant markdown using
-            # attachment:<uuid>, even when they were originally uploaded in
-            # previous messages (e.g. user documents/images).
             referenced_atts = _extract_referenced_attachments_from_text(
                 output_text,
                 conversation_id=conversation_id,
@@ -2457,7 +2368,7 @@ def conversation_agent_task(
                         existing_ids.add(aid)
 
             completion_atts_from_tools = _extract_create_completion_refs_from_tool_calls(
-                result.tool_calls or []
+                agent_run_result.tool_calls or []
             )
             completion_atts_from_text = _extract_referenced_completions_from_text(
                 output_text,
@@ -2476,7 +2387,7 @@ def conversation_agent_task(
                 if cid:
                     existing_completion_ids.add(cid)
 
-            rag_sources = _extract_rag_sources(result.tool_calls or [])
+            rag_sources = _extract_rag_sources(agent_run_result.tool_calls or [])
 
             version = {
                 "agent_slug": agent.slug,
@@ -2484,34 +2395,35 @@ def conversation_agent_task(
                 "type": "assistant",
                 "sources": rag_sources,
                 "usage": {
-                    "prompt_tokens": result.usage.get("prompt_tokens", 0),
-                    "completion_tokens": result.usage.get("completion_tokens", 0),
-                    "total_tokens": result.usage.get("total_tokens", 0),
+                    "prompt_tokens": agent_run_result.usage.get("prompt_tokens", 0),
+                    "completion_tokens": agent_run_result.usage.get("completion_tokens", 0),
+                    "total_tokens": agent_run_result.usage.get("total_tokens", 0),
                     "model_slug": model_slug,
                 },
             }
             version["text"] = output_text
             versions.append(version)
 
-            total_iterations += result.iterations
-            total_tool_calls += len(result.tool_calls)
+            total_iterations += agent_run_result.iterations
+            total_tool_calls += len(agent_run_result.tool_calls)
 
-            # Emit version immediately so frontend can display it in real time
             emit_event("agent_version_ready", {"version": version})
 
-            # ---- Agent-to-agent handoff: finish A, enqueue B ----
             if handoff_request.get("requested"):
                 from api.ai_layers.agent_task_helpers import mark_agent_task_active
-                from api.ai_layers.tools import resolve_allowed_tools
-                from api.messaging.schemas import metadata_payload_for_related_agents
 
                 to_slug = handoff_request.get("to_agent_slug")
                 to_name = handoff_request.get("to_agent_name") or to_slug
-                to_id = handoff_request.get("to_agent_id")
                 handoff_user_message = (
-                    handoff_request.get("user_message") or output_text
+                    handoff_request.get("message_for_user")
+                    or handoff_request.get("user_message")
+                    or output_text
                 ).strip()
-                handoff_summary = (handoff_request.get("summary") or "").strip()
+                handoff_agent_instructions = (
+                    handoff_request.get("agent_instructions")
+                    or handoff_request.get("summary")
+                    or ""
+                ).strip()
                 version["text"] = handoff_user_message
                 versions[-1] = version
                 output_text = handoff_user_message
@@ -2564,9 +2476,8 @@ def conversation_agent_task(
                 session.assistant_message = handoff_msg
                 session.save(update_fields=["assistant_message"])
 
-                if to_id:
-                    conv_ref.metadata = metadata_payload_for_related_agents([to_id])
-                    conv_ref.save(update_fields=["metadata", "updated_at"])
+                # Do not rewrite conversation.metadata.related_agents — the user's
+                # chat selection must stay as they left it after a handoff.
 
                 emit_event(
                     "agent_complete",
@@ -2591,7 +2502,6 @@ def conversation_agent_task(
                     }
                 )
 
-                # B uses its own pre_approved_tools (resolved inside the new task).
                 mark_agent_task_active(str(conversation_id))
                 conversation_agent_task.delay(
                     conversation_id=str(conversation_id),
@@ -2612,7 +2522,7 @@ def conversation_agent_task(
                         "source": "agent_handoff",
                         "handoff_from_slug": agent.slug,
                         "handoff_from_name": agent.name,
-                        "handoff_summary": handoff_summary,
+                        "handoff_agent_instructions": handoff_agent_instructions,
                     },
                 )
                 logger.info(
@@ -2632,7 +2542,6 @@ def conversation_agent_task(
                     "attachments": list(assistant_message_attachments),
                 }
 
-            # Grupal: save a separate assistant message per agent (matches streaming behaviour)
             if multiagentic_modality == "grupal":
                 try:
                     conv_ref = Conversation.objects.get(id=conversation_id)
@@ -2651,7 +2560,6 @@ def conversation_agent_task(
                         ).update(message=grupal_msg)
                     session.assistant_message = grupal_msg
                     session.save(update_fields=["assistant_message"])
-                    # Snapshot before reset — needed for agent_loop_finished (embed widget cannot refetch).
                     attachments_for_notify = list(assistant_message_attachments)
                     assistant_message_attachments = []
                     assistant_attachment_ids = []
@@ -2678,7 +2586,6 @@ def conversation_agent_task(
                 "total": len(agents_ordered),
             })
 
-        # ---- Save assistant message (isolated: single message with all versions) ----
         if multiagentic_modality != "grupal":
             assistant_message_id = None
             primary_text = versions[0]["text"] if versions else ""
@@ -2763,7 +2670,6 @@ def conversation_agent_task(
         )
         emit_event("error", {"error": str(e)})
 
-        # Update last created session with error outputs if any
         if agent_sessions_created:
             from django.utils import timezone
 
@@ -2795,6 +2701,4 @@ def conversation_agent_task(
         clear_agent_task_active(conversation_id)
         return {"status": "error", "error": str(e)}
 
-
-# Celery autodiscover only loads this module — register tasks defined elsewhere.
 from api.ai_layers.platform_assistant_task import platform_assistant_task  # noqa: F401

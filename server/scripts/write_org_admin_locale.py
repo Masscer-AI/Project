@@ -11,22 +11,18 @@ from __future__ import annotations
 
 import pathlib
 
-
 def esc(s: str) -> str:
     return s.replace("\\", "\\\\").replace('"', '\\"')
-
 
 def write_msg(f, msgid: str, msgstr: str) -> None:
     f.write(f'msgid "{esc(msgid)}"\n')
     f.write(f'msgstr "{esc(msgstr)}"\n\n')
-
 
 def write_plural(f, msgid: str, msgid_plural: str, s0: str, s1: str) -> None:
     f.write(f'msgid "{esc(msgid)}"\n')
     f.write(f'msgid_plural "{esc(msgid_plural)}"\n')
     f.write(f'msgstr[0] "{esc(s0)}"\n')
     f.write(f'msgstr[1] "{esc(s1)}"\n\n')
-
 
 def main() -> None:
     root = pathlib.Path(__file__).resolve().parents[1]
@@ -327,7 +323,6 @@ def main() -> None:
         ("Action", "Acción"),
         ("Disable", "Desactivar"),
         ("Enable", "Activar"),
-        # Python / admin messages
         ("Invalid decimal: %(value)s", "Decimal no válido: %(value)s"),
         ("Invalid end date", "Fecha de fin no válida"),
         ("No wallet", "Sin monedero"),
@@ -457,7 +452,6 @@ def main() -> None:
         for msgid, msgstr in pairs:
             write_msg(f, msgid, msgstr)
 
-        # blocktrans from billing_detail (variable count)
         write_plural(
             f,
             "View %(count)s active subscription",
@@ -486,7 +480,6 @@ def main() -> None:
             "Ver %(count)s fila de suscripción Masscer inactiva",
             "Ver %(count)s filas de suscripción Masscer inactivas",
         )
-        # blocktrans from language_settings.html
         write_msg(
             f,
             "Current language code: <code>%(current)s</code>.",
@@ -524,7 +517,6 @@ def main() -> None:
     mo_path = out.with_suffix(".mo")
     po.save_as_mofile(str(mo_path))
     print(f"Wrote {mo_path}")
-
 
 if __name__ == "__main__":
     main()

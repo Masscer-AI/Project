@@ -6,15 +6,10 @@ import { showOrganizationBillingBlockedToast } from "../../utils/organizationBil
 import { useLocalizedToolName } from "../../utils/localizedToolName";
 import { playNotificationSound } from "../../utils/notificationSound";
 
-const TOOL_STATUS_MIN_MS = 1500; // Keep tool call status visible so user notices the AI invoked a function
+const TOOL_STATUS_MIN_MS = 1500;
 const AGENT_TASK_POLL_INTERVAL_MS = 3000;
 const AGENT_TASK_POLL_FIRST_MS = 2500;
-/** Don't clear from "inactive" until we've seen active:true, or this grace elapsed (enqueue race). */
 const AGENT_TASK_POLL_INACTIVE_GRACE_MS = 12000;
-
-// The Redis notification bridge wraps payloads as:
-// { user_id, event_type, message: { ...actual_payload } }
-// So we unwrap `data.message` to get the real event data.
 
 type AgentEvent = {
   type: string;
@@ -31,7 +26,6 @@ type AgentFinishedEvent = {
   iterations: number;
   tool_calls_count: number;
   next_agent_slug?: string;
-  /** Present when the agent loop ended without saving an assistant message (e.g. org billing). */
   status?: string;
   error?: string;
   billing_reason?: string;
@@ -43,15 +37,6 @@ type RedisNotification<T> = {
   message: T;
 };
 
-/**
- * Listens for agent task events (agent_events_channel + agent_loop_finished)
- * and updates the store's agentTaskStatus so the Message component can display it.
- *
- * Tool call status is kept visible for TOOL_STATUS_MIN_MS so users notice function invocations.
- * On agent_loop_finished, refreshes the conversation so the new message appears.
- * Also polls task status as a fallback when websocket finish events are missed.
- * Renders nothing — purely a side-effect listener.
- */
 export const AgentTaskListener = () => {
   const { t } = useTranslation();
   const localizeTool = useLocalizedToolName();
@@ -84,8 +69,6 @@ export const AgentTaskListener = () => {
 
     const eventBelongsToTrackedTask = (eventConversationId: string) => {
       const trackedId = useStore.getState().agentTaskConversationId;
-      // After finish/cancel clears the tracked id, ignore late agent_events so
-      // e.g. agent_complete cannot re-set status and re-show the stop button.
       if (!trackedId) return false;
       return eventConversationId === trackedId;
     };
@@ -137,44 +120,43 @@ export const AgentTaskListener = () => {
     };
 
     const handleAgentEvent = (raw: RedisNotification<AgentEvent>) => {
-      const data = raw.message;
-      if (!data) {
+      const agentEvent = raw.message;
+      if (!agentEvent) {
         console.debug("[agent-task] agent_events_channel: empty message", raw);
         return;
       }
 
-      const snap = trackingSnapshot(data.conversation_id);
+      const snap = trackingSnapshot(agentEvent.conversation_id);
       if (!snap.belongs) {
         console.debug("[agent-task] agent_events ignored (conv mismatch)", {
-          type: data.type,
+          type: agentEvent.type,
           ...snap,
         });
         return;
       }
 
       console.debug("[agent-task] agent_events", {
-        type: data.type,
-        tool_name: data.tool_name,
-        conversation_id: data.conversation_id,
-        error: data.error,
+        type: agentEvent.type,
+        tool_name: agentEvent.tool_name,
+        conversation_id: agentEvent.conversation_id,
+        error: agentEvent.error,
         trackedId: snap.trackedId,
       });
 
-      // Accumulate the full live timeline so the user can expand all steps.
       pushAgentTaskEvent({
-        type: data.type,
-        tool_name: (data.tool_name as string) || null,
-        iteration: (data.iteration as number) ?? null,
-        duration: (data.duration as number) ?? null,
-        error: (data.error as string) || null,
+        type: agentEvent.type,
+        tool_name: (agentEvent.tool_name as string) || null,
+        iteration: (agentEvent.iteration as number) ?? null,
+        duration: (agentEvent.duration as number) ?? null,
+        error: (agentEvent.error as string) || null,
         ts: new Date().toISOString(),
       });
 
-      switch (data.type) {
+      switch (agentEvent.type) {
         case "tool_call_start":
           applyStatus(
             t("agent-running-tool", {
-              toolName: localizeTool(data.tool_name as string | undefined),
+              toolName: localizeTool(agentEvent.tool_name as string | undefined),
             }),
             true
           );
@@ -182,7 +164,7 @@ export const AgentTaskListener = () => {
         case "tool_call_end":
           applyStatus(
             t("agent-tool-completed", {
-              toolName: localizeTool(data.tool_name as string | undefined),
+              toolName: localizeTool(agentEvent.tool_name as string | undefined),
             }),
             true
           );
@@ -192,9 +174,9 @@ export const AgentTaskListener = () => {
           applyStatus(t("agent-processing"), false);
           break;
         case "agent_complete": {
-          const total = data.total as number | undefined;
-          const index = data.index as number | undefined;
-          const agentName = (data.agent_name as string) || "...";
+          const total = agentEvent.total as number | undefined;
+          const index = agentEvent.index as number | undefined;
+          const agentName = (agentEvent.agent_name as string) || "...";
           const status =
             total != null && total > 1 && index != null && index < total
               ? t("agent-response-complete-progress", {
@@ -203,14 +185,13 @@ export const AgentTaskListener = () => {
                   total: String(total),
                 })
               : t("agent-response-complete", { agentName });
-          // Progress text while tracked task is still running (membership gated above).
           applyStatus(status, false);
           break;
         }
         case "error":
           console.debug("[agent-task] agent_events error → clear stop", {
-            conversation_id: data.conversation_id,
-            error: data.error,
+            conversation_id: agentEvent.conversation_id,
+            error: agentEvent.error,
           });
           clearToolHold();
           playNotificationSound("error");
@@ -223,75 +204,75 @@ export const AgentTaskListener = () => {
     };
 
     const handleAgentFinished = (raw: RedisNotification<AgentFinishedEvent>) => {
-      const data = raw.message;
-      if (!data) {
+      const finishedEvent = raw.message;
+      if (!finishedEvent) {
         console.debug("[agent-task] agent_loop_finished: empty message", raw);
         return;
       }
 
-      const snap = trackingSnapshot(data.conversation_id);
+      const snap = trackingSnapshot(finishedEvent.conversation_id);
       if (!snap.belongs) {
         console.debug("[agent-task] agent_loop_finished ignored (conv mismatch)", {
-          message_id: data.message_id,
-          status: data.status,
-          next_agent_slug: data.next_agent_slug,
+          message_id: finishedEvent.message_id,
+          status: finishedEvent.status,
+          next_agent_slug: finishedEvent.next_agent_slug,
           ...snap,
         });
         return;
       }
 
       const viewingThisConversation =
-        useStore.getState().conversation?.id === data.conversation_id;
+        useStore.getState().conversation?.id === finishedEvent.conversation_id;
 
       console.debug("[agent-task] agent_loop_finished", {
-        conversation_id: data.conversation_id,
-        message_id: data.message_id,
-        status: data.status,
-        next_agent_slug: data.next_agent_slug,
+        conversation_id: finishedEvent.conversation_id,
+        message_id: finishedEvent.message_id,
+        status: finishedEvent.status,
+        next_agent_slug: finishedEvent.next_agent_slug,
         viewingThisConversation,
-        willClearStop: !data.next_agent_slug,
+        willClearStop: !finishedEvent.next_agent_slug,
         trackedId: snap.trackedId,
       });
 
-      if (data.next_agent_slug) {
+      if (finishedEvent.next_agent_slug) {
         console.debug(
           "[agent-task] handoff — keep stop visible until final finish",
-          { next_agent_slug: data.next_agent_slug }
+          { next_agent_slug: finishedEvent.next_agent_slug }
         );
         if (viewingThisConversation) {
-          setConversation(data.conversation_id);
+          setConversation(finishedEvent.conversation_id);
         }
         return;
       }
 
-      if (data.status === "cancelled") {
+      if (finishedEvent.status === "cancelled") {
         console.debug("[agent-task] finish cancelled → clear stop");
         clearToolHold();
         setAgentTaskStatus(null);
         clearAgentTaskEvents();
         if (viewingThisConversation) {
-          void setConversation(data.conversation_id);
+          void setConversation(finishedEvent.conversation_id);
         }
         return;
       }
 
-      if (data.status === "error") {
+      if (finishedEvent.status === "error") {
         console.debug("[agent-task] finish error → clear stop", {
-          error: data.error,
+          error: finishedEvent.error,
         });
         clearToolHold();
         playNotificationSound("error");
-        if (data.error === "organization_billing_blocked") {
+        if (finishedEvent.error === "organization_billing_blocked") {
           showOrganizationBillingBlockedToast(
-            typeof data.billing_reason === "string"
-              ? data.billing_reason
+            typeof finishedEvent.billing_reason === "string"
+              ? finishedEvent.billing_reason
               : undefined
           );
         }
         setAgentTaskStatus(null);
         clearAgentTaskEvents();
         if (viewingThisConversation) {
-          void setConversation(data.conversation_id);
+          void setConversation(finishedEvent.conversation_id);
         }
         return;
       }
@@ -300,11 +281,9 @@ export const AgentTaskListener = () => {
       clearToolHold();
       playNotificationSound("success");
       setAgentTaskStatus(null);
-      // Live timeline is no longer needed: the saved message exposes the
-      // persisted event_log through the execution log modal.
       clearAgentTaskEvents();
       if (viewingThisConversation) {
-        setConversation(data.conversation_id);
+        setConversation(finishedEvent.conversation_id);
       }
     };
 
@@ -327,8 +306,6 @@ export const AgentTaskListener = () => {
     localizeTool,
   ]);
 
-  // Poll while a task is tracked. Depend on conversation id + running boolean only —
-  // not the status *text*, or tool/loop updates would reset the grace timer forever.
   const isAgentTaskRunning = Boolean(agentTaskStatus && agentTaskConversationId);
 
   useEffect(() => {
@@ -395,7 +372,6 @@ export const AgentTaskListener = () => {
           trackedConversationId,
           error,
         });
-        // Ignore transient poll errors; websocket path or next tick may recover.
       }
     };
 

@@ -29,17 +29,14 @@ VEO_MODEL = "veo-3.1-generate-001"
 GOOGLE_CLOUD_PROJECT = os.environ.get("GOOGLE_CLOUD_PROJECT", "masscer-492023")
 GOOGLE_CLOUD_LOCATION = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
 
-# $0.40 per second of generated video
 VEO_PRICE_PER_SECOND_USD = 0.40
 
-# Veo on Vertex AI only supports 16:9 and 9:16 (see GenerateVideosConfig.aspect_ratio).
 VideoAspectRatio = Literal["landscape", "portrait"]
 
 _ASPECT_RATIO_TO_VEO = {
     "landscape": "16:9",
     "portrait": "9:16",
 }
-
 
 class GenerateVideoParams(BaseModel):
     prompt: str = Field(
@@ -57,7 +54,6 @@ class GenerateVideoParams(BaseModel):
         description="Veo supports only landscape (16:9) or portrait (9:16), not square.",
     )
 
-
 class GenerateVideoResult(BaseModel):
     attachment_id: str = Field(description="UUID of the created video MessageAttachment.")
     name: str = Field(description="Short slugified name for display.")
@@ -65,7 +61,6 @@ class GenerateVideoResult(BaseModel):
     model: str = Field(description="Model used for generation.")
     aspect_ratio: VideoAspectRatio = Field(description="Aspect ratio requested (16:9 or 9:16).")
     duration_seconds: float = Field(description="Duration of the generated video in seconds.")
-
 
 def _setup_google_credentials() -> str | None:
     """
@@ -77,12 +72,10 @@ def _setup_google_credentials() -> str | None:
     if not credentials_json:
         return None
 
-    # Already a file path — nothing to do
     if os.path.isfile(credentials_json):
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_json
         return credentials_json
 
-    # Validate JSON
     try:
         json.loads(credentials_json)
     except json.JSONDecodeError as e:
@@ -96,11 +89,9 @@ def _setup_google_credentials() -> str | None:
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = tmp.name
     return tmp.name
 
-
 def _guess_video_filename(prompt: str) -> str:
     base = slugify((prompt or "").strip()[:80] or "video")
     return f"{base}-{uuid.uuid4().hex[:8]}.mp4"
-
 
 def _generate_video_veo(
     *,
@@ -153,7 +144,6 @@ def _generate_video_veo(
         config=config,
     )
 
-    # Poll until done
     max_wait_seconds = 360
     poll_interval = 15
     elapsed = 0
@@ -173,17 +163,17 @@ def _generate_video_veo(
         logger.error("Veo operation has no result. Full operation: %s", operation)
         raise ValueError("Veo generation failed — no result returned.")
 
-    result = operation.result
-    rai_count = getattr(result, "rai_media_filtered_count", None)
-    rai_reasons = getattr(result, "rai_media_filtered_reasons", None) or []
+    veo_result = operation.result
+    rai_count = getattr(veo_result, "rai_media_filtered_count", None)
+    rai_reasons = getattr(veo_result, "rai_media_filtered_reasons", None) or []
     logger.info(
         "Veo response: generated_videos=%s, rai_media_filtered_count=%s, rai_reasons=%s",
-        len(result.generated_videos) if result.generated_videos else 0,
+        len(veo_result.generated_videos) if veo_result.generated_videos else 0,
         rai_count,
         rai_reasons,
     )
 
-    generated_videos = result.generated_videos or []
+    generated_videos = veo_result.generated_videos or []
 
     if not generated_videos or not generated_videos[0].video:
         if rai_count or rai_reasons:
@@ -209,9 +199,8 @@ def _generate_video_veo(
     if not raw:
         raise ValueError("Veo returned a video object with no bytes and no downloadable URI.")
 
-    duration = 8.0  # Veo 3.1 default clip length
+    duration = 8.0
     return raw, duration
-
 
 def _generate_video_impl(
     *,
@@ -232,7 +221,6 @@ def _generate_video_impl(
     if not prompt:
         raise ValueError("prompt is required")
 
-    # ---- Load conversation + resolve user ----
     try:
         conversation = Conversation.objects.select_related("organization", "chat_widget").get(
             id=conversation_id
@@ -247,7 +235,6 @@ def _generate_video_impl(
         except User.DoesNotExist:
             user = None
 
-    # ---- Feature gating ----
     from api.ai_layers.tools.embedded_channels import (
         conversation_uses_capability_gated_media_tools,
     )
@@ -261,7 +248,6 @@ def _generate_video_impl(
         if not enabled:
             raise ValueError("The 'video-tools' feature is not enabled.")
 
-    # ---- Load source image attachment (optional) ----
     image_bytes = None
     image_mime_type = None
     source_image_id = None
@@ -280,10 +266,8 @@ def _generate_video_impl(
         except MessageAttachment.DoesNotExist:
             raise ValueError(f"Image attachment '{image_attachment_id}' not found.")
 
-    # ---- Set up Google credentials ----
     tmp_creds_path = _setup_google_credentials()
 
-    # ---- Generate video ----
     try:
         raw, duration_seconds = _generate_video_veo(
             prompt=prompt,
@@ -301,7 +285,6 @@ def _generate_video_impl(
             except Exception:
                 pass
 
-    # ---- Resolve agent ----
     agent_obj = None
     if agent_slug:
         try:
@@ -310,7 +293,6 @@ def _generate_video_impl(
         except Exception:
             agent_obj = None
 
-    # ---- Save as MessageAttachment ----
     filename = _guess_video_filename(prompt)
     file_obj = ContentFile(raw, name=filename)
 
@@ -331,7 +313,6 @@ def _generate_video_impl(
         },
     )
 
-    # ---- Bill video generation ----
     if user_id is not None:
         try:
             from api.consumption.tasks import async_register_video_generation
@@ -340,7 +321,6 @@ def _generate_video_impl(
         except Exception:
             logger.warning("Failed to queue video billing task", exc_info=True)
 
-    # ---- Build display URL ----
     api_base = getattr(settings, "API_BASE_URL", None) or ""
     file_url = attachment.file.url if attachment.file else ""
     display_url = (
@@ -358,7 +338,6 @@ def _generate_video_impl(
         aspect_ratio=aspect_ratio,
         duration_seconds=duration_seconds,
     )
-
 
 def get_tool(
     conversation_id: str | None = None,

@@ -6,15 +6,10 @@ import { IconBrandGoogle } from "@tabler/icons-react";
 
 type Props = {
   onAccessToken?: (accessToken: string) => Promise<void>;
-  /** When set, navigate here instead of opening the Google popup (tenant → canonical flow). */
   href?: string;
   disabled?: boolean;
 };
 
-/**
- * Must render only when inside GoogleOAuthProvider (see main.tsx + hasGoogleOAuthClientId).
- * When `href` is set, GIS popup is skipped (button acts as a link).
- */
 export function GoogleSignInButton({ onAccessToken, href, disabled }: Props) {
   const { t } = useTranslation();
 

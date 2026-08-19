@@ -20,7 +20,6 @@ _CRON_FIELD_RE = re.compile(r"^[\d*/,\-]+$")
 
 WEEKDAY_NAMES = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
 
-# Legacy fallback when a scheduled task has an empty capabilities snapshot.
 SCHEDULER_BASELINE_TOOL_NAMES: list[str] = [
     "read_attachment",
     "list_attachments",
@@ -36,10 +35,8 @@ SCHEDULER_BASELINE_TOOL_NAMES: list[str] = [
     "read_knowledge_base_document",
 ]
 
-# Our weekdays: 0=Mon … 6=Sun. Standard cron (croniter): 0=Sun, 1=Mon … 6=Sat.
 def mon0_to_cron_dow(weekday: int) -> int:
     return (int(weekday) + 1) % 7
-
 
 def parse_time_of_day(value: str) -> tuple[int, int]:
     raw = (value or "").strip()
@@ -47,7 +44,6 @@ def parse_time_of_day(value: str) -> tuple[int, int]:
     if not match:
         raise ValueError("time_of_day must be HH:MM in 24-hour format (e.g. 11:00).")
     return int(match.group(1)), int(match.group(2))
-
 
 def parse_run_at_to_utc(value: str, tz_name: str) -> datetime:
     """
@@ -75,7 +71,6 @@ def parse_run_at_to_utc(value: str, tz_name: str) -> datetime:
         return naive.astimezone(ZoneInfo("UTC"))
     return naive.replace(tzinfo=tz).astimezone(ZoneInfo("UTC"))
 
-
 def validate_cron_expression(cron: str) -> str:
     parts = (cron or "").strip().split()
     if len(parts) != 5:
@@ -83,14 +78,12 @@ def validate_cron_expression(cron: str) -> str:
     for part in parts:
         if not _CRON_FIELD_RE.match(part):
             raise ValueError(f"Invalid cron field: {part!r}.")
-    # Validate with croniter against a fixed base.
     base = datetime(2026, 1, 1, 0, 0, 0, tzinfo=ZoneInfo("UTC"))
     try:
         croniter(" ".join(parts), base)
     except (ValueError, KeyError, TypeError) as exc:
         raise ValueError(f"Invalid cron expression: {exc}") from exc
     return " ".join(parts)
-
 
 def build_cron_from_structured(
     *,
@@ -127,7 +120,6 @@ def build_cron_from_structured(
 
     raise ValueError(f"Unsupported recurrence: {recurrence}")
 
-
 def resolve_cron_expression(
     *,
     schedule_type: ScheduleType,
@@ -155,7 +147,6 @@ def resolve_cron_expression(
         weekdays=weekdays,
         day_of_month=day_of_month,
     )
-
 
 def compute_next_run_at(
     *,
@@ -191,7 +182,6 @@ def compute_next_run_at(
         raise ValueError("recurring schedules require a cron expression.")
 
     tz = ZoneInfo(tz_name)
-    # croniter's next() is exclusive of the base; use local "now" so wall clock matches org TZ.
     base_local = now_utc.astimezone(tz)
     iterator = croniter(cron, base_local)
     next_local = iterator.get_next(datetime)
@@ -200,7 +190,6 @@ def compute_next_run_at(
     else:
         next_local = next_local.astimezone(tz)
     return next_local.astimezone(ZoneInfo("UTC"))
-
 
 def format_schedule_summary(
     *,
@@ -240,12 +229,10 @@ def format_schedule_summary(
 
     return f"Recurring in {tz_name}; next {next_local_str}"
 
-
 def local_iso_from_utc(dt_utc: datetime, tz_name: str) -> str:
     tz = ZoneInfo(tz_name)
     local = dt_utc.astimezone(tz)
     return local.replace(tzinfo=None).isoformat(timespec="seconds")
-
 
 def schedule_payload_dict(task: Any) -> dict[str, Any]:
     """Serialize a ScheduledConversationTask-like object for tool results."""
@@ -293,7 +280,6 @@ def schedule_payload_dict(task: Any) -> dict[str, Any]:
         "conversation_title": conversation_title,
     }
 
-
 def normalize_capability_names(raw: list | None) -> list[str]:
     """Deduplicate and keep only names registered in TOOL_REGISTRY (order preserved)."""
     from api.ai_layers.tools import TOOL_REGISTRY, canonical_tool_name
@@ -310,7 +296,6 @@ def normalize_capability_names(raw: list | None) -> list[str]:
         out.append(name)
     return out
 
-
 def selectable_scheduled_task_tool_names() -> list[str]:
     """
     Legacy helper: tools that used to be assignable on a scheduled-task allowlist.
@@ -322,7 +307,6 @@ def selectable_scheduled_task_tool_names() -> list[str]:
 
     blocked = frozenset(SCHEDULE_AGENT_TOOL_NAMES)
     return [name for name in TOOL_REGISTRY if name not in blocked]
-
 
 def resolve_scheduled_task_capabilities(task) -> list[str] | None:
     """
@@ -338,7 +322,6 @@ def resolve_scheduled_task_capabilities(task) -> list[str] | None:
     blocked = frozenset(SCHEDULE_AGENT_TOOL_NAMES)
     return [name for name in caps if name not in blocked]
 
-
 def effective_scheduled_task_tool_names(task) -> list[str]:
     """Legacy concrete tool list; scheduled fire path no longer uses this."""
     resolved = resolve_scheduled_task_capabilities(task)
@@ -346,11 +329,9 @@ def effective_scheduled_task_tool_names(task) -> list[str]:
         return selectable_scheduled_task_tool_names()
     return resolved
 
-
 def _html_comment_safe(text: str) -> str:
     """Avoid terminating an HTML comment early (`--` is illegal inside comments)."""
     return (text or "").replace("--", "—")
-
 
 def infer_schedule_ui_language(*parts: str | None) -> str:
     """
@@ -390,7 +371,6 @@ def infer_schedule_ui_language(*parts: str | None) -> str:
     score = sum(1 for marker in spanish_markers if marker in sample)
     return "es" if score >= 2 else "en"
 
-
 def format_scheduled_task_visible_label(title: str, language: str) -> str:
     clean_title = (title or "").strip() or (
         "Tarea sin título" if language == "es" else "Untitled task"
@@ -398,7 +378,6 @@ def format_scheduled_task_visible_label(title: str, language: str) -> str:
     if language == "es":
         return f"Ejecutando tarea: {clean_title}"
     return f"Executing task: {clean_title}"
-
 
 def build_scheduled_task_execution_message(task: Any) -> str:
     """
@@ -430,7 +409,6 @@ def build_scheduled_task_execution_message(task: Any) -> str:
             "no shared schedule allowlist)"
         )
     else:
-        # Legacy tasks that still have a capabilities snapshot in the DB.
         caps_line = ", ".join(explicit_caps) if explicit_caps else "(none)"
 
     next_run = getattr(task, "next_run_at", None)
@@ -476,6 +454,4 @@ def build_scheduled_task_execution_message(task: Any) -> str:
     comment_body = _html_comment_safe("\n".join(detail_lines))
     return f"{visible}\n\n<!--\n{comment_body}\n-->"
 
-
-# Small epsilon used when advancing recurring schedules after a run.
 RECURRING_ADVANCE_EPSILON = timedelta(seconds=1)

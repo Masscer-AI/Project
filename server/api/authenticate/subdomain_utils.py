@@ -26,14 +26,10 @@ RESERVED_SUBDOMAINS = frozenset(
 
 _SUBDOMAIN_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
 
-
-# Fallback tenant base domain when FRONTEND_URL is not set (e.g. management commands).
 DEFAULT_TENANT_BASE_DOMAIN = "masscer.ai"
-
 
 def normalize_subdomain(value: str) -> str:
     return (value or "").strip().lower()
-
 
 def validate_subdomain(value: str) -> str:
     """Return normalized subdomain or raise ValidationError."""
@@ -50,7 +46,6 @@ def validate_subdomain(value: str) -> str:
     if subdomain in RESERVED_SUBDOMAINS:
         raise ValidationError("This subdomain is reserved.")
     return subdomain
-
 
 def extract_subdomain(host: str) -> str | None:
     """
@@ -88,7 +83,6 @@ def extract_subdomain(host: str) -> str | None:
         return None
     return label
 
-
 def get_tenant_base_domain() -> str:
     """
     Hostname suffix for tenant portals: acme.{return value}.
@@ -106,7 +100,6 @@ def get_tenant_base_domain() -> str:
         if host:
             return host
     return DEFAULT_TENANT_BASE_DOMAIN
-
 
 def get_tenant_label(hostname: str) -> str | None:
     """Return tenant subdomain label if host is a tenant portal, else None."""
@@ -138,16 +131,13 @@ def get_tenant_label(hostname: str) -> str | None:
         return None
     return label
 
-
 def build_tenant_portal_host(subdomain: str) -> str:
     return f"{subdomain}.{get_tenant_base_domain()}"
-
 
 def get_frontend_base_url() -> str:
     return (
         getattr(settings, "FRONTEND_URL", None) or os.environ.get("FRONTEND_URL", "")
     ).strip().rstrip("/")
-
 
 def is_allowed_return_to_host(hostname: str) -> bool:
     if not hostname:
@@ -167,7 +157,6 @@ def is_allowed_return_to_host(hostname: str) -> bool:
         return True
     return False
 
-
 def validate_auth_return_to_origin(url: str) -> str | None:
     """Return normalized origin (scheme + netloc) or None if unsafe."""
     raw = (url or "").strip()
@@ -183,7 +172,6 @@ def validate_auth_return_to_origin(url: str) -> str | None:
     if parsed.params or parsed.query or parsed.fragment:
         return None
     return urlunparse((parsed.scheme, parsed.netloc, "", "", "", ""))
-
 
 def validate_google_auth_redirect_uri(url: str) -> str | None:
     """Return normalized redirect URI for GIS auth-code flow or None if unsafe."""

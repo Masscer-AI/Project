@@ -120,7 +120,6 @@ const ORGANIZATION_TAB_VALUES = [
 
 export type OrganizationTab = (typeof ORGANIZATION_TAB_VALUES)[number];
 
-/** Maps URL ?activeTab= to organization page section (default: settings). */
 export function parseOrganizationActiveTab(
   searchParams: URLSearchParams
 ): OrganizationTab {
@@ -345,7 +344,6 @@ export default function OrganizationPage() {
   };
   const [assigningUserId, setAssigningUserId] = useState<number | null>(null);
 
-  // Role form
   const [roleModalOpened, setRoleModalOpened] = useState(false);
   const [editingRole, setEditingRole] = useState<TOrganizationRole | null>(
     null
@@ -356,7 +354,6 @@ export default function OrganizationPage() {
     capabilities: [] as string[],
   });
 
-  // Organization settings
   const orgForm = useForm({
     initialValues: {
       name: "",
@@ -370,22 +367,18 @@ export default function OrganizationPage() {
   const [savingOrg, setSavingOrg] = useState(false);
   const [logoCacheKey, setLogoCacheKey] = useState(0);
 
-  // Create organization
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [createForm, setCreateForm] = useState({ name: "", description: "" });
   const [creating, setCreating] = useState(false);
 
-  // Invite link
   const [showInviteLink, setShowInviteLink] = useState(false);
 
-  // Member action confirmation modal
   const [memberAction, setMemberAction] = useState<{
     member: TOrganizationMember;
     action: "deactivate" | "reactivate" | "remove";
   } | null>(null);
   const [memberActionLoading, setMemberActionLoading] = useState(false);
 
-  // Invite member modal (email invite — user sets password via link)
   const [createMemberOpened, setCreateMemberOpened] = useState(false);
   const [createMemberForm, setCreateMemberForm] = useState({
     email: "",
@@ -397,7 +390,6 @@ export default function OrganizationPage() {
   const [invites, setInvites] = useState<TOrganizationInvite[]>([]);
   const [loadingInvites, setLoadingInvites] = useState(false);
 
-  // Edit member modal
   const [editingMember, setEditingMember] = useState<TOrganizationMember | null>(null);
   const [editMemberForm, setEditMemberForm] = useState({
     name: "",
@@ -406,7 +398,6 @@ export default function OrganizationPage() {
   });
   const [editMemberLoading, setEditMemberLoading] = useState(false);
 
-  // Members tab filter
   const [memberTab, setMemberTab] = useState<"active" | "inactive" | "expired">("active");
 
   const loadOrgs = async () => {
@@ -557,8 +548,6 @@ export default function OrganizationPage() {
         .catch(() => setRoles([]));
   };
 
-  // ── Handlers ──────────────────────────────────────────────────────────────
-
   const handleCreateOrg = async () => {
     if (!createForm.name.trim()) {
       toast.error(t("organization-name-required"));
@@ -605,7 +594,6 @@ export default function OrganizationPage() {
           const refreshedTenant = await getOrganizationTenant(org.id);
           setTenant(refreshedTenant);
         } catch {
-          /* favicon preview is optional */
         }
       }
     } catch (e: any) {
@@ -838,8 +826,6 @@ export default function OrganizationPage() {
     }
   };
 
-  // ── Render ────────────────────────────────────────────────────────────────
-
   if (loading) {
     return (
       <main className="d-flex pos-relative h-viewport">
@@ -896,7 +882,6 @@ export default function OrganizationPage() {
           </Title>
 
           {!org ? (
-            /* ── No organization ── */
             <Card withBorder p="xl">
               {!showCreateForm ? (
                 <Stack align="center" gap="md" py="xl">
@@ -957,7 +942,6 @@ export default function OrganizationPage() {
               )}
             </Card>
           ) : (
-            /* ── Organization exists — Tabs ── */
             <Tabs
               value={organizationTab}
               onChange={(v) => {
@@ -998,7 +982,7 @@ export default function OrganizationPage() {
                 </Tabs.Tab>
               </Tabs.List>
 
-              {/* ── Settings Tab ── */}
+              {}
               <Tabs.Panel value="settings">
                 <Stack gap="md">
                 <Card withBorder p="lg">
@@ -1007,7 +991,7 @@ export default function OrganizationPage() {
                   </Group>
 
                   <Stack gap="md">
-                    {/* Logo */}
+                    {}
                     <Stack gap={4}>
                       <Text size="sm" c="dimmed">
                         {t("organization-logo")}
@@ -1292,7 +1276,7 @@ export default function OrganizationPage() {
                 </Stack>
               </Tabs.Panel>
 
-              {/* ── Roles Tab ── */}
+              {}
               <Tabs.Panel value="roles">
                 <Card withBorder p="lg">
                   <Group justify="space-between" mb="md">
@@ -1379,10 +1363,10 @@ export default function OrganizationPage() {
                 </Card>
               </Tabs.Panel>
 
-              {/* ── Members Tab ── */}
+              {}
               <Tabs.Panel value="members">
                 <Stack gap="md">
-                  {/* Invite link section */}
+                  {}
                   <Card withBorder p="lg">
                     <Group justify="space-between" mb={showInviteLink ? "md" : 0}>
                       <Title order={4}>{t("invite-link")}</Title>
@@ -1428,7 +1412,7 @@ export default function OrganizationPage() {
                     )}
                   </Card>
 
-                  {/* Pending email invitations */}
+                  {}
                   <Card withBorder p="lg">
                     <Group justify="space-between" mb="md">
                       <Title order={4}>{t("pending-invitations")}</Title>
@@ -1471,7 +1455,7 @@ export default function OrganizationPage() {
                     )}
                   </Card>
 
-                  {/* Members list */}
+                  {}
                   <Card withBorder p="lg">
                     <Group justify="space-between" mb="md">
                       <Title order={4}>{t("members")}</Title>
@@ -1654,7 +1638,7 @@ export default function OrganizationPage() {
                 </Stack>
               </Tabs.Panel>
 
-              {/* ── Billing Tab ── */}
+              {}
               <Tabs.Panel value="billing">
                 <Stack gap="md">
                   {loadingBilling ? (
@@ -1663,7 +1647,7 @@ export default function OrganizationPage() {
                     <Text c="dimmed" size="sm">{t("no-billing-info")}</Text>
                   ) : (
                     <>
-                      {/* Subscription card */}
+                      {}
                       <Card withBorder p="lg">
                         <Group justify="space-between" mb="md">
                           <Title order={4}>{t("subscription")}</Title>
@@ -1753,7 +1737,7 @@ export default function OrganizationPage() {
                         )}
                       </Card>
 
-                      {/* Wallet / credits card */}
+                      {}
                       <Card withBorder p="lg">
                         <Title order={4} mb="md">{t("credits")}</Title>
 
@@ -1793,7 +1777,7 @@ export default function OrganizationPage() {
                               </Text>
                             )}
 
-                            {/* Progress bar — subscription bucket vs plan included credits */}
+                            {}
                             {billing.subscription?.plan.credits_limit_usd && (
                               <Box
                                 style={{
@@ -1825,12 +1809,12 @@ export default function OrganizationPage() {
                         )}
                       </Card>
 
-                      {/* ── Plan selector ── */}
+                      {}
                       {canSubscribeToStripePlan ? (
                         <>
                           <Title order={5} mt="sm">{t("choose-a-plan")}</Title>
                           <Group grow align="stretch">
-                            {/* Organization plan */}
+                            {}
                             <Card withBorder p="lg" style={{ position: "relative" }}>
                               <Stack gap="xs">
                                 <Group gap="xs">
@@ -1860,7 +1844,7 @@ export default function OrganizationPage() {
                         )
                       )}
 
-                      {/* ── Buy credits (top-up) ── */}
+                      {}
                       <Card withBorder p="lg" mt="sm">
                         <Stack gap="sm">
                           <Title order={5}>{t("buy-credits-title")}</Title>
@@ -1872,7 +1856,7 @@ export default function OrganizationPage() {
                                 : t("buy-credits-disabled-no-subscription")}
                           </Text>
 
-                          {/* Fixed package amounts */}
+                          {}
                           <Group gap="xs">
                             {availableCreditPackages.map(({ amountUsd, creditsUsd }) => (
                               <Button
@@ -1926,7 +1910,7 @@ export default function OrganizationPage() {
         </Box>
       </div>
 
-      {/* ── Role create/edit modal ── */}
+      {}
       <Modal
         opened={roleModalOpened}
         onClose={() => {
@@ -2026,7 +2010,7 @@ export default function OrganizationPage() {
         </Stack>
       </Modal>
 
-      {/* ── Member action confirmation modal ── */}
+      {}
       <Modal
         opened={!!memberAction}
         onClose={closeMemberAction}
@@ -2084,7 +2068,7 @@ export default function OrganizationPage() {
         )}
       </Modal>
 
-      {/* ── Create member modal ── */}
+      {}
       <Modal
         opened={createMemberOpened}
         onClose={() => {
@@ -2142,7 +2126,7 @@ export default function OrganizationPage() {
         </Stack>
       </Modal>
 
-      {/* ── Edit member modal ── */}
+      {}
       <Modal
         opened={!!editingMember}
         onClose={() => setEditingMember(null)}
@@ -2186,8 +2170,6 @@ export default function OrganizationPage() {
     </main>
   );
 }
-
-// ── Helper: Logo preview ──────────────────────────────────────────────────────
 
 const LogoPreview = ({ file }: { file: File }) => {
   const [src, setSrc] = useState<string>("");

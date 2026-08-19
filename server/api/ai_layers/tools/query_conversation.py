@@ -19,12 +19,10 @@ from api.utils.openai_functions import create_structured_completion
 
 logger = logging.getLogger(__name__)
 
-# Bound inner context (main agent stays lean)
 MAX_MESSAGES = 300
 MAX_CHARS_PER_MESSAGE = 10_000
 INNER_MODEL = os.environ.get("QUERY_CONVERSATION_MODEL", "gpt-4o-mini")
 MAX_QUESTION_LEN = 2000
-
 
 class QueryConversationParams(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -61,7 +59,6 @@ class QueryConversationParams(BaseModel):
             raise ValueError("question cannot be blank")
         return q[:MAX_QUESTION_LEN]
 
-
 class _InnerAnswer(BaseModel):
     """Structured output for the inner model."""
 
@@ -72,12 +69,10 @@ class _InnerAnswer(BaseModel):
         )
     )
 
-
 class QueryConversationResult(BaseModel):
     success: bool
     answer: str = Field(default="", description="Answer to the question (empty if failed)")
     message: str = Field(default="", description="Status or error hint for the main agent")
-
 
 def _user_can_access_conversation(
     *,
@@ -95,7 +90,6 @@ def _user_can_access_conversation(
         has_organization_conversations_access=has_organization_conversations_access,
     )
 
-
 def _build_transcript(conv: Conversation) -> str:
     """Most recent messages first in DB slice, then chronological for the prompt."""
     qs = (
@@ -111,7 +105,6 @@ def _build_transcript(conv: Conversation) -> str:
             text = text[:MAX_CHARS_PER_MESSAGE] + "\n… [truncated]"
         lines.append(f"{m.type}: {text}")
     return "\n".join(lines)
-
 
 def _query_conversation_impl(
     *,
@@ -230,7 +223,6 @@ Rules:
             answer="",
             message=f"Inner analysis failed: {exc!s}",
         )
-
 
 def get_tool(
     conversation_id: str | None = None,

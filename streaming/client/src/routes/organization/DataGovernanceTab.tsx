@@ -273,7 +273,7 @@ export function DataGovernanceTab({ organizationId }: Props) {
 
       <Card withBorder p="lg">
         <Group justify="space-between" wrap="wrap" gap="xl" align="flex-start">
-          {/* Left: description */}
+          {}
           <Stack gap="xs" style={{ flex: 1, minWidth: 200 }}>
             <Title order={4}>{t("data-governance-export-title")}</Title>
             <Text size="sm" c="dimmed">{t("data-governance-export-description")}</Text>
@@ -286,7 +286,7 @@ export function DataGovernanceTab({ organizationId }: Props) {
             </Stack>
           </Stack>
 
-          {/* Right: categories + button */}
+          {}
           <Stack gap="sm" style={{ flex: 1, minWidth: 220 }}>
             <Stack gap={6}>
               <Checkbox label={t("data-governance-export-conversations")} checked={exportConversations} onChange={(e) => setExportConversations(e.currentTarget.checked)} />

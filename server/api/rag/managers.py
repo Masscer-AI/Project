@@ -3,10 +3,8 @@ import os
 import subprocess
 import sys
 
-# Import the settings
 from api.settings import MEDIA_ROOT
 
-# from chromadb.utils import embedding_functions
 VECTOR_STORAGE_PATH = os.environ.get(
     "VECTOR_STORAGE_PATH", os.path.join(MEDIA_ROOT, "vector_storage/")
 )
@@ -14,9 +12,7 @@ VECTOR_STORAGE_PATH = os.environ.get(
 if not os.path.exists(VECTOR_STORAGE_PATH):
     os.makedirs(VECTOR_STORAGE_PATH)
 
-# default_ef = embedding_functions.DefaultEmbeddingFunction()
 ChromaNotInitializedException = Exception("Chroma not yet initialized!")
-
 
 class ChromaManager:
     client = None
@@ -28,11 +24,6 @@ class ChromaManager:
         self.prewarm_default_embedding()
 
     def prewarm_default_embedding(self):
-        # Avoid pulling embedding models during management commands (migrate/makemigrations/etc).
-        # For these commands, Chroma is not required and the container is often ephemeral,
-        # so downloading the ONNX model repeatedly is wasteful.
-        #
-        # You can override behavior by explicitly setting CHROMA_PREWARM.
         if os.environ.get("CHROMA_PREWARM") is None:
             mgmt_cmds = {"migrate", "makemigrations", "collectstatic", "test"}
             if any(arg in mgmt_cmds for arg in sys.argv[1:]):
@@ -90,7 +81,6 @@ class ChromaManager:
         search_string: str = "",
         where: dict | None = None,
     ):
-        # TODO: This is bad, if the collection doesn't exist, ignore
         collection = self.get_or_create_collection(collection_name)
 
         query_kwargs = {
@@ -124,7 +114,6 @@ class ChromaManager:
             print(e, "EXCEPTION TRYING TO DELETE COLLECTION")
 
     def delete_chunk(self, collection_name: str, chunk_id: str):
-        # TODO: This is bad, if the collection doesn't exist, ignore
         collection = self.get_or_create_collection(collection_name)
         collection.delete(ids=[chunk_id])
 
@@ -132,7 +121,6 @@ class ChromaManager:
         collection = self.get_collection_or_none(collection_name)
         if collection:
             collection.delete(ids=chunk_ids)
-
 
 def start_chroma_server():
 
@@ -143,11 +131,8 @@ def start_chroma_server():
     )
     process.wait()
 
-
 chroma_client = None
 try:
     chroma_client = ChromaManager()
 except Exception as e:
     print(f"ChromaDB not available: {e}")
-    # chroma_client will remain None
-    # This allows migrations to run without ChromaDB

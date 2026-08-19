@@ -54,7 +54,6 @@ export function createAppServices(args: {
       return Array.from(new Set(hosts)).join(",");
     });
 
-  // Grant the ECS task role read/write access to the media S3 bucket.
   new aws.iam.RolePolicy("ecs-task-s3-media-policy", {
     role: args.taskRole.name,
     policy: args.mediaBucket.arn.apply((arn) => JSON.stringify({
@@ -67,7 +66,6 @@ export function createAppServices(args: {
     })),
   });
 
-  // ECS Exec uses Systems Manager channels from inside the running task.
   new aws.iam.RolePolicy("ecs-task-exec-command-policy", {
     role: args.taskRole.name,
     policy: JSON.stringify({
@@ -131,9 +129,6 @@ export function createAppServices(args: {
     { name: "MCP_POLL_INTERVAL_SEC", value: "2" },
   ];
 
-  // FastAPI needs INTERNAL_MCP_INTROSPECT_TOKEN (already in providerSecrets).
-  // Do not append a second secrets list with the same name — ECS rejects duplicates.
-
   const djangoTaskDefinition = new aws.ecs.TaskDefinition("django-task", {
     family: `${config.namePrefix}-django`,
     networkMode: "awsvpc",
@@ -147,7 +142,6 @@ export function createAppServices(args: {
       image: pulumi.interpolate`${args.djangoRepo.repositoryUrl}:${config.djangoImageTag}`,
       essential: true,
       portMappings: [{ containerPort: 8000, hostPort: 8000, protocol: "tcp" }],
-      // Ensure admin/static assets exist when DEBUG=false in production.
       command: ["sh", "-c", "python manage.py collectstatic --noinput && python manage.py runserver 0.0.0.0:8000"],
       environment: djangoEnv,
       secrets: providerSecrets,
@@ -264,10 +258,6 @@ export function createAppServices(args: {
       name: "chroma",
       image: args.chromaImage,
       essential: true,
-      // Keep any cache Chroma writes to $HOME on EFS rather than the ephemeral
-      // task FS. The ONNX embedding model is not downloaded here: the chromadb
-      // client embeds in-process, so it is baked into the Django image instead
-      // (see server/scripts/prefetch_chroma_model.py).
       environment: [{ name: "HOME", value: "/data" }],
       portMappings: [{ containerPort: 8000, hostPort: 8000, protocol: "tcp" }],
       mountPoints: [{ sourceVolume: "chroma-data", containerPath: "/data", readOnly: false }],
@@ -284,7 +274,6 @@ export function createAppServices(args: {
   }, { dependsOn: args.chromaMountTargets });
 
   const serviceNetworkConfiguration = {
-    // Run tasks in private subnets; NAT gateway provides outbound internet access.
     subnets: args.privateSubnetIds,
     securityGroups: [args.appTasksSecurityGroupId],
   };
@@ -297,7 +286,6 @@ export function createAppServices(args: {
     taskDefinition: djangoTaskDefinition.arn,
     desiredCount: config.djangoDesiredCount,
     enableExecuteCommand: true,
-    // ECS Exec is initialized only for newly started tasks.
     forceNewDeployment: true,
     networkConfiguration: serviceNetworkConfiguration,
     loadBalancers: [{ targetGroupArn: args.djangoTargetGroup.arn, containerName: "django", containerPort: 8000 }],
@@ -329,9 +317,6 @@ export function createAppServices(args: {
     desiredCount: config.celeryWorkerDesiredCount,
     networkConfiguration: serviceNetworkConfiguration,
     capacityProviderStrategies,
-    // Celery has no ALB health checks, and desiredCount is typically 1.
-    // Default ECS rolling deploy (minHealthy=100, max=200) tries to run 2 tasks briefly,
-    // which often fails with RESOURCE:MEMORY on small clusters. Use stop-then-start.
     deploymentMinimumHealthyPercent: 0,
     deploymentMaximumPercent: 100,
     waitForSteadyState: false,

@@ -25,16 +25,13 @@ from api.utils.email_service import EmailService
 
 logger = logging.getLogger(__name__)
 
-# Count alerts for this rule that still need team attention (dashboard-style).
 ACTIONABLE_STATUSES = ("PENDING", "NOTIFIED")
-
 
 def count_actionable_alerts_for_rule(alert_rule: ConversationAlertRule) -> int:
     return ConversationAlert.objects.filter(
         alert_rule=alert_rule,
         status__in=ACTIONABLE_STATUSES,
     ).count()
-
 
 def _users_with_role_in_org(role_id, organization_id) -> list[User]:
     today = timezone.now().date()
@@ -44,7 +41,6 @@ def _users_with_role_in_org(role_id, organization_id) -> list[User]:
         from_date__lte=today,
     ).filter(Q(to_date__isnull=True) | Q(to_date__gte=today))
     return list({ra.user for ra in qs.select_related("user")})
-
 
 def resolve_notification_targets(rule: NotificationRule) -> list[User]:
     if rule.notify_to_user_id:
@@ -74,7 +70,6 @@ def resolve_notification_targets(rule: NotificationRule) -> list[User]:
         return list(User.objects.filter(id__in=user_ids))
     return []
 
-
 def _map_delivery(method: str) -> str:
     allowed = {
         UserNotification.DELIVERY_APP,
@@ -83,13 +78,11 @@ def _map_delivery(method: str) -> str:
     }
     return method if method in allowed else UserNotification.DELIVERY_APP
 
-
 def _delivery_includes_app(delivery_method: str) -> bool:
     return delivery_method in (
         UserNotification.DELIVERY_APP,
         UserNotification.DELIVERY_ALL,
     )
-
 
 def emit_in_app_notification_created(notification: UserNotification) -> None:
     """Push a new inbox notification to the target user over Socket.IO."""
@@ -101,13 +94,11 @@ def emit_in_app_notification_created(notification: UserNotification) -> None:
     payload = UserNotificationSerializer(notification).data
     notify_user(notification.target_user_id, "in_app_notification_created", payload)
 
-
 def _delivery_includes_email(delivery_method: str) -> bool:
     return delivery_method in (
         UserNotification.DELIVERY_EMAIL,
         UserNotification.DELIVERY_ALL,
     )
-
 
 def _alerts_dashboard_url() -> str | None:
     """Deep-link to the alerts queue (pending list is the default when no conversation filter)."""
@@ -119,7 +110,6 @@ def _alerts_dashboard_url() -> str | None:
         return None
     query = urlencode({"view": "alerts"})
     return f"{base}/dashboard/alerts?{query}"
-
 
 def _send_user_notification_email(
     *,
@@ -177,7 +167,6 @@ def _send_user_notification_email(
             user.pk,
             to,
         )
-
 
 def maybe_dispatch_user_notifications(alert: ConversationAlert) -> None:
     """

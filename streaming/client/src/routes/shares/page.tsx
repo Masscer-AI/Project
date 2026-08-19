@@ -33,7 +33,6 @@ export default function SharedChatView() {
     }
     hydrateConversation(loaderData.conversation);
     void startup().catch(() => {
-      /* anonymous or expired session — shared view still renders */
     });
   }, [conversationId, hydrateConversation, loaderData, setUser, startup]);
 

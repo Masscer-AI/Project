@@ -31,9 +31,7 @@ export const ConversationHeaderActions = ({
   onDeleted,
 }: {
   conversation: TConversation;
-  /** When true, conversation editor fields are read-only (rare; metadata uses can-edit flag). */
   readOnly?: boolean;
-  /** When false, hides share/train/delete/edit menu (e.g. another user's personal chat). */
   showActions?: boolean;
   onDeleted?: () => void;
 }) => {

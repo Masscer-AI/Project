@@ -17,9 +17,6 @@ type RedisNotification<T> = {
   message?: T;
 };
 
-/**
- * Refreshes the open conversation when human takeover or direct messages change.
- */
 export const ConversationTakeoverListener = () => {
   const { t } = useTranslation();
   const { socket, conversation, setConversation } = useStore((state) => ({
@@ -30,18 +27,18 @@ export const ConversationTakeoverListener = () => {
 
   useEffect(() => {
     const refreshIfCurrent = (raw: RedisNotification<TakeoverSocketPayload>) => {
-      const data = raw?.message;
-      const convId = data?.conversation_id;
-      if (!data || !convId || !conversation?.id || convId !== conversation.id) {
+      const takeoverPayload = raw?.message;
+      const convId = takeoverPayload?.conversation_id;
+      if (!takeoverPayload || !convId || !conversation?.id || convId !== conversation.id) {
         return;
       }
       void setConversation(conversation.id);
     };
 
     const handleInbound = (raw: RedisNotification<TakeoverSocketPayload>) => {
-      const data = raw?.message;
-      const convId = data?.conversation_id;
-      if (!data || !convId || !conversation?.id || convId !== conversation.id) {
+      const takeoverPayload = raw?.message;
+      const convId = takeoverPayload?.conversation_id;
+      if (!takeoverPayload || !convId || !conversation?.id || convId !== conversation.id) {
         return;
       }
       toast(t("human-takeover-inbound-toast"), { icon: "💬" });

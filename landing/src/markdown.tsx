@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 
-/** Minimal markdown renderer for legal docs (headings, lists, bold, links, paragraphs). */
 export function Markdown({ source }: { source: string }) {
   const blocks = source.trim().split(/\n\n+/);
   return (

@@ -34,18 +34,11 @@ from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
-
 AgentProvider = Literal["openai", "google"]
-
-
-# ---------------------------------------------------------------------------
-# Types
-# ---------------------------------------------------------------------------
 
 class CancelledError(Exception):
     """Raised when an agent loop is cancelled before completion."""
     pass
-
 
 class AgentTool(TypedDict, total=False):
     """
@@ -57,11 +50,10 @@ class AgentTool(TypedDict, total=False):
     - function: the Python callable to invoke when the tool is called
     """
 
-    name: str               # required
-    description: str        # required
-    parameters: Any         # type[BaseModel] | dict — required
-    function: Callable      # required
-
+    name: str
+    description: str
+    parameters: Any
+    function: Callable
 
 class ToolCallRecord(TypedDict, total=False):
     """Record of a single tool execution for logging/inspection."""
@@ -72,7 +64,6 @@ class ToolCallRecord(TypedDict, total=False):
     duration: float
     iteration: int
     error: str | None
-
 
 @dataclass
 class AgentLoopResult:
@@ -96,11 +87,6 @@ class AgentLoopResult:
         "total_tokens": 0,
     })
 
-
-# ---------------------------------------------------------------------------
-# Event types
-# ---------------------------------------------------------------------------
-
 LOOP_START = "loop_start"
 ITERATION_START = "iteration_start"
 TOOL_CALL_START = "tool_call_start"
@@ -108,15 +94,9 @@ TOOL_CALL_END = "tool_call_end"
 RESPONSE = "response"
 ERROR = "error"
 
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
 def _is_pydantic_class(obj: Any) -> bool:
     """Check if obj is a Pydantic BaseModel *class* (not instance)."""
     return isinstance(obj, type) and issubclass(obj, BaseModel)
-
 
 def _add_additional_properties_false(schema_obj: dict) -> None:
     """
@@ -128,7 +108,6 @@ def _add_additional_properties_false(schema_obj: dict) -> None:
 
     if schema_obj.get("type") == "object":
         schema_obj["additionalProperties"] = False
-        # For strict mode all properties must be listed in required
         if "properties" in schema_obj:
             schema_obj["required"] = list(schema_obj["properties"].keys())
 
@@ -145,7 +124,6 @@ def _add_additional_properties_false(schema_obj: dict) -> None:
             for item in value:
                 _add_additional_properties_false(item)
 
-
 def _to_dict(obj: Any) -> Any:
     """
     Safely convert an OpenAI SDK Pydantic model to a plain dict.
@@ -156,16 +134,13 @@ def _to_dict(obj: Any) -> Any:
     """
     if isinstance(obj, dict):
         return obj
-    # OpenAI SDK >=1.x objects expose to_dict()
     if hasattr(obj, "to_dict"):
         return obj.to_dict()
-    # Pydantic v2 model_dump — no kwargs to dodge the by_alias bug
     if hasattr(obj, "model_dump"):
         try:
             return obj.model_dump()
         except Exception:
             pass
-    # Last resort: json round-trip
     if hasattr(obj, "model_dump_json"):
         try:
             return json.loads(obj.model_dump_json())
@@ -173,20 +148,17 @@ def _to_dict(obj: Any) -> Any:
             pass
     return obj
 
-
-def _serialize_tool_result(result: Any) -> str:
+def _serialize_tool_result(tool_result: Any) -> str:
     """Serialize a tool function's return value to a string for OpenAI."""
-    if result is None:
+    if tool_result is None:
         return '{"result": null}'
-    if isinstance(result, str):
-        return result
-    if isinstance(result, BaseModel):
-        return json.dumps(result.model_dump(), default=str)
-    if isinstance(result, dict):
-        return json.dumps(result, default=str)
-    # Fallback
-    return json.dumps({"result": str(result)}, default=str)
-
+    if isinstance(tool_result, str):
+        return tool_result
+    if isinstance(tool_result, BaseModel):
+        return json.dumps(tool_result.model_dump(), default=str)
+    if isinstance(tool_result, dict):
+        return json.dumps(tool_result, default=str)
+    return json.dumps({"result": str(tool_result)}, default=str)
 
 def successful_handoff_user_message(record: ToolCallRecord) -> str | None:
     """
@@ -204,9 +176,10 @@ def successful_handoff_user_message(record: ToolCallRecord) -> str | None:
     args = record.get("arguments") or {}
     if not isinstance(args, dict):
         return None
-    text = (args.get("user_message") or "").strip()
+    text = (
+        args.get("message_for_user") or args.get("user_message") or ""
+    ).strip()
     return text or None
-
 
 def _extract_output_text(response) -> str:
     """Extract text content from an OpenAI Responses API response object."""
@@ -223,7 +196,6 @@ def _extract_output_text(response) -> str:
                     if text:
                         chunks.append(text)
     return "".join(chunks).strip()
-
 
 def _extract_json_from_text(text: str) -> dict:
     """Parse JSON from text, handling markdown code fences."""
@@ -244,11 +216,6 @@ def _extract_json_from_text(text: str) -> dict:
                     continue
         raise
 
-
-# ---------------------------------------------------------------------------
-# Notifier helper
-# ---------------------------------------------------------------------------
-
 def make_notifier(user_id: int) -> Callable[[str, dict], None]:
     """
     Convenience factory: returns an on_event callback that pushes events
@@ -257,16 +224,11 @@ def make_notifier(user_id: int) -> Callable[[str, dict], None]:
     Usage:
         loop = AgentLoop.create(..., on_event=make_notifier(user_id=42))
     """
-    def _on_event(event_type: str, data: dict) -> None:
+    def _on_event(event_type: str, event_data: dict) -> None:
         from api.notify.actions import notify_user
-        notify_user(user_id, f"agent_{event_type}", data)
+        notify_user(user_id, f"agent_{event_type}", event_data)
 
     return _on_event
-
-
-# ---------------------------------------------------------------------------
-# Base + factory
-# ---------------------------------------------------------------------------
 
 class BaseAgentLoop(ABC):
     """Abstract agent loop; implementations call different model APIs."""
@@ -280,7 +242,6 @@ class BaseAgentLoop(ABC):
     def run(self, inputs: list[Any]) -> AgentLoopResult:
         """Run the loop until a final model response or limit/cancellation."""
         ...
-
 
 class AgentLoop:
     """
@@ -332,11 +293,6 @@ class AgentLoop:
             )
         raise ValueError(f"Unknown agent provider: {provider!r}")
 
-
-# ---------------------------------------------------------------------------
-# OpenAIAgentLoop
-# ---------------------------------------------------------------------------
-
 class OpenAIAgentLoop(BaseAgentLoop):
     """
     Agent loop using OpenAI Responses API (function calling, optional structured output).
@@ -367,7 +323,6 @@ class OpenAIAgentLoop(BaseAgentLoop):
             max_retries=max_retries,
         )
 
-        # Process tools: separate OpenAI definitions from callable functions
         self.tool_definitions: list[dict] = []
         self.tool_functions: dict[str, Callable] = {}
         self.tool_param_models: dict[str, type[BaseModel] | None] = {}
@@ -379,10 +334,6 @@ class OpenAIAgentLoop(BaseAgentLoop):
     def provider(self) -> AgentProvider:
         return "openai"
 
-    # ------------------------------------------------------------------
-    # Tool registration
-    # ------------------------------------------------------------------
-
     def _register_tool(self, tool: AgentTool) -> None:
         """Process a single AgentTool and register it."""
         name = tool["name"]
@@ -390,12 +341,11 @@ class OpenAIAgentLoop(BaseAgentLoop):
         parameters = tool["parameters"]
         func = tool["function"]
 
-        # Resolve parameters: Pydantic class or raw dict
         if _is_pydantic_class(parameters):
             schema = parameters.model_json_schema()
             self.tool_param_models[name] = parameters
         elif isinstance(parameters, dict):
-            schema = dict(parameters)  # copy
+            schema = dict(parameters)
             self.tool_param_models[name] = None
         else:
             raise TypeError(
@@ -403,7 +353,6 @@ class OpenAIAgentLoop(BaseAgentLoop):
                 f"or a JSON Schema dict, got {type(parameters)}"
             )
 
-        # Inject additionalProperties: false for strict mode
         _add_additional_properties_false(schema)
 
         definition = {
@@ -416,10 +365,6 @@ class OpenAIAgentLoop(BaseAgentLoop):
 
         self.tool_definitions.append(definition)
         self.tool_functions[name] = func
-
-    # ------------------------------------------------------------------
-    # Main loop
-    # ------------------------------------------------------------------
 
     def run(self, inputs: list[Any]) -> AgentLoopResult:
         """
@@ -457,7 +402,6 @@ class OpenAIAgentLoop(BaseAgentLoop):
             iteration += 1
             self._emit(ITERATION_START, {"iteration": iteration})
 
-            # --- Call OpenAI ---
             try:
                 response = self.client.responses.create(
                     model=self.model,
@@ -470,7 +414,6 @@ class OpenAIAgentLoop(BaseAgentLoop):
                 self._emit(ERROR, {"error": str(e), "iteration": iteration})
                 raise
 
-            # --- Accumulate token usage ---
             resp_usage = getattr(response, "usage", None)
             if resp_usage:
                 total_usage["prompt_tokens"] += getattr(resp_usage, "input_tokens", 0) or 0
@@ -480,7 +423,6 @@ class OpenAIAgentLoop(BaseAgentLoop):
                     + (getattr(resp_usage, "output_tokens", 0) or 0)
                 )
 
-            # --- Process response output items ---
             tool_calls_found = []
             message_outputs = []
 
@@ -491,11 +433,8 @@ class OpenAIAgentLoop(BaseAgentLoop):
                         tool_calls_found.append(output_item)
                     elif item_type == "message":
                         message_outputs.append(output_item)
-                    # Convert to plain dict to avoid Pydantic serialization
-                    # issues (by_alias bug) when items are fed back to the SDK
                     messages.append(_to_dict(output_item))
 
-            # --- Tool calls: execute and loop ---
             if tool_calls_found:
                 logger.info(
                     "Iteration %d: %d tool call(s) requested",
@@ -511,7 +450,6 @@ class OpenAIAgentLoop(BaseAgentLoop):
                     record = self._execute_tool_call(tool_call, iteration)
                     tool_call_log.append(record)
 
-                    # Feed result back to the model
                     messages.append({
                         "type": "function_call_output",
                         "call_id": getattr(tool_call, "call_id", f"call_{record['tool_name']}"),
@@ -537,9 +475,8 @@ class OpenAIAgentLoop(BaseAgentLoop):
                             usage=total_usage,
                         )
 
-                continue  # next iteration
+                continue
 
-            # --- No tool calls: extract final response ---
             text = _extract_output_text(response)
 
             if text:
@@ -556,25 +493,18 @@ class OpenAIAgentLoop(BaseAgentLoop):
                     usage=total_usage,
                 )
 
-            # No text and no tool calls — unusual, keep going
             logger.warning("Iteration %d: no tool calls and no text output", iteration)
 
-        # Exhausted iterations
         self._emit(ERROR, {"error": "Max iterations reached", "iterations": iteration})
         raise ValueError(
             f"Agent failed to produce a response after {self.max_iterations} iterations"
         )
-
-    # ------------------------------------------------------------------
-    # Tool execution
-    # ------------------------------------------------------------------
 
     def _execute_tool_call(self, tool_call: Any, iteration: int) -> ToolCallRecord:
         """Execute a single tool call and return a record."""
         tool_name = getattr(tool_call, "name", "unknown")
         raw_arguments = getattr(tool_call, "arguments", "{}")
 
-        # Parse arguments
         if isinstance(raw_arguments, str):
             try:
                 parsed_args = json.loads(raw_arguments)
@@ -603,15 +533,14 @@ class OpenAIAgentLoop(BaseAgentLoop):
 
             func = self.tool_functions[tool_name]
 
-            # If we have a Pydantic model for params, validate first
             param_model = self.tool_param_models.get(tool_name)
             if param_model is not None:
                 validated = param_model(**parsed_args)
-                result = func(**validated.model_dump())
+                tool_output = func(**validated.model_dump())
             else:
-                result = func(**parsed_args)
+                tool_output = func(**parsed_args)
 
-            result_str = _serialize_tool_result(result)
+            result_str = _serialize_tool_result(tool_output)
             record["result"] = result_str
 
         except Exception as e:
@@ -638,23 +567,17 @@ class OpenAIAgentLoop(BaseAgentLoop):
 
         return record
 
-    # ------------------------------------------------------------------
-    # Output parsing
-    # ------------------------------------------------------------------
-
     def _parse_output(self, text: str) -> BaseModel | str:
         """Parse the final text into output_schema if provided, else raw string."""
         if self.output_schema is None:
             return text
 
-        # Try direct JSON parsing first
         try:
             json_data = _extract_json_from_text(text)
             return self.output_schema.model_validate(json_data)
         except (json.JSONDecodeError, ValueError) as e:
             logger.info("Direct JSON parse failed (%s), trying AI-assisted parse", e)
 
-        # Fallback: use a cheap model to parse into the schema
         try:
             schema = self.output_schema.model_json_schema()
             text_format = {
@@ -677,17 +600,12 @@ class OpenAIAgentLoop(BaseAgentLoop):
             return self.output_schema.model_validate(json_data)
         except Exception as parse_error:
             logger.error("AI-assisted parse failed: %s", parse_error)
-            # Return raw text as last resort
             return text
 
-    # ------------------------------------------------------------------
-    # Event emission
-    # ------------------------------------------------------------------
-
-    def _emit(self, event_type: str, data: dict) -> None:
+    def _emit(self, event_type: str, event_data: dict) -> None:
         """Emit an event via the on_event callback if one is registered."""
         if self.on_event is not None:
             try:
-                self.on_event(event_type, data)
+                self.on_event(event_type, event_data)
             except Exception as e:
                 logger.warning("on_event callback failed for %s: %s", event_type, e)

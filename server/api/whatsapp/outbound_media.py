@@ -22,7 +22,6 @@ logger = logging.getLogger(__name__)
 
 _GRAPH_API_BASE = "https://graph.facebook.com/v21.0"
 
-# WhatsApp Cloud API size limits (bytes).
 _MAX_BYTES: dict[str, int] = {
     "image": 5 * 1024 * 1024,
     "audio": 16 * 1024 * 1024,
@@ -30,13 +29,11 @@ _MAX_BYTES: dict[str, int] = {
     "document": 100 * 1024 * 1024,
 }
 
-
 def _graph_token() -> str:
     token = (getattr(settings, "WHATSAPP_GRAPH_API_TOKEN", None) or "").strip()
     if not token:
         raise RuntimeError("WHATSAPP_GRAPH_API_TOKEN is not configured")
     return token
-
 
 def whatsapp_media_type_for_attachment(att: MessageAttachment) -> str | None:
     """
@@ -55,11 +52,9 @@ def whatsapp_media_type_for_attachment(att: MessageAttachment) -> str | None:
         return "audio"
     if ctype.startswith("video/"):
         return "video"
-    # Documents: docx, pdf, etc.
     if ctype or att.file.name:
         return "document"
     return None
-
 
 def _filename_for_attachment(att: MessageAttachment, wa_type: str) -> str:
     name = (att.file.name or "").split("/")[-1] if att.file else ""
@@ -73,7 +68,6 @@ def _filename_for_attachment(att: MessageAttachment, wa_type: str) -> str:
     }.get(wa_type, ".bin")
     return f"file{ext}"
 
-
 def read_attachment_file_bytes(att: MessageAttachment) -> tuple[bytes, str, str]:
     """Return (bytes, mime_type, filename)."""
     if not att.file:
@@ -86,7 +80,6 @@ def read_attachment_file_bytes(att: MessageAttachment) -> tuple[bytes, str, str]
     with att.file.open("rb") as fh:
         data = fh.read()
     return data, ctype, filename
-
 
 def upload_whatsapp_media(
     phone_number_id: str,
@@ -108,7 +101,6 @@ def upload_whatsapp_media(
     if not media_id:
         raise ValueError("WhatsApp media upload returned no id")
     return str(media_id)
-
 
 def send_whatsapp_media_message(
     phone_number_id: str,
@@ -161,7 +153,6 @@ def send_whatsapp_media_message(
     if not messages:
         return None
     return messages[0].get("id")
-
 
 def send_attachment_to_whatsapp(
     phone_number_id: str,
@@ -226,7 +217,6 @@ def send_attachment_to_whatsapp(
         reply_to_message_id=reply_to_message_id,
     )
 
-
 def extract_attachment_ids_from_text(text: str) -> list[str]:
     """Return attachment UUIDs mentioned in text, order-preserving and deduped."""
     if not text:
@@ -241,7 +231,6 @@ def extract_attachment_ids_from_text(text: str) -> list[str]:
         ordered.append(aid)
     return ordered
 
-
 def _actor_user_id_for_message(assistant_message: Message) -> int | None:
     """Web conversation owner, or linked WhatsApp contact user."""
     conv = getattr(assistant_message, "conversation", None)
@@ -253,7 +242,6 @@ def _actor_user_id_for_message(assistant_message: Message) -> int | None:
     if contact is not None and getattr(contact, "user_id", None):
         return int(contact.user_id)
     return None
-
 
 def collect_assistant_file_attachments(assistant_message: Message) -> list[MessageAttachment]:
     """
@@ -310,7 +298,6 @@ def collect_assistant_file_attachments(assistant_message: Message) -> list[Messa
         seen.add(key)
         ordered.append(row)
     return ordered
-
 
 def deliver_whatsapp_attachments(
     *,

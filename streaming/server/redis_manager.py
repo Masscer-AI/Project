@@ -5,12 +5,9 @@ import json
 
 CHANNEL_NAME = "notifications"
 
-
 REDIS_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
 r = redis.Redis.from_url(REDIS_URL)
 
-
-# Función para escuchar notificaciones
 async def listen_to_notifications():
     from .socket import sio
 
@@ -38,7 +35,6 @@ async def listen_to_notifications():
 
                     sockets = route_ids_to_socket_id.get(str(route_id_to_emit), None)
                     if sockets:
-                        # Same sid can appear twice if older servers registered duplicates; emit once.
                         for socket in dict.fromkeys(sockets):
                             await sio.emit(event_type, decoded_message, to=socket)
 

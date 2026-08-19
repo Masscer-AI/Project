@@ -27,11 +27,6 @@ import {
   syncNotificationSoundSettings,
 } from "../utils/notificationSound";
 
-/**
- * Reconciles chatState.toolsByAgent against the current agent selection:
- * agents no longer selected are dropped; selected agents mirror
- * Agent.pre_approved_tools (the durable source of truth).
- */
 function reconcileToolsByAgent(
   agents: TAgent[],
   selectedSlugs: string[],
@@ -53,15 +48,12 @@ const _initialTheme = (() => {
   }
 })();
 
-/** Dedupe concurrent team feature-flag fetches across components. */
 let featureFlagsFetchInFlight: Promise<void> | null = null;
 
-/** Latest async `setConversation` call wins; prevents stale GETs overwriting the UI after fast navigation. */
 let conversationLoadSeq = 0;
 
 export const useStore = create<Store>()((set, get) => {
   const socket = new SocketManager(STREAMING_BACKEND_URL);
-  // Re-bind user routing after reconnects (disconnect drops the server map).
   socket.on("connect", () => {
     const user = get().user;
     if (user?.id) {
@@ -158,7 +150,6 @@ export const useStore = create<Store>()((set, get) => {
           featureFlagsLoading: false,
           featureFlagsError:
             err instanceof Error ? err : new Error(String(err)),
-          // Keep prior featureFlags on background refresh failure
           featureFlags: showLoading ? null : s.featureFlags,
           featureFlagsCheckedAt: showLoading ? null : s.featureFlagsCheckedAt,
         }));
@@ -175,7 +166,6 @@ export const useStore = create<Store>()((set, get) => {
     set({ reactionTemplates });
     fetchAgents();
     const pref = await getUserPreferences();
-    // const bodySize = new TextEncoder().encode(JSON.stringify(pref)).length;
 
     const notification_settings = {
       ...DEFAULT_NOTIFICATION_SETTINGS,
@@ -246,7 +236,6 @@ export const useStore = create<Store>()((set, get) => {
 
     if (newAttachment.type === "audio") {
       return;
-      // Is an audio is passed, ask the user it it wants to use gpt-4o-audio-preview
       set((state) => ({
         chatState: {
           ...state.chatState,
@@ -273,9 +262,7 @@ export const useStore = create<Store>()((set, get) => {
         "No agents selected, please  at least one to attach the documents on its vector store"
       );
     }
-    // formData.append("agents", selectedAgents);
     formData.append("name", newAttachment.name);
-    // formData.append("conversation_id", String(conversation_id));
     formData.append("source", "chat");
     formData.append("visibility", "personal");
 
@@ -411,7 +398,6 @@ export const useStore = create<Store>()((set, get) => {
     });
   },
 
-  /** Replaces chat agent selection (slug order). Used for single-agent mode and hydration from conversation metadata. */
   setChatSelectedAgentSlugs: (slugs: string[]) => {
     set((state) => ({
       agents: sortAgentsBySelectionOrder(state.agents, slugs),
@@ -427,7 +413,6 @@ export const useStore = create<Store>()((set, get) => {
     }));
   },
 
-  /** Syncs local tool selection with Agent.pre_approved_tools (caller persists via API). */
   setAgentToolNames: (slug: string, names: string[]) => {
     set((state) => ({
       agents: state.agents.map((a) =>
@@ -485,7 +470,6 @@ export const useStore = create<Store>()((set, get) => {
       },
     }));
   },
-  // This must update partial the chatState
   updateChatState: (partial) => {
     set((state) => ({
       chatState: {
@@ -567,7 +551,6 @@ export const useStore = create<Store>()((set, get) => {
       nextConversationId,
       prevStatus: prev.agentTaskStatus,
       prevConversationId: prev.agentTaskConversationId,
-      // Without conversationId, stop can show but status poll cannot heal a stuck button.
       pollEnabled: !!nextConversationId,
     });
     set((state) => ({
@@ -587,25 +570,6 @@ export const useStore = create<Store>()((set, get) => {
   },
 
   test: () => {
-    // const { chatState, agents } = get();
-    // toast.success("Loading...");
-    // console.log(agents, "AGENTS");
-    // console.log(chatState.selectedAgents, "SELECTED AGENTS");
-    // // Clean selected agents
-    // set((state) => ({
-    //   chatState: {
-    //     ...state.chatState,
-    //     selectedAgents: [],
-    //   },
-    // }));
-    // localStorage.removeItem("selectedAgents");
-    // socket.emit("test_event", {
-    //   query:
-    //     examplesQueries[Math.floor(Math.random() * examplesQueries.length)],
-    // });
-    // socket.on("web-search", (data) => {
-    //   console.log("WEB SEARCH", data);
-    // });
   },
   };
 });

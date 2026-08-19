@@ -1,6 +1,5 @@
 const DEFAULT_POST_LOGIN_PATH = "/chat";
 
-/** Reject open redirects and non-app paths. */
 export function isSafeInternalPath(path: string): boolean {
   if (!path.startsWith("/")) return false;
   if (path.startsWith("//")) return false;
@@ -10,7 +9,6 @@ export function isSafeInternalPath(path: string): boolean {
   return true;
 }
 
-/** Base64-encode an internal path for use in ?next= */
 export function encodeLoginNext(path: string): string {
   const normalized = path.startsWith("/") ? path : `/${path}`;
   if (!isSafeInternalPath(normalized)) {
@@ -19,7 +17,6 @@ export function encodeLoginNext(path: string): string {
   return btoa(normalized);
 }
 
-/** Decode ?next= (base64) to an internal path, or null if missing/invalid. */
 export function decodeLoginNext(nextParam: string | null | undefined): string | null {
   if (!nextParam?.trim()) return null;
   try {
@@ -30,7 +27,6 @@ export function decodeLoginNext(nextParam: string | null | undefined): string | 
   }
 }
 
-/** Build /login?next=… for redirecting unauthenticated users. */
 export function loginUrlWithNext(path: string): string {
   try {
     const encoded = encodeLoginNext(path);
@@ -40,7 +36,6 @@ export function loginUrlWithNext(path: string): string {
   }
 }
 
-/** Post-login destination from ?next=, falling back to /chat. */
 export function resolvePostLoginPath(
   nextParam: string | null | undefined,
   fallback: string = DEFAULT_POST_LOGIN_PATH

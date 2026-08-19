@@ -21,7 +21,7 @@ import {
   Tooltip,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { createLLM, deleteLLM, updateAgent, makeAuthenticatedRequest, getUserOrganizations, getOrganizationRoles, getVoices, previewVoice } from "../../modules/apiCalls";
+import { createLLM, deleteLLM, updateAgent, regenerateAgentDescription, makeAuthenticatedRequest, getUserOrganizations, getOrganizationRoles, getVoices, previewVoice } from "../../modules/apiCalls";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
@@ -43,6 +43,7 @@ import {
   IconVolume,
   IconX,
   IconAdjustments,
+  IconRefresh,
 } from "@tabler/icons-react";
 
 export type AgentsModalControls = {
@@ -140,7 +141,6 @@ const AgentComponent = ({ agent }: TAgentComponentProps) => {
       const saved = await updateAgent(updatedAgent.slug, updatedAgent);
       closeConfig();
       toast.success(t("agent-updated"));
-      // Use backend response to keep derived fields (access_mode/allowed_roles) in sync.
       updateSingleAgent(saved as TAgent);
     } catch (e) {
       console.log(e, "error while updating agent");
@@ -167,8 +167,6 @@ const AgentComponent = ({ agent }: TAgentComponentProps) => {
     const a = agents.find((x) => x.slug === slug);
     return a?.agent_kind === "platform_assistant";
   });
-  // Users can ALWAYS manage their own personal agents (no feature flag needed)
-  // Users can manage organization agents ONLY if they have the feature flag
   const isPersonalAgent = agent.organization === null || agent.organization === undefined;
   const isOwnAgent = user && agent.user === user.id;
   const canEditDelete =
@@ -291,11 +289,12 @@ type TAgentConfigProps = {
 };
 
 const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
-  const { models, removeAgent, user, fetchAgents } = useStore((state) => ({
+  const { models, removeAgent, user, fetchAgents, updateSingleAgent } = useStore((state) => ({
     models: state.models,
     removeAgent: state.removeAgent,
     user: state.user,
     fetchAgents: state.fetchAgents,
+    updateSingleAgent: state.updateSingleAgent,
   }));
 
   const { t } = useTranslation();
@@ -303,6 +302,7 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
   const canAddLlm = useIsFeatureEnabled("manage-llm");
   const canSetOwnership = useIsFeatureEnabled("set-agent-ownership");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [regeneratingDescription, setRegeneratingDescription] = useState(false);
   const [addLlmOpened, { open: openAddLlm, close: closeAddLlm }] = useDisclosure(false);
   const [deleteLlmOpened, { open: openDeleteLlm, close: closeDeleteLlm }] = useDisclosure(false);
   const [userOrgs, setUserOrgs] = useState<{ id: string; name: string; is_owner?: boolean }[]>([]);
@@ -318,7 +318,6 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
     (agent.allowed_roles || []).map((r) => r.id)
   );
 
-  // Load user organizations when ownership toggle is available
   useEffect(() => {
     if (!canSetOwnership) return;
     getUserOrganizations()
@@ -340,7 +339,6 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
           .filter((r) => r.enabled)
           .map((r) => ({ value: r.id, label: r.name }));
         setOrgRoles(opts);
-        // Drop any selected roles that no longer exist
         setAllowedRoleIds((prev) => prev.filter((id) => opts.some((o) => o.value === id)));
       })
       .catch(() => {
@@ -457,14 +455,14 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
     const slug = formState.llm?.slug;
     if (!slug) return;
     try {
-      const result = await deleteLLM(slug);
+      const deletion = await deleteLLM(slug);
       await fetchAgents();
       closeDeleteLlm();
-      if (result.migrated_to) {
-        handleLLMChange(result.migrated_to);
-        toast.success(`"${result.deleted}" deleted. ${result.migrated_agents} agent(s) migrated to "${result.migrated_to}".`);
+      if (deletion.migrated_to) {
+        handleLLMChange(deletion.migrated_to);
+        toast.success(`"${deletion.deleted}" deleted. ${deletion.migrated_agents} agent(s) migrated to "${deletion.migrated_to}".`);
       } else {
-        toast.success(`"${result.deleted}" deleted.`);
+        toast.success(`"${deletion.deleted}" deleted.`);
       }
     } catch (error: any) {
       const errMessage = error?.response?.data?.error || "Failed to delete LLM";
@@ -478,7 +476,6 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
       ...formState,
       conversation_title_prompt: formState.conversation_title_prompt?.trim() || undefined,
     };
-    // Include ownership change if the user has the flag
     if (canSetOwnership) {
       updatedAgent.ownership = ownership;
     }
@@ -573,7 +570,6 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
     label: m.name,
   }));
 
-  // Permission check for delete
   const isPlatformAgent = agent.agent_kind === "platform_assistant";
   const isPersonalAgent = agent.organization === null || agent.organization === undefined;
   const isOwnAgent = user && agent.user === user.id;
@@ -746,19 +742,60 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
         maxRows={8}
       />
 
-      <Textarea
-        label={t("agent-description-for-handoff")}
-        description={t("agent-description-for-handoff-help")}
-        placeholder={t("agent-description-for-handoff-placeholder")}
-        value={formState.description || ""}
-        onChange={(e) => {
-          const val = e.currentTarget.value;
-          setFormState((prev) => ({ ...prev, description: val }));
-        }}
-        autosize
-        minRows={2}
-        maxRows={5}
-      />
+      <Stack gap={6}>
+        <Group justify="space-between" align="flex-start" wrap="nowrap" gap="sm">
+          <Stack gap={2} style={{ minWidth: 0, flex: 1 }}>
+            <Text size="sm" fw={500}>
+              {t("agent-description-for-handoff")}
+            </Text>
+            <Text size="xs" c="dimmed">
+              {t("agent-description-for-handoff-help")}
+            </Text>
+          </Stack>
+          <Tooltip label={t("agent-description-regenerate")}>
+            <Button
+              variant="default"
+              size="compact-xs"
+              leftSection={<IconRefresh size={14} />}
+              loading={regeneratingDescription}
+              onClick={async () => {
+                setRegeneratingDescription(true);
+                try {
+                  const res = await regenerateAgentDescription(agent.slug, {
+                    name: formState.name,
+                    act_as: formState.act_as,
+                    system_prompt: formState.system_prompt,
+                  });
+                  const next = res.description || "";
+                  setFormState((prev) => ({ ...prev, description: next }));
+                  if (res.agent) {
+                    updateSingleAgent(res.agent as TAgent);
+                  }
+                  toast.success(t("agent-description-regenerated"));
+                } catch (e) {
+                  console.error(e);
+                  toast.error(t("agent-description-regenerate-error"));
+                } finally {
+                  setRegeneratingDescription(false);
+                }
+              }}
+            >
+              {t("agent-description-regenerate")}
+            </Button>
+          </Tooltip>
+        </Group>
+        <Textarea
+          placeholder={t("agent-description-for-handoff-placeholder")}
+          value={formState.description || ""}
+          onChange={(e) => {
+            const val = e.currentTarget.value;
+            setFormState((prev) => ({ ...prev, description: val }));
+          }}
+          autosize
+          minRows={2}
+          maxRows={5}
+        />
+      </Stack>
 
       <Textarea
         label={t("structure-the-ai-system-prompt")}

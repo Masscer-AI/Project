@@ -15,28 +15,22 @@ from model_utils.models import TimeStampedModel
 import pytz
 from PIL import Image
 
-
 LOGIN_TOKEN_LIFETIME = timezone.timedelta(days=1)
 TEMPORAL_TOKEN_LIFETIME = timezone.timedelta(days=7)
 TOKEN_TYPE = ["one_time", "temporal", "permanent", "login"]
 
-
 class InvalidTokenType(Exception):
     pass
-
 
 class TryToGetOrCreateAOneTimeToken(Exception):
     pass
 
-
 class BadArguments(Exception):
     pass
-
 
 class UserProxy(User):
     class Meta:
         proxy = True
-
 
 class Token(rest_framework.authtoken.models.Token):
     """
@@ -45,7 +39,6 @@ class Token(rest_framework.authtoken.models.Token):
     """
 
     key = models.CharField(max_length=40, db_index=True, unique=True, blank=True)
-    # Foreign key relationship to user for many-to-one relationship
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         related_name="auth_token",
@@ -145,7 +138,6 @@ class Token(rest_framework.authtoken.models.Token):
         utc_now = timezone.now()
         cls.delete_expired_tokens(utc_now)
 
-        # find among any non-expired token
         return (
             Token.objects.filter(key=token)
             .filter(Q(expires_at__gt=utc_now) | Q(expires_at__isnull=True))
@@ -161,12 +153,10 @@ class Token(rest_framework.authtoken.models.Token):
         token.delete()
 
     class Meta:
-        # ensure user and name are unique
         unique_together = (("user", "key"),)
 
     def generate_key(self):
         return uuid.uuid4().hex
-
 
 class PublishableToken(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -206,19 +196,15 @@ class PublishableToken(models.Model):
             .first()
         )
 
-
 def organization_logo_upload_path(instance, filename):
     """Genera la ruta para almacenar el logo de la organización"""
     ext = filename.split('.')[-1]
-    # Nombre único: organization_id.ext
     filename = f"{instance.id}.{ext}"
     return os.path.join('organizations', 'logos', filename)
-
 
 class Organization(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=255)
-    # slug = models.SlugField(max_length=255, unique=True)
     description = models.TextField(null=True, blank=True)
     owner = models.ForeignKey(User, on_delete=models.CASCADE)
     timezone = models.CharField(
@@ -246,7 +232,6 @@ class Organization(models.Model):
     def save(self, *args, **kwargs):
         """Guarda la organización. La gestión del logo se hace en la vista."""
         super().save(*args, **kwargs)
-
 
 class OrganizationTenant(models.Model):
     organization = models.OneToOneField(
@@ -281,7 +266,6 @@ class OrganizationTenant(models.Model):
         label = self.subdomain or self.organization_id
         return f"OrganizationTenant({label})"
 
-
 class OrganizationManagementProxy(Organization):
     """Proxy for Django admin Organizations Management dashboard (billing, deals, flags)."""
 
@@ -290,11 +274,6 @@ class OrganizationManagementProxy(Organization):
         verbose_name = _("Organizations Management")
         verbose_name_plural = _("Organizations Management")
 
-
-# NOTE: CredentialsManager is no longer used. Organizations no longer supply their own API keys —
-# all AI calls use the app-level environment variables instead. Usage is charged per organization
-# via Masscer's billing system. The model and table are kept to avoid dropping data, but none of
-# the stored keys are read by any backend code.
 class CredentialsManager(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
@@ -309,8 +288,6 @@ class CredentialsManager(models.Model):
 
     def __str__(self):
         return f"<CredentialsManager for {self.organization.name}>"
-
-
 
 class UserProfile(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -390,7 +367,6 @@ class UserProfile(models.Model):
         text += "</USER_PROFILE>\n"
         return text
 
-
 class FeatureFlag(TimeStampedModel):
     name = models.CharField(max_length=255, unique=True)
     organization_only = models.BooleanField(
@@ -404,7 +380,6 @@ class FeatureFlag(TimeStampedModel):
     class Meta:
         verbose_name = "Feature Flag"
         verbose_name_plural = "Feature Flags"
-
 
 class FeatureFlagAssignment(TimeStampedModel):
     organization = models.ForeignKey(
@@ -432,7 +407,6 @@ class FeatureFlagAssignment(TimeStampedModel):
         """Validate that either organization or user is set, but not both or neither."""
         super().clean()
 
-        # Must have exactly one of organization or user
         if not self.organization_id and not self.user_id:
             raise ValidationError(
                 "Must specify either an organization (for organization-level flag) or a user (for user-level flag)."
@@ -443,7 +417,6 @@ class FeatureFlagAssignment(TimeStampedModel):
                 "Cannot specify both organization and user. Choose either organization-level or user-level flag."
             )
 
-        # Organization-only flags cannot be assigned to individual users
         if self.user_id and self.feature_flag_id:
             try:
                 if self.feature_flag.organization_only:
@@ -523,7 +496,6 @@ class Role(models.Model):
     def __str__(self):
         return f"{self.name} ({self.organization.name})"
 
-
 class RoleAssignment(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(
@@ -575,11 +547,9 @@ class RoleAssignment(models.Model):
             (self.to_date is None or self.to_date >= today)
         )
 
-
 def hash_organization_invite_token(raw_token: str) -> str:
     """SHA-256 hex digest for storing invite tokens (never store raw tokens)."""
     return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
-
 
 class OrganizationInvite(models.Model):
     """Email invite to join an organization; user completes signup with password via token link."""

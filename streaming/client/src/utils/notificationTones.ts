@@ -1,4 +1,3 @@
-/** Built-in notification tone definitions (must match server tone refs). */
 
 export const NOTIFICATION_TONE_REFS = [
   "chime_success_ascending",
@@ -23,7 +22,6 @@ export type NotificationToneStep = {
   duration: number;
 };
 
-/** Synthesized Web Audio steps (no asset file). */
 export const NOTIFICATION_TONES: Partial<
   Record<NotificationToneRef, NotificationToneStep[]>
 > = {
@@ -37,7 +35,6 @@ export const NOTIFICATION_TONES: Partial<
   ],
 };
 
-/** Sample filenames under `public/sounds/` (Vite copies to dist root). */
 export const NOTIFICATION_TONE_SAMPLES: Partial<
   Record<NotificationToneRef, string>
 > = {
@@ -124,7 +121,6 @@ export function isNotificationToneRef(value: string): value is NotificationToneR
   return (NOTIFICATION_TONE_REFS as readonly string[]).includes(value);
 }
 
-/** Absolute URL for a sample under `/sounds/…` (main app + widget host). */
 export function notificationToneSampleUrl(filename: string): string {
   const streamingBase =
     typeof window !== "undefined"

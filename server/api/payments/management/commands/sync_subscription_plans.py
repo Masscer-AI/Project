@@ -2,13 +2,12 @@ from django.core.management.base import BaseCommand
 
 from api.payments.models import SubscriptionPlan
 
-
 PLANS = [
     {
         "slug": "free_trial",
         "display_name": "Free Trial",
         "monthly_price_usd": 0,
-        "credits_limit_usd": 20,   # $20 USD = 200,000 compute units at 10,000/USD
+        "credits_limit_usd": 20,
         "duration_days": 3,
         "is_configurable": False,
     },
@@ -16,7 +15,7 @@ PLANS = [
         "slug": "organization",
         "display_name": "Organization Plan",
         "monthly_price_usd": 580,
-        "credits_limit_usd": 270,  # $270 USD = 2,700,000 compute units at 10,000/USD
+        "credits_limit_usd": 270,
         "duration_days": None,
         "is_configurable": False,
     },
@@ -29,7 +28,6 @@ PLANS = [
         "is_configurable": True,
     },
 ]
-
 
 class Command(BaseCommand):
     help = (
@@ -73,7 +71,6 @@ class Command(BaseCommand):
                 created.append(slug)
                 continue
 
-            # Update fields that may have changed
             changed_fields = []
             for field, value in plan_data.items():
                 if field == "slug":

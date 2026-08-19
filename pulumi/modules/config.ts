@@ -39,7 +39,6 @@ export interface AppConfig {
   gammaApiKey: pulumi.Output<string>;
   whatsappGraphApiToken: pulumi.Output<string>;
   whatsappWebhookVerifyToken: pulumi.Output<string>;
-  /** Google OAuth Web client ID (public); used for Vite build + stored in SSM for deploy.sh. */
   googleOauthClientId: pulumi.Output<string>;
   googleApplicationCredentialsJson: pulumi.Output<string>;
   googleCloudProject: string;
@@ -75,8 +74,6 @@ export function loadConfig(): AppConfig {
     djangoSecretKey: cfg.requireSecret("djangoSecretKey"),
     djangoImageTag: cfg.get("djangoImageTag") ?? "latest",
     streamingImageTag: cfg.get("streamingImageTag") ?? "latest",
-    // Must match the Python `chromadb` package (see server/uv.lock). Older server images
-    // (e.g. 0.5.x) lack /api/v2/* routes; chromadb 1.x clients then fail at startup.
     chromaImage: cfg.get("chromaImage") ?? "chromadb/chroma:1.5.2",
     corsOrigins: cfg.get("corsOrigins") ?? "*",
     allowedExtraHosts: cfg.get("allowedExtraHosts") ?? "",

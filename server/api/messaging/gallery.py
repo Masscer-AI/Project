@@ -22,7 +22,6 @@ logger = logging.getLogger(__name__)
 
 GALLERY_TYPES = ("image", "video", "audio", "document")
 
-
 def _generations_q() -> Q:
     """Prefer agent-generated rows; metadata keys catch rare agent=None saves."""
     return (
@@ -32,7 +31,6 @@ def _generations_q() -> Q:
         | Q(metadata__has_key="model")
     )
 
-
 def _type_filter(gallery_type: str) -> Q:
     if gallery_type == "image":
         return Q(content_type__startswith="image/")
@@ -40,13 +38,11 @@ def _type_filter(gallery_type: str) -> Q:
         return Q(content_type__startswith="video/")
     if gallery_type == "audio":
         return Q(content_type__startswith="audio/")
-    # document: everything that is a file but not media
     return (
         ~Q(content_type__startswith="image/")
         & ~Q(content_type__startswith="video/")
         & ~Q(content_type__startswith="audio/")
     )
-
 
 def gallery_display_type(content_type: str) -> str:
     ctype = content_type or ""
@@ -57,7 +53,6 @@ def gallery_display_type(content_type: str) -> str:
     if ctype.startswith("audio/"):
         return "audio"
     return "document"
-
 
 def serialize_gallery_item(att: MessageAttachment, user=None) -> dict | None:
     url = absolute_file_url_for_attachment(att)
@@ -91,7 +86,6 @@ def serialize_gallery_item(att: MessageAttachment, user=None) -> dict | None:
         "can_manage": bool(user and user_can_manage_attachment(att, user)),
     }
 
-
 def get_gallery_attachment(*, user, attachment_id) -> dict:
     """Serialize one attachment the actor can read (not limited to generated gallery)."""
     try:
@@ -110,7 +104,6 @@ def get_gallery_attachment(*, user, attachment_id) -> dict:
     if not item:
         return {"ok": False, "error": "not_found"}
     return {"ok": True, "item": item}
-
 
 def list_gallery_items(
     *,
@@ -157,7 +150,6 @@ def list_gallery_items(
         "type": gallery_type,
     }
 
-
 def _attachment_ref_matches(entry: dict, attachment_id: str, file_url: str | None) -> bool:
     aid = str(entry.get("attachment_id") or entry.get("id") or "")
     if aid and aid == attachment_id:
@@ -173,7 +165,6 @@ def _attachment_ref_matches(entry: dict, attachment_id: str, file_url: str | Non
     if filename and filename in content:
         return True
     return False
-
 
 def _scrub_attachment_from_message(
     message: Message,
@@ -212,14 +203,12 @@ def _scrub_attachment_from_message(
     if update_fields:
         message.save(update_fields=update_fields)
 
-
 def _delete_attachment_file(attachment: MessageAttachment) -> None:
     if attachment.file:
         try:
             attachment.file.delete(save=False)
         except Exception:
             logger.exception("Failed to delete gallery attachment file %s", attachment.id)
-
 
 def delete_gallery_attachment(*, user, attachment_id) -> dict:
     """
@@ -264,7 +253,6 @@ def delete_gallery_attachment(*, user, attachment_id) -> dict:
         att.delete()
 
     return {"ok": True, "id": attachment_id_str}
-
 
 def update_gallery_attachment_visibility(
     *,

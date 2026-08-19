@@ -1,5 +1,4 @@
 class ColorPrinter:
-    # ANSI escape codes for colors
     COLORS = {
         "reset": "\033[0m",
         "white": "\033[97m",
@@ -59,6 +58,5 @@ class ColorPrinter:
         print(color_code, end="")
         print(*args, **kwargs)
         print(self.COLORS["reset"], end="")
-
 
 printer = ColorPrinter()

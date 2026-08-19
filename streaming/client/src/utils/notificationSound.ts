@@ -48,7 +48,6 @@ function mergeNotificationSettings(
   };
 }
 
-/** Keep in sync with user preferences from the store (or defaults for anonymous/widget). */
 export function syncNotificationSoundSettings(
   settings: Partial<TNotificationSettings> | null | undefined
 ): void {
@@ -180,10 +179,6 @@ function playWithSettings(
   playToneSteps(toneRef, settings.volume);
 }
 
-/**
- * Short UI feedback tones (Web Audio synth or WAV samples).
- * Errors are debounced so paired agent_events + agent_loop_finished do not double-play.
- */
 export function playNotificationSound(kind: NotificationSoundKind): void {
   if (kind === "error") {
     const now = Date.now();
@@ -194,7 +189,6 @@ export function playNotificationSound(kind: NotificationSoundKind): void {
   playWithSettings(kind, activeSettings);
 }
 
-/** Preview from Settings UI (uses draft values, ignores master activated for preview). */
 export function previewNotificationSound(
   kind: NotificationSoundKind,
   settings: Partial<TNotificationSettings>

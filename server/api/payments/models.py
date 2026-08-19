@@ -3,7 +3,6 @@ from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils import timezone as tz
 
-
 class WinningRates(models.Model):
     name = models.CharField(max_length=255)
     llm_interaction_rate = models.DecimalField(
@@ -48,7 +47,6 @@ class WinningRates(models.Model):
     def __str__(self):
         return self.name
 
-
 class SubscriptionPlan(models.Model):
     PLAN_SLUGS = [
         ("free_trial", "Free Trial"),
@@ -65,7 +63,6 @@ class SubscriptionPlan(models.Model):
         default=0,
         validators=[MinValueValidator(0)],
     )
-    # USD credit budget included in this plan. Converted to compute units at wallet seed time.
     credits_limit_usd = models.DecimalField(
         max_digits=10,
         decimal_places=2,
@@ -74,13 +71,11 @@ class SubscriptionPlan(models.Model):
         validators=[MinValueValidator(0)],
         help_text="Credit budget in USD included in this plan. Leave blank for unlimited.",
     )
-    # How many days the plan lasts before requiring renewal. Null = ongoing.
     duration_days = models.PositiveIntegerField(
         null=True,
         blank=True,
         help_text="Days until plan expires. Leave blank for monthly recurring plans.",
     )
-    # Whether the credits_limit can be overridden per subscription (e.g. pay_as_you_go).
     is_configurable = models.BooleanField(
         default=False,
         help_text="Allow per-subscription credit limit overrides.",
@@ -90,7 +85,6 @@ class SubscriptionPlan(models.Model):
 
     def __str__(self):
         return self.display_name
-
 
 class Subscription(models.Model):
     STATUS_CHOICES = [
@@ -123,10 +117,8 @@ class Subscription(models.Model):
         choices=PAYMENT_METHOD_CHOICES,
         default="manual",
     )
-    # Stripe identifiers (populated only when payment_method=stripe)
     stripe_subscription_id = models.CharField(max_length=255, null=True, blank=True)
     stripe_customer_id = models.CharField(max_length=255, null=True, blank=True)
-    # Per-subscription USD credit override (used for pay_as_you_go)
     credits_limit_usd = models.DecimalField(
         max_digits=10,
         decimal_places=2,
@@ -142,7 +134,6 @@ class Subscription(models.Model):
         help_text="When this subscription expires. Null = active until cancelled.",
     )
     renewed_at = models.DateTimeField(null=True, blank=True)
-    # Enterprise / negotiated deal (manual subscriptions; optional display for Stripe)
     contract_price_usd = models.DecimalField(
         max_digits=10,
         decimal_places=2,
@@ -197,7 +188,6 @@ class Subscription(models.Model):
             return self.contract_price_usd
         return self.plan.monthly_price_usd
 
-
 class SubscriptionPayment(models.Model):
     STATUS_CHOICES = [
         ("pending", "Pending"),
@@ -224,7 +214,6 @@ class SubscriptionPayment(models.Model):
     method = models.CharField(max_length=20, choices=METHOD_CHOICES, default="manual")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
     stripe_payment_intent_id = models.CharField(max_length=255, null=True, blank=True)
-    # Billing team notes for manual payments
     notes = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

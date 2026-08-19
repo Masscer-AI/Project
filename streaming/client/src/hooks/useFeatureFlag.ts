@@ -59,7 +59,6 @@ export function useTeamFeatureFlags() {
   return { data, isLoading, error: featureFlagsError };
 }
 
-/** Clear cached team feature flags (logout already does this; use for permissions-changed later). */
 export function invalidateClientFeatureFlagsCache(): void {
   useStore.getState().invalidateFeatureFlags();
 }

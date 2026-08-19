@@ -1,11 +1,8 @@
-// Widget: uses WIDGET_API_URL set by loader (needed for file:// or cross-origin embeds).
-// Main app: uses VITE_API_URL. Use ?? so empty string "" is preserved (same-origin), only null/undefined get default.
 const DEFAULT_API_URL = (() => {
   if (typeof window === "undefined") return "http://localhost:8000";
   const origin = window.location.origin;
   if (!origin || origin === "null" || origin.startsWith("file:")) return "http://localhost:8000";
   if (origin === "http://localhost:5173") return "http://localhost:8000";
-  // In deployed environments, prefer same-origin requests by default.
   return "";
 })();
 

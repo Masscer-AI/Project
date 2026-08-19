@@ -40,7 +40,6 @@ logger = logging.getLogger(__name__)
 
 _DIGITS_RE = re.compile(r"[^\d]")
 
-
 class TemplateVariables(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -64,7 +63,6 @@ class TemplateVariables(BaseModel):
         ),
     )
 
-
 class SendWsTemplateResult(BaseModel):
     sent: bool
     message: str
@@ -74,10 +72,8 @@ class SendWsTemplateResult(BaseModel):
     target_phone: str | None = None
     ws_contact_id: int | None = None
 
-
 def _digits_only(value: str) -> str:
     return _DIGITS_RE.sub("", value or "")
-
 
 def _resolve_sender(
     *,
@@ -111,7 +107,6 @@ def _resolve_sender(
         )
 
     return ws_number
-
 
 def _resolve_verified_contact(
     *,
@@ -149,7 +144,6 @@ def _resolve_verified_contact(
             "Linked user is not an active organization member"
         )
     return contact
-
 
 def resolve_header_image_from_attachment(
     *,
@@ -210,7 +204,6 @@ def resolve_header_image_from_attachment(
     )
     return {"id": media_id}
 
-
 def build_template_components(
     template: WhatsAppTemplateDefinition,
     variables: TemplateVariables,
@@ -256,7 +249,6 @@ def build_template_components(
             }
         )
 
-    # Only dynamic URL buttons need send-time parameters.
     url_button_defs = [b for b in template.buttons if b.sub_type == "url"]
     if not url_button_defs:
         if variables.buttons:
@@ -299,7 +291,6 @@ def build_template_components(
         )
 
     return components
-
 
 def format_template_delivery_message(
     template: WhatsAppTemplateDefinition,
@@ -361,7 +352,6 @@ def format_template_delivery_message(
     lines.append("---")
     return "\n".join(lines)[:4000]
 
-
 def get_or_create_delivery_conversation(
     ws_number: WSNumber,
     phone_digits: str,
@@ -380,7 +370,6 @@ def get_or_create_delivery_conversation(
             active.ws_contact = contact
             active.save(update_fields=["ws_contact", "updated_at"])
         return active
-    # Contact rows are created on inbound; existence implies prior contact.
     if ws_contact is None:
         ws_contact = WSContact.objects.filter(
             ws_number=ws_number, number=phone
@@ -390,7 +379,6 @@ def get_or_create_delivery_conversation(
             "This phone number has never contacted this WhatsApp sender"
         )
     return create_whatsapp_conversation(ws_number, phone)
-
 
 def send_ws_template_to_member(
     *,
@@ -481,8 +469,6 @@ def send_ws_template_to_member(
         )
         raise ValueError(f"Failed to send WhatsApp template: {exc}") from exc
 
-    # Persist on the contact's active WhatsApp thread so inbound replies
-    # (including quick-reply buttons) see this template in conversation history.
     text = format_template_delivery_message(
         template,
         variables,

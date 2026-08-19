@@ -11,7 +11,6 @@ const REASON_TO_KEY: Record<string, string> = {
   billing_check_error: "organization-billing-blocked-billing-check-error",
 };
 
-/** Toast when org billing blocks the agent task (matches backend billing_reason). */
 export function showOrganizationBillingBlockedToast(billingReason?: string) {
   const key =
     (billingReason && REASON_TO_KEY[billingReason]) ||

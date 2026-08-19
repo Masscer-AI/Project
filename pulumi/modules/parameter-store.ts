@@ -42,7 +42,6 @@ export function createProviderParameters(args: {
   const normalizeSecret = (value: pulumi.Input<string>) =>
     pulumi.output(value).apply((v) => {
       const trimmed = (v ?? "").trim();
-      // SSM SecureString does not allow empty values.
       return trimmed.length > 0 ? trimmed : "__UNSET__";
     });
 

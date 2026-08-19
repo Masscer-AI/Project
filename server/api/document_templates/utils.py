@@ -14,9 +14,7 @@ from docx import Document
 from docx.table import Table
 from docx.text.paragraph import Paragraph
 
-# Match simple Jinja placeholders (same spirit as docussistant server regex).
 PLACEHOLDER_RE = re.compile(r"\{\{\s*([^\{\}\s]+)\s*\}\}")
-
 
 def _findall_ordered_unique(text: str) -> list[str]:
     seen: set[str] = set()
@@ -27,7 +25,6 @@ def _findall_ordered_unique(text: str) -> list[str]:
             out.append(name)
     return out
 
-
 def _iter_block_items(parent):
     """Yield paragraphs and tables in document body order."""
     for child in parent.element.body.iterchildren():
@@ -35,7 +32,6 @@ def _iter_block_items(parent):
             yield Table(child, parent)
         elif child.tag.endswith("p"):
             yield Paragraph(child, parent)
-
 
 def extract_placeholders_from_docx_path(path: str) -> list[str]:
     """
@@ -58,7 +54,6 @@ def extract_placeholders_from_docx_path(path: str) -> list[str]:
                 seen.add(n)
                 names.append(n)
 
-    # Body
     for block in _iter_block_items(doc):
         if isinstance(block, Paragraph):
             add_many(block.text)
@@ -68,7 +63,6 @@ def extract_placeholders_from_docx_path(path: str) -> list[str]:
                     for p in cell.paragraphs:
                         add_many(p.text)
 
-    # Headers / footers (all sections)
     for section in doc.sections:
         for part in (section.header, section.footer):
             for p in part.paragraphs:
@@ -80,7 +74,6 @@ def extract_placeholders_from_docx_path(path: str) -> list[str]:
                             add_many(p.text)
 
     return names
-
 
 def extract_placeholders_from_storage_file(file_field) -> list[str]:
     """
@@ -98,7 +91,6 @@ def extract_placeholders_from_storage_file(file_field) -> list[str]:
             os.unlink(tmp.name)
         except OSError:
             pass
-
 
 def merge_variables_metadata(
     previous_variables: dict | None,
@@ -120,7 +112,6 @@ def merge_variables_metadata(
             "example": str(old.get("example", "") or ""),
         }
     return out
-
 
 def build_template_metadata(
     placeholders: list[str],

@@ -48,13 +48,13 @@ def run_export_job(job_id: str) -> None:
         summary: dict = {}
 
         for key, exporter in EXPORTERS.items():
-            result = exporter.export(
+            export_result = exporter.export(
                 organization=org,
                 manifest=manifest,
                 output_dir=output_dir,
             )
-            all_artifacts.extend(result.artifacts)
-            summary.update(result.summary)
+            all_artifacts.extend(export_result.artifacts)
+            summary.update(export_result.summary)
 
         manifest_payload = {
             "job_id": str(job.id),

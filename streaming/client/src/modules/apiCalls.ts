@@ -37,6 +37,11 @@ import { TUserPreferences } from "./storeTypes";
 import type { TTenantBranding } from "./storeTypes";
 import type { WhatsappTemplate } from "../routes/whatsapp/shared";
 
+const logAndRethrow = (message: string, error: unknown): never => {
+  console.error(message, error);
+  throw error;
+};
+
 const getToken = (isPublic: boolean) => {
   if (isPublic) {
     return { token: PUBLIC_TOKEN, tokenType: "PublishToken" };
@@ -68,8 +73,7 @@ export const initConversation = async ({ isPublic = false }) => {
     );
     return response.data;
   } catch (error) {
-    console.error("Error initiating conversation:", error);
-    throw error;
+    logAndRethrow("Error initiating conversation:", error);
   }
 };
 
@@ -174,8 +178,7 @@ export const getConversation = async (conversationId: string) => {
     });
     return response.data;
   } catch (error) {
-    console.error("Error fetching conversation:", error);
-    throw error;
+    logAndRethrow("Error fetching conversation:", error);
   }
 };
 
@@ -196,7 +199,6 @@ export const makeAuthenticatedRequest = async <T>(
     url: `${API_URL}/${endpoint}`,
     headers: {
       Authorization: `${tokenType} ${token}`,
-      // DON'T set Content-Type for FormData - axios sets it automatically with the correct boundary
     },
     data,
   };
@@ -206,8 +208,7 @@ export const makeAuthenticatedRequest = async <T>(
 
     return response.data as T;
   } catch (error) {
-    console.error(`Error making ${method} request to ${endpoint}:`, error);
-    throw error;
+    logAndRethrow(`Error making ${method} request to ${endpoint}:`, error);
   }
 };
 
@@ -225,8 +226,7 @@ export const getAgents = async (isPublic: boolean = false) => {
     );
     return res;
   } catch (error) {
-    console.error("Error fetching agents:", error);
-    throw error;
+    logAndRethrow("Error fetching agents:", error);
   }
 };
 
@@ -240,8 +240,7 @@ export const uploadDocument = async (documentData: FormData) => {
     );
     return response;
   } catch (error) {
-    console.error("Error uploading document:", error);
-    throw error;
+    logAndRethrow("Error uploading document:", error);
   }
 };
 export const getDocuments = async (opts?: { hasFileOnly?: boolean }) => {
@@ -259,12 +258,9 @@ export const getDocuments = async (opts?: { hasFileOnly?: boolean }) => {
     );
     return response;
   } catch (error) {
-    console.error("Error uploading document:", error);
-    throw error;
+    logAndRethrow("Error uploading document:", error);
   }
 };
-
-// --- Document templates (organization-scoped .docx for agent tools) ---
 
 export const getDocumentTemplates = async (organizationId: string) => {
   return makeAuthenticatedRequest<{ templates: TDocumentTemplate[] }>(
@@ -349,8 +345,7 @@ export const requestVideoGeneration = async (about, duration, orientation) => {
     );
     return response;
   } catch (error) {
-    console.error("Error requesting video generation:", error);
-    throw error;
+    logAndRethrow("Error requesting video generation:", error);
   }
 };
 
@@ -367,9 +362,28 @@ export const updateAgent = async (agentSlug: string, updatedData: any) => {
 
     return response;
   } catch (error) {
-    console.error("Error updating agent:", error);
-    throw error;
+    logAndRethrow("Error updating agent:", error);
   }
+};
+
+export const regenerateAgentDescription = async (
+  agentSlug: string,
+  draft?: {
+    name?: string;
+    act_as?: string;
+    system_prompt?: string;
+    salute?: string;
+  }
+) => {
+  return makeAuthenticatedRequest<{
+    description: string;
+    agent: TAgent;
+  }>(
+    "POST",
+    `/v1/ai_layers/agents/${agentSlug}/regenerate-description/`,
+    draft || {},
+    false
+  );
 };
 
 type TCreateLlmPayload = {
@@ -428,26 +442,9 @@ export const createAgent = async (agent: any) => {
 
     return response;
   } catch (error) {
-    console.error("Error updating agent:", error);
-    throw error;
+    logAndRethrow("Error updating agent:", error);
   }
 };
-
-// export const getChunk = async (chunkId: string) => {
-//   try {
-//     const endpoint = `/v1/rag/chunks/${chunkId}/`;
-//     const response = await makeAuthenticatedRequest<any>(
-//       "GET",
-//       endpoint,
-//       null,
-//       false
-//     );
-//     return response;
-//   } catch (error) {
-//     console.error(`Error fetching chunk with ID ${chunkId}:`, error);
-//     throw error;
-//   }
-// };
 
 export const getVideos = async () => {
   try {
@@ -459,8 +456,7 @@ export const getVideos = async () => {
     );
     return response;
   } catch (error) {
-    console.error("Error fetching videos:", error);
-    throw error;
+    logAndRethrow("Error fetching videos:", error);
   }
 };
 
@@ -481,8 +477,7 @@ export const getMedia = async (
     );
     return response;
   } catch (error) {
-    console.error("Error fetching media:", error);
-    throw error;
+    logAndRethrow("Error fetching media:", error);
   }
 };
 
@@ -609,7 +604,6 @@ export type TConversationFilters = {
   selectedTags?: number[];
   selectedAlertRules?: string[];
   chatWidgetId?: string;
-  /** WhatsApp Business line (WSNumber id), not visitor phone */
   wsNumberId?: string;
   channel?: "all" | "app" | "widget" | "whatsapp";
   status?: "active_inactive" | "all" | "active" | "inactive" | "archived" | "deleted";
@@ -724,7 +718,6 @@ export const getConversationStats = async (
   );
 };
 
-/** Backward compat: fetches all conversations (paginated, first page only). Use getConversations for pagination. */
 export const getAllConversations = async (
   scope: "personal" | "org" = "org",
   options?: {
@@ -799,7 +792,6 @@ export const listScheduledTasks = async (
   return makeAuthenticatedRequest<TScheduledTasksListResponse>("GET", endpoint);
 };
 
-/** Pending/running scheduled tasks created by the current user (all conversations). */
 export const listMyScheduledTasks = async (options?: {
   includeFinished?: boolean;
   limit?: number;
@@ -928,7 +920,6 @@ export const updateAlertStatus = async (
   );
 };
 
-// Alert Rules API functions
 export const getAlertRules = async () => {
   return makeAuthenticatedRequest<TConversationAlertRule[]>(
     "GET",
@@ -983,7 +974,6 @@ export const deleteAlertRule = async (ruleId: string) => {
   );
 };
 
-// Tags API functions
 export const getTags = async () => {
   return makeAuthenticatedRequest<TTag[]>(
     "GET",
@@ -1039,7 +1029,6 @@ export const getNotificationRules = async () => {
   );
 };
 
-/** Natural language → draft notification rule (sync); user still picks notify target and saves. */
 export const buildNotificationRuleDraft = async (data: {
   prompt: string;
   alert_rule_id: string;
@@ -1308,7 +1297,6 @@ export const downloadFile = async (file_path: string) => {
       },
     });
 
-    // Check if the response is OK
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -1418,7 +1406,6 @@ export const fetchUrlContent = async (url: string) => {
     }
   );
 };
-
 
 export const generateDocumentBrief = async (documentId: string) => {
   return makeAuthenticatedRequest("PUT", `/v1/rag/documents/${documentId}/`, {
@@ -1827,7 +1814,6 @@ export const updateOrganization = async (
   data: TOrganizationData,
   options?: TUpdateOrganizationOptions
 ): Promise<TOrganization> => {
-  // Determine if we need to send FormData (for file upload or delete)
   const hasLogoFile = options?.logoFile instanceof File;
   const shouldDeleteLogo = options?.deleteLogo === true;
   const needsFormData = hasLogoFile || shouldDeleteLogo;
@@ -1855,7 +1841,6 @@ export const updateOrganization = async (
       console.log("📎 Added logo to FormData:", options.logoFile.name, options.logoFile.size, "bytes");
     }
     
-    // Debug: log all FormData entries
     console.log("📦 FormData contents:");
     for (const [key, value] of formData.entries()) {
       if (value instanceof File) {
@@ -1872,7 +1857,6 @@ export const updateOrganization = async (
     );
   }
   
-  // No logo changes, send JSON
   return makeAuthenticatedRequest<TOrganization>(
     "PUT",
     `/v1/auth/organizations/${organizationId}/`,
@@ -1960,7 +1944,6 @@ export const getTeamFeatureFlags = async (): Promise<TeamFeatureFlagsResponse> =
   );
 };
 
-// Chat Widget API functions
 export const getChatWidgets = async () => {
   return makeAuthenticatedRequest<TChatWidget[]>(
     "GET",
@@ -2044,13 +2027,10 @@ export const deleteChatWidgetAvatar = async (widgetId: number) => {
   );
 };
 
-// ---- Agent Task ----
-
 export type TAgentTaskInput =
   | { type: "input_text"; text: string }
   | { type: "input_attachment"; attachment_id: string };
 
-/** Built in the browser and sent with agent-task so the model can resolve "in 2 hours", etc. */
 export type ClientDatetimePayload = {
   utc_iso: string;
   timezone: string;
@@ -2082,7 +2062,6 @@ export type TriggerAgentTaskPayload = {
   agent_slugs: string[];
   user_inputs: TAgentTaskInput[];
   tool_names?: string[];
-  /** Per-agent-slug tool override; agents not present fall back to tool_names. */
   tool_names_by_agent?: Record<string, string[]>;
   multiagentic_modality?: "isolated" | "grupal";
   regenerate_message_id?: number;
@@ -2196,7 +2175,6 @@ export type TMCPCredentialSummary = {
   allowed_agent_slugs: string[];
   allowed_tool_names: string[];
   key_prefix: string | null;
-  /** True when this credential was granted via OAuth (Claude/ChatGPT), not a manual API key. */
   auth_via_oauth?: boolean;
 };
 
@@ -2274,9 +2252,6 @@ export const getMCPToolPresets = async () => {
   );
 };
 
-/** Same grouping as getMCPToolPresets, but available to any authenticated
- * user (not gated behind the integrations-management feature flag) — used
- * for the agent settings "pre-approved tools" picker. */
 export const getAgentToolGroups = async () => {
   return makeAuthenticatedRequest<TAgentToolGroupsResponse>(
     "GET",
@@ -2610,8 +2585,6 @@ export const deleteGoogleCalendarEvent = async (
   );
 };
 
-// --- Data Governance ---
-
 export const getOrganizationDataPolicy = async (organizationId: string) => {
   return makeAuthenticatedRequest<TOrganizationDataPolicy>(
     "GET",
@@ -2677,4 +2650,3 @@ export const downloadDataExport = async (
   link.remove();
   window.URL.revokeObjectURL(link.href);
 };
-

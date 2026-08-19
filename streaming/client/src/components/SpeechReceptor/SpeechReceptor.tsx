@@ -42,25 +42,8 @@ export const SpeechReceptor: React.FC<SpeechReceptorProps> = ({
           }
         });
 
-        // Add event listener to detect when audio playback has ended
         audioElement.addEventListener("ended", () => {
           console.log("Audio playback ended, cleaning up source buffer (in theory)");
-          // if (sourceBuffer) {
-          //   // Extract buffered data and create a Blob
-          //   const bufferedData = sourceBuffer.buffered;
-          //   const chunks: Uint8Array[] = [];
-          //   for (let i = 0; i < bufferedData.length; i++) {
-          //     const start = bufferedData.start(i);
-          //     const end = bufferedData.end(i);
-          //     const chunk = new Uint8Array(end - start);
-          //     const tempBuffer = new Uint8Array(
-          //       sourceBuffer.buffered.end(i) - sourceBuffer.buffered.start(i)
-          //     );
-          //     tempBuffer.set(chunk, 0);
-          //     chunks.push(tempBuffer);
-          //   }
-          //   const blob = new Blob(chunks, { type: "audio/mpeg" });
-          // }
         });
       });
     }

@@ -1,7 +1,3 @@
-/**
- * Country dial-code catalog for phone number pickers.
- * `value` is ISO 3166-1 alpha-2; `dial` is digits only (no +).
- */
 
 export type TCountryDialOption = {
   value: string;
@@ -115,7 +111,6 @@ export const COUNTRY_DIAL_CODES: TCountryDialOption[] = [
   { value: "VN", name: "Vietnam", dial: "84" },
 ];
 
-/** Prefer these ISO codes when several countries share a dial code. */
 const DIAL_PREFERRED_ISO: Record<string, string> = {
   "1": "US",
   "7": "RU",
@@ -131,7 +126,6 @@ export function getDialCodeForIso(iso: string): string {
   return getCountryByIso(iso)?.dial || "";
 }
 
-/** Resolve a stored dial-code string to the best matching ISO country. */
 export function isoFromDialCode(dial: string): string | null {
   const digits = (dial || "").replace(/\D/g, "");
   if (!digits) return null;
@@ -144,7 +138,6 @@ export function isoFromDialCode(dial: string): string | null {
 export function countrySelectData() {
   return COUNTRY_DIAL_CODES.map((c) => ({
     value: c.value,
-    // Include ISO + dial so users can search "EC", "Mexico", "+52", etc.
     label: `${c.name} (${c.value}, +${c.dial})`,
   }));
 }

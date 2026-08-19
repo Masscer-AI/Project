@@ -28,8 +28,6 @@ from api.utils.vertex_gemini_text import (
     _usage_to_dict,
 )
 
-# --- print_in_color tool (Gemini function declaration) -------------------------
-
 PRINT_IN_COLOR_TOOL_NAME = "print_in_color"
 
 _TERMINAL_COLORS = ("red", "green", "blue", "yellow", "magenta")
@@ -56,7 +54,6 @@ _PRINT_TOOL_PARAMETERS_JSON_SCHEMA = {
     "required": ["color", "message"],
 }
 
-
 def _build_print_in_color_tool(genai_types: Any) -> Any:
     fd = genai_types.FunctionDeclaration(
         name=PRINT_IN_COLOR_TOOL_NAME,
@@ -68,12 +65,10 @@ def _build_print_in_color_tool(genai_types: Any) -> Any:
     )
     return genai_types.Tool(function_declarations=[fd])
 
-
 def _merge_usage(acc: dict[str, int], usage_metadata: Any) -> None:
     d = _usage_to_dict(usage_metadata)
     for k in acc:
         acc[k] = acc.get(k, 0) + d.get(k, 0)
-
 
 class Command(BaseCommand):
     help = (
@@ -232,7 +227,6 @@ class Command(BaseCommand):
                         )
                         if si:
                             system_sent = True
-                        # Keep transcript for next turns (includes tool turns inside vertex_contents)
                         self.stdout.write(self.style.SUCCESS(f"Gemini> {reply}\n"))
                         self._print_usage_dict(usage)
                         messages.append({"role": "assistant", "content": reply})
@@ -345,11 +339,11 @@ class Command(BaseCommand):
                     args = getattr(fc, "args", None)
                     call_id = getattr(fc, "id", None)
                     if name == PRINT_IN_COLOR_TOOL_NAME:
-                        result = self._dispatch_print_in_color(args)
+                        tool_response = self._dispatch_print_in_color(args)
                     else:
-                        result = {"ok": False, "error": f"unknown tool {name!r}"}
+                        tool_response = {"ok": False, "error": f"unknown tool {name!r}"}
 
-                    fr_kw: dict[str, Any] = {"name": name, "response": result}
+                    fr_kw: dict[str, Any] = {"name": name, "response": tool_response}
                     if call_id:
                         fr_kw["id"] = call_id
                     fr = genai_types.FunctionResponse(**fr_kw)

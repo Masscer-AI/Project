@@ -44,8 +44,6 @@ import {
   IconPhoto,
 } from "@tabler/icons-react";
 
-// ─── Main Sidebar ─────────────────────────────────────────────────────────────
-
 export const Sidebar: React.FC = () => {
   const { t } = useTranslation();
   const isConversationsDashboardEnabled = useIsFeatureEnabled(
@@ -202,7 +200,7 @@ export const Sidebar: React.FC = () => {
   return (
     <>
       <div className="backdrop-blur-md fixed md:relative left-0 top-0 h-screen z-[50] md:z-[3] flex flex-col w-[min(350px,100%)] p-3 gap-2.5 animate-[appear-left_500ms_forwards] md:[animation:none]" style={{ background: "var(--semi-transparent)", borderRight: "1px solid var(--hovered-color)" }}>
-        {/* Header */}
+        {}
         <Group gap="xs">
           <Button
             variant="default"
@@ -222,7 +220,7 @@ export const Sidebar: React.FC = () => {
           </ActionIcon>
         </Group>
 
-        {/* Scrollable content */}
+        {}
         <div className="[scrollbar-width:none] overflow-auto p-0.5 flex flex-col gap-2.5 flex-1">
           <Button
             variant="default"
@@ -499,7 +497,7 @@ export const Sidebar: React.FC = () => {
           )}
         </div>
 
-        {/* Footer */}
+        {}
         <Group gap="xs" className="mt-auto">
           <Button
             variant="default"
@@ -523,7 +521,7 @@ export const Sidebar: React.FC = () => {
         </Group>
       </div>
 
-      {/* Mobile backdrop */}
+      {}
       <div
         onClick={toggleSidebar}
         className="bg-[rgba(55,55,55,0.52)] w-screen h-screen fixed top-0 left-0 z-[40] md:hidden"
@@ -532,8 +530,6 @@ export const Sidebar: React.FC = () => {
     </>
   );
 };
-
-// ─── ConversationComponent ────────────────────────────────────────────────────
 
 const ConversationComponent = ({
   conversation,

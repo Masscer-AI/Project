@@ -53,7 +53,6 @@ function parseInstructionSteps(instruction: string): string[] {
 
   if (numbered.length > 1) return numbered;
 
-  // Fallback: split "1. ... 2. ..." on a single line
   const inline = trimmed
     .split(/(?=\d+[\).\-]\s+)/)
     .map((part) => part.replace(/^\d+[\).\-:]\s*/, "").trim())
@@ -66,7 +65,6 @@ function formatNextRun(
   locale: string
 ): string | null {
   if (!localIso) return null;
-  // Backend sends org-local wall time without offset, e.g. 2026-07-31T13:51:34
   const match = localIso.match(
     /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?/
   );
@@ -145,7 +143,6 @@ export default function ScheduledTasksPage() {
         includeFinished,
         limit: 100,
       });
-      // Defensive: cancelled tasks should never appear in the UI.
       setTasks((res.tasks || []).filter((task) => task.status !== "cancelled"));
     } catch (err) {
       console.error(err);

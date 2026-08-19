@@ -24,11 +24,9 @@ from api.messaging.models import Conversation
 from api.messaging.schemas import metadata_payload_for_related_agents
 from api.messaging.takeover import get_active_takeover, handle_inbound_during_takeover
 
-
 from api.ai_layers.mcp_access import MCP_BASIC_TOOL_NAMES
 
 DEFAULT_MCP_TOOL_NAMES = list(MCP_BASIC_TOOL_NAMES)
-
 
 @dataclass
 class AgentTaskDispatchResult:
@@ -38,7 +36,6 @@ class AgentTaskDispatchResult:
     conversation_id: str | None = None
     takeover: bool = False
     agent_skipped: bool = False
-
 
 def dispatch_conversation_agent_task(
     *,
@@ -136,8 +133,6 @@ def dispatch_conversation_agent_task(
                 status=400,
             ),
         )
-    # user is always authenticated on this path (chat + MCP), so this only
-    # dedupes/validates here — the trust filter is a no-op with a real user.
     tool_names = resolve_allowed_tools(tool_names, user)
 
     if tool_names_by_agent is not None:

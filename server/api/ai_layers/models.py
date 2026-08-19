@@ -7,10 +7,8 @@ from pydantic import BaseModel, Field
 from datetime import datetime
 from api.utils.color_printer import printer
 
-
 class ExampleStructure(BaseModel):
     example: str = Field(description="An example of a good response")
-
 
 DEFAULT_CHARACTER = """
 You are an useful assistant.
@@ -25,7 +23,6 @@ The following context may be useful for your task:
 ```
 """
 
-
 DEFAULT_PRICING = {
     "text": {
         "prompt": "2.50 USD / 1000000",
@@ -33,10 +30,8 @@ DEFAULT_PRICING = {
     },
 }
 
-
 def default_pricing():
     return DEFAULT_PRICING
-
 
 class LanguageModel(models.Model):
     provider = models.ForeignKey(AIProvider, on_delete=models.CASCADE)
@@ -52,11 +47,9 @@ class LanguageModel(models.Model):
     def __str__(self):
         return f"{self.name} ({self.provider.name})"
 
-
 class AgentKind(models.TextChoices):
     CONVERSATIONAL_AGENT = "conversational_agent", "Conversational agent"
     PLATFORM_ASSISTANT = "platform_assistant", "Platform assistant"
-
 
 class Agent(models.Model):
 
@@ -175,7 +168,6 @@ class Agent(models.Model):
             )
 
     def save(self, *args, **kwargs):
-        # from .tasks import async_generate_agent_profile_picture
 
         if not self.slug:
             self.slug = slugify(self.name + "-" + str(uuid.uuid4()))[:100]
@@ -195,9 +187,6 @@ class Agent(models.Model):
                 )
             self.llm = llm
             self.model_slug = llm.slug
-
-        # if not self.profile_picture_url and self.id:
-        #     async_generate_agent_profile_picture.delay(self.id)
 
         super().save(*args, **kwargs)
 
@@ -265,9 +254,6 @@ class Agent(models.Model):
 
         async_generate_agent_profile_picture.delay(self.id)
 
-
-# ---- AgentSession ----
-
 class AgentSession(models.Model):
     """
     Records one agent loop execution for audit, debugging, and reproducibility.
@@ -301,8 +287,6 @@ class AgentSession(models.Model):
     task_type = models.CharField(max_length=50, default="chat_message")
     inputs = models.JSONField(default=dict)
     outputs = models.JSONField(default=dict)
-    # Ordered timeline of agent-loop events (loop_start, iteration_start,
-    # tool_call_start/end, response, error). Used by the execution-log UI.
     event_log = models.JSONField(default=list, blank=True)
 
     iterations = models.PositiveIntegerField(default=0)
@@ -319,7 +303,6 @@ class AgentSession(models.Model):
 
     def __str__(self):
         return f"AgentSession({self.id}) {self.task_type}"
-
 
 class RoleAgentAssignment(models.Model):
     """
@@ -353,7 +336,6 @@ class RoleAgentAssignment(models.Model):
 
     def __str__(self):
         return f"RoleAgentAssignment(role={self.role_id}, agent={self.agent_id})"
-
 
 class MCPClient(models.Model):
     """

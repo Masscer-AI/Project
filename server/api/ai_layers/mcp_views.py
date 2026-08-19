@@ -41,7 +41,6 @@ from api.messaging.models import Conversation
 
 logger = logging.getLogger(__name__)
 
-
 def _require_integrations_management(request):
     org = get_user_organization(request.user)
     if not user_can_manage_integrations(request.user, org):
@@ -56,7 +55,6 @@ def _require_integrations_management(request):
         )
     return None
 
-
 def _mcp_task_authorized(request, task_id: str) -> bool:
     meta = cache.get(f"mcp_task_{task_id}")
     if not meta:
@@ -65,7 +63,6 @@ def _mcp_task_authorized(request, task_id: str) -> bool:
         meta.get("user_id") == request.user.id
         and meta.get("mcp_client_id") == str(request.mcp_client.id)
     )
-
 
 @csrf_exempt
 @mcp_token_required
@@ -79,7 +76,6 @@ def mcp_list_agents(request):
         }
     )
 
-
 @csrf_exempt
 @mcp_token_required
 @require_http_methods(["POST"])
@@ -90,13 +86,13 @@ def mcp_run_agent(request):
     Body: { "agent_slug": "...", "message": "...", "conversation_id": "..."? }
     """
     try:
-        data = json.loads(request.body or b"{}")
+        payload = json.loads(request.body or b"{}")
     except json.JSONDecodeError:
         return JsonResponse({"error": "Invalid JSON body"}, status=400)
 
-    agent_slug = (data.get("agent_slug") or "").strip()
-    message = (data.get("message") or "").strip()
-    conversation_id = data.get("conversation_id")
+    agent_slug = (payload.get("agent_slug") or "").strip()
+    message = (payload.get("message") or "").strip()
+    conversation_id = payload.get("conversation_id")
 
     if not agent_slug:
         return JsonResponse({"error": "agent_slug is required"}, status=400)
@@ -139,7 +135,7 @@ def mcp_run_agent(request):
         )
         conversation_id = str(conversation.id)
 
-    result = dispatch_conversation_agent_task(
+    dispatch_result = dispatch_conversation_agent_task(
         user=user,
         conversation_id=str(conversation_id),
         agent_slugs=[agent.slug],
@@ -149,22 +145,21 @@ def mcp_run_agent(request):
         mcp_client_id=str(mcp_client.id),
     )
 
-    if not result.ok:
-        return result.response
+    if not dispatch_result.ok:
+        return dispatch_result.response
 
-    if result.takeover:
-        return result.response
+    if dispatch_result.takeover:
+        return dispatch_result.response
 
     return JsonResponse(
         {
-            "task_id": result.task_id,
-            "conversation_id": result.conversation_id,
+            "task_id": dispatch_result.task_id,
+            "conversation_id": dispatch_result.conversation_id,
             "status": "accepted",
             "tool_name": sanitize_mcp_tool_name(agent.slug),
         },
         status=202,
     )
-
 
 @csrf_exempt
 @mcp_token_required
@@ -215,10 +210,6 @@ def mcp_task_result(request, task_id: str):
         }
     )
 
-
-# ─── Credential management (user Token auth, for UI) ─────────────────────────
-
-
 def _credential_summary(c, *, auth_via_oauth: bool | None = None) -> dict:
     allowed = list(c.allowed_agents.values_list("slug", flat=True))
     if auth_via_oauth is None:
@@ -236,7 +227,6 @@ def _credential_summary(c, *, auth_via_oauth: bool | None = None) -> dict:
         "key_prefix": c.key[:8] + "…" if c.key else None,
         "auth_via_oauth": bool(auth_via_oauth),
     }
-
 
 @csrf_exempt
 @require_http_methods(["GET"])
@@ -294,7 +284,6 @@ def mcp_download_attachment(request, attachment_id):
     response["Content-Disposition"] = f'inline; filename="{filename}"'
     return response
 
-
 @csrf_exempt
 @token_required
 @require_http_methods(["GET"])
@@ -315,7 +304,6 @@ def mcp_tool_presets(request):
             "all_tools": mcp_all_tool_names(),
         }
     )
-
 
 @csrf_exempt
 @token_required
@@ -345,8 +333,8 @@ def mcp_credentials(request):
                 ),
             )
         )
-        data = [_credential_summary(c) for c in clients]
-        return JsonResponse({"credentials": data})
+        credentials = [_credential_summary(c) for c in clients]
+        return JsonResponse({"credentials": credentials})
 
     try:
         body = json.loads(request.body or b"{}")
@@ -430,12 +418,10 @@ def mcp_credentials(request):
         status=201,
     )
 
-
 def get_mcp_user_org_for_user(user):
     from api.ai_layers.access import get_user_organization
 
     return get_user_organization(user)
-
 
 def mcp_accessible_agents_qs_for_user(user, mcp_client=None):
     from api.ai_layers.access import accessible_agents_qs
@@ -444,7 +430,6 @@ def mcp_accessible_agents_qs_for_user(user, mcp_client=None):
     return accessible_agents_qs(user).filter(
         agent_kind=AgentKind.CONVERSATIONAL_AGENT
     )
-
 
 @csrf_exempt
 @token_required
@@ -506,7 +491,6 @@ def mcp_credential_detail(request, credential_id):
 
     mcp_client.save(update_fields=update_fields)
     return JsonResponse(_credential_summary(mcp_client))
-
 
 @csrf_exempt
 @token_required

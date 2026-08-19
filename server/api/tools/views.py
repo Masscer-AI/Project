@@ -16,6 +16,7 @@ from django.core.files import File
 from api.authenticate.decorators.token_required import token_required
 from api.authenticate.decorators.feature_flag_required import feature_flag_required
 from .actions import fetch_videos, document_convertion
+from api.utils.error_response import error_response
 from api.utils.openai_functions import generate_image
 from api.messaging.models import Message
 from api.utils.color_printer import printer
@@ -32,10 +33,8 @@ from .actions import generate_audio
 
 from .tasks import async_image_to_video
 
-
 SAVE_PATH = os.path.join(settings.MEDIA_ROOT, "generated")
 logger = logging.getLogger(__name__)
-
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
@@ -125,7 +124,6 @@ class Transcriptions(View):
 
         return JsonResponse({"error": "Invalid data"}, status=400)
 
-
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 @method_decorator(feature_flag_required("video-tools"), name="dispatch")
@@ -142,11 +140,11 @@ class ImageToVideo(View):
     def post(self, request):
         user = request.user
 
-        data = json.loads(request.body)
-        about = data.get("about")
+        video_request_payload = json.loads(request.body)
+        about = video_request_payload.get("about")
 
-        duration = data.get("duration", "LESS_THAN_MINUTE").upper()
-        orientation = data.get("orientation", "LANDSCAPE").upper()
+        duration = video_request_payload.get("duration", "LESS_THAN_MINUTE").upper()
+        orientation = video_request_payload.get("orientation", "LANDSCAPE").upper()
 
         video_generation_job = VideoGenerationJob.objects.create(
             status="PENDING",
@@ -164,7 +162,6 @@ class ImageToVideo(View):
             }
         )
 
-
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class MediaView(View):
@@ -176,32 +173,27 @@ class MediaView(View):
         orientation = request.GET.get("orientation", "landscape")
 
         try:
-            # Convert per_page and page to integers
             per_page = int(per_page)
             page = int(page)
 
-            # Fetch videos from Pexels
-            response_data = fetch_videos(query, per_page, page, orientation)
+            videos_response = fetch_videos(query, per_page, page, orientation)
 
-            if "error" in response_data:
-                return JsonResponse(response_data, status=400)
+            if "error" in videos_response:
+                return JsonResponse(videos_response, status=400)
 
-            return JsonResponse(response_data, safe=False)
+            return JsonResponse(videos_response, safe=False)
 
         except ValueError:
             return JsonResponse(
                 {"error": "Invalid integer values for per_page or page"}, status=400
             )
 
-
 def get_width_and_height_from_size_string(size: str):
     printer.red(f"SIZE: {size}")
-    # SPlit at x
     split_size = size.split("x")
     width = int(split_size[0])
     height = int(split_size[1])
     return width, height
-
 
 LIST_OF_FLUX_MODELS = [
     "flux-pro-1.1-ultra",
@@ -210,18 +202,17 @@ LIST_OF_FLUX_MODELS = [
     "flux-dev",
 ]
 
-
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 @method_decorator(feature_flag_required("image-tools"), name="dispatch")
 class ImageGenerationView(View):
     def post(self, request):
         try:
-            data = json.loads(request.body)
-            prompt = data.get("prompt")
-            message_id = data.get("message_id")
-            size = data.get("size")
-            model = data.get("model")
+            image_request_payload = json.loads(request.body)
+            prompt = image_request_payload.get("prompt")
+            message_id = image_request_payload.get("message_id")
+            size = image_request_payload.get("size")
+            model = image_request_payload.get("model")
 
             if model in LIST_OF_FLUX_MODELS:
                 width, height = get_width_and_height_from_size_string(size)
@@ -261,18 +252,17 @@ class ImageGenerationView(View):
             )
 
         except Exception as e:
-            return JsonResponse({"error": str(e)}, status=400)
-
+            return error_response(e)
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class PromptNodeView(View):
     def post(self, request):
-        data = json.loads(request.body)
+        prompt_request_payload = json.loads(request.body)
 
-        system_prompt = data.get("system_prompt")
-        model = data.get("model")
-        user_message = data.get("user_message")
+        system_prompt = prompt_request_payload.get("system_prompt")
+        model = prompt_request_payload.get("model")
+        user_message = prompt_request_payload.get("user_message")
 
         printer.red(f"SYSTEM PROMPT: {system_prompt}")
         printer.red(f"USER MESSAGE: {user_message}")
@@ -282,19 +272,18 @@ class PromptNodeView(View):
         )
         return JsonResponse({"response": response})
 
-
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class DocumentGeneratorView(View):
     def post(self, request):
         try:
-            data = json.loads(request.body)
+            conversion_request_payload = json.loads(request.body)
         except json.JSONDecodeError:
             return JsonResponse({"error": "Invalid JSON body"}, status=400)
 
-        source_text = data.get("source_text")
-        from_type = data.get("from_type")
-        to_type = data.get("to_type")
+        source_text = conversion_request_payload.get("source_text")
+        from_type = conversion_request_payload.get("from_type")
+        to_type = conversion_request_payload.get("to_type")
 
         if not isinstance(source_text, str) or not source_text.strip():
             return JsonResponse({"error": "source_text is required"}, status=400)
@@ -323,7 +312,6 @@ class DocumentGeneratorView(View):
                     status=500,
                 )
 
-            # Return only the last section of the path, not the full path.
             file_name = os.path.basename(output_filepath)
             return JsonResponse({"output_filepath": file_name})
         except Exception as e:
@@ -339,14 +327,12 @@ class DocumentGeneratorView(View):
             if input_document_created_path and os.path.exists(input_document_created_path):
                 os.remove(input_document_created_path)
 
-
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class DownloadFile(View):
     def get(self, request, file_path):
         file_name = os.path.normpath(file_path)
 
-        # COncatenate the file path with the save path
         full_path = os.path.join(SAVE_PATH, file_name)
 
         if not os.path.exists(full_path):
@@ -360,10 +346,8 @@ class DownloadFile(View):
                 f'attachment; filename="{os.path.basename(full_path)}"'
             )
 
-        # delete the file after download
         os.remove(full_path)
         return response
-
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
@@ -371,17 +355,16 @@ class DownloadFile(View):
 class ImageEditorView(View):
     def post(self, request):
         try:
-            data = json.loads(request.body)
-            image_base64 = data.get("image")
-            prompt = data.get("prompt")
-            mask_base64 = data.get("mask")
-            steps = data.get("steps", 50)
-            prompt_upsampling = data.get("prompt_upsampling", False)
-            guidance = data.get("guidance", 60)
-            output_format = data.get("output_format", "png")
-            safety_tolerance = data.get("safety_tolerance", 4)
+            image_edit_payload = json.loads(request.body)
+            image_base64 = image_edit_payload.get("image")
+            prompt = image_edit_payload.get("prompt")
+            mask_base64 = image_edit_payload.get("mask")
+            steps = image_edit_payload.get("steps", 50)
+            prompt_upsampling = image_edit_payload.get("prompt_upsampling", False)
+            guidance = image_edit_payload.get("guidance", 60)
+            output_format = image_edit_payload.get("output_format", "png")
+            safety_tolerance = image_edit_payload.get("safety_tolerance", 4)
 
-            # Call the request_image_edit_with_mask function
             request_id = request_image_edit_with_mask(
                 image_base64=image_base64,
                 prompt=prompt,
@@ -397,10 +380,8 @@ class ImageEditorView(View):
             if not request_id:
                 raise Exception("Failed to edit image")
 
-            # Get the result URL after the request
             image_url = get_result_url(request_id)
 
-            # Get the image content and convert it to Base64
             image_response = requests.get(image_url)
             image_content = image_response.content
             image_content_b64 = base64.b64encode(image_content).decode("utf-8")
@@ -417,29 +398,20 @@ class ImageEditorView(View):
             )
 
         except Exception as e:
-            return JsonResponse({"error": str(e)}, status=400)
-
+            return error_response(e)
 
 class ImageVaryView(View):
     def post(self, request):
-        data = json.loads(request.body)
-        prompt = data.get("prompt")
-        control_image_base64 = data.get("control_image_base64")
-        # model = data.get("model", "flux-dev")
-        # steps = data.get("steps", 50)
-        # prompt_upsampling = data.get("prompt_upsampling", False)
-        guidance = data.get("guidance", 30)
-        # output_format = data.get("output_format", "jpeg")
-        safety_tolerance = data.get("safety_tolerance", 2)
+        image_vary_payload = json.loads(request.body)
+        prompt = image_vary_payload.get("prompt")
+        control_image_base64 = image_vary_payload.get("control_image_base64")
+        guidance = image_vary_payload.get("guidance", 30)
+        safety_tolerance = image_vary_payload.get("safety_tolerance", 2)
 
         request_id = generate_with_control_image(
             prompt=prompt,
             control_image_base64=control_image_base64,
-            # model=model,
-            # steps=steps,
-            # prompt_upsampling=prompt_upsampling,
             guidance=guidance,
-            # output_format=output_format,
             safety_tolerance=safety_tolerance,
         )
 
@@ -463,7 +435,6 @@ class ImageVaryView(View):
             }
         )
 
-
 def fetch_url_content(url: str) -> str | None:
     try:
         firecrawl = Firecrawl(api_key=settings.FIRECRAWL_API_KEY)
@@ -473,14 +444,13 @@ def fetch_url_content(url: str) -> str | None:
         logger.error(f"Error fetching URL content: {e}")
         return None
 
-
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 @method_decorator(feature_flag_required("web-scraping"), name="dispatch")
 class WebsiteFetcherView(View):
     def post(self, request):
-        data = json.loads(request.body)
-        url = data.get("url")
+        fetch_url_payload = json.loads(request.body)
+        url = fetch_url_payload.get("url")
 
         content = fetch_url_content(url)
         if not content:
@@ -488,17 +458,16 @@ class WebsiteFetcherView(View):
 
         return JsonResponse({"content": content})
 
-
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 @method_decorator(feature_flag_required("video-tools"), name="dispatch")
 class ImageToVideoView(View):
     def post(self, request):
-        data = json.loads(request.body)
-        prompt_image_b64 = data.get("image_b64")
-        prompt_text = data.get("prompt")
-        ratio = data.get("ratio")
-        message_id = data.get("message_id")
+        image_to_video_payload = json.loads(request.body)
+        prompt_image_b64 = image_to_video_payload.get("image_b64")
+        prompt_text = image_to_video_payload.get("prompt")
+        ratio = image_to_video_payload.get("ratio")
+        message_id = image_to_video_payload.get("message_id")
 
         async_image_to_video.delay(
             prompt_image_b64,
@@ -514,21 +483,19 @@ class ImageToVideoView(View):
             }
         )
 
-
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 @method_decorator(feature_flag_required("audio-tools"), name="dispatch")
 class AudioGeneratorView(View):
     def post(self, request):
-        data = json.loads(request.body)
+        audio_request_payload = json.loads(request.body)
 
-        text = data.get("text")
-        voice = data.get("voice")
-        message_id = data.get("message_id")
+        text = audio_request_payload.get("text")
+        voice = audio_request_payload.get("voice")
+        message_id = audio_request_payload.get("message_id")
 
         print(text, voice, message_id, "DATA")
 
-        # async_audio_generation.delay(text, voice, request.user.id, message_id)
         generate_audio(
             text, voice["id"], voice["provider"], request.user.id, message_id
         )

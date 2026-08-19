@@ -40,7 +40,6 @@ from api.whatsapp.template_send import (
 )
 from api.whatsapp.template_sync import sync_default_whatsapp_templates
 
-
 class WhatsAppSendTemplateMessageGraphTests(SimpleTestCase):
     @patch("api.whatsapp.actions.requests.post")
     @patch("api.whatsapp.actions._graph_token", return_value="token")
@@ -92,7 +91,6 @@ class WhatsAppSendTemplateMessageGraphTests(SimpleTestCase):
             )
         self.assertIn("Template name does not exist", str(ctx.exception))
 
-
 class WhatsAppTemplateDeliveryMessageFormatTests(SimpleTestCase):
     def test_format_interpolates_approved_copy(self):
         text = format_template_delivery_message(
@@ -127,7 +125,6 @@ class WhatsAppTemplateDeliveryMessageFormatTests(SimpleTestCase):
                 "---"
             ),
         )
-
 
 class WhatsAppTemplateRegistryTests(SimpleTestCase):
     def test_task_completed_registered(self):
@@ -483,7 +480,6 @@ class WhatsAppTemplateRegistryTests(SimpleTestCase):
         self.assertEqual(summary["header_text"], "Task completed")
         self.assertTrue(summary["body_text"])
 
-
 class WhatsAppContactBridgeTests(TestCase):
     def setUp(self):
         from api.ai_layers.models import LanguageModel
@@ -558,7 +554,6 @@ class WhatsAppContactBridgeTests(TestCase):
         self.assertEqual(
             WSContact.objects.filter(ws_number=self.ws, user=member).count(), 2
         )
-
 
 class WhatsAppTemplateSendTests(TestCase):
     def setUp(self):
@@ -928,7 +923,6 @@ class WhatsAppTemplateSendTests(TestCase):
             )
         self.assertIn("Failed to send WhatsApp template", str(ctx.exception))
 
-
 class WhatsAppTemplateToolsTests(TestCase):
     def setUp(self):
         from api.ai_layers.models import LanguageModel
@@ -1160,7 +1154,6 @@ class WhatsAppTemplateToolsTests(TestCase):
         self.assertIn("list_whatsapp_resources", groups["whatsapp"])
         self.assertNotIn("list_accessible_whatsapp_senders", groups["whatsapp"])
 
-
 class WhatsAppTemplateSubscriptionAccessTests(TestCase):
     def setUp(self):
         from api.ai_layers.models import LanguageModel
@@ -1232,7 +1225,6 @@ class WhatsAppTemplateSubscriptionAccessTests(TestCase):
         self.assertEqual(len(created), len(WHATSAPP_TEMPLATES))
         self.assertEqual(updated, [])
         self.assertEqual(unchanged, [])
-        # Image header survives sync.
         semanal = WSTemplate.objects.get(slug="expreso_fiscal_semanal_es_mx")
         self.assertEqual(semanal.header_type, "image")
 
@@ -1285,7 +1277,6 @@ class WhatsAppTemplateSubscriptionAccessTests(TestCase):
         ids_b = {t.template_id for t in tool_b["function"]().templates}
         self.assertIn("expreso_fiscal_semanal_es_mx", ids_a)
         self.assertNotIn("expreso_fiscal_semanal_es_mx", ids_b)
-        # Other public templates still visible to B.
         self.assertIn("task_completed_en", ids_b)
 
     @patch("api.whatsapp.template_send.send_template_message")
@@ -1329,7 +1320,6 @@ class WhatsAppTemplateSubscriptionAccessTests(TestCase):
         )
         self.assertTrue(result.sent)
         mock_send.assert_called_once()
-
 
 @patch("api.whatsapp.views.FeatureFlagService.is_feature_enabled", return_value=(True, "on"))
 class WhatsAppTemplatesApiTests(TestCase):

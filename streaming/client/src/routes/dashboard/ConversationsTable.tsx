@@ -48,7 +48,6 @@ import {
   IconUsers,
 } from "@tabler/icons-react";
 
-/** Parse date from picker (string or Date) as local noon to avoid timezone display bugs. */
 export function parseDateForPicker(val: string | Date): Date {
   if (typeof val === "string" && /^\d{4}-\d{2}-\d{2}/.test(val)) {
     const [y, m, d] = val.slice(0, 10).split("-").map(Number);
@@ -284,7 +283,7 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({
         </Button>
       </Group>
 
-      {/* Filters */}
+      {}
       {showFilters && (
         <Card withBorder padding="md" radius="md">
           <SimpleGrid cols={{ base: 2, md: 3, lg: 4 }} spacing="sm">
@@ -486,7 +485,7 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({
         </Card>
       )}
 
-      {/* Table */}
+      {}
       {isLoading ? (
         <Group justify="center" py="xl">
           <Loader />

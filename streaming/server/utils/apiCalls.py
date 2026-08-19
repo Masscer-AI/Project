@@ -1,11 +1,9 @@
 import requests
 import os
 
-# import json
 import copy
 
 API_URL = os.environ.get("API_URL", "http://127.0.0.1:8000")
-
 
 def save_message(message: dict, token: str):
 
@@ -41,7 +39,6 @@ def save_message(message: dict, token: str):
         print(f"Error saving message: {e}")
         return None
 
-
 def get_results(
     query_text: str, token: str, conversation_id: str = None, document_id: int = None
 ):
@@ -62,7 +59,6 @@ def get_results(
         print(f"Error saving message: {e}")
         return None
 
-
 def query_document(
     query_text: str, token: str, conversation_id: str = None, document_id: int = None
 ):
@@ -81,7 +77,6 @@ def query_document(
     except requests.exceptions.RequestException as e:
         print(f"Error saving message: {e}")
         return None
-
 
 def query_completions(
     query_text: str, agent_slug: str, prev_messages: list, token: str
@@ -112,14 +107,12 @@ def query_completions(
         print(f"Error saving message: {e}")
         return None
 
-
 def get_system_prompt(agent_slug: str, context: str, token: str):
     endpoint = API_URL + "/v1/ai_layers/system_prompt/"
     headers = {"Authorization": "Token " + token}
     body = {
         "agent_slug": agent_slug,
         "context": context,
-        # "conversation_id": conversation_id,
     }
 
     try:
@@ -129,7 +122,6 @@ def get_system_prompt(agent_slug: str, context: str, token: str):
     except requests.exceptions.RequestException as e:
         print(f"Error saving message: {e}")
         return None
-
 
 def regenerate_conversation(conversation_id: str, user_message_id: str, token: str):
     endpoint = API_URL + "/v1/messaging/conversations/" + conversation_id + "/"

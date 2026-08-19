@@ -3,8 +3,6 @@ import os
 from runwayml import RunwayML
 from typing import Literal
 
-
-# Create a new image-to-video task using the "gen3a_turbo" model
 def image_to_video(
     prompt_image_b64,
     prompt_text,
@@ -26,8 +24,7 @@ def image_to_video(
     )
     task_id = task.id
 
-    # Poll the task until it's complete
-    time.sleep(10)  # Wait for a second before polling
+    time.sleep(10)
     task = client.tasks.retrieve(task_id)
     while task.status not in ["SUCCEEDED", "FAILED"]:
         print("Waiting for video generation task to complete...")

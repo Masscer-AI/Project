@@ -31,7 +31,6 @@ function isManageableOrg(org: TOrganization, userId: number | undefined): boolea
   return false;
 }
 
-/** Same signals as the organization billing tab (status badge + is_active). */
 export function subscriptionWarningKind(
   billing: TOrganizationBilling
 ): OrganizationSubscriptionWarningKind {
@@ -48,10 +47,6 @@ export function subscriptionWarningKind(
   return "none";
 }
 
-/**
- * For users who can manage an organization (owner / can_manage): whether to show
- * a subscription warning banner (no subscription or inactive subscription).
- */
 export function useOrganizationSubscriptionWarning() {
   const userId = useStore((s) => s.user?.id);
   const location = useLocation();
@@ -78,7 +73,6 @@ export function useOrganizationSubscriptionWarning() {
           return;
         }
 
-        // Prefer owned orgs, then first org that needs a warning.
         const ordered = [
           ...manageable.filter((o) => o.is_owner || o.owner === userId),
           ...manageable.filter((o) => !o.is_owner && o.owner !== userId),
@@ -95,7 +89,6 @@ export function useOrganizationSubscriptionWarning() {
               break;
             }
           } catch {
-            // Try next org (e.g. forbidden on one membership).
           }
         }
 

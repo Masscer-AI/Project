@@ -7,10 +7,6 @@ export function formatUnreadNotificationBadge(count: number): string {
   return count > 99 ? "99+" : String(count);
 }
 
-/**
- * Unread in-app notifications (same source as Sidebar dashboard badge).
- * Listens for inbox push (`masscer:notifications-updated`) and visibility / poll.
- */
 export function useUnreadNotificationCount(): number {
   const user = useStore((s) => s.user);
   const [count, setCount] = useState(0);

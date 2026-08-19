@@ -25,7 +25,6 @@ from urllib.parse import urlsplit
 
 from api.mcp_oauth import views as mcp_oauth_views
 
-
 apps = [
     ("v1/auth/", "api.authenticate.urls", "auth"),
     ("v1/messaging/", "api.messaging.urls", "messaging"),
@@ -66,8 +65,6 @@ urlpatterns_django = [
 
 urlpatterns_static = static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 
-# Serve local media files even when DEBUG is False.
-# When MEDIA_URL points to S3 (absolute URL), Django should not serve media.
 _media_url_parts = urlsplit(settings.MEDIA_URL)
 if settings.MEDIA_URL and not _media_url_parts.netloc:
     _media_prefix = settings.MEDIA_URL.strip("/")

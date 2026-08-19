@@ -16,26 +16,13 @@ import json
 import os
 import sys
 
-# ---------------------------------------------------------------------------
-# Bootstrap Django
-# ---------------------------------------------------------------------------
-
 import django
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "api.settings")
 django.setup()
 
-# ---------------------------------------------------------------------------
-# Imports (after django.setup())
-# ---------------------------------------------------------------------------
-
 from api.utils.cloudbeds import CloudBedsIntegration, CloudBedsError
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
 
 def _pp(label: str, data) -> None:
     print(f"\n{'='*60}")
@@ -43,19 +30,12 @@ def _pp(label: str, data) -> None:
     print(f"{'='*60}")
     print(json.dumps(data, indent=2, default=str))
 
-
 def _fail(msg: str) -> None:
     print(f"\n[FAIL] {msg}", file=sys.stderr)
     sys.exit(1)
 
-
 def _ok(msg: str) -> None:
     print(f"[OK]   {msg}")
-
-
-# ---------------------------------------------------------------------------
-# Test cases
-# ---------------------------------------------------------------------------
 
 def test_with_token(access_token: str) -> None:
     """Test the CloudBedsIntegration directly using a provided access token."""
@@ -63,7 +43,6 @@ def test_with_token(access_token: str) -> None:
 
     print("\nTesting CloudBedsIntegration with provided access token...\n")
 
-    # 1. Property info
     print("[1/3] Calling get_property_info() ...")
     try:
         info = cb.get_property_info()
@@ -72,7 +51,6 @@ def test_with_token(access_token: str) -> None:
     except CloudBedsError as exc:
         _fail(f"get_property_info failed: {exc}")
 
-    # 2. Dashboard
     print("\n[2/3] Calling get_dashboard() ...")
     try:
         dash = cb.get_dashboard()
@@ -81,7 +59,6 @@ def test_with_token(access_token: str) -> None:
     except CloudBedsError as exc:
         print(f"[WARN] get_dashboard failed (may not be in scope): {exc}")
 
-    # 3. List rooms
     print("\n[3/3] Calling list_rooms() ...")
     try:
         rooms = cb.list_rooms()
@@ -89,7 +66,6 @@ def test_with_token(access_token: str) -> None:
         _pp("Rooms", rooms)
     except CloudBedsError as exc:
         print(f"[WARN] list_rooms failed (may not be in scope): {exc}")
-
 
 def test_with_org(organization_id: int) -> None:
     """Test by loading the stored CloudbedsCredential for the given org."""
@@ -114,7 +90,6 @@ def test_with_org(organization_id: int) -> None:
 
     test_with_token(cb.access_token)  # type: ignore[arg-type]
 
-
 def test_tool(organization_id: int, user_id: int | None = None) -> None:
     """Exercise the actual cloudbeds_list_hotels agent tool."""
     from api.ai_layers.tools.cloudbeds_list_hotels import get_tool
@@ -132,11 +107,6 @@ def test_tool(organization_id: int, user_id: int | None = None) -> None:
         _fail(f"cloudbeds_list_hotels raised ValueError: {exc}")
     except Exception as exc:
         _fail(f"cloudbeds_list_hotels raised unexpected error: {exc}")
-
-
-# ---------------------------------------------------------------------------
-# CLI
-# ---------------------------------------------------------------------------
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Test the Cloudbeds integration")
@@ -163,7 +133,6 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    # Fallback: env var
     token = args.token or os.environ.get("CLOUDBEDS_ACCESS_TOKEN", "")
 
     if token:
@@ -181,7 +150,6 @@ def main() -> None:
         sys.exit(1)
 
     print("\nDone.\n")
-
 
 if __name__ == "__main__":
     main()

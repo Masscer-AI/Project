@@ -9,17 +9,14 @@ from django.http import JsonResponse
 from .models import Reaction
 from api.messaging.models import Message
 
-# Import django view to use View instead of APIView
 from django.views import View
 
 from api.utils.color_printer import printer
 from django.core.cache import cache
 
-
 @method_decorator(token_required, name="get")
 @method_decorator(csrf_exempt, name="dispatch")
 class ReactionTemplateView(View):
-    # TIMEOUT DE UNA SEMANA YA QUE ESTOS DATOS SON LOS MISMOS PARA TODOS LOS USUARIOS
     CACHE_TIMEOUT = 604800
 
     def get(self, request):
@@ -32,7 +29,6 @@ class ReactionTemplateView(View):
         cache.set(cache_key, serializer.data, timeout=self.CACHE_TIMEOUT)
         printer.info("Updated cache")
         return JsonResponse(serializer.data, status=status.HTTP_200_OK, safe=False)
-
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
@@ -57,7 +53,6 @@ class ReactionView(View):
             if Reaction.objects.filter(
                 user=user, template=template_id, message=m
             ).exists():
-                # Remove the reaction
                 Reaction.objects.filter(
                     user=user, template=template_id, message=m
                 ).delete()

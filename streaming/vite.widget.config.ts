@@ -1,7 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 
-// Widget build configuration
 export default defineConfig({
   plugins: [react()],
   root: "./client",
@@ -16,7 +15,7 @@ export default defineConfig({
     chunkSizeWarningLimit: 2000000,
     assetsDir: "assets",
     outDir: "dist",
-    emptyOutDir: false, // Don't delete existing files when building widget
+    emptyOutDir: false,
     rollupOptions: {
       input: "./client/src/widget/widgetEntry.tsx",
       output: {
@@ -27,4 +26,3 @@ export default defineConfig({
     },
   },
 });
-

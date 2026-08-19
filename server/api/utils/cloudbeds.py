@@ -43,17 +43,10 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Cloudbeds API constants
-# ---------------------------------------------------------------------------
-
 CLOUDBEDS_API_BASE = "https://hotels.cloudbeds.com/api/v1.2"
 CLOUDBEDS_OAUTH_URL = "https://hotels.cloudbeds.com/api/v1.2/oauth"
 CLOUDBEDS_TOKEN_URL = "https://hotels.cloudbeds.com/api/v1.2/access_token"
 
-# Default scopes requested during OAuth.
-# These map directly to Cloudbeds API endpoint groups — only request what the
-# app actually needs. Invalid scope names cause an invalid_scope OAuth error.
 DEFAULT_SCOPES = [
     "read:reservation",
     "write:reservation",
@@ -65,8 +58,7 @@ DEFAULT_SCOPES = [
     "write:rate",
 ]
 
-_DEFAULT_TIMEOUT = 20  # seconds
-
+_DEFAULT_TIMEOUT = 20
 
 class CloudBedsError(Exception):
     """Raised when the Cloudbeds API returns an unexpected response."""
@@ -75,7 +67,6 @@ class CloudBedsError(Exception):
         super().__init__(message)
         self.status_code = status_code
         self.response_data = response_data or {}
-
 
 class CloudBedsIntegration:
     """
@@ -87,10 +78,6 @@ class CloudBedsIntegration:
 
     def __init__(self, access_token: str | None = None):
         self.access_token = access_token
-
-    # ------------------------------------------------------------------
-    # OAuth helpers (static — no token needed)
-    # ------------------------------------------------------------------
 
     @staticmethod
     def get_authorization_url(
@@ -200,10 +187,6 @@ class CloudBedsIntegration:
         logger.info("Cloudbeds token refreshed successfully")
         return data
 
-    # ------------------------------------------------------------------
-    # Internal request helper
-    # ------------------------------------------------------------------
-
     def _request(
         self,
         method: str,
@@ -256,7 +239,6 @@ class CloudBedsIntegration:
                 response_data=data,
             )
 
-        # Cloudbeds wraps responses in {"success": true, "data": {...}}
         if isinstance(data, dict) and data.get("success") is False:
             raise CloudBedsError(
                 f"Cloudbeds returned success=false: {data.get('message', data)}",
@@ -265,10 +247,6 @@ class CloudBedsIntegration:
             )
 
         return data
-
-    # ------------------------------------------------------------------
-    # API methods
-    # ------------------------------------------------------------------
 
     def get_property_info(self) -> dict:
         """
@@ -322,10 +300,6 @@ class CloudBedsIntegration:
         """Return the list of rooms / accommodation types. Calls GET /getRooms."""
         return self._request("GET", "/getRooms")
 
-    # ------------------------------------------------------------------
-    # Convenience: build an integration from a stored credential
-    # ------------------------------------------------------------------
-
     @classmethod
     def from_credential(cls, credential: "CloudbedsCredential") -> "CloudBedsIntegration":  # noqa: F821
         """
@@ -345,7 +319,6 @@ class CloudBedsIntegration:
         client_id = os.environ.get("CLOUDBEDS_CLIENT_ID", "")
         client_secret = os.environ.get("CLOUDBEDS_CLIENT_SECRET", "")
 
-        # Refresh if expired (with a 60-second buffer)
         if (
             credential.expires_at
             and credential.refresh_token

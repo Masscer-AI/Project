@@ -19,11 +19,6 @@ from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
-
-# ---------------------------------------------------------------------------
-# Pydantic schemas
-# ---------------------------------------------------------------------------
-
 class CloudbedsListHotelsParams(BaseModel):
     """Parameters for the cloudbeds_list_hotels tool (none required)."""
 
@@ -36,11 +31,9 @@ class CloudbedsListHotelsParams(BaseModel):
         ),
     )
 
-
 class HotelInfo(BaseModel):
     property_id: str = Field(description="Cloudbeds property ID.")
     property_name: str = Field(description="Display name of the property.")
-    # Dashboard fields (populated when include_dashboard=True)
     occupancy_percent: float | None = Field(None, description="Current occupancy percentage (0-100).")
     total_rooms: int | None = Field(None, description="Total number of rooms.")
     arrivals_today: int | None = Field(None, description="Expected arrivals for today.")
@@ -48,15 +41,9 @@ class HotelInfo(BaseModel):
     in_house_guests: int | None = Field(None, description="Number of guests currently in-house.")
     currency: str | None = Field(None, description="Property's default currency code.")
 
-
 class CloudbedsListHotelsResult(BaseModel):
     hotels: list[HotelInfo] = Field(description="List of connected Cloudbeds properties.")
     total: int = Field(description="Total number of connected properties.")
-
-
-# ---------------------------------------------------------------------------
-# Implementation
-# ---------------------------------------------------------------------------
 
 def _list_hotels_impl(
     *,
@@ -77,7 +64,6 @@ def _list_hotels_impl(
             "Make sure the conversation is linked to an organization."
         )
 
-    # --- Authorization: org owner OR feature flag "can-use-cloudbeds" ---
     try:
         org = Organization.objects.get(id=organization_id)
     except Organization.DoesNotExist:
@@ -104,8 +90,6 @@ def _list_hotels_impl(
                 "Contact the organization owner to enable it."
             )
 
-    # Load all credentials for this organization
-    # (Currently one-to-one, but modelled as a queryset for forward compatibility)
     credentials = list(
         CloudbedsCredential.objects.filter(organization_id=organization_id)
     )
@@ -125,7 +109,6 @@ def _list_hotels_impl(
             logger.warning("Could not build CloudBedsIntegration for cred %s: %s", cred.pk, exc)
             continue
 
-        # Basic info from the stored credential
         hotel = HotelInfo(
             property_id=cred.property_id,
             property_name=cred.property_name,
@@ -142,7 +125,6 @@ def _list_hotels_impl(
                 hotel.in_house_guests = _safe_int(data.get("inHouseGuests") or data.get("guestsInHouse"))
                 hotel.currency = data.get("currencySymbol") or data.get("currency")
 
-                # Occupancy: Cloudbeds may return it directly or we compute it
                 raw_occ = data.get("occupancyPercent") or data.get("occupancy")
                 if raw_occ is not None:
                     try:
@@ -164,7 +146,6 @@ def _list_hotels_impl(
 
     return CloudbedsListHotelsResult(hotels=hotels, total=len(hotels))
 
-
 def _safe_int(value: Any) -> int | None:
     if value is None:
         return None
@@ -172,11 +153,6 @@ def _safe_int(value: Any) -> int | None:
         return int(value)
     except (ValueError, TypeError):
         return None
-
-
-# ---------------------------------------------------------------------------
-# Tool factory
-# ---------------------------------------------------------------------------
 
 def get_tool(
     organization_id: int | None = None,

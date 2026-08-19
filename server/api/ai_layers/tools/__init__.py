@@ -18,10 +18,6 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Registry: tool_name -> module path (must have a get_tool() function)
-# ---------------------------------------------------------------------------
-
 TOOL_REGISTRY: dict[str, str] = {
     "read_attachment": "api.ai_layers.tools.read_attachment",
     "list_attachments": "api.ai_layers.tools.list_attachments",
@@ -64,8 +60,6 @@ TOOL_REGISTRY: dict[str, str] = {
     "schedule_task": "api.ai_layers.tools.schedule_task",
     "list_scheduled_tasks": "api.ai_layers.tools.list_scheduled_tasks",
     "cancel_scheduled_task": "api.ai_layers.tools.cancel_scheduled_task",
-    # Cloudbeds integration tools
-    # "cloudbeds_list_hotels": "api.ai_layers.tools.cloudbeds_list_hotels",
 }
 
 WHATSAPP_TEMPLATE_AGENT_TOOL_NAMES: tuple[str, ...] = (
@@ -80,8 +74,6 @@ SCHEDULE_AGENT_TOOL_NAMES: tuple[str, ...] = (
     "cancel_scheduled_task",
 )
 
-# Always offered on authenticated main-web chat runs (auto-injected server-side).
-# Not a second allowlist — merged onto Agent.pre_approved_tools for non-embedded chats.
 CHAT_REQUIRED_TOOL_NAMES: tuple[str, ...] = (
     "read_attachment",
     "list_attachments",
@@ -96,22 +88,13 @@ DEPENDENT_TOOL_REQUIREMENTS: dict[str, tuple[str, ...]] = {
     "list_agents": ("handoff_to_agent",),
 }
 
-# Old public names still stored on agents / WhatsApp lines / widgets.
 TOOL_NAME_ALIASES: dict[str, str] = {
     "generate_gamma_presentation": "generate_gamma_attachment",
 }
 
-
 def canonical_tool_name(name: str) -> str:
     return TOOL_NAME_ALIASES.get(name, name)
 
-# Tools that act on behalf of an authenticated Masscer user (account-scoped
-# calendar, org membership/roles, email-as-user, WhatsApp resource/template
-# management, scheduled-task management, listing the actor's conversations).
-# Never offered to anonymous callers (chat widget visitors, unlinked WhatsApp
-# senders) — there is no Django User to scope them to. Org tagging /
-# query_conversation are deliberately not listed here: WhatsApp may enable
-# them for the line; widgets hard-strip them separately.
 USER_REQUIRED_TOOL_NAMES: frozenset[str] = frozenset(
     {
         "list_organization_members",
@@ -135,9 +118,6 @@ USER_REQUIRED_TOOL_NAMES: frozenset[str] = frozenset(
     }
 )
 
-# Always removed on public chat-widget agent runs (even if saved on the widget).
-# Shown disabled in the widget capabilities UI. Distinct from USER_REQUIRED:
-# some of these can run on WhatsApp lines.
 WIDGET_UNAVAILABLE_TOOL_NAMES: frozenset[str] = frozenset(
     {
         "query_organization_tags",
@@ -152,7 +132,6 @@ WIDGET_UNAVAILABLE_TOOL_NAMES: frozenset[str] = frozenset(
         "create_completion",
     }
 )
-
 
 def resolve_tools(tool_names: list[str], **context) -> list[dict]:
     """
@@ -170,7 +149,6 @@ def resolve_tools(tool_names: list[str], **context) -> list[dict]:
     Unknown names are skipped. get_tool() failures are skipped so the agent
     can still run with the remaining tools.
     """
-    # Stable dedupe (first occurrence wins). Gemini rejects duplicate function names.
     _seen: set[str] = set()
     unique_names: list[str] = []
     for n in tool_names:
@@ -217,21 +195,17 @@ def resolve_tools(tool_names: list[str], **context) -> list[dict]:
                 name,
                 e,
             )
-            # Don't add the tool; continue with the rest
             continue
 
     return tools
-
 
 def list_registered_tools() -> list[str]:
     """All names in TOOL_REGISTRY, including dependent tools (list_voices, …)."""
     return sorted(TOOL_REGISTRY)
 
-
 def list_available_tools() -> list[str]:
     """Tools that can be toggled in UIs (excludes dependents like list_voices)."""
     return sorted(set(TOOL_REGISTRY) - set(DEPENDENT_TOOL_REQUIREMENTS))
-
 
 def resolve_allowed_tools(requested_names: list[str] | None, user) -> list[str]:
     """

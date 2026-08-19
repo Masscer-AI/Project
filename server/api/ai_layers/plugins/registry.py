@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
-
 @dataclass(frozen=True)
 class PluginDefinition:
     slug: str
@@ -18,7 +17,6 @@ class PluginDefinition:
             / "instructions"
             / self.instructions_filename
         )
-
 
 PLUGIN_DEFINITIONS: dict[str, PluginDefinition] = {
     "mermaid-diagrams": PluginDefinition(
@@ -36,7 +34,6 @@ PLUGIN_DEFINITIONS: dict[str, PluginDefinition] = {
 
 AVAILABLE_PLUGIN_SLUGS: set[str] = set(PLUGIN_DEFINITIONS.keys())
 
-
 @lru_cache(maxsize=None)
 def _read_plugin_instructions(slug: str) -> str:
     plugin = PLUGIN_DEFINITIONS.get(slug)
@@ -44,7 +41,6 @@ def _read_plugin_instructions(slug: str) -> str:
         return ""
     path = plugin.instructions_path()
     return path.read_text(encoding="utf-8")
-
 
 def get_plugins(slugs: list[str] | None) -> list[dict[str, str]]:
     """
@@ -54,7 +50,6 @@ def get_plugins(slugs: list[str] | None) -> list[dict[str, str]]:
     if not slugs:
         return []
 
-    # Preserve order, dedupe.
     seen: set[str] = set()
     normalized: list[str] = []
     for s in slugs:
@@ -79,7 +74,6 @@ def get_plugins(slugs: list[str] | None) -> list[dict[str, str]]:
             }
         )
     return resolved
-
 
 def format_available_plugins_summary() -> str:
     """
@@ -120,7 +114,6 @@ def format_available_plugins_summary() -> str:
     )
 
     return "\n".join(lines) + "\n"
-
 
 def format_plugins_instruction(slugs: list[str] | None) -> str:
     """

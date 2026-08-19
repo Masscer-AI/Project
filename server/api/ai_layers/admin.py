@@ -1,4 +1,4 @@
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.utils.html import format_html
 from django.urls import reverse
 from django.utils.safestring import mark_safe
@@ -10,7 +10,6 @@ from api.authenticate.models import Organization
 from api.messaging.models import ChatWidget
 import json
 
-
 class AgentAdminForm(forms.ModelForm):
     class Meta:
         model = Agent
@@ -21,26 +20,20 @@ class AgentAdminForm(forms.ModelForm):
         request = kwargs.pop('request', None)
         if request and request.user:
             user = request.user
-            # Get user's organization
             user_org = None
             if hasattr(user, 'profile') and user.profile.organization:
                 user_org = user.profile.organization
             
-            # Check if user has the feature flag
             has_admin_flag, _ = FeatureFlagService.is_feature_enabled(
                 "edit-organization-agent",
                 organization=user_org,
                 user=user
             )
             
-            # If user has the flag, allow selecting organization
-            # Otherwise, hide the organization field or set it to None
             if not has_admin_flag:
-                # User without flag can only create agents for themselves
                 self.fields['organization'].widget = forms.HiddenInput()
                 self.fields['organization'].required = False
             else:
-                # User with flag can select organization
                 if user_org:
                     self.fields['organization'].queryset = Organization.objects.filter(
                         Q(id=user_org.id) | Q(owner=user)
@@ -58,12 +51,9 @@ class AgentAdminForm(forms.ModelForm):
                 user=user
             )
             
-            # If no organization is set and user doesn't have flag, set user
             if not instance.organization and not has_admin_flag:
                 instance.user = user
-            # If organization is set, user should be None (or could be set to creator)
             elif instance.organization:
-                # Optionally set user to creator for tracking
                 if not instance.user:
                     instance.user = user
         
@@ -71,13 +61,13 @@ class AgentAdminForm(forms.ModelForm):
             instance.save()
         return instance
 
-
 @admin.register(Agent)
 class AgentAdmin(admin.ModelAdmin):
     form = AgentAdminForm
-    list_display = ("name", "slug", "agent_kind", "user", "organization", "is_public", "generate_widget_link")
-    search_fields = ("name", "slug", "user__username", "organization__name")
+    list_display = ("name", "slug", "agent_kind", "user", "organization", "is_public", "has_description", "generate_widget_link")
+    search_fields = ("name", "slug", "user__username", "organization__name", "description")
     list_filter = ("agent_kind", "is_public", "organization", "user")
+    actions = ["fill_empty_descriptions"]
     
     fieldsets = (
         ("Basic Information", {
@@ -112,16 +102,13 @@ class AgentAdmin(admin.ModelAdmin):
         qs = super().get_queryset(request)
         user = request.user
         
-        # Superusers can see all agents
         if user.is_superuser:
             return qs
         
-        # Get user's organization
         user_org = None
         if hasattr(user, 'profile') and user.profile.organization:
             user_org = user.profile.organization
         
-        # Non-superusers see their own agents + their organization's agents
         if user_org:
             return qs.filter(Q(user=user) | Q(organization=user_org))
         else:
@@ -133,7 +120,6 @@ class AgentAdmin(admin.ModelAdmin):
         
         user = request.user
         
-        # Superusers can edit anything
         if user.is_superuser:
             return True
         
@@ -147,19 +133,15 @@ class AgentAdmin(admin.ModelAdmin):
             user=user
         )
         
-        # User can always edit their own agents
         if obj.user == user:
             return True
         
-        # User with flag can edit organization agents
         if has_admin_flag and obj.organization == user_org:
             return True
         
-        # User without flag cannot edit organization agents
         return False
     
     def has_delete_permission(self, request, obj=None):
-        # Same logic as has_change_permission
         return self.has_change_permission(request, obj)
     
     def generate_widget_link(self, obj):
@@ -167,7 +149,6 @@ class AgentAdmin(admin.ModelAdmin):
         if not obj.id:
             return "-"
         
-        # Get request from admin instance
         request = getattr(self, '_request', None)
         if not request:
             return "-"
@@ -183,13 +164,11 @@ class AgentAdmin(admin.ModelAdmin):
             user=user
         )
         
-        # Only show widget link if user can edit this agent
         can_edit = (obj.user == user) or (has_admin_flag and obj.organization == user_org)
         
         if not can_edit:
             return "-"
         
-        # Check if widget already exists
         existing_widget = ChatWidget.objects.filter(agent=obj).first()
         if existing_widget:
             widget_url = reverse('admin:messaging_chatwidget_change', args=[existing_widget.id])
@@ -198,7 +177,6 @@ class AgentAdmin(admin.ModelAdmin):
                 widget_url
             )
         
-        # Create widget link
         create_url = reverse('admin:messaging_chatwidget_add')
         return format_html(
             '<a href="{}?agent={}">Create Widget</a>',
@@ -207,7 +185,49 @@ class AgentAdmin(admin.ModelAdmin):
         )
     
     generate_widget_link.short_description = "Chat Widget"
-    
+
+    @admin.display(description="Description", boolean=True)
+    def has_description(self, obj):
+        return bool((obj.description or "").strip())
+
+    @admin.action(description="Fill empty descriptions (LLM, billed to org)")
+    def fill_empty_descriptions(self, request, queryset):
+        from api.ai_layers.agent_description import fill_empty_agent_description
+
+        filled = 0
+        skipped = 0
+        errors = 0
+        qs = queryset.select_related("organization", "user")
+        for agent in qs:
+            if (agent.description or "").strip():
+                skipped += 1
+                continue
+            try:
+                result = fill_empty_agent_description(
+                    agent,
+                    billing_user_id=request.user.id,
+                )
+            except Exception as exc:
+                errors += 1
+                self.message_user(
+                    request,
+                    f"{agent.slug}: {exc}",
+                    level=messages.ERROR,
+                )
+                continue
+            if result:
+                filled += 1
+            else:
+                skipped += 1
+
+        level = messages.SUCCESS if filled and not errors else messages.WARNING
+        self.message_user(
+            request,
+            f"Descriptions: {filled} filled, {skipped} skipped, {errors} errors. "
+            "LLM cost registered against each agent's organization.",
+            level=level,
+        )
+
     def changelist_view(self, request, extra_context=None):
         self._request = request
         return super().changelist_view(request, extra_context)
@@ -215,7 +235,6 @@ class AgentAdmin(admin.ModelAdmin):
     def changeform_view(self, request, object_id=None, form_url='', extra_context=None):
         self._request = request
         return super().changeform_view(request, object_id, form_url, extra_context)
-
 
 @admin.register(AgentSession)
 class AgentSessionAdmin(admin.ModelAdmin):
@@ -284,7 +303,6 @@ class AgentSessionAdmin(admin.ModelAdmin):
             return json.dumps({"error": "Failed to render JSON"}, indent=2)
 
     def _copy_button(self, textarea_id: str, label: str) -> str:
-        # Uses execCommand for widest compatibility (Clipboard API can fail on non-HTTPS).
         return format_html(
             (
                 "<button type=\"button\" class=\"button\" "
@@ -373,7 +391,6 @@ class AgentSessionAdmin(admin.ModelAdmin):
         textarea_id = f"agentsession_outputs_{obj.pk}"
         pretty = self._pretty_json(outputs)
 
-        # Best-effort preview for convenience
         preview = None
         if isinstance(output_val, dict):
             if output_val.get("type") == "string":
@@ -457,7 +474,6 @@ class AgentSessionAdmin(admin.ModelAdmin):
             json_text=pretty,
         )
 
-
 def _parse_price(raw: str) -> tuple[float, int]:
     """Parse '21.00 USD / 1000000' → (21.0, 1000000)."""
     try:
@@ -467,7 +483,6 @@ def _parse_price(raw: str) -> tuple[float, int]:
         return price, tokens
     except Exception:
         return 0.0, 1_000_000
-
 
 class LanguageModelAdminForm(forms.ModelForm):
     text_prompt_price = forms.DecimalField(
@@ -531,7 +546,6 @@ class LanguageModelAdminForm(forms.ModelForm):
         if commit:
             instance.save()
         return instance
-
 
 @admin.register(LanguageModel)
 class LanguageModelAdmin(admin.ModelAdmin):
@@ -608,7 +622,6 @@ class LanguageModelAdmin(admin.ModelAdmin):
         """)
 
     pricing_table.short_description = "Current pricing"
-
 
 @admin.register(MCPClient)
 class MCPClientAdmin(admin.ModelAdmin):

@@ -43,12 +43,10 @@ from api.utils.vertex_gemini_text import (
 
 logger = logging.getLogger(__name__)
 
-
 def _merge_usage(acc: dict[str, int], usage_metadata: Any) -> None:
     d = _usage_to_dict(usage_metadata)
     for k in ("prompt_tokens", "completion_tokens", "total_tokens"):
         acc[k] = acc.get(k, 0) + d.get(k, 0)
-
 
 def _fc_args_to_dict(raw: Any) -> dict[str, Any]:
     if raw is None:
@@ -67,7 +65,6 @@ def _fc_args_to_dict(raw: Any) -> dict[str, Any]:
         except Exception:
             pass
     return {}
-
 
 class VertexGeminiAgentLoop(BaseAgentLoop):
     """Agent loop using Vertex Gemini ``generate_content`` with tools."""
@@ -127,10 +124,10 @@ class VertexGeminiAgentLoop(BaseAgentLoop):
         )
         self.tool_functions[name] = func
 
-    def _emit(self, event_type: str, data: dict) -> None:
+    def _emit(self, event_type: str, event_data: dict) -> None:
         if self.on_event is not None:
             try:
-                self.on_event(event_type, data)
+                self.on_event(event_type, event_data)
             except Exception as e:
                 logger.warning("on_event callback failed for %s: %s", event_type, e)
 
@@ -178,11 +175,11 @@ class VertexGeminiAgentLoop(BaseAgentLoop):
             param_model = self.tool_param_models.get(tool_name)
             if param_model is not None:
                 validated = param_model(**parsed_args)
-                result = func(**validated.model_dump())
+                tool_output = func(**validated.model_dump())
             else:
-                result = func(**parsed_args)
+                tool_output = func(**parsed_args)
 
-            result_str = _serialize_tool_result(result)
+            result_str = _serialize_tool_result(tool_output)
             record["result"] = result_str
 
         except Exception as e:
@@ -417,8 +414,6 @@ class VertexGeminiAgentLoop(BaseAgentLoop):
                                 usage=total_usage,
                             )
 
-                    # Gemini requires one user turn with N functionResponse parts
-                    # for N parallel functionCall parts in the preceding model turn.
                     if response_parts:
                         contents.append(
                             genai_types.Content(

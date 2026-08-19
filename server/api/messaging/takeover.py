@@ -28,11 +28,9 @@ TAKEOVER_EVENT_UPDATED = "conversation_takeover_updated"
 TAKEOVER_EVENT_INBOUND = "conversation_takeover_inbound"
 TAKEOVER_EVENT_MESSAGE_CREATED = "conversation_message_created"
 
-
 def operator_display_name(user) -> str:
     full = (user.get_full_name() or "").strip()
     return full or user.username
-
 
 def get_active_takeover(conversation: Conversation) -> ConversationTakeover | None:
     return (
@@ -41,12 +39,10 @@ def get_active_takeover(conversation: Conversation) -> ConversationTakeover | No
         .first()
     )
 
-
 def is_takeover_active(conversation: Conversation) -> bool:
     return conversation.takeovers.filter(
         status=ConversationTakeover.Status.ACTIVE
     ).exists()
-
 
 def _resolve_organization_for_user(user, conversation: Conversation | None = None):
     from api.authenticate.models import Organization
@@ -60,7 +56,6 @@ def _resolve_organization_for_user(user, conversation: Conversation | None = Non
         return Organization.objects.filter(pk=user.profile.organization_id).first()
     return None
 
-
 def user_can_replace_agent(user, conversation: Conversation | None = None) -> bool:
     org = _resolve_organization_for_user(user, conversation)
     enabled, _ = FeatureFlagService.is_feature_enabled(
@@ -70,13 +65,11 @@ def user_can_replace_agent(user, conversation: Conversation | None = None) -> bo
     )
     return enabled
 
-
 def validate_takeover_metadata(raw: dict | None) -> dict:
     if not raw:
         return {}
     model = ConversationTakeoverMetadata.model_validate(raw)
     return model.model_dump(mode="json", exclude_none=True)
-
 
 def _clear_whatsapp_inbound_buffer(conversation_id: str) -> None:
     from api.whatsapp.inbound import (
@@ -87,10 +80,8 @@ def _clear_whatsapp_inbound_buffer(conversation_id: str) -> None:
     cache.delete(whatsapp_inbound_buffer_key(conversation_id))
     cache.delete(whatsapp_inbound_schedule_lock_key(conversation_id))
 
-
 def _emit_staff_event(user_id: int, event_type: str, payload: dict[str, Any]) -> None:
     notify_user(user_id, event_type, payload)
-
 
 def get_conversation_staff_user_ids(conversation: Conversation) -> list[int]:
     """
@@ -123,7 +114,6 @@ def get_conversation_staff_user_ids(conversation: Conversation) -> list[int]:
 
     return [uid for uid in user_ids if isinstance(uid, int)]
 
-
 def emit_takeover_updated(
     conversation: Conversation,
     takeover: ConversationTakeover | None,
@@ -145,7 +135,6 @@ def emit_takeover_updated(
     for uid in targets:
         _emit_staff_event(uid, TAKEOVER_EVENT_UPDATED, payload)
 
-
 def emit_takeover_inbound(
     operator_user_id: int,
     conversation: Conversation,
@@ -163,7 +152,6 @@ def emit_takeover_inbound(
         },
     )
 
-
 def emit_message_created(
     user_ids: list[int] | None,
     conversation: Conversation,
@@ -177,7 +165,6 @@ def emit_message_created(
     targets.update(get_conversation_staff_user_ids(conversation))
     for uid in targets:
         _emit_staff_event(uid, TAKEOVER_EVENT_MESSAGE_CREATED, payload)
-
 
 def persist_inbound_from_user_inputs(
     conversation: Conversation,
@@ -209,7 +196,6 @@ def persist_inbound_from_user_inputs(
         att.save(update_fields=["message"])
     return msg
 
-
 def notify_widget_human_reply(conversation: Conversation, message: Message) -> None:
     if not conversation.widget_visitor_session_id:
         return
@@ -233,7 +219,6 @@ def notify_widget_human_reply(conversation: Conversation, message: Message) -> N
             "tool_calls_count": 0,
         },
     )
-
 
 def send_takeover_announcement(
     conversation: Conversation,
@@ -277,7 +262,6 @@ def send_takeover_announcement(
     takeover.save(update_fields=["announcement_sent_at"])
     return msg
 
-
 @transaction.atomic
 def start_takeover(conversation: Conversation, user) -> ConversationTakeover:
     existing = get_active_takeover(conversation)
@@ -309,7 +293,6 @@ def start_takeover(conversation: Conversation, user) -> ConversationTakeover:
     )
     return takeover
 
-
 @transaction.atomic
 def release_takeover(
     takeover: ConversationTakeover,
@@ -325,7 +308,6 @@ def release_takeover(
     takeover.status = ConversationTakeover.Status.INACTIVE
     takeover.ended_at = timezone.now()
     takeover.save(update_fields=["status", "ended_at", "metadata"])
-    # Re-enable agent runs after takeover release.
     cache.delete(f"cancel_task_{takeover.conversation_id}")
 
     emit_takeover_updated(
@@ -335,7 +317,6 @@ def release_takeover(
         operator_user_ids=[takeover.user_id],
     )
     return takeover
-
 
 def deliver_human_message(
     conversation: Conversation,
@@ -449,7 +430,6 @@ def deliver_human_message(
 
     emit_message_created([takeover.user_id], conversation, msg)
     return msg
-
 
 def handle_inbound_during_takeover(
     conversation: Conversation,

@@ -2,11 +2,8 @@ import re
 from typing import Literal, Optional
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-
-# Allowed variable names in condition expressions
 _ALLOWED_VARS = {"n_alerts"}
 
-# Tokenizer: splits a condition string into tokens for safe evaluation
 _TOKEN_RE = re.compile(
     r"""
     (\d+)               # integer literal
@@ -18,8 +15,7 @@ _TOKEN_RE = re.compile(
     re.VERBOSE,
 )
 
-_VALID_TOKEN_GROUPS = {1, 2, 3, 4, 5}  # all groups are expected tokens
-
+_VALID_TOKEN_GROUPS = {1, 2, 3, 4, 5}
 
 def _validate_condition_syntax(condition: str) -> str:
     """
@@ -42,22 +38,17 @@ def _validate_condition_syntax(condition: str) -> str:
         pos = match.end()
     return condition
 
-
 def evaluate_condition(condition: str, n_alerts: int) -> bool:
     """
     Safely evaluates a condition string against a given n_alerts count.
     Only n_alerts comparisons with AND/OR are supported.
     """
-    # Replace AND/OR with Python equivalents, substitute variable
     expr = condition.replace("AND", "and").replace("OR", "or")
     expr = expr.replace("n_alerts", str(n_alerts))
-    # At this point expr is only digits, operators, spaces, and/or 'and'/'or'
-    # Safe to eval since _validate_condition_syntax already whitelisted the input
     try:
         return bool(eval(expr))  # noqa: S307 — input is whitelist-validated above
     except Exception as exc:
         raise ValueError(f"Failed to evaluate condition '{condition}': {exc}") from exc
-
 
 class NotificationCondition(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -101,7 +92,6 @@ class NotificationCondition(BaseModel):
     def is_met(self, n_alerts: int) -> bool:
         """Returns True if the condition is satisfied for the given n_alerts count."""
         return evaluate_condition(self.condition, n_alerts)
-
 
 class NotificationConditionList(BaseModel):
     """Wrapper used to validate the full conditions JSONField on NotificationRule."""

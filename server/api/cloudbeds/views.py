@@ -36,20 +36,13 @@ from api.utils.cloudbeds import CloudBedsIntegration, CloudBedsError
 
 logger = logging.getLogger(__name__)
 
-# How long the state → user_id cache entry lives (seconds).
-_STATE_TTL = 60 * 10  # 10 minutes
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
+_STATE_TTL = 60 * 10
 
 def _get_client_id() -> str:
     return os.environ.get("CLOUDBEDS_CLIENT_ID", "")
 
-
 def _get_client_secret() -> str:
     return os.environ.get("CLOUDBEDS_CLIENT_SECRET", "")
-
 
 def _get_redirect_uri(request) -> str:
     """
@@ -62,12 +55,10 @@ def _get_redirect_uri(request) -> str:
         return override
     return request.build_absolute_uri("/v1/cloudbeds/callback/")
 
-
 def _get_frontend_success_url() -> str:
     """Frontend page to redirect the browser to after a successful connection."""
     base = os.environ.get("FRONTEND_URL", "").rstrip("/")
     return f"{base}/integrations"
-
 
 def _get_frontend_error_url(reason: str = "") -> str:
     """Frontend page to redirect to when the OAuth flow fails."""
@@ -75,18 +66,12 @@ def _get_frontend_error_url(reason: str = "") -> str:
     url = f"{base}/integrations"
     return f"{url}?cloudbeds_error={reason}" if reason else url
 
-
 def _get_org(user):
     """Return the Organization for a user, or None."""
     try:
         return user.profile.organization
     except Exception:
         return None
-
-
-# ---------------------------------------------------------------------------
-# /connect/ — return the Cloudbeds authorization URL
-# ---------------------------------------------------------------------------
 
 @csrf_exempt
 @token_required
@@ -111,7 +96,6 @@ def cloudbeds_connect(request):
     if not client_id:
         return JsonResponse({"error": "CLOUDBEDS_CLIENT_ID is not configured"}, status=400)
 
-    # Store state → user_id in cache so /callback/ can look it up.
     state = secrets.token_urlsafe(24)
     cache.set(f"cloudbeds_oauth_state:{state}", request.user.id, timeout=_STATE_TTL)
 
@@ -127,11 +111,6 @@ def cloudbeds_connect(request):
         "state": state,
         "redirect_uri": redirect_uri,
     })
-
-
-# ---------------------------------------------------------------------------
-# /callback/ — handle the OAuth redirect from Cloudbeds
-# ---------------------------------------------------------------------------
 
 @csrf_exempt
 def cloudbeds_callback(request):
@@ -160,13 +139,11 @@ def cloudbeds_callback(request):
     if not code:
         return HttpResponseRedirect(_get_frontend_error_url("missing_code"))
 
-    # Recover the user from the state cache entry.
     user_id = cache.get(f"cloudbeds_oauth_state:{state}") if state else None
     if not user_id:
         logger.warning("Cloudbeds callback: invalid or expired state '%s'", state)
         return HttpResponseRedirect(_get_frontend_error_url("invalid_state"))
 
-    # Consume state (one-time use).
     cache.delete(f"cloudbeds_oauth_state:{state}")
 
     from django.contrib.auth.models import User
@@ -185,7 +162,6 @@ def cloudbeds_callback(request):
     if not client_id or not client_secret:
         return HttpResponseRedirect(_get_frontend_error_url("server_misconfigured"))
 
-    # Exchange code for tokens.
     try:
         token_data = CloudBedsIntegration.exchange_code_for_token(
             client_id=client_id,
@@ -206,7 +182,6 @@ def cloudbeds_callback(request):
         else None
     )
 
-    # Fetch property metadata with the new token.
     property_name = ""
     try:
         cb = CloudBedsIntegration(access_token=access_token)
@@ -218,7 +193,6 @@ def cloudbeds_callback(request):
     except Exception as exc:
         logger.warning("Could not fetch property info after token exchange: %s", exc)
 
-    # Persist the credential.
     from api.cloudbeds.models import CloudbedsCredential
 
     CloudbedsCredential.objects.update_or_create(
@@ -237,11 +211,6 @@ def cloudbeds_callback(request):
     )
 
     return HttpResponseRedirect(_get_frontend_success_url())
-
-
-# ---------------------------------------------------------------------------
-# /save/ — persist tokens from callback into the DB
-# ---------------------------------------------------------------------------
 
 @csrf_exempt
 @token_required
@@ -306,11 +275,6 @@ def cloudbeds_save(request):
         "property_name": credential.property_name,
     })
 
-
-# ---------------------------------------------------------------------------
-# /status/ — check if connected
-# ---------------------------------------------------------------------------
-
 @csrf_exempt
 @token_required
 def cloudbeds_status(request):
@@ -343,11 +307,6 @@ def cloudbeds_status(request):
         })
     except CloudbedsCredential.DoesNotExist:
         return JsonResponse({"connected": False})
-
-
-# ---------------------------------------------------------------------------
-# /disconnect/ — remove the stored credential
-# ---------------------------------------------------------------------------
 
 @csrf_exempt
 @token_required

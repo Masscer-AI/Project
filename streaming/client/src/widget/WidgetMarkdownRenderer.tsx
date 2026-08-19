@@ -1,7 +1,3 @@
-/**
- * Lightweight markdown renderer for the chat widget.
- * Completely isolated from the main app — no store, no plugins, no i18n.
- */
 import React from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";

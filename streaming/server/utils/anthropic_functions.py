@@ -1,7 +1,6 @@
 import anthropic
 import os
 
-# Obtener la clave de la API desde una variable de entorno
 api_key = os.getenv("ANTHROPIC_API_KEY")
 
 if not api_key:
@@ -9,9 +8,7 @@ if not api_key:
         "La clave de la API no está configurada en la variable de entorno 'ANTHROPIC_API_KEY'"
     )
 
-# Configurar la clave de la API
 anthropic_client = anthropic.Anthropic(api_key=api_key)
-
 
 def make_message_request():
     message = anthropic_client.messages.create(
@@ -21,7 +18,6 @@ def make_message_request():
     )
     print(message)
     return message
-
 
 """
 def make_image_message_request():

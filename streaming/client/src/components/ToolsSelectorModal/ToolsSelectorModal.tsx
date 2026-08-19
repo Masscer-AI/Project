@@ -21,10 +21,6 @@ export type ToolsSelectorModalProps = {
   emptyMessage?: string;
 };
 
-/**
- * Shared accordion tools picker for chat and agent settings
- * (both write Agent.pre_approved_tools — callers own persistence).
- */
 export function ToolsSelectorModal({
   opened,
   onClose,

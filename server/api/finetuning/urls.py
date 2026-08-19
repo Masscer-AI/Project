@@ -1,6 +1,5 @@
 from django.urls import path
 
-# from .views import LoginAPIView, SignupAPIView, HelloWorldView
 from .views import GenerateTrainingDataView, CompletionsView, BulkCompletionView
 
 app_name = "finetuning"

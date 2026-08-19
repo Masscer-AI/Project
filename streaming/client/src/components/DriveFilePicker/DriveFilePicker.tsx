@@ -151,8 +151,8 @@ export function DriveFilePicker({ opened, onClose, onImported }: Props) {
   const loadAccounts = useCallback(async () => {
     setLoadingAccounts(true);
     try {
-      const data = await getIntegrations();
-      setIntegrations(data.integrations || []);
+      const integrationsResponse = await getIntegrations();
+      setIntegrations(integrationsResponse.integrations || []);
     } catch {
       toast.error(t("an-error-occurred"));
       setIntegrations([]);
@@ -215,12 +215,12 @@ export function DriveFilePicker({ opened, onClose, onImported }: Props) {
     if (!selectedOwner) return;
     setImportingId(file.id);
     try {
-      const result = await importDriveFile(file.id, selectedOwner);
-      const doc = result.document;
+      const importResult = await importDriveFile(file.id, selectedOwner);
+      const doc = importResult.document;
       attachDocumentToChat(doc, addAttachment);
       onImported?.(doc);
       toast.success(
-        result.created
+        importResult.created
           ? t("drive-import-success")
           : t("drive-import-updated")
       );

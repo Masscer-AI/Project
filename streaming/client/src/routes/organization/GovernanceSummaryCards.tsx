@@ -25,8 +25,6 @@ import {
 } from "../../modules/apiCalls";
 import type { TOrganizationDataPolicy } from "../../types";
 
-// ── helpers ──────────────────────────────────────────────────────────────────
-
 function formatCount(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
@@ -42,8 +40,6 @@ function monthsSince(dateStr: string): number {
       (now.getMonth() - start.getMonth())
   );
 }
-
-// ── semáforo ──────────────────────────────────────────────────────────────────
 
 type Light = "green" | "yellow" | "red";
 
@@ -68,8 +64,6 @@ function StatusDot({ status }: { status: Light }) {
     />
   );
 }
-
-// ── metric row ────────────────────────────────────────────────────────────────
 
 function Metric({
   label,
@@ -104,8 +98,6 @@ function Metric({
     </Group>
   );
 }
-
-// ── card shell ────────────────────────────────────────────────────────────────
 
 function SummaryCard({
   icon,
@@ -162,8 +154,6 @@ function SummaryCard({
   );
 }
 
-// ── main component ────────────────────────────────────────────────────────────
-
 interface Props {
   organizationId: string;
   policy: TOrganizationDataPolicy | null;
@@ -177,18 +167,15 @@ export function GovernanceSummaryCards({
 }: Props) {
   const { t } = useTranslation();
 
-  // Card 1 — retention
   const [totalMessages, setTotalMessages] = useState<number | null>(null);
   const [totalConversations, setTotalConversations] = useState<number | null>(null);
   const [oldestMonths, setOldestMonths] = useState<number | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
 
-  // Card 2 — business logic
   const [agentCount, setAgentCount] = useState<number | null>(null);
   const [completionCount, setCompletionCount] = useState<number | null>(null);
   const [logicLoading, setLogicLoading] = useState(true);
 
-  // Card 3 — intellectual property
   const [docCount, setDocCount] = useState<number | null>(null);
   const [templateCount, setTemplateCount] = useState<number | null>(null);
   const [ipLoading, setIpLoading] = useState(true);
@@ -205,7 +192,6 @@ export function GovernanceSummaryCards({
         const first = oldest?.results?.[0];
         setOldestMonths(first?.created_at ? monthsSince(first.created_at) : 0);
       } catch {
-        // non-critical
       } finally {
         setStatsLoading(false);
       }
@@ -225,7 +211,6 @@ export function GovernanceSummaryCards({
         setAgentCount(orgAgents.length);
         setCompletionCount(Array.isArray(completions) ? completions.length : 0);
       } catch {
-        // non-critical
       } finally {
         setLogicLoading(false);
       }
@@ -245,14 +230,11 @@ export function GovernanceSummaryCards({
         setDocCount(dCount);
         setTemplateCount(templates?.templates?.length ?? 0);
       } catch {
-        // non-critical
       } finally {
         setIpLoading(false);
       }
     })();
   }, [organizationId]);
-
-  // ── semáforo logic ──────────────────────────────────────────────────────────
 
   const foreverActive = policy?.deleted_conversation_retention_days === null;
 
@@ -283,8 +265,6 @@ export function GovernanceSummaryCards({
       ? "green"
       : "yellow";
 
-  // ── summaries ───────────────────────────────────────────────────────────────
-
   const retentionSummary =
     retentionStatus === "green"
       ? t("governance-summary-retention-green")
@@ -308,7 +288,7 @@ export function GovernanceSummaryCards({
 
   return (
     <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
-      {/* Card 1 – Retención de conocimiento */}
+      {}
       <SummaryCard
         icon={<IconDatabase size={12} />}
         title={t("governance-card-retention-title")}
@@ -346,7 +326,7 @@ export function GovernanceSummaryCards({
         />
       </SummaryCard>
 
-      {/* Card 2 – Lógica de negocio */}
+      {}
       <SummaryCard
         icon={<IconBrain size={12} />}
         title={t("governance-card-logic-title")}
@@ -375,7 +355,7 @@ export function GovernanceSummaryCards({
         />
       </SummaryCard>
 
-      {/* Card 3 – Propiedad intelectual */}
+      {}
       <SummaryCard
         icon={<IconFileText size={12} />}
         title={t("governance-card-ip-title")}

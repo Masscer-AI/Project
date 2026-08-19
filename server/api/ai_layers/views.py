@@ -41,7 +41,6 @@ CACHE_TIMEOUT = 60 * 60 * 24
 
 fake = Faker()
 
-
 def _invalidate_agent_cache_for_user_and_org(user, agent_organization=None):
     """
     Invalidate agent cache so updated agent data is reflected on next fetch.
@@ -54,7 +53,6 @@ def _invalidate_agent_cache_for_user_and_org(user, agent_organization=None):
       agents when user has org, and org agents).
     - For org agents: also invalidate all org members (they see org agents).
     """
-    # Always bump requester's possible cache versions
     from api.ai_layers.cache_utils import bump_agent_list_version_for_user, bump_agent_list_version_for_org_members
 
     from api.ai_layers.access import get_user_organization
@@ -65,9 +63,7 @@ def _invalidate_agent_cache_for_user_and_org(user, agent_organization=None):
     if not agent_organization:
         return
 
-    # Org agent changed: bump for all org members (their visibility may change)
     bump_agent_list_version_for_org_members(agent_organization)
-
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
@@ -86,7 +82,6 @@ class AgentView(View):
         user_org = get_user_organization(user)
         orgs_for_access = get_user_organizations_for_access(user)
 
-        # Cache per (user, org) with a monotonic version key (safe invalidation).
         org_id = str(user_org.id) if user_org else "no_org"
         cache_key = get_agent_list_cache_key(user.id, org_id)
         cached_data = cache.get(cache_key)
@@ -136,7 +131,7 @@ class AgentView(View):
         agents_data = AgentSerializer(agents, many=True, context={"request": request}).data
         models_data = LanguageModelSerializer(models, many=True).data
 
-        data = {"models": models_data, "agents": agents_data}
+        response_payload = {"models": models_data, "agents": agents_data}
 
         logger.info(
             "GET /agents cache_miss user_id=%s username=%s profile_org_id=%s "
@@ -152,9 +147,9 @@ class AgentView(View):
             [(a.get("slug"), a.get("agent_kind")) for a in agents_data],
         )
 
-        cache.set(cache_key, data, timeout=CACHE_TIMEOUT)
+        cache.set(cache_key, response_payload, timeout=CACHE_TIMEOUT)
 
-        return JsonResponse(data, safe=False)
+        return JsonResponse(response_payload, safe=False)
 
     def put(self, request, *args, **kwargs):
         from api.authenticate.services import FeatureFlagService
@@ -168,12 +163,10 @@ class AgentView(View):
 
         agent_slug = kwargs.get("slug")
         
-        # Get user's organization
         user_org = None
         if hasattr(request.user, 'profile') and request.user.profile.organization:
             user_org = request.user.profile.organization
         
-        # Check permissions: user can edit their own agents OR organization agents if they have the flag
         has_admin_flag, _ = FeatureFlagService.is_feature_enabled(
             "edit-organization-agent",
             organization=user_org,
@@ -185,19 +178,17 @@ class AgentView(View):
         if agent.agent_kind != AgentKind.CONVERSATIONAL_AGENT:
             return JsonResponse({"error": "This agent cannot be edited"}, status=403)
 
-        # Check if user can actually edit this agent
         can_edit = (agent.user == request.user) or (has_admin_flag and agent.organization == user_org)
         if not can_edit:
             return JsonResponse({"error": "You don't have permission to edit this agent"}, status=403)
         
-        data = JSONParser().parse(request)
+        agent_payload = JSONParser().parse(request)
 
-        # Optional role-based access control (org agents only)
-        access_mode = data.pop("access_mode", None)  # "org_all" | "org_roles"
-        allowed_role_ids = data.pop("allowed_role_ids", None)  # list[uuid]
+        access_mode = agent_payload.pop("access_mode", None)
+        allowed_role_ids = agent_payload.pop("allowed_role_ids", None)
 
-        llm_slug = data.get("llm", default_llm).get("slug")
-        llm_provider = data.get("llm", default_llm).get("provider")
+        llm_slug = agent_payload.get("llm", default_llm).get("slug")
+        llm_provider = agent_payload.get("llm", default_llm).get("provider")
         llm = LanguageModel.objects.filter(
             slug=llm_slug, provider__name__iexact=llm_provider
         ).first()
@@ -213,8 +204,7 @@ class AgentView(View):
 
         agent.llm = llm
 
-        # --- Handle ownership change (personal ↔ organization) ---
-        ownership = data.pop("ownership", None)  # "personal" | "<organization_id>"
+        ownership = agent_payload.pop("ownership", None)
         if ownership is not None:
             can_set_ownership, _ = FeatureFlagService.is_feature_enabled(
                 "set-agent-ownership", organization=user_org, user=request.user
@@ -235,7 +225,6 @@ class AgentView(View):
                     target_org = Organization.objects.get(id=ownership)
                 except Organization.DoesNotExist:
                     return JsonResponse({"error": "Organization not found"}, status=404)
-                # Verify the user belongs to (or owns) the target org
                 is_member = (
                     target_org.owner_id == request.user.id
                     or UserProfile.objects.filter(
@@ -249,19 +238,16 @@ class AgentView(View):
                 agent.organization = target_org
                 agent.user = None
 
-            # Invalidate cache for the old org too (members no longer see it)
             if old_org and old_org != agent.organization:
                 _invalidate_agent_cache_for_user_and_org(request.user, old_org)
 
-            # If moved to personal, clear any role restrictions
             if agent.organization is None:
                 agent.allowed_roles.clear()
 
-        serializer = AgentSerializer(agent, data=data, partial=True, context={"request": request})
+        serializer = AgentSerializer(agent, data=agent_payload, partial=True, context={"request": request})
         if serializer.is_valid():
             serializer.save()
 
-            # Apply role access updates (only for organization agents the user can edit)
             if agent.organization_id:
                 if access_mode == "org_roles":
                     if not isinstance(allowed_role_ids, list):
@@ -285,28 +271,24 @@ class AgentView(View):
                         )
                     agent.allowed_roles.set(roles)
                 elif access_mode in ("org_all", None):
-                    # Default: unrestricted within org
                     agent.allowed_roles.clear()
                 else:
                     return JsonResponse({"error": "Invalid access_mode"}, status=400)
             else:
-                # Personal agents never have role restrictions
                 agent.allowed_roles.clear()
 
-            # Invalidar el caché después de actualizar
             _invalidate_agent_cache_for_user_and_org(request.user, agent.organization)
 
             return JsonResponse(AgentSerializer(agent, context={"request": request}).data, status=200)
         return JsonResponse(serializer.errors, status=400)
 
     def post(self, request, *args, **kwargs):
-        data = JSONParser().parse(request)
+        agent_payload = JSONParser().parse(request)
 
-        serializer = AgentSerializer(data=data, context={"request": request})
+        serializer = AgentSerializer(data=agent_payload, context={"request": request})
         if serializer.is_valid():
             serializer.save(user=request.user)
 
-            # Invalidar el caché después de crear un nuevo agente
             _invalidate_agent_cache_for_user_and_org(
                 request.user,
                 serializer.instance.organization if serializer.instance else None,
@@ -320,12 +302,10 @@ class AgentView(View):
         
         agent_slug = kwargs.get("slug")
         
-        # Get user's organization
         user_org = None
         if hasattr(request.user, 'profile') and request.user.profile.organization:
             user_org = request.user.profile.organization
         
-        # Check permissions
         has_admin_flag, _ = FeatureFlagService.is_feature_enabled(
             "edit-organization-agent",
             organization=user_org,
@@ -337,32 +317,28 @@ class AgentView(View):
         if agent.agent_kind != AgentKind.CONVERSATIONAL_AGENT:
             return JsonResponse({"error": "This agent cannot be deleted"}, status=403)
 
-        # Check if user can actually delete this agent
         can_delete = (agent.user == request.user) or (has_admin_flag and agent.organization == user_org)
         if not can_delete:
             return JsonResponse({"error": "You don't have permission to delete this agent"}, status=403)
         
-        # Capture organization before deleting
         agent_org = agent.organization
         agent.delete()
 
-        # Invalidar el caché después de eliminar un agente
         _invalidate_agent_cache_for_user_and_org(request.user, agent_org)
 
         return JsonResponse({"message": "Agent deleted successfully"})
-
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 @method_decorator(feature_flag_required("manage-llm"), name="dispatch")
 class LanguageModelView(View):
     def post(self, request, *args, **kwargs):
-        data = JSONParser().parse(request)
+        model_payload = JSONParser().parse(request)
 
-        provider_name = str(data.get("provider", "")).strip()
-        slug = str(data.get("slug", "")).strip()
-        name = str(data.get("name", "")).strip()
-        pricing = data.get("pricing")
+        provider_name = str(model_payload.get("provider", "")).strip()
+        slug = str(model_payload.get("slug", "")).strip()
+        name = str(model_payload.get("name", "")).strip()
+        pricing = model_payload.get("pricing")
 
         if not provider_name or not slug or not name:
             return JsonResponse(
@@ -423,7 +399,7 @@ class LanguageModelView(View):
             )
 
         model_name = model.name
-        model.delete()  # pre_delete signal handles agent reassignment
+        model.delete()
 
         user_org = None
         if hasattr(request.user, "profile") and request.user.profile.organization:
@@ -438,6 +414,93 @@ class LanguageModelView(View):
                 "migrated_to": replacement.slug if replacement and migrated_count else None,
             }
         )
+
+@csrf_exempt
+@token_required
+def regenerate_agent_description_view(request, slug):
+    """
+    POST /v1/ai_layers/agents/<slug>/regenerate-description/
+
+    Regenerates Agent.description via LLM and persists it. Cost is billed to the
+    agent's organization (or the user's personal wallet for personal agents).
+
+    Optional JSON body fields (draft overrides for generation): name, act_as,
+    system_prompt, salute.
+    """
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    from api.ai_layers.agent_description import regenerate_agent_description
+
+    user_org = None
+    if hasattr(request.user, "profile") and request.user.profile.organization:
+        user_org = request.user.profile.organization
+
+    has_admin_flag, _ = FeatureFlagService.is_feature_enabled(
+        "edit-organization-agent",
+        organization=user_org,
+        user=request.user,
+    )
+
+    agent = _get_agent_for_user_mutation(request.user, slug)
+    if agent.agent_kind != AgentKind.CONVERSATIONAL_AGENT:
+        return JsonResponse({"error": "This agent cannot be edited"}, status=403)
+
+    can_edit = (agent.user == request.user) or (
+        has_admin_flag and agent.organization == user_org
+    )
+    if not can_edit:
+        return JsonResponse(
+            {"error": "You don't have permission to edit this agent"},
+            status=403,
+        )
+
+    try:
+        body = JSONParser().parse(request) if request.body else {}
+    except Exception:
+        body = {}
+    if not isinstance(body, dict):
+        body = {}
+
+    def _opt_str(key: str) -> str | None:
+        val = body.get(key)
+        if val is None:
+            return None
+        if not isinstance(val, str):
+            return None
+        return val
+
+    try:
+        description = regenerate_agent_description(
+            agent,
+            billing_user_id=request.user.id,
+            name=_opt_str("name"),
+            act_as=_opt_str("act_as"),
+            system_prompt=_opt_str("system_prompt"),
+            salute=_opt_str("salute"),
+            persist=True,
+        )
+    except ValueError as exc:
+        return JsonResponse({"error": str(exc)}, status=400)
+    except Exception:
+        logger.exception(
+            "regenerate_agent_description failed slug=%s user=%s",
+            slug,
+            request.user.id,
+        )
+        return JsonResponse(
+            {"error": "Failed to regenerate description"},
+            status=500,
+        )
+
+    _invalidate_agent_cache_for_user_and_org(request.user, agent.organization)
+    return JsonResponse(
+        {
+            "description": description,
+            "agent": AgentSerializer(agent, context={"request": request}).data,
+        },
+        status=200,
+    )
 
 
 @csrf_exempt
@@ -458,7 +521,6 @@ def get_formatted_system_prompt(request):
     agent_data["formatted"] = system
     return JsonResponse(agent_data)
 
-
 @csrf_exempt
 @token_required
 def agent_tool_groups(request):
@@ -476,7 +538,6 @@ def agent_tool_groups(request):
             "widget_unavailable": sorted(WIDGET_UNAVAILABLE_TOOL_NAMES),
         }
     )
-
 
 @csrf_exempt
 @token_required
@@ -515,7 +576,6 @@ def create_random_agent(request):
     act_as = "You are a helpful assistant."
     user = request.user if request.user.is_authenticated else None
     printer.blue("User", user)
-    # Create the agent instance
     agent = Agent(
         name=name,
         model_slug=model_slug,
@@ -530,7 +590,6 @@ def create_random_agent(request):
     _invalidate_agent_cache_for_user_and_org(request.user, agent.organization)
 
     return JsonResponse(agent.serialize(), status=201)
-
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
@@ -564,13 +623,13 @@ class AgentTaskView(View):
 
     def post(self, request, *args, **kwargs):
         try:
-            data = json.loads(request.body)
+            payload = json.loads(request.body)
         except json.JSONDecodeError:
             return JsonResponse({"error": "Invalid JSON body"}, status=400)
 
-        conversation_id = data.get("conversation_id")
-        agent_slugs = data.get("agent_slugs")
-        user_inputs = data.get("user_inputs")
+        conversation_id = payload.get("conversation_id")
+        agent_slugs = payload.get("agent_slugs")
+        user_inputs = payload.get("user_inputs")
 
         if not isinstance(agent_slugs, list):
             return JsonResponse(
@@ -593,29 +652,28 @@ class AgentTaskView(View):
                 status=400,
             )
 
-        result = dispatch_conversation_agent_task(
+        dispatch_result = dispatch_conversation_agent_task(
             user=request.user,
             conversation_id=str(conversation_id),
             agent_slugs=slugs,
             user_inputs=user_inputs,
-            tool_names=data.get("tool_names", []),
-            tool_names_by_agent=data.get("tool_names_by_agent"),
-            multiagentic_modality=data.get("multiagentic_modality", "isolated"),
-            client_datetime=data.get("client_datetime"),
-            regenerate_message_id=data.get("regenerate_message_id"),
+            tool_names=payload.get("tool_names", []),
+            tool_names_by_agent=payload.get("tool_names_by_agent"),
+            multiagentic_modality=payload.get("multiagentic_modality", "isolated"),
+            client_datetime=payload.get("client_datetime"),
+            regenerate_message_id=payload.get("regenerate_message_id"),
         )
 
-        if not result.ok:
-            return result.response
+        if not dispatch_result.ok:
+            return dispatch_result.response
 
-        if result.takeover:
-            return result.response
+        if dispatch_result.takeover:
+            return dispatch_result.response
 
         return JsonResponse(
-            {"task_id": result.task_id, "status": "accepted"},
+            {"task_id": dispatch_result.task_id, "status": "accepted"},
             status=202,
         )
-
 
 def _get_agent_for_user_mutation(user, agent_slug):
     """Resolve an agent the user might attempt to edit/delete (incl. owned org)."""
@@ -628,7 +686,6 @@ def _get_agent_for_user_mutation(user, agent_slug):
     else:
         qs = qs.filter(user=user)
     return get_object_or_404(qs)
-
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
@@ -655,13 +712,13 @@ class PlatformAgentTaskView(View):
         from .platform_assistant_task import platform_assistant_task
 
         try:
-            data = json.loads(request.body)
+            payload = json.loads(request.body)
         except json.JSONDecodeError:
             return JsonResponse({"error": "Invalid JSON body"}, status=400)
 
-        conversation_id = data.get("conversation_id")
-        agent_slug = data.get("agent_slug")
-        user_inputs = data.get("user_inputs")
+        conversation_id = payload.get("conversation_id")
+        agent_slug = payload.get("agent_slug")
+        user_inputs = payload.get("user_inputs")
 
         if not conversation_id:
             return JsonResponse({"error": "conversation_id is required"}, status=400)
@@ -738,12 +795,12 @@ class PlatformAgentTaskView(View):
         conversation.metadata = metadata_payload_for_related_agents([agent.id])
         conversation.save(update_fields=["metadata", "updated_at"])
 
-        client_datetime, client_dt_error = _parse_client_datetime(data.get("client_datetime"))
+        client_datetime, client_dt_error = _parse_client_datetime(payload.get("client_datetime"))
         if client_dt_error:
             return client_dt_error
 
         regenerate_message_id, regen_error = _parse_regenerate_message_id(
-            data.get("regenerate_message_id"),
+            payload.get("regenerate_message_id"),
             conversation=conversation,
             user=user,
         )
@@ -769,7 +826,6 @@ class PlatformAgentTaskView(View):
             status=202,
         )
 
-
 def _user_can_access_message(user, message):
     """Check if user can access the message's conversation (incl. WhatsApp threads)."""
     conv = message.conversation
@@ -778,7 +834,6 @@ def _user_can_access_message(user, message):
     from api.messaging.views import _user_can_access_conversation
 
     return _user_can_access_conversation(user, conv)
-
 
 @csrf_exempt
 @token_required
@@ -812,9 +867,8 @@ def agent_sessions_for_message(request):
         assistant_message_id=msg_id
     ).order_by("agent_index")
 
-    data = AgentSessionSerializer(sessions, many=True).data
-    return JsonResponse(data, safe=False)
-
+    agent_sessions_data = AgentSessionSerializer(sessions, many=True).data
+    return JsonResponse(agent_sessions_data, safe=False)
 
 @csrf_exempt
 @token_required
@@ -848,8 +902,8 @@ def agent_session_execution_log_for_message(request):
         assistant_message_id=msg_id
     ).order_by("agent_index")
 
-    data = AgentSessionExecutionLogSerializer(sessions, many=True).data
-    return JsonResponse({"sessions": data}, safe=False)
+    execution_log_data = AgentSessionExecutionLogSerializer(sessions, many=True).data
+    return JsonResponse({"sessions": execution_log_data}, safe=False)
 
 @csrf_exempt
 @token_required
@@ -868,11 +922,11 @@ def cancel_agent_task(request):
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
     try:
-        data = json.loads(request.body)
+        payload = json.loads(request.body)
     except json.JSONDecodeError:
         return JsonResponse({"error": "Invalid JSON body"}, status=400)
 
-    conversation_id = data.get("conversation_id")
+    conversation_id = payload.get("conversation_id")
     if not conversation_id:
         return JsonResponse({"error": "conversation_id is required"}, status=400)
 
@@ -881,9 +935,6 @@ def cancel_agent_task(request):
     except Conversation.DoesNotExist:
         return JsonResponse({"error": "Conversation not found"}, status=404)
 
-    # Note: Using similar access check as in _user_can_access_message, but reusing existing logic if possible.
-    # We can just rely on the existing _user_can_access_message with a dummy message, 
-    # but since it expects a message, we'll implement a simple check here based on the view's existing logic.
     user = request.user
     from api.ai_layers.access import get_user_organization
     user_org = get_user_organization(user)
@@ -900,7 +951,6 @@ def cancel_agent_task(request):
             status=403,
         )
 
-    # Find active sessions (ended_at is null) for this conversation
     active_sessions = AgentSession.objects.filter(
         conversation=conversation, 
         ended_at__isnull=True,
@@ -909,8 +959,6 @@ def cancel_agent_task(request):
     
     updated_count = active_sessions.update(dismissed_at=timezone.now())
 
-    # Also set a cache flag to handle race conditions where the session
-    # hasn't been created yet by the Celery worker
     from django.core.cache import cache
     cache.set(f"cancel_task_{conversation_id}", True, timeout=300)
     clear_agent_task_active(str(conversation_id))
@@ -919,7 +967,6 @@ def cancel_agent_task(request):
         {"status": "success", "sessions_cancelled": updated_count}, 
         status=200
     )
-
 
 @csrf_exempt
 @token_required

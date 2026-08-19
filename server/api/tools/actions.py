@@ -42,7 +42,6 @@ SAVE_PATH = os.path.join(settings.MEDIA_ROOT, "generated")
 
 os.makedirs(SAVE_PATH, exist_ok=True)
 
-
 def _require_moviepy():
     try:
         from moviepy.editor import AudioFileClip, VideoFileClip, concatenate_videoclips
@@ -53,26 +52,21 @@ def _require_moviepy():
 
     return VideoFileClip, concatenate_videoclips, AudioFileClip
 
-
 def format_time_vtt(time):
     minutes = int(time // 60)
     seconds = int(time % 60)
     milliseconds = int((time % 1) * 1000)
     return f"{minutes:02}:{seconds:02}.{milliseconds:03}"
 
-
 def get_available_transcriptions(video_url):
     try:
-        # Verificar si la URL es válida
         if "youtube.com/watch?v=" not in video_url:
             raise ValueError(
                 "La URL del vídeo no es válida. Asegúrate de que esté en el formato correcto."
             )
 
-        # Extraer el ID del video de la URL
         video_id = video_url.split("v=")[1]
 
-        # Obtener las transcripciones disponibles
         transcripts = _ytt_api.list(video_id)
         available_transcriptions = {}
 
@@ -97,7 +91,6 @@ def get_available_transcriptions(video_url):
         traceback.print_exc()
         return {}
 
-
 def delete_file_after_delay(file_path, delay=5):
     """Delete a file after a specified delay."""
     time.sleep(delay)
@@ -106,7 +99,6 @@ def delete_file_after_delay(file_path, delay=5):
         print(f"File {file_path} deleted successfully.")
     except Exception as e:
         print(f"Error deleting file {file_path}: {e}")
-
 
 def transcribe(job_id):
     try:
@@ -173,7 +165,6 @@ def transcribe(job_id):
         job.save()
         return {"error": str(e), "job_id": job.id}
 
-
 def fetch_images(query, per_page=15, page=1, orientation="landscape"):
     url = f"https://api.pexels.com/v1/search?query={query}&per_page={per_page}&page={page}&orientation={orientation}"
     headers = {"Authorization": os.getenv("PEXELS_API_KEY")}
@@ -183,7 +174,6 @@ def fetch_images(query, per_page=15, page=1, orientation="landscape"):
         return response.json()
     else:
         return {"error": response.status_code, "message": response.text}
-
 
 def fetch_videos(query, per_page=15, page=1, orientation="landscape"):
     url = f"https://api.pexels.com/videos/search?query={query}&per_page={per_page}&page={page}&orientation={orientation}"
@@ -195,7 +185,6 @@ def fetch_videos(query, per_page=15, page=1, orientation="landscape"):
     else:
         return {"error": response.status_code, "message": response.text}
 
-
 class Portion(BaseModel):
     speech: str = Field(..., description="The text to be spoken")
     resources_query: str = Field(
@@ -203,13 +192,11 @@ class Portion(BaseModel):
         description="A 3-5 words query to use to retrieve media from Pexels API and add to this portion of the script",
     )
 
-
 class Script(BaseModel):
     title: str = Field(..., description="The title of the video to generate")
     portions: List[Portion] = Field(
         ..., description="A list of portions for the final video."
     )
-
 
 def generate_video(video_job_id: int):
     video_job = VideoGenerationJob.objects.get(pk=video_job_id)
@@ -238,12 +225,10 @@ def generate_video(video_job_id: int):
             status="PENDING",
         )
 
-
 def generate_chunk_video(video_chunk_id: int):
     chunk = VideoChunk.objects.get(pk=video_chunk_id)
     _, concatenate_videoclips, AudioFileClip = _require_moviepy()
 
-    # Update status to PROCESSING
     chunk.status = "PROCESSING"
     chunk.save()
 
@@ -262,18 +247,15 @@ def generate_chunk_video(video_chunk_id: int):
         audio_file_clip = AudioFileClip(audio_output_path)
         audio_duration = audio_file_clip.duration
 
-        # Fetch videos from Pexels using the resources_query
         pexels_videos = fetch_videos(query=chunk.resource_query, per_page=5)
 
         video_clips = []
         total_duration = 0
 
-        # Download videos and keep track of their durations
         for video in pexels_videos.get("videos", []):
             video_url = video["video_files"][0]["link"]
             video_response = requests.get(video_url)
 
-            # Save the video locally
             video_path = os.path.join(
                 settings.MEDIA_ROOT,
                 f"video_chunks/video_{chunk.video.pk}_chunk_{video_chunk_id}.mp4",
@@ -281,32 +263,25 @@ def generate_chunk_video(video_chunk_id: int):
             with open(video_path, "wb") as f:
                 f.write(video_response.content)
 
-            # Load the video clip
             clip = VideoFileClip(video_path)
             video_clips.append(clip)
             total_duration += clip.duration
 
-            # Stop if we have enough duration
             if total_duration >= audio_duration:
                 break
 
-        # Concatenate video clips
         final_video = concatenate_videoclips(video_clips)
 
-        # Trim the final video to match the audio duration
         final_video = final_video.subclip(0, audio_duration)
 
-        # Set the audio to the final video
         final_video = final_video.set_audio(AudioFileClip(audio_output_path))
 
-        # Save the final video
         final_video_path = os.path.join(
             settings.MEDIA_ROOT,
             f"final_videos/video_{chunk.video.pk}_chunk_{video_chunk_id}.mp4",
         )
         final_video.write_videofile(final_video_path, codec="libx264")
 
-        # Update status to COMPLETED
         chunk.status = "COMPLETED"
         chunk.chunk_file = final_video_path
         chunk.save()
@@ -317,9 +292,8 @@ def generate_chunk_video(video_chunk_id: int):
             chunk.video.concatenate()
 
     except Exception as e:
-        # Update status to FAILED in case of an error
         chunk.status = "FAILED"
-        chunk.status_text = str(e)  # Save the error message
+        chunk.status_text = str(e)
         chunk.save()
         print(f"Error processing video chunk: {e}")
 
@@ -327,18 +301,11 @@ def generate_chunk_video(video_chunk_id: int):
         for clip in video_clips:
             clip.close()
 
-        # # Remove the audio file after use
-        # if os.path.exists(audio_output_path):
-        #     os.remove(audio_output_path)
-
-
-# This should return the path to the generated file
 def create_html_file_from_string(html_string, output_file):
     with open(output_file, "w", encoding="utf-8") as f:
         f.write(html_string)
 
     return output_file
-
 
 def document_convertion(source_text: str, from_type="html", to_type="docx"):
 
@@ -349,7 +316,6 @@ def document_convertion(source_text: str, from_type="html", to_type="docx"):
 
     return input_file_path, output_file_path
 
-
 def append_attachment_to_message(message_id, attachment_type, extra_data={}):
     m = Message.objects.get(pk=message_id)
     m.attachments.append(
@@ -359,7 +325,6 @@ def append_attachment_to_message(message_id, attachment_type, extra_data={}):
         }
     )
     m.save()
-
 
 def generate_video_from_image(
     prompt_image_b64, prompt_text, ratio, user_id, provider="runway", message_id=None
@@ -415,20 +380,16 @@ def generate_video_from_image(
         printer.red(e)
         return None
 
-
 def generate_audio(text, voice, provider, user_id, message_id):
 
-    # Ensure audio directory exists
     audio_store_path = "generations/audios"
     os.makedirs(os.path.join(settings.MEDIA_ROOT, audio_store_path), exist_ok=True)
 
     try:
-        # Get the user organizations
         user = User.objects.get(pk=user_id)
         organizations = Organization.objects.filter(owner=user)
         credentials = CredentialsManager.objects.filter(organization__in=organizations)
 
-        # Get the API_KEY of the first one with eleven_labs_api_key
         eleven_labs_api_key = None
         for credential in credentials:
             if credential.elevenlabs_api_key:

@@ -16,32 +16,20 @@ import dj_database_url
 from dotenv import load_dotenv
 
 load_dotenv()
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
-# SECRET_KEY = 'django-insecure-=4jp(5z$n=dr10)4(0vl4i+wuww4ijwxd&%@0^gt9bbp^+k-(q'
 SECRET_KEY = os.environ.get("SECRET_KEY", default="secret-key")
 
-# SECURITY WARNING: don't run with debug turned on in production!
-# Default to False unless explicitly enabled via env.
 DEBUG = os.environ.get("DEBUG", "false").strip().lower() in {"1", "true", "yes", "on"}
 
-# settings.py
 ALLOWED_HOSTS = [
     "127.0.0.1",
     "localhost",
     ".localhost",
     ".masscer.ai",
-    "masscer-django",  # Docker internal hostname for service-to-service calls
+    "masscer-django",
 ]
 
-# Extra hosts from env (comma-separated, e.g. masscer-ai.ngrok.app,your-domain.com).
-# Prefer ALLOWED_EXTRA_HOSTS to match infra config, keep ALLOWED_HOSTS as fallback.
 _allowed_hosts_env = os.environ.get("ALLOWED_EXTRA_HOSTS") or os.environ.get(
     "ALLOWED_HOSTS", ""
 )
@@ -51,8 +39,6 @@ _allowed_extra_hosts = [
 if _allowed_hosts_env:
     ALLOWED_HOSTS.extend(_allowed_extra_hosts)
 
-# Derive host/origins from FRONTEND_URL so the canonical app (and its tenant
-# subdomains) work without also having to set ALLOWED_EXTRA_HOSTS.
 from urllib.parse import urlparse as _urlparse  # noqa: E402
 
 _frontend_url_env = os.environ.get("FRONTEND_URL", "").strip().rstrip("/")
@@ -60,7 +46,6 @@ _frontend_parsed = _urlparse(_frontend_url_env) if _frontend_url_env else None
 _frontend_host = (_frontend_parsed.hostname or "").lower() if _frontend_parsed else ""
 _frontend_scheme = (_frontend_parsed.scheme or "https") if _frontend_parsed else "https"
 
-# Tenant base domain for the frontend host (e.g. app.masscer-ai.com -> masscer-ai.com).
 _frontend_tenant_base = ""
 if _frontend_host and _frontend_host not in {"localhost", "127.0.0.1"}:
     if _frontend_host.startswith("app.") and len(_frontend_host) > len("app."):
@@ -71,21 +56,16 @@ if _frontend_host and _frontend_host not in {"localhost", "127.0.0.1"}:
 if _frontend_host:
     ALLOWED_HOSTS.append(_frontend_host)
     if _frontend_tenant_base and _frontend_tenant_base not in {"localhost", "127.0.0.1"}:
-        # Accept tenant subdomains under the frontend base (e.g. charly.masscer-ai.com).
         ALLOWED_HOSTS.append(f".{_frontend_tenant_base}")
 
-# Trusted origins for CSRF-protected endpoints (e.g. Django admin login over ngrok).
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost",
     "http://127.0.0.1",
 ]
-# Reuse ALLOWED_EXTRA_HOSTS by deriving common origin schemes.
 for host in _allowed_extra_hosts:
     CSRF_TRUSTED_ORIGINS.append(f"https://{host}")
     CSRF_TRUSTED_ORIGINS.append(f"http://{host}")
 
-# Trust the frontend URL (and its tenant subdomains) for CSRF-protected POSTs
-# (Django admin login, session forms) without extra env vars.
 if _frontend_host:
     CSRF_TRUSTED_ORIGINS.append(f"{_frontend_scheme}://{_frontend_host}")
     if _frontend_tenant_base and _frontend_tenant_base not in {"localhost", "127.0.0.1"}:
@@ -100,10 +80,7 @@ if _csrf_trusted_origins_env:
         if origin.strip()
     )
 
-# Keep order stable while removing duplicates.
 CSRF_TRUSTED_ORIGINS = list(dict.fromkeys(CSRF_TRUSTED_ORIGINS))
-
-# Application definition
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -176,14 +153,6 @@ WSGI_APPLICATION = "api.wsgi.application"
 
 CORS_ALLOW_ALL_ORIGINS = True
 
-# CORS_ALLOWED_ORIGINS = [
-#     "http://localhost:8001",
-# ]
-
-
-# Database
-# https://docs.djangoproject.com/en/4.2/ref/settings/#databases
-
 DATABASES = {
     "default": dj_database_url.config(
         default=os.environ.get("DB_CONNECTION_STRING", "sqlite:///db.sqlite3"),
@@ -191,10 +160,6 @@ DATABASES = {
         conn_health_checks=True,
     )
 }
-
-
-# Password validation
-# https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -213,8 +178,6 @@ AUTH_PASSWORD_VALIDATORS = [
 
 DATA_UPLOAD_MAX_MEMORY_SIZE = 41943040
 FILE_UPLOAD_MAX_MEMORY_SIZE = 41943040
-# Internationalization
-# https://docs.djangoproject.com/en/4.2/topics/i18n/
 
 LANGUAGE_CODE = "en-us"
 
@@ -233,25 +196,15 @@ USE_I18N = True
 
 USE_TZ = True
 
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/4.2/howto/static-files/
-
-# STATIC_URL = 'static/'
 STATIC_URL = "/static/"
 
-
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
-
 
 if not DEBUG:
     STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
     STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
-# Default primary key field type
-# https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-
 
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
 CELERY_RESULT_BACKEND = "django-db"
@@ -262,23 +215,13 @@ CELERY_TIMEZONE = "UTC"
 
 CELERY_RESULT_EXPIRES = 3600
 
-# Celery Beat Configuration
-# Using beat_schedule in celery.py instead of DatabaseScheduler
-# CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
-
-
 MEDIA_ROOT = os.environ.get("MEDIA_ROOT", os.path.join(BASE_DIR, "media"))
 MEDIA_URL = "/media/"
-# Base URL for building absolute URLs (e.g. for MessageAttachment display).
-# Set API_BASE_URL for production, or API_URL (same name as streaming/docker) — if API_BASE_URL
-# is empty, API_URL is used. No trailing slash. Used for Meta WhatsApp webhook callback
-# (…/v1/whatsapp/webhook).
 API_BASE_URL = (
     (os.environ.get("API_BASE_URL") or os.environ.get("API_URL") or "").strip()
 )
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "")
 
-# MCP OAuth 2.1 authorization server
 MCP_OAUTH_ACCESS_TOKEN_TTL = int(os.environ.get("MCP_OAUTH_ACCESS_TOKEN_TTL", "3600"))
 MCP_OAUTH_REFRESH_TOKEN_TTL = int(
     os.environ.get("MCP_OAUTH_REFRESH_TOKEN_TTL", str(60 * 60 * 24 * 30))
@@ -286,17 +229,14 @@ MCP_OAUTH_REFRESH_TOKEN_TTL = int(
 MCP_OAUTH_AUTH_CODE_TTL = int(os.environ.get("MCP_OAUTH_AUTH_CODE_TTL", "60"))
 INTERNAL_MCP_INTROSPECT_TOKEN = os.environ.get("INTERNAL_MCP_INTROSPECT_TOKEN", "")
 
-# Trust X-Forwarded-Proto from nginx/ALB/Cloudflare for HTTPS-aware URLs.
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
-# STRIPE
 STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")
 STRIPE_PUBLISHABLE_KEY = os.environ.get("STRIPE_PUBLISHABLE_KEY", "")
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 STRIPE_PRICE_ORGANIZATION = os.environ.get("STRIPE_PRICE_ORGANIZATION", "")
 STRIPE_PRODUCT_CREDITS = os.environ.get("STRIPE_PRODUCT_CREDITS", "")
 
-# S3 media storage — enabled when AWS_STORAGE_BUCKET_NAME is set.
 _s3_media_bucket = os.environ.get("AWS_STORAGE_BUCKET_NAME", "")
 if _s3_media_bucket:
     _s3_region = os.environ.get("AWS_S3_REGION_NAME", "us-east-1")
@@ -307,12 +247,11 @@ if _s3_media_bucket:
     AWS_STORAGE_BUCKET_NAME = _s3_media_bucket
     AWS_S3_REGION_NAME = _s3_region
     AWS_S3_FILE_OVERWRITE = False
-    AWS_QUERYSTRING_AUTH = False  # Bucket is publicly readable; no presigned URLs needed.
+    AWS_QUERYSTRING_AUTH = False
     MEDIA_URL = f"https://{_s3_media_bucket}.s3.{_s3_region}.amazonaws.com/"
 else:
     if not os.path.exists(MEDIA_ROOT):
         os.makedirs(MEDIA_ROOT)
-
 
 CACHES = {
     "default": {
@@ -325,17 +264,13 @@ CACHES = {
     }
 }
 
-
 FIRECRAWL_API_KEY = os.environ.get("FIRECRAWL_API_KEY", "")
 
 ELEVENLABS_API_KEY = os.environ.get("ELEVENLABS_API_KEY", "")
 
-# WhatsApp Cloud API (Graph). WHATSAPP_APP_SECRET enables X-Hub-Signature-256 verification on POST webhooks.
 WHATSAPP_GRAPH_API_TOKEN = os.environ.get("WHATSAPP_GRAPH_API_TOKEN", "").strip()
 WHATSAPP_WEBHOOK_VERIFY_TOKEN = os.environ.get("WHATSAPP_WEBHOOK_VERIFY_TOKEN", "").strip()
 WHATSAPP_APP_SECRET = os.environ.get("WHATSAPP_APP_SECRET", "").strip()
 
-# Resend outbound email domain (verified in Resend dashboard).
 RESEND_FROM_DOMAIN = os.environ.get("RESEND_FROM_DOMAIN", "mail.masscer.ai").strip()
 
-# CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"

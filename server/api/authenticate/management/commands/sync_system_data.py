@@ -1,8 +1,6 @@
 from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError
 
-
-# Order matters: providers before language models; currency + plans before org subscriptions.
 SYNC_STEPS = (
     "sync_feature_flags",
     "sync_ai_providers",
@@ -25,7 +23,6 @@ DRY_RUN_SUPPORTED = frozenset(
         "sync_whatsapp_templates",
     }
 )
-
 
 class Command(BaseCommand):
     help = (

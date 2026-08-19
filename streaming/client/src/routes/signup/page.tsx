@@ -84,7 +84,6 @@ export default function Signup() {
   const navigate = useNavigate();
   const { t } = useTranslation();
 
-  // Invite token signup (email invitation) or orgId link or open signup
   useEffect(() => {
     let cancelled = false;
 
@@ -151,7 +150,6 @@ export default function Signup() {
       return;
     }
 
-    // Email invitation — password only (email bound to invite)
     if (inviteToken && inviteData?.invite_valid) {
       setLoading(true);
       setMessage("");
@@ -316,7 +314,6 @@ export default function Signup() {
     );
   }
 
-  // Loading invite or org details
   if (loadingOrg && (inviteToken || orgId)) {
     return (
       <div className="min-h-screen flex flex-col md:flex-row bg-[var(--bg-color,#0a0a0a)] text-[var(--font-color,#fff)]">
@@ -340,7 +337,6 @@ export default function Signup() {
     );
   }
 
-  // Invalid or expired email invite
   if (inviteToken && inviteData && !inviteData.invite_valid && !inviteData.email_already_registered) {
     return (
       <div className="min-h-screen flex flex-col md:flex-row bg-[var(--bg-color,#0a0a0a)] text-[var(--font-color,#fff)]">
@@ -376,7 +372,6 @@ export default function Signup() {
     );
   }
 
-  // Email already registered for this invite
   if (inviteToken && inviteData?.email_already_registered) {
     return (
       <div className="min-h-screen flex flex-col md:flex-row bg-[var(--bg-color,#0a0a0a)] text-[var(--font-color,#fff)]">
@@ -412,7 +407,6 @@ export default function Signup() {
     );
   }
 
-  // Org ID provided but org not found (generic link)
   if (orgId && !inviteToken && !organization) {
     return (
       <div className="min-h-screen flex flex-col md:flex-row bg-[var(--bg-color,#0a0a0a)] text-[var(--font-color,#fff)]">
@@ -457,7 +451,7 @@ export default function Signup() {
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-[var(--bg-color,#0a0a0a)] text-[var(--font-color,#fff)]">
-      {/* Left panel */}
+      {}
       <div
         className={`${panelBase} ${panelLeftLayout}`}
         style={{ background: AUTH_PANEL_LEFT_BACKGROUND }}
@@ -545,7 +539,7 @@ export default function Signup() {
         </div>
       </div>
 
-      {/* Right panel — form */}
+      {}
       <div className={`${panelBase} ${panelRight}`}>
         <div className={AUTH_FORM_CARD_CLASS} style={AUTH_FORM_CARD_STYLE}>
           <Title order={2} ta="center" mb="xl">

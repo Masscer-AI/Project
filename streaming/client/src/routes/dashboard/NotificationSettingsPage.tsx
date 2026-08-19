@@ -107,7 +107,6 @@ export default function NotificationSettingsPage() {
   const [aiError, setAiError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const saveInFlightRef = useRef(false);
-  /** Keeps condition editor visible after AI generate even if user clears fields temporarily. */
   const hasAiFilledConditionsRef = useRef(false);
 
   useEffect(() => {

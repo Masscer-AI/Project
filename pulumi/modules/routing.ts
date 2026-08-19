@@ -28,8 +28,6 @@ export function createRouting(args: {
     protocol: "HTTP",
     targetType: "ip",
     vpcId: args.vpcId,
-    // ALB health checks can hit Django with host headers that may return 400.
-    // Accept 400 for health checks to avoid constant task recycling/503 spikes.
     healthCheck: { path: "/admin/login/", matcher: "200-400", interval: 30, timeout: 5, healthyThreshold: 2, unhealthyThreshold: 3 },
     tags: args.tags,
   });
@@ -112,9 +110,6 @@ export function createRouting(args: {
       tags: args.tags,
     });
 
-    // Cover the canonical app host AND tenant subdomains (e.g. acme.masscer.ai).
-    // The wildcard also matches core.masscer.ai, but the higher-priority core rule
-    // (priority 10) forwards all core paths to Django first, so this is safe.
     const appHostValues = [args.appDomain, `*.${args.rootDomain}`];
 
     new aws.lb.ListenerRule("app-django-path-rules", {
@@ -128,7 +123,6 @@ export function createRouting(args: {
       tags: args.tags,
     });
 
-    // ALB allows at most 5 condition values per rule (2 hosts + 3 paths above).
     new aws.lb.ListenerRule("app-django-admin-path-rule", {
       listenerArn: httpsListener.arn,
       priority: 21,
@@ -140,7 +134,6 @@ export function createRouting(args: {
       tags: args.tags,
     });
 
-    // ALB max 5 condition values total: 2 hosts + 3 paths here.
     new aws.lb.ListenerRule("app-django-oauth-path-rule", {
       listenerArn: httpsListener.arn,
       priority: 22,
@@ -156,7 +149,6 @@ export function createRouting(args: {
       tags: args.tags,
     });
 
-    // Split well-known AS metadata so host+paths stay within the 5-value limit.
     new aws.lb.ListenerRule("app-django-oauth-as-metadata-rule", {
       listenerArn: httpsListener.arn,
       priority: 23,
@@ -219,8 +211,6 @@ export function createRouting(args: {
       aliases: [{ name: alb.dnsName, zoneId: alb.zoneId, evaluateTargetHealth: true }],
     });
 
-    // Wildcard record so tenant subdomains (e.g. acme.masscer.ai) resolve to the ALB.
-    // Covered by the *.rootDomain ACM certificate above.
     new aws.route53.Record("wildcard-domain-alias-a", {
       zoneId: zone.zoneId,
       name: `*.${args.rootDomain}`,

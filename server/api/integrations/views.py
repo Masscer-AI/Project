@@ -44,20 +44,17 @@ from .services import (
 
 logger = logging.getLogger(__name__)
 
-_STATE_TTL = 60 * 10  # 10 minutes
+_STATE_TTL = 60 * 10
 _STATE_CACHE_PREFIX = "integrations_oauth_state:"
-
 
 def _method_not_allowed(request):
     return JsonResponse({"error": "Method not allowed"}, status=405)
-
 
 def _json_body(request) -> dict:
     try:
         return json.loads(request.body) if request.body else {}
     except (json.JSONDecodeError, ValueError):
         return {}
-
 
 def _require_capability(request, owner_type: str):
     org = get_user_organization(request.user)
@@ -78,11 +75,9 @@ def _require_capability(request, owner_type: str):
         )
     return None
 
-
 def _redirect_after_oauth(state_data: dict | None, *, error: str = "") -> HttpResponseRedirect:
     return_to = (state_data or {}).get("return_to") or get_frontend_integrations_url()
     return HttpResponseRedirect(build_integrations_return_url(return_to, error=error))
-
 
 @csrf_exempt
 @token_required
@@ -95,7 +90,6 @@ def integrations_list(request):
     return JsonResponse(
         {"integrations": [serialize_integration(i) for i in integrations]}
     )
-
 
 @csrf_exempt
 @token_required
@@ -154,7 +148,6 @@ def integrations_connect(request, provider: str):
             "provider": provider_key,
         }
     )
-
 
 @csrf_exempt
 def integrations_callback(request, provider: str):
@@ -303,7 +296,6 @@ def integrations_callback(request, provider: str):
         return _redirect_after_oauth(state_data, error="save_failed")
 
     return _redirect_after_oauth(state_data)
-
 
 @csrf_exempt
 @token_required

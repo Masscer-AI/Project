@@ -105,7 +105,6 @@ const MermaidVisualizer = ({ code }: { code: string }) => {
   );
 };
 
-/** Make SVG inside the container fill its width so diagrams are readable by default. */
 function fitSvgToWidth(rawSvg: string): string {
   return rawSvg
     .replace(/<svg([^>]*)width="[^"]*"/, '<svg$1width="100%"')
@@ -125,8 +124,6 @@ function PanZoomViewer({ svgContent, height = "75vh" }: { svgContent: string; he
   const MIN_SCALE = 0.2;
   const MAX_SCALE = 5;
 
-  // Use a native wheel listener with { passive: false } so we can actually
-  // preventDefault and stop the chat page from scrolling while zooming.
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -168,7 +165,7 @@ function PanZoomViewer({ svgContent, height = "75vh" }: { svgContent: string; he
 
   return (
     <div style={{ position: "relative", borderRadius: 8, overflow: "hidden" }}>
-      {/* Controls */}
+      {}
       <Group
         gap={4}
         style={{
@@ -199,7 +196,7 @@ function PanZoomViewer({ svgContent, height = "75vh" }: { svgContent: string; he
         </Tooltip>
       </Group>
 
-      {/* Pan-zoom area */}
+      {}
       <div
         ref={containerRef}
         onMouseDown={handleMouseDown}

@@ -16,8 +16,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from api.ai_layers.access import accessible_agents_qs
 from api.ai_layers.models import AgentKind
 
-SUMMARY_MAX_LEN = 8000
-USER_MESSAGE_MAX_LEN = 8000
+AGENT_INSTRUCTIONS_MAX_LEN = 8000
+MESSAGE_FOR_USER_MAX_LEN = 8000
 
 
 class HandoffToAgentParams(BaseModel):
@@ -30,17 +30,18 @@ class HandoffToAgentParams(BaseModel):
             "conversational agent the user can access."
         ),
     )
-    summary: str = Field(
+    agent_instructions: str = Field(
         min_length=1,
-        max_length=SUMMARY_MAX_LEN,
+        max_length=AGENT_INSTRUCTIONS_MAX_LEN,
         description=(
-            "Private brief for the next agent only (not shown in the chat thread). "
-            "Summarize what you did, what remains, and why you are handing off."
+            "Instructions the next agent needs to follow (private; not shown in "
+            "the chat thread). Include what you already did, what remains, and "
+            "any constraints or context they need."
         ),
     )
-    user_message: str = Field(
+    message_for_user: str = Field(
         min_length=1,
-        max_length=USER_MESSAGE_MAX_LEN,
+        max_length=MESSAGE_FOR_USER_MAX_LEN,
         description=(
             "Required user-visible assistant message for this turn. Shown in the "
             "conversation as your reply (e.g. that you are handing off and why)."
@@ -55,7 +56,7 @@ class HandoffToAgentParams(BaseModel):
             raise ValueError("agent_slug cannot be blank")
         return s
 
-    @field_validator("summary", "user_message")
+    @field_validator("agent_instructions", "message_for_user")
     @classmethod
     def strip_text(cls, v: str) -> str:
         s = (v or "").strip()
@@ -74,8 +75,8 @@ class HandoffToAgentResult(BaseModel):
 def _handoff_to_agent_impl(
     *,
     agent_slug: str,
-    summary: str,
-    user_message: str,
+    agent_instructions: str,
+    message_for_user: str,
     user_id: int,
     current_agent_slug: str,
     handoff_request: dict[str, Any],
@@ -130,8 +131,10 @@ def _handoff_to_agent_impl(
             "to_agent_slug": target.slug,
             "to_agent_name": target.name,
             "to_agent_id": target.id,
-            "summary": summary.strip()[:SUMMARY_MAX_LEN],
-            "user_message": user_message.strip()[:USER_MESSAGE_MAX_LEN],
+            "agent_instructions": agent_instructions.strip()[
+                :AGENT_INSTRUCTIONS_MAX_LEN
+            ],
+            "message_for_user": message_for_user.strip()[:MESSAGE_FOR_USER_MAX_LEN],
             "from_agent_slug": current_agent_slug,
         }
     )
@@ -140,7 +143,8 @@ def _handoff_to_agent_impl(
         success=True,
         message=(
             f"Handoff to {target.name} ({target.slug}) accepted. "
-            "Stop further work; your user_message will be shown and the next agent will continue."
+            "Stop further work; your message_for_user will be shown and the next "
+            "agent will continue with agent_instructions."
         ),
         to_agent_slug=target.slug,
         to_agent_name=target.name,
@@ -166,13 +170,13 @@ def get_tool(
 
     def handoff_to_agent(
         agent_slug: str,
-        summary: str,
-        user_message: str,
+        agent_instructions: str,
+        message_for_user: str,
     ) -> HandoffToAgentResult:
         return _handoff_to_agent_impl(
             agent_slug=agent_slug,
-            summary=summary,
-            user_message=user_message,
+            agent_instructions=agent_instructions,
+            message_for_user=message_for_user,
             user_id=user_id,
             current_agent_slug=current_agent_slug,
             handoff_request=handoff_request,
@@ -183,8 +187,9 @@ def get_tool(
         "name": "handoff_to_agent",
         "description": (
             "Hand off this conversation to another specialist agent. "
-            "Call list_agents first. Provide user_message (shown to the user as your "
-            "assistant reply) and summary (private brief for the next agent only). "
+            "Call list_agents first. Provide message_for_user (shown to the user as "
+            "your assistant reply) and agent_instructions (private instructions the "
+            "next agent must follow). "
             "After a successful handoff, do not continue working — stop."
         ),
         "parameters": HandoffToAgentParams,

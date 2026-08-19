@@ -8,24 +8,16 @@ import { CapabilitiesChecklist } from "../CapabilitiesChecklist/CapabilitiesChec
 
 export type ToolsSelectorContentProps = {
   description?: string;
-  /** Selected tool names. */
   value: string[];
   onChange: (names: string[]) => void;
-  /** Always on; cannot be unchecked. */
   requiredNames?: readonly string[];
-  /** Always off; cannot be checked. */
   disabledOffNames?: readonly string[];
   disabledOffHint?: (name: string) => string;
-  /** When false, caller must pass toolGroups. Default true. */
   loadGroups?: boolean;
   toolGroups?: TMCPToolPresetGroup[];
-  /** Called when groups finish loading (so parents can seed state). */
   onGroupsLoaded?: (groups: TMCPToolPresetGroup[]) => void;
 };
 
-/**
- * Grouped accordion tool checklist (shared by modal and widget form).
- */
 export function ToolsSelectorContent({
   description,
   value,

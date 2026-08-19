@@ -6,8 +6,6 @@ import { API_URL, DEFAULT_ORGANIZATION_ID } from "../../modules/constants";
 import { useStore } from "../../modules/store";
 import { isTenantSubdomainHost } from "../../utils/tenantSubdomain";
 
-/** Logo: replace `streaming/client/public/assets/masscer.png` with your image,
- *  or change the `src` below to another path (e.g. `assets/your-logo.png`). */
 const DEFAULT_LOGO_SRC = "assets/masscer.png";
 
 export const Navbar = () => {

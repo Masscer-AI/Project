@@ -13,18 +13,15 @@ from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
-
 class ExploreWebParams(BaseModel):
     query: str = Field(description="Web search query to explore.")
     limit: int = Field(default=3, ge=1, le=10, description="Max results to return.")
-
 
 class ExploreWebResultItem(BaseModel):
     url: str
     title: str | None = None
     description: str | None = None
     markdown: str | None = None
-
 
 class ExploreWebResult(BaseModel):
     results: list[ExploreWebResultItem] = Field(default_factory=list)
@@ -34,14 +31,12 @@ class ExploreWebResult(BaseModel):
         description="Debug metadata about the Firecrawl response (for troubleshooting).",
     )
 
-
 def _truncate(s: str | None, max_chars: int) -> str | None:
     if s is None:
         return None
     if len(s) <= max_chars:
         return s
     return s[:max_chars]
-
 
 def _to_plain(obj):
     if isinstance(obj, dict):
@@ -57,7 +52,6 @@ def _to_plain(obj):
         except Exception:
             pass
     return obj
-
 
 def _pick_results_list(resp_dict: dict) -> list | None:
     """
@@ -80,7 +74,6 @@ def _pick_results_list(resp_dict: dict) -> list | None:
             return v
     return None
 
-
 def _extract_url(item: dict) -> str:
     return (
         item.get("url")
@@ -91,17 +84,14 @@ def _extract_url(item: dict) -> str:
         or ""
     )
 
-
 def _extract_markdown(item: dict) -> str | None:
     md = item.get("markdown")
     if isinstance(md, str) and md.strip():
         return md
-    # Some responses put scraped content under "content" or nested "data"
     c = item.get("content")
     if isinstance(c, str) and c.strip():
         return c
     return None
-
 
 def _explore_web_impl(query: str, limit: int) -> ExploreWebResult:
     from django.conf import settings
@@ -119,7 +109,6 @@ def _explore_web_impl(query: str, limit: int) -> ExploreWebResult:
     firecrawl = Firecrawl(api_key=api_key)
 
     resp = None
-    # Firecrawl SDK parameter naming differs between versions: scrapeOptions vs scrape_options.
     try:
         resp = firecrawl.search(
             query=query,
@@ -136,7 +125,6 @@ def _explore_web_impl(query: str, limit: int) -> ExploreWebResult:
     resp_plain = _to_plain(resp)
     resp_dict = resp_plain if isinstance(resp_plain, dict) else {"data": resp_plain}
 
-    # Detect Firecrawl error responses explicitly (avoids silently returning []).
     if isinstance(resp_dict, dict) and resp_dict.get("success") is False:
         err = resp_dict.get("error") or resp_dict.get("message") or "Firecrawl search failed"
         logger.warning("Firecrawl search returned success=false: %s", err)
@@ -167,7 +155,6 @@ def _explore_web_impl(query: str, limit: int) -> ExploreWebResult:
                 )
             )
 
-    # Filter out any empty URLs
     items = [i for i in items if i.url]
 
     debug = {
@@ -186,7 +173,6 @@ def _explore_web_impl(query: str, limit: int) -> ExploreWebResult:
         )
 
     return ExploreWebResult(results=items, debug=debug)
-
 
 def get_tool(**kwargs) -> dict:
     def explore_web(query: str, limit: int = 3) -> ExploreWebResult:

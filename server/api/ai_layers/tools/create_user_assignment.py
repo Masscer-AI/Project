@@ -11,10 +11,6 @@ from pydantic import BaseModel, Field
 from api.assignments.actions import create_user_assignment as create_assignment_impl
 from api.assignments.schemas import StepStatus, validate_assignment_metadata
 
-
-# Use Literal instead of Enum so Pydantic emits an inline list of values in
-# the JSON schema rather than a $ref. OpenAI rejects $ref when it carries
-# sibling keywords like "description" or "default".
 class CreateAssignmentStepButtonParam(BaseModel):
     text: str = Field(min_length=1, description="Button label, e.g. 'Open members'")
     action_type: Literal["navigate", "focus_element", "none"] = "navigate"
@@ -25,7 +21,6 @@ class CreateAssignmentStepButtonParam(BaseModel):
             "For focus_element: a focus_targets key. See read_masscer_instructions."
         ),
     )
-
 
 class CreateAssignmentStepParam(BaseModel):
     title: str = Field(min_length=1, description="Step title shown in the checklist")
@@ -47,7 +42,6 @@ class CreateAssignmentStepParam(BaseModel):
         description="Optional Masscer help topic id for reference",
     )
 
-
 class CreateUserAssignmentParams(BaseModel):
     title: str = Field(min_length=1, description="Assignment / workflow title")
     steps: list[CreateAssignmentStepParam] = Field(
@@ -55,19 +49,16 @@ class CreateUserAssignmentParams(BaseModel):
         description="Ordered checklist steps (at least one)",
     )
 
-
 class CreateUserAssignmentStepResult(BaseModel):
     id: str
     title: str
     status: str
-
 
 class CreateUserAssignmentResult(BaseModel):
     id: str
     title: str
     steps: list[CreateUserAssignmentStepResult]
     message: str = "Assignment created successfully"
-
 
 def _create_user_assignment_impl(
     title: str,
@@ -96,7 +87,6 @@ def _create_user_assignment_impl(
             for s in meta.steps
         ],
     )
-
 
 def get_tool(
     user_id: int | None = None,

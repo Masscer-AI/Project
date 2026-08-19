@@ -1,14 +1,12 @@
 from django.core.management.base import BaseCommand
 from api.authenticate.services import FeatureFlagService
 
-
 class Command(BaseCommand):
     help = "Create the 'manage-organization' feature flag if it doesn't exist"
 
     def handle(self, *args, **options):
         feature_flag_name = "manage-organization"
         
-        # Get or create the feature flag
         feature_flag = FeatureFlagService.get_or_create_feature_flag(feature_flag_name)
         
         self.stdout.write(

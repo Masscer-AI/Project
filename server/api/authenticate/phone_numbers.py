@@ -16,18 +16,14 @@ from pydantic import (
 
 _DIGITS_RE = re.compile(r"[^\d]")
 
-# Mexico: ITU E.164 is 52 + 10 national digits. WhatsApp/Meta still uses the
-# legacy mobile insert "1" → 521 + 10 digits (13 total).
 _MX_CC = "52"
 _MX_META_PREFIX = "521"
 _MX_NATIONAL_LEN = 10
-_MX_E164_LEN = 12  # 52 + 10
-_MX_META_LEN = 13  # 521 + 10
-
+_MX_E164_LEN = 12
+_MX_META_LEN = 13
 
 def _digits_only(value: str) -> str:
     return _DIGITS_RE.sub("", value or "")
-
 
 def to_meta_whatsapp_digits(digits: str) -> str:
     """
@@ -45,7 +41,6 @@ def to_meta_whatsapp_digits(digits: str) -> str:
         return _MX_META_PREFIX + d[len(_MX_CC) :]
     return d
 
-
 def whatsapp_phone_match_keys(digits: str) -> set[str]:
     """
     Digit forms that identify the same WhatsApp user.
@@ -61,14 +56,12 @@ def whatsapp_phone_match_keys(digits: str) -> set[str]:
         keys.add(_MX_CC + d[len(_MX_META_PREFIX) :])
     return {k for k in keys if k}
 
-
 def phones_match_whatsapp(left: str, right: str) -> bool:
     """True if two phone digit strings refer to the same WhatsApp identity."""
     left_keys = whatsapp_phone_match_keys(left)
     if not left_keys:
         return False
     return bool(left_keys & whatsapp_phone_match_keys(right))
-
 
 class PhoneNumber(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -99,7 +92,6 @@ class PhoneNumber(BaseModel):
         Users typically enter ITU E.164 (``+52`` + 10 digits). Meta webhooks
         and Graph send use ``521`` + 10 digits, so we store that shape.
         """
-        # country_code mistakenly set to 521 with 10-digit national
         if self.country_code == _MX_META_PREFIX and len(self.number) == _MX_NATIONAL_LEN:
             self.country_code = _MX_CC
             self.number = "1" + self.number
@@ -108,12 +100,10 @@ class PhoneNumber(BaseModel):
         if self.country_code != _MX_CC:
             return self
 
-        # Plain E.164 national (10 digits) → insert Meta mobile "1"
         if len(self.number) == _MX_NATIONAL_LEN:
             self.number = "1" + self.number
             return self
 
-        # Already Meta national (1 + 10 digits)
         if len(self.number) == _MX_NATIONAL_LEN + 1 and self.number.startswith("1"):
             return self
 
@@ -121,8 +111,6 @@ class PhoneNumber(BaseModel):
 
     @model_validator(mode="after")
     def validate_e164_length(self) -> PhoneNumber:
-        # E.164 max is 15 digits including country code.
-        # Meta Mexico (521 + 10) is 13 digits and still within the limit.
         total = len(self.country_code) + len(self.number)
         if total > 15:
             raise ValueError(
@@ -145,7 +133,6 @@ class PhoneNumber(BaseModel):
     def to_json_dict(self) -> dict[str, Any]:
         return self.model_dump()
 
-
 class PhoneNumbers(RootModel[list[PhoneNumber]]):
     root: list[PhoneNumber] = Field(default_factory=list)
 
@@ -157,7 +144,6 @@ class PhoneNumbers(RootModel[list[PhoneNumber]]):
         seen: set[str] = set()
         default_count = 0
         for entry in self.root:
-            # Canonical Meta form so MX E.164 and MX Meta count as duplicates.
             key = entry.whatsapp_digits()
             if key in seen:
                 raise ValueError(f"duplicate phone number: {key}")
@@ -168,7 +154,6 @@ class PhoneNumbers(RootModel[list[PhoneNumber]]):
         if default_count > 1:
             raise ValueError("at most one phone number may have is_default=True")
 
-        # If none marked default and list non-empty, promote the first.
         if self.root and default_count == 0:
             self.root[0].is_default = True
 
@@ -193,10 +178,8 @@ class PhoneNumbers(RootModel[list[PhoneNumber]]):
                 return entry
         return self.root[0] if self.root else None
 
-
 def default_phone_numbers_list() -> list[dict[str, Any]]:
     return []
-
 
 def parse_phone_numbers(raw: Any) -> PhoneNumbers:
     if raw is None or raw == [] or raw == {}:
@@ -205,10 +188,8 @@ def parse_phone_numbers(raw: Any) -> PhoneNumbers:
         return raw
     return PhoneNumbers.model_validate(raw)
 
-
 def validate_phone_numbers_for_storage(raw: Any) -> list[dict[str, Any]]:
     return parse_phone_numbers(raw).to_json_list()
-
 
 def normalize_phone_numbers(raw: Any) -> list[dict[str, Any]]:
     """Merge/validate stored JSON for API reads; empty on invalid legacy data."""

@@ -49,7 +49,6 @@ export type TSpecifiedUrl = {
 export type Store = {
   socket: any;
   messages: Message[];
-  // input: string;
   theme: TTheme;
   theming: {
     mermaid: TMermaidTheme;
@@ -63,7 +62,6 @@ export type Store = {
     isSidebarOpened: boolean;
     attachments: TAttachment[];
     writtingMode: boolean;
-    /** Selected tool names per agent slug, edited via the "Select tools" modal. */
     toolsByAgent: Record<string, string[]>;
     selectedAgents: string[];
     specifiedUrls: TSpecifiedUrl[];
@@ -72,7 +70,6 @@ export type Store = {
   openedModals: string[];
   reactionTemplates: TReactionTemplate[];
   agentTaskStatus: string | null;
-  /** Conversation the current agentTaskStatus belongs to (stop button scoping). */
   agentTaskConversationId: string | null;
   agentTaskEvents: TAgentTaskEvent[];
   userPreferences: TUserPreferences;
@@ -85,14 +82,12 @@ export type Store = {
   setOpenedModals: (opts: SetOpenedProps) => void;
   setMessages: (messages: Message[]) => void;
   setConversation: (conversationId: string | null | undefined) => void;
-  /** Apply conversation payload from the route loader (no extra fetch). */
   hydrateConversation: (conversation: TConversation) => void;
   addAttachment: (newAttachment: TAttachment, saved?: boolean) => void;
   updateAttachment: (
     index: number,
     newAttachment: Partial<TAttachment>
   ) => void;
-  // setInput: (input: string) => void;
   setModels: (models: TModel[]) => void;
   fetchAgents: () => void;
   applyAgentSelectionFromConversation: () => void;
@@ -101,10 +96,8 @@ export type Store = {
   deleteAttachment: (index: number) => void;
   toggleWrittingMode: () => void;
   logout: () => void;
-  /** Replaces the selected tool list for one agent and mirrors Agent.pre_approved_tools in store. */
   setAgentToolNames: (slug: string, names: string[]) => void;
   toggleAgentSelected: (slug: string) => void;
-  /** Full replacement of `chatState.selectedAgents` (and list sort). */
   setChatSelectedAgentSlugs: (slugs: string[]) => void;
   setUser: (user: TUserData) => void;
   setTenantBranding: (branding: TTenantBranding | null) => void;
@@ -118,12 +111,10 @@ export type Store = {
   pushAgentTaskEvent: (event: TAgentTaskEvent) => void;
   clearAgentTaskEvents: () => void;
   test: () => void;
-  /** Team feature flags map from GET /v1/auth/feature-flags/; null until first fetch. */
   featureFlags: Record<string, boolean> | null;
   featureFlagsCheckedAt: number | null;
   featureFlagsLoading: boolean;
   featureFlagsError: Error | null;
   ensureFeatureFlags: (opts?: { force?: boolean }) => Promise<void>;
-  /** Clear client cache (e.g. logout or future permissions-changed websocket). */
   invalidateFeatureFlags: () => void;
 };

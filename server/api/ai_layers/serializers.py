@@ -7,7 +7,6 @@ from api.voices.models import Voice
 
 from .models import Agent, LanguageModel, AgentSession
 
-
 def _extract_slug(value):
     """Extract slug from string or nested ref dict."""
     if value is None:
@@ -18,14 +17,12 @@ def _extract_slug(value):
         return value["slug"]
     return None
 
-
 def _extract_agent_name(agent_value) -> str | None:
     if isinstance(agent_value, dict):
         name = agent_value.get("name")
         if isinstance(name, str) and name.strip():
             return name.strip()
     return None
-
 
 def _parse_maybe_json(value):
     """Parse JSON strings when possible; otherwise return the original value."""
@@ -36,7 +33,6 @@ def _parse_maybe_json(value):
             return value
     return value
 
-
 def _preview_value(value, limit=280):
     if value is None:
         return ""
@@ -45,7 +41,6 @@ def _preview_value(value, limit=280):
     else:
         preview = json.dumps(value, default=str, ensure_ascii=False)
     return preview if len(preview) <= limit else f"{preview[:limit - 3]}..."
-
 
 def extract_tool_calls_from_messages(messages):
     """
@@ -126,14 +121,12 @@ def extract_tool_calls_from_messages(messages):
 
     return tool_calls
 
-
 class LanguageModelSerializer(serializers.ModelSerializer):
     provider = serializers.StringRelatedField()
 
     class Meta:
         model = LanguageModel
         fields = ["id", "provider", "slug", "name", "pricing"]
-
 
 class AgentSerializer(serializers.ModelSerializer):
     llm = LanguageModelSerializer(read_only=True)
@@ -244,7 +237,6 @@ class AgentSerializer(serializers.ModelSerializer):
             return "platform"
         if not obj.organization_id:
             return "personal"
-        # If there are any through rows, the agent is role-restricted.
         has_restrictions = getattr(obj, "role_access_assignments", None) and obj.role_access_assignments.exists()
         return "org_roles" if has_restrictions else "org_all"
 
@@ -253,7 +245,6 @@ class AgentSerializer(serializers.ModelSerializer):
             return []
         roles = obj.allowed_roles.all().only("id", "name")
         return [{"id": str(r.id), "name": r.name} for r in roles]
-
 
 class AgentSessionSerializer(serializers.ModelSerializer):
     """Read-only serializer for AgentSession display (audit, debugging)."""
@@ -288,7 +279,6 @@ class AgentSessionSerializer(serializers.ModelSerializer):
             "ended_at",
         ]
         read_only_fields = fields
-
 
 class AgentSessionExecutionLogSerializer(serializers.ModelSerializer):
     session_id = serializers.UUIDField(source="id", read_only=True)

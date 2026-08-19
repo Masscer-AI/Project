@@ -12,7 +12,6 @@ from pydantic import BaseModel, Field
 from django.db.models import Q
 logger = logging.getLogger(__name__)
 
-
 class RagQueryParams(BaseModel):
     queries: list[str] = Field(
         description="List of search queries to run against the vector store."
@@ -24,12 +23,10 @@ class RagQueryParams(BaseModel):
         description="Number of results to retrieve per query.",
     )
 
-
 class RagQueryResult(BaseModel):
     queries_used: list[str] = Field(default_factory=list)
     results: dict = Field(default_factory=dict, description="Raw vector store query results")
     message: str = Field(default="Successfully queried RAG")
-
 
 def _rag_query_impl(
     *,
@@ -68,7 +65,6 @@ def _rag_query_impl(
 
     collection, created = Collection.get_or_create_agent_collection(agent=agent)
     if created:
-        # No data yet; return empty results.
         return RagQueryResult(queries_used=cleaned, results={}, message="No collection found; created new one")
 
     try:
@@ -89,7 +85,6 @@ def _rag_query_impl(
 
     return RagQueryResult(queries_used=cleaned, results={"results": results})
 
-
 def get_tool(
     user_id: int | None = None,
     agent_slug: str | None = None,
@@ -101,7 +96,6 @@ def get_tool(
     """
     if not agent_slug:
         raise ValueError("rag_query requires agent_slug in tool context")
-    # Widget context: use agent owner as user context for access check.
     if user_id is None:
         from api.ai_layers.models import Agent
 

@@ -28,7 +28,6 @@ import "./AssignmentsPanel.css";
 
 type AssignmentsPanelProps = {
   disabled?: boolean;
-  /** Fixed dock visible on every authenticated page */
   floating?: boolean;
 };
 
@@ -41,7 +40,6 @@ const AUTH_PATHS = new Set([
 
 function isAuthOrOAuthPath(pathname: string): boolean {
   if (AUTH_PATHS.has(pathname)) return true;
-  // Keep onboarding widgets off OAuth consent (and any future /oauth/* SPA pages).
   return pathname === "/oauth" || pathname.startsWith("/oauth/");
 }
 
@@ -128,7 +126,6 @@ export const AssignmentsPanel: React.FC<AssignmentsPanelProps> = ({
       return;
     }
 
-    // navigate (default)
     const path = step.route || (target && target.startsWith("/") ? target : null);
     if (!path) return;
     navigate(path);

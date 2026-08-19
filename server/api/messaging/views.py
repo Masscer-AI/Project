@@ -74,7 +74,6 @@ logger = logging.getLogger(__name__)
 
 CAN_EDIT_CONVERSATION_DATA_FLAG = "can-edit-conversation-data"
 
-
 def _deny_unless_can_replace_agent(request, conversation=None):
     user = request.user
     if not user_can_replace_agent(user, conversation):
@@ -90,14 +89,12 @@ def _deny_unless_can_replace_agent(request, conversation=None):
         )
     return None
 
-
 def _conversation_eligible_for_takeover(conversation, user) -> bool:
     if conversation.chat_widget_id or conversation.ws_number_id:
         return True
     if conversation.user_id and conversation.user_id != user.id:
         return True
     return False
-
 
 def _resolve_organization_for_user_flag(user, conversation=None):
     if conversation is not None and getattr(conversation, "organization_id", None):
@@ -108,7 +105,6 @@ def _resolve_organization_for_user_flag(user, conversation=None):
     if hasattr(user, "profile") and user.profile.organization_id:
         return Organization.objects.filter(pk=user.profile.organization_id).first()
     return None
-
 
 def _deny_unless_can_edit_conversation_data(request, conversation=None):
     """Require can-edit-conversation-data to edit, delete, or truncate chat history."""
@@ -131,7 +127,6 @@ def _deny_unless_can_edit_conversation_data(request, conversation=None):
             status=403,
         )
     return None
-
 
 def _get_conversation_for_user(request, conversation_id):
     """
@@ -157,7 +152,6 @@ def _get_conversation_for_user(request, conversation_id):
         {"message": "Conversation not found", "status": 404}, status=404
     )
 
-
 def _get_org_user_ids(user):
     """Get all user IDs in the user's organization(s). Returns None if user has no org (fallback to own only)."""
     owned_orgs = Organization.objects.filter(owner=user)
@@ -175,7 +169,6 @@ def _get_org_user_ids(user):
     )
     return list(owner_ids | member_ids)
 
-
 def _organization_ids_accessible_by_user(user) -> list:
     """Org UUIDs the user owns or belongs to (via profile). Used for anonymous WhatsApp threads."""
     ids = list(Organization.objects.filter(owner=user).values_list("id", flat=True))
@@ -186,12 +179,10 @@ def _organization_ids_accessible_by_user(user) -> list:
             ids.append(oid)
     return ids
 
-
 def _org_member_user_ids(organization_id) -> list[int]:
     from api.messaging.organization_scope import org_member_user_ids
 
     return org_member_user_ids(organization_id)
-
 
 def organization_conversations_q(organization_id) -> Q:
     from api.messaging.organization_scope import (
@@ -199,7 +190,6 @@ def organization_conversations_q(organization_id) -> Q:
     )
 
     return _organization_conversations_q(organization_id)
-
 
 def _user_can_access_conversation(user, conversation):
     if conversation.user_id == user.id:
@@ -213,7 +203,6 @@ def _user_can_access_conversation(user, conversation):
         or (conversation.user_id is None and widget_owner_id in org_user_ids)
     ):
         return True
-    # Anonymous WhatsApp (same idea as widget: user is null; scope is org / line ownership)
     if (
         org_user_ids
         and conversation.user_id is None
@@ -230,7 +219,6 @@ def _user_can_access_conversation(user, conversation):
                 return True
     return False
 
-
 def _whatsapp_line_filter_options(user) -> list[dict]:
     """WhatsApp Business lines visible to this user (for dashboard filters)."""
     from api.whatsapp.conversations import ws_number_visible_q
@@ -246,7 +234,6 @@ def _whatsapp_line_filter_options(user) -> list[dict]:
         label = f"{name} ({num})" if name else num or f"Line {ws.id}"
         out.append({"id": ws.id, "label": label})
     return out
-
 
 def _build_conversation_list_queryset(request, user):
     """
@@ -281,7 +268,6 @@ def _build_conversation_list_queryset(request, user):
         else:
             conversations = Conversation.objects.filter(user=user)
 
-    # Status filter
     if status_param in ("", "active_inactive"):
         conversations = conversations.filter(status__in=["active", "inactive"])
     elif status_param == "all":
@@ -297,7 +283,6 @@ def _build_conversation_list_queryset(request, user):
             status=400,
         )
 
-    # Chat widget filter
     if chat_widget_id:
         if chat_widget_id.lower() == "none":
             conversations = conversations.filter(chat_widget__isnull=True)
@@ -331,7 +316,6 @@ def _build_conversation_list_queryset(request, user):
         else:
             conversations = conversations.none()
 
-    # Channel: app (signed-in) | widget | whatsapp (subset of org list)
     channel = (request.GET.get("channel") or "").strip().lower()
     if channel == "whatsapp":
         conversations = conversations.filter(ws_number__isnull=False)
@@ -352,7 +336,6 @@ def _build_conversation_list_queryset(request, user):
             status=400,
         )
 
-    # Search (title, id, summary)
     search = (request.GET.get("search") or "").strip()
     if search:
         search_q = Q()
@@ -365,12 +348,10 @@ def _build_conversation_list_queryset(request, user):
             )
         conversations = conversations.filter(search_q)
 
-    # User filter
     user_id_param = (request.GET.get("user_id") or "").strip()
     if user_id_param and user_id_param.isdigit():
         conversations = conversations.filter(user_id=int(user_id_param))
 
-    # Date range (accepts YYYY-MM-DD or ISO)
     date_from = (request.GET.get("date_from") or "").strip()
     if date_from:
         try:
@@ -401,7 +382,6 @@ def _build_conversation_list_queryset(request, user):
         except (ValueError, TypeError):
             pass
 
-    # Tags filter (conversations that have any of these tag ids)
     tags_param = (request.GET.get("tags") or "").strip()
     if tags_param:
         tag_ids = []
@@ -412,7 +392,6 @@ def _build_conversation_list_queryset(request, user):
             tag_qs = [Q(tags__contains=[tid]) for tid in tag_ids]
             conversations = conversations.filter(reduce(or_, tag_qs))
 
-    # Alert rules filter (conversations that have alerts from any of these rules)
     alert_rules_param = (request.GET.get("alert_rules") or "").strip()
     if alert_rules_param:
         rule_ids = [x.strip() for x in alert_rules_param.split(",") if x.strip()]
@@ -421,7 +400,6 @@ def _build_conversation_list_queryset(request, user):
                 alerts__alert_rule_id__in=rule_ids
             ).distinct()
 
-    # Min/max messages – annotate and filter (exclude 0-message convos by default)
     conversations = conversations.annotate(msg_count=Count("messages"))
     min_messages = request.GET.get("min_messages")
     if min_messages is not None and str(min_messages).strip().isdigit():
@@ -433,7 +411,6 @@ def _build_conversation_list_queryset(request, user):
     if max_messages is not None and str(max_messages).isdigit():
         conversations = conversations.filter(msg_count__lte=int(max_messages))
 
-    # Sort
     sort_by = (request.GET.get("sort_by") or "newest").lower()
     messages_sort = (request.GET.get("messages_sort") or "none").lower()
     if messages_sort in ("asc", "desc"):
@@ -446,7 +423,6 @@ def _build_conversation_list_queryset(request, user):
             conversations = conversations.order_by("-created_at", "-id")
 
     return conversations
-
 
 def _rate_limit_widget_request(
     *,
@@ -469,7 +445,6 @@ def _rate_limit_widget_request(
     cache.incr(key)
     return None
 
-
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class ConversationStatsView(View):
@@ -489,7 +464,6 @@ class ConversationStatsView(View):
         week_ago = now - timedelta(days=7)
         last_7_days = conversations.filter(created_at__gte=week_ago).count()
 
-        # Per-day breakdown for last 7 days (for chart)
         from django.db.models.functions import TruncDate
         last_7_days_breakdown = list(
             conversations.filter(created_at__gte=week_ago)
@@ -536,7 +510,6 @@ class ConversationStatsView(View):
             safe=False,
         )
 
-
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class ConversationView(View):
@@ -556,7 +529,6 @@ class ConversationView(View):
             if isinstance(conversations, JsonResponse):
                 return conversations
 
-            # Filter options for user dropdown (from full filtered set, before pagination)
             user_ids = list(
                 conversations.values_list("user_id", flat=True).distinct()
             )[:100]
@@ -567,7 +539,6 @@ class ConversationView(View):
                 else []
             )
 
-            # Pagination
             limit = min(max(1, int(request.GET.get("limit", 50))), 100)
             offset = max(0, int(request.GET.get("offset", 0)))
             total = conversations.count()
@@ -602,23 +573,23 @@ class ConversationView(View):
             user=user, messages__isnull=True, status__in=["active", "inactive"]
         ).first()
         if existing_conversation:
-            data = BigConversationSerializer(existing_conversation, context={'request': request}).data
-            return JsonResponse(data, status=200)
+            conversation_data = BigConversationSerializer(existing_conversation, context={'request': request}).data
+            return JsonResponse(conversation_data, status=200)
 
         conversation = Conversation.objects.create(user=user)
-        data = BigConversationSerializer(conversation, context={'request': request}).data
-        return JsonResponse(data, status=201)
+        conversation_data = BigConversationSerializer(conversation, context={'request': request}).data
+        return JsonResponse(conversation_data, status=201)
 
     def put(self, request, *args, **kwargs):
         user = request.user
-        data = json.loads(request.body)
+        update_payload = json.loads(request.body)
         conversation_id = kwargs.get("id")
 
         conversation, err = _get_conversation_for_user(request, conversation_id)
         if err:
             return err
 
-        regenerate = data.get("regenerate", None)
+        regenerate = update_payload.get("regenerate", None)
         if regenerate:
             deny = _deny_unless_can_edit_conversation_data(request, conversation)
             if deny:
@@ -631,21 +602,18 @@ class ConversationView(View):
             return deny
 
         try:
-            # Validate and sanitize tags if present
-            if "tags" in data:
-                raw_tags = data["tags"]
+            if "tags" in update_payload:
+                raw_tags = update_payload["tags"]
                 if not isinstance(raw_tags, list):
                     return JsonResponse(
                         {"message": "Tags must be a list of tag IDs"}, status=400
                     )
-                # Coerce to integers, discard any non-numeric values
                 tag_ids = []
                 for t in raw_tags:
                     try:
                         tag_ids.append(int(t))
                     except (ValueError, TypeError):
                         continue
-                # Only keep IDs that actually exist as enabled Tags
                 if tag_ids:
                     valid_ids = list(
                         Tag.objects.filter(id__in=tag_ids, enabled=True)
@@ -653,10 +621,10 @@ class ConversationView(View):
                     )
                 else:
                     valid_ids = []
-                data["tags"] = valid_ids
+                update_payload["tags"] = valid_ids
 
-            if "summary" in data:
-                raw_summary = data["summary"]
+            if "summary" in update_payload:
+                raw_summary = update_payload["summary"]
                 if raw_summary is not None and not isinstance(raw_summary, str):
                     return JsonResponse(
                         {"message": "summary must be a string or null"},
@@ -664,15 +632,14 @@ class ConversationView(View):
                     )
                 if isinstance(raw_summary, str):
                     trimmed = raw_summary.strip()
-                    # Align with agent tool cap; TextField has no DB max
-                    data["summary"] = trimmed[:12000] if trimmed else None
+                    update_payload["summary"] = trimmed[:12000] if trimmed else None
                 else:
-                    data["summary"] = None
+                    update_payload["summary"] = None
 
-            if "metadata" in data:
-                raw_meta = data["metadata"]
+            if "metadata" in update_payload:
+                raw_meta = update_payload["metadata"]
                 if raw_meta is None:
-                    data["metadata"] = {}
+                    update_payload["metadata"] = {}
                     raw_meta = {}
                 if not isinstance(raw_meta, dict):
                     return JsonResponse(
@@ -697,9 +664,8 @@ class ConversationView(View):
                             },
                             status=403,
                         )
-                data["metadata"] = meta_model.model_dump(mode="json", exclude_none=True)
+                update_payload["metadata"] = meta_model.model_dump(mode="json", exclude_none=True)
 
-            # Whitelist of allowed fields to update
             ALLOWED_FIELDS = {
                 "title",
                 "tags",
@@ -707,21 +673,18 @@ class ConversationView(View):
                 "summary",
                 "metadata",
             }
-            for key, value in data.items():
+            for key, value in update_payload.items():
                 if key in ALLOWED_FIELDS:
                     setattr(conversation, key, value)
 
-            # Save the updated instance
             conversation.save()
 
-            # Serialize the updated conversation
             serialized_data = ConversationSerializer(conversation, context={'request': request}).data
             return JsonResponse(serialized_data, status=200)
         except Conversation.DoesNotExist:
             return JsonResponse(
                 {"message": "Conversation not found", "status": 404}, status=404
             )
-
 
     def delete(self, request, *args, **kwargs):
         conversation_id = kwargs.get("id")
@@ -736,18 +699,17 @@ class ConversationView(View):
         conversation.save(update_fields=["status", "deleted_at", "updated_at"])
         return JsonResponse({"status": "deleted"})
 
-
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class ConversationBulkView(View):
     def post(self, request, *args, **kwargs):
         try:
-            data = json.loads(request.body)
+            bulk_action_payload = json.loads(request.body)
         except json.JSONDecodeError:
             return JsonResponse({"message": "Invalid JSON", "status": 400}, status=400)
 
-        action = (data.get("action") or "").strip().lower()
-        conversation_ids = data.get("conversation_ids") or []
+        action = (bulk_action_payload.get("action") or "").strip().lower()
+        conversation_ids = bulk_action_payload.get("conversation_ids") or []
         if action not in ("archive", "unarchive", "delete"):
             return JsonResponse(
                 {"message": "action must be archive, unarchive, or delete", "status": 400},
@@ -789,7 +751,7 @@ class ConversationBulkView(View):
                 conversation.status = "active" if is_recent else "inactive"
                 conversation.archived_at = None
                 conversation.deleted_at = None
-            else:  # delete
+            else:
                 conversation.status = "deleted"
                 conversation.deleted_at = now
             conversation.save(update_fields=["status", "archived_at", "deleted_at", "updated_at"])
@@ -800,18 +762,17 @@ class ConversationBulkView(View):
             status=200,
         )
 
-
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class MessageView(View):
     def post(self, request, *args, **kwargs):
         try:
-            data = json.loads(request.body)
+            message_payload = json.loads(request.body)
         except json.JSONDecodeError:
             return JsonResponse(
                 {"message": "Invalid JSON", "status": 400}, status=400
             )
-        conversation_id = data.get("conversation")
+        conversation_id = message_payload.get("conversation")
 
         if not conversation_id:
             return JsonResponse(
@@ -827,7 +788,7 @@ class MessageView(View):
                 {"message": "Conversation not found", "status": 404}, status=404
             )
 
-        if not conversation.title and data.get("type") == "assistant":
+        if not conversation.title and message_payload.get("type") == "assistant":
             logger.info(
                 "MessageView.post scheduling generate_title (REST assistant message): "
                 "conversation_id=%s",
@@ -835,7 +796,7 @@ class MessageView(View):
             )
             conversation.generate_title()
 
-        serializer = MessageSerializer(data=data)
+        serializer = MessageSerializer(data=message_payload)
 
         if serializer.is_valid():
             serializer.save()
@@ -844,7 +805,7 @@ class MessageView(View):
             return JsonResponse(serializer.errors, status=400)
 
     def put(self, request, *args, **kwargs):
-        data = json.loads(request.body)
+        message_payload = json.loads(request.body)
         message_id = kwargs.get("id")
 
         try:
@@ -860,7 +821,7 @@ class MessageView(View):
         if deny:
             return deny
 
-        serializer = MessageSerializer(message, data=data, partial=True)
+        serializer = MessageSerializer(message, data=message_payload, partial=True)
 
         if serializer.is_valid():
             serializer.save()
@@ -887,7 +848,6 @@ class MessageView(View):
                 {"message": "Message not found", "status": 404}, status=404
             )
 
-
 @csrf_exempt
 def upload_audio(request):
     if request.method == "POST" and request.FILES.get("audio_file"):
@@ -903,31 +863,19 @@ def upload_audio(request):
 
         transcription = transcribe_audio(file_path)
 
-        # Generate speech from the transcription
-        # speech_output_path = os.path.join(
-        #     settings.MEDIA_ROOT, "audio_files", f"{random_filename_speech}"
-        # )
-        # audio_data = generate_speech_api(transcription, speech_output_path)
-
-        # with open(speech_output_path, "rb") as audio_file:
-        #     audio_data = audio_file.read()
-        # print(audio_data, "AUDIO DATA")
         return JsonResponse(
             {
                 "transcription": transcription,
-                # "speech_audio": audio_data.decode("latin-1"),
             }
         )
 
     return JsonResponse({"error": "Invalid request"}, status=400)
-
 
 def _widget_allow_visitor_attachments(widget: ChatWidget) -> bool:
     style = getattr(widget, "style", None) or {}
     if not isinstance(style, dict):
         return False
     return bool(style.get("allow_visitor_attachments"))
-
 
 def _create_attachments_from_data_urls(request, conversation, user, attachments_data):
     """
@@ -943,7 +891,7 @@ def _create_attachments_from_data_urls(request, conversation, user, attachments_
 
     from django.core.files.base import ContentFile
 
-    result = []
+    created_attachments = []
     for i, att in enumerate(attachments_data):
         if not isinstance(att, dict):
             return None, JsonResponse(
@@ -1019,10 +967,9 @@ def _create_attachments_from_data_urls(request, conversation, user, attachments_
             content_type=content_type,
         )
         url = request.build_absolute_uri(attachment.file.url)
-        result.append({"id": str(attachment.id), "url": url})
+        created_attachments.append({"id": str(attachment.id), "url": url})
 
-    return result, None
-
+    return created_attachments, None
 
 @csrf_exempt
 @token_required
@@ -1037,12 +984,12 @@ def upload_message_attachments(request):
         return JsonResponse({"error": "Authentication required"}, status=401)
 
     try:
-        data = json.loads(request.body) if request.body else {}
+        upload_payload = json.loads(request.body) if request.body else {}
     except json.JSONDecodeError:
         return JsonResponse({"error": "Invalid JSON"}, status=400)
 
-    conversation_id = data.get("conversation_id")
-    attachments_data = data.get("attachments", [])
+    conversation_id = upload_payload.get("conversation_id")
+    attachments_data = upload_payload.get("attachments", [])
 
     if not conversation_id:
         return JsonResponse({"error": "conversation_id is required"}, status=400)
@@ -1053,13 +1000,12 @@ def upload_message_attachments(request):
     if err:
         return err
 
-    result, resp_err = _create_attachments_from_data_urls(
+    uploaded_attachments, resp_err = _create_attachments_from_data_urls(
         request, conv, request.user, attachments_data
     )
     if resp_err is not None:
         return resp_err
-    return JsonResponse({"attachments": result})
-
+    return JsonResponse({"attachments": uploaded_attachments})
 
 @csrf_exempt
 @token_required
@@ -1077,12 +1023,12 @@ def link_message_attachment(request):
         return JsonResponse({"error": "Authentication required"}, status=401)
 
     try:
-        data = json.loads(request.body) if request.body else {}
+        link_payload = json.loads(request.body) if request.body else {}
     except json.JSONDecodeError:
         return JsonResponse({"error": "Invalid JSON"}, status=400)
 
-    conversation_id = data.get("conversation_id")
-    kind = data.get("kind")
+    conversation_id = link_payload.get("conversation_id")
+    kind = link_payload.get("kind")
     if not conversation_id:
         return JsonResponse({"error": "conversation_id is required"}, status=400)
     if kind not in ("rag_document", "website"):
@@ -1096,7 +1042,7 @@ def link_message_attachment(request):
         return err
 
     if kind == "rag_document":
-        rag_document_id = data.get("rag_document_id") or data.get("document_id")
+        rag_document_id = link_payload.get("rag_document_id") or link_payload.get("document_id")
         if rag_document_id is None:
             return JsonResponse({"error": "rag_document_id is required"}, status=400)
         try:
@@ -1121,12 +1067,10 @@ def link_message_attachment(request):
         )
         return JsonResponse({"attachment": {"id": str(attachment.id)}})
 
-    # kind == "website"
-    url = data.get("url")
+    url = link_payload.get("url")
     if not url:
         return JsonResponse({"error": "url is required"}, status=400)
 
-    # Snapshot content via Firecrawl so the agent can read without refetch.
     snapshot_content = None
     snapshot_title = None
     snapshot_source_url = url
@@ -1139,7 +1083,6 @@ def link_message_attachment(request):
         firecrawl = Firecrawl(api_key=settings.FIRECRAWL_API_KEY)
         scrape = firecrawl.scrape(url, formats=["markdown"])
 
-        # SDK shape varies; normalize.
         if isinstance(scrape, dict):
             snapshot_content = (
                 scrape.get("markdown")
@@ -1155,7 +1098,6 @@ def link_message_attachment(request):
                 snapshot_title = meta.get("title")
                 snapshot_source_url = meta.get("sourceURL") or meta.get("source_url") or url
     except Exception:
-        # If Firecrawl fails, still create the attachment with just URL.
         snapshot_content = None
 
     attachment = MessageAttachment.objects.create(
@@ -1183,14 +1125,11 @@ def link_message_attachment(request):
         }
     )
 
-
 @csrf_exempt
 def get_suggestion(request):
-    data = json.loads(request.body)
-    # print(data.get("input"), "INPUT TO GET SUGGESTION")
-    suggestion = complete_message(data.get("input"))
+    suggestion_payload = json.loads(request.body)
+    suggestion = complete_message(suggestion_payload.get("input"))
     return JsonResponse({"suggestion": suggestion})
-
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="post")
@@ -1207,9 +1146,9 @@ class SharedConversationView(View):
         return JsonResponse(serialized_conversation, safe=False)
 
     def post(self, request, *args, **kwargs):
-        data = json.loads(request.body)
-        conversation_id = data.get("conversation")
-        valid_until = data.get("valid_until", None)
+        share_payload = json.loads(request.body)
+        conversation_id = share_payload.get("conversation")
+        valid_until = share_payload.get("valid_until", None)
 
         print(conversation_id, valid_until, "CONVERSATION ID AND VALID UNTIL")
         if not conversation_id:
@@ -1227,7 +1166,6 @@ class SharedConversationView(View):
             )
 
         if not valid_until:
-            # Default to 30 days
             valid_until = timezone.now() + timedelta(days=30)
         shared_conversation = SharedConversation.objects.create(
             conversation=conversation, user=request.user, valid_until=valid_until
@@ -1236,7 +1174,6 @@ class SharedConversationView(View):
         return JsonResponse(
             {"status": "created", "id": shared_conversation.id}, status=201
         )
-
 
 @method_decorator(csrf_exempt, name="dispatch")
 class ChatWidgetConfigView(View):
@@ -1250,7 +1187,6 @@ class ChatWidgetConfigView(View):
 
         serializer = ChatWidgetConfigSerializer(widget)
         return JsonResponse(serializer.data, safe=False)
-
 
 @method_decorator(csrf_exempt, name="dispatch")
 class ChatWidgetSessionView(View):
@@ -1291,7 +1227,6 @@ class ChatWidgetSessionView(View):
         if session.is_blocked:
             return JsonResponse({"error": "Widget session blocked"}, status=403)
 
-        # Keep session alive for persistent browser identity.
         session.expires_at = expires_at
         session.origin = defaults["origin"]
         session.user_agent = defaults["user_agent"]
@@ -1314,7 +1249,6 @@ class ChatWidgetSessionView(View):
             safe=False,
         )
 
-
 def _get_widget_organization(widget):
     owner = getattr(widget, "created_by", None)
     if not owner:
@@ -1325,7 +1259,6 @@ def _get_widget_organization(widget):
     if hasattr(owner, "profile") and owner.profile.organization:
         return owner.profile.organization
     return None
-
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(widget_session_required, name="dispatch")
@@ -1350,10 +1283,10 @@ class ChatWidgetConversationView(View):
             status__in=["active", "inactive"],
         ).first()
         if existing_conversation:
-            data = BigConversationSerializer(
+            conversation_data = BigConversationSerializer(
                 existing_conversation, context={"request": request}
             ).data
-            return JsonResponse(data, status=200)
+            return JsonResponse(conversation_data, status=200)
 
         conversation = Conversation.objects.create(
             user=None,
@@ -1361,9 +1294,8 @@ class ChatWidgetConversationView(View):
             chat_widget=request.widget,
             widget_visitor_session=session,
         )
-        data = BigConversationSerializer(conversation, context={"request": request}).data
-        return JsonResponse(data, status=201)
-
+        conversation_data = BigConversationSerializer(conversation, context={"request": request}).data
+        return JsonResponse(conversation_data, status=201)
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(widget_session_required, name="dispatch")
@@ -1382,12 +1314,12 @@ class ChatWidgetAgentTaskView(View):
             return JsonResponse({"error": "Widget token mismatch"}, status=403)
 
         try:
-            data = json.loads(request.body)
+            agent_task_payload = json.loads(request.body)
         except json.JSONDecodeError:
             return JsonResponse({"error": "Invalid JSON body"}, status=400)
 
-        conversation_id = data.get("conversation_id")
-        user_inputs = data.get("user_inputs")
+        conversation_id = agent_task_payload.get("conversation_id")
+        user_inputs = agent_task_payload.get("user_inputs")
         if not conversation_id or not isinstance(user_inputs, list) or not user_inputs:
             return JsonResponse(
                 {
@@ -1416,7 +1348,7 @@ class ChatWidgetAgentTaskView(View):
                         status=403,
                     )
 
-        client_datetime = data.get("client_datetime")
+        client_datetime = agent_task_payload.get("client_datetime")
         if client_datetime is not None and not isinstance(client_datetime, dict):
             return JsonResponse(
                 {"error": "client_datetime must be an object when provided"},
@@ -1453,8 +1385,6 @@ class ChatWidgetAgentTaskView(View):
             if isinstance(name, str) and name in available_tools:
                 configured_tools.append(name)
 
-        # No authenticated Masscer user behind a public widget visitor —
-        # drop any tool that requires one (e.g. calendar, org membership).
         tool_names = resolve_allowed_tools(configured_tools, user=None)
 
         from api.messaging.schemas import metadata_payload_for_related_agents
@@ -1475,11 +1405,10 @@ class ChatWidgetAgentTaskView(View):
             agent_slug=request.widget.agent.slug,
             widget_token=request.widget.token,
             widget_session_id=str(request.widget_visitor_session.id),
-            regenerate_message_id=data.get("regenerate_message_id"),
+            regenerate_message_id=agent_task_payload.get("regenerate_message_id"),
             client_datetime=client_datetime,
         )
         return JsonResponse({"task_id": task.id, "status": "accepted"}, status=202)
-
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(widget_session_required, name="dispatch")
@@ -1506,12 +1435,12 @@ class ChatWidgetAttachmentsUploadView(View):
             )
 
         try:
-            data = json.loads(request.body)
+            attachments_payload = json.loads(request.body)
         except json.JSONDecodeError:
             return JsonResponse({"error": "Invalid JSON body"}, status=400)
 
-        conversation_id = data.get("conversation_id")
-        attachments_data = data.get("attachments", [])
+        conversation_id = attachments_payload.get("conversation_id")
+        attachments_data = attachments_payload.get("attachments", [])
         if not conversation_id:
             return JsonResponse({"error": "conversation_id is required"}, status=400)
 
@@ -1524,13 +1453,12 @@ class ChatWidgetAttachmentsUploadView(View):
         except Conversation.DoesNotExist:
             return JsonResponse({"error": "Conversation not found"}, status=404)
 
-        result, resp_err = _create_attachments_from_data_urls(
+        uploaded_attachments, resp_err = _create_attachments_from_data_urls(
             request, conversation, None, attachments_data
         )
         if resp_err is not None:
             return resp_err
-        return JsonResponse({"attachments": result})
-
+        return JsonResponse({"attachments": uploaded_attachments})
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(widget_session_required, name="dispatch")
@@ -1545,7 +1473,6 @@ class ChatWidgetSocketAuthView(View):
             },
             status=200,
         )
-
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(widget_session_required, name="dispatch")
@@ -1562,9 +1489,8 @@ class ChatWidgetConversationsListView(View):
             .filter(msg_count__gt=0)
             .order_by("-created_at")
         )
-        data = WidgetConversationSummarySerializer(conversations, many=True).data
-        return JsonResponse({"conversations": list(data)}, status=200)
-
+        conversations_data = WidgetConversationSummarySerializer(conversations, many=True).data
+        return JsonResponse({"conversations": list(conversations_data)}, status=200)
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(widget_session_required, name="dispatch")
@@ -1580,9 +1506,8 @@ class ChatWidgetConversationDetailView(View):
             )
         except Conversation.DoesNotExist:
             return JsonResponse({"error": "Conversation not found"}, status=404)
-        data = BigConversationSerializer(conv, context={"request": request}).data
-        return JsonResponse(data, status=200)
-
+        conversation_data = BigConversationSerializer(conv, context={"request": request}).data
+        return JsonResponse(conversation_data, status=200)
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
@@ -1624,7 +1549,6 @@ class ChatWidgetView(View):
         widget_id = kwargs.get("id")
         
         if widget_id:
-            # Get single widget
             try:
                 widget = ChatWidget.objects.get(id=widget_id, created_by=user)
                 serializer = ChatWidgetSerializer(widget, context={'request': request})
@@ -1634,7 +1558,6 @@ class ChatWidgetView(View):
                     {"message": "Widget not found", "status": 404}, status=404
                 )
         else:
-            # Get all widgets for the user
             widgets = ChatWidget.objects.filter(created_by=user).order_by("-created_at")
             serializer = ChatWidgetSerializer(widgets, many=True, context={'request': request})
             return JsonResponse(serializer.data, safe=False)
@@ -1646,14 +1569,13 @@ class ChatWidgetView(View):
         self._check_permission(user, organization)
         
         try:
-            data = json.loads(request.body)
+            widget_payload = json.loads(request.body)
         except json.JSONDecodeError:
             return JsonResponse(
                 {"message": "Invalid JSON", "status": 400}, status=400
             )
-        
-        # Validate that agent belongs to user
-        agent_id = data.get("agent_id")
+
+        agent_id = widget_payload.get("agent_id")
         if agent_id:
             user_agents = self._get_user_agents(user)
             if not user_agents.filter(id=agent_id).exists():
@@ -1661,8 +1583,8 @@ class ChatWidgetView(View):
                     {"message": "Agent not found or not accessible", "status": 403},
                     status=403
                 )
-        
-        serializer = ChatWidgetSerializer(data=data, context={'request': request})
+
+        serializer = ChatWidgetSerializer(data=widget_payload, context={'request': request})
         if serializer.is_valid():
             serializer.save(created_by=user)
             return JsonResponse(serializer.data, status=201)
@@ -1692,14 +1614,13 @@ class ChatWidgetView(View):
             )
         
         try:
-            data = json.loads(request.body)
+            widget_payload = json.loads(request.body)
         except json.JSONDecodeError:
             return JsonResponse(
                 {"message": "Invalid JSON", "status": 400}, status=400
             )
-        
-        # Validate that agent belongs to user if being changed
-        agent_id = data.get("agent_id")
+
+        agent_id = widget_payload.get("agent_id")
         if agent_id:
             user_agents = self._get_user_agents(user)
             if not user_agents.filter(id=agent_id).exists():
@@ -1707,8 +1628,8 @@ class ChatWidgetView(View):
                     {"message": "Agent not found or not accessible", "status": 403},
                     status=403
                 )
-        
-        serializer = ChatWidgetSerializer(widget, data=data, partial=True, context={'request': request})
+
+        serializer = ChatWidgetSerializer(widget, data=widget_payload, partial=True, context={'request': request})
         if serializer.is_valid():
             serializer.save()
             return JsonResponse(serializer.data, safe=False)
@@ -1742,7 +1663,6 @@ class ChatWidgetView(View):
                 {"message": "Widget not found", "status": 404}, status=404
             )
 
-
 WIDGET_AVATAR_MAX_BYTES = 2 * 1024 * 1024
 WIDGET_AVATAR_ALLOWED_CONTENT_TYPES = {
     "image/jpeg",
@@ -1751,7 +1671,6 @@ WIDGET_AVATAR_ALLOWED_CONTENT_TYPES = {
     "image/gif",
 }
 WIDGET_AVATAR_ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "gif"}
-
 
 def _validate_widget_avatar_file(uploaded_file):
     if not uploaded_file:
@@ -1767,7 +1686,6 @@ def _validate_widget_avatar_file(uploaded_file):
     if ext and ext not in WIDGET_AVATAR_ALLOWED_EXTENSIONS:
         return "avatar must be a JPEG, PNG, WebP, or GIF image"
     return None
-
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
@@ -1830,7 +1748,6 @@ class ChatWidgetAvatarView(ChatWidgetView):
         serializer = ChatWidgetSerializer(widget, context={"request": request})
         return JsonResponse(serializer.data, status=200)
 
-
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class ConversationAlertView(View):
@@ -1849,7 +1766,6 @@ class ConversationAlertView(View):
         user_organizations = self._get_user_organizations(user)
         
         if alert_id:
-            # Get single alert
             try:
                 alert = ConversationAlert.objects.get(
                     id=alert_id,
@@ -1862,10 +1778,8 @@ class ConversationAlertView(View):
                     {"message": "Alert not found", "status": 404}, status=404
                 )
         else:
-            # Get all alerts filtered by status
             status_filter = request.GET.get("status", "all")
             
-            # Get alerts from user's organizations
             alerts = ConversationAlert.objects.filter(
                 alert_rule__organization__in=user_organizations
             )
@@ -1880,15 +1794,15 @@ class ConversationAlertView(View):
     def put(self, request, *args, **kwargs):
         user = request.user
         alert_id = kwargs.get("id")
-        data = json.loads(request.body)
-        
+        alert_update_payload = json.loads(request.body)
+
         if not alert_id:
             return JsonResponse(
                 {"message": "Alert ID is required", "status": 400}, status=400
             )
-        
+
         user_organizations = self._get_user_organizations(user)
-        
+
         try:
             alert = ConversationAlert.objects.get(
                 id=alert_id,
@@ -1898,9 +1812,8 @@ class ConversationAlertView(View):
             return JsonResponse(
                 {"message": "Alert not found", "status": 404}, status=404
             )
-        
-        # Update status
-        new_status = data.get("status")
+
+        new_status = alert_update_payload.get("status")
         if new_status:
             if new_status.upper() not in ["PENDING", "NOTIFIED", "RESOLVED", "DISMISSED"]:
                 return JsonResponse(
@@ -1908,7 +1821,6 @@ class ConversationAlertView(View):
                 )
             alert.status = new_status.upper()
             
-            # Set resolved_by or dismissed_by based on status
             if new_status.upper() == "RESOLVED":
                 alert.resolved_by = user
                 alert.dismissed_by = None
@@ -1921,22 +1833,18 @@ class ConversationAlertView(View):
         serializer = ConversationAlertSerializer(alert, context={'request': request})
         return JsonResponse(serializer.data, safe=False)
 
-
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class ConversationAlertStatsView(View):
     def get(self, request):
         user = request.user
         
-        # Get user's organizations
         owned_orgs = Organization.objects.filter(owner=user)
-        # Get organization from user profile
         member_orgs = Organization.objects.none()
         if hasattr(user, 'profile') and user.profile.organization:
             member_orgs = Organization.objects.filter(id=user.profile.organization.id)
         user_organizations = (owned_orgs | member_orgs).distinct()
         
-        # Get alerts from user's organizations
         alerts = ConversationAlert.objects.filter(
             alert_rule__organization__in=user_organizations
         )
@@ -1951,7 +1859,6 @@ class ConversationAlertStatsView(View):
         
         return JsonResponse(stats, safe=False)
 
-
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class ConversationAlertRuleView(View):
@@ -1962,12 +1869,10 @@ class ConversationAlertRuleView(View):
         if not user:
             return None
         
-        # Buscar si el usuario es owner de alguna organización
         owned_org = Organization.objects.filter(owner=user).first()
         if owned_org:
             return owned_org
         
-        # Buscar si el usuario tiene una organización en su perfil
         if hasattr(user, 'profile') and user.profile.organization:
             return user.profile.organization
         
@@ -1993,7 +1898,6 @@ class ConversationAlertRuleView(View):
         self._check_permission(user, organization)
         
         if rule_id:
-            # Get single alert rule
             try:
                 rule = ConversationAlertRule.objects.get(
                     id=rule_id,
@@ -2007,7 +1911,6 @@ class ConversationAlertRuleView(View):
                     status=404
                 )
         else:
-            # Get all alert rules for the organization (enabled and disabled)
             rules = ConversationAlertRule.objects.filter(
                 organization=organization
             ).order_by("-created_at")
@@ -2021,18 +1924,16 @@ class ConversationAlertRuleView(View):
         self._check_permission(user, organization)
         
         try:
-            data = json.loads(request.body)
+            alert_rule_payload = json.loads(request.body)
         except json.JSONDecodeError:
             return JsonResponse(
-                {"message": "Invalid JSON", "status": 400}, 
+                {"message": "Invalid JSON", "status": 400},
                 status=400
             )
-        
-        # Set organization and created_by
-        serializer = ConversationAlertRuleSerializer(data=data)
+
+        serializer = ConversationAlertRuleSerializer(data=alert_rule_payload)
         if serializer.is_valid():
             serializer.save(organization=organization, created_by=user)
-            # Auto-enable conversation-analysis when the first alert rule is created
             FeatureFlagService.ensure_feature_enabled("conversation-analysis", organization)
             return JsonResponse(serializer.data, status=201)
         else:
@@ -2067,18 +1968,17 @@ class ConversationAlertRuleView(View):
             )
         
         try:
-            data = json.loads(request.body)
+            alert_rule_payload = json.loads(request.body)
         except json.JSONDecodeError:
             return JsonResponse(
-                {"message": "Invalid JSON", "status": 400}, 
+                {"message": "Invalid JSON", "status": 400},
                 status=400
             )
-        
-        # Don't allow changing organization or created_by
-        data.pop("organization", None)
-        data.pop("created_by", None)
-        
-        serializer = ConversationAlertRuleSerializer(rule, data=data, partial=True)
+
+        alert_rule_payload.pop("organization", None)
+        alert_rule_payload.pop("created_by", None)
+
+        serializer = ConversationAlertRuleSerializer(rule, data=alert_rule_payload, partial=True)
         if serializer.is_valid():
             serializer.save()
             return JsonResponse(serializer.data, safe=False)
@@ -2127,12 +2027,10 @@ class TagView(View):
         if not user:
             return None
         
-        # Buscar si el usuario es owner de alguna organización
         owned_org = Organization.objects.filter(owner=user).first()
         if owned_org:
             return owned_org
         
-        # Buscar si el usuario tiene una organización en su perfil
         if hasattr(user, 'profile') and user.profile.organization:
             return user.profile.organization
         
@@ -2158,7 +2056,6 @@ class TagView(View):
         self._check_permission(user, organization)
         
         if tag_id:
-            # Get single tag
             try:
                 tag = Tag.objects.get(
                     id=tag_id,
@@ -2172,7 +2069,6 @@ class TagView(View):
                     status=404
                 )
         else:
-            # Get all tags for the organization
             tags = Tag.objects.filter(
                 organization=organization
             ).order_by("title")
@@ -2186,18 +2082,16 @@ class TagView(View):
         self._check_permission(user, organization)
         
         try:
-            data = json.loads(request.body)
+            tag_payload = json.loads(request.body)
         except json.JSONDecodeError:
             return JsonResponse(
-                {"message": "Invalid JSON", "status": 400}, 
+                {"message": "Invalid JSON", "status": 400},
                 status=400
             )
-        
-        # Set organization
-        serializer = TagSerializer(data=data)
+
+        serializer = TagSerializer(data=tag_payload)
         if serializer.is_valid():
             serializer.save(organization=organization)
-            # Auto-enable conversation-analysis when the first tag is created
             FeatureFlagService.ensure_feature_enabled("conversation-analysis", organization)
             return JsonResponse(serializer.data, status=201)
         else:
@@ -2232,17 +2126,16 @@ class TagView(View):
             )
         
         try:
-            data = json.loads(request.body)
+            tag_payload = json.loads(request.body)
         except json.JSONDecodeError:
             return JsonResponse(
-                {"message": "Invalid JSON", "status": 400}, 
+                {"message": "Invalid JSON", "status": 400},
                 status=400
             )
-        
-        # Don't allow changing organization
-        data.pop("organization", None)
-        
-        serializer = TagSerializer(tag, data=data, partial=True)
+
+        tag_payload.pop("organization", None)
+
+        serializer = TagSerializer(tag, data=tag_payload, partial=True)
         if serializer.is_valid():
             serializer.save()
             return JsonResponse(serializer.data, safe=False)
@@ -2282,7 +2175,6 @@ class TagView(View):
                 status=404
             )
 
-
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class ConversationTakeoverView(View):
@@ -2320,10 +2212,10 @@ class ConversationTakeoverView(View):
             raise
 
         conversation.refresh_from_db()
-        data = BigConversationSerializer(
+        conversation_data = BigConversationSerializer(
             conversation, context={"request": request}
         ).data
-        return JsonResponse(data, status=200)
+        return JsonResponse(conversation_data, status=200)
 
     def delete(self, request, id):
         deny = _deny_unless_can_replace_agent(request)
@@ -2351,11 +2243,10 @@ class ConversationTakeoverView(View):
 
         release_takeover(takeover, ended_reason="manual_release")
         conversation.refresh_from_db()
-        data = BigConversationSerializer(
+        conversation_data = BigConversationSerializer(
             conversation, context={"request": request}
         ).data
-        return JsonResponse(data, status=200)
-
+        return JsonResponse(conversation_data, status=200)
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
@@ -2428,7 +2319,6 @@ class ConversationHumanMessageView(View):
             status=201,
         )
 
-
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class GalleryView(View):
@@ -2460,14 +2350,13 @@ class GalleryView(View):
         except (TypeError, ValueError):
             offset = 0
 
-        result = list_gallery_items(
+        gallery_items = list_gallery_items(
             user=user,
             gallery_type=gallery_type,
             limit=limit,
             offset=offset,
         )
-        return JsonResponse(result, safe=False)
-
+        return JsonResponse(gallery_items, safe=False)
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
@@ -2481,13 +2370,13 @@ class GalleryItemView(View):
 
         from api.messaging.gallery import get_gallery_attachment
 
-        result = get_gallery_attachment(user=user, attachment_id=attachment_id)
-        if not result.get("ok"):
+        attachment_lookup = get_gallery_attachment(user=user, attachment_id=attachment_id)
+        if not attachment_lookup.get("ok"):
             return JsonResponse(
                 {"message": "Attachment not found", "status": 404},
                 status=404,
             )
-        return JsonResponse({"status": "ok", "item": result["item"]})
+        return JsonResponse({"status": "ok", "item": attachment_lookup["item"]})
 
     def delete(self, request, attachment_id):
         user = request.user
@@ -2496,13 +2385,13 @@ class GalleryItemView(View):
 
         from api.messaging.gallery import delete_gallery_attachment
 
-        result = delete_gallery_attachment(user=user, attachment_id=attachment_id)
-        if not result.get("ok"):
+        deletion_result = delete_gallery_attachment(user=user, attachment_id=attachment_id)
+        if not deletion_result.get("ok"):
             return JsonResponse(
                 {"message": "Attachment not found", "status": 404},
                 status=404,
             )
-        return JsonResponse({"status": "deleted", "id": result["id"]})
+        return JsonResponse({"status": "deleted", "id": deletion_result["id"]})
 
     def patch(self, request, attachment_id):
         user = request.user
@@ -2510,11 +2399,11 @@ class GalleryItemView(View):
             return JsonResponse({"message": "Unauthorized", "status": 401}, status=401)
 
         try:
-            data = json.loads(request.body) if request.body else {}
+            visibility_payload = json.loads(request.body) if request.body else {}
         except json.JSONDecodeError:
             return JsonResponse({"message": "Invalid JSON", "status": 400}, status=400)
 
-        visibility = data.get("visibility")
+        visibility = visibility_payload.get("visibility")
         if not visibility or not isinstance(visibility, str):
             return JsonResponse(
                 {"message": "visibility is required", "status": 400},
@@ -2523,32 +2412,31 @@ class GalleryItemView(View):
 
         from api.messaging.gallery import update_gallery_attachment_visibility
 
-        result = update_gallery_attachment_visibility(
+        visibility_update = update_gallery_attachment_visibility(
             user=user,
             attachment_id=attachment_id,
             visibility=visibility,
-            role_ids=data.get("role_ids"),
+            role_ids=visibility_payload.get("role_ids"),
         )
-        if result.get("error") == "not_found":
+        if visibility_update.get("error") == "not_found":
             return JsonResponse(
                 {"message": "Attachment not found", "status": 404},
                 status=404,
             )
-        if result.get("error") == "forbidden":
+        if visibility_update.get("error") == "forbidden":
             return JsonResponse(
                 {"message": "Not allowed to change this attachment", "status": 403},
                 status=403,
             )
-        if not result.get("ok"):
+        if not visibility_update.get("ok"):
             return JsonResponse(
                 {
-                    "message": result.get("message") or "Invalid visibility",
+                    "message": visibility_update.get("message") or "Invalid visibility",
                     "status": 400,
                 },
                 status=400,
             )
-        return JsonResponse({"status": "updated", "item": result["item"]})
-
+        return JsonResponse({"status": "updated", "item": visibility_update["item"]})
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
@@ -2569,13 +2457,12 @@ class UserScheduledTasksView(View):
 
         from api.messaging.schedule_service import list_scheduled_tasks_for_user
 
-        result = list_scheduled_tasks_for_user(
+        scheduled_tasks = list_scheduled_tasks_for_user(
             user_id=user.id,
             include_finished=include_finished,
             limit=limit,
         )
-        return JsonResponse(result, safe=False)
-
+        return JsonResponse(scheduled_tasks, safe=False)
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
@@ -2607,14 +2494,13 @@ class ConversationScheduledTasksView(View):
 
         from api.messaging.schedule_service import list_scheduled_tasks_for_conversation
 
-        result = list_scheduled_tasks_for_conversation(
+        scheduled_tasks = list_scheduled_tasks_for_conversation(
             conversation_id=str(conversation.id),
             organization_id=conversation.organization_id,
             include_finished=include_finished,
             limit=limit,
         )
-        return JsonResponse(result, safe=False)
-
+        return JsonResponse(scheduled_tasks, safe=False)
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
@@ -2661,7 +2547,7 @@ class ScheduledConversationTaskDetailView(View):
         )
 
         try:
-            result = update_scheduled_task_capabilities(
+            capabilities_update = update_scheduled_task_capabilities(
                 task_id=str(task.id),
                 capabilities=body.get("capabilities"),
                 conversation_id=str(task.conversation_id),
@@ -2671,7 +2557,7 @@ class ScheduledConversationTaskDetailView(View):
                 {"message": exc.message, "status": exc.status_code},
                 status=exc.status_code,
             )
-        return JsonResponse(result, safe=False)
+        return JsonResponse(capabilities_update, safe=False)
 
     def delete(self, request, task_id):
         user = request.user
@@ -2688,7 +2574,7 @@ class ScheduledConversationTaskDetailView(View):
         )
 
         try:
-            result = cancel_scheduled_task(
+            cancel_result = cancel_scheduled_task(
                 task_id=str(task.id),
                 conversation_id=str(task.conversation_id),
             )
@@ -2698,14 +2584,14 @@ class ScheduledConversationTaskDetailView(View):
                 status=exc.status_code,
             )
 
-        if not result.get("success"):
+        if not cancel_result.get("success"):
             return JsonResponse(
                 {
-                    "message": result.get("message") or "Cannot cancel task",
+                    "message": cancel_result.get("message") or "Cannot cancel task",
                     "status": 400,
-                    **result,
+                    **cancel_result,
                 },
                 status=400,
             )
-        return JsonResponse(result, safe=False)
+        return JsonResponse(cancel_result, safe=False)
 

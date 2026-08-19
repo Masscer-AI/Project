@@ -17,7 +17,6 @@ logger = logging.getLogger(__name__)
 
 MAX_TAGS = 3
 
-
 class ChangeConversationTagsParams(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -49,12 +48,10 @@ class ChangeConversationTagsParams(BaseModel):
                 break
         return out
 
-
 class ChangeConversationTagsResult(BaseModel):
     success: bool
     message: str
     tag_ids: list[int] = Field(default_factory=list)
-
 
 def _conversation_in_organization(conversation: Conversation, organization_id: int) -> bool:
     if conversation.organization_id == organization_id:
@@ -71,7 +68,6 @@ def _conversation_in_organization(conversation: Conversation, organization_id: i
     if ws and getattr(ws, "organization_id", None) == organization_id:
         return True
     return False
-
 
 def _change_conversation_tags_impl(
     conversation_id: str,
@@ -111,7 +107,6 @@ def _change_conversation_tags_impl(
         .order_by("id")
         .values_list("id", flat=True)
     )
-    # Preserve caller order but only for ids that exist
     id_set = set(valid)
     ordered = [tid for tid in tag_ids if tid in id_set][:MAX_TAGS]
 
@@ -135,7 +130,6 @@ def _change_conversation_tags_impl(
         message=f"Conversation tags set to {len(ordered)} tag(s).",
         tag_ids=ordered,
     )
-
 
 def get_tool(
     conversation_id: str | None = None,

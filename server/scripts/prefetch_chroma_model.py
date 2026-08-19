@@ -11,7 +11,6 @@ Failures are non-fatal: the model is downloaded lazily at runtime as a fallback.
 import os
 import sys
 
-
 def main() -> int:
     try:
         from chromadb.utils.embedding_functions.onnx_mini_lm_l6_v2 import (
@@ -20,8 +19,6 @@ def main() -> int:
 
         ONNXMiniLM_L6_V2()._download_model_if_not_exists()
 
-        # The archive is only read when the extracted files are missing, so drop
-        # it to keep ~80MB out of the image layer.
         archive = os.path.join(
             ONNXMiniLM_L6_V2.DOWNLOAD_PATH, ONNXMiniLM_L6_V2.ARCHIVE_FILENAME
         )
@@ -33,7 +30,6 @@ def main() -> int:
         print(f"WARNING: could not prefetch Chroma embedding model: {exc}")
 
     return 0
-
 
 if __name__ == "__main__":
     sys.exit(main())

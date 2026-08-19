@@ -21,7 +21,6 @@ from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
-
 def _resolve_agent_slugs_for_scheduled_task(task: ScheduledConversationTask) -> list[str]:
     if task.agent_slugs:
         return [str(s) for s in task.agent_slugs if s]
@@ -43,7 +42,6 @@ def _resolve_agent_slugs_for_scheduled_task(task: ScheduledConversationTask) -> 
     by_id = {a.id: a.slug for a in agents}
     return [by_id[i] for i in agent_ids if i in by_id]
 
-
 def enqueue_scheduled_conversation_task(task: ScheduledConversationTask) -> str | None:
     """Enqueue Celery ETA for a pending scheduled task; persist celery_task_id."""
     if task.status != ScheduledConversationTask.Status.PENDING or not task.next_run_at:
@@ -56,7 +54,6 @@ def enqueue_scheduled_conversation_task(task: ScheduledConversationTask) -> str 
     task.save(update_fields=["celery_task_id", "updated_at"])
     return async_result.id
 
-
 @shared_task
 def async_generate_conversation_title(conversation_id: str):
     logger.info(
@@ -64,20 +61,19 @@ def async_generate_conversation_title(conversation_id: str):
         conversation_id,
     )
     try:
-        result = generate_conversation_title(conversation_id=conversation_id)
+        title = generate_conversation_title(conversation_id=conversation_id)
         logger.info(
             "async_generate_conversation_title DONE conversation_id=%s result=%s",
             conversation_id,
-            result,
+            title,
         )
-        return result
+        return title
     except Exception:
         logger.exception(
             "async_generate_conversation_title FAILED conversation_id=%s",
             conversation_id,
         )
         raise
-
 
 @shared_task
 def widget_conversation_agent_task(
@@ -112,7 +108,6 @@ def widget_conversation_agent_task(
     ):
         return {"status": "error", "error": "Conversation does not belong to widget session"}
 
-    # Widget route key is how streaming events are delivered to this visitor.
     route_key = f"widget_session:{widget_session_id}"
     return conversation_agent_task(
         conversation_id=conversation_id,
@@ -124,7 +119,6 @@ def widget_conversation_agent_task(
         regenerate_message_id=regenerate_message_id,
         client_datetime=client_datetime,
     )
-
 
 def get_organizations_with_feature_flag(feature_flag_name: str):
     """
@@ -138,7 +132,6 @@ def get_organizations_with_feature_flag(feature_flag_name: str):
     """
     try:
         feature_flag = FeatureFlag.objects.get(name=feature_flag_name)
-        # Buscar asignaciones a nivel de organización (user__isnull=True) que estén habilitadas
         assignments = FeatureFlagAssignment.objects.filter(
             feature_flag=feature_flag,
             organization__isnull=False,
@@ -146,13 +139,11 @@ def get_organizations_with_feature_flag(feature_flag_name: str):
             enabled=True
         ).select_related('organization')
         
-        # Extraer las organizaciones
         organizations = [assignment.organization for assignment in assignments]
         return organizations
     except FeatureFlag.DoesNotExist:
         logger.warning(f"Feature flag '{feature_flag_name}' does not exist")
         return []
-
 
 @shared_task
 def check_pending_conversations():
@@ -163,7 +154,6 @@ def check_pending_conversations():
     """
     feature_flag_name = "conversation-analysis"
     
-    # Obtener organizaciones con el feature flag activado
     organizations = get_organizations_with_feature_flag(feature_flag_name)
     
     if not organizations:
@@ -172,27 +162,22 @@ def check_pending_conversations():
     
     logger.info(f"Found {len(organizations)} organizations with '{feature_flag_name}' enabled")
     
-    # Obtener todos los usuarios de estas organizaciones
     from django.contrib.auth.models import User
     
-    # Usuarios que son owners
     owner_users = Organization.objects.filter(
         id__in=[org.id for org in organizations]
     ).values_list('owner', flat=True)
     
-    # Usuarios que son miembros (ahora a través de UserProfile.organization)
     member_users = User.objects.filter(
         profile__organization__in=organizations
     ).values_list('id', flat=True)
     
-    # Combinar y obtener usuarios únicos
     all_users = set(list(owner_users) + list(member_users))
     
     if not all_users:
         logger.info("No users found in organizations with the feature flag enabled")
         return {"processed": 0, "organizations_checked": len(organizations)}
     
-    # Atomically claim pending conversations to prevent duplicate processing
     with transaction.atomic():
         pending_conversations = list(
             Conversation.objects.select_for_update(skip_locked=True).filter(
@@ -203,7 +188,6 @@ def check_pending_conversations():
     conversation_count = len(pending_conversations)
     logger.info(f"Found {conversation_count} conversations pending analysis")
     
-    # Orquestar tarea para cada conversación
     processed = 0
     for conversation in pending_conversations:
         try:
@@ -220,7 +204,6 @@ def check_pending_conversations():
         "conversations_found": conversation_count
     }
 
-
 def get_user_organization(user):
     """
     Obtiene la organización de un usuario (como owner o member).
@@ -229,17 +212,14 @@ def get_user_organization(user):
     if not user:
         return None
     
-    # Buscar si el usuario es owner de alguna organización
     owned_org = Organization.objects.filter(owner=user).first()
     if owned_org:
         return owned_org
     
-    # Buscar si el usuario tiene una organización en su perfil
     if hasattr(user, 'profile') and user.profile.organization:
         return user.profile.organization
     
     return None
-
 
 @shared_task
 def analyze_single_conversation(conversation_uuid: str):
@@ -259,7 +239,6 @@ def analyze_single_conversation(conversation_uuid: str):
     try:
         conversation = Conversation.objects.select_related('user').get(id=conversation_uuid)
         
-        # Contar mensajes
         message_count = Message.objects.filter(conversation=conversation).count()
         
         if message_count == 0:
@@ -275,7 +254,6 @@ def analyze_single_conversation(conversation_uuid: str):
         
         logger.info(f"Analyzing conversation {conversation_uuid}: {message_count} messages to analyze")
         
-        # Obtener la organización del usuario
         organization = get_user_organization(conversation.user)
         
         if not organization:
@@ -290,7 +268,6 @@ def analyze_single_conversation(conversation_uuid: str):
         
         api_key = os.environ.get("OPENAI_API_KEY")
 
-        # Obtener alert rules activas y habilitadas de la organización
         alert_rules = ConversationAlertRule.objects.filter(
             organization=organization,
             enabled=True
@@ -299,7 +276,6 @@ def analyze_single_conversation(conversation_uuid: str):
         alert_rules_list = list(alert_rules)
         logger.info(f"Found {len(alert_rules_list)} active alert rules for organization {organization.name}")
         
-        # Skip analysis if there are no alert rules
         if not alert_rules_list:
             logger.info(f"Organization {organization.name} has no alert rules, skipping analysis for conversation {conversation_uuid}")
             conversation.pending_analysis = False
@@ -311,7 +287,6 @@ def analyze_single_conversation(conversation_uuid: str):
                 "reason": "No alert rules configured"
             }
         
-        # Obtener alertas previamente levantadas para esta conversación (para evitar duplicados)
         existing_alerts = ConversationAlert.objects.filter(
             conversation=conversation
         ).values('alert_rule_id', 'status')
@@ -319,13 +294,11 @@ def analyze_single_conversation(conversation_uuid: str):
         existing_alert_rule_ids = {str(alert['alert_rule_id']) for alert in existing_alerts}
         logger.info(f"Found {len(existing_alert_rule_ids)} existing alerts for conversation {conversation_uuid}")
         
-        # Obtener y formatear los mensajes de la conversación
         messages = Message.objects.filter(conversation=conversation).order_by('created_at')
         messages_context = "\n".join(
             [f"{message.type}: {message.text}" for message in messages]
         )
         
-        # Formatear información de alert rules para el prompt
         alert_rules_info = []
         for rule in alert_rules_list:
             rule_info = {
@@ -336,7 +309,6 @@ def analyze_single_conversation(conversation_uuid: str):
             }
             alert_rules_info.append(rule_info)
         
-        # Formatear información de alertas existentes
         existing_alerts_info = []
         for alert in existing_alerts:
             existing_alerts_info.append({
@@ -344,7 +316,6 @@ def analyze_single_conversation(conversation_uuid: str):
                 "status": alert['status']
             })
         
-        # Crear el prompt del sistema
         alert_rules_json = json.dumps(alert_rules_info, ensure_ascii=False, indent=2)
         existing_alerts_json = json.dumps(existing_alerts_info, ensure_ascii=False, indent=2)
         
@@ -368,7 +339,6 @@ INSTRUCCIONES:
 
 IMPORTANTE: Solo levanta alertas si la conversación realmente cumple con los requerimientos especificados en el campo "trigger" de cada regla."""
         
-        # Realizar el análisis usando OpenAI con el schema de Pydantic
         try:
             analysis = create_structured_completion(
                 model="gpt-4o",
@@ -382,19 +352,16 @@ IMPORTANTE: Solo levanta alertas si la conversación realmente cumple con los re
             logger.info(f"Reasoning: {(analysis.reasoning or '')[:200]}...")
             logger.info(f"Alerts to raise: {len(analysis.alerts)}")
             
-            # Procesar y guardar las alertas levantadas
             alerts_raised = 0
             with transaction.atomic():
                 for alert_data in analysis.alerts:
                     try:
-                        # Verificar que la alert rule existe y está activa
                         alert_rule = ConversationAlertRule.objects.get(
                             id=alert_data.id,
                             organization=organization,
                             enabled=True
                         )
                         
-                        # Verificar si ya existe una alerta para esta regla y conversación (evitar duplicados)
                         existing_alert = ConversationAlert.objects.filter(
                             conversation=conversation,
                             alert_rule=alert_rule
@@ -404,18 +371,15 @@ IMPORTANTE: Solo levanta alertas si la conversación realmente cumple con los re
                             logger.info(f"Alert already exists for rule {alert_data.id} in conversation {conversation_uuid}, skipping")
                             continue
                         
-                        # Crear la alerta
-                        # Generar un título basado en el nombre de la regla y algún dato extraído
                         title = alert_rule.name
                         extractions = alert_data.extractions or {}
                         if extractions:
-                            # Intentar crear un título más descriptivo con los datos extraídos
                             first_key = list(extractions.keys())[0] if extractions else None
                             if first_key:
                                 title = f"{alert_rule.name} - {str(extractions.get(first_key, ''))[:30]}"
                         
                         new_alert = ConversationAlert.objects.create(
-                            title=title[:50],  # El campo tiene max_length=50
+                            title=title[:50],
                             reasoning=analysis.reasoning,
                             extractions=extractions,
                             conversation=conversation,
@@ -434,7 +398,6 @@ IMPORTANTE: Solo levanta alertas si la conversación realmente cumple con los re
                         logger.error(f"Error creating alert for rule {alert_data.id}: {str(alert_error)}")
                         continue
                 
-                # Marcar la conversación como analizada
                 conversation.pending_analysis = False
                 conversation.save(update_fields=['pending_analysis'])
             
@@ -450,7 +413,6 @@ IMPORTANTE: Solo levanta alertas si la conversación realmente cumple con los re
             
         except Exception as openai_error:
             logger.error(f"OpenAI API error analyzing conversation {conversation_uuid}: {str(openai_error)}")
-            # Marcar como procesado para evitar reintentos infinitos
             conversation.pending_analysis = False
             conversation.save()
             return {
@@ -468,7 +430,6 @@ IMPORTANTE: Solo levanta alertas si la conversación realmente cumple con los re
         }
     except Exception as e:
         logger.error(f"Error analyzing conversation {conversation_uuid}: {str(e)}")
-        # Intentar marcar como procesado para evitar reintentos infinitos
         try:
             conversation = Conversation.objects.get(id=conversation_uuid)
             conversation.pending_analysis = False
@@ -480,7 +441,6 @@ IMPORTANTE: Solo levanta alertas si la conversación realmente cumple con los re
             "status": "error",
             "error": str(e)
         }
-
 
 @shared_task
 def run_due_scheduled_conversation_tasks():
@@ -500,7 +460,6 @@ def run_due_scheduled_conversation_tasks():
             len(due_ids),
         )
     return {"enqueued": len(due_ids)}
-
 
 @shared_task
 def run_scheduled_conversation_task(scheduled_task_id: str):
@@ -545,7 +504,6 @@ def run_scheduled_conversation_task(scheduled_task_id: str):
             return {"status": "skipped", "reason": "conversation_unavailable"}
 
         if is_takeover_active(conversation):
-            # Defer without claiming; bump next_run_at to avoid Beat spam.
             task.next_run_at = now + timedelta(minutes=5)
             task.last_error = "Takeover active; deferred"
             task.save(update_fields=["next_run_at", "last_error", "updated_at"])
@@ -573,10 +531,7 @@ def run_scheduled_conversation_task(scheduled_task_id: str):
         else "one-off"
     )
     try:
-        # Tools resolve per agent from Agent.pre_approved_tools (+ web baseline /
-        # trust floors). Schedule-management tools are stripped inside the task
-        # when source=scheduled_task.
-        result = conversation_agent_task(
+        agent_run_result = conversation_agent_task(
             conversation_id=str(conversation.id),
             user_inputs=[{"type": "input_text", "text": execution_text}],
             tool_names=[],
@@ -597,22 +552,22 @@ def run_scheduled_conversation_task(scheduled_task_id: str):
             "run_scheduled_conversation_task agent failed task=%s",
             scheduled_task_id,
         )
-        result = {"status": "error", "error": str(exc)}
+        agent_run_result = {"status": "error", "error": str(exc)}
 
     run_finished_at = timezone.now()
     task.last_run_at = run_finished_at
     user_message_id = None
-    if isinstance(result, dict):
-        user_message_id = result.get("user_message_id")
+    if isinstance(agent_run_result, dict):
+        user_message_id = agent_run_result.get("user_message_id")
     if user_message_id is not None:
         task.created_message_id = int(user_message_id)
 
-    agent_status = result.get("status") if isinstance(result, dict) else None
+    agent_status = agent_run_result.get("status") if isinstance(agent_run_result, dict) else None
     agent_ok = agent_status == "completed"
     if not agent_ok:
         err = ""
-        if isinstance(result, dict):
-            err = str(result.get("error") or result.get("reason") or agent_status or "error")
+        if isinstance(agent_run_result, dict):
+            err = str(agent_run_result.get("error") or agent_run_result.get("reason") or agent_status or "error")
         task.last_error = err[:2000]
         logger.error(
             "run_scheduled_conversation_task incomplete task=%s status=%s error=%s",
@@ -642,7 +597,6 @@ def run_scheduled_conversation_task(scheduled_task_id: str):
         )
         return {"status": task.status, "agent_status": agent_status}
 
-    # Recurring: always advance so one failure does not kill the series.
     try:
         next_run = compute_next_run_at(
             schedule_type="recurring",

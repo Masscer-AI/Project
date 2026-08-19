@@ -155,16 +155,16 @@ def oauth_token(request):
         resource = (request.POST.get("resource") or "").strip() or None
         if not code or not redirect_uri or not code_verifier:
             return _oauth_error("invalid_request")
-        result = exchange_authorization_code(
+        exchange_result = exchange_authorization_code(
             client=client,
             code=code,
             redirect_uri=redirect_uri,
             code_verifier=code_verifier,
             resource=resource,
         )
-        if result[0] is None:
-            return _oauth_error(result[1], status=400)
-        access_token, refresh_token, expires_in = result
+        if exchange_result[0] is None:
+            return _oauth_error(exchange_result[1], status=400)
+        access_token, refresh_token, expires_in = exchange_result
         payload = {
             "access_token": access_token,
             "token_type": "Bearer",
@@ -179,14 +179,14 @@ def oauth_token(request):
         resource = (request.POST.get("resource") or "").strip() or None
         if not refresh_token:
             return _oauth_error("invalid_request")
-        result = refresh_access_token(
+        refresh_result = refresh_access_token(
             client=client,
             refresh_token=refresh_token,
             resource=resource,
         )
-        if result[0] is None:
-            return _oauth_error(result[1], status=400)
-        access_token, new_refresh, expires_in = result
+        if refresh_result[0] is None:
+            return _oauth_error(refresh_result[1], status=400)
+        access_token, new_refresh, expires_in = refresh_result
         return JsonResponse(
             {
                 "access_token": access_token,

@@ -14,7 +14,6 @@ from api.ai_layers.models import Agent, AgentKind, DEFAULT_SYSTEM_PROMPT
 PLATFORM_ASSISTANT_NAME = "Masscer Assistant"
 PLATFORM_ASSISTANT_SLUG_PREFIX = "masscer-assistant"
 
-# Override with PLATFORM_ASSISTANT_MODEL_SLUG env var; falls back to gpt-4.1-mini.
 PLATFORM_ASSISTANT_MODEL_SLUG: str = os.environ.get(
     "PLATFORM_ASSISTANT_MODEL_SLUG", "gpt-5.5-mini"
 )
@@ -63,11 +62,9 @@ Organization context (use when relevant):
 {{context}}
 """.strip()
 
-
 def platform_assistant_slug_for_org(org_id) -> str:
     org_str = str(org_id).replace("-", "")[:8]
     return f"{PLATFORM_ASSISTANT_SLUG_PREFIX}-{org_str}"
-
 
 def provision_platform_assistant(organization) -> tuple[Agent, bool]:
     """
@@ -113,7 +110,6 @@ def provision_platform_assistant(organization) -> tuple[Agent, bool]:
             pass
 
     return agent, created
-
 
 def build_platform_assistant_instructions(organization, *, clock_context: str = "") -> str:
     """Build runtime instructions from code constants + live org context."""

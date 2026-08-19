@@ -46,10 +46,7 @@ export const VideoTools = () => {
   return (
     <main className="video-tools flex-y">
       <h4>Which video you want to generate today?</h4>
-      {/* <select name="action" value={state.action} onChange={handleChange}>
-        <option value="shorts">Generate Shorts</option>
-        
-      </select> */}
+      {}
 
       <form className="flex-y form generate-video-card">
         <label>
@@ -60,9 +57,9 @@ export const VideoTools = () => {
             onChange={handleChange}
           >
             <option value="LESS_THAN_MINUTE">Less than a minute</option>{" "}
-            {/* Updated to match model */}
+            {}
             <option value="MORE_THAN_MINUTE">More than a minute</option>{" "}
-            {/* Added option */}
+            {}
           </select>
         </label>
 

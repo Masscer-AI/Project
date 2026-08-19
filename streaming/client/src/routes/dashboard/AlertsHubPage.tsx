@@ -16,7 +16,6 @@ export type AlertsHubView =
   | "rules"
   | "notify-rules";
 
-/** Maps URL ?view= to hub section. Legacy: list → alerts, inbox → notifications. */
 export function parseAlertsHubView(
   searchParams: URLSearchParams
 ): AlertsHubView {
@@ -29,10 +28,6 @@ export function parseAlertsHubView(
   return "notifications";
 }
 
-/**
- * In-app notifications inbox, alert queue (resolve/dismiss), alert rules, notification rules.
- * ?view=notifications | alerts | rules | notify-rules (default: notifications)
- */
 export default function AlertsHubPage() {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();

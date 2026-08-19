@@ -19,8 +19,6 @@ const Layout: React.FC = () => {
     setUser: s.setUser,
   }));
 
-  // Hydrate the user on first mount so every route (sidebar, feature flags,
-  // etc.) has access to it — not just routes with their own loader.
   useEffect(() => {
     if (user) return;
     const token = localStorage.getItem("token");
@@ -28,7 +26,6 @@ const Layout: React.FC = () => {
     getUser()
       .then((u) => setUser(u as TUserData))
       .catch(() => {
-        /* not logged in — pages will redirect as needed */
       });
   }, [user, setUser]);
 

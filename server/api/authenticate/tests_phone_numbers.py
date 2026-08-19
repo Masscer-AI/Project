@@ -15,7 +15,6 @@ from api.authenticate.phone_numbers import (
 )
 from api.authenticate.serializers import UserProfileSerializer
 
-
 class PhoneNumbersSchemaTests(TestCase):
     def test_defaults_empty(self):
         self.assertEqual(default_phone_numbers_list(), [])
@@ -28,7 +27,6 @@ class PhoneNumbersSchemaTests(TestCase):
             ]
         )
         self.assertEqual(data[0]["country_code"], "52")
-        # Mexico is auto-normalized to Meta/WhatsApp form (insert "1").
         self.assertEqual(data[0]["number"], "15512345678")
         self.assertTrue(data[0]["is_default"])
 
@@ -131,14 +129,11 @@ class PhoneNumbersSchemaTests(TestCase):
         )
 
     def test_as_whatsapp_match_set_includes_both_mexico_forms(self):
-        # Simulate legacy DB row that still has plain E.164 (bypass model save).
         phones = PhoneNumbers.model_validate(
             [{"country_code": "52", "number": "5512345678", "is_default": True}]
         )
-        # After validate, stored shape is Meta; match set still has both.
         self.assertIn("5215512345678", phones.as_whatsapp_match_set())
         self.assertIn("525512345678", phones.as_whatsapp_match_set())
-
 
 class UserProfilePhoneNumbersTests(TestCase):
     def setUp(self):
