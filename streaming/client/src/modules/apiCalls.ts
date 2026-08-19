@@ -37,6 +37,11 @@ import { TUserPreferences } from "./storeTypes";
 import type { TTenantBranding } from "./storeTypes";
 import type { WhatsappTemplate } from "../routes/whatsapp/shared";
 
+const logAndRethrow = (message: string, error: unknown): never => {
+  console.error(message, error);
+  throw error;
+};
+
 const getToken = (isPublic: boolean) => {
   if (isPublic) {
     return { token: PUBLIC_TOKEN, tokenType: "PublishToken" };
@@ -68,8 +73,7 @@ export const initConversation = async ({ isPublic = false }) => {
     );
     return response.data;
   } catch (error) {
-    console.error("Error initiating conversation:", error);
-    throw error;
+    logAndRethrow("Error initiating conversation:", error);
   }
 };
 
@@ -174,8 +178,7 @@ export const getConversation = async (conversationId: string) => {
     });
     return response.data;
   } catch (error) {
-    console.error("Error fetching conversation:", error);
-    throw error;
+    logAndRethrow("Error fetching conversation:", error);
   }
 };
 
@@ -205,8 +208,7 @@ export const makeAuthenticatedRequest = async <T>(
 
     return response.data as T;
   } catch (error) {
-    console.error(`Error making ${method} request to ${endpoint}:`, error);
-    throw error;
+    logAndRethrow(`Error making ${method} request to ${endpoint}:`, error);
   }
 };
 
@@ -224,8 +226,7 @@ export const getAgents = async (isPublic: boolean = false) => {
     );
     return res;
   } catch (error) {
-    console.error("Error fetching agents:", error);
-    throw error;
+    logAndRethrow("Error fetching agents:", error);
   }
 };
 
@@ -239,8 +240,7 @@ export const uploadDocument = async (documentData: FormData) => {
     );
     return response;
   } catch (error) {
-    console.error("Error uploading document:", error);
-    throw error;
+    logAndRethrow("Error uploading document:", error);
   }
 };
 export const getDocuments = async (opts?: { hasFileOnly?: boolean }) => {
@@ -258,8 +258,7 @@ export const getDocuments = async (opts?: { hasFileOnly?: boolean }) => {
     );
     return response;
   } catch (error) {
-    console.error("Error uploading document:", error);
-    throw error;
+    logAndRethrow("Error uploading document:", error);
   }
 };
 
@@ -346,8 +345,7 @@ export const requestVideoGeneration = async (about, duration, orientation) => {
     );
     return response;
   } catch (error) {
-    console.error("Error requesting video generation:", error);
-    throw error;
+    logAndRethrow("Error requesting video generation:", error);
   }
 };
 
@@ -364,8 +362,7 @@ export const updateAgent = async (agentSlug: string, updatedData: any) => {
 
     return response;
   } catch (error) {
-    console.error("Error updating agent:", error);
-    throw error;
+    logAndRethrow("Error updating agent:", error);
   }
 };
 
@@ -425,8 +422,7 @@ export const createAgent = async (agent: any) => {
 
     return response;
   } catch (error) {
-    console.error("Error updating agent:", error);
-    throw error;
+    logAndRethrow("Error updating agent:", error);
   }
 };
 
@@ -440,8 +436,7 @@ export const getVideos = async () => {
     );
     return response;
   } catch (error) {
-    console.error("Error fetching videos:", error);
-    throw error;
+    logAndRethrow("Error fetching videos:", error);
   }
 };
 
@@ -462,8 +457,7 @@ export const getMedia = async (
     );
     return response;
   } catch (error) {
-    console.error("Error fetching media:", error);
-    throw error;
+    logAndRethrow("Error fetching media:", error);
   }
 };
 

@@ -124,10 +124,10 @@ class VertexGeminiAgentLoop(BaseAgentLoop):
         )
         self.tool_functions[name] = func
 
-    def _emit(self, event_type: str, data: dict) -> None:
+    def _emit(self, event_type: str, event_data: dict) -> None:
         if self.on_event is not None:
             try:
-                self.on_event(event_type, data)
+                self.on_event(event_type, event_data)
             except Exception as e:
                 logger.warning("on_event callback failed for %s: %s", event_type, e)
 
@@ -175,11 +175,11 @@ class VertexGeminiAgentLoop(BaseAgentLoop):
             param_model = self.tool_param_models.get(tool_name)
             if param_model is not None:
                 validated = param_model(**parsed_args)
-                result = func(**validated.model_dump())
+                tool_output = func(**validated.model_dump())
             else:
-                result = func(**parsed_args)
+                tool_output = func(**parsed_args)
 
-            result_str = _serialize_tool_result(result)
+            result_str = _serialize_tool_result(tool_output)
             record["result"] = result_str
 
         except Exception as e:

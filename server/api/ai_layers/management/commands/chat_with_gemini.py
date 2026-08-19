@@ -339,11 +339,11 @@ class Command(BaseCommand):
                     args = getattr(fc, "args", None)
                     call_id = getattr(fc, "id", None)
                     if name == PRINT_IN_COLOR_TOOL_NAME:
-                        result = self._dispatch_print_in_color(args)
+                        tool_response = self._dispatch_print_in_color(args)
                     else:
-                        result = {"ok": False, "error": f"unknown tool {name!r}"}
+                        tool_response = {"ok": False, "error": f"unknown tool {name!r}"}
 
-                    fr_kw: dict[str, Any] = {"name": name, "response": result}
+                    fr_kw: dict[str, Any] = {"name": name, "response": tool_response}
                     if call_id:
                         fr_kw["id"] = call_id
                     fr = genai_types.FunctionResponse(**fr_kw)

@@ -148,17 +148,17 @@ def _to_dict(obj: Any) -> Any:
             pass
     return obj
 
-def _serialize_tool_result(result: Any) -> str:
+def _serialize_tool_result(tool_result: Any) -> str:
     """Serialize a tool function's return value to a string for OpenAI."""
-    if result is None:
+    if tool_result is None:
         return '{"result": null}'
-    if isinstance(result, str):
-        return result
-    if isinstance(result, BaseModel):
-        return json.dumps(result.model_dump(), default=str)
-    if isinstance(result, dict):
-        return json.dumps(result, default=str)
-    return json.dumps({"result": str(result)}, default=str)
+    if isinstance(tool_result, str):
+        return tool_result
+    if isinstance(tool_result, BaseModel):
+        return json.dumps(tool_result.model_dump(), default=str)
+    if isinstance(tool_result, dict):
+        return json.dumps(tool_result, default=str)
+    return json.dumps({"result": str(tool_result)}, default=str)
 
 def successful_handoff_user_message(record: ToolCallRecord) -> str | None:
     """
@@ -222,9 +222,9 @@ def make_notifier(user_id: int) -> Callable[[str, dict], None]:
     Usage:
         loop = AgentLoop.create(..., on_event=make_notifier(user_id=42))
     """
-    def _on_event(event_type: str, data: dict) -> None:
+    def _on_event(event_type: str, event_data: dict) -> None:
         from api.notify.actions import notify_user
-        notify_user(user_id, f"agent_{event_type}", data)
+        notify_user(user_id, f"agent_{event_type}", event_data)
 
     return _on_event
 
@@ -534,11 +534,11 @@ class OpenAIAgentLoop(BaseAgentLoop):
             param_model = self.tool_param_models.get(tool_name)
             if param_model is not None:
                 validated = param_model(**parsed_args)
-                result = func(**validated.model_dump())
+                tool_output = func(**validated.model_dump())
             else:
-                result = func(**parsed_args)
+                tool_output = func(**parsed_args)
 
-            result_str = _serialize_tool_result(result)
+            result_str = _serialize_tool_result(tool_output)
             record["result"] = result_str
 
         except Exception as e:
@@ -600,10 +600,10 @@ class OpenAIAgentLoop(BaseAgentLoop):
             logger.error("AI-assisted parse failed: %s", parse_error)
             return text
 
-    def _emit(self, event_type: str, data: dict) -> None:
+    def _emit(self, event_type: str, event_data: dict) -> None:
         """Emit an event via the on_event callback if one is registered."""
         if self.on_event is not None:
             try:
-                self.on_event(event_type, data)
+                self.on_event(event_type, event_data)
             except Exception as e:
                 logger.warning("on_event callback failed for %s: %s", event_type, e)

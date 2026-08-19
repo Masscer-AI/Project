@@ -95,9 +95,9 @@ class TranscriptionService:
         delete_after: bool = True,
     ) -> str:
         """Convenience: transcribe and return plain text."""
-        result = self.transcribe_file(
+        transcription = self.transcribe_file(
             file_path, output_format="verbose_json", delete_after=delete_after
         )
-        return result.text
+        return transcription.text
 
 transcription_service = TranscriptionService()

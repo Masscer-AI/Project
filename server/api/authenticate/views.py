@@ -64,6 +64,7 @@ from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 
 from api.utils.email_service import EmailService
+from api.utils.error_response import error_response
 import requests as http_requests
 
 from .auth_handoff import create_handoff_code, exchange_handoff_code, issue_login_token_for_handoff
@@ -590,14 +591,14 @@ class AuthHandoffExchangeAPIView(APIView):
         if not code:
             return Response({"error": "code is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        result = exchange_handoff_code(code)
-        if not result:
+        handoff_result = exchange_handoff_code(code)
+        if not handoff_result:
             return Response(
                 {"error": "Invalid or expired handoff code"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        user, return_to = result
+        user, return_to = handoff_result
         profile = getattr(user, "profile", None)
         if profile and profile.organization_id and not profile.is_active:
             return Response(
@@ -732,16 +733,16 @@ class UserView(View):
             return JsonResponse(cached_data, status=status.HTTP_200_OK)
 
         serializer = UserSerializer(request.user)
-        response_data = serializer.data
-        cache.set(cache_key, response_data, timeout=self.CACHE_TIMEOUT)
+        cached_user_data = serializer.data
+        cache.set(cache_key, cached_user_data, timeout=self.CACHE_TIMEOUT)
 
-        return JsonResponse(response_data, status=status.HTTP_200_OK)
+        return JsonResponse(cached_user_data, status=status.HTTP_200_OK)
 
     def put(self, request, *args, **kwargs):
-        data = json.loads(request.body)
+        payload = json.loads(request.body)
 
         if (
-            User.objects.filter(username=data["username"])
+            User.objects.filter(username=payload["username"])
             .exclude(id=request.user.id)
             .exists()
         ):
@@ -751,7 +752,7 @@ class UserView(View):
             )
 
         if (
-            User.objects.filter(email=data["email"])
+            User.objects.filter(email=payload["email"])
             .exclude(id=request.user.id)
             .exists()
         ):
@@ -760,28 +761,28 @@ class UserView(View):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        request.user.username = data["username"]
-        request.user.email = data["email"]
+        request.user.username = payload["username"]
+        request.user.email = payload["email"]
 
-        if data.get("current_password") and data.get("new_password"):
-            if not request.user.check_password(data["current_password"]):
+        if payload.get("current_password") and payload.get("new_password"):
+            if not request.user.check_password(payload["current_password"]):
                 return JsonResponse(
                     {"error": "current-password-incorrect"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            if len(data["new_password"]) < 8:
+            if len(payload["new_password"]) < 8:
                 return JsonResponse(
                     {"error": "password-min-length"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            request.user.set_password(data["new_password"])
+            request.user.set_password(payload["new_password"])
 
         request.user.save()
 
-        if "profile" in data:
+        if "profile" in payload:
             profile, _ = UserProfile.objects.get_or_create(user=request.user)
             profile_serializer = UserProfileSerializer(
-                profile, data=data["profile"], partial=True
+                profile, data=payload["profile"], partial=True
             )
             if not profile_serializer.is_valid():
                 return JsonResponse(
@@ -797,13 +798,13 @@ class UserView(View):
             User.objects.select_related("profile").filter(pk=request.user.pk).first()
             or request.user
         )
-        response_data = UserSerializer(fresh_user).data
-        cache.set(cache_key, response_data, timeout=self.CACHE_TIMEOUT)
+        updated_user_data = UserSerializer(fresh_user).data
+        cache.set(cache_key, updated_user_data, timeout=self.CACHE_TIMEOUT)
 
         return JsonResponse(
             {
                 "message": "user-updated-successfully",
-                "user": response_data,
+                "user": updated_user_data,
             },
             status=status.HTTP_200_OK,
         )
@@ -853,40 +854,40 @@ class OrganizationView(View):
     def post(self, request):
         try:
             if request.content_type and 'multipart/form-data' in request.content_type:
-                data = request.POST.dict()
+                payload = request.POST.dict()
                 logo_file = request.FILES.get('logo')
             else:
-                data = json.loads(request.body)
+                payload = json.loads(request.body)
                 logo_file = None
-            
-            data["owner"] = request.user.id
+
+            payload["owner"] = request.user.id
             serializer = OrganizationSerializer(
-                data=data,
+                data=payload,
                 context={'request': request}
             )
-            
+
             if serializer.is_valid():
                 organization = serializer.save()
-                
+
                 if logo_file:
                     organization.logo = logo_file
                     organization.save()
                 elif not self._can_manage_logo(request.user, organization):
                     generate_organization_logo.delay(str(organization.id))
-                
+
                 response_serializer = OrganizationSerializer(
-                    organization, 
+                    organization,
                     context={'request': request}
                 )
-                response_data = response_serializer.data
-                response_data["message"] = "Organization created successfully"
+                created_org_data = response_serializer.data
+                created_org_data["message"] = "Organization created successfully"
                 return JsonResponse(
-                    response_data,
+                    created_org_data,
                     status=status.HTTP_201_CREATED,
                 )
             return JsonResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            return JsonResponse({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return error_response(e)
 
     def put(self, request, organization_id):
         
@@ -914,38 +915,38 @@ class OrganizationView(View):
         if request.content_type and 'multipart/form-data' in request.content_type:
             try:
                 parser = MultiPartParser(request.META, request, request.upload_handlers)
-                data, files = parser.parse()
-                data = data.dict()
+                payload, files = parser.parse()
+                payload = payload.dict()
                 logo_file = files.get('logo')
             except MultiPartParserError as e:
                 print(f"Multipart parse error: {e}")
-                data = request.POST.dict()
+                payload = request.POST.dict()
                 logo_file = request.FILES.get('logo')
                 files = request.FILES
-            delete_logo = data.get('delete_logo') == 'true'
-            print(f"Multipart data: {data}")
+            delete_logo = payload.get('delete_logo') == 'true'
+            print(f"Multipart data: {payload}")
             print(f"Files: {list(files.keys())}")
         else:
-            data = json.loads(request.body)
+            payload = json.loads(request.body)
             logo_file = None
-            delete_logo = data.get('delete_logo', False)
-            print(f"JSON data: {data}")
-        
+            delete_logo = payload.get('delete_logo', False)
+            print(f"JSON data: {payload}")
+
         print(f"delete_logo={delete_logo} (type: {type(delete_logo)}), has_logo_file={logo_file is not None}")
-        
-        if 'name' in data and data.get('name') != organization.name:
+
+        if 'name' in payload and payload.get('name') != organization.name:
             if not (is_owner or can_manage):
                 return JsonResponse(
                     {"error": "You don't have permission to modify organization name."},
                     status=status.HTTP_403_FORBIDDEN,
                 )
-        
+
         if (logo_file or delete_logo) and not (is_owner or can_manage):
             return JsonResponse(
                 {"error": "You don't have permission to modify organization logo."},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        
+
         old_logo_path = None
         old_logo_name = None
         if organization.logo and organization.logo.name:
@@ -955,13 +956,13 @@ class OrganizationView(View):
                 print(f"Old logo: name={old_logo_name}, path={old_logo_path}")
             except Exception as e:
                 print(f"Error getting logo path: {e}")
-        
-        if 'name' in data and (is_owner or can_manage):
-            organization.name = data['name']
-        if 'description' in data:
-            organization.description = data.get('description', '')
-        if 'timezone' in data and (is_owner or can_manage):
-            tz_val = (data.get('timezone') or '').strip()
+
+        if 'name' in payload and (is_owner or can_manage):
+            organization.name = payload['name']
+        if 'description' in payload:
+            organization.description = payload.get('description', '')
+        if 'timezone' in payload and (is_owner or can_manage):
+            tz_val = (payload.get('timezone') or '').strip()
             if not tz_val:
                 return JsonResponse(
                     {"error": "timezone cannot be empty"},
@@ -1024,14 +1025,14 @@ class OrganizationView(View):
             organization,
             context={'request': request}
         )
-        response_data = response_serializer.data
-        response_data["message"] = "Organization updated successfully"
-        
-        print(f"Response logo_url: {response_data.get('logo_url')}")
+        updated_org_data = response_serializer.data
+        updated_org_data["message"] = "Organization updated successfully"
+
+        print(f"Response logo_url: {updated_org_data.get('logo_url')}")
         print("=== END PUT Organization ===")
-        
+
         return JsonResponse(
-            response_data,
+            updated_org_data,
             status=status.HTTP_200_OK,
         )
 
@@ -1141,13 +1142,13 @@ class OrganizationMembersView(View):
         if not _can_manage_organization(request.user, organization):
             return JsonResponse({"error": "You do not have permission"}, status=status.HTTP_403_FORBIDDEN)
 
-        data = json.loads(request.body) if request.body else {}
-        username = data.get("username", "").strip()
-        email = data.get("email", "").strip()
-        password = data.get("password", "")
-        name = data.get("name", "").strip()
-        bio = data.get("bio", "").strip()
-        expires_at_raw = data.get("expires_at")
+        payload = json.loads(request.body) if request.body else {}
+        username = payload.get("username", "").strip()
+        email = payload.get("email", "").strip()
+        password = payload.get("password", "")
+        name = payload.get("name", "").strip()
+        bio = payload.get("bio", "").strip()
+        expires_at_raw = payload.get("expires_at")
 
         if not username or not email or not password:
             return JsonResponse(
@@ -1232,8 +1233,8 @@ class OrganizationInvitesView(View):
                 {"error": "You do not have permission"}, status=status.HTTP_403_FORBIDDEN
             )
 
-        data = json.loads(request.body) if request.body else {}
-        ser = OrganizationInviteCreateSerializer(data=data)
+        payload = json.loads(request.body) if request.body else {}
+        ser = OrganizationInviteCreateSerializer(data=payload)
         if not ser.is_valid():
             return JsonResponse(ser.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -1366,18 +1367,18 @@ class OrganizationMemberDetailView(View):
         except UserProfile.DoesNotExist:
             return JsonResponse({"error": "Member not found in this organization"}, status=status.HTTP_404_NOT_FOUND)
 
-        data = json.loads(request.body) if request.body else {}
+        payload = json.loads(request.body) if request.body else {}
         update_fields = ["updated_at"]
 
-        if "is_active" in data:
-            new_status = data["is_active"]
+        if "is_active" in payload:
+            new_status = payload["is_active"]
             if not isinstance(new_status, bool):
                 return JsonResponse({"error": "is_active must be a boolean"}, status=status.HTTP_400_BAD_REQUEST)
             profile.is_active = new_status
             update_fields.append("is_active")
 
-        if "expires_at" in data:
-            expires_at_raw = data["expires_at"]
+        if "expires_at" in payload:
+            expires_at_raw = payload["expires_at"]
             if expires_at_raw is None:
                 profile.expires_at = None
             else:
@@ -1391,12 +1392,12 @@ class OrganizationMemberDetailView(View):
                 profile.expires_at = parsed
             update_fields.append("expires_at")
 
-        if "name" in data:
-            profile.name = data["name"].strip()
+        if "name" in payload:
+            profile.name = payload["name"].strip()
             update_fields.append("name")
 
-        if "bio" in data:
-            profile.bio = data["bio"].strip()
+        if "bio" in payload:
+            profile.bio = payload["bio"].strip()
             update_fields.append("bio")
 
         if len(update_fields) == 1:
@@ -1478,8 +1479,8 @@ class OrganizationRolesView(View):
             return JsonResponse({"error": "Organization not found"}, status=status.HTTP_404_NOT_FOUND)
         if not _can_manage_organization(request.user, organization):
             return JsonResponse({"error": "You do not have permission to manage roles"}, status=status.HTTP_403_FORBIDDEN)
-        data = json.loads(request.body) if request.body else {}
-        serializer = RoleCreateUpdateSerializer(data=data, context={"organization": organization})
+        payload = json.loads(request.body) if request.body else {}
+        serializer = RoleCreateUpdateSerializer(data=payload, context={"organization": organization})
         if serializer.is_valid():
             role = serializer.save(organization=organization)
             return JsonResponse(RoleSerializer(role).data, status=status.HTTP_201_CREATED)
@@ -1511,8 +1512,8 @@ class OrganizationRoleDetailView(View):
             return JsonResponse({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
         if not _can_manage_organization(request.user, organization):
             return JsonResponse({"error": "You do not have permission"}, status=status.HTTP_403_FORBIDDEN)
-        data = json.loads(request.body) if request.body else {}
-        serializer = RoleCreateUpdateSerializer(role, data=data, partial=True, context={"organization": organization})
+        payload = json.loads(request.body) if request.body else {}
+        serializer = RoleCreateUpdateSerializer(role, data=payload, partial=True, context={"organization": organization})
         if serializer.is_valid():
             serializer.save()
             return JsonResponse(RoleSerializer(role).data)
@@ -1543,10 +1544,10 @@ class OrganizationRoleAssignmentsView(View):
             return JsonResponse({"error": "You do not have permission"}, status=status.HTTP_403_FORBIDDEN)
         assignments = RoleAssignment.objects.filter(organization=organization).select_related("role", "user").order_by("-created_at")
         serializer = RoleAssignmentSerializer(assignments, many=True)
-        data = [dict(d) for d in serializer.data]
+        assignments_data = [dict(d) for d in serializer.data]
         for i, a in enumerate(assignments):
-            data[i]["user_id"] = a.user_id
-        return JsonResponse(data, safe=False)
+            assignments_data[i]["user_id"] = a.user_id
+        return JsonResponse(assignments_data, safe=False)
 
     def post(self, request, organization_id):
         try:
@@ -1555,8 +1556,8 @@ class OrganizationRoleAssignmentsView(View):
             return JsonResponse({"error": "Organization not found"}, status=status.HTTP_404_NOT_FOUND)
         if not _can_manage_organization(request.user, organization):
             return JsonResponse({"error": "You do not have permission"}, status=status.HTTP_403_FORBIDDEN)
-        data = json.loads(request.body) if request.body else {}
-        ser = RoleAssignmentCreateSerializer(data=data)
+        payload = json.loads(request.body) if request.body else {}
+        ser = RoleAssignmentCreateSerializer(data=payload)
         if not ser.is_valid():
             return JsonResponse(ser.errors, status=status.HTTP_400_BAD_REQUEST)
         role = Role.objects.filter(id=ser.validated_data["role_id"], organization=organization).first()
@@ -1674,9 +1675,9 @@ class FeatureFlagCheckView(View):
             "feature_flag_name": feature_flag_name,
             "reason": reason,
         })
-        response_data = serializer.data
-        cache.set(cache_key, response_data, timeout=self.CACHE_TIMEOUT)
-        return JsonResponse(response_data, status=status.HTTP_200_OK)
+        flag_status_data = serializer.data
+        cache.set(cache_key, flag_status_data, timeout=self.CACHE_TIMEOUT)
+        return JsonResponse(flag_status_data, status=status.HTTP_200_OK)
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
@@ -1727,9 +1728,9 @@ class FeatureFlagListView(View):
         serializer = TeamFeatureFlagsResponseSerializer({
             "feature_flags": all_flags,
         })
-        response_data = serializer.data
-        cache.set(cache_key, response_data, timeout=self.CACHE_TIMEOUT)
-        return JsonResponse(response_data, status=status.HTTP_200_OK)
+        flags_response_data = serializer.data
+        cache.set(cache_key, flags_response_data, timeout=self.CACHE_TIMEOUT)
+        return JsonResponse(flags_response_data, status=status.HTTP_200_OK)
 
 def _organization_has_active_subscription(organization) -> bool:
     subscription = (
@@ -1809,7 +1810,7 @@ class OrganizationTenantView(View):
             )
 
         try:
-            data = json.loads(request.body or "{}")
+            payload = json.loads(request.body or "{}")
         except json.JSONDecodeError:
             return JsonResponse(
                 {"error": "Invalid JSON"},
@@ -1818,15 +1819,15 @@ class OrganizationTenantView(View):
 
         tenant = get_or_create_tenant(organization)
 
-        if "app_name" in data:
-            tenant.app_name = (data.get("app_name") or "").strip()
+        if "app_name" in payload:
+            tenant.app_name = (payload.get("app_name") or "").strip()
 
-        if "hide_powered_by" in data:
-            tenant.hide_powered_by = bool(data.get("hide_powered_by"))
+        if "hide_powered_by" in payload:
+            tenant.hide_powered_by = bool(payload.get("hide_powered_by"))
 
-        if "theme" in data:
+        if "theme" in payload:
             try:
-                tenant.theme = validate_tenant_theme(data.get("theme") or {})
+                tenant.theme = validate_tenant_theme(payload.get("theme") or {})
             except ValueError as exc:
                 return JsonResponse(
                     {"error": str(exc)},
@@ -1866,14 +1867,14 @@ class OrganizationTenantSubdomainView(View):
             )
 
         try:
-            data = json.loads(request.body or "{}")
+            payload = json.loads(request.body or "{}")
         except json.JSONDecodeError:
             return JsonResponse(
                 {"error": "Invalid JSON"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        raw_subdomain = data.get("subdomain", "")
+        raw_subdomain = payload.get("subdomain", "")
         try:
             subdomain = validate_subdomain(raw_subdomain)
         except ValidationError as exc:

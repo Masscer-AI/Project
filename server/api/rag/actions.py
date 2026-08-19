@@ -12,9 +12,9 @@ from pydantic import BaseModel, Field
 
 def detect_file_encoding(file):
     raw_data = file.read(10000)
-    result = chardet.detect(raw_data)
+    encoding_guess = chardet.detect(raw_data)
     file.seek(0)
-    return result["encoding"]
+    return encoding_guess["encoding"]
 
 def _read_file_head(file, n: int = 8) -> bytes:
     pos = file.tell()

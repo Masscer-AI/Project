@@ -61,13 +61,13 @@ def async_generate_conversation_title(conversation_id: str):
         conversation_id,
     )
     try:
-        result = generate_conversation_title(conversation_id=conversation_id)
+        title = generate_conversation_title(conversation_id=conversation_id)
         logger.info(
             "async_generate_conversation_title DONE conversation_id=%s result=%s",
             conversation_id,
-            result,
+            title,
         )
-        return result
+        return title
     except Exception:
         logger.exception(
             "async_generate_conversation_title FAILED conversation_id=%s",
@@ -531,7 +531,7 @@ def run_scheduled_conversation_task(scheduled_task_id: str):
         else "one-off"
     )
     try:
-        result = conversation_agent_task(
+        agent_run_result = conversation_agent_task(
             conversation_id=str(conversation.id),
             user_inputs=[{"type": "input_text", "text": execution_text}],
             tool_names=[],
@@ -552,22 +552,22 @@ def run_scheduled_conversation_task(scheduled_task_id: str):
             "run_scheduled_conversation_task agent failed task=%s",
             scheduled_task_id,
         )
-        result = {"status": "error", "error": str(exc)}
+        agent_run_result = {"status": "error", "error": str(exc)}
 
     run_finished_at = timezone.now()
     task.last_run_at = run_finished_at
     user_message_id = None
-    if isinstance(result, dict):
-        user_message_id = result.get("user_message_id")
+    if isinstance(agent_run_result, dict):
+        user_message_id = agent_run_result.get("user_message_id")
     if user_message_id is not None:
         task.created_message_id = int(user_message_id)
 
-    agent_status = result.get("status") if isinstance(result, dict) else None
+    agent_status = agent_run_result.get("status") if isinstance(agent_run_result, dict) else None
     agent_ok = agent_status == "completed"
     if not agent_ok:
         err = ""
-        if isinstance(result, dict):
-            err = str(result.get("error") or result.get("reason") or agent_status or "error")
+        if isinstance(agent_run_result, dict):
+            err = str(agent_run_result.get("error") or agent_run_result.get("reason") or agent_status or "error")
         task.last_error = err[:2000]
         logger.error(
             "run_scheduled_conversation_task incomplete task=%s status=%s error=%s",

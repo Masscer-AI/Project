@@ -50,15 +50,15 @@ def platform_assistant_task(
 
     notification_route_id = user_id
 
-    def emit_event(event_type: str, data: dict) -> None:
-        payload = {"type": event_type, "conversation_id": conversation_id, **data}
+    def emit_event(event_type: str, event_fields: dict) -> None:
+        payload = {"type": event_type, "conversation_id": conversation_id, **event_fields}
         notify_user(notification_route_id, "agent_events_channel", payload)
 
-    def emit_finished(data: dict) -> None:
+    def emit_finished(event_fields: dict) -> None:
         from api.ai_layers.agent_task_helpers import clear_agent_task_active
 
         clear_agent_task_active(conversation_id)
-        payload = {"conversation_id": conversation_id, **data}
+        payload = {"conversation_id": conversation_id, **event_fields}
         notify_user(notification_route_id, "agent_loop_finished", payload)
 
     try:
@@ -212,16 +212,16 @@ def platform_assistant_task(
         )
         start_time = time.perf_counter()
 
-        def on_event(event_type: str, data: dict) -> None:
+        def on_event(event_type: str, event_data: dict) -> None:
             from django.utils import timezone as _tz
 
             agent_event_log.append(
                 {
                     "type": event_type,
-                    "tool_name": data.get("tool_name"),
-                    "iteration": data.get("iteration"),
-                    "duration": data.get("duration"),
-                    "error": data.get("error"),
+                    "tool_name": event_data.get("tool_name"),
+                    "iteration": event_data.get("iteration"),
+                    "duration": event_data.get("duration"),
+                    "error": event_data.get("error"),
                     "ts": _tz.now().isoformat(),
                 }
             )
@@ -230,7 +230,7 @@ def platform_assistant_task(
                 {
                     "agent_slug": agent.slug,
                     "agent_name": agent.name,
-                    **data,
+                    **event_data,
                 },
             )
 
@@ -272,7 +272,7 @@ def platform_assistant_task(
         )
 
         try:
-            result = loop.run(openai_inputs)
+            loop_result = loop.run(openai_inputs)
         except CancelledError:
             from django.utils import timezone
 
@@ -292,23 +292,23 @@ def platform_assistant_task(
             )
             return {"status": "cancelled"}
 
-        if isinstance(result.output, str):
-            output_value = OutputValue(type="string", value=result.output)
-            output_text = result.output
-        elif hasattr(result.output, "model_dump"):
+        if isinstance(loop_result.output, str):
+            output_value = OutputValue(type="string", value=loop_result.output)
+            output_text = loop_result.output
+        elif hasattr(loop_result.output, "model_dump"):
             import json as _json
 
-            dump = result.output.model_dump(mode="json")
+            dump = loop_result.output.model_dump(mode="json")
             output_value = OutputValue(type="json", value=dump)
             output_text = _json.dumps(dump, default=str)
         else:
-            output_text = str(result.output)
+            output_text = str(loop_result.output)
             output_value = OutputValue(type="string", value=output_text)
 
         outputs_data = AgentSessionOutputs(
-            messages=result.messages,
+            messages=loop_result.messages,
             output=output_value,
-            usage=result.usage,
+            usage=loop_result.usage,
             status="completed",
             error=None,
         ).model_dump()
@@ -317,8 +317,8 @@ def platform_assistant_task(
 
         session.outputs = outputs_data
         session.event_log = agent_event_log
-        session.iterations = result.iterations
-        session.tool_calls_count = len(result.tool_calls or [])
+        session.iterations = loop_result.iterations
+        session.tool_calls_count = len(loop_result.tool_calls or [])
         session.ended_at = timezone.now()
         session.total_duration = time.perf_counter() - start_time
         session.save()
@@ -330,9 +330,9 @@ def platform_assistant_task(
             "text": output_text,
             "sources": [],
             "usage": {
-                "prompt_tokens": result.usage.get("prompt_tokens", 0),
-                "completion_tokens": result.usage.get("completion_tokens", 0),
-                "total_tokens": result.usage.get("total_tokens", 0),
+                "prompt_tokens": loop_result.usage.get("prompt_tokens", 0),
+                "completion_tokens": loop_result.usage.get("completion_tokens", 0),
+                "total_tokens": loop_result.usage.get("total_tokens", 0),
                 "model_slug": model_slug,
             },
         }
@@ -362,8 +362,8 @@ def platform_assistant_task(
                 "message_id": assistant_msg.id,
                 "versions": [version],
                 "attachments": [],
-                "iterations": result.iterations,
-                "tool_calls_count": len(result.tool_calls or []),
+                "iterations": loop_result.iterations,
+                "tool_calls_count": len(loop_result.tool_calls or []),
             }
         )
 
@@ -371,8 +371,8 @@ def platform_assistant_task(
             "status": "completed",
             "output": output_text,
             "message_id": assistant_msg.id,
-            "iterations": result.iterations,
-            "tool_calls_count": len(result.tool_calls or []),
+            "iterations": loop_result.iterations,
+            "tool_calls_count": len(loop_result.tool_calls or []),
         }
 
     except Exception as e:

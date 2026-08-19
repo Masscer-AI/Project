@@ -13,6 +13,7 @@ from api.ai_layers.models import Agent
 from api.authenticate.decorators.token_required import token_required
 from api.authenticate.models import Organization
 from api.authenticate.services import FeatureFlagService
+from api.utils.error_response import error_response
 from api.document_templates.access import user_can_manage_org_templates
 from api.document_templates.models import AgentDocumentTemplateAssignment, DocumentTemplate
 from api.document_templates.utils import (
@@ -127,9 +128,9 @@ class OrganizationDocumentTemplateListView(View):
             _apply_uploaded_file_and_extract(t, uploaded, None)
             t.save()
         except ValueError as e:
-            return JsonResponse({"error": str(e)}, status=400)
+            return error_response(e)
         except Exception as e:
-            return JsonResponse({"error": str(e)}, status=400)
+            return error_response(e)
         return JsonResponse({"template": _template_to_dict(t)}, status=201)
 
 
@@ -159,18 +160,18 @@ class OrganizationDocumentTemplateDetailView(View):
             try:
                 _apply_uploaded_file_and_extract(t, uploaded, t.metadata)
             except ValueError as e:
-                return JsonResponse({"error": str(e)}, status=400)
+                return error_response(e)
         if request.content_type and "application/json" in request.content_type:
             try:
-                data = json.loads(request.body.decode("utf-8") or "{}")
+                template_updates = json.loads(request.body.decode("utf-8") or "{}")
             except json.JSONDecodeError:
                 return JsonResponse({"error": "Invalid JSON"}, status=400)
-            if "name" in data:
-                t.name = str(data.get("name") or "").strip() or t.name
-            if "description" in data:
-                t.description = str(data.get("description") or "")
-            if "is_active" in data:
-                t.is_active = bool(data.get("is_active"))
+            if "name" in template_updates:
+                t.name = str(template_updates.get("name") or "").strip() or t.name
+            if "description" in template_updates:
+                t.description = str(template_updates.get("description") or "")
+            if "is_active" in template_updates:
+                t.is_active = bool(template_updates.get("is_active"))
         else:
             if request.POST.get("name"):
                 t.name = request.POST.get("name", "").strip()
@@ -209,10 +210,10 @@ class OrganizationDocumentTemplateVariablesView(View):
         if not t:
             return JsonResponse({"error": "Template not found"}, status=404)
         try:
-            data = json.loads(request.body.decode("utf-8") or "{}")
+            variables_payload = json.loads(request.body.decode("utf-8") or "{}")
         except json.JSONDecodeError:
             return JsonResponse({"error": "Invalid JSON"}, status=400)
-        incoming = data.get("variables")
+        incoming = variables_payload.get("variables")
         if not isinstance(incoming, dict):
             return JsonResponse({"error": "variables must be an object"}, status=400)
         md = dict(t.metadata or {})
@@ -289,10 +290,10 @@ class AgentDocumentTemplateAssignmentListView(View):
         if isinstance(agent, JsonResponse):
             return agent
         try:
-            data = json.loads(request.body.decode("utf-8") or "{}")
+            assignment_payload = json.loads(request.body.decode("utf-8") or "{}")
         except json.JSONDecodeError:
             return JsonResponse({"error": "Invalid JSON"}, status=400)
-        tid = data.get("template_id")
+        tid = assignment_payload.get("template_id")
         if not tid:
             return JsonResponse({"error": "template_id is required"}, status=400)
         template = DocumentTemplate.objects.filter(id=tid, is_active=True).first()
@@ -306,8 +307,8 @@ class AgentDocumentTemplateAssignmentListView(View):
             return JsonResponse(
                 {"error": "Template not found in organization"}, status=404
             )
-        usage = str(data.get("usage_instructions") or "")
-        is_enabled = bool(data.get("is_enabled", True))
+        usage = str(assignment_payload.get("usage_instructions") or "")
+        is_enabled = bool(assignment_payload.get("is_enabled", True))
         a, _created = AgentDocumentTemplateAssignment.objects.update_or_create(
             agent=agent,
             template=template,
@@ -337,13 +338,13 @@ class AgentDocumentTemplateAssignmentDetailView(View):
         if not user_can_manage_org_templates(request.user, a.template.organization):
             return JsonResponse({"error": "Forbidden"}, status=403)
         try:
-            data = json.loads(request.body.decode("utf-8") or "{}")
+            assignment_updates = json.loads(request.body.decode("utf-8") or "{}")
         except json.JSONDecodeError:
             return JsonResponse({"error": "Invalid JSON"}, status=400)
-        if "usage_instructions" in data:
-            a.usage_instructions = str(data.get("usage_instructions") or "")
-        if "is_enabled" in data:
-            a.is_enabled = bool(data.get("is_enabled"))
+        if "usage_instructions" in assignment_updates:
+            a.usage_instructions = str(assignment_updates.get("usage_instructions") or "")
+        if "is_enabled" in assignment_updates:
+            a.is_enabled = bool(assignment_updates.get("is_enabled"))
         a.save()
         return JsonResponse({"assignment": _assignment_to_dict(a)})
 

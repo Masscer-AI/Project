@@ -163,17 +163,17 @@ def _generate_video_veo(
         logger.error("Veo operation has no result. Full operation: %s", operation)
         raise ValueError("Veo generation failed — no result returned.")
 
-    result = operation.result
-    rai_count = getattr(result, "rai_media_filtered_count", None)
-    rai_reasons = getattr(result, "rai_media_filtered_reasons", None) or []
+    veo_result = operation.result
+    rai_count = getattr(veo_result, "rai_media_filtered_count", None)
+    rai_reasons = getattr(veo_result, "rai_media_filtered_reasons", None) or []
     logger.info(
         "Veo response: generated_videos=%s, rai_media_filtered_count=%s, rai_reasons=%s",
-        len(result.generated_videos) if result.generated_videos else 0,
+        len(veo_result.generated_videos) if veo_result.generated_videos else 0,
         rai_count,
         rai_reasons,
     )
 
-    generated_videos = result.generated_videos or []
+    generated_videos = veo_result.generated_videos or []
 
     if not generated_videos or not generated_videos[0].video:
         if rai_count or rai_reasons:

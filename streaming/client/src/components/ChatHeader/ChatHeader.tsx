@@ -452,14 +452,14 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
     const slug = formState.llm?.slug;
     if (!slug) return;
     try {
-      const result = await deleteLLM(slug);
+      const deletion = await deleteLLM(slug);
       await fetchAgents();
       closeDeleteLlm();
-      if (result.migrated_to) {
-        handleLLMChange(result.migrated_to);
-        toast.success(`"${result.deleted}" deleted. ${result.migrated_agents} agent(s) migrated to "${result.migrated_to}".`);
+      if (deletion.migrated_to) {
+        handleLLMChange(deletion.migrated_to);
+        toast.success(`"${deletion.deleted}" deleted. ${deletion.migrated_agents} agent(s) migrated to "${deletion.migrated_to}".`);
       } else {
-        toast.success(`"${result.deleted}" deleted.`);
+        toast.success(`"${deletion.deleted}" deleted.`);
       }
     } catch (error: any) {
       const errMessage = error?.response?.data?.error || "Failed to delete LLM";

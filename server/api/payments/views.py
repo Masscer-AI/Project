@@ -13,6 +13,7 @@ from api.authenticate.decorators.token_required import token_required
 from api.authenticate.models import Organization
 from api.authenticate.views import _can_manage_organization
 from api.payments.models import Subscription, SubscriptionPlan
+from api.utils.error_response import error_response
 from api.consumption.models import OrganizationWallet, Currency
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
@@ -115,11 +116,11 @@ class CreateCheckoutSessionView(View):
             return JsonResponse({"error": "Forbidden"}, status=403)
 
         try:
-            data = json.loads(request.body)
+            payload = json.loads(request.body)
         except json.JSONDecodeError:
             return JsonResponse({"error": "Invalid JSON"}, status=400)
 
-        plan_slug = data.get("plan_slug", "organization")
+        plan_slug = payload.get("plan_slug", "organization")
         price_id = PLAN_SLUG_TO_STRIPE_PRICE.get(plan_slug)
         if not price_id:
             return JsonResponse({"error": f"No Stripe price configured for plan '{plan_slug}'"}, status=400)
@@ -151,7 +152,7 @@ class CreateCheckoutSessionView(View):
         try:
             session = stripe.checkout.Session.create(**session_kwargs)
         except stripe.StripeError as e:
-            return JsonResponse({"error": str(e)}, status=502)
+            return error_response(e, status=502)
 
         return JsonResponse({"checkout_url": session.url})
 
@@ -194,7 +195,7 @@ class CreateBillingPortalSessionView(View):
                 return_url=return_url,
             )
         except stripe.StripeError as e:
-            return JsonResponse({"error": str(e)}, status=502)
+            return error_response(e, status=502)
 
         return JsonResponse({"portal_url": session.url})
 
@@ -234,7 +235,7 @@ class ReactivateSubscriptionView(View):
                 cancel_at_period_end=False,
             )
         except stripe.StripeError as e:
-            return JsonResponse({"error": str(e)}, status=502)
+            return error_response(e, status=502)
 
         sub.status = "active"
         sub.save(update_fields=["status", "updated_at"])
@@ -276,12 +277,12 @@ class BuyCreditsView(View):
             )
 
         try:
-            data = json.loads(request.body)
+            payload = json.loads(request.body)
         except json.JSONDecodeError:
             return JsonResponse({"error": "Invalid JSON"}, status=400)
 
         try:
-            amount_usd = int(data.get("amount_usd", 0))
+            amount_usd = int(payload.get("amount_usd", 0))
         except (TypeError, ValueError):
             return JsonResponse({"error": "amount_usd must be an integer"}, status=400)
 
@@ -321,7 +322,7 @@ class BuyCreditsView(View):
                 },
             )
         except stripe.StripeError as e:
-            return JsonResponse({"error": str(e)}, status=502)
+            return error_response(e, status=502)
 
         return JsonResponse({"checkout_url": session.url})
 
@@ -348,22 +349,22 @@ def stripe_webhook(request):
             return HttpResponse(status=200)
 
     event_type = event["type"]
-    data = event["data"]["object"]
+    event_object = event["data"]["object"]
 
     if event_type == "checkout.session.completed":
-        _handle_checkout_completed(data)
+        _handle_checkout_completed(event_object)
 
     elif event_type in ("invoice.paid",):
-        _handle_invoice_paid(data)
+        _handle_invoice_paid(event_object)
 
     elif event_type in ("customer.subscription.deleted", "customer.subscription.paused"):
-        _handle_subscription_cancelled(data)
+        _handle_subscription_cancelled(event_object)
 
     elif event_type == "customer.subscription.updated":
-        _handle_subscription_updated(data)
+        _handle_subscription_updated(event_object)
 
     elif event_type == "invoice.payment_failed":
-        _handle_payment_failed(data)
+        _handle_payment_failed(event_object)
 
     return HttpResponse(status=200)
 

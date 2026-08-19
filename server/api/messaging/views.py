@@ -573,23 +573,23 @@ class ConversationView(View):
             user=user, messages__isnull=True, status__in=["active", "inactive"]
         ).first()
         if existing_conversation:
-            data = BigConversationSerializer(existing_conversation, context={'request': request}).data
-            return JsonResponse(data, status=200)
+            conversation_data = BigConversationSerializer(existing_conversation, context={'request': request}).data
+            return JsonResponse(conversation_data, status=200)
 
         conversation = Conversation.objects.create(user=user)
-        data = BigConversationSerializer(conversation, context={'request': request}).data
-        return JsonResponse(data, status=201)
+        conversation_data = BigConversationSerializer(conversation, context={'request': request}).data
+        return JsonResponse(conversation_data, status=201)
 
     def put(self, request, *args, **kwargs):
         user = request.user
-        data = json.loads(request.body)
+        update_payload = json.loads(request.body)
         conversation_id = kwargs.get("id")
 
         conversation, err = _get_conversation_for_user(request, conversation_id)
         if err:
             return err
 
-        regenerate = data.get("regenerate", None)
+        regenerate = update_payload.get("regenerate", None)
         if regenerate:
             deny = _deny_unless_can_edit_conversation_data(request, conversation)
             if deny:
@@ -602,8 +602,8 @@ class ConversationView(View):
             return deny
 
         try:
-            if "tags" in data:
-                raw_tags = data["tags"]
+            if "tags" in update_payload:
+                raw_tags = update_payload["tags"]
                 if not isinstance(raw_tags, list):
                     return JsonResponse(
                         {"message": "Tags must be a list of tag IDs"}, status=400
@@ -621,10 +621,10 @@ class ConversationView(View):
                     )
                 else:
                     valid_ids = []
-                data["tags"] = valid_ids
+                update_payload["tags"] = valid_ids
 
-            if "summary" in data:
-                raw_summary = data["summary"]
+            if "summary" in update_payload:
+                raw_summary = update_payload["summary"]
                 if raw_summary is not None and not isinstance(raw_summary, str):
                     return JsonResponse(
                         {"message": "summary must be a string or null"},
@@ -632,14 +632,14 @@ class ConversationView(View):
                     )
                 if isinstance(raw_summary, str):
                     trimmed = raw_summary.strip()
-                    data["summary"] = trimmed[:12000] if trimmed else None
+                    update_payload["summary"] = trimmed[:12000] if trimmed else None
                 else:
-                    data["summary"] = None
+                    update_payload["summary"] = None
 
-            if "metadata" in data:
-                raw_meta = data["metadata"]
+            if "metadata" in update_payload:
+                raw_meta = update_payload["metadata"]
                 if raw_meta is None:
-                    data["metadata"] = {}
+                    update_payload["metadata"] = {}
                     raw_meta = {}
                 if not isinstance(raw_meta, dict):
                     return JsonResponse(
@@ -664,7 +664,7 @@ class ConversationView(View):
                             },
                             status=403,
                         )
-                data["metadata"] = meta_model.model_dump(mode="json", exclude_none=True)
+                update_payload["metadata"] = meta_model.model_dump(mode="json", exclude_none=True)
 
             ALLOWED_FIELDS = {
                 "title",
@@ -673,7 +673,7 @@ class ConversationView(View):
                 "summary",
                 "metadata",
             }
-            for key, value in data.items():
+            for key, value in update_payload.items():
                 if key in ALLOWED_FIELDS:
                     setattr(conversation, key, value)
 
@@ -704,12 +704,12 @@ class ConversationView(View):
 class ConversationBulkView(View):
     def post(self, request, *args, **kwargs):
         try:
-            data = json.loads(request.body)
+            bulk_action_payload = json.loads(request.body)
         except json.JSONDecodeError:
             return JsonResponse({"message": "Invalid JSON", "status": 400}, status=400)
 
-        action = (data.get("action") or "").strip().lower()
-        conversation_ids = data.get("conversation_ids") or []
+        action = (bulk_action_payload.get("action") or "").strip().lower()
+        conversation_ids = bulk_action_payload.get("conversation_ids") or []
         if action not in ("archive", "unarchive", "delete"):
             return JsonResponse(
                 {"message": "action must be archive, unarchive, or delete", "status": 400},
@@ -767,12 +767,12 @@ class ConversationBulkView(View):
 class MessageView(View):
     def post(self, request, *args, **kwargs):
         try:
-            data = json.loads(request.body)
+            message_payload = json.loads(request.body)
         except json.JSONDecodeError:
             return JsonResponse(
                 {"message": "Invalid JSON", "status": 400}, status=400
             )
-        conversation_id = data.get("conversation")
+        conversation_id = message_payload.get("conversation")
 
         if not conversation_id:
             return JsonResponse(
@@ -788,7 +788,7 @@ class MessageView(View):
                 {"message": "Conversation not found", "status": 404}, status=404
             )
 
-        if not conversation.title and data.get("type") == "assistant":
+        if not conversation.title and message_payload.get("type") == "assistant":
             logger.info(
                 "MessageView.post scheduling generate_title (REST assistant message): "
                 "conversation_id=%s",
@@ -796,7 +796,7 @@ class MessageView(View):
             )
             conversation.generate_title()
 
-        serializer = MessageSerializer(data=data)
+        serializer = MessageSerializer(data=message_payload)
 
         if serializer.is_valid():
             serializer.save()
@@ -805,7 +805,7 @@ class MessageView(View):
             return JsonResponse(serializer.errors, status=400)
 
     def put(self, request, *args, **kwargs):
-        data = json.loads(request.body)
+        message_payload = json.loads(request.body)
         message_id = kwargs.get("id")
 
         try:
@@ -821,7 +821,7 @@ class MessageView(View):
         if deny:
             return deny
 
-        serializer = MessageSerializer(message, data=data, partial=True)
+        serializer = MessageSerializer(message, data=message_payload, partial=True)
 
         if serializer.is_valid():
             serializer.save()
@@ -891,7 +891,7 @@ def _create_attachments_from_data_urls(request, conversation, user, attachments_
 
     from django.core.files.base import ContentFile
 
-    result = []
+    created_attachments = []
     for i, att in enumerate(attachments_data):
         if not isinstance(att, dict):
             return None, JsonResponse(
@@ -967,9 +967,9 @@ def _create_attachments_from_data_urls(request, conversation, user, attachments_
             content_type=content_type,
         )
         url = request.build_absolute_uri(attachment.file.url)
-        result.append({"id": str(attachment.id), "url": url})
+        created_attachments.append({"id": str(attachment.id), "url": url})
 
-    return result, None
+    return created_attachments, None
 
 @csrf_exempt
 @token_required
@@ -984,12 +984,12 @@ def upload_message_attachments(request):
         return JsonResponse({"error": "Authentication required"}, status=401)
 
     try:
-        data = json.loads(request.body) if request.body else {}
+        upload_payload = json.loads(request.body) if request.body else {}
     except json.JSONDecodeError:
         return JsonResponse({"error": "Invalid JSON"}, status=400)
 
-    conversation_id = data.get("conversation_id")
-    attachments_data = data.get("attachments", [])
+    conversation_id = upload_payload.get("conversation_id")
+    attachments_data = upload_payload.get("attachments", [])
 
     if not conversation_id:
         return JsonResponse({"error": "conversation_id is required"}, status=400)
@@ -1000,12 +1000,12 @@ def upload_message_attachments(request):
     if err:
         return err
 
-    result, resp_err = _create_attachments_from_data_urls(
+    uploaded_attachments, resp_err = _create_attachments_from_data_urls(
         request, conv, request.user, attachments_data
     )
     if resp_err is not None:
         return resp_err
-    return JsonResponse({"attachments": result})
+    return JsonResponse({"attachments": uploaded_attachments})
 
 @csrf_exempt
 @token_required
@@ -1023,12 +1023,12 @@ def link_message_attachment(request):
         return JsonResponse({"error": "Authentication required"}, status=401)
 
     try:
-        data = json.loads(request.body) if request.body else {}
+        link_payload = json.loads(request.body) if request.body else {}
     except json.JSONDecodeError:
         return JsonResponse({"error": "Invalid JSON"}, status=400)
 
-    conversation_id = data.get("conversation_id")
-    kind = data.get("kind")
+    conversation_id = link_payload.get("conversation_id")
+    kind = link_payload.get("kind")
     if not conversation_id:
         return JsonResponse({"error": "conversation_id is required"}, status=400)
     if kind not in ("rag_document", "website"):
@@ -1042,7 +1042,7 @@ def link_message_attachment(request):
         return err
 
     if kind == "rag_document":
-        rag_document_id = data.get("rag_document_id") or data.get("document_id")
+        rag_document_id = link_payload.get("rag_document_id") or link_payload.get("document_id")
         if rag_document_id is None:
             return JsonResponse({"error": "rag_document_id is required"}, status=400)
         try:
@@ -1067,7 +1067,7 @@ def link_message_attachment(request):
         )
         return JsonResponse({"attachment": {"id": str(attachment.id)}})
 
-    url = data.get("url")
+    url = link_payload.get("url")
     if not url:
         return JsonResponse({"error": "url is required"}, status=400)
 
@@ -1127,8 +1127,8 @@ def link_message_attachment(request):
 
 @csrf_exempt
 def get_suggestion(request):
-    data = json.loads(request.body)
-    suggestion = complete_message(data.get("input"))
+    suggestion_payload = json.loads(request.body)
+    suggestion = complete_message(suggestion_payload.get("input"))
     return JsonResponse({"suggestion": suggestion})
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -1146,9 +1146,9 @@ class SharedConversationView(View):
         return JsonResponse(serialized_conversation, safe=False)
 
     def post(self, request, *args, **kwargs):
-        data = json.loads(request.body)
-        conversation_id = data.get("conversation")
-        valid_until = data.get("valid_until", None)
+        share_payload = json.loads(request.body)
+        conversation_id = share_payload.get("conversation")
+        valid_until = share_payload.get("valid_until", None)
 
         print(conversation_id, valid_until, "CONVERSATION ID AND VALID UNTIL")
         if not conversation_id:
@@ -1283,10 +1283,10 @@ class ChatWidgetConversationView(View):
             status__in=["active", "inactive"],
         ).first()
         if existing_conversation:
-            data = BigConversationSerializer(
+            conversation_data = BigConversationSerializer(
                 existing_conversation, context={"request": request}
             ).data
-            return JsonResponse(data, status=200)
+            return JsonResponse(conversation_data, status=200)
 
         conversation = Conversation.objects.create(
             user=None,
@@ -1294,8 +1294,8 @@ class ChatWidgetConversationView(View):
             chat_widget=request.widget,
             widget_visitor_session=session,
         )
-        data = BigConversationSerializer(conversation, context={"request": request}).data
-        return JsonResponse(data, status=201)
+        conversation_data = BigConversationSerializer(conversation, context={"request": request}).data
+        return JsonResponse(conversation_data, status=201)
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(widget_session_required, name="dispatch")
@@ -1314,12 +1314,12 @@ class ChatWidgetAgentTaskView(View):
             return JsonResponse({"error": "Widget token mismatch"}, status=403)
 
         try:
-            data = json.loads(request.body)
+            agent_task_payload = json.loads(request.body)
         except json.JSONDecodeError:
             return JsonResponse({"error": "Invalid JSON body"}, status=400)
 
-        conversation_id = data.get("conversation_id")
-        user_inputs = data.get("user_inputs")
+        conversation_id = agent_task_payload.get("conversation_id")
+        user_inputs = agent_task_payload.get("user_inputs")
         if not conversation_id or not isinstance(user_inputs, list) or not user_inputs:
             return JsonResponse(
                 {
@@ -1348,7 +1348,7 @@ class ChatWidgetAgentTaskView(View):
                         status=403,
                     )
 
-        client_datetime = data.get("client_datetime")
+        client_datetime = agent_task_payload.get("client_datetime")
         if client_datetime is not None and not isinstance(client_datetime, dict):
             return JsonResponse(
                 {"error": "client_datetime must be an object when provided"},
@@ -1405,7 +1405,7 @@ class ChatWidgetAgentTaskView(View):
             agent_slug=request.widget.agent.slug,
             widget_token=request.widget.token,
             widget_session_id=str(request.widget_visitor_session.id),
-            regenerate_message_id=data.get("regenerate_message_id"),
+            regenerate_message_id=agent_task_payload.get("regenerate_message_id"),
             client_datetime=client_datetime,
         )
         return JsonResponse({"task_id": task.id, "status": "accepted"}, status=202)
@@ -1435,12 +1435,12 @@ class ChatWidgetAttachmentsUploadView(View):
             )
 
         try:
-            data = json.loads(request.body)
+            attachments_payload = json.loads(request.body)
         except json.JSONDecodeError:
             return JsonResponse({"error": "Invalid JSON body"}, status=400)
 
-        conversation_id = data.get("conversation_id")
-        attachments_data = data.get("attachments", [])
+        conversation_id = attachments_payload.get("conversation_id")
+        attachments_data = attachments_payload.get("attachments", [])
         if not conversation_id:
             return JsonResponse({"error": "conversation_id is required"}, status=400)
 
@@ -1453,12 +1453,12 @@ class ChatWidgetAttachmentsUploadView(View):
         except Conversation.DoesNotExist:
             return JsonResponse({"error": "Conversation not found"}, status=404)
 
-        result, resp_err = _create_attachments_from_data_urls(
+        uploaded_attachments, resp_err = _create_attachments_from_data_urls(
             request, conversation, None, attachments_data
         )
         if resp_err is not None:
             return resp_err
-        return JsonResponse({"attachments": result})
+        return JsonResponse({"attachments": uploaded_attachments})
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(widget_session_required, name="dispatch")
@@ -1489,8 +1489,8 @@ class ChatWidgetConversationsListView(View):
             .filter(msg_count__gt=0)
             .order_by("-created_at")
         )
-        data = WidgetConversationSummarySerializer(conversations, many=True).data
-        return JsonResponse({"conversations": list(data)}, status=200)
+        conversations_data = WidgetConversationSummarySerializer(conversations, many=True).data
+        return JsonResponse({"conversations": list(conversations_data)}, status=200)
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(widget_session_required, name="dispatch")
@@ -1506,8 +1506,8 @@ class ChatWidgetConversationDetailView(View):
             )
         except Conversation.DoesNotExist:
             return JsonResponse({"error": "Conversation not found"}, status=404)
-        data = BigConversationSerializer(conv, context={"request": request}).data
-        return JsonResponse(data, status=200)
+        conversation_data = BigConversationSerializer(conv, context={"request": request}).data
+        return JsonResponse(conversation_data, status=200)
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
@@ -1569,13 +1569,13 @@ class ChatWidgetView(View):
         self._check_permission(user, organization)
         
         try:
-            data = json.loads(request.body)
+            widget_payload = json.loads(request.body)
         except json.JSONDecodeError:
             return JsonResponse(
                 {"message": "Invalid JSON", "status": 400}, status=400
             )
-        
-        agent_id = data.get("agent_id")
+
+        agent_id = widget_payload.get("agent_id")
         if agent_id:
             user_agents = self._get_user_agents(user)
             if not user_agents.filter(id=agent_id).exists():
@@ -1583,8 +1583,8 @@ class ChatWidgetView(View):
                     {"message": "Agent not found or not accessible", "status": 403},
                     status=403
                 )
-        
-        serializer = ChatWidgetSerializer(data=data, context={'request': request})
+
+        serializer = ChatWidgetSerializer(data=widget_payload, context={'request': request})
         if serializer.is_valid():
             serializer.save(created_by=user)
             return JsonResponse(serializer.data, status=201)
@@ -1614,13 +1614,13 @@ class ChatWidgetView(View):
             )
         
         try:
-            data = json.loads(request.body)
+            widget_payload = json.loads(request.body)
         except json.JSONDecodeError:
             return JsonResponse(
                 {"message": "Invalid JSON", "status": 400}, status=400
             )
-        
-        agent_id = data.get("agent_id")
+
+        agent_id = widget_payload.get("agent_id")
         if agent_id:
             user_agents = self._get_user_agents(user)
             if not user_agents.filter(id=agent_id).exists():
@@ -1628,8 +1628,8 @@ class ChatWidgetView(View):
                     {"message": "Agent not found or not accessible", "status": 403},
                     status=403
                 )
-        
-        serializer = ChatWidgetSerializer(widget, data=data, partial=True, context={'request': request})
+
+        serializer = ChatWidgetSerializer(widget, data=widget_payload, partial=True, context={'request': request})
         if serializer.is_valid():
             serializer.save()
             return JsonResponse(serializer.data, safe=False)
@@ -1794,15 +1794,15 @@ class ConversationAlertView(View):
     def put(self, request, *args, **kwargs):
         user = request.user
         alert_id = kwargs.get("id")
-        data = json.loads(request.body)
-        
+        alert_update_payload = json.loads(request.body)
+
         if not alert_id:
             return JsonResponse(
                 {"message": "Alert ID is required", "status": 400}, status=400
             )
-        
+
         user_organizations = self._get_user_organizations(user)
-        
+
         try:
             alert = ConversationAlert.objects.get(
                 id=alert_id,
@@ -1812,8 +1812,8 @@ class ConversationAlertView(View):
             return JsonResponse(
                 {"message": "Alert not found", "status": 404}, status=404
             )
-        
-        new_status = data.get("status")
+
+        new_status = alert_update_payload.get("status")
         if new_status:
             if new_status.upper() not in ["PENDING", "NOTIFIED", "RESOLVED", "DISMISSED"]:
                 return JsonResponse(
@@ -1924,14 +1924,14 @@ class ConversationAlertRuleView(View):
         self._check_permission(user, organization)
         
         try:
-            data = json.loads(request.body)
+            alert_rule_payload = json.loads(request.body)
         except json.JSONDecodeError:
             return JsonResponse(
-                {"message": "Invalid JSON", "status": 400}, 
+                {"message": "Invalid JSON", "status": 400},
                 status=400
             )
-        
-        serializer = ConversationAlertRuleSerializer(data=data)
+
+        serializer = ConversationAlertRuleSerializer(data=alert_rule_payload)
         if serializer.is_valid():
             serializer.save(organization=organization, created_by=user)
             FeatureFlagService.ensure_feature_enabled("conversation-analysis", organization)
@@ -1968,17 +1968,17 @@ class ConversationAlertRuleView(View):
             )
         
         try:
-            data = json.loads(request.body)
+            alert_rule_payload = json.loads(request.body)
         except json.JSONDecodeError:
             return JsonResponse(
-                {"message": "Invalid JSON", "status": 400}, 
+                {"message": "Invalid JSON", "status": 400},
                 status=400
             )
-        
-        data.pop("organization", None)
-        data.pop("created_by", None)
-        
-        serializer = ConversationAlertRuleSerializer(rule, data=data, partial=True)
+
+        alert_rule_payload.pop("organization", None)
+        alert_rule_payload.pop("created_by", None)
+
+        serializer = ConversationAlertRuleSerializer(rule, data=alert_rule_payload, partial=True)
         if serializer.is_valid():
             serializer.save()
             return JsonResponse(serializer.data, safe=False)
@@ -2082,14 +2082,14 @@ class TagView(View):
         self._check_permission(user, organization)
         
         try:
-            data = json.loads(request.body)
+            tag_payload = json.loads(request.body)
         except json.JSONDecodeError:
             return JsonResponse(
-                {"message": "Invalid JSON", "status": 400}, 
+                {"message": "Invalid JSON", "status": 400},
                 status=400
             )
-        
-        serializer = TagSerializer(data=data)
+
+        serializer = TagSerializer(data=tag_payload)
         if serializer.is_valid():
             serializer.save(organization=organization)
             FeatureFlagService.ensure_feature_enabled("conversation-analysis", organization)
@@ -2126,16 +2126,16 @@ class TagView(View):
             )
         
         try:
-            data = json.loads(request.body)
+            tag_payload = json.loads(request.body)
         except json.JSONDecodeError:
             return JsonResponse(
-                {"message": "Invalid JSON", "status": 400}, 
+                {"message": "Invalid JSON", "status": 400},
                 status=400
             )
-        
-        data.pop("organization", None)
-        
-        serializer = TagSerializer(tag, data=data, partial=True)
+
+        tag_payload.pop("organization", None)
+
+        serializer = TagSerializer(tag, data=tag_payload, partial=True)
         if serializer.is_valid():
             serializer.save()
             return JsonResponse(serializer.data, safe=False)
@@ -2212,10 +2212,10 @@ class ConversationTakeoverView(View):
             raise
 
         conversation.refresh_from_db()
-        data = BigConversationSerializer(
+        conversation_data = BigConversationSerializer(
             conversation, context={"request": request}
         ).data
-        return JsonResponse(data, status=200)
+        return JsonResponse(conversation_data, status=200)
 
     def delete(self, request, id):
         deny = _deny_unless_can_replace_agent(request)
@@ -2243,10 +2243,10 @@ class ConversationTakeoverView(View):
 
         release_takeover(takeover, ended_reason="manual_release")
         conversation.refresh_from_db()
-        data = BigConversationSerializer(
+        conversation_data = BigConversationSerializer(
             conversation, context={"request": request}
         ).data
-        return JsonResponse(data, status=200)
+        return JsonResponse(conversation_data, status=200)
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
@@ -2350,13 +2350,13 @@ class GalleryView(View):
         except (TypeError, ValueError):
             offset = 0
 
-        result = list_gallery_items(
+        gallery_items = list_gallery_items(
             user=user,
             gallery_type=gallery_type,
             limit=limit,
             offset=offset,
         )
-        return JsonResponse(result, safe=False)
+        return JsonResponse(gallery_items, safe=False)
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
@@ -2370,13 +2370,13 @@ class GalleryItemView(View):
 
         from api.messaging.gallery import get_gallery_attachment
 
-        result = get_gallery_attachment(user=user, attachment_id=attachment_id)
-        if not result.get("ok"):
+        attachment_lookup = get_gallery_attachment(user=user, attachment_id=attachment_id)
+        if not attachment_lookup.get("ok"):
             return JsonResponse(
                 {"message": "Attachment not found", "status": 404},
                 status=404,
             )
-        return JsonResponse({"status": "ok", "item": result["item"]})
+        return JsonResponse({"status": "ok", "item": attachment_lookup["item"]})
 
     def delete(self, request, attachment_id):
         user = request.user
@@ -2385,13 +2385,13 @@ class GalleryItemView(View):
 
         from api.messaging.gallery import delete_gallery_attachment
 
-        result = delete_gallery_attachment(user=user, attachment_id=attachment_id)
-        if not result.get("ok"):
+        deletion_result = delete_gallery_attachment(user=user, attachment_id=attachment_id)
+        if not deletion_result.get("ok"):
             return JsonResponse(
                 {"message": "Attachment not found", "status": 404},
                 status=404,
             )
-        return JsonResponse({"status": "deleted", "id": result["id"]})
+        return JsonResponse({"status": "deleted", "id": deletion_result["id"]})
 
     def patch(self, request, attachment_id):
         user = request.user
@@ -2399,11 +2399,11 @@ class GalleryItemView(View):
             return JsonResponse({"message": "Unauthorized", "status": 401}, status=401)
 
         try:
-            data = json.loads(request.body) if request.body else {}
+            visibility_payload = json.loads(request.body) if request.body else {}
         except json.JSONDecodeError:
             return JsonResponse({"message": "Invalid JSON", "status": 400}, status=400)
 
-        visibility = data.get("visibility")
+        visibility = visibility_payload.get("visibility")
         if not visibility or not isinstance(visibility, str):
             return JsonResponse(
                 {"message": "visibility is required", "status": 400},
@@ -2412,31 +2412,31 @@ class GalleryItemView(View):
 
         from api.messaging.gallery import update_gallery_attachment_visibility
 
-        result = update_gallery_attachment_visibility(
+        visibility_update = update_gallery_attachment_visibility(
             user=user,
             attachment_id=attachment_id,
             visibility=visibility,
-            role_ids=data.get("role_ids"),
+            role_ids=visibility_payload.get("role_ids"),
         )
-        if result.get("error") == "not_found":
+        if visibility_update.get("error") == "not_found":
             return JsonResponse(
                 {"message": "Attachment not found", "status": 404},
                 status=404,
             )
-        if result.get("error") == "forbidden":
+        if visibility_update.get("error") == "forbidden":
             return JsonResponse(
                 {"message": "Not allowed to change this attachment", "status": 403},
                 status=403,
             )
-        if not result.get("ok"):
+        if not visibility_update.get("ok"):
             return JsonResponse(
                 {
-                    "message": result.get("message") or "Invalid visibility",
+                    "message": visibility_update.get("message") or "Invalid visibility",
                     "status": 400,
                 },
                 status=400,
             )
-        return JsonResponse({"status": "updated", "item": result["item"]})
+        return JsonResponse({"status": "updated", "item": visibility_update["item"]})
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
@@ -2457,12 +2457,12 @@ class UserScheduledTasksView(View):
 
         from api.messaging.schedule_service import list_scheduled_tasks_for_user
 
-        result = list_scheduled_tasks_for_user(
+        scheduled_tasks = list_scheduled_tasks_for_user(
             user_id=user.id,
             include_finished=include_finished,
             limit=limit,
         )
-        return JsonResponse(result, safe=False)
+        return JsonResponse(scheduled_tasks, safe=False)
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
@@ -2494,13 +2494,13 @@ class ConversationScheduledTasksView(View):
 
         from api.messaging.schedule_service import list_scheduled_tasks_for_conversation
 
-        result = list_scheduled_tasks_for_conversation(
+        scheduled_tasks = list_scheduled_tasks_for_conversation(
             conversation_id=str(conversation.id),
             organization_id=conversation.organization_id,
             include_finished=include_finished,
             limit=limit,
         )
-        return JsonResponse(result, safe=False)
+        return JsonResponse(scheduled_tasks, safe=False)
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
@@ -2547,7 +2547,7 @@ class ScheduledConversationTaskDetailView(View):
         )
 
         try:
-            result = update_scheduled_task_capabilities(
+            capabilities_update = update_scheduled_task_capabilities(
                 task_id=str(task.id),
                 capabilities=body.get("capabilities"),
                 conversation_id=str(task.conversation_id),
@@ -2557,7 +2557,7 @@ class ScheduledConversationTaskDetailView(View):
                 {"message": exc.message, "status": exc.status_code},
                 status=exc.status_code,
             )
-        return JsonResponse(result, safe=False)
+        return JsonResponse(capabilities_update, safe=False)
 
     def delete(self, request, task_id):
         user = request.user
@@ -2574,7 +2574,7 @@ class ScheduledConversationTaskDetailView(View):
         )
 
         try:
-            result = cancel_scheduled_task(
+            cancel_result = cancel_scheduled_task(
                 task_id=str(task.id),
                 conversation_id=str(task.conversation_id),
             )
@@ -2584,14 +2584,14 @@ class ScheduledConversationTaskDetailView(View):
                 status=exc.status_code,
             )
 
-        if not result.get("success"):
+        if not cancel_result.get("success"):
             return JsonResponse(
                 {
-                    "message": result.get("message") or "Cannot cancel task",
+                    "message": cancel_result.get("message") or "Cannot cancel task",
                     "status": 400,
-                    **result,
+                    **cancel_result,
                 },
                 status=400,
             )
-        return JsonResponse(result, safe=False)
+        return JsonResponse(cancel_result, safe=False)
 

@@ -38,13 +38,13 @@ def _list_scheduled_tasks_impl(
     include_finished: bool = False,
     limit: int = 20,
 ) -> ListScheduledTasksResult:
-    result = list_scheduled_tasks_for_conversation(
+    scheduled_tasks = list_scheduled_tasks_for_conversation(
         conversation_id=conversation_id,
         organization_id=organization_id,
         include_finished=include_finished,
         limit=limit,
     )
-    return ListScheduledTasksResult(**result)
+    return ListScheduledTasksResult(**scheduled_tasks)
 
 
 def get_tool(

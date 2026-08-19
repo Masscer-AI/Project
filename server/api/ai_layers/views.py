@@ -131,7 +131,7 @@ class AgentView(View):
         agents_data = AgentSerializer(agents, many=True, context={"request": request}).data
         models_data = LanguageModelSerializer(models, many=True).data
 
-        data = {"models": models_data, "agents": agents_data}
+        response_payload = {"models": models_data, "agents": agents_data}
 
         logger.info(
             "GET /agents cache_miss user_id=%s username=%s profile_org_id=%s "
@@ -147,9 +147,9 @@ class AgentView(View):
             [(a.get("slug"), a.get("agent_kind")) for a in agents_data],
         )
 
-        cache.set(cache_key, data, timeout=CACHE_TIMEOUT)
+        cache.set(cache_key, response_payload, timeout=CACHE_TIMEOUT)
 
-        return JsonResponse(data, safe=False)
+        return JsonResponse(response_payload, safe=False)
 
     def put(self, request, *args, **kwargs):
         from api.authenticate.services import FeatureFlagService
@@ -182,13 +182,13 @@ class AgentView(View):
         if not can_edit:
             return JsonResponse({"error": "You don't have permission to edit this agent"}, status=403)
         
-        data = JSONParser().parse(request)
+        agent_payload = JSONParser().parse(request)
 
-        access_mode = data.pop("access_mode", None)
-        allowed_role_ids = data.pop("allowed_role_ids", None)
+        access_mode = agent_payload.pop("access_mode", None)
+        allowed_role_ids = agent_payload.pop("allowed_role_ids", None)
 
-        llm_slug = data.get("llm", default_llm).get("slug")
-        llm_provider = data.get("llm", default_llm).get("provider")
+        llm_slug = agent_payload.get("llm", default_llm).get("slug")
+        llm_provider = agent_payload.get("llm", default_llm).get("provider")
         llm = LanguageModel.objects.filter(
             slug=llm_slug, provider__name__iexact=llm_provider
         ).first()
@@ -204,7 +204,7 @@ class AgentView(View):
 
         agent.llm = llm
 
-        ownership = data.pop("ownership", None)
+        ownership = agent_payload.pop("ownership", None)
         if ownership is not None:
             can_set_ownership, _ = FeatureFlagService.is_feature_enabled(
                 "set-agent-ownership", organization=user_org, user=request.user
@@ -244,7 +244,7 @@ class AgentView(View):
             if agent.organization is None:
                 agent.allowed_roles.clear()
 
-        serializer = AgentSerializer(agent, data=data, partial=True, context={"request": request})
+        serializer = AgentSerializer(agent, data=agent_payload, partial=True, context={"request": request})
         if serializer.is_valid():
             serializer.save()
 
@@ -283,9 +283,9 @@ class AgentView(View):
         return JsonResponse(serializer.errors, status=400)
 
     def post(self, request, *args, **kwargs):
-        data = JSONParser().parse(request)
+        agent_payload = JSONParser().parse(request)
 
-        serializer = AgentSerializer(data=data, context={"request": request})
+        serializer = AgentSerializer(data=agent_payload, context={"request": request})
         if serializer.is_valid():
             serializer.save(user=request.user)
 
@@ -333,12 +333,12 @@ class AgentView(View):
 @method_decorator(feature_flag_required("manage-llm"), name="dispatch")
 class LanguageModelView(View):
     def post(self, request, *args, **kwargs):
-        data = JSONParser().parse(request)
+        model_payload = JSONParser().parse(request)
 
-        provider_name = str(data.get("provider", "")).strip()
-        slug = str(data.get("slug", "")).strip()
-        name = str(data.get("name", "")).strip()
-        pricing = data.get("pricing")
+        provider_name = str(model_payload.get("provider", "")).strip()
+        slug = str(model_payload.get("slug", "")).strip()
+        name = str(model_payload.get("name", "")).strip()
+        pricing = model_payload.get("pricing")
 
         if not provider_name or not slug or not name:
             return JsonResponse(
@@ -535,13 +535,13 @@ class AgentTaskView(View):
 
     def post(self, request, *args, **kwargs):
         try:
-            data = json.loads(request.body)
+            payload = json.loads(request.body)
         except json.JSONDecodeError:
             return JsonResponse({"error": "Invalid JSON body"}, status=400)
 
-        conversation_id = data.get("conversation_id")
-        agent_slugs = data.get("agent_slugs")
-        user_inputs = data.get("user_inputs")
+        conversation_id = payload.get("conversation_id")
+        agent_slugs = payload.get("agent_slugs")
+        user_inputs = payload.get("user_inputs")
 
         if not isinstance(agent_slugs, list):
             return JsonResponse(
@@ -564,26 +564,26 @@ class AgentTaskView(View):
                 status=400,
             )
 
-        result = dispatch_conversation_agent_task(
+        dispatch_result = dispatch_conversation_agent_task(
             user=request.user,
             conversation_id=str(conversation_id),
             agent_slugs=slugs,
             user_inputs=user_inputs,
-            tool_names=data.get("tool_names", []),
-            tool_names_by_agent=data.get("tool_names_by_agent"),
-            multiagentic_modality=data.get("multiagentic_modality", "isolated"),
-            client_datetime=data.get("client_datetime"),
-            regenerate_message_id=data.get("regenerate_message_id"),
+            tool_names=payload.get("tool_names", []),
+            tool_names_by_agent=payload.get("tool_names_by_agent"),
+            multiagentic_modality=payload.get("multiagentic_modality", "isolated"),
+            client_datetime=payload.get("client_datetime"),
+            regenerate_message_id=payload.get("regenerate_message_id"),
         )
 
-        if not result.ok:
-            return result.response
+        if not dispatch_result.ok:
+            return dispatch_result.response
 
-        if result.takeover:
-            return result.response
+        if dispatch_result.takeover:
+            return dispatch_result.response
 
         return JsonResponse(
-            {"task_id": result.task_id, "status": "accepted"},
+            {"task_id": dispatch_result.task_id, "status": "accepted"},
             status=202,
         )
 
@@ -624,13 +624,13 @@ class PlatformAgentTaskView(View):
         from .platform_assistant_task import platform_assistant_task
 
         try:
-            data = json.loads(request.body)
+            payload = json.loads(request.body)
         except json.JSONDecodeError:
             return JsonResponse({"error": "Invalid JSON body"}, status=400)
 
-        conversation_id = data.get("conversation_id")
-        agent_slug = data.get("agent_slug")
-        user_inputs = data.get("user_inputs")
+        conversation_id = payload.get("conversation_id")
+        agent_slug = payload.get("agent_slug")
+        user_inputs = payload.get("user_inputs")
 
         if not conversation_id:
             return JsonResponse({"error": "conversation_id is required"}, status=400)
@@ -707,12 +707,12 @@ class PlatformAgentTaskView(View):
         conversation.metadata = metadata_payload_for_related_agents([agent.id])
         conversation.save(update_fields=["metadata", "updated_at"])
 
-        client_datetime, client_dt_error = _parse_client_datetime(data.get("client_datetime"))
+        client_datetime, client_dt_error = _parse_client_datetime(payload.get("client_datetime"))
         if client_dt_error:
             return client_dt_error
 
         regenerate_message_id, regen_error = _parse_regenerate_message_id(
-            data.get("regenerate_message_id"),
+            payload.get("regenerate_message_id"),
             conversation=conversation,
             user=user,
         )
@@ -779,8 +779,8 @@ def agent_sessions_for_message(request):
         assistant_message_id=msg_id
     ).order_by("agent_index")
 
-    data = AgentSessionSerializer(sessions, many=True).data
-    return JsonResponse(data, safe=False)
+    agent_sessions_data = AgentSessionSerializer(sessions, many=True).data
+    return JsonResponse(agent_sessions_data, safe=False)
 
 @csrf_exempt
 @token_required
@@ -814,8 +814,8 @@ def agent_session_execution_log_for_message(request):
         assistant_message_id=msg_id
     ).order_by("agent_index")
 
-    data = AgentSessionExecutionLogSerializer(sessions, many=True).data
-    return JsonResponse({"sessions": data}, safe=False)
+    execution_log_data = AgentSessionExecutionLogSerializer(sessions, many=True).data
+    return JsonResponse({"sessions": execution_log_data}, safe=False)
 
 @csrf_exempt
 @token_required
@@ -834,11 +834,11 @@ def cancel_agent_task(request):
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
     try:
-        data = json.loads(request.body)
+        payload = json.loads(request.body)
     except json.JSONDecodeError:
         return JsonResponse({"error": "Invalid JSON body"}, status=400)
 
-    conversation_id = data.get("conversation_id")
+    conversation_id = payload.get("conversation_id")
     if not conversation_id:
         return JsonResponse({"error": "conversation_id is required"}, status=400)
 

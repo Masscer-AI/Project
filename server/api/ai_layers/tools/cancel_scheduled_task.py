@@ -29,14 +29,14 @@ def _cancel_scheduled_task_impl(
     organization_id: int,
 ) -> CancelScheduledTaskResult:
     try:
-        result = cancel_scheduled_task(
+        cancellation_result = cancel_scheduled_task(
             task_id=task_id,
             conversation_id=conversation_id,
             organization_id=organization_id,
         )
     except ScheduleServiceError as exc:
         raise ValueError(exc.message) from exc
-    return CancelScheduledTaskResult(**result)
+    return CancelScheduledTaskResult(**cancellation_result)
 
 
 def get_tool(

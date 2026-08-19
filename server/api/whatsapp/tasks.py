@@ -9,8 +9,8 @@ logger = logging.getLogger(__name__)
 
 @shared_task
 def async_handle_webhook(webhook_data):
-    result = handle_webhook(webhook_data=webhook_data)
-    return result
+    webhook_result = handle_webhook(webhook_data=webhook_data)
+    return webhook_result
 
 @shared_task
 def whatsapp_flush_inbound_agent_task(
@@ -124,7 +124,7 @@ def whatsapp_conversation_agent_task(
 
     route_key = f"whatsapp:{conv.id}"
 
-    result = conversation_agent_task(
+    agent_task_result = conversation_agent_task(
         conversation_id=str(conv.id),
         user_inputs=user_inputs,
         tool_names=tool_names,
@@ -135,32 +135,32 @@ def whatsapp_conversation_agent_task(
         client_datetime=None,
     )
 
-    if not isinstance(result, dict):
+    if not isinstance(agent_task_result, dict):
         logger.warning(
             "whatsapp_conversation_agent_task: unexpected non-dict result; skipping delivery. "
             "conversation_id=%s result=%r",
             conversation_id,
-            result,
+            agent_task_result,
         )
         return {"status": "skipped", "reason": "invalid_result"}
 
-    if result.get("status") == "completed" and result.get("message_id"):
-        assistant_msg = conv.messages.filter(id=result["message_id"]).first()
+    if agent_task_result.get("status") == "completed" and agent_task_result.get("message_id"):
+        assistant_msg = conv.messages.filter(id=agent_task_result["message_id"]).first()
         if assistant_msg:
             emit_message_created(None, conv, assistant_msg)
         try:
             deliver_whatsapp_reply(
                 conversation=conv,
-                assistant_message_id=result["message_id"],
+                assistant_message_id=agent_task_result["message_id"],
                 inbound_wamid=inbound_wamid,
             )
         except Exception:
             logger.exception(
                 "deliver_whatsapp_reply failed conversation_id=%s assistant_id=%s",
                 conversation_id,
-                result.get("message_id"),
+                agent_task_result.get("message_id"),
             )
-    elif result.get("status") == "cancelled":
+    elif agent_task_result.get("status") == "cancelled":
         logger.info(
             "whatsapp_conversation_agent_task: cancelled conversation_id=%s",
             conversation_id,
@@ -170,7 +170,7 @@ def whatsapp_conversation_agent_task(
             "whatsapp_conversation_agent_task: agent task did not complete; sending fallback. "
             "conversation_id=%s result=%s",
             conversation_id,
-            result,
+            agent_task_result,
         )
         try:
             send_whatsapp_fallback_text(conv, inbound_wamid=inbound_wamid)
@@ -180,4 +180,4 @@ def whatsapp_conversation_agent_task(
                 conversation_id,
             )
 
-    return result
+    return agent_task_result

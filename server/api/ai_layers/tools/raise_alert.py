@@ -65,16 +65,16 @@ def _fields_to_dict(fields: list[ExtractionField] | None) -> dict[str, Any]:
     """Convert a list of ExtractionField items (or raw dicts) into a plain dict."""
     if not fields:
         return {}
-    result = {}
+    extracted_fields = {}
     for f in fields:
         if isinstance(f, ExtractionField):
-            result[f.key] = f.value
+            extracted_fields[f.key] = f.value
         elif isinstance(f, dict):
             key = f.get("key")
             value = f.get("value")
             if key is not None:
-                result[str(key)] = str(value) if value is not None else ""
-    return result
+                extracted_fields[str(key)] = str(value) if value is not None else ""
+    return extracted_fields
 
 def _raise_alert_impl(
     reasoning: str,

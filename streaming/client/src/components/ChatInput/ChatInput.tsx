@@ -172,14 +172,14 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         reader.onload = (event) => {
           const target = event.target;
           if (!target) return;
-          const result = target.result;
-          if (!result) return;
+          const dataUrl = target.result;
+          if (!dataUrl) return;
           const id = uuidv4();
 
           if (!blob) return;
 
           addAttachment({
-            content: result as string,
+            content: dataUrl as string,
             type: "image",
             name: id,
             file: blob,
@@ -207,8 +207,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       if (showStopButton) return;
-      const result = await handleSendMessage(textPrompt);
-      if (result) setTextPrompt("");
+      const messageSent = await handleSendMessage(textPrompt);
+      if (messageSent) setTextPrompt("");
     }
   };
 
@@ -234,8 +234,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   };
 
   const asyncSendMessage = async () => {
-    const result = await handleSendMessage(textPrompt);
-    if (result) setTextPrompt("");
+    const messageSent = await handleSendMessage(textPrompt);
+    if (messageSent) setTextPrompt("");
   };
 
   useHotkeys("ctrl+alt+w", () => toggleWritingMode(), {
@@ -291,8 +291,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               onKeyDown={async (event) => {
                 if (event.key === "Enter" && !event.shiftKey) {
                   event.preventDefault();
-                  const result = await handleSendMessage(textPrompt);
-                  if (result) setTextPrompt("");
+                  const messageSent = await handleSendMessage(textPrompt);
+                  if (messageSent) setTextPrompt("");
                 }
               }}
             />
@@ -490,10 +490,10 @@ const PlusMenu = ({ existingFilesOnly = false }: { existingFilesOnly?: boolean }
         reader.onload = (event) => {
           const target = event.target;
           if (!target) return;
-          const result = target.result;
-          if (!result) return;
+          const dataUrl = target.result;
+          if (!dataUrl) return;
           addAttachment({
-            content: result as string,
+            content: dataUrl as string,
             file: file,
             type: file.type,
             name: file.name,
@@ -738,10 +738,10 @@ export const FileLoader = () => {
         reader.onload = (event) => {
           const target = event.target;
           if (!target) return;
-          const result = target.result;
-          if (!result) return;
+          const dataUrl = target.result;
+          if (!dataUrl) return;
           addAttachment({
-            content: result as string,
+            content: dataUrl as string,
             file: file,
             type: file.type,
             name: file.name,

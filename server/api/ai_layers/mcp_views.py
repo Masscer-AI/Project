@@ -86,13 +86,13 @@ def mcp_run_agent(request):
     Body: { "agent_slug": "...", "message": "...", "conversation_id": "..."? }
     """
     try:
-        data = json.loads(request.body or b"{}")
+        payload = json.loads(request.body or b"{}")
     except json.JSONDecodeError:
         return JsonResponse({"error": "Invalid JSON body"}, status=400)
 
-    agent_slug = (data.get("agent_slug") or "").strip()
-    message = (data.get("message") or "").strip()
-    conversation_id = data.get("conversation_id")
+    agent_slug = (payload.get("agent_slug") or "").strip()
+    message = (payload.get("message") or "").strip()
+    conversation_id = payload.get("conversation_id")
 
     if not agent_slug:
         return JsonResponse({"error": "agent_slug is required"}, status=400)
@@ -135,7 +135,7 @@ def mcp_run_agent(request):
         )
         conversation_id = str(conversation.id)
 
-    result = dispatch_conversation_agent_task(
+    dispatch_result = dispatch_conversation_agent_task(
         user=user,
         conversation_id=str(conversation_id),
         agent_slugs=[agent.slug],
@@ -145,16 +145,16 @@ def mcp_run_agent(request):
         mcp_client_id=str(mcp_client.id),
     )
 
-    if not result.ok:
-        return result.response
+    if not dispatch_result.ok:
+        return dispatch_result.response
 
-    if result.takeover:
-        return result.response
+    if dispatch_result.takeover:
+        return dispatch_result.response
 
     return JsonResponse(
         {
-            "task_id": result.task_id,
-            "conversation_id": result.conversation_id,
+            "task_id": dispatch_result.task_id,
+            "conversation_id": dispatch_result.conversation_id,
             "status": "accepted",
             "tool_name": sanitize_mcp_tool_name(agent.slug),
         },
@@ -333,8 +333,8 @@ def mcp_credentials(request):
                 ),
             )
         )
-        data = [_credential_summary(c) for c in clients]
-        return JsonResponse({"credentials": data})
+        credentials = [_credential_summary(c) for c in clients]
+        return JsonResponse({"credentials": credentials})
 
     try:
         body = json.loads(request.body or b"{}")

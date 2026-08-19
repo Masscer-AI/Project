@@ -65,8 +65,8 @@ def _serialize_prev_messages(conversation, before_message_id, limit=None, *, use
 
 @shared_task
 def async_generate_agent_profile_picture(agent_id: int):
-    result = generate_agent_profile_picture(agent_id)
-    return result
+    profile_picture_url = generate_agent_profile_picture(agent_id)
+    return profile_picture_url
 
 def _agent_clock_context(
     client_datetime: dict | None,
@@ -489,12 +489,12 @@ def _extract_create_image_attachments(tool_calls: list[dict]) -> tuple[list[dict
             raw = (call or {}).get("result") or ""
             if not isinstance(raw, str) or not raw.strip():
                 continue
-            data = json.loads(raw)
-            if not isinstance(data, dict):
+            tool_payload = json.loads(raw)
+            if not isinstance(tool_payload, dict):
                 continue
-            aid = data.get("attachment_id")
-            content = data.get("content") or ""
-            name = data.get("name") or "image"
+            aid = tool_payload.get("attachment_id")
+            content = tool_payload.get("content") or ""
+            name = tool_payload.get("name") or "image"
             if not aid or not content:
                 continue
             attachments.append(
@@ -531,12 +531,12 @@ def _extract_create_speech_attachments(tool_calls: list[dict]) -> tuple[list[dic
             raw = (call or {}).get("result") or ""
             if not isinstance(raw, str) or not raw.strip():
                 continue
-            data = json.loads(raw)
-            if not isinstance(data, dict):
+            tool_payload = json.loads(raw)
+            if not isinstance(tool_payload, dict):
                 continue
-            aid = data.get("attachment_id")
-            content = data.get("content") or ""
-            name = data.get("name") or "speech"
+            aid = tool_payload.get("attachment_id")
+            content = tool_payload.get("content") or ""
+            name = tool_payload.get("name") or "speech"
             if not aid or not content:
                 continue
             attachments.append(
@@ -567,12 +567,12 @@ def _extract_generate_dialogue_attachments(tool_calls: list[dict]) -> tuple[list
             raw = (call or {}).get("result") or ""
             if not isinstance(raw, str) or not raw.strip():
                 continue
-            data = json.loads(raw)
-            if not isinstance(data, dict):
+            tool_payload = json.loads(raw)
+            if not isinstance(tool_payload, dict):
                 continue
-            aid = data.get("attachment_id")
-            content = data.get("content") or ""
-            name = data.get("name") or "dialogue"
+            aid = tool_payload.get("attachment_id")
+            content = tool_payload.get("content") or ""
+            name = tool_payload.get("name") or "dialogue"
             if not aid or not content:
                 continue
             attachments.append(
@@ -609,12 +609,12 @@ def _extract_generate_video_attachments(tool_calls: list[dict]) -> tuple[list[di
             raw = (call or {}).get("result") or ""
             if not isinstance(raw, str) or not raw.strip():
                 continue
-            data = json.loads(raw)
-            if not isinstance(data, dict):
+            tool_payload = json.loads(raw)
+            if not isinstance(tool_payload, dict):
                 continue
-            aid = data.get("attachment_id")
-            content = data.get("content") or ""
-            name = data.get("name") or "video"
+            aid = tool_payload.get("attachment_id")
+            content = tool_payload.get("content") or ""
+            name = tool_payload.get("name") or "video"
             if not aid or not content:
                 continue
             attachments.append(
@@ -657,12 +657,12 @@ def _extract_generated_document_attachments(
             raw = (call or {}).get("result") or ""
             if not isinstance(raw, str) or not raw.strip():
                 continue
-            data = json.loads(raw)
-            if not isinstance(data, dict):
+            tool_payload = json.loads(raw)
+            if not isinstance(tool_payload, dict):
                 continue
-            aid = data.get("attachment_id")
-            content = data.get("content") or ""
-            name = data.get("name") or default_name
+            aid = tool_payload.get("attachment_id")
+            content = tool_payload.get("content") or ""
+            name = tool_payload.get("name") or default_name
             if not aid or not content:
                 continue
             attachments.append(
@@ -701,12 +701,12 @@ def _extract_render_document_template_attachments(
             raw = (call or {}).get("result") or ""
             if not isinstance(raw, str) or not raw.strip():
                 continue
-            data = json.loads(raw)
-            if not isinstance(data, dict):
+            tool_payload = json.loads(raw)
+            if not isinstance(tool_payload, dict):
                 continue
-            aid = data.get("attachment_id")
-            content = data.get("content") or ""
-            name = data.get("name") or "document.docx"
+            aid = tool_payload.get("attachment_id")
+            content = tool_payload.get("content") or ""
+            name = tool_payload.get("name") or "document.docx"
             if not aid or not content:
                 continue
             attachments.append(
@@ -879,10 +879,10 @@ def _extract_rag_sources(tool_calls: list[dict]) -> list[dict]:
             raw = (call or {}).get("result") or ""
             if not isinstance(raw, str) or not raw.strip():
                 continue
-            data = json.loads(raw)
-            if not isinstance(data, dict):
+            tool_payload = json.loads(raw)
+            if not isinstance(tool_payload, dict):
                 continue
-            results_wrapper = data.get("results") or {}
+            results_wrapper = tool_payload.get("results") or {}
             inner = results_wrapper.get("results") or results_wrapper
             metadatas = inner.get("metadatas") or []
             for meta_list in metadatas:
@@ -940,10 +940,10 @@ def _extract_create_completion_refs_from_tool_calls(tool_calls: list[dict]) -> l
             raw = (call or {}).get("result") or ""
             if not isinstance(raw, str) or not raw.strip():
                 continue
-            data = json.loads(raw)
-            if not isinstance(data, dict):
+            tool_payload = json.loads(raw)
+            if not isinstance(tool_payload, dict):
                 continue
-            cid = data.get("completion_id")
+            cid = tool_payload.get("completion_id")
             if cid is None:
                 continue
             cid = int(cid)
@@ -1178,16 +1178,16 @@ def conversation_agent_task(
         return {"status": "error", "error": str(e)}
     user_message_text = _build_user_message_text(resolved_inputs)
 
-    def emit_event(event_type: str, data: dict) -> None:
-        payload = {"type": event_type, "conversation_id": conversation_id, **data}
+    def emit_event(event_type: str, event_data: dict) -> None:
+        payload = {"type": event_type, "conversation_id": conversation_id, **event_data}
         notify_user(notification_route_id, "agent_events_channel", payload)
 
-    def emit_finished(data: dict) -> None:
-        if not data.get("next_agent_slug"):
+    def emit_finished(event_data: dict) -> None:
+        if not event_data.get("next_agent_slug"):
             from api.ai_layers.agent_task_helpers import clear_agent_task_active
 
             clear_agent_task_active(conversation_id)
-        payload = {"conversation_id": conversation_id, **data}
+        payload = {"conversation_id": conversation_id, **event_data}
         notify_user(notification_route_id, "agent_loop_finished", payload)
 
     logger.info(
@@ -2128,16 +2128,16 @@ def conversation_agent_task(
 
             agent_event_log: list[dict] = []
 
-            def on_event(event_type: str, data: dict) -> None:
+            def on_event(event_type: str, event_data: dict) -> None:
                 from django.utils import timezone as _tz
 
                 agent_event_log.append(
                     {
                         "type": event_type,
-                        "tool_name": data.get("tool_name"),
-                        "iteration": data.get("iteration"),
-                        "duration": data.get("duration"),
-                        "error": data.get("error"),
+                        "tool_name": event_data.get("tool_name"),
+                        "iteration": event_data.get("iteration"),
+                        "duration": event_data.get("duration"),
+                        "error": event_data.get("error"),
                         "ts": _tz.now().isoformat(),
                     }
                 )
@@ -2146,7 +2146,7 @@ def conversation_agent_task(
                     "conversation_id": conversation_id,
                     "agent_slug": agent.slug,
                     "agent_name": agent.name,
-                    **data,
+                    **event_data,
                 }
                 notify_user(notification_route_id, "agent_events_channel", payload)
 
@@ -2217,7 +2217,7 @@ def conversation_agent_task(
             
             try:
                 from api.ai_layers.agent_loop import CancelledError
-                result = loop.run(openai_inputs)
+                agent_run_result = loop.run(openai_inputs)
             except CancelledError:
                 logger.info("Task cancelled for conversation %s", conversation_id)
                 from django.utils import timezone
@@ -2254,34 +2254,34 @@ def conversation_agent_task(
 
             from django.utils import timezone
 
-            new_atts, new_ids = _extract_create_image_attachments(result.tool_calls or [])
+            new_atts, new_ids = _extract_create_image_attachments(agent_run_result.tool_calls or [])
             if new_atts:
                 assistant_message_attachments.extend(new_atts)
             if new_ids:
                 assistant_attachment_ids.extend(new_ids)
  
-            speech_atts, speech_ids = _extract_create_speech_attachments(result.tool_calls or [])
+            speech_atts, speech_ids = _extract_create_speech_attachments(agent_run_result.tool_calls or [])
             if speech_atts:
                 assistant_message_attachments.extend(speech_atts)
             if speech_ids:
                 assistant_attachment_ids.extend(speech_ids)
 
             dialogue_atts, dialogue_ids = _extract_generate_dialogue_attachments(
-                result.tool_calls or []
+                agent_run_result.tool_calls or []
             )
             if dialogue_atts:
                 assistant_message_attachments.extend(dialogue_atts)
             if dialogue_ids:
                 assistant_attachment_ids.extend(dialogue_ids)
 
-            video_atts, video_ids = _extract_generate_video_attachments(result.tool_calls or [])
+            video_atts, video_ids = _extract_generate_video_attachments(agent_run_result.tool_calls or [])
             if video_atts:
                 assistant_message_attachments.extend(video_atts)
             if video_ids:
                 assistant_attachment_ids.extend(video_ids)
 
             doc_atts, doc_ids = _extract_render_document_template_attachments(
-                result.tool_calls or []
+                agent_run_result.tool_calls or []
             )
             if doc_atts:
                 assistant_message_attachments.extend(doc_atts)
@@ -2289,7 +2289,7 @@ def conversation_agent_task(
                 assistant_attachment_ids.extend(doc_ids)
 
             gen_doc_atts, gen_doc_ids = _extract_generate_document_file_attachments(
-                result.tool_calls or []
+                agent_run_result.tool_calls or []
             )
             if gen_doc_atts:
                 assistant_message_attachments.extend(gen_doc_atts)
@@ -2297,7 +2297,7 @@ def conversation_agent_task(
                 assistant_attachment_ids.extend(gen_doc_ids)
 
             gen_xlsx_atts, gen_xlsx_ids = _extract_generate_excel_file_attachments(
-                result.tool_calls or []
+                agent_run_result.tool_calls or []
             )
             if gen_xlsx_atts:
                 assistant_message_attachments.extend(gen_xlsx_atts)
@@ -2306,7 +2306,7 @@ def conversation_agent_task(
 
             gen_gamma_atts, gen_gamma_ids = (
                 _extract_generate_gamma_attachment_attachments(
-                    result.tool_calls or []
+                    agent_run_result.tool_calls or []
                 )
             )
             if gen_gamma_atts:
@@ -2314,37 +2314,37 @@ def conversation_agent_task(
             if gen_gamma_ids:
                 assistant_attachment_ids.extend(gen_gamma_ids)
 
-            if isinstance(result.output, str):
-                output_value = OutputValue(type="string", value=result.output)
-            elif hasattr(result.output, "model_dump"):
-                dump = result.output.model_dump(mode="json")
+            if isinstance(agent_run_result.output, str):
+                output_value = OutputValue(type="string", value=agent_run_result.output)
+            elif hasattr(agent_run_result.output, "model_dump"):
+                dump = agent_run_result.output.model_dump(mode="json")
                 output_value = OutputValue(type="json", value=dump)
             else:
-                output_value = OutputValue(type="string", value=str(result.output))
+                output_value = OutputValue(type="string", value=str(agent_run_result.output))
 
             outputs_data = AgentSessionOutputs(
-                messages=result.messages,
+                messages=agent_run_result.messages,
                 output=output_value,
-                usage=result.usage,
+                usage=agent_run_result.usage,
                 status="completed",
                 error=None,
             ).model_dump()
 
             session.outputs = outputs_data
             session.event_log = agent_event_log
-            session.iterations = result.iterations
-            session.tool_calls_count = len(result.tool_calls)
+            session.iterations = agent_run_result.iterations
+            session.tool_calls_count = len(agent_run_result.tool_calls)
             session.ended_at = timezone.now()
             session.total_duration = time.perf_counter() - start_time
             session.save()
 
             import json as _json
-            if isinstance(result.output, str):
-                output_text = result.output
-            elif hasattr(result.output, "model_dump"):
-                output_text = _json.dumps(result.output.model_dump(), default=str)
+            if isinstance(agent_run_result.output, str):
+                output_text = agent_run_result.output
+            elif hasattr(agent_run_result.output, "model_dump"):
+                output_text = _json.dumps(agent_run_result.output.model_dump(), default=str)
             else:
-                output_text = str(result.output)
+                output_text = str(agent_run_result.output)
 
             referenced_atts = _extract_referenced_attachments_from_text(
                 output_text,
@@ -2364,7 +2364,7 @@ def conversation_agent_task(
                         existing_ids.add(aid)
 
             completion_atts_from_tools = _extract_create_completion_refs_from_tool_calls(
-                result.tool_calls or []
+                agent_run_result.tool_calls or []
             )
             completion_atts_from_text = _extract_referenced_completions_from_text(
                 output_text,
@@ -2383,7 +2383,7 @@ def conversation_agent_task(
                 if cid:
                     existing_completion_ids.add(cid)
 
-            rag_sources = _extract_rag_sources(result.tool_calls or [])
+            rag_sources = _extract_rag_sources(agent_run_result.tool_calls or [])
 
             version = {
                 "agent_slug": agent.slug,
@@ -2391,17 +2391,17 @@ def conversation_agent_task(
                 "type": "assistant",
                 "sources": rag_sources,
                 "usage": {
-                    "prompt_tokens": result.usage.get("prompt_tokens", 0),
-                    "completion_tokens": result.usage.get("completion_tokens", 0),
-                    "total_tokens": result.usage.get("total_tokens", 0),
+                    "prompt_tokens": agent_run_result.usage.get("prompt_tokens", 0),
+                    "completion_tokens": agent_run_result.usage.get("completion_tokens", 0),
+                    "total_tokens": agent_run_result.usage.get("total_tokens", 0),
                     "model_slug": model_slug,
                 },
             }
             version["text"] = output_text
             versions.append(version)
 
-            total_iterations += result.iterations
-            total_tool_calls += len(result.tool_calls)
+            total_iterations += agent_run_result.iterations
+            total_tool_calls += len(agent_run_result.tool_calls)
 
             emit_event("agent_version_ready", {"version": version})
 
