@@ -652,24 +652,62 @@ class AgentTaskView(View):
                 status=400,
             )
 
-        dispatch_result = dispatch_conversation_agent_task(
-            user=request.user,
-            conversation_id=str(conversation_id),
-            agent_slugs=slugs,
-            user_inputs=user_inputs,
-            tool_names=payload.get("tool_names", []),
-            tool_names_by_agent=payload.get("tool_names_by_agent"),
-            multiagentic_modality=payload.get("multiagentic_modality", "isolated"),
-            client_datetime=payload.get("client_datetime"),
-            regenerate_message_id=payload.get("regenerate_message_id"),
+        logger.info(
+            "AgentTaskView POST conversation=%s agents=%s modality=%s user_id=%s",
+            conversation_id,
+            slugs,
+            payload.get("multiagentic_modality", "isolated"),
+            getattr(request.user, "id", None),
         )
+        try:
+            dispatch_result = dispatch_conversation_agent_task(
+                user=request.user,
+                conversation_id=str(conversation_id),
+                agent_slugs=slugs,
+                user_inputs=user_inputs,
+                tool_names=payload.get("tool_names", []),
+                tool_names_by_agent=payload.get("tool_names_by_agent"),
+                multiagentic_modality=payload.get("multiagentic_modality", "isolated"),
+                client_datetime=payload.get("client_datetime"),
+                regenerate_message_id=payload.get("regenerate_message_id"),
+            )
+        except Exception as exc:
+            logger.exception(
+                "AgentTaskView dispatch crashed conversation=%s agents=%s",
+                conversation_id,
+                slugs,
+            )
+            return JsonResponse(
+                {
+                    "error": "Failed to enqueue agent task",
+                    "exception": type(exc).__name__,
+                    "detail": str(exc),
+                },
+                status=500,
+            )
 
         if not dispatch_result.ok:
+            logger.warning(
+                "AgentTaskView rejected conversation=%s status=%s body=%s",
+                conversation_id,
+                dispatch_result.response.status_code if dispatch_result.response else None,
+                dispatch_result.response.content[:500] if dispatch_result.response else None,
+            )
             return dispatch_result.response
 
         if dispatch_result.takeover:
+            logger.info(
+                "AgentTaskView takeover conversation=%s agent_skipped=%s",
+                conversation_id,
+                dispatch_result.agent_skipped,
+            )
             return dispatch_result.response
 
+        logger.info(
+            "AgentTaskView accepted conversation=%s task_id=%s",
+            conversation_id,
+            dispatch_result.task_id,
+        )
         return JsonResponse(
             {"task_id": dispatch_result.task_id, "status": "accepted"},
             status=202,

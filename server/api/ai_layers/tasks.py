@@ -1096,6 +1096,17 @@ def conversation_agent_task(
     notification_route_id = user_id
     actor_user_id = user_id if isinstance(user_id, int) else None
 
+    logger.info(
+        "conversation_agent_task received conversation=%s user=%s agents=%s "
+        "tools=%s modality=%s skip_persist=%s",
+        conversation_id,
+        user_id,
+        agent_slugs,
+        tool_names,
+        multiagentic_modality,
+        skip_persist_user_message,
+    )
+
     try:
         conversation = Conversation.objects.select_related(
             "organization",

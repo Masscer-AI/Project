@@ -6,8 +6,10 @@ Used by AgentTaskView and MCP gateway endpoints to avoid drift.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import urlsplit
 
 from django.core.cache import cache
 from django.http import JsonResponse
@@ -27,6 +29,38 @@ from api.messaging.takeover import get_active_takeover, handle_inbound_during_ta
 from api.ai_layers.mcp_access import MCP_BASIC_TOOL_NAMES
 
 DEFAULT_MCP_TOOL_NAMES = list(MCP_BASIC_TOOL_NAMES)
+
+logger = logging.getLogger(__name__)
+
+
+def _redact_url(value: str | None) -> str:
+    if not value:
+        return ""
+    if "://" not in value:
+        return value
+    parts = urlsplit(value)
+    host = parts.hostname or ""
+    port = f":{parts.port}" if parts.port else ""
+    return f"{parts.scheme}://{host}{port}{parts.path}"
+
+
+def _celery_backend_summary() -> dict[str, str]:
+    from django.conf import settings
+
+    from api.celery import app as celery_app
+
+    return {
+        "settings_broker": _redact_url(getattr(settings, "CELERY_BROKER_URL", None)),
+        "settings_result_backend": _redact_url(
+            getattr(settings, "CELERY_RESULT_BACKEND", None)
+        ),
+        "app_broker": _redact_url(getattr(celery_app.conf, "broker_url", None)),
+        "app_result_backend": _redact_url(
+            getattr(celery_app.conf, "result_backend", None)
+        ),
+        "task_registered": "api.ai_layers.tasks.conversation_agent_task"
+        in celery_app.tasks,
+    }
 
 @dataclass
 class AgentTaskDispatchResult:
@@ -256,16 +290,43 @@ def dispatch_conversation_agent_task(
 
     mark_agent_task_active(str(conversation_id))
 
-    task = conversation_agent_task.delay(
-        conversation_id=str(conversation_id),
-        user_inputs=user_inputs,
-        tool_names=tool_names,
-        tool_names_by_agent=tool_names_by_agent,
-        agent_slugs=slugs,
-        multiagentic_modality=multiagentic_modality,
-        user_id=user.id,
-        regenerate_message_id=regenerate_message_id,
-        client_datetime=client_datetime,
+    celery_meta = _celery_backend_summary()
+    logger.info(
+        "dispatch enqueue starting conversation=%s agents=%s user_id=%s celery=%s",
+        conversation_id,
+        slugs,
+        getattr(user, "id", None),
+        celery_meta,
+    )
+    try:
+        task = conversation_agent_task.delay(
+            conversation_id=str(conversation_id),
+            user_inputs=user_inputs,
+            tool_names=tool_names,
+            tool_names_by_agent=tool_names_by_agent,
+            agent_slugs=slugs,
+            multiagentic_modality=multiagentic_modality,
+            user_id=user.id,
+            regenerate_message_id=regenerate_message_id,
+            client_datetime=client_datetime,
+        )
+    except Exception:
+        from api.ai_layers.agent_task_helpers import clear_agent_task_active
+
+        clear_agent_task_active(str(conversation_id))
+        logger.exception(
+            "dispatch enqueue failed conversation=%s agents=%s celery=%s",
+            conversation_id,
+            slugs,
+            celery_meta,
+        )
+        raise
+
+    logger.info(
+        "dispatch enqueue ok conversation=%s task_id=%s celery=%s",
+        conversation_id,
+        task.id,
+        celery_meta,
     )
 
     if mcp_client_id:
