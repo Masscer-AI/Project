@@ -26,6 +26,14 @@ type AgentFinishedEvent = {
   iterations: number;
   tool_calls_count: number;
   next_agent_slug?: string;
+  versions?: Array<{
+    text?: string;
+    agent_slug?: string;
+    agent_name?: string;
+    type?: string;
+    [key: string]: unknown;
+  }>;
+  handoff?: boolean;
   status?: string;
   error?: string;
   billing_reason?: string;
@@ -43,19 +51,23 @@ export const AgentTaskListener = () => {
   const {
     socket,
     setConversation,
+    setMessages,
     setAgentTaskStatus,
     pushAgentTaskEvent,
     clearAgentTaskEvents,
     agentTaskStatus,
     agentTaskConversationId,
+    agents,
   } = useStore((state) => ({
     socket: state.socket,
     setConversation: state.setConversation,
+    setMessages: state.setMessages,
     setAgentTaskStatus: state.setAgentTaskStatus,
     pushAgentTaskEvent: state.pushAgentTaskEvent,
     clearAgentTaskEvents: state.clearAgentTaskEvents,
     agentTaskStatus: state.agentTaskStatus,
     agentTaskConversationId: state.agentTaskConversationId,
+    agents: state.agents,
   }));
 
   const toolHoldRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -177,6 +189,16 @@ export const AgentTaskListener = () => {
           const total = agentEvent.total as number | undefined;
           const index = agentEvent.index as number | undefined;
           const agentName = (agentEvent.agent_name as string) || "...";
+          const handoffTo = (agentEvent.handoff_to as string | undefined) || "";
+          if (handoffTo) {
+            const nextName =
+              agents.find((a) => a.slug === handoffTo)?.name || handoffTo;
+            applyStatus(
+              t("agent-handoff-continuing", { agentName: nextName }),
+              false
+            );
+            break;
+          }
           const status =
             total != null && total > 1 && index != null && index < total
               ? t("agent-response-complete-progress", {
@@ -235,12 +257,60 @@ export const AgentTaskListener = () => {
       });
 
       if (finishedEvent.next_agent_slug) {
+        const nextSlug = finishedEvent.next_agent_slug;
+        const nextName =
+          agents.find((a) => a.slug === nextSlug)?.name || nextSlug;
         console.debug(
           "[agent-task] handoff — keep stop visible until final finish",
-          { next_agent_slug: finishedEvent.next_agent_slug }
+          { next_agent_slug: nextSlug }
+        );
+        applyStatus(
+          t("agent-handoff-continuing", { agentName: nextName }),
+          false
         );
         if (viewingThisConversation) {
-          setConversation(finishedEvent.conversation_id);
+          // Don't full-refetch yet: that would drop the optimistic (!id) bubble
+          // LiveAgentSteps need. Persist A's message locally, then add B's loader.
+          setMessages((prev) => {
+            const next = [...prev];
+            const lastIdx = next.length - 1;
+            const last = lastIdx >= 0 ? next[lastIdx] : null;
+            if (last?.type === "assistant") {
+              const versions =
+                finishedEvent.versions && finishedEvent.versions.length > 0
+                  ? (finishedEvent.versions as typeof last.versions)
+                  : last.versions;
+              next[lastIdx] = {
+                ...last,
+                id: finishedEvent.message_id ?? last.id,
+                versions,
+                text:
+                  versions?.[0]?.text ||
+                  finishedEvent.output ||
+                  last.text,
+              };
+            }
+            const hasOptimistic = next.some(
+              (m) => m.type === "assistant" && !m.id
+            );
+            if (!hasOptimistic) {
+              next.push({
+                type: "assistant",
+                text: "",
+                attachments: [],
+                agent_slug: nextSlug,
+                versions: [
+                  {
+                    text: "",
+                    type: "assistant",
+                    agent_slug: nextSlug,
+                    agent_name: nextName,
+                  },
+                ],
+              });
+            }
+            return next;
+          });
         }
         return;
       }
@@ -299,9 +369,11 @@ export const AgentTaskListener = () => {
   }, [
     socket,
     setConversation,
+    setMessages,
     setAgentTaskStatus,
     pushAgentTaskEvent,
     clearAgentTaskEvents,
+    agents,
     t,
     localizeTool,
   ]);

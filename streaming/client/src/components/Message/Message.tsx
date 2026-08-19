@@ -693,6 +693,7 @@ const AGENT_EVENT_META: Record<string, { icon: Icon; color: string }> = {
   tool_call_start: { icon: IconTool, color: "blue" },
   tool_call_end: { icon: IconCircleCheck, color: "teal" },
   response: { icon: IconSparkles, color: "violet" },
+  agent_version_ready: { icon: IconSparkles, color: "gray" },
   agent_complete: { icon: IconCircleCheck, color: "teal" },
   error: { icon: IconAlertTriangle, color: "red" },
 };
@@ -717,6 +718,8 @@ const useAgentEventLabel = () => {
           : t("agent-tool-completed", { toolName });
       case "response":
         return t("agent-step-generating");
+      case "agent_version_ready":
+        return t("agent-step-version-ready");
       case "agent_complete":
         return t("agent-step-complete");
       case "error":

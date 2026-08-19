@@ -308,6 +308,11 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
           const total = data.total as number | undefined;
           const index = data.index as number | undefined;
           const agentName = (data.agent_name as string) || "...";
+          const handoffTo = data.handoff_to as string | undefined;
+          if (handoffTo) {
+            applyStatus(`Handing off to ${handoffTo}...`, false);
+            break;
+          }
           const status =
             total != null && total > 1 && index != null && index < total
               ? `${agentName} response complete (${index}/${total})`
@@ -389,7 +394,6 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
         toolHoldRef.current = null;
         pendingStatusRef.current = null;
       }
-      useWidgetStore.getState().setAgentTaskStatus(null);
 
       const currentMessages = useWidgetStore.getState().messages;
       const newMessages = [...currentMessages];
@@ -413,6 +417,9 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
       useWidgetStore.getState().setMessages(newMessages);
 
       if (data.next_agent_slug) {
+        useWidgetStore
+          .getState()
+          .setAgentTaskStatus(`Handing off to ${data.next_agent_slug}...`);
         useWidgetStore.getState().addMessage({
           type: "assistant",
           text: "",
@@ -426,6 +433,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
           }],
         });
       } else {
+        useWidgetStore.getState().setAgentTaskStatus(null);
         playNotificationSound("success");
       }
     };
