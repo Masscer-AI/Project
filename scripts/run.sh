@@ -346,10 +346,10 @@ docker run -d \
     || { error "FastAPI failed to start"; exit 1; }
 success "FastAPI ready."
 
-# ── Dozzle (local Docker logs UI) ─────────────────────────────────────────────
-# Served only via nginx Host: logs.localhost — no host port publish.
+# ── Dozzle (Docker logs UI) ───────────────────────────────────────────────────
+# Served through nginx at /logs/ — no host port publish.
 if [[ -z "${LOGS_PASSWORD:-}" ]]; then
-    error "LOGS_PASSWORD is required in .env for the local logs UI (http://logs.localhost)."; exit 1
+    error "LOGS_PASSWORD is required in .env for the logs UI (/logs/)."; exit 1
 fi
 info "Starting Dozzle..."
 mkdir -p "${PROJECT_ROOT}/.dozzle"
@@ -364,6 +364,7 @@ docker run -d \
     --name $DOZZLE_CONTAINER \
     --network $NETWORK_NAME \
     -e DOZZLE_AUTH_PROVIDER=simple \
+    -e DOZZLE_BASE=/logs \
     -e DOZZLE_NO_ANALYTICS=true \
     -v /var/run/docker.sock:/var/run/docker.sock:ro \
     -v "${PROJECT_ROOT}/.dozzle:/data" \
@@ -373,7 +374,7 @@ success "Dozzle ready."
 
 # ── Nginx ─────────────────────────────────────────────────────────────────────
 # Single entry point — routes /v1/* and /admin/* to Django,
-# /socket.io/* and everything else to FastAPI; logs.localhost → Dozzle.
+# /socket.io/* and everything else to FastAPI; /logs/ → Dozzle.
 info "Starting Nginx..."
 docker stop $NGINX_CONTAINER 2>/dev/null || true
 docker rm   $NGINX_CONTAINER 2>/dev/null || true
@@ -393,12 +394,11 @@ success "Nginx ready."
 
 # ── Summary ───────────────────────────────────────────────────────────────────
 if [[ "$NGINX_PORT" == "80" ]]; then
-    LOGS_URL="http://logs.localhost"
     APP_URL="http://localhost"
 else
-    LOGS_URL="http://logs.localhost:${NGINX_PORT}"
     APP_URL="http://localhost:${NGINX_PORT}"
 fi
+LOGS_URL="${APP_URL}/logs/"
 echo ""
 echo "============================================"
 success "All services are up!"

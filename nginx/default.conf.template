@@ -16,12 +16,16 @@ upstream dozzle_upstream {
     server $DOZZLE_CONTAINER:8080;
 }
 
-# Local-only Docker logs UI (Dozzle) — Host: logs.localhost
+# Docker logs UI (Dozzle), protected by Dozzle authentication.
 server {
     listen 80;
-    server_name logs.localhost;
+    server_name logs.localhost logs.masscer-ai.com;
 
-    location / {
+    location = / {
+        return 302 /logs/;
+    }
+
+    location /logs/ {
         proxy_pass http://dozzle_upstream;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
@@ -42,6 +46,24 @@ server {
 
     # Allow large file uploads (documents, audio, etc.)
     client_max_body_size 100M;
+
+    location = /logs {
+        return 302 /logs/;
+    }
+
+    location /logs/ {
+        proxy_pass http://dozzle_upstream;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $forwarded_proto;
+        proxy_read_timeout 86400s;
+        proxy_send_timeout 86400s;
+        proxy_buffering off;
+    }
 
     # Django REST API
     location /v1/ {
