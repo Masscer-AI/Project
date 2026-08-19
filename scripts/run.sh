@@ -385,6 +385,7 @@ docker run -d \
     -e FASTAPI_CONTAINER=$FASTAPI_CONTAINER \
     -e FASTAPI_PORT=$FASTAPI_PORT \
     -e DOZZLE_CONTAINER=$DOZZLE_CONTAINER \
+    -e NGINX_ENVSUBST_FILTER='DJANGO_|FASTAPI_|DOZZLE_' \
     -v "${PROJECT_ROOT}/nginx:/etc/nginx/templates" \
     -p "${NGINX_PORT}:80" \
     nginx:alpine || { error "Nginx failed to start"; exit 1; }

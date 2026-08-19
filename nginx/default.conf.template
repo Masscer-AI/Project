@@ -13,7 +13,7 @@ upstream fastapi_upstream {
 }
 
 upstream dozzle_upstream {
-    server ${DOZZLE_CONTAINER}:8080;
+    server $DOZZLE_CONTAINER:8080;
 }
 
 # Local-only Docker logs UI (Dozzle) — Host: logs.localhost
@@ -37,7 +37,8 @@ server {
 }
 
 server {
-    listen 80;
+    listen 80 default_server;
+    server_name _;
 
     # Allow large file uploads (documents, audio, etc.)
     client_max_body_size 100M;
