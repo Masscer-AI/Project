@@ -21,6 +21,7 @@ RESERVED_SUBDOMAINS = frozenset(
         "mail",
         "ftp",
         "localhost",
+        "logs",
     }
 )
 

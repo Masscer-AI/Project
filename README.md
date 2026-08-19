@@ -31,6 +31,7 @@ This starts:
 - Celery beat
 - FastAPI
 - Nginx
+- Dozzle (logs UI at `http://logs.localhost`)
 - Redis
 - Chroma
 
@@ -67,5 +68,6 @@ cd pulumi && ./deploy-landing.sh
 ## Default local URLs
 
 - App (Nginx): `http://localhost:80`
+- Logs UI (Dozzle via Nginx): `http://logs.localhost` — set `LOGS_USERNAME` / `LOGS_PASSWORD` in `.env`
 - Django (direct): `http://localhost:8000` (or `.env` override)
 - FastAPI (direct): `http://localhost:8001` (or `.env` override)

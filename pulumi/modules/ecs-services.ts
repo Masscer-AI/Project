@@ -87,7 +87,7 @@ export function createAppServices(args: {
     { name: "DB_CONNECTION_STRING", value: dbConnectionString },
     { name: "SECRET_KEY", value: config.djangoSecretKey },
     { name: "CELERY_BROKER_URL", value: celeryBrokerUrl },
-    { name: "CELERY_RESULT_BACKEND", value: celeryBrokerUrl },
+    { name: "CELERY_RESULT_BACKEND", value: "django-db" },
     { name: "REDIS_CACHE_URL", value: redisCacheUrl },
     { name: "REDIS_NOTIFICATIONS_URL", value: redisNotificationsUrl },
     { name: "CHROMA_HOST", value: args.chromaInternalHost },

@@ -83,9 +83,12 @@ CHROMA_MODEL_CACHE_VOLUME=${CHROMA_MODEL_CACHE_VOLUME:-masscer-chroma-model-cach
 FASTAPI_CONTAINER=${FASTAPI_CONTAINER:-masscer-fastapi}
 FASTAPI_IMAGE=${FASTAPI_IMAGE:-masscer-fastapi-img}
 NGINX_CONTAINER=${NGINX_CONTAINER:-masscer-nginx}
+DOZZLE_CONTAINER=${DOZZLE_CONTAINER:-masscer-dozzle}
+DOZZLE_IMAGE=${DOZZLE_IMAGE:-amir20/dozzle:latest}
 WORKER_CONTAINER=${WORKER_CONTAINER:-masscer-celery-worker}
 BEAT_CONTAINER=${BEAT_CONTAINER:-masscer-celery-beat}
 NETWORK_NAME=${NETWORK_NAME:-masscer-net}
+LOGS_USERNAME=${LOGS_USERNAME:-admin}
 
 success "Starting Masscer"
 info "  DJANGO_PORT:  $DJANGO_PORT | FASTAPI_PORT: $FASTAPI_PORT | NGINX_PORT: $NGINX_PORT"
@@ -240,6 +243,7 @@ DJANGO_ENV=(
     --env-file .env
     -e DB_CONNECTION_STRING="$DB_URL_CONTAINER"
     -e CELERY_BROKER_URL="${REDIS_INTERNAL}/0"
+    -e CELERY_RESULT_BACKEND=django-db
     -e REDIS_CACHE_URL="${REDIS_INTERNAL}/1"
     -e REDIS_NOTIFICATIONS_URL="${REDIS_INTERNAL}/2"
     -e MEDIA_ROOT=/app/storage
@@ -342,9 +346,34 @@ docker run -d \
     || { error "FastAPI failed to start"; exit 1; }
 success "FastAPI ready."
 
+# ── Dozzle (local Docker logs UI) ─────────────────────────────────────────────
+# Served only via nginx Host: logs.localhost — no host port publish.
+if [[ -z "${LOGS_PASSWORD:-}" ]]; then
+    error "LOGS_PASSWORD is required in .env for the local logs UI (http://logs.localhost)."; exit 1
+fi
+info "Starting Dozzle..."
+mkdir -p "${PROJECT_ROOT}/.dozzle"
+docker run --rm "$DOZZLE_IMAGE" generate "$LOGS_USERNAME" \
+    --password "$LOGS_PASSWORD" \
+    --name "$LOGS_USERNAME" \
+    > "${PROJECT_ROOT}/.dozzle/users.yml" \
+    || { error "Failed to generate Dozzle users.yml"; exit 1; }
+docker stop $DOZZLE_CONTAINER 2>/dev/null || true
+docker rm   $DOZZLE_CONTAINER 2>/dev/null || true
+docker run -d \
+    --name $DOZZLE_CONTAINER \
+    --network $NETWORK_NAME \
+    -e DOZZLE_AUTH_PROVIDER=simple \
+    -e DOZZLE_NO_ANALYTICS=true \
+    -v /var/run/docker.sock:/var/run/docker.sock:ro \
+    -v "${PROJECT_ROOT}/.dozzle:/data" \
+    $DOZZLE_IMAGE \
+    || { error "Dozzle failed to start"; exit 1; }
+success "Dozzle ready."
+
 # ── Nginx ─────────────────────────────────────────────────────────────────────
 # Single entry point — routes /v1/* and /admin/* to Django,
-# /socket.io/* and everything else to FastAPI.
+# /socket.io/* and everything else to FastAPI; logs.localhost → Dozzle.
 info "Starting Nginx..."
 docker stop $NGINX_CONTAINER 2>/dev/null || true
 docker rm   $NGINX_CONTAINER 2>/dev/null || true
@@ -355,16 +384,25 @@ docker run -d \
     -e DJANGO_PORT=$DJANGO_PORT \
     -e FASTAPI_CONTAINER=$FASTAPI_CONTAINER \
     -e FASTAPI_PORT=$FASTAPI_PORT \
+    -e DOZZLE_CONTAINER=$DOZZLE_CONTAINER \
     -v "${PROJECT_ROOT}/nginx:/etc/nginx/templates" \
     -p "${NGINX_PORT}:80" \
     nginx:alpine || { error "Nginx failed to start"; exit 1; }
 success "Nginx ready."
 
 # ── Summary ───────────────────────────────────────────────────────────────────
+if [[ "$NGINX_PORT" == "80" ]]; then
+    LOGS_URL="http://logs.localhost"
+    APP_URL="http://localhost"
+else
+    LOGS_URL="http://logs.localhost:${NGINX_PORT}"
+    APP_URL="http://localhost:${NGINX_PORT}"
+fi
 echo ""
 echo "============================================"
 success "All services are up!"
-info "  App:     http://localhost:${NGINX_PORT}"
+info "  App:     $APP_URL"
+info "  Logs:    $LOGS_URL  (user: $LOGS_USERNAME)"
 info "  Django:  http://localhost:${DJANGO_PORT}  ($DJANGO_CONTAINER)"
 info "  FastAPI: http://localhost:${FASTAPI_PORT} ($FASTAPI_CONTAINER)"
 info "  Worker:  $WORKER_CONTAINER"

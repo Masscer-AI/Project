@@ -12,6 +12,30 @@ upstream fastapi_upstream {
     server ${FASTAPI_CONTAINER}:${FASTAPI_PORT};
 }
 
+upstream dozzle_upstream {
+    server ${DOZZLE_CONTAINER}:8080;
+}
+
+# Local-only Docker logs UI (Dozzle) — Host: logs.localhost
+server {
+    listen 80;
+    server_name logs.localhost;
+
+    location / {
+        proxy_pass http://dozzle_upstream;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $forwarded_proto;
+        proxy_read_timeout 86400s;
+        proxy_send_timeout 86400s;
+        proxy_buffering off;
+    }
+}
+
 server {
     listen 80;
 

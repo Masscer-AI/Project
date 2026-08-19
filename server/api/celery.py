@@ -9,6 +9,14 @@ app = Celery("api")
 
 app.config_from_object("django.conf:settings", namespace="CELERY")
 
+from django.conf import settings as django_settings
+
+# Celery also reads CELERY_RESULT_BACKEND from the process env (.env is
+# redis://localhost:6379/0). That overrides Django's django-db backend and
+# makes .delay() pubsub against localhost inside Docker.
+app.conf.broker_url = django_settings.CELERY_BROKER_URL
+app.conf.result_backend = django_settings.CELERY_RESULT_BACKEND
+
 app.autodiscover_tasks()
 
 import api.ai_layers.platform_assistant_task  # noqa: F401
