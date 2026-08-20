@@ -1077,6 +1077,8 @@
   "widget-capability-list_scheduled_tasks-description": "Lists scheduled agent tasks for the current conversation.",
   "widget-capability-cancel_scheduled_task-title": "Cancel scheduled task",
   "widget-capability-cancel_scheduled_task-description": "Cancels a scheduled agent task.",
+  "widget-capability-request_signature-title": "Request e-signature",
+  "widget-capability-request_signature-description": "Sends a PDF document from the conversation for legally-binding e-signature (Mifiel, with NOM-151 conservation record).",
   "widget-avatar-image": "Avatar",
   "widget-avatar-upload": "Upload image",
   "widget-avatar-upload-description": "Shown on the chat bubble and header. PNG, JPEG, WebP, or GIF up to 2 MB.",

@@ -44,6 +44,7 @@ apps = [
     ("v1/data-governance/", "api.data_governance.urls", "data_governance"),
     ("v1/voices/", "api.voices.urls", "voices"),
     ("v1/mcp_oauth/", "api.mcp_oauth.urls", "mcp_oauth"),
+    ("v1/esign/", "api.esign.urls", "esign"),
 ]
 
 urlpatterns_apps = [

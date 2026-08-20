@@ -238,6 +238,10 @@ STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 STRIPE_PRICE_ORGANIZATION = os.environ.get("STRIPE_PRICE_ORGANIZATION", "")
 STRIPE_PRODUCT_CREDITS = os.environ.get("STRIPE_PRODUCT_CREDITS", "")
 
+MIFIEL_APP_ID = os.environ.get("MIFIEL_APP_ID", "")
+MIFIEL_API_KEY = os.environ.get("MIFIEL_API_KEY", "")
+MIFIEL_BASE_URL = os.environ.get("MIFIEL_BASE_URL", "https://app.mifiel.com/api/v1")
+
 _s3_media_bucket = os.environ.get("AWS_STORAGE_BUCKET_NAME", "")
 if _s3_media_bucket:
     _s3_region = os.environ.get("AWS_S3_REGION_NAME", "us-east-1")
