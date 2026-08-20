@@ -115,6 +115,7 @@ INSTALLED_APPS = [
     "api.data_governance",
     "api.voices",
     "api.mcp_oauth",
+    "api.esign",
 ]
 
 MIDDLEWARE = [
