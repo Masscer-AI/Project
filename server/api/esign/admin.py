@@ -41,6 +41,7 @@ class SignatureRequestAdmin(admin.ModelAdmin):
         "id",
         "external_id",
         "provider_document_id",
+        "provider_widget_id",
         "requested_at",
         "signed_at",
         "rejected_at",

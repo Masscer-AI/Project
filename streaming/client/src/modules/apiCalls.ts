@@ -1268,6 +1268,26 @@ export const getSharedConversation = async (id: string) => {
   );
 };
 
+export type TPublicSignatureRequest = {
+  id: string;
+  status: "pending" | "signed" | "rejected" | "expired" | "deleted" | "error";
+  title: string;
+  signatory_name: string;
+  organization_name: string;
+  widget_id: string | null;
+  widget_ready: boolean;
+  mifiel_environment: "production" | "sandbox";
+};
+
+export const getPublicSignatureRequest = async (id: string) => {
+  return makeAuthenticatedRequest<TPublicSignatureRequest>(
+    "GET",
+    `/v1/esign/sign/${id}/`,
+    null,
+    true
+  );
+};
+
 export const getUserOrganizations = async () => {
   return makeAuthenticatedRequest<TOrganization[]>(
     "GET",

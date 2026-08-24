@@ -48,7 +48,10 @@ def submit_signature_request_to_mifiel(signature_request_id: str) -> None:
             filename=filename,
             signatories=[signatory],
             external_id=str(signature_request.external_id),
-            send_invites=True,
+            # The embedded widget page (esign/views.py:PublicSignatureRequestView)
+            # is the primary signing surface now, not Mifiel's own emailed link —
+            # avoid a second, uncontrolled Mifiel-hosted signing page.
+            send_invites=False,
         )
     except MifielAPIError as e:
         logger.error(
@@ -64,13 +67,27 @@ def submit_signature_request_to_mifiel(signature_request_id: str) -> None:
         signature_request.save(update_fields=["status", "metadata", "updated_at"])
         return
 
+    signers = response.get("signers") or []
+    widget_id = signers[0].get("widget_id", "") if signers else ""
+    if not widget_id:
+        logger.warning(
+            "Mifiel create_document returned no widget_id for SignatureRequest %s",
+            signature_request_id,
+        )
+
     signature_request.provider_document_id = response.get("id", "")
+    signature_request.provider_widget_id = widget_id
     signature_request.metadata = {
         **signature_request.metadata,
         "create_response": response,
     }
     signature_request.save(
-        update_fields=["provider_document_id", "metadata", "updated_at"]
+        update_fields=[
+            "provider_document_id",
+            "provider_widget_id",
+            "metadata",
+            "updated_at",
+        ]
     )
     logger.info(
         "SignatureRequest %s submitted to Mifiel as document %s",

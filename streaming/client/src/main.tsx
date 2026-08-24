@@ -32,6 +32,8 @@ import WhatsappLineDetail from "./routes/whatsapp/detail/page.tsx";
 import WorkflowsPage from "./routes/workflows/page.tsx";
 import Share from "./routes/shares/page.tsx";
 import { sharesLoader } from "./routes/shares/loader.ts";
+import SignaturePage from "./routes/esign/page.tsx";
+import { signatureRequestLoader } from "./routes/esign/loader.ts";
 import { ErrorPage } from "./routes/error/Page.tsx";
 import { NotFoundPage } from "./routes/not-found/Page.tsx";
 import { NotificationListener } from "./components/NotificationListener/NotificationListener.tsx";
@@ -131,6 +133,11 @@ const router = createBrowserRouter([
         path: "/s",
         element: <Share />,
         loader: sharesLoader,
+      },
+      {
+        path: "/esign/sign/:signatureRequestId",
+        element: <SignaturePage />,
+        loader: signatureRequestLoader,
       },
       {
         path: "/dashboard",

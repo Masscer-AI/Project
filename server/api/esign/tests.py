@@ -74,7 +74,13 @@ class RequestSignatureToolTests(EsignFixtureMixin, TestCase):
         self.assertEqual(sig_request.source_file_id, self.attachment.id)
         self.assertEqual(sig_request.signatory_email, "jane@org.com")
         self.assertEqual(str(sig_request.external_id), result.external_id)
+        self.assertIn(f"/esign/sign/{sig_request.id}", result.signing_url)
         mock_delay.assert_called_once_with(str(sig_request.id))
+
+        message = self.conversation.messages.filter(metadata__source="esign_mifiel").first()
+        self.assertIsNotNone(message)
+        self.assertIn(result.signing_url, message.text)
+        self.assertIn("Jane Compliance", message.text)
 
     @patch("api.esign.tasks.submit_signature_request_to_mifiel.delay")
     def test_rejects_attachment_from_other_conversation(self, mock_delay):
@@ -131,16 +137,37 @@ class SubmitSignatureRequestTaskTests(EsignFixtureMixin, TestCase):
         )
 
     @patch("api.esign.tasks.MifielClient")
-    def test_success_sets_provider_document_id(self, mock_client_cls):
+    def test_success_sets_provider_document_id_and_widget_id(self, mock_client_cls):
         mock_client = mock_client_cls.return_value
-        mock_client.create_document.return_value = {"id": "mifiel-doc-1", "state": "pending"}
+        mock_client.create_document.return_value = {
+            "id": "mifiel-doc-1",
+            "state": "pending",
+            "signers": [{"id": "s1", "widget_id": "EVjDwA8RhK", "email": "jane@org.com"}],
+        }
 
         sig_request = self._make_request()
         submit_signature_request_to_mifiel(str(sig_request.id))
 
         sig_request.refresh_from_db()
         self.assertEqual(sig_request.provider_document_id, "mifiel-doc-1")
+        self.assertEqual(sig_request.provider_widget_id, "EVjDwA8RhK")
         self.assertEqual(sig_request.metadata["create_response"]["id"], "mifiel-doc-1")
+
+        mock_client.create_document.assert_called_once()
+        self.assertEqual(
+            mock_client.create_document.call_args.kwargs["send_invites"], False
+        )
+
+    @patch("api.esign.tasks.MifielClient")
+    def test_missing_widget_id_leaves_field_blank(self, mock_client_cls):
+        mock_client = mock_client_cls.return_value
+        mock_client.create_document.return_value = {"id": "mifiel-doc-1", "state": "pending", "signers": []}
+
+        sig_request = self._make_request()
+        submit_signature_request_to_mifiel(str(sig_request.id))
+
+        sig_request.refresh_from_db()
+        self.assertEqual(sig_request.provider_widget_id, "")
 
     @patch("api.esign.tasks.MifielClient")
     def test_api_error_sets_status_error(self, mock_client_cls):
@@ -330,3 +357,72 @@ class RegisterWebhooksAdminViewTests(EsignFixtureMixin, TestCase):
         anon_client = DjangoClient()
         response = anon_client.get("/admin/esign/signaturerequest/register-webhooks/")
         self.assertEqual(response.status_code, 302)  # redirected to admin login
+
+
+class PublicSignatureRequestViewTests(EsignFixtureMixin, TestCase):
+    def setUp(self):
+        super().setUp()
+        self.anon_client = DjangoClient()
+
+    def _make_request(self, **overrides) -> SignatureRequest:
+        defaults = dict(
+            organization=self.org,
+            requested_by=self.user,
+            document_kind="internal_policy_manual",
+            title="Manual 2027",
+            signatory_name="Jane Compliance",
+            signatory_email="jane@org.com",
+            source_file=self.attachment,
+        )
+        defaults.update(overrides)
+        return SignatureRequest.objects.create(**defaults)
+
+    def test_returns_minimal_payload_without_auth(self):
+        sig_request = self._make_request(provider_widget_id="EVjDwA8RhK")
+
+        # No Authorization header at all — this must work for a completely
+        # anonymous external signer, not just "no login".
+        response = self.anon_client.get(f"/v1/esign/sign/{sig_request.id}/")
+        self.assertEqual(response.status_code, 200)
+
+        data = response.json()
+        self.assertEqual(data["id"], str(sig_request.id))
+        self.assertEqual(data["status"], "pending")
+        self.assertEqual(data["title"], "Manual 2027")
+        self.assertEqual(data["signatory_name"], "Jane Compliance")
+        self.assertEqual(data["organization_name"], self.org.name)
+        self.assertEqual(data["widget_id"], "EVjDwA8RhK")
+        self.assertTrue(data["widget_ready"])
+
+        # PII / internal fields must never leak through this public endpoint.
+        self.assertNotIn("signatory_email", data)
+        self.assertNotIn("signatory_rfc", data)
+        self.assertNotIn("provider_document_id", data)
+        self.assertNotIn("metadata", data)
+
+    def test_widget_not_ready_before_mifiel_upload_completes(self):
+        sig_request = self._make_request()  # provider_widget_id blank by default
+
+        response = self.anon_client.get(f"/v1/esign/sign/{sig_request.id}/")
+        data = response.json()
+        self.assertEqual(data["status"], "pending")
+        self.assertIsNone(data["widget_id"])
+        self.assertFalse(data["widget_ready"])
+
+    def test_signed_status_reports_widget_not_ready(self):
+        sig_request = self._make_request(
+            provider_widget_id="EVjDwA8RhK", status=SignatureRequestStatus.SIGNED
+        )
+
+        response = self.anon_client.get(f"/v1/esign/sign/{sig_request.id}/")
+        data = response.json()
+        self.assertEqual(data["status"], "signed")
+        # widget_ready is only true while still pending — no reason to re-render
+        # the signing widget once the document is already signed.
+        self.assertFalse(data["widget_ready"])
+
+    def test_unknown_id_returns_404(self):
+        response = self.anon_client.get(
+            "/v1/esign/sign/00000000-0000-0000-0000-000000000000/"
+        )
+        self.assertEqual(response.status_code, 404)

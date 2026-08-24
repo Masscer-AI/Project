@@ -60,6 +60,16 @@ class SignatureRequest(models.Model):
         default="",
         help_text="Document id returned by the provider (e.g. Mifiel document uuid).",
     )
+    provider_widget_id = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        help_text=(
+            "Mifiel's per-signer widget_id (signers[0].widget_id from create_document), "
+            "used to render the embeddable <mifiel-widget> for this signatory. "
+            "Empty until submit_signature_request_to_mifiel completes."
+        ),
+    )
     external_id = models.UUIDField(
         default=uuid.uuid4,
         editable=False,
