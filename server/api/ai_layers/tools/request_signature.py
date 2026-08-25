@@ -62,7 +62,11 @@ def _request_signature_impl(
     from django.conf import settings
 
     from api.esign.models import SignatureRequest, SignatureRequestStatus
-    from api.esign.tasks import _notify_in_chat, submit_signature_request_to_mifiel
+    from api.esign.tasks import (
+        _notify_in_chat,
+        signing_link_attachment_dict,
+        submit_signature_request_to_mifiel,
+    )
     from api.messaging.models import MessageAttachment
 
     if not organization_id:
@@ -116,12 +120,8 @@ def _request_signature_impl(
 
     _notify_in_chat(
         signature_request,
-        text=(
-            f"Comparte este enlace con {signatory_name} para firmar "
-            f"«{signature_request.title or signature_request.get_document_kind_display()}»: "
-            f"{signing_url}"
-        ),
-        attachment_ids=[],
+        text=f"Solicitud de firma enviada a {signatory_name}.",
+        attachments=[signing_link_attachment_dict(signature_request, signing_url)],
     )
 
     logger.info(
@@ -176,10 +176,12 @@ def get_tool(
             "Send a PDF attachment already present in this conversation to an internal "
             "signatory for legally-binding e-signature (Mifiel, with NOM-151 conservation "
             "record). Pass attachment_id from a document generated or uploaded earlier in "
-            "this conversation, plus the signatory's name and email. A link to sign the "
-            "document directly (no Mifiel account needed) is posted into this conversation "
-            "automatically — no need to relay it yourself. The signed PDF and XML are "
-            "attached back to this conversation automatically once signed."
+            "this conversation, plus the signatory's name and email. A signing link card "
+            "is posted into this conversation automatically as its own message — do NOT "
+            "paste, repeat, or reformat the signing_url from this tool's result in your "
+            "reply; just confirm in plain words that the signature request was sent. The "
+            "signed PDF and XML are attached back to this conversation automatically once "
+            "signed."
         ),
         "parameters": RequestSignatureParams,
         "function": request_signature,

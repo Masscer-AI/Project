@@ -27,6 +27,9 @@ export type TAttachment = {
   name: string;
   visibility?: "personal" | "organization" | "roles" | "link";
   mode?: AttatchmentMode;
+  // signature_request (Mifiel) fields
+  status?: string;
+  signatory_name?: string;
 };
 
 export interface TTag {

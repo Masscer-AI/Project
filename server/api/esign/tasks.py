@@ -96,8 +96,18 @@ def submit_signature_request_to_mifiel(signature_request_id: str) -> None:
     )
 
 
-def _notify_in_chat(signature_request: SignatureRequest, text: str, attachment_ids: list[str]) -> None:
-    """Post a message into the conversation the source document came from."""
+def _notify_in_chat(
+    signature_request: SignatureRequest, text: str, attachments: list[dict]
+) -> None:
+    """
+    Post a message into the conversation the source document came from.
+
+    ``attachments`` must already be Message.attachments-shaped display dicts
+    (e.g. {"type": ..., "content"/"name": ..., "attachment_id": ...}), not
+    raw MessageAttachment IDs — Message.attachments is stored/serialized
+    verbatim, so the frontend's Thumbnail component needs the full dict to
+    render a card instead of a bare id string.
+    """
     from api.messaging.models import Message
     from api.messaging.takeover import emit_message_created
 
@@ -107,7 +117,7 @@ def _notify_in_chat(signature_request: SignatureRequest, text: str, attachment_i
             conversation=conversation,
             type="assistant",
             text=text,
-            attachments=attachment_ids,
+            attachments=attachments,
             metadata={
                 "source": "esign_mifiel",
                 "signature_request_id": str(signature_request.id),
@@ -121,7 +131,23 @@ def _notify_in_chat(signature_request: SignatureRequest, text: str, attachment_i
         )
 
 
+def signing_link_attachment_dict(signature_request: SignatureRequest, url: str) -> dict:
+    """
+    Message.attachments-shaped descriptor for a Mifiel signing link. Rendered
+    as a link card in the chat UI (Thumbnail.tsx, type === "signature_request")
+    instead of a raw URL pasted into message text.
+    """
+    return {
+        "type": "signature_request",
+        "content": url,
+        "name": signature_request.title or signature_request.get_document_kind_display(),
+        "status": signature_request.status,
+        "signatory_name": signature_request.signatory_name,
+    }
+
+
 def _handle_document_closed(signature_request: SignatureRequest, data: dict) -> None:
+    from api.ai_layers.tasks import _message_attachment_to_display_dict
     from api.messaging.models import MessageAttachment
 
     if signature_request.status == SignatureRequestStatus.SIGNED:
@@ -190,6 +216,14 @@ def _handle_document_closed(signature_request: SignatureRequest, data: dict) -> 
         update_fields=["signed_file", "signed_file_xml", "status", "signed_at", "updated_at"]
     )
 
+    signed_attachments = [
+        d
+        for d in (
+            _message_attachment_to_display_dict(signed_pdf),
+            _message_attachment_to_display_dict(signed_xml),
+        )
+        if d is not None
+    ]
     _notify_in_chat(
         signature_request,
         text=(
@@ -197,7 +231,7 @@ def _handle_document_closed(signature_request: SignatureRequest, data: dict) -> 
             f"fue firmado por {signature_request.signatory_name} y quedó archivado "
             "con su constancia de conservación (NOM-151)."
         ),
-        attachment_ids=[str(signed_pdf.id), str(signed_xml.id)],
+        attachments=signed_attachments,
     )
 
 
@@ -216,7 +250,7 @@ def _handle_signer_rejected(signature_request: SignatureRequest) -> None:
             f"{signature_request.signatory_name} rechazó la firma del documento "
             f"«{signature_request.title or signature_request.get_document_kind_display()}»."
         ),
-        attachment_ids=[],
+        attachments=[],
     )
 
 

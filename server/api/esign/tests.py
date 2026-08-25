@@ -79,8 +79,17 @@ class RequestSignatureToolTests(EsignFixtureMixin, TestCase):
 
         message = self.conversation.messages.filter(metadata__source="esign_mifiel").first()
         self.assertIsNotNone(message)
-        self.assertIn(result.signing_url, message.text)
         self.assertIn("Jane Compliance", message.text)
+        # The link itself must NOT be pasted as raw text — it lives in the
+        # attachment card so the LLM has nothing to paraphrase/duplicate.
+        self.assertNotIn(result.signing_url, message.text)
+
+        self.assertEqual(len(message.attachments), 1)
+        link_attachment = message.attachments[0]
+        self.assertEqual(link_attachment["type"], "signature_request")
+        self.assertEqual(link_attachment["content"], result.signing_url)
+        self.assertEqual(link_attachment["status"], "pending")
+        self.assertEqual(link_attachment["signatory_name"], "Jane Compliance")
 
     @patch("api.esign.tasks.submit_signature_request_to_mifiel.delay")
     def test_rejects_attachment_from_other_conversation(self, mock_delay):
@@ -231,6 +240,13 @@ class ProcessMifielWebhookEventTests(EsignFixtureMixin, TestCase):
         message = self.conversation.messages.filter(metadata__source="esign_mifiel").first()
         self.assertIsNotNone(message)
         self.assertEqual(len(message.attachments), 2)
+        for att in message.attachments:
+            # Must be full display dicts (what Thumbnail.tsx needs to render a
+            # card), not bare MessageAttachment id strings.
+            self.assertIsInstance(att, dict)
+            self.assertEqual(att["type"], "document")
+            self.assertIn("content", att)
+            self.assertIn("attachment_id", att)
 
     @patch("api.esign.tasks.MifielClient")
     def test_document_closed_is_idempotent(self, mock_client_cls):

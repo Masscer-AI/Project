@@ -19,6 +19,8 @@ import {
   IconX,
   IconLink,
   IconMusic,
+  IconSignature,
+  IconCircleCheck,
 } from "@tabler/icons-react";
 import { AttachmentDetailsModal } from "../AttachmentVisibility/AttachmentVisibilityModal";
 import { DocumentFileIcon } from "../../modules/documentFileMeta";
@@ -84,6 +86,8 @@ interface ThumbnailProps {
   text?: string;
   showFloatingButtons?: boolean;
   mode?: AttatchmentMode;
+  status?: string;
+  signatory_name?: string;
 }
 
 export const Thumbnail = ({
@@ -98,6 +102,8 @@ export const Thumbnail = ({
   index,
   showFloatingButtons = false,
   mode,
+  status,
+  signatory_name,
 }: ThumbnailProps) => {
   const { deleteAttachment } = useStore((state) => ({
     deleteAttachment: state.deleteAttachment,
@@ -111,10 +117,19 @@ export const Thumbnail = ({
           name={name}
         />
       )}
+      {type === "signature_request" && (
+        <SignatureRequestThumbnail
+          url={src || content}
+          name={name}
+          status={status}
+          signatoryName={signatory_name}
+        />
+      )}
       {type.indexOf("audio") !== 0 &&
         type.indexOf("image") !== 0 &&
         !isVideoAttachmentType(type, name, content) &&
-        type !== "website" && (
+        type !== "website" &&
+        type !== "signature_request" && (
           <DocumentThumnail
             id={id}
             attachmentId={attachment_id}
@@ -274,6 +289,60 @@ const WebsiteThumbnail = ({ url, name }: { url: string; name: string }) => {
       <p className="cut-text-to-line" style={{ flex: 1, margin: 0 }}>
         {display}
       </p>
+    </a>
+  );
+};
+
+const SignatureRequestThumbnail = ({
+  url,
+  name,
+  status,
+  signatoryName,
+}: {
+  url: string;
+  name: string;
+  status?: string;
+  signatoryName?: string;
+}) => {
+  const { t } = useTranslation();
+  const safeUrl = url || "";
+  const isSigned = status === "signed";
+  const statusLabel = isSigned
+    ? t("signature-request-signed")
+    : t("signature-request-pending");
+
+  return (
+    <a
+      href={safeUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={safeUrl}
+      className="width-150 document-attachment bg-contrast rounded padding-small"
+      style={{
+        display: "flex",
+        gap: 8,
+        alignItems: "center",
+        textDecoration: "none",
+        color: "inherit",
+      }}
+    >
+      {isSigned ? (
+        <IconCircleCheck size={20} color="var(--mantine-color-green-6, #2f9e44)" />
+      ) : (
+        <IconSignature size={20} />
+      )}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p className="cut-text-to-line" style={{ margin: 0 }}>
+          {name || t("signature-request-default-title")}
+        </p>
+        <p
+          className="cut-text-to-line"
+          style={{ margin: 0, fontSize: 12, opacity: 0.7 }}
+        >
+          {statusLabel}
+          {signatoryName ? ` · ${signatoryName}` : ""}
+        </p>
+      </div>
     </a>
   );
 };
