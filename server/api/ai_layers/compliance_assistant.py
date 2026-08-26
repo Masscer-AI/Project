@@ -130,10 +130,9 @@ def build_compliance_runtime_context(
             if (profile.bio or "").strip():
                 invitee["notes"] = profile.bio.strip()
             if isinstance(profile.intake, dict):
-                for key in ("person_type", "counterparty_role", "rfc"):
-                    value = profile.intake.get(key)
-                    if value:
-                        invitee[key] = value
+                for key, value in profile.intake.items():
+                    if value not in (None, ""):
+                        invitee[str(key)] = value
         email = getattr(user, "email", "") or ""
         if email:
             invitee["email"] = email

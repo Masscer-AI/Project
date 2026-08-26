@@ -296,12 +296,7 @@ export type TOrganizationMember = {
   current_role?: { id: string; name: string; assignment_id?: string } | null;
 };
 
-export type TInviteIntake = {
-  person_type?: "persona_fisica" | "persona_moral";
-  counterparty_role?: "cliente" | "proveedor" | "ambos";
-  relationship_status?: "nuevo" | "existente";
-  rfc?: string;
-};
+export type TInviteIntake = Record<string, string | number | boolean>;
 
 export type TOrganizationInvite = {
   id: string;

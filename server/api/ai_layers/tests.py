@@ -2160,7 +2160,7 @@ class ComplianceAssistantTests(TestCase):
         self.assertNotIn("Member count", context)
         self.assertIn("person_type: persona_moral", context)
         self.assertIn("rfc: XAXX010101000", context)
-        self.assertNotIn("relationship_status", context)
+        self.assertIn("relationship_status: nuevo", context)
         self.assertNotIn(str(self.org.id), COMPLIANCE_ASSISTANT_INSTRUCTIONS)
         self.assertNotIn("{{context}}", COMPLIANCE_ASSISTANT_INSTRUCTIONS)
 

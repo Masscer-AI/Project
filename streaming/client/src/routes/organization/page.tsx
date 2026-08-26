@@ -138,6 +138,7 @@ const EMPTY_INVITE_FORM = {
   person_type: "",
   counterparty_role: "",
   rfc: "",
+  extraFields: [] as { key: string; value: string }[],
 };
 
 export default function OrganizationPage() {
@@ -756,7 +757,7 @@ export default function OrganizationPage() {
 
   const handleCreateMember = async () => {
     if (!org?.id) return;
-    const { email, name, bio, expires_at, person_type, counterparty_role, rfc } =
+    const { email, name, bio, expires_at, person_type, counterparty_role, rfc, extraFields } =
       createMemberForm;
     if (!email.trim()) {
       toast.error(t("email-required-hint"));
@@ -765,24 +766,23 @@ export default function OrganizationPage() {
     setCreateMemberLoading(true);
     const tid = toast.loading(t("loading"));
     try {
-      const intake: {
-        person_type?: "persona_fisica" | "persona_moral";
-        counterparty_role?: "cliente" | "proveedor" | "ambos";
-        rfc?: string;
-      } = {};
+      const intake: Record<string, string> = {};
       if (hasComplianceAssistant) {
-        if (person_type === "persona_fisica" || person_type === "persona_moral") {
-          intake.person_type = person_type;
+        if (person_type.trim()) {
+          intake.person_type = person_type.trim();
         }
-        if (
-          counterparty_role === "cliente" ||
-          counterparty_role === "proveedor" ||
-          counterparty_role === "ambos"
-        ) {
-          intake.counterparty_role = counterparty_role;
+        if (counterparty_role.trim()) {
+          intake.counterparty_role = counterparty_role.trim();
         }
         if (rfc.trim()) {
           intake.rfc = rfc.trim();
+        }
+        for (const field of extraFields) {
+          const key = field.key.trim();
+          const value = field.value.trim();
+          if (key && value) {
+            intake[key] = value;
+          }
         }
       }
       await createOrganizationInvite(org.id, {
@@ -2161,6 +2161,65 @@ export default function OrganizationPage() {
               setCreateMemberForm((prev) => ({ ...prev, rfc: val }));
             }}
           />
+          {createMemberForm.extraFields.map((field, index) => (
+            <Group key={index} align="flex-end" gap="xs" wrap="nowrap">
+              <TextInput
+                label={index === 0 ? t("invite-extra-field-key") : undefined}
+                placeholder={t("invite-extra-field-key")}
+                value={field.key}
+                onChange={(e) => {
+                  const val = e.currentTarget.value;
+                  setCreateMemberForm((prev) => {
+                    const extraFields = [...prev.extraFields];
+                    extraFields[index] = { ...extraFields[index], key: val };
+                    return { ...prev, extraFields };
+                  });
+                }}
+                style={{ flex: 1 }}
+              />
+              <TextInput
+                label={index === 0 ? t("invite-extra-field-value") : undefined}
+                placeholder={t("invite-extra-field-value")}
+                value={field.value}
+                onChange={(e) => {
+                  const val = e.currentTarget.value;
+                  setCreateMemberForm((prev) => {
+                    const extraFields = [...prev.extraFields];
+                    extraFields[index] = { ...extraFields[index], value: val };
+                    return { ...prev, extraFields };
+                  });
+                }}
+                style={{ flex: 1 }}
+              />
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                size="sm"
+                aria-label={t("remove")}
+                onClick={() => {
+                  setCreateMemberForm((prev) => ({
+                    ...prev,
+                    extraFields: prev.extraFields.filter((_, i) => i !== index),
+                  }));
+                }}
+              >
+                <IconTrash size={16} />
+              </ActionIcon>
+            </Group>
+          ))}
+          <Button
+            variant="subtle"
+            size="xs"
+            leftSection={<IconPlus size={14} />}
+            onClick={() => {
+              setCreateMemberForm((prev) => ({
+                ...prev,
+                extraFields: [...prev.extraFields, { key: "", value: "" }],
+              }));
+            }}
+          >
+            {t("invite-add-field")}
+          </Button>
             </>
           )}
           <Textarea

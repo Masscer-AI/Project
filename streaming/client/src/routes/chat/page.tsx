@@ -32,6 +32,8 @@ import { useAgentSelectionPrompt } from "../../hooks/useAgentSelectionPrompt";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
 import { playNotificationSound } from "../../utils/notificationSound";
 
+const complianceKickoffsStarted = new Set<string>();
+
 export default function ChatView() {
   const loaderData = useLoaderData() as TChatLoader;
 
@@ -235,6 +237,14 @@ export default function ChatView() {
 
   useEffect(() => {
     if (!conversation?.messages) return;
+    const { agentTaskStatus, agentTaskConversationId } = useStore.getState();
+    if (
+      agentTaskStatus &&
+      agentTaskConversationId === conversation.id &&
+      conversation.messages.length === 0
+    ) {
+      return;
+    }
     setMessages(conversation.messages);
   }, [conversation]);
 
@@ -536,6 +546,35 @@ export default function ChatView() {
       return false;
     }
   };
+
+  useEffect(() => {
+    if (!isComplianceSurface || isViewer || composerMode !== "agent") return;
+    if (!conversationId || messages.length > 0) return;
+    if (chatState.writtingMode) return;
+    const compliance = agents.find(isComplianceAssistant);
+    if (!compliance) return;
+    if (
+      chatState.selectedAgents.length !== 1 ||
+      chatState.selectedAgents[0] !== compliance.slug
+    ) {
+      return;
+    }
+    if (complianceKickoffsStarted.has(conversationId)) return;
+    complianceKickoffsStarted.add(conversationId);
+    void handleSendMessage(t("compliance-kickoff-message")).then((ok) => {
+      if (!ok) complianceKickoffsStarted.delete(conversationId);
+    });
+  }, [
+    isComplianceSurface,
+    isViewer,
+    composerMode,
+    conversationId,
+    messages.length,
+    agents,
+    chatState.selectedAgents,
+    chatState.writtingMode,
+    t,
+  ]);
 
   const onImageGenerated = useCallback(
     (imageContentB64: string, imageName: string, message_id: number) => {

@@ -11,6 +11,7 @@ import {
   TOrganizationCredentials,
   TOrganizationMember,
   TOrganizationInvite,
+  TInviteIntake,
   TOrganizationRole,
   TRoleAssignment,
   TConversationAlert,
@@ -1760,12 +1761,7 @@ export const createOrganizationInvite = async (
     name?: string;
     bio?: string;
     expires_at?: string | null;
-    intake?: {
-      person_type?: "persona_fisica" | "persona_moral";
-      counterparty_role?: "cliente" | "proveedor" | "ambos";
-      relationship_status?: "nuevo" | "existente";
-      rfc?: string;
-    };
+    intake?: TInviteIntake;
   }
 ) => {
   return makeAuthenticatedRequest<{ message: string; invite: TOrganizationInvite }>(

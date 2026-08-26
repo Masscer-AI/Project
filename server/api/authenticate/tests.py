@@ -11,7 +11,7 @@ from api.authenticate.models import Organization, OrganizationInvite, Token
 
 
 class InviteIntakeSchemaTests(SimpleTestCase):
-    def test_normalize_invite_intake_drops_empty_and_rejects_unknown(self):
+    def test_normalize_invite_intake_is_lenient_and_keeps_extra_fields(self):
         from api.authenticate.invite_intake import normalize_invite_intake
 
         self.assertEqual(normalize_invite_intake(None), {})
@@ -21,17 +21,22 @@ class InviteIntakeSchemaTests(SimpleTestCase):
                     "person_type": "persona_fisica",
                     "counterparty_role": "",
                     "relationship_status": None,
-                    "rfc": " xaXx010101000 ",
+                    "rfc": " 12n123123123n ",
+                    "giro": "alimentos",
                 }
             ),
-            {"person_type": "persona_fisica", "rfc": "XAXX010101000"},
+            {
+                "person_type": "persona_fisica",
+                "rfc": "12N123123123N",
+                "giro": "alimentos",
+            },
+        )
+        self.assertEqual(
+            normalize_invite_intake({"person_type": "otro"}),
+            {"person_type": "otro"},
         )
         with self.assertRaises(ValueError):
-            normalize_invite_intake({"person_type": "otro"})
-        with self.assertRaises(ValueError):
-            normalize_invite_intake({"extra": "nope"})
-        with self.assertRaises(ValueError):
-            normalize_invite_intake({"rfc": "not-an-rfc"})
+            normalize_invite_intake(["not", "an", "object"])
 
 
 
@@ -294,12 +299,12 @@ class OrganizationInviteFlowTests(TestCase):
 
     @patch.object(OrganizationInvite, "generate_raw_token", return_value="bad-intake-token")
     @patch("api.authenticate.views.EmailService")
-    def test_create_invite_rejects_invalid_intake(self, _email_cls, _token_mock):
+    def test_create_invite_rejects_non_object_intake(self, _email_cls, _token_mock):
         response = self.client.post(
             f"/v1/auth/organizations/{self.org.id}/invites/",
             data={
                 "email": "badintake@test.com",
-                "intake": {"person_type": "not-a-type"},
+                "intake": ["not-an-object"],
             },
             format="json",
             **self._auth_headers(),
