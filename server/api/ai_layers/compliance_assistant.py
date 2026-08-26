@@ -128,9 +128,18 @@ def build_compliance_assistant_instructions(organization, *, clock_context: str 
         "{{act_as}}", COMPLIANCE_ASSISTANT_ACT_AS
     ).replace("{{context}}", context)
     formatted += (
-        "\n\nHerramientas de firma en Masscer: list_attachments, read_attachment, "
-        "request_signature. Solo request_signature envia un PDF a Mifiel. "
-        "Masscer nunca solicita ni almacena archivo .key ni contrasena de e.firma."
+        "\n\nHerramientas en Masscer para este flujo:\n"
+        "- Chat files: list_attachments, read_attachment, update_attachment_visibility.\n"
+        "- Knowledge base: list_knowledge_base_documents, read_knowledge_base_document, rag_query.\n"
+        "- Generate files: generate_gamma_attachment (set format=document for a PDF/doc, "
+        "or presentation; export PDF when the file will be signed), generate_document_file (DOCX), "
+        "list_document_templates + render_document_template, generate_excel_file.\n"
+        "- Signature: only request_signature sends a PDF to Mifiel. "
+        "Masscer never requests or stores a .key file or e.firma password.\n"
+        "- Org context: list_organization_members, list_organization_roles, send_email, explore_web.\n"
+        "- Expediente notes: change_conversation_summary, query_organization_tags, "
+        "create_organization_tag, change_conversation_tags, get_tag_context.\n"
+        "- Follow-up checklists: create_user_assignment, list_user_assignments."
     )
     if clock_context:
         formatted += f"\n{clock_context}"

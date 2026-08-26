@@ -33,9 +33,20 @@ class MasscerHelpCatalogTests(SimpleTestCase):
         from api.ai_layers.tools import USER_REQUIRED_TOOL_NAMES, list_registered_tools
 
         names = list_compliance_tools()
-        self.assertIn("request_signature", names)
-        self.assertIn("read_attachment", names)
-        self.assertIn("list_attachments", names)
+        for required in (
+            "request_signature",
+            "read_attachment",
+            "list_attachments",
+            "generate_gamma_attachment",
+            "generate_document_file",
+            "list_knowledge_base_documents",
+            "read_knowledge_base_document",
+            "rag_query",
+            "list_document_templates",
+            "render_document_template",
+        ):
+            self.assertIn(required, names)
+        self.assertNotIn("create_speech", names)
         self.assertNotIn("request_signature", list_registered_tools())
         self.assertNotIn("request_signature", USER_REQUIRED_TOOL_NAMES)
 

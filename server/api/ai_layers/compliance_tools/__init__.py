@@ -15,7 +15,27 @@ logger = logging.getLogger(__name__)
 COMPLIANCE_TOOL_REGISTRY: dict[str, str] = {
     "read_attachment": "api.ai_layers.tools.read_attachment",
     "list_attachments": "api.ai_layers.tools.list_attachments",
+    "update_attachment_visibility": "api.ai_layers.tools.update_attachment_visibility",
+    "list_knowledge_base_documents": "api.ai_layers.tools.list_knowledge_base_documents",
+    "read_knowledge_base_document": "api.ai_layers.tools.read_knowledge_base_document",
+    "rag_query": "api.ai_layers.tools.rag_query",
+    "generate_gamma_attachment": "api.ai_layers.tools.generate_gamma_presentation",
+    "generate_document_file": "api.ai_layers.tools.generate_document_file",
+    "list_document_templates": "api.ai_layers.tools.list_document_templates",
+    "render_document_template": "api.ai_layers.tools.render_document_template",
+    "generate_excel_file": "api.ai_layers.tools.generate_excel_file",
     "request_signature": "api.ai_layers.tools.request_signature",
+    "explore_web": "api.ai_layers.tools.explore_web",
+    "send_email": "api.ai_layers.tools.send_email",
+    "list_organization_members": "api.ai_layers.tools.list_organization_members",
+    "list_organization_roles": "api.ai_layers.tools.list_organization_roles",
+    "change_conversation_summary": "api.ai_layers.tools.change_conversation_summary",
+    "query_organization_tags": "api.ai_layers.tools.query_organization_tags",
+    "create_organization_tag": "api.ai_layers.tools.create_organization_tag",
+    "change_conversation_tags": "api.ai_layers.tools.change_conversation_tags",
+    "get_tag_context": "api.ai_layers.tools.get_tag_context",
+    "create_user_assignment": "api.ai_layers.tools.create_user_assignment",
+    "list_user_assignments": "api.ai_layers.tools.list_user_assignments",
 }
 
 
