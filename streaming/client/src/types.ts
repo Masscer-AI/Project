@@ -304,6 +304,8 @@ export type TOrganizationInvite = {
   name: string;
   bio: string;
   intake?: TInviteIntake;
+  role_id?: string | null;
+  role_name?: string | null;
   expires_at: string | null;
   status: string;
   invite_expires_at: string;

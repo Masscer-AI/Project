@@ -1762,6 +1762,7 @@ export const createOrganizationInvite = async (
     bio?: string;
     expires_at?: string | null;
     intake?: TInviteIntake;
+    role_id?: string | null;
   }
 ) => {
   return makeAuthenticatedRequest<{ message: string; invite: TOrganizationInvite }>(

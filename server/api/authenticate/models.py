@@ -583,6 +583,14 @@ class OrganizationInvite(models.Model):
         blank=True,
         help_text="Optional KYB intake: person_type, counterparty_role, relationship_status",
     )
+    role = models.ForeignKey(
+        "Role",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="organization_invites",
+        help_text="Role assigned when the invite is accepted.",
+    )
     profile_expires_at = models.DateTimeField(
         null=True,
         blank=True,

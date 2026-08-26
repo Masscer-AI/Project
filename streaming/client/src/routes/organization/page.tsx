@@ -135,6 +135,7 @@ const EMPTY_INVITE_FORM = {
   name: "",
   bio: "",
   expires_at: "",
+  role_id: "",
   person_type: "",
   counterparty_role: "",
   rfc: "",
@@ -757,7 +758,7 @@ export default function OrganizationPage() {
 
   const handleCreateMember = async () => {
     if (!org?.id) return;
-    const { email, name, bio, expires_at, person_type, counterparty_role, rfc, extraFields } =
+    const { email, name, bio, expires_at, role_id, person_type, counterparty_role, rfc, extraFields } =
       createMemberForm;
     if (!email.trim()) {
       toast.error(t("email-required-hint"));
@@ -791,6 +792,7 @@ export default function OrganizationPage() {
         bio: bio.trim() || undefined,
         expires_at: expires_at ? new Date(expires_at).toISOString() : null,
         intake: Object.keys(intake).length ? intake : undefined,
+        role_id: role_id.trim() || null,
       });
       setCreateMemberOpened(false);
       setCreateMemberForm(EMPTY_INVITE_FORM);
@@ -1466,6 +1468,7 @@ export default function OrganizationPage() {
                                   </Text>
                                   <Text size="xs" c="dimmed">
                                     {t("invite-expires")}: {new Date(inv.invite_expires_at).toLocaleString()}
+                                    {inv.role_name ? ` · ${t("role")}: ${inv.role_name}` : ""}
                                   </Text>
                                 </Stack>
                                 <Button
@@ -2121,6 +2124,21 @@ export default function OrganizationPage() {
               const val = e.currentTarget.value;
               setCreateMemberForm((prev) => ({ ...prev, name: val }));
             }}
+          />
+          <NativeSelect
+            label={t("invite-org-role")}
+            description={t("invite-org-role-hint")}
+            value={createMemberForm.role_id}
+            onChange={(e) => {
+              const val = e.currentTarget.value;
+              setCreateMemberForm((prev) => ({ ...prev, role_id: val }));
+            }}
+            data={[
+              { value: "", label: `— ${t("no-role")} —` },
+              ...roles
+                .filter((r) => r.enabled)
+                .map((r) => ({ value: r.id, label: r.name })),
+            ]}
           />
           {hasComplianceAssistant && (
             <>

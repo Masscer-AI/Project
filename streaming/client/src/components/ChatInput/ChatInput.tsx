@@ -415,7 +415,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           />
           <div className="flex shrink-0 items-center justify-between px-1 md:px-4 pb-1 md:pb-4 pt-1 md:pt-3 relative z-10 min-w-0">
             <div className="flex gap-2 relative z-20 min-w-0 flex-shrink">
-              <PlusMenu existingFilesOnly={false} />
+              <PlusMenu
+                existingFilesOnly={false}
+                alwaysAllowUpload={isLockedMasscerChat}
+              />
               {!isLockedMasscerChat && <ToolsMenu />}
             </div>
             <div className="flex gap-2 items-center flex-shrink-0">
@@ -458,12 +461,19 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   );
 };
 
-const PlusMenu = ({ existingFilesOnly = false }: { existingFilesOnly?: boolean }) => {
+const PlusMenu = ({
+  existingFilesOnly = false,
+  alwaysAllowUpload = false,
+}: {
+  existingFilesOnly?: boolean;
+  alwaysAllowUpload?: boolean;
+}) => {
   const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const addAttachment = useStore((s) => s.addAttachment);
   const attachments = useStore((s) => s.chatState.attachments);
-  const isAddFilesEnabled = useIsFeatureEnabled("add-files-to-chat");
+  const addFilesFlag = useIsFeatureEnabled("add-files-to-chat");
+  const isAddFilesEnabled = alwaysAllowUpload || addFilesFlag;
   const isTrainAgentsEnabled = useIsFeatureEnabled("train-agents");
   const isWebScrapingEnabled = useIsFeatureEnabled("web-scraping");
   const isDriveImportEnabled =

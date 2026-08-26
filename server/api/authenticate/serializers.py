@@ -126,6 +126,7 @@ class OrganizationInviteCreateSerializer(serializers.Serializer):
     bio = serializers.CharField(required=False, allow_blank=True, default="")
     expires_at = serializers.DateTimeField(required=False, allow_null=True)
     intake = serializers.JSONField(required=False, allow_null=True)
+    role_id = serializers.UUIDField(required=False, allow_null=True)
 
     def validate_intake(self, value):
         try:
@@ -136,6 +137,7 @@ class OrganizationInviteCreateSerializer(serializers.Serializer):
 
 class OrganizationInviteReadSerializer(serializers.ModelSerializer):
     expires_at = serializers.DateTimeField(source="profile_expires_at", read_only=True)
+    role_name = serializers.SerializerMethodField()
 
     class Meta:
         model = OrganizationInvite
@@ -145,12 +147,17 @@ class OrganizationInviteReadSerializer(serializers.ModelSerializer):
             "name",
             "bio",
             "intake",
+            "role_id",
+            "role_name",
             "expires_at",
             "status",
             "invite_expires_at",
             "created_at",
             "accepted_at",
         ]
+
+    def get_role_name(self, obj):
+        return obj.role.name if obj.role_id else None
 
 class InviteSignupSerializer(serializers.Serializer):
     invite_token = serializers.CharField(write_only=True)

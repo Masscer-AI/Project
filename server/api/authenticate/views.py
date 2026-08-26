@@ -351,6 +351,14 @@ class SignupAPIView(APIView):
             profile.expires_at = invite_locked.profile_expires_at
             profile.save()
 
+            if invite_locked.role_id:
+                RoleAssignment.objects.create(
+                    user=user,
+                    organization=invite_locked.organization,
+                    role_id=invite_locked.role_id,
+                    from_date=timezone.now().date(),
+                )
+
             now = timezone.now()
             invite_locked.status = OrganizationInvite.Status.ACCEPTED
             invite_locked.accepted_at = now
@@ -1216,9 +1224,11 @@ class OrganizationInvitesView(View):
                 {"error": "You do not have permission"}, status=status.HTTP_403_FORBIDDEN
             )
 
-        invites = OrganizationInvite.objects.filter(organization=organization).order_by(
-            "-created_at"
-        )[:200]
+        invites = (
+            OrganizationInvite.objects.filter(organization=organization)
+            .select_related("role")
+            .order_by("-created_at")[:200]
+        )
         serializer = OrganizationInviteReadSerializer(invites, many=True)
         return JsonResponse(serializer.data, safe=False)
 
@@ -1249,6 +1259,17 @@ class OrganizationInvitesView(View):
         if intake and not organization_has_compliance_assistant(organization):
             intake = {}
         profile_expires_at = ser.validated_data.get("expires_at")
+        role = None
+        role_id = ser.validated_data.get("role_id")
+        if role_id:
+            role = Role.objects.filter(
+                id=role_id, organization=organization, enabled=True
+            ).first()
+            if not role:
+                return JsonResponse(
+                    {"error": "Role not found"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
 
         if User.objects.filter(email__iexact=normalized_email).exists():
             return JsonResponse(
@@ -1273,6 +1294,7 @@ class OrganizationInvitesView(View):
             pending.bio = bio
             pending.intake = intake
             pending.profile_expires_at = profile_expires_at
+            pending.role = role
             pending.invited_by = request.user
             pending.save()
             invite = pending
@@ -1284,6 +1306,7 @@ class OrganizationInvitesView(View):
                 bio=bio,
                 intake=intake,
                 profile_expires_at=profile_expires_at,
+                role=role,
                 invited_by=request.user,
                 token_hash=digest,
                 status=OrganizationInvite.Status.PENDING,

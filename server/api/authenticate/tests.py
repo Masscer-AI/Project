@@ -7,7 +7,13 @@ from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 from rest_framework.test import APIClient
 
-from api.authenticate.models import Organization, OrganizationInvite, Token
+from api.authenticate.models import (
+    Organization,
+    OrganizationInvite,
+    Role,
+    RoleAssignment,
+    Token,
+)
 
 
 class InviteIntakeSchemaTests(SimpleTestCase):
@@ -222,6 +228,49 @@ class OrganizationInviteFlowTests(TestCase):
         inv = OrganizationInvite.objects.get(email="joiner@test.com", organization=self.org)
         self.assertEqual(inv.status, OrganizationInvite.Status.ACCEPTED)
         self.assertEqual(inv.accepted_user_id, user.id)
+
+    @patch.object(OrganizationInvite, "generate_raw_token", return_value="role-invite-token")
+    @patch("api.authenticate.views.EmailService")
+    def test_create_invite_stores_role_and_assigns_on_accept(self, _email_cls, _token_mock):
+        role = Role.objects.create(
+            organization=self.org, name="Counterparty", enabled=True
+        )
+        create_resp = self.client.post(
+            f"/v1/auth/organizations/{self.org.id}/invites/",
+            data={"email": "withrole@test.com", "role_id": str(role.id)},
+            format="json",
+            **self._auth_headers(),
+        )
+        self.assertEqual(create_resp.status_code, 201)
+        self.assertEqual(create_resp.json()["invite"]["role_id"], str(role.id))
+        self.assertEqual(create_resp.json()["invite"]["role_name"], "Counterparty")
+
+        accept = self.client.post(
+            "/v1/auth/signup",
+            data={
+                "invite_token": "role-invite-token",
+                "password": "join-password-123",
+                "confirm_password": "join-password-123",
+            },
+            format="json",
+        )
+        self.assertEqual(accept.status_code, 201)
+        user = User.objects.get(email="withrole@test.com")
+        assignment = RoleAssignment.objects.get(user=user, organization=self.org)
+        self.assertEqual(assignment.role_id, role.id)
+
+    @patch.object(OrganizationInvite, "generate_raw_token", return_value="bad-role-invite")
+    @patch("api.authenticate.views.EmailService")
+    def test_create_invite_rejects_role_from_other_org(self, _email_cls, _token_mock):
+        other = Organization.objects.create(name="Other Org", owner=self.owner)
+        role = Role.objects.create(organization=other, name="Foreign", enabled=True)
+        response = self.client.post(
+            f"/v1/auth/organizations/{self.org.id}/invites/",
+            data={"email": "foreignrole@test.com", "role_id": str(role.id)},
+            format="json",
+            **self._auth_headers(),
+        )
+        self.assertEqual(response.status_code, 404)
 
     @patch.object(OrganizationInvite, "generate_raw_token", return_value="intake-invite-token")
     @patch("api.authenticate.views.EmailService")
