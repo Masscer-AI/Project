@@ -2,12 +2,37 @@ from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.contrib.auth.tokens import default_token_generator
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 from rest_framework.test import APIClient
 
 from api.authenticate.models import Organization, OrganizationInvite, Token
+
+
+class InviteIntakeSchemaTests(SimpleTestCase):
+    def test_normalize_invite_intake_drops_empty_and_rejects_unknown(self):
+        from api.authenticate.invite_intake import normalize_invite_intake
+
+        self.assertEqual(normalize_invite_intake(None), {})
+        self.assertEqual(
+            normalize_invite_intake(
+                {
+                    "person_type": "persona_fisica",
+                    "counterparty_role": "",
+                    "relationship_status": None,
+                    "rfc": " xaXx010101000 ",
+                }
+            ),
+            {"person_type": "persona_fisica", "rfc": "XAXX010101000"},
+        )
+        with self.assertRaises(ValueError):
+            normalize_invite_intake({"person_type": "otro"})
+        with self.assertRaises(ValueError):
+            normalize_invite_intake({"extra": "nope"})
+        with self.assertRaises(ValueError):
+            normalize_invite_intake({"rfc": "not-an-rfc"})
+
 
 
 class PasswordResetFlowTests(TestCase):
@@ -87,6 +112,18 @@ class PasswordResetFlowTests(TestCase):
 
 class OrganizationInviteFlowTests(TestCase):
     def setUp(self):
+        from api.ai_layers.models import LanguageModel
+        from api.consumption.models import Currency
+        from api.providers.models import AIProvider
+
+        Currency.objects.get_or_create(
+            name="Compute Unit", defaults={"one_usd_is": 1000}
+        )
+        provider = AIProvider.objects.create(name="OpenAI-invite")
+        LanguageModel.objects.create(
+            provider=provider, slug="gpt-invite", name="GPT Invite"
+        )
+
         self.client = APIClient()
         self.owner = User.objects.create_user(
             username="orgowner",
@@ -180,6 +217,94 @@ class OrganizationInviteFlowTests(TestCase):
         inv = OrganizationInvite.objects.get(email="joiner@test.com", organization=self.org)
         self.assertEqual(inv.status, OrganizationInvite.Status.ACCEPTED)
         self.assertEqual(inv.accepted_user_id, user.id)
+
+    @patch.object(OrganizationInvite, "generate_raw_token", return_value="intake-invite-token")
+    @patch("api.authenticate.views.EmailService")
+    def test_create_invite_stores_optional_intake_and_copies_on_accept(
+        self, _email_cls, _token_mock
+    ):
+        from api.ai_layers.models import Agent, AgentKind
+
+        Agent.objects.create(
+            name="Compliance",
+            slug="test-compliance-invite",
+            salute="hi",
+            act_as="help",
+            organization=self.org,
+            agent_kind=AgentKind.COMPLIANCE_ASSISTANT,
+        )
+        create_resp = self.client.post(
+            f"/v1/auth/organizations/{self.org.id}/invites/",
+            data={
+                "email": "kyb@test.com",
+                "name": "ACME SA",
+                "intake": {
+                    "person_type": "persona_moral",
+                    "counterparty_role": "proveedor",
+                    "relationship_status": "nuevo",
+                },
+            },
+            format="json",
+            **self._auth_headers(),
+        )
+        self.assertEqual(create_resp.status_code, 201)
+        self.assertEqual(
+            create_resp.json()["invite"]["intake"],
+            {
+                "person_type": "persona_moral",
+                "counterparty_role": "proveedor",
+                "relationship_status": "nuevo",
+            },
+        )
+
+        accept = self.client.post(
+            "/v1/auth/signup",
+            data={
+                "invite_token": "intake-invite-token",
+                "password": "join-password-123",
+                "confirm_password": "join-password-123",
+            },
+            format="json",
+        )
+        self.assertEqual(accept.status_code, 201)
+        joiner = User.objects.get(email="kyb@test.com")
+        self.assertEqual(joiner.profile.intake["person_type"], "persona_moral")
+        self.assertEqual(joiner.profile.intake["counterparty_role"], "proveedor")
+        self.assertEqual(joiner.profile.name, "ACME SA")
+
+    @patch.object(OrganizationInvite, "generate_raw_token", return_value="no-compliance-intake-token")
+    @patch("api.authenticate.views.EmailService")
+    def test_create_invite_drops_intake_without_compliance_assistant(
+        self, _email_cls, _token_mock
+    ):
+        create_resp = self.client.post(
+            f"/v1/auth/organizations/{self.org.id}/invites/",
+            data={
+                "email": "nocomp@test.com",
+                "intake": {
+                    "person_type": "persona_fisica",
+                    "rfc": "XAXX010101000",
+                },
+            },
+            format="json",
+            **self._auth_headers(),
+        )
+        self.assertEqual(create_resp.status_code, 201)
+        self.assertEqual(create_resp.json()["invite"]["intake"], {})
+
+    @patch.object(OrganizationInvite, "generate_raw_token", return_value="bad-intake-token")
+    @patch("api.authenticate.views.EmailService")
+    def test_create_invite_rejects_invalid_intake(self, _email_cls, _token_mock):
+        response = self.client.post(
+            f"/v1/auth/organizations/{self.org.id}/invites/",
+            data={
+                "email": "badintake@test.com",
+                "intake": {"person_type": "not-a-type"},
+            },
+            format="json",
+            **self._auth_headers(),
+        )
+        self.assertEqual(response.status_code, 400)
 
     def test_invite_signup_rejects_bad_token(self):
         response = self.client.post(

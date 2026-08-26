@@ -17,6 +17,7 @@ from .phone_numbers import (
     normalize_phone_numbers,
     validate_phone_numbers_for_storage,
 )
+from .invite_intake import normalize_invite_intake
 from rest_framework.exceptions import ValidationError
 from django.db import transaction
 
@@ -124,6 +125,14 @@ class OrganizationInviteCreateSerializer(serializers.Serializer):
     name = serializers.CharField(required=False, allow_blank=True, max_length=255, default="")
     bio = serializers.CharField(required=False, allow_blank=True, default="")
     expires_at = serializers.DateTimeField(required=False, allow_null=True)
+    intake = serializers.JSONField(required=False, allow_null=True)
+
+    def validate_intake(self, value):
+        try:
+            return normalize_invite_intake(value)
+        except ValueError as exc:
+            raise serializers.ValidationError(str(exc)) from exc
+
 
 class OrganizationInviteReadSerializer(serializers.ModelSerializer):
     expires_at = serializers.DateTimeField(source="profile_expires_at", read_only=True)
@@ -135,6 +144,7 @@ class OrganizationInviteReadSerializer(serializers.ModelSerializer):
             "email",
             "name",
             "bio",
+            "intake",
             "expires_at",
             "status",
             "invite_expires_at",
@@ -258,6 +268,7 @@ class BigOrganizationSerializer(serializers.ModelSerializer):
     logo_url = serializers.SerializerMethodField()
     can_manage = serializers.SerializerMethodField()
     is_owner = serializers.SerializerMethodField()
+    has_compliance_assistant = serializers.SerializerMethodField()
 
     class Meta:
         model = Organization
@@ -273,6 +284,7 @@ class BigOrganizationSerializer(serializers.ModelSerializer):
             "credentials",
             "can_manage",
             "is_owner",
+            "has_compliance_assistant",
         ]
 
     def get_credentials(self, obj):
@@ -305,6 +317,11 @@ class BigOrganizationSerializer(serializers.ModelSerializer):
             )
             return enabled
         return False
+
+    def get_has_compliance_assistant(self, obj):
+        from api.ai_layers.compliance_assistant import organization_has_compliance_assistant
+
+        return organization_has_compliance_assistant(obj)
 
 class FeatureFlagSerializer(serializers.ModelSerializer):
     class Meta:

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Message } from "../../components/Message/Message";
 import { ChatInput } from "../../components/ChatInput/ChatInput";
 
-import { useLoaderData, useLocation, useNavigate } from "react-router-dom";
+import { useLoaderData, useLocation, useNavigate, useRevalidator } from "react-router-dom";
 import { Sidebar } from "../../components/Sidebar/Sidebar";
 import { useStore } from "../../modules/store";
 import { TChatLoader, TMessage } from "../../types/chatTypes";
@@ -69,14 +69,19 @@ export default function ChatView() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
+  const revalidator = useRevalidator();
 
   const routeConversation = loaderData.conversation;
+  const isComplianceRoute = location.pathname === "/compliance";
   const activeConversation =
-    conversation?.id === routeConversation?.id && conversation
+    conversation &&
+    (conversation.id === routeConversation?.id ||
+      (isComplianceRoute && conversation.metadata?.surface === "compliance"))
       ? conversation
       : routeConversation;
+  const conversationId = activeConversation.id;
   const isComplianceSurface =
-    location.pathname === "/compliance" ||
+    isComplianceRoute ||
     activeConversation?.metadata?.surface === "compliance";
   const isForeignConversation =
     activeConversation?.user_id != null &&
@@ -121,7 +126,7 @@ export default function ChatView() {
 
   const isMultiAgentEnabled = useIsFeatureEnabled("multi-agent-chat") === true;
   const agentsModal = useAgentSelectionPrompt({
-    conversationId: routeConversation?.id,
+    conversationId,
     enabled: !isViewer && !isComplianceSurface,
     hasAgents: agents.length > 0,
     selectedAgentCount: chatState.selectedAgents.length,
@@ -156,7 +161,7 @@ export default function ChatView() {
       message?: { type: string; conversation_id?: string; version?: TVersion };
     }) => {
       const data = raw?.message;
-      const convId = loaderData.conversation.id;
+      const convId = conversationId;
       if (!data || !convId || data.conversation_id !== convId) return;
       if (data.type === "agent_version_ready" && data.version) {
         console.debug(
@@ -190,7 +195,7 @@ export default function ChatView() {
     return () => {
       socket.off("agent_events_channel", handleAgentEvents);
     };
-  }, [loaderData.conversation.id, socket]);
+  }, [conversationId, socket]);
 
   const scrollChat = () => {
     const container = chatMessageContainerRef.current;
@@ -269,7 +274,7 @@ export default function ChatView() {
   ]);
 
   const handleHumanSendMessage = async (input: string) => {
-    if (!routeConversation?.id) {
+    if (!conversationId) {
       toast.error("No conversation found");
       return false;
     }
@@ -295,7 +300,7 @@ export default function ChatView() {
     let attachmentIds: string[] = [];
     if (fileUploads.length > 0) {
       const uploadRes = await uploadMessageAttachments(
-        routeConversation.id,
+        conversationId,
         fileUploads.map((a) => ({
           content: a.content,
           name: a.name || "file",
@@ -308,7 +313,7 @@ export default function ChatView() {
       const docId =
         typeof doc.id === "number" ? doc.id : parseInt(String(doc.id), 10);
       if (isNaN(docId)) continue;
-      const linkRes = await linkMessageAttachment(routeConversation.id, {
+      const linkRes = await linkMessageAttachment(conversationId, {
         kind: "rag_document",
         rag_document_id: docId,
       });
@@ -327,11 +332,11 @@ export default function ChatView() {
 
     try {
       await sendHumanMessageToConversation(
-        routeConversation.id,
+        conversationId,
         trimmed,
         attachmentIds
       );
-      await setConversation(routeConversation.id);
+      await setConversation(conversationId);
       cleanAttachments();
       setSpecifiedUrls([]);
       scrollChat();
@@ -382,7 +387,7 @@ export default function ChatView() {
       };
       return [...prev, userMessage, assistantMessage];
     });
-    setAgentTaskStatus(t("agent-preparing-request"), routeConversation?.id ?? null);
+    setAgentTaskStatus(t("agent-preparing-request"), conversationId ?? null);
 
     const revertOptimisticSend = () => {
       setAgentTaskStatus(null);
@@ -398,7 +403,7 @@ export default function ChatView() {
     };
 
     try {
-      if (!routeConversation?.id) {
+      if (!conversationId) {
         toast.error("No conversation found");
         revertOptimisticSend();
         return false;
@@ -426,7 +431,7 @@ export default function ChatView() {
 
         if (toUpload.length > 0) {
           const uploadRes = await uploadMessageAttachments(
-            routeConversation.id,
+            conversationId,
             toUpload
           );
           for (const att of uploadRes.attachments) {
@@ -437,7 +442,7 @@ export default function ChatView() {
         for (const rag of ragDocs) {
           const docId = typeof rag.id === "number" ? rag.id : parseInt(String(rag.id), 10);
           if (!isNaN(docId)) {
-            const linkRes = await linkMessageAttachment(routeConversation.id, {
+            const linkRes = await linkMessageAttachment(conversationId, {
               kind: "rag_document",
               rag_document_id: docId,
             });
@@ -452,7 +457,7 @@ export default function ChatView() {
         for (const item of specifiedUrls) {
           const url = (item as any)?.url;
           if (!url) continue;
-          const linkRes = await linkMessageAttachment(routeConversation.id, {
+          const linkRes = await linkMessageAttachment(conversationId, {
             kind: "website",
             url,
           });
@@ -488,20 +493,20 @@ export default function ChatView() {
         selectedAgents.length === 1 && isComplianceAssistant(selectedAgents[0]);
       const taskRes = isPlatform
         ? await triggerPlatformAssistantTask({
-            conversation_id: routeConversation.id,
+            conversation_id: conversationId,
             agent_slug: selectedAgents[0].slug,
             user_inputs: userInputs,
             client_datetime: buildClientDatetimePayload(),
           })
         : isCompliance
           ? await triggerComplianceAssistantTask({
-              conversation_id: routeConversation.id,
+              conversation_id: conversationId,
               agent_slug: selectedAgents[0].slug,
               user_inputs: userInputs,
               client_datetime: buildClientDatetimePayload(),
             })
         : await triggerAgentTask({
-            conversation_id: routeConversation.id,
+            conversation_id: conversationId,
             agent_slugs: selectedAgents.map((a) => a.slug),
             user_inputs: userInputs,
             multiagentic_modality: userPreferences.multiagentic_modality,
@@ -510,10 +515,10 @@ export default function ChatView() {
 
       if (taskRes.agent_skipped && taskRes.takeover) {
         console.debug("[agent-task] trigger skipped (takeover) → clear stop", {
-          conversationId: routeConversation.id,
+          conversationId: conversationId,
         });
         setAgentTaskStatus(null);
-        await setConversation(routeConversation.id);
+        await setConversation(conversationId);
       }
 
       cleanAttachments();
@@ -524,7 +529,7 @@ export default function ChatView() {
       console.error("Error triggering agent task:", error);
       toast.error(t("agent-task-failed"));
       console.debug("[agent-task] trigger failed → clear stop", {
-        conversationId: routeConversation?.id,
+        conversationId,
         error,
       });
       revertOptimisticSend();
@@ -560,7 +565,7 @@ export default function ChatView() {
 
   const handleRegenerateAgentTask = useCallback(
     async (index: number, newText: string) => {
-      if (!routeConversation?.id) return;
+      if (!conversationId) return;
 
       let selectedAgents = agentsInChatSelectionOrder(agents, chatState.selectedAgents);
       if (selectedAgents.length === 0) {
@@ -589,7 +594,7 @@ export default function ChatView() {
 
       if (!regenPayload.userId) return;
 
-      setAgentTaskStatus(t("agent-preparing-request"), routeConversation.id);
+      setAgentTaskStatus(t("agent-preparing-request"), conversationId);
 
       try {
         const isPlatform =
@@ -598,7 +603,7 @@ export default function ChatView() {
           selectedAgents.length === 1 && isComplianceAssistant(selectedAgents[0]);
         const taskRes = isPlatform
           ? await triggerPlatformAssistantTask({
-              conversation_id: routeConversation.id,
+              conversation_id: conversationId,
               agent_slug: selectedAgents[0].slug,
               user_inputs: [{ type: "input_text", text: newText }],
               regenerate_message_id: regenPayload.userId,
@@ -606,14 +611,14 @@ export default function ChatView() {
             })
           : isCompliance
             ? await triggerComplianceAssistantTask({
-                conversation_id: routeConversation.id,
+                conversation_id: conversationId,
                 agent_slug: selectedAgents[0].slug,
                 user_inputs: [{ type: "input_text", text: newText }],
                 regenerate_message_id: regenPayload.userId,
                 client_datetime: buildClientDatetimePayload(),
               })
           : await triggerAgentTask({
-              conversation_id: routeConversation.id,
+              conversation_id: conversationId,
               agent_slugs: selectedAgents.map((a) => a.slug),
               user_inputs: [{ type: "input_text", text: newText }],
               multiagentic_modality: userPreferences.multiagentic_modality,
@@ -624,10 +629,10 @@ export default function ChatView() {
         if (taskRes.agent_skipped && taskRes.takeover) {
           console.debug(
             "[agent-task] regenerate skipped (takeover) → clear stop",
-            { conversationId: routeConversation.id }
+            { conversationId: conversationId }
           );
           setAgentTaskStatus(null);
-          await setConversation(routeConversation.id);
+          await setConversation(conversationId);
         }
 
         scrollChat();
@@ -635,7 +640,7 @@ export default function ChatView() {
         console.error("Error regenerating via agent task:", error);
         toast.error(t("agent-task-failed"));
         console.debug("[agent-task] regenerate failed → clear stop", {
-          conversationId: routeConversation.id,
+          conversationId: conversationId,
           error,
         });
         setAgentTaskStatus(null);
@@ -644,13 +649,13 @@ export default function ChatView() {
           if (last?.type === "assistant" && !last.id) return prev.slice(0, -1);
           return prev;
         });
-        void setConversation(routeConversation.id);
+        void setConversation(conversationId);
       }
     },
     [
       agents,
       chatState,
-      loaderData.conversation.id,
+      conversationId,
       setAgentTaskStatus,
       setConversation,
       t,
@@ -692,6 +697,13 @@ export default function ChatView() {
       <div className="flex min-h-0 flex-col h-screen w-full md:mx-auto md:max-w-[900px] relative z-10 px-0 md:px-4 py-0 md:py-6 overflow-visible">
         <ChatHeader
           hideAgents={isComplianceSurface}
+          onComplianceRestarted={(conv) => {
+            hydrateConversation(conv);
+            setMessages(conv.messages ?? []);
+            setAgentTaskStatus(null);
+            window.dispatchEvent(new Event("conversations-changed"));
+            revalidator.revalidate();
+          }}
           agentsModal={{
             opened: agentsModal.opened,
             onOpen: agentsModal.open,

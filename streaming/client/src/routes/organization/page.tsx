@@ -130,6 +130,16 @@ export function parseOrganizationActiveTab(
   return "settings";
 }
 
+const EMPTY_INVITE_FORM = {
+  email: "",
+  name: "",
+  bio: "",
+  expires_at: "",
+  person_type: "",
+  counterparty_role: "",
+  rfc: "",
+};
+
 export default function OrganizationPage() {
   const { chatState, toggleSidebar, setTenantBranding } = useStore((s) => ({
     chatState: s.chatState,
@@ -380,12 +390,7 @@ export default function OrganizationPage() {
   const [memberActionLoading, setMemberActionLoading] = useState(false);
 
   const [createMemberOpened, setCreateMemberOpened] = useState(false);
-  const [createMemberForm, setCreateMemberForm] = useState({
-    email: "",
-    name: "",
-    bio: "",
-    expires_at: "",
-  });
+  const [createMemberForm, setCreateMemberForm] = useState(EMPTY_INVITE_FORM);
   const [createMemberLoading, setCreateMemberLoading] = useState(false);
   const [invites, setInvites] = useState<TOrganizationInvite[]>([]);
   const [loadingInvites, setLoadingInvites] = useState(false);
@@ -426,6 +431,7 @@ export default function OrganizationPage() {
   }, [searchParams, setSearchParams]);
 
   const org = orgs[0] ?? null;
+  const hasComplianceAssistant = Boolean(org?.has_compliance_assistant);
   const hasActiveSubscription = Boolean(billing?.subscription?.is_active);
   const hasCustomSubscription = billing?.subscription?.plan?.slug === "custom";
   const hasActiveOrganizationPlan = Boolean(
@@ -750,7 +756,8 @@ export default function OrganizationPage() {
 
   const handleCreateMember = async () => {
     if (!org?.id) return;
-    const { email, name, bio, expires_at } = createMemberForm;
+    const { email, name, bio, expires_at, person_type, counterparty_role, rfc } =
+      createMemberForm;
     if (!email.trim()) {
       toast.error(t("email-required-hint"));
       return;
@@ -758,14 +765,35 @@ export default function OrganizationPage() {
     setCreateMemberLoading(true);
     const tid = toast.loading(t("loading"));
     try {
+      const intake: {
+        person_type?: "persona_fisica" | "persona_moral";
+        counterparty_role?: "cliente" | "proveedor" | "ambos";
+        rfc?: string;
+      } = {};
+      if (hasComplianceAssistant) {
+        if (person_type === "persona_fisica" || person_type === "persona_moral") {
+          intake.person_type = person_type;
+        }
+        if (
+          counterparty_role === "cliente" ||
+          counterparty_role === "proveedor" ||
+          counterparty_role === "ambos"
+        ) {
+          intake.counterparty_role = counterparty_role;
+        }
+        if (rfc.trim()) {
+          intake.rfc = rfc.trim();
+        }
+      }
       await createOrganizationInvite(org.id, {
         email: email.trim(),
         name: name.trim() || undefined,
         bio: bio.trim() || undefined,
         expires_at: expires_at ? new Date(expires_at).toISOString() : null,
+        intake: Object.keys(intake).length ? intake : undefined,
       });
       setCreateMemberOpened(false);
-      setCreateMemberForm({ email: "", name: "", bio: "", expires_at: "" });
+      setCreateMemberForm(EMPTY_INVITE_FORM);
       toast.success(t("invite-sent-success"));
       reloadInvites();
     } catch (e: any) {
@@ -2073,7 +2101,7 @@ export default function OrganizationPage() {
         opened={createMemberOpened}
         onClose={() => {
           setCreateMemberOpened(false);
-          setCreateMemberForm({ email: "", name: "", bio: "", expires_at: "" });
+          setCreateMemberForm(EMPTY_INVITE_FORM);
         }}
         title={t("invite-member")}
         centered
@@ -2089,8 +2117,52 @@ export default function OrganizationPage() {
           <TextInput
             label={t("name-optional")}
             value={createMemberForm.name}
-            onChange={(e) => setCreateMemberForm({ ...createMemberForm, name: e.currentTarget.value })}
+            onChange={(e) => {
+              const val = e.currentTarget.value;
+              setCreateMemberForm((prev) => ({ ...prev, name: val }));
+            }}
           />
+          {hasComplianceAssistant && (
+            <>
+          <NativeSelect
+            label={t("invite-person-type")}
+            description={t("invite-intake-optional-hint")}
+            value={createMemberForm.person_type}
+            onChange={(e) => {
+              const val = e.currentTarget.value;
+              setCreateMemberForm((prev) => ({ ...prev, person_type: val }));
+            }}
+            data={[
+              { value: "", label: t("invite-field-unspecified") },
+              { value: "persona_fisica", label: t("invite-person-fisica") },
+              { value: "persona_moral", label: t("invite-person-moral") },
+            ]}
+          />
+          <NativeSelect
+            label={t("invite-counterparty-role")}
+            value={createMemberForm.counterparty_role}
+            onChange={(e) => {
+              const val = e.currentTarget.value;
+              setCreateMemberForm((prev) => ({ ...prev, counterparty_role: val }));
+            }}
+            data={[
+              { value: "", label: t("invite-field-unspecified") },
+              { value: "cliente", label: t("invite-role-cliente") },
+              { value: "proveedor", label: t("invite-role-proveedor") },
+              { value: "ambos", label: t("invite-role-ambos") },
+            ]}
+          />
+          <TextInput
+            label={t("invite-rfc")}
+            description={t("invite-rfc-hint")}
+            value={createMemberForm.rfc}
+            onChange={(e) => {
+              const val = e.currentTarget.value;
+              setCreateMemberForm((prev) => ({ ...prev, rfc: val }));
+            }}
+          />
+            </>
+          )}
           <Textarea
             label={t("notes-bio-optional")}
             description={t("notes-bio-description")}
@@ -2117,7 +2189,7 @@ export default function OrganizationPage() {
               variant="default"
               onClick={() => {
                 setCreateMemberOpened(false);
-                setCreateMemberForm({ email: "", name: "", bio: "", expires_at: "" });
+                setCreateMemberForm(EMPTY_INVITE_FORM);
               }}
             >
               {t("cancel")}

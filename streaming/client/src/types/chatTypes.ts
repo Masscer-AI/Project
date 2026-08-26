@@ -51,6 +51,8 @@ export type TMessage = {
   agents?: Partial<TAgent>[];
   index?: number;
   metadata?: TMessageMetadata;
+  created_at?: string;
+  created_at_formatted?: string;
 };
 
 export type TReactionTemplate = {

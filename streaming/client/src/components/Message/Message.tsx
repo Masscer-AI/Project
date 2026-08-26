@@ -85,6 +85,8 @@ interface MessageProps {
   versions?: TVersion[];
   attachments?: TAttachment[];
   metadata?: TMessageMetadata;
+  created_at?: string;
+  created_at_formatted?: string;
   readOnly?: boolean;
 
   onImageGenerated: (
@@ -108,6 +110,8 @@ export const Message = memo(
     reactions,
     attachments,
     metadata,
+    created_at,
+    created_at_formatted,
     onImageGenerated,
     onMessageEdit,
     onMessageDeleted,
@@ -480,7 +484,7 @@ export const Message = memo(
           {versions && (
             <Group gap={4} align="center">
               {versions.map((v, vIdx) => (
-                <HoverCard key={vIdx} width={200} shadow="md" withArrow>
+                <HoverCard key={vIdx} width={240} shadow="md" withArrow>
                   <HoverCard.Target>
                     <Badge
                       variant={currentVersion === vIdx ? "filled" : "default"}
@@ -550,6 +554,15 @@ export const Message = memo(
                             </Text>
                           )}
                         </>
+                      )}
+                      {(created_at_formatted || created_at) && (
+                        <Text size="xs">
+                          <Text span c="dimmed">{t("created-at")}:</Text>{" "}
+                          <strong>
+                            {created_at_formatted ||
+                              new Date(created_at!).toLocaleString()}
+                          </strong>
+                        </Text>
                       )}
                     </Stack>
                   </HoverCard.Dropdown>

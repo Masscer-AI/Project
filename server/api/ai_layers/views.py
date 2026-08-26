@@ -1003,6 +1003,7 @@ class ComplianceConversationView(View):
     Get or create the sticky compliance conversation for the current user.
 
     GET /api/ai_layers/compliance/conversation/
+    POST /api/ai_layers/compliance/conversation/  — archive sticky thread, start a new one
     """
 
     def get(self, request, *args, **kwargs):
@@ -1015,6 +1016,33 @@ class ComplianceConversationView(View):
                 {"error": "Compliance assistant is not enabled for this organization"},
                 status=404,
             )
+        data = BigConversationSerializer(
+            conversation, context={"request": request}
+        ).data
+        return JsonResponse(data, status=200)
+
+    def post(self, request, *args, **kwargs):
+        from django.utils import timezone
+        from api.messaging.serializers import BigConversationSerializer
+        from api.ai_layers.compliance_assistant import restart_compliance_conversation
+
+        conversation, archived, error = restart_compliance_conversation(request.user)
+        if error == "not_provisioned" or conversation is None:
+            return JsonResponse(
+                {"error": "Compliance assistant is not enabled for this organization"},
+                status=404,
+            )
+
+        now = timezone.now()
+        for old in archived:
+            AgentSession.objects.filter(
+                conversation=old,
+                ended_at__isnull=True,
+                dismissed_at__isnull=True,
+            ).update(dismissed_at=now)
+            cache.set(f"cancel_task_{old.id}", True, timeout=300)
+            clear_agent_task_active(str(old.id))
+
         data = BigConversationSerializer(
             conversation, context={"request": request}
         ).data

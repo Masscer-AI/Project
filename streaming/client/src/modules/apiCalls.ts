@@ -1760,6 +1760,12 @@ export const createOrganizationInvite = async (
     name?: string;
     bio?: string;
     expires_at?: string | null;
+    intake?: {
+      person_type?: "persona_fisica" | "persona_moral";
+      counterparty_role?: "cliente" | "proveedor" | "ambos";
+      relationship_status?: "nuevo" | "existente";
+      rfc?: string;
+    };
   }
 ) => {
   return makeAuthenticatedRequest<{ message: string; invite: TOrganizationInvite }>(
@@ -2171,6 +2177,13 @@ export const isLockedMasscerAgent = (agent: { agent_kind?: string }) =>
 export const getOrCreateComplianceConversation = async () => {
   return makeAuthenticatedRequest<TConversation>(
     "GET",
+    "/v1/ai_layers/compliance/conversation/"
+  );
+};
+
+export const restartComplianceConversation = async () => {
+  return makeAuthenticatedRequest<TConversation>(
+    "POST",
     "/v1/ai_layers/compliance/conversation/"
   );
 };

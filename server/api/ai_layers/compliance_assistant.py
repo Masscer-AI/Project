@@ -17,7 +17,7 @@ COMPLIANCE_ASSISTANT_NAME = "MASSCER CUMPLIMIENTO 115"
 COMPLIANCE_ASSISTANT_SLUG_PREFIX = "masscer-compliance"
 
 COMPLIANCE_ASSISTANT_MODEL_SLUG: str = os.environ.get(
-    "COMPLIANCE_ASSISTANT_MODEL_SLUG", "gpt-5.5-mini"
+    "COMPLIANCE_ASSISTANT_MODEL_SLUG", "gpt-5.6-terra"
 )
 
 # Matches the source agent row; the operational brief lives in the system prompt file.
@@ -75,9 +75,8 @@ def provision_compliance_assistant(organization) -> tuple[Agent, bool]:
         "salute": COMPLIANCE_ASSISTANT_SALUTE,
         "conversation_title_prompt": COMPLIANCE_ASSISTANT_CONVERSATION_TITLE_PROMPT,
         "system_prompt": COMPLIANCE_ASSISTANT_SYSTEM_PROMPT,
+        "model_slug": COMPLIANCE_ASSISTANT_MODEL_SLUG,
     }
-    if not agent.llm_id:
-        desired["model_slug"] = COMPLIANCE_ASSISTANT_MODEL_SLUG
     update_fields = [
         field for field, value in desired.items() if getattr(agent, field) != value
     ]
@@ -86,64 +85,74 @@ def provision_compliance_assistant(organization) -> tuple[Agent, bool]:
     if update_fields:
         agent.save(update_fields=update_fields)
 
-    if created or update_fields:
-        try:
-            from api.ai_layers.cache_utils import bump_agent_list_version_for_org_members
+    try:
+        from api.ai_layers.cache_utils import bump_agent_list_version_for_org_members
 
-            bump_agent_list_version_for_org_members(organization)
-        except Exception:
-            pass
+        bump_agent_list_version_for_org_members(organization)
+    except Exception:
+        pass
 
     return agent, created
 
 
-def build_compliance_assistant_instructions(organization, *, clock_context: str = "") -> str:
-    """Build runtime instructions from code constants + live org context."""
-    from api.authenticate.models import UserProfile
+COMPLIANCE_ASSISTANT_TOOLS_APPENDIX = """
+Herramientas en Masscer para este flujo:
+- Chat files: list_attachments, read_attachment, update_attachment_visibility.
+- Knowledge base: list_knowledge_base_documents, read_knowledge_base_document, rag_query.
+- Generate files: generate_gamma_attachment (set format=document for a PDF/doc, or presentation; export PDF when the file will be signed), generate_document_file (DOCX), list_document_templates + render_document_template, generate_excel_file.
+- Signature: only request_signature sends a PDF to Mifiel. Masscer never requests or stores a .key file or e.firma password.
+- Org context: list_organization_members, list_organization_roles, send_email, explore_web.
+- Expediente notes: change_conversation_summary, query_organization_tags, create_organization_tag, change_conversation_tags, get_tag_context.
+- Follow-up checklists: create_user_assignment, list_user_assignments.
+""".strip()
 
-    member_count = UserProfile.objects.filter(organization=organization).count()
-    owner_email = ""
-    if organization.owner_id:
-        owner_email = getattr(organization.owner, "email", "") or ""
+# Stable system prompt for cache hits. Per-request org/invitee data is not interpolated here.
+COMPLIANCE_ASSISTANT_INSTRUCTIONS = (
+    f"{COMPLIANCE_ASSISTANT_SYSTEM_PROMPT}\n\n{COMPLIANCE_ASSISTANT_TOOLS_APPENDIX}"
+)
 
-    plan_slug = ""
-    sub = organization.subscriptions.select_related("plan").order_by("-created_at").first()
-    if sub and sub.plan_id:
-        plan_slug = sub.plan.slug or ""
 
-    context_lines = [
-        f"Organization name: {organization.name}",
-        f"Organization id: {organization.id}",
-        f"Member count (profiles linked to org): {member_count}",
-    ]
-    if owner_email:
-        context_lines.append(f"Owner email: {owner_email}")
-    if plan_slug:
-        context_lines.append(f"Subscription plan: {plan_slug}")
-    if organization.description:
-        context_lines.append(f"Description: {organization.description}")
-
-    context = "\n".join(context_lines)
-    formatted = COMPLIANCE_ASSISTANT_SYSTEM_PROMPT.replace(
-        "{{act_as}}", COMPLIANCE_ASSISTANT_ACT_AS
-    ).replace("{{context}}", context)
-    formatted += (
-        "\n\nHerramientas en Masscer para este flujo:\n"
-        "- Chat files: list_attachments, read_attachment, update_attachment_visibility.\n"
-        "- Knowledge base: list_knowledge_base_documents, read_knowledge_base_document, rag_query.\n"
-        "- Generate files: generate_gamma_attachment (set format=document for a PDF/doc, "
-        "or presentation; export PDF when the file will be signed), generate_document_file (DOCX), "
-        "list_document_templates + render_document_template, generate_excel_file.\n"
-        "- Signature: only request_signature sends a PDF to Mifiel. "
-        "Masscer never requests or stores a .key file or e.firma password.\n"
-        "- Org context: list_organization_members, list_organization_roles, send_email, explore_web.\n"
-        "- Expediente notes: change_conversation_summary, query_organization_tags, "
-        "create_organization_tag, change_conversation_tags, get_tag_context.\n"
-        "- Follow-up checklists: create_user_assignment, list_user_assignments."
-    )
+def build_compliance_runtime_context(
+    organization, *, user=None, clock_context: str = ""
+) -> str:
+    """Per-request invitee/org facts. Append as a developer (or user) message, not in instructions."""
+    lines = [f"Organization id: {organization.id}"]
+    if user is not None:
+        profile = None
+        try:
+            profile = user.profile
+        except Exception:
+            profile = None
+        invitee = {}
+        if profile:
+            if (profile.name or "").strip():
+                invitee["name"] = profile.name.strip()
+            if (profile.bio or "").strip():
+                invitee["notes"] = profile.bio.strip()
+            if isinstance(profile.intake, dict):
+                for key in ("person_type", "counterparty_role", "rfc"):
+                    value = profile.intake.get(key)
+                    if value:
+                        invitee[key] = value
+        email = getattr(user, "email", "") or ""
+        if email:
+            invitee["email"] = email
+        if invitee:
+            lines.append("Invited user:")
+            for key, value in invitee.items():
+                lines.append(f"- {key}: {value}")
     if clock_context:
-        formatted += f"\n{clock_context}"
-    return formatted
+        lines.append(clock_context)
+    return "\n".join(lines)
+
+
+def organization_has_compliance_assistant(organization) -> bool:
+    if organization is None or not getattr(organization, "id", None):
+        return False
+    return Agent.objects.filter(
+        organization=organization,
+        agent_kind=AgentKind.COMPLIANCE_ASSISTANT,
+    ).exists()
 
 
 def get_compliance_agent_for_user(user):
@@ -186,7 +195,7 @@ def get_or_create_compliance_conversation(user):
                 chat_widget__isnull=True,
                 ws_number__isnull=True,
                 status__in=["active", "inactive"],
-                metadata__surface="compliance",
+                metadata__contains={"surface": "compliance"},
             )
             .order_by("created_at")
             .first()
@@ -205,3 +214,46 @@ def get_or_create_compliance_conversation(user):
             metadata=compliance_conversation_metadata(agent.id),
         )
         return conversation, None
+
+
+def restart_compliance_conversation(user):
+    """
+    Archive the sticky compliance thread and create a new one.
+
+    Still one active conversation per user+org; the previous thread is archived.
+    """
+    from django.db import transaction
+    from django.utils import timezone
+
+    from api.messaging.models import Conversation
+    from api.messaging.schemas import compliance_conversation_metadata
+
+    agent = get_compliance_agent_for_user(user)
+    if not agent or not agent.organization_id:
+        return None, [], "not_provisioned"
+
+    org = agent.organization
+    now = timezone.now()
+    with transaction.atomic():
+        sticky = list(
+            Conversation.objects.select_for_update().filter(
+                user=user,
+                organization=org,
+                chat_widget__isnull=True,
+                ws_number__isnull=True,
+                status__in=["active", "inactive"],
+                metadata__contains={"surface": "compliance"},
+            )
+        )
+        for conv in sticky:
+            conv.status = "archived"
+            conv.archived_at = now
+            conv.save(update_fields=["status", "archived_at", "updated_at"])
+
+        conversation = Conversation.objects.create(
+            user=user,
+            organization=org,
+            title=COMPLIANCE_ASSISTANT_NAME,
+            metadata=compliance_conversation_metadata(agent.id),
+        )
+        return conversation, sticky, None

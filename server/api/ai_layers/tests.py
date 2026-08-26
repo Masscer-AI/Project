@@ -58,8 +58,8 @@ class MasscerHelpCatalogTests(SimpleTestCase):
 
         self.assertEqual(COMPLIANCE_ASSISTANT_NAME, "MASSCER CUMPLIMIENTO 115")
         self.assertIn("MASSCER CUMPLIMIENTO 115", COMPLIANCE_ASSISTANT_SYSTEM_PROMPT)
-        self.assertIn("{{act_as}}", COMPLIANCE_ASSISTANT_SYSTEM_PROMPT)
-        self.assertIn("{{context}}", COMPLIANCE_ASSISTANT_SYSTEM_PROMPT)
+        self.assertNotIn("{{act_as}}", COMPLIANCE_ASSISTANT_SYSTEM_PROMPT)
+        self.assertNotIn("{{context}}", COMPLIANCE_ASSISTANT_SYSTEM_PROMPT)
 
 class MasscerHelpTopicToolTests(TestCase):
     def test_get_masscer_help_topic_returns_url_and_steps(self):
@@ -2086,6 +2086,8 @@ class ComplianceAssistantTests(TestCase):
             user=self.member,
             defaults={"organization": self.org},
         )
+        self.owner = User.objects.select_related("profile").get(pk=self.owner.pk)
+        self.member = User.objects.select_related("profile").get(pk=self.member.pk)
         self.compliance_agent, _ = provision_compliance_assistant(self.org)
 
         self.conv_agent = Agent.objects.create(
@@ -2135,6 +2137,33 @@ class ComplianceAssistantTests(TestCase):
         self.assertEqual(agent.name, COMPLIANCE_ASSISTANT_NAME)
         self.assertEqual(agent.system_prompt, COMPLIANCE_ASSISTANT_SYSTEM_PROMPT)
 
+    def test_runtime_context_keeps_raw_invitee_fields(self):
+        from api.ai_layers.compliance_assistant import (
+            COMPLIANCE_ASSISTANT_INSTRUCTIONS,
+            COMPLIANCE_ASSISTANT_MODEL_SLUG,
+            build_compliance_runtime_context,
+        )
+
+        self.assertEqual(self.compliance_agent.model_slug, COMPLIANCE_ASSISTANT_MODEL_SLUG)
+        self.owner.profile.name = "ACME SA"
+        self.owner.profile.intake = {
+            "person_type": "persona_moral",
+            "counterparty_role": "proveedor",
+            "relationship_status": "nuevo",
+            "rfc": "XAXX010101000",
+        }
+        self.owner.profile.save(update_fields=["name", "intake"])
+
+        context = build_compliance_runtime_context(self.org, user=self.owner)
+        self.assertIn(f"Organization id: {self.org.id}", context)
+        self.assertNotIn(self.org.name, context)
+        self.assertNotIn("Member count", context)
+        self.assertIn("person_type: persona_moral", context)
+        self.assertIn("rfc: XAXX010101000", context)
+        self.assertNotIn("relationship_status", context)
+        self.assertNotIn(str(self.org.id), COMPLIANCE_ASSISTANT_INSTRUCTIONS)
+        self.assertNotIn("{{context}}", COMPLIANCE_ASSISTANT_INSTRUCTIONS)
+
     def test_org_create_does_not_provision_compliance_assistant(self):
         from api.ai_layers.models import Agent, AgentKind
 
@@ -2158,6 +2187,14 @@ class ComplianceAssistantTests(TestCase):
         self.assertIn(self.compliance_agent.slug, owner_slugs)
         self.assertIn(self.compliance_agent.slug, member_slugs)
         self.assertNotIn(self.compliance_agent.slug, outsider_slugs)
+
+        listed = self.client.get(
+            "/v1/auth/organizations/",
+            HTTP_AUTHORIZATION=f"Token {self.owner_token.key}",
+        )
+        self.assertEqual(listed.status_code, 200)
+        rows = listed.json()
+        self.assertTrue(any(row.get("has_compliance_assistant") for row in rows))
 
     def test_accessible_agents_qs_owner_without_profile_org(self):
         from api.authenticate.models import UserProfile
@@ -2280,6 +2317,38 @@ class ComplianceAssistantTests(TestCase):
         )
         self.assertEqual(member_resp.status_code, 200)
         self.assertNotEqual(member_resp.json()["id"], conv_id)
+
+    def test_restart_compliance_conversation_archives_sticky_thread(self):
+        from api.messaging.models import Conversation
+
+        first = self.client.get(
+            "/v1/ai_layers/compliance/conversation/",
+            HTTP_AUTHORIZATION=f"Token {self.owner_token.key}",
+        )
+        self.assertEqual(first.status_code, 200)
+        old_id = first.json()["id"]
+
+        restarted = self.client.post(
+            "/v1/ai_layers/compliance/conversation/",
+            {},
+            format="json",
+            HTTP_AUTHORIZATION=f"Token {self.owner_token.key}",
+        )
+        self.assertEqual(restarted.status_code, 200)
+        new_id = restarted.json()["id"]
+        self.assertNotEqual(new_id, old_id)
+        self.assertEqual(restarted.json().get("metadata", {}).get("surface"), "compliance")
+
+        old = Conversation.objects.get(id=old_id)
+        self.assertEqual(old.status, "archived")
+        self.assertIsNotNone(old.archived_at)
+
+        again = self.client.get(
+            "/v1/ai_layers/compliance/conversation/",
+            HTTP_AUTHORIZATION=f"Token {self.owner_token.key}",
+        )
+        self.assertEqual(again.status_code, 200)
+        self.assertEqual(again.json()["id"], new_id)
 
     def test_sticky_compliance_conversation_404_when_not_provisioned(self):
         response = self.client.get(

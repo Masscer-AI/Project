@@ -195,6 +195,7 @@ export type TOrganization = {
   credentials: TOrganizationCredentials;
   can_manage?: boolean;
   is_owner?: boolean;
+  has_compliance_assistant?: boolean;
   logo_url?: string | null;
 };
 
@@ -295,11 +296,19 @@ export type TOrganizationMember = {
   current_role?: { id: string; name: string; assignment_id?: string } | null;
 };
 
+export type TInviteIntake = {
+  person_type?: "persona_fisica" | "persona_moral";
+  counterparty_role?: "cliente" | "proveedor" | "ambos";
+  relationship_status?: "nuevo" | "existente";
+  rfc?: string;
+};
+
 export type TOrganizationInvite = {
   id: string;
   email: string;
   name: string;
   bio: string;
+  intake?: TInviteIntake;
   expires_at: string | null;
   status: string;
   invite_expires_at: string;

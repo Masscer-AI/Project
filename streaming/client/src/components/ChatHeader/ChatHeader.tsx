@@ -21,7 +21,8 @@ import {
   Tooltip,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { createLLM, deleteLLM, updateAgent, regenerateAgentDescription, makeAuthenticatedRequest, getUserOrganizations, getOrganizationRoles, getVoices, previewVoice, isLockedMasscerAgent, isPlatformAssistant, isComplianceAssistant } from "../../modules/apiCalls";
+import { createLLM, deleteLLM, updateAgent, regenerateAgentDescription, makeAuthenticatedRequest, getUserOrganizations, getOrganizationRoles, getVoices, previewVoice, isLockedMasscerAgent, isPlatformAssistant, isComplianceAssistant, restartComplianceConversation } from "../../modules/apiCalls";
+import { TConversation } from "../../types";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
@@ -56,10 +57,12 @@ export const ChatHeader = ({
   right,
   agentsModal,
   hideAgents = false,
+  onComplianceRestarted,
 }: {
   right?: React.ReactNode;
   agentsModal?: AgentsModalControls;
   hideAgents?: boolean;
+  onComplianceRestarted?: (conversation: TConversation) => void;
 }) => {
   const { toggleSidebar, chatState } = useStore((state) => ({
     toggleSidebar: state.toggleSidebar,
@@ -67,6 +70,24 @@ export const ChatHeader = ({
   }));
   const unreadNotificationCount = useUnreadNotificationCount();
   const { t } = useTranslation();
+  const [restartOpened, { open: openRestart, close: closeRestart }] =
+    useDisclosure(false);
+  const [restarting, setRestarting] = useState(false);
+
+  const handleRestartCompliance = async () => {
+    setRestarting(true);
+    try {
+      const conversation = await restartComplianceConversation();
+      closeRestart();
+      onComplianceRestarted?.(conversation);
+      toast.success(t("compliance-restart-success"));
+    } catch (error) {
+      console.error("Error restarting compliance conversation:", error);
+      toast.error(t("compliance-restart-error"));
+    } finally {
+      setRestarting(false);
+    }
+  };
 
   return (
     <div className="flex items-center justify-between p-2 md:p-4 rounded-none md:rounded-xl w-full shadow-lg z-10 gap-2 md:gap-3 min-w-0" style={{ background: "var(--bg-contrast-color)", border: "1px solid var(--hovered-color)" }}>
@@ -106,9 +127,40 @@ export const ChatHeader = ({
           />
         )}
         {hideAgents && (
-          <Badge size="sm" color="violet" variant="light">
-            {t("compliance-assistant-badge")}
-          </Badge>
+          <Group gap="xs" wrap="nowrap">
+            <Badge size="sm" color="violet" variant="light">
+              {t("compliance-assistant-badge")}
+            </Badge>
+            <Tooltip label={t("compliance-restart")}>
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                size="sm"
+                aria-label={t("compliance-restart")}
+                onClick={openRestart}
+              >
+                <IconRefresh size={16} />
+              </ActionIcon>
+            </Tooltip>
+            <Modal
+              opened={restartOpened}
+              onClose={closeRestart}
+              title={t("compliance-restart-confirm-title")}
+              centered
+            >
+              <Stack gap="md">
+                <Text size="sm">{t("compliance-restart-confirm-description")}</Text>
+                <Group justify="flex-end">
+                  <Button variant="default" onClick={closeRestart} disabled={restarting}>
+                    {t("cancel")}
+                  </Button>
+                  <Button onClick={handleRestartCompliance} loading={restarting}>
+                    {t("compliance-restart")}
+                  </Button>
+                </Group>
+              </Stack>
+            </Modal>
+          </Group>
         )}
       </div>
       <section className="min-w-0 flex-1 md:flex-shrink-0 md:ml-auto overflow-hidden text-right md:text-right">

@@ -257,6 +257,7 @@ class SignupAPIView(APIView):
                 "email": invite.email,
                 "name": invite.name or "",
                 "bio": invite.bio or "",
+                "intake": invite.intake if isinstance(invite.intake, dict) else {},
                 "expires_at": invite.profile_expires_at.isoformat()
                 if invite.profile_expires_at
                 else None,
@@ -346,6 +347,7 @@ class SignupAPIView(APIView):
             profile.organization = invite_locked.organization
             profile.name = invite_locked.name or ""
             profile.bio = invite_locked.bio or ""
+            profile.intake = invite_locked.intake if isinstance(invite_locked.intake, dict) else {}
             profile.expires_at = invite_locked.profile_expires_at
             profile.save()
 
@@ -1241,6 +1243,11 @@ class OrganizationInvitesView(View):
         normalized_email = ser.validated_data["email"].strip().lower()
         name = (ser.validated_data.get("name") or "").strip()
         bio = (ser.validated_data.get("bio") or "").strip()
+        intake = ser.validated_data.get("intake") or {}
+        from api.ai_layers.compliance_assistant import organization_has_compliance_assistant
+
+        if intake and not organization_has_compliance_assistant(organization):
+            intake = {}
         profile_expires_at = ser.validated_data.get("expires_at")
 
         if User.objects.filter(email__iexact=normalized_email).exists():
@@ -1264,6 +1271,7 @@ class OrganizationInvitesView(View):
             pending.invite_expires_at = invite_deadline
             pending.name = name
             pending.bio = bio
+            pending.intake = intake
             pending.profile_expires_at = profile_expires_at
             pending.invited_by = request.user
             pending.save()
@@ -1274,6 +1282,7 @@ class OrganizationInvitesView(View):
                 email=normalized_email,
                 name=name,
                 bio=bio,
+                intake=intake,
                 profile_expires_at=profile_expires_at,
                 invited_by=request.user,
                 token_hash=digest,

@@ -5,7 +5,6 @@ import {
   getAllConversations,
   getUserOrganizations,
   getTags,
-  isComplianceAssistant,
 } from "../../modules/apiCalls";
 import { useUnreadNotificationCount } from "../../hooks/useUnreadNotificationCount";
 import { TConversation, TTag } from "../../types";
@@ -59,14 +58,13 @@ export const Sidebar: React.FC = () => {
   const isTrainAgentsEnabled = useIsFeatureEnabled("train-agents");
   const isAudioToolsEnabled = useIsFeatureEnabled("audio-tools");
   const canEditPreferences = useIsFeatureEnabled("can-edit-preferences") === true;
-  const { toggleSidebar, user, setOpenedModals, logout, agents } = useStore((state) => ({
+  const { toggleSidebar, user, setOpenedModals, logout } = useStore((state) => ({
     toggleSidebar: state.toggleSidebar,
     user: state.user,
     setOpenedModals: state.setOpenedModals,
     logout: state.logout,
-    agents: state.agents,
   }));
-  const hasComplianceAssistant = agents.some(isComplianceAssistant);
+  const [hasComplianceAssistant, setHasComplianceAssistant] = useState(false);
   const location = useLocation();
 
   const [history, setHistory] = useState<TConversation[]>([]);
@@ -103,10 +101,14 @@ export const Sidebar: React.FC = () => {
       .then((orgs) => {
         if (!cancelled) {
           setCanManageOrg(orgs.some((o) => o.is_owner || o.can_manage));
+          setHasComplianceAssistant(orgs.some((o) => o.has_compliance_assistant));
         }
       })
       .catch(() => {
-        if (!cancelled) setCanManageOrg(false);
+        if (!cancelled) {
+          setCanManageOrg(false);
+          setHasComplianceAssistant(false);
+        }
       });
     return () => {
       cancelled = true;

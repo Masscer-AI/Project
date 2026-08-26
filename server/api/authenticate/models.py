@@ -317,6 +317,11 @@ class UserProfile(models.Model):
         default=None,
         help_text="If set, the user's access expires at this datetime. Useful for temporary guest accounts."
     )
+    intake = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Optional KYB intake copied from the organization invite",
+    )
     _phone_numbers = models.JSONField(
         default=list,
         blank=True,
@@ -352,6 +357,10 @@ class UserProfile(models.Model):
             is_empty = False
         if self.bio:
             text += f"bio={self.bio}\n"
+            is_empty = False
+        intake = self.intake if isinstance(self.intake, dict) else {}
+        if intake:
+            text += f"intake={intake}\n"
             is_empty = False
         if self.sex:
             text += f"sex={self.sex}\n"
@@ -569,6 +578,11 @@ class OrganizationInvite(models.Model):
     email = models.EmailField()
     name = models.CharField(max_length=255, blank=True, default="")
     bio = models.TextField(blank=True, default="")
+    intake = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Optional KYB intake: person_type, counterparty_role, relationship_status",
+    )
     profile_expires_at = models.DateTimeField(
         null=True,
         blank=True,

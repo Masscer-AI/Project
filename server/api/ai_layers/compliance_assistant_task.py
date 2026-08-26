@@ -26,7 +26,11 @@ def compliance_assistant_task(
 ):
     from api.ai_layers.agent_loop import AgentLoop, CancelledError
     from api.ai_layers.models import Agent, AgentKind, AgentSession
-    from api.ai_layers.compliance_assistant import build_compliance_assistant_instructions
+    from api.ai_layers.compliance_assistant import (
+        COMPLIANCE_ASSISTANT_INSTRUCTIONS,
+        COMPLIANCE_ASSISTANT_MODEL_SLUG,
+        build_compliance_runtime_context,
+    )
     from api.ai_layers.compliance_tools import list_compliance_tools, resolve_compliance_tools
     from api.ai_layers.schemas import (
         AgentRef,
@@ -176,12 +180,19 @@ def compliance_assistant_task(
             client_datetime,
             organization_id=organization.id,
         )
-        instructions = build_compliance_assistant_instructions(
-            organization, clock_context=clock_context
+        from django.contrib.auth.models import User as AuthUser
+
+        instructions = COMPLIANCE_ASSISTANT_INSTRUCTIONS
+        runtime_context = build_compliance_runtime_context(
+            organization,
+            user=AuthUser.objects.filter(id=user_id).select_related("profile").first()
+            if user_id
+            else None,
+            clock_context=clock_context,
         )
 
         llm = agent.llm
-        model_slug = llm.slug if llm else (agent.model_slug or "gpt-5.2")
+        model_slug = llm.slug if llm else (agent.model_slug or COMPLIANCE_ASSISTANT_MODEL_SLUG)
         compliance_tool_names = list_compliance_tools()
 
         model_ref = ModelRef(
@@ -253,8 +264,9 @@ def compliance_assistant_task(
             organization_id=organization.id,
         )
 
+        loop_provider = _agent_loop_provider_from_llm(llm)
         loop = AgentLoop.create(
-            provider=_agent_loop_provider_from_llm(llm),
+            provider=loop_provider,
             tools=tools,
             instructions=instructions,
             model=model_slug,
@@ -270,6 +282,12 @@ def compliance_assistant_task(
             agent_slug=agent.slug,
             multiagentic_modality="isolated",
         )
+        if runtime_context:
+            context_role = "user" if loop_provider == "google" else "developer"
+            openai_inputs = [
+                {"role": context_role, "content": runtime_context},
+                *openai_inputs,
+            ]
 
         try:
             loop_result = loop.run(openai_inputs)

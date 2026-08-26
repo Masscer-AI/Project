@@ -83,7 +83,9 @@ def accessible_agents_qs(user):
     user_org = get_user_organization(user)
     orgs_for_access = get_user_organizations_for_access(user)
 
-    qs = Agent.objects.filter(user=user)
+    agent_ids: set = set(
+        Agent.objects.filter(user=user).values_list("id", flat=True)
+    )
 
     if user_org:
         active_role_ids = get_active_role_ids(user, user_org)
@@ -92,7 +94,9 @@ def accessible_agents_qs(user):
             | Q(role_access_assignments__isnull=True)
             | Q(role_access_assignments__role_id__in=active_role_ids)
         )
-        qs = Agent.objects.filter(Q(user=user) | org_q)
+        agent_ids.update(
+            Agent.objects.filter(org_q).values_list("id", flat=True)
+        )
 
     platform_ids: set = set()
     platform_flag_debug: list[dict] = []
@@ -111,16 +115,20 @@ def accessible_agents_qs(user):
         if enabled:
             platform_ids.add(org.id)
     if platform_ids:
-        qs = qs | Agent.objects.filter(
-            organization_id__in=platform_ids,
-            agent_kind=AgentKind.PLATFORM_ASSISTANT,
+        agent_ids.update(
+            Agent.objects.filter(
+                organization_id__in=platform_ids,
+                agent_kind=AgentKind.PLATFORM_ASSISTANT,
+            ).values_list("id", flat=True)
         )
 
     org_ids_for_access = [o.id for o in orgs_for_access]
     if org_ids_for_access:
-        qs = qs | Agent.objects.filter(
-            organization_id__in=org_ids_for_access,
-            agent_kind=AgentKind.COMPLIANCE_ASSISTANT,
+        agent_ids.update(
+            Agent.objects.filter(
+                organization_id__in=org_ids_for_access,
+                agent_kind=AgentKind.COMPLIANCE_ASSISTANT,
+            ).values_list("id", flat=True)
         )
 
     logger.debug(
@@ -133,5 +141,5 @@ def accessible_agents_qs(user):
         list(platform_ids),
     )
 
-    return qs.distinct()
+    return Agent.objects.filter(id__in=agent_ids)
 
