@@ -27,7 +27,10 @@ type TLLM = {
   slug: string;
 };
 
-export type TAgentKind = "conversational_agent" | "platform_assistant";
+export type TAgentKind =
+  | "conversational_agent"
+  | "platform_assistant"
+  | "compliance_assistant";
 
 export type TVoiceCatalogEntry = {
   id: string;

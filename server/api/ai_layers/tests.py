@@ -26,6 +26,29 @@ class MasscerHelpCatalogTests(SimpleTestCase):
         names = list_platform_tools()
         self.assertIn("get_masscer_help_topic", names)
         self.assertIn("list_masscer_help_topics", names)
+        self.assertNotIn("request_signature", names)
+
+    def test_compliance_tools_include_request_signature(self):
+        from api.ai_layers.compliance_tools import list_compliance_tools
+        from api.ai_layers.tools import USER_REQUIRED_TOOL_NAMES, list_registered_tools
+
+        names = list_compliance_tools()
+        self.assertIn("request_signature", names)
+        self.assertIn("read_attachment", names)
+        self.assertIn("list_attachments", names)
+        self.assertNotIn("request_signature", list_registered_tools())
+        self.assertNotIn("request_signature", USER_REQUIRED_TOOL_NAMES)
+
+    def test_compliance_system_prompt_loads_cumplimiento_115(self):
+        from api.ai_layers.compliance_assistant import (
+            COMPLIANCE_ASSISTANT_NAME,
+            COMPLIANCE_ASSISTANT_SYSTEM_PROMPT,
+        )
+
+        self.assertEqual(COMPLIANCE_ASSISTANT_NAME, "MASSCER CUMPLIMIENTO 115")
+        self.assertIn("MASSCER CUMPLIMIENTO 115", COMPLIANCE_ASSISTANT_SYSTEM_PROMPT)
+        self.assertIn("{{act_as}}", COMPLIANCE_ASSISTANT_SYSTEM_PROMPT)
+        self.assertIn("{{context}}", COMPLIANCE_ASSISTANT_SYSTEM_PROMPT)
 
 class MasscerHelpTopicToolTests(TestCase):
     def test_get_masscer_help_topic_returns_url_and_steps(self):
@@ -2013,6 +2036,197 @@ class PlatformAssistantTests(TestCase):
                 llm=self.llm,
                 model_slug=self.llm.slug,
             )
+
+class ComplianceAssistantTests(TestCase):
+    def setUp(self):
+        from api.authenticate.models import Organization, UserProfile
+        from api.ai_layers.models import Agent, LanguageModel
+        from api.ai_layers.compliance_assistant import provision_compliance_assistant
+        from api.messaging.models import Conversation
+        from api.providers.models import AIProvider
+
+        self.owner = User.objects.create_user(
+            username="comp_owner", email="comp_owner@e.com", password="x"
+        )
+        self.member = User.objects.create_user(
+            username="comp_member", email="comp_member@e.com", password="x"
+        )
+        self.outsider = User.objects.create_user(
+            username="comp_out", email="comp_out@e.com", password="x"
+        )
+        self.org = Organization.objects.create(name="Compliance Org", owner=self.owner)
+        self.other_org = Organization.objects.create(
+            name="Other Org", owner=self.outsider
+        )
+        UserProfile.objects.update_or_create(
+            user=self.member,
+            defaults={"organization": self.org},
+        )
+        self.compliance_agent, _ = provision_compliance_assistant(self.org)
+
+        provider = AIProvider.objects.create(name="OpenAI-comp")
+        self.llm = LanguageModel.objects.create(
+            provider=provider, slug="gpt-comp", name="GPT Comp"
+        )
+        self.conv_agent = Agent.objects.create(
+            name="Conv Agent Comp",
+            salute="hi",
+            act_as="help",
+            user=self.owner,
+            llm=self.llm,
+            model_slug=self.llm.slug,
+            model_provider="openai",
+        )
+        self.conv = Conversation.objects.create(user=self.owner)
+        self.client = APIClient()
+
+    def test_provision_compliance_assistant_idempotent(self):
+        from api.ai_layers.compliance_assistant import provision_compliance_assistant
+        from api.ai_layers.models import Agent, AgentKind
+
+        agent2, created = provision_compliance_assistant(self.org)
+        self.assertFalse(created)
+        self.assertEqual(agent2.id, self.compliance_agent.id)
+        self.assertEqual(
+            Agent.objects.filter(
+                organization=self.org,
+                agent_kind=AgentKind.COMPLIANCE_ASSISTANT,
+            ).count(),
+            1,
+        )
+
+    def test_provision_refreshes_stale_code_managed_fields(self):
+        from api.ai_layers.compliance_assistant import (
+            COMPLIANCE_ASSISTANT_NAME,
+            COMPLIANCE_ASSISTANT_SYSTEM_PROMPT,
+            provision_compliance_assistant,
+        )
+
+        self.compliance_agent.name = "Old Compliance Name"
+        self.compliance_agent.system_prompt = "old prompt"
+        self.compliance_agent.save(update_fields=["name", "system_prompt"])
+
+        agent, created = provision_compliance_assistant(self.org)
+        self.assertFalse(created)
+        agent.refresh_from_db()
+        self.assertEqual(agent.name, COMPLIANCE_ASSISTANT_NAME)
+        self.assertEqual(agent.system_prompt, COMPLIANCE_ASSISTANT_SYSTEM_PROMPT)
+
+    def test_org_create_does_not_provision_compliance_assistant(self):
+        from api.ai_layers.models import Agent, AgentKind
+
+        self.assertFalse(
+            Agent.objects.filter(
+                organization=self.other_org,
+                agent_kind=AgentKind.COMPLIANCE_ASSISTANT,
+            ).exists()
+        )
+
+    def test_accessible_agents_qs_includes_when_provisioned(self):
+        from api.ai_layers.access import accessible_agents_qs
+
+        owner_slugs = set(accessible_agents_qs(self.owner).values_list("slug", flat=True))
+        member_slugs = set(
+            accessible_agents_qs(self.member).values_list("slug", flat=True)
+        )
+        outsider_slugs = set(
+            accessible_agents_qs(self.outsider).values_list("slug", flat=True)
+        )
+        self.assertIn(self.compliance_agent.slug, owner_slugs)
+        self.assertIn(self.compliance_agent.slug, member_slugs)
+        self.assertNotIn(self.compliance_agent.slug, outsider_slugs)
+
+    def test_accessible_agents_qs_owner_without_profile_org(self):
+        from api.authenticate.models import UserProfile
+        from api.ai_layers.access import accessible_agents_qs
+
+        UserProfile.objects.filter(user=self.owner).update(organization=None)
+        slugs = set(accessible_agents_qs(self.owner).values_list("slug", flat=True))
+        self.assertIn(self.compliance_agent.slug, slugs)
+
+    def test_accessible_agents_qs_excludes_when_not_provisioned(self):
+        from api.ai_layers.access import accessible_agents_qs
+
+        slugs = set(accessible_agents_qs(self.outsider).values_list("slug", flat=True))
+        self.assertFalse(any(s.startswith("masscer-compliance-") for s in slugs))
+
+    @patch("api.ai_layers.views.conversation_agent_task.delay")
+    def test_conversation_endpoint_rejects_compliance_assistant(self, mock_delay):
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.post(
+            "/v1/ai_layers/agent-task/conversation/",
+            {
+                "conversation_id": str(self.conv.id),
+                "agent_slugs": [self.compliance_agent.slug],
+                "user_inputs": [{"type": "input_text", "text": "hello"}],
+                "tool_names": [],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        mock_delay.assert_not_called()
+
+    @patch("api.ai_layers.views.compliance_assistant_task.delay")
+    def test_compliance_endpoint_accepts_when_provisioned(self, mock_delay):
+        mock_delay.return_value = Mock(id="celery-comp-1")
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.post(
+            "/v1/ai_layers/agent-task/compliance/",
+            {
+                "conversation_id": str(self.conv.id),
+                "agent_slug": self.compliance_agent.slug,
+                "user_inputs": [{"type": "input_text", "text": "sign this"}],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 202)
+        mock_delay.assert_called_once()
+
+    def test_compliance_endpoint_404_when_not_provisioned(self):
+        self.client.force_authenticate(user=self.outsider)
+        response = self.client.post(
+            "/v1/ai_layers/agent-task/compliance/",
+            {
+                "conversation_id": str(self.conv.id),
+                "agent_slug": self.compliance_agent.slug,
+                "user_inputs": [{"type": "input_text", "text": "sign this"}],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_put_compliance_assistant_forbidden(self):
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.put(
+            f"/v1/ai_layers/agents/{self.compliance_agent.slug}/",
+            {"name": "Hacked"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_delete_compliance_assistant_forbidden(self):
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.delete(
+            f"/v1/ai_layers/agents/{self.compliance_agent.slug}/",
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_unique_compliance_assistant_per_org_constraint(self):
+        from django.db import IntegrityError
+        from api.ai_layers.models import Agent, AgentKind
+
+        with self.assertRaises(IntegrityError):
+            Agent.objects.create(
+                name="Duplicate Compliance",
+                salute="hi",
+                act_as="help",
+                organization=self.org,
+                agent_kind=AgentKind.COMPLIANCE_ASSISTANT,
+                slug="duplicate-compliance-assistant",
+                llm=self.llm,
+                model_slug=self.llm.slug,
+            )
+
 
 class MCPAccessTests(SimpleTestCase):
     def test_sanitize_mcp_tool_name(self):

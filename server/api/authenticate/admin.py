@@ -124,7 +124,10 @@ class OrganizationAdmin(admin.ModelAdmin):
     search_fields = ("name", "description", "owner__username")
     list_filter = ("timezone", "owner")
     readonly_fields = ("logo_preview",)
-    actions = ["provision_platform_assistant_action"]
+    actions = [
+        "provision_platform_assistant_action",
+        "provision_compliance_assistant_action",
+    ]
 
     @property
     def inlines(self):
@@ -169,6 +172,24 @@ class OrganizationAdmin(admin.ModelAdmin):
             request,
             f"Provisioned {created_count} new platform assistant(s). "
             f"Existing orgs were skipped (idempotent).",
+        )
+
+    @admin.action(description="Enable Masscer Compliance")
+    def provision_compliance_assistant_action(self, request, queryset):
+        from api.ai_layers.compliance_assistant import provision_compliance_assistant
+
+        created_count = 0
+        selected = 0
+        for org in queryset:
+            selected += 1
+            _agent, was_created = provision_compliance_assistant(org)
+            if was_created:
+                created_count += 1
+        refreshed = selected - created_count
+        self.message_user(
+            request,
+            f"Synced Masscer Compliance for {selected} organization(s) "
+            f"({created_count} created, {refreshed} refreshed from code).",
         )
 
     def get_urls(self):

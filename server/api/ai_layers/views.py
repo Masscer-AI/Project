@@ -864,6 +864,138 @@ class PlatformAgentTaskView(View):
             status=202,
         )
 
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class ComplianceAgentTaskView(View):
+    """
+    Trigger compliance assistant execution (KYB e-sign).
+
+    POST /api/ai_layers/agent-task/compliance/
+    Body (JSON):
+        - conversation_id (str, required)
+        - agent_slug (str, required): compliance assistant for the user's org
+        - user_inputs (list, required)
+        - client_datetime (object, optional)
+        - regenerate_message_id (int, optional)
+    """
+
+    def post(self, request, *args, **kwargs):
+        from api.messaging.models import Conversation
+        from api.messaging.takeover import (
+            get_active_takeover,
+            handle_inbound_during_takeover,
+        )
+        from api.ai_layers.access import accessible_agents_qs, get_user_organization
+        from .compliance_assistant_task import compliance_assistant_task
+
+        try:
+            payload = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON body"}, status=400)
+
+        conversation_id = payload.get("conversation_id")
+        agent_slug = payload.get("agent_slug")
+        user_inputs = payload.get("user_inputs")
+
+        if not conversation_id:
+            return JsonResponse({"error": "conversation_id is required"}, status=400)
+        if not agent_slug or not isinstance(agent_slug, str):
+            return JsonResponse({"error": "agent_slug is required"}, status=400)
+        if not user_inputs or not isinstance(user_inputs, list):
+            return JsonResponse(
+                {"error": "user_inputs (must be a non-empty list) is required"},
+                status=400,
+            )
+
+        for i, inp in enumerate(user_inputs):
+            if not isinstance(inp, dict) or "type" not in inp:
+                return JsonResponse(
+                    {"error": f"user_inputs[{i}] must be an object with a 'type' field"},
+                    status=400,
+                )
+
+        user = request.user
+        user_org = get_user_organization(user)
+
+        try:
+            agent = accessible_agents_qs(user).get(
+                slug=agent_slug.strip(),
+                agent_kind=AgentKind.COMPLIANCE_ASSISTANT,
+            )
+        except Agent.DoesNotExist:
+            return JsonResponse(
+                {"error": "Compliance assistant not found or not accessible"},
+                status=404,
+            )
+
+        if not agent.organization_id:
+            return JsonResponse(
+                {"error": "Invalid compliance assistant configuration"},
+                status=500,
+            )
+
+        try:
+            conversation = Conversation.objects.get(id=conversation_id)
+        except Conversation.DoesNotExist:
+            return JsonResponse({"error": "Conversation not found"}, status=404)
+
+        conv_access_error = _validate_conversation_access(
+            conversation, user, user_org or agent.organization
+        )
+        if conv_access_error:
+            return conv_access_error
+
+        active_takeover = get_active_takeover(conversation)
+        if active_takeover:
+            handle_inbound_during_takeover(
+                conversation,
+                active_takeover,
+                user_inputs,
+                message_metadata={"human_takeover": True, "channel": "chat_app"},
+            )
+            return JsonResponse(
+                {"status": "accepted", "takeover": True, "agent_skipped": True},
+                status=202,
+            )
+
+        from api.messaging.schemas import metadata_payload_for_related_agents
+
+        conversation.metadata = metadata_payload_for_related_agents([agent.id])
+        conversation.save(update_fields=["metadata", "updated_at"])
+
+        client_datetime, client_dt_error = _parse_client_datetime(payload.get("client_datetime"))
+        if client_dt_error:
+            return client_dt_error
+
+        regenerate_message_id, regen_error = _parse_regenerate_message_id(
+            payload.get("regenerate_message_id"),
+            conversation=conversation,
+            user=user,
+        )
+        if regen_error:
+            return regen_error
+
+        from django.core.cache import cache
+
+        cache.delete(f"cancel_task_{conversation_id}")
+        mark_agent_task_active(str(conversation_id))
+
+        task = compliance_assistant_task.delay(
+            conversation_id=str(conversation_id),
+            user_inputs=user_inputs,
+            agent_slug=agent.slug,
+            user_id=user.id,
+            regenerate_message_id=regenerate_message_id,
+            client_datetime=client_datetime,
+        )
+
+        return JsonResponse(
+            {"task_id": task.id, "status": "accepted"},
+            status=202,
+        )
+
+
 def _user_can_access_message(user, message):
     """Check if user can access the message's conversation (incl. WhatsApp threads)."""
     conv = message.conversation

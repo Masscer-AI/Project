@@ -18,7 +18,9 @@ import {
   linkMessageAttachment,
   triggerAgentTask,
   triggerPlatformAssistantTask,
+  triggerComplianceAssistantTask,
   isPlatformAssistant,
+  isComplianceAssistant,
   buildClientDatetimePayload,
   uploadMessageAttachments,
   sendHumanMessageToConversation,
@@ -459,6 +461,8 @@ export default function ChatView() {
 
       const isPlatform =
         selectedAgents.length === 1 && isPlatformAssistant(selectedAgents[0]);
+      const isCompliance =
+        selectedAgents.length === 1 && isComplianceAssistant(selectedAgents[0]);
       const taskRes = isPlatform
         ? await triggerPlatformAssistantTask({
             conversation_id: routeConversation.id,
@@ -466,6 +470,13 @@ export default function ChatView() {
             user_inputs: userInputs,
             client_datetime: buildClientDatetimePayload(),
           })
+        : isCompliance
+          ? await triggerComplianceAssistantTask({
+              conversation_id: routeConversation.id,
+              agent_slug: selectedAgents[0].slug,
+              user_inputs: userInputs,
+              client_datetime: buildClientDatetimePayload(),
+            })
         : await triggerAgentTask({
             conversation_id: routeConversation.id,
             agent_slugs: selectedAgents.map((a) => a.slug),
@@ -560,6 +571,8 @@ export default function ChatView() {
       try {
         const isPlatform =
           selectedAgents.length === 1 && isPlatformAssistant(selectedAgents[0]);
+        const isCompliance =
+          selectedAgents.length === 1 && isComplianceAssistant(selectedAgents[0]);
         const taskRes = isPlatform
           ? await triggerPlatformAssistantTask({
               conversation_id: routeConversation.id,
@@ -568,6 +581,14 @@ export default function ChatView() {
               regenerate_message_id: regenPayload.userId,
               client_datetime: buildClientDatetimePayload(),
             })
+          : isCompliance
+            ? await triggerComplianceAssistantTask({
+                conversation_id: routeConversation.id,
+                agent_slug: selectedAgents[0].slug,
+                user_inputs: [{ type: "input_text", text: newText }],
+                regenerate_message_id: regenPayload.userId,
+                client_datetime: buildClientDatetimePayload(),
+              })
           : await triggerAgentTask({
               conversation_id: routeConversation.id,
               agent_slugs: selectedAgents.map((a) => a.slug),

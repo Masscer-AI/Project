@@ -74,6 +74,8 @@ def accessible_agents_qs(user):
         - Org owner can always access.
     - Platform assistants: user's org row + platform-assistant feature flag
       (not granted to all org members via empty allowed_roles).
+    - Compliance assistants: row exists for an org the user belongs to or owns
+      (admin-gated; no feature flag).
     """
     from api.ai_layers.models import Agent, AgentKind
     from api.authenticate.services import FeatureFlagService
@@ -112,6 +114,13 @@ def accessible_agents_qs(user):
         qs = qs | Agent.objects.filter(
             organization_id__in=platform_ids,
             agent_kind=AgentKind.PLATFORM_ASSISTANT,
+        )
+
+    org_ids_for_access = [o.id for o in orgs_for_access]
+    if org_ids_for_access:
+        qs = qs | Agent.objects.filter(
+            organization_id__in=org_ids_for_access,
+            agent_kind=AgentKind.COMPLIANCE_ASSISTANT,
         )
 
     logger.debug(

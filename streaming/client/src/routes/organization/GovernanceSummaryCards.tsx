@@ -206,7 +206,10 @@ export function GovernanceSummaryCards({
           getUserCompletions(),
         ]);
         const orgAgents = (agents?.agents ?? []).filter(
-          (a: any) => a.organization !== null && a.agent_kind !== "platform_assistant"
+          (a: any) =>
+            a.organization !== null &&
+            a.agent_kind !== "platform_assistant" &&
+            a.agent_kind !== "compliance_assistant"
         );
         setAgentCount(orgAgents.length);
         setCompletionCount(Array.isArray(completions) ? completions.length : 0);

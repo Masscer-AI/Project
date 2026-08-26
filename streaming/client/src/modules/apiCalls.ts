@@ -2162,12 +2162,28 @@ export type TriggerPlatformAssistantTaskPayload = {
 export const isPlatformAssistant = (agent: { agent_kind?: string }) =>
   agent.agent_kind === "platform_assistant";
 
+export const isComplianceAssistant = (agent: { agent_kind?: string }) =>
+  agent.agent_kind === "compliance_assistant";
+
+export const isLockedMasscerAgent = (agent: { agent_kind?: string }) =>
+  isPlatformAssistant(agent) || isComplianceAssistant(agent);
+
 export const triggerPlatformAssistantTask = async (
   payload: TriggerPlatformAssistantTaskPayload
 ) => {
   return makeAuthenticatedRequest<TriggerAgentTaskResponse>(
     "POST",
     "/v1/ai_layers/agent-task/platform/",
+    payload
+  );
+};
+
+export const triggerComplianceAssistantTask = async (
+  payload: TriggerPlatformAssistantTaskPayload
+) => {
+  return makeAuthenticatedRequest<TriggerAgentTaskResponse>(
+    "POST",
+    "/v1/ai_layers/agent-task/compliance/",
     payload
   );
 };

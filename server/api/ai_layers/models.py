@@ -50,6 +50,7 @@ class LanguageModel(models.Model):
 class AgentKind(models.TextChoices):
     CONVERSATIONAL_AGENT = "conversational_agent", "Conversational agent"
     PLATFORM_ASSISTANT = "platform_assistant", "Platform assistant"
+    COMPLIANCE_ASSISTANT = "compliance_assistant", "Compliance assistant"
 
 class Agent(models.Model):
 
@@ -154,6 +155,11 @@ class Agent(models.Model):
                 condition=models.Q(agent_kind=AgentKind.PLATFORM_ASSISTANT),
                 name="unique_platform_assistant_per_org",
             ),
+            models.UniqueConstraint(
+                fields=["organization"],
+                condition=models.Q(agent_kind=AgentKind.COMPLIANCE_ASSISTANT),
+                name="unique_compliance_assistant_per_org",
+            ),
         ]
 
     def __str__(self):
@@ -165,6 +171,10 @@ class Agent(models.Model):
         if self.agent_kind == AgentKind.PLATFORM_ASSISTANT and not self.organization_id:
             raise ValidationError(
                 {"organization": "Platform assistants must belong to an organization."}
+            )
+        if self.agent_kind == AgentKind.COMPLIANCE_ASSISTANT and not self.organization_id:
+            raise ValidationError(
+                {"organization": "Compliance assistants must belong to an organization."}
             )
 
     def save(self, *args, **kwargs):

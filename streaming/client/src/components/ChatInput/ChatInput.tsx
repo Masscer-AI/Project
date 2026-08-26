@@ -51,7 +51,7 @@ import {
 } from "@tabler/icons-react";
 import {
   cancelAgentTask,
-  isPlatformAssistant,
+  isLockedMasscerAgent,
 } from "../../modules/apiCalls";
 import { agentsInChatSelectionOrder } from "../../modules/agentSelection";
 import { ToolsSelectorModal } from "../ToolsSelectorModal/ToolsSelectorModal";
@@ -139,12 +139,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     conversationId,
   ]);
 
-  const isPlatformAssistantChat =
+  const isLockedMasscerChat =
     chatState.selectedAgents.length === 1 &&
     (() => {
       const slug = chatState.selectedAgents[0];
       const agent = agents.find((a) => a.slug === slug);
-      return agent != null && isPlatformAssistant(agent);
+      return agent != null && isLockedMasscerAgent(agent);
     })();
 
   const [textPrompt, setTextPrompt] = useState(initialInput);
@@ -416,7 +416,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           <div className="flex shrink-0 items-center justify-between px-1 md:px-4 pb-1 md:pb-4 pt-1 md:pt-3 relative z-10 min-w-0">
             <div className="flex gap-2 relative z-20 min-w-0 flex-shrink">
               <PlusMenu existingFilesOnly={false} />
-              {!isPlatformAssistantChat && <ToolsMenu />}
+              {!isLockedMasscerChat && <ToolsMenu />}
             </div>
             <div className="flex gap-2 items-center flex-shrink-0">
               {isTranscribeEnabled && (

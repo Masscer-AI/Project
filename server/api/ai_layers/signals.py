@@ -64,7 +64,10 @@ def reassign_agents_on_llm_delete(sender, instance, **kwargs):
 def agent_created(sender, instance, created, **kwargs):
     if not created:
         return
-    if instance.agent_kind == AgentKind.PLATFORM_ASSISTANT:
+    if instance.agent_kind in (
+        AgentKind.PLATFORM_ASSISTANT,
+        AgentKind.COMPLIANCE_ASSISTANT,
+    ):
         return
     username = getattr(instance.user, "username", None) or "unknown"
     logger.debug("New agent created for user: %s", username)

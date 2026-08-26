@@ -20,6 +20,7 @@ app.conf.result_backend = django_settings.CELERY_RESULT_BACKEND
 app.autodiscover_tasks()
 
 import api.ai_layers.platform_assistant_task  # noqa: F401
+import api.ai_layers.compliance_assistant_task  # noqa: F401
 
 app.conf.beat_schedule = {
     'check-pending-conversations': {

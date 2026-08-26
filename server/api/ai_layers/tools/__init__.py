@@ -60,7 +60,6 @@ TOOL_REGISTRY: dict[str, str] = {
     "schedule_task": "api.ai_layers.tools.schedule_task",
     "list_scheduled_tasks": "api.ai_layers.tools.list_scheduled_tasks",
     "cancel_scheduled_task": "api.ai_layers.tools.cancel_scheduled_task",
-    "request_signature": "api.ai_layers.tools.request_signature",
 }
 
 WHATSAPP_TEMPLATE_AGENT_TOOL_NAMES: tuple[str, ...] = (
@@ -116,7 +115,6 @@ USER_REQUIRED_TOOL_NAMES: frozenset[str] = frozenset(
         "schedule_task",
         "list_scheduled_tasks",
         "cancel_scheduled_task",
-        "request_signature",
     }
 )
 

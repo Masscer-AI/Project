@@ -21,7 +21,7 @@ import {
   Tooltip,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { createLLM, deleteLLM, updateAgent, regenerateAgentDescription, makeAuthenticatedRequest, getUserOrganizations, getOrganizationRoles, getVoices, previewVoice } from "../../modules/apiCalls";
+import { createLLM, deleteLLM, updateAgent, regenerateAgentDescription, makeAuthenticatedRequest, getUserOrganizations, getOrganizationRoles, getVoices, previewVoice, isLockedMasscerAgent, isPlatformAssistant, isComplianceAssistant } from "../../modules/apiCalls";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
@@ -162,28 +162,28 @@ const AgentComponent = ({ agent }: TAgentComponentProps) => {
   const isSelected = chatState.selectedAgents.indexOf(agent.slug) !== -1;
   const selectionIndex = chatState.selectedAgents.indexOf(agent.slug);
 
-  const isPlatformAgent = agent.agent_kind === "platform_assistant";
-  const hasPlatformSelected = chatState.selectedAgents.some((slug) => {
+  const isLockedAgent = isLockedMasscerAgent(agent);
+  const hasLockedSelected = chatState.selectedAgents.some((slug) => {
     const a = agents.find((x) => x.slug === slug);
-    return a?.agent_kind === "platform_assistant";
+    return a != null && isLockedMasscerAgent(a);
   });
   const isPersonalAgent = agent.organization === null || agent.organization === undefined;
   const isOwnAgent = user && agent.user === user.id;
   const canEditDelete =
-    !isPlatformAgent &&
+    !isLockedAgent &&
     ((isPersonalAgent && isOwnAgent) || (canManageAgents && !isPersonalAgent));
 
   const handleAgentSelect = () => {
-    if (isPlatformAgent) {
+    if (isLockedAgent) {
       setChatSelectedAgentSlugs([agent.slug]);
       return;
     }
     if (isMultiAgentEnabled) {
-      const hasPlatform = chatState.selectedAgents.some((slug) => {
+      const hasLocked = chatState.selectedAgents.some((slug) => {
         const a = useStore.getState().agents.find((x) => x.slug === slug);
-        return a?.agent_kind === "platform_assistant";
+        return a != null && isLockedMasscerAgent(a);
       });
-      if (hasPlatform) {
+      if (hasLocked) {
         setChatSelectedAgentSlugs([agent.slug]);
       } else {
         toggleAgentSelected(agent.slug);
@@ -208,7 +208,7 @@ const AgentComponent = ({ agent }: TAgentComponentProps) => {
         }}
       >
         <Group gap="sm" onClick={handleAgentSelect} wrap="nowrap">
-          {isMultiAgentEnabled && !isPlatformAgent && !hasPlatformSelected && (
+          {isMultiAgentEnabled && !isLockedAgent && !hasLockedSelected && (
             <div style={{ position: "relative" }}>
               <Checkbox
                 checked={isSelected}
@@ -240,9 +240,14 @@ const AgentComponent = ({ agent }: TAgentComponentProps) => {
           <Text fw={500} truncate style={{ flex: 1 }}>
             {agent.name}
           </Text>
-          {isPlatformAgent && (
+          {isPlatformAssistant(agent) && (
             <Badge size="sm" color="violet" variant="light">
               {t("platform-assistant-badge")}
+            </Badge>
+          )}
+          {isComplianceAssistant(agent) && (
+            <Badge size="sm" color="violet" variant="light">
+              {t("compliance-assistant-badge")}
             </Badge>
           )}
         </Group>
@@ -570,11 +575,11 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
     label: m.name,
   }));
 
-  const isPlatformAgent = agent.agent_kind === "platform_assistant";
+  const isLockedAgent = isLockedMasscerAgent(agent);
   const isPersonalAgent = agent.organization === null || agent.organization === undefined;
   const isOwnAgent = user && agent.user === user.id;
   const canEditDelete =
-    !isPlatformAgent &&
+    !isLockedAgent &&
     ((isPersonalAgent && isOwnAgent) || (canManageAgents && !isPersonalAgent));
 
   return (

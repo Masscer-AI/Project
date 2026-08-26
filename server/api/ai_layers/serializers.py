@@ -189,15 +189,18 @@ class AgentSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        from api.ai_layers.tools import canonical_tool_name
+        from api.ai_layers.tools import canonical_tool_name, list_registered_tools
 
         tools = data.get("pre_approved_tools") or []
+        available = set(list_registered_tools())
         seen: set[str] = set()
         names: list[str] = []
         for item in tools:
             if not isinstance(item, str):
                 continue
             name = canonical_tool_name(item)
+            if name not in available:
+                continue
             if name not in seen:
                 seen.add(name)
                 names.append(name)
@@ -235,6 +238,8 @@ class AgentSerializer(serializers.ModelSerializer):
 
         if obj.agent_kind == AgentKind.PLATFORM_ASSISTANT:
             return "platform"
+        if obj.agent_kind == AgentKind.COMPLIANCE_ASSISTANT:
+            return "compliance"
         if not obj.organization_id:
             return "personal"
         has_restrictions = getattr(obj, "role_access_assignments", None) and obj.role_access_assignments.exists()

@@ -235,6 +235,20 @@ def dispatch_conversation_agent_task(
             ),
         )
 
+    if any(a.agent_kind == AgentKind.COMPLIANCE_ASSISTANT for a in agents_found):
+        return AgentTaskDispatchResult(
+            ok=False,
+            response=JsonResponse(
+                {
+                    "error": (
+                        "Compliance assistants must use "
+                        "POST /api/ai_layers/agent-task/compliance/"
+                    ),
+                },
+                status=400,
+            ),
+        )
+
     try:
         conversation = Conversation.objects.get(id=conversation_id)
     except Conversation.DoesNotExist:
