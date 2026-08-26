@@ -55,15 +55,18 @@ export type AgentsModalControls = {
 export const ChatHeader = ({
   right,
   agentsModal,
+  hideAgents = false,
 }: {
   right?: React.ReactNode;
   agentsModal?: AgentsModalControls;
+  hideAgents?: boolean;
 }) => {
   const { toggleSidebar, chatState } = useStore((state) => ({
     toggleSidebar: state.toggleSidebar,
     chatState: state.chatState,
   }));
   const unreadNotificationCount = useUnreadNotificationCount();
+  const { t } = useTranslation();
 
   return (
     <div className="flex items-center justify-between p-2 md:p-4 rounded-none md:rounded-xl w-full shadow-lg z-10 gap-2 md:gap-3 min-w-0" style={{ background: "var(--bg-contrast-color)", border: "1px solid var(--hovered-color)" }}>
@@ -95,11 +98,18 @@ export const ChatHeader = ({
             )}
           </Box>
         )}
-        <AgentsModal
-          opened={agentsModal?.opened}
-          onOpen={agentsModal?.onOpen}
-          onClose={agentsModal?.onClose}
-        />
+        {!hideAgents && (
+          <AgentsModal
+            opened={agentsModal?.opened}
+            onOpen={agentsModal?.onOpen}
+            onClose={agentsModal?.onClose}
+          />
+        )}
+        {hideAgents && (
+          <Badge size="sm" color="violet" variant="light">
+            {t("compliance-assistant-badge")}
+          </Badge>
+        )}
       </div>
       <section className="min-w-0 flex-1 md:flex-shrink-0 md:ml-auto overflow-hidden text-right md:text-right">
         {right && right}
@@ -1028,7 +1038,7 @@ const AgentsModal = ({
         overlayProps={{ backgroundOpacity: 0.55, blur: 3 }}
       >
         <Group gap="md" justify="center" align="stretch">
-          {agents.map((agent) => (
+          {agents.filter((agent) => !isComplianceAssistant(agent)).map((agent) => (
             <AgentComponent key={agent.slug} agent={agent} />
           ))}
         </Group>

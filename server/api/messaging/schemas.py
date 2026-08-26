@@ -102,14 +102,34 @@ class ConversationMetadata(BaseModel):
         default_factory=list,
         description="Agents associated with this conversation UI selection, in order",
     )
+    surface: Optional[Literal["compliance"]] = Field(
+        default=None,
+        description="Dedicated product surface this conversation belongs to",
+    )
 
 
-def metadata_payload_for_related_agents(agent_ids_in_order: list[int]) -> dict:
+def metadata_payload_for_related_agents(
+    agent_ids_in_order: list[int],
+    *,
+    surface: Optional[Literal["compliance"]] = None,
+    existing: Optional[dict] = None,
+) -> dict:
     """Build validated ``Conversation.metadata`` for UI agent selection (send order)."""
+    resolved_surface = surface
+    if resolved_surface is None and isinstance(existing, dict):
+        raw_surface = existing.get("surface")
+        if raw_surface == "compliance":
+            resolved_surface = "compliance"
     meta = ConversationMetadata(
-        related_agents=[ConversationRelatedAgent(id=aid) for aid in agent_ids_in_order]
+        related_agents=[ConversationRelatedAgent(id=aid) for aid in agent_ids_in_order],
+        surface=resolved_surface,
     )
     return meta.model_dump(mode="json", exclude_none=True)
+
+
+def compliance_conversation_metadata(agent_id: int) -> dict:
+    """Metadata for the sticky per-user compliance assistant thread."""
+    return metadata_payload_for_related_agents([agent_id], surface="compliance")
 
 
 class ConversationTakeoverMetadata(BaseModel):

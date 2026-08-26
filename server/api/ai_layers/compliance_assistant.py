@@ -135,3 +135,64 @@ def build_compliance_assistant_instructions(organization, *, clock_context: str 
     if clock_context:
         formatted += f"\n{clock_context}"
     return formatted
+
+
+def get_compliance_agent_for_user(user):
+    """Return the compliance assistant the user can access, if any."""
+    from api.ai_layers.access import get_user_organizations_for_access
+
+    for org in get_user_organizations_for_access(user):
+        agent = Agent.objects.filter(
+            organization=org,
+            agent_kind=AgentKind.COMPLIANCE_ASSISTANT,
+        ).first()
+        if agent:
+            return agent
+    return None
+
+
+def get_or_create_compliance_conversation(user):
+    """
+    Return the sticky compliance thread for this user and organization.
+
+    One active/inactive conversation per user+org. 404-equivalent when the
+    org has no compliance assistant.
+    """
+    from django.db import transaction
+
+    from api.messaging.models import Conversation
+    from api.messaging.schemas import compliance_conversation_metadata
+
+    agent = get_compliance_agent_for_user(user)
+    if not agent or not agent.organization_id:
+        return None, "not_provisioned"
+
+    org = agent.organization
+    with transaction.atomic():
+        existing = (
+            Conversation.objects.select_for_update()
+            .filter(
+                user=user,
+                organization=org,
+                chat_widget__isnull=True,
+                ws_number__isnull=True,
+                status__in=["active", "inactive"],
+                metadata__surface="compliance",
+            )
+            .order_by("created_at")
+            .first()
+        )
+        if existing:
+            meta = existing.metadata if isinstance(existing.metadata, dict) else {}
+            if not (meta.get("related_agents") or []):
+                existing.metadata = compliance_conversation_metadata(agent.id)
+                existing.save(update_fields=["metadata", "updated_at"])
+            return existing, None
+
+        conversation = Conversation.objects.create(
+            user=user,
+            organization=org,
+            title=COMPLIANCE_ASSISTANT_NAME,
+            metadata=compliance_conversation_metadata(agent.id),
+        )
+        return conversation, None

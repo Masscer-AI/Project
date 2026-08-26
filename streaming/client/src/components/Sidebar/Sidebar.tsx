@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { useStore } from "../../modules/store";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams, useNavigate, useLocation } from "react-router-dom";
 import {
   getAllConversations,
   getUserOrganizations,
   getTags,
+  isComplianceAssistant,
 } from "../../modules/apiCalls";
 import { useUnreadNotificationCount } from "../../hooks/useUnreadNotificationCount";
 import { TConversation, TTag } from "../../types";
@@ -42,6 +43,7 @@ import {
   IconFilter,
   IconCalendarTime,
   IconPhoto,
+  IconScale,
 } from "@tabler/icons-react";
 
 export const Sidebar: React.FC = () => {
@@ -57,12 +59,15 @@ export const Sidebar: React.FC = () => {
   const isTrainAgentsEnabled = useIsFeatureEnabled("train-agents");
   const isAudioToolsEnabled = useIsFeatureEnabled("audio-tools");
   const canEditPreferences = useIsFeatureEnabled("can-edit-preferences") === true;
-  const { toggleSidebar, user, setOpenedModals, logout } = useStore((state) => ({
+  const { toggleSidebar, user, setOpenedModals, logout, agents } = useStore((state) => ({
     toggleSidebar: state.toggleSidebar,
     user: state.user,
     setOpenedModals: state.setOpenedModals,
     logout: state.logout,
+    agents: state.agents,
   }));
+  const hasComplianceAssistant = agents.some(isComplianceAssistant);
+  const location = useLocation();
 
   const [history, setHistory] = useState<TConversation[]>([]);
   const [filteredHistory, setFilteredHistory] = useState<TConversation[]>([]);
@@ -243,6 +248,25 @@ export const Sidebar: React.FC = () => {
           >
             {t("conversations")}
           </Button>
+          {hasComplianceAssistant && (
+            <Button
+              variant="default"
+              size="sm"
+              leftSection={<IconScale size={20} />}
+              onClick={() => goTo("/compliance")}
+              fullWidth
+              styles={{
+                root: {
+                  backgroundColor:
+                    location.pathname === "/compliance"
+                      ? "rgba(255,255,255,0.08)"
+                      : undefined,
+                },
+              }}
+            >
+              {t("compliance-nav")}
+            </Button>
+          )}
 
           {historyConfig.isOpen && (
             <>

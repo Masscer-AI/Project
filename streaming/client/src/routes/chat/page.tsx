@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Message } from "../../components/Message/Message";
 import { ChatInput } from "../../components/ChatInput/ChatInput";
 
-import { useLoaderData, useNavigate } from "react-router-dom";
+import { useLoaderData, useLocation, useNavigate } from "react-router-dom";
 import { Sidebar } from "../../components/Sidebar/Sidebar";
 import { useStore } from "../../modules/store";
 import { TChatLoader, TMessage } from "../../types/chatTypes";
@@ -48,6 +48,7 @@ export default function ChatView() {
     setConversation,
     setSpecifiedUrls,
     setAgentTaskStatus,
+    setChatSelectedAgentSlugs,
   } = useStore((state) => ({
     socket: state.socket,
     chatState: state.chatState,
@@ -62,16 +63,21 @@ export default function ChatView() {
     setConversation: state.setConversation,
     setSpecifiedUrls: state.setSpecifiedUrls,
     setAgentTaskStatus: state.setAgentTaskStatus,
+    setChatSelectedAgentSlugs: state.setChatSelectedAgentSlugs,
   }));
 
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const routeConversation = loaderData.conversation;
   const activeConversation =
     conversation?.id === routeConversation?.id && conversation
       ? conversation
       : routeConversation;
+  const isComplianceSurface =
+    location.pathname === "/compliance" ||
+    activeConversation?.metadata?.surface === "compliance";
   const isForeignConversation =
     activeConversation?.user_id != null &&
     loaderData.user?.id != null &&
@@ -116,12 +122,29 @@ export default function ChatView() {
   const isMultiAgentEnabled = useIsFeatureEnabled("multi-agent-chat") === true;
   const agentsModal = useAgentSelectionPrompt({
     conversationId: routeConversation?.id,
-    enabled: !isViewer,
+    enabled: !isViewer && !isComplianceSurface,
     hasAgents: agents.length > 0,
     selectedAgentCount: chatState.selectedAgents.length,
     messageCount: messages.length,
     closeOnFirstSelection: !isMultiAgentEnabled,
   });
+
+  useEffect(() => {
+    if (!isComplianceSurface) return;
+    const compliance = agents.find(isComplianceAssistant);
+    if (!compliance) return;
+    if (
+      chatState.selectedAgents.length !== 1 ||
+      chatState.selectedAgents[0] !== compliance.slug
+    ) {
+      setChatSelectedAgentSlugs([compliance.slug]);
+    }
+  }, [
+    isComplianceSurface,
+    agents,
+    chatState.selectedAgents,
+    setChatSelectedAgentSlugs,
+  ]);
 
   useEffect(() => {
     hydrateConversation(loaderData.conversation);
@@ -668,6 +691,7 @@ export default function ChatView() {
       {chatState.isSidebarOpened && <Sidebar />}
       <div className="flex min-h-0 flex-col h-screen w-full md:mx-auto md:max-w-[900px] relative z-10 px-0 md:px-4 py-0 md:py-6 overflow-visible">
         <ChatHeader
+          hideAgents={isComplianceSurface}
           agentsModal={{
             opened: agentsModal.opened,
             onOpen: agentsModal.open,
@@ -677,10 +701,10 @@ export default function ChatView() {
             <ConversationHeaderActions
               conversation={activeConversation}
               readOnly={isViewer && !canEditConversationData}
-              showActions={!isForeignConversation}
+              showActions={!isForeignConversation && !isComplianceSurface}
               onDeleted={() => {
                 setConversation(null);
-                navigate("/chat");
+                navigate(isComplianceSurface ? "/compliance" : "/chat");
                 window.dispatchEvent(new Event("conversations-changed"));
               }}
             />

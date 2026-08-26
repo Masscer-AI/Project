@@ -2168,6 +2168,13 @@ export const isComplianceAssistant = (agent: { agent_kind?: string }) =>
 export const isLockedMasscerAgent = (agent: { agent_kind?: string }) =>
   isPlatformAssistant(agent) || isComplianceAssistant(agent);
 
+export const getOrCreateComplianceConversation = async () => {
+  return makeAuthenticatedRequest<TConversation>(
+    "GET",
+    "/v1/ai_layers/compliance/conversation/"
+  );
+};
+
 export const triggerPlatformAssistantTask = async (
   payload: TriggerPlatformAssistantTaskPayload
 ) => {

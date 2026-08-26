@@ -283,7 +283,8 @@ def dispatch_conversation_agent_task(
     by_slug = {a.slug: a for a in agents_found}
     agents_ordered = [by_slug[s] for s in slugs if s in by_slug]
     conversation.metadata = metadata_payload_for_related_agents(
-        [a.id for a in agents_ordered]
+        [a.id for a in agents_ordered],
+        existing=conversation.metadata if isinstance(conversation.metadata, dict) else None,
     )
     conversation.save(update_fields=["metadata", "updated_at"])
 

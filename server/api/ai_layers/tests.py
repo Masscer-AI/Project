@@ -2039,11 +2039,20 @@ class PlatformAssistantTests(TestCase):
 
 class ComplianceAssistantTests(TestCase):
     def setUp(self):
-        from api.authenticate.models import Organization, UserProfile
+        from api.authenticate.models import Organization, Token, UserProfile
         from api.ai_layers.models import Agent, LanguageModel
         from api.ai_layers.compliance_assistant import provision_compliance_assistant
+        from api.consumption.models import Currency
         from api.messaging.models import Conversation
         from api.providers.models import AIProvider
+
+        Currency.objects.get_or_create(
+            name="Compute Unit", defaults={"one_usd_is": 1000}
+        )
+        provider = AIProvider.objects.create(name="OpenAI-comp")
+        self.llm = LanguageModel.objects.create(
+            provider=provider, slug="gpt-comp", name="GPT Comp"
+        )
 
         self.owner = User.objects.create_user(
             username="comp_owner", email="comp_owner@e.com", password="x"
@@ -2059,15 +2068,15 @@ class ComplianceAssistantTests(TestCase):
             name="Other Org", owner=self.outsider
         )
         UserProfile.objects.update_or_create(
+            user=self.owner,
+            defaults={"organization": self.org},
+        )
+        UserProfile.objects.update_or_create(
             user=self.member,
             defaults={"organization": self.org},
         )
         self.compliance_agent, _ = provision_compliance_assistant(self.org)
 
-        provider = AIProvider.objects.create(name="OpenAI-comp")
-        self.llm = LanguageModel.objects.create(
-            provider=provider, slug="gpt-comp", name="GPT Comp"
-        )
         self.conv_agent = Agent.objects.create(
             name="Conv Agent Comp",
             salute="hi",
@@ -2078,6 +2087,9 @@ class ComplianceAssistantTests(TestCase):
             model_provider="openai",
         )
         self.conv = Conversation.objects.create(user=self.owner)
+        self.owner_token = Token.objects.create(user=self.owner)
+        self.member_token = Token.objects.create(user=self.member)
+        self.outsider_token = Token.objects.create(user=self.outsider)
         self.client = APIClient()
 
     def test_provision_compliance_assistant_idempotent(self):
@@ -2226,6 +2238,61 @@ class ComplianceAssistantTests(TestCase):
                 llm=self.llm,
                 model_slug=self.llm.slug,
             )
+
+    def test_sticky_compliance_conversation_get_or_create(self):
+        from api.messaging.models import Conversation
+
+        first = self.client.get(
+            "/v1/ai_layers/compliance/conversation/",
+            HTTP_AUTHORIZATION=f"Token {self.owner_token.key}",
+        )
+        self.assertEqual(first.status_code, 200)
+        conv_id = first.json()["id"]
+        self.assertEqual(first.json().get("metadata", {}).get("surface"), "compliance")
+
+        second = self.client.get(
+            "/v1/ai_layers/compliance/conversation/",
+            HTTP_AUTHORIZATION=f"Token {self.owner_token.key}",
+        )
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(second.json()["id"], conv_id)
+        self.assertEqual(
+            Conversation.objects.filter(
+                user=self.owner, metadata__surface="compliance"
+            ).count(),
+            1,
+        )
+
+        member_resp = self.client.get(
+            "/v1/ai_layers/compliance/conversation/",
+            HTTP_AUTHORIZATION=f"Token {self.member_token.key}",
+        )
+        self.assertEqual(member_resp.status_code, 200)
+        self.assertNotEqual(member_resp.json()["id"], conv_id)
+
+    def test_sticky_compliance_conversation_404_when_not_provisioned(self):
+        response = self.client.get(
+            "/v1/ai_layers/compliance/conversation/",
+            HTTP_AUTHORIZATION=f"Token {self.outsider_token.key}",
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_empty_conversation_reuse_skips_compliance_thread(self):
+        sticky = self.client.get(
+            "/v1/ai_layers/compliance/conversation/",
+            HTTP_AUTHORIZATION=f"Token {self.owner_token.key}",
+        )
+        self.assertEqual(sticky.status_code, 200)
+        sticky_id = sticky.json()["id"]
+
+        created = self.client.post(
+            "/v1/messaging/conversations",
+            {},
+            format="json",
+            HTTP_AUTHORIZATION=f"Token {self.owner_token.key}",
+        )
+        self.assertIn(created.status_code, (200, 201))
+        self.assertNotEqual(created.json()["id"], sticky_id)
 
 
 class MCPAccessTests(SimpleTestCase):

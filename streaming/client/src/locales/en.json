@@ -958,6 +958,7 @@
   "refresh": "Refresh",
   "platform-assistant-badge": "Platform",
   "compliance-assistant-badge": "Compliance",
+  "compliance-nav": "Compliance",
   "assignments-panel-title": "Tasks",
   "assignments-open-step": "Open page",
   "assignments-target-not-found": "Couldn't find that element on screen",

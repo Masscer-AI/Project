@@ -17,6 +17,7 @@ import {
 import Root from "./routes/root/page.tsx";
 
 import { chatLoader } from "./routes/chat/loader.ts";
+import { complianceLoader } from "./routes/compliance/loader.ts";
 import "./index.css";
 import Signup from "./routes/signup/page.tsx";
 import ChatView from "./routes/chat/page.tsx";
@@ -104,6 +105,17 @@ const router = createBrowserRouter([
           </>
         ),
         loader: chatLoader,
+      },
+      {
+        path: "/compliance",
+        element: (
+          <>
+            <ChatView />
+            <NotificationListener />
+            <ConversationTakeoverListener />
+          </>
+        ),
+        loader: complianceLoader,
       },
       {
         path: "/whatsapp",

@@ -268,6 +268,8 @@ def _build_conversation_list_queryset(request, user):
         else:
             conversations = Conversation.objects.filter(user=user)
 
+    conversations = conversations.exclude(metadata__surface="compliance")
+
     if status_param in ("", "active_inactive"):
         conversations = conversations.filter(status__in=["active", "inactive"])
     elif status_param == "all":
@@ -569,9 +571,13 @@ class ConversationView(View):
     def post(self, request, *args, **kwargs):
         user = request.user
 
-        existing_conversation = Conversation.objects.filter(
-            user=user, messages__isnull=True, status__in=["active", "inactive"]
-        ).first()
+        existing_conversation = (
+            Conversation.objects.filter(
+                user=user, messages__isnull=True, status__in=["active", "inactive"]
+            )
+            .exclude(metadata__surface="compliance")
+            .first()
+        )
         if existing_conversation:
             conversation_data = BigConversationSerializer(existing_conversation, context={'request': request}).data
             return JsonResponse(conversation_data, status=200)

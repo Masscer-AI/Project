@@ -959,9 +959,9 @@ class ComplianceAgentTaskView(View):
                 status=202,
             )
 
-        from api.messaging.schemas import metadata_payload_for_related_agents
+        from api.messaging.schemas import compliance_conversation_metadata
 
-        conversation.metadata = metadata_payload_for_related_agents([agent.id])
+        conversation.metadata = compliance_conversation_metadata(agent.id)
         conversation.save(update_fields=["metadata", "updated_at"])
 
         client_datetime, client_dt_error = _parse_client_datetime(payload.get("client_datetime"))
@@ -994,6 +994,31 @@ class ComplianceAgentTaskView(View):
             {"task_id": task.id, "status": "accepted"},
             status=202,
         )
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class ComplianceConversationView(View):
+    """
+    Get or create the sticky compliance conversation for the current user.
+
+    GET /api/ai_layers/compliance/conversation/
+    """
+
+    def get(self, request, *args, **kwargs):
+        from api.messaging.serializers import BigConversationSerializer
+        from api.ai_layers.compliance_assistant import get_or_create_compliance_conversation
+
+        conversation, error = get_or_create_compliance_conversation(request.user)
+        if error == "not_provisioned" or conversation is None:
+            return JsonResponse(
+                {"error": "Compliance assistant is not enabled for this organization"},
+                status=404,
+            )
+        data = BigConversationSerializer(
+            conversation, context={"request": request}
+        ).data
+        return JsonResponse(data, status=200)
 
 
 def _user_can_access_message(user, message):

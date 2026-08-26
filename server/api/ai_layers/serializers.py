@@ -164,8 +164,10 @@ class AgentSerializer(serializers.ModelSerializer):
             "llm",
             "conversation_title_prompt",
             "pre_approved_tools",
+            "created_at",
+            "updated_at",
         ]
-        read_only_fields = ["agent_kind"]
+        read_only_fields = ["agent_kind", "created_at", "updated_at"]
 
     def validate_pre_approved_tools(self, value):
         if not isinstance(value, list):

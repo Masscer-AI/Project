@@ -74,6 +74,7 @@ export interface TConversation {
   summary?: string;
   metadata?: {
     related_agents?: { id: number }[];
+    surface?: "compliance";
   };
   alerts_count?: number;
   alert_rule_ids?: string[];
