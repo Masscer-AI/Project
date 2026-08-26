@@ -2305,6 +2305,19 @@ class ComplianceAssistantTests(TestCase):
         self.assertIn(created.status_code, (200, 201))
         self.assertNotEqual(created.json()["id"], sticky_id)
 
+        from api.messaging.models import Message
+
+        Message.objects.create(conversation=self.conv, type="user", text="hello")
+        listed = self.client.get(
+            "/v1/messaging/conversations",
+            {"scope": "personal", "status": "all"},
+            HTTP_AUTHORIZATION=f"Token {self.owner_token.key}",
+        )
+        self.assertEqual(listed.status_code, 200)
+        listed_ids = {row["id"] for row in listed.json()["results"]}
+        self.assertIn(str(self.conv.id), listed_ids)
+        self.assertNotIn(sticky_id, listed_ids)
+
 
 class MCPAccessTests(SimpleTestCase):
     def test_sanitize_mcp_tool_name(self):

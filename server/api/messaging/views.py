@@ -191,6 +191,15 @@ def organization_conversations_q(organization_id) -> Q:
 
     return _organization_conversations_q(organization_id)
 
+def exclude_compliance_conversations(qs):
+    """Drop sticky compliance threads without hiding chats that have no surface key.
+
+    ``exclude(metadata__surface="compliance")`` is wrong on JSONField: SQL
+    ``NOT (surface = 'compliance')`` is unknown when the key is missing, so
+    those rows disappear from the list.
+    """
+    return qs.exclude(metadata__contains={"surface": "compliance"})
+
 def _user_can_access_conversation(user, conversation):
     if conversation.user_id == user.id:
         return True
@@ -268,7 +277,7 @@ def _build_conversation_list_queryset(request, user):
         else:
             conversations = Conversation.objects.filter(user=user)
 
-    conversations = conversations.exclude(metadata__surface="compliance")
+    conversations = exclude_compliance_conversations(conversations)
 
     if status_param in ("", "active_inactive"):
         conversations = conversations.filter(status__in=["active", "inactive"])
@@ -571,13 +580,11 @@ class ConversationView(View):
     def post(self, request, *args, **kwargs):
         user = request.user
 
-        existing_conversation = (
+        existing_conversation = exclude_compliance_conversations(
             Conversation.objects.filter(
                 user=user, messages__isnull=True, status__in=["active", "inactive"]
             )
-            .exclude(metadata__surface="compliance")
-            .first()
-        )
+        ).first()
         if existing_conversation:
             conversation_data = BigConversationSerializer(existing_conversation, context={'request': request}).data
             return JsonResponse(conversation_data, status=200)
