@@ -499,6 +499,165 @@ EXPRESO_FISCAL_RESUMEN_SEMANAL = WhatsAppTemplateDefinition(
     enabled=True,
 )
 
+AVISOS_INTEGRAREM_GENERAL = WhatsAppTemplateDefinition(
+    id="avisos_integrarem_general_es_mx",
+    meta_name="avisos_integrarem_general",
+    language_code="es_MX",
+    category="MARKETING",
+    description=(
+        "Avisos editoriales e institucionales generales de Integrarem "
+        "(Expreso Fiscal). Marketing. Header de texto fijo; pie fijo; "
+        "cuerpo con 4 variables: destinatario, fecha, tema y desarrollo. "
+        "Solo informacion general; no incluir RFC completo, datos bancarios, "
+        "contrasenas, e.firma, documentos confidenciales ni conclusiones "
+        "personalizadas. {{1}} debe ser unicamente el nombre de la persona. "
+        "Tres botones de respuesta rapida: 'Compartir este aviso' "
+        "(indicar que puede usar la funcion de compartir de WhatsApp; "
+        "no promete reenvio automatico), 'Solicitar audio' (generar y "
+        "entregar en el mismo hilo un resumen breve en audio de la edicion "
+        "vigente, aclarando que es informacion general), 'Dejar de recibir' "
+        "(confirmar brevemente la canalizacion de exclusion; no insistir "
+        "ni enviar contenido promocional posterior)."
+    ),
+    header_type="text",
+    header_text="AVISOS INTEGRAREM",
+    footer_text="Integrarem | Información general y comunicados",
+    body_text=(
+        "Hola, {{1}}.\n"
+        "\n"
+        "Le compartimos un aviso de Integrarem.\n"
+        "\n"
+        "*Fecha:* {{2}}\n"
+        "*Tema:* {{3}}\n"
+        "\n"
+        "{{4}}\n"
+        "\n"
+        "Esta información es de carácter general. Su aplicación puede variar "
+        "según su situación, régimen, operaciones y documentación. Si requiere "
+        "orientación sobre su caso, responda a este mensaje para canalizarle "
+        "con el equipo de Integrarem."
+    ),
+    body_variable_count=4,
+    body_variable_descriptions=(
+        "Nombre de la persona destinataria (completa {{1}}), "
+        "ej. 'María González'. Solo el nombre; no datos fiscales.",
+        "Fecha de emision del aviso (completa {{2}}), "
+        "ej. '26 de agosto de 2026'.",
+        "Titulo concreto del tema (completa {{3}}), "
+        "ej. 'Actualización fiscal semanal'.",
+        "Desarrollo del aviso general (completa {{4}}). Informacion general, "
+        "sin datos confidenciales ni conclusiones personalizadas.",
+    ),
+    buttons=(
+        WhatsAppTemplateButton(
+            index=0,
+            sub_type="quick_reply",
+            label="Compartir este aviso",
+            description=(
+                "Compartir este aviso. Indicar que puede usar la funcion de "
+                "compartir de WhatsApp; no promete reenvio automatico."
+            ),
+        ),
+        WhatsAppTemplateButton(
+            index=1,
+            sub_type="quick_reply",
+            label="Solicitar audio",
+            description=(
+                "Solicitar audio. Generar y entregar en el mismo hilo un "
+                "resumen breve en audio de la edicion vigente, con la "
+                "aclaracion de que es informacion general."
+            ),
+        ),
+        WhatsAppTemplateButton(
+            index=2,
+            sub_type="quick_reply",
+            label="Dejar de recibir",
+            description=(
+                "Dejar de recibir. Confirmar brevemente la canalizacion de "
+                "exclusion conforme al proceso de Integrarem; no insistir "
+                "ni enviar contenido promocional posterior."
+            ),
+        ),
+    ),
+    enabled=True,
+)
+
+SEGUIMIENTO_INTEGRAREM_ATENCION = WhatsAppTemplateDefinition(
+    id="seguimiento_integrarem_atencion_es_mx",
+    meta_name="seguimiento_integrarem_atencion",
+    language_code="es_MX",
+    category="UTILITY",
+    description=(
+        "Seguimiento operativo de una atencion, solicitud o servicio ya "
+        "esperado por el contacto (Integrarem). Utility; no usar para "
+        "campanas, boletines ni promociones generales. Header de texto "
+        "fijo; pie fijo; cuerpo con 4 variables: destinatario, atencion "
+        "esperada, fecha y detalle operativo general. {{1}} debe ser "
+        "unicamente el nombre de la persona. No incluir RFC completo, "
+        "datos bancarios, contrasenas, e.firma ni documentos confidenciales. "
+        "Tres botones de respuesta rapida: 'Solicitar cita' (pedir datos "
+        "minimos y opciones de fecha/horario), 'Tengo una duda' (recibir "
+        "y clasificar la duda; orientacion general o canalizacion segun "
+        "riesgo), 'Dejar de recibir' (confirmar brevemente la canalizacion "
+        "de exclusion)."
+    ),
+    header_type="text",
+    header_text="INTEGRAREM | SEGUIMIENTO",
+    footer_text="Integrarem | Atención y seguimiento",
+    body_text=(
+        "Hola, {{1}}.\n"
+        "\n"
+        "Le contactamos para dar seguimiento a {{2}}.\n"
+        "\n"
+        "*Fecha:* {{3}}\n"
+        "*Detalle:* {{4}}\n"
+        "\n"
+        "Si requiere actualizar información o coordinar una revisión con el "
+        "equipo de Integrarem, responda a este mensaje."
+    ),
+    body_variable_count=4,
+    body_variable_descriptions=(
+        "Nombre de la persona destinataria (completa {{1}}), "
+        "ej. 'María González'. Solo el nombre; no datos fiscales.",
+        "Atencion, solicitud o proceso previamente esperado (completa {{2}}), "
+        "ej. 'su solicitud de revisión contable'.",
+        "Fecha de la comunicacion o evento (completa {{3}}), "
+        "ej. '26 de agosto de 2026'.",
+        "Detalle operativo general, sin informacion confidencial "
+        "(completa {{4}}).",
+    ),
+    buttons=(
+        WhatsAppTemplateButton(
+            index=0,
+            sub_type="quick_reply",
+            label="Solicitar cita",
+            description=(
+                "Solicitar cita. Pedir datos minimos y opciones de "
+                "fecha/horario para coordinar la atencion."
+            ),
+        ),
+        WhatsAppTemplateButton(
+            index=1,
+            sub_type="quick_reply",
+            label="Tengo una duda",
+            description=(
+                "Tengo una duda. Recibir y clasificar la duda; ofrecer "
+                "orientacion general o canalizacion segun el nivel de riesgo."
+            ),
+        ),
+        WhatsAppTemplateButton(
+            index=2,
+            sub_type="quick_reply",
+            label="Dejar de recibir",
+            description=(
+                "Dejar de recibir. Confirmar brevemente la canalizacion de "
+                "exclusion conforme al proceso de Integrarem."
+            ),
+        ),
+    ),
+    enabled=True,
+)
+
 WHATSAPP_TEMPLATES: dict[str, WhatsAppTemplateDefinition] = {
     TASK_COMPLETED.id: TASK_COMPLETED,
     SOLICITUD_COMPLETADA.id: SOLICITUD_COMPLETADA,
@@ -509,6 +668,8 @@ WHATSAPP_TEMPLATES: dict[str, WhatsAppTemplateDefinition] = {
     EXPRESO_FISCAL_PREFERENCIAS.id: EXPRESO_FISCAL_PREFERENCIAS,
     EXPRESO_FISCAL_BOLETIN_SEMANAL.id: EXPRESO_FISCAL_BOLETIN_SEMANAL,
     EXPRESO_FISCAL_RESUMEN_SEMANAL.id: EXPRESO_FISCAL_RESUMEN_SEMANAL,
+    AVISOS_INTEGRAREM_GENERAL.id: AVISOS_INTEGRAREM_GENERAL,
+    SEGUIMIENTO_INTEGRAREM_ATENCION.id: SEGUIMIENTO_INTEGRAREM_ATENCION,
 }
 
 def get_template(template_id: str) -> WhatsAppTemplateDefinition | None:

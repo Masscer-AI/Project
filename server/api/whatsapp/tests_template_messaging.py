@@ -19,11 +19,13 @@ from api.whatsapp.template_access import (
 from api.whatsapp.template_registry import (
     APROBACION_PENDIENTE,
     APPROVAL_PENDING,
+    AVISOS_INTEGRAREM_GENERAL,
     EXPRESO_FISCAL_BOLETIN_SEMANAL,
     EXPRESO_FISCAL_PREFERENCIAS,
     EXPRESO_FISCAL_RECORDATORIO,
     EXPRESO_FISCAL_RESUMEN_SEMANAL,
     EXPRESO_FISCAL_SEMANAL,
+    SEGUIMIENTO_INTEGRAREM_ATENCION,
     SOLICITUD_COMPLETADA,
     TASK_COMPLETED,
     WHATSAPP_TEMPLATES,
@@ -312,6 +314,58 @@ class WhatsAppTemplateRegistryTests(SimpleTestCase):
             {t.id for t in list_enabled_templates()},
         )
 
+    def test_avisos_integrarem_general_registered(self):
+        tpl = get_template("avisos_integrarem_general_es_mx")
+        self.assertIsNotNone(tpl)
+        self.assertEqual(tpl.meta_name, "avisos_integrarem_general")
+        self.assertEqual(tpl.language_code, "es_MX")
+        self.assertEqual(tpl.category, "MARKETING")
+        self.assertEqual(tpl.header_type, "text")
+        self.assertEqual(tpl.header_text, "AVISOS INTEGRAREM")
+        self.assertEqual(
+            tpl.footer_text, "Integrarem | Información general y comunicados"
+        )
+        self.assertIn("Hola, {{1}}.", tpl.body_text)
+        self.assertIn("*Fecha:* {{2}}", tpl.body_text)
+        self.assertIn("*Tema:* {{3}}", tpl.body_text)
+        self.assertIn("{{4}}", tpl.body_text)
+        self.assertEqual(tpl.body_variable_count, 4)
+        self.assertEqual(tpl.button_variable_count, 0)
+        self.assertEqual(len(tpl.buttons), 3)
+        self.assertTrue(all(b.sub_type == "quick_reply" for b in tpl.buttons))
+        self.assertEqual(tpl.buttons[0].label, "Compartir este aviso")
+        self.assertEqual(tpl.buttons[1].label, "Solicitar audio")
+        self.assertEqual(tpl.buttons[2].label, "Dejar de recibir")
+        self.assertIn(
+            AVISOS_INTEGRAREM_GENERAL.id,
+            {t.id for t in list_enabled_templates()},
+        )
+
+    def test_seguimiento_integrarem_atencion_registered(self):
+        tpl = get_template("seguimiento_integrarem_atencion_es_mx")
+        self.assertIsNotNone(tpl)
+        self.assertEqual(tpl.meta_name, "seguimiento_integrarem_atencion")
+        self.assertEqual(tpl.language_code, "es_MX")
+        self.assertEqual(tpl.category, "UTILITY")
+        self.assertEqual(tpl.header_type, "text")
+        self.assertEqual(tpl.header_text, "INTEGRAREM | SEGUIMIENTO")
+        self.assertEqual(tpl.footer_text, "Integrarem | Atención y seguimiento")
+        self.assertIn("Hola, {{1}}.", tpl.body_text)
+        self.assertIn("Le contactamos para dar seguimiento a {{2}}.", tpl.body_text)
+        self.assertIn("*Fecha:* {{3}}", tpl.body_text)
+        self.assertIn("*Detalle:* {{4}}", tpl.body_text)
+        self.assertEqual(tpl.body_variable_count, 4)
+        self.assertEqual(tpl.button_variable_count, 0)
+        self.assertEqual(len(tpl.buttons), 3)
+        self.assertTrue(all(b.sub_type == "quick_reply" for b in tpl.buttons))
+        self.assertEqual(tpl.buttons[0].label, "Solicitar cita")
+        self.assertEqual(tpl.buttons[1].label, "Tengo una duda")
+        self.assertEqual(tpl.buttons[2].label, "Dejar de recibir")
+        self.assertIn(
+            SEGUIMIENTO_INTEGRAREM_ATENCION.id,
+            {t.id for t in list_enabled_templates()},
+        )
+
     def test_build_components_for_expreso_fiscal_semanal_with_header_image(self):
         components = build_template_components(
             EXPRESO_FISCAL_SEMANAL,
@@ -405,6 +459,51 @@ class WhatsAppTemplateRegistryTests(SimpleTestCase):
         self.assertEqual(len(components[0]["parameters"]), 7)
         self.assertEqual(components[0]["parameters"][0]["text"], "Maria")
         self.assertEqual(components[0]["parameters"][6]["text"], body[6])
+
+    def test_build_components_for_avisos_integrarem_general(self):
+        components = build_template_components(
+            AVISOS_INTEGRAREM_GENERAL,
+            TemplateVariables(
+                body=[
+                    "María González",
+                    "26 de agosto de 2026",
+                    "Actualización fiscal semanal",
+                    (
+                        "Compartimos información general sobre una actualización "
+                        "publicada por la autoridad."
+                    ),
+                ],
+            ),
+            source_conversation_id=None,
+        )
+        self.assertEqual(len(components), 1)
+        self.assertEqual(components[0]["type"], "body")
+        self.assertEqual(len(components[0]["parameters"]), 4)
+        self.assertEqual(components[0]["parameters"][0]["text"], "María González")
+
+    def test_build_components_for_seguimiento_integrarem_atencion(self):
+        components = build_template_components(
+            SEGUIMIENTO_INTEGRAREM_ATENCION,
+            TemplateVariables(
+                body=[
+                    "María González",
+                    "su solicitud de revisión contable",
+                    "26 de agosto de 2026",
+                    (
+                        "El equipo recibió su solicitud y está validando la "
+                        "información necesaria para proponer los siguientes pasos."
+                    ),
+                ],
+            ),
+            source_conversation_id=None,
+        )
+        self.assertEqual(len(components), 1)
+        self.assertEqual(components[0]["type"], "body")
+        self.assertEqual(len(components[0]["parameters"]), 4)
+        self.assertEqual(
+            components[0]["parameters"][1]["text"],
+            "su solicitud de revisión contable",
+        )
 
     def test_build_components_for_aprobacion_pendiente(self):
         components = build_template_components(
