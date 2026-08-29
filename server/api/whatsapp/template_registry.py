@@ -500,9 +500,9 @@ EXPRESO_FISCAL_RESUMEN_SEMANAL = WhatsAppTemplateDefinition(
 )
 
 AVISOS_INTEGRAREM_GENERAL = WhatsAppTemplateDefinition(
-    id="avisos_integrarem_general_es_mx",
+    id="avisos_integrarem_general_es",
     meta_name="avisos_integrarem_general",
-    language_code="es_MX",
+    language_code="es",
     category="MARKETING",
     description=(
         "Avisos editoriales e institucionales generales de Integrarem "

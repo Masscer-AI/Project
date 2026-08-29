@@ -315,10 +315,10 @@ class WhatsAppTemplateRegistryTests(SimpleTestCase):
         )
 
     def test_avisos_integrarem_general_registered(self):
-        tpl = get_template("avisos_integrarem_general_es_mx")
+        tpl = get_template("avisos_integrarem_general_es")
         self.assertIsNotNone(tpl)
         self.assertEqual(tpl.meta_name, "avisos_integrarem_general")
-        self.assertEqual(tpl.language_code, "es_MX")
+        self.assertEqual(tpl.language_code, "es")
         self.assertEqual(tpl.category, "MARKETING")
         self.assertEqual(tpl.header_type, "text")
         self.assertEqual(tpl.header_text, "AVISOS INTEGRAREM")
