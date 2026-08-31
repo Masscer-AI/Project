@@ -1,9 +1,12 @@
 """
 Tool: generate_gamma_attachment
 
-Generates a Gamma file (presentation or document) via the public API,
-downloads the export (PDF by default, PPTX optional), stores it as a
-MessageAttachment, and returns attachment metadata for download in chat.
+Generates a Gamma file via the public API, downloads the export (PDF by
+default, PPTX optional), stores it as a MessageAttachment, and returns
+attachment metadata for download in chat.
+
+The model chooses orientation: horizontal (16:9 slides) or vertical (A4
+portrait document). Those map to Gamma format + card dimensions internally.
 
 The public tool name is generate_gamma_attachment. generate_gamma_presentation
 is kept as a registry alias for agents/lines that still have the old name.
@@ -34,11 +37,14 @@ MAX_WAIT_SECONDS = 360
 
 ExportFormat = Literal["pdf", "pptx"]
 GammaFormat = Literal["document", "presentation"]
+GammaOrientation = Literal["horizontal", "vertical"]
 TextMode = Literal["generate", "condense", "preserve"]
 
-_CARD_DIMENSIONS: dict[GammaFormat, str] = {
-    "presentation": "16x9",
-    "document": "pageless",
+# AI-facing orientation → Gamma API format + card dimensions.
+# pageless document exports as landscape; a4 is the portrait paper size.
+_ORIENTATION_LAYOUT: dict[GammaOrientation, tuple[GammaFormat, str]] = {
+    "horizontal": ("presentation", "16x9"),
+    "vertical": ("document", "a4"),
 }
 
 PDF_CONTENT_TYPE = "application/pdf"
@@ -59,11 +65,13 @@ class GenerateGammaAttachmentParams(BaseModel):
             "Can be a short topic or a detailed outline; use \\n---\\n to hint card breaks."
         ),
     )
-    format: GammaFormat = Field(
-        default="presentation",
+    orientation: GammaOrientation = Field(
+        default="horizontal",
         description=(
-            "Gamma layout: 'presentation' for slides (16:9), 'document' for a "
-            "pageless document. Choose from the user's request."
+            "Page orientation. 'horizontal' for landscape 16:9 slides; "
+            "'vertical' for a portrait A4 document/PDF. Choose from the "
+            "user's request (slides/deck → horizontal, letter/doc/PDF page "
+            "→ vertical)."
         ),
     )
     title: str = Field(
@@ -95,7 +103,7 @@ class GenerateGammaAttachmentParams(BaseModel):
         default="pdf",
         description=(
             "Download format. Default 'pdf' for sharing. Use 'pptx' only when "
-            "the user needs an editable PowerPoint (presentations)."
+            "the user needs an editable PowerPoint (horizontal slides)."
         ),
     )
     output_filename: str = Field(
@@ -112,6 +120,7 @@ class GenerateGammaAttachmentResult(BaseModel):
     name: str
     content: str
     content_type: str
+    orientation: GammaOrientation
     format: GammaFormat
     export_format: ExportFormat
     gamma_url: str = ""
@@ -156,6 +165,7 @@ def _create_generation(
     additional_instructions: str,
     export_format: ExportFormat,
     gamma_format: GammaFormat,
+    dimensions: str,
 ) -> str:
     body: dict = {
         "inputText": input_text,
@@ -163,7 +173,7 @@ def _create_generation(
         "format": gamma_format,
         "exportAs": export_format,
         "numCards": num_cards,
-        "cardOptions": {"dimensions": _CARD_DIMENSIONS[gamma_format]},
+        "cardOptions": {"dimensions": dimensions},
         "sharingOptions": {"externalAccess": "noAccess"},
         "textOptions": {"language": language or "en"},
     }
@@ -229,10 +239,10 @@ def _download_export(export_url: str) -> bytes:
 def _normalize_filename(
     output_filename: str,
     export_format: ExportFormat,
-    gamma_format: GammaFormat = "presentation",
+    orientation: GammaOrientation = "horizontal",
 ) -> str:
     ext = f".{export_format}"
-    default = f"{'document' if gamma_format == 'document' else 'presentation'}{ext}"
+    default = f"{'document' if orientation == 'vertical' else 'presentation'}{ext}"
     fname = (output_filename or "").strip() or default
     lower = fname.lower()
     if lower.endswith(".pdf") or lower.endswith(".pptx"):
@@ -258,7 +268,7 @@ def _generate_gamma_attachment_impl(
     conversation_id: str,
     user_id: int | None,
     agent_slug: str | None,
-    gamma_format: GammaFormat = "presentation",
+    orientation: GammaOrientation = "horizontal",
 ) -> GenerateGammaAttachmentResult:
     from django.contrib.auth.models import User
 
@@ -270,8 +280,9 @@ def _generate_gamma_attachment_impl(
 
     if export_format not in ("pdf", "pptx"):
         raise ValueError("export_format must be 'pdf' or 'pptx'")
-    if gamma_format not in ("document", "presentation"):
-        raise ValueError("format must be 'document' or 'presentation'")
+    if orientation not in _ORIENTATION_LAYOUT:
+        raise ValueError("orientation must be 'horizontal' or 'vertical'")
+    gamma_format, dimensions = _ORIENTATION_LAYOUT[orientation]
 
     try:
         conversation = Conversation.objects.select_related(
@@ -291,6 +302,7 @@ def _generate_gamma_attachment_impl(
         additional_instructions=additional_instructions,
         export_format=export_format,
         gamma_format=gamma_format,
+        dimensions=dimensions,
     )
     status_data = _poll_generation(api_key, generation_id)
     export_url = (status_data.get("exportUrl") or "").strip()
@@ -317,7 +329,7 @@ def _generate_gamma_attachment_impl(
         except Exception:
             agent_obj = None
 
-    fname = _normalize_filename(output_filename, export_format, gamma_format)
+    fname = _normalize_filename(output_filename, export_format, orientation)
     stem = fname[: -len(f".{export_format}")]
     storage_name = f"{stem}-{uuid.uuid4().hex[:8]}.{export_format}"
     content_type = _CONTENT_TYPES[export_format]
@@ -334,7 +346,9 @@ def _generate_gamma_attachment_impl(
         expires_at=expires_at,
         metadata={
             "source": "generate_gamma_attachment",
+            "orientation": orientation,
             "format": gamma_format,
+            "dimensions": dimensions,
             "export_format": export_format,
             "generation_id": generation_id,
             "gamma_id": status_data.get("gammaId") or "",
@@ -347,6 +361,7 @@ def _generate_gamma_attachment_impl(
         name=fname,
         content=content_url,
         content_type=content_type,
+        orientation=orientation,
         format=gamma_format,
         export_format=export_format,
         gamma_url=str(status_data.get("gammaUrl") or ""),
@@ -368,7 +383,7 @@ def get_tool(
 
     def generate_gamma_attachment(
         input_text: str,
-        format: GammaFormat = "presentation",
+        orientation: GammaOrientation = "horizontal",
         title: str = "",
         num_cards: int = 10,
         text_mode: TextMode = "generate",
@@ -389,18 +404,18 @@ def get_tool(
             conversation_id=conversation_id,
             user_id=user_id,
             agent_slug=agent_slug,
-            gamma_format=format,
+            orientation=orientation,
         )
 
     return {
         "name": "generate_gamma_attachment",
         "description": (
             "Create a downloadable Gamma file. Pass input_text (topic or outline) "
-            "and format: 'presentation' for slides or 'document' for a pageless "
-            "document. Default export_format is 'pdf'; use 'pptx' only when the "
-            "user needs an editable PowerPoint. Generation can take up to a few "
-            "minutes. After success, include in your reply: "
-            "[Download file](attachment:<attachment_id>). "
+            "and orientation: 'horizontal' for landscape 16:9 slides, 'vertical' "
+            "for a portrait A4 document/PDF. Default export_format is 'pdf'; use "
+            "'pptx' only when the user needs an editable PowerPoint (horizontal). "
+            "Generation can take up to a few minutes. After success, include in "
+            "your reply: [Download file](attachment:<attachment_id>). "
             "Files start as personal; call update_attachment_visibility if other "
             "org members need to list or receive the file."
         ),

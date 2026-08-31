@@ -1582,13 +1582,14 @@ def conversation_agent_task(
                 instructions += (
                     "\n\nGamma file generation is enabled (generate_gamma_attachment). "
                     "When the user wants a downloadable slide deck or a designed document, "
-                    "call generate_gamma_attachment(input_text, format, title, num_cards, "
+                    "call generate_gamma_attachment(input_text, orientation, title, num_cards, "
                     "text_mode, language, additional_instructions, export_format, "
                     "output_filename). "
-                    "- format: 'presentation' for slides, 'document' for a pageless document. "
+                    "- orientation: 'horizontal' for landscape 16:9 slides, 'vertical' "
+                    "for a portrait A4 document/PDF. "
                     "- input_text: topic or outline (required). "
                     "- export_format: default 'pdf' for sharing; use 'pptx' only if the user "
-                    "needs an editable PowerPoint. "
+                    "needs an editable PowerPoint (horizontal). "
                     "Generation can take up to a few minutes — tell the user it may take a moment. "
                     "After success, include: [Download file](attachment:<attachment_id>)."
                 )

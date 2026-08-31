@@ -799,6 +799,7 @@ class GenerateGammaAttachmentToolTests(SimpleTestCase):
 
         self.assertEqual(result.attachment_id, "att-uuid")
         self.assertEqual(result.name, "deck.pdf")
+        self.assertEqual(result.orientation, "horizontal")
         self.assertEqual(result.format, "presentation")
         self.assertEqual(result.export_format, "pdf")
         self.assertEqual(result.content_type, "application/pdf")
@@ -821,7 +822,7 @@ class GenerateGammaAttachmentToolTests(SimpleTestCase):
     @patch("api.ai_layers.models.Agent")
     @patch("api.messaging.models.MessageAttachment")
     @patch("api.messaging.models.Conversation")
-    def test_impl_document_format_uses_pageless_dimensions(
+    def test_impl_vertical_orientation_uses_a4_document(
         self,
         mock_conversation_cls,
         mock_attachment_cls,
@@ -873,17 +874,26 @@ class GenerateGammaAttachmentToolTests(SimpleTestCase):
             conversation_id="conv-1",
             user_id=None,
             agent_slug=None,
-            gamma_format="document",
+            orientation="vertical",
         )
 
+        self.assertEqual(result.orientation, "vertical")
         self.assertEqual(result.format, "document")
         payload = mock_post.call_args.kwargs["json"]
         self.assertEqual(payload["format"], "document")
-        self.assertEqual(payload["cardOptions"]["dimensions"], "pageless")
+        self.assertEqual(payload["cardOptions"]["dimensions"], "a4")
         self.assertEqual(payload["exportAs"], "pdf")
+        self.assertEqual(
+            mock_attachment_cls.objects.create.call_args.kwargs["metadata"]["orientation"],
+            "vertical",
+        )
         self.assertEqual(
             mock_attachment_cls.objects.create.call_args.kwargs["metadata"]["format"],
             "document",
+        )
+        self.assertEqual(
+            mock_attachment_cls.objects.create.call_args.kwargs["metadata"]["dimensions"],
+            "a4",
         )
 
     @patch.dict("os.environ", {"GAMMA_API_KEY": ""})

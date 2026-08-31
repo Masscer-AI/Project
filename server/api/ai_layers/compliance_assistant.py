@@ -100,7 +100,7 @@ Herramientas en Masscer para este flujo:
 - Chat files: list_attachments, read_attachment (current conversation / expediente only).
 - Expediente: list_folio_documents, update_folio_document, update_folio_status.
 - Knowledge base (org policies/templates only, not KYB evidence): list_knowledge_base_documents, read_knowledge_base_document, rag_query.
-- Generate files: generate_gamma_attachment (set format=document for a PDF/doc, or presentation; export PDF when the file will be signed), generate_document_file (DOCX), list_document_templates + render_document_template, generate_excel_file.
+- Generate files: generate_gamma_attachment (set orientation=vertical for a portrait A4 PDF/doc, or horizontal for 16:9 slides; export PDF when the file will be signed), generate_document_file (DOCX), list_document_templates + render_document_template, generate_excel_file.
 - Signature: only request_signature sends a PDF to Mifiel. Masscer never requests or stores a .key file or e.firma password.
 - Org context: list_organization_members, list_organization_roles, send_email, explore_web.
 - Expediente notes: change_conversation_summary, query_organization_tags, create_organization_tag, change_conversation_tags, get_tag_context.
