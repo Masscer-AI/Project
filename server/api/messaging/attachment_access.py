@@ -20,6 +20,15 @@ VISIBILITY_ORGANIZATION = MessageAttachment.Visibility.ORGANIZATION
 VISIBILITY_ROLES = MessageAttachment.Visibility.ROLES
 VISIBILITY_LINK = MessageAttachment.Visibility.LINK
 
+
+def compliance_evidence_q() -> Q:
+    """Attachments that belong to a KYB folio / compliance conversation."""
+    return (
+        Q(metadata__contains={"compliance": True})
+        | Q(folio_document__isnull=False)
+        | Q(conversation__metadata__contains={"surface": "compliance"})
+    )
+
 def _resolve_user(*, user=None, user_id: int | None = None):
     if user is not None:
         return user
@@ -33,6 +42,7 @@ def attachments_visible_q(
     user_id: int | None = None,
     conversation_id: str | None = None,
     organization_id: int | None = None,
+    include_compliance_evidence: bool = False,
 ) -> Q:
     """
     Attachments the actor may list/read.
@@ -40,13 +50,20 @@ def attachments_visible_q(
     Authenticated: personal (owner) + org/roles ACL + link files in their orgs
     (or owned by them) + everything in the current conversation.
     Anonymous (widget / unlinked WhatsApp): current conversation only.
+
+    KYB expediente files are excluded unless include_compliance_evidence=True
+    (compliance assistant tools only).
     """
     del organization_id
     actor = _resolve_user(user=user, user_id=user_id)
     if actor is None:
         if conversation_id:
-            return Q(conversation_id=conversation_id)
-        raise ValueError("list_attachments requires user_id or conversation_id")
+            q = Q(conversation_id=conversation_id)
+        else:
+            raise ValueError("list_attachments requires user_id or conversation_id")
+        if not include_compliance_evidence:
+            q = q & ~compliance_evidence_q()
+        return q
 
     q = Q(visibility=VISIBILITY_PERSONAL, user=actor)
 
@@ -73,6 +90,9 @@ def attachments_visible_q(
     if conversation_id:
         q |= Q(conversation_id=conversation_id)
 
+    if not include_compliance_evidence:
+        q = q & ~compliance_evidence_q()
+
     return q
 
 def user_can_access_attachment(
@@ -82,6 +102,7 @@ def user_can_access_attachment(
     user_id: int | None = None,
     conversation_id: str | None = None,
     organization_id: int | None = None,
+    include_compliance_evidence: bool = False,
 ) -> bool:
     """Whether read/send tools may use this attachment."""
     if att is None:
@@ -92,6 +113,7 @@ def user_can_access_attachment(
             user=actor,
             conversation_id=conversation_id,
             organization_id=organization_id,
+            include_compliance_evidence=include_compliance_evidence,
         ),
         pk=att.pk,
     ).exists()

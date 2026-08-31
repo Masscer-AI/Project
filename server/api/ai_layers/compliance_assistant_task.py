@@ -262,6 +262,7 @@ def compliance_assistant_task(
             user_id=user_id,
             agent_slug=agent.slug,
             organization_id=organization.id,
+            include_compliance_evidence=True,
         )
 
         loop_provider = _agent_loop_provider_from_llm(llm)

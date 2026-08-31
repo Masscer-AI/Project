@@ -11,6 +11,7 @@ import {
   initConversation,
   updateUserPreferences,
   uploadDocument,
+  isComplianceAssistant,
 } from "./apiCalls";
 import {
   isFeatureFlagsClientCacheStale,
@@ -225,6 +226,22 @@ export const useStore = create<Store>()((set, get) => {
     if (newAttachment.type.includes("image")) {
       newAttachment.mode = "all_possible_text";
 
+      set((state) => ({
+        chatState: {
+          ...state.chatState,
+          attachments: [...state.chatState.attachments, newAttachment],
+        },
+      }));
+      return;
+    }
+
+    const selected = chatState.selectedAgents || [];
+    const isComplianceComposer = selected.some((slug) => {
+      const agent = get().agents.find((a) => a.slug === slug);
+      return agent != null && isComplianceAssistant(agent);
+    });
+    if (isComplianceComposer) {
+      newAttachment.mode = "all_possible_text";
       set((state) => ({
         chatState: {
           ...state.chatState,

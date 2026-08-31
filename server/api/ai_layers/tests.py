@@ -44,6 +44,10 @@ class MasscerHelpCatalogTests(SimpleTestCase):
             "rag_query",
             "list_document_templates",
             "render_document_template",
+            "list_user_assignments",
+            "list_folio_documents",
+            "update_folio_document",
+            "update_folio_status",
         ):
             self.assertIn(required, names)
         self.assertNotIn("create_speech", names)

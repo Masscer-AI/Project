@@ -77,6 +77,13 @@ def _update_attachment_visibility_impl(
             f"Attachment {attachment_id} is not in your organization"
         )
 
+    from api.compliance.folio import is_compliance_evidence
+
+    if is_compliance_evidence(att):
+        raise ValueError(
+            "Compliance expediente files cannot have their visibility changed"
+        )
+
     apply_attachment_ownership(
         att,
         user=user,

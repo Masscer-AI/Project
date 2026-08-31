@@ -315,7 +315,9 @@ class MessageAttachment(models.Model):
             if self.url:
                 raise ValidationError({"url": "url must be empty when kind='file'."})
             if self.expires_at is None:
-                self.expires_at = _message_attachment_expires_default()
+                metadata = self.metadata if isinstance(self.metadata, dict) else {}
+                if not metadata.get("compliance"):
+                    self.expires_at = _message_attachment_expires_default()
         elif self.kind == "rag_document":
             if not self.rag_document_id:
                 raise ValidationError(

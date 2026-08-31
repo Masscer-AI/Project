@@ -106,6 +106,10 @@ class ConversationMetadata(BaseModel):
         default=None,
         description="Dedicated product surface this conversation belongs to",
     )
+    folio_id: Optional[str] = Field(
+        default=None,
+        description="Compliance folio UUID when this conversation is a KYB thread",
+    )
 
 
 def metadata_payload_for_related_agents(
@@ -116,20 +120,33 @@ def metadata_payload_for_related_agents(
 ) -> dict:
     """Build validated ``Conversation.metadata`` for UI agent selection (send order)."""
     resolved_surface = surface
-    if resolved_surface is None and isinstance(existing, dict):
-        raw_surface = existing.get("surface")
-        if raw_surface == "compliance":
-            resolved_surface = "compliance"
+    folio_id = None
+    if isinstance(existing, dict):
+        if resolved_surface is None:
+            raw_surface = existing.get("surface")
+            if raw_surface == "compliance":
+                resolved_surface = "compliance"
+        raw_folio = existing.get("folio_id")
+        if raw_folio:
+            folio_id = str(raw_folio)
     meta = ConversationMetadata(
         related_agents=[ConversationRelatedAgent(id=aid) for aid in agent_ids_in_order],
         surface=resolved_surface,
+        folio_id=folio_id,
     )
     return meta.model_dump(mode="json", exclude_none=True)
 
 
-def compliance_conversation_metadata(agent_id: int) -> dict:
+def compliance_conversation_metadata(
+    agent_id: int, *, folio_id: Optional[str] = None, existing: Optional[dict] = None
+) -> dict:
     """Metadata for the sticky per-user compliance assistant thread."""
-    return metadata_payload_for_related_agents([agent_id], surface="compliance")
+    merged = dict(existing) if isinstance(existing, dict) else {}
+    if folio_id:
+        merged["folio_id"] = folio_id
+    return metadata_payload_for_related_agents(
+        [agent_id], surface="compliance", existing=merged
+    )
 
 
 class ConversationTakeoverMetadata(BaseModel):

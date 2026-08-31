@@ -52,6 +52,7 @@ def _read_attachment_impl(
     conversation_id: str,
     user_id: int | None,
     organization_id: int | None = None,
+    include_compliance_evidence: bool = False,
 ) -> ReadAttachmentResult:
     """
     Read an attachment and answer a question about it.
@@ -73,6 +74,7 @@ def _read_attachment_impl(
         user_id=user_id,
         conversation_id=conversation_id,
         organization_id=organization_id,
+        include_compliance_evidence=include_compliance_evidence,
     ):
         raise ValueError(f"Attachment {attachment_id} is not accessible")
 
@@ -360,6 +362,7 @@ def get_tool(
     conversation_id: str | None = None,
     user_id: int | None = None,
     organization_id: int | str | None = None,
+    include_compliance_evidence: bool = False,
     **kwargs,
 ) -> dict:
     """
@@ -381,6 +384,7 @@ def get_tool(
             conversation_id=conversation_id or "",
             user_id=user_id,
             organization_id=org_id,
+            include_compliance_evidence=include_compliance_evidence,
         )
 
     return {

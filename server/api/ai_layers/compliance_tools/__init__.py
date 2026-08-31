@@ -36,6 +36,9 @@ COMPLIANCE_TOOL_REGISTRY: dict[str, str] = {
     "get_tag_context": "api.ai_layers.tools.get_tag_context",
     "create_user_assignment": "api.ai_layers.tools.create_user_assignment",
     "list_user_assignments": "api.ai_layers.tools.list_user_assignments",
+    "list_folio_documents": "api.ai_layers.tools.list_folio_documents",
+    "update_folio_document": "api.ai_layers.tools.update_folio_document",
+    "update_folio_status": "api.ai_layers.tools.update_folio_status",
 }
 
 

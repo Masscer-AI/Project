@@ -52,6 +52,7 @@ import {
 import {
   cancelAgentTask,
   isLockedMasscerAgent,
+  isComplianceAssistant,
 } from "../../modules/apiCalls";
 import { agentsInChatSelectionOrder } from "../../modules/agentSelection";
 import { ToolsSelectorModal } from "../ToolsSelectorModal/ToolsSelectorModal";
@@ -145,6 +146,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       const slug = chatState.selectedAgents[0];
       const agent = agents.find((a) => a.slug === slug);
       return agent != null && isLockedMasscerAgent(agent);
+    })();
+  const isComplianceChat =
+    chatState.selectedAgents.length === 1 &&
+    (() => {
+      const slug = chatState.selectedAgents[0];
+      const agent = agents.find((a) => a.slug === slug);
+      return agent != null && isComplianceAssistant(agent);
     })();
 
   const [textPrompt, setTextPrompt] = useState(initialInput);
@@ -418,6 +426,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               <PlusMenu
                 existingFilesOnly={false}
                 alwaysAllowUpload={isLockedMasscerChat}
+                skipKnowledgeBase={isComplianceChat}
               />
               {!isLockedMasscerChat && <ToolsMenu />}
             </div>
@@ -464,9 +473,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 const PlusMenu = ({
   existingFilesOnly = false,
   alwaysAllowUpload = false,
+  skipKnowledgeBase = false,
 }: {
   existingFilesOnly?: boolean;
   alwaysAllowUpload?: boolean;
+  skipKnowledgeBase?: boolean;
 }) => {
   const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -474,8 +485,10 @@ const PlusMenu = ({
   const attachments = useStore((s) => s.chatState.attachments);
   const addFilesFlag = useIsFeatureEnabled("add-files-to-chat");
   const isAddFilesEnabled = alwaysAllowUpload || addFilesFlag;
-  const isTrainAgentsEnabled = useIsFeatureEnabled("train-agents");
-  const isWebScrapingEnabled = useIsFeatureEnabled("web-scraping");
+  const trainAgentsFlag = useIsFeatureEnabled("train-agents");
+  const webScrapingFlag = useIsFeatureEnabled("web-scraping");
+  const isTrainAgentsEnabled = !skipKnowledgeBase && trainAgentsFlag;
+  const isWebScrapingEnabled = !skipKnowledgeBase && webScrapingFlag;
   const isDriveImportEnabled =
     useIsFeatureEnabled("can-manage-integrations") === true &&
     isTrainAgentsEnabled === true;

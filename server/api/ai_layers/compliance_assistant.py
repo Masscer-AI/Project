@@ -97,8 +97,9 @@ def provision_compliance_assistant(organization) -> tuple[Agent, bool]:
 
 COMPLIANCE_ASSISTANT_TOOLS_APPENDIX = """
 Herramientas en Masscer para este flujo:
-- Chat files: list_attachments, read_attachment, update_attachment_visibility.
-- Knowledge base: list_knowledge_base_documents, read_knowledge_base_document, rag_query.
+- Chat files: list_attachments, read_attachment (current conversation / expediente only).
+- Expediente: list_folio_documents, update_folio_document, update_folio_status.
+- Knowledge base (org policies/templates only, not KYB evidence): list_knowledge_base_documents, read_knowledge_base_document, rag_query.
 - Generate files: generate_gamma_attachment (set format=document for a PDF/doc, or presentation; export PDF when the file will be signed), generate_document_file (DOCX), list_document_templates + render_document_template, generate_excel_file.
 - Signature: only request_signature sends a PDF to Mifiel. Masscer never requests or stores a .key file or e.firma password.
 - Org context: list_organization_members, list_organization_roles, send_email, explore_web.
@@ -142,6 +143,18 @@ def build_compliance_runtime_context(
                 lines.append(f"- {key}: {value}")
     if clock_context:
         lines.append(clock_context)
+    if user is not None:
+        from api.compliance.models import ComplianceFolio
+        from api.compliance.folio import folio_runtime_lines
+
+        folio = (
+            ComplianceFolio.objects.filter(
+                organization=organization, subject_user=user
+            )
+            .prefetch_related("documents__attachment")
+            .first()
+        )
+        lines.extend(folio_runtime_lines(folio))
     return "\n".join(lines)
 
 
@@ -200,17 +213,28 @@ def get_or_create_compliance_conversation(user):
             .first()
         )
         if existing:
+            from api.compliance.folio import get_or_create_folio
+
+            folio, _ = get_or_create_folio(org, user)
             meta = existing.metadata if isinstance(existing.metadata, dict) else {}
-            if not (meta.get("related_agents") or []):
-                existing.metadata = compliance_conversation_metadata(agent.id)
+            next_meta = compliance_conversation_metadata(
+                agent.id, folio_id=str(folio.id), existing=meta
+            )
+            if meta != next_meta:
+                existing.metadata = next_meta
                 existing.save(update_fields=["metadata", "updated_at"])
             return existing, None
 
+        from api.compliance.folio import get_or_create_folio
+
+        folio, _ = get_or_create_folio(org, user)
         conversation = Conversation.objects.create(
             user=user,
             organization=org,
             title=COMPLIANCE_ASSISTANT_NAME,
-            metadata=compliance_conversation_metadata(agent.id),
+            metadata=compliance_conversation_metadata(
+                agent.id, folio_id=str(folio.id)
+            ),
         )
         return conversation, None
 
@@ -244,15 +268,23 @@ def restart_compliance_conversation(user):
                 metadata__contains={"surface": "compliance"},
             )
         )
+        folio_id = None
         for conv in sticky:
+            meta = conv.metadata if isinstance(conv.metadata, dict) else {}
+            folio_id = folio_id or meta.get("folio_id")
             conv.status = "archived"
             conv.archived_at = now
             conv.save(update_fields=["status", "archived_at", "updated_at"])
 
+        from api.compliance.folio import get_or_create_folio
+
+        folio, _ = get_or_create_folio(org, user)
         conversation = Conversation.objects.create(
             user=user,
             organization=org,
             title=COMPLIANCE_ASSISTANT_NAME,
-            metadata=compliance_conversation_metadata(agent.id),
+            metadata=compliance_conversation_metadata(
+                agent.id, folio_id=str(folio_id or folio.id)
+            ),
         )
         return conversation, sticky, None

@@ -979,6 +979,9 @@ def _create_attachments_from_data_urls(request, conversation, user, attachments_
             file=file_obj,
             content_type=content_type,
         )
+        from api.compliance.folio import ingest_compliance_attachment
+
+        ingest_compliance_attachment(attachment, actor=user)
         url = request.build_absolute_uri(attachment.file.url)
         created_attachments.append({"id": str(attachment.id), "url": url})
 
