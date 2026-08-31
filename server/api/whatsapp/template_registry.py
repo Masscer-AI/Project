@@ -511,9 +511,7 @@ AVISOS_INTEGRAREM_GENERAL = WhatsAppTemplateDefinition(
         "Solo informacion general; no incluir RFC completo, datos bancarios, "
         "contrasenas, e.firma, documentos confidenciales ni conclusiones "
         "personalizadas. {{1}} debe ser unicamente el nombre de la persona. "
-        "Tres botones de respuesta rapida: 'Compartir este aviso' "
-        "(indicar que puede usar la funcion de compartir de WhatsApp; "
-        "no promete reenvio automatico), 'Solicitar audio' (generar y "
+        "Dos botones de respuesta rapida: 'Solicitar audio' (generar y "
         "entregar en el mismo hilo un resumen breve en audio de la edicion "
         "vigente, aclarando que es informacion general), 'Dejar de recibir' "
         "(confirmar brevemente la canalizacion de exclusion; no insistir "
@@ -552,15 +550,6 @@ AVISOS_INTEGRAREM_GENERAL = WhatsAppTemplateDefinition(
         WhatsAppTemplateButton(
             index=0,
             sub_type="quick_reply",
-            label="Compartir este aviso",
-            description=(
-                "Compartir este aviso. Indicar que puede usar la funcion de "
-                "compartir de WhatsApp; no promete reenvio automatico."
-            ),
-        ),
-        WhatsAppTemplateButton(
-            index=1,
-            sub_type="quick_reply",
             label="Solicitar audio",
             description=(
                 "Solicitar audio. Generar y entregar en el mismo hilo un "
@@ -569,7 +558,7 @@ AVISOS_INTEGRAREM_GENERAL = WhatsAppTemplateDefinition(
             ),
         ),
         WhatsAppTemplateButton(
-            index=2,
+            index=1,
             sub_type="quick_reply",
             label="Dejar de recibir",
             description=(

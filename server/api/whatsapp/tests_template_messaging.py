@@ -331,11 +331,10 @@ class WhatsAppTemplateRegistryTests(SimpleTestCase):
         self.assertIn("{{4}}", tpl.body_text)
         self.assertEqual(tpl.body_variable_count, 4)
         self.assertEqual(tpl.button_variable_count, 0)
-        self.assertEqual(len(tpl.buttons), 3)
+        self.assertEqual(len(tpl.buttons), 2)
         self.assertTrue(all(b.sub_type == "quick_reply" for b in tpl.buttons))
-        self.assertEqual(tpl.buttons[0].label, "Compartir este aviso")
-        self.assertEqual(tpl.buttons[1].label, "Solicitar audio")
-        self.assertEqual(tpl.buttons[2].label, "Dejar de recibir")
+        self.assertEqual(tpl.buttons[0].label, "Solicitar audio")
+        self.assertEqual(tpl.buttons[1].label, "Dejar de recibir")
         self.assertIn(
             AVISOS_INTEGRAREM_GENERAL.id,
             {t.id for t in list_enabled_templates()},
