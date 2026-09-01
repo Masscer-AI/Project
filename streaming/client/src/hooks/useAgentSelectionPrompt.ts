@@ -20,9 +20,11 @@ export function useAgentSelectionPrompt({
 }: UseAgentSelectionPromptOptions) {
   const [opened, { open, close }] = useDisclosure(false);
   const dismissedForConversationRef = useRef<string | null>(null);
+  const prevSelectedCountRef = useRef(selectedAgentCount);
 
   useEffect(() => {
     dismissedForConversationRef.current = null;
+    prevSelectedCountRef.current = selectedAgentCount;
   }, [conversationId]);
 
   const shouldPrompt =
@@ -39,7 +41,14 @@ export function useAgentSelectionPrompt({
   }, [shouldPrompt, conversationId, open]);
 
   useEffect(() => {
-    if (closeOnFirstSelection && selectedAgentCount > 0 && opened) {
+    const prevCount = prevSelectedCountRef.current;
+    prevSelectedCountRef.current = selectedAgentCount;
+    if (
+      closeOnFirstSelection &&
+      opened &&
+      prevCount === 0 &&
+      selectedAgentCount > 0
+    ) {
       close();
     }
   }, [closeOnFirstSelection, selectedAgentCount, opened, close]);
