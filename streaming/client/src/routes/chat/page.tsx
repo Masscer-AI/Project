@@ -74,7 +74,7 @@ export default function ChatView() {
   const revalidator = useRevalidator();
 
   const routeConversation = loaderData.conversation;
-  const isComplianceRoute = location.pathname === "/compliance";
+  const isComplianceRoute = location.pathname === "/compliance/chat";
   const activeConversation =
     conversation &&
     (conversation.id === routeConversation?.id ||
@@ -237,6 +237,7 @@ export default function ChatView() {
 
   useEffect(() => {
     if (!conversation?.messages) return;
+    if (conversation.id !== conversationId) return;
     const { agentTaskStatus, agentTaskConversationId } = useStore.getState();
     if (
       agentTaskStatus &&
@@ -246,7 +247,7 @@ export default function ChatView() {
       return;
     }
     setMessages(conversation.messages);
-  }, [conversation]);
+  }, [conversation, conversationId]);
 
   useEffect(() => {
     const container = chatMessageContainerRef.current;
@@ -549,7 +550,16 @@ export default function ChatView() {
 
   useEffect(() => {
     if (!isComplianceSurface || isViewer || composerMode !== "agent") return;
-    if (!conversationId || messages.length > 0) return;
+    if (!conversationId) return;
+    const loaderConv = loaderData.conversation;
+    const loaderCount =
+      loaderConv?.id === conversationId
+        ? Math.max(
+            loaderConv.messages?.length ?? 0,
+            loaderConv.number_of_messages ?? 0
+          )
+        : 0;
+    if (messages.length > 0 || loaderCount > 0) return;
     if (chatState.writtingMode) return;
     const compliance = agents.find(isComplianceAssistant);
     if (!compliance) return;
@@ -570,6 +580,7 @@ export default function ChatView() {
     composerMode,
     conversationId,
     messages.length,
+    loaderData.conversation,
     agents,
     chatState.selectedAgents,
     chatState.writtingMode,
@@ -755,7 +766,7 @@ export default function ChatView() {
               showActions={!isForeignConversation && !isComplianceSurface}
               onDeleted={() => {
                 setConversation(null);
-                navigate(isComplianceSurface ? "/compliance" : "/chat");
+                navigate(isComplianceSurface ? "/compliance/chat" : "/chat");
                 window.dispatchEvent(new Event("conversations-changed"));
               }}
             />

@@ -2088,7 +2088,11 @@ class ComplianceAssistantTests(TestCase):
         self.outsider = User.objects.create_user(
             username="comp_out", email="comp_out@e.com", password="x"
         )
-        self.org = Organization.objects.create(name="Compliance Org", owner=self.owner)
+        self.org = Organization.objects.create(
+            name="Compliance Org",
+            owner=self.owner,
+            pld_access_enabled=True,
+        )
         self.other_org = Organization.objects.create(
             name="Other Org", owner=self.outsider
         )
@@ -2269,6 +2273,21 @@ class ComplianceAssistantTests(TestCase):
         )
         self.assertEqual(response.status_code, 404)
 
+    def test_compliance_endpoint_404_when_pld_access_disabled(self):
+        self.org.pld_access_enabled = False
+        self.org.save(update_fields=["pld_access_enabled"])
+        response = self.client.post(
+            "/v1/ai_layers/agent-task/compliance/",
+            {
+                "conversation_id": str(self.conv.id),
+                "agent_slug": self.compliance_agent.slug,
+                "user_inputs": [{"type": "input_text", "text": "sign this"}],
+            },
+            format="json",
+            HTTP_AUTHORIZATION=f"Token {self.owner_token.key}",
+        )
+        self.assertEqual(response.status_code, 404)
+
     def test_put_compliance_assistant_forbidden(self):
         self.client.force_authenticate(user=self.owner)
         response = self.client.put(
@@ -2363,6 +2382,15 @@ class ComplianceAssistantTests(TestCase):
         )
         self.assertEqual(again.status_code, 200)
         self.assertEqual(again.json()["id"], new_id)
+
+    def test_sticky_compliance_conversation_404_when_pld_access_disabled(self):
+        self.org.pld_access_enabled = False
+        self.org.save(update_fields=["pld_access_enabled"])
+        response = self.client.get(
+            "/v1/ai_layers/compliance/conversation/",
+            HTTP_AUTHORIZATION=f"Token {self.owner_token.key}",
+        )
+        self.assertEqual(response.status_code, 404)
 
     def test_sticky_compliance_conversation_404_when_not_provisioned(self):
         response = self.client.get(

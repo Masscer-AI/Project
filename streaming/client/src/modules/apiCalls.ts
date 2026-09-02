@@ -11,7 +11,6 @@ import {
   TOrganizationCredentials,
   TOrganizationMember,
   TOrganizationInvite,
-  TInviteIntake,
   TOrganizationRole,
   TRoleAssignment,
   TConversationAlert,
@@ -1761,7 +1760,6 @@ export const createOrganizationInvite = async (
     name?: string;
     bio?: string;
     expires_at?: string | null;
-    intake?: TInviteIntake;
     role_id?: string | null;
   }
 ) => {
@@ -2191,6 +2189,39 @@ export const triggerPlatformAssistantTask = async (
   return makeAuthenticatedRequest<TriggerAgentTaskResponse>(
     "POST",
     "/v1/ai_layers/agent-task/platform/",
+    payload
+  );
+};
+
+export type TPldEntity = {
+  id: string;
+  person_type: string;
+  relationship: string | null;
+  metadata: Record<string, string | number | boolean | null | undefined>;
+  created_at: string | null;
+  updated_at: string | null;
+  expedient: {
+    id: string;
+    status: string;
+    vulnerable_activity: string;
+  } | null;
+};
+
+export const listPldEntities = async () => {
+  return makeAuthenticatedRequest<{ results: TPldEntity[] }>(
+    "GET",
+    "/v1/compliance/entities/"
+  );
+};
+
+export const createPldEntity = async (payload: {
+  person_type: string;
+  relationship: string;
+  metadata: Record<string, string>;
+}) => {
+  return makeAuthenticatedRequest<TPldEntity>(
+    "POST",
+    "/v1/compliance/entities/",
     payload
   );
 };

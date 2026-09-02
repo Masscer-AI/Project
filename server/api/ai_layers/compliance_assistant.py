@@ -172,6 +172,8 @@ def get_compliance_agent_for_user(user):
     from api.ai_layers.access import get_user_organizations_for_access
 
     for org in get_user_organizations_for_access(user):
+        if not getattr(org, "pld_access_enabled", False):
+            continue
         agent = Agent.objects.filter(
             organization=org,
             agent_kind=AgentKind.COMPLIANCE_ASSISTANT,
@@ -186,7 +188,7 @@ def get_or_create_compliance_conversation(user):
     Return the sticky compliance thread for this user and organization.
 
     One active/inactive conversation per user+org. 404-equivalent when the
-    org has no compliance assistant.
+    org has no PLD access or no compliance assistant.
     """
     from django.db import transaction
 

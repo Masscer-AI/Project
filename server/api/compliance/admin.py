@@ -1,6 +1,12 @@
 from django.contrib import admin
 
-from api.compliance.models import ComplianceFolio, FolioDocument, FolioEvent
+from api.compliance.models import (
+    ComplianceFolio,
+    FolioDocument,
+    FolioEvent,
+    PLDEntity,
+    PLDExpedient,
+)
 
 
 class FolioDocumentInline(admin.TabularInline):
@@ -36,4 +42,51 @@ class FolioDocumentAdmin(admin.ModelAdmin):
     list_display = ("id", "folio", "document_kind", "status", "created_at")
     list_filter = ("status",)
     raw_id_fields = ("folio", "attachment")
+    readonly_fields = ("id", "created_at", "updated_at")
+
+
+class PLDExpedientInline(admin.TabularInline):
+    model = PLDExpedient
+    extra = 0
+    fields = (
+        "id",
+        "status",
+        "vulnerable_activity",
+        "started_at",
+        "created_at",
+    )
+    readonly_fields = ("id", "created_at")
+    show_change_link = True
+
+
+@admin.register(PLDEntity)
+class PLDEntityAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "organization",
+        "person_type",
+        "relationship",
+        "user",
+        "updated_at",
+    )
+    list_filter = ("person_type", "relationship")
+    search_fields = ("user__email", "user__username")
+    raw_id_fields = ("organization", "user")
+    readonly_fields = ("id", "created_at", "updated_at")
+    inlines = [PLDExpedientInline]
+
+
+@admin.register(PLDExpedient)
+class PLDExpedientAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "organization",
+        "entity",
+        "status",
+        "vulnerable_activity",
+        "started_at",
+        "updated_at",
+    )
+    list_filter = ("status", "vulnerable_activity")
+    raw_id_fields = ("organization", "entity")
     readonly_fields = ("id", "created_at", "updated_at")

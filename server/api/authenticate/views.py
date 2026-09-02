@@ -347,7 +347,7 @@ class SignupAPIView(APIView):
             profile.organization = invite_locked.organization
             profile.name = invite_locked.name or ""
             profile.bio = invite_locked.bio or ""
-            profile.intake = invite_locked.intake if isinstance(invite_locked.intake, dict) else {}
+            profile.intake = {}
             profile.expires_at = invite_locked.profile_expires_at
             profile.save()
 
@@ -1253,11 +1253,6 @@ class OrganizationInvitesView(View):
         normalized_email = ser.validated_data["email"].strip().lower()
         name = (ser.validated_data.get("name") or "").strip()
         bio = (ser.validated_data.get("bio") or "").strip()
-        intake = ser.validated_data.get("intake") or {}
-        from api.ai_layers.compliance_assistant import organization_has_compliance_assistant
-
-        if intake and not organization_has_compliance_assistant(organization):
-            intake = {}
         profile_expires_at = ser.validated_data.get("expires_at")
         role = None
         role_id = ser.validated_data.get("role_id")
@@ -1292,7 +1287,7 @@ class OrganizationInvitesView(View):
             pending.invite_expires_at = invite_deadline
             pending.name = name
             pending.bio = bio
-            pending.intake = intake
+            pending.intake = {}
             pending.profile_expires_at = profile_expires_at
             pending.role = role
             pending.invited_by = request.user
@@ -1304,7 +1299,7 @@ class OrganizationInvitesView(View):
                 email=normalized_email,
                 name=name,
                 bio=bio,
-                intake=intake,
+                intake={},
                 profile_expires_at=profile_expires_at,
                 role=role,
                 invited_by=request.user,

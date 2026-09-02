@@ -935,6 +935,12 @@ class ComplianceAgentTaskView(View):
                 status=500,
             )
 
+        if not getattr(agent.organization, "pld_access_enabled", False):
+            return JsonResponse(
+                {"error": "Compliance assistant is not enabled for this organization"},
+                status=404,
+            )
+
         try:
             conversation = Conversation.objects.get(id=conversation_id)
         except Conversation.DoesNotExist:

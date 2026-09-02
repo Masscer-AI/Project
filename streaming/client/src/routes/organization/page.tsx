@@ -136,10 +136,6 @@ const EMPTY_INVITE_FORM = {
   bio: "",
   expires_at: "",
   role_id: "",
-  person_type: "",
-  counterparty_role: "",
-  rfc: "",
-  extraFields: [] as { key: string; value: string }[],
 };
 
 export default function OrganizationPage() {
@@ -433,7 +429,6 @@ export default function OrganizationPage() {
   }, [searchParams, setSearchParams]);
 
   const org = orgs[0] ?? null;
-  const hasComplianceAssistant = Boolean(org?.has_compliance_assistant);
   const hasActiveSubscription = Boolean(billing?.subscription?.is_active);
   const hasCustomSubscription = billing?.subscription?.plan?.slug === "custom";
   const hasActiveOrganizationPlan = Boolean(
@@ -758,8 +753,7 @@ export default function OrganizationPage() {
 
   const handleCreateMember = async () => {
     if (!org?.id) return;
-    const { email, name, bio, expires_at, role_id, person_type, counterparty_role, rfc, extraFields } =
-      createMemberForm;
+    const { email, name, bio, expires_at, role_id } = createMemberForm;
     if (!email.trim()) {
       toast.error(t("email-required-hint"));
       return;
@@ -767,31 +761,11 @@ export default function OrganizationPage() {
     setCreateMemberLoading(true);
     const tid = toast.loading(t("loading"));
     try {
-      const intake: Record<string, string> = {};
-      if (hasComplianceAssistant) {
-        if (person_type.trim()) {
-          intake.person_type = person_type.trim();
-        }
-        if (counterparty_role.trim()) {
-          intake.counterparty_role = counterparty_role.trim();
-        }
-        if (rfc.trim()) {
-          intake.rfc = rfc.trim();
-        }
-        for (const field of extraFields) {
-          const key = field.key.trim();
-          const value = field.value.trim();
-          if (key && value) {
-            intake[key] = value;
-          }
-        }
-      }
       await createOrganizationInvite(org.id, {
         email: email.trim(),
         name: name.trim() || undefined,
         bio: bio.trim() || undefined,
         expires_at: expires_at ? new Date(expires_at).toISOString() : null,
-        intake: Object.keys(intake).length ? intake : undefined,
         role_id: role_id.trim() || null,
       });
       setCreateMemberOpened(false);
@@ -2140,106 +2114,6 @@ export default function OrganizationPage() {
                 .map((r) => ({ value: r.id, label: r.name })),
             ]}
           />
-          {hasComplianceAssistant && (
-            <>
-          <NativeSelect
-            label={t("invite-person-type")}
-            description={t("invite-intake-optional-hint")}
-            value={createMemberForm.person_type}
-            onChange={(e) => {
-              const val = e.currentTarget.value;
-              setCreateMemberForm((prev) => ({ ...prev, person_type: val }));
-            }}
-            data={[
-              { value: "", label: t("invite-field-unspecified") },
-              { value: "persona_fisica", label: t("invite-person-fisica") },
-              { value: "persona_moral", label: t("invite-person-moral") },
-            ]}
-          />
-          <NativeSelect
-            label={t("invite-counterparty-role")}
-            value={createMemberForm.counterparty_role}
-            onChange={(e) => {
-              const val = e.currentTarget.value;
-              setCreateMemberForm((prev) => ({ ...prev, counterparty_role: val }));
-            }}
-            data={[
-              { value: "", label: t("invite-field-unspecified") },
-              { value: "cliente", label: t("invite-role-cliente") },
-              { value: "proveedor", label: t("invite-role-proveedor") },
-              { value: "ambos", label: t("invite-role-ambos") },
-            ]}
-          />
-          <TextInput
-            label={t("invite-rfc")}
-            description={t("invite-rfc-hint")}
-            value={createMemberForm.rfc}
-            onChange={(e) => {
-              const val = e.currentTarget.value;
-              setCreateMemberForm((prev) => ({ ...prev, rfc: val }));
-            }}
-          />
-          {createMemberForm.extraFields.map((field, index) => (
-            <Group key={index} align="flex-end" gap="xs" wrap="nowrap">
-              <TextInput
-                label={index === 0 ? t("invite-extra-field-key") : undefined}
-                placeholder={t("invite-extra-field-key")}
-                value={field.key}
-                onChange={(e) => {
-                  const val = e.currentTarget.value;
-                  setCreateMemberForm((prev) => {
-                    const extraFields = [...prev.extraFields];
-                    extraFields[index] = { ...extraFields[index], key: val };
-                    return { ...prev, extraFields };
-                  });
-                }}
-                style={{ flex: 1 }}
-              />
-              <TextInput
-                label={index === 0 ? t("invite-extra-field-value") : undefined}
-                placeholder={t("invite-extra-field-value")}
-                value={field.value}
-                onChange={(e) => {
-                  const val = e.currentTarget.value;
-                  setCreateMemberForm((prev) => {
-                    const extraFields = [...prev.extraFields];
-                    extraFields[index] = { ...extraFields[index], value: val };
-                    return { ...prev, extraFields };
-                  });
-                }}
-                style={{ flex: 1 }}
-              />
-              <ActionIcon
-                variant="subtle"
-                color="gray"
-                size="sm"
-                aria-label={t("remove")}
-                onClick={() => {
-                  setCreateMemberForm((prev) => ({
-                    ...prev,
-                    extraFields: prev.extraFields.filter((_, i) => i !== index),
-                  }));
-                }}
-              >
-                <IconTrash size={16} />
-              </ActionIcon>
-            </Group>
-          ))}
-          <Button
-            variant="subtle"
-            size="xs"
-            leftSection={<IconPlus size={14} />}
-            onClick={() => {
-              setCreateMemberForm((prev) => ({
-                ...prev,
-                extraFields: [...prev.extraFields, { key: "", value: "" }],
-              }));
-            }}
-          >
-            {t("invite-add-field")}
-          </Button>
-            </>
-          )}
           <Textarea
             label={t("notes-bio-optional")}
             description={t("notes-bio-description")}

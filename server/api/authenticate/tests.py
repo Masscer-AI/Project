@@ -272,21 +272,9 @@ class OrganizationInviteFlowTests(TestCase):
         )
         self.assertEqual(response.status_code, 404)
 
-    @patch.object(OrganizationInvite, "generate_raw_token", return_value="intake-invite-token")
+    @patch.object(OrganizationInvite, "generate_raw_token", return_value="intake-ignored-token")
     @patch("api.authenticate.views.EmailService")
-    def test_create_invite_stores_optional_intake_and_copies_on_accept(
-        self, _email_cls, _token_mock
-    ):
-        from api.ai_layers.models import Agent, AgentKind
-
-        Agent.objects.create(
-            name="Compliance",
-            slug="test-compliance-invite",
-            salute="hi",
-            act_as="help",
-            organization=self.org,
-            agent_kind=AgentKind.COMPLIANCE_ASSISTANT,
-        )
+    def test_create_invite_ignores_intake_payload(self, _email_cls, _token_mock):
         create_resp = self.client.post(
             f"/v1/auth/organizations/{self.org.id}/invites/",
             data={
@@ -295,48 +283,6 @@ class OrganizationInviteFlowTests(TestCase):
                 "intake": {
                     "person_type": "persona_moral",
                     "counterparty_role": "proveedor",
-                    "relationship_status": "nuevo",
-                },
-            },
-            format="json",
-            **self._auth_headers(),
-        )
-        self.assertEqual(create_resp.status_code, 201)
-        self.assertEqual(
-            create_resp.json()["invite"]["intake"],
-            {
-                "person_type": "persona_moral",
-                "counterparty_role": "proveedor",
-                "relationship_status": "nuevo",
-            },
-        )
-
-        accept = self.client.post(
-            "/v1/auth/signup",
-            data={
-                "invite_token": "intake-invite-token",
-                "password": "join-password-123",
-                "confirm_password": "join-password-123",
-            },
-            format="json",
-        )
-        self.assertEqual(accept.status_code, 201)
-        joiner = User.objects.get(email="kyb@test.com")
-        self.assertEqual(joiner.profile.intake["person_type"], "persona_moral")
-        self.assertEqual(joiner.profile.intake["counterparty_role"], "proveedor")
-        self.assertEqual(joiner.profile.name, "ACME SA")
-
-    @patch.object(OrganizationInvite, "generate_raw_token", return_value="no-compliance-intake-token")
-    @patch("api.authenticate.views.EmailService")
-    def test_create_invite_drops_intake_without_compliance_assistant(
-        self, _email_cls, _token_mock
-    ):
-        create_resp = self.client.post(
-            f"/v1/auth/organizations/{self.org.id}/invites/",
-            data={
-                "email": "nocomp@test.com",
-                "intake": {
-                    "person_type": "persona_fisica",
                     "rfc": "XAXX010101000",
                 },
             },
@@ -346,9 +292,23 @@ class OrganizationInviteFlowTests(TestCase):
         self.assertEqual(create_resp.status_code, 201)
         self.assertEqual(create_resp.json()["invite"]["intake"], {})
 
-    @patch.object(OrganizationInvite, "generate_raw_token", return_value="bad-intake-token")
+        accept = self.client.post(
+            "/v1/auth/signup",
+            data={
+                "invite_token": "intake-ignored-token",
+                "password": "join-password-123",
+                "confirm_password": "join-password-123",
+            },
+            format="json",
+        )
+        self.assertEqual(accept.status_code, 201)
+        joiner = User.objects.get(email="kyb@test.com")
+        self.assertEqual(joiner.profile.intake, {})
+        self.assertEqual(joiner.profile.name, "ACME SA")
+
+    @patch.object(OrganizationInvite, "generate_raw_token", return_value="bad-intake-ignored")
     @patch("api.authenticate.views.EmailService")
-    def test_create_invite_rejects_non_object_intake(self, _email_cls, _token_mock):
+    def test_create_invite_ignores_non_object_intake(self, _email_cls, _token_mock):
         response = self.client.post(
             f"/v1/auth/organizations/{self.org.id}/invites/",
             data={
@@ -358,7 +318,8 @@ class OrganizationInviteFlowTests(TestCase):
             format="json",
             **self._auth_headers(),
         )
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()["invite"]["intake"], {})
 
     def test_invite_signup_rejects_bad_token(self):
         response = self.client.post(
@@ -396,3 +357,14 @@ class OrganizationInviteFlowTests(TestCase):
 
         bad = self.client.get("/v1/auth/signup?invite=revoke-invite-token")
         self.assertEqual(bad.status_code, 400)
+
+    def test_organization_list_includes_pld_access_enabled(self):
+        self.org.pld_access_enabled = True
+        self.org.save(update_fields=["pld_access_enabled"])
+        listed = self.client.get(
+            "/v1/auth/organizations/",
+            **self._auth_headers(),
+        )
+        self.assertEqual(listed.status_code, 200)
+        row = next(r for r in listed.json() if r["id"] == str(self.org.id))
+        self.assertTrue(row.get("pld_access_enabled"))

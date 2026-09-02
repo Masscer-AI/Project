@@ -153,3 +153,172 @@ class ComplianceFolioTests(TestCase):
         self.assertEqual(folio_upd.status, FolioStatus.IN_REVIEW)
         folio = ComplianceFolio.objects.get(pk=listed.folio_id)
         self.assertEqual(folio.notes, "Waiting on CSF")
+
+
+class PLDFoundationTests(TestCase):
+    def setUp(self):
+        _bootstrap()
+        self.user = User.objects.create_user(
+            username="pld-user", email="pld@test.com", password="x"
+        )
+        self.org = Organization.objects.create(name="PLD Org", owner=self.user)
+
+    def test_unique_self_entity_per_org(self):
+        from django.core.exceptions import ValidationError
+        from django.db import IntegrityError, transaction
+
+        from api.compliance.models import PLDEntity, PLDPersonType
+
+        PLDEntity.objects.create(
+            organization=self.org,
+            person_type=PLDPersonType.PERSONA_MORAL,
+            relationship=None,
+        )
+        with self.assertRaises((IntegrityError, ValidationError)):
+            with transaction.atomic():
+                PLDEntity.objects.create(
+                    organization=self.org,
+                    person_type=PLDPersonType.PERSONA_MORAL,
+                    relationship=None,
+                )
+
+    def test_expedient_unique_per_org_entity_allows_counterparties(self):
+        from django.db import IntegrityError, transaction
+
+        from api.compliance.models import (
+            PLDEntity,
+            PLDExpedient,
+            PLDPersonType,
+            PLDRelationship,
+            VulnerableActivity,
+        )
+
+        self_entity = PLDEntity.objects.create(
+            organization=self.org,
+            person_type=PLDPersonType.PERSONA_MORAL,
+            relationship=None,
+            metadata={"legal_name": "PLD Org SA"},
+        )
+        client = PLDEntity.objects.create(
+            organization=self.org,
+            person_type=PLDPersonType.PERSONA_FISICA,
+            relationship=PLDRelationship.CLIENTE,
+            metadata={"name": "Cliente Uno"},
+        )
+        PLDExpedient.objects.create(
+            organization=self.org,
+            entity=self_entity,
+            vulnerable_activity=VulnerableActivity.ACTIVOS_VIRTUALES,
+        )
+        PLDExpedient.objects.create(
+            organization=self.org,
+            entity=client,
+        )
+        self.assertEqual(PLDExpedient.objects.filter(organization=self.org).count(), 2)
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                PLDExpedient.objects.create(
+                    organization=self.org,
+                    entity=client,
+                )
+
+    def test_metadata_validation(self):
+        from django.core.exceptions import ValidationError
+
+        from api.compliance.models import PLDEntity, PLDPersonType
+        from api.compliance.pld_metadata import normalize_pld_entity_metadata
+
+        self.assertEqual(normalize_pld_entity_metadata("persona_fisica", None), {})
+        self.assertEqual(normalize_pld_entity_metadata("persona_moral", {}), {})
+        with self.assertRaises(ValueError):
+            normalize_pld_entity_metadata("persona_moral", ["not", "an", "object"])
+        with self.assertRaises(ValueError):
+            normalize_pld_entity_metadata(
+                "persona_moral", {"controllers": "not-a-list"}
+            )
+
+        with self.assertRaises(ValidationError):
+            PLDEntity.objects.create(
+                organization=self.org,
+                person_type=PLDPersonType.PERSONA_MORAL,
+                relationship=None,
+                metadata=["bad"],
+            )
+
+
+class PLDEntityAPITests(TestCase):
+    def setUp(self):
+        from rest_framework.test import APIClient
+
+        from api.authenticate.models import Token, UserProfile
+
+        _bootstrap()
+        self.owner = User.objects.create_user(
+            username="pld-api-owner", email="pld-api@test.com", password="x"
+        )
+        self.outsider = User.objects.create_user(
+            username="pld-api-out", email="pld-out@test.com", password="x"
+        )
+        self.org = Organization.objects.create(
+            name="PLD API Org",
+            owner=self.owner,
+            pld_access_enabled=True,
+        )
+        UserProfile.objects.update_or_create(
+            user=self.owner,
+            defaults={"organization": self.org},
+        )
+        self.owner_token = Token.objects.create(user=self.owner)
+        self.outsider_token = Token.objects.create(user=self.outsider)
+        self.client = APIClient()
+
+    def test_list_and_create_counterparty(self):
+        from api.compliance.models import PLDEntity, PLDExpedient
+
+        listed = self.client.get(
+            "/v1/compliance/entities/",
+            HTTP_AUTHORIZATION=f"Token {self.owner_token.key}",
+        )
+        self.assertEqual(listed.status_code, 200)
+        self.assertEqual(listed.json()["results"], [])
+
+        created = self.client.post(
+            "/v1/compliance/entities/",
+            {
+                "person_type": "persona_moral",
+                "relationship": "cliente",
+                "metadata": {"legal_name": "ACME SA"},
+            },
+            format="json",
+            HTTP_AUTHORIZATION=f"Token {self.owner_token.key}",
+        )
+        self.assertEqual(created.status_code, 201)
+        self.assertEqual(created.json()["relationship"], "cliente")
+        self.assertEqual(created.json()["metadata"].get("legal_name"), "ACME SA")
+        self.assertIsNotNone(created.json().get("expedient"))
+        self.assertEqual(PLDEntity.objects.filter(organization=self.org).count(), 1)
+        self.assertEqual(PLDExpedient.objects.filter(organization=self.org).count(), 1)
+
+        listed = self.client.get(
+            "/v1/compliance/entities/",
+            HTTP_AUTHORIZATION=f"Token {self.owner_token.key}",
+        )
+        self.assertEqual(listed.status_code, 200)
+        self.assertEqual(len(listed.json()["results"]), 1)
+
+    def test_create_rejects_missing_relationship(self):
+        response = self.client.post(
+            "/v1/compliance/entities/",
+            {"person_type": "persona_fisica", "metadata": {"name": "Ana"}},
+            format="json",
+            HTTP_AUTHORIZATION=f"Token {self.owner_token.key}",
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_list_404_without_pld_access(self):
+        response = self.client.get(
+            "/v1/compliance/entities/",
+            HTTP_AUTHORIZATION=f"Token {self.outsider_token.key}",
+        )
+        self.assertEqual(response.status_code, 404)
+

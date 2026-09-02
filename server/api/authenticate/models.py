@@ -219,6 +219,10 @@ class Organization(models.Model):
         blank=True,
         help_text="Logo de la organización (recomendado: 500x500px, formato PNG/JPG/SVG)"
     )
+    pld_access_enabled = models.BooleanField(
+        default=False,
+        help_text="When true, this organization can use the PLD / compliance hub.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

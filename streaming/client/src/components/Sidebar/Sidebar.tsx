@@ -64,7 +64,7 @@ export const Sidebar: React.FC = () => {
     setOpenedModals: state.setOpenedModals,
     logout: state.logout,
   }));
-  const [hasComplianceAssistant, setHasComplianceAssistant] = useState(false);
+  const [hasPldAccess, setHasPldAccess] = useState(false);
   const location = useLocation();
 
   const [history, setHistory] = useState<TConversation[]>([]);
@@ -101,13 +101,13 @@ export const Sidebar: React.FC = () => {
       .then((orgs) => {
         if (!cancelled) {
           setCanManageOrg(orgs.some((o) => o.is_owner || o.can_manage));
-          setHasComplianceAssistant(orgs.some((o) => o.has_compliance_assistant));
+          setHasPldAccess(orgs.some((o) => o.pld_access_enabled));
         }
       })
       .catch(() => {
         if (!cancelled) {
           setCanManageOrg(false);
-          setHasComplianceAssistant(false);
+          setHasPldAccess(false);
         }
       });
     return () => {
@@ -250,7 +250,7 @@ export const Sidebar: React.FC = () => {
           >
             {t("conversations")}
           </Button>
-          {hasComplianceAssistant && (
+          {hasPldAccess && (
             <Button
               variant="default"
               size="sm"
@@ -260,7 +260,7 @@ export const Sidebar: React.FC = () => {
               styles={{
                 root: {
                   backgroundColor:
-                    location.pathname === "/compliance"
+                    location.pathname.startsWith("/compliance")
                       ? "rgba(255,255,255,0.08)"
                       : undefined,
                 },

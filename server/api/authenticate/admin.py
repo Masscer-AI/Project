@@ -120,9 +120,16 @@ class OrganizationTenantInline(admin.StackedInline):
 @admin.register(Organization)
 class OrganizationAdmin(admin.ModelAdmin):
     form = OrganizationAdminForm
-    list_display = ("name", "description", "owner", "timezone", "logo_preview")
+    list_display = (
+        "name",
+        "description",
+        "owner",
+        "timezone",
+        "pld_access_enabled",
+        "logo_preview",
+    )
     search_fields = ("name", "description", "owner__username")
-    list_filter = ("timezone", "owner")
+    list_filter = ("timezone", "owner", "pld_access_enabled")
     readonly_fields = ("logo_preview",)
     actions = [
         "provision_platform_assistant_action",
@@ -139,7 +146,7 @@ class OrganizationAdmin(admin.ModelAdmin):
 
     fieldsets = (
         ('Información básica', {
-            'fields': ('name', 'description', 'owner', 'timezone')
+            'fields': ('name', 'description', 'owner', 'timezone', 'pld_access_enabled')
         }),
         ('Logo', {
             'fields': ('logo', 'logo_preview'),

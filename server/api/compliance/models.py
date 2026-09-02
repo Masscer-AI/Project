@@ -164,3 +164,146 @@ class FolioEvent(models.Model):
 
     def __str__(self):
         return f"FolioEvent({self.event_type}, {self.folio_id})"
+
+
+class PLDPersonType(models.TextChoices):
+    PERSONA_FISICA = "persona_fisica", "Persona fisica"
+    PERSONA_MORAL = "persona_moral", "Persona moral"
+
+
+class PLDRelationship(models.TextChoices):
+    CLIENTE = "cliente", "Cliente"
+    PROVEEDOR = "proveedor", "Proveedor"
+    AMBOS = "ambos", "Cliente y proveedor"
+
+
+class VulnerableActivity(models.TextChoices):
+    ACTIVOS_VIRTUALES = "activos_virtuales", "Activos virtuales"
+    MUTUO_PRESTAMO = "mutuo_prestamo", "Mutuo, prestamo o credito"
+    INMUEBLES = "inmuebles", "Inmuebles"
+    VEHICULOS = "vehiculos", "Vehiculos"
+    DONATIVOS = "donativos", "Donativos"
+    COMERCIO_EXTERIOR = "comercio_exterior", "Comercio exterior"
+    OTHER = "other", "Otra"
+
+
+class PLDExpedientStatus(models.TextChoices):
+    DATA_COLLECTION = "data_collection", "Data collection"
+    DOCUMENT_COLLECTION = "document_collection", "Document collection"
+    CROSS_REFERENCE = "cross_reference", "Cross reference"
+    WAITING_SIGN = "waiting_sign", "Waiting signature"
+    SIGNED = "signed", "Signed"
+    DELIVERED = "delivered", "Delivered"
+    ACTION_REQUIRED = "action_required", "Action required"
+
+
+class PLDEntity(models.Model):
+    """Directory row: the organization itself or a cliente/proveedor."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    organization = models.ForeignKey(
+        "authenticate.Organization",
+        on_delete=models.CASCADE,
+        related_name="pld_entities",
+    )
+    person_type = models.CharField(max_length=32, choices=PLDPersonType.choices)
+    relationship = models.CharField(
+        max_length=32,
+        choices=PLDRelationship.choices,
+        null=True,
+        blank=True,
+        help_text="Null means this row is the organization itself.",
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="pld_entities",
+    )
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "PLD entity"
+        verbose_name_plural = "PLD entities"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization"],
+                condition=models.Q(relationship__isnull=True),
+                name="unique_pld_self_entity_per_org",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["organization", "relationship"]),
+        ]
+        ordering = ["-updated_at"]
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        from api.compliance.pld_metadata import normalize_pld_entity_metadata
+
+        try:
+            self.metadata = normalize_pld_entity_metadata(
+                self.person_type, self.metadata
+            )
+        except ValueError as exc:
+            raise ValidationError({"metadata": str(exc)}) from exc
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        rel = self.relationship or "self"
+        return f"PLDEntity({self.id}, {rel}, {self.person_type})"
+
+
+class PLDExpedient(models.Model):
+    """PLD process instance for one entity in an organization."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    organization = models.ForeignKey(
+        "authenticate.Organization",
+        on_delete=models.CASCADE,
+        related_name="pld_expedients",
+    )
+    entity = models.ForeignKey(
+        PLDEntity,
+        on_delete=models.CASCADE,
+        related_name="expedients",
+    )
+    started_at = models.DateTimeField(null=True, blank=True)
+    vulnerable_activity = models.CharField(
+        max_length=64,
+        choices=VulnerableActivity.choices,
+        blank=True,
+        default="",
+    )
+    status = models.CharField(
+        max_length=32,
+        choices=PLDExpedientStatus.choices,
+        default=PLDExpedientStatus.DATA_COLLECTION,
+        db_index=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "PLD expedient"
+        verbose_name_plural = "PLD expedients"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "entity"],
+                name="unique_pld_expedient_per_org_entity",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["organization", "status"]),
+        ]
+        ordering = ["-updated_at"]
+
+    def __str__(self):
+        return f"PLDExpedient({self.id}, {self.status})"

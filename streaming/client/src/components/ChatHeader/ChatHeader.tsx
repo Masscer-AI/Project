@@ -23,6 +23,7 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import { createLLM, deleteLLM, updateAgent, regenerateAgentDescription, makeAuthenticatedRequest, getUserOrganizations, getOrganizationRoles, getVoices, previewVoice, isLockedMasscerAgent, isPlatformAssistant, isComplianceAssistant, restartComplianceConversation } from "../../modules/apiCalls";
 import { TConversation } from "../../types";
+import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
@@ -45,6 +46,7 @@ import {
   IconX,
   IconAdjustments,
   IconRefresh,
+  IconArrowLeft,
 } from "@tabler/icons-react";
 
 export type AgentsModalControls = {
@@ -70,6 +72,7 @@ export const ChatHeader = ({
   }));
   const unreadNotificationCount = useUnreadNotificationCount();
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [restartOpened, { open: openRestart, close: closeRestart }] =
     useDisclosure(false);
   const [restarting, setRestarting] = useState(false);
@@ -128,6 +131,17 @@ export const ChatHeader = ({
         )}
         {hideAgents && (
           <Group gap="xs" wrap="nowrap">
+            <Tooltip label={t("compliance-back-to-hub")}>
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                size="sm"
+                aria-label={t("compliance-back-to-hub")}
+                onClick={() => navigate("/compliance")}
+              >
+                <IconArrowLeft size={16} />
+              </ActionIcon>
+            </Tooltip>
             <Badge size="sm" color="violet" variant="light">
               {t("compliance-assistant-badge")}
             </Badge>

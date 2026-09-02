@@ -196,6 +196,7 @@ export type TOrganization = {
   can_manage?: boolean;
   is_owner?: boolean;
   has_compliance_assistant?: boolean;
+  pld_access_enabled?: boolean;
   logo_url?: string | null;
 };
 

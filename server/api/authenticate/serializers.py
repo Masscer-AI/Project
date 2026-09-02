@@ -17,7 +17,6 @@ from .phone_numbers import (
     normalize_phone_numbers,
     validate_phone_numbers_for_storage,
 )
-from .invite_intake import normalize_invite_intake
 from rest_framework.exceptions import ValidationError
 from django.db import transaction
 
@@ -125,14 +124,7 @@ class OrganizationInviteCreateSerializer(serializers.Serializer):
     name = serializers.CharField(required=False, allow_blank=True, max_length=255, default="")
     bio = serializers.CharField(required=False, allow_blank=True, default="")
     expires_at = serializers.DateTimeField(required=False, allow_null=True)
-    intake = serializers.JSONField(required=False, allow_null=True)
     role_id = serializers.UUIDField(required=False, allow_null=True)
-
-    def validate_intake(self, value):
-        try:
-            return normalize_invite_intake(value)
-        except ValueError as exc:
-            raise serializers.ValidationError(str(exc)) from exc
 
 
 class OrganizationInviteReadSerializer(serializers.ModelSerializer):
@@ -276,6 +268,7 @@ class BigOrganizationSerializer(serializers.ModelSerializer):
     can_manage = serializers.SerializerMethodField()
     is_owner = serializers.SerializerMethodField()
     has_compliance_assistant = serializers.SerializerMethodField()
+    pld_access_enabled = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = Organization
@@ -292,6 +285,7 @@ class BigOrganizationSerializer(serializers.ModelSerializer):
             "can_manage",
             "is_owner",
             "has_compliance_assistant",
+            "pld_access_enabled",
         ]
 
     def get_credentials(self, obj):
