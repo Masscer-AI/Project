@@ -861,6 +861,8 @@
   "ff-platform-assistant-desc": "Acceder al Asistente Masscer para onboarding de la organización y ayuda en la app.",
   "ff-can-manage-integrations": "Gestionar integraciones",
   "ff-can-manage-integrations-desc": "Conectar Google Drive, gestionar credenciales MCP y otras integraciones externas.",
+  "ff-can-use-chat": "Chat",
+  "ff-can-use-chat-desc": "Usar el chat, el historial de conversaciones, las tareas programadas y la galeria.",
   "integrations-title": "Integraciones",
   "integrations-description": "Conecta cuentas de terceros para ti o para tu organización.",
   "integrations-hub-description": "Gestiona conexiones externas de tu espacio de trabajo: almacenamiento en la nube, clientes MCP y más.",

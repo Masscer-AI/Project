@@ -1,4 +1,7 @@
+import { getTeamFeatureFlags } from "../modules/apiCalls";
+
 const DEFAULT_POST_LOGIN_PATH = "/chat";
+export const NO_CHAT_HOME_PATH = "/pld/expediente";
 
 export function isSafeInternalPath(path: string): boolean {
   if (!path.startsWith("/")) return false;
@@ -41,4 +44,36 @@ export function resolvePostLoginPath(
   fallback: string = DEFAULT_POST_LOGIN_PATH
 ): string {
   return decodeLoginNext(nextParam) ?? fallback;
+}
+
+function isChatOnlyPath(path: string): boolean {
+  return (
+    path === "/chat" ||
+    path.startsWith("/chat?") ||
+    path.startsWith("/chat/") ||
+    path === "/scheduled-tasks" ||
+    path.startsWith("/scheduled-tasks?") ||
+    path === "/gallery" ||
+    path.startsWith("/gallery?")
+  );
+}
+
+export async function userCanUseChat(): Promise<boolean> {
+  try {
+    const res = await getTeamFeatureFlags();
+    return res.feature_flags?.["can-use-chat"] === true;
+  } catch {
+    return false;
+  }
+}
+
+export async function resolveAuthenticatedHome(
+  nextParam: string | null | undefined
+): Promise<string> {
+  const canUseChat = await userCanUseChat();
+  const home = canUseChat ? DEFAULT_POST_LOGIN_PATH : NO_CHAT_HOME_PATH;
+  const next = decodeLoginNext(nextParam);
+  if (!next) return home;
+  if (!canUseChat && isChatOnlyPath(next)) return home;
+  return next;
 }

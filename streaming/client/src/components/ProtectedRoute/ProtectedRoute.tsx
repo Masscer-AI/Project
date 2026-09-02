@@ -10,11 +10,13 @@ import { Loader, Stack } from "@mantine/core";
 interface ProtectedRouteProps {
   children: React.ReactNode;
   featureFlag?: string;
+  deniedRedirect?: string;
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children,
   featureFlag,
+  deniedRedirect = "/chat",
 }) => {
   const { user, setUser } = useStore((s) => ({ user: s.user, setUser: s.setUser }));
   const location = useLocation();
@@ -54,7 +56,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   }
 
   if (!isEnabled) {
-    return <Navigate to="/chat" replace />;
+    return <Navigate to={deniedRedirect} replace />;
   }
 
   return <>{children}</>;

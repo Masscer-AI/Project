@@ -578,7 +578,18 @@ class ConversationView(View):
             )
 
     def post(self, request, *args, **kwargs):
+        from api.authenticate.services import FeatureFlagService
+
         user = request.user
+        if user is not None:
+            enabled, _ = FeatureFlagService.is_feature_enabled(
+                "can-use-chat", user=user
+            )
+            if not enabled:
+                return JsonResponse(
+                    {"error": "The 'can-use-chat' feature is not enabled."},
+                    status=403,
+                )
 
         existing_conversation = exclude_compliance_conversations(
             Conversation.objects.filter(

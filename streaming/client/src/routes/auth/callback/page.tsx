@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { API_URL } from "../../../modules/constants";
-import { resolvePostLoginPath } from "../../../utils/loginRedirect";
+import { resolveAuthenticatedHome } from "../../../utils/loginRedirect";
 import { useTranslation } from "react-i18next";
 import { Alert, Anchor, Loader, Stack, Text, Title } from "@mantine/core";
 import {
@@ -41,7 +41,8 @@ export default function AuthCallback() {
         if (response.data.token) {
           localStorage.setItem("token", response.data.token);
         }
-        navigate(resolvePostLoginPath(searchParams.get("next")), { replace: true });
+        const path = await resolveAuthenticatedHome(searchParams.get("next"));
+        navigate(path, { replace: true });
       } catch (err: unknown) {
         if (cancelled) return;
         if (handleTenantPortalAccessError(err)) {

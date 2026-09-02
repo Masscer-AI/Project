@@ -33,4 +33,5 @@ KNOWN_FEATURE_FLAGS = {
     "can-create-agents": {"organization_only": False},
     "platform-assistant": {"organization_only": False},
     "can-manage-integrations": {"organization_only": False},
+    "can-use-chat": {"organization_only": False},
 }

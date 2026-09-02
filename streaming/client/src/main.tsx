@@ -101,11 +101,13 @@ const router = createBrowserRouter([
       {
         path: "/chat",
         element: (
-          <>
-            <ChatView />
-            <NotificationListener />
-            <ConversationTakeoverListener />
-          </>
+          <ProtectedRoute featureFlag="can-use-chat" deniedRedirect="/pld/expediente">
+            <>
+              <ChatView />
+              <NotificationListener />
+              <ConversationTakeoverListener />
+            </>
+          </ProtectedRoute>
         ),
         loader: chatLoader,
       },
@@ -130,7 +132,11 @@ const router = createBrowserRouter([
       },
       {
         path: "/pld/expediente",
-        element: <MyPldExpedientePage />,
+        element: (
+          <ProtectedRoute deniedRedirect="/pld/expediente">
+            <MyPldExpedientePage />
+          </ProtectedRoute>
+        ),
       },
       {
         path: "/whatsapp",
@@ -253,7 +259,7 @@ const router = createBrowserRouter([
       {
         path: "/scheduled-tasks",
         element: (
-          <ProtectedRoute>
+          <ProtectedRoute featureFlag="can-use-chat" deniedRedirect="/pld/expediente">
             <ScheduledTasksPage />
           </ProtectedRoute>
         ),
@@ -261,7 +267,7 @@ const router = createBrowserRouter([
       {
         path: "/gallery",
         element: (
-          <ProtectedRoute>
+          <ProtectedRoute featureFlag="can-use-chat" deniedRedirect="/pld/expediente">
             <GalleryPage />
           </ProtectedRoute>
         ),

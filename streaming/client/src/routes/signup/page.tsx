@@ -20,7 +20,7 @@ import { IconUserPlus, IconSparkles } from "@tabler/icons-react";
 import { GoogleSignInButton } from "../../components/GoogleSignInButton/GoogleSignInButton";
 import { hasGoogleOAuthClientId } from "../../modules/googleEnv";
 import { redirectToTenantHandoff } from "../../utils/googleAuthHandoff";
-import { loginUrlWithNext, resolvePostLoginPath } from "../../utils/loginRedirect";
+import { loginUrlWithNext, resolveAuthenticatedHome } from "../../utils/loginRedirect";
 import {
   buildTenantGoogleBridgeUrl,
   getCanonicalAppOrigin,
@@ -301,7 +301,7 @@ export default function Signup() {
         localStorage.setItem("token", response.data.token);
       }
       toast.success(t("successfully-logged-in"));
-      navigate(resolvePostLoginPath(searchParams.get("next")));
+      navigate(await resolveAuthenticatedHome(searchParams.get("next")));
     } catch (error: any) {
       if (handleTenantPortalAccessError(error)) {
         return;

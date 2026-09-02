@@ -3,7 +3,7 @@ import axios from "axios";
 import { toast } from "react-hot-toast";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { API_URL } from "../../modules/constants";
-import { resolvePostLoginPath } from "../../utils/loginRedirect";
+import { resolveAuthenticatedHome } from "../../utils/loginRedirect";
 import { useTranslation } from "react-i18next";
 import {
   Alert,
@@ -58,8 +58,9 @@ export default function Login() {
   const [searchParams] = useSearchParams();
   const { t } = useTranslation();
 
-  const redirectAfterLogin = () => {
-    navigate(resolvePostLoginPath(searchParams.get("next")));
+  const redirectAfterLogin = async () => {
+    const path = await resolveAuthenticatedHome(searchParams.get("next"));
+    navigate(path);
   };
 
   const onTenantSubdomain = isTenantSubdomainHost();
@@ -89,7 +90,7 @@ export default function Login() {
         localStorage.setItem("token", response.data.token);
       }
       toast.success(t("successfully-logged-in"));
-      redirectAfterLogin();
+      await redirectAfterLogin();
     } catch (error: any) {
       console.error("LOGIN ERROR: ", error);
       if (handleTenantPortalAccessError(error)) {
@@ -148,7 +149,7 @@ export default function Login() {
         localStorage.setItem("token", response.data.token);
       }
       toast.success(t("successfully-logged-in"));
-      redirectAfterLogin();
+      await redirectAfterLogin();
     } catch (error: any) {
       if (handleTenantPortalAccessError(error)) {
         return;

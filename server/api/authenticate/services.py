@@ -263,3 +263,53 @@ class FeatureFlagService:
             )
             return False
 
+
+CAN_USE_CHAT_FLAG = "can-use-chat"
+
+
+def backfill_can_use_chat_for_active_org_users() -> dict[str, int]:
+    """
+    Grant user-level can-use-chat to currently active organization members.
+
+    Skips users with no org (e.g. PLD invitees). Owners already receive
+    registry flags automatically; assignments are still created so members
+    keep chat after this flag is introduced.
+    """
+    from django.contrib.auth.models import User
+
+    flag, _ = FeatureFlag.objects.get_or_create(
+        name=CAN_USE_CHAT_FLAG,
+        defaults={"organization_only": False},
+    )
+    users = User.objects.filter(
+        is_active=True,
+        profile__is_active=True,
+        profile__organization_id__isnull=False,
+    ).distinct()
+
+    created = 0
+    enabled_existing = 0
+    already_enabled = 0
+    for user in users.iterator():
+        assignment, was_created = FeatureFlagAssignment.objects.get_or_create(
+            user=user,
+            feature_flag=flag,
+            organization=None,
+            defaults={"enabled": True},
+        )
+        if was_created:
+            created += 1
+            continue
+        if not assignment.enabled:
+            assignment.enabled = True
+            assignment.save(update_fields=["enabled"])
+            enabled_existing += 1
+        else:
+            already_enabled += 1
+    return {
+        "created": created,
+        "enabled_existing": enabled_existing,
+        "already_enabled": already_enabled,
+        "total_users": users.count(),
+    }
+

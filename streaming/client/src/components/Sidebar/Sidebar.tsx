@@ -58,6 +58,7 @@ export const Sidebar: React.FC = () => {
   const isTrainAgentsEnabled = useIsFeatureEnabled("train-agents");
   const isAudioToolsEnabled = useIsFeatureEnabled("audio-tools");
   const canEditPreferences = useIsFeatureEnabled("can-edit-preferences") === true;
+  const canUseChat = useIsFeatureEnabled("can-use-chat") === true;
   const { toggleSidebar, user, setOpenedModals, logout } = useStore((state) => ({
     toggleSidebar: state.toggleSidebar,
     user: state.user,
@@ -116,11 +117,16 @@ export const Sidebar: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (!canUseChat) {
+      setHistory([]);
+      setFilteredHistory([]);
+      return;
+    }
     populateHistory();
     getTags()
       .then((tags) => setOrgTags(tags))
       .catch(() => setOrgTags([]));
-  }, []);
+  }, [canUseChat]);
 
   useEffect(() => {
     const refresh = () => populateHistory();
@@ -209,14 +215,16 @@ export const Sidebar: React.FC = () => {
       <div className="backdrop-blur-md fixed md:relative left-0 top-0 h-screen z-[50] md:z-[3] flex flex-col w-[min(350px,100%)] p-3 gap-2.5 animate-[appear-left_500ms_forwards] md:[animation:none]" style={{ background: "var(--semi-transparent)", borderRight: "1px solid var(--hovered-color)" }}>
         {}
         <Group gap="xs">
-          <Button
-            variant="default"
-            leftSection={<IconPlus size={20} />}
-            onClick={handleNewChat}
-            className="flex-1"
-          >
-            {t("new-chat")}
-          </Button>
+          {canUseChat && (
+            <Button
+              variant="default"
+              leftSection={<IconPlus size={20} />}
+              onClick={handleNewChat}
+              className="flex-1"
+            >
+              {t("new-chat")}
+            </Button>
+          )}
           <ActionIcon
             variant="default"
             size="lg"
@@ -229,27 +237,48 @@ export const Sidebar: React.FC = () => {
 
         {}
         <div className="[scrollbar-width:none] overflow-auto p-0.5 flex flex-col gap-2.5 flex-1">
-          <Button
-            variant="default"
-            size="sm"
-            leftSection={<IconMessage size={20} />}
-            onClick={() =>
-              setHistoryConfig((prev) => ({
-                ...prev,
-                isOpen: !prev.isOpen,
-              }))
-            }
-            fullWidth
-            styles={{
-              root: {
-                backgroundColor: historyConfig.isOpen
-                  ? "rgba(255,255,255,0.08)"
-                  : undefined,
-              },
-            }}
-          >
-            {t("conversations")}
-          </Button>
+          {canUseChat && (
+            <Button
+              variant="default"
+              size="sm"
+              leftSection={<IconMessage size={20} />}
+              onClick={() =>
+                setHistoryConfig((prev) => ({
+                  ...prev,
+                  isOpen: !prev.isOpen,
+                }))
+              }
+              fullWidth
+              styles={{
+                root: {
+                  backgroundColor: historyConfig.isOpen
+                    ? "rgba(255,255,255,0.08)"
+                    : undefined,
+                },
+              }}
+            >
+              {t("conversations")}
+            </Button>
+          )}
+          {!canUseChat && (
+            <Button
+              variant="default"
+              size="sm"
+              leftSection={<IconScale size={20} />}
+              onClick={() => goTo("/pld/expediente")}
+              fullWidth
+              styles={{
+                root: {
+                  backgroundColor:
+                    location.pathname.startsWith("/pld/")
+                      ? "rgba(255,255,255,0.08)"
+                      : undefined,
+                },
+              }}
+            >
+              {t("compliance-my-expediente-title")}
+            </Button>
+          )}
           {hasPldAccess && (
             <Button
               variant="default"
@@ -270,7 +299,7 @@ export const Sidebar: React.FC = () => {
             </Button>
           )}
 
-          {historyConfig.isOpen && (
+          {canUseChat && historyConfig.isOpen && (
             <>
               {historyConfig.showFilters ? (
                 <Stack gap="xs">
@@ -415,22 +444,26 @@ export const Sidebar: React.FC = () => {
 
           {!historyConfig.isOpen && (
             <Stack gap="xs">
-              <Button
-                variant="default"
-                leftSection={<IconCalendarTime size={20} />}
-                onClick={() => goTo("/scheduled-tasks")}
-                fullWidth
-              >
-                {t("scheduled-tasks-title")}
-              </Button>
-              <Button
-                variant="default"
-                leftSection={<IconPhoto size={20} />}
-                onClick={() => goTo("/gallery")}
-                fullWidth
-              >
-                {t("gallery-title")}
-              </Button>
+              {canUseChat && (
+                <Button
+                  variant="default"
+                  leftSection={<IconCalendarTime size={20} />}
+                  onClick={() => goTo("/scheduled-tasks")}
+                  fullWidth
+                >
+                  {t("scheduled-tasks-title")}
+                </Button>
+              )}
+              {canUseChat && (
+                <Button
+                  variant="default"
+                  leftSection={<IconPhoto size={20} />}
+                  onClick={() => goTo("/gallery")}
+                  fullWidth
+                >
+                  {t("gallery-title")}
+                </Button>
+              )}
               {isAudioToolsEnabled && (
                 <Button
                   variant="default"
@@ -491,7 +524,7 @@ export const Sidebar: React.FC = () => {
                   {t("manage-organization")}
                 </Button>
               )}
-              {isConversationsDashboardEnabled && (
+              {canUseChat && isConversationsDashboardEnabled && (
                 <Box pos="relative">
                   <Button
                     variant="default"

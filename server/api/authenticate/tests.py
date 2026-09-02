@@ -368,3 +368,74 @@ class OrganizationInviteFlowTests(TestCase):
         self.assertEqual(listed.status_code, 200)
         row = next(r for r in listed.json() if r["id"] == str(self.org.id))
         self.assertTrue(row.get("pld_access_enabled"))
+
+
+class CanUseChatBackfillTests(TestCase):
+    def setUp(self):
+        from api.ai_layers.models import LanguageModel
+        from api.authenticate.models import UserProfile
+        from api.consumption.models import Currency
+        from api.providers.models import AIProvider
+
+        Currency.objects.get_or_create(
+            name="Compute Unit", defaults={"one_usd_is": 1000}
+        )
+        provider = AIProvider.objects.create(name="OpenAI-chat-flag")
+        LanguageModel.objects.create(
+            provider=provider, slug="gpt-chat-flag", name="GPT Chat Flag"
+        )
+
+        self.owner = User.objects.create_user(
+            username="chat-owner", email="chat-owner@test.com", password="x"
+        )
+        self.member = User.objects.create_user(
+            username="chat-member", email="chat-member@test.com", password="x"
+        )
+        self.invitee = User.objects.create_user(
+            username="chat-invitee", email="chat-invitee@test.com", password="x"
+        )
+        self.org = Organization.objects.create(name="Chat Org", owner=self.owner)
+        UserProfile.objects.update_or_create(
+            user=self.owner,
+            defaults={"organization": self.org, "is_active": True},
+        )
+        UserProfile.objects.update_or_create(
+            user=self.member,
+            defaults={"organization": self.org, "is_active": True},
+        )
+        UserProfile.objects.update_or_create(
+            user=self.invitee,
+            defaults={"organization": None, "is_active": True},
+        )
+
+    def test_backfill_grants_members_skips_invitees(self):
+        from api.authenticate.models import FeatureFlagAssignment
+        from api.authenticate.services import (
+            CAN_USE_CHAT_FLAG,
+            FeatureFlagService,
+            backfill_can_use_chat_for_active_org_users,
+        )
+
+        stats = backfill_can_use_chat_for_active_org_users()
+        self.assertGreaterEqual(stats["created"], 2)
+        self.assertFalse(
+            FeatureFlagAssignment.objects.filter(
+                user=self.invitee, feature_flag__name=CAN_USE_CHAT_FLAG
+            ).exists()
+        )
+        self.assertTrue(
+            FeatureFlagAssignment.objects.filter(
+                user=self.member,
+                feature_flag__name=CAN_USE_CHAT_FLAG,
+                enabled=True,
+            ).exists()
+        )
+        enabled, _ = FeatureFlagService.is_feature_enabled(
+            CAN_USE_CHAT_FLAG, user=self.member
+        )
+        self.assertTrue(enabled)
+        enabled_invitee, _ = FeatureFlagService.is_feature_enabled(
+            CAN_USE_CHAT_FLAG, user=self.invitee
+        )
+        self.assertFalse(enabled_invitee)
+
