@@ -74,8 +74,8 @@ def accessible_agents_qs(user):
         - Org owner can always access.
     - Platform assistants: user's org row + platform-assistant feature flag
       (not granted to all org members via empty allowed_roles).
-    - Compliance assistants: row exists for an org the user belongs to or owns
-      (admin-gated; no feature flag).
+    - Compliance assistants: org has PLD enabled and the user has
+      organization-compliance-access (owner, role capability, or user assignment).
     """
     from api.ai_layers.models import Agent, AgentKind
     from api.authenticate.services import FeatureFlagService
@@ -122,11 +122,18 @@ def accessible_agents_qs(user):
             ).values_list("id", flat=True)
         )
 
-    org_ids_for_access = [o.id for o in orgs_for_access]
-    if org_ids_for_access:
+    from api.compliance.access import user_has_organization_compliance_access
+
+    compliance_org_ids = [
+        org.id
+        for org in orgs_for_access
+        if getattr(org, "pld_access_enabled", False)
+        and user_has_organization_compliance_access(user, org)
+    ]
+    if compliance_org_ids:
         agent_ids.update(
             Agent.objects.filter(
-                organization_id__in=org_ids_for_access,
+                organization_id__in=compliance_org_ids,
                 agent_kind=AgentKind.COMPLIANCE_ASSISTANT,
             ).values_list("id", flat=True)
         )

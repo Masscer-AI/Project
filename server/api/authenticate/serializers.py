@@ -268,6 +268,7 @@ class BigOrganizationSerializer(serializers.ModelSerializer):
     can_manage = serializers.SerializerMethodField()
     is_owner = serializers.SerializerMethodField()
     has_compliance_assistant = serializers.SerializerMethodField()
+    has_active_role = serializers.SerializerMethodField()
     pld_access_enabled = serializers.BooleanField(read_only=True)
 
     class Meta:
@@ -285,6 +286,7 @@ class BigOrganizationSerializer(serializers.ModelSerializer):
             "can_manage",
             "is_owner",
             "has_compliance_assistant",
+            "has_active_role",
             "pld_access_enabled",
         ]
 
@@ -323,6 +325,23 @@ class BigOrganizationSerializer(serializers.ModelSerializer):
         from api.ai_layers.compliance_assistant import organization_has_compliance_assistant
 
         return organization_has_compliance_assistant(obj)
+
+    def get_has_active_role(self, obj):
+        request = self.context.get("request")
+        user = getattr(request, "user", None) if request else None
+        if not user:
+            return False
+        from django.db.models import Q
+        from django.utils import timezone
+
+        from api.authenticate.models import RoleAssignment
+
+        today = timezone.now().date()
+        return RoleAssignment.objects.filter(
+            user=user,
+            organization=obj,
+            from_date__lte=today,
+        ).filter(Q(to_date__isnull=True) | Q(to_date__gte=today)).exists()
 
 class FeatureFlagSerializer(serializers.ModelSerializer):
     class Meta:

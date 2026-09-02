@@ -414,4 +414,53 @@ class PLDEntityAPITests(TestCase):
         self.assertEqual(mine.status_code, 200)
         self.assertEqual(len(mine.json()["results"]), 1)
 
+    def test_list_404_for_member_without_compliance_flag(self):
+        from api.authenticate.models import Token, UserProfile
+
+        member = User.objects.create_user(
+            username="pld-no-role", email="pld-no-role@test.com", password="x"
+        )
+        UserProfile.objects.update_or_create(
+            user=member,
+            defaults={"organization": self.org, "is_active": True},
+        )
+        token = Token.objects.create(user=member)
+        response = self.client.get(
+            "/v1/compliance/entities/",
+            HTTP_AUTHORIZATION=f"Token {token.key}",
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_list_200_for_member_with_compliance_flag(self):
+        from django.utils import timezone
+
+        from api.authenticate.models import Role, RoleAssignment, Token, UserProfile
+
+        member = User.objects.create_user(
+            username="pld-with-role", email="pld-with-role@test.com", password="x"
+        )
+        UserProfile.objects.update_or_create(
+            user=member,
+            defaults={"organization": self.org, "is_active": True},
+        )
+        role = Role.objects.create(
+            organization=self.org,
+            name="Compliance",
+            enabled=True,
+            capabilities=["organization-compliance-access"],
+        )
+        RoleAssignment.objects.create(
+            user=member,
+            organization=self.org,
+            role=role,
+            from_date=timezone.now().date(),
+        )
+        token = Token.objects.create(user=member)
+        response = self.client.get(
+            "/v1/compliance/entities/",
+            HTTP_AUTHORIZATION=f"Token {token.key}",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["results"], [])
+
 

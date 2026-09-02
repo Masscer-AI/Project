@@ -368,10 +368,43 @@ class OrganizationInviteFlowTests(TestCase):
         self.assertEqual(listed.status_code, 200)
         row = next(r for r in listed.json() if r["id"] == str(self.org.id))
         self.assertTrue(row.get("pld_access_enabled"))
+        self.assertFalse(row.get("has_active_role"))
+
+    def test_organization_list_has_active_role_for_assigned_member(self):
+        from django.utils import timezone
+
+        from api.authenticate.models import Role, RoleAssignment, Token, UserProfile
+
+        member = User.objects.create_user(
+            username="role-member", email="role-member@test.com", password="x"
+        )
+        UserProfile.objects.update_or_create(
+            user=member,
+            defaults={"organization": self.org, "is_active": True},
+        )
+        role = Role.objects.create(
+            organization=self.org, name="Staff", enabled=True, capabilities=[]
+        )
+        RoleAssignment.objects.create(
+            user=member,
+            organization=self.org,
+            role=role,
+            from_date=timezone.now().date(),
+        )
+        token, _ = Token.get_or_create(user=member, token_type="login")
+        listed = self.client.get(
+            "/v1/auth/organizations/",
+            HTTP_AUTHORIZATION=f"Token {token.key}",
+        )
+        self.assertEqual(listed.status_code, 200)
+        row = next(r for r in listed.json() if r["id"] == str(self.org.id))
+        self.assertTrue(row.get("has_active_role"))
 
 
 class CanUseChatBackfillTests(TestCase):
     def setUp(self):
+        from django.utils import timezone
+
         from api.ai_layers.models import LanguageModel
         from api.authenticate.models import UserProfile
         from api.consumption.models import Currency
@@ -407,31 +440,47 @@ class CanUseChatBackfillTests(TestCase):
             user=self.invitee,
             defaults={"organization": None, "is_active": True},
         )
+        self.role = Role.objects.create(
+            organization=self.org,
+            name="Member",
+            enabled=True,
+            capabilities=["train-agents"],
+        )
+        self.other_role = Role.objects.create(
+            organization=self.org,
+            name="Viewer",
+            enabled=True,
+            capabilities=[],
+        )
+        RoleAssignment.objects.create(
+            user=self.member,
+            organization=self.org,
+            role=self.role,
+            from_date=timezone.now().date(),
+        )
+        self.member = User.objects.select_related("profile").get(pk=self.member.pk)
 
-    def test_backfill_grants_members_skips_invitees(self):
-        from api.authenticate.models import FeatureFlagAssignment
+    def test_backfill_adds_flag_to_selected_roles_only(self):
         from api.authenticate.services import (
             CAN_USE_CHAT_FLAG,
             FeatureFlagService,
-            backfill_can_use_chat_for_active_org_users,
+            backfill_can_use_chat_on_roles,
         )
 
-        stats = backfill_can_use_chat_for_active_org_users()
-        self.assertGreaterEqual(stats["created"], 2)
-        self.assertFalse(
-            FeatureFlagAssignment.objects.filter(
-                user=self.invitee, feature_flag__name=CAN_USE_CHAT_FLAG
-            ).exists()
-        )
-        self.assertTrue(
-            FeatureFlagAssignment.objects.filter(
-                user=self.member,
-                feature_flag__name=CAN_USE_CHAT_FLAG,
-                enabled=True,
-            ).exists()
-        )
+        stats = backfill_can_use_chat_on_roles(Role.objects.filter(pk=self.role.pk))
+        self.assertEqual(stats["updated"], 1)
+        self.assertEqual(stats["already_had"], 0)
+        self.role.refresh_from_db()
+        self.other_role.refresh_from_db()
+        self.assertIn(CAN_USE_CHAT_FLAG, self.role.capabilities)
+        self.assertNotIn(CAN_USE_CHAT_FLAG, self.other_role.capabilities)
+
+        again = backfill_can_use_chat_on_roles(Role.objects.filter(pk=self.role.pk))
+        self.assertEqual(again["updated"], 0)
+        self.assertEqual(again["already_had"], 1)
+
         enabled, _ = FeatureFlagService.is_feature_enabled(
-            CAN_USE_CHAT_FLAG, user=self.member
+            CAN_USE_CHAT_FLAG, organization=self.org, user=self.member
         )
         self.assertTrue(enabled)
         enabled_invitee, _ = FeatureFlagService.is_feature_enabled(

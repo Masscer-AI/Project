@@ -34,4 +34,5 @@ KNOWN_FEATURE_FLAGS = {
     "platform-assistant": {"organization_only": False},
     "can-manage-integrations": {"organization_only": False},
     "can-use-chat": {"organization_only": False},
+    "organization-compliance-access": {"organization_only": False},
 }

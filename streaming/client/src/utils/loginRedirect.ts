@@ -1,7 +1,10 @@
-import { getTeamFeatureFlags } from "../modules/apiCalls";
+import { getTeamFeatureFlags, getUserOrganizations } from "../modules/apiCalls";
+import { TOrganization } from "../types";
 
 const DEFAULT_POST_LOGIN_PATH = "/chat";
 export const NO_CHAT_HOME_PATH = "/pld/expediente";
+export const NO_ROLE_HOME_PATH = "/no-role";
+export const AUTH_HOME_PATH = "/home";
 
 export function isSafeInternalPath(path: string): boolean {
   if (!path.startsWith("/")) return false;
@@ -58,22 +61,52 @@ function isChatOnlyPath(path: string): boolean {
   );
 }
 
-export async function userCanUseChat(): Promise<boolean> {
+function isComplianceOnlyPath(path: string): boolean {
+  return path === "/compliance" || path.startsWith("/compliance/") || path.startsWith("/compliance?");
+}
+
+function isExpedientePath(path: string): boolean {
+  return path === "/pld/expediente" || path.startsWith("/pld/expediente?");
+}
+
+export async function userHasTeamFeature(flag: string): Promise<boolean> {
   try {
     const res = await getTeamFeatureFlags();
-    return res.feature_flags?.["can-use-chat"] === true;
+    return res.feature_flags?.[flag] === true;
   } catch {
     return false;
   }
 }
 
+export async function userCanUseChat(): Promise<boolean> {
+  return userHasTeamFeature("can-use-chat");
+}
+
+function homeFromAccess(opts: {
+  canUseChat: boolean;
+  canAccessCompliance: boolean;
+  orgs: TOrganization[];
+}): string {
+  const { canUseChat, canAccessCompliance, orgs } = opts;
+  if (canUseChat) return DEFAULT_POST_LOGIN_PATH;
+  if (canAccessCompliance) return "/compliance";
+  if (orgs.length === 0) return NO_CHAT_HOME_PATH;
+  return NO_ROLE_HOME_PATH;
+}
+
 export async function resolveAuthenticatedHome(
   nextParam: string | null | undefined
 ): Promise<string> {
-  const canUseChat = await userCanUseChat();
-  const home = canUseChat ? DEFAULT_POST_LOGIN_PATH : NO_CHAT_HOME_PATH;
+  const [canUseChat, canAccessCompliance, orgs] = await Promise.all([
+    userHasTeamFeature("can-use-chat"),
+    userHasTeamFeature("organization-compliance-access"),
+    getUserOrganizations().catch(() => [] as TOrganization[]),
+  ]);
+  const home = homeFromAccess({ canUseChat, canAccessCompliance, orgs });
   const next = decodeLoginNext(nextParam);
   if (!next) return home;
   if (!canUseChat && isChatOnlyPath(next)) return home;
+  if (!canAccessCompliance && isComplianceOnlyPath(next)) return home;
+  if (isExpedientePath(next) && orgs.length > 0) return home;
   return next;
 }

@@ -17,10 +17,13 @@ import {
 import Root from "./routes/root/page.tsx";
 
 import { chatLoader } from "./routes/chat/loader.ts";
+import { homeLoader } from "./routes/home/loader.ts";
 import { complianceLoader } from "./routes/compliance/loader.ts";
 import ComplianceHubPage from "./routes/compliance/page.tsx";
 import PldInviteAcceptPage from "./routes/pld/invite/page.tsx";
 import MyPldExpedientePage from "./routes/pld/expediente/page.tsx";
+import NoRolePage from "./routes/no-role/page.tsx";
+import HomeRedirectPage from "./routes/home/page.tsx";
 import "./index.css";
 import Signup from "./routes/signup/page.tsx";
 import ChatView from "./routes/chat/page.tsx";
@@ -99,9 +102,14 @@ const router = createBrowserRouter([
         ],
       },
       {
+        path: "/home",
+        element: <HomeRedirectPage />,
+        loader: homeLoader,
+      },
+      {
         path: "/chat",
         element: (
-          <ProtectedRoute featureFlag="can-use-chat" deniedRedirect="/pld/expediente">
+          <ProtectedRoute featureFlag="can-use-chat" deniedRedirect="/home">
             <>
               <ChatView />
               <NotificationListener />
@@ -113,18 +121,32 @@ const router = createBrowserRouter([
       },
       {
         path: "/compliance",
-        element: <ComplianceHubPage />,
+        element: (
+          <ProtectedRoute featureFlag="organization-compliance-access" deniedRedirect="/home">
+            <ComplianceHubPage />
+          </ProtectedRoute>
+        ),
       },
       {
         path: "/compliance/chat",
         element: (
-          <>
-            <ChatView />
-            <NotificationListener />
-            <ConversationTakeoverListener />
-          </>
+          <ProtectedRoute featureFlag="organization-compliance-access" deniedRedirect="/home">
+            <>
+              <ChatView />
+              <NotificationListener />
+              <ConversationTakeoverListener />
+            </>
+          </ProtectedRoute>
         ),
         loader: complianceLoader,
+      },
+      {
+        path: "/no-role",
+        element: (
+          <ProtectedRoute>
+            <NoRolePage />
+          </ProtectedRoute>
+        ),
       },
       {
         path: "/pld/invite",
@@ -259,7 +281,7 @@ const router = createBrowserRouter([
       {
         path: "/scheduled-tasks",
         element: (
-          <ProtectedRoute featureFlag="can-use-chat" deniedRedirect="/pld/expediente">
+          <ProtectedRoute featureFlag="can-use-chat" deniedRedirect="/home">
             <ScheduledTasksPage />
           </ProtectedRoute>
         ),
@@ -267,7 +289,7 @@ const router = createBrowserRouter([
       {
         path: "/gallery",
         element: (
-          <ProtectedRoute featureFlag="can-use-chat" deniedRedirect="/pld/expediente">
+          <ProtectedRoute featureFlag="can-use-chat" deniedRedirect="/home">
             <GalleryPage />
           </ProtectedRoute>
         ),

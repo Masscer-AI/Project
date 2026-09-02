@@ -59,6 +59,8 @@ export const Sidebar: React.FC = () => {
   const isAudioToolsEnabled = useIsFeatureEnabled("audio-tools");
   const canEditPreferences = useIsFeatureEnabled("can-edit-preferences") === true;
   const canUseChat = useIsFeatureEnabled("can-use-chat") === true;
+  const hasOrgComplianceAccess =
+    useIsFeatureEnabled("organization-compliance-access") === true;
   const { toggleSidebar, user, setOpenedModals, logout } = useStore((state) => ({
     toggleSidebar: state.toggleSidebar,
     user: state.user,
@@ -66,6 +68,7 @@ export const Sidebar: React.FC = () => {
     logout: state.logout,
   }));
   const [hasPldAccess, setHasPldAccess] = useState(false);
+  const [hasOrganization, setHasOrganization] = useState<boolean | null>(null);
   const location = useLocation();
 
   const [history, setHistory] = useState<TConversation[]>([]);
@@ -103,12 +106,14 @@ export const Sidebar: React.FC = () => {
         if (!cancelled) {
           setCanManageOrg(orgs.some((o) => o.is_owner || o.can_manage));
           setHasPldAccess(orgs.some((o) => o.pld_access_enabled));
+          setHasOrganization(orgs.length > 0);
         }
       })
       .catch(() => {
         if (!cancelled) {
           setCanManageOrg(false);
           setHasPldAccess(false);
+          setHasOrganization(null);
         }
       });
     return () => {
@@ -260,7 +265,7 @@ export const Sidebar: React.FC = () => {
               {t("conversations")}
             </Button>
           )}
-          {!canUseChat && (
+          {!canUseChat && hasOrganization === false && (
             <Button
               variant="default"
               size="sm"
@@ -279,7 +284,7 @@ export const Sidebar: React.FC = () => {
               {t("compliance-my-expediente-title")}
             </Button>
           )}
-          {hasPldAccess && (
+          {hasOrgComplianceAccess && hasPldAccess && (
             <Button
               variant="default"
               size="sm"

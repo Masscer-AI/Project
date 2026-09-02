@@ -170,9 +170,12 @@ def organization_has_compliance_assistant(organization) -> bool:
 def get_compliance_agent_for_user(user):
     """Return the compliance assistant the user can access, if any."""
     from api.ai_layers.access import get_user_organizations_for_access
+    from api.compliance.access import user_has_organization_compliance_access
 
     for org in get_user_organizations_for_access(user):
         if not getattr(org, "pld_access_enabled", False):
+            continue
+        if not user_has_organization_compliance_access(user, org):
             continue
         agent = Agent.objects.filter(
             organization=org,

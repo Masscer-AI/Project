@@ -423,37 +423,33 @@ class UserAdmin(BaseUserAdmin):
             return None
         return profile.is_active
 
-    actions = [
-        "delete_selected",
-        "backfill_can_use_chat_for_all_active_users",
-    ]
-
-    @admin.action(
-        description="Backfill chat capability for all current active users"
-    )
-    def backfill_can_use_chat_for_all_active_users(self, request, queryset):
-        from api.authenticate.services import backfill_can_use_chat_for_active_org_users
-
-        stats = backfill_can_use_chat_for_active_org_users()
-        self.message_user(
-            request,
-            (
-                "Granted can-use-chat to active org members "
-                f"(created {stats['created']}, "
-                f"re-enabled {stats['enabled_existing']}, "
-                f"already had it {stats['already_enabled']}; "
-                f"{stats['total_users']} users considered). "
-                "Selection is ignored; PLD invitees without an organization are skipped."
-            ),
-            messages.SUCCESS,
-        )
-
 @admin.register(Role)
 class RoleAdmin(admin.ModelAdmin):
     list_display = ("name", "organization", "enabled", "created_at", "updated_at")
     search_fields = ("name", "organization__name", "description")
     list_filter = ("enabled", "organization", "created_at", "updated_at")
     readonly_fields = ("id", "created_at", "updated_at")
+    actions = [
+        "delete_selected",
+        "backfill_can_use_chat_on_selected_roles",
+    ]
+
+    @admin.action(description="Add can-use-chat to selected roles")
+    def backfill_can_use_chat_on_selected_roles(self, request, queryset):
+        from api.authenticate.services import backfill_can_use_chat_on_roles
+
+        stats = backfill_can_use_chat_on_roles(queryset)
+        self.message_user(
+            request,
+            (
+                "Added can-use-chat to selected roles "
+                f"(updated {stats['updated']}, "
+                f"already had it {stats['already_had']}; "
+                f"{stats['total_roles']} roles considered). "
+                "Members with no role, or a role without this flag, still will not have chat."
+            ),
+            messages.SUCCESS,
+        )
 
 @admin.register(RoleAssignment)
 class RoleAssignmentAdmin(admin.ModelAdmin):

@@ -267,49 +267,28 @@ class FeatureFlagService:
 CAN_USE_CHAT_FLAG = "can-use-chat"
 
 
-def backfill_can_use_chat_for_active_org_users() -> dict[str, int]:
+def backfill_can_use_chat_on_roles(roles) -> dict[str, int]:
     """
-    Grant user-level can-use-chat to currently active organization members.
+    Add can-use-chat to the given roles' capabilities.
 
-    Skips users with no org (e.g. PLD invitees). Owners already receive
-    registry flags automatically; assignments are still created so members
-    keep chat after this flag is introduced.
+    Members keep chat only through a role that includes this flag (or a
+    user-level assignment / org ownership). Roles that already list the
+    flag are left unchanged.
     """
-    from django.contrib.auth.models import User
-
-    flag, _ = FeatureFlag.objects.get_or_create(
-        name=CAN_USE_CHAT_FLAG,
-        defaults={"organization_only": False},
-    )
-    users = User.objects.filter(
-        is_active=True,
-        profile__is_active=True,
-        profile__organization_id__isnull=False,
-    ).distinct()
-
-    created = 0
-    enabled_existing = 0
-    already_enabled = 0
-    for user in users.iterator():
-        assignment, was_created = FeatureFlagAssignment.objects.get_or_create(
-            user=user,
-            feature_flag=flag,
-            organization=None,
-            defaults={"enabled": True},
-        )
-        if was_created:
-            created += 1
+    updated = 0
+    already_had = 0
+    for role in roles:
+        caps = list(role.capabilities or [])
+        if CAN_USE_CHAT_FLAG in caps:
+            already_had += 1
             continue
-        if not assignment.enabled:
-            assignment.enabled = True
-            assignment.save(update_fields=["enabled"])
-            enabled_existing += 1
-        else:
-            already_enabled += 1
+        caps.append(CAN_USE_CHAT_FLAG)
+        role.capabilities = caps
+        role.save(update_fields=["capabilities", "updated_at"])
+        updated += 1
     return {
-        "created": created,
-        "enabled_existing": enabled_existing,
-        "already_enabled": already_enabled,
-        "total_users": users.count(),
+        "updated": updated,
+        "already_had": already_had,
+        "total_roles": updated + already_had,
     }
 

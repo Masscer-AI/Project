@@ -2203,7 +2203,7 @@ class ComplianceAssistantTests(TestCase):
             accessible_agents_qs(self.outsider).values_list("slug", flat=True)
         )
         self.assertIn(self.compliance_agent.slug, owner_slugs)
-        self.assertIn(self.compliance_agent.slug, member_slugs)
+        self.assertNotIn(self.compliance_agent.slug, member_slugs)
         self.assertNotIn(self.compliance_agent.slug, outsider_slugs)
 
         listed = self.client.get(
@@ -2213,6 +2213,29 @@ class ComplianceAssistantTests(TestCase):
         self.assertEqual(listed.status_code, 200)
         rows = listed.json()
         self.assertTrue(any(row.get("has_compliance_assistant") for row in rows))
+
+    def test_accessible_agents_qs_includes_member_with_compliance_flag(self):
+        from django.utils import timezone
+
+        from api.ai_layers.access import accessible_agents_qs
+        from api.authenticate.models import Role, RoleAssignment
+
+        role = Role.objects.create(
+            organization=self.org,
+            name="Compliance",
+            enabled=True,
+            capabilities=["organization-compliance-access"],
+        )
+        RoleAssignment.objects.create(
+            user=self.member,
+            organization=self.org,
+            role=role,
+            from_date=timezone.now().date(),
+        )
+        member_slugs = set(
+            accessible_agents_qs(self.member).values_list("slug", flat=True)
+        )
+        self.assertIn(self.compliance_agent.slug, member_slugs)
 
     def test_accessible_agents_qs_owner_without_profile_org(self):
         from api.authenticate.models import UserProfile
@@ -2348,8 +2371,30 @@ class ComplianceAssistantTests(TestCase):
             "/v1/ai_layers/compliance/conversation/",
             HTTP_AUTHORIZATION=f"Token {self.member_token.key}",
         )
+        self.assertEqual(member_resp.status_code, 404)
+
+    def test_sticky_compliance_conversation_member_with_flag(self):
+        from django.utils import timezone
+
+        from api.authenticate.models import Role, RoleAssignment
+
+        role = Role.objects.create(
+            organization=self.org,
+            name="Compliance sticky",
+            enabled=True,
+            capabilities=["organization-compliance-access"],
+        )
+        RoleAssignment.objects.create(
+            user=self.member,
+            organization=self.org,
+            role=role,
+            from_date=timezone.now().date(),
+        )
+        member_resp = self.client.get(
+            "/v1/ai_layers/compliance/conversation/",
+            HTTP_AUTHORIZATION=f"Token {self.member_token.key}",
+        )
         self.assertEqual(member_resp.status_code, 200)
-        self.assertNotEqual(member_resp.json()["id"], conv_id)
 
     def test_restart_compliance_conversation_archives_sticky_thread(self):
         from api.messaging.models import Conversation

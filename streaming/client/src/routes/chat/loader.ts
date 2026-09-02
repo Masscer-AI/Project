@@ -9,7 +9,7 @@ import { TChatLoader, TUserData } from "../../types/chatTypes";
 import { TConversation } from "../../types";
 import {
   loginUrlWithNext,
-  NO_CHAT_HOME_PATH,
+  AUTH_HOME_PATH,
   userCanUseChat,
 } from "../../utils/loginRedirect";
 
@@ -34,7 +34,7 @@ export const chatLoader: LoaderFunction = async ({
 
     const canUseChat = await userCanUseChat();
     if (!canUseChat) {
-      return redirect(NO_CHAT_HOME_PATH);
+      return redirect(AUTH_HOME_PATH);
     }
 
     if (conversationId) {
@@ -51,7 +51,7 @@ export const chatLoader: LoaderFunction = async ({
   } catch (error) {
     console.error("Error loading conversation in chat loader:", error);
     if (axios.isAxiosError(error) && error.response?.status === 403) {
-      return redirect(NO_CHAT_HOME_PATH);
+      return redirect(AUTH_HOME_PATH);
     }
     const returnPath = requestUrl.pathname + requestUrl.search;
     return redirect(loginUrlWithNext(returnPath));
