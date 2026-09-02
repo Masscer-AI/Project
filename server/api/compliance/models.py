@@ -221,6 +221,11 @@ class PLDEntity(models.Model):
         blank=True,
         related_name="pld_entities",
     )
+    email = models.EmailField(
+        blank=True,
+        default="",
+        help_text="Contact email for expediente invitations. Empty for the org self-entity.",
+    )
     metadata = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -307,3 +312,103 @@ class PLDExpedient(models.Model):
 
     def __str__(self):
         return f"PLDExpedient({self.id}, {self.status})"
+
+
+class PLDInvite(models.Model):
+    """Invite a counterparty to complete a PLD expediente (not an org membership)."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        ACCEPTED = "accepted", "Accepted"
+        CANCELLED = "cancelled", "Cancelled"
+        EXPIRED = "expired", "Expired"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    organization = models.ForeignKey(
+        "authenticate.Organization",
+        on_delete=models.CASCADE,
+        related_name="pld_invites",
+    )
+    entity = models.ForeignKey(
+        PLDEntity,
+        on_delete=models.CASCADE,
+        related_name="invites",
+    )
+    email = models.EmailField()
+    invited_by = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="pld_invites_sent",
+    )
+    token_hash = models.CharField(max_length=64, unique=True)
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+        db_index=True,
+    )
+    invite_expires_at = models.DateTimeField()
+    accepted_at = models.DateTimeField(null=True, blank=True)
+    accepted_user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="accepted_pld_invites",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "PLD invite"
+        verbose_name_plural = "PLD invites"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["entity"],
+                condition=models.Q(status="pending"),
+                name="unique_pending_pld_invite_per_entity",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["organization", "status"]),
+            models.Index(fields=["email", "status"]),
+        ]
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"PLDInvite<{self.email}>@{self.entity_id} ({self.status})"
+
+    @staticmethod
+    def generate_raw_token() -> str:
+        import secrets
+
+        return secrets.token_urlsafe(48)
+
+    @classmethod
+    def lookup_by_raw_token(cls, raw_token: str):
+        if not raw_token:
+            return None
+        from api.authenticate.models import hash_organization_invite_token
+
+        digest = hash_organization_invite_token(raw_token.strip())
+        return (
+            cls.objects.filter(token_hash=digest)
+            .select_related("organization", "entity")
+            .first()
+        )
+
+    def is_invite_expired(self, now=None):
+        from django.utils import timezone
+
+        now = now or timezone.now()
+        return self.invite_expires_at <= now
+
+    def mark_expired_if_needed(self, now=None):
+        from django.utils import timezone
+
+        now = now or timezone.now()
+        if self.status == self.Status.PENDING and self.invite_expires_at <= now:
+            self.status = self.Status.EXPIRED
+            self.save(update_fields=["status", "updated_at"])
+            return True
+        return False

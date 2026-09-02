@@ -19,6 +19,8 @@ import Root from "./routes/root/page.tsx";
 import { chatLoader } from "./routes/chat/loader.ts";
 import { complianceLoader } from "./routes/compliance/loader.ts";
 import ComplianceHubPage from "./routes/compliance/page.tsx";
+import PldInviteAcceptPage from "./routes/pld/invite/page.tsx";
+import MyPldExpedientePage from "./routes/pld/expediente/page.tsx";
 import "./index.css";
 import Signup from "./routes/signup/page.tsx";
 import ChatView from "./routes/chat/page.tsx";
@@ -121,6 +123,14 @@ const router = createBrowserRouter([
           </>
         ),
         loader: complianceLoader,
+      },
+      {
+        path: "/pld/invite",
+        element: <PldInviteAcceptPage />,
+      },
+      {
+        path: "/pld/expediente",
+        element: <MyPldExpedientePage />,
       },
       {
         path: "/whatsapp",

@@ -20,7 +20,7 @@ import { IconUserPlus, IconSparkles } from "@tabler/icons-react";
 import { GoogleSignInButton } from "../../components/GoogleSignInButton/GoogleSignInButton";
 import { hasGoogleOAuthClientId } from "../../modules/googleEnv";
 import { redirectToTenantHandoff } from "../../utils/googleAuthHandoff";
-import { resolvePostLoginPath } from "../../utils/loginRedirect";
+import { loginUrlWithNext, resolvePostLoginPath } from "../../utils/loginRedirect";
 import {
   buildTenantGoogleBridgeUrl,
   getCanonicalAppOrigin,
@@ -56,6 +56,7 @@ type InviteSignupGetResponse = {
   bio?: string;
   expires_at?: string | null;
   invite_expires_at?: string;
+  invite_kind?: string;
 };
 
 const panelBase = "flex-1 flex flex-col justify-center items-center p-8";
@@ -69,6 +70,7 @@ export default function Signup() {
   const theme = useMantineTheme();
   const [searchParams] = useSearchParams();
   const inviteToken = searchParams.get("invite");
+  const pldInviteToken = searchParams.get("pld_invite");
   const orgId = searchParams.get("orgId");
 
   const [email, setEmail] = useState("");
@@ -88,6 +90,26 @@ export default function Signup() {
     let cancelled = false;
 
     async function load() {
+      if (pldInviteToken) {
+        setLoadingOrg(true);
+        try {
+          const { data } = await axios.get<InviteSignupGetResponse>(
+            `${API_URL}/v1/compliance/invites/public/?token=${encodeURIComponent(pldInviteToken)}`
+          );
+          if (!cancelled) setInviteData(data);
+        } catch {
+          if (!cancelled) {
+            setInviteData({
+              invite_valid: false,
+              error: "invalid-or-expired-invite",
+            });
+          }
+        } finally {
+          if (!cancelled) setLoadingOrg(false);
+        }
+        return;
+      }
+
       if (inviteToken) {
         setLoadingOrg(true);
         try {
@@ -132,7 +154,7 @@ export default function Signup() {
     return () => {
       cancelled = true;
     };
-  }, [inviteToken, orgId]);
+  }, [inviteToken, pldInviteToken, orgId]);
 
   useEffect(() => {
     if (inviteData?.email) setEmail(inviteData.email);
@@ -147,6 +169,31 @@ export default function Signup() {
     }
     if (password !== confirmPassword) {
       toast.error(t("passwords-do-not-match"));
+      return;
+    }
+
+    if (pldInviteToken && inviteData?.invite_valid) {
+      setLoading(true);
+      setMessage("");
+      try {
+        await axios.post(`${API_URL}/v1/compliance/invites/public/`, {
+          token: pldInviteToken,
+          password,
+          confirm_password: confirmPassword,
+        });
+        toast.success(t("user-created-succesfully-please-login"));
+        navigate(loginUrlWithNext("/pld/expediente"));
+      } catch (error: any) {
+        const msg =
+          error.response?.data?.error ||
+          error.response?.data?.detail ||
+          t("an-error-occurred");
+        const text = Array.isArray(msg) ? msg[0] : msg;
+        setMessage(typeof text === "string" ? text : t("an-error-occurred"));
+        toast.error(typeof text === "string" ? text : t("an-error-occurred"));
+      } finally {
+        setLoading(false);
+      }
       return;
     }
 
@@ -228,7 +275,7 @@ export default function Signup() {
   };
 
   const handleGoogleAccessToken = async (accessToken: string) => {
-    if (inviteToken) return;
+    if (inviteToken || pldInviteToken) return;
     setLoading(true);
     try {
       const returnTo = onTenantSubdomain
@@ -270,8 +317,10 @@ export default function Signup() {
   const getInitialForLogo = (name: string) =>
     name.trim().slice(0, 2).toUpperCase() || "O";
 
-  const isEmailInviteFlow = Boolean(inviteToken && inviteData?.invite_valid);
-  const showGoogle = hasGoogleOAuthClientId && !inviteToken;
+  const isEmailInviteFlow = Boolean(
+    (inviteToken || pldInviteToken) && inviteData?.invite_valid
+  );
+  const showGoogle = hasGoogleOAuthClientId && !inviteToken && !pldInviteToken;
   const onTenantSubdomain = isTenantSubdomainHost();
   const googleAuthHref =
     showGoogle && onTenantSubdomain
@@ -280,7 +329,7 @@ export default function Signup() {
         })
       : undefined;
 
-  if (onTenantSubdomain && !inviteToken && !orgId) {
+  if (onTenantSubdomain && !inviteToken && !pldInviteToken && !orgId) {
     const mainAppSignup = `${getCanonicalAppOrigin()}/signup`;
     return (
       <div className="min-h-screen flex flex-col md:flex-row bg-[var(--bg-color,#0a0a0a)] text-[var(--font-color,#fff)]">
@@ -314,7 +363,7 @@ export default function Signup() {
     );
   }
 
-  if (loadingOrg && (inviteToken || orgId)) {
+  if (loadingOrg && (inviteToken || pldInviteToken || orgId)) {
     return (
       <div className="min-h-screen flex flex-col md:flex-row bg-[var(--bg-color,#0a0a0a)] text-[var(--font-color,#fff)]">
         <div
@@ -337,7 +386,12 @@ export default function Signup() {
     );
   }
 
-  if (inviteToken && inviteData && !inviteData.invite_valid && !inviteData.email_already_registered) {
+  if (
+    (inviteToken || pldInviteToken) &&
+    inviteData &&
+    !inviteData.invite_valid &&
+    !inviteData.email_already_registered
+  ) {
     return (
       <div className="min-h-screen flex flex-col md:flex-row bg-[var(--bg-color,#0a0a0a)] text-[var(--font-color,#fff)]">
         <div
@@ -372,7 +426,7 @@ export default function Signup() {
     );
   }
 
-  if (inviteToken && inviteData?.email_already_registered) {
+  if ((inviteToken || pldInviteToken) && inviteData?.email_already_registered) {
     return (
       <div className="min-h-screen flex flex-col md:flex-row bg-[var(--bg-color,#0a0a0a)] text-[var(--font-color,#fff)]">
         <div
@@ -397,7 +451,15 @@ export default function Signup() {
               {t("invite-email-already-registered")}
             </Text>
             <Text ta="center" mt="xl" size="sm">
-              <Anchor component={Link} to="/login" c={theme.primaryColor}>
+              <Anchor
+                component={Link}
+                to={
+                  pldInviteToken
+                    ? loginUrlWithNext(`/pld/invite?token=${pldInviteToken}`)
+                    : "/login"
+                }
+                c={theme.primaryColor}
+              >
                 {t("switch-to-login")}
               </Anchor>
             </Text>
@@ -446,7 +508,7 @@ export default function Signup() {
   }
 
   const inviteOrg = inviteData?.organization;
-  const isInvitedOrgLink = !!orgId && !!organization && !inviteToken;
+  const isInvitedOrgLink = !!orgId && !!organization && !inviteToken && !pldInviteToken;
   const leftOrg = isEmailInviteFlow ? inviteOrg : organization;
 
   return (

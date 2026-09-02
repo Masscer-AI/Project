@@ -1,6 +1,7 @@
 from django.contrib.auth.models import User
 from django.core.files.base import ContentFile
 from django.test import TestCase
+from unittest.mock import patch
 
 from api.ai_layers.models import LanguageModel
 from api.ai_layers.tools.list_attachments import _list_attachments_impl
@@ -287,6 +288,7 @@ class PLDEntityAPITests(TestCase):
             {
                 "person_type": "persona_moral",
                 "relationship": "cliente",
+                "email": "acme@example.com",
                 "metadata": {"legal_name": "ACME SA"},
             },
             format="json",
@@ -294,6 +296,7 @@ class PLDEntityAPITests(TestCase):
         )
         self.assertEqual(created.status_code, 201)
         self.assertEqual(created.json()["relationship"], "cliente")
+        self.assertEqual(created.json()["email"], "acme@example.com")
         self.assertEqual(created.json()["metadata"].get("legal_name"), "ACME SA")
         self.assertIsNotNone(created.json().get("expedient"))
         self.assertEqual(PLDEntity.objects.filter(organization=self.org).count(), 1)
@@ -321,4 +324,94 @@ class PLDEntityAPITests(TestCase):
             HTTP_AUTHORIZATION=f"Token {self.outsider_token.key}",
         )
         self.assertEqual(response.status_code, 404)
+
+    def test_create_rejects_missing_email(self):
+        response = self.client.post(
+            "/v1/compliance/entities/",
+            {
+                "person_type": "persona_moral",
+                "relationship": "cliente",
+                "metadata": {"legal_name": "No Email SA"},
+            },
+            format="json",
+            HTTP_AUTHORIZATION=f"Token {self.owner_token.key}",
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_delete_counterparty(self):
+        from api.compliance.models import PLDEntity, PLDPersonType, PLDRelationship
+
+        entity = PLDEntity.objects.create(
+            organization=self.org,
+            person_type=PLDPersonType.PERSONA_MORAL,
+            relationship=PLDRelationship.PROVEEDOR,
+            email="gone@example.com",
+            metadata={"legal_name": "Gone SA"},
+        )
+        response = self.client.delete(
+            f"/v1/compliance/entities/{entity.id}/",
+            HTTP_AUTHORIZATION=f"Token {self.owner_token.key}",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(PLDEntity.objects.filter(pk=entity.pk).exists())
+
+    @patch("api.compliance.views.send_pld_invite_email")
+    def test_send_invite_and_register(self, send_email):
+        from api.compliance.models import PLDInvite
+
+        created = self.client.post(
+            "/v1/compliance/entities/",
+            {
+                "person_type": "persona_fisica",
+                "relationship": "cliente",
+                "email": "counterparty@example.com",
+                "metadata": {"name": "Ana"},
+            },
+            format="json",
+            HTTP_AUTHORIZATION=f"Token {self.owner_token.key}",
+        )
+        entity_id = created.json()["id"]
+        invited = self.client.post(
+            f"/v1/compliance/entities/{entity_id}/invite/",
+            {},
+            format="json",
+            HTTP_AUTHORIZATION=f"Token {self.owner_token.key}",
+        )
+        self.assertEqual(invited.status_code, 200)
+        send_email.assert_called_once()
+        signup_url = send_email.call_args.kwargs["signup_url"]
+        self.assertIn("pld_invite=", signup_url)
+        raw = signup_url.split("pld_invite=", 1)[1]
+        public = self.client.get(f"/v1/compliance/invites/public/?token={raw}")
+        self.assertEqual(public.status_code, 200)
+        self.assertTrue(public.json().get("invite_valid"))
+
+        registered = self.client.post(
+            "/v1/compliance/invites/public/",
+            {
+                "token": raw,
+                "password": "CorrectHorse1",
+                "confirm_password": "CorrectHorse1",
+            },
+            format="json",
+        )
+        self.assertEqual(registered.status_code, 201)
+        invite = PLDInvite.objects.get(email="counterparty@example.com")
+        self.assertEqual(invite.status, PLDInvite.Status.ACCEPTED)
+        from api.authenticate.models import UserProfile
+
+        user = User.objects.get(email="counterparty@example.com")
+        profile = UserProfile.objects.get(user=user)
+        self.assertIsNone(profile.organization_id)
+
+        from api.authenticate.models import Token
+
+        token = Token.objects.create(user=user)
+        mine = self.client.get(
+            "/v1/compliance/my-expedients/",
+            HTTP_AUTHORIZATION=f"Token {token.key}",
+        )
+        self.assertEqual(mine.status_code, 200)
+        self.assertEqual(len(mine.json()["results"]), 1)
+
 

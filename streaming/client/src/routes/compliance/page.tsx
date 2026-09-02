@@ -16,18 +16,23 @@ import {
   Text,
   TextInput,
   Title,
+  Tooltip,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
+  IconMail,
   IconMenu2,
   IconPlus,
   IconScale,
+  IconTrash,
 } from "@tabler/icons-react";
 import { Sidebar } from "../../components/Sidebar/Sidebar";
 import { useStore } from "../../modules/store";
 import {
   createPldEntity,
+  deletePldEntity,
   listPldEntities,
+  sendPldEntityInvite,
   TPldEntity,
 } from "../../modules/apiCalls";
 
@@ -47,10 +52,15 @@ export default function ComplianceHubPage() {
   const [entities, setEntities] = useState<TPldEntity[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [invitingId, setInvitingId] = useState<string | null>(null);
   const [addOpened, { open: openAdd, close: closeAdd }] = useDisclosure(false);
+  const [deleteOpened, { open: openDelete, close: closeDelete }] =
+    useDisclosure(false);
+  const [pendingDelete, setPendingDelete] = useState<TPldEntity | null>(null);
   const [personType, setPersonType] = useState("persona_moral");
   const [relationship, setRelationship] = useState("cliente");
   const [displayName, setDisplayName] = useState("");
+  const [email, setEmail] = useState("");
 
   const loadEntities = async () => {
     try {
@@ -71,10 +81,22 @@ export default function ComplianceHubPage() {
   const counterparties = entities.filter((e) => e.relationship != null);
   const selfEntity = entities.find((e) => e.relationship == null);
 
+  const resetAddForm = () => {
+    setDisplayName("");
+    setEmail("");
+    setPersonType("persona_moral");
+    setRelationship("cliente");
+  };
+
   const handleCreate = async () => {
     const name = displayName.trim();
+    const inviteEmail = email.trim();
     if (!name) {
       toast.error(t("compliance-counterparty-name-required"));
+      return;
+    }
+    if (!inviteEmail) {
+      toast.error(t("compliance-counterparty-email-required"));
       return;
     }
     setSaving(true);
@@ -82,13 +104,14 @@ export default function ComplianceHubPage() {
       await createPldEntity({
         person_type: personType,
         relationship,
+        email: inviteEmail,
         metadata:
           personType === "persona_moral"
             ? { legal_name: name }
             : { name },
       });
       closeAdd();
-      setDisplayName("");
+      resetAddForm();
       toast.success(t("compliance-counterparty-created"));
       setLoading(true);
       await loadEntities();
@@ -97,6 +120,38 @@ export default function ComplianceHubPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleInvite = async (entity: TPldEntity) => {
+    setInvitingId(entity.id);
+    try {
+      await sendPldEntityInvite(entity.id);
+      toast.success(t("compliance-invite-sent"));
+      await loadEntities();
+    } catch {
+      toast.error(t("compliance-invite-send-error"));
+    } finally {
+      setInvitingId(null);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!pendingDelete) return;
+    try {
+      await deletePldEntity(pendingDelete.id);
+      toast.success(t("compliance-counterparty-deleted"));
+      closeDelete();
+      setPendingDelete(null);
+      await loadEntities();
+    } catch {
+      toast.error(t("compliance-counterparty-delete-error"));
+    }
+  };
+
+  const inviteLabel = (entity: TPldEntity) => {
+    if (entity.invite?.status === "accepted") return t("compliance-invite-accepted");
+    if (entity.invite?.status === "pending") return t("compliance-invite-resend");
+    return t("compliance-invite-send");
   };
 
   return (
@@ -158,7 +213,9 @@ export default function ComplianceHubPage() {
                 </Stack>
                 {selfEntity.expedient && (
                   <Badge variant="light" color="violet">
-                    {selfEntity.expedient.status}
+                    {t(`compliance-status-${selfEntity.expedient.status}`, {
+                      defaultValue: selfEntity.expedient.status,
+                    })}
                   </Badge>
                 )}
               </Group>
@@ -194,7 +251,7 @@ export default function ComplianceHubPage() {
                     p="sm"
                     style={{ background: "rgba(255,255,255,0.02)" }}
                   >
-                    <Group justify="space-between" wrap="nowrap">
+                    <Group justify="space-between" wrap="nowrap" align="flex-start">
                       <Stack gap={2} style={{ minWidth: 0, flex: 1 }}>
                         <Text fw={500} truncate>
                           {entityDisplayName(entity)}
@@ -203,12 +260,45 @@ export default function ComplianceHubPage() {
                           {t(`compliance-person-${entity.person_type}`)} ·{" "}
                           {t(`compliance-rel-${entity.relationship}`)}
                         </Text>
+                        {entity.email && (
+                          <Text size="sm" c="dimmed" truncate>
+                            {entity.email}
+                          </Text>
+                        )}
                       </Stack>
-                      {entity.expedient && (
-                        <Badge variant="outline" color="gray">
-                          {entity.expedient.status}
-                        </Badge>
-                      )}
+                      <Group gap="xs" wrap="nowrap">
+                        {entity.expedient && (
+                          <Badge variant="outline" color="gray">
+                            {t(`compliance-status-${entity.expedient.status}`, {
+                              defaultValue: entity.expedient.status,
+                            })}
+                          </Badge>
+                        )}
+                        <Tooltip label={inviteLabel(entity)}>
+                          <ActionIcon
+                            variant="subtle"
+                            color="gray"
+                            aria-label={inviteLabel(entity)}
+                            loading={invitingId === entity.id}
+                            onClick={() => void handleInvite(entity)}
+                          >
+                            <IconMail size={16} />
+                          </ActionIcon>
+                        </Tooltip>
+                        <Tooltip label={t("delete")}>
+                          <ActionIcon
+                            variant="subtle"
+                            color="gray"
+                            aria-label={t("delete")}
+                            onClick={() => {
+                              setPendingDelete(entity);
+                              openDelete();
+                            }}
+                          >
+                            <IconTrash size={16} />
+                          </ActionIcon>
+                        </Tooltip>
+                      </Group>
                     </Group>
                   </Card>
                 ))}
@@ -264,12 +354,53 @@ export default function ComplianceHubPage() {
               setDisplayName(val);
             }}
           />
+          <TextInput
+            label={t("email")}
+            type="email"
+            value={email}
+            onChange={(e) => {
+              const val = e.currentTarget.value;
+              setEmail(val);
+            }}
+          />
           <Group justify="flex-end">
             <Button variant="default" onClick={closeAdd} disabled={saving}>
               {t("cancel")}
             </Button>
             <Button onClick={handleCreate} loading={saving}>
               {t("compliance-add-counterparty")}
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      <Modal
+        opened={deleteOpened}
+        onClose={() => {
+          closeDelete();
+          setPendingDelete(null);
+        }}
+        title={t("compliance-delete-counterparty-title")}
+        centered
+      >
+        <Stack gap="md">
+          <Text size="sm">
+            {t("compliance-delete-counterparty-description", {
+              name: pendingDelete ? entityDisplayName(pendingDelete) : "",
+            })}
+          </Text>
+          <Group justify="flex-end">
+            <Button
+              variant="default"
+              onClick={() => {
+                closeDelete();
+                setPendingDelete(null);
+              }}
+            >
+              {t("cancel")}
+            </Button>
+            <Button color="red" onClick={() => void handleDelete()}>
+              {t("delete")}
             </Button>
           </Group>
         </Stack>

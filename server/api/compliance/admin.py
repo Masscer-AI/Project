@@ -6,6 +6,7 @@ from api.compliance.models import (
     FolioEvent,
     PLDEntity,
     PLDExpedient,
+    PLDInvite,
 )
 
 
@@ -66,14 +67,32 @@ class PLDEntityAdmin(admin.ModelAdmin):
         "organization",
         "person_type",
         "relationship",
+        "email",
         "user",
         "updated_at",
     )
     list_filter = ("person_type", "relationship")
-    search_fields = ("user__email", "user__username")
+    search_fields = ("email", "user__email", "user__username")
     raw_id_fields = ("organization", "user")
     readonly_fields = ("id", "created_at", "updated_at")
     inlines = [PLDExpedientInline]
+
+
+@admin.register(PLDInvite)
+class PLDInviteAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "organization",
+        "entity",
+        "email",
+        "status",
+        "invite_expires_at",
+        "created_at",
+    )
+    list_filter = ("status",)
+    search_fields = ("email",)
+    raw_id_fields = ("organization", "entity", "invited_by", "accepted_user")
+    readonly_fields = ("id", "token_hash", "created_at", "updated_at")
 
 
 @admin.register(PLDExpedient)

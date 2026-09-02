@@ -2193,13 +2193,22 @@ export const triggerPlatformAssistantTask = async (
   );
 };
 
+export type TPldInviteSummary = {
+  status: string;
+  invite_expires_at: string | null;
+  accepted_at: string | null;
+  email: string;
+};
+
 export type TPldEntity = {
   id: string;
   person_type: string;
   relationship: string | null;
+  email?: string;
   metadata: Record<string, string | number | boolean | null | undefined>;
   created_at: string | null;
   updated_at: string | null;
+  invite?: TPldInviteSummary | null;
   expedient: {
     id: string;
     status: string;
@@ -2217,12 +2226,52 @@ export const listPldEntities = async () => {
 export const createPldEntity = async (payload: {
   person_type: string;
   relationship: string;
+  email: string;
   metadata: Record<string, string>;
 }) => {
   return makeAuthenticatedRequest<TPldEntity>(
     "POST",
     "/v1/compliance/entities/",
     payload
+  );
+};
+
+export const deletePldEntity = async (entityId: string) => {
+  return makeAuthenticatedRequest<{ ok: boolean }>(
+    "DELETE",
+    `/v1/compliance/entities/${entityId}/`
+  );
+};
+
+export const sendPldEntityInvite = async (entityId: string) => {
+  return makeAuthenticatedRequest<TPldEntity>(
+    "POST",
+    `/v1/compliance/entities/${entityId}/invite/`,
+    {}
+  );
+};
+
+export const acceptPldInvite = async (token: string) => {
+  return makeAuthenticatedRequest<{ ok: boolean }>(
+    "POST",
+    "/v1/compliance/invites/accept/",
+    { token }
+  );
+};
+
+export type TMyPldExpedient = {
+  id: string;
+  name: string;
+  organization_name: string;
+  person_type: string;
+  relationship: string | null;
+  expedient: { id: string; status: string } | null;
+};
+
+export const listMyPldExpedients = async () => {
+  return makeAuthenticatedRequest<{ results: TMyPldExpedient[] }>(
+    "GET",
+    "/v1/compliance/my-expedients/"
   );
 };
 
