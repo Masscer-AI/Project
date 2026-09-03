@@ -16,6 +16,7 @@ import { IconMenu2 } from "@tabler/icons-react";
 import { Sidebar } from "../../../components/Sidebar/Sidebar";
 import { useStore } from "../../../modules/store";
 import { listMyPldExpedients, TMyPldExpedient } from "../../../modules/apiCalls";
+import { PldDocumentCollection } from "./PldDocumentCollection";
 import { PldIntakeForm } from "./PldIntakeForm";
 
 export default function MyPldExpedientePage() {
@@ -99,6 +100,14 @@ export default function MyPldExpedientePage() {
                     )}
                   </Group>
                   <PldIntakeForm
+                    row={row}
+                    onSaved={(next) =>
+                      setRows((prev) =>
+                        prev.map((item) => (item.id === next.id ? next : item))
+                      )
+                    }
+                  />
+                  <PldDocumentCollection
                     row={row}
                     onSaved={(next) =>
                       setRows((prev) =>

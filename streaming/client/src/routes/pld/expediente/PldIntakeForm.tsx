@@ -333,7 +333,9 @@ export function PldIntakeForm({
           : t("compliance-intake-fisica-section")}
       </Title>
       <Text size="sm" c="dimmed">
-        {t("compliance-intake-documents-later")}
+        {row.expedient?.status && row.expedient.status !== "data_collection"
+          ? t("compliance-intake-data-saved-hint")
+          : t("compliance-intake-documents-later")}
       </Text>
 
       {isMoral ? (

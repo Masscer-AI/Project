@@ -246,6 +246,59 @@ class PLDFoundationTests(TestCase):
                 metadata=["bad"],
             )
 
+    def test_document_slots_follow_person_type_and_controllers(self):
+        from api.compliance.models import PLDEntity, PLDPersonType, PLDRelationship
+        from api.compliance.pld_document_slots import document_slots_for_entity
+
+        fisica = PLDEntity(
+            organization=self.org,
+            person_type=PLDPersonType.PERSONA_FISICA,
+            relationship=PLDRelationship.CLIENTE,
+            metadata={
+                "given_names": "Ana",
+                "rfc": "LOAA800101XXX",
+                "is_own_controller": False,
+                "controllers": [{"name": "Luis Perez", "rfc": "PELJ800101XXX"}],
+            },
+        )
+        fisica_keys = [s["slot_key"] for s in document_slots_for_entity(fisica)]
+        self.assertEqual(
+            fisica_keys,
+            [
+                "official_id",
+                "curp",
+                "constancia_fiscal",
+                "comprobante_domicilio",
+                "poder",
+                "id_controlador:0",
+            ],
+        )
+        self.assertTrue(
+            next(
+                s
+                for s in document_slots_for_entity(fisica)
+                if s["slot_key"] == "constancia_fiscal"
+            )["required"]
+        )
+
+        moral = PLDEntity(
+            organization=self.org,
+            person_type=PLDPersonType.PERSONA_MORAL,
+            relationship=PLDRelationship.CLIENTE,
+            metadata={
+                "legal_name": "ACME SA",
+                "controllers": [
+                    {"name": "Ana"},
+                    {"name": "Luis"},
+                ],
+            },
+        )
+        moral_keys = [s["slot_key"] for s in document_slots_for_entity(moral)]
+        self.assertIn("acta_constitutiva", moral_keys)
+        self.assertIn("id_representante", moral_keys)
+        self.assertIn("id_controlador:0", moral_keys)
+        self.assertIn("id_controlador:1", moral_keys)
+
 
 class PLDEntityAPITests(TestCase):
     def setUp(self):
@@ -415,8 +468,25 @@ class PLDEntityAPITests(TestCase):
         self.assertEqual(len(mine.json()["results"]), 1)
         self.assertEqual(mine.json()["results"][0]["person_type"], "persona_fisica")
         self.assertIn("metadata", mine.json()["results"][0])
+        self.assertIn("document_slots", mine.json()["results"][0])
+        self.assertEqual(mine.json()["results"][0]["expedient"]["status"], "data_collection")
 
         entity_id = mine.json()["results"][0]["id"]
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        too_early = self.client.post(
+            f"/v1/compliance/my-expedients/{entity_id}/documents/",
+            {
+                "slot_key": "official_id",
+                "file": SimpleUploadedFile(
+                    "ine.pdf", b"%PDF-1.4", content_type="application/pdf"
+                ),
+            },
+            HTTP_AUTHORIZATION=f"Token {token.key}",
+        )
+        self.assertEqual(too_early.status_code, 400)
+        self.assertEqual(too_early.json().get("error"), "save-identification-first")
+
         saved = self.client.patch(
             f"/v1/compliance/my-expedients/{entity_id}/",
             {
@@ -440,6 +510,99 @@ class PLDEntityAPITests(TestCase):
         self.assertEqual(saved.status_code, 200)
         self.assertEqual(saved.json()["metadata"].get("given_names"), "Ana")
         self.assertEqual(saved.json()["metadata"].get("name"), "Ana Lopez")
+        self.assertEqual(
+            saved.json()["expedient"]["status"], "document_collection"
+        )
+        slot_keys = [s["slot_key"] for s in saved.json()["document_slots"]]
+        self.assertIn("official_id", slot_keys)
+        self.assertIn("comprobante_domicilio", slot_keys)
+        self.assertTrue(
+            next(s for s in saved.json()["document_slots"] if s["slot_key"] == "curp")[
+                "required"
+            ]
+        )
+
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        from api.compliance.models import PLDExpedientDocument
+
+        bad_type = self.client.post(
+            f"/v1/compliance/my-expedients/{entity_id}/documents/",
+            {
+                "slot_key": "official_id",
+                "file": SimpleUploadedFile(
+                    "id.txt", b"not a document", content_type="text/plain"
+                ),
+            },
+            HTTP_AUTHORIZATION=f"Token {token.key}",
+        )
+        self.assertEqual(bad_type.status_code, 400)
+
+        uploaded = self.client.post(
+            f"/v1/compliance/my-expedients/{entity_id}/documents/",
+            {
+                "slot_key": "official_id",
+                "file": SimpleUploadedFile(
+                    "ine.pdf", b"%PDF-1.4 fake", content_type="application/pdf"
+                ),
+            },
+            HTTP_AUTHORIZATION=f"Token {token.key}",
+        )
+        self.assertEqual(uploaded.status_code, 200)
+        official = next(
+            s
+            for s in uploaded.json()["document_slots"]
+            if s["slot_key"] == "official_id"
+        )
+        self.assertEqual(official["document"]["original_filename"], "ine.pdf")
+        self.assertEqual(PLDExpedientDocument.objects.count(), 1)
+        doc_id = official["document"]["id"]
+
+        replaced = self.client.post(
+            f"/v1/compliance/my-expedients/{entity_id}/documents/",
+            {
+                "slot_key": "official_id",
+                "file": SimpleUploadedFile(
+                    "ine2.pdf", b"%PDF-1.4 two", content_type="application/pdf"
+                ),
+            },
+            HTTP_AUTHORIZATION=f"Token {token.key}",
+        )
+        self.assertEqual(replaced.status_code, 200)
+        self.assertEqual(PLDExpedientDocument.objects.count(), 1)
+        self.assertEqual(
+            next(
+                s
+                for s in replaced.json()["document_slots"]
+                if s["slot_key"] == "official_id"
+            )["document"]["original_filename"],
+            "ine2.pdf",
+        )
+
+        deleted = self.client.delete(
+            f"/v1/compliance/my-expedients/{entity_id}/documents/{doc_id}/",
+            HTTP_AUTHORIZATION=f"Token {token.key}",
+        )
+        self.assertEqual(deleted.status_code, 200)
+        self.assertIsNone(
+            next(
+                s
+                for s in deleted.json()["document_slots"]
+                if s["slot_key"] == "official_id"
+            )["document"]
+        )
+
+        unknown = self.client.post(
+            f"/v1/compliance/my-expedients/{entity_id}/documents/",
+            {
+                "slot_key": "not_a_slot",
+                "file": SimpleUploadedFile(
+                    "ine.pdf", b"%PDF-1.4", content_type="application/pdf"
+                ),
+            },
+            HTTP_AUTHORIZATION=f"Token {token.key}",
+        )
+        self.assertEqual(unknown.status_code, 400)
 
         forbidden = self.client.patch(
             f"/v1/compliance/my-expedients/{entity_id}/",

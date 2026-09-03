@@ -6,6 +6,7 @@ from api.compliance.models import (
     FolioEvent,
     PLDEntity,
     PLDExpedient,
+    PLDExpedientDocument,
     PLDInvite,
 )
 
@@ -95,6 +96,22 @@ class PLDInviteAdmin(admin.ModelAdmin):
     readonly_fields = ("id", "token_hash", "created_at", "updated_at")
 
 
+class PLDExpedientDocumentInline(admin.TabularInline):
+    model = PLDExpedientDocument
+    extra = 0
+    fields = (
+        "id",
+        "slot_key",
+        "document_kind",
+        "original_filename",
+        "file",
+        "uploaded_by",
+        "created_at",
+    )
+    readonly_fields = ("id", "created_at")
+    raw_id_fields = ("uploaded_by",)
+
+
 @admin.register(PLDExpedient)
 class PLDExpedientAdmin(admin.ModelAdmin):
     list_display = (
@@ -108,4 +125,20 @@ class PLDExpedientAdmin(admin.ModelAdmin):
     )
     list_filter = ("status", "vulnerable_activity")
     raw_id_fields = ("organization", "entity")
+    readonly_fields = ("id", "created_at", "updated_at")
+    inlines = [PLDExpedientDocumentInline]
+
+
+@admin.register(PLDExpedientDocument)
+class PLDExpedientDocumentAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "expedient",
+        "slot_key",
+        "document_kind",
+        "original_filename",
+        "created_at",
+    )
+    list_filter = ("document_kind",)
+    raw_id_fields = ("expedient", "uploaded_by")
     readonly_fields = ("id", "created_at", "updated_at")

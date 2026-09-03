@@ -2259,6 +2259,24 @@ export const acceptPldInvite = async (token: string) => {
   );
 };
 
+export type TPldExpedientDocument = {
+  id: string;
+  slot_key: string;
+  document_kind: string;
+  original_filename: string;
+  content_type: string;
+  file_size: number;
+  updated_at: string | null;
+};
+
+export type TPldDocumentSlot = {
+  slot_key: string;
+  document_kind: string;
+  required: boolean;
+  label_name?: string;
+  document: TPldExpedientDocument | null;
+};
+
 export type TMyPldExpedient = {
   id: string;
   name: string;
@@ -2268,6 +2286,7 @@ export type TMyPldExpedient = {
   email?: string;
   metadata?: Record<string, unknown>;
   expedient: { id: string; status: string } | null;
+  document_slots?: TPldDocumentSlot[];
 };
 
 export const listMyPldExpedients = async () => {
@@ -2285,6 +2304,31 @@ export const updateMyPldExpedient = async (
     "PATCH",
     `/v1/compliance/my-expedients/${entityId}/`,
     { metadata }
+  );
+};
+
+export const uploadMyPldExpedientDocument = async (
+  entityId: string,
+  slotKey: string,
+  file: File
+) => {
+  const formData = new FormData();
+  formData.append("slot_key", slotKey);
+  formData.append("file", file);
+  return makeAuthenticatedRequest<TMyPldExpedient>(
+    "POST",
+    `/v1/compliance/my-expedients/${entityId}/documents/`,
+    formData
+  );
+};
+
+export const deleteMyPldExpedientDocument = async (
+  entityId: string,
+  documentId: string
+) => {
+  return makeAuthenticatedRequest<TMyPldExpedient>(
+    "DELETE",
+    `/v1/compliance/my-expedients/${entityId}/documents/${documentId}/`
   );
 };
 

@@ -314,6 +314,59 @@ class PLDExpedient(models.Model):
         return f"PLDExpedient({self.id}, {self.status})"
 
 
+def pld_expedient_document_upload_to(instance, filename):
+    import os
+
+    ext = os.path.splitext(filename)[1].lower()[:12]
+    return f"pld_expedient_documents/{instance.expedient_id}/{uuid.uuid4()}{ext}"
+
+
+class PLDExpedientDocument(models.Model):
+    """Invitee-uploaded copy for one checklist slot on an expedient."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    expedient = models.ForeignKey(
+        PLDExpedient,
+        on_delete=models.CASCADE,
+        related_name="documents",
+    )
+    slot_key = models.CharField(max_length=64)
+    document_kind = models.CharField(max_length=64)
+    file = models.FileField(upload_to=pld_expedient_document_upload_to)
+    original_filename = models.CharField(max_length=255, blank=True, default="")
+    content_type = models.CharField(max_length=128, blank=True, default="")
+    file_size = models.PositiveIntegerField(default=0)
+    uploaded_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="pld_expedient_documents",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "PLD expedient document"
+        verbose_name_plural = "PLD expedient documents"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["expedient", "slot_key"],
+                name="unique_pld_document_slot_per_expedient",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["expedient", "document_kind"],
+                name="compliance__expedie_doc_idx",
+            ),
+        ]
+        ordering = ["slot_key"]
+
+    def __str__(self):
+        return f"PLDExpedientDocument({self.slot_key}, {self.expedient_id})"
+
+
 class PLDInvite(models.Model):
     """Invite a counterparty to complete a PLD expediente (not an org membership)."""
 

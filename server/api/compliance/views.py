@@ -25,6 +25,7 @@ from api.compliance.invites import (
 from api.compliance.models import (
     PLDEntity,
     PLDExpedient,
+    PLDExpedientDocument,
     PLDExpedientStatus,
     PLDInvite,
     PLDPersonType,
@@ -323,7 +324,7 @@ class MyPLDExpedientView(View):
             PLDEntity.objects.filter(user=request.user)
             .exclude(relationship__isnull=True)
             .select_related("organization")
-            .prefetch_related("expedients")
+            .prefetch_related("expedients", "expedients__documents")
             .order_by("-updated_at")
         )
         return JsonResponse(
@@ -373,16 +374,21 @@ class MyPLDExpedientDetailView(View):
         except ValueError as exc:
             return JsonResponse({"error": str(exc)}, status=400)
 
-        entity = (
-            PLDEntity.objects.select_related("organization")
-            .prefetch_related("expedients")
-            .get(pk=entity.pk)
-        )
-        return JsonResponse(_my_expedient_row(entity), status=200)
+        _advance_expedient_to_document_collection(entity)
+        return JsonResponse(_reload_my_expedient_row(entity.pk), status=200)
 
 
 def _my_expedient_row(entity: PLDEntity) -> dict:
+    from api.compliance.pld_document_slots import document_slots_for_entity
+
     exp = entity.expedients.order_by("created_at").first()
+    uploaded = {}
+    if exp:
+        for doc in exp.documents.all():
+            uploaded[doc.slot_key] = _document_payload(doc)
+    slots = []
+    for slot in document_slots_for_entity(entity):
+        slots.append({**slot, "document": uploaded.get(slot["slot_key"])})
     return {
         "id": str(entity.id),
         "name": entity_display_name(entity),
@@ -394,4 +400,150 @@ def _my_expedient_row(entity: PLDEntity) -> dict:
         "expedient": (
             {"id": str(exp.id), "status": exp.status} if exp else None
         ),
+        "document_slots": slots,
     }
+
+
+def _reload_my_expedient_row(entity_id) -> dict:
+    entity = (
+        PLDEntity.objects.select_related("organization")
+        .prefetch_related("expedients", "expedients__documents")
+        .get(pk=entity_id)
+    )
+    return _my_expedient_row(entity)
+
+
+def _document_payload(doc: PLDExpedientDocument) -> dict:
+    return {
+        "id": str(doc.id),
+        "slot_key": doc.slot_key,
+        "document_kind": doc.document_kind,
+        "original_filename": doc.original_filename,
+        "content_type": doc.content_type,
+        "file_size": doc.file_size,
+        "updated_at": doc.updated_at.isoformat() if doc.updated_at else None,
+    }
+
+
+def _advance_expedient_to_document_collection(entity: PLDEntity) -> None:
+    exp = entity.expedients.order_by("created_at").first()
+    if not exp or exp.status != PLDExpedientStatus.DATA_COLLECTION:
+        return
+    exp.status = PLDExpedientStatus.DOCUMENT_COLLECTION
+    exp.save(update_fields=["status", "updated_at"])
+
+
+def _invitee_counterparty_or_404(request, entity_id):
+    try:
+        entity = (
+            PLDEntity.objects.select_related("organization")
+            .prefetch_related("expedients", "expedients__documents")
+            .get(pk=entity_id, user=request.user)
+        )
+    except (PLDEntity.DoesNotExist, ValidationError, ValueError):
+        return None, JsonResponse({"error": "Entity not found"}, status=404)
+    if entity.relationship is None:
+        return None, JsonResponse({"error": "Entity not found"}, status=404)
+    return entity, None
+
+
+MAX_PLD_DOCUMENT_BYTES = 10 * 1024 * 1024
+_ALLOWED_EXTENSIONS = {".pdf", ".jpg", ".jpeg", ".png", ".webp"}
+_ALLOWED_CONTENT_TYPES = {
+    "application/pdf",
+    "image/jpeg",
+    "image/jpg",
+    "image/png",
+    "image/webp",
+}
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class MyPLDExpedientDocumentView(View):
+    """Invitee uploads or replaces a file for one checklist slot."""
+
+    def post(self, request, entity_id, *args, **kwargs):
+        import os
+
+        entity, err = _invitee_counterparty_or_404(request, entity_id)
+        if err:
+            return err
+        exp = entity.expedients.order_by("created_at").first()
+        if not exp:
+            return JsonResponse({"error": "Expedient not found"}, status=404)
+        if exp.status == PLDExpedientStatus.DATA_COLLECTION:
+            return JsonResponse(
+                {"error": "save-identification-first"},
+                status=400,
+            )
+
+        slot_key = (request.POST.get("slot_key") or "").strip()
+        uploaded = request.FILES.get("file")
+        if not slot_key:
+            return JsonResponse({"error": "slot_key is required"}, status=400)
+        if not uploaded:
+            return JsonResponse({"error": "file is required"}, status=400)
+
+        from api.compliance.pld_document_slots import document_slots_for_entity
+
+        slot = next(
+            (
+                item
+                for item in document_slots_for_entity(entity)
+                if item["slot_key"] == slot_key
+            ),
+            None,
+        )
+        if not slot:
+            return JsonResponse({"error": "unknown-slot"}, status=400)
+
+        filename = uploaded.name or "document"
+        ext = os.path.splitext(filename)[1].lower()
+        content_type = (getattr(uploaded, "content_type", "") or "").lower()
+        if ext not in _ALLOWED_EXTENSIONS:
+            return JsonResponse({"error": "unsupported-file-type"}, status=400)
+        if content_type and content_type not in _ALLOWED_CONTENT_TYPES:
+            if content_type != "application/octet-stream":
+                return JsonResponse({"error": "unsupported-file-type"}, status=400)
+        size = getattr(uploaded, "size", 0) or 0
+        if size > MAX_PLD_DOCUMENT_BYTES:
+            return JsonResponse({"error": "file-too-large"}, status=400)
+
+        existing = PLDExpedientDocument.objects.filter(
+            expedient=exp, slot_key=slot_key
+        ).first()
+        if existing:
+            if existing.file:
+                existing.file.delete(save=False)
+            doc = existing
+        else:
+            doc = PLDExpedientDocument(expedient=exp, slot_key=slot_key)
+        doc.document_kind = slot["document_kind"]
+        doc.original_filename = filename[:255]
+        doc.content_type = content_type
+        doc.file_size = size
+        doc.uploaded_by = request.user
+        doc.file.save(filename, uploaded, save=False)
+        doc.save()
+        return JsonResponse(_reload_my_expedient_row(entity.pk), status=200)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class MyPLDExpedientDocumentDetailView(View):
+    def delete(self, request, entity_id, document_id, *args, **kwargs):
+        entity, err = _invitee_counterparty_or_404(request, entity_id)
+        if err:
+            return err
+        exp = entity.expedients.order_by("created_at").first()
+        if not exp:
+            return JsonResponse({"error": "Expedient not found"}, status=404)
+        try:
+            doc = PLDExpedientDocument.objects.get(pk=document_id, expedient=exp)
+        except (PLDExpedientDocument.DoesNotExist, ValidationError, ValueError):
+            return JsonResponse({"error": "Document not found"}, status=404)
+        if doc.file:
+            doc.file.delete(save=False)
+        doc.delete()
+        return JsonResponse(_reload_my_expedient_row(entity.pk), status=200)

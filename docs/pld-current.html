@@ -366,19 +366,18 @@ erDiagram
       <h2>7. What is explicitly not in the product yet</h2>
       <div class="grid">
         <article class="card">
-          <h3 class="gap">Data collection form</h3>
+          <h3 class="ok">Data collection form</h3>
           <ul>
-            <li>Invitee cannot submit Anexo 3 / 4 fields</li>
-            <li>Hub create form only stores display name + email + type</li>
-            <li>Expedient stays in <code>data_collection</code> forever</li>
+            <li>Invitee identification form on <code>/pld/expediente</code></li>
+            <li>Saving data advances the expedient to <code>document_collection</code></li>
           </ul>
         </article>
         <article class="card">
-          <h3 class="gap">Document collection</h3>
+          <h3 class="ok">Document collection (invitee)</h3>
           <ul>
-            <li>No invitee upload UI</li>
-            <li>Folio ingest only from operator assistant chat</li>
-            <li>Folio is not linked to <code>PLDExpedient</code></li>
+            <li>Checklist by <code>person_type</code> (Anexo 3 / 4) plus controller IDs</li>
+            <li><code>PLDExpedientDocument</code> files, not the operator folio</li>
+            <li>Operator cotejo vs originals is still later</li>
           </ul>
         </article>
         <article class="card">
@@ -390,10 +389,10 @@ erDiagram
           </ul>
         </article>
         <article class="card">
-          <h3 class="wip">Statuses after data_collection</h3>
+          <h3 class="wip">Statuses after document_collection</h3>
           <ul>
-            <li>Enum exists: document_collection, cross_reference, waiting_sign, signed, delivered, action_required</li>
-            <li>Nothing in the app advances them</li>
+            <li>Saving identification advances to <code>document_collection</code></li>
+            <li>Later: cross_reference, waiting_sign, signed, delivered, action_required</li>
           </ul>
         </article>
       </div>
