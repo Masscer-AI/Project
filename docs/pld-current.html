@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PLD feature — current end-to-end</title>
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: "dark",
+      themeVariables: {
+        primaryColor: "#5b21b6",
+        primaryTextColor: "#f5f3ff",
+        primaryBorderColor: "#a78bfa",
+        lineColor: "#a78bfa",
+        secondaryColor: "#1e1b2e",
+        tertiaryColor: "#111018",
+        fontFamily: "ui-sans-serif, system-ui, sans-serif",
+      },
+    });
+  </script>
+  <style>
+    :root {
+      --bg: #0a0a0c;
+      --panel: #14141a;
+      --border: #2a2a36;
+      --text: #ececf1;
+      --muted: #9b9ba8;
+      --violet: #a78bfa;
+      --green: #34d399;
+      --amber: #fbbf24;
+      --red: #f87171;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.45;
+    }
+    header {
+      padding: 2rem 1.5rem 1rem;
+      max-width: 72rem;
+      margin: 0 auto;
+    }
+    header h1 { margin: 0 0 0.35rem; font-size: 1.6rem; }
+    header p { margin: 0; color: var(--muted); max-width: 46rem; }
+    main { max-width: 72rem; margin: 0 auto; padding: 0 1.5rem 4rem; }
+    section { margin-top: 2.25rem; }
+    h2 { font-size: 1.15rem; margin: 0 0 0.75rem; }
+    h3 { font-size: 0.95rem; margin: 1.25rem 0 0.5rem; color: var(--violet); }
+    .legend {
+      display: flex; flex-wrap: wrap; gap: 0.75rem 1.25rem;
+      font-size: 0.85rem; color: var(--muted);
+    }
+    .swatch {
+      display: inline-block; width: 0.7rem; height: 0.7rem;
+      border-radius: 2px; margin-right: 0.35rem; vertical-align: -1px;
+    }
+    .diagram {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem;
+      overflow-x: auto;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+      gap: 0.75rem;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.9rem 1rem;
+    }
+    .card h3 { margin-top: 0; }
+    .card ul { margin: 0; padding-left: 1.1rem; color: var(--muted); font-size: 0.88rem; }
+    .card code, p code, td code, li code {
+      font-size: 0.82em;
+      background: #0a0a0c;
+      padding: 0.05em 0.35em;
+      border-radius: 4px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 0.45rem 0.6rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    th { color: var(--muted); font-weight: 600; }
+    .ok { color: var(--green); }
+    .wip { color: var(--amber); }
+    .gap { color: var(--red); }
+    .note {
+      font-size: 0.88rem;
+      color: var(--muted);
+      margin: 0.5rem 0 0;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>PLD / cumplimiento — how it works today</h1>
+    <p>
+      Snapshot of the shipped feature (not the target KYC form). Open this file in a browser.
+      Two people are involved: an <strong>org operator</strong> (member with
+      <code>organization-compliance-access</code>) and a <strong>PLD invitee</strong>
+      (counterparty user with no organization).
+    </p>
+    <p class="legend" style="margin-top: 1rem;">
+      <span><span class="swatch" style="background: var(--green);"></span> Built and wired</span>
+      <span><span class="swatch" style="background: var(--amber);"></span> Built but incomplete / unused by invitee</span>
+      <span><span class="swatch" style="background: var(--red);"></span> Not built (data + document collection UI)</span>
+    </p>
+  </header>
+
+  <main>
+    <section>
+      <h2>1. Access gates</h2>
+      <div class="grid">
+        <article class="card">
+          <h3>Org switch</h3>
+          <ul>
+            <li><code>Organization.pld_access_enabled</code> (Django admin)</li>
+            <li>Without this, entity APIs and the assistant return 404</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3>Operator capability</h3>
+          <ul>
+            <li>Flag <code>organization-compliance-access</code></li>
+            <li>Owners get it automatically; members need it on a role</li>
+            <li>Sidebar “Cumplimiento”, <code>/compliance</code>, assistant</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3>Invitee</h3>
+          <ul>
+            <li>Not an org member (<code>profile.organization = None</code>)</li>
+            <li>No chat, no hub</li>
+            <li>Login home is <code>/pld/expediente</code></li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3>Member with no role</h3>
+          <ul>
+            <li>Has an org, no role capabilities</li>
+            <li>Login home is <code>/no-role</code></li>
+            <li>Not a PLD invitee</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <h2>2. End-to-end: operator creates a counterparty and invites them</h2>
+      <div class="diagram">
+        <pre class="mermaid">
+flowchart TB
+  subgraph adminNode [Django admin]
+    F1["Enable org.pld_access_enabled"]
+    F2["Optional: provision MASSCER CUMPLIMIENTO 115"]
+    F3["Role includes organization-compliance-access"]
+  end
+
+  subgraph operator [Operator — logged-in org user]
+    L1["Login → /chat or /compliance"]
+    H["/compliance hub"]
+    C["Create counterparty<br/>person_type + relationship + email + name"]
+    I["Click mail: send PLD invite"]
+    A["Open /compliance/chat assistant"]
+  end
+
+  subgraph api [API]
+    E["POST /v1/compliance/entities/<br/>PLDEntity + PLDExpedient status=data_collection"]
+    INV["POST .../entities/id/invite/<br/>PLDInvite pending, email 7 days"]
+    CONV["GET sticky compliance conversation"]
+  end
+
+  subgraph invitee [Invitee — not an org member]
+    M["Email link /signup?pld_invite="]
+    S{"Email already a user?"}
+    NEW["Signup sets password<br/>creates User, org=None<br/>accepts invite, entity.user = user"]
+    OLD["Login then /pld/invite?token=<br/>POST /invites/accept/"]
+    X["/pld/expediente<br/>status card only"]
+  end
+
+  F1 --> H
+  F3 --> H
+  L1 --> H
+  H --> C --> E
+  H --> I --> INV --> M
+  F2 --> A --> CONV
+  M --> S
+  S -->|no| NEW --> X
+  S -->|yes| OLD --> X
+        </pre>
+      </div>
+      <p class="note">
+        Creating a counterparty does <strong>not</strong> send email. Invite is a separate mail-icon action.
+        Org member invites (<code>/v1/auth/organizations/.../invites/</code>) are a different product: they create membership + optional role, not a PLD expediente.
+      </p>
+    </section>
+
+    <section>
+      <h2>3. After login: where each user lands</h2>
+      <div class="diagram">
+        <pre class="mermaid">
+flowchart TD
+  Login["Login / Google / signup success"] --> Home["/home loader<br/>resolveAuthenticatedHome"]
+  Home --> Q1{"can-use-chat?"}
+  Q1 -->|yes| Chat["/chat"]
+  Q1 -->|no| Q2{"organization-compliance-access?"}
+  Q2 -->|yes| Hub["/compliance"]
+  Q2 -->|no| Q3{"Belongs to an organization?"}
+  Q3 -->|no — invitee| Exp["/pld/expediente"]
+  Q3 -->|yes — member, no tools| NoRole["/no-role"]
+        </pre>
+      </div>
+    </section>
+
+    <section>
+      <h2>4. Data model as implemented</h2>
+      <div class="diagram">
+        <pre class="mermaid">
+erDiagram
+  Organization ||--o{ PLDEntity : has
+  Organization ||--o{ PLDExpedient : has
+  Organization ||--o{ PLDInvite : has
+  Organization ||--o{ ComplianceFolio : "assistant uploads"
+  PLDEntity ||--o| PLDExpedient : "one per org+entity"
+  PLDEntity ||--o{ PLDInvite : invites
+  User ||--o{ PLDEntity : "invitee link optional"
+  User ||--o{ ComplianceFolio : subject_user
+  ComplianceFolio ||--o{ FolioDocument : docs
+
+  Organization {
+    bool pld_access_enabled
+  }
+  PLDEntity {
+    uuid id
+    string person_type
+    string relationship "null = org self-entity"
+    string email
+    json metadata "name / legal_name / rfc stub"
+    fk user "set on invite accept"
+  }
+  PLDExpedient {
+    uuid id
+    string status "always data_collection at create"
+    string vulnerable_activity "unused in UI"
+  }
+  PLDInvite {
+    string email
+    string status
+    datetime invite_expires_at
+    fk accepted_user
+  }
+        </pre>
+      </div>
+      <p class="note">
+        <code>PLDEntity.metadata</code> is a JSON field validated by Pydantic
+        (<code>PersonaFisicaMetadata</code> / <code>PersonaMoralMetadata</code>):
+        name or legal_name, rfc, economic_activity, and a thin controller object.
+        There is no separate “intake answers” table. Folio models are a second stack
+        used only when files are uploaded on the <em>operator</em> compliance chat.
+      </p>
+    </section>
+
+    <section>
+      <h2>5. Two stacks that are not joined</h2>
+      <table>
+        <thead>
+          <tr>
+            <th></th>
+            <th>Counterparty expediente</th>
+            <th>Compliance assistant + folio</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Who uses it</td>
+            <td>Operator hub + invitee “Your file”</td>
+            <td>Operator with PLD + provisioned agent</td>
+          </tr>
+          <tr>
+            <td>Primary records</td>
+            <td><code>PLDEntity</code>, <code>PLDExpedient</code>, <code>PLDInvite</code></td>
+            <td>Sticky <code>Conversation</code> (<code>surface: compliance</code>), <code>ComplianceFolio</code></td>
+          </tr>
+          <tr>
+            <td>Status</td>
+            <td class="ok">Create / invite / accept / list status</td>
+            <td class="wip">Chat + file ingest to folio; not shown on expediente</td>
+          </tr>
+          <tr>
+            <td>Invitee can do</td>
+            <td class="gap">See status badge only</td>
+            <td class="gap">Nothing — no chat access</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>6. Screens and APIs</h2>
+      <table>
+        <thead>
+          <tr><th>Route / API</th><th>Who</th><th>What it does now</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>/compliance</code></td>
+            <td>Operator</td>
+            <td>Hub: counterparties, optional self-entity card, link to assistant</td>
+          </tr>
+          <tr>
+            <td><code>POST /v1/compliance/entities/</code></td>
+            <td>Operator</td>
+            <td>Creates entity + expedient in <code>data_collection</code></td>
+          </tr>
+          <tr>
+            <td><code>POST .../entities/{id}/invite/</code></td>
+            <td>Operator</td>
+            <td>Email with <code>/signup?pld_invite=</code></td>
+          </tr>
+          <tr>
+            <td><code>/signup?pld_invite=</code></td>
+            <td>New invitee</td>
+            <td>Creates user without org, accepts invite, then login → expediente</td>
+          </tr>
+          <tr>
+            <td><code>/pld/invite?token=</code></td>
+            <td>Existing user</td>
+            <td>Accepts invite, sets <code>entity.user</code></td>
+          </tr>
+          <tr>
+            <td><code>/pld/expediente</code></td>
+            <td>Invitee</td>
+            <td class="gap">Lists files + status. No form, no uploads</td>
+          </tr>
+          <tr>
+            <td><code>GET /v1/compliance/my-expedients/</code></td>
+            <td>Invitee</td>
+            <td>Entities where <code>entity.user</code> is the current user</td>
+          </tr>
+          <tr>
+            <td><code>/compliance/chat</code></td>
+            <td>Operator</td>
+            <td>Sticky assistant thread; 404 if agent not provisioned</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>7. What is explicitly not in the product yet</h2>
+      <div class="grid">
+        <article class="card">
+          <h3 class="gap">Data collection form</h3>
+          <ul>
+            <li>Invitee cannot submit Anexo 3 / 4 fields</li>
+            <li>Hub create form only stores display name + email + type</li>
+            <li>Expedient stays in <code>data_collection</code> forever</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3 class="gap">Document collection</h3>
+          <ul>
+            <li>No invitee upload UI</li>
+            <li>Folio ingest only from operator assistant chat</li>
+            <li>Folio is not linked to <code>PLDExpedient</code></li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3 class="wip">Self-entity</h3>
+          <ul>
+            <li>Unique <code>relationship = null</code> row per org</li>
+            <li>Shown on hub if it exists</li>
+            <li>No dedicated create flow in the hub</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3 class="wip">Statuses after data_collection</h3>
+          <ul>
+            <li>Enum exists: document_collection, cross_reference, waiting_sign, signed, delivered, action_required</li>
+            <li>Nothing in the app advances them</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

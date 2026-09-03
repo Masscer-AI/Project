@@ -413,6 +413,41 @@ class PLDEntityAPITests(TestCase):
         )
         self.assertEqual(mine.status_code, 200)
         self.assertEqual(len(mine.json()["results"]), 1)
+        self.assertEqual(mine.json()["results"][0]["person_type"], "persona_fisica")
+        self.assertIn("metadata", mine.json()["results"][0])
+
+        entity_id = mine.json()["results"][0]["id"]
+        saved = self.client.patch(
+            f"/v1/compliance/my-expedients/{entity_id}/",
+            {
+                "metadata": {
+                    "given_names": "Ana",
+                    "paternal_surname": "Lopez",
+                    "rfc": "LOAA800101XXX",
+                    "curp": "LOAA800101MDFXXX09",
+                    "nationality": "MX",
+                    "address": {
+                        "city": "CDMX",
+                        "postal_code": "01000",
+                        "country": "MX",
+                    },
+                    "is_own_controller": True,
+                }
+            },
+            format="json",
+            HTTP_AUTHORIZATION=f"Token {token.key}",
+        )
+        self.assertEqual(saved.status_code, 200)
+        self.assertEqual(saved.json()["metadata"].get("given_names"), "Ana")
+        self.assertEqual(saved.json()["metadata"].get("name"), "Ana Lopez")
+
+        forbidden = self.client.patch(
+            f"/v1/compliance/my-expedients/{entity_id}/",
+            {"metadata": {"given_names": "Hacker"}},
+            format="json",
+            HTTP_AUTHORIZATION=f"Token {self.owner_token.key}",
+        )
+        self.assertEqual(forbidden.status_code, 404)
 
     def test_list_404_for_member_without_compliance_flag(self):
         from api.authenticate.models import Token, UserProfile

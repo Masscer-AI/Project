@@ -2265,6 +2265,8 @@ export type TMyPldExpedient = {
   organization_name: string;
   person_type: string;
   relationship: string | null;
+  email?: string;
+  metadata?: Record<string, unknown>;
   expedient: { id: string; status: string } | null;
 };
 
@@ -2272,6 +2274,17 @@ export const listMyPldExpedients = async () => {
   return makeAuthenticatedRequest<{ results: TMyPldExpedient[] }>(
     "GET",
     "/v1/compliance/my-expedients/"
+  );
+};
+
+export const updateMyPldExpedient = async (
+  entityId: string,
+  metadata: Record<string, unknown>
+) => {
+  return makeAuthenticatedRequest<TMyPldExpedient>(
+    "PATCH",
+    `/v1/compliance/my-expedients/${entityId}/`,
+    { metadata }
   );
 };
 

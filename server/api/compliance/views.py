@@ -336,6 +336,51 @@ class MyPLDExpedientView(View):
         )
 
 
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class MyPLDExpedientDetailView(View):
+    """Invitee updates identification data on their own counterparty entity."""
+
+    def patch(self, request, entity_id, *args, **kwargs):
+        from api.compliance.pld_metadata import normalize_pld_entity_metadata
+
+        try:
+            entity = PLDEntity.objects.select_related("organization").get(
+                pk=entity_id,
+                user=request.user,
+            )
+        except (PLDEntity.DoesNotExist, ValidationError, ValueError):
+            return JsonResponse({"error": "Entity not found"}, status=404)
+        if entity.relationship is None:
+            return JsonResponse({"error": "Entity not found"}, status=404)
+
+        payload, err = _parse_json_body(request)
+        if err:
+            return err
+        metadata = payload.get("metadata")
+        if not isinstance(metadata, dict):
+            return JsonResponse({"error": "metadata must be an object"}, status=400)
+        try:
+            entity.metadata = normalize_pld_entity_metadata(
+                entity.person_type, metadata
+            )
+            entity.save(update_fields=["metadata", "updated_at"])
+        except ValidationError as exc:
+            return JsonResponse(
+                {"error": getattr(exc, "message_dict", None) or str(exc)},
+                status=400,
+            )
+        except ValueError as exc:
+            return JsonResponse({"error": str(exc)}, status=400)
+
+        entity = (
+            PLDEntity.objects.select_related("organization")
+            .prefetch_related("expedients")
+            .get(pk=entity.pk)
+        )
+        return JsonResponse(_my_expedient_row(entity), status=200)
+
+
 def _my_expedient_row(entity: PLDEntity) -> dict:
     exp = entity.expedients.order_by("created_at").first()
     return {
@@ -344,6 +389,8 @@ def _my_expedient_row(entity: PLDEntity) -> dict:
         "organization_name": entity.organization.name,
         "person_type": entity.person_type,
         "relationship": entity.relationship,
+        "email": entity.email or "",
+        "metadata": entity.metadata if isinstance(entity.metadata, dict) else {},
         "expedient": (
             {"id": str(exp.id), "status": exp.status} if exp else None
         ),

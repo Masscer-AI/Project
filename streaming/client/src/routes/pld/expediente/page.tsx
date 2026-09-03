@@ -16,6 +16,7 @@ import { IconMenu2 } from "@tabler/icons-react";
 import { Sidebar } from "../../../components/Sidebar/Sidebar";
 import { useStore } from "../../../modules/store";
 import { listMyPldExpedients, TMyPldExpedient } from "../../../modules/apiCalls";
+import { PldIntakeForm } from "./PldIntakeForm";
 
 export default function MyPldExpedientePage() {
   const { t } = useTranslation();
@@ -74,14 +75,19 @@ export default function MyPldExpedientePage() {
               {t("compliance-my-expediente-empty")}
             </Text>
           ) : (
-            <Stack gap="sm">
+            <Stack gap="md">
               {rows.map((row) => (
                 <Card key={row.id} withBorder p="md">
-                  <Group justify="space-between">
+                  <Group justify="space-between" align="flex-start">
                     <Stack gap={2}>
                       <Text fw={500}>{row.name}</Text>
                       <Text size="sm" c="dimmed">
                         {row.organization_name}
+                      </Text>
+                      <Text size="xs" c="dimmed">
+                        {row.person_type === "persona_moral"
+                          ? t("compliance-intake-moral-section")
+                          : t("compliance-intake-fisica-section")}
                       </Text>
                     </Stack>
                     {row.expedient && (
@@ -92,6 +98,14 @@ export default function MyPldExpedientePage() {
                       </Badge>
                     )}
                   </Group>
+                  <PldIntakeForm
+                    row={row}
+                    onSaved={(next) =>
+                      setRows((prev) =>
+                        prev.map((item) => (item.id === next.id ? next : item))
+                      )
+                    }
+                  />
                 </Card>
               ))}
             </Stack>

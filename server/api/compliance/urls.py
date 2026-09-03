@@ -1,6 +1,7 @@
 from django.urls import path
 
 from api.compliance.views import (
+    MyPLDExpedientDetailView,
     MyPLDExpedientView,
     PLDEntityDetailView,
     PLDEntityInviteView,
@@ -26,4 +27,9 @@ urlpatterns = [
     path("invites/public/", PLDInvitePublicView.as_view(), name="pld_invite_public"),
     path("invites/accept/", PLDInviteAcceptView.as_view(), name="pld_invite_accept"),
     path("my-expedients/", MyPLDExpedientView.as_view(), name="my_pld_expedients"),
+    path(
+        "my-expedients/<uuid:entity_id>/",
+        MyPLDExpedientDetailView.as_view(),
+        name="my_pld_expedient_detail",
+    ),
 ]
