@@ -158,9 +158,11 @@ Behavior:
 
 Lists attachments the user can access (metadata only): personal files, organization- and role-shared files, public (`link`) files in their org, plus everything in the current conversation.
 
-- `list_attachments(kind, from_date?) -> { attachments: [...] }`
+- `list_attachments(kind, query?, from_date?, offset?) -> { attachments: [...], total, next_offset }`
 - `kind` is required: `image` | `document` | `video` | `audio`
+- `query` optionally performs a case-insensitive substring search over filenames, linked knowledge-base document names, and website URLs.
 - `from_date` is optional (`YYYY-MM-DD` or ISO datetime)
+- Results are paginated in newest-first order: pass `next_offset` as `offset` to retrieve the next page.
 - Returns items like: `attachment_id`, media `kind`, `attachment_kind`, `content_type`, `name/url`, `conversation_id`, `visibility`, `belongs_to`, `message_id`, timestamps.
 
 ### Tool: `explore_web`

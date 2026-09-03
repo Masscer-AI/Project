@@ -32,11 +32,26 @@ class ListAttachmentsParams(BaseModel):
     kind: AttachmentMediaKind = Field(
         description="Media type to list: image, document, video, or audio.",
     )
+    query: str | None = Field(
+        default=None,
+        description=(
+            "Optional case-insensitive substring filter for attachment filenames, "
+            "linked knowledge-base document names, or website URLs."
+        ),
+    )
     from_date: str | None = Field(
         default=None,
         description=(
             "Optional ISO date (YYYY-MM-DD) or datetime. "
             "When set, only attachments created on or after this instant are returned."
+        ),
+    )
+    offset: int = Field(
+        default=0,
+        ge=0,
+        description=(
+            "Number of matching attachments to skip, for pagination. "
+            "Use next_offset from a previous result to retrieve the next page."
         ),
     )
 
@@ -83,6 +98,14 @@ class ListAttachmentsResult(BaseModel):
     attachments: list[AttachmentListItem] = Field(
         default_factory=list,
         description="Matching attachments (metadata only)",
+    )
+    total: int = Field(
+        default=0,
+        description="Total number of matching attachments before pagination.",
+    )
+    next_offset: int | None = Field(
+        default=None,
+        description="Offset for the next page, or null when no more results exist.",
     )
     message: str = Field(default="Successfully listed attachments")
 
@@ -141,7 +164,9 @@ def _attachment_name(att) -> tuple[str | None, str | None]:
 def _list_attachments_impl(
     *,
     kind: AttachmentMediaKind,
+    query: str | None = None,
     from_date: str | None = None,
+    offset: int = 0,
     user_id: int | None = None,
     conversation_id: str | None = None,
     organization_id: int | None = None,
@@ -177,11 +202,19 @@ def _list_attachments_impl(
     now = timezone.now()
     qs = qs.filter(Q(expires_at__isnull=True) | Q(expires_at__gte=now))
 
+    query_text = (query or "").strip()
+    if query_text:
+        qs = qs.filter(
+            Q(file__icontains=query_text)
+            | Q(rag_document__name__icontains=query_text)
+            | Q(url__icontains=query_text)
+        )
+
     if from_date:
         qs = qs.filter(created_at__gte=_parse_from_date(from_date))
 
     total = qs.count()
-    rows = list(qs[:MAX_LIMIT])
+    rows = list(qs[offset : offset + MAX_LIMIT])
     current_id = str(conversation_id) if conversation_id else None
 
     items: list[AttachmentListItem] = []
@@ -215,12 +248,20 @@ def _list_attachments_impl(
         else "the current conversation"
     )
     message = f"Listed {shown} {kind} attachment(s) across {scope}."
-    if total > shown:
-        message += f" Showing the {shown} most recent of {total}."
+    if total:
+        message += f" Showing results {offset + 1}-{offset + shown} of {total}."
+    if query_text:
+        message += f" Filtered query={query_text!r}."
     if from_date:
         message += f" Filtered from_date={from_date.strip()}."
 
-    return ListAttachmentsResult(attachments=items, message=message)
+    next_offset = offset + shown if offset + shown < total else None
+    return ListAttachmentsResult(
+        attachments=items,
+        total=total,
+        next_offset=next_offset,
+        message=message,
+    )
 
 
 def get_tool(
@@ -245,11 +286,15 @@ def get_tool(
 
     def list_attachments(
         kind: AttachmentMediaKind,
+        query: str | None = None,
         from_date: str | None = None,
+        offset: int = 0,
     ) -> ListAttachmentsResult:
         return _list_attachments_impl(
             kind=kind,
+            query=query,
             from_date=from_date,
+            offset=offset,
             user_id=user_id,
             conversation_id=conversation_id,
             organization_id=org_id,
@@ -262,8 +307,12 @@ def get_tool(
             "organization- and role-shared files, and public (link) files in their org, "
             "plus anything in the current conversation. "
             "kind is required: image, document, video, or audio. "
+            "Optionally pass query to search filenames, linked knowledge-base "
+            "document names, or website URLs. "
             "Optionally pass from_date (YYYY-MM-DD or ISO datetime) to only include "
             "attachments created since that instant. "
+            "Results contain total and next_offset; pass next_offset as offset to "
+            "retrieve another page. "
             "Returns attachment IDs and metadata; then call "
             "read_attachment(attachment_id, question) to read one. "
             "To send a listed file on WhatsApp, include "
@@ -275,8 +324,12 @@ def get_tool(
         description = (
             "List attachments available in the current conversation. "
             "kind is required: image, document, video, or audio. "
+            "Optionally pass query to search filenames, linked knowledge-base "
+            "document names, or website URLs. "
             "Optionally pass from_date (YYYY-MM-DD or ISO datetime) to only include "
             "attachments created since that instant. "
+            "Results contain total and next_offset; pass next_offset as offset to "
+            "retrieve another page. "
             "Use this to discover attachment IDs, then call "
             "read_attachment(attachment_id, question) to read one."
         )

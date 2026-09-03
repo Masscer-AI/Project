@@ -3082,6 +3082,70 @@ class ListAttachmentsToolTests(TestCase):
         self.assertEqual(ids, {str(self.doc_b.id)})
         self.assertEqual(result.attachments[0].kind, "document")
 
+    def test_query_filters_document_filenames_case_insensitively(self):
+        from api.ai_layers.tools.list_attachments import _list_attachments_impl
+
+        result = _list_attachments_impl(
+            kind="document",
+            query="REPORT",
+            user_id=self.user.id,
+            conversation_id=str(self.conv_a.id),
+            organization_id=self.org.id,
+        )
+
+        self.assertEqual(
+            [item.attachment_id for item in result.attachments],
+            [str(self.doc_b.id)],
+        )
+        self.assertEqual(result.total, 1)
+        self.assertIsNone(result.next_offset)
+
+    def test_offset_retrieves_next_attachment_page(self):
+        from django.core.files.base import ContentFile
+
+        from api.ai_layers.tools.list_attachments import _list_attachments_impl
+        from api.messaging.models import MessageAttachment
+
+        for index in range(51):
+            MessageAttachment.objects.create(
+                conversation=self.conv_a,
+                user=self.user,
+                kind="file",
+                file=ContentFile(
+                    b"%PDF-1.4",
+                    name=f"pagination-document-{index}.pdf",
+                ),
+                content_type="application/pdf",
+            )
+
+        first_page = _list_attachments_impl(
+            kind="document",
+            query="pagination-document",
+            user_id=self.user.id,
+            conversation_id=str(self.conv_a.id),
+            organization_id=self.org.id,
+        )
+        second_page = _list_attachments_impl(
+            kind="document",
+            query="pagination-document",
+            offset=first_page.next_offset,
+            user_id=self.user.id,
+            conversation_id=str(self.conv_a.id),
+            organization_id=self.org.id,
+        )
+
+        self.assertEqual(first_page.total, 51)
+        self.assertEqual(len(first_page.attachments), 50)
+        self.assertEqual(first_page.next_offset, 50)
+        self.assertEqual(len(second_page.attachments), 1)
+        self.assertIsNone(second_page.next_offset)
+        self.assertFalse(
+            {
+                item.attachment_id for item in first_page.attachments
+            }
+            & {item.attachment_id for item in second_page.attachments}
+        )
+
     def test_from_date_filters_older_rows(self):
         from datetime import timedelta
 
