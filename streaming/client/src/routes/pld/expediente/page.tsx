@@ -17,6 +17,7 @@ import { Sidebar } from "../../../components/Sidebar/Sidebar";
 import { useStore } from "../../../modules/store";
 import { listMyPldExpedients, TMyPldExpedient } from "../../../modules/apiCalls";
 import { PldDocumentCollection } from "./PldDocumentCollection";
+import { PldIdentificationDossier } from "./PldIdentificationDossier";
 import { PldIntakeForm } from "./PldIntakeForm";
 
 export default function MyPldExpedientePage() {
@@ -27,6 +28,7 @@ export default function MyPldExpedientePage() {
   }));
   const [rows, setRows] = useState<TMyPldExpedient[]>([]);
   const [loading, setLoading] = useState(true);
+  const [reviewingIds, setReviewingIds] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     listMyPldExpedients()
@@ -99,22 +101,48 @@ export default function MyPldExpedientePage() {
                       </Badge>
                     )}
                   </Group>
-                  <PldIntakeForm
-                    row={row}
-                    onSaved={(next) =>
-                      setRows((prev) =>
-                        prev.map((item) => (item.id === next.id ? next : item))
-                      )
-                    }
-                  />
-                  <PldDocumentCollection
-                    row={row}
-                    onSaved={(next) =>
-                      setRows((prev) =>
-                        prev.map((item) => (item.id === next.id ? next : item))
-                      )
-                    }
-                  />
+                  {row.expedient?.status === "cross_reference" ||
+                  reviewingIds[row.id] ? (
+                    <PldIdentificationDossier
+                      row={row}
+                      onSaved={(next) =>
+                        setRows((prev) =>
+                          prev.map((item) => (item.id === next.id ? next : item))
+                        )
+                      }
+                      onBack={
+                        row.expedient?.status === "cross_reference"
+                          ? undefined
+                          : () =>
+                              setReviewingIds((prev) => ({
+                                ...prev,
+                                [row.id]: false,
+                              }))
+                      }
+                    />
+                  ) : (
+                    <>
+                      <PldIntakeForm
+                        row={row}
+                        onSaved={(next) =>
+                          setRows((prev) =>
+                            prev.map((item) => (item.id === next.id ? next : item))
+                          )
+                        }
+                      />
+                      <PldDocumentCollection
+                        row={row}
+                        onSaved={(next) =>
+                          setRows((prev) =>
+                            prev.map((item) => (item.id === next.id ? next : item))
+                          )
+                        }
+                        onContinue={() =>
+                          setReviewingIds((prev) => ({ ...prev, [row.id]: true }))
+                        }
+                      />
+                    </>
+                  )}
                 </Card>
               ))}
             </Stack>

@@ -2266,6 +2266,7 @@ export type TPldExpedientDocument = {
   original_filename: string;
   content_type: string;
   file_size: number;
+  file_sha256?: string;
   updated_at: string | null;
   extraction_status?: string;
   extracted_at?: string | null;
@@ -2327,6 +2328,14 @@ export const updateMyPldExpedient = async (
     "PATCH",
     `/v1/compliance/my-expedients/${entityId}/`,
     { metadata }
+  );
+};
+
+export const confirmMyPldDocuments = async (entityId: string) => {
+  return makeAuthenticatedRequest<TMyPldExpedient>(
+    "PATCH",
+    `/v1/compliance/my-expedients/${entityId}/`,
+    { action: "confirm_documents" }
   );
 };
 

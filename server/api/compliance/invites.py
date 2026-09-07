@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from html import escape
+from typing import TypedDict
 
 from django.contrib.auth.models import User
 from django.db import transaction
@@ -76,21 +78,100 @@ def create_or_rotate_pending_invite(*, entity: PLDEntity, invited_by: User) -> t
         return invite, raw_token
 
 
-def send_pld_invite_email(*, invite_email: str, organization_name: str, signup_url: str) -> None:
+class InvitePrepChecklist(TypedDict):
+    kind_label: str
+    data: list[str]
+    documents_now: list[str]
+    documents_later: list[str]
+
+
+def pld_invite_prep_checklist(person_type: str) -> InvitePrepChecklist:
+    """What the invitee should gather before opening the signup link."""
+    later = [
+        "Poder notarial, si alguien actua en nombre de la contraparte",
+        "Contratos, Excel, XML u otros documentos no obligatorios: se pueden cargar despues",
+    ]
+    if person_type == "persona_moral":
+        return {
+            "kind_label": "persona moral (empresa)",
+            "data": [
+                "Denominacion o razon social",
+                "Fecha de constitucion, nacionalidad, RFC y giro",
+                "Domicilio: pais, codigo postal, estado, municipio, ciudad, colonia, calle y numero exterior",
+                "Representante legal: nombres, apellidos, tipo y numero de identificacion",
+                "Beneficiario controlador: nombre de la persona fisica que controla la empresa",
+            ],
+            "documents_now": [
+                "Acta constitutiva",
+                "Constancia de situacion fiscal",
+                "Comprobante de domicilio reciente (no mayor a 3 meses)",
+                "Identificacion oficial del representante legal",
+                "Identificacion del beneficiario controlador",
+            ],
+            "documents_later": later,
+        }
+    return {
+        "kind_label": "persona fisica",
+        "data": [
+            "Nombres y apellidos",
+            "Fecha y pais de nacimiento, nacionalidad",
+            "RFC y CURP (obligatorios si tu nacionalidad es mexicana)",
+            "Ocupacion / giro",
+            "Domicilio: pais, codigo postal, estado, municipio, ciudad, colonia, calle y numero exterior",
+            "Identificacion oficial: tipo (INE, pasaporte u otra) y numero",
+            "Si no eres el beneficiario controlador: nombre de esa persona",
+        ],
+        "documents_now": [
+            "Identificacion oficial con fotografia (INE o pasaporte)",
+            "Constancia de CURP (si aplica)",
+            "Constancia de situacion fiscal (RFC)",
+            "Comprobante de domicilio reciente (no mayor a 3 meses)",
+            "Identificacion del beneficiario controlador, solo si no eres tu",
+        ],
+        "documents_later": later,
+    }
+
+
+def _html_ul(items: list[str]) -> str:
+    rows = "".join(f"<li>{escape(item)}</li>" for item in items)
+    return f'<ul style="margin:8px 0 16px 20px;padding:0;">{rows}</ul>'
+
+
+def send_pld_invite_email(
+    *,
+    invite_email: str,
+    organization_name: str,
+    signup_url: str,
+    person_type: str,
+) -> None:
+    checklist = pld_invite_prep_checklist(person_type)
+    org = escape(organization_name)
+    url = escape(signup_url, quote=True)
     html = f"""
-        <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+        <div style="font-family: Arial, sans-serif; line-height: 1.5; color:#222;">
             <h2>Completa tu expediente en Masscer</h2>
             <p>
-                <strong>{organization_name}</strong> te pidio completar tu expediente de
-                cumplimiento (PLD/KYB) en Masscer.
+                <strong>{org}</strong> te pidio completar tu expediente de
+                cumplimiento (PLD/KYB) en Masscer como {escape(str(checklist["kind_label"]))}.
             </p>
             <p>
-                <a href="{signup_url}" style="display:inline-block;padding:10px 16px;background:#6e5bff;color:#fff;text-decoration:none;border-radius:6px;">
+                Ten a la mano estos datos y documentos <strong>antes</strong> de abrir el
+                enlace. Asi agilizas el alta: entras, capturas identificacion y cargas
+                lo obligatorio. Lo no obligatorio se puede subir despues.
+            </p>
+            <h3 style="margin-bottom:4px;">Datos a tener listos</h3>
+            {_html_ul(checklist["data"])}
+            <h3 style="margin-bottom:4px;">Documentos para la primera etapa</h3>
+            {_html_ul(checklist["documents_now"])}
+            <h3 style="margin-bottom:4px;">Se pueden cargar despues</h3>
+            {_html_ul(checklist["documents_later"])}
+            <p>
+                <a href="{url}" style="display:inline-block;padding:10px 16px;background:#6e5bff;color:#fff;text-decoration:none;border-radius:6px;">
                     Completar expediente
                 </a>
             </p>
             <p>Si el boton no funciona, abre este enlace:</p>
-            <p><a href="{signup_url}">{signup_url}</a></p>
+            <p><a href="{url}">{url}</a></p>
             <p>Si no esperabas este correo, puedes ignorarlo.</p>
         </div>
     """.strip()

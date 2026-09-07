@@ -217,6 +217,7 @@ class PLDEntityInviteView(View):
                 invite_email=invite.email,
                 organization_name=org.name,
                 signup_url=signup_url,
+                person_type=entity.person_type,
             )
         except Exception:
             return JsonResponse({"error": "Failed to send invite email"}, status=500)
@@ -361,6 +362,25 @@ class MyPLDExpedientDetailView(View):
         payload, err = _parse_json_body(request)
         if err:
             return err
+        if payload.get("action") == "confirm_documents":
+            from api.compliance.pld_document_slots import (
+                required_slots_extraction_ready,
+            )
+
+            entity = (
+                PLDEntity.objects.select_related("organization")
+                .prefetch_related("expedients", "expedients__documents")
+                .get(pk=entity.pk)
+            )
+            ready, reason = required_slots_extraction_ready(entity)
+            if not ready:
+                return JsonResponse({"error": reason}, status=400)
+            exp = entity.expedients.order_by("created_at").first()
+            if exp and exp.status == PLDExpedientStatus.DOCUMENT_COLLECTION:
+                exp.status = PLDExpedientStatus.CROSS_REFERENCE
+                exp.save(update_fields=["status", "updated_at"])
+            return JsonResponse(_reload_my_expedient_row(entity.pk), status=200)
+
         metadata = payload.get("metadata")
         if not isinstance(metadata, dict):
             return JsonResponse({"error": "metadata must be an object"}, status=400)
@@ -425,6 +445,7 @@ def _document_payload(doc: PLDExpedientDocument) -> dict:
         "original_filename": doc.original_filename,
         "content_type": doc.content_type,
         "file_size": doc.file_size,
+        "file_sha256": doc.file_sha256 or "",
         "updated_at": doc.updated_at.isoformat() if doc.updated_at else None,
         "extraction_status": doc.extraction_status or "",
         "extracted_at": (
@@ -536,6 +557,9 @@ class MyPLDExpedientDocumentView(View):
         doc.content_type = content_type
         doc.file_size = size
         doc.uploaded_by = request.user
+        from api.compliance.document_extraction.meta import sha256_of_uploaded_file
+
+        doc.file_sha256 = sha256_of_uploaded_file(uploaded)
         doc.file.save(filename, uploaded, save=False)
         doc.extraction_status = PLDExpedientDocument.ExtractionStatus.PENDING
         doc.extracted_payload = {}

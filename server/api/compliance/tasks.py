@@ -26,7 +26,11 @@ def extract_pld_expedient_document(document_id: str):
 
     try:
         parsed = extract_document(doc)
-        doc.extracted_payload = parsed.model_dump(mode="json")
+        payload = parsed.model_dump(mode="json")
+        from api.compliance.document_extraction.meta import extraction_meta
+
+        payload["_meta"] = extraction_meta(doc, payload)
+        doc.extracted_payload = payload
         doc.extraction_status = PLDExpedientDocument.ExtractionStatus.SUCCEEDED
         doc.extracted_at = timezone.now()
         doc.extraction_error = ""

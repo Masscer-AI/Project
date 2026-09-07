@@ -6,6 +6,22 @@ from typing import Literal, TypeAlias, overload
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from api.compliance.document_extraction.operational_schemas import (
+    AccionistaLibroExtraction,
+    BeneficiarioControladorDocExtraction,
+    CaratulaBancariaExtraction,
+    CedulaFt01Extraction,
+    CfdiExtraction,
+    ComprobantePagoExtraction,
+    ContratoExtraction,
+    EvidenciaMaterialidadExtraction,
+    FichaFt02Extraction,
+    KycCuestionarioExtraction,
+    ReformaEstatutosExtraction,
+    ReporteRi01Extraction,
+)
+from api.compliance.document_extraction.provenance import FieldProvenance, ProvenanceMixin
+
 
 class AddressExtraction(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -22,44 +38,55 @@ class AddressExtraction(BaseModel):
     raw_text: str | None = None
 
 
-class OfficialIdExtraction(BaseModel):
+class OfficialIdExtraction(ProvenanceMixin):
+    """DOC-02 identificacion oficial vigente."""
+
     model_config = ConfigDict(extra="ignore")
 
     document_subtype: str | None = Field(
         default=None,
-        description="ine, passport, cedula, or other",
+        description="ID-tipo: ine, passport, cedula, or other",
     )
-    full_name: str | None = None
+    full_name: str | None = Field(default=None, description="ID-nombre_completo")
     given_names: str | None = None
     surnames: str | None = None
     curp: str | None = None
-    date_of_birth: str | None = None
-    sex: str | None = None
-    nationality: str | None = None
-    address_text: str | None = None
+    date_of_birth: str | None = Field(default=None, description="ID-fecha_nacimiento")
+    sex: str | None = Field(default=None, description="ID-sexo")
+    nationality: str | None = Field(default=None, description="ID-nacionalidad")
+    address_text: str | None = Field(default=None, description="ID-domicilio")
     address: AddressExtraction | None = None
-    document_number: str | None = None
+    document_number: str | None = Field(
+        default=None,
+        description="ID-folio_clave: folio, clave de elector, pasaporte u equivalente",
+    )
     cic: str | None = None
     ocr_line: str | None = None
     citizen_identifier: str | None = None
+    issue_date: str | None = Field(default=None, description="ID-fecha_expedicion")
     validity_year: str | None = None
     mrz: str | None = None
-    expiry_date: str | None = None
+    expiry_date: str | None = Field(default=None, description="ID-fecha_vencimiento")
     issuing_country: str | None = None
     photo_present: bool | None = None
     signature_present: bool | None = None
     expired_or_unreadable: bool | None = None
 
 
-class CurpExtraction(BaseModel):
+class CurpExtraction(ProvenanceMixin):
+    """DOC-03 CURP o constancia CURP."""
+
     model_config = ConfigDict(extra="ignore")
 
-    curp: str | None = None
+    curp: str | None = Field(default=None, description="CURP-curp")
+    full_name: str | None = Field(default=None, description="CURP-nombre_completo")
     given_names: str | None = None
     surnames: str | None = None
-    date_of_birth: str | None = None
-    sex: str | None = None
-    entidad_nacimiento: str | None = None
+    date_of_birth: str | None = Field(default=None, description="CURP-fecha_nacimiento")
+    sex: str | None = Field(default=None, description="CURP-sexo")
+    entidad_nacimiento: str | None = Field(
+        default=None, description="CURP-entidad_registro"
+    )
     folio: str | None = None
 
 
@@ -71,7 +98,9 @@ class EconomicActivityExtraction(BaseModel):
     start_date: str | None = None
 
 
-class ConstanciaFiscalExtraction(BaseModel):
+class ConstanciaFiscalExtraction(ProvenanceMixin):
+    """DOC-01 Constancia de Situacion Fiscal."""
+
     model_config = ConfigDict(extra="ignore")
 
     document_variant: str | None = Field(
@@ -79,33 +108,57 @@ class ConstanciaFiscalExtraction(BaseModel):
         description="constancia_situacion_fiscal or cedula_datos_fiscales",
     )
     person_kind: str | None = Field(
-        default=None, description="fisica or moral"
+        default=None, description="CSF-tipo_persona: fisica or moral"
     )
-    rfc: str | None = None
-    legal_name_or_full_name: str | None = None
+    rfc: str | None = Field(default=None, description="CSF-rfc")
+    legal_name_or_full_name: str | None = Field(
+        default=None, description="CSF-nombre_razon_social"
+    )
     curp: str | None = None
     id_cif: str | None = None
-    issued_at: str | None = None
-    padron_status: str | None = None
-    regimen_capital: str | None = None
-    tax_address: AddressExtraction | None = None
-    economic_activities: list[EconomicActivityExtraction] = Field(
-        default_factory=list
+    issued_at: str | None = Field(default=None, description="CSF-fecha_emision")
+    operations_start_date: str | None = Field(
+        default=None, description="CSF-fecha_inicio_operaciones"
     )
-    tax_regimes: list[str] = Field(default_factory=list)
+    padron_status: str | None = Field(default=None, description="CSF-estatus_padron")
+    regimen_capital: str | None = None
+    tax_address: AddressExtraction | None = Field(
+        default=None, description="CSF-domicilio_fiscal"
+    )
+    postal_code: str | None = Field(default=None, description="CSF-cp_fiscal")
+    economic_activities: list[EconomicActivityExtraction] = Field(
+        default_factory=list,
+        description="CSF-actividades_economicas",
+    )
+    tax_regimes: list[str] = Field(
+        default_factory=list, description="CSF-regimen_fiscal"
+    )
     legal_representative_name: str | None = None
 
 
-class ComprobanteDomicilioExtraction(BaseModel):
+class ComprobanteDomicilioExtraction(ProvenanceMixin):
+    """DOC-04 Comprobante de domicilio."""
+
     model_config = ConfigDict(extra="ignore")
 
     issuer: str | None = Field(
         default=None,
         description="cfe, telmex, izzi, predial, bank, or other",
     )
-    account_holder_name: str | None = None
-    service_address: AddressExtraction | None = None
-    issue_or_period_date: str | None = None
+    comprobante_type: str | None = Field(
+        default=None,
+        description="DOM-tipo_comprobante: luz, agua, predial, telefono, estado de cuenta u otro",
+    )
+    account_holder_name: str | None = Field(default=None, description="DOM-titular")
+    service_address: AddressExtraction | None = Field(
+        default=None, description="DOM-domicilio"
+    )
+    issue_or_period_date: str | None = Field(
+        default=None, description="DOM-fecha_emision"
+    )
+    account_reference: str | None = Field(
+        default=None, description="DOM-cuenta_referencia"
+    )
     older_than_three_months: bool | None = None
     name_matches_client_hint: bool | None = None
 
@@ -140,6 +193,7 @@ class NotaryExtraction(BaseModel):
     name: str | None = None
     notaria_number: str | None = None
     city: str | None = None
+    entidad_federativa: str | None = None
     escritura_number: str | None = None
     volume: str | None = None
 
@@ -151,43 +205,69 @@ class GrantedPowerExtraction(BaseModel):
     powers_text: str | None = None
 
 
-class ActaConstitutivaExtraction(BaseModel):
+class ActaConstitutivaExtraction(ProvenanceMixin):
+    """DOC-05 Acta constitutiva y estatutos vigentes."""
+
     model_config = ConfigDict(extra="ignore")
 
-    legal_name: str | None = None
-    entity_type: str | None = None
-    constitution_date: str | None = None
+    legal_name: str | None = Field(
+        default=None, description="ACTA-denominacion_social"
+    )
+    entity_type: str | None = Field(default=None, description="ACTA-tipo_societario")
+    constitution_date: str | None = Field(
+        default=None, description="ACTA-fecha_constitucion"
+    )
+    rfc: str | None = Field(default=None, description="ACTA-rfc")
     duration: str | None = None
-    corporate_purpose: str | None = None
+    corporate_purpose: str | None = Field(default=None, description="ACTA-objeto_social")
     share_capital_amount: str | None = None
     share_capital_currency: str | None = None
     share_capital_kind: str | None = Field(
         default=None, description="fixed, variable, or mixed"
     )
+    capital_fijo: str | None = Field(default=None, description="ACTA-capital_fijo")
+    capital_variable: str | None = Field(
+        default=None, description="ACTA-capital_variable"
+    )
     notary: NotaryExtraction | None = None
-    folio_mercantil: str | None = None
+    folio_mercantil: str | None = Field(default=None, description="ACTA-folio_mercantil")
     registered_address: AddressExtraction | None = None
-    shareholders: list[ShareholderExtraction] = Field(default_factory=list)
-    administrators: list[AdministratorExtraction] = Field(default_factory=list)
+    shareholders: list[ShareholderExtraction] = Field(
+        default_factory=list, description="ACTA-socios_constitucion"
+    )
+    administrators: list[AdministratorExtraction] = Field(
+        default_factory=list, description="ACTA-administracion"
+    )
     granted_powers: list[GrantedPowerExtraction] = Field(default_factory=list)
     ownership_as_of: str | None = None
     ownership_may_be_stale: bool | None = True
 
 
-class PoderExtraction(BaseModel):
+class PoderExtraction(ProvenanceMixin):
+    """DOC-07 Poder notarial."""
+
     model_config = ConfigDict(extra="ignore")
 
-    grantor_legal_name: str | None = None
-    attorney_name: str | None = None
+    grantor_legal_name: str | None = Field(default=None, description="POD-poderdante")
+    attorney_name: str | None = Field(default=None, description="POD-apoderado_nombre")
     escritura_number: str | None = None
     notary: NotaryExtraction | None = None
-    granted_at: str | None = None
+    instrumento_notarial: str | None = Field(
+        default=None,
+        description="POD-instrumento_notarial: escritura, notario y formalizacion",
+    )
+    granted_at: str | None = Field(default=None, description="POD-fecha")
     administration: bool | None = None
     dominio: bool | None = None
     pleitos_y_cobranzas: bool | None = None
     powers_other: str | None = None
+    facultades: str | None = Field(default=None, description="POD-facultades")
     limits: str | None = None
     revoked_or_expired: bool | None = None
+    revocacion_consta: str | None = Field(
+        default=None,
+        description="POD-revocacion_consta: revocacion, vigencia o ausencia de evidencia",
+    )
 
 
 OFFICIAL_ID_KINDS = frozenset(
@@ -203,6 +283,18 @@ PldDocumentKind: TypeAlias = Literal[
     "comprobante_domicilio",
     "acta_constitutiva",
     "poder",
+    "reforma_estatutos",
+    "libro_acciones",
+    "declaracion_bc",
+    "contrato",
+    "cfdi",
+    "evidencia_materialidad",
+    "caratula_bancaria",
+    "comprobante_pago",
+    "cuestionario_kyc",
+    "cedula_ft01",
+    "ficha_ft02",
+    "reporte_ri01",
 ]
 
 PldExtraction: TypeAlias = (
@@ -212,6 +304,18 @@ PldExtraction: TypeAlias = (
     | ComprobanteDomicilioExtraction
     | ActaConstitutivaExtraction
     | PoderExtraction
+    | ReformaEstatutosExtraction
+    | AccionistaLibroExtraction
+    | BeneficiarioControladorDocExtraction
+    | ContratoExtraction
+    | CfdiExtraction
+    | EvidenciaMaterialidadExtraction
+    | CaratulaBancariaExtraction
+    | ComprobantePagoExtraction
+    | KycCuestionarioExtraction
+    | CedulaFt01Extraction
+    | FichaFt02Extraction
+    | ReporteRi01Extraction
 )
 
 SCHEMA_BY_KIND: dict[PldDocumentKind, type[PldExtraction]] = {
@@ -223,6 +327,18 @@ SCHEMA_BY_KIND: dict[PldDocumentKind, type[PldExtraction]] = {
     "comprobante_domicilio": ComprobanteDomicilioExtraction,
     "acta_constitutiva": ActaConstitutivaExtraction,
     "poder": PoderExtraction,
+    "reforma_estatutos": ReformaEstatutosExtraction,
+    "libro_acciones": AccionistaLibroExtraction,
+    "declaracion_bc": BeneficiarioControladorDocExtraction,
+    "contrato": ContratoExtraction,
+    "cfdi": CfdiExtraction,
+    "evidencia_materialidad": EvidenciaMaterialidadExtraction,
+    "caratula_bancaria": CaratulaBancariaExtraction,
+    "comprobante_pago": ComprobantePagoExtraction,
+    "cuestionario_kyc": KycCuestionarioExtraction,
+    "cedula_ft01": CedulaFt01Extraction,
+    "ficha_ft02": FichaFt02Extraction,
+    "reporte_ri01": ReporteRi01Extraction,
 }
 
 
@@ -267,3 +383,25 @@ def schema_for_kind(document_kind: str) -> type[PldExtraction]:
     if schema is None:
         raise ValueError(f"Unknown document_kind '{document_kind}'")
     return schema
+
+
+__all__ = [
+    "AddressExtraction",
+    "AdministratorExtraction",
+    "ActaConstitutivaExtraction",
+    "ComprobanteDomicilioExtraction",
+    "ConstanciaFiscalExtraction",
+    "CurpExtraction",
+    "EconomicActivityExtraction",
+    "FieldProvenance",
+    "GrantedPowerExtraction",
+    "NotaryExtraction",
+    "OFFICIAL_ID_KINDS",
+    "OfficialIdExtraction",
+    "PldDocumentKind",
+    "PldExtraction",
+    "PoderExtraction",
+    "SCHEMA_BY_KIND",
+    "ShareholderExtraction",
+    "schema_for_kind",
+]

@@ -1,6 +1,6 @@
 from django.contrib.auth.models import User
 from django.core.files.base import ContentFile
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase
 from unittest.mock import patch
 
 from api.ai_layers.models import LanguageModel
@@ -434,6 +434,7 @@ class PLDEntityAPITests(TestCase):
         self.assertEqual(invited.status_code, 200)
         send_email.assert_called_once()
         signup_url = send_email.call_args.kwargs["signup_url"]
+        self.assertEqual(send_email.call_args.kwargs["person_type"], "persona_fisica")
         self.assertIn("pld_invite=", signup_url)
         raw = signup_url.split("pld_invite=", 1)[1]
         public = self.client.get(f"/v1/compliance/invites/public/?token={raw}")
@@ -922,5 +923,131 @@ class PLDDocumentExtractionTests(TestCase):
         kwargs = create_loop.call_args.kwargs
         self.assertEqual(kwargs["model"], "gpt-5.6-luna")
         self.assertEqual(kwargs["repair_model"], "gpt-5.6-luna")
+        self.assertEqual(doc.extracted_payload["_meta"]["document_id"], str(doc.id))
+        self.assertEqual(
+            doc.extracted_payload["_meta"]["nombre_archivo"], "acta.pdf"
+        )
+
+    def test_spec_identification_schemas_cover_campo_ids(self):
+        from api.compliance.document_extraction.schemas import schema_for_kind
+        from api.compliance.document_extraction.spec_fields import (
+            SPEC_FIELDS_BY_KIND,
+            missing_spec_fields,
+        )
+
+        for kind, mapping in SPEC_FIELDS_BY_KIND.items():
+            schema = schema_for_kind(kind)
+            fields = schema.model_fields
+            for path in mapping.values():
+                root = path.split(".", 1)[0]
+                self.assertIn(root, fields, f"{kind} missing {root} for {path}")
+        empty = missing_spec_fields("constancia_fiscal", {})
+        self.assertIn("CSF-rfc", empty)
+        self.assertIn("CSF-fecha_inicio_operaciones", empty)
+        filled = missing_spec_fields(
+            "official_id",
+            {
+                "document_subtype": "ine",
+                "full_name": "Ana",
+                "date_of_birth": "1980-01-01",
+                "nationality": "MX",
+                "sex": "M",
+                "address_text": "Calle 1",
+                "document_number": "ABC",
+                "issue_date": "2018-01-01",
+                "expiry_date": "2028-01-01",
+            },
+        )
+        self.assertEqual(filled, [])
+        cfdi = schema_for_kind("cfdi")
+        self.assertIn("uuid", cfdi.model_fields)
+        self.assertIn("provenances", schema_for_kind("acta_constitutiva").model_fields)
+
+    @patch("api.compliance.tasks.extract_pld_expedient_document.delay")
+    def test_confirm_documents_requires_succeeded_extraction(self, delay):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        from api.compliance.models import PLDExpedientDocument
+
+        too_soon = self.client.patch(
+            f"/v1/compliance/my-expedients/{self.entity.id}/",
+            {"action": "confirm_documents"},
+            format="json",
+            HTTP_AUTHORIZATION=f"Token {self.token.key}",
+        )
+        self.assertEqual(too_soon.status_code, 400)
+        self.assertEqual(too_soon.json()["error"], "missing-documents")
+
+        for slot_key, kind in (
+            ("acta_constitutiva", "acta_constitutiva"),
+            ("constancia_fiscal", "constancia_fiscal"),
+            ("comprobante_domicilio", "comprobante_domicilio"),
+            ("id_representante", "id_representante"),
+            ("id_controlador:0", "id_controlador"),
+        ):
+            uploaded = self.client.post(
+                f"/v1/compliance/my-expedients/{self.entity.id}/documents/",
+                {
+                    "slot_key": slot_key,
+                    "file": SimpleUploadedFile(
+                        f"{slot_key}.pdf", b"%PDF-1.4", content_type="application/pdf"
+                    ),
+                },
+                HTTP_AUTHORIZATION=f"Token {self.token.key}",
+            )
+            self.assertEqual(uploaded.status_code, 200)
+
+        pending = self.client.patch(
+            f"/v1/compliance/my-expedients/{self.entity.id}/",
+            {"action": "confirm_documents"},
+            format="json",
+            HTTP_AUTHORIZATION=f"Token {self.token.key}",
+        )
+        self.assertEqual(pending.status_code, 400)
+        self.assertEqual(pending.json()["error"], "extraction-pending")
+
+        PLDExpedientDocument.objects.filter(expedient=self.expedient).update(
+            extraction_status=PLDExpedientDocument.ExtractionStatus.SUCCEEDED,
+            extracted_payload={"ok": True},
+        )
+        confirmed = self.client.patch(
+            f"/v1/compliance/my-expedients/{self.entity.id}/",
+            {"action": "confirm_documents"},
+            format="json",
+            HTTP_AUTHORIZATION=f"Token {self.token.key}",
+        )
+        self.assertEqual(confirmed.status_code, 200)
+        self.assertEqual(
+            confirmed.json()["expedient"]["status"], "cross_reference"
+        )
+
+
+class PLDInviteEmailTests(SimpleTestCase):
+    def test_checklist_differs_by_person_type(self):
+        from api.compliance.invites import pld_invite_prep_checklist
+
+        fisica = pld_invite_prep_checklist("persona_fisica")
+        moral = pld_invite_prep_checklist("persona_moral")
+        self.assertTrue(any("CURP" in item for item in fisica["data"]))
+        self.assertTrue(any("INE" in item for item in fisica["documents_now"]))
+        self.assertTrue(any("Acta constitutiva" in item for item in moral["documents_now"]))
+        self.assertTrue(any("Excel" in item for item in moral["documents_later"]))
+
+    @patch("api.compliance.invites.EmailService")
+    def test_invite_email_body_includes_prep_lists(self, service_cls):
+        from api.compliance.invites import send_pld_invite_email
+
+        send_pld_invite_email(
+            invite_email="ana@example.com",
+            organization_name="Acme",
+            signup_url="https://app.example/signup?pld_invite=tok",
+            person_type="persona_moral",
+        )
+        html = service_cls.return_value.send_email.call_args.kwargs["html"]
+        self.assertIn("Datos a tener listos", html)
+        self.assertIn("Acta constitutiva", html)
+        self.assertIn("Se pueden cargar despues", html)
+        self.assertIn("Excel", html)
+        self.assertIn("Completar expediente", html)
 
 

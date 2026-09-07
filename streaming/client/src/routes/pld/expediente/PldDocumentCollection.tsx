@@ -5,6 +5,7 @@ import {
   Accordion,
   ActionIcon,
   Badge,
+  Button,
   FileInput,
   Group,
   Stack,
@@ -86,6 +87,8 @@ function extractionLines(
     "photo_present",
     "signature_present",
     "ownership_may_be_stale",
+    "provenances",
+    "_meta",
   ]);
   const lines: { key: string; value: string }[] = [];
   const push = (key: string, raw: unknown) => {
@@ -137,9 +140,11 @@ function slotLabel(t: (key: string, options?: Record<string, unknown>) => string
 export function PldDocumentCollection({
   row,
   onSaved,
+  onContinue,
 }: {
   row: TMyPldExpedient;
   onSaved: (next: TMyPldExpedient) => void;
+  onContinue: () => void;
 }) {
   const { t } = useTranslation();
   const [busySlot, setBusySlot] = useState<string | null>(null);
@@ -317,6 +322,11 @@ export function PldDocumentCollection({
           )}
         </Stack>
       ))}
+      {uploadedRequired === required.length && required.length > 0 && (
+        <Button color="violet" mt="sm" onClick={onContinue}>
+          {t("compliance-doc-continue")}
+        </Button>
+      )}
           </Stack>
         </Accordion.Panel>
       </Accordion.Item>

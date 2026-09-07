@@ -341,6 +341,7 @@ class PLDExpedientDocument(models.Model):
     original_filename = models.CharField(max_length=255, blank=True, default="")
     content_type = models.CharField(max_length=128, blank=True, default="")
     file_size = models.PositiveIntegerField(default=0)
+    file_sha256 = models.CharField(max_length=64, blank=True, default="")
     uploaded_by = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,

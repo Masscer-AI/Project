@@ -19,7 +19,10 @@ _SHARED_RULES = (
     "Extract only what is visible in the file. Use null when a field is not present. "
     "Never invent RFC, CURP, dates, or ownership percentages. "
     "Call inspect_pld_document with focused questions until you can fill the schema. "
-    "Dates as YYYY-MM-DD when possible."
+    "Dates as YYYY-MM-DD when possible. "
+    "Fill provenances: one row per spec campo_id you extract (see field descriptions), "
+    "with pagina_origen, texto_origen snippet, confianza_extraccion 0-1, and "
+    "estado_validacion extraido or no_encontrado."
 )
 
 INSTRUCTIONS_BY_KIND = {
@@ -65,6 +68,54 @@ INSTRUCTIONS_BY_KIND = {
         "You extract a poder notarial granted by a persona moral. "
         "Identify grantor, apoderado, facultades (administracion, dominio, pleitos y cobranzas), "
         "notary, and escritura number. "
+        + _SHARED_RULES
+    ),
+    "reforma_estatutos": (
+        "You extract statutory reforms or asamblea minutes. "
+        + _SHARED_RULES
+    ),
+    "libro_acciones": (
+        "You extract a share or partnership-interest registry book. "
+        + _SHARED_RULES
+    ),
+    "declaracion_bc": (
+        "You extract a beneficial-owner (beneficiario controlador) declaration. "
+        + _SHARED_RULES
+    ),
+    "contrato": (
+        "You extract a contract, service order, or accepted proposal. "
+        + _SHARED_RULES
+    ),
+    "cfdi": (
+        "You extract a Mexican CFDI (XML or PDF representation). "
+        + _SHARED_RULES
+    ),
+    "evidencia_materialidad": (
+        "You extract materiality evidence of a real operation. "
+        + _SHARED_RULES
+    ),
+    "caratula_bancaria": (
+        "You extract a bank account cover or statement. "
+        + _SHARED_RULES
+    ),
+    "comprobante_pago": (
+        "You extract a transfer or payment receipt. "
+        + _SHARED_RULES
+    ),
+    "cuestionario_kyc": (
+        "You extract a KYC or transactional-profile questionnaire. "
+        + _SHARED_RULES
+    ),
+    "cedula_ft01": (
+        "You extract cedula FT-01 (alcance y sujecion). "
+        + _SHARED_RULES
+    ),
+    "ficha_ft02": (
+        "You extract ficha FT-02 (tecnica del modelo). "
+        + _SHARED_RULES
+    ),
+    "reporte_ri01": (
+        "You extract reporte RI-01 integral. "
         + _SHARED_RULES
     ),
 }

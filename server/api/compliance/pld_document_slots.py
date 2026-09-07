@@ -42,6 +42,28 @@ def _slot(
     return payload
 
 
+def required_slots_extraction_ready(entity) -> tuple[bool, str]:
+    """True when every required checklist slot has a succeeded extraction."""
+    from api.compliance.models import PLDExpedientDocument
+
+    exp = entity.expedients.order_by("created_at").first()
+    if not exp:
+        return False, "expedient-not-found"
+    uploaded = {doc.slot_key: doc for doc in exp.documents.all()}
+    required = [slot for slot in document_slots_for_entity(entity) if slot["required"]]
+    if not required:
+        return False, "no-required-slots"
+    for slot in required:
+        doc = uploaded.get(slot["slot_key"])
+        if not doc:
+            return False, "missing-documents"
+        if doc.extraction_status == PLDExpedientDocument.ExtractionStatus.FAILED:
+            return False, "extraction-failed"
+        if doc.extraction_status != PLDExpedientDocument.ExtractionStatus.SUCCEEDED:
+            return False, "extraction-pending"
+    return True, ""
+
+
 def document_slots_for_entity(entity) -> list[dict]:
     """Return checklist slots from person type and saved identification metadata."""
     metadata = entity.metadata if isinstance(entity.metadata, dict) else {}
