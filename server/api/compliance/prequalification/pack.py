@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 from api.compliance.pld_document_slots import document_slots_for_entity
+from api.compliance.clarifications import answers_packet
 from api.compliance.prequalification.deterministic import deterministic_findings
 from api.compliance.prequalification.rules import IDENTIFICATION_RULES
 from api.compliance.prequalification.sources import RULESET_VERSION
@@ -54,5 +55,6 @@ def build_prequalification_packet(entity) -> str:
             item.model_dump(mode="json") for item in deterministic_findings(entity)
         ],
         "rules": IDENTIFICATION_RULES,
+        "prior_invitee_answers": answers_packet(exp) if exp else [],
     }
     return json.dumps(packet, ensure_ascii=False, default=str)

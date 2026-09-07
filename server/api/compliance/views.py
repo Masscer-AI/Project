@@ -325,7 +325,11 @@ class MyPLDExpedientView(View):
             PLDEntity.objects.filter(user=request.user)
             .exclude(relationship__isnull=True)
             .select_related("organization")
-            .prefetch_related("expedients", "expedients__documents")
+            .prefetch_related(
+                "expedients",
+                "expedients__documents",
+                "expedients__clarification_requests",
+            )
             .order_by("-updated_at")
         )
         return JsonResponse(
@@ -369,7 +373,11 @@ class MyPLDExpedientDetailView(View):
 
             entity = (
                 PLDEntity.objects.select_related("organization")
-                .prefetch_related("expedients", "expedients__documents")
+                .prefetch_related(
+                    "expedients",
+                    "expedients__documents",
+                    "expedients__clarification_requests",
+                )
                 .get(pk=entity.pk)
             )
             ready, reason = required_slots_extraction_ready(entity)
@@ -385,11 +393,56 @@ class MyPLDExpedientDetailView(View):
                 if isinstance(exp.prequalification_payload, dict)
                 else {}
             )
-            if prequal.get("verdict") == "blocked":
-                return JsonResponse({"error": "prequalification-blocked"}, status=400)
-            if exp.status == PLDExpedientStatus.DOCUMENT_COLLECTION:
+            if prequal.get("verdict") != "ready_for_list_screening":
+                return JsonResponse({"error": "prequalification-not-ready"}, status=400)
+            from api.compliance.clarifications import has_open_requests
+            from api.compliance.models import PLDClarificationRequest
+
+            if has_open_requests(exp, PLDClarificationRequest.Stage.IDENTIFICATION):
+                return JsonResponse({"error": "clarification-pending"}, status=400)
+            if exp.status in {
+                PLDExpedientStatus.DOCUMENT_COLLECTION,
+                PLDExpedientStatus.ACTION_REQUIRED,
+            }:
                 exp.status = PLDExpedientStatus.CROSS_REFERENCE
-                exp.save(update_fields=["status", "updated_at"])
+                exp.screening_status = PLDExpedient.PrequalificationStatus.PENDING
+                exp.save(
+                    update_fields=["status", "screening_status", "updated_at"]
+                )
+                from api.compliance.tasks import screen_pld_expedient
+
+                screen_pld_expedient.delay(str(exp.id))
+            return JsonResponse(_reload_my_expedient_row(entity.pk), status=200)
+        if payload.get("action") == "answer_clarification":
+            from api.compliance.clarifications import (
+                apply_text_to_metadata,
+                mark_answered,
+                maybe_resume_stage,
+            )
+            from api.compliance.models import PLDClarificationRequest
+
+            request_id = payload.get("request_id")
+            text_answer = str(payload.get("text") or "").strip()
+            if not request_id:
+                return JsonResponse({"error": "request_id is required"}, status=400)
+            exp = entity.expedients.order_by("created_at").first()
+            if not exp:
+                return JsonResponse({"error": "expedient-not-found"}, status=400)
+            try:
+                item = PLDClarificationRequest.objects.get(
+                    pk=request_id, expedient=exp
+                )
+            except (PLDClarificationRequest.DoesNotExist, ValidationError, ValueError):
+                return JsonResponse({"error": "request-not-found"}, status=404)
+            if item.status != PLDClarificationRequest.Status.OPEN:
+                return JsonResponse({"error": "request-not-open"}, status=400)
+            if item.answer_type == PLDClarificationRequest.AnswerType.DOCUMENT:
+                return JsonResponse({"error": "document-required"}, status=400)
+            if not text_answer:
+                return JsonResponse({"error": "text is required"}, status=400)
+            apply_text_to_metadata(entity, item, text_answer)
+            mark_answered(item, text=text_answer)
+            maybe_resume_stage(exp)
             return JsonResponse(_reload_my_expedient_row(entity.pk), status=200)
 
         metadata = payload.get("metadata")
@@ -413,7 +466,23 @@ class MyPLDExpedientDetailView(View):
         return JsonResponse(_reload_my_expedient_row(entity.pk), status=200)
 
 
+def _invitee_prequalification(exp: PLDExpedient) -> dict:
+    raw = exp.prequalification_payload if isinstance(exp.prequalification_payload, dict) else {}
+    return {
+        "verdict": raw.get("verdict") or "",
+        "summary": raw.get("summary") or "",
+    }
+
+
+def _invitee_screening(exp: PLDExpedient) -> dict:
+    raw = exp.screening_payload if isinstance(exp.screening_payload, dict) else {}
+    return {
+        "summary": raw.get("summary") or "",
+    }
+
+
 def _my_expedient_row(entity: PLDEntity) -> dict:
+    from api.compliance.clarifications import serialize_request
     from api.compliance.pld_document_slots import document_slots_for_entity
 
     exp = entity.expedients.order_by("created_at").first()
@@ -424,6 +493,10 @@ def _my_expedient_row(entity: PLDEntity) -> dict:
     slots = []
     for slot in document_slots_for_entity(entity):
         slots.append({**slot, "document": uploaded.get(slot["slot_key"])})
+    requests = []
+    if exp:
+        for item in exp.clarification_requests.all():
+            requests.append(serialize_request(item, uploaded))
     return {
         "id": str(entity.id),
         "name": entity_display_name(entity),
@@ -440,23 +513,27 @@ def _my_expedient_row(entity: PLDEntity) -> dict:
                 "prequalified_at": (
                     exp.prequalified_at.isoformat() if exp.prequalified_at else None
                 ),
-                "prequalification": (
-                    exp.prequalification_payload
-                    if isinstance(exp.prequalification_payload, dict)
-                    else {}
-                ),
+                "prequalification": _invitee_prequalification(exp),
+                "screening_status": exp.screening_status or "",
+                "screened_at": exp.screened_at.isoformat() if exp.screened_at else None,
+                "screening": _invitee_screening(exp),
             }
             if exp
             else None
         ),
         "document_slots": slots,
+        "clarification_requests": requests,
     }
 
 
 def _reload_my_expedient_row(entity_id) -> dict:
     entity = (
         PLDEntity.objects.select_related("organization")
-        .prefetch_related("expedients", "expedients__documents")
+        .prefetch_related(
+            "expedients",
+            "expedients__documents",
+            "expedients__clarification_requests",
+        )
         .get(pk=entity_id)
     )
     return _my_expedient_row(entity)
@@ -495,7 +572,11 @@ def _invitee_counterparty_or_404(request, entity_id):
     try:
         entity = (
             PLDEntity.objects.select_related("organization")
-            .prefetch_related("expedients", "expedients__documents")
+            .prefetch_related(
+                "expedients",
+                "expedients__documents",
+                "expedients__clarification_requests",
+            )
             .get(pk=entity_id, user=request.user)
         )
     except (PLDEntity.DoesNotExist, ValidationError, ValueError):
@@ -547,6 +628,8 @@ class MyPLDExpedientDocumentView(View):
         if not uploaded:
             return JsonResponse({"error": "file is required"}, status=400)
 
+        from api.compliance.clarifications import parse_clarification_slot
+        from api.compliance.models import PLDClarificationRequest
         from api.compliance.pld_document_slots import document_slots_for_entity
 
         slot = next(
@@ -558,7 +641,20 @@ class MyPLDExpedientDocumentView(View):
             None,
         )
         if not slot:
-            return JsonResponse({"error": "unknown-slot"}, status=400)
+            request_id = parse_clarification_slot(slot_key)
+            item = None
+            if request_id:
+                item = PLDClarificationRequest.objects.filter(
+                    pk=request_id, expedient=exp
+                ).first()
+            if not item or item.status != PLDClarificationRequest.Status.OPEN:
+                return JsonResponse({"error": "unknown-slot"}, status=400)
+            if item.answer_type == PLDClarificationRequest.AnswerType.TEXT:
+                return JsonResponse({"error": "text-required"}, status=400)
+            slot = {
+                "slot_key": item.slot_key,
+                "document_kind": "clarification",
+            }
 
         filename = uploaded.name or "document"
         ext = os.path.splitext(filename)[1].lower()

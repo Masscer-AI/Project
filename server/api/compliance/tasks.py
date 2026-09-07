@@ -58,8 +58,23 @@ def extract_pld_expedient_document(document_id: str):
         )
         return
 
-    from api.compliance.models import PLDExpedient
+    from api.compliance.clarifications import (
+        mark_answered,
+        maybe_resume_stage,
+        parse_clarification_slot,
+    )
+    from api.compliance.models import PLDClarificationRequest, PLDExpedient
     from api.compliance.pld_document_slots import required_slots_extraction_ready
+
+    request_id = parse_clarification_slot(doc.slot_key)
+    if request_id:
+        req = PLDClarificationRequest.objects.filter(
+            pk=request_id, expedient=doc.expedient
+        ).first()
+        if req and req.status == PLDClarificationRequest.Status.OPEN:
+            mark_answered(req)
+        maybe_resume_stage(doc.expedient)
+        return
 
     entity = doc.expedient.entity
     ready, _ = required_slots_extraction_ready(entity)
@@ -103,7 +118,70 @@ def prequalify_pld_expedient(expedient_id: str):
                 "updated_at",
             ]
         )
+        from api.compliance.clarifications import replace_open_requests
+        from api.compliance.models import PLDClarificationRequest
+
+        replace_open_requests(
+            exp,
+            PLDClarificationRequest.Stage.IDENTIFICATION,
+            list(parsed.invitee_requests or []),
+        )
     except Exception:
         logger.exception("PLD prequalification failed for %s", expedient_id)
         exp.prequalification_status = PLDExpedient.PrequalificationStatus.FAILED
         exp.save(update_fields=["prequalification_status", "updated_at"])
+
+
+@shared_task
+def screen_pld_expedient(expedient_id: str):
+    from django.utils import timezone
+
+    from api.compliance.clarifications import replace_open_requests
+    from api.compliance.models import PLDClarificationRequest, PLDExpedient
+    from api.compliance.screening import run_screening
+
+    try:
+        exp = PLDExpedient.objects.select_related(
+            "entity", "entity__organization", "organization"
+        ).prefetch_related(
+            "documents",
+            "clarification_requests",
+            "entity__expedients",
+            "entity__expedients__documents",
+        ).get(pk=expedient_id)
+    except (PLDExpedient.DoesNotExist, ValueError):
+        logger.warning("PLD expedient %s not found for screening", expedient_id)
+        return
+
+    entity = exp.entity
+    exp.screening_status = PLDExpedient.PrequalificationStatus.PENDING
+    exp.save(update_fields=["screening_status", "updated_at"])
+    try:
+        parsed = run_screening(entity)
+        exp.screening_payload = parsed.model_dump(mode="json")
+        exp.screening_status = PLDExpedient.PrequalificationStatus.SUCCEEDED
+        exp.screened_at = timezone.now()
+        exp.save(
+            update_fields=[
+                "screening_payload",
+                "screening_status",
+                "screened_at",
+                "updated_at",
+            ]
+        )
+        replace_open_requests(
+            exp,
+            PLDClarificationRequest.Stage.SCREENING,
+            list(parsed.invitee_requests or []),
+        )
+    except Exception:
+        logger.exception("PLD screening failed for %s", expedient_id)
+        exp.screening_status = PLDExpedient.PrequalificationStatus.FAILED
+        exp.save(update_fields=["screening_status", "updated_at"])
+
+
+@shared_task
+def ingest_watchlists(force: bool = False):
+    from api.compliance.watchlists.ingest import ingest_all_watchlists
+
+    return ingest_all_watchlists(force=force)

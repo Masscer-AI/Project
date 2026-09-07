@@ -13,6 +13,7 @@ from api.compliance.document_extraction.operational_schemas import (
     CaratulaBancariaExtraction,
     CedulaFt01Extraction,
     CfdiExtraction,
+    ClarificationExtraction,
     ComprobantePagoExtraction,
     ContratoExtraction,
     CurpSociosExtraction,
@@ -303,6 +304,7 @@ PldDocumentKind: TypeAlias = Literal[
     "cedula_ft01",
     "ficha_ft02",
     "reporte_ri01",
+    "clarification",
 ]
 
 PldExtraction: TypeAlias = (
@@ -327,6 +329,7 @@ PldExtraction: TypeAlias = (
     | CedulaFt01Extraction
     | FichaFt02Extraction
     | ReporteRi01Extraction
+    | ClarificationExtraction
 )
 
 SCHEMA_BY_KIND: dict[PldDocumentKind, type[PldExtraction]] = {
@@ -355,6 +358,7 @@ SCHEMA_BY_KIND: dict[PldDocumentKind, type[PldExtraction]] = {
     "cedula_ft01": CedulaFt01Extraction,
     "ficha_ft02": FichaFt02Extraction,
     "reporte_ri01": ReporteRi01Extraction,
+    "clarification": ClarificationExtraction,
 }
 
 

@@ -6,6 +6,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from api.compliance.clarifications import InviteeRequestSpec
+
 
 class PrequalFinding(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -27,3 +29,4 @@ class PrequalificationResult(BaseModel):
     findings: list[PrequalFinding] = Field(default_factory=list)
     controllers: list[str] = Field(default_factory=list)
     human_notes: str | None = None
+    invitee_requests: list[InviteeRequestSpec] = Field(default_factory=list)

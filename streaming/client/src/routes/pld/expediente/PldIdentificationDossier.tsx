@@ -9,6 +9,7 @@ import {
   TMyPldExpedient,
   TPldDocumentSlot,
 } from "../../../modules/apiCalls";
+import { PldClarificationRequests } from "./PldClarificationRequests";
 
 function text(value: unknown): string {
   if (typeof value === "string" && value.trim()) return value.trim();
@@ -85,7 +86,12 @@ export function PldIdentificationDossier({
     (slot) => !slot.document || slot.document.extraction_status === "pending"
   );
   const prequalPending = row.expedient?.prequalification_status === "pending";
-  const poll = pending || prequalPending;
+  const screeningPending = row.expedient?.screening_status === "pending";
+  const clarifyExtracting = (row.clarification_requests || []).some(
+    (item) =>
+      item.status === "open" && item.document?.extraction_status === "pending"
+  );
+  const poll = pending || prequalPending || screeningPending || clarifyExtracting;
   const onSavedRef = useRef(onSaved);
   onSavedRef.current = onSaved;
 
@@ -116,9 +122,13 @@ export function PldIdentificationDossier({
     required.every((slot) => slot.document?.extraction_status === "succeeded");
   const prequal = row.expedient?.prequalification;
   const verdict = prequal?.verdict;
+  const openRequests = (row.clarification_requests || []).filter(
+    (item) => item.status === "open"
+  );
   const prequalReady =
     row.expedient?.prequalification_status === "succeeded" &&
-    verdict !== "blocked";
+    verdict === "ready_for_list_screening" &&
+    openRequests.length === 0;
   const confirmEnabled = ready && prequalReady && !busy;
   const alreadyCross = row.expedient?.status === "cross_reference";
   const displayName =
@@ -174,28 +184,32 @@ export function PldIdentificationDossier({
       )}
       {prequal?.summary && row.expedient?.prequalification_status === "succeeded" && (
         <Alert
-          color={verdict === "blocked" ? "red" : verdict === "needs_review" ? "yellow" : "teal"}
+          color={verdict === "ready_for_list_screening" ? "teal" : "yellow"}
           variant="light"
         >
           {prequal.summary}
         </Alert>
       )}
-      {(prequal?.findings || []).length > 0 && (
-        <Stack gap={4}>
-          <Text size="sm" fw={600}>
-            {t("compliance-prequal-findings")}
-          </Text>
-          {(prequal?.findings || []).map((item, index) => (
-            <Text key={`${item.code}-${index}`} size="sm" c="dimmed">
-              <Text span fw={500}>
-                {item.severity}
-                {": "}
-              </Text>
-              {item.summary}
-            </Text>
-          ))}
-        </Stack>
+      {row.expedient?.screening_status === "pending" && (
+        <Alert color="violet" variant="light">
+          <Group gap="xs">
+            <IconLoader2 size={16} />
+            <Text size="sm">{t("compliance-screening-running")}</Text>
+          </Group>
+        </Alert>
       )}
+      {row.expedient?.screening_status === "failed" && (
+        <Alert color="red" variant="light">
+          {t("compliance-screening-failed")}
+        </Alert>
+      )}
+      {row.expedient?.screening?.summary &&
+        row.expedient?.screening_status === "succeeded" && (
+          <Alert color="gray" variant="light">
+            {row.expedient.screening.summary}
+          </Alert>
+        )}
+      <PldClarificationRequests row={row} onSaved={onSaved} />
       <Stack gap={4}>
         <Text size="sm" fw={600}>
           {t("compliance-dossier-identity")}
@@ -263,11 +277,11 @@ export function PldIdentificationDossier({
           </Group>
         ))}
       </Stack>
-      {alreadyCross ? (
+      {alreadyCross && openRequests.length === 0 ? (
         <Alert color="gray" variant="light">
           {t("compliance-dossier-next-lists")}
         </Alert>
-      ) : (
+      ) : alreadyCross ? null : (
         <Group>
           {onBack ? (
             <Button variant="default" onClick={onBack}>

@@ -4,10 +4,13 @@ from api.compliance.models import (
     ComplianceFolio,
     FolioDocument,
     FolioEvent,
+    PLDClarificationRequest,
     PLDEntity,
     PLDExpedient,
     PLDExpedientDocument,
     PLDInvite,
+    WatchlistRecord,
+    WatchlistSnapshot,
 )
 
 
@@ -112,6 +115,22 @@ class PLDExpedientDocumentInline(admin.TabularInline):
     raw_id_fields = ("uploaded_by",)
 
 
+class PLDClarificationRequestInline(admin.TabularInline):
+    model = PLDClarificationRequest
+    extra = 0
+    fields = (
+        "id",
+        "stage",
+        "status",
+        "answer_type",
+        "prompt",
+        "text_answer",
+        "created_at",
+    )
+    readonly_fields = ("id", "created_at")
+    show_change_link = True
+
+
 @admin.register(PLDExpedient)
 class PLDExpedientAdmin(admin.ModelAdmin):
     list_display = (
@@ -126,7 +145,7 @@ class PLDExpedientAdmin(admin.ModelAdmin):
     list_filter = ("status", "vulnerable_activity")
     raw_id_fields = ("organization", "entity")
     readonly_fields = ("id", "created_at", "updated_at")
-    inlines = [PLDExpedientDocumentInline]
+    inlines = [PLDExpedientDocumentInline, PLDClarificationRequestInline]
 
 
 @admin.register(PLDExpedientDocument)
@@ -142,3 +161,61 @@ class PLDExpedientDocumentAdmin(admin.ModelAdmin):
     list_filter = ("document_kind",)
     raw_id_fields = ("expedient", "uploaded_by")
     readonly_fields = ("id", "created_at", "updated_at")
+
+
+@admin.register(WatchlistSnapshot)
+class WatchlistSnapshotAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "list_slug",
+        "date_generated",
+        "file_sha256",
+        "record_count",
+        "is_current",
+        "status",
+        "ingested_at",
+    )
+    list_filter = ("list_slug", "status", "is_current")
+    search_fields = ("file_sha256", "date_generated", "source_url")
+    readonly_fields = (
+        "id",
+        "list_slug",
+        "source_url",
+        "file_sha256",
+        "content_length",
+        "date_generated",
+        "status",
+        "is_current",
+        "record_count",
+        "error",
+        "ingested_at",
+    )
+
+
+@admin.register(WatchlistRecord)
+class WatchlistRecordAdmin(admin.ModelAdmin):
+    list_display = (
+        "reference_number",
+        "record_type",
+        "primary_name",
+        "listed_on",
+        "snapshot",
+    )
+    list_filter = ("record_type", "snapshot__list_slug", "snapshot__is_current")
+    search_fields = ("reference_number", "primary_name", "search_document", "data_id")
+    raw_id_fields = ("snapshot",)
+    readonly_fields = (
+        "id",
+        "snapshot",
+        "record_type",
+        "reference_number",
+        "data_id",
+        "primary_name",
+        "listed_on",
+        "names",
+        "dates_of_birth",
+        "document_numbers",
+        "nationalities",
+        "search_document",
+        "raw",
+    )

@@ -968,8 +968,9 @@ class PLDDocumentExtractionTests(TestCase):
         self.assertIn("uuid", cfdi.model_fields)
         self.assertIn("provenances", schema_for_kind("acta_constitutiva").model_fields)
 
+    @patch("api.compliance.tasks.screen_pld_expedient.delay")
     @patch("api.compliance.tasks.extract_pld_expedient_document.delay")
-    def test_confirm_documents_requires_succeeded_extraction(self, delay):
+    def test_confirm_documents_requires_succeeded_extraction(self, delay, screen_delay):
         from django.core.files.uploadedfile import SimpleUploadedFile
 
         from api.compliance.models import PLDExpedientDocument
@@ -1036,6 +1037,31 @@ class PLDDocumentExtractionTests(TestCase):
                 "findings": [],
             },
         )
+        from api.compliance.clarifications import InviteeRequestSpec, replace_open_requests
+        from api.compliance.models import PLDClarificationRequest
+
+        replace_open_requests(
+            self.expedient,
+            PLDClarificationRequest.Stage.IDENTIFICATION,
+            [
+                InviteeRequestSpec(
+                    prompt="Escribe el RFC correcto.",
+                    answer_type="text",
+                    target="rfc",
+                )
+            ],
+        )
+        blocked = self.client.patch(
+            f"/v1/compliance/my-expedients/{self.entity.id}/",
+            {"action": "confirm_documents"},
+            format="json",
+            HTTP_AUTHORIZATION=f"Token {self.token.key}",
+        )
+        self.assertEqual(blocked.status_code, 400)
+        self.assertEqual(blocked.json()["error"], "clarification-pending")
+        PLDClarificationRequest.objects.filter(expedient=self.expedient).update(
+            status=PLDClarificationRequest.Status.CANCELLED
+        )
         confirmed = self.client.patch(
             f"/v1/compliance/my-expedients/{self.entity.id}/",
             {"action": "confirm_documents"},
@@ -1046,6 +1072,7 @@ class PLDDocumentExtractionTests(TestCase):
         self.assertEqual(
             confirmed.json()["expedient"]["status"], "cross_reference"
         )
+        screen_delay.assert_called_once()
 
     def test_deterministic_rfc_mismatch_blocks(self):
         from api.compliance.models import PLDExpedientDocument
@@ -1151,6 +1178,86 @@ class PLDDocumentExtractionTests(TestCase):
             self.expedient.prequalification_payload.get("verdict"),
             "needs_review",
         )
+
+    def test_invitee_payload_hides_findings_and_blocks_open_requests(self):
+        from api.compliance.clarifications import InviteeRequestSpec, replace_open_requests
+        from api.compliance.models import PLDClarificationRequest, PLDExpedient
+
+        PLDExpedient.objects.filter(pk=self.expedient.pk).update(
+            prequalification_status=PLDExpedient.PrequalificationStatus.SUCCEEDED,
+            prequalification_payload={
+                "verdict": "needs_review",
+                "summary": "confirma el RFC",
+                "findings": [{"code": "rfc_mismatch", "severity": "blocker", "summary": "secret"}],
+                "human_notes": "internal",
+            },
+            screening_status=PLDExpedient.PrequalificationStatus.SUCCEEDED,
+            screening_payload={
+                "verdict": "escalate",
+                "summary": "Tu expediente sigue en revision interna.",
+                "hits": [{"list_slug": "onu_csnu", "primary_name": "secret"}],
+            },
+        )
+        replace_open_requests(
+            self.expedient,
+            PLDClarificationRequest.Stage.IDENTIFICATION,
+            [
+                InviteeRequestSpec(
+                    prompt="Escribe el RFC correcto.",
+                    answer_type="text",
+                    target="rfc",
+                )
+            ],
+        )
+        listed = self.client.get(
+            "/v1/compliance/my-expedients/",
+            HTTP_AUTHORIZATION=f"Token {self.token.key}",
+        )
+        self.assertEqual(listed.status_code, 200)
+        row = listed.json()["results"][0]
+        self.assertEqual(row["expedient"]["prequalification"]["summary"], "confirma el RFC")
+        self.assertNotIn("findings", row["expedient"]["prequalification"])
+        self.assertNotIn("human_notes", row["expedient"]["prequalification"])
+        self.assertEqual(
+            row["expedient"]["screening"]["summary"],
+            "Tu expediente sigue en revision interna.",
+        )
+        self.assertNotIn("hits", row["expedient"]["screening"])
+        self.assertNotIn("verdict", row["expedient"]["screening"])
+        self.assertEqual(len(row["clarification_requests"]), 1)
+
+    def test_answer_clarification_text_updates_rfc(self):
+        from api.compliance.clarifications import InviteeRequestSpec, replace_open_requests
+        from api.compliance.models import PLDClarificationRequest
+
+        created = replace_open_requests(
+            self.expedient,
+            PLDClarificationRequest.Stage.IDENTIFICATION,
+            [
+                InviteeRequestSpec(
+                    prompt="Escribe el RFC correcto.",
+                    answer_type="text",
+                    target="rfc",
+                )
+            ],
+        )
+        request_id = str(created[0].id)
+        with patch("api.compliance.tasks.prequalify_pld_expedient.delay"):
+            answered = self.client.patch(
+                f"/v1/compliance/my-expedients/{self.entity.id}/",
+                {
+                    "action": "answer_clarification",
+                    "request_id": request_id,
+                    "text": "AAA010101AAA",
+                },
+                format="json",
+                HTTP_AUTHORIZATION=f"Token {self.token.key}",
+            )
+        self.assertEqual(answered.status_code, 200)
+        self.entity.refresh_from_db()
+        self.assertEqual(self.entity.metadata.get("rfc"), "AAA010101AAA")
+        created[0].refresh_from_db()
+        self.assertEqual(created[0].status, PLDClarificationRequest.Status.ANSWERED)
 
 
 class PLDInviteEmailTests(SimpleTestCase):

@@ -306,6 +306,14 @@ class PLDExpedient(models.Model):
     )
     prequalification_payload = models.JSONField(default=dict, blank=True)
     prequalified_at = models.DateTimeField(null=True, blank=True)
+    screening_status = models.CharField(
+        max_length=16,
+        choices=PrequalificationStatus.choices,
+        blank=True,
+        default="",
+    )
+    screening_payload = models.JSONField(default=dict, blank=True)
+    screened_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -393,6 +401,64 @@ class PLDExpedientDocument(models.Model):
 
     def __str__(self):
         return f"PLDExpedientDocument({self.slot_key}, {self.expedient_id})"
+
+
+class PLDClarificationRequest(models.Model):
+    """Invitee-facing question from identification or list-screening review."""
+
+    class Stage(models.TextChoices):
+        IDENTIFICATION = "identification", "Identification"
+        SCREENING = "screening", "Screening"
+
+    class AnswerType(models.TextChoices):
+        TEXT = "text", "Text"
+        DOCUMENT = "document", "Document"
+        EITHER = "either", "Text or document"
+
+    class Status(models.TextChoices):
+        OPEN = "open", "Open"
+        ANSWERED = "answered", "Answered"
+        CANCELLED = "cancelled", "Cancelled"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    expedient = models.ForeignKey(
+        PLDExpedient,
+        on_delete=models.CASCADE,
+        related_name="clarification_requests",
+    )
+    stage = models.CharField(max_length=16, choices=Stage.choices, db_index=True)
+    prompt = models.CharField(max_length=400)
+    answer_type = models.CharField(
+        max_length=16,
+        choices=AnswerType.choices,
+        default=AnswerType.TEXT,
+    )
+    target = models.CharField(max_length=64, blank=True, default="")
+    status = models.CharField(
+        max_length=16,
+        choices=Status.choices,
+        default=Status.OPEN,
+        db_index=True,
+    )
+    text_answer = models.TextField(blank=True, default="")
+    answered_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "PLD clarification request"
+        verbose_name_plural = "PLD clarification requests"
+        ordering = ["created_at"]
+        indexes = [
+            models.Index(fields=["expedient", "stage", "status"]),
+        ]
+
+    def __str__(self):
+        return f"PLDClarificationRequest({self.stage}, {self.status})"
+
+    @property
+    def slot_key(self) -> str:
+        return f"clarify:{self.id}"
 
 
 class PLDInvite(models.Model):
@@ -493,3 +559,119 @@ class PLDInvite(models.Model):
             self.save(update_fields=["status", "updated_at"])
             return True
         return False
+
+
+class WatchlistListSlug(models.TextChoices):
+    ONU_CSNU = "onu_csnu", "ONU CSNU consolidated"
+    SAT_69B = "sat_69b", "SAT Art. 69-B complete"
+    SAT_69B_BIS = "sat_69b_bis", "SAT Art. 69-B Bis complete"
+    SAT_69_FIRMES = "sat_69_firmes", "SAT Art. 69 firmes"
+    SAT_69_NO_LOCALIZADOS = "sat_69_no_localizados", "SAT Art. 69 no localizados"
+    SAT_69_EXIGIBLES = "sat_69_exigibles", "SAT Art. 69 exigibles"
+    SAT_69_SENTENCIAS = "sat_69_sentencias", "SAT Art. 69 sentencias"
+    SAT_69_CSD = "sat_69_csd", "SAT Art. 69 CSD sin efectos"
+
+
+class WatchlistRecordType(models.TextChoices):
+    INDIVIDUAL = "individual", "Individual"
+    ENTITY = "entity", "Entity"
+
+
+class WatchlistSnapshotStatus(models.TextChoices):
+    SUCCEEDED = "succeeded", "Succeeded"
+    FAILED = "failed", "Failed"
+
+
+class WatchlistSnapshot(models.Model):
+    """One ingested version of an official watchlist file."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    list_slug = models.CharField(
+        max_length=32,
+        choices=WatchlistListSlug.choices,
+        db_index=True,
+    )
+    source_url = models.URLField(max_length=512)
+    file_sha256 = models.CharField(max_length=64, db_index=True)
+    content_length = models.PositiveIntegerField(default=0)
+    date_generated = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        help_text="Source dateGenerated (or equivalent) from the list file.",
+    )
+    status = models.CharField(
+        max_length=16,
+        choices=WatchlistSnapshotStatus.choices,
+        default=WatchlistSnapshotStatus.SUCCEEDED,
+    )
+    is_current = models.BooleanField(default=False, db_index=True)
+    record_count = models.PositiveIntegerField(default=0)
+    error = models.TextField(blank=True, default="")
+    ingested_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Watchlist snapshot"
+        verbose_name_plural = "Watchlist snapshots"
+        ordering = ["-ingested_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["list_slug"],
+                condition=models.Q(is_current=True),
+                name="unique_current_watchlist_snapshot_per_list",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["list_slug", "-ingested_at"]),
+        ]
+
+    def __str__(self):
+        current = "current" if self.is_current else "historic"
+        return f"WatchlistSnapshot<{self.list_slug} {self.file_sha256[:12]} {current}>"
+
+
+class WatchlistRecord(models.Model):
+    """One designated individual or entity from a watchlist snapshot."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    snapshot = models.ForeignKey(
+        WatchlistSnapshot,
+        on_delete=models.CASCADE,
+        related_name="records",
+    )
+    record_type = models.CharField(
+        max_length=16,
+        choices=WatchlistRecordType.choices,
+        db_index=True,
+    )
+    reference_number = models.CharField(max_length=64, db_index=True)
+    data_id = models.CharField(max_length=32, blank=True, default="")
+    primary_name = models.CharField(max_length=512, blank=True, default="")
+    listed_on = models.CharField(max_length=32, blank=True, default="")
+    names = models.JSONField(default=list, blank=True)
+    dates_of_birth = models.JSONField(default=list, blank=True)
+    document_numbers = models.JSONField(default=list, blank=True)
+    nationalities = models.JSONField(default=list, blank=True)
+    search_document = models.TextField(
+        blank=True,
+        default="",
+        help_text="Folded searchable blob of names, aliases, IDs, and notes.",
+    )
+    raw = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        verbose_name = "Watchlist record"
+        verbose_name_plural = "Watchlist records"
+        ordering = ["reference_number"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["snapshot", "reference_number"],
+                name="unique_watchlist_record_per_snapshot_ref",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["snapshot", "record_type"]),
+        ]
+
+    def __str__(self):
+        return f"WatchlistRecord<{self.reference_number} {self.primary_name}>"

@@ -2298,16 +2298,29 @@ export type TMyPldExpedient = {
     prequalification?: {
       verdict?: string;
       summary?: string;
-      findings?: {
-        code: string;
-        severity: string;
-        target?: string | null;
-        summary: string;
-      }[];
-      controllers?: string[];
+    };
+    screening_status?: string;
+    screened_at?: string | null;
+    screening?: {
+      verdict?: string;
+      summary?: string;
     };
   } | null;
   document_slots?: TPldDocumentSlot[];
+  clarification_requests?: TPldClarificationRequest[];
+};
+
+export type TPldClarificationRequest = {
+  id: string;
+  stage: string;
+  prompt: string;
+  answer_type: "text" | "document" | "either" | string;
+  target?: string;
+  status: string;
+  text_answer?: string;
+  slot_key: string;
+  document?: TPldExpedientDocument | null;
+  answered_at?: string | null;
 };
 
 export const listMyPldExpedients = async () => {
@@ -2352,6 +2365,18 @@ export const confirmMyPldDocuments = async (entityId: string) => {
     "PATCH",
     `/v1/compliance/my-expedients/${entityId}/`,
     { action: "confirm_documents" }
+  );
+};
+
+export const answerMyPldClarification = async (
+  entityId: string,
+  requestId: string,
+  text: string
+) => {
+  return makeAuthenticatedRequest<TMyPldExpedient>(
+    "PATCH",
+    `/v1/compliance/my-expedients/${entityId}/`,
+    { action: "answer_clarification", request_id: requestId, text }
   );
 };
 

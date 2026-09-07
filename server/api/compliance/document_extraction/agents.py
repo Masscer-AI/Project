@@ -138,6 +138,11 @@ INSTRUCTIONS_BY_KIND = {
         "You extract reporte RI-01 integral. "
         + _SHARED_RULES
     ),
+    "clarification": (
+        "You extract an extra supporting document the client uploaded to answer "
+        "a clarification question. Summarize visible identity and tax identifiers. "
+        + _SHARED_RULES
+    ),
 }
 
 

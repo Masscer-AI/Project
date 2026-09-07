@@ -102,7 +102,11 @@ export default function MyPldExpedientePage() {
                     )}
                   </Group>
                   {row.expedient?.status === "cross_reference" ||
-                  reviewingIds[row.id] ? (
+                  row.expedient?.status === "action_required" ||
+                  reviewingIds[row.id] ||
+                  (row.clarification_requests || []).some(
+                    (item) => item.status === "open"
+                  ) ? (
                     <PldIdentificationDossier
                       row={row}
                       onSaved={(next) =>

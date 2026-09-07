@@ -43,6 +43,10 @@ app.conf.beat_schedule = {
         'task': 'api.data_governance.tasks.expire_stale_data_exports',
         'schedule': crontab(hour=4, minute=0),
     },
+    'ingest-watchlists': {
+        'task': 'api.compliance.tasks.ingest_watchlists',
+        'schedule': crontab(hour=5, minute=20),
+    },
 }
 
 import api.celery_signals

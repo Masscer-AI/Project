@@ -270,6 +270,11 @@ CACHES = {
     }
 }
 
+WATCHLIST_UN_CSNU_URL = os.environ.get(
+    "WATCHLIST_UN_CSNU_URL",
+    "https://scsanctions.un.org/resources/xml/en/consolidated.xml",
+)
+
 FIRECRAWL_API_KEY = os.environ.get("FIRECRAWL_API_KEY", "")
 
 ELEVENLABS_API_KEY = os.environ.get("ELEVENLABS_API_KEY", "")

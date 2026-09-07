@@ -7,6 +7,25 @@ from pydantic import BaseModel, ConfigDict, Field
 from api.compliance.document_extraction.provenance import ProvenanceMixin
 
 
+class ClarificationExtraction(ProvenanceMixin):
+    """Ad-hoc document uploaded to answer an identification or screening question."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    summary: str | None = Field(
+        default=None,
+        description="CLAR-resumen: what the document is and the facts it shows",
+    )
+    full_name: str | None = None
+    legal_name: str | None = None
+    rfc: str | None = None
+    curp: str | None = None
+    document_number: str | None = None
+    date_of_birth: str | None = None
+    address_text: str | None = None
+    visible_identifiers: str | None = None
+
+
 class ReformaCambioExtraction(BaseModel):
     model_config = ConfigDict(extra="ignore")
 

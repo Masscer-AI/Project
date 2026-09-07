@@ -33,6 +33,10 @@ Reglas:
 - Conserva todos los hallazgos deterministicos con severity blocker; puedes anadir
   warnings de conciliacion (nombres, domicilios, representante vs ID, socios vs
   beneficiario controlador).
+- Si falta un dato o hay inconsistencia que el invitado puede aclarar, llena
+  `invitee_requests` (maximo 5). Cada prompt en espanol, breve, sin mencionar listas,
+  scores ni investigaciones. answer_type: text, document o either.
+- Si invitee_requests no esta vacio, verdict no puede ser ready_for_list_screening.
 - Nunca inventes RFC, CURP, fechas ni porcentajes.
 - summary en espanol, breve, para la contraparte (sin jerga interna de scoring).
 - source_ids solo de: lfpiorpi, reglamento, rcg, uif-portal.
@@ -120,10 +124,20 @@ def run_prequalification(entity) -> PrequalificationResult:
 
     findings = _merge_findings(det, output.findings)
     verdict = verdict_from_findings(findings)
+    from api.compliance.clarifications import merge_request_specs, specs_from_findings
+
+    requests = merge_request_specs(
+        specs_from_findings(findings),
+        list(output.invitee_requests or []),
+    )
+    if requests and verdict == "ready_for_list_screening":
+        verdict = "needs_review"
     controllers = output.controllers or controller_names(entity)
     summary = output.summary.strip() if output.summary else ""
     if not summary:
-        if verdict == "blocked":
+        if requests:
+            summary = "Necesitamos que confirmes algunos datos o documentos para continuar."
+        elif verdict == "blocked":
             summary = "Faltan datos o documentos obligatorios, o hay inconsistencias que impiden el cruce de listas."
         elif verdict == "needs_review":
             summary = "La identificacion esta integrada, con observaciones para revision humana."
@@ -136,4 +150,5 @@ def run_prequalification(entity) -> PrequalificationResult:
         findings=findings,
         controllers=controllers,
         human_notes=output.human_notes,
+        invitee_requests=requests,
     )
