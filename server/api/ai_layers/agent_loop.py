@@ -266,6 +266,7 @@ class AgentLoop:
         on_event: Callable[[str, dict], None] | None = None,
         api_key: str | None = None,
         check_cancelled: Callable[[], bool] | None = None,
+        repair_model: str | None = None,
     ) -> BaseAgentLoop:
         """Return the implementation for *provider* (``openai`` or ``google``)."""
         if provider == "openai":
@@ -278,6 +279,7 @@ class AgentLoop:
                 on_event=on_event,
                 api_key=api_key,
                 check_cancelled=check_cancelled,
+                repair_model=repair_model,
             )
         if provider == "google":
             from api.ai_layers.vertex_gemini_agent_loop import VertexGeminiAgentLoop
@@ -308,6 +310,7 @@ class OpenAIAgentLoop(BaseAgentLoop):
         on_event: Callable[[str, dict], None] | None = None,
         api_key: str | None = None,
         check_cancelled: Callable[[], bool] | None = None,
+        repair_model: str | None = None,
     ):
         self.instructions = instructions
         self.model = model
@@ -315,6 +318,7 @@ class OpenAIAgentLoop(BaseAgentLoop):
         self.max_iterations = max_iterations
         self.on_event = on_event
         self.check_cancelled = check_cancelled
+        self.repair_model = repair_model or "gpt-4o-mini"
 
         resolved_key = api_key or os.environ.get("OPENAI_API_KEY")
         max_retries = int(os.environ.get("OPENAI_MAX_RETRIES", "2"))
@@ -587,7 +591,7 @@ class OpenAIAgentLoop(BaseAgentLoop):
                 "strict": True,
             }
             parse_response = self.client.responses.create(
-                model="gpt-4o-mini",
+                model=self.repair_model,
                 instructions=(
                     "Parse the following response into the required JSON format. "
                     "Do not change the wording, simply extract and structure the information."

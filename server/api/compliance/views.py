@@ -426,6 +426,14 @@ def _document_payload(doc: PLDExpedientDocument) -> dict:
         "content_type": doc.content_type,
         "file_size": doc.file_size,
         "updated_at": doc.updated_at.isoformat() if doc.updated_at else None,
+        "extraction_status": doc.extraction_status or "",
+        "extracted_at": (
+            doc.extracted_at.isoformat() if doc.extracted_at else None
+        ),
+        "extracted_payload": (
+            doc.extracted_payload if isinstance(doc.extracted_payload, dict) else {}
+        ),
+        "extraction_error": doc.extraction_error or "",
     }
 
 
@@ -529,7 +537,14 @@ class MyPLDExpedientDocumentView(View):
         doc.file_size = size
         doc.uploaded_by = request.user
         doc.file.save(filename, uploaded, save=False)
+        doc.extraction_status = PLDExpedientDocument.ExtractionStatus.PENDING
+        doc.extracted_payload = {}
+        doc.extracted_at = None
+        doc.extraction_error = ""
         doc.save()
+        from api.compliance.tasks import extract_pld_expedient_document
+
+        extract_pld_expedient_document.delay(str(doc.id))
         return JsonResponse(_reload_my_expedient_row(entity.pk), status=200)
 
 

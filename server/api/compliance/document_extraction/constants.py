@@ -1,0 +1,1 @@
+PLD_EXTRACTION_MODEL_SLUG = "gpt-5.6-luna"

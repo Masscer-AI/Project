@@ -408,8 +408,9 @@ class PLDEntityAPITests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertFalse(PLDEntity.objects.filter(pk=entity.pk).exists())
 
+    @patch("api.compliance.tasks.extract_pld_expedient_document.delay")
     @patch("api.compliance.views.send_pld_invite_email")
-    def test_send_invite_and_register(self, send_email):
+    def test_send_invite_and_register(self, send_email, extract_delay):
         from api.compliance.models import PLDInvite
 
         created = self.client.post(
@@ -590,6 +591,8 @@ class PLDEntityAPITests(TestCase):
             if s["slot_key"] == "official_id"
         )
         self.assertEqual(official["document"]["original_filename"], "ine.pdf")
+        self.assertEqual(official["document"]["extraction_status"], "pending")
+        extract_delay.assert_called()
         self.assertEqual(PLDExpedientDocument.objects.count(), 1)
         doc_id = official["document"]["id"]
 
@@ -728,5 +731,196 @@ class PLDEntityAPITests(TestCase):
         )
         self.assertEqual(incomplete.status_code, 200)
         self.assertFalse(incomplete.json()["found"])
+
+
+class PLDDocumentExtractionTests(TestCase):
+    def setUp(self):
+        from rest_framework.test import APIClient
+
+        from api.authenticate.models import Token, UserProfile
+        from api.compliance.models import (
+            PLDEntity,
+            PLDExpedient,
+            PLDExpedientStatus,
+            PLDPersonType,
+            PLDRelationship,
+        )
+
+        _bootstrap()
+        self.owner = User.objects.create_user(
+            username="pld-extract-owner",
+            email="pld-extract@test.com",
+            password="x",
+        )
+        self.org = Organization.objects.create(
+            name="PLD Extract Org",
+            owner=self.owner,
+            pld_access_enabled=True,
+        )
+        UserProfile.objects.update_or_create(
+            user=self.owner,
+            defaults={"organization": self.org},
+        )
+        self.token = Token.objects.create(user=self.owner)
+        self.client = APIClient()
+        self.entity = PLDEntity.objects.create(
+            organization=self.org,
+            person_type=PLDPersonType.PERSONA_MORAL,
+            relationship=PLDRelationship.CLIENTE,
+            user=self.owner,
+            email="extract@example.com",
+            metadata={
+                "legal_name": "ACME SA",
+                "controllers": [{"name": "Ana Lopez"}],
+            },
+        )
+        self.expedient = PLDExpedient.objects.create(
+            organization=self.org,
+            entity=self.entity,
+            status=PLDExpedientStatus.DOCUMENT_COLLECTION,
+        )
+
+    def test_acta_schema_round_trip(self):
+        from api.compliance.document_extraction.schemas import (
+            ActaConstitutivaExtraction,
+            schema_for_kind,
+        )
+
+        parsed = schema_for_kind("acta_constitutiva").model_validate(
+            {
+                "legal_name": "ACME SA de CV",
+                "shareholders": [
+                    {
+                        "name": "Ana Lopez",
+                        "person_kind": "fisica",
+                        "ownership_percentage": "60",
+                    },
+                    {
+                        "name": "Luis Perez",
+                        "ownership_percentage": "40",
+                    },
+                ],
+                "ownership_as_of": "2020-01-15",
+                "ownership_may_be_stale": True,
+            }
+        )
+        self.assertIsInstance(parsed, ActaConstitutivaExtraction)
+        self.assertEqual(parsed.shareholders[0].ownership_percentage, "60")
+        self.assertEqual(len(parsed.shareholders), 2)
+        with self.assertRaises(ValueError):
+            schema_for_kind("unknown_kind")
+
+    def test_official_id_schema_ignores_invented_rfc(self):
+        from api.compliance.document_extraction.schemas import OfficialIdExtraction
+
+        parsed = OfficialIdExtraction.model_validate(
+            {
+                "document_subtype": "ine",
+                "full_name": "Ana Lopez",
+                "curp": "LOAA800101MDFXXX09",
+                "rfc": "SHOULD-BE-IGNORED",
+            }
+        )
+        self.assertEqual(parsed.curp, "LOAA800101MDFXXX09")
+        self.assertFalse(hasattr(parsed, "rfc"))
+
+    def test_comprobante_age_helper(self):
+        from datetime import date, timedelta
+
+        from api.compliance.document_extraction.agents import _older_than_three_months
+
+        old = (date.today() - timedelta(days=100)).isoformat()
+        recent = date.today().isoformat()
+        self.assertTrue(_older_than_three_months(old))
+        self.assertFalse(_older_than_three_months(recent))
+        self.assertIsNone(_older_than_three_months(None))
+
+    @patch("api.compliance.tasks.extract_pld_expedient_document.delay")
+    def test_upload_sets_pending_and_enqueues(self, delay):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        from api.compliance.models import PLDExpedientDocument
+
+        response = self.client.post(
+            f"/v1/compliance/my-expedients/{self.entity.id}/documents/",
+            {
+                "slot_key": "acta_constitutiva",
+                "file": SimpleUploadedFile(
+                    "acta.pdf", b"%PDF-1.4", content_type="application/pdf"
+                ),
+            },
+            HTTP_AUTHORIZATION=f"Token {self.token.key}",
+        )
+        self.assertEqual(response.status_code, 200)
+        slot = next(
+            item
+            for item in response.json()["document_slots"]
+            if item["slot_key"] == "acta_constitutiva"
+        )
+        self.assertEqual(slot["document"]["extraction_status"], "pending")
+        self.assertEqual(slot["document"]["extracted_payload"], {})
+        doc = PLDExpedientDocument.objects.get()
+        delay.assert_called_once_with(str(doc.id))
+
+    @patch("api.ai_layers.agent_loop.AgentLoop.create")
+    def test_task_writes_acta_shareholders(self, create_loop):
+        from django.core.files.base import ContentFile
+
+        from api.ai_layers.agent_loop import AgentLoopResult
+        from api.compliance.document_extraction.schemas import (
+            ActaConstitutivaExtraction,
+            ShareholderExtraction,
+        )
+        from api.compliance.models import PLDExpedientDocument
+        from api.compliance.tasks import extract_pld_expedient_document
+
+        doc = PLDExpedientDocument.objects.create(
+            expedient=self.expedient,
+            slot_key="acta_constitutiva",
+            document_kind="acta_constitutiva",
+            original_filename="acta.pdf",
+            content_type="application/pdf",
+            file_size=8,
+            extraction_status=PLDExpedientDocument.ExtractionStatus.PENDING,
+        )
+        doc.file.save("acta.pdf", ContentFile(b"%PDF-1.4"), save=True)
+
+        parsed = ActaConstitutivaExtraction(
+            legal_name="ACME SA",
+            shareholders=[
+                ShareholderExtraction(
+                    name="Ana Lopez",
+                    ownership_percentage="55",
+                )
+            ],
+            ownership_may_be_stale=True,
+        )
+        loop = create_loop.return_value
+        loop.run.return_value = AgentLoopResult(
+            output=parsed,
+            messages=[],
+            iterations=1,
+            usage={
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0,
+            },
+        )
+
+        extract_pld_expedient_document(str(doc.id))
+        doc.refresh_from_db()
+        self.assertEqual(
+            doc.extraction_status,
+            PLDExpedientDocument.ExtractionStatus.SUCCEEDED,
+        )
+        self.assertEqual(doc.extracted_payload.get("legal_name"), "ACME SA")
+        self.assertEqual(
+            doc.extracted_payload["shareholders"][0]["ownership_percentage"],
+            "55",
+        )
+        create_loop.assert_called_once()
+        kwargs = create_loop.call_args.kwargs
+        self.assertEqual(kwargs["model"], "gpt-5.6-luna")
+        self.assertEqual(kwargs["repair_model"], "gpt-5.6-luna")
 
 

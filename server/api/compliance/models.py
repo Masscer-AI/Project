@@ -324,6 +324,11 @@ def pld_expedient_document_upload_to(instance, filename):
 class PLDExpedientDocument(models.Model):
     """Invitee-uploaded copy for one checklist slot on an expedient."""
 
+    class ExtractionStatus(models.TextChoices):
+        PENDING = "pending", "Pending"
+        SUCCEEDED = "succeeded", "Succeeded"
+        FAILED = "failed", "Failed"
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     expedient = models.ForeignKey(
         PLDExpedient,
@@ -343,6 +348,15 @@ class PLDExpedientDocument(models.Model):
         blank=True,
         related_name="pld_expedient_documents",
     )
+    extraction_status = models.CharField(
+        max_length=16,
+        choices=ExtractionStatus.choices,
+        blank=True,
+        default="",
+    )
+    extracted_at = models.DateTimeField(null=True, blank=True)
+    extracted_payload = models.JSONField(default=dict, blank=True)
+    extraction_error = models.CharField(max_length=500, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

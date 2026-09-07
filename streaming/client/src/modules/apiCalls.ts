@@ -2267,6 +2267,10 @@ export type TPldExpedientDocument = {
   content_type: string;
   file_size: number;
   updated_at: string | null;
+  extraction_status?: string;
+  extracted_at?: string | null;
+  extracted_payload?: Record<string, unknown>;
+  extraction_error?: string;
 };
 
 export type TPldDocumentSlot = {
