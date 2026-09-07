@@ -23,6 +23,8 @@ export type WhatsappTemplate = {
   body_variable_count: number;
   body_variable_descriptions?: string[];
   button_variable_count?: number;
+  header_variable_count?: number;
+  header_variable_descriptions?: string[];
   buttons: WhatsappTemplateButton[];
 };
 

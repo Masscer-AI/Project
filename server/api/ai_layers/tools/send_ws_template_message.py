@@ -91,7 +91,9 @@ def get_tool(
             "id is used automatically — leave buttons null/omitted. "
             "For templates with header_type=image, set "
             "header_image_attachment_id to a MessageAttachment UUID (image) "
-            "from the current conversation."
+            "from the current conversation. "
+            "For text headers with {{1}}, set template_variables.header "
+            "(independent of body variables)."
         ),
         "parameters": SendWsTemplateMessageParams,
         "function": send_ws_template_message,

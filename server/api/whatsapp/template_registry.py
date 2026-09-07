@@ -52,6 +52,7 @@ class WhatsAppTemplateDefinition(BaseModel):
     footer_text: str = ""
     body_variable_count: int = Field(ge=0)
     body_variable_descriptions: tuple[str, ...] = ()
+    header_variable_descriptions: tuple[str, ...] = ()
     buttons: tuple[WhatsAppTemplateButton, ...] = ()
     enabled: bool = True
 
@@ -72,7 +73,36 @@ class WhatsAppTemplateDefinition(BaseModel):
                     "body_text placeholders must be {{1}}…{{N}} matching "
                     "body_variable_count"
                 )
+        header_nums = sorted(
+            {int(n) for n in _PLACEHOLDER_RE.findall(self.header_text or "")}
+        )
+        if header_nums and header_nums != list(range(1, len(header_nums) + 1)):
+            raise ValueError(
+                "header_text placeholders must be {{1}}…{{N}} with no gaps"
+            )
+        if (
+            self.header_variable_descriptions
+            and len(self.header_variable_descriptions) != len(header_nums)
+        ):
+            raise ValueError(
+                "header_variable_descriptions length must match header "
+                "placeholder count"
+            )
         return self
+
+    @property
+    def header_variable_count(self) -> int:
+        """Text-header {{1}}…{{N}} parameters (independent of body variables)."""
+        return len({int(n) for n in _PLACEHOLDER_RE.findall(self.header_text or "")})
+
+    @property
+    def resolved_header_variable_descriptions(self) -> tuple[str, ...]:
+        if self.header_variable_descriptions:
+            return self.header_variable_descriptions
+        return tuple(
+            f"Header {{{{{i}}}}} text (independent of body variables)."
+            for i in range(1, self.header_variable_count + 1)
+        )
 
     @property
     def button_variable_count(self) -> int:
@@ -647,6 +677,414 @@ SEGUIMIENTO_INTEGRAREM_ATENCION = WhatsAppTemplateDefinition(
     enabled=True,
 )
 
+BOLETIN_SEMANAL = WhatsAppTemplateDefinition(
+    id="boletin_semanal_es_mx",
+    meta_name="boletin_semanal",
+    language_code="es_MX",
+    category="MARKETING",
+    description=(
+        "Boletin semanal generico para cualquier organizacion. Header con imagen; "
+        "cuerpo con nombre de organizacion/publicacion, fecha/edicion y temas. "
+        "Un boton de respuesta rapida: 'Escuchar resumen'. "
+        "Al enviar, provee header_image_attachment_id (UUID de un "
+        "MessageAttachment de imagen en la conversacion actual)."
+    ),
+    header_type="image",
+    body_text=(
+        "*Boletín semanal | {{1}}*\n"
+        "\n"
+        "Actualización semanal: *{{2}}*\n"
+        "\n"
+        "Le compartimos los temas relevantes de esta edición:\n"
+        "\n"
+        "{{3}}\n"
+        "\n"
+        "Consulte el boletín completo y escuche el resumen ejecutivo en los enlaces siguientes."
+    ),
+    body_variable_count=3,
+    body_variable_descriptions=(
+        "Nombre de la organizacion o publicacion (completa *{{1}}*), ej. 'Acme'.",
+        "Fecha o etiqueta de la edicion (completa *{{2}}*), "
+        "ej. 'Al cierre del 8 de agosto de 2026'.",
+        "Temas relevantes de la edicion (completa {{3}}).",
+    ),
+    buttons=(
+        WhatsAppTemplateButton(
+            index=0,
+            sub_type="quick_reply",
+            label="Escuchar resumen",
+            description=(
+                "Escuchar resumen. Generar y entregar en el mismo hilo un "
+                "resumen breve en audio de la edicion vigente."
+            ),
+        ),
+    ),
+    enabled=True,
+)
+
+BOLETIN_RECORDATORIO = WhatsAppTemplateDefinition(
+    id="boletin_recordatorio_es_mx",
+    meta_name="boletin_recordatorio",
+    language_code="es_MX",
+    category="MARKETING",
+    description=(
+        "Recordatorio de edicion disponible del boletin semanal. "
+        "Header de texto con {{1}} (titulo de publicacion u organizacion); "
+        "cuerpo con periodo y temas. Un boton de respuesta rapida: "
+        "'Enviar audio resumen'. Header {{1}} es independiente de las "
+        "variables del cuerpo; enviar template_variables.header."
+    ),
+    header_type="text",
+    header_text="{{1}}",
+    header_variable_descriptions=(
+        "Titulo de la publicacion u organizacion (header {{1}}), "
+        "ej. 'Boletín Semanal | Acme'. Independiente del cuerpo.",
+    ),
+    body_text=(
+        "Ya está disponible la edición correspondiente a {{1}}.\n"
+        "\n"
+        "Incluye información general sobre {{2}}.\n"
+        "\n"
+        "Puede consultar el material completo en el siguiente enlace.\n"
+        "\n"
+        "La información es general e informativa y requiere validación conforme a la operación y documentación de cada caso."
+    ),
+    body_variable_count=2,
+    body_variable_descriptions=(
+        "Edicion / periodo (completa {{1}}), "
+        "ej. 'al cierre del 8 de agosto de 2026'.",
+        "Temas generales incluidos (completa {{2}}).",
+    ),
+    buttons=(
+        WhatsAppTemplateButton(
+            index=0,
+            sub_type="quick_reply",
+            label="Enviar audio resumen",
+            description=(
+                "Enviar audio resumen. Generar y entregar en el mismo hilo "
+                "un resumen breve en audio de la edicion."
+            ),
+        ),
+    ),
+    enabled=True,
+)
+
+PREFERENCIAS_COMUNICACIONES = WhatsAppTemplateDefinition(
+    id="preferencias_comunicaciones_es",
+    meta_name="preferencias_comunicaciones",
+    language_code="es",
+    category="UTILITY",
+    description=(
+        "Gestion de preferencias de comunicaciones. Header de texto con {{1}} "
+        "(nombre de organizacion); cuerpo con nombre de publicacion u "
+        "organizacion. Tres botones de respuesta rapida: 'Continuar recibiendo', "
+        "'Actualizar preferencias', 'Solicitar baja'. Header {{1}} es "
+        "independiente del cuerpo; enviar template_variables.header."
+    ),
+    header_type="text",
+    header_text="{{1}}",
+    header_variable_descriptions=(
+        "Nombre de la organizacion (header {{1}}), ej. 'Acme'. "
+        "Independiente del cuerpo.",
+    ),
+    body_text=(
+        "Recibimos su solicitud relacionada con las comunicaciones de {{1}}.\n"
+        "\n"
+        "Indíquenos la opción que desea gestionar.\n"
+        "\n"
+        "Sus datos serán tratados conforme al aviso de privacidad de la organización."
+    ),
+    body_variable_count=1,
+    body_variable_descriptions=(
+        "Nombre de la organizacion o publicacion (completa {{1}}), "
+        "ej. 'Acme' o 'boletín semanal'.",
+    ),
+    buttons=(
+        WhatsAppTemplateButton(
+            index=0,
+            sub_type="quick_reply",
+            label="Continuar recibiendo",
+            description="Continuar recibiendo",
+        ),
+        WhatsAppTemplateButton(
+            index=1,
+            sub_type="quick_reply",
+            label="Actualizar preferencias",
+            description="Actualizar preferencias",
+        ),
+        WhatsAppTemplateButton(
+            index=2,
+            sub_type="quick_reply",
+            label="Solicitar baja",
+            description="Solicitar baja",
+        ),
+    ),
+    enabled=True,
+)
+
+AVISO_BOLETIN_SEMANAL = WhatsAppTemplateDefinition(
+    id="aviso_boletin_semanal_es",
+    meta_name="aviso_boletin_semanal",
+    language_code="es",
+    category="MARKETING",
+    description=(
+        "Aviso de boletin semanal listo. Sin header. Cuerpo con nombre del "
+        "destinatario ({{1}}) y organizacion/publicacion ({{2}}). Tres botones "
+        "de respuesta rapida: 'Leer por WhatsApp', 'Solicitar resumen en audio', "
+        "'No deseo recibir avisos'."
+    ),
+    header_type="none",
+    body_text=(
+        "Hola *{{1}}*, el boletín semanal de *{{2}}* ya está listo.\n"
+        "\n"
+        "Le enviamos una copia a su correo registrado. Si desea consultarlo por WhatsApp, seleccione una opción:"
+    ),
+    body_variable_count=2,
+    body_variable_descriptions=(
+        "Nombre del destinatario (completa *{{1}}*), ej. 'María'.",
+        "Nombre de la organizacion o publicacion (completa *{{2}}*), ej. 'Acme'.",
+    ),
+    buttons=(
+        WhatsAppTemplateButton(
+            index=0,
+            sub_type="quick_reply",
+            label="Leer por WhatsApp",
+            description="Leer por WhatsApp",
+        ),
+        WhatsAppTemplateButton(
+            index=1,
+            sub_type="quick_reply",
+            label="Solicitar resumen en audio",
+            description="Solicitar resumen en audio",
+        ),
+        WhatsAppTemplateButton(
+            index=2,
+            sub_type="quick_reply",
+            label="No deseo recibir avisos",
+            description="No deseo recibir avisos",
+        ),
+    ),
+    enabled=True,
+)
+
+RESUMEN_SEMANAL = WhatsAppTemplateDefinition(
+    id="resumen_semanal_es",
+    meta_name="resumen_semanal",
+    language_code="es",
+    category="MARKETING",
+    description=(
+        "Resumen semanal por WhatsApp para cualquier organizacion. Sin header "
+        "ni footer. Cuerpo con 7 variables: organizacion, destinatario, periodo, "
+        "titular, dos puntos a vigilar e indicadores libres. Tres botones de "
+        "respuesta rapida: 'Leer boletín completo', 'Solicitar resumen en audio', "
+        "'No deseo recibir avisos'."
+    ),
+    header_type="none",
+    body_text=(
+        "*Boletín semanal | {{1}}*\n"
+        "\n"
+        "Hola, {{2}}.\n"
+        "\n"
+        "🗓️ *Resumen — {{3}}*\n"
+        "\n"
+        "🔎 *Titular principal:*\n"
+        "{{4}}\n"
+        "\n"
+        "📌 *Otros puntos a vigilar:*\n"
+        "• {{5}}\n"
+        "• {{6}}\n"
+        "\n"
+        "📈 *Indicadores:*\n"
+        "{{7}}\n"
+        "\n"
+        "Consulte las fuentes oficiales y el análisis general de esta edición "
+        "en los recursos compartidos.\n"
+        "\n"
+        "_Información general; su aplicación puede variar según cada caso._"
+    ),
+    body_variable_count=7,
+    body_variable_descriptions=(
+        "Nombre de la organizacion o publicacion (completa {{1}}), ej. 'Acme'.",
+        "Nombre del destinatario (completa {{2}}), ej. 'Maria'.",
+        "Fecha o periodo de la edicion (completa {{3}}), "
+        "ej. '14 de agosto de 2026'.",
+        "Titular principal breve (completa {{4}}).",
+        "Punto a vigilar 1 (completa {{5}}).",
+        "Punto a vigilar 2 (completa {{6}}).",
+        "Bloque de indicadores de la organizacion (completa {{7}}), "
+        "ej. 'Tipo de cambio: $17.05 Tasa de referencia: 6.40%'.",
+    ),
+    buttons=(
+        WhatsAppTemplateButton(
+            index=0,
+            sub_type="quick_reply",
+            label="Leer boletín completo",
+            description="Leer boletín completo",
+        ),
+        WhatsAppTemplateButton(
+            index=1,
+            sub_type="quick_reply",
+            label="Solicitar resumen en audio",
+            description="Solicitar resumen en audio",
+        ),
+        WhatsAppTemplateButton(
+            index=2,
+            sub_type="quick_reply",
+            label="No deseo recibir avisos",
+            description="No deseo recibir avisos",
+        ),
+    ),
+    enabled=True,
+)
+
+AVISOS_GENERALES = WhatsAppTemplateDefinition(
+    id="avisos_generales_es",
+    meta_name="avisos_generales",
+    language_code="es",
+    category="MARKETING",
+    description=(
+        "Avisos editoriales e institucionales generales. Marketing. Header de "
+        "texto 'AVISOS {{1}}' (nombre de organizacion); pie fijo; cuerpo con 5 "
+        "variables: destinatario, organizacion, fecha, tema y desarrollo. "
+        "Solo informacion general; no incluir datos confidenciales ni "
+        "conclusiones personalizadas. {{1}} del cuerpo debe ser unicamente el "
+        "nombre de la persona. Header {{1}} es independiente; enviar "
+        "template_variables.header. Dos botones de respuesta rapida: "
+        "'Solicitar audio', 'Dejar de recibir'."
+    ),
+    header_type="text",
+    header_text="AVISOS {{1}}",
+    header_variable_descriptions=(
+        "Nombre de la organizacion en el encabezado (header {{1}}), "
+        "ej. 'ACME'. Independiente del cuerpo.",
+    ),
+    footer_text="Información general y comunicados",
+    body_text=(
+        "Hola, {{1}}.\n"
+        "\n"
+        "Le compartimos un aviso de {{2}}.\n"
+        "\n"
+        "*Fecha:* {{3}}\n"
+        "*Tema:* {{4}}\n"
+        "\n"
+        "{{5}}\n"
+        "\n"
+        "Esta información es de carácter general. Su aplicación puede variar "
+        "según su situación, operaciones y documentación. Si requiere "
+        "orientación sobre su caso, responda a este mensaje para canalizarle "
+        "con el equipo."
+    ),
+    body_variable_count=5,
+    body_variable_descriptions=(
+        "Nombre de la persona destinataria (completa {{1}}), "
+        "ej. 'María González'. Solo el nombre.",
+        "Nombre de la organizacion (completa {{2}}), ej. 'Acme'.",
+        "Fecha de emision del aviso (completa {{3}}), "
+        "ej. '26 de agosto de 2026'.",
+        "Titulo concreto del tema (completa {{4}}), "
+        "ej. 'Actualización semanal'.",
+        "Desarrollo del aviso general (completa {{5}}). Informacion general, "
+        "sin datos confidenciales ni conclusiones personalizadas.",
+    ),
+    buttons=(
+        WhatsAppTemplateButton(
+            index=0,
+            sub_type="quick_reply",
+            label="Solicitar audio",
+            description=(
+                "Solicitar audio. Generar y entregar en el mismo hilo un "
+                "resumen breve en audio, con la aclaracion de que es "
+                "informacion general."
+            ),
+        ),
+        WhatsAppTemplateButton(
+            index=1,
+            sub_type="quick_reply",
+            label="Dejar de recibir",
+            description=(
+                "Dejar de recibir. Confirmar brevemente la exclusion; no "
+                "insistir ni enviar contenido promocional posterior."
+            ),
+        ),
+    ),
+    enabled=True,
+)
+
+SEGUIMIENTO_ATENCION = WhatsAppTemplateDefinition(
+    id="seguimiento_atencion_es",
+    meta_name="seguimiento_atencion",
+    language_code="es",
+    category="UTILITY",
+    description=(
+        "Seguimiento operativo de una atencion, solicitud o servicio ya "
+        "esperado por el contacto. Utility; no usar para campanas, boletines "
+        "ni promociones generales. Header de texto 'Seguimiento caso {{1}}' "
+        "(identificador del caso); pie fijo; cuerpo con 4 variables: "
+        "destinatario, atencion esperada, fecha y detalle operativo general. "
+        "Header {{1}} es independiente del cuerpo; enviar "
+        "template_variables.header. Tres botones de respuesta rapida: "
+        "'Solicitar cita', 'Tengo una duda', 'Dejar de recibir'."
+    ),
+    header_type="text",
+    header_text="Seguimiento caso {{1}}",
+    header_variable_descriptions=(
+        "Identificador del caso en el encabezado (header {{1}}), "
+        "ej. '#221'. Independiente del cuerpo.",
+    ),
+    footer_text="Atención y seguimiento",
+    body_text=(
+        "Hola, {{1}}.\n"
+        "\n"
+        "Le contactamos para dar seguimiento a {{2}}.\n"
+        "\n"
+        "*Fecha:* {{3}}\n"
+        "*Detalle:* {{4}}\n"
+        "\n"
+        "Si requiere actualizar información o coordinar una revisión con el "
+        "equipo, responda a este mensaje."
+    ),
+    body_variable_count=4,
+    body_variable_descriptions=(
+        "Nombre de la persona destinataria (completa {{1}}), "
+        "ej. 'María González'. Solo el nombre.",
+        "Atencion, solicitud o proceso previamente esperado (completa {{2}}), "
+        "ej. 'su solicitud de revisión'.",
+        "Fecha de la comunicacion o evento (completa {{3}}), "
+        "ej. '26 de agosto de 2026'.",
+        "Detalle operativo general, sin informacion confidencial "
+        "(completa {{4}}).",
+    ),
+    buttons=(
+        WhatsAppTemplateButton(
+            index=0,
+            sub_type="quick_reply",
+            label="Solicitar cita",
+            description=(
+                "Solicitar cita. Pedir datos minimos y opciones de "
+                "fecha/horario para coordinar la atencion."
+            ),
+        ),
+        WhatsAppTemplateButton(
+            index=1,
+            sub_type="quick_reply",
+            label="Tengo una duda",
+            description=(
+                "Tengo una duda. Recibir y clasificar la duda; ofrecer "
+                "orientacion general o canalizacion segun el nivel de riesgo."
+            ),
+        ),
+        WhatsAppTemplateButton(
+            index=2,
+            sub_type="quick_reply",
+            label="Dejar de recibir",
+            description=(
+                "Dejar de recibir. Confirmar brevemente la exclusion."
+            ),
+        ),
+    ),
+    enabled=True,
+)
+
 WHATSAPP_TEMPLATES: dict[str, WhatsAppTemplateDefinition] = {
     TASK_COMPLETED.id: TASK_COMPLETED,
     SOLICITUD_COMPLETADA.id: SOLICITUD_COMPLETADA,
@@ -659,6 +1097,13 @@ WHATSAPP_TEMPLATES: dict[str, WhatsAppTemplateDefinition] = {
     EXPRESO_FISCAL_RESUMEN_SEMANAL.id: EXPRESO_FISCAL_RESUMEN_SEMANAL,
     AVISOS_INTEGRAREM_GENERAL.id: AVISOS_INTEGRAREM_GENERAL,
     SEGUIMIENTO_INTEGRAREM_ATENCION.id: SEGUIMIENTO_INTEGRAREM_ATENCION,
+    BOLETIN_SEMANAL.id: BOLETIN_SEMANAL,
+    BOLETIN_RECORDATORIO.id: BOLETIN_RECORDATORIO,
+    PREFERENCIAS_COMUNICACIONES.id: PREFERENCIAS_COMUNICACIONES,
+    AVISO_BOLETIN_SEMANAL.id: AVISO_BOLETIN_SEMANAL,
+    RESUMEN_SEMANAL.id: RESUMEN_SEMANAL,
+    AVISOS_GENERALES.id: AVISOS_GENERALES,
+    SEGUIMIENTO_ATENCION.id: SEGUIMIENTO_ATENCION,
 }
 
 def get_template(template_id: str) -> WhatsAppTemplateDefinition | None:
@@ -696,4 +1141,8 @@ def template_summary(template: WhatsAppTemplateDefinition) -> dict:
             }
             for b in template.buttons
         ],
+        "header_variable_count": template.header_variable_count,
+        "header_variable_descriptions": list(
+            template.resolved_header_variable_descriptions
+        ),
     }

@@ -47,6 +47,14 @@ class TemplateVariables(BaseModel):
         default_factory=list,
         description="Values for body {{1}}, {{2}}, ... in positional order.",
     )
+    header: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Values for text-header {{1}}, {{2}}, ... in positional order. "
+            "Independent of body variables. Omit or use [] when the template "
+            "has no header placeholders."
+        ),
+    )
     buttons: list[str] | None = Field(
         default=None,
         description=(
@@ -238,6 +246,25 @@ def build_template_components(
                 "parameters": [{"type": "image", "image": header_image}],
             }
         )
+    elif template.header_type == "text" and template.header_variable_count:
+        header_values = list(variables.header or [])
+        if len(header_values) != template.header_variable_count:
+            raise ValueError(
+                f"Template '{template.id}' expects {template.header_variable_count} "
+                f"header variable(s), got {len(header_values)}"
+            )
+        components.append(
+            {
+                "type": "header",
+                "parameters": [
+                    {"type": "text", "text": str(v)} for v in header_values
+                ],
+            }
+        )
+    elif variables.header:
+        raise ValueError(
+            f"Template '{template.id}' does not accept header variables"
+        )
 
     if body_values:
         components.append(
@@ -305,6 +332,7 @@ def format_template_delivery_message(
     stored message looks like what was sent, plus a source-conversation link.
     """
     body_values = [str(v) for v in (variables.body or [])]
+    header_values = [str(v) for v in (variables.header or [])]
     lines = ["---"]
     if source_conversation_id:
         lines.append(
@@ -313,7 +341,7 @@ def format_template_delivery_message(
         lines.append("")
     if template.header_text:
         lines.append(
-            f"### {fill_template_placeholders(template.header_text, body_values)}"
+            f"### {fill_template_placeholders(template.header_text, header_values)}"
         )
         lines.append("")
     if template.body_text:

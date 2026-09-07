@@ -29,6 +29,8 @@ class WhatsappTemplateSummary(BaseModel):
     description: str = ""
     header_type: str = "none"
     requires_header_image: bool = False
+    header_variable_count: int = 0
+    header_variable_descriptions: list[str] = Field(default_factory=list)
     body_variable_count: int
     body_variable_descriptions: list[str] = Field(default_factory=list)
     button_variable_count: int = 0
@@ -75,8 +77,10 @@ def get_tool(
             "to send via send_ws_template_message. Each entry includes template_id, "
             "Meta name, language, header_type (image headers need "
             "header_image_attachment_id = MessageAttachment UUID from this "
-            "conversation), and required body/button variable counts and "
-            "descriptions. Call this before send_ws_template_message."
+            "conversation), header_variable_count (text-header {{1}} values go in "
+            "template_variables.header, independent of body), and required "
+            "body/button variable counts and descriptions. Call this before "
+            "send_ws_template_message."
         ),
         "parameters": ListWhatsappTemplatesParams,
         "function": list_whatsapp_templates,

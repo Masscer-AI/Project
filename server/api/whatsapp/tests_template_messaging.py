@@ -19,12 +19,19 @@ from api.whatsapp.template_access import (
 from api.whatsapp.template_registry import (
     APROBACION_PENDIENTE,
     APPROVAL_PENDING,
+    AVISO_BOLETIN_SEMANAL,
+    AVISOS_GENERALES,
     AVISOS_INTEGRAREM_GENERAL,
+    BOLETIN_RECORDATORIO,
+    BOLETIN_SEMANAL,
     EXPRESO_FISCAL_BOLETIN_SEMANAL,
     EXPRESO_FISCAL_PREFERENCIAS,
     EXPRESO_FISCAL_RECORDATORIO,
     EXPRESO_FISCAL_RESUMEN_SEMANAL,
     EXPRESO_FISCAL_SEMANAL,
+    PREFERENCIAS_COMUNICACIONES,
+    RESUMEN_SEMANAL,
+    SEGUIMIENTO_ATENCION,
     SEGUIMIENTO_INTEGRAREM_ATENCION,
     SOLICITUD_COMPLETADA,
     TASK_COMPLETED,
@@ -365,6 +372,119 @@ class WhatsAppTemplateRegistryTests(SimpleTestCase):
             {t.id for t in list_enabled_templates()},
         )
 
+    def test_boletin_semanal_registered(self):
+        tpl = get_template("boletin_semanal_es_mx")
+        self.assertIsNotNone(tpl)
+        self.assertEqual(tpl.meta_name, "boletin_semanal")
+        self.assertEqual(tpl.language_code, "es_MX")
+        self.assertEqual(tpl.category, "MARKETING")
+        self.assertEqual(tpl.header_type, "image")
+        self.assertTrue(tpl.requires_header_image)
+        self.assertEqual(tpl.header_variable_count, 0)
+        self.assertIn("*Boletín semanal | {{1}}*", tpl.body_text)
+        self.assertEqual(tpl.body_variable_count, 3)
+        self.assertEqual(tpl.button_variable_count, 0)
+        self.assertEqual(len(tpl.buttons), 1)
+        self.assertEqual(tpl.buttons[0].sub_type, "quick_reply")
+        self.assertEqual(tpl.buttons[0].label, "Escuchar resumen")
+        self.assertIn(BOLETIN_SEMANAL.id, {t.id for t in list_enabled_templates()})
+
+    def test_boletin_recordatorio_registered(self):
+        tpl = get_template("boletin_recordatorio_es_mx")
+        self.assertIsNotNone(tpl)
+        self.assertEqual(tpl.meta_name, "boletin_recordatorio")
+        self.assertEqual(tpl.language_code, "es_MX")
+        self.assertEqual(tpl.header_type, "text")
+        self.assertEqual(tpl.header_text, "{{1}}")
+        self.assertEqual(tpl.header_variable_count, 1)
+        self.assertEqual(tpl.body_variable_count, 2)
+        self.assertEqual(tpl.button_variable_count, 0)
+        self.assertEqual(tpl.buttons[0].label, "Enviar audio resumen")
+        self.assertEqual(tpl.buttons[0].sub_type, "quick_reply")
+        self.assertIn(
+            BOLETIN_RECORDATORIO.id,
+            {t.id for t in list_enabled_templates()},
+        )
+
+    def test_preferencias_comunicaciones_registered(self):
+        tpl = get_template("preferencias_comunicaciones_es")
+        self.assertIsNotNone(tpl)
+        self.assertEqual(tpl.meta_name, "preferencias_comunicaciones")
+        self.assertEqual(tpl.language_code, "es")
+        self.assertEqual(tpl.category, "UTILITY")
+        self.assertEqual(tpl.header_type, "text")
+        self.assertEqual(tpl.header_text, "{{1}}")
+        self.assertEqual(tpl.header_variable_count, 1)
+        self.assertEqual(tpl.body_variable_count, 1)
+        self.assertEqual(len(tpl.buttons), 3)
+        self.assertTrue(all(b.sub_type == "quick_reply" for b in tpl.buttons))
+        self.assertEqual(tpl.buttons[0].label, "Continuar recibiendo")
+        self.assertEqual(tpl.buttons[1].label, "Actualizar preferencias")
+        self.assertEqual(tpl.buttons[2].label, "Solicitar baja")
+        self.assertIn(
+            PREFERENCIAS_COMUNICACIONES.id,
+            {t.id for t in list_enabled_templates()},
+        )
+
+    def test_aviso_boletin_semanal_registered(self):
+        tpl = get_template("aviso_boletin_semanal_es")
+        self.assertIsNotNone(tpl)
+        self.assertEqual(tpl.meta_name, "aviso_boletin_semanal")
+        self.assertEqual(tpl.language_code, "es")
+        self.assertEqual(tpl.header_type, "none")
+        self.assertEqual(tpl.body_variable_count, 2)
+        self.assertIn("Hola *{{1}}*", tpl.body_text)
+        self.assertIn("*{{2}}*", tpl.body_text)
+        self.assertEqual(len(tpl.buttons), 3)
+        self.assertEqual(tpl.buttons[0].label, "Leer por WhatsApp")
+        self.assertEqual(tpl.buttons[1].label, "Solicitar resumen en audio")
+        self.assertEqual(tpl.buttons[2].label, "No deseo recibir avisos")
+        self.assertIn(
+            AVISO_BOLETIN_SEMANAL.id,
+            {t.id for t in list_enabled_templates()},
+        )
+
+    def test_resumen_semanal_registered(self):
+        tpl = get_template("resumen_semanal_es")
+        self.assertIsNotNone(tpl)
+        self.assertEqual(tpl.meta_name, "resumen_semanal")
+        self.assertEqual(tpl.language_code, "es")
+        self.assertEqual(tpl.header_type, "none")
+        self.assertEqual(tpl.body_variable_count, 7)
+        self.assertIn("*Boletín semanal | {{1}}*", tpl.body_text)
+        self.assertEqual(tpl.buttons[0].label, "Leer boletín completo")
+        self.assertIn(RESUMEN_SEMANAL.id, {t.id for t in list_enabled_templates()})
+
+    def test_avisos_generales_registered(self):
+        tpl = get_template("avisos_generales_es")
+        self.assertIsNotNone(tpl)
+        self.assertEqual(tpl.meta_name, "avisos_generales")
+        self.assertEqual(tpl.language_code, "es")
+        self.assertEqual(tpl.header_type, "text")
+        self.assertEqual(tpl.header_text, "AVISOS {{1}}")
+        self.assertEqual(tpl.header_variable_count, 1)
+        self.assertEqual(tpl.footer_text, "Información general y comunicados")
+        self.assertEqual(tpl.body_variable_count, 5)
+        self.assertEqual(tpl.buttons[0].label, "Solicitar audio")
+        self.assertEqual(tpl.buttons[1].label, "Dejar de recibir")
+        self.assertIn(AVISOS_GENERALES.id, {t.id for t in list_enabled_templates()})
+
+    def test_seguimiento_atencion_registered(self):
+        tpl = get_template("seguimiento_atencion_es")
+        self.assertIsNotNone(tpl)
+        self.assertEqual(tpl.meta_name, "seguimiento_atencion")
+        self.assertEqual(tpl.language_code, "es")
+        self.assertEqual(tpl.category, "UTILITY")
+        self.assertEqual(tpl.header_type, "text")
+        self.assertEqual(tpl.header_text, "Seguimiento caso {{1}}")
+        self.assertEqual(tpl.header_variable_count, 1)
+        self.assertEqual(tpl.footer_text, "Atención y seguimiento")
+        self.assertEqual(tpl.body_variable_count, 4)
+        self.assertEqual(tpl.buttons[0].label, "Solicitar cita")
+        self.assertEqual(tpl.buttons[1].label, "Tengo una duda")
+        self.assertEqual(tpl.buttons[2].label, "Dejar de recibir")
+        self.assertIn(SEGUIMIENTO_ATENCION.id, {t.id for t in list_enabled_templates()})
+
     def test_build_components_for_expreso_fiscal_semanal_with_header_image(self):
         components = build_template_components(
             EXPRESO_FISCAL_SEMANAL,
@@ -503,6 +623,149 @@ class WhatsAppTemplateRegistryTests(SimpleTestCase):
             components[0]["parameters"][1]["text"],
             "su solicitud de revisión contable",
         )
+
+    def test_build_components_for_boletin_semanal_with_header_image(self):
+        components = build_template_components(
+            BOLETIN_SEMANAL,
+            TemplateVariables(
+                body=["Acme", "Al cierre del 8 de agosto de 2026", "• Reforma X"],
+                header_image_attachment_id="11111111-1111-1111-1111-111111111111",
+            ),
+            source_conversation_id="22222222-2222-2222-2222-222222222222",
+            header_image={"link": "https://cdn.example.com/boletin.png"},
+        )
+        self.assertEqual(components[0]["type"], "header")
+        self.assertEqual(
+            components[0]["parameters"][0]["image"]["link"],
+            "https://cdn.example.com/boletin.png",
+        )
+        self.assertEqual(components[1]["type"], "body")
+        self.assertEqual(len(components[1]["parameters"]), 3)
+
+    def test_build_components_for_boletin_recordatorio_header_text(self):
+        components = build_template_components(
+            BOLETIN_RECORDATORIO,
+            TemplateVariables(
+                header=["Boletín Semanal | Acme"],
+                body=[
+                    "al cierre del 8 de agosto de 2026",
+                    "plazos fiscales y cambios normativos",
+                ],
+            ),
+            source_conversation_id=None,
+        )
+        self.assertEqual(len(components), 2)
+        self.assertEqual(components[0]["type"], "header")
+        self.assertEqual(
+            components[0]["parameters"][0]["text"],
+            "Boletín Semanal | Acme",
+        )
+        self.assertEqual(components[1]["type"], "body")
+        self.assertEqual(len(components[1]["parameters"]), 2)
+
+    def test_build_components_header_text_requires_header_values(self):
+        with self.assertRaises(ValueError) as ctx:
+            build_template_components(
+                BOLETIN_RECORDATORIO,
+                TemplateVariables(
+                    body=["edicion", "temas"],
+                ),
+                source_conversation_id=None,
+            )
+        self.assertIn("header variable", str(ctx.exception))
+
+    def test_build_components_for_preferencias_comunicaciones(self):
+        components = build_template_components(
+            PREFERENCIAS_COMUNICACIONES,
+            TemplateVariables(header=["Acme"], body=["Publication Name"]),
+            source_conversation_id=None,
+        )
+        self.assertEqual(components[0]["type"], "header")
+        self.assertEqual(components[0]["parameters"][0]["text"], "Acme")
+        self.assertEqual(components[1]["parameters"][0]["text"], "Publication Name")
+
+    def test_build_components_for_aviso_boletin_semanal(self):
+        components = build_template_components(
+            AVISO_BOLETIN_SEMANAL,
+            TemplateVariables(body=["María", "Acme"]),
+            source_conversation_id=None,
+        )
+        self.assertEqual(len(components), 1)
+        self.assertEqual(components[0]["parameters"][0]["text"], "María")
+        self.assertEqual(components[0]["parameters"][1]["text"], "Acme")
+
+    def test_build_components_for_resumen_semanal(self):
+        body = [
+            "Acme",
+            "Maria",
+            "14 de agosto de 2026",
+            "Nueva disposición sobre plazos de presentación",
+            "Vence el 17 el pago provisional",
+            "Cambia el calendario de declaraciones",
+            "Tipo de cambio: $17.05 Tasa de referencia: 6.40%",
+        ]
+        components = build_template_components(
+            RESUMEN_SEMANAL,
+            TemplateVariables(body=body),
+            source_conversation_id=None,
+        )
+        self.assertEqual(len(components[0]["parameters"]), 7)
+        self.assertEqual(components[0]["parameters"][0]["text"], "Acme")
+
+    def test_build_components_for_avisos_generales(self):
+        components = build_template_components(
+            AVISOS_GENERALES,
+            TemplateVariables(
+                header=["ACME"],
+                body=[
+                    "María González",
+                    "Acme",
+                    "26 de agosto de 2026",
+                    "Actualización semanal",
+                    "Short general copy; no confidential data",
+                ],
+            ),
+            source_conversation_id=None,
+        )
+        self.assertEqual(components[0]["type"], "header")
+        self.assertEqual(components[0]["parameters"][0]["text"], "ACME")
+        self.assertEqual(len(components[1]["parameters"]), 5)
+
+    def test_build_components_for_seguimiento_atencion(self):
+        components = build_template_components(
+            SEGUIMIENTO_ATENCION,
+            TemplateVariables(
+                header=["#221"],
+                body=[
+                    "María González",
+                    "su solicitud de revisión",
+                    "26 de agosto de 2026",
+                    "Documentación recibida; pendiente de validación",
+                ],
+            ),
+            source_conversation_id=None,
+        )
+        self.assertEqual(components[0]["parameters"][0]["text"], "#221")
+        self.assertEqual(len(components[1]["parameters"]), 4)
+
+    def test_format_interpolates_header_and_body_independently(self):
+        text = format_template_delivery_message(
+            SEGUIMIENTO_ATENCION,
+            TemplateVariables(
+                header=["#221"],
+                body=[
+                    "María González",
+                    "su solicitud de revisión",
+                    "26 de agosto de 2026",
+                    "Documentación recibida; pendiente de validación",
+                ],
+            ),
+            source_conversation_id=None,
+        )
+        self.assertIn("### Seguimiento caso #221", text)
+        self.assertIn("Hola, María González.", text)
+        self.assertIn("su solicitud de revisión", text)
+        self.assertNotIn("{{1}}", text)
 
     def test_build_components_for_aprobacion_pendiente(self):
         components = build_template_components(
