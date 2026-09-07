@@ -2290,7 +2290,23 @@ export type TMyPldExpedient = {
   relationship: string | null;
   email?: string;
   metadata?: Record<string, unknown>;
-  expedient: { id: string; status: string } | null;
+  expedient: {
+    id: string;
+    status: string;
+    prequalification_status?: string;
+    prequalified_at?: string | null;
+    prequalification?: {
+      verdict?: string;
+      summary?: string;
+      findings?: {
+        code: string;
+        severity: string;
+        target?: string | null;
+        summary: string;
+      }[];
+      controllers?: string[];
+    };
+  } | null;
   document_slots?: TPldDocumentSlot[];
 };
 

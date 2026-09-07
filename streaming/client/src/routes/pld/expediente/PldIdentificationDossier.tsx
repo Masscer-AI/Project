@@ -84,11 +84,13 @@ export function PldIdentificationDossier({
   const pending = required.some(
     (slot) => !slot.document || slot.document.extraction_status === "pending"
   );
+  const prequalPending = row.expedient?.prequalification_status === "pending";
+  const poll = pending || prequalPending;
   const onSavedRef = useRef(onSaved);
   onSavedRef.current = onSaved;
 
   useEffect(() => {
-    if (!pending) return;
+    if (!poll) return;
     let cancelled = false;
     const refresh = async () => {
       try {
@@ -105,13 +107,19 @@ export function PldIdentificationDossier({
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [pending, row.id]);
+  }, [poll, row.id]);
   const failed = required.some(
     (slot) => slot.document?.extraction_status === "failed"
   );
   const ready =
     required.length > 0 &&
     required.every((slot) => slot.document?.extraction_status === "succeeded");
+  const prequal = row.expedient?.prequalification;
+  const verdict = prequal?.verdict;
+  const prequalReady =
+    row.expedient?.prequalification_status === "succeeded" &&
+    verdict !== "blocked";
+  const confirmEnabled = ready && prequalReady && !busy;
   const alreadyCross = row.expedient?.status === "cross_reference";
   const displayName =
     text(metadata.legal_name) ||
@@ -151,10 +159,42 @@ export function PldIdentificationDossier({
           {t("compliance-dossier-failed")}
         </Alert>
       )}
-      {ready && !alreadyCross && (
-        <Alert color="teal" variant="light">
-          {t("compliance-dossier-ready")}
+      {prequalPending && ready && (
+        <Alert color="violet" variant="light">
+          <Group gap="xs">
+            <IconLoader2 size={16} />
+            <Text size="sm">{t("compliance-prequal-running")}</Text>
+          </Group>
         </Alert>
+      )}
+      {row.expedient?.prequalification_status === "failed" && (
+        <Alert color="red" variant="light">
+          {t("compliance-prequal-failed")}
+        </Alert>
+      )}
+      {prequal?.summary && row.expedient?.prequalification_status === "succeeded" && (
+        <Alert
+          color={verdict === "blocked" ? "red" : verdict === "needs_review" ? "yellow" : "teal"}
+          variant="light"
+        >
+          {prequal.summary}
+        </Alert>
+      )}
+      {(prequal?.findings || []).length > 0 && (
+        <Stack gap={4}>
+          <Text size="sm" fw={600}>
+            {t("compliance-prequal-findings")}
+          </Text>
+          {(prequal?.findings || []).map((item, index) => (
+            <Text key={`${item.code}-${index}`} size="sm" c="dimmed">
+              <Text span fw={500}>
+                {item.severity}
+                {": "}
+              </Text>
+              {item.summary}
+            </Text>
+          ))}
+        </Stack>
       )}
       <Stack gap={4}>
         <Text size="sm" fw={600}>
@@ -236,7 +276,7 @@ export function PldIdentificationDossier({
           ) : null}
           <Button
             color="violet"
-            disabled={!ready || busy}
+            disabled={!confirmEnabled}
             loading={busy}
             onClick={handleConfirm}
           >

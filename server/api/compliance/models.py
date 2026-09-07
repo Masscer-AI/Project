@@ -269,6 +269,11 @@ class PLDEntity(models.Model):
 class PLDExpedient(models.Model):
     """PLD process instance for one entity in an organization."""
 
+    class PrequalificationStatus(models.TextChoices):
+        PENDING = "pending", "Pending"
+        SUCCEEDED = "succeeded", "Succeeded"
+        FAILED = "failed", "Failed"
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     organization = models.ForeignKey(
         "authenticate.Organization",
@@ -293,6 +298,14 @@ class PLDExpedient(models.Model):
         default=PLDExpedientStatus.DATA_COLLECTION,
         db_index=True,
     )
+    prequalification_status = models.CharField(
+        max_length=16,
+        choices=PrequalificationStatus.choices,
+        blank=True,
+        default="",
+    )
+    prequalification_payload = models.JSONField(default=dict, blank=True)
+    prequalified_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

@@ -1010,6 +1010,25 @@ class PLDDocumentExtractionTests(TestCase):
             extraction_status=PLDExpedientDocument.ExtractionStatus.SUCCEEDED,
             extracted_payload={"ok": True},
         )
+        still_pending = self.client.patch(
+            f"/v1/compliance/my-expedients/{self.entity.id}/",
+            {"action": "confirm_documents"},
+            format="json",
+            HTTP_AUTHORIZATION=f"Token {self.token.key}",
+        )
+        self.assertEqual(still_pending.status_code, 400)
+        self.assertEqual(still_pending.json()["error"], "prequalification-pending")
+
+        from api.compliance.models import PLDExpedient
+
+        PLDExpedient.objects.filter(pk=self.expedient.pk).update(
+            prequalification_status=PLDExpedient.PrequalificationStatus.SUCCEEDED,
+            prequalification_payload={
+                "verdict": "ready_for_list_screening",
+                "summary": "ok",
+                "findings": [],
+            },
+        )
         confirmed = self.client.patch(
             f"/v1/compliance/my-expedients/{self.entity.id}/",
             {"action": "confirm_documents"},
@@ -1019,6 +1038,109 @@ class PLDDocumentExtractionTests(TestCase):
         self.assertEqual(confirmed.status_code, 200)
         self.assertEqual(
             confirmed.json()["expedient"]["status"], "cross_reference"
+        )
+
+    def test_deterministic_rfc_mismatch_blocks(self):
+        from api.compliance.models import PLDExpedientDocument
+        from api.compliance.prequalification.deterministic import (
+            deterministic_findings,
+            verdict_from_findings,
+        )
+
+        self.entity.metadata = {
+            **self.entity.metadata,
+            "rfc": "AAA010101AAA",
+        }
+        self.entity.save(update_fields=["metadata", "updated_at"])
+        PLDExpedientDocument.objects.create(
+            expedient=self.expedient,
+            slot_key="constancia_fiscal",
+            document_kind="constancia_fiscal",
+            original_filename="csf.pdf",
+            extracted_payload={"rfc": "BBB010101BBB"},
+            extraction_status=PLDExpedientDocument.ExtractionStatus.SUCCEEDED,
+        )
+        findings = deterministic_findings(self.entity)
+        codes = {item.code for item in findings}
+        self.assertIn("rfc_mismatch", codes)
+        self.assertEqual(verdict_from_findings(findings), "blocked")
+
+    @patch("api.ai_layers.agent_loop.AgentLoop.create")
+    def test_prequalify_task_persists_verdict(self, create_loop):
+        from api.ai_layers.agent_loop import AgentLoopResult
+        from api.compliance.models import PLDExpedient, PLDExpedientDocument
+        from api.compliance.prequalification.schemas import PrequalificationResult
+        from api.compliance.tasks import prequalify_pld_expedient
+
+        self.entity.metadata = {
+            "legal_name": "ACME SA",
+            "constitution_date": "2020-01-15",
+            "rfc": "AAA010101AAA",
+            "economic_activity": "Comercio",
+            "address": {
+                "country": "MX",
+                "postal_code": "01000",
+                "state": "Ciudad de Mexico",
+                "municipality": "Alvaro Obregon",
+                "city": "CDMX",
+                "neighborhood": "San Angel",
+                "street": "Revolucion",
+                "exterior_number": "1",
+            },
+            "representative": {
+                "given_names": "Ana",
+                "surnames": "Lopez",
+                "identification": {
+                    "document_type": "ine",
+                    "document_number": "123",
+                },
+            },
+            "controllers": [{"name": "Ana Lopez"}],
+        }
+        self.entity.save(update_fields=["metadata", "updated_at"])
+
+        for slot_key, kind in (
+            ("acta_constitutiva", "acta_constitutiva"),
+            ("constancia_fiscal", "constancia_fiscal"),
+            ("comprobante_domicilio", "comprobante_domicilio"),
+            ("id_representante", "id_representante"),
+            ("id_controlador:0", "id_controlador"),
+        ):
+            PLDExpedientDocument.objects.create(
+                expedient=self.expedient,
+                slot_key=slot_key,
+                document_kind=kind,
+                original_filename=f"{slot_key}.pdf",
+                extraction_status=PLDExpedientDocument.ExtractionStatus.SUCCEEDED,
+                extracted_payload={"ok": True},
+            )
+        parsed = PrequalificationResult(
+            ruleset_version="2026.1",
+            verdict="needs_review",
+            summary="Observaciones menores",
+            findings=[],
+            controllers=["Ana Lopez"],
+        )
+        loop = create_loop.return_value
+        loop.run.return_value = AgentLoopResult(
+            output=parsed,
+            messages=[],
+            iterations=1,
+            usage={
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0,
+            },
+        )
+        prequalify_pld_expedient(str(self.expedient.id))
+        self.expedient.refresh_from_db()
+        self.assertEqual(
+            self.expedient.prequalification_status,
+            PLDExpedient.PrequalificationStatus.SUCCEEDED,
+        )
+        self.assertEqual(
+            self.expedient.prequalification_payload.get("verdict"),
+            "needs_review",
         )
 
 

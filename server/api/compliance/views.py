@@ -376,7 +376,18 @@ class MyPLDExpedientDetailView(View):
             if not ready:
                 return JsonResponse({"error": reason}, status=400)
             exp = entity.expedients.order_by("created_at").first()
-            if exp and exp.status == PLDExpedientStatus.DOCUMENT_COLLECTION:
+            if not exp:
+                return JsonResponse({"error": "expedient-not-found"}, status=400)
+            if exp.prequalification_status != PLDExpedient.PrequalificationStatus.SUCCEEDED:
+                return JsonResponse({"error": "prequalification-pending"}, status=400)
+            prequal = (
+                exp.prequalification_payload
+                if isinstance(exp.prequalification_payload, dict)
+                else {}
+            )
+            if prequal.get("verdict") == "blocked":
+                return JsonResponse({"error": "prequalification-blocked"}, status=400)
+            if exp.status == PLDExpedientStatus.DOCUMENT_COLLECTION:
                 exp.status = PLDExpedientStatus.CROSS_REFERENCE
                 exp.save(update_fields=["status", "updated_at"])
             return JsonResponse(_reload_my_expedient_row(entity.pk), status=200)
@@ -422,7 +433,21 @@ def _my_expedient_row(entity: PLDEntity) -> dict:
         "email": entity.email or "",
         "metadata": entity.metadata if isinstance(entity.metadata, dict) else {},
         "expedient": (
-            {"id": str(exp.id), "status": exp.status} if exp else None
+            {
+                "id": str(exp.id),
+                "status": exp.status,
+                "prequalification_status": exp.prequalification_status or "",
+                "prequalified_at": (
+                    exp.prequalified_at.isoformat() if exp.prequalified_at else None
+                ),
+                "prequalification": (
+                    exp.prequalification_payload
+                    if isinstance(exp.prequalification_payload, dict)
+                    else {}
+                ),
+            }
+            if exp
+            else None
         ),
         "document_slots": slots,
     }
