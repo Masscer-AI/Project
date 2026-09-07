@@ -677,6 +677,65 @@ class MessageAttachmentXlsxUploadTests(TestCase):
         )
         self.assertTrue(att.file.name.endswith(".xlsx"))
 
+    def test_create_attachments_from_data_urls_maps_xls_mime(self):
+        from api.messaging.views import _create_attachments_from_data_urls
+        from pathlib import Path
+
+        raw = (
+            Path(__file__).resolve().parents[1]
+            / "utils"
+            / "testdata"
+            / "sample.xls"
+        ).read_bytes()
+        b64 = base64.b64encode(raw).decode("ascii")
+        data_url = "data:application/vnd.ms-excel;base64," + b64
+        request = Mock()
+        request.build_absolute_uri = lambda url: f"https://example.com{url}"
+
+        result, err = _create_attachments_from_data_urls(
+            request,
+            self.conversation,
+            self.user,
+            [{"content": data_url, "name": "sheet.xls"}],
+        )
+
+        self.assertIsNone(err)
+        self.assertEqual(len(result), 1)
+        from api.messaging.models import MessageAttachment
+
+        att = MessageAttachment.objects.get(id=result[0]["id"])
+        self.assertEqual(att.content_type, "application/vnd.ms-excel")
+        self.assertTrue(att.file.name.endswith(".xls"))
+
+    def test_create_attachments_from_data_urls_maps_xls_by_filename(self):
+        from api.messaging.views import _create_attachments_from_data_urls
+        from pathlib import Path
+
+        raw = (
+            Path(__file__).resolve().parents[1]
+            / "utils"
+            / "testdata"
+            / "sample.xls"
+        ).read_bytes()
+        b64 = base64.b64encode(raw).decode("ascii")
+        data_url = "data:application/octet-stream;base64," + b64
+        request = Mock()
+        request.build_absolute_uri = lambda url: f"https://example.com{url}"
+
+        result, err = _create_attachments_from_data_urls(
+            request,
+            self.conversation,
+            self.user,
+            [{"content": data_url, "name": "legacy.xls"}],
+        )
+
+        self.assertIsNone(err)
+        from api.messaging.models import MessageAttachment
+
+        att = MessageAttachment.objects.get(id=result[0]["id"])
+        self.assertEqual(att.content_type, "application/vnd.ms-excel")
+        self.assertTrue(att.file.name.endswith(".xls"))
+
 
 @override_settings(API_BASE_URL="https://api.example.com")
 class GalleryViewTests(TestCase):

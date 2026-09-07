@@ -73,7 +73,12 @@ def document_slots_for_entity(entity) -> list[dict]:
             _slot("constancia_fiscal", "constancia_fiscal", required=True),
             _slot("comprobante_domicilio", "comprobante_domicilio", required=True),
             _slot("id_representante", "id_representante", required=True),
+            _slot("curp_representante", "curp_representante", required=True),
+            _slot("cfdi", "cfdi", required=True),
             _slot("poder", "poder", required=False),
+            _slot("curp_socios", "curp_socios", required=False),
+            _slot("organigrama", "organigrama", required=False),
+            _slot("matriz_accionaria", "matriz_accionaria", required=False),
         ]
         for index, controller in enumerate(_named_controllers(metadata)):
             name = str(controller.get("name") or "").strip()
@@ -87,14 +92,14 @@ def document_slots_for_entity(entity) -> list[dict]:
             )
         return slots
 
-    has_curp = bool(str(metadata.get("curp") or "").strip())
-    has_rfc = bool(str(metadata.get("rfc") or "").strip())
     slots = [
         _slot("official_id", "official_id", required=True),
-        _slot("curp", "curp", required=has_curp),
-        _slot("constancia_fiscal", "constancia_fiscal", required=has_rfc),
+        _slot("curp", "curp", required=True),
+        _slot("constancia_fiscal", "constancia_fiscal", required=True),
         _slot("comprobante_domicilio", "comprobante_domicilio", required=True),
-        _slot("poder", "poder", required=False),
+        _slot("cfdi", "cfdi", required=True),
+        _slot("acta_nacimiento", "acta_nacimiento", required=False),
+        _slot("organigrama", "organigrama", required=False),
     ]
     if metadata.get("is_own_controller") is False:
         for index, controller in enumerate(_named_controllers(metadata)):

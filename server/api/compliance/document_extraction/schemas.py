@@ -8,15 +8,18 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from api.compliance.document_extraction.operational_schemas import (
     AccionistaLibroExtraction,
+    ActaNacimientoExtraction,
     BeneficiarioControladorDocExtraction,
     CaratulaBancariaExtraction,
     CedulaFt01Extraction,
     CfdiExtraction,
     ComprobantePagoExtraction,
     ContratoExtraction,
+    CurpSociosExtraction,
     EvidenciaMaterialidadExtraction,
     FichaFt02Extraction,
     KycCuestionarioExtraction,
+    OrganigramaExtraction,
     ReformaEstatutosExtraction,
     ReporteRi01Extraction,
 )
@@ -283,6 +286,11 @@ PldDocumentKind: TypeAlias = Literal[
     "comprobante_domicilio",
     "acta_constitutiva",
     "poder",
+    "acta_nacimiento",
+    "organigrama",
+    "curp_representante",
+    "curp_socios",
+    "matriz_accionaria",
     "reforma_estatutos",
     "libro_acciones",
     "declaracion_bc",
@@ -304,6 +312,9 @@ PldExtraction: TypeAlias = (
     | ComprobanteDomicilioExtraction
     | ActaConstitutivaExtraction
     | PoderExtraction
+    | ActaNacimientoExtraction
+    | OrganigramaExtraction
+    | CurpSociosExtraction
     | ReformaEstatutosExtraction
     | AccionistaLibroExtraction
     | BeneficiarioControladorDocExtraction
@@ -327,6 +338,11 @@ SCHEMA_BY_KIND: dict[PldDocumentKind, type[PldExtraction]] = {
     "comprobante_domicilio": ComprobanteDomicilioExtraction,
     "acta_constitutiva": ActaConstitutivaExtraction,
     "poder": PoderExtraction,
+    "acta_nacimiento": ActaNacimientoExtraction,
+    "organigrama": OrganigramaExtraction,
+    "curp_representante": CurpExtraction,
+    "curp_socios": CurpSociosExtraction,
+    "matriz_accionaria": AccionistaLibroExtraction,
     "reforma_estatutos": ReformaEstatutosExtraction,
     "libro_acciones": AccionistaLibroExtraction,
     "declaracion_bc": BeneficiarioControladorDocExtraction,

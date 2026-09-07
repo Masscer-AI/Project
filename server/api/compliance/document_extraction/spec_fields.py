@@ -70,6 +70,11 @@ SPEC_FIELDS_BY_KIND: dict[str, dict[str, str]] = {
 
 for _alias in ("id_representante", "id_controlador"):
     SPEC_FIELDS_BY_KIND[_alias] = SPEC_FIELDS_BY_KIND["official_id"]
+SPEC_FIELDS_BY_KIND["curp_representante"] = SPEC_FIELDS_BY_KIND["curp"]
+SPEC_FIELDS_BY_KIND["matriz_accionaria"] = {
+    "ACC-fecha_corte": "cutoff_date",
+    "ACC-titular_nombre": "holders",
+}
 
 
 def _path_value(payload: dict[str, Any], dotted: str) -> Any:

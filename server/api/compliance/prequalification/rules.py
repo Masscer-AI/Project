@@ -65,10 +65,12 @@ IDENTIFICATION_RULES = {
         "documents": [
             {"kind": "official_id", "required": True, "source_ids": ["rcg"]},
             {"kind": "comprobante_domicilio", "required": True, "source_ids": ["rcg"]},
-            {"kind": "curp", "required_if": "curp declared", "source_ids": ["rcg"]},
-            {"kind": "constancia_fiscal", "required_if": "rfc declared", "source_ids": ["rcg"]},
+            {"kind": "curp", "required": True, "source_ids": ["rcg"]},
+            {"kind": "constancia_fiscal", "required": True, "source_ids": ["rcg"]},
+            {"kind": "cfdi", "required": True, "source_ids": ["rcg"]},
+            {"kind": "acta_nacimiento", "required": False, "source_ids": ["rcg"]},
+            {"kind": "organigrama", "required": False, "source_ids": ["rcg"]},
             {"kind": "id_controlador", "required_if": "is_own_controller is false", "source_ids": ["rcg"]},
-            {"kind": "poder", "required": False, "source_ids": ["rcg"]},
         ],
         "quality": [
             {
@@ -118,8 +120,13 @@ IDENTIFICATION_RULES = {
             {"kind": "constancia_fiscal", "required": True, "source_ids": ["rcg"]},
             {"kind": "comprobante_domicilio", "required": True, "source_ids": ["rcg"]},
             {"kind": "id_representante", "required": True, "source_ids": ["rcg"]},
+            {"kind": "curp_representante", "required": True, "source_ids": ["rcg"]},
+            {"kind": "cfdi", "required": True, "source_ids": ["rcg"]},
             {"kind": "id_controlador", "required": True, "source_ids": ["rcg"]},
             {"kind": "poder", "required": False, "source_ids": ["rcg"]},
+            {"kind": "curp_socios", "required": False, "source_ids": ["rcg"]},
+            {"kind": "organigrama", "required": False, "source_ids": ["rcg"]},
+            {"kind": "matriz_accionaria", "required": False, "source_ids": ["rcg"]},
         ],
         "quality": [
             {

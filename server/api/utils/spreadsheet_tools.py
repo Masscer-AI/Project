@@ -1,5 +1,5 @@
 """
-Utilities for reading and writing Excel (.xlsx) workbooks.
+Utilities for reading and writing Excel workbooks (.xlsx write, .xlsx/.xls read).
 """
 
 from __future__ import annotations
@@ -14,6 +14,8 @@ from openpyxl import Workbook, load_workbook
 XLSX_CONTENT_TYPE = (
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
+XLS_CONTENT_TYPE = "application/vnd.ms-excel"
+OLE_COMPOUND_MAGIC = b"\xd0\xcf\x11\xe0"
 
 _SHEET_NAME_SAFE = re.compile(r"[\[\]\:\*\?\/\\]+")
 _MAX_SHEET_NAME_LEN = 31
@@ -71,6 +73,74 @@ def _extract_workbook_text(raw: bytes, *, data_only: bool) -> str:
         workbook.close()
 
     return "\n\n".join(parts).strip()
+
+
+def extract_xls_text_from_bytes(raw: bytes) -> str:
+    """
+    Convert a legacy .xls workbook into sheet-aware plain text for RAG indexing.
+
+    Output format matches extract_xlsx_text_from_bytes.
+    """
+    try:
+        import xlrd
+        from xlrd import XLRDError
+    except ModuleNotFoundError as exc:
+        raise ValueError(
+            "Excel .xls support is not installed on this server (missing xlrd). "
+            "Rebuild and redeploy the Django image."
+        ) from exc
+
+    try:
+        workbook = xlrd.open_workbook(file_contents=raw)
+    except XLRDError as exc:
+        raise ValueError(f"Could not read Excel file: {exc}") from exc
+    except Exception as exc:
+        raise ValueError(f"Could not read Excel file: {exc}") from exc
+
+    parts: list[str] = []
+    for sheet in workbook.sheets():
+        rows: list[str] = []
+        for rx in range(min(sheet.nrows, _MAX_ROWS_PER_SHEET)):
+            cells = [
+                _xls_cell_to_text(sheet.cell(rx, cx), workbook.datemode)
+                for cx in range(min(sheet.ncols, _MAX_COLS_PER_SHEET))
+            ]
+            if any(cells):
+                rows.append(" | ".join(cells))
+        if rows:
+            parts.append(f"=== Sheet: {sheet.name} ===\n" + "\n".join(rows))
+
+    text = "\n\n".join(parts).strip()
+    if not text:
+        raise ValueError(
+            "The Excel file has no readable cell content. "
+            "If it uses formulas only, open it in Excel and save so values are cached."
+        )
+    return text
+
+
+def _xls_cell_to_text(cell: Any, datemode: int) -> str:
+    try:
+        import xlrd
+    except ModuleNotFoundError:
+        return _cell_to_text(getattr(cell, "value", None))
+
+    ctype = getattr(cell, "ctype", None)
+    value = getattr(cell, "value", None)
+    if ctype == xlrd.XL_CELL_EMPTY or ctype == xlrd.XL_CELL_BLANK:
+        return ""
+    if ctype == xlrd.XL_CELL_DATE:
+        try:
+            return str(xlrd.xldate_as_datetime(value, datemode)).strip()
+        except Exception:
+            return _cell_to_text(value)
+    if ctype == xlrd.XL_CELL_BOOLEAN:
+        return "TRUE" if value else "FALSE"
+    if ctype == xlrd.XL_CELL_NUMBER:
+        if isinstance(value, float) and value.is_integer():
+            return str(int(value))
+        return _cell_to_text(value)
+    return _cell_to_text(value)
 
 
 def build_xlsx_bytes_from_sheets(sheets: list[dict[str, Any]]) -> bytes:

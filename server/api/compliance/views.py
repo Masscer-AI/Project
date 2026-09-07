@@ -506,13 +506,17 @@ def _invitee_counterparty_or_404(request, entity_id):
 
 
 MAX_PLD_DOCUMENT_BYTES = 10 * 1024 * 1024
-_ALLOWED_EXTENSIONS = {".pdf", ".jpg", ".jpeg", ".png", ".webp"}
+_ALLOWED_EXTENSIONS = {".pdf", ".jpg", ".jpeg", ".png", ".webp", ".xml", ".zip"}
 _ALLOWED_CONTENT_TYPES = {
     "application/pdf",
     "image/jpeg",
     "image/jpg",
     "image/png",
     "image/webp",
+    "application/xml",
+    "text/xml",
+    "application/zip",
+    "application/x-zip-compressed",
 }
 
 

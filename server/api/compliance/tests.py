@@ -269,7 +269,9 @@ class PLDFoundationTests(TestCase):
                 "curp",
                 "constancia_fiscal",
                 "comprobante_domicilio",
-                "poder",
+                "cfdi",
+                "acta_nacimiento",
+                "organigrama",
                 "id_controlador:0",
             ],
         )
@@ -296,6 +298,9 @@ class PLDFoundationTests(TestCase):
         moral_keys = [s["slot_key"] for s in document_slots_for_entity(moral)]
         self.assertIn("acta_constitutiva", moral_keys)
         self.assertIn("id_representante", moral_keys)
+        self.assertIn("curp_representante", moral_keys)
+        self.assertIn("cfdi", moral_keys)
+        self.assertIn("matriz_accionaria", moral_keys)
         self.assertIn("id_controlador:0", moral_keys)
         self.assertIn("id_controlador:1", moral_keys)
 
@@ -983,6 +988,8 @@ class PLDDocumentExtractionTests(TestCase):
             ("constancia_fiscal", "constancia_fiscal"),
             ("comprobante_domicilio", "comprobante_domicilio"),
             ("id_representante", "id_representante"),
+            ("curp_representante", "curp_representante"),
+            ("cfdi", "cfdi"),
             ("id_controlador:0", "id_controlador"),
         ):
             uploaded = self.client.post(
@@ -1104,6 +1111,8 @@ class PLDDocumentExtractionTests(TestCase):
             ("constancia_fiscal", "constancia_fiscal"),
             ("comprobante_domicilio", "comprobante_domicilio"),
             ("id_representante", "id_representante"),
+            ("curp_representante", "curp_representante"),
+            ("cfdi", "cfdi"),
             ("id_controlador:0", "id_controlador"),
         ):
             PLDExpedientDocument.objects.create(
@@ -1152,7 +1161,11 @@ class PLDInviteEmailTests(SimpleTestCase):
         moral = pld_invite_prep_checklist("persona_moral")
         self.assertTrue(any("CURP" in item for item in fisica["data"]))
         self.assertTrue(any("INE" in item for item in fisica["documents_now"]))
-        self.assertTrue(any("Acta constitutiva" in item for item in moral["documents_now"]))
+        self.assertTrue(any("CFDI" in item for item in fisica["documents_now"]))
+        self.assertTrue(
+            any("acta constitutiva" in item.lower() for item in moral["documents_now"])
+        )
+        self.assertTrue(any("CURP del representante" in item for item in moral["documents_now"]))
         self.assertTrue(any("Excel" in item for item in moral["documents_later"]))
 
     @patch("api.compliance.invites.EmailService")

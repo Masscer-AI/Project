@@ -313,3 +313,45 @@ class ReporteRi01Extraction(ProvenanceMixin):
         default=None, description="RI01-controles_aplicados"
     )
     decision: str | None = Field(default=None, description="RI01-decision")
+
+
+class ActaNacimientoExtraction(ProvenanceMixin):
+    model_config = ConfigDict(extra="ignore")
+
+    full_name: str | None = None
+    date_of_birth: str | None = None
+    place_of_birth: str | None = None
+    folio: str | None = None
+    father_name: str | None = None
+    mother_name: str | None = None
+    registry_office: str | None = None
+
+
+class OrganigramaRoleExtraction(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    name: str | None = None
+    title: str | None = None
+    reports_to: str | None = None
+
+
+class OrganigramaExtraction(ProvenanceMixin):
+    model_config = ConfigDict(extra="ignore")
+
+    legal_name: str | None = None
+    description: str | None = None
+    roles: list[OrganigramaRoleExtraction] = Field(default_factory=list)
+
+
+class CurpSocioRow(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    curp: str | None = None
+    full_name: str | None = None
+    date_of_birth: str | None = None
+
+
+class CurpSociosExtraction(ProvenanceMixin):
+    model_config = ConfigDict(extra="ignore")
+
+    holders: list[CurpSocioRow] = Field(default_factory=list)

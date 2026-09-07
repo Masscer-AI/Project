@@ -88,8 +88,7 @@ class InvitePrepChecklist(TypedDict):
 def pld_invite_prep_checklist(person_type: str) -> InvitePrepChecklist:
     """What the invitee should gather before opening the signup link."""
     later = [
-        "Poder notarial, si alguien actua en nombre de la contraparte",
-        "Contratos, Excel, XML u otros documentos no obligatorios: se pueden cargar despues",
+        "Contratos, Excel u otros documentos no obligatorios: se pueden cargar despues",
     ]
     if person_type == "persona_moral":
         return {
@@ -98,17 +97,25 @@ def pld_invite_prep_checklist(person_type: str) -> InvitePrepChecklist:
                 "Denominacion o razon social",
                 "Fecha de constitucion, nacionalidad, RFC y giro",
                 "Domicilio: pais, codigo postal, estado, municipio, ciudad, colonia, calle y numero exterior",
-                "Representante legal: nombres, apellidos, tipo y numero de identificacion",
+                "Representante legal: nombres, apellidos, tipo y numero de identificacion, CURP",
                 "Beneficiario controlador: nombre de la persona fisica que controla la empresa",
             ],
             "documents_now": [
-                "Acta constitutiva",
+                "Escritura / acta constitutiva",
                 "Constancia de situacion fiscal",
                 "Comprobante de domicilio reciente (no mayor a 3 meses)",
                 "Identificacion oficial del representante legal",
+                "CURP del representante legal",
+                "CFDI emitidos por arriba de los umbrales aplicables (PDF o XML)",
                 "Identificacion del beneficiario controlador",
             ],
-            "documents_later": later,
+            "documents_later": [
+                "Poderes vigentes, si aplican",
+                "CURP de socios",
+                "Organigrama institucional",
+                "Matriz accionaria",
+            ]
+            + later,
         }
     return {
         "kind_label": "persona fisica",
@@ -123,12 +130,17 @@ def pld_invite_prep_checklist(person_type: str) -> InvitePrepChecklist:
         ],
         "documents_now": [
             "Identificacion oficial con fotografia (INE o pasaporte)",
-            "Constancia de CURP (si aplica)",
+            "Constancia de CURP",
             "Constancia de situacion fiscal (RFC)",
             "Comprobante de domicilio reciente (no mayor a 3 meses)",
+            "CFDI emitidos por arriba de los umbrales aplicables (PDF o XML)",
             "Identificacion del beneficiario controlador, solo si no eres tu",
         ],
-        "documents_later": later,
+        "documents_later": [
+            "Acta de nacimiento",
+            "Organigrama institucional, si aplica",
+        ]
+        + later,
     }
 
 

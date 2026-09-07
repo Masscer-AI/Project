@@ -53,17 +53,21 @@ def infer_upload_format(
         return "pdf"
     if "wordprocessingml" in ctype:
         return "docx"
-    if "spreadsheetml" in ctype or ctype in (
-        "application/vnd.ms-excel",
-        "application/msexcel",
-    ):
+    if "spreadsheetml" in ctype:
         return "xlsx"
+    if ctype in ("application/vnd.ms-excel", "application/msexcel"):
+        head = _read_file_head(file, 8)
+        if head.startswith(b"PK\x03\x04"):
+            return "xlsx"
+        return "xls"
     if ctype.startswith("text/"):
         return "html" if "html" in ctype else "txt"
 
-    head = _read_file_head(file, 5)
+    head = _read_file_head(file, 8)
     if head.startswith(b"%PDF"):
         return "pdf"
+    if head.startswith(b"\xd0\xcf\x11\xe0"):
+        return "xls"
     if head.startswith(b"PK\x03\x04"):
         lower_name = name.lower()
         if any(token in lower_name for token in ("xls", "sheet", "excel")):
@@ -77,6 +81,24 @@ def infer_upload_format(
         return "office_zip"
 
     return extension or "txt"
+
+def _read_xls_content(raw: bytes, file_name: str) -> tuple[str, str]:
+    try:
+        from api.utils.spreadsheet_tools import extract_xls_text_from_bytes
+    except ModuleNotFoundError as exc:
+        raise ValueError(
+            "Excel .xls support is not installed on this server (missing xlrd). "
+            "Rebuild and redeploy the Django image."
+        ) from exc
+
+    try:
+        text = extract_xls_text_from_bytes(raw)
+    except ValueError:
+        raise
+    except Exception as exc:
+        raise ValueError(f"Could not read Excel file: {exc}") from exc
+    return text, file_name
+
 
 def _read_xlsx_content(raw: bytes, file_name: str) -> tuple[str, str]:
     try:
@@ -156,9 +178,9 @@ def read_file_content(
                 "Could not read Office file. Rename it to .xlsx or .docx and try again."
             ) from exc
     elif file_extension == "xls":
-        raise ValueError(
-            "Legacy .xls files are not supported. Save the file as .xlsx and try again."
-        )
+        raw = file.read()
+        file.seek(0)
+        return _read_xls_content(raw, file_name)
     else:
         head = _read_file_head(file, 4)
         if head.startswith(b"PK\x03\x04"):
@@ -172,7 +194,7 @@ def read_file_content(
         except UnicodeDecodeError as exc:
             raise ValueError(
                 "Could not decode file as text. If this is an Excel file, "
-                "ensure it is saved as .xlsx and uploaded with that extension."
+                "ensure it is saved as .xlsx or .xls and uploaded with that extension."
             ) from exc
         file.seek(0)
         return text, file_name

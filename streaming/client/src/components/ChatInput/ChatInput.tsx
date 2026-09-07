@@ -65,6 +65,9 @@ interface ChatInputProps {
   composerMode?: "agent" | "human" | "readonly";
 }
 
+const CHAT_FILE_ACCEPT =
+  ".png,.jpeg,.jpg,.gif,.webp,.pdf,.txt,.html,.doc,.docx,.xls,.xlsx,.xlsm";
+
 const allowedDocumentTypes = [
   "application/pdf",
   "text/plain",
@@ -72,6 +75,9 @@ const allowedDocumentTypes = [
   "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-excel",
+  "application/msexcel",
+  "application/vnd.ms-excel.sheet.macroEnabled.12",
 ];
 
 const allowedImageTypes = [
@@ -80,6 +86,39 @@ const allowedImageTypes = [
   "image/gif",
   "image/webp",
 ];
+
+const allowedChatExtensions = new Set([
+  "png",
+  "jpeg",
+  "jpg",
+  "gif",
+  "webp",
+  "pdf",
+  "txt",
+  "html",
+  "htm",
+  "doc",
+  "docx",
+  "xls",
+  "xlsx",
+  "xlsm",
+]);
+
+function chatFileExtension(name: string): string {
+  const i = name.lastIndexOf(".");
+  if (i < 0) return "";
+  return name.slice(i + 1).toLowerCase();
+}
+
+function isAllowedChatFile(file: File): boolean {
+  if (
+    allowedImageTypes.includes(file.type) ||
+    allowedDocumentTypes.includes(file.type)
+  ) {
+    return true;
+  }
+  return allowedChatExtensions.has(chatFileExtension(file.name));
+}
 
 const getCommand = (text: string): string | null => {
   const regex = /k\/(.*)$/;
@@ -505,10 +544,7 @@ const PlusMenu = ({
     if (!files) return;
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      if (
-        allowedImageTypes.includes(file.type) ||
-        allowedDocumentTypes.includes(file.type)
-      ) {
+      if (isAllowedChatFile(file)) {
         const reader = new FileReader();
         reader.onload = (event) => {
           const target = event.target;
@@ -545,7 +581,7 @@ const PlusMenu = ({
         multiple
         onChange={addDocument}
         style={{ display: "none" }}
-        accept=".png,.jpeg,.jpg,.gif,.webp,.pdf,.txt,.html,.doc,.docx,.xlsx"
+        accept={CHAT_FILE_ACCEPT}
       />
 
       {hasAnyPlusOption && (
@@ -753,10 +789,7 @@ export const FileLoader = () => {
     if (!files) return;
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      if (
-        allowedImageTypes.includes(file.type) ||
-        allowedDocumentTypes.includes(file.type)
-      ) {
+      if (isAllowedChatFile(file)) {
         const reader = new FileReader();
         reader.onload = (event) => {
           const target = event.target;
@@ -787,7 +820,7 @@ export const FileLoader = () => {
         onChange={addDocument}
         style={{ display: "none" }}
         id="fileInput"
-        accept=".png,.jpeg,.jpg,.gif,.webp,.pdf,.txt,.html,.doc,.docx,.xlsx"
+        accept={CHAT_FILE_ACCEPT}
       />
       <label htmlFor="fileInput">
         <Button

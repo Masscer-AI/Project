@@ -70,6 +70,26 @@ INSTRUCTIONS_BY_KIND = {
         "notary, and escritura number. "
         + _SHARED_RULES
     ),
+    "acta_nacimiento": (
+        "You extract a Mexican birth certificate (acta de nacimiento). "
+        + _SHARED_RULES
+    ),
+    "organigrama": (
+        "You extract an institutional organization chart: people and roles. "
+        + _SHARED_RULES
+    ),
+    "curp_representante": (
+        "You extract the CURP certificate of the legal representative. "
+        + _SHARED_RULES
+    ),
+    "curp_socios": (
+        "You extract CURP certificates of shareholders or partners. List each person. "
+        + _SHARED_RULES
+    ),
+    "matriz_accionaria": (
+        "You extract a shareholder / ownership matrix. "
+        + _SHARED_RULES
+    ),
     "reforma_estatutos": (
         "You extract statutory reforms or asamblea minutes. "
         + _SHARED_RULES

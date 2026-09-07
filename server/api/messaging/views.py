@@ -901,6 +901,53 @@ def _widget_allow_visitor_attachments(widget: ChatWidget) -> bool:
         return False
     return bool(style.get("allow_visitor_attachments"))
 
+def _infer_data_url_attachment_ext(header: str, name: str, raw: bytes) -> str:
+    """Resolve a storage extension from a data-URL header, filename, and magic bytes."""
+    header = header or ""
+    name = (name or "").lower()
+    ext = "bin"
+    if "image/png" in header or "png" in header:
+        ext = "png"
+    elif "image/jpeg" in header or "jpeg" in header or "jpg" in header:
+        ext = "jpg"
+    elif "image/gif" in header or "gif" in header:
+        ext = "gif"
+    elif "image/webp" in header or "webp" in header:
+        ext = "webp"
+    elif "audio" in header:
+        ext = "webm" if "webm" in header else "mp3" if "mp3" in header else "wav"
+    elif "application/pdf" in header or "pdf" in header:
+        ext = "pdf"
+    elif "wordprocessingml" in header or "docx" in header:
+        ext = "docx"
+    elif "spreadsheetml" in header or "xlsx" in header:
+        ext = "xlsx"
+    elif "ms-excel" in header or "msexcel" in header:
+        ext = "xls"
+    elif "msword" in header or "doc" in header:
+        ext = "doc"
+    elif "text/plain" in header or "plain" in header:
+        ext = "txt"
+    elif "text/html" in header or "html" in header:
+        ext = "html"
+
+    if ext == "xls" and raw.startswith(b"PK\x03\x04"):
+        return "xlsx"
+    if ext != "bin":
+        return ext
+    if name.endswith(".xlsx") or name.endswith(".xlsm"):
+        return "xlsx"
+    if name.endswith(".xls"):
+        return "xls"
+    if raw.startswith(b"\xd0\xcf\x11\xe0"):
+        return "xls"
+    if raw.startswith(b"PK\x03\x04") and any(
+        token in name for token in ("xls", "sheet", "excel")
+    ):
+        return "xlsx"
+    return "bin"
+
+
 def _create_attachments_from_data_urls(request, conversation, user, attachments_data):
     """
     Create MessageAttachment rows from data URL payloads.
@@ -933,35 +980,13 @@ def _create_attachments_from_data_urls(request, conversation, user, attachments_
 
         try:
             header, b64_data = content.split(",", 1)
-            ext = "bin"
-            if "image/png" in header or "png" in header:
-                ext = "png"
-            elif "image/jpeg" in header or "jpeg" in header or "jpg" in header:
-                ext = "jpg"
-            elif "image/gif" in header or "gif" in header:
-                ext = "gif"
-            elif "image/webp" in header or "webp" in header:
-                ext = "webp"
-            elif "audio" in header:
-                ext = "webm" if "webm" in header else "mp3" if "mp3" in header else "wav"
-            elif "application/pdf" in header or "pdf" in header:
-                ext = "pdf"
-            elif "wordprocessingml" in header or "docx" in header:
-                ext = "docx"
-            elif "spreadsheetml" in header or "xlsx" in header:
-                ext = "xlsx"
-            elif "msword" in header or "doc" in header:
-                ext = "doc"
-            elif "text/plain" in header or "plain" in header:
-                ext = "txt"
-            elif "text/html" in header or "html" in header:
-                ext = "html"
             raw = base64.b64decode(b64_data)
         except Exception as e:
             return None, JsonResponse(
                 {"error": f"attachments[{i}] invalid base64: {e}"}, status=400
             )
 
+        ext = _infer_data_url_attachment_ext(header, att.get("name") or "", raw)
         file_obj = ContentFile(raw, name=f"{uuid.uuid4().hex}.{ext}")
         if att.get("content_type"):
             content_type = att["content_type"]
@@ -975,6 +1000,8 @@ def _create_attachments_from_data_urls(request, conversation, user, attachments_
             content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         elif ext == "xlsx":
             content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        elif ext == "xls":
+            content_type = "application/vnd.ms-excel"
         elif ext == "doc":
             content_type = "application/msword"
         elif ext == "txt":

@@ -135,18 +135,30 @@ def _process_document(att, question: str) -> ReadAttachmentResult:
 
     with att.file.open("rb") as f:
         raw = f.read()
-    b64 = base64.b64encode(raw).decode("ascii")
     mime = att.content_type or "application/octet-stream"
     filename = att.file.name.split("/")[-1] if att.file.name else f"file_{att.id}"
 
-    content = [
-        {"type": "input_text", "text": question},
-        {
-            "type": "input_file",
-            "filename": filename,
-            "file_data": f"data:{mime};base64,{b64}",
-        },
-    ]
+    spreadsheet_text = _extract_spreadsheet_text_for_model(raw, filename, mime)
+    if spreadsheet_text:
+        content = [
+            {
+                "type": "input_text",
+                "text": (
+                    f"{question}\n\n<SPREADSHEET filename=\"{filename}\">\n"
+                    f"{spreadsheet_text}\n</SPREADSHEET>"
+                ),
+            }
+        ]
+    else:
+        b64 = base64.b64encode(raw).decode("ascii")
+        content = [
+            {"type": "input_text", "text": question},
+            {
+                "type": "input_file",
+                "filename": filename,
+                "file_data": f"data:{mime};base64,{b64}",
+            },
+        ]
 
     try:
         response = client.responses.create(
@@ -164,6 +176,43 @@ def _process_document(att, question: str) -> ReadAttachmentResult:
     except Exception as e:
         logger.exception("Error analyzing document %s", att.id)
         raise ValueError(f"Failed to analyze document: {str(e)}")
+
+
+def _extract_spreadsheet_text_for_model(raw: bytes, filename: str, mime: str) -> str | None:
+    """Flatten .xls/.xlsx bytes to text when OpenAI input_file would not help."""
+    name = (filename or "").lower()
+    mime_l = (mime or "").lower()
+    is_zip = raw.startswith(b"PK\x03\x04")
+    is_ole = raw.startswith(b"\xd0\xcf\x11\xe0")
+    looks_xlsx = (
+        name.endswith(".xlsx")
+        or name.endswith(".xlsm")
+        or "spreadsheetml" in mime_l
+        or (is_zip and any(token in name for token in ("xls", "sheet", "excel")))
+    )
+    looks_xls = (
+        name.endswith(".xls")
+        or "ms-excel" in mime_l
+        or "msexcel" in mime_l
+        or (is_ole and not name.endswith(".doc"))
+    )
+    if is_zip:
+        looks_xls = False
+    if not looks_xlsx and not looks_xls:
+        return None
+    try:
+        from api.utils.spreadsheet_tools import (
+            extract_xls_text_from_bytes,
+            extract_xlsx_text_from_bytes,
+        )
+
+        if looks_xlsx:
+            return extract_xlsx_text_from_bytes(raw)
+        return extract_xls_text_from_bytes(raw)
+    except Exception:
+        logger.debug("Could not flatten spreadsheet %s for read_attachment", filename)
+        return None
+
 
 def _search_document_collection(doc, question: str) -> str:
     """
