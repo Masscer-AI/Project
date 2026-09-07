@@ -10,6 +10,7 @@ from api.compliance.views import (
     PLDEntityListView,
     PLDInviteAcceptView,
     PLDInvitePublicView,
+    PostalCodeLookupView,
 )
 
 app_name = "compliance"
@@ -28,6 +29,11 @@ urlpatterns = [
     ),
     path("invites/public/", PLDInvitePublicView.as_view(), name="pld_invite_public"),
     path("invites/accept/", PLDInviteAcceptView.as_view(), name="pld_invite_accept"),
+    path(
+        "postal-lookup/",
+        PostalCodeLookupView.as_view(),
+        name="postal_code_lookup",
+    ),
     path("my-expedients/", MyPLDExpedientView.as_view(), name="my_pld_expedients"),
     path(
         "my-expedients/<uuid:entity_id>/",

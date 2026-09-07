@@ -141,3 +141,49 @@ export function countrySelectData() {
     label: `${c.name} (${c.value}, +${c.dial})`,
   }));
 }
+
+export function countryNameSelectData() {
+  const options = COUNTRY_DIAL_CODES.map((c) => ({
+    value: c.value,
+    label: `${c.name} (${c.value})`,
+  }));
+  const mexico = options.find((option) => option.value === "MX");
+  const rest = options.filter((option) => option.value !== "MX");
+  return mexico ? [mexico, ...rest] : options;
+}
+
+export function phoneCountrySelectData() {
+  const options = countrySelectData();
+  const mexico = options.find((option) => option.value === "MX");
+  const rest = options.filter((option) => option.value !== "MX");
+  return mexico ? [mexico, ...rest] : options;
+}
+
+export function splitInternationalPhone(
+  raw: string,
+  fallbackIso = "MX"
+): { iso: string; local: string } {
+  const digits = (raw || "").replace(/\D/g, "");
+  if (!digits) return { iso: fallbackIso, local: "" };
+
+  const byDialLength = [...COUNTRY_DIAL_CODES].sort(
+    (a, b) => b.dial.length - a.dial.length
+  );
+  for (const country of byDialLength) {
+    if (!digits.startsWith(country.dial)) continue;
+    if (digits.length <= country.dial.length) continue;
+    const preferred = DIAL_PREFERRED_ISO[country.dial];
+    return {
+      iso: preferred && byIso.has(preferred) ? preferred : country.value,
+      local: digits.slice(country.dial.length),
+    };
+  }
+  return { iso: fallbackIso, local: digits };
+}
+
+export function formatInternationalPhone(iso: string, local: string): string {
+  const localDigits = (local || "").replace(/\D/g, "");
+  if (!localDigits) return "";
+  const dial = getDialCodeForIso(iso);
+  return dial ? `+${dial}${localDigits}` : localDigits;
+}

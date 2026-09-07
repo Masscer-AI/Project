@@ -2296,6 +2296,25 @@ export const listMyPldExpedients = async () => {
   );
 };
 
+export type TPostalLookup = {
+  found: boolean;
+  state?: string;
+  municipality?: string;
+  city?: string;
+  neighborhoods?: string[];
+};
+
+export const lookupPostalCode = async (country: string, postalCode: string) => {
+  const params = new URLSearchParams({
+    country,
+    postal_code: postalCode,
+  });
+  return makeAuthenticatedRequest<TPostalLookup>(
+    "GET",
+    `/v1/compliance/postal-lookup/?${params.toString()}`
+  );
+};
+
 export const updateMyPldExpedient = async (
   entityId: string,
   metadata: Record<string, unknown>

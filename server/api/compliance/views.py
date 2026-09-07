@@ -343,7 +343,10 @@ class MyPLDExpedientDetailView(View):
     """Invitee updates identification data on their own counterparty entity."""
 
     def patch(self, request, entity_id, *args, **kwargs):
-        from api.compliance.pld_metadata import normalize_pld_entity_metadata
+        from api.compliance.pld_metadata import (
+            identification_is_complete,
+            normalize_pld_entity_metadata,
+        )
 
         try:
             entity = PLDEntity.objects.select_related("organization").get(
@@ -374,7 +377,8 @@ class MyPLDExpedientDetailView(View):
         except ValueError as exc:
             return JsonResponse({"error": str(exc)}, status=400)
 
-        _advance_expedient_to_document_collection(entity)
+        if identification_is_complete(entity.person_type, entity.metadata):
+            _advance_expedient_to_document_collection(entity)
         return JsonResponse(_reload_my_expedient_row(entity.pk), status=200)
 
 
@@ -547,3 +551,33 @@ class MyPLDExpedientDocumentDetailView(View):
             doc.file.delete(save=False)
         doc.delete()
         return JsonResponse(_reload_my_expedient_row(entity.pk), status=200)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class PostalCodeLookupView(View):
+    """Fill address fields from a postal code. Authenticated invitees and operators."""
+
+    def get(self, request, *args, **kwargs):
+        import re
+
+        import requests
+
+        from api.compliance.postal_lookup import (
+            lookup_postal_code,
+            postal_code_is_complete,
+        )
+
+        country = (request.GET.get("country") or "MX").strip().upper()
+        postal_code = request.GET.get("postal_code") or ""
+        if not re.fullmatch(r"[A-Z]{2}", country):
+            return JsonResponse({"error": "invalid-country"}, status=400)
+        if not postal_code_is_complete(country, postal_code):
+            return JsonResponse({"found": False}, status=200)
+        try:
+            result = lookup_postal_code(country, postal_code)
+        except requests.RequestException:
+            return JsonResponse({"found": False}, status=200)
+        if not result:
+            return JsonResponse({"found": False}, status=200)
+        return JsonResponse({"found": True, **result}, status=200)

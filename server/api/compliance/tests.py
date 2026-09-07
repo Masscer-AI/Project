@@ -510,14 +510,49 @@ class PLDEntityAPITests(TestCase):
         self.assertEqual(saved.status_code, 200)
         self.assertEqual(saved.json()["metadata"].get("given_names"), "Ana")
         self.assertEqual(saved.json()["metadata"].get("name"), "Ana Lopez")
-        self.assertEqual(
-            saved.json()["expedient"]["status"], "document_collection"
+        self.assertEqual(saved.json()["expedient"]["status"], "data_collection")
+
+        complete = self.client.patch(
+            f"/v1/compliance/my-expedients/{entity_id}/",
+            {
+                "metadata": {
+                    "given_names": "Ana",
+                    "surnames": "Lopez",
+                    "date_of_birth": "1980-01-01",
+                    "country_of_birth": "MX",
+                    "nationality": "MX",
+                    "rfc": "LOAA800101XXX",
+                    "curp": "LOAA800101MDFXXX09",
+                    "economic_activity": "Comercio",
+                    "address": {
+                        "country": "MX",
+                        "postal_code": "01000",
+                        "state": "Ciudad de Mexico",
+                        "municipality": "Alvaro Obregon",
+                        "city": "CDMX",
+                        "neighborhood": "San Angel",
+                        "street": "Revolucion",
+                        "exterior_number": "1",
+                    },
+                    "identification": {
+                        "document_type": "ine",
+                        "document_number": "123456",
+                    },
+                    "is_own_controller": True,
+                }
+            },
+            format="json",
+            HTTP_AUTHORIZATION=f"Token {token.key}",
         )
-        slot_keys = [s["slot_key"] for s in saved.json()["document_slots"]]
+        self.assertEqual(complete.status_code, 200)
+        self.assertEqual(
+            complete.json()["expedient"]["status"], "document_collection"
+        )
+        slot_keys = [s["slot_key"] for s in complete.json()["document_slots"]]
         self.assertIn("official_id", slot_keys)
         self.assertIn("comprobante_domicilio", slot_keys)
         self.assertTrue(
-            next(s for s in saved.json()["document_slots"] if s["slot_key"] == "curp")[
+            next(s for s in complete.json()["document_slots"] if s["slot_key"] == "curp")[
                 "required"
             ]
         )
@@ -660,5 +695,38 @@ class PLDEntityAPITests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["results"], [])
+
+    @patch("api.compliance.postal_lookup.requests.get")
+    def test_postal_lookup_fills_mexico_address(self, mock_get):
+        mock_get.return_value.status_code = 200
+        mock_get.return_value.json.return_value = {
+            "cp": "06700",
+            "estado": "Ciudad de México",
+            "municipio": "Cuauhtémoc",
+            "asentamientos": [
+                {
+                    "nombre": "Roma Norte",
+                    "ciudad": "Ciudad de México",
+                }
+            ],
+        }
+        response = self.client.get(
+            "/v1/compliance/postal-lookup/?country=MX&postal_code=06700",
+            HTTP_AUTHORIZATION=f"Token {self.owner_token.key}",
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["found"])
+        self.assertEqual(payload["municipality"], "Cuauhtémoc")
+        self.assertEqual(payload["city"], "Ciudad de México")
+        self.assertEqual(payload["neighborhoods"], ["Roma Norte"])
+        mock_get.assert_called_once()
+
+        incomplete = self.client.get(
+            "/v1/compliance/postal-lookup/?country=MX&postal_code=067",
+            HTTP_AUTHORIZATION=f"Token {self.owner_token.key}",
+        )
+        self.assertEqual(incomplete.status_code, 200)
+        self.assertFalse(incomplete.json()["found"])
 
 

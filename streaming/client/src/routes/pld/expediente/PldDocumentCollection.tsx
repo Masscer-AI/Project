@@ -2,13 +2,13 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
 import {
+  Accordion,
   ActionIcon,
   Badge,
   FileInput,
   Group,
   Stack,
   Text,
-  Title,
 } from "@mantine/core";
 import { IconTrash, IconUpload } from "@tabler/icons-react";
 import {
@@ -76,29 +76,51 @@ export function PldDocumentCollection({
 
   if (!documentsUnlocked) {
     return (
-      <Stack gap="xs" mt="lg">
-        <Title order={5}>{t("compliance-doc-section")}</Title>
-        <Text size="sm" c="dimmed">
-          {t("compliance-doc-locked")}
-        </Text>
-      </Stack>
+      <Accordion variant="separated" radius="md" mt="md">
+        <Accordion.Item value="documents">
+          <Accordion.Control>
+            <Group gap="xs" wrap="nowrap" justify="space-between" pr="sm">
+              <Text fw={500}>{t("compliance-doc-section")}</Text>
+              <Badge size="xs" variant="light" color="gray">
+                {t("compliance-intake-section-pending")}
+              </Badge>
+            </Group>
+          </Accordion.Control>
+          <Accordion.Panel>
+            <Text size="sm" c="dimmed">
+              {t("compliance-doc-locked")}
+            </Text>
+          </Accordion.Panel>
+        </Accordion.Item>
+      </Accordion>
     );
   }
 
   return (
-    <Stack gap="sm" mt="lg">
-      <Title order={5}>{t("compliance-doc-section")}</Title>
+    <Accordion variant="separated" radius="md" mt="md" defaultValue="documents">
+      <Accordion.Item value="documents">
+        <Accordion.Control>
+          <Group gap="xs" wrap="nowrap" justify="space-between" pr="sm">
+            <Text fw={500}>{t("compliance-doc-section")}</Text>
+            <Badge
+              size="xs"
+              variant="light"
+              color={uploadedRequired === required.length && required.length > 0 ? "teal" : "violet"}
+            >
+              {required.length > 0
+                ? t("compliance-doc-progress", {
+                    uploaded: String(uploadedRequired),
+                    total: String(required.length),
+                  })
+                : t("compliance-intake-section-pending")}
+            </Badge>
+          </Group>
+        </Accordion.Control>
+        <Accordion.Panel>
+          <Stack gap="sm">
       <Text size="sm" c="dimmed">
         {t("compliance-doc-description")}
       </Text>
-      {required.length > 0 && (
-        <Text size="sm">
-          {t("compliance-doc-progress", {
-            uploaded: String(uploadedRequired),
-            total: String(required.length),
-          })}
-        </Text>
-      )}
       {slots.map((slot) => (
         <Stack key={slot.slot_key} gap={6}>
           <Group justify="space-between" gap="xs" wrap="nowrap">
@@ -146,6 +168,9 @@ export function PldDocumentCollection({
           )}
         </Stack>
       ))}
-    </Stack>
+          </Stack>
+        </Accordion.Panel>
+      </Accordion.Item>
+    </Accordion>
   );
 }
