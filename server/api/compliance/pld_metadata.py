@@ -34,6 +34,7 @@ class ControllerBeneficiary(BaseModel):
     name: str
     ownership_percentage: str | None = None
     rfc: str | None = None
+    email: str | None = None
 
 
 class LegalRepresentativeData(BaseModel):
@@ -105,6 +106,11 @@ def _filled(value: str | None) -> bool:
     return bool(value and str(value).strip())
 
 
+def _email_ok(value: str | None) -> bool:
+    text = (value or "").strip()
+    return "@" in text and "." in text.split("@")[-1]
+
+
 def _joined_surnames(
     surnames: str | None,
     paternal: str | None = None,
@@ -168,6 +174,9 @@ def identification_is_complete(person_type: str, metadata: dict | None) -> bool:
             name = data.controller.name if data.controller else ""
             if not _filled(name):
                 return False
+            email = data.controller.email if data.controller else ""
+            if not _email_ok(email):
+                return False
         return True
     if person_type == "persona_moral":
         data = PersonaMoralMetadata.model_validate(metadata)
@@ -191,6 +200,10 @@ def identification_is_complete(person_type: str, metadata: dict | None) -> bool:
         if not _id_complete(representative.identification):
             return False
         if not any(_filled(item.name) for item in data.controllers):
+            return False
+        if not all(
+            _email_ok(item.email) for item in data.controllers if _filled(item.name)
+        ):
             return False
         return True
     return False

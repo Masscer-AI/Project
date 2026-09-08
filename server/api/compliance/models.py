@@ -266,6 +266,13 @@ class PLDEntity(models.Model):
         return f"PLDEntity({self.id}, {rel}, {self.person_type})"
 
 
+def pld_expedient_packet_upload_to(instance, filename):
+    import os
+
+    ext = os.path.splitext(filename)[1].lower()[:12] or ".pdf"
+    return f"pld_expedient_packets/{instance.id}/{uuid.uuid4()}{ext}"
+
+
 class PLDExpedient(models.Model):
     """PLD process instance for one entity in an organization."""
 
@@ -314,6 +321,29 @@ class PLDExpedient(models.Model):
     )
     screening_payload = models.JSONField(default=dict, blank=True)
     screened_at = models.DateTimeField(null=True, blank=True)
+    packet_file = models.FileField(
+        upload_to=pld_expedient_packet_upload_to,
+        blank=True,
+        default="",
+    )
+    packet_generated_at = models.DateTimeField(null=True, blank=True)
+    signed_packet = models.FileField(
+        upload_to=pld_expedient_packet_upload_to,
+        blank=True,
+        default="",
+    )
+    signed_packet_xml = models.FileField(
+        upload_to=pld_expedient_packet_upload_to,
+        blank=True,
+        default="",
+    )
+    signature_request = models.ForeignKey(
+        "esign.SignatureRequest",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="pld_expedients",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -450,7 +480,10 @@ class PLDClarificationRequest(models.Model):
         verbose_name_plural = "PLD clarification requests"
         ordering = ["created_at"]
         indexes = [
-            models.Index(fields=["expedient", "stage", "status"]),
+            models.Index(
+                fields=["expedient", "stage", "status"],
+                name="compliance__expedie_f67682_idx",
+            ),
         ]
 
     def __str__(self):

@@ -1129,7 +1129,7 @@ class PLDDocumentExtractionTests(TestCase):
                     "document_number": "123",
                 },
             },
-            "controllers": [{"name": "Ana Lopez"}],
+            "controllers": [{"name": "Ana Lopez", "email": "ana@example.com"}],
         }
         self.entity.save(update_fields=["metadata", "updated_at"])
 
@@ -1258,6 +1258,127 @@ class PLDDocumentExtractionTests(TestCase):
         self.assertEqual(self.entity.metadata.get("rfc"), "AAA010101AAA")
         created[0].refresh_from_db()
         self.assertEqual(created[0].status, PLDClarificationRequest.Status.ANSWERED)
+
+    def test_identification_packet_pdf_lists_entity_and_docs(self):
+        import fitz
+
+        from api.compliance.models import PLDExpedientDocument
+        from api.compliance.packet.pdf import build_identification_packet_pdf
+
+        PLDExpedientDocument.objects.create(
+            expedient=self.expedient,
+            slot_key="constancia_fiscal",
+            document_kind="constancia_fiscal",
+            original_filename="csf.pdf",
+            extraction_status=PLDExpedientDocument.ExtractionStatus.SUCCEEDED,
+        )
+        pdf_bytes = build_identification_packet_pdf(self.entity)
+        self.assertTrue(pdf_bytes.startswith(b"%PDF"))
+        opened = fitz.open(stream=pdf_bytes, filetype="pdf")
+        text = "".join(page.get_text() for page in opened)
+        opened.close()
+        self.assertIn("ACME SA", text)
+        self.assertIn("csf.pdf", text)
+        self.assertIn("PLD Extract Org", text)
+
+    @patch("api.esign.tasks.submit_signature_request_to_mifiel.delay")
+    def test_clear_screening_dispatches_packet_for_signature(self, delay):
+        from api.compliance.models import PLDExpedient, PLDExpedientStatus
+        from api.compliance.packet import maybe_dispatch_identification_packet
+        from api.esign.models import SignatureRequest, SignatureSigner
+
+        self.entity.metadata = {
+            **self.entity.metadata,
+            "representative": {
+                "given_names": "Ana",
+                "surnames": "Lopez",
+            },
+            "controllers": [
+                {"name": "Ana Lopez", "email": "extract@example.com"},
+                {"name": "Luis Perez", "email": "luis@bc.com"},
+            ],
+        }
+        self.entity.save(update_fields=["metadata", "updated_at"])
+
+        PLDExpedient.objects.filter(pk=self.expedient.pk).update(
+            status=PLDExpedientStatus.CROSS_REFERENCE,
+            screening_status=PLDExpedient.PrequalificationStatus.SUCCEEDED,
+            screening_payload={"verdict": "escalate", "summary": "internal"},
+        )
+        self.expedient.refresh_from_db()
+        maybe_dispatch_identification_packet(self.expedient)
+        self.assertFalse(SignatureRequest.objects.exists())
+
+        PLDExpedient.objects.filter(pk=self.expedient.pk).update(
+            screening_payload={"verdict": "clear", "summary": "en revision"}
+        )
+        self.expedient.refresh_from_db()
+        maybe_dispatch_identification_packet(self.expedient)
+        self.expedient.refresh_from_db()
+        self.assertEqual(self.expedient.status, PLDExpedientStatus.WAITING_SIGN)
+        self.assertTrue(self.expedient.packet_file)
+        sr = SignatureRequest.objects.get()
+        self.assertEqual(sr.signatory_email, "extract@example.com")
+        self.assertEqual(sr.document_kind, "kyc_file")
+        self.assertEqual(sr.signers.count(), 2)
+        self.assertTrue(
+            sr.signers.filter(
+                email="luis@bc.com", role=SignatureSigner.Role.CONTROLLER
+            ).exists()
+        )
+        delay.assert_called_once_with(str(sr.id))
+
+        listed = self.client.get(
+            "/v1/compliance/my-expedients/",
+            HTTP_AUTHORIZATION=f"Token {self.token.key}",
+        )
+        row = listed.json()["results"][0]
+        self.assertEqual(row["expedient"]["signing"]["signer_count"], 2)
+        self.assertIn("/esign/sign/", row["expedient"]["signing"]["url"])
+        self.assertNotIn("hits", row["expedient"]["screening"])
+        self.assertNotIn("verdict", row["expedient"]["screening"])
+
+    def test_pld_signature_webhook_stores_packet_and_delivers(self):
+        from unittest.mock import patch
+
+        from api.compliance.models import PLDExpedientStatus
+        from api.esign.models import SignatureRequest, SignatureRequestStatus
+        from api.esign.tasks import process_mifiel_webhook_event
+
+        sr = SignatureRequest.objects.create(
+            organization=self.org,
+            requested_by=self.owner,
+            document_kind="kyc_file",
+            title="Expediente",
+            signatory_name="ACME SA",
+            signatory_email="extract@example.com",
+            source_file=None,
+            provider_document_id="mifiel-pld-1",
+        )
+        self.expedient.signature_request = sr
+        self.expedient.status = PLDExpedientStatus.WAITING_SIGN
+        self.expedient.save(
+            update_fields=["signature_request", "status", "updated_at"]
+        )
+        with patch("api.esign.tasks.MifielClient") as mock_client_cls:
+            mock_client_cls.return_value.download_signed_file.side_effect = [
+                b"%PDF signed",
+                b"<xml>signed</xml>",
+            ]
+            process_mifiel_webhook_event(
+                payload={
+                    "event": "document_closed",
+                    "data": {
+                        "external_id": str(sr.external_id),
+                        "file_file_name": "expediente",
+                    },
+                }
+            )
+        sr.refresh_from_db()
+        self.expedient.refresh_from_db()
+        self.assertEqual(sr.status, SignatureRequestStatus.SIGNED)
+        self.assertEqual(self.expedient.status, PLDExpedientStatus.DELIVERED)
+        self.assertTrue(self.expedient.signed_packet)
 
 
 class PLDInviteEmailTests(SimpleTestCase):

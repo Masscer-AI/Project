@@ -174,6 +174,9 @@ def screen_pld_expedient(expedient_id: str):
             PLDClarificationRequest.Stage.SCREENING,
             list(parsed.invitee_requests or []),
         )
+        from api.compliance.packet import maybe_dispatch_identification_packet
+
+        maybe_dispatch_identification_packet(exp)
     except Exception:
         logger.exception("PLD screening failed for %s", expedient_id)
         exp.screening_status = PLDExpedient.PrequalificationStatus.FAILED

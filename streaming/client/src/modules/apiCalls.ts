@@ -1276,6 +1276,8 @@ export type TPublicSignatureRequest = {
   organization_name: string;
   widget_id: string | null;
   widget_ready: boolean;
+  signer_completed?: boolean;
+  waiting_on_others?: boolean;
   mifiel_environment: "production" | "sandbox";
 };
 
@@ -2305,6 +2307,13 @@ export type TMyPldExpedient = {
       verdict?: string;
       summary?: string;
     };
+    signing?: {
+      status?: string;
+      url?: string;
+      title?: string;
+      signer_count?: number;
+      you_signed?: boolean;
+    } | null;
   } | null;
   document_slots?: TPldDocumentSlot[];
   clarification_requests?: TPldClarificationRequest[];

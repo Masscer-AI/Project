@@ -166,6 +166,9 @@ class SubmitSignatureRequestTaskTests(EsignFixtureMixin, TestCase):
         self.assertEqual(
             mock_client.create_document.call_args.kwargs["send_invites"], False
         )
+        self.assertEqual(
+            mock_client.create_document.call_args.kwargs["days_to_expire"], 30
+        )
 
     @patch("api.esign.tasks.MifielClient")
     def test_missing_widget_id_leaves_field_blank(self, mock_client_cls):
@@ -189,6 +192,46 @@ class SubmitSignatureRequestTaskTests(EsignFixtureMixin, TestCase):
         sig_request.refresh_from_db()
         self.assertEqual(sig_request.status, SignatureRequestStatus.ERROR)
         self.assertIn("bad request", sig_request.metadata["error"])
+
+    @patch("api.utils.email_service.EmailService")
+    @patch("api.esign.tasks.MifielClient")
+    def test_multiple_signers_get_widget_ids_and_email(self, mock_client_cls, email_cls):
+        from api.esign.models import SignatureSigner
+
+        mock_client = mock_client_cls.return_value
+        mock_client.create_document.return_value = {
+            "id": "mifiel-doc-2",
+            "state": "pending",
+            "signers": [
+                {"id": "s1", "widget_id": "widget-rep", "email": "jane@org.com"},
+                {"id": "s2", "widget_id": "widget-bc", "email": "luis@bc.com"},
+            ],
+        }
+        sig_request = self._make_request()
+        SignatureSigner.objects.create(
+            signature_request=sig_request,
+            role=SignatureSigner.Role.REPRESENTATIVE,
+            name="Jane Compliance",
+            email="jane@org.com",
+        )
+        bc = SignatureSigner.objects.create(
+            signature_request=sig_request,
+            role=SignatureSigner.Role.CONTROLLER,
+            name="Luis Perez",
+            email="luis@bc.com",
+        )
+        submit_signature_request_to_mifiel(str(sig_request.id))
+        signatories = mock_client.create_document.call_args.kwargs["signatories"]
+        self.assertEqual(len(signatories), 2)
+        bc.refresh_from_db()
+        self.assertEqual(bc.provider_widget_id, "widget-bc")
+        emails = [
+            call.kwargs["to"]
+            for call in email_cls.return_value.send_email.call_args_list
+        ]
+        self.assertEqual(sorted(emails), ["jane@org.com", "luis@bc.com"])
+        html = email_cls.return_value.send_email.call_args_list[1].kwargs["html"]
+        self.assertIn(str(bc.id), html)
 
 
 class ProcessMifielWebhookEventTests(EsignFixtureMixin, TestCase):
@@ -436,6 +479,26 @@ class PublicSignatureRequestViewTests(EsignFixtureMixin, TestCase):
         # widget_ready is only true while still pending — no reason to re-render
         # the signing widget once the document is already signed.
         self.assertFalse(data["widget_ready"])
+
+    def test_signer_token_returns_that_person_widget(self):
+        from api.esign.models import SignatureSigner
+
+        sig_request = self._make_request(provider_widget_id="widget-parent")
+        signer = SignatureSigner.objects.create(
+            signature_request=sig_request,
+            role=SignatureSigner.Role.CONTROLLER,
+            name="Luis Perez",
+            email="luis@bc.com",
+            provider_widget_id="widget-bc",
+        )
+        response = self.anon_client.get(f"/v1/esign/sign/{signer.id}/")
+        data = response.json()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(data["id"], str(signer.id))
+        self.assertEqual(data["signatory_name"], "Luis Perez")
+        self.assertEqual(data["widget_id"], "widget-bc")
+        self.assertTrue(data["widget_ready"])
+        self.assertNotIn("signatory_email", data)
 
     def test_unknown_id_returns_404(self):
         response = self.anon_client.get(

@@ -91,7 +91,15 @@ export function PldIdentificationDossier({
     (item) =>
       item.status === "open" && item.document?.extraction_status === "pending"
   );
-  const poll = pending || prequalPending || screeningPending || clarifyExtracting;
+  const status = row.expedient?.status || "";
+  const waitingSign = status === "waiting_sign";
+  const signedDone = status === "signed" || status === "delivered";
+  const poll =
+    pending ||
+    prequalPending ||
+    screeningPending ||
+    clarifyExtracting ||
+    waitingSign;
   const onSavedRef = useRef(onSaved);
   onSavedRef.current = onSaved;
 
@@ -130,7 +138,8 @@ export function PldIdentificationDossier({
     verdict === "ready_for_list_screening" &&
     openRequests.length === 0;
   const confirmEnabled = ready && prequalReady && !busy;
-  const alreadyCross = row.expedient?.status === "cross_reference";
+  const alreadyCross = status === "cross_reference";
+  const hideConfirm = alreadyCross || waitingSign || signedDone;
   const displayName =
     text(metadata.legal_name) ||
     text(metadata.name) ||
@@ -277,11 +286,45 @@ export function PldIdentificationDossier({
           </Group>
         ))}
       </Stack>
+      {waitingSign && (
+        <Alert color="violet" variant="light">
+          <Stack gap="xs">
+            <Text size="sm" fw={600}>
+              {t("compliance-sign-title")}
+            </Text>
+            <Text size="sm">{t("compliance-sign-intro")}</Text>
+            {row.expedient?.signing?.url ? (
+              <Button
+                component="a"
+                href={row.expedient.signing.url}
+                color="violet"
+                size="sm"
+              >
+                {t("compliance-sign-cta")}
+              </Button>
+            ) : (
+              <Group gap="xs">
+                <IconLoader2 size={16} />
+                <Text size="sm">{t("compliance-sign-preparing")}</Text>
+              </Group>
+            )}
+            {row.expedient?.signing?.status === "rejected" ||
+            row.expedient?.signing?.status === "error" ? (
+              <Text size="sm">{t("compliance-sign-rejected")}</Text>
+            ) : null}
+          </Stack>
+        </Alert>
+      )}
+      {signedDone && (
+        <Alert color="teal" variant="light">
+          {t("compliance-sign-done")}
+        </Alert>
+      )}
       {alreadyCross && openRequests.length === 0 ? (
         <Alert color="gray" variant="light">
           {t("compliance-dossier-next-lists")}
         </Alert>
-      ) : alreadyCross ? null : (
+      ) : hideConfirm ? null : (
         <Group>
           {onBack ? (
             <Button variant="default" onClick={onBack}>

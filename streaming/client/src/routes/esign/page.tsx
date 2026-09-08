@@ -78,6 +78,16 @@ export default function SignaturePage() {
     );
   }
 
+  if (liveData.waiting_on_others) {
+    return (
+      <Centered>
+        <Text ta="center" maw={480}>
+          {t("esign-waiting-others", { name: liveData.signatory_name })}
+        </Text>
+      </Centered>
+    );
+  }
+
   if (liveData.status === "pending" && !liveData.widget_ready) {
     return (
       <Centered>

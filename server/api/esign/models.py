@@ -103,8 +103,10 @@ class SignatureRequest(models.Model):
     source_file = models.ForeignKey(
         "messaging.MessageAttachment",
         on_delete=models.PROTECT,
+        null=True,
+        blank=True,
         related_name="signature_requests_as_source",
-        help_text="Unsigned PDF sent to the provider, as already generated/uploaded in a conversation.",
+        help_text="Unsigned PDF from a conversation, when the request did not come from a PLD expediente.",
     )
     signed_file = models.ForeignKey(
         "messaging.MessageAttachment",
@@ -150,6 +152,57 @@ class SignatureRequest(models.Model):
 
     def __str__(self) -> str:
         return f"SignatureRequest({self.document_kind}, {self.signatory_email}, status={self.status})"
+
+
+class SignatureSigner(models.Model):
+    """One person who must sign a SignatureRequest (Mifiel supports several per PDF)."""
+
+    class Role(models.TextChoices):
+        COUNTERPARTY = "counterparty", "Contraparte"
+        REPRESENTATIVE = "representative", "Representante legal"
+        CONTROLLER = "controller", "Beneficiario controlador"
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pendiente"
+        SIGNED = "signed", "Firmado"
+        REJECTED = "rejected", "Rechazado"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    signature_request = models.ForeignKey(
+        SignatureRequest,
+        on_delete=models.CASCADE,
+        related_name="signers",
+    )
+    role = models.CharField(
+        max_length=32,
+        choices=Role.choices,
+        default=Role.COUNTERPARTY,
+    )
+    name = models.CharField(max_length=255)
+    email = models.EmailField()
+    rfc = models.CharField(max_length=13, blank=True, default="")
+    provider_widget_id = models.CharField(max_length=64, blank=True, default="")
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+        db_index=True,
+    )
+    signed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["signature_request", "email"],
+                name="unique_signer_email_per_signature_request",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"SignatureSigner({self.email}, {self.role})"
 
 
 class SignatureRequestEvent(models.Model):

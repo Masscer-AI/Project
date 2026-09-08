@@ -99,10 +99,11 @@ type ControllerRow = {
   name: string;
   rfc: string;
   ownership: string;
+  email: string;
 };
 
 function emptyController(): ControllerRow {
-  return { name: "", rfc: "", ownership: "" };
+  return { name: "", rfc: "", ownership: "", email: "" };
 }
 
 function loadControllers(meta: Record<string, unknown>): ControllerRow[] {
@@ -116,6 +117,7 @@ function loadControllers(meta: Record<string, unknown>): ControllerRow[] {
           name: asString(row.name),
           rfc: asString(row.rfc),
           ownership: asString(row.ownership_percentage),
+          email: asString(row.email),
         };
       });
     if (rows.length > 0) return rows;
@@ -127,6 +129,7 @@ function loadControllers(meta: Record<string, unknown>): ControllerRow[] {
         name: asString(single.name),
         rfc: asString(single.rfc),
         ownership: asString(single.ownership_percentage),
+        email: asString(single.email),
       },
     ];
   }
@@ -288,6 +291,7 @@ function namedControllers(form: FormState) {
       name: row.name.trim(),
       rfc: row.rfc.trim() || null,
       ownership_percentage: row.ownership.trim() || null,
+      email: row.email.trim() || null,
     }));
 }
 
@@ -523,7 +527,9 @@ export function PldIntakeForm({
     filled(form.rep_id_document_number);
   const controllerDone =
     (!isMoral && form.is_own_controller) ||
-    form.controllers.some((item) => filled(item.name));
+    form.controllers.some(
+      (item) => filled(item.name) && item.email.includes("@")
+    );
   const sectionOrder = isMoral
     ? ["entity", "address", "representative", "controller"]
     : ["entity", "address", "identification", "controller"];
@@ -1063,55 +1069,77 @@ export function PldIntakeForm({
               {(isMoral || !form.is_own_controller) && (
                 <Stack gap="sm">
                   {form.controllers.map((row, index) => (
-                    <Group key={index} align="flex-end" wrap="nowrap" gap="xs">
-                      <TextInput
-                        style={{ flex: 1 }}
-                        label={
-                          index === 0
-                            ? t("compliance-intake-controller-name")
-                            : undefined
-                        }
-                        required={index === 0}
-                        value={row.name}
-                        onChange={(e) =>
-                          setController(index, "name", e.currentTarget.value)
-                        }
-                      />
-                      <TextInput
-                        style={{ flex: 1 }}
-                        label={
-                          index === 0
-                            ? t("compliance-intake-rfc-controller")
-                            : undefined
-                        }
-                        value={row.rfc}
-                        onChange={(e) =>
-                          setController(index, "rfc", e.currentTarget.value)
-                        }
-                      />
-                      <TextInput
-                        style={{ flex: 1 }}
-                        label={
-                          index === 0
-                            ? t("compliance-intake-ownership")
-                            : undefined
-                        }
-                        value={row.ownership}
-                        onChange={(e) =>
-                          setController(index, "ownership", e.currentTarget.value)
-                        }
-                      />
-                      <ActionIcon
-                        variant="subtle"
-                        color="gray"
-                        mb={4}
-                        aria-label={t("compliance-intake-remove-controller")}
-                        onClick={() => removeController(index)}
-                        disabled={form.controllers.length === 1}
-                      >
-                        <IconTrash size={16} />
-                      </ActionIcon>
-                    </Group>
+                    <Stack key={index} gap="xs">
+                      <Group align="flex-end" wrap="nowrap" gap="xs">
+                        <TextInput
+                          style={{ flex: 1 }}
+                          label={
+                            index === 0
+                              ? t("compliance-intake-controller-name")
+                              : undefined
+                          }
+                          required={index === 0}
+                          value={row.name}
+                          onChange={(e) =>
+                            setController(index, "name", e.currentTarget.value)
+                          }
+                        />
+                        <TextInput
+                          style={{ flex: 1 }}
+                          type="email"
+                          label={
+                            index === 0
+                              ? t("compliance-intake-controller-email")
+                              : undefined
+                          }
+                          required={index === 0}
+                          value={row.email}
+                          onChange={(e) =>
+                            setController(index, "email", e.currentTarget.value)
+                          }
+                        />
+                        <ActionIcon
+                          variant="subtle"
+                          color="gray"
+                          mb={4}
+                          aria-label={t("compliance-intake-remove-controller")}
+                          onClick={() => removeController(index)}
+                          disabled={form.controllers.length === 1}
+                        >
+                          <IconTrash size={16} />
+                        </ActionIcon>
+                      </Group>
+                      <Group align="flex-end" wrap="nowrap" gap="xs">
+                        <TextInput
+                          style={{ flex: 1 }}
+                          label={
+                            index === 0
+                              ? t("compliance-intake-rfc-controller")
+                              : undefined
+                          }
+                          value={row.rfc}
+                          onChange={(e) =>
+                            setController(index, "rfc", e.currentTarget.value)
+                          }
+                        />
+                        <TextInput
+                          style={{ flex: 1 }}
+                          label={
+                            index === 0
+                              ? t("compliance-intake-ownership")
+                              : undefined
+                          }
+                          value={row.ownership}
+                          onChange={(e) =>
+                            setController(
+                              index,
+                              "ownership",
+                              e.currentTarget.value
+                            )
+                          }
+                        />
+                      </Group>
+                    </Stack>
                   ))}
                   <Button
                     variant="default"

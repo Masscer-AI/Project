@@ -18,23 +18,20 @@ def submit_signature_request_to_mifiel(signature_request_id: str) -> None:
     try:
         signature_request = SignatureRequest.objects.select_related(
             "source_file"
-        ).get(id=signature_request_id)
+        ).prefetch_related("signers").get(id=signature_request_id)
     except SignatureRequest.DoesNotExist:
         logger.error("SignatureRequest %s not found", signature_request_id)
         return
 
-    source = signature_request.source_file
-    if not source.file:
+    file_bytes, filename = _source_pdf(signature_request)
+    if file_bytes is None:
         signature_request.status = SignatureRequestStatus.ERROR
         signature_request.metadata = {
             **signature_request.metadata,
-            "error": "source_file has no underlying file.",
+            "error": "source PDF is missing.",
         }
         signature_request.save(update_fields=["status", "metadata", "updated_at"])
         return
-
-    filename = source.file.name.rsplit("/", 1)[-1] or "document.pdf"
-    file_bytes = source.file.read()
 
     signatory = {
         "name": signature_request.signatory_name,
@@ -42,16 +39,30 @@ def submit_signature_request_to_mifiel(signature_request_id: str) -> None:
         "tax_id": signature_request.signatory_rfc or "",
     }
 
+    signers_qs = list(signature_request.signers.all())
+    if signers_qs:
+        signatories = [
+            {
+                "name": row.name,
+                "email": row.email,
+                "tax_id": row.rfc or "",
+            }
+            for row in signers_qs
+        ]
+    else:
+        signatories = [signatory]
+
     try:
         response = MifielClient().create_document(
             file_bytes=file_bytes,
             filename=filename,
-            signatories=[signatory],
+            signatories=signatories,
             external_id=str(signature_request.external_id),
             # The embedded widget page (esign/views.py:PublicSignatureRequestView)
             # is the primary signing surface now, not Mifiel's own emailed link —
-            # avoid a second, uncontrolled Mifiel-hosted signing page.
+            # we send our own durable /esign/sign/{id} link instead.
             send_invites=False,
+            days_to_expire=30,
         )
     except MifielAPIError as e:
         logger.error(
@@ -69,6 +80,16 @@ def submit_signature_request_to_mifiel(signature_request_id: str) -> None:
 
     signers = response.get("signers") or []
     widget_id = signers[0].get("widget_id", "") if signers else ""
+    if signers_qs:
+        by_email = {row.email.casefold(): row for row in signers_qs}
+        for remote in signers:
+            rec = by_email.get((remote.get("email") or "").strip().casefold())
+            if not rec:
+                continue
+            rec.provider_widget_id = remote.get("widget_id") or ""
+            rec.save(update_fields=["provider_widget_id", "updated_at"])
+        if signers_qs[0].provider_widget_id:
+            widget_id = signers_qs[0].provider_widget_id
     if not widget_id:
         logger.warning(
             "Mifiel create_document returned no widget_id for SignatureRequest %s",
@@ -89,11 +110,31 @@ def submit_signature_request_to_mifiel(signature_request_id: str) -> None:
             "updated_at",
         ]
     )
+    if signers_qs:
+        from api.compliance.packet import email_signing_links
+
+        email_signing_links(signature_request)
     logger.info(
         "SignatureRequest %s submitted to Mifiel as document %s",
         signature_request_id,
         signature_request.provider_document_id,
     )
+
+
+def _source_pdf(signature_request: SignatureRequest) -> tuple[bytes | None, str]:
+    source = signature_request.source_file
+    if source and source.file:
+        filename = source.file.name.rsplit("/", 1)[-1] or "document.pdf"
+        return source.file.read(), filename
+    from api.compliance.models import PLDExpedient
+
+    expedient = PLDExpedient.objects.filter(
+        signature_request=signature_request
+    ).first()
+    if expedient and expedient.packet_file:
+        filename = expedient.packet_file.name.rsplit("/", 1)[-1] or "expediente.pdf"
+        return expedient.packet_file.read(), filename
+    return None, "document.pdf"
 
 
 def _notify_in_chat(
@@ -111,6 +152,8 @@ def _notify_in_chat(
     from api.messaging.models import Message
     from api.messaging.takeover import emit_message_created
 
+    if not signature_request.source_file_id:
+        return
     try:
         conversation = signature_request.source_file.conversation
         message = Message.objects.create(
@@ -177,6 +220,24 @@ def _handle_document_closed(signature_request: SignatureRequest, data: dict) -> 
             "error": f"download_signed_file failed: {e}",
         }
         signature_request.save(update_fields=["status", "metadata", "updated_at"])
+        return
+
+    from .models import SignatureSigner
+
+    now = timezone.now()
+    signature_request.signers.exclude(
+        status=SignatureSigner.Status.SIGNED
+    ).update(status=SignatureSigner.Status.SIGNED, signed_at=now)
+
+    if not signature_request.source_file_id:
+        from api.compliance.packet import mark_expedient_signed
+
+        mark_expedient_signed(
+            signature_request, pdf_bytes=signed_pdf_bytes, xml_bytes=signed_xml_bytes
+        )
+        signature_request.status = SignatureRequestStatus.SIGNED
+        signature_request.signed_at = timezone.now()
+        signature_request.save(update_fields=["status", "signed_at", "updated_at"])
         return
 
     conversation = signature_request.source_file.conversation
@@ -259,6 +320,32 @@ def _handle_document_deleted(signature_request: SignatureRequest) -> None:
     signature_request.save(update_fields=["status", "updated_at"])
 
 
+def _mark_signer_from_webhook(
+    signature_request: SignatureRequest, data: dict, *, rejected: bool
+) -> None:
+    from .models import SignatureSigner
+
+    email = (
+        data.get("email")
+        or data.get("signer_email")
+        or (data.get("signer") or {}).get("email")
+        or ""
+    )
+    email = str(email).strip()
+    qs = signature_request.signers.all()
+    signer = qs.filter(email__iexact=email).first() if email else None
+    if signer is None and qs.count() == 1:
+        signer = qs.first()
+    if signer is None:
+        return
+    signer.status = (
+        SignatureSigner.Status.REJECTED if rejected else SignatureSigner.Status.SIGNED
+    )
+    if not rejected:
+        signer.signed_at = timezone.now()
+    signer.save(update_fields=["status", "signed_at", "updated_at"])
+
+
 @shared_task
 def process_mifiel_webhook_event(payload: dict) -> None:
     event = payload.get("event")
@@ -291,10 +378,11 @@ def process_mifiel_webhook_event(payload: dict) -> None:
     if event == "document_closed":
         _handle_document_closed(signature_request, data)
     elif event == "signer_rejected":
+        _mark_signer_from_webhook(signature_request, data, rejected=True)
         _handle_signer_rejected(signature_request)
     elif event == "document_deleted":
         _handle_document_deleted(signature_request)
     elif event == "signer_completed":
-        pass  # event log row above is sufficient for v1 (single signatory).
+        _mark_signer_from_webhook(signature_request, data, rejected=False)
     else:
         logger.warning("Unhandled Mifiel webhook event type: %s", event)

@@ -143,8 +143,13 @@ class PLDExpedientAdmin(admin.ModelAdmin):
         "updated_at",
     )
     list_filter = ("status", "vulnerable_activity")
-    raw_id_fields = ("organization", "entity")
-    readonly_fields = ("id", "created_at", "updated_at")
+    raw_id_fields = ("organization", "entity", "signature_request")
+    readonly_fields = (
+        "id",
+        "created_at",
+        "updated_at",
+        "packet_generated_at",
+    )
     inlines = [PLDExpedientDocumentInline, PLDClarificationRequestInline]
 
 

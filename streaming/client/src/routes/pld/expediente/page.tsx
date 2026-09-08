@@ -103,6 +103,9 @@ export default function MyPldExpedientePage() {
                   </Group>
                   {row.expedient?.status === "cross_reference" ||
                   row.expedient?.status === "action_required" ||
+                  row.expedient?.status === "waiting_sign" ||
+                  row.expedient?.status === "signed" ||
+                  row.expedient?.status === "delivered" ||
                   reviewingIds[row.id] ||
                   (row.clarification_requests || []).some(
                     (item) => item.status === "open"
@@ -115,7 +118,10 @@ export default function MyPldExpedientePage() {
                         )
                       }
                       onBack={
-                        row.expedient?.status === "cross_reference"
+                        row.expedient?.status === "cross_reference" ||
+                        row.expedient?.status === "waiting_sign" ||
+                        row.expedient?.status === "signed" ||
+                        row.expedient?.status === "delivered"
                           ? undefined
                           : () =>
                               setReviewingIds((prev) => ({

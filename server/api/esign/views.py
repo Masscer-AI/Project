@@ -19,7 +19,7 @@ from django.http import HttpResponse, JsonResponse
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
-from .models import SignatureRequest, SignatureRequestStatus
+from .models import SignatureRequest, SignatureRequestStatus, SignatureSigner
 from .tasks import process_mifiel_webhook_event
 
 logger = logging.getLogger(__name__)
@@ -50,6 +50,44 @@ class PublicSignatureRequestView(View):
     """
 
     def get(self, request, signature_request_id):
+        signer = (
+            SignatureSigner.objects.select_related(
+                "signature_request", "signature_request__organization"
+            )
+            .filter(pk=signature_request_id)
+            .first()
+        )
+        if signer:
+            sr = signer.signature_request
+            widget_id = signer.provider_widget_id or ""
+            signer_done = signer.status == SignatureSigner.Status.SIGNED
+            waiting_on_others = (
+                sr.status == SignatureRequestStatus.PENDING and signer_done
+            )
+            widget_ready = (
+                sr.status == SignatureRequestStatus.PENDING
+                and signer.status == SignatureSigner.Status.PENDING
+                and bool(widget_id)
+            )
+            return JsonResponse(
+                {
+                    "id": str(signer.id),
+                    "status": sr.status,
+                    "title": sr.title or sr.get_document_kind_display(),
+                    "signatory_name": signer.name,
+                    "organization_name": sr.organization.name,
+                    "widget_id": widget_id or None,
+                    "widget_ready": widget_ready,
+                    "signer_completed": signer_done,
+                    "waiting_on_others": waiting_on_others,
+                    "mifiel_environment": (
+                        "sandbox"
+                        if "sandbox" in settings.MIFIEL_BASE_URL
+                        else "production"
+                    ),
+                }
+            )
+
         try:
             sr = SignatureRequest.objects.select_related("organization").get(
                 id=signature_request_id
@@ -69,6 +107,8 @@ class PublicSignatureRequestView(View):
                 "widget_id": sr.provider_widget_id or None,
                 "widget_ready": bool(sr.provider_widget_id)
                 and sr.status == SignatureRequestStatus.PENDING,
+                "signer_completed": sr.status == SignatureRequestStatus.SIGNED,
+                "waiting_on_others": False,
                 "mifiel_environment": (
                     "sandbox" if "sandbox" in settings.MIFIEL_BASE_URL else "production"
                 ),

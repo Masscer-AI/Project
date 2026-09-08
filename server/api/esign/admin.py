@@ -3,7 +3,7 @@ from django.shortcuts import redirect
 from django.urls import path, reverse
 
 from .mifiel_client import MifielAPIError, MifielClient
-from .models import SignatureRequest, SignatureRequestEvent
+from .models import SignatureRequest, SignatureRequestEvent, SignatureSigner
 
 MIFIEL_WEBHOOK_EVENT_TYPES = (
     "document_closed",
@@ -11,6 +11,13 @@ MIFIEL_WEBHOOK_EVENT_TYPES = (
     "signer_rejected",
     "document_deleted",
 )
+
+
+class SignatureSignerInline(admin.TabularInline):
+    model = SignatureSigner
+    extra = 0
+    fields = ("name", "email", "role", "status", "provider_widget_id")
+    readonly_fields = ("provider_widget_id",)
 
 
 class SignatureRequestEventInline(admin.TabularInline):
@@ -50,7 +57,7 @@ class SignatureRequestAdmin(admin.ModelAdmin):
     )
     raw_id_fields = ("organization", "requested_by", "signatory_user", "source_file", "signed_file", "signed_file_xml")
     ordering = ("-created_at",)
-    inlines = [SignatureRequestEventInline]
+    inlines = [SignatureSignerInline, SignatureRequestEventInline]
 
     def get_urls(self):
         urls = super().get_urls()

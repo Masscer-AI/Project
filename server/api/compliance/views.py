@@ -329,6 +329,8 @@ class MyPLDExpedientView(View):
                 "expedients",
                 "expedients__documents",
                 "expedients__clarification_requests",
+                "expedients__signature_request",
+                "expedients__signature_request__signers",
             )
             .order_by("-updated_at")
         )
@@ -377,6 +379,8 @@ class MyPLDExpedientDetailView(View):
                     "expedients",
                     "expedients__documents",
                     "expedients__clarification_requests",
+                    "expedients__signature_request",
+                    "expedients__signature_request__signers",
                 )
                 .get(pk=entity.pk)
             )
@@ -481,6 +485,12 @@ def _invitee_screening(exp: PLDExpedient) -> dict:
     }
 
 
+def _invitee_signing(exp: PLDExpedient, entity: PLDEntity) -> dict | None:
+    from api.compliance.packet import invitee_signing_payload
+
+    return invitee_signing_payload(exp, entity)
+
+
 def _my_expedient_row(entity: PLDEntity) -> dict:
     from api.compliance.clarifications import serialize_request
     from api.compliance.pld_document_slots import document_slots_for_entity
@@ -517,6 +527,7 @@ def _my_expedient_row(entity: PLDEntity) -> dict:
                 "screening_status": exp.screening_status or "",
                 "screened_at": exp.screened_at.isoformat() if exp.screened_at else None,
                 "screening": _invitee_screening(exp),
+                "signing": _invitee_signing(exp, entity),
             }
             if exp
             else None
@@ -533,6 +544,8 @@ def _reload_my_expedient_row(entity_id) -> dict:
             "expedients",
             "expedients__documents",
             "expedients__clarification_requests",
+            "expedients__signature_request",
+            "expedients__signature_request__signers",
         )
         .get(pk=entity_id)
     )
@@ -576,6 +589,8 @@ def _invitee_counterparty_or_404(request, entity_id):
                 "expedients",
                 "expedients__documents",
                 "expedients__clarification_requests",
+                "expedients__signature_request",
+                "expedients__signature_request__signers",
             )
             .get(pk=entity_id, user=request.user)
         )
