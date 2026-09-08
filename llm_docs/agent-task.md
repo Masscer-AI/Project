@@ -30,23 +30,6 @@ Payload includes:
 - plugin flags (web search, rag, etc.)
 - attachments (images are typically passed as data URLs)
 
-### Streaming server → model streaming
-
-The streaming server uses a streaming factory that yields incremental text deltas.
-
-Core implementation:
-- `streaming/server/utils/completions.py` (`TextStreamingFactory.stream_openai`)
-  - builds the message list (system + prev turns + current turn)
-  - **if there are image attachments**, it builds a multimodal message with `input_text` + `input_image` parts
-  - streams output via OpenAI Responses streaming API
-
-### Streaming server → frontend events
-
-The frontend listens for events like:
-- `response` (incremental tokens)
-- `responseFinished` (end of response; IDs/metadata updates)
-
-These are emitted by the streaming server (see `streaming/server/event_triggers.py`).
 
 ## Agent-task path (how it works)
 

@@ -14,7 +14,17 @@ def check_models_for_providers():
     from api.utils.ollama_functions import list_ollama_models, pull_ollama_model
 
     openai_models_objects = [
-
+        {
+            "name": "GPT-6 Astra",
+            "slug": "gpt-6-astra",
+            "is_reasoning_model": True,
+            "pricing": {
+                "text": {
+                    "prompt": "10.00 USD / 1000000",
+                    "output": "50.00 USD / 1000000",
+                }
+            },
+        },
         {
             "name": "GPT-5 Mini",
             "slug": "gpt-5-mini",

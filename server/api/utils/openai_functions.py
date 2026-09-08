@@ -184,7 +184,11 @@ def create_completion_openai(
         "instructions": system_prompt,
         "input": user_message,
     }
-    is_reasoning_model = model.startswith("gpt-5") or model.startswith("o")
+    is_reasoning_model = (
+        model.startswith("gpt-5")
+        or model.startswith("gpt-6")
+        or model.startswith("o")
+    )
     if temperature is not None and not is_reasoning_model:
         kwargs["temperature"] = temperature
     completion = client.responses.create(**kwargs)

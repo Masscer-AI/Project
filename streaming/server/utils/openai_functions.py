@@ -3,7 +3,6 @@ import requests
 from openai import OpenAI
 from dotenv import load_dotenv
 from ..logger import get_custom_logger
-from .completions import TextStreamingFactory
 from pydantic import BaseModel
 import json
 
@@ -29,67 +28,6 @@ def transcribe_audio(audio_file, output_format="verbose_json") -> str:
     if output_format == "vtt":
         return transcription
     return transcription.text
-
-
-async def stream_completion(
-    prompt,
-    user_message,
-    model,
-    attachments=[],
-    config={},
-    prev_messages=[],
-    agent_slug=None,
-):
-    _provider = model["provider"].lower()
-    if _provider == "openai":
-        streamer = TextStreamingFactory(
-            provider="openai",
-            api_key=OPENAI_API_KEY,
-            config=config,
-            prev_messages=prev_messages,
-            agent_slug=agent_slug,
-        )
-
-    elif _provider == "ollama":
-        streamer = TextStreamingFactory(
-            provider="ollama",
-            api_key="ANTHROPIC_API_KEY",
-            config=config,
-            prev_messages=prev_messages,
-            agent_slug=agent_slug,
-        )
-
-    elif _provider == "anthropic":
-        streamer = TextStreamingFactory(
-            provider="anthropic",
-            api_key=ANTHROPIC_API_KEY,
-            config=config,
-            prev_messages=prev_messages,
-            agent_slug=agent_slug,
-        )
-
-    elif _provider == "xai":
-        streamer = TextStreamingFactory(
-            provider="xai",
-            api_key=XAI_API_KEY,
-            config=config,
-            prev_messages=prev_messages,
-            agent_slug=agent_slug,
-        )
-
-    model_slug = model["slug"]
-
-    content = user_message
-
-    streamer.process_attachments(attachments)
-
-    for chunk in streamer.stream(
-        system=prompt,
-        text=content,
-        model=model_slug,
-    ):
-        yield chunk
-
 
 async def generate_speech_stream(
     text: str,
