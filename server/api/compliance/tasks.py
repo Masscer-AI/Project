@@ -6,7 +6,33 @@ import logging
 
 from celery import shared_task
 
+from api.compliance.document_extraction.errors import public_extraction_error
+
 logger = logging.getLogger(__name__)
+
+
+def _save_extraction_fields(doc, fields: list[str], document_id: str) -> bool:
+    from django.db import DatabaseError
+
+    from api.compliance.models import PLDExpedientDocument
+
+    if not PLDExpedientDocument.objects.filter(pk=document_id).exists():
+        logger.warning(
+            "PLD document %s was deleted during extraction; skipping save",
+            document_id,
+        )
+        return False
+    try:
+        doc.save(update_fields=fields)
+        return True
+    except DatabaseError:
+        if not PLDExpedientDocument.objects.filter(pk=document_id).exists():
+            logger.warning(
+                "PLD document %s was deleted during extraction; skipping save",
+                document_id,
+            )
+            return False
+        raise
 
 
 @shared_task
@@ -36,25 +62,36 @@ def extract_pld_expedient_document(document_id: str):
         doc.extraction_status = PLDExpedientDocument.ExtractionStatus.SUCCEEDED
         doc.extracted_at = timezone.now()
         doc.extraction_error = ""
-        doc.save(
-            update_fields=[
+        if not _save_extraction_fields(
+            doc,
+            [
                 "extracted_payload",
                 "extraction_status",
                 "extracted_at",
                 "extraction_error",
                 "updated_at",
-            ]
-        )
-    except Exception:
+            ],
+            document_id,
+        ):
+            return
+    except Exception as exc:
+        if not PLDExpedientDocument.objects.filter(pk=document_id).exists():
+            logger.warning(
+                "PLD document %s was deleted during extraction; skipping failure save",
+                document_id,
+            )
+            return
         logger.exception("PLD extraction failed for %s", document_id)
         doc.extraction_status = PLDExpedientDocument.ExtractionStatus.FAILED
-        doc.extraction_error = "extraction-failed"
-        doc.save(
-            update_fields=[
+        doc.extraction_error = public_extraction_error(exc)
+        _save_extraction_fields(
+            doc,
+            [
                 "extraction_status",
                 "extraction_error",
                 "updated_at",
-            ]
+            ],
+            document_id,
         )
         return
 

@@ -30,7 +30,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Literal, TypedDict
 
 from openai import OpenAI
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -579,17 +579,16 @@ class OpenAIAgentLoop(BaseAgentLoop):
         try:
             json_data = _extract_json_from_text(text)
             return self.output_schema.model_validate(json_data)
-        except (json.JSONDecodeError, ValueError) as e:
-            logger.info("Direct JSON parse failed (%s), trying AI-assisted parse", e)
+        except (json.JSONDecodeError, ValueError, ValidationError) as e:
+            logger.warning(
+                "Direct JSON parse failed (%s). Final model response:\n%s",
+                e,
+                text,
+            )
 
         try:
-            schema = self.output_schema.model_json_schema()
-            text_format = {
-                "type": "json_schema",
-                "name": self.output_schema.__name__,
-                "schema": schema,
-                "strict": True,
-            }
+            from api.utils.openai_functions import _response_text_format_from_pydantic
+
             parse_response = self.client.responses.create(
                 model=self.repair_model,
                 instructions=(
@@ -597,13 +596,14 @@ class OpenAIAgentLoop(BaseAgentLoop):
                     "Do not change the wording, simply extract and structure the information."
                 ),
                 input=text,
-                text={"format": text_format},
+                text={"format": _response_text_format_from_pydantic(self.output_schema)},
             )
             parsed_text = _extract_output_text(parse_response)
             json_data = _extract_json_from_text(parsed_text)
             return self.output_schema.model_validate(json_data)
         except Exception as parse_error:
             logger.error("AI-assisted parse failed: %s", parse_error)
+            logger.warning("Unparsed final model response:\n%s", text)
             return text
 
     def _emit(self, event_type: str, event_data: dict) -> None:

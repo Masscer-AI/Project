@@ -49,6 +49,24 @@ def _usage_tokens(response) -> tuple[int, int]:
     return prompt, completion
 
 
+def _read_pld_file_bytes(doc) -> bytes:
+    """Read bytes from storage each call; Django FieldFile cannot reopen a closed handle."""
+    field = doc.file
+    if not field:
+        raise ValueError("File content not available")
+    inner = getattr(field, "_file", None)
+    if inner is not None:
+        try:
+            field.close()
+        except Exception:
+            pass
+        field._file = None
+    with field.open("rb") as handle:
+        raw = handle.read()
+    field._file = None
+    return raw
+
+
 def inspect_pld_document_file(
     doc,
     question: str,
@@ -56,11 +74,7 @@ def inspect_pld_document_file(
     billing_user_id: int | None = None,
     organization_id=None,
 ) -> InspectPldDocumentResult:
-    if not doc.file:
-        raise ValueError("File content not available")
-
-    with doc.file.open("rb") as handle:
-        raw = handle.read()
+    raw = _read_pld_file_bytes(doc)
     if not raw:
         raise ValueError("File is empty")
 

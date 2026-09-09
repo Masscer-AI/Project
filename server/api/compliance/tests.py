@@ -825,10 +825,20 @@ class PLDDocumentExtractionTests(TestCase):
                 "full_name": "Ana Lopez",
                 "curp": "LOAA800101MDFXXX09",
                 "rfc": "SHOULD-BE-IGNORED",
+                "provenances": [
+                    {
+                        "campo_id": "ID-nombre_completo",
+                        "valor_extraido": "Ana Lopez",
+                        "pagina_origen": 1,
+                        "confianza_extraccion": 0.9,
+                        "estado_validacion": "extraido",
+                    }
+                ],
             }
         )
         self.assertEqual(parsed.curp, "LOAA800101MDFXXX09")
         self.assertFalse(hasattr(parsed, "rfc"))
+        self.assertEqual(parsed.provenances[0].pagina_origen, "1")
 
     def test_comprobante_age_helper(self):
         from datetime import date, timedelta
@@ -1412,5 +1422,78 @@ class PLDInviteEmailTests(SimpleTestCase):
         self.assertIn("Se pueden cargar despues", html)
         self.assertIn("Excel", html)
         self.assertIn("Completar expediente", html)
+
+
+class PublicExtractionErrorTests(SimpleTestCase):
+    def test_maps_known_messages_to_stable_codes(self):
+        from api.compliance.document_extraction.errors import public_extraction_error
+
+        self.assertEqual(public_extraction_error(ValueError("File is empty")), "file-empty")
+        self.assertEqual(
+            public_extraction_error(ValueError("File content not available")),
+            "file-unavailable",
+        )
+        self.assertEqual(
+            public_extraction_error(ValueError("Extractor did not return structured output")),
+            "no-structured-output",
+        )
+        self.assertEqual(
+            public_extraction_error(ValueError("Failed to analyze document: boom")),
+            "unreadable",
+        )
+        self.assertEqual(public_extraction_error(RuntimeError("timeout")), "extraction-failed")
+        self.assertEqual(
+            public_extraction_error(ValueError("The file cannot be reopened.")),
+            "file-unavailable",
+        )
+
+
+class OfficialIdExtractionSchemaTests(SimpleTestCase):
+    def test_coerces_pagina_origen_int_to_str(self):
+        from api.compliance.document_extraction.schemas import OfficialIdExtraction
+
+        parsed = OfficialIdExtraction.model_validate(
+            {
+                "full_name": "Ana Lopez",
+                "provenances": [
+                    {
+                        "campo_id": "ID-nombre_completo",
+                        "valor_extraido": "Ana Lopez",
+                        "pagina_origen": 1,
+                    }
+                ],
+            }
+        )
+        self.assertEqual(parsed.provenances[0].pagina_origen, "1")
+
+    def test_curp_schema_coerces_pagina_origen_int(self):
+        from api.compliance.document_extraction.schemas import CurpExtraction
+
+        parsed = CurpExtraction.model_validate(
+            {
+                "curp": "LOAA800101MDFXXX09",
+                "provenances": [
+                    {
+                        "campo_id": "CURP-curp",
+                        "valor_extraido": "LOAA800101MDFXXX09",
+                        "pagina_origen": 1,
+                    }
+                ],
+            }
+        )
+        self.assertEqual(parsed.provenances[0].pagina_origen, "1")
+
+    def test_openai_schema_sets_additional_properties_false(self):
+        from api.compliance.document_extraction.schemas import (
+            CurpExtraction,
+            OfficialIdExtraction,
+        )
+        from api.utils.openai_functions import _response_text_format_from_pydantic
+
+        for model in (OfficialIdExtraction, CurpExtraction):
+            fmt = _response_text_format_from_pydantic(model)
+            schema = fmt["schema"]
+            self.assertEqual(schema.get("additionalProperties"), False, model.__name__)
+            self.assertNotIn("$ref", schema, model.__name__)
 
 

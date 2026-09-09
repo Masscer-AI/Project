@@ -4,10 +4,12 @@ import toast from "react-hot-toast";
 import {
   Accordion,
   ActionIcon,
+  Alert,
   Badge,
   Button,
   FileInput,
   Group,
+  Loader,
   Stack,
   Text,
 } from "@mantine/core";
@@ -19,118 +21,53 @@ import {
   TPldDocumentSlot,
   uploadMyPldExpedientDocument,
 } from "../../../modules/apiCalls";
+import {
+  extractionLines,
+  PldExtractionDebugModal,
+} from "./PldExtractionDebugModal";
 
 const ACCEPT = "application/pdf,image/jpeg,image/png,image/webp,application/xml,text/xml,application/zip,.pdf,.jpg,.jpeg,.png,.webp,.xml,.zip";
 
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (value && typeof value === "object" && !Array.isArray(value)) {
-    return value as Record<string, unknown>;
+function requiredSlotsReady(row: TMyPldExpedient): boolean {
+  const required = (row.document_slots || []).filter((slot) => slot.required);
+  return (
+    required.length > 0 &&
+    required.every((slot) => slot.document?.extraction_status === "succeeded")
+  );
+}
+
+function slotStatusColor(slot: TPldDocumentSlot): string {
+  const status = slot.document?.extraction_status;
+  if (status === "succeeded") return "teal";
+  if (status === "failed") return "red";
+  if (slot.document) return "violet";
+  return slot.required ? "violet" : "gray";
+}
+
+function slotIsExtracting(slot: TPldDocumentSlot): boolean {
+  const status = slot.document?.extraction_status;
+  return Boolean(slot.document) && status !== "succeeded" && status !== "failed";
+}
+
+function slotStatusLabel(
+  t: (key: string) => string,
+  slot: TPldDocumentSlot
+): string {
+  const status = slot.document?.extraction_status;
+  if (status === "succeeded") return t("compliance-dossier-extracted");
+  if (status === "failed") return t("compliance-dossier-extract-failed");
+  if (status === "pending" || slot.document) {
+    return t("compliance-dossier-extract-pending");
   }
-  return null;
+  return slot.required
+    ? t("compliance-doc-required")
+    : t("compliance-doc-optional");
 }
 
-function filledText(value: unknown): string | null {
-  if (typeof value === "string" && value.trim()) return value.trim();
-  if (typeof value === "number" && Number.isFinite(value)) return String(value);
-  if (typeof value === "boolean") return value ? "si" : "no";
-  return null;
-}
-
-function formatAddress(value: unknown): string | null {
-  const row = asRecord(value);
-  if (!row) return filledText(value);
-  const parts = [
-    row.street,
-    row.exterior_number,
-    row.interior_number,
-    row.neighborhood,
-    row.municipality,
-    row.city,
-    row.state,
-    row.postal_code,
-    row.country,
-    row.raw_text,
-  ]
-    .map(filledText)
-    .filter((part): part is string => Boolean(part));
-  return parts.length > 0 ? [...new Set(parts)].join(", ") : null;
-}
-
-function formatPeople(value: unknown): string | null {
-  if (!Array.isArray(value) || value.length === 0) return null;
-  const parts = value
-    .map((item) => {
-      const row = asRecord(item);
-      if (!row) return filledText(item);
-      const name =
-        filledText(row.name) ||
-        filledText(row.full_name) ||
-        filledText(row.attorney_name) ||
-        filledText(row.legal_name_or_full_name);
-      const extra =
-        filledText(row.ownership_percentage) ||
-        filledText(row.role) ||
-        filledText(row.rfc);
-      if (name && extra) return `${name} (${extra})`;
-      return name;
-    })
-    .filter((part): part is string => Boolean(part));
-  return parts.length > 0 ? parts.join(" · ") : null;
-}
-
-function extractionLines(
-  payload: Record<string, unknown> | undefined
-): { key: string; value: string }[] {
-  const row = payload || {};
-  const skip = new Set([
-    "name_matches_client_hint",
-    "photo_present",
-    "signature_present",
-    "ownership_may_be_stale",
-    "provenances",
-    "_meta",
-  ]);
-  const lines: { key: string; value: string }[] = [];
-  const push = (key: string, raw: unknown) => {
-    if (skip.has(key) || raw == null || raw === "") return;
-    if (key === "address" || key.endsWith("_address") || key === "tax_address" || key === "service_address" || key === "registered_address") {
-      const formatted = formatAddress(raw);
-      if (formatted) lines.push({ key, value: formatted });
-      return;
-    }
-    if (key === "notary") {
-      const formatted = formatAddress(raw) || formatPeople([raw]);
-      const notary = asRecord(raw);
-      const bits = notary
-        ? [
-            filledText(notary.name),
-            filledText(notary.notaria_number),
-            filledText(notary.escritura_number),
-            filledText(notary.city),
-          ].filter((part): part is string => Boolean(part))
-        : [];
-      if (bits.length > 0) lines.push({ key, value: bits.join(" · ") });
-      else if (formatted) lines.push({ key, value: formatted });
-      return;
-    }
-    if (Array.isArray(raw)) {
-      if (raw.every((item) => typeof item === "string")) {
-        const joined = raw.map(filledText).filter((part): part is string => Boolean(part));
-        if (joined.length > 0) lines.push({ key, value: joined.join(" · ") });
-        return;
-      }
-      const formatted = formatPeople(raw);
-      if (formatted) lines.push({ key, value: formatted });
-      return;
-    }
-    const text = filledText(raw);
-    if (text) lines.push({ key, value: text });
-  };
-  Object.entries(row).forEach(([key, value]) => push(key, value));
-  return lines;
-}
-
-function slotLabel(t: (key: string, options?: Record<string, unknown>) => string, slot: TPldDocumentSlot) {
+function slotLabel(
+  t: (key: string, options?: Record<string, unknown>) => string,
+  slot: TPldDocumentSlot
+) {
   return t(`compliance-doc-slot-${slot.document_kind}`, {
     name: slot.label_name || "",
     defaultValue: slot.document_kind,
@@ -148,9 +85,20 @@ export function PldDocumentCollection({
 }) {
   const { t } = useTranslation();
   const [busySlot, setBusySlot] = useState<string | null>(null);
+  const [inspectSlot, setInspectSlot] = useState<TPldDocumentSlot | null>(null);
   const slots = row.document_slots || [];
   const required = slots.filter((slot) => slot.required);
   const uploadedRequired = required.filter((slot) => slot.document).length;
+  const requiredFailed = required.some(
+    (slot) => slot.document?.extraction_status === "failed"
+  );
+  const requiredPending = required.some(
+    (slot) =>
+      Boolean(slot.document) &&
+      slot.document?.extraction_status !== "succeeded" &&
+      slot.document?.extraction_status !== "failed"
+  );
+  const canContinue = requiredSlotsReady(row);
   const documentsUnlocked =
     row.expedient?.status && row.expedient.status !== "data_collection";
   const onSavedRef = useRef(onSaved);
@@ -242,7 +190,9 @@ export function PldDocumentCollection({
             <Badge
               size="xs"
               variant="light"
-              color={uploadedRequired === required.length && required.length > 0 ? "teal" : "violet"}
+              color={
+                canContinue ? "teal" : requiredFailed ? "red" : "violet"
+              }
             >
               {required.length > 0
                 ? t("compliance-doc-progress", {
@@ -258,6 +208,20 @@ export function PldDocumentCollection({
       <Text size="sm" c="dimmed">
         {t("compliance-doc-description")}
       </Text>
+      {requiredPending && !requiredFailed && (
+        <Alert
+          color="violet"
+          variant="light"
+          icon={<Loader size={16} type="oval" color="currentColor" />}
+        >
+          {t("compliance-doc-wait-extract")}
+        </Alert>
+      )}
+      {requiredFailed && (
+        <Alert color="red" variant="light">
+          {t("compliance-doc-extract-blocked")}
+        </Alert>
+      )}
       {slots.map((slot) => (
         <Stack key={slot.slot_key} gap={6}>
           <Group justify="space-between" gap="xs" wrap="nowrap">
@@ -267,13 +231,24 @@ export function PldDocumentCollection({
             <Badge
               size="xs"
               variant="light"
-              color={slot.document ? "green" : slot.required ? "violet" : "gray"}
+              color={slotStatusColor(slot)}
+              style={
+                slot.document?.extraction_status === "succeeded"
+                  ? { cursor: "pointer" }
+                  : undefined
+              }
+              leftSection={
+                slotIsExtracting(slot) ? (
+                  <Loader size={10} color="violet" type="oval" />
+                ) : undefined
+              }
+              onClick={() => {
+                if (slot.document?.extraction_status === "succeeded") {
+                  setInspectSlot(slot);
+                }
+              }}
             >
-              {slot.document
-                ? t("compliance-doc-uploaded-badge")
-                : slot.required
-                  ? t("compliance-doc-required")
-                  : t("compliance-doc-optional")}
+              {slotStatusLabel(t, slot)}
             </Badge>
           </Group>
           {slot.document ? (
@@ -293,6 +268,16 @@ export function PldDocumentCollection({
                   <IconTrash size={16} />
                 </ActionIcon>
               </Group>
+              {slot.document.extraction_status === "failed" && (
+                <Text size="xs" c="red">
+                  {t(
+                    `compliance-doc-error-${slot.document.extraction_error || "extraction-failed"}`,
+                    {
+                      defaultValue: t("compliance-doc-error-extraction-failed"),
+                    }
+                  )}
+                </Text>
+              )}
               {slot.document.extraction_status === "succeeded" && (
                 <Stack gap={2}>
                   {extractionLines(slot.document.extracted_payload).map((line) => (
@@ -323,10 +308,20 @@ export function PldDocumentCollection({
         </Stack>
       ))}
       {uploadedRequired === required.length && required.length > 0 && (
-        <Button color="violet" mt="sm" onClick={onContinue}>
+        <Button
+          color="violet"
+          mt="sm"
+          disabled={!canContinue}
+          onClick={onContinue}
+        >
           {t("compliance-doc-continue")}
         </Button>
       )}
+      <PldExtractionDebugModal
+        slot={inspectSlot}
+        opened={Boolean(inspectSlot)}
+        onClose={() => setInspectSlot(null)}
+      />
           </Stack>
         </Accordion.Panel>
       </Accordion.Item>

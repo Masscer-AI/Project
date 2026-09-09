@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
-import { Alert, Badge, Button, Group, List, Stack, Text, Title } from "@mantine/core";
-import { IconLoader2 } from "@tabler/icons-react";
+import { Alert, Badge, Button, Group, List, Loader, Stack, Text, Title } from "@mantine/core";
 import {
   confirmMyPldDocuments,
   listMyPldExpedients,
@@ -10,6 +9,7 @@ import {
   TPldDocumentSlot,
 } from "../../../modules/apiCalls";
 import { PldClarificationRequests } from "./PldClarificationRequests";
+import { PldExtractionDebugModal } from "./PldExtractionDebugModal";
 
 function text(value: unknown): string {
   if (typeof value === "string" && value.trim()) return value.trim();
@@ -79,6 +79,7 @@ export function PldIdentificationDossier({
 }) {
   const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
+  const [inspectSlot, setInspectSlot] = useState<TPldDocumentSlot | null>(null);
   const metadata = row.metadata || {};
   const slots = row.document_slots || [];
   const required = slots.filter((slot) => slot.required);
@@ -166,11 +167,12 @@ export function PldIdentificationDossier({
       <Title order={4}>{t("compliance-dossier-title")}</Title>
       <Text size="sm">{t("compliance-dossier-intro")}</Text>
       {pending && !failed && (
-        <Alert color="violet" variant="light">
-          <Group gap="xs">
-            <IconLoader2 size={16} />
-            <Text size="sm">{t("compliance-dossier-extracting")}</Text>
-          </Group>
+        <Alert
+          color="violet"
+          variant="light"
+          icon={<Loader size={16} type="oval" color="currentColor" />}
+        >
+          {t("compliance-dossier-extracting")}
         </Alert>
       )}
       {failed && (
@@ -179,11 +181,12 @@ export function PldIdentificationDossier({
         </Alert>
       )}
       {prequalPending && ready && (
-        <Alert color="violet" variant="light">
-          <Group gap="xs">
-            <IconLoader2 size={16} />
-            <Text size="sm">{t("compliance-prequal-running")}</Text>
-          </Group>
+        <Alert
+          color="violet"
+          variant="light"
+          icon={<Loader size={16} type="oval" color="currentColor" />}
+        >
+          {t("compliance-prequal-running")}
         </Alert>
       )}
       {row.expedient?.prequalification_status === "failed" && (
@@ -200,11 +203,12 @@ export function PldIdentificationDossier({
         </Alert>
       )}
       {row.expedient?.screening_status === "pending" && (
-        <Alert color="violet" variant="light">
-          <Group gap="xs">
-            <IconLoader2 size={16} />
-            <Text size="sm">{t("compliance-screening-running")}</Text>
-          </Group>
+        <Alert
+          color="violet"
+          variant="light"
+          icon={<Loader size={16} type="oval" color="currentColor" />}
+        >
+          {t("compliance-screening-running")}
         </Alert>
       )}
       {row.expedient?.screening_status === "failed" && (
@@ -276,6 +280,23 @@ export function PldIdentificationDossier({
                     ? "red"
                     : "violet"
               }
+              style={
+                slot.document?.extraction_status === "succeeded"
+                  ? { cursor: "pointer" }
+                  : undefined
+              }
+              leftSection={
+                slot.document?.extraction_status !== "succeeded" &&
+                slot.document?.extraction_status !== "failed" &&
+                slot.document ? (
+                  <Loader size={10} color="violet" type="oval" />
+                ) : undefined
+              }
+              onClick={() => {
+                if (slot.document?.extraction_status === "succeeded") {
+                  setInspectSlot(slot);
+                }
+              }}
             >
               {slot.document?.extraction_status === "succeeded"
                 ? t("compliance-dossier-extracted")
@@ -287,7 +308,15 @@ export function PldIdentificationDossier({
         ))}
       </Stack>
       {waitingSign && (
-        <Alert color="violet" variant="light">
+        <Alert
+          color="violet"
+          variant="light"
+          icon={
+            row.expedient?.signing?.url ? undefined : (
+              <Loader size={16} type="oval" color="currentColor" />
+            )
+          }
+        >
           <Stack gap="xs">
             <Text size="sm" fw={600}>
               {t("compliance-sign-title")}
@@ -303,10 +332,7 @@ export function PldIdentificationDossier({
                 {t("compliance-sign-cta")}
               </Button>
             ) : (
-              <Group gap="xs">
-                <IconLoader2 size={16} />
-                <Text size="sm">{t("compliance-sign-preparing")}</Text>
-              </Group>
+              <Text size="sm">{t("compliance-sign-preparing")}</Text>
             )}
             {row.expedient?.signing?.status === "rejected" ||
             row.expedient?.signing?.status === "error" ? (
@@ -341,6 +367,11 @@ export function PldIdentificationDossier({
           </Button>
         </Group>
       )}
+      <PldExtractionDebugModal
+        slot={inspectSlot}
+        opened={Boolean(inspectSlot)}
+        onClose={() => setInspectSlot(null)}
+      />
     </Stack>
   );
 }

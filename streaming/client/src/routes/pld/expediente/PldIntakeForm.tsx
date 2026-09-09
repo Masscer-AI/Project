@@ -5,6 +5,7 @@ import {
   ActionIcon,
   Badge,
   Button,
+  Card,
   Group,
   Loader,
   NativeSelect,
@@ -1067,79 +1068,70 @@ export function PldIntakeForm({
                 />
               )}
               {(isMoral || !form.is_own_controller) && (
-                <Stack gap="sm">
+                <Stack gap="md">
                   {form.controllers.map((row, index) => (
-                    <Stack key={index} gap="xs">
-                      <Group align="flex-end" wrap="nowrap" gap="xs">
-                        <TextInput
-                          style={{ flex: 1 }}
-                          label={
-                            index === 0
-                              ? t("compliance-intake-controller-name")
-                              : undefined
-                          }
-                          required={index === 0}
-                          value={row.name}
-                          onChange={(e) =>
-                            setController(index, "name", e.currentTarget.value)
-                          }
-                        />
-                        <TextInput
-                          style={{ flex: 1 }}
-                          type="email"
-                          label={
-                            index === 0
-                              ? t("compliance-intake-controller-email")
-                              : undefined
-                          }
-                          required={index === 0}
-                          value={row.email}
-                          onChange={(e) =>
-                            setController(index, "email", e.currentTarget.value)
-                          }
-                        />
-                        <ActionIcon
-                          variant="subtle"
-                          color="gray"
-                          mb={4}
-                          aria-label={t("compliance-intake-remove-controller")}
-                          onClick={() => removeController(index)}
-                          disabled={form.controllers.length === 1}
-                        >
-                          <IconTrash size={16} />
-                        </ActionIcon>
-                      </Group>
-                      <Group align="flex-end" wrap="nowrap" gap="xs">
-                        <TextInput
-                          style={{ flex: 1 }}
-                          label={
-                            index === 0
-                              ? t("compliance-intake-rfc-controller")
-                              : undefined
-                          }
-                          value={row.rfc}
-                          onChange={(e) =>
-                            setController(index, "rfc", e.currentTarget.value)
-                          }
-                        />
-                        <TextInput
-                          style={{ flex: 1 }}
-                          label={
-                            index === 0
-                              ? t("compliance-intake-ownership")
-                              : undefined
-                          }
-                          value={row.ownership}
-                          onChange={(e) =>
-                            setController(
-                              index,
-                              "ownership",
-                              e.currentTarget.value
-                            )
-                          }
-                        />
-                      </Group>
-                    </Stack>
+                    <Card key={index} withBorder padding="sm" radius="md">
+                      <Stack gap="xs">
+                        <Group justify="space-between" wrap="nowrap">
+                          <Text size="sm" fw={500}>
+                            {t("compliance-intake-controller")} {index + 1}
+                          </Text>
+                          <ActionIcon
+                            variant="subtle"
+                            color="gray"
+                            size="sm"
+                            aria-label={t("compliance-intake-remove-controller")}
+                            onClick={() => removeController(index)}
+                            disabled={form.controllers.length === 1}
+                          >
+                            <IconTrash size={16} />
+                          </ActionIcon>
+                        </Group>
+                        <Group align="flex-end" wrap="nowrap" gap="xs">
+                          <TextInput
+                            style={{ flex: 1 }}
+                            label={t("compliance-intake-controller-name")}
+                            required
+                            value={row.name}
+                            onChange={(e) =>
+                              setController(index, "name", e.currentTarget.value)
+                            }
+                          />
+                          <TextInput
+                            style={{ flex: 1 }}
+                            type="email"
+                            label={t("compliance-intake-controller-email")}
+                            required
+                            value={row.email}
+                            onChange={(e) =>
+                              setController(index, "email", e.currentTarget.value)
+                            }
+                          />
+                        </Group>
+                        <Group align="flex-end" wrap="nowrap" gap="xs">
+                          <TextInput
+                            style={{ flex: 1 }}
+                            label={t("compliance-intake-rfc-controller")}
+                            value={row.rfc}
+                            onChange={(e) =>
+                              setController(index, "rfc", e.currentTarget.value)
+                            }
+                          />
+                          <TextInput
+                            style={{ flex: 1 }}
+                            label={t("compliance-intake-ownership")}
+                            value={row.ownership}
+                            onChange={(e) =>
+                              setController(
+                                index,
+                                "ownership",
+                                e.currentTarget.value
+                              )
+                            }
+                          />
+                        </Group>
+                      </Stack>
+                    </Card>
                   ))}
                   <Button
                     variant="default"

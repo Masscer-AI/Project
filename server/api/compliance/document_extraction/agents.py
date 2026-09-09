@@ -21,8 +21,8 @@ _SHARED_RULES = (
     "Call inspect_pld_document with focused questions until you can fill the schema. "
     "Dates as YYYY-MM-DD when possible. "
     "Fill provenances: one row per spec campo_id you extract (see field descriptions), "
-    "with pagina_origen, texto_origen snippet, confianza_extraccion 0-1, and "
-    "estado_validacion extraido or no_encontrado."
+    "with pagina_origen as a string (e.g. \"1\"), texto_origen snippet, "
+    "confianza_extraccion 0-1, and estado_validacion extraido or no_encontrado."
 )
 
 INSTRUCTIONS_BY_KIND = {
@@ -217,6 +217,14 @@ def extract_document(doc) -> PldExtraction:
 
     output = result.output
     if not isinstance(output, schema):
+        preview = output if isinstance(output, str) else repr(output)
+        logger.warning(
+            "PLD extraction final response was not %s (kind=%s doc=%s):\n%s",
+            schema.__name__,
+            kind,
+            getattr(doc, "pk", None),
+            preview,
+        )
         raise ValueError("Extractor did not return structured output")
 
     if isinstance(output, ComprobanteDomicilioExtraction):

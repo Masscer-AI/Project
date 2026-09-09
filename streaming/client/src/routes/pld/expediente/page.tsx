@@ -106,10 +106,16 @@ export default function MyPldExpedientePage() {
                   row.expedient?.status === "waiting_sign" ||
                   row.expedient?.status === "signed" ||
                   row.expedient?.status === "delivered" ||
-                  reviewingIds[row.id] ||
-                  (row.clarification_requests || []).some(
-                    (item) => item.status === "open"
-                  ) ? (
+                  ((reviewingIds[row.id] ||
+                    (row.clarification_requests || []).some(
+                      (item) => item.status === "open"
+                    )) &&
+                    (row.document_slots || [])
+                      .filter((slot) => slot.required)
+                      .every(
+                        (slot) =>
+                          slot.document?.extraction_status === "succeeded"
+                      )) ? (
                     <PldIdentificationDossier
                       row={row}
                       onSaved={(next) =>

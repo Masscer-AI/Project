@@ -103,6 +103,26 @@ def _extract_output_text(response) -> str:
                     chunks.append(raw)
     return "".join(chunks).strip()
 
+def _inline_root_json_schema_ref(schema: dict) -> dict:
+    """OpenAI strict schemas cannot be a bare $ref at the root."""
+    ref = schema.get("$ref")
+    if not isinstance(ref, str):
+        return schema
+    defs = schema.get("$defs") or schema.get("definitions") or {}
+    name = ref.rsplit("/", 1)[-1]
+    target = defs.get(name)
+    if not isinstance(target, dict):
+        return schema
+    inlined = dict(target)
+    for key, value in schema.items():
+        if key == "$ref":
+            continue
+        if key in ("$defs", "definitions") and key in inlined:
+            continue
+        inlined[key] = value
+    return inlined
+
+
 def _fix_schema_for_openai_strict(schema: dict) -> dict:
     """Recursively patch a JSON schema so it passes OpenAI strict-mode validation.
 
@@ -112,6 +132,8 @@ def _fix_schema_for_openai_strict(schema: dict) -> dict:
     """
     if not isinstance(schema, dict):
         return schema
+
+    schema = _inline_root_json_schema_ref(schema)
 
     if schema.get("type") == "object" or "properties" in schema:
         schema["additionalProperties"] = False
