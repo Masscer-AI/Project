@@ -938,6 +938,13 @@ class PLDDocumentExtractionTests(TestCase):
         kwargs = create_loop.call_args.kwargs
         self.assertEqual(kwargs["model"], "gpt-5.6-luna")
         self.assertEqual(kwargs["repair_model"], "gpt-5.6-luna")
+        self.assertEqual(kwargs["tools"], [])
+        self.assertEqual(kwargs["max_iterations"], 2)
+        run_payload = loop.run.call_args[0][0]
+        content = run_payload[0]["content"]
+        self.assertEqual(content[0]["type"], "input_text")
+        self.assertEqual(content[1]["type"], "input_file")
+        self.assertIn("file_data", content[1])
         self.assertEqual(doc.extracted_payload["_meta"]["document_id"], str(doc.id))
         self.assertEqual(
             doc.extracted_payload["_meta"]["nombre_archivo"], "acta.pdf"
@@ -1446,6 +1453,63 @@ class PublicExtractionErrorTests(SimpleTestCase):
             public_extraction_error(ValueError("The file cannot be reopened.")),
             "file-unavailable",
         )
+
+
+class ExtractionHydrateTests(SimpleTestCase):
+    def test_fills_acta_fields_from_sociedad_provenances(self):
+        from api.compliance.document_extraction.hydrate import hydrate_extraction
+        from api.compliance.document_extraction.schemas import ActaConstitutivaExtraction
+
+        empty = ActaConstitutivaExtraction.model_validate(
+            {
+                "provenances": [
+                    {
+                        "campo_id": "sociedad.razon_social",
+                        "texto_origen": "The Ai Labs, S.A. de C.V.",
+                        "estado_validacion": "extraido",
+                    },
+                    {
+                        "campo_id": "sociedad.rfc",
+                        "texto_origen": "RFC de la Persona Moral 123123123",
+                        "estado_validacion": "extraido",
+                    },
+                    {
+                        "campo_id": "sociedad.domicilio_social",
+                        "texto_origen": "Calle 123 Centro CDMX",
+                        "estado_validacion": "extraido",
+                    },
+                    {
+                        "campo_id": "sociedad.capital_social.monto",
+                        "texto_origen": "sin monto",
+                        "estado_validacion": "no_encontrado",
+                    },
+                ]
+            }
+        )
+        filled = hydrate_extraction(empty, "acta_constitutiva")
+        self.assertEqual(filled.legal_name, "The Ai Labs, S.A. de C.V.")
+        self.assertEqual(filled.rfc, "RFC de la Persona Moral 123123123")
+        self.assertEqual(filled.registered_address.raw_text, "Calle 123 Centro CDMX")
+        self.assertIsNone(filled.share_capital_amount)
+
+
+class ExtractionInputTests(SimpleTestCase):
+    def test_pdf_is_attached_as_input_file(self):
+        from django.core.files.base import ContentFile
+
+        from api.compliance.document_extraction.inspect_tool import extraction_user_content
+
+        class _Doc:
+            content_type = "application/pdf"
+            original_filename = "acta.pdf"
+            file = ContentFile(b"%PDF-1.4", name="acta.pdf")
+
+        content = extraction_user_content(_Doc(), "Extract this")
+        self.assertEqual(content[0]["type"], "input_text")
+        self.assertEqual(content[1]["type"], "input_file")
+        self.assertTrue(content[1]["file_data"].startswith("data:application/pdf;base64,"))
+
+
 
 
 class OfficialIdExtractionSchemaTests(SimpleTestCase):

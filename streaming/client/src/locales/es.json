@@ -1142,6 +1142,7 @@
   "compliance-dossier-extract-pending": "Extrayendo",
   "compliance-dossier-extract-failed": "Fallo",
   "compliance-dossier-back": "Volver a documentos",
+  "compliance-dossier-confirm": "Confirmar identificacion",
   "compliance-dossier-confirmed": "Expediente listo para validacion y clasificacion de riesgo",
   "compliance-dossier-confirm-error": "Aun no se puede continuar. Espera a que termine la extraccion.",
   "compliance-dossier-next-lists": "Estamos validando tu expediente. Si hace falta algun dato, te lo pediremos aqui. No es necesario que hagas nada mas por ahora.",

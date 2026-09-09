@@ -353,7 +353,7 @@ export function PldIdentificationDossier({
       ) : hideConfirm ? null : (
         <Group>
           {onBack ? (
-            <Button variant="default" onClick={onBack}>
+            <Button type="button" variant="default" onClick={onBack}>
               {t("compliance-dossier-back")}
             </Button>
           ) : null}

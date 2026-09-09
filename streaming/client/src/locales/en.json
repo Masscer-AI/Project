@@ -1140,6 +1140,7 @@
   "compliance-dossier-extract-pending": "Extracting",
   "compliance-dossier-extract-failed": "Failed",
   "compliance-dossier-back": "Back to documents",
+  "compliance-dossier-confirm": "Confirm identification",
   "compliance-dossier-confirmed": "Expediente ready for validation and risk classification",
   "compliance-dossier-confirm-error": "Cannot continue yet. Wait until extraction finishes.",
   "compliance-dossier-next-lists": "We are reviewing your expediente. If anything else is needed, we will ask here. You do not need to do anything else for now.",

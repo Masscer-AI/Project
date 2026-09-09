@@ -6,7 +6,8 @@ import logging
 from datetime import date, timedelta
 
 from api.compliance.document_extraction.constants import PLD_EXTRACTION_MODEL_SLUG
-from api.compliance.document_extraction.inspect_tool import make_inspect_tool
+from api.compliance.document_extraction.hydrate import hydrate_extraction
+from api.compliance.document_extraction.inspect_tool import extraction_user_content
 from api.compliance.document_extraction.schemas import (
     ComprobanteDomicilioExtraction,
     PldExtraction,
@@ -16,13 +17,15 @@ from api.compliance.document_extraction.schemas import (
 logger = logging.getLogger(__name__)
 
 _SHARED_RULES = (
-    "Extract only what is visible in the file. Use null when a field is not present. "
-    "Never invent RFC, CURP, dates, or ownership percentages. "
-    "Call inspect_pld_document with focused questions until you can fill the schema. "
-    "Dates as YYYY-MM-DD when possible. "
-    "Fill provenances: one row per spec campo_id you extract (see field descriptions), "
-    "with pagina_origen as a string (e.g. \"1\"), texto_origen snippet, "
-    "confianza_extraccion 0-1, and estado_validacion extraido or no_encontrado."
+    "The document is attached to this message. Do not call tools. "
+    "Fill the JSON schema properties first; they are the source of truth "
+    "(legal_name, full_name, rfc, curp, shareholders, administrators, addresses, dates). "
+    "If a value is visible, extract it even if the file is labeled sample, draft, or ficticio. "
+    "Use null only when the field is not visible. Never invent RFC, CURP, dates, or "
+    "ownership percentages. Dates as YYYY-MM-DD when possible. "
+    "Provenances are citations only: campo_id must match the schema field description "
+    "(e.g. ACTA-denominacion_social), valor_extraido must be the same value you put in "
+    "the schema field, pagina_origen as a string (e.g. \"1\"), plus a short texto_origen snippet."
 )
 
 INSTRUCTIONS_BY_KIND = {
@@ -176,28 +179,24 @@ def extract_document(doc) -> PldExtraction:
 
     loop = AgentLoop.create(
         provider="openai",
-        tools=[
-            make_inspect_tool(
-                doc,
-                billing_user_id=billing_user_id,
-                organization_id=organization_id,
-            )
-        ],
+        tools=[],
         instructions=instructions,
         model=PLD_EXTRACTION_MODEL_SLUG,
         output_schema=schema,
-        max_iterations=4,
+        max_iterations=2,
         repair_model=PLD_EXTRACTION_MODEL_SLUG,
+    )
+    prompt = (
+        f"Extract structured fields from this {kind} document "
+        f"({doc.original_filename or 'upload'}). "
+        "Read the attached file and return JSON matching the schema. "
+        "Populate schema fields; do not only fill provenances."
     )
     result = loop.run(
         [
             {
                 "role": "user",
-                "content": (
-                    f"Extract structured fields from this {kind} document "
-                    f"({doc.original_filename or 'upload'}). "
-                    "Inspect the file, then return JSON matching the schema."
-                ),
+                "content": extraction_user_content(doc, prompt),
             }
         ]
     )
@@ -226,6 +225,8 @@ def extract_document(doc) -> PldExtraction:
             preview,
         )
         raise ValueError("Extractor did not return structured output")
+
+    output = hydrate_extraction(output, kind)
 
     if isinstance(output, ComprobanteDomicilioExtraction):
         output.older_than_three_months = _older_than_three_months(

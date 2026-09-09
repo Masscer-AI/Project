@@ -20,6 +20,26 @@ import { PldDocumentCollection } from "./PldDocumentCollection";
 import { PldIdentificationDossier } from "./PldIdentificationDossier";
 import { PldIntakeForm } from "./PldIntakeForm";
 
+const DOSSIER_LOCKED_STATUSES = new Set([
+  "waiting_sign",
+  "signed",
+  "delivered",
+]);
+
+const DOSSIER_DEFAULT_STATUSES = new Set([
+  "action_required",
+  "cross_reference",
+  "waiting_sign",
+  "signed",
+  "delivered",
+]);
+
+function shouldStartOnDossier(row: TMyPldExpedient): boolean {
+  const status = row.expedient?.status;
+  if (status && DOSSIER_DEFAULT_STATUSES.has(status)) return true;
+  return (row.clarification_requests || []).some((item) => item.status === "open");
+}
+
 export default function MyPldExpedientePage() {
   const { t } = useTranslation();
   const { chatState, toggleSidebar } = useStore((s) => ({
@@ -39,6 +59,22 @@ export default function MyPldExpedientePage() {
       })
       .finally(() => setLoading(false));
   }, [t]);
+
+  useEffect(() => {
+    if (loading) return;
+    setReviewingIds((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const row of rows) {
+        if (row.id in next) continue;
+        if (shouldStartOnDossier(row)) {
+          next[row.id] = true;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [loading, rows]);
 
   return (
     <main className="d-flex pos-relative h-viewport">
@@ -101,21 +137,8 @@ export default function MyPldExpedientePage() {
                       </Badge>
                     )}
                   </Group>
-                  {row.expedient?.status === "cross_reference" ||
-                  row.expedient?.status === "action_required" ||
-                  row.expedient?.status === "waiting_sign" ||
-                  row.expedient?.status === "signed" ||
-                  row.expedient?.status === "delivered" ||
-                  ((reviewingIds[row.id] ||
-                    (row.clarification_requests || []).some(
-                      (item) => item.status === "open"
-                    )) &&
-                    (row.document_slots || [])
-                      .filter((slot) => slot.required)
-                      .every(
-                        (slot) =>
-                          slot.document?.extraction_status === "succeeded"
-                      )) ? (
+                  {reviewingIds[row.id] ||
+                  DOSSIER_LOCKED_STATUSES.has(row.expedient?.status || "") ? (
                     <PldIdentificationDossier
                       row={row}
                       onSaved={(next) =>
@@ -124,10 +147,7 @@ export default function MyPldExpedientePage() {
                         )
                       }
                       onBack={
-                        row.expedient?.status === "cross_reference" ||
-                        row.expedient?.status === "waiting_sign" ||
-                        row.expedient?.status === "signed" ||
-                        row.expedient?.status === "delivered"
+                        DOSSIER_LOCKED_STATUSES.has(row.expedient?.status || "")
                           ? undefined
                           : () =>
                               setReviewingIds((prev) => ({

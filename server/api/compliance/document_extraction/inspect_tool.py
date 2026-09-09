@@ -67,6 +67,49 @@ def _read_pld_file_bytes(doc) -> bytes:
     return raw
 
 
+def _filename_and_mime(doc) -> tuple[str, str]:
+    mime = (doc.content_type or "application/octet-stream").split(";")[0].strip()
+    filename = doc.original_filename or (
+        doc.file.name.split("/")[-1] if getattr(doc.file, "name", None) else "document"
+    )
+    return filename, mime
+
+
+def extraction_user_content(doc, prompt: str) -> list[dict]:
+    """Attach the uploaded file to the extractor's first user message."""
+    raw = _read_pld_file_bytes(doc)
+    if not raw:
+        raise ValueError("File is empty")
+    filename, mime = _filename_and_mime(doc)
+    lowered = filename.lower()
+    text_like = mime in {"text/plain", "text/xml", "application/xml", "application/json"} or lowered.endswith(
+        (".xml", ".txt", ".json")
+    )
+    if text_like:
+        try:
+            decoded = raw.decode("utf-8")
+        except UnicodeDecodeError:
+            decoded = raw.decode("latin-1")
+        return [
+            {"type": "input_text", "text": prompt},
+            {"type": "input_text", "text": decoded[:200000]},
+        ]
+    b64 = base64.b64encode(raw).decode("ascii")
+    if mime.startswith("image/"):
+        return [
+            {"type": "input_text", "text": prompt},
+            {"type": "input_image", "image_url": f"data:{mime};base64,{b64}"},
+        ]
+    return [
+        {"type": "input_text", "text": prompt},
+        {
+            "type": "input_file",
+            "filename": filename,
+            "file_data": f"data:{mime};base64,{b64}",
+        },
+    ]
+
+
 def inspect_pld_document_file(
     doc,
     question: str,
