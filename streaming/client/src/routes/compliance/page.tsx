@@ -212,11 +212,31 @@ export default function ComplianceHubPage() {
                   </Text>
                 </Stack>
                 {selfEntity.expedient && (
-                  <Badge variant="light" color="violet">
-                    {t(`compliance-status-${selfEntity.expedient.status}`, {
-                      defaultValue: selfEntity.expedient.status,
-                    })}
-                  </Badge>
+                  <Group gap="xs">
+                    <Badge variant="light" color="violet">
+                      {t(`compliance-status-${selfEntity.expedient.status}`, {
+                        defaultValue: selfEntity.expedient.status,
+                      })}
+                    </Badge>
+                    {selfEntity.expedient.semaphore ? (
+                      <Badge
+                        variant="light"
+                        color={
+                          selfEntity.expedient.semaphore === "green"
+                            ? "teal"
+                            : selfEntity.expedient.semaphore === "red"
+                              ? "red"
+                              : selfEntity.expedient.semaphore === "orange"
+                                ? "orange"
+                                : "yellow"
+                        }
+                      >
+                        {t(`compliance-risk-${selfEntity.expedient.semaphore}`, {
+                          defaultValue: selfEntity.expedient.semaphore,
+                        })}
+                      </Badge>
+                    ) : null}
+                  </Group>
                 )}
               </Group>
             </Card>
@@ -274,6 +294,26 @@ export default function ComplianceHubPage() {
                             })}
                           </Badge>
                         )}
+                        {entity.expedient?.semaphore ? (
+                          <Badge
+                            variant="light"
+                            color={
+                              entity.expedient.semaphore === "green"
+                                ? "teal"
+                                : entity.expedient.semaphore === "yellow"
+                                  ? "yellow"
+                                  : entity.expedient.semaphore === "orange"
+                                    ? "orange"
+                                    : entity.expedient.semaphore === "red"
+                                      ? "red"
+                                      : "gray"
+                            }
+                          >
+                            {t(`compliance-risk-${entity.expedient.semaphore}`, {
+                              defaultValue: entity.expedient.semaphore,
+                            })}
+                          </Badge>
+                        ) : null}
                         <Tooltip label={inviteLabel(entity)}>
                           <ActionIcon
                             variant="subtle"

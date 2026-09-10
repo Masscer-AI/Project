@@ -243,6 +243,21 @@ export const uploadDocument = async (documentData: FormData) => {
     logAndRethrow("Error uploading document:", error);
   }
 };
+
+export const addAttachmentToKnowledgeBase = async (attachmentId: string) => {
+  try {
+    return await makeAuthenticatedRequest<{
+      id: number;
+      name?: string;
+      text?: string;
+      already_indexed?: boolean;
+    }>("POST", "/v1/rag/documents/from-attachment/", {
+      attachment_id: attachmentId,
+    });
+  } catch (error) {
+    logAndRethrow("Error adding attachment to knowledge base:", error);
+  }
+};
 export const getDocuments = async (opts?: { hasFileOnly?: boolean }) => {
   try {
     const params = new URLSearchParams();
@@ -2215,6 +2230,9 @@ export type TPldEntity = {
     id: string;
     status: string;
     vulnerable_activity: string;
+    semaphore?: string;
+    diligence_level?: number | null;
+    recommended_action?: string;
   } | null;
 };
 

@@ -30,6 +30,11 @@ def maybe_dispatch_identification_packet(expedient: PLDExpedient) -> None:
     )
     if payload.get("verdict") != "clear":
         return
+    risk = (
+        expedient.risk_payload if isinstance(expedient.risk_payload, dict) else {}
+    )
+    if risk.get("semaphore") != "green":
+        return
     if expedient.signature_request_id:
         return
 

@@ -1,4 +1,5 @@
 import json
+import uuid
 from django.http import JsonResponse
 from .managers import chroma_client
 from django.views import View
@@ -7,13 +8,15 @@ from rest_framework.parsers import JSONParser
 import logging
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
+from django.core.files.uploadedfile import SimpleUploadedFile
 from .models import Document, Collection, Chunk
 from api.authenticate.decorators.token_required import token_required
 from .serializers import DocumentSerializer, ChunkSerializer, BigDocumentSerializer
 from api.ai_layers.models import Agent
 from rest_framework.parsers import MultiPartParser
 from .actions import read_file_content
-from api.messaging.models import Message
+from api.messaging.models import Message, MessageAttachment
+from api.messaging.attachment_access import user_can_access_attachment
 from api.utils.color_printer import printer
 from api.authenticate.services import FeatureFlagService
 from django.core.exceptions import PermissionDenied
@@ -23,8 +26,11 @@ from .access import (
     documents_accessible_q,
     parse_role_ids,
     resolve_user_organization,
+    user_can_access_document,
     user_can_manage_document,
 )
+
+KB_FROM_ATTACHMENT_METADATA_KEY = "knowledge_base_document_id"
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +76,45 @@ def _ownership_from_request(request, data=None):
     if visibility is None:
         return Document.Visibility.PERSONAL, [], False
     return visibility, role_ids, True
+
+
+def _ownership_from_attachment(att: MessageAttachment):
+    vis = (att.visibility or Document.Visibility.PERSONAL).strip().lower()
+    if vis == MessageAttachment.Visibility.LINK:
+        return Document.Visibility.PERSONAL, [], None
+    if vis == Document.Visibility.ROLES:
+        role_ids = [str(role.id) for role in att.allowed_roles.all()]
+        return vis, role_ids, att.organization
+    if vis == Document.Visibility.ORGANIZATION:
+        return vis, [], att.organization
+    return Document.Visibility.PERSONAL, [], None
+
+
+def _attachment_index_error(att: MessageAttachment) -> str | None:
+    if att.kind != "file" or not att.file:
+        return "Only file attachments can be added to the knowledge base."
+    ctype = (att.content_type or "").lower().split(";")[0].strip()
+    if ctype.startswith("video/") or ctype.startswith("audio/"):
+        return "Video and audio files cannot be added to the knowledge base."
+    return None
+
+
+def _uploaded_file_from_attachment(att: MessageAttachment) -> SimpleUploadedFile:
+    field = att.file
+    if getattr(field, "_file", None) is not None:
+        try:
+            field.close()
+        except Exception:
+            pass
+        field._file = None
+    with field.open("rb") as handle:
+        raw = handle.read()
+    name = (getattr(field, "name", None) or "file").split("/")[-1]
+    return SimpleUploadedFile(
+        name,
+        raw,
+        content_type=att.content_type or "",
+    )
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
@@ -279,6 +324,137 @@ class DocumentView(View):
         return JsonResponse(
             {"message": "Document deleted successfully"}, status=200
         )
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class DocumentFromAttachmentView(View):
+    def post(self, request):
+        try:
+            _check_train_agents_permission(request.user)
+        except PermissionDenied as exc:
+            return JsonResponse(
+                {"message": "Forbidden", "error": str(exc)},
+                status=403,
+            )
+
+        try:
+            data = json.loads(request.body or "{}")
+        except json.JSONDecodeError:
+            return JsonResponse(
+                {"message": "Bad request", "error": "Invalid JSON"},
+                status=400,
+            )
+
+        raw_id = data.get("attachment_id")
+        try:
+            attachment_id = uuid.UUID(str(raw_id))
+        except (ValueError, TypeError, AttributeError):
+            return JsonResponse(
+                {
+                    "message": "Bad request",
+                    "error": "attachment_id is required",
+                },
+                status=400,
+            )
+
+        try:
+            att = MessageAttachment.objects.select_related("organization").prefetch_related(
+                "allowed_roles"
+            ).get(pk=attachment_id)
+        except MessageAttachment.DoesNotExist:
+            return JsonResponse({"error": "Attachment not found"}, status=404)
+
+        if not user_can_access_attachment(att, user=request.user):
+            return JsonResponse({"error": "Attachment not accessible"}, status=403)
+
+        index_error = _attachment_index_error(att)
+        if index_error:
+            return JsonResponse(
+                {"message": "Bad request", "error": index_error},
+                status=400,
+            )
+
+        metadata = att.metadata if isinstance(att.metadata, dict) else {}
+        existing_id = metadata.get(KB_FROM_ATTACHMENT_METADATA_KEY)
+        if existing_id:
+            existing = Document.objects.filter(pk=existing_id).first()
+            if existing and user_can_access_document(request.user, existing):
+                payload = dict(
+                    DocumentSerializer(existing, context={"request": request}).data
+                )
+                payload["already_indexed"] = True
+                return JsonResponse(payload, status=200)
+
+        uploaded = _uploaded_file_from_attachment(att)
+        try:
+            file_content, file_name = read_file_content(
+                uploaded,
+                content_type=att.content_type or "",
+                fallback_name=uploaded.name,
+            )
+        except ValueError as exc:
+            return JsonResponse(
+                {"message": "Bad request", "error": str(exc)},
+                status=400,
+            )
+
+        file_content = file_content.strip().replace("\0", "")
+        if not file_content:
+            return JsonResponse(
+                {
+                    "message": "Bad request",
+                    "error": "The uploaded file has no extractable text content.",
+                },
+                status=400,
+            )
+
+        collection, _ = Collection.get_or_create_personal_collection(
+            user=request.user
+        )
+        visibility, role_ids, organization = _ownership_from_attachment(att)
+        serializer = DocumentSerializer(
+            data={
+                "collection": collection.id,
+                "name": file_name,
+                "text": file_content,
+            }
+        )
+        if not serializer.is_valid():
+            return JsonResponse(serializer.errors, status=400)
+
+        uploaded.seek(0)
+        document = serializer.save(
+            file=uploaded,
+            content_type=att.content_type or "",
+            created_by=request.user,
+        )
+        try:
+            apply_document_ownership(
+                document,
+                user=request.user,
+                visibility=visibility,
+                role_ids=role_ids,
+                organization=organization,
+            )
+        except ValueError:
+            apply_document_ownership(
+                document,
+                user=request.user,
+                visibility=Document.Visibility.PERSONAL,
+            )
+
+        metadata = dict(metadata)
+        metadata[KB_FROM_ATTACHMENT_METADATA_KEY] = document.id
+        att.metadata = metadata
+        att.save(update_fields=["metadata"])
+
+        payload = dict(
+            DocumentSerializer(document, context={"request": request}).data
+        )
+        payload["already_indexed"] = False
+        return JsonResponse(payload, status=201)
+
 
 @csrf_exempt
 @token_required

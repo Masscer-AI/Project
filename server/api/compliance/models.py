@@ -321,6 +321,14 @@ class PLDExpedient(models.Model):
     )
     screening_payload = models.JSONField(default=dict, blank=True)
     screened_at = models.DateTimeField(null=True, blank=True)
+    risk_status = models.CharField(
+        max_length=16,
+        choices=PrequalificationStatus.choices,
+        blank=True,
+        default="",
+    )
+    risk_payload = models.JSONField(default=dict, blank=True)
+    risked_at = models.DateTimeField(null=True, blank=True)
     packet_file = models.FileField(
         upload_to=pld_expedient_packet_upload_to,
         blank=True,

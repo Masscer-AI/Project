@@ -211,6 +211,20 @@ def screen_pld_expedient(expedient_id: str):
             PLDClarificationRequest.Stage.SCREENING,
             list(parsed.invitee_requests or []),
         )
+        from api.compliance.risk import evaluate_risk_gate
+
+        risk = evaluate_risk_gate(entity, exp)
+        exp.risk_payload = risk.model_dump(mode="json")
+        exp.risk_status = PLDExpedient.PrequalificationStatus.SUCCEEDED
+        exp.risked_at = timezone.now()
+        exp.save(
+            update_fields=[
+                "risk_payload",
+                "risk_status",
+                "risked_at",
+                "updated_at",
+            ]
+        )
         from api.compliance.packet import maybe_dispatch_identification_packet
 
         maybe_dispatch_identification_packet(exp)

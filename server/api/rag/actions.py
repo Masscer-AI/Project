@@ -1,7 +1,12 @@
+import base64
+import logging
+import os
+
 import fitz
 import chardet
 from docx import Document as DocxDocument
 from io import BytesIO
+from openai import OpenAI
 from .models import Chunk, Document, Collection
 from api.utils.color_printer import printer
 from api.utils.openai_functions import (
@@ -9,6 +14,29 @@ from api.utils.openai_functions import (
     create_completion_openai,
 )
 from pydantic import BaseModel, Field
+
+logger = logging.getLogger(__name__)
+
+IMAGE_EXTRACTION_MODEL = "gpt-5.6-terra"
+IMAGE_EXTENSIONS = frozenset({"png", "jpeg", "jpg", "gif", "webp"})
+IMAGE_MIME_TYPES = frozenset(
+    {
+        "image/png",
+        "image/jpeg",
+        "image/jpg",
+        "image/gif",
+        "image/webp",
+    }
+)
+UNSUPPORTED_IMAGE_ERROR = (
+    "Unsupported image type. Use PNG, JPEG, GIF, or WebP."
+)
+IMAGE_EXTRACTION_PROMPT = (
+    "Transcribe all readable text in this image (OCR). Then describe the visual "
+    "content: layout, objects, people, charts, diagrams, and any other details "
+    "useful for later search. Use the same language as the visible text when "
+    "possible. Be complete but not repetitive."
+)
 
 def detect_file_encoding(file):
     raw_data = file.read(10000)
@@ -21,6 +49,87 @@ def _read_file_head(file, n: int = 8) -> bytes:
     head = file.read(n)
     file.seek(pos)
     return head
+
+
+def _image_magic_kind(head: bytes) -> str | None:
+    if head.startswith(b"\x89PNG\r\n\x1a\n") or head.startswith(b"\x89PNG"):
+        return "image"
+    if head.startswith(b"\xff\xd8\xff"):
+        return "image"
+    if head.startswith(b"GIF87a") or head.startswith(b"GIF89a"):
+        return "image"
+    if len(head) >= 12 and head.startswith(b"RIFF") and head[8:12] == b"WEBP":
+        return "image"
+    return None
+
+
+def _normalize_image_mime(content_type: str | None, filename: str) -> str:
+    ctype = (content_type or "").lower().split(";")[0].strip()
+    if ctype in IMAGE_MIME_TYPES:
+        return "image/jpeg" if ctype == "image/jpg" else ctype
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    return {
+        "png": "image/png",
+        "jpg": "image/jpeg",
+        "jpeg": "image/jpeg",
+        "gif": "image/gif",
+        "webp": "image/webp",
+    }.get(ext, "image/png")
+
+
+def _extract_response_output_text(response) -> str:
+    output_text = getattr(response, "output_text", None)
+    if isinstance(output_text, str) and output_text:
+        return output_text.strip()
+    chunks = []
+    for item in getattr(response, "output", []) or []:
+        if getattr(item, "type", "") == "message":
+            for content in getattr(item, "content", []) or []:
+                if getattr(content, "type", "") in ("output_text", "text"):
+                    text = getattr(content, "text", "")
+                    if text:
+                        chunks.append(text)
+    return "".join(chunks).strip()
+
+
+def extract_image_text(
+    raw: bytes,
+    *,
+    content_type: str | None = None,
+    filename: str = "",
+) -> str:
+    if not raw:
+        raise ValueError("The uploaded file has no extractable text content.")
+
+    mime = _normalize_image_mime(content_type, filename)
+    b64 = base64.b64encode(raw).decode("ascii")
+    data_url = f"data:{mime};base64,{b64}"
+    client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+    try:
+        response = client.responses.create(
+            model=IMAGE_EXTRACTION_MODEL,
+            instructions=(
+                "You extract searchable text from images for a knowledge base. "
+                "Return only the transcription and visual description."
+            ),
+            input=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "input_text", "text": IMAGE_EXTRACTION_PROMPT},
+                        {"type": "input_image", "image_url": data_url},
+                    ],
+                }
+            ],
+        )
+    except Exception as exc:
+        logger.exception("Failed to extract text from image %s", filename or mime)
+        raise ValueError(f"Failed to extract text from image: {exc}") from exc
+
+    text = _extract_response_output_text(response)
+    if not text:
+        raise ValueError("The uploaded file has no extractable text content.")
+    return text
 
 def infer_upload_format(
     file,
@@ -46,8 +155,18 @@ def infer_upload_format(
         .strip()
     )
 
+    if extension in IMAGE_EXTENSIONS:
+        return "image"
+    if extension in ("bmp", "svg", "tiff", "tif", "ico", "heic", "avif"):
+        raise ValueError(UNSUPPORTED_IMAGE_ERROR)
+
     if extension in ("pdf", "docx", "xlsx", "xlsm", "xls", "txt", "html", "csv"):
         return extension
+
+    if ctype in IMAGE_MIME_TYPES:
+        return "image"
+    if ctype.startswith("image/"):
+        raise ValueError(UNSUPPORTED_IMAGE_ERROR)
 
     if ctype in ("application/pdf",) or ctype.endswith("/pdf"):
         return "pdf"
@@ -63,7 +182,9 @@ def infer_upload_format(
     if ctype.startswith("text/"):
         return "html" if "html" in ctype else "txt"
 
-    head = _read_file_head(file, 8)
+    head = _read_file_head(file, 12)
+    if _image_magic_kind(head):
+        return "image"
     if head.startswith(b"%PDF"):
         return "pdf"
     if head.startswith(b"\xd0\xcf\x11\xe0"):
@@ -181,6 +302,12 @@ def read_file_content(
         raw = file.read()
         file.seek(0)
         return _read_xls_content(raw, file_name)
+    elif file_extension == "image":
+        raw = file.read()
+        file.seek(0)
+        mime = _normalize_image_mime(content_type, file_name)
+        text = extract_image_text(raw, content_type=mime, filename=file_name)
+        return text, file_name
     else:
         head = _read_file_head(file, 4)
         if head.startswith(b"PK\x03\x04"):

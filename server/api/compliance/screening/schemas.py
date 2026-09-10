@@ -15,6 +15,7 @@ class ScreeningHit(BaseModel):
     primary_name: str
     strength: Literal["none", "weak", "strong", "exact"] = "weak"
     notes: str | None = None
+    situation: str = ""
 
 
 class ScreeningResult(BaseModel):

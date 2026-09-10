@@ -22,6 +22,7 @@ import {
   updateGalleryItemVisibility,
 } from "../../modules/apiCalls";
 import { TOrganizationRole } from "../../types";
+import { SaveToKnowledgeBaseButton } from "./SaveToKnowledgeBase";
 
 export function visibilityLabelKey(
   visibility?: TAttachmentVisibility
@@ -410,6 +411,11 @@ export function AttachmentDetailsModal({
             {t("download")}
           </Button>
         ) : null}
+        <SaveToKnowledgeBaseButton
+          attachmentId={attachmentId}
+          type={mediaKind}
+          contentType={contentType}
+        />
         {showAccess && !editor.loadError ? (
           <>
             <Divider label={t("attachment-access")} labelPosition="left" />

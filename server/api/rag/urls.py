@@ -1,6 +1,7 @@
 from django.urls import path
 from .views import (
     DocumentView,
+    DocumentFromAttachmentView,
     query_collection,
     ChunkDetailView,
     QueryDocument,
@@ -13,6 +14,11 @@ app_name = "rag"
 
 urlpatterns = [
     path("documents/", DocumentView.as_view(), name="documents"),
+    path(
+        "documents/from-attachment/",
+        DocumentFromAttachmentView.as_view(),
+        name="documents_from_attachment",
+    ),
     path(
         "documents/<int:document_id>/", DocumentView.as_view(), name="documents_detail"
     ),

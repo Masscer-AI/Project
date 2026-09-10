@@ -119,6 +119,16 @@ def run_screening(entity) -> ScreeningResult:
     output = result.output
     if not isinstance(output, ScreeningResult):
         raise ValueError("Screening did not return structured output")
+    by_ref = {
+        str(row.get("reference_number") or ""): row
+        for row in _deterministic_rfc_hits(entity)
+    }
+    enriched = []
+    for hit in output.hits:
+        row = by_ref.get(hit.reference_number) or {}
+        situation = hit.situation or str(row.get("situation") or "")
+        enriched.append(hit.model_copy(update={"situation": situation}))
+    output.hits = enriched
     if output.invitee_requests and output.verdict == "clear":
         output.verdict = "needs_invitee_input"
     if not output.summary.strip():

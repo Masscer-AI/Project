@@ -39,6 +39,7 @@ import {
   AttachmentVisibilityModal,
   visibilityLabelKey,
 } from "../../components/AttachmentVisibility/AttachmentVisibilityModal";
+import { SaveToKnowledgeBaseButton } from "../../components/AttachmentVisibility/SaveToKnowledgeBase";
 import {
   DocumentFileIcon,
   getDocumentFileMeta,
@@ -128,6 +129,12 @@ function GalleryCardActions({
             <IconDownload size={16} />
           </ActionIcon>
         </Tooltip>
+        <SaveToKnowledgeBaseButton
+          attachmentId={item.id}
+          type={item.type}
+          contentType={item.content_type}
+          variant="icon"
+        />
         <Tooltip label={t("gallery-delete")}>
           <ActionIcon
             variant="subtle"

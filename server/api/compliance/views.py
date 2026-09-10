@@ -45,6 +45,11 @@ def _frontend_base_url(request):
 
 def _entity_payload(entity: PLDEntity) -> dict:
     expedient = entity.expedients.order_by("created_at").first()
+    risk = (
+        expedient.risk_payload
+        if expedient and isinstance(expedient.risk_payload, dict)
+        else {}
+    )
     return {
         "id": str(entity.id),
         "person_type": entity.person_type,
@@ -59,6 +64,9 @@ def _entity_payload(entity: PLDEntity) -> dict:
                 "id": str(expedient.id),
                 "status": expedient.status,
                 "vulnerable_activity": expedient.vulnerable_activity,
+                "semaphore": risk.get("semaphore") or "",
+                "diligence_level": risk.get("diligence_level") or None,
+                "recommended_action": risk.get("recommended_action") or "",
             }
             if expedient
             else None
@@ -480,8 +488,12 @@ def _invitee_prequalification(exp: PLDExpedient) -> dict:
 
 def _invitee_screening(exp: PLDExpedient) -> dict:
     raw = exp.screening_payload if isinstance(exp.screening_payload, dict) else {}
+    risk = exp.risk_payload if isinstance(exp.risk_payload, dict) else {}
+    summary = str(risk.get("invitee_summary") or "").strip() or str(
+        raw.get("summary") or ""
+    )
     return {
-        "summary": raw.get("summary") or "",
+        "summary": summary,
     }
 
 

@@ -711,6 +711,7 @@ const DocumentsTab = ({
               ref={fileInputRef}
               type="file"
               multiple
+              accept=".png,.jpeg,.jpg,.gif,.webp,.pdf,.txt,.html,.doc,.docx,.xls,.xlsx,.xlsm,image/png,image/jpeg,image/gif,image/webp,application/pdf,text/plain,text/html"
               style={{ display: "none" }}
               onChange={(e) => {
                 addFiles(e.currentTarget.files);

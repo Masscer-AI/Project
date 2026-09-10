@@ -146,6 +146,26 @@ def deterministic_findings(entity) -> list[PrequalFinding]:
             )
         )
 
+    declared_name = _norm_key(
+        metadata.get("legal_name") or metadata.get("name") or ""
+    )
+    extracted_name = _norm_key(
+        csf.get("legal_name_or_full_name")
+        or _first_payload(grouped, "acta_constitutiva").get("legal_name")
+        or ""
+    )
+    if declared_name and extracted_name and declared_name != extracted_name:
+        findings.append(
+            PrequalFinding(
+                code="legal_name_mismatch",
+                severity="blocker",
+                target="constancia_fiscal",
+                summary="La razon social o nombre declarado no coincide con el documento fiscal o el acta.",
+                evidence=f"declared={declared_name} extracted={extracted_name}",
+                source_ids=["rcg"],
+            )
+        )
+
     if entity.person_type == "persona_moral":
         acta = _first_payload(grouped, "acta_constitutiva")
         if acta.get("ownership_may_be_stale") is True:
@@ -155,6 +175,18 @@ def deterministic_findings(entity) -> list[PrequalFinding]:
                     severity="warning",
                     target="acta_constitutiva",
                     summary="La participacion del acta es al momento de constitucion y puede estar desactualizada frente al beneficiario controlador declarado.",
+                    source_ids=["rcg"],
+                )
+            )
+        if metadata.get("is_own_controller") is not True and not controller_names(
+            entity
+        ):
+            findings.append(
+                PrequalFinding(
+                    code="controller_missing",
+                    severity="blocker",
+                    target="controllers",
+                    summary="No se identifico al beneficiario controlador.",
                     source_ids=["rcg"],
                 )
             )

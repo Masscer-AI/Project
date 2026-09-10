@@ -1116,6 +1116,34 @@ class PLDDocumentExtractionTests(TestCase):
         self.assertIn("rfc_mismatch", codes)
         self.assertEqual(verdict_from_findings(findings), "blocked")
 
+    def test_deterministic_controller_missing_and_legal_name(self):
+        from api.compliance.models import PLDExpedientDocument
+        from api.compliance.prequalification.deterministic import (
+            deterministic_findings,
+        )
+
+        self.entity.metadata = {
+            **self.entity.metadata,
+            "legal_name": "ACME SA",
+            "controllers": [],
+            "is_own_controller": False,
+        }
+        self.entity.save(update_fields=["metadata", "updated_at"])
+        PLDExpedientDocument.objects.create(
+            expedient=self.expedient,
+            slot_key="constancia_fiscal",
+            document_kind="constancia_fiscal",
+            original_filename="csf.pdf",
+            extracted_payload={
+                "rfc": "AAA010101AAA",
+                "legal_name_or_full_name": "OTRA SA",
+            },
+            extraction_status=PLDExpedientDocument.ExtractionStatus.SUCCEEDED,
+        )
+        codes = {item.code for item in deterministic_findings(self.entity)}
+        self.assertIn("legal_name_mismatch", codes)
+        self.assertIn("controller_missing", codes)
+
     @patch("api.ai_layers.agent_loop.AgentLoop.create")
     def test_prequalify_task_persists_verdict(self, create_loop):
         from api.ai_layers.agent_loop import AgentLoopResult
@@ -1327,7 +1355,15 @@ class PLDDocumentExtractionTests(TestCase):
         self.assertFalse(SignatureRequest.objects.exists())
 
         PLDExpedient.objects.filter(pk=self.expedient.pk).update(
-            screening_payload={"verdict": "clear", "summary": "en revision"}
+            screening_payload={"verdict": "clear", "summary": "en revision"},
+            risk_payload={"semaphore": "orange", "ready_for_signature": False},
+        )
+        self.expedient.refresh_from_db()
+        maybe_dispatch_identification_packet(self.expedient)
+        self.assertFalse(SignatureRequest.objects.exists())
+
+        PLDExpedient.objects.filter(pk=self.expedient.pk).update(
+            risk_payload={"semaphore": "green", "ready_for_signature": True}
         )
         self.expedient.refresh_from_db()
         maybe_dispatch_identification_packet(self.expedient)
@@ -1354,6 +1390,8 @@ class PLDDocumentExtractionTests(TestCase):
         self.assertIn("/esign/sign/", row["expedient"]["signing"]["url"])
         self.assertNotIn("hits", row["expedient"]["screening"])
         self.assertNotIn("verdict", row["expedient"]["screening"])
+        self.assertNotIn("reasons", row["expedient"]["screening"])
+        self.assertNotIn("list_slug", str(row["expedient"]["screening"]))
 
     def test_pld_signature_webhook_stores_packet_and_delivers(self):
         from unittest.mock import patch
@@ -1559,5 +1597,99 @@ class OfficialIdExtractionSchemaTests(SimpleTestCase):
             schema = fmt["schema"]
             self.assertEqual(schema.get("additionalProperties"), False, model.__name__)
             self.assertNotIn("$ref", schema, model.__name__)
+
+
+class RiskGateTests(SimpleTestCase):
+    def _entity(self, **kwargs):
+        from types import SimpleNamespace
+
+        defaults = {
+            "person_type": "persona_fisica",
+            "metadata": {},
+        }
+        defaults.update(kwargs)
+        return SimpleNamespace(**defaults)
+
+    def _expedient(self, **kwargs):
+        from types import SimpleNamespace
+
+        defaults = {
+            "prequalification_payload": {"findings": []},
+            "screening_payload": {"verdict": "clear", "hits": []},
+            "documents": [],
+        }
+        defaults.update(kwargs)
+        return SimpleNamespace(**defaults)
+
+    def test_rfc_mismatch_is_orange(self):
+        from api.compliance.risk import evaluate_risk_gate
+
+        result = evaluate_risk_gate(
+            self._entity(),
+            self._expedient(
+                prequalification_payload={
+                    "findings": [{"code": "rfc_mismatch"}]
+                }
+            ),
+        )
+        self.assertEqual(result.semaphore, "orange")
+        self.assertFalse(result.ready_for_signature)
+        self.assertIn("rfc_mismatch", result.reasons)
+
+    def test_69b_definitivo_exact_is_red(self):
+        from api.compliance.risk import evaluate_risk_gate
+
+        result = evaluate_risk_gate(
+            self._entity(),
+            self._expedient(
+                screening_payload={
+                    "verdict": "escalate",
+                    "hits": [
+                        {
+                            "list_slug": "sat_69b",
+                            "reference_number": "1",
+                            "primary_name": "ACME",
+                            "strength": "exact",
+                            "situation": "Definitivo",
+                        }
+                    ],
+                }
+            ),
+        )
+        self.assertEqual(result.semaphore, "red")
+        self.assertEqual(result.fiscal_list_kind, "69b_definitivo")
+        self.assertFalse(result.ready_for_signature)
+
+    def test_69b_presunto_exact_is_orange_not_red(self):
+        from api.compliance.risk import evaluate_risk_gate
+
+        result = evaluate_risk_gate(
+            self._entity(),
+            self._expedient(
+                screening_payload={
+                    "verdict": "human_review",
+                    "hits": [
+                        {
+                            "list_slug": "sat_69b",
+                            "reference_number": "1",
+                            "primary_name": "ACME",
+                            "strength": "exact",
+                            "situation": "Presunto",
+                        }
+                    ],
+                }
+            ),
+        )
+        self.assertEqual(result.semaphore, "orange")
+        self.assertEqual(result.fiscal_list_kind, "69b_presunto")
+        self.assertNotEqual(result.semaphore, "red")
+
+    def test_clear_without_findings_is_green(self):
+        from api.compliance.risk import evaluate_risk_gate
+
+        result = evaluate_risk_gate(self._entity(), self._expedient())
+        self.assertEqual(result.semaphore, "green")
+        self.assertTrue(result.ready_for_signature)
+        self.assertEqual(result.screening_class, "none")
 
 
