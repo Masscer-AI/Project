@@ -1790,6 +1790,7 @@
   "save-to-knowledge-base-success": "Guardado en la base de conocimiento",
   "save-to-knowledge-base-already": "Ya esta en la base de conocimiento",
   "save-to-knowledge-base-error": "No se pudo guardar en la base de conocimiento",
+  "in-knowledge-base": "En la base de conocimiento",
   "attachment-details": "Detalles del adjunto",
   "attachment-access": "Acceso",
   "attachment-type": "Tipo",

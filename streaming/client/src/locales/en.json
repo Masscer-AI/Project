@@ -1788,6 +1788,7 @@
   "save-to-knowledge-base-success": "Saved to knowledge base",
   "save-to-knowledge-base-already": "Already in the knowledge base",
   "save-to-knowledge-base-error": "Could not save to the knowledge base",
+  "in-knowledge-base": "In knowledge base",
   "attachment-details": "Attachment details",
   "attachment-access": "Access",
   "attachment-type": "Type",

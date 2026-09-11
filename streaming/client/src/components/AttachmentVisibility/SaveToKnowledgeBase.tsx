@@ -1,10 +1,27 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
 import { ActionIcon, Button, Group, Modal, Stack, Text, Tooltip } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { IconBooks } from "@tabler/icons-react";
 import { addAttachmentToKnowledgeBase } from "../../modules/apiCalls";
+
+export const KB_DOCUMENT_METADATA_KEY = "knowledge_base_document_id";
+
+export function knowledgeBaseDocumentIdFromMetadata(
+  metadata?: Record<string, unknown> | null
+): number | null {
+  const raw = metadata?.[KB_DOCUMENT_METADATA_KEY];
+  if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) {
+    return raw;
+  }
+  if (typeof raw === "string" && raw.trim()) {
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  }
+  return null;
+}
 
 export function canSaveAttachmentToKnowledgeBase(
   type?: string,
@@ -32,20 +49,38 @@ function errorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
+function knowledgeBaseHref(documentId: number): string {
+  return `/knowledge-base?activeTab=documents&document=${encodeURIComponent(String(documentId))}`;
+}
+
 export function SaveToKnowledgeBaseButton({
   attachmentId,
   type,
   contentType,
+  metadata,
   variant = "button",
+  onIndexed,
 }: {
   attachmentId?: string;
   type?: string;
   contentType?: string;
+  metadata?: Record<string, unknown> | null;
   variant?: "button" | "icon";
+  onIndexed?: (documentId: number) => void;
 }) {
   const { t } = useTranslation();
   const [opened, { open, close }] = useDisclosure(false);
   const [saving, setSaving] = useState(false);
+  const [indexedId, setIndexedId] = useState<number | null>(() =>
+    knowledgeBaseDocumentIdFromMetadata(metadata)
+  );
+
+  useEffect(() => {
+    const fromMeta = knowledgeBaseDocumentIdFromMetadata(metadata);
+    if (fromMeta) setIndexedId(fromMeta);
+  }, [metadata]);
+
+  const linkedId = indexedId ?? knowledgeBaseDocumentIdFromMetadata(metadata);
 
   if (!canSaveAttachmentToKnowledgeBase(type, contentType)) {
     return null;
@@ -56,6 +91,11 @@ export function SaveToKnowledgeBaseButton({
     setSaving(true);
     try {
       const result = await addAttachmentToKnowledgeBase(attachmentId);
+      const documentId = result?.id;
+      if (typeof documentId === "number" && documentId > 0) {
+        setIndexedId(documentId);
+        onIndexed?.(documentId);
+      }
       toast.success(
         result?.already_indexed
           ? t("save-to-knowledge-base-already")
@@ -68,6 +108,37 @@ export function SaveToKnowledgeBaseButton({
       setSaving(false);
     }
   };
+
+  if (linkedId) {
+    const href = knowledgeBaseHref(linkedId);
+    if (variant === "icon") {
+      return (
+        <Tooltip label={t("open-in-knowledge-base")}>
+          <ActionIcon
+            component={Link}
+            to={href}
+            variant="subtle"
+            color="violet"
+            size="sm"
+            aria-label={t("open-in-knowledge-base")}
+          >
+            <IconBooks size={16} />
+          </ActionIcon>
+        </Tooltip>
+      );
+    }
+    return (
+      <Button
+        component={Link}
+        to={href}
+        variant="light"
+        color="violet"
+        leftSection={<IconBooks size={16} />}
+      >
+        {t("in-knowledge-base")}
+      </Button>
+    );
+  }
 
   return (
     <>

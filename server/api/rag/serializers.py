@@ -47,6 +47,13 @@ class DocumentSerializer(serializers.ModelSerializer):
             "created_by_id",
         ]
         read_only_fields = [
+            "id",
+            "created_at",
+            "chunk_set",
+            "chunk_count",
+            "has_file",
+            "file_url",
+            "is_drive_linked",
             "visibility",
             "organization_id",
             "allowed_role_ids",

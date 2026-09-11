@@ -69,11 +69,13 @@ function GalleryCardActions({
   onOpenChat,
   onRequestDelete,
   onRequestVisibility,
+  onIndexed,
 }: {
   item: TGalleryItem;
   onOpenChat: () => void;
   onRequestDelete: () => void;
   onRequestVisibility: () => void;
+  onIndexed?: (item: TGalleryItem) => void;
 }) {
   const { t } = useTranslation();
   const vis = item.visibility || "personal";
@@ -133,7 +135,17 @@ function GalleryCardActions({
           attachmentId={item.id}
           type={item.type}
           contentType={item.content_type}
+          metadata={item.metadata}
           variant="icon"
+          onIndexed={(documentId) =>
+            onIndexed?.({
+              ...item,
+              metadata: {
+                ...(item.metadata || {}),
+                knowledge_base_document_id: documentId,
+              },
+            })
+          }
         />
         <Tooltip label={t("gallery-delete")}>
           <ActionIcon
@@ -157,12 +169,14 @@ function ImageGalleryCard({
   onOpenChat,
   onRequestDelete,
   onRequestVisibility,
+  onIndexed,
 }: {
   item: TGalleryItem;
   dateLabel: string;
   onOpenChat: () => void;
   onRequestDelete: () => void;
   onRequestVisibility: () => void;
+  onIndexed?: (item: TGalleryItem) => void;
 }) {
   const { t } = useTranslation();
   const [opened, { open, close }] = useDisclosure(false);
@@ -208,6 +222,7 @@ function ImageGalleryCard({
             onOpenChat={onOpenChat}
             onRequestDelete={onRequestDelete}
             onRequestVisibility={onRequestVisibility}
+            onIndexed={onIndexed}
           />
         </Stack>
       </Card>
@@ -266,12 +281,14 @@ function VideoGalleryCard({
   onOpenChat,
   onRequestDelete,
   onRequestVisibility,
+  onIndexed,
 }: {
   item: TGalleryItem;
   dateLabel: string;
   onOpenChat: () => void;
   onRequestDelete: () => void;
   onRequestVisibility: () => void;
+  onIndexed?: (item: TGalleryItem) => void;
 }) {
   const { t } = useTranslation();
   const [opened, { open, close }] = useDisclosure(false);
@@ -343,6 +360,7 @@ function VideoGalleryCard({
             onOpenChat={onOpenChat}
             onRequestDelete={onRequestDelete}
             onRequestVisibility={onRequestVisibility}
+            onIndexed={onIndexed}
           />
         </Stack>
       </Card>
@@ -402,12 +420,14 @@ function AudioGalleryCard({
   onOpenChat,
   onRequestDelete,
   onRequestVisibility,
+  onIndexed,
 }: {
   item: TGalleryItem;
   dateLabel: string;
   onOpenChat: () => void;
   onRequestDelete: () => void;
   onRequestVisibility: () => void;
+  onIndexed?: (item: TGalleryItem) => void;
 }) {
   return (
     <Card padding="md" withBorder radius="md">
@@ -456,6 +476,7 @@ function AudioGalleryCard({
           onOpenChat={onOpenChat}
           onRequestDelete={onRequestDelete}
           onRequestVisibility={onRequestVisibility}
+          onIndexed={onIndexed}
         />
       </Stack>
     </Card>
@@ -468,12 +489,14 @@ function DocumentGalleryCard({
   onOpenChat,
   onRequestDelete,
   onRequestVisibility,
+  onIndexed,
 }: {
   item: TGalleryItem;
   dateLabel: string;
   onOpenChat: () => void;
   onRequestDelete: () => void;
   onRequestVisibility: () => void;
+  onIndexed?: (item: TGalleryItem) => void;
 }) {
   const { t } = useTranslation();
   const meta = getDocumentFileMeta(item.name, item.content_type);
@@ -534,6 +557,7 @@ function DocumentGalleryCard({
           onOpenChat={onOpenChat}
           onRequestDelete={onRequestDelete}
           onRequestVisibility={onRequestVisibility}
+          onIndexed={onIndexed}
         />
       </Stack>
     </Card>
@@ -582,6 +606,7 @@ function GalleryItemCard({
     onOpenChat: openChat,
     onRequestDelete: openConfirm,
     onRequestVisibility: visibilityHandlers.open,
+    onIndexed: onUpdated,
   };
 
   return (

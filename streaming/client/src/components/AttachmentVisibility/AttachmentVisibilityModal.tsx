@@ -22,7 +22,7 @@ import {
   updateGalleryItemVisibility,
 } from "../../modules/apiCalls";
 import { TOrganizationRole } from "../../types";
-import { SaveToKnowledgeBaseButton } from "./SaveToKnowledgeBase";
+import { SaveToKnowledgeBaseButton, knowledgeBaseDocumentIdFromMetadata } from "./SaveToKnowledgeBase";
 
 export function visibilityLabelKey(
   visibility?: TAttachmentVisibility
@@ -173,6 +173,7 @@ function useAttachmentVisibilityEditor(
     canManage,
     loadError,
     save,
+    setItem,
   };
 }
 
@@ -366,6 +367,11 @@ export function AttachmentDetailsModal({
               {currentVisibility
                 ? ` · ${t(visibilityLabelKey(currentVisibility))}`
                 : ""}
+              {knowledgeBaseDocumentIdFromMetadata(
+                editor.item?.metadata || initialItem?.metadata
+              )
+                ? ` · ${t("in-knowledge-base")}`
+                : ""}
             </Text>
           </Stack>
         </Group>
@@ -415,6 +421,20 @@ export function AttachmentDetailsModal({
           attachmentId={attachmentId}
           type={mediaKind}
           contentType={contentType}
+          metadata={editor.item?.metadata || initialItem?.metadata}
+          onIndexed={(documentId) => {
+            const current = editor.item || initialItem;
+            if (!current) return;
+            const next = {
+              ...current,
+              metadata: {
+                ...(current.metadata || {}),
+                knowledge_base_document_id: documentId,
+              },
+            };
+            editor.setItem(next);
+            onUpdated?.(next);
+          }}
         />
         {showAccess && !editor.loadError ? (
           <>
