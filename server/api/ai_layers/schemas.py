@@ -61,7 +61,7 @@ class AgentSessionInputs(BaseModel):
         default_factory=list,
         description="Previous conversation messages for context reproducibility",
     )
-    max_iterations: int = Field(default=10, ge=1, le=100)
+    max_iterations: int = Field(default=50, ge=1, le=100)
 
 class Usage(BaseModel):
     prompt_tokens: int = 0

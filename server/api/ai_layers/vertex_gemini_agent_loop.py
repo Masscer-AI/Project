@@ -75,7 +75,7 @@ class VertexGeminiAgentLoop(BaseAgentLoop):
         instructions: str,
         model: str,
         output_schema: type[BaseModel] | None = None,
-        max_iterations: int = 10,
+        max_iterations: int = 50,
         on_event: Callable[[str, dict], None] | None = None,
         check_cancelled: Callable[[], bool] | None = None,
     ):

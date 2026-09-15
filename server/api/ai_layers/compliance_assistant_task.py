@@ -22,7 +22,7 @@ def compliance_assistant_task(
     user_id: int,
     regenerate_message_id: int | None = None,
     client_datetime: dict | None = None,
-    max_iterations: int = 10,
+    max_iterations: int = 50,
 ):
     from api.ai_layers.agent_loop import AgentLoop, CancelledError
     from api.ai_layers.models import Agent, AgentKind, AgentSession

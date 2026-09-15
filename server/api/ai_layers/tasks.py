@@ -1027,7 +1027,7 @@ def conversation_agent_task(
     agent_slugs: list[str],
     plugin_slugs: list[str] | None = None,
     multiagentic_modality: str = "isolated",
-    max_iterations: int = 10,
+    max_iterations: int = 50,
     user_id: int | str | None = None,
     regenerate_message_id: int | None = None,
     client_datetime: dict | None = None,
