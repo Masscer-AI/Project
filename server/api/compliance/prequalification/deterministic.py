@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from api.compliance.document_extraction.spec_fields import missing_spec_fields
+from api.compliance.document_extraction.spec_fields import missing_required_spec_fields
 from api.compliance.pld_document_slots import (
     document_slots_for_entity,
     required_slots_extraction_ready,
@@ -15,8 +15,48 @@ from api.compliance.prequalification.schemas import PrequalFinding
 from api.compliance.prequalification.sources import RULESET_VERSION
 
 
+_ENTITY_SUFFIXES = (
+    "SOCIEDADANONIMAPROMOTORADEINVERSIONDECAPITALVARIABLE",
+    "SOCIEDADANONIMABURSATILDECAPITALVARIABLE",
+    "SOCIEDADDERESPONSABILIDADLIMITADADECAPITALVARIABLE",
+    "SOCIEDADANONIMADECAPITALVARIABLE",
+    "SOCIEDADANONIMAPROMOTORADEINVERSION",
+    "SOCIEDADDERESPONSABILIDADLIMITADA",
+    "SOCIEDADANONIMABURSATIL",
+    "SOCIEDADANONIMA",
+    "SAPIDECV",
+    "SABDECV",
+    "SDERLDECV",
+    "SADECV",
+    "SDERL",
+    "SAPI",
+    "SAB",
+    "SACV",
+    "SA",
+)
+
+
 def _norm_key(value: Any) -> str:
     return re.sub(r"[^A-Z0-9]", "", str(value or "").upper())
+
+
+def _norm_legal_name(value: Any) -> str:
+    key = _norm_key(value)
+    changed = True
+    while changed and key:
+        changed = False
+        for suffix in _ENTITY_SUFFIXES:
+            if key.endswith(suffix) and len(key) > len(suffix):
+                key = key[: -len(suffix)]
+                changed = True
+                break
+    return key
+
+
+def _legal_names_match(left: Any, right: Any) -> bool:
+    a = _norm_legal_name(left)
+    b = _norm_legal_name(right)
+    return bool(a) and bool(b) and a == b
 
 
 def _payload(doc) -> dict:
@@ -74,7 +114,7 @@ def deterministic_findings(entity) -> list[PrequalFinding]:
         slot_docs = [d for d in docs if d.slot_key == slot["slot_key"]] or docs
         for doc in slot_docs:
             payload = _payload(doc)
-            missing = missing_spec_fields(kind, payload)
+            missing = missing_required_spec_fields(kind, payload)
             if missing:
                 findings.append(
                     PrequalFinding(
@@ -146,15 +186,17 @@ def deterministic_findings(entity) -> list[PrequalFinding]:
             )
         )
 
-    declared_name = _norm_key(
-        metadata.get("legal_name") or metadata.get("name") or ""
-    )
-    extracted_name = _norm_key(
+    declared_name = metadata.get("legal_name") or metadata.get("name") or ""
+    extracted_name = (
         csf.get("legal_name_or_full_name")
         or _first_payload(grouped, "acta_constitutiva").get("legal_name")
         or ""
     )
-    if declared_name and extracted_name and declared_name != extracted_name:
+    if (
+        _norm_legal_name(declared_name)
+        and _norm_legal_name(extracted_name)
+        and not _legal_names_match(declared_name, extracted_name)
+    ):
         findings.append(
             PrequalFinding(
                 code="legal_name_mismatch",

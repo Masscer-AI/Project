@@ -2318,6 +2318,16 @@ export type TMyPldExpedient = {
     prequalification?: {
       verdict?: string;
       summary?: string;
+      debug?: {
+        findings?: {
+          code?: string;
+          severity?: string;
+          target?: string;
+          summary?: string;
+          evidence?: string;
+          source_ids?: string[];
+        }[];
+      };
     };
     screening_status?: string;
     screened_at?: string | null;
@@ -2392,6 +2402,22 @@ export const confirmMyPldDocuments = async (entityId: string) => {
     "PATCH",
     `/v1/compliance/my-expedients/${entityId}/`,
     { action: "confirm_documents" }
+  );
+};
+
+export const resetMyPldExpedient = async (entityId: string) => {
+  return makeAuthenticatedRequest<TMyPldExpedient>(
+    "PATCH",
+    `/v1/compliance/my-expedients/${entityId}/`,
+    { action: "reset_expedient" }
+  );
+};
+
+export const rerunMyPldPrequalification = async (entityId: string) => {
+  return makeAuthenticatedRequest<TMyPldExpedient>(
+    "PATCH",
+    `/v1/compliance/my-expedients/${entityId}/`,
+    { action: "rerun_prequalification" }
   );
 };
 

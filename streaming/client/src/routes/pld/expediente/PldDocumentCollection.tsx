@@ -281,8 +281,8 @@ export function PldDocumentCollection({
               {slot.document.extraction_status === "succeeded" && (
                 <Stack gap={2}>
                   {extractionLines(slot.document.extracted_payload).map((line) => (
-                    <Text key={line.key} size="xs" c="dimmed">
-                      <Text span fw={500}>
+                    <Text key={line.key} size="xs">
+                      <Text span c="dimmed">
                         {t(`compliance-extract-${line.key}`, {
                           defaultValue: line.key.replace(/_/g, " "),
                         })}

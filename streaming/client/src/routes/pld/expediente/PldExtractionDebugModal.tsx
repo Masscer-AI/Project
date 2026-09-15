@@ -157,7 +157,7 @@ export function PldExtractionDebugModal({
           <Stack gap={4}>
             {lines.map((line) => (
               <Text key={line.key} size="sm">
-                <Text span fw={500}>
+                <Text span c="dimmed">
                   {t(`compliance-extract-${line.key}`, {
                     defaultValue: line.key.replace(/_/g, " "),
                   })}

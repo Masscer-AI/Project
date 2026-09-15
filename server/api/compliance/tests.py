@@ -878,6 +878,94 @@ class PLDDocumentExtractionTests(TestCase):
         doc = PLDExpedientDocument.objects.get()
         delay.assert_called_once_with(str(doc.id))
 
+    def test_reset_expedient_wipes_and_keeps_row(self):
+        from django.core.files.base import ContentFile
+        from django.utils import timezone
+
+        from api.compliance.models import (
+            PLDClarificationRequest,
+            PLDExpedient,
+            PLDExpedientDocument,
+            PLDExpedientStatus,
+        )
+        from api.esign.models import SignatureRequest
+
+        self.entity.metadata = {
+            "legal_name": "ACME SA",
+            "controllers": [{"name": "Ana Lopez"}],
+        }
+        self.entity.save(update_fields=["metadata", "updated_at"])
+        doc = PLDExpedientDocument.objects.create(
+            expedient=self.expedient,
+            slot_key="acta_constitutiva",
+            document_kind="acta_constitutiva",
+            original_filename="acta.pdf",
+            content_type="application/pdf",
+            file_size=8,
+        )
+        doc.file.save("acta.pdf", ContentFile(b"%PDF-1.4"), save=True)
+        PLDClarificationRequest.objects.create(
+            expedient=self.expedient,
+            stage=PLDClarificationRequest.Stage.IDENTIFICATION,
+            prompt="Confirma el RFC",
+        )
+        sr = SignatureRequest.objects.create(
+            organization=self.org,
+            requested_by=self.owner,
+            document_kind="kyc_file",
+            title="Expediente",
+            signatory_name="ACME SA",
+            signatory_email="extract@example.com",
+            source_file=None,
+        )
+        self.expedient.status = PLDExpedientStatus.WAITING_SIGN
+        self.expedient.prequalification_status = (
+            PLDExpedient.PrequalificationStatus.SUCCEEDED
+        )
+        self.expedient.prequalification_payload = {"verdict": "ready_for_list_screening"}
+        self.expedient.prequalified_at = timezone.now()
+        self.expedient.screening_status = PLDExpedient.PrequalificationStatus.SUCCEEDED
+        self.expedient.screening_payload = {"verdict": "clear"}
+        self.expedient.screened_at = timezone.now()
+        self.expedient.risk_status = PLDExpedient.PrequalificationStatus.SUCCEEDED
+        self.expedient.risk_payload = {"semaphore": "green"}
+        self.expedient.risked_at = timezone.now()
+        self.expedient.signature_request = sr
+        self.expedient.packet_file.save(
+            "packet.pdf", ContentFile(b"%PDF-1.4"), save=False
+        )
+        self.expedient.save()
+        expedient_id = self.expedient.id
+        response = self.client.patch(
+            f"/v1/compliance/my-expedients/{self.entity.id}/",
+            {"action": "reset_expedient"},
+            format="json",
+            HTTP_AUTHORIZATION=f"Token {self.token.key}",
+        )
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["id"], str(self.entity.id))
+        self.assertEqual(body["expedient"]["id"], str(expedient_id))
+        self.assertEqual(body["expedient"]["status"], "data_collection")
+        self.assertEqual(body["metadata"], {})
+        self.assertTrue(
+            all(slot["document"] is None for slot in body["document_slots"])
+        )
+        self.assertEqual(body["clarification_requests"], [])
+        self.entity.refresh_from_db()
+        self.expedient.refresh_from_db()
+        self.assertEqual(self.entity.metadata, {})
+        self.assertEqual(self.expedient.status, PLDExpedientStatus.DATA_COLLECTION)
+        self.assertEqual(self.expedient.prequalification_payload, {})
+        self.assertEqual(self.expedient.screening_payload, {})
+        self.assertEqual(self.expedient.risk_payload, {})
+        self.assertIsNone(self.expedient.signature_request_id)
+        self.assertFalse(self.expedient.packet_file)
+        self.assertEqual(self.expedient.documents.count(), 0)
+        self.assertEqual(self.expedient.clarification_requests.count(), 0)
+        self.assertEqual(PLDExpedient.objects.filter(entity=self.entity).count(), 1)
+        self.assertTrue(SignatureRequest.objects.filter(pk=sr.pk).exists())
+
     @patch("api.ai_layers.agent_loop.AgentLoop.create")
     def test_task_writes_acta_shareholders(self, create_loop):
         from django.core.files.base import ContentFile
@@ -1144,6 +1232,51 @@ class PLDDocumentExtractionTests(TestCase):
         self.assertIn("legal_name_mismatch", codes)
         self.assertIn("controller_missing", codes)
 
+    def test_legal_name_ignores_entity_suffix_variants(self):
+        from api.compliance.models import PLDExpedientDocument
+        from api.compliance.prequalification.deterministic import (
+            deterministic_findings,
+        )
+
+        self.entity.metadata = {
+            **self.entity.metadata,
+            "legal_name": "Construcciones Ruble sa de cv",
+        }
+        self.entity.save(update_fields=["metadata", "updated_at"])
+        PLDExpedientDocument.objects.create(
+            expedient=self.expedient,
+            slot_key="constancia_fiscal",
+            document_kind="constancia_fiscal",
+            original_filename="csf.pdf",
+            extracted_payload={
+                "rfc": "CRU200430SBA",
+                "legal_name_or_full_name": "CONSTRUCCIONES RUBLE",
+            },
+            extraction_status=PLDExpedientDocument.ExtractionStatus.SUCCEEDED,
+        )
+        PLDExpedientDocument.objects.create(
+            expedient=self.expedient,
+            slot_key="acta_constitutiva",
+            document_kind="acta_constitutiva",
+            original_filename="acta.pdf",
+            extracted_payload={
+                "legal_name": "CONSTRUCCIONES RUBLE, SOCIEDAD ANONIMA DE CAPITAL VARIABLE",
+            },
+            extraction_status=PLDExpedientDocument.ExtractionStatus.SUCCEEDED,
+        )
+        codes = {item.code for item in deterministic_findings(self.entity)}
+        self.assertNotIn("legal_name_mismatch", codes)
+        missing = [
+            item
+            for item in deterministic_findings(self.entity)
+            if item.code == "extraction_fields_missing"
+            and item.target == "acta_constitutiva"
+        ]
+        evidence = missing[0].evidence if missing else ""
+        self.assertNotIn("ACTA-rfc", evidence)
+        self.assertNotIn("ACTA-folio_mercantil", evidence)
+        self.assertNotIn("ACTA-objeto_social", evidence)
+
     @patch("api.ai_layers.agent_loop.AgentLoop.create")
     def test_prequalify_task_persists_verdict(self, create_loop):
         from api.ai_layers.agent_loop import AgentLoopResult
@@ -1224,6 +1357,106 @@ class PLDDocumentExtractionTests(TestCase):
             "needs_review",
         )
 
+    @patch("api.ai_layers.agent_loop.AgentLoop.create")
+    def test_prequalify_keeps_only_model_findings(self, create_loop):
+        from api.ai_layers.agent_loop import AgentLoopResult
+        from api.compliance.models import PLDExpedient, PLDExpedientDocument
+        from api.compliance.prequalification.schemas import PrequalificationResult
+        from api.compliance.tasks import prequalify_pld_expedient
+
+        self.entity.metadata = {
+            **self.entity.metadata,
+            "legal_name": "ACME SA",
+            "rfc": "AAA010101AAA",
+        }
+        self.entity.save(update_fields=["metadata", "updated_at"])
+        PLDExpedientDocument.objects.create(
+            expedient=self.expedient,
+            slot_key="constancia_fiscal",
+            document_kind="constancia_fiscal",
+            original_filename="csf.pdf",
+            extraction_status=PLDExpedientDocument.ExtractionStatus.SUCCEEDED,
+            extracted_payload={"rfc": "BBB010101BBB", "legal_name_or_full_name": "OTRA SA"},
+        )
+        for slot_key, kind in (
+            ("acta_constitutiva", "acta_constitutiva"),
+            ("comprobante_domicilio", "comprobante_domicilio"),
+            ("id_representante", "id_representante"),
+            ("curp_representante", "curp_representante"),
+            ("cfdi", "cfdi"),
+            ("id_controlador:0", "id_controlador"),
+        ):
+            PLDExpedientDocument.objects.create(
+                expedient=self.expedient,
+                slot_key=slot_key,
+                document_kind=kind,
+                original_filename=f"{slot_key}.pdf",
+                extraction_status=PLDExpedientDocument.ExtractionStatus.SUCCEEDED,
+                extracted_payload={"ok": True},
+            )
+        parsed = PrequalificationResult(
+            ruleset_version="2026.1",
+            verdict="ready_for_list_screening",
+            summary="Listo",
+            findings=[],
+            controllers=["Ana Lopez"],
+        )
+        loop = create_loop.return_value
+        loop.run.return_value = AgentLoopResult(
+            output=parsed,
+            messages=[],
+            iterations=1,
+            usage={
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0,
+            },
+        )
+        prequalify_pld_expedient(str(self.expedient.id))
+        self.expedient.refresh_from_db()
+        self.assertEqual(
+            self.expedient.prequalification_payload.get("verdict"),
+            "ready_for_list_screening",
+        )
+        self.assertEqual(self.expedient.prequalification_payload.get("findings"), [])
+
+    @patch("api.compliance.tasks.prequalify_pld_expedient.delay")
+    def test_rerun_prequalification_enqueues_task(self, delay):
+        from api.compliance.models import PLDExpedient, PLDExpedientDocument
+
+        self.expedient.prequalification_status = (
+            PLDExpedient.PrequalificationStatus.SUCCEEDED
+        )
+        self.expedient.save(update_fields=["prequalification_status", "updated_at"])
+        for slot_key, kind in (
+            ("acta_constitutiva", "acta_constitutiva"),
+            ("constancia_fiscal", "constancia_fiscal"),
+            ("comprobante_domicilio", "comprobante_domicilio"),
+            ("id_representante", "id_representante"),
+            ("curp_representante", "curp_representante"),
+            ("cfdi", "cfdi"),
+            ("id_controlador:0", "id_controlador"),
+        ):
+            PLDExpedientDocument.objects.create(
+                expedient=self.expedient,
+                slot_key=slot_key,
+                document_kind=kind,
+                original_filename=f"{slot_key}.pdf",
+                extraction_status=PLDExpedientDocument.ExtractionStatus.SUCCEEDED,
+                extracted_payload={"ok": True},
+            )
+        response = self.client.patch(
+            f"/v1/compliance/my-expedients/{self.entity.id}/",
+            {"action": "rerun_prequalification"},
+            format="json",
+            HTTP_AUTHORIZATION=f"Token {self.token.key}",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json()["expedient"]["prequalification_status"], "pending"
+        )
+        delay.assert_called_once_with(str(self.expedient.id))
+
     def test_invitee_payload_hides_findings_and_blocks_open_requests(self):
         from api.compliance.clarifications import InviteeRequestSpec, replace_open_requests
         from api.compliance.models import PLDClarificationRequest, PLDExpedient
@@ -1261,8 +1494,21 @@ class PLDDocumentExtractionTests(TestCase):
         self.assertEqual(listed.status_code, 200)
         row = listed.json()["results"][0]
         self.assertEqual(row["expedient"]["prequalification"]["summary"], "confirma el RFC")
-        self.assertNotIn("findings", row["expedient"]["prequalification"])
+        self.assertEqual(
+            row["expedient"]["prequalification"]["debug"]["findings"],
+            [
+                {
+                    "code": "rfc_mismatch",
+                    "severity": "blocker",
+                    "target": "",
+                    "summary": "secret",
+                    "evidence": "",
+                    "source_ids": [],
+                }
+            ],
+        )
         self.assertNotIn("human_notes", row["expedient"]["prequalification"])
+        self.assertNotIn("findings", row["expedient"]["prequalification"])
         self.assertEqual(
             row["expedient"]["screening"]["summary"],
             "Tu expediente sigue en revision interna.",
@@ -1529,6 +1775,105 @@ class ExtractionHydrateTests(SimpleTestCase):
         self.assertEqual(filled.rfc, "RFC de la Persona Moral 123123123")
         self.assertEqual(filled.registered_address.raw_text, "Calle 123 Centro CDMX")
         self.assertIsNone(filled.share_capital_amount)
+
+    def test_fills_comprobante_fields_from_model_provenance_aliases(self):
+        from api.compliance.document_extraction.hydrate import hydrate_extraction
+        from api.compliance.document_extraction.schemas import (
+            ComprobanteDomicilioExtraction,
+        )
+
+        empty = ComprobanteDomicilioExtraction.model_validate(
+            {
+                "issuer": "TELMEX",
+                "provenances": [
+                    {
+                        "campo_id": "account_holder",
+                        "valor_extraido": "CONSTRUCCIONES RUBLE",
+                    },
+                    {
+                        "campo_id": "addresses",
+                        "valor_extraido": "CARLOS PELLICER CAMARA 805, VILLAHERMOSA",
+                    },
+                    {
+                        "campo_id": "dates",
+                        "valor_extraido": "2026-09-02",
+                    },
+                    {
+                        "campo_id": "dates.payment_due_date",
+                        "valor_extraido": "2026-09-24",
+                    },
+                ],
+            }
+        )
+        filled = hydrate_extraction(empty, "comprobante_domicilio")
+        self.assertEqual(filled.account_holder_name, "CONSTRUCCIONES RUBLE")
+        self.assertEqual(
+            filled.service_address.raw_text,
+            "CARLOS PELLICER CAMARA 805, VILLAHERMOSA",
+        )
+        self.assertEqual(filled.issue_or_period_date, "2026-09-02")
+
+    def test_fills_official_id_fields_from_spanish_provenances(self):
+        from api.compliance.document_extraction.hydrate import hydrate_extraction
+        from api.compliance.document_extraction.schemas import OfficialIdExtraction
+
+        empty = OfficialIdExtraction.model_validate(
+            {
+                "curp": "REBR831016MTCYQL04",
+                "provenances": [
+                    {
+                        "campo_id": "tipo_identificacion",
+                        "valor_extraido": "Credencial para votar (INE)",
+                    },
+                    {
+                        "campo_id": "nombre_completo",
+                        "valor_extraido": "BLANCA LILIA REYES RIQUE",
+                    },
+                    {
+                        "campo_id": "fecha_nacimiento",
+                        "valor_extraido": "1983-10-16",
+                    },
+                    {"campo_id": "sexo", "valor_extraido": "M"},
+                    {
+                        "campo_id": "clave_elector",
+                        "valor_extraido": "RYQB83101627M000",
+                    },
+                    {"campo_id": "vigencia", "valor_extraido": "2028"},
+                ],
+            }
+        )
+        filled = hydrate_extraction(empty, "id_representante")
+        self.assertEqual(filled.document_subtype, "Credencial para votar (INE)")
+        self.assertEqual(filled.full_name, "BLANCA LILIA REYES RIQUE")
+        self.assertEqual(filled.date_of_birth, "1983-10-16")
+        self.assertEqual(filled.sex, "M")
+        self.assertEqual(filled.document_number, "RYQB83101627M000")
+        self.assertEqual(filled.validity_year, "2028")
+        self.assertEqual(filled.curp, "REBR831016MTCYQL04")
+
+    def test_fills_curp_fields_from_spanish_provenances(self):
+        from api.compliance.document_extraction.hydrate import hydrate_extraction
+        from api.compliance.document_extraction.schemas import CurpExtraction
+
+        empty = CurpExtraction.model_validate(
+            {
+                "curp": "RERB831016MTCYQL04",
+                "provenances": [
+                    {
+                        "campo_id": "nombre",
+                        "valor_extraido": "BLANCA LILIA REYES RIQUE",
+                    },
+                    {
+                        "campo_id": "entidad_registro",
+                        "valor_extraido": "TABASCO",
+                    },
+                ],
+            }
+        )
+        filled = hydrate_extraction(empty, "curp_representante")
+        self.assertEqual(filled.full_name, "BLANCA LILIA REYES RIQUE")
+        self.assertEqual(filled.entidad_nacimiento, "TABASCO")
+        self.assertEqual(filled.curp, "RERB831016MTCYQL04")
 
 
 class ExtractionInputTests(SimpleTestCase):

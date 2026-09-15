@@ -76,6 +76,16 @@ SPEC_FIELDS_BY_KIND["matriz_accionaria"] = {
     "ACC-titular_nombre": "holders",
 }
 
+OPTIONAL_SPEC_FIELDS_BY_KIND: dict[str, frozenset[str]] = {
+    "acta_constitutiva": frozenset(
+        {
+            "ACTA-rfc",
+            "ACTA-folio_mercantil",
+            "ACTA-objeto_social",
+        }
+    ),
+}
+
 
 def _path_value(payload: dict[str, Any], dotted: str) -> Any:
     current: Any = payload
@@ -105,3 +115,14 @@ def missing_spec_fields(document_kind: str, payload: dict[str, Any] | None) -> l
         if not _is_filled(_path_value(row, path)):
             missing.append(campo_id)
     return missing
+
+
+def missing_required_spec_fields(
+    document_kind: str, payload: dict[str, Any] | None
+) -> list[str]:
+    optional = OPTIONAL_SPEC_FIELDS_BY_KIND.get(document_kind) or frozenset()
+    return [
+        campo_id
+        for campo_id in missing_spec_fields(document_kind, payload)
+        if campo_id not in optional
+    ]

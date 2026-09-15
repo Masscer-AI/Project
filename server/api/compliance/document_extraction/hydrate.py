@@ -24,6 +24,49 @@ PROVENANCE_FIELD_ALIASES: dict[str, str] = {
     "documento.tipo_documento": "document_subtype",
 }
 
+_OFFICIAL_ID_ALIASES: dict[str, str] = {
+    "tipo_identificacion": "document_subtype",
+    "nombre_completo": "full_name",
+    "fecha_nacimiento": "date_of_birth",
+    "sexo": "sex",
+    "domicilio": "address_text",
+    "clave_elector": "document_number",
+    "folio": "document_number",
+    "vigencia": "validity_year",
+    "fecha_expedicion": "issue_date",
+    "fecha_vencimiento": "expiry_date",
+    "nacionalidad": "nationality",
+    "curp": "curp",
+}
+
+_CURP_ALIASES: dict[str, str] = {
+    "nombre": "full_name",
+    "nombre_completo": "full_name",
+    "fecha_nacimiento": "date_of_birth",
+    "sexo": "sex",
+    "entidad_registro": "entidad_nacimiento",
+    "curp": "curp",
+    "folio": "folio",
+}
+
+PROVENANCE_FIELD_ALIASES_BY_KIND: dict[str, dict[str, str]] = {
+    "comprobante_domicilio": {
+        "account_holder": "account_holder_name",
+        "legal_name": "account_holder_name",
+        "addresses": "service_address",
+        "dates.issue_date": "issue_or_period_date",
+        "dates.certification_date": "issue_or_period_date",
+        "dates.billing_period": "issue_or_period_date",
+        "dates": "issue_or_period_date",
+        "billing_period": "issue_or_period_date",
+    },
+    "official_id": _OFFICIAL_ID_ALIASES,
+    "id_representante": _OFFICIAL_ID_ALIASES,
+    "id_controlador": _OFFICIAL_ID_ALIASES,
+    "curp": _CURP_ALIASES,
+    "curp_representante": _CURP_ALIASES,
+}
+
 
 def _set_path(payload: dict[str, Any], dotted: str, value: Any) -> None:
     parts = dotted.split(".")
@@ -63,6 +106,7 @@ def hydrate_extraction(parsed, document_kind: str):
     mapping = {
         **(SPEC_FIELDS_BY_KIND.get(document_kind) or {}),
         **PROVENANCE_FIELD_ALIASES,
+        **(PROVENANCE_FIELD_ALIASES_BY_KIND.get(document_kind) or {}),
     }
     changed = False
     for campo_id, path in mapping.items():

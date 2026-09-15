@@ -376,6 +376,39 @@ class MyPLDExpedientDetailView(View):
         payload, err = _parse_json_body(request)
         if err:
             return err
+        if payload.get("action") == "reset_expedient":
+            exp = entity.expedients.order_by("created_at").first()
+            if not exp:
+                return JsonResponse({"error": "expedient-not-found"}, status=400)
+            _reset_invitee_expedient(entity)
+            return JsonResponse(_reload_my_expedient_row(entity.pk), status=200)
+        if payload.get("action") == "rerun_prequalification":
+            from api.compliance.pld_document_slots import (
+                required_slots_extraction_ready,
+            )
+            from api.compliance.tasks import prequalify_pld_expedient
+
+            entity = (
+                PLDEntity.objects.select_related("organization")
+                .prefetch_related("expedients", "expedients__documents")
+                .get(pk=entity.pk)
+            )
+            ready, reason = required_slots_extraction_ready(entity)
+            if not ready:
+                return JsonResponse({"error": reason}, status=400)
+            exp = entity.expedients.order_by("created_at").first()
+            if not exp:
+                return JsonResponse({"error": "expedient-not-found"}, status=400)
+            if exp.status in {
+                PLDExpedientStatus.WAITING_SIGN,
+                PLDExpedientStatus.SIGNED,
+                PLDExpedientStatus.DELIVERED,
+            }:
+                return JsonResponse({"error": "expedient-locked"}, status=400)
+            exp.prequalification_status = PLDExpedient.PrequalificationStatus.PENDING
+            exp.save(update_fields=["prequalification_status", "updated_at"])
+            prequalify_pld_expedient.delay(str(exp.id))
+            return JsonResponse(_reload_my_expedient_row(entity.pk), status=200)
         if payload.get("action") == "confirm_documents":
             from api.compliance.pld_document_slots import (
                 required_slots_extraction_ready,
@@ -480,9 +513,27 @@ class MyPLDExpedientDetailView(View):
 
 def _invitee_prequalification(exp: PLDExpedient) -> dict:
     raw = exp.prequalification_payload if isinstance(exp.prequalification_payload, dict) else {}
+    findings = raw.get("findings") if isinstance(raw.get("findings"), list) else []
+    debug_findings = []
+    for item in findings:
+        if not isinstance(item, dict):
+            continue
+        debug_findings.append(
+            {
+                "code": item.get("code") or "",
+                "severity": item.get("severity") or "",
+                "target": item.get("target") or "",
+                "summary": item.get("summary") or "",
+                "evidence": item.get("evidence") or "",
+                "source_ids": item.get("source_ids")
+                if isinstance(item.get("source_ids"), list)
+                else [],
+            }
+        )
     return {
         "verdict": raw.get("verdict") or "",
         "summary": raw.get("summary") or "",
+        "debug": {"findings": debug_findings},
     }
 
 
@@ -564,6 +615,45 @@ def _reload_my_expedient_row(entity_id) -> dict:
     return _my_expedient_row(entity)
 
 
+def _clear_stored_file(field) -> None:
+    if not field:
+        return
+    field.delete(save=False)
+
+
+def _reset_invitee_expedient(entity: PLDEntity) -> None:
+    from api.compliance.pld_metadata import normalize_pld_entity_metadata
+
+    with transaction.atomic():
+        entity.metadata = normalize_pld_entity_metadata(entity.person_type, {})
+        entity.save(update_fields=["metadata", "updated_at"])
+        exp = entity.expedients.order_by("created_at").first()
+        if not exp:
+            return
+        for doc in list(exp.documents.all()):
+            _clear_stored_file(doc.file)
+            doc.delete()
+        exp.clarification_requests.all().delete()
+        _clear_stored_file(exp.packet_file)
+        _clear_stored_file(exp.signed_packet)
+        _clear_stored_file(exp.signed_packet_xml)
+        exp.status = PLDExpedientStatus.DATA_COLLECTION
+        exp.started_at = None
+        exp.vulnerable_activity = ""
+        exp.prequalification_status = ""
+        exp.prequalification_payload = {}
+        exp.prequalified_at = None
+        exp.screening_status = ""
+        exp.screening_payload = {}
+        exp.screened_at = None
+        exp.risk_status = ""
+        exp.risk_payload = {}
+        exp.risked_at = None
+        exp.packet_generated_at = None
+        exp.signature_request = None
+        exp.save()
+
+
 def _document_payload(doc: PLDExpedientDocument) -> dict:
     return {
         "id": str(doc.id),
@@ -613,7 +703,7 @@ def _invitee_counterparty_or_404(request, entity_id):
     return entity, None
 
 
-MAX_PLD_DOCUMENT_BYTES = 10 * 1024 * 1024
+MAX_PLD_DOCUMENT_BYTES = 50 * 1024 * 1024
 _ALLOWED_EXTENSIONS = {".pdf", ".jpg", ".jpeg", ".png", ".webp", ".xml", ".zip"}
 _ALLOWED_CONTENT_TYPES = {
     "application/pdf",

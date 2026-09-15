@@ -18,34 +18,46 @@ logger = logging.getLogger(__name__)
 
 _SHARED_RULES = (
     "The document is attached to this message. Do not call tools. "
-    "Fill the JSON schema properties first; they are the source of truth "
-    "(legal_name, full_name, rfc, curp, shareholders, administrators, addresses, dates). "
+    "Fill every property on this document's JSON schema first; those names are the "
+    "source of truth. Do not invent extra top-level keys such as addresses or dates. "
     "If a value is visible, extract it even if the file is labeled sample, draft, or ficticio. "
     "Use null only when the field is not visible. Never invent RFC, CURP, dates, or "
     "ownership percentages. Dates as YYYY-MM-DD when possible. "
-    "Provenances are citations only: campo_id must match the schema field description "
-    "(e.g. ACTA-denominacion_social), valor_extraido must be the same value you put in "
-    "the schema field, pagina_origen as a string (e.g. \"1\"), plus a short texto_origen snippet."
+    "Provenances are citations only: campo_id must be the schema property name or the "
+    "code in that field's description (e.g. issue_or_period_date or DOM-fecha_emision), "
+    "valor_extraido must be the same value you put in the schema field, pagina_origen "
+    "as a string (e.g. \"1\"), plus a short texto_origen snippet."
 )
 
 INSTRUCTIONS_BY_KIND = {
     "official_id": (
         "You extract Mexican official ID (INE, passport, professional license, or other). "
         "INE does not print RFC — leave RFC-related fields null. "
+        "Set document_subtype, full_name, date_of_birth, sex, curp, document_number "
+        "(clave de elector), validity_year or expiry_date, and address_text. "
+        "If a fact is present in provenances, place it in its matching schema property too. "
         + _SHARED_RULES
     ),
     "id_representante": (
         "You extract the official ID of a legal representative. "
         "INE does not print RFC. "
+        "Set document_subtype, full_name, date_of_birth, sex, curp, document_number "
+        "(clave de elector), validity_year or expiry_date, and address_text. "
+        "If a fact is present in provenances, place it in its matching schema property too. "
         + _SHARED_RULES
     ),
     "id_controlador": (
         "You extract the official ID of a beneficial owner (beneficiario controlador). "
         "INE does not print RFC. "
+        "Set document_subtype, full_name, date_of_birth, sex, curp, document_number "
+        "(clave de elector), validity_year or expiry_date, and address_text. "
+        "If a fact is present in provenances, place it in its matching schema property too. "
         + _SHARED_RULES
     ),
     "curp": (
         "You extract a Mexican CURP certificate / cedula. "
+        "Set curp, full_name, date_of_birth, sex, and entidad_nacimiento. "
+        "If a fact is present in provenances, place it in its matching schema property too. "
         + _SHARED_RULES
     ),
     "constancia_fiscal": (
@@ -54,9 +66,17 @@ INSTRUCTIONS_BY_KIND = {
         + _SHARED_RULES
     ),
     "comprobante_domicilio": (
-        "You extract a Mexican proof of address (utility, bank, predial). "
-        "Capture issuer, account holder, full address, and issue or billing-period date. "
-        "Leave name_matches_client_hint null. "
+        "You extract a Mexican proof of address (utility bill, CFDI, bank, predial). "
+        "Set issuer to the company that issued the bill, not the customer. "
+        "Set account_holder_name to the billed customer name. "
+        "Set service_address to an object and service_address.raw_text to the full address. "
+        "Set issue_or_period_date to the billing period or certification date, "
+        "not the payment deadline. Set comprobante_type (telefono, luz, agua, "
+        "predial, or other). Use only DOM-titular, DOM-domicilio, DOM-fecha_emision, "
+        "DOM-tipo_comprobante, and DOM-cuenta_referencia as campo_id values for these fields. "
+        "Never use legal_name, account_holder, addresses, dates, or dates.* as campo_id. "
+        "If a fact is present in provenances, place it in its matching schema property too. "
+        "Leave name_matches_client_hint and older_than_three_months null. "
         + _SHARED_RULES
     ),
     "acta_constitutiva": (
@@ -83,6 +103,8 @@ INSTRUCTIONS_BY_KIND = {
     ),
     "curp_representante": (
         "You extract the CURP certificate of the legal representative. "
+        "Set curp, full_name, date_of_birth, sex, and entidad_nacimiento. "
+        "If a fact is present in provenances, place it in its matching schema property too. "
         + _SHARED_RULES
     ),
     "curp_socios": (
@@ -149,6 +171,22 @@ INSTRUCTIONS_BY_KIND = {
 }
 
 
+def _extraction_output_summary(output) -> dict:
+    payload = output.model_dump(mode="json")
+    provenances = payload.pop("provenances", [])
+    return {
+        "populated_fields": [
+            key for key, value in payload.items() if value not in (None, "", [], {})
+        ],
+        "empty_fields": [
+            key for key, value in payload.items() if value in (None, "", [], {})
+        ],
+        "provenance_campo_ids": [
+            row.get("campo_id") for row in provenances if isinstance(row, dict)
+        ],
+    }
+
+
 def _older_than_three_months(iso: str | None) -> bool | None:
     if not iso:
         return None
@@ -174,6 +212,13 @@ def extract_document(doc) -> PldExtraction:
     schema = schema_for_kind(kind)
     instructions = INSTRUCTIONS_BY_KIND.get(kind) or _SHARED_RULES
     billing_user_id, organization_id = _billing_for_document(doc)
+    logger.info(
+        "PLD extraction input doc=%s kind=%s schema=%s fields=%s",
+        getattr(doc, "pk", None),
+        kind,
+        schema.__name__,
+        list(schema.model_fields),
+    )
 
     from api.ai_layers.agent_loop import AgentLoop
 
@@ -190,7 +235,7 @@ def extract_document(doc) -> PldExtraction:
         f"Extract structured fields from this {kind} document "
         f"({doc.original_filename or 'upload'}). "
         "Read the attached file and return JSON matching the schema. "
-        "Populate schema fields; do not only fill provenances."
+        "Put values on schema properties, not only in provenances."
     )
     result = loop.run(
         [
@@ -226,7 +271,17 @@ def extract_document(doc) -> PldExtraction:
         )
         raise ValueError("Extractor did not return structured output")
 
+    logger.info(
+        "PLD extraction before hydration doc=%s summary=%s",
+        getattr(doc, "pk", None),
+        _extraction_output_summary(output),
+    )
     output = hydrate_extraction(output, kind)
+    logger.info(
+        "PLD extraction after hydration doc=%s summary=%s",
+        getattr(doc, "pk", None),
+        _extraction_output_summary(output),
+    )
 
     if isinstance(output, ComprobanteDomicilioExtraction):
         output.older_than_three_months = _older_than_three_months(

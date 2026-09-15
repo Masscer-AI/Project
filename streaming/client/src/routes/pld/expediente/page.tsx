@@ -5,17 +5,24 @@ import {
   ActionIcon,
   Badge,
   Box,
+  Button,
   Card,
   Group,
   Loader,
+  Modal,
   Stack,
   Text,
   Title,
 } from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
 import { IconMenu2 } from "@tabler/icons-react";
 import { Sidebar } from "../../../components/Sidebar/Sidebar";
 import { useStore } from "../../../modules/store";
-import { listMyPldExpedients, TMyPldExpedient } from "../../../modules/apiCalls";
+import {
+  listMyPldExpedients,
+  resetMyPldExpedient,
+  TMyPldExpedient,
+} from "../../../modules/apiCalls";
 import { PldDocumentCollection } from "./PldDocumentCollection";
 import { PldIdentificationDossier } from "./PldIdentificationDossier";
 import { PldIntakeForm } from "./PldIntakeForm";
@@ -38,6 +45,57 @@ function shouldStartOnDossier(row: TMyPldExpedient): boolean {
   const status = row.expedient?.status;
   if (status && DOSSIER_DEFAULT_STATUSES.has(status)) return true;
   return (row.clarification_requests || []).some((item) => item.status === "open");
+}
+
+function ResetExpedienteButton({
+  entityId,
+  onReset,
+}: {
+  entityId: string;
+  onReset: (next: TMyPldExpedient) => void;
+}) {
+  const { t } = useTranslation();
+  const [opened, { open, close }] = useDisclosure(false);
+  const [saving, setSaving] = useState(false);
+
+  const handleConfirm = async () => {
+    setSaving(true);
+    try {
+      const next = await resetMyPldExpedient(entityId);
+      onReset(next);
+      toast.success(t("compliance-expediente-reset-done"));
+      close();
+    } catch {
+      toast.error(t("compliance-expediente-reset-error"));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <>
+      <Button variant="default" size="xs" onClick={open}>
+        {t("compliance-expediente-reset")}
+      </Button>
+      <Modal
+        opened={opened}
+        onClose={close}
+        title={t("compliance-expediente-reset-title")}
+      >
+        <Text size="sm" mb="md">
+          {t("compliance-expediente-reset-body")}
+        </Text>
+        <Group justify="flex-end">
+          <Button variant="default" onClick={close}>
+            {t("cancel")}
+          </Button>
+          <Button color="red" loading={saving} onClick={handleConfirm}>
+            {t("compliance-expediente-reset-confirm")}
+          </Button>
+        </Group>
+      </Modal>
+    </>
+  );
 }
 
 export default function MyPldExpedientePage() {
@@ -129,13 +187,31 @@ export default function MyPldExpedientePage() {
                           : t("compliance-intake-fisica-section")}
                       </Text>
                     </Stack>
-                    {row.expedient && (
-                      <Badge variant="light" color="violet">
-                        {t(`compliance-status-${row.expedient.status}`, {
-                          defaultValue: row.expedient.status,
-                        })}
-                      </Badge>
-                    )}
+                    <Group gap="xs">
+                      {row.expedient && (
+                        <Badge variant="light" color="violet">
+                          {t(`compliance-status-${row.expedient.status}`, {
+                            defaultValue: row.expedient.status,
+                          })}
+                        </Badge>
+                      )}
+                      {row.expedient && (
+                        <ResetExpedienteButton
+                          entityId={row.id}
+                          onReset={(next) => {
+                            setRows((prev) =>
+                              prev.map((item) =>
+                                item.id === next.id ? next : item
+                              )
+                            );
+                            setReviewingIds((prev) => ({
+                              ...prev,
+                              [next.id]: false,
+                            }));
+                          }}
+                        />
+                      )}
+                    </Group>
                   </Group>
                   {reviewingIds[row.id] ||
                   DOSSIER_LOCKED_STATUSES.has(row.expedient?.status || "") ? (

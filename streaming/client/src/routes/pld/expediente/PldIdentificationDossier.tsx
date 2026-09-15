@@ -5,11 +5,13 @@ import { Alert, Badge, Button, Group, List, Loader, Stack, Text, Title } from "@
 import {
   confirmMyPldDocuments,
   listMyPldExpedients,
+  rerunMyPldPrequalification,
   TMyPldExpedient,
   TPldDocumentSlot,
 } from "../../../modules/apiCalls";
 import { PldClarificationRequests } from "./PldClarificationRequests";
 import { PldExtractionDebugModal } from "./PldExtractionDebugModal";
+import { PldPrequalDebugModal } from "./PldPrequalDebugModal";
 
 function text(value: unknown): string {
   if (typeof value === "string" && value.trim()) return value.trim();
@@ -141,6 +143,13 @@ export function PldIdentificationDossier({
   const confirmEnabled = ready && prequalReady && !busy;
   const alreadyCross = status === "cross_reference";
   const hideConfirm = alreadyCross || waitingSign || signedDone;
+  const canRerunPrequal =
+    ready &&
+    !prequalPending &&
+    !waitingSign &&
+    !signedDone &&
+    (row.expedient?.prequalification_status === "succeeded" ||
+      row.expedient?.prequalification_status === "failed");
   const displayName =
     text(metadata.legal_name) ||
     text(metadata.name) ||
@@ -157,6 +166,19 @@ export function PldIdentificationDossier({
       toast.success(t("compliance-dossier-confirmed"));
     } catch {
       toast.error(t("compliance-dossier-confirm-error"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRerunPrequal = async () => {
+    setBusy(true);
+    try {
+      const saved = await rerunMyPldPrequalification(row.id);
+      onSaved(saved);
+      toast.success(t("compliance-prequal-rerun-done"));
+    } catch {
+      toast.error(t("compliance-prequal-rerun-error"));
     } finally {
       setBusy(false);
     }
@@ -190,17 +212,43 @@ export function PldIdentificationDossier({
         </Alert>
       )}
       {row.expedient?.prequalification_status === "failed" && (
-        <Alert color="red" variant="light">
-          {t("compliance-prequal-failed")}
-        </Alert>
+        <Group align="flex-start" gap="sm">
+          <Alert color="red" variant="light" style={{ flex: 1 }}>
+            {t("compliance-prequal-failed")}
+          </Alert>
+          {canRerunPrequal ? (
+            <Button
+              variant="default"
+              size="xs"
+              loading={busy}
+              onClick={handleRerunPrequal}
+            >
+              {t("compliance-prequal-rerun")}
+            </Button>
+          ) : null}
+        </Group>
       )}
       {prequal?.summary && row.expedient?.prequalification_status === "succeeded" && (
-        <Alert
-          color={verdict === "ready_for_list_screening" ? "teal" : "yellow"}
-          variant="light"
-        >
-          {prequal.summary}
-        </Alert>
+        <Group align="flex-start" gap="sm" wrap="nowrap">
+          <Alert
+            color={verdict === "ready_for_list_screening" ? "teal" : "yellow"}
+            variant="light"
+            style={{ flex: 1 }}
+          >
+            {prequal.summary}
+          </Alert>
+          <PldPrequalDebugModal row={row} />
+          {canRerunPrequal ? (
+            <Button
+              variant="default"
+              size="xs"
+              loading={busy}
+              onClick={handleRerunPrequal}
+            >
+              {t("compliance-prequal-rerun")}
+            </Button>
+          ) : null}
+        </Group>
       )}
       {row.expedient?.screening_status === "pending" && (
         <Alert

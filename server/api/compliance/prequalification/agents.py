@@ -6,16 +6,9 @@ import logging
 
 from api.compliance.document_extraction.constants import PLD_EXTRACTION_MODEL_SLUG
 from api.compliance.pld_document_slots import required_slots_extraction_ready
-from api.compliance.prequalification.deterministic import (
-    controller_names,
-    deterministic_findings,
-    verdict_from_findings,
-)
+from api.compliance.prequalification.deterministic import controller_names
 from api.compliance.prequalification.pack import build_prequalification_packet
-from api.compliance.prequalification.schemas import (
-    PrequalFinding,
-    PrequalificationResult,
-)
+from api.compliance.prequalification.schemas import PrequalificationResult
 from api.compliance.prequalification.sources import RULESET_VERSION
 
 logger = logging.getLogger(__name__)
@@ -30,9 +23,9 @@ Reglas:
 - Evalua SOLO contra el objeto `rules` del paquete (Anexos 3/4 RCG, LFPIORPI).
 - No inventes requisitos que no esten en `rules`.
 - No consultes listas, no asignes semaforo, no declares PEP.
-- Conserva todos los hallazgos deterministicos con severity blocker; puedes anadir
-  warnings de conciliacion (nombres, domicilios, representante vs ID, socios vs
-  beneficiario controlador).
+- Trata abreviaciones societarias (SA de CV vs sociedad anonima de capital variable)
+  y campos opcionales del acta (RFC de la sociedad, folio mercantil, objeto social)
+  con holgura. No pidas aclaracion por esas diferencias menores.
 - Si falta un dato o hay inconsistencia que el invitado puede aclarar, llena
   `invitee_requests` (maximo 5). Cada prompt en espanol, breve, sin mencionar listas,
   scores ni investigaciones. answer_type: text, document o either.
@@ -43,20 +36,6 @@ Reglas:
 """.strip()
 
 
-def _merge_findings(
-    base: list[PrequalFinding], extra: list[PrequalFinding]
-) -> list[PrequalFinding]:
-    seen = {(item.code, item.target, item.summary) for item in base}
-    merged = list(base)
-    for item in extra:
-        key = (item.code, item.target, item.summary)
-        if key in seen:
-            continue
-        seen.add(key)
-        merged.append(item)
-    return merged
-
-
 def _billing(entity) -> tuple[int | None, object]:
     org = getattr(entity, "organization", None)
     owner_id = getattr(org, "owner_id", None) if org else None
@@ -64,17 +43,16 @@ def _billing(entity) -> tuple[int | None, object]:
 
 
 def run_prequalification(entity) -> PrequalificationResult:
-    det = deterministic_findings(entity)
     ready, _reason = required_slots_extraction_ready(entity)
     if not ready:
         return PrequalificationResult(
             ruleset_version=RULESET_VERSION,
-            verdict=verdict_from_findings(det),
+            verdict="blocked",
             summary=(
                 "Aun no se puede precalificar: faltan documentos obligatorios "
                 "o la extraccion no ha terminado."
             ),
-            findings=det,
+            findings=[],
             controllers=controller_names(entity),
         )
 
@@ -122,14 +100,11 @@ def run_prequalification(entity) -> PrequalificationResult:
     if not isinstance(output, PrequalificationResult):
         raise ValueError("Prequalification did not return structured output")
 
-    findings = _merge_findings(det, output.findings)
-    verdict = verdict_from_findings(findings)
-    from api.compliance.clarifications import merge_request_specs, specs_from_findings
+    findings = list(output.findings or [])
+    verdict = output.verdict
+    from api.compliance.clarifications import merge_request_specs
 
-    requests = merge_request_specs(
-        specs_from_findings(findings),
-        list(output.invitee_requests or []),
-    )
+    requests = merge_request_specs(list(output.invitee_requests or []))
     if requests and verdict == "ready_for_list_screening":
         verdict = "needs_review"
     controllers = output.controllers or controller_names(entity)
