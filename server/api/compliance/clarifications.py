@@ -149,8 +149,8 @@ def serialize_request(item: PLDClarificationRequest, documents_by_slot: dict | N
 def answers_packet(expedient: PLDExpedient) -> list[dict]:
     rows = []
     docs = {doc.slot_key: doc for doc in expedient.documents.all()}
-    for item in expedient.clarification_requests.exclude(
-        status=PLDClarificationRequest.Status.CANCELLED
+    for item in expedient.clarification_requests.filter(
+        status=PLDClarificationRequest.Status.ANSWERED
     ):
         doc = docs.get(item.slot_key)
         payload = doc.extracted_payload if doc and isinstance(doc.extracted_payload, dict) else {}

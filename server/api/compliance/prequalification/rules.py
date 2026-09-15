@@ -134,11 +134,6 @@ IDENTIFICATION_RULES = {
                 "rule": "Proof of address issue/period date not older than three months.",
                 "source_ids": ["rcg"],
             },
-            {
-                "id": "ownership_may_be_stale",
-                "rule": "Acta shows ownership at constitution; warn if it may be stale versus declared controllers.",
-                "source_ids": ["rcg"],
-            },
         ],
         "reconcile": [
             {"id": "rfc_vs_csf", "source_ids": ["rcg"]},

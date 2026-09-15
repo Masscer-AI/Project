@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
 import { Alert, Badge, Button, Group, List, Loader, Stack, Text, Title } from "@mantine/core";
+import { IconDownload } from "@tabler/icons-react";
 import {
   confirmMyPldDocuments,
+  downloadMyPldPacket,
   listMyPldExpedients,
   rerunMyPldPrequalification,
   TMyPldExpedient,
@@ -179,6 +181,17 @@ export function PldIdentificationDossier({
       toast.success(t("compliance-prequal-rerun-done"));
     } catch {
       toast.error(t("compliance-prequal-rerun-error"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleDownloadPacket = async () => {
+    setBusy(true);
+    try {
+      await downloadMyPldPacket(row.id);
+    } catch {
+      toast.error(t("compliance-sign-download-error"));
     } finally {
       setBusy(false);
     }
@@ -371,16 +384,44 @@ export function PldIdentificationDossier({
             </Text>
             <Text size="sm">{t("compliance-sign-intro")}</Text>
             {row.expedient?.signing?.url ? (
-              <Button
-                component="a"
-                href={row.expedient.signing.url}
-                color="violet"
-                size="sm"
-              >
-                {t("compliance-sign-cta")}
-              </Button>
+              <Group gap="xs">
+                <Button
+                  component="a"
+                  href={row.expedient.signing.url}
+                  color="violet"
+                  size="sm"
+                >
+                  {t("compliance-sign-cta")}
+                </Button>
+                {row.expedient.packet_ready ? (
+                  <Button
+                    type="button"
+                    variant="default"
+                    size="sm"
+                    leftSection={<IconDownload size={16} />}
+                    loading={busy}
+                    onClick={handleDownloadPacket}
+                  >
+                    {t("compliance-sign-download")}
+                  </Button>
+                ) : null}
+              </Group>
             ) : (
-              <Text size="sm">{t("compliance-sign-preparing")}</Text>
+              <Group gap="xs">
+                <Text size="sm">{t("compliance-sign-preparing")}</Text>
+                {row.expedient?.packet_ready ? (
+                  <Button
+                    type="button"
+                    variant="default"
+                    size="sm"
+                    leftSection={<IconDownload size={16} />}
+                    loading={busy}
+                    onClick={handleDownloadPacket}
+                  >
+                    {t("compliance-sign-download")}
+                  </Button>
+                ) : null}
+              </Group>
             )}
             {row.expedient?.signing?.status === "rejected" ||
             row.expedient?.signing?.status === "error" ? (
@@ -391,7 +432,21 @@ export function PldIdentificationDossier({
       )}
       {signedDone && (
         <Alert color="teal" variant="light">
-          {t("compliance-sign-done")}
+          <Stack gap="xs">
+            <Text size="sm">{t("compliance-sign-done")}</Text>
+            {row.expedient?.packet_ready ? (
+              <Button
+                type="button"
+                variant="default"
+                size="sm"
+                leftSection={<IconDownload size={16} />}
+                loading={busy}
+                onClick={handleDownloadPacket}
+              >
+                {t("compliance-sign-download")}
+              </Button>
+            ) : null}
+          </Stack>
         </Alert>
       )}
       {alreadyCross && openRequests.length === 0 ? (

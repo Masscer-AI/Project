@@ -62,11 +62,20 @@ class OfficialIdExtraction(ProvenanceMixin):
     address: AddressExtraction | None = None
     document_number: str | None = Field(
         default=None,
-        description="ID-folio_clave: folio, clave de elector, pasaporte u equivalente",
+        description=(
+            "ID-folio_clave: INE digits after IDMEX on the reverse MRZ; "
+            "passport number otherwise. Not clave de elector."
+        ),
     )
-    cic: str | None = None
+    cic: str | None = Field(
+        default=None,
+        description="INE CIC: digits immediately after IDMEX on the reverse",
+    )
     ocr_line: str | None = None
-    citizen_identifier: str | None = None
+    citizen_identifier: str | None = Field(
+        default=None,
+        description="INE clave de elector printed on the front",
+    )
     issue_date: str | None = Field(default=None, description="ID-fecha_expedicion")
     validity_year: str | None = None
     mrz: str | None = None
@@ -244,7 +253,7 @@ class ActaConstitutivaExtraction(ProvenanceMixin):
     )
     granted_powers: list[GrantedPowerExtraction] = Field(default_factory=list)
     ownership_as_of: str | None = None
-    ownership_may_be_stale: bool | None = True
+    ownership_may_be_stale: bool | None = None
 
 
 class PoderExtraction(ProvenanceMixin):

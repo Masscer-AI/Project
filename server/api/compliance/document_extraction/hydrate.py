@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from api.compliance.document_extraction.spec_fields import (
@@ -30,8 +31,10 @@ _OFFICIAL_ID_ALIASES: dict[str, str] = {
     "fecha_nacimiento": "date_of_birth",
     "sexo": "sex",
     "domicilio": "address_text",
-    "clave_elector": "document_number",
+    "clave_elector": "citizen_identifier",
     "folio": "document_number",
+    "cic": "cic",
+    "idmex": "cic",
     "vigencia": "validity_year",
     "fecha_expedicion": "issue_date",
     "fecha_vencimiento": "expiry_date",
@@ -80,6 +83,65 @@ def _set_path(payload: dict[str, Any], dotted: str, value: Any) -> None:
             return
         current = nxt
     current[parts[-1]] = value
+
+
+_IDMEX_RE = re.compile(r"IDMEX\s*(\d+)", re.I)
+_CLAVE_ELECTOR_RE = re.compile(r"[A-Za-z]")
+
+
+def _apply_ine_idmex(data: dict[str, Any]) -> bool:
+    blobs = [data.get("mrz"), data.get("ocr_line"), data.get("document_number"), data.get("cic")]
+    for row in data.get("provenances") or []:
+        if isinstance(row, dict):
+            blobs.append(row.get("texto_origen"))
+            blobs.append(row.get("valor_extraido"))
+    joined = " ".join(str(part) for part in blobs if part)
+    match = _IDMEX_RE.search(re.sub(r"\s+", "", joined))
+    ine = match.group(1) if match else None
+    if not ine:
+        cic = data.get("cic")
+        if isinstance(cic, str) and cic.strip().isdigit():
+            ine = cic.strip()
+    if not ine:
+        return False
+    changed = False
+    current = data.get("document_number")
+    if (
+        isinstance(current, str)
+        and current
+        and current != ine
+        and _CLAVE_ELECTOR_RE.search(current)
+        and not data.get("citizen_identifier")
+    ):
+        data["citizen_identifier"] = current
+        changed = True
+    if data.get("document_number") != ine:
+        data["document_number"] = ine
+        changed = True
+    if data.get("cic") != ine:
+        data["cic"] = ine
+        changed = True
+    return changed
+
+
+def _drop_id_curp(data: dict[str, Any]) -> bool:
+    changed = False
+    if data.get("curp") is not None:
+        data["curp"] = None
+        changed = True
+    rows = data.get("provenances") or []
+    kept = [
+        row
+        for row in rows
+        if not (
+            isinstance(row, dict)
+            and str(row.get("campo_id") or "").lower() in {"curp", "curp-curp"}
+        )
+    ]
+    if len(kept) != len(rows):
+        data["provenances"] = kept
+        changed = True
+    return changed
 
 
 def _citation_value(row: dict[str, Any]) -> str | None:
@@ -141,6 +203,12 @@ def hydrate_extraction(parsed, document_kind: str):
             continue
         _set_path(data, path, value)
         changed = True
+    if document_kind in {"official_id", "id_representante", "id_controlador"}:
+        if _apply_ine_idmex(data):
+            changed = True
+    if document_kind == "id_representante":
+        if _drop_id_curp(data):
+            changed = True
     if not changed:
         return parsed
     return parsed.__class__.model_validate(data)

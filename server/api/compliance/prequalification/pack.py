@@ -11,21 +11,8 @@ from api.compliance.prequalification.sources import RULESET_VERSION
 
 
 def _compact_payload(payload: dict) -> dict:
-    skip = {"provenances"}
-    compact = {key: value for key, value in payload.items() if key not in skip}
-    provenances = payload.get("provenances")
-    if isinstance(provenances, list):
-        compact["provenances"] = [
-            {
-                "campo_id": item.get("campo_id"),
-                "valor_extraido": item.get("valor_extraido"),
-                "pagina_origen": item.get("pagina_origen"),
-                "estado_validacion": item.get("estado_validacion"),
-            }
-            for item in provenances
-            if isinstance(item, dict)
-        ][:40]
-    return compact
+    skip = {"provenances", "ownership_may_be_stale"}
+    return {key: value for key, value in payload.items() if key not in skip}
 
 
 def build_prequalification_packet(entity) -> str:
@@ -51,6 +38,16 @@ def build_prequalification_packet(entity) -> str:
         "slots": document_slots_for_entity(entity),
         "documents": docs,
         "rules": IDENTIFICATION_RULES,
-        "prior_invitee_answers": answers_packet(exp) if exp else [],
+        "prior_invitee_answers": [
+            {
+                **row,
+                "document_extraction": (
+                    _compact_payload(row["document_extraction"])
+                    if isinstance(row.get("document_extraction"), dict)
+                    else row.get("document_extraction")
+                ),
+            }
+            for row in (answers_packet(exp) if exp else [])
+        ],
     }
     return json.dumps(packet, ensure_ascii=False, default=str)

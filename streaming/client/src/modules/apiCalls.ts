@@ -2342,6 +2342,7 @@ export type TMyPldExpedient = {
       signer_count?: number;
       you_signed?: boolean;
     } | null;
+    packet_ready?: boolean;
   } | null;
   document_slots?: TPldDocumentSlot[];
   clarification_requests?: TPldClarificationRequest[];
@@ -2419,6 +2420,25 @@ export const rerunMyPldPrequalification = async (entityId: string) => {
     `/v1/compliance/my-expedients/${entityId}/`,
     { action: "rerun_prequalification" }
   );
+};
+
+export const downloadMyPldPacket = async (entityId: string) => {
+  const { token, tokenType } = getToken(false);
+  const response = await fetch(
+    `${API_URL}/v1/compliance/my-expedients/${entityId}/packet/`,
+    { headers: { Authorization: `${tokenType} ${token}` } }
+  );
+  if (!response.ok) {
+    throw new Error("packet-download-failed");
+  }
+  const blob = await response.blob();
+  const link = document.createElement("a");
+  link.href = window.URL.createObjectURL(blob);
+  link.download = "expediente-identificacion.pdf";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(link.href);
 };
 
 export const answerMyPldClarification = async (

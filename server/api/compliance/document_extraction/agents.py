@@ -29,29 +29,35 @@ _SHARED_RULES = (
     "as a string (e.g. \"1\"), plus a short texto_origen snippet."
 )
 
+_INE_ID_RULES = (
+    "INE does not print RFC. "
+    "On INE, the identification number is on the reverse (parte de atras): the digits "
+    "immediately after IDMEX on the MRZ. Example: IDMEX1726181815 -> 1726181815. "
+    "Put those digits in document_number and cic. Never put clave de elector in "
+    "document_number. Put clave de elector in citizen_identifier. Put the digits after "
+    "<< on that same MRZ line in ocr_line. Copy the three MRZ lines into mrz. "
+    "If the reverse is not in the file, leave document_number and cic null. "
+    "Set document_subtype, full_name, date_of_birth, sex, validity_year or "
+    "expiry_date, and address_text. "
+    "If a fact is present in provenances, place it in its matching schema property too. "
+)
+
 INSTRUCTIONS_BY_KIND = {
     "official_id": (
         "You extract Mexican official ID (INE, passport, professional license, or other). "
-        "INE does not print RFC — leave RFC-related fields null. "
-        "Set document_subtype, full_name, date_of_birth, sex, curp, document_number "
-        "(clave de elector), validity_year or expiry_date, and address_text. "
-        "If a fact is present in provenances, place it in its matching schema property too. "
+        "Copy CURP exactly as printed, character by character. "
+        + _INE_ID_RULES
         + _SHARED_RULES
     ),
     "id_representante": (
         "You extract the official ID of a legal representative. "
-        "INE does not print RFC. "
-        "Set document_subtype, full_name, date_of_birth, sex, curp, document_number "
-        "(clave de elector), validity_year or expiry_date, and address_text. "
-        "If a fact is present in provenances, place it in its matching schema property too. "
+        "Do not extract CURP. Leave curp null. CURP comes only from the CURP document. "
+        + _INE_ID_RULES
         + _SHARED_RULES
     ),
     "id_controlador": (
         "You extract the official ID of a beneficial owner (beneficiario controlador). "
-        "INE does not print RFC. "
-        "Set document_subtype, full_name, date_of_birth, sex, curp, document_number "
-        "(clave de elector), validity_year or expiry_date, and address_text. "
-        "If a fact is present in provenances, place it in its matching schema property too. "
+        + _INE_ID_RULES
         + _SHARED_RULES
     ),
     "curp": (
@@ -83,8 +89,7 @@ INSTRUCTIONS_BY_KIND = {
         "You extract a Mexican acta constitutiva / escritura de constitucion. "
         "List every socio or accionista with participation (compute % from partes sociales "
         "only when the numbers are in the deed). "
-        "This is ownership at constitution; set ownership_as_of to the constitution date "
-        "and ownership_may_be_stale to true. "
+        "Set ownership_as_of to the constitution date. Leave ownership_may_be_stale null. "
         + _SHARED_RULES
     ),
     "poder": (

@@ -1634,10 +1634,24 @@ class PLDDocumentExtractionTests(TestCase):
         row = listed.json()["results"][0]
         self.assertEqual(row["expedient"]["signing"]["signer_count"], 2)
         self.assertIn("/esign/sign/", row["expedient"]["signing"]["url"])
+        self.assertTrue(row["expedient"]["packet_ready"])
         self.assertNotIn("hits", row["expedient"]["screening"])
         self.assertNotIn("verdict", row["expedient"]["screening"])
         self.assertNotIn("reasons", row["expedient"]["screening"])
         self.assertNotIn("list_slug", str(row["expedient"]["screening"]))
+        packet = self.client.get(
+            f"/v1/compliance/my-expedients/{self.entity.id}/packet/",
+            HTTP_AUTHORIZATION=f"Token {self.token.key}",
+        )
+        self.assertEqual(packet.status_code, 200)
+        self.assertEqual(packet["Content-Type"], "application/pdf")
+
+    def test_invitee_packet_download_missing_is_404(self):
+        missing = self.client.get(
+            f"/v1/compliance/my-expedients/{self.entity.id}/packet/",
+            HTTP_AUTHORIZATION=f"Token {self.token.key}",
+        )
+        self.assertEqual(missing.status_code, 404)
 
     def test_pld_signature_webhook_stores_packet_and_delivers(self):
         from unittest.mock import patch
@@ -1847,9 +1861,29 @@ class ExtractionHydrateTests(SimpleTestCase):
         self.assertEqual(filled.full_name, "BLANCA LILIA REYES RIQUE")
         self.assertEqual(filled.date_of_birth, "1983-10-16")
         self.assertEqual(filled.sex, "M")
-        self.assertEqual(filled.document_number, "RYQB83101627M000")
+        self.assertEqual(filled.citizen_identifier, "RYQB83101627M000")
         self.assertEqual(filled.validity_year, "2028")
-        self.assertEqual(filled.curp, "REBR831016MTCYQL04")
+        self.assertIsNone(filled.curp)
+
+    def test_official_id_uses_digits_after_idmex(self):
+        from api.compliance.document_extraction.hydrate import hydrate_extraction
+        from api.compliance.document_extraction.schemas import OfficialIdExtraction
+
+        empty = OfficialIdExtraction.model_validate(
+            {
+                "document_number": "RYRQBL83101627M000",
+                "provenances": [
+                    {
+                        "campo_id": "mrz",
+                        "texto_origen": "IDMEX1726181815<<0485005767038",
+                    }
+                ],
+            }
+        )
+        filled = hydrate_extraction(empty, "id_representante")
+        self.assertEqual(filled.document_number, "1726181815")
+        self.assertEqual(filled.cic, "1726181815")
+        self.assertEqual(filled.citizen_identifier, "RYRQBL83101627M000")
 
     def test_fills_curp_fields_from_spanish_provenances(self):
         from api.compliance.document_extraction.hydrate import hydrate_extraction
@@ -2036,5 +2070,44 @@ class RiskGateTests(SimpleTestCase):
         self.assertEqual(result.semaphore, "green")
         self.assertTrue(result.ready_for_signature)
         self.assertEqual(result.screening_class, "none")
+
+
+class ScreeningRequestFilterTests(SimpleTestCase):
+    def test_drops_ine_reconfirm_when_id_extracted(self):
+        from types import SimpleNamespace
+
+        from api.compliance.clarifications import InviteeRequestSpec
+        from api.compliance.models import PLDExpedientDocument
+        from api.compliance.screening.agents import _filter_screening_requests
+
+        doc = SimpleNamespace(
+            slot_key="id_representante",
+            document_kind="id_representante",
+            original_filename="ine.png",
+            extraction_status=PLDExpedientDocument.ExtractionStatus.SUCCEEDED,
+            extracted_payload={
+                "document_number": "1726181815",
+                "full_name": "BLANCA LILIA REYES RIQUE",
+            },
+        )
+        exp = SimpleNamespace(documents=SimpleNamespace(all=lambda: [doc]))
+        entity = SimpleNamespace(
+            expedients=SimpleNamespace(
+                order_by=lambda *_: SimpleNamespace(first=lambda: exp)
+            )
+        )
+        kept = _filter_screening_requests(
+            entity,
+            [
+                InviteeRequestSpec(
+                    prompt=(
+                        "Confirme que el numero de identificacion INE 1726181815 "
+                        "corresponde a Blanca Lilia Reyes Rique."
+                    ),
+                    answer_type="document",
+                )
+            ],
+        )
+        self.assertEqual(kept, [])
 
 

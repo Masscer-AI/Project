@@ -4,6 +4,7 @@ from api.compliance.views import (
     MyPLDExpedientDetailView,
     MyPLDExpedientDocumentDetailView,
     MyPLDExpedientDocumentView,
+    MyPLDExpedientPacketView,
     MyPLDExpedientView,
     PLDEntityDetailView,
     PLDEntityInviteView,
@@ -39,6 +40,11 @@ urlpatterns = [
         "my-expedients/<uuid:entity_id>/",
         MyPLDExpedientDetailView.as_view(),
         name="my_pld_expedient_detail",
+    ),
+    path(
+        "my-expedients/<uuid:entity_id>/packet/",
+        MyPLDExpedientPacketView.as_view(),
+        name="my_pld_expedient_packet",
     ),
     path(
         "my-expedients/<uuid:entity_id>/documents/",

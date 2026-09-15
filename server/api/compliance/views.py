@@ -6,7 +6,7 @@ from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.db import transaction
-from django.http import JsonResponse
+from django.http import FileResponse, JsonResponse
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
@@ -405,6 +405,22 @@ class MyPLDExpedientDetailView(View):
                 PLDExpedientStatus.DELIVERED,
             }:
                 return JsonResponse({"error": "expedient-locked"}, status=400)
+            from api.compliance.clarifications import replace_open_requests
+            from api.compliance.models import PLDClarificationRequest
+
+            replace_open_requests(
+                exp, PLDClarificationRequest.Stage.IDENTIFICATION, []
+            )
+            if exp.status == PLDExpedientStatus.CROSS_REFERENCE:
+                replace_open_requests(
+                    exp, PLDClarificationRequest.Stage.SCREENING, []
+                )
+                exp.screening_status = PLDExpedient.PrequalificationStatus.PENDING
+                exp.save(update_fields=["screening_status", "updated_at"])
+                from api.compliance.tasks import screen_pld_expedient
+
+                screen_pld_expedient.delay(str(exp.id))
+                return JsonResponse(_reload_my_expedient_row(entity.pk), status=200)
             exp.prequalification_status = PLDExpedient.PrequalificationStatus.PENDING
             exp.save(update_fields=["prequalification_status", "updated_at"])
             prequalify_pld_expedient.delay(str(exp.id))
@@ -591,6 +607,7 @@ def _my_expedient_row(entity: PLDEntity) -> dict:
                 "screened_at": exp.screened_at.isoformat() if exp.screened_at else None,
                 "screening": _invitee_screening(exp),
                 "signing": _invitee_signing(exp, entity),
+                "packet_ready": bool(exp.packet_file or exp.signed_packet),
             }
             if exp
             else None
@@ -812,6 +829,29 @@ class MyPLDExpedientDocumentView(View):
 
         extract_pld_expedient_document.delay(str(doc.id))
         return JsonResponse(_reload_my_expedient_row(entity.pk), status=200)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class MyPLDExpedientPacketView(View):
+    def get(self, request, entity_id, *args, **kwargs):
+        entity, err = _invitee_counterparty_or_404(request, entity_id)
+        if err:
+            return err
+        exp = entity.expedients.order_by("created_at").first()
+        field = (exp.signed_packet if exp and exp.signed_packet else None) or (
+            exp.packet_file if exp else None
+        )
+        if not field:
+            return JsonResponse({"error": "packet-not-ready"}, status=404)
+        filename = (
+            "expediente-identificacion-firmado.pdf"
+            if exp and exp.signed_packet
+            else "expediente-identificacion.pdf"
+        )
+        response = FileResponse(field.open("rb"), as_attachment=True, filename=filename)
+        response["Content-Type"] = "application/pdf"
+        return response
 
 
 @method_decorator(csrf_exempt, name="dispatch")

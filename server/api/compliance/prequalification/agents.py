@@ -29,7 +29,11 @@ Reglas:
 - Si falta un dato o hay inconsistencia que el invitado puede aclarar, llena
   `invitee_requests` (maximo 5). Cada prompt en espanol, breve, sin mencionar listas,
   scores ni investigaciones. answer_type: text, document o either.
-- Si invitee_requests no esta vacio, verdict no puede ser ready_for_list_screening.
+- El objeto `declared` es el formulario vigente. No copies preguntas anteriores.
+- No menciones valores de colonia, CURP u otros campos que ya no esten en `declared`.
+- El acta constitutiva es un retrato a la fecha de constitucion. No emitas hallazgo
+  solo porque la fecha es antigua o el acta dice que la participacion es de entonces.
+  Solo senala socios o controladores si `declared` contradice al acta.
 - Nunca inventes RFC, CURP, fechas ni porcentajes.
 - summary en espanol, breve, para la contraparte (sin jerga interna de scoring).
 - source_ids solo de: lfpiorpi, reglamento, rcg, uif-portal.

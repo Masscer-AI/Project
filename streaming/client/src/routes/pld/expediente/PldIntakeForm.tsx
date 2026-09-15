@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  Autocomplete,
   Accordion,
   ActionIcon,
   Badge,
@@ -552,6 +553,7 @@ export function PldIntakeForm({
     try {
       const payload = metadataFromForm(formRef.current, isMoral);
       const saved = await updateMyPldExpedient(row.id, payload);
+      if (!saved) throw new Error("empty");
       onSavedRef.current(saved);
       lastSaved.current = JSON.stringify(payload);
       setSync("saved");
@@ -871,28 +873,15 @@ export function PldIntakeForm({
           onChange={(e) => setAddress("city", e.currentTarget.value)}
         />
       </Group>
-      {neighborhoodOptions.length > 1 ? (
-        <Select
-          label={t("compliance-intake-neighborhood")}
-          required
-          placeholder={t("compliance-intake-neighborhood-placeholder")}
-          data={neighborhoodOptions.map((name) => ({
-            value: name,
-            label: name,
-          }))}
-          searchable
-          comboboxProps={{ withinPortal: true }}
-          value={form.address.neighborhood || null}
-          onChange={(val) => setAddress("neighborhood", val || "")}
-        />
-      ) : (
-        <TextInput
-          label={t("compliance-intake-neighborhood")}
-          required
-          value={form.address.neighborhood}
-          onChange={(e) => setAddress("neighborhood", e.currentTarget.value)}
-        />
-      )}
+      <Autocomplete
+        label={t("compliance-intake-neighborhood")}
+        required
+        placeholder={t("compliance-intake-neighborhood-placeholder")}
+        data={neighborhoodOptions}
+        value={form.address.neighborhood}
+        onChange={(val) => setAddress("neighborhood", val)}
+        comboboxProps={{ withinPortal: true }}
+      />
       <TextInput
         label={t("compliance-intake-street")}
         required
