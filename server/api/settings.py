@@ -117,6 +117,7 @@ INSTALLED_APPS = [
     "api.mcp_oauth",
     "api.esign",
     "api.compliance",
+    "api.org_lists",
 ]
 
 MIDDLEWARE = [

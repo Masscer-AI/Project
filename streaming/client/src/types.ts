@@ -234,6 +234,43 @@ export type TDocumentTemplate = {
   updated_at: string | null;
 };
 
+export type TOrganizationListImportStatus =
+  | "pending"
+  | "processing"
+  | "succeeded"
+  | "failed";
+
+export type TOrganizationListColumnConfig = {
+  name: string;
+  examples: string[];
+  can_be_empty: boolean;
+};
+
+export type TOrganizationList = {
+  id: string;
+  organization_id: string;
+  name: string;
+  description: string;
+  import_status: TOrganizationListImportStatus;
+  import_error: string;
+  record_count: number;
+  original_filename: string;
+  content_type: string;
+  file_size: number;
+  config?: {
+    columns?: TOrganizationListColumnConfig[];
+    sheet_name?: string | null;
+  };
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+export type TOrganizationListRecord = {
+  id: string;
+  position: number;
+  data: Record<string, string>;
+};
+
 export type TAgentTemplateAssignment = {
   id: string;
   agent_id: number;

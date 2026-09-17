@@ -22,6 +22,8 @@ import {
   TWidgetCapability,
   TDocumentTemplate,
   TDocumentTemplateVariable,
+  TOrganizationList,
+  TOrganizationListRecord,
   TAgentTemplateAssignment,
   TNotificationRule,
   TNotificationRuleBuildResponse,
@@ -314,6 +316,89 @@ export const deleteDocumentTemplate = async (
   return makeAuthenticatedRequest<{ ok: boolean }>(
     "DELETE",
     `/v1/document-templates/organizations/${organizationId}/templates/${templateId}/`
+  );
+};
+
+export const getOrganizationLists = async (organizationId: string) => {
+  return makeAuthenticatedRequest<{ lists: TOrganizationList[] }>(
+    "GET",
+    `/v1/org-lists/organizations/${organizationId}/lists/`
+  );
+};
+
+export const uploadOrganizationList = async (
+  organizationId: string,
+  formData: FormData
+) => {
+  return makeAuthenticatedRequest<{ list: TOrganizationList }>(
+    "POST",
+    `/v1/org-lists/organizations/${organizationId}/lists/`,
+    formData
+  );
+};
+
+export const getOrganizationList = async (
+  organizationId: string,
+  listId: string
+) => {
+  return makeAuthenticatedRequest<{ list: TOrganizationList }>(
+    "GET",
+    `/v1/org-lists/organizations/${organizationId}/lists/${listId}/`
+  );
+};
+
+export const patchOrganizationList = async (
+  organizationId: string,
+  listId: string,
+  body: { name?: string; description?: string }
+) => {
+  return makeAuthenticatedRequest<{ list: TOrganizationList }>(
+    "PATCH",
+    `/v1/org-lists/organizations/${organizationId}/lists/${listId}/`,
+    body
+  );
+};
+
+export const replaceOrganizationListFile = async (
+  organizationId: string,
+  listId: string,
+  formData: FormData
+) => {
+  return makeAuthenticatedRequest<{ list: TOrganizationList }>(
+    "POST",
+    `/v1/org-lists/organizations/${organizationId}/lists/${listId}/file/`,
+    formData
+  );
+};
+
+export const deleteOrganizationList = async (
+  organizationId: string,
+  listId: string
+) => {
+  return makeAuthenticatedRequest<{ ok: boolean }>(
+    "DELETE",
+    `/v1/org-lists/organizations/${organizationId}/lists/${listId}/`
+  );
+};
+
+export const getOrganizationListRecords = async (
+  organizationId: string,
+  listId: string,
+  page = 1,
+  pageSize = 50
+) => {
+  const params = new URLSearchParams({
+    page: String(page),
+    page_size: String(pageSize),
+  });
+  return makeAuthenticatedRequest<{
+    page: number;
+    page_size: number;
+    total: number;
+    records: TOrganizationListRecord[];
+  }>(
+    "GET",
+    `/v1/org-lists/organizations/${organizationId}/lists/${listId}/records/?${params.toString()}`
   );
 };
 

@@ -46,6 +46,7 @@ apps = [
     ("v1/mcp_oauth/", "api.mcp_oauth.urls", "mcp_oauth"),
     ("v1/esign/", "api.esign.urls", "esign"),
     ("v1/compliance/", "api.compliance.urls", "compliance"),
+    ("v1/org-lists/", "api.org_lists.urls", "org_lists"),
 ]
 
 urlpatterns_apps = [

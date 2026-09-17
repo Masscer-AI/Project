@@ -29,6 +29,7 @@ import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
 import { TAgent } from "../../types/agents";
 import { TemplatesTab } from "./TemplatesTab";
+import { ListsTab } from "./ListsTab";
 import { useSearchParams } from "react-router-dom";
 import { useDisclosure, useMediaQuery } from "@mantine/hooks";
 import { MobileFriendlyMultiSelect } from "../../components/MobileFriendlyMultiSelect/MobileFriendlyMultiSelect";
@@ -69,6 +70,7 @@ import {
   IconSearch,
   IconSparkles,
   IconTemplate,
+  IconList,
   IconTrash,
   IconUpload,
   IconUsers,
@@ -122,6 +124,7 @@ const KNOWLEDGE_BASE_TAB_VALUES = [
   "documents",
   "completions",
   "templates",
+  "lists",
 ] as const;
 
 export type KnowledgeBaseTab = (typeof KNOWLEDGE_BASE_TAB_VALUES)[number];
@@ -361,7 +364,8 @@ export default function KnowledgeBasePage() {
               if (
                 value === "documents" ||
                 value === "completions" ||
-                value === "templates"
+                value === "templates" ||
+                value === "lists"
               ) {
                 setKnowledgeBaseTab(value);
               }
@@ -386,6 +390,9 @@ export default function KnowledgeBasePage() {
                 leftSection={<IconTemplate size={16} />}
               >
                 {t("document-templates-tab")}
+              </Tabs.Tab>
+              <Tabs.Tab value="lists" leftSection={<IconList size={16} />}>
+                {t("knowledge-base-lists-tab")}
               </Tabs.Tab>
             </Tabs.List>
           </Tabs>
@@ -458,8 +465,10 @@ export default function KnowledgeBasePage() {
               agents={agents}
               focusCompletionId={focusCompletionId}
             />
-          ) : (
+          ) : activeTab === "templates" ? (
             <TemplatesTab agents={agents} filterQuery={search} />
+          ) : (
+            <ListsTab filterQuery={search} />
           )}
         </Box>
       </div>

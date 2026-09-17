@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('integrations', '0001_initial'),
+        ('integrations', '0003_ensure_integration_table'),
         ('rag', '0011_remove_collection_conversation'),
     ]
 
