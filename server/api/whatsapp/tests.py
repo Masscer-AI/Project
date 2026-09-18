@@ -67,7 +67,7 @@ class WhatsappConversationBridgeTests(TestCase):
             {"name": "send_email", "type": "internal_tool", "enabled": True},
         ]
         names = tool_names_from_capabilities(caps)
-        self.assertIn("rag_query", names)
+        self.assertIn("memory_search", names)
         self.assertIn("read_attachment", names)
         self.assertIn("list_attachments", names)
         self.assertIn("read_plugin_instructions", names)
@@ -89,7 +89,7 @@ class WhatsappConversationBridgeTests(TestCase):
         )
         self.assertIn("send_email", linked)
         self.assertIn("list_conversations", linked)
-        self.assertIn("rag_query", linked)
+        self.assertIn("memory_search", linked)
 
     def test_generate_document_file_allowed_on_whatsapp(self):
         caps = [
@@ -738,7 +738,7 @@ class WhatsappNumbersManagementApiTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         expected = [
-            {"name": "rag_query", "type": "internal_tool", "enabled": True},
+            {"name": "memory_search", "type": "internal_tool", "enabled": True},
             *_required_capability_entries(),
         ]
         self.assertEqual(response.json()["capabilities"], expected)

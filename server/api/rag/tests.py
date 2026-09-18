@@ -5,7 +5,7 @@ from django.db import IntegrityError
 from django.test import TestCase
 
 from api.ai_layers.models import Agent, LanguageModel
-from api.ai_layers.tools.rag_query import _rag_query_impl
+from api.ai_layers.tools.memory_search import _memory_search_impl
 from api.finetuning.models import Completion
 from api.providers.models import AIProvider
 from api.rag.models import Collection
@@ -65,7 +65,7 @@ class SharedAgentRagTests(TestCase):
             1,
         )
 
-    def test_rag_query_reads_only_agent_collection(self):
+    def test_memory_search_reads_only_agent_collection(self):
         shared_collection, _ = Collection.get_or_create_agent_collection(agent=self.agent)
         Collection.get_or_create_personal_collection(user=self.other_user)
 
@@ -76,7 +76,7 @@ class SharedAgentRagTests(TestCase):
                 "documents": [],
                 "distances": [],
             }
-            _rag_query_impl(
+            _memory_search_impl(
                 user_id=self.other_user.id,
                 agent_slug=self.agent.slug,
                 queries=["what is this?"],

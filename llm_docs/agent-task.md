@@ -155,12 +155,13 @@ Web search + scrape using Firecrawl.
 - `explore_web(query, limit=3) -> { results: [{url,title,description,markdown}] }`
 - Returns scraped markdown for each result (truncated per result for safety).
 
-### Tool: `rag_query`
+### Tool: `memory_search`
 
-Vector store retrieval for the current agent.
+Semantic search over the current agent's trained memory (approved completions).
 
-- `rag_query(queries: string[], n_results=4) -> { queries_used, results }`
+- `memory_search(queries: string[], n_results=4) -> { queries_used, results }`
 - The agent is responsible for generating `queries[]` from conversation context.
+- Legacy name: `rag_query` (canonicalized to `memory_search`).
 
 ## Known gaps / follow-ups
 

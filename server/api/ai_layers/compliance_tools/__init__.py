@@ -18,7 +18,7 @@ COMPLIANCE_TOOL_REGISTRY: dict[str, str] = {
     "update_attachment_visibility": "api.ai_layers.tools.update_attachment_visibility",
     "list_knowledge_base_documents": "api.ai_layers.tools.list_knowledge_base_documents",
     "read_knowledge_base_document": "api.ai_layers.tools.read_knowledge_base_document",
-    "rag_query": "api.ai_layers.tools.rag_query",
+    "memory_search": "api.ai_layers.tools.memory_search",
     "generate_gamma_attachment": "api.ai_layers.tools.generate_gamma_presentation",
     "generate_document_file": "api.ai_layers.tools.generate_document_file",
     "list_document_templates": "api.ai_layers.tools.list_document_templates",
@@ -43,6 +43,8 @@ COMPLIANCE_TOOL_REGISTRY: dict[str, str] = {
 }
 
 
+from api.ai_layers.tools import canonical_tool_name
+
 def resolve_compliance_tools(tool_names: list[str] | None = None, **context) -> list[dict]:
     """Resolve compliance tool names into AgentTool dicts."""
     names = tool_names if tool_names is not None else list(COMPLIANCE_TOOL_REGISTRY.keys())
@@ -50,10 +52,11 @@ def resolve_compliance_tools(tool_names: list[str] | None = None, **context) -> 
     _seen: set[str] = set()
     unique_names: list[str] = []
     for n in names:
-        if n in _seen:
+        canonical = canonical_tool_name(n) if isinstance(n, str) else n
+        if canonical in _seen:
             continue
-        _seen.add(n)
-        unique_names.append(n)
+        _seen.add(canonical)
+        unique_names.append(canonical)
 
     tools = []
     for name in unique_names:

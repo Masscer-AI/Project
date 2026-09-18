@@ -870,8 +870,8 @@ def _extract_referenced_attachments_from_text(
 
 def _extract_rag_sources(tool_calls: list[dict]) -> list[dict]:
     """
-    Extract RAG sources from rag_query tool calls so they can be displayed
-    in the frontend just like the streaming path does.
+    Extract trained-memory sources from memory_search (and legacy rag_query)
+    tool calls so they can be displayed in the frontend just like the streaming path does.
 
     Returns a list of source dicts matching the TSource frontend type:
       { model_id, model_name, content, extra }
@@ -884,7 +884,7 @@ def _extract_rag_sources(tool_calls: list[dict]) -> list[dict]:
 
     for call in tool_calls:
         try:
-            if (call or {}).get("tool_name") != "rag_query":
+            if (call or {}).get("tool_name") not in ("memory_search", "rag_query"):
                 continue
             raw = (call or {}).get("result") or ""
             if not isinstance(raw, str) or not raw.strip():
@@ -1484,6 +1484,20 @@ def conversation_agent_task(
             else:
                 agent_tool_names = list(agent.pre_approved_tools or [])
 
+            from api.ai_layers.tools import canonical_tool_name
+
+            _seen_tools: set[str] = set()
+            _canonical_tools: list[str] = []
+            for _name in agent_tool_names:
+                if not isinstance(_name, str):
+                    continue
+                _canon = canonical_tool_name(_name)
+                if _canon in _seen_tools:
+                    continue
+                _seen_tools.add(_canon)
+                _canonical_tools.append(_canon)
+            agent_tool_names = _canonical_tools
+
             if not is_embedded_channel and actor_user_id is not None:
                 from api.ai_layers.tools import CHAT_REQUIRED_TOOL_NAMES
 
@@ -1499,16 +1513,16 @@ def conversation_agent_task(
             if attachment_ids_instruction:
                 instructions = instructions + attachment_ids_instruction
 
-            if "rag_query" in (agent_tool_names or []):
+            if "memory_search" in (agent_tool_names or []):
                 instructions += (
-                    "\n\nRAG (agent trained-memory search) is available via rag_query. "
+                    "\n\nTrained-memory search is available via memory_search. "
                     "Call it when the user's message would benefit from facts stored as approved "
                     "completions in this agent's vector memory that may not be in the chat already. "
                     "Skip it for small talk, meta requests, or when the thread already contains enough "
                     "context. Pass a small list of queries (1-5) derived from the user's request. "
-                    "If rag_query returns no results, mention that briefly if relevant, then answer from "
+                    "If memory_search returns no results, mention that briefly if relevant, then answer from "
                     "general knowledge or the conversation. "
-                    "rag_query does not list uploaded knowledge-base files — use "
+                    "memory_search does not list uploaded knowledge-base files — use "
                     "list_knowledge_base_documents / read_knowledge_base_document for those when enabled."
                 )
             if "list_knowledge_base_documents" in (agent_tool_names or []) or (
@@ -1520,7 +1534,7 @@ def conversation_agent_task(
                     "access (personal, organization, or role-scoped), including briefs, tokens, and "
                     "belongs_to. Use read_knowledge_base_document with a document id to load full text. "
                     "Prefer listing first when you need to choose among documents. "
-                    "These tools are separate from rag_query (trained agent memory)."
+                    "These tools are separate from memory_search (trained agent memory)."
                 )
             if "list_search" in (agent_tool_names or []):
                 instructions += (
@@ -1529,7 +1543,7 @@ def conversation_agent_task(
                     "Use list_search with terms (AND match across row text; default up to 50 hits, max 200). "
                     "Pass list_id when searching one catalog; omit list_id to search all lists. "
                     "Use read_list with list_id to load full row data (paginated; default 50 rows per page, max 200). "
-                    "This is not for compliance watchlists, rag_query, or knowledge-base document files."
+                    "This is not for compliance watchlists, memory_search, or knowledge-base document files."
                 )
             if "explore_web" in (agent_tool_names or []):
                 instructions += (

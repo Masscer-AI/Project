@@ -41,7 +41,7 @@ class MasscerHelpCatalogTests(SimpleTestCase):
             "generate_document_file",
             "list_knowledge_base_documents",
             "read_knowledge_base_document",
-            "rag_query",
+            "memory_search",
             "list_document_templates",
             "render_document_template",
             "list_user_assignments",
@@ -766,6 +766,8 @@ class GenerateGammaAttachmentToolTests(SimpleTestCase):
         names = list_available_tools()
         self.assertIn("generate_gamma_attachment", names)
         self.assertNotIn("generate_gamma_presentation", names)
+        self.assertIn("memory_search", names)
+        self.assertNotIn("rag_query", names)
 
     def test_legacy_name_canonicalizes(self):
         from api.ai_layers.tools import canonical_tool_name, resolve_allowed_tools
@@ -774,9 +776,14 @@ class GenerateGammaAttachmentToolTests(SimpleTestCase):
             canonical_tool_name("generate_gamma_presentation"),
             "generate_gamma_attachment",
         )
+        self.assertEqual(canonical_tool_name("rag_query"), "memory_search")
         self.assertEqual(
             resolve_allowed_tools(["generate_gamma_presentation"], user=object()),
             ["generate_gamma_attachment"],
+        )
+        self.assertEqual(
+            resolve_allowed_tools(["rag_query"], user=object()),
+            ["memory_search"],
         )
 
     def test_whatsapp_capabilities_rewrite_legacy_name(self):
@@ -788,12 +795,19 @@ class GenerateGammaAttachmentToolTests(SimpleTestCase):
                     "name": "generate_gamma_presentation",
                     "type": "internal_tool",
                     "enabled": True,
-                }
+                },
+                {
+                    "name": "rag_query",
+                    "type": "internal_tool",
+                    "enabled": True,
+                },
             ]
         )
         names = [c["name"] for c in filtered]
         self.assertIn("generate_gamma_attachment", names)
         self.assertNotIn("generate_gamma_presentation", names)
+        self.assertIn("memory_search", names)
+        self.assertNotIn("rag_query", names)
 
     def test_extract_generate_gamma_attachment_attachments(self):
         from api.ai_layers.tasks import _extract_generate_gamma_attachment_attachments
@@ -2001,7 +2015,7 @@ class AgentSessionExecutionLogAccessTests(TestCase):
         AgentSession.objects.create(
             conversation=self.conv,
             assistant_message=self.assistant,
-            event_log=[{"type": "tool_call_start", "tool_name": "rag_query"}],
+            event_log=[{"type": "tool_call_start", "tool_name": "memory_search"}],
         )
         self.login_token = Token.objects.create(user=self.owner)
 

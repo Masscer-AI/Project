@@ -313,7 +313,12 @@ const WidgetForm = ({
   const [selectedTools, setSelectedTools] = useState<string[]>(() => {
     const enabled = (initialData?.capabilities ?? [])
       .filter((c) => c?.name && c.enabled)
-      .map((c) => c.name as string);
+      .map((c) => {
+        const name = c.name as string;
+        if (name === "rag_query") return "memory_search";
+        if (name === "generate_gamma_presentation") return "generate_gamma_attachment";
+        return name;
+      });
     if (initialData?.style?.allow_visitor_attachments === true) {
       for (const tool of VISITOR_ATTACHMENT_TOOLS) {
         if (!enabled.includes(tool)) enabled.push(tool);

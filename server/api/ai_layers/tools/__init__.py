@@ -23,7 +23,7 @@ TOOL_REGISTRY: dict[str, str] = {
     "list_attachments": "api.ai_layers.tools.list_attachments",
     "update_attachment_visibility": "api.ai_layers.tools.update_attachment_visibility",
     "explore_web": "api.ai_layers.tools.explore_web",
-    "rag_query": "api.ai_layers.tools.rag_query",
+    "memory_search": "api.ai_layers.tools.memory_search",
     "list_knowledge_base_documents": "api.ai_layers.tools.list_knowledge_base_documents",
     "read_knowledge_base_document": "api.ai_layers.tools.read_knowledge_base_document",
     "list_search": "api.ai_layers.tools.list_search",
@@ -96,6 +96,7 @@ DEPENDENT_TOOL_REQUIREMENTS: dict[str, tuple[str, ...]] = {
 
 TOOL_NAME_ALIASES: dict[str, str] = {
     "generate_gamma_presentation": "generate_gamma_attachment",
+    "rag_query": "memory_search",
 }
 
 def canonical_tool_name(name: str) -> str:

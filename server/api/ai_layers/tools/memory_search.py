@@ -1,20 +1,22 @@
 """
-Tool for querying the vector store (RAG) for the current agent.
+Tool: memory_search
 
-The agent supplies the list of queries; this tool just runs retrieval and returns results.
+Semantic search over the current agent's trained memory (approved completions).
 """
 
 from __future__ import annotations
 
 import logging
 
-from pydantic import BaseModel, Field
 from django.db.models import Q
+from pydantic import BaseModel, Field
+
 logger = logging.getLogger(__name__)
 
-class RagQueryParams(BaseModel):
+
+class MemorySearchParams(BaseModel):
     queries: list[str] = Field(
-        description="List of search queries to run against the vector store."
+        description="List of search queries to run against the agent's trained memory."
     )
     n_results: int = Field(
         default=4,
@@ -23,22 +25,28 @@ class RagQueryParams(BaseModel):
         description="Number of results to retrieve per query.",
     )
 
-class RagQueryResult(BaseModel):
-    queries_used: list[str] = Field(default_factory=list)
-    results: dict = Field(default_factory=dict, description="Raw vector store query results")
-    message: str = Field(default="Successfully queried RAG")
 
-def _rag_query_impl(
+class MemorySearchResult(BaseModel):
+    queries_used: list[str] = Field(default_factory=list)
+    results: dict = Field(
+        default_factory=dict,
+        description="Raw vector store query results",
+    )
+    message: str = Field(default="Successfully searched agent memory")
+
+
+def _memory_search_impl(
     *,
     user_id: int,
     agent_slug: str,
     queries: list[str],
     n_results: int,
-) -> RagQueryResult:
+) -> MemorySearchResult:
     from django.contrib.auth.models import User
+
     from api.ai_layers.models import Agent
-    from api.rag.models import Collection
     from api.rag.managers import chroma_client
+    from api.rag.models import Collection
 
     if not chroma_client:
         raise ValueError("ChromaDB is not available")
@@ -65,7 +73,11 @@ def _rag_query_impl(
 
     collection, created = Collection.get_or_create_agent_collection(agent=agent)
     if created:
-        return RagQueryResult(queries_used=cleaned, results={}, message="No collection found; created new one")
+        return MemorySearchResult(
+            queries_used=cleaned,
+            results={},
+            message="No collection found; created new one",
+        )
 
     try:
         results = chroma_client.get_results(
@@ -75,15 +87,16 @@ def _rag_query_impl(
         )
     except Exception as exc:
         logger.exception(
-            "rag_query failed for agent_slug=%s collection=%s user_id=%s queries=%s",
+            "memory_search failed for agent_slug=%s collection=%s user_id=%s queries=%s",
             agent_slug,
             collection.slug,
             user_id,
             cleaned,
         )
-        raise ValueError(f"rag_query failed: {str(exc)}") from exc
+        raise ValueError(f"memory_search failed: {str(exc)}") from exc
 
-    return RagQueryResult(queries_used=cleaned, results={"results": results})
+    return MemorySearchResult(queries_used=cleaned, results={"results": results})
+
 
 def get_tool(
     user_id: int | None = None,
@@ -95,7 +108,7 @@ def get_tool(
     For widget conversations (user_id=None), falls back to the agent owner for auth context.
     """
     if not agent_slug:
-        raise ValueError("rag_query requires agent_slug in tool context")
+        raise ValueError("memory_search requires agent_slug in tool context")
     if user_id is None:
         from api.ai_layers.models import Agent
 
@@ -103,12 +116,14 @@ def get_tool(
             agent = Agent.objects.get(slug=agent_slug)
             user_id = agent.user_id
         except Agent.DoesNotExist:
-            raise ValueError("rag_query: agent not found")
+            raise ValueError("memory_search: agent not found")
         if user_id is None:
-            raise ValueError("rag_query requires user_id in tool context (agent has no owner)")
+            raise ValueError(
+                "memory_search requires user_id in tool context (agent has no owner)"
+            )
 
-    def rag_query(queries: list[str], n_results: int = 4) -> RagQueryResult:
-        return _rag_query_impl(
+    def memory_search(queries: list[str], n_results: int = 4) -> MemorySearchResult:
+        return _memory_search_impl(
             user_id=user_id,
             agent_slug=agent_slug,
             queries=queries,
@@ -116,7 +131,7 @@ def get_tool(
         )
 
     return {
-        "name": "rag_query",
+        "name": "memory_search",
         "description": (
             "Semantic search over the current agent's trained memory "
             "(approved completions in the agent vector store). "
@@ -124,7 +139,6 @@ def get_tool(
             "use list_knowledge_base_documents / read_knowledge_base_document for those. "
             "Pass 1-5 queries derived from the user's request."
         ),
-        "parameters": RagQueryParams,
-        "function": rag_query,
+        "parameters": MemorySearchParams,
+        "function": memory_search,
     }
-

@@ -2,7 +2,7 @@
 Tool: read_knowledge_base_document
 
 Returns the full text of a knowledge-base document the authenticated user can access.
-Separate from rag_query (agent vector memory) and from list_knowledge_base_documents.
+Separate from memory_search (agent trained memory) and from list_knowledge_base_documents.
 """
 
 from __future__ import annotations
@@ -56,7 +56,7 @@ def _read_impl(*, user_id: int, document_id: int) -> str:
             "text": doc.text or "",
             "message": (
                 "Full document text returned. "
-                "For semantic search over trained agent memory, use rag_query instead."
+                "For semantic search over trained agent memory, use memory_search instead."
             ),
         },
         ensure_ascii=False,
@@ -81,7 +81,7 @@ def get_tool(
             "Read the full text of a knowledge-base document by id. "
             "The user must have access (personal / organization / roles). "
             "Prefer list_knowledge_base_documents first to discover ids and briefs. "
-            "For semantic chunk search over the agent's trained memory, use rag_query."
+            "For semantic chunk search over the agent's trained memory, use memory_search."
         ),
         "parameters": ReadKnowledgeBaseDocumentParams,
         "function": read_knowledge_base_document,

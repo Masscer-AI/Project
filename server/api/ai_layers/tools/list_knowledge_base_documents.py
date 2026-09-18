@@ -2,7 +2,7 @@
 Tool: list_knowledge_base_documents
 
 Lists knowledge-base documents the authenticated user can access
-(personal / organization / roles ACL). Separate from rag_query (agent vector memory).
+(personal / organization / roles ACL). Separate from memory_search (agent trained memory).
 """
 
 from __future__ import annotations
@@ -90,7 +90,7 @@ def _list_impl(
             "message": (
                 "Listed knowledge-base documents the user can access. "
                 "Use read_knowledge_base_document with an id to load full text. "
-                "Use rag_query for semantic search over the agent's trained memory "
+                "Use memory_search for semantic search over the agent's trained memory "
                 "(approved completions), not this document catalog."
             ),
         },
@@ -120,7 +120,7 @@ def get_tool(
             "(their personal docs, organization-shared docs, or role-scoped docs). "
             "Returns id, name, brief, tokens, chunk_count, and belongs_to "
             "(you / organization / roles). "
-            "Does NOT search agent trained memory — use rag_query for that. "
+            "Does NOT search agent trained memory — use memory_search for that. "
             "To read full text, call read_knowledge_base_document with a document id."
         ),
         "parameters": ListKnowledgeBaseDocumentsParams,

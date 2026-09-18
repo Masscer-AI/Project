@@ -123,7 +123,7 @@ class ChatWidgetCapabilitiesTests(TestCase):
                 {"name": "read_attachment", "type": "internal_tool", "enabled": True},
                 {"name": "list_attachments", "type": "internal_tool", "enabled": True},
                 {"name": "explore_web", "type": "internal_tool", "enabled": True},
-                {"name": "rag_query", "type": "internal_tool", "enabled": False},
+                {"name": "memory_search", "type": "internal_tool", "enabled": False},
                 {"name": "create_image", "type": "internal_tool", "enabled": True},
             ],
         )
@@ -161,6 +161,7 @@ class ChatWidgetCapabilitiesTests(TestCase):
         self.assertIn("list_attachments", tool_names)
         self.assertIn("explore_web", tool_names)
         self.assertIn("create_image", tool_names)
+        self.assertNotIn("memory_search", tool_names)
         self.assertNotIn("rag_query", tool_names)
 
     @patch("api.ai_layers.tools.create_image.OpenAI")

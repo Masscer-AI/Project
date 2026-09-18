@@ -68,7 +68,7 @@ export const WHATSAPP_CAPABILITY_NAMES = [
   "get_tag_context",
   "query_conversation",
   "explore_web",
-  "rag_query",
+  "memory_search",
   "list_knowledge_base_documents",
   "read_knowledge_base_document",
   "list_search",
@@ -126,7 +126,9 @@ export function buildInitialCapabilityState(
     const name =
       c.name === "generate_gamma_presentation"
         ? "generate_gamma_attachment"
-        : c.name;
+        : c.name === "rag_query"
+          ? "memory_search"
+          : c.name;
     initial[name] = Boolean(c.enabled);
   }
   for (const requiredName of WHATSAPP_REQUIRED_CAPABILITY_NAMES) {

@@ -31,7 +31,7 @@ SCHEDULER_BASELINE_TOOL_NAMES: list[str] = [
     "list_organization_members",
     "list_organization_roles",
     "explore_web",
-    "rag_query",
+    "memory_search",
     "list_knowledge_base_documents",
     "read_knowledge_base_document",
 ]
