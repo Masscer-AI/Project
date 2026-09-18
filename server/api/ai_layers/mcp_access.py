@@ -70,6 +70,7 @@ MCP_BASIC_TOOL_NAMES: tuple[str, ...] = (
     "rag_query",
     "list_knowledge_base_documents",
     "read_knowledge_base_document",
+    "list_search",
     "explore_web",
 )
 
@@ -83,6 +84,7 @@ MCP_MEDIA_TOOL_NAMES: tuple[str, ...] = (
 MCP_DOCUMENT_TOOL_NAMES: tuple[str, ...] = (
     "generate_document_file",
     "generate_excel_file",
+    "generate_text_file",
     "generate_gamma_attachment",
     "update_attachment_visibility",
     "list_document_templates",

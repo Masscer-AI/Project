@@ -110,7 +110,8 @@ def format_available_plugins_summary() -> str:
     lines.append(
         "If the user asks for a diagram or chart, use the matching plugin. "
         "For downloadable Word documents from scratch, use generate_document_file "
-        "(not a frontend plugin)."
+        "(not a frontend plugin). For CSV, JSON, HTML, markdown, and other text "
+        "files, use generate_text_file."
     )
 
     return "\n".join(lines) + "\n"

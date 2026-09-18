@@ -689,6 +689,11 @@ class WhatsappNumbersManagementApiTests(TestCase):
                             "enabled": True,
                         },
                         {
+                            "name": "generate_text_file",
+                            "type": "internal_tool",
+                            "enabled": True,
+                        },
+                        {
                             "name": "send_email",
                             "type": "internal_tool",
                             "enabled": True,
@@ -703,6 +708,7 @@ class WhatsappNumbersManagementApiTests(TestCase):
         names = {c["name"] for c in response.json()["capabilities"] if c.get("enabled")}
         self.assertIn("read_plugin_instructions", names)
         self.assertIn("generate_excel_file", names)
+        self.assertIn("generate_text_file", names)
         self.assertIn("send_email", names)
 
     def test_put_capabilities_validates_tool_names(self, _mock_ff):

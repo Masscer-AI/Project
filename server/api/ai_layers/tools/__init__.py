@@ -26,6 +26,9 @@ TOOL_REGISTRY: dict[str, str] = {
     "rag_query": "api.ai_layers.tools.rag_query",
     "list_knowledge_base_documents": "api.ai_layers.tools.list_knowledge_base_documents",
     "read_knowledge_base_document": "api.ai_layers.tools.read_knowledge_base_document",
+    "list_search": "api.ai_layers.tools.list_search",
+    "list_organization_lists": "api.ai_layers.tools.list_organization_lists",
+    "read_list": "api.ai_layers.tools.read_list",
     "create_image": "api.ai_layers.tools.create_image",
     "generate_video": "api.ai_layers.tools.generate_video",
     "create_speech": "api.ai_layers.tools.create_speech",
@@ -47,6 +50,7 @@ TOOL_REGISTRY: dict[str, str] = {
     "render_document_template": "api.ai_layers.tools.render_document_template",
     "generate_document_file": "api.ai_layers.tools.generate_document_file",
     "generate_excel_file": "api.ai_layers.tools.generate_excel_file",
+    "generate_text_file": "api.ai_layers.tools.generate_text_file",
     "generate_gamma_attachment": "api.ai_layers.tools.generate_gamma_presentation",
     "send_email": "api.ai_layers.tools.send_email",
     "list_organization_members": "api.ai_layers.tools.list_organization_members",
@@ -86,6 +90,8 @@ CHAT_REQUIRED_TOOL_NAMES: tuple[str, ...] = (
 DEPENDENT_TOOL_REQUIREMENTS: dict[str, tuple[str, ...]] = {
     "list_voices": ("create_speech", "generate_dialogue"),
     "list_agents": ("handoff_to_agent",),
+    "list_organization_lists": ("list_search",),
+    "read_list": ("list_search",),
 }
 
 TOOL_NAME_ALIASES: dict[str, str] = {

@@ -568,6 +568,38 @@ class ToolAttachmentExtractionTests(SimpleTestCase):
             attachment_ids, ["b2c3d4e5-f6a7-8901-bcde-f12345678901"]
         )
 
+    def test_extract_generate_text_file_attachments(self):
+        from api.ai_layers.tasks import _extract_generate_text_file_attachments
+
+        tool_calls = [
+            {
+                "tool_name": "generate_text_file",
+                "result": (
+                    '{"attachment_id":"c3d4e5f6-a7b8-9012-cdef-123456789012",'
+                    '"name":"export.csv","content":"https://example.com/export.csv"}'
+                ),
+            }
+        ]
+
+        attachments, attachment_ids = _extract_generate_text_file_attachments(
+            tool_calls
+        )
+
+        self.assertEqual(
+            attachments,
+            [
+                {
+                    "type": "document",
+                    "content": "https://example.com/export.csv",
+                    "name": "export.csv",
+                    "attachment_id": "c3d4e5f6-a7b8-9012-cdef-123456789012",
+                }
+            ],
+        )
+        self.assertEqual(
+            attachment_ids, ["c3d4e5f6-a7b8-9012-cdef-123456789012"]
+        )
+
 class GenerateDocumentFileToolTests(SimpleTestCase):
     @patch("api.ai_layers.models.Agent")
     @patch("api.messaging.models.MessageAttachment")
@@ -639,6 +671,93 @@ class GenerateExcelFileToolTests(SimpleTestCase):
         from api.ai_layers.tools import list_available_tools
 
         self.assertIn("generate_excel_file", list_available_tools())
+
+
+class GenerateTextFileToolTests(SimpleTestCase):
+    @patch("api.ai_layers.models.Agent")
+    @patch("api.messaging.models.MessageAttachment")
+    @patch("api.messaging.models.Conversation")
+    def test_impl_creates_utf8_attachment(
+        self, mock_conversation_cls, mock_attachment_cls, mock_agent
+    ):
+        from api.ai_layers.tools.generate_text_file import _generate_text_file_impl
+
+        mock_conversation_cls.objects.select_related.return_value.get.return_value = (
+            Mock(id="conv-1")
+        )
+        att = Mock()
+        att.id = "att-uuid"
+        att.file.url = "/media/message_attachments/2026/05/export.csv"
+        mock_attachment_cls.objects.create.return_value = att
+        mock_attachment_cls.Visibility.PERSONAL = "personal"
+
+        result = _generate_text_file_impl(
+            content="a,b\n1,2",
+            extension="csv",
+            filename="export",
+            conversation_id="conv-1",
+            user_id=None,
+            agent_slug="test-agent",
+        )
+
+        self.assertEqual(result.attachment_id, "att-uuid")
+        self.assertEqual(result.name, "export.csv")
+        self.assertEqual(result.extension, "csv")
+        self.assertEqual(result.content_type, "text/csv")
+        kwargs = mock_attachment_cls.objects.create.call_args.kwargs
+        self.assertEqual(kwargs["content_type"], "text/csv")
+        self.assertEqual(kwargs["kind"], "file")
+        file_obj = kwargs["file"]
+        file_obj.seek(0)
+        self.assertEqual(file_obj.read(), b"a,b\n1,2")
+
+    def test_rejects_binary_extension(self):
+        from api.ai_layers.tools.generate_text_file import (
+            GenerateTextFileParams,
+            _generate_text_file_impl,
+        )
+        from pydantic import ValidationError
+
+        with self.assertRaises(ValidationError):
+            GenerateTextFileParams(content="x", extension="exe", filename="payload")
+        with self.assertRaises(ValueError):
+            _generate_text_file_impl(
+                content="x",
+                extension="docx",
+                filename="doc",
+                conversation_id="conv-1",
+                user_id=None,
+                agent_slug=None,
+            )
+
+    def test_svg_is_not_image_content_type(self):
+        from api.ai_layers.tools.generate_text_file import content_type_for_text_extension
+
+        self.assertEqual(content_type_for_text_extension("svg"), "application/xml")
+
+    def test_generate_text_file_is_registered(self):
+        from api.ai_layers.tools import list_available_tools
+
+        self.assertIn("generate_text_file", list_available_tools())
+
+    def test_list_search_tools_registered(self):
+        from api.ai_layers.tools import list_available_tools, resolve_tools
+
+        names = list_available_tools()
+        self.assertIn("list_search", names)
+        self.assertNotIn("list_organization_lists", names)
+        self.assertNotIn("read_list", names)
+
+        resolved = resolve_tools(
+            ["list_search"],
+            organization_id=1,
+            conversation_id="conv-1",
+        )
+        tool_names = {t["name"] for t in resolved}
+        self.assertEqual(
+            tool_names,
+            {"list_search", "list_organization_lists", "read_list"},
+        )
 
 class GenerateGammaAttachmentToolTests(SimpleTestCase):
     def test_generate_gamma_attachment_is_registered(self):
@@ -2516,6 +2635,7 @@ class MCPAccessTests(SimpleTestCase):
             if group["group"] == "documents"
         )
         self.assertIn("update_attachment_visibility", documents)
+        self.assertIn("generate_text_file", documents)
 
     @override_settings(FRONTEND_URL="")
     def test_serialize_attachments_for_mcp_strips_internal_fields(self):
@@ -2959,6 +3079,7 @@ class MCPGatewayTests(TestCase):
         self.assertTrue(captured)
         self.assertNotIn("generate_document_file", captured[0])
         self.assertNotIn("generate_excel_file", captured[0])
+        self.assertNotIn("generate_text_file", captured[0])
 
     @patch("api.ai_layers.mcp_views.user_can_manage_integrations", return_value=True)
     def test_revoke_credential(self, _can_manage):

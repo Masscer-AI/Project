@@ -163,3 +163,144 @@ class ImportTaskTests(TestCase):
         self.org_list.refresh_from_db()
         self.assertEqual(self.org_list.import_status, OrganizationList.ImportStatus.SUCCEEDED)
         self.assertEqual(self.org_list.record_count, 1)
+
+
+class OrgListSearchTests(TestCase):
+    def setUp(self):
+        Currency.objects.get_or_create(name="Compute Unit", defaults={"one_usd_is": 1000})
+        self.owner = User.objects.create_user(username="search-owner", password="x")
+        self.org_a = Organization.objects.create(name="Org A", owner=self.owner)
+        self.org_b = Organization.objects.create(name="Org B", owner=self.owner)
+        self.list_a = OrganizationList.objects.create(
+            organization=self.org_a,
+            name="Products",
+            import_status=OrganizationList.ImportStatus.SUCCEEDED,
+            record_count=1,
+        )
+        self.list_pending = OrganizationList.objects.create(
+            organization=self.org_a,
+            name="Pending",
+            import_status=OrganizationList.ImportStatus.PENDING,
+        )
+        OrganizationListRecord.objects.create(
+            organization_list=self.list_a,
+            position=1,
+            data={"sku": "ABC", "name": "Alpha Widget"},
+            search_document="abc alpha widget",
+        )
+        self.list_b = OrganizationList.objects.create(
+            organization=self.org_b,
+            name="Other",
+            import_status=OrganizationList.ImportStatus.SUCCEEDED,
+            record_count=1,
+        )
+        OrganizationListRecord.objects.create(
+            organization_list=self.list_b,
+            position=1,
+            data={"sku": "ABC", "name": "Other org"},
+            search_document="abc other org",
+        )
+
+    def test_and_search_finds_row(self):
+        from api.org_lists.search import search_organization_list_records
+
+        rows, tokens, truncated = search_organization_list_records(
+            organization_id=self.org_a.id,
+            terms=["alpha"],
+        )
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].data["name"], "Alpha Widget")
+        self.assertFalse(truncated)
+
+    def test_search_scoped_to_list_id(self):
+        from api.org_lists.search import search_organization_list_records
+
+        rows, _, _ = search_organization_list_records(
+            organization_id=self.org_a.id,
+            terms=["abc"],
+            list_id=str(self.list_a.id),
+        )
+        self.assertEqual(len(rows), 1)
+
+    def test_search_excludes_other_org(self):
+        from api.org_lists.search import search_organization_list_records
+
+        rows, _, _ = search_organization_list_records(
+            organization_id=self.org_a.id,
+            terms=["other"],
+        )
+        self.assertEqual(len(rows), 0)
+
+    def test_search_excludes_non_succeeded_lists(self):
+        from api.org_lists.search import search_organization_list_records
+
+        OrganizationListRecord.objects.create(
+            organization_list=self.list_pending,
+            position=1,
+            data={"x": "secret"},
+            search_document="secret",
+        )
+        rows, _, _ = search_organization_list_records(
+            organization_id=self.org_a.id,
+            terms=["secret"],
+        )
+        self.assertEqual(len(rows), 0)
+
+
+class ListSearchToolTests(TestCase):
+    def setUp(self):
+        Currency.objects.get_or_create(name="Compute Unit", defaults={"one_usd_is": 1000})
+        self.owner = User.objects.create_user(username="tool-search-owner", password="x")
+        self.org = Organization.objects.create(name="Tool Org", owner=self.owner)
+        self.org_list = OrganizationList.objects.create(
+            organization=self.org,
+            name="Cat",
+            import_status=OrganizationList.ImportStatus.SUCCEEDED,
+        )
+        OrganizationListRecord.objects.create(
+            organization_list=self.org_list,
+            position=1,
+            data={"name": "Blue Chair"},
+            search_document="blue chair",
+        )
+
+    def test_list_search_impl_returns_hits(self):
+        from api.ai_layers.tools.list_search import list_search_impl
+
+        result = list_search_impl(
+            organization_id=self.org.id,
+            terms=["blue"],
+        )
+        self.assertEqual(len(result.hits), 1)
+        self.assertEqual(result.hits[0].data.get("name"), "Blue Chair")
+
+    def test_list_organization_lists_impl(self):
+        import json
+
+        from api.ai_layers.tools.list_organization_lists import _list_impl
+
+        payload = _list_impl(organization_id=self.org.id)
+        data = json.loads(payload)
+        self.assertEqual(data["count"], 1)
+        self.assertEqual(data["lists"][0]["name"], "Cat")
+
+    def test_read_list_impl_returns_rows(self):
+        from api.ai_layers.tools.read_list import read_list_impl
+
+        result = read_list_impl(
+            organization_id=self.org.id,
+            list_id=str(self.org_list.id),
+        )
+        self.assertEqual(result.total, 1)
+        self.assertEqual(len(result.rows), 1)
+        self.assertEqual(result.rows[0].data.get("name"), "Blue Chair")
+
+    def test_read_list_impl_unknown_list(self):
+        from api.ai_layers.tools.read_list import read_list_impl
+
+        result = read_list_impl(
+            organization_id=self.org.id,
+            list_id="00000000-0000-0000-0000-000000000000",
+        )
+        self.assertEqual(result.total, 0)
+        self.assertIn("not found", result.message.lower())

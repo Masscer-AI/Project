@@ -32,4 +32,13 @@ i18n.init({
   },
 });
 
+if (import.meta.hot) {
+  import.meta.hot.accept(["./locales/en.json", "./locales/es.json"], (mods) => {
+    const nextEn = mods?.[0]?.default ?? translationEN;
+    const nextEs = mods?.[1]?.default ?? translationES;
+    i18n.addResourceBundle("en", "translation", nextEn, true, true);
+    i18n.addResourceBundle("es", "translation", nextEs, true, true);
+  });
+}
+
 export default i18n;

@@ -24,6 +24,7 @@ COMPLIANCE_TOOL_REGISTRY: dict[str, str] = {
     "list_document_templates": "api.ai_layers.tools.list_document_templates",
     "render_document_template": "api.ai_layers.tools.render_document_template",
     "generate_excel_file": "api.ai_layers.tools.generate_excel_file",
+    "generate_text_file": "api.ai_layers.tools.generate_text_file",
     "request_signature": "api.ai_layers.tools.request_signature",
     "explore_web": "api.ai_layers.tools.explore_web",
     "send_email": "api.ai_layers.tools.send_email",

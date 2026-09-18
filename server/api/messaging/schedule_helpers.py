@@ -26,6 +26,7 @@ SCHEDULER_BASELINE_TOOL_NAMES: list[str] = [
     "update_attachment_visibility",
     "generate_document_file",
     "generate_excel_file",
+    "generate_text_file",
     "send_email",
     "list_organization_members",
     "list_organization_roles",

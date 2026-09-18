@@ -10,9 +10,9 @@ import {
   Loader,
   Modal,
   NativeSelect,
-  ScrollArea,
   Stack,
   Text,
+  Table,
   Textarea,
   TextInput,
   Title,
@@ -20,6 +20,7 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
+  IconEdit,
   IconEye,
   IconList,
   IconTrash,
@@ -31,6 +32,7 @@ import {
   getOrganizationListRecords,
   getOrganizationLists,
   getUserOrganizations,
+  patchOrganizationList,
   replaceOrganizationListFile,
   uploadOrganizationList,
 } from "../../modules/apiCalls";
@@ -68,10 +70,16 @@ export function ListsTab({ filterQuery }: { filterQuery: string }) {
 
   const [activeList, setActiveList] = useState<TOrganizationList | null>(null);
   const [deleteModalOpened, deleteModalHandlers] = useDisclosure(false);
+  const [editModalOpened, editModalHandlers] = useDisclosure(false);
+  const [editName, setEditName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
   const [previewModalOpened, previewModalHandlers] = useDisclosure(false);
   const [previewRows, setPreviewRows] = useState<
     { position: number; data: Record<string, string> }[]
   >([]);
+  const [previewColumns, setPreviewColumns] = useState<string[]>([]);
+  const [previewTotal, setPreviewTotal] = useState(0);
   const [previewLoading, setPreviewLoading] = useState(false);
 
   const orgSelectData = useMemo(
@@ -98,7 +106,7 @@ export function ListsTab({ filterQuery }: { filterQuery: string }) {
     setLoadingLists(true);
     try {
       const { lists: rows } = await getOrganizationLists(id);
-      setLists(rows);
+      setLists(rows ?? []);
     } catch {
       toast.error(t("org-lists-load-error"));
       setLists([]);
@@ -112,11 +120,12 @@ export function ListsTab({ filterQuery }: { filterQuery: string }) {
     (async () => {
       setLoadingOrgs(true);
       try {
-        const { organizations } = await getUserOrganizations();
+        const list = await getUserOrganizations();
         if (cancelled) return;
-        setOrgs(organizations);
-        if (organizations.length > 0) {
-          setOrgId(String(organizations[0].id));
+        const orgList = Array.isArray(list) ? list : [];
+        setOrgs(orgList);
+        if (orgList.length > 0) {
+          setOrgId(String(orgList[0].id));
         }
       } catch {
         if (!cancelled) toast.error(t("org-lists-load-error"));
@@ -140,7 +149,7 @@ export function ListsTab({ filterQuery }: { filterQuery: string }) {
     const timer = window.setInterval(async () => {
       try {
         const { lists: fresh } = await getOrganizationLists(orgId);
-        setLists(fresh);
+        setLists(fresh ?? []);
       } catch {
         /* ignore poll errors */
       }
@@ -207,16 +216,69 @@ export function ListsTab({ filterQuery }: { filterQuery: string }) {
     }
   };
 
+  const openEdit = (row: TOrganizationList) => {
+    setActiveList(row);
+    setEditName(row.name);
+    setEditDescription(row.description || "");
+    editModalHandlers.open();
+  };
+
+  const saveEdit = async () => {
+    if (!orgId || !activeList) return;
+    const name = editName.trim();
+    if (!name) {
+      toast.error(t("org-list-name-required"));
+      return;
+    }
+    setSavingEdit(true);
+    const toastId = toast.loading(t("saving"));
+    try {
+      const { list } = await patchOrganizationList(orgId, activeList.id, {
+        name,
+        description: editDescription,
+      });
+      setLists((prev) => prev.map((x) => (x.id === list.id ? list : x)));
+      toast.success(t("org-list-saved"));
+      editModalHandlers.close();
+    } catch {
+      toast.error(t("org-list-save-error"));
+    } finally {
+      toast.dismiss(toastId);
+      setSavingEdit(false);
+    }
+  };
+
   const openPreview = async (row: TOrganizationList) => {
     if (!orgId) return;
     setActiveList(row);
     previewModalHandlers.open();
     setPreviewLoading(true);
+    setPreviewRows([]);
+    setPreviewColumns([]);
+    setPreviewTotal(0);
     try {
-      const { records } = await getOrganizationListRecords(orgId, row.id, 1, 20);
-      setPreviewRows(
-        records.map((r) => ({ position: r.position, data: r.data || {} }))
-      );
+      const [{ list }, recordsResp] = await Promise.all([
+        getOrganizationList(orgId, row.id),
+        getOrganizationListRecords(orgId, row.id, 1, 50),
+      ]);
+      setActiveList(list);
+      const configCols =
+        list.config?.columns?.map((c) => c.name).filter(Boolean) ?? [];
+      const rows = recordsResp.records.map((r) => ({
+        position: r.position,
+        data: r.data || {},
+      }));
+      const dataKeys =
+        rows.length > 0 ? Object.keys(rows[0].data) : configCols;
+      const columns =
+        configCols.length > 0
+          ? configCols
+          : dataKeys.length > 0
+            ? dataKeys
+            : [];
+      setPreviewColumns(columns);
+      setPreviewRows(rows);
+      setPreviewTotal(recordsResp.total);
     } catch {
       toast.error(t("org-list-preview-error"));
       setPreviewRows([]);
@@ -386,6 +448,15 @@ export function ListsTab({ filterQuery }: { filterQuery: string }) {
                   ) : null}
                 </Stack>
                 <Group gap="xs" wrap="nowrap">
+                  <Tooltip label={t("edit")}>
+                    <ActionIcon
+                      variant="subtle"
+                      color="gray"
+                      onClick={() => openEdit(row)}
+                    >
+                      <IconEdit size={18} />
+                    </ActionIcon>
+                  </Tooltip>
                   <Tooltip label={t("org-list-preview")}>
                     <ActionIcon
                       variant="subtle"
@@ -440,30 +511,79 @@ export function ListsTab({ filterQuery }: { filterQuery: string }) {
       </Modal>
 
       <Modal
+        opened={editModalOpened}
+        onClose={editModalHandlers.close}
+        title={t("org-list-edit-title")}
+      >
+        <Stack gap="sm">
+          <TextInput
+            label={t("org-list-name")}
+            value={editName}
+            onChange={(e) => setEditName(e.currentTarget.value)}
+          />
+          <Textarea
+            label={t("org-list-description")}
+            value={editDescription}
+            onChange={(e) => setEditDescription(e.currentTarget.value)}
+            autosize
+            minRows={2}
+          />
+          <Group justify="flex-end" mt="xs">
+            <Button variant="default" onClick={editModalHandlers.close}>
+              {t("cancel")}
+            </Button>
+            <Button loading={savingEdit} onClick={saveEdit}>
+              {t("save")}
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      <Modal
         opened={previewModalOpened}
         onClose={previewModalHandlers.close}
         title={t("org-list-preview-title", { name: activeList?.name ?? "" })}
-        size="lg"
+        size="xl"
       >
         {previewLoading ? (
           <Loader color="violet" size="sm" />
-        ) : previewRows.length === 0 ? (
+        ) : previewRows.length === 0 || previewColumns.length === 0 ? (
           <Text c="dimmed">{t("org-list-preview-empty")}</Text>
         ) : (
-          <ScrollArea h={320}>
-            <Stack gap="xs">
-              {previewRows.map((row) => (
-                <Card key={row.position} withBorder p="xs">
-                  <Text size="xs" c="dimmed" mb={4}>
-                    #{row.position}
-                  </Text>
-                  <Text size="sm" style={{ fontFamily: "monospace" }}>
-                    {JSON.stringify(row.data)}
-                  </Text>
-                </Card>
-              ))}
-            </Stack>
-          </ScrollArea>
+          <Stack gap="xs">
+            {previewTotal > previewRows.length ? (
+              <Text size="xs" c="dimmed">
+                {t("org-list-preview-showing", {
+                  shown: previewRows.length,
+                  total: previewTotal,
+                })}
+              </Text>
+            ) : null}
+            <Table.ScrollContainer minWidth={480} maxHeight={420}>
+              <Table striped highlightOnHover withTableBorder withColumnBorders>
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th w={48}>#</Table.Th>
+                    {previewColumns.map((col) => (
+                      <Table.Th key={col}>{col}</Table.Th>
+                    ))}
+                  </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                  {previewRows.map((row) => (
+                    <Table.Tr key={row.position}>
+                      <Table.Td>{row.position}</Table.Td>
+                      {previewColumns.map((col) => (
+                        <Table.Td key={col}>
+                          {row.data[col] ?? ""}
+                        </Table.Td>
+                      ))}
+                    </Table.Tr>
+                  ))}
+                </Table.Tbody>
+              </Table>
+            </Table.ScrollContainer>
+          </Stack>
         )}
       </Modal>
     </Stack>

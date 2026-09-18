@@ -335,7 +335,8 @@ def get_tool(
             "Combine multiple entries; duplicates are removed. "
             "Pass subject, html, and optional attachment_ids from list_attachments "
             "(including files from other conversations this user owns). "
-            "Generate files with generate_document_file or generate_excel_file when needed."
+            "Generate files with generate_document_file, generate_excel_file, or "
+            "generate_text_file when needed."
         ),
         "parameters": SendEmailParams,
         "function": send_email,

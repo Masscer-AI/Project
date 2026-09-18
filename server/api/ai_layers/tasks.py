@@ -741,6 +741,16 @@ def _extract_generate_excel_file_attachments(
         default_name="spreadsheet.xlsx",
     )
 
+
+def _extract_generate_text_file_attachments(
+    tool_calls: list[dict],
+) -> tuple[list[dict], list[str]]:
+    return _extract_generated_document_attachments(
+        tool_calls,
+        tool_names=("generate_text_file",),
+        default_name="file.txt",
+    )
+
 def _extract_generate_gamma_attachment_attachments(
     tool_calls: list[dict],
 ) -> tuple[list[dict], list[str]]:
@@ -1512,6 +1522,15 @@ def conversation_agent_task(
                     "Prefer listing first when you need to choose among documents. "
                     "These tools are separate from rag_query (trained agent memory)."
                 )
+            if "list_search" in (agent_tool_names or []):
+                instructions += (
+                    "\n\nOrganization list tools are available (uploaded CSV/Excel catalogs). "
+                    "Call list_organization_lists to see ready lists (id, name, columns, record_count). "
+                    "Use list_search with terms (AND match across row text; default up to 50 hits, max 200). "
+                    "Pass list_id when searching one catalog; omit list_id to search all lists. "
+                    "Use read_list with list_id to load full row data (paginated; default 50 rows per page, max 200). "
+                    "This is not for compliance watchlists, rag_query, or knowledge-base document files."
+                )
             if "explore_web" in (agent_tool_names or []):
                 instructions += (
                     "\n\nWeb search is available. "
@@ -1551,6 +1570,10 @@ def conversation_agent_task(
                 override_allowlist is None
                 or "generate_excel_file" in (agent_tool_names or [])
             )
+            _text_tools_ok = (
+                override_allowlist is None
+                or "generate_text_file" in (agent_tool_names or [])
+            )
             if _doc_tools_ok:
                 instructions += (
                     "\n\nDocument file generation is enabled (generate_document_file). "
@@ -1574,6 +1597,18 @@ def conversation_agent_task(
                     "- output_filename: optional .xlsx filename (default spreadsheet.xlsx). "
                     "Output is always XLSX. "
                     "After success, include: [Download spreadsheet](attachment:<attachment_id>)."
+                )
+            if _text_tools_ok:
+                instructions += (
+                    "\n\nText file generation is enabled (generate_text_file). "
+                    "When the user wants a downloadable text-only file (CSV, JSON, "
+                    "HTML, markdown, txt, XML, YAML, source code, etc.), call "
+                    "generate_text_file(content, extension, filename). "
+                    "- content: the full UTF-8 file body. "
+                    "- extension: file type without the dot (csv, json, html, md, txt, ...). "
+                    "- filename: optional name (extension is added if missing). "
+                    "Do not use this for Word (.docx) or Excel (.xlsx). "
+                    "After success, include: [Download file](attachment:<attachment_id>)."
                 )
             if (
                 "generate_gamma_attachment" in (agent_tool_names or [])
@@ -1930,6 +1965,11 @@ def conversation_agent_task(
                 and _may_auto_inject_tool("generate_excel_file")
             ):
                 agent_tool_names.append("generate_excel_file")
+            if (
+                "generate_text_file" not in agent_tool_names
+                and _may_auto_inject_tool("generate_text_file")
+            ):
+                agent_tool_names.append("generate_text_file")
 
             if (
                 not is_embedded_channel
@@ -2319,6 +2359,14 @@ def conversation_agent_task(
                 assistant_message_attachments.extend(gen_xlsx_atts)
             if gen_xlsx_ids:
                 assistant_attachment_ids.extend(gen_xlsx_ids)
+
+            gen_text_atts, gen_text_ids = _extract_generate_text_file_attachments(
+                agent_run_result.tool_calls or []
+            )
+            if gen_text_atts:
+                assistant_message_attachments.extend(gen_text_atts)
+            if gen_text_ids:
+                assistant_attachment_ids.extend(gen_text_ids)
 
             gen_gamma_atts, gen_gamma_ids = (
                 _extract_generate_gamma_attachment_attachments(
