@@ -69,9 +69,11 @@ run_manage() {
 if [ $# -eq 0 ]; then
     echo "Running makemigrations..."
     run_manage makemigrations
+    bash "${PROJECT_ROOT}/scripts/fix_migrations.sh"
     echo "Running migrate..."
     run_manage migrate
 elif [ $# -eq 2 ]; then
+    bash "${PROJECT_ROOT}/scripts/fix_migrations.sh"
     echo "Reverting $1 to migration $2..."
     run_manage migrate "$1" "$2"
 else
