@@ -2404,11 +2404,23 @@ class GalleryView(View):
         except (TypeError, ValueError):
             offset = 0
 
+        tag_id = None
+        tag_raw = (request.GET.get("tag_id") or "").strip()
+        if tag_raw:
+            try:
+                tag_id = int(tag_raw)
+            except ValueError:
+                return JsonResponse(
+                    {"message": "tag_id must be an integer", "status": 400},
+                    status=400,
+                )
+
         gallery_items = list_gallery_items(
             user=user,
             gallery_type=gallery_type,
             limit=limit,
             offset=offset,
+            tag_id=tag_id,
         )
         return JsonResponse(gallery_items, safe=False)
 
@@ -2453,44 +2465,83 @@ class GalleryItemView(View):
             return JsonResponse({"message": "Unauthorized", "status": 401}, status=401)
 
         try:
-            visibility_payload = json.loads(request.body) if request.body else {}
+            payload = json.loads(request.body) if request.body else {}
         except json.JSONDecodeError:
             return JsonResponse({"message": "Invalid JSON", "status": 400}, status=400)
 
-        visibility = visibility_payload.get("visibility")
-        if not visibility or not isinstance(visibility, str):
+        visibility = payload.get("visibility")
+        has_tag_ids = "tag_ids" in payload
+        if (not visibility or not isinstance(visibility, str)) and not has_tag_ids:
             return JsonResponse(
-                {"message": "visibility is required", "status": 400},
+                {"message": "visibility or tag_ids is required", "status": 400},
                 status=400,
             )
 
-        from api.messaging.gallery import update_gallery_attachment_visibility
-
-        visibility_update = update_gallery_attachment_visibility(
-            user=user,
-            attachment_id=attachment_id,
-            visibility=visibility,
-            role_ids=visibility_payload.get("role_ids"),
+        from api.messaging.gallery import (
+            update_gallery_attachment_tags,
+            update_gallery_attachment_visibility,
         )
-        if visibility_update.get("error") == "not_found":
-            return JsonResponse(
-                {"message": "Attachment not found", "status": 404},
-                status=404,
+        from api.messaging.organization_tags import parse_tag_ids_payload
+
+        item = None
+        if visibility and isinstance(visibility, str):
+            visibility_update = update_gallery_attachment_visibility(
+                user=user,
+                attachment_id=attachment_id,
+                visibility=visibility,
+                role_ids=payload.get("role_ids"),
             )
-        if visibility_update.get("error") == "forbidden":
-            return JsonResponse(
-                {"message": "Not allowed to change this attachment", "status": 403},
-                status=403,
+            if visibility_update.get("error") == "not_found":
+                return JsonResponse(
+                    {"message": "Attachment not found", "status": 404},
+                    status=404,
+                )
+            if visibility_update.get("error") == "forbidden":
+                return JsonResponse(
+                    {"message": "Not allowed to change this attachment", "status": 403},
+                    status=403,
+                )
+            if not visibility_update.get("ok"):
+                return JsonResponse(
+                    {
+                        "message": visibility_update.get("message") or "Invalid visibility",
+                        "status": 400,
+                    },
+                    status=400,
+                )
+            item = visibility_update["item"]
+
+        if has_tag_ids:
+            try:
+                tag_ids = parse_tag_ids_payload(payload.get("tag_ids"))
+            except ValueError as exc:
+                return JsonResponse({"message": str(exc), "status": 400}, status=400)
+            tags_update = update_gallery_attachment_tags(
+                user=user,
+                attachment_id=attachment_id,
+                tag_ids=tag_ids if tag_ids is not None else [],
             )
-        if not visibility_update.get("ok"):
-            return JsonResponse(
-                {
-                    "message": visibility_update.get("message") or "Invalid visibility",
-                    "status": 400,
-                },
-                status=400,
-            )
-        return JsonResponse({"status": "updated", "item": visibility_update["item"]})
+            if tags_update.get("error") == "not_found":
+                return JsonResponse(
+                    {"message": "Attachment not found", "status": 404},
+                    status=404,
+                )
+            if tags_update.get("error") == "forbidden":
+                return JsonResponse(
+                    {"message": "Not allowed to change this attachment", "status": 403},
+                    status=403,
+                )
+            if not tags_update.get("ok"):
+                return JsonResponse(
+                    {
+                        "message": tags_update.get("message") or "Invalid tag_ids",
+                        "status": 400,
+                    },
+                    status=400,
+                )
+            item = tags_update["item"]
+
+        return JsonResponse({"status": "updated", "item": item})
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")

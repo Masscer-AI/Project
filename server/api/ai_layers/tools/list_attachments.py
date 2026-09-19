@@ -54,6 +54,13 @@ class ListAttachmentsParams(BaseModel):
             "Use next_offset from a previous result to retrieve the next page."
         ),
     )
+    tag_ids: list[int] | None = Field(
+        default=None,
+        description=(
+            "Optional organization tag ids. When set, only attachments that have "
+            "any of these tags are returned. Omit to list without a tag filter."
+        ),
+    )
 
 
 class AttachmentListItem(BaseModel):
@@ -91,6 +98,10 @@ class AttachmentListItem(BaseModel):
     belongs_to: dict = Field(
         default_factory=dict,
         description="Ownership summary (you / organization / roles / link)",
+    )
+    tag_ids: list[int] = Field(
+        default_factory=list,
+        description="Organization tag ids on this attachment.",
     )
 
 
@@ -171,6 +182,7 @@ def _list_attachments_impl(
     conversation_id: str | None = None,
     organization_id: int | None = None,
     include_compliance_evidence: bool = False,
+    tag_ids: list[int] | None = None,
 ) -> ListAttachmentsResult:
     from django.contrib.auth.models import User
 
@@ -213,6 +225,13 @@ def _list_attachments_impl(
     if from_date:
         qs = qs.filter(created_at__gte=_parse_from_date(from_date))
 
+    if tag_ids:
+        from api.messaging.organization_tags import normalize_tag_ids, tag_ids_match_q
+
+        matched = normalize_tag_ids(tag_ids)
+        if matched:
+            qs = qs.filter(tag_ids_match_q("tag_ids", matched))
+
     total = qs.count()
     rows = list(qs[offset : offset + MAX_LIMIT])
     current_id = str(conversation_id) if conversation_id else None
@@ -238,6 +257,7 @@ def _list_attachments_impl(
                 is_current=bool(current_id and conv_id == current_id),
                 visibility=getattr(att, "visibility", None) or "personal",
                 belongs_to=attachment_belongs_to_payload(att, actor),
+                tag_ids=[int(x) for x in (getattr(att, "tag_ids", None) or []) if str(x).isdigit() or isinstance(x, int)],
             )
         )
 
@@ -289,6 +309,7 @@ def get_tool(
         query: str | None = None,
         from_date: str | None = None,
         offset: int = 0,
+        tag_ids: list[int] | None = None,
     ) -> ListAttachmentsResult:
         return _list_attachments_impl(
             kind=kind,
@@ -299,6 +320,7 @@ def get_tool(
             conversation_id=conversation_id,
             organization_id=org_id,
             include_compliance_evidence=include_compliance_evidence,
+            tag_ids=tag_ids,
         )
 
     if user_id is not None:
@@ -309,6 +331,7 @@ def get_tool(
             "kind is required: image, document, video, or audio. "
             "Optionally pass query to search filenames, linked knowledge-base "
             "document names, or website URLs. "
+            "Optionally pass tag_ids to only include attachments with those org tags. "
             "Optionally pass from_date (YYYY-MM-DD or ISO datetime) to only include "
             "attachments created since that instant. "
             "Results contain total and next_offset; pass next_offset as offset to "
@@ -326,6 +349,7 @@ def get_tool(
             "kind is required: image, document, video, or audio. "
             "Optionally pass query to search filenames, linked knowledge-base "
             "document names, or website URLs. "
+            "Optionally pass tag_ids to only include attachments with those org tags. "
             "Optionally pass from_date (YYYY-MM-DD or ISO datetime) to only include "
             "attachments created since that instant. "
             "Results contain total and next_offset; pass next_offset as offset to "

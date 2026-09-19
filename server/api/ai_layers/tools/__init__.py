@@ -40,6 +40,8 @@ TOOL_REGISTRY: dict[str, str] = {
     "query_organization_tags": "api.ai_layers.tools.query_organization_tags",
     "create_organization_tag": "api.ai_layers.tools.create_organization_tag",
     "change_conversation_tags": "api.ai_layers.tools.change_conversation_tags",
+    "change_document_tags": "api.ai_layers.tools.change_document_tags",
+    "change_attachment_tags": "api.ai_layers.tools.change_attachment_tags",
     "change_conversation_summary": "api.ai_layers.tools.change_conversation_summary",
     "get_tag_context": "api.ai_layers.tools.get_tag_context",
     "query_conversation": "api.ai_layers.tools.query_conversation",
@@ -92,6 +94,8 @@ DEPENDENT_TOOL_REQUIREMENTS: dict[str, tuple[str, ...]] = {
     "list_agents": ("handoff_to_agent",),
     "list_organization_lists": ("list_search",),
     "read_list": ("list_search",),
+    "change_document_tags": ("change_conversation_tags",),
+    "change_attachment_tags": ("change_conversation_tags",),
 }
 
 TOOL_NAME_ALIASES: dict[str, str] = {
@@ -112,6 +116,8 @@ USER_REQUIRED_TOOL_NAMES: frozenset[str] = frozenset(
         "list_knowledge_base_documents",
         "read_knowledge_base_document",
         "update_attachment_visibility",
+        "change_document_tags",
+        "change_attachment_tags",
         "send_email",
         "list_whatsapp_resources",
         "list_whatsapp_templates",
@@ -130,6 +136,8 @@ WIDGET_UNAVAILABLE_TOOL_NAMES: frozenset[str] = frozenset(
         "query_organization_tags",
         "create_organization_tag",
         "change_conversation_tags",
+        "change_document_tags",
+        "change_attachment_tags",
         "change_conversation_summary",
         "get_tag_context",
         "query_conversation",

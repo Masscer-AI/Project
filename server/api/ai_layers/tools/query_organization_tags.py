@@ -62,6 +62,8 @@ def get_tool(organization_id: int | None = None, **kwargs) -> dict:
         "name": "query_organization_tags",
         "description": (
             "List all enabled tags for this organization (id, title, description, color). "
+            "Use these ids with change_conversation_tags, change_document_tags, "
+            "change_attachment_tags, get_tag_context, and optional tag_ids on list tools. "
             "Optional: the system prompt already includes this conversation’s current tags — "
             "only call this when you need the full org catalog (e.g. after creating a tag, or to compare many labels)."
         ),

@@ -6,23 +6,26 @@ import {
   Divider,
   Group,
   Modal,
-  MultiSelect,
   NativeSelect,
   Stack,
   Text,
 } from "@mantine/core";
 import { IconDownload, IconLink, IconUser, IconUsers } from "@tabler/icons-react";
 import { DocumentFileIcon, getDocumentFileMeta } from "../../modules/documentFileMeta";
+import { MobileFriendlyMultiSelect } from "../MobileFriendlyMultiSelect/MobileFriendlyMultiSelect";
 import {
   getGalleryItem,
   getOrganizationRoles,
+  getTags,
   getUserOrganizations,
   TAttachmentVisibility,
   TGalleryItem,
   updateGalleryItemVisibility,
 } from "../../modules/apiCalls";
-import { TOrganizationRole } from "../../types";
+import { TOrganizationRole, TTag } from "../../types";
 import { SaveToKnowledgeBaseButton, knowledgeBaseDocumentIdFromMetadata } from "./SaveToKnowledgeBase";
+
+const MAX_ITEM_TAGS = 3;
 
 export function visibilityLabelKey(
   visibility?: TAttachmentVisibility
@@ -74,7 +77,11 @@ function useAttachmentVisibilityEditor(
   const [editRoleIds, setEditRoleIds] = useState<string[]>(
     (initialItem?.belongs_to?.roles || []).map((r) => r.id)
   );
+  const [editTagIds, setEditTagIds] = useState<string[]>(
+    (initialItem?.tag_ids || []).map(String)
+  );
   const [orgRoles, setOrgRoles] = useState<TOrganizationRole[]>([]);
+  const [orgTags, setOrgTags] = useState<TTag[]>([]);
   const [hasOrg, setHasOrg] = useState(false);
   const [loadError, setLoadError] = useState(false);
 
@@ -94,14 +101,21 @@ function useAttachmentVisibilityEditor(
         setItem(next);
         setEditVisibility(next.visibility || "personal");
         setEditRoleIds((next.belongs_to?.roles || []).map((r) => r.id));
+        setEditTagIds((next.tag_ids || []).map(String));
         const org = orgs[0];
         setHasOrg(Boolean(org));
         if (!org) {
           setOrgRoles([]);
+          setOrgTags([]);
           return;
         }
-        const roles = await getOrganizationRoles(org.id);
-        if (!cancelled) setOrgRoles(roles.filter((r) => r.enabled));
+        const [roles, tags] = await Promise.all([
+          getOrganizationRoles(org.id),
+          getTags(),
+        ]);
+        if (cancelled) return;
+        setOrgRoles(roles.filter((r) => r.enabled));
+        setOrgTags(tags);
       } catch {
         if (!cancelled) setLoadError(true);
       } finally {
@@ -147,13 +161,14 @@ function useAttachmentVisibilityEditor(
       const res = await updateGalleryItemVisibility(attachmentId, {
         visibility: editVisibility,
         role_ids: editVisibility === "roles" ? editRoleIds : [],
+        tag_ids: editTagIds.slice(0, MAX_ITEM_TAGS).map((id) => parseInt(id, 10)),
       });
-      toast.success(t("gallery-visibility-updated"));
+      toast.success(t("gallery-settings-updated"));
       setItem(res.item);
       onSaved?.(res.item);
       return true;
     } catch {
-      toast.error(t("gallery-visibility-update-error"));
+      toast.error(t("gallery-settings-update-error"));
       return false;
     } finally {
       setSaving(false);
@@ -168,7 +183,11 @@ function useAttachmentVisibilityEditor(
     setEditVisibility,
     editRoleIds,
     setEditRoleIds,
+    editTagIds,
+    setEditTagIds,
     orgRoles,
+    orgTags,
+    hasOrg,
     visibilityOptions,
     canManage,
     loadError,
@@ -198,14 +217,27 @@ function VisibilityFields({
         data={editor.visibilityOptions}
       />
       {editor.editVisibility === "roles" && (
-        <MultiSelect
-          size="sm"
+        <MobileFriendlyMultiSelect
           label={t("document-visibility-select-roles")}
           placeholder={t("document-visibility-select-roles")}
           data={editor.orgRoles.map((r) => ({ value: r.id, label: r.name }))}
           value={editor.editRoleIds}
           onChange={editor.setEditRoleIds}
-          searchable
+          disabled={editor.loading || !editor.canManage}
+        />
+      )}
+      {editor.hasOrg && (
+        <MobileFriendlyMultiSelect
+          label={t("item-tags-label")}
+          description={t("item-tags-help")}
+          pickerTitle={t("item-tags-label")}
+          data={editor.orgTags
+            .filter((tag) => tag.enabled)
+            .map((tag) => ({ value: tag.id.toString(), label: tag.title }))}
+          value={editor.editTagIds}
+          onChange={(vals) =>
+            editor.setEditTagIds(vals.slice(0, MAX_ITEM_TAGS))
+          }
           disabled={editor.loading || !editor.canManage}
         />
       )}
@@ -233,7 +265,7 @@ export function AttachmentVisibilityModal({
     <Modal
       opened={opened}
       onClose={onClose}
-      title={t("gallery-visibility")}
+      title={t("settings")}
       centered
     >
       <Stack gap="sm">

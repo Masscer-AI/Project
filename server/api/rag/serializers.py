@@ -45,6 +45,7 @@ class DocumentSerializer(serializers.ModelSerializer):
             "organization_id",
             "allowed_role_ids",
             "created_by_id",
+            "tag_ids",
         ]
         read_only_fields = [
             "id",

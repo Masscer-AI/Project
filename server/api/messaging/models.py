@@ -295,6 +295,11 @@ class MessageAttachment(models.Model):
         blank=True,
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    tag_ids = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Organization tag ids (same catalog as conversation tags).",
+    )
 
     class Meta:
         ordering = ["-created_at"]

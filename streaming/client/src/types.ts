@@ -440,6 +440,7 @@ export type TDocument = {
   organization_id?: string | null;
   allowed_role_ids?: string[];
   created_by_id?: number | null;
+  tag_ids?: number[];
 };
 
 export type TWebPage = {

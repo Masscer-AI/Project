@@ -16,6 +16,7 @@ import {
   getUserOrganizations,
   getOrganizationRoles,
   updateDocumentOwnership,
+  updateDocumentTags,
 } from "../../modules/apiCalls";
 import {
   TDocument,
@@ -68,6 +69,7 @@ import {
   IconPlus,
   IconRobot,
   IconSearch,
+  IconSettings,
   IconSparkles,
   IconTemplate,
   IconList,
@@ -83,6 +85,8 @@ function visibilityLabelKey(visibility?: TDocumentVisibility): string {
   if (visibility === "roles") return "document-visibility-roles";
   return "document-visibility-personal";
 }
+
+const MAX_ITEM_TAGS = 3;
 
 function agentIdsFromCompletion(c: TCompletion): string[] {
   if (Array.isArray(c.agent_ids)) {
@@ -496,8 +500,10 @@ const DocumentsTab = ({
   const [uploadVisibility, setUploadVisibility] =
     useState<TDocumentVisibility>("organization");
   const [uploadRoleIds, setUploadRoleIds] = useState<string[]>([]);
+  const [uploadTagIds, setUploadTagIds] = useState<string[]>([]);
   const [orgRoles, setOrgRoles] = useState<TOrganizationRole[]>([]);
   const [hasOrg, setHasOrg] = useState(false);
+  const [orgTags, setOrgTags] = useState<TTag[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -523,6 +529,12 @@ const DocumentsTab = ({
         } catch {
           if (!cancelled) setOrgRoles([]);
         }
+        try {
+          const tags = await getTags();
+          if (!cancelled) setOrgTags(Array.isArray(tags) ? tags : []);
+        } catch {
+          if (!cancelled) setOrgTags([]);
+        }
       } catch {
         if (!cancelled) {
           setHasOrg(false);
@@ -545,6 +557,7 @@ const DocumentsTab = ({
     setSelectedFiles([]);
     setDragging(false);
     setUploadRoleIds([]);
+    setUploadTagIds([]);
     setUploadVisibility(hasOrg ? "organization" : "personal");
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -597,6 +610,12 @@ const DocumentsTab = ({
         fd.append("visibility", uploadVisibility);
         for (const roleId of uploadRoleIds) {
           fd.append("role_ids", roleId);
+        }
+        if (uploadTagIds.length > 0) {
+          fd.append(
+            "tag_ids",
+            JSON.stringify(uploadTagIds.slice(0, MAX_ITEM_TAGS).map((id) => parseInt(id, 10)))
+          );
         }
         await uploadDocument(fd);
       }
@@ -687,6 +706,19 @@ const DocumentsTab = ({
                   onChange={setUploadRoleIds}
                 />
               )}
+              <MobileFriendlyMultiSelect
+                label={t("item-tags-label")}
+                description={t("item-tags-help")}
+                pickerTitle={t("item-tags-label")}
+                data={orgTags
+                  .filter((tag) => tag.enabled)
+                  .map((tag) => ({
+                    value: tag.id.toString(),
+                    label: tag.title,
+                  }))}
+                value={uploadTagIds}
+                onChange={(vals) => setUploadTagIds(vals.slice(0, MAX_ITEM_TAGS))}
+              />
             </Stack>
           )}
 
@@ -810,6 +842,7 @@ const DocumentsTab = ({
             document={doc}
             agents={agents}
             orgRoles={orgRoles}
+            orgTags={orgTags}
             hasOrg={hasOrg}
             onDelete={() => handleDelete(doc.id)}
             onUpdated={onRefresh}
@@ -824,6 +857,7 @@ const DocumentItem = ({
   document,
   agents,
   orgRoles,
+  orgTags,
   hasOrg,
   onDelete,
   onUpdated,
@@ -831,6 +865,7 @@ const DocumentItem = ({
   document: TDocument;
   agents: TAgent[];
   orgRoles: TOrganizationRole[];
+  orgTags: TTag[];
   hasOrg: boolean;
   onDelete: () => void;
   onUpdated: () => void;
@@ -846,6 +881,9 @@ const DocumentItem = ({
   const [editRoleIds, setEditRoleIds] = useState<string[]>(
     document.allowed_role_ids || []
   );
+  const [editTagIds, setEditTagIds] = useState<string[]>(
+    (document.tag_ids || []).map(String)
+  );
   const [savingOwnership, setSavingOwnership] = useState(false);
   const isProcessing = !document.brief;
 
@@ -853,10 +891,22 @@ const DocumentItem = ({
     () => orgRoles.map((r) => ({ value: r.id, label: r.name })),
     [orgRoles]
   );
+  const tagOptions = useMemo(
+    () =>
+      orgTags
+        .filter((tag) => tag.enabled)
+        .map((tag) => ({ value: tag.id.toString(), label: tag.title })),
+    [orgTags]
+  );
+  const tagById = useMemo(
+    () => new Map(orgTags.map((tag) => [tag.id, tag])),
+    [orgTags]
+  );
 
   const openOwnership = () => {
     setEditVisibility(document.visibility || "personal");
     setEditRoleIds(document.allowed_role_ids || []);
+    setEditTagIds((document.tag_ids || []).map(String));
     ownershipHandlers.open();
   };
 
@@ -871,11 +921,15 @@ const DocumentItem = ({
         visibility: editVisibility,
         role_ids: editVisibility === "roles" ? editRoleIds : [],
       });
-      toast.success(t("document-visibility-updated"));
+      await updateDocumentTags(
+        document.id,
+        editTagIds.slice(0, MAX_ITEM_TAGS).map((id) => parseInt(id, 10))
+      );
+      toast.success(t("document-settings-updated"));
       ownershipHandlers.close();
       onUpdated();
     } catch {
-      toast.error(t("document-visibility-update-error"));
+      toast.error(t("document-settings-update-error"));
     } finally {
       setSavingOwnership(false);
     }
@@ -906,7 +960,7 @@ const DocumentItem = ({
       <Modal
         opened={ownershipOpened}
         onClose={ownershipHandlers.close}
-        title={t("document-visibility-edit")}
+        title={t("settings")}
         size="md"
       >
         <Stack gap="sm">
@@ -941,6 +995,16 @@ const DocumentItem = ({
               data={roleOptions}
               value={editRoleIds}
               onChange={setEditRoleIds}
+            />
+          )}
+          {hasOrg && (
+            <MobileFriendlyMultiSelect
+              label={t("item-tags-label")}
+              description={t("item-tags-help")}
+              pickerTitle={t("item-tags-label")}
+              data={tagOptions}
+              value={editTagIds}
+              onChange={(vals) => setEditTagIds(vals.slice(0, MAX_ITEM_TAGS))}
             />
           )}
           <Group justify="flex-end" mt="sm">
@@ -980,6 +1044,11 @@ const DocumentItem = ({
               ? ` (${document.allowed_role_ids!.length})`
               : ""}
           </Badge>
+          {(document.tag_ids || []).slice(0, MAX_ITEM_TAGS).map((tid) => (
+            <Badge key={tid} size="xs" variant="light" color="gray">
+              {tagById.get(tid)?.title || `#${tid}`}
+            </Badge>
+          ))}
           <Badge
             size="xs"
             variant="default"
@@ -1035,10 +1104,10 @@ const DocumentItem = ({
             <Button
               variant="default"
               size="xs"
-              leftSection={<IconUsers size={14} />}
+              leftSection={<IconSettings size={14} />}
               onClick={openOwnership}
             >
-              {t("document-visibility-edit")}
+              {t("settings")}
             </Button>
           )}
           <Button

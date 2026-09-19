@@ -932,6 +932,7 @@ export type TGalleryItem = {
     roles?: { id: string; name: string }[];
   };
   can_manage?: boolean;
+  tag_ids?: number[];
 };
 
 export type TGalleryListResponse = {
@@ -947,11 +948,13 @@ export const getGalleryItems = async (options: {
   type: TGalleryType;
   limit?: number;
   offset?: number;
+  tag_id?: number | null;
 }) => {
   const params = new URLSearchParams();
   params.set("type", options.type);
   if (options.limit != null) params.set("limit", String(options.limit));
   if (options.offset != null) params.set("offset", String(options.offset));
+  if (options.tag_id != null) params.set("tag_id", String(options.tag_id));
   return makeAuthenticatedRequest<TGalleryListResponse>(
     "GET",
     `/v1/messaging/gallery/?${params.toString()}`
@@ -974,12 +977,27 @@ export const deleteGalleryItem = async (attachmentId: string) => {
 
 export const updateGalleryItemVisibility = async (
   attachmentId: string,
-  payload: { visibility: TAttachmentVisibility; role_ids?: string[] }
+  payload: {
+    visibility: TAttachmentVisibility;
+    role_ids?: string[];
+    tag_ids?: number[];
+  }
 ) => {
   return makeAuthenticatedRequest<{ status: string; item: TGalleryItem }>(
     "PATCH",
     `/v1/messaging/gallery/${attachmentId}/`,
     payload
+  );
+};
+
+export const updateGalleryItemTags = async (
+  attachmentId: string,
+  tag_ids: number[]
+) => {
+  return makeAuthenticatedRequest<{ status: string; item: TGalleryItem }>(
+    "PATCH",
+    `/v1/messaging/gallery/${attachmentId}/`,
+    { tag_ids }
   );
 };
 
@@ -1550,6 +1568,17 @@ export const updateDocumentOwnership = async (
       visibility: payload.visibility,
       role_ids: payload.role_ids ?? [],
     }
+  );
+};
+
+export const updateDocumentTags = async (
+  documentId: number | string,
+  tag_ids: number[]
+) => {
+  return makeAuthenticatedRequest<TDocument>(
+    "PUT",
+    `/v1/rag/documents/${documentId}/`,
+    { tag_ids }
   );
 };
 

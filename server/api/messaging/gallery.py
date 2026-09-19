@@ -84,6 +84,7 @@ def serialize_gallery_item(att: MessageAttachment, user=None) -> dict | None:
         "visibility": att.visibility or "personal",
         "belongs_to": attachment_belongs_to_payload(att, user),
         "can_manage": bool(user and user_can_manage_attachment(att, user)),
+        "tag_ids": list(getattr(att, "tag_ids", None) or []),
     }
 
 def get_gallery_attachment(*, user, attachment_id) -> dict:
@@ -111,6 +112,7 @@ def list_gallery_items(
     gallery_type: str = "image",
     limit: int = 48,
     offset: int = 0,
+    tag_id: int | None = None,
 ) -> dict:
     if gallery_type not in GALLERY_TYPES:
         gallery_type = "image"
@@ -132,6 +134,10 @@ def list_gallery_items(
         .distinct()
         .order_by("-created_at")
     )
+    if tag_id is not None:
+        from api.messaging.organization_tags import tag_ids_match_q
+
+        qs = qs.filter(tag_ids_match_q("tag_ids", [int(tag_id)]))
 
     total = qs.count()
     page = list(qs[offset : offset + limit])
@@ -275,6 +281,43 @@ def update_gallery_attachment_visibility(
             user=user,
             visibility=visibility,
             role_ids=role_ids,
+        )
+    except ValueError as exc:
+        return {"ok": False, "error": "invalid", "message": str(exc)}
+    att.refresh_from_db()
+    item = serialize_gallery_item(att, user)
+    return {"ok": True, "item": item}
+
+
+def _attachment_tag_org_id(att, user):
+    if att.organization_id:
+        return att.organization_id
+    conv = getattr(att, "conversation", None)
+    if conv is not None and getattr(conv, "organization_id", None):
+        return conv.organization_id
+    from api.rag.access import resolve_user_organization
+
+    org = resolve_user_organization(user)
+    return org.id if org else None
+
+
+def update_gallery_attachment_tags(*, user, attachment_id, tag_ids) -> dict:
+    from api.messaging.organization_tags import apply_tag_ids
+
+    try:
+        att = MessageAttachment.objects.select_related(
+            "conversation", "organization", "user"
+        ).prefetch_related("allowed_roles").get(id=attachment_id)
+    except MessageAttachment.DoesNotExist:
+        return {"ok": False, "error": "not_found"}
+    if not user_can_manage_attachment(att, user):
+        return {"ok": False, "error": "forbidden"}
+    try:
+        apply_tag_ids(
+            att,
+            organization_id=_attachment_tag_org_id(att, user),
+            tag_ids=tag_ids if tag_ids is not None else [],
+            strict=True,
         )
     except ValueError as exc:
         return {"ok": False, "error": "invalid", "message": str(exc)}

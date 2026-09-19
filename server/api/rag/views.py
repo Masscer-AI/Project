@@ -29,6 +29,11 @@ from .access import (
     user_can_access_document,
     user_can_manage_document,
 )
+from api.messaging.organization_tags import (
+    apply_tag_ids,
+    parse_tag_ids_payload,
+    tag_ids_match_q,
+)
 
 KB_FROM_ATTACHMENT_METADATA_KEY = "knowledge_base_document_id"
 
@@ -90,6 +95,25 @@ def _ownership_from_attachment(att: MessageAttachment):
     return Document.Visibility.PERSONAL, [], None
 
 
+def _document_tag_org_id(document, user):
+    if document.organization_id:
+        return document.organization_id
+    org = resolve_user_organization(user)
+    return org.id if org else None
+
+
+def _apply_document_tag_ids(document, user, raw_tag_ids):
+    tag_ids = parse_tag_ids_payload(raw_tag_ids)
+    if tag_ids is None:
+        return
+    apply_tag_ids(
+        document,
+        organization_id=_document_tag_org_id(document, user),
+        tag_ids=tag_ids,
+        strict=True,
+    )
+
+
 def _attachment_index_error(att: MessageAttachment) -> str | None:
     if att.kind != "file" or not att.file:
         return "Only file attachments can be added to the knowledge base."
@@ -129,6 +153,13 @@ class DocumentView(View):
         has_file_raw = (request.GET.get("has_file") or "").strip().lower()
         if has_file_raw in {"1", "true", "yes"}:
             documents = documents.filter(file__isnull=False).exclude(file="")
+
+        tag_raw = (request.GET.get("tag_id") or "").strip()
+        if tag_raw:
+            try:
+                documents = documents.filter(tag_ids_match_q("tag_ids", [int(tag_raw)]))
+            except ValueError:
+                return JsonResponse({"error": "tag_id must be an integer"}, status=400)
 
         serializer = DocumentSerializer(documents, many=True, context={"request": request})
         return JsonResponse(serializer.data, safe=False)
@@ -235,6 +266,16 @@ class DocumentView(View):
                         status=400,
                     )
 
+            try:
+                _apply_document_tag_ids(
+                    document, request.user, data.get("tag_ids")
+                )
+            except ValueError as exc:
+                return JsonResponse(
+                    {"message": "Bad request", "error": str(exc)},
+                    status=400,
+                )
+
             serializer = DocumentSerializer(document, context={"request": request})
             return JsonResponse(serializer.data, status=200)
 
@@ -245,6 +286,7 @@ class DocumentView(View):
         data.pop("visibility", None)
         data.pop("role_ids", None)
         data.pop("source", None)
+        raw_tag_ids = data.pop("tag_ids", None)
         serializer = DocumentSerializer(data=data)
 
         if serializer.is_valid():
@@ -260,6 +302,7 @@ class DocumentView(View):
                     visibility=visibility,
                     role_ids=role_ids,
                 )
+                _apply_document_tag_ids(document, request.user, raw_tag_ids)
             except ValueError as exc:
                 document.delete()
                 return JsonResponse(
@@ -302,6 +345,13 @@ class DocumentView(View):
                     visibility=visibility,
                     role_ids=role_ids,
                 )
+            except ValueError as exc:
+                return JsonResponse({"error": str(exc)}, status=400)
+            document.refresh_from_db()
+
+        if "tag_ids" in data:
+            try:
+                _apply_document_tag_ids(document, request.user, data.get("tag_ids"))
             except ValueError as exc:
                 return JsonResponse({"error": str(exc)}, status=400)
             document.refresh_from_db()

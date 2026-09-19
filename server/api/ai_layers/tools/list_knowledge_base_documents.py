@@ -30,6 +30,13 @@ class ListKnowledgeBaseDocumentsParams(BaseModel):
         le=200,
         description="Maximum number of documents to return.",
     )
+    tag_ids: list[int] | None = Field(
+        default=None,
+        description=(
+            "Optional organization tag ids. When set, only documents that have "
+            "any of these tags are returned. Omit to list without a tag filter."
+        ),
+    )
 
 
 def _list_impl(
@@ -37,6 +44,7 @@ def _list_impl(
     user_id: int,
     query: str | None = None,
     limit: int = 50,
+    tag_ids: list[int] | None = None,
 ) -> str:
     from django.contrib.auth.models import User
     from django.db.models import Count, Q
@@ -65,6 +73,13 @@ def _list_impl(
     if q:
         qs = qs.filter(Q(name__icontains=q) | Q(brief__icontains=q))
 
+    if tag_ids:
+        from api.messaging.organization_tags import normalize_tag_ids, tag_ids_match_q
+
+        matched = normalize_tag_ids(tag_ids)
+        if matched:
+            qs = qs.filter(tag_ids_match_q("tag_ids", matched))
+
     docs = list(qs[:limit])
     items: list[dict[str, Any]] = []
     for doc in docs:
@@ -80,6 +95,7 @@ def _list_impl(
                 "is_drive_linked": bool(doc.drive_file_id),
                 "created_at": doc.created_at.isoformat() if doc.created_at else None,
                 "belongs_to": document_belongs_to_payload(doc, user),
+                "tag_ids": list(doc.tag_ids or []),
             }
         )
 
@@ -110,16 +126,20 @@ def get_tool(
     def list_knowledge_base_documents(
         query: str | None = None,
         limit: int = 50,
+        tag_ids: list[int] | None = None,
     ) -> str:
-        return _list_impl(user_id=user_id, query=query, limit=limit)
+        return _list_impl(
+            user_id=user_id, query=query, limit=limit, tag_ids=tag_ids
+        )
 
     return {
         "name": "list_knowledge_base_documents",
         "description": (
             "List knowledge-base documents the current user can access "
             "(their personal docs, organization-shared docs, or role-scoped docs). "
-            "Returns id, name, brief, tokens, chunk_count, and belongs_to "
+            "Returns id, name, brief, tokens, chunk_count, tag_ids, and belongs_to "
             "(you / organization / roles). "
+            "Optional tag_ids filters to documents that have any of those org tags. "
             "Does NOT search agent trained memory — use memory_search for that. "
             "To read full text, call read_knowledge_base_document with a document id."
         ),

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
@@ -11,6 +11,7 @@ import {
   Group,
   Loader,
   Modal,
+  NativeSelect,
   SimpleGrid,
   Stack,
   Tabs,
@@ -23,21 +24,18 @@ import { useDisclosure } from "@mantine/hooks";
 import {
   IconDownload,
   IconFileText,
-  IconLink,
   IconMenu2,
   IconMessage,
   IconMusic,
   IconPhoto,
   IconPlayerPlay,
+  IconSettings,
   IconTrash,
-  IconUser,
-  IconUsers,
   IconVideo,
 } from "@tabler/icons-react";
 import { Sidebar } from "../../components/Sidebar/Sidebar";
 import {
   AttachmentVisibilityModal,
-  visibilityLabelKey,
 } from "../../components/AttachmentVisibility/AttachmentVisibilityModal";
 import { SaveToKnowledgeBaseButton } from "../../components/AttachmentVisibility/SaveToKnowledgeBase";
 import {
@@ -48,11 +46,35 @@ import { useStore } from "../../modules/store";
 import {
   deleteGalleryItem,
   getGalleryItems,
+  getTags,
   TGalleryItem,
   TGalleryType,
 } from "../../modules/apiCalls";
+import { TTag } from "../../types";
+
+const MAX_ITEM_TAGS = 3;
 
 const PAGE_SIZE = 48;
+
+function ItemTagBadges({
+  tagIds,
+  tagById,
+}: {
+  tagIds?: number[];
+  tagById: Map<number, TTag>;
+}) {
+  const ids = (tagIds || []).slice(0, MAX_ITEM_TAGS);
+  if (ids.length === 0) return null;
+  return (
+    <Group gap={4} wrap="wrap">
+      {ids.map((tid) => (
+        <Badge key={tid} size="xs" variant="light" color="gray">
+          {tagById.get(tid)?.title || `#${tid}`}
+        </Badge>
+      ))}
+    </Group>
+  );
+}
 
 function formatDate(iso: string | null, locale: string): string {
   if (!iso) return "";
@@ -66,30 +88,23 @@ function formatDate(iso: string | null, locale: string): string {
 
 function GalleryCardActions({
   item,
+  tagById,
   onOpenChat,
   onRequestDelete,
   onRequestVisibility,
   onIndexed,
 }: {
   item: TGalleryItem;
+  tagById: Map<number, TTag>;
   onOpenChat: () => void;
   onRequestDelete: () => void;
   onRequestVisibility: () => void;
   onIndexed?: (item: TGalleryItem) => void;
 }) {
   const { t } = useTranslation();
-  const vis = item.visibility || "personal";
-  const visIcon =
-    vis === "organization" ? (
-      <IconUsers size={16} />
-    ) : vis === "link" ? (
-      <IconLink size={16} />
-    ) : vis === "roles" ? (
-      <IconUsers size={16} />
-    ) : (
-      <IconUser size={16} />
-    );
   return (
+    <Stack gap={6}>
+      <ItemTagBadges tagIds={item.tag_ids} tagById={tagById} />
     <Group gap="xs" justify="space-between" wrap="nowrap">
       <Tooltip label={item.conversation_title || t("gallery-open-conversation")}>
         <Button
@@ -104,15 +119,15 @@ function GalleryCardActions({
       </Tooltip>
       <Group gap={4} wrap="nowrap">
         {item.can_manage !== false && (
-          <Tooltip label={t(visibilityLabelKey(vis))}>
+          <Tooltip label={t("settings")}>
             <ActionIcon
               variant="subtle"
               color="gray"
               size="sm"
               onClick={onRequestVisibility}
-              aria-label={t("gallery-visibility")}
+              aria-label={t("settings")}
             >
-              {visIcon}
+              <IconSettings size={16} />
             </ActionIcon>
           </Tooltip>
         )}
@@ -160,12 +175,14 @@ function GalleryCardActions({
         </Tooltip>
       </Group>
     </Group>
+    </Stack>
   );
 }
 
 function ImageGalleryCard({
   item,
   dateLabel,
+  tagById,
   onOpenChat,
   onRequestDelete,
   onRequestVisibility,
@@ -173,6 +190,7 @@ function ImageGalleryCard({
 }: {
   item: TGalleryItem;
   dateLabel: string;
+  tagById: Map<number, TTag>;
   onOpenChat: () => void;
   onRequestDelete: () => void;
   onRequestVisibility: () => void;
@@ -219,6 +237,7 @@ function ImageGalleryCard({
           </Text>
           <GalleryCardActions
             item={item}
+            tagById={tagById}
             onOpenChat={onOpenChat}
             onRequestDelete={onRequestDelete}
             onRequestVisibility={onRequestVisibility}
@@ -278,6 +297,7 @@ function ImageGalleryCard({
 function VideoGalleryCard({
   item,
   dateLabel,
+  tagById,
   onOpenChat,
   onRequestDelete,
   onRequestVisibility,
@@ -285,6 +305,7 @@ function VideoGalleryCard({
 }: {
   item: TGalleryItem;
   dateLabel: string;
+  tagById: Map<number, TTag>;
   onOpenChat: () => void;
   onRequestDelete: () => void;
   onRequestVisibility: () => void;
@@ -357,6 +378,7 @@ function VideoGalleryCard({
           </Text>
           <GalleryCardActions
             item={item}
+            tagById={tagById}
             onOpenChat={onOpenChat}
             onRequestDelete={onRequestDelete}
             onRequestVisibility={onRequestVisibility}
@@ -417,6 +439,7 @@ function VideoGalleryCard({
 function AudioGalleryCard({
   item,
   dateLabel,
+  tagById,
   onOpenChat,
   onRequestDelete,
   onRequestVisibility,
@@ -424,6 +447,7 @@ function AudioGalleryCard({
 }: {
   item: TGalleryItem;
   dateLabel: string;
+  tagById: Map<number, TTag>;
   onOpenChat: () => void;
   onRequestDelete: () => void;
   onRequestVisibility: () => void;
@@ -473,6 +497,7 @@ function AudioGalleryCard({
 
         <GalleryCardActions
           item={item}
+          tagById={tagById}
           onOpenChat={onOpenChat}
           onRequestDelete={onRequestDelete}
           onRequestVisibility={onRequestVisibility}
@@ -486,6 +511,7 @@ function AudioGalleryCard({
 function DocumentGalleryCard({
   item,
   dateLabel,
+  tagById,
   onOpenChat,
   onRequestDelete,
   onRequestVisibility,
@@ -493,6 +519,7 @@ function DocumentGalleryCard({
 }: {
   item: TGalleryItem;
   dateLabel: string;
+  tagById: Map<number, TTag>;
   onOpenChat: () => void;
   onRequestDelete: () => void;
   onRequestVisibility: () => void;
@@ -554,6 +581,7 @@ function DocumentGalleryCard({
 
         <GalleryCardActions
           item={item}
+          tagById={tagById}
           onOpenChat={onOpenChat}
           onRequestDelete={onRequestDelete}
           onRequestVisibility={onRequestVisibility}
@@ -567,11 +595,13 @@ function DocumentGalleryCard({
 function GalleryItemCard({
   item,
   locale,
+  tagById,
   onDeleted,
   onUpdated,
 }: {
   item: TGalleryItem;
   locale: string;
+  tagById: Map<number, TTag>;
   onDeleted: (id: string) => void;
   onUpdated: (item: TGalleryItem) => void;
 }) {
@@ -603,6 +633,7 @@ function GalleryItemCard({
   const cardProps = {
     item,
     dateLabel,
+    tagById,
     onOpenChat: openChat,
     onRequestDelete: openConfirm,
     onRequestVisibility: visibilityHandlers.open,
@@ -664,6 +695,19 @@ export default function GalleryPage() {
   const [hasNext, setHasNext] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [orgTags, setOrgTags] = useState<TTag[]>([]);
+  const [filterTagId, setFilterTagId] = useState<string>("");
+
+  const tagById = useMemo(
+    () => new Map(orgTags.map((tag) => [tag.id, tag])),
+    [orgTags]
+  );
+
+  useEffect(() => {
+    getTags()
+      .then((tags) => setOrgTags(tags.filter((tag) => tag.enabled)))
+      .catch(() => setOrgTags([]));
+  }, []);
 
   const load = useCallback(
     async (type: TGalleryType, nextOffset: number, append: boolean) => {
@@ -674,6 +718,7 @@ export default function GalleryPage() {
           type,
           limit: PAGE_SIZE,
           offset: nextOffset,
+          tag_id: filterTagId ? parseInt(filterTagId, 10) : null,
         });
         setItems((prev) =>
           append ? [...prev, ...data.results] : data.results
@@ -693,7 +738,7 @@ export default function GalleryPage() {
         setLoadingMore(false);
       }
     },
-    [t]
+    [t, filterTagId]
   );
 
   useEffect(() => {
@@ -771,6 +816,27 @@ export default function GalleryPage() {
               </Tabs.List>
             </Tabs>
 
+            {orgTags.length > 0 && (
+              <NativeSelect
+                size="sm"
+                maw={280}
+                label={t("gallery-filter-tag")}
+                value={filterTagId}
+                onChange={(e) => {
+                  setFilterTagId(e.currentTarget.value);
+                  setItems([]);
+                  setOffset(0);
+                }}
+                data={[
+                  { value: "", label: t("gallery-filter-tag-all") },
+                  ...orgTags.map((tag) => ({
+                    value: tag.id.toString(),
+                    label: tag.title,
+                  })),
+                ]}
+              />
+            )}
+
             {loading ? (
               <Group justify="center" py="xl">
                 <Loader />
@@ -793,6 +859,7 @@ export default function GalleryPage() {
                       key={item.id}
                       item={item}
                       locale={i18n.language}
+                      tagById={tagById}
                       onDeleted={(id) => {
                         setItems((prev) => prev.filter((x) => x.id !== id));
                         setTotal((prev) => Math.max(0, prev - 1));

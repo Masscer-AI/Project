@@ -180,6 +180,11 @@ class Document(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     total_tokens = models.IntegerField(null=True, blank=True)
     brief = models.TextField(null=True, blank=True)
+    tag_ids = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Organization tag ids (same catalog as conversation tags).",
+    )
 
     def clean(self):
         from django.core.exceptions import ValidationError

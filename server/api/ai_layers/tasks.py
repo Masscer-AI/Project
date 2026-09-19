@@ -1898,6 +1898,7 @@ def conversation_agent_task(
                     "- create_organization_tag: when no suitable tag exists yet (short, unique title).\n"
                     "- change_conversation_tags: set exactly 1–3 tag ids for this conversation (replaces the whole set). "
                     "Do not use this to clear tags unless the user explicitly asks to remove all labels.\n"
+                    "- change_document_tags / change_attachment_tags: same tag ids on a knowledge-base document or gallery attachment.\n"
                 )
                 if supports_same_user_conversation_tools:
                     if has_organization_conversations_access:
@@ -1919,8 +1920,9 @@ def conversation_agent_task(
                         "so you can reuse vocabulary, avoid re-asking setup questions, or stay consistent with past summaries. "
                         "If you are choosing among several tags, you may call once for the best-matching tag_id.\n"
                         "  **When not to call:** greetings, unrelated small talk, or when no tag clearly applies.\n"
-                        "  **Response:** each row has conversation title, summary, n_messages, date — use only as hints; "
-                        "empty list means no other threads with that tag"
+                        "  **Response:** conversations (title, summary, n_messages, date), knowledge-base documents "
+                        "(id, name, brief), and gallery attachments (ids). Optional `includes` to request a subset. "
+                        "Use only as hints; empty lists mean nothing else with that tag"
                         + (" in the organization" if has_organization_conversations_access else " for this user")
                         + ".\n"
                         "- query_conversation: pass `conversation_id` (UUID of **which** thread to read) and `question` "
