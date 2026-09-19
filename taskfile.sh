@@ -10,6 +10,7 @@ usage() {
   echo "  ./taskfile.sh run [run-flags]"
   echo "  ./taskfile.sh off"
   echo "  ./taskfile.sh postgres [postgres-flags]"
+  echo "  ./taskfile.sh fix-migrations"
   echo "  ./taskfile.sh migrate [migrate-flags]"
   echo "  ./taskfile.sh migrate_structure [--dry-run]"
   echo "  ./taskfile.sh test [app_label|test_path ...] [django-test-flags]"
@@ -21,6 +22,7 @@ usage() {
   echo "  ./taskfile.sh run -r"
   echo "  ./taskfile.sh off"
   echo "  ./taskfile.sh postgres -u user -p pass -d dbname"
+  echo "  ./taskfile.sh fix-migrations"
   echo "  ./taskfile.sh migrate"
   echo "  ./taskfile.sh migrate_structure --dry-run"
   echo "  ./taskfile.sh test"
@@ -52,6 +54,9 @@ case "$COMMAND" in
     ;;
   postgres)
     exec bash "./scripts/createPostgres.sh" "$@"
+    ;;
+  fix-migration|fix-migrations)
+    exec bash "./scripts/fix_migrations.sh" "$@"
     ;;
   migrate)
     exec bash "./scripts/migrate.sh" "$@"

@@ -412,6 +412,11 @@ echo "============================================"
 echo ""
 
 # ── Post-start maintenance ────────────────────────────────────────────────────
+info "Checking migration history..."
+bash "${PROJECT_ROOT}/scripts/fix_migrations.sh" || {
+    error "Migration history repair failed"; exit 1;
+}
+
 info "Running Django migrations..."
 run_django_manage_oneoff migrate || { error "Migrations failed"; exit 1; }
 
