@@ -2,7 +2,7 @@
 Tool: list_organization_lists
 
 Catalog of organization uploaded lists (CSV/Excel) for list_search and read_list.
-Auto-injected when list_search is enabled; not shown in tool pickers.
+Auto-injected when list_search or read_list is enabled; not shown in tool pickers.
 """
 
 from __future__ import annotations

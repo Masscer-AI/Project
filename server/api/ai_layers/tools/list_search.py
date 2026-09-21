@@ -117,7 +117,7 @@ def get_tool(
             "Use list_organization_lists first to discover list ids and columns; "
             "then pass list_id when searching a specific list. "
             "Omit list_id to search across all ready lists. "
-            "Not for compliance watchlists, memory_search (trained completions), or knowledge-base documents."
+            "This returns matching rows only; it does not load a full catalog."
         ),
         "parameters": ListSearchParams,
         "function": list_search,

@@ -745,18 +745,40 @@ class GenerateTextFileToolTests(SimpleTestCase):
 
         names = list_available_tools()
         self.assertIn("list_search", names)
+        self.assertIn("read_list", names)
         self.assertNotIn("list_organization_lists", names)
-        self.assertNotIn("read_list", names)
 
-        resolved = resolve_tools(
-            ["list_search"],
-            organization_id=1,
-            conversation_id="conv-1",
-        )
-        tool_names = {t["name"] for t in resolved}
+        search_only = {
+            t["name"]
+            for t in resolve_tools(
+                ["list_search"],
+                organization_id=1,
+                conversation_id="conv-1",
+            )
+        }
+        self.assertEqual(search_only, {"list_search", "list_organization_lists"})
+
+        read_only = {
+            t["name"]
+            for t in resolve_tools(
+                ["read_list"],
+                organization_id=1,
+                conversation_id="conv-1",
+            )
+        }
+        self.assertEqual(read_only, {"read_list", "list_organization_lists"})
+
+        both = {
+            t["name"]
+            for t in resolve_tools(
+                ["list_search", "read_list"],
+                organization_id=1,
+                conversation_id="conv-1",
+            )
+        }
         self.assertEqual(
-            tool_names,
-            {"list_search", "list_organization_lists", "read_list"},
+            both,
+            {"list_search", "read_list", "list_organization_lists"},
         )
 
 class GenerateGammaAttachmentToolTests(SimpleTestCase):

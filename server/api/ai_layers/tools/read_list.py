@@ -2,7 +2,7 @@
 Tool: read_list
 
 Paginated read of rows in one organization uploaded list.
-Auto-injected when list_search is enabled; not shown in tool pickers.
+Shown as its own agent toggle (not bundled with list_search).
 """
 
 from __future__ import annotations
@@ -121,7 +121,8 @@ def get_tool(
             "Returns paginated cell data ordered as in the file. "
             "Use list_organization_lists first to discover list ids, columns, and record_count. "
             "Increase page when has_more is true. "
-            "For keyword lookup across rows, use list_search instead."
+            "Do not walk every page of a large list unless required. "
+            "For keyword lookup across rows, use list_search when that tool is enabled."
         ),
         "parameters": ReadListParams,
         "function": read_list,

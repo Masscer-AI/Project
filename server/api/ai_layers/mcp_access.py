@@ -71,6 +71,7 @@ MCP_BASIC_TOOL_NAMES: tuple[str, ...] = (
     "list_knowledge_base_documents",
     "read_knowledge_base_document",
     "list_search",
+    "read_list",
     "explore_web",
 )
 

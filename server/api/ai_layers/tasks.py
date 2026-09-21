@@ -1536,15 +1536,30 @@ def conversation_agent_task(
                     "Prefer listing first when you need to choose among documents. "
                     "These tools are separate from memory_search (trained agent memory)."
                 )
-            if "list_search" in (agent_tool_names or []):
-                instructions += (
+            if "list_search" in (agent_tool_names or []) or (
+                "read_list" in (agent_tool_names or [])
+            ):
+                list_tool_lines = [
                     "\n\nOrganization list tools are available (uploaded CSV/Excel catalogs). "
-                    "Call list_organization_lists to see ready lists (id, name, columns, record_count). "
-                    "Use list_search with terms (AND match across row text; default up to 50 hits, max 200). "
-                    "Pass list_id when searching one catalog; omit list_id to search all lists. "
-                    "Use read_list with list_id to load full row data (paginated; default 50 rows per page, max 200). "
-                    "This is not for compliance watchlists, memory_search, or knowledge-base document files."
-                )
+                    "Call list_organization_lists to see ready lists (id, name, columns, record_count)."
+                ]
+                if "list_search" in (agent_tool_names or []):
+                    list_tool_lines.append(
+                        "Use list_search with terms (AND match across row text; default up to 50 hits, max 200). "
+                        "Pass list_id when searching one catalog; omit list_id to search all lists."
+                    )
+                if "read_list" in (agent_tool_names or []):
+                    list_tool_lines.append(
+                        "Use read_list with list_id only when you must load rows by position "
+                        "(paginated; default 50 rows per page, max 200). "
+                        "Do not page through a large catalog unless the user needs that sweep; "
+                        "prefer list_search for lookups."
+                    )
+                else:
+                    list_tool_lines.append(
+                        "read_list is not enabled: do not try to dump an entire list into context."
+                    )
+                instructions += " ".join(list_tool_lines)
             if "explore_web" in (agent_tool_names or []):
                 instructions += (
                     "\n\nWeb search is available. "

@@ -92,8 +92,7 @@ CHAT_REQUIRED_TOOL_NAMES: tuple[str, ...] = (
 DEPENDENT_TOOL_REQUIREMENTS: dict[str, tuple[str, ...]] = {
     "list_voices": ("create_speech", "generate_dialogue"),
     "list_agents": ("handoff_to_agent",),
-    "list_organization_lists": ("list_search",),
-    "read_list": ("list_search",),
+    "list_organization_lists": ("list_search", "read_list"),
     "change_document_tags": ("change_conversation_tags",),
     "change_attachment_tags": ("change_conversation_tags",),
 }
