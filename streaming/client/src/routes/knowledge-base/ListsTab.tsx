@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
 import {
@@ -12,7 +13,6 @@ import {
   NativeSelect,
   Stack,
   Text,
-  Table,
   Textarea,
   TextInput,
   Title,
@@ -29,7 +29,6 @@ import {
 import {
   deleteOrganizationList,
   getOrganizationList,
-  getOrganizationListRecords,
   getOrganizationLists,
   getUserOrganizations,
   patchOrganizationList,
@@ -56,8 +55,12 @@ function isImportInProgress(status: TOrganizationList["import_status"]) {
 
 export function ListsTab({ filterQuery }: { filterQuery: string }) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [orgs, setOrgs] = useState<TOrganization[]>([]);
-  const [orgId, setOrgId] = useState<string | null>(null);
+  const [orgId, setOrgId] = useState<string | null>(
+    searchParams.get("organization")
+  );
   const [lists, setLists] = useState<TOrganizationList[]>([]);
   const [loadingOrgs, setLoadingOrgs] = useState(true);
   const [loadingLists, setLoadingLists] = useState(false);
@@ -74,13 +77,6 @@ export function ListsTab({ filterQuery }: { filterQuery: string }) {
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
-  const [previewModalOpened, previewModalHandlers] = useDisclosure(false);
-  const [previewRows, setPreviewRows] = useState<
-    { position: number; data: Record<string, string> }[]
-  >([]);
-  const [previewColumns, setPreviewColumns] = useState<string[]>([]);
-  const [previewTotal, setPreviewTotal] = useState(0);
-  const [previewLoading, setPreviewLoading] = useState(false);
 
   const orgSelectData = useMemo(
     () =>
@@ -125,7 +121,16 @@ export function ListsTab({ filterQuery }: { filterQuery: string }) {
         const orgList = Array.isArray(list) ? list : [];
         setOrgs(orgList);
         if (orgList.length > 0) {
-          setOrgId(String(orgList[0].id));
+          setOrgId((current) => {
+            if (current && orgList.some((o) => String(o.id) === current)) {
+              return current;
+            }
+            const fromUrl = searchParams.get("organization");
+            const match = fromUrl
+              ? orgList.find((o) => String(o.id) === fromUrl)
+              : undefined;
+            return String(match?.id ?? orgList[0].id);
+          });
         }
       } catch {
         if (!cancelled) toast.error(t("org-lists-load-error"));
@@ -248,43 +253,11 @@ export function ListsTab({ filterQuery }: { filterQuery: string }) {
     }
   };
 
-  const openPreview = async (row: TOrganizationList) => {
+  const openPreview = (row: TOrganizationList) => {
     if (!orgId) return;
-    setActiveList(row);
-    previewModalHandlers.open();
-    setPreviewLoading(true);
-    setPreviewRows([]);
-    setPreviewColumns([]);
-    setPreviewTotal(0);
-    try {
-      const [{ list }, recordsResp] = await Promise.all([
-        getOrganizationList(orgId, row.id),
-        getOrganizationListRecords(orgId, row.id, 1, 50),
-      ]);
-      setActiveList(list);
-      const configCols =
-        list.config?.columns?.map((c) => c.name).filter(Boolean) ?? [];
-      const rows = recordsResp.records.map((r) => ({
-        position: r.position,
-        data: r.data || {},
-      }));
-      const dataKeys =
-        rows.length > 0 ? Object.keys(rows[0].data) : configCols;
-      const columns =
-        configCols.length > 0
-          ? configCols
-          : dataKeys.length > 0
-            ? dataKeys
-            : [];
-      setPreviewColumns(columns);
-      setPreviewRows(rows);
-      setPreviewTotal(recordsResp.total);
-    } catch {
-      toast.error(t("org-list-preview-error"));
-      setPreviewRows([]);
-    } finally {
-      setPreviewLoading(false);
-    }
+    navigate(
+      `/knowledge-base/lists/${row.id}?organization=${encodeURIComponent(orgId)}`
+    );
   };
 
   const triggerReplace = (row: TOrganizationList) => {
@@ -357,6 +330,10 @@ export function ListsTab({ filterQuery }: { filterQuery: string }) {
           onChange={(e) => {
             const v = e.currentTarget.value;
             setOrgId(v || null);
+            const next = new URLSearchParams(searchParams);
+            if (v) next.set("organization", v);
+            else next.delete("organization");
+            setSearchParams(next, { replace: true });
           }}
           size="sm"
           w={280}
@@ -425,7 +402,20 @@ export function ListsTab({ filterQuery }: { filterQuery: string }) {
                 <Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
                   <Group gap="xs" wrap="wrap">
                     <IconList size={18} />
-                    <Text fw={600} truncate>
+                    <Text
+                      fw={600}
+                      truncate
+                      style={
+                        row.import_status === "succeeded"
+                          ? { cursor: "pointer" }
+                          : undefined
+                      }
+                      onClick={() => {
+                        if (row.import_status === "succeeded") {
+                          openPreview(row);
+                        }
+                      }}
+                    >
                       {row.name}
                     </Text>
                     <Badge color={importStatusColor(row.import_status)} size="sm">
@@ -537,54 +527,6 @@ export function ListsTab({ filterQuery }: { filterQuery: string }) {
             </Button>
           </Group>
         </Stack>
-      </Modal>
-
-      <Modal
-        opened={previewModalOpened}
-        onClose={previewModalHandlers.close}
-        title={t("org-list-preview-title", { name: activeList?.name ?? "" })}
-        size="xl"
-      >
-        {previewLoading ? (
-          <Loader color="violet" size="sm" />
-        ) : previewRows.length === 0 || previewColumns.length === 0 ? (
-          <Text c="dimmed">{t("org-list-preview-empty")}</Text>
-        ) : (
-          <Stack gap="xs">
-            {previewTotal > previewRows.length ? (
-              <Text size="xs" c="dimmed">
-                {t("org-list-preview-showing", {
-                  shown: previewRows.length,
-                  total: previewTotal,
-                })}
-              </Text>
-            ) : null}
-            <Table.ScrollContainer minWidth={480} maxHeight={420}>
-              <Table striped highlightOnHover withTableBorder withColumnBorders>
-                <Table.Thead>
-                  <Table.Tr>
-                    <Table.Th w={48}>#</Table.Th>
-                    {previewColumns.map((col) => (
-                      <Table.Th key={col}>{col}</Table.Th>
-                    ))}
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {previewRows.map((row) => (
-                    <Table.Tr key={row.position}>
-                      <Table.Td>{row.position}</Table.Td>
-                      {previewColumns.map((col) => (
-                        <Table.Td key={col}>
-                          {row.data[col] ?? ""}
-                        </Table.Td>
-                      ))}
-                    </Table.Tr>
-                  ))}
-                </Table.Tbody>
-              </Table>
-            </Table.ScrollContainer>
-          </Stack>
-        )}
       </Modal>
     </Stack>
   );

@@ -385,12 +385,15 @@ export const getOrganizationListRecords = async (
   organizationId: string,
   listId: string,
   page = 1,
-  pageSize = 50
+  pageSize = 50,
+  query?: string
 ) => {
   const params = new URLSearchParams({
     page: String(page),
     page_size: String(pageSize),
   });
+  const q = (query || "").trim();
+  if (q) params.set("q", q);
   return makeAuthenticatedRequest<{
     page: number;
     page_size: number;

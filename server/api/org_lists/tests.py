@@ -30,6 +30,41 @@ class ParseCsvTests(SimpleTestCase):
         self.assertTrue(by_name["name"]["can_be_empty"])
         self.assertFalse(by_name["id"]["can_be_empty"])
 
+    def test_skips_preamble_and_trailing_empty_header_columns(self):
+        raw = (
+            b"Informacion actualizada al 31 de julio de 2026,,,,,,,,\n"
+            b"Listado completo de contribuyentes (Articulo 69-B del CFF),,,,,,,,\n"
+            b"No,RFC,Nombre,Situacion,Numero y fecha,Publicacion,,,,\n"
+            b"1,AAA080808H,ASESORES EN,Sentencia favorable,500-05-2018,6/1/2018,,,,\n"
+            b"2,AAA091018A,AQUERIS AC,Desvirtuado,500-05-2016,1/1/2017,,,,\n"
+        )
+
+        parsed = parse_tabular_upload(
+            raw,
+            filename="sat-69b.csv",
+            content_type="text/csv",
+        )
+
+        self.assertEqual(
+            parsed["headers"],
+            ["No", "RFC", "Nombre", "Situacion", "Numero y fecha", "Publicacion"],
+        )
+        self.assertEqual(len(parsed["rows"]), 2)
+        self.assertEqual(parsed["rows"][0]["RFC"], "AAA080808H")
+        self.assertEqual(parsed["rows"][1]["Situacion"], "Desvirtuado")
+
+    def test_skips_leading_empty_columns_before_table(self):
+        raw = b",,RFC,Nombre\n,,AAA080808H,ASESORES EN\n"
+
+        parsed = parse_tabular_upload(
+            raw,
+            filename="offset.csv",
+            content_type="text/csv",
+        )
+
+        self.assertEqual(parsed["headers"], ["RFC", "Nombre"])
+        self.assertEqual(parsed["rows"], [{"RFC": "AAA080808H", "Nombre": "ASESORES EN"}])
+
 
 class PersistTests(TestCase):
     def setUp(self):
@@ -135,6 +170,44 @@ class OrgListsApiTests(TestCase):
             **_auth(self.member_token),
         )
         self.assertEqual(resp.status_code, 403)
+
+
+class OrgListRecordsApiTests(TestCase):
+    def setUp(self):
+        Currency.objects.get_or_create(name="Compute Unit", defaults={"one_usd_is": 1000})
+        self.client = Client()
+        self.owner = User.objects.create_user(username="ol-rec-owner", password="x")
+        self.org = Organization.objects.create(name="OL Rec Org", owner=self.owner)
+        self.owner_token = Token.objects.create(user=self.owner, token_type="permanent")
+        self.org_list = OrganizationList.objects.create(
+            organization=self.org,
+            name="People",
+            import_status=OrganizationList.ImportStatus.SUCCEEDED,
+            record_count=2,
+        )
+        OrganizationListRecord.objects.create(
+            organization_list=self.org_list,
+            position=1,
+            data={"rfc": "AAA080808H", "name": "Alpha"},
+            search_document="aaa080808h alpha",
+        )
+        OrganizationListRecord.objects.create(
+            organization_list=self.org_list,
+            position=2,
+            data={"rfc": "BBB090909X", "name": "Beta"},
+            search_document="bbb090909x beta",
+        )
+
+    def test_records_filter_by_q(self):
+        resp = self.client.get(
+            f"/v1/org-lists/organizations/{self.org.id}/lists/{self.org_list.id}/records/",
+            {"q": "alpha"},
+            HTTP_AUTHORIZATION=f"Token {self.owner_token.key}",
+        )
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertEqual(body["total"], 1)
+        self.assertEqual(body["records"][0]["data"]["name"], "Alpha")
 
 
 class ImportTaskTests(TestCase):

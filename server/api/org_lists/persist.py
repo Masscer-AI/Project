@@ -35,9 +35,10 @@ def replace_list_records(
 
     OrganizationListRecord.objects.filter(organization_list=org_list).delete()
 
-    records = []
+    batch: list[OrganizationListRecord] = []
+    count = 0
     for idx, row in enumerate(rows, start=1):
-        records.append(
+        batch.append(
             OrganizationListRecord(
                 organization_list=org_list,
                 position=idx,
@@ -45,10 +46,16 @@ def replace_list_records(
                 search_document=_search_document_for_row(row),
             )
         )
-    OrganizationListRecord.objects.bulk_create(records, batch_size=500)
+        if len(batch) >= 500:
+            OrganizationListRecord.objects.bulk_create(batch, batch_size=500)
+            count += len(batch)
+            batch = []
+    if batch:
+        OrganizationListRecord.objects.bulk_create(batch, batch_size=500)
+        count += len(batch)
 
     org_list.config = config
-    org_list.record_count = len(records)
+    org_list.record_count = count
     org_list.import_status = OrganizationList.ImportStatus.SUCCEEDED
     org_list.import_error = ""
     org_list.save(
@@ -63,9 +70,9 @@ def replace_list_records(
     logger.info(
         "Organization list %s import succeeded (%s records)",
         org_list.id,
-        len(records),
+        count,
     )
-    return len(records)
+    return count
 
 
 def mark_list_import_failed(org_list: OrganizationList, error: str) -> None:

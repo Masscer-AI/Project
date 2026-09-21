@@ -1,0 +1,33 @@
+---
+description: After backend edits that Celery worker processes would import, restart masscer-celery-worker so the new code is loaded.
+globs: server/**/*.py
+alwaysApply: true
+---
+
+# Backend Celery changes → restart `masscer-celery-worker`
+
+The local Celery worker (`masscer-celery-worker`) does **not** hot-reload Python. Django `runserver` may pick up `server/` changes; the worker keeps the old imported modules until it is restarted.
+
+Whenever you **modify backend code that Celery runs** — task modules themselves, **or** anything those tasks import (parse, persist, models, tools, settings, `api/celery.py`, etc.) — you **must** restart the worker before treating the task as done.
+
+## Command
+
+```bash
+docker restart masscer-celery-worker
+```
+
+If the container is not running, start the stack (`./taskfile.sh run -i`) instead of only restarting.
+
+## When
+
+- **Always** after changes that the worker would execute: `@shared_task` / `tasks.py`, `.delay()` / `.apply_async()` call sites, and modules imported by those paths (e.g. `server/api/org_lists/parse.py` used by `process_organization_list_import`).
+- Restart **beat** as well (`docker restart masscer-celery-beat`) only if you changed schedules or `celery beat` config — not for ordinary task/code imports.
+- **Optional skip** only for edits with zero worker import impact (comments, frontend-only, tests that never run in the worker). When unsure, restart.
+
+## On failure
+
+If `docker restart` fails (container missing, Docker down), say so clearly. Do not ask the user to restart the worker yourself unless the environment cannot run Docker.
+
+Confirm with `docker ps --filter name=masscer-celery-worker` or a short `docker logs --tail 20 masscer-celery-worker` if restart success is unclear.
+
+Run the restart in the same task — do not leave “restart Celery” as a note for the user.

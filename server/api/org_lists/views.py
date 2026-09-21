@@ -204,6 +204,12 @@ class OrganizationListRecordsView(View):
         qs = OrganizationListRecord.objects.filter(organization_list=org_list).order_by(
             "position"
         )
+        query = (request.GET.get("q") or "").strip()
+        if query:
+            from api.compliance.watchlists.search import search_terms
+
+            for token in search_terms(query):
+                qs = qs.filter(search_document__contains=token)
         total = qs.count()
         start = (page - 1) * page_size
         records = list(qs[start : start + page_size])

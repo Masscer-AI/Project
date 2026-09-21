@@ -50,6 +50,7 @@ import AlertsHubPage from "./routes/dashboard/AlertsHubPage.tsx";
 import TagsPage from "./routes/dashboard/TagsPage.tsx";
 import OrganizationPage from "./routes/organization/page.tsx";
 import KnowledgeBasePage from "./routes/knowledge-base/page.tsx";
+import ListDetailPage from "./routes/knowledge-base/ListDetailPage.tsx";
 import GenerationToolsPage from "./routes/generation-tools/page.tsx";
 import ChatWidgetsPage from "./routes/chat-widgets/page.tsx";
 import { ProtectedRoute } from "./components/ProtectedRoute/ProtectedRoute.tsx";
@@ -231,6 +232,14 @@ const router = createBrowserRouter([
         element: (
           <ProtectedRoute featureFlag="train-agents">
             <KnowledgeBasePage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/knowledge-base/lists/:listId",
+        element: (
+          <ProtectedRoute featureFlag="train-agents">
+            <ListDetailPage />
           </ProtectedRoute>
         ),
       },
