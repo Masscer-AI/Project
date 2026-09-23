@@ -223,6 +223,14 @@ class Organization(models.Model):
         default=False,
         help_text="When true, this organization can use the PLD / compliance hub.",
     )
+    language_model_list = models.ForeignKey(
+        "ai_layers.LanguageModelList",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="organizations",
+        help_text="Which language model list this organization may use.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

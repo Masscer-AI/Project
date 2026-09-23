@@ -3,12 +3,32 @@ import logging
 from django.db.models.signals import post_save, post_delete, pre_delete
 from django.dispatch import receiver
 from django.contrib.auth.models import User
-from .models import Agent, AgentKind, LanguageModel, RoleAgentAssignment
-from api.authenticate.models import UserProfile
+from .models import (
+    Agent,
+    AgentKind,
+    DEFAULT_LANGUAGE_MODEL_LIST_SLUG,
+    LanguageModel,
+    LanguageModelList,
+    RoleAgentAssignment,
+)
+from api.authenticate.models import Organization, UserProfile
 from api.rag.models import Collection
 from api.consumption.models import Currency, Wallet
 
 logger = logging.getLogger(__name__)
+
+
+@receiver(post_save, sender=Organization)
+def assign_default_language_model_list(sender, instance, created, **kwargs):
+    if not created or instance.language_model_list_id:
+        return
+    default_list = LanguageModelList.objects.filter(
+        slug=DEFAULT_LANGUAGE_MODEL_LIST_SLUG
+    ).first()
+    if not default_list:
+        return
+    instance.language_model_list = default_list
+    instance.save(update_fields=["language_model_list"])
 
 
 @receiver(post_save, sender=User)

@@ -2,21 +2,80 @@ from api.utils.openai_functions import (
     generate_image,
     create_completion_openai,
 )
-from .models import Agent
+from .models import Agent, LanguageModel, LanguageModelList, LanguageModelListMembership
 from api.utils.color_printer import printer
 
 MANDATORY_MODELS = ["llama3.2:1b"]
+DEFAULT_LISTS = ["default", "advanced"]
+ADVANCED_LISTS = ["advanced"]
+
+
+def _sync_language_model_lists(language_model, list_slugs):
+    slugs = [str(s).strip() for s in (list_slugs or []) if str(s).strip()]
+    if not slugs:
+        raise ValueError(
+            f"Language model '{language_model.slug}' must have at least one list."
+        )
+    lists = []
+    for slug in slugs:
+        lm_list, created = LanguageModelList.objects.get_or_create(
+            slug=slug, defaults={"name": slug}
+        )
+        lists.append(lm_list)
+        if created:
+            printer.green(f"LanguageModelList '{slug}' created.")
+    desired_ids = {lst.id for lst in lists}
+    existing = LanguageModelListMembership.objects.filter(
+        language_model=language_model
+    )
+    existing_ids = set(existing.values_list("list_id", flat=True))
+    for lst in lists:
+        if lst.id not in existing_ids:
+            LanguageModelListMembership.objects.create(
+                list=lst, language_model=language_model
+            )
+    existing.exclude(list_id__in=desired_ids).delete()
+
+
+def _upsert_language_model(provider, model, provider_label):
+    language_model, created = LanguageModel.objects.get_or_create(
+        provider=provider,
+        slug=model["slug"],
+        defaults={
+            "name": model["name"],
+            "pricing": model["pricing"],
+            "is_reasoning_model": model.get("is_reasoning_model", False),
+        },
+    )
+    if created:
+        printer.green(
+            f"LanguageModel '{model['name']}' created for provider '{provider_label}'."
+        )
+    else:
+        updated = False
+        if language_model.pricing != model["pricing"]:
+            language_model.pricing = model["pricing"]
+            updated = True
+        if language_model.is_reasoning_model != model.get("is_reasoning_model", False):
+            language_model.is_reasoning_model = model.get("is_reasoning_model", False)
+            updated = True
+        if updated:
+            language_model.save()
+            printer.yellow(
+                f"Updated LanguageModel '{model['name']}' ({provider_label})."
+            )
+    _sync_language_model_lists(language_model, model.get("lists"))
+    return language_model
+
 
 def check_models_for_providers():
-    from api.utils.color_printer import printer
-    from .models import LanguageModel
     from api.providers.models import AIProvider
-    from api.utils.ollama_functions import list_ollama_models, pull_ollama_model
 
     openai_models_objects = [
         {
             "name": "GPT-6 Astra",
             "slug": "gpt-6-astra",
+            "lists": ADVANCED_LISTS,
             "is_reasoning_model": True,
             "pricing": {
                 "text": {
@@ -28,6 +87,7 @@ def check_models_for_providers():
         {
             "name": "GPT-5 Mini",
             "slug": "gpt-5-mini",
+            "lists": DEFAULT_LISTS,
             "is_reasoning_model": True,
             "pricing": {
                 "text": {
@@ -39,6 +99,7 @@ def check_models_for_providers():
         {
             "name": "GPT-5",
             "slug": "gpt-5",
+            "lists": DEFAULT_LISTS,
             "is_reasoning_model": True,
             "pricing": {
                 "text": {
@@ -50,6 +111,7 @@ def check_models_for_providers():
         {
             "name": "GPT-5.5",
             "slug": "gpt-5.5",
+            "lists": ADVANCED_LISTS,
             "is_reasoning_model": True,
             "pricing": {
                 "text": {
@@ -61,6 +123,7 @@ def check_models_for_providers():
         {
             "name": "GPT-5.6 Sol",
             "slug": "gpt-5.6-sol",
+            "lists": ADVANCED_LISTS,
             "is_reasoning_model": True,
             "pricing": {
                 "text": {
@@ -72,6 +135,7 @@ def check_models_for_providers():
         {
             "name": "GPT-5.6 Terra",
             "slug": "gpt-5.6-terra",
+            "lists": ADVANCED_LISTS,
             "is_reasoning_model": True,
             "pricing": {
                 "text": {
@@ -83,6 +147,7 @@ def check_models_for_providers():
         {
             "name": "GPT-5.6 Luna",
             "slug": "gpt-5.6-luna",
+            "lists": DEFAULT_LISTS,
             "is_reasoning_model": True,
             "pricing": {
                 "text": {
@@ -91,10 +156,10 @@ def check_models_for_providers():
                 }
             },
         },
-
         {
             "name": "GPT-5.4 Nano",
             "slug": "gpt-5.4-nano",
+            "lists": DEFAULT_LISTS,
             "is_reasoning_model": True,
             "pricing": {
                 "text": {
@@ -106,6 +171,7 @@ def check_models_for_providers():
         {
             "name": "GPT-5.4 Mini",
             "slug": "gpt-5.4-mini",
+            "lists": DEFAULT_LISTS,
             "is_reasoning_model": True,
             "pricing": {
                 "text": {
@@ -117,6 +183,7 @@ def check_models_for_providers():
         {
             "name": "GPT-5.4",
             "slug": "gpt-5.4",
+            "lists": ADVANCED_LISTS,
             "is_reasoning_model": True,
             "pricing": {
                 "text": {
@@ -128,6 +195,7 @@ def check_models_for_providers():
         {
             "name": "GPT-5.4 Pro",
             "slug": "gpt-5.4-pro",
+            "lists": ADVANCED_LISTS,
             "is_reasoning_model": True,
             "pricing": {
                 "text": {
@@ -142,6 +210,7 @@ def check_models_for_providers():
         {
             "name": "Gemini 3.1 Flash Lite (Preview)",
             "slug": "gemini-3.1-flash-lite-preview",
+            "lists": DEFAULT_LISTS,
             "is_reasoning_model": True,
             "pricing": {
                 "text": {
@@ -153,6 +222,7 @@ def check_models_for_providers():
         {
             "name": "Gemini 2.5 Flash",
             "slug": "gemini-2.5-flash",
+            "lists": DEFAULT_LISTS,
             "is_reasoning_model": True,
             "pricing": {
                 "text": {
@@ -164,6 +234,7 @@ def check_models_for_providers():
         {
             "name": "Gemini 2.5 Pro",
             "slug": "gemini-2.5-pro",
+            "lists": ADVANCED_LISTS,
             "is_reasoning_model": True,
             "pricing": {
                 "text": {
@@ -175,6 +246,7 @@ def check_models_for_providers():
         {
             "name": "Gemini 3.1 Pro (Preview)",
             "slug": "gemini-3.1-pro-preview",
+            "lists": ADVANCED_LISTS,
             "is_reasoning_model": True,
             "pricing": {
                 "text": {
@@ -186,6 +258,7 @@ def check_models_for_providers():
         {
             "name": "Gemini 3.5 Flash",
             "slug": "gemini-3.5-flash",
+            "lists": DEFAULT_LISTS,
             "is_reasoning_model": True,
             "pricing": {
                 "text": {
@@ -210,69 +283,11 @@ def check_models_for_providers():
 
     if openai_provider:
         for model in openai_models_objects:
-            language_model, created = LanguageModel.objects.get_or_create(
-                provider=openai_provider,
-                slug=model["slug"],
-                defaults={
-                    "name": model["name"],
-                    "pricing": model["pricing"],
-                    "is_reasoning_model": model.get("is_reasoning_model", False),
-                },
-            )
-
-            if created:
-                printer.green(
-                    f"LanguageModel '{model['name']}' created for provider 'OpenAI'."
-                )
-
-            if not created:
-                updated = False
-                if language_model.pricing != model["pricing"]:
-                    language_model.pricing = model["pricing"]
-                    updated = True
-                if language_model.is_reasoning_model != model.get("is_reasoning_model", False):
-                    language_model.is_reasoning_model = model.get("is_reasoning_model", False)
-                    updated = True
-                if updated:
-                    language_model.save()
-                    printer.yellow(
-                        f"Updated LanguageModel '{model['name']}' (OpenAI)."
-                    )
+            _upsert_language_model(openai_provider, model, "OpenAI")
 
     if google_provider:
         for model in google_models_objects:
-            language_model, created = LanguageModel.objects.get_or_create(
-                provider=google_provider,
-                slug=model["slug"],
-                defaults={
-                    "name": model["name"],
-                    "pricing": model["pricing"],
-                    "is_reasoning_model": model.get("is_reasoning_model", False),
-                },
-            )
-
-            if created:
-                printer.green(
-                    f"LanguageModel '{model['name']}' created for provider 'Google'."
-                )
-
-            if not created:
-                updated = False
-                if language_model.pricing != model["pricing"]:
-                    language_model.pricing = model["pricing"]
-                    updated = True
-                if language_model.is_reasoning_model != model.get(
-                    "is_reasoning_model", False
-                ):
-                    language_model.is_reasoning_model = model.get(
-                        "is_reasoning_model", False
-                    )
-                    updated = True
-                if updated:
-                    language_model.save()
-                    printer.yellow(
-                        f"Updated LanguageModel '{model['name']}' (Google)."
-                    )
+            _upsert_language_model(google_provider, model, "Google")
 
     printer.success("All LLMs are now in the DB!")
 

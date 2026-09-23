@@ -126,10 +126,11 @@ class OrganizationAdmin(admin.ModelAdmin):
         "owner",
         "timezone",
         "pld_access_enabled",
+        "language_model_list",
         "logo_preview",
     )
     search_fields = ("name", "description", "owner__username")
-    list_filter = ("timezone", "owner", "pld_access_enabled")
+    list_filter = ("timezone", "owner", "pld_access_enabled", "language_model_list")
     readonly_fields = ("logo_preview",)
     actions = [
         "provision_platform_assistant_action",
@@ -146,7 +147,7 @@ class OrganizationAdmin(admin.ModelAdmin):
 
     fieldsets = (
         ('Información básica', {
-            'fields': ('name', 'description', 'owner', 'timezone', 'pld_access_enabled')
+            'fields': ('name', 'description', 'owner', 'timezone', 'pld_access_enabled', 'language_model_list')
         }),
         ('Logo', {
             'fields': ('logo', 'logo_preview'),

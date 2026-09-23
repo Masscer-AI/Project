@@ -5,7 +5,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.db.models import Q
-from .models import Agent, AgentKind, LanguageModel, AgentSession
+from .models import Agent, AgentKind, LanguageModel, language_models_for_organization, AgentSession
 from .serializers import (
     AgentSerializer,
     LanguageModelSerializer,
@@ -127,7 +127,7 @@ class AgentView(View):
             for o in orgs_for_access
         ]
 
-        models = LanguageModel.objects.all()
+        models = language_models_for_organization(user_org)
         agents_data = AgentSerializer(agents, many=True, context={"request": request}).data
         models_data = LanguageModelSerializer(models, many=True).data
 
@@ -189,17 +189,16 @@ class AgentView(View):
 
         llm_slug = agent_payload.get("llm", default_llm).get("slug")
         llm_provider = agent_payload.get("llm", default_llm).get("provider")
-        llm = LanguageModel.objects.filter(
+        available_models = language_models_for_organization(user_org)
+        llm = available_models.filter(
             slug=llm_slug, provider__name__iexact=llm_provider
         ).first()
         if not llm:
-            llm = LanguageModel.objects.filter(provider__name__iexact=llm_provider).first()
-        if not llm:
-            llm = LanguageModel.objects.first()
+            llm = available_models.filter(slug=llm_slug).first()
         if not llm:
             return JsonResponse(
-                {"error": "No language models configured"},
-                status=500,
+                {"error": "Language model is not available for this organization"},
+                status=400,
             )
 
         agent.llm = llm
@@ -563,8 +562,12 @@ def create_random_agent(request):
 
     name = fake.name()
     salute = fake.sentence()
+    from api.ai_layers.access import get_user_organization
+
     available_models = list(
-        LanguageModel.objects.filter(slug__isnull=False).exclude(slug="")
+        language_models_for_organization(
+            get_user_organization(request.user) if request.user.is_authenticated else None
+        ).filter(slug__isnull=False).exclude(slug="")
     )
     if not available_models:
         return JsonResponse(

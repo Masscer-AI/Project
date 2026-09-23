@@ -33,6 +33,9 @@ DEFAULT_PRICING = {
 def default_pricing():
     return DEFAULT_PRICING
 
+DEFAULT_LANGUAGE_MODEL_LIST_SLUG = "default"
+
+
 class LanguageModel(models.Model):
     provider = models.ForeignKey(AIProvider, on_delete=models.CASCADE)
 
@@ -40,12 +43,58 @@ class LanguageModel(models.Model):
     name = models.CharField(max_length=100)
     pricing = models.JSONField(default=default_pricing)
     is_reasoning_model = models.BooleanField(default=False)
+    lists = models.ManyToManyField(
+        "LanguageModelList",
+        through="LanguageModelListMembership",
+        related_name="language_models",
+        blank=True,
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"{self.name} ({self.provider.name})"
+
+
+class LanguageModelList(models.Model):
+    slug = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.slug
+
+
+class LanguageModelListMembership(models.Model):
+    list = models.ForeignKey(
+        LanguageModelList,
+        on_delete=models.CASCADE,
+        related_name="memberships",
+    )
+    language_model = models.ForeignKey(
+        LanguageModel,
+        on_delete=models.CASCADE,
+        related_name="list_memberships",
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["list", "language_model"],
+                name="uniq_languagemodellistmembership_list_model",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.language_model_id} in {self.list_id}"
+
+
+def language_models_for_organization(organization):
+    if organization is not None and organization.language_model_list_id:
+        return LanguageModel.objects.filter(
+            list_memberships__list_id=organization.language_model_list_id
+        ).distinct()
+    return LanguageModel.objects.all()
 
 class AgentKind(models.TextChoices):
     CONVERSATIONAL_AGENT = "conversational_agent", "Conversational agent"
@@ -187,13 +236,12 @@ class Agent(models.Model):
 
         if not self.llm:
             preferred_slug = self.model_slug or "gpt-5.2"
-            llm = LanguageModel.objects.filter(slug=preferred_slug).first()
+            qs = language_models_for_organization(self.organization)
+            llm = qs.filter(slug=preferred_slug).first()
             if not llm and self.model_provider:
-                llm = LanguageModel.objects.filter(
-                    provider__name__iexact=self.model_provider
-                ).first()
+                llm = qs.filter(provider__name__iexact=self.model_provider).first()
             if not llm:
-                llm = LanguageModel.objects.first()
+                llm = qs.first()
             if not llm:
                 raise ValueError(
                     "No LanguageModel records exist. Seed models before creating agents."

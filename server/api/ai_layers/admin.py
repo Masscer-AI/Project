@@ -4,7 +4,7 @@ from django.urls import reverse
 from django.utils.safestring import mark_safe
 from django import forms
 from django.db.models import Q
-from .models import Agent, LanguageModel, AgentSession, MCPClient
+from .models import Agent, LanguageModel, LanguageModelList, LanguageModelListMembership, AgentSession, MCPClient
 from api.authenticate.services import FeatureFlagService
 from api.authenticate.models import Organization
 from api.messaging.models import ChatWidget
@@ -517,7 +517,7 @@ class LanguageModelAdminForm(forms.ModelForm):
     class Meta:
         model = LanguageModel
         fields = "__all__"
-        exclude = ("pricing",)
+        exclude = ("pricing", "lists")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -547,6 +547,18 @@ class LanguageModelAdminForm(forms.ModelForm):
             instance.save()
         return instance
 
+class LanguageModelListMembershipInline(admin.TabularInline):
+    model = LanguageModelListMembership
+    extra = 0
+
+
+@admin.register(LanguageModelList)
+class LanguageModelListAdmin(admin.ModelAdmin):
+    list_display = ("slug", "name")
+    search_fields = ("slug", "name")
+    inlines = [LanguageModelListMembershipInline]
+
+
 @admin.register(LanguageModel)
 class LanguageModelAdmin(admin.ModelAdmin):
     form = LanguageModelAdminForm
@@ -559,8 +571,9 @@ class LanguageModelAdmin(admin.ModelAdmin):
         "updated_at",
     )
     search_fields = ("name", "slug", "provider__name")
-    list_filter = ("provider",)
+    list_filter = ("provider", "lists")
     readonly_fields = ("pricing_table",)
+    inlines = [LanguageModelListMembershipInline]
 
     fieldsets = (
         ("Model", {
