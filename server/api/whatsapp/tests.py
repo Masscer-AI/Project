@@ -876,7 +876,7 @@ class WhatsappEmbeddedMediaToolTests(TestCase):
 
         result = _create_image_impl(
             prompt="cat shrimp fusion",
-            model="gpt-image-2",
+            model="gpt-image-2.5-flare",
             aspect_ratio="square",
             guidance_attachments=[],
             conversation_id=str(conv.id),
@@ -885,7 +885,7 @@ class WhatsappEmbeddedMediaToolTests(TestCase):
         )
 
         is_feature_enabled_mock.assert_not_called()
-        self.assertEqual(result.model, "gpt-image-2")
+        self.assertEqual(result.model, "gpt-image-2.5-flare")
 
     @patch("api.ai_layers.tools.create_speech.synthesize_speech_bytes", return_value=(b"fake-audio", "gpt-4o-mini-tts"))
     def test_create_speech_skips_chat_generate_speech_flag_for_whatsapp_conversation(

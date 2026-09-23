@@ -8,8 +8,8 @@ class ImageModelPricingTests(SimpleTestCase):
             calculate_consumption_image_generation,
         )
 
-        self.assertEqual(IMAGE_MODEL_PRICING_USD["gpt-image-2"], 0.053)
-        self.assertEqual(calculate_consumption_image_generation("gpt-image-2"), 0.053)
+        self.assertEqual(IMAGE_MODEL_PRICING_USD["gpt-image-2.5-flare"], 0.053)
+        self.assertEqual(calculate_consumption_image_generation("gpt-image-2.5-flare"), 0.053)
 
     def test_unsupported_image_model_pricing_raises(self):
         from api.consumption.actions import calculate_consumption_image_generation

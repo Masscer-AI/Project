@@ -28,11 +28,11 @@ logger = logging.getLogger(__name__)
 
 AspectRatio = Literal["square", "landscape", "portrait"]
 
-DEFAULT_IMAGE_MODEL = "gpt-image-2"
+DEFAULT_IMAGE_MODEL = "gpt-image-2.5-flare"
 
 IMAGE_GENERATION_MODELS: tuple[dict[str, str], ...] = (
     {
-        "slug": "gpt-image-2",
+        "slug": "gpt-image-2.5-flare",
         "provider": "openai",
         "description": (
             "Best for long-running highest-quality images with clear rendered text."

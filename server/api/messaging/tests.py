@@ -203,7 +203,7 @@ class ChatWidgetCapabilitiesTests(TestCase):
 
         result = _create_image_impl(
             prompt="test png",
-            model="gpt-image-2",
+            model="gpt-image-2.5-flare",
             aspect_ratio="square",
             guidance_attachments=[],
             conversation_id=str(conversation.id),
@@ -212,7 +212,7 @@ class ChatWidgetCapabilitiesTests(TestCase):
         )
 
         is_feature_enabled_mock.assert_not_called()
-        self.assertEqual(result.model, "gpt-image-2")
+        self.assertEqual(result.model, "gpt-image-2.5-flare")
 
     def test_widget_agent_task_rejects_input_attachment_when_visitor_uploads_disabled(
         self,

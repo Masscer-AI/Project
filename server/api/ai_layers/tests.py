@@ -344,11 +344,11 @@ class CreateImageModelCatalogTests(SimpleTestCase):
             GOOGLE_IMAGE_MODELS,
         )
 
-        self.assertEqual(DEFAULT_IMAGE_MODEL, "gpt-image-2")
+        self.assertEqual(DEFAULT_IMAGE_MODEL, "gpt-image-2.5-flare")
         slugs = {m["slug"] for m in IMAGE_GENERATION_MODELS}
-        self.assertEqual(slugs, {"gpt-image-2", "gemini-3.1-flash-lite-image"})
+        self.assertEqual(slugs, {"gpt-image-2.5-flare", "gemini-3.1-flash-lite-image"})
         self.assertEqual(ALL_IMAGE_MODELS, slugs)
-        self.assertIn("gpt-image-2", OPENAI_IMAGE_MODELS)
+        self.assertIn("gpt-image-2.5-flare", OPENAI_IMAGE_MODELS)
         self.assertIn("gemini-3.1-flash-lite-image", GOOGLE_IMAGE_MODELS)
         self.assertNotIn("gpt-image-1.5", ALL_IMAGE_MODELS)
 
@@ -365,13 +365,13 @@ class CreateImageModelCatalogTests(SimpleTestCase):
             image_models_tool_description_snippet(),
             image_models_agent_instructions_snippet(),
         ):
-            self.assertIn("gpt-image-2", text)
+            self.assertIn("gpt-image-2.5-flare", text)
             self.assertIn("gemini-3.1-flash-lite-image", text)
             self.assertIn("clear rendered text", text)
             self.assertIn("blazingly fast", text)
 
         tool = get_tool(conversation_id="00000000-0000-0000-0000-000000000001")
-        self.assertIn("gpt-image-2", tool["description"])
+        self.assertIn("gpt-image-2.5-flare", tool["description"])
         self.assertIn("gemini-3.1-flash-lite-image", tool["description"])
         self.assertIsNone(tool["parameters"].model_fields["model"].default)
 
@@ -427,9 +427,9 @@ class CreateImageToolBehaviorTests(TestCase):
             agent_slug=self.agent.slug,
         )
 
-        self.assertEqual(result.model, "gpt-image-2")
+        self.assertEqual(result.model, "gpt-image-2.5-flare")
         client_inst.images.generate.assert_called_once()
-        self.assertEqual(client_inst.images.generate.call_args.kwargs["model"], "gpt-image-2")
+        self.assertEqual(client_inst.images.generate.call_args.kwargs["model"], "gpt-image-2.5-flare")
 
     @patch("api.ai_layers.tools.create_image._generate_image_google")
     @patch("api.authenticate.services.FeatureFlagService.is_feature_enabled")

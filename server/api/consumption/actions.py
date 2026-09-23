@@ -147,7 +147,7 @@ def convert_usd_to_currency(amount_in_usd, currency_slug):
     return Decimal(amount_in_usd) * Decimal(currency.one_usd_is)
 
 IMAGE_MODEL_PRICING_USD = {
-    "gpt-image-2": 0.053,
+    "gpt-image-2.5-flare": 0.053,
     "gpt-image-1.5": 0.10,
     "gemini-2.5-flash-image": 0.10,
     "gemini-3.1-flash-lite-image": 0.034,

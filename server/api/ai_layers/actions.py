@@ -73,6 +73,30 @@ def check_models_for_providers():
 
     openai_models_objects = [
         {
+            "name": "GPT-6 Luna",
+            "slug": "gpt-6-luna",
+            "lists": DEFAULT_LISTS,
+            "is_reasoning_model": True,
+            "pricing": {
+                "text": {
+                    "prompt": "0.10 USD / 1000000",
+                    "output": "0.50 USD / 1000000",
+                }
+            },
+        },
+        {
+            "name": "GPT-6 Sol",
+            "slug": "gpt-6-sol",
+            "lists": DEFAULT_LISTS,
+            "is_reasoning_model": True,
+            "pricing": {
+                "text": {
+                    "prompt": "2.00 USD / 1000000",
+                    "output": "10.00 USD / 1000000",
+                }
+            },
+        },
+        {
             "name": "GPT-6 Astra",
             "slug": "gpt-6-astra",
             "lists": ADVANCED_LISTS,
@@ -85,122 +109,14 @@ def check_models_for_providers():
             },
         },
         {
-            "name": "GPT-5 Mini",
-            "slug": "gpt-5-mini",
-            "lists": DEFAULT_LISTS,
-            "is_reasoning_model": True,
-            "pricing": {
-                "text": {
-                    "prompt": "0.25 USD / 1000000",
-                    "output": "2.00 USD / 1000000",
-                }
-            },
-        },
-        {
-            "name": "GPT-5",
-            "slug": "gpt-5",
-            "lists": DEFAULT_LISTS,
-            "is_reasoning_model": True,
-            "pricing": {
-                "text": {
-                    "prompt": "1.25 USD / 1000000",
-                    "output": "10.00 USD / 1000000",
-                }
-            },
-        },
-        {
-            "name": "GPT-5.5",
-            "slug": "gpt-5.5",
-            "lists": ADVANCED_LISTS,
-            "is_reasoning_model": True,
-            "pricing": {
-                "text": {
-                    "prompt": "5.00 USD / 1000000",
-                    "output": "30.00 USD / 1000000",
-                }
-            },
-        },
-        {
-            "name": "GPT-5.6 Sol",
-            "slug": "gpt-5.6-sol",
-            "lists": ADVANCED_LISTS,
-            "is_reasoning_model": True,
-            "pricing": {
-                "text": {
-                    "prompt": "5.00 USD / 1000000",
-                    "output": "30.00 USD / 1000000",
-                }
-            },
-        },
-        {
             "name": "GPT-5.6 Terra",
             "slug": "gpt-5.6-terra",
-            "lists": ADVANCED_LISTS,
+            "lists": DEFAULT_LISTS,
             "is_reasoning_model": True,
             "pricing": {
                 "text": {
                     "prompt": "2.50 USD / 1000000",
                     "output": "15.00 USD / 1000000",
-                }
-            },
-        },
-        {
-            "name": "GPT-5.6 Luna",
-            "slug": "gpt-5.6-luna",
-            "lists": DEFAULT_LISTS,
-            "is_reasoning_model": True,
-            "pricing": {
-                "text": {
-                    "prompt": "1.00 USD / 1000000",
-                    "output": "6.00 USD / 1000000",
-                }
-            },
-        },
-        {
-            "name": "GPT-5.4 Nano",
-            "slug": "gpt-5.4-nano",
-            "lists": DEFAULT_LISTS,
-            "is_reasoning_model": True,
-            "pricing": {
-                "text": {
-                    "prompt": "0.20 USD / 1000000",
-                    "output": "1.25 USD / 1000000",
-                }
-            },
-        },
-        {
-            "name": "GPT-5.4 Mini",
-            "slug": "gpt-5.4-mini",
-            "lists": DEFAULT_LISTS,
-            "is_reasoning_model": True,
-            "pricing": {
-                "text": {
-                    "prompt": "0.75 USD / 1000000",
-                    "output": "4.50 USD / 1000000",
-                }
-            },
-        },
-        {
-            "name": "GPT-5.4",
-            "slug": "gpt-5.4",
-            "lists": ADVANCED_LISTS,
-            "is_reasoning_model": True,
-            "pricing": {
-                "text": {
-                    "prompt": "2.50 USD / 1000000",
-                    "output": "15.00 USD / 1000000",
-                }
-            },
-        },
-        {
-            "name": "GPT-5.4 Pro",
-            "slug": "gpt-5.4-pro",
-            "lists": ADVANCED_LISTS,
-            "is_reasoning_model": True,
-            "pricing": {
-                "text": {
-                    "prompt": "30.00 USD / 1000000",
-                    "output": "180.00 USD / 1000000",
                 }
             },
         },
