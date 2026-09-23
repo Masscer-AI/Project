@@ -253,6 +253,11 @@ class WhatsAppNumberAdmin(admin.ModelAdmin):
                 self.admin_site.admin_view(self.check_webhook_config_view),
                 name="%s_%s_check_webhook_config" % info,
             ),
+            path(
+                "<path:object_id>/check-display-name-status/",
+                self.admin_site.admin_view(self.check_display_name_status_view),
+                name="%s_%s_check_display_name_status" % info,
+            ),
         ]
         return custom + urls
 
@@ -362,6 +367,40 @@ class WhatsAppNumberAdmin(admin.ModelAdmin):
         self.message_user(
             request,
             f"{ws.name or ws.number}: WABA subscribed and webhook fields configured. Callback: {callback}",
+        )
+        return HttpResponseRedirect(change_url)
+
+    def check_display_name_status_view(
+        self, request: HttpRequest, object_id: str
+    ) -> HttpResponseRedirect:
+        change_url = self._change_url(object_id)
+        if request.method != "POST":
+            return HttpResponseRedirect(change_url)
+        ws = self.get_object(request, object_id)
+        if ws is None:
+            self.message_user(request, "WSNumber not found.", level=messages.ERROR)
+            return HttpResponseRedirect(change_url)
+        if not self.has_change_permission(request, ws):
+            self.message_user(request, "Permission denied.", level=messages.ERROR)
+            return HttpResponseRedirect(change_url)
+        pid = (ws.platform_id or "").strip()
+        if not pid:
+            self.message_user(
+                request,
+                "platform_id (Meta phone number id) is required.",
+                level=messages.ERROR,
+            )
+            return HttpResponseRedirect(change_url)
+        try:
+            status = wa_graph.fetch_display_name_status(pid)
+        except RuntimeError as exc:
+            self.message_user(request, str(exc), level=messages.ERROR)
+            return HttpResponseRedirect(change_url)
+        name_status = status["name_status"] or "(missing)"
+        verified_name = status["verified_name"] or "(none)"
+        self.message_user(
+            request,
+            f"{ws.name or ws.number}: name_status={name_status}, verified_name={verified_name}",
         )
         return HttpResponseRedirect(change_url)
 

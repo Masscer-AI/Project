@@ -50,6 +50,7 @@ def _graph_request(
     *,
     token: str,
     json_body: dict[str, Any] | None = None,
+    params: dict[str, Any] | None = None,
 ) -> requests.Response:
     url = f"{_GRAPH_BASE}/{path.lstrip('/')}"
     response = requests.request(
@@ -57,6 +58,7 @@ def _graph_request(
         url,
         headers={"Authorization": f"Bearer {token}"},
         json=json_body,
+        params=params,
         timeout=30,
     )
     if not response.ok:
@@ -66,6 +68,24 @@ def _graph_request(
 
 def _app_token(app_id: str) -> str:
     return f"{app_id}|{_app_secret()}"
+
+
+def fetch_display_name_status(phone_number_id: str) -> dict[str, str]:
+    """GET phone number name_status and verified_name from Graph."""
+    pid = phone_number_id.strip()
+    if not pid:
+        raise RuntimeError("platform_id (phone number id) is empty.")
+    response = _graph_request(
+        "GET",
+        pid,
+        token=_graph_token(),
+        params={"fields": "name_status,verified_name"},
+    )
+    data = response.json()
+    return {
+        "name_status": str(data.get("name_status") or ""),
+        "verified_name": str(data.get("verified_name") or ""),
+    }
 
 
 def fetch_waba_id_for_phone_number_id(phone_number_id: str) -> str | None:

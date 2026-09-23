@@ -20,6 +20,12 @@
         <button type="submit" class="button">Check webhook config</button>
       </form>
     </li>
+    <li>
+      <form method="post" action="{% url 'admin:whatsapp_wsnumber_check_display_name_status' original.pk %}" style="display:inline">
+        {% csrf_token %}
+        <button type="submit" class="button">Check display name status</button>
+      </form>
+    </li>
   {% endif %}
   {{ block.super }}
 {% endblock %}

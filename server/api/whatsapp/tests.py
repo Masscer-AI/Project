@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 import json
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase
 from rest_framework.test import APIClient
 
 from api.authenticate.models import Organization, Token
@@ -1813,3 +1813,28 @@ class WhatsappNumberAccessScopeTests(TestCase):
         mock_send.assert_not_called()
         contact = WSContact.objects.get(ws_number=self.ws, number=meta_from)
         self.assertEqual(contact.user_id, mx_member.id)
+
+
+class FetchDisplayNameStatusTests(SimpleTestCase):
+    @patch("api.whatsapp.graph_webhook_setup.requests.request")
+    @patch("api.whatsapp.graph_webhook_setup._graph_token", return_value="tok")
+    def test_reads_name_status_and_verified_name(self, _token, mock_request):
+        response = MagicMock()
+        response.ok = True
+        response.json.return_value = {
+            "name_status": "PENDING_REVIEW",
+            "verified_name": "Acme",
+        }
+        mock_request.return_value = response
+
+        from api.whatsapp.graph_webhook_setup import fetch_display_name_status
+
+        status = fetch_display_name_status("123")
+
+        self.assertEqual(status["name_status"], "PENDING_REVIEW")
+        self.assertEqual(status["verified_name"], "Acme")
+        args, kwargs = mock_request.call_args
+        self.assertEqual(args[0], "GET")
+        self.assertTrue(args[1].endswith("/123"))
+        self.assertEqual(kwargs["params"], {"fields": "name_status,verified_name"})
+        self.assertEqual(kwargs["headers"]["Authorization"], "Bearer tok")
