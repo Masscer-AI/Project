@@ -125,6 +125,12 @@ class WSNumber(models.Model):
         ),
     )
     verified = models.BooleanField(default=False)
+    registration_pin = models.CharField(
+        max_length=6,
+        null=True,
+        blank=True,
+        help_text="Six-digit two-step PIN sent to Meta when this number was registered.",
+    )
     certicate_b64 = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

@@ -286,6 +286,8 @@ class WhatsAppNumberAdmin(admin.ModelAdmin):
         pin = f"{random.randint(0, 999999):06d}"
         try:
             wa_graph.register_phone_number(pid, pin)
+            ws.registration_pin = pin
+            ws.save(update_fields=["registration_pin"])
             self.message_user(
                 request,
                 f"{ws.name or ws.number}: phone number registered with Graph.",
