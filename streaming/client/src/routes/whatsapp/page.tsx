@@ -5,6 +5,7 @@ import "./page.css";
 import { getWhatsappNumbers, getWhatsappTemplates } from "../../modules/apiCalls";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
+import { OpenSidebarButton } from "../../components/OpenSidebarButton/OpenSidebarButton";
 
 import {
   ActionIcon,
@@ -467,17 +468,11 @@ export default function Whatsapp() {
           overflowY: "auto",
           minHeight: "100vh",
           display: "flex",
-          justifyContent: "center",
+          flexDirection: "column",
         }}
         className="relative"
       >
-        {!chatState.isSidebarOpened && (
-          <Box pos="absolute" top={24} left={24} style={{ zIndex: 10 }}>
-            <ActionIcon variant="subtle" color="gray" onClick={toggleSidebar}>
-              <IconMenu2 size={20} />
-            </ActionIcon>
-          </Box>
-        )}
+        <OpenSidebarButton />
 
         <Box px="md" w="100%" maw="48rem" mx="auto">
           <Group gap="sm" justify="center" mb="sm" mt="md">

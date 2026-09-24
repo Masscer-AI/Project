@@ -1725,6 +1725,8 @@
   "document-settings-update-error": "No se pudo actualizar la configuracion del documento",
   "item-tags-label": "Etiquetas",
   "item-tags-help": "Hasta 3 etiquetas de la organizacion. Los agentes pueden filtrar y cargar conocimiento etiquetado.",
+  "gallery-search": "Buscar por nombre",
+  "gallery-name-required": "Escribe un nombre",
   "gallery-filter-tag": "Filtrar por etiqueta",
   "gallery-filter-tag-all": "Todas las etiquetas",
   "uploading": "Subiendo",

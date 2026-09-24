@@ -2455,6 +2455,7 @@ class GalleryView(View):
             limit=limit,
             offset=offset,
             tag_id=tag_id,
+            query=(request.GET.get("q") or "").strip(),
         )
         return JsonResponse(gallery_items, safe=False)
 
@@ -2505,19 +2506,47 @@ class GalleryItemView(View):
 
         visibility = payload.get("visibility")
         has_tag_ids = "tag_ids" in payload
-        if (not visibility or not isinstance(visibility, str)) and not has_tag_ids:
+        has_name = isinstance(payload.get("name"), str)
+        if (not visibility or not isinstance(visibility, str)) and not has_tag_ids and not has_name:
             return JsonResponse(
-                {"message": "visibility or tag_ids is required", "status": 400},
+                {"message": "visibility, tag_ids, or name is required", "status": 400},
                 status=400,
             )
 
         from api.messaging.gallery import (
+            update_gallery_attachment_name,
             update_gallery_attachment_tags,
             update_gallery_attachment_visibility,
         )
         from api.messaging.organization_tags import parse_tag_ids_payload
 
         item = None
+        if has_name:
+            name_update = update_gallery_attachment_name(
+                user=user,
+                attachment_id=attachment_id,
+                name=payload.get("name") or "",
+            )
+            if name_update.get("error") == "not_found":
+                return JsonResponse(
+                    {"message": "Attachment not found", "status": 404},
+                    status=404,
+                )
+            if name_update.get("error") == "forbidden":
+                return JsonResponse(
+                    {"message": "Not allowed to change this attachment", "status": 403},
+                    status=403,
+                )
+            if not name_update.get("ok"):
+                return JsonResponse(
+                    {
+                        "message": name_update.get("message") or "Invalid name",
+                        "status": 400,
+                    },
+                    status=400,
+                )
+            item = name_update["item"]
+
         if visibility and isinstance(visibility, str):
             visibility_update = update_gallery_attachment_visibility(
                 user=user,

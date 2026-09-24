@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useStore } from "../../modules/store";
 import { Sidebar } from "../../components/Sidebar/Sidebar";
-import {
+import { OpenSidebarButton } from "../../components/OpenSidebarButton/OpenSidebarButton";
   assignRoleToMember,
   buyCredits,
   createBillingPortalSession,
@@ -842,7 +842,7 @@ export default function OrganizationPage() {
             overflowY: "auto",
             minHeight: "100vh",
             display: "flex",
-            justifyContent: "center",
+            flexDirection: "column",
           }}
         >
           <Stack align="center" justify="center" pt="xl">
@@ -868,17 +868,7 @@ export default function OrganizationPage() {
         }}
         className="relative"
       >
-        {!chatState.isSidebarOpened && (
-          <Box pos="absolute" top={24} left={24} style={{ zIndex: 10 }}>
-            <ActionIcon
-              variant="subtle"
-              color="gray"
-              onClick={toggleSidebar}
-            >
-              <IconMenu2 size={20} />
-            </ActionIcon>
-          </Box>
-        )}
+        <OpenSidebarButton />
 
         <Box px="md" w="100%" maw="42rem" mx="auto">
           <Title order={2} ta="center" mb="lg" mt="md">

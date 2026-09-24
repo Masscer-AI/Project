@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Sidebar } from "../../../components/Sidebar/Sidebar";
 import { useStore } from "../../../modules/store";
 import "../page.css";
-import {
+import { OpenSidebarButton } from "../../../components/OpenSidebarButton/OpenSidebarButton";
   getWhatsappNumbers,
   getWhatsappContacts,
   updateWhatsappContact,
@@ -129,17 +129,11 @@ export default function WhatsappLineDetail() {
           overflowY: "auto",
           minHeight: "100vh",
           display: "flex",
-          justifyContent: "center",
+          flexDirection: "column",
         }}
         className="relative"
       >
-        {!chatState.isSidebarOpened && (
-          <Box pos="absolute" top={24} left={24} style={{ zIndex: 10 }}>
-            <ActionIcon variant="subtle" color="gray" onClick={toggleSidebar}>
-              <IconMenu2 size={20} />
-            </ActionIcon>
-          </Box>
-        )}
+        <OpenSidebarButton />
 
         <Box px="md" w="100%" maw="42rem" mx="auto">
           <Group gap="sm" mb="md" mt="md">

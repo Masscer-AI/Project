@@ -9,6 +9,7 @@ import {
   NativeSelect,
   Stack,
   Text,
+  TextInput,
 } from "@mantine/core";
 import { IconDownload, IconLink, IconUser, IconUsers } from "@tabler/icons-react";
 import { DocumentFileIcon, getDocumentFileMeta } from "../../modules/documentFileMeta";
@@ -71,6 +72,7 @@ function useAttachmentVisibilityEditor(
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
   const [item, setItem] = useState<TGalleryItem | null>(initialItem ?? null);
+  const [editName, setEditName] = useState(initialItem?.name || "");
   const [editVisibility, setEditVisibility] = useState<TAttachmentVisibility>(
     initialItem?.visibility || "personal"
   );
@@ -99,6 +101,7 @@ function useAttachmentVisibilityEditor(
         if (cancelled) return;
         const next = detail.item;
         setItem(next);
+        setEditName(next.name || "");
         setEditVisibility(next.visibility || "personal");
         setEditRoleIds((next.belongs_to?.roles || []).map((r) => r.id));
         setEditTagIds((next.tag_ids || []).map(String));
@@ -148,6 +151,10 @@ function useAttachmentVisibilityEditor(
 
   const save = async (onSaved?: (item: TGalleryItem) => void) => {
     if (!attachmentId) return;
+    if (!editName.trim()) {
+      toast.error(t("gallery-name-required"));
+      return false;
+    }
     if (editVisibility === "roles" && editRoleIds.length === 0) {
       toast.error(t("document-visibility-roles-required"));
       return false;
@@ -159,6 +166,7 @@ function useAttachmentVisibilityEditor(
     setSaving(true);
     try {
       const res = await updateGalleryItemVisibility(attachmentId, {
+        name: editName.trim(),
         visibility: editVisibility,
         role_ids: editVisibility === "roles" ? editRoleIds : [],
         tag_ids: editTagIds.slice(0, MAX_ITEM_TAGS).map((id) => parseInt(id, 10)),
@@ -179,6 +187,8 @@ function useAttachmentVisibilityEditor(
     saving,
     loading,
     item,
+    editName,
+    setEditName,
     editVisibility,
     setEditVisibility,
     editRoleIds,
@@ -204,6 +214,13 @@ function VisibilityFields({
   const { t } = useTranslation();
   return (
     <Stack gap="sm">
+      <TextInput
+        size="sm"
+        label={t("name")}
+        value={editor.editName}
+        disabled={editor.loading || !editor.canManage}
+        onChange={(e) => editor.setEditName(e.currentTarget.value)}
+      />
       <NativeSelect
         size="sm"
         label={t("gallery-visibility")}

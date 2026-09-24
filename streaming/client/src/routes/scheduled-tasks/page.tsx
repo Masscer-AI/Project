@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
-import {
+import { OpenSidebarButton } from "../../components/OpenSidebarButton/OpenSidebarButton";
   ActionIcon,
   Badge,
   Box,
@@ -203,17 +203,11 @@ export default function ScheduledTasksPage() {
           overflowY: "auto",
           minHeight: "100vh",
           display: "flex",
-          justifyContent: "center",
+          flexDirection: "column",
         }}
         className="relative"
       >
-        {!chatState.isSidebarOpened && (
-          <Box pos="absolute" top={24} left={24} style={{ zIndex: 10 }}>
-            <ActionIcon variant="subtle" color="gray" onClick={toggleSidebar}>
-              <IconMenu2 size={20} />
-            </ActionIcon>
-          </Box>
-        )}
+        <OpenSidebarButton />
 
         <Stack maw="56rem" w="100%" gap="lg" mt={48}>
           <Group justify="space-between" align="flex-start" wrap="wrap" gap="md">

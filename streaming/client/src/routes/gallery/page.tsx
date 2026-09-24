@@ -16,16 +16,17 @@ import {
   Stack,
   Tabs,
   Text,
+  TextInput,
   Title,
   Tooltip,
   UnstyledButton,
 } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
+import { useDebouncedValue, useDisclosure } from "@mantine/hooks";
 import {
   IconDownload,
   IconFileText,
-  IconMenu2,
   IconMessage,
+  IconSearch,
   IconMusic,
   IconPhoto,
   IconPlayerPlay,
@@ -33,6 +34,7 @@ import {
   IconTrash,
   IconVideo,
 } from "@tabler/icons-react";
+import { OpenSidebarButton } from "../../components/OpenSidebarButton/OpenSidebarButton";
 import { Sidebar } from "../../components/Sidebar/Sidebar";
 import {
   AttachmentVisibilityModal,
@@ -683,10 +685,7 @@ function GalleryItemCard({
 
 export default function GalleryPage() {
   const { t, i18n } = useTranslation();
-  const { chatState, toggleSidebar } = useStore((s) => ({
-    chatState: s.chatState,
-    toggleSidebar: s.toggleSidebar,
-  }));
+  const chatState = useStore((s) => s.chatState);
 
   const [tab, setTab] = useState<TGalleryType>("image");
   const [items, setItems] = useState<TGalleryItem[]>([]);
@@ -697,6 +696,8 @@ export default function GalleryPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [orgTags, setOrgTags] = useState<TTag[]>([]);
   const [filterTagId, setFilterTagId] = useState<string>("");
+  const [search, setSearch] = useState("");
+  const [debouncedSearch] = useDebouncedValue(search, 300);
 
   const tagById = useMemo(
     () => new Map(orgTags.map((tag) => [tag.id, tag])),
@@ -719,6 +720,7 @@ export default function GalleryPage() {
           limit: PAGE_SIZE,
           offset: nextOffset,
           tag_id: filterTagId ? parseInt(filterTagId, 10) : null,
+          query: debouncedSearch,
         });
         setItems((prev) =>
           append ? [...prev, ...data.results] : data.results
@@ -738,7 +740,7 @@ export default function GalleryPage() {
         setLoadingMore(false);
       }
     },
-    [t, filterTagId]
+    [t, filterTagId, debouncedSearch]
   );
 
   useEffect(() => {
@@ -770,22 +772,11 @@ export default function GalleryPage() {
           overflowY: "auto",
           minHeight: "100vh",
           display: "flex",
-          justifyContent: "center",
+          flexDirection: "column",
         }}
         className="relative"
       >
-        {!chatState.isSidebarOpened && (
-          <Box pos="absolute" top={24} left={24} style={{ zIndex: 10 }}>
-            <ActionIcon
-              variant="subtle"
-              color="gray"
-              onClick={toggleSidebar}
-              aria-label={t("open-sidebar")}
-            >
-              <IconMenu2 size={20} />
-            </ActionIcon>
-          </Box>
-        )}
+        <OpenSidebarButton />
 
         <Box maw={1100} w="100%" mx="auto">
           <Stack gap="lg">
@@ -815,6 +806,16 @@ export default function GalleryPage() {
                 </Tabs.Tab>
               </Tabs.List>
             </Tabs>
+
+            <TextInput
+              size="sm"
+              maw={360}
+              placeholder={t("gallery-search")}
+              aria-label={t("gallery-search")}
+              leftSection={<IconSearch size={16} />}
+              value={search}
+              onChange={(e) => setSearch(e.currentTarget.value)}
+            />
 
             {orgTags.length > 0 && (
               <NativeSelect

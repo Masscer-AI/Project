@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useStore } from "../../modules/store";
 import { Sidebar } from "../../components/Sidebar/Sidebar";
-import {
+import { OpenSidebarButton } from "../../components/OpenSidebarButton/OpenSidebarButton";
   deleteTranscriptionJob,
   makeAuthenticatedRequest,
 } from "../../modules/apiCalls";
@@ -79,21 +79,11 @@ export default function GenerationToolsPage() {
           overflowY: "auto",
           minHeight: "100vh",
           display: "flex",
-          justifyContent: "center",
+          flexDirection: "column",
         }}
         className="relative"
       >
-        {!chatState.isSidebarOpened && (
-          <Box pos="absolute" top={24} left={24} style={{ zIndex: 10 }}>
-            <ActionIcon
-              variant="subtle"
-              color="gray"
-              onClick={toggleSidebar}
-            >
-              <IconMenu2 size={20} />
-            </ActionIcon>
-          </Box>
-        )}
+        <OpenSidebarButton />
 
         <Box px="md" w="100%" maw="52rem" mx="auto">
           <Title order={2} ta="center" mb="lg" mt="md">

@@ -952,12 +952,15 @@ export const getGalleryItems = async (options: {
   limit?: number;
   offset?: number;
   tag_id?: number | null;
+  query?: string;
 }) => {
   const params = new URLSearchParams();
   params.set("type", options.type);
   if (options.limit != null) params.set("limit", String(options.limit));
   if (options.offset != null) params.set("offset", String(options.offset));
   if (options.tag_id != null) params.set("tag_id", String(options.tag_id));
+  const query = (options.query || "").trim();
+  if (query) params.set("q", query);
   return makeAuthenticatedRequest<TGalleryListResponse>(
     "GET",
     `/v1/messaging/gallery/?${params.toString()}`
@@ -984,6 +987,7 @@ export const updateGalleryItemVisibility = async (
     visibility: TAttachmentVisibility;
     role_ids?: string[];
     tag_ids?: number[];
+    name?: string;
   }
 ) => {
   return makeAuthenticatedRequest<{ status: string; item: TGalleryItem }>(

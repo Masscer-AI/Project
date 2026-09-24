@@ -3,7 +3,7 @@ import { useStore } from "../../modules/store";
 import { Sidebar } from "../../components/Sidebar/Sidebar";
 import { getUser, updateUser } from "../../modules/apiCalls";
 import { debounce } from "../../modules/utils";
-import {
+import { OpenSidebarButton } from "../../components/OpenSidebarButton/OpenSidebarButton";
   DEFAULT_NOTIFICATION_SETTINGS,
   previewNotificationSound,
   type TNotificationSettings,
@@ -85,17 +85,11 @@ export default function SettingsPage() {
           overflowY: "auto",
           minHeight: "100vh",
           display: "flex",
-          justifyContent: "center",
+          flexDirection: "column",
         }}
         className="relative"
       >
-        {!chatState.isSidebarOpened && (
-          <Box pos="absolute" top={24} left={24} style={{ zIndex: 10 }}>
-            <ActionIcon variant="subtle" color="gray" onClick={toggleSidebar}>
-              <IconMenu2 size={20} />
-            </ActionIcon>
-          </Box>
-        )}
+        <OpenSidebarButton />
 
         <Box px="md" w="100%" maw="42rem" mx="auto">
           <Title order={2} ta="center" mb="lg" mt="md">

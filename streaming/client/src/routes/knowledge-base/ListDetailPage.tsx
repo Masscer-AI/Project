@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
-import {
+import { OpenSidebarButton } from "../../components/OpenSidebarButton/OpenSidebarButton";
   ActionIcon,
   Box,
   Button,
@@ -149,18 +149,7 @@ export default function ListDetailPage() {
         }}
         className="relative"
       >
-        {!chatState.isSidebarOpened && (
-          <Box pos="absolute" top={24} left={24} style={{ zIndex: 10 }}>
-            <ActionIcon
-              variant="subtle"
-              color="gray"
-              onClick={toggleSidebar}
-              aria-label={t("open-sidebar")}
-            >
-              <IconMenu2 size={20} />
-            </ActionIcon>
-          </Box>
-        )}
+        <OpenSidebarButton />
 
         <Box w="100%" maw="80rem" mx="auto">
           <Stack gap="md">

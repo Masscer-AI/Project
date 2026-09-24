@@ -108,6 +108,7 @@ def list_gallery_items(
     limit: int = 48,
     offset: int = 0,
     tag_id: int | None = None,
+    query: str | None = None,
 ) -> dict:
     if gallery_type not in GALLERY_TYPES:
         gallery_type = "image"
@@ -133,6 +134,11 @@ def list_gallery_items(
         from api.messaging.organization_tags import tag_ids_match_q
 
         qs = qs.filter(tag_ids_match_q("tag_ids", [int(tag_id)]))
+    needle = (query or "").strip()
+    if needle:
+        qs = qs.filter(
+            Q(metadata__name__icontains=needle) | Q(file__icontains=needle)
+        )
 
     total = qs.count()
     page = list(qs[offset : offset + limit])
@@ -294,6 +300,26 @@ def _attachment_tag_org_id(att, user):
 
     org = resolve_user_organization(user)
     return org.id if org else None
+
+
+def update_gallery_attachment_name(*, user, attachment_id, name: str) -> dict:
+    cleaned = str(name or "").strip().replace("\\", "/").split("/")[-1][:255]
+    if not cleaned:
+        return {"ok": False, "error": "invalid", "message": "Name is required"}
+    try:
+        att = MessageAttachment.objects.select_related(
+            "conversation", "organization", "user"
+        ).prefetch_related("allowed_roles").get(id=attachment_id)
+    except MessageAttachment.DoesNotExist:
+        return {"ok": False, "error": "not_found"}
+    if not user_can_manage_attachment(att, user):
+        return {"ok": False, "error": "forbidden"}
+    metadata = dict(att.metadata) if isinstance(att.metadata, dict) else {}
+    metadata["name"] = cleaned
+    att.metadata = metadata
+    att.save(update_fields=["metadata"])
+    item = serialize_gallery_item(att, user)
+    return {"ok": True, "item": item}
 
 
 def update_gallery_attachment_tags(*, user, attachment_id, tag_ids) -> dict:

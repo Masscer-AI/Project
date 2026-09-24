@@ -1723,6 +1723,8 @@
   "document-settings-update-error": "Could not update document settings",
   "item-tags-label": "Tags",
   "item-tags-help": "Up to 3 organization tags. Agents can filter and load tagged knowledge.",
+  "gallery-search": "Search by name",
+  "gallery-name-required": "Enter a name",
   "gallery-filter-tag": "Filter by tag",
   "gallery-filter-tag-all": "All tags",
   "uploading": "Uploading",
