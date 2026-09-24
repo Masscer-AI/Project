@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   Box,
-  Button,
   Group,
   Loader,
   Select,
@@ -12,7 +11,7 @@ import {
   TextInput,
   UnstyledButton,
 } from "@mantine/core";
-import { IconCalendar, IconMessage, IconPlus, IconSearch } from "@tabler/icons-react";
+import { IconCalendar, IconMessage, IconSearch } from "@tabler/icons-react";
 import { AppPage } from "../../components/AppPage/AppPage";
 import { getAllConversations, getTags } from "../../modules/apiCalls";
 import { TConversation, TTag } from "../../types";
@@ -157,20 +156,7 @@ export default function ConversationsPage() {
   const enabledTags = orgTags.filter((tag) => tag.enabled);
 
   return (
-    <AppPage
-      title={t("conversations")}
-      right={
-        <Button
-          component={Link}
-          to="/chat"
-          leftSection={<IconPlus size={16} />}
-          variant="white"
-          color="dark"
-        >
-          {t("new-conversation")}
-        </Button>
-      }
-    >
+    <AppPage title={t("conversations")}>
       <Box maw={1100} w="100%" mx="auto">
         <Stack gap="lg">
           <Group gap="sm" align="center" wrap="wrap">

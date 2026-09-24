@@ -457,13 +457,21 @@ export function AttachmentDetailsModal({
           <Button
             component="a"
             href={url}
-            download={name}
+            download={
+              name.toLowerCase().endsWith(".pdf") ||
+              contentType.toLowerCase().includes("pdf")
+                ? undefined
+                : name
+            }
             target="_blank"
             rel="noopener noreferrer"
             variant="default"
             leftSection={<IconDownload size={16} />}
           >
-            {t("download")}
+            {name.toLowerCase().endsWith(".pdf") ||
+            contentType.toLowerCase().includes("pdf")
+              ? t("open-file")
+              : t("download")}
           </Button>
         ) : null}
         <SaveToKnowledgeBaseButton

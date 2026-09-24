@@ -1064,6 +1064,11 @@ const DocumentItem = ({
   };
 
   const kind = fileKind(document.name, document.content_type);
+  const openOriginalPdf = () => {
+    if (kind.label !== "PDF" || !document.file_url || isProcessing) return false;
+    window.open(document.file_url, "_blank", "noopener,noreferrer");
+    return true;
+  };
   const fragmentLabel =
     isProcessing && !document.chunk_count
       ? "—"
@@ -1194,7 +1199,9 @@ const DocumentItem = ({
                 lineClamp={2}
                 style={{ cursor: isProcessing ? "default" : "pointer" }}
                 onClick={() => {
-                  if (!isProcessing) setShowChunks(true);
+                  if (isProcessing) return;
+                  if (openOriginalPdf()) return;
+                  setShowChunks(true);
                 }}
               >
                 {document.name || t("untitled")}
@@ -1261,7 +1268,9 @@ const DocumentItem = ({
                 lineClamp={1}
                 style={{ cursor: isProcessing ? "default" : "pointer" }}
                 onClick={() => {
-                  if (!isProcessing) setShowChunks(true);
+                  if (isProcessing) return;
+                  if (openOriginalPdf()) return;
+                  setShowChunks(true);
                 }}
               >
                 {document.name || t("untitled")}

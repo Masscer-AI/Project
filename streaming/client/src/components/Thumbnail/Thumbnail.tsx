@@ -28,6 +28,34 @@ import type { TGalleryItem } from "../../modules/apiCalls";
 
 const VIDEO_EXT_RE = /\.(mp4|webm|mov|m4v|ogv)(\?|#|$)/i;
 
+function isPdfFile(name: string, type?: string): boolean {
+  const n = (name || "").toLowerCase();
+  const t = (type || "").toLowerCase();
+  return n.endsWith(".pdf") || t.includes("pdf");
+}
+
+function dataUrlToBlob(dataUrl: string): Blob {
+  const [header, body] = dataUrl.split(",");
+  const mime = /data:([^;,]+)/.exec(header)?.[1] || "application/pdf";
+  const binary = atob(body || "");
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type: mime });
+}
+
+function openPdfInNewTab(src: string) {
+  if (!src) return;
+  let url = src;
+  if (src.startsWith("/")) url = `${API_URL}${src}`;
+  if (url.startsWith("data:")) {
+    const blobUrl = URL.createObjectURL(dataUrlToBlob(url));
+    const tab = window.open(blobUrl, "_blank");
+    if (!tab) URL.revokeObjectURL(blobUrl);
+    return;
+  }
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
 function isVideoAttachmentType(type: string, name: string, content: string): boolean {
   const t = type || "";
   if (t.startsWith("video/") || t.startsWith("video_generation")) return true;
@@ -138,6 +166,7 @@ export const Thumbnail = ({
             onDelete={() => deleteAttachment(index)}
             name={name}
             src={src}
+            fileType={type}
             showFloatingButtons={showFloatingButtons}
           />
         )}
@@ -424,6 +453,7 @@ const ImageModal = ({
 const DocumentThumnail = ({
   name,
   src,
+  fileType,
   onDelete,
   id,
   attachmentId,
@@ -433,6 +463,7 @@ const DocumentThumnail = ({
   index: number;
   name: string;
   src: string;
+  fileType?: string;
   onDelete: () => void;
   id?: number | string;
   attachmentId?: string;
@@ -441,6 +472,11 @@ const DocumentThumnail = ({
 }) => {
   const [opened, { open, close }] = useDisclosure(false);
   const fileId = resolveAttachmentFileId(attachmentId, id);
+  const pdf = isPdfFile(name, fileType);
+  const openFile = () => {
+    if (pdf) openPdfInNewTab(src);
+    else open();
+  };
 
   if (showFloatingButtons) {
     return (
@@ -449,10 +485,25 @@ const DocumentThumnail = ({
         className="width-150 document-attachment bg-contrast rounded padding-small"
       >
         <div className="d-flex gap-small align-center">
-          <DocumentFileIcon name={name} size={20} />
-          <p className="cut-text-to-line" style={{ margin: 0, flex: 1, minWidth: 0 }}>
-            {name}
-          </p>
+          {pdf ? (
+            <UnstyledButton
+              onClick={() => openPdfInNewTab(src)}
+              style={{ display: "flex", gap: 8, alignItems: "center", flex: 1, minWidth: 0 }}
+              aria-label={name}
+            >
+              <DocumentFileIcon name={name} size={20} />
+              <p className="cut-text-to-line" style={{ margin: 0, flex: 1, minWidth: 0 }}>
+                {name}
+              </p>
+            </UnstyledButton>
+          ) : (
+            <>
+              <DocumentFileIcon name={name} size={20} />
+              <p className="cut-text-to-line" style={{ margin: 0, flex: 1, minWidth: 0 }}>
+                {name}
+              </p>
+            </>
+          )}
           <ActionIcon
             variant="subtle"
             color="red"
@@ -469,7 +520,7 @@ const DocumentThumnail = ({
   return (
     <>
       <UnstyledButton
-        onClick={open}
+        onClick={openFile}
         title={name}
         aria-label={name}
         className="width-150 document-attachment bg-contrast rounded padding-small"
