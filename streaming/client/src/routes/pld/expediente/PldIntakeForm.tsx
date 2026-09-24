@@ -28,11 +28,11 @@ import {
   requiredSectionDocsExtracted,
   slotsForIntakeSection,
 } from "./PldDocumentCollection";
-import { countryNameSelectData, formatInternationalPhone, getDialCodeForIso, phoneCountrySelectData, splitInternationalPhone } from "../../../utils/countryDialCodes";
+import { PhoneField } from "../../../components/PhoneField/PhoneField";
+import { countryNameSelectData, formatInternationalPhone, splitInternationalPhone } from "../../../utils/countryDialCodes";
 import { matchSubdivisionName, subdivisionSelectData } from "../../../utils/countrySubdivisions";
 
 const COUNTRY_OPTIONS = countryNameSelectData();
-const PHONE_COUNTRY_OPTIONS = phoneCountrySelectData();
 
 function pickerValueFromIso(iso: string): Date | null {
   if (!iso || !/^\d{4}-\d{2}-\d{2}/.test(iso)) return null;
@@ -51,10 +51,6 @@ function isoFromPicker(val: unknown): string {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
-}
-
-function sanitizeLocalPhone(raw: string): string {
-  return raw.replace(/\D/g, "");
 }
 
 function countrySelectValue(raw: string): string | null {
@@ -1104,27 +1100,16 @@ export function PldIntakeForm({
       </Group>
 
       <Group grow align="flex-end">
-        <Select
-          label={t("phone-country")}
-          placeholder={t("phone-country-placeholder")}
-          data={PHONE_COUNTRY_OPTIONS}
-          searchable
-          nothingFoundMessage={t("phone-country-not-found")}
-          comboboxProps={{ withinPortal: true }}
-          value={form.phone_iso || "MX"}
-          onChange={(val) => setField("phone_iso", val || "MX")}
-        />
-        <TextInput
+        <PhoneField
           label={t("compliance-intake-phone")}
-          type="tel"
-          inputMode="numeric"
-          autoComplete="tel-national"
-          placeholder="5512345678"
-          description={`+${getDialCodeForIso(form.phone_iso || "MX")}`}
-          value={form.phone}
-          onChange={(e) => {
-            const val = sanitizeLocalPhone(e.currentTarget.value);
-            setField("phone", val);
+          country={form.phone_iso || "MX"}
+          national={form.phone}
+          onChange={(next) => {
+            setForm((prev) => ({
+              ...prev,
+              phone_iso: next.country,
+              phone: next.national,
+            }));
           }}
         />
         <TextInput
