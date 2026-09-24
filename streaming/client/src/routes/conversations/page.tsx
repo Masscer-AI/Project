@@ -2,30 +2,72 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
-  Badge,
   Box,
   Button,
-  Card,
   Group,
   Loader,
+  Select,
   Stack,
   Text,
   TextInput,
   UnstyledButton,
 } from "@mantine/core";
-import { DatePickerInput } from "@mantine/dates";
-import { IconSearch } from "@tabler/icons-react";
+import { IconCalendar, IconMessage, IconPlus, IconSearch } from "@tabler/icons-react";
 import { AppPage } from "../../components/AppPage/AppPage";
 import { getAllConversations, getTags } from "../../modules/apiCalls";
 import { TConversation, TTag } from "../../types";
 
-function formatDate(iso: string, locale: string): string {
+type DatePreset = "any" | "today" | "week" | "month";
+
+function tagDotColor(color?: string) {
+  if (!color) return "var(--mantine-color-violet-filled)";
+  if (color.startsWith("#") || color.startsWith("rgb")) return color;
+  return `var(--mantine-color-${color}-filled)`;
+}
+
+function dayKey(iso: string) {
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+function formatDay(iso: string, locale: string) {
   return new Intl.DateTimeFormat(locale, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(d);
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(new Date(iso));
+}
+
+function formatTime(iso: string, locale: string) {
+  return new Intl.DateTimeFormat(locale, {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(iso));
+}
+
+function startOfDay(date: Date) {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  return next;
+}
+
+function TagChip({ tag }: { tag: TTag }) {
+  return (
+    <Group gap={6} wrap="nowrap">
+      <Box
+        w={8}
+        h={8}
+        style={{
+          borderRadius: 99,
+          background: tagDotColor(tag.color),
+          flexShrink: 0,
+        }}
+      />
+      <Text size="xs" style={{ whiteSpace: "nowrap" }}>
+        {tag.title}
+      </Text>
+    </Group>
+  );
 }
 
 export default function ConversationsPage() {
@@ -33,17 +75,9 @@ export default function ConversationsPage() {
   const [history, setHistory] = useState<TConversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [orgTags, setOrgTags] = useState<TTag[]>([]);
-  const [filters, setFilters] = useState<{
-    tags: number[];
-    startDate: Date | null;
-    endDate: Date | null;
-    title: string;
-  }>({
-    tags: [],
-    startDate: null,
-    endDate: null,
-    title: "",
-  });
+  const [title, setTitle] = useState("");
+  const [selectedTags, setSelectedTags] = useState<number[]>([]);
+  const [datePreset, setDatePreset] = useState<DatePreset>("any");
 
   const load = () => {
     getAllConversations("personal")
@@ -72,197 +106,204 @@ export default function ConversationsPage() {
   }, [orgTags]);
 
   const filteredHistory = useMemo(() => {
-    const query = filters.title.toLowerCase();
+    const query = title.trim().toLowerCase();
+    const now = new Date();
+    let start: Date | null = null;
+    if (datePreset === "today") start = startOfDay(now);
+    if (datePreset === "week") {
+      start = startOfDay(now);
+      start.setDate(start.getDate() - 6);
+    }
+    if (datePreset === "month") {
+      start = startOfDay(now);
+      start.setDate(start.getDate() - 29);
+    }
+
     return history.filter((c) => {
       if (c.number_of_messages <= 0) return false;
-
-      const createdAtDate = new Date(c.created_at);
-      const start = filters.startDate ? new Date(filters.startDate) : null;
-      if (start) start.setHours(0, 0, 0, 0);
-      const end = filters.endDate ? new Date(filters.endDate) : null;
-      if (end) end.setHours(23, 59, 59, 999);
-      if (start && createdAtDate < start) return false;
-      if (end && createdAtDate > end) return false;
-
-      if (filters.tags.length > 0) {
-        if (!c.tags?.some((tagId) => filters.tags.includes(tagId))) return false;
+      const createdAt = new Date(c.created_at);
+      if (start && createdAt < start) return false;
+      if (selectedTags.length > 0) {
+        if (!c.tags?.some((tagId) => selectedTags.includes(tagId))) return false;
       }
-
       if (query) {
-        const title = (c.title || "").toLowerCase();
-        if (!title.includes(query)) return false;
+        const haystack = `${c.title || ""} ${c.summary || ""}`.toLowerCase();
+        if (!haystack.includes(query)) return false;
       }
-
       return true;
     });
-  }, [filters, history]);
+  }, [datePreset, history, selectedTags, title]);
 
-  const today = new Date().toLocaleDateString();
-  const todayItems = filteredHistory.filter(
-    (c) => new Date(c.created_at).toLocaleDateString() === today
-  );
-  const previousItems = filteredHistory.filter(
-    (c) => new Date(c.created_at).toLocaleDateString() !== today
-  );
+  const groups = useMemo(() => {
+    const sorted = [...filteredHistory].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+    const map = new Map<string, TConversation[]>();
+    sorted.forEach((conversation) => {
+      const key = dayKey(conversation.created_at);
+      const list = map.get(key) || [];
+      list.push(conversation);
+      map.set(key, list);
+    });
+    return [...map.entries()];
+  }, [filteredHistory]);
 
-  const filterByTag = (tagId: number) => {
-    setFilters((prev) => ({
-      ...prev,
-      tags: prev.tags.includes(tagId)
-        ? prev.tags.filter((id) => id !== tagId)
-        : [...prev.tags, tagId],
-    }));
-  };
-
-  const renderRow = (conversation: TConversation) => {
-    const tags = (conversation.tags || [])
-      .map((id) => tagById.get(id))
-      .filter((tag): tag is TTag => Boolean(tag));
-    return (
-      <UnstyledButton
-        key={conversation.id}
-        component={Link}
-        to={`/chat?conversation=${conversation.id}`}
-        w="100%"
-      >
-        <Card withBorder padding="md" radius="md">
-          <Group justify="space-between" align="flex-start" wrap="nowrap" gap="md">
-            <Stack gap={6} style={{ flex: 1, minWidth: 0 }}>
-              <Text fw={600} lineClamp={2}>
-                {conversation.title || conversation.id}
-              </Text>
-              {tags.length > 0 && (
-                <Group gap="xs" wrap="wrap">
-                  {tags.map((tag) => (
-                    <Badge
-                      key={tag.id}
-                      size="sm"
-                      variant="outline"
-                      color={tag.color || "violet"}
-                    >
-                      {tag.title}
-                    </Badge>
-                  ))}
-                </Group>
-              )}
-            </Stack>
-            <Text size="sm" c="dimmed" style={{ flexShrink: 0 }}>
-              {formatDate(conversation.created_at, i18n.language)}
-            </Text>
-          </Group>
-        </Card>
-      </UnstyledButton>
+  const toggleTag = (tagId: number) => {
+    setSelectedTags((prev) =>
+      prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]
     );
   };
 
-  return (
-    <AppPage title={t("conversations")}>
-        <Box maw={1100} w="100%" mx="auto">
-          <Stack gap="lg">
-            <Stack gap="xs">
-              <TextInput
-                placeholder={t("filter-conversations")}
-                value={filters.title}
-                leftSection={<IconSearch size={16} />}
-                onChange={(e) => {
-                  const val = e.currentTarget.value;
-                  setFilters((prev) => ({ ...prev, title: val }));
-                }}
-                radius="md"
-              />
-              <Group gap="xs" grow preventGrowOverflow wrap="wrap">
-                <DatePickerInput
-                  style={{ minWidth: 0, flex: 1 }}
-                  value={filters.startDate}
-                  onChange={(val) =>
-                    setFilters((prev) => ({
-                      ...prev,
-                      startDate: val as Date | null,
-                    }))
-                  }
-                  placeholder={t("start-date")}
-                  clearable
-                />
-                <DatePickerInput
-                  style={{ minWidth: 0, flex: 1 }}
-                  value={filters.endDate}
-                  onChange={(val) =>
-                    setFilters((prev) => ({
-                      ...prev,
-                      endDate: val as Date | null,
-                    }))
-                  }
-                  placeholder={t("end-date")}
-                  clearable
-                />
-              </Group>
-              {orgTags.filter((tag) => tag.enabled).length > 0 && (
-                <Group gap="xs" wrap="wrap">
-                  {orgTags
-                    .filter((tag) => tag.enabled)
-                    .map((tag) => (
-                      <Badge
-                        key={tag.id}
-                        variant={
-                          filters.tags.includes(tag.id) ? "filled" : "outline"
-                        }
-                        color={tag.color || "violet"}
-                        style={{ cursor: "pointer" }}
-                        onClick={() => filterByTag(tag.id)}
-                      >
-                        {tag.title}
-                      </Badge>
-                    ))}
-                </Group>
-              )}
-              <Group justify="flex-end">
-                <Button
-                  size="xs"
-                  variant="default"
-                  onClick={() =>
-                    setFilters({
-                      tags: [],
-                      startDate: null,
-                      endDate: null,
-                      title: "",
-                    })
-                  }
-                >
-                  {t("clean-filters")}
-                </Button>
-              </Group>
-            </Stack>
+  const enabledTags = orgTags.filter((tag) => tag.enabled);
 
-            {loading ? (
-              <Group justify="center" py="xl">
-                <Loader />
-              </Group>
-            ) : filteredHistory.length === 0 ? (
-              <Text c="dimmed" ta="center" py="xl">
-                {t("no-conversations")}
-              </Text>
-            ) : (
-              <Stack gap="lg">
-                {todayItems.length > 0 && (
-                  <Stack gap="xs">
-                    <Text size="sm" fw={600}>
-                      {t("today")}
-                    </Text>
-                    {todayItems.map(renderRow)}
-                  </Stack>
-                )}
-                {previousItems.length > 0 && (
-                  <Stack gap="xs">
-                    <Text size="sm" fw={600}>
-                      {t("previous-days")}
-                    </Text>
-                    {previousItems.map(renderRow)}
-                  </Stack>
-                )}
-              </Stack>
-            )}
-          </Stack>
-        </Box>
+  return (
+    <AppPage
+      title={t("conversations")}
+      right={
+        <Button
+          component={Link}
+          to="/chat"
+          leftSection={<IconPlus size={16} />}
+          variant="white"
+          color="dark"
+        >
+          {t("new-conversation")}
+        </Button>
+      }
+    >
+      <Box maw={1100} w="100%" mx="auto">
+        <Stack gap="lg">
+          <Group gap="sm" align="center" wrap="wrap">
+            <TextInput
+              placeholder={t("search-conversations-by")}
+              value={title}
+              leftSection={<IconSearch size={16} />}
+              onChange={(e) => setTitle(e.currentTarget.value)}
+              style={{ flex: "1 1 16rem" }}
+            />
+            <Select
+              value={datePreset}
+              onChange={(value) => {
+                if (
+                  value === "any" ||
+                  value === "today" ||
+                  value === "week" ||
+                  value === "month"
+                ) {
+                  setDatePreset(value);
+                }
+              }}
+              data={[
+                { value: "any", label: t("any-date") },
+                { value: "today", label: t("today") },
+                { value: "week", label: t("last-7-days") },
+                { value: "month", label: t("last-30-days") },
+              ]}
+              leftSection={<IconCalendar size={16} />}
+              allowDeselect={false}
+              w={200}
+            />
+          </Group>
+
+          {enabledTags.length > 0 && (
+            <Group gap="xs" wrap="wrap">
+              {enabledTags.map((tag) => {
+                const active = selectedTags.includes(tag.id);
+                return (
+                  <UnstyledButton
+                    key={tag.id}
+                    onClick={() => toggleTag(tag.id)}
+                    px="sm"
+                    py={6}
+                    style={{
+                      borderRadius: 999,
+                      border: `1px solid ${
+                        active
+                          ? tagDotColor(tag.color)
+                          : "var(--mantine-color-dark-4)"
+                      }`,
+                    }}
+                  >
+                    <TagChip tag={tag} />
+                  </UnstyledButton>
+                );
+              })}
+            </Group>
+          )}
+
+          {loading ? (
+            <Group justify="center" py="xl">
+              <Loader />
+            </Group>
+          ) : groups.length === 0 ? (
+            <Text c="dimmed" ta="center" py="xl">
+              {t("no-conversations")}
+            </Text>
+          ) : (
+            <Stack gap="lg">
+              {groups.map(([key, items]) => (
+                <Stack key={key} gap="xs">
+                  <Text size="sm" c="dimmed">
+                    {formatDay(items[0].created_at, i18n.language)}
+                  </Text>
+                  {items.map((conversation) => {
+                    const tags = (conversation.tags || [])
+                      .map((id) => tagById.get(id))
+                      .filter((tag): tag is TTag => Boolean(tag))
+                      .sort((a, b) => {
+                        const aOn = selectedTags.includes(a.id) ? 0 : 1;
+                        const bOn = selectedTags.includes(b.id) ? 0 : 1;
+                        return aOn - bOn;
+                      });
+                    return (
+                      <UnstyledButton
+                        key={conversation.id}
+                        component={Link}
+                        to={`/chat?conversation=${conversation.id}`}
+                        w="100%"
+                        px="sm"
+                        py="sm"
+                        style={{ borderRadius: 12 }}
+                        styles={{
+                          root: {
+                            "&:hover": {
+                              background: "var(--mantine-color-dark-6)",
+                            },
+                          },
+                        }}
+                      >
+                        <Group wrap="nowrap" gap="sm">
+                          <Box
+                            w={36}
+                            h={36}
+                            style={{
+                              borderRadius: 10,
+                              background: "var(--mantine-color-dark-6)",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              flexShrink: 0,
+                            }}
+                          >
+                            <IconMessage size={16} />
+                          </Box>
+                          <Text fw={600} lineClamp={1} style={{ flex: 1, minWidth: 0 }}>
+                            {conversation.title || conversation.id}
+                          </Text>
+                          {tags[0] && <TagChip tag={tags[0]} />}
+                          <Text size="sm" c="dimmed" style={{ flexShrink: 0 }}>
+                            {formatTime(conversation.created_at, i18n.language)}
+                          </Text>
+                        </Group>
+                      </UnstyledButton>
+                    );
+                  })}
+                </Stack>
+              ))}
+            </Stack>
+          )}
+        </Stack>
+      </Box>
     </AppPage>
   );
 }

@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useStore } from "../../modules/store";
 import { AppPage } from "../../components/AppPage/AppPage";
 import { getUser, updateUser } from "../../modules/apiCalls";
@@ -34,13 +35,14 @@ import {
   Slider,
   Stack,
   Switch,
+  Tabs,
   Text,
   Textarea,
   TextInput,
-  Title,
 } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
 import {
+  IconAdjustments,
   IconDeviceFloppy,
   IconMoon,
   IconDeviceDesktop,
@@ -48,6 +50,8 @@ import {
   IconSun,
   IconTrash,
   IconUpload,
+  IconUser,
+  IconUserCircle,
   IconVolume,
   IconPlayerPlay,
 } from "@tabler/icons-react";
@@ -59,12 +63,23 @@ import {
   phoneCountrySelectData,
 } from "../../utils/countryDialCodes";
 
+type SettingsTab = "user" | "preferences" | "notifications" | "profile";
+
+function parseSettingsTab(raw: string | null): SettingsTab {
+  if (raw === "preferences") return "preferences";
+  if (raw === "notifications") return "notifications";
+  if (raw === "profile") return "profile";
+  return "user";
+}
+
 export default function SettingsPage() {
   const { user, setUser } = useStore((s) => ({
     user: s.user,
     setUser: s.setUser,
   }));
   const { t } = useTranslation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = parseSettingsTab(searchParams.get("tab"));
 
   useEffect(() => {
     if (!user) {
@@ -72,18 +87,57 @@ export default function SettingsPage() {
     }
   }, []);
 
+  const setActiveTab = (value: string | null) => {
+    if (!value) return;
+    const next = new URLSearchParams(searchParams);
+    if (value === "user") {
+      next.delete("tab");
+    } else {
+      next.set("tab", value);
+    }
+    setSearchParams(next, { replace: true });
+  };
+
   return (
     <AppPage title={t("settings")}>
         <Box px="md" w="100%" maw="42rem" mx="auto">
-          <Stack gap="lg">
-            <UserSection />
-            <Divider />
-            <PreferencesSection />
-            <Divider />
-            <NotificationSoundsSection />
-            <Divider />
-            <ProfileSection />
-          </Stack>
+          <Tabs value={activeTab} onChange={setActiveTab}>
+            <Tabs.List mb="md">
+              <Tabs.Tab value="user" leftSection={<IconUser size={16} />}>
+                {t("user")}
+              </Tabs.Tab>
+              <Tabs.Tab
+                value="preferences"
+                leftSection={<IconAdjustments size={16} />}
+              >
+                {t("preferences")}
+              </Tabs.Tab>
+              <Tabs.Tab
+                value="notifications"
+                leftSection={<IconVolume size={16} />}
+              >
+                {t("notification-sounds")}
+              </Tabs.Tab>
+              <Tabs.Tab
+                value="profile"
+                leftSection={<IconUserCircle size={16} />}
+              >
+                {t("profile")}
+              </Tabs.Tab>
+            </Tabs.List>
+            <Tabs.Panel value="user">
+              <UserSection />
+            </Tabs.Panel>
+            <Tabs.Panel value="preferences">
+              <PreferencesSection />
+            </Tabs.Panel>
+            <Tabs.Panel value="notifications">
+              <NotificationSoundsSection />
+            </Tabs.Panel>
+            <Tabs.Panel value="profile">
+              <ProfileSection />
+            </Tabs.Panel>
+          </Tabs>
         </Box>
     </AppPage>
   );
@@ -156,9 +210,6 @@ const UserSection = () => {
 
   return (
     <Card withBorder p="lg">
-      <Title order={4} mb="md">
-        {t("user")}
-      </Title>
       <Stack gap="sm">
         <TextInput
           label={t("username")}
@@ -253,10 +304,6 @@ const PreferencesSection = () => {
 
   return (
     <Card withBorder p="lg">
-      <Title order={4} mb="md">
-        {t("preferences")}
-      </Title>
-
       <Stack gap="md">
         {}
         <NativeSelect
@@ -390,11 +437,6 @@ const NotificationSoundsSection = () => {
 
   return (
     <Card withBorder p="lg">
-      <Group gap="xs" mb="md">
-        <IconVolume size={20} />
-        <Title order={4}>{t("notification-sounds")}</Title>
-      </Group>
-
       <Stack gap="md">
         <Switch
           label={t("notification-sounds-enabled")}
@@ -712,9 +754,6 @@ const ProfileSection = () => {
 
   return (
     <Card withBorder p="lg">
-      <Title order={4} mb={4}>
-        {t("profile")}
-      </Title>
       <Text size="sm" c="dimmed" mb="md">
         {t("profile-helptext")}
       </Text>
