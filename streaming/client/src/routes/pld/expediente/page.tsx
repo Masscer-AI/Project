@@ -129,7 +129,7 @@ export default function MyPldExpedientePage() {
 
   return (
     <AppPage title={t("compliance-my-expediente-title")}>
-        <Box px="md" w="100%" maw="52rem" mx="auto">
+        <Box px="md" w="100%" maw="72rem" mx="auto">
           <Text ta="center" c="dimmed" mb="lg" size="sm" mt="md">
             {t("compliance-my-expediente-description")}
           </Text>
@@ -143,18 +143,64 @@ export default function MyPldExpedientePage() {
             </Text>
           ) : (
             <Stack gap="md">
-              {rows.map((row) => (
+              {rows.map((row) => {
+                const onDossier =
+                  reviewingIds[row.id] ||
+                  DOSSIER_LOCKED_STATUSES.has(row.expedient?.status || "");
+                const reset = row.expedient ? (
+                  <ResetExpedienteButton
+                    entityId={row.id}
+                    onReset={(next) => {
+                      setRows((prev) =>
+                        prev.map((item) => (item.id === next.id ? next : item))
+                      );
+                      setReviewingIds((prev) => ({
+                        ...prev,
+                        [next.id]: false,
+                      }));
+                    }}
+                  />
+                ) : null;
+                if (!onDossier) {
+                  return (
+                    <PldIntakeForm
+                      key={row.id}
+                      row={row}
+                      headerExtra={reset}
+                      onSaved={(next) =>
+                        setRows((prev) =>
+                          prev.map((item) => (item.id === next.id ? next : item))
+                        )
+                      }
+                      documents={
+                        <PldDocumentCollection
+                          embedded
+                          row={row}
+                          onSaved={(next) =>
+                            setRows((prev) =>
+                              prev.map((item) =>
+                                item.id === next.id ? next : item
+                              )
+                            )
+                          }
+                          onContinue={() =>
+                            setReviewingIds((prev) => ({
+                              ...prev,
+                              [row.id]: true,
+                            }))
+                          }
+                        />
+                      }
+                    />
+                  );
+                }
+                return (
                 <Card key={row.id} withBorder p="md">
                   <Group justify="space-between" align="flex-start">
                     <Stack gap={2}>
                       <Text fw={500}>{row.name}</Text>
                       <Text size="sm" c="dimmed">
                         {row.organization_name}
-                      </Text>
-                      <Text size="xs" c="dimmed">
-                        {row.person_type === "persona_moral"
-                          ? t("compliance-intake-moral-section")
-                          : t("compliance-intake-fisica-section")}
                       </Text>
                     </Stack>
                     <Group gap="xs">
@@ -165,26 +211,10 @@ export default function MyPldExpedientePage() {
                           })}
                         </Badge>
                       )}
-                      {row.expedient && (
-                        <ResetExpedienteButton
-                          entityId={row.id}
-                          onReset={(next) => {
-                            setRows((prev) =>
-                              prev.map((item) =>
-                                item.id === next.id ? next : item
-                              )
-                            );
-                            setReviewingIds((prev) => ({
-                              ...prev,
-                              [next.id]: false,
-                            }));
-                          }}
-                        />
-                      )}
+                      {reset}
                     </Group>
                   </Group>
-                  {reviewingIds[row.id] ||
-                  DOSSIER_LOCKED_STATUSES.has(row.expedient?.status || "") ? (
+                  {onDossier ? (
                     <PldIdentificationDossier
                       row={row}
                       onSaved={(next) =>
@@ -202,31 +232,10 @@ export default function MyPldExpedientePage() {
                               }))
                       }
                     />
-                  ) : (
-                    <>
-                      <PldIntakeForm
-                        row={row}
-                        onSaved={(next) =>
-                          setRows((prev) =>
-                            prev.map((item) => (item.id === next.id ? next : item))
-                          )
-                        }
-                      />
-                      <PldDocumentCollection
-                        row={row}
-                        onSaved={(next) =>
-                          setRows((prev) =>
-                            prev.map((item) => (item.id === next.id ? next : item))
-                          )
-                        }
-                        onContinue={() =>
-                          setReviewingIds((prev) => ({ ...prev, [row.id]: true }))
-                        }
-                      />
-                    </>
-                  )}
+                  ) : null}
                 </Card>
-              ))}
+                );
+              })}
             </Stack>
           )}
         </Box>

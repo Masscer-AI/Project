@@ -78,10 +78,12 @@ export function PldDocumentCollection({
   row,
   onSaved,
   onContinue,
+  embedded = false,
 }: {
   row: TMyPldExpedient;
   onSaved: (next: TMyPldExpedient) => void;
   onContinue: () => void;
+  embedded?: boolean;
 }) {
   const { t } = useTranslation();
   const [busySlot, setBusySlot] = useState<string | null>(null);
@@ -159,51 +161,11 @@ export function PldDocumentCollection({
     }
   };
 
-  if (!documentsUnlocked) {
-    return (
-      <Accordion variant="separated" radius="md" mt="md">
-        <Accordion.Item value="documents">
-          <Accordion.Control>
-            <Group gap="xs" wrap="nowrap" justify="space-between" pr="sm">
-              <Text fw={500}>{t("compliance-doc-section")}</Text>
-              <Badge size="xs" variant="light" color="gray">
-                {t("compliance-intake-section-pending")}
-              </Badge>
-            </Group>
-          </Accordion.Control>
-          <Accordion.Panel>
-            <Text size="sm" c="dimmed">
-              {t("compliance-doc-locked")}
-            </Text>
-          </Accordion.Panel>
-        </Accordion.Item>
-      </Accordion>
-    );
-  }
-
-  return (
-    <Accordion variant="separated" radius="md" mt="md" defaultValue="documents">
-      <Accordion.Item value="documents">
-        <Accordion.Control>
-          <Group gap="xs" wrap="nowrap" justify="space-between" pr="sm">
-            <Text fw={500}>{t("compliance-doc-section")}</Text>
-            <Badge
-              size="xs"
-              variant="light"
-              color={
-                canContinue ? "teal" : requiredFailed ? "red" : "violet"
-              }
-            >
-              {required.length > 0
-                ? t("compliance-doc-progress", {
-                    uploaded: String(uploadedRequired),
-                    total: String(required.length),
-                  })
-                : t("compliance-intake-section-pending")}
-            </Badge>
-          </Group>
-        </Accordion.Control>
-        <Accordion.Panel>
+  const body = !documentsUnlocked ? (
+    <Text size="sm" c="dimmed">
+      {t("compliance-doc-locked")}
+    </Text>
+  ) : (
           <Stack gap="sm">
       <Text size="sm" c="dimmed">
         {t("compliance-doc-description")}
@@ -323,7 +285,17 @@ export function PldDocumentCollection({
         onClose={() => setInspectSlot(null)}
       />
           </Stack>
-        </Accordion.Panel>
+  );
+
+  if (embedded) return body;
+
+  return (
+    <Accordion variant="separated" radius="md" mt="md" defaultValue="documents">
+      <Accordion.Item value="documents">
+        <Accordion.Control>
+          <Text fw={500}>{t("compliance-doc-section")}</Text>
+        </Accordion.Control>
+        <Accordion.Panel>{body}</Accordion.Panel>
       </Accordion.Item>
     </Accordion>
   );

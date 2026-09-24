@@ -2,23 +2,26 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Autocomplete,
-  Accordion,
   ActionIcon,
   Badge,
+  Box,
   Button,
   Card,
   Group,
   Loader,
   NativeSelect,
+  Progress,
   Select,
   Stack,
   Switch,
   Text,
   TextInput,
   Title,
+  UnstyledButton,
 } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
-import { IconPlus, IconTrash } from "@tabler/icons-react";
+import { useMediaQuery } from "@mantine/hooks";
+import { IconCircleCheck, IconPlus, IconTrash } from "@tabler/icons-react";
 import { lookupPostalCode, TMyPldExpedient, updateMyPldExpedient } from "../../../modules/apiCalls";
 import { countryNameSelectData, formatInternationalPhone, getDialCodeForIso, phoneCountrySelectData, splitInternationalPhone } from "../../../utils/countryDialCodes";
 import { matchSubdivisionName, subdivisionSelectData } from "../../../utils/countrySubdivisions";
@@ -258,20 +261,6 @@ function showIssuingAuthority(documentType: string): boolean {
   return documentType === "other" || documentType === "professional_license";
 }
 
-function SectionStatus({
-  done,
-  t,
-}: {
-  done: boolean;
-  t: (key: string) => string;
-}) {
-  return (
-    <Badge size="xs" variant="light" color={done ? "teal" : "violet"}>
-      {done ? t("compliance-intake-section-done") : t("compliance-intake-section-pending")}
-    </Badge>
-  );
-}
-
 function compactAddress(address: AddressFields): AddressFields | undefined {
   const hasValue = Object.values(address).some((value) => value.trim());
   return hasValue ? address : undefined;
@@ -359,11 +348,16 @@ const AUTOSAVE_MS = 700;
 export function PldIntakeForm({
   row,
   onSaved,
+  documents,
+  headerExtra,
 }: {
   row: TMyPldExpedient;
   onSaved: (next: TMyPldExpedient) => void;
+  documents?: React.ReactNode;
+  headerExtra?: React.ReactNode;
 }) {
   const { t } = useTranslation();
+  const isNarrow = useMediaQuery("(max-width: 62em)");
   const isMoral = row.person_type === "persona_moral";
   const [form, setForm] = useState<FormState>(() => fromMetadata(row));
   const [sync, setSync] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -532,9 +526,14 @@ export function PldIntakeForm({
     form.controllers.some(
       (item) => filled(item.name) && item.email.includes("@")
     );
+  const requiredDocs = (row.document_slots || []).filter((slot) => slot.required);
+  const uploadedDocs = requiredDocs.filter((slot) => slot.document).length;
+  const missingDocs = Math.max(requiredDocs.length - uploadedDocs, 0);
+  const documentsDone =
+    requiredDocs.length > 0 && uploadedDocs === requiredDocs.length;
   const sectionOrder = isMoral
-    ? ["entity", "address", "representative", "controller"]
-    : ["entity", "address", "identification", "controller"];
+    ? ["entity", "address", "representative", "controller", "documents"]
+    : ["entity", "address", "identification", "controller", "documents"];
   const goNextSection = () => {
     const index = sectionOrder.indexOf(openedSection || "entity");
     const next = sectionOrder[index + 1];
@@ -596,63 +595,206 @@ export function PldIntakeForm({
     };
   }, [row.id]);
 
-  return (
-    <Stack gap="sm" mt="md">
-      <Group justify="space-between" align="flex-start" gap="sm">
-        <Title order={5}>
-          {isMoral
-            ? t("compliance-intake-moral-section")
-            : t("compliance-intake-fisica-section")}
-        </Title>
-        <Text
-          size="xs"
-          c={sync === "error" ? "red" : "dimmed"}
-          style={sync === "error" ? { cursor: "pointer" } : undefined}
-          onClick={
-            sync === "error"
-              ? () => {
-                  dirty.current = true;
-                  void flushSave();
-                }
-              : undefined
-          }
-        >
-          {sync === "saving"
-            ? t("compliance-intake-sync-saving")
-            : sync === "saved"
-              ? t("compliance-intake-sync-saved")
-              : sync === "error"
-                ? t("compliance-intake-sync-error")
-                : null}
-        </Text>
-      </Group>
-      <Text size="sm" c="dimmed">
-        {row.expedient?.status && row.expedient.status !== "data_collection"
-          ? t("compliance-intake-data-saved-hint")
-          : t("compliance-intake-documents-later")}
-      </Text>
-      <Text size="sm" c="dimmed">
-        {t("compliance-intake-required-legend")}
-      </Text>
+  const sectionMeta: Record<string, { label: string; done: boolean; hint: string }> = {
+    entity: {
+      label: isMoral
+        ? t("compliance-intake-section-entity-moral")
+        : t("compliance-intake-section-entity-fisica"),
+      done: entityDone,
+      hint: entityDone
+        ? t("compliance-intake-section-done")
+        : t("compliance-intake-section-pending"),
+    },
+    address: {
+      label: t("compliance-intake-address"),
+      done: addressDone,
+      hint: addressDone
+        ? t("compliance-intake-section-done")
+        : t("compliance-intake-section-pending"),
+    },
+    identification: {
+      label: t("compliance-intake-identification"),
+      done: idDone,
+      hint: idDone
+        ? t("compliance-intake-section-done")
+        : t("compliance-intake-section-pending"),
+    },
+    representative: {
+      label: t("compliance-intake-representative"),
+      done: representativeDone,
+      hint: representativeDone
+        ? t("compliance-intake-section-done")
+        : t("compliance-intake-section-pending"),
+    },
+    controller: {
+      label: t("compliance-intake-controller"),
+      done: controllerDone,
+      hint: controllerDone
+        ? t("compliance-intake-section-done")
+        : t("compliance-intake-section-pending"),
+    },
+    documents: {
+      label: t("compliance-doc-section"),
+      done: documentsDone,
+      hint:
+        requiredDocs.length > 0
+          ? t("compliance-doc-progress-short", {
+              uploaded: String(uploadedDocs),
+              total: String(requiredDocs.length),
+            })
+          : t("compliance-intake-section-pending"),
+    },
+  };
+  const doneCount = sectionOrder.filter((id) => sectionMeta[id]?.done).length;
+  const active = openedSection || "entity";
+  const activeIndex = sectionOrder.indexOf(active);
+  const nextId = sectionOrder[activeIndex + 1];
+  const syncLabel =
+    sync === "saving"
+      ? t("compliance-intake-sync-saving")
+      : sync === "error"
+        ? t("compliance-intake-sync-error")
+        : t("compliance-intake-sync-saved");
+  const statusKey = row.expedient?.status
+    ? t(`compliance-status-${row.expedient.status}`, {
+        defaultValue: row.expedient.status,
+      })
+    : "";
 
-      <Accordion
-        variant="separated"
-        radius="md"
-        value={openedSection}
-        onChange={setOpenedSection}
-      >
-        <Accordion.Item value="entity">
-          <Accordion.Control>
-            <Group gap="xs" wrap="nowrap" justify="space-between" pr="sm">
-              <Text fw={500}>
-                {isMoral
-                  ? t("compliance-intake-section-entity-moral")
-                  : t("compliance-intake-section-entity-fisica")}
+  return (
+    <Stack gap="md">
+      <Group justify="space-between" align="flex-start" wrap="nowrap">
+        <Stack gap={2}>
+          <Text size="xs" c="dimmed">
+            {t("compliance-expediente-requested-by", {
+              name: row.organization_name,
+            })}
+          </Text>
+          <Title order={3}>{row.name}</Title>
+          <Text size="sm" c="dimmed">
+            {isMoral
+              ? t("compliance-intake-moral-section")
+              : t("compliance-intake-fisica-section")}
+            {" · "}
+            <Text
+              span
+              c={sync === "error" ? "red" : "teal"}
+              style={sync === "error" ? { cursor: "pointer" } : undefined}
+              onClick={
+                sync === "error"
+                  ? () => {
+                      dirty.current = true;
+                      void flushSave();
+                    }
+                  : undefined
+              }
+            >
+              {syncLabel}
+            </Text>
+          </Text>
+        </Stack>
+        {headerExtra}
+      </Group>
+
+      <Stack gap={6}>
+        <Group justify="space-between" gap="sm">
+          <Text size="xs" c="dimmed">
+            {missingDocs > 0
+              ? t("compliance-expediente-docs-missing", {
+                  count: String(missingDocs),
+                })
+              : t("compliance-expediente-docs-done")}
+          </Text>
+          <Text size="xs" c="dimmed">
+            {t("compliance-expediente-sections-done", {
+              done: String(doneCount),
+              total: String(sectionOrder.length),
+            })}
+          </Text>
+          {statusKey ? (
+            <Badge
+              variant="light"
+              color="violet"
+              size="sm"
+              styles={{ label: { textTransform: "none" } }}
+            >
+              {t("compliance-expediente-stage", { status: statusKey })}
+            </Badge>
+          ) : null}
+        </Group>
+        <Progress
+          value={(doneCount / sectionOrder.length) * 100}
+          color="teal"
+          size="sm"
+          radius="xl"
+        />
+      </Stack>
+
+      <Group align="flex-start" wrap={isNarrow ? "wrap" : "nowrap"} gap="md">
+        <Stack gap={4} w={isNarrow ? "100%" : 240} style={{ flexShrink: 0 }}>
+          {sectionOrder.map((id, index) => {
+            const meta = sectionMeta[id];
+            const selected = active === id;
+            return (
+              <UnstyledButton
+                key={id}
+                onClick={() => setOpenedSection(id)}
+                style={{
+                  borderRadius: 12,
+                  padding: "10px 12px",
+                  background: selected
+                    ? "var(--mantine-color-dark-6)"
+                    : "transparent",
+                  border: selected
+                    ? "1px solid var(--mantine-color-dark-4)"
+                    : "1px solid transparent",
+                }}
+              >
+                <Group gap="sm" wrap="nowrap" align="flex-start">
+                  {meta.done ? (
+                    <IconCircleCheck size={18} color="var(--mantine-color-teal-5)" />
+                  ) : (
+                    <Box
+                      w={18}
+                      h={18}
+                      style={{
+                        borderRadius: 99,
+                        border: "1px solid var(--mantine-color-yellow-5)",
+                        color: "var(--mantine-color-yellow-5)",
+                        fontSize: 11,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {index + 1}
+                    </Box>
+                  )}
+                  <Stack gap={0}>
+                    <Text size="sm" fw={600}>
+                      {meta.label}
+                    </Text>
+                    <Text size="xs" c={meta.done ? "dimmed" : "yellow"}>
+                      {meta.hint}
+                    </Text>
+                  </Stack>
+                </Group>
+              </UnstyledButton>
+            );
+          })}
+        </Stack>
+
+        <Card withBorder radius="md" p="md" style={{ flex: 1, minWidth: 0 }}>
+          <Stack gap={2} mb="md">
+            <Title order={4}>{sectionMeta[active]?.label}</Title>
+            {active !== "documents" && (
+              <Text size="sm" c="dimmed">
+                {t("compliance-intake-required-legend")}
               </Text>
-              <SectionStatus done={entityDone} t={t} />
-            </Group>
-          </Accordion.Control>
-          <Accordion.Panel>
+            )}
+          </Stack>
+          {active === "entity" && (
             <Stack gap="sm">
       {isMoral ? (
         <TextInput
@@ -786,21 +928,9 @@ export function PldIntakeForm({
           onChange={(e) => setField("email", e.currentTarget.value)}
         />
       </Group>
-              <Button variant="default" size="xs" onClick={goNextSection} w="fit-content">
-                {t("compliance-intake-next-section")}
-              </Button>
             </Stack>
-          </Accordion.Panel>
-        </Accordion.Item>
-
-        <Accordion.Item value="address">
-          <Accordion.Control>
-            <Group gap="xs" wrap="nowrap" justify="space-between" pr="sm">
-              <Text fw={500}>{t("compliance-intake-address")}</Text>
-              <SectionStatus done={addressDone} t={t} />
-            </Group>
-          </Accordion.Control>
-          <Accordion.Panel>
+          )}
+          {active === "address" && (
             <Stack gap="sm">
       <Text size="sm" c="dimmed">
         {t("compliance-intake-postal-lookup-hint")}
@@ -901,22 +1031,9 @@ export function PldIntakeForm({
           onChange={(e) => setAddress("interior_number", e.currentTarget.value)}
         />
       </Group>
-              <Button variant="default" size="xs" onClick={goNextSection} w="fit-content">
-                {t("compliance-intake-next-section")}
-              </Button>
             </Stack>
-          </Accordion.Panel>
-        </Accordion.Item>
-
-      {!isMoral && (
-        <Accordion.Item value="identification">
-          <Accordion.Control>
-            <Group gap="xs" wrap="nowrap" justify="space-between" pr="sm">
-              <Text fw={500}>{t("compliance-intake-identification")}</Text>
-              <SectionStatus done={idDone} t={t} />
-            </Group>
-          </Accordion.Control>
-          <Accordion.Panel>
+          )}
+          {!isMoral && active === "identification" && (
             <Stack gap="sm">
           <Group grow>
             <NativeSelect
@@ -941,23 +1058,9 @@ export function PldIntakeForm({
               onChange={(e) => setField("id_issuing_authority", e.currentTarget.value)}
             />
           )}
-              <Button variant="default" size="xs" onClick={goNextSection} w="fit-content">
-                {t("compliance-intake-next-section")}
-              </Button>
             </Stack>
-          </Accordion.Panel>
-        </Accordion.Item>
-      )}
-
-      {isMoral && (
-        <Accordion.Item value="representative">
-          <Accordion.Control>
-            <Group gap="xs" wrap="nowrap" justify="space-between" pr="sm">
-              <Text fw={500}>{t("compliance-intake-representative")}</Text>
-              <SectionStatus done={representativeDone} t={t} />
-            </Group>
-          </Accordion.Control>
-          <Accordion.Panel>
+          )}
+          {isMoral && active === "representative" && (
             <Stack gap="sm">
           <Text size="sm" c="dimmed">
             {t("compliance-intake-representative-hint")}
@@ -1025,22 +1128,9 @@ export function PldIntakeForm({
               }
             />
           )}
-              <Button variant="default" size="xs" onClick={goNextSection} w="fit-content">
-                {t("compliance-intake-next-section")}
-              </Button>
             </Stack>
-          </Accordion.Panel>
-        </Accordion.Item>
-      )}
-
-        <Accordion.Item value="controller">
-          <Accordion.Control>
-            <Group gap="xs" wrap="nowrap" justify="space-between" pr="sm">
-              <Text fw={500}>{t("compliance-intake-controller")}</Text>
-              <SectionStatus done={controllerDone} t={t} />
-            </Group>
-          </Accordion.Control>
-          <Accordion.Panel>
+          )}
+          {active === "controller" && (
             <Stack gap="sm">
               <Text size="sm" c="dimmed">
                 {isMoral
@@ -1134,9 +1224,22 @@ export function PldIntakeForm({
                 </Stack>
               )}
             </Stack>
-          </Accordion.Panel>
-        </Accordion.Item>
-      </Accordion>
+          )}
+          {active === "documents" && documents}
+          <Group justify="space-between" mt="lg" align="center">
+            <Text size="xs" c="dimmed">
+              {t("compliance-expediente-autosave")}
+            </Text>
+            {nextId ? (
+              <Button variant="default" onClick={goNextSection}>
+                {t("compliance-expediente-next", {
+                  name: sectionMeta[nextId]?.label || "",
+                })}
+              </Button>
+            ) : null}
+          </Group>
+        </Card>
+      </Group>
     </Stack>
   );
 }
