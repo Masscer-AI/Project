@@ -1,22 +1,20 @@
 import React, { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import MindMapper from "../../components/Plugins/MindMapper";
-import { Sidebar } from "../../components/Sidebar/Sidebar";
+import { AppPage } from "../../components/AppPage/AppPage";
 import { useStore } from "../../modules/store";
 
 export default function WorkflowsPage() {
-  const { chatState, startup } = useStore((state) => ({
-    chatState: state.chatState,
-    startup: state.startup,
-  }));
+  const { t } = useTranslation();
+  const startup = useStore((state) => state.startup);
 
   useEffect(() => {
     startup();
   }, []);
 
   return (
-    <main className="d-flex pos-relative h-viewport">
-      {chatState.isSidebarOpened && <Sidebar />}
+    <AppPage title={t("workflows")} pad={false}>
       <MindMapper />
-    </main>
+    </AppPage>
   );
 }

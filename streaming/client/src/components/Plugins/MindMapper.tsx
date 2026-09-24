@@ -19,7 +19,6 @@ import "./MindMapper.css";
 import { NodeTemplate } from "./NodeTemplate";
 import { PromptNode } from "./PromptNode";
 import { ActionIcon, Button, Menu, TextInput } from "@mantine/core";
-import { OpenSidebarButton } from "../OpenSidebarButton/OpenSidebarButton";
 import {
   IconPlus,
   IconDownload,
@@ -280,8 +279,6 @@ const MindMapper = () => {
   return (
     <div className="mind-mapper">
       <div className="mind-mapper-header">
-        <OpenSidebarButton flush />
-
         <Menu position="bottom" withinPortal>
           <Menu.Target>
             <ActionIcon variant="subtle" color="gray">
