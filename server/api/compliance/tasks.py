@@ -36,7 +36,7 @@ def _save_extraction_fields(doc, fields: list[str], document_id: str) -> bool:
 
 
 @shared_task
-def extract_pld_expedient_document(document_id: str):
+def extract_pld_expedient_document(document_id: str, language: str = "en"):
     from django.utils import timezone
 
     from api.compliance.document_extraction import extract_document
@@ -53,7 +53,7 @@ def extract_pld_expedient_document(document_id: str):
         return
 
     try:
-        parsed = extract_document(doc)
+        parsed = extract_document(doc, language=language)
         payload = parsed.model_dump(mode="json")
         from api.compliance.document_extraction.meta import extraction_meta
 

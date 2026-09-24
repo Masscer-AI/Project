@@ -932,7 +932,7 @@ class PLDDocumentExtractionTests(TestCase):
         self.assertEqual(slot["document"]["extraction_status"], "pending")
         self.assertEqual(slot["document"]["extracted_payload"], {})
         doc = PLDExpedientDocument.objects.get()
-        delay.assert_called_once_with(str(doc.id))
+        delay.assert_called_once_with(str(doc.id), "en")
 
     def test_reset_expedient_wipes_and_keeps_row(self):
         from django.core.files.base import ContentFile
@@ -1084,6 +1084,7 @@ class PLDDocumentExtractionTests(TestCase):
         self.assertEqual(kwargs["repair_model"], "gpt-5.6-luna")
         self.assertEqual(kwargs["tools"][0]["name"], "fill_form_variable")
         self.assertEqual(kwargs["max_iterations"], 8)
+        self.assertIn("English", kwargs["instructions"])
         run_payload = loop.run.call_args[0][0]
         content = run_payload[0]["content"]
         self.assertEqual(content[0]["type"], "input_text")
@@ -2272,7 +2273,7 @@ class FillFormVariableTests(TestCase):
                 "total_tokens": 0,
             },
         )
-        extract_pld_expedient_document(str(doc.id))
+        extract_pld_expedient_document(str(doc.id), "es")
         self.entity.refresh_from_db()
         self.assertEqual(
             self.entity.metadata.get("legal_name"), "Construcciones Ruble SA"
@@ -2282,6 +2283,7 @@ class FillFormVariableTests(TestCase):
         self.assertEqual(self.entity.metadata.get("economic_activity"), "Construccion")
         self.assertEqual(self.entity.metadata.get("address", {}).get("city"), "Monterrey")
         self.assertEqual(create_loop.call_args.kwargs["tools"][0]["name"], "fill_form_variable")
+        self.assertIn("Spanish", create_loop.call_args.kwargs["instructions"])
 
 
 class FetchUrlToolTests(SimpleTestCase):

@@ -62,7 +62,7 @@ function ClarificationCard({
   item: TPldClarificationRequest;
   onSaved: (next: TMyPldExpedient) => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [text, setText] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
@@ -88,7 +88,12 @@ function ClarificationCard({
     if (!file) return;
     setBusy(true);
     try {
-      const saved = await uploadMyPldExpedientDocument(rowId, item.slot_key, file);
+      const saved = await uploadMyPldExpedientDocument(
+        rowId,
+        item.slot_key,
+        file,
+        i18n.language
+      );
       onSaved(saved);
       toast.success(t("compliance-clarify-uploaded"));
     } catch {

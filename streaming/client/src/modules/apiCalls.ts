@@ -2632,11 +2632,13 @@ export const answerMyPldClarification = async (
 export const uploadMyPldExpedientDocument = async (
   entityId: string,
   slotKey: string,
-  file: File
+  file: File,
+  language = "en"
 ) => {
   const formData = new FormData();
   formData.append("slot_key", slotKey);
   formData.append("file", file);
+  formData.append("language", language);
   return makeAuthenticatedRequest<TMyPldExpedient>(
     "POST",
     `/v1/compliance/my-expedients/${entityId}/documents/`,

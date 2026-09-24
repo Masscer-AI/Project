@@ -141,7 +141,7 @@ export function PldDocumentCollection({
   isMoral?: boolean;
   showContinue?: boolean;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [busySlot, setBusySlot] = useState<string | null>(null);
   const [inspectSlot, setInspectSlot] = useState<TPldDocumentSlot | null>(null);
   const allSlots = row.document_slots || [];
@@ -192,7 +192,8 @@ export function PldDocumentCollection({
       const saved = await uploadMyPldExpedientDocument(
         row.id,
         slot.slot_key,
-        file
+        file,
+        i18n.language
       );
       onSaved(saved);
       toast.success(t("compliance-doc-uploaded"));

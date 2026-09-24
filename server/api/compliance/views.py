@@ -907,7 +907,10 @@ class MyPLDExpedientDocumentView(View):
         doc.save()
         from api.compliance.tasks import extract_pld_expedient_document
 
-        extract_pld_expedient_document.delay(str(doc.id))
+        extract_pld_expedient_document.delay(
+            str(doc.id),
+            (request.POST.get("language") or "en").strip(),
+        )
         return JsonResponse(_reload_my_expedient_row(entity.pk), status=200)
 
 

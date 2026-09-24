@@ -16,6 +16,20 @@ from api.compliance.document_extraction.schemas import (
 
 logger = logging.getLogger(__name__)
 
+
+def _app_language(raw: str | None) -> str:
+    text = (raw or "").strip().lower()
+    if text.startswith("es"):
+        return "es"
+    return "en"
+
+
+def _summary_language_rule(language: str) -> str:
+    if _app_language(language) == "es":
+        return "Write the summary field in Spanish, the language of the invitee's app."
+    return "Write the summary field in English, the language of the invitee's app."
+
+
 _SHARED_RULES = (
     "The document is attached to this message. "
     "Fill every property on this document's JSON schema first; those names are the "
@@ -217,11 +231,15 @@ def _billing_for_document(doc) -> tuple[int | None, object]:
     return user_id, org_id
 
 
-def extract_document(doc) -> PldExtraction:
+def extract_document(doc, language: str = "en") -> PldExtraction:
     """Run gpt-5.6-luna AgentLoop and return a validated extraction model."""
     kind = doc.document_kind
     schema = schema_for_kind(kind)
-    instructions = INSTRUCTIONS_BY_KIND.get(kind) or _SHARED_RULES
+    instructions = (
+        (INSTRUCTIONS_BY_KIND.get(kind) or _SHARED_RULES)
+        + " "
+        + _summary_language_rule(language)
+    )
     billing_user_id, organization_id = _billing_for_document(doc)
     logger.info(
         "PLD extraction input doc=%s kind=%s schema=%s fields=%s",

@@ -50,6 +50,7 @@ class ProvenanceMixin(BaseModel):
         default=None,
         description=(
             "Short explanation of what this document shows, which form fields "
-            "were filled or corrected, and the values written."
+            "were filled or corrected, and the values written. "
+            "Write it in the invitee's app language as instructed."
         ),
     )
