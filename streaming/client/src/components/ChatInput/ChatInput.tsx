@@ -124,6 +124,83 @@ function isAllowedChatFile(file: File): boolean {
   return allowedChatExtensions.has(chatFileExtension(file.name));
 }
 
+function attachChatFiles(
+  files: FileList | File[],
+  addAttachment: (attachment: TAttachment, saved?: boolean) => void,
+  existingFilesOnly: boolean,
+  onRejected: () => void,
+) {
+  for (const file of Array.from(files)) {
+    if (!isAllowedChatFile(file)) {
+      onRejected();
+      continue;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result;
+      if (!dataUrl) return;
+      addAttachment(
+        {
+          content: dataUrl as string,
+          file,
+          type: file.type,
+          name: file.name,
+          text: "",
+        },
+        existingFilesOnly,
+      );
+    };
+    reader.readAsDataURL(file);
+  }
+}
+
+function useChatFileDrop(enabled: boolean, existingFilesOnly: boolean) {
+  const { t } = useTranslation();
+  const addAttachment = useStore((s) => s.addAttachment);
+  const [dragging, setDragging] = useState(false);
+  const depth = useRef(0);
+
+  const hasFiles = (event: React.DragEvent) =>
+    Array.from(event.dataTransfer?.types ?? []).includes("Files");
+
+  const onDragEnter = (event: React.DragEvent) => {
+    if (!enabled || !hasFiles(event)) return;
+    event.preventDefault();
+    depth.current += 1;
+    setDragging(true);
+  };
+
+  const onDragOver = (event: React.DragEvent) => {
+    if (!enabled || !hasFiles(event)) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+  };
+
+  const onDragLeave = (event: React.DragEvent) => {
+    if (!enabled) return;
+    event.preventDefault();
+    depth.current = Math.max(0, depth.current - 1);
+    if (depth.current === 0) setDragging(false);
+  };
+
+  const onDrop = (event: React.DragEvent) => {
+    if (!enabled) return;
+    event.preventDefault();
+    depth.current = 0;
+    setDragging(false);
+    const files = event.dataTransfer?.files;
+    if (!files?.length) return;
+    attachChatFiles(files, addAttachment, existingFilesOnly, () =>
+      toast.error(t("file-type-not-allowed")),
+    );
+  };
+
+  return {
+    dragging,
+    fileDropHandlers: { onDragEnter, onDragOver, onDragLeave, onDrop },
+  };
+}
+
 const getCommand = (text: string): string | null => {
   const regex = /k\/(.*)$/;
   const match = text.match(regex);
@@ -295,6 +372,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
   const mode =
     composerMode ?? (readOnly ? "readonly" : "agent");
+  const { dragging: draggingFiles, fileDropHandlers } = useChatFileDrop(
+    mode !== "readonly",
+    mode === "human",
+  );
 
   if (mode === "readonly") {
     return (
@@ -324,8 +405,19 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         <section className="w-full flex flex-col items-center justify-center relative overflow-visible">
           <div
             className="flex min-h-0 w-full flex-col rounded-none md:rounded-2xl overflow-hidden relative"
-            style={{ background: "var(--bg-contrast-color)", border: "1px solid var(--hovered-color)" }}
+            style={{
+              background: "var(--bg-contrast-color)",
+              border: draggingFiles
+                ? "1px dashed var(--mantine-color-violet-5)"
+                : "1px solid var(--hovered-color)",
+            }}
+            {...fileDropHandlers}
           >
+            {draggingFiles && (
+              <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center bg-black/40">
+                <Text size="sm" fw={600}>{t("drop-files-here")}</Text>
+              </div>
+            )}
             <MantineTextarea
               autosize
               minRows={1}
@@ -440,8 +532,19 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       <section className="w-full flex flex-col items-center justify-center relative overflow-visible">
         <div
           className="flex min-h-0 w-full flex-col rounded-none md:rounded-2xl overflow-hidden relative"
-          style={{ background: "var(--bg-contrast-color)", border: "1px solid var(--hovered-color)" }}
+          style={{
+            background: "var(--bg-contrast-color)",
+            border: draggingFiles
+              ? "1px dashed var(--mantine-color-violet-5)"
+              : "1px solid var(--hovered-color)",
+          }}
+          {...fileDropHandlers}
         >
+          {draggingFiles && (
+            <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center bg-black/40">
+              <Text size="sm" fw={600}>{t("drop-files-here")}</Text>
+            </div>
+          )}
           <MantineTextarea
             autosize
             minRows={chatState.writtingMode ? 8 : 1}
