@@ -6,8 +6,8 @@ import {
   Button,
   Card,
   Group,
-  SegmentedControl,
   Stack,
+  Tabs,
   Text,
 } from "@mantine/core";
 import { IconBrandGoogleDrive, IconPlugConnected } from "@tabler/icons-react";
@@ -149,20 +149,21 @@ export const DriveIntegrationCard = () => {
           </Stack>
         </Group>
 
-        <SegmentedControl
+        <Tabs
           value={ownerScope}
-          onChange={(v) => setOwnerScope(v as IntegrationOwnerType)}
-          data={[
-            { label: t("integrations-owner-me"), value: "user" },
-            {
-              label: hasOrganization
+          onChange={(v) => {
+            if (v === "user" || v === "organization") setOwnerScope(v);
+          }}
+        >
+          <Tabs.List>
+            <Tabs.Tab value="user">{t("integrations-owner-me")}</Tabs.Tab>
+            <Tabs.Tab value="organization" disabled={!hasOrganization}>
+              {hasOrganization
                 ? `${t("integrations-owner-organization")}${organizationName ? `: ${organizationName}` : ""}`
-                : t("integrations-owner-organization"),
-              value: "organization",
-              disabled: !hasOrganization,
-            },
-          ]}
-        />
+                : t("integrations-owner-organization")}
+            </Tabs.Tab>
+          </Tabs.List>
+        </Tabs>
 
         <Button
           leftSection={<IconPlugConnected size={18} />}

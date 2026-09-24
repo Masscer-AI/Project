@@ -71,7 +71,7 @@ export default function IntegrationsPage() {
             </Text>
           </Stack>
 
-          <Tabs value={activeTab} onChange={setActiveTab} variant="outline">
+          <Tabs value={activeTab} onChange={setActiveTab}>
             <Tabs.List mb="md">
               <Tabs.Tab
                 value="drive"

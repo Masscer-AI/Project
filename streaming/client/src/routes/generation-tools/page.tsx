@@ -19,8 +19,8 @@ import {
   Loader,
   Modal,
   ScrollArea,
-  SegmentedControl,
   Stack,
+  Tabs,
   Text,
   TextInput,
   Title,
@@ -205,23 +205,24 @@ const TranscriptionSection = () => {
 
   return (
     <>
-      {}
       <Card withBorder p="lg">
         <Title order={4} mb="md">
           {t("transcribe")}
         </Title>
 
         <Stack gap="md">
-          <SegmentedControl
+          <Tabs
             value={sourceType}
-            onChange={setSourceType}
-            data={[
-              { label: t("youtube"), value: "youtube" },
-              { label: t("microphone"), value: "microphone" },
-              { label: t("audio-file"), value: "audio" },
-            ]}
-            fullWidth
-          />
+            onChange={(value) => {
+              if (value) setSourceType(value);
+            }}
+          >
+            <Tabs.List>
+              <Tabs.Tab value="youtube">{t("youtube")}</Tabs.Tab>
+              <Tabs.Tab value="microphone">{t("microphone")}</Tabs.Tab>
+              <Tabs.Tab value="audio">{t("audio-file")}</Tabs.Tab>
+            </Tabs.List>
+          </Tabs>
 
           {sourceType === "youtube" && (
             <TextInput

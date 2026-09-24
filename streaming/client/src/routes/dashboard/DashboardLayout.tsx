@@ -63,10 +63,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             onChange={(value) => {
               if (value) navigate(value);
             }}
-            variant="outline"
             mb="lg"
           >
-            <Tabs.List justify="center">
+            <Tabs.List>
               {TABS.map((tab) => {
                 const flag = tab.featureFlag;
                 const flagEnabled = flag ? featureFlagMap[flag] : true;

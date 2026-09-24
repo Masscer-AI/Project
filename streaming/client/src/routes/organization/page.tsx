@@ -1024,7 +1024,6 @@ export default function OrganizationPage() {
               onChange={(v) => {
                 if (v) setOrganizationTab(v as OrganizationTab);
               }}
-              variant="outline"
             >
               <Tabs.List mb="md">
                 <Tabs.Tab

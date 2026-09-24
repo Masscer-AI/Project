@@ -13,7 +13,7 @@
     right: 0;
     bottom: 0;
     padding: 8px 10px;
-            background: rgba(20, 20, 22, 0.92);
+    background: rgba(20, 20, 22, 0.92);
     opacity: 0;
     pointer-events: none;
     transition: opacity 140ms ease;
@@ -22,18 +22,6 @@
 
   .gallery-card:hover .gallery-card-media .gallery-card-actions,
   .gallery-card:focus-within .gallery-card-media .gallery-card-actions {
-    opacity: 1;
-    pointer-events: auto;
-  }
-
-  .gallery-card:not(:has(.gallery-card-media)) .gallery-card-actions {
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 140ms ease;
-  }
-
-  .gallery-card:not(:has(.gallery-card-media)):hover .gallery-card-actions,
-  .gallery-card:not(:has(.gallery-card-media)):focus-within .gallery-card-actions {
     opacity: 1;
     pointer-events: auto;
   }

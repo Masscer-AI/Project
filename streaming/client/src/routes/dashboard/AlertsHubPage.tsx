@@ -8,7 +8,7 @@ import NotificationsInboxPage from "./NotificationsInboxPage";
 import NotificationSettingsPage from "./NotificationSettingsPage";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
 import { useIsOrganizationOwner } from "../../hooks/useIsOrganizationOwner";
-import { Group, Loader, SegmentedControl, Stack } from "@mantine/core";
+import { Group, Loader, Stack, Tabs } from "@mantine/core";
 
 export type AlertsHubView =
   | "notifications"
@@ -127,16 +127,20 @@ export default function AlertsHubPage() {
   return (
     <DashboardLayout>
       <Stack gap="lg">
-        <Group justify="center" w="100%">
-          <SegmentedControl
-            value={controlValue}
-            onChange={setView}
-            data={segmentData}
-            fullWidth
-            maw={720}
-            size="sm"
-          />
-        </Group>
+        <Tabs
+          value={controlValue}
+          onChange={(value) => {
+            if (value) setView(value);
+          }}
+        >
+          <Tabs.List>
+            {segmentData.map((s) => (
+              <Tabs.Tab key={s.value} value={s.value}>
+                {s.label}
+              </Tabs.Tab>
+            ))}
+          </Tabs.List>
+        </Tabs>
         {waitingForFlags ? (
           <Group justify="center" py="xl">
             <Loader />
