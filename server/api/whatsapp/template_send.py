@@ -39,6 +39,13 @@ from api.whatsapp.template_registry import (
 logger = logging.getLogger(__name__)
 
 _DIGITS_RE = re.compile(r"[^\d]")
+_TEMPLATE_PARAM_BREAKS_RE = re.compile(r"[\n\r\t]+")
+_TEMPLATE_PARAM_SPACES_RE = re.compile(r" {5,}")
+
+
+def sanitize_template_text_param(value: str) -> str:
+    text = _TEMPLATE_PARAM_BREAKS_RE.sub(" ", str(value or "")).strip()
+    return _TEMPLATE_PARAM_SPACES_RE.sub("    ", text)
 
 class TemplateVariables(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -257,7 +264,11 @@ def build_template_components(
             {
                 "type": "header",
                 "parameters": [
-                    {"type": "text", "text": str(v)} for v in header_values
+                    {
+                        "type": "text",
+                        "text": sanitize_template_text_param(str(v)),
+                    }
+                    for v in header_values
                 ],
             }
         )
@@ -271,7 +282,11 @@ def build_template_components(
             {
                 "type": "body",
                 "parameters": [
-                    {"type": "text", "text": str(v)} for v in body_values
+                    {
+                        "type": "text",
+                        "text": sanitize_template_text_param(str(v)),
+                    }
+                    for v in body_values
                 ],
             }
         )
@@ -313,7 +328,9 @@ def build_template_components(
                 "type": "button",
                 "sub_type": "url",
                 "index": str(btn.index),
-                "parameters": [{"type": "text", "text": value}],
+                "parameters": [
+                    {"type": "text", "text": sanitize_template_text_param(value)}
+                ],
             }
         )
 

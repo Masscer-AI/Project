@@ -1,5 +1,11 @@
 import { ActionIcon, Badge, Box } from "@mantine/core";
-import { IconMenu2, IconX } from "@tabler/icons-react";
+import { useMediaQuery } from "@mantine/hooks";
+import {
+  IconLayoutSidebarLeftCollapse,
+  IconLayoutSidebarLeftExpand,
+  IconMenu2,
+  IconX,
+} from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import {
   formatUnreadNotificationBadge,
@@ -9,10 +15,33 @@ import { useStore } from "../../modules/store";
 
 export function OpenSidebarButton({ flush = false }: { flush?: boolean }) {
   const { t } = useTranslation();
+  const isDesktop = useMediaQuery("(min-width: 48em)");
   const opened = useStore((s) => s.chatState.isSidebarOpened);
+  const collapsed = useStore((s) => s.chatState.sidebarCollapsed);
   const toggleSidebar = useStore((s) => s.toggleSidebar);
+  const toggleSidebarCollapsed = useStore((s) => s.toggleSidebarCollapsed);
   const unreadNotificationCount = useUnreadNotificationCount();
-  const label = opened ? t("close-sidebar") : t("open-sidebar");
+  const label = isDesktop
+    ? collapsed
+      ? t("expand-sidebar")
+      : t("collapse-sidebar")
+    : opened
+      ? t("close-sidebar")
+      : t("open-sidebar");
+  const icon = isDesktop ? (
+    collapsed ? (
+      <IconLayoutSidebarLeftExpand size={20} />
+    ) : (
+      <IconLayoutSidebarLeftCollapse size={20} />
+    )
+  ) : opened ? (
+    <IconX size={20} />
+  ) : (
+    <IconMenu2 size={20} />
+  );
+  const showBadge =
+    unreadNotificationCount > 0 &&
+    (isDesktop ? collapsed : !opened);
 
   return (
     <Box
@@ -26,12 +55,12 @@ export function OpenSidebarButton({ flush = false }: { flush?: boolean }) {
       <ActionIcon
         variant="subtle"
         color="gray"
-        onClick={toggleSidebar}
+        onClick={isDesktop ? toggleSidebarCollapsed : toggleSidebar}
         aria-label={label}
       >
-        {opened ? <IconX size={20} /> : <IconMenu2 size={20} />}
+        {icon}
       </ActionIcon>
-      {!opened && unreadNotificationCount > 0 && (
+      {showBadge && (
         <Badge
           color="red"
           size="sm"

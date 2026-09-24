@@ -769,7 +769,7 @@ export default function ChatView() {
           src={userPreferences.background_image_source}
         />
       )}
-      {chatState.isSidebarOpened && <Sidebar />}
+      <Sidebar />
       <div className="flex min-h-0 flex-col h-screen w-full md:mx-auto md:max-w-[900px] relative z-10 px-0 md:px-4 py-0 md:py-6 overflow-visible">
         <ChatHeader
           hideAgents={isComplianceSurface}

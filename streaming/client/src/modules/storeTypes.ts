@@ -60,6 +60,7 @@ export type Store = {
   modelsAndAgents: TAgent[];
   chatState: {
     isSidebarOpened: boolean;
+    sidebarCollapsed: boolean;
     attachments: TAttachment[];
     writtingMode: boolean;
     toolsByAgent: Record<string, string[]>;
@@ -92,6 +93,7 @@ export type Store = {
   fetchAgents: () => void;
   applyAgentSelectionFromConversation: () => void;
   toggleSidebar: () => void;
+  toggleSidebarCollapsed: () => void;
   cleanAttachments: () => void;
   deleteAttachment: (index: number) => void;
   toggleWrittingMode: () => void;

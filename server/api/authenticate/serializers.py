@@ -15,10 +15,14 @@ from .models import (
 from .phone_numbers import (
     default_phone_numbers_list,
     normalize_phone_numbers,
+    parse_phone_numbers,
+    PHONE_ALREADY_USED,
+    user_id_using_phone,
     validate_phone_numbers_for_storage,
 )
 from rest_framework.exceptions import ValidationError
 from django.db import transaction
+from api.whatsapp.template_send import sanitize_template_text_param
 
 class SignupSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8)
@@ -160,6 +164,9 @@ class OrganizationInviteCreateSerializer(serializers.Serializer):
         phones = normalize_welcome_phones(attrs.get("welcome_phones"))
         if not phones:
             raise ValidationError({"welcome_phones": "At least one phone is required"})
+        for phone in phones:
+            if user_id_using_phone(phone):
+                raise ValidationError({"welcome_phones": PHONE_ALREADY_USED})
         line_ids = []
         seen = set()
         for pk in attrs.get("welcome_line_ids") or []:
@@ -175,7 +182,7 @@ class OrganizationInviteCreateSerializer(serializers.Serializer):
             raise ValidationError(
                 {"welcome_line_ids": "Select one WhatsApp line"}
             )
-        help_text = (attrs.get("welcome_help_text") or "").strip()
+        help_text = sanitize_template_text_param(attrs.get("welcome_help_text") or "")
         if not help_text:
             raise ValidationError({"welcome_help_text": "This field is required"})
         attrs["send_welcome_message"] = True
@@ -264,11 +271,16 @@ class UserProfileSerializer(serializers.ModelSerializer):
         if value is None:
             return default_phone_numbers_list()
         try:
-            return validate_phone_numbers_for_storage(value)
+            stored = validate_phone_numbers_for_storage(value)
         except PydanticValidationError as exc:
             raise serializers.ValidationError(exc.errors()) from exc
         except ValueError as exc:
             raise serializers.ValidationError(str(exc)) from exc
+        exclude = self.instance.user_id if self.instance else None
+        for entry in parse_phone_numbers(stored).root:
+            if user_id_using_phone(entry.e164_digits(), exclude_user_id=exclude):
+                raise serializers.ValidationError(PHONE_ALREADY_USED)
+        return stored
 
     def update(self, instance, validated_data):
         initial = getattr(self, "initial_data", {}) or {}

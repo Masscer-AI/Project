@@ -862,7 +862,19 @@ export default function OrganizationPage() {
       toast.success(t("invite-sent-success"));
       reloadInvites();
     } catch (e: any) {
-      toast.error(e?.response?.data?.error || e?.response?.data?.detail || t("an-error-occurred"));
+      const data = e?.response?.data || {};
+      const welcomePhones = data.welcome_phones;
+      const fieldMsg = Array.isArray(welcomePhones)
+        ? welcomePhones[0]
+        : welcomePhones;
+      toast.error(
+        t(
+          data.error ||
+            data.detail ||
+            fieldMsg ||
+            "an-error-occurred"
+        )
+      );
     } finally {
       toast.dismiss(tid);
       setCreateMemberLoading(false);

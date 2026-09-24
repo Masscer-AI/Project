@@ -26,6 +26,110 @@ _AR_META_PREFIX = "549"
 _AR_NATIONAL_LEN = 10
 _AR_E164_LEN = 12
 _AR_META_LEN = 13
+PHONE_ALREADY_USED = "phone-already-used"
+_CALLING_CODES = tuple(
+    sorted(
+        {
+            "1",
+            "7",
+            "20",
+            "27",
+            "30",
+            "31",
+            "32",
+            "33",
+            "34",
+            "36",
+            "39",
+            "40",
+            "41",
+            "43",
+            "44",
+            "45",
+            "46",
+            "47",
+            "48",
+            "49",
+            "51",
+            "52",
+            "53",
+            "54",
+            "55",
+            "56",
+            "57",
+            "58",
+            "60",
+            "61",
+            "62",
+            "63",
+            "64",
+            "65",
+            "66",
+            "81",
+            "82",
+            "84",
+            "86",
+            "90",
+            "91",
+            "92",
+            "93",
+            "94",
+            "212",
+            "213",
+            "216",
+            "233",
+            "234",
+            "251",
+            "254",
+            "351",
+            "352",
+            "353",
+            "354",
+            "355",
+            "356",
+            "357",
+            "358",
+            "359",
+            "370",
+            "371",
+            "372",
+            "374",
+            "375",
+            "380",
+            "381",
+            "385",
+            "386",
+            "387",
+            "420",
+            "421",
+            "501",
+            "502",
+            "503",
+            "504",
+            "505",
+            "506",
+            "507",
+            "591",
+            "593",
+            "595",
+            "598",
+            "852",
+            "880",
+            "886",
+            "961",
+            "962",
+            "965",
+            "966",
+            "971",
+            "972",
+            "973",
+            "974",
+            "994",
+        },
+        key=len,
+        reverse=True,
+    )
+)
 
 def _digits_only(value: str) -> str:
     return _DIGITS_RE.sub("", value or "")
@@ -58,6 +162,49 @@ def to_meta_whatsapp_digits(digits: str) -> str:
     ):
         return _AR_META_PREFIX + d[len(_AR_CC) :]
     return d
+
+
+def phone_number_from_whatsapp_digits(
+    digits: str, *, is_default: bool = False
+) -> dict[str, Any]:
+    d = to_meta_whatsapp_digits(_digits_only(digits))
+    if not d:
+        raise ValueError("must contain at least one digit")
+    if d.startswith(_MX_META_PREFIX) and len(d) == _MX_META_LEN:
+        return {
+            "country_code": _MX_CC,
+            "number": d[len(_MX_CC) :],
+            "is_default": is_default,
+        }
+    if d.startswith(_AR_META_PREFIX) and len(d) == _AR_META_LEN:
+        return {
+            "country_code": _AR_CC,
+            "number": d[len(_AR_CC) :],
+            "is_default": is_default,
+        }
+    for cc in _CALLING_CODES:
+        if d.startswith(cc) and len(d) - len(cc) >= 4:
+            return {
+                "country_code": cc,
+                "number": d[len(cc) :],
+                "is_default": is_default,
+            }
+    raise ValueError("could not parse phone number")
+
+
+def phone_entries_from_whatsapp_digits(phones: list[str]) -> list[dict[str, Any]]:
+    entries: list[dict[str, Any]] = []
+    for i, raw in enumerate(phones or []):
+        try:
+            entries.append(
+                phone_number_from_whatsapp_digits(raw, is_default=i == 0)
+            )
+        except ValueError:
+            continue
+    if not entries:
+        return []
+    return validate_phone_numbers_for_storage(entries)
+
 
 def whatsapp_phone_match_keys(digits: str) -> set[str]:
     """
@@ -236,3 +383,52 @@ def normalize_phone_numbers(raw: Any) -> list[dict[str, Any]]:
         return parse_phone_numbers(raw).to_json_list()
     except Exception:
         return []
+
+
+def user_id_using_phone(
+    digits: str, *, exclude_user_id: int | None = None
+) -> int | None:
+    keys = whatsapp_phone_match_keys(digits)
+    if not keys:
+        return None
+    from api.whatsapp.models import WSContact
+
+    contacts = WSContact.objects.filter(user_id__isnull=False, number__in=keys)
+    if exclude_user_id is not None:
+        contacts = contacts.exclude(user_id=exclude_user_id)
+    uid = contacts.values_list("user_id", flat=True).first()
+    if uid:
+        return uid
+
+    from api.authenticate.models import UserProfile
+
+    profiles = UserProfile.objects.exclude(_phone_numbers=[]).exclude(
+        _phone_numbers__isnull=True
+    )
+    if exclude_user_id is not None:
+        profiles = profiles.exclude(user_id=exclude_user_id)
+    for profile in profiles.only("user_id", "_phone_numbers").iterator():
+        try:
+            parsed = parse_phone_numbers(profile._phone_numbers)
+        except Exception:
+            continue
+        if keys & parsed.as_whatsapp_match_set():
+            return profile.user_id
+    return None
+
+
+def unused_phone_entries(
+    entries: list[dict[str, Any]], *, exclude_user_id: int | None = None
+) -> list[dict[str, Any]]:
+    kept: list[dict[str, Any]] = []
+    for entry in parse_phone_numbers(entries).root:
+        if user_id_using_phone(
+            entry.e164_digits(), exclude_user_id=exclude_user_id
+        ):
+            continue
+        kept.append(entry.to_json_dict())
+    if not kept:
+        return []
+    if not any(item.get("is_default") for item in kept):
+        kept[0]["is_default"] = True
+    return kept

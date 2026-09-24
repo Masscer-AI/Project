@@ -46,6 +46,14 @@ const _initialTheme = (() => {
   }
 })();
 
+const _initialSidebarCollapsed = (() => {
+  try {
+    return localStorage.getItem("sidebar_collapsed") === "true";
+  } catch {
+    return false;
+  }
+})();
+
 let featureFlagsFetchInFlight: Promise<void> | null = null;
 
 let conversationLoadSeq = 0;
@@ -86,6 +94,7 @@ export const useStore = create<Store>()((set, get) => {
   agentTaskEvents: [],
   chatState: {
     isSidebarOpened: false,
+    sidebarCollapsed: _initialSidebarCollapsed,
     attachments: [],
     writtingMode: false,
     toolsByAgent: {},
@@ -300,6 +309,24 @@ export const useStore = create<Store>()((set, get) => {
         isSidebarOpened: !state.chatState.isSidebarOpened,
       },
     })),
+  toggleSidebarCollapsed: () =>
+    set((state) => {
+      const sidebarCollapsed = !state.chatState.sidebarCollapsed;
+      try {
+        localStorage.setItem(
+          "sidebar_collapsed",
+          sidebarCollapsed ? "true" : "false"
+        );
+      } catch {
+        /* ignore quota / private mode */
+      }
+      return {
+        chatState: {
+          ...state.chatState,
+          sidebarCollapsed,
+        },
+      };
+    }),
   cleanAttachments: () =>
     set((state) => ({
       chatState: {

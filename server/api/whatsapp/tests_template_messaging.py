@@ -527,6 +527,25 @@ class WhatsAppTemplateRegistryTests(SimpleTestCase):
             {t.id for t in list_enabled_templates()},
         )
 
+    def test_build_components_strips_newlines_and_long_spaces_from_body(self):
+        components = build_template_components(
+            WELCOME_TO_AGENT_PRESENTATION,
+            TemplateVariables(
+                body=[
+                    "Ada",
+                    "Masscer",
+                    "Agent",
+                    "Pagar facturas\nhacer impuestos     extra",
+                ],
+            ),
+            source_conversation_id=None,
+        )
+        self.assertEqual(components[0]["type"], "body")
+        self.assertEqual(
+            components[0]["parameters"][3]["text"],
+            "Pagar facturas hacer impuestos    extra",
+        )
+
     def test_build_components_for_expreso_fiscal_semanal_with_header_image(self):
         components = build_template_components(
             EXPRESO_FISCAL_SEMANAL,

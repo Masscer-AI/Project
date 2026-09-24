@@ -497,6 +497,40 @@ class OrganizationInviteFlowTests(TestCase):
         self.assertEqual(response.status_code, 201)
         inv = OrganizationInvite.objects.get(email="welcomesignup@test.com")
         delay_mock.assert_called_once_with(str(inv.id))
+        from api.authenticate.models import UserProfile
+
+        profile = UserProfile.objects.get(user_id=inv.accepted_user_id)
+        self.assertEqual(profile._phone_numbers[0]["country_code"], "52")
+        self.assertEqual(profile._phone_numbers[0]["number"], "15511112222")
+
+    @patch.object(OrganizationInvite, "generate_raw_token", return_value="welcome-taken-phone")
+    @patch("api.authenticate.views.EmailService")
+    def test_create_invite_rejects_phone_used_by_another_user(
+        self, _email_cls, _token_mock
+    ):
+        from api.authenticate.models import UserProfile
+
+        line = self._welcome_line()
+        owner_profile, _ = UserProfile.objects.get_or_create(user=self.owner)
+        owner_profile.phone_numbers = [
+            {"country_code": "52", "number": "5511112222", "is_default": True}
+        ]
+        owner_profile.save()
+        response = self.client.post(
+            f"/v1/auth/organizations/{self.org.id}/invites/",
+            data={
+                "email": "takenphone@test.com",
+                "send_welcome_message": True,
+                "welcome_phones": ["525511112222"],
+                "welcome_line_ids": [line.id],
+                "welcome_help_text": "Help",
+                "welcome_language": "en",
+            },
+            format="json",
+            **self._auth_headers(),
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["welcome_phones"], ["phone-already-used"])
 
     @patch("api.whatsapp.template_send.send_ws_template_to_member")
     def test_welcome_task_sends_template_per_line_and_phone(self, send_mock):

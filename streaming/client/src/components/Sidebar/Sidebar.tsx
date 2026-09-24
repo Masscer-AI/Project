@@ -1,24 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { useStore } from "../../modules/store";
 import { Link, useLocation } from "react-router-dom";
-import { getUserOrganizations } from "../../modules/apiCalls";
-import { useUnreadNotificationCount } from "../../hooks/useUnreadNotificationCount";
 import { useTranslation } from "react-i18next";
-import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
-
-import "./Sidebar.css";
-
-import {
-  Box,
-  Button,
-  ActionIcon,
-  Badge,
-  Stack,
-  Group,
-} from "@mantine/core";
+import { ActionIcon, Avatar, Badge, Menu, Tooltip } from "@mantine/core";
+import { useMediaQuery } from "@mantine/hooks";
 import {
   IconPlus,
-  IconMenu2,
   IconMessage,
   IconWaveSine,
   IconDatabase,
@@ -26,55 +12,99 @@ import {
   IconPlugConnected,
   IconBrandWhatsapp,
   IconBuilding,
-  IconLayoutDashboard,
   IconSettings,
   IconLogout,
   IconCalendarTime,
   IconPhoto,
   IconScale,
+  IconSearch,
+  IconLayoutSidebarLeftCollapse,
+  IconChartBar,
+  IconChevronDown,
+  IconChevronRight,
 } from "@tabler/icons-react";
+import { getUserOrganizations } from "../../modules/apiCalls";
+import { API_URL } from "../../modules/constants";
+import { useUnreadNotificationCount } from "../../hooks/useUnreadNotificationCount";
+import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
+import { useStore } from "../../modules/store";
+import type { TOrganization } from "../../types";
+import "./Sidebar.css";
 
-function NavButton({
-  to,
-  children,
-  leftSection,
-  size,
-  className,
-  fullWidth = true,
-  active,
-}: {
+type NavItemDef = {
   to: string;
-  children: React.ReactNode;
-  leftSection?: React.ReactNode;
-  size?: "sm";
-  className?: string;
-  fullWidth?: boolean;
-  active?: boolean;
+  label: string;
+  icon: React.ReactNode;
+  match?: string;
+  badge?: number;
+};
+
+function brandInitial(name: string) {
+  return (name.trim()[0] || "M").toUpperCase();
+}
+
+function NavItem({
+  item,
+  collapsed,
+  active,
+  onNavigate,
+}: {
+  item: NavItemDef;
+  collapsed: boolean;
+  active: boolean;
+  onNavigate: () => void;
 }) {
-  const toggleSidebar = useStore((s) => s.toggleSidebar);
-  return (
-    <Button
-      component={Link}
-      to={to}
-      variant="default"
-      leftSection={leftSection}
-      size={size}
-      fullWidth={fullWidth}
-      className={className}
-      onClick={toggleSidebar}
-      styles={{
-        root: {
-          backgroundColor: active ? "rgba(255,255,255,0.08)" : undefined,
-        },
-      }}
+  const badge =
+    item.badge && item.badge > 0 ? (
+      <Badge
+        color="red"
+        size="sm"
+        radius="xl"
+        variant="filled"
+        styles={{ root: { pointerEvents: "none", minWidth: 18, padding: "0 5px" } }}
+      >
+        {item.badge > 99 ? "99+" : item.badge}
+      </Badge>
+    ) : null;
+
+  const link = (
+    <Link
+      to={item.to}
+      className={`app-sidebar-link${active ? " app-sidebar-link--active" : ""}`}
+      onClick={onNavigate}
+      aria-label={collapsed ? item.label : undefined}
     >
-      {children}
-    </Button>
+      <span className="app-sidebar-link-icon">{item.icon}</span>
+      {!collapsed && <span className="app-sidebar-link-label">{item.label}</span>}
+      {!collapsed && badge}
+      {collapsed && badge ? (
+        <Badge
+          color="red"
+          size="xs"
+          radius="xl"
+          variant="filled"
+          pos="absolute"
+          top={2}
+          right={2}
+          styles={{ root: { pointerEvents: "none", minWidth: 14, padding: "0 3px" } }}
+        >
+          {item.badge && item.badge > 99 ? "99+" : item.badge}
+        </Badge>
+      ) : null}
+    </Link>
+  );
+
+  if (!collapsed) return link;
+  return (
+    <Tooltip label={item.label} position="right" withArrow>
+      <div>{link}</div>
+    </Tooltip>
   );
 }
 
 export const Sidebar: React.FC = () => {
   const { t } = useTranslation();
+  const isDesktop = useMediaQuery("(min-width: 48em)");
   const isConversationsDashboardEnabled = useIsFeatureEnabled(
     "conversations-dashboard"
   );
@@ -89,34 +119,40 @@ export const Sidebar: React.FC = () => {
   const canUseChat = useIsFeatureEnabled("can-use-chat") === true;
   const hasOrgComplianceAccess =
     useIsFeatureEnabled("organization-compliance-access") === true;
-  const { toggleSidebar, user, logout } = useStore((state) => ({
-    toggleSidebar: state.toggleSidebar,
-    user: state.user,
-    logout: state.logout,
-  }));
+  const toggleSidebar = useStore((s) => s.toggleSidebar);
+  const toggleSidebarCollapsed = useStore((s) => s.toggleSidebarCollapsed);
+  const isSidebarOpened = useStore((s) => s.chatState.isSidebarOpened);
+  const sidebarCollapsed = useStore((s) => s.chatState.sidebarCollapsed);
+  const user = useStore((s) => s.user);
+  const logout = useStore((s) => s.logout);
+  const tenantBranding = useStore((s) => s.tenantBranding);
   const [hasPldAccess, setHasPldAccess] = useState(false);
   const [hasOrganization, setHasOrganization] = useState<boolean | null>(null);
-  const location = useLocation();
-
   const [canManageOrg, setCanManageOrg] = useState(false);
+  const [org, setOrg] = useState<TOrganization | null>(null);
+  const [adminOpen, setAdminOpen] = useState(true);
+  const location = useLocation();
   const unreadNotificationCount = useUnreadNotificationCount();
+  const collapsed = Boolean(isDesktop && sidebarCollapsed);
 
   useEffect(() => {
     let cancelled = false;
     getUserOrganizations()
       .then((orgs) => {
-        if (!cancelled) {
-          setCanManageOrg(orgs.some((o) => o.is_owner || o.can_manage));
-          setHasPldAccess(orgs.some((o) => o.pld_access_enabled));
-          setHasOrganization(orgs.length > 0);
-        }
+        if (cancelled) return;
+        setCanManageOrg(orgs.some((o) => o.is_owner || o.can_manage));
+        setHasPldAccess(orgs.some((o) => o.pld_access_enabled));
+        setHasOrganization(orgs.length > 0);
+        setOrg(
+          orgs.find((o) => o.is_owner || o.can_manage) || orgs[0] || null
+        );
       })
       .catch(() => {
-        if (!cancelled) {
-          setCanManageOrg(false);
-          setHasPldAccess(false);
-          setHasOrganization(null);
-        }
+        if (cancelled) return;
+        setCanManageOrg(false);
+        setHasPldAccess(false);
+        setHasOrganization(null);
+        setOrg(null);
       });
     return () => {
       cancelled = true;
@@ -126,186 +162,319 @@ export const Sidebar: React.FC = () => {
   const navActive = (path: string) =>
     location.pathname === path || location.pathname.startsWith(`${path}/`);
 
+  const onNavigate = () => {
+    if (!isDesktop && isSidebarOpened) toggleSidebar();
+  };
+
+  const brandName =
+    org?.name?.trim() ||
+    tenantBranding?.app_name?.trim() ||
+    "Masscer";
+  const brandLogo = org?.logo_url
+    ? `${API_URL}${org.logo_url}`
+    : tenantBranding?.logo_url
+      ? `${API_URL}${tenantBranding.logo_url}`
+      : null;
+  const displayName = user?.profile?.name || user?.username || t("you");
+  const userInitial = brandInitial(displayName);
+  const iconSize = 18;
+
+  const mainItems: NavItemDef[] = [
+    canUseChat && {
+      to: "/conversations",
+      label: t("conversations"),
+      icon: <IconMessage size={iconSize} />,
+    },
+    isTrainAgentsEnabled && {
+      to: "/knowledge-base",
+      label: t("knowledge-base"),
+      icon: <IconDatabase size={iconSize} />,
+    },
+    canUseChat && {
+      to: "/gallery",
+      label: t("gallery-title"),
+      icon: <IconPhoto size={iconSize} />,
+    },
+    isAudioToolsEnabled && {
+      to: "/generation-tools",
+      label: t("audio-tools"),
+      icon: <IconWaveSine size={iconSize} />,
+    },
+    canUseChat && {
+      to: "/scheduled-tasks",
+      label: t("scheduled-tasks-title"),
+      icon: <IconCalendarTime size={iconSize} />,
+    },
+    !canUseChat &&
+      hasOrganization === false && {
+        to: "/pld/expediente",
+        label: t("compliance-my-expediente-title"),
+        icon: <IconScale size={iconSize} />,
+        match: "/pld",
+      },
+  ].filter(Boolean) as NavItemDef[];
+
+  const channelItems: NavItemDef[] = [
+    isWhatsappNumbersManagementEnabled && {
+      to: "/whatsapp",
+      label: t("whatsapp"),
+      icon: <IconBrandWhatsapp size={iconSize} />,
+    },
+    isChatWidgetsEnabled && {
+      to: "/chat-widgets",
+      label: t("chat-widgets"),
+      icon: <IconPuzzle size={iconSize} />,
+    },
+    isIntegrationsEnabled && {
+      to: "/integrations",
+      label: t("integrations-title"),
+      icon: <IconPlugConnected size={iconSize} />,
+    },
+  ].filter(Boolean) as NavItemDef[];
+
+  const adminItems: NavItemDef[] = [
+    canUseChat &&
+      isConversationsDashboardEnabled && {
+        to: "/dashboard",
+        label: t("sidebar-analytics"),
+        icon: <IconChartBar size={iconSize} />,
+        badge: unreadNotificationCount,
+      },
+    hasOrgComplianceAccess &&
+      hasPldAccess && {
+        to: "/compliance",
+        label: t("compliance-nav"),
+        icon: <IconScale size={iconSize} />,
+      },
+    canManageOrg && {
+      to: "/organization",
+      label: t("manage-organization"),
+      icon: <IconBuilding size={iconSize} />,
+    },
+  ].filter(Boolean) as NavItemDef[];
+
+  const showAdmin = adminOpen || collapsed;
+  const collapseLabel = collapsed
+    ? t("expand-sidebar")
+    : t("collapse-sidebar");
+
+  const settingsItem = canEditPreferences ? (
+    <Menu.Item
+      leftSection={<IconSettings size={16} />}
+      component={Link}
+      to="/settings"
+      onClick={onNavigate}
+    >
+      {t("settings")}
+    </Menu.Item>
+  ) : null;
+
+  const userMenu = (
+    <Menu shadow="md" width={200} position={collapsed ? "right-end" : "top"}>
+      <Menu.Target>
+        <button type="button" className="app-sidebar-user" aria-label={displayName}>
+          <Avatar
+            src={user?.profile?.avatar_url || undefined}
+            size={28}
+            radius="xl"
+            color="green"
+          >
+            {userInitial}
+          </Avatar>
+          {!collapsed && (
+            <>
+              <span className="app-sidebar-user-copy">
+                <span className="app-sidebar-user-name">{displayName}</span>
+                {user?.email ? (
+                  <span className="app-sidebar-user-email">{user.email}</span>
+                ) : null}
+              </span>
+              <IconChevronDown size={14} />
+            </>
+          )}
+        </button>
+      </Menu.Target>
+      <Menu.Dropdown>
+        {settingsItem}
+        <Menu.Item
+          color="red"
+          leftSection={<IconLogout size={16} />}
+          onClick={logout}
+        >
+          {t("logout")}
+        </Menu.Item>
+      </Menu.Dropdown>
+    </Menu>
+  );
+
   return (
     <>
-      <div className="backdrop-blur-md fixed md:relative left-0 top-0 h-screen z-[50] md:z-[3] flex flex-col w-[min(350px,100%)] max-w-full shrink-0 min-w-0 p-3 gap-2.5 animate-[appear-left_500ms_forwards] md:[animation:none]" style={{ background: "var(--semi-transparent)", borderRight: "1px solid var(--hovered-color)" }}>
-        <Group gap="xs">
-          {canUseChat && (
-            <NavButton
-              to="/chat"
-              leftSection={<IconPlus size={20} />}
-              className="flex-1"
-              fullWidth={false}
-            >
-              {t("new-chat")}
-            </NavButton>
+      <aside
+        className={`app-sidebar${collapsed ? " app-sidebar--collapsed" : ""}${
+          isSidebarOpened ? " app-sidebar--open" : ""
+        }`}
+      >
+        <div className="app-sidebar-brand">
+          {collapsed ? (
+            <Tooltip label={collapseLabel} position="right" withArrow>
+              <button
+                type="button"
+                className="app-sidebar-mark"
+                onClick={toggleSidebarCollapsed}
+                aria-label={collapseLabel}
+                style={{ border: "none", cursor: "pointer" }}
+              >
+                {brandLogo ? <img src={brandLogo} alt="" /> : brandInitial(brandName)}
+              </button>
+            </Tooltip>
+          ) : (
+            <>
+              <div className="app-sidebar-mark">
+                {brandLogo ? <img src={brandLogo} alt="" /> : brandInitial(brandName)}
+              </div>
+              <span className="app-sidebar-brand-text">{brandName}</span>
+              {isDesktop && (
+                <ActionIcon
+                  variant="subtle"
+                  color="gray"
+                  size="sm"
+                  onClick={toggleSidebarCollapsed}
+                  aria-label={collapseLabel}
+                >
+                  <IconLayoutSidebarLeftCollapse size={16} />
+                </ActionIcon>
+              )}
+            </>
           )}
-          <ActionIcon
-            variant="default"
-            size="lg"
-            onClick={toggleSidebar}
-            aria-label="Toggle sidebar"
-          >
-            <IconMenu2 size={20} />
-          </ActionIcon>
-        </Group>
-
-        <div className="[scrollbar-width:none] overflow-auto p-0.5 flex flex-col gap-2.5 flex-1">
-          {canUseChat && (
-            <NavButton
-              to="/conversations"
-              size="sm"
-              leftSection={<IconMessage size={20} />}
-              active={navActive("/conversations")}
-            >
-              {t("conversations")}
-            </NavButton>
-          )}
-          {!canUseChat && hasOrganization === false && (
-            <NavButton
-              to="/pld/expediente"
-              size="sm"
-              leftSection={<IconScale size={20} />}
-              active={navActive("/pld")}
-            >
-              {t("compliance-my-expediente-title")}
-            </NavButton>
-          )}
-          {hasOrgComplianceAccess && hasPldAccess && (
-            <NavButton
-              to="/compliance"
-              size="sm"
-              leftSection={<IconScale size={20} />}
-              active={navActive("/compliance")}
-            >
-              {t("compliance-nav")}
-            </NavButton>
-          )}
-
-          <Stack gap="xs">
-              {canUseChat && (
-                <NavButton
-                  to="/scheduled-tasks"
-                  leftSection={<IconCalendarTime size={20} />}
-                >
-                  {t("scheduled-tasks-title")}
-                </NavButton>
-              )}
-              {canUseChat && (
-                <NavButton
-                  to="/gallery"
-                  leftSection={<IconPhoto size={20} />}
-                >
-                  {t("gallery-title")}
-                </NavButton>
-              )}
-              {isAudioToolsEnabled && (
-                <NavButton
-                  to="/generation-tools"
-                  leftSection={<IconWaveSine size={20} />}
-                >
-                  {t("audio-tools")}
-                </NavButton>
-              )}
-              {isWhatsappNumbersManagementEnabled && (
-                <NavButton
-                  to="/whatsapp"
-                  leftSection={<IconBrandWhatsapp size={20} />}
-                >
-                  {t("whatsapp")}
-                </NavButton>
-              )}
-              {isTrainAgentsEnabled && (
-                <NavButton
-                  to="/knowledge-base"
-                  leftSection={<IconDatabase size={20} />}
-                >
-                  {t("knowledge-base")}
-                </NavButton>
-              )}
-              {isChatWidgetsEnabled && (
-                <NavButton
-                  to="/chat-widgets"
-                  leftSection={<IconPuzzle size={20} />}
-                >
-                  {t("chat-widgets")}
-                </NavButton>
-              )}
-              {isIntegrationsEnabled && (
-                <NavButton
-                  to="/integrations"
-                  leftSection={<IconPlugConnected size={20} />}
-                >
-                  {t("integrations-title")}
-                </NavButton>
-              )}
-              {canManageOrg && (
-                <NavButton
-                  to="/organization"
-                  leftSection={<IconBuilding size={20} />}
-                >
-                  {t("manage-organization")}
-                </NavButton>
-              )}
-              {canUseChat && isConversationsDashboardEnabled && (
-                <Box pos="relative">
-                  <NavButton
-                    to="/dashboard"
-                    leftSection={<IconLayoutDashboard size={20} />}
-                  >
-                    {t("conversations-dashboard")}
-                  </NavButton>
-                  {unreadNotificationCount > 0 && (
-                    <Badge
-                      color="red"
-                      size="sm"
-                      radius="xl"
-                      variant="filled"
-                      pos="absolute"
-                      top={-4}
-                      right={-4}
-                      styles={{ root: { pointerEvents: "none", minWidth: 20 } }}
-                    >
-                      {unreadNotificationCount > 99
-                        ? "99+"
-                        : unreadNotificationCount}
-                    </Badge>
-                  )}
-                </Box>
-              )}
-            </Stack>
         </div>
 
-        <Group gap="xs" className="mt-auto">
-          {canEditPreferences ? (
-            <NavButton
-              to="/settings"
-              leftSection={<IconSettings size={20} />}
-              className="flex-1"
-              fullWidth={false}
-            >
-              {user ? user.username : t("you")}
-            </NavButton>
-          ) : (
-            <Button variant="default" disabled className="flex-1">
-              {user ? user.username : t("you")}
-            </Button>
-          )}
-          <ActionIcon
-            variant="default"
-            size="lg"
-            onClick={logout}
-            aria-label={t("logout")}
-          >
-            <IconLogout size={20} />
-          </ActionIcon>
-        </Group>
-      </div>
+        {canUseChat && (
+          <div className="app-sidebar-newchat">
+            {collapsed ? (
+              <Tooltip label={t("new-chat")} position="right" withArrow>
+                <Link
+                  to="/chat"
+                  className="app-sidebar-newchat-btn"
+                  onClick={onNavigate}
+                  aria-label={t("new-chat")}
+                >
+                  <IconPlus size={18} />
+                </Link>
+              </Tooltip>
+            ) : (
+              <>
+                <Link
+                  to="/chat"
+                  className="app-sidebar-newchat-btn"
+                  onClick={onNavigate}
+                >
+                  <IconPlus size={16} />
+                  {t("new-chat")}
+                </Link>
+                <Tooltip label={t("search-conversations")} withArrow>
+                  <ActionIcon
+                    className="app-sidebar-search"
+                    variant="subtle"
+                    color="gray"
+                    component={Link}
+                    to="/conversations"
+                    onClick={onNavigate}
+                    aria-label={t("search-conversations")}
+                  >
+                    <IconSearch size={18} />
+                  </ActionIcon>
+                </Tooltip>
+              </>
+            )}
+          </div>
+        )}
 
-      <div
-        onClick={toggleSidebar}
-        className="bg-[rgba(55,55,55,0.52)] w-screen h-screen fixed top-0 left-0 z-[40] md:hidden"
-      ></div>
+        <nav className="app-sidebar-nav">
+          {mainItems.map((item) => (
+            <NavItem
+              key={item.to}
+              item={item}
+              collapsed={collapsed}
+              active={navActive(item.match || item.to)}
+              onNavigate={onNavigate}
+            />
+          ))}
+
+          {channelItems.length > 0 && (
+            <>
+              {!collapsed && (
+                <div className="app-sidebar-section-label">{t("sidebar-channels")}</div>
+              )}
+              {channelItems.map((item) => (
+                <NavItem
+                  key={item.to}
+                  item={item}
+                  collapsed={collapsed}
+                  active={navActive(item.to)}
+                  onNavigate={onNavigate}
+                />
+              ))}
+            </>
+          )}
+
+          {adminItems.length > 0 && (
+            <>
+              {!collapsed && (
+                <button
+                  type="button"
+                  className="app-sidebar-admin-toggle"
+                  onClick={() => setAdminOpen((open) => !open)}
+                >
+                  <span className="app-sidebar-section-label">{t("sidebar-admin")}</span>
+                  {adminOpen ? (
+                    <IconChevronDown size={14} />
+                  ) : (
+                    <IconChevronRight size={14} />
+                  )}
+                </button>
+              )}
+              {showAdmin &&
+                adminItems.map((item) => (
+                  <NavItem
+                    key={item.to}
+                    item={item}
+                    collapsed={collapsed}
+                    active={navActive(item.to)}
+                    onNavigate={onNavigate}
+                  />
+                ))}
+            </>
+          )}
+        </nav>
+
+        <div className="app-sidebar-footer">
+          {collapsed && canEditPreferences && (
+            <Tooltip label={t("settings")} position="right" withArrow>
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                component={Link}
+                to="/settings"
+                onClick={onNavigate}
+                aria-label={t("settings")}
+              >
+                <IconSettings size={18} />
+              </ActionIcon>
+            </Tooltip>
+          )}
+          {collapsed ? (
+            <Tooltip label={displayName} position="right" withArrow>
+              <div>{userMenu}</div>
+            </Tooltip>
+          ) : (
+            userMenu
+          )}
+        </div>
+      </aside>
+
+      {!isDesktop && isSidebarOpened && (
+        <div onClick={toggleSidebar} className="app-sidebar-backdrop" />
+      )}
     </>
   );
 };

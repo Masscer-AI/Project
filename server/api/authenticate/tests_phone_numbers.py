@@ -8,6 +8,7 @@ from api.authenticate.phone_numbers import (
     PhoneNumbers,
     default_phone_numbers_list,
     parse_phone_numbers,
+    phone_number_from_whatsapp_digits,
     phones_match_whatsapp,
     to_meta_whatsapp_digits,
     validate_phone_numbers_for_storage,
@@ -165,6 +166,14 @@ class PhoneNumbersSchemaTests(TestCase):
         self.assertIn("5491112345678", phones.as_whatsapp_match_set())
         self.assertIn("541112345678", phones.as_whatsapp_match_set())
 
+    def test_phone_number_from_whatsapp_digits_mexico_and_ecuador(self):
+        mx = phone_number_from_whatsapp_digits("5215511112222", is_default=True)
+        self.assertEqual(mx["country_code"], "52")
+        self.assertEqual(mx["number"], "15511112222")
+        ec = phone_number_from_whatsapp_digits("593978697895")
+        self.assertEqual(ec["country_code"], "593")
+        self.assertEqual(ec["number"], "978697895")
+
 class UserProfilePhoneNumbersTests(TestCase):
     def setUp(self):
         from api.ai_layers.models import LanguageModel
@@ -263,3 +272,26 @@ class UserProfilePhoneNumbersTests(TestCase):
         self.profile.refresh_from_db()
         self.assertEqual(self.profile._phone_numbers, [])
         self.assertEqual(UserProfileSerializer(self.profile).data["phone_numbers"], [])
+
+    def test_serializer_rejects_phone_used_by_another_user(self):
+        other = User.objects.create_user(username="otherphone", password="x")
+        other_profile, _ = UserProfile.objects.get_or_create(user=other)
+        other_profile.phone_numbers = [
+            {"country_code": "1", "number": "5551234567", "is_default": True}
+        ]
+        other_profile.save()
+        serializer = UserProfileSerializer(
+            self.profile,
+            data={
+                "phone_numbers": [
+                    {
+                        "country_code": "1",
+                        "number": "5551234567",
+                        "is_default": True,
+                    }
+                ]
+            },
+            partial=True,
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("phone_numbers", serializer.errors)

@@ -351,6 +351,20 @@ class SignupAPIView(APIView):
             profile.bio = invite_locked.bio or ""
             profile.intake = {}
             profile.expires_at = invite_locked.profile_expires_at
+            if invite_locked.send_welcome_message:
+                from api.authenticate.phone_numbers import (
+                    phone_entries_from_whatsapp_digits,
+                    unused_phone_entries,
+                )
+
+                entries = unused_phone_entries(
+                    phone_entries_from_whatsapp_digits(
+                        invite_locked.welcome_phones or []
+                    ),
+                    exclude_user_id=user.id,
+                )
+                if entries:
+                    profile.phone_numbers = entries
             profile.save()
 
             if invite_locked.role_id:

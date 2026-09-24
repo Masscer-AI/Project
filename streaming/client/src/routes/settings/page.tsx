@@ -16,6 +16,7 @@ import { useTranslation } from "react-i18next";
 import i18n from "../../i18next";
 import mermaid from "mermaid";
 import { TPhoneNumber, TUserProfile } from "../../types/chatTypes";
+import { debounce } from "../../modules/utils";
 
 import {
   ActionIcon,
@@ -693,7 +694,7 @@ const ProfileSection = () => {
             ? phoneError[0]
             : JSON.stringify(phoneError[0])
           : String(phoneError);
-        toast.error(msg);
+        toast.error(t(msg));
       } else {
         toast.error(t(e.response?.data?.error || "an-error-occurred"));
       }
