@@ -1619,7 +1619,7 @@
   "org-list-upload-new": "Subir lista",
   "org-list-name": "Nombre de la lista",
   "org-list-name-placeholder": "ej. Catalogo de productos",
-  "org-list-name-required": "Escribe un nombre antes de subir.",
+  "org-list-name-required": "El nombre de la lista no puede estar vacio.",
   "org-list-description": "Descripcion",
   "org-list-choose-file": "Elegir CSV o Excel",
   "org-list-uploading": "Subiendo lista...",

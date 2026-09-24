@@ -1617,7 +1617,7 @@
   "org-list-upload-new": "Upload list",
   "org-list-name": "List name",
   "org-list-name-placeholder": "e.g. Product catalog",
-  "org-list-name-required": "Enter a list name before uploading.",
+  "org-list-name-required": "The list name cannot be empty.",
   "org-list-description": "Description",
   "org-list-choose-file": "Choose CSV or Excel file",
   "org-list-uploading": "Uploading list...",

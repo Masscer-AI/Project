@@ -447,10 +447,10 @@ def _resolve_user_inputs_and_attachments(
             else:
                 display_url = _display_url_for_file(att)
                 is_image = bool(att.content_type and att.content_type.startswith("image/"))
-                filename = (
-                    att.file.name.split("/")[-1]
-                    if att.file and att.file.name
-                    else ("image" if is_image else "document")
+                from api.messaging.models import attachment_display_name
+
+                filename = attachment_display_name(
+                    att, "image" if is_image else "document"
                 )
                 message_attachments.append(
                     {
@@ -803,16 +803,15 @@ def _message_attachment_to_display_dict(att) -> dict | None:
     else:
         att_type = "document"
 
-    filename = (
-        file_field.name.split("/")[-1]
-        if getattr(file_field, "name", None)
-        else (
-            "image"
-            if att_type == "image"
-            else "video"
-            if isinstance(att_type, str) and att_type.startswith("video/")
-            else "document"
-        )
+    from api.messaging.models import attachment_display_name
+
+    filename = attachment_display_name(
+        att,
+        "image"
+        if att_type == "image"
+        else "video"
+        if isinstance(att_type, str) and att_type.startswith("video/")
+        else "document",
     )
 
     return {

@@ -122,3 +122,33 @@ class LanguageModelListTests(TestCase):
         self.assertEqual(
             set(model.lists.values_list("slug", flat=True)), {"advanced"}
         )
+
+    def test_sync_drops_models_missing_from_code_and_fills_null_agents(self):
+        from api.ai_layers.actions import sync_language_models_and_agents
+        from api.ai_layers.models import Agent
+
+        kept = LanguageModel.objects.create(
+            provider=self.provider, slug="gpt-6-luna", name="GPT-6 Luna"
+        )
+        LanguageModelListMembership.objects.create(
+            list=self.default_list, language_model=kept
+        )
+        LanguageModel.objects.create(
+            provider=self.provider, slug="retired-model", name="Retired"
+        )
+        agent = Agent.objects.create(
+            name="No Model Agent",
+            salute="Hi",
+            user=self.owner,
+            llm=kept,
+        )
+        Agent.objects.filter(pk=agent.pk).update(llm=None, model_slug="")
+
+        result = sync_language_models_and_agents()
+
+        self.assertFalse(LanguageModel.objects.filter(slug="retired-model").exists())
+        self.assertTrue(LanguageModel.objects.filter(slug="gpt-6-luna").exists())
+        self.assertGreaterEqual(result["removed"], 1)
+        agent.refresh_from_db()
+        self.assertEqual(agent.llm_id, kept.id)
+        self.assertEqual(agent.model_slug, "gpt-6-luna")

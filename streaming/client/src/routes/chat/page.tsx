@@ -34,6 +34,11 @@ import { playNotificationSound } from "../../utils/notificationSound";
 
 const complianceKickoffsStarted = new Set<string>();
 
+function galleryAttachmentId(id: number | string | undefined): string | null {
+  if (typeof id !== "string" || !id.includes("-")) return null;
+  return id;
+}
+
 export default function ChatView() {
   const loaderData = useLoaderData() as TChatLoader;
 
@@ -321,6 +326,15 @@ export default function ChatView() {
     }
 
     for (const doc of existingDocs) {
+      const galleryId = galleryAttachmentId(doc.attachment_id || doc.id);
+      if (galleryId) {
+        const linkRes = await linkMessageAttachment(conversationId, {
+          kind: "file",
+          attachment_id: galleryId,
+        });
+        attachmentIds.push(linkRes.attachment.id);
+        continue;
+      }
       const docId =
         typeof doc.id === "number" ? doc.id : parseInt(String(doc.id), 10);
       if (isNaN(docId)) continue;
@@ -451,6 +465,18 @@ export default function ChatView() {
         }
 
         for (const rag of ragDocs) {
+          const galleryId = galleryAttachmentId(rag.attachment_id || rag.id);
+          if (galleryId) {
+            const linkRes = await linkMessageAttachment(conversationId, {
+              kind: "file",
+              attachment_id: galleryId,
+            });
+            userInputs.push({
+              type: "input_attachment",
+              attachment_id: linkRes.attachment.id,
+            });
+            continue;
+          }
           const docId = typeof rag.id === "number" ? rag.id : parseInt(String(rag.id), 10);
           if (!isNaN(docId)) {
             const linkRes = await linkMessageAttachment(conversationId, {

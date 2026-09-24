@@ -677,6 +677,7 @@ class MessageAttachmentXlsxUploadTests(TestCase):
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
         self.assertTrue(att.file.name.endswith(".xlsx"))
+        self.assertEqual(att.metadata.get("name"), "sheet.xlsx")
 
     def test_create_attachments_from_data_urls_maps_xls_mime(self):
         from api.messaging.views import _create_attachments_from_data_urls

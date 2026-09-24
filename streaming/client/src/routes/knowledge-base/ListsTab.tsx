@@ -53,6 +53,17 @@ function isImportInProgress(status: TOrganizationList["import_status"]) {
   return status === "pending" || status === "processing";
 }
 
+function isTabularFile(name: string) {
+  const lower = name.toLowerCase();
+  return (
+    lower.endsWith(".csv") || lower.endsWith(".xlsx") || lower.endsWith(".xls")
+  );
+}
+
+function listNameFromFile(file: File) {
+  return file.name.replace(/\.[^.]+$/, "").trim();
+}
+
 export function ListsTab({ filterQuery }: { filterQuery: string }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -68,6 +79,7 @@ export function ListsTab({ filterQuery }: { filterQuery: string }) {
 
   const [uploadName, setUploadName] = useState("");
   const [uploadDescription, setUploadDescription] = useState("");
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const replaceInputRef = useRef<HTMLInputElement>(null);
 
@@ -162,8 +174,20 @@ export function ListsTab({ filterQuery }: { filterQuery: string }) {
     return () => window.clearInterval(timer);
   }, [orgId, lists]);
 
-  const handleUpload = async (files: FileList | null) => {
-    if (!orgId || !files?.length) return;
+  const handleFilePicked = (files: FileList | null) => {
+    const file = files?.[0];
+    if (!file) return;
+    if (!isTabularFile(file.name)) {
+      toast.error(t("org-list-file-type-error"));
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+    setPendingFile(file);
+    setUploadName(listNameFromFile(file));
+  };
+
+  const handleUpload = async () => {
+    if (!orgId || !pendingFile) return;
     const name = uploadName.trim();
     if (!name) {
       toast.error(t("org-list-name-required"));
@@ -172,25 +196,15 @@ export function ListsTab({ filterQuery }: { filterQuery: string }) {
     setUploading(true);
     const toastId = toast.loading(t("org-list-uploading"));
     try {
-      for (const file of Array.from(files)) {
-        const lower = file.name.toLowerCase();
-        if (
-          !lower.endsWith(".csv") &&
-          !lower.endsWith(".xlsx") &&
-          !lower.endsWith(".xls")
-        ) {
-          toast.error(t("org-list-file-type-error"));
-          continue;
-        }
-        const fd = new FormData();
-        fd.append("name", name);
-        fd.append("description", uploadDescription);
-        fd.append("file", file);
-        await uploadOrganizationList(orgId, fd);
-      }
+      const fd = new FormData();
+      fd.append("name", name);
+      fd.append("description", uploadDescription);
+      fd.append("file", pendingFile);
+      await uploadOrganizationList(orgId, fd);
       toast.success(t("org-list-upload-started"));
       setUploadName("");
       setUploadDescription("");
+      setPendingFile(null);
       await loadLists(orgId);
     } catch {
       toast.error(t("org-list-upload-error"));
@@ -268,12 +282,7 @@ export function ListsTab({ filterQuery }: { filterQuery: string }) {
   const handleReplaceFile = async (files: FileList | null) => {
     if (!orgId || !activeList || !files?.length) return;
     const file = files[0];
-    const lower = file.name.toLowerCase();
-    if (
-      !lower.endsWith(".csv") &&
-      !lower.endsWith(".xlsx") &&
-      !lower.endsWith(".xls")
-    ) {
+    if (!isTabularFile(file.name)) {
       toast.error(t("org-list-file-type-error"));
       return;
     }
@@ -371,15 +380,27 @@ export function ListsTab({ filterQuery }: { filterQuery: string }) {
               type="file"
               accept={TABULAR_ACCEPT}
               style={{ display: "none" }}
-              onChange={(e) => handleUpload(e.currentTarget.files)}
+              onChange={(e) => handleFilePicked(e.currentTarget.files)}
             />
             <Button
+              variant="default"
               leftSection={<IconUpload size={16} />}
-              loading={uploading}
               onClick={() => fileInputRef.current?.click()}
             >
               {t("org-list-choose-file")}
             </Button>
+            <Button
+              loading={uploading}
+              disabled={!pendingFile}
+              onClick={handleUpload}
+            >
+              {t("upload")}
+            </Button>
+            {pendingFile ? (
+              <Text size="sm" c="dimmed">
+                {pendingFile.name}
+              </Text>
+            ) : null}
           </Group>
         </Stack>
       </Card>

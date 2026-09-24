@@ -1,0 +1,13 @@
+{% extends "admin/change_list.html" %}
+
+{% block object-tools-items %}
+  <li>
+    <form id="languagemodel-sync-form" method="post" action="{% url 'admin:ai_layers_languagemodel_sync_models' %}" style="display:none">
+      {% csrf_token %}
+    </form>
+    <a href="#" onclick="document.getElementById('languagemodel-sync-form').submit(); return false;">
+      Sync models and agent
+    </a>
+  </li>
+  {{ block.super }}
+{% endblock %}

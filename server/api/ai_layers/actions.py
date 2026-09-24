@@ -108,18 +108,6 @@ def check_models_for_providers():
                 }
             },
         },
-        {
-            "name": "GPT-5.6 Terra",
-            "slug": "gpt-5.6-terra",
-            "lists": DEFAULT_LISTS,
-            "is_reasoning_model": True,
-            "pricing": {
-                "text": {
-                    "prompt": "2.50 USD / 1000000",
-                    "output": "15.00 USD / 1000000",
-                }
-            },
-        },
     ]
 
     google_models_objects = [
@@ -206,6 +194,27 @@ def check_models_for_providers():
             _upsert_language_model(google_provider, model, "Google")
 
     printer.success("All LLMs are now in the DB!")
+    return {model["slug"] for model in openai_models_objects + google_models_objects}
+
+
+def sync_language_models_and_agents():
+    catalog_slugs = check_models_for_providers()
+    extra = LanguageModel.objects.exclude(slug__in=catalog_slugs)
+    removed = extra.count()
+    extra.delete()
+
+    default_llm = LanguageModel.objects.filter(slug="gpt-6-luna").first()
+    assigned = 0
+    if default_llm:
+        assigned = Agent.objects.filter(llm__isnull=True).update(
+            llm=default_llm,
+            model_slug=default_llm.slug,
+        )
+    return {
+        "removed": removed,
+        "assigned": assigned,
+        "model_slug": default_llm.slug if default_llm else None,
+    }
 
 def answer_agent_inquiry(agent_slug: str, context: str, user_message: str):
     """

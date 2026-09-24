@@ -14,6 +14,8 @@ from typing import TYPE_CHECKING
 from openai import OpenAI
 from pydantic import BaseModel, Field
 
+from api.messaging.models import attachment_display_name
+
 if TYPE_CHECKING:
     pass
 
@@ -136,7 +138,7 @@ def _process_document(att, question: str) -> ReadAttachmentResult:
     with att.file.open("rb") as f:
         raw = f.read()
     mime = att.content_type or "application/octet-stream"
-    filename = att.file.name.split("/")[-1] if att.file.name else f"file_{att.id}"
+    filename = attachment_display_name(att, f"file_{att.id}")
 
     spreadsheet_text = _extract_spreadsheet_text_for_model(raw, filename, mime)
     if spreadsheet_text:

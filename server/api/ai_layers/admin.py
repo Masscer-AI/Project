@@ -1,6 +1,7 @@
 from django.contrib import admin, messages
+from django.http import HttpRequest, HttpResponseRedirect
+from django.urls import path, reverse
 from django.utils.html import format_html
-from django.urls import reverse
 from django.utils.safestring import mark_safe
 from django import forms
 from django.db.models import Q
@@ -562,6 +563,7 @@ class LanguageModelListAdmin(admin.ModelAdmin):
 @admin.register(LanguageModel)
 class LanguageModelAdmin(admin.ModelAdmin):
     form = LanguageModelAdminForm
+    change_list_template = "admin/ai_layers/languagemodel/change_list.html"
     list_display = (
         "name",
         "slug",
@@ -574,6 +576,47 @@ class LanguageModelAdmin(admin.ModelAdmin):
     list_filter = ("provider", "lists")
     readonly_fields = ("pricing_table",)
     inlines = [LanguageModelListMembershipInline]
+
+    def get_urls(self):
+        urls = super().get_urls()
+        info = self.opts.app_label, self.opts.model_name
+        custom = [
+            path(
+                "sync-models/",
+                self.admin_site.admin_view(self.sync_models_view),
+                name="%s_%s_sync_models" % info,
+            ),
+        ]
+        return custom + urls
+
+    def sync_models_view(self, request: HttpRequest) -> HttpResponseRedirect:
+        from .actions import sync_language_models_and_agents
+
+        changelist_url = reverse(
+            "admin:%s_%s_changelist" % (self.opts.app_label, self.opts.model_name)
+        )
+        if request.method != "POST":
+            return HttpResponseRedirect(changelist_url)
+        if not self.has_change_permission(request):
+            self.message_user(request, "Permission denied.", level=messages.ERROR)
+            return HttpResponseRedirect(changelist_url)
+
+        result = sync_language_models_and_agents()
+        if result["model_slug"]:
+            agent_note = (
+                f"{result['assigned']} agent(s) with no model now use "
+                f"{result['model_slug']}."
+            )
+        else:
+            agent_note = "No default-list model was available for agents."
+        self.message_user(
+            request,
+            (
+                f"Synced language models. Removed {result['removed']} "
+                f"not listed in code. {agent_note}"
+            ),
+        )
+        return HttpResponseRedirect(changelist_url)
 
     fieldsets = (
         ("Model", {

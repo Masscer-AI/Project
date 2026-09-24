@@ -275,7 +275,14 @@ export default function KnowledgeBasePage() {
     setCompletions((prev) => [normalizeCompletion(created), ...prev]);
   };
 
+  const focusDocumentId = (() => {
+    const raw = searchParams.get("document");
+    if (raw && /^\d+$/.test(raw)) return parseInt(raw, 10);
+    return null;
+  })();
+
   const filteredDocuments = documents.filter((doc) => {
+    if (focusDocumentId != null && doc.id !== focusDocumentId) return false;
     const q = search.trim().toLowerCase();
     if (!q) return true;
     return (
@@ -454,6 +461,7 @@ export default function KnowledgeBasePage() {
               loading={loadingDocs}
               onRefresh={() => loadDocuments()}
               agents={agents}
+              focusedDocument={focusDocumentId != null}
             />
           ) : activeTab === "completions" ? (
             <CompletionsTab
@@ -485,11 +493,13 @@ const DocumentsTab = ({
   loading,
   onRefresh,
   agents,
+  focusedDocument = false,
 }: {
   documents: TDocument[];
   loading: boolean;
   onRefresh: () => void;
   agents: TAgent[];
+  focusedDocument?: boolean;
 }) => {
   const { t } = useTranslation();
   const [uploadOpened, uploadHandlers] = useDisclosure(false);
@@ -824,7 +834,10 @@ const DocumentsTab = ({
       {documents.length === 0 ? (
         <Card withBorder p="xl" ta="center" style={{ borderStyle: "dashed" }}>
           <Stack align="center" gap="sm">
-            <Text c="dimmed">{t("no-documents-yet")}</Text>
+            <Text c="dimmed">
+              {focusedDocument ? t("no-documents-found") : t("no-documents-yet")}
+            </Text>
+            {!focusedDocument && (
             <Button
               size="sm"
               variant="default"
@@ -833,6 +846,7 @@ const DocumentsTab = ({
             >
               {t("upload-document")}
             </Button>
+            )}
           </Stack>
         </Card>
       ) : (

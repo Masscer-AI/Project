@@ -5,7 +5,8 @@ import { useStore } from "../../modules/store";
 import toast from "react-hot-toast";
 import { Thumbnail } from "../Thumbnail/Thumbnail";
 import { useTranslation } from "react-i18next";
-import { generateDocumentBrief, getDocuments, syncDriveDocument, updateAgent } from "../../modules/apiCalls";
+import { generateDocumentBrief, getDocuments, getGalleryItems, syncDriveDocument, updateAgent } from "../../modules/apiCalls";
+import type { TGalleryItem } from "../../modules/apiCalls";
 import { SpeechHandler } from "../SpeechHandler/SpeechHandler";
 import { WebsiteFetcher } from "../WebsiteFetcher/WebsiteFetcher";
 import { DriveFilePicker } from "../DriveFilePicker/DriveFilePicker";
@@ -837,6 +838,19 @@ export const FileLoader = () => {
   );
 };
 
+async function loadGalleryDocuments(): Promise<TGalleryItem[]> {
+  const items: TGalleryItem[] = [];
+  let offset = 0;
+  let hasNext = true;
+  while (hasNext && offset < 500) {
+    const page = await getGalleryItems({ type: "document", limit: 100, offset });
+    items.push(...(page.results || []));
+    hasNext = Boolean(page.has_next);
+    offset += page.limit || 100;
+  }
+  return items;
+}
+
 const RagConfig = ({
   opened,
   onClose,
@@ -847,6 +861,7 @@ const RagConfig = ({
   existingFilesOnly?: boolean;
 }) => {
   const [documents, setDocuments] = useState([] as TDocument[]);
+  const [galleryItems, setGalleryItems] = useState([] as TGalleryItem[]);
   const [isLoading, setIsLoading] = useState(false);
 
   const { t } = useTranslation();
@@ -857,9 +872,16 @@ const RagConfig = ({
 
   const getDocs = async () => {
     setIsLoading(true);
-    const docs = await getDocuments({ hasFileOnly: existingFilesOnly });
-    setDocuments(docs);
-    setIsLoading(false);
+    try {
+      const [docs, gallery] = await Promise.all([
+        getDocuments({ hasFileOnly: existingFilesOnly }),
+        loadGalleryDocuments(),
+      ]);
+      setDocuments(Array.isArray(docs) ? docs : []);
+      setGalleryItems(gallery);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -880,11 +902,31 @@ const RagConfig = ({
             </Text>
           </Stack>
         )}
-        {!isLoading &&
-          documents.map((d) => (
-            <DocumentCard d={d} key={d.id} existingFilesOnly={existingFilesOnly} />
-          ))}
-        {!isLoading && documents.length === 0 && (
+        {!isLoading && documents.length > 0 && (
+          <Stack gap="xs" w="100%">
+            <Text size="sm" fw={600}>
+              {t("knowledge-base")}
+            </Text>
+            <Group gap="sm">
+              {documents.map((d) => (
+                <DocumentCard d={d} key={d.id} existingFilesOnly={existingFilesOnly} />
+              ))}
+            </Group>
+          </Stack>
+        )}
+        {!isLoading && galleryItems.length > 0 && (
+          <Stack gap="xs" w="100%">
+            <Text size="sm" fw={600}>
+              {t("gallery-title")}
+            </Text>
+            <Group gap="sm">
+              {galleryItems.map((item) => (
+                <GalleryDocumentCard item={item} key={item.id} />
+              ))}
+            </Group>
+          </Stack>
+        )}
+        {!isLoading && documents.length === 0 && galleryItems.length === 0 && (
           <Text c="dimmed" py="xl">
             {t("no-documents-found")}
           </Text>
@@ -1020,6 +1062,68 @@ const DocumentCard = ({
           </Button>
         )}
       </Group>
+    </Card>
+  );
+};
+
+const GalleryDocumentCard = ({ item }: { item: TGalleryItem }) => {
+  const { addAttatchment, chatState, removeAttatchment } = useStore((s) => ({
+    addAttatchment: s.addAttachment,
+    chatState: s.chatState,
+    removeAttatchment: s.deleteAttachment,
+  }));
+  const { t } = useTranslation();
+  const isAttached = chatState.attachments.some(
+    (a) => a.attachment_id === item.id || a.id === item.id
+  );
+
+  const toggle = () => {
+    if (!isAttached) {
+      addAttatchment(
+        {
+          content: item.url,
+          name: item.name,
+          type: item.content_type || "application/octet-stream",
+          id: item.id,
+          attachment_id: item.id,
+          mode: "all_possible_text",
+          text: "",
+        },
+        true
+      );
+      return;
+    }
+    const index = chatState.attachments.findIndex(
+      (a) => a.attachment_id === item.id || a.id === item.id
+    );
+    if (index !== -1) removeAttatchment(index);
+  };
+
+  return (
+    <Card
+      shadow="sm"
+      padding="sm"
+      radius="md"
+      withBorder
+      style={{
+        backgroundColor: isAttached
+          ? "var(--mantine-color-violet-light)"
+          : undefined,
+        borderColor: isAttached ? "var(--mantine-color-violet-6)" : undefined,
+      }}
+    >
+      <Text fw={500} mb="xs">
+        {item.name}
+      </Text>
+      <Button
+        onClick={toggle}
+        leftSection={<IconPlus size={16} />}
+        variant={isAttached ? "filled" : "light"}
+        color={isAttached ? "violet" : "gray"}
+        size="xs"
+      >
+        {isAttached ? t("remove-document") : t("add-document")}
+      </Button>
     </Card>
   );
 };

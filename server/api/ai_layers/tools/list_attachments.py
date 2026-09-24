@@ -22,6 +22,7 @@ from api.ai_layers.tools.attachment_access import (
     attachments_visible_q,
 )
 from api.messaging.gallery import gallery_display_type
+from api.messaging.models import attachment_display_name
 
 AttachmentMediaKind = Literal["image", "document", "video", "audio"]
 
@@ -168,7 +169,7 @@ def _attachment_name(att) -> tuple[str | None, str | None]:
             f"document_{getattr(doc, 'id', '')}" if doc else None
         )
     elif att.file and getattr(att.file, "name", None):
-        name = att.file.name.split("/")[-1]
+        name = attachment_display_name(att)
     return name, url
 
 

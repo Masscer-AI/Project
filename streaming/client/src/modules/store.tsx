@@ -10,8 +10,6 @@ import {
   getUserPreferences,
   initConversation,
   updateUserPreferences,
-  uploadDocument,
-  isComplianceAssistant,
 } from "./apiCalls";
 import {
   isFeatureFlagsClientCacheStale,
@@ -20,7 +18,6 @@ import { SocketManager } from "./socketManager";
 import { STREAMING_BACKEND_URL } from "./constants";
 import { TAgent } from "../types/agents";
 import type { TConversation, TAgentTaskEvent } from "../types";
-import toast from "react-hot-toast";
 import { Store } from "./storeTypes";
 import { sortAgentsBySelectionOrder } from "./agentSelection";
 import {
@@ -220,94 +217,18 @@ export const useStore = create<Store>()((set, get) => {
   setMessages: (messages) => set({ messages }),
   setModels: (models) => set({ models }),
   addAttachment: async (newAttachment, saved = false) => {
-    const { chatState } = get();
-    const formData = new FormData();
-
-    if (newAttachment.type.includes("image")) {
-      newAttachment.mode = "all_possible_text";
-
-      set((state) => ({
-        chatState: {
-          ...state.chatState,
-          attachments: [...state.chatState.attachments, newAttachment],
-        },
-      }));
-      return;
-    }
-
-    const selected = chatState.selectedAgents || [];
-    const isComplianceComposer = selected.some((slug) => {
-      const agent = get().agents.find((a) => a.slug === slug);
-      return agent != null && isComplianceAssistant(agent);
-    });
-    if (isComplianceComposer) {
-      newAttachment.mode = "all_possible_text";
-      set((state) => ({
-        chatState: {
-          ...state.chatState,
-          attachments: [...state.chatState.attachments, newAttachment],
-        },
-      }));
-      return;
-    }
-
     if (newAttachment.type === "audio") {
       return;
-      set((state) => ({
-        chatState: {
-          ...state.chatState,
-          attachments: [...state.chatState.attachments, newAttachment],
-        },
-      }));
-      toast.success("Adding audio...");
-      return;
     }
-
-    if (saved) {
-      set((state) => ({
-        chatState: {
-          ...state.chatState,
-          attachments: [...state.chatState.attachments, newAttachment],
-        },
-      }));
-      return;
-    }
-
-    const selectedAgents = chatState.selectedAgents.join(",");
-    if (chatState.selectedAgents.length === 0) {
-      toast.error(
-        "No agents selected, please  at least one to attach the documents on its vector store"
-      );
-    }
-    formData.append("name", newAttachment.name);
-    formData.append("source", "chat");
-    formData.append("visibility", "personal");
-
-    const loadingID = toast.loading("Uploading document...");
-    // @ts-ignore
-    formData.append("file", newAttachment.file);
-    try {
-      const r = await uploadDocument(formData);
-      console.log(r, "RESPONSE FROM UPLOADING DOCUMENT");
-
-      newAttachment.id = r.id;
-      newAttachment.text = r.text;
-      toast.dismiss(loadingID);
-
+    if (!saved) {
       newAttachment.mode = "all_possible_text";
-
-      set((state) => {
-        return {
-          chatState: {
-            ...state.chatState,
-            attachments: [...state.chatState.attachments, newAttachment],
-          },
-        };
-      });
-    } catch (e) {
-      console.log(e, "ERROR DURING FILE UPLOAD");
-      toast.dismiss(loadingID);
     }
+    set((state) => ({
+      chatState: {
+        ...state.chatState,
+        attachments: [...state.chatState.attachments, newAttachment],
+      },
+    }));
   },
   updateAttachment: (index, newAttachment) => {
     set((state) => ({

@@ -14,6 +14,19 @@ logger = logging.getLogger(__name__)
 def _message_attachment_expires_default():
     return timezone.now() + timezone.timedelta(days=30)
 
+
+def attachment_display_name(att, fallback: str = "file") -> str:
+    metadata = getattr(att, "metadata", None)
+    if isinstance(metadata, dict):
+        raw = metadata.get("name")
+        if isinstance(raw, str) and raw.strip():
+            return raw.strip().replace("\\", "/").split("/")[-1][:255]
+    file_field = getattr(att, "file", None)
+    stored = getattr(file_field, "name", None) if file_field else None
+    if stored:
+        return str(stored).split("/")[-1]
+    return fallback
+
 class Conversation(models.Model):
     STATUS_CHOICES = [
         ("active", "Active"),

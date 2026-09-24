@@ -1010,12 +1010,14 @@ def _create_attachments_from_data_urls(request, conversation, user, attachments_
             content_type = "text/html"
         else:
             content_type = "application/octet-stream"
+        raw_name = str(att.get("name") or "").strip().replace("\\", "/").split("/")[-1][:255]
         attachment = MessageAttachment.objects.create(
             conversation=conversation,
             user=user,
             kind="file",
             file=file_obj,
             content_type=content_type,
+            metadata={"name": raw_name} if raw_name else {},
         )
         from api.compliance.folio import ingest_compliance_attachment
 
@@ -1085,15 +1087,47 @@ def link_message_attachment(request):
     kind = link_payload.get("kind")
     if not conversation_id:
         return JsonResponse({"error": "conversation_id is required"}, status=400)
-    if kind not in ("rag_document", "website"):
+    if kind not in ("rag_document", "website", "file"):
         return JsonResponse(
-            {"error": "kind must be one of: rag_document, website"},
+            {"error": "kind must be one of: rag_document, website, file"},
             status=400,
         )
 
     conv, err = _get_conversation_for_user(request, conversation_id)
     if err:
         return err
+
+    if kind == "file":
+        from django.core.files.base import ContentFile
+
+        from api.messaging.attachment_access import user_can_access_attachment
+        from api.messaging.models import attachment_display_name
+
+        raw_id = link_payload.get("attachment_id")
+        try:
+            source = MessageAttachment.objects.get(pk=raw_id)
+        except (MessageAttachment.DoesNotExist, ValueError, TypeError):
+            return JsonResponse({"error": "Attachment not found"}, status=404)
+        if not user_can_access_attachment(source, user=request.user):
+            return JsonResponse({"error": "Attachment not accessible"}, status=403)
+        if source.kind != "file" or not source.file:
+            return JsonResponse({"error": "Only file attachments can be linked"}, status=400)
+        display_name = attachment_display_name(source)
+        with source.file.open("rb") as handle:
+            raw = handle.read()
+        clone = MessageAttachment(
+            conversation=conv,
+            user=request.user,
+            kind="file",
+            content_type=source.content_type or "",
+            metadata={"name": display_name} if display_name else {},
+        )
+        clone.file.save(display_name or "file", ContentFile(raw), save=False)
+        clone.save()
+        from api.compliance.folio import ingest_compliance_attachment
+
+        ingest_compliance_attachment(clone, actor=request.user)
+        return JsonResponse({"attachment": {"id": str(clone.id)}})
 
     if kind == "rag_document":
         rag_document_id = link_payload.get("rag_document_id") or link_payload.get("document_id")

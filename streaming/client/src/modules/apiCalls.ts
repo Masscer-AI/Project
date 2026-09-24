@@ -2247,6 +2247,7 @@ export const linkMessageAttachment = async (
   data:
     | { kind: "rag_document"; rag_document_id: number }
     | { kind: "website"; url: string }
+    | { kind: "file"; attachment_id: string }
 ): Promise<{ attachment: { id: string; url?: string } }> => {
   return makeAuthenticatedRequest(
     "POST",

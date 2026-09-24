@@ -438,10 +438,11 @@ class DocumentFromAttachmentView(View):
 
         uploaded = _uploaded_file_from_attachment(att)
         try:
+            meta_name = metadata.get("name") if isinstance(metadata.get("name"), str) else ""
             file_content, file_name = read_file_content(
                 uploaded,
                 content_type=att.content_type or "",
-                fallback_name=uploaded.name,
+                fallback_name=meta_name.strip() or uploaded.name,
             )
         except ValueError as exc:
             return JsonResponse(

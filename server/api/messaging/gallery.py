@@ -16,7 +16,7 @@ from api.messaging.attachment_access import (
     user_can_manage_attachment,
 )
 from api.messaging.attachment_urls import absolute_file_url_for_attachment
-from api.messaging.models import Message, MessageAttachment
+from api.messaging.models import Message, MessageAttachment, attachment_display_name
 
 logger = logging.getLogger(__name__)
 
@@ -59,12 +59,7 @@ def serialize_gallery_item(att: MessageAttachment, user=None) -> dict | None:
     if not url:
         return None
 
-    file_field = att.file
-    name = (
-        file_field.name.split("/")[-1]
-        if getattr(file_field, "name", None)
-        else "file"
-    )
+    name = attachment_display_name(att)
     metadata = att.metadata if isinstance(att.metadata, dict) else {}
     prompt = metadata.get("prompt") or metadata.get("text") or None
     conversation = att.conversation
