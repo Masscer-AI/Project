@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useStore } from "../../modules/store";
 import { AppPage } from "../../components/AppPage/AppPage";
 import {
@@ -44,12 +44,14 @@ import {
   Checkbox,
   Group,
   Loader,
+  Menu,
   Modal,
   NativeSelect,
   NumberInput,
   ScrollArea,
   Stack,
   Switch,
+  Table,
   Tabs,
   Text,
   Textarea,
@@ -59,12 +61,11 @@ import {
 } from "@mantine/core";
 import {
   IconCheck,
-  IconClock,
   IconBarbell,
+  IconDots,
   IconEdit,
   IconFileText,
-  IconHash,
-  IconLoader,
+  IconLock,
   IconPlus,
   IconRobot,
   IconSearch,
@@ -75,7 +76,6 @@ import {
   IconTrash,
   IconUpload,
   IconUsers,
-  IconUser,
   IconX,
 } from "@tabler/icons-react";
 
@@ -83,6 +83,53 @@ function visibilityLabelKey(visibility?: TDocumentVisibility): string {
   if (visibility === "organization") return "document-visibility-organization";
   if (visibility === "roles") return "document-visibility-roles";
   return "document-visibility-personal";
+}
+
+function fileKind(name?: string, contentType?: string) {
+  const n = (name || "").toLowerCase();
+  const c = (contentType || "").toLowerCase();
+  if (n.endsWith(".pdf") || c.includes("pdf")) return { label: "PDF", color: "red" };
+  if (n.endsWith(".png") || c.includes("png")) return { label: "PNG", color: "indigo" };
+  if (n.endsWith(".jpg") || n.endsWith(".jpeg") || c.includes("jpeg")) {
+    return { label: "JPG", color: "blue" };
+  }
+  if (n.endsWith(".gif") || n.endsWith(".webp")) return { label: "IMG", color: "blue" };
+  if (n.endsWith(".docx") || n.endsWith(".doc")) return { label: "DOC", color: "blue" };
+  if (n.endsWith(".xlsx") || n.endsWith(".xls") || n.endsWith(".csv")) {
+    return { label: "XLS", color: "teal" };
+  }
+  return { label: "FILE", color: "gray" };
+}
+
+function KindMark({ label, color }: { label: string; color: string }) {
+  return (
+    <Box
+      w={36}
+      h={36}
+      style={{
+        borderRadius: 8,
+        background: `var(--mantine-color-${color}-light)`,
+        color: `var(--mantine-color-${color}-6)`,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: 11,
+        fontWeight: 700,
+        flexShrink: 0,
+      }}
+    >
+      {label}
+    </Box>
+  );
+}
+
+function TabCount({ count, active }: { count: number; active: boolean }) {
+  if (count <= 0) return null;
+  return (
+    <Badge size="xs" variant={active ? "filled" : "light"} radius="xl">
+      {count}
+    </Badge>
+  );
 }
 
 const MAX_ITEM_TAGS = 3;
@@ -155,6 +202,24 @@ export default function KnowledgeBasePage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = parseKnowledgeBaseActiveTab(searchParams);
   const [focusCompletionId, setFocusCompletionId] = useState<number | null>(null);
+  const [listCount, setListCount] = useState(0);
+  const [templateCount, setTemplateCount] = useState(0);
+  const uploadDocumentRef = useRef<(() => void) | null>(null);
+  const createCompletionRef = useRef<(() => void) | null>(null);
+  const uploadListRef = useRef<(() => void) | null>(null);
+  const uploadTemplateRef = useRef<(() => void) | null>(null);
+  const bindUploadDocument = useCallback((fn: () => void) => {
+    uploadDocumentRef.current = fn;
+  }, []);
+  const bindCreateCompletion = useCallback((fn: () => void) => {
+    createCompletionRef.current = fn;
+  }, []);
+  const bindUploadList = useCallback((fn: () => void) => {
+    uploadListRef.current = fn;
+  }, []);
+  const bindUploadTemplate = useCallback((fn: () => void) => {
+    uploadTemplateRef.current = fn;
+  }, []);
 
   const setKnowledgeBaseTab = (tab: KnowledgeBaseTab) => {
     const next = new URLSearchParams(searchParams);
@@ -335,10 +400,46 @@ export default function KnowledgeBasePage() {
     },
   ];
 
+  const completionCounts = {
+    all: completions.length,
+    pending: completions.filter((c) => !c.approved).length,
+    approved: completions.filter((c) => c.approved).length,
+  };
+
+  const searchPlaceholder =
+    activeTab === "documents"
+      ? t("search-documents")
+      : activeTab === "completions"
+        ? t("search-completions")
+        : activeTab === "lists"
+          ? t("search-lists")
+          : t("search-templates");
+
+  const headerAction =
+    activeTab === "documents"
+      ? { label: t("upload-document"), run: () => uploadDocumentRef.current?.() }
+      : activeTab === "completions"
+        ? { label: t("new-completion"), run: () => createCompletionRef.current?.() }
+        : activeTab === "lists"
+          ? { label: t("org-list-upload-new"), run: () => uploadListRef.current?.() }
+          : { label: t("upload-new-template"), run: () => uploadTemplateRef.current?.() };
+
   return (
-    <AppPage title={t("knowledge-base")}>
-        <Box px="md" w="100%" maw="52rem" mx="auto">
-          <Text ta="center" c="dimmed" mb="lg" size="sm">
+    <AppPage
+      title={t("knowledge-base")}
+      right={
+        <Button
+          variant="white"
+          color="dark"
+          leftSection={<IconPlus size={16} />}
+          onClick={headerAction.run}
+        >
+          {headerAction.label}
+        </Button>
+      }
+    >
+        <Box px="md" w="100%" maw="72rem" mx="auto">
+          <Text c="dimmed" mb="lg" size="sm">
             {t("knowledge-base-description")}
           </Text>
 
@@ -360,83 +461,104 @@ export default function KnowledgeBasePage() {
               <Tabs.Tab
                 value="documents"
                 leftSection={<IconFileText size={16} />}
+                rightSection={
+                  <TabCount count={documents.length} active={activeTab === "documents"} />
+                }
               >
-                {t("documents")} ({documents.length})
+                {t("documents")}
               </Tabs.Tab>
               <Tabs.Tab
                 value="completions"
                 leftSection={<IconSparkles size={16} />}
+                rightSection={
+                  <TabCount
+                    count={completions.length}
+                    active={activeTab === "completions"}
+                  />
+                }
               >
-                {t("completions")} ({completions.length})
+                {t("completions")}
               </Tabs.Tab>
               <Tabs.Tab
                 value="templates"
                 leftSection={<IconTemplate size={16} />}
+                rightSection={
+                  <TabCount count={templateCount} active={activeTab === "templates"} />
+                }
               >
                 {t("document-templates-tab")}
               </Tabs.Tab>
-              <Tabs.Tab value="lists" leftSection={<IconList size={16} />}>
+              <Tabs.Tab
+                value="lists"
+                leftSection={<IconList size={16} />}
+                rightSection={
+                  <TabCount count={listCount} active={activeTab === "lists"} />
+                }
+              >
                 {t("knowledge-base-lists-tab")}
               </Tabs.Tab>
             </Tabs.List>
           </Tabs>
 
-          {}
-          <Group gap="sm" mb="md">
-            <TextInput
-              placeholder={t("search")}
-              leftSection={<IconSearch size={16} />}
-              value={search}
-              onChange={(e) => setSearch(e.currentTarget.value)}
-              style={{ flex: 1, minWidth: 200 }}
-              size="sm"
-            />
+          <Group justify="space-between" align="center" gap="sm" mb="md" wrap="wrap">
             {activeTab === "completions" && (
-              <NativeSelect
-                value={agentFilter}
-                onChange={(e) => setAgentFilter(e.currentTarget.value)}
-                data={[
-                  { value: "all", label: t("all-agents") },
-                  ...agents
-                    .filter((a) => a.id)
-                    .map((a) => ({
-                      value: a.id!.toString(),
-                      label: a.name,
-                    })),
-                ]}
+              <Group gap="xs" wrap="wrap">
+                {completionStatusOptions.map((opt) => (
+                  <Tooltip key={opt.value} label={opt.hint} withArrow>
+                    <Button
+                      variant={
+                        completionStatusFilter === opt.value ? "light" : "default"
+                      }
+                      size="xs"
+                      radius="xl"
+                      onClick={() => setCompletionStatusFilter(opt.value)}
+                    >
+                      {opt.label} {completionCounts[opt.value]}
+                    </Button>
+                  </Tooltip>
+                ))}
+              </Group>
+            )}
+            <Group gap="sm" wrap="wrap" style={{ flex: activeTab === "completions" ? undefined : 1 }}>
+              <TextInput
+                placeholder={searchPlaceholder}
+                leftSection={<IconSearch size={16} />}
+                value={search}
+                onChange={(e) => setSearch(e.currentTarget.value)}
+                style={{ width: activeTab === "completions" ? 220 : "100%", maxWidth: 420 }}
                 size="sm"
               />
-            )}
+              {activeTab === "completions" && (
+                <NativeSelect
+                  value={agentFilter}
+                  onChange={(e) => setAgentFilter(e.currentTarget.value)}
+                  data={[
+                    { value: "all", label: t("all-agents") },
+                    ...agents
+                      .filter((a) => a.id)
+                      .map((a) => ({
+                        value: a.id!.toString(),
+                        label: a.name,
+                      })),
+                  ]}
+                  size="sm"
+                  w={180}
+                />
+              )}
+            </Group>
           </Group>
 
-          {activeTab === "completions" && (
-            <Group justify="center" wrap="wrap" gap="xs" mb="md">
-              {completionStatusOptions.map((opt) => (
-                <Tooltip key={opt.value} label={opt.hint} withArrow>
-                  <Button
-                    variant={
-                      completionStatusFilter === opt.value ? "filled" : "default"
-                    }
-                    size="xs"
-                    onClick={() => setCompletionStatusFilter(opt.value)}
-                  >
-                    {opt.label}
-                  </Button>
-                </Tooltip>
-              ))}
-            </Group>
-          )}
-
-          {}
-          {activeTab === "documents" ? (
+          <Box style={{ display: activeTab === "documents" ? undefined : "none" }}>
             <DocumentsTab
               documents={filteredDocuments}
               loading={loadingDocs}
               onRefresh={() => loadDocuments()}
               agents={agents}
               focusedDocument={focusDocumentId != null}
+              bindUpload={bindUploadDocument}
             />
-          ) : activeTab === "completions" ? (
+          </Box>
+          <Box style={{ display: activeTab === "completions" ? undefined : "none" }}>
             <CompletionsTab
               completions={filteredCompletions}
               anyCompletionsExist={completions.length > 0}
@@ -449,12 +571,24 @@ export default function KnowledgeBasePage() {
               }
               agents={agents}
               focusCompletionId={focusCompletionId}
+              bindCreate={bindCreateCompletion}
             />
-          ) : activeTab === "templates" ? (
-            <TemplatesTab agents={agents} filterQuery={search} />
-          ) : (
-            <ListsTab filterQuery={search} />
-          )}
+          </Box>
+          <Box style={{ display: activeTab === "templates" ? undefined : "none" }}>
+            <TemplatesTab
+              agents={agents}
+              filterQuery={search}
+              bindUpload={bindUploadTemplate}
+              onCount={setTemplateCount}
+            />
+          </Box>
+          <Box style={{ display: activeTab === "lists" ? undefined : "none" }}>
+            <ListsTab
+              filterQuery={search}
+              bindUpload={bindUploadList}
+              onCount={setListCount}
+            />
+          </Box>
         </Box>
     </AppPage>
   );
@@ -466,12 +600,14 @@ const DocumentsTab = ({
   onRefresh,
   agents,
   focusedDocument = false,
+  bindUpload,
 }: {
   documents: TDocument[];
   loading: boolean;
   onRefresh: () => void;
   agents: TAgent[];
   focusedDocument?: boolean;
+  bindUpload?: (fn: () => void) => void;
 }) => {
   const { t } = useTranslation();
   const [uploadOpened, uploadHandlers] = useDisclosure(false);
@@ -548,6 +684,12 @@ const DocumentsTab = ({
     resetUploadForm();
     uploadHandlers.open();
   };
+
+  const openUploadRef = useRef(openUploadModal);
+  openUploadRef.current = openUploadModal;
+  useEffect(() => {
+    bindUpload?.(() => openUploadRef.current());
+  }, [bindUpload]);
 
   const closeUploadModal = () => {
     if (uploading) return;
@@ -636,16 +778,6 @@ const DocumentsTab = ({
 
   return (
     <Stack gap="md">
-      <Group justify="flex-end">
-        <Button
-          size="sm"
-          leftSection={<IconPlus size={16} />}
-          onClick={openUploadModal}
-        >
-          {t("upload-document")}
-        </Button>
-      </Group>
-
       <Modal
         opened={uploadOpened}
         onClose={closeUploadModal}
@@ -804,36 +936,74 @@ const DocumentsTab = ({
       </Modal>
 
       {documents.length === 0 ? (
-        <Card withBorder p="xl" ta="center" style={{ borderStyle: "dashed" }}>
-          <Stack align="center" gap="sm">
-            <Text c="dimmed">
-              {focusedDocument ? t("no-documents-found") : t("no-documents-yet")}
-            </Text>
-            {!focusedDocument && (
-            <Button
-              size="sm"
-              variant="default"
-              leftSection={<IconPlus size={16} />}
-              onClick={openUploadModal}
-            >
-              {t("upload-document")}
-            </Button>
-            )}
-          </Stack>
-        </Card>
+        <Text c="dimmed" ta="center" py="md">
+          {focusedDocument ? t("no-documents-found") : t("no-documents-yet")}
+        </Text>
       ) : (
-        documents.map((doc) => (
-          <DocumentItem
-            key={doc.id}
-            document={doc}
-            agents={agents}
-            orgRoles={orgRoles}
-            orgTags={orgTags}
-            hasOrg={hasOrg}
-            onDelete={() => handleDelete(doc.id)}
-            onUpdated={onRefresh}
-          />
-        ))
+        <Table highlightOnHover verticalSpacing="sm" style={{ tableLayout: "fixed" }}>
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th>{t("kb-col-document")}</Table.Th>
+              <Table.Th w={140}>{t("kb-col-visibility")}</Table.Th>
+              <Table.Th w={110} ta="right">{t("kb-col-fragments")}</Table.Th>
+              <Table.Th w={90} ta="right">{t("kb-col-tokens")}</Table.Th>
+              <Table.Th w={48} />
+            </Table.Tr>
+          </Table.Thead>
+          <Table.Tbody>
+            {documents.map((doc) => (
+              <DocumentItem
+                key={doc.id}
+                document={doc}
+                agents={agents}
+                orgRoles={orgRoles}
+                orgTags={orgTags}
+                hasOrg={hasOrg}
+                onDelete={() => handleDelete(doc.id)}
+                onUpdated={onRefresh}
+              />
+            ))}
+          </Table.Tbody>
+        </Table>
+      )}
+
+      {!focusedDocument && (
+        <Card
+          withBorder
+          p="lg"
+          ta="center"
+          style={{
+            cursor: "pointer",
+            borderStyle: "dashed",
+            borderColor: dragging ? "var(--mantine-color-violet-6)" : undefined,
+          }}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragging(true);
+          }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragging(false);
+            addFiles(e.dataTransfer.files);
+            uploadHandlers.open();
+          }}
+        >
+          <Text size="sm" c="dimmed">
+            <IconUpload size={16} style={{ verticalAlign: "middle", marginRight: 6 }} />
+            {t("kb-drop-before")}{" "}
+            <Text
+              span
+              c="var(--mantine-primary-color-filled)"
+              style={{ cursor: "pointer" }}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {t("kb-choose-file")}
+            </Text>
+            {" · "}
+            {t("kb-drop-types")}
+          </Text>
+        </Card>
       )}
     </Stack>
   );
@@ -856,7 +1026,7 @@ const DocumentItem = ({
   onDelete: () => void;
   onUpdated: () => void;
 }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [showChunks, setShowChunks] = useState(false);
   const [showTraining, setShowTraining] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -882,10 +1052,6 @@ const DocumentItem = ({
       orgTags
         .filter((tag) => tag.enabled)
         .map((tag) => ({ value: tag.id.toString(), label: tag.title })),
-    [orgTags]
-  );
-  const tagById = useMemo(
-    () => new Map(orgTags.map((tag) => [tag.id, tag])),
     [orgTags]
   );
 
@@ -921,13 +1087,22 @@ const DocumentItem = ({
     }
   };
 
+  const kind = fileKind(document.name, document.content_type);
+  const fragmentLabel =
+    isProcessing && !document.chunk_count
+      ? "—"
+      : String(document.chunk_count);
+  const tokenLabel =
+    isProcessing && !document.total_tokens
+      ? "—"
+      : new Intl.NumberFormat(i18n.language).format(document.total_tokens || 0);
   const visibilityIcon =
     document.visibility === "organization" ? (
-      <IconUsers size={10} />
+      <IconUsers size={14} />
     ) : document.visibility === "roles" ? (
-      <IconRobot size={10} />
+      <IconRobot size={14} />
     ) : (
-      <IconUser size={10} />
+      <IconLock size={14} />
     );
 
   return (
@@ -943,6 +1118,27 @@ const DocumentItem = ({
         document={document}
         agents={agents}
       />
+      <Modal
+        opened={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        title={t("delete")}
+        centered
+      >
+        <Group justify="flex-end">
+          <Button variant="default" onClick={() => setConfirmDelete(false)}>
+            {t("cancel")}
+          </Button>
+          <Button
+            color="red"
+            onClick={() => {
+              onDelete();
+              setConfirmDelete(false);
+            }}
+          >
+            {t("delete")}
+          </Button>
+        </Group>
+      </Modal>
       <Modal
         opened={ownershipOpened}
         onClose={ownershipHandlers.close}
@@ -1012,109 +1208,78 @@ const DocumentItem = ({
         </Stack>
       </Modal>
 
-      <Card withBorder p="md">
-        <Text fw={600} mb={4}>
-          {document.name || t("untitled")}
-        </Text>
-
-        <Group gap={6} mb="xs">
-          <Badge
-            size="xs"
-            variant="light"
-            color="violet"
-            leftSection={visibilityIcon}
-          >
-            {t(visibilityLabelKey(document.visibility))}
-            {document.visibility === "roles" &&
-            (document.allowed_role_ids?.length || 0) > 0
-              ? ` (${document.allowed_role_ids!.length})`
-              : ""}
-          </Badge>
-          {(document.tag_ids || []).slice(0, MAX_ITEM_TAGS).map((tid) => (
-            <Badge key={tid} size="xs" variant="light" color="gray">
-              {tagById.get(tid)?.title || `#${tid}`}
-            </Badge>
-          ))}
-          <Badge
-            size="xs"
-            variant="default"
-            leftSection={<IconFileText size={10} />}
-          >
-            {document.chunk_count} {t("chunks")}
-          </Badge>
-          <Badge
-            size="xs"
-            variant="default"
-            leftSection={<IconHash size={10} />}
-          >
-            {document.total_tokens} {t("tokens")}
-          </Badge>
-          {isProcessing && (
-            <Badge
-              size="xs"
-              variant="light"
-              color="yellow"
-              leftSection={<IconLoader size={10} />}
-            >
-              {t("processing")}
-            </Badge>
-          )}
-        </Group>
-
-        {document.brief && (
-          <Text size="sm" c="dimmed" mb="sm" lineClamp={3}>
-            {document.brief}
-          </Text>
-        )}
-
-        <Group gap="xs">
-          <Button
-            variant="default"
-            size="xs"
-            leftSection={<IconSearch size={14} />}
-            onClick={() => setShowChunks(true)}
-            disabled={isProcessing}
-          >
-            {t("show-document-text")}
-          </Button>
-          <Button
-            variant="default"
-            size="xs"
-            leftSection={<IconBarbell size={14} />}
-            onClick={() => setShowTraining(true)}
-            disabled={isProcessing}
-          >
-            {t("train-on-this-document")}
-          </Button>
-          {hasOrg && (
-            <Button
-              variant="default"
-              size="xs"
-              leftSection={<IconSettings size={14} />}
-              onClick={openOwnership}
-            >
-              {t("settings")}
-            </Button>
-          )}
-          <Button
-            variant="light"
-            color={confirmDelete ? "red" : "gray"}
-            size="xs"
-            leftSection={<IconTrash size={14} />}
-            onClick={() => {
-              if (confirmDelete) {
-                onDelete();
-                setConfirmDelete(false);
-              } else {
-                setConfirmDelete(true);
-              }
-            }}
-            onBlur={() => setConfirmDelete(false)}
-          >
-            {confirmDelete ? t("im-sure") : t("delete")}
-          </Button>
-        </Group>
-      </Card>
+      <Table.Tr>
+        <Table.Td>
+          <Group gap="sm" wrap="nowrap">
+            <KindMark label={kind.label} color={kind.color} />
+            <Box style={{ minWidth: 0 }}>
+              <Text
+                fw={600}
+                lineClamp={1}
+                style={{ cursor: isProcessing ? "default" : "pointer" }}
+                onClick={() => {
+                  if (!isProcessing) setShowChunks(true);
+                }}
+              >
+                {document.name || t("untitled")}
+              </Text>
+              <Text size="sm" c="dimmed" lineClamp={1}>
+                {document.brief || (isProcessing ? t("processing") : "")}
+              </Text>
+            </Box>
+          </Group>
+        </Table.Td>
+        <Table.Td>
+          <Group gap={6} wrap="nowrap">
+            {visibilityIcon}
+            <Text size="sm">
+              {t(visibilityLabelKey(document.visibility))}
+            </Text>
+          </Group>
+        </Table.Td>
+        <Table.Td ta="right">{fragmentLabel}</Table.Td>
+        <Table.Td ta="right">{tokenLabel}</Table.Td>
+        <Table.Td>
+          <Menu position="bottom-end">
+            <Menu.Target>
+              <ActionIcon variant="subtle" color="gray" aria-label={t("settings")}>
+                <IconDots size={16} />
+              </ActionIcon>
+            </Menu.Target>
+            <Menu.Dropdown>
+              <Menu.Item
+                leftSection={<IconSearch size={14} />}
+                disabled={isProcessing}
+                onClick={() => setShowChunks(true)}
+              >
+                {t("show-document-text")}
+              </Menu.Item>
+              <Menu.Item
+                leftSection={<IconBarbell size={14} />}
+                disabled={isProcessing}
+                onClick={() => setShowTraining(true)}
+              >
+                {t("train-on-this-document")}
+              </Menu.Item>
+              {hasOrg && (
+                <Menu.Item
+                  leftSection={<IconSettings size={14} />}
+                  onClick={openOwnership}
+                >
+                  {t("settings")}
+                </Menu.Item>
+              )}
+              <Menu.Item
+                color="red"
+                leftSection={<IconTrash size={14} />}
+                onClick={() => setConfirmDelete(true)}
+              >
+                {t("delete")}
+              </Menu.Item>
+            </Menu.Dropdown>
+          </Menu>
+        </Table.Td>
+      </Table.Tr>
     </>
   );
 };
@@ -1317,6 +1482,7 @@ const CompletionsTab = ({
   onBulkRemoved,
   agents,
   focusCompletionId,
+  bindCreate,
 }: {
   completions: TCompletion[];
   anyCompletionsExist: boolean;
@@ -1327,9 +1493,15 @@ const CompletionsTab = ({
   onBulkRemoved: (ids: Set<number>) => void;
   agents: TAgent[];
   focusCompletionId: number | null;
+  bindCreate?: (fn: () => void) => void;
 }) => {
   const { t } = useTranslation();
   const [showCreate, setShowCreate] = useState(false);
+  const openCreateRef = useRef(() => setShowCreate(true));
+  openCreateRef.current = () => setShowCreate(true);
+  useEffect(() => {
+    bindCreate?.(() => openCreateRef.current());
+  }, [bindCreate]);
   const [newPrompt, setNewPrompt] = useState("");
   const [newAnswer, setNewAnswer] = useState("");
   const [newAgentIds, setNewAgentIds] = useState<string[]>([]);
@@ -1350,8 +1522,6 @@ const CompletionsTab = ({
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
 
-  const allSelected =
-    completions.length > 0 && selectedIds.size === completions.length;
   const someSelected = selectedIds.size > 0;
 
   const toggleSelect = (id: number) => {
@@ -1361,15 +1531,6 @@ const CompletionsTab = ({
       else next.add(id);
       return next;
     });
-    setConfirmBulkDelete(false);
-  };
-
-  const toggleSelectAll = () => {
-    if (allSelected) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(completions.map((c) => c.id)));
-    }
     setConfirmBulkDelete(false);
   };
 
@@ -1435,51 +1596,30 @@ const CompletionsTab = ({
 
   return (
     <Stack gap="md">
-      {}
-      <Group justify="space-between">
+      {someSelected && (
         <Group gap="xs">
-          {completions.length > 0 && (
-            <Checkbox
-              checked={allSelected}
-              indeterminate={someSelected && !allSelected}
-              onChange={toggleSelectAll}
-              label={allSelected ? t("unselect-all") : t("select-all")}
-              size="sm"
-            />
-          )}
-          {someSelected && (
-            <Button
-              variant="light"
-              color={confirmBulkDelete ? "red" : "red"}
-              size="xs"
-              leftSection={<IconTrash size={14} />}
-              loading={bulkDeleting}
-              onClick={handleBulkDelete}
-              onBlur={() => setConfirmBulkDelete(false)}
-            >
-              {confirmBulkDelete
-                ? t("confirm-delete-count", { count: selectedIds.size })
-                : t("delete-selected", { count: selectedIds.size })}
-            </Button>
-          )}
-        </Group>
-
-        {!showCreate && (
           <Button
-            leftSection={<IconPlus size={16} />}
-            onClick={() => setShowCreate(true)}
-            size="sm"
+            variant="light"
+            color="red"
+            size="xs"
+            leftSection={<IconTrash size={14} />}
+            loading={bulkDeleting}
+            onClick={handleBulkDelete}
+            onBlur={() => setConfirmBulkDelete(false)}
           >
-            {t("new-completion")}
+            {confirmBulkDelete
+              ? t("confirm-delete-count", { count: selectedIds.size })
+              : t("delete-selected", { count: selectedIds.size })}
           </Button>
-        )}
-      </Group>
+        </Group>
+      )}
 
-      {showCreate && (
-        <Card withBorder p="lg">
-          <Title order={4} mb="md">
-            {t("create-completion")}
-          </Title>
+      <Modal
+        opened={showCreate}
+        onClose={() => setShowCreate(false)}
+        title={t("create-completion")}
+        size="lg"
+      >
           <Stack gap="sm">
             <Textarea
               label={t("prompt")}
@@ -1560,8 +1700,7 @@ const CompletionsTab = ({
               </Button>
             </Group>
           </Stack>
-        </Card>
-      )}
+      </Modal>
 
       {completions.length === 0 && !showCreate && !anyCompletionsExist ? (
         <Card withBorder p="xl" ta="center" style={{ borderStyle: "dashed" }}>
@@ -1818,113 +1957,91 @@ const CompletionItem = ({
     <Card
       ref={cardRef}
       withBorder
-      p="md"
+      p="sm"
       style={{
         borderColor: selected ? "var(--mantine-color-violet-6)" : undefined,
       }}
     >
-      <Group gap="sm" align="flex-start" wrap="nowrap">
+      <Group gap="sm" align="center" wrap="nowrap">
         <Checkbox
           checked={selected}
           onChange={onToggleSelect}
-          mt={4}
           style={{ flexShrink: 0 }}
         />
         <Box style={{ flex: 1, minWidth: 0 }}>
-      <Text fw={600} mb={4}>
-        {completion.prompt}
-      </Text>
-
-      {}
-      <Group gap={6} mb="xs">
+          <Text fw={600} lineClamp={1}>
+            {completion.prompt}
+          </Text>
+          <Group gap={4} wrap="nowrap">
+            <IconSparkles size={12} style={{ flexShrink: 0 }} />
+            <Text size="xs" c="dimmed" lineClamp={1}>
+              {completion.answer}
+            </Text>
+          </Group>
+        </Box>
+        {assignedAgentNames[0] && (
+          <Group gap={4} wrap="nowrap" style={{ flexShrink: 0 }}>
+            <IconRobot size={14} />
+            <Text size="sm" lineClamp={1}>
+              {assignedAgentNames[0]}
+            </Text>
+          </Group>
+        )}
         <Badge
-          size="xs"
+          size="sm"
           variant="light"
           color={completion.approved ? "green" : "yellow"}
-          leftSection={
-            completion.approved ? (
-              <IconCheck size={10} />
-            ) : (
-              <IconClock size={10} />
-            )
-          }
+          styles={{ label: { textTransform: "none" } }}
         >
-          {completion.approved ? t("approved") : t("pending")}
+          {completion.approved
+            ? t("completion-status-approved")
+            : t("completion-status-pending")}
         </Badge>
-        {assignedAgentNames.map((name) => (
-          <Badge
-            key={name}
-            size="xs"
-            variant="default"
-            leftSection={<IconRobot size={10} />}
-          >
-            {name}
-          </Badge>
-        ))}
-        {savedRules.include_always && (
-          <Badge size="xs" variant="light" color="violet">
-            {t("completion-include-always")}
-          </Badge>
-        )}
-        {savedRules.include_for_tags.length > 0 && (
-          <Badge size="xs" variant="light" color="blue">
-            {t("completion-tag-rules-count", {
-              count: savedRules.include_for_tags.length,
-            })}
-          </Badge>
-        )}
-      </Group>
-
-      <Text size="sm" c="dimmed" mb="sm" style={{ whiteSpace: "pre-wrap" }}>
-        {completion.answer}
-      </Text>
-
-      <Group gap="xs" wrap="wrap">
         <Button
-          variant="light"
-          color={completion.approved ? "green" : "gray"}
+          variant={completion.approved ? "light" : "filled"}
+          color="green"
           size="xs"
-          leftSection={
-            completion.approved ? (
-              <IconX size={14} />
-            ) : (
-              <IconCheck size={14} />
-            )
-          }
+          leftSection={<IconCheck size={14} />}
           onClick={handleApprove}
         >
           {completion.approved ? t("unapprove") : t("approve")}
         </Button>
-
-        <Button
-          variant="default"
-          size="xs"
-          leftSection={<IconEdit size={14} />}
-          onClick={openEdit}
-        >
-          {t("edit")}
-        </Button>
-
-        <Button
-          variant="light"
-          color={confirmDelete ? "red" : "gray"}
-          size="xs"
-          leftSection={<IconTrash size={14} />}
-          onClick={() => {
-            if (confirmDelete) {
-              handleDelete();
-              setConfirmDelete(false);
-            } else {
-              setConfirmDelete(true);
-            }
-          }}
-          onBlur={() => setConfirmDelete(false)}
-        >
-          {confirmDelete ? t("im-sure") : t("delete")}
-        </Button>
+        <ActionIcon variant="subtle" color="gray" onClick={openEdit} aria-label={t("edit")}>
+          <IconEdit size={16} />
+        </ActionIcon>
+        <Menu position="bottom-end">
+          <Menu.Target>
+            <ActionIcon variant="subtle" color="gray" aria-label={t("delete")}>
+              <IconDots size={16} />
+            </ActionIcon>
+          </Menu.Target>
+          <Menu.Dropdown>
+            <Menu.Item
+              color="red"
+              leftSection={<IconTrash size={14} />}
+              onClick={() => setConfirmDelete(true)}
+            >
+              {t("delete")}
+            </Menu.Item>
+          </Menu.Dropdown>
+        </Menu>
       </Group>
-        </Box>
-      </Group>
+
+      <Modal
+        opened={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        title={t("delete")}
+        centered
+      >
+        <Group justify="flex-end">
+          <Button variant="default" onClick={() => setConfirmDelete(false)}>
+            {t("cancel")}
+          </Button>
+          <Button color="red" onClick={handleDelete}>
+            {t("delete")}
+          </Button>
+        </Group>
+      </Modal>
 
       <Modal
         opened={editOpened}

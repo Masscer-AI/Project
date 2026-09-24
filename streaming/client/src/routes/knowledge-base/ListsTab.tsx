@@ -5,24 +5,25 @@ import toast from "react-hot-toast";
 import {
   ActionIcon,
   Badge,
+  Box,
   Button,
   Card,
   Group,
   Loader,
+  Menu,
   Modal,
   NativeSelect,
   Stack,
+  Table,
   Text,
   Textarea,
   TextInput,
-  Title,
-  Tooltip,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
+  IconDots,
   IconEdit,
   IconEye,
-  IconList,
   IconTrash,
   IconUpload,
 } from "@tabler/icons-react";
@@ -64,7 +65,15 @@ function listNameFromFile(file: File) {
   return file.name.replace(/\.[^.]+$/, "").trim();
 }
 
-export function ListsTab({ filterQuery }: { filterQuery: string }) {
+export function ListsTab({
+  filterQuery,
+  bindUpload,
+  onCount,
+}: {
+  filterQuery: string;
+  bindUpload?: (fn: () => void) => void;
+  onCount?: (count: number) => void;
+}) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -84,6 +93,7 @@ export function ListsTab({ filterQuery }: { filterQuery: string }) {
   const replaceInputRef = useRef<HTMLInputElement>(null);
 
   const [activeList, setActiveList] = useState<TOrganizationList | null>(null);
+  const [uploadOpened, uploadHandlers] = useDisclosure(false);
   const [deleteModalOpened, deleteModalHandlers] = useDisclosure(false);
   const [editModalOpened, editModalHandlers] = useDisclosure(false);
   const [editName, setEditName] = useState("");
@@ -160,6 +170,14 @@ export function ListsTab({ filterQuery }: { filterQuery: string }) {
   }, [orgId, loadLists]);
 
   useEffect(() => {
+    onCount?.(lists.length);
+  }, [lists.length, onCount]);
+
+  useEffect(() => {
+    bindUpload?.(() => uploadHandlers.open());
+  }, [bindUpload, uploadHandlers.open]);
+
+  useEffect(() => {
     if (!orgId) return;
     const needsPoll = lists.some((row) => isImportInProgress(row.import_status));
     if (!needsPoll) return;
@@ -205,6 +223,7 @@ export function ListsTab({ filterQuery }: { filterQuery: string }) {
       setUploadName("");
       setUploadDescription("");
       setPendingFile(null);
+      uploadHandlers.close();
       await loadLists(orgId);
     } catch {
       toast.error(t("org-list-upload-error"));
@@ -331,7 +350,7 @@ export function ListsTab({ filterQuery }: { filterQuery: string }) {
         onChange={(e) => handleReplaceFile(e.currentTarget.files)}
       />
 
-      <Group align="flex-end" wrap="wrap">
+      {orgs.length > 1 && (
         <NativeSelect
           label={t("organization-for-lists")}
           data={orgSelectData}
@@ -347,47 +366,58 @@ export function ListsTab({ filterQuery }: { filterQuery: string }) {
           size="sm"
           w={280}
         />
-      </Group>
+      )}
 
       <Text size="sm" c="dimmed">
         {t("org-lists-tab-description")}
       </Text>
 
-      <Card withBorder p="md">
+      <Modal
+        opened={uploadOpened}
+        onClose={uploadHandlers.close}
+        title={t("org-list-upload-new")}
+      >
         <Stack gap="sm">
-          <Title order={5}>{t("org-list-upload-new")}</Title>
-          <Group grow align="flex-start" wrap="wrap">
-            <TextInput
-              label={t("org-list-name")}
-              placeholder={t("org-list-name-placeholder")}
-              value={uploadName}
-              onChange={(e) => setUploadName(e.currentTarget.value)}
-              size="sm"
-            />
-            <Textarea
-              label={t("org-list-description")}
-              placeholder={t("optional")}
-              value={uploadDescription}
-              onChange={(e) => setUploadDescription(e.currentTarget.value)}
-              size="sm"
-              autosize
-              minRows={1}
-            />
-          </Group>
+          <TextInput
+            label={t("org-list-name")}
+            placeholder={t("org-list-name-placeholder")}
+            value={uploadName}
+            onChange={(e) => setUploadName(e.currentTarget.value)}
+            size="sm"
+          />
+          <Textarea
+            label={t("org-list-description")}
+            placeholder={t("optional")}
+            value={uploadDescription}
+            onChange={(e) => setUploadDescription(e.currentTarget.value)}
+            size="sm"
+            autosize
+            minRows={1}
+          />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept={TABULAR_ACCEPT}
+            style={{ display: "none" }}
+            onChange={(e) => handleFilePicked(e.currentTarget.files)}
+          />
           <Group>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept={TABULAR_ACCEPT}
-              style={{ display: "none" }}
-              onChange={(e) => handleFilePicked(e.currentTarget.files)}
-            />
             <Button
               variant="default"
               leftSection={<IconUpload size={16} />}
               onClick={() => fileInputRef.current?.click()}
             >
               {t("org-list-choose-file")}
+            </Button>
+            {pendingFile ? (
+              <Text size="sm" c="dimmed">
+                {pendingFile.name}
+              </Text>
+            ) : null}
+          </Group>
+          <Group justify="flex-end">
+            <Button variant="default" onClick={uploadHandlers.close}>
+              {t("cancel")}
             </Button>
             <Button
               loading={uploading}
@@ -396,14 +426,9 @@ export function ListsTab({ filterQuery }: { filterQuery: string }) {
             >
               {t("upload")}
             </Button>
-            {pendingFile ? (
-              <Text size="sm" c="dimmed">
-                {pendingFile.name}
-              </Text>
-            ) : null}
           </Group>
         </Stack>
-      </Card>
+      </Modal>
 
       {loadingLists ? (
         <Stack align="center" py="lg">
@@ -416,91 +441,118 @@ export function ListsTab({ filterQuery }: { filterQuery: string }) {
           </Text>
         </Card>
       ) : (
-        <Stack gap="sm">
-          {filteredLists.map((row) => (
-            <Card key={row.id} withBorder p="md">
-              <Group justify="space-between" align="flex-start" wrap="nowrap">
-                <Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
-                  <Group gap="xs" wrap="wrap">
-                    <IconList size={18} />
-                    <Text
-                      fw={600}
-                      truncate
-                      style={
-                        row.import_status === "succeeded"
-                          ? { cursor: "pointer" }
-                          : undefined
-                      }
-                      onClick={() => {
-                        if (row.import_status === "succeeded") {
-                          openPreview(row);
-                        }
-                      }}
+        <Table highlightOnHover verticalSpacing="sm">
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th>{t("kb-col-list")}</Table.Th>
+              <Table.Th ta="right">{t("kb-col-rows")}</Table.Th>
+              <Table.Th>{t("kb-col-status")}</Table.Th>
+              <Table.Th w={48} />
+            </Table.Tr>
+          </Table.Thead>
+          <Table.Tbody>
+            {filteredLists.map((row) => {
+              const ext = (row.original_filename || "").toLowerCase();
+              const kind = ext.endsWith(".csv")
+                ? { label: "CSV", color: "teal" }
+                : { label: "XLS", color: "green" };
+              return (
+                <Table.Tr
+                  key={row.id}
+                  style={{
+                    cursor: row.import_status === "succeeded" ? "pointer" : undefined,
+                  }}
+                  onClick={() => {
+                    if (row.import_status === "succeeded") openPreview(row);
+                  }}
+                >
+                  <Table.Td>
+                    <Group gap="sm" wrap="nowrap">
+                      <Box
+                        w={36}
+                        h={36}
+                        style={{
+                          borderRadius: 8,
+                          background: `var(--mantine-color-${kind.color}-light)`,
+                          color: `var(--mantine-color-${kind.color}-6)`,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: 11,
+                          fontWeight: 700,
+                          flexShrink: 0,
+                        }}
+                      >
+                        {kind.label}
+                      </Box>
+                      <Box style={{ minWidth: 0 }}>
+                        <Text fw={600} lineClamp={1}>
+                          {row.name}
+                        </Text>
+                        <Text size="sm" c="dimmed" lineClamp={1}>
+                          {row.original_filename}
+                        </Text>
+                        {row.import_status === "failed" && row.import_error ? (
+                          <Text size="xs" c="red" lineClamp={1}>
+                            {row.import_error}
+                          </Text>
+                        ) : null}
+                      </Box>
+                    </Group>
+                  </Table.Td>
+                  <Table.Td ta="right">{row.record_count}</Table.Td>
+                  <Table.Td>
+                    <Badge
+                      color={importStatusColor(row.import_status)}
+                      variant="light"
+                      size="sm"
+                      styles={{ label: { textTransform: "none" } }}
                     >
-                      {row.name}
-                    </Text>
-                    <Badge color={importStatusColor(row.import_status)} size="sm">
                       {t(`org-list-import-status-${row.import_status}`)}
                     </Badge>
-                  </Group>
-                  {row.description ? (
-                    <Text size="sm" c="dimmed">
-                      {row.description}
-                    </Text>
-                  ) : null}
-                  <Text size="xs" c="dimmed">
-                    {row.original_filename} · {row.record_count}{" "}
-                    {t("org-list-records-label")}
-                  </Text>
-                  {row.import_status === "failed" && row.import_error ? (
-                    <Text size="xs" c="red">
-                      {row.import_error}
-                    </Text>
-                  ) : null}
-                </Stack>
-                <Group gap="xs" wrap="nowrap">
-                  <Tooltip label={t("edit")}>
-                    <ActionIcon
-                      variant="subtle"
-                      color="gray"
-                      onClick={() => openEdit(row)}
-                    >
-                      <IconEdit size={18} />
-                    </ActionIcon>
-                  </Tooltip>
-                  <Tooltip label={t("org-list-preview")}>
-                    <ActionIcon
-                      variant="subtle"
-                      color="gray"
-                      disabled={row.import_status !== "succeeded"}
-                      onClick={() => openPreview(row)}
-                    >
-                      <IconEye size={18} />
-                    </ActionIcon>
-                  </Tooltip>
-                  <Tooltip label={t("org-list-replace-file")}>
-                    <ActionIcon
-                      variant="subtle"
-                      color="gray"
-                      onClick={() => triggerReplace(row)}
-                    >
-                      <IconUpload size={18} />
-                    </ActionIcon>
-                  </Tooltip>
-                  <Tooltip label={t("delete")}>
-                    <ActionIcon
-                      variant="subtle"
-                      color="red"
-                      onClick={() => openDelete(row)}
-                    >
-                      <IconTrash size={18} />
-                    </ActionIcon>
-                  </Tooltip>
-                </Group>
-              </Group>
-            </Card>
-          ))}
-        </Stack>
+                  </Table.Td>
+                  <Table.Td onClick={(e) => e.stopPropagation()}>
+                    <Menu position="bottom-end">
+                      <Menu.Target>
+                        <ActionIcon variant="subtle" color="gray" aria-label={t("edit")}>
+                          <IconDots size={16} />
+                        </ActionIcon>
+                      </Menu.Target>
+                      <Menu.Dropdown>
+                        <Menu.Item
+                          leftSection={<IconEdit size={14} />}
+                          onClick={() => openEdit(row)}
+                        >
+                          {t("edit")}
+                        </Menu.Item>
+                        <Menu.Item
+                          leftSection={<IconEye size={14} />}
+                          disabled={row.import_status !== "succeeded"}
+                          onClick={() => openPreview(row)}
+                        >
+                          {t("org-list-preview")}
+                        </Menu.Item>
+                        <Menu.Item
+                          leftSection={<IconUpload size={14} />}
+                          onClick={() => triggerReplace(row)}
+                        >
+                          {t("org-list-replace-file")}
+                        </Menu.Item>
+                        <Menu.Item
+                          color="red"
+                          leftSection={<IconTrash size={14} />}
+                          onClick={() => openDelete(row)}
+                        >
+                          {t("delete")}
+                        </Menu.Item>
+                      </Menu.Dropdown>
+                    </Menu>
+                  </Table.Td>
+                </Table.Tr>
+              );
+            })}
+          </Table.Tbody>
+        </Table>
       )}
 
       <Modal

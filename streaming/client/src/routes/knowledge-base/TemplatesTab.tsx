@@ -4,26 +4,27 @@ import toast from "react-hot-toast";
 import {
   ActionIcon,
   Badge,
+  Box,
   Button,
   Card,
   Checkbox,
-  Divider,
   Group,
   Loader,
+  Menu,
   Modal,
   NativeSelect,
   ScrollArea,
   Stack,
+  Table,
   Text,
   Textarea,
   TextInput,
-  Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
+  IconDots,
   IconPlus,
   IconRobot,
-  IconTemplate,
   IconTrash,
   IconUpload,
 } from "@tabler/icons-react";
@@ -57,9 +58,13 @@ function agentsWithSlug(agents: TAgent[]): TAgent[] {
 export function TemplatesTab({
   agents,
   filterQuery,
+  bindUpload,
+  onCount,
 }: {
   agents: TAgent[];
   filterQuery: string;
+  bindUpload?: (fn: () => void) => void;
+  onCount?: (count: number) => void;
 }) {
   const { t } = useTranslation();
   const [orgs, setOrgs] = useState<TOrganization[]>([]);
@@ -76,6 +81,7 @@ export function TemplatesTab({
   const [uploadDescription, setUploadDescription] = useState("");
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
+  const [uploadOpened, uploadHandlers] = useDisclosure(false);
   const [varsModalOpened, varsModalHandlers] = useDisclosure(false);
   const [assignModalOpened, assignModalHandlers] = useDisclosure(false);
   const [deleteModalOpened, deleteModalHandlers] = useDisclosure(false);
@@ -161,6 +167,14 @@ export function TemplatesTab({
   useEffect(() => {
     void loadOrgs();
   }, [loadOrgs]);
+
+  useEffect(() => {
+    onCount?.(templates.length);
+  }, [templates.length, onCount]);
+
+  useEffect(() => {
+    bindUpload?.(() => uploadHandlers.open());
+  }, [bindUpload, uploadHandlers.open]);
 
   useEffect(() => {
     if (!orgId) return;
@@ -335,6 +349,7 @@ export function TemplatesTab({
       toast.success(t("template-uploaded"));
       setUploadName("");
       setUploadDescription("");
+      uploadHandlers.close();
       await loadTemplates(orgId);
     } catch {
       toast.error(t("error-uploading-template"));
@@ -365,7 +380,7 @@ export function TemplatesTab({
 
   return (
     <Stack gap="md">
-      <Group align="flex-end" wrap="wrap">
+      {orgs.length > 1 && (
         <NativeSelect
           label={t("organization-for-templates")}
           data={orgSelectData}
@@ -377,31 +392,32 @@ export function TemplatesTab({
           size="sm"
           w={280}
         />
-      </Group>
+      )}
 
       <Text size="sm" c="dimmed">
         {t("templates-tab-description")}
       </Text>
 
-      <Card withBorder p="md">
+      <Modal
+        opened={uploadOpened}
+        onClose={uploadHandlers.close}
+        title={t("upload-new-template")}
+      >
         <Stack gap="sm">
-          <Title order={5}>{t("upload-new-template")}</Title>
-          <Group grow align="flex-start" wrap="wrap">
-            <TextInput
-              label={t("template-name")}
-              placeholder={t("template-name-placeholder")}
-              value={uploadName}
-              onChange={(e) => setUploadName(e.currentTarget.value)}
-              size="sm"
-            />
-            <TextInput
-              label={t("template-description")}
-              placeholder={t("optional")}
-              value={uploadDescription}
-              onChange={(e) => setUploadDescription(e.currentTarget.value)}
-              size="sm"
-            />
-          </Group>
+          <TextInput
+            label={t("template-name")}
+            placeholder={t("template-name-placeholder")}
+            value={uploadName}
+            onChange={(e) => setUploadName(e.currentTarget.value)}
+            size="sm"
+          />
+          <TextInput
+            label={t("template-description")}
+            placeholder={t("optional")}
+            value={uploadDescription}
+            onChange={(e) => setUploadDescription(e.currentTarget.value)}
+            size="sm"
+          />
           <input
             ref={fileInputRef}
             type="file"
@@ -409,21 +425,24 @@ export function TemplatesTab({
             style={{ display: "none" }}
             onChange={(e) => void handleUpload(e.currentTarget.files)}
           />
-          <Button
-            leftSection={<IconUpload size={16} />}
-            variant="default"
-            size="sm"
-            loading={uploading}
-            disabled={!orgId}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            {t("choose-docx-file")}
-          </Button>
           <Text size="xs" c="dimmed">
             {t("templates-jinja-hint")}
           </Text>
+          <Group justify="flex-end">
+            <Button variant="default" onClick={uploadHandlers.close}>
+              {t("cancel")}
+            </Button>
+            <Button
+              leftSection={<IconUpload size={16} />}
+              loading={uploading}
+              disabled={!orgId}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {t("choose-docx-file")}
+            </Button>
+          </Group>
         </Stack>
-      </Card>
+      </Modal>
 
       {loadingTemplates ? (
         <Stack align="center" py="xl">
@@ -436,82 +455,109 @@ export function TemplatesTab({
             : t("no-templates-match")}
         </Text>
       ) : (
-        <Stack gap="md">
-          {filteredTemplates.map((tpl) => (
-            <Card key={tpl.id} withBorder p="md">
-              <Group justify="space-between" align="flex-start" wrap="nowrap">
-                <Group gap="sm" wrap="nowrap">
-                  <IconTemplate size={22} />
-                  <div>
-                    <Text fw={600}>{tpl.name}</Text>
-                    {tpl.description ? (
-                      <Text size="sm" c="dimmed">
-                        {tpl.description}
-                      </Text>
-                    ) : null}
-                    <Text size="xs" c="dimmed" mt={4}>
-                      {tpl.original_filename} · {(tpl.metadata?.placeholders ?? []).length}{" "}
-                      {t("placeholders")}
-                    </Text>
-                  </div>
-                </Group>
-                <Group gap="xs">
-                  <Button size="xs" variant="default" onClick={() => openVariablesModal(tpl)}>
-                    {t("edit-variable-descriptions")}
-                  </Button>
-                  <Button
-                    size="xs"
-                    variant="default"
-                    leftSection={<IconRobot size={14} />}
-                    onClick={() => openAssignModal(tpl)}
-                  >
-                    {t("assign-to-agents")}
-                  </Button>
-                  <ActionIcon
-                    color="red"
-                    variant="subtle"
-                    onClick={() => openDeleteTemplate(tpl)}
-                    aria-label={t("delete-template")}
-                  >
-                    <IconTrash size={18} />
-                  </ActionIcon>
-                </Group>
-              </Group>
-
-              {(assignIndex[tpl.id] ?? []).length > 0 && (
-                <>
-                  <Divider my="sm" />
-                  <Text size="sm" fw={500}>
-                    {t("assigned-agents")}
-                  </Text>
-                  <Group gap="xs">
-                    {(assignIndex[tpl.id] ?? []).map((row) => (
-                      <Badge
-                        key={row.assignmentId}
-                        variant="light"
-                        color="violet"
-                        rightSection={
-                          <ActionIcon
-                            size="xs"
-                            variant="transparent"
-                            color="violet"
-                            onClick={() =>
-                              void removeAssignment(row.agentSlug, row.assignmentId)
-                            }
-                          >
-                            <IconTrash size={12} />
-                          </ActionIcon>
-                        }
+        <Table highlightOnHover verticalSpacing="sm">
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th>{t("kb-col-template")}</Table.Th>
+              <Table.Th ta="right">{t("kb-col-placeholders")}</Table.Th>
+              <Table.Th>{t("kb-col-agents")}</Table.Th>
+              <Table.Th w={48} />
+            </Table.Tr>
+          </Table.Thead>
+          <Table.Tbody>
+            {filteredTemplates.map((tpl) => {
+              const assigned = assignIndex[tpl.id] ?? [];
+              return (
+                <Table.Tr key={tpl.id}>
+                  <Table.Td>
+                    <Group gap="sm" wrap="nowrap">
+                      <Box
+                        w={36}
+                        h={36}
+                        style={{
+                          borderRadius: 8,
+                          background: "var(--mantine-color-blue-light)",
+                          color: "var(--mantine-color-blue-6)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: 11,
+                          fontWeight: 700,
+                          flexShrink: 0,
+                        }}
                       >
-                        {row.agentName}
-                      </Badge>
-                    ))}
-                  </Group>
-                </>
-              )}
-            </Card>
-          ))}
-        </Stack>
+                        DOC
+                      </Box>
+                      <Box style={{ minWidth: 0 }}>
+                        <Text fw={600} lineClamp={1}>
+                          {tpl.name}
+                        </Text>
+                        <Text size="sm" c="dimmed" lineClamp={1}>
+                          {tpl.description || tpl.original_filename}
+                        </Text>
+                      </Box>
+                    </Group>
+                  </Table.Td>
+                  <Table.Td ta="right">
+                    {(tpl.metadata?.placeholders ?? []).length}
+                  </Table.Td>
+                  <Table.Td>
+                    <Group gap={4}>
+                      {assigned.map((row) => (
+                        <Badge
+                          key={row.assignmentId}
+                          variant="light"
+                          color="gray"
+                          rightSection={
+                            <ActionIcon
+                              size="xs"
+                              variant="transparent"
+                              color="gray"
+                              onClick={() =>
+                                void removeAssignment(row.agentSlug, row.assignmentId)
+                              }
+                            >
+                              <IconTrash size={12} />
+                            </ActionIcon>
+                          }
+                        >
+                          {row.agentName}
+                        </Badge>
+                      ))}
+                    </Group>
+                  </Table.Td>
+                  <Table.Td>
+                    <Menu position="bottom-end">
+                      <Menu.Target>
+                        <ActionIcon variant="subtle" color="gray" aria-label={t("edit")}>
+                          <IconDots size={16} />
+                        </ActionIcon>
+                      </Menu.Target>
+                      <Menu.Dropdown>
+                        <Menu.Item onClick={() => openVariablesModal(tpl)}>
+                          {t("edit-variable-descriptions")}
+                        </Menu.Item>
+                        <Menu.Item
+                          leftSection={<IconRobot size={14} />}
+                          onClick={() => openAssignModal(tpl)}
+                        >
+                          {t("assign-to-agents")}
+                        </Menu.Item>
+                        <Menu.Item
+                          color="red"
+                          leftSection={<IconTrash size={14} />}
+                          onClick={() => openDeleteTemplate(tpl)}
+                        >
+                          {t("delete-template")}
+                        </Menu.Item>
+                      </Menu.Dropdown>
+                    </Menu>
+                  </Table.Td>
+                </Table.Tr>
+              );
+            })}
+          </Table.Tbody>
+        </Table>
       )}
 
       <Modal
