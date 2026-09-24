@@ -222,7 +222,7 @@ function fromMetadata(row: TMyPldExpedient): FormState {
       city: asString(address.city),
       state: asString(address.state),
       postal_code: asString(address.postal_code),
-      country: asString(address.country),
+      country: countrySelectValue(asString(address.country)) || "MX",
     },
     is_own_controller: meta.is_own_controller !== false,
     controllers: loadControllers(meta),
@@ -247,7 +247,7 @@ function filled(value: string): boolean {
 
 function addressSectionComplete(address: AddressFields): boolean {
   return [
-    address.country,
+    countrySelectValue(address.country) || "MX",
     address.postal_code,
     address.state,
     address.municipality,
@@ -430,7 +430,10 @@ function applyEmptyFromMetadata(
       city: pick(prev.address.city, asString(address.city)),
       state: pick(prev.address.state, asString(address.state)),
       postal_code: pick(prev.address.postal_code, asString(address.postal_code)),
-      country: pick(prev.address.country, asString(address.country)),
+      country:
+        countrySelectValue(
+          pick(prev.address.country, asString(address.country))
+        ) || "MX",
     },
     controllers,
     rep_given_names: pick(

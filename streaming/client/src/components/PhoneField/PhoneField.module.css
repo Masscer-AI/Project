@@ -2,22 +2,12 @@
   flex: 1;
 }
 
-.wrap :global(.react-international-phone-input-container) {
-  width: 100%;
+.country {
+  width: 140px;
 }
 
-.input,
-.button {
-  height: 36px;
-  background: var(--mantine-color-dark-6);
-  border-color: var(--mantine-color-dark-4);
-  color: var(--mantine-color-white);
-}
-
-.input {
-  width: 100%;
-}
-
-.button:hover {
-  background: var(--mantine-color-dark-5);
+.country :global(.mantine-Select-input) {
+  border: 0;
+  background: transparent;
+  padding-left: 28px;
 }
