@@ -26,7 +26,6 @@ import { lookupPostalCode, TMyPldExpedient, updateMyPldExpedient } from "../../.
 import {
   PldDocumentCollection,
   requiredSectionDocsExtracted,
-  requiredSectionDocsReady,
   slotsForIntakeSection,
 } from "./PldDocumentCollection";
 import { countryNameSelectData, formatInternationalPhone, getDialCodeForIso, phoneCountrySelectData, splitInternationalPhone } from "../../../utils/countryDialCodes";
@@ -473,6 +472,58 @@ function applyEmptyFromMetadata(
 
 const AUTOSAVE_MS = 700;
 
+function SectionFiles({
+  section,
+  isMoral,
+  row,
+  onSaved,
+  showData,
+  onShowData,
+  children,
+}: {
+  section: string;
+  isMoral: boolean;
+  row: TMyPldExpedient;
+  onSaved: (next: TMyPldExpedient) => void;
+  showData: boolean;
+  onShowData: (next: boolean) => void;
+  children: React.ReactNode;
+}) {
+  const { t } = useTranslation();
+  const slots = slotsForIntakeSection(section, row.document_slots || [], isMoral);
+  const docsReady = requiredSectionDocsExtracted(slots);
+  if (slots.length > 0 && !showData) {
+    return (
+      <Stack gap="sm">
+        <Text size="sm" c="dimmed">
+          {t("compliance-intake-step-docs")}
+        </Text>
+        <PldDocumentCollection
+          embedded
+          section={section}
+          isMoral={isMoral}
+          row={row}
+          onSaved={onSaved}
+          onContinue={() => undefined}
+        />
+        <Button disabled={!docsReady} onClick={() => onShowData(true)}>
+          {t("compliance-intake-step-review")}
+        </Button>
+      </Stack>
+    );
+  }
+  return (
+    <Stack gap="sm">
+      {slots.length > 0 && (
+        <Button variant="subtle" size="xs" onClick={() => onShowData(false)} w="fit-content">
+          {t("compliance-intake-step-back")}
+        </Button>
+      )}
+      {children}
+    </Stack>
+  );
+}
+
 export function PldIntakeForm({
   row,
   onSaved,
@@ -490,6 +541,7 @@ export function PldIntakeForm({
   const [form, setForm] = useState<FormState>(() => fromMetadata(row));
   const [sync, setSync] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [openedSection, setOpenedSection] = useState<string | null>("entity");
+  const [showData, setShowData] = useState(false);
   const [neighborhoodOptions, setNeighborhoodOptions] = useState<string[]>([]);
   const [postalLookupLoading, setPostalLookupLoading] = useState(false);
   const dirty = useRef(false);
@@ -629,53 +681,54 @@ export function PldIntakeForm({
 
   const isMexican = (form.nationality || "MX") === "MX";
   const allSlots = row.document_slots || [];
-  const docsReady = (section: string) =>
-    requiredSectionDocsReady(slotsForIntakeSection(section, allSlots, isMoral));
-  const entityDone = docsReady("entity") && (isMoral
-    ? filled(form.legal_name) &&
-      filled(form.constitution_date) &&
-      filled(form.nationality) &&
-      filled(form.rfc) &&
-      filled(form.economic_activity)
-    : filled(form.given_names) &&
-      filled(form.surnames) &&
-      filled(form.date_of_birth) &&
-      filled(form.country_of_birth) &&
-      filled(form.nationality) &&
-      filled(form.economic_activity) &&
-      (!isMexican || (filled(form.rfc) && filled(form.curp))));
-  const addressDone =
-    addressSectionComplete(form.address) &&
+  const sectionDocsDone = (section: string) =>
     requiredSectionDocsExtracted(
-      slotsForIntakeSection("address", allSlots, isMoral)
+      slotsForIntakeSection(section, allSlots, isMoral)
     );
+  const entityDone =
+    sectionDocsDone("entity") &&
+    (isMoral
+      ? filled(form.legal_name) &&
+        filled(form.constitution_date) &&
+        filled(form.nationality) &&
+        filled(form.rfc) &&
+        filled(form.economic_activity)
+      : filled(form.given_names) &&
+        filled(form.surnames) &&
+        filled(form.date_of_birth) &&
+        filled(form.country_of_birth) &&
+        filled(form.nationality) &&
+        filled(form.economic_activity) &&
+        (!isMexican || (filled(form.rfc) && filled(form.curp))));
+  const addressDone =
+    sectionDocsDone("address") && addressSectionComplete(form.address);
   const idDone =
+    sectionDocsDone("identification") &&
     filled(form.id_document_type) &&
-    filled(form.id_document_number) &&
-    docsReady("identification");
+    filled(form.id_document_number);
   const representativeDone =
+    sectionDocsDone("representative") &&
     filled(form.rep_given_names) &&
     filled(form.rep_surnames) &&
     filled(form.rep_id_document_type) &&
-    filled(form.rep_id_document_number) &&
-    docsReady("representative");
+    filled(form.rep_id_document_number);
   const controllerDone =
+    sectionDocsDone("controller") &&
     ((!isMoral && form.is_own_controller) ||
       form.controllers.some(
         (item) => filled(item.name) && item.email.includes("@")
-      )) &&
-    docsReady("controller");
-  const requiredDocs = (row.document_slots || []).filter((slot) => slot.required);
-  const uploadedDocs = requiredDocs.filter((slot) => slot.document).length;
-  const missingDocs = Math.max(requiredDocs.length - uploadedDocs, 0);
-  const documentsDone = docsReady("documents");
+      ));
+  const documentsDone = sectionDocsDone("documents");
   const sectionOrder = isMoral
     ? ["entity", "address", "representative", "controller", "documents"]
     : ["entity", "address", "identification", "controller", "documents"];
   const goNextSection = () => {
     const index = sectionOrder.indexOf(openedSection || "entity");
     const next = sectionOrder[index + 1];
-    if (next) setOpenedSection(next);
+    if (next) {
+      setShowData(false);
+      setOpenedSection(next);
+    }
   };
 
   const flushSave = async () => {
@@ -737,6 +790,9 @@ export function PldIntakeForm({
     };
   }, [row.id]);
 
+  const missingDocs = allSlots.filter(
+    (slot) => slot.required && slot.document?.extraction_status !== "succeeded"
+  ).length;
   const sectionMeta: Record<string, { label: string; done: boolean; hint: string }> = {
     entity: {
       label: isMoral
@@ -778,22 +834,18 @@ export function PldIntakeForm({
     documents: {
       label: t("compliance-doc-section"),
       done: documentsDone,
-      hint: (() => {
-        const leftover = slotsForIntakeSection("documents", allSlots, isMoral);
-        const needed = leftover.filter((slot) => slot.required);
-        const got = needed.filter((slot) => slot.document).length;
-        if (needed.length === 0) return t("compliance-intake-section-done");
-        return t("compliance-doc-progress-short", {
-          uploaded: String(got),
-          total: String(needed.length),
-        });
-      })(),
+      hint: documentsDone
+        ? t("compliance-intake-section-done")
+        : t("compliance-intake-section-pending"),
     },
   };
   const doneCount = sectionOrder.filter((id) => sectionMeta[id]?.done).length;
   const active = openedSection || "entity";
   const activeIndex = sectionOrder.indexOf(active);
   const nextId = sectionOrder[activeIndex + 1];
+  const activeSlots = slotsForIntakeSection(active, allSlots, isMoral);
+  const onDataStep =
+    active === "documents" || activeSlots.length === 0 || showData;
   const syncLabel =
     sync === "saving"
       ? t("compliance-intake-sync-saving")
@@ -883,7 +935,10 @@ export function PldIntakeForm({
             return (
               <UnstyledButton
                 key={id}
-                onClick={() => setOpenedSection(id)}
+                onClick={() => {
+                  setShowData(false);
+                  setOpenedSection(id);
+                }}
                 style={{
                   borderRadius: 12,
                   padding: "10px 12px",
@@ -933,14 +988,21 @@ export function PldIntakeForm({
         <Card withBorder radius="md" p="md" style={{ flex: 1, minWidth: 0 }}>
           <Stack gap={2} mb="md">
             <Title order={4}>{sectionMeta[active]?.label}</Title>
-            {active !== "documents" && (
+            {showData && active !== "documents" && (
               <Text size="sm" c="dimmed">
                 {t("compliance-intake-required-legend")}
               </Text>
             )}
           </Stack>
           {active === "entity" && (
-            <Stack gap="sm">
+            <SectionFiles
+              section="entity"
+              isMoral={isMoral}
+              row={row}
+              onSaved={onSaved}
+              showData={showData}
+              onShowData={setShowData}
+            >
       {isMoral ? (
         <TextInput
           label={t("compliance-intake-legal-name")}
@@ -1073,18 +1135,17 @@ export function PldIntakeForm({
           onChange={(e) => setField("email", e.currentTarget.value)}
         />
       </Group>
-              <PldDocumentCollection
-                embedded
-                section="entity"
-                isMoral={isMoral}
-                row={row}
-                onSaved={onSaved}
-                onContinue={() => undefined}
-              />
-            </Stack>
+            </SectionFiles>
           )}
           {active === "address" && (
-            <Stack gap="sm">
+            <SectionFiles
+              section="address"
+              isMoral={isMoral}
+              row={row}
+              onSaved={onSaved}
+              showData={showData}
+              onShowData={setShowData}
+            >
       <Text size="sm" c="dimmed">
         {t("compliance-intake-postal-lookup-hint")}
       </Text>
@@ -1184,18 +1245,17 @@ export function PldIntakeForm({
           onChange={(e) => setAddress("interior_number", e.currentTarget.value)}
         />
       </Group>
-              <PldDocumentCollection
-                embedded
-                section="address"
-                isMoral={isMoral}
-                row={row}
-                onSaved={onSaved}
-                onContinue={() => undefined}
-              />
-            </Stack>
+            </SectionFiles>
           )}
           {!isMoral && active === "identification" && (
-            <Stack gap="sm">
+            <SectionFiles
+              section="identification"
+              isMoral={isMoral}
+              row={row}
+              onSaved={onSaved}
+              showData={showData}
+              onShowData={setShowData}
+            >
           <Group grow>
             <NativeSelect
               label={t("compliance-intake-id-type")}
@@ -1219,18 +1279,17 @@ export function PldIntakeForm({
               onChange={(e) => setField("id_issuing_authority", e.currentTarget.value)}
             />
           )}
-              <PldDocumentCollection
-                embedded
-                section="identification"
-                isMoral={isMoral}
-                row={row}
-                onSaved={onSaved}
-                onContinue={() => undefined}
-              />
-            </Stack>
+            </SectionFiles>
           )}
           {isMoral && active === "representative" && (
-            <Stack gap="sm">
+            <SectionFiles
+              section="representative"
+              isMoral={isMoral}
+              row={row}
+              onSaved={onSaved}
+              showData={showData}
+              onShowData={setShowData}
+            >
           <Text size="sm" c="dimmed">
             {t("compliance-intake-representative-hint")}
           </Text>
@@ -1297,18 +1356,17 @@ export function PldIntakeForm({
               }
             />
           )}
-              <PldDocumentCollection
-                embedded
-                section="representative"
-                isMoral={isMoral}
-                row={row}
-                onSaved={onSaved}
-                onContinue={() => undefined}
-              />
-            </Stack>
+            </SectionFiles>
           )}
           {active === "controller" && (
-            <Stack gap="sm">
+            <SectionFiles
+              section="controller"
+              isMoral={isMoral}
+              row={row}
+              onSaved={onSaved}
+              showData={showData}
+              onShowData={setShowData}
+            >
               <Text size="sm" c="dimmed">
                 {isMoral
                   ? t("compliance-intake-controller-hint-moral")
@@ -1400,36 +1458,31 @@ export function PldIntakeForm({
                   </Button>
                 </Stack>
               )}
-              <PldDocumentCollection
-                embedded
-                section="controller"
-                isMoral={isMoral}
-                row={row}
-                onSaved={onSaved}
-                onContinue={() => undefined}
-              />
-            </Stack>
+            </SectionFiles>
           )}
           {active === "documents" && (
             <PldDocumentCollection
               embedded
               section="documents"
               isMoral={isMoral}
-              showContinue
               row={row}
               onSaved={onSaved}
-              onContinue={() => onContinue?.()}
+              onContinue={() => undefined}
             />
           )}
           <Group justify="space-between" mt="lg" align="center">
             <Text size="xs" c="dimmed">
               {t("compliance-expediente-autosave")}
             </Text>
-            {nextId ? (
+            {onDataStep && nextId ? (
               <Button variant="default" onClick={goNextSection}>
                 {t("compliance-expediente-next", {
                   name: sectionMeta[nextId]?.label || "",
                 })}
+              </Button>
+            ) : onContinue ? (
+              <Button color="violet" disabled={missingDocs > 0} onClick={onContinue}>
+                {t("compliance-doc-continue")}
               </Button>
             ) : null}
           </Group>

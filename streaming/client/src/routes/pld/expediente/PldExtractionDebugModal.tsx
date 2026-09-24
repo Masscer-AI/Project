@@ -1,4 +1,4 @@
-import { Code, Modal, ScrollArea, Stack, Text } from "@mantine/core";
+import { Modal, ScrollArea, Stack, Text } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import { TPldDocumentSlot } from "../../../modules/apiCalls";
 
@@ -36,26 +36,40 @@ function formatAddress(value: unknown): string | null {
   return parts.length > 0 ? [...new Set(parts)].join(", ") : null;
 }
 
+function formatItem(item: unknown): string | null {
+  const text = filledText(item);
+  if (text) return text;
+  const row = asRecord(item);
+  if (!row) return null;
+  const nameKeys = [
+    "name",
+    "full_name",
+    "attorney_name",
+    "legal_name_or_full_name",
+    "description",
+  ];
+  const name = nameKeys.map((key) => filledText(row[key])).find(Boolean) || null;
+  const rest = Object.entries(row)
+    .filter(([key]) => !nameKeys.includes(key))
+    .map(([, value]) => filledText(value))
+    .filter((part): part is string => Boolean(part));
+  if (name && rest.length > 0) return `${name} (${rest.join(", ")})`;
+  if (name) return name;
+  return rest.length > 0 ? rest.join(", ") : null;
+}
+
 function formatPeople(value: unknown): string | null {
   if (!Array.isArray(value) || value.length === 0) return null;
   const parts = value
-    .map((item) => {
-      const row = asRecord(item);
-      if (!row) return filledText(item);
-      const name =
-        filledText(row.name) ||
-        filledText(row.full_name) ||
-        filledText(row.attorney_name) ||
-        filledText(row.legal_name_or_full_name);
-      const extra =
-        filledText(row.ownership_percentage) ||
-        filledText(row.role) ||
-        filledText(row.rfc);
-      if (name && extra) return `${name} (${extra})`;
-      return name;
-    })
+    .map(formatItem)
     .filter((part): part is string => Boolean(part));
   return parts.length > 0 ? parts.join(" · ") : null;
+}
+
+export function extractionSummary(
+  payload: Record<string, unknown> | undefined
+): string | null {
+  return filledText(payload?.summary);
 }
 
 export function extractionLines(
@@ -113,7 +127,12 @@ export function extractionLines(
       return;
     }
     const text = filledText(raw);
-    if (text) lines.push({ key, value: text });
+    if (text) {
+      lines.push({ key, value: text });
+      return;
+    }
+    const formatted = formatItem(raw);
+    if (formatted) lines.push({ key, value: formatted });
   };
   Object.entries(row).forEach(([key, value]) => push(key, value));
   return lines;
@@ -131,6 +150,8 @@ export function PldExtractionDebugModal({
   const { t } = useTranslation();
   const payload = slot?.document?.extracted_payload;
   const lines = extractionLines(payload);
+  const summary = lines.find((line) => line.key === "summary");
+  const details = lines.filter((line) => line.key !== "summary");
   const title = slot
     ? t(`compliance-doc-slot-${slot.document_kind}`, {
         name: slot.label_name || "",
@@ -152,31 +173,26 @@ export function PldExtractionDebugModal({
             {slot.document.original_filename}
           </Text>
         ) : null}
-        {lines.length === 0 ? (
+        {summary ? <Text size="sm">{summary.value}</Text> : null}
+        {details.length === 0 && !summary ? (
           <Text size="sm" c="dimmed">
             {t("compliance-extract-debug-empty")}
           </Text>
-        ) : (
-          <Stack gap={4}>
-            {lines.map((line) => (
-              <Text key={line.key} size="sm">
-                <Text span c="dimmed">
+        ) : null}
+        {details.length > 0 ? (
+          <Stack gap="sm">
+            {details.map((line) => (
+              <Stack key={line.key} gap={0}>
+                <Text size="xs" c="dimmed">
                   {t(`compliance-extract-${line.key}`, {
                     defaultValue: line.key.replace(/_/g, " "),
                   })}
-                  {": "}
                 </Text>
-                {line.value}
-              </Text>
+                <Text size="sm">{line.value}</Text>
+              </Stack>
             ))}
           </Stack>
-        )}
-        <Text size="sm" fw={500}>
-          {t("compliance-extract-debug-raw")}
-        </Text>
-        <Code block style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-          {JSON.stringify(payload ?? {}, null, 2)}
-        </Code>
+        ) : null}
       </Stack>
     </Modal>
   );

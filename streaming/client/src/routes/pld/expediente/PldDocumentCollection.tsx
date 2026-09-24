@@ -22,7 +22,7 @@ import {
   uploadMyPldExpedientDocument,
 } from "../../../modules/apiCalls";
 import {
-  extractionLines,
+  extractionSummary,
   PldExtractionDebugModal,
 } from "./PldExtractionDebugModal";
 
@@ -47,6 +47,20 @@ function slotStatusColor(slot: TPldDocumentSlot): string {
 function slotIsExtracting(slot: TPldDocumentSlot): boolean {
   const status = slot.document?.extraction_status;
   return Boolean(slot.document) && status !== "succeeded" && status !== "failed";
+}
+
+function ExtractionSummary({
+  payload,
+}: {
+  payload: Record<string, unknown> | undefined;
+}) {
+  const summary = extractionSummary(payload);
+  if (!summary) return null;
+  return (
+    <Text size="xs" c="dimmed">
+      {summary}
+    </Text>
+  );
 }
 
 function slotStatusLabel(
@@ -86,6 +100,7 @@ export function slotsForIntakeSection(
   slots: TPldDocumentSlot[],
   isMoral: boolean
 ): TPldDocumentSlot[] {
+  if (section === "uploads") return slots;
   if (section === "controller") {
     return slots.filter(
       (slot) =>
@@ -296,19 +311,7 @@ export function PldDocumentCollection({
                 </Text>
               )}
               {slot.document.extraction_status === "succeeded" && (
-                <Stack gap={2}>
-                  {extractionLines(slot.document.extracted_payload).map((line) => (
-                    <Text key={line.key} size="xs">
-                      <Text span c="dimmed">
-                        {t(`compliance-extract-${line.key}`, {
-                          defaultValue: line.key.replace(/_/g, " "),
-                        })}
-                        {": "}
-                      </Text>
-                      {line.value}
-                    </Text>
-                  ))}
-                </Stack>
+                <ExtractionSummary payload={slot.document.extracted_payload} />
               )}
             </Stack>
           ) : (
