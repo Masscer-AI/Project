@@ -1,5 +1,6 @@
 import React from "react";
 import { useStore } from "../../modules/store";
+import { OpenSidebarButton } from "../../components/OpenSidebarButton/OpenSidebarButton";
 import { Sidebar } from "../../components/Sidebar/Sidebar";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -8,9 +9,8 @@ import {
   formatUnreadNotificationBadge,
   useUnreadNotificationCount,
 } from "../../hooks/useUnreadNotificationCount";
-import { ActionIcon, Badge, Box, Container, Group, Tabs } from "@mantine/core";
+import { Badge, Container, Group, Tabs } from "@mantine/core";
 import {
-  IconMenu2,
   IconChartBar,
   IconHash,
   IconBellRinging,
@@ -43,10 +43,7 @@ const TABS: DashboardTab[] = [
 ];
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
-  const { chatState, toggleSidebar } = useStore((state) => ({
-    chatState: state.chatState,
-    toggleSidebar: state.toggleSidebar,
-  }));
+  const chatState = useStore((state) => state.chatState);
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
@@ -72,34 +69,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           position: "relative",
         }}
       >
-        {!chatState.isSidebarOpened && (
-          <div style={{ position: "absolute", top: 24, left: 24, zIndex: 10 }}>
-            <Box pos="relative" style={{ display: "inline-block" }}>
-              <ActionIcon
-                variant="subtle"
-                color="gray"
-                onClick={toggleSidebar}
-                aria-label={t("open-sidebar") || "Open menu"}
-              >
-                <IconMenu2 size={20} />
-              </ActionIcon>
-              {unreadNotificationCount > 0 && (
-                <Badge
-                  color="red"
-                  size="sm"
-                  radius="xl"
-                  variant="filled"
-                  pos="absolute"
-                  top={-4}
-                  right={-4}
-                  styles={{ root: { pointerEvents: "none", minWidth: 20 } }}
-                >
-                  {formatUnreadNotificationBadge(unreadNotificationCount)}
-                </Badge>
-              )}
-            </Box>
-          </div>
-        )}
+        <div style={{ padding: "16px 24px 0" }}>
+          <OpenSidebarButton />
+        </div>
 
         <Container size="xl" py="xl">
           <Tabs

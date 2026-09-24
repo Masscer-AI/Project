@@ -29,10 +29,7 @@ import { useTranslation } from "react-i18next";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
 import type { TVoiceCatalogEntry } from "../../types/agents";
 import { useLocalizedToolName } from "../../utils/localizedToolName";
-import {
-  formatUnreadNotificationBadge,
-  useUnreadNotificationCount,
-} from "../../hooks/useUnreadNotificationCount";
+import { OpenSidebarButton } from "../OpenSidebarButton/OpenSidebarButton";
 import { ToolsSelectorModal } from "../ToolsSelectorModal/ToolsSelectorModal";
 import {
   IconSparkles,
@@ -40,7 +37,6 @@ import {
   IconSettings,
   IconTrash,
   IconDeviceFloppy,
-  IconMenu2,
   IconPlayerStopFilled,
   IconVolume,
   IconX,
@@ -66,11 +62,6 @@ export const ChatHeader = ({
   hideAgents?: boolean;
   onComplianceRestarted?: (conversation: TConversation) => void;
 }) => {
-  const { toggleSidebar, chatState } = useStore((state) => ({
-    toggleSidebar: state.toggleSidebar,
-    chatState: state.chatState,
-  }));
-  const unreadNotificationCount = useUnreadNotificationCount();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [restartOpened, { open: openRestart, close: closeRestart }] =
@@ -95,33 +86,7 @@ export const ChatHeader = ({
   return (
     <div className="flex items-center justify-between p-2 md:p-4 rounded-none md:rounded-xl w-full shadow-lg z-10 gap-2 md:gap-3 min-w-0" style={{ background: "var(--bg-contrast-color)", border: "1px solid var(--hovered-color)" }}>
       <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
-        {!chatState.isSidebarOpened && (
-          <Box pos="relative" style={{ display: "inline-block" }}>
-            <ActionIcon
-              variant="subtle"
-              color="gray"
-              size="lg"
-              onClick={toggleSidebar}
-              aria-label="Toggle sidebar"
-            >
-              <IconMenu2 size={20} />
-            </ActionIcon>
-            {unreadNotificationCount > 0 && (
-              <Badge
-                color="red"
-                size="sm"
-                radius="xl"
-                variant="filled"
-                pos="absolute"
-                top={-4}
-                right={-4}
-                styles={{ root: { pointerEvents: "none", minWidth: 20 } }}
-              >
-                {formatUnreadNotificationBadge(unreadNotificationCount)}
-              </Badge>
-            )}
-          </Box>
-        )}
+        <OpenSidebarButton flush />
         {!hideAgents && (
           <AgentsModal
             opened={agentsModal?.opened}

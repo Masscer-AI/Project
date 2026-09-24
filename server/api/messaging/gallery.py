@@ -137,7 +137,9 @@ def list_gallery_items(
     needle = (query or "").strip()
     if needle:
         qs = qs.filter(
-            Q(metadata__name__icontains=needle) | Q(file__icontains=needle)
+            Q(metadata__name__icontains=needle)
+            | Q(metadata__prompt__icontains=needle)
+            | Q(file__icontains=needle)
         )
 
     total = qs.count()

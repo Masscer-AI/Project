@@ -3,6 +3,7 @@ import { Sidebar } from "../../../components/Sidebar/Sidebar";
 import { useStore } from "../../../modules/store";
 import "../page.css";
 import { OpenSidebarButton } from "../../../components/OpenSidebarButton/OpenSidebarButton";
+import {
   getWhatsappNumbers,
   getWhatsappContacts,
   updateWhatsappContact,

@@ -4,6 +4,7 @@ import { Sidebar } from "../../components/Sidebar/Sidebar";
 import { getUser, updateUser } from "../../modules/apiCalls";
 import { debounce } from "../../modules/utils";
 import { OpenSidebarButton } from "../../components/OpenSidebarButton/OpenSidebarButton";
+import {
   DEFAULT_NOTIFICATION_SETTINGS,
   previewNotificationSound,
   type TNotificationSettings,

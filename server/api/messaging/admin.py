@@ -1,7 +1,9 @@
-from django.contrib import admin
-from django.utils.html import format_html
 from django.conf import settings
+from django.contrib import admin, messages
 from django.db.models import Exists, OuterRef
+from django.utils.html import format_html
+
+from api.rag.attachment_links import clear_stale_kb_links
 from .models import (
     Conversation,
     ConversationTakeover,
@@ -15,8 +17,19 @@ from .models import (
     ScheduledConversationTask,
 )
 
+@admin.action(description="Clear stale knowledge base references")
+def clear_stale_knowledge_base_references(modeladmin, request, queryset):
+    cleared = clear_stale_kb_links(queryset)
+    modeladmin.message_user(
+        request,
+        f"Cleared {cleared} stale knowledge base reference(s).",
+        messages.SUCCESS,
+    )
+
+
 @admin.register(MessageAttachment)
 class MessageAttachmentAdmin(admin.ModelAdmin):
+    actions = [clear_stale_knowledge_base_references]
     list_display = (
         "id",
         "kind",

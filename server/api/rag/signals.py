@@ -1,14 +1,21 @@
-from django.db.models.signals import post_save, post_delete
+from django.db.models.signals import post_save, post_delete, pre_delete
 from django.dispatch import receiver, Signal
 import logging
 from .models import Document, Chunk, Collection
 from .managers import chroma_client
 from .tasks import async_generate_document_brief
+from api.rag.attachment_links import clear_kb_links_for_document
 
 logger = logging.getLogger(__name__)
 
 chunks_created = Signal()
 
+
+
+@receiver(pre_delete, sender=Document)
+def clear_attachment_kb_links(sender, instance, **kwargs):
+    if instance.pk:
+        clear_kb_links_for_document(instance.pk)
 
 
 @receiver(post_save, sender=Document)

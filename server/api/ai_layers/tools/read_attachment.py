@@ -141,7 +141,19 @@ def _process_document(att, question: str) -> ReadAttachmentResult:
     filename = attachment_display_name(att, f"file_{att.id}")
 
     spreadsheet_text = _extract_spreadsheet_text_for_model(raw, filename, mime)
-    if spreadsheet_text:
+    is_xml = mime in {"application/xml", "text/xml"} or filename.lower().endswith(".xml")
+    if is_xml:
+        xml_text = raw.decode("utf-8", errors="replace")
+        content = [
+            {
+                "type": "input_text",
+                "text": (
+                    f"{question}\n\n<XML filename=\"{filename}\">\n"
+                    f"{xml_text[:120000]}\n</XML>"
+                ),
+            }
+        ]
+    elif spreadsheet_text:
         content = [
             {
                 "type": "input_text",

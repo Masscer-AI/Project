@@ -67,12 +67,14 @@ interface ChatInputProps {
 }
 
 const CHAT_FILE_ACCEPT =
-  ".png,.jpeg,.jpg,.gif,.webp,.pdf,.txt,.html,.doc,.docx,.xls,.xlsx,.xlsm";
+  ".png,.jpeg,.jpg,.gif,.webp,.pdf,.txt,.html,.xml,.doc,.docx,.xls,.xlsx,.xlsm";
 
 const allowedDocumentTypes = [
   "application/pdf",
   "text/plain",
   "text/html",
+  "text/xml",
+  "application/xml",
   "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -98,6 +100,7 @@ const allowedChatExtensions = new Set([
   "txt",
   "html",
   "htm",
+  "xml",
   "doc",
   "docx",
   "xls",

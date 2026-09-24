@@ -199,6 +199,51 @@ class DocumentFromAttachmentTests(TestCase):
         att.refresh_from_db()
         self.assertEqual(att.metadata[KB_FROM_ATTACHMENT_METADATA_KEY], body["id"])
 
+    def test_deleting_document_clears_attachment_link(self):
+        att = MessageAttachment.objects.create(
+            conversation=self.conversation,
+            user=self.owner,
+            kind="file",
+            file=ContentFile(b"Hello knowledge base", name="notes.txt"),
+            content_type="text/plain",
+        )
+        resp = self._post(att.id)
+        self.assertEqual(resp.status_code, 201)
+        Document.objects.filter(pk=resp.json()["id"]).delete()
+        att.refresh_from_db()
+        self.assertNotIn(KB_FROM_ATTACHMENT_METADATA_KEY, att.metadata or {})
+
+    def test_clear_stale_keeps_live_document_link(self):
+        from api.rag.attachment_links import clear_stale_kb_links
+
+        att = MessageAttachment.objects.create(
+            conversation=self.conversation,
+            user=self.owner,
+            kind="file",
+            file=ContentFile(b"Hello knowledge base", name="live.txt"),
+            content_type="text/plain",
+            metadata={KB_FROM_ATTACHMENT_METADATA_KEY: 999999},
+        )
+        live = MessageAttachment.objects.create(
+            conversation=self.conversation,
+            user=self.owner,
+            kind="file",
+            file=ContentFile(b"Hello knowledge base", name="gone.txt"),
+            content_type="text/plain",
+        )
+        created = self._post(live.id)
+        self.assertEqual(created.status_code, 201)
+        live.refresh_from_db()
+        cleared = clear_stale_kb_links(MessageAttachment.objects.filter(pk__in=[att.pk, live.pk]))
+        self.assertEqual(cleared, 1)
+        att.refresh_from_db()
+        live.refresh_from_db()
+        self.assertNotIn(KB_FROM_ATTACHMENT_METADATA_KEY, att.metadata or {})
+        self.assertEqual(
+            live.metadata[KB_FROM_ATTACHMENT_METADATA_KEY],
+            created.json()["id"],
+        )
+
     def test_text_document_attachment(self):
         att = MessageAttachment.objects.create(
             conversation=self.conversation,

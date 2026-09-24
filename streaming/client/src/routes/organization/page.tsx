@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { useStore } from "../../modules/store";
 import { Sidebar } from "../../components/Sidebar/Sidebar";
 import { OpenSidebarButton } from "../../components/OpenSidebarButton/OpenSidebarButton";
+import {
   assignRoleToMember,
   buyCredits,
   createBillingPortalSession,
@@ -864,7 +865,7 @@ export default function OrganizationPage() {
           overflowY: "auto",
           minHeight: "100vh",
           display: "flex",
-          justifyContent: "center",
+          flexDirection: "column",
         }}
         className="relative"
       >

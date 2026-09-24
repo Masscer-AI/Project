@@ -930,11 +930,15 @@ def _infer_data_url_attachment_ext(header: str, name: str, raw: bytes) -> str:
         ext = "txt"
     elif "text/html" in header or "html" in header:
         ext = "html"
+    elif "application/xml" in header or "text/xml" in header:
+        ext = "xml"
 
     if ext == "xls" and raw.startswith(b"PK\x03\x04"):
         return "xlsx"
     if ext != "bin":
         return ext
+    if name.endswith(".xml"):
+        return "xml"
     if name.endswith(".xlsx") or name.endswith(".xlsm"):
         return "xlsx"
     if name.endswith(".xls"):
@@ -1008,6 +1012,8 @@ def _create_attachments_from_data_urls(request, conversation, user, attachments_
             content_type = "text/plain"
         elif ext == "html":
             content_type = "text/html"
+        elif ext == "xml":
+            content_type = "application/xml"
         else:
             content_type = "application/octet-stream"
         raw_name = str(att.get("name") or "").strip().replace("\\", "/").split("/")[-1][:255]

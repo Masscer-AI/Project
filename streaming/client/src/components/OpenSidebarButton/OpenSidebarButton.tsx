@@ -1,5 +1,6 @@
 import { ActionIcon, Badge, Box } from "@mantine/core";
-import { IconMenu2 } from "@tabler/icons-react";
+import { useMediaQuery } from "@mantine/hooks";
+import { IconMenu2, IconX } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import {
   formatUnreadNotificationBadge,
@@ -7,28 +8,35 @@ import {
 } from "../../hooks/useUnreadNotificationCount";
 import { useStore } from "../../modules/store";
 
-export function OpenSidebarButton() {
+export function OpenSidebarButton({ flush = false }: { flush?: boolean }) {
   const { t } = useTranslation();
   const opened = useStore((s) => s.chatState.isSidebarOpened);
   const toggleSidebar = useStore((s) => s.toggleSidebar);
   const unreadNotificationCount = useUnreadNotificationCount();
-
-  if (opened) return null;
+  const isMobile = useMediaQuery("(max-width: 47.99em)");
+  const label = opened ? t("close-sidebar") : t("open-sidebar");
 
   return (
     <Box
-      pos="relative"
-      style={{ display: "inline-block", alignSelf: "flex-start", marginBottom: 8 }}
+      style={{
+        display: "inline-block",
+        alignSelf: "flex-start",
+        marginBottom: flush ? 0 : 8,
+        position: opened && isMobile ? "fixed" : "relative",
+        top: opened && isMobile ? 16 : undefined,
+        left: opened && isMobile ? 16 : undefined,
+        zIndex: opened && isMobile ? 60 : undefined,
+      }}
     >
       <ActionIcon
         variant="subtle"
         color="gray"
         onClick={toggleSidebar}
-        aria-label={t("open-sidebar")}
+        aria-label={label}
       >
-        <IconMenu2 size={20} />
+        {opened ? <IconX size={20} /> : <IconMenu2 size={20} />}
       </ActionIcon>
-      {unreadNotificationCount > 0 && (
+      {!opened && unreadNotificationCount > 0 && (
         <Badge
           color="red"
           size="sm"

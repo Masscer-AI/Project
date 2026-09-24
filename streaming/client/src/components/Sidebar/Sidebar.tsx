@@ -217,7 +217,7 @@ export const Sidebar: React.FC = () => {
 
   return (
     <>
-      <div className="backdrop-blur-md fixed md:relative left-0 top-0 h-screen z-[50] md:z-[3] flex flex-col w-[min(350px,100%)] p-3 gap-2.5 animate-[appear-left_500ms_forwards] md:[animation:none]" style={{ background: "var(--semi-transparent)", borderRight: "1px solid var(--hovered-color)" }}>
+      <div className="backdrop-blur-md fixed md:relative left-0 top-0 h-screen z-[50] md:z-[3] flex flex-col w-[min(350px,100%)] max-w-full shrink-0 min-w-0 p-3 gap-2.5 animate-[appear-left_500ms_forwards] md:[animation:none]" style={{ background: "var(--semi-transparent)", borderRight: "1px solid var(--hovered-color)" }}>
         {}
         <Group gap="xs">
           {canUseChat && (
@@ -284,7 +284,7 @@ export const Sidebar: React.FC = () => {
               {t("compliance-my-expediente-title")}
             </Button>
           )}
-          {hasOrgComplianceAccess && hasPldAccess && (
+          {hasOrgComplianceAccess && hasPldAccess && !historyConfig.isOpen && (
             <Button
               variant="default"
               size="sm"
@@ -321,8 +321,9 @@ export const Sidebar: React.FC = () => {
                     variant="filled"
                     size="xs"
                   />
-                  <Group gap="xs" grow>
+                  <Group gap="xs" grow preventGrowOverflow wrap="nowrap">
                     <DatePickerInput
+                      style={{ minWidth: 0, flex: 1 }}
                       value={filters.startDate}
                       onChange={(val) =>
                         setFilters({
@@ -344,6 +345,7 @@ export const Sidebar: React.FC = () => {
                           endDate: val as Date | null,
                         })
                       }
+                      style={{ minWidth: 0, flex: 1 }}
                       placeholder={t("end-date")}
                       radius="md"
                       variant="filled"
@@ -414,7 +416,7 @@ export const Sidebar: React.FC = () => {
                 </Button>
               )}
 
-              <div className="h-full overflow-y-auto [scrollbar-width:none] flex flex-col gap-2.5">
+              <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:none] flex flex-col gap-2.5">
                 <Text size="sm" fw={600} c="white">
                   {t("today")}
                 </Text>

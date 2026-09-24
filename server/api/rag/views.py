@@ -35,7 +35,7 @@ from api.messaging.organization_tags import (
     tag_ids_match_q,
 )
 
-KB_FROM_ATTACHMENT_METADATA_KEY = "knowledge_base_document_id"
+from api.rag.attachment_links import KB_FROM_ATTACHMENT_METADATA_KEY
 
 logger = logging.getLogger(__name__)
 
