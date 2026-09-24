@@ -425,19 +425,7 @@ export default function KnowledgeBasePage() {
           : { label: t("upload-new-template"), run: () => uploadTemplateRef.current?.() };
 
   return (
-    <AppPage
-      title={t("knowledge-base")}
-      right={
-        <Button
-          variant="white"
-          color="dark"
-          leftSection={<IconPlus size={16} />}
-          onClick={headerAction.run}
-        >
-          {headerAction.label}
-        </Button>
-      }
-    >
+    <AppPage title={t("knowledge-base")}>
         <Box px="md" w="100%" maw="72rem" mx="auto" style={{ minWidth: 0 }}>
           <Text c="dimmed" mb="lg" size="sm">
             {t("knowledge-base-description")}
@@ -519,13 +507,13 @@ export default function KnowledgeBasePage() {
                 ))}
               </Group>
             )}
-            <Group gap="sm" wrap="wrap" style={{ flex: activeTab === "completions" ? undefined : 1 }}>
+            <Group gap="sm" wrap="wrap" style={{ flex: "1 1 16rem" }}>
               <TextInput
                 placeholder={searchPlaceholder}
                 leftSection={<IconSearch size={16} />}
                 value={search}
                 onChange={(e) => setSearch(e.currentTarget.value)}
-                style={{ width: activeTab === "completions" ? 220 : "100%", maxWidth: 420 }}
+                style={{ flex: "1 1 12rem", maxWidth: 420 }}
                 size="sm"
               />
               {activeTab === "completions" && (
@@ -546,6 +534,14 @@ export default function KnowledgeBasePage() {
                 />
               )}
             </Group>
+            <Button
+              variant="default"
+              size="sm"
+              leftSection={<IconPlus size={16} />}
+              onClick={headerAction.run}
+            >
+              {headerAction.label}
+            </Button>
           </Group>
 
           <Box style={{ display: activeTab === "documents" ? undefined : "none" }}>
@@ -2024,27 +2020,36 @@ const CompletionItem = ({
         borderColor: selected ? "var(--mantine-color-violet-6)" : undefined,
       }}
     >
-      <Group gap="sm" align="center" wrap="wrap">
-        <Checkbox
-          checked={selected}
-          onChange={onToggleSelect}
-          style={{ flexShrink: 0 }}
-        />
-        <Box style={{ flex: 1, minWidth: 0 }}>
-          <Text fw={600} lineClamp={1}>
-            {completion.prompt}
-          </Text>
-          <Group gap={4} wrap="nowrap">
-            <IconSparkles size={12} style={{ flexShrink: 0 }} />
-            <Text size="xs" c="dimmed" lineClamp={1}>
-              {completion.answer}
+      <Group gap="sm" align="flex-start" wrap="wrap">
+        <Group
+          gap="sm"
+          wrap="nowrap"
+          align="flex-start"
+          style={{ flex: isMobile ? "1 1 100%" : "1 1 auto", minWidth: 0 }}
+        >
+          <Checkbox
+            checked={selected}
+            onChange={onToggleSelect}
+            mt={4}
+            style={{ flexShrink: 0 }}
+          />
+          <Box style={{ flex: 1, minWidth: 0 }}>
+            <Text fw={600} lineClamp={isMobile ? 4 : 1}>
+              {completion.prompt}
             </Text>
-          </Group>
-        </Box>
+            <Group gap={4} wrap="nowrap" align="flex-start">
+              <IconSparkles size={12} style={{ flexShrink: 0, marginTop: 2 }} />
+              <Text size="xs" c="dimmed" lineClamp={isMobile ? 6 : 1}>
+                {completion.answer}
+              </Text>
+            </Group>
+          </Box>
+        </Group>
+        <Group gap="xs" wrap="wrap" align="center">
         {assignedAgentNames[0] && (
-          <Group gap={4} wrap="nowrap" style={{ flexShrink: 0 }}>
+          <Group gap={4} wrap="nowrap">
             <IconRobot size={14} />
-            <Text size="sm" lineClamp={1}>
+            <Text size="sm">
               {assignedAgentNames[0]}
             </Text>
           </Group>
@@ -2060,7 +2065,7 @@ const CompletionItem = ({
             : t("completion-status-pending")}
         </Badge>
         <Button
-          variant={completion.approved ? "light" : "filled"}
+          variant="light"
           color="green"
           size="xs"
           leftSection={<IconCheck size={14} />}
@@ -2071,22 +2076,15 @@ const CompletionItem = ({
         <ActionIcon variant="subtle" color="gray" onClick={openEdit} aria-label={t("edit")}>
           <IconEdit size={16} />
         </ActionIcon>
-        <Menu position="bottom-end">
-          <Menu.Target>
-            <ActionIcon variant="subtle" color="gray" aria-label={t("delete")}>
-              <IconDots size={16} />
-            </ActionIcon>
-          </Menu.Target>
-          <Menu.Dropdown>
-            <Menu.Item
-              color="red"
-              leftSection={<IconTrash size={14} />}
-              onClick={() => setConfirmDelete(true)}
-            >
-              {t("delete")}
-            </Menu.Item>
-          </Menu.Dropdown>
-        </Menu>
+        <ActionIcon
+          variant="subtle"
+          color="red"
+          onClick={() => setConfirmDelete(true)}
+          aria-label={t("delete")}
+        >
+          <IconTrash size={16} />
+        </ActionIcon>
+        </Group>
       </Group>
 
       <Modal

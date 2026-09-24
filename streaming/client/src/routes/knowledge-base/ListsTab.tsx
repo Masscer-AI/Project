@@ -19,7 +19,7 @@ import {
   Textarea,
   TextInput,
 } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
+import { useDisclosure, useMediaQuery } from "@mantine/hooks";
 import {
   IconDots,
   IconEdit,
@@ -65,6 +65,108 @@ function listNameFromFile(file: File) {
   return file.name.replace(/\.[^.]+$/, "").trim();
 }
 
+function listKind(row: TOrganizationList) {
+  const ext = (row.original_filename || "").toLowerCase();
+  if (ext.endsWith(".csv")) return { label: "CSV", color: "teal" };
+  return { label: "XLS", color: "green" };
+}
+
+function ListKindMark({ kind }: { kind: { label: string; color: string } }) {
+  return (
+    <Box
+      w={36}
+      h={36}
+      style={{
+        borderRadius: 8,
+        background: `var(--mantine-color-${kind.color}-light)`,
+        color: `var(--mantine-color-${kind.color}-6)`,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: 11,
+        fontWeight: 700,
+        flexShrink: 0,
+      }}
+    >
+      {kind.label}
+    </Box>
+  );
+}
+
+function ListStatusBadge({
+  row,
+  label,
+}: {
+  row: TOrganizationList;
+  label: string;
+}) {
+  return (
+    <Badge
+      color={importStatusColor(row.import_status)}
+      variant="light"
+      size="sm"
+      styles={{ label: { textTransform: "none" } }}
+    >
+      {label}
+    </Badge>
+  );
+}
+
+function ListRowMenu({
+  row,
+  onEdit,
+  onPreview,
+  onReplace,
+  onDelete,
+}: {
+  row: TOrganizationList;
+  onEdit: (row: TOrganizationList) => void;
+  onPreview: (row: TOrganizationList) => void;
+  onReplace: (row: TOrganizationList) => void;
+  onDelete: (row: TOrganizationList) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <Menu position="bottom-end">
+      <Menu.Target>
+        <ActionIcon
+          variant="subtle"
+          color="gray"
+          aria-label={t("edit")}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <IconDots size={16} />
+        </ActionIcon>
+      </Menu.Target>
+      <Menu.Dropdown>
+        <Menu.Item leftSection={<IconEdit size={14} />} onClick={() => onEdit(row)}>
+          {t("edit")}
+        </Menu.Item>
+        <Menu.Item
+          leftSection={<IconEye size={14} />}
+          disabled={row.import_status !== "succeeded"}
+          onClick={() => onPreview(row)}
+        >
+          {t("org-list-preview")}
+        </Menu.Item>
+        <Menu.Item
+          leftSection={<IconUpload size={14} />}
+          onClick={() => onReplace(row)}
+        >
+          {t("org-list-replace-file")}
+        </Menu.Item>
+        <Menu.Item
+          color="red"
+          leftSection={<IconTrash size={14} />}
+          onClick={() => onDelete(row)}
+        >
+          {t("delete")}
+        </Menu.Item>
+      </Menu.Dropdown>
+    </Menu>
+  );
+}
+
 export function ListsTab({
   filterQuery,
   bindUpload,
@@ -75,6 +177,7 @@ export function ListsTab({
   onCount?: (count: number) => void;
 }) {
   const { t } = useTranslation();
+  const isNarrow = useMediaQuery("(max-width: 48em)");
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [orgs, setOrgs] = useState<TOrganization[]>([]);
@@ -440,6 +543,53 @@ export function ListsTab({
             {t("org-lists-empty")}
           </Text>
         </Card>
+      ) : isNarrow ? (
+        <Stack gap="sm">
+          {filteredLists.map((row) => {
+            const kind = listKind(row);
+            return (
+              <Card key={row.id} withBorder p="sm">
+                <Group gap="sm" wrap="nowrap" align="flex-start">
+                  <ListKindMark kind={kind} />
+                  <Box style={{ flex: 1, minWidth: 0 }}>
+                    <Text
+                      fw={600}
+                      style={{
+                        cursor: row.import_status === "succeeded" ? "pointer" : undefined,
+                      }}
+                      onClick={() => {
+                        if (row.import_status === "succeeded") openPreview(row);
+                      }}
+                    >
+                      {row.name}
+                    </Text>
+                    <Text size="sm" c="dimmed">
+                      {row.original_filename}
+                    </Text>
+                    {row.import_status === "failed" && row.import_error ? (
+                      <Text size="xs" c="red">
+                        {row.import_error}
+                      </Text>
+                    ) : null}
+                    <Group gap={6} mt={6} wrap="wrap">
+                      <Text size="xs" c="dimmed">
+                        {row.record_count} {t("kb-col-rows")}
+                      </Text>
+                      <ListStatusBadge row={row} label={t(`org-list-import-status-${row.import_status}`)} />
+                    </Group>
+                  </Box>
+                  <ListRowMenu
+                    row={row}
+                    onEdit={openEdit}
+                    onPreview={openPreview}
+                    onReplace={triggerReplace}
+                    onDelete={openDelete}
+                  />
+                </Group>
+              </Card>
+            );
+          })}
+        </Stack>
       ) : (
         <Table highlightOnHover verticalSpacing="sm" style={{ width: "100%", tableLayout: "fixed" }}>
           <Table.Thead>
@@ -452,10 +602,7 @@ export function ListsTab({
           </Table.Thead>
           <Table.Tbody>
             {filteredLists.map((row) => {
-              const ext = (row.original_filename || "").toLowerCase();
-              const kind = ext.endsWith(".csv")
-                ? { label: "CSV", color: "teal" }
-                : { label: "XLS", color: "green" };
+              const kind = listKind(row);
               return (
                 <Table.Tr
                   key={row.id}
@@ -468,23 +615,7 @@ export function ListsTab({
                 >
                   <Table.Td>
                     <Group gap="sm" wrap="nowrap">
-                      <Box
-                        w={36}
-                        h={36}
-                        style={{
-                          borderRadius: 8,
-                          background: `var(--mantine-color-${kind.color}-light)`,
-                          color: `var(--mantine-color-${kind.color}-6)`,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: 11,
-                          fontWeight: 700,
-                          flexShrink: 0,
-                        }}
-                      >
-                        {kind.label}
-                      </Box>
+                      <ListKindMark kind={kind} />
                       <Box style={{ minWidth: 0 }}>
                         <Text fw={600} lineClamp={1}>
                           {row.name}
@@ -502,51 +633,16 @@ export function ListsTab({
                   </Table.Td>
                   <Table.Td ta="right">{row.record_count}</Table.Td>
                   <Table.Td>
-                    <Badge
-                      color={importStatusColor(row.import_status)}
-                      variant="light"
-                      size="sm"
-                      styles={{ label: { textTransform: "none" } }}
-                    >
-                      {t(`org-list-import-status-${row.import_status}`)}
-                    </Badge>
+                    <ListStatusBadge row={row} label={t(`org-list-import-status-${row.import_status}`)} />
                   </Table.Td>
                   <Table.Td onClick={(e) => e.stopPropagation()}>
-                    <Menu position="bottom-end">
-                      <Menu.Target>
-                        <ActionIcon variant="subtle" color="gray" aria-label={t("edit")}>
-                          <IconDots size={16} />
-                        </ActionIcon>
-                      </Menu.Target>
-                      <Menu.Dropdown>
-                        <Menu.Item
-                          leftSection={<IconEdit size={14} />}
-                          onClick={() => openEdit(row)}
-                        >
-                          {t("edit")}
-                        </Menu.Item>
-                        <Menu.Item
-                          leftSection={<IconEye size={14} />}
-                          disabled={row.import_status !== "succeeded"}
-                          onClick={() => openPreview(row)}
-                        >
-                          {t("org-list-preview")}
-                        </Menu.Item>
-                        <Menu.Item
-                          leftSection={<IconUpload size={14} />}
-                          onClick={() => triggerReplace(row)}
-                        >
-                          {t("org-list-replace-file")}
-                        </Menu.Item>
-                        <Menu.Item
-                          color="red"
-                          leftSection={<IconTrash size={14} />}
-                          onClick={() => openDelete(row)}
-                        >
-                          {t("delete")}
-                        </Menu.Item>
-                      </Menu.Dropdown>
-                    </Menu>
+                    <ListRowMenu
+                      row={row}
+                      onEdit={openEdit}
+                      onPreview={openPreview}
+                      onReplace={triggerReplace}
+                      onDelete={openDelete}
+                    />
                   </Table.Td>
                 </Table.Tr>
               );
