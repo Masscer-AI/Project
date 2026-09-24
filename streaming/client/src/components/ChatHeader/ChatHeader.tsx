@@ -29,7 +29,7 @@ import { useTranslation } from "react-i18next";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
 import type { TVoiceCatalogEntry } from "../../types/agents";
 import { useLocalizedToolName } from "../../utils/localizedToolName";
-import { OpenSidebarButton } from "../OpenSidebarButton/OpenSidebarButton";
+import { AppHeader } from "../AppHeader/AppHeader";
 import { ToolsSelectorModal } from "../ToolsSelectorModal/ToolsSelectorModal";
 import {
   IconSparkles,
@@ -84,9 +84,14 @@ export const ChatHeader = ({
   };
 
   return (
-    <div className="flex items-center justify-between p-2 md:p-4 rounded-none md:rounded-xl w-full shadow-lg z-10 gap-2 md:gap-3 min-w-0" style={{ background: "var(--bg-contrast-color)", border: "1px solid var(--hovered-color)" }}>
-      <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
-        <OpenSidebarButton flush />
+    <AppHeader
+      flush
+      right={
+        <section className="min-w-0 flex-1 md:flex-shrink-0 md:ml-auto overflow-hidden text-right md:text-right">
+          {right && right}
+        </section>
+      }
+    >
         {!hideAgents && (
           <AgentsModal
             opened={agentsModal?.opened}
@@ -141,11 +146,7 @@ export const ChatHeader = ({
             </Modal>
           </Group>
         )}
-      </div>
-      <section className="min-w-0 flex-1 md:flex-shrink-0 md:ml-auto overflow-hidden text-right md:text-right">
-        {right && right}
-      </section>
-    </div>
+    </AppHeader>
   );
 };
 

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
-import { OpenSidebarButton } from "../../components/OpenSidebarButton/OpenSidebarButton";
+import { AppHeader } from "../../components/AppHeader/AppHeader";
 import {
   ActionIcon,
   Box,
@@ -88,7 +88,7 @@ export default function IntegrationsPage() {
         }}
         className="relative"
       >
-        <OpenSidebarButton />
+        <AppHeader />
 
         <Stack maw="52rem" w="100%" gap="lg" mt={48}>
           <Stack gap={4}>

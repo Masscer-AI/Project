@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useStore } from "../../modules/store";
 import { Sidebar } from "../../components/Sidebar/Sidebar";
-import { OpenSidebarButton } from "../../components/OpenSidebarButton/OpenSidebarButton";
+import { AppHeader } from "../../components/AppHeader/AppHeader";
 import {
   assignRoleToMember,
   buyCredits,
@@ -846,6 +846,7 @@ export default function OrganizationPage() {
             flexDirection: "column",
           }}
         >
+          <AppHeader />
           <Stack align="center" justify="center" pt="xl">
             <Loader color="violet" />
           </Stack>
@@ -869,7 +870,7 @@ export default function OrganizationPage() {
         }}
         className="relative"
       >
-        <OpenSidebarButton />
+        <AppHeader />
 
         <Box px="md" w="100%" maw="42rem" mx="auto">
           <Title order={2} ta="center" mb="lg" mt="md">

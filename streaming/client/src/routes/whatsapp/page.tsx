@@ -5,7 +5,7 @@ import "./page.css";
 import { getWhatsappNumbers, getWhatsappTemplates } from "../../modules/apiCalls";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
-import { OpenSidebarButton } from "../../components/OpenSidebarButton/OpenSidebarButton";
+import { AppHeader } from "../../components/AppHeader/AppHeader";
 
 import {
   ActionIcon,
@@ -472,7 +472,7 @@ export default function Whatsapp() {
         }}
         className="relative"
       >
-        <OpenSidebarButton />
+        <AppHeader />
 
         <Box px="md" w="100%" maw="48rem" mx="auto">
           <Group gap="sm" justify="center" mb="sm" mt="md">

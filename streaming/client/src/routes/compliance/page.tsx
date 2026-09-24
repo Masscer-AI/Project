@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
-import { OpenSidebarButton } from "../../components/OpenSidebarButton/OpenSidebarButton";
+import { AppHeader } from "../../components/AppHeader/AppHeader";
 import {
   ActionIcon,
   Badge,
@@ -170,7 +170,7 @@ export default function ComplianceHubPage() {
         }}
         className="relative"
       >
-        <OpenSidebarButton />
+        <AppHeader />
 
         <Box px="md" w="100%" maw="52rem" mx="auto">
           <Title order={2} ta="center" mb="xs" mt="md">

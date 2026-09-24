@@ -94,6 +94,34 @@ def _org_or_404(request):
     return org, None
 
 
+_ORG_PROCESS_DONE = frozenset(
+    {PLDExpedientStatus.SIGNED, PLDExpedientStatus.DELIVERED}
+)
+
+
+def _counterparties_complete(org) -> bool:
+    rows = (
+        PLDEntity.objects.filter(organization=org)
+        .exclude(relationship__isnull=True)
+        .prefetch_related("expedients")
+    )
+    found = False
+    for entity in rows:
+        found = True
+        expedient = next(iter(entity.expedients.all()), None)
+        if expedient is None or expedient.status not in _ORG_PROCESS_DONE:
+            return False
+    return found
+
+
+def _self_process_block(entity: PLDEntity):
+    if entity.relationship is not None:
+        return None
+    if _counterparties_complete(entity.organization):
+        return None
+    return JsonResponse({"error": "counterparties-incomplete"}, status=409)
+
+
 def _counterparty_or_404(org, entity_id):
     try:
         entity = PLDEntity.objects.prefetch_related("expedients", "invites").get(
@@ -125,7 +153,10 @@ class PLDEntityListView(View):
             .order_by("-updated_at")
         )
         return JsonResponse(
-            {"results": [_entity_payload(entity) for entity in entities]},
+            {
+                "results": [_entity_payload(entity) for entity in entities],
+                "org_process_ready": _counterparties_complete(org),
+            },
             status=200,
         )
 
@@ -237,6 +268,43 @@ class PLDEntityInviteView(View):
 
 
 @method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class PLDStartProcessView(View):
+    def post(self, request, *args, **kwargs):
+        org, err = _org_or_404(request)
+        if err:
+            return err
+        if not _counterparties_complete(org):
+            return JsonResponse({"error": "counterparties-incomplete"}, status=409)
+
+        with transaction.atomic():
+            entity = (
+                PLDEntity.objects.select_for_update()
+                .filter(organization=org, relationship__isnull=True)
+                .first()
+            )
+            if entity is None:
+                entity = PLDEntity(
+                    organization=org,
+                    person_type=PLDPersonType.PERSONA_MORAL,
+                    relationship=None,
+                    user=request.user,
+                    email="",
+                    metadata={"legal_name": org.name},
+                )
+                entity.save()
+            elif entity.user_id != request.user.id:
+                entity.user = request.user
+                entity.save(update_fields=["user", "updated_at"])
+            PLDExpedient.objects.get_or_create(
+                organization=org,
+                entity=entity,
+                defaults={"status": PLDExpedientStatus.DATA_COLLECTION},
+            )
+        return JsonResponse(_reload_my_expedient_row(entity.pk), status=200)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
 class PLDInvitePublicView(View):
     """Unauthenticated lookup for /signup?pld_invite= and existing-user accept."""
 
@@ -331,7 +399,6 @@ class MyPLDExpedientView(View):
     def get(self, request, *args, **kwargs):
         entities = (
             PLDEntity.objects.filter(user=request.user)
-            .exclude(relationship__isnull=True)
             .select_related("organization")
             .prefetch_related(
                 "expedients",
@@ -342,14 +409,17 @@ class MyPLDExpedientView(View):
             )
             .order_by("-updated_at")
         )
-        return JsonResponse(
-            {
-                "results": [
-                    _my_expedient_row(entity) for entity in entities
-                ]
-            },
-            status=200,
-        )
+        ready_by_org = {}
+        results = []
+        for entity in entities:
+            if entity.relationship is None:
+                org_id = entity.organization_id
+                if org_id not in ready_by_org:
+                    ready_by_org[org_id] = _counterparties_complete(entity.organization)
+                if not ready_by_org[org_id]:
+                    continue
+            results.append(_my_expedient_row(entity))
+        return JsonResponse({"results": results}, status=200)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -370,8 +440,9 @@ class MyPLDExpedientDetailView(View):
             )
         except (PLDEntity.DoesNotExist, ValidationError, ValueError):
             return JsonResponse({"error": "Entity not found"}, status=404)
-        if entity.relationship is None:
-            return JsonResponse({"error": "Entity not found"}, status=404)
+        blocked = _self_process_block(entity)
+        if blocked:
+            return blocked
 
         payload, err = _parse_json_body(request)
         if err:
@@ -715,8 +786,9 @@ def _invitee_counterparty_or_404(request, entity_id):
         )
     except (PLDEntity.DoesNotExist, ValidationError, ValueError):
         return None, JsonResponse({"error": "Entity not found"}, status=404)
-    if entity.relationship is None:
-        return None, JsonResponse({"error": "Entity not found"}, status=404)
+    blocked = _self_process_block(entity)
+    if blocked:
+        return None, blocked
     return entity, None
 
 

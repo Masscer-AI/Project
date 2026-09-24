@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
-import { OpenSidebarButton } from "../../components/OpenSidebarButton/OpenSidebarButton";
+import { AppHeader } from "../../components/AppHeader/AppHeader";
 import {
   ActionIcon,
   Box,
@@ -150,7 +150,7 @@ export default function ListDetailPage() {
         }}
         className="relative"
       >
-        <OpenSidebarButton />
+        <AppHeader />
 
         <Box w="100%" maw="80rem" mx="auto">
           <Stack gap="md">

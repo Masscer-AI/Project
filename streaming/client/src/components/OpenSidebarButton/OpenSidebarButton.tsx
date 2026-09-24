@@ -1,5 +1,4 @@
 import { ActionIcon, Badge, Box } from "@mantine/core";
-import { useMediaQuery } from "@mantine/hooks";
 import { IconMenu2, IconX } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import {
@@ -13,7 +12,6 @@ export function OpenSidebarButton({ flush = false }: { flush?: boolean }) {
   const opened = useStore((s) => s.chatState.isSidebarOpened);
   const toggleSidebar = useStore((s) => s.toggleSidebar);
   const unreadNotificationCount = useUnreadNotificationCount();
-  const isMobile = useMediaQuery("(max-width: 47.99em)");
   const label = opened ? t("close-sidebar") : t("open-sidebar");
 
   return (
@@ -22,10 +20,7 @@ export function OpenSidebarButton({ flush = false }: { flush?: boolean }) {
         display: "inline-block",
         alignSelf: "flex-start",
         marginBottom: flush ? 0 : 8,
-        position: opened && isMobile ? "fixed" : "relative",
-        top: opened && isMobile ? 16 : undefined,
-        left: opened && isMobile ? 16 : undefined,
-        zIndex: opened && isMobile ? 60 : undefined,
+        position: "relative",
       }}
     >
       <ActionIcon

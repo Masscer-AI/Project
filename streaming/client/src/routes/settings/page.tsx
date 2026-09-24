@@ -3,7 +3,7 @@ import { useStore } from "../../modules/store";
 import { Sidebar } from "../../components/Sidebar/Sidebar";
 import { getUser, updateUser } from "../../modules/apiCalls";
 import { debounce } from "../../modules/utils";
-import { OpenSidebarButton } from "../../components/OpenSidebarButton/OpenSidebarButton";
+import { AppHeader } from "../../components/AppHeader/AppHeader";
 import {
   DEFAULT_NOTIFICATION_SETTINGS,
   previewNotificationSound,
@@ -90,7 +90,7 @@ export default function SettingsPage() {
         }}
         className="relative"
       >
-        <OpenSidebarButton />
+        <AppHeader />
 
         <Box px="md" w="100%" maw="42rem" mx="auto">
           <Title order={2} ta="center" mb="lg" mt="md">

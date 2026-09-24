@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Sidebar } from "../../../components/Sidebar/Sidebar";
 import { useStore } from "../../../modules/store";
 import "../page.css";
-import { OpenSidebarButton } from "../../../components/OpenSidebarButton/OpenSidebarButton";
+import { AppHeader } from "../../../components/AppHeader/AppHeader";
 import {
   getWhatsappNumbers,
   getWhatsappContacts,
@@ -134,7 +134,7 @@ export default function WhatsappLineDetail() {
         }}
         className="relative"
       >
-        <OpenSidebarButton />
+        <AppHeader />
 
         <Box px="md" w="100%" maw="42rem" mx="auto">
           <Group gap="sm" mb="md" mt="md">

@@ -1,6 +1,6 @@
 import React from "react";
 import { useStore } from "../../modules/store";
-import { OpenSidebarButton } from "../../components/OpenSidebarButton/OpenSidebarButton";
+import { AppHeader } from "../../components/AppHeader/AppHeader";
 import { Sidebar } from "../../components/Sidebar/Sidebar";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -70,7 +70,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         }}
       >
         <div style={{ padding: "16px 24px 0" }}>
-          <OpenSidebarButton />
+          <AppHeader />
         </div>
 
         <Container size="xl" py="xl">

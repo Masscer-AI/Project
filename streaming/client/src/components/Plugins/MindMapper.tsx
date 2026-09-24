@@ -16,12 +16,11 @@ import {
 import "@xyflow/react/dist/style.css";
 import toast from "react-hot-toast";
 import "./MindMapper.css";
-import { useStore } from "../../modules/store";
 import { NodeTemplate } from "./NodeTemplate";
 import { PromptNode } from "./PromptNode";
 import { ActionIcon, Button, Menu, TextInput } from "@mantine/core";
+import { OpenSidebarButton } from "../OpenSidebarButton/OpenSidebarButton";
 import {
-  IconMenu2,
   IconPlus,
   IconDownload,
   IconSearch,
@@ -164,10 +163,6 @@ const MindMapper = () => {
   const [edges, setEdges, onEdgesChange] = useEdgesState([] as any[]);
   const [nodeIdCounter, setNodeIdCounter] = useState(0);
 
-  const { toggleSidebar } = useStore((state) => ({
-    toggleSidebar: state.toggleSidebar,
-  }));
-
   const onConnect = useCallback(
     (params) => setEdges((els) => addEdge(params, els)),
     []
@@ -285,9 +280,7 @@ const MindMapper = () => {
   return (
     <div className="mind-mapper">
       <div className="mind-mapper-header">
-        <ActionIcon variant="subtle" color="gray" onClick={toggleSidebar}>
-          <IconMenu2 size={20} />
-        </ActionIcon>
+        <OpenSidebarButton flush />
 
         <Menu position="bottom" withinPortal>
           <Menu.Target>

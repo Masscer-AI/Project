@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useStore } from "../../modules/store";
 import { Sidebar } from "../../components/Sidebar/Sidebar";
-import { OpenSidebarButton } from "../../components/OpenSidebarButton/OpenSidebarButton";
+import { AppHeader } from "../../components/AppHeader/AppHeader";
 import {
   getDocuments,
   uploadDocument,
@@ -354,7 +354,7 @@ export default function KnowledgeBasePage() {
         }}
         className="relative"
       >
-        <OpenSidebarButton />
+        <AppHeader />
 
         <Box px="md" w="100%" maw="52rem" mx="auto">
           <Title order={2} ta="center" mb="xs" mt="md">

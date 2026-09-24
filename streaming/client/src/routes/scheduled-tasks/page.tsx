@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
-import { OpenSidebarButton } from "../../components/OpenSidebarButton/OpenSidebarButton";
+import { AppHeader } from "../../components/AppHeader/AppHeader";
 import {
   ActionIcon,
   Badge,
@@ -208,7 +208,7 @@ export default function ScheduledTasksPage() {
         }}
         className="relative"
       >
-        <OpenSidebarButton />
+        <AppHeader />
 
         <Stack maw="56rem" w="100%" gap="lg" mt={48}>
           <Group justify="space-between" align="flex-start" wrap="wrap" gap="md">

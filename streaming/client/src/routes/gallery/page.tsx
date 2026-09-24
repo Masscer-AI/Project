@@ -34,7 +34,7 @@ import {
   IconTrash,
   IconVideo,
 } from "@tabler/icons-react";
-import { OpenSidebarButton } from "../../components/OpenSidebarButton/OpenSidebarButton";
+import { AppHeader } from "../../components/AppHeader/AppHeader";
 import { Sidebar } from "../../components/Sidebar/Sidebar";
 import {
   AttachmentVisibilityModal,
@@ -776,7 +776,7 @@ export default function GalleryPage() {
         }}
         className="relative"
       >
-        <OpenSidebarButton />
+        <AppHeader />
 
         <Box maw={1100} w="100%" mx="auto">
           <Stack gap="lg">
