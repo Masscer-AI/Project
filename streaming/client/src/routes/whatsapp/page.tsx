@@ -13,7 +13,6 @@ import {
   Box,
   Button,
   Card,
-  Divider,
   Group,
   Loader,
   Modal,
@@ -29,6 +28,7 @@ import {
   IconChevronRight,
   IconMenu2,
   IconMessages,
+  IconPhoto,
   IconRobot,
   IconSettings,
   IconSparkles,
@@ -286,6 +286,123 @@ function WhatsappTemplateCard({
   );
 }
 
+function waInline(text: string): React.ReactNode[] {
+  return text.split(/(\*[^*\n]+\*|_[^_\n]+_|~[^~\n]+~|\{\{\d+\}\})/g).map((part, index) => {
+    if (part.startsWith("*") && part.endsWith("*") && part.length > 2) {
+      return (
+        <Text key={index} span fw={700}>
+          {part.slice(1, -1)}
+        </Text>
+      );
+    }
+    if (part.startsWith("_") && part.endsWith("_") && part.length > 2) {
+      return (
+        <Text key={index} span fs="italic">
+          {part.slice(1, -1)}
+        </Text>
+      );
+    }
+    if (part.startsWith("~") && part.endsWith("~") && part.length > 2) {
+      return (
+        <Text key={index} span td="line-through">
+          {part.slice(1, -1)}
+        </Text>
+      );
+    }
+    if (/^\{\{\d+\}\}$/.test(part)) {
+      return (
+        <Text
+          key={index}
+          span
+          fw={600}
+          style={{
+            background: "rgba(255,255,255,0.14)",
+            borderRadius: 4,
+            padding: "0 3px",
+          }}
+        >
+          {part}
+        </Text>
+      );
+    }
+    return <React.Fragment key={index}>{part}</React.Fragment>;
+  });
+}
+
+function WhatsappTemplatePreview({ template }: { template: WhatsappTemplate }) {
+  const header = (template.header_text || "").trim();
+  const body = (template.body_text || "").trim();
+  const footer = (template.footer_text || "").trim();
+  const buttons = template.buttons || [];
+  const showImage =
+    template.requires_header_image ||
+    (template.header_type || "").toUpperCase() === "IMAGE";
+
+  return (
+    <Box p="md" style={{ background: "#0b141a", borderRadius: 12 }}>
+      <Box
+        maw={340}
+        ml="auto"
+        style={{
+          background: "#005c4b",
+          color: "#e9edef",
+          borderRadius: "8px 8px 0 8px",
+          overflow: "hidden",
+        }}
+      >
+        {showImage ? (
+          <Box
+            h={120}
+            style={{
+              background: "#1f2c34",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <IconPhoto size={28} color="#8696a0" />
+          </Box>
+        ) : null}
+        <Stack gap={6} p="sm">
+          {header ? (
+            <Text size="sm" fw={700}>
+              {waInline(header)}
+            </Text>
+          ) : null}
+          {body ? (
+            <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>
+              {waInline(body)}
+            </Text>
+          ) : null}
+          {footer ? (
+            <Text size="xs" c="rgba(233,237,239,0.65)">
+              {footer}
+            </Text>
+          ) : null}
+        </Stack>
+        {buttons.map((button, index) => {
+          const label = (button.label || "").trim() || `Button ${index + 1}`;
+          return (
+            <Box
+              key={`${template.template_id}-btn-${index}`}
+              style={{
+                borderTop: "1px solid rgba(255,255,255,0.12)",
+                padding: "8px 12px",
+                textAlign: "center",
+                color: "#53bdeb",
+                fontWeight: 600,
+                fontSize: 13,
+              }}
+            >
+              {label}
+            </Box>
+          );
+        })}
+      </Box>
+    </Box>
+  );
+}
+
 function WhatsappTemplateModal({
   template,
   opened,
@@ -296,7 +413,6 @@ function WhatsappTemplateModal({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
-  const buttons = template?.buttons || [];
   const variableDescriptions = template?.body_variable_descriptions || [];
 
   return (
@@ -319,29 +435,7 @@ function WhatsappTemplateModal({
             </Text>
           ) : null}
 
-          {template.header_text ? (
-            <>
-              <Divider />
-              <Text size="xs" tt="uppercase" c="dimmed" fw={600}>
-                {t("whatsapp-template-header")}
-              </Text>
-              <Text size="sm" fw={600}>
-                {template.header_text}
-              </Text>
-            </>
-          ) : null}
-
-          {(template.body_text || "").trim() ? (
-            <>
-              <Divider />
-              <Text size="xs" tt="uppercase" c="dimmed" fw={600}>
-                {t("whatsapp-template-body")}
-              </Text>
-              <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>
-                {template.body_text}
-              </Text>
-            </>
-          ) : null}
+          <WhatsappTemplatePreview template={template} />
 
           {variableDescriptions.length > 0 ? (
             <Stack gap={4}>
@@ -353,42 +447,6 @@ function WhatsappTemplateModal({
             </Stack>
           ) : null}
 
-          {template.footer_text ? (
-            <>
-              <Divider />
-              <Text size="xs" tt="uppercase" c="dimmed" fw={600}>
-                {t("whatsapp-template-footer")}
-              </Text>
-              <Text size="sm">{template.footer_text}</Text>
-            </>
-          ) : null}
-
-          {buttons.length > 0 ? (
-            <>
-              <Divider />
-              <Text size="xs" tt="uppercase" c="dimmed" fw={600}>
-                {t("whatsapp-template-buttons")}
-              </Text>
-              <Stack gap="xs">
-                {buttons.map((button, index) => {
-                  const label = (button.label || "").trim() || `Button ${index + 1}`;
-                  const url = (button.url || "").trim();
-                  return (
-                    <Stack key={`${template.template_id}-btn-${index}`} gap={2}>
-                      <Badge size="sm" variant="default">
-                        {label}
-                      </Badge>
-                      {url ? (
-                        <Text size="xs" c="dimmed" ff="monospace">
-                          {url}
-                        </Text>
-                      ) : null}
-                    </Stack>
-                  );
-                })}
-              </Stack>
-            </>
-          ) : null}
         </Stack>
       ) : null}
     </Modal>

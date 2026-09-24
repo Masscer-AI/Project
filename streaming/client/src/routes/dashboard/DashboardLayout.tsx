@@ -70,11 +70,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         }}
       >
         <div style={{ padding: "16px 24px 0" }}>
-          <AppHeader
-            title={t(
-              TABS.find((tab) => tab.value === currentTab)?.labelKey || "overview"
-            )}
-          />
+          <AppHeader title={t("dashboard")} />
         </div>
 
         <Container size="xl" py="xl">

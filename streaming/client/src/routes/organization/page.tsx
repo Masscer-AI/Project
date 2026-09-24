@@ -870,7 +870,7 @@ export default function OrganizationPage() {
         }}
         className="relative"
       >
-        <AppHeader title={org ? t("manage-organization") : t("organization")} />
+        <AppHeader title={t("organization")} />
 
         <Box px="md" w="100%" maw="42rem" mx="auto">
           {!org ? (

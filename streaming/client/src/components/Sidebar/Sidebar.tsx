@@ -1,13 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useStore } from "../../modules/store";
-import { useSearchParams, useNavigate, useLocation } from "react-router-dom";
-import {
-  getAllConversations,
-  getUserOrganizations,
-  getTags,
-} from "../../modules/apiCalls";
+import { Link, useLocation } from "react-router-dom";
+import { getUserOrganizations } from "../../modules/apiCalls";
 import { useUnreadNotificationCount } from "../../hooks/useUnreadNotificationCount";
-import { TConversation, TTag } from "../../types";
 import { useTranslation } from "react-i18next";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
 
@@ -17,15 +12,10 @@ import {
   Box,
   Button,
   ActionIcon,
-  TextInput,
-  NumberInput,
   Badge,
   Stack,
   Group,
-  Text,
-  Divider,
 } from "@mantine/core";
-import { DatePickerInput } from "@mantine/dates";
 import {
   IconPlus,
   IconMenu2,
@@ -39,11 +29,49 @@ import {
   IconLayoutDashboard,
   IconSettings,
   IconLogout,
-  IconFilter,
   IconCalendarTime,
   IconPhoto,
   IconScale,
 } from "@tabler/icons-react";
+
+function NavButton({
+  to,
+  children,
+  leftSection,
+  size,
+  className,
+  fullWidth = true,
+  active,
+}: {
+  to: string;
+  children: React.ReactNode;
+  leftSection?: React.ReactNode;
+  size?: "sm";
+  className?: string;
+  fullWidth?: boolean;
+  active?: boolean;
+}) {
+  const toggleSidebar = useStore((s) => s.toggleSidebar);
+  return (
+    <Button
+      component={Link}
+      to={to}
+      variant="default"
+      leftSection={leftSection}
+      size={size}
+      fullWidth={fullWidth}
+      className={className}
+      onClick={toggleSidebar}
+      styles={{
+        root: {
+          backgroundColor: active ? "rgba(255,255,255,0.08)" : undefined,
+        },
+      }}
+    >
+      {children}
+    </Button>
+  );
+}
 
 export const Sidebar: React.FC = () => {
   const { t } = useTranslation();
@@ -61,43 +89,17 @@ export const Sidebar: React.FC = () => {
   const canUseChat = useIsFeatureEnabled("can-use-chat") === true;
   const hasOrgComplianceAccess =
     useIsFeatureEnabled("organization-compliance-access") === true;
-  const { toggleSidebar, user, setOpenedModals, logout } = useStore((state) => ({
+  const { toggleSidebar, user, logout } = useStore((state) => ({
     toggleSidebar: state.toggleSidebar,
     user: state.user,
-    setOpenedModals: state.setOpenedModals,
     logout: state.logout,
   }));
   const [hasPldAccess, setHasPldAccess] = useState(false);
   const [hasOrganization, setHasOrganization] = useState<boolean | null>(null);
   const location = useLocation();
 
-  const [history, setHistory] = useState<TConversation[]>([]);
-  const [filteredHistory, setFilteredHistory] = useState<TConversation[]>([]);
-  const [historyConfig, setHistoryConfig] = useState<{
-    isOpen: boolean;
-    showFilters: boolean;
-  }>({
-    isOpen: false,
-    showFilters: false,
-  });
-
-  const [filters, setFilters] = useState<{
-    tags: number[];
-    startDate: Date | null;
-    endDate: Date | null;
-    title: string;
-  }>({
-    tags: [],
-    startDate: null,
-    endDate: null,
-    title: "",
-  });
-
-  const [orgTags, setOrgTags] = useState<TTag[]>([]);
   const [canManageOrg, setCanManageOrg] = useState(false);
   const unreadNotificationCount = useUnreadNotificationCount();
-
-  const navigate = useNavigate();
 
   useEffect(() => {
     let cancelled = false;
@@ -121,104 +123,12 @@ export const Sidebar: React.FC = () => {
     };
   }, []);
 
-  useEffect(() => {
-    if (!canUseChat) {
-      setHistory([]);
-      setFilteredHistory([]);
-      return;
-    }
-    populateHistory();
-    getTags()
-      .then((tags) => setOrgTags(tags))
-      .catch(() => setOrgTags([]));
-  }, [canUseChat]);
-
-  useEffect(() => {
-    const refresh = () => populateHistory();
-    window.addEventListener("conversations-changed", refresh);
-    return () => window.removeEventListener("conversations-changed", refresh);
-  }, []);
-
-  useEffect(() => {
-    let result = filterByDateRange();
-
-    if (filters.tags.length > 0) {
-      result = result.filter((c) =>
-        c.tags?.some((tagId: number) => filters.tags.includes(tagId))
-      );
-    }
-
-    result = result.filter(
-      (c) =>
-        c.title && c.title.toLowerCase().includes(filters.title.toLowerCase())
-    );
-
-    setFilteredHistory(result);
-  }, [filters]);
-
-  const populateHistory = async () => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      console.error("No token found in localStorage");
-      return;
-    }
-
-    try {
-      const res = await getAllConversations("personal");
-      setHistory(res);
-      setFilteredHistory(res);
-    } catch (error) {
-      console.error("Failed to fetch conversations in sidebar", error);
-    }
-  };
-
-  const handleNewChat = () => {
-    toggleSidebar();
-    navigate("/chat");
-  };
-
-  const goTo = (to: string) => {
-    navigate(to);
-    toggleSidebar();
-  };
-
-  const openSettings = () => {
-    goTo("/settings");
-  };
-
-  const filterByDateRange = () => {
-    return history.filter((c) => {
-      const createdAtDate = new Date(c.created_at);
-
-      const start = filters.startDate ? new Date(filters.startDate) : null;
-      if (start) {
-        start.setHours(0, 0, 0, 0);
-      }
-
-      const end = filters.endDate ? new Date(filters.endDate) : new Date();
-      if (end) {
-        end.setHours(23, 59, 59, 999);
-      }
-
-      return (!start || createdAtDate >= start) && createdAtDate <= end;
-    });
-  };
-
-  const filterByTag = (tagId: number) => {
-    setFilters((prev) => ({
-      ...prev,
-      tags: prev.tags.includes(tagId)
-        ? prev.tags.filter((id) => id !== tagId)
-        : [...prev.tags, tagId],
-    }));
-  };
-
-  const today = new Date().toLocaleDateString();
+  const navActive = (path: string) =>
+    location.pathname === path || location.pathname.startsWith(`${path}/`);
 
   return (
     <>
       <div className="backdrop-blur-md fixed md:relative left-0 top-0 h-screen z-[50] md:z-[3] flex flex-col w-[min(350px,100%)] max-w-full shrink-0 min-w-0 p-3 gap-2.5 animate-[appear-left_500ms_forwards] md:[animation:none]" style={{ background: "var(--semi-transparent)", borderRight: "1px solid var(--hovered-color)" }}>
-        {}
         <Group gap="xs">
           {canUseChat && (
             <Button
@@ -240,23 +150,17 @@ export const Sidebar: React.FC = () => {
           </ActionIcon>
         </Group>
 
-        {}
         <div className="[scrollbar-width:none] overflow-auto p-0.5 flex flex-col gap-2.5 flex-1">
           {canUseChat && (
             <Button
               variant="default"
               size="sm"
               leftSection={<IconMessage size={20} />}
-              onClick={() =>
-                setHistoryConfig((prev) => ({
-                  ...prev,
-                  isOpen: !prev.isOpen,
-                }))
-              }
+              onClick={() => goTo("/conversations")}
               fullWidth
               styles={{
                 root: {
-                  backgroundColor: historyConfig.isOpen
+                  backgroundColor: navActive("/conversations")
                     ? "rgba(255,255,255,0.08)"
                     : undefined,
                 },
@@ -274,17 +178,16 @@ export const Sidebar: React.FC = () => {
               fullWidth
               styles={{
                 root: {
-                  backgroundColor:
-                    location.pathname.startsWith("/pld/")
-                      ? "rgba(255,255,255,0.08)"
-                      : undefined,
+                  backgroundColor: navActive("/pld")
+                    ? "rgba(255,255,255,0.08)"
+                    : undefined,
                 },
               }}
             >
               {t("compliance-my-expediente-title")}
             </Button>
           )}
-          {hasOrgComplianceAccess && hasPldAccess && !historyConfig.isOpen && (
+          {hasOrgComplianceAccess && hasPldAccess && (
             <Button
               variant="default"
               size="sm"
@@ -293,10 +196,9 @@ export const Sidebar: React.FC = () => {
               fullWidth
               styles={{
                 root: {
-                  backgroundColor:
-                    location.pathname.startsWith("/compliance")
-                      ? "rgba(255,255,255,0.08)"
-                      : undefined,
+                  backgroundColor: navActive("/compliance")
+                    ? "rgba(255,255,255,0.08)"
+                    : undefined,
                 },
               }}
             >
@@ -304,153 +206,7 @@ export const Sidebar: React.FC = () => {
             </Button>
           )}
 
-          {canUseChat && historyConfig.isOpen && (
-            <>
-              {historyConfig.showFilters ? (
-                <Stack gap="xs">
-                  <TextInput
-                    placeholder={t("filter-conversations")}
-                    autoFocus
-                    name="conversation-filter"
-                    value={filters.title}
-                    onChange={(e) => {
-                      const val = e.currentTarget.value;
-                      setFilters((prev) => ({ ...prev, title: val }));
-                    }}
-                    radius="md"
-                    variant="filled"
-                    size="xs"
-                  />
-                  <Group gap="xs" grow preventGrowOverflow wrap="nowrap">
-                    <DatePickerInput
-                      style={{ minWidth: 0, flex: 1 }}
-                      value={filters.startDate}
-                      onChange={(val) =>
-                        setFilters({
-                          ...filters,
-                          startDate: val as Date | null,
-                        })
-                      }
-                      placeholder={t("start-date")}
-                      radius="md"
-                      variant="filled"
-                      clearable
-                      size="xs"
-                    />
-                    <DatePickerInput
-                      value={filters.endDate}
-                      onChange={(val) =>
-                        setFilters({
-                          ...filters,
-                          endDate: val as Date | null,
-                        })
-                      }
-                      style={{ minWidth: 0, flex: 1 }}
-                      placeholder={t("end-date")}
-                      radius="md"
-                      variant="filled"
-                      clearable
-                      size="xs"
-                    />
-                  </Group>
-                  <Group gap="xs" wrap="wrap">
-                    {orgTags
-                      .filter((tag) => tag.enabled)
-                      .map((tag) => (
-                        <Badge
-                          key={tag.id}
-                          variant={
-                            filters.tags.includes(tag.id) ? "filled" : "outline"
-                          }
-                          color={tag.color || "violet"}
-                          style={{ cursor: "pointer" }}
-                          onClick={() => filterByTag(tag.id)}
-                        >
-                          {tag.title}
-                        </Badge>
-                      ))}
-                  </Group>
-                  <Divider />
-                  <Group gap="xs" justify="flex-end">
-                    <Button
-                      size="xs"
-                      variant="default"
-                      onClick={() => {
-                        setFilters({
-                          tags: [],
-                          startDate: null,
-                          endDate: null,
-                          title: "",
-                        });
-                      }}
-                    >
-                      {t("clean-filters")}
-                    </Button>
-                    <Button
-                      size="xs"
-                      variant="default"
-                      onClick={() =>
-                        setHistoryConfig((prev) => ({
-                          ...prev,
-                          showFilters: false,
-                        }))
-                      }
-                    >
-                      {t("close-filters")}
-                    </Button>
-                  </Group>
-                </Stack>
-              ) : (
-                <Button
-                  variant="default"
-                  leftSection={<IconFilter size={18} />}
-                  onClick={() =>
-                    setHistoryConfig((prev) => ({
-                      ...prev,
-                      showFilters: true,
-                    }))
-                  }
-                  fullWidth
-                >
-                  {t("show-filters")}
-                </Button>
-              )}
-
-              <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:none] flex flex-col gap-2.5">
-                <Text size="sm" fw={600} c="white">
-                  {t("today")}
-                </Text>
-                {filteredHistory
-                  .filter(
-                    (c) =>
-                      new Date(c.created_at).toLocaleDateString() === today
-                  )
-                  .map((conversation) => (
-                    <ConversationComponent
-                      key={conversation.id}
-                      conversation={conversation}
-                    />
-                  ))}
-                <Text size="sm" fw={600} c="white">
-                  {t("previous-days")}
-                </Text>
-                {filteredHistory
-                  .filter(
-                    (c) =>
-                      new Date(c.created_at).toLocaleDateString() !== today
-                  )
-                  .map((conversation) => (
-                    <ConversationComponent
-                      key={conversation.id}
-                      conversation={conversation}
-                    />
-                  ))}
-              </div>
-            </>
-          )}
-
-          {!historyConfig.isOpen && (
-            <Stack gap="xs">
+          <Stack gap="xs">
               {canUseChat && (
                 <Button
                   variant="default"
@@ -560,10 +316,8 @@ export const Sidebar: React.FC = () => {
                 </Box>
               )}
             </Stack>
-          )}
         </div>
 
-        {}
         <Group gap="xs" className="mt-auto">
           <Button
             variant="default"
@@ -587,47 +341,10 @@ export const Sidebar: React.FC = () => {
         </Group>
       </div>
 
-      {}
       <div
         onClick={toggleSidebar}
         className="bg-[rgba(55,55,55,0.52)] w-screen h-screen fixed top-0 left-0 z-[40] md:hidden"
       ></div>
-
     </>
   );
-};
-
-const ConversationComponent = ({
-  conversation,
-}: {
-  conversation: TConversation;
-}) => {
-  const [_, setSearchParams] = useSearchParams();
-  const { toggleSidebar, chatState } = useStore((state) => ({
-    toggleSidebar: state.toggleSidebar,
-    chatState: state.chatState,
-  }));
-
-  const navigate = useNavigate();
-
-  const handleClick = () => {
-    const queryParams = { conversation: conversation.id };
-    setSearchParams(queryParams);
-    navigate(`/chat?conversation=${conversation.id}`);
-
-    if (window.innerWidth < 768 && chatState.isSidebarOpened) {
-      toggleSidebar();
-    }
-  };
-
-  return conversation.number_of_messages > 0 ? (
-    <div
-      className="sidebar-conversation-item flex items-center text-[17.5px] cursor-pointer relative text-ellipsis whitespace-nowrap p-0 rounded-lg transition-colors"
-      onClick={handleClick}
-    >
-      <p className="w-full p-2.5 max-w-full overflow-hidden">
-        {(conversation.title || conversation.id).slice(0, 30)}
-      </p>
-    </div>
-  ) : null;
 };
