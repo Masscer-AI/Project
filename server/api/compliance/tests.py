@@ -1082,8 +1082,8 @@ class PLDDocumentExtractionTests(TestCase):
         kwargs = create_loop.call_args.kwargs
         self.assertEqual(kwargs["model"], "gpt-5.6-luna")
         self.assertEqual(kwargs["repair_model"], "gpt-5.6-luna")
-        self.assertEqual(kwargs["tools"], [])
-        self.assertEqual(kwargs["max_iterations"], 2)
+        self.assertEqual(kwargs["tools"][0]["name"], "fill_form_variable")
+        self.assertEqual(kwargs["max_iterations"], 8)
         run_payload = loop.run.call_args[0][0]
         content = run_payload[0]["content"]
         self.assertEqual(content[0]["type"], "input_text")
@@ -1128,6 +1128,8 @@ class PLDDocumentExtractionTests(TestCase):
         cfdi = schema_for_kind("cfdi")
         self.assertIn("uuid", cfdi.model_fields)
         self.assertIn("provenances", schema_for_kind("acta_constitutiva").model_fields)
+        self.assertIn("summary", schema_for_kind("acta_constitutiva").model_fields)
+        self.assertIn("summary", schema_for_kind("official_id").model_fields)
 
     @patch("api.compliance.tasks.screen_pld_expedient.delay")
     @patch("api.compliance.tasks.extract_pld_expedient_document.delay")
@@ -2167,71 +2169,19 @@ class ScreeningRequestFilterTests(SimpleTestCase):
         self.assertEqual(kept, [])
 
 
-class FetchUrlToolTests(SimpleTestCase):
-    def test_rejects_non_http_url(self):
-        from api.ai_layers.tools.fetch_url import fetch_url_impl, is_http_url
-
-        self.assertFalse(is_http_url("ftp://example.com/x"))
-        self.assertFalse(is_http_url("javascript:alert(1)"))
-        result = fetch_url_impl("file:///etc/passwd")
-        self.assertIsNone(result.markdown)
-        self.assertEqual(result.message, "url must be http or https")
-
-    @patch("firecrawl.Firecrawl")
-    def test_scrapes_markdown(self, firecrawl_cls):
-        from django.test import override_settings
-
-        from api.ai_layers.tools.fetch_url import fetch_url_impl
-
-        firecrawl_cls.return_value.scrape.return_value = {"markdown": "# Hello"}
-        with override_settings(FIRECRAWL_API_KEY="test-key"):
-            result = fetch_url_impl("https://example.com")
-        self.assertEqual(result.markdown, "# Hello")
-        self.assertEqual(result.message, "ok")
-        firecrawl_cls.return_value.scrape.assert_called_once()
-
-
-class WebsiteMergeTests(SimpleTestCase):
-    def test_keeps_filled_fields_and_updates_empty(self):
-        from api.compliance.website.merge import merge_website_fields
-        from api.compliance.website.schemas import CompanyWebsiteExtraction
-
-        merged = merge_website_fields(
-            {
-                "legal_name": "Typed SA",
-                "nationality": "MX",
-                "economic_activity": "",
-                "email": None,
-                "phone": "",
-            },
-            CompanyWebsiteExtraction(
-                legal_name="From Web SA",
-                nationality="US",
-                economic_activity="Construccion",
-                email="hola@web.mx",
-                phone="+52 55 1234 5678",
-            ),
-        )
-        self.assertEqual(merged["legal_name"], "Typed SA")
-        self.assertEqual(merged["nationality"], "MX")
-        self.assertEqual(merged["economic_activity"], "Construccion")
-        self.assertEqual(merged["email"], "hola@web.mx")
-        self.assertEqual(merged["phone"], "+525512345678")
-
-
-class WebsiteFillTaskTests(TestCase):
+class FillFormVariableTests(TestCase):
     def setUp(self):
         from api.authenticate.models import UserProfile
         from api.compliance.models import PLDEntity, PLDPersonType, PLDRelationship
 
         _bootstrap()
         self.owner = User.objects.create_user(
-            username="pld-web-owner",
-            email="pld-web@test.com",
+            username="pld-fill-owner",
+            email="pld-fill@test.com",
             password="x",
         )
         self.org = Organization.objects.create(
-            name="PLD Web Org",
+            name="PLD Fill Org",
             owner=self.owner,
             pld_access_enabled=True,
         )
@@ -2244,104 +2194,101 @@ class WebsiteFillTaskTests(TestCase):
             person_type=PLDPersonType.PERSONA_MORAL,
             relationship=PLDRelationship.CLIENTE,
             user=self.owner,
-            email="web@example.com",
-            metadata={
-                "legal_name": "Typed SA",
-                "website_url": "https://example.com",
-                "website_fetch": {"status": "running"},
+            email="fill@example.com",
+            metadata={"legal_name": "Typed SA"},
+        )
+
+    def test_writes_empty_and_corrects_mismatch(self):
+        from api.compliance.document_extraction.fill_form_tool import (
+            fill_form_variable_impl,
+        )
+
+        same = fill_form_variable_impl(self.entity, "legal_name", "Typed SA")
+        self.assertFalse(same.filled)
+        self.assertEqual(same.message, "unchanged")
+        corrected = fill_form_variable_impl(self.entity, "legal_name", "From Acta SA")
+        self.assertTrue(corrected.filled)
+        written = fill_form_variable_impl(self.entity, "constitution_date", "2018-03-12")
+        self.assertTrue(written.filled)
+        country = fill_form_variable_impl(self.entity, "nationality", "mx")
+        self.assertTrue(country.filled)
+        unknown = fill_form_variable_impl(self.entity, "rfc_invented", "XAXX010101000")
+        self.assertFalse(unknown.filled)
+        self.entity.refresh_from_db()
+        self.assertEqual(self.entity.metadata.get("legal_name"), "From Acta SA")
+        self.assertEqual(self.entity.metadata.get("constitution_date"), "2018-03-12")
+        self.assertEqual(self.entity.metadata.get("nationality"), "MX")
+
+    def test_rejects_unknown_field_name(self):
+        from api.compliance.document_extraction.fill_form_tool import (
+            fill_form_variable_impl,
+        )
+
+        result = fill_form_variable_impl(self.entity, "javascript:alert", "x")
+        self.assertFalse(result.filled)
+
+    @patch("api.ai_layers.agent_loop.AgentLoop.create")
+    def test_acta_extract_fills_empty_form_fields(self, create_loop):
+        from django.core.files.base import ContentFile
+
+        from api.ai_layers.agent_loop import AgentLoopResult
+        from api.compliance.document_extraction.schemas import (
+            ActaConstitutivaExtraction,
+            AddressExtraction,
+        )
+        from api.compliance.models import PLDExpedient, PLDExpedientDocument
+        from api.compliance.tasks import extract_pld_expedient_document
+
+        self.entity.metadata = {}
+        self.entity.save(update_fields=["metadata", "updated_at"])
+        expedient = PLDExpedient.objects.create(
+            organization=self.org,
+            entity=self.entity,
+        )
+        doc = PLDExpedientDocument.objects.create(
+            expedient=expedient,
+            slot_key="acta_constitutiva",
+            document_kind="acta_constitutiva",
+            original_filename="acta.pdf",
+            content_type="application/pdf",
+            file_size=8,
+            extraction_status=PLDExpedientDocument.ExtractionStatus.PENDING,
+        )
+        doc.file.save("acta.pdf", ContentFile(b"%PDF-1.4"), save=True)
+        parsed = ActaConstitutivaExtraction(
+            legal_name="Construcciones Ruble SA",
+            constitution_date="2015-06-01",
+            corporate_purpose="Construccion",
+            registered_address=AddressExtraction(country="MX", city="Monterrey"),
+        )
+        loop = create_loop.return_value
+        loop.run.return_value = AgentLoopResult(
+            output=parsed,
+            messages=[],
+            iterations=1,
+            usage={
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0,
             },
         )
-
-    @patch("api.compliance.website.agents.fill_company_from_website")
-    def test_task_merges_empty_fields_only(self, fill):
-        from api.compliance.tasks import fill_pld_entity_from_website
-        from api.compliance.website.schemas import CompanyWebsiteExtraction
-
-        fill.return_value = CompanyWebsiteExtraction(
-            legal_name="From Web SA",
-            nationality="MX",
-            economic_activity="Construccion",
-            email="hola@web.mx",
-            phone="+525512345678",
-        )
-        fill_pld_entity_from_website(str(self.entity.id))
+        extract_pld_expedient_document(str(doc.id))
         self.entity.refresh_from_db()
-        self.assertEqual(self.entity.metadata.get("legal_name"), "Typed SA")
-        self.assertEqual(self.entity.metadata.get("economic_activity"), "Construccion")
-        self.assertEqual(self.entity.metadata.get("email"), "hola@web.mx")
-        self.assertEqual(self.entity.metadata.get("phone"), "+525512345678")
-        self.assertEqual(self.entity.metadata.get("website_fetch", {}).get("status"), "done")
-        fill.assert_called_once_with("https://example.com")
-
-
-class WebsiteFillApiTests(TestCase):
-    def setUp(self):
-        from rest_framework.test import APIClient
-
-        from api.authenticate.models import Token, UserProfile
-        from api.compliance.models import (
-            PLDEntity,
-            PLDExpedient,
-            PLDPersonType,
-            PLDRelationship,
-        )
-
-        _bootstrap()
-        self.owner = User.objects.create_user(
-            username="pld-web-api",
-            email="pld-web-api@test.com",
-            password="x",
-        )
-        self.org = Organization.objects.create(
-            name="PLD Web API Org",
-            owner=self.owner,
-            pld_access_enabled=True,
-        )
-        UserProfile.objects.update_or_create(
-            user=self.owner,
-            defaults={"organization": self.org},
-        )
-        self.token = Token.objects.create(user=self.owner)
-        self.client = APIClient()
-        self.entity = PLDEntity.objects.create(
-            organization=self.org,
-            person_type=PLDPersonType.PERSONA_MORAL,
-            relationship=PLDRelationship.CLIENTE,
-            user=self.owner,
-            email="web-api@example.com",
-            metadata={"legal_name": "API SA"},
-        )
-        PLDExpedient.objects.create(organization=self.org, entity=self.entity)
-
-    @patch("api.compliance.tasks.fill_pld_entity_from_website.delay")
-    def test_post_website_enqueues_task(self, delay):
-        response = self.client.post(
-            f"/v1/compliance/my-expedients/{self.entity.id}/website/",
-            {"url": "https://ruble.mx"},
-            format="json",
-            HTTP_AUTHORIZATION=f"Token {self.token.key}",
-        )
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["metadata"].get("website_url"), "https://ruble.mx")
         self.assertEqual(
-            response.json()["metadata"].get("website_fetch", {}).get("status"),
-            "running",
+            self.entity.metadata.get("legal_name"), "Construcciones Ruble SA"
         )
-        delay.assert_called_once_with(str(self.entity.id))
-        listed = self.client.get(
-            f"/v1/compliance/my-expedients/{self.entity.id}/",
-            HTTP_AUTHORIZATION=f"Token {self.token.key}",
-        )
-        self.assertEqual(listed.status_code, 200)
-        self.assertEqual(listed.json()["metadata"].get("website_url"), "https://ruble.mx")
+        self.assertEqual(self.entity.metadata.get("constitution_date"), "2015-06-01")
+        self.assertEqual(self.entity.metadata.get("nationality"), "MX")
+        self.assertEqual(self.entity.metadata.get("economic_activity"), "Construccion")
+        self.assertEqual(self.entity.metadata.get("address", {}).get("city"), "Monterrey")
+        self.assertEqual(create_loop.call_args.kwargs["tools"][0]["name"], "fill_form_variable")
 
-    def test_post_website_rejects_non_http(self):
-        with patch("api.compliance.tasks.fill_pld_entity_from_website.delay") as delay:
-            response = self.client.post(
-                f"/v1/compliance/my-expedients/{self.entity.id}/website/",
-                {"url": "ftp://example.com"},
-                format="json",
-                HTTP_AUTHORIZATION=f"Token {self.token.key}",
-            )
-            self.assertEqual(response.status_code, 400)
-            delay.assert_not_called()
+
+class FetchUrlToolTests(SimpleTestCase):
+    def test_rejects_non_http_url(self):
+        from api.ai_layers.tools.fetch_url import fetch_url_impl, is_http_url
+
+        self.assertFalse(is_http_url("ftp://example.com/x"))
+        result = fetch_url_impl("file:///etc/passwd")
+        self.assertIsNone(result.markdown)
+        self.assertEqual(result.message, "url must be http or https")

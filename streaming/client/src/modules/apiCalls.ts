@@ -2574,14 +2574,6 @@ export const updateMyPldExpedient = async (
   );
 };
 
-export const fillMyPldExpedientWebsite = async (entityId: string, url: string) => {
-  return makeAuthenticatedRequest<TMyPldExpedient>(
-    "POST",
-    `/v1/compliance/my-expedients/${entityId}/website/`,
-    { url }
-  );
-};
-
 export const confirmMyPldDocuments = async (entityId: string) => {
   return makeAuthenticatedRequest<TMyPldExpedient>(
     "PATCH",

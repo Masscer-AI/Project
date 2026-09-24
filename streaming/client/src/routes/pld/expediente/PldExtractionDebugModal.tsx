@@ -68,9 +68,12 @@ export function extractionLines(
     "signature_present",
     "ownership_may_be_stale",
     "provenances",
+    "summary",
     "_meta",
   ]);
   const lines: { key: string; value: string }[] = [];
+  const summary = filledText(row.summary);
+  if (summary) lines.push({ key: "summary", value: summary });
   const push = (key: string, raw: unknown) => {
     if (skip.has(key) || raw == null || raw === "") return;
     if (

@@ -6,7 +6,6 @@ from api.compliance.views import (
     MyPLDExpedientDocumentView,
     MyPLDExpedientPacketView,
     MyPLDExpedientView,
-    MyPLDExpedientWebsiteView,
     PLDEntityDetailView,
     PLDEntityInviteView,
     PLDEntityListView,
@@ -43,11 +42,6 @@ urlpatterns = [
         "my-expedients/<uuid:entity_id>/",
         MyPLDExpedientDetailView.as_view(),
         name="my_pld_expedient_detail",
-    ),
-    path(
-        "my-expedients/<uuid:entity_id>/website/",
-        MyPLDExpedientWebsiteView.as_view(),
-        name="my_pld_expedient_website",
     ),
     path(
         "my-expedients/<uuid:entity_id>/packet/",

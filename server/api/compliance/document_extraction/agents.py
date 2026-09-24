@@ -17,12 +17,15 @@ from api.compliance.document_extraction.schemas import (
 logger = logging.getLogger(__name__)
 
 _SHARED_RULES = (
-    "The document is attached to this message. Do not call tools. "
+    "The document is attached to this message. "
     "Fill every property on this document's JSON schema first; those names are the "
     "source of truth. Do not invent extra top-level keys such as addresses or dates. "
     "If a value is visible, extract it even if the file is labeled sample, draft, or ficticio. "
     "Use null only when the field is not visible. Never invent RFC, CURP, dates, or "
     "ownership percentages. Dates as YYYY-MM-DD when possible. "
+    "Then call fill_form_variable for form fields the document shows: fill empties, "
+    "and replace a filled value when it disagrees with the document. "
+    "Set summary to what you extracted and which form fields you wrote or corrected. "
     "Provenances are citations only: campo_id must be the schema property name or the "
     "code in that field's description (e.g. issue_or_period_date or DOM-fecha_emision), "
     "valor_extraido must be the same value you put in the schema field, pagina_origen "
@@ -90,6 +93,9 @@ INSTRUCTIONS_BY_KIND = {
         "List every socio or accionista with participation (compute % from partes sociales "
         "only when the numbers are in the deed). "
         "Set ownership_as_of to the constitution date. Leave ownership_may_be_stale null. "
+        "Write form fields from the deed: legal_name, constitution_date, nationality "
+        "(ISO-2 from the registered domicile country), economic_activity from objeto social, "
+        "address.* from domicilio social, and controllers from socios. "
         + _SHARED_RULES
     ),
     "poder": (
@@ -226,14 +232,21 @@ def extract_document(doc) -> PldExtraction:
     )
 
     from api.ai_layers.agent_loop import AgentLoop
+    from api.compliance.document_extraction.fill_form_tool import (
+        apply_extraction_to_form,
+        form_fill_prompt,
+        make_fill_form_variable_tool,
+    )
 
+    entity = getattr(getattr(doc, "expedient", None), "entity", None)
+    tools = [make_fill_form_variable_tool(entity)] if entity is not None else []
     loop = AgentLoop.create(
         provider="openai",
-        tools=[],
+        tools=tools,
         instructions=instructions,
         model=PLD_EXTRACTION_MODEL_SLUG,
         output_schema=schema,
-        max_iterations=2,
+        max_iterations=8,
         repair_model=PLD_EXTRACTION_MODEL_SLUG,
     )
     prompt = (
@@ -242,6 +255,8 @@ def extract_document(doc) -> PldExtraction:
         "Read the attached file and return JSON matching the schema. "
         "Put values on schema properties, not only in provenances."
     )
+    if entity is not None:
+        prompt = f"{prompt}\n\n{form_fill_prompt(entity)}"
     result = loop.run(
         [
             {
@@ -293,4 +308,6 @@ def extract_document(doc) -> PldExtraction:
             output.issue_or_period_date
         )
         output.name_matches_client_hint = None
+    if entity is not None:
+        apply_extraction_to_form(entity, kind, output.model_dump(mode="json"))
     return output

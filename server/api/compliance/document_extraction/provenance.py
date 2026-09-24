@@ -46,3 +46,10 @@ class FieldProvenance(BaseModel):
 
 class ProvenanceMixin(BaseModel):
     provenances: list[FieldProvenance] = Field(default_factory=list)
+    summary: str | None = Field(
+        default=None,
+        description=(
+            "Short explanation of what this document shows, which form fields "
+            "were filled or corrected, and the values written."
+        ),
+    )

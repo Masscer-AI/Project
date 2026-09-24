@@ -611,46 +611,6 @@ class MyPLDExpedientDetailView(View):
         return JsonResponse(_reload_my_expedient_row(entity.pk), status=200)
 
 
-@method_decorator(csrf_exempt, name="dispatch")
-@method_decorator(token_required, name="dispatch")
-class MyPLDExpedientWebsiteView(View):
-    """Invitee starts a company-website fill for a persona moral expedient."""
-
-    def post(self, request, entity_id, *args, **kwargs):
-        from api.ai_layers.tools.fetch_url import is_http_url
-        from api.compliance.pld_metadata import normalize_pld_entity_metadata
-        from api.compliance.tasks import fill_pld_entity_from_website
-
-        try:
-            entity = PLDEntity.objects.select_related("organization").get(
-                pk=entity_id,
-                user=request.user,
-            )
-        except (PLDEntity.DoesNotExist, ValidationError, ValueError):
-            return JsonResponse({"error": "Entity not found"}, status=404)
-        blocked = _self_process_block(entity)
-        if blocked:
-            return blocked
-        if entity.person_type != PLDPersonType.PERSONA_MORAL:
-            return JsonResponse({"error": "persona-moral-required"}, status=400)
-        payload, err = _parse_json_body(request)
-        if err:
-            return err
-        url = str(payload.get("url") or "").strip()
-        if not is_http_url(url):
-            return JsonResponse({"error": "url must be http or https"}, status=400)
-        meta = dict(entity.metadata or {})
-        meta["website_url"] = url
-        meta["website_fetch"] = {"status": "running", "message": None}
-        try:
-            entity.metadata = normalize_pld_entity_metadata(entity.person_type, meta)
-            entity.save(update_fields=["metadata", "updated_at"])
-        except (ValidationError, ValueError) as exc:
-            return JsonResponse({"error": str(exc)}, status=400)
-        fill_pld_entity_from_website.delay(str(entity.pk))
-        return JsonResponse(_reload_my_expedient_row(entity.pk), status=200)
-
-
 def _invitee_prequalification(exp: PLDExpedient) -> dict:
     raw = exp.prequalification_payload if isinstance(exp.prequalification_payload, dict) else {}
     findings = raw.get("findings") if isinstance(raw.get("findings"), list) else []

@@ -21,14 +21,8 @@ import {
 } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
 import { useMediaQuery } from "@mantine/hooks";
-import { IconCircleCheck, IconPlus, IconTrash, IconWorldWww } from "@tabler/icons-react";
-import {
-  fillMyPldExpedientWebsite,
-  getMyPldExpedient,
-  lookupPostalCode,
-  TMyPldExpedient,
-  updateMyPldExpedient,
-} from "../../../modules/apiCalls";
+import { IconCircleCheck, IconPlus, IconTrash } from "@tabler/icons-react";
+import { lookupPostalCode, TMyPldExpedient, updateMyPldExpedient } from "../../../modules/apiCalls";
 import {
   PldDocumentCollection,
   requiredSectionDocsExtracted,
@@ -179,9 +173,6 @@ type FormState = {
   phone_iso: string;
   phone: string;
   email: string;
-  website_url: string;
-  website_fetch_status: string;
-  website_fetch_message: string;
   id_document_type: string;
   id_issuing_authority: string;
   id_document_number: string;
@@ -217,16 +208,13 @@ function fromMetadata(row: TMyPldExpedient): FormState {
     date_of_birth: asString(meta.date_of_birth),
     constitution_date: asString(meta.constitution_date),
     country_of_birth: asString(meta.country_of_birth),
-    nationality: asString(meta.nationality) || "MX",
+    nationality: asString(meta.nationality),
     curp: asString(meta.curp),
     rfc: asString(meta.rfc),
     economic_activity: asString(meta.economic_activity),
     phone_iso: parsedPhone.iso,
     phone: parsedPhone.local,
     email: asString(meta.email) || asString(row.email),
-    website_url: asString(meta.website_url),
-    website_fetch_status: asString(asRecord(meta.website_fetch).status) || "idle",
-    website_fetch_message: asString(asRecord(meta.website_fetch).message),
     id_document_type: asString(identification.document_type),
     id_issuing_authority: asString(identification.issuing_authority),
     id_document_number: asString(identification.document_number),
@@ -239,7 +227,7 @@ function fromMetadata(row: TMyPldExpedient): FormState {
       city: asString(address.city),
       state: asString(address.state),
       postal_code: asString(address.postal_code),
-      country: asString(address.country) || "MX",
+      country: asString(address.country),
     },
     is_own_controller: meta.is_own_controller !== false,
     controllers: loadControllers(meta),
@@ -321,11 +309,6 @@ function metadataFromForm(form: FormState, isMoral: boolean): Record<string, unk
       economic_activity: form.economic_activity.trim() || null,
       phone,
       email: form.email.trim() || null,
-      website_url: form.website_url.trim() || null,
-      website_fetch: {
-        status: form.website_fetch_status || "idle",
-        message: form.website_fetch_message.trim() || null,
-      },
       address: compactAddress(form.address),
       representative: {
         given_names: form.rep_given_names.trim() || null,
@@ -366,31 +349,125 @@ function metadataFromForm(form: FormState, isMoral: boolean): Record<string, unk
   };
 }
 
-function applyWebsiteFill(
+function applyEmptyFromMetadata(
   prev: FormState,
   meta: Record<string, unknown>
 ): FormState {
+  const pick = (current: string, incoming: string) =>
+    filled(incoming) ? incoming : current;
   const parsedPhone = splitInternationalPhone(asString(meta.phone));
-  const fetch = asRecord(meta.website_fetch);
+  const address = asRecord(meta.address);
+  const identification = asRecord(meta.identification);
+  const representative = asRecord(meta.representative);
+  const repId = asRecord(representative.identification);
+  const incomingControllers = loadControllers(meta);
+  const controllers = incomingControllers.some((row) => filled(row.name))
+    ? incomingControllers.map((incoming, index) => {
+        const row = prev.controllers[index];
+        if (!row) return incoming;
+        return {
+          name: pick(row.name, incoming.name),
+          rfc: pick(row.rfc, incoming.rfc),
+          ownership: pick(row.ownership, incoming.ownership),
+          email: pick(row.email, incoming.email),
+        };
+      })
+    : prev.controllers;
   return {
     ...prev,
-    website_url: asString(meta.website_url) || prev.website_url,
-    website_fetch_status: asString(fetch.status) || prev.website_fetch_status,
-    website_fetch_message: asString(fetch.message),
-    legal_name: filled(prev.legal_name)
-      ? prev.legal_name
-      : asString(meta.legal_name) || prev.legal_name,
-    nationality: filled(prev.nationality)
-      ? prev.nationality
-      : asString(meta.nationality) || prev.nationality,
-    economic_activity: filled(prev.economic_activity)
-      ? prev.economic_activity
-      : asString(meta.economic_activity) || prev.economic_activity,
-    email: filled(prev.email) ? prev.email : asString(meta.email) || prev.email,
+    given_names: pick(prev.given_names, asString(meta.given_names)),
+    surnames: pick(
+      prev.surnames,
+      joinedSurnames(meta.surnames, meta.paternal_surname, meta.maternal_surname)
+    ),
+    legal_name: pick(prev.legal_name, asString(meta.legal_name)),
+    date_of_birth: pick(prev.date_of_birth, asString(meta.date_of_birth)),
+    constitution_date: pick(
+      prev.constitution_date,
+      asString(meta.constitution_date)
+    ),
+    country_of_birth: pick(
+      prev.country_of_birth,
+      asString(meta.country_of_birth)
+    ),
+    nationality: pick(prev.nationality, asString(meta.nationality)),
+    curp: pick(prev.curp, asString(meta.curp)),
+    rfc: pick(prev.rfc, asString(meta.rfc)),
+    economic_activity: pick(
+      prev.economic_activity,
+      asString(meta.economic_activity)
+    ),
+    email: pick(prev.email, asString(meta.email)),
     phone: filled(prev.phone) ? prev.phone : parsedPhone.local || prev.phone,
     phone_iso: filled(prev.phone)
       ? prev.phone_iso
       : parsedPhone.iso || prev.phone_iso,
+    id_document_type: pick(
+      prev.id_document_type,
+      asString(identification.document_type)
+    ),
+    id_issuing_authority: pick(
+      prev.id_issuing_authority,
+      asString(identification.issuing_authority)
+    ),
+    id_document_number: pick(
+      prev.id_document_number,
+      asString(identification.document_number)
+    ),
+    address: {
+      street: pick(prev.address.street, asString(address.street)),
+      exterior_number: pick(
+        prev.address.exterior_number,
+        asString(address.exterior_number)
+      ),
+      interior_number: pick(
+        prev.address.interior_number,
+        asString(address.interior_number)
+      ),
+      neighborhood: pick(
+        prev.address.neighborhood,
+        asString(address.neighborhood)
+      ),
+      municipality: pick(
+        prev.address.municipality,
+        asString(address.municipality)
+      ),
+      city: pick(prev.address.city, asString(address.city)),
+      state: pick(prev.address.state, asString(address.state)),
+      postal_code: pick(prev.address.postal_code, asString(address.postal_code)),
+      country: pick(prev.address.country, asString(address.country)),
+    },
+    controllers,
+    rep_given_names: pick(
+      prev.rep_given_names,
+      asString(representative.given_names)
+    ),
+    rep_surnames: pick(
+      prev.rep_surnames,
+      joinedSurnames(
+        representative.surnames,
+        representative.paternal_surname,
+        representative.maternal_surname
+      )
+    ),
+    rep_date_of_birth: pick(
+      prev.rep_date_of_birth,
+      asString(representative.date_of_birth)
+    ),
+    rep_rfc: pick(prev.rep_rfc, asString(representative.rfc)),
+    rep_curp: pick(prev.rep_curp, asString(representative.curp)),
+    rep_id_document_type: pick(
+      prev.rep_id_document_type,
+      asString(repId.document_type)
+    ),
+    rep_id_issuing_authority: pick(
+      prev.rep_id_issuing_authority,
+      asString(repId.issuing_authority)
+    ),
+    rep_id_document_number: pick(
+      prev.rep_id_document_number,
+      asString(repId.document_number)
+    ),
   };
 }
 
@@ -415,9 +492,6 @@ export function PldIntakeForm({
   const [openedSection, setOpenedSection] = useState<string | null>("entity");
   const [neighborhoodOptions, setNeighborhoodOptions] = useState<string[]>([]);
   const [postalLookupLoading, setPostalLookupLoading] = useState(false);
-  const [websiteBusy, setWebsiteBusy] = useState(
-    () => asString(asRecord(asRecord(row.metadata).website_fetch).status) === "running"
-  );
   const dirty = useRef(false);
   const formRef = useRef(form);
   const lastSaved = useRef(JSON.stringify(metadataFromForm(fromMetadata(row), isMoral)));
@@ -633,10 +707,6 @@ export function PldIntakeForm({
 
   useEffect(() => {
     const next = JSON.stringify(metadataFromForm(form, isMoral));
-    if (form.website_fetch_status === "running") {
-      lastSaved.current = next;
-      return;
-    }
     if (next === lastSaved.current) return;
     dirty.current = true;
     window.clearTimeout(saveTimer.current);
@@ -647,29 +717,8 @@ export function PldIntakeForm({
   }, [form]);
 
   useEffect(() => {
-    if (!isMoral || form.website_fetch_status !== "running") return;
-    let cancelled = false;
-    setWebsiteBusy(true);
-    const tick = async () => {
-      const saved = await getMyPldExpedient(row.id);
-      if (cancelled || !saved) return;
-      const status = asString(
-        asRecord(asRecord(saved.metadata).website_fetch).status
-      );
-      if (status === "running" || !status) return;
-      onSavedRef.current(saved);
-      setForm((prev) => applyWebsiteFill(prev, asRecord(saved.metadata)));
-      setWebsiteBusy(false);
-    };
-    const timer = window.setInterval(() => {
-      void tick();
-    }, 1500);
-    void tick();
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
-  }, [form.website_fetch_status, isMoral, row.id]);
+    setForm((prev) => applyEmptyFromMetadata(prev, asRecord(row.metadata)));
+  }, [JSON.stringify(row.metadata || {})]);
 
   useEffect(() => {
     const flushNow = () => {
@@ -892,77 +941,6 @@ export function PldIntakeForm({
           </Stack>
           {active === "entity" && (
             <Stack gap="sm">
-      {isMoral && (
-        <Stack gap={6}>
-          <Group align="flex-end" wrap="nowrap">
-            <TextInput
-              style={{ flex: 1 }}
-              label={t("compliance-intake-website")}
-              description={t("compliance-intake-website-hint")}
-              type="url"
-              autoComplete="url"
-              placeholder="https://"
-              value={form.website_url}
-              onChange={(e) => setField("website_url", e.currentTarget.value)}
-            />
-            <Button
-              variant="default"
-              leftSection={
-                websiteBusy || form.website_fetch_status === "running" ? (
-                  <Loader size={14} />
-                ) : (
-                  <IconWorldWww size={16} />
-                )
-              }
-              disabled={
-                websiteBusy ||
-                form.website_fetch_status === "running" ||
-                !/^https?:\/\//i.test(form.website_url.trim())
-              }
-              onClick={() => {
-                const url = form.website_url.trim();
-                setWebsiteBusy(true);
-                fillMyPldExpedientWebsite(row.id, url)
-                  .then((saved) => {
-                    if (!saved) throw new Error("empty");
-                    onSaved(saved);
-                    setForm((prev) => ({
-                      ...prev,
-                      website_url: url,
-                      website_fetch_status: "running",
-                      website_fetch_message: "",
-                    }));
-                  })
-                  .catch(() => {
-                    setWebsiteBusy(false);
-                    setForm((prev) => ({
-                      ...prev,
-                      website_fetch_status: "error",
-                      website_fetch_message: t("compliance-intake-website-error"),
-                    }));
-                  });
-              }}
-            >
-              {t("compliance-intake-website-fetch")}
-            </Button>
-          </Group>
-          {form.website_fetch_status === "running" && (
-            <Text size="xs" c="dimmed">
-              {t("compliance-intake-website-running")}
-            </Text>
-          )}
-          {form.website_fetch_status === "done" && (
-            <Text size="xs" c="dimmed">
-              {t("compliance-intake-website-done")}
-            </Text>
-          )}
-          {form.website_fetch_status === "error" && (
-            <Text size="xs" c="red">
-              {form.website_fetch_message || t("compliance-intake-website-error")}
-            </Text>
-          )}
-        </Stack>
-      )}
       {isMoral ? (
         <TextInput
           label={t("compliance-intake-legal-name")}
