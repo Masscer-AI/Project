@@ -19,6 +19,7 @@ from api.whatsapp.template_access import (
 from api.whatsapp.template_registry import (
     APROBACION_PENDIENTE,
     APPROVAL_PENDING,
+    BIENVENIDO_A_PRESENTACION_AGENTE,
     AVISO_BOLETIN_SEMANAL,
     AVISOS_GENERALES,
     AVISOS_INTEGRAREM_GENERAL,
@@ -35,6 +36,7 @@ from api.whatsapp.template_registry import (
     SEGUIMIENTO_INTEGRAREM_ATENCION,
     SOLICITUD_COMPLETADA,
     TASK_COMPLETED,
+    WELCOME_TO_AGENT_PRESENTATION,
     WHATSAPP_TEMPLATES,
     get_template,
     list_enabled_templates,
@@ -484,6 +486,46 @@ class WhatsAppTemplateRegistryTests(SimpleTestCase):
         self.assertEqual(tpl.buttons[1].label, "Tengo una duda")
         self.assertEqual(tpl.buttons[2].label, "Dejar de recibir")
         self.assertIn(SEGUIMIENTO_ATENCION.id, {t.id for t in list_enabled_templates()})
+
+    def test_bienvenido_a_presentacion_agente_registered(self):
+        tpl = get_template("bienvenido_a_presentacion_agente_es")
+        self.assertIsNotNone(tpl)
+        self.assertEqual(tpl.meta_name, "bienvenido_a_presentacion_agente")
+        self.assertEqual(tpl.language_code, "es")
+        self.assertEqual(tpl.category, "MARKETING")
+        self.assertEqual(tpl.header_type, "none")
+        self.assertEqual(tpl.footer_text, "")
+        self.assertEqual(tpl.body_variable_count, 4)
+        self.assertEqual(tpl.button_variable_count, 0)
+        self.assertEqual(len(tpl.buttons), 0)
+        self.assertIn("¡Hola! *{{1}}*", tpl.body_text)
+        self.assertIn("bienvenido a {{2}}", tpl.body_text)
+        self.assertIn("*{{3}}*", tpl.body_text)
+        self.assertIn("{{4}}", tpl.body_text)
+        self.assertIn(
+            BIENVENIDO_A_PRESENTACION_AGENTE.id,
+            {t.id for t in list_enabled_templates()},
+        )
+
+    def test_welcome_to_agent_presentation_registered(self):
+        tpl = get_template("welcome_to_agent_presentation_en")
+        self.assertIsNotNone(tpl)
+        self.assertEqual(tpl.meta_name, "welcome_to_agent_presentation")
+        self.assertEqual(tpl.language_code, "en")
+        self.assertEqual(tpl.category, "MARKETING")
+        self.assertEqual(tpl.header_type, "none")
+        self.assertEqual(tpl.footer_text, "")
+        self.assertEqual(tpl.body_variable_count, 4)
+        self.assertEqual(tpl.button_variable_count, 0)
+        self.assertEqual(len(tpl.buttons), 0)
+        self.assertIn("Hello! *{{1}}*", tpl.body_text)
+        self.assertIn("welcome to {{2}}", tpl.body_text)
+        self.assertIn("*{{3}}*", tpl.body_text)
+        self.assertIn("{{4}}", tpl.body_text)
+        self.assertIn(
+            WELCOME_TO_AGENT_PRESENTATION.id,
+            {t.id for t in list_enabled_templates()},
+        )
 
     def test_build_components_for_expreso_fiscal_semanal_with_header_image(self):
         components = build_template_components(

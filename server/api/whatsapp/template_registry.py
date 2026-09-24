@@ -1085,6 +1085,73 @@ SEGUIMIENTO_ATENCION = WhatsAppTemplateDefinition(
     enabled=True,
 )
 
+BIENVENIDO_A_PRESENTACION_AGENTE = WhatsAppTemplateDefinition(
+    id="bienvenido_a_presentacion_agente_es",
+    meta_name="bienvenido_a_presentacion_agente",
+    language_code="es",
+    category="MARKETING",
+    description=(
+        "Presentacion inicial del agente por WhatsApp despues de que un "
+        "miembro invitado termina de crear su cuenta. Marketing. Sin "
+        "encabezado, pie ni botones. Cuerpo con 4 variables: nombre de la "
+        "persona, organizacion, nombre del agente y lista corta de lo que "
+        "puede hacer."
+    ),
+    header_type="none",
+    body_text=(
+        "¡Hola! *{{1}}*, bienvenido a {{2}}. Me llamo *{{3}}* y a partir de "
+        "ahora puedes escribirme por acá.\n"
+        "\n"
+        "Puedo ayudarte con cosas como:\n"
+        "\n"
+        "{{4}}\n"
+        "\n"
+        "Si tienes alguna duda, pregúntame."
+    ),
+    body_variable_count=4,
+    body_variable_descriptions=(
+        "Nombre de la persona (completa *{{1}}*), ej. 'Maria'.",
+        "Nombre de la organizacion (completa {{2}}), ej. 'ACME'.",
+        "Nombre del agente (completa *{{3}}*), ej. 'FernandAI'.",
+        "Lista corta de cosas con las que el agente puede ayudar "
+        "(completa {{4}}), ej. 'Pagar tus facturas, hacer tus impuestos.'.",
+    ),
+    enabled=True,
+)
+
+WELCOME_TO_AGENT_PRESENTATION = WhatsAppTemplateDefinition(
+    id="welcome_to_agent_presentation_en",
+    meta_name="welcome_to_agent_presentation",
+    language_code="en",
+    category="MARKETING",
+    description=(
+        "First WhatsApp introduction from the agent after an invited member "
+        "finishes creating their account. Marketing. No header, footer, or "
+        "buttons. Body has 4 variables: person name, organization, agent "
+        "name, and a short list of what the agent can help with."
+    ),
+    header_type="none",
+    body_text=(
+        "Hello! *{{1}}*, welcome to {{2}}. My name is *{{3}}* and from now "
+        "on you can write to me here.\n"
+        "\n"
+        "I can help you with things like:\n"
+        "\n"
+        "{{4}}\n"
+        "\n"
+        "If you have any questions, please ask me."
+    ),
+    body_variable_count=4,
+    body_variable_descriptions=(
+        "Person's name (fills *{{1}}*), e.g. 'Maria'.",
+        "Organization name (fills {{2}}), e.g. 'ACME'.",
+        "Agent name (fills *{{3}}*), e.g. 'FernandAI'.",
+        "Short list of things the agent can help with (fills {{4}}), "
+        "e.g. 'Paying your bills and filing your taxes.'.",
+    ),
+    enabled=True,
+)
+
 WHATSAPP_TEMPLATES: dict[str, WhatsAppTemplateDefinition] = {
     TASK_COMPLETED.id: TASK_COMPLETED,
     SOLICITUD_COMPLETADA.id: SOLICITUD_COMPLETADA,
@@ -1104,6 +1171,8 @@ WHATSAPP_TEMPLATES: dict[str, WhatsAppTemplateDefinition] = {
     RESUMEN_SEMANAL.id: RESUMEN_SEMANAL,
     AVISOS_GENERALES.id: AVISOS_GENERALES,
     SEGUIMIENTO_ATENCION.id: SEGUIMIENTO_ATENCION,
+    BIENVENIDO_A_PRESENTACION_AGENTE.id: BIENVENIDO_A_PRESENTACION_AGENTE,
+    WELCOME_TO_AGENT_PRESENTATION.id: WELCOME_TO_AGENT_PRESENTATION,
 }
 
 def get_template(template_id: str) -> WhatsAppTemplateDefinition | None:
