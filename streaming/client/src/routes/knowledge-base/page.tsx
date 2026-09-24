@@ -313,7 +313,7 @@ export default function KnowledgeBasePage() {
   const loadCompletions = async ({ silent = false }: { silent?: boolean } = {}) => {
     if (!silent) setLoadingCompletions(true);
     try {
-      const list = await getUserCompletions();
+      const list = (await getUserCompletions()) ?? [];
       setCompletions(list.map(normalizeCompletion));
     } catch {
       toast.error(t("error-loading-completions"));
@@ -438,7 +438,7 @@ export default function KnowledgeBasePage() {
         </Button>
       }
     >
-        <Box px="md" w="100%" maw="72rem" mx="auto">
+        <Box px="md" w="100%" maw="72rem" mx="auto" style={{ minWidth: 0 }}>
           <Text c="dimmed" mb="lg" size="sm">
             {t("knowledge-base-description")}
           </Text>
@@ -610,6 +610,7 @@ const DocumentsTab = ({
   bindUpload?: (fn: () => void) => void;
 }) => {
   const { t } = useTranslation();
+  const isNarrow = useMediaQuery("(max-width: 48em)");
   const [uploadOpened, uploadHandlers] = useDisclosure(false);
   const [uploading, setUploading] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -627,7 +628,7 @@ const DocumentsTab = ({
     let cancelled = false;
     (async () => {
       try {
-        const orgs = await getUserOrganizations();
+        const orgs = (await getUserOrganizations()) ?? [];
         const org = orgs[0];
         if (!org || cancelled) {
           if (!cancelled) {
@@ -642,7 +643,7 @@ const DocumentsTab = ({
           setUploadVisibility("organization");
         }
         try {
-          const roles = await getOrganizationRoles(org.id);
+          const roles = (await getOrganizationRoles(org.id)) ?? [];
           if (!cancelled) setOrgRoles(roles.filter((r) => r.enabled));
         } catch {
           if (!cancelled) setOrgRoles([]);
@@ -939,8 +940,24 @@ const DocumentsTab = ({
         <Text c="dimmed" ta="center" py="md">
           {focusedDocument ? t("no-documents-found") : t("no-documents-yet")}
         </Text>
+      ) : isNarrow ? (
+        <Stack gap="sm">
+          {documents.map((doc) => (
+            <DocumentItem
+              key={doc.id}
+              compact
+              document={doc}
+              agents={agents}
+              orgRoles={orgRoles}
+              orgTags={orgTags}
+              hasOrg={hasOrg}
+              onDelete={() => handleDelete(doc.id)}
+              onUpdated={onRefresh}
+            />
+          ))}
+        </Stack>
       ) : (
-        <Table highlightOnHover verticalSpacing="sm" style={{ tableLayout: "fixed" }}>
+        <Table highlightOnHover verticalSpacing="sm" style={{ tableLayout: "fixed", width: "100%" }}>
           <Table.Thead>
             <Table.Tr>
               <Table.Th>{t("kb-col-document")}</Table.Th>
@@ -966,45 +983,6 @@ const DocumentsTab = ({
           </Table.Tbody>
         </Table>
       )}
-
-      {!focusedDocument && (
-        <Card
-          withBorder
-          p="lg"
-          ta="center"
-          style={{
-            cursor: "pointer",
-            borderStyle: "dashed",
-            borderColor: dragging ? "var(--mantine-color-violet-6)" : undefined,
-          }}
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragging(true);
-          }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={(e) => {
-            e.preventDefault();
-            setDragging(false);
-            addFiles(e.dataTransfer.files);
-            uploadHandlers.open();
-          }}
-        >
-          <Text size="sm" c="dimmed">
-            <IconUpload size={16} style={{ verticalAlign: "middle", marginRight: 6 }} />
-            {t("kb-drop-before")}{" "}
-            <Text
-              span
-              c="var(--mantine-primary-color-filled)"
-              style={{ cursor: "pointer" }}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              {t("kb-choose-file")}
-            </Text>
-            {" · "}
-            {t("kb-drop-types")}
-          </Text>
-        </Card>
-      )}
     </Stack>
   );
 };
@@ -1017,6 +995,7 @@ const DocumentItem = ({
   hasOrg,
   onDelete,
   onUpdated,
+  compact = false,
 }: {
   document: TDocument;
   agents: TAgent[];
@@ -1025,6 +1004,7 @@ const DocumentItem = ({
   hasOrg: boolean;
   onDelete: () => void;
   onUpdated: () => void;
+  compact?: boolean;
 }) => {
   const { t, i18n } = useTranslation();
   const [showChunks, setShowChunks] = useState(false);
@@ -1208,6 +1188,73 @@ const DocumentItem = ({
         </Stack>
       </Modal>
 
+      {compact ? (
+        <Card withBorder p="sm">
+          <Group gap="sm" wrap="nowrap" align="flex-start">
+            <KindMark label={kind.label} color={kind.color} />
+            <Box style={{ flex: 1, minWidth: 0 }}>
+              <Text
+                fw={600}
+                lineClamp={2}
+                style={{ cursor: isProcessing ? "default" : "pointer" }}
+                onClick={() => {
+                  if (!isProcessing) setShowChunks(true);
+                }}
+              >
+                {document.name || t("untitled")}
+              </Text>
+              <Text size="sm" c="dimmed" lineClamp={2}>
+                {document.brief || (isProcessing ? t("processing") : "")}
+              </Text>
+              <Group gap={6} mt={6} wrap="wrap">
+                {visibilityIcon}
+                <Text size="xs">{t(visibilityLabelKey(document.visibility))}</Text>
+                <Text size="xs" c="dimmed">
+                  {fragmentLabel} · {tokenLabel}
+                </Text>
+              </Group>
+            </Box>
+            <Menu position="bottom-end">
+              <Menu.Target>
+                <ActionIcon variant="subtle" color="gray" aria-label={t("settings")}>
+                  <IconDots size={16} />
+                </ActionIcon>
+              </Menu.Target>
+              <Menu.Dropdown>
+                <Menu.Item
+                  leftSection={<IconSearch size={14} />}
+                  disabled={isProcessing}
+                  onClick={() => setShowChunks(true)}
+                >
+                  {t("show-document-text")}
+                </Menu.Item>
+                <Menu.Item
+                  leftSection={<IconBarbell size={14} />}
+                  disabled={isProcessing}
+                  onClick={() => setShowTraining(true)}
+                >
+                  {t("train-on-this-document")}
+                </Menu.Item>
+                {hasOrg && (
+                  <Menu.Item
+                    leftSection={<IconSettings size={14} />}
+                    onClick={openOwnership}
+                  >
+                    {t("settings")}
+                  </Menu.Item>
+                )}
+                <Menu.Item
+                  color="red"
+                  leftSection={<IconTrash size={14} />}
+                  onClick={() => setConfirmDelete(true)}
+                >
+                  {t("delete")}
+                </Menu.Item>
+              </Menu.Dropdown>
+            </Menu>
+          </Group>
+        </Card>
+      ) : (
       <Table.Tr>
         <Table.Td>
           <Group gap="sm" wrap="nowrap">
@@ -1280,6 +1327,7 @@ const DocumentItem = ({
           </Menu>
         </Table.Td>
       </Table.Tr>
+      )}
     </>
   );
 };
@@ -1303,7 +1351,9 @@ const ChunksModal = ({
   useEffect(() => {
     if (!opened) return;
     getBigDocument(documentId.toString()).then((doc) => {
-      const c = doc.chunk_set || [];
+      const c =
+        (doc as { chunk_set?: { id: number; content: string }[] } | undefined)
+          ?.chunk_set ?? [];
       setChunks(c);
       setFiltered(c);
     });
@@ -1514,7 +1564,7 @@ const CompletionsTab = ({
 
   useEffect(() => {
     getTags()
-      .then((tags) => setOrgTags(tags))
+      .then((tags) => setOrgTags(tags ?? []))
       .catch(() => setOrgTags([]));
   }, []);
 
@@ -1572,6 +1622,10 @@ const CompletionsTab = ({
         context_rules: newContextRules,
         approved: false,
       });
+      if (!created) {
+        toast.error(t("error-creating-completion"));
+        return;
+      }
       onCompletionAdded(created);
       toast.success(t("completion-created"));
       setNewPrompt("");
@@ -1908,6 +1962,10 @@ const CompletionItem = ({
         agents: agentIds.map((id) => parseInt(id, 10)),
         context_rules: contextRules,
       });
+      if (!updated) {
+        toast.error(t("error-updating-completion"));
+        return;
+      }
       onPatched(updated);
       toast.success(t("completion-updated"));
       closeEdit();
@@ -1929,6 +1987,10 @@ const CompletionItem = ({
         agents: savedAgentIds.map((id) => parseInt(id, 10)),
         context_rules: savedRules,
       });
+      if (!updated) {
+        toast.error(t("error-updating-completion"));
+        return;
+      }
       onPatched(updated);
       toast.success(
         nextApproved ? t("completion-approved") : t("completion-unapproved")
@@ -1962,7 +2024,7 @@ const CompletionItem = ({
         borderColor: selected ? "var(--mantine-color-violet-6)" : undefined,
       }}
     >
-      <Group gap="sm" align="center" wrap="nowrap">
+      <Group gap="sm" align="center" wrap="wrap">
         <Checkbox
           checked={selected}
           onChange={onToggleSelect}

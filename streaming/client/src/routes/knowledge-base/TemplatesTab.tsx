@@ -455,12 +455,12 @@ export function TemplatesTab({
             : t("no-templates-match")}
         </Text>
       ) : (
-        <Table highlightOnHover verticalSpacing="sm">
+        <Table highlightOnHover verticalSpacing="sm" style={{ width: "100%", tableLayout: "fixed" }}>
           <Table.Thead>
             <Table.Tr>
               <Table.Th>{t("kb-col-template")}</Table.Th>
-              <Table.Th ta="right">{t("kb-col-placeholders")}</Table.Th>
-              <Table.Th>{t("kb-col-agents")}</Table.Th>
+              <Table.Th w={90} ta="right">{t("kb-col-placeholders")}</Table.Th>
+              <Table.Th w={140}>{t("kb-col-agents")}</Table.Th>
               <Table.Th w={48} />
             </Table.Tr>
           </Table.Thead>

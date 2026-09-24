@@ -441,12 +441,12 @@ export function ListsTab({
           </Text>
         </Card>
       ) : (
-        <Table highlightOnHover verticalSpacing="sm">
+        <Table highlightOnHover verticalSpacing="sm" style={{ width: "100%", tableLayout: "fixed" }}>
           <Table.Thead>
             <Table.Tr>
               <Table.Th>{t("kb-col-list")}</Table.Th>
-              <Table.Th ta="right">{t("kb-col-rows")}</Table.Th>
-              <Table.Th>{t("kb-col-status")}</Table.Th>
+              <Table.Th w={72} ta="right">{t("kb-col-rows")}</Table.Th>
+              <Table.Th w={110}>{t("kb-col-status")}</Table.Th>
               <Table.Th w={48} />
             </Table.Tr>
           </Table.Thead>
