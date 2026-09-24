@@ -945,6 +945,7 @@ export type TGalleryListResponse = {
   offset: number;
   has_next: boolean;
   type: TGalleryType;
+  counts?: Record<TGalleryType, number>;
 };
 
 export const getGalleryItems = async (options: {

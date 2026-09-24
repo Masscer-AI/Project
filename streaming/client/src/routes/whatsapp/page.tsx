@@ -3,10 +3,9 @@ import { AppPage } from "../../components/AppPage/AppPage";
 import "./page.css";
 import { getWhatsappNumbers, getWhatsappTemplates } from "../../modules/apiCalls";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import {
-  ActionIcon,
   Badge,
   Box,
   Button,
@@ -15,6 +14,7 @@ import {
   Loader,
   Modal,
   Stack,
+  Tabs,
   Text,
   ThemeIcon,
   Title,
@@ -38,6 +38,13 @@ import {
   type WhatsappTemplate,
 } from "./shared";
 import { WhatsappTemplatePreview } from "./TemplatePreview";
+
+type WhatsappPageTab = "lines" | "templates";
+
+function parseWhatsappPageTab(raw: string | null): WhatsappPageTab {
+  if (raw === "templates") return "templates";
+  return "lines";
+}
 
 function StatChip({
   icon,
@@ -335,6 +342,8 @@ function WhatsappTemplateModal({
 
 export default function Whatsapp() {
   const { t } = useTranslation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = parseWhatsappPageTab(searchParams.get("tab"));
 
   const [numbers, setNumbers] = useState<WhatsappLine[]>([]);
   const [loading, setLoading] = useState(true);
@@ -347,6 +356,17 @@ export default function Whatsapp() {
   );
   const [templateOpened, { open: openTemplate, close: closeTemplate }] =
     useDisclosure(false);
+
+  const setActiveTab = (value: string | null) => {
+    if (!value) return;
+    const next = new URLSearchParams(searchParams);
+    if (value === "lines") {
+      next.delete("tab");
+    } else {
+      next.set("tab", value);
+    }
+    setSearchParams(next, { replace: true });
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -401,83 +421,104 @@ export default function Whatsapp() {
             {t("whatsapp-provision-note")}
           </Text>
 
-          <Group justify="space-between" align="baseline" mb="sm">
-            <Title order={4}>{t("whatsapp-your-numbers")}</Title>
-            {!loading && !loadError ? (
-              <Text size="sm" c="dimmed">
-                {t("whatsapp-lines-count", { count: numbers.length })}
+          <Tabs value={activeTab} onChange={setActiveTab} variant="outline">
+            <Tabs.List mb="md">
+              <Tabs.Tab
+                value="lines"
+                leftSection={<IconBrandWhatsapp size={16} />}
+              >
+                {t("whatsapp-tab-lines")}
+              </Tabs.Tab>
+              <Tabs.Tab
+                value="templates"
+                leftSection={<IconTemplate size={16} />}
+              >
+                {t("whatsapp-tab-templates")}
+              </Tabs.Tab>
+            </Tabs.List>
+
+            <Tabs.Panel value="lines">
+              <Group justify="space-between" align="baseline" mb="sm">
+                <Title order={4}>{t("whatsapp-your-numbers")}</Title>
+                {!loading && !loadError ? (
+                  <Text size="sm" c="dimmed">
+                    {t("whatsapp-lines-count", { count: numbers.length })}
+                  </Text>
+                ) : null}
+              </Group>
+
+              {loading ? (
+                <Stack align="center" py="xl">
+                  <Loader color="teal" />
+                </Stack>
+              ) : loadError ? (
+                <Text c="red">{loadError}</Text>
+              ) : numbers.length === 0 ? (
+                <Card withBorder padding="xl" radius="md">
+                  <Stack align="center" gap="sm">
+                    <ThemeIcon size={48} radius="md" variant="light" color="gray">
+                      <IconBrandWhatsapp size={28} />
+                    </ThemeIcon>
+                    <Text c="dimmed" ta="center">
+                      {t("whatsapp-empty-lines")}
+                    </Text>
+                  </Stack>
+                </Card>
+              ) : (
+                <Stack gap="md">
+                  {numbers.map((line) => (
+                    <WhatsappLineCard key={line.id} line={line} />
+                  ))}
+                </Stack>
+              )}
+            </Tabs.Panel>
+
+            <Tabs.Panel value="templates">
+              <Group justify="space-between" align="baseline" mb="xs">
+                <Title order={4}>{t("whatsapp-templates")}</Title>
+                {!templatesLoading && !templatesError ? (
+                  <Text size="sm" c="dimmed">
+                    {t("whatsapp-templates-count", { count: templates.length })}
+                  </Text>
+                ) : null}
+              </Group>
+              <Text size="sm" c="dimmed" mb="sm">
+                {t("whatsapp-templates-intro")}
               </Text>
-            ) : null}
-          </Group>
 
-          {loading ? (
-            <Stack align="center" py="xl">
-              <Loader color="teal" />
-            </Stack>
-          ) : loadError ? (
-            <Text c="red">{loadError}</Text>
-          ) : numbers.length === 0 ? (
-            <Card withBorder padding="xl" radius="md">
-              <Stack align="center" gap="sm">
-                <ThemeIcon size={48} radius="md" variant="light" color="gray">
-                  <IconBrandWhatsapp size={28} />
-                </ThemeIcon>
-                <Text c="dimmed" ta="center">
-                  {t("whatsapp-empty-lines")}
-                </Text>
-              </Stack>
-            </Card>
-          ) : (
-            <Stack gap="md">
-              {numbers.map((line) => (
-                <WhatsappLineCard key={line.id} line={line} />
-              ))}
-            </Stack>
-          )}
-
-          <Group justify="space-between" align="baseline" mb="xs" mt="xl">
-            <Title order={4}>{t("whatsapp-templates")}</Title>
-            {!templatesLoading && !templatesError ? (
-              <Text size="sm" c="dimmed">
-                {t("whatsapp-templates-count", { count: templates.length })}
-              </Text>
-            ) : null}
-          </Group>
-          <Text size="sm" c="dimmed" mb="sm">
-            {t("whatsapp-templates-intro")}
-          </Text>
-
-          {templatesLoading ? (
-            <Stack align="center" py="xl">
-              <Loader color="violet" />
-            </Stack>
-          ) : templatesError ? (
-            <Text c="red">{templatesError}</Text>
-          ) : templates.length === 0 ? (
-            <Card withBorder padding="xl" radius="md">
-              <Stack align="center" gap="sm">
-                <ThemeIcon size={48} radius="md" variant="light" color="gray">
-                  <IconTemplate size={28} />
-                </ThemeIcon>
-                <Text c="dimmed" ta="center">
-                  {t("whatsapp-templates-empty")}
-                </Text>
-              </Stack>
-            </Card>
-          ) : (
-            <Stack gap="md">
-              {templates.map((template) => (
-                <WhatsappTemplateCard
-                  key={template.template_id}
-                  template={template}
-                  onOpen={(next) => {
-                    setSelectedTemplate(next);
-                    openTemplate();
-                  }}
-                />
-              ))}
-            </Stack>
-          )}
+              {templatesLoading ? (
+                <Stack align="center" py="xl">
+                  <Loader color="violet" />
+                </Stack>
+              ) : templatesError ? (
+                <Text c="red">{templatesError}</Text>
+              ) : templates.length === 0 ? (
+                <Card withBorder padding="xl" radius="md">
+                  <Stack align="center" gap="sm">
+                    <ThemeIcon size={48} radius="md" variant="light" color="gray">
+                      <IconTemplate size={28} />
+                    </ThemeIcon>
+                    <Text c="dimmed" ta="center">
+                      {t("whatsapp-templates-empty")}
+                    </Text>
+                  </Stack>
+                </Card>
+              ) : (
+                <Stack gap="md">
+                  {templates.map((template) => (
+                    <WhatsappTemplateCard
+                      key={template.template_id}
+                      template={template}
+                      onOpen={(next) => {
+                        setSelectedTemplate(next);
+                        openTemplate();
+                      }}
+                    />
+                  ))}
+                </Stack>
+              )}
+            </Tabs.Panel>
+          </Tabs>
 
           <WhatsappTemplateModal
             template={selectedTemplate}

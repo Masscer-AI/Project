@@ -1,4 +1,4 @@
-import { TAttachment, TConversation, TAgentTaskEvent } from "../types";
+import { TAttachment, TConversation, TAgentTaskEvent, TOrganization } from "../types";
 import { Message, TModel, TAgent } from "../types/agents";
 import { TUserData, TReactionTemplate } from "../types/chatTypes";
 
@@ -74,6 +74,9 @@ export type Store = {
   agentTaskConversationId: string | null;
   agentTaskEvents: TAgentTaskEvent[];
   userPreferences: TUserPreferences;
+  organizations: TOrganization[];
+  organizationsLoaded: boolean;
+  ensureOrganizations: (opts?: { force?: boolean }) => Promise<void>;
   setTheming: (theming: Partial<Store["theming"]>) => void;
   setPreferences: (prefs: Partial<TUserPreferences>) => void;
   setTheme: (theme: TTheme) => void;

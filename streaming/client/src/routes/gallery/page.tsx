@@ -50,10 +50,26 @@ import {
   TGalleryType,
 } from "../../modules/apiCalls";
 import { TTag } from "../../types";
+import "./gallery.css";
 
 const MAX_ITEM_TAGS = 3;
 
 const PAGE_SIZE = 48;
+
+const EMPTY_COUNTS: Record<TGalleryType, number> = {
+  image: 0,
+  video: 0,
+  audio: 0,
+  document: 0,
+};
+
+function TabCount({ count, active }: { count: number; active: boolean }) {
+  return (
+    <Badge size="xs" variant={active ? "filled" : "light"} radius="xl">
+      {count}
+    </Badge>
+  );
+}
 
 function ItemTagBadges({
   tagIds,
@@ -87,14 +103,12 @@ function formatDate(iso: string | null, locale: string): string {
 
 function GalleryCardActions({
   item,
-  tagById,
   onOpenChat,
   onRequestDelete,
   onRequestVisibility,
   onIndexed,
 }: {
   item: TGalleryItem;
-  tagById: Map<number, TTag>;
   onOpenChat: () => void;
   onRequestDelete: () => void;
   onRequestVisibility: () => void;
@@ -102,9 +116,7 @@ function GalleryCardActions({
 }) {
   const { t } = useTranslation();
   return (
-    <Stack gap={6}>
-      <ItemTagBadges tagIds={item.tag_ids} tagById={tagById} />
-    <Group gap="xs" justify="space-between" wrap="nowrap">
+    <Group className="gallery-card-actions" gap="xs" justify="space-between" wrap="nowrap">
       <Tooltip label={item.conversation_title || t("gallery-open-conversation")}>
         <Button
           size="xs"
@@ -174,7 +186,6 @@ function GalleryCardActions({
         </Tooltip>
       </Group>
     </Group>
-    </Stack>
   );
 }
 
@@ -200,31 +211,40 @@ function ImageGalleryCard({
 
   return (
     <>
-      <Card padding={0} withBorder radius="md" style={{ overflow: "hidden" }}>
-        <UnstyledButton
-          onClick={open}
-          style={{ display: "block", width: "100%" }}
-          aria-label={item.prompt || item.name}
-        >
-          <Box
-            style={{
-              aspectRatio: "1 / 1",
-              background: "var(--mantine-color-dark-7)",
-              overflow: "hidden",
-            }}
+      <Card className="gallery-card" padding={0} withBorder radius="md" style={{ overflow: "hidden" }}>
+        <Box className="gallery-card-media">
+          <UnstyledButton
+            onClick={open}
+            style={{ display: "block", width: "100%" }}
+            aria-label={item.prompt || item.name}
           >
-            <img
-              src={item.url}
-              alt={item.prompt || item.name}
+            <Box
               style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                display: "block",
+                aspectRatio: "1 / 1",
+                background: "var(--mantine-color-dark-7)",
+                overflow: "hidden",
               }}
-            />
-          </Box>
-        </UnstyledButton>
+            >
+              <img
+                src={item.url}
+                alt={item.prompt || item.name}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  display: "block",
+                }}
+              />
+            </Box>
+          </UnstyledButton>
+          <GalleryCardActions
+            item={item}
+            onOpenChat={onOpenChat}
+            onRequestDelete={onRequestDelete}
+            onRequestVisibility={onRequestVisibility}
+            onIndexed={onIndexed}
+          />
+        </Box>
         <Stack gap={6} p="sm">
           {item.prompt && (
             <Text size="xs" lineClamp={2} title={item.prompt}>
@@ -234,14 +254,7 @@ function ImageGalleryCard({
           <Text size="xs" c="dimmed">
             {dateLabel}
           </Text>
-          <GalleryCardActions
-            item={item}
-            tagById={tagById}
-            onOpenChat={onOpenChat}
-            onRequestDelete={onRequestDelete}
-            onRequestVisibility={onRequestVisibility}
-            onIndexed={onIndexed}
-          />
+          <ItemTagBadges tagIds={item.tag_ids} tagById={tagById} />
         </Stack>
       </Card>
 
@@ -315,57 +328,66 @@ function VideoGalleryCard({
 
   return (
     <>
-      <Card padding={0} withBorder radius="md" style={{ overflow: "hidden" }}>
-        <UnstyledButton
-          onClick={open}
-          style={{ display: "block", width: "100%", position: "relative" }}
-          aria-label={item.prompt || item.name}
-        >
-          <Box
-            style={{
-              aspectRatio: "16 / 9",
-              background: "var(--mantine-color-dark-7)",
-              overflow: "hidden",
-            }}
+      <Card className="gallery-card" padding={0} withBorder radius="md" style={{ overflow: "hidden" }}>
+        <Box className="gallery-card-media">
+          <UnstyledButton
+            onClick={open}
+            style={{ display: "block", width: "100%", position: "relative" }}
+            aria-label={item.prompt || item.name}
           >
-            <video
-              src={item.url}
-              muted
-              playsInline
-              preload="metadata"
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                display: "block",
-              }}
-            />
             <Box
               style={{
-                position: "absolute",
-                inset: 0,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                background: "rgba(0,0,0,0.35)",
+                aspectRatio: "16 / 9",
+                background: "var(--mantine-color-dark-7)",
+                overflow: "hidden",
               }}
             >
+              <video
+                src={item.url}
+                muted
+                playsInline
+                preload="metadata"
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  display: "block",
+                }}
+              />
               <Box
                 style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: "50%",
-                  background: "rgba(0,0,0,0.65)",
+                  position: "absolute",
+                  inset: 0,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
+                  background: "rgba(0,0,0,0.35)",
                 }}
               >
-                <IconPlayerPlay size={22} color="white" />
+                <Box
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: "50%",
+                    background: "rgba(0,0,0,0.65)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <IconPlayerPlay size={22} color="white" />
+                </Box>
               </Box>
             </Box>
-          </Box>
-        </UnstyledButton>
+          </UnstyledButton>
+          <GalleryCardActions
+            item={item}
+            onOpenChat={onOpenChat}
+            onRequestDelete={onRequestDelete}
+            onRequestVisibility={onRequestVisibility}
+            onIndexed={onIndexed}
+          />
+        </Box>
         <Stack gap={6} p="sm">
           {item.prompt && (
             <Text size="xs" lineClamp={2} title={item.prompt}>
@@ -375,14 +397,7 @@ function VideoGalleryCard({
           <Text size="xs" c="dimmed">
             {dateLabel}
           </Text>
-          <GalleryCardActions
-            item={item}
-            tagById={tagById}
-            onOpenChat={onOpenChat}
-            onRequestDelete={onRequestDelete}
-            onRequestVisibility={onRequestVisibility}
-            onIndexed={onIndexed}
-          />
+          <ItemTagBadges tagIds={item.tag_ids} tagById={tagById} />
         </Stack>
       </Card>
 
@@ -453,7 +468,7 @@ function AudioGalleryCard({
   onIndexed?: (item: TGalleryItem) => void;
 }) {
   return (
-    <Card padding="md" withBorder radius="md">
+    <Card className="gallery-card" padding="md" withBorder radius="md">
       <Stack gap="sm">
         <Group gap="sm" wrap="nowrap">
           <Box
@@ -493,10 +508,10 @@ function AudioGalleryCard({
             {item.prompt}
           </Text>
         )}
+        <ItemTagBadges tagIds={item.tag_ids} tagById={tagById} />
 
         <GalleryCardActions
           item={item}
-          tagById={tagById}
           onOpenChat={onOpenChat}
           onRequestDelete={onRequestDelete}
           onRequestVisibility={onRequestVisibility}
@@ -528,7 +543,7 @@ function DocumentGalleryCard({
   const meta = getDocumentFileMeta(item.name, item.content_type);
 
   return (
-    <Card padding="md" withBorder radius="md">
+    <Card className="gallery-card" padding="md" withBorder radius="md">
       <Stack gap="sm">
         <Group gap="sm" wrap="nowrap" align="flex-start">
           <Box
@@ -577,10 +592,10 @@ function DocumentGalleryCard({
         >
           {t("download")}
         </Button>
+        <ItemTagBadges tagIds={item.tag_ids} tagById={tagById} />
 
         <GalleryCardActions
           item={item}
-          tagById={tagById}
           onOpenChat={onOpenChat}
           onRequestDelete={onRequestDelete}
           onRequestVisibility={onRequestVisibility}
@@ -686,6 +701,7 @@ export default function GalleryPage() {
   const [tab, setTab] = useState<TGalleryType>("image");
   const [items, setItems] = useState<TGalleryItem[]>([]);
   const [total, setTotal] = useState(0);
+  const [counts, setCounts] = useState<Record<TGalleryType, number>>(EMPTY_COUNTS);
   const [offset, setOffset] = useState(0);
   const [hasNext, setHasNext] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -722,6 +738,7 @@ export default function GalleryPage() {
           append ? [...prev, ...data.results] : data.results
         );
         setTotal(data.total);
+        setCounts({ ...EMPTY_COUNTS, ...(data.counts || {}) });
         setOffset(data.offset);
         setHasNext(data.has_next);
       } catch {
@@ -765,29 +782,43 @@ export default function GalleryPage() {
               {t("gallery-subtitle")}
             </Text>
 
+            <Group justify="space-between" align="flex-end" gap="md" wrap="wrap">
             <Tabs value={tab} onChange={onTabChange}>
               <Tabs.List>
-                <Tabs.Tab value="image" leftSection={<IconPhoto size={16} />}>
+                <Tabs.Tab
+                  value="image"
+                  leftSection={<IconPhoto size={16} />}
+                  rightSection={<TabCount count={counts.image} active={tab === "image"} />}
+                >
                   {t("images")}
                 </Tabs.Tab>
-                <Tabs.Tab value="video" leftSection={<IconVideo size={16} />}>
+                <Tabs.Tab
+                  value="video"
+                  leftSection={<IconVideo size={16} />}
+                  rightSection={<TabCount count={counts.video} active={tab === "video"} />}
+                >
                   {t("video")}
                 </Tabs.Tab>
-                <Tabs.Tab value="audio" leftSection={<IconMusic size={16} />}>
+                <Tabs.Tab
+                  value="audio"
+                  leftSection={<IconMusic size={16} />}
+                  rightSection={<TabCount count={counts.audio} active={tab === "audio"} />}
+                >
                   {t("audio")}
                 </Tabs.Tab>
                 <Tabs.Tab
                   value="document"
                   leftSection={<IconFileText size={16} />}
+                  rightSection={<TabCount count={counts.document} active={tab === "document"} />}
                 >
                   {t("documents")}
                 </Tabs.Tab>
               </Tabs.List>
             </Tabs>
-
+            <Group gap="sm" wrap="wrap" align="flex-end">
             <TextInput
               size="sm"
-              maw={360}
+              maw={280}
               placeholder={t("gallery-search")}
               aria-label={t("gallery-search")}
               leftSection={<IconSearch size={16} />}
@@ -798,8 +829,8 @@ export default function GalleryPage() {
             {orgTags.length > 0 && (
               <NativeSelect
                 size="sm"
-                maw={280}
-                label={t("gallery-filter-tag")}
+                maw={220}
+                aria-label={t("gallery-filter-tag")}
                 value={filterTagId}
                 onChange={(e) => {
                   setFilterTagId(e.currentTarget.value);
@@ -815,6 +846,8 @@ export default function GalleryPage() {
                 ]}
               />
             )}
+            </Group>
+            </Group>
 
             {loading ? (
               <Group justify="center" py="xl">
@@ -842,6 +875,10 @@ export default function GalleryPage() {
                       onDeleted={(id) => {
                         setItems((prev) => prev.filter((x) => x.id !== id));
                         setTotal((prev) => Math.max(0, prev - 1));
+                        setCounts((prev) => ({
+                          ...prev,
+                          [item.type]: Math.max(0, (prev[item.type] || 0) - 1),
+                        }));
                       }}
                       onUpdated={(updated) => {
                         setItems((prev) =>

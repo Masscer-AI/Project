@@ -1,0 +1,40 @@
+.gallery-card-actions {
+  width: 100%;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .gallery-card-media {
+    position: relative;
+  }
+
+  .gallery-card-media .gallery-card-actions {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 8px 10px;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.82), transparent);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 140ms ease;
+    z-index: 2;
+  }
+
+  .gallery-card:hover .gallery-card-media .gallery-card-actions,
+  .gallery-card:focus-within .gallery-card-media .gallery-card-actions {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .gallery-card:not(:has(.gallery-card-media)) .gallery-card-actions {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 140ms ease;
+  }
+
+  .gallery-card:not(:has(.gallery-card-media)):hover .gallery-card-actions,
+  .gallery-card:not(:has(.gallery-card-media)):focus-within .gallery-card-actions {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}

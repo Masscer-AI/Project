@@ -836,6 +836,10 @@ class GalleryViewTests(TestCase):
         self.assertEqual(item["prompt"], "a cat")
         self.assertEqual(item["conversation_id"], str(self.conversation.id))
         self.assertTrue(item["url"].startswith("https://api.example.com/"))
+        self.assertEqual(
+            body["counts"],
+            {"image": 1, "video": 0, "audio": 0, "document": 0},
+        )
 
     def test_rejects_invalid_type(self):
         response = self.client.get(

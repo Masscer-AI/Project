@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ActionIcon, Avatar, Badge, Menu, Tooltip } from "@mantine/core";
+import { ActionIcon, Avatar, Badge, Menu, Tooltip, useMantineTheme } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
 import {
   IconPlus,
@@ -23,12 +23,10 @@ import {
   IconChevronDown,
   IconChevronRight,
 } from "@tabler/icons-react";
-import { getUserOrganizations } from "../../modules/apiCalls";
 import { API_URL } from "../../modules/constants";
 import { useUnreadNotificationCount } from "../../hooks/useUnreadNotificationCount";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
 import { useStore } from "../../modules/store";
-import type { TOrganization } from "../../types";
 import "./Sidebar.css";
 
 type NavItemDef = {
@@ -104,6 +102,7 @@ function NavItem({
 
 export const Sidebar: React.FC = () => {
   const { t } = useTranslation();
+  const theme = useMantineTheme();
   const isDesktop = useMediaQuery("(min-width: 48em)");
   const isConversationsDashboardEnabled = useIsFeatureEnabled(
     "conversations-dashboard"
@@ -126,38 +125,26 @@ export const Sidebar: React.FC = () => {
   const user = useStore((s) => s.user);
   const logout = useStore((s) => s.logout);
   const tenantBranding = useStore((s) => s.tenantBranding);
-  const [hasPldAccess, setHasPldAccess] = useState(false);
-  const [hasOrganization, setHasOrganization] = useState<boolean | null>(null);
-  const [canManageOrg, setCanManageOrg] = useState(false);
-  const [org, setOrg] = useState<TOrganization | null>(null);
+  const organizations = useStore((s) => s.organizations);
+  const organizationsLoaded = useStore((s) => s.organizationsLoaded);
+  const ensureOrganizations = useStore((s) => s.ensureOrganizations);
   const [adminOpen, setAdminOpen] = useState(true);
   const location = useLocation();
   const unreadNotificationCount = useUnreadNotificationCount();
   const collapsed = Boolean(isDesktop && sidebarCollapsed);
 
   useEffect(() => {
-    let cancelled = false;
-    getUserOrganizations()
-      .then((orgs) => {
-        if (cancelled) return;
-        setCanManageOrg(orgs.some((o) => o.is_owner || o.can_manage));
-        setHasPldAccess(orgs.some((o) => o.pld_access_enabled));
-        setHasOrganization(orgs.length > 0);
-        setOrg(
-          orgs.find((o) => o.is_owner || o.can_manage) || orgs[0] || null
-        );
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setCanManageOrg(false);
-        setHasPldAccess(false);
-        setHasOrganization(null);
-        setOrg(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    if (!user) return;
+    void ensureOrganizations();
+  }, [user, ensureOrganizations]);
+
+  const canManageOrg = organizations.some((o) => o.is_owner || o.can_manage);
+  const hasPldAccess = organizations.some((o) => o.pld_access_enabled);
+  const hasOrganization = organizations.length > 0;
+  const org =
+    organizations.find((o) => o.is_owner || o.can_manage) ||
+    organizations[0] ||
+    null;
 
   const navActive = (path: string) =>
     location.pathname === path || location.pathname.startsWith(`${path}/`);
@@ -206,7 +193,8 @@ export const Sidebar: React.FC = () => {
       icon: <IconCalendarTime size={iconSize} />,
     },
     !canUseChat &&
-      hasOrganization === false && {
+      organizationsLoaded &&
+      !hasOrganization && {
         to: "/pld/expediente",
         label: t("compliance-my-expediente-title"),
         icon: <IconScale size={iconSize} />,
@@ -277,7 +265,7 @@ export const Sidebar: React.FC = () => {
             src={user?.profile?.avatar_url || undefined}
             size={28}
             radius="xl"
-            color="green"
+            color={theme.primaryColor}
           >
             {userInitial}
           </Avatar>
@@ -285,7 +273,7 @@ export const Sidebar: React.FC = () => {
             <>
               <span className="app-sidebar-user-copy">
                 <span className="app-sidebar-user-name">{displayName}</span>
-                {user?.email ? (
+                {user?.email && user.email !== displayName ? (
                   <span className="app-sidebar-user-email">{user.email}</span>
                 ) : null}
               </span>

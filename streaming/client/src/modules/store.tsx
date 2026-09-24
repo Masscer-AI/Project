@@ -7,6 +7,7 @@ import {
   getConversation,
   getReactionTemplates,
   getTeamFeatureFlags,
+  getUserOrganizations,
   getUserPreferences,
   initConversation,
   updateUserPreferences,
@@ -17,7 +18,7 @@ import {
 import { SocketManager } from "./socketManager";
 import { STREAMING_BACKEND_URL } from "./constants";
 import { TAgent } from "../types/agents";
-import type { TConversation, TAgentTaskEvent } from "../types";
+import type { TConversation, TAgentTaskEvent, TOrganization } from "../types";
 import { Store } from "./storeTypes";
 import { sortAgentsBySelectionOrder } from "./agentSelection";
 import {
@@ -55,6 +56,7 @@ const _initialSidebarCollapsed = (() => {
 })();
 
 let featureFlagsFetchInFlight: Promise<void> | null = null;
+let organizationsFetchInFlight: Promise<void> | null = null;
 
 let conversationLoadSeq = 0;
 
@@ -88,7 +90,8 @@ export const useStore = create<Store>()((set, get) => {
     background_image_opacity: 0.5,
     notification_settings: { ...DEFAULT_NOTIFICATION_SETTINGS },
   },
-  organizations: [],
+  organizations: [] as TOrganization[],
+  organizationsLoaded: false,
   agentTaskStatus: null,
   agentTaskConversationId: null,
   agentTaskEvents: [],
@@ -167,11 +170,33 @@ export const useStore = create<Store>()((set, get) => {
     return featureFlagsFetchInFlight;
   },
 
+  ensureOrganizations: async (opts) => {
+    const force = opts?.force ?? false;
+    const state = get();
+    if (!state.user) return;
+    if (!force && state.organizationsLoaded) return;
+    if (organizationsFetchInFlight) return organizationsFetchInFlight;
+    organizationsFetchInFlight = (async () => {
+      try {
+        const organizations = await getUserOrganizations();
+        set({ organizations, organizationsLoaded: true });
+      } catch {
+        set((s) => ({
+          organizationsLoaded: s.organizations.length > 0,
+        }));
+      } finally {
+        organizationsFetchInFlight = null;
+      }
+    })();
+    return organizationsFetchInFlight;
+  },
+
   startup: async () => {
     const { fetchAgents } = get();
     const reactionTemplates: TReactionTemplate[] = await getReactionTemplates();
     set({ reactionTemplates });
     fetchAgents();
+    void get().ensureOrganizations();
     const pref = await getUserPreferences();
 
     const notification_settings = {
@@ -476,12 +501,15 @@ export const useStore = create<Store>()((set, get) => {
   },
   logout: () => {
     featureFlagsFetchInFlight = null;
+    organizationsFetchInFlight = null;
     set({
       user: undefined,
       featureFlags: null,
       featureFlagsCheckedAt: null,
       featureFlagsLoading: false,
       featureFlagsError: null,
+      organizations: [],
+      organizationsLoaded: false,
     });
     localStorage.removeItem("token");
     window.location.href = "/";

@@ -13,7 +13,7 @@
   --sidebar-muted: var(--font-color-secondary);
   --sidebar-hover: var(--hovered-color);
   --sidebar-active: color-mix(in srgb, var(--hovered-color) 70%, var(--font-color) 8%);
-  --sidebar-mark: #1f8a4c;
+  --sidebar-mark: var(--mantine-primary-color-filled, var(--active-color));
   display: flex;
   flex-direction: column;
   height: 100vh;
@@ -50,7 +50,7 @@
 .app-sidebar-mark {
   width: 28px;
   height: 28px;
-  border-radius: 8px;
+  border-radius: 50%;
   background: var(--sidebar-mark);
   color: #fff;
   display: flex;
@@ -183,7 +183,7 @@
 }
 
 .app-sidebar-link--active .app-sidebar-link-icon {
-  color: #3dd68c;
+  color: var(--mantine-primary-color-filled, var(--active-color));
 }
 
 .app-sidebar--collapsed .app-sidebar-link {
@@ -246,6 +246,8 @@
 .app-sidebar-user-copy {
   min-width: 0;
   flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .app-sidebar-user-name {

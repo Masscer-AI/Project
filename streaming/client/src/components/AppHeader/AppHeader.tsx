@@ -17,12 +17,12 @@ export function AppHeader({
 }) {
   return (
     <div
-      className={`flex items-center justify-between p-2 md:p-4 w-full shadow-lg z-10 gap-2 md:gap-3 min-w-0 shrink-0 ${
+      className={`flex items-center justify-between p-2 md:p-4 w-full z-10 gap-2 md:gap-3 min-w-0 shrink-0 ${
         edgeToEdge ? "rounded-none" : "rounded-none md:rounded-xl"
       }`}
       style={{
-        background: "var(--bg-contrast-color)",
-        border: "1px solid var(--hovered-color)",
+        background: "var(--bg-color)",
+        border: "none",
         marginBottom: flush ? 0 : 16,
       }}
     >

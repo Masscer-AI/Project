@@ -101,6 +101,38 @@ def get_gallery_attachment(*, user, attachment_id) -> dict:
         return {"ok": False, "error": "not_found"}
     return {"ok": True, "item": item}
 
+def _gallery_base_qs(*, user, tag_id: int | None = None, query: str | None = None):
+    qs = (
+        MessageAttachment.objects.filter(
+            attachments_visible_q(user=user),
+            kind="file",
+        )
+        .exclude(file__isnull=True)
+        .exclude(file="")
+        .filter(_generations_q())
+    )
+    if tag_id is not None:
+        from api.messaging.organization_tags import tag_ids_match_q
+
+        qs = qs.filter(tag_ids_match_q("tag_ids", [int(tag_id)]))
+    needle = (query or "").strip()
+    if needle:
+        qs = qs.filter(
+            Q(metadata__name__icontains=needle)
+            | Q(metadata__prompt__icontains=needle)
+            | Q(file__icontains=needle)
+        )
+    return qs.distinct()
+
+
+def gallery_type_counts(*, user, tag_id: int | None = None, query: str | None = None):
+    qs = _gallery_base_qs(user=user, tag_id=tag_id, query=query)
+    return {
+        gallery_type: qs.filter(_type_filter(gallery_type)).count()
+        for gallery_type in GALLERY_TYPES
+    }
+
+
 def list_gallery_items(
     *,
     user,
@@ -117,30 +149,12 @@ def list_gallery_items(
     offset = max(0, offset)
 
     qs = (
-        MessageAttachment.objects.filter(
-            attachments_visible_q(user=user),
-            kind="file",
-        )
-        .exclude(file__isnull=True)
-        .exclude(file="")
-        .filter(_generations_q())
+        _gallery_base_qs(user=user, tag_id=tag_id, query=query)
         .filter(_type_filter(gallery_type))
         .select_related("conversation", "organization", "user")
         .prefetch_related("allowed_roles")
-        .distinct()
         .order_by("-created_at")
     )
-    if tag_id is not None:
-        from api.messaging.organization_tags import tag_ids_match_q
-
-        qs = qs.filter(tag_ids_match_q("tag_ids", [int(tag_id)]))
-    needle = (query or "").strip()
-    if needle:
-        qs = qs.filter(
-            Q(metadata__name__icontains=needle)
-            | Q(metadata__prompt__icontains=needle)
-            | Q(file__icontains=needle)
-        )
 
     total = qs.count()
     page = list(qs[offset : offset + limit])
@@ -157,6 +171,7 @@ def list_gallery_items(
         "offset": offset,
         "has_next": offset + limit < total,
         "type": gallery_type,
+        "counts": gallery_type_counts(user=user, tag_id=tag_id, query=query),
     }
 
 def _attachment_ref_matches(entry: dict, attachment_id: str, file_url: str | None) -> bool:
