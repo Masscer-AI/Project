@@ -239,3 +239,50 @@ def ingest_watchlists(force: bool = False):
     from api.compliance.watchlists.ingest import ingest_all_watchlists
 
     return ingest_all_watchlists(force=force)
+
+
+def _set_website_fetch(entity, status: str, message: str | None = None) -> None:
+    from api.compliance.pld_metadata import normalize_pld_entity_metadata
+
+    entity.refresh_from_db()
+    meta = dict(entity.metadata or {})
+    fetch = dict(meta.get("website_fetch") or {})
+    fetch["status"] = status
+    if message:
+        fetch["message"] = message
+    else:
+        fetch["message"] = None
+    meta["website_fetch"] = fetch
+    entity.metadata = normalize_pld_entity_metadata(entity.person_type, meta)
+    entity.save(update_fields=["metadata", "updated_at"])
+
+
+@shared_task
+def fill_pld_entity_from_website(entity_id: str):
+    from api.compliance.models import PLDEntity, PLDPersonType
+    from api.compliance.pld_metadata import normalize_pld_entity_metadata
+    from api.compliance.website.agents import fill_company_from_website
+    from api.compliance.website.merge import merge_website_fields
+
+    try:
+        entity = PLDEntity.objects.get(pk=entity_id)
+    except (PLDEntity.DoesNotExist, ValueError):
+        logger.warning("PLD entity %s not found for website fill", entity_id)
+        return
+    if entity.person_type != PLDPersonType.PERSONA_MORAL:
+        return
+    url = str((entity.metadata or {}).get("website_url") or "").strip()
+    if not url:
+        _set_website_fetch(entity, "error", "missing url")
+        return
+    try:
+        extracted = fill_company_from_website(url)
+        entity.refresh_from_db()
+        merged = merge_website_fields(entity.metadata or {}, extracted)
+        merged["website_url"] = url
+        merged["website_fetch"] = {"status": "done"}
+        entity.metadata = normalize_pld_entity_metadata(entity.person_type, merged)
+        entity.save(update_fields=["metadata", "updated_at"])
+    except Exception:
+        logger.exception("Website fill failed for entity %s", entity_id)
+        _set_website_fetch(entity, "error", "could not read website")

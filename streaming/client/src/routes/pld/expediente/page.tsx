@@ -20,7 +20,6 @@ import {
   resetMyPldExpedient,
   TMyPldExpedient,
 } from "../../../modules/apiCalls";
-import { PldDocumentCollection } from "./PldDocumentCollection";
 import { PldIdentificationDossier } from "./PldIdentificationDossier";
 import { PldIntakeForm } from "./PldIntakeForm";
 
@@ -172,24 +171,11 @@ export default function MyPldExpedientePage() {
                           prev.map((item) => (item.id === next.id ? next : item))
                         )
                       }
-                      documents={
-                        <PldDocumentCollection
-                          embedded
-                          row={row}
-                          onSaved={(next) =>
-                            setRows((prev) =>
-                              prev.map((item) =>
-                                item.id === next.id ? next : item
-                              )
-                            )
-                          }
-                          onContinue={() =>
-                            setReviewingIds((prev) => ({
-                              ...prev,
-                              [row.id]: true,
-                            }))
-                          }
-                        />
+                      onContinue={() =>
+                        setReviewingIds((prev) => ({
+                          ...prev,
+                          [row.id]: true,
+                        }))
                       }
                     />
                   );

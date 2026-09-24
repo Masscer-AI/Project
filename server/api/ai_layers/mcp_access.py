@@ -73,6 +73,7 @@ MCP_BASIC_TOOL_NAMES: tuple[str, ...] = (
     "list_search",
     "read_list",
     "explore_web",
+    "fetch_url",
 )
 
 MCP_MEDIA_TOOL_NAMES: tuple[str, ...] = (

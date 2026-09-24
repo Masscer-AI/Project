@@ -86,6 +86,13 @@ class PersonaFisicaMetadata(BaseModel):
         return self
 
 
+class WebsiteFetchState(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    status: str = "idle"
+    message: str | None = None
+
+
 class PersonaMoralMetadata(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -97,6 +104,8 @@ class PersonaMoralMetadata(BaseModel):
     economic_activity: str | None = None
     phone: str | None = None
     email: str | None = None
+    website_url: str | None = None
+    website_fetch: WebsiteFetchState | None = None
     address: AddressData | None = None
     representative: LegalRepresentativeData | None = None
     controllers: list[ControllerBeneficiary] = Field(default_factory=list)

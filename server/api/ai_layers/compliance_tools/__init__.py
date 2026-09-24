@@ -27,6 +27,7 @@ COMPLIANCE_TOOL_REGISTRY: dict[str, str] = {
     "generate_text_file": "api.ai_layers.tools.generate_text_file",
     "request_signature": "api.ai_layers.tools.request_signature",
     "explore_web": "api.ai_layers.tools.explore_web",
+    "fetch_url": "api.ai_layers.tools.fetch_url",
     "send_email": "api.ai_layers.tools.send_email",
     "list_organization_members": "api.ai_layers.tools.list_organization_members",
     "list_organization_roles": "api.ai_layers.tools.list_organization_roles",

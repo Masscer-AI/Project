@@ -2556,6 +2556,13 @@ export const lookupPostalCode = async (country: string, postalCode: string) => {
   );
 };
 
+export const getMyPldExpedient = async (entityId: string) => {
+  return makeAuthenticatedRequest<TMyPldExpedient>(
+    "GET",
+    `/v1/compliance/my-expedients/${entityId}/`
+  );
+};
+
 export const updateMyPldExpedient = async (
   entityId: string,
   metadata: Record<string, unknown>
@@ -2564,6 +2571,14 @@ export const updateMyPldExpedient = async (
     "PATCH",
     `/v1/compliance/my-expedients/${entityId}/`,
     { metadata }
+  );
+};
+
+export const fillMyPldExpedientWebsite = async (entityId: string, url: string) => {
+  return makeAuthenticatedRequest<TMyPldExpedient>(
+    "POST",
+    `/v1/compliance/my-expedients/${entityId}/website/`,
+    { url }
   );
 };
 

@@ -74,23 +74,81 @@ function slotLabel(
   });
 }
 
+const SECTION_KINDS: Record<string, string[]> = {
+  entity: ["acta_constitutiva", "constancia_fiscal", "cfdi"],
+  address: ["comprobante_domicilio"],
+  representative: ["id_representante", "curp_representante", "poder"],
+  identification: ["official_id", "curp", "acta_nacimiento"],
+};
+
+export function slotsForIntakeSection(
+  section: string,
+  slots: TPldDocumentSlot[],
+  isMoral: boolean
+): TPldDocumentSlot[] {
+  if (section === "controller") {
+    return slots.filter(
+      (slot) =>
+        slot.document_kind === "id_controlador" ||
+        slot.slot_key.startsWith("id_controlador")
+    );
+  }
+  if (section === "entity" && !isMoral) {
+    return slots.filter((slot) =>
+      ["constancia_fiscal", "cfdi"].includes(slot.document_kind)
+    );
+  }
+  if (section === "documents") {
+    const placed = new Set(
+      ["entity", "address", "representative", "identification", "controller"].flatMap(
+        (id) => slotsForIntakeSection(id, slots, isMoral).map((slot) => slot.slot_key)
+      )
+    );
+    return slots.filter((slot) => !placed.has(slot.slot_key));
+  }
+  const kinds = SECTION_KINDS[section] || [];
+  return slots.filter((slot) => kinds.includes(slot.document_kind));
+}
+
+export function requiredSectionDocsReady(slots: TPldDocumentSlot[]): boolean {
+  const required = slots.filter((slot) => slot.required);
+  return required.every(
+    (slot) => slot.document && slot.document.extraction_status !== "failed"
+  );
+}
+
+export function requiredSectionDocsExtracted(slots: TPldDocumentSlot[]): boolean {
+  const required = slots.filter((slot) => slot.required);
+  return required.every(
+    (slot) => slot.document?.extraction_status === "succeeded"
+  );
+}
+
 export function PldDocumentCollection({
   row,
   onSaved,
   onContinue,
   embedded = false,
+  section,
+  isMoral = false,
+  showContinue = false,
 }: {
   row: TMyPldExpedient;
   onSaved: (next: TMyPldExpedient) => void;
   onContinue: () => void;
   embedded?: boolean;
+  section?: string;
+  isMoral?: boolean;
+  showContinue?: boolean;
 }) {
   const { t } = useTranslation();
   const [busySlot, setBusySlot] = useState<string | null>(null);
   const [inspectSlot, setInspectSlot] = useState<TPldDocumentSlot | null>(null);
-  const slots = row.document_slots || [];
+  const allSlots = row.document_slots || [];
+  const slots = section
+    ? slotsForIntakeSection(section, allSlots, isMoral)
+    : allSlots;
   const required = slots.filter((slot) => slot.required);
-  const uploadedRequired = required.filter((slot) => slot.document).length;
   const requiredFailed = required.some(
     (slot) => slot.document?.extraction_status === "failed"
   );
@@ -101,8 +159,6 @@ export function PldDocumentCollection({
       slot.document?.extraction_status !== "failed"
   );
   const canContinue = requiredSlotsReady(row);
-  const documentsUnlocked =
-    row.expedient?.status && row.expedient.status !== "data_collection";
   const onSavedRef = useRef(onSaved);
   onSavedRef.current = onSaved;
   const hasPendingExtraction = slots.some(
@@ -161,11 +217,9 @@ export function PldDocumentCollection({
     }
   };
 
-  const body = !documentsUnlocked ? (
-    <Text size="sm" c="dimmed">
-      {t("compliance-doc-locked")}
-    </Text>
-  ) : (
+  if (section && slots.length === 0) return null;
+
+  const body = (
           <Stack gap="sm">
       <Text size="sm" c="dimmed">
         {t("compliance-doc-description")}
@@ -269,7 +323,7 @@ export function PldDocumentCollection({
           )}
         </Stack>
       ))}
-      {uploadedRequired === required.length && required.length > 0 && (
+      {showContinue && canContinue && (
         <Button
           color="violet"
           mt="sm"

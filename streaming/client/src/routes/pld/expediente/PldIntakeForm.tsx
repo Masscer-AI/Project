@@ -21,8 +21,20 @@ import {
 } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
 import { useMediaQuery } from "@mantine/hooks";
-import { IconCircleCheck, IconPlus, IconTrash } from "@tabler/icons-react";
-import { lookupPostalCode, TMyPldExpedient, updateMyPldExpedient } from "../../../modules/apiCalls";
+import { IconCircleCheck, IconPlus, IconTrash, IconWorldWww } from "@tabler/icons-react";
+import {
+  fillMyPldExpedientWebsite,
+  getMyPldExpedient,
+  lookupPostalCode,
+  TMyPldExpedient,
+  updateMyPldExpedient,
+} from "../../../modules/apiCalls";
+import {
+  PldDocumentCollection,
+  requiredSectionDocsExtracted,
+  requiredSectionDocsReady,
+  slotsForIntakeSection,
+} from "./PldDocumentCollection";
 import { countryNameSelectData, formatInternationalPhone, getDialCodeForIso, phoneCountrySelectData, splitInternationalPhone } from "../../../utils/countryDialCodes";
 import { matchSubdivisionName, subdivisionSelectData } from "../../../utils/countrySubdivisions";
 
@@ -167,6 +179,9 @@ type FormState = {
   phone_iso: string;
   phone: string;
   email: string;
+  website_url: string;
+  website_fetch_status: string;
+  website_fetch_message: string;
   id_document_type: string;
   id_issuing_authority: string;
   id_document_number: string;
@@ -209,6 +224,9 @@ function fromMetadata(row: TMyPldExpedient): FormState {
     phone_iso: parsedPhone.iso,
     phone: parsedPhone.local,
     email: asString(meta.email) || asString(row.email),
+    website_url: asString(meta.website_url),
+    website_fetch_status: asString(asRecord(meta.website_fetch).status) || "idle",
+    website_fetch_message: asString(asRecord(meta.website_fetch).message),
     id_document_type: asString(identification.document_type),
     id_issuing_authority: asString(identification.issuing_authority),
     id_document_number: asString(identification.document_number),
@@ -303,6 +321,11 @@ function metadataFromForm(form: FormState, isMoral: boolean): Record<string, unk
       economic_activity: form.economic_activity.trim() || null,
       phone,
       email: form.email.trim() || null,
+      website_url: form.website_url.trim() || null,
+      website_fetch: {
+        status: form.website_fetch_status || "idle",
+        message: form.website_fetch_message.trim() || null,
+      },
       address: compactAddress(form.address),
       representative: {
         given_names: form.rep_given_names.trim() || null,
@@ -343,17 +366,45 @@ function metadataFromForm(form: FormState, isMoral: boolean): Record<string, unk
   };
 }
 
+function applyWebsiteFill(
+  prev: FormState,
+  meta: Record<string, unknown>
+): FormState {
+  const parsedPhone = splitInternationalPhone(asString(meta.phone));
+  const fetch = asRecord(meta.website_fetch);
+  return {
+    ...prev,
+    website_url: asString(meta.website_url) || prev.website_url,
+    website_fetch_status: asString(fetch.status) || prev.website_fetch_status,
+    website_fetch_message: asString(fetch.message),
+    legal_name: filled(prev.legal_name)
+      ? prev.legal_name
+      : asString(meta.legal_name) || prev.legal_name,
+    nationality: filled(prev.nationality)
+      ? prev.nationality
+      : asString(meta.nationality) || prev.nationality,
+    economic_activity: filled(prev.economic_activity)
+      ? prev.economic_activity
+      : asString(meta.economic_activity) || prev.economic_activity,
+    email: filled(prev.email) ? prev.email : asString(meta.email) || prev.email,
+    phone: filled(prev.phone) ? prev.phone : parsedPhone.local || prev.phone,
+    phone_iso: filled(prev.phone)
+      ? prev.phone_iso
+      : parsedPhone.iso || prev.phone_iso,
+  };
+}
+
 const AUTOSAVE_MS = 700;
 
 export function PldIntakeForm({
   row,
   onSaved,
-  documents,
+  onContinue,
   headerExtra,
 }: {
   row: TMyPldExpedient;
   onSaved: (next: TMyPldExpedient) => void;
-  documents?: React.ReactNode;
+  onContinue?: () => void;
   headerExtra?: React.ReactNode;
 }) {
   const { t } = useTranslation();
@@ -364,6 +415,9 @@ export function PldIntakeForm({
   const [openedSection, setOpenedSection] = useState<string | null>("entity");
   const [neighborhoodOptions, setNeighborhoodOptions] = useState<string[]>([]);
   const [postalLookupLoading, setPostalLookupLoading] = useState(false);
+  const [websiteBusy, setWebsiteBusy] = useState(
+    () => asString(asRecord(asRecord(row.metadata).website_fetch).status) === "running"
+  );
   const dirty = useRef(false);
   const formRef = useRef(form);
   const lastSaved = useRef(JSON.stringify(metadataFromForm(fromMetadata(row), isMoral)));
@@ -500,7 +554,10 @@ export function PldIntakeForm({
   };
 
   const isMexican = (form.nationality || "MX") === "MX";
-  const entityDone = isMoral
+  const allSlots = row.document_slots || [];
+  const docsReady = (section: string) =>
+    requiredSectionDocsReady(slotsForIntakeSection(section, allSlots, isMoral));
+  const entityDone = docsReady("entity") && (isMoral
     ? filled(form.legal_name) &&
       filled(form.constitution_date) &&
       filled(form.nationality) &&
@@ -512,25 +569,32 @@ export function PldIntakeForm({
       filled(form.country_of_birth) &&
       filled(form.nationality) &&
       filled(form.economic_activity) &&
-      (!isMexican || (filled(form.rfc) && filled(form.curp)));
-  const addressDone = addressSectionComplete(form.address);
+      (!isMexican || (filled(form.rfc) && filled(form.curp))));
+  const addressDone =
+    addressSectionComplete(form.address) &&
+    requiredSectionDocsExtracted(
+      slotsForIntakeSection("address", allSlots, isMoral)
+    );
   const idDone =
-    filled(form.id_document_type) && filled(form.id_document_number);
+    filled(form.id_document_type) &&
+    filled(form.id_document_number) &&
+    docsReady("identification");
   const representativeDone =
     filled(form.rep_given_names) &&
     filled(form.rep_surnames) &&
     filled(form.rep_id_document_type) &&
-    filled(form.rep_id_document_number);
+    filled(form.rep_id_document_number) &&
+    docsReady("representative");
   const controllerDone =
-    (!isMoral && form.is_own_controller) ||
-    form.controllers.some(
-      (item) => filled(item.name) && item.email.includes("@")
-    );
+    ((!isMoral && form.is_own_controller) ||
+      form.controllers.some(
+        (item) => filled(item.name) && item.email.includes("@")
+      )) &&
+    docsReady("controller");
   const requiredDocs = (row.document_slots || []).filter((slot) => slot.required);
   const uploadedDocs = requiredDocs.filter((slot) => slot.document).length;
   const missingDocs = Math.max(requiredDocs.length - uploadedDocs, 0);
-  const documentsDone =
-    requiredDocs.length > 0 && uploadedDocs === requiredDocs.length;
+  const documentsDone = docsReady("documents");
   const sectionOrder = isMoral
     ? ["entity", "address", "representative", "controller", "documents"]
     : ["entity", "address", "identification", "controller", "documents"];
@@ -569,6 +633,10 @@ export function PldIntakeForm({
 
   useEffect(() => {
     const next = JSON.stringify(metadataFromForm(form, isMoral));
+    if (form.website_fetch_status === "running") {
+      lastSaved.current = next;
+      return;
+    }
     if (next === lastSaved.current) return;
     dirty.current = true;
     window.clearTimeout(saveTimer.current);
@@ -577,6 +645,31 @@ export function PldIntakeForm({
     }, AUTOSAVE_MS);
     return () => window.clearTimeout(saveTimer.current);
   }, [form]);
+
+  useEffect(() => {
+    if (!isMoral || form.website_fetch_status !== "running") return;
+    let cancelled = false;
+    setWebsiteBusy(true);
+    const tick = async () => {
+      const saved = await getMyPldExpedient(row.id);
+      if (cancelled || !saved) return;
+      const status = asString(
+        asRecord(asRecord(saved.metadata).website_fetch).status
+      );
+      if (status === "running" || !status) return;
+      onSavedRef.current(saved);
+      setForm((prev) => applyWebsiteFill(prev, asRecord(saved.metadata)));
+      setWebsiteBusy(false);
+    };
+    const timer = window.setInterval(() => {
+      void tick();
+    }, 1500);
+    void tick();
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [form.website_fetch_status, isMoral, row.id]);
 
   useEffect(() => {
     const flushNow = () => {
@@ -636,13 +729,16 @@ export function PldIntakeForm({
     documents: {
       label: t("compliance-doc-section"),
       done: documentsDone,
-      hint:
-        requiredDocs.length > 0
-          ? t("compliance-doc-progress-short", {
-              uploaded: String(uploadedDocs),
-              total: String(requiredDocs.length),
-            })
-          : t("compliance-intake-section-pending"),
+      hint: (() => {
+        const leftover = slotsForIntakeSection("documents", allSlots, isMoral);
+        const needed = leftover.filter((slot) => slot.required);
+        const got = needed.filter((slot) => slot.document).length;
+        if (needed.length === 0) return t("compliance-intake-section-done");
+        return t("compliance-doc-progress-short", {
+          uploaded: String(got),
+          total: String(needed.length),
+        });
+      })(),
     },
   };
   const doneCount = sectionOrder.filter((id) => sectionMeta[id]?.done).length;
@@ -796,6 +892,77 @@ export function PldIntakeForm({
           </Stack>
           {active === "entity" && (
             <Stack gap="sm">
+      {isMoral && (
+        <Stack gap={6}>
+          <Group align="flex-end" wrap="nowrap">
+            <TextInput
+              style={{ flex: 1 }}
+              label={t("compliance-intake-website")}
+              description={t("compliance-intake-website-hint")}
+              type="url"
+              autoComplete="url"
+              placeholder="https://"
+              value={form.website_url}
+              onChange={(e) => setField("website_url", e.currentTarget.value)}
+            />
+            <Button
+              variant="default"
+              leftSection={
+                websiteBusy || form.website_fetch_status === "running" ? (
+                  <Loader size={14} />
+                ) : (
+                  <IconWorldWww size={16} />
+                )
+              }
+              disabled={
+                websiteBusy ||
+                form.website_fetch_status === "running" ||
+                !/^https?:\/\//i.test(form.website_url.trim())
+              }
+              onClick={() => {
+                const url = form.website_url.trim();
+                setWebsiteBusy(true);
+                fillMyPldExpedientWebsite(row.id, url)
+                  .then((saved) => {
+                    if (!saved) throw new Error("empty");
+                    onSaved(saved);
+                    setForm((prev) => ({
+                      ...prev,
+                      website_url: url,
+                      website_fetch_status: "running",
+                      website_fetch_message: "",
+                    }));
+                  })
+                  .catch(() => {
+                    setWebsiteBusy(false);
+                    setForm((prev) => ({
+                      ...prev,
+                      website_fetch_status: "error",
+                      website_fetch_message: t("compliance-intake-website-error"),
+                    }));
+                  });
+              }}
+            >
+              {t("compliance-intake-website-fetch")}
+            </Button>
+          </Group>
+          {form.website_fetch_status === "running" && (
+            <Text size="xs" c="dimmed">
+              {t("compliance-intake-website-running")}
+            </Text>
+          )}
+          {form.website_fetch_status === "done" && (
+            <Text size="xs" c="dimmed">
+              {t("compliance-intake-website-done")}
+            </Text>
+          )}
+          {form.website_fetch_status === "error" && (
+            <Text size="xs" c="red">
+              {form.website_fetch_message || t("compliance-intake-website-error")}
+            </Text>
+          )}
+        </Stack>
+      )}
       {isMoral ? (
         <TextInput
           label={t("compliance-intake-legal-name")}
@@ -928,6 +1095,14 @@ export function PldIntakeForm({
           onChange={(e) => setField("email", e.currentTarget.value)}
         />
       </Group>
+              <PldDocumentCollection
+                embedded
+                section="entity"
+                isMoral={isMoral}
+                row={row}
+                onSaved={onSaved}
+                onContinue={() => undefined}
+              />
             </Stack>
           )}
           {active === "address" && (
@@ -1031,6 +1206,14 @@ export function PldIntakeForm({
           onChange={(e) => setAddress("interior_number", e.currentTarget.value)}
         />
       </Group>
+              <PldDocumentCollection
+                embedded
+                section="address"
+                isMoral={isMoral}
+                row={row}
+                onSaved={onSaved}
+                onContinue={() => undefined}
+              />
             </Stack>
           )}
           {!isMoral && active === "identification" && (
@@ -1058,6 +1241,14 @@ export function PldIntakeForm({
               onChange={(e) => setField("id_issuing_authority", e.currentTarget.value)}
             />
           )}
+              <PldDocumentCollection
+                embedded
+                section="identification"
+                isMoral={isMoral}
+                row={row}
+                onSaved={onSaved}
+                onContinue={() => undefined}
+              />
             </Stack>
           )}
           {isMoral && active === "representative" && (
@@ -1128,6 +1319,14 @@ export function PldIntakeForm({
               }
             />
           )}
+              <PldDocumentCollection
+                embedded
+                section="representative"
+                isMoral={isMoral}
+                row={row}
+                onSaved={onSaved}
+                onContinue={() => undefined}
+              />
             </Stack>
           )}
           {active === "controller" && (
@@ -1223,9 +1422,27 @@ export function PldIntakeForm({
                   </Button>
                 </Stack>
               )}
+              <PldDocumentCollection
+                embedded
+                section="controller"
+                isMoral={isMoral}
+                row={row}
+                onSaved={onSaved}
+                onContinue={() => undefined}
+              />
             </Stack>
           )}
-          {active === "documents" && documents}
+          {active === "documents" && (
+            <PldDocumentCollection
+              embedded
+              section="documents"
+              isMoral={isMoral}
+              showContinue
+              row={row}
+              onSaved={onSaved}
+              onContinue={() => onContinue?.()}
+            />
+          )}
           <Group justify="space-between" mt="lg" align="center">
             <Text size="xs" c="dimmed">
               {t("compliance-expediente-autosave")}

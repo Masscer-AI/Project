@@ -23,6 +23,7 @@ TOOL_REGISTRY: dict[str, str] = {
     "list_attachments": "api.ai_layers.tools.list_attachments",
     "update_attachment_visibility": "api.ai_layers.tools.update_attachment_visibility",
     "explore_web": "api.ai_layers.tools.explore_web",
+    "fetch_url": "api.ai_layers.tools.fetch_url",
     "memory_search": "api.ai_layers.tools.memory_search",
     "list_knowledge_base_documents": "api.ai_layers.tools.list_knowledge_base_documents",
     "read_knowledge_base_document": "api.ai_layers.tools.read_knowledge_base_document",
