@@ -15,9 +15,7 @@ import {
 } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
 import { IconSearch } from "@tabler/icons-react";
-import { AppHeader } from "../../components/AppHeader/AppHeader";
-import { Sidebar } from "../../components/Sidebar/Sidebar";
-import { useStore } from "../../modules/store";
+import { AppPage } from "../../components/AppPage/AppPage";
 import { getAllConversations, getTags } from "../../modules/apiCalls";
 import { TConversation, TTag } from "../../types";
 
@@ -32,7 +30,6 @@ function formatDate(iso: string, locale: string): string {
 
 export default function ConversationsPage() {
   const { t, i18n } = useTranslation();
-  const chatState = useStore((s) => s.chatState);
   const [history, setHistory] = useState<TConversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [orgTags, setOrgTags] = useState<TTag[]>([]);
@@ -159,22 +156,7 @@ export default function ConversationsPage() {
   };
 
   return (
-    <main className="d-flex pos-relative h-viewport">
-      {chatState.isSidebarOpened && <Sidebar />}
-      <div
-        style={{
-          flex: "1 1 auto",
-          minWidth: 0,
-          padding: 24,
-          overflowY: "auto",
-          minHeight: "100vh",
-          display: "flex",
-          flexDirection: "column",
-        }}
-        className="relative"
-      >
-        <AppHeader title={t("conversations")} />
-
+    <AppPage title={t("conversations")}>
         <Box maw={1100} w="100%" mx="auto">
           <Stack gap="lg">
             <Stack gap="xs">
@@ -281,7 +263,6 @@ export default function ConversationsPage() {
             )}
           </Stack>
         </Box>
-      </div>
-    </main>
+    </AppPage>
   );
 }

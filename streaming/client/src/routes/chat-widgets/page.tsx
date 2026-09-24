@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useStore } from "../../modules/store";
-import { Sidebar } from "../../components/Sidebar/Sidebar";
-import { AppHeader } from "../../components/AppHeader/AppHeader";
+import { AppPage } from "../../components/AppPage/AppPage";
 import {
   getChatWidgets,
   createChatWidget,
@@ -44,7 +43,6 @@ import {
   IconCode,
   IconCopy,
   IconEdit,
-  IconMenu2,
   IconPencil,
   IconPlus,
   IconPuzzle,
@@ -56,30 +54,10 @@ import { ToolsSelectorContent } from "../../components/ToolsSelectorModal/ToolsS
 const VISITOR_ATTACHMENT_TOOLS = ["read_attachment", "list_attachments"] as const;
 
 export default function ChatWidgetsPage() {
-  const { chatState, toggleSidebar } = useStore((s) => ({
-    chatState: s.chatState,
-    toggleSidebar: s.toggleSidebar,
-  }));
-
   const { t } = useTranslation();
 
   return (
-    <main className="d-flex pos-relative h-viewport">
-      {chatState.isSidebarOpened && <Sidebar />}
-      <div
-        style={{
-          flex: "1 1 auto",
-          minWidth: 0,
-          padding: 24,
-          overflowY: "auto",
-          minHeight: "100vh",
-          display: "flex",
-          flexDirection: "column",
-        }}
-        className="relative"
-      >
-        <AppHeader title={t("chat-widgets")} />
-
+    <AppPage title={t("chat-widgets")}>
         <Box px="md" w="100%" maw="52rem" mx="auto">
           <Text ta="center" c="dimmed" mb="lg" size="sm">
             {t("widget-manager-description")}
@@ -87,8 +65,7 @@ export default function ChatWidgetsPage() {
 
           <WidgetList />
         </Box>
-      </div>
-    </main>
+    </AppPage>
   );
 }
 

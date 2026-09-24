@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
-import { AppHeader } from "../../components/AppHeader/AppHeader";
+import { AppPage } from "../../components/AppPage/AppPage";
 import {
   ActionIcon,
   Badge,
@@ -25,14 +25,12 @@ import {
   IconCalendarEvent,
   IconCalendarTime,
   IconClock,
-  IconMenu2,
   IconMessage,
   IconPlayerPlay,
   IconRepeat,
   IconRobot,
   IconTrash,
 } from "@tabler/icons-react";
-import { Sidebar } from "../../components/Sidebar/Sidebar";
 import { useStore } from "../../modules/store";
 import {
   cancelScheduledTask,
@@ -104,9 +102,7 @@ function statusColor(status: string): string {
 export default function ScheduledTasksPage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
-  const { chatState, toggleSidebar, agents, fetchAgents } = useStore((s) => ({
-    chatState: s.chatState,
-    toggleSidebar: s.toggleSidebar,
+  const { agents, fetchAgents } = useStore((s) => ({
     agents: s.agents,
     fetchAgents: s.fetchAgents,
   }));
@@ -193,23 +189,8 @@ export default function ScheduledTasksPage() {
   };
 
   return (
-    <main className="d-flex pos-relative h-viewport">
-      {chatState.isSidebarOpened && <Sidebar />}
-      <div
-        style={{
-          flex: "1 1 auto",
-          minWidth: 0,
-          padding: 24,
-          overflowY: "auto",
-          minHeight: "100vh",
-          display: "flex",
-          flexDirection: "column",
-        }}
-        className="relative"
-      >
-        <AppHeader title={t("scheduled-tasks-title")} />
-
-        <Stack maw="56rem" w="100%" gap="lg" mt={48}>
+    <AppPage title={t("scheduled-tasks-title")}>
+        <Stack maw="56rem" w="100%" gap="lg">
           <Group justify="space-between" align="flex-start" wrap="wrap" gap="md">
             <Group gap="md" align="flex-start" wrap="nowrap">
               <ThemeIcon
@@ -433,7 +414,6 @@ export default function ScheduledTasksPage() {
             </SimpleGrid>
           )}
         </Stack>
-      </div>
 
       <Modal
         opened={confirmOpened}
@@ -473,6 +453,6 @@ export default function ScheduledTasksPage() {
           </Group>
         </Stack>
       </Modal>
-    </main>
+    </AppPage>
   );
 }

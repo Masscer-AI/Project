@@ -1,11 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { Sidebar } from "../../components/Sidebar/Sidebar";
-import { useStore } from "../../modules/store";
+import { AppPage } from "../../components/AppPage/AppPage";
 import "./page.css";
 import { getWhatsappNumbers, getWhatsappTemplates } from "../../modules/apiCalls";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
-import { AppHeader } from "../../components/AppHeader/AppHeader";
 
 import {
   ActionIcon,
@@ -26,7 +24,6 @@ import { useDisclosure } from "@mantine/hooks";
 import {
   IconBrandWhatsapp,
   IconChevronRight,
-  IconMenu2,
   IconMessages,
   IconRobot,
   IconSettings,
@@ -338,10 +335,6 @@ function WhatsappTemplateModal({
 
 export default function Whatsapp() {
   const { t } = useTranslation();
-  const { chatState, toggleSidebar } = useStore((s) => ({
-    chatState: s.chatState,
-    toggleSidebar: s.toggleSidebar,
-  }));
 
   const [numbers, setNumbers] = useState<WhatsappLine[]>([]);
   const [loading, setLoading] = useState(true);
@@ -399,22 +392,7 @@ export default function Whatsapp() {
   }, [t]);
 
   return (
-    <main className="d-flex pos-relative h-viewport">
-      {chatState.isSidebarOpened && <Sidebar />}
-      <div
-        style={{
-          flex: "1 1 auto",
-          minWidth: 0,
-          padding: 24,
-          overflowY: "auto",
-          minHeight: "100vh",
-          display: "flex",
-          flexDirection: "column",
-        }}
-        className="relative"
-      >
-        <AppHeader title={t("whatsapp")} />
-
+    <AppPage title={t("whatsapp")}>
         <Box px="md" w="100%" maw="48rem" mx="auto">
           <Text ta="center" mb="xs" mt="md">
             {t("whatsapp-intro")}
@@ -507,7 +485,6 @@ export default function Whatsapp() {
             onClose={closeTemplate}
           />
         </Box>
-      </div>
-    </main>
+    </AppPage>
   );
 }

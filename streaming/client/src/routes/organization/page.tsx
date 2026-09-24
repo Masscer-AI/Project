@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useStore } from "../../modules/store";
-import { Sidebar } from "../../components/Sidebar/Sidebar";
-import { AppHeader } from "../../components/AppHeader/AppHeader";
+import { AppPage } from "../../components/AppPage/AppPage";
 import {
   assignRoleToMember,
   buyCredits,
@@ -85,7 +84,6 @@ import {
   IconDeviceFloppy,
   IconEdit,
   IconLink,
-  IconMenu2,
   IconPlayerPause,
   IconPlayerPlay,
   IconPlus,
@@ -155,9 +153,7 @@ const EMPTY_INVITE_FORM = {
 };
 
 export default function OrganizationPage() {
-  const { chatState, toggleSidebar, setTenantBranding } = useStore((s) => ({
-    chatState: s.chatState,
-    toggleSidebar: s.toggleSidebar,
+  const { setTenantBranding } = useStore((s) => ({
     setTenantBranding: s.setTenantBranding,
   }));
   const { t, i18n } = useTranslation();
@@ -939,45 +935,16 @@ export default function OrganizationPage() {
 
   if (loading) {
     return (
-      <main className="d-flex pos-relative h-viewport">
-        <Sidebar />
-        <div
-          style={{
-            flex: "1 1 auto",
-            minWidth: 0,
-            padding: 24,
-            overflowY: "auto",
-            minHeight: "100vh",
-            display: "flex",
-            flexDirection: "column",
-          }}
-        >
-          <AppHeader title={t("organization")} />
+      <AppPage title={t("organization")}>
           <Stack align="center" justify="center" pt="xl">
             <Loader color="violet" />
           </Stack>
-        </div>
-      </main>
+      </AppPage>
     );
   }
 
   return (
-    <main className="d-flex pos-relative h-viewport">
-      {chatState.isSidebarOpened && <Sidebar />}
-      <div
-        style={{
-          flex: "1 1 auto",
-          minWidth: 0,
-          padding: 24,
-          overflowY: "auto",
-          minHeight: "100vh",
-          display: "flex",
-          flexDirection: "column",
-        }}
-        className="relative"
-      >
-        <AppHeader title={t("organization")} />
-
+    <AppPage title={t("organization")}>
         <Box px="md" w="100%" maw="42rem" mx="auto">
           {!org ? (
             <Card withBorder p="xl">
@@ -2007,9 +1974,7 @@ export default function OrganizationPage() {
             </Tabs>
           )}
         </Box>
-      </div>
 
-      {}
       <Modal
         opened={roleModalOpened}
         onClose={() => {
@@ -2442,7 +2407,7 @@ export default function OrganizationPage() {
         )}
       </Modal>
 
-    </main>
+    </AppPage>
   );
 }
 

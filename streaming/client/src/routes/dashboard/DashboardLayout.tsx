@@ -1,7 +1,5 @@
 import React from "react";
-import { useStore } from "../../modules/store";
-import { AppHeader } from "../../components/AppHeader/AppHeader";
-import { Sidebar } from "../../components/Sidebar/Sidebar";
+import { AppPage } from "../../components/AppPage/AppPage";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
@@ -43,7 +41,6 @@ const TABS: DashboardTab[] = [
 ];
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
-  const chatState = useStore((state) => state.chatState);
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
@@ -59,20 +56,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     TABS.find((tab) => tab.value === location.pathname)?.value || "/dashboard";
 
   return (
-    <main className="d-flex pos-relative h-viewport">
-      {chatState.isSidebarOpened && <Sidebar />}
-      <div
-        style={{
-          flex: 1,
-          overflowY: "auto",
-          minHeight: "100vh",
-          position: "relative",
-        }}
-      >
-        <div style={{ padding: "16px 24px 0" }}>
-          <AppHeader title={t("dashboard")} />
-        </div>
-
+    <AppPage title={t("dashboard")}>
         <Container size="xl" py="xl">
           <Tabs
             value={currentTab}
@@ -122,7 +106,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
           {children}
         </Container>
-      </div>
-    </main>
+    </AppPage>
   );
 }

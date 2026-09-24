@@ -1,7 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { useStore } from "../../modules/store";
-import { Sidebar } from "../../components/Sidebar/Sidebar";
-import { AppHeader } from "../../components/AppHeader/AppHeader";
+import { AppPage } from "../../components/AppPage/AppPage";
 import {
   deleteTranscriptionJob,
   makeAuthenticatedRequest,
@@ -33,7 +31,6 @@ import {
   IconCopy,
   IconDownload,
   IconEye,
-  IconMenu2,
   IconMicrophone,
   IconPlayerPause,
   IconPlayerPlay,
@@ -62,37 +59,16 @@ interface TranscriptionJob {
 }
 
 export default function GenerationToolsPage() {
-  const { chatState, toggleSidebar } = useStore((s) => ({
-    chatState: s.chatState,
-    toggleSidebar: s.toggleSidebar,
-  }));
-
   const { t } = useTranslation();
 
   return (
-    <main className="d-flex pos-relative h-viewport">
-      {chatState.isSidebarOpened && <Sidebar />}
-      <div
-        style={{
-          flex: "1 1 auto",
-          minWidth: 0,
-          padding: 24,
-          overflowY: "auto",
-          minHeight: "100vh",
-          display: "flex",
-          flexDirection: "column",
-        }}
-        className="relative"
-      >
-        <AppHeader title={t("audio-tools")} />
-
+    <AppPage title={t("audio-tools")}>
         <Box px="md" w="100%" maw="52rem" mx="auto">
           <Stack gap="lg">
             <TranscriptionSection />
           </Stack>
         </Box>
-      </div>
-    </main>
+    </AppPage>
   );
 }
 

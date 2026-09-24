@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useStore } from "../../modules/store";
-import { Sidebar } from "../../components/Sidebar/Sidebar";
-import { AppHeader } from "../../components/AppHeader/AppHeader";
+import { AppPage } from "../../components/AppPage/AppPage";
 import {
   getDocuments,
   uploadDocument,
@@ -66,7 +65,6 @@ import {
   IconFileText,
   IconHash,
   IconLoader,
-  IconMenu2,
   IconPlus,
   IconRobot,
   IconSearch,
@@ -149,9 +147,7 @@ export function parseKnowledgeBaseActiveTab(
 }
 
 export default function KnowledgeBasePage() {
-  const { chatState, toggleSidebar, agents, fetchAgents } = useStore((s) => ({
-    chatState: s.chatState,
-    toggleSidebar: s.toggleSidebar,
+  const { agents, fetchAgents } = useStore((s) => ({
     agents: s.agents,
     fetchAgents: s.fetchAgents,
   }));
@@ -340,22 +336,7 @@ export default function KnowledgeBasePage() {
   ];
 
   return (
-    <main className="d-flex pos-relative h-viewport">
-      {chatState.isSidebarOpened && <Sidebar />}
-      <div
-        style={{
-          flex: "1 1 auto",
-          minWidth: 0,
-          padding: 24,
-          overflowY: "auto",
-          minHeight: "100vh",
-          display: "flex",
-          flexDirection: "column",
-        }}
-        className="relative"
-      >
-        <AppHeader title={t("knowledge-base")} />
-
+    <AppPage title={t("knowledge-base")}>
         <Box px="md" w="100%" maw="52rem" mx="auto">
           <Text ta="center" c="dimmed" mb="lg" size="sm">
             {t("knowledge-base-description")}
@@ -475,8 +456,7 @@ export default function KnowledgeBasePage() {
             <ListsTab filterQuery={search} />
           )}
         </Box>
-      </div>
-    </main>
+    </AppPage>
   );
 }
 

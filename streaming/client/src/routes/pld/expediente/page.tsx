@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
-import { AppHeader } from "../../../components/AppHeader/AppHeader";
+import { AppPage } from "../../../components/AppPage/AppPage";
 import {
-  ActionIcon,
   Badge,
   Box,
   Button,
@@ -16,9 +15,6 @@ import {
   Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { IconMenu2 } from "@tabler/icons-react";
-import { Sidebar } from "../../../components/Sidebar/Sidebar";
-import { useStore } from "../../../modules/store";
 import {
   listMyPldExpedients,
   resetMyPldExpedient,
@@ -101,10 +97,6 @@ function ResetExpedienteButton({
 
 export default function MyPldExpedientePage() {
   const { t } = useTranslation();
-  const { chatState, toggleSidebar } = useStore((s) => ({
-    chatState: s.chatState,
-    toggleSidebar: s.toggleSidebar,
-  }));
   const [rows, setRows] = useState<TMyPldExpedient[]>([]);
   const [loading, setLoading] = useState(true);
   const [reviewingIds, setReviewingIds] = useState<Record<string, boolean>>({});
@@ -136,21 +128,7 @@ export default function MyPldExpedientePage() {
   }, [loading, rows]);
 
   return (
-    <main className="d-flex pos-relative h-viewport">
-      {chatState.isSidebarOpened && <Sidebar />}
-      <div
-        style={{
-          flex: "1 1 auto",
-          minWidth: 0,
-          padding: 24,
-          overflowY: "auto",
-          minHeight: "100vh",
-          display: "flex",
-          flexDirection: "column",
-        }}
-        className="relative"
-      >
-        <AppHeader title={t("compliance-my-expediente-title")} />
+    <AppPage title={t("compliance-my-expediente-title")}>
         <Box px="md" w="100%" maw="52rem" mx="auto">
           <Text ta="center" c="dimmed" mb="lg" size="sm" mt="md">
             {t("compliance-my-expediente-description")}
@@ -252,7 +230,6 @@ export default function MyPldExpedientePage() {
             </Stack>
           )}
         </Box>
-      </div>
-    </main>
+    </AppPage>
   );
 }

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
-import { AppHeader } from "../../components/AppHeader/AppHeader";
+import { AppPage } from "../../components/AppPage/AppPage";
 import {
   ActionIcon,
   Badge,
@@ -21,8 +21,6 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { IconMail, IconPlus, IconTrash } from "@tabler/icons-react";
-import { Sidebar } from "../../components/Sidebar/Sidebar";
-import { useStore } from "../../modules/store";
 import {
   createPldEntity,
   deletePldEntity,
@@ -41,10 +39,6 @@ function entityDisplayName(entity: TPldEntity): string {
 export default function ComplianceHubPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { chatState, toggleSidebar } = useStore((s) => ({
-    chatState: s.chatState,
-    toggleSidebar: s.toggleSidebar,
-  }));
   const [entities, setEntities] = useState<TPldEntity[]>([]);
   const [orgProcessReady, setOrgProcessReady] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -167,22 +161,7 @@ export default function ComplianceHubPage() {
   };
 
   return (
-    <main className="d-flex pos-relative h-viewport">
-      {chatState.isSidebarOpened && <Sidebar />}
-      <div
-        style={{
-          flex: "1 1 auto",
-          minWidth: 0,
-          padding: 24,
-          overflowY: "auto",
-          minHeight: "100vh",
-          display: "flex",
-          flexDirection: "column",
-        }}
-        className="relative"
-      >
-        <AppHeader title={t("compliance-hub-title")} />
-
+    <AppPage title={t("compliance-hub-title")}>
         <Box px="md" w="100%" maw="52rem" mx="auto">
           <Text ta="center" c="dimmed" mb="lg" size="sm">
             {t("compliance-hub-description")}
@@ -349,7 +328,6 @@ export default function ComplianceHubPage() {
             )}
           </Card>
         </Box>
-      </div>
 
       <Modal
         opened={addOpened}
@@ -448,6 +426,6 @@ export default function ComplianceHubPage() {
           </Group>
         </Stack>
       </Modal>
-    </main>
+    </AppPage>
   );
 }

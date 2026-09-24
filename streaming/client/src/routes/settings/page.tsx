@@ -1,9 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useStore } from "../../modules/store";
-import { Sidebar } from "../../components/Sidebar/Sidebar";
+import { AppPage } from "../../components/AppPage/AppPage";
 import { getUser, updateUser } from "../../modules/apiCalls";
-import { debounce } from "../../modules/utils";
-import { AppHeader } from "../../components/AppHeader/AppHeader";
 import {
   DEFAULT_NOTIFICATION_SETTINGS,
   previewNotificationSound,
@@ -43,7 +41,6 @@ import {
 import { DatePickerInput } from "@mantine/dates";
 import {
   IconDeviceFloppy,
-  IconMenu2,
   IconMoon,
   IconDeviceDesktop,
   IconPlus,
@@ -62,9 +59,7 @@ import {
 } from "../../utils/countryDialCodes";
 
 export default function SettingsPage() {
-  const { chatState, toggleSidebar, user, setUser } = useStore((s) => ({
-    chatState: s.chatState,
-    toggleSidebar: s.toggleSidebar,
+  const { user, setUser } = useStore((s) => ({
     user: s.user,
     setUser: s.setUser,
   }));
@@ -77,22 +72,7 @@ export default function SettingsPage() {
   }, []);
 
   return (
-    <main className="d-flex pos-relative h-viewport">
-      {chatState.isSidebarOpened && <Sidebar />}
-      <div
-        style={{
-          flex: "1 1 auto",
-          minWidth: 0,
-          padding: 24,
-          overflowY: "auto",
-          minHeight: "100vh",
-          display: "flex",
-          flexDirection: "column",
-        }}
-        className="relative"
-      >
-        <AppHeader title={t("settings")} />
-
+    <AppPage title={t("settings")}>
         <Box px="md" w="100%" maw="42rem" mx="auto">
           <Stack gap="lg">
             <UserSection />
@@ -104,8 +84,7 @@ export default function SettingsPage() {
             <ProfileSection />
           </Stack>
         </Box>
-      </div>
-    </main>
+    </AppPage>
   );
 }
 

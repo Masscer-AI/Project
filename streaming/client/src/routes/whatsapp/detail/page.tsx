@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Sidebar } from "../../../components/Sidebar/Sidebar";
+import { AppPage } from "../../../components/AppPage/AppPage";
 import { useStore } from "../../../modules/store";
 import "../page.css";
-import { AppHeader } from "../../../components/AppHeader/AppHeader";
 import {
   getWhatsappNumbers,
   getWhatsappContacts,
@@ -34,7 +33,6 @@ import {
 import {
   IconArrowLeft,
   IconDeviceFloppy,
-  IconMenu2,
   IconMessages,
   IconSettings,
   IconUsers,
@@ -61,9 +59,7 @@ export default function WhatsappLineDetail() {
   const navigate = useNavigate();
   const { wsNumberId } = useParams<{ wsNumberId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { chatState, toggleSidebar, agents, fetchAgents } = useStore((s) => ({
-    chatState: s.chatState,
-    toggleSidebar: s.toggleSidebar,
+  const { agents, fetchAgents } = useStore((s) => ({
     agents: s.agents,
     fetchAgents: s.fetchAgents,
   }));
@@ -119,22 +115,7 @@ export default function WhatsappLineDetail() {
   const title = line?.name || line?.number || t("whatsapp");
 
   return (
-    <main className="d-flex pos-relative h-viewport">
-      {chatState.isSidebarOpened && <Sidebar />}
-      <div
-        style={{
-          flex: "1 1 auto",
-          minWidth: 0,
-          padding: 24,
-          overflowY: "auto",
-          minHeight: "100vh",
-          display: "flex",
-          flexDirection: "column",
-        }}
-        className="relative"
-      >
-        <AppHeader title={title} />
-
+    <AppPage title={title}>
         <Box px="md" w="100%" maw="42rem" mx="auto">
           <Group gap="sm" mb="md" mt="md">
             <ActionIcon
@@ -207,8 +188,7 @@ export default function WhatsappLineDetail() {
             </Tabs>
           )}
         </Box>
-      </div>
-    </main>
+    </AppPage>
   );
 }
 

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
-import { AppHeader } from "../../components/AppHeader/AppHeader";
+import { AppPage } from "../../components/AppPage/AppPage";
 import {
   ActionIcon,
   Box,
@@ -15,9 +15,7 @@ import {
   Text,
   TextInput,
 } from "@mantine/core";
-import { IconArrowLeft, IconMenu2, IconSearch } from "@tabler/icons-react";
-import { Sidebar } from "../../components/Sidebar/Sidebar";
-import { useStore } from "../../modules/store";
+import { IconArrowLeft, IconSearch } from "@tabler/icons-react";
 import {
   getOrganizationList,
   getOrganizationListRecords,
@@ -33,10 +31,6 @@ export default function ListDetailPage() {
   const navigate = useNavigate();
   const { listId } = useParams<{ listId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { chatState, toggleSidebar } = useStore((s) => ({
-    chatState: s.chatState,
-    toggleSidebar: s.toggleSidebar,
-  }));
 
   const [orgId, setOrgId] = useState<string | null>(
     searchParams.get("organization")
@@ -137,22 +131,9 @@ export default function ListDetailPage() {
   };
 
   return (
-    <main className="d-flex pos-relative h-viewport">
-      {chatState.isSidebarOpened && <Sidebar />}
-      <div
-        style={{
-          flex: "1 1 auto",
-          minWidth: 0,
-          padding: 24,
-          overflowY: "auto",
-          minHeight: "100vh",
-        }}
-        className="relative"
-      >
-        <AppHeader
-          title={list?.name || t("org-list-preview-title", { name: "" })}
-        />
-
+    <AppPage
+      title={list?.name || t("org-list-preview-title", { name: "" })}
+    >
         <Box w="100%" maw="80rem" mx="auto">
           <Stack gap="md">
             <Group>
@@ -262,7 +243,6 @@ export default function ListDetailPage() {
             )}
           </Stack>
         </Box>
-      </div>
-    </main>
+    </AppPage>
   );
 }

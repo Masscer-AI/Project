@@ -33,8 +33,7 @@ import {
   IconTrash,
   IconVideo,
 } from "@tabler/icons-react";
-import { AppHeader } from "../../components/AppHeader/AppHeader";
-import { Sidebar } from "../../components/Sidebar/Sidebar";
+import { AppPage } from "../../components/AppPage/AppPage";
 import {
   AttachmentVisibilityModal,
 } from "../../components/AttachmentVisibility/AttachmentVisibilityModal";
@@ -43,7 +42,6 @@ import {
   DocumentFileIcon,
   getDocumentFileMeta,
 } from "../../modules/documentFileMeta";
-import { useStore } from "../../modules/store";
 import {
   deleteGalleryItem,
   getGalleryItems,
@@ -684,7 +682,6 @@ function GalleryItemCard({
 
 export default function GalleryPage() {
   const { t, i18n } = useTranslation();
-  const chatState = useStore((s) => s.chatState);
 
   const [tab, setTab] = useState<TGalleryType>("image");
   const [items, setItems] = useState<TGalleryItem[]>([]);
@@ -761,22 +758,7 @@ export default function GalleryPage() {
         : { base: 1, sm: 2, md: 3 };
 
   return (
-    <main className="d-flex pos-relative h-viewport">
-      {chatState.isSidebarOpened && <Sidebar />}
-      <div
-        style={{
-          flex: "1 1 auto",
-          minWidth: 0,
-          padding: 24,
-          overflowY: "auto",
-          minHeight: "100vh",
-          display: "flex",
-          flexDirection: "column",
-        }}
-        className="relative"
-      >
-        <AppHeader title={t("gallery-title")} />
-
+    <AppPage title={t("gallery-title")}>
         <Box maw={1100} w="100%" mx="auto">
           <Stack gap="lg">
             <Text c="dimmed" size="sm">
@@ -884,7 +866,6 @@ export default function GalleryPage() {
             )}
           </Stack>
         </Box>
-      </div>
-    </main>
+    </AppPage>
   );
 }

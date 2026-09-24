@@ -2,21 +2,13 @@ import React, { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
-import { AppHeader } from "../../components/AppHeader/AppHeader";
-import {
-  ActionIcon,
-  Box,
-  Stack,
-  Tabs,
-  Text,
-} from "@mantine/core";
+import { AppPage } from "../../components/AppPage/AppPage";
+import { Stack, Tabs, Text } from "@mantine/core";
 import {
   IconBrandGoogleDrive,
   IconCalendar,
-  IconMenu2,
   IconPlug,
 } from "@tabler/icons-react";
-import { Sidebar } from "../../components/Sidebar/Sidebar";
 import { useStore } from "../../modules/store";
 import { getUser } from "../../modules/apiCalls";
 import { CalendarIntegrationCard } from "./CalendarIntegrationCard";
@@ -36,9 +28,7 @@ function parseIntegrationsTab(raw: string | null): IntegrationsTab {
 export default function IntegrationsPage() {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { chatState, toggleSidebar, user, setUser } = useStore((s) => ({
-    chatState: s.chatState,
-    toggleSidebar: s.toggleSidebar,
+  const { user, setUser } = useStore((s) => ({
     user: s.user,
     setUser: s.setUser,
   }));
@@ -73,23 +63,8 @@ export default function IntegrationsPage() {
   };
 
   return (
-    <main className="d-flex pos-relative h-viewport">
-      {chatState.isSidebarOpened && <Sidebar />}
-      <div
-        style={{
-          flex: "1 1 auto",
-          minWidth: 0,
-          padding: 24,
-          overflowY: "auto",
-          minHeight: "100vh",
-          display: "flex",
-          flexDirection: "column",
-        }}
-        className="relative"
-      >
-        <AppHeader title={t("integrations-title")} />
-
-        <Stack maw="52rem" w="100%" gap="lg" mt={48}>
+    <AppPage title={t("integrations-title")}>
+        <Stack maw="52rem" w="100%" gap="lg">
           <Stack gap={4}>
             <Text size="sm" c="dimmed">
               {t("integrations-hub-description")}
@@ -136,7 +111,6 @@ export default function IntegrationsPage() {
             </Tabs.Panel>
           </Tabs>
         </Stack>
-      </div>
-    </main>
+    </AppPage>
   );
 }
