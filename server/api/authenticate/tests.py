@@ -358,6 +358,173 @@ class OrganizationInviteFlowTests(TestCase):
         bad = self.client.get("/v1/auth/signup?invite=revoke-invite-token")
         self.assertEqual(bad.status_code, 400)
 
+    def _welcome_line(self, platform_id="pnid-welcome"):
+        from api.ai_layers.models import Agent, LanguageModel
+        from api.whatsapp.models import WSNumber
+
+        llm = LanguageModel.objects.first()
+        agent = Agent.objects.create(
+            name="FernandAI",
+            salute="hi",
+            organization=self.org,
+            user=self.owner,
+            llm=llm,
+            model_slug=llm.slug,
+        )
+        return WSNumber.objects.create(
+            organization=self.org,
+            agent=agent,
+            number="525500000099",
+            platform_id=platform_id,
+        )
+
+    @patch.object(OrganizationInvite, "generate_raw_token", return_value="welcome-invite-token")
+    @patch("api.authenticate.views.EmailService")
+    def test_create_invite_stores_welcome_fields(self, _email_cls, _token_mock):
+        line = self._welcome_line()
+        response = self.client.post(
+            f"/v1/auth/organizations/{self.org.id}/invites/",
+            data={
+                "email": "welcome@test.com",
+                "name": "Maria",
+                "send_welcome_message": True,
+                "welcome_phones": ["+52 55 1111 2222"],
+                "welcome_line_ids": [line.id],
+                "welcome_help_text": "Pagar tus facturas, hacer tus impuestos.",
+                "welcome_language": "es",
+            },
+            format="json",
+            **self._auth_headers(),
+        )
+        self.assertEqual(response.status_code, 201)
+        body = response.json()["invite"]
+        self.assertTrue(body["send_welcome_message"])
+        self.assertEqual(body["welcome_line_ids"], [line.id])
+        self.assertEqual(body["welcome_language"], "es")
+        self.assertEqual(
+            body["welcome_help_text"],
+            "Pagar tus facturas, hacer tus impuestos.",
+        )
+        self.assertTrue(body["welcome_phones"])
+
+    @patch.object(OrganizationInvite, "generate_raw_token", return_value="welcome-missing-phone")
+    @patch("api.authenticate.views.EmailService")
+    def test_create_invite_welcome_requires_phone(self, _email_cls, _token_mock):
+        line = self._welcome_line()
+        response = self.client.post(
+            f"/v1/auth/organizations/{self.org.id}/invites/",
+            data={
+                "email": "nophone@test.com",
+                "send_welcome_message": True,
+                "welcome_phones": [],
+                "welcome_line_ids": [line.id],
+                "welcome_help_text": "Help",
+                "welcome_language": "en",
+            },
+            format="json",
+            **self._auth_headers(),
+        )
+        self.assertEqual(response.status_code, 400)
+
+    @patch.object(OrganizationInvite, "generate_raw_token", return_value="welcome-bad-line")
+    @patch("api.authenticate.views.EmailService")
+    def test_create_invite_welcome_rejects_unknown_line(self, _email_cls, _token_mock):
+        response = self.client.post(
+            f"/v1/auth/organizations/{self.org.id}/invites/",
+            data={
+                "email": "badline@test.com",
+                "send_welcome_message": True,
+                "welcome_phones": ["525511112222"],
+                "welcome_line_ids": [999999],
+                "welcome_help_text": "Help",
+                "welcome_language": "en",
+            },
+            format="json",
+            **self._auth_headers(),
+        )
+        self.assertEqual(response.status_code, 400)
+
+    @patch("api.authenticate.tasks.send_invite_welcome_whatsapp.delay")
+    @patch.object(OrganizationInvite, "generate_raw_token", return_value="welcome-accept-token")
+    @patch("api.authenticate.views.EmailService")
+    def test_invite_signup_enqueues_welcome_send(
+        self, _email_cls, _token_mock, delay_mock
+    ):
+        line = self._welcome_line()
+        self.client.post(
+            f"/v1/auth/organizations/{self.org.id}/invites/",
+            data={
+                "email": "welcomesignup@test.com",
+                "name": "Maria",
+                "send_welcome_message": True,
+                "welcome_phones": ["525511112222"],
+                "welcome_line_ids": [line.id],
+                "welcome_help_text": "Paying your bills.",
+                "welcome_language": "en",
+            },
+            format="json",
+            **self._auth_headers(),
+        )
+        response = self.client.post(
+            "/v1/auth/signup",
+            data={
+                "invite_token": "welcome-accept-token",
+                "password": "join-password-123",
+                "confirm_password": "join-password-123",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        inv = OrganizationInvite.objects.get(email="welcomesignup@test.com")
+        delay_mock.assert_called_once_with(str(inv.id))
+
+    @patch("api.whatsapp.template_send.send_ws_template_to_member")
+    def test_welcome_task_sends_template_per_line_and_phone(self, send_mock):
+        from api.authenticate.models import UserProfile, hash_organization_invite_token
+        from api.authenticate.tasks import send_invite_welcome_whatsapp
+        from api.whatsapp.models import WSContact
+
+        line = self._welcome_line()
+        from datetime import timedelta
+
+        from django.utils import timezone as dj_tz
+
+        user = User.objects.create_user(
+            username="welcomed",
+            email="welcomed@test.com",
+            password="join-password-123",
+        )
+        profile, _ = UserProfile.objects.get_or_create(user=user)
+        profile.organization = self.org
+        profile.save(update_fields=["organization", "updated_at"])
+        invite = OrganizationInvite.objects.create(
+            organization=self.org,
+            email="welcomed@test.com",
+            name="Maria",
+            invited_by=self.owner,
+            token_hash=hash_organization_invite_token("welcome-task-token"),
+            status=OrganizationInvite.Status.ACCEPTED,
+            invite_expires_at=dj_tz.now() + timedelta(days=7),
+            accepted_user=user,
+            send_welcome_message=True,
+            welcome_phones=["525511112222"],
+            welcome_line_ids=[line.id],
+            welcome_help_text="Paying your bills.",
+            welcome_language="en",
+        )
+        send_invite_welcome_whatsapp(str(invite.id))
+        send_mock.assert_called_once()
+        kwargs = send_mock.call_args.kwargs
+        self.assertEqual(kwargs["agent_id"], line.agent_id)
+        self.assertEqual(kwargs["sender_id"], line.id)
+        self.assertEqual(kwargs["template_id"], "welcome_to_agent_presentation_en")
+        self.assertEqual(
+            kwargs["template_variables"]["body"],
+            ["Maria", "Acme Org", "FernandAI", "Paying your bills."],
+        )
+        contact = WSContact.objects.get(ws_number=line, number="525511112222")
+        self.assertEqual(contact.user_id, user.id)
+
     def test_organization_list_includes_pld_access_enabled(self):
         self.org.pld_access_enabled = True
         self.org.save(update_fields=["pld_access_enabled"])

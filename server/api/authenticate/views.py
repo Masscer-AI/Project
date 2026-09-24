@@ -322,6 +322,8 @@ class SignupAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        enqueue_welcome = False
+        invite_pk = None
         with transaction.atomic():
             invite_locked = OrganizationInvite.objects.select_for_update().get(pk=invite.pk)
             if invite_locked.status != OrganizationInvite.Status.PENDING:
@@ -371,6 +373,13 @@ class SignupAPIView(APIView):
                     "updated_at",
                 ]
             )
+            enqueue_welcome = invite_locked.send_welcome_message
+            invite_pk = str(invite_locked.id)
+
+        if enqueue_welcome:
+            from api.authenticate.tasks import send_invite_welcome_whatsapp
+
+            send_invite_welcome_whatsapp.delay(invite_pk)
 
         return Response(
             {"message": "User created successfully"},
@@ -1254,6 +1263,21 @@ class OrganizationInvitesView(View):
         name = (ser.validated_data.get("name") or "").strip()
         bio = (ser.validated_data.get("bio") or "").strip()
         profile_expires_at = ser.validated_data.get("expires_at")
+        send_welcome_message = bool(ser.validated_data.get("send_welcome_message"))
+        welcome_phones = ser.validated_data.get("welcome_phones") or []
+        welcome_line_ids = ser.validated_data.get("welcome_line_ids") or []
+        welcome_help_text = ser.validated_data.get("welcome_help_text") or ""
+        welcome_language = ser.validated_data.get("welcome_language") or "en"
+        if send_welcome_message:
+            from api.authenticate.invite_welcome import welcome_lines_for_org
+
+            try:
+                welcome_lines_for_org(organization, welcome_line_ids)
+            except ValueError:
+                return JsonResponse(
+                    {"error": "WhatsApp line not found"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
         role = None
         role_id = ser.validated_data.get("role_id")
         if role_id:
@@ -1291,6 +1315,11 @@ class OrganizationInvitesView(View):
             pending.profile_expires_at = profile_expires_at
             pending.role = role
             pending.invited_by = request.user
+            pending.send_welcome_message = send_welcome_message
+            pending.welcome_phones = welcome_phones
+            pending.welcome_line_ids = welcome_line_ids
+            pending.welcome_help_text = welcome_help_text
+            pending.welcome_language = welcome_language
             pending.save()
             invite = pending
         else:
@@ -1306,6 +1335,11 @@ class OrganizationInvitesView(View):
                 token_hash=digest,
                 status=OrganizationInvite.Status.PENDING,
                 invite_expires_at=invite_deadline,
+                send_welcome_message=send_welcome_message,
+                welcome_phones=welcome_phones,
+                welcome_line_ids=welcome_line_ids,
+                welcome_help_text=welcome_help_text,
+                welcome_language=welcome_language,
             )
 
         signup_url = f"{_frontend_base_url(request)}/signup?invite={raw_token}"

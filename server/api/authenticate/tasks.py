@@ -7,7 +7,7 @@ from django.core.files.base import ContentFile
 
 from api.utils.openai_functions import generate_image
 
-from .models import Organization
+from .models import Organization, OrganizationInvite
 
 logger = logging.getLogger(__name__)
 
@@ -72,3 +72,80 @@ def generate_organization_logo(organization_id: str):
             f"generate_organization_logo: Failed to save logo for org {organization_id}: {e}",
             exc_info=True,
         )
+
+
+@shared_task
+def send_invite_welcome_whatsapp(invite_id: str):
+    from api.authenticate.invite_welcome import (
+        welcome_lines_for_org,
+        welcome_template_id,
+    )
+    from api.whatsapp.conversations import get_or_create_ws_contact
+    from api.whatsapp.template_send import send_ws_template_to_member
+
+    invite = (
+        OrganizationInvite.objects.select_related(
+            "organization", "accepted_user"
+        )
+        .filter(pk=invite_id)
+        .first()
+    )
+    if not invite or not invite.send_welcome_message:
+        return
+    user = invite.accepted_user
+    if not user:
+        return
+
+    try:
+        lines = welcome_lines_for_org(invite.organization, invite.welcome_line_ids)
+    except ValueError:
+        logger.warning(
+            "send_invite_welcome_whatsapp: lines missing invite=%s", invite_id
+        )
+        return
+
+    phones = invite.welcome_phones or []
+    if not lines or not phones:
+        return
+
+    template_id = welcome_template_id(invite.welcome_language)
+    org_name = invite.organization.name
+    person_name = (invite.name or user.username or "").strip() or user.username
+    help_text = (invite.welcome_help_text or "").strip()
+
+    for ws_number in lines:
+        agent_name = (ws_number.agent.name if ws_number.agent_id else "") or ""
+        for phone in phones:
+            try:
+                contact = get_or_create_ws_contact(ws_number, phone)
+                if contact.user_id and contact.user_id != user.id:
+                    logger.warning(
+                        "send_invite_welcome_whatsapp: contact already linked "
+                        "invite=%s line=%s phone=%s",
+                        invite_id,
+                        ws_number.id,
+                        phone,
+                    )
+                    continue
+                if contact.user_id is None:
+                    contact.user = user
+                    contact.save(update_fields=["user", "updated_at"])
+                send_ws_template_to_member(
+                    actor_user_id=user.id,
+                    organization_id=invite.organization_id,
+                    agent_id=ws_number.agent_id,
+                    sender_id=ws_number.id,
+                    ws_contact_id=contact.id,
+                    template_id=template_id,
+                    template_variables={
+                        "body": [person_name, org_name, agent_name, help_text]
+                    },
+                    source_conversation_id=None,
+                )
+            except Exception:
+                logger.exception(
+                    "send_invite_welcome_whatsapp failed invite=%s line=%s phone=%s",
+                    invite_id,
+                    ws_number.id,
+                    phone,
+                )

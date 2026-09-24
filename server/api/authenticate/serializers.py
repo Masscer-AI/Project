@@ -125,6 +125,61 @@ class OrganizationInviteCreateSerializer(serializers.Serializer):
     bio = serializers.CharField(required=False, allow_blank=True, default="")
     expires_at = serializers.DateTimeField(required=False, allow_null=True)
     role_id = serializers.UUIDField(required=False, allow_null=True)
+    send_welcome_message = serializers.BooleanField(required=False, default=False)
+    welcome_phones = serializers.ListField(
+        child=serializers.CharField(allow_blank=True),
+        required=False,
+        allow_empty=True,
+        default=list,
+    )
+    welcome_line_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        required=False,
+        allow_empty=True,
+        default=list,
+    )
+    welcome_help_text = serializers.CharField(required=False, allow_blank=True, default="")
+    welcome_language = serializers.CharField(required=False, allow_blank=True, default="en")
+
+    def validate(self, attrs):
+        from api.authenticate.invite_welcome import (
+            normalize_welcome_language,
+            normalize_welcome_phones,
+        )
+
+        send = bool(attrs.get("send_welcome_message"))
+        language = normalize_welcome_language(attrs.get("welcome_language") or "en")
+        if not send:
+            attrs["send_welcome_message"] = False
+            attrs["welcome_phones"] = []
+            attrs["welcome_line_ids"] = []
+            attrs["welcome_help_text"] = ""
+            attrs["welcome_language"] = language
+            return attrs
+
+        phones = normalize_welcome_phones(attrs.get("welcome_phones"))
+        if not phones:
+            raise ValidationError({"welcome_phones": "At least one phone is required"})
+        line_ids = []
+        seen = set()
+        for pk in attrs.get("welcome_line_ids") or []:
+            if pk in seen:
+                continue
+            seen.add(pk)
+            line_ids.append(pk)
+        if not line_ids:
+            raise ValidationError(
+                {"welcome_line_ids": "At least one WhatsApp line is required"}
+            )
+        help_text = (attrs.get("welcome_help_text") or "").strip()
+        if not help_text:
+            raise ValidationError({"welcome_help_text": "This field is required"})
+        attrs["send_welcome_message"] = True
+        attrs["welcome_phones"] = phones
+        attrs["welcome_line_ids"] = line_ids
+        attrs["welcome_help_text"] = help_text
+        attrs["welcome_language"] = language
+        return attrs
 
 
 class OrganizationInviteReadSerializer(serializers.ModelSerializer):
@@ -146,6 +201,11 @@ class OrganizationInviteReadSerializer(serializers.ModelSerializer):
             "invite_expires_at",
             "created_at",
             "accepted_at",
+            "send_welcome_message",
+            "welcome_phones",
+            "welcome_line_ids",
+            "welcome_help_text",
+            "welcome_language",
         ]
 
     def get_role_name(self, obj):

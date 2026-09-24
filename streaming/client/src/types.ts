@@ -350,6 +350,11 @@ export type TOrganizationInvite = {
   invite_expires_at: string;
   created_at: string;
   accepted_at: string | null;
+  send_welcome_message?: boolean;
+  welcome_phones?: string[];
+  welcome_line_ids?: number[];
+  welcome_help_text?: string;
+  welcome_language?: string;
 };
 
 export type TOrganizationRole = {

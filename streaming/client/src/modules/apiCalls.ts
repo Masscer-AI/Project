@@ -1932,6 +1932,11 @@ export const createOrganizationInvite = async (
     bio?: string;
     expires_at?: string | null;
     role_id?: string | null;
+    send_welcome_message?: boolean;
+    welcome_phones?: string[];
+    welcome_line_ids?: number[];
+    welcome_help_text?: string;
+    welcome_language?: string;
   }
 ) => {
   return makeAuthenticatedRequest<{ message: string; invite: TOrganizationInvite }>(

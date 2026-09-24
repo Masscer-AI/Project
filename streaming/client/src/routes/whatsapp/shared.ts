@@ -34,6 +34,7 @@ export type WhatsappLine = {
   agent: { name: string; slug: string };
   conversations_count: number;
   name: string | null;
+  platform_id?: string | null;
   verified?: boolean;
   organization?: number | string | null;
   capabilities?: { name?: string; type?: string; enabled?: boolean }[] | null;

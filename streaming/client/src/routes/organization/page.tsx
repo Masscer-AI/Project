@@ -27,6 +27,7 @@ import {
   removeRoleAssignment,
   updateOrganizationTenant,
   revokeOrganizationInvite,
+  getWhatsappNumbers,
   TOrganizationData,
   updateOrganization,
   updateOrganizationMemberProfile,
@@ -66,6 +67,7 @@ import {
   Loader,
   Modal,
   NativeSelect,
+  MultiSelect,
   Select,
   Stack,
   Switch,
@@ -104,6 +106,7 @@ import {
   applyTenantBranding,
   resolveTenantBranding,
 } from "../../utils/tenantTheme";
+import type { WhatsappLine } from "../whatsapp/shared";
 
 const CREDIT_PACKAGES = [
   { amountUsd: 50, creditsUsd: 40 },
@@ -137,6 +140,10 @@ const EMPTY_INVITE_FORM = {
   bio: "",
   expires_at: "",
   role_id: "",
+  send_welcome_message: false,
+  welcome_phones: [""],
+  welcome_line_ids: [] as string[],
+  welcome_help_text: "",
 };
 
 export default function OrganizationPage() {
@@ -145,7 +152,7 @@ export default function OrganizationPage() {
     toggleSidebar: s.toggleSidebar,
     setTenantBranding: s.setTenantBranding,
   }));
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const organizationTab = parseOrganizationActiveTab(searchParams);
 
@@ -391,6 +398,7 @@ export default function OrganizationPage() {
   const [createMemberOpened, setCreateMemberOpened] = useState(false);
   const [createMemberForm, setCreateMemberForm] = useState(EMPTY_INVITE_FORM);
   const [createMemberLoading, setCreateMemberLoading] = useState(false);
+  const [welcomeLines, setWelcomeLines] = useState<WhatsappLine[]>([]);
   const [invites, setInvites] = useState<TOrganizationInvite[]>([]);
   const [loadingInvites, setLoadingInvites] = useState(false);
 
@@ -452,6 +460,29 @@ export default function OrganizationPage() {
       setLogoCacheKey(Date.now());
     }
   }, [org?.id]);
+
+  useEffect(() => {
+    if (!createMemberOpened || !org?.id) return;
+    let cancelled = false;
+    getWhatsappNumbers()
+      .then((rows) => {
+        if (cancelled) return;
+        const list = Array.isArray(rows) ? (rows as WhatsappLine[]) : [];
+        setWelcomeLines(
+          list.filter(
+            (line) =>
+              Boolean(line.platform_id) &&
+              String(line.organization) === String(org.id)
+          )
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setWelcomeLines([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [createMemberOpened, org?.id]);
 
   useEffect(() => {
     if (!org?.id) {
@@ -754,20 +785,55 @@ export default function OrganizationPage() {
 
   const handleCreateMember = async () => {
     if (!org?.id) return;
-    const { email, name, bio, expires_at, role_id } = createMemberForm;
+    const {
+      email,
+      name,
+      bio,
+      expires_at,
+      role_id,
+      send_welcome_message,
+      welcome_phones,
+      welcome_line_ids,
+      welcome_help_text,
+    } = createMemberForm;
     if (!email.trim()) {
       toast.error(t("email-required-hint"));
       return;
     }
+    const phones = welcome_phones.map((p) => p.trim()).filter(Boolean);
+    if (send_welcome_message) {
+      if (!phones.length) {
+        toast.error(t("welcome-phone-required"));
+        return;
+      }
+      if (!welcome_line_ids.length) {
+        toast.error(t("welcome-line-required"));
+        return;
+      }
+      if (!welcome_help_text.trim()) {
+        toast.error(t("welcome-help-required"));
+        return;
+      }
+    }
     setCreateMemberLoading(true);
     const tid = toast.loading(t("loading"));
     try {
+      const welcomeLanguage = (i18n.language || "en").toLowerCase().startsWith("es")
+        ? "es"
+        : "en";
       await createOrganizationInvite(org.id, {
         email: email.trim(),
         name: name.trim() || undefined,
         bio: bio.trim() || undefined,
         expires_at: expires_at ? new Date(expires_at).toISOString() : null,
         role_id: role_id.trim() || null,
+        send_welcome_message,
+        welcome_phones: send_welcome_message ? phones : [],
+        welcome_line_ids: send_welcome_message
+          ? welcome_line_ids.map((id) => Number(id))
+          : [],
+        welcome_help_text: send_welcome_message ? welcome_help_text.trim() : "",
+        welcome_language: welcomeLanguage,
       });
       setCreateMemberOpened(false);
       setCreateMemberForm(EMPTY_INVITE_FORM);
@@ -2117,6 +2183,102 @@ export default function OrganizationPage() {
             onChange={(e) => setCreateMemberForm({ ...createMemberForm, expires_at: e.currentTarget.value })}
             description={t("expires-at-description")}
           />
+          {welcomeLines.length > 0 && (
+            <Checkbox
+              label={t("send-welcome-message")}
+              description={t("send-welcome-message-hint")}
+              checked={createMemberForm.send_welcome_message}
+              onChange={(e) => {
+                const checked = e.currentTarget.checked;
+                setCreateMemberForm((prev) => ({
+                  ...prev,
+                  send_welcome_message: checked,
+                }));
+              }}
+            />
+          )}
+          {welcomeLines.length > 0 && createMemberForm.send_welcome_message && (
+            <Stack gap="sm">
+              <Stack gap="xs">
+                {createMemberForm.welcome_phones.map((phone, index) => (
+                  <Group key={index} gap="xs" wrap="nowrap" align="flex-end">
+                    <TextInput
+                      label={index === 0 ? t("welcome-phones") : undefined}
+                      placeholder={t("welcome-phone")}
+                      value={phone}
+                      style={{ flex: 1 }}
+                      onChange={(e) => {
+                        const val = e.currentTarget.value;
+                        setCreateMemberForm((prev) => {
+                          const next = [...prev.welcome_phones];
+                          next[index] = val;
+                          return { ...prev, welcome_phones: next };
+                        });
+                      }}
+                    />
+                    {createMemberForm.welcome_phones.length > 1 && (
+                      <ActionIcon
+                        variant="subtle"
+                        color="gray"
+                        onClick={() =>
+                          setCreateMemberForm((prev) => ({
+                            ...prev,
+                            welcome_phones: prev.welcome_phones.filter(
+                              (_, i) => i !== index
+                            ),
+                          }))
+                        }
+                      >
+                        <IconTrash size={16} />
+                      </ActionIcon>
+                    )}
+                  </Group>
+                ))}
+                <Button
+                  variant="subtle"
+                  color="gray"
+                  size="xs"
+                  leftSection={<IconPlus size={14} />}
+                  onClick={() =>
+                    setCreateMemberForm((prev) => ({
+                      ...prev,
+                      welcome_phones: [...prev.welcome_phones, ""],
+                    }))
+                  }
+                >
+                  {t("add-welcome-phone")}
+                </Button>
+              </Stack>
+              <MultiSelect
+                label={t("welcome-lines")}
+                data={welcomeLines.map((line) => ({
+                  value: String(line.id),
+                  label: `${line.name || line.number} · ${line.agent?.name || ""}`,
+                }))}
+                value={createMemberForm.welcome_line_ids}
+                onChange={(value) =>
+                  setCreateMemberForm((prev) => ({
+                    ...prev,
+                    welcome_line_ids: value,
+                  }))
+                }
+              />
+              <Textarea
+                label={t("welcome-help-text")}
+                description={t("welcome-help-text-hint")}
+                value={createMemberForm.welcome_help_text}
+                onChange={(e) => {
+                  const val = e.currentTarget.value;
+                  setCreateMemberForm((prev) => ({
+                    ...prev,
+                    welcome_help_text: val,
+                  }));
+                }}
+                autosize
+                minRows={2}
+              />
+            </Stack>
+          )}
           <Text size="xs" c="dimmed">
             {t("invite-member-email-hint")}
           </Text>

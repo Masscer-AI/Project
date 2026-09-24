@@ -629,6 +629,11 @@ class OrganizationInvite(models.Model):
         blank=True,
         related_name="accepted_organization_invites",
     )
+    send_welcome_message = models.BooleanField(default=False)
+    welcome_phones = models.JSONField(default=list, blank=True)
+    welcome_line_ids = models.JSONField(default=list, blank=True)
+    welcome_help_text = models.TextField(blank=True, default="")
+    welcome_language = models.CharField(max_length=8, blank=True, default="en")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
