@@ -131,14 +131,14 @@ export const Sidebar: React.FC = () => {
       <div className="backdrop-blur-md fixed md:relative left-0 top-0 h-screen z-[50] md:z-[3] flex flex-col w-[min(350px,100%)] max-w-full shrink-0 min-w-0 p-3 gap-2.5 animate-[appear-left_500ms_forwards] md:[animation:none]" style={{ background: "var(--semi-transparent)", borderRight: "1px solid var(--hovered-color)" }}>
         <Group gap="xs">
           {canUseChat && (
-            <Button
-              variant="default"
+            <NavButton
+              to="/chat"
               leftSection={<IconPlus size={20} />}
-              onClick={handleNewChat}
               className="flex-1"
+              fullWidth={false}
             >
               {t("new-chat")}
-            </Button>
+            </NavButton>
           )}
           <ActionIcon
             variant="default"
@@ -152,151 +152,109 @@ export const Sidebar: React.FC = () => {
 
         <div className="[scrollbar-width:none] overflow-auto p-0.5 flex flex-col gap-2.5 flex-1">
           {canUseChat && (
-            <Button
-              variant="default"
+            <NavButton
+              to="/conversations"
               size="sm"
               leftSection={<IconMessage size={20} />}
-              onClick={() => goTo("/conversations")}
-              fullWidth
-              styles={{
-                root: {
-                  backgroundColor: navActive("/conversations")
-                    ? "rgba(255,255,255,0.08)"
-                    : undefined,
-                },
-              }}
+              active={navActive("/conversations")}
             >
               {t("conversations")}
-            </Button>
+            </NavButton>
           )}
           {!canUseChat && hasOrganization === false && (
-            <Button
-              variant="default"
+            <NavButton
+              to="/pld/expediente"
               size="sm"
               leftSection={<IconScale size={20} />}
-              onClick={() => goTo("/pld/expediente")}
-              fullWidth
-              styles={{
-                root: {
-                  backgroundColor: navActive("/pld")
-                    ? "rgba(255,255,255,0.08)"
-                    : undefined,
-                },
-              }}
+              active={navActive("/pld")}
             >
               {t("compliance-my-expediente-title")}
-            </Button>
+            </NavButton>
           )}
           {hasOrgComplianceAccess && hasPldAccess && (
-            <Button
-              variant="default"
+            <NavButton
+              to="/compliance"
               size="sm"
               leftSection={<IconScale size={20} />}
-              onClick={() => goTo("/compliance")}
-              fullWidth
-              styles={{
-                root: {
-                  backgroundColor: navActive("/compliance")
-                    ? "rgba(255,255,255,0.08)"
-                    : undefined,
-                },
-              }}
+              active={navActive("/compliance")}
             >
               {t("compliance-nav")}
-            </Button>
+            </NavButton>
           )}
 
           <Stack gap="xs">
               {canUseChat && (
-                <Button
-                  variant="default"
+                <NavButton
+                  to="/scheduled-tasks"
                   leftSection={<IconCalendarTime size={20} />}
-                  onClick={() => goTo("/scheduled-tasks")}
-                  fullWidth
                 >
                   {t("scheduled-tasks-title")}
-                </Button>
+                </NavButton>
               )}
               {canUseChat && (
-                <Button
-                  variant="default"
+                <NavButton
+                  to="/gallery"
                   leftSection={<IconPhoto size={20} />}
-                  onClick={() => goTo("/gallery")}
-                  fullWidth
                 >
                   {t("gallery-title")}
-                </Button>
+                </NavButton>
               )}
               {isAudioToolsEnabled && (
-                <Button
-                  variant="default"
+                <NavButton
+                  to="/generation-tools"
                   leftSection={<IconWaveSine size={20} />}
-                  onClick={() => goTo("/generation-tools")}
-                  fullWidth
                 >
                   {t("audio-tools")}
-                </Button>
+                </NavButton>
               )}
               {isWhatsappNumbersManagementEnabled && (
-                <Button
-                  variant="default"
+                <NavButton
+                  to="/whatsapp"
                   leftSection={<IconBrandWhatsapp size={20} />}
-                  onClick={() => goTo("/whatsapp")}
-                  fullWidth
                 >
                   {t("whatsapp")}
-                </Button>
+                </NavButton>
               )}
               {isTrainAgentsEnabled && (
-                <Button
-                  variant="default"
+                <NavButton
+                  to="/knowledge-base"
                   leftSection={<IconDatabase size={20} />}
-                  onClick={() => goTo("/knowledge-base")}
-                  fullWidth
                 >
                   {t("knowledge-base")}
-                </Button>
+                </NavButton>
               )}
               {isChatWidgetsEnabled && (
-                <Button
-                  variant="default"
+                <NavButton
+                  to="/chat-widgets"
                   leftSection={<IconPuzzle size={20} />}
-                  onClick={() => goTo("/chat-widgets")}
-                  fullWidth
                 >
                   {t("chat-widgets")}
-                </Button>
+                </NavButton>
               )}
               {isIntegrationsEnabled && (
-                <Button
-                  variant="default"
+                <NavButton
+                  to="/integrations"
                   leftSection={<IconPlugConnected size={20} />}
-                  onClick={() => goTo("/integrations")}
-                  fullWidth
                 >
                   {t("integrations-title")}
-                </Button>
+                </NavButton>
               )}
               {canManageOrg && (
-                <Button
-                  variant="default"
+                <NavButton
+                  to="/organization"
                   leftSection={<IconBuilding size={20} />}
-                  onClick={() => goTo("/organization")}
-                  fullWidth
                 >
                   {t("manage-organization")}
-                </Button>
+                </NavButton>
               )}
               {canUseChat && isConversationsDashboardEnabled && (
                 <Box pos="relative">
-                  <Button
-                    variant="default"
+                  <NavButton
+                    to="/dashboard"
                     leftSection={<IconLayoutDashboard size={20} />}
-                    onClick={() => goTo("/dashboard")}
-                    fullWidth
                   >
                     {t("conversations-dashboard")}
-                  </Button>
+                  </NavButton>
                   {unreadNotificationCount > 0 && (
                     <Badge
                       color="red"
@@ -319,17 +277,20 @@ export const Sidebar: React.FC = () => {
         </div>
 
         <Group gap="xs" className="mt-auto">
-          <Button
-            variant="default"
-            leftSection={
-              canEditPreferences ? <IconSettings size={20} /> : undefined
-            }
-            onClick={canEditPreferences ? openSettings : undefined}
-            disabled={!canEditPreferences}
-            className="flex-1"
-          >
-            {user ? user.username : t("you")}
-          </Button>
+          {canEditPreferences ? (
+            <NavButton
+              to="/settings"
+              leftSection={<IconSettings size={20} />}
+              className="flex-1"
+              fullWidth={false}
+            >
+              {user ? user.username : t("you")}
+            </NavButton>
+          ) : (
+            <Button variant="default" disabled className="flex-1">
+              {user ? user.username : t("you")}
+            </Button>
+          )}
           <ActionIcon
             variant="default"
             size="lg"

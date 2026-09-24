@@ -1113,6 +1113,39 @@ export const getTag = async (tagId: number) => {
   );
 };
 
+export type TTagContentConversation = {
+  conversation_id: string;
+  title: string;
+  summary: string;
+  n_messages: number;
+  date: string;
+};
+
+export type TTagContentDocument = {
+  id: number;
+  name: string;
+  brief: string;
+};
+
+export type TTagContentGalleryItem = {
+  attachment_id: string;
+  kind: string;
+  name: string | null;
+};
+
+export type TTagContent = {
+  conversations: TTagContentConversation[];
+  documents: TTagContentDocument[];
+  gallery: TTagContentGalleryItem[];
+};
+
+export const getTagContent = async (tagId: number) => {
+  return makeAuthenticatedRequest<TTagContent>(
+    "GET",
+    `/v1/messaging/tags/${tagId}/?content=1`
+  );
+};
+
 export const createTag = async (data: {
   title: string;
   description?: string;

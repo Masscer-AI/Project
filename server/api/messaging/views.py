@@ -2155,13 +2155,15 @@ class TagView(View):
                     id=tag_id,
                     organization=organization
                 )
-                serializer = TagSerializer(tag)
-                return JsonResponse(serializer.data, safe=False)
             except Tag.DoesNotExist:
                 return JsonResponse(
                     {"message": "Tag not found", "status": 404}, 
                     status=404
                 )
+            if request.GET.get("content"):
+                return self._content_payload(request.user, organization, int(tag_id))
+            serializer = TagSerializer(tag)
+            return JsonResponse(serializer.data, safe=False)
         else:
             tags = Tag.objects.filter(
                 organization=organization
@@ -2268,6 +2270,73 @@ class TagView(View):
                 {"message": "Tag not found", "status": 404}, 
                 status=404
             )
+
+    def _content_payload(self, user, organization, tag_id: int):
+        from api.ai_layers.tools.get_tag_context import (
+            _annotated_tag_qs,
+            _rows_to_items,
+            _tagged_documents,
+            _tagged_gallery,
+        )
+        from api.messaging.conversation_access import user_accessible_conversations_q
+
+        has_org_access, _ = FeatureFlagService.is_feature_enabled(
+            "conversations-dashboard",
+            organization=organization,
+            user=user,
+        )
+        if has_org_access:
+            conv_base = Conversation.objects.filter(
+                organization_conversations_q(organization.id)
+            )
+        else:
+            conv_base = Conversation.objects.filter(
+                user_accessible_conversations_q(
+                    user_id=user.id,
+                    organization_id=organization.id,
+                    has_organization_conversations_access=False,
+                )
+            )
+        conversations = _rows_to_items(
+            _annotated_tag_qs(
+                base=conv_base,
+                tag_id=int(tag_id),
+                current_conversation_id=uuid.UUID(int=0),
+            )
+        )
+        documents = _tagged_documents(user=user, tag_id=int(tag_id))
+        gallery = _tagged_gallery(
+            user=user,
+            tag_id=int(tag_id),
+            skip_document_ids={d.id for d in documents},
+        )
+        return JsonResponse(
+            {
+                "conversations": [c.model_dump() for c in conversations],
+                "documents": [d.model_dump() for d in documents],
+                "gallery": [g.model_dump() for g in gallery],
+            }
+        )
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class TagContentView(TagView):
+    def get(self, request, *args, **kwargs):
+        user = request.user
+        tag_id = kwargs.get("id")
+        organization = self._get_user_organization(user)
+        self._check_permission(user, organization)
+        if not tag_id:
+            return JsonResponse(
+                {"message": "Tag ID is required", "status": 400},
+                status=400,
+            )
+        if not Tag.objects.filter(id=tag_id, organization=organization).exists():
+            return JsonResponse(
+                {"message": "Tag not found", "status": 404},
+                status=404,
+            )
+        return self._content_payload(user, organization, int(tag_id))
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")

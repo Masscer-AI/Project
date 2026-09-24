@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   Badge,
@@ -32,7 +32,6 @@ function formatDate(iso: string, locale: string): string {
 
 export default function ConversationsPage() {
   const { t, i18n } = useTranslation();
-  const navigate = useNavigate();
   const chatState = useStore((s) => s.chatState);
   const [history, setHistory] = useState<TConversation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -125,7 +124,8 @@ export default function ConversationsPage() {
     return (
       <UnstyledButton
         key={conversation.id}
-        onClick={() => navigate(`/chat?conversation=${conversation.id}`)}
+        component={Link}
+        to={`/chat?conversation=${conversation.id}`}
         w="100%"
       >
         <Card withBorder padding="md" radius="md">

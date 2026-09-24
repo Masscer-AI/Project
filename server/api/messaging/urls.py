@@ -25,6 +25,7 @@ from .views import (
     ConversationAlertStatsView,
     ConversationAlertRuleView,
     TagView,
+    TagContentView,
     ConversationScheduledTasksView,
     ScheduledConversationTaskDetailView,
     UserScheduledTasksView,
@@ -143,5 +144,6 @@ urlpatterns = [
     path("alert-rules/", ConversationAlertRuleView.as_view(), name="alert_rule_list"),
     path("alert-rules/<uuid:id>/", ConversationAlertRuleView.as_view(), name="alert_rule_detail"),
     path("tags/", TagView.as_view(), name="tag_list"),
+    path("tags/<int:id>/content/", TagContentView.as_view(), name="tag_content"),
     path("tags/<int:id>/", TagView.as_view(), name="tag_detail"),
 ]

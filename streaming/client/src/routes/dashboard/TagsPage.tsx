@@ -6,6 +6,8 @@ import {
   updateTag,
   deleteTag,
   getUser,
+  getTagContent,
+  TTagContent,
 } from "../../modules/apiCalls";
 import { TTag } from "../../types";
 import { TUserData } from "../../types/chatTypes";
@@ -31,6 +33,8 @@ import {
   Title,
 } from "@mantine/core";
 import { IconPlus } from "@tabler/icons-react";
+import { Link } from "react-router-dom";
+import { useDisclosure } from "@mantine/hooks";
 
 export default function TagsPage() {
   const { startup, setUser } = useStore((state) => ({
@@ -42,6 +46,11 @@ export default function TagsPage() {
   const [tags, setTags] = useState<TTag[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [contentOpened, { open: openContent, close: closeContent }] =
+    useDisclosure(false);
+  const [contentTag, setContentTag] = useState<TTag | null>(null);
+  const [content, setContent] = useState<TTagContent | null>(null);
+  const [contentLoading, setContentLoading] = useState(false);
   const [editingTag, setEditingTag] = useState<TTag | null>(null);
   const [formData, setFormData] = useState({
     title: "",
@@ -78,6 +87,22 @@ export default function TagsPage() {
       console.error("Error loading tags:", error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleViewContent = async (tag: TTag) => {
+    setContentTag(tag);
+    setContent(null);
+    setContentLoading(true);
+    openContent();
+    try {
+      const data = await getTagContent(tag.id);
+      setContent(data);
+    } catch (error) {
+      console.error("Error loading tag content:", error);
+      setContent({ conversations: [], documents: [], gallery: [] });
+    } finally {
+      setContentLoading(false);
     }
   };
 
@@ -194,6 +219,7 @@ export default function TagsPage() {
                 tag={tag}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
+                onViewContent={handleViewContent}
                 t={t}
               />
             ))}
@@ -271,6 +297,93 @@ export default function TagsPage() {
           </Group>
         </Stack>
       </Modal>
+
+      <Modal
+        opened={contentOpened}
+        onClose={closeContent}
+        title={contentTag?.title || t("tag-associated-content")}
+        size="lg"
+        centered
+      >
+        {contentLoading ? (
+          <Group justify="center" py="xl">
+            <Loader />
+          </Group>
+        ) : content &&
+          content.conversations.length === 0 &&
+          content.documents.length === 0 &&
+          content.gallery.length === 0 ? (
+          <Text c="dimmed" ta="center" py="md">
+            {t("tag-associated-empty")}
+          </Text>
+        ) : (
+          <Stack gap="lg">
+            <Stack gap="xs">
+              <Text fw={600}>{t("tag-associated-conversations")}</Text>
+              {content?.conversations.length ? (
+                content.conversations.map((c) => (
+                  <Button
+                    key={c.conversation_id}
+                    component={Link}
+                    to={`/chat?conversation=${c.conversation_id}`}
+                    variant="subtle"
+                    justify="flex-start"
+                    fullWidth
+                  >
+                    {c.title || c.conversation_id}
+                  </Button>
+                ))
+              ) : (
+                <Text size="sm" c="dimmed">
+                  {t("tag-associated-empty")}
+                </Text>
+              )}
+            </Stack>
+            <Stack gap="xs">
+              <Text fw={600}>{t("tag-associated-documents")}</Text>
+              {content?.documents.length ? (
+                content.documents.map((d) => (
+                  <Button
+                    key={d.id}
+                    component={Link}
+                    to={`/knowledge-base?activeTab=documents&document=${d.id}`}
+                    variant="subtle"
+                    justify="flex-start"
+                    fullWidth
+                  >
+                    {d.name || String(d.id)}
+                  </Button>
+                ))
+              ) : (
+                <Text size="sm" c="dimmed">
+                  {t("tag-associated-empty")}
+                </Text>
+              )}
+            </Stack>
+            <Stack gap="xs">
+              <Text fw={600}>{t("tag-associated-gallery")}</Text>
+              {content?.gallery.length ? (
+                content.gallery.map((g) => (
+                  <Button
+                    key={g.attachment_id}
+                    component={Link}
+                    to="/gallery"
+                    variant="subtle"
+                    justify="flex-start"
+                    fullWidth
+                  >
+                    {g.name || g.kind || g.attachment_id}
+                  </Button>
+                ))
+              ) : (
+                <Text size="sm" c="dimmed">
+                  {t("tag-associated-empty")}
+                </Text>
+              )}
+            </Stack>
+          </Stack>
+        )}
+      </Modal>
     </DashboardLayout>
   );
 }
@@ -279,11 +392,13 @@ function TagCard({
   tag,
   onEdit,
   onDelete,
+  onViewContent,
   t,
 }: {
   tag: TTag;
   onEdit: (tag: TTag) => void;
   onDelete: (tagId: number) => void;
+  onViewContent: (tag: TTag) => void;
   t: any;
 }) {
   return (
@@ -310,6 +425,9 @@ function TagCard({
         <Divider />
 
         <Group gap="xs">
+          <Button variant="default" size="xs" onClick={() => onViewContent(tag)}>
+            {t("view-tag-content")}
+          </Button>
           <Button variant="default" size="xs" onClick={() => onEdit(tag)}>
             {t("edit") || "Edit"}
           </Button>
