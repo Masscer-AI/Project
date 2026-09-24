@@ -1,11 +1,14 @@
 import { ReactNode } from "react";
+import { Title } from "@mantine/core";
 import { OpenSidebarButton } from "../OpenSidebarButton/OpenSidebarButton";
 
 export function AppHeader({
+  title,
   children,
   right,
   flush = false,
 }: {
+  title?: ReactNode;
   children?: ReactNode;
   right?: ReactNode;
   flush?: boolean;
@@ -19,9 +22,14 @@ export function AppHeader({
         marginBottom: flush ? 0 : 16,
       }}
     >
-      <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
+      <div className="flex items-center gap-3 min-w-0 flex-1">
         <OpenSidebarButton flush />
         {children}
+        {title != null && title !== "" && (
+          <Title order={4} lineClamp={1} style={{ margin: 0 }}>
+            {title}
+          </Title>
+        )}
       </div>
       {right}
     </div>

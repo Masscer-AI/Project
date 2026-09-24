@@ -846,7 +846,7 @@ export default function OrganizationPage() {
             flexDirection: "column",
           }}
         >
-          <AppHeader />
+          <AppHeader title={t("organization")} />
           <Stack align="center" justify="center" pt="xl">
             <Loader color="violet" />
           </Stack>
@@ -870,13 +870,9 @@ export default function OrganizationPage() {
         }}
         className="relative"
       >
-        <AppHeader />
+        <AppHeader title={org ? t("manage-organization") : t("organization")} />
 
         <Box px="md" w="100%" maw="42rem" mx="auto">
-          <Title order={2} ta="center" mb="lg" mt="md">
-            {org ? t("manage-organization") : t("organization")}
-          </Title>
-
           {!org ? (
             <Card withBorder p="xl">
               {!showCreateForm ? (

@@ -18,7 +18,6 @@ import {
   Switch,
   Text,
   ThemeIcon,
-  Title,
   Tooltip,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
@@ -208,7 +207,7 @@ export default function ScheduledTasksPage() {
         }}
         className="relative"
       >
-        <AppHeader />
+        <AppHeader title={t("scheduled-tasks-title")} />
 
         <Stack maw="56rem" w="100%" gap="lg" mt={48}>
           <Group justify="space-between" align="flex-start" wrap="wrap" gap="md">
@@ -223,7 +222,6 @@ export default function ScheduledTasksPage() {
                 <IconCalendarTime size={24} />
               </ThemeIcon>
               <Stack gap={4}>
-                <Title order={2}>{t("scheduled-tasks-title")}</Title>
                 <Text size="sm" c="dimmed">
                   {t("scheduled-tasks-page-description")}
                 </Text>

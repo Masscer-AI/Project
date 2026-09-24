@@ -1,6 +1,6 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
-import { ActionIcon, Box, Stack, Text, Title } from "@mantine/core";
+import { Box, Stack, Text } from "@mantine/core";
 import { IconMenu2 } from "@tabler/icons-react";
 import { Sidebar } from "../../components/Sidebar/Sidebar";
 import { useStore } from "../../modules/store";
@@ -28,12 +28,9 @@ export default function NoRolePage() {
         }}
         className="relative"
       >
-        <AppHeader />
+        <AppHeader title={t("no-role-page-title")} />
         <Box px="md" w="100%" maw="32rem" mx="auto">
           <Stack align="center" gap="sm" mt="xl" pt="xl">
-            <Title order={2} ta="center">
-              {t("no-role-page-title")}
-            </Title>
             <Text ta="center" c="dimmed" size="sm">
               {t("no-role-page-description")}
             </Text>

@@ -30,7 +30,6 @@ import {
   Tabs,
   Text,
   TextInput,
-  Title,
 } from "@mantine/core";
 import {
   IconArrowLeft,
@@ -134,7 +133,7 @@ export default function WhatsappLineDetail() {
         }}
         className="relative"
       >
-        <AppHeader />
+        <AppHeader title={title} />
 
         <Box px="md" w="100%" maw="42rem" mx="auto">
           <Group gap="sm" mb="md" mt="md">
@@ -147,9 +146,6 @@ export default function WhatsappLineDetail() {
               <IconArrowLeft size={20} />
             </ActionIcon>
             <Stack gap={0} style={{ flex: 1, minWidth: 0 }}>
-              <Title order={2} lineClamp={1}>
-                {title}
-              </Title>
               {line ? (
                 <Text size="sm" c="dimmed">
                   {line.number}

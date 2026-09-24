@@ -9,7 +9,6 @@ import {
   Stack,
   Tabs,
   Text,
-  Title,
 } from "@mantine/core";
 import {
   IconBrandGoogleDrive,
@@ -88,11 +87,10 @@ export default function IntegrationsPage() {
         }}
         className="relative"
       >
-        <AppHeader />
+        <AppHeader title={t("integrations-title")} />
 
         <Stack maw="52rem" w="100%" gap="lg" mt={48}>
           <Stack gap={4}>
-            <Title order={2}>{t("integrations-title")}</Title>
             <Text size="sm" c="dimmed">
               {t("integrations-hub-description")}
             </Text>

@@ -354,12 +354,9 @@ export default function KnowledgeBasePage() {
         }}
         className="relative"
       >
-        <AppHeader />
+        <AppHeader title={t("knowledge-base")} />
 
         <Box px="md" w="100%" maw="52rem" mx="auto">
-          <Title order={2} ta="center" mb="xs" mt="md">
-            {t("knowledge-base")}
-          </Title>
           <Text ta="center" c="dimmed" mb="lg" size="sm">
             {t("knowledge-base-description")}
           </Text>

@@ -90,13 +90,9 @@ export default function SettingsPage() {
         }}
         className="relative"
       >
-        <AppHeader />
+        <AppHeader title={t("settings")} />
 
         <Box px="md" w="100%" maw="42rem" mx="auto">
-          <Title order={2} ta="center" mb="lg" mt="md">
-            {t("settings")}
-          </Title>
-
           <Stack gap="lg">
             <UserSection />
             <Divider />

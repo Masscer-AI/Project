@@ -472,16 +472,10 @@ export default function Whatsapp() {
         }}
         className="relative"
       >
-        <AppHeader />
+        <AppHeader title={t("whatsapp")} />
 
         <Box px="md" w="100%" maw="48rem" mx="auto">
-          <Group gap="sm" justify="center" mb="sm" mt="md">
-            <ThemeIcon size={40} radius="md" variant="light" color="teal">
-              <IconBrandWhatsapp size={24} />
-            </ThemeIcon>
-            <Title order={2}>{t("whatsapp")}</Title>
-          </Group>
-          <Text ta="center" mb="xs">
+          <Text ta="center" mb="xs" mt="md">
             {t("whatsapp-intro")}
           </Text>
           <Text ta="center" size="sm" c="dimmed" mb="xl">

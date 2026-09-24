@@ -2359,9 +2359,17 @@ export type TPldEntity = {
 };
 
 export const listPldEntities = async () => {
-  return makeAuthenticatedRequest<{ results: TPldEntity[] }>(
-    "GET",
-    "/v1/compliance/entities/"
+  return makeAuthenticatedRequest<{
+    results: TPldEntity[];
+    org_process_ready?: boolean;
+  }>("GET", "/v1/compliance/entities/");
+};
+
+export const startPldProcess = async () => {
+  return makeAuthenticatedRequest<TMyPldExpedient>(
+    "POST",
+    "/v1/compliance/start-process/",
+    {}
   );
 };
 

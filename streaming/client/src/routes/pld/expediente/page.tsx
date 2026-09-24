@@ -150,12 +150,9 @@ export default function MyPldExpedientePage() {
         }}
         className="relative"
       >
-        <AppHeader />
+        <AppHeader title={t("compliance-my-expediente-title")} />
         <Box px="md" w="100%" maw="52rem" mx="auto">
-          <Title order={2} ta="center" mb="xs" mt="md">
-            {t("compliance-my-expediente-title")}
-          </Title>
-          <Text ta="center" c="dimmed" mb="lg" size="sm">
+          <Text ta="center" c="dimmed" mb="lg" size="sm" mt="md">
             {t("compliance-my-expediente-description")}
           </Text>
           {loading ? (

@@ -738,6 +738,63 @@ class PLDEntityAPITests(TestCase):
         self.assertEqual(incomplete.status_code, 200)
         self.assertFalse(incomplete.json()["found"])
 
+    def test_start_process_waits_until_counterparties_are_delivered(self):
+        from api.compliance.models import PLDExpedient, PLDExpedientStatus
+
+        blocked = self.client.post(
+            "/v1/compliance/start-process/",
+            {},
+            format="json",
+            HTTP_AUTHORIZATION=f"Token {self.owner_token.key}",
+        )
+        self.assertEqual(blocked.status_code, 409)
+
+        created = self.client.post(
+            "/v1/compliance/entities/",
+            {
+                "person_type": "persona_moral",
+                "relationship": "cliente",
+                "email": "acme@example.com",
+                "metadata": {"legal_name": "ACME SA"},
+            },
+            format="json",
+            HTTP_AUTHORIZATION=f"Token {self.owner_token.key}",
+        )
+        self.assertEqual(created.status_code, 201)
+        listed = self.client.get(
+            "/v1/compliance/entities/",
+            HTTP_AUTHORIZATION=f"Token {self.owner_token.key}",
+        )
+        self.assertFalse(listed.json()["org_process_ready"])
+
+        still_blocked = self.client.post(
+            "/v1/compliance/start-process/",
+            {},
+            format="json",
+            HTTP_AUTHORIZATION=f"Token {self.owner_token.key}",
+        )
+        self.assertEqual(still_blocked.status_code, 409)
+
+        expedient = PLDExpedient.objects.get(entity_id=created.json()["id"])
+        expedient.status = PLDExpedientStatus.DELIVERED
+        expedient.save(update_fields=["status", "updated_at"])
+
+        started = self.client.post(
+            "/v1/compliance/start-process/",
+            {},
+            format="json",
+            HTTP_AUTHORIZATION=f"Token {self.owner_token.key}",
+        )
+        self.assertEqual(started.status_code, 200)
+        self.assertIsNone(started.json()["relationship"])
+
+        mine = self.client.get(
+            "/v1/compliance/my-expedients/",
+            HTTP_AUTHORIZATION=f"Token {self.owner_token.key}",
+        )
+        self.assertEqual(len(mine.json()["results"]), 1)
+        self.assertEqual(mine.json()["results"][0]["id"], started.json()["id"])
+
 
 class PLDDocumentExtractionTests(TestCase):
     def setUp(self):

@@ -14,7 +14,6 @@ import {
   Table,
   Text,
   TextInput,
-  Title,
 } from "@mantine/core";
 import { IconArrowLeft, IconMenu2, IconSearch } from "@tabler/icons-react";
 import { Sidebar } from "../../components/Sidebar/Sidebar";
@@ -150,7 +149,9 @@ export default function ListDetailPage() {
         }}
         className="relative"
       >
-        <AppHeader />
+        <AppHeader
+          title={list?.name || t("org-list-preview-title", { name: "" })}
+        />
 
         <Box w="100%" maw="80rem" mx="auto">
           <Stack gap="md">
@@ -169,9 +170,6 @@ export default function ListDetailPage() {
               </Button>
             </Group>
             <div>
-              <Title order={2}>
-                {list?.name || t("org-list-preview-title", { name: "" })}
-              </Title>
               {list?.description ? (
                 <Text c="dimmed" size="sm" mt={4}>
                   {list.description}

@@ -11,6 +11,7 @@ from api.compliance.views import (
     PLDEntityListView,
     PLDInviteAcceptView,
     PLDInvitePublicView,
+    PLDStartProcessView,
     PostalCodeLookupView,
 )
 
@@ -29,6 +30,7 @@ urlpatterns = [
         name="pld_entity_invite",
     ),
     path("invites/public/", PLDInvitePublicView.as_view(), name="pld_invite_public"),
+    path("start-process/", PLDStartProcessView.as_view(), name="pld_start_process"),
     path("invites/accept/", PLDInviteAcceptView.as_view(), name="pld_invite_accept"),
     path(
         "postal-lookup/",

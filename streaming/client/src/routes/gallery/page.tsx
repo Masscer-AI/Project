@@ -17,7 +17,6 @@ import {
   Tabs,
   Text,
   TextInput,
-  Title,
   Tooltip,
   UnstyledButton,
 } from "@mantine/core";
@@ -776,16 +775,13 @@ export default function GalleryPage() {
         }}
         className="relative"
       >
-        <AppHeader />
+        <AppHeader title={t("gallery-title")} />
 
         <Box maw={1100} w="100%" mx="auto">
           <Stack gap="lg">
-            <div>
-              <Title order={2}>{t("gallery-title")}</Title>
-              <Text c="dimmed" size="sm" mt={4}>
-                {t("gallery-subtitle")}
-              </Text>
-            </div>
+            <Text c="dimmed" size="sm">
+              {t("gallery-subtitle")}
+            </Text>
 
             <Tabs value={tab} onChange={onTabChange}>
               <Tabs.List>

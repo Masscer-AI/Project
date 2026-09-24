@@ -20,13 +20,7 @@ import {
   Tooltip,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import {
-  IconMail,
-  IconMenu2,
-  IconPlus,
-  IconScale,
-  IconTrash,
-} from "@tabler/icons-react";
+import { IconMail, IconPlus, IconTrash } from "@tabler/icons-react";
 import { Sidebar } from "../../components/Sidebar/Sidebar";
 import { useStore } from "../../modules/store";
 import {
@@ -34,6 +28,7 @@ import {
   deletePldEntity,
   listPldEntities,
   sendPldEntityInvite,
+  startPldProcess,
   TPldEntity,
 } from "../../modules/apiCalls";
 
@@ -51,8 +46,10 @@ export default function ComplianceHubPage() {
     toggleSidebar: s.toggleSidebar,
   }));
   const [entities, setEntities] = useState<TPldEntity[]>([]);
+  const [orgProcessReady, setOrgProcessReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [starting, setStarting] = useState(false);
   const [invitingId, setInvitingId] = useState<string | null>(null);
   const [addOpened, { open: openAdd, close: closeAdd }] = useDisclosure(false);
   const [deleteOpened, { open: openDelete, close: closeDelete }] =
@@ -67,9 +64,11 @@ export default function ComplianceHubPage() {
     try {
       const data = await listPldEntities();
       setEntities(data.results || []);
+      setOrgProcessReady(Boolean(data.org_process_ready));
     } catch {
       toast.error(t("compliance-entities-load-error"));
       setEntities([]);
+      setOrgProcessReady(false);
     } finally {
       setLoading(false);
     }
@@ -149,6 +148,18 @@ export default function ComplianceHubPage() {
     }
   };
 
+  const handleStartProcess = async () => {
+    setStarting(true);
+    try {
+      await startPldProcess();
+      navigate("/pld/expediente");
+    } catch {
+      toast.error(t("compliance-start-process-error"));
+    } finally {
+      setStarting(false);
+    }
+  };
+
   const inviteLabel = (entity: TPldEntity) => {
     if (entity.invite?.status === "accepted") return t("compliance-invite-accepted");
     if (entity.invite?.status === "pending") return t("compliance-invite-resend");
@@ -170,29 +181,26 @@ export default function ComplianceHubPage() {
         }}
         className="relative"
       >
-        <AppHeader />
+        <AppHeader title={t("compliance-hub-title")} />
 
         <Box px="md" w="100%" maw="52rem" mx="auto">
-          <Title order={2} ta="center" mb="xs" mt="md">
-            {t("compliance-hub-title")}
-          </Title>
           <Text ta="center" c="dimmed" mb="lg" size="sm">
             {t("compliance-hub-description")}
           </Text>
 
           <Card withBorder p="lg" mb="lg">
             <Group justify="space-between" align="flex-start" wrap="wrap">
-              <Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
-                <Text fw={600}>{t("compliance-assistant-card-title")}</Text>
-                <Text size="sm" c="dimmed">
-                  {t("compliance-assistant-card-description")}
-                </Text>
-              </Stack>
+              <Text size="sm" c="dimmed" style={{ flex: 1, minWidth: 0 }}>
+                {orgProcessReady
+                  ? t("compliance-start-process-ready")
+                  : t("compliance-start-process-blocked")}
+              </Text>
               <Button
-                leftSection={<IconScale size={16} />}
-                onClick={() => navigate("/compliance/chat")}
+                disabled={!orgProcessReady}
+                loading={starting}
+                onClick={() => void handleStartProcess()}
               >
-                {t("compliance-open-assistant")}
+                {t("compliance-start-process")}
               </Button>
             </Group>
           </Card>

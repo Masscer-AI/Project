@@ -84,13 +84,9 @@ export default function GenerationToolsPage() {
         }}
         className="relative"
       >
-        <AppHeader />
+        <AppHeader title={t("audio-tools")} />
 
         <Box px="md" w="100%" maw="52rem" mx="auto">
-          <Title order={2} ta="center" mb="lg" mt="md">
-            {t("audio-tools")}
-          </Title>
-
           <Stack gap="lg">
             <TranscriptionSection />
           </Stack>
