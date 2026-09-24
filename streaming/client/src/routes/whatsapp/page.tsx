@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { AppPage } from "../../components/AppPage/AppPage";
 import "./page.css";
 import { getWhatsappNumbers, getWhatsappTemplates } from "../../modules/apiCalls";
@@ -13,6 +13,7 @@ import {
   Group,
   Loader,
   Modal,
+  Select,
   Stack,
   Tabs,
   Text,
@@ -44,6 +45,11 @@ type WhatsappPageTab = "lines" | "templates";
 function parseWhatsappPageTab(raw: string | null): WhatsappPageTab {
   if (raw === "templates") return "templates";
   return "lines";
+}
+
+function parseWhatsappTemplateLang(raw: string | null): string {
+  if (!raw || raw === "all") return "all";
+  return raw;
 }
 
 function StatChip({
@@ -344,6 +350,7 @@ export default function Whatsapp() {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = parseWhatsappPageTab(searchParams.get("tab"));
+  const templateLang = parseWhatsappTemplateLang(searchParams.get("lang"));
 
   const [numbers, setNumbers] = useState<WhatsappLine[]>([]);
   const [loading, setLoading] = useState(true);
@@ -356,6 +363,20 @@ export default function Whatsapp() {
   );
   const [templateOpened, { open: openTemplate, close: closeTemplate }] =
     useDisclosure(false);
+  const templateLanguages = useMemo(() => {
+    const seen = new Set<string>();
+    for (const template of templates) {
+      const code = (template.language_code || "").trim();
+      if (code) seen.add(code);
+    }
+    return [...seen].sort((a, b) => a.localeCompare(b));
+  }, [templates]);
+  const visibleTemplates = useMemo(() => {
+    if (templateLang === "all") return templates;
+    return templates.filter(
+      (template) => (template.language_code || "").trim() === templateLang
+    );
+  }, [templates, templateLang]);
 
   const setActiveTab = (value: string | null) => {
     if (!value) return;
@@ -364,6 +385,16 @@ export default function Whatsapp() {
       next.delete("tab");
     } else {
       next.set("tab", value);
+    }
+    setSearchParams(next, { replace: true });
+  };
+
+  const setTemplateLang = (value: string | null) => {
+    const next = new URLSearchParams(searchParams);
+    if (!value || value === "all") {
+      next.delete("lang");
+    } else {
+      next.set("lang", value);
     }
     setSearchParams(next, { replace: true });
   };
@@ -474,12 +505,32 @@ export default function Whatsapp() {
             </Tabs.Panel>
 
             <Tabs.Panel value="templates">
-              <Group justify="space-between" align="baseline" mb="xs">
-                <Title order={4}>{t("whatsapp-templates")}</Title>
-                {!templatesLoading && !templatesError ? (
-                  <Text size="sm" c="dimmed">
-                    {t("whatsapp-templates-count", { count: templates.length })}
-                  </Text>
+              <Group justify="space-between" align="flex-end" mb="xs" wrap="wrap">
+                <Stack gap={4}>
+                  <Title order={4}>{t("whatsapp-templates")}</Title>
+                  {!templatesLoading && !templatesError ? (
+                    <Text size="sm" c="dimmed">
+                      {t("whatsapp-templates-count", {
+                        count: visibleTemplates.length,
+                      })}
+                    </Text>
+                  ) : null}
+                </Stack>
+                {templateLanguages.length > 0 ? (
+                  <Select
+                    label={t("whatsapp-template-language")}
+                    data={[
+                      { value: "all", label: t("all") },
+                      ...templateLanguages.map((code) => ({
+                        value: code,
+                        label: code.toUpperCase(),
+                      })),
+                    ]}
+                    value={templateLang}
+                    onChange={setTemplateLang}
+                    allowDeselect={false}
+                    w={160}
+                  />
                 ) : null}
               </Group>
               <Text size="sm" c="dimmed" mb="sm">
@@ -503,9 +554,20 @@ export default function Whatsapp() {
                     </Text>
                   </Stack>
                 </Card>
+              ) : visibleTemplates.length === 0 ? (
+                <Card withBorder padding="xl" radius="md">
+                  <Stack align="center" gap="sm">
+                    <ThemeIcon size={48} radius="md" variant="light" color="gray">
+                      <IconTemplate size={28} />
+                    </ThemeIcon>
+                    <Text c="dimmed" ta="center">
+                      {t("whatsapp-templates-empty-language")}
+                    </Text>
+                  </Stack>
+                </Card>
               ) : (
                 <Stack gap="md">
-                  {templates.map((template) => (
+                  {visibleTemplates.map((template) => (
                     <WhatsappTemplateCard
                       key={template.template_id}
                       template={template}

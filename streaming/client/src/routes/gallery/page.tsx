@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
@@ -101,6 +101,45 @@ function formatDate(iso: string | null, locale: string): string {
   }).format(d);
 }
 
+function GalleryPrompt({
+  prompt,
+  size = "xs",
+}: {
+  prompt: string;
+  size?: "xs" | "sm";
+}) {
+  const { t } = useTranslation();
+  const [expanded, setExpanded] = useState(false);
+  const [overflows, setOverflows] = useState(false);
+  const textRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = textRef.current;
+    if (!el || expanded) return;
+    setOverflows(el.scrollHeight > el.clientHeight + 2);
+  }, [prompt, expanded]);
+
+  return (
+    <Stack gap={4}>
+      <Text ref={textRef} size={size} lineClamp={expanded ? undefined : 2}>
+        {prompt}
+      </Text>
+      {(overflows || expanded) && (
+        <UnstyledButton
+          onClick={(e) => {
+            e.stopPropagation();
+            setExpanded((open) => !open);
+          }}
+        >
+          <Text size="xs" c="dimmed" td="underline">
+            {expanded ? t("gallery-read-less") : t("gallery-read-more")}
+          </Text>
+        </UnstyledButton>
+      )}
+    </Stack>
+  );
+}
+
 function GalleryCardActions({
   item,
   onOpenChat,
@@ -116,23 +155,26 @@ function GalleryCardActions({
 }) {
   const { t } = useTranslation();
   return (
-    <Group className="gallery-card-actions" gap="xs" justify="space-between" wrap="nowrap">
-      <Tooltip label={item.conversation_title || t("gallery-open-conversation")}>
-        <Button
-          size="xs"
-          variant="subtle"
-          color="gray"
-          leftSection={<IconMessage size={14} />}
-          onClick={onOpenChat}
-        >
-          {t("gallery-open-conversation")}
-        </Button>
-      </Tooltip>
+    <Group
+      className="gallery-card-actions"
+      gap="xs"
+      justify="space-between"
+      wrap="nowrap"
+    >
+      <Button
+        size="xs"
+        variant="light"
+        color="gray"
+        leftSection={<IconMessage size={14} />}
+        onClick={onOpenChat}
+      >
+        {t("gallery-open-conversation")}
+      </Button>
       <Group gap={4} wrap="nowrap">
         {item.can_manage !== false && (
           <Tooltip label={t("settings")}>
             <ActionIcon
-              variant="subtle"
+              variant="light"
               color="gray"
               size="sm"
               onClick={onRequestVisibility}
@@ -149,7 +191,7 @@ function GalleryCardActions({
             download={item.name}
             target="_blank"
             rel="noopener noreferrer"
-            variant="subtle"
+            variant="light"
             color="gray"
             size="sm"
             aria-label={t("download")}
@@ -175,7 +217,7 @@ function GalleryCardActions({
         />
         <Tooltip label={t("gallery-delete")}>
           <ActionIcon
-            variant="subtle"
+            variant="light"
             color="red"
             size="sm"
             onClick={onRequestDelete}
@@ -246,11 +288,7 @@ function ImageGalleryCard({
           />
         </Box>
         <Stack gap={6} p="sm">
-          {item.prompt && (
-            <Text size="xs" lineClamp={2} title={item.prompt}>
-              {item.prompt}
-            </Text>
-          )}
+          {item.prompt && <GalleryPrompt prompt={item.prompt} />}
           <Text size="xs" c="dimmed">
             {dateLabel}
           </Text>
@@ -261,44 +299,28 @@ function ImageGalleryCard({
       <Modal
         opened={opened}
         onClose={close}
-        title={
-          <Group justify="space-between" wrap="nowrap" w="100%">
-            <Text fw={600} size="lg">
-              {t("image-preview")}
-            </Text>
-            <Tooltip label={t("download")}>
-              <ActionIcon
-                component="a"
-                href={item.url}
-                download={item.name}
-                target="_blank"
-                rel="noopener noreferrer"
-                variant="subtle"
-                color="gray"
-              >
-                <IconDownload size={18} />
-              </ActionIcon>
-            </Tooltip>
-          </Group>
-        }
+        title={t("image-preview")}
         size="lg"
         centered
       >
         <Stack gap="md">
-          {item.prompt && (
-            <Text size="sm" c="dimmed">
-              {item.prompt}
-            </Text>
-          )}
+          {item.prompt && <GalleryPrompt prompt={item.prompt} size="sm" />}
           <img
             src={item.url}
             alt={item.prompt || item.name}
             style={{
               width: "100%",
-              maxHeight: "calc(100vh - 200px)",
+              maxHeight: "calc(100vh - 240px)",
               objectFit: "contain",
               borderRadius: 8,
             }}
+          />
+          <GalleryCardActions
+            item={item}
+            onOpenChat={onOpenChat}
+            onRequestDelete={onRequestDelete}
+            onRequestVisibility={onRequestVisibility}
+            onIndexed={onIndexed}
           />
         </Stack>
       </Modal>
@@ -389,11 +411,7 @@ function VideoGalleryCard({
           />
         </Box>
         <Stack gap={6} p="sm">
-          {item.prompt && (
-            <Text size="xs" lineClamp={2} title={item.prompt}>
-              {item.prompt}
-            </Text>
-          )}
+          {item.prompt && <GalleryPrompt prompt={item.prompt} />}
           <Text size="xs" c="dimmed">
             {dateLabel}
           </Text>
@@ -404,35 +422,12 @@ function VideoGalleryCard({
       <Modal
         opened={opened}
         onClose={close}
-        title={
-          <Group justify="space-between" wrap="nowrap" w="100%">
-            <Text fw={600} size="lg">
-              {t("generated-video")}
-            </Text>
-            <Tooltip label={t("download")}>
-              <ActionIcon
-                component="a"
-                href={item.url}
-                download={item.name}
-                target="_blank"
-                rel="noopener noreferrer"
-                variant="subtle"
-                color="gray"
-              >
-                <IconDownload size={18} />
-              </ActionIcon>
-            </Tooltip>
-          </Group>
-        }
+        title={t("generated-video")}
         size="lg"
         centered
       >
         <Stack gap="md">
-          {item.prompt && (
-            <Text size="sm" c="dimmed">
-              {item.prompt}
-            </Text>
-          )}
+          {item.prompt && <GalleryPrompt prompt={item.prompt} size="sm" />}
           <video
             src={item.url}
             controls
@@ -440,9 +435,16 @@ function VideoGalleryCard({
             playsInline
             style={{
               width: "100%",
-              maxHeight: "calc(100vh - 200px)",
+              maxHeight: "calc(100vh - 240px)",
               borderRadius: 8,
             }}
+          />
+          <GalleryCardActions
+            item={item}
+            onOpenChat={onOpenChat}
+            onRequestDelete={onRequestDelete}
+            onRequestVisibility={onRequestVisibility}
+            onIndexed={onIndexed}
           />
         </Stack>
       </Modal>
@@ -503,11 +505,7 @@ function AudioGalleryCard({
           style={{ width: "100%" }}
         />
 
-        {item.prompt && (
-          <Text size="xs" c="dimmed" lineClamp={2} title={item.prompt}>
-            {item.prompt}
-          </Text>
-        )}
+        {item.prompt && <GalleryPrompt prompt={item.prompt} />}
         <ItemTagBadges tagIds={item.tag_ids} tagById={tagById} />
 
         <GalleryCardActions
@@ -539,7 +537,6 @@ function DocumentGalleryCard({
   onRequestVisibility: () => void;
   onIndexed?: (item: TGalleryItem) => void;
 }) {
-  const { t } = useTranslation();
   const meta = getDocumentFileMeta(item.name, item.content_type);
 
   return (
@@ -579,19 +576,6 @@ function DocumentGalleryCard({
             </Text>
           </Box>
         </Group>
-
-        <Button
-          component="a"
-          href={item.url}
-          download={item.name}
-          target="_blank"
-          rel="noopener noreferrer"
-          variant="light"
-          leftSection={<IconDownload size={16} />}
-          fullWidth
-        >
-          {t("download")}
-        </Button>
         <ItemTagBadges tagIds={item.tag_ids} tagById={tagById} />
 
         <GalleryCardActions
