@@ -374,7 +374,7 @@ class OrganizationInviteFlowTests(TestCase):
         return WSNumber.objects.create(
             organization=self.org,
             agent=agent,
-            number="525500000099",
+            number=f"5255{str(abs(hash(platform_id)))[:8].zfill(8)}",
             platform_id=platform_id,
         )
 
@@ -436,6 +436,26 @@ class OrganizationInviteFlowTests(TestCase):
                 "send_welcome_message": True,
                 "welcome_phones": ["525511112222"],
                 "welcome_line_ids": [999999],
+                "welcome_help_text": "Help",
+                "welcome_language": "en",
+            },
+            format="json",
+            **self._auth_headers(),
+        )
+        self.assertEqual(response.status_code, 400)
+
+    @patch.object(OrganizationInvite, "generate_raw_token", return_value="welcome-two-lines")
+    @patch("api.authenticate.views.EmailService")
+    def test_create_invite_welcome_rejects_two_lines(self, _email_cls, _token_mock):
+        line = self._welcome_line()
+        other = self._welcome_line(platform_id="pnid-welcome-2")
+        response = self.client.post(
+            f"/v1/auth/organizations/{self.org.id}/invites/",
+            data={
+                "email": "twolines@test.com",
+                "send_welcome_message": True,
+                "welcome_phones": ["525511112222"],
+                "welcome_line_ids": [line.id, other.id],
                 "welcome_help_text": "Help",
                 "welcome_language": "en",
             },

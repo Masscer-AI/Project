@@ -171,6 +171,10 @@ class OrganizationInviteCreateSerializer(serializers.Serializer):
             raise ValidationError(
                 {"welcome_line_ids": "At least one WhatsApp line is required"}
             )
+        if len(line_ids) > 1:
+            raise ValidationError(
+                {"welcome_line_ids": "Select one WhatsApp line"}
+            )
         help_text = (attrs.get("welcome_help_text") or "").strip()
         if not help_text:
             raise ValidationError({"welcome_help_text": "This field is required"})

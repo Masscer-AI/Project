@@ -21,6 +21,11 @@ _MX_META_PREFIX = "521"
 _MX_NATIONAL_LEN = 10
 _MX_E164_LEN = 12
 _MX_META_LEN = 13
+_AR_CC = "54"
+_AR_META_PREFIX = "549"
+_AR_NATIONAL_LEN = 10
+_AR_E164_LEN = 12
+_AR_META_LEN = 13
 
 def _digits_only(value: str) -> str:
     return _DIGITS_RE.sub("", value or "")
@@ -30,15 +35,28 @@ def to_meta_whatsapp_digits(digits: str) -> str:
     Normalize full international digits to Meta/WhatsApp form.
 
     Mexican ``52XXXXXXXXXX`` (12 digits) → ``521XXXXXXXXXX`` (13 digits).
-    Already-Meta Mexican numbers and all other countries are unchanged.
+    Argentine ``54XXXXXXXXXX`` (12 digits) → ``549XXXXXXXXXX`` (13 digits).
+    Already-Meta numbers and all other countries are unchanged.
     """
     d = _digits_only(digits)
     if not d:
         return d
     if d.startswith(_MX_META_PREFIX) and len(d) == _MX_META_LEN:
         return d
-    if d.startswith(_MX_CC) and len(d) == _MX_E164_LEN:
+    if (
+        d.startswith(_MX_CC)
+        and not d.startswith(_MX_META_PREFIX)
+        and len(d) == _MX_E164_LEN
+    ):
         return _MX_META_PREFIX + d[len(_MX_CC) :]
+    if d.startswith(_AR_META_PREFIX) and len(d) == _AR_META_LEN:
+        return d
+    if (
+        d.startswith(_AR_CC)
+        and not d.startswith(_AR_META_PREFIX)
+        and len(d) == _AR_E164_LEN
+    ):
+        return _AR_META_PREFIX + d[len(_AR_CC) :]
     return d
 
 def whatsapp_phone_match_keys(digits: str) -> set[str]:
@@ -54,6 +72,8 @@ def whatsapp_phone_match_keys(digits: str) -> set[str]:
     keys = {d, to_meta_whatsapp_digits(d)}
     if d.startswith(_MX_META_PREFIX) and len(d) == _MX_META_LEN:
         keys.add(_MX_CC + d[len(_MX_META_PREFIX) :])
+    if d.startswith(_AR_META_PREFIX) and len(d) == _AR_META_LEN:
+        keys.add(_AR_CC + d[len(_AR_META_PREFIX) :])
     return {k for k in keys if k}
 
 def phones_match_whatsapp(left: str, right: str) -> bool:
@@ -100,11 +120,30 @@ class PhoneNumber(BaseModel):
         if self.country_code != _MX_CC:
             return self
 
-        if len(self.number) == _MX_NATIONAL_LEN:
+        if len(self.number) == _MX_NATIONAL_LEN and not self.number.startswith("1"):
             self.number = "1" + self.number
             return self
 
         if len(self.number) == _MX_NATIONAL_LEN + 1 and self.number.startswith("1"):
+            return self
+
+        return self
+
+    @model_validator(mode="after")
+    def normalize_argentina_to_meta_whatsapp(self) -> PhoneNumber:
+        if self.country_code == _AR_META_PREFIX and len(self.number) == _AR_NATIONAL_LEN:
+            self.country_code = _AR_CC
+            self.number = "9" + self.number
+            return self
+
+        if self.country_code != _AR_CC:
+            return self
+
+        if len(self.number) == _AR_NATIONAL_LEN and not self.number.startswith("9"):
+            self.number = "9" + self.number
+            return self
+
+        if len(self.number) == _AR_NATIONAL_LEN + 1 and self.number.startswith("9"):
             return self
 
         return self

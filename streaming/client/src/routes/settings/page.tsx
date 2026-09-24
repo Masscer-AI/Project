@@ -55,9 +55,10 @@ import {
 } from "@tabler/icons-react";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
 import {
-  countrySelectData,
   getDialCodeForIso,
   isoFromDialCode,
+  normalizePhoneForWhatsapp,
+  phoneCountrySelectData,
 } from "../../utils/countryDialCodes";
 
 export default function SettingsPage() {
@@ -557,7 +558,7 @@ const emptyPhoneNumber = (): TPhoneNumber => ({
   is_default: false,
 });
 
-const COUNTRY_SELECT_OPTIONS = countrySelectData();
+const COUNTRY_SELECT_OPTIONS = phoneCountrySelectData();
 
 const ProfileSection = () => {
   const { t } = useTranslation();
@@ -629,6 +630,12 @@ const ProfileSection = () => {
     });
     updatePhoneAt(index, {
       country_code: iso ? getDialCodeForIso(iso) : "",
+      ...(iso
+        ? normalizePhoneForWhatsapp(
+            getDialCodeForIso(iso),
+            phoneNumbersRef.current[index]?.number || ""
+          )
+        : {}),
     });
   };
 
@@ -663,11 +670,17 @@ const ProfileSection = () => {
     setSaving(true);
     try {
       const cleanedPhones = phoneNumbersRef.current
-        .map((p) => ({
-          country_code: (p.country_code || "").replace(/\D/g, ""),
-          number: (p.number || "").replace(/\D/g, ""),
-          is_default: Boolean(p.is_default),
-        }))
+        .map((p) => {
+          const normalized = normalizePhoneForWhatsapp(
+            p.country_code || "",
+            p.number || ""
+          );
+          return {
+            country_code: normalized.country_code,
+            number: normalized.number,
+            is_default: Boolean(p.is_default),
+          };
+        })
         .filter((p) => p.country_code && p.number);
 
       const payloadProfile: Record<string, unknown> = {
@@ -831,8 +844,15 @@ const ProfileSection = () => {
                     }
                     value={phone.number}
                     onChange={(e) => {
-                      const val = e.currentTarget.value;
+                      const val = e.currentTarget.value.replace(/\D/g, "");
                       updatePhoneAt(index, { number: val });
+                    }}
+                    onBlur={() => {
+                      const normalized = normalizePhoneForWhatsapp(
+                        phone.country_code || "",
+                        phone.number || ""
+                      );
+                      updatePhoneAt(index, normalized);
                     }}
                   />
                   <Group justify="space-between" align="center" wrap="nowrap">

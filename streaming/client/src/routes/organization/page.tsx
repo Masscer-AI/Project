@@ -28,6 +28,7 @@ import {
   updateOrganizationTenant,
   revokeOrganizationInvite,
   getWhatsappNumbers,
+  getWhatsappTemplates,
   TOrganizationData,
   updateOrganization,
   updateOrganizationMemberProfile,
@@ -67,7 +68,6 @@ import {
   Loader,
   Modal,
   NativeSelect,
-  MultiSelect,
   Select,
   Stack,
   Switch,
@@ -106,7 +106,13 @@ import {
   applyTenantBranding,
   resolveTenantBranding,
 } from "../../utils/tenantTheme";
-import type { WhatsappLine } from "../whatsapp/shared";
+import type { WhatsappLine, WhatsappTemplate } from "../whatsapp/shared";
+import { WhatsappTemplatePreview } from "../whatsapp/TemplatePreview";
+import {
+  getDialCodeForIso,
+  normalizePhoneForWhatsapp,
+  phoneCountrySelectData,
+} from "../../utils/countryDialCodes";
 
 const CREDIT_PACKAGES = [
   { amountUsd: 50, creditsUsd: 40 },
@@ -134,6 +140,8 @@ export function parseOrganizationActiveTab(
   return "settings";
 }
 
+const PHONE_COUNTRY_OPTIONS = phoneCountrySelectData();
+const EMPTY_WELCOME_PHONE = { iso: "MX", local: "" };
 const EMPTY_INVITE_FORM = {
   email: "",
   name: "",
@@ -141,8 +149,8 @@ const EMPTY_INVITE_FORM = {
   expires_at: "",
   role_id: "",
   send_welcome_message: false,
-  welcome_phones: [""],
-  welcome_line_ids: [] as string[],
+  welcome_phones: [{ ...EMPTY_WELCOME_PHONE }],
+  welcome_line_id: "",
   welcome_help_text: "",
 };
 
@@ -399,6 +407,7 @@ export default function OrganizationPage() {
   const [createMemberForm, setCreateMemberForm] = useState(EMPTY_INVITE_FORM);
   const [createMemberLoading, setCreateMemberLoading] = useState(false);
   const [welcomeLines, setWelcomeLines] = useState<WhatsappLine[]>([]);
+  const [welcomeTemplates, setWelcomeTemplates] = useState<WhatsappTemplate[]>([]);
   const [invites, setInvites] = useState<TOrganizationInvite[]>([]);
   const [loadingInvites, setLoadingInvites] = useState(false);
 
@@ -478,6 +487,14 @@ export default function OrganizationPage() {
       })
       .catch(() => {
         if (!cancelled) setWelcomeLines([]);
+      });
+    getWhatsappTemplates()
+      .then((res) => {
+        if (cancelled) return;
+        setWelcomeTemplates(res?.templates || []);
+      })
+      .catch(() => {
+        if (!cancelled) setWelcomeTemplates([]);
       });
     return () => {
       cancelled = true;
@@ -793,20 +810,29 @@ export default function OrganizationPage() {
       role_id,
       send_welcome_message,
       welcome_phones,
-      welcome_line_ids,
+      welcome_line_id,
       welcome_help_text,
     } = createMemberForm;
     if (!email.trim()) {
       toast.error(t("email-required-hint"));
       return;
     }
-    const phones = welcome_phones.map((p) => p.trim()).filter(Boolean);
+    const phones = welcome_phones
+      .map((p) => {
+        const normalized = normalizePhoneForWhatsapp(
+          getDialCodeForIso(p.iso),
+          p.local
+        );
+        if (!normalized.country_code || !normalized.number) return "";
+        return `${normalized.country_code}${normalized.number}`;
+      })
+      .filter(Boolean);
     if (send_welcome_message) {
       if (!phones.length) {
         toast.error(t("welcome-phone-required"));
         return;
       }
-      if (!welcome_line_ids.length) {
+      if (!welcome_line_id) {
         toast.error(t("welcome-line-required"));
         return;
       }
@@ -829,8 +855,8 @@ export default function OrganizationPage() {
         role_id: role_id.trim() || null,
         send_welcome_message,
         welcome_phones: send_welcome_message ? phones : [],
-        welcome_line_ids: send_welcome_message
-          ? welcome_line_ids.map((id) => Number(id))
+        welcome_line_ids: send_welcome_message && welcome_line_id
+          ? [Number(welcome_line_id)]
           : [],
         welcome_help_text: send_welcome_message ? welcome_help_text.trim() : "",
         welcome_language: welcomeLanguage,
@@ -896,6 +922,20 @@ export default function OrganizationPage() {
       setEditMemberLoading(false);
     }
   };
+
+  const welcomeLanguage = (i18n.language || "en").toLowerCase().startsWith("es")
+    ? "es"
+    : "en";
+  const welcomeTemplate = welcomeTemplates.find(
+    (tpl) =>
+      tpl.template_id ===
+      (welcomeLanguage === "es"
+        ? "bienvenido_a_presentacion_agente_es"
+        : "welcome_to_agent_presentation_en")
+  );
+  const selectedWelcomeLine = welcomeLines.find(
+    (line) => String(line.id) === createMemberForm.welcome_line_id
+  );
 
   if (loading) {
     return (
@@ -2136,6 +2176,7 @@ export default function OrganizationPage() {
         }}
         title={t("invite-member")}
         centered
+        size="lg"
       >
         <Stack gap="md">
           <TextInput
@@ -2200,40 +2241,82 @@ export default function OrganizationPage() {
           {welcomeLines.length > 0 && createMemberForm.send_welcome_message && (
             <Stack gap="sm">
               <Stack gap="xs">
-                {createMemberForm.welcome_phones.map((phone, index) => (
-                  <Group key={index} gap="xs" wrap="nowrap" align="flex-end">
-                    <TextInput
-                      label={index === 0 ? t("welcome-phones") : undefined}
-                      placeholder={t("welcome-phone")}
-                      value={phone}
-                      style={{ flex: 1 }}
-                      onChange={(e) => {
-                        const val = e.currentTarget.value;
-                        setCreateMemberForm((prev) => {
-                          const next = [...prev.welcome_phones];
-                          next[index] = val;
-                          return { ...prev, welcome_phones: next };
-                        });
-                      }}
-                    />
-                    {createMemberForm.welcome_phones.length > 1 && (
-                      <ActionIcon
-                        variant="subtle"
-                        color="gray"
-                        onClick={() =>
-                          setCreateMemberForm((prev) => ({
-                            ...prev,
-                            welcome_phones: prev.welcome_phones.filter(
-                              (_, i) => i !== index
-                            ),
-                          }))
-                        }
-                      >
-                        <IconTrash size={16} />
-                      </ActionIcon>
-                    )}
-                  </Group>
-                ))}
+                {createMemberForm.welcome_phones.map((phone, index) => {
+                  const dial = getDialCodeForIso(phone.iso);
+                  return (
+                    <Group key={index} gap="xs" wrap="nowrap" align="flex-end">
+                      <Select
+                        label={index === 0 ? t("phone-country") : undefined}
+                        placeholder={t("phone-country-placeholder")}
+                        data={PHONE_COUNTRY_OPTIONS}
+                        searchable
+                        nothingFoundMessage={t("phone-country-not-found")}
+                        comboboxProps={{ withinPortal: true }}
+                        value={phone.iso}
+                        style={{ flex: 1, minWidth: 0 }}
+                        onChange={(val) => {
+                          const iso = val || "MX";
+                          setCreateMemberForm((prev) => {
+                            const next = [...prev.welcome_phones];
+                            const current = next[index];
+                            const normalized = normalizePhoneForWhatsapp(
+                              getDialCodeForIso(iso),
+                              current.local
+                            );
+                            next[index] = { iso, local: normalized.number };
+                            return { ...prev, welcome_phones: next };
+                          });
+                        }}
+                      />
+                      <TextInput
+                        label={index === 0 ? t("phone-number") : undefined}
+                        placeholder="5512345678"
+                        description={dial ? `+${dial}` : undefined}
+                        value={phone.local}
+                        style={{ flex: 1, minWidth: 0 }}
+                        onChange={(e) => {
+                          const val = e.currentTarget.value.replace(/\D/g, "");
+                          setCreateMemberForm((prev) => {
+                            const next = [...prev.welcome_phones];
+                            next[index] = { ...next[index], local: val };
+                            return { ...prev, welcome_phones: next };
+                          });
+                        }}
+                        onBlur={() => {
+                          setCreateMemberForm((prev) => {
+                            const next = [...prev.welcome_phones];
+                            const current = next[index];
+                            const normalized = normalizePhoneForWhatsapp(
+                              getDialCodeForIso(current.iso),
+                              current.local
+                            );
+                            next[index] = {
+                              iso: current.iso,
+                              local: normalized.number,
+                            };
+                            return { ...prev, welcome_phones: next };
+                          });
+                        }}
+                      />
+                      {createMemberForm.welcome_phones.length > 1 && (
+                        <ActionIcon
+                          variant="subtle"
+                          color="gray"
+                          onClick={() =>
+                            setCreateMemberForm((prev) => ({
+                              ...prev,
+                              welcome_phones: prev.welcome_phones.filter(
+                                (_, i) => i !== index
+                              ),
+                            }))
+                          }
+                        >
+                          <IconTrash size={16} />
+                        </ActionIcon>
+                      )}
+                    </Group>
+                  );
+                })}
                 <Button
                   variant="subtle"
                   color="gray"
@@ -2242,24 +2325,27 @@ export default function OrganizationPage() {
                   onClick={() =>
                     setCreateMemberForm((prev) => ({
                       ...prev,
-                      welcome_phones: [...prev.welcome_phones, ""],
+                      welcome_phones: [
+                        ...prev.welcome_phones,
+                        { ...EMPTY_WELCOME_PHONE },
+                      ],
                     }))
                   }
                 >
                   {t("add-welcome-phone")}
                 </Button>
               </Stack>
-              <MultiSelect
-                label={t("welcome-lines")}
+              <Select
+                label={t("welcome-line")}
                 data={welcomeLines.map((line) => ({
                   value: String(line.id),
                   label: `${line.name || line.number} · ${line.agent?.name || ""}`,
                 }))}
-                value={createMemberForm.welcome_line_ids}
+                value={createMemberForm.welcome_line_id || null}
                 onChange={(value) =>
                   setCreateMemberForm((prev) => ({
                     ...prev,
-                    welcome_line_ids: value,
+                    welcome_line_id: value || "",
                   }))
                 }
               />
@@ -2277,6 +2363,22 @@ export default function OrganizationPage() {
                 autosize
                 minRows={2}
               />
+              {welcomeTemplate ? (
+                <Stack gap="xs">
+                  <Text size="sm" fw={500}>
+                    {t("welcome-template-preview")}
+                  </Text>
+                  <WhatsappTemplatePreview
+                    template={welcomeTemplate}
+                    bodyValues={[
+                      createMemberForm.name.trim() || "Maria",
+                      org?.name || "",
+                      selectedWelcomeLine?.agent?.name || "",
+                      createMemberForm.welcome_help_text.trim(),
+                    ]}
+                  />
+                </Stack>
+              ) : null}
             </Stack>
           )}
           <Text size="xs" c="dimmed">

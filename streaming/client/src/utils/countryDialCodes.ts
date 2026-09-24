@@ -129,6 +129,8 @@ export function getDialCodeForIso(iso: string): string {
 export function isoFromDialCode(dial: string): string | null {
   const digits = (dial || "").replace(/\D/g, "");
   if (!digits) return null;
+  if (digits === "521") return "MX";
+  if (digits === "549") return "AR";
   const preferred = DIAL_PREFERRED_ISO[digits];
   if (preferred && byIso.has(preferred)) return preferred;
   const match = COUNTRY_DIAL_CODES.find((c) => c.dial === digits);
@@ -186,4 +188,42 @@ export function formatInternationalPhone(iso: string, local: string): string {
   if (!localDigits) return "";
   const dial = getDialCodeForIso(iso);
   return dial ? `+${dial}${localDigits}` : localDigits;
+}
+
+export function digitsOnlyPhone(value: string): string {
+  return (value || "").replace(/\D/g, "");
+}
+
+export function toMetaWhatsappDigits(value: string): string {
+  const d = digitsOnlyPhone(value);
+  if (!d) return d;
+  if (d.startsWith("521") && d.length === 13) return d;
+  if (d.startsWith("52") && !d.startsWith("521") && d.length === 12) {
+    return `521${d.slice(2)}`;
+  }
+  if (d.startsWith("549") && d.length === 13) return d;
+  if (d.startsWith("54") && !d.startsWith("549") && d.length === 12) {
+    return `549${d.slice(2)}`;
+  }
+  return d;
+}
+
+export function normalizePhoneForWhatsapp(
+  countryCode: string,
+  national: string
+): { country_code: string; number: string } {
+  let cc = digitsOnlyPhone(countryCode);
+  let n = digitsOnlyPhone(national);
+  if (cc === "521") {
+    cc = "52";
+    if (n.length === 10 && !n.startsWith("1")) n = `1${n}`;
+  } else if (cc === "52" && n.length === 10 && !n.startsWith("1")) {
+    n = `1${n}`;
+  } else if (cc === "549") {
+    cc = "54";
+    if (n.length === 10 && !n.startsWith("9")) n = `9${n}`;
+  } else if (cc === "54" && n.length === 10 && !n.startsWith("9")) {
+    n = `9${n}`;
+  }
+  return { country_code: cc, number: n };
 }

@@ -112,6 +112,20 @@ class PhoneNumbersSchemaTests(TestCase):
         self.assertEqual(pn.country_code, "52")
         self.assertEqual(pn.number, "15512345678")
 
+    def test_argentina_inserts_mobile_nine(self):
+        pn = PhoneNumber.model_validate(
+            {"country_code": "54", "number": "1112345678", "is_default": True}
+        )
+        self.assertEqual(pn.country_code, "54")
+        self.assertEqual(pn.number, "91112345678")
+        self.assertEqual(pn.whatsapp_digits(), "5491112345678")
+
+    def test_argentina_already_meta_unchanged(self):
+        pn = PhoneNumber.model_validate(
+            {"country_code": "54", "number": "91112345678", "is_default": True}
+        )
+        self.assertEqual(pn.e164_digits(), "5491112345678")
+
     def test_to_meta_whatsapp_digits_and_match_keys(self):
         self.assertEqual(
             to_meta_whatsapp_digits("525512345678"), "5215512345678"
@@ -120,6 +134,15 @@ class PhoneNumbersSchemaTests(TestCase):
             to_meta_whatsapp_digits("5215512345678"), "5215512345678"
         )
         self.assertEqual(to_meta_whatsapp_digits("15551234567"), "15551234567")
+        self.assertEqual(
+            to_meta_whatsapp_digits("541112345678"), "5491112345678"
+        )
+        self.assertEqual(
+            to_meta_whatsapp_digits("5491112345678"), "5491112345678"
+        )
+        self.assertTrue(
+            phones_match_whatsapp("541112345678", "5491112345678")
+        )
         self.assertTrue(
             phones_match_whatsapp("525512345678", "5215512345678")
         )
@@ -134,6 +157,13 @@ class PhoneNumbersSchemaTests(TestCase):
         )
         self.assertIn("5215512345678", phones.as_whatsapp_match_set())
         self.assertIn("525512345678", phones.as_whatsapp_match_set())
+
+    def test_as_whatsapp_match_set_includes_both_argentina_forms(self):
+        phones = PhoneNumbers.model_validate(
+            [{"country_code": "54", "number": "1112345678", "is_default": True}]
+        )
+        self.assertIn("5491112345678", phones.as_whatsapp_match_set())
+        self.assertIn("541112345678", phones.as_whatsapp_match_set())
 
 class UserProfilePhoneNumbersTests(TestCase):
     def setUp(self):
@@ -182,6 +212,27 @@ class UserProfilePhoneNumbersTests(TestCase):
         self.assertEqual(data["phone_numbers"][0]["country_code"], "52")
         self.assertEqual(data["phone_numbers"][0]["number"], "15511112222")
         self.assertEqual(self.profile._phone_numbers[0]["number"], "15511112222")
+
+    def test_serializer_argentina_inserts_nine(self):
+        serializer = UserProfileSerializer(
+            self.profile,
+            data={
+                "phone_numbers": [
+                    {
+                        "country_code": "54",
+                        "number": "1112345678",
+                        "is_default": True,
+                    }
+                ]
+            },
+            partial=True,
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        serializer.save()
+        self.profile.refresh_from_db()
+        data = UserProfileSerializer(self.profile).data
+        self.assertEqual(data["phone_numbers"][0]["country_code"], "54")
+        self.assertEqual(data["phone_numbers"][0]["number"], "91112345678")
 
     def test_serializer_rejects_invalid(self):
         serializer = UserProfileSerializer(
