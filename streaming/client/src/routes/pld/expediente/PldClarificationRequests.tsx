@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
 import {
+  Badge,
   Button,
   FileInput,
   Group,
@@ -10,16 +11,59 @@ import {
   Text,
   Textarea,
 } from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
 import { IconUpload } from "@tabler/icons-react";
 import {
   answerMyPldClarification,
   TPldClarificationRequest,
   TMyPldExpedient,
+  TPldDocumentSlot,
   uploadMyPldExpedientDocument,
 } from "../../../modules/apiCalls";
+import { extractionSummary, PldExtractionDebugModal } from "./PldExtractionDebugModal";
 
 const ACCEPT =
   "application/pdf,image/jpeg,image/png,image/webp,application/xml,text/xml,application/zip,.pdf,.jpg,.jpeg,.png,.webp,.xml,.zip";
+
+function clarificationSlot(item: TPldClarificationRequest): TPldDocumentSlot | null {
+  if (!item.document) return null;
+  return {
+    slot_key: item.slot_key,
+    document_kind: "clarification",
+    required: false,
+    document: item.document,
+  };
+}
+
+function ClarificationDocument({ item }: { item: TPldClarificationRequest }) {
+  const { t } = useTranslation();
+  const [opened, { open, close }] = useDisclosure(false);
+  const slot = clarificationSlot(item);
+  const doc = item.document;
+  if (!doc) return null;
+  const summary = extractionSummary(doc.extracted_payload);
+  const ready = doc.extraction_status === "succeeded";
+  return (
+    <>
+      {doc.original_filename ? (
+        <Text size="sm" c="dimmed">
+          {doc.original_filename}
+        </Text>
+      ) : null}
+      {summary ? (
+        <Text size="sm" c="dimmed">
+          {summary}
+        </Text>
+      ) : null}
+      {ready ? (
+        <Badge variant="light" color="teal" w="fit-content" style={{ cursor: "pointer" }} onClick={open}>
+          {t("compliance-dossier-extracted")}
+        </Badge>
+      ) : null}
+      <PldExtractionDebugModal slot={slot} opened={opened} onClose={close} />
+    </>
+  );
+}
 
 export function PldClarificationRequests({
   row,
@@ -54,16 +98,7 @@ export function PldClarificationRequests({
                   {item.text_answer}
                 </Text>
               ) : null}
-              {item.document?.original_filename ? (
-                <Text size="sm" c="dimmed">
-                  {item.document.original_filename}
-                </Text>
-              ) : null}
-              {typeof item.document?.extracted_payload?.summary === "string" ? (
-                <Text size="sm" c="dimmed">
-                  {item.document.extracted_payload.summary}
-                </Text>
-              ) : null}
+              <ClarificationDocument item={item} />
             </Stack>
           ))}
         </Stack>
@@ -107,7 +142,6 @@ function ClarificationCard({
   const allowFile = item.answer_type !== "text";
   const reading = item.document?.extraction_status === "pending";
   const readFailed = item.document?.extraction_status === "failed";
-  const summary = item.document?.extracted_payload?.summary;
   const rejected =
     item.document?.extraction_status === "succeeded" &&
     item.document?.extracted_payload?.is_valid === false;
@@ -156,9 +190,9 @@ function ClarificationCard({
       {rejected ? (
         <Text size="sm" c="yellow">
           {t("compliance-clarify-not-valid")}
-          {typeof summary === "string" && summary ? ` ${summary}` : ""}
         </Text>
       ) : null}
+      {item.document && !reading ? <ClarificationDocument item={item} /> : null}
       {allowText ? (
         <>
           <Textarea

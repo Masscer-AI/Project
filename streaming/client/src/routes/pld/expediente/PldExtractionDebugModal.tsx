@@ -84,11 +84,22 @@ export function extractionLines(
     "provenances",
     "summary",
     "_meta",
+    "is_valid",
   ]);
   const lines: { key: string; value: string }[] = [];
   const summary = filledText(row.summary);
   if (summary) lines.push({ key: "summary", value: summary });
   const push = (key: string, raw: unknown) => {
+    if (key === "extractions" && Array.isArray(raw)) {
+      raw.forEach((item) => {
+        const fact = asRecord(item);
+        if (!fact) return;
+        const name = filledText(fact.extraction_name);
+        const value = filledText(fact.extraction_value);
+        if (name && value) lines.push({ key: name, value });
+      });
+      return;
+    }
     if (skip.has(key) || raw == null || raw === "") return;
     if (
       key === "address" ||
