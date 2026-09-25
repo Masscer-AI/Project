@@ -2607,6 +2607,13 @@ export const rerunMyPldPrequalification = async (entityId: string) => {
   );
 };
 
+export const fetchMyPldPacketPages = async (entityId: string) => {
+  return makeAuthenticatedRequest<{ pages: string[] }>(
+    "GET",
+    `/v1/compliance/my-expedients/${entityId}/packet/?preview=pages`
+  );
+};
+
 export const fetchMyPldPacketBlob = async (entityId: string) => {
   const { token, tokenType } = getToken(false);
   const response = await fetch(

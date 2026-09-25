@@ -937,6 +937,24 @@ class MyPLDExpedientDocumentView(View):
         return JsonResponse(_reload_my_expedient_row(entity.pk), status=200)
 
 
+def _packet_page_images(field) -> list[str]:
+    import base64
+
+    import fitz
+
+    raw = field.read()
+    doc = fitz.open(stream=raw, filetype="pdf")
+    pages = []
+    try:
+        for page in doc:
+            pix = page.get_pixmap(matrix=fitz.Matrix(1.5, 1.5), alpha=False)
+            encoded = base64.b64encode(pix.tobytes("png")).decode("ascii")
+            pages.append(f"data:image/png;base64,{encoded}")
+    finally:
+        doc.close()
+    return pages
+
+
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class MyPLDExpedientPacketView(View):
@@ -950,6 +968,8 @@ class MyPLDExpedientPacketView(View):
         )
         if not field:
             return JsonResponse({"error": "packet-not-ready"}, status=404)
+        if request.GET.get("preview") == "pages":
+            return JsonResponse({"pages": _packet_page_images(field)})
         filename = (
             "expediente-identificacion-firmado.pdf"
             if exp and exp.signed_packet
