@@ -10,7 +10,7 @@ from api.compliance.clarifications import answers_packet
 from api.compliance.models import PLDExpedientDocument
 from api.compliance.prequalification.pack import _compact_payload
 from api.compliance.document_extraction.constants import PLD_EXTRACTION_MODEL_SLUG
-from api.compliance.screening.schemas import ScreeningResult
+from api.compliance.screening.schemas import ScreeningResult, ScreeningSearch
 from api.compliance.screening.search_tool import (
     RFC_SEARCH_LISTS,
     search_watchlists_impl,
@@ -57,10 +57,22 @@ def _rfcs_from_entity(entity) -> list[str]:
     return found
 
 
-def _deterministic_rfc_hits(entity) -> list[dict]:
+def _record_search(log: list, result) -> None:
+    log.append(
+        {
+            "terms": list(result.terms),
+            "lists": list(result.lists),
+            "hit_count": len(result.hits),
+        }
+    )
+
+
+def _deterministic_rfc_hits(entity, log: list | None = None) -> list[dict]:
     hits = []
     for rfc in _rfcs_from_entity(entity):
         result = search_watchlists_impl([rfc], list_slug=None)
+        if log is not None:
+            _record_search(log, result)
         for hit in result.hits:
             hits.append(hit.model_dump(mode="json"))
     return hits[:40]
@@ -113,14 +125,14 @@ def _filter_screening_requests(entity, specs: list) -> list:
     return [spec for spec in specs if not _ID_REASK.search(spec.prompt or "")]
 
 
-def build_screening_packet(entity) -> str:
+def build_screening_packet(entity, rfc_hits: list | None = None) -> str:
     exp = entity.expedients.order_by("created_at").first()
     packet = {
         "person_type": entity.person_type,
         "declared": entity.metadata if isinstance(entity.metadata, dict) else {},
         "documents": _document_rows(entity),
         "rfcs": _rfcs_from_entity(entity),
-        "rfc_hits": _deterministic_rfc_hits(entity),
+        "rfc_hits": rfc_hits if rfc_hits is not None else _deterministic_rfc_hits(entity),
         "prior_invitee_answers": [
             {
                 **row,
@@ -144,9 +156,11 @@ def run_screening(entity) -> ScreeningResult:
     org = getattr(entity, "organization", None)
     billing_user_id = getattr(org, "owner_id", None) if org else None
     organization_id = getattr(org, "id", None) if org else None
+    search_log: list[dict] = []
+    rfc_hits = _deterministic_rfc_hits(entity, search_log)
     loop = AgentLoop.create(
         provider="openai",
-        tools=[make_search_watchlists_tool()],
+        tools=[make_search_watchlists_tool(search_log)],
         instructions=INSTRUCTIONS,
         model=PLD_EXTRACTION_MODEL_SLUG,
         output_schema=ScreeningResult,
@@ -160,7 +174,7 @@ def run_screening(entity) -> ScreeningResult:
                 "content": (
                     "Cruza este expediente con las listas. "
                     "Usa search_watchlists. Devuelve JSON del schema. Paquete:\n"
-                    + build_screening_packet(entity)
+                    + build_screening_packet(entity, rfc_hits)
                 ),
             }
         ]
@@ -183,7 +197,7 @@ def run_screening(entity) -> ScreeningResult:
         raise ValueError("Screening did not return structured output")
     by_ref = {
         str(row.get("reference_number") or ""): row
-        for row in _deterministic_rfc_hits(entity)
+        for row in rfc_hits
     }
     enriched = []
     for hit in output.hits:
@@ -191,6 +205,7 @@ def run_screening(entity) -> ScreeningResult:
         situation = hit.situation or str(row.get("situation") or "")
         enriched.append(hit.model_copy(update={"situation": situation}))
     output.hits = enriched
+    output.searches = [ScreeningSearch.model_validate(row) for row in search_log]
     output.invitee_requests = _filter_screening_requests(
         entity, list(output.invitee_requests or [])
     )

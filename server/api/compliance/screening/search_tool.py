@@ -50,6 +50,7 @@ class WatchlistHit(BaseModel):
 
 class SearchWatchlistsResult(BaseModel):
     terms: list[str]
+    lists: list[str] = Field(default_factory=list)
     hits: list[WatchlistHit] = Field(default_factory=list)
     truncated: bool = False
     message: str = ""
@@ -121,21 +122,31 @@ def search_watchlists_impl(
             break
     return SearchWatchlistsResult(
         terms=cleaned,
+        lists=list(slugs),
         hits=hits,
         truncated=truncated,
         message=f"{len(hits)} hit(s).",
     )
 
 
-def make_search_watchlists_tool() -> dict:
+def make_search_watchlists_tool(log: list | None = None) -> dict:
     def search_watchlists(
         terms: list[str],
         list_slug: str | None = None,
         record_type: str | None = None,
     ) -> SearchWatchlistsResult:
-        return search_watchlists_impl(
+        result = search_watchlists_impl(
             terms, list_slug=list_slug, record_type=record_type
         )
+        if log is not None:
+            log.append(
+                {
+                    "terms": list(result.terms),
+                    "lists": list(result.lists),
+                    "hit_count": len(result.hits),
+                }
+            )
+        return result
 
     return {
         "name": "search_watchlists",

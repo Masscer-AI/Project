@@ -68,19 +68,21 @@ function ClarificationDocument({ item }: { item: TPldClarificationRequest }) {
 export function PldClarificationRequests({
   row,
   onSaved,
+  openOnly,
 }: {
   row: TMyPldExpedient;
   onSaved: (next: TMyPldExpedient) => void;
+  openOnly?: boolean;
 }) {
   const { t } = useTranslation();
   const requests = row.clarification_requests || [];
   const open = requests.filter((item) => item.status === "open");
   const answered = requests.filter((item) => item.status !== "open");
-  if (requests.length === 0) return null;
+  if (requests.length === 0 || (openOnly && open.length === 0)) return null;
 
   return (
     <Stack gap="md">
-      {answered.length > 0 ? (
+      {!openOnly && answered.length > 0 ? (
         <Stack gap="xs">
           <Text size="sm" fw={600}>
             {t("compliance-clarify-history")}

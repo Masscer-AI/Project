@@ -2503,6 +2503,7 @@ export type TMyPldExpedient = {
     screening?: {
       verdict?: string;
       summary?: string;
+      searches?: { terms: string[]; lists: string[]; hit_count: number }[];
     };
     signing?: {
       status?: string;

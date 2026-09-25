@@ -7,6 +7,14 @@ from pydantic import BaseModel, ConfigDict, Field
 from api.compliance.clarifications import InviteeRequestSpec
 
 
+class ScreeningSearch(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    terms: list[str] = Field(default_factory=list)
+    lists: list[str] = Field(default_factory=list)
+    hit_count: int = 0
+
+
 class ScreeningHit(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -30,5 +38,6 @@ class ScreeningResult(BaseModel):
     summary: str
     hits: list[ScreeningHit] = Field(default_factory=list)
     queries_run: list[str] = Field(default_factory=list)
+    searches: list[ScreeningSearch] = Field(default_factory=list)
     invitee_requests: list[InviteeRequestSpec] = Field(default_factory=list)
     human_notes: str | None = None

@@ -23,6 +23,17 @@ const MORAL_CHECKS = [
   { code: "controller_missing", key: "compliance-sign-check-controller" },
 ];
 
+const LIST_LABELS: Record<string, string> = {
+  onu_csnu: "ONU",
+  sat_69b: "SAT 69-B",
+  sat_69b_bis: "SAT 69-B Bis",
+  sat_69_firmes: "SAT 69 firmes",
+  sat_69_no_localizados: "SAT 69 no localizados",
+  sat_69_exigibles: "SAT 69 exigibles",
+  sat_69_sentencias: "SAT 69 sentencias",
+  sat_69_csd: "SAT 69 CSD",
+};
+
 const FISICA_CHECKS = [
   { code: "rfc_mismatch", key: "compliance-sign-check-rfc" },
   { code: "curp_mismatch", key: "compliance-sign-check-curp" },
@@ -177,6 +188,49 @@ export function PldIdentificationDossier({
     row.expedient?.signing?.status === "rejected" ||
     row.expedient?.signing?.status === "error";
 
+  if (alreadyCross) {
+    return (
+      <Stack gap="md" mt="md">
+        {onBack ? (
+          <Button variant="subtle" color="gray" w="fit-content" onClick={onBack}>
+            {t("compliance-sign-back")}
+          </Button>
+        ) : null}
+        <Text size="sm">{t("compliance-dossier-next-lists")}</Text>
+        {(row.expedient?.screening?.searches || []).length > 0 ? (
+          <Stack gap={6}>
+            {(row.expedient?.screening?.searches || []).map((search, index) => (
+              <Text key={index} size="sm">
+                {search.terms.join(" ")}
+                {" · "}
+                {search.lists.map((slug) => LIST_LABELS[slug] || slug).join(", ")}
+                {" · "}
+                {search.hit_count === 0
+                  ? t("compliance-screening-hits_zero")
+                  : t("compliance-screening-hits", { count: search.hit_count })}
+              </Text>
+            ))}
+          </Stack>
+        ) : null}
+        {screeningPending ? (
+          <Alert
+            color="violet"
+            variant="light"
+            icon={<Loader size={16} type="oval" color="currentColor" />}
+          >
+            {t("compliance-screening-running")}
+          </Alert>
+        ) : null}
+        {row.expedient?.screening_status === "failed" ? (
+          <Alert color="red" variant="light">
+            {t("compliance-screening-failed")}
+          </Alert>
+        ) : null}
+        <PldClarificationRequests row={row} onSaved={onSaved} openOnly />
+      </Stack>
+    );
+  }
+
   if (signLayout) {
     return (
       <Stack gap="lg" mt="md">
@@ -326,7 +380,7 @@ export function PldIdentificationDossier({
             <PldExpedientPreview row={row} fullWidth />
           </Stack>
         </SimpleGrid>
-        <PldClarificationRequests row={row} onSaved={onSaved} />
+        <PldClarificationRequests row={row} onSaved={onSaved} openOnly />
       </Stack>
     );
   }

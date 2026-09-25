@@ -652,8 +652,18 @@ def _invitee_screening(exp: PLDExpedient) -> dict:
     summary = str(risk.get("invitee_summary") or "").strip() or str(
         raw.get("summary") or ""
     )
+    searches = raw.get("searches") if isinstance(raw.get("searches"), list) else []
     return {
         "summary": summary,
+        "searches": [
+            {
+                "terms": row.get("terms") if isinstance(row.get("terms"), list) else [],
+                "lists": row.get("lists") if isinstance(row.get("lists"), list) else [],
+                "hit_count": int(row.get("hit_count") or 0),
+            }
+            for row in searches
+            if isinstance(row, dict)
+        ],
     }
 
 
