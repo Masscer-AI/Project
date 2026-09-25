@@ -192,40 +192,82 @@ def fill_form_variable_impl(entity, name: str, value: str) -> FillFormVariableRe
     return FillFormVariableResult(name=key, filled=True, message="ok")
 
 
-def apply_extraction_to_form(entity, kind: str, payload: dict) -> None:
-    if kind != "acta_constitutiva" or not isinstance(payload, dict):
-        return
-    pairs = [
-        ("legal_name", payload.get("legal_name")),
-        ("constitution_date", payload.get("constitution_date")),
-        ("rfc", payload.get("rfc")),
-        ("economic_activity", payload.get("corporate_purpose")),
+def _text(value) -> str | None:
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return None
+
+
+def _representative_id_pairs(payload: dict) -> list[tuple[str, str | None]]:
+    subtype = (_text(payload.get("document_subtype")) or "").lower()
+    document_type = "ine" if subtype == "ine" else _text(payload.get("document_subtype"))
+    number = _text(payload.get("document_number")) or _text(payload.get("cic"))
+    return [
+        ("representative.given_names", _text(payload.get("given_names"))),
+        ("representative.surnames", _text(payload.get("surnames"))),
+        ("representative.date_of_birth", _text(payload.get("date_of_birth"))),
+        ("representative.identification.document_type", document_type),
+        ("representative.identification.document_number", number),
+        (
+            "representative.identification.issuing_authority",
+            "INE" if document_type == "ine" else None,
+        ),
     ]
-    address = payload.get("registered_address")
-    if isinstance(address, dict):
-        pairs.append(("nationality", address.get("country")))
-        for field in (
-            "street",
-            "exterior_number",
-            "interior_number",
-            "neighborhood",
-            "municipality",
-            "city",
-            "state",
-            "postal_code",
-            "country",
-        ):
-            pairs.append((f"address.{field}", address.get(field)))
-    shareholders = payload.get("shareholders")
-    if isinstance(shareholders, list):
-        for index, row in enumerate(shareholders[:5]):
-            if not isinstance(row, dict):
-                continue
-            pairs.append((f"controllers.{index}.name", row.get("name")))
-            pairs.append((f"controllers.{index}.rfc", row.get("rfc")))
-            pairs.append(
-                (f"controllers.{index}.ownership_percentage", row.get("ownership_percentage"))
-            )
+
+
+def _representative_curp_pairs(payload: dict) -> list[tuple[str, str | None]]:
+    return [
+        ("representative.given_names", _text(payload.get("given_names"))),
+        ("representative.surnames", _text(payload.get("surnames"))),
+        ("representative.date_of_birth", _text(payload.get("date_of_birth"))),
+        ("representative.curp", _text(payload.get("curp"))),
+    ]
+
+
+def apply_extraction_to_form(entity, kind: str, payload: dict) -> None:
+    if not isinstance(payload, dict):
+        return
+    if kind == "id_representante":
+        pairs = _representative_id_pairs(payload)
+    elif kind == "curp_representante":
+        pairs = _representative_curp_pairs(payload)
+    elif kind == "acta_constitutiva":
+        pairs = [
+            ("legal_name", payload.get("legal_name")),
+            ("constitution_date", payload.get("constitution_date")),
+            ("rfc", payload.get("rfc")),
+            ("economic_activity", payload.get("corporate_purpose")),
+        ]
+        address = payload.get("registered_address")
+        if isinstance(address, dict):
+            pairs.append(("nationality", address.get("country")))
+            for field in (
+                "street",
+                "exterior_number",
+                "interior_number",
+                "neighborhood",
+                "municipality",
+                "city",
+                "state",
+                "postal_code",
+                "country",
+            ):
+                pairs.append((f"address.{field}", address.get(field)))
+        shareholders = payload.get("shareholders")
+        if isinstance(shareholders, list):
+            for index, row in enumerate(shareholders[:5]):
+                if not isinstance(row, dict):
+                    continue
+                pairs.append((f"controllers.{index}.name", row.get("name")))
+                pairs.append((f"controllers.{index}.rfc", row.get("rfc")))
+                pairs.append(
+                    (
+                        f"controllers.{index}.ownership_percentage",
+                        row.get("ownership_percentage"),
+                    )
+                )
+    else:
+        return
     for name, raw in pairs:
         if isinstance(raw, str) and raw.strip():
             fill_form_variable_impl(entity, name, raw)

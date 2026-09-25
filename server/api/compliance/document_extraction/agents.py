@@ -69,6 +69,7 @@ INSTRUCTIONS_BY_KIND = {
     "id_representante": (
         "You extract the official ID of a legal representative. "
         "Do not extract CURP. Leave curp null. CURP comes only from the CURP document. "
+        "Write only representative.* form fields, never the company or the top-level person. "
         + _INE_ID_RULES
         + _SHARED_RULES
     ),
@@ -128,7 +129,8 @@ INSTRUCTIONS_BY_KIND = {
     ),
     "curp_representante": (
         "You extract the CURP certificate of the legal representative. "
-        "Set curp, full_name, date_of_birth, sex, and entidad_nacimiento. "
+        "Set curp, full_name, given_names, surnames, date_of_birth, sex, and entidad_nacimiento. "
+        "Write only representative.* form fields, never the company or the top-level person. "
         "If a fact is present in provenances, place it in its matching schema property too. "
         + _SHARED_RULES
     ),

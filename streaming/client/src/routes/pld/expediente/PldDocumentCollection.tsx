@@ -82,6 +82,9 @@ function slotLabel(
   t: (key: string, options?: Record<string, unknown>) => string,
   slot: TPldDocumentSlot
 ) {
+  if (slot.document_kind === "cfdi" && slot.label_name) {
+    return t("compliance-doc-slot-cfdi-extra", { name: slot.label_name });
+  }
   return t(`compliance-doc-slot-${slot.document_kind}`, {
     name: slot.label_name || "",
     defaultValue: slot.document_kind,

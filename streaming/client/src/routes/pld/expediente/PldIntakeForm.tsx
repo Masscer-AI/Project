@@ -736,7 +736,9 @@ export function PldIntakeForm({
       form.controllers.some(
         (item) => filled(item.name) && item.email.includes("@")
       ));
-  const documentsDone = sectionDocsDone("documents");
+  const supportSlots = slotsForIntakeSection("documents", allSlots, isMoral);
+  const documentsSkipped = !supportSlots.some((slot) => slot.required);
+  const documentsDone = !documentsSkipped && sectionDocsDone("documents");
   const sectionOrder = isMoral
     ? ["entity", "address", "representative", "controller", "documents"]
     : ["entity", "address", "identification", "controller", "documents"];
@@ -811,7 +813,10 @@ export function PldIntakeForm({
   const missingDocs = allSlots.filter(
     (slot) => slot.required && slot.document?.extraction_status !== "succeeded"
   ).length;
-  const sectionMeta: Record<string, { label: string; done: boolean; hint: string }> = {
+  const sectionMeta: Record<
+    string,
+    { label: string; done: boolean; hint: string; skipped?: boolean }
+  > = {
     entity: {
       label: isMoral
         ? t("compliance-intake-section-entity-moral")
@@ -852,9 +857,12 @@ export function PldIntakeForm({
     documents: {
       label: t("compliance-doc-section"),
       done: documentsDone,
-      hint: documentsDone
-        ? t("compliance-intake-section-done")
-        : t("compliance-intake-section-pending"),
+      skipped: documentsSkipped,
+      hint: documentsSkipped
+        ? t("compliance-intake-section-skipped")
+        : documentsDone
+          ? t("compliance-intake-section-done")
+          : t("compliance-intake-section-pending"),
     },
   };
   const doneCount = sectionOrder.filter((id) => sectionMeta[id]?.done).length;
@@ -972,7 +980,24 @@ export function PldIntakeForm({
                 }}
               >
                 <Group gap="sm" wrap="nowrap" align="flex-start">
-                  {meta.done ? (
+                  {meta.skipped ? (
+                    <Box
+                      w={18}
+                      h={18}
+                      style={{
+                        borderRadius: 99,
+                        border: "1px solid var(--mantine-color-dark-2)",
+                        color: "var(--mantine-color-dark-2)",
+                        fontSize: 12,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                      }}
+                    >
+                      –
+                    </Box>
+                  ) : meta.done ? (
                     <IconCircleCheck size={18} color="var(--mantine-color-teal-5)" />
                   ) : (
                     <Box
@@ -996,7 +1021,7 @@ export function PldIntakeForm({
                     <Text size="sm" fw={600}>
                       {meta.label}
                     </Text>
-                    <Text size="xs" c={meta.done ? "dimmed" : "yellow"}>
+                    <Text size="xs" c={meta.done || meta.skipped ? "dimmed" : "yellow"}>
                       {meta.hint}
                     </Text>
                   </Stack>

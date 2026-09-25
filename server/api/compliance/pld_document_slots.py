@@ -64,6 +64,32 @@ def required_slots_extraction_ready(entity) -> tuple[bool, str]:
     return True, ""
 
 
+def _cfdi_slots(entity) -> list[dict]:
+    slots = [_slot("cfdi", "cfdi", required=True)]
+    exp = entity.expedients.order_by("created_at").first()
+    indexes: list[int] = []
+    has_first = False
+    if exp:
+        for doc in exp.documents.all():
+            key = str(doc.slot_key)
+            if key == "cfdi":
+                has_first = True
+            elif key.startswith("cfdi:"):
+                tail = key.split(":", 1)[1]
+                if tail.isdigit():
+                    indexes.append(int(tail))
+    for index in sorted(set(indexes)):
+        slots.append(
+            _slot(f"cfdi:{index}", "cfdi", required=False, label_name=str(index + 1))
+        )
+    if has_first or indexes:
+        nxt = max(indexes) + 1 if indexes else 1
+        slots.append(
+            _slot(f"cfdi:{nxt}", "cfdi", required=False, label_name=str(nxt + 1))
+        )
+    return slots
+
+
 def document_slots_for_entity(entity) -> list[dict]:
     """Return checklist slots from person type and saved identification metadata."""
     metadata = entity.metadata if isinstance(entity.metadata, dict) else {}
@@ -74,7 +100,7 @@ def document_slots_for_entity(entity) -> list[dict]:
             _slot("comprobante_domicilio", "comprobante_domicilio", required=True),
             _slot("id_representante", "id_representante", required=True),
             _slot("curp_representante", "curp_representante", required=True),
-            _slot("cfdi", "cfdi", required=True),
+            *_cfdi_slots(entity),
             _slot("poder", "poder", required=False),
             _slot("curp_socios", "curp_socios", required=False),
             _slot("organigrama", "organigrama", required=False),
@@ -97,7 +123,7 @@ def document_slots_for_entity(entity) -> list[dict]:
         _slot("curp", "curp", required=True),
         _slot("constancia_fiscal", "constancia_fiscal", required=True),
         _slot("comprobante_domicilio", "comprobante_domicilio", required=True),
-        _slot("cfdi", "cfdi", required=True),
+        *_cfdi_slots(entity),
         _slot("acta_nacimiento", "acta_nacimiento", required=False),
         _slot("organigrama", "organigrama", required=False),
     ]
