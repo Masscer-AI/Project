@@ -179,6 +179,11 @@ export function PldIdentificationDossier({
   if (signLayout) {
     return (
       <Stack gap="lg" mt="md">
+        {onBack ? (
+          <Button variant="subtle" color="gray" w="fit-content" onClick={onBack}>
+            {t("compliance-sign-back")}
+          </Button>
+        ) : null}
         <Group justify="space-between" align="flex-start" wrap="nowrap">
           <Stack gap={6}>
             <Text size="sm" c="dimmed">

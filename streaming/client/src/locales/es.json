@@ -1232,6 +1232,7 @@
   "compliance-sign-check-controller": "La beneficiaria controladora coincide con la accionista principal del acta.",
   "compliance-sign-check-curp": "La CURP declarada coincide con la constancia.",
   "compliance-sign-check-id": "La identificacion oficial esta vigente.",
+  "compliance-sign-back": "Volver a los pasos",
   "compliance-sign-title": "Firma tu expediente",
   "compliance-sign-intro": "Revisa el resumen de identificacion y firma electronicamente. La firma se hace con Mifiel. Si hay varios firmantes, cada uno recibe su propio correo con un enlace personal (valido 30 dias).",
   "compliance-sign-cta": "Firmar expediente",

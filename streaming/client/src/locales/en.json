@@ -1230,6 +1230,7 @@
   "compliance-sign-check-controller": "The declared controller matches the main shareholder in the deed.",
   "compliance-sign-check-curp": "The declared CURP matches the certificate.",
   "compliance-sign-check-id": "The official identification is current.",
+  "compliance-sign-back": "Back to the steps",
   "compliance-sign-title": "Sign your expediente",
   "compliance-sign-intro": "Review the identification summary and sign electronically. Signing uses Mifiel. If several people must sign, each receives their own email with a personal link (valid 30 days).",
   "compliance-sign-cta": "Sign expediente",

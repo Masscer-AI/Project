@@ -165,9 +165,11 @@ export default function MyPldExpedientePage() {
           ) : (
             <Stack gap="md">
               {rows.map((row) => {
+                const leftSteps = reviewingIds[row.id] === false;
                 const onDossier =
-                  reviewingIds[row.id] ||
-                  DOSSIER_LOCKED_STATUSES.has(row.expedient?.status || "");
+                  !leftSteps &&
+                  (reviewingIds[row.id] ||
+                    DOSSIER_LOCKED_STATUSES.has(row.expedient?.status || ""));
                 const signStep = ["waiting_sign", "signed", "delivered"].includes(
                   row.expedient?.status || ""
                 );
@@ -212,6 +214,12 @@ export default function MyPldExpedientePage() {
                       <PldIdentificationDossier
                         row={row}
                         headerExtra={reset}
+                        onBack={() =>
+                          setReviewingIds((prev) => ({
+                            ...prev,
+                            [row.id]: false,
+                          }))
+                        }
                         onSaved={(next) =>
                           setRows((prev) =>
                             prev.map((item) => (item.id === next.id ? next : item))
