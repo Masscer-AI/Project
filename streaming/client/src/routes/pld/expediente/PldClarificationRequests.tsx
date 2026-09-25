@@ -5,6 +5,7 @@ import {
   Button,
   FileInput,
   Group,
+  Loader,
   Stack,
   Text,
   Textarea,
@@ -99,6 +100,8 @@ function ClarificationCard({
   const [busy, setBusy] = useState(false);
   const allowText = item.answer_type !== "document";
   const allowFile = item.answer_type !== "text";
+  const reading = item.document?.extraction_status === "pending";
+  const readFailed = item.document?.extraction_status === "failed";
 
   const submit = async () => {
     const value = text.trim();
@@ -129,6 +132,18 @@ function ClarificationCard({
   return (
     <Stack gap="xs" p="sm" style={{ border: "1px solid var(--mantine-color-dark-4)", borderRadius: 8 }}>
       <Text size="sm">{item.prompt}</Text>
+      {reading ? (
+        <Group gap="xs">
+          <Loader size={16} type="oval" color="violet" />
+          <Text size="sm">{t("compliance-clarify-reading")}</Text>
+        </Group>
+      ) : (
+        <>
+      {readFailed ? (
+        <Text size="sm" c="red">
+          {t("compliance-clarify-read-failed")}
+        </Text>
+      ) : null}
       {allowText ? (
         <>
           <Textarea
@@ -164,6 +179,8 @@ function ClarificationCard({
           {t("compliance-clarify-send-text")}
         </Button>
       </Group>
+        </>
+      )}
     </Stack>
   );
 }

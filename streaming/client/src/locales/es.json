@@ -1222,6 +1222,8 @@
   "compliance-clarify-send-file": "Subir archivo",
   "compliance-clarify-saved": "Respuesta enviada",
   "compliance-clarify-uploaded": "Documento enviado. Lo estamos revisando.",
+  "compliance-clarify-reading": "Estamos leyendo el documento.",
+  "compliance-clarify-read-failed": "No se pudo leer el documento. Vuelve a enviarlo.",
   "compliance-clarify-error": "No se pudo guardar. Intenta de nuevo.",
   "compliance-sign-checks-ok-moral": "El expediente cumple con lo requerido para persona moral",
   "compliance-sign-checks-ok-fisica": "El expediente cumple con lo requerido para persona fisica",

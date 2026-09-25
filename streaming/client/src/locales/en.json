@@ -1220,6 +1220,8 @@
   "compliance-clarify-send-file": "Upload file",
   "compliance-clarify-saved": "Answer sent",
   "compliance-clarify-uploaded": "Document sent. We are reviewing it.",
+  "compliance-clarify-reading": "We are reading the document.",
+  "compliance-clarify-read-failed": "The document could not be read. Send it again.",
   "compliance-clarify-error": "Could not save. Try again.",
   "compliance-sign-checks-ok-moral": "The file meets what a company must provide",
   "compliance-sign-checks-ok-fisica": "The file meets what an individual must provide",
