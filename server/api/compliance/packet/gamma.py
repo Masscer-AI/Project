@@ -27,6 +27,7 @@ def _prompt(entity) -> str:
     body = "\n".join(_paragraphs(entity))
     return (
         "Fill this one-page identification expediente with the facts below. "
+        "When an aclaracion corrects an earlier fact, use the aclaracion. "
         "Keep the template layout. Do not add or remove pages. Write in Spanish.\n\n"
         + body
     )

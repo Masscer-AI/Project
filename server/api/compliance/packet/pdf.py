@@ -71,6 +71,34 @@ def _document_lines(entity) -> list[str]:
     return lines
 
 
+def _clarification_lines(entity) -> list[str]:
+    from api.compliance.clarifications import answers_packet
+
+    exp = entity.expedients.order_by("created_at").first()
+    if not exp:
+        return []
+    lines = []
+    for row in answers_packet(exp):
+        lines.append(f"- {row.get('prompt') or ''}")
+        if row.get("text_answer"):
+            lines.append(f"  Respuesta: {row['text_answer']}")
+        if row.get("document_filename"):
+            lines.append(f"  Archivo: {row['document_filename']}")
+        payload = row.get("document_extraction") or {}
+        if not isinstance(payload, dict):
+            continue
+        if payload.get("summary"):
+            lines.append(f"  Resumen: {payload['summary']}")
+        for fact in payload.get("extractions") or []:
+            if not isinstance(fact, dict):
+                continue
+            name = fact.get("extraction_name")
+            value = fact.get("extraction_value")
+            if name and value not in (None, ""):
+                lines.append(f"  {name}: {value}")
+    return lines
+
+
 def _paragraphs(entity) -> list[str]:
     meta = entity.metadata if isinstance(entity.metadata, dict) else {}
     org_name = entity.organization.name
@@ -138,6 +166,17 @@ def _paragraphs(entity) -> list[str]:
         blocks.extend(f"- {row}" for row in controllers)
     else:
         blocks.append("- No declarado en el formulario.")
+
+    clarifications = _clarification_lines(entity)
+    if clarifications:
+        blocks.extend(
+            [
+                "",
+                "ACLARACIONES",
+                "Estas respuestas corrigen o completan los datos de arriba.",
+            ]
+        )
+        blocks.extend(clarifications)
 
     docs = _document_lines(entity)
     blocks.extend(["", "DOCUMENTOS INTEGRADOS AL EXPEDIENTE"])
