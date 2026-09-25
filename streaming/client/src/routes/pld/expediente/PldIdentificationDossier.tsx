@@ -1,90 +1,48 @@
-import { useEffect, useRef, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
-import { Alert, Badge, Button, Group, List, Loader, Stack, Text, Title } from "@mantine/core";
-import { IconDownload } from "@tabler/icons-react";
+import { Alert, Badge, Button, Card, Group, Loader, SimpleGrid, Stack, Text, Title } from "@mantine/core";
+import { IconAlertTriangle, IconCircleCheck, IconDownload, IconSignature } from "@tabler/icons-react";
 import {
   confirmMyPldDocuments,
   downloadMyPldPacket,
   listMyPldExpedients,
   rerunMyPldPrequalification,
   TMyPldExpedient,
-  TPldDocumentSlot,
 } from "../../../modules/apiCalls";
 import { PldClarificationRequests } from "./PldClarificationRequests";
-import { PldExtractionDebugModal } from "./PldExtractionDebugModal";
+import { PldExpedientPreview } from "./PldExpedientPreview";
 import { PldPrequalDebugModal } from "./PldPrequalDebugModal";
 
-function text(value: unknown): string {
-  if (typeof value === "string" && value.trim()) return value.trim();
-  return "";
-}
+const MORAL_CHECKS = [
+  { code: "rfc_mismatch", key: "compliance-sign-check-rfc" },
+  { code: "legal_name_mismatch", key: "compliance-sign-check-name" },
+  { code: "address_proof_stale", key: "compliance-sign-check-address" },
+  { code: "id_expired_or_unreadable", key: "compliance-sign-check-representative" },
+  { code: "controller_missing", key: "compliance-sign-check-controller" },
+];
 
-function addressLine(value: unknown): string {
-  if (!value || typeof value !== "object") return "";
-  const row = value as Record<string, unknown>;
-  return [
-    row.street,
-    row.exterior_number,
-    row.neighborhood,
-    row.city,
-    row.state,
-    row.postal_code,
-    row.country,
-  ]
-    .map(text)
-    .filter(Boolean)
-    .join(", ");
-}
-
-function controllerNames(metadata: Record<string, unknown>): string[] {
-  const names: string[] = [];
-  const list = metadata.controllers;
-  if (Array.isArray(list)) {
-    for (const item of list) {
-      if (item && typeof item === "object") {
-        const name = text((item as Record<string, unknown>).name);
-        if (name) names.push(name);
-      }
-    }
-  }
-  const single = metadata.controller;
-  if (names.length === 0 && single && typeof single === "object") {
-    const name = text((single as Record<string, unknown>).name);
-    if (name) names.push(name);
-  }
-  if (metadata.is_own_controller === true) {
-    const selfName =
-      text(metadata.name) ||
-      [text(metadata.given_names), text(metadata.surnames)].filter(Boolean).join(" ");
-    if (selfName && names.length === 0) names.push(selfName);
-  }
-  return names;
-}
-
-function slotKindLabel(
-  t: (key: string, options?: Record<string, unknown>) => string,
-  slot: TPldDocumentSlot
-) {
-  return t(`compliance-doc-slot-${slot.document_kind}`, {
-    name: slot.label_name || "",
-    defaultValue: slot.document_kind,
-  });
-}
+const FISICA_CHECKS = [
+  { code: "rfc_mismatch", key: "compliance-sign-check-rfc" },
+  { code: "curp_mismatch", key: "compliance-sign-check-curp" },
+  { code: "legal_name_mismatch", key: "compliance-sign-check-name" },
+  { code: "address_proof_stale", key: "compliance-sign-check-address" },
+  { code: "id_expired_or_unreadable", key: "compliance-sign-check-id" },
+];
 
 export function PldIdentificationDossier({
   row,
   onSaved,
   onBack,
+  headerExtra,
 }: {
   row: TMyPldExpedient;
   onSaved: (next: TMyPldExpedient) => void;
   onBack?: () => void;
+  headerExtra?: ReactNode;
 }) {
   const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
-  const [inspectSlot, setInspectSlot] = useState<TPldDocumentSlot | null>(null);
-  const metadata = row.metadata || {};
   const slots = row.document_slots || [];
   const required = slots.filter((slot) => slot.required);
   const pending = required.some(
@@ -152,14 +110,6 @@ export function PldIdentificationDossier({
     !signedDone &&
     (row.expedient?.prequalification_status === "succeeded" ||
       row.expedient?.prequalification_status === "failed");
-  const displayName =
-    text(metadata.legal_name) ||
-    text(metadata.name) ||
-    [text(metadata.given_names), text(metadata.surnames)].filter(Boolean).join(" ") ||
-    row.name;
-  const identification = metadata.identification as Record<string, unknown> | undefined;
-  const controllers = controllerNames(metadata);
-
   const handleConfirm = async () => {
     setBusy(true);
     try {
@@ -197,6 +147,145 @@ export function PldIdentificationDossier({
     }
   };
 
+  const signLayout = waitingSign || signedDone;
+  const checks = row.person_type === "persona_moral" ? MORAL_CHECKS : FISICA_CHECKS;
+  const findingByCode = new Map(
+    (prequal?.debug?.findings || [])
+      .filter((item) => item.code)
+      .map((item) => [item.code as string, item.summary || ""])
+  );
+  const passedChecks = checks.filter((item) => !findingByCode.has(item.code));
+  const signRejected =
+    row.expedient?.signing?.status === "rejected" ||
+    row.expedient?.signing?.status === "error";
+
+  if (signLayout) {
+    return (
+      <Stack gap="lg" mt="md">
+        <Group justify="space-between" align="flex-start" wrap="nowrap">
+          <Stack gap={6}>
+            <Text size="sm" c="dimmed">
+              {t("compliance-expediente-requested-by", {
+                name: row.organization_name,
+              })}
+            </Text>
+            <Title order={2}>{row.name}</Title>
+            {status ? (
+              <Badge variant="light" color="violet" w="fit-content">
+                {t(`compliance-status-${status}`, { defaultValue: status })}
+              </Badge>
+            ) : null}
+          </Stack>
+          {headerExtra}
+        </Group>
+        <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
+          <Stack gap="sm">
+            <Card withBorder radius="md" p="md">
+              <Group gap="sm" wrap="nowrap" align="flex-start" mb="sm">
+                {passedChecks.length === checks.length ? (
+                  <IconCircleCheck size={22} color="var(--mantine-color-teal-5)" />
+                ) : (
+                  <IconAlertTriangle size={22} color="var(--mantine-color-yellow-5)" />
+                )}
+                <Stack gap={0}>
+                  {passedChecks.length === checks.length ? (
+                    <Text size="sm" fw={600}>
+                      {t(
+                        row.person_type === "persona_moral"
+                          ? "compliance-sign-checks-ok-moral"
+                          : "compliance-sign-checks-ok-fisica"
+                      )}
+                    </Text>
+                  ) : null}
+                  <Text size="xs" c="dimmed">
+                    {t("compliance-sign-checks-count", {
+                      done: passedChecks.length,
+                      total: checks.length,
+                    })}
+                  </Text>
+                </Stack>
+              </Group>
+              <Stack gap={0}>
+                {checks.map((item) => {
+                  const failed = findingByCode.get(item.code);
+                  return (
+                    <Group
+                      key={item.code}
+                      gap="sm"
+                      wrap="nowrap"
+                      align="flex-start"
+                      py={8}
+                      style={{ borderTop: "1px solid var(--mantine-color-dark-4)" }}
+                    >
+                      {failed ? (
+                        <IconAlertTriangle size={16} color="var(--mantine-color-yellow-5)" />
+                      ) : (
+                        <IconCircleCheck size={16} color="var(--mantine-color-teal-5)" />
+                      )}
+                      <Text size="sm">{failed || t(item.key)}</Text>
+                    </Group>
+                  );
+                })}
+              </Stack>
+            </Card>
+            {row.expedient?.screening?.summary &&
+            row.expedient.screening_status === "succeeded" ? (
+              <Alert color="gray" variant="light">
+                {row.expedient.screening.summary}
+              </Alert>
+            ) : null}
+          </Stack>
+          <Stack gap="sm">
+            <Card withBorder radius="md" p="md">
+              <Stack gap="sm">
+                <Text fw={600}>{t("compliance-sign-title")}</Text>
+                <Text size="sm" c="dimmed">
+                  {signedDone ? t("compliance-sign-done") : t("compliance-sign-intro")}
+                </Text>
+                {signRejected ? (
+                  <Alert color="yellow" variant="light" icon={<IconAlertTriangle size={16} />}>
+                    {t("compliance-sign-rejected")}
+                  </Alert>
+                ) : null}
+                {waitingSign && !row.expedient?.signing?.url ? (
+                  <Group gap="xs">
+                    <Loader size={16} type="oval" color="violet" />
+                    <Text size="sm">{t("compliance-sign-preparing")}</Text>
+                  </Group>
+                ) : null}
+                {waitingSign && row.expedient?.signing?.url ? (
+                  <Button
+                    component="a"
+                    href={row.expedient.signing.url}
+                    color="violet"
+                    fullWidth
+                    leftSection={<IconSignature size={16} />}
+                  >
+                    {t("compliance-sign-cta")}
+                  </Button>
+                ) : null}
+                {row.expedient?.packet_ready ? (
+                  <Button
+                    type="button"
+                    variant="default"
+                    fullWidth
+                    leftSection={<IconDownload size={16} />}
+                    loading={busy}
+                    onClick={handleDownloadPacket}
+                  >
+                    {t("compliance-sign-download")}
+                  </Button>
+                ) : null}
+              </Stack>
+            </Card>
+            <PldExpedientPreview row={row} fullWidth />
+          </Stack>
+        </SimpleGrid>
+        <PldClarificationRequests row={row} onSaved={onSaved} />
+      </Stack>
+    );
+  }
+
   return (
     <Stack gap="md" mt="md">
       <Title order={4}>{t("compliance-dossier-title")}</Title>
@@ -225,8 +314,8 @@ export function PldIdentificationDossier({
         </Alert>
       )}
       {row.expedient?.prequalification_status === "failed" && (
-        <Group align="flex-start" gap="sm">
-          <Alert color="red" variant="light" style={{ flex: 1 }}>
+        <Stack gap="sm">
+          <Alert color="red" variant="light">
             {t("compliance-prequal-failed")}
           </Alert>
           {canRerunPrequal ? (
@@ -235,33 +324,35 @@ export function PldIdentificationDossier({
               size="xs"
               loading={busy}
               onClick={handleRerunPrequal}
+              w="fit-content"
             >
               {t("compliance-prequal-rerun")}
             </Button>
           ) : null}
-        </Group>
+        </Stack>
       )}
       {prequal?.summary && row.expedient?.prequalification_status === "succeeded" && (
-        <Group align="flex-start" gap="sm" wrap="nowrap">
+        <Stack gap="sm">
           <Alert
             color={verdict === "ready_for_list_screening" ? "teal" : "yellow"}
             variant="light"
-            style={{ flex: 1 }}
           >
             {prequal.summary}
           </Alert>
-          <PldPrequalDebugModal row={row} />
-          {canRerunPrequal ? (
-            <Button
-              variant="default"
-              size="xs"
-              loading={busy}
-              onClick={handleRerunPrequal}
-            >
-              {t("compliance-prequal-rerun")}
-            </Button>
-          ) : null}
-        </Group>
+          <Group gap="sm">
+            <PldPrequalDebugModal row={row} />
+            {canRerunPrequal ? (
+              <Button
+                variant="default"
+                size="xs"
+                loading={busy}
+                onClick={handleRerunPrequal}
+              >
+                {t("compliance-prequal-rerun")}
+              </Button>
+            ) : null}
+          </Group>
+        </Stack>
       )}
       {row.expedient?.screening_status === "pending" && (
         <Alert
@@ -284,197 +375,31 @@ export function PldIdentificationDossier({
           </Alert>
         )}
       <PldClarificationRequests row={row} onSaved={onSaved} />
-      <Stack gap={4}>
-        <Text size="sm" fw={600}>
-          {t("compliance-dossier-identity")}
-        </Text>
-        <Text size="sm">{displayName}</Text>
-        {text(metadata.rfc) ? (
-          <Text size="sm" c="dimmed">
-            RFC: {text(metadata.rfc)}
-          </Text>
-        ) : null}
-        {addressLine(metadata.address) ? (
-          <Text size="sm" c="dimmed">
-            {t("compliance-intake-address")}: {addressLine(metadata.address)}
-          </Text>
-        ) : null}
-        {identification && (text(identification.document_type) || text(identification.document_number)) ? (
-          <Text size="sm" c="dimmed">
-            {t("compliance-intake-identification")}:{" "}
-            {[text(identification.document_type), text(identification.document_number)]
-              .filter(Boolean)
-              .join(" · ")}
-          </Text>
-        ) : null}
-      </Stack>
-      <Stack gap={4}>
-        <Text size="sm" fw={600}>
-          {t("compliance-intake-controller")}
-        </Text>
-        {controllers.length === 0 ? (
-          <Text size="sm" c="dimmed">
-            {t("compliance-dossier-controller-empty")}
-          </Text>
-        ) : (
-          <List size="sm" spacing={4}>
-            {controllers.map((name) => (
-              <List.Item key={name}>{name}</List.Item>
-            ))}
-          </List>
-        )}
-      </Stack>
-      <Stack gap={6}>
-        <Text size="sm" fw={600}>
-          {t("compliance-doc-section")}
-        </Text>
-        {required.map((slot) => (
-          <Group key={slot.slot_key} justify="space-between" gap="xs" wrap="nowrap">
-            <Text size="sm">{slotKindLabel(t, slot)}</Text>
-            <Badge
-              size="xs"
-              variant="light"
-              color={
-                slot.document?.extraction_status === "succeeded"
-                  ? "teal"
-                  : slot.document?.extraction_status === "failed"
-                    ? "red"
-                    : "violet"
-              }
-              style={
-                slot.document?.extraction_status === "succeeded"
-                  ? { cursor: "pointer" }
-                  : undefined
-              }
-              leftSection={
-                slot.document?.extraction_status !== "succeeded" &&
-                slot.document?.extraction_status !== "failed" &&
-                slot.document ? (
-                  <Loader size={10} color="violet" type="oval" />
-                ) : undefined
-              }
-              onClick={() => {
-                if (slot.document?.extraction_status === "succeeded") {
-                  setInspectSlot(slot);
-                }
-              }}
-            >
-              {slot.document?.extraction_status === "succeeded"
-                ? t("compliance-dossier-extracted")
-                : slot.document?.extraction_status === "failed"
-                  ? t("compliance-dossier-extract-failed")
-                  : t("compliance-dossier-extract-pending")}
-            </Badge>
-          </Group>
-        ))}
-      </Stack>
-      {waitingSign && (
-        <Alert
-          color="violet"
-          variant="light"
-          icon={
-            row.expedient?.signing?.url ? undefined : (
-              <Loader size={16} type="oval" color="currentColor" />
-            )
-          }
-        >
-          <Stack gap="xs">
-            <Text size="sm" fw={600}>
-              {t("compliance-sign-title")}
-            </Text>
-            <Text size="sm">{t("compliance-sign-intro")}</Text>
-            {row.expedient?.signing?.url ? (
-              <Group gap="xs">
-                <Button
-                  component="a"
-                  href={row.expedient.signing.url}
-                  color="violet"
-                  size="sm"
-                >
-                  {t("compliance-sign-cta")}
-                </Button>
-                {row.expedient.packet_ready ? (
-                  <Button
-                    type="button"
-                    variant="default"
-                    size="sm"
-                    leftSection={<IconDownload size={16} />}
-                    loading={busy}
-                    onClick={handleDownloadPacket}
-                  >
-                    {t("compliance-sign-download")}
-                  </Button>
-                ) : null}
-              </Group>
-            ) : (
-              <Group gap="xs">
-                <Text size="sm">{t("compliance-sign-preparing")}</Text>
-                {row.expedient?.packet_ready ? (
-                  <Button
-                    type="button"
-                    variant="default"
-                    size="sm"
-                    leftSection={<IconDownload size={16} />}
-                    loading={busy}
-                    onClick={handleDownloadPacket}
-                  >
-                    {t("compliance-sign-download")}
-                  </Button>
-                ) : null}
-              </Group>
-            )}
-            {row.expedient?.signing?.status === "rejected" ||
-            row.expedient?.signing?.status === "error" ? (
-              <Text size="sm">{t("compliance-sign-rejected")}</Text>
-            ) : null}
-          </Stack>
-        </Alert>
-      )}
-      {signedDone && (
-        <Alert color="teal" variant="light">
-          <Stack gap="xs">
-            <Text size="sm">{t("compliance-sign-done")}</Text>
-            {row.expedient?.packet_ready ? (
-              <Button
-                type="button"
-                variant="default"
-                size="sm"
-                leftSection={<IconDownload size={16} />}
-                loading={busy}
-                onClick={handleDownloadPacket}
-              >
-                {t("compliance-sign-download")}
-              </Button>
-            ) : null}
-          </Stack>
-        </Alert>
-      )}
       {alreadyCross && openRequests.length === 0 ? (
         <Alert color="gray" variant="light">
           {t("compliance-dossier-next-lists")}
         </Alert>
-      ) : hideConfirm ? null : (
-        <Group>
-          {onBack ? (
-            <Button type="button" variant="default" onClick={onBack}>
-              {t("compliance-dossier-back")}
+      ) : null}
+      <Group>
+        <PldExpedientPreview row={row} />
+        {hideConfirm ? null : (
+          <>
+            {onBack ? (
+              <Button type="button" variant="default" onClick={onBack}>
+                {t("compliance-dossier-back")}
+              </Button>
+            ) : null}
+            <Button
+              color="violet"
+              disabled={!confirmEnabled}
+              loading={busy}
+              onClick={handleConfirm}
+            >
+              {t("compliance-dossier-confirm")}
             </Button>
-          ) : null}
-          <Button
-            color="violet"
-            disabled={!confirmEnabled}
-            loading={busy}
-            onClick={handleConfirm}
-          >
-            {t("compliance-dossier-confirm")}
-          </Button>
-        </Group>
-      )}
-      <PldExtractionDebugModal
-        slot={inspectSlot}
-        opened={Boolean(inspectSlot)}
-        onClose={() => setInspectSlot(null)}
-      />
+          </>
+        )}
+      </Group>
     </Stack>
   );
 }

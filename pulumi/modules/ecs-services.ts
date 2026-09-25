@@ -98,6 +98,7 @@ export function createAppServices(args: {
     { name: "AWS_STORAGE_BUCKET_NAME", value: args.mediaBucket.bucket },
     { name: "AWS_S3_REGION_NAME", value: args.region.name },
     { name: "RESEND_FROM_DOMAIN", value: "mail.masscer.ai" },
+    { name: "GAMMA_EXPEDIENTE_TEMPLATE_ID", value: "g_ss07hpbni8ilyhy" },
   ];
 
   const providerSecrets = [

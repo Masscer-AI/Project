@@ -478,6 +478,7 @@ function SectionFiles({
   onSaved,
   showData,
   onShowData,
+  together,
   children,
 }: {
   section: string;
@@ -486,11 +487,29 @@ function SectionFiles({
   onSaved: (next: TMyPldExpedient) => void;
   showData: boolean;
   onShowData: (next: boolean) => void;
+  together?: boolean;
   children: React.ReactNode;
 }) {
   const { t } = useTranslation();
   const slots = slotsForIntakeSection(section, row.document_slots || [], isMoral);
   const docsReady = requiredSectionDocsExtracted(slots);
+  if (together) {
+    return (
+      <Stack gap="sm">
+        {children}
+        {slots.length > 0 && (
+          <PldDocumentCollection
+            embedded
+            section={section}
+            isMoral={isMoral}
+            row={row}
+            onSaved={onSaved}
+            onContinue={() => undefined}
+          />
+        )}
+      </Stack>
+    );
+  }
   if (slots.length > 0 && !showData) {
     return (
       <Stack gap="sm">
@@ -844,7 +863,10 @@ export function PldIntakeForm({
   const nextId = sectionOrder[activeIndex + 1];
   const activeSlots = slotsForIntakeSection(active, allSlots, isMoral);
   const onDataStep =
-    active === "documents" || activeSlots.length === 0 || showData;
+    active === "documents" ||
+    active === "controller" ||
+    activeSlots.length === 0 ||
+    showData;
   const syncLabel =
     sync === "saving"
       ? t("compliance-intake-sync-saving")
@@ -897,7 +919,7 @@ export function PldIntakeForm({
           <Text size="xs" c="dimmed">
             {missingDocs > 0
               ? t("compliance-expediente-docs-missing", {
-                  count: String(missingDocs),
+                  count: missingDocs,
                 })
               : t("compliance-expediente-docs-done")}
           </Text>
@@ -987,7 +1009,7 @@ export function PldIntakeForm({
         <Card withBorder radius="md" p="md" style={{ flex: 1, minWidth: 0 }}>
           <Stack gap={2} mb="md">
             <Title order={4}>{sectionMeta[active]?.label}</Title>
-            {showData && active !== "documents" && (
+            {(showData || active === "controller") && active !== "documents" && (
               <Text size="sm" c="dimmed">
                 {t("compliance-intake-required-legend")}
               </Text>
@@ -1354,6 +1376,7 @@ export function PldIntakeForm({
               onSaved={onSaved}
               showData={showData}
               onShowData={setShowData}
+              together
             >
               <Text size="sm" c="dimmed">
                 {isMoral
@@ -1384,7 +1407,6 @@ export function PldIntakeForm({
                             size="sm"
                             aria-label={t("compliance-intake-remove-controller")}
                             onClick={() => removeController(index)}
-                            disabled={form.controllers.length === 1}
                           >
                             <IconTrash size={16} />
                           </ActionIcon>

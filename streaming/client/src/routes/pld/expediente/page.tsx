@@ -3,17 +3,20 @@ import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
 import { AppPage } from "../../../components/AppPage/AppPage";
 import {
+  ActionIcon,
   Badge,
   Box,
   Button,
   Card,
   Group,
   Loader,
+  Menu,
   Modal,
   Stack,
   Text,
   Title,
 } from "@mantine/core";
+import { IconDots } from "@tabler/icons-react";
 import { useDisclosure } from "@mantine/hooks";
 import {
   listMyPldExpedients,
@@ -46,9 +49,11 @@ function shouldStartOnDossier(row: TMyPldExpedient): boolean {
 function ResetExpedienteButton({
   entityId,
   onReset,
+  menu,
 }: {
   entityId: string;
   onReset: (next: TMyPldExpedient) => void;
+  menu?: boolean;
 }) {
   const { t } = useTranslation();
   const [opened, { open, close }] = useDisclosure(false);
@@ -70,9 +75,26 @@ function ResetExpedienteButton({
 
   return (
     <>
-      <Button variant="default" size="xs" onClick={open}>
-        {t("compliance-expediente-reset")}
-      </Button>
+      {menu ? (
+        <Menu position="bottom-end">
+          <Menu.Target>
+            <ActionIcon
+              variant="default"
+              size="lg"
+              aria-label={t("compliance-expediente-reset")}
+            >
+              <IconDots size={18} />
+            </ActionIcon>
+          </Menu.Target>
+          <Menu.Dropdown>
+            <Menu.Item onClick={open}>{t("compliance-expediente-reset")}</Menu.Item>
+          </Menu.Dropdown>
+        </Menu>
+      ) : (
+        <Button variant="default" size="xs" onClick={open}>
+          {t("compliance-expediente-reset")}
+        </Button>
+      )}
       <Modal
         opened={opened}
         onClose={close}
@@ -146,8 +168,12 @@ export default function MyPldExpedientePage() {
                 const onDossier =
                   reviewingIds[row.id] ||
                   DOSSIER_LOCKED_STATUSES.has(row.expedient?.status || "");
+                const signStep = ["waiting_sign", "signed", "delivered"].includes(
+                  row.expedient?.status || ""
+                );
                 const reset = row.expedient ? (
                   <ResetExpedienteButton
+                    menu={signStep}
                     entityId={row.id}
                     onReset={(next) => {
                       setRows((prev) =>
@@ -180,9 +206,24 @@ export default function MyPldExpedientePage() {
                     />
                   );
                 }
+                if (signStep) {
+                  return (
+                    <Box key={row.id}>
+                      <PldIdentificationDossier
+                        row={row}
+                        headerExtra={reset}
+                        onSaved={(next) =>
+                          setRows((prev) =>
+                            prev.map((item) => (item.id === next.id ? next : item))
+                          )
+                        }
+                      />
+                    </Box>
+                  );
+                }
                 return (
                 <Card key={row.id} withBorder p="md">
-                  <Group justify="space-between" align="flex-start">
+                  <Stack gap="sm">
                     <Stack gap={2}>
                       <Text fw={500}>{row.name}</Text>
                       <Text size="sm" c="dimmed">
@@ -199,7 +240,7 @@ export default function MyPldExpedientePage() {
                       )}
                       {reset}
                     </Group>
-                  </Group>
+                  </Stack>
                   {onDossier ? (
                     <PldIdentificationDossier
                       row={row}

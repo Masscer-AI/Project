@@ -11,7 +11,7 @@ from datetime import timedelta
 from api.compliance.clarifications import has_open_requests
 from api.compliance.invites import entity_display_name
 from api.compliance.models import PLDClarificationRequest, PLDExpedient, PLDExpedientStatus
-from api.compliance.packet.pdf import build_identification_packet_pdf
+from api.compliance.packet.gamma import render_identification_packet_pdf
 from api.compliance.packet.signatory import resolve_signatories
 
 logger = logging.getLogger(__name__)
@@ -47,7 +47,7 @@ def maybe_dispatch_identification_packet(expedient: PLDExpedient) -> None:
         )
         return
 
-    pdf_bytes = build_identification_packet_pdf(entity)
+    pdf_bytes = render_identification_packet_pdf(entity)
     name = entity_display_name(entity)
     filename = "expediente-identificacion.pdf"
     expedient.packet_file.save(filename, ContentFile(pdf_bytes, name=filename), save=False)
