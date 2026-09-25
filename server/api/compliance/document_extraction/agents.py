@@ -196,7 +196,13 @@ INSTRUCTIONS_BY_KIND = {
         "a clarification question. Summarize what the document shows. "
         "Set is_valid true only if the file answers the question in the prompt. "
         "Put each useful fact in extractions as extraction_name and extraction_value. "
-        + _SHARED_RULES
+        "Do not write identification form fields. "
+        "The document is attached to this message. "
+        "Use null only when the field is not visible. Never invent RFC, CURP, dates, or "
+        "ownership percentages. "
+        "Set summary to what the document shows. "
+        "Provenances are citations only: campo_id, valor_extraido, pagina_origen "
+        "as a string, plus a short texto_origen snippet."
     ),
 }
 
@@ -262,7 +268,11 @@ def extract_document(doc, language: str = "en") -> PldExtraction:
     )
 
     entity = getattr(getattr(doc, "expedient", None), "entity", None)
-    tools = [make_fill_form_variable_tool(entity)] if entity is not None else []
+    tools = (
+        [make_fill_form_variable_tool(entity)]
+        if entity is not None and kind != "clarification"
+        else []
+    )
     loop = AgentLoop.create(
         provider="openai",
         tools=tools,
@@ -294,7 +304,7 @@ def extract_document(doc, language: str = "en") -> PldExtraction:
             "Set summary to what the document shows. "
             "Put each useful fact in extractions, one row per fact."
         )
-    if entity is not None:
+    if entity is not None and kind != "clarification":
         prompt = f"{prompt}\n\n{form_fill_prompt(entity)}"
     result = loop.run(
         [

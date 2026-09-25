@@ -129,7 +129,11 @@ def has_open_requests(expedient: PLDExpedient, stage: str | None = None) -> bool
     return qs.exists()
 
 
-def serialize_request(item: PLDClarificationRequest, documents_by_slot: dict | None = None) -> dict:
+def serialize_request(
+    item: PLDClarificationRequest,
+    documents_by_slot: dict | None = None,
+    reviews: dict | None = None,
+) -> dict:
     documents_by_slot = documents_by_slot or {}
     doc = documents_by_slot.get(item.slot_key)
     return {
@@ -142,6 +146,9 @@ def serialize_request(item: PLDClarificationRequest, documents_by_slot: dict | N
         "text_answer": item.text_answer,
         "slot_key": item.slot_key,
         "document": doc,
+        "text_review": (reviews if reviews is not None else text_reviews(item.expedient)).get(
+            str(item.id), ""
+        ),
         "answered_at": item.answered_at.isoformat() if item.answered_at else None,
     }
 
@@ -169,27 +176,23 @@ def answers_packet(expedient: PLDExpedient) -> list[dict]:
     return rows
 
 
-def apply_text_to_metadata(entity, request: PLDClarificationRequest, text: str) -> None:
-    from api.compliance.pld_metadata import normalize_pld_entity_metadata
+def text_reviews(expedient: PLDExpedient) -> dict:
+    risk = expedient.risk_payload if isinstance(expedient.risk_payload, dict) else {}
+    raw = risk.get("clarification_text")
+    return dict(raw) if isinstance(raw, dict) else {}
 
-    value = text.strip()
-    if not value or not request.target:
-        return
-    meta = dict(entity.metadata) if isinstance(entity.metadata, dict) else {}
-    target = request.target
-    if target == "rfc":
-        meta["rfc"] = value.upper()
-    elif target == "curp":
-        meta["curp"] = value.upper()
-    elif target in {"legal_name", "name"}:
-        if entity.person_type == "persona_moral":
-            meta["legal_name"] = value
-        else:
-            meta["name"] = value
+
+def set_text_review(expedient: PLDExpedient, request_id, state: str | None) -> None:
+    risk = dict(expedient.risk_payload) if isinstance(expedient.risk_payload, dict) else {}
+    reviews = text_reviews(expedient)
+    key = str(request_id)
+    if state:
+        reviews[key] = state
     else:
-        return
-    entity.metadata = normalize_pld_entity_metadata(entity.person_type, meta)
-    entity.save(update_fields=["metadata", "updated_at"])
+        reviews.pop(key, None)
+    risk["clarification_text"] = reviews
+    expedient.risk_payload = risk
+    expedient.save(update_fields=["risk_payload", "updated_at"])
 
 
 def mark_answered(request: PLDClarificationRequest, *, text: str = "") -> None:

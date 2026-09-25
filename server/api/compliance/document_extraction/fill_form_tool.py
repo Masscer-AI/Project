@@ -294,9 +294,19 @@ def form_fill_prompt(entity) -> str:
     )
 
 
-def make_fill_form_variable_tool(entity) -> dict:
+def make_fill_form_variable_tool(entity, *, once: bool = False) -> dict:
+    written: set[str] = set()
+
     def fill_form_variable(name: str, value: str) -> FillFormVariableResult:
-        return fill_form_variable_impl(entity, name, value)
+        key = (name or "").strip()
+        if once and key in written:
+            return FillFormVariableResult(
+                name=key, filled=False, message="already written"
+            )
+        result = fill_form_variable_impl(entity, name, value)
+        if once and result.filled:
+            written.add(key)
+        return result
 
     return {
         "name": "fill_form_variable",

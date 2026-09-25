@@ -1592,7 +1592,7 @@ class PLDDocumentExtractionTests(TestCase):
             ],
         )
         request_id = str(created[0].id)
-        with patch("api.compliance.tasks.prequalify_pld_expedient.delay"):
+        with patch("api.compliance.tasks.settle_pld_clarifications.delay") as settle:
             answered = self.client.patch(
                 f"/v1/compliance/my-expedients/{self.entity.id}/",
                 {
@@ -1604,10 +1604,11 @@ class PLDDocumentExtractionTests(TestCase):
                 HTTP_AUTHORIZATION=f"Token {self.token.key}",
             )
         self.assertEqual(answered.status_code, 200)
-        self.entity.refresh_from_db()
-        self.assertEqual(self.entity.metadata.get("rfc"), "AAA010101AAA")
         created[0].refresh_from_db()
-        self.assertEqual(created[0].status, PLDClarificationRequest.Status.ANSWERED)
+        self.assertEqual(created[0].status, PLDClarificationRequest.Status.OPEN)
+        self.assertEqual(created[0].text_answer, "AAA010101AAA")
+        self.assertEqual(answered.json()["clarification_requests"][0]["text_review"], "reviewing")
+        settle.assert_called_once()
 
     def test_identification_packet_pdf_lists_entity_and_docs(self):
         import fitz

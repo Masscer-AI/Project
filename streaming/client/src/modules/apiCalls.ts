@@ -2526,6 +2526,7 @@ export type TPldClarificationRequest = {
   target?: string;
   status: string;
   text_answer?: string;
+  text_review?: string;
   slot_key: string;
   document?: TPldExpedientDocument | null;
   answered_at?: string | null;

@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import logging
+
+from pydantic import BaseModel, ConfigDict, Field
 
 from api.compliance.document_extraction.constants import PLD_EXTRACTION_MODEL_SLUG
 from api.compliance.pld_document_slots import required_slots_extraction_ready
@@ -38,6 +41,134 @@ Reglas:
 - summary en espanol, breve, para la contraparte (sin jerga interna de scoring).
 - source_ids solo de: lfpiorpi, reglamento, rcg, uif-portal.
 """.strip()
+
+
+class ClarificationTextCheck(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    request_id: str
+    satisfies: bool
+
+
+class ClarificationSettleResult(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    checks: list[ClarificationTextCheck] = Field(default_factory=list)
+
+
+_SETTLE_INSTRUCTIONS = """
+You settle identification clarifications for one expediente.
+You see every answered clarification and any text answer still waiting.
+Call fill_form_variable only when an answer clearly corrects a form field.
+Call each field path at most once.
+If two answers mention the same field, write the value that answers that question, once.
+Do not invent RFC, CURP, dates, percentages, or addresses.
+For each waiting text answer, set satisfies true only if that text answers its prompt.
+Return checks only for waiting text answers.
+""".strip()
+
+
+def _clarification_rows(expedient) -> tuple[list[dict], list]:
+    from api.compliance.clarifications import answers_packet, text_reviews
+    from api.compliance.models import PLDClarificationRequest
+
+    reviews = text_reviews(expedient)
+    answered = {row["id"]: row for row in answers_packet(expedient)}
+    docs = {doc.slot_key: doc for doc in expedient.documents.all()}
+    rows = []
+    waiting = []
+    for item in expedient.clarification_requests.exclude(
+        status=PLDClarificationRequest.Status.CANCELLED
+    ):
+        if item.status == PLDClarificationRequest.Status.ANSWERED:
+            packet = answered.get(str(item.id))
+            if packet:
+                rows.append({**packet, "waiting": False})
+            continue
+        if reviews.get(str(item.id)) != "reviewing" or not (item.text_answer or "").strip():
+            continue
+        doc = docs.get(item.slot_key)
+        payload = doc.extracted_payload if doc and isinstance(doc.extracted_payload, dict) else {}
+        rows.append(
+            {
+                "id": str(item.id),
+                "prompt": item.prompt,
+                "text_answer": item.text_answer,
+                "document_extraction": payload or None,
+                "waiting": True,
+            }
+        )
+        waiting.append(item)
+    return rows, waiting
+
+
+def settle_clarification_answers(expedient) -> None:
+    from api.compliance.clarifications import mark_answered, set_text_review, text_reviews
+    from api.compliance.document_extraction.fill_form_tool import (
+        form_field_snapshot,
+        make_fill_form_variable_tool,
+    )
+
+    from api.compliance.models import PLDClarificationRequest
+
+    reviews = text_reviews(expedient)
+    for item in expedient.clarification_requests.filter(
+        status=PLDClarificationRequest.Status.ANSWERED
+    ):
+        if reviews.get(str(item.id)) == "reviewing":
+            set_text_review(expedient, item.id, None)
+    rows, waiting = _clarification_rows(expedient)
+    if not rows:
+        return
+    entity = expedient.entity
+    filled, empty = form_field_snapshot(getattr(entity, "metadata", None))
+    billing_user_id, organization_id = _billing(entity)
+    from api.ai_layers.agent_loop import AgentLoop
+
+    loop = AgentLoop.create(
+        provider="openai",
+        tools=[make_fill_form_variable_tool(entity, once=True)],
+        instructions=_SETTLE_INSTRUCTIONS,
+        model=PLD_EXTRACTION_MODEL_SLUG,
+        output_schema=ClarificationSettleResult,
+        max_iterations=8,
+        repair_model=PLD_EXTRACTION_MODEL_SLUG,
+    )
+    result = loop.run(
+        [
+            {
+                "role": "user",
+                "content": (
+                    "Settle these clarifications. Write each form field at most once.\n"
+                    f"Filled: {json.dumps(filled, ensure_ascii=False)}\n"
+                    f"Empty: {json.dumps(empty)}\n"
+                    f"Clarifications:\n{json.dumps(rows, ensure_ascii=False, default=str)}"
+                ),
+            }
+        ]
+    )
+    usage = result.usage or {}
+    prompt_tokens = int(usage.get("prompt_tokens") or 0)
+    completion_tokens = int(usage.get("completion_tokens") or 0)
+    if billing_user_id and (prompt_tokens or completion_tokens):
+        from api.consumption.actions import register_llm_interaction
+
+        register_llm_interaction(
+            billing_user_id,
+            prompt_tokens,
+            completion_tokens,
+            PLD_EXTRACTION_MODEL_SLUG,
+            organization_id=organization_id,
+        )
+    output = result.output
+    checks = output.checks if isinstance(output, ClarificationSettleResult) else []
+    accepted = {check.request_id for check in checks if check.satisfies}
+    for item in waiting:
+        if str(item.id) in accepted:
+            mark_answered(item)
+            set_text_review(expedient, item.id, None)
+        else:
+            set_text_review(expedient, item.id, "rejected")
 
 
 def _billing(entity) -> tuple[int | None, object]:

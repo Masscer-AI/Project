@@ -556,11 +556,7 @@ class MyPLDExpedientDetailView(View):
                 screen_pld_expedient.delay(str(exp.id))
             return JsonResponse(_reload_my_expedient_row(entity.pk), status=200)
         if payload.get("action") == "answer_clarification":
-            from api.compliance.clarifications import (
-                apply_text_to_metadata,
-                mark_answered,
-                maybe_resume_stage,
-            )
+            from api.compliance.clarifications import set_text_review
             from api.compliance.models import PLDClarificationRequest
 
             request_id = payload.get("request_id")
@@ -582,9 +578,12 @@ class MyPLDExpedientDetailView(View):
                 return JsonResponse({"error": "document-required"}, status=400)
             if not text_answer:
                 return JsonResponse({"error": "text is required"}, status=400)
-            apply_text_to_metadata(entity, item, text_answer)
-            mark_answered(item, text=text_answer)
-            maybe_resume_stage(exp)
+            item.text_answer = text_answer[:4000]
+            item.save(update_fields=["text_answer", "updated_at"])
+            set_text_review(exp, item.id, "reviewing")
+            from api.compliance.tasks import settle_pld_clarifications
+
+            settle_pld_clarifications.delay(str(exp.id))
             return JsonResponse(_reload_my_expedient_row(entity.pk), status=200)
 
         metadata = payload.get("metadata")
@@ -677,7 +676,7 @@ def _invitee_signing(exp: PLDExpedient, entity: PLDEntity) -> dict | None:
 
 
 def _my_expedient_row(entity: PLDEntity) -> dict:
-    from api.compliance.clarifications import serialize_request
+    from api.compliance.clarifications import serialize_request, text_reviews
     from api.compliance.pld_document_slots import document_slots_for_entity
 
     exp = entity.expedients.order_by("created_at").first()
@@ -690,8 +689,9 @@ def _my_expedient_row(entity: PLDEntity) -> dict:
         slots.append({**slot, "document": uploaded.get(slot["slot_key"])})
     requests = []
     if exp:
+        reviews = text_reviews(exp)
         for item in exp.clarification_requests.all():
-            requests.append(serialize_request(item, uploaded))
+            requests.append(serialize_request(item, uploaded, reviews))
     return {
         "id": str(entity.id),
         "name": entity_display_name(entity),

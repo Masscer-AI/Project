@@ -93,6 +93,12 @@ def extract_pld_expedient_document(document_id: str, language: str = "en"):
             ],
             document_id,
         )
+        from api.compliance.clarifications import parse_clarification_slot, text_reviews
+
+        if parse_clarification_slot(doc.slot_key or "") and any(
+            state == "reviewing" for state in text_reviews(doc.expedient).values()
+        ):
+            settle_pld_clarifications.delay(str(doc.expedient_id))
         return
 
     from api.compliance.clarifications import (
@@ -111,7 +117,13 @@ def extract_pld_expedient_document(document_id: str, language: str = "en"):
         payload = doc.extracted_payload if isinstance(doc.extracted_payload, dict) else {}
         if req and req.status == PLDClarificationRequest.Status.OPEN and payload.get("is_valid") is True:
             mark_answered(req)
-        maybe_resume_stage(doc.expedient)
+        from api.compliance.clarifications import text_reviews
+
+        reviewing = any(state == "reviewing" for state in text_reviews(doc.expedient).values())
+        if (req and payload.get("is_valid") is True) or reviewing:
+            settle_pld_clarifications.delay(str(doc.expedient_id))
+        else:
+            maybe_resume_stage(doc.expedient)
         return
 
     entity = doc.expedient.entity
@@ -121,6 +133,37 @@ def extract_pld_expedient_document(document_id: str, language: str = "en"):
         exp.prequalification_status = PLDExpedient.PrequalificationStatus.PENDING
         exp.save(update_fields=["prequalification_status", "updated_at"])
         prequalify_pld_expedient.delay(str(exp.id))
+
+
+@shared_task
+def settle_pld_clarifications(expedient_id: str):
+    from api.compliance.clarifications import maybe_resume_stage
+    from api.compliance.models import PLDExpedient, PLDExpedientDocument
+    from api.compliance.prequalification.agents import settle_clarification_answers
+
+    try:
+        exp = PLDExpedient.objects.select_related("entity", "entity__organization").prefetch_related(
+            "documents", "clarification_requests"
+        ).get(pk=expedient_id)
+    except (PLDExpedient.DoesNotExist, ValueError):
+        logger.warning("PLD expedient %s not found for clarification settle", expedient_id)
+        return
+    pending = exp.documents.filter(
+        slot_key__startswith="clarify:",
+        extraction_status=PLDExpedientDocument.ExtractionStatus.PENDING,
+    ).exists()
+    if pending:
+        return
+    try:
+        settle_clarification_answers(exp)
+    except Exception:
+        logger.exception("PLD clarification settle failed for %s", expedient_id)
+        from api.compliance.clarifications import set_text_review, text_reviews
+
+        for request_id, state in text_reviews(exp).items():
+            if state == "reviewing":
+                set_text_review(exp, request_id, "rejected")
+    maybe_resume_stage(exp)
 
 
 @shared_task

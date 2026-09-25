@@ -53,7 +53,8 @@ export function PldIdentificationDossier({
   const screeningPending = row.expedient?.screening_status === "pending";
   const clarifyExtracting = (row.clarification_requests || []).some(
     (item) =>
-      item.status === "open" && item.document?.extraction_status === "pending"
+      (item.status === "open" && item.document?.extraction_status === "pending") ||
+      item.text_review === "reviewing"
   );
   const status = row.expedient?.status || "";
   const waitingSign = status === "waiting_sign";
@@ -332,6 +333,11 @@ export function PldIdentificationDossier({
 
   return (
     <Stack gap="md" mt="md">
+      {onBack ? (
+        <Button variant="subtle" color="gray" w="fit-content" onClick={onBack}>
+          {t("compliance-sign-back")}
+        </Button>
+      ) : null}
       <Title order={4}>{t("compliance-dossier-title")}</Title>
       <Text size="sm">{t("compliance-dossier-intro")}</Text>
       {pending && !failed && (
@@ -442,11 +448,6 @@ export function PldIdentificationDossier({
         <PldExpedientPreview row={row} />
         {hideConfirm ? null : (
           <>
-            {onBack ? (
-              <Button type="button" variant="default" onClick={onBack}>
-                {t("compliance-dossier-back")}
-              </Button>
-            ) : null}
             <Button
               color="violet"
               disabled={!confirmEnabled}

@@ -140,11 +140,13 @@ function ClarificationCard({
   const [busy, setBusy] = useState(false);
   const allowText = item.answer_type !== "document";
   const allowFile = item.answer_type !== "text";
-  const reading = item.document?.extraction_status === "pending";
+  const reading =
+    item.document?.extraction_status === "pending" || item.text_review === "reviewing";
   const readFailed = item.document?.extraction_status === "failed";
   const rejected =
-    item.document?.extraction_status === "succeeded" &&
-    item.document?.extracted_payload?.is_valid === false;
+    (item.document?.extraction_status === "succeeded" &&
+      item.document?.extracted_payload?.is_valid === false) ||
+    item.text_review === "rejected";
 
   const submit = async () => {
     const value = text.trim();
@@ -178,7 +180,13 @@ function ClarificationCard({
       {reading ? (
         <Group gap="xs">
           <Loader size={16} type="oval" color="violet" />
-          <Text size="sm">{t("compliance-clarify-reading")}</Text>
+          <Text size="sm">
+            {t(
+              item.text_review === "reviewing"
+                ? "compliance-clarify-reviewing"
+                : "compliance-clarify-reading"
+            )}
+          </Text>
         </Group>
       ) : (
         <>
@@ -190,6 +198,11 @@ function ClarificationCard({
       {rejected ? (
         <Text size="sm" c="yellow">
           {t("compliance-clarify-not-valid")}
+        </Text>
+      ) : null}
+      {item.text_review === "rejected" && item.text_answer ? (
+        <Text size="sm" c="dimmed">
+          {item.text_answer}
         </Text>
       ) : null}
       {item.document && !reading ? <ClarificationDocument item={item} /> : null}
