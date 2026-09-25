@@ -235,6 +235,33 @@ def screen_pld_expedient(expedient_id: str):
 
 
 @shared_task
+def regenerate_pld_packet(expedient_id: str):
+    from django.core.files.base import ContentFile
+    from django.utils import timezone
+
+    from api.compliance.models import PLDExpedient
+    from api.compliance.packet.dispatch import _mark_packet_generation
+    from api.compliance.packet.gamma import render_identification_packet_pdf
+
+    try:
+        exp = PLDExpedient.objects.select_related("entity").get(pk=expedient_id)
+    except (PLDExpedient.DoesNotExist, ValueError):
+        logger.warning("PLD expedient %s not found for packet regeneration", expedient_id)
+        return
+    try:
+        pdf_bytes = render_identification_packet_pdf(exp.entity)
+    except Exception:
+        logger.exception("Gamma packet regeneration failed for %s", expedient_id)
+        _mark_packet_generation(exp, "failed")
+        return
+    filename = "expediente-identificacion.pdf"
+    exp.packet_file.save(filename, ContentFile(pdf_bytes, name=filename), save=False)
+    exp.packet_generated_at = timezone.now()
+    exp.save(update_fields=["packet_file", "packet_generated_at", "updated_at"])
+    _mark_packet_generation(exp, "ready")
+
+
+@shared_task
 def ingest_watchlists(force: bool = False):
     from api.compliance.watchlists.ingest import ingest_all_watchlists
 

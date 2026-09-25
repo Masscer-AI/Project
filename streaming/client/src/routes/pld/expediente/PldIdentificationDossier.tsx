@@ -7,6 +7,7 @@ import {
   confirmMyPldDocuments,
   downloadMyPldPacket,
   listMyPldExpedients,
+  regenerateMyPldPacket,
   rerunMyPldPrequalification,
   TMyPldExpedient,
 } from "../../../modules/apiCalls";
@@ -135,6 +136,18 @@ export function PldIdentificationDossier({
       toast.success(t("compliance-prequal-rerun-done"));
     } catch {
       toast.error(t("compliance-prequal-rerun-error"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRegeneratePacket = async () => {
+    setBusy(true);
+    try {
+      const saved = await regenerateMyPldPacket(row.id);
+      onSaved(saved);
+    } catch {
+      toast.error(t("compliance-packet-regenerate-error"));
     } finally {
       setBusy(false);
     }
@@ -291,6 +304,17 @@ export function PldIdentificationDossier({
                     {t("compliance-sign-download")}
                   </Button>
                 ) : null}
+                <Button
+                  type="button"
+                  variant="subtle"
+                  color="gray"
+                  fullWidth
+                  loading={busy || packetWriting}
+                  disabled={packetWriting}
+                  onClick={handleRegeneratePacket}
+                >
+                  {t("compliance-packet-regenerate")}
+                </Button>
               </Stack>
             </Card>
             <PldExpedientPreview row={row} fullWidth />

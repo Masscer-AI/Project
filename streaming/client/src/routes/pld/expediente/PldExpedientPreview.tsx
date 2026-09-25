@@ -111,13 +111,22 @@ export function PldExpedientPreview({
         onClose={close}
         size="xl"
         title={t("compliance-dossier-preview")}
+        classNames={{ root: "pld-packet-preview" }}
+        transitionProps={{ transition: "fade", duration: 0 }}
         styles={{
-          content: { background: "#d9d3c7" },
+          inner: { transform: "none" },
+          content: { background: "#d9d3c7", transform: "none" },
           header: { background: "#d9d3c7" },
           body: { background: "#d9d3c7", overflowX: "hidden" },
           title: { color: "#1c1915" },
         }}
       >
+        <style>{`
+          .pld-packet-preview .mantine-Modal-inner,
+          .pld-packet-preview .mantine-Modal-content {
+            transform: none !important;
+          }
+        `}</style>
         {packetReady ? (
           pdfError ? (
             <Text c="dark">{t("compliance-packet-failed")}</Text>

@@ -1240,6 +1240,8 @@
   "compliance-sign-download-error": "Could not download the expediente.",
   "compliance-packet-writing": "We are writing the expediente. You can preview and download it when it is ready.",
   "compliance-packet-failed": "The expediente could not be written.",
+  "compliance-packet-regenerate": "Write the expediente again",
+  "compliance-packet-regenerate-error": "The expediente could not be written again.",
   "compliance-extract-full_name": "Name",
   "compliance-extract-given_names": "Given names",
   "compliance-extract-surnames": "Surnames",

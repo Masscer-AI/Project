@@ -2591,6 +2591,14 @@ export const resetMyPldExpedient = async (entityId: string) => {
   );
 };
 
+export const regenerateMyPldPacket = async (entityId: string) => {
+  return makeAuthenticatedRequest<TMyPldExpedient>(
+    "PATCH",
+    `/v1/compliance/my-expedients/${entityId}/`,
+    { action: "regenerate_packet" }
+  );
+};
+
 export const rerunMyPldPrequalification = async (entityId: string) => {
   return makeAuthenticatedRequest<TMyPldExpedient>(
     "PATCH",
@@ -2608,7 +2616,8 @@ export const fetchMyPldPacketBlob = async (entityId: string) => {
   if (!response.ok) {
     throw new Error("packet-download-failed");
   }
-  return response.blob();
+  const raw = await response.blob();
+  return new Blob([raw], { type: "application/pdf" });
 };
 
 export const downloadMyPldPacket = async (entityId: string) => {

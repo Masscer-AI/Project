@@ -1242,6 +1242,8 @@
   "compliance-sign-download-error": "No se pudo descargar el expediente.",
   "compliance-packet-writing": "Estamos escribiendo el expediente. Podras verlo y descargarlo cuando este listo.",
   "compliance-packet-failed": "No se pudo escribir el expediente.",
+  "compliance-packet-regenerate": "Volver a escribir el expediente",
+  "compliance-packet-regenerate-error": "No se pudo volver a escribir el expediente.",
   "compliance-extract-full_name": "Nombre",
   "compliance-extract-given_names": "Nombres",
   "compliance-extract-surnames": "Apellidos",

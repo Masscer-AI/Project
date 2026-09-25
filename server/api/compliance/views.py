@@ -453,6 +453,16 @@ class MyPLDExpedientDetailView(View):
                 return JsonResponse({"error": "expedient-not-found"}, status=400)
             _reset_invitee_expedient(entity)
             return JsonResponse(_reload_my_expedient_row(entity.pk), status=200)
+        if payload.get("action") == "regenerate_packet":
+            exp = entity.expedients.order_by("created_at").first()
+            if not exp:
+                return JsonResponse({"error": "expedient-not-found"}, status=400)
+            from api.compliance.packet.dispatch import _mark_packet_generation
+            from api.compliance.tasks import regenerate_pld_packet
+
+            _mark_packet_generation(exp, "writing")
+            regenerate_pld_packet.delay(str(exp.id))
+            return JsonResponse(_reload_my_expedient_row(entity.pk), status=200)
         if payload.get("action") == "rerun_prequalification":
             from api.compliance.pld_document_slots import (
                 required_slots_extraction_ready,
@@ -649,12 +659,14 @@ def _invitee_screening(exp: PLDExpedient) -> dict:
 
 
 def _packet_status(exp: PLDExpedient) -> str:
-    if exp.packet_file or exp.signed_packet:
-        return "ready"
     risk = exp.risk_payload if isinstance(exp.risk_payload, dict) else {}
     state = str(risk.get("packet_generation") or "")
-    if state in ("writing", "failed"):
-        return state
+    if state == "writing":
+        return "writing"
+    if exp.packet_file or exp.signed_packet:
+        return "ready"
+    if state == "failed":
+        return "failed"
     return ""
 
 
