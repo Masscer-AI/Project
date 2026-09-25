@@ -1916,7 +1916,7 @@ class ExtractionHydrateTests(SimpleTestCase):
             }
         )
         filled = hydrate_extraction(empty, "id_representante")
-        self.assertEqual(filled.document_subtype, "Credencial para votar (INE)")
+        self.assertEqual(filled.document_subtype, "ine")
         self.assertEqual(filled.full_name, "BLANCA LILIA REYES RIQUE")
         self.assertEqual(filled.date_of_birth, "1983-10-16")
         self.assertEqual(filled.sex, "M")

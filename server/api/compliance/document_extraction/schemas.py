@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Literal, TypeAlias, overload
+from typing import Annotated, Literal, TypeAlias, overload
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
 
 from api.compliance.document_extraction.operational_schemas import (
     AccionistaLibroExtraction,
@@ -25,6 +25,23 @@ from api.compliance.document_extraction.operational_schemas import (
     ReporteRi01Extraction,
 )
 from api.compliance.document_extraction.provenance import FieldProvenance, ProvenanceMixin
+
+IdentificationType = Literal["ine", "passport", "professional_license", "other"]
+
+
+def canonical_id_type(raw) -> IdentificationType | None:
+    text = str(raw or "").strip().lower().replace("é", "e").replace("í", "i")
+    if not text:
+        return None
+    if text in {"ine", "passport", "professional_license", "other"}:
+        return text
+    if any(token in text for token in ("ine", "ife", "credencial", "electoral")):
+        return "ine"
+    if "pasaport" in text or "passport" in text:
+        return "passport"
+    if "cedula" in text or "licencia" in text or "professional" in text:
+        return "professional_license"
+    return "other"
 
 
 class AddressExtraction(BaseModel):
@@ -47,9 +64,11 @@ class OfficialIdExtraction(ProvenanceMixin):
 
     model_config = ConfigDict(extra="ignore")
 
-    document_subtype: str | None = Field(
+    document_subtype: Annotated[
+        IdentificationType | None, BeforeValidator(canonical_id_type)
+    ] = Field(
         default=None,
-        description="ID-tipo: ine, passport, cedula, or other",
+        description="ID-tipo: ine, passport, professional_license, or other",
     )
     full_name: str | None = Field(default=None, description="ID-nombre_completo")
     given_names: str | None = None

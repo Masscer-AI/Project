@@ -54,7 +54,8 @@ _INE_ID_RULES = (
     "document_number. Put clave de elector in citizen_identifier. Put the digits after "
     "<< on that same MRZ line in ocr_line. Copy the three MRZ lines into mrz. "
     "If the reverse is not in the file, leave document_number and cic null. "
-    "Set document_subtype, full_name, date_of_birth, sex, validity_year or "
+    "Set document_subtype to exactly one of ine, passport, professional_license, or other. "
+    "Set full_name, date_of_birth, sex, validity_year or "
     "expiry_date, and address_text. "
     "If a fact is present in provenances, place it in its matching schema property too. "
 )

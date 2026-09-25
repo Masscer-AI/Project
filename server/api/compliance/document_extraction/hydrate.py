@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from api.compliance.document_extraction.schemas import canonical_id_type
 from api.compliance.document_extraction.spec_fields import (
     SPEC_FIELDS_BY_KIND,
     _is_filled,
@@ -201,6 +202,10 @@ def hydrate_extraction(parsed, document_kind: str):
         value = _citation_value(row)
         if not value:
             continue
+        if path == "document_subtype":
+            value = canonical_id_type(value)
+            if not value:
+                continue
         _set_path(data, path, value)
         changed = True
     if document_kind in {"official_id", "id_representante", "id_controlador"}:

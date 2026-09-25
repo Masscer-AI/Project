@@ -112,6 +112,10 @@ def _normalize_value(name: str, raw: str) -> str | None:
         if len(digits) < 7:
             return None
         return f"+{digits}"
+    if leaf == "document_type":
+        from api.compliance.document_extraction.schemas import canonical_id_type
+
+        return canonical_id_type(text)
     if leaf == "document_number":
         half = len(text) // 2
         if half and text[:half] == text[half:]:
@@ -203,8 +207,9 @@ def _text(value) -> str | None:
 
 
 def _representative_id_pairs(payload: dict) -> list[tuple[str, str | None]]:
-    subtype = (_text(payload.get("document_subtype")) or "").lower()
-    document_type = "ine" if subtype == "ine" else _text(payload.get("document_subtype"))
+    from api.compliance.document_extraction.schemas import canonical_id_type
+
+    document_type = canonical_id_type(payload.get("document_subtype"))
     number = _text(payload.get("document_number")) or _text(payload.get("cic"))
     return [
         ("representative.given_names", _text(payload.get("given_names"))),
