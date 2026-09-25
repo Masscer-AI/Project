@@ -112,6 +112,10 @@ def _normalize_value(name: str, raw: str) -> str | None:
         if len(digits) < 7:
             return None
         return f"+{digits}"
+    if leaf == "document_number":
+        half = len(text) // 2
+        if half and text[:half] == text[half:]:
+            return text[:half]
     return text
 
 
