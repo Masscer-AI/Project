@@ -1,9 +1,9 @@
-import { Fragment } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Button, Modal } from "@mantine/core";
+import { Button, Group, Loader, Modal, Text } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { IconEye } from "@tabler/icons-react";
-import { TMyPldExpedient, TPldDocumentSlot } from "../../../modules/apiCalls";
+import { fetchMyPldPacketBlob, TMyPldExpedient, TPldDocumentSlot } from "../../../modules/apiCalls";
 import { extractionSummary } from "./PldExtractionDebugModal";
 
 function asText(value: unknown): string {
@@ -53,6 +53,31 @@ export function PldExpedientPreview({
 }) {
   const { t, i18n } = useTranslation();
   const [opened, { open, close }] = useDisclosure(false);
+  const [pdfUrl, setPdfUrl] = useState("");
+  const [pdfError, setPdfError] = useState(false);
+  const packetStatus = row.expedient?.packet_status || "";
+  const packetReady = packetStatus === "ready" || Boolean(row.expedient?.packet_ready);
+
+  useEffect(() => {
+    if (!opened || !packetReady) return;
+    let cancelled = false;
+    let url = "";
+    setPdfError(false);
+    setPdfUrl("");
+    void fetchMyPldPacketBlob(row.id)
+      .then((blob) => {
+        if (cancelled) return;
+        url = URL.createObjectURL(blob);
+        setPdfUrl(url);
+      })
+      .catch(() => {
+        if (!cancelled) setPdfError(true);
+      });
+    return () => {
+      cancelled = true;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [opened, packetReady, row.id]);
   const meta = asRecord(row.metadata);
   const address = asRecord(meta.address);
   const representative = asRecord(meta.representative);
@@ -93,6 +118,32 @@ export function PldExpedientPreview({
           title: { color: "#1c1915" },
         }}
       >
+        {packetReady ? (
+          pdfError ? (
+            <Text c="dark">{t("compliance-packet-failed")}</Text>
+          ) : pdfUrl ? (
+            <iframe
+              title={t("compliance-dossier-preview")}
+              src={pdfUrl}
+              style={{ width: "100%", height: "70vh", border: 0, background: "#fff" }}
+            />
+          ) : (
+            <Loader size={16} type="oval" color="dark" />
+          )
+        ) : packetStatus === "writing" || packetStatus === "failed" ? (
+          <Group gap="xs">
+            {packetStatus === "writing" ? (
+              <Loader size={16} type="oval" color="dark" />
+            ) : null}
+            <Text c="dark">
+              {t(
+                packetStatus === "failed"
+                  ? "compliance-packet-failed"
+                  : "compliance-packet-writing"
+              )}
+            </Text>
+          </Group>
+        ) : (
         <article className="pld-sheet">
           <style>{`
             .pld-sheet {
@@ -319,6 +370,7 @@ export function PldExpedientPreview({
           </section>
           ) : null}
         </article>
+        )}
       </Modal>
     </>
   );

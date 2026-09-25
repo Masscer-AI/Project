@@ -17,6 +17,17 @@ from api.compliance.packet.signatory import resolve_signatories
 logger = logging.getLogger(__name__)
 
 
+def _mark_packet_generation(expedient: PLDExpedient, state: str) -> None:
+    payload = (
+        dict(expedient.risk_payload)
+        if isinstance(expedient.risk_payload, dict)
+        else {}
+    )
+    payload["packet_generation"] = state
+    expedient.risk_payload = payload
+    expedient.save(update_fields=["risk_payload", "updated_at"])
+
+
 def maybe_dispatch_identification_packet(expedient: PLDExpedient) -> None:
     """After a clear list screening, build the packet and send it for signature."""
     if expedient.status != PLDExpedientStatus.CROSS_REFERENCE:
@@ -47,7 +58,16 @@ def maybe_dispatch_identification_packet(expedient: PLDExpedient) -> None:
         )
         return
 
-    pdf_bytes = render_identification_packet_pdf(entity)
+    _mark_packet_generation(expedient, "writing")
+    try:
+        pdf_bytes = render_identification_packet_pdf(entity)
+    except Exception:
+        logger.exception(
+            "Gamma packet generation failed for expedient %s", expedient.id
+        )
+        _mark_packet_generation(expedient, "failed")
+        return
+    _mark_packet_generation(expedient, "ready")
     name = entity_display_name(entity)
     filename = "expediente-identificacion.pdf"
     expedient.packet_file.save(filename, ContentFile(pdf_bytes, name=filename), save=False)

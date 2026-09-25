@@ -1240,6 +1240,8 @@
   "compliance-sign-rejected": "La firma no se completo. Si fue un error, vuelve a intentar o contacta a quien te invito.",
   "compliance-sign-download": "Descargar expediente",
   "compliance-sign-download-error": "No se pudo descargar el expediente.",
+  "compliance-packet-writing": "Estamos escribiendo el expediente. Podras verlo y descargarlo cuando este listo.",
+  "compliance-packet-failed": "No se pudo escribir el expediente.",
   "compliance-extract-full_name": "Nombre",
   "compliance-extract-given_names": "Nombres",
   "compliance-extract-surnames": "Apellidos",

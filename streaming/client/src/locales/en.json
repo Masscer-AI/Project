@@ -1238,6 +1238,8 @@
   "compliance-sign-rejected": "The signature was not completed. If that was a mistake, try again or contact whoever invited you.",
   "compliance-sign-download": "Download expediente",
   "compliance-sign-download-error": "Could not download the expediente.",
+  "compliance-packet-writing": "We are writing the expediente. You can preview and download it when it is ready.",
+  "compliance-packet-failed": "The expediente could not be written.",
   "compliance-extract-full_name": "Name",
   "compliance-extract-given_names": "Given names",
   "compliance-extract-surnames": "Surnames",

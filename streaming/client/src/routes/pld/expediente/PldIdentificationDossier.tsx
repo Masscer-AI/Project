@@ -57,12 +57,16 @@ export function PldIdentificationDossier({
   const status = row.expedient?.status || "";
   const waitingSign = status === "waiting_sign";
   const signedDone = status === "signed" || status === "delivered";
+  const packetStatus = row.expedient?.packet_status || "";
+  const packetWriting = packetStatus === "writing";
+  const packetReady = packetStatus === "ready" || Boolean(row.expedient?.packet_ready);
   const poll =
     pending ||
     prequalPending ||
     screeningPending ||
     clarifyExtracting ||
-    waitingSign;
+    waitingSign ||
+    packetWriting;
   const onSavedRef = useRef(onSaved);
   onSavedRef.current = onSaved;
 
@@ -264,7 +268,18 @@ export function PldIdentificationDossier({
                     {t("compliance-sign-cta")}
                   </Button>
                 ) : null}
-                {row.expedient?.packet_ready ? (
+                {packetWriting ? (
+                  <Group gap="xs">
+                    <Loader size={16} type="oval" color="violet" />
+                    <Text size="sm">{t("compliance-packet-writing")}</Text>
+                  </Group>
+                ) : null}
+                {packetStatus === "failed" ? (
+                  <Alert color="red" variant="light">
+                    {t("compliance-packet-failed")}
+                  </Alert>
+                ) : null}
+                {packetReady ? (
                   <Button
                     type="button"
                     variant="default"
@@ -378,6 +393,20 @@ export function PldIdentificationDossier({
       {alreadyCross && openRequests.length === 0 ? (
         <Alert color="gray" variant="light">
           {t("compliance-dossier-next-lists")}
+        </Alert>
+      ) : null}
+      {packetWriting ? (
+        <Alert
+          color="violet"
+          variant="light"
+          icon={<Loader size={16} type="oval" color="currentColor" />}
+        >
+          {t("compliance-packet-writing")}
+        </Alert>
+      ) : null}
+      {packetStatus === "failed" ? (
+        <Alert color="red" variant="light">
+          {t("compliance-packet-failed")}
         </Alert>
       ) : null}
       <Group>

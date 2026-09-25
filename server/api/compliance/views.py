@@ -648,6 +648,16 @@ def _invitee_screening(exp: PLDExpedient) -> dict:
     }
 
 
+def _packet_status(exp: PLDExpedient) -> str:
+    if exp.packet_file or exp.signed_packet:
+        return "ready"
+    risk = exp.risk_payload if isinstance(exp.risk_payload, dict) else {}
+    state = str(risk.get("packet_generation") or "")
+    if state in ("writing", "failed"):
+        return state
+    return ""
+
+
 def _invitee_signing(exp: PLDExpedient, entity: PLDEntity) -> dict | None:
     from api.compliance.packet import invitee_signing_payload
 
@@ -692,6 +702,7 @@ def _my_expedient_row(entity: PLDEntity) -> dict:
                 "screening": _invitee_screening(exp),
                 "signing": _invitee_signing(exp, entity),
                 "packet_ready": bool(exp.packet_file or exp.signed_packet),
+                "packet_status": _packet_status(exp),
             }
             if exp
             else None
