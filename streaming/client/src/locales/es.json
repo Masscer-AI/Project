@@ -1214,6 +1214,7 @@
   "compliance-prequal-findings": "Hallazgos de precalificacion",
   "compliance-screening-running": "Estamos validando tu expediente. Esto puede tardar unos minutos.",
   "compliance-screening-failed": "No se pudo completar la validacion. Intenta de nuevo mas tarde.",
+  "compliance-clarify-history": "Respuestas anteriores",
   "compliance-clarify-title": "Necesitamos que confirmes algunos datos",
   "compliance-clarify-intro": "Responde con texto o con un documento, segun se indique. No hace falta que expliques nada mas.",
   "compliance-clarify-send-text": "Enviar respuesta",

@@ -28,27 +28,58 @@ export function PldClarificationRequests({
   onSaved: (next: TMyPldExpedient) => void;
 }) {
   const { t } = useTranslation();
-  const open = (row.clarification_requests || []).filter(
-    (item) => item.status === "open"
-  );
-  if (open.length === 0) return null;
+  const requests = row.clarification_requests || [];
+  const open = requests.filter((item) => item.status === "open");
+  const answered = requests.filter((item) => item.status !== "open");
+  if (requests.length === 0) return null;
 
   return (
     <Stack gap="md">
-      <Text size="sm" fw={600}>
-        {t("compliance-clarify-title")}
-      </Text>
-      <Text size="sm" c="dimmed">
-        {t("compliance-clarify-intro")}
-      </Text>
-      {open.map((item) => (
-        <ClarificationCard
-          key={item.id}
-          rowId={row.id}
-          item={item}
-          onSaved={onSaved}
-        />
-      ))}
+      {answered.length > 0 ? (
+        <Stack gap="xs">
+          <Text size="sm" fw={600}>
+            {t("compliance-clarify-history")}
+          </Text>
+          {answered.map((item) => (
+            <Stack
+              key={item.id}
+              gap={4}
+              p="sm"
+              style={{ border: "1px solid var(--mantine-color-dark-4)", borderRadius: 8 }}
+            >
+              <Text size="sm">{item.prompt}</Text>
+              {item.text_answer ? (
+                <Text size="sm" c="dimmed">
+                  {item.text_answer}
+                </Text>
+              ) : null}
+              {item.document?.original_filename ? (
+                <Text size="sm" c="dimmed">
+                  {item.document.original_filename}
+                </Text>
+              ) : null}
+            </Stack>
+          ))}
+        </Stack>
+      ) : null}
+      {open.length > 0 ? (
+        <>
+          <Text size="sm" fw={600}>
+            {t("compliance-clarify-title")}
+          </Text>
+          <Text size="sm" c="dimmed">
+            {t("compliance-clarify-intro")}
+          </Text>
+          {open.map((item) => (
+            <ClarificationCard
+              key={item.id}
+              rowId={row.id}
+              item={item}
+              onSaved={onSaved}
+            />
+          ))}
+        </>
+      ) : null}
     </Stack>
   );
 }
@@ -69,33 +100,25 @@ function ClarificationCard({
   const allowText = item.answer_type !== "document";
   const allowFile = item.answer_type !== "text";
 
-  const submitText = async () => {
+  const submit = async () => {
     const value = text.trim();
-    if (!value) return;
+    if (!value && !file) return;
     setBusy(true);
     try {
-      const saved = await answerMyPldClarification(rowId, item.id, value);
-      onSaved(saved);
+      if (file) {
+        const uploaded = await uploadMyPldExpedientDocument(
+          rowId,
+          item.slot_key,
+          file,
+          i18n.language
+        );
+        onSaved(uploaded);
+      }
+      if (value) {
+        const saved = await answerMyPldClarification(rowId, item.id, value);
+        onSaved(saved);
+      }
       toast.success(t("compliance-clarify-saved"));
-    } catch {
-      toast.error(t("compliance-clarify-error"));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const submitFile = async () => {
-    if (!file) return;
-    setBusy(true);
-    try {
-      const saved = await uploadMyPldExpedientDocument(
-        rowId,
-        item.slot_key,
-        file,
-        i18n.language
-      );
-      onSaved(saved);
-      toast.success(t("compliance-clarify-uploaded"));
     } catch {
       toast.error(t("compliance-clarify-error"));
     } finally {
@@ -118,35 +141,29 @@ function ClarificationCard({
               setText(val);
             }}
           />
-          <Group>
-            <Button size="xs" variant="default" loading={busy} onClick={submitText}>
-              {t("compliance-clarify-send-text")}
-            </Button>
-          </Group>
         </>
       ) : null}
       {allowFile ? (
-        <Group align="flex-end">
-          <FileInput
-            accept={ACCEPT}
-            placeholder={t("compliance-clarify-file")}
-            value={file}
-            onChange={setFile}
-            disabled={busy}
-            leftSection={<IconUpload size={16} />}
-            style={{ flex: 1 }}
-          />
-          <Button
-            size="xs"
-            color="violet"
-            disabled={!file}
-            loading={busy}
-            onClick={submitFile}
-          >
-            {t("compliance-clarify-send-file")}
-          </Button>
-        </Group>
+        <FileInput
+          accept={ACCEPT}
+          placeholder={t("compliance-clarify-file")}
+          value={file}
+          onChange={setFile}
+          disabled={busy}
+          leftSection={<IconUpload size={16} />}
+        />
       ) : null}
+      <Group>
+        <Button
+          size="xs"
+          color="violet"
+          loading={busy}
+          disabled={!text.trim() && !file}
+          onClick={submit}
+        >
+          {t("compliance-clarify-send-text")}
+        </Button>
+      </Group>
     </Stack>
   );
 }
