@@ -108,7 +108,8 @@ def extract_pld_expedient_document(document_id: str, language: str = "en"):
         req = PLDClarificationRequest.objects.filter(
             pk=request_id, expedient=doc.expedient
         ).first()
-        if req and req.status == PLDClarificationRequest.Status.OPEN:
+        payload = doc.extracted_payload if isinstance(doc.extracted_payload, dict) else {}
+        if req and req.status == PLDClarificationRequest.Status.OPEN and payload.get("is_valid") is True:
             mark_answered(req)
         maybe_resume_stage(doc.expedient)
         return

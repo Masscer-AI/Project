@@ -59,6 +59,11 @@ export function PldClarificationRequests({
                   {item.document.original_filename}
                 </Text>
               ) : null}
+              {typeof item.document?.extracted_payload?.summary === "string" ? (
+                <Text size="sm" c="dimmed">
+                  {item.document.extracted_payload.summary}
+                </Text>
+              ) : null}
             </Stack>
           ))}
         </Stack>
@@ -102,6 +107,10 @@ function ClarificationCard({
   const allowFile = item.answer_type !== "text";
   const reading = item.document?.extraction_status === "pending";
   const readFailed = item.document?.extraction_status === "failed";
+  const summary = item.document?.extracted_payload?.summary;
+  const rejected =
+    item.document?.extraction_status === "succeeded" &&
+    item.document?.extracted_payload?.is_valid === false;
 
   const submit = async () => {
     const value = text.trim();
@@ -142,6 +151,12 @@ function ClarificationCard({
       {readFailed ? (
         <Text size="sm" c="red">
           {t("compliance-clarify-read-failed")}
+        </Text>
+      ) : null}
+      {rejected ? (
+        <Text size="sm" c="yellow">
+          {t("compliance-clarify-not-valid")}
+          {typeof summary === "string" && summary ? ` ${summary}` : ""}
         </Text>
       ) : null}
       {allowText ? (
