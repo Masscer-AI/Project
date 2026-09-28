@@ -15,7 +15,7 @@ from api.ai_layers.tools.generate_gamma_presentation import (
 from api.compliance.invites import entity_display_name
 from api.compliance.packet.pdf import _paragraphs, build_identification_packet_pdf
 
-DEFAULT_TEMPLATE_ID = "g_ss07hpbni8ilyhy"
+DEFAULT_TEMPLATE_ID = "g_w2dbces7knv7kwi"
 
 
 def expediente_template_id() -> str:
