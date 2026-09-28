@@ -106,8 +106,7 @@ def extract_pld_expedient_document(document_id: str, language: str = "en"):
         maybe_resume_stage,
         parse_clarification_slot,
     )
-    from api.compliance.models import PLDClarificationRequest, PLDExpedient
-    from api.compliance.pld_document_slots import required_slots_extraction_ready
+    from api.compliance.models import PLDClarificationRequest
 
     request_id = parse_clarification_slot(doc.slot_key)
     if request_id:
@@ -125,14 +124,6 @@ def extract_pld_expedient_document(document_id: str, language: str = "en"):
         else:
             maybe_resume_stage(doc.expedient)
         return
-
-    entity = doc.expedient.entity
-    ready, _ = required_slots_extraction_ready(entity)
-    if ready:
-        exp = doc.expedient
-        exp.prequalification_status = PLDExpedient.PrequalificationStatus.PENDING
-        exp.save(update_fields=["prequalification_status", "updated_at"])
-        prequalify_pld_expedient.delay(str(exp.id))
 
 
 @shared_task

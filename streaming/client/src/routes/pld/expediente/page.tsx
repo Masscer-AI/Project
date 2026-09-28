@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
 import { AppPage } from "../../../components/AppPage/AppPage";
@@ -121,6 +121,7 @@ export default function MyPldExpedientePage() {
   const [rows, setRows] = useState<TMyPldExpedient[]>([]);
   const [loading, setLoading] = useState(true);
   const [reviewingIds, setReviewingIds] = useState<Record<string, boolean>>({});
+  const seeded = useRef(false);
 
   useEffect(() => {
     listMyPldExpedients()
@@ -133,7 +134,8 @@ export default function MyPldExpedientePage() {
   }, [t]);
 
   useEffect(() => {
-    if (loading) return;
+    if (loading || seeded.current) return;
+    seeded.current = true;
     setReviewingIds((prev) => {
       let changed = false;
       const next = { ...prev };

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import toast from "react-hot-toast";
 import {
   Autocomplete,
   ActionIcon,
@@ -24,7 +25,7 @@ import {
 import { DatePickerInput } from "@mantine/dates";
 import { useMediaQuery } from "@mantine/hooks";
 import { IconCircleCheck, IconPlus, IconTrash } from "@tabler/icons-react";
-import { lookupPostalCode, TMyPldExpedient, updateMyPldExpedient } from "../../../modules/apiCalls";
+import { lookupPostalCode, rerunMyPldPrequalification, TMyPldExpedient, updateMyPldExpedient } from "../../../modules/apiCalls";
 import {
   PldDocumentCollection,
   requiredSectionDocsExtracted,
@@ -573,6 +574,7 @@ export function PldIntakeForm({
   const [showData, setShowData] = useState(false);
   const [neighborhoodOptions, setNeighborhoodOptions] = useState<string[]>([]);
   const [postalLookupLoading, setPostalLookupLoading] = useState(false);
+  const [finishing, setFinishing] = useState(false);
   const dirty = useRef(false);
   const formRef = useRef(form);
   const lastSaved = useRef(JSON.stringify(metadataFromForm(fromMetadata(row), isMoral)));
@@ -786,6 +788,30 @@ export function PldIntakeForm({
         pendingSave.current = false;
         void flushSave();
       }
+    }
+  };
+
+  const handleContinue = async () => {
+    setFinishing(true);
+    try {
+      window.clearTimeout(saveTimer.current);
+      while (inFlight.current) {
+        await new Promise((resolve) => window.setTimeout(resolve, 40));
+      }
+      const payload = metadataFromForm(formRef.current, isMoral);
+      const savedForm = await updateMyPldExpedient(row.id, payload);
+      if (savedForm) {
+        onSaved(savedForm);
+        lastSaved.current = JSON.stringify(payload);
+        dirty.current = false;
+      }
+      const saved = await rerunMyPldPrequalification(row.id);
+      onSaved(saved);
+      onContinue?.();
+    } catch {
+      toast.error(t("compliance-prequal-rerun-error"));
+    } finally {
+      setFinishing(false);
     }
   };
 
@@ -1529,7 +1555,13 @@ export function PldIntakeForm({
                 })}
               </Button>
             ) : onContinue ? (
-              <Button color="violet" fullWidth={isNarrow} disabled={missingDocs > 0} onClick={onContinue}>
+              <Button
+                color="violet"
+                fullWidth={isNarrow}
+                disabled={missingDocs > 0}
+                loading={finishing}
+                onClick={handleContinue}
+              >
                 {t("compliance-doc-continue")}
               </Button>
             ) : null}
