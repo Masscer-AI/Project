@@ -2517,6 +2517,13 @@ export type TMyPldExpedient = {
     packet_status?: "writing" | "ready" | "failed" | "";
   } | null;
   document_slots?: TPldDocumentSlot[];
+  vulnerable_activity?: {
+    fraction: string;
+    activity: string;
+    notice_uma: number | null;
+    notice_mxn: number | null;
+    notice_note?: string;
+  } | null;
   clarification_requests?: TPldClarificationRequest[];
 };
 

@@ -2371,3 +2371,14 @@ class FetchUrlToolTests(SimpleTestCase):
         result = fetch_url_impl("file:///etc/passwd")
         self.assertIsNone(result.markdown)
         self.assertEqual(result.message, "url must be http or https")
+
+
+class VulnerableActivityTests(SimpleTestCase):
+    def test_construction_matches_real_estate_notice(self):
+        from api.compliance.risk.activities import match_vulnerable_activity
+
+        match = match_vulnerable_activity("Otras construcciones de ingeniería civil")
+        self.assertIsNotNone(match)
+        self.assertEqual(match["fraction"], "V")
+        self.assertEqual(match["notice_uma"], 8025)
+        self.assertGreater(match["notice_mxn"], 941000)

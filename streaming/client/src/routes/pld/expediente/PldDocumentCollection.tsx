@@ -92,7 +92,7 @@ function slotLabel(
 }
 
 const SECTION_KINDS: Record<string, string[]> = {
-  entity: ["acta_constitutiva", "constancia_fiscal", "cfdi"],
+  entity: ["acta_constitutiva", "constancia_fiscal"],
   address: ["comprobante_domicilio"],
   representative: ["id_representante", "curp_representante", "poder"],
   identification: ["official_id", "curp", "acta_nacimiento"],
@@ -112,9 +112,10 @@ export function slotsForIntakeSection(
     );
   }
   if (section === "entity" && !isMoral) {
-    return slots.filter((slot) =>
-      ["constancia_fiscal", "cfdi"].includes(slot.document_kind)
-    );
+    return slots.filter((slot) => slot.document_kind === "constancia_fiscal");
+  }
+  if (section === "notice") {
+    return slots.filter((slot) => slot.document_kind === "cfdi");
   }
   if (section === "documents") {
     const placed = new Set(
@@ -122,7 +123,9 @@ export function slotsForIntakeSection(
         (id) => slotsForIntakeSection(id, slots, isMoral).map((slot) => slot.slot_key)
       )
     );
-    return slots.filter((slot) => !placed.has(slot.slot_key));
+    return slots.filter(
+      (slot) => !placed.has(slot.slot_key) && slot.document_kind !== "cfdi"
+    );
   }
   const kinds = SECTION_KINDS[section] || [];
   return slots.filter((slot) => kinds.includes(slot.document_kind));

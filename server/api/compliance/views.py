@@ -740,6 +740,15 @@ def _invitee_signing(exp: PLDExpedient, entity: PLDEntity) -> dict | None:
     return invitee_signing_payload(exp, entity)
 
 
+def _invitee_vulnerable_activity(entity: PLDEntity) -> dict | None:
+    from api.compliance.risk.activities import (
+        activity_texts_for_entity,
+        match_vulnerable_activity,
+    )
+
+    return match_vulnerable_activity(*activity_texts_for_entity(entity))
+
+
 def _my_expedient_row(entity: PLDEntity) -> dict:
     from api.compliance.clarifications import serialize_request, text_reviews
     from api.compliance.pld_document_slots import document_slots_for_entity
@@ -786,6 +795,7 @@ def _my_expedient_row(entity: PLDEntity) -> dict:
         ),
         "document_slots": slots,
         "clarification_requests": requests,
+        "vulnerable_activity": _invitee_vulnerable_activity(entity),
     }
 
 

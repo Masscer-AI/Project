@@ -106,7 +106,6 @@ def pld_invite_prep_checklist(person_type: str) -> InvitePrepChecklist:
                 "Comprobante de domicilio reciente (no mayor a 3 meses)",
                 "Identificacion oficial del representante legal",
                 "CURP del representante legal",
-                "CFDI emitidos por arriba de los umbrales aplicables (PDF o XML)",
                 "Identificacion del beneficiario controlador",
             ],
             "documents_later": [
@@ -133,7 +132,6 @@ def pld_invite_prep_checklist(person_type: str) -> InvitePrepChecklist:
             "Constancia de CURP",
             "Constancia de situacion fiscal (RFC)",
             "Comprobante de domicilio reciente (no mayor a 3 meses)",
-            "CFDI emitidos por arriba de los umbrales aplicables (PDF o XML)",
             "Identificacion del beneficiario controlador, solo si no eres tu",
         ],
         "documents_later": [

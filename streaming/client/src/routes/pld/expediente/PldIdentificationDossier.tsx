@@ -14,6 +14,7 @@ import {
 import { PldClarificationRequests } from "./PldClarificationRequests";
 import { PldExpedientPreview } from "./PldExpedientPreview";
 import { PldPrequalDebugModal } from "./PldPrequalDebugModal";
+import { PldNoticeStep } from "./PldNoticeStep";
 import { PldRiskDeclarations } from "./PldRiskDeclarations";
 
 const MORAL_CHECKS = [
@@ -35,12 +36,38 @@ const LIST_LABELS: Record<string, string> = {
   sat_69_csd: "SAT 69 CSD",
 };
 
+type StepId = "data" | "validation" | "lists" | "score" | "notice" | "sign";
+
+const STEP_LABEL: Record<StepId, string> = {
+  data: "compliance-step-data",
+  validation: "compliance-step-validation",
+  lists: "compliance-step-lists",
+  score: "compliance-step-score",
+  notice: "compliance-step-notice",
+  sign: "compliance-step-sign",
+};
+
+export function stepIds(row: TMyPldExpedient): StepId[] {
+  const ids: StepId[] = ["data", "validation", "lists", "score"];
+  if (row.vulnerable_activity) ids.push("notice");
+  ids.push("sign");
+  return ids;
+}
+
+export function stepLabelKeys(row: TMyPldExpedient): string[] {
+  return stepIds(row).map((id) => STEP_LABEL[id]);
+}
+
 export function flowFurthest(row: TMyPldExpedient): number {
+  const ids = stepIds(row);
+  const at = (id: StepId) => ids.indexOf(id);
   const status = row.expedient?.status || "";
   const prequal = row.expedient?.prequalification_status;
-  if (status === "waiting_sign" || status === "signed" || status === "delivered") return 4;
+  if (status === "waiting_sign" || status === "signed" || status === "delivered") {
+    return at("sign");
+  }
   if (status === "cross_reference") {
-    return row.expedient?.screening_status === "succeeded" ? 3 : 2;
+    return row.expedient?.screening_status === "succeeded" ? at("score") : at("lists");
   }
   if (
     prequal === "pending" ||
@@ -48,9 +75,9 @@ export function flowFurthest(row: TMyPldExpedient): number {
     prequal === "failed" ||
     status === "action_required"
   ) {
-    return 1;
+    return at("validation");
   }
-  return 0;
+  return at("data");
 }
 
 export function ProcessBar({
@@ -351,26 +378,21 @@ export function PldIdentificationDossier({
     row.expedient?.signing?.status === "rejected" ||
     row.expedient?.signing?.status === "error";
   const listNames = consultedListNames(row.expedient?.screening?.searches);
-  const furthest = signLayout
-    ? 4
-    : alreadyCross
-      ? row.expedient?.screening_status === "succeeded"
-        ? 3
-        : 2
-      : 1;
+  const furthest = flowFurthest(row);
+  const ids = stepIds(row);
+  const noticeAt = ids.indexOf("notice");
+  const signAt = ids.indexOf("sign");
   const view =
     forcedView != null
       ? forcedView
       : pickedStep != null && pickedStep <= furthest
         ? pickedStep
         : furthest;
-  const stepLabels = [
-    t("compliance-step-data"),
-    t("compliance-step-validation"),
-    t("compliance-step-lists"),
-    t("compliance-step-score"),
-    t("compliance-step-sign"),
-  ];
+  const stepLabels = stepLabelKeys(row).map((key) => t(key));
+  const noticePanel =
+    view === noticeAt ? (
+      <PldNoticeStep row={row} onSaved={onSaved} onNext={onNext} />
+    ) : null;
 
   if (alreadyCross) {
     return (
@@ -411,6 +433,7 @@ export function PldIdentificationDossier({
         {view === 3 && row.expedient?.screening_status !== "succeeded" ? (
           <StepContinue onClick={onNext} />
         ) : null}
+        {noticePanel}
         {row.expedient?.screening_status === "failed" ? (
           <Alert color="red" variant="light">
             {t("compliance-screening-failed")}
@@ -516,7 +539,8 @@ export function PldIdentificationDossier({
             <PldRiskDeclarations row={row} onSaved={onSaved} onContinue={onNext} />
           </Stack>
         ) : null}
-        {view === 4 ? (
+        {noticePanel}
+        {view === signAt ? (
           <Stack gap="sm">
             <Card withBorder radius="md" p="md">
               <Stack gap="sm">
@@ -739,6 +763,7 @@ export function PldIdentificationDossier({
       {view === 3 ? (
         <PldRiskDeclarations row={row} onSaved={onSaved} onContinue={onNext} />
       ) : null}
+      {noticePanel}
     </Stack>
   );
 }

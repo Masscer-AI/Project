@@ -65,7 +65,7 @@ def required_slots_extraction_ready(entity) -> tuple[bool, str]:
 
 
 def _cfdi_slots(entity) -> list[dict]:
-    slots = [_slot("cfdi", "cfdi", required=True)]
+    slots = [_slot("cfdi", "cfdi", required=False)]
     exp = entity.expedients.order_by("created_at").first()
     indexes: list[int] = []
     has_first = False

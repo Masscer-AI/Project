@@ -20,7 +20,7 @@ import {
   resetMyPldExpedient,
   TMyPldExpedient,
 } from "../../../modules/apiCalls";
-import { flowFurthest, PldIdentificationDossier, ProcessBar } from "./PldIdentificationDossier";
+import { flowFurthest, PldIdentificationDossier, ProcessBar, stepLabelKeys } from "./PldIdentificationDossier";
 import { PldIntakeForm } from "./PldIntakeForm";
 
 function ResetExpedienteButton({
@@ -149,13 +149,7 @@ export default function MyPldExpedientePage() {
                     }}
                   />
                 ) : null;
-                const stepLabels = [
-                  t("compliance-step-data"),
-                  t("compliance-step-validation"),
-                  t("compliance-step-lists"),
-                  t("compliance-step-score"),
-                  t("compliance-step-sign"),
-                ];
+                const stepLabels = stepLabelKeys(row).map((key) => t(key));
                 return (
                   <Stack key={row.id} gap="md">
                     {reached > 0 ? (
@@ -174,7 +168,7 @@ export default function MyPldExpedientePage() {
                         headerExtra={reset}
                         showBar={false}
                         forcedView={view}
-                        onNext={() => pickStep(Math.min(view + 1, 4))}
+                        onNext={() => pickStep(Math.min(view + 1, stepLabels.length - 1))}
                         onSaved={saveRow}
                       />
                     )}
