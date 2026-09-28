@@ -16,6 +16,7 @@ import {
   Stack,
   Switch,
   Text,
+  Textarea,
   TextInput,
   Title,
   UnstyledButton,
@@ -1146,18 +1147,20 @@ export function PldIntakeForm({
             onChange={(e) => setField("curp", e.currentTarget.value)}
           />
         )}
-        <TextInput
-          label={t("compliance-intake-activity")}
-          description={
-            isMoral
-              ? t("compliance-intake-activity-hint-moral")
-              : t("compliance-intake-activity-hint-fisica")
-          }
-          required
-          value={form.economic_activity}
-          onChange={(e) => setField("economic_activity", e.currentTarget.value)}
-        />
       </FieldRow>
+      <Textarea
+        label={t("compliance-intake-activity")}
+        description={
+          isMoral
+            ? t("compliance-intake-activity-hint-moral")
+            : t("compliance-intake-activity-hint-fisica")
+        }
+        required
+        autosize
+        minRows={2}
+        value={form.economic_activity}
+        onChange={(e) => setField("economic_activity", e.currentTarget.value)}
+      />
 
       <FieldRow>
         <PhoneField
