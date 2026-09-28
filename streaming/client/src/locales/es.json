@@ -1216,6 +1216,7 @@
   "compliance-prequal-rerun-error": "No se pudo volver a precalificar.",
   "compliance-prequal-findings": "Hallazgos de precalificacion",
   "compliance-screening-running": "Estamos validando tu expediente. Esto puede tardar unos minutos.",
+  "compliance-screening-lists": "Listas consultadas",
   "compliance-screening-hits_one": "{{count}} coincidencia",
   "compliance-screening-hits_other": "{{count}} coincidencias",
   "compliance-screening-hits_zero": "sin coincidencia",

@@ -24,6 +24,30 @@ const MORAL_CHECKS = [
   { code: "controller_missing", key: "compliance-sign-check-controller" },
 ];
 
+const LIST_LABELS: Record<string, string> = {
+  onu_csnu: "ONU",
+  sat_69b: "SAT 69-B",
+  sat_69b_bis: "SAT 69-B Bis",
+  sat_69_firmes: "SAT 69 firmes",
+  sat_69_no_localizados: "SAT 69 no localizados",
+  sat_69_exigibles: "SAT 69 exigibles",
+  sat_69_sentencias: "SAT 69 sentencias",
+  sat_69_csd: "SAT 69 CSD",
+};
+
+function consultedListNames(
+  searches: { lists?: string[] }[] | undefined
+): string[] {
+  const seen: string[] = [];
+  for (const search of searches || []) {
+    for (const slug of search.lists || []) {
+      const label = LIST_LABELS[slug] || slug;
+      if (!seen.includes(label)) seen.push(label);
+    }
+  }
+  return seen;
+}
+
 const FISICA_CHECKS = [
   { code: "rfc_mismatch", key: "compliance-sign-check-rfc" },
   { code: "curp_mismatch", key: "compliance-sign-check-curp" },
@@ -178,6 +202,7 @@ export function PldIdentificationDossier({
   const signRejected =
     row.expedient?.signing?.status === "rejected" ||
     row.expedient?.signing?.status === "error";
+  const listNames = consultedListNames(row.expedient?.screening?.searches);
 
   if (alreadyCross) {
     return (
@@ -188,6 +213,13 @@ export function PldIdentificationDossier({
           </Button>
         ) : null}
         <Text size="sm">{t("compliance-dossier-next-lists")}</Text>
+        {listNames.length > 0 ? (
+          <Text size="sm">
+            {t("compliance-screening-lists")}
+            {": "}
+            {listNames.join(", ")}
+          </Text>
+        ) : null}
         {(row.expedient?.screening?.checks || []).length > 0 ? (
           <Stack gap={6}>
             {(row.expedient?.screening?.checks || []).map((check) => (
@@ -303,6 +335,13 @@ export function PldIdentificationDossier({
               <Alert color="gray" variant="light">
                 {row.expedient.screening.summary}
               </Alert>
+            ) : null}
+            {listNames.length > 0 ? (
+              <Text size="sm">
+                {t("compliance-screening-lists")}
+                {": "}
+                {listNames.join(", ")}
+              </Text>
             ) : null}
           </Stack>
           <Stack gap="sm">

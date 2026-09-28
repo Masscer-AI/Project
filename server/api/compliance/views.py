@@ -554,6 +554,7 @@ class MyPLDExpedientDetailView(View):
                 return JsonResponse({"error": str(exc)}, status=400)
             entity.save(update_fields=["metadata", "updated_at"])
             if exp.status in {
+                PLDExpedientStatus.DATA_COLLECTION,
                 PLDExpedientStatus.DOCUMENT_COLLECTION,
                 PLDExpedientStatus.ACTION_REQUIRED,
             }:
