@@ -805,14 +805,19 @@ export function PldIntakeForm({
         lastSaved.current = JSON.stringify(payload);
         dirty.current = false;
       }
+    } catch {
+      setSync("error");
+    }
+    try {
       const saved = await rerunMyPldPrequalification(row.id);
       onSaved(saved);
-      onContinue?.();
     } catch {
-      toast.error(t("compliance-prequal-rerun-error"));
-    } finally {
       setFinishing(false);
+      onContinue?.();
+      return;
     }
+    setFinishing(false);
+    onContinue?.();
   };
 
   useEffect(() => {

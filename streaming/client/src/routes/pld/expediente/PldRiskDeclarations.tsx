@@ -36,9 +36,11 @@ function YesNo({
 export function PldRiskDeclarations({
   row,
   onSaved,
+  onContinue,
 }: {
   row: TMyPldExpedient;
   onSaved: (row: TMyPldExpedient) => void;
+  onContinue?: () => void;
 }) {
   const { t } = useTranslation();
   const meta = row.metadata || {};
@@ -81,7 +83,7 @@ export function PldRiskDeclarations({
         foreign_countries: foreign ? countries.trim() : null,
       });
       onSaved(saved);
-      toast.success(t("compliance-risk-saved"));
+      onContinue?.();
     } catch {
       toast.error(t("compliance-risk-error"));
     } finally {
@@ -126,8 +128,8 @@ export function PldRiskDeclarations({
           onChange={(event) => setCountries(event.currentTarget.value)}
         />
       ) : null}
-      <Button color="violet" w="fit-content" loading={busy} onClick={save}>
-        {t("compliance-risk-save")}
+      <Button color="violet" fullWidth loading={busy} onClick={save}>
+        {t("compliance-doc-continue")}
       </Button>
     </Stack>
   );

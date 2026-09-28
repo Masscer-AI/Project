@@ -166,7 +166,7 @@ export default function MyPldExpedientePage() {
                         row={row}
                         headerExtra={reset}
                         onSaved={saveRow}
-                        onContinue={() => pickStep(Math.max(reached, 1))}
+                        onContinue={() => pickStep(1)}
                       />
                     ) : (
                       <PldIdentificationDossier
@@ -174,7 +174,7 @@ export default function MyPldExpedientePage() {
                         headerExtra={reset}
                         showBar={false}
                         forcedView={view}
-                        onBack={() => pickStep(0)}
+                        onNext={() => pickStep(Math.min(view + 1, 4))}
                         onSaved={saveRow}
                       />
                     )}
