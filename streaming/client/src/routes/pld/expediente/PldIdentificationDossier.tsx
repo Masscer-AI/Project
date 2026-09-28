@@ -1,7 +1,8 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
-import { Alert, Badge, Button, Card, Checkbox, Group, Loader, SimpleGrid, Stack, Text, Title } from "@mantine/core";
+import { Alert, Badge, Button, Card, Checkbox, Group, Loader, Stack, Stepper, Text, Title } from "@mantine/core";
+import { useMediaQuery } from "@mantine/hooks";
 import { IconAlertTriangle, IconCircleCheck, IconDownload, IconSignature } from "@tabler/icons-react";
 import {
   confirmMyPldDocuments,
@@ -34,6 +35,34 @@ const LIST_LABELS: Record<string, string> = {
   sat_69_sentencias: "SAT 69 sentencias",
   sat_69_csd: "SAT 69 CSD",
 };
+
+function ProcessBar({
+  furthest,
+  labels,
+  onPick,
+}: {
+  furthest: number;
+  labels: string[];
+  onPick: (step: number) => void;
+}) {
+  const narrow = useMediaQuery("(max-width: 48em)");
+  return (
+    <Stepper
+      active={furthest}
+      onStepClick={(step) => {
+        if (step <= furthest) onPick(step);
+      }}
+      allowNextStepsSelect={false}
+      orientation={narrow ? "vertical" : "horizontal"}
+      size="sm"
+      iconSize={28}
+    >
+      {labels.map((label) => (
+        <Stepper.Step key={label} label={label} />
+      ))}
+    </Stepper>
+  );
+}
 
 function consultedListNames(
   searches: { lists?: string[] }[] | undefined
@@ -132,6 +161,7 @@ export function PldIdentificationDossier({
     verdict === "ready_for_list_screening" &&
     openRequests.length === 0;
   const [accepted, setAccepted] = useState(false);
+  const [pickedStep, setPickedStep] = useState<number | null>(null);
   const confirmEnabled = ready && prequalReady && accepted && !busy;
   const alreadyCross = status === "cross_reference";
   const hideConfirm = alreadyCross || waitingSign || signedDone;
@@ -203,6 +233,21 @@ export function PldIdentificationDossier({
     row.expedient?.signing?.status === "rejected" ||
     row.expedient?.signing?.status === "error";
   const listNames = consultedListNames(row.expedient?.screening?.searches);
+  const furthest = signLayout
+    ? 4
+    : alreadyCross
+      ? row.expedient?.screening_status === "succeeded"
+        ? 3
+        : 2
+      : 1;
+  const view = pickedStep != null && pickedStep <= furthest ? pickedStep : furthest;
+  const stepLabels = [
+    t("compliance-step-data"),
+    t("compliance-step-validation"),
+    t("compliance-step-lists"),
+    t("compliance-step-score"),
+    t("compliance-step-sign"),
+  ];
 
   if (alreadyCross) {
     return (
@@ -212,32 +257,43 @@ export function PldIdentificationDossier({
             {t("compliance-sign-back")}
           </Button>
         ) : null}
-        <Text size="sm">{t("compliance-dossier-next-lists")}</Text>
-        {listNames.length > 0 ? (
-          <Text size="sm">
-            {t("compliance-screening-lists")}
-            {": "}
-            {listNames.join(", ")}
-          </Text>
+        <ProcessBar furthest={furthest} labels={stepLabels} onPick={setPickedStep} />
+        {view === 0 ? (
+          <Text size="sm">{t("compliance-step-data-body")}</Text>
         ) : null}
-        {(row.expedient?.screening?.checks || []).length > 0 ? (
-          <Stack gap={6}>
-            {(row.expedient?.screening?.checks || []).map((check) => (
-              <Text key={`${check.role}-${check.rfc}`} size="sm">
-                {t(`compliance-screening-role-${check.role}`)}
-                {check.name ? ` · ${check.name}` : ""}
-                {` · ${check.rfc} · `}
-                {check.hit_count === 0
-                  ? t("compliance-screening-hits_zero")
-                  : t("compliance-screening-hits", { count: check.hit_count })}
+        {view === 1 ? (
+          <Text size="sm">{t("compliance-dossier-ready")}</Text>
+        ) : null}
+        {view === 2 ? (
+          <Stack gap="sm">
+            <Text size="sm">{t("compliance-dossier-next-lists")}</Text>
+            {listNames.length > 0 ? (
+              <Text size="sm">
+                {t("compliance-screening-lists")}
+                {": "}
+                {listNames.join(", ")}
               </Text>
-            ))}
+            ) : null}
+            {(row.expedient?.screening?.checks || []).length > 0 ? (
+              <Stack gap={6}>
+                {(row.expedient?.screening?.checks || []).map((check) => (
+                  <Text key={`${check.role}-${check.rfc}`} size="sm">
+                    {t(`compliance-screening-role-${check.role}`)}
+                    {check.name ? ` · ${check.name}` : ""}
+                    {` · ${check.rfc} · `}
+                    {check.hit_count === 0
+                      ? t("compliance-screening-hits_zero")
+                      : t("compliance-screening-hits", { count: check.hit_count })}
+                  </Text>
+                ))}
+              </Stack>
+            ) : null}
           </Stack>
         ) : null}
-        {row.expedient?.screening_status === "succeeded" ? (
+        {view === 3 && row.expedient?.screening_status === "succeeded" ? (
           <PldRiskDeclarations row={row} onSaved={onSaved} />
         ) : null}
-        {screeningPending ? (
+        {view === 2 && screeningPending ? (
           <Alert
             color="violet"
             variant="light"
@@ -280,9 +336,10 @@ export function PldIdentificationDossier({
           </Stack>
           {headerExtra}
         </Group>
-        <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
-          <Stack gap="sm">
-            <Card withBorder radius="md" p="md">
+        <ProcessBar furthest={furthest} labels={stepLabels} onPick={setPickedStep} />
+        {view === 0 ? <Text size="sm">{t("compliance-step-data-body")}</Text> : null}
+        {view === 1 ? (
+          <Card withBorder radius="md" p="md">
               <Group gap="sm" wrap="nowrap" align="flex-start" mb="sm">
                 {passedChecks.length === checks.length ? (
                   <IconCircleCheck size={22} color="var(--mantine-color-teal-5)" />
@@ -329,13 +386,10 @@ export function PldIdentificationDossier({
                   );
                 })}
               </Stack>
-            </Card>
-            {row.expedient?.screening?.summary &&
-            row.expedient.screening_status === "succeeded" ? (
-              <Alert color="gray" variant="light">
-                {row.expedient.screening.summary}
-              </Alert>
-            ) : null}
+          </Card>
+        ) : null}
+        {view === 2 ? (
+          <Stack gap="sm">
             {listNames.length > 0 ? (
               <Text size="sm">
                 {t("compliance-screening-lists")}
@@ -343,7 +397,29 @@ export function PldIdentificationDossier({
                 {listNames.join(", ")}
               </Text>
             ) : null}
+            {(row.expedient?.screening?.checks || []).map((check) => (
+              <Text key={`${check.role}-${check.rfc}`} size="sm">
+                {t(`compliance-screening-role-${check.role}`)}
+                {check.name ? ` · ${check.name}` : ""}
+                {` · ${check.rfc} · `}
+                {check.hit_count === 0
+                  ? t("compliance-screening-hits_zero")
+                  : t("compliance-screening-hits", { count: check.hit_count })}
+              </Text>
+            ))}
           </Stack>
+        ) : null}
+        {view === 3 ? (
+          <Stack gap="sm">
+            {row.expedient?.screening?.summary ? (
+              <Alert color="gray" variant="light">
+                {row.expedient.screening.summary}
+              </Alert>
+            ) : null}
+            <PldRiskDeclarations row={row} onSaved={onSaved} />
+          </Stack>
+        ) : null}
+        {view === 4 ? (
           <Stack gap="sm">
             <Card withBorder radius="md" p="md">
               <Stack gap="sm">
@@ -411,7 +487,7 @@ export function PldIdentificationDossier({
             </Card>
             <PldExpedientPreview row={row} fullWidth />
           </Stack>
-        </SimpleGrid>
+        ) : null}
         <PldClarificationRequests row={row} onSaved={onSaved} openOnly />
       </Stack>
     );
@@ -424,6 +500,10 @@ export function PldIdentificationDossier({
           {t("compliance-sign-back")}
         </Button>
       ) : null}
+      <ProcessBar furthest={furthest} labels={stepLabels} onPick={setPickedStep} />
+      {view === 0 ? <Text size="sm">{t("compliance-step-data-body")}</Text> : null}
+      {view === 1 ? (
+        <>
       <Title order={4}>{t("compliance-dossier-title")}</Title>
       <Text size="sm">{t("compliance-dossier-intro")}</Text>
       {pending && !failed && (
@@ -550,6 +630,8 @@ export function PldIdentificationDossier({
           </Button>
         )}
       </Group>
+        </>
+      ) : null}
     </Stack>
   );
 }
