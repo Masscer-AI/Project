@@ -2503,6 +2503,7 @@ export type TMyPldExpedient = {
     screening?: {
       verdict?: string;
       summary?: string;
+      checks?: { role: string; name: string; rfc: string; hit_count: number }[];
       searches?: { terms: string[]; lists: string[]; hit_count: number }[];
     };
     signing?: {
@@ -2581,7 +2582,25 @@ export const confirmMyPldDocuments = async (entityId: string) => {
   return makeAuthenticatedRequest<TMyPldExpedient>(
     "PATCH",
     `/v1/compliance/my-expedients/${entityId}/`,
-    { action: "confirm_documents" }
+    { action: "confirm_documents", truthfulness_accepted: true }
+  );
+};
+
+export const saveMyPldRiskDeclarations = async (
+  entityId: string,
+  body: {
+    declares_pep: boolean;
+    partners_pep: boolean | null;
+    partners_pep_names: string | null;
+    third_party_payments: boolean;
+    foreign_operations: boolean;
+    foreign_countries: string | null;
+  }
+) => {
+  return makeAuthenticatedRequest<TMyPldExpedient>(
+    "PATCH",
+    `/v1/compliance/my-expedients/${entityId}/`,
+    { action: "save_risk_declarations", ...body }
   );
 };
 

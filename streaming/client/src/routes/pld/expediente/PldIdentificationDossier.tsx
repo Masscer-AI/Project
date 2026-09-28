@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
-import { Alert, Badge, Button, Card, Group, Loader, SimpleGrid, Stack, Text, Title } from "@mantine/core";
+import { Alert, Badge, Button, Card, Checkbox, Group, Loader, SimpleGrid, Stack, Text, Title } from "@mantine/core";
 import { IconAlertTriangle, IconCircleCheck, IconDownload, IconSignature } from "@tabler/icons-react";
 import {
   confirmMyPldDocuments,
@@ -14,6 +14,7 @@ import {
 import { PldClarificationRequests } from "./PldClarificationRequests";
 import { PldExpedientPreview } from "./PldExpedientPreview";
 import { PldPrequalDebugModal } from "./PldPrequalDebugModal";
+import { PldRiskDeclarations } from "./PldRiskDeclarations";
 
 const MORAL_CHECKS = [
   { code: "rfc_mismatch", key: "compliance-sign-check-rfc" },
@@ -22,17 +23,6 @@ const MORAL_CHECKS = [
   { code: "id_expired_or_unreadable", key: "compliance-sign-check-representative" },
   { code: "controller_missing", key: "compliance-sign-check-controller" },
 ];
-
-const LIST_LABELS: Record<string, string> = {
-  onu_csnu: "ONU",
-  sat_69b: "SAT 69-B",
-  sat_69b_bis: "SAT 69-B Bis",
-  sat_69_firmes: "SAT 69 firmes",
-  sat_69_no_localizados: "SAT 69 no localizados",
-  sat_69_exigibles: "SAT 69 exigibles",
-  sat_69_sentencias: "SAT 69 sentencias",
-  sat_69_csd: "SAT 69 CSD",
-};
 
 const FISICA_CHECKS = [
   { code: "rfc_mismatch", key: "compliance-sign-check-rfc" },
@@ -117,7 +107,8 @@ export function PldIdentificationDossier({
     row.expedient?.prequalification_status === "succeeded" &&
     verdict === "ready_for_list_screening" &&
     openRequests.length === 0;
-  const confirmEnabled = ready && prequalReady && !busy;
+  const [accepted, setAccepted] = useState(false);
+  const confirmEnabled = ready && prequalReady && accepted && !busy;
   const alreadyCross = status === "cross_reference";
   const hideConfirm = alreadyCross || waitingSign || signedDone;
   const canRerunPrequal =
@@ -197,20 +188,22 @@ export function PldIdentificationDossier({
           </Button>
         ) : null}
         <Text size="sm">{t("compliance-dossier-next-lists")}</Text>
-        {(row.expedient?.screening?.searches || []).length > 0 ? (
+        {(row.expedient?.screening?.checks || []).length > 0 ? (
           <Stack gap={6}>
-            {(row.expedient?.screening?.searches || []).map((search, index) => (
-              <Text key={index} size="sm">
-                {search.terms.join(" ")}
-                {" · "}
-                {search.lists.map((slug) => LIST_LABELS[slug] || slug).join(", ")}
-                {" · "}
-                {search.hit_count === 0
+            {(row.expedient?.screening?.checks || []).map((check) => (
+              <Text key={`${check.role}-${check.rfc}`} size="sm">
+                {t(`compliance-screening-role-${check.role}`)}
+                {check.name ? ` · ${check.name}` : ""}
+                {` · ${check.rfc} · `}
+                {check.hit_count === 0
                   ? t("compliance-screening-hits_zero")
-                  : t("compliance-screening-hits", { count: search.hit_count })}
+                  : t("compliance-screening-hits", { count: check.hit_count })}
               </Text>
             ))}
           </Stack>
+        ) : null}
+        {row.expedient?.screening_status === "succeeded" ? (
+          <PldRiskDeclarations row={row} onSaved={onSaved} />
         ) : null}
         {screeningPending ? (
           <Alert
@@ -498,19 +491,24 @@ export function PldIdentificationDossier({
           {t("compliance-packet-failed")}
         </Alert>
       ) : null}
+      {hideConfirm ? null : (
+        <Checkbox
+          checked={accepted}
+          onChange={(event) => setAccepted(event.currentTarget.checked)}
+          label={t("compliance-consent-label")}
+        />
+      )}
       <Group>
         <PldExpedientPreview row={row} />
         {hideConfirm ? null : (
-          <>
-            <Button
-              color="violet"
-              disabled={!confirmEnabled}
-              loading={busy}
-              onClick={handleConfirm}
-            >
-              {t("compliance-dossier-confirm")}
-            </Button>
-          </>
+          <Button
+            color="violet"
+            disabled={!confirmEnabled}
+            loading={busy}
+            onClick={handleConfirm}
+          >
+            {t("compliance-dossier-confirm")}
+          </Button>
         )}
       </Group>
     </Stack>

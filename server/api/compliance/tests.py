@@ -1228,7 +1228,7 @@ class PLDDocumentExtractionTests(TestCase):
         )
         confirmed = self.client.patch(
             f"/v1/compliance/my-expedients/{self.entity.id}/",
-            {"action": "confirm_documents"},
+            {"action": "confirm_documents", "truthfulness_accepted": True},
             format="json",
             HTTP_AUTHORIZATION=f"Token {self.token.key}",
         )
@@ -2285,6 +2285,82 @@ class FillFormVariableTests(TestCase):
         self.assertEqual(self.entity.metadata.get("address", {}).get("city"), "Monterrey")
         self.assertEqual(create_loop.call_args.kwargs["tools"][0]["name"], "fill_form_variable")
         self.assertIn("Spanish", create_loop.call_args.kwargs["instructions"])
+
+
+class ScreeningTargetTests(SimpleTestCase):
+    def test_keeps_company_partners_controller_and_representative(self):
+        from api.compliance.screening.agents import screening_targets
+
+        class Docs:
+            def all(self):
+                return [
+                    type(
+                        "Doc",
+                        (),
+                        {
+                            "document_kind": "constancia_fiscal",
+                            "extracted_payload": {"rfc": "OTRO010101AAA"},
+                        },
+                    )(),
+                    type(
+                        "Doc",
+                        (),
+                        {
+                            "document_kind": "acta_constitutiva",
+                            "extracted_payload": {
+                                "shareholders": [
+                                    {"name": "Ana Lopez", "rfc": "LOPA800101AAA"}
+                                ],
+                                "administrators": [
+                                    {
+                                        "name": "Luis Perez",
+                                        "role": "administrador_unico",
+                                        "rfc": "PEPL800101AAA",
+                                    }
+                                ],
+                            },
+                        },
+                    )(),
+                ]
+
+        class Expedients:
+            def order_by(self, *_args):
+                return self
+
+            def first(self):
+                return type("Exp", (), {"documents": Docs()})()
+
+        entity = type(
+            "Entity",
+            (),
+            {
+                "metadata": {
+                    "legal_name": "ACME",
+                    "rfc": "ACM010101AAA",
+                    "representative": {
+                        "given_names": "Blanca",
+                        "surnames": "Reyes",
+                        "rfc": "REBL800101AAA",
+                    },
+                    "controllers": [
+                        {"name": "Marta Molina", "rfc": "MOMA800101AAA"}
+                    ],
+                },
+                "expedients": Expedients(),
+            },
+        )()
+        roles = {row["role"]: row["rfc"] for row in screening_targets(entity)}
+        self.assertEqual(
+            roles,
+            {
+                "empresa": "ACM010101AAA",
+                "representante": "REBL800101AAA",
+                "beneficiario_controlador": "MOMA800101AAA",
+                "socio": "LOPA800101AAA",
+                "administrador_unico": "PEPL800101AAA",
+            },
+        )
+        self.assertNotIn("OTRO010101AAA", roles.values())
 
 
 class FetchUrlToolTests(SimpleTestCase):

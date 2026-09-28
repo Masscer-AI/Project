@@ -1,0 +1,26 @@
+{
+  "source": "https://siennadocs.com/es-mx/blog/actividades-vulnerables-2026",
+  "uma_daily_mxn": 117.31,
+  "year": 2026,
+  "activities": [
+    {"fraction": "I", "activity": "juegos y sorteos", "identification_uma": 325, "notice_uma": 645},
+    {"fraction": "II-a", "activity": "tarjetas de credito o servicio, gasto mensual", "identification_uma": 805, "notice_uma": 1285},
+    {"fraction": "II-b", "activity": "tarjetas prepagadas", "identification_uma": 645, "notice_uma": 645},
+    {"fraction": "II-c", "activity": "vales o cupones", "identification_uma": 645, "notice_uma": 645},
+    {"fraction": "III", "activity": "cheques de viajero", "identification_uma": null, "notice_uma": 645, "identify_always": true},
+    {"fraction": "IV", "activity": "mutuo, prestamo o credito", "identification_uma": null, "notice_uma": 1605, "identify_always": true},
+    {"fraction": "V", "activity": "inmuebles", "identification_uma": null, "notice_uma": 8025, "identify_always": true},
+    {"fraction": "V Bis", "activity": "desarrollo inmobiliario", "identification_uma": null, "notice_uma": 8025, "identify_always": true},
+    {"fraction": "VI", "activity": "metales, joyas y relojes", "identification_uma": 805, "notice_uma": 1605},
+    {"fraction": "VII", "activity": "obras de arte", "identification_uma": 2410, "notice_uma": 4815},
+    {"fraction": "VIII", "activity": "vehiculos", "identification_uma": 3210, "notice_uma": 6420},
+    {"fraction": "IX", "activity": "blindaje", "identification_uma": 2410, "notice_uma": 4815},
+    {"fraction": "X", "activity": "traslado o custodia de valores", "identification_uma": null, "notice_uma": 3210, "identify_always": true},
+    {"fraction": "XI", "activity": "servicios profesionales", "identification_uma": null, "notice_uma": null, "identify_always": true, "notice_note": "cuando se realiza una operacion financiera por el cliente"},
+    {"fraction": "XII", "activity": "fe publica", "identification_uma": null, "notice_uma": null, "identify_always": true, "notice_note": "segun el acto; avalúos de corredor desde 8025 UMA"},
+    {"fraction": "XIII", "activity": "donativos", "identification_uma": 1605, "notice_uma": 3210},
+    {"fraction": "XIV", "activity": "comercio exterior", "identification_uma": null, "notice_uma": null, "notice_note": "siempre para bienes listados"},
+    {"fraction": "XV", "activity": "arrendamiento", "identification_uma": 1605, "notice_uma": 3210, "identification_note": "renta mensual mayor a 1605 UMA"},
+    {"fraction": "XVI", "activity": "activos virtuales", "identification_uma": null, "notice_uma": 210, "identify_always": true, "notice_note": "210 UMA por operacion, o comision de 4 UMA"}
+  ]
+}

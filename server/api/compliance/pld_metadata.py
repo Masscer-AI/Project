@@ -71,6 +71,13 @@ class PersonaFisicaMetadata(BaseModel):
     identification: IdentificationData | None = None
     is_own_controller: bool = True
     controller: ControllerBeneficiary | None = None
+    truthfulness_accepted: bool = False
+    declares_pep: bool | None = None
+    partners_pep: bool | None = None
+    partners_pep_names: str | None = None
+    third_party_payments: bool | None = None
+    foreign_operations: bool | None = None
+    foreign_countries: str | None = None
 
     @model_validator(mode="after")
     def fill_display_name(self):
@@ -100,6 +107,13 @@ class PersonaMoralMetadata(BaseModel):
     address: AddressData | None = None
     representative: LegalRepresentativeData | None = None
     controllers: list[ControllerBeneficiary] = Field(default_factory=list)
+    truthfulness_accepted: bool = False
+    declares_pep: bool | None = None
+    partners_pep: bool | None = None
+    partners_pep_names: str | None = None
+    third_party_payments: bool | None = None
+    foreign_operations: bool | None = None
+    foreign_countries: str | None = None
 
 
 def _filled(value: str | None) -> bool:

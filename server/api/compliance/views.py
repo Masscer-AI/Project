@@ -542,6 +542,17 @@ class MyPLDExpedientDetailView(View):
 
             if has_open_requests(exp, PLDClarificationRequest.Stage.IDENTIFICATION):
                 return JsonResponse({"error": "clarification-pending"}, status=400)
+            if payload.get("truthfulness_accepted") is not True:
+                return JsonResponse({"error": "consent-required"}, status=400)
+            meta = dict(entity.metadata) if isinstance(entity.metadata, dict) else {}
+            meta["truthfulness_accepted"] = True
+            try:
+                entity.metadata = normalize_pld_entity_metadata(
+                    entity.person_type, meta
+                )
+            except ValueError as exc:
+                return JsonResponse({"error": str(exc)}, status=400)
+            entity.save(update_fields=["metadata", "updated_at"])
             if exp.status in {
                 PLDExpedientStatus.DOCUMENT_COLLECTION,
                 PLDExpedientStatus.ACTION_REQUIRED,
@@ -585,10 +596,42 @@ class MyPLDExpedientDetailView(View):
 
             settle_pld_clarifications.delay(str(exp.id))
             return JsonResponse(_reload_my_expedient_row(entity.pk), status=200)
+        if payload.get("action") == "save_risk_declarations":
+            meta = dict(entity.metadata) if isinstance(entity.metadata, dict) else {}
+            for key in (
+                "declares_pep",
+                "partners_pep",
+                "partners_pep_names",
+                "third_party_payments",
+                "foreign_operations",
+                "foreign_countries",
+            ):
+                if key in payload:
+                    meta[key] = payload.get(key)
+            try:
+                entity.metadata = normalize_pld_entity_metadata(
+                    entity.person_type, meta
+                )
+                entity.save(update_fields=["metadata", "updated_at"])
+            except ValueError as exc:
+                return JsonResponse({"error": str(exc)}, status=400)
+            return JsonResponse(_reload_my_expedient_row(entity.pk), status=200)
 
         metadata = payload.get("metadata")
         if not isinstance(metadata, dict):
             return JsonResponse({"error": "metadata must be an object"}, status=400)
+        old = entity.metadata if isinstance(entity.metadata, dict) else {}
+        for key in (
+            "truthfulness_accepted",
+            "declares_pep",
+            "partners_pep",
+            "partners_pep_names",
+            "third_party_payments",
+            "foreign_operations",
+            "foreign_countries",
+        ):
+            if key not in metadata and key in old:
+                metadata[key] = old[key]
         try:
             entity.metadata = normalize_pld_entity_metadata(
                 entity.person_type, metadata
@@ -653,8 +696,19 @@ def _invitee_screening(exp: PLDExpedient) -> dict:
         raw.get("summary") or ""
     )
     searches = raw.get("searches") if isinstance(raw.get("searches"), list) else []
+    checks = raw.get("checks") if isinstance(raw.get("checks"), list) else []
     return {
         "summary": summary,
+        "checks": [
+            {
+                "role": str(row.get("role") or ""),
+                "name": str(row.get("name") or ""),
+                "rfc": str(row.get("rfc") or ""),
+                "hit_count": int(row.get("hit_count") or 0),
+            }
+            for row in checks
+            if isinstance(row, dict) and row.get("rfc")
+        ],
         "searches": [
             {
                 "terms": row.get("terms") if isinstance(row.get("terms"), list) else [],

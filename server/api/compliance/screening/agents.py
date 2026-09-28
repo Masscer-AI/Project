@@ -10,7 +10,11 @@ from api.compliance.clarifications import answers_packet
 from api.compliance.models import PLDExpedientDocument
 from api.compliance.prequalification.pack import _compact_payload
 from api.compliance.document_extraction.constants import PLD_EXTRACTION_MODEL_SLUG
-from api.compliance.screening.schemas import ScreeningResult, ScreeningSearch
+from api.compliance.screening.schemas import (
+    ScreeningCheck,
+    ScreeningResult,
+    ScreeningSearch,
+)
 from api.compliance.screening.search_tool import (
     RFC_SEARCH_LISTS,
     search_watchlists_impl,
@@ -37,24 +41,62 @@ Reglas:
 """.strip()
 
 
-def _rfcs_from_entity(entity) -> list[str]:
-    found: list[str] = []
+def _clean_rfc(value) -> str:
+    text = re.sub(r"\s+", "", str(value or "")).upper()
+    if len(text) in {12, 13}:
+        return text
+    return ""
+
+
+def screening_targets(entity) -> list[dict]:
+    meta = entity.metadata if isinstance(entity.metadata, dict) else {}
+    rows: list[dict] = []
     seen: set[str] = set()
 
-    def add(value):
-        text = re.sub(r"\s+", "", str(value or "")).upper()
-        if len(text) in {12, 13} and text not in seen:
-            seen.add(text)
-            found.append(text)
+    def add(role: str, name: str, value):
+        rfc = _clean_rfc(value)
+        if not rfc or rfc in seen:
+            return
+        seen.add(rfc)
+        rows.append({"role": role, "name": (name or "").strip(), "rfc": rfc})
 
-    meta = entity.metadata if isinstance(entity.metadata, dict) else {}
-    add(meta.get("rfc"))
+    company = str(meta.get("legal_name") or meta.get("name") or "").strip()
+    add("empresa" if meta.get("legal_name") else "titular", company, meta.get("rfc"))
+    representative = meta.get("representative") if isinstance(meta.get("representative"), dict) else {}
+    rep_name = " ".join(
+        part.strip()
+        for part in (
+            representative.get("given_names"),
+            representative.get("surnames"),
+        )
+        if part and str(part).strip()
+    )
+    add("representante", rep_name, representative.get("rfc"))
+    controllers = meta.get("controllers") if isinstance(meta.get("controllers"), list) else []
+    single = meta.get("controller") if isinstance(meta.get("controller"), dict) else None
+    if single and not controllers:
+        controllers = [single]
+    for item in controllers:
+        if not isinstance(item, dict):
+            continue
+        add("beneficiario_controlador", str(item.get("name") or ""), item.get("rfc"))
     exp = entity.expedients.order_by("created_at").first()
     if exp:
         for doc in exp.documents.all():
+            if getattr(doc, "document_kind", "") != "acta_constitutiva":
+                continue
             payload = doc.extracted_payload if isinstance(doc.extracted_payload, dict) else {}
-            add(payload.get("rfc"))
-    return found
+            for person in payload.get("shareholders") or []:
+                if isinstance(person, dict):
+                    add("socio", str(person.get("name") or ""), person.get("rfc"))
+            for person in payload.get("administrators") or []:
+                if isinstance(person, dict) and person.get("role") == "administrador_unico":
+                    add("administrador_unico", str(person.get("name") or ""), person.get("rfc"))
+    return rows
+
+
+def _rfcs_from_entity(entity) -> list[str]:
+    return [row["rfc"] for row in screening_targets(entity)]
 
 
 def _record_search(log: list, result) -> None:
@@ -223,4 +265,17 @@ def run_screening(entity) -> ScreeningResult:
             output.summary = "Tu expediente sigue en revision interna."
         else:
             output.summary = "Tu expediente requiere revision adicional."
+    by_rfc: dict[str, int] = {}
+    for row in search_log:
+        for term in row.get("terms") or []:
+            by_rfc[str(term).upper()] = int(row.get("hit_count") or 0)
+    output.checks = [
+        ScreeningCheck(
+            role=row["role"],
+            name=row["name"],
+            rfc=row["rfc"],
+            hit_count=by_rfc.get(row["rfc"], 0),
+        )
+        for row in screening_targets(entity)
+    ]
     return output
