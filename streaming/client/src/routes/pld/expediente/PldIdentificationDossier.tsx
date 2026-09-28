@@ -2,7 +2,6 @@ import { ReactNode, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
 import { Alert, Badge, Button, Card, Checkbox, Group, Loader, Stack, Stepper, Text, Title } from "@mantine/core";
-import { useMediaQuery } from "@mantine/hooks";
 import { IconAlertTriangle, IconCircleCheck, IconDownload, IconSignature } from "@tabler/icons-react";
 import {
   confirmMyPldDocuments,
@@ -36,16 +35,35 @@ const LIST_LABELS: Record<string, string> = {
   sat_69_csd: "SAT 69 CSD",
 };
 
-function ProcessBar({
+export function flowFurthest(row: TMyPldExpedient): number {
+  const status = row.expedient?.status || "";
+  const prequal = row.expedient?.prequalification_status;
+  if (status === "waiting_sign" || status === "signed" || status === "delivered") return 4;
+  if (status === "cross_reference") {
+    return row.expedient?.screening_status === "succeeded" ? 3 : 2;
+  }
+  if (
+    prequal === "pending" ||
+    prequal === "succeeded" ||
+    prequal === "failed" ||
+    status === "action_required"
+  ) {
+    return 1;
+  }
+  return 0;
+}
+
+export function ProcessBar({
   furthest,
+  current,
   labels,
   onPick,
 }: {
   furthest: number;
+  current: number;
   labels: string[];
   onPick: (step: number) => void;
 }) {
-  const narrow = useMediaQuery("(max-width: 48em)");
   return (
     <Stepper
       active={furthest}
@@ -53,14 +71,100 @@ function ProcessBar({
         if (step <= furthest) onPick(step);
       }}
       allowNextStepsSelect={false}
-      orientation={narrow ? "vertical" : "horizontal"}
-      size="sm"
-      iconSize={28}
+      orientation="horizontal"
+      size="xs"
+      iconSize={22}
+      styles={{
+        steps: { flexWrap: "nowrap" },
+        step: { flexDirection: "column", alignItems: "center" },
+        stepBody: { marginInlineStart: 0, marginTop: 4 },
+        separator: { marginTop: 11 },
+      }}
     >
-      {labels.map((label) => (
-        <Stepper.Step key={label} label={label} />
+      {labels.map((label, index) => (
+        <Stepper.Step
+          key={label}
+          label={label}
+          styles={{
+            stepLabel: {
+              fontSize: 11,
+              textAlign: "center",
+              fontWeight: index === current ? 700 : 500,
+              color:
+                index === current ? "var(--mantine-color-violet-3)" : undefined,
+            },
+            stepIcon:
+              index === current
+                ? { boxShadow: "0 0 0 2px var(--mantine-color-violet-4)" }
+                : undefined,
+          }}
+        />
       ))}
     </Stepper>
+  );
+}
+
+function ListsResult({
+  checks,
+  listNames,
+}: {
+  checks: { role: string; name: string; rfc: string; hit_count: number }[];
+  listNames: string[];
+}) {
+  const { t } = useTranslation();
+  const clear = checks.length > 0 && checks.every((item) => item.hit_count === 0);
+  return (
+    <Stack gap="md">
+      {clear ? (
+        <Alert color="teal" variant="light" icon={<IconCircleCheck size={18} />}>
+          {t("compliance-screening-clear")}
+        </Alert>
+      ) : null}
+      {listNames.length > 0 ? (
+        <Stack gap={8}>
+          <Text size="sm" fw={600}>
+            {t("compliance-screening-lists")}
+          </Text>
+          <Group gap={6}>
+            {listNames.map((name) => (
+              <Badge key={name} variant="outline" color="gray" style={{ textTransform: "none" }}>
+                {name}
+              </Badge>
+            ))}
+          </Group>
+        </Stack>
+      ) : null}
+      <Stack gap="xs">
+        {checks.map((check) => (
+          <Card key={`${check.role}-${check.rfc}`} withBorder radius="md" p="sm">
+            <Group justify="space-between" align="center" wrap="nowrap" gap="sm">
+              <Stack gap={2} style={{ minWidth: 0 }}>
+                <Text size="xs" c="dimmed">
+                  {t(`compliance-screening-role-${check.role}`)}
+                </Text>
+                {check.name ? (
+                  <Text size="sm" fw={600} style={{ overflowWrap: "anywhere" }}>
+                    {check.name}
+                  </Text>
+                ) : null}
+                <Text size="xs" c="dimmed">
+                  {check.rfc}
+                </Text>
+              </Stack>
+              <Badge
+                variant="light"
+                color={check.hit_count === 0 ? "teal" : "red"}
+                style={{ flexShrink: 0, textTransform: "none" }}
+              >
+                {check.hit_count === 0
+                  ? t("compliance-screening-hits_zero")
+                  : t("compliance-screening-hits", { count: check.hit_count })}
+              </Badge>
+            </Group>
+          </Card>
+        ))}
+      </Stack>
+    </Stack>
   );
 }
 
@@ -90,11 +194,15 @@ export function PldIdentificationDossier({
   onSaved,
   onBack,
   headerExtra,
+  forcedView,
+  showBar = true,
 }: {
   row: TMyPldExpedient;
   onSaved: (next: TMyPldExpedient) => void;
   onBack?: () => void;
   headerExtra?: ReactNode;
+  forcedView?: number;
+  showBar?: boolean;
 }) {
   const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
@@ -240,7 +348,12 @@ export function PldIdentificationDossier({
         ? 3
         : 2
       : 1;
-  const view = pickedStep != null && pickedStep <= furthest ? pickedStep : furthest;
+  const view =
+    forcedView != null
+      ? forcedView
+      : pickedStep != null && pickedStep <= furthest
+        ? pickedStep
+        : furthest;
   const stepLabels = [
     t("compliance-step-data"),
     t("compliance-step-validation"),
@@ -257,7 +370,9 @@ export function PldIdentificationDossier({
             {t("compliance-sign-back")}
           </Button>
         ) : null}
-        <ProcessBar furthest={furthest} labels={stepLabels} onPick={setPickedStep} />
+        {showBar ? (
+          <ProcessBar furthest={furthest} current={view} labels={stepLabels} onPick={setPickedStep} />
+        ) : null}
         {view === 0 ? (
           <Text size="sm">{t("compliance-step-data-body")}</Text>
         ) : null}
@@ -265,30 +380,10 @@ export function PldIdentificationDossier({
           <Text size="sm">{t("compliance-dossier-ready")}</Text>
         ) : null}
         {view === 2 ? (
-          <Stack gap="sm">
-            <Text size="sm">{t("compliance-dossier-next-lists")}</Text>
-            {listNames.length > 0 ? (
-              <Text size="sm">
-                {t("compliance-screening-lists")}
-                {": "}
-                {listNames.join(", ")}
-              </Text>
-            ) : null}
-            {(row.expedient?.screening?.checks || []).length > 0 ? (
-              <Stack gap={6}>
-                {(row.expedient?.screening?.checks || []).map((check) => (
-                  <Text key={`${check.role}-${check.rfc}`} size="sm">
-                    {t(`compliance-screening-role-${check.role}`)}
-                    {check.name ? ` · ${check.name}` : ""}
-                    {` · ${check.rfc} · `}
-                    {check.hit_count === 0
-                      ? t("compliance-screening-hits_zero")
-                      : t("compliance-screening-hits", { count: check.hit_count })}
-                  </Text>
-                ))}
-              </Stack>
-            ) : null}
-          </Stack>
+          <ListsResult
+            checks={row.expedient?.screening?.checks || []}
+            listNames={listNames}
+          />
         ) : null}
         {view === 3 && row.expedient?.screening_status === "succeeded" ? (
           <PldRiskDeclarations row={row} onSaved={onSaved} />
@@ -336,7 +431,9 @@ export function PldIdentificationDossier({
           </Stack>
           {headerExtra}
         </Group>
-        <ProcessBar furthest={furthest} labels={stepLabels} onPick={setPickedStep} />
+        {showBar ? (
+          <ProcessBar furthest={furthest} current={view} labels={stepLabels} onPick={setPickedStep} />
+        ) : null}
         {view === 0 ? <Text size="sm">{t("compliance-step-data-body")}</Text> : null}
         {view === 1 ? (
           <Card withBorder radius="md" p="md">
@@ -389,25 +486,10 @@ export function PldIdentificationDossier({
           </Card>
         ) : null}
         {view === 2 ? (
-          <Stack gap="sm">
-            {listNames.length > 0 ? (
-              <Text size="sm">
-                {t("compliance-screening-lists")}
-                {": "}
-                {listNames.join(", ")}
-              </Text>
-            ) : null}
-            {(row.expedient?.screening?.checks || []).map((check) => (
-              <Text key={`${check.role}-${check.rfc}`} size="sm">
-                {t(`compliance-screening-role-${check.role}`)}
-                {check.name ? ` · ${check.name}` : ""}
-                {` · ${check.rfc} · `}
-                {check.hit_count === 0
-                  ? t("compliance-screening-hits_zero")
-                  : t("compliance-screening-hits", { count: check.hit_count })}
-              </Text>
-            ))}
-          </Stack>
+          <ListsResult
+            checks={row.expedient?.screening?.checks || []}
+            listNames={listNames}
+          />
         ) : null}
         {view === 3 ? (
           <Stack gap="sm">
@@ -500,7 +582,9 @@ export function PldIdentificationDossier({
           {t("compliance-sign-back")}
         </Button>
       ) : null}
-      <ProcessBar furthest={furthest} labels={stepLabels} onPick={setPickedStep} />
+      {showBar ? (
+        <ProcessBar furthest={furthest} current={view} labels={stepLabels} onPick={setPickedStep} />
+      ) : null}
       {view === 0 ? <Text size="sm">{t("compliance-step-data-body")}</Text> : null}
       {view === 1 ? (
         <>

@@ -1,20 +1,17 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
 import { AppPage } from "../../../components/AppPage/AppPage";
 import {
   ActionIcon,
-  Badge,
   Box,
   Button,
-  Card,
   Group,
   Loader,
   Menu,
   Modal,
   Stack,
   Text,
-  Title,
 } from "@mantine/core";
 import { IconDots } from "@tabler/icons-react";
 import { useDisclosure } from "@mantine/hooks";
@@ -23,28 +20,8 @@ import {
   resetMyPldExpedient,
   TMyPldExpedient,
 } from "../../../modules/apiCalls";
-import { PldIdentificationDossier } from "./PldIdentificationDossier";
+import { flowFurthest, PldIdentificationDossier, ProcessBar } from "./PldIdentificationDossier";
 import { PldIntakeForm } from "./PldIntakeForm";
-
-const DOSSIER_LOCKED_STATUSES = new Set([
-  "waiting_sign",
-  "signed",
-  "delivered",
-]);
-
-const DOSSIER_DEFAULT_STATUSES = new Set([
-  "action_required",
-  "cross_reference",
-  "waiting_sign",
-  "signed",
-  "delivered",
-]);
-
-function shouldStartOnDossier(row: TMyPldExpedient): boolean {
-  const status = row.expedient?.status;
-  if (status && DOSSIER_DEFAULT_STATUSES.has(status)) return true;
-  return (row.clarification_requests || []).some((item) => item.status === "open");
-}
 
 function ResetExpedienteButton({
   entityId,
@@ -120,8 +97,7 @@ export default function MyPldExpedientePage() {
   const { t } = useTranslation();
   const [rows, setRows] = useState<TMyPldExpedient[]>([]);
   const [loading, setLoading] = useState(true);
-  const [reviewingIds, setReviewingIds] = useState<Record<string, boolean>>({});
-  const seeded = useRef(false);
+  const [flowStep, setFlowStep] = useState<Record<string, number>>({});
 
   useEffect(() => {
     listMyPldExpedients()
@@ -133,22 +109,6 @@ export default function MyPldExpedientePage() {
       .finally(() => setLoading(false));
   }, [t]);
 
-  useEffect(() => {
-    if (loading || seeded.current) return;
-    seeded.current = true;
-    setReviewingIds((prev) => {
-      let changed = false;
-      const next = { ...prev };
-      for (const row of rows) {
-        if (row.id in next) continue;
-        if (shouldStartOnDossier(row)) {
-          next[row.id] = true;
-          changed = true;
-        }
-      }
-      return changed ? next : prev;
-    });
-  }, [loading, rows]);
 
   return (
     <AppPage title={t("compliance-my-expediente-title")}>
@@ -167,110 +127,58 @@ export default function MyPldExpedientePage() {
           ) : (
             <Stack gap="md">
               {rows.map((row) => {
-                const leftSteps = reviewingIds[row.id] === false;
-                const onDossier =
-                  !leftSteps &&
-                  (reviewingIds[row.id] ||
-                    DOSSIER_LOCKED_STATUSES.has(row.expedient?.status || ""));
+                const reached = Math.max(flowFurthest(row), flowStep[row.id] ?? 0);
+                const view =
+                  flowStep[row.id] != null
+                    ? Math.min(flowStep[row.id], reached)
+                    : flowFurthest(row);
                 const signStep = ["waiting_sign", "signed", "delivered"].includes(
                   row.expedient?.status || ""
                 );
+                const pickStep = (step: number) =>
+                  setFlowStep((prev) => ({ ...prev, [row.id]: step }));
+                const saveRow = (next: TMyPldExpedient) =>
+                  setRows((prev) => prev.map((item) => (item.id === next.id ? next : item)));
                 const reset = row.expedient ? (
                   <ResetExpedienteButton
                     menu={signStep}
                     entityId={row.id}
                     onReset={(next) => {
-                      setRows((prev) =>
-                        prev.map((item) => (item.id === next.id ? next : item))
-                      );
-                      setReviewingIds((prev) => ({
-                        ...prev,
-                        [next.id]: false,
-                      }));
+                      saveRow(next);
+                      pickStep(0);
                     }}
                   />
                 ) : null;
-                if (!onDossier) {
-                  return (
-                    <PldIntakeForm
-                      key={row.id}
-                      row={row}
-                      headerExtra={reset}
-                      onSaved={(next) =>
-                        setRows((prev) =>
-                          prev.map((item) => (item.id === next.id ? next : item))
-                        )
-                      }
-                      onContinue={() =>
-                        setReviewingIds((prev) => ({
-                          ...prev,
-                          [row.id]: true,
-                        }))
-                      }
-                    />
-                  );
-                }
-                if (signStep) {
-                  return (
-                    <Box key={row.id}>
+                const stepLabels = [
+                  t("compliance-step-data"),
+                  t("compliance-step-validation"),
+                  t("compliance-step-lists"),
+                  t("compliance-step-score"),
+                  t("compliance-step-sign"),
+                ];
+                return (
+                  <Stack key={row.id} gap="md">
+                    {reached > 0 ? (
+                      <ProcessBar furthest={reached} current={view} labels={stepLabels} onPick={pickStep} />
+                    ) : null}
+                    {view === 0 ? (
+                      <PldIntakeForm
+                        row={row}
+                        headerExtra={reset}
+                        onSaved={saveRow}
+                        onContinue={() => pickStep(Math.max(reached, 1))}
+                      />
+                    ) : (
                       <PldIdentificationDossier
                         row={row}
                         headerExtra={reset}
-                        onBack={() =>
-                          setReviewingIds((prev) => ({
-                            ...prev,
-                            [row.id]: false,
-                          }))
-                        }
-                        onSaved={(next) =>
-                          setRows((prev) =>
-                            prev.map((item) => (item.id === next.id ? next : item))
-                          )
-                        }
+                        showBar={false}
+                        forcedView={view}
+                        onBack={() => pickStep(0)}
+                        onSaved={saveRow}
                       />
-                    </Box>
-                  );
-                }
-                return (
-                <Card key={row.id} withBorder p="md">
-                  <Stack gap="sm">
-                    <Stack gap={2}>
-                      <Text fw={500}>{row.name}</Text>
-                      <Text size="sm" c="dimmed">
-                        {row.organization_name}
-                      </Text>
-                    </Stack>
-                    <Group gap="xs">
-                      {row.expedient && (
-                        <Badge variant="light" color="violet">
-                          {t(`compliance-status-${row.expedient.status}`, {
-                            defaultValue: row.expedient.status,
-                          })}
-                        </Badge>
-                      )}
-                      {reset}
-                    </Group>
+                    )}
                   </Stack>
-                  {onDossier ? (
-                    <PldIdentificationDossier
-                      row={row}
-                      onSaved={(next) =>
-                        setRows((prev) =>
-                          prev.map((item) => (item.id === next.id ? next : item))
-                        )
-                      }
-                      onBack={
-                        DOSSIER_LOCKED_STATUSES.has(row.expedient?.status || "")
-                          ? undefined
-                          : () =>
-                              setReviewingIds((prev) => ({
-                                ...prev,
-                                [row.id]: false,
-                              }))
-                      }
-                    />
-                  ) : null}
-                </Card>
                 );
               })}
             </Stack>
