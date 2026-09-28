@@ -10,6 +10,7 @@ import {
   Group,
   Loader,
   NativeSelect,
+  SimpleGrid,
   Progress,
   Select,
   Stack,
@@ -33,6 +34,15 @@ import { countryNameSelectData, formatInternationalPhone, splitInternationalPhon
 import { matchSubdivisionName, subdivisionSelectData } from "../../../utils/countrySubdivisions";
 
 const COUNTRY_OPTIONS = countryNameSelectData();
+
+function FieldRow({ children }: { children: React.ReactNode }) {
+  const count = React.Children.count(children);
+  return (
+    <SimpleGrid cols={{ base: 1, sm: Math.min(count, 2), md: count }} spacing="sm">
+      {children}
+    </SimpleGrid>
+  );
+}
 
 function pickerValueFromIso(iso: string): Date | null {
   if (!iso || !/^\d{4}-\d{2}-\d{2}/.test(iso)) return null;
@@ -1057,7 +1067,7 @@ export function PldIntakeForm({
           onChange={(e) => setField("legal_name", e.currentTarget.value)}
         />
       ) : (
-        <Group grow>
+        <FieldRow>
           <TextInput
             label={t("compliance-intake-given-names")}
             required
@@ -1070,10 +1080,10 @@ export function PldIntakeForm({
             value={form.surnames}
             onChange={(e) => setField("surnames", e.currentTarget.value)}
           />
-        </Group>
+        </FieldRow>
       )}
 
-      <Group grow>
+      <FieldRow>
         <DatePickerInput
           label={
             isMoral
@@ -1115,9 +1125,9 @@ export function PldIntakeForm({
           value={countrySelectValue(form.nationality) || "MX"}
           onChange={(val) => setField("nationality", val || "MX")}
         />
-      </Group>
+      </FieldRow>
 
-      <Group grow>
+      <FieldRow>
         <TextInput
           label={
             isMoral
@@ -1147,9 +1157,9 @@ export function PldIntakeForm({
           value={form.economic_activity}
           onChange={(e) => setField("economic_activity", e.currentTarget.value)}
         />
-      </Group>
+      </FieldRow>
 
-      <Group grow align="flex-end">
+      <FieldRow>
         <PhoneField
           label={t("compliance-intake-phone")}
           country={form.phone_iso || "MX"}
@@ -1169,7 +1179,7 @@ export function PldIntakeForm({
           value={form.email}
           onChange={(e) => setField("email", e.currentTarget.value)}
         />
-      </Group>
+      </FieldRow>
             </SectionFiles>
           )}
           {active === "address" && (
@@ -1184,7 +1194,7 @@ export function PldIntakeForm({
       <Text size="sm" c="dimmed">
         {t("compliance-intake-postal-lookup-hint")}
       </Text>
-      <Group grow>
+      <FieldRow>
         <Select
           label={t("compliance-intake-country")}
           required
@@ -1216,8 +1226,8 @@ export function PldIntakeForm({
             setAddress("postal_code", val);
           }}
         />
-      </Group>
-      <Group grow>
+      </FieldRow>
+      <FieldRow>
         {stateOptions ? (
           <Select
             label={t("compliance-intake-state")}
@@ -1251,7 +1261,7 @@ export function PldIntakeForm({
           value={form.address.city}
           onChange={(e) => setAddress("city", e.currentTarget.value)}
         />
-      </Group>
+      </FieldRow>
       <Autocomplete
         label={t("compliance-intake-neighborhood")}
         required
@@ -1267,7 +1277,7 @@ export function PldIntakeForm({
         value={form.address.street}
         onChange={(e) => setAddress("street", e.currentTarget.value)}
       />
-      <Group grow>
+      <FieldRow>
         <TextInput
           label={t("compliance-intake-ext-number")}
           required
@@ -1279,7 +1289,7 @@ export function PldIntakeForm({
           value={form.address.interior_number}
           onChange={(e) => setAddress("interior_number", e.currentTarget.value)}
         />
-      </Group>
+      </FieldRow>
             </SectionFiles>
           )}
           {!isMoral && active === "identification" && (
@@ -1291,7 +1301,7 @@ export function PldIntakeForm({
               showData={showData}
               onShowData={setShowData}
             >
-          <Group grow>
+          <FieldRow>
             <NativeSelect
               label={t("compliance-intake-id-type")}
               required
@@ -1305,7 +1315,7 @@ export function PldIntakeForm({
               value={form.id_document_number}
               onChange={(e) => setField("id_document_number", e.currentTarget.value)}
             />
-          </Group>
+          </FieldRow>
           {showIssuingAuthority(form.id_document_type) && (
             <TextInput
               label={t("compliance-intake-id-authority")}
@@ -1328,7 +1338,7 @@ export function PldIntakeForm({
           <Text size="sm" c="dimmed">
             {t("compliance-intake-representative-hint")}
           </Text>
-          <Group grow>
+          <FieldRow>
             <TextInput
               label={t("compliance-intake-given-names")}
               required
@@ -1341,8 +1351,8 @@ export function PldIntakeForm({
               value={form.rep_surnames}
               onChange={(e) => setField("rep_surnames", e.currentTarget.value)}
             />
-          </Group>
-          <Group grow>
+          </FieldRow>
+          <FieldRow>
             <DatePickerInput
               label={t("compliance-intake-date-of-birth")}
               valueFormat="YYYY-MM-DD"
@@ -1361,8 +1371,8 @@ export function PldIntakeForm({
               value={form.rep_curp}
               onChange={(e) => setField("rep_curp", e.currentTarget.value)}
             />
-          </Group>
-          <Group grow>
+          </FieldRow>
+          <FieldRow>
             <NativeSelect
               label={t("compliance-intake-id-type")}
               required
@@ -1380,7 +1390,7 @@ export function PldIntakeForm({
                 setField("rep_id_document_number", e.currentTarget.value)
               }
             />
-          </Group>
+          </FieldRow>
           {showIssuingAuthority(form.rep_id_document_type) && (
             <TextInput
               label={t("compliance-intake-id-authority")}
@@ -1436,7 +1446,7 @@ export function PldIntakeForm({
                             <IconTrash size={16} />
                           </ActionIcon>
                         </Group>
-                        <Group align="flex-end" wrap="nowrap" gap="xs">
+                        <FieldRow>
                           <TextInput
                             style={{ flex: 1 }}
                             label={t("compliance-intake-controller-name")}
@@ -1456,8 +1466,8 @@ export function PldIntakeForm({
                               setController(index, "email", e.currentTarget.value)
                             }
                           />
-                        </Group>
-                        <Group align="flex-end" wrap="nowrap" gap="xs">
+                        </FieldRow>
+                        <FieldRow>
                           <TextInput
                             style={{ flex: 1 }}
                             label={t("compliance-intake-rfc-controller")}
@@ -1478,7 +1488,7 @@ export function PldIntakeForm({
                               )
                             }
                           />
-                        </Group>
+                        </FieldRow>
                       </Stack>
                     </Card>
                   ))}
@@ -1505,18 +1515,18 @@ export function PldIntakeForm({
               onContinue={() => undefined}
             />
           )}
-          <Group justify="space-between" mt="lg" align="center">
+          <Group justify="space-between" mt="lg" align="center" wrap="wrap">
             <Text size="xs" c="dimmed">
               {t("compliance-expediente-autosave")}
             </Text>
             {onDataStep && nextId ? (
-              <Button variant="default" onClick={goNextSection}>
+              <Button variant="default" fullWidth={isNarrow} onClick={goNextSection}>
                 {t("compliance-expediente-next", {
                   name: sectionMeta[nextId]?.label || "",
                 })}
               </Button>
             ) : onContinue ? (
-              <Button color="violet" disabled={missingDocs > 0} onClick={onContinue}>
+              <Button color="violet" fullWidth={isNarrow} disabled={missingDocs > 0} onClick={onContinue}>
                 {t("compliance-doc-continue")}
               </Button>
             ) : null}
