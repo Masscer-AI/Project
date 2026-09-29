@@ -58,6 +58,17 @@ export function stepLabelKeys(row: TMyPldExpedient): string[] {
   return stepIds(row).map((id) => STEP_LABEL[id]);
 }
 
+function riskDeclared(row: TMyPldExpedient) {
+  const meta = row.metadata || {};
+  if (typeof meta.declares_pep !== "boolean") return false;
+  if (typeof meta.third_party_payments !== "boolean") return false;
+  if (typeof meta.foreign_operations !== "boolean") return false;
+  if (row.person_type === "persona_moral" && typeof meta.partners_pep !== "boolean") {
+    return false;
+  }
+  return true;
+}
+
 export function flowFurthest(row: TMyPldExpedient): number {
   const ids = stepIds(row);
   const at = (id: StepId) => ids.indexOf(id);
@@ -67,7 +78,12 @@ export function flowFurthest(row: TMyPldExpedient): number {
     return at("sign");
   }
   if (status === "cross_reference") {
-    return row.expedient?.screening_status === "succeeded" ? at("score") : at("lists");
+    if (row.expedient?.screening_status !== "succeeded") return at("lists");
+    if (!riskDeclared(row)) return at("score");
+    if (row.vulnerable_activity && row.metadata?.notice_invoices_done !== true) {
+      return at("notice");
+    }
+    return at("sign");
   }
   if (
     prequal === "pending" ||

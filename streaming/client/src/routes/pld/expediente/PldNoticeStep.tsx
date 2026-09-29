@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import toast from "react-hot-toast";
 import { Alert, Badge, Button, Stack, Text } from "@mantine/core";
-import { TMyPldExpedient } from "../../../modules/apiCalls";
+import { finishMyPldNoticeInvoices, TMyPldExpedient } from "../../../modules/apiCalls";
 import { PldDocumentCollection } from "./PldDocumentCollection";
 
 function money(value: number) {
@@ -29,6 +31,7 @@ export function PldNoticeStep({
   onNext?: () => void;
 }) {
   const { t } = useTranslation();
+  const [busy, setBusy] = useState(false);
   const activity = row.vulnerable_activity;
   if (!activity) return null;
   const limit = activity.notice_mxn;
@@ -85,7 +88,27 @@ export function PldNoticeStep({
         );
       })}
       {onNext ? (
-        <Button color="violet" fullWidth onClick={onNext}>
+        <Button
+          color="violet"
+          fullWidth
+          loading={busy}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              const saved = await finishMyPldNoticeInvoices(row.id);
+              if (!saved) {
+                toast.error(t("compliance-clarify-error"));
+                return;
+              }
+              onSaved(saved);
+              onNext();
+            } catch {
+              toast.error(t("compliance-clarify-error"));
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
           {t("compliance-doc-continue")}
         </Button>
       ) : null}

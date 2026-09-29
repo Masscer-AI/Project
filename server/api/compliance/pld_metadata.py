@@ -78,6 +78,7 @@ class PersonaFisicaMetadata(BaseModel):
     third_party_payments: bool | None = None
     foreign_operations: bool | None = None
     foreign_countries: str | None = None
+    notice_invoices_done: bool = False
 
     @model_validator(mode="after")
     def fill_display_name(self):
@@ -114,6 +115,7 @@ class PersonaMoralMetadata(BaseModel):
     third_party_payments: bool | None = None
     foreign_operations: bool | None = None
     foreign_countries: str | None = None
+    notice_invoices_done: bool = False
 
 
 def _filled(value: str | None) -> bool:

@@ -260,13 +260,25 @@ def screen_pld_expedient(expedient_id: str):
                 "updated_at",
             ]
         )
-        from api.compliance.packet import maybe_dispatch_identification_packet
-
-        maybe_dispatch_identification_packet(exp)
     except Exception:
         logger.exception("PLD screening failed for %s", expedient_id)
         exp.screening_status = PLDExpedient.PrequalificationStatus.FAILED
         exp.save(update_fields=["screening_status", "updated_at"])
+
+
+@shared_task
+def dispatch_identification_packet(expedient_id: str):
+    from api.compliance.models import PLDExpedient
+    from api.compliance.packet import maybe_dispatch_identification_packet
+
+    try:
+        exp = PLDExpedient.objects.select_related(
+            "entity", "entity__organization", "organization"
+        ).get(pk=expedient_id)
+    except (PLDExpedient.DoesNotExist, ValueError):
+        logger.warning("PLD expedient %s not found for signature dispatch", expedient_id)
+        return
+    maybe_dispatch_identification_packet(exp)
 
 
 @shared_task

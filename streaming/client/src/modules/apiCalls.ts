@@ -2611,6 +2611,14 @@ export const saveMyPldRiskDeclarations = async (
   );
 };
 
+export const finishMyPldNoticeInvoices = async (entityId: string) => {
+  return makeAuthenticatedRequest<TMyPldExpedient>(
+    "PATCH",
+    `/v1/compliance/my-expedients/${entityId}/`,
+    { action: "finish_notice_invoices" }
+  );
+};
+
 export const resetMyPldExpedient = async (entityId: string) => {
   return makeAuthenticatedRequest<TMyPldExpedient>(
     "PATCH",

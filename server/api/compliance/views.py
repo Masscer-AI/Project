@@ -33,6 +33,34 @@ from api.compliance.models import (
 )
 
 
+def _risk_declared(meta: dict) -> bool:
+    return (
+        isinstance(meta.get("declares_pep"), bool)
+        and isinstance(meta.get("third_party_payments"), bool)
+        and isinstance(meta.get("foreign_operations"), bool)
+    )
+
+
+def _queue_signature_after_steps(entity: PLDEntity) -> None:
+    from api.compliance.risk.activities import (
+        activity_texts_for_entity,
+        match_vulnerable_activity,
+    )
+    from api.compliance.tasks import dispatch_identification_packet
+
+    meta = entity.metadata if isinstance(entity.metadata, dict) else {}
+    if not _risk_declared(meta):
+        return
+    if match_vulnerable_activity(*activity_texts_for_entity(entity)) and not meta.get(
+        "notice_invoices_done"
+    ):
+        return
+    exp = entity.expedients.order_by("created_at").first()
+    if not exp:
+        return
+    dispatch_identification_packet.delay(str(exp.id))
+
+
 def _frontend_base_url(request):
     from django.conf import settings
 
@@ -616,6 +644,19 @@ class MyPLDExpedientDetailView(View):
                 entity.save(update_fields=["metadata", "updated_at"])
             except ValueError as exc:
                 return JsonResponse({"error": str(exc)}, status=400)
+            _queue_signature_after_steps(entity)
+            return JsonResponse(_reload_my_expedient_row(entity.pk), status=200)
+        if payload.get("action") == "finish_notice_invoices":
+            meta = dict(entity.metadata) if isinstance(entity.metadata, dict) else {}
+            meta["notice_invoices_done"] = True
+            try:
+                entity.metadata = normalize_pld_entity_metadata(
+                    entity.person_type, meta
+                )
+                entity.save(update_fields=["metadata", "updated_at"])
+            except ValueError as exc:
+                return JsonResponse({"error": str(exc)}, status=400)
+            _queue_signature_after_steps(entity)
             return JsonResponse(_reload_my_expedient_row(entity.pk), status=200)
 
         metadata = payload.get("metadata")
@@ -630,6 +671,7 @@ class MyPLDExpedientDetailView(View):
             "third_party_payments",
             "foreign_operations",
             "foreign_countries",
+            "notice_invoices_done",
         ):
             if key not in metadata and key in old:
                 metadata[key] = old[key]
