@@ -14,7 +14,6 @@ import {
 } from "../../../modules/apiCalls";
 import { PldClarificationRequests } from "./PldClarificationRequests";
 import { PldExpedientPreview } from "./PldExpedientPreview";
-import { PldPrequalDebugModal } from "./PldPrequalDebugModal";
 import { PldNoticeStep } from "./PldNoticeStep";
 import { PldRiskDeclarations } from "./PldRiskDeclarations";
 
@@ -402,6 +401,75 @@ export function PldIdentificationDossier({
     view === noticeAt ? (
       <PldNoticeStep row={row} onSaved={onSaved} onNext={onNext} />
     ) : null;
+  const signPanel = (
+    <Stack gap="sm">
+      <Card withBorder radius="md" p="md">
+        <Stack gap="sm">
+          <Text fw={600}>{t("compliance-sign-title")}</Text>
+          <Text size="sm" c="dimmed">
+            {signedDone ? t("compliance-sign-done") : t("compliance-sign-intro")}
+          </Text>
+          {signRejected ? (
+            <Alert color="yellow" variant="light" icon={<IconAlertTriangle size={16} />}>
+              {t("compliance-sign-rejected")}
+            </Alert>
+          ) : null}
+          {!signedDone && !row.expedient?.signing?.url ? (
+            <Group gap="xs">
+              <Loader size={16} type="oval" color="violet" />
+              <Text size="sm">{t("compliance-sign-preparing")}</Text>
+            </Group>
+          ) : null}
+          {waitingSign && row.expedient?.signing?.url ? (
+            <Button
+              component="a"
+              href={row.expedient.signing.url}
+              color="violet"
+              fullWidth
+              leftSection={<IconSignature size={16} />}
+            >
+              {t("compliance-sign-cta")}
+            </Button>
+          ) : null}
+          {packetWriting ? (
+            <Group gap="xs">
+              <Loader size={16} type="oval" color="violet" />
+              <Text size="sm">{t("compliance-packet-writing")}</Text>
+            </Group>
+          ) : null}
+          {packetStatus === "failed" ? (
+            <Alert color="red" variant="light">
+              {t("compliance-packet-failed")}
+            </Alert>
+          ) : null}
+          {packetReady ? (
+            <Button
+              type="button"
+              variant="default"
+              fullWidth
+              leftSection={<IconDownload size={16} />}
+              loading={busy}
+              onClick={handleDownloadPacket}
+            >
+              {t("compliance-sign-download")}
+            </Button>
+          ) : null}
+          <Button
+            type="button"
+            variant="subtle"
+            color="gray"
+            fullWidth
+            loading={busy || packetWriting}
+            disabled={packetWriting}
+            onClick={handleRegeneratePacket}
+          >
+            {t("compliance-packet-regenerate")}
+          </Button>
+        </Stack>
+      </Card>
+      <PldExpedientPreview row={row} fullWidth />
+    </Stack>
+  );
 
   if (alreadyCross) {
     return (
@@ -414,7 +482,23 @@ export function PldIdentificationDossier({
         ) : null}
         {view === 1 ? (
           <Stack gap="sm">
-            <Text size="sm">{t("compliance-dossier-ready")}</Text>
+            {prequal?.summary ? (
+              <Alert
+                color={verdict === "ready_for_list_screening" ? "teal" : "yellow"}
+                variant="light"
+              >
+                {prequal.summary}
+              </Alert>
+            ) : (
+              <Text size="sm">{t("compliance-dossier-ready")}</Text>
+            )}
+            <PldClarificationRequests row={row} onSaved={onSaved} />
+            <Checkbox
+              checked={Boolean(row.metadata?.truthfulness_accepted)}
+              disabled
+              label={t("compliance-consent-label")}
+            />
+            <PldExpedientPreview row={row} />
             <StepContinue onClick={onNext} />
           </Stack>
         ) : null}
@@ -443,12 +527,15 @@ export function PldIdentificationDossier({
           <StepContinue onClick={onNext} />
         ) : null}
         {noticePanel}
+        {view === signAt ? signPanel : null}
         {row.expedient?.screening_status === "failed" ? (
           <Alert color="red" variant="light">
             {t("compliance-screening-failed")}
           </Alert>
         ) : null}
-        <PldClarificationRequests row={row} onSaved={onSaved} openOnly />
+        {view === 1 ? null : (
+          <PldClarificationRequests row={row} onSaved={onSaved} openOnly />
+        )}
       </Stack>
     );
   }
@@ -549,75 +636,7 @@ export function PldIdentificationDossier({
           </Stack>
         ) : null}
         {noticePanel}
-        {view === signAt ? (
-          <Stack gap="sm">
-            <Card withBorder radius="md" p="md">
-              <Stack gap="sm">
-                <Text fw={600}>{t("compliance-sign-title")}</Text>
-                <Text size="sm" c="dimmed">
-                  {signedDone ? t("compliance-sign-done") : t("compliance-sign-intro")}
-                </Text>
-                {signRejected ? (
-                  <Alert color="yellow" variant="light" icon={<IconAlertTriangle size={16} />}>
-                    {t("compliance-sign-rejected")}
-                  </Alert>
-                ) : null}
-                {waitingSign && !row.expedient?.signing?.url ? (
-                  <Group gap="xs">
-                    <Loader size={16} type="oval" color="violet" />
-                    <Text size="sm">{t("compliance-sign-preparing")}</Text>
-                  </Group>
-                ) : null}
-                {waitingSign && row.expedient?.signing?.url ? (
-                  <Button
-                    component="a"
-                    href={row.expedient.signing.url}
-                    color="violet"
-                    fullWidth
-                    leftSection={<IconSignature size={16} />}
-                  >
-                    {t("compliance-sign-cta")}
-                  </Button>
-                ) : null}
-                {packetWriting ? (
-                  <Group gap="xs">
-                    <Loader size={16} type="oval" color="violet" />
-                    <Text size="sm">{t("compliance-packet-writing")}</Text>
-                  </Group>
-                ) : null}
-                {packetStatus === "failed" ? (
-                  <Alert color="red" variant="light">
-                    {t("compliance-packet-failed")}
-                  </Alert>
-                ) : null}
-                {packetReady ? (
-                  <Button
-                    type="button"
-                    variant="default"
-                    fullWidth
-                    leftSection={<IconDownload size={16} />}
-                    loading={busy}
-                    onClick={handleDownloadPacket}
-                  >
-                    {t("compliance-sign-download")}
-                  </Button>
-                ) : null}
-                <Button
-                  type="button"
-                  variant="subtle"
-                  color="gray"
-                  fullWidth
-                  loading={busy || packetWriting}
-                  disabled={packetWriting}
-                  onClick={handleRegeneratePacket}
-                >
-                  {t("compliance-packet-regenerate")}
-                </Button>
-              </Stack>
-            </Card>
-            <PldExpedientPreview row={row} fullWidth />
-          </Stack>
-        ) : null}
+        {view === signAt ? signPanel : null}
         <PldClarificationRequests row={row} onSaved={onSaved} openOnly />
       </Stack>
     );
@@ -682,19 +701,16 @@ export function PldIdentificationDossier({
           >
             {prequal.summary}
           </Alert>
-          <Group gap="sm">
-            <PldPrequalDebugModal row={row} />
-            {canRerunPrequal ? (
-              <Button
-                variant="default"
-                size="xs"
-                loading={busy}
-                onClick={handleRerunPrequal}
-              >
-                {t("compliance-prequal-rerun")}
-              </Button>
-            ) : null}
-          </Group>
+          {canRerunPrequal ? (
+            <Button
+              variant="default"
+              size="xs"
+              loading={busy}
+              onClick={handleRerunPrequal}
+            >
+              {t("compliance-prequal-rerun")}
+            </Button>
+          ) : null}
         </Stack>
       )}
       {row.expedient?.screening_status === "pending" && (
@@ -773,6 +789,7 @@ export function PldIdentificationDossier({
         <PldRiskDeclarations row={row} onSaved={onSaved} onContinue={onNext} />
       ) : null}
       {noticePanel}
+      {view === signAt ? signPanel : null}
     </Stack>
   );
 }
