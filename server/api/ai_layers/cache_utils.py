@@ -61,3 +61,15 @@ def bump_agent_list_version_for_org_members(organization) -> None:
     for u in members:
         bump_agent_list_version_for_user(u.id, org_id)
 
+def bump_agent_list_version_for_all_users() -> None:
+    from api.authenticate.models import UserProfile
+
+    org_by_user = {
+        user_id: str(org_id) if org_id else None
+        for user_id, org_id in UserProfile.objects.values_list(
+            "user_id", "organization_id"
+        )
+    }
+    for user_id in User.objects.values_list("id", flat=True).iterator():
+        bump_agent_list_version_for_user(user_id, org_by_user.get(user_id))
+

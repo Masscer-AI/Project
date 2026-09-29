@@ -239,7 +239,7 @@ class VertexGeminiTextHelpersTests(SimpleTestCase):
     def test_default_model_constant(self):
         from api.utils.vertex_gemini_text import DEFAULT_VERTEX_TEXT_MODEL
 
-        self.assertEqual(DEFAULT_VERTEX_TEXT_MODEL, "gemini-3.1-flash-lite-preview")
+        self.assertEqual(DEFAULT_VERTEX_TEXT_MODEL, "gemini-3.5-flash-lite")
 
 class VertexGeminiAgentLoopParallelFunctionCallTests(SimpleTestCase):
     def test_parallel_tool_responses_batched_in_single_user_turn(self):

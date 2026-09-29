@@ -11,7 +11,7 @@ Environment variables
 
 **Text Gemini region**
 
-- ``VERTEX_TEXT_LOCATION`` — defaults to ``global`` (matches Agent Platform / ``gemini-3.5-flash``, ``gemini-3.1-flash-lite-preview``, etc.).
+- ``VERTEX_TEXT_LOCATION`` — defaults to ``global`` (matches Agent Platform / ``gemini-3.8-flash``, ``gemini-3.5-flash-lite``, etc.).
   Image generation uses ``GOOGLE_CLOUD_LOCATION`` (often ``us-central1``); text uses this separate variable so preview models on the global endpoint do not pick up the wrong region.
 
 **Authentication (one of)**
@@ -38,7 +38,7 @@ import tempfile
 from dataclasses import dataclass
 from typing import Any
 
-DEFAULT_VERTEX_TEXT_MODEL = "gemini-3.1-flash-lite-preview"
+DEFAULT_VERTEX_TEXT_MODEL = "gemini-3.5-flash-lite"
 
 def _setup_google_credentials() -> str | None:
     """

@@ -85,8 +85,8 @@ def check_models_for_providers():
             },
         },
         {
-            "name": "GPT-6 Sol",
-            "slug": "gpt-6-sol",
+            "name": "GPT-6.1 Sol",
+            "slug": "gpt-6.1-sol",
             "lists": DEFAULT_LISTS,
             "is_reasoning_model": True,
             "pricing": {
@@ -112,20 +112,8 @@ def check_models_for_providers():
 
     google_models_objects = [
         {
-            "name": "Gemini 3.1 Flash Lite (Preview)",
-            "slug": "gemini-3.1-flash-lite-preview",
-            "lists": DEFAULT_LISTS,
-            "is_reasoning_model": True,
-            "pricing": {
-                "text": {
-                    "prompt": "0.25 USD / 1000000",
-                    "output": "1.50 USD / 1000000",
-                }
-            },
-        },
-        {
-            "name": "Gemini 2.5 Flash",
-            "slug": "gemini-2.5-flash",
+            "name": "Gemini 3.5 Flash-Lite",
+            "slug": "gemini-3.5-flash-lite",
             "lists": DEFAULT_LISTS,
             "is_reasoning_model": True,
             "pricing": {
@@ -136,38 +124,14 @@ def check_models_for_providers():
             },
         },
         {
-            "name": "Gemini 2.5 Pro",
-            "slug": "gemini-2.5-pro",
-            "lists": ADVANCED_LISTS,
-            "is_reasoning_model": True,
-            "pricing": {
-                "text": {
-                    "prompt": "2.50 USD / 1000000",
-                    "output": "15.00 USD / 1000000",
-                }
-            },
-        },
-        {
-            "name": "Gemini 3.1 Pro (Preview)",
-            "slug": "gemini-3.1-pro-preview",
-            "lists": ADVANCED_LISTS,
-            "is_reasoning_model": True,
-            "pricing": {
-                "text": {
-                    "prompt": "4.00 USD / 1000000",
-                    "output": "18.00 USD / 1000000",
-                }
-            },
-        },
-        {
-            "name": "Gemini 3.5 Flash",
-            "slug": "gemini-3.5-flash",
+            "name": "Gemini 3.8 Flash",
+            "slug": "gemini-3.8-flash",
             "lists": DEFAULT_LISTS,
             "is_reasoning_model": True,
             "pricing": {
                 "text": {
                     "prompt": "1.50 USD / 1000000",
-                    "output": "9.00 USD / 1000000",
+                    "output": "7.50 USD / 1000000",
                 }
             },
         },
@@ -199,6 +163,12 @@ def check_models_for_providers():
 
 def sync_language_models_and_agents():
     catalog_slugs = check_models_for_providers()
+    replacement = LanguageModel.objects.filter(slug="gpt-6.1-sol").first()
+    if replacement:
+        Agent.objects.filter(llm__slug="gpt-6-sol").update(
+            llm=replacement,
+            model_slug=replacement.slug,
+        )
     extra = LanguageModel.objects.exclude(slug__in=catalog_slugs)
     removed = extra.count()
     extra.delete()
@@ -210,6 +180,9 @@ def sync_language_models_and_agents():
             llm=default_llm,
             model_slug=default_llm.slug,
         )
+    from api.ai_layers.cache_utils import bump_agent_list_version_for_all_users
+
+    bump_agent_list_version_for_all_users()
     return {
         "removed": removed,
         "assigned": assigned,

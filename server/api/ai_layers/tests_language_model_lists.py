@@ -124,7 +124,10 @@ class LanguageModelListTests(TestCase):
         )
 
     def test_sync_drops_models_missing_from_code_and_fills_null_agents(self):
+        from django.core.cache import cache
+
         from api.ai_layers.actions import sync_language_models_and_agents
+        from api.ai_layers.cache_utils import get_agent_list_cache_key
         from api.ai_layers.models import Agent
 
         kept = LanguageModel.objects.create(
@@ -143,6 +146,8 @@ class LanguageModelListTests(TestCase):
             llm=kept,
         )
         Agent.objects.filter(pk=agent.pk).update(llm=None, model_slug="")
+        cached_key = get_agent_list_cache_key(self.owner.id, str(self.org.id))
+        cache.set(cached_key, {"models": ["stale"]}, timeout=60)
 
         result = sync_language_models_and_agents()
 
@@ -152,3 +157,7 @@ class LanguageModelListTests(TestCase):
         agent.refresh_from_db()
         self.assertEqual(agent.llm_id, kept.id)
         self.assertEqual(agent.model_slug, "gpt-6-luna")
+        self.assertNotEqual(
+            get_agent_list_cache_key(self.owner.id, str(self.org.id)),
+            cached_key,
+        )
