@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
-IMAGE_EXTRACTION_MODEL = "gpt-5.6-terra"
+IMAGE_EXTRACTION_MODEL = "gpt-6-luna"
 IMAGE_EXTENSIONS = frozenset({"png", "jpeg", "jpg", "gif", "webp"})
 IMAGE_MIME_TYPES = frozenset(
     {

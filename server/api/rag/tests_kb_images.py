@@ -60,7 +60,7 @@ class InferUploadFormatImageTests(TestCase):
 
 class ExtractImageTextTests(TestCase):
     @patch("api.rag.actions.OpenAI")
-    def test_uses_gpt_5_6_terra(self, openai_cls):
+    def test_uses_gpt_6_luna(self, openai_cls):
         client = openai_cls.return_value
         client.responses.create.return_value.output_text = "A red square"
         text = extract_image_text(
@@ -68,7 +68,7 @@ class ExtractImageTextTests(TestCase):
         )
         self.assertEqual(text, "A red square")
         kwargs = client.responses.create.call_args.kwargs
-        self.assertEqual(kwargs["model"], "gpt-5.6-terra")
+        self.assertEqual(kwargs["model"], "gpt-6-luna")
         content = kwargs["input"][0]["content"]
         self.assertEqual(content[1]["type"], "input_image")
         self.assertTrue(content[1]["image_url"].startswith("data:image/png;base64,"))

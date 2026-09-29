@@ -17,7 +17,7 @@ COMPLIANCE_ASSISTANT_NAME = "MASSCER CUMPLIMIENTO 115"
 COMPLIANCE_ASSISTANT_SLUG_PREFIX = "masscer-compliance"
 
 COMPLIANCE_ASSISTANT_MODEL_SLUG: str = os.environ.get(
-    "COMPLIANCE_ASSISTANT_MODEL_SLUG", "gpt-5.6-terra"
+    "COMPLIANCE_ASSISTANT_MODEL_SLUG", "gpt-6-luna"
 )
 
 # Matches the source agent row; the operational brief lives in the system prompt file.
