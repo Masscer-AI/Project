@@ -40,6 +40,7 @@ def render_identification_packet_pdf(entity) -> bytes:
         return build_identification_packet_pdf(entity)
     name = entity_display_name(entity)
     title = f"Expediente de identificacion — {name}"[:500]
+    print("Generating Gamma template wi th id: ", expediente_template_id())
     resp = requests.post(
         f"{GAMMA_API_BASE}/generations/from-template",
         headers=_headers(api_key),
@@ -55,6 +56,7 @@ def render_identification_packet_pdf(entity) -> bytes:
         },
         timeout=60,
     )
+
     _raise_for_gamma_status(resp, action="template generation create")
     generation_id = (resp.json() or {}).get("generationId")
     if not generation_id:
