@@ -1257,6 +1257,8 @@
   "compliance-clarify-title": "We need you to confirm some information",
   "compliance-clarify-intro": "Answer with text or a document, as indicated. You do not need to explain anything else.",
   "compliance-clarify-send-text": "Send answer",
+  "compliance-clarify-send-all": "Send answers",
+  "compliance-clarify-missing": "Answer every question before sending.",
   "compliance-clarify-file": "Attach a file",
   "compliance-clarify-send-file": "Upload file",
   "compliance-clarify-saved": "Answer sent",

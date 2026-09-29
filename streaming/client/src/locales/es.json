@@ -1259,6 +1259,8 @@
   "compliance-clarify-title": "Necesitamos que confirmes algunos datos",
   "compliance-clarify-intro": "Responde con texto o con un documento, segun se indique. No hace falta que expliques nada mas.",
   "compliance-clarify-send-text": "Enviar respuesta",
+  "compliance-clarify-send-all": "Enviar respuestas",
+  "compliance-clarify-missing": "Responde todas las preguntas antes de enviar.",
   "compliance-clarify-file": "Adjuntar archivo",
   "compliance-clarify-send-file": "Subir archivo",
   "compliance-clarify-saved": "Respuesta enviada",

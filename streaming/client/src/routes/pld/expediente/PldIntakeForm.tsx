@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 import {
   Autocomplete,
   ActionIcon,
+  Alert,
   Badge,
   Box,
   Button,
@@ -810,7 +811,7 @@ export function PldIntakeForm({
     }
     try {
       const saved = await rerunMyPldPrequalification(row.id);
-      onSaved(saved);
+      if (saved) onSaved(saved);
     } catch {
       setFinishing(false);
       onContinue?.();
@@ -1192,6 +1193,28 @@ export function PldIntakeForm({
         value={form.economic_activity}
         onChange={(e) => setField("economic_activity", e.currentTarget.value)}
       />
+      {row.vulnerable_activity ? (
+        <Alert color="yellow" variant="light">
+          <Text size="sm">
+            {t("compliance-notice-activity", {
+              fraction: row.vulnerable_activity.fraction,
+              activity: row.vulnerable_activity.activity,
+            })}
+          </Text>
+          {row.vulnerable_activity.notice_uma != null &&
+          row.vulnerable_activity.notice_mxn != null ? (
+            <Text size="sm">
+              {t("compliance-notice-limit", {
+                uma: row.vulnerable_activity.notice_uma.toLocaleString("es-MX"),
+                money: row.vulnerable_activity.notice_mxn.toLocaleString("es-MX", {
+                  style: "currency",
+                  currency: "MXN",
+                }),
+              })}
+            </Text>
+          ) : null}
+        </Alert>
+      ) : null}
 
       <FieldRow>
         <PhoneField

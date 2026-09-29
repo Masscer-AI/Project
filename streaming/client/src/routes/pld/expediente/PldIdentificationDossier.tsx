@@ -2,6 +2,7 @@ import { ReactNode, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
 import { Alert, Badge, Button, Card, Checkbox, Group, Loader, Stack, Stepper, Text, Title } from "@mantine/core";
+import { useMediaQuery } from "@mantine/hooks";
 import { IconAlertTriangle, IconCircleCheck, IconDownload, IconSignature } from "@tabler/icons-react";
 import {
   confirmMyPldDocuments,
@@ -91,6 +92,7 @@ export function ProcessBar({
   labels: string[];
   onPick: (step: number) => void;
 }) {
+  const narrow = useMediaQuery("(max-width: 48em)");
   return (
     <Stepper
       active={furthest}
@@ -102,10 +104,17 @@ export function ProcessBar({
       size="xs"
       iconSize={22}
       styles={{
-        steps: { flexWrap: "nowrap" },
-        step: { flexDirection: "column", alignItems: "center" },
+        root: { width: "100%" },
+        steps: narrow
+          ? { flexWrap: "wrap", justifyContent: "center", rowGap: 16, width: "100%" }
+          : { flexWrap: "nowrap" },
+        step: {
+          flexDirection: "column",
+          alignItems: "center",
+          ...(narrow ? { flex: "0 0 30%", maxWidth: 110 } : {}),
+        },
         stepBody: { marginInlineStart: 0, marginTop: 4 },
-        separator: { marginTop: 11 },
+        separator: narrow ? { display: "none" } : { marginTop: 11 },
       }}
     >
       {labels.map((label, index) => (

@@ -152,9 +152,7 @@ export default function MyPldExpedientePage() {
                 const stepLabels = stepLabelKeys(row).map((key) => t(key));
                 return (
                   <Stack key={row.id} gap="md">
-                    {reached > 0 ? (
-                      <ProcessBar furthest={reached} current={view} labels={stepLabels} onPick={pickStep} />
-                    ) : null}
+                    <ProcessBar furthest={reached} current={view} labels={stepLabels} onPick={pickStep} />
                     {view === 0 ? (
                       <PldIntakeForm
                         row={row}

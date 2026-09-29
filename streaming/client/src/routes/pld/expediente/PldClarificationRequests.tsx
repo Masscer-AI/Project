@@ -74,11 +74,56 @@ export function PldClarificationRequests({
   onSaved: (next: TMyPldExpedient) => void;
   openOnly?: boolean;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const [drafts, setDrafts] = useState<Record<string, { text: string; file: File | null }>>({});
+  const [sending, setSending] = useState(false);
   const requests = row.clarification_requests || [];
   const open = requests.filter((item) => item.status === "open");
   const answered = requests.filter((item) => item.status !== "open");
+  const waiting = (item: TPldClarificationRequest) =>
+    item.document?.extraction_status === "pending" || item.text_review === "reviewing";
+  const answerable = open.filter((item) => !waiting(item));
+  const many = answerable.length > 1;
+  const draftOf = (id: string) => drafts[id] || { text: "", file: null };
+  const filled = (item: TPldClarificationRequest) => {
+    const draft = draftOf(item.id);
+    const allowText = item.answer_type !== "document";
+    const allowFile = item.answer_type !== "text";
+    return (allowText && draft.text.trim().length > 0) || (allowFile && Boolean(draft.file));
+  };
   if (requests.length === 0 || (openOnly && open.length === 0)) return null;
+
+  const sendAll = async () => {
+    if (!answerable.every(filled)) {
+      toast.error(t("compliance-clarify-missing"));
+      return;
+    }
+    setSending(true);
+    try {
+      for (const item of answerable) {
+        const draft = draftOf(item.id);
+        if (draft.file) {
+          const uploaded = await uploadMyPldExpedientDocument(
+            row.id,
+            item.slot_key,
+            draft.file,
+            i18n.language
+          );
+          if (uploaded) onSaved(uploaded);
+        }
+        const value = draft.text.trim();
+        if (value) {
+          const saved = await answerMyPldClarification(row.id, item.id, value);
+          if (saved) onSaved(saved);
+        }
+      }
+      toast.success(t("compliance-clarify-saved"));
+    } catch {
+      toast.error(t("compliance-clarify-error"));
+    } finally {
+      setSending(false);
+    }
+  };
 
   return (
     <Stack gap="md">
@@ -119,8 +164,35 @@ export function PldClarificationRequests({
               rowId={row.id}
               item={item}
               onSaved={onSaved}
+              text={draftOf(item.id).text}
+              file={draftOf(item.id).file}
+              onText={(value) =>
+                setDrafts((prev) => ({
+                  ...prev,
+                  [item.id]: { text: value, file: prev[item.id]?.file || null },
+                }))
+              }
+              onFile={(value) =>
+                setDrafts((prev) => ({
+                  ...prev,
+                  [item.id]: { text: prev[item.id]?.text || "", file: value },
+                }))
+              }
+              busy={sending}
+              showButton={!many}
             />
           ))}
+          {many ? (
+            <Button
+              color="violet"
+              fullWidth
+              loading={sending}
+              disabled={!answerable.every(filled)}
+              onClick={sendAll}
+            >
+              {t("compliance-clarify-send-all")}
+            </Button>
+          ) : null}
         </>
       ) : null}
     </Stack>
@@ -131,15 +203,26 @@ function ClarificationCard({
   rowId,
   item,
   onSaved,
+  text,
+  file,
+  onText,
+  onFile,
+  busy: sending,
+  showButton,
 }: {
   rowId: string;
   item: TPldClarificationRequest;
   onSaved: (next: TMyPldExpedient) => void;
+  text: string;
+  file: File | null;
+  onText: (value: string) => void;
+  onFile: (value: File | null) => void;
+  busy: boolean;
+  showButton: boolean;
 }) {
   const { t, i18n } = useTranslation();
-  const [text, setText] = useState("");
-  const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
+  const locked = busy || sending;
   const allowText = item.answer_type !== "document";
   const allowFile = item.answer_type !== "text";
   const reading =
@@ -162,11 +245,11 @@ function ClarificationCard({
           file,
           i18n.language
         );
-        onSaved(uploaded);
+        if (uploaded) onSaved(uploaded);
       }
       if (value) {
         const saved = await answerMyPldClarification(rowId, item.id, value);
-        onSaved(saved);
+        if (saved) onSaved(saved);
       }
       toast.success(t("compliance-clarify-saved"));
     } catch {
@@ -214,11 +297,8 @@ function ClarificationCard({
             autosize
             minRows={2}
             value={text}
-            disabled={busy}
-            onChange={(e) => {
-              const val = e.currentTarget.value;
-              setText(val);
-            }}
+            disabled={locked}
+            onChange={(e) => onText(e.currentTarget.value)}
           />
         </>
       ) : null}
@@ -227,22 +307,24 @@ function ClarificationCard({
           accept={ACCEPT}
           placeholder={t("compliance-clarify-file")}
           value={file}
-          onChange={setFile}
-          disabled={busy}
+          onChange={onFile}
+          disabled={locked}
           leftSection={<IconUpload size={16} />}
         />
       ) : null}
-      <Group>
-        <Button
-          size="xs"
-          color="violet"
-          loading={busy}
-          disabled={!text.trim() && !file}
-          onClick={submit}
-        >
-          {t("compliance-clarify-send-text")}
-        </Button>
-      </Group>
+      {showButton ? (
+        <Group>
+          <Button
+            size="xs"
+            color="violet"
+            loading={locked}
+            disabled={!text.trim() && !file}
+            onClick={submit}
+          >
+            {t("compliance-clarify-send-text")}
+          </Button>
+        </Group>
+      ) : null}
         </>
       )}
     </Stack>
