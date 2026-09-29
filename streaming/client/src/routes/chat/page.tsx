@@ -788,6 +788,7 @@ export default function ChatView() {
           right={
             <ConversationHeaderActions
               conversation={activeConversation}
+              messageCount={messages.length}
               readOnly={isViewer && !canEditConversationData}
               showActions={!isForeignConversation && !isComplianceSurface}
               onDeleted={() => {

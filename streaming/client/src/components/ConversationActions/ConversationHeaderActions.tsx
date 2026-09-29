@@ -28,15 +28,18 @@ export const ConversationHeaderActions = ({
   conversation,
   readOnly = false,
   showActions = true,
+  messageCount = 0,
   onDeleted,
 }: {
   conversation: TConversation;
   readOnly?: boolean;
   showActions?: boolean;
+  messageCount?: number;
   onDeleted?: () => void;
 }) => {
   const { t } = useTranslation();
   const isTrainAgentsEnabled = useIsFeatureEnabled("train-agents");
+  const canTrain = isTrainAgentsEnabled && messageCount >= 2;
   const canEditConversationData =
     useIsFeatureEnabled("can-edit-conversation-data") === true;
   const isCompactActions = useMediaQuery("(max-width: 48em)");
@@ -72,7 +75,7 @@ export const ConversationHeaderActions = ({
     </Tooltip>
   );
 
-  const trainControl = isTrainAgentsEnabled ? (
+  const trainControl = canTrain ? (
     <Tooltip label={t("train")} disabled={isCompactActions}>
       <ActionIcon
         variant="subtle"
@@ -152,7 +155,7 @@ export const ConversationHeaderActions = ({
                 >
                   {t("share")}
                 </Menu.Item>
-                {isTrainAgentsEnabled && (
+                {canTrain && (
                   <Menu.Item
                     leftSection={<IconBarbell size={16} />}
                     onClick={openTrain}
