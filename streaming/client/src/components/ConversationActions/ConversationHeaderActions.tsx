@@ -39,9 +39,12 @@ export const ConversationHeaderActions = ({
 }) => {
   const { t } = useTranslation();
   const isTrainAgentsEnabled = useIsFeatureEnabled("train-agents");
-  const canTrain = isTrainAgentsEnabled && messageCount >= 2;
+  const hasEnoughMessages = messageCount >= 2;
+  const canTrain = isTrainAgentsEnabled && hasEnoughMessages;
   const canEditConversationData =
     useIsFeatureEnabled("can-edit-conversation-data") === true;
+  const canShare = hasEnoughMessages;
+  const canDelete = canEditConversationData && hasEnoughMessages;
   const isCompactActions = useMediaQuery("(max-width: 48em)");
 
   const [shareOpened, { open: openShare, close: closeShare }] =
@@ -54,6 +57,7 @@ export const ConversationHeaderActions = ({
     useDisclosure(false);
 
   const canOpenEditor = readOnly || canEditConversationData;
+  const hasMenuItems = canOpenEditor || canShare || canTrain || canDelete;
 
   const handleDelete = async () => {
     await deleteConversation(conversation.id);
@@ -61,7 +65,7 @@ export const ConversationHeaderActions = ({
     onDeleted?.();
   };
 
-  const shareControl = (
+  const shareControl = canShare ? (
     <Tooltip label={t("share")} disabled={isCompactActions}>
       <ActionIcon
         variant="subtle"
@@ -73,7 +77,7 @@ export const ConversationHeaderActions = ({
         <IconShare size={18} />
       </ActionIcon>
     </Tooltip>
-  );
+  ) : null;
 
   const trainControl = canTrain ? (
     <Tooltip label={t("train")} disabled={isCompactActions}>
@@ -89,7 +93,7 @@ export const ConversationHeaderActions = ({
     </Tooltip>
   ) : null;
 
-  const deleteControl = canEditConversationData ? (
+  const deleteControl = canDelete ? (
     <Tooltip label={t("delete")} disabled={isCompactActions}>
       <ActionIcon
         variant="subtle"
@@ -129,6 +133,7 @@ export const ConversationHeaderActions = ({
         </div>
         {showActions &&
           (isCompactActions ? (
+            hasMenuItems && (
             <Menu position="bottom-end" withArrow shadow="md">
               <Menu.Target>
                 <ActionIcon
@@ -149,12 +154,14 @@ export const ConversationHeaderActions = ({
                     {t("edit")}
                   </Menu.Item>
                 )}
-                <Menu.Item
-                  leftSection={<IconShare size={16} />}
-                  onClick={openShare}
-                >
-                  {t("share")}
-                </Menu.Item>
+                {canShare && (
+                  <Menu.Item
+                    leftSection={<IconShare size={16} />}
+                    onClick={openShare}
+                  >
+                    {t("share")}
+                  </Menu.Item>
+                )}
                 {canTrain && (
                   <Menu.Item
                     leftSection={<IconBarbell size={16} />}
@@ -163,7 +170,7 @@ export const ConversationHeaderActions = ({
                     {t("train")}
                   </Menu.Item>
                 )}
-                {canEditConversationData && (
+                {canDelete && (
                   <Menu.Item
                     color="red"
                     leftSection={<IconTrash size={16} />}
@@ -174,12 +181,15 @@ export const ConversationHeaderActions = ({
                 )}
               </Menu.Dropdown>
             </Menu>
+            )
           ) : (
+            hasEnoughMessages && (
             <Group gap={4} wrap="nowrap" style={{ flexShrink: 0 }}>
               {shareControl}
               {trainControl}
               {deleteControl}
             </Group>
+            )
           ))}
       </Group>
 
