@@ -25,6 +25,7 @@ def compliance_assistant_task(
     max_iterations: int = 50,
 ):
     from api.ai_layers.agent_loop import AgentLoop, CancelledError
+    from api.compliance.document_extraction.constants import PLD_REASONING_EFFORT
     from api.ai_layers.models import Agent, AgentKind, AgentSession
     from api.ai_layers.compliance_assistant import (
         COMPLIANCE_ASSISTANT_INSTRUCTIONS,
@@ -274,6 +275,7 @@ def compliance_assistant_task(
             max_iterations=max_iterations,
             on_event=on_event,
             check_cancelled=is_cancelled,
+            reasoning_effort=PLD_REASONING_EFFORT if loop_provider == "openai" else None,
         )
 
         openai_inputs = _build_agent_loop_inputs(

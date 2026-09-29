@@ -7,7 +7,10 @@ import logging
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from api.compliance.document_extraction.constants import PLD_EXTRACTION_MODEL_SLUG
+from api.compliance.document_extraction.constants import (
+    PLD_EXTRACTION_MODEL_SLUG,
+    PLD_REASONING_EFFORT,
+)
 from api.compliance.pld_document_slots import required_slots_extraction_ready
 from api.compliance.prequalification.deterministic import controller_names
 from api.compliance.prequalification.pack import build_prequalification_packet
@@ -133,6 +136,7 @@ def settle_clarification_answers(expedient) -> None:
         output_schema=ClarificationSettleResult,
         max_iterations=8,
         repair_model=PLD_EXTRACTION_MODEL_SLUG,
+        reasoning_effort=PLD_REASONING_EFFORT,
     )
     result = loop.run(
         [
@@ -204,6 +208,7 @@ def run_prequalification(entity) -> PrequalificationResult:
         output_schema=PrequalificationResult,
         max_iterations=2,
         repair_model=PLD_EXTRACTION_MODEL_SLUG,
+        reasoning_effort=PLD_REASONING_EFFORT,
     )
     result = loop.run(
         [

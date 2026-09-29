@@ -9,7 +9,10 @@ import re
 from api.compliance.clarifications import answers_packet
 from api.compliance.models import PLDExpedientDocument
 from api.compliance.prequalification.pack import _compact_payload
-from api.compliance.document_extraction.constants import PLD_EXTRACTION_MODEL_SLUG
+from api.compliance.document_extraction.constants import (
+    PLD_EXTRACTION_MODEL_SLUG,
+    PLD_REASONING_EFFORT,
+)
 from api.compliance.screening.schemas import (
     ScreeningCheck,
     ScreeningResult,
@@ -208,6 +211,7 @@ def run_screening(entity) -> ScreeningResult:
         output_schema=ScreeningResult,
         max_iterations=8,
         repair_model=PLD_EXTRACTION_MODEL_SLUG,
+        reasoning_effort=PLD_REASONING_EFFORT,
     )
     result = loop.run(
         [

@@ -5,7 +5,10 @@ from __future__ import annotations
 import logging
 from datetime import date, timedelta
 
-from api.compliance.document_extraction.constants import PLD_EXTRACTION_MODEL_SLUG
+from api.compliance.document_extraction.constants import (
+    PLD_EXTRACTION_MODEL_SLUG,
+    PLD_REASONING_EFFORT,
+)
 from api.compliance.document_extraction.hydrate import hydrate_extraction
 from api.compliance.document_extraction.inspect_tool import extraction_user_content
 from api.compliance.document_extraction.schemas import (
@@ -243,7 +246,7 @@ def _billing_for_document(doc) -> tuple[int | None, object]:
 
 
 def extract_document(doc, language: str = "en") -> PldExtraction:
-    """Run gpt-5.6-luna AgentLoop and return a validated extraction model."""
+    """Run the extraction AgentLoop and return a validated extraction model."""
     kind = doc.document_kind
     schema = schema_for_kind(kind)
     instructions = (
@@ -281,6 +284,7 @@ def extract_document(doc, language: str = "en") -> PldExtraction:
         output_schema=schema,
         max_iterations=8,
         repair_model=PLD_EXTRACTION_MODEL_SLUG,
+        reasoning_effort=PLD_REASONING_EFFORT,
     )
     prompt = (
         f"Extract structured fields from this {kind} document "

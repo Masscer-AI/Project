@@ -1080,8 +1080,9 @@ class PLDDocumentExtractionTests(TestCase):
         )
         create_loop.assert_called_once()
         kwargs = create_loop.call_args.kwargs
-        self.assertEqual(kwargs["model"], "gpt-5.6-luna")
-        self.assertEqual(kwargs["repair_model"], "gpt-5.6-luna")
+        self.assertEqual(kwargs["model"], "gpt-6-luna")
+        self.assertEqual(kwargs["repair_model"], "gpt-6-luna")
+        self.assertEqual(kwargs["reasoning_effort"], "high")
         self.assertEqual(kwargs["tools"][0]["name"], "fill_form_variable")
         self.assertEqual(kwargs["max_iterations"], 8)
         self.assertIn("English", kwargs["instructions"])

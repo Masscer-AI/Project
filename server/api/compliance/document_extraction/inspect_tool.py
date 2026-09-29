@@ -1,4 +1,4 @@
-"""Inspect a PLD expedient file with gpt-5.6-luna (vision or PDF input_file)."""
+"""Inspect a PLD expedient file with vision or PDF input_file."""
 
 from __future__ import annotations
 
@@ -9,7 +9,10 @@ import os
 from openai import OpenAI
 from pydantic import BaseModel, Field
 
-from api.compliance.document_extraction.constants import PLD_EXTRACTION_MODEL_SLUG
+from api.compliance.document_extraction.constants import (
+    PLD_EXTRACTION_MODEL_SLUG,
+    PLD_REASONING_EFFORT,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -154,6 +157,7 @@ def inspect_pld_document_file(
             model=PLD_EXTRACTION_MODEL_SLUG,
             instructions=instructions,
             input=[{"role": "user", "content": content}],
+            reasoning={"effort": PLD_REASONING_EFFORT},
         )
     except Exception as exc:
         logger.exception("inspect_pld_document failed for %s", doc.id)

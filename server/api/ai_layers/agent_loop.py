@@ -267,6 +267,7 @@ class AgentLoop:
         api_key: str | None = None,
         check_cancelled: Callable[[], bool] | None = None,
         repair_model: str | None = None,
+        reasoning_effort: str | None = None,
     ) -> BaseAgentLoop:
         """Return the implementation for *provider* (``openai`` or ``google``)."""
         if provider == "openai":
@@ -280,6 +281,7 @@ class AgentLoop:
                 api_key=api_key,
                 check_cancelled=check_cancelled,
                 repair_model=repair_model,
+                reasoning_effort=reasoning_effort,
             )
         if provider == "google":
             from api.ai_layers.vertex_gemini_agent_loop import VertexGeminiAgentLoop
@@ -311,6 +313,7 @@ class OpenAIAgentLoop(BaseAgentLoop):
         api_key: str | None = None,
         check_cancelled: Callable[[], bool] | None = None,
         repair_model: str | None = None,
+        reasoning_effort: str | None = None,
     ):
         self.instructions = instructions
         self.model = model
@@ -319,6 +322,7 @@ class OpenAIAgentLoop(BaseAgentLoop):
         self.on_event = on_event
         self.check_cancelled = check_cancelled
         self.repair_model = repair_model or "gpt-4o-mini"
+        self.reasoning_effort = reasoning_effort
 
         resolved_key = api_key or os.environ.get("OPENAI_API_KEY")
         max_retries = int(os.environ.get("OPENAI_MAX_RETRIES", "2"))
@@ -407,13 +411,16 @@ class OpenAIAgentLoop(BaseAgentLoop):
             self._emit(ITERATION_START, {"iteration": iteration})
 
             try:
-                response = self.client.responses.create(
-                    model=self.model,
-                    instructions=self.instructions,
-                    input=messages,
-                    tools=self.tool_definitions if self.tool_definitions else None,
-                    tool_choice="auto" if self.tool_definitions else None,
-                )
+                request = {
+                    "model": self.model,
+                    "instructions": self.instructions,
+                    "input": messages,
+                    "tools": self.tool_definitions if self.tool_definitions else None,
+                    "tool_choice": "auto" if self.tool_definitions else None,
+                }
+                if self.reasoning_effort:
+                    request["reasoning"] = {"effort": self.reasoning_effort}
+                response = self.client.responses.create(**request)
             except Exception as e:
                 self._emit(ERROR, {"error": str(e), "iteration": iteration})
                 raise
