@@ -420,6 +420,12 @@ class OpenAIAgentLoop(BaseAgentLoop):
                 }
                 if self.reasoning_effort:
                     request["reasoning"] = {"effort": self.reasoning_effort}
+                if self.output_schema is not None:
+                    from api.utils.openai_functions import _response_text_format_from_pydantic
+
+                    request["text"] = {
+                        "format": _response_text_format_from_pydantic(self.output_schema)
+                    }
                 response = self.client.responses.create(**request)
             except Exception as e:
                 self._emit(ERROR, {"error": str(e), "iteration": iteration})
