@@ -2506,6 +2506,17 @@ export type TMyPldExpedient = {
       checks?: { role: string; name: string; rfc: string; hit_count: number }[];
       searches?: { terms: string[]; lists: string[]; hit_count: number }[];
     };
+    matrix?: {
+      total: number;
+      inherent: number;
+      adjustments_total: number;
+      color: string;
+      city_index?: number | null;
+      vulnerable?: boolean;
+      cfdi_over_notice?: boolean;
+      lines?: { slug: string; rating: number; weight: number; points: number }[];
+      adjustments?: { slug: string; points: number }[];
+    } | null;
     signing?: {
       status?: string;
       url?: string;

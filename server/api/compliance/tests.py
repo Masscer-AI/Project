@@ -1481,7 +1481,7 @@ class PLDDocumentExtractionTests(TestCase):
         self.assertEqual(self.expedient.prequalification_payload.get("findings"), [])
 
     @patch("api.compliance.tasks.prequalify_pld_expedient.delay")
-    def test_rerun_prequalification_enqueues_task(self, delay):
+    def test_rerun_prequalification_runs_once(self, delay):
         from api.compliance.models import PLDExpedient, PLDExpedientDocument
 
         self.expedient.prequalification_status = (
@@ -1513,9 +1513,9 @@ class PLDDocumentExtractionTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
-            response.json()["expedient"]["prequalification_status"], "pending"
+            response.json()["expedient"]["prequalification_status"], "succeeded"
         )
-        delay.assert_called_once_with(str(self.expedient.id))
+        delay.assert_not_called()
 
     def test_invitee_payload_hides_findings_and_blocks_open_requests(self):
         from api.compliance.clarifications import InviteeRequestSpec, replace_open_requests
@@ -2217,6 +2217,11 @@ class FillFormVariableTests(TestCase):
         self.assertTrue(country.filled)
         unknown = fill_form_variable_impl(self.entity, "rfc_invented", "XAXX010101000")
         self.assertFalse(unknown.filled)
+        blocked = fill_form_variable_impl(
+            self.entity, "address.city", "Colima", scope="entity"
+        )
+        self.assertFalse(blocked.filled)
+        self.assertEqual(blocked.message, "out of scope")
         self.entity.refresh_from_db()
         self.assertEqual(self.entity.metadata.get("legal_name"), "From Acta SA")
         self.assertEqual(self.entity.metadata.get("constitution_date"), "2018-03-12")
@@ -2383,3 +2388,60 @@ class VulnerableActivityTests(SimpleTestCase):
         self.assertEqual(match["fraction"], "V")
         self.assertEqual(match["notice_uma"], 8025)
         self.assertGreater(match["notice_mxn"], 941000)
+
+
+class PldMatrixScoreTests(SimpleTestCase):
+    def test_pep_and_unsafe_city_raise_score(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        from api.compliance.risk.matrix_score import score_pld_matrix
+
+        table = {
+            "weight_authenticity": 5,
+            "weight_identity": 12,
+            "weight_controller": 16,
+            "weight_representative": 6,
+            "weight_activity": 10,
+            "weight_geography": 8,
+            "weight_transactional": 12,
+            "weight_integrity": 16,
+            "weight_screening": 10,
+            "weight_conduct": 5,
+            "adjust_pep": 5,
+            "adjust_vulnerable": 8,
+            "adjust_third_party": 15,
+            "adjust_foreign": 5,
+            "adjust_controller_missing": 15,
+            "adjust_mismatch": 20,
+            "cutoff_yellow": 25,
+            "cutoff_orange": 45,
+            "cutoff_red": 65,
+        }
+        expedient = SimpleNamespace(
+            prequalification_payload={"findings": []},
+            screening_payload={"verdict": "clear", "hits": []},
+            documents=SimpleNamespace(all=lambda: []),
+        )
+        entity = SimpleNamespace(
+            person_type="persona_moral",
+            metadata={
+                "declares_pep": True,
+                "third_party_payments": False,
+                "foreign_operations": False,
+                "address": {"city": "Colima"},
+                "economic_activity": "Otras construcciones de ingeniería civil",
+                "controllers": [{"name": "Ana"}],
+            },
+            expedients=SimpleNamespace(
+                order_by=lambda *_a: SimpleNamespace(first=lambda: expedient)
+            ),
+        )
+        with patch("api.compliance.risk.matrix_score._points", return_value=table):
+            result = score_pld_matrix(entity, expedient)
+        self.assertEqual(result["city_index"], 17)
+        self.assertTrue(result["vulnerable"])
+        self.assertGreaterEqual(result["total"], 5)
+        pep = next(row for row in result["adjustments"] if row["slug"] == "adjust_pep")
+        self.assertEqual(pep["points"], 5)
+

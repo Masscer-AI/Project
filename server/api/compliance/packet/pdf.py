@@ -99,6 +99,97 @@ def _clarification_lines(entity) -> list[str]:
     return lines
 
 
+_MATRIX_LETTERS = {
+    "weight_authenticity": "A Autenticidad del alta",
+    "weight_identity": "B Identidad legal",
+    "weight_controller": "C Beneficiario controlador",
+    "weight_representative": "D Representante legal",
+    "weight_activity": "E Actividad economica",
+    "weight_geography": "F Riesgo geografico",
+    "weight_transactional": "G Perfil transaccional",
+    "weight_integrity": "H Integridad documental",
+    "weight_screening": "I Cruce de listas",
+    "weight_conduct": "J Conducta y senales",
+}
+
+
+def _expedient(entity):
+    return entity.expedients.order_by("created_at").first()
+
+
+def _screening_lines(entity) -> list[str]:
+    exp = _expedient(entity)
+    if not exp:
+        return ["Sin cruce de listas."]
+    raw = exp.screening_payload if isinstance(exp.screening_payload, dict) else {}
+    if getattr(exp, "screening_status", "") != "succeeded" or not raw:
+        return ["Cruce de listas aun no terminado."]
+    lines = []
+    if raw.get("verdict"):
+        lines.append(f"Resultado: {raw['verdict']}.")
+    if raw.get("summary"):
+        lines.append(str(raw["summary"]))
+    checks = raw.get("checks") if isinstance(raw.get("checks"), list) else []
+    for row in checks:
+        if not isinstance(row, dict):
+            continue
+        who = row.get("name") or row.get("role") or "persona"
+        lines.append(
+            f"- {who} RFC {row.get('rfc') or 'sin RFC'}: "
+            f"{int(row.get('hit_count') or 0)} coincidencias"
+        )
+    seen: list[str] = []
+    searches = raw.get("searches") if isinstance(raw.get("searches"), list) else []
+    for row in searches:
+        if not isinstance(row, dict):
+            continue
+        for slug in row.get("lists") or []:
+            label = str(slug)
+            if label and label not in seen:
+                seen.append(label)
+    if seen:
+        lines.append("Listas consultadas: " + ", ".join(seen))
+    hits = raw.get("hits") if isinstance(raw.get("hits"), list) else []
+    for hit in hits:
+        if not isinstance(hit, dict):
+            continue
+        lines.append(
+            f"- Coincidencia: {hit.get('primary_name') or 'sin nombre'} "
+            f"en {hit.get('list_slug') or 'lista'} ({hit.get('strength') or ''})"
+        )
+    if not hits and not any(
+        int(row.get("hit_count") or 0) for row in checks if isinstance(row, dict)
+    ):
+        lines.append("Ninguna persona aparece en las listas.")
+    return lines
+
+
+def _matrix_lines(entity) -> list[str]:
+    exp = _expedient(entity)
+    if not exp or getattr(exp, "screening_status", "") != "succeeded":
+        return ["Matriz aun no calculada."]
+    from api.compliance.risk.matrix_score import score_pld_matrix
+
+    try:
+        score = score_pld_matrix(entity, exp)
+    except Exception:
+        return ["Matriz no disponible."]
+    lines = [
+        f"Suma inherente: {score['inherent']}",
+        f"Ajustes: {score['adjustments_total']}",
+        f"Total: {score['total']} ({score['color']})",
+    ]
+    for row in score.get("lines") or []:
+        label = _MATRIX_LETTERS.get(row.get("slug"), row.get("slug"))
+        lines.append(
+            f"- {label}: peso {row.get('weight')}, nota {row.get('rating')}, "
+            f"aporte {row.get('points')}"
+        )
+    for row in score.get("adjustments") or []:
+        lines.append(f"- Ajuste {row.get('slug')}: {row.get('points')}")
+    return lines
+
+
 def _paragraphs(entity) -> list[str]:
     meta = entity.metadata if isinstance(entity.metadata, dict) else {}
     org_name = entity.organization.name
@@ -185,6 +276,11 @@ def _paragraphs(entity) -> list[str]:
     else:
         blocks.append("- Sin archivos listados.")
 
+    blocks.extend(["", "CRUCE DE LISTAS"])
+    blocks.extend(_screening_lines(entity))
+    blocks.extend(["", "MATRIZ DE RIESGO PLD"])
+    blocks.extend(_matrix_lines(entity))
+
     from api.compliance.packet.signatory import resolve_signatories
 
     firmantes = resolve_signatories(entity)
@@ -207,9 +303,7 @@ def _paragraphs(entity) -> list[str]:
             "DECLARACION",
             "Manifiesto que los datos y copias entregadas corresponden a la "
             "contraparte y, en su caso, a su representante y beneficiarios "
-            "controladores. Me comprometo a informar cambios relevantes. "
-            "Esta firma no implica que se haya comunicado un resultado de "
-            "listas o una clasificacion de riesgo.",
+            "controladores. Me comprometo a informar cambios relevantes.",
             "",
             "Firma electronica via Mifiel (constancia NOM-151).",
         ]

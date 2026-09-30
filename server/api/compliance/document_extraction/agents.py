@@ -40,8 +40,9 @@ _SHARED_RULES = (
     "If a value is visible, extract it even if the file is labeled sample, draft, or ficticio. "
     "Use null only when the field is not visible. Never invent RFC, CURP, dates, or "
     "ownership percentages. Dates as YYYY-MM-DD when possible. "
-    "Then call fill_form_variable for form fields the document shows: fill empties, "
-    "and replace a filled value when it disagrees with the document. "
+    "Then call fill_form_variable only for form fields that belong to this "
+    "document's section: fill empties, and replace a filled value when it disagrees "
+    "with the document. Do not write fields from another section. "
     "Set summary to what you extracted and which form fields you wrote or corrected. "
     "Provenances are citations only: campo_id must be the schema property name or the "
     "code in that field's description (e.g. issue_or_period_date or DOM-fecha_emision), "
@@ -265,14 +266,16 @@ def extract_document(doc, language: str = "en") -> PldExtraction:
 
     from api.ai_layers.agent_loop import AgentLoop
     from api.compliance.document_extraction.fill_form_tool import (
+        KIND_SCOPES,
         apply_extraction_to_form,
         form_fill_prompt,
         make_fill_form_variable_tool,
     )
 
     entity = getattr(getattr(doc, "expedient", None), "entity", None)
+    scope = KIND_SCOPES.get(kind)
     tools = (
-        [make_fill_form_variable_tool(entity)]
+        [make_fill_form_variable_tool(entity, scope=scope)]
         if entity is not None and kind != "clarification"
         else []
     )
@@ -309,7 +312,7 @@ def extract_document(doc, language: str = "en") -> PldExtraction:
             "Put each useful fact in extractions, one row per fact."
         )
     if entity is not None and kind != "clarification":
-        prompt = f"{prompt}\n\n{form_fill_prompt(entity)}"
+        prompt = f"{prompt}\n\n{form_fill_prompt(entity, scope=scope)}"
     result = loop.run(
         [
             {

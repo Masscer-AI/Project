@@ -335,7 +335,7 @@ export function PldDocumentCollection({
       ))}
       {showContinue && canContinue && (
         <Button
-          color="violet"
+          variant="default"
           mt="sm"
           disabled={!canContinue}
           onClick={onContinue}

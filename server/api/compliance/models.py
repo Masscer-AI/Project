@@ -373,6 +373,27 @@ class PLDExpedient(models.Model):
         return f"PLDExpedient({self.id}, {self.status})"
 
 
+class PLDMatrixKind(models.TextChoices):
+    WEIGHT = "weight", "Weight"
+    ADJUSTMENT = "adjustment", "Adjustment"
+    CUTOFF = "cutoff", "Cutoff"
+
+
+class PLDMatrix(models.Model):
+    slug = models.SlugField(max_length=64, unique=True)
+    name = models.CharField(max_length=120)
+    kind = models.CharField(max_length=16, choices=PLDMatrixKind.choices)
+    points = models.FloatField()
+
+    class Meta:
+        verbose_name = "PLD matrix"
+        verbose_name_plural = "PLD matrix"
+        ordering = ["kind", "slug"]
+
+    def __str__(self):
+        return f"{self.name} ({self.points})"
+
+
 def pld_expedient_document_upload_to(instance, filename):
     import os
 

@@ -79,7 +79,11 @@ export function PldClarificationRequests({
   const [sending, setSending] = useState(false);
   const requests = row.clarification_requests || [];
   const open = requests.filter((item) => item.status === "open");
-  const answered = requests.filter((item) => item.status !== "open");
+  const answered = requests.filter(
+    (item) =>
+      item.status === "answered" &&
+      (Boolean(item.text_answer) || Boolean(item.document))
+  );
   const waiting = (item: TPldClarificationRequest) =>
     item.document?.extraction_status === "pending" || item.text_review === "reviewing";
   const answerable = open.filter((item) => !waiting(item));
@@ -91,7 +95,7 @@ export function PldClarificationRequests({
     const allowFile = item.answer_type !== "text";
     return (allowText && draft.text.trim().length > 0) || (allowFile && Boolean(draft.file));
   };
-  if (requests.length === 0 || (openOnly && open.length === 0)) return null;
+  if ((open.length === 0 && answered.length === 0) || (openOnly && open.length === 0)) return null;
 
   const sendAll = async () => {
     if (!answerable.every(filled)) {

@@ -246,7 +246,7 @@ def screen_pld_expedient(expedient_id: str):
             PLDClarificationRequest.Stage.SCREENING,
             list(parsed.invitee_requests or []),
         )
-        from api.compliance.risk import evaluate_risk_gate
+        from api.compliance.risk.evaluate import evaluate_risk_gate
 
         risk = evaluate_risk_gate(entity, exp)
         exp.risk_payload = risk.model_dump(mode="json")

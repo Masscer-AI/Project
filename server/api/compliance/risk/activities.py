@@ -51,7 +51,9 @@ def activity_texts_for_entity(entity) -> list[str]:
     exp = entity.expedients.order_by("created_at").first() if hasattr(entity, "expedients") else None
     if not exp:
         return texts
-    for doc in exp.documents.all():
+    docs = getattr(exp, "documents", None)
+    rows = docs.all() if hasattr(docs, "all") else (docs or [])
+    for doc in rows:
         if getattr(doc, "document_kind", "") != "constancia_fiscal":
             continue
         payload = doc.extracted_payload if isinstance(doc.extracted_payload, dict) else {}

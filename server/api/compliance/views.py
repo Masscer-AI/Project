@@ -508,6 +508,8 @@ class MyPLDExpedientDetailView(View):
             exp = entity.expedients.order_by("created_at").first()
             if not exp:
                 return JsonResponse({"error": "expedient-not-found"}, status=400)
+            if exp.prequalification_status:
+                return JsonResponse(_reload_my_expedient_row(entity.pk), status=200)
             if exp.status in {
                 PLDExpedientStatus.WAITING_SIGN,
                 PLDExpedientStatus.SIGNED,
@@ -764,6 +766,17 @@ def _invitee_screening(exp: PLDExpedient) -> dict:
     }
 
 
+def _invitee_matrix(entity: PLDEntity, exp: PLDExpedient) -> dict | None:
+    from api.compliance.risk.matrix_score import score_pld_matrix
+
+    if exp.screening_status != PLDExpedient.PrequalificationStatus.SUCCEEDED:
+        return None
+    try:
+        return score_pld_matrix(entity, exp)
+    except Exception:
+        return None
+
+
 def _packet_status(exp: PLDExpedient) -> str:
     risk = exp.risk_payload if isinstance(exp.risk_payload, dict) else {}
     state = str(risk.get("packet_generation") or "")
@@ -828,6 +841,7 @@ def _my_expedient_row(entity: PLDEntity) -> dict:
                 "screening_status": exp.screening_status or "",
                 "screened_at": exp.screened_at.isoformat() if exp.screened_at else None,
                 "screening": _invitee_screening(exp),
+                "matrix": _invitee_matrix(entity, exp),
                 "signing": _invitee_signing(exp, entity),
                 "packet_ready": bool(exp.packet_file or exp.signed_packet),
                 "packet_status": _packet_status(exp),

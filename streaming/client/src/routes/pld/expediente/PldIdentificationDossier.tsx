@@ -9,11 +9,9 @@ import {
   downloadMyPldPacket,
   listMyPldExpedients,
   regenerateMyPldPacket,
-  rerunMyPldPrequalification,
   TMyPldExpedient,
 } from "../../../modules/apiCalls";
 import { PldClarificationRequests } from "./PldClarificationRequests";
-import { PldExpedientPreview } from "./PldExpedientPreview";
 import { PldNoticeStep } from "./PldNoticeStep";
 import { PldRiskDeclarations } from "./PldRiskDeclarations";
 
@@ -219,11 +217,19 @@ function ListsResult({
   );
 }
 
-function StepContinue({ onClick }: { onClick?: () => void }) {
+function StepContinue({
+  onClick,
+  disabled,
+  loading,
+}: {
+  onClick?: () => void;
+  disabled?: boolean;
+  loading?: boolean;
+}) {
   const { t } = useTranslation();
   if (!onClick) return null;
   return (
-    <Button color="violet" fullWidth onClick={onClick}>
+    <Button color="violet" fullWidth disabled={disabled} loading={loading} onClick={onClick}>
       {t("compliance-doc-continue")}
     </Button>
   );
@@ -334,34 +340,15 @@ export function PldIdentificationDossier({
   const confirmEnabled = ready && prequalReady && accepted && !busy;
   const alreadyCross = status === "cross_reference";
   const hideConfirm = alreadyCross || waitingSign || signedDone;
-  const canRerunPrequal =
-    ready &&
-    !prequalPending &&
-    !waitingSign &&
-    !signedDone &&
-    (row.expedient?.prequalification_status === "succeeded" ||
-      row.expedient?.prequalification_status === "failed");
-  const handleConfirm = async () => {
+  const handleContinueValidation = async () => {
+    if (!confirmEnabled) return;
     setBusy(true);
     try {
       const saved = await confirmMyPldDocuments(row.id);
       onSaved(saved);
-      toast.success(t("compliance-dossier-confirmed"));
+      onNext?.();
     } catch {
       toast.error(t("compliance-dossier-confirm-error"));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleRerunPrequal = async () => {
-    setBusy(true);
-    try {
-      const saved = await rerunMyPldPrequalification(row.id);
-      onSaved(saved);
-      toast.success(t("compliance-prequal-rerun-done"));
-    } catch {
-      toast.error(t("compliance-prequal-rerun-error"));
     } finally {
       setBusy(false);
     }
@@ -412,6 +399,19 @@ export function PldIdentificationDossier({
       : pickedStep != null && pickedStep <= furthest
         ? pickedStep
         : furthest;
+  const packetStarted = useRef(false);
+  useEffect(() => {
+    if (view !== signAt || signedDone || packetStatus) return;
+    if (packetStarted.current) return;
+    packetStarted.current = true;
+    void regenerateMyPldPacket(row.id)
+      .then((saved) => {
+        if (saved) onSavedRef.current(saved);
+      })
+      .catch(() => {
+        packetStarted.current = false;
+      });
+  }, [view, signAt, signedDone, packetStatus, row.id]);
   const stepLabels = stepLabelKeys(row).map((key) => t(key));
   const noticePanel =
     view === noticeAt ? (
@@ -430,7 +430,7 @@ export function PldIdentificationDossier({
               {t("compliance-sign-rejected")}
             </Alert>
           ) : null}
-          {!signedDone && !row.expedient?.signing?.url ? (
+          {!signedDone && !row.expedient?.signing?.url && !packetWriting ? (
             <Group gap="xs">
               <Loader size={16} type="oval" color="violet" />
               <Text size="sm">{t("compliance-sign-preparing")}</Text>
@@ -483,7 +483,6 @@ export function PldIdentificationDossier({
           </Button>
         </Stack>
       </Card>
-      <PldExpedientPreview row={row} fullWidth />
     </Stack>
   );
 
@@ -514,7 +513,6 @@ export function PldIdentificationDossier({
               disabled
               label={t("compliance-consent-label")}
             />
-            <PldExpedientPreview row={row} />
             <StepContinue onClick={onNext} />
           </Stack>
         ) : null}
@@ -533,7 +531,10 @@ export function PldIdentificationDossier({
                 {t("compliance-screening-running")}
               </Alert>
             ) : null}
-            <StepContinue onClick={onNext} />
+            <StepContinue
+              onClick={onNext}
+              disabled={row.expedient?.screening_status !== "succeeded"}
+            />
           </Stack>
         ) : null}
         {view === 3 && row.expedient?.screening_status === "succeeded" ? (
@@ -638,7 +639,10 @@ export function PldIdentificationDossier({
               checks={row.expedient?.screening?.checks || []}
               listNames={listNames}
             />
-            <StepContinue onClick={onNext} />
+            <StepContinue
+              onClick={onNext}
+              disabled={row.expedient?.screening_status !== "succeeded"}
+            />
           </Stack>
         ) : null}
         {view === 3 ? (
@@ -692,42 +696,17 @@ export function PldIdentificationDossier({
         </Alert>
       )}
       {row.expedient?.prequalification_status === "failed" && (
-        <Stack gap="sm">
-          <Alert color="red" variant="light">
-            {t("compliance-prequal-failed")}
-          </Alert>
-          {canRerunPrequal ? (
-            <Button
-              variant="default"
-              size="xs"
-              loading={busy}
-              onClick={handleRerunPrequal}
-              w="fit-content"
-            >
-              {t("compliance-prequal-rerun")}
-            </Button>
-          ) : null}
-        </Stack>
+        <Alert color="red" variant="light">
+          {t("compliance-prequal-failed")}
+        </Alert>
       )}
       {prequal?.summary && row.expedient?.prequalification_status === "succeeded" && (
-        <Stack gap="sm">
-          <Alert
-            color={verdict === "ready_for_list_screening" ? "teal" : "yellow"}
-            variant="light"
-          >
-            {prequal.summary}
-          </Alert>
-          {canRerunPrequal ? (
-            <Button
-              variant="default"
-              size="xs"
-              loading={busy}
-              onClick={handleRerunPrequal}
-            >
-              {t("compliance-prequal-rerun")}
-            </Button>
-          ) : null}
-        </Stack>
+        <Alert
+          color={verdict === "ready_for_list_screening" ? "teal" : "yellow"}
+          variant="light"
+        >
+          {prequal.summary}
+        </Alert>
       )}
       {row.expedient?.screening_status === "pending" && (
         <Alert
@@ -776,20 +755,11 @@ export function PldIdentificationDossier({
           label={t("compliance-consent-label")}
         />
       )}
-      <Group>
-        <PldExpedientPreview row={row} />
-        {hideConfirm ? null : (
-          <Button
-            color="violet"
-            disabled={!confirmEnabled}
-            loading={busy}
-            onClick={handleConfirm}
-          >
-            {t("compliance-dossier-confirm")}
-          </Button>
-        )}
-      </Group>
-      <StepContinue onClick={onNext} />
+      <StepContinue
+        onClick={handleContinueValidation}
+        disabled={!confirmEnabled}
+        loading={busy}
+      />
         </>
       ) : null}
       {view === 2 ? (
@@ -798,7 +768,10 @@ export function PldIdentificationDossier({
             checks={row.expedient?.screening?.checks || []}
             listNames={listNames}
           />
-          <StepContinue onClick={onNext} />
+          <StepContinue
+            onClick={onNext}
+            disabled={row.expedient?.screening_status !== "succeeded"}
+          />
         </Stack>
       ) : null}
       {view === 3 ? (

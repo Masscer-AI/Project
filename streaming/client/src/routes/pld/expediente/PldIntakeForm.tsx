@@ -537,7 +537,7 @@ function SectionFiles({
           onSaved={onSaved}
           onContinue={() => undefined}
         />
-        <Button disabled={!docsReady} onClick={() => onShowData(true)}>
+        <Button variant="default" disabled={!docsReady} onClick={() => onShowData(true)}>
           {t("compliance-intake-step-review")}
         </Button>
       </Stack>
@@ -793,6 +793,15 @@ export function PldIntakeForm({
   };
 
   const handleContinue = async () => {
+    if (
+      !entityDone ||
+      !addressDone ||
+      !(isMoral ? representativeDone : idDone) ||
+      !controllerDone ||
+      (!documentsSkipped && !documentsDone)
+    ) {
+      return;
+    }
     setFinishing(true);
     try {
       window.clearTimeout(saveTimer.current);
@@ -809,13 +818,15 @@ export function PldIntakeForm({
     } catch {
       setSync("error");
     }
-    try {
-      const saved = await rerunMyPldPrequalification(row.id);
-      if (saved) onSaved(saved);
-    } catch {
-      setFinishing(false);
-      onContinue?.();
-      return;
+    if (!row.expedient?.prequalification_status) {
+      try {
+        const saved = await rerunMyPldPrequalification(row.id);
+        if (saved) onSaved(saved);
+      } catch {
+        setFinishing(false);
+        onContinue?.();
+        return;
+      }
     }
     setFinishing(false);
     onContinue?.();
@@ -909,15 +920,13 @@ export function PldIntakeForm({
     },
   };
   const doneCount = sectionOrder.filter((id) => sectionMeta[id]?.done).length;
+  const formReady = sectionOrder.every((id) => {
+    const meta = sectionMeta[id];
+    return Boolean(meta?.skipped || meta?.done);
+  });
   const active = openedSection || "entity";
   const activeIndex = sectionOrder.indexOf(active);
   const nextId = sectionOrder[activeIndex + 1];
-  const activeSlots = slotsForIntakeSection(active, allSlots, isMoral);
-  const onDataStep =
-    active === "documents" ||
-    active === "controller" ||
-    activeSlots.length === 0 ||
-    showData;
   const syncLabel =
     sync === "saving"
       ? t("compliance-intake-sync-saving")
@@ -1576,8 +1585,8 @@ export function PldIntakeForm({
             <Text size="xs" c="dimmed">
               {t("compliance-expediente-autosave")}
             </Text>
-            {onDataStep && nextId ? (
-              <Button variant="default" fullWidth={isNarrow} onClick={goNextSection}>
+            {nextId ? (
+              <Button color="violet" fullWidth={isNarrow} onClick={goNextSection}>
                 {t("compliance-expediente-next", {
                   name: sectionMeta[nextId]?.label || "",
                 })}
@@ -1586,7 +1595,7 @@ export function PldIntakeForm({
               <Button
                 color="violet"
                 fullWidth={isNarrow}
-                disabled={missingDocs > 0}
+                disabled={!formReady}
                 loading={finishing}
                 onClick={handleContinue}
               >

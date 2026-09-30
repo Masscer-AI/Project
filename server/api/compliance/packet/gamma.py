@@ -28,6 +28,8 @@ def _prompt(entity) -> str:
     return (
         "Fill this one-page identification expediente with the facts below. "
         "When an aclaracion corrects an earlier fact, use the aclaracion. "
+        "Use CRUCE DE LISTAS for the list-check status. Do not say those results are pending when that section has a result. "
+        "Use MATRIZ DE RIESGO PLD for the A-J table: peso, nota, aporte, and the inherent sum. Do not say the score was missing from the prompt. "
         "Keep the template layout. Do not add or remove pages. Write in Spanish.\n\n"
         + body
     )

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
-import { Button, Radio, Stack, Text, TextInput } from "@mantine/core";
+import { Alert, Button, Radio, Stack, Text, TextInput } from "@mantine/core";
 import { saveMyPldRiskDeclarations, TMyPldExpedient } from "../../../modules/apiCalls";
 
 function asBool(value: unknown): boolean | null {
@@ -91,9 +91,35 @@ export function PldRiskDeclarations({
     }
   };
 
+  const matrix = row.expedient?.matrix;
+  const colorKey =
+    matrix?.color === "green" ||
+    matrix?.color === "yellow" ||
+    matrix?.color === "orange" ||
+    matrix?.color === "red"
+      ? `compliance-risk-${matrix.color}`
+      : "";
+
   return (
     <Stack gap="sm">
       <Text fw={600}>{t("compliance-risk-title")}</Text>
+      {matrix ? (
+        <Alert
+          color={
+            matrix.color === "green"
+              ? "teal"
+              : matrix.color === "red"
+                ? "red"
+                : "yellow"
+          }
+          variant="light"
+        >
+          {t("compliance-risk-score", {
+            score: matrix.total,
+            color: colorKey ? t(colorKey) : matrix.color,
+          })}
+        </Alert>
+      ) : null}
       <YesNo label={t("compliance-risk-pep")} value={pep} onChange={setPep} />
       {moral ? (
         <>

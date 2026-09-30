@@ -21,6 +21,61 @@ _NAME_RE = re.compile(
     r")$"
 )
 
+_ENTITY_FIELDS = frozenset(
+    {
+        "legal_name",
+        "constitution_date",
+        "nationality",
+        "rfc",
+        "economic_activity",
+        "phone",
+        "email",
+        "given_names",
+        "surnames",
+        "date_of_birth",
+        "country_of_birth",
+        "curp",
+    }
+)
+_ADDRESS_PREFIX = "address."
+_REPRESENTATIVE_PREFIX = "representative."
+_IDENTIFICATION_PREFIX = "identification."
+_CONTROLLER_PREFIXES = ("controller.", "controllers.")
+KIND_SCOPES = {
+    "acta_constitutiva": "entity",
+    "constancia_fiscal": "entity",
+    "comprobante_domicilio": "address",
+    "id_representante": "representative",
+    "curp_representante": "representative",
+    "poder": "representative",
+    "official_id": "identification",
+    "curp": "identification",
+    "acta_nacimiento": "identification",
+    "id_controlador": "controller",
+}
+
+
+def _field_in_scope(name: str, scope: str | None) -> bool:
+    if not scope:
+        return True
+    if scope == "entity":
+        return name in _ENTITY_FIELDS
+    if scope == "address":
+        return name.startswith(_ADDRESS_PREFIX)
+    if scope == "representative":
+        return name.startswith(_REPRESENTATIVE_PREFIX)
+    if scope == "identification":
+        return name.startswith(_IDENTIFICATION_PREFIX) or name in {
+            "given_names",
+            "surnames",
+            "date_of_birth",
+            "curp",
+        }
+    if scope == "controller":
+        return name.startswith(_CONTROLLER_PREFIXES)
+    return False
+
+
 
 class FillFormVariableParams(BaseModel):
     name: str = Field(description="Form field path, e.g. legal_name or address.country.")
@@ -177,12 +232,16 @@ def form_field_snapshot(metadata: dict | None) -> tuple[dict[str, str], list[str
     return filled, empty
 
 
-def fill_form_variable_impl(entity, name: str, value: str) -> FillFormVariableResult:
+def fill_form_variable_impl(
+    entity, name: str, value: str, *, scope: str | None = None
+) -> FillFormVariableResult:
     from api.compliance.pld_metadata import normalize_pld_entity_metadata
 
     key = (name or "").strip()
     if not _NAME_RE.match(key):
         return FillFormVariableResult(name=key, filled=False, message="unknown field")
+    if not _field_in_scope(key, scope):
+        return FillFormVariableResult(name=key, filled=False, message="out of scope")
     normalized = _normalize_value(key, value)
     if not normalized:
         return FillFormVariableResult(name=key, filled=False, message="empty value")
@@ -236,6 +295,7 @@ def _representative_curp_pairs(payload: dict) -> list[tuple[str, str | None]]:
 def apply_extraction_to_form(entity, kind: str, payload: dict) -> None:
     if not isinstance(payload, dict):
         return
+    scope = KIND_SCOPES.get(kind)
     if kind == "id_representante":
         pairs = _representative_id_pairs(payload)
     elif kind == "curp_representante":
@@ -250,51 +310,32 @@ def apply_extraction_to_form(entity, kind: str, payload: dict) -> None:
         address = payload.get("registered_address")
         if isinstance(address, dict):
             pairs.append(("nationality", address.get("country")))
-            for field in (
-                "street",
-                "exterior_number",
-                "interior_number",
-                "neighborhood",
-                "municipality",
-                "city",
-                "state",
-                "postal_code",
-                "country",
-            ):
-                pairs.append((f"address.{field}", address.get(field)))
-        shareholders = payload.get("shareholders")
-        if isinstance(shareholders, list):
-            for index, row in enumerate(shareholders[:5]):
-                if not isinstance(row, dict):
-                    continue
-                pairs.append((f"controllers.{index}.name", row.get("name")))
-                pairs.append((f"controllers.{index}.rfc", row.get("rfc")))
-                pairs.append(
-                    (
-                        f"controllers.{index}.ownership_percentage",
-                        row.get("ownership_percentage"),
-                    )
-                )
     else:
         return
     for name, raw in pairs:
         if isinstance(raw, str) and raw.strip():
-            fill_form_variable_impl(entity, name, raw)
+            fill_form_variable_impl(entity, name, raw, scope=scope)
 
 
-def form_fill_prompt(entity) -> str:
+def form_fill_prompt(entity, *, scope: str | None = None) -> str:
     filled, empty = form_field_snapshot(getattr(entity, "metadata", None))
+    if scope:
+        filled = {key: value for key, value in filled.items() if _field_in_scope(key, scope)}
+        empty = [key for key in empty if _field_in_scope(key, scope)]
     return (
-        "Current identification form state.\n"
+        "Current identification form state for this document's section only.\n"
         f"Filled: {json.dumps(filled, ensure_ascii=False)}\n"
         f"Empty: {json.dumps(empty)}\n"
-        "Call fill_form_variable for empty fields the document shows. "
+        "Call fill_form_variable only for those fields. "
         "If a filled field disagrees with the document, call fill_form_variable "
-        "with the document value. Do not invent RFC, dates, or addresses."
+        "with the document value. Do not invent RFC, dates, or addresses. "
+        "Do not write fields from another section."
     )
 
 
-def make_fill_form_variable_tool(entity, *, once: bool = False) -> dict:
+def make_fill_form_variable_tool(
+    entity, *, once: bool = False, scope: str | None = None
+) -> dict:
     written: set[str] = set()
 
     def fill_form_variable(name: str, value: str) -> FillFormVariableResult:
@@ -303,7 +344,7 @@ def make_fill_form_variable_tool(entity, *, once: bool = False) -> dict:
             return FillFormVariableResult(
                 name=key, filled=False, message="already written"
             )
-        result = fill_form_variable_impl(entity, name, value)
+        result = fill_form_variable_impl(entity, name, value, scope=scope)
         if once and result.filled:
             written.add(key)
         return result
@@ -311,10 +352,8 @@ def make_fill_form_variable_tool(entity, *, once: bool = False) -> dict:
     return {
         "name": "fill_form_variable",
         "description": (
-            "Write one identification-form field from the document. "
-            "Use this for empty fields and to correct a value that disagrees "
-            "with the document. Paths such as legal_name, constitution_date, "
-            "nationality, or address.country."
+            "Write one identification-form field from this document's section. "
+            "Do not write fields that belong to another section."
         ),
         "parameters": FillFormVariableParams,
         "function": fill_form_variable,
