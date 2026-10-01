@@ -9,6 +9,7 @@ import {
   downloadMyPldPacket,
   listMyPldExpedients,
   regenerateMyPldPacket,
+  rerunMyPldPrequalification,
   TMyPldExpedient,
 } from "../../../modules/apiCalls";
 import { PldClarificationRequests } from "./PldClarificationRequests";
@@ -349,6 +350,18 @@ export function PldIdentificationDossier({
       onNext?.();
     } catch {
       toast.error(t("compliance-dossier-confirm-error"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRetryPrequal = async () => {
+    setBusy(true);
+    try {
+      const saved = await rerunMyPldPrequalification(row.id);
+      if (saved) onSaved(saved);
+    } catch {
+      toast.error(t("compliance-prequal-rerun-error"));
     } finally {
       setBusy(false);
     }
@@ -696,9 +709,14 @@ export function PldIdentificationDossier({
         </Alert>
       )}
       {row.expedient?.prequalification_status === "failed" && (
-        <Alert color="red" variant="light">
-          {t("compliance-prequal-failed")}
-        </Alert>
+        <Stack gap="sm">
+          <Alert color="red" variant="light">
+            {t("compliance-prequal-failed")}
+          </Alert>
+          <Button variant="default" loading={busy} onClick={handleRetryPrequal}>
+            {t("compliance-prequal-rerun")}
+          </Button>
+        </Stack>
       )}
       {prequal?.summary && row.expedient?.prequalification_status === "succeeded" && (
         <Alert

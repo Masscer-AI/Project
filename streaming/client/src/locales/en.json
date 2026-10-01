@@ -1201,6 +1201,8 @@
   "compliance-dossier-next-lists": "We are reviewing your expediente. If anything else is needed, we will ask here. You do not need to do anything else for now.",
   "compliance-prequal-running": "We are reconciling your data and documents to confirm the identification expediente is complete.",
   "compliance-prequal-failed": "Prequalification could not finish. Try again later or re-upload a document.",
+  "compliance-prequal-rerun": "Run validation again",
+  "compliance-prequal-rerun-error": "Could not run validation again.",
   "compliance-prequal-debug": "View findings",
   "compliance-prequal-debug-title": "Prequalification findings",
   "compliance-prequal-debug-empty": "There are no stored findings.",

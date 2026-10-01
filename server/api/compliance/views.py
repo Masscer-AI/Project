@@ -508,7 +508,10 @@ class MyPLDExpedientDetailView(View):
             exp = entity.expedients.order_by("created_at").first()
             if not exp:
                 return JsonResponse({"error": "expedient-not-found"}, status=400)
-            if exp.prequalification_status:
+            if (
+                exp.prequalification_status
+                and exp.prequalification_status != PLDExpedient.PrequalificationStatus.FAILED
+            ):
                 return JsonResponse(_reload_my_expedient_row(entity.pk), status=200)
             if exp.status in {
                 PLDExpedientStatus.WAITING_SIGN,

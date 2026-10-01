@@ -1203,6 +1203,8 @@
   "compliance-dossier-next-lists": "Estamos validando tu expediente. Si hace falta algún dato, te lo pediremos aquí. No es necesario que hagas nada más por ahora.",
   "compliance-prequal-running": "Estamos conciliando tus datos y documentos para confirmar que el expediente de identificacion esta completo.",
   "compliance-prequal-failed": "No se pudo completar la precalificacion. Intenta de nuevo mas tarde o vuelve a subir un documento.",
+  "compliance-prequal-rerun": "Volver a validar",
+  "compliance-prequal-rerun-error": "No se pudo volver a validar.",
   "compliance-prequal-debug": "Ver hallazgos",
   "compliance-prequal-debug-title": "Hallazgos de precalificacion",
   "compliance-prequal-debug-empty": "No hay hallazgos guardados.",
