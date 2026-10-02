@@ -14,6 +14,7 @@ import {
 } from "../../../modules/apiCalls";
 import { PldClarificationRequests } from "./PldClarificationRequests";
 import { PldNoticeStep } from "./PldNoticeStep";
+import { PldPpeStep } from "./PldPpeStep";
 import { PldRiskDeclarations } from "./PldRiskDeclarations";
 
 const MORAL_CHECKS = [
@@ -35,19 +36,22 @@ const LIST_LABELS: Record<string, string> = {
   sat_69_csd: "SAT 69 CSD",
 };
 
-type StepId = "data" | "validation" | "lists" | "score" | "notice" | "sign";
+type StepId = "data" | "validation" | "lists" | "ppe" | "score" | "notice" | "sign";
 
 const STEP_LABEL: Record<StepId, string> = {
   data: "compliance-step-data",
   validation: "compliance-step-validation",
   lists: "compliance-step-lists",
+  ppe: "compliance-step-ppe",
   score: "compliance-step-score",
   notice: "compliance-step-notice",
   sign: "compliance-step-sign",
 };
 
 export function stepIds(row: TMyPldExpedient): StepId[] {
-  const ids: StepId[] = ["data", "validation", "lists", "score"];
+  const ids: StepId[] = ["data", "validation", "lists"];
+  if (row.ppe_screening_enabled) ids.push("ppe");
+  ids.push("score");
   if (row.vulnerable_activity) ids.push("notice");
   ids.push("sign");
   return ids;
@@ -78,6 +82,9 @@ export function flowFurthest(row: TMyPldExpedient): number {
   }
   if (status === "cross_reference") {
     if (row.expedient?.screening_status !== "succeeded") return at("lists");
+    if (row.ppe_screening_enabled && row.expedient?.ppe_status !== "succeeded") {
+      return at("ppe");
+    }
     if (!riskDeclared(row)) return at("score");
     if (row.vulnerable_activity && row.metadata?.notice_invoices_done !== true) {
       return at("notice");
@@ -281,6 +288,8 @@ export function PldIdentificationDossier({
   );
   const prequalPending = row.expedient?.prequalification_status === "pending";
   const screeningPending = row.expedient?.screening_status === "pending";
+  const ppePending =
+    Boolean(row.ppe_screening_enabled) && row.expedient?.ppe_status === "pending";
   const clarifyExtracting = (row.clarification_requests || []).some(
     (item) =>
       (item.status === "open" && item.document?.extraction_status === "pending") ||
@@ -296,6 +305,7 @@ export function PldIdentificationDossier({
     pending ||
     prequalPending ||
     screeningPending ||
+    ppePending ||
     clarifyExtracting ||
     waitingSign ||
     packetWriting;
@@ -405,6 +415,8 @@ export function PldIdentificationDossier({
   const furthest = flowFurthest(row);
   const ids = stepIds(row);
   const noticeAt = ids.indexOf("notice");
+  const ppeAt = ids.indexOf("ppe");
+  const scoreAt = ids.indexOf("score");
   const signAt = ids.indexOf("sign");
   const view =
     forcedView != null
@@ -429,6 +441,10 @@ export function PldIdentificationDossier({
   const noticePanel =
     view === noticeAt ? (
       <PldNoticeStep row={row} onSaved={onSaved} onNext={onNext} />
+    ) : null;
+  const ppePanel =
+    view === ppeAt ? (
+      <PldPpeStep row={row} onSaved={onSaved} onContinue={onNext} />
     ) : null;
   const signPanel = (
     <Stack gap="sm">
@@ -550,12 +566,13 @@ export function PldIdentificationDossier({
             />
           </Stack>
         ) : null}
-        {view === 3 && row.expedient?.screening_status === "succeeded" ? (
+        {view === scoreAt && row.expedient?.screening_status === "succeeded" ? (
           <PldRiskDeclarations row={row} onSaved={onSaved} onContinue={onNext} />
         ) : null}
-        {view === 3 && row.expedient?.screening_status !== "succeeded" ? (
+        {view === scoreAt && row.expedient?.screening_status !== "succeeded" ? (
           <StepContinue onClick={onNext} />
         ) : null}
+        {ppePanel}
         {noticePanel}
         {view === signAt ? signPanel : null}
         {row.expedient?.screening_status === "failed" ? (
@@ -658,7 +675,7 @@ export function PldIdentificationDossier({
             />
           </Stack>
         ) : null}
-        {view === 3 ? (
+        {view === scoreAt ? (
           <Stack gap="sm">
             {row.expedient?.screening?.summary ? (
               <Alert color="gray" variant="light">
@@ -668,6 +685,7 @@ export function PldIdentificationDossier({
             <PldRiskDeclarations row={row} onSaved={onSaved} onContinue={onNext} />
           </Stack>
         ) : null}
+        {ppePanel}
         {noticePanel}
         {view === signAt ? signPanel : null}
         <PldClarificationRequests row={row} onSaved={onSaved} openOnly />
@@ -792,9 +810,10 @@ export function PldIdentificationDossier({
           />
         </Stack>
       ) : null}
-      {view === 3 ? (
+      {view === scoreAt ? (
         <PldRiskDeclarations row={row} onSaved={onSaved} onContinue={onNext} />
       ) : null}
+      {ppePanel}
       {noticePanel}
       {view === signAt ? signPanel : null}
     </Stack>

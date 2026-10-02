@@ -226,6 +226,10 @@ class PLDEntity(models.Model):
         default="",
         help_text="Contact email for expediente invitations. Empty for the org self-entity.",
     )
+    ppe_screening_enabled = models.BooleanField(
+        default=False,
+        help_text="When true, screen the representative and beneficial owners as politically exposed persons.",
+    )
     metadata = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -321,6 +325,14 @@ class PLDExpedient(models.Model):
     )
     screening_payload = models.JSONField(default=dict, blank=True)
     screened_at = models.DateTimeField(null=True, blank=True)
+    ppe_status = models.CharField(
+        max_length=16,
+        choices=PrequalificationStatus.choices,
+        blank=True,
+        default="",
+    )
+    ppe_payload = models.JSONField(default=dict, blank=True)
+    ppe_screened_at = models.DateTimeField(null=True, blank=True)
     risk_status = models.CharField(
         max_length=16,
         choices=PrequalificationStatus.choices,

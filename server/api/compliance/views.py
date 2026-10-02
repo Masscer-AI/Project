@@ -53,6 +53,11 @@ def _queue_signature_after_steps(entity: PLDEntity) -> None:
     exp = entity.expedients.order_by("created_at").first()
     if not exp:
         return
+    if (
+        entity.ppe_screening_enabled
+        and exp.ppe_status != PLDExpedient.PrequalificationStatus.SUCCEEDED
+    ):
+        return
     dispatch_identification_packet.delay(str(exp.id))
 
 
@@ -78,6 +83,7 @@ def _entity_payload(entity: PLDEntity) -> dict:
         "person_type": entity.person_type,
         "relationship": entity.relationship,
         "email": entity.email or "",
+        "ppe_screening_enabled": bool(entity.ppe_screening_enabled),
         "metadata": entity.metadata or {},
         "created_at": entity.created_at.isoformat() if entity.created_at else None,
         "updated_at": entity.updated_at.isoformat() if entity.updated_at else None,
@@ -195,6 +201,7 @@ class PLDEntityListView(View):
         relationship = payload.get("relationship")
         metadata = payload.get("metadata") or {}
         email = str(payload.get("email") or "").strip().lower()
+        ppe_screening_enabled = payload.get("ppe_screening_enabled") is True
         if person_type not in PLDPersonType.values:
             return JsonResponse({"error": "Invalid person_type"}, status=400)
         if relationship not in PLDRelationship.values:
@@ -218,6 +225,7 @@ class PLDEntityListView(View):
                     person_type=person_type,
                     relationship=relationship,
                     email=email,
+                    ppe_screening_enabled=ppe_screening_enabled,
                     metadata=metadata,
                 )
                 entity.save()
@@ -534,6 +542,22 @@ class MyPLDExpedientDetailView(View):
             exp.save(update_fields=["prequalification_status", "updated_at"])
             prequalify_pld_expedient.delay(str(exp.id))
             return JsonResponse(_reload_my_expedient_row(entity.pk), status=200)
+        if payload.get("action") == "rerun_ppe":
+            if not entity.ppe_screening_enabled:
+                return JsonResponse({"error": "ppe-disabled"}, status=400)
+            exp = entity.expedients.order_by("created_at").first()
+            if not exp:
+                return JsonResponse({"error": "expedient-not-found"}, status=400)
+            if exp.ppe_status == PLDExpedient.PrequalificationStatus.PENDING:
+                return JsonResponse(_reload_my_expedient_row(entity.pk), status=200)
+            if exp.ppe_status != PLDExpedient.PrequalificationStatus.FAILED:
+                return JsonResponse(_reload_my_expedient_row(entity.pk), status=200)
+            exp.ppe_status = PLDExpedient.PrequalificationStatus.PENDING
+            exp.save(update_fields=["ppe_status", "updated_at"])
+            from api.compliance.tasks import screen_ppe_pld_expedient
+
+            screen_ppe_pld_expedient.delay(str(exp.id))
+            return JsonResponse(_reload_my_expedient_row(entity.pk), status=200)
         if payload.get("action") == "confirm_documents":
             from api.compliance.pld_document_slots import (
                 required_slots_extraction_ready,
@@ -765,6 +789,26 @@ def _invitee_screening(exp: PLDExpedient) -> dict:
     }
 
 
+def _invitee_ppe(exp: PLDExpedient) -> dict:
+    raw = exp.ppe_payload if isinstance(exp.ppe_payload, dict) else {}
+    checks = raw.get("checks") if isinstance(raw.get("checks"), list) else []
+    rows = []
+    for row in checks:
+        if not isinstance(row, dict):
+            continue
+        hits = row.get("hits") if isinstance(row.get("hits"), list) else []
+        top = hits[0] if hits and isinstance(hits[0], dict) else {}
+        rows.append(
+            {
+                "role": str(row.get("role") or ""),
+                "name": str(row.get("name") or ""),
+                "hit_count": int(row.get("hit_count") or 0),
+                "top_caption": str(top.get("caption") or ""),
+            }
+        )
+    return {"checks": rows}
+
+
 def _invitee_matrix(entity: PLDEntity, exp: PLDExpedient) -> dict | None:
     from api.compliance.risk.matrix_score import score_pld_matrix
 
@@ -836,6 +880,7 @@ def _my_expedient_row(entity: PLDEntity) -> dict:
         "person_type": entity.person_type,
         "relationship": entity.relationship,
         "email": entity.email or "",
+        "ppe_screening_enabled": bool(entity.ppe_screening_enabled),
         "metadata": entity.metadata if isinstance(entity.metadata, dict) else {},
         "expedient": (
             {
@@ -849,6 +894,11 @@ def _my_expedient_row(entity: PLDEntity) -> dict:
                 "screening_status": exp.screening_status or "",
                 "screened_at": exp.screened_at.isoformat() if exp.screened_at else None,
                 "screening": _invitee_screening(exp),
+                "ppe_status": exp.ppe_status or "",
+                "ppe_screened_at": (
+                    exp.ppe_screened_at.isoformat() if exp.ppe_screened_at else None
+                ),
+                "ppe": _invitee_ppe(exp),
                 "matrix": _invitee_matrix(entity, exp),
                 "signing": _invitee_signing(exp, entity),
                 "packet_ready": bool(exp.packet_file or exp.signed_packet),
@@ -911,6 +961,9 @@ def _reset_invitee_expedient(entity: PLDEntity) -> None:
         exp.screening_status = ""
         exp.screening_payload = {}
         exp.screened_at = None
+        exp.ppe_status = ""
+        exp.ppe_payload = {}
+        exp.ppe_screened_at = None
         exp.risk_status = ""
         exp.risk_payload = {}
         exp.risked_at = None

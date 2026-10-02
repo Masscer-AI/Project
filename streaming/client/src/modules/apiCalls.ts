@@ -2383,6 +2383,7 @@ export type TPldEntity = {
   person_type: string;
   relationship: string | null;
   email?: string;
+  ppe_screening_enabled?: boolean;
   metadata: Record<string, string | number | boolean | null | undefined>;
   created_at: string | null;
   updated_at: string | null;
@@ -2416,6 +2417,7 @@ export const createPldEntity = async (payload: {
   person_type: string;
   relationship: string;
   email: string;
+  ppe_screening_enabled?: boolean;
   metadata: Record<string, string>;
 }) => {
   return makeAuthenticatedRequest<TPldEntity>(
@@ -2478,6 +2480,7 @@ export type TMyPldExpedient = {
   person_type: string;
   relationship: string | null;
   email?: string;
+  ppe_screening_enabled?: boolean;
   metadata?: Record<string, unknown>;
   expedient: {
     id: string;
@@ -2505,6 +2508,10 @@ export type TMyPldExpedient = {
       summary?: string;
       checks?: { role: string; name: string; rfc: string; hit_count: number }[];
       searches?: { terms: string[]; lists: string[]; hit_count: number }[];
+    };
+    ppe_status?: string;
+    ppe?: {
+      checks?: { role: string; name: string; hit_count: number; top_caption?: string }[];
     };
     matrix?: {
       total: number;
@@ -2658,6 +2665,14 @@ export const regenerateMyPldPacket = async (entityId: string) => {
     "PATCH",
     `/v1/compliance/my-expedients/${entityId}/`,
     { action: "regenerate_packet" }
+  );
+};
+
+export const rerunMyPldPpe = async (entityId: string) => {
+  return makeAuthenticatedRequest<TMyPldExpedient>(
+    "POST",
+    `/v1/compliance/my-expedients/${entityId}/`,
+    { action: "rerun_ppe" }
   );
 };
 

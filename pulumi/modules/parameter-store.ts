@@ -8,6 +8,7 @@ export interface ProviderParameterArns {
   xaiApiKeyArn: pulumi.Output<string>;
   pexelsApiKeyArn: pulumi.Output<string>;
   firecrawlApiKeyArn: pulumi.Output<string>;
+  openSanctionsApiKeyArn: pulumi.Output<string>;
   bflApiKeyArn: pulumi.Output<string>;
   runwayApiKeyArn: pulumi.Output<string>;
   gammaApiKeyArn: pulumi.Output<string>;
@@ -27,6 +28,7 @@ export function createProviderParameters(args: {
   xaiApiKey: pulumi.Input<string>;
   pexelsApiKey: pulumi.Input<string>;
   firecrawlApiKey: pulumi.Input<string>;
+  openSanctionsApiKey: pulumi.Input<string>;
   bflApiKey: pulumi.Input<string>;
   runwayApiKey: pulumi.Input<string>;
   gammaApiKey: pulumi.Input<string>;
@@ -79,6 +81,12 @@ export function createProviderParameters(args: {
     name: `${basePath}/FIRECRAWL_API_KEY`,
     type: "SecureString",
     value: normalizeSecret(args.firecrawlApiKey),
+  });
+
+  const openSanctionsApiKey = new aws.ssm.Parameter("opensanctions-api-key-param", {
+    name: `${basePath}/OPEN_SANCTIONS_API_KEY`,
+    type: "SecureString",
+    value: normalizeSecret(args.openSanctionsApiKey),
   });
 
   const bflApiKey = new aws.ssm.Parameter("bfl-api-key-param", {
@@ -152,6 +160,7 @@ export function createProviderParameters(args: {
     xaiApiKey.arn,
     pexelsApiKey.arn,
     firecrawlApiKey.arn,
+    openSanctionsApiKey.arn,
     bflApiKey.arn,
     runwayApiKey.arn,
     gammaApiKey.arn,
@@ -190,6 +199,7 @@ export function createProviderParameters(args: {
     xaiApiKeyArn: xaiApiKey.arn,
     pexelsApiKeyArn: pexelsApiKey.arn,
     firecrawlApiKeyArn: firecrawlApiKey.arn,
+    openSanctionsApiKeyArn: openSanctionsApiKey.arn,
     bflApiKeyArn: bflApiKey.arn,
     runwayApiKeyArn: runwayApiKey.arn,
     gammaApiKeyArn: gammaApiKey.arn,

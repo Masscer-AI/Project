@@ -48,8 +48,12 @@ def maybe_dispatch_identification_packet(expedient: PLDExpedient) -> None:
         return
     if expedient.signature_request_id:
         return
-
     entity = expedient.entity
+    if (
+        entity.ppe_screening_enabled
+        and expedient.ppe_status != PLDExpedient.PrequalificationStatus.SUCCEEDED
+    ):
+        return
     signers = resolve_signatories(entity)
     if not signers:
         logger.warning(

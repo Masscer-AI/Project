@@ -73,10 +73,11 @@ class PLDEntityAdmin(admin.ModelAdmin):
         "person_type",
         "relationship",
         "email",
+        "ppe_screening_enabled",
         "user",
         "updated_at",
     )
-    list_filter = ("person_type", "relationship")
+    list_filter = ("person_type", "relationship", "ppe_screening_enabled")
     search_fields = ("email", "user__email", "user__username")
     raw_id_fields = ("organization", "user")
     readonly_fields = ("id", "created_at", "updated_at")

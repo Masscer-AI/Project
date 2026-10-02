@@ -14,6 +14,7 @@ import {
   Modal,
   NativeSelect,
   Stack,
+  Switch,
   Text,
   TextInput,
   Title,
@@ -53,6 +54,7 @@ export default function ComplianceHubPage() {
   const [relationship, setRelationship] = useState("cliente");
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
+  const [ppeEnabled, setPpeEnabled] = useState(false);
 
   const loadEntities = async () => {
     try {
@@ -80,6 +82,7 @@ export default function ComplianceHubPage() {
     setEmail("");
     setPersonType("persona_moral");
     setRelationship("cliente");
+    setPpeEnabled(false);
   };
 
   const handleCreate = async () => {
@@ -99,6 +102,7 @@ export default function ComplianceHubPage() {
         person_type: personType,
         relationship,
         email: inviteEmail,
+        ppe_screening_enabled: ppeEnabled,
         metadata:
           personType === "persona_moral"
             ? { legal_name: name }
@@ -267,6 +271,11 @@ export default function ComplianceHubPage() {
                             {entity.email}
                           </Text>
                         )}
+                        {entity.ppe_screening_enabled ? (
+                          <Badge variant="light" color="violet" w="fit-content">
+                            {t("compliance-ppe-badge")}
+                          </Badge>
+                        ) : null}
                       </Stack>
                       <Group gap="xs" wrap="nowrap">
                         {entity.expedient && (
@@ -383,6 +392,12 @@ export default function ComplianceHubPage() {
               const val = e.currentTarget.value;
               setEmail(val);
             }}
+          />
+          <Switch
+            label={t("compliance-ppe-toggle")}
+            description={t("compliance-ppe-toggle-help")}
+            checked={ppeEnabled}
+            onChange={(e) => setPpeEnabled(e.currentTarget.checked)}
           />
           <Group justify="flex-end">
             <Button variant="default" onClick={closeAdd} disabled={saving}>

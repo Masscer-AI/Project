@@ -246,6 +246,8 @@ def screen_pld_expedient(expedient_id: str):
             PLDClarificationRequest.Stage.SCREENING,
             list(parsed.invitee_requests or []),
         )
+        if entity.ppe_screening_enabled:
+            apply_ppe_screening(exp)
         from api.compliance.risk.evaluate import evaluate_risk_gate
 
         risk = evaluate_risk_gate(entity, exp)
@@ -264,6 +266,40 @@ def screen_pld_expedient(expedient_id: str):
         logger.exception("PLD screening failed for %s", expedient_id)
         exp.screening_status = PLDExpedient.PrequalificationStatus.FAILED
         exp.save(update_fields=["screening_status", "updated_at"])
+
+
+def apply_ppe_screening(exp) -> None:
+    from django.utils import timezone
+
+    from api.compliance.ppe import run_ppe_screening
+
+    exp.ppe_status = exp.PrequalificationStatus.PENDING
+    exp.save(update_fields=["ppe_status", "updated_at"])
+    try:
+        exp.ppe_payload = run_ppe_screening(exp.entity)
+        exp.ppe_status = exp.PrequalificationStatus.SUCCEEDED
+        exp.ppe_screened_at = timezone.now()
+        exp.save(
+            update_fields=["ppe_payload", "ppe_status", "ppe_screened_at", "updated_at"]
+        )
+    except Exception:
+        logger.exception("PLD PPE screening failed for %s", exp.id)
+        exp.ppe_status = exp.PrequalificationStatus.FAILED
+        exp.save(update_fields=["ppe_status", "updated_at"])
+
+
+@shared_task
+def screen_ppe_pld_expedient(expedient_id: str):
+    from api.compliance.models import PLDExpedient
+
+    try:
+        exp = PLDExpedient.objects.select_related("entity").get(pk=expedient_id)
+    except (PLDExpedient.DoesNotExist, ValueError):
+        logger.warning("PLD expedient %s not found for PPE screening", expedient_id)
+        return
+    if not exp.entity.ppe_screening_enabled:
+        return
+    apply_ppe_screening(exp)
 
 
 @shared_task

@@ -67,6 +67,7 @@ const parameterStore = createProviderParameters({
   xaiApiKey: config.xaiApiKey,
   pexelsApiKey: config.pexelsApiKey,
   firecrawlApiKey: config.firecrawlApiKey,
+  openSanctionsApiKey: config.openSanctionsApiKey,
   bflApiKey: config.bflApiKey,
   runwayApiKey: config.runwayApiKey,
   gammaApiKey: config.gammaApiKey,

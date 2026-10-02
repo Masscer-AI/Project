@@ -277,6 +277,10 @@ WATCHLIST_UN_CSNU_URL = os.environ.get(
 )
 
 FIRECRAWL_API_KEY = os.environ.get("FIRECRAWL_API_KEY", "")
+OPEN_SANCTIONS_API_KEY = os.environ.get("OPEN_SANCTIONS_API_KEY", "").strip()
+OPEN_SANCTIONS_API_URL = os.environ.get(
+    "OPEN_SANCTIONS_API_URL", "https://api.opensanctions.org"
+).rstrip("/")
 
 ELEVENLABS_API_KEY = os.environ.get("ELEVENLABS_API_KEY", "")
 

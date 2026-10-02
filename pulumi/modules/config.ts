@@ -34,6 +34,7 @@ export interface AppConfig {
   xaiApiKey: pulumi.Output<string>;
   pexelsApiKey: pulumi.Output<string>;
   firecrawlApiKey: pulumi.Output<string>;
+  openSanctionsApiKey: pulumi.Output<string>;
   bflApiKey: pulumi.Output<string>;
   runwayApiKey: pulumi.Output<string>;
   gammaApiKey: pulumi.Output<string>;
@@ -86,6 +87,7 @@ export function loadConfig(): AppConfig {
     xaiApiKey: cfg.getSecret("xaiApiKey") ?? pulumi.output(""),
     pexelsApiKey: cfg.getSecret("pexelsApiKey") ?? pulumi.output(""),
     firecrawlApiKey: cfg.getSecret("firecrawlApiKey") ?? pulumi.output(""),
+    openSanctionsApiKey: cfg.getSecret("openSanctionsApiKey") ?? pulumi.output(""),
     bflApiKey: cfg.getSecret("bflApiKey") ?? pulumi.output(""),
     runwayApiKey: cfg.getSecret("runwayApiKey") ?? pulumi.output(""),
     gammaApiKey: cfg.getSecret("gammaApiKey") ?? pulumi.output(""),
