@@ -2534,7 +2534,22 @@ export type TMyPldExpedient = {
     notice_uma: number | null;
     notice_mxn: number | null;
     notice_note?: string;
+    keyword?: string;
   } | null;
+  vulnerable_activity_guess?: {
+    fraction: string;
+    activity: string;
+    keyword?: string;
+    notice_uma?: number | null;
+    notice_mxn?: number | null;
+  } | null;
+  vulnerable_activity_catalog?: {
+    fraction: string;
+    activity: string;
+    notice_uma: number | null;
+    notice_mxn: number | null;
+    notice_note?: string;
+  }[];
   clarification_requests?: TPldClarificationRequest[];
 };
 

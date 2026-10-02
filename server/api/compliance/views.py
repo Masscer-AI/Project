@@ -42,18 +42,13 @@ def _risk_declared(meta: dict) -> bool:
 
 
 def _queue_signature_after_steps(entity: PLDEntity) -> None:
-    from api.compliance.risk.activities import (
-        activity_texts_for_entity,
-        match_vulnerable_activity,
-    )
+    from api.compliance.risk.activities import resolve_vulnerable_activity
     from api.compliance.tasks import dispatch_identification_packet
 
     meta = entity.metadata if isinstance(entity.metadata, dict) else {}
     if not _risk_declared(meta):
         return
-    if match_vulnerable_activity(*activity_texts_for_entity(entity)) and not meta.get(
-        "notice_invoices_done"
-    ):
+    if resolve_vulnerable_activity(entity) and not meta.get("notice_invoices_done"):
         return
     exp = entity.expedients.order_by("created_at").first()
     if not exp:
@@ -677,6 +672,7 @@ class MyPLDExpedientDetailView(View):
             "foreign_operations",
             "foreign_countries",
             "notice_invoices_done",
+            "vulnerable_activity_fraction",
         ):
             if key not in metadata and key in old:
                 metadata[key] = old[key]
@@ -799,12 +795,21 @@ def _invitee_signing(exp: PLDExpedient, entity: PLDEntity) -> dict | None:
 
 
 def _invitee_vulnerable_activity(entity: PLDEntity) -> dict | None:
-    from api.compliance.risk.activities import (
-        activity_texts_for_entity,
-        match_vulnerable_activity,
-    )
+    from api.compliance.risk.activities import resolve_vulnerable_activity
 
-    return match_vulnerable_activity(*activity_texts_for_entity(entity))
+    return resolve_vulnerable_activity(entity)
+
+
+def _invitee_vulnerable_guess(entity: PLDEntity) -> dict | None:
+    from api.compliance.risk.activities import guess_vulnerable_activity
+
+    return guess_vulnerable_activity(entity)
+
+
+def _invitee_vulnerable_catalog() -> list[dict]:
+    from api.compliance.risk.activities import catalog_vulnerable_activities
+
+    return catalog_vulnerable_activities()
 
 
 def _my_expedient_row(entity: PLDEntity) -> dict:
@@ -855,6 +860,8 @@ def _my_expedient_row(entity: PLDEntity) -> dict:
         "document_slots": slots,
         "clarification_requests": requests,
         "vulnerable_activity": _invitee_vulnerable_activity(entity),
+        "vulnerable_activity_guess": _invitee_vulnerable_guess(entity),
+        "vulnerable_activity_catalog": _invitee_vulnerable_catalog(),
     }
 
 

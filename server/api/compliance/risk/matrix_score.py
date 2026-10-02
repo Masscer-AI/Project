@@ -7,10 +7,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from api.compliance.risk.activities import (
-    activity_texts_for_entity,
-    match_vulnerable_activity,
-)
+from api.compliance.risk.activities import resolve_vulnerable_activity
 from api.compliance.risk.evaluate import (
     _controllers_missing,
     _finding_codes,
@@ -77,7 +74,7 @@ def _docs(expedient) -> list[Any]:
 
 
 def _cfdi_over_notice(entity, expedient) -> bool:
-    match = match_vulnerable_activity(*activity_texts_for_entity(entity))
+    match = resolve_vulnerable_activity(entity)
     if not match or match.get("notice_mxn") is None:
         return False
     limit = float(match["notice_mxn"])
@@ -141,7 +138,7 @@ def score_pld_matrix(entity, expedient) -> dict[str, Any]:
     pep = meta.get("declares_pep") is True or meta.get("partners_pep") is True
     third = meta.get("third_party_payments") is True
     foreign = meta.get("foreign_operations") is True
-    vulnerable = match_vulnerable_activity(*activity_texts_for_entity(entity))
+    vulnerable = resolve_vulnerable_activity(entity)
     over = _cfdi_over_notice(entity, expedient)
     missing = _controllers_missing(entity)
     material = bool(codes & _MATERIAL)

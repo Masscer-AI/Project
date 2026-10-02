@@ -37,6 +37,16 @@ import { countryNameSelectData, formatInternationalPhone, splitInternationalPhon
 import { matchSubdivisionName, subdivisionSelectData } from "../../../utils/countrySubdivisions";
 
 const COUNTRY_OPTIONS = countryNameSelectData();
+const VULNERABLE_NONE = "none";
+
+function chosenVulnerableFraction(row: TMyPldExpedient): string {
+  const meta = asRecord(row.metadata);
+  if ("vulnerable_activity_fraction" in meta && meta.vulnerable_activity_fraction != null) {
+    const raw = String(meta.vulnerable_activity_fraction);
+    return raw || VULNERABLE_NONE;
+  }
+  return row.vulnerable_activity_guess?.fraction || VULNERABLE_NONE;
+}
 
 function FieldRow({ children }: { children: React.ReactNode }) {
   const count = React.Children.count(children);
@@ -178,6 +188,7 @@ type FormState = {
   curp: string;
   rfc: string;
   economic_activity: string;
+  vulnerable_activity_fraction: string;
   phone_iso: string;
   phone: string;
   email: string;
@@ -220,6 +231,7 @@ function fromMetadata(row: TMyPldExpedient): FormState {
     curp: asString(meta.curp),
     rfc: asString(meta.rfc),
     economic_activity: asString(meta.economic_activity),
+    vulnerable_activity_fraction: chosenVulnerableFraction(row),
     phone_iso: parsedPhone.iso,
     phone: parsedPhone.local,
     email: asString(meta.email) || asString(row.email),
@@ -315,6 +327,10 @@ function metadataFromForm(form: FormState, isMoral: boolean): Record<string, unk
       nationality: form.nationality.trim() || null,
       rfc: form.rfc.trim() || null,
       economic_activity: form.economic_activity.trim() || null,
+      vulnerable_activity_fraction:
+        form.vulnerable_activity_fraction === VULNERABLE_NONE
+          ? ""
+          : form.vulnerable_activity_fraction || "",
       phone,
       email: form.email.trim() || null,
       address: compactAddress(form.address),
@@ -343,6 +359,10 @@ function metadataFromForm(form: FormState, isMoral: boolean): Record<string, unk
     curp: form.curp.trim() || null,
     rfc: form.rfc.trim() || null,
     economic_activity: form.economic_activity.trim() || null,
+    vulnerable_activity_fraction:
+      form.vulnerable_activity_fraction === VULNERABLE_NONE
+        ? ""
+        : form.vulnerable_activity_fraction || "",
     phone,
     email: form.email.trim() || null,
     address: compactAddress(form.address),
@@ -404,6 +424,10 @@ function applyEmptyFromMetadata(
     economic_activity: pick(
       prev.economic_activity,
       asString(meta.economic_activity)
+    ),
+    vulnerable_activity_fraction: pick(
+      prev.vulnerable_activity_fraction,
+      asString(meta.vulnerable_activity_fraction)
     ),
     email: pick(prev.email, asString(meta.email)),
     phone: filled(prev.phone) ? prev.phone : parsedPhone.local || prev.phone,
@@ -712,6 +736,9 @@ export function PldIntakeForm({
   };
 
   const isMexican = (form.nationality || "MX") === "MX";
+  const pickedVulnerable = (row.vulnerable_activity_catalog || []).find(
+    (item) => item.fraction === form.vulnerable_activity_fraction
+  );
   const allSlots = row.document_slots || [];
   const sectionDocsDone = (section: string) =>
     requiredSectionDocsExtracted(
@@ -1202,27 +1229,41 @@ export function PldIntakeForm({
         value={form.economic_activity}
         onChange={(e) => setField("economic_activity", e.currentTarget.value)}
       />
-      {row.vulnerable_activity ? (
+      {row.vulnerable_activity_guess ? (
         <Alert color="yellow" variant="light">
           <Text size="sm">
-            {t("compliance-notice-activity", {
-              fraction: row.vulnerable_activity.fraction,
-              activity: row.vulnerable_activity.activity,
+            {t("compliance-notice-guess", {
+              fraction: row.vulnerable_activity_guess.fraction,
+              activity: row.vulnerable_activity_guess.activity,
+              keyword: row.vulnerable_activity_guess.keyword || "",
             })}
           </Text>
-          {row.vulnerable_activity.notice_uma != null &&
-          row.vulnerable_activity.notice_mxn != null ? (
-            <Text size="sm">
-              {t("compliance-notice-limit", {
-                uma: row.vulnerable_activity.notice_uma.toLocaleString("es-MX"),
-                money: row.vulnerable_activity.notice_mxn.toLocaleString("es-MX", {
-                  style: "currency",
-                  currency: "MXN",
-                }),
-              })}
-            </Text>
-          ) : null}
         </Alert>
+      ) : null}
+      <Select
+        label={t("compliance-intake-vulnerable")}
+        data={[
+          { value: VULNERABLE_NONE, label: t("compliance-intake-vulnerable-none") },
+          ...(row.vulnerable_activity_catalog || []).map((item) => ({
+            value: item.fraction,
+            label: `${item.fraction} — ${item.activity}`,
+          })),
+        ]}
+        value={form.vulnerable_activity_fraction || VULNERABLE_NONE}
+        onChange={(value) =>
+          setField("vulnerable_activity_fraction", value || VULNERABLE_NONE)
+        }
+      />
+      {pickedVulnerable?.notice_uma != null && pickedVulnerable.notice_mxn != null ? (
+        <Text size="sm" c="dimmed">
+          {t("compliance-notice-limit", {
+            uma: pickedVulnerable.notice_uma.toLocaleString("es-MX"),
+            money: pickedVulnerable.notice_mxn.toLocaleString("es-MX", {
+              style: "currency",
+              currency: "MXN",
+            }),
+          })}
+        </Text>
       ) : null}
 
       <FieldRow>

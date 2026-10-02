@@ -65,6 +65,7 @@ class PersonaFisicaMetadata(BaseModel):
     curp: str | None = None
     rfc: str | None = None
     economic_activity: str | None = None
+    vulnerable_activity_fraction: str | None = None
     phone: str | None = None
     email: str | None = None
     address: AddressData | None = None
@@ -103,6 +104,7 @@ class PersonaMoralMetadata(BaseModel):
     nationality: str | None = None
     rfc: str | None = None
     economic_activity: str | None = None
+    vulnerable_activity_fraction: str | None = None
     phone: str | None = None
     email: str | None = None
     address: AddressData | None = None

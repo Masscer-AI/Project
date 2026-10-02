@@ -2386,8 +2386,35 @@ class VulnerableActivityTests(SimpleTestCase):
         match = match_vulnerable_activity("Otras construcciones de ingeniería civil")
         self.assertIsNotNone(match)
         self.assertEqual(match["fraction"], "V")
+        self.assertEqual(match["keyword"], "construc")
         self.assertEqual(match["notice_uma"], 8025)
         self.assertGreater(match["notice_mxn"], 941000)
+
+    def test_empty_fraction_is_not_vulnerable(self):
+        from types import SimpleNamespace
+
+        from api.compliance.risk.activities import resolve_vulnerable_activity
+
+        entity = SimpleNamespace(
+            metadata={"economic_activity": "construcción", "vulnerable_activity_fraction": ""},
+            expedients=SimpleNamespace(order_by=lambda *_: SimpleNamespace(first=lambda: None)),
+        )
+        self.assertIsNone(resolve_vulnerable_activity(entity))
+
+    def test_chosen_fraction_overrides_guess(self):
+        from types import SimpleNamespace
+
+        from api.compliance.risk.activities import resolve_vulnerable_activity
+
+        entity = SimpleNamespace(
+            metadata={
+                "economic_activity": "construcción",
+                "vulnerable_activity_fraction": "XVI",
+            },
+            expedients=SimpleNamespace(order_by=lambda *_: SimpleNamespace(first=lambda: None)),
+        )
+        match = resolve_vulnerable_activity(entity)
+        self.assertEqual(match["fraction"], "XVI")
 
 
 class PldMatrixScoreTests(SimpleTestCase):
