@@ -86,7 +86,7 @@ def _set_path(payload: dict[str, Any], dotted: str, value: Any) -> None:
     current[parts[-1]] = value
 
 
-_IDMEX_RE = re.compile(r"IDMEX\s*(\d+)", re.I)
+_IDMEX_RE = re.compile(r"IDMEX\d{10}<{2}(\d{13})", re.I)
 _CLAVE_ELECTOR_RE = re.compile(r"[A-Za-z]")
 
 

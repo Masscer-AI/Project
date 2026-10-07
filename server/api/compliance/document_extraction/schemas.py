@@ -82,13 +82,13 @@ class OfficialIdExtraction(ProvenanceMixin):
     document_number: str | None = Field(
         default=None,
         description=(
-            "ID-folio_clave: INE digits after IDMEX on the reverse MRZ; "
+            "ID-folio_clave: INE 13 digits after IDMEX and 10 digits on the reverse MRZ; "
             "passport number otherwise. Not clave de elector."
         ),
     )
     cic: str | None = Field(
         default=None,
-        description="INE CIC: digits immediately after IDMEX on the reverse",
+        description="INE OCR: 13 digits after IDMEX and 10 digits on the reverse MRZ",
     )
     ocr_line: str | None = None
     citizen_identifier: str | None = Field(

@@ -52,11 +52,11 @@ _SHARED_RULES = (
 
 _INE_ID_RULES = (
     "INE does not print RFC. "
-    "On INE, the identification number is on the reverse (parte de atras): the digits "
-    "immediately after IDMEX on the MRZ. Example: IDMEX1726181815 -> 1726181815. "
-    "Put those digits in document_number and cic. Never put clave de elector in "
-    "document_number. Put clave de elector in citizen_identifier. Put the digits after "
-    "<< on that same MRZ line in ocr_line. Copy the three MRZ lines into mrz. "
+    "On INE, the identification number is on the reverse (parte de atras): the 13 digits "
+    "after IDMEX and 10 digits on the MRZ. Example: IDMEX1726181815<<0485005767038 -> 0485005767038. "
+    "Put those digits in document_number, cic, and ocr_line. Never put clave de elector in "
+    "document_number. Put clave de elector in citizen_identifier. "
+    "Copy the three MRZ lines into mrz. "
     "If the reverse is not in the file, leave document_number and cic null. "
     "Set document_subtype to exactly one of ine, passport, professional_license, or other. "
     "Set full_name, date_of_birth, sex, validity_year or "

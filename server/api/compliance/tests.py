@@ -1926,7 +1926,7 @@ class ExtractionHydrateTests(SimpleTestCase):
         self.assertEqual(filled.validity_year, "2028")
         self.assertIsNone(filled.curp)
 
-    def test_official_id_uses_digits_after_idmex(self):
+    def test_official_id_uses_last_13_mrz_digits(self):
         from api.compliance.document_extraction.hydrate import hydrate_extraction
         from api.compliance.document_extraction.schemas import OfficialIdExtraction
 
@@ -1942,8 +1942,8 @@ class ExtractionHydrateTests(SimpleTestCase):
             }
         )
         filled = hydrate_extraction(empty, "id_representante")
-        self.assertEqual(filled.document_number, "1726181815")
-        self.assertEqual(filled.cic, "1726181815")
+        self.assertEqual(filled.document_number, "0485005767038")
+        self.assertEqual(filled.cic, "0485005767038")
         self.assertEqual(filled.citizen_identifier, "RYRQBL83101627M000")
 
     def test_fills_curp_fields_from_spanish_provenances(self):
