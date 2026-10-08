@@ -548,7 +548,7 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({
             </Group>
           )}
 
-          <Table.ScrollContainer minWidth={500}>
+          <Table.ScrollContainer minWidth={960}>
             <Table highlightOnHover>
               <Table.Thead>
                 <Table.Tr>
@@ -569,7 +569,7 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({
                   </Table.Th>
                   <Table.Th w={40} />
                   <Table.Th>{t("title")}</Table.Th>
-                  <Table.Th>{t("identity")}</Table.Th>
+                  <Table.Th miw={170}>{t("identity")}</Table.Th>
                   <Table.Th>
                     <UnstyledButton onClick={toggleMessagesSort}>
                       <Group gap={4} wrap="nowrap">
@@ -588,7 +588,7 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({
                     </UnstyledButton>
                   </Table.Th>
                   <Table.Th>{t("date")}</Table.Th>
-                  <Table.Th>Status</Table.Th>
+                  <Table.Th miw={108}>Status</Table.Th>
                   <Table.Th>{t("tags")}</Table.Th>
                   <Table.Th>{t("alerts")}</Table.Th>
                 </Table.Tr>
@@ -640,13 +640,14 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({
                             {conv.title || conv.id.slice(0, 20) + "..."}
                           </Text>
                         </Table.Td>
-                        <Table.Td>
+                        <Table.Td miw={170} style={{ whiteSpace: "nowrap" }}>
                           {conv.whatsapp_user_number ? (
                             <Badge
                               size="sm"
                               variant="light"
                               color="teal"
                               leftSection={<IconBrandWhatsapp size={12} />}
+                              style={{ maxWidth: "none" }}
                             >
                               {conv.whatsapp_user_number.startsWith("+")
                                 ? conv.whatsapp_user_number
@@ -658,6 +659,7 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({
                               variant="light"
                               color="violet"
                               leftSection={<IconDeviceDesktop size={12} />}
+                              style={{ maxWidth: "none" }}
                             >
                               {chatWidgetMap.get(conv.chat_widget_id) ??
                                 `Widget ${conv.chat_widget_id}`}
@@ -668,6 +670,7 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({
                               variant="light"
                               color="blue"
                               leftSection={<IconUsers size={12} />}
+                              style={{ maxWidth: "none" }}
                             >
                               {conv.user_id != null && currentUserId != null && conv.user_id === currentUserId
                                 ? t("you")
@@ -694,7 +697,7 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({
                               : "-"}
                           </Text>
                         </Table.Td>
-                        <Table.Td>
+                        <Table.Td miw={108} style={{ whiteSpace: "nowrap" }}>
                           <Badge
                             size="sm"
                             variant="light"
@@ -709,6 +712,7 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({
                                       ? "red"
                                       : "gray"
                             }
+                            style={{ maxWidth: "none" }}
                           >
                             {conv.status || "unknown"}
                           </Badge>

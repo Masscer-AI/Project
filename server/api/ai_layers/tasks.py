@@ -1717,15 +1717,15 @@ def conversation_agent_task(
             from api.integrations.services import user_has_personal_google_calendar
             from api.whatsapp.models import WSNumber
 
-            _has_personal_calendar = user_has_personal_google_calendar(actor_user_id)
-            agent_tool_names = [
-                t for t in agent_tool_names if t not in CALENDAR_AGENT_TOOL_NAMES
-            ]
-            if (
-                _has_personal_calendar
-                and not is_embedded_channel
-                and actor_user_id is not None
-            ):
+            _has_personal_calendar = (
+                actor_user_id is not None
+                and user_has_personal_google_calendar(actor_user_id)
+            )
+            if not _has_personal_calendar:
+                agent_tool_names = [
+                    t for t in agent_tool_names if t not in CALENDAR_AGENT_TOOL_NAMES
+                ]
+            elif not is_embedded_channel:
                 for _cal_tool in CALENDAR_AGENT_TOOL_NAMES:
                     if _cal_tool not in agent_tool_names and _may_auto_inject_tool(_cal_tool):
                         agent_tool_names.append(_cal_tool)
