@@ -79,16 +79,18 @@ def maybe_dispatch_identification_packet(expedient: PLDExpedient) -> None:
 
     from api.esign.models import (
         SignatureDocumentKind,
+        SignatureProvider,
         SignatureRequest,
         SignatureRequestStatus,
         SignatureSigner,
     )
-    from api.esign.tasks import submit_signature_request_to_mifiel
+    from api.esign.tasks import submit_signature_request_to_jaak
 
     primary = signers[0]
     signature_request = SignatureRequest.objects.create(
         organization=expedient.organization,
         requested_by=getattr(expedient.organization, "owner", None),
+        provider=SignatureProvider.JAAK,
         document_kind=SignatureDocumentKind.KYC_FILE,
         title=f"Expediente de identificacion — {name}"[:255],
         signatory_name=primary["name"],
@@ -118,7 +120,7 @@ def maybe_dispatch_identification_packet(expedient: PLDExpedient) -> None:
             "updated_at",
         ]
     )
-    submit_signature_request_to_mifiel.delay(str(signature_request.id))
+    submit_signature_request_to_jaak.delay(str(signature_request.id))
     logger.info(
         "Dispatched identification packet for expedient %s as SignatureRequest %s (%s signers)",
         expedient.id,

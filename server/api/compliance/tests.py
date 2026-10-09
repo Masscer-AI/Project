@@ -1758,7 +1758,7 @@ class PLDDocumentExtractionTests(TestCase):
         self.assertIn("csf.pdf", text)
         self.assertIn("PLD Extract Org", text)
 
-    @patch("api.esign.tasks.submit_signature_request_to_mifiel.delay")
+    @patch("api.esign.tasks.submit_signature_request_to_jaak.delay")
     def test_clear_screening_dispatches_packet_for_signature(self, delay):
         from api.compliance.models import PLDExpedient, PLDExpedientStatus
         from api.compliance.packet import maybe_dispatch_identification_packet
@@ -1803,6 +1803,7 @@ class PLDDocumentExtractionTests(TestCase):
         self.assertEqual(self.expedient.status, PLDExpedientStatus.WAITING_SIGN)
         self.assertTrue(self.expedient.packet_file)
         sr = SignatureRequest.objects.get()
+        self.assertEqual(sr.provider, "jaak")
         self.assertEqual(sr.signatory_email, "extract@example.com")
         self.assertEqual(sr.document_kind, "kyc_file")
         self.assertEqual(sr.signers.count(), 2)

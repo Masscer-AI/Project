@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 from django.contrib.auth.models import User
 from django.core.files.base import ContentFile
 from django.test import Client as DjangoClient
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase, override_settings
 from rest_framework.test import APIClient
 
 from api.ai_layers.models import LanguageModel
@@ -14,6 +14,7 @@ from api.consumption.models import Currency
 from api.messaging.models import Conversation, MessageAttachment
 from api.providers.models import AIProvider
 
+from .jaak_client import JaakClient
 from .mifiel_client import MifielAPIError
 from .models import SignatureRequest, SignatureRequestEvent, SignatureRequestStatus
 from .tasks import process_mifiel_webhook_event, submit_signature_request_to_mifiel
@@ -505,3 +506,108 @@ class PublicSignatureRequestViewTests(EsignFixtureMixin, TestCase):
             "/v1/esign/sign/00000000-0000-0000-0000-000000000000/"
         )
         self.assertEqual(response.status_code, 404)
+
+
+class JaakClientTests(SimpleTestCase):
+    def setUp(self):
+        JaakClient._token = ""
+        JaakClient._token_until = 0
+
+    @override_settings(
+        JAAK_API_EMAIL="a@b.c",
+        JAAK_API_PASSWORD="secret",
+        JAAK_API_BASE="https://api.sandbox.jaak.ai/api/v1",
+    )
+    @patch("api.esign.jaak_client.requests.request")
+    def test_reuses_token_and_places_one_box_per_signer(self, request):
+        captured = {}
+
+        def side_effect(method, url, **kwargs):
+            response = MagicMock()
+            response.ok = True
+            response.content = b"{}"
+            if url.endswith("/sign-in"):
+                response.json.return_value = {"accessToken": "tok", "expiresIn": 900}
+            elif url.endswith("/templates"):
+                captured["template"] = kwargs["json"]
+                response.json.return_value = {"id": "1498"}
+            else:
+                captured["submission"] = kwargs["json"]
+                response.json.return_value = {"submitters": []}
+            return response
+
+        request.side_effect = side_effect
+        client = JaakClient()
+        template = client.create_template(
+            name="Expediente",
+            filename="expediente.pdf",
+            file_bytes=b"%PDF",
+            roles=["Firmante 1", "Firmante 2"],
+        )
+        client.create_submission(
+            template_id=template["id"],
+            signers=[
+                {"name": "Ana", "email": "ana@test.com"},
+                {"name": "Luis", "email": "luis@test.com"},
+            ],
+        )
+        client.access_token()
+        sign_ins = [
+            call for call in request.call_args_list if str(call.args[1]).endswith("/sign-in")
+        ]
+        self.assertEqual(len(sign_ins), 1)
+        self.assertEqual(captured["template"]["signature_type"], "efirma_sat")
+        fields = captured["template"]["documents"][0]["fields"]
+        self.assertEqual(len(fields), 2)
+        self.assertEqual(fields[1]["areas"][0]["y"], fields[0]["areas"][0]["y"] - 70)
+        self.assertTrue(captured["submission"]["send_email"])
+        self.assertFalse(captured["submission"]["send_sms"])
+        self.assertFalse(captured["submission"]["send_whatsapp"])
+
+
+class SubmitJaakTaskTests(EsignFixtureMixin, TestCase):
+    @patch("api.esign.tasks.JaakClient")
+    def test_stores_submission_id(self, client_cls):
+        from api.esign.models import SignatureProvider, SignatureSigner
+
+        from .tasks import submit_signature_request_to_jaak
+
+        signature_request = SignatureRequest.objects.create(
+            organization=self.org,
+            provider=SignatureProvider.JAAK,
+            signatory_name="Ana",
+            signatory_email="ana@test.com",
+            source_file=self.attachment,
+        )
+        SignatureSigner.objects.create(
+            signature_request=signature_request,
+            name="Ana",
+            email="ana@test.com",
+        )
+        client = client_cls.return_value
+        client.create_template.return_value = {"id": "1498"}
+        client.create_submission.return_value = {
+            "submitters": [
+                {"submission_id": "334", "email": "ana@test.com", "slug": "abc"}
+            ]
+        }
+        submit_signature_request_to_jaak(str(signature_request.id))
+        signature_request.refresh_from_db()
+        self.assertEqual(signature_request.provider_document_id, "334")
+        self.assertEqual(signature_request.metadata["jaak_template_id"], "1498")
+        self.assertEqual(signature_request.signers.get().provider_widget_id, "abc")
+
+
+class JaakWebhookTests(TestCase):
+    def test_stores_any_body_and_returns_200(self):
+        from api.esign.models import JaakWebhookInbox
+
+        response = APIClient().post(
+            "/v1/esign/jaak/webhook",
+            data=b"not-json {",
+            content_type="text/plain",
+        )
+        self.assertEqual(response.status_code, 200)
+        row = JaakWebhookInbox.objects.get()
+        self.assertEqual(row.body, "not-json {")
+        self.assertEqual(row.content_type, "text/plain")

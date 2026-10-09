@@ -12,6 +12,8 @@ export interface ProviderParameterArns {
   bflApiKeyArn: pulumi.Output<string>;
   runwayApiKeyArn: pulumi.Output<string>;
   gammaApiKeyArn: pulumi.Output<string>;
+  jaakApiEmailArn: pulumi.Output<string>;
+  jaakApiPasswordArn: pulumi.Output<string>;
   resendApiKeyArn: pulumi.Output<string>;
   whatsappGraphApiTokenArn: pulumi.Output<string>;
   whatsappWebhookVerifyTokenArn: pulumi.Output<string>;
@@ -32,6 +34,8 @@ export function createProviderParameters(args: {
   bflApiKey: pulumi.Input<string>;
   runwayApiKey: pulumi.Input<string>;
   gammaApiKey: pulumi.Input<string>;
+  jaakApiEmail: pulumi.Input<string>;
+  jaakApiPassword: pulumi.Input<string>;
   whatsappGraphApiToken: pulumi.Input<string>;
   whatsappWebhookVerifyToken: pulumi.Input<string>;
   googleOauthClientId: pulumi.Input<string>;
@@ -107,6 +111,18 @@ export function createProviderParameters(args: {
     value: normalizeSecret(args.gammaApiKey),
   });
 
+  const jaakApiEmail = new aws.ssm.Parameter("jaak-api-email-param", {
+    name: `${basePath}/JAAK_API_EMAIL`,
+    type: "SecureString",
+    value: normalizeSecret(args.jaakApiEmail),
+  });
+
+  const jaakApiPassword = new aws.ssm.Parameter("jaak-api-password-param", {
+    name: `${basePath}/JAAK_API_PASSWORD`,
+    type: "SecureString",
+    value: normalizeSecret(args.jaakApiPassword),
+  });
+
   const resendApiKey = new aws.ssm.Parameter("resend-api-key-param", {
     name: `${basePath}/RESEND_API_KEY`,
     type: "SecureString",
@@ -164,6 +180,8 @@ export function createProviderParameters(args: {
     bflApiKey.arn,
     runwayApiKey.arn,
     gammaApiKey.arn,
+    jaakApiEmail.arn,
+    jaakApiPassword.arn,
     resendApiKey.arn,
     whatsappGraphApiToken.arn,
     whatsappWebhookVerifyToken.arn,
@@ -203,6 +221,8 @@ export function createProviderParameters(args: {
     bflApiKeyArn: bflApiKey.arn,
     runwayApiKeyArn: runwayApiKey.arn,
     gammaApiKeyArn: gammaApiKey.arn,
+    jaakApiEmailArn: jaakApiEmail.arn,
+    jaakApiPasswordArn: jaakApiPassword.arn,
     resendApiKeyArn: resendApiKey.arn,
     whatsappGraphApiTokenArn: whatsappGraphApiToken.arn,
     whatsappWebhookVerifyTokenArn: whatsappWebhookVerifyToken.arn,

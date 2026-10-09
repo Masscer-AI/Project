@@ -38,6 +38,8 @@ export interface AppConfig {
   bflApiKey: pulumi.Output<string>;
   runwayApiKey: pulumi.Output<string>;
   gammaApiKey: pulumi.Output<string>;
+  jaakApiEmail: pulumi.Output<string>;
+  jaakApiPassword: pulumi.Output<string>;
   whatsappGraphApiToken: pulumi.Output<string>;
   whatsappWebhookVerifyToken: pulumi.Output<string>;
   googleOauthClientId: pulumi.Output<string>;
@@ -91,6 +93,8 @@ export function loadConfig(): AppConfig {
     bflApiKey: cfg.getSecret("bflApiKey") ?? pulumi.output(""),
     runwayApiKey: cfg.getSecret("runwayApiKey") ?? pulumi.output(""),
     gammaApiKey: cfg.getSecret("gammaApiKey") ?? pulumi.output(""),
+    jaakApiEmail: cfg.getSecret("jaakApiEmail") ?? pulumi.output(""),
+    jaakApiPassword: cfg.getSecret("jaakApiPassword") ?? pulumi.output(""),
     whatsappGraphApiToken: cfg.getSecret("whatsappGraphApiToken") ?? pulumi.output(""),
     whatsappWebhookVerifyToken: cfg.getSecret("whatsappWebhookVerifyToken") ?? pulumi.output(""),
     googleOauthClientId: pulumi.output(cfg.get("googleOauthClientId") ?? ""),

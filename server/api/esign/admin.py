@@ -3,7 +3,7 @@ from django.shortcuts import redirect
 from django.urls import path, reverse
 
 from .mifiel_client import MifielAPIError, MifielClient
-from .models import SignatureRequest, SignatureRequestEvent, SignatureSigner
+from .models import JaakWebhookInbox, SignatureRequest, SignatureRequestEvent, SignatureSigner
 
 MIFIEL_WEBHOOK_EVENT_TYPES = (
     "document_closed",
@@ -27,6 +27,18 @@ class SignatureRequestEventInline(admin.TabularInline):
     readonly_fields = ("event_type", "payload", "received_at")
     can_delete = False
     ordering = ("received_at",)
+
+
+@admin.register(JaakWebhookInbox)
+class JaakWebhookInboxAdmin(admin.ModelAdmin):
+    list_display = ("received_at", "content_type", "body_preview")
+    readonly_fields = ("id", "content_type", "body", "received_at")
+    ordering = ("-received_at",)
+
+    @admin.display(description="Body")
+    def body_preview(self, obj):
+        text = obj.body or ""
+        return text[:120]
 
 
 @admin.register(SignatureRequest)

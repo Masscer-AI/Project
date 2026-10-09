@@ -7,6 +7,7 @@ from celery import shared_task
 from django.core.files.base import ContentFile
 from django.utils import timezone
 
+from .jaak_client import JaakAPIError, JaakClient
 from .mifiel_client import MifielAPIError, MifielClient
 from .models import SignatureRequest, SignatureRequestEvent, SignatureRequestStatus
 
@@ -118,6 +119,88 @@ def submit_signature_request_to_mifiel(signature_request_id: str) -> None:
         "SignatureRequest %s submitted to Mifiel as document %s",
         signature_request_id,
         signature_request.provider_document_id,
+    )
+
+
+@shared_task
+def submit_signature_request_to_jaak(signature_request_id: str) -> None:
+    try:
+        signature_request = SignatureRequest.objects.prefetch_related("signers").get(
+            id=signature_request_id
+        )
+    except SignatureRequest.DoesNotExist:
+        logger.error("SignatureRequest %s not found", signature_request_id)
+        return
+
+    file_bytes, filename = _source_pdf(signature_request)
+    if file_bytes is None:
+        signature_request.status = SignatureRequestStatus.ERROR
+        signature_request.metadata = {
+            **signature_request.metadata,
+            "error": "source PDF is missing.",
+        }
+        signature_request.save(update_fields=["status", "metadata", "updated_at"])
+        return
+
+    signers_qs = list(signature_request.signers.all())
+    if signers_qs:
+        people = [{"name": row.name, "email": row.email} for row in signers_qs]
+    else:
+        people = [
+            {
+                "name": signature_request.signatory_name,
+                "email": signature_request.signatory_email,
+            }
+        ]
+    roles = [f"Firmante {index + 1}" for index in range(len(people))]
+    try:
+        client = JaakClient()
+        template = client.create_template(
+            name=signature_request.title or filename,
+            filename=filename,
+            file_bytes=file_bytes,
+            roles=roles,
+        )
+        template_id = str(template.get("id") or "")
+        submission = client.create_submission(template_id=template_id, signers=people)
+    except JaakAPIError as exc:
+        logger.error(
+            "Jaak submit failed for SignatureRequest %s: %s",
+            signature_request_id,
+            exc,
+        )
+        signature_request.status = SignatureRequestStatus.ERROR
+        signature_request.metadata = {**signature_request.metadata, "error": str(exc)}
+        signature_request.save(update_fields=["status", "metadata", "updated_at"])
+        return
+
+    remote = submission.get("submitters") if isinstance(submission.get("submitters"), list) else []
+    submission_id = ""
+    if remote and isinstance(remote[0], dict):
+        submission_id = str(remote[0].get("submission_id") or "")
+    by_email = {row.email.casefold(): row for row in signers_qs}
+    for item in remote:
+        if not isinstance(item, dict):
+            continue
+        rec = by_email.get((item.get("email") or "").strip().casefold())
+        if not rec:
+            continue
+        rec.provider_widget_id = str(item.get("slug") or "")
+        rec.save(update_fields=["provider_widget_id", "updated_at"])
+    signature_request.provider_document_id = submission_id
+    signature_request.metadata = {
+        **signature_request.metadata,
+        "jaak_template_id": template_id,
+        "jaak_submission_id": submission_id,
+        "create_response": submission,
+    }
+    signature_request.save(
+        update_fields=["provider_document_id", "metadata", "updated_at"]
+    )
+    logger.info(
+        "SignatureRequest %s submitted to Jaak as submission %s",
+        signature_request_id,
+        submission_id,
     )
 
 

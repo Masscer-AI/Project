@@ -19,7 +19,12 @@ from django.http import HttpResponse, JsonResponse
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
-from .models import SignatureRequest, SignatureRequestStatus, SignatureSigner
+from .models import (
+    JaakWebhookInbox,
+    SignatureRequest,
+    SignatureRequestStatus,
+    SignatureSigner,
+)
 from .tasks import process_mifiel_webhook_event
 
 logger = logging.getLogger(__name__)
@@ -37,6 +42,19 @@ def mifiel_webhook(request):
 
     logger.info("Received Mifiel webhook: event=%s", payload.get("event"))
     process_mifiel_webhook_event.delay(payload=payload)
+    return HttpResponse(status=200)
+
+
+@csrf_exempt
+def jaak_webhook(request):
+    if request.method != "POST":
+        return HttpResponse(status=405)
+    raw = request.body.decode("utf-8", errors="replace")
+    JaakWebhookInbox.objects.create(
+        content_type=(request.content_type or "")[:128],
+        body=raw,
+    )
+    logger.info("Stored Jaak webhook (%s bytes)", len(raw))
     return HttpResponse(status=200)
 
 

@@ -8,6 +8,7 @@ from django.db import models
 
 class SignatureProvider(models.TextChoices):
     MIFIEL = "mifiel", "Mifiel"
+    JAAK = "jaak", "Jaak"
 
 
 class SignatureDocumentKind(models.TextChoices):
@@ -203,6 +204,19 @@ class SignatureSigner(models.Model):
 
     def __str__(self) -> str:
         return f"SignatureSigner({self.email}, {self.role})"
+
+
+class JaakWebhookInbox(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    content_type = models.CharField(max_length=128, blank=True, default="")
+    body = models.TextField(blank=True, default="")
+    received_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-received_at"]
+
+    def __str__(self) -> str:
+        return f"JaakWebhookInbox({self.received_at})"
 
 
 class SignatureRequestEvent(models.Model):

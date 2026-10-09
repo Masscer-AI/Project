@@ -99,6 +99,7 @@ export function createAppServices(args: {
     { name: "AWS_S3_REGION_NAME", value: args.region.name },
     { name: "RESEND_FROM_DOMAIN", value: "mail.masscer.ai" },
     { name: "GAMMA_EXPEDIENTE_TEMPLATE_ID", value: "g_ss07hpbni8ilyhy" },
+    { name: "JAAK_API_BASE", value: "https://api.sandbox.jaak.ai/api/v1" },
   ];
 
   const providerSecrets = [
@@ -112,6 +113,8 @@ export function createAppServices(args: {
     { name: "BFL_API_KEY", valueFrom: args.providerParameterArns.bflApiKeyArn },
     { name: "RUNWAY_API_KEY", valueFrom: args.providerParameterArns.runwayApiKeyArn },
     { name: "GAMMA_API_KEY", valueFrom: args.providerParameterArns.gammaApiKeyArn },
+    { name: "JAAK_API_EMAIL", valueFrom: args.providerParameterArns.jaakApiEmailArn },
+    { name: "JAAK_API_PASSWORD", valueFrom: args.providerParameterArns.jaakApiPasswordArn },
     { name: "RESEND_API_KEY", valueFrom: args.providerParameterArns.resendApiKeyArn },
     { name: "WHATSAPP_GRAPH_API_TOKEN", valueFrom: args.providerParameterArns.whatsappGraphApiTokenArn },
     { name: "WHATSAPP_WEBHOOK_VERIFY_TOKEN", valueFrom: args.providerParameterArns.whatsappWebhookVerifyTokenArn },
