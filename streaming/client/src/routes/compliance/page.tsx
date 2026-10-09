@@ -4,37 +4,66 @@ import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
 import { AppPage } from "../../components/AppPage/AppPage";
 import {
-  ActionIcon,
   Badge,
   Box,
   Button,
   Card,
+  Drawer,
   Group,
   Loader,
   Modal,
   NativeSelect,
+  SimpleGrid,
   Stack,
   Switch,
+  Table,
   Text,
   TextInput,
   Title,
-  Tooltip,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { IconMail, IconPlus, IconTrash } from "@tabler/icons-react";
+import { IconPlus } from "@tabler/icons-react";
 import {
   createPldEntity,
   deletePldEntity,
+  getPldEntityProgress,
   listPldEntities,
   sendPldEntityInvite,
   startPldProcess,
   TPldEntity,
+  TPldEntityProgress,
 } from "../../modules/apiCalls";
+
+const CLOSED = new Set(["signed", "delivered"]);
+const HIGH_RISK = new Set(["orange", "red"]);
+const STAGES = [
+  "data_collection",
+  "document_collection",
+  "cross_reference",
+  "waiting_sign",
+  "signed",
+  "delivered",
+  "action_required",
+];
 
 function entityDisplayName(entity: TPldEntity): string {
   const meta = entity.metadata || {};
   const name = meta.legal_name || meta.name;
   return typeof name === "string" && name.trim() ? name.trim() : entity.id;
+}
+
+function riskBadgeColor(semaphore?: string) {
+  if (semaphore === "green") return "teal";
+  if (semaphore === "yellow") return "yellow";
+  if (semaphore === "orange") return "orange";
+  if (semaphore === "red") return "red";
+  return "gray";
+}
+
+function stepBadgeColor(state: string) {
+  if (state === "done") return "teal";
+  if (state === "current") return "violet";
+  return "gray";
 }
 
 export default function ComplianceHubPage() {
@@ -55,11 +84,24 @@ export default function ComplianceHubPage() {
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [ppeEnabled, setPpeEnabled] = useState(false);
+  const [query, setQuery] = useState("");
+  const [relFilter, setRelFilter] = useState("all");
+  const [stageFilter, setStageFilter] = useState("all");
+  const [riskFilter, setRiskFilter] = useState("all");
+  const [panelOpened, { open: openPanel, close: closePanel }] = useDisclosure(false);
+  const [selected, setSelected] = useState<TPldEntity | null>(null);
+  const [progress, setProgress] = useState<TPldEntityProgress | null>(null);
+  const [progressLoading, setProgressLoading] = useState(false);
 
   const loadEntities = async () => {
     try {
       const data = await listPldEntities();
-      setEntities(data.results || []);
+      const rows = data.results || [];
+      setEntities(rows);
+      setSelected((current) => {
+        if (!current) return current;
+        return rows.find((row) => row.id === current.id) || current;
+      });
       setOrgProcessReady(Boolean(data.org_process_ready));
     } catch {
       toast.error(t("compliance-entities-load-error"));
@@ -73,9 +115,6 @@ export default function ComplianceHubPage() {
   useEffect(() => {
     void loadEntities();
   }, []);
-
-  const counterparties = entities.filter((e) => e.relationship != null);
-  const selfEntity = entities.find((e) => e.relationship == null);
 
   const resetAddForm = () => {
     setDisplayName("");
@@ -139,6 +178,8 @@ export default function ComplianceHubPage() {
       await deletePldEntity(pendingDelete.id);
       toast.success(t("compliance-counterparty-deleted"));
       closeDelete();
+      closePanel();
+      setSelected(null);
       setPendingDelete(null);
       await loadEntities();
     } catch {
@@ -160,16 +201,86 @@ export default function ComplianceHubPage() {
 
   const inviteLabel = (entity: TPldEntity) => {
     if (entity.invite?.status === "accepted") return t("compliance-invite-accepted");
-    if (entity.invite?.status === "pending") return t("compliance-invite-resend");
-    return t("compliance-invite-send");
+    if (entity.invite?.status === "pending") return t("compliance-invite-pending");
+    return t("compliance-invite-none");
   };
+
+  const openRow = async (entity: TPldEntity) => {
+    setSelected(entity);
+    setProgress(null);
+    openPanel();
+    setProgressLoading(true);
+    try {
+      setProgress(await getPldEntityProgress(entity.id));
+    } catch {
+      toast.error(t("compliance-progress-error"));
+    } finally {
+      setProgressLoading(false);
+    }
+  };
+
+  const ordered = [...entities].sort((a, b) => {
+    if (a.relationship == null) return -1;
+    if (b.relationship == null) return 1;
+    return 0;
+  });
+  const needle = query.trim().toLowerCase();
+  const visible = ordered.filter((entity) => {
+    if (needle) {
+      const blob = [
+        entityDisplayName(entity),
+        entity.email || "",
+        entity.rfc || "",
+      ]
+        .join(" ")
+        .toLowerCase();
+      if (!blob.includes(needle)) return false;
+    }
+    if (relFilter === "self" && entity.relationship != null) return false;
+    if (relFilter !== "all" && relFilter !== "self" && entity.relationship !== relFilter) {
+      return false;
+    }
+    if (stageFilter !== "all" && entity.expedient?.status !== stageFilter) return false;
+    const semaphore = entity.expedient?.semaphore || "";
+    if (riskFilter === "none" && semaphore) return false;
+    if (riskFilter !== "all" && riskFilter !== "none" && semaphore !== riskFilter) {
+      return false;
+    }
+    return true;
+  });
+  const openCount = entities.filter((entity) => !CLOSED.has(entity.expedient?.status || "")).length;
+  const actionCount = entities.filter(
+    (entity) => entity.expedient?.status === "action_required"
+  ).length;
+  const highRiskCount = entities.filter((entity) =>
+    HIGH_RISK.has(entity.expedient?.semaphore || "")
+  ).length;
 
   return (
     <AppPage title={t("compliance-hub-title")}>
-        <Box px="md" w="100%" maw="52rem" mx="auto">
-          <Text ta="center" c="dimmed" mb="lg" size="sm">
+        <Box w="100%" maw="80rem" mx="auto">
+          <Text c="dimmed" mb="lg" size="sm">
             {t("compliance-hub-description")}
           </Text>
+
+          <SimpleGrid cols={{ base: 2, sm: 4 }} mb="lg">
+            <Card withBorder p="md">
+              <Text size="xl" fw={600}>{entities.length}</Text>
+              <Text size="sm" c="dimmed">{t("compliance-count-files")}</Text>
+            </Card>
+            <Card withBorder p="md">
+              <Text size="xl" fw={600}>{openCount}</Text>
+              <Text size="sm" c="dimmed">{t("compliance-count-open")}</Text>
+            </Card>
+            <Card withBorder p="md">
+              <Text size="xl" fw={600}>{actionCount}</Text>
+              <Text size="sm" c="dimmed">{t("compliance-count-action")}</Text>
+            </Card>
+            <Card withBorder p="md">
+              <Text size="xl" fw={600}>{highRiskCount}</Text>
+              <Text size="sm" c="dimmed">{t("compliance-count-high-risk")}</Text>
+            </Card>
+          </SimpleGrid>
 
           <Card withBorder p="lg" mb="lg">
             <Group justify="space-between" align="flex-start" wrap="wrap">
@@ -188,46 +299,6 @@ export default function ComplianceHubPage() {
             </Group>
           </Card>
 
-          {selfEntity && (
-            <Card withBorder p="md" mb="lg">
-              <Group justify="space-between">
-                <Stack gap={2}>
-                  <Text fw={500}>{entityDisplayName(selfEntity)}</Text>
-                  <Text size="sm" c="dimmed">
-                    {t("compliance-self-entity")}
-                  </Text>
-                </Stack>
-                {selfEntity.expedient && (
-                  <Group gap="xs">
-                    <Badge variant="light" color="violet">
-                      {t(`compliance-status-${selfEntity.expedient.status}`, {
-                        defaultValue: selfEntity.expedient.status,
-                      })}
-                    </Badge>
-                    {selfEntity.expedient.semaphore ? (
-                      <Badge
-                        variant="light"
-                        color={
-                          selfEntity.expedient.semaphore === "green"
-                            ? "teal"
-                            : selfEntity.expedient.semaphore === "red"
-                              ? "red"
-                              : selfEntity.expedient.semaphore === "orange"
-                                ? "orange"
-                                : "yellow"
-                        }
-                      >
-                        {t(`compliance-risk-${selfEntity.expedient.semaphore}`, {
-                          defaultValue: selfEntity.expedient.semaphore,
-                        })}
-                      </Badge>
-                    ) : null}
-                  </Group>
-                )}
-              </Group>
-            </Card>
-          )}
-
           <Card withBorder p="lg">
             <Group justify="space-between" mb="md">
               <Title order={4}>{t("compliance-counterparties")}</Title>
@@ -240,103 +311,246 @@ export default function ComplianceHubPage() {
               </Button>
             </Group>
 
+            <Group mb="md" grow align="flex-end">
+              <TextInput
+                placeholder={t("compliance-search")}
+                value={query}
+                onChange={(e) => {
+                  const val = e.currentTarget.value;
+                  setQuery(val);
+                }}
+              />
+              <NativeSelect
+                aria-label={t("compliance-filter-relationship")}
+                value={relFilter}
+                onChange={(e) => {
+                  const val = e.currentTarget.value;
+                  setRelFilter(val);
+                }}
+                data={[
+                  { value: "all", label: t("compliance-filter-all") },
+                  { value: "self", label: t("compliance-self-entity") },
+                  { value: "cliente", label: t("compliance-rel-cliente") },
+                  { value: "proveedor", label: t("compliance-rel-proveedor") },
+                  { value: "ambos", label: t("compliance-rel-ambos") },
+                ]}
+              />
+              <NativeSelect
+                aria-label={t("compliance-filter-stage")}
+                value={stageFilter}
+                onChange={(e) => {
+                  const val = e.currentTarget.value;
+                  setStageFilter(val);
+                }}
+                data={[
+                  { value: "all", label: t("compliance-filter-all") },
+                  ...STAGES.map((status) => ({
+                    value: status,
+                    label: t(`compliance-status-${status}`),
+                  })),
+                ]}
+              />
+              <NativeSelect
+                aria-label={t("compliance-filter-risk")}
+                value={riskFilter}
+                onChange={(e) => {
+                  const val = e.currentTarget.value;
+                  setRiskFilter(val);
+                }}
+                data={[
+                  { value: "all", label: t("compliance-filter-all") },
+                  { value: "green", label: t("compliance-risk-green") },
+                  { value: "yellow", label: t("compliance-risk-yellow") },
+                  { value: "orange", label: t("compliance-risk-orange") },
+                  { value: "red", label: t("compliance-risk-red") },
+                  { value: "none", label: t("compliance-risk-none") },
+                ]}
+              />
+            </Group>
+
             {loading ? (
               <Stack align="center" py="xl">
                 <Loader color="violet" size="sm" />
               </Stack>
-            ) : counterparties.length === 0 ? (
+            ) : entities.length === 0 ? (
               <Text c="dimmed" ta="center" py="xl">
                 {t("compliance-no-counterparties")}
               </Text>
+            ) : visible.length === 0 ? (
+              <Text c="dimmed" ta="center" py="xl">
+                {t("compliance-no-matches")}
+              </Text>
             ) : (
-              <Stack gap="sm">
-                {counterparties.map((entity) => (
-                  <Card
-                    key={entity.id}
-                    withBorder
-                    p="sm"
-                    style={{ background: "rgba(255,255,255,0.02)" }}
-                  >
-                    <Group justify="space-between" wrap="nowrap" align="flex-start">
-                      <Stack gap={2} style={{ minWidth: 0, flex: 1 }}>
-                        <Text fw={500} truncate>
-                          {entityDisplayName(entity)}
-                        </Text>
-                        <Text size="sm" c="dimmed">
-                          {t(`compliance-person-${entity.person_type}`)} ·{" "}
-                          {t(`compliance-rel-${entity.relationship}`)}
-                        </Text>
-                        {entity.email && (
-                          <Text size="sm" c="dimmed" truncate>
-                            {entity.email}
+              <Table.ScrollContainer minWidth={720}>
+                <Table highlightOnHover>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th>{t("compliance-col-name")}</Table.Th>
+                      <Table.Th>{t("compliance-col-rfc")}</Table.Th>
+                      <Table.Th>{t("compliance-col-type")}</Table.Th>
+                      <Table.Th>{t("compliance-col-stage")}</Table.Th>
+                      <Table.Th>{t("compliance-col-risk")}</Table.Th>
+                      <Table.Th>{t("compliance-col-invite")}</Table.Th>
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {visible.map((entity) => (
+                      <Table.Tr
+                        key={entity.id}
+                        style={{ cursor: "pointer" }}
+                        onClick={() => void openRow(entity)}
+                      >
+                        <Table.Td>
+                          <Text fw={500}>{entityDisplayName(entity)}</Text>
+                          <Text size="xs" c="dimmed">
+                            {t(`compliance-person-${entity.person_type}`)}
                           </Text>
-                        )}
-                        {entity.ppe_screening_enabled ? (
-                          <Badge variant="light" color="violet" w="fit-content">
-                            {t("compliance-ppe-badge")}
-                          </Badge>
-                        ) : null}
-                      </Stack>
-                      <Group gap="xs" wrap="nowrap">
-                        {entity.expedient && (
-                          <Badge variant="outline" color="gray">
-                            {t(`compliance-status-${entity.expedient.status}`, {
-                              defaultValue: entity.expedient.status,
-                            })}
-                          </Badge>
-                        )}
-                        {entity.expedient?.semaphore ? (
-                          <Badge
-                            variant="light"
-                            color={
-                              entity.expedient.semaphore === "green"
-                                ? "teal"
-                                : entity.expedient.semaphore === "yellow"
-                                  ? "yellow"
-                                  : entity.expedient.semaphore === "orange"
-                                    ? "orange"
-                                    : entity.expedient.semaphore === "red"
-                                      ? "red"
-                                      : "gray"
-                            }
-                          >
-                            {t(`compliance-risk-${entity.expedient.semaphore}`, {
-                              defaultValue: entity.expedient.semaphore,
-                            })}
-                          </Badge>
-                        ) : null}
-                        <Tooltip label={inviteLabel(entity)}>
-                          <ActionIcon
-                            variant="subtle"
-                            color="gray"
-                            aria-label={inviteLabel(entity)}
-                            loading={invitingId === entity.id}
-                            onClick={() => void handleInvite(entity)}
-                          >
-                            <IconMail size={16} />
-                          </ActionIcon>
-                        </Tooltip>
-                        <Tooltip label={t("delete")}>
-                          <ActionIcon
-                            variant="subtle"
-                            color="gray"
-                            aria-label={t("delete")}
-                            onClick={() => {
-                              setPendingDelete(entity);
-                              openDelete();
-                            }}
-                          >
-                            <IconTrash size={16} />
-                          </ActionIcon>
-                        </Tooltip>
-                      </Group>
-                    </Group>
-                  </Card>
-                ))}
-              </Stack>
+                        </Table.Td>
+                        <Table.Td>{entity.rfc || "—"}</Table.Td>
+                        <Table.Td>
+                          {entity.relationship
+                            ? t(`compliance-rel-${entity.relationship}`)
+                            : t("compliance-self-entity")}
+                        </Table.Td>
+                        <Table.Td>
+                          {entity.expedient
+                            ? t(`compliance-status-${entity.expedient.status}`, {
+                                defaultValue: entity.expedient.status,
+                              })
+                            : "—"}
+                        </Table.Td>
+                        <Table.Td>
+                          {entity.expedient?.semaphore ? (
+                            <Badge
+                              variant="light"
+                              color={riskBadgeColor(entity.expedient.semaphore)}
+                            >
+                              {t(`compliance-risk-${entity.expedient.semaphore}`, {
+                                defaultValue: entity.expedient.semaphore,
+                              })}
+                            </Badge>
+                          ) : (
+                            "—"
+                          )}
+                        </Table.Td>
+                        <Table.Td>
+                          {entity.relationship ? inviteLabel(entity) : "—"}
+                        </Table.Td>
+                      </Table.Tr>
+                    ))}
+                  </Table.Tbody>
+                </Table>
+              </Table.ScrollContainer>
             )}
           </Card>
         </Box>
+
+        <Drawer
+          opened={panelOpened}
+          onClose={closePanel}
+          position="right"
+          title={selected ? entityDisplayName(selected) : ""}
+          size="md"
+        >
+          {selected && (
+            <Stack gap="md">
+              <Text size="sm" c="dimmed">
+                {selected.relationship
+                  ? t(`compliance-rel-${selected.relationship}`)
+                  : t("compliance-self-entity")}
+                {selected.email ? ` · ${selected.email}` : ""}
+              </Text>
+              {progressLoading ? (
+                <Stack align="center" py="xl">
+                  <Loader color="violet" size="sm" />
+                </Stack>
+              ) : progress ? (
+                <Stack gap="sm">
+                  {progress.steps.map((step) => (
+                    <Group key={step.id} justify="space-between">
+                      <Text size="sm">{t(`compliance-step-${step.id}`)}</Text>
+                      <Badge variant="light" color={stepBadgeColor(step.state)}>
+                        {t(`compliance-step-${step.state}`)}
+                      </Badge>
+                    </Group>
+                  ))}
+                  <Text size="sm">
+                    {t("compliance-documents-progress", {
+                      filled: progress.documents.filled,
+                      required: progress.documents.required,
+                    })}
+                  </Text>
+                  <Text size="sm">
+                    {t("compliance-list-hits", { hits: progress.screening_hit_count })}
+                  </Text>
+                  <Text size="sm">
+                    {t("compliance-ppe-hits", { hits: progress.ppe_hit_count })}
+                  </Text>
+                  {progress.matrix ? (
+                    <Group gap="xs">
+                      <Text size="sm">
+                        {t("compliance-matrix-score", { score: progress.matrix.total })}
+                      </Text>
+                      <Badge variant="light" color={riskBadgeColor(progress.matrix.color)}>
+                        {t(`compliance-risk-${progress.matrix.color}`, {
+                          defaultValue: progress.matrix.color,
+                        })}
+                      </Badge>
+                    </Group>
+                  ) : null}
+                  <Text size="sm">
+                    {progress.signature.status === "signed"
+                      ? t("compliance-signature-signed")
+                      : progress.signature.status === "waiting"
+                        ? t("compliance-signature-waiting")
+                        : t("compliance-signature-none")}
+                  </Text>
+                  {progress.recommended_action ? (
+                    <Text size="sm">
+                      {t("compliance-recommended-action")}:{" "}
+                      {t(`compliance-action-${progress.recommended_action}`, {
+                        defaultValue: progress.recommended_action,
+                      })}
+                    </Text>
+                  ) : null}
+                  {progress.reasons.length > 0 ? (
+                    <Stack gap={4}>
+                      <Text size="sm" fw={500}>{t("compliance-reasons")}</Text>
+                      {progress.reasons.map((reason) => (
+                        <Text key={reason} size="sm" c="dimmed">
+                          {t(`compliance-reason-${reason}`, { defaultValue: reason })}
+                        </Text>
+                      ))}
+                    </Stack>
+                  ) : null}
+                </Stack>
+              ) : null}
+              {selected.relationship ? (
+                <Group>
+                  <Button
+                    variant="default"
+                    loading={invitingId === selected.id}
+                    onClick={() => void handleInvite(selected)}
+                  >
+                    {selected.invite?.status === "pending"
+                      ? t("compliance-invite-resend")
+                      : t("compliance-invite-send")}
+                  </Button>
+                  <Button
+                    color="red"
+                    variant="light"
+                    onClick={() => {
+                      setPendingDelete(selected);
+                      openDelete();
+                    }}
+                  >
+                    {t("delete")}
+                  </Button>
+                </Group>
+              ) : null}
+            </Stack>
+          )}
+        </Drawer>
 
       <Modal
         opened={addOpened}

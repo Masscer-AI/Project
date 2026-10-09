@@ -2383,6 +2383,7 @@ export type TPldEntity = {
   person_type: string;
   relationship: string | null;
   email?: string;
+  rfc?: string;
   ppe_screening_enabled?: boolean;
   metadata: Record<string, string | number | boolean | null | undefined>;
   created_at: string | null;
@@ -2395,7 +2396,29 @@ export type TPldEntity = {
     semaphore?: string;
     diligence_level?: number | null;
     recommended_action?: string;
+    reasons?: string[];
   } | null;
+};
+
+export type TPldEntityProgress = {
+  rfc: string;
+  steps: { id: string; state: string }[];
+  documents: { filled: number; required: number };
+  screening_hit_count: number;
+  ppe_hit_count: number;
+  ppe_status: string;
+  matrix: { total: number; color: string } | null;
+  reasons: string[];
+  signature: { status: string; signer_count: number };
+  recommended_action: string;
+  semaphore: string;
+};
+
+export const getPldEntityProgress = async (entityId: string) => {
+  return makeAuthenticatedRequest<TPldEntityProgress>(
+    "GET",
+    `/v1/compliance/entities/${entityId}/`
+  );
 };
 
 export const listPldEntities = async () => {

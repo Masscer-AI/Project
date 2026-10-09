@@ -367,6 +367,84 @@ class PLDEntityAPITests(TestCase):
         self.assertEqual(listed.status_code, 200)
         self.assertEqual(len(listed.json()["results"]), 1)
 
+    def test_list_includes_rfc_and_risk_reasons(self):
+        from api.compliance.models import (
+            PLDEntity,
+            PLDExpedient,
+            PLDExpedientDocument,
+        )
+
+        created = self.client.post(
+            "/v1/compliance/entities/",
+            {
+                "person_type": "persona_moral",
+                "relationship": "cliente",
+                "email": "acme@example.com",
+                "metadata": {"legal_name": "ACME SA", "rfc": "AAA010101AAA"},
+            },
+            format="json",
+            HTTP_AUTHORIZATION=f"Token {self.owner_token.key}",
+        )
+        entity_id = created.json()["id"]
+        PLDEntity.objects.filter(pk=entity_id).update(ppe_screening_enabled=True)
+        expedient = PLDExpedient.objects.get(entity_id=entity_id)
+        expedient.screening_status = PLDExpedient.PrequalificationStatus.SUCCEEDED
+        expedient.screening_payload = {
+            "checks": [{"role": "empresa", "rfc": "AAA010101AAA", "hit_count": 2}],
+            "searches": [{"hit_count": 1}],
+        }
+        expedient.ppe_status = PLDExpedient.PrequalificationStatus.SUCCEEDED
+        expedient.ppe_payload = {"checks": [{"role": "representante", "hit_count": 1}]}
+        expedient.risk_payload = {
+            "semaphore": "orange",
+            "recommended_action": "edd",
+            "reasons": ["rfc_mismatch", "possible_list_match"],
+        }
+        expedient.save()
+        PLDExpedientDocument.objects.create(
+            expedient=expedient,
+            slot_key="acta_constitutiva",
+            document_kind="acta_constitutiva",
+            original_filename="acta.pdf",
+        )
+
+        listed = self.client.get(
+            "/v1/compliance/entities/",
+            HTTP_AUTHORIZATION=f"Token {self.owner_token.key}",
+        )
+        row = listed.json()["results"][0]
+        self.assertEqual(row["rfc"], "AAA010101AAA")
+        self.assertEqual(
+            row["expedient"]["reasons"],
+            ["rfc_mismatch", "possible_list_match"],
+        )
+
+        progress = self.client.get(
+            f"/v1/compliance/entities/{entity_id}/",
+            HTTP_AUTHORIZATION=f"Token {self.owner_token.key}",
+        )
+        self.assertEqual(progress.status_code, 200)
+        body = progress.json()
+        self.assertEqual(body["rfc"], "AAA010101AAA")
+        self.assertEqual(body["documents"]["filled"], 1)
+        self.assertGreater(body["documents"]["required"], 0)
+        self.assertEqual(body["screening_hit_count"], 3)
+        self.assertEqual(body["ppe_hit_count"], 1)
+        self.assertEqual(body["reasons"], ["rfc_mismatch", "possible_list_match"])
+        self.assertEqual(body["semaphore"], "orange")
+        self.assertIn(body["matrix"]["color"], {"green", "yellow", "orange", "red"})
+        self.assertIsInstance(body["matrix"]["total"], (int, float))
+        self.assertEqual(body["signature"]["status"], "")
+        states = {step["id"]: step["state"] for step in body["steps"]}
+        self.assertEqual(states["lists"], "done")
+        self.assertEqual(states["pep"], "done")
+
+        hidden = self.client.get(
+            f"/v1/compliance/entities/{entity_id}/",
+            HTTP_AUTHORIZATION=f"Token {self.outsider_token.key}",
+        )
+        self.assertEqual(hidden.status_code, 404)
+
     def test_create_rejects_missing_relationship(self):
         response = self.client.post(
             "/v1/compliance/entities/",

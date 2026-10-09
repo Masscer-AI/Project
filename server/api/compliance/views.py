@@ -71,6 +71,159 @@ def _frontend_base_url(request):
     return frontend_url
 
 
+def _entity_rfc(entity: PLDEntity) -> str:
+    meta = entity.metadata if isinstance(entity.metadata, dict) else {}
+    return str(meta.get("rfc") or "").strip()
+
+
+def _risk_reasons(risk: dict) -> list[str]:
+    raw = risk.get("reasons")
+    if not isinstance(raw, list):
+        return []
+    return [str(item) for item in raw if item][:5]
+
+
+def _payload_hit_count(payload, *keys: str) -> int:
+    if not isinstance(payload, dict):
+        return 0
+    total = 0
+    for key in keys:
+        rows = payload.get(key)
+        if not isinstance(rows, list):
+            continue
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            try:
+                total += int(row.get("hit_count") or 0)
+            except (TypeError, ValueError):
+                continue
+    return total
+
+
+_STATUS_RANK = {
+    PLDExpedientStatus.DATA_COLLECTION: 0,
+    PLDExpedientStatus.ACTION_REQUIRED: 1,
+    PLDExpedientStatus.DOCUMENT_COLLECTION: 1,
+    PLDExpedientStatus.CROSS_REFERENCE: 2,
+    PLDExpedientStatus.WAITING_SIGN: 3,
+    PLDExpedientStatus.SIGNED: 4,
+    PLDExpedientStatus.DELIVERED: 4,
+}
+
+
+def _phase(rank: int, at: int) -> str:
+    if rank > at:
+        return "done"
+    if rank == at:
+        return "current"
+    return "pending"
+
+
+def _progress_steps(entity: PLDEntity, exp: PLDExpedient | None) -> list[dict]:
+    status = exp.status if exp else ""
+    rank = _STATUS_RANK.get(status, 0)
+    lists = _phase(rank, 2)
+    if exp and exp.screening_status == PLDExpedient.PrequalificationStatus.SUCCEEDED:
+        lists = "done"
+    elif exp and exp.screening_status == PLDExpedient.PrequalificationStatus.FAILED:
+        lists = "current"
+    if not entity.ppe_screening_enabled:
+        pep = "skipped"
+    elif exp and exp.ppe_status == PLDExpedient.PrequalificationStatus.SUCCEEDED:
+        pep = "done"
+    elif exp and exp.ppe_status in (
+        PLDExpedient.PrequalificationStatus.PENDING,
+        PLDExpedient.PrequalificationStatus.FAILED,
+    ):
+        pep = "current"
+    else:
+        pep = _phase(rank, 2)
+    if exp and exp.risk_status == PLDExpedient.PrequalificationStatus.SUCCEEDED:
+        risk = "done"
+    elif exp and exp.risk_status == PLDExpedient.PrequalificationStatus.FAILED:
+        risk = "current"
+    else:
+        risk = _phase(rank, 2)
+    if status in (PLDExpedientStatus.SIGNED, PLDExpedientStatus.DELIVERED) or (
+        exp and exp.signed_packet
+    ):
+        signature = "done"
+    elif status == PLDExpedientStatus.WAITING_SIGN:
+        signature = "current"
+    else:
+        signature = _phase(rank, 3)
+    return [
+        {"id": "data", "state": _phase(rank, 0)},
+        {"id": "documents", "state": _phase(rank, 1)},
+        {"id": "lists", "state": lists},
+        {"id": "pep", "state": pep},
+        {"id": "risk", "state": risk},
+        {"id": "signature", "state": signature},
+    ]
+
+
+def _signature_state(exp: PLDExpedient | None) -> dict:
+    if not exp:
+        return {"status": "", "signer_count": 0}
+    request = exp.signature_request
+    signer_count = request.signers.count() if request else 0
+    if exp.signed_packet or exp.status in (
+        PLDExpedientStatus.SIGNED,
+        PLDExpedientStatus.DELIVERED,
+    ):
+        return {"status": "signed", "signer_count": signer_count}
+    if request or exp.status == PLDExpedientStatus.WAITING_SIGN or exp.packet_file:
+        return {"status": "waiting", "signer_count": signer_count}
+    return {"status": "", "signer_count": 0}
+
+
+def _document_counts(entity: PLDEntity, exp: PLDExpedient | None) -> dict:
+    from api.compliance.pld_document_slots import document_slots_for_entity
+
+    required = [
+        slot["slot_key"]
+        for slot in document_slots_for_entity(entity)
+        if slot.get("required")
+    ]
+    uploaded = set()
+    if exp:
+        uploaded = {doc.slot_key for doc in exp.documents.all()}
+    return {
+        "filled": sum(1 for key in required if key in uploaded),
+        "required": len(required),
+    }
+
+
+def _matrix_brief(entity: PLDEntity, exp: PLDExpedient | None) -> dict | None:
+    if not exp:
+        return None
+    scored = _invitee_matrix(entity, exp)
+    if not isinstance(scored, dict):
+        return None
+    return {"total": scored.get("total"), "color": scored.get("color") or ""}
+
+
+def _entity_progress(entity: PLDEntity) -> dict:
+    exp = entity.expedients.order_by("created_at").first()
+    risk = exp.risk_payload if exp and isinstance(exp.risk_payload, dict) else {}
+    return {
+        "rfc": _entity_rfc(entity),
+        "steps": _progress_steps(entity, exp),
+        "documents": _document_counts(entity, exp),
+        "screening_hit_count": _payload_hit_count(
+            exp.screening_payload if exp else {}, "checks", "searches"
+        ),
+        "ppe_hit_count": _payload_hit_count(exp.ppe_payload if exp else {}, "checks"),
+        "ppe_status": exp.ppe_status if exp else "",
+        "matrix": _matrix_brief(entity, exp),
+        "reasons": _risk_reasons(risk),
+        "signature": _signature_state(exp),
+        "recommended_action": risk.get("recommended_action") or "",
+        "semaphore": risk.get("semaphore") or "",
+    }
+
+
 def _entity_payload(entity: PLDEntity) -> dict:
     expedient = entity.expedients.order_by("created_at").first()
     risk = (
@@ -83,6 +236,7 @@ def _entity_payload(entity: PLDEntity) -> dict:
         "person_type": entity.person_type,
         "relationship": entity.relationship,
         "email": entity.email or "",
+        "rfc": _entity_rfc(entity),
         "ppe_screening_enabled": bool(entity.ppe_screening_enabled),
         "metadata": entity.metadata or {},
         "created_at": entity.created_at.isoformat() if entity.created_at else None,
@@ -96,6 +250,7 @@ def _entity_payload(entity: PLDEntity) -> dict:
                 "semaphore": risk.get("semaphore") or "",
                 "diligence_level": risk.get("diligence_level") or None,
                 "recommended_action": risk.get("recommended_action") or "",
+                "reasons": _risk_reasons(risk),
             }
             if expedient
             else None
@@ -249,6 +404,20 @@ class PLDEntityListView(View):
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class PLDEntityDetailView(View):
+    def get(self, request, entity_id, *args, **kwargs):
+        org, err = _org_or_404(request)
+        if err:
+            return err
+        try:
+            entity = PLDEntity.objects.prefetch_related(
+                "expedients__documents",
+                "expedients__signature_request__signers",
+                "invites",
+            ).get(pk=entity_id, organization=org)
+        except (PLDEntity.DoesNotExist, ValidationError, ValueError):
+            return JsonResponse({"error": "Entity not found"}, status=404)
+        return JsonResponse(_entity_progress(entity), status=200)
+
     def delete(self, request, entity_id, *args, **kwargs):
         org, err = _org_or_404(request)
         if err:
