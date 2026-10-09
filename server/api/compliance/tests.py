@@ -1655,6 +1655,53 @@ class PLDDocumentExtractionTests(TestCase):
         self.assertNotIn("verdict", row["expedient"]["screening"])
         self.assertEqual(len(row["clarification_requests"]), 1)
 
+    @patch("api.ai_layers.agent_loop.AgentLoop.create")
+    def test_validation_is_pending_before_review_flag_clears(self, create_loop):
+        from api.ai_layers.agent_loop import AgentLoopResult
+        from api.compliance.clarifications import set_text_review
+        from api.compliance.models import PLDClarificationRequest, PLDExpedient
+        from api.compliance.prequalification.agents import settle_clarification_answers
+        from api.compliance.prequalification.agents import ClarificationSettleResult
+        from api.compliance.prequalification.agents import ClarificationTextCheck
+
+        self.expedient.prequalification_status = PLDExpedient.PrequalificationStatus.SUCCEEDED
+        self.expedient.save(update_fields=["prequalification_status", "updated_at"])
+        item = PLDClarificationRequest.objects.create(
+            expedient=self.expedient,
+            stage=PLDClarificationRequest.Stage.IDENTIFICATION,
+            prompt="Quien controla?",
+            answer_type=PLDClarificationRequest.AnswerType.TEXT,
+            text_answer="Blanca Lilia",
+        )
+        set_text_review(self.expedient, item.id, "reviewing")
+        seen = {}
+        real = set_text_review
+
+        def spy(expedient, request_id, state):
+            if state is None:
+                expedient.refresh_from_db()
+                seen["prequalification_status"] = expedient.prequalification_status
+            return real(expedient, request_id, state)
+
+        loop = create_loop.return_value
+        loop.run.return_value = AgentLoopResult(
+            output=ClarificationSettleResult(
+                checks=[ClarificationTextCheck(request_id=str(item.id), satisfies=True)]
+            ),
+            messages=[],
+            iterations=1,
+            usage={"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+        )
+        with patch(
+            "api.compliance.clarifications.set_text_review",
+            side_effect=spy,
+        ):
+            settle_clarification_answers(self.expedient)
+        self.assertEqual(
+            seen["prequalification_status"],
+            PLDExpedient.PrequalificationStatus.PENDING,
+        )
+
     def test_answer_clarification_text_updates_rfc(self):
         from api.compliance.clarifications import InviteeRequestSpec, replace_open_requests
         from api.compliance.models import PLDClarificationRequest

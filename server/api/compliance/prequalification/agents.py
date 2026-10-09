@@ -166,13 +166,18 @@ def settle_clarification_answers(expedient) -> None:
         )
     output = result.output
     checks = output.checks if isinstance(output, ClarificationSettleResult) else []
+    from api.compliance.clarifications import begin_validation_rerun
+
     accepted = {check.request_id for check in checks if check.satisfies}
     for item in waiting:
         if str(item.id) in accepted:
             mark_answered(item)
-            set_text_review(expedient, item.id, None)
         else:
             set_text_review(expedient, item.id, "rejected")
+    begin_validation_rerun(expedient)
+    for item in waiting:
+        if str(item.id) in accepted:
+            set_text_review(expedient, item.id, None)
 
 
 def _billing(entity) -> tuple[int | None, object]:

@@ -203,6 +203,19 @@ def mark_answered(request: PLDClarificationRequest, *, text: str = "") -> None:
     request.save(update_fields=["status", "text_answer", "answered_at", "updated_at"])
 
 
+def begin_validation_rerun(expedient: PLDExpedient) -> bool:
+    if expedient.status not in {
+        PLDExpedientStatus.DOCUMENT_COLLECTION,
+        PLDExpedientStatus.ACTION_REQUIRED,
+    }:
+        return False
+    if has_open_requests(expedient, PLDClarificationRequest.Stage.IDENTIFICATION):
+        return False
+    expedient.prequalification_status = PLDExpedient.PrequalificationStatus.PENDING
+    expedient.save(update_fields=["prequalification_status", "updated_at"])
+    return True
+
+
 def maybe_resume_stage(expedient: PLDExpedient) -> None:
     from api.compliance.tasks import prequalify_pld_expedient, screen_pld_expedient
 
