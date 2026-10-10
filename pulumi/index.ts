@@ -73,6 +73,7 @@ const parameterStore = createProviderParameters({
   gammaApiKey: config.gammaApiKey,
   jaakApiEmail: config.jaakApiEmail,
   jaakApiPassword: config.jaakApiPassword,
+  jaakWebhookSecret: config.jaakWebhookSecret,
   whatsappGraphApiToken: config.whatsappGraphApiToken,
   whatsappWebhookVerifyToken: config.whatsappWebhookVerifyToken,
   googleOauthClientId: config.googleOauthClientId,

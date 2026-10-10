@@ -14,6 +14,7 @@ export interface ProviderParameterArns {
   gammaApiKeyArn: pulumi.Output<string>;
   jaakApiEmailArn: pulumi.Output<string>;
   jaakApiPasswordArn: pulumi.Output<string>;
+  jaakWebhookSecretArn: pulumi.Output<string>;
   resendApiKeyArn: pulumi.Output<string>;
   whatsappGraphApiTokenArn: pulumi.Output<string>;
   whatsappWebhookVerifyTokenArn: pulumi.Output<string>;
@@ -36,6 +37,7 @@ export function createProviderParameters(args: {
   gammaApiKey: pulumi.Input<string>;
   jaakApiEmail: pulumi.Input<string>;
   jaakApiPassword: pulumi.Input<string>;
+  jaakWebhookSecret: pulumi.Input<string>;
   whatsappGraphApiToken: pulumi.Input<string>;
   whatsappWebhookVerifyToken: pulumi.Input<string>;
   googleOauthClientId: pulumi.Input<string>;
@@ -123,6 +125,12 @@ export function createProviderParameters(args: {
     value: normalizeSecret(args.jaakApiPassword),
   });
 
+  const jaakWebhookSecret = new aws.ssm.Parameter("jaak-webhook-secret-param", {
+    name: `${basePath}/JAAK_WEBHOOK_SECRET`,
+    type: "SecureString",
+    value: normalizeSecret(args.jaakWebhookSecret),
+  });
+
   const resendApiKey = new aws.ssm.Parameter("resend-api-key-param", {
     name: `${basePath}/RESEND_API_KEY`,
     type: "SecureString",
@@ -182,6 +190,7 @@ export function createProviderParameters(args: {
     gammaApiKey.arn,
     jaakApiEmail.arn,
     jaakApiPassword.arn,
+    jaakWebhookSecret.arn,
     resendApiKey.arn,
     whatsappGraphApiToken.arn,
     whatsappWebhookVerifyToken.arn,
@@ -223,6 +232,7 @@ export function createProviderParameters(args: {
     gammaApiKeyArn: gammaApiKey.arn,
     jaakApiEmailArn: jaakApiEmail.arn,
     jaakApiPasswordArn: jaakApiPassword.arn,
+    jaakWebhookSecretArn: jaakWebhookSecret.arn,
     resendApiKeyArn: resendApiKey.arn,
     whatsappGraphApiTokenArn: whatsappGraphApiToken.arn,
     whatsappWebhookVerifyTokenArn: whatsappWebhookVerifyToken.arn,

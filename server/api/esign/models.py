@@ -162,6 +162,7 @@ class SignatureSigner(models.Model):
         COUNTERPARTY = "counterparty", "Contraparte"
         REPRESENTATIVE = "representative", "Representante legal"
         CONTROLLER = "controller", "Beneficiario controlador"
+        COMPANY = "company", "Empresa"
 
     class Status(models.TextChoices):
         PENDING = "pending", "Pendiente"

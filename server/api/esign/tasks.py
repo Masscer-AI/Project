@@ -156,7 +156,7 @@ def submit_signature_request_to_jaak(signature_request_id: str) -> None:
     try:
         client = JaakClient()
         template = client.create_template(
-            name=signature_request.title or filename,
+            name=f"{signature_request.title or filename} {signature_request.id}",
             filename=filename,
             file_bytes=file_bytes,
             roles=roles,
@@ -188,14 +188,16 @@ def submit_signature_request_to_jaak(signature_request_id: str) -> None:
         rec.provider_widget_id = str(item.get("slug") or "")
         rec.save(update_fields=["provider_widget_id", "updated_at"])
     signature_request.provider_document_id = submission_id
+    signature_request.status = SignatureRequestStatus.PENDING
     signature_request.metadata = {
         **signature_request.metadata,
         "jaak_template_id": template_id,
         "jaak_submission_id": submission_id,
         "create_response": submission,
     }
+    signature_request.metadata.pop("error", None)
     signature_request.save(
-        update_fields=["provider_document_id", "metadata", "updated_at"]
+        update_fields=["provider_document_id", "status", "metadata", "updated_at"]
     )
     logger.info(
         "SignatureRequest %s submitted to Jaak as submission %s",

@@ -115,6 +115,7 @@ export function createAppServices(args: {
     { name: "GAMMA_API_KEY", valueFrom: args.providerParameterArns.gammaApiKeyArn },
     { name: "JAAK_API_EMAIL", valueFrom: args.providerParameterArns.jaakApiEmailArn },
     { name: "JAAK_API_PASSWORD", valueFrom: args.providerParameterArns.jaakApiPasswordArn },
+    { name: "JAAK_WEBHOOK_SECRET", valueFrom: args.providerParameterArns.jaakWebhookSecretArn },
     { name: "RESEND_API_KEY", valueFrom: args.providerParameterArns.resendApiKeyArn },
     { name: "WHATSAPP_GRAPH_API_TOKEN", valueFrom: args.providerParameterArns.whatsappGraphApiTokenArn },
     { name: "WHATSAPP_WEBHOOK_VERIFY_TOKEN", valueFrom: args.providerParameterArns.whatsappWebhookVerifyTokenArn },

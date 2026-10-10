@@ -18,7 +18,7 @@ def resolve_signatory(entity) -> dict | None:
 
 
 def resolve_signatories(entity) -> list[dict]:
-    """People who must sign the identification packet (same PDF, distinct emails)."""
+    """The company signs a company file. A person signs their own file."""
     meta = entity.metadata if isinstance(entity.metadata, dict) else {}
     primary_email = (
         (entity.email or "").strip()
@@ -49,35 +49,13 @@ def resolve_signatories(entity) -> list[dict]:
 
     rfc = str(meta.get("rfc") or "").strip().upper()
     if entity.person_type == "persona_moral":
-        representative = meta.get("representative")
-        rep_name = ""
-        rep_rfc = rfc
-        if isinstance(representative, dict):
-            rep_name = _join(
-                representative.get("given_names"),
-                representative.get("surnames")
-                or _join(
-                    representative.get("paternal_surname"),
-                    representative.get("maternal_surname"),
-                ),
-            )
-            rep_rfc = str(representative.get("rfc") or rfc).strip().upper()
-        if not rep_name:
-            rep_name = entity_display_name(entity)
         add(
-            name=rep_name,
+            name=entity_display_name(entity),
             email=primary_email,
-            rfc=rep_rfc,
-            role="representative",
+            rfc=rfc,
+            role="company",
             user=entity.user,
         )
-        for item in _controller_dicts(meta):
-            add(
-                name=str(item.get("name") or ""),
-                email=str(item.get("email") or ""),
-                rfc=str(item.get("rfc") or ""),
-                role="controller",
-            )
     else:
         name = entity_display_name(entity)
         if not name or name == str(entity.id):
@@ -93,42 +71,4 @@ def resolve_signatories(entity) -> list[dict]:
             role="counterparty",
             user=entity.user,
         )
-        if meta.get("is_own_controller") is not True:
-            for item in _controller_dicts(meta):
-                add(
-                    name=str(item.get("name") or ""),
-                    email=str(item.get("email") or ""),
-                    rfc=str(item.get("rfc") or ""),
-                    role="controller",
-                )
     return rows
-
-
-def missing_controller_signers(entity) -> list[str]:
-    """Named controllers that still need an email before we can send the packet."""
-    meta = entity.metadata if isinstance(entity.metadata, dict) else {}
-    if entity.person_type != "persona_moral" and meta.get("is_own_controller") is not False:
-        return []
-    missing = []
-    for item in _controller_dicts(meta):
-        name = str(item.get("name") or "").strip()
-        if not name:
-            continue
-        if not _email_ok(item.get("email")):
-            missing.append(name)
-    return missing
-
-
-def _controller_dicts(meta: dict) -> list[dict]:
-    raw = meta.get("controllers")
-    rows = []
-    if isinstance(raw, list):
-        for item in raw:
-            if isinstance(item, dict) and str(item.get("name") or "").strip():
-                rows.append(item)
-    if rows:
-        return rows
-    single = meta.get("controller")
-    if isinstance(single, dict) and str(single.get("name") or "").strip():
-        return [single]
-    return []

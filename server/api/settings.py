@@ -247,6 +247,7 @@ MIFIEL_BASE_URL = os.environ.get("MIFIEL_BASE_URL", "https://app.mifiel.com/api/
 JAAK_API_BASE = os.environ.get("JAAK_API_BASE", "https://api.sandbox.jaak.ai/api/v1").rstrip("/")
 JAAK_API_EMAIL = os.environ.get("JAAK_API_EMAIL", "").strip()
 JAAK_API_PASSWORD = os.environ.get("JAAK_API_PASSWORD", "").strip()
+JAAK_WEBHOOK_SECRET = os.environ.get("JAAK_WEBHOOK_SECRET", "").strip()
 
 _s3_media_bucket = os.environ.get("AWS_STORAGE_BUCKET_NAME", "")
 if _s3_media_bucket:

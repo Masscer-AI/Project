@@ -6,8 +6,8 @@ import time
 import requests
 from django.conf import settings
 
-SIGNATURE_BOX = {"x": 72, "y": 700, "w": 180, "h": 60, "page": 1}
-_LINE_STEP = 70
+SIGNATURE_BOX = {"x": 36, "y": 36, "w": 200, "h": 72, "page": 14}
+_LINE_STEP = 80
 _TOKEN_SKEW_SECONDS = 30
 
 
@@ -76,7 +76,7 @@ class JaakClient:
         fields = []
         for index, role in enumerate(roles):
             area = dict(SIGNATURE_BOX)
-            area["y"] = SIGNATURE_BOX["y"] - index * _LINE_STEP
+            area["y"] = SIGNATURE_BOX["y"] + index * _LINE_STEP
             fields.append(
                 {
                     "name": f"Firma {index + 1}",
@@ -93,8 +93,8 @@ class JaakClient:
                 "name": name[:255],
                 "signature_type": "efirma_sat",
                 "add_tsa_timestamp": False,
-                "tsa_on_creation": True,
-                "tsa_per_signer": True,
+                "tsa_on_creation": False,
+                "tsa_per_signer": False,
                 "submitters": [{"name": role} for role in roles],
                 "documents": [
                     {

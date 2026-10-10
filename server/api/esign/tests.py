@@ -559,7 +559,8 @@ class JaakClientTests(SimpleTestCase):
         self.assertEqual(captured["template"]["signature_type"], "efirma_sat")
         fields = captured["template"]["documents"][0]["fields"]
         self.assertEqual(len(fields), 2)
-        self.assertEqual(fields[1]["areas"][0]["y"], fields[0]["areas"][0]["y"] - 70)
+        self.assertEqual(fields[0]["areas"][0]["page"], 14)
+        self.assertEqual(fields[1]["areas"][0]["y"], fields[0]["areas"][0]["y"] + 80)
         self.assertTrue(captured["submission"]["send_email"])
         self.assertFalse(captured["submission"]["send_sms"])
         self.assertFalse(captured["submission"]["send_whatsapp"])
@@ -611,3 +612,26 @@ class JaakWebhookTests(TestCase):
         row = JaakWebhookInbox.objects.get()
         self.assertEqual(row.body, "not-json {")
         self.assertEqual(row.content_type, "text/plain")
+
+    @override_settings(JAAK_WEBHOOK_SECRET="jaak-secret")
+    def test_rejects_a_wrong_auth_key(self):
+        from api.esign.models import JaakWebhookInbox
+
+        response = APIClient().post(
+            "/v1/esign/jaak/webhook",
+            data=b"{}",
+            content_type="application/json",
+            HTTP_API_AUTHKEY="nope",
+        )
+        self.assertEqual(response.status_code, 401)
+        self.assertFalse(JaakWebhookInbox.objects.exists())
+
+    @override_settings(JAAK_WEBHOOK_SECRET="jaak-secret")
+    def test_accepts_the_auth_key_header(self):
+        response = APIClient().post(
+            "/v1/esign/jaak/webhook",
+            data=b"{}",
+            content_type="application/json",
+            HTTP_API_AUTHKEY="jaak-secret",
+        )
+        self.assertEqual(response.status_code, 200)

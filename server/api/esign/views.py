@@ -11,6 +11,7 @@ matches a SignatureRequest this server itself created and sent to Mifiel.
 
 from __future__ import annotations
 
+import hmac
 import json
 import logging
 
@@ -45,10 +46,20 @@ def mifiel_webhook(request):
     return HttpResponse(status=200)
 
 
+def _jaak_auth_ok(request) -> bool:
+    secret = (settings.JAAK_WEBHOOK_SECRET or "").strip()
+    if not secret:
+        return True
+    received = request.headers.get("Api-AuthKey", "")
+    return hmac.compare_digest(received, secret)
+
+
 @csrf_exempt
 def jaak_webhook(request):
     if request.method != "POST":
         return HttpResponse(status=405)
+    if not _jaak_auth_ok(request):
+        return HttpResponse(status=401)
     raw = request.body.decode("utf-8", errors="replace")
     JaakWebhookInbox.objects.create(
         content_type=(request.content_type or "")[:128],

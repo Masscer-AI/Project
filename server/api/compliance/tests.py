@@ -1804,12 +1804,13 @@ class PLDDocumentExtractionTests(TestCase):
         self.assertTrue(self.expedient.packet_file)
         sr = SignatureRequest.objects.get()
         self.assertEqual(sr.provider, "jaak")
+        self.assertEqual(sr.signatory_name, "ACME SA")
         self.assertEqual(sr.signatory_email, "extract@example.com")
         self.assertEqual(sr.document_kind, "kyc_file")
-        self.assertEqual(sr.signers.count(), 2)
+        self.assertEqual(sr.signers.count(), 1)
         self.assertTrue(
             sr.signers.filter(
-                email="luis@bc.com", role=SignatureSigner.Role.CONTROLLER
+                email="extract@example.com", role=SignatureSigner.Role.COMPANY
             ).exists()
         )
         delay.assert_called_once_with(str(sr.id))
@@ -1819,7 +1820,7 @@ class PLDDocumentExtractionTests(TestCase):
             HTTP_AUTHORIZATION=f"Token {self.token.key}",
         )
         row = listed.json()["results"][0]
-        self.assertEqual(row["expedient"]["signing"]["signer_count"], 2)
+        self.assertEqual(row["expedient"]["signing"]["signer_count"], 1)
         self.assertIn("/esign/sign/", row["expedient"]["signing"]["url"])
         self.assertTrue(row["expedient"]["packet_ready"])
         self.assertNotIn("hits", row["expedient"]["screening"])
@@ -2597,4 +2598,30 @@ class PldMatrixScoreTests(SimpleTestCase):
         self.assertGreaterEqual(result["total"], 5)
         pep = next(row for row in result["adjustments"] if row["slug"] == "adjust_pep")
         self.assertEqual(pep["points"], 5)
+
+
+class SignatoryTests(SimpleTestCase):
+    def test_company_is_the_only_signer(self):
+        from types import SimpleNamespace
+
+        from api.compliance.packet.signatory import resolve_signatories
+
+        entity = SimpleNamespace(
+            person_type="persona_moral",
+            email="firma@acme.com",
+            user=None,
+            id="x",
+            metadata={
+                "legal_name": "ACME SA",
+                "rfc": "ACM010101AAA",
+                "representative": {"given_names": "Ana", "surnames": "Lopez"},
+                "controllers": [{"name": "Luis Perez", "email": "luis@bc.com"}],
+            },
+        )
+        rows = resolve_signatories(entity)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["name"], "ACME SA")
+        self.assertEqual(rows[0]["email"], "firma@acme.com")
+        self.assertEqual(rows[0]["role"], "company")
+        self.assertEqual(rows[0]["rfc"], "ACM010101AAA")
 

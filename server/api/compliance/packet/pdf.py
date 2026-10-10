@@ -290,6 +290,7 @@ def _paragraphs(entity) -> list[str]:
             "representative": "representante legal",
             "controller": "beneficiario controlador",
             "counterparty": "contraparte",
+            "company": "empresa",
         }
         for row in firmantes:
             role = labels.get(row["role"], row["role"])
