@@ -1821,7 +1821,7 @@ class PLDDocumentExtractionTests(TestCase):
         )
         row = listed.json()["results"][0]
         self.assertEqual(row["expedient"]["signing"]["signer_count"], 1)
-        self.assertIn("/esign/sign/", row["expedient"]["signing"]["url"])
+        self.assertEqual(row["expedient"]["signing"]["email"], "extract@example.com")
         self.assertTrue(row["expedient"]["packet_ready"])
         self.assertNotIn("hits", row["expedient"]["screening"])
         self.assertNotIn("verdict", row["expedient"]["screening"])

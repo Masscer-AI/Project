@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
 import { Alert, Badge, Button, Card, Checkbox, Group, Loader, Stack, Stepper, Text, Title } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
-import { IconAlertTriangle, IconCircleCheck, IconDownload, IconSignature } from "@tabler/icons-react";
+import { IconAlertTriangle, IconCircleCheck, IconDownload } from "@tabler/icons-react";
 import {
   confirmMyPldDocuments,
   downloadMyPldPacket,
@@ -452,29 +452,22 @@ export function PldIdentificationDossier({
         <Stack gap="sm">
           <Text fw={600}>{t("compliance-sign-title")}</Text>
           <Text size="sm" c="dimmed">
-            {signedDone ? t("compliance-sign-done") : t("compliance-sign-intro")}
+            {signedDone
+              ? t("compliance-sign-done")
+              : waitingSign && row.expedient?.signing?.email
+                ? t("compliance-sign-sent", { email: row.expedient.signing.email })
+                : null}
           </Text>
           {signRejected ? (
             <Alert color="yellow" variant="light" icon={<IconAlertTriangle size={16} />}>
               {t("compliance-sign-rejected")}
             </Alert>
           ) : null}
-          {!signedDone && !row.expedient?.signing?.url && !packetWriting ? (
+          {!signedDone && !row.expedient?.signing?.email && !packetWriting ? (
             <Group gap="xs">
               <Loader size={16} type="oval" color="violet" />
               <Text size="sm">{t("compliance-sign-preparing")}</Text>
             </Group>
-          ) : null}
-          {waitingSign && row.expedient?.signing?.url ? (
-            <Button
-              component="a"
-              href={row.expedient.signing.url}
-              color="violet"
-              fullWidth
-              leftSection={<IconSignature size={16} />}
-            >
-              {t("compliance-sign-cta")}
-            </Button>
           ) : null}
           {packetWriting ? (
             <Group gap="xs">

@@ -2553,6 +2553,7 @@ export type TMyPldExpedient = {
       title?: string;
       signer_count?: number;
       you_signed?: boolean;
+      email?: string;
     } | null;
     packet_ready?: boolean;
     packet_status?: "writing" | "ready" | "failed" | "";

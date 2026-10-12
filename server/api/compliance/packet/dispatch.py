@@ -155,6 +155,7 @@ def invitee_signing_payload(expedient: PLDExpedient, entity) -> dict | None:
         "title": sr.title or "",
         "signer_count": len(signers) or 1,
         "you_signed": bool(mine and mine.status == "signed"),
+        "email": (mine.email if mine else sr.signatory_email) or "",
     }
 
 

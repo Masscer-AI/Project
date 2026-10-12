@@ -1294,7 +1294,7 @@
   "compliance-sign-check-id": "La identificacion oficial esta vigente.",
   "compliance-sign-back": "Volver a los datos",
   "compliance-sign-title": "Firma tu expediente",
-  "compliance-sign-intro": "Revisa el resumen de identificacion y firma electronicamente. La firma se hace con Mifiel. Si hay varios firmantes, cada uno recibe su propio correo con un enlace personal (valido 30 dias).",
+  "compliance-sign-sent": "La solicitud de firma se envio a {{email}}.",
   "compliance-sign-cta": "Firmar expediente",
   "compliance-sign-preparing": "Estamos preparando el documento para firma. Esto puede tardar un momento.",
   "compliance-sign-done": "Tu expediente quedo firmado y entregado. No necesitas hacer nada mas.",
