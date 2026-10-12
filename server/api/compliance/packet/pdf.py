@@ -305,8 +305,6 @@ def _paragraphs(entity) -> list[str]:
             "Manifiesto que los datos y copias entregadas corresponden a la "
             "contraparte y, en su caso, a su representante y beneficiarios "
             "controladores. Me comprometo a informar cambios relevantes.",
-            "",
-            "Firma electronica via Mifiel (constancia NOM-151).",
         ]
     )
     return blocks
