@@ -40,11 +40,9 @@ const COUNTRY_OPTIONS = countryNameSelectData();
 const VULNERABLE_NONE = "none";
 
 function chosenVulnerableFraction(row: TMyPldExpedient): string {
-  const meta = asRecord(row.metadata);
-  if ("vulnerable_activity_fraction" in meta && meta.vulnerable_activity_fraction != null) {
-    const raw = String(meta.vulnerable_activity_fraction);
-    return raw || VULNERABLE_NONE;
-  }
+  const raw = asString(asRecord(row.metadata).vulnerable_activity_fraction);
+  if (raw === VULNERABLE_NONE) return VULNERABLE_NONE;
+  if (raw) return raw;
   return row.vulnerable_activity_guess?.fraction || VULNERABLE_NONE;
 }
 
@@ -266,6 +264,17 @@ function fromMetadata(row: TMyPldExpedient): FormState {
   };
 }
 
+function storedVulnerableFraction(
+  current: string,
+  stored: string,
+  guess: string
+): string {
+  if (stored === VULNERABLE_NONE) return VULNERABLE_NONE;
+  if (stored) return stored;
+  if (filled(current) && current !== VULNERABLE_NONE) return current;
+  return guess || current || VULNERABLE_NONE;
+}
+
 function filled(value: string): boolean {
   return Boolean(value.trim());
 }
@@ -327,10 +336,7 @@ function metadataFromForm(form: FormState, isMoral: boolean): Record<string, unk
       nationality: form.nationality.trim() || null,
       rfc: form.rfc.trim() || null,
       economic_activity: form.economic_activity.trim() || null,
-      vulnerable_activity_fraction:
-        form.vulnerable_activity_fraction === VULNERABLE_NONE
-          ? ""
-          : form.vulnerable_activity_fraction || "",
+      vulnerable_activity_fraction: form.vulnerable_activity_fraction || VULNERABLE_NONE,
       phone,
       email: form.email.trim() || null,
       address: compactAddress(form.address),
@@ -359,10 +365,7 @@ function metadataFromForm(form: FormState, isMoral: boolean): Record<string, unk
     curp: form.curp.trim() || null,
     rfc: form.rfc.trim() || null,
     economic_activity: form.economic_activity.trim() || null,
-    vulnerable_activity_fraction:
-      form.vulnerable_activity_fraction === VULNERABLE_NONE
-        ? ""
-        : form.vulnerable_activity_fraction || "",
+    vulnerable_activity_fraction: form.vulnerable_activity_fraction || VULNERABLE_NONE,
     phone,
     email: form.email.trim() || null,
     address: compactAddress(form.address),
@@ -379,7 +382,8 @@ function metadataFromForm(form: FormState, isMoral: boolean): Record<string, unk
 
 function applyEmptyFromMetadata(
   prev: FormState,
-  meta: Record<string, unknown>
+  meta: Record<string, unknown>,
+  guessFraction: string
 ): FormState {
   const pick = (current: string, incoming: string) =>
     filled(incoming) ? incoming : current;
@@ -425,9 +429,10 @@ function applyEmptyFromMetadata(
       prev.economic_activity,
       asString(meta.economic_activity)
     ),
-    vulnerable_activity_fraction: pick(
+    vulnerable_activity_fraction: storedVulnerableFraction(
       prev.vulnerable_activity_fraction,
-      asString(meta.vulnerable_activity_fraction)
+      asString(meta.vulnerable_activity_fraction),
+      guessFraction
     ),
     email: pick(prev.email, asString(meta.email)),
     phone: filled(prev.phone) ? prev.phone : parsedPhone.local || prev.phone,
@@ -871,8 +876,14 @@ export function PldIntakeForm({
   }, [form]);
 
   useEffect(() => {
-    setForm((prev) => applyEmptyFromMetadata(prev, asRecord(row.metadata)));
-  }, [JSON.stringify(row.metadata || {})]);
+    setForm((prev) =>
+      applyEmptyFromMetadata(
+        prev,
+        asRecord(row.metadata),
+        row.vulnerable_activity_guess?.fraction || ""
+      )
+    );
+  }, [JSON.stringify(row.metadata || {}), row.vulnerable_activity_guess?.fraction]);
 
   useEffect(() => {
     const flushNow = () => {
@@ -1242,6 +1253,7 @@ export function PldIntakeForm({
       ) : null}
       <Select
         label={t("compliance-intake-vulnerable")}
+        required
         data={[
           { value: VULNERABLE_NONE, label: t("compliance-intake-vulnerable-none") },
           ...(row.vulnerable_activity_catalog || []).map((item) => ({

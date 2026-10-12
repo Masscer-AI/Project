@@ -560,6 +560,7 @@ class JaakClientTests(SimpleTestCase):
         fields = captured["template"]["documents"][0]["fields"]
         self.assertEqual(len(fields), 2)
         self.assertEqual(fields[0]["areas"][0]["page"], 14)
+        self.assertEqual(fields[0]["areas"][0]["y"], 720)
         self.assertEqual(fields[1]["areas"][0]["y"], fields[0]["areas"][0]["y"] + 80)
         self.assertTrue(captured["submission"]["send_email"])
         self.assertFalse(captured["submission"]["send_sms"])

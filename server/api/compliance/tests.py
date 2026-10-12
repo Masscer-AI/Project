@@ -2517,13 +2517,28 @@ class VulnerableActivityTests(SimpleTestCase):
         self.assertEqual(match["notice_uma"], 8025)
         self.assertGreater(match["notice_mxn"], 941000)
 
-    def test_empty_fraction_is_not_vulnerable(self):
+    def test_blank_fraction_uses_the_detection(self):
         from types import SimpleNamespace
 
         from api.compliance.risk.activities import resolve_vulnerable_activity
 
         entity = SimpleNamespace(
             metadata={"economic_activity": "construcción", "vulnerable_activity_fraction": ""},
+            expedients=SimpleNamespace(order_by=lambda *_: SimpleNamespace(first=lambda: None)),
+        )
+        match = resolve_vulnerable_activity(entity)
+        self.assertEqual(match["fraction"], "V")
+
+    def test_explicit_none_is_not_vulnerable(self):
+        from types import SimpleNamespace
+
+        from api.compliance.risk.activities import resolve_vulnerable_activity
+
+        entity = SimpleNamespace(
+            metadata={
+                "economic_activity": "construcción",
+                "vulnerable_activity_fraction": "none",
+            },
             expedients=SimpleNamespace(order_by=lambda *_: SimpleNamespace(first=lambda: None)),
         )
         self.assertIsNone(resolve_vulnerable_activity(entity))

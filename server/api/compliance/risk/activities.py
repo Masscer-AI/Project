@@ -92,7 +92,9 @@ def resolve_vulnerable_activity(entity) -> dict[str, Any] | None:
     meta = entity.metadata if isinstance(getattr(entity, "metadata", None), dict) else {}
     if "vulnerable_activity_fraction" not in meta:
         return guess_vulnerable_activity(entity)
-    chosen = meta.get("vulnerable_activity_fraction")
-    if chosen is None:
+    chosen = str(meta.get("vulnerable_activity_fraction") or "").strip()
+    if not chosen:
         return guess_vulnerable_activity(entity)
-    return activity_by_fraction(str(chosen))
+    if chosen == "none":
+        return None
+    return activity_by_fraction(chosen)

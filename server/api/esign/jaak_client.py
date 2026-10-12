@@ -6,7 +6,7 @@ import time
 import requests
 from django.conf import settings
 
-SIGNATURE_BOX = {"x": 36, "y": 36, "w": 200, "h": 72, "page": 14}
+SIGNATURE_BOX = {"x": 120, "y": 720, "w": 180, "h": 48, "page": 14}
 _LINE_STEP = 80
 _TOKEN_SKEW_SECONDS = 30
 
