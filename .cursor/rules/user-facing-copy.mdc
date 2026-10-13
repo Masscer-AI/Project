@@ -1,0 +1,17 @@
+---
+description: User-facing text must be grammatically correct in its language
+alwaysApply: true
+---
+
+# User-facing copy
+
+Every string a person reads must be grammatically correct in the language it is written in. That includes accents, agreement, punctuation, and spelling.
+
+This covers UI labels, locale files, emails, PDFs, empty states, errors, and buttons.
+
+```text
+Bad:  El proceso termino. Si hace falta alguna aclaracion, te contactaremos.
+Good: El proceso terminó. Si hace falta alguna aclaración, te contactaremos.
+```
+
+Match the language already used on that surface. Do not leave a new string in a worse form than the surrounding copy.
