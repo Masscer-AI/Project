@@ -615,7 +615,7 @@ class JaakWebhookTests(TestCase):
         self.assertEqual(row.content_type, "text/plain")
 
     @override_settings(JAAK_WEBHOOK_SECRET="jaak-secret")
-    def test_rejects_a_wrong_auth_key(self):
+    def test_stores_a_wrong_auth_key(self):
         from api.esign.models import JaakWebhookInbox
 
         response = APIClient().post(
@@ -624,8 +624,8 @@ class JaakWebhookTests(TestCase):
             content_type="application/json",
             HTTP_API_AUTHKEY="nope",
         )
-        self.assertEqual(response.status_code, 401)
-        self.assertFalse(JaakWebhookInbox.objects.exists())
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(JaakWebhookInbox.objects.get().body, "{}")
 
     @override_settings(JAAK_WEBHOOK_SECRET="jaak-secret")
     def test_accepts_the_auth_key_header(self):

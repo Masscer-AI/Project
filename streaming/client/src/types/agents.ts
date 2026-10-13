@@ -19,6 +19,7 @@ export type TModel = {
   pricing: {
     [key in TOutputMode]: TModelPricing;
   };
+  reasoning_levels?: string[];
 };
 
 type TLLM = {

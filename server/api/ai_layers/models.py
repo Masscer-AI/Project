@@ -33,6 +33,9 @@ DEFAULT_PRICING = {
 def default_pricing():
     return DEFAULT_PRICING
 
+def default_reasoning_levels():
+    return []
+
 DEFAULT_LANGUAGE_MODEL_LIST_SLUG = "default"
 
 
@@ -43,6 +46,7 @@ class LanguageModel(models.Model):
     name = models.CharField(max_length=100)
     pricing = models.JSONField(default=default_pricing)
     is_reasoning_model = models.BooleanField(default=False)
+    reasoning_levels = models.JSONField(default=default_reasoning_levels, blank=True)
     lists = models.ManyToManyField(
         "LanguageModelList",
         through="LanguageModelListMembership",

@@ -126,7 +126,7 @@ class LanguageModelSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = LanguageModel
-        fields = ["id", "provider", "slug", "name", "pricing"]
+        fields = ["id", "provider", "slug", "name", "pricing", "reasoning_levels"]
 
 class AgentSerializer(serializers.ModelSerializer):
     llm = LanguageModelSerializer(read_only=True)

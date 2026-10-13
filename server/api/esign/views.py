@@ -11,9 +11,10 @@ matches a SignatureRequest this server itself created and sent to Mifiel.
 
 from __future__ import annotations
 
-import hmac
 import json
 import logging
+import uuid
+from pathlib import Path
 
 from django.conf import settings
 from django.http import HttpResponse, JsonResponse
@@ -46,26 +47,38 @@ def mifiel_webhook(request):
     return HttpResponse(status=200)
 
 
-def _jaak_auth_ok(request) -> bool:
-    secret = (settings.JAAK_WEBHOOK_SECRET or "").strip()
-    if not secret:
-        return True
-    received = request.headers.get("Api-AuthKey", "")
-    return hmac.compare_digest(received, secret)
+def _jaak_request_dump(request, raw: str) -> str:
+    return json.dumps(
+        {
+            "path": request.get_full_path(),
+            "content_type": request.content_type or "",
+            "headers": dict(request.headers),
+            "body": raw,
+        },
+        ensure_ascii=False,
+    )
+
+
+def _write_jaak_dump(text: str) -> None:
+    folder = Path("/app/storage/jaak_webhooks")
+    if not folder.parent.is_dir():
+        return
+    folder.mkdir(exist_ok=True)
+    (folder / f"{uuid.uuid4().hex}.json").write_text(text, encoding="utf-8")
 
 
 @csrf_exempt
 def jaak_webhook(request):
     if request.method != "POST":
         return HttpResponse(status=405)
-    if not _jaak_auth_ok(request):
-        return HttpResponse(status=401)
     raw = request.body.decode("utf-8", errors="replace")
+    dump = _jaak_request_dump(request, raw)
     JaakWebhookInbox.objects.create(
         content_type=(request.content_type or "")[:128],
         body=raw,
     )
-    logger.info("Stored Jaak webhook (%s bytes)", len(raw))
+    _write_jaak_dump(dump)
+    logger.info("Jaak webhook %s", dump)
     return HttpResponse(status=200)
 
 

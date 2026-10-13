@@ -45,6 +45,7 @@ def _upsert_language_model(provider, model, provider_label):
             "name": model["name"],
             "pricing": model["pricing"],
             "is_reasoning_model": model.get("is_reasoning_model", False),
+            "reasoning_levels": list(model.get("reasoning_levels") or []),
         },
     )
     if created:
@@ -58,6 +59,10 @@ def _upsert_language_model(provider, model, provider_label):
             updated = True
         if language_model.is_reasoning_model != model.get("is_reasoning_model", False):
             language_model.is_reasoning_model = model.get("is_reasoning_model", False)
+            updated = True
+        reasoning_levels = list(model.get("reasoning_levels") or [])
+        if language_model.reasoning_levels != reasoning_levels:
+            language_model.reasoning_levels = reasoning_levels
             updated = True
         if updated:
             language_model.save()
@@ -77,6 +82,7 @@ def check_models_for_providers():
             "slug": "gpt-6-luna",
             "lists": DEFAULT_LISTS,
             "is_reasoning_model": True,
+            "reasoning_levels": ["none", "low", "medium", "high", "xhigh", "max"],
             "pricing": {
                 "text": {
                     "prompt": "0.10 USD / 1000000",
@@ -89,6 +95,7 @@ def check_models_for_providers():
             "slug": "gpt-6.1-sol",
             "lists": DEFAULT_LISTS,
             "is_reasoning_model": True,
+            "reasoning_levels": ["low", "medium", "high", "xhigh", "max"],
             "pricing": {
                 "text": {
                     "prompt": "2.00 USD / 1000000",
@@ -101,6 +108,7 @@ def check_models_for_providers():
             "slug": "gpt-6-astra",
             "lists": ADVANCED_LISTS,
             "is_reasoning_model": True,
+            "reasoning_levels": ["low", "medium", "high", "xhigh", "max"],
             "pricing": {
                 "text": {
                     "prompt": "10.00 USD / 1000000",
@@ -116,6 +124,7 @@ def check_models_for_providers():
             "slug": "gemini-3.5-flash-lite",
             "lists": DEFAULT_LISTS,
             "is_reasoning_model": True,
+            "reasoning_levels": ["minimal", "low", "medium", "high"],
             "pricing": {
                 "text": {
                     "prompt": "0.30 USD / 1000000",
@@ -124,10 +133,24 @@ def check_models_for_providers():
             },
         },
         {
+            "name": "Gemini 4 Argon",
+            "slug": "gemini-4-argon",
+            "lists": DEFAULT_LISTS,
+            "is_reasoning_model": True,
+            "reasoning_levels": ["low", "medium", "high"],
+            "pricing": {
+                "text": {
+                    "prompt": "2.00 USD / 1000000",
+                    "output": "10.00 USD / 1000000",
+                }
+            },
+        },
+        {
             "name": "Gemini 3.8 Flash",
             "slug": "gemini-3.8-flash",
             "lists": DEFAULT_LISTS,
             "is_reasoning_model": True,
+            "reasoning_levels": ["low", "medium", "high"],
             "pricing": {
                 "text": {
                     "prompt": "1.50 USD / 1000000",

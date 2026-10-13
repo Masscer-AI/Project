@@ -620,7 +620,7 @@ class LanguageModelAdmin(admin.ModelAdmin):
 
     fieldsets = (
         ("Model", {
-            "fields": ("provider", "name", "slug", "is_reasoning_model"),
+            "fields": ("provider", "name", "slug", "is_reasoning_model", "reasoning_levels"),
         }),
         ("Pricing", {
             "description": (
