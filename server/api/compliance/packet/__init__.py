@@ -1,4 +1,5 @@
 from api.compliance.packet.dispatch import (
+    email_expedient_finished,
     email_signing_links,
     invitee_signing_payload,
     maybe_dispatch_identification_packet,
@@ -7,6 +8,7 @@ from api.compliance.packet.dispatch import (
 )
 
 __all__ = [
+    "email_expedient_finished",
     "email_signing_links",
     "invitee_signing_payload",
     "maybe_dispatch_identification_packet",

@@ -9,7 +9,13 @@ from django.utils import timezone
 
 from .jaak_client import JaakAPIError, JaakClient
 from .mifiel_client import MifielAPIError, MifielClient
-from .models import SignatureRequest, SignatureRequestEvent, SignatureRequestStatus
+from .models import (
+    SignatureProvider,
+    SignatureRequest,
+    SignatureRequestEvent,
+    SignatureRequestStatus,
+    SignatureSigner,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -204,6 +210,86 @@ def submit_signature_request_to_jaak(signature_request_id: str) -> None:
         signature_request_id,
         submission_id,
     )
+
+
+def _jaak_file_url(submission: dict, suffix: str) -> str:
+    if suffix == ".pdf":
+        combined = str(submission.get("combined_document_url") or "")
+        if combined:
+            return combined
+    people = submission.get("submitters") if isinstance(submission.get("submitters"), list) else []
+    for person in people:
+        if not isinstance(person, dict):
+            continue
+        docs = person.get("documents") if isinstance(person.get("documents"), list) else []
+        for doc in docs:
+            if not isinstance(doc, dict):
+                continue
+            name = str(doc.get("name") or "").lower()
+            if name.endswith(suffix) and doc.get("url"):
+                return str(doc["url"])
+    return ""
+
+
+def _complete_jaak_submission(signature_request: SignatureRequest) -> None:
+    from api.compliance.packet import email_expedient_finished, mark_expedient_signed
+
+    if signature_request.status == SignatureRequestStatus.SIGNED:
+        return
+    client = JaakClient()
+    try:
+        submission = client.get_submission(signature_request.provider_document_id)
+        pdf_url = _jaak_file_url(submission, ".pdf")
+        pdf_bytes = client.download_bytes(pdf_url) if pdf_url else b""
+        xml_url = _jaak_file_url(submission, ".xml")
+        xml_bytes = client.download_bytes(xml_url) if xml_url else b""
+    except JaakAPIError as exc:
+        logger.error(
+            "Jaak download failed for SignatureRequest %s: %s",
+            signature_request.id,
+            exc,
+        )
+        signature_request.status = SignatureRequestStatus.ERROR
+        signature_request.metadata = {**signature_request.metadata, "error": str(exc)}
+        signature_request.save(update_fields=["status", "metadata", "updated_at"])
+        return
+    if not pdf_bytes:
+        signature_request.status = SignatureRequestStatus.ERROR
+        signature_request.metadata = {
+            **signature_request.metadata,
+            "error": "Jaak submission has no signed PDF",
+        }
+        signature_request.save(update_fields=["status", "metadata", "updated_at"])
+        return
+    now = timezone.now()
+    signature_request.signers.exclude(status=SignatureSigner.Status.SIGNED).update(
+        status=SignatureSigner.Status.SIGNED, signed_at=now
+    )
+    mark_expedient_signed(
+        signature_request, pdf_bytes=pdf_bytes, xml_bytes=xml_bytes
+    )
+    signature_request.status = SignatureRequestStatus.SIGNED
+    signature_request.signed_at = now
+    signature_request.save(update_fields=["status", "signed_at", "updated_at"])
+    email_expedient_finished(signature_request)
+
+
+@shared_task
+def process_jaak_webhook_event(payload: dict) -> None:
+    if str(payload.get("event") or "") != "SUBMISSION_COMPLETED":
+        return
+    data = payload.get("data") if isinstance(payload.get("data"), dict) else {}
+    submission_id = str(data.get("submission_id") or "")
+    if not submission_id:
+        return
+    signature_request = SignatureRequest.objects.filter(
+        provider=SignatureProvider.JAAK,
+        provider_document_id=submission_id,
+    ).first()
+    if not signature_request:
+        logger.warning("No Jaak SignatureRequest for submission %s", submission_id)
+        return
+    _complete_jaak_submission(signature_request)
 
 
 def _source_pdf(signature_request: SignatureRequest) -> tuple[bytes | None, str]:

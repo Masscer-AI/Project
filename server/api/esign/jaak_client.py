@@ -130,3 +130,16 @@ class JaakClient:
                 "submitters": submitters,
             },
         )
+
+    def get_submission(self, submission_id: str) -> dict:
+        return self._request("GET", f"/submissions/{submission_id}")
+
+    def download_bytes(self, url: str) -> bytes:
+        response = requests.get(
+            url,
+            headers={"Authorization": f"Bearer {self.access_token()}"},
+            timeout=self.timeout,
+        )
+        if not response.ok:
+            raise JaakAPIError(response.status_code, response.text[:500])
+        return response.content

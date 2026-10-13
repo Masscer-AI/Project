@@ -27,7 +27,7 @@ from .models import (
     SignatureRequestStatus,
     SignatureSigner,
 )
-from .tasks import process_mifiel_webhook_event
+from .tasks import process_jaak_webhook_event, process_mifiel_webhook_event
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +79,12 @@ def jaak_webhook(request):
     )
     _write_jaak_dump(dump)
     logger.info("Jaak webhook %s", dump)
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError:
+        payload = None
+    if isinstance(payload, dict) and payload.get("event") == "SUBMISSION_COMPLETED":
+        process_jaak_webhook_event.delay(payload)
     return HttpResponse(status=200)
 
 

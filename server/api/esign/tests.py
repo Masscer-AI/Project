@@ -560,7 +560,7 @@ class JaakClientTests(SimpleTestCase):
         fields = captured["template"]["documents"][0]["fields"]
         self.assertEqual(len(fields), 2)
         self.assertEqual(fields[0]["areas"][0]["page"], 14)
-        self.assertEqual(fields[0]["areas"][0]["y"], 720)
+        self.assertEqual(fields[0]["areas"][0]["y"], 747)
         self.assertEqual(fields[1]["areas"][0]["y"], fields[0]["areas"][0]["y"] + 80)
         self.assertTrue(captured["submission"]["send_email"])
         self.assertFalse(captured["submission"]["send_sms"])
@@ -636,3 +636,64 @@ class JaakWebhookTests(TestCase):
             HTTP_API_AUTHKEY="jaak-secret",
         )
         self.assertEqual(response.status_code, 200)
+
+    @patch("api.esign.views.process_jaak_webhook_event.delay")
+    def test_completed_event_is_queued(self, delay):
+        response = APIClient().post(
+            "/v1/esign/jaak/webhook",
+            data=b'{"event":"SUBMISSION_COMPLETED","data":{"submission_id":"88"}}',
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        delay.assert_called_once()
+        self.assertEqual(delay.call_args.args[0]["data"]["submission_id"], "88")
+
+
+class CompleteJaakSubmissionTests(EsignFixtureMixin, TestCase):
+    @patch("api.compliance.packet.email_expedient_finished")
+    @patch("api.esign.tasks.JaakClient")
+    def test_completed_submission_saves_the_signed_pdf(self, client_cls, email):
+        from api.compliance.models import PLDEntity, PLDExpedient, PLDExpedientStatus
+        from api.esign.models import SignatureProvider
+
+        from .tasks import process_jaak_webhook_event
+
+        entity = PLDEntity.objects.create(
+            organization=self.org,
+            person_type="persona_moral",
+            email="invitee@example.com",
+        )
+        signature_request = SignatureRequest.objects.create(
+            organization=self.org,
+            provider=SignatureProvider.JAAK,
+            document_kind="kyc_file",
+            title="Expediente",
+            signatory_name="ACME SA",
+            signatory_email="invitee@example.com",
+            provider_document_id="88",
+            status=SignatureRequestStatus.PENDING,
+        )
+        expedient = PLDExpedient.objects.create(
+            organization=self.org,
+            entity=entity,
+            signature_request=signature_request,
+            status=PLDExpedientStatus.WAITING_SIGN,
+        )
+        client = client_cls.return_value
+        client.get_submission.return_value = {
+            "status": "completed",
+            "combined_document_url": "https://files.example/signed.pdf",
+            "submitters": [],
+        }
+        client.download_bytes.return_value = b"%PDF signed"
+
+        process_jaak_webhook_event(
+            {"event": "SUBMISSION_COMPLETED", "data": {"submission_id": "88"}}
+        )
+
+        signature_request.refresh_from_db()
+        expedient.refresh_from_db()
+        self.assertEqual(signature_request.status, SignatureRequestStatus.SIGNED)
+        self.assertEqual(expedient.status, PLDExpedientStatus.DELIVERED)
+        self.assertTrue(expedient.signed_packet.name)
+        email.assert_called_once_with(signature_request)

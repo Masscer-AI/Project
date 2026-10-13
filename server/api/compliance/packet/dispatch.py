@@ -159,7 +159,7 @@ def invitee_signing_payload(expedient: PLDExpedient, entity) -> dict | None:
     }
 
 
-def mark_expedient_signed(signature_request, *, pdf_bytes: bytes, xml_bytes: bytes) -> None:
+def mark_expedient_signed(signature_request, *, pdf_bytes: bytes, xml_bytes: bytes = b"") -> None:
     expedient = PLDExpedient.objects.filter(signature_request=signature_request).first()
     if not expedient:
         return
@@ -168,20 +168,49 @@ def mark_expedient_signed(signature_request, *, pdf_bytes: bytes, xml_bytes: byt
         ContentFile(pdf_bytes, name="expediente-identificacion-firmado.pdf"),
         save=False,
     )
-    expedient.signed_packet_xml.save(
-        "expediente-identificacion-firmado.xml",
-        ContentFile(xml_bytes, name="expediente-identificacion-firmado.xml"),
-        save=False,
-    )
+    update_fields = ["signed_packet", "status", "updated_at"]
+    if xml_bytes:
+        expedient.signed_packet_xml.save(
+            "expediente-identificacion-firmado.xml",
+            ContentFile(xml_bytes, name="expediente-identificacion-firmado.xml"),
+            save=False,
+        )
+        update_fields.insert(1, "signed_packet_xml")
     expedient.status = PLDExpedientStatus.DELIVERED
-    expedient.save(
-        update_fields=[
-            "signed_packet",
-            "signed_packet_xml",
-            "status",
-            "updated_at",
-        ]
-    )
+    expedient.save(update_fields=update_fields)
+
+
+def email_expedient_finished(signature_request) -> None:
+    from api.utils.email_service import EmailService
+
+    to = (signature_request.signatory_email or "").strip()
+    if not to:
+        return
+    org_name = signature_request.organization.name
+    html = f"""
+        <div style="font-family: Arial, sans-serif; line-height: 1.5; color:#222;">
+            <h2>Tu expediente quedo firmado</h2>
+            <p>Hola {escape(signature_request.signatory_name)},</p>
+            <p>
+                El expediente de identificacion con <strong>{escape(org_name)}</strong>
+                ya quedo firmado. El proceso termino.
+            </p>
+            <p>Si hace falta alguna aclaracion, te contactaremos.</p>
+        </div>
+    """.strip()
+    try:
+        EmailService().send_email(
+            to=to,
+            subject=f"Tu expediente con {org_name} quedo firmado",
+            html=html,
+            from_name="Masscer",
+        )
+    except Exception:
+        logger.exception(
+            "Failed to email finished expediente to %s for SignatureRequest %s",
+            to,
+            signature_request.id,
+        )
 
 
 def email_signing_links(signature_request) -> None:
