@@ -1028,6 +1028,23 @@ and "answer" as the PAYLOAD (what to apply: reply text to prefer, facts to memor
 They are NOT required to mimic a literal user message + next chat reply.
 """
 
+CHAT_MARKDOWN_RULES = """
+=== MESSAGE FORMAT ===
+This reply is shown in the app chat or the chat widget, which renders GitHub markdown.
+Use headings, lists, task lists, tables, **bold**, *italic*, fenced code blocks, and [links](url) when they help. You can also use any other markdown formatting that you think is appropriate.
+=== END MESSAGE FORMAT ===
+"""
+
+WHATSAPP_TEXT_RULES = """
+=== MESSAGE FORMAT ===
+This reply is sent on WhatsApp. Write WhatsApp text, not markdown.
+Allowed: *bold*, _italic_, ~strikethrough~, ```monospace```, lines that start with - or 1. 2. 3. for lists.
+Do not use tables, headings, task lists, or [label](url) links.
+Put a URL on its own line.
+Files are sent separately, so do not paste markdown attachment links in the message.
+=== END MESSAGE FORMAT ===
+"""
+
 @shared_task
 def conversation_agent_task(
     conversation_id: str,
@@ -2188,6 +2205,9 @@ def conversation_agent_task(
                 provider=llm.provider.name if llm else "openai",
             )
             instructions += GENERAL_RULES
+            instructions += (
+                WHATSAPP_TEXT_RULES if is_whatsapp_chat else CHAT_MARKDOWN_RULES
+            )
             inputs_data = AgentSessionInputs(
                 instructions=instructions,
                 user_inputs=resolved_inputs,
