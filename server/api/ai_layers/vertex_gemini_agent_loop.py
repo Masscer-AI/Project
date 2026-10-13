@@ -78,6 +78,7 @@ class VertexGeminiAgentLoop(BaseAgentLoop):
         max_iterations: int = 50,
         on_event: Callable[[str, dict], None] | None = None,
         check_cancelled: Callable[[], bool] | None = None,
+        reasoning_level: str | None = None,
     ):
         self.instructions = instructions
         self.model = model
@@ -85,6 +86,7 @@ class VertexGeminiAgentLoop(BaseAgentLoop):
         self.max_iterations = max_iterations
         self.on_event = on_event
         self.check_cancelled = check_cancelled
+        self.reasoning_level = (reasoning_level or "").strip().lower() or None
 
         self.tool_functions: dict[str, Callable] = {}
         self.tool_param_models: dict[str, type[BaseModel] | None] = {}
@@ -290,6 +292,10 @@ class VertexGeminiAgentLoop(BaseAgentLoop):
                         function_calling_config=genai_types.FunctionCallingConfig(
                             mode=genai_types.FunctionCallingConfigMode.AUTO,
                         )
+                    )
+                if self.reasoning_level:
+                    cfg_kwargs["thinking_config"] = genai_types.ThinkingConfig(
+                        thinking_level=self.reasoning_level.upper()
                     )
 
                 config = genai_types.GenerateContentConfig(**cfg_kwargs)

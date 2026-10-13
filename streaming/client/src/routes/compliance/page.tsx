@@ -24,6 +24,7 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import { IconPlus } from "@tabler/icons-react";
 import {
+  approvePldScreening,
   createPldEntity,
   deletePldEntity,
   getPldEntityProgress,
@@ -92,6 +93,7 @@ export default function ComplianceHubPage() {
   const [selected, setSelected] = useState<TPldEntity | null>(null);
   const [progress, setProgress] = useState<TPldEntityProgress | null>(null);
   const [progressLoading, setProgressLoading] = useState(false);
+  const [approving, setApproving] = useState(false);
 
   const loadEntities = async () => {
     try {
@@ -203,6 +205,19 @@ export default function ComplianceHubPage() {
     if (entity.invite?.status === "accepted") return t("compliance-invite-accepted");
     if (entity.invite?.status === "pending") return t("compliance-invite-pending");
     return t("compliance-invite-none");
+  };
+
+  const handleApproveScreening = async () => {
+    if (!selected) return;
+    setApproving(true);
+    try {
+      setProgress(await approvePldScreening(selected.id));
+      await loadEntities();
+    } catch {
+      toast.error(t("compliance-screening-approve-error"));
+    } finally {
+      setApproving(false);
+    }
   };
 
   const openRow = async (entity: TPldEntity) => {
@@ -521,6 +536,16 @@ export default function ComplianceHubPage() {
                           {t(`compliance-reason-${reason}`, { defaultValue: reason })}
                         </Text>
                       ))}
+                    </Stack>
+                  ) : null}
+                  {progress.screening_verdict === "human_review" ? (
+                    <Stack gap="xs">
+                      {progress.screening_notes ? (
+                        <Text size="sm">{progress.screening_notes}</Text>
+                      ) : null}
+                      <Button loading={approving} onClick={() => void handleApproveScreening()}>
+                        {t("compliance-screening-approve")}
+                      </Button>
                     </Stack>
                   ) : null}
                 </Stack>

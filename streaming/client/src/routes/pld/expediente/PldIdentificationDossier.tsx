@@ -301,6 +301,7 @@ export function PldIdentificationDossier({
   const packetStatus = row.expedient?.packet_status || "";
   const packetWriting = packetStatus === "writing";
   const packetReady = packetStatus === "ready" || Boolean(row.expedient?.packet_ready);
+  const reviewPending = Boolean(row.expedient?.screening?.review_pending);
   const poll =
     pending ||
     prequalPending ||
@@ -308,7 +309,8 @@ export function PldIdentificationDossier({
     ppePending ||
     clarifyExtracting ||
     waitingSign ||
-    packetWriting;
+    packetWriting ||
+    reviewPending;
   const onSavedRef = useRef(onSaved);
   onSavedRef.current = onSaved;
 
@@ -463,7 +465,12 @@ export function PldIdentificationDossier({
               {t("compliance-sign-rejected")}
             </Alert>
           ) : null}
-          {!signedDone && !row.expedient?.signing?.email && !packetWriting ? (
+          {reviewPending && !signedDone ? (
+            <Alert color="yellow" variant="light" icon={<IconAlertTriangle size={16} />}>
+              {t("compliance-sign-review")}
+            </Alert>
+          ) : null}
+          {!reviewPending && !signedDone && !row.expedient?.signing?.email && !packetWriting ? (
             <Group gap="xs">
               <Loader size={16} type="oval" color="violet" />
               <Text size="sm">{t("compliance-sign-preparing")}</Text>

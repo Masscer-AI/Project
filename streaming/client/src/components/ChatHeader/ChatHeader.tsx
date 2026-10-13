@@ -403,6 +403,7 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
     system_prompt: agent.system_prompt || "",
     conversation_title_prompt: agent.conversation_title_prompt || "",
     pre_approved_tools: agent.pre_approved_tools || [],
+    reasoning_level: agent.reasoning_level || "",
     llm: agent.llm || {
       name: "",
       provider: "",
@@ -430,14 +431,19 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
   const handleLLMChange = (value: string) => {
     const llm = models.find((m) => m.slug === value);
     if (llm) {
-      setFormState((prev) => ({
-        ...prev,
-        llm: {
-          name: llm.name || "",
-          provider: llm.provider || "",
-          slug: llm.slug || "",
-        },
-      }));
+      setFormState((prev) => {
+        const levels = (llm.reasoning_levels || []).map((level) => level.toLowerCase());
+        const current = (prev.reasoning_level || "").toLowerCase();
+        return {
+          ...prev,
+          llm: {
+            name: llm.name || "",
+            provider: llm.provider || "",
+            slug: llm.slug || "",
+          },
+          reasoning_level: levels.includes(current) ? current : "",
+        };
+      });
     }
   };
 
@@ -617,6 +623,15 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
     label: m.name,
   }));
 
+  const selectedModel = models.find((m) => m.slug === formState.llm.slug);
+  const reasoningOptions = [
+    { value: "", label: t("reasoning-default") },
+    ...(selectedModel?.reasoning_levels || []).map((level) => ({
+      value: level,
+      label: level,
+    })),
+  ];
+
   const isLockedAgent = isLockedMasscerAgent(agent);
   const isPersonalAgent = agent.organization === null || agent.organization === undefined;
   const isOwnAgent = user && agent.user === user.id;
@@ -713,6 +728,18 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
           </>
         )}
       </Group>
+
+      {(selectedModel?.reasoning_levels || []).length > 0 && (
+        <NativeSelect
+          label={t("reasoning-level")}
+          data={reasoningOptions}
+          value={formState.reasoning_level || ""}
+          onChange={(e) => {
+            const val = e.currentTarget.value;
+            setFormState((prev) => ({ ...prev, reasoning_level: val }));
+          }}
+        />
+      )}
 
       <Group align="flex-end" gap="xs">
         <NativeSelect

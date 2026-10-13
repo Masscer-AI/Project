@@ -872,6 +872,69 @@ class PLDEntityAPITests(TestCase):
         self.assertEqual(len(mine.json()["results"]), 1)
         self.assertEqual(mine.json()["results"][0]["id"], started.json()["id"])
 
+    @patch("api.compliance.tasks.dispatch_identification_packet.delay")
+    def test_approve_human_review_clears_screening_and_queues_signature(self, delay):
+        from api.compliance.models import PLDEntity, PLDExpedient, PLDExpedientStatus
+
+        created = self.client.post(
+            "/v1/compliance/entities/",
+            {
+                "person_type": "persona_moral",
+                "relationship": "proveedor",
+                "email": "review@example.com",
+                "metadata": {"legal_name": "ACME SA", "rfc": "AAA010101AAA"},
+            },
+            format="json",
+            HTTP_AUTHORIZATION=f"Token {self.owner_token.key}",
+        )
+        entity = PLDEntity.objects.get(pk=created.json()["id"])
+        expedient = entity.expedients.get()
+        expedient.status = PLDExpedientStatus.CROSS_REFERENCE
+        expedient.screening_status = PLDExpedient.PrequalificationStatus.SUCCEEDED
+        expedient.screening_payload = {
+            "verdict": "human_review",
+            "human_notes": "Falta el RFC del representante",
+            "hits": [],
+        }
+        expedient.risk_payload = {
+            "semaphore": "orange",
+            "reasons": ["screening_unresolved"],
+            "packet_generation": "ready",
+        }
+        expedient.save()
+
+        blocked = self.client.post(
+            f"/v1/compliance/entities/{entity.id}/screening-approval/",
+            {},
+            format="json",
+            HTTP_AUTHORIZATION=f"Token {self.outsider_token.key}",
+        )
+        self.assertEqual(blocked.status_code, 404)
+
+        approved = self.client.post(
+            f"/v1/compliance/entities/{entity.id}/screening-approval/",
+            {},
+            format="json",
+            HTTP_AUTHORIZATION=f"Token {self.owner_token.key}",
+        )
+        self.assertEqual(approved.status_code, 200)
+        body = approved.json()
+        self.assertEqual(body["screening_verdict"], "clear")
+        self.assertEqual(body["screening_notes"], "Falta el RFC del representante")
+        self.assertNotIn("screening_unresolved", body["reasons"])
+        expedient.refresh_from_db()
+        self.assertEqual(expedient.screening_payload["verdict"], "clear")
+        self.assertEqual(expedient.risk_payload["packet_generation"], "ready")
+        delay.assert_called_once_with(str(expedient.id))
+
+        again = self.client.post(
+            f"/v1/compliance/entities/{entity.id}/screening-approval/",
+            {},
+            format="json",
+            HTTP_AUTHORIZATION=f"Token {self.owner_token.key}",
+        )
+        self.assertEqual(again.status_code, 409)
+
 
 class PLDDocumentExtractionTests(TestCase):
     def setUp(self):

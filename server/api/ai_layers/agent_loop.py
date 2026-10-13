@@ -294,6 +294,7 @@ class AgentLoop:
                 max_iterations=max_iterations,
                 on_event=on_event,
                 check_cancelled=check_cancelled,
+                reasoning_level=reasoning_effort,
             )
         raise ValueError(f"Unknown agent provider: {provider!r}")
 

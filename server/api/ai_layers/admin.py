@@ -75,7 +75,7 @@ class AgentAdmin(admin.ModelAdmin):
             "fields": ("name", "slug", "agent_kind", "user", "organization")
         }),
         ("Model Configuration", {
-            "fields": ("model_provider", "model_slug", "llm", "max_tokens")
+            "fields": ("model_provider", "model_slug", "llm", "reasoning_level", "max_tokens")
         }),
         ("Agent Behavior", {
             "fields": (

@@ -2412,12 +2412,21 @@ export type TPldEntityProgress = {
   signature: { status: string; signer_count: number };
   recommended_action: string;
   semaphore: string;
+  screening_verdict: string;
+  screening_notes: string;
 };
 
 export const getPldEntityProgress = async (entityId: string) => {
   return makeAuthenticatedRequest<TPldEntityProgress>(
     "GET",
     `/v1/compliance/entities/${entityId}/`
+  );
+};
+
+export const approvePldScreening = async (entityId: string) => {
+  return makeAuthenticatedRequest<TPldEntityProgress>(
+    "POST",
+    `/v1/compliance/entities/${entityId}/screening-approval/`
   );
 };
 
@@ -2529,6 +2538,7 @@ export type TMyPldExpedient = {
     screening?: {
       verdict?: string;
       summary?: string;
+      review_pending?: boolean;
       checks?: { role: string; name: string; rfc: string; hit_count: number }[];
       searches?: { terms: string[]; lists: string[]; hit_count: number }[];
     };

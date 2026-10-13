@@ -123,6 +123,7 @@ class Agent(models.Model):
     llm = models.ForeignKey(
         LanguageModel, on_delete=models.SET_NULL, null=True, blank=True
     )
+    reasoning_level = models.CharField(max_length=20, blank=True, default="")
 
     model_provider = models.CharField(
         max_length=20, choices=MODEL_PROVIDER_CHOICES, default="openai"

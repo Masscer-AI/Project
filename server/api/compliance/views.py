@@ -207,6 +207,9 @@ def _matrix_brief(entity: PLDEntity, exp: PLDExpedient | None) -> dict | None:
 def _entity_progress(entity: PLDEntity) -> dict:
     exp = entity.expedients.order_by("created_at").first()
     risk = exp.risk_payload if exp and isinstance(exp.risk_payload, dict) else {}
+    screening = (
+        exp.screening_payload if exp and isinstance(exp.screening_payload, dict) else {}
+    )
     return {
         "rfc": _entity_rfc(entity),
         "steps": _progress_steps(entity, exp),
@@ -221,6 +224,8 @@ def _entity_progress(entity: PLDEntity) -> dict:
         "signature": _signature_state(exp),
         "recommended_action": risk.get("recommended_action") or "",
         "semaphore": risk.get("semaphore") or "",
+        "screening_verdict": str(screening.get("verdict") or ""),
+        "screening_notes": str(screening.get("human_notes") or ""),
     }
 
 
@@ -427,6 +432,55 @@ class PLDEntityDetailView(View):
             return err
         entity.delete()
         return JsonResponse({"ok": True}, status=200)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class PLDScreeningApprovalView(View):
+    def post(self, request, entity_id, *args, **kwargs):
+        from django.utils import timezone
+
+        from api.compliance.risk.evaluate import evaluate_risk_gate
+        from api.compliance.tasks import dispatch_identification_packet
+
+        org, err = _org_or_404(request)
+        if err:
+            return err
+        try:
+            entity = PLDEntity.objects.prefetch_related(
+                "expedients__documents",
+                "expedients__signature_request__signers",
+            ).get(pk=entity_id, organization=org)
+        except (PLDEntity.DoesNotExist, ValidationError, ValueError):
+            return JsonResponse({"error": "Entity not found"}, status=404)
+        exp = entity.expedients.order_by("created_at").first()
+        payload = (
+            dict(exp.screening_payload)
+            if exp and isinstance(exp.screening_payload, dict)
+            else {}
+        )
+        if payload.get("verdict") != "human_review":
+            return JsonResponse({"error": "not in review"}, status=409)
+        payload["verdict"] = "clear"
+        previous = exp.risk_payload if isinstance(exp.risk_payload, dict) else {}
+        exp.screening_payload = payload
+        risk = evaluate_risk_gate(entity, exp).model_dump(mode="json")
+        if previous.get("packet_generation"):
+            risk["packet_generation"] = previous["packet_generation"]
+        exp.risk_payload = risk
+        exp.risk_status = PLDExpedient.PrequalificationStatus.SUCCEEDED
+        exp.risked_at = timezone.now()
+        exp.save(
+            update_fields=[
+                "screening_payload",
+                "risk_payload",
+                "risk_status",
+                "risked_at",
+                "updated_at",
+            ]
+        )
+        dispatch_identification_packet.delay(str(exp.id))
+        return JsonResponse(_entity_progress(entity), status=200)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -955,6 +1009,7 @@ def _invitee_screening(exp: PLDExpedient) -> dict:
             for row in searches
             if isinstance(row, dict)
         ],
+        "review_pending": raw.get("verdict") == "human_review",
     }
 
 

@@ -56,6 +56,7 @@ export type TAgent = {
   salute?: string;
   llm: TLLM;
   default_voice_id?: string | null;
+  reasoning_level?: string;
   profile_picture_url?: string;
   system_prompt: string;
   conversation_title_prompt?: string;

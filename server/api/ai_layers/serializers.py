@@ -162,6 +162,7 @@ class AgentSerializer(serializers.ModelSerializer):
             "profile_picture_url",
             "max_tokens",
             "llm",
+            "reasoning_level",
             "conversation_title_prompt",
             "pre_approved_tools",
             "created_at",
@@ -188,6 +189,18 @@ class AgentSerializer(serializers.ModelSerializer):
                 seen.add(name)
                 names.append(name)
         return names
+
+    def validate_reasoning_level(self, value):
+        level = (value or "").strip().lower()
+        if not level:
+            return ""
+        llm = getattr(self.instance, "llm", None)
+        allowed = [str(item).strip().lower() for item in (getattr(llm, "reasoning_levels", None) or [])]
+        if level not in allowed:
+            raise serializers.ValidationError(
+                "Reasoning level is not available for this model."
+            )
+        return level
 
     def to_representation(self, instance):
         data = super().to_representation(instance)

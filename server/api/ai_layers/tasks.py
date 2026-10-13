@@ -2290,6 +2290,7 @@ def conversation_agent_task(
                 max_iterations=max_iterations,
                 on_event=on_event,
                 check_cancelled=is_cancelled,
+                reasoning_effort=(agent.reasoning_level or "").strip() or None,
             )
 
             openai_inputs = _build_agent_loop_inputs(
