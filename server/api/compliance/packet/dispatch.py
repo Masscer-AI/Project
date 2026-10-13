@@ -189,19 +189,19 @@ def email_expedient_finished(signature_request) -> None:
     org_name = signature_request.organization.name
     html = f"""
         <div style="font-family: Arial, sans-serif; line-height: 1.5; color:#222;">
-            <h2>Tu expediente quedo firmado</h2>
-            <p>Hola {escape(signature_request.signatory_name)},</p>
+            <h2>Tu expediente quedó firmado</h2>
+            <p>Hola, {escape(signature_request.signatory_name)}:</p>
             <p>
-                El expediente de identificacion con <strong>{escape(org_name)}</strong>
-                ya quedo firmado. El proceso termino.
+                El expediente de identificación con <strong>{escape(org_name)}</strong>
+                ya quedó firmado. El proceso terminó.
             </p>
-            <p>Si hace falta alguna aclaracion, te contactaremos.</p>
+            <p>Si hace falta alguna aclaración, te contactaremos.</p>
         </div>
     """.strip()
     try:
         EmailService().send_email(
             to=to,
-            subject=f"Tu expediente con {org_name} quedo firmado",
+            subject=f"Tu expediente con {org_name} quedó firmado",
             html=html,
             from_name="Masscer",
         )
