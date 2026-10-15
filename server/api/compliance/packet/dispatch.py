@@ -64,7 +64,7 @@ def maybe_dispatch_identification_packet(expedient: PLDExpedient) -> None:
 
     _mark_packet_generation(expedient, "writing")
     try:
-        pdf_bytes = render_identification_packet_pdf(entity)
+        pdf_bytes, generation = render_identification_packet_pdf(entity)
     except Exception:
         logger.exception(
             "Gamma packet generation failed for expedient %s", expedient.id
@@ -76,6 +76,7 @@ def maybe_dispatch_identification_packet(expedient: PLDExpedient) -> None:
     filename = "expediente-identificacion.pdf"
     expedient.packet_file.save(filename, ContentFile(pdf_bytes, name=filename), save=False)
     expedient.packet_generated_at = timezone.now()
+    expedient.packet_generation_payload = generation
 
     from api.esign.models import (
         SignatureDocumentKind,
@@ -115,6 +116,7 @@ def maybe_dispatch_identification_packet(expedient: PLDExpedient) -> None:
         update_fields=[
             "packet_file",
             "packet_generated_at",
+            "packet_generation_payload",
             "signature_request",
             "status",
             "updated_at",

@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 
 import requests
+from django.utils import timezone
 
 from api.ai_layers.tools.generate_gamma_presentation import (
     _api_key,
@@ -35,20 +36,26 @@ def _prompt(entity) -> str:
     )
 
 
-def render_identification_packet_pdf(entity) -> bytes:
+def render_identification_packet_pdf(entity) -> tuple[bytes, dict]:
     try:
         api_key = _api_key()
     except ValueError:
-        return build_identification_packet_pdf(entity)
+        return build_identification_packet_pdf(entity), {
+            "engine": "local",
+            "model": "PyMuPDF (sin modelo de IA)",
+            "prompt": "\n".join(_paragraphs(entity)),
+            "generated_at": timezone.now().isoformat(),
+        }
     name = entity_display_name(entity)
     title = f"Expediente de identificacion — {name}"[:500]
-    print("Generating Gamma template wi th id: ", expediente_template_id())
+    template_id = expediente_template_id()
+    prompt = _prompt(entity)
     resp = requests.post(
         f"{GAMMA_API_BASE}/generations/from-template",
         headers=_headers(api_key),
         json={
-            "gammaId": expediente_template_id(),
-            "prompt": _prompt(entity),
+            "gammaId": template_id,
+            "prompt": prompt,
             "title": title,
             "exportAs": "pdf",
             "sharingOptions": {
@@ -67,4 +74,12 @@ def render_identification_packet_pdf(entity) -> bytes:
     export_url = (status_data.get("exportUrl") or "").strip()
     if not export_url:
         raise ValueError("Gamma template generation completed without an exportUrl.")
-    return _download_export(export_url)
+    return _download_export(export_url), {
+        "engine": "gamma",
+        "model": "Gamma generations/from-template",
+        "template_id": template_id,
+        "generation_id": str(generation_id),
+        "title": title,
+        "prompt": prompt,
+        "generated_at": timezone.now().isoformat(),
+    }

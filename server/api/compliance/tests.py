@@ -984,7 +984,6 @@ class PLDEntityAPITests(TestCase):
         files = detail.json()["files"]
         self.assertEqual(files["documents"][0]["id"], str(doc.id))
         self.assertEqual(files["packet"], "draft")
-        self.assertFalse(files["bundle_ready"])
 
         got = self.client.get(
             f"/v1/compliance/entities/{entity.id}/documents/{doc.id}/",
@@ -1005,47 +1004,46 @@ class PLDEntityAPITests(TestCase):
         )
         self.assertEqual(outsider.status_code, 404)
 
-    def test_entity_bundle_requires_signed_expedient(self):
+    def test_entity_bundle_includes_documents_packet_and_generation(self):
         import io
+        import json
         import zipfile
-
-        from api.compliance.models import PLDExpedientStatus
 
         entity, expedient, _doc = self._signed_entity("cliente", "ACME SA", signed=False)
-        auth = f"Token {self.owner_token.key}"
-        url = f"/v1/compliance/entities/{entity.id}/bundle/"
+        expedient.packet_generation_payload = {
+            "engine": "gamma",
+            "model": "Gamma generations/from-template",
+            "template_id": "g_test",
+            "prompt": "Fill this expediente",
+        }
+        expedient.save(update_fields=["packet_generation_payload", "updated_at"])
 
-        self.assertEqual(self.client.get(url, HTTP_AUTHORIZATION=auth).status_code, 409)
-
-        expedient.status = PLDExpedientStatus.DELIVERED
-        expedient.save(update_fields=["status", "updated_at"])
-        got = self.client.get(url, HTTP_AUTHORIZATION=auth)
+        got = self.client.get(
+            f"/v1/compliance/entities/{entity.id}/bundle/",
+            HTTP_AUTHORIZATION=f"Token {self.owner_token.key}",
+        )
         self.assertEqual(got.status_code, 200)
         self.assertEqual(got["Content-Type"], "application/zip")
-        names = zipfile.ZipFile(io.BytesIO(b"".join(got.streaming_content))).namelist()
+        archive = zipfile.ZipFile(io.BytesIO(b"".join(got.streaming_content)))
+        names = archive.namelist()
         self.assertIn("documentos/acta_constitutiva-acta.pdf", names)
-        self.assertIn("expediente.pdf", names)
+        self.assertIn("expediente-generado.pdf", names)
+        self.assertEqual(archive.read("generacion/prompt.txt"), b"Fill this expediente")
+        details = json.loads(archive.read("generacion/detalles.json"))
+        self.assertEqual(details["template_id"], "g_test")
+        self.assertNotIn("prompt", details)
 
-    def test_org_bundle_waits_for_own_expedient(self):
+    def test_org_bundle_includes_every_entity(self):
         import io
         import zipfile
 
-        from api.compliance.models import PLDExpedientStatus
-
         client_entity, _exp, _doc = self._signed_entity("cliente", "ACME SA")
-        own, own_exp, _own_doc = self._signed_entity(None, "PLD API Org", signed=False)
-        auth = f"Token {self.owner_token.key}"
+        own, _own_exp, _own_doc = self._signed_entity(None, "PLD API Org", signed=False)
 
-        listed = self.client.get("/v1/compliance/entities/", HTTP_AUTHORIZATION=auth)
-        self.assertFalse(listed.json()["org_bundle_ready"])
-        self.assertEqual(
-            self.client.get("/v1/compliance/bundle/", HTTP_AUTHORIZATION=auth).status_code,
-            409,
+        got = self.client.get(
+            "/v1/compliance/bundle/",
+            HTTP_AUTHORIZATION=f"Token {self.owner_token.key}",
         )
-
-        own_exp.status = PLDExpedientStatus.SIGNED
-        own_exp.save(update_fields=["status", "updated_at"])
-        got = self.client.get("/v1/compliance/bundle/", HTTP_AUTHORIZATION=auth)
         self.assertEqual(got.status_code, 200)
         names = zipfile.ZipFile(io.BytesIO(b"".join(got.streaming_content))).namelist()
         client_folder = f"clientes/acme-sa-{str(client_entity.id)[:8]}/"
@@ -1053,6 +1051,13 @@ class PLDEntityAPITests(TestCase):
         self.assertIn(f"{client_folder}expediente-firmado.pdf", names)
         self.assertIn(f"{client_folder}expediente-firmado.xml", names)
         self.assertIn(f"{own_folder}documentos/acta_constitutiva-acta.pdf", names)
+        self.assertIn(f"{own_folder}expediente-generado.pdf", names)
+
+        outsider = self.client.get(
+            "/v1/compliance/bundle/",
+            HTTP_AUTHORIZATION=f"Token {self.outsider_token.key}",
+        )
+        self.assertEqual(outsider.status_code, 404)
 
 
 class PLDDocumentExtractionTests(TestCase):

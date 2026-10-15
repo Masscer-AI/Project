@@ -2423,7 +2423,6 @@ export type TPldEntityProgress = {
       file_size: number;
     }[];
     packet: "signed" | "draft" | "";
-    bundle_ready: boolean;
   };
 };
 
@@ -2445,7 +2444,6 @@ export const listPldEntities = async () => {
   return makeAuthenticatedRequest<{
     results: TPldEntity[];
     org_process_ready?: boolean;
-    org_bundle_ready?: boolean;
   }>("GET", "/v1/compliance/entities/");
 };
 

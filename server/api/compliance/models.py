@@ -347,6 +347,7 @@ class PLDExpedient(models.Model):
         default="",
     )
     packet_generated_at = models.DateTimeField(null=True, blank=True)
+    packet_generation_payload = models.JSONField(default=dict, blank=True)
     signed_packet = models.FileField(
         upload_to=pld_expedient_packet_upload_to,
         blank=True,

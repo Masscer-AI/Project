@@ -76,7 +76,6 @@ export default function ComplianceHubPage() {
   const navigate = useNavigate();
   const [entities, setEntities] = useState<TPldEntity[]>([]);
   const [orgProcessReady, setOrgProcessReady] = useState(false);
-  const [orgBundleReady, setOrgBundleReady] = useState(false);
   const [downloadingKey, setDownloadingKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -111,12 +110,10 @@ export default function ComplianceHubPage() {
         return rows.find((row) => row.id === current.id) || current;
       });
       setOrgProcessReady(Boolean(data.org_process_ready));
-      setOrgBundleReady(Boolean(data.org_bundle_ready));
     } catch {
       toast.error(t("compliance-entities-load-error"));
       setEntities([]);
       setOrgProcessReady(false);
-      setOrgBundleReady(false);
     } finally {
       setLoading(false);
     }
@@ -317,13 +314,17 @@ export default function ComplianceHubPage() {
           </SimpleGrid>
 
           <Card withBorder p="lg" mb="lg">
-            {orgBundleReady ? (
-              <Group justify="space-between" align="flex-start" wrap="wrap">
-                <Text size="sm" c="dimmed" style={{ flex: 1, minWidth: 0 }}>
-                  {t("compliance-org-bundle-ready")}
-                </Text>
+            <Group justify="space-between" align="flex-start" wrap="wrap">
+              <Text size="sm" c="dimmed" style={{ flex: 1, minWidth: 0 }}>
+                {orgProcessReady
+                  ? t("compliance-start-process-ready")
+                  : t("compliance-start-process-blocked")}
+              </Text>
+              <Group gap="xs">
                 <Button
+                  variant="default"
                   leftSection={<IconDownload size={16} />}
+                  disabled={entities.length === 0}
                   loading={downloadingKey === "org-bundle"}
                   onClick={() =>
                     void handleDownload("org-bundle", downloadPldOrganizationBundle)
@@ -331,14 +332,6 @@ export default function ComplianceHubPage() {
                 >
                   {t("compliance-org-bundle")}
                 </Button>
-              </Group>
-            ) : (
-              <Group justify="space-between" align="flex-start" wrap="wrap">
-                <Text size="sm" c="dimmed" style={{ flex: 1, minWidth: 0 }}>
-                  {orgProcessReady
-                    ? t("compliance-start-process-ready")
-                    : t("compliance-start-process-blocked")}
-                </Text>
                 <Button
                   disabled={!orgProcessReady}
                   loading={starting}
@@ -347,7 +340,7 @@ export default function ComplianceHubPage() {
                   {t("compliance-start-process")}
                 </Button>
               </Group>
-            )}
+            </Group>
           </Card>
 
           <Card withBorder p="lg">
@@ -633,7 +626,6 @@ export default function ComplianceHubPage() {
                     <Button
                       variant="light"
                       leftSection={<IconDownload size={16} />}
-                      disabled={!progress.files.bundle_ready}
                       loading={downloadingKey === "bundle"}
                       onClick={() =>
                         void handleDownload("bundle", () =>
@@ -646,11 +638,6 @@ export default function ComplianceHubPage() {
                     >
                       {t("compliance-files-bundle")}
                     </Button>
-                    {progress.files.bundle_ready ? null : (
-                      <Text size="xs" c="dimmed">
-                        {t("compliance-files-bundle-locked")}
-                      </Text>
-                    )}
                   </Stack>
                 </Stack>
               ) : null}

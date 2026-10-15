@@ -332,7 +332,7 @@ def regenerate_pld_packet(expedient_id: str):
         logger.warning("PLD expedient %s not found for packet regeneration", expedient_id)
         return
     try:
-        pdf_bytes = render_identification_packet_pdf(exp.entity)
+        pdf_bytes, generation = render_identification_packet_pdf(exp.entity)
     except Exception:
         logger.exception("Gamma packet regeneration failed for %s", expedient_id)
         _mark_packet_generation(exp, "failed")
@@ -340,7 +340,15 @@ def regenerate_pld_packet(expedient_id: str):
     filename = "expediente-identificacion.pdf"
     exp.packet_file.save(filename, ContentFile(pdf_bytes, name=filename), save=False)
     exp.packet_generated_at = timezone.now()
-    exp.save(update_fields=["packet_file", "packet_generated_at", "updated_at"])
+    exp.packet_generation_payload = generation
+    exp.save(
+        update_fields=[
+            "packet_file",
+            "packet_generated_at",
+            "packet_generation_payload",
+            "updated_at",
+        ]
+    )
     _mark_packet_generation(exp, "ready")
 
 

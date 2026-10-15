@@ -14,11 +14,9 @@ from django.views.decorators.csrf import csrf_exempt
 from api.authenticate.decorators.token_required import token_required
 from api.compliance.access import get_pld_organization_for_user
 from api.compliance.bundle import (
-    BUNDLE_READY,
     build_entity_bundle,
     build_organization_bundle,
     entity_folder,
-    organization_bundle_ready,
 )
 from api.compliance.invites import (
     accept_pld_invite,
@@ -239,7 +237,7 @@ def _matrix_brief(entity: PLDEntity, exp: PLDExpedient | None) -> dict | None:
 
 def _entity_files(exp: PLDExpedient | None) -> dict:
     if not exp:
-        return {"documents": [], "packet": "", "bundle_ready": False}
+        return {"documents": [], "packet": ""}
     if exp.signed_packet:
         packet = "signed"
     elif exp.packet_file:
@@ -259,7 +257,6 @@ def _entity_files(exp: PLDExpedient | None) -> dict:
             if doc.file
         ],
         "packet": packet,
-        "bundle_ready": exp.status in BUNDLE_READY,
     }
 
 
@@ -417,7 +414,6 @@ class PLDEntityListView(View):
             {
                 "results": [_entity_payload(entity) for entity in entities],
                 "org_process_ready": _counterparties_complete(org),
-                "org_bundle_ready": organization_bundle_ready(org),
             },
             status=200,
         )
@@ -1260,6 +1256,7 @@ def _reset_invitee_expedient(entity: PLDEntity) -> None:
         exp.risk_payload = {}
         exp.risked_at = None
         exp.packet_generated_at = None
+        exp.packet_generation_payload = {}
         exp.signature_request = None
         exp.save()
 
@@ -1505,9 +1502,6 @@ class PLDEntityBundleView(View):
         entity, err = _org_entity_or_404(org, entity_id)
         if err:
             return err
-        exp = entity.expedients.order_by("created_at").first()
-        if not exp or exp.status not in BUNDLE_READY:
-            return JsonResponse({"error": "expedient-not-signed"}, status=409)
         return _zip_response(build_entity_bundle(entity), f"{entity_folder(entity)}.zip")
 
 
@@ -1518,8 +1512,6 @@ class PLDOrganizationBundleView(View):
         org, err = _org_or_404(request)
         if err:
             return err
-        if not organization_bundle_ready(org):
-            return JsonResponse({"error": "organization-expedient-not-signed"}, status=409)
         return _zip_response(build_organization_bundle(org), "expedientes-pld.zip")
 
 
