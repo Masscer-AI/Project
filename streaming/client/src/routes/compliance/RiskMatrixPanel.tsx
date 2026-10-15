@@ -38,6 +38,20 @@ function basePoints(matrix: TPldMatrix): Record<string, number> {
   return Object.fromEntries(matrix.rows.map((row) => [row.slug, row.points]));
 }
 
+function formatPoints(value: number): string {
+  return String(Math.round(value * 100) / 100);
+}
+
+function rowHelpValues(row: TPldMatrixRow, value: number) {
+  if (row.kind !== "weight") return { points: formatPoints(value) };
+  return {
+    p1: formatPoints(value * 0.25),
+    p2: formatPoints(value * 0.5),
+    p3: formatPoints(value * 0.75),
+    p4: formatPoints(value),
+  };
+}
+
 function weightSum(matrix: TPldMatrix, points: Record<string, number>): number {
   const total = matrix.rows
     .filter((row) => row.kind === "weight")
@@ -182,6 +196,19 @@ export function RiskMatrixPanel({
         )}
       </Card>
 
+      <Card withBorder p="lg">
+        <Title order={5} mb="xs">
+          {t("compliance-matrix-how-title")}
+        </Title>
+        <Stack gap={6}>
+          {["step-1", "step-2", "step-3", "lower", "when"].map((key) => (
+            <Text key={key} size="sm" c="dimmed">
+              {t(`compliance-matrix-how-${key}`)}
+            </Text>
+          ))}
+        </Stack>
+      </Card>
+
       {editable ? (
         <Card withBorder p="lg">
           <Group align="flex-end" wrap="wrap">
@@ -220,14 +247,27 @@ export function RiskMatrixPanel({
           <Text size="sm" c="dimmed" mb="md">
             {t(`compliance-matrix-kind-${kind}-help`)}
           </Text>
-          <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
+          <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg" verticalSpacing="md">
             {matrix.rows
               .filter((row) => row.kind === kind)
               .map((row) => (
-                <Group key={row.slug} justify="space-between" wrap="nowrap">
-                  <Text size="sm">
-                    {t(`compliance-matrix-row-${row.slug}`, { defaultValue: row.name })}
-                  </Text>
+                <Group
+                  key={row.slug}
+                  justify="space-between"
+                  align="flex-start"
+                  wrap="nowrap"
+                >
+                  <Stack gap={2} style={{ flex: 1, minWidth: 0 }}>
+                    <Text size="sm" fw={500}>
+                      {t(`compliance-matrix-row-${row.slug}`, { defaultValue: row.name })}
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      {t(
+                        `compliance-matrix-row-${row.slug}-help`,
+                        rowHelpValues(row, Number(draft.points[row.slug]) || 0)
+                      )}
+                    </Text>
+                  </Stack>
                   <NumberInput
                     w="6rem"
                     min={0}
