@@ -33,8 +33,15 @@ from api.compliance.models import (
     PLDExpedientDocument,
     PLDExpedientStatus,
     PLDInvite,
+    PLDMatrixProfile,
     PLDPersonType,
     PLDRelationship,
+)
+from api.compliance.pld_matrix import (
+    base_points,
+    clean_points,
+    matrix_rows,
+    profile_payload,
 )
 
 
@@ -300,6 +307,11 @@ def _entity_payload(entity: PLDEntity) -> dict:
         "email": entity.email or "",
         "rfc": _entity_rfc(entity),
         "ppe_screening_enabled": bool(entity.ppe_screening_enabled),
+        "matrix_profile": (
+            {"id": str(entity.matrix_profile.id), "name": entity.matrix_profile.name}
+            if entity.matrix_profile
+            else None
+        ),
         "metadata": entity.metadata or {},
         "created_at": entity.created_at.isoformat() if entity.created_at else None,
         "updated_at": entity.updated_at.isoformat() if entity.updated_at else None,
@@ -368,6 +380,25 @@ def _self_process_block(entity: PLDEntity):
     return JsonResponse({"error": "counterparties-incomplete"}, status=409)
 
 
+def _is_org_owner(request, org) -> bool:
+    return org.owner_id == request.user.id
+
+
+def _owner_only(request, org):
+    if _is_org_owner(request, org):
+        return None
+    return JsonResponse({"error": "owner-only"}, status=403)
+
+
+def _matrix_profile_choice(org, raw):
+    if not raw:
+        return None, None
+    try:
+        return PLDMatrixProfile.objects.get(pk=raw, organization=org), None
+    except (PLDMatrixProfile.DoesNotExist, ValidationError, ValueError):
+        return None, JsonResponse({"error": "Matrix profile not found"}, status=400)
+
+
 def _org_entity_or_404(org, entity_id):
     try:
         entity = PLDEntity.objects.prefetch_related(
@@ -407,6 +438,7 @@ class PLDEntityListView(View):
             return err
         entities = (
             PLDEntity.objects.filter(organization=org)
+            .select_related("matrix_profile")
             .prefetch_related("expedients", "invites")
             .order_by("-updated_at")
         )
@@ -446,6 +478,16 @@ class PLDEntityListView(View):
             validate_email(email)
         except ValidationError:
             return JsonResponse({"error": "Invalid email"}, status=400)
+        if "matrix_profile_id" in payload:
+            matrix_profile, err = _matrix_profile_choice(
+                org, payload.get("matrix_profile_id")
+            )
+            if err:
+                return err
+        else:
+            matrix_profile = PLDMatrixProfile.objects.filter(
+                organization=org, is_default=True
+            ).first()
 
         try:
             with transaction.atomic():
@@ -455,6 +497,7 @@ class PLDEntityListView(View):
                     relationship=relationship,
                     email=email,
                     ppe_screening_enabled=ppe_screening_enabled,
+                    matrix_profile=matrix_profile,
                     metadata=metadata,
                 )
                 entity.save()
@@ -487,6 +530,26 @@ class PLDEntityDetailView(View):
             return err
         return JsonResponse(_entity_progress(entity), status=200)
 
+    def patch(self, request, entity_id, *args, **kwargs):
+        org, err = _org_or_404(request)
+        if err:
+            return err
+        entity, err = _org_entity_or_404(org, entity_id)
+        if err:
+            return err
+        payload, err = _parse_json_body(request)
+        if err:
+            return err
+        matrix_profile, err = _matrix_profile_choice(org, payload.get("matrix_profile_id"))
+        if err:
+            return err
+        exp = entity.expedients.order_by("created_at").first()
+        if exp and exp.status in _ORG_PROCESS_DONE:
+            return JsonResponse({"error": "expedient-closed"}, status=409)
+        entity.matrix_profile = matrix_profile
+        entity.save(update_fields=["matrix_profile", "updated_at"])
+        return JsonResponse(_entity_payload(entity), status=200)
+
     def delete(self, request, entity_id, *args, **kwargs):
         org, err = _org_or_404(request)
         if err:
@@ -496,6 +559,105 @@ class PLDEntityDetailView(View):
             return err
         entity.delete()
         return JsonResponse({"ok": True}, status=200)
+
+
+def _matrix_payload(request, org) -> dict:
+    return {
+        "rows": matrix_rows(),
+        "profiles": [
+            profile_payload(profile)
+            for profile in PLDMatrixProfile.objects.filter(organization=org)
+        ],
+        "can_edit": _is_org_owner(request, org),
+    }
+
+
+def _save_profile(profile: PLDMatrixProfile, payload: dict):
+    if "name" in payload:
+        profile.name = str(payload.get("name") or "").strip()[:120]
+    if not profile.name:
+        return JsonResponse({"error": "name-required"}, status=400)
+    if "points" in payload:
+        try:
+            profile.points = clean_points(payload.get("points"))
+        except ValueError as exc:
+            return JsonResponse({"error": str(exc)}, status=400)
+    if "is_default" in payload:
+        profile.is_default = payload.get("is_default") is True
+    duplicate = PLDMatrixProfile.objects.filter(
+        organization=profile.organization, name__iexact=profile.name
+    ).exclude(pk=profile.pk)
+    if duplicate.exists():
+        return JsonResponse({"error": "name-taken"}, status=409)
+    with transaction.atomic():
+        if profile.is_default:
+            PLDMatrixProfile.objects.filter(
+                organization=profile.organization, is_default=True
+            ).exclude(pk=profile.pk).update(is_default=False)
+        profile.save()
+    return None
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class PLDMatrixView(View):
+    def get(self, request, *args, **kwargs):
+        org, err = _org_or_404(request)
+        if err:
+            return err
+        return JsonResponse(_matrix_payload(request, org), status=200)
+
+    def post(self, request, *args, **kwargs):
+        org, err = _org_or_404(request)
+        if err:
+            return err
+        err = _owner_only(request, org)
+        if err:
+            return err
+        payload, err = _parse_json_body(request)
+        if err:
+            return err
+        profile = PLDMatrixProfile(organization=org, points=base_points())
+        err = _save_profile(profile, payload)
+        if err:
+            return err
+        return JsonResponse(_matrix_payload(request, org), status=201)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class PLDMatrixProfileDetailView(View):
+    def _profile(self, request, profile_id):
+        org, err = _org_or_404(request)
+        if err:
+            return None, None, err
+        err = _owner_only(request, org)
+        if err:
+            return None, None, err
+        try:
+            profile = PLDMatrixProfile.objects.get(pk=profile_id, organization=org)
+        except (PLDMatrixProfile.DoesNotExist, ValidationError, ValueError):
+            return None, None, JsonResponse({"error": "Matrix profile not found"}, status=404)
+        return org, profile, None
+
+    def patch(self, request, profile_id, *args, **kwargs):
+        org, profile, err = self._profile(request, profile_id)
+        if err:
+            return err
+        payload, err = _parse_json_body(request)
+        if err:
+            return err
+        err = _save_profile(profile, payload)
+        if err:
+            return err
+        return JsonResponse(_matrix_payload(request, org), status=200)
+
+    def delete(self, request, profile_id, *args, **kwargs):
+        org, profile, err = self._profile(request, profile_id)
+        if err:
+            return err
+        profile.delete()
+        return JsonResponse(_matrix_payload(request, org), status=200)
 
 
 @method_decorator(csrf_exempt, name="dispatch")

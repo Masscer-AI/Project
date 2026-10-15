@@ -15,6 +15,8 @@ from api.compliance.views import (
     PLDEntityPacketView,
     PLDInviteAcceptView,
     PLDInvitePublicView,
+    PLDMatrixProfileDetailView,
+    PLDMatrixView,
     PLDOrganizationBundleView,
     PLDStartProcessView,
     PostalCodeLookupView,
@@ -50,6 +52,12 @@ urlpatterns = [
         name="pld_entity_bundle",
     ),
     path("bundle/", PLDOrganizationBundleView.as_view(), name="pld_organization_bundle"),
+    path("matrix/", PLDMatrixView.as_view(), name="pld_matrix"),
+    path(
+        "matrix/profiles/<uuid:profile_id>/",
+        PLDMatrixProfileDetailView.as_view(),
+        name="pld_matrix_profile_detail",
+    ),
     path(
         "entities/<uuid:entity_id>/screening-approval/",
         PLDScreeningApprovalView.as_view(),

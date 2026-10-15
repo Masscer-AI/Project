@@ -230,6 +230,14 @@ class PLDEntity(models.Model):
         default=False,
         help_text="When true, screen the representative and beneficial owners as politically exposed persons.",
     )
+    matrix_profile = models.ForeignKey(
+        "PLDMatrixProfile",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="entities",
+        help_text="Risk matrix used to score this entity. Null uses the base matrix.",
+    )
     metadata = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -405,6 +413,34 @@ class PLDMatrix(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.points})"
+
+
+class PLDMatrixProfile(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    organization = models.ForeignKey(
+        "authenticate.Organization",
+        on_delete=models.CASCADE,
+        related_name="pld_matrix_profiles",
+    )
+    name = models.CharField(max_length=120)
+    is_default = models.BooleanField(default=False)
+    points = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "PLD matrix profile"
+        verbose_name_plural = "PLD matrix profiles"
+        ordering = ["name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "name"],
+                name="unique_pld_matrix_profile_name_per_org",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.organization_id})"
 
 
 def pld_expedient_document_upload_to(instance, filename):

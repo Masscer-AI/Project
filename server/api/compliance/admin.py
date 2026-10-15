@@ -10,6 +10,7 @@ from api.compliance.models import (
     PLDExpedientDocument,
     PLDInvite,
     PLDMatrix,
+    PLDMatrixProfile,
     WatchlistRecord,
     WatchlistSnapshot,
 )
@@ -226,6 +227,13 @@ class WatchlistRecordAdmin(admin.ModelAdmin):
         "search_document",
         "raw",
     )
+
+
+@admin.register(PLDMatrixProfile)
+class PLDMatrixProfileAdmin(admin.ModelAdmin):
+    list_display = ("name", "organization", "is_default", "updated_at")
+    list_filter = ("is_default",)
+    search_fields = ("name", "organization__name")
 
 
 @admin.register(PLDMatrix)

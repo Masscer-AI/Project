@@ -174,7 +174,9 @@ def _matrix_lines(entity) -> list[str]:
         score = score_pld_matrix(entity, exp)
     except Exception:
         return ["Matriz no disponible."]
+    profile = entity.matrix_profile
     lines = [
+        f"Perfil de matriz: {profile.name if profile else 'Matriz base'}",
         f"Suma inherente: {score['inherent']}",
         f"Ajustes: {score['adjustments_total']}",
         f"Total: {score['total']} ({score['color']})",

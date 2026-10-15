@@ -2385,6 +2385,7 @@ export type TPldEntity = {
   email?: string;
   rfc?: string;
   ppe_screening_enabled?: boolean;
+  matrix_profile?: { id: string; name: string } | null;
   metadata: Record<string, string | number | boolean | null | undefined>;
   created_at: string | null;
   updated_at: string | null;
@@ -2496,12 +2497,79 @@ export const createPldEntity = async (payload: {
   relationship: string;
   email: string;
   ppe_screening_enabled?: boolean;
+  matrix_profile_id?: string | null;
   metadata: Record<string, string>;
 }) => {
   return makeAuthenticatedRequest<TPldEntity>(
     "POST",
     "/v1/compliance/entities/",
     payload
+  );
+};
+
+export const setPldEntityMatrixProfile = async (
+  entityId: string,
+  matrixProfileId: string | null
+) => {
+  return makeAuthenticatedRequest<TPldEntity>(
+    "PATCH",
+    `/v1/compliance/entities/${entityId}/`,
+    { matrix_profile_id: matrixProfileId }
+  );
+};
+
+export type TPldMatrixRow = {
+  slug: string;
+  name: string;
+  kind: "weight" | "adjustment" | "cutoff";
+  points: number;
+};
+
+export type TPldMatrixProfile = {
+  id: string;
+  name: string;
+  is_default: boolean;
+  points: Record<string, number>;
+  entity_count: number;
+};
+
+export type TPldMatrix = {
+  rows: TPldMatrixRow[];
+  profiles: TPldMatrixProfile[];
+  can_edit: boolean;
+};
+
+export const getPldMatrix = async () => {
+  return makeAuthenticatedRequest<TPldMatrix>("GET", "/v1/compliance/matrix/");
+};
+
+export const createPldMatrixProfile = async (payload: {
+  name: string;
+  is_default?: boolean;
+  points?: Record<string, number>;
+}) => {
+  return makeAuthenticatedRequest<TPldMatrix>(
+    "POST",
+    "/v1/compliance/matrix/",
+    payload
+  );
+};
+
+export const updatePldMatrixProfile = async (
+  profileId: string,
+  payload: { name?: string; is_default?: boolean; points?: Record<string, number> }
+) => {
+  return makeAuthenticatedRequest<TPldMatrix>(
+    "PATCH",
+    `/v1/compliance/matrix/profiles/${profileId}/`,
+    payload
+  );
+};
+
+export const deletePldMatrixProfile = async (profileId: string) => {
+  return makeAuthenticatedRequest<TPldMatrix>(
+    "DELETE",
+    `/v1/compliance/matrix/profiles/${profileId}/`
   );
 };
 

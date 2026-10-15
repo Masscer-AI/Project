@@ -1060,6 +1060,125 @@ class PLDEntityAPITests(TestCase):
         self.assertEqual(outsider.status_code, 404)
 
 
+    def _compliance_member_token(self):
+        from django.utils import timezone
+
+        from api.authenticate.models import Role, RoleAssignment, Token, UserProfile
+
+        member = User.objects.create_user(
+            username="pld-matrix-member", email="pld-matrix@test.com", password="x"
+        )
+        UserProfile.objects.update_or_create(
+            user=member,
+            defaults={"organization": self.org, "is_active": True},
+        )
+        role = Role.objects.create(
+            organization=self.org,
+            name="Compliance",
+            enabled=True,
+            capabilities=["organization-compliance-access"],
+        )
+        RoleAssignment.objects.create(
+            user=member,
+            organization=self.org,
+            role=role,
+            from_date=timezone.now().date(),
+        )
+        return Token.objects.create(user=member)
+
+    def test_owner_manages_matrix_profiles(self):
+        auth = f"Token {self.owner_token.key}"
+        matrix = self.client.get("/v1/compliance/matrix/", HTTP_AUTHORIZATION=auth).json()
+        self.assertTrue(matrix["can_edit"])
+        self.assertEqual(len(matrix["rows"]), 19)
+        self.assertEqual(matrix["profiles"], [])
+
+        created = self.client.post(
+            "/v1/compliance/matrix/",
+            {"name": "Construccion", "is_default": True},
+            format="json",
+            HTTP_AUTHORIZATION=auth,
+        )
+        self.assertEqual(created.status_code, 201)
+        profile = created.json()["profiles"][0]
+        self.assertTrue(profile["is_default"])
+        self.assertEqual(profile["points"]["cutoff_orange"], 45)
+
+        url = f"/v1/compliance/matrix/profiles/{profile['id']}/"
+        points = dict(profile["points"], weight_geography=0)
+        bad = self.client.patch(
+            url, {"points": points}, format="json", HTTP_AUTHORIZATION=auth
+        )
+        self.assertEqual(bad.json()["error"], "weights-must-sum-100")
+        points["weight_integrity"] = 24
+        points["cutoff_orange"] = 55
+        good = self.client.patch(
+            url, {"points": points}, format="json", HTTP_AUTHORIZATION=auth
+        )
+        self.assertEqual(good.status_code, 200)
+        self.assertEqual(good.json()["profiles"][0]["points"]["cutoff_orange"], 55)
+
+        member = f"Token {self._compliance_member_token().key}"
+        seen = self.client.get("/v1/compliance/matrix/", HTTP_AUTHORIZATION=member)
+        self.assertFalse(seen.json()["can_edit"])
+        denied = self.client.patch(
+            url, {"name": "Otro"}, format="json", HTTP_AUTHORIZATION=member
+        )
+        self.assertEqual(denied.status_code, 403)
+
+    def test_counterparty_gets_matrix_profile(self):
+        from api.compliance.models import PLDEntity, PLDMatrixProfile
+        from api.compliance.pld_matrix import base_points
+        from api.compliance.risk.matrix_score import _points
+
+        auth = f"Token {self.owner_token.key}"
+        default = PLDMatrixProfile.objects.create(
+            organization=self.org,
+            name="Base org",
+            is_default=True,
+            points=dict(base_points(), cutoff_red=90),
+        )
+        other = PLDMatrixProfile.objects.create(
+            organization=self.org, name="Inmobiliaria", points=base_points()
+        )
+        created = self.client.post(
+            "/v1/compliance/entities/",
+            {
+                "person_type": "persona_moral",
+                "relationship": "cliente",
+                "email": "acme@example.com",
+                "metadata": {"legal_name": "ACME SA"},
+            },
+            format="json",
+            HTTP_AUTHORIZATION=auth,
+        )
+        self.assertEqual(created.json()["matrix_profile"]["id"], str(default.id))
+        entity = PLDEntity.objects.get(pk=created.json()["id"])
+        self.assertEqual(_points(entity)["cutoff_red"], 90)
+
+        changed = self.client.patch(
+            f"/v1/compliance/entities/{entity.id}/",
+            {"matrix_profile_id": str(other.id)},
+            format="json",
+            HTTP_AUTHORIZATION=auth,
+        )
+        self.assertEqual(changed.json()["matrix_profile"]["name"], "Inmobiliaria")
+
+        explicit = self.client.post(
+            "/v1/compliance/entities/",
+            {
+                "person_type": "persona_moral",
+                "relationship": "proveedor",
+                "email": "beta@example.com",
+                "matrix_profile_id": None,
+                "metadata": {"legal_name": "BETA SA"},
+            },
+            format="json",
+            HTTP_AUTHORIZATION=auth,
+        )
+        self.assertIsNone(explicit.json()["matrix_profile"])
+
+
 class PLDDocumentExtractionTests(TestCase):
     def setUp(self):
         from rest_framework.test import APIClient

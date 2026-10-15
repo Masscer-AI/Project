@@ -92,12 +92,16 @@ def _cfdi_over_notice(entity, expedient) -> bool:
     return False
 
 
-def _points() -> dict[str, float]:
-    from api.compliance.models import PLDMatrix
-    from api.compliance.pld_matrix import seed_pld_matrix
+def _points(entity) -> dict[str, float]:
+    from api.compliance.pld_matrix import base_points
 
-    seed_pld_matrix()
-    return {row.slug: float(row.points) for row in PLDMatrix.objects.all()}
+    table = base_points()
+    profile = entity.matrix_profile
+    if profile:
+        table.update(
+            {slug: float(value) for slug, value in profile.points.items() if slug in table}
+        )
+    return table
 
 
 def _pt(table: dict[str, float], slug: str, fallback: float) -> float:
@@ -123,7 +127,7 @@ def _share(rating: int, weight: float) -> float:
 
 
 def score_pld_matrix(entity, expedient) -> dict[str, Any]:
-    table = _points()
+    table = _points(entity)
     meta = _payload_dict(getattr(entity, "metadata", None))
     codes = _finding_codes(_findings(expedient))
     screening = _payload_dict(getattr(expedient, "screening_payload", None))

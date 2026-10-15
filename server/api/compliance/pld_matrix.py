@@ -31,3 +31,54 @@ def seed_pld_matrix() -> None:
             slug=slug,
             defaults={"name": name, "kind": kind, "points": points},
         )
+
+
+SLUGS = tuple(slug for slug, _name, _kind, _points in SEED)
+CUTOFF_ORDER = ("cutoff_yellow", "cutoff_orange", "cutoff_red")
+
+
+def base_points() -> dict[str, float]:
+    from api.compliance.models import PLDMatrix
+
+    seed_pld_matrix()
+    return {row.slug: float(row.points) for row in PLDMatrix.objects.all()}
+
+
+def matrix_rows() -> list[dict]:
+    from api.compliance.models import PLDMatrix
+
+    seed_pld_matrix()
+    order = {slug: index for index, slug in enumerate(SLUGS)}
+    rows = sorted(PLDMatrix.objects.all(), key=lambda row: order.get(row.slug, len(order)))
+    return [
+        {"slug": row.slug, "name": row.name, "kind": row.kind, "points": row.points}
+        for row in rows
+    ]
+
+
+def clean_points(raw) -> dict[str, float]:
+    if not isinstance(raw, dict) or set(raw) != set(SLUGS):
+        raise ValueError("points-incomplete")
+    try:
+        points = {slug: float(raw[slug]) for slug in SLUGS}
+    except (TypeError, ValueError):
+        raise ValueError("points-not-numbers")
+    if any(value < 0 for value in points.values()):
+        raise ValueError("points-negative")
+    weights = sum(points[slug] for slug in SLUGS if slug.startswith("weight_"))
+    if round(weights, 2) != 100:
+        raise ValueError("weights-must-sum-100")
+    cutoffs = [points[slug] for slug in CUTOFF_ORDER]
+    if cutoffs != sorted(cutoffs) or len(set(cutoffs)) != len(cutoffs) or cutoffs[-1] > 100:
+        raise ValueError("cutoffs-out-of-order")
+    return points
+
+
+def profile_payload(profile) -> dict:
+    return {
+        "id": str(profile.id),
+        "name": profile.name,
+        "is_default": profile.is_default,
+        "points": profile.points,
+        "entity_count": profile.entities.count(),
+    }
