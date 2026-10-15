@@ -310,11 +310,11 @@ def _paragraphs(entity) -> list[str]:
     return blocks
 
 
-def build_identification_packet_pdf(entity) -> bytes:
+def render_text_pdf(paragraphs: list[str]) -> bytes:
     doc = fitz.open()
     page = doc.new_page(width=A4[0], height=A4[1])
     y = MARGIN
-    for index, para in enumerate(_paragraphs(entity)):
+    for index, para in enumerate(paragraphs):
         size = TITLE_SIZE if index == 0 else BODY_SIZE
         if not para:
             y += 8
@@ -337,3 +337,23 @@ def build_identification_packet_pdf(entity) -> bytes:
     pdf_bytes = doc.tobytes()
     doc.close()
     return pdf_bytes
+
+
+def build_identification_packet_pdf(entity) -> bytes:
+    return render_text_pdf(_paragraphs(entity))
+
+
+def build_clarification_report_pdf(entity) -> bytes | None:
+    lines = _clarification_lines(entity)
+    if not lines:
+        return None
+    return render_text_pdf(
+        [
+            "REPORTE DE ACLARACIONES",
+            "",
+            f"Contraparte: {entity_display_name(entity)}",
+            f"Emitido: {timezone.localtime().strftime('%d/%m/%Y')}",
+            "",
+            *lines,
+        ]
+    )

@@ -2414,6 +2414,17 @@ export type TPldEntityProgress = {
   semaphore: string;
   screening_verdict: string;
   screening_notes: string;
+  files: {
+    documents: {
+      id: string;
+      slot_key: string;
+      document_kind: string;
+      original_filename: string;
+      file_size: number;
+    }[];
+    packet: "signed" | "draft" | "";
+    bundle_ready: boolean;
+  };
 };
 
 export const getPldEntityProgress = async (entityId: string) => {
@@ -2434,8 +2445,45 @@ export const listPldEntities = async () => {
   return makeAuthenticatedRequest<{
     results: TPldEntity[];
     org_process_ready?: boolean;
+    org_bundle_ready?: boolean;
   }>("GET", "/v1/compliance/entities/");
 };
+
+const downloadPldFile = async (path: string, filename: string) => {
+  const { token, tokenType } = getToken(false);
+  const response = await fetch(`${API_URL}/v1/compliance/${path}`, {
+    headers: { Authorization: `${tokenType} ${token}` },
+  });
+  if (!response.ok) {
+    throw new Error("pld-download-failed");
+  }
+  const blob = await response.blob();
+  const link = document.createElement("a");
+  link.href = window.URL.createObjectURL(blob);
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(link.href);
+};
+
+export const downloadPldEntityDocument = async (
+  entityId: string,
+  documentId: string,
+  filename: string
+) => downloadPldFile(`entities/${entityId}/documents/${documentId}/`, filename);
+
+export const downloadPldEntityPacket = async (entityId: string, signed: boolean) =>
+  downloadPldFile(
+    `entities/${entityId}/packet/`,
+    signed ? "expediente-identificacion-firmado.pdf" : "expediente-identificacion.pdf"
+  );
+
+export const downloadPldEntityBundle = async (entityId: string, filename: string) =>
+  downloadPldFile(`entities/${entityId}/bundle/`, filename);
+
+export const downloadPldOrganizationBundle = async () =>
+  downloadPldFile("bundle/", "expedientes-pld.zip");
 
 export const startPldProcess = async () => {
   return makeAuthenticatedRequest<TMyPldExpedient>(

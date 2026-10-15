@@ -13,6 +13,13 @@ from django.views.decorators.csrf import csrf_exempt
 
 from api.authenticate.decorators.token_required import token_required
 from api.compliance.access import get_pld_organization_for_user
+from api.compliance.bundle import (
+    BUNDLE_READY,
+    build_entity_bundle,
+    build_organization_bundle,
+    entity_folder,
+    organization_bundle_ready,
+)
 from api.compliance.invites import (
     accept_pld_invite,
     create_or_rotate_pending_invite,
@@ -59,6 +66,32 @@ def _queue_signature_after_steps(entity: PLDEntity) -> None:
     ):
         return
     dispatch_identification_packet.delay(str(exp.id))
+
+
+def _packet_field(exp: PLDExpedient | None):
+    if not exp:
+        return None
+    return exp.signed_packet or exp.packet_file or None
+
+
+def _packet_response(exp: PLDExpedient | None):
+    field = _packet_field(exp)
+    if not field:
+        return JsonResponse({"error": "packet-not-ready"}, status=404)
+    filename = (
+        "expediente-identificacion-firmado.pdf"
+        if exp.signed_packet
+        else "expediente-identificacion.pdf"
+    )
+    response = FileResponse(field.open("rb"), as_attachment=True, filename=filename)
+    response["Content-Type"] = "application/pdf"
+    return response
+
+
+def _zip_response(handle, filename: str):
+    response = FileResponse(handle, as_attachment=True, filename=filename)
+    response["Content-Type"] = "application/zip"
+    return response
 
 
 def _frontend_base_url(request):
@@ -204,6 +237,32 @@ def _matrix_brief(entity: PLDEntity, exp: PLDExpedient | None) -> dict | None:
     return {"total": scored.get("total"), "color": scored.get("color") or ""}
 
 
+def _entity_files(exp: PLDExpedient | None) -> dict:
+    if not exp:
+        return {"documents": [], "packet": "", "bundle_ready": False}
+    if exp.signed_packet:
+        packet = "signed"
+    elif exp.packet_file:
+        packet = "draft"
+    else:
+        packet = ""
+    return {
+        "documents": [
+            {
+                "id": str(doc.id),
+                "slot_key": doc.slot_key,
+                "document_kind": doc.document_kind,
+                "original_filename": doc.original_filename,
+                "file_size": doc.file_size,
+            }
+            for doc in exp.documents.all()
+            if doc.file
+        ],
+        "packet": packet,
+        "bundle_ready": exp.status in BUNDLE_READY,
+    }
+
+
 def _entity_progress(entity: PLDEntity) -> dict:
     exp = entity.expedients.order_by("created_at").first()
     risk = exp.risk_payload if exp and isinstance(exp.risk_payload, dict) else {}
@@ -226,6 +285,7 @@ def _entity_progress(entity: PLDEntity) -> dict:
         "semaphore": risk.get("semaphore") or "",
         "screening_verdict": str(screening.get("verdict") or ""),
         "screening_notes": str(screening.get("human_notes") or ""),
+        "files": _entity_files(exp),
     }
 
 
@@ -311,6 +371,18 @@ def _self_process_block(entity: PLDEntity):
     return JsonResponse({"error": "counterparties-incomplete"}, status=409)
 
 
+def _org_entity_or_404(org, entity_id):
+    try:
+        entity = PLDEntity.objects.prefetch_related(
+            "expedients__documents",
+            "expedients__signature_request__signers",
+            "invites",
+        ).get(pk=entity_id, organization=org)
+    except (PLDEntity.DoesNotExist, ValidationError, ValueError):
+        return None, JsonResponse({"error": "Entity not found"}, status=404)
+    return entity, None
+
+
 def _counterparty_or_404(org, entity_id):
     try:
         entity = PLDEntity.objects.prefetch_related("expedients", "invites").get(
@@ -345,6 +417,7 @@ class PLDEntityListView(View):
             {
                 "results": [_entity_payload(entity) for entity in entities],
                 "org_process_ready": _counterparties_complete(org),
+                "org_bundle_ready": organization_bundle_ready(org),
             },
             status=200,
         )
@@ -413,14 +486,9 @@ class PLDEntityDetailView(View):
         org, err = _org_or_404(request)
         if err:
             return err
-        try:
-            entity = PLDEntity.objects.prefetch_related(
-                "expedients__documents",
-                "expedients__signature_request__signers",
-                "invites",
-            ).get(pk=entity_id, organization=org)
-        except (PLDEntity.DoesNotExist, ValidationError, ValueError):
-            return JsonResponse({"error": "Entity not found"}, status=404)
+        entity, err = _org_entity_or_404(org, entity_id)
+        if err:
+            return err
         return JsonResponse(_entity_progress(entity), status=200)
 
     def delete(self, request, entity_id, *args, **kwargs):
@@ -1381,21 +1449,78 @@ class MyPLDExpedientPacketView(View):
         if err:
             return err
         exp = entity.expedients.order_by("created_at").first()
-        field = (exp.signed_packet if exp and exp.signed_packet else None) or (
-            exp.packet_file if exp else None
-        )
-        if not field:
-            return JsonResponse({"error": "packet-not-ready"}, status=404)
-        if request.GET.get("preview") == "pages":
+        field = _packet_field(exp)
+        if field and request.GET.get("preview") == "pages":
             return JsonResponse({"pages": _packet_page_images(field)})
-        filename = (
-            "expediente-identificacion-firmado.pdf"
-            if exp and exp.signed_packet
-            else "expediente-identificacion.pdf"
+        return _packet_response(exp)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class PLDEntityDocumentDownloadView(View):
+    def get(self, request, entity_id, document_id, *args, **kwargs):
+        org, err = _org_or_404(request)
+        if err:
+            return err
+        try:
+            doc = PLDExpedientDocument.objects.get(
+                pk=document_id,
+                expedient__entity_id=entity_id,
+                expedient__organization=org,
+            )
+        except (PLDExpedientDocument.DoesNotExist, ValidationError, ValueError):
+            return JsonResponse({"error": "Document not found"}, status=404)
+        if not doc.file:
+            return JsonResponse({"error": "Document not found"}, status=404)
+        response = FileResponse(
+            doc.file.open("rb"),
+            as_attachment=True,
+            filename=doc.original_filename or doc.file.name.rsplit("/", 1)[-1],
         )
-        response = FileResponse(field.open("rb"), as_attachment=True, filename=filename)
-        response["Content-Type"] = "application/pdf"
+        if doc.content_type:
+            response["Content-Type"] = doc.content_type
         return response
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class PLDEntityPacketView(View):
+    def get(self, request, entity_id, *args, **kwargs):
+        org, err = _org_or_404(request)
+        if err:
+            return err
+        entity, err = _org_entity_or_404(org, entity_id)
+        if err:
+            return err
+        return _packet_response(entity.expedients.order_by("created_at").first())
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class PLDEntityBundleView(View):
+    def get(self, request, entity_id, *args, **kwargs):
+        org, err = _org_or_404(request)
+        if err:
+            return err
+        entity, err = _org_entity_or_404(org, entity_id)
+        if err:
+            return err
+        exp = entity.expedients.order_by("created_at").first()
+        if not exp or exp.status not in BUNDLE_READY:
+            return JsonResponse({"error": "expedient-not-signed"}, status=409)
+        return _zip_response(build_entity_bundle(entity), f"{entity_folder(entity)}.zip")
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class PLDOrganizationBundleView(View):
+    def get(self, request, *args, **kwargs):
+        org, err = _org_or_404(request)
+        if err:
+            return err
+        if not organization_bundle_ready(org):
+            return JsonResponse({"error": "organization-expedient-not-signed"}, status=409)
+        return _zip_response(build_organization_bundle(org), "expedientes-pld.zip")
 
 
 @method_decorator(csrf_exempt, name="dispatch")
