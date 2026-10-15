@@ -144,11 +144,9 @@ class OrganizationManagementAdminTests(TestCase):
             {
                 "action": "manual_subscription",
                 "plan_id": str(custom_plan.pk),
-                "status": "active",
                 "billing_interval": "yearly",
                 "contract_price_usd": "999.00",
                 "credits_limit_usd": "100",
-                "recharge_wallet": "on",
                 "confirm_manual_subscription_revokes_previous": "on",
             },
         )
@@ -160,6 +158,7 @@ class OrganizationManagementAdminTests(TestCase):
         self.assertEqual(sub.contract_price_usd, Decimal("999.00"))
         self.assertEqual(sub.credits_limit_usd, Decimal("100"))
         self.assertEqual(sub.billing_interval, "yearly")
+        self.assertEqual(sub.status, "active")
         self.org.refresh_from_db()
         wallet = self.org.wallet
         self.assertGreater(wallet.subscription_balance, 0)
@@ -185,7 +184,6 @@ class OrganizationManagementAdminTests(TestCase):
             {
                 "action": "manual_subscription",
                 "plan_id": str(custom_plan.pk),
-                "status": "active",
                 "billing_interval": "monthly",
             },
         )
@@ -200,7 +198,6 @@ class OrganizationManagementAdminTests(TestCase):
             {
                 "action": "manual_subscription",
                 "plan_id": str(custom_plan.pk),
-                "status": "active",
                 "billing_interval": "monthly",
                 "credits_limit_usd": "50",
                 "contract_price_usd": "1200.00",
@@ -223,7 +220,6 @@ class OrganizationManagementAdminTests(TestCase):
             {
                 "action": "manual_subscription",
                 "plan_id": str(custom_plan.pk),
-                "status": "active",
                 "billing_interval": "monthly",
                 "credits_limit_usd": "75",
                 "contract_price_usd": "1500.00",
@@ -254,7 +250,6 @@ class OrganizationManagementAdminTests(TestCase):
             {
                 "action": "manual_subscription",
                 "plan_id": str(custom_plan.pk),
-                "status": "active",
                 "billing_interval": "monthly",
                 "credits_limit_usd": "",
                 "contract_price_usd": "100.00",
@@ -267,7 +262,6 @@ class OrganizationManagementAdminTests(TestCase):
             {
                 "action": "manual_subscription",
                 "plan_id": str(custom_plan.pk),
-                "status": "active",
                 "billing_interval": "monthly",
                 "credits_limit_usd": "50",
                 "contract_price_usd": "",
@@ -287,7 +281,6 @@ class OrganizationManagementAdminTests(TestCase):
             {
                 "action": "manual_subscription",
                 "plan_id": str(org_plan.pk),
-                "status": "active",
                 "billing_interval": "monthly",
                 "confirm_manual_subscription_revokes_previous": "on",
             },

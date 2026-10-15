@@ -241,14 +241,9 @@
         </div>
 
         <div class="form-row">
-          <label for="id_status">{% trans "Status" %}</label>
-          <select name="status" id="id_status">
-            {% for val, label in subscription_status_choices %}
-              <option value="{{ val }}"
-                {% if latest_subscription and latest_subscription.status == val %}selected{% endif %}>{{ label }}</option>
-            {% endfor %}
-          </select>
-          <p class="help"><strong>{% trans "Active" %}</strong> {% trans "or" %} <strong>{% trans "Trial" %}</strong> {% trans "allows usage (subject to end date). Use" %} <strong>{% trans "Expired" %}</strong> / <strong>{% trans "Cancelled" %}</strong> {% trans "to block access from this row." %}</p>
+          <label>{% trans "Status" %}</label>
+          <strong>{% trans "Active" %}</strong>
+          <p class="help">{% trans "New manual subscriptions always start as Active." %}</p>
         </div>
 
         <div class="form-row">
@@ -293,11 +288,8 @@
         </div>
 
         <div class="form-row">
-          <label>
-            <input type="checkbox" name="recharge_wallet" value="on">
-            {% trans "Recharge wallet with this subscription's credit budget now" %}
-          </label>
-          <p class="help">{% trans "When checked, after save we add compute units from the USD credit budget set above. Uncheck to only change metadata on the row." %}</p>
+          <label>{% trans "Wallet recharge" %}</label>
+          <p class="help">{% trans "After saving, the wallet is recharged with compute units from the credit budget above." %}</p>
         </div>
 
         <div class="form-row">

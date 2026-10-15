@@ -267,15 +267,13 @@ def main() -> None:
         ("Method", "Método"),
         ("Notes", "Notas"),
         ("Active", "Activo"),
-        ("or", "o"),
         ("Trial", "Prueba"),
-        (
-            "allows usage (subject to end date). Use",
-            "permite uso (sujeto a fecha de fin). Usa",
-        ),
         ("Expired", "Caducado"),
         ("Cancelled", "Cancelado"),
-        ("to block access from this row.", "para bloquear el acceso desde esta fila."),
+        (
+            "New manual subscriptions always start as Active.",
+            "Las suscripciones manuales nuevas siempre empiezan como Activas.",
+        ),
         ("Billing interval", "Intervalo de facturación"),
         (
             "For documentation and negotiations; Stripe renewals are controlled in Stripe, not by this field.",
@@ -299,13 +297,10 @@ def main() -> None:
         ),
         ("Internal notes (admin only)", "Notas internas (solo admin)"),
         ("Not shown to organization owners in the product API.", "No se muestra a los propietarios de la org en la API del producto."),
+        ("Wallet recharge", "Recarga del monedero"),
         (
-            "Recharge wallet with this subscription's credit budget now",
-            "Recargar monedero ahora con el presupuesto de crédito de esta suscripción",
-        ),
-        (
-            "When checked, after save we add compute units from the USD credit budget set above. Uncheck to only change metadata on the row.",
-            "Si está marcado, tras guardar añadimos unidades de cómputo según el presupuesto de crédito en USD indicado arriba. Desmárcalo para solo cambiar metadatos de la fila.",
+            "After saving, the wallet is recharged with compute units from the credit budget above.",
+            "Al guardar, el monedero se recarga con unidades de cómputo según el presupuesto de crédito de arriba.",
         ),
         ("Organization feature flags", "Feature flags de la organización"),
         ("Only flags marked", "Solo aparecen flags marcados como"),

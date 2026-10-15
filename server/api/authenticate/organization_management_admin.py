@@ -503,7 +503,6 @@ class OrganizationManagementProxyAdmin(admin.ModelAdmin):
             "member_count": member_count,
             "changelist_url": changelist_url,
             "billing_url": billing_url,
-            "subscription_status_choices": Subscription.STATUS_CHOICES,
             "billing_interval_choices": Subscription.BILLING_INTERVAL_CHOICES,
             "wallet_balance_usd": wallet_balance_usd,
             "wallet_modal_balance_cu": wallet_modal_balance_cu,
@@ -545,11 +544,6 @@ class OrganizationManagementProxyAdmin(admin.ModelAdmin):
                 )
             )
 
-        status = request.POST.get("status") or "active"
-        valid_status = {c[0] for c in Subscription.STATUS_CHOICES}
-        if status not in valid_status:
-            raise ValueError(_("Invalid subscription status."))
-
         billing_interval = request.POST.get("billing_interval") or "monthly"
         valid_interval = {c[0] for c in Subscription.BILLING_INTERVAL_CHOICES}
         if billing_interval not in valid_interval:
@@ -571,13 +565,12 @@ class OrganizationManagementProxyAdmin(admin.ModelAdmin):
         if contract_price_usd < 0:
             raise ValueError(_("Contract price (USD) cannot be negative."))
         internal_notes = (request.POST.get("internal_notes") or "").strip() or None
-        recharge_wallet = request.POST.get("recharge_wallet") == "on"
 
         cancelled = _cancel_all_masscer_subscriptions_for_org(org)
         sub = Subscription.objects.create(
             organization=org,
             plan=plan,
-            status=status,
+            status="active",
             payment_method="manual",
             end_date=end_date,
             credits_limit_usd=credits_limit_usd,
@@ -600,22 +593,21 @@ class OrganizationManagementProxyAdmin(admin.ModelAdmin):
         else:
             messages.success(request, _("Created new manual subscription."))
 
-        if recharge_wallet:
-            if recharge_wallet_for_subscription_credits(
-                sub,
-                reason=OrganizationWalletTransaction.REASON_ADMIN_MANUAL_SUB,
-            ):
-                messages.success(
-                    request,
-                    _("Wallet recharged from subscription credit budget."),
-                )
-            else:
-                messages.warning(
-                    request,
-                    _(
-                        "Recharge skipped: no USD credit budget configured for this subscription."
-                    ),
-                )
+        if recharge_wallet_for_subscription_credits(
+            sub,
+            reason=OrganizationWalletTransaction.REASON_ADMIN_MANUAL_SUB,
+        ):
+            messages.success(
+                request,
+                _("Wallet recharged from subscription credit budget."),
+            )
+        else:
+            messages.warning(
+                request,
+                _(
+                    "Recharge skipped: no USD credit budget configured for this subscription."
+                ),
+            )
 
     def _post_wallet_recharge(self, request, org):
         amount = _parse_optional_decimal(request.POST.get("amount_usd"))

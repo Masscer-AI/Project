@@ -290,8 +290,17 @@ msgstr "Precio contractual (USD)"
 msgid "Wallet"
 msgstr "Monedero"
 
-msgid "Organization usage draws from this balance (compute units). Top up here for one-off credits without changing the subscription row."
-msgstr "El uso de la organización se descuenta de este saldo (unidades de cómputo). Recarga aquí créditos puntuales sin cambiar la fila de suscripción."
+msgid "Organization usage draws from included (subscription) credits first, then purchased top-ups. Manual recharge here adds to the purchased bucket only. Subscription-bucket credits are forfeited when the subscription ends."
+msgstr "El uso de la organización consume primero los créditos incluidos (suscripción) y luego las recargas compradas. La recarga manual aquí solo suma al bucket comprado. Los créditos del bucket de suscripción se pierden al terminar la suscripción."
+
+msgid "Total"
+msgstr "Total"
+
+msgid "Included (subscription)"
+msgstr "Incluidos (suscripción)"
+
+msgid "Purchased (top-ups)"
+msgstr "Comprados (recargas)"
 
 msgid "Balance"
 msgstr "Saldo"
@@ -316,6 +325,9 @@ msgstr "Crédito añadido (unidades de cómputo)"
 
 msgid "Balance after (compute units, estimated)"
 msgstr "Saldo después (unidades de cómputo, estimado)"
+
+msgid "Purchased bucket after (compute units, estimated)"
+msgstr "Bucket comprado después (unidades de cómputo, estimado)"
 
 msgid "Approximate USD equivalent (before → after)"
 msgstr "Equivalente USD aproximado (antes → después)"
@@ -410,14 +422,8 @@ msgstr "Notas"
 msgid "Active"
 msgstr "Activo"
 
-msgid "or"
-msgstr "o"
-
 msgid "Trial"
 msgstr "Prueba"
-
-msgid "allows usage (subject to end date). Use"
-msgstr "permite uso (sujeto a fecha de fin). Usa"
 
 msgid "Expired"
 msgstr "Caducado"
@@ -425,8 +431,8 @@ msgstr "Caducado"
 msgid "Cancelled"
 msgstr "Cancelado"
 
-msgid "to block access from this row."
-msgstr "para bloquear el acceso desde esta fila."
+msgid "New manual subscriptions always start as Active."
+msgstr "Las suscripciones manuales nuevas siempre empiezan como Activas."
 
 msgid "Billing interval"
 msgstr "Intervalo de facturación"
@@ -461,11 +467,11 @@ msgstr "Notas internas (solo admin)"
 msgid "Not shown to organization owners in the product API."
 msgstr "No se muestra a los propietarios de la org en la API del producto."
 
-msgid "Recharge wallet with this subscription's credit budget now"
-msgstr "Recargar monedero ahora con el presupuesto de crédito de esta suscripción"
+msgid "Wallet recharge"
+msgstr "Recarga del monedero"
 
-msgid "When checked, after save we add compute units from the USD credit budget set above. Uncheck to only change metadata on the row."
-msgstr "Si está marcado, tras guardar añadimos unidades de cómputo según el presupuesto de crédito en USD indicado arriba. Desmárcalo para solo cambiar metadatos de la fila."
+msgid "After saving, the wallet is recharged with compute units from the credit budget above."
+msgstr "Al guardar, el monedero se recarga con unidades de cómputo según el presupuesto de crédito de arriba."
 
 msgid "Organization feature flags"
 msgstr "Feature flags de la organización"
