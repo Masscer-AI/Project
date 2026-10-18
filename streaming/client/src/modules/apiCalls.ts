@@ -1474,7 +1474,7 @@ export const getFileShare = async (id: string) => {
   );
 };
 
-export const fileShareDownloadUrl = (shareId: string, fileId: string) =>
+export const fileShareDownloadURL = (shareId: string, fileId: string) =>
   `${API_URL}/v1/messaging/file-shares/${shareId}/files/${fileId}/`;
 
 export const getUserOrganizations = async () => {

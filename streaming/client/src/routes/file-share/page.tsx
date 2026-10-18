@@ -5,7 +5,7 @@ import { Button, Group, Paper, Stack, Text } from "@mantine/core";
 import { IconDownload, IconFile } from "@tabler/icons-react";
 
 import {
-  fileShareDownloadUrl,
+  fileShareDownloadURL,
   getFileShare,
   TFileShare,
 } from "../../modules/apiCalls";
@@ -80,7 +80,7 @@ export default function FileSharePage() {
                 <Text className="min-w-0 flex-1 break-words">{file.name}</Text>
                 <Button
                   component="a"
-                  href={fileShareDownloadUrl(share.id, file.id)}
+                  href={fileShareDownloadURL(share.id, file.id)}
                   variant="light"
                   className="shrink-0"
                   leftSection={<IconDownload size={16} />}

@@ -1,35 +1,27 @@
 # llm_docs
 
-This directory contains **living documentation written for LLM assistants** (Cursor, Copilot, etc.) to consume as context when working on this codebase.
-
-## Why this exists
-
-Code alone doesn't capture architectural decisions, implicit conventions, or the "why" behind design choices. These docs bridge that gap so that any AI assistant -- or new developer -- can quickly understand how things work without reverse-engineering the entire codebase.
+Documentation written for AI assistants (Claude Code, Cursor, etc.) working on this codebase.
 
 ## What belongs here
 
-- **System overviews** -- end-to-end explanations of major features (data model, API, frontend, permissions).
-- **Conventions** -- project-specific rules that aren't obvious from the code (e.g., who runs migrations, naming patterns).
-- **Architecture decisions** -- trade-offs, known gaps, and rationale for current design choices.
+- **Conventions**: project rules that aren't obvious from the code.
+- **Testing methodology**: how to prove a change works.
+- **Business logic**: the rules of a feature, who can do what, and the edge cases.
 
-## What does NOT belong here
+## What doesn't belong here
 
-- Auto-generated API docs (use tools like Swagger/drf-spectacular for that).
-- Temporary debugging notes (use `.cursor/knowledge/issues/` instead).
-- Duplicating what's already obvious from the code -- these docs should add context, not restate code.
+- Architecture write-ups, model field lists, and endpoint tables. The code already shows those, and copies go stale.
+- Temporary debugging notes.
 
 ## Current documents
 
 | File | Description |
 |------|-------------|
-| `conventions.md` | Project-wide development conventions (migration policy, etc.) |
-| `organization-management.md` | Full breakdown of the organization system: models, API, permissions, RBAC, member lifecycle |
-| `agent-task.md` | Agent task vs realtime streaming: Celery task flow, AgentLoop, tools, Redis→Socket.IO events, frontend handling |
-| `whatsapp-number-setup.md` | Operator guide: add a line in Meta WhatsApp Manager, then provision `WSNumber` in Django admin (register + webhook) |
-| `e2e-testing.md` | Testing a change in the running dev app: container reloads, frontend rebuilds, API login, running agents, headless Chrome screenshots |
+| `conventions.md` | Code style, user-facing text, migrations, feature flags, and checklists for adding tools, pages, and WhatsApp templates |
+| `testing.md` | Writing and running backend tests, and checking changes in the running dev app |
 
 ## How to maintain
 
-- **Update docs when making related code changes.** If you add a new endpoint to organization management, update `organization-management.md`.
-- **Keep a "Known Gaps" section** in each feature doc. It helps future sessions know what's missing without re-analyzing.
-- **One doc per major feature/domain.** Don't cram everything into a single file.
+- Update a doc in the same change as the code it describes.
+- Keep a "Known Gaps" section in each doc, so future sessions know what's missing without re-analyzing.
+- One doc per topic.
