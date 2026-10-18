@@ -57,6 +57,7 @@ export type Store = {
   agents: TAgent[];
   user?: TUserData;
   tenantBranding: TTenantBranding | null;
+  pageBranding: TTenantBranding | null;
   modelsAndAgents: TAgent[];
   chatState: {
     isSidebarOpened: boolean;
@@ -106,6 +107,7 @@ export type Store = {
   setChatSelectedAgentSlugs: (slugs: string[]) => void;
   setUser: (user: TUserData) => void;
   setTenantBranding: (branding: TTenantBranding | null) => void;
+  setPageBranding: (branding: TTenantBranding | null) => void;
   addAgent: () => void;
   updateChatState: (state: Partial<Store["chatState"]>) => void;
   setSpecifiedUrls: (urls: TSpecifiedUrl[]) => void;

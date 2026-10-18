@@ -7,7 +7,7 @@ from django.utils import timezone
 
 from api.ai_layers.models import LanguageModel
 from api.ai_layers.tools.create_file_share import _create_file_share_impl
-from api.authenticate.models import Organization
+from api.authenticate.models import Organization, OrganizationTenant
 from api.consumption.models import Currency
 from api.messaging.file_shares import create_file_share
 from api.messaging.models import (
@@ -105,6 +105,18 @@ class FileShareTests(TestCase):
         self.assertEqual(
             [f["name"] for f in body["files"]], ["report.pdf", "sheet.xlsx"]
         )
+
+    def test_detail_includes_organization_branding(self):
+        OrganizationTenant.objects.create(
+            organization=self.org, theme={"primary_color": "#ec4899"}
+        )
+        body = self.client.get(f"/v1/messaging/file-shares/{self._share().id}/").json()
+        self.assertEqual(body["branding"]["theme"], {"primary_color": "#ec4899"})
+        self.assertEqual(body["branding"]["app_name"], "FS Org")
+
+    def test_detail_branding_is_empty_without_tenant(self):
+        body = self.client.get(f"/v1/messaging/file-shares/{self._share().id}/").json()
+        self.assertEqual(body["branding"], {})
 
     def test_detail_hides_files_when_expired(self):
         share = self._share()

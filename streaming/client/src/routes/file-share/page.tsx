@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useLoaderData } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Button, Group, Paper, Stack, Text } from "@mantine/core";
@@ -9,6 +9,7 @@ import {
   getFileShare,
   TFileShare,
 } from "../../modules/apiCalls";
+import { useStore } from "../../modules/store";
 
 const REFRESH_AFTER_DOWNLOAD_MS = 1500;
 
@@ -16,6 +17,13 @@ export default function FileSharePage() {
   const loaderData = useLoaderData() as TFileShare | null;
   const { t, i18n } = useTranslation();
   const [share, setShare] = useState<TFileShare | null>(loaderData);
+  const setPageBranding = useStore((s) => s.setPageBranding);
+
+  useEffect(() => {
+    if (!loaderData) return;
+    setPageBranding(loaderData.branding);
+    return () => setPageBranding(null);
+  }, [loaderData, setPageBranding]);
 
   const refresh = (id: string) => {
     setTimeout(async () => {

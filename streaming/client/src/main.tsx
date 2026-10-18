@@ -332,9 +332,10 @@ const router = createBrowserRouter([
 ]);
 
 function App() {
-  const { userTheme, tenantBranding, setTenantBranding, user } = useStore((s) => ({
+  const { userTheme, tenantBranding, pageBranding, setTenantBranding, user } = useStore((s) => ({
     userTheme: s.userPreferences.theme,
     tenantBranding: s.tenantBranding,
+    pageBranding: s.pageBranding,
     setTenantBranding: s.setTenantBranding,
     user: s.user,
   }));
@@ -346,16 +347,17 @@ function App() {
     getTenantConfig()
       .then((config) => {
         setTenantBranding(resolveTenantBranding(config));
-        applyTenantBranding(config);
       })
       .catch(() => {
         setTenantBranding(null);
       });
   }, [setTenantBranding, user?.id]);
 
+  const branding = pageBranding ?? tenantBranding;
+
   useEffect(() => {
-    applyTenantBranding(tenantBranding ?? undefined);
-  }, [tenantBranding]);
+    applyTenantBranding(branding ?? undefined);
+  }, [branding]);
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
@@ -372,8 +374,8 @@ function App() {
       : (userTheme as "light" | "dark") || "dark";
 
   const theme = useMemo(
-    () => buildMantineTheme(tenantBranding),
-    [tenantBranding]
+    () => buildMantineTheme(branding),
+    [branding]
   );
 
   return (

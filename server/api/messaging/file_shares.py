@@ -8,6 +8,10 @@ from django.utils import timezone
 from django.views.decorators.http import require_GET
 
 from api.ai_layers.mcp_access import public_app_base_url
+from api.authenticate.tenant_services import (
+    build_public_tenant_config,
+    get_tenant_for_organization,
+)
 from api.rag.access import resolve_user_organization
 
 from .attachment_access import user_can_access_attachment
@@ -20,6 +24,11 @@ FILE_SHARE_MAX_DAYS = 30
 
 def file_share_url(share: FileShare) -> str:
     return f"{public_app_base_url()}/d/{share.id}"
+
+
+def file_share_branding(share: FileShare, request) -> dict:
+    tenant = get_tenant_for_organization(share.organization) if share.organization else None
+    return build_public_tenant_config(tenant, request) if tenant else {}
 
 
 def file_share_status(share: FileShare) -> str:
@@ -90,6 +99,7 @@ def file_share_detail(request, share_id):
             "max_downloads": share.max_downloads,
             "download_count": share.download_count,
             "files": files,
+            "branding": file_share_branding(share, request),
         }
     )
 

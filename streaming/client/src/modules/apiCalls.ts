@@ -1463,6 +1463,7 @@ export type TFileShare = {
   max_downloads: number | null;
   download_count: number;
   files: TFileShareFile[];
+  branding: TTenantBranding;
 };
 
 export const getFileShare = async (id: string) => {

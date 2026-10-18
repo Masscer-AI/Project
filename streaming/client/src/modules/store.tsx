@@ -80,6 +80,7 @@ export const useStore = create<Store>()((set, get) => {
   models: [],
   user: undefined,
   tenantBranding: null,
+  pageBranding: null,
   agents: [],
   userPreferences: {
     theme: _initialTheme as "dark" | "light" | "system",
@@ -437,6 +438,10 @@ export const useStore = create<Store>()((set, get) => {
 
   setTenantBranding: (branding) => {
     set({ tenantBranding: branding });
+  },
+
+  setPageBranding: (branding) => {
+    set({ pageBranding: branding });
   },
 
   addAgent: async () => {
