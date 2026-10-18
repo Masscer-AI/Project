@@ -110,7 +110,8 @@ class WhatsAppTemplateDeliveryMessageFormatTests(SimpleTestCase):
                 body=[
                     "Send a weekly summary every Monday at 7 AM",
                     "Last week there was a large number of new users.",
-                ]
+                ],
+                buttons=["chat?conversation=11111111-1111-4111-8111-111111111111"],
             ),
             source_conversation_id="11111111-1111-4111-8111-111111111111",
         )
@@ -130,8 +131,8 @@ class WhatsAppTemplateDeliveryMessageFormatTests(SimpleTestCase):
                 "\n"
                 "Let me know what you think!\n"
                 "\n"
-                "- [Visit website](https://app.charlytoc.dev/chat?conversation="
-                "11111111-1111-4111-8111-111111111111)\n"
+                "- [Visit website](https://app.masscer-ai.com/"
+                "chat?conversation=11111111-1111-4111-8111-111111111111)\n"
                 "\n"
                 "---"
             ),
@@ -148,12 +149,9 @@ class WhatsAppTemplateRegistryTests(SimpleTestCase):
         self.assertIn("*{{1}}*", tpl.body_text)
         self.assertEqual(tpl.body_variable_count, 2)
         self.assertEqual(tpl.button_variable_count, 1)
-        self.assertTrue(tpl.buttons[0].use_source_conversation_id)
+        self.assertFalse(tpl.buttons[0].use_source_conversation_id)
         self.assertEqual(tpl.buttons[0].label, "Visit website")
-        self.assertEqual(
-            tpl.buttons[0].url,
-            "https://app.charlytoc.dev/chat?conversation=",
-        )
+        self.assertEqual(tpl.buttons[0].url, "https://app.masscer-ai.com/")
 
     def test_list_enabled_includes_task_completed(self):
         ids = {t.id for t in list_enabled_templates()}
@@ -170,12 +168,9 @@ class WhatsAppTemplateRegistryTests(SimpleTestCase):
         self.assertIn("¡Déjame saber tu opinión!", tpl.body_text)
         self.assertEqual(tpl.body_variable_count, 2)
         self.assertEqual(tpl.button_variable_count, 1)
-        self.assertTrue(tpl.buttons[0].use_source_conversation_id)
+        self.assertFalse(tpl.buttons[0].use_source_conversation_id)
         self.assertEqual(tpl.buttons[0].label, "Ver en Masscer")
-        self.assertEqual(
-            tpl.buttons[0].url,
-            "https://app.charlytoc.dev/chat?conversation=",
-        )
+        self.assertEqual(tpl.buttons[0].url, "https://app.masscer-ai.com/")
 
         ids = {t.id for t in list_enabled_templates()}
         self.assertIn(SOLICITUD_COMPLETADA.id, ids)
@@ -872,7 +867,7 @@ class WhatsAppTemplateRegistryTests(SimpleTestCase):
             TASK_COMPLETED,
             TemplateVariables(
                 body=["Weekly summary", "300 conversations started"],
-                buttons=None,
+                buttons=["chat?conversation=11111111-1111-1111-1111-111111111111"],
             ),
             source_conversation_id="11111111-1111-1111-1111-111111111111",
         )
@@ -883,7 +878,7 @@ class WhatsAppTemplateRegistryTests(SimpleTestCase):
         self.assertEqual(components[1]["index"], "0")
         self.assertEqual(
             components[1]["parameters"][0]["text"],
-            "11111111-1111-1111-1111-111111111111",
+            "chat?conversation=11111111-1111-1111-1111-111111111111",
         )
 
     def test_build_components_rejects_wrong_body_count(self):
@@ -1147,6 +1142,9 @@ class WhatsAppTemplateSendTests(TestCase):
             template_id="task_completed_en",
             template_variables={
                 "body": ["Finish weekly report", "All good this week"],
+                "buttons": [
+                    f"chat?conversation={self.source_conversation.id}",
+                ],
             },
             source_conversation_id=str(self.source_conversation.id),
         )
@@ -1165,7 +1163,7 @@ class WhatsAppTemplateSendTests(TestCase):
         self.assertEqual(components[0]["type"], "body")
         self.assertEqual(
             components[1]["parameters"][0]["text"],
-            str(self.source_conversation.id),
+            f"chat?conversation={self.source_conversation.id}",
         )
 
         msg = Message.objects.filter(conversation=self.wa_conversation).latest(
@@ -1203,6 +1201,7 @@ class WhatsAppTemplateSendTests(TestCase):
             template_id="task_completed_en",
             template_variables={
                 "body": ["Task", "Summary"],
+                "buttons": ["chat?conversation=11111111-1111-1111-1111-111111111111"],
             },
             source_conversation_id=str(self.source_conversation.id),
         )
@@ -1239,7 +1238,10 @@ class WhatsAppTemplateSendTests(TestCase):
             sender_id=self.ws.id,
             ws_contact_id=contact2.id,
             template_id="task_completed_en",
-            template_variables={"body": ["a", "b"]},
+            template_variables={
+                "body": ["a", "b"],
+                "buttons": ["chat?conversation=11111111-1111-1111-1111-111111111111"],
+            },
             source_conversation_id=str(self.source_conversation.id),
         )
         self.assertEqual(result.target_phone, other_phone)
@@ -1340,7 +1342,10 @@ class WhatsAppTemplateSendTests(TestCase):
                 sender_id=self.ws.id,
                 ws_contact_id=self.contact.id,
                 template_id="task_completed_en",
-                template_variables={"body": ["a", "b"]},
+                template_variables={
+                    "body": ["a", "b"],
+                    "buttons": ["chat?conversation=11111111-1111-1111-1111-111111111111"],
+                },
                 source_conversation_id=str(self.source_conversation.id),
             )
         self.assertIn("Failed to send WhatsApp template", str(ctx.exception))
@@ -1737,7 +1742,10 @@ class WhatsAppTemplateSubscriptionAccessTests(TestCase):
             sender_id=self.ws_a.id,
             ws_contact_id=self.contact_a.id,
             template_id="task_completed_en",
-            template_variables={"body": ["a", "b"]},
+            template_variables={
+                "body": ["a", "b"],
+                "buttons": ["chat?conversation=11111111-1111-1111-1111-111111111111"],
+            },
             source_conversation_id=str(self.source_a.id),
         )
         self.assertTrue(result.sent)

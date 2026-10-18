@@ -120,7 +120,8 @@ TASK_COMPLETED = WhatsAppTemplateDefinition(
     category="UTILITY",
     description=(
         "Notify a user that a requested task was completed, with a short summary "
-        "and a button linking back to the source Masscer conversation."
+        "and a button to any page inside Masscer. "
+        "The sender chooses the button path: a chat, a file, or another route."
     ),
     header_type="text",
     header_text="Task completed",
@@ -140,13 +141,12 @@ TASK_COMPLETED = WhatsAppTemplateDefinition(
         WhatsAppTemplateButton(
             index=0,
             sub_type="url",
-            use_source_conversation_id=True,
+            use_source_conversation_id=False,
             label="Visit website",
-            url="https://app.charlytoc.dev/chat?conversation=",
+            url="https://app.masscer-ai.com/",
             description=(
-                "Dynamic URL suffix for "
-                "https://app.charlytoc.dev/chat?conversation={{1}} "
-                "(conversation UUID)."
+                "Path after https://app.masscer-ai.com/ , with no leading slash. "
+                "E.g. chat?conversation=<uuid> or a file route."
             ),
         ),
     ),
@@ -160,7 +160,8 @@ SOLICITUD_COMPLETADA = WhatsAppTemplateDefinition(
     category="UTILITY",
     description=(
         "Notifica en español que una tarea solicitada fue completada, incluye "
-        "un resumen y un boton que regresa a la conversacion de Masscer."
+        "un resumen y un boton a cualquier pagina dentro de Masscer. "
+        "El camino del boton lo elige quien envia: un chat, un archivo u otra ruta."
     ),
     header_type="text",
     header_text="Tarea completada",
@@ -180,13 +181,12 @@ SOLICITUD_COMPLETADA = WhatsAppTemplateDefinition(
         WhatsAppTemplateButton(
             index=0,
             sub_type="url",
-            use_source_conversation_id=True,
+            use_source_conversation_id=False,
             label="Ver en Masscer",
-            url="https://app.charlytoc.dev/chat?conversation=",
+            url="https://app.masscer-ai.com/",
             description=(
-                "Sufijo dinamico para "
-                "https://app.charlytoc.dev/chat?conversation={{1}} "
-                "(UUID de la conversacion)."
+                "Camino despues de https://app.masscer-ai.com/ , sin barra inicial. "
+                "Ej. chat?conversation=<uuid> o la ruta de un archivo."
             ),
         ),
     ),
