@@ -164,6 +164,15 @@ async def get_esign_spa(full_path: str):
         return HTMLResponse(content=html_content)
     return HTMLResponse(content="Page not found", status_code=404)
 
+@router.get("/d/{full_path:path}", response_class=HTMLResponse)
+async def get_file_share_spa(full_path: str):
+    file_path = os.path.join("client", "dist", "index.html")
+    if os.path.exists(file_path):
+        with open(file_path, "r") as file:
+            html_content = file.read()
+        return HTMLResponse(content=html_content)
+    return HTMLResponse(content="Page not found", status_code=404)
+
 @router.get("/pld/{full_path:path}", response_class=HTMLResponse)
 async def get_pld_spa(full_path: str):
     """SPA shell for invitee routes (/pld/expediente, /pld/invite)."""

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useLoaderData } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Button, Paper, Stack, Text } from "@mantine/core";
+import { Button, Group, Paper, Stack, Text } from "@mantine/core";
 import { IconDownload, IconFile } from "@tabler/icons-react";
 
 import {
@@ -74,24 +74,21 @@ export default function FileSharePage() {
 
         <Stack gap="xs">
           {share.files.map((file) => (
-            <Paper
-              key={file.id}
-              withBorder
-              p="sm"
-              radius="md"
-              className="flex items-center gap-3"
-            >
-              <IconFile size={20} className="shrink-0" />
-              <Text className="min-w-0 flex-1 break-words">{file.name}</Text>
-              <Button
-                component="a"
-                href={fileShareDownloadUrl(share.id, file.id)}
-                variant="light"
-                leftSection={<IconDownload size={16} />}
-                onClick={() => refresh(share.id)}
-              >
-                {t("download")}
-              </Button>
+            <Paper key={file.id} withBorder p="sm" radius="md">
+              <Group wrap="nowrap" gap="sm">
+                <IconFile size={20} className="shrink-0" />
+                <Text className="min-w-0 flex-1 break-words">{file.name}</Text>
+                <Button
+                  component="a"
+                  href={fileShareDownloadUrl(share.id, file.id)}
+                  variant="light"
+                  className="shrink-0"
+                  leftSection={<IconDownload size={16} />}
+                  onClick={() => refresh(share.id)}
+                >
+                  {t("download")}
+                </Button>
+              </Group>
             </Paper>
           ))}
         </Stack>
