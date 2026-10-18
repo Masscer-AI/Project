@@ -89,6 +89,7 @@ MCP_DOCUMENT_TOOL_NAMES: tuple[str, ...] = (
     "generate_text_file",
     "generate_gamma_attachment",
     "update_attachment_visibility",
+    "create_file_share",
     "list_document_templates",
     "render_document_template",
 )

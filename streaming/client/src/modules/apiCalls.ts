@@ -1449,6 +1449,34 @@ export const getPublicSignatureRequest = async (id: string) => {
   );
 };
 
+export type TFileShareFile = {
+  id: string;
+  name: string;
+  content_type: string;
+};
+
+export type TFileShare = {
+  id: string;
+  status: "active" | "expired" | "limit_reached";
+  organization_name: string;
+  expires_at: string;
+  max_downloads: number | null;
+  download_count: number;
+  files: TFileShareFile[];
+};
+
+export const getFileShare = async (id: string) => {
+  return makeAuthenticatedRequest<TFileShare>(
+    "GET",
+    `/v1/messaging/file-shares/${id}/`,
+    null,
+    true
+  );
+};
+
+export const fileShareDownloadUrl = (shareId: string, fileId: string) =>
+  `${API_URL}/v1/messaging/file-shares/${shareId}/files/${fileId}/`;
+
 export const getUserOrganizations = async () => {
   return makeAuthenticatedRequest<TOrganization[]>(
     "GET",

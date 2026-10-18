@@ -32,6 +32,7 @@ from .views import (
     GalleryView,
     GalleryItemView,
 )
+from .file_shares import file_share_detail, file_share_download
 
 app_name = "messaging"
 
@@ -90,6 +91,16 @@ urlpatterns = [
         "shared-conversations/<uuid:share_id>/",
         SharedConversationView.as_view(),
         name="shared_conversation_detail",
+    ),
+    path(
+        "file-shares/<uuid:share_id>/",
+        file_share_detail,
+        name="file_share_detail",
+    ),
+    path(
+        "file-shares/<uuid:share_id>/files/<uuid:attachment_id>/",
+        file_share_download,
+        name="file_share_download",
     ),
     path(
         "widgets/<str:token>/config/",

@@ -83,6 +83,7 @@ export const WHATSAPP_CAPABILITY_NAMES = [
   "generate_text_file",
   "generate_gamma_attachment",
   "update_attachment_visibility",
+  "create_file_share",
   "list_whatsapp_resources",
   "list_whatsapp_templates",
   "send_ws_template_message",

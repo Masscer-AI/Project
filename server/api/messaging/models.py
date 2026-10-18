@@ -429,6 +429,44 @@ class SharedConversation(models.Model):
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
 
+class FileShare(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    attachments = models.ManyToManyField(
+        MessageAttachment,
+        related_name="file_shares",
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="file_shares",
+    )
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="file_shares",
+    )
+    conversation = models.ForeignKey(
+        Conversation,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="file_shares",
+    )
+    expires_at = models.DateTimeField()
+    max_downloads = models.PositiveIntegerField(null=True, blank=True)
+    download_count = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"FileShare({self.id})"
+
 def chat_widget_avatar_upload_path(instance, filename):
     ext = filename.split(".")[-1].lower()
     return os.path.join("chat_widgets", "avatars", f"{instance.id}.{ext}")

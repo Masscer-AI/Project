@@ -15,6 +15,7 @@ from .models import (
     AlertSubscription,
     WidgetVisitorSession,
     ScheduledConversationTask,
+    FileShare,
 )
 
 @admin.action(description="Clear stale knowledge base references")
@@ -49,6 +50,22 @@ class MessageAttachmentAdmin(admin.ModelAdmin):
     readonly_fields = ("id", "file", "created_at")
     raw_id_fields = ("message", "conversation", "user", "agent", "organization")
     filter_horizontal = ("allowed_roles",)
+    ordering = ("-created_at",)
+
+@admin.register(FileShare)
+class FileShareAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "user",
+        "organization",
+        "expires_at",
+        "max_downloads",
+        "download_count",
+        "created_at",
+    )
+    list_filter = ("expires_at", "created_at")
+    readonly_fields = ("id", "download_count", "created_at")
+    raw_id_fields = ("user", "organization", "conversation", "attachments")
     ordering = ("-created_at",)
 
 class MessageInline(admin.TabularInline):

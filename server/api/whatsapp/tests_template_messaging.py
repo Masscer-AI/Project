@@ -19,6 +19,8 @@ from api.whatsapp.template_access import (
 from api.whatsapp.template_registry import (
     APROBACION_PENDIENTE,
     APPROVAL_PENDING,
+    ARCHIVOS_COMPARTIDOS,
+    SHARED_FILES,
     BIENVENIDO_A_PRESENTACION_AGENTE,
     AVISO_BOLETIN_SEMANAL,
     AVISOS_GENERALES,
@@ -174,6 +176,36 @@ class WhatsAppTemplateRegistryTests(SimpleTestCase):
 
         ids = {t.id for t in list_enabled_templates()}
         self.assertIn(SOLICITUD_COMPLETADA.id, ids)
+
+    def test_archivos_compartidos_spanish_registered(self):
+        tpl = WHATSAPP_TEMPLATES["archivos_compartidos_es"]
+        self.assertEqual(tpl.meta_name, "archivos_compartidos")
+        self.assertEqual(tpl.language_code, "es")
+        self.assertEqual(tpl.header_text, "Archivos compartidos")
+        self.assertEqual(tpl.footer_text, "")
+        self.assertIn("*{{1}}*", tpl.body_text)
+        self.assertEqual(tpl.body_variable_count, 3)
+        self.assertEqual(tpl.button_variable_count, 1)
+        self.assertFalse(tpl.buttons[0].use_source_conversation_id)
+        self.assertEqual(tpl.buttons[0].label, "Ver archivos")
+        self.assertEqual(tpl.buttons[0].url, "https://app.masscer-ai.com/d/")
+        self.assertIn(
+            ARCHIVOS_COMPARTIDOS.id, {t.id for t in list_enabled_templates()}
+        )
+
+    def test_shared_files_english_registered(self):
+        tpl = WHATSAPP_TEMPLATES["shared_files_en"]
+        self.assertEqual(tpl.meta_name, "shared_files")
+        self.assertEqual(tpl.language_code, "en")
+        self.assertEqual(tpl.header_text, "Shared files")
+        self.assertEqual(tpl.footer_text, "")
+        self.assertIn("*{{1}}*", tpl.body_text)
+        self.assertEqual(tpl.body_variable_count, 3)
+        self.assertEqual(tpl.button_variable_count, 1)
+        self.assertFalse(tpl.buttons[0].use_source_conversation_id)
+        self.assertEqual(tpl.buttons[0].label, "View files")
+        self.assertEqual(tpl.buttons[0].url, "https://app.masscer-ai.com/d/")
+        self.assertIn(SHARED_FILES.id, {t.id for t in list_enabled_templates()})
 
     def test_aprobacion_pendiente_spanish_registered(self):
         tpl = get_template("aprobacion_pendiente_es")

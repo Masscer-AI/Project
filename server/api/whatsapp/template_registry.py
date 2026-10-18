@@ -193,6 +193,90 @@ SOLICITUD_COMPLETADA = WhatsAppTemplateDefinition(
     enabled=True,
 )
 
+ARCHIVOS_COMPARTIDOS = WhatsAppTemplateDefinition(
+    id="archivos_compartidos_es",
+    meta_name="archivos_compartidos",
+    language_code="es",
+    category="MARKETING",
+    description=(
+        "Comparte en español uno o varios archivos mediante un enlace de "
+        "descarga temporal. Incluye que se comparte, una nota corta, la fecha "
+        "de vencimiento y un boton 'Ver archivos' a la pagina de la descarga. "
+        "Crea el enlace primero con create_file_share."
+    ),
+    header_type="text",
+    header_text="Archivos compartidos",
+    body_text=(
+        "Hola, aquí tienes *{{1}}*.\n"
+        "\n"
+        "{{2}}\n"
+        "\n"
+        "El enlace estará disponible hasta el {{3}}. Toca el botón para ver y descargar."
+    ),
+    body_variable_count=3,
+    body_variable_descriptions=(
+        "Que se comparte (completa *{{1}}*), ej. 'el reporte mensual de ventas de septiembre'.",
+        "Nota corta sobre los archivos (completa {{2}}).",
+        "Fecha de vencimiento de create_file_share escrita en español (completa {{3}}), ej. '24 de octubre de 2026'.",
+    ),
+    buttons=(
+        WhatsAppTemplateButton(
+            index=0,
+            sub_type="url",
+            use_source_conversation_id=False,
+            label="Ver archivos",
+            url="https://app.masscer-ai.com/d/",
+            description=(
+                "share_id de create_file_share "
+                "(completa https://app.masscer-ai.com/d/{{1}})."
+            ),
+        ),
+    ),
+    enabled=True,
+)
+
+SHARED_FILES = WhatsAppTemplateDefinition(
+    id="shared_files_en",
+    meta_name="shared_files",
+    language_code="en",
+    category="MARKETING",
+    description=(
+        "Share one or more files through a temporary download link. Includes "
+        "what is shared, a short note, the expiry date, and a 'View files' "
+        "button to the download page. Create the link first with "
+        "create_file_share."
+    ),
+    header_type="text",
+    header_text="Shared files",
+    body_text=(
+        "Hi, here is *{{1}}*.\n"
+        "\n"
+        "{{2}}\n"
+        "\n"
+        "The link is available until {{3}}. Tap the button below to view and download."
+    ),
+    body_variable_count=3,
+    body_variable_descriptions=(
+        "What is shared (fills *{{1}}*), e.g. 'the September sales report'.",
+        "Short note about the files (fills {{2}}).",
+        "Expiry date from create_file_share written in English (fills {{3}}), e.g. 'October 24, 2026'.",
+    ),
+    buttons=(
+        WhatsAppTemplateButton(
+            index=0,
+            sub_type="url",
+            use_source_conversation_id=False,
+            label="View files",
+            url="https://app.masscer-ai.com/d/",
+            description=(
+                "share_id from create_file_share "
+                "(fills https://app.masscer-ai.com/d/{{1}})."
+            ),
+        ),
+    ),
+    enabled=True,
+)
+
 APROBACION_PENDIENTE = WhatsAppTemplateDefinition(
     id="aprobacion_pendiente_es",
     meta_name="aprobacion_pendiente",
@@ -1155,6 +1239,8 @@ WELCOME_TO_AGENT_PRESENTATION = WhatsAppTemplateDefinition(
 WHATSAPP_TEMPLATES: dict[str, WhatsAppTemplateDefinition] = {
     TASK_COMPLETED.id: TASK_COMPLETED,
     SOLICITUD_COMPLETADA.id: SOLICITUD_COMPLETADA,
+    ARCHIVOS_COMPARTIDOS.id: ARCHIVOS_COMPARTIDOS,
+    SHARED_FILES.id: SHARED_FILES,
     APROBACION_PENDIENTE.id: APROBACION_PENDIENTE,
     APPROVAL_PENDING.id: APPROVAL_PENDING,
     EXPRESO_FISCAL_SEMANAL.id: EXPRESO_FISCAL_SEMANAL,

@@ -41,6 +41,8 @@ import Share from "./routes/shares/page.tsx";
 import { sharesLoader } from "./routes/shares/loader.ts";
 import SignaturePage from "./routes/esign/page.tsx";
 import { signatureRequestLoader } from "./routes/esign/loader.ts";
+import FileSharePage from "./routes/file-share/page.tsx";
+import { fileShareLoader } from "./routes/file-share/loader.ts";
 import { ErrorPage } from "./routes/error/Page.tsx";
 import { NotFoundPage } from "./routes/not-found/Page.tsx";
 import { NotificationListener } from "./components/NotificationListener/NotificationListener.tsx";
@@ -195,6 +197,11 @@ const router = createBrowserRouter([
         path: "/esign/sign/:signatureRequestId",
         element: <SignaturePage />,
         loader: signatureRequestLoader,
+      },
+      {
+        path: "/d/:shareId",
+        element: <FileSharePage />,
+        loader: fileShareLoader,
       },
       {
         path: "/dashboard",

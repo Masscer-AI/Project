@@ -1230,7 +1230,9 @@ def get_suggestion(request):
 class SharedConversationView(View):
     def get(self, request, share_id):
         try:
-            shared_conversation = SharedConversation.objects.get(id=share_id)
+            shared_conversation = SharedConversation.objects.get(
+                id=share_id, valid_until__gt=timezone.now()
+            )
         except SharedConversation.DoesNotExist:
             return JsonResponse(
                 {"message": "Share not found", "status": 404}, status=404
