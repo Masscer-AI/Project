@@ -210,6 +210,22 @@ class ShareholderExtraction(BaseModel):
     contribution: str | None = None
 
 
+class ControllerExtraction(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    name: str | None = None
+    rfc: str | None = None
+    ownership_percentage: str | None = None
+    reason: str | None = Field(
+        default=None,
+        description="Why this person is a beneficial owner, in the form language",
+    )
+    needs_clarification: bool = Field(
+        default=False,
+        description="True when control comes only from a control clause, not ownership",
+    )
+
+
 class AdministratorExtraction(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -266,6 +282,9 @@ class ActaConstitutivaExtraction(ProvenanceMixin):
     registered_address: AddressExtraction | None = None
     shareholders: list[ShareholderExtraction] = Field(
         default_factory=list, description="ACTA-socios_constitucion"
+    )
+    controllers: list[ControllerExtraction] = Field(
+        default_factory=list, description="ACTA-beneficiarios_controladores"
     )
     administrators: list[AdministratorExtraction] = Field(
         default_factory=list, description="ACTA-administracion"

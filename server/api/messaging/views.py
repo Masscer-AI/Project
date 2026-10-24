@@ -403,6 +403,19 @@ def _build_conversation_list_queryset(request, user):
             tag_qs = [Q(tags__contains=[tid]) for tid in tag_ids]
             conversations = conversations.filter(reduce(or_, tag_qs))
 
+    agents_param = (request.GET.get("agents") or "").strip()
+    if agents_param:
+        agent_ids = []
+        for x in agents_param.split(","):
+            if x.strip().isdigit():
+                agent_ids.append(int(x.strip()))
+        if agent_ids:
+            agent_qs = [
+                Q(metadata__related_agents__contains=[{"id": agent_id}])
+                for agent_id in agent_ids
+            ]
+            conversations = conversations.filter(reduce(or_, agent_qs))
+
     alert_rules_param = (request.GET.get("alert_rules") or "").strip()
     if alert_rules_param:
         rule_ids = [x.strip() for x in alert_rules_param.split(",") if x.strip()]

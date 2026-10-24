@@ -50,6 +50,7 @@ function filtersToParams(f: TConversationFilters): Record<string, string> {
   if (f.minMessages && f.minMessages !== 1) p.minMessages = String(f.minMessages);
   if (f.maxMessages) p.maxMessages = String(f.maxMessages);
   if (f.selectedTags?.length) p.selectedTags = f.selectedTags.join(",");
+  if (f.selectedAgents?.length) p.selectedAgents = f.selectedAgents.join(",");
   if (f.selectedAlertRules?.length) p.selectedAlertRules = f.selectedAlertRules.join(",");
   if (f.chatWidgetId) p.chatWidgetId = f.chatWidgetId;
   if (f.wsNumberId) p.wsNumberId = f.wsNumberId;
@@ -71,6 +72,7 @@ function paramsToFilters(sp: URLSearchParams): TConversationFilters {
     minMessages: get("minMessages") ? Number(get("minMessages")) : 1,
     maxMessages: get("maxMessages") ? Number(get("maxMessages")) : ("" as unknown as number),
     selectedTags: get("selectedTags") ? get("selectedTags").split(",").map(Number) : [],
+    selectedAgents: get("selectedAgents") ? get("selectedAgents").split(",").map(Number) : [],
     selectedAlertRules: get("selectedAlertRules") ? get("selectedAlertRules").split(",") : [],
     chatWidgetId: get("chatWidgetId"),
     wsNumberId: get("wsNumberId"),

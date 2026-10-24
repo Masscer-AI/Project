@@ -45,6 +45,8 @@ def _controllers(meta: dict) -> list[str]:
                 extra.append(f"RFC {item['rfc']}")
             if item.get("ownership_percentage"):
                 extra.append(f"{item['ownership_percentage']}%")
+            if item.get("reason"):
+                extra.append(str(item["reason"]).strip())
             rows.append(name + (f" ({', '.join(extra)})" if extra else ""))
     single = meta.get("controller")
     if not rows and isinstance(single, dict) and single.get("name"):

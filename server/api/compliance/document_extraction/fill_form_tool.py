@@ -16,8 +16,8 @@ _NAME_RE = re.compile(
     r"identification\.(?:document_type|issuing_authority|document_number)|"
     r"representative\.(?:given_names|surnames|date_of_birth|rfc|curp|"
     r"identification\.(?:document_type|issuing_authority|document_number))|"
-    r"controller\.(?:name|rfc|ownership_percentage|email)|"
-    r"controllers\.\d+\.(?:name|rfc|ownership_percentage|email)"
+    r"controller\.(?:name|rfc|ownership_percentage|email|reason)|"
+    r"controllers\.\d+\.(?:name|rfc|ownership_percentage|email|reason)"
     r")$"
 )
 
@@ -59,7 +59,7 @@ def _field_in_scope(name: str, scope: str | None) -> bool:
     if not scope:
         return True
     if scope == "entity":
-        return name in _ENTITY_FIELDS
+        return name in _ENTITY_FIELDS or name.startswith("controllers.")
     if scope == "address":
         return name.startswith(_ADDRESS_PREFIX)
     if scope == "representative":
@@ -216,6 +216,7 @@ def allowed_form_names() -> list[str]:
         "controllers.0.rfc",
         "controllers.0.ownership_percentage",
         "controllers.0.email",
+        "controllers.0.reason",
     ]
 
 
@@ -315,6 +316,16 @@ def apply_extraction_to_form(entity, kind: str, payload: dict) -> None:
     for name, raw in pairs:
         if isinstance(raw, str) and raw.strip():
             fill_form_variable_impl(entity, name, raw, scope=scope)
+    if kind == "acta_constitutiva":
+        for index, row in enumerate(payload.get("controllers") or []):
+            if not isinstance(row, dict):
+                continue
+            for leaf in ("name", "rfc", "ownership_percentage", "reason"):
+                raw = row.get(leaf)
+                if isinstance(raw, str) and raw.strip():
+                    fill_form_variable_impl(
+                        entity, f"controllers.{index}.{leaf}", raw, scope=scope
+                    )
 
 
 def form_fill_prompt(entity, *, scope: str | None = None) -> str:

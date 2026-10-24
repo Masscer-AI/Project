@@ -37,6 +37,7 @@ class ControllerBeneficiary(BaseModel):
     ownership_percentage: str | None = None
     rfc: str | None = None
     email: str | None = None
+    reason: str | None = None
 
 
 class LegalRepresentativeData(BaseModel):

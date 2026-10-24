@@ -335,6 +335,7 @@ export function PldExpedientPreview({
                     <th>{t("compliance-intake-rfc-controller")}</th>
                     <th>{t("email")}</th>
                     <th>{t("compliance-intake-ownership")}</th>
+                    <th>{t("compliance-intake-controller-reason")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -346,6 +347,7 @@ export function PldExpedientPreview({
                         <td>{asText(person.rfc)}</td>
                         <td>{asText(person.email)}</td>
                         <td>{asText(person.ownership_percentage)}</td>
+                        <td>{asText(person.reason)}</td>
                       </tr>
                     );
                   })}

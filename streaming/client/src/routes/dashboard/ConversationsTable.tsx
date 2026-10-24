@@ -5,11 +5,13 @@ import {
   TConversationAlertRule,
   TChatWidget,
 } from "../../types";
+import { TAgent } from "../../types/agents";
 import type { TConversationFilters } from "../../modules/apiCalls";
 import { useTranslation } from "react-i18next";
 import { useNavigate, Link } from "react-router-dom";
 import {
   bulkConversationAction,
+  getAgents,
   getTags,
   getAlertRules,
   getChatWidgets,
@@ -89,12 +91,16 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({
   const navigate = useNavigate();
   const currentUserId = useStore((state) => state.user?.id);
   const [tags, setTags] = useState<TTag[]>([]);
+  const [agents, setAgents] = useState<TAgent[]>([]);
   const [alertRules, setAlertRules] = useState<TConversationAlertRule[]>([]);
   const [chatWidgets, setChatWidgets] = useState<TChatWidget[]>([]);
   useEffect(() => {
     getTags()
       .then((data) => setTags(data))
       .catch((err) => console.error("Error loading tags:", err));
+    getAgents()
+      .then((res) => setAgents(res?.agents ?? []))
+      .catch((err) => console.error("Error loading agents:", err));
     getAlertRules()
       .then((data) => setAlertRules(data))
       .catch((err) => console.error("Error loading alert rules:", err));
@@ -148,6 +154,7 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({
       minMessages: 1,
       maxMessages: "" as unknown as number,
       selectedTags: [],
+      selectedAgents: [],
       selectedAlertRules: [],
       chatWidgetId: "",
       wsNumberId: "",
@@ -372,6 +379,26 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({
               value={(filters.selectedTags ?? []).map(String)}
               onChange={(vals) =>
                 updateFilters({ selectedTags: vals.map(Number) })
+              }
+            />
+
+            <MultiSelect
+              label={t("agents")}
+              size="sm"
+              placeholder={t("all")}
+              clearable
+              searchable
+              data={agents
+                .filter((agent): agent is TAgent & { id: number } => agent.id != null)
+                .slice()
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map((agent) => ({
+                  value: String(agent.id),
+                  label: agent.name,
+                }))}
+              value={(filters.selectedAgents ?? []).map(String)}
+              onChange={(vals) =>
+                updateFilters({ selectedAgents: vals.map(Number) })
               }
             />
 

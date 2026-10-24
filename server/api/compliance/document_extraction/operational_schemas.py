@@ -87,6 +87,10 @@ class BeneficiarioControladorRow(BaseModel):
         default=None, description="BC-participacion_pct"
     )
     control_means: str | None = Field(default=None, description="BC-medio_control")
+    reason: str | None = Field(
+        default=None,
+        description="Why this person is a beneficial owner, in the form language",
+    )
 
 
 class BeneficiarioControladorDocExtraction(ProvenanceMixin):

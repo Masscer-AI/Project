@@ -12,7 +12,10 @@ from api.compliance.document_extraction.constants import (
     PLD_REASONING_EFFORT,
 )
 from api.compliance.pld_document_slots import required_slots_extraction_ready
-from api.compliance.prequalification.deterministic import controller_names
+from api.compliance.prequalification.deterministic import (
+    control_clause_request_specs,
+    controller_names,
+)
 from api.compliance.prequalification.pack import build_prequalification_packet
 from api.compliance.prequalification.schemas import PrequalificationResult
 from api.compliance.prequalification.sources import RULESET_VERSION
@@ -40,6 +43,11 @@ Reglas:
 - El acta constitutiva es un retrato a la fecha de constitucion. No emitas hallazgo
   solo porque la fecha es antigua o el acta dice que la participacion es de entonces.
   Solo senala socios o controladores si `declared` contradice al acta.
+- Un beneficiario controlador puede venir de mas del 25% de participacion o de
+  control efectivo por clausula: veto, nombrar a la mayoria del consejo o al
+  administrador, voto especial o decisivo. Si el acta marca a alguien asi con
+  needs_clarification, pide en invitee_requests que confirme si ejerce ese
+  control; no lo des por confirmado solo por la clausula.
 - Nunca inventes RFC, CURP, fechas ni porcentajes.
 - summary en espanol, breve, para la contraparte (sin jerga interna de scoring).
 - source_ids solo de: lfpiorpi, reglamento, rcg, uif-portal.
@@ -249,7 +257,9 @@ def run_prequalification(entity) -> PrequalificationResult:
     verdict = output.verdict
     from api.compliance.clarifications import merge_request_specs
 
-    requests = merge_request_specs(list(output.invitee_requests or []))
+    requests = merge_request_specs(
+        list(output.invitee_requests or []), control_clause_request_specs(entity)
+    )
     if requests and verdict == "ready_for_list_screening":
         verdict = "needs_review"
     controllers = output.controllers or controller_names(entity)

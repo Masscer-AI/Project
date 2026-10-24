@@ -128,10 +128,11 @@ type ControllerRow = {
   rfc: string;
   ownership: string;
   email: string;
+  reason: string;
 };
 
 function emptyController(): ControllerRow {
-  return { name: "", rfc: "", ownership: "", email: "" };
+  return { name: "", rfc: "", ownership: "", email: "", reason: "" };
 }
 
 function loadControllers(meta: Record<string, unknown>): ControllerRow[] {
@@ -146,6 +147,7 @@ function loadControllers(meta: Record<string, unknown>): ControllerRow[] {
           rfc: asString(row.rfc),
           ownership: asString(row.ownership_percentage),
           email: asString(row.email),
+          reason: asString(row.reason),
         };
       });
     if (rows.length > 0) return rows;
@@ -158,6 +160,7 @@ function loadControllers(meta: Record<string, unknown>): ControllerRow[] {
         rfc: asString(single.rfc),
         ownership: asString(single.ownership_percentage),
         email: asString(single.email),
+        reason: asString(single.reason),
       },
     ];
   }
@@ -320,6 +323,7 @@ function namedControllers(form: FormState) {
       rfc: row.rfc.trim() || null,
       ownership_percentage: row.ownership.trim() || null,
       email: row.email.trim() || null,
+      reason: row.reason.trim() || null,
     }));
 }
 
@@ -404,6 +408,7 @@ function applyEmptyFromMetadata(
           rfc: pick(row.rfc, incoming.rfc),
           ownership: pick(row.ownership, incoming.ownership),
           email: pick(row.email, incoming.email),
+          reason: pick(row.reason, incoming.reason),
         };
       })
     : prev.controllers;
@@ -1614,6 +1619,11 @@ export function PldIntakeForm({
                             }
                           />
                         </FieldRow>
+                        {row.reason ? (
+                          <Text size="xs" c="dimmed">
+                            {t("compliance-intake-controller-reason")}: {row.reason}
+                          </Text>
+                        ) : null}
                       </Stack>
                     </Card>
                   ))}

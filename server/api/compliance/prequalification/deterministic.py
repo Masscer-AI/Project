@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from api.compliance.clarifications import InviteeRequestSpec
 from api.compliance.document_extraction.spec_fields import missing_required_spec_fields
 from api.compliance.pld_document_slots import (
     document_slots_for_entity,
@@ -234,6 +235,43 @@ def deterministic_findings(entity) -> list[PrequalFinding]:
             )
 
     return findings
+
+
+def control_clause_request_specs(entity) -> list[InviteeRequestSpec]:
+    acta = _first_payload(_docs_by_kind(entity), "acta_constitutiva")
+    rows = acta.get("controllers")
+    if not isinstance(rows, list):
+        return []
+    exp = entity.expedients.order_by("created_at").first()
+    answered = set()
+    if exp is not None:
+        from api.compliance.models import PLDClarificationRequest
+
+        answered = set(
+            exp.clarification_requests.filter(
+                status=PLDClarificationRequest.Status.ANSWERED
+            ).values_list("prompt", flat=True)
+        )
+    specs = []
+    for row in rows:
+        if not isinstance(row, dict) or row.get("needs_clarification") is not True:
+            continue
+        name = str(row.get("name") or "").strip()
+        if not name:
+            continue
+        reason = str(row.get("reason") or "").strip().rstrip(".")
+        detail = f": {reason}" if reason else ""
+        prompt = (
+            f"El acta sugiere que {name} podría ser beneficiario controlador "
+            f"por una cláusula de control{detail}. "
+            "Confirma si esa persona ejerce ese control actualmente."
+        )
+        if prompt in answered:
+            continue
+        specs.append(
+            InviteeRequestSpec(prompt=prompt, answer_type="text", target="controllers")
+        )
+    return specs
 
 
 def verdict_from_findings(findings: list[PrequalFinding]) -> str:

@@ -705,6 +705,7 @@ export type TConversationFilters = {
   minMessages?: number;
   maxMessages?: number;
   selectedTags?: number[];
+  selectedAgents?: number[];
   selectedAlertRules?: string[];
   chatWidgetId?: string;
   wsNumberId?: string;
@@ -764,6 +765,9 @@ export const getConversations = async (
   if (filters.selectedTags?.length) {
     params.set("tags", filters.selectedTags.join(","));
   }
+  if (filters.selectedAgents?.length) {
+    params.set("agents", filters.selectedAgents.join(","));
+  }
   if (filters.selectedAlertRules?.length) {
     params.set("alert_rules", filters.selectedAlertRules.join(","));
   }
@@ -811,6 +815,9 @@ export const getConversationStats = async (
   }
   if (filters.selectedTags?.length) {
     params.set("tags", filters.selectedTags.join(","));
+  }
+  if (filters.selectedAgents?.length) {
+    params.set("agents", filters.selectedAgents.join(","));
   }
   if (filters.selectedAlertRules?.length) {
     params.set("alert_rules", filters.selectedAlertRules.join(","));

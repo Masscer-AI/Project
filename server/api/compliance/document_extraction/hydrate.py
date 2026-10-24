@@ -175,6 +175,7 @@ def hydrate_extraction(parsed, document_kind: str):
     for campo_id, path in mapping.items():
         if path in {
             "shareholders",
+            "controllers",
             "administrators",
             "holders",
             "economic_activities",

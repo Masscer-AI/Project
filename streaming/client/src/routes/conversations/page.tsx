@@ -11,12 +11,21 @@ import {
   TextInput,
   UnstyledButton,
 } from "@mantine/core";
-import { IconCalendar, IconMessage, IconSearch } from "@tabler/icons-react";
+import { IconCalendar, IconMessage, IconSearch, IconStack2 } from "@tabler/icons-react";
 import { AppPage } from "../../components/AppPage/AppPage";
-import { getAllConversations, getTags } from "../../modules/apiCalls";
+import { getAgents, getAllConversations, getTags } from "../../modules/apiCalls";
 import { TConversation, TTag } from "../../types";
+import { TAgent } from "../../types/agents";
 
 type DatePreset = "any" | "today" | "week" | "month";
+type GroupBy = "date" | "tag" | "agent";
+
+type ConversationGroup = {
+  key: string;
+  label: string;
+  tag?: TTag;
+  items: TConversation[];
+};
 
 function tagDotColor(color?: string) {
   if (!color) return "var(--mantine-color-violet-filled)";
@@ -50,6 +59,10 @@ function startOfDay(date: Date) {
   return next;
 }
 
+function relatedAgentIds(conversation: TConversation) {
+  return (conversation.metadata?.related_agents || []).map((agent) => agent.id);
+}
+
 function TagChip({ tag }: { tag: TTag }) {
   return (
     <Group gap={6} wrap="nowrap">
@@ -74,9 +87,12 @@ export default function ConversationsPage() {
   const [history, setHistory] = useState<TConversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [orgTags, setOrgTags] = useState<TTag[]>([]);
+  const [agents, setAgents] = useState<TAgent[]>([]);
   const [title, setTitle] = useState("");
   const [selectedTags, setSelectedTags] = useState<number[]>([]);
+  const [selectedAgents, setSelectedAgents] = useState<number[]>([]);
   const [datePreset, setDatePreset] = useState<DatePreset>("any");
+  const [groupBy, setGroupBy] = useState<GroupBy>("date");
 
   const load = () => {
     getAllConversations("personal")
@@ -90,6 +106,9 @@ export default function ConversationsPage() {
     getTags()
       .then((tags) => setOrgTags(tags))
       .catch(() => setOrgTags([]));
+    getAgents()
+      .then((res) => setAgents(res?.agents ?? []))
+      .catch(() => setAgents([]));
   }, []);
 
   useEffect(() => {
@@ -103,6 +122,15 @@ export default function ConversationsPage() {
     orgTags.forEach((tag) => map.set(tag.id, tag));
     return map;
   }, [orgTags]);
+
+  const namedAgents = useMemo(
+    () =>
+      agents
+        .filter((agent): agent is TAgent & { id: number } => agent.id != null)
+        .slice()
+        .sort((a, b) => a.name.localeCompare(b.name, i18n.language)),
+    [agents, i18n.language]
+  );
 
   const filteredHistory = useMemo(() => {
     const query = title.trim().toLowerCase();
@@ -125,18 +153,56 @@ export default function ConversationsPage() {
       if (selectedTags.length > 0) {
         if (!c.tags?.some((tagId) => selectedTags.includes(tagId))) return false;
       }
+      if (selectedAgents.length > 0) {
+        if (!relatedAgentIds(c).some((agentId) => selectedAgents.includes(agentId))) {
+          return false;
+        }
+      }
       if (query) {
         const haystack = `${c.title || ""} ${c.summary || ""}`.toLowerCase();
         if (!haystack.includes(query)) return false;
       }
       return true;
     });
-  }, [datePreset, history, selectedTags, title]);
+  }, [datePreset, history, selectedAgents, selectedTags, title]);
+
+  const enabledTags = orgTags.filter((tag) => tag.enabled);
 
   const groups = useMemo(() => {
     const sorted = [...filteredHistory].sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
+    if (groupBy === "tag") {
+      const enabledIds = new Set(enabledTags.map((tag) => tag.id));
+      const result: ConversationGroup[] = [];
+      enabledTags.forEach((tag) => {
+        const items = sorted.filter((conversation) => conversation.tags?.includes(tag.id));
+        if (items.length > 0) result.push({ key: `tag-${tag.id}`, label: tag.title, tag, items });
+      });
+      const untagged = sorted.filter(
+        (conversation) => !(conversation.tags || []).some((tagId) => enabledIds.has(tagId))
+      );
+      if (untagged.length > 0) result.push({ key: "no-tag", label: t("no-tag"), items: untagged });
+      return result;
+    }
+    if (groupBy === "agent") {
+      const knownIds = new Set(namedAgents.map((agent) => agent.id));
+      const result: ConversationGroup[] = [];
+      namedAgents.forEach((agent) => {
+        const items = sorted.filter((conversation) =>
+          relatedAgentIds(conversation).includes(agent.id)
+        );
+        if (items.length > 0) result.push({ key: `agent-${agent.id}`, label: agent.name, items });
+      });
+      const unmatched = sorted.filter((conversation) => {
+        const ids = relatedAgentIds(conversation);
+        return ids.length === 0 || ids.every((id) => !knownIds.has(id));
+      });
+      if (unmatched.length > 0) {
+        result.push({ key: "no-agent", label: t("no-agent"), items: unmatched });
+      }
+      return result;
+    }
     const map = new Map<string, TConversation[]>();
     sorted.forEach((conversation) => {
       const key = dayKey(conversation.created_at);
@@ -144,8 +210,12 @@ export default function ConversationsPage() {
       list.push(conversation);
       map.set(key, list);
     });
-    return [...map.entries()];
-  }, [filteredHistory]);
+    return [...map.entries()].map(([key, items]) => ({
+      key,
+      label: formatDay(items[0].created_at, i18n.language),
+      items,
+    }));
+  }, [enabledTags, filteredHistory, groupBy, i18n.language, namedAgents, t]);
 
   const toggleTag = (tagId: number) => {
     setSelectedTags((prev) =>
@@ -153,7 +223,11 @@ export default function ConversationsPage() {
     );
   };
 
-  const enabledTags = orgTags.filter((tag) => tag.enabled);
+  const toggleAgent = (agentId: number) => {
+    setSelectedAgents((prev) =>
+      prev.includes(agentId) ? prev.filter((id) => id !== agentId) : [...prev, agentId]
+    );
+  };
 
   return (
     <AppPage title={t("conversations")}>
@@ -189,6 +263,23 @@ export default function ConversationsPage() {
               allowDeselect={false}
               w={200}
             />
+            <Select
+              aria-label={t("group-by")}
+              value={groupBy}
+              onChange={(value) => {
+                if (value === "date" || value === "tag" || value === "agent") {
+                  setGroupBy(value);
+                }
+              }}
+              data={[
+                { value: "date", label: t("by-date") },
+                { value: "tag", label: t("by-tag") },
+                { value: "agent", label: t("by-agent") },
+              ]}
+              leftSection={<IconStack2 size={16} />}
+              allowDeselect={false}
+              w={200}
+            />
           </Group>
 
           {enabledTags.length > 0 && (
@@ -217,6 +308,45 @@ export default function ConversationsPage() {
             </Group>
           )}
 
+          {namedAgents.length > 0 && (
+            <Group gap="xs" wrap="wrap">
+              {namedAgents.map((agent) => {
+                const active = selectedAgents.includes(agent.id);
+                return (
+                  <UnstyledButton
+                    key={agent.id}
+                    onClick={() => toggleAgent(agent.id)}
+                    px="sm"
+                    py={6}
+                    style={{
+                      borderRadius: 999,
+                      border: `1px solid ${
+                        active
+                          ? "var(--mantine-color-violet-filled)"
+                          : "var(--mantine-color-dark-4)"
+                      }`,
+                    }}
+                  >
+                    <Group gap={6} wrap="nowrap">
+                      <Box
+                        w={8}
+                        h={8}
+                        style={{
+                          borderRadius: 99,
+                          background: "var(--mantine-color-violet-filled)",
+                          flexShrink: 0,
+                        }}
+                      />
+                      <Text size="xs" style={{ whiteSpace: "nowrap" }}>
+                        {agent.name}
+                      </Text>
+                    </Group>
+                  </UnstyledButton>
+                );
+              })}
+            </Group>
+          )}
+
           {loading ? (
             <Group justify="center" py="xl">
               <Loader />
@@ -227,12 +357,16 @@ export default function ConversationsPage() {
             </Text>
           ) : (
             <Stack gap="lg">
-              {groups.map(([key, items]) => (
-                <Stack key={key} gap="xs">
-                  <Text size="sm" c="dimmed">
-                    {formatDay(items[0].created_at, i18n.language)}
-                  </Text>
-                  {items.map((conversation) => {
+              {groups.map((group) => (
+                <Stack key={group.key} gap="xs">
+                  {group.tag ? (
+                    <TagChip tag={group.tag} />
+                  ) : (
+                    <Text size="sm" c="dimmed">
+                      {group.label}
+                    </Text>
+                  )}
+                  {group.items.map((conversation) => {
                     const tags = (conversation.tags || [])
                       .map((id) => tagById.get(id))
                       .filter((tag): tag is TTag => Boolean(tag))

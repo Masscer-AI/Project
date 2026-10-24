@@ -1435,7 +1435,24 @@ class PLDDocumentExtractionTests(TestCase):
                 ShareholderExtraction(
                     name="Ana Lopez",
                     ownership_percentage="55",
-                )
+                ),
+                ShareholderExtraction(
+                    name="Luis Perez",
+                    ownership_percentage="5",
+                ),
+            ],
+            controllers=[
+                {
+                    "name": "Ana Lopez",
+                    "ownership_percentage": "55",
+                    "reason": "Owns 55% of the shares",
+                },
+                {
+                    "name": "Luis Perez",
+                    "ownership_percentage": "5",
+                    "reason": "Can veto changes to the bylaws",
+                    "needs_clarification": True,
+                },
             ],
             ownership_may_be_stale=True,
         )
@@ -1462,6 +1479,13 @@ class PLDDocumentExtractionTests(TestCase):
             doc.extracted_payload["shareholders"][0]["ownership_percentage"],
             "55",
         )
+        self.entity.refresh_from_db()
+        reasons = {
+            row["name"]: row.get("reason")
+            for row in self.entity.metadata.get("controllers", [])
+        }
+        self.assertEqual(reasons["Ana Lopez"], "Owns 55% of the shares")
+        self.assertEqual(reasons["Luis Perez"], "Can veto changes to the bylaws")
         create_loop.assert_called_once()
         kwargs = create_loop.call_args.kwargs
         self.assertEqual(kwargs["model"], "gpt-6-luna")
@@ -1479,6 +1503,40 @@ class PLDDocumentExtractionTests(TestCase):
         self.assertEqual(
             doc.extracted_payload["_meta"]["nombre_archivo"], "acta.pdf"
         )
+
+    def test_control_clause_controller_requires_clarification(self):
+        from api.compliance.models import PLDExpedientDocument
+        from api.compliance.prequalification.deterministic import (
+            control_clause_request_specs,
+        )
+
+        PLDExpedientDocument.objects.create(
+            expedient=self.expedient,
+            slot_key="acta_constitutiva",
+            document_kind="acta_constitutiva",
+            original_filename="acta.pdf",
+            extracted_payload={
+                "controllers": [
+                    {
+                        "name": "Ana Lopez",
+                        "ownership_percentage": "55",
+                        "reason": "Tiene el 55% de las acciones",
+                        "needs_clarification": False,
+                    },
+                    {
+                        "name": "Luis Perez",
+                        "ownership_percentage": "5",
+                        "reason": "Puede vetar cambios a los estatutos",
+                        "needs_clarification": True,
+                    },
+                ]
+            },
+        )
+        specs = control_clause_request_specs(self.entity)
+        self.assertEqual(len(specs), 1)
+        self.assertIn("Luis Perez", specs[0].prompt)
+        self.assertIn("Puede vetar cambios a los estatutos", specs[0].prompt)
+        self.assertEqual(specs[0].target, "controllers")
 
     def test_spec_identification_schemas_cover_campo_ids(self):
         from api.compliance.document_extraction.schemas import schema_for_kind

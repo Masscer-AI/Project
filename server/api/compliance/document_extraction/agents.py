@@ -33,6 +33,12 @@ def _summary_language_rule(language: str) -> str:
     return "Write the summary field in English, the language of the invitee's app."
 
 
+def _reason_language_rule(language: str) -> str:
+    if _app_language(language) == "es":
+        return "Write every reason field in Spanish, the language of the invitee's app."
+    return "Write every reason field in English, the language of the invitee's app."
+
+
 _SHARED_RULES = (
     "The document is attached to this message. "
     "Fill every property on this document's JSON schema first; those names are the "
@@ -112,10 +118,20 @@ INSTRUCTIONS_BY_KIND = {
         "You extract a Mexican acta constitutiva / escritura de constitucion. "
         "List every socio or accionista with participation (compute % from partes sociales "
         "only when the numbers are in the deed). "
+        "Determine the beneficiarios controladores in controllers: every natural person with "
+        "more than 25% ownership, directly or indirectly, and every natural person with "
+        "effective control even below 25%. Search the estatutos for control clauses: veto "
+        "over key decisions, power to appoint or remove the majority of the consejo or the "
+        "administrador, special voting rights, a decisive vote, or power to block budgets, "
+        "distributions, mergers, or bylaw changes. "
+        "Give every controller a reason that says where the control comes from, quoting the "
+        "ownership percentage or the clause. Set needs_clarification true when the control "
+        "comes only from a control clause, not from ownership above 25%. "
         "Set ownership_as_of to the constitution date. Leave ownership_may_be_stale null. "
         "Write form fields from the deed: legal_name, constitution_date, nationality "
         "(ISO-2 from the registered domicile country), economic_activity from objeto social, "
-        "address.* from domicilio social, and controllers from socios. "
+        "address.* from domicilio social, and controllers from socios, including each "
+        "controller reason as controllers.N.reason. "
         + _SHARED_RULES
     ),
     "poder": (
@@ -157,6 +173,7 @@ INSTRUCTIONS_BY_KIND = {
     ),
     "declaracion_bc": (
         "You extract a beneficial-owner (beneficiario controlador) declaration. "
+        "Give every beneficiary a reason that says where the control comes from. "
         + _SHARED_RULES
     ),
     "contrato": (
@@ -254,6 +271,11 @@ def extract_document(doc, language: str = "en") -> PldExtraction:
         (INSTRUCTIONS_BY_KIND.get(kind) or _SHARED_RULES)
         + " "
         + _summary_language_rule(language)
+        + (
+            " " + _reason_language_rule(language)
+            if kind in {"acta_constitutiva", "declaracion_bc"}
+            else ""
+        )
     )
     billing_user_id, organization_id = _billing_for_document(doc)
     logger.info(

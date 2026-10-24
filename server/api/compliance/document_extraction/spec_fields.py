@@ -57,6 +57,7 @@ SPEC_FIELDS_BY_KIND: dict[str, dict[str, str]] = {
         "ACTA-capital_variable": "capital_variable",
         "ACTA-administracion": "administrators",
         "ACTA-socios_constitucion": "shareholders",
+        "ACTA-beneficiarios_controladores": "controllers",
     },
     "poder": {
         "POD-apoderado_nombre": "attorney_name",
