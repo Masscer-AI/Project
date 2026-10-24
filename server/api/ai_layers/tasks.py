@@ -826,6 +826,7 @@ def _message_attachment_to_display_dict(att) -> dict | None:
 def _extract_referenced_attachments_from_text(
     text: str,
     conversation_id: str,
+    user_id: int | None = None,
 ) -> list[dict]:
     """
     Resolve attachment:<uuid> references found in assistant output text and return
@@ -849,12 +850,13 @@ def _extract_referenced_attachments_from_text(
         seen.add(aid)
         ordered_ids.append(aid)
 
+    from api.messaging.attachment_access import attachments_visible_q
     from api.messaging.models import MessageAttachment
 
     rows = MessageAttachment.objects.filter(
-        conversation_id=conversation_id,
+        attachments_visible_q(user_id=user_id, conversation_id=conversation_id),
         id__in=ordered_ids,
-    )
+    ).distinct()
     by_id = {str(r.id): r for r in rows}
 
     resolved: list[dict] = []
@@ -2464,6 +2466,7 @@ def conversation_agent_task(
             referenced_atts = _extract_referenced_attachments_from_text(
                 output_text,
                 conversation_id=conversation_id,
+                user_id=actor_user_id,
             )
             if referenced_atts:
                 existing_ids = {
