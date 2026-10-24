@@ -780,7 +780,7 @@ export const ConversationsTable: React.FC<ConversationsTableProps> = ({
                             <Tooltip label={t("open-alerts")} withArrow>
                               <UnstyledButton
                                 component={Link}
-                                to={`/dashboard/alerts?conversation=${conv.id}`}
+                                to={`/alerts?conversation=${conv.id}`}
                                 style={{ display: "inline-flex" }}
                               >
                                 <Group gap={4} wrap="nowrap" style={{ cursor: "pointer" }}>

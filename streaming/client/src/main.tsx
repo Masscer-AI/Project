@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import ReactDOM from "react-dom/client";
-import { createBrowserRouter, Navigate, RouterProvider } from "react-router-dom";
+import { createBrowserRouter, Navigate, redirect, RouterProvider } from "react-router-dom";
 import '@mantine/core/styles.css';
 import '@mantine/dates/styles.css';
 import { MantineProvider } from '@mantine/core';
@@ -48,8 +48,7 @@ import { NotFoundPage } from "./routes/not-found/Page.tsx";
 import { NotificationListener } from "./components/NotificationListener/NotificationListener.tsx";
 import { ConversationTakeoverListener } from "./components/ConversationTakeoverListener/ConversationTakeoverListener.tsx";
 import DashboardPage from "./routes/dashboard/page.tsx";
-import AlertsHubPage from "./routes/dashboard/AlertsHubPage.tsx";
-import TagsPage from "./routes/dashboard/TagsPage.tsx";
+import AlertsHubPage from "./routes/alerts/page.tsx";
 import OrganizationPage from "./routes/organization/page.tsx";
 import KnowledgeBasePage from "./routes/knowledge-base/page.tsx";
 import ListDetailPage from "./routes/knowledge-base/ListDetailPage.tsx";
@@ -213,17 +212,13 @@ const router = createBrowserRouter([
       },
       {
         path: "/dashboard/alerts",
+        loader: ({ request }) => redirect(`/alerts${new URL(request.url).search}`),
+      },
+      {
+        path: "/alerts",
         element: (
           <ProtectedRoute>
             <AlertsHubPage />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "/dashboard/tags",
-        element: (
-          <ProtectedRoute>
-            <TagsPage />
           </ProtectedRoute>
         ),
       },

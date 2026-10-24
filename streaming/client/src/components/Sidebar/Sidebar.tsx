@@ -20,6 +20,7 @@ import {
   IconSearch,
   IconLayoutSidebarLeftCollapse,
   IconChartBar,
+  IconBellRinging,
   IconChevronDown,
   IconChevronRight,
 } from "@tabler/icons-react";
@@ -226,6 +227,12 @@ export const Sidebar: React.FC = () => {
         to: "/dashboard",
         label: t("sidebar-analytics"),
         icon: <IconChartBar size={iconSize} />,
+      },
+    canUseChat &&
+      isConversationsDashboardEnabled && {
+        to: "/alerts",
+        label: t("alerts-hub"),
+        icon: <IconBellRinging size={iconSize} />,
         badge: unreadNotificationCount,
       },
     hasOrgComplianceAccess &&

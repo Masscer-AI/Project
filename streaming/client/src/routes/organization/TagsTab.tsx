@@ -1,19 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { useStore } from "../../modules/store";
 import {
   getTags,
   createTag,
   updateTag,
   deleteTag,
-  getUser,
   getTagContent,
   TTagContent,
 } from "../../modules/apiCalls";
 import { TTag } from "../../types";
-import { TUserData } from "../../types/chatTypes";
 import { useTranslation } from "react-i18next";
-import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
-import { DashboardLayout } from "./DashboardLayout";
 import {
   Badge,
   Button,
@@ -30,19 +25,13 @@ import {
   Text,
   TextInput,
   Textarea,
-  Title,
 } from "@mantine/core";
 import { IconPlus } from "@tabler/icons-react";
 import { Link } from "react-router-dom";
 import { useDisclosure } from "@mantine/hooks";
 
-export default function TagsPage() {
-  const { startup, setUser } = useStore((state) => ({
-    startup: state.startup,
-    setUser: state.setUser,
-  }));
+export function TagsTab() {
   const { t } = useTranslation();
-  const canManageTags = useIsFeatureEnabled("tags-management");
   const [tags, setTags] = useState<TTag[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -60,23 +49,8 @@ export default function TagsPage() {
   });
 
   useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const user = (await getUser()) as TUserData;
-        setUser(user);
-      } catch (error) {
-        console.error("Error loading user:", error);
-      }
-    };
-    loadUser();
-    startup();
-  }, [startup, setUser]);
-
-  useEffect(() => {
-    if (canManageTags === true) {
-      loadTags();
-    }
-  }, [canManageTags]);
+    loadTags();
+  }, []);
 
   const loadTags = async () => {
     try {
@@ -181,18 +155,10 @@ export default function TagsPage() {
     "#84cc16",
   ];
 
-  if (canManageTags === false) {
-    return null;
-  }
-
   return (
-    <DashboardLayout>
+    <>
       <Stack gap="lg">
-        <Title order={2} ta="center">
-          {t("tags") || "Tags"}
-        </Title>
-
-        <Group justify="center">
+        <Group justify="flex-end">
           <Button
             variant="default"
             leftSection={<IconPlus size={16} />}
@@ -227,7 +193,6 @@ export default function TagsPage() {
         )}
       </Stack>
 
-      {}
       <Modal
         opened={showForm}
         onClose={handleCancel}
@@ -384,7 +349,7 @@ export default function TagsPage() {
           </Stack>
         )}
       </Modal>
-    </DashboardLayout>
+    </>
   );
 }
 

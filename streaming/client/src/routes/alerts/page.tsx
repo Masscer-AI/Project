@@ -1,14 +1,14 @@
 import React, { useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { DashboardLayout } from "./DashboardLayout";
+import { AppPage } from "../../components/AppPage/AppPage";
 import AlertsPage from "./AlertsPage";
 import AlertRulesPage from "./AlertRulesPage";
 import NotificationsInboxPage from "./NotificationsInboxPage";
 import NotificationSettingsPage from "./NotificationSettingsPage";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
 import { useIsOrganizationOwner } from "../../hooks/useIsOrganizationOwner";
-import { Group, Loader, Stack, Tabs } from "@mantine/core";
+import { Container, Group, Loader, Stack, Tabs } from "@mantine/core";
 
 export type AlertsHubView =
   | "notifications"
@@ -125,37 +125,39 @@ export default function AlertsHubPage() {
   };
 
   return (
-    <DashboardLayout>
-      <Stack gap="lg">
-        <Tabs
-          value={controlValue}
-          onChange={(value) => {
-            if (value) setView(value);
-          }}
-        >
-          <Tabs.List>
-            {segmentData.map((s) => (
-              <Tabs.Tab key={s.value} value={s.value}>
-                {s.label}
-              </Tabs.Tab>
-            ))}
-          </Tabs.List>
-        </Tabs>
-        {waitingForFlags ? (
-          <Group justify="center" py="xl">
-            <Loader />
-          </Group>
-        ) : (
-          <>
-            {effectiveView === "notifications" && <NotificationsInboxPage />}
-            {effectiveView === "alerts" && <AlertsPage />}
-            {effectiveView === "rules" && canManageAlertRules && <AlertRulesPage />}
-            {effectiveView === "notify-rules" && canManageNotificationRules && (
-              <NotificationSettingsPage />
-            )}
-          </>
-        )}
-      </Stack>
-    </DashboardLayout>
+    <AppPage title={t("alerts-hub")}>
+      <Container size="xl" py="xl">
+        <Stack gap="lg">
+          <Tabs
+            value={controlValue}
+            onChange={(value) => {
+              if (value) setView(value);
+            }}
+          >
+            <Tabs.List>
+              {segmentData.map((s) => (
+                <Tabs.Tab key={s.value} value={s.value}>
+                  {s.label}
+                </Tabs.Tab>
+              ))}
+            </Tabs.List>
+          </Tabs>
+          {waitingForFlags ? (
+            <Group justify="center" py="xl">
+              <Loader />
+            </Group>
+          ) : (
+            <>
+              {effectiveView === "notifications" && <NotificationsInboxPage />}
+              {effectiveView === "alerts" && <AlertsPage />}
+              {effectiveView === "rules" && canManageAlertRules && <AlertRulesPage />}
+              {effectiveView === "notify-rules" && canManageNotificationRules && (
+                <NotificationSettingsPage />
+              )}
+            </>
+          )}
+        </Stack>
+      </Container>
+    </AppPage>
   );
 }

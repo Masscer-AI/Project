@@ -92,9 +92,11 @@ import {
   IconTrash,
   IconUsers,
   IconDatabase,
+  IconHash,
 } from "@tabler/icons-react";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
 import { DataGovernanceTab } from "./DataGovernanceTab";
+import { TagsTab } from "./TagsTab";
 import {
   buildTenantSubdomainUrl,
   formatTenantSubdomainHost,
@@ -124,6 +126,7 @@ const ORGANIZATION_TAB_VALUES = [
   "members",
   "billing",
   "data",
+  "tags",
 ] as const;
 
 export type OrganizationTab = (typeof ORGANIZATION_TAB_VALUES)[number];
@@ -197,6 +200,7 @@ export default function OrganizationPage() {
   const [savingPortalBranding, setSavingPortalBranding] = useState(false);
   const canUseOneDollarPackage =
     useIsFeatureEnabled("one-dolar-credits-package") === true;
+  const canManageTags = useIsFeatureEnabled("tags-management") === true;
   const availableCreditPackages = canUseOneDollarPackage
     ? ([{ amountUsd: 1, creditsUsd: 0.8 }, ...CREDIT_PACKAGES] as const)
     : CREDIT_PACKAGES;
@@ -1056,6 +1060,14 @@ export default function OrganizationPage() {
                 >
                   {t("data-governance-tab")}
                 </Tabs.Tab>
+                {canManageTags && (
+                  <Tabs.Tab
+                    value="tags"
+                    leftSection={<IconHash size={16} />}
+                  >
+                    {t("tags")}
+                  </Tabs.Tab>
+                )}
               </Tabs.List>
 
               {}
@@ -1982,6 +1994,12 @@ export default function OrganizationPage() {
                   <DataGovernanceTab organizationId={org.id} />
                 ) : null}
               </Tabs.Panel>
+
+              {canManageTags && (
+                <Tabs.Panel value="tags">
+                  <TagsTab />
+                </Tabs.Panel>
+              )}
             </Tabs>
           )}
         </Box>

@@ -109,7 +109,7 @@ def _alerts_dashboard_url() -> str | None:
         )
         return None
     query = urlencode({"view": "alerts"})
-    return f"{base}/dashboard/alerts?{query}"
+    return f"{base}/alerts?{query}"
 
 def _send_user_notification_email(
     *,

@@ -15,11 +15,12 @@ import type {
 import { TAlertStats } from "../../types";
 import { TUserData } from "../../types/chatTypes";
 import { useTranslation } from "react-i18next";
-import { DashboardLayout } from "./DashboardLayout";
+import { AppPage } from "../../components/AppPage/AppPage";
 import { ConversationsTable, parseDateForPicker } from "./ConversationsTable";
 import {
   Badge,
   Card,
+  Container,
   Group,
   Loader,
   SimpleGrid,
@@ -166,36 +167,38 @@ export default function DashboardPage() {
   const isLoading = isLoadingStats && isLoadingConversations;
 
   return (
-    <DashboardLayout>
-      {isLoading && !convStats ? (
-        <Group justify="center" py="xl">
-          <Loader />
-        </Group>
-      ) : (
-        <Stack gap="xl">
-          <DashboardStats
-            convStats={convStats}
-            alertStats={alertStats}
-            isLoading={isLoadingStats}
-            t={t}
-          />
-          <Card withBorder padding="lg" radius="md">
-            <ConversationsTable
-              conversations={conversationsData?.results ?? []}
-              total={conversationsData?.total ?? 0}
-              page={page}
-              pageSize={50}
-              filters={filters}
-              filterOptions={conversationsData?.filter_options}
-              onFiltersChange={handleFiltersChange}
-              onPageChange={handlePageChange}
-              onConversationsChanged={handleConversationsChanged}
-              isLoading={isLoadingConversations}
+    <AppPage title={t("dashboard")}>
+      <Container size="xl" py="xl">
+        {isLoading && !convStats ? (
+          <Group justify="center" py="xl">
+            <Loader />
+          </Group>
+        ) : (
+          <Stack gap="xl">
+            <DashboardStats
+              convStats={convStats}
+              alertStats={alertStats}
+              isLoading={isLoadingStats}
+              t={t}
             />
-          </Card>
-        </Stack>
-      )}
-    </DashboardLayout>
+            <Card withBorder padding="lg" radius="md">
+              <ConversationsTable
+                conversations={conversationsData?.results ?? []}
+                total={conversationsData?.total ?? 0}
+                page={page}
+                pageSize={50}
+                filters={filters}
+                filterOptions={conversationsData?.filter_options}
+                onFiltersChange={handleFiltersChange}
+                onPageChange={handlePageChange}
+                onConversationsChanged={handleConversationsChanged}
+                isLoading={isLoadingConversations}
+              />
+            </Card>
+          </Stack>
+        )}
+      </Container>
+    </AppPage>
   );
 }
 
