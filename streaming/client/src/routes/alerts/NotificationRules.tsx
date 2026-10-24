@@ -1,14 +1,8 @@
-import React, { useState, useEffect, useRef } from "react";
-import { useStore } from "../../modules/store";
+import { useState, useRef } from "react";
 import {
-  getNotificationRules,
   createNotificationRule,
   updateNotificationRule,
   deleteNotificationRule,
-  getAlertRules,
-  getOrganizationMembers,
-  getOrganizationRoles,
-  getUserOrganizations,
   buildNotificationRuleDraft,
 } from "../../modules/apiCalls";
 import {
@@ -28,20 +22,17 @@ import {
   Checkbox,
   Divider,
   Group,
-  Loader,
   Modal,
   NativeSelect,
-  SimpleGrid,
   Stack,
   Text,
   Textarea,
   TextInput,
-  Title,
   Select,
   MultiSelect,
   ActionIcon,
 } from "@mantine/core";
-import { IconPlus, IconSparkles, IconTrash } from "@tabler/icons-react";
+import { IconPencil, IconPlus, IconSparkles, IconTrash } from "@tabler/icons-react";
 
 type NotifyToType = "user" | "role" | "organization";
 
@@ -53,7 +44,6 @@ const EMPTY_CONDITION: TNotificationCondition = {
 };
 
 interface FormData {
-  alert_rule_id: string;
   notify_to_type: NotifyToType;
   notify_to_user_ids: number[];
   notify_to_role_id: string | null;
@@ -63,7 +53,6 @@ interface FormData {
 }
 
 const EMPTY_FORM: FormData = {
-  alert_rule_id: "",
   notify_to_type: "organization",
   notify_to_user_ids: [],
   notify_to_role_id: null,
@@ -87,17 +76,23 @@ function hasPartialConditionContent(conditions: TNotificationCondition[]): boole
   return conditions.some((c) => c.condition.trim() || c.message.trim());
 }
 
-export default function NotificationSettingsPage() {
-  const { startup } = useStore((state) => ({ startup: state.startup }));
+export function NotificationRules({
+  alertRule,
+  rules,
+  members,
+  roles,
+  organization,
+  onChanged,
+}: {
+  alertRule: TConversationAlertRule;
+  rules: TNotificationRule[];
+  members: TOrganizationMember[];
+  roles: TOrganizationRole[];
+  organization: TOrganization | null;
+  onChanged: () => void;
+}) {
   const { t } = useTranslation();
 
-  const [rules, setRules] = useState<TNotificationRule[]>([]);
-  const [alertRules, setAlertRules] = useState<TConversationAlertRule[]>([]);
-  const [members, setMembers] = useState<TOrganizationMember[]>([]);
-  const [roles, setRoles] = useState<TOrganizationRole[]>([]);
-  const [organization, setOrganization] = useState<TOrganization | null>(null);
-
-  const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingRule, setEditingRule] = useState<TNotificationRule | null>(null);
   const [formData, setFormData] = useState<FormData>(EMPTY_FORM);
@@ -108,53 +103,6 @@ export default function NotificationSettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const saveInFlightRef = useRef(false);
   const hasAiFilledConditionsRef = useRef(false);
-
-  useEffect(() => {
-    startup();
-    loadAll();
-  }, [startup]);
-
-  const loadAll = async () => {
-    try {
-      setIsLoading(true);
-      const [rulesData, alertRulesData, orgsData] = await Promise.all([
-        getNotificationRules(),
-        getAlertRules(),
-        getUserOrganizations(),
-      ]);
-      setRules(rulesData);
-      setAlertRules(alertRulesData);
-
-      const org = orgsData[0] ?? null;
-      setOrganization(org);
-
-      if (org) {
-        const [membersData, rolesData] = await Promise.all([
-          getOrganizationMembers(org.id),
-          getOrganizationRoles(org.id),
-        ]);
-        setMembers(membersData);
-        setRoles(rolesData);
-      }
-    } catch (err) {
-      console.error("Error loading notification rules:", err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const enabledAlertRules = alertRules.filter((r) => r.enabled);
-
-  useEffect(() => {
-    if (!showForm || editingRule) return;
-    if (enabledAlertRules.length === 0) return;
-    setFormData((prev) => {
-      if (prev.alert_rule_id && enabledAlertRules.some((r) => r.id === prev.alert_rule_id)) {
-        return prev;
-      }
-      return { ...prev, alert_rule_id: enabledAlertRules[0].id };
-    });
-  }, [showForm, editingRule, alertRules]);
 
   const targetOk = notifyTargetValid(formData, organization);
   const conditionsOk = hasGeneratedConditions(formData.conditions);
@@ -177,9 +125,7 @@ export default function NotificationSettingsPage() {
     setEditingRule(null);
     setFormData({
       ...EMPTY_FORM,
-      alert_rule_id: enabledAlertRules[0]?.id ?? "",
       notify_to_org_id: organization?.id ?? null,
-      notify_to_type: "organization",
       conditions: [{ ...EMPTY_CONDITION }],
     });
     resetModalAiState();
@@ -218,7 +164,6 @@ export default function NotificationSettingsPage() {
         ? "role"
         : "organization";
     setFormData({
-      alert_rule_id: rule.alert_rule_id,
       notify_to_type: type,
       notify_to_user_ids: rule.notify_to_user_id ? [rule.notify_to_user_id] : [],
       notify_to_role_id: rule.notify_to_role_id,
@@ -234,7 +179,7 @@ export default function NotificationSettingsPage() {
     if (!window.confirm(t("confirm-delete-notification-rule") || t("confirm-delete") || "Are you sure?")) return;
     try {
       await deleteNotificationRule(ruleId);
-      loadAll();
+      onChanged();
     } catch (err) {
       console.error("Error deleting notification rule:", err);
     }
@@ -242,18 +187,17 @@ export default function NotificationSettingsPage() {
 
   const handleAiGenerate = async () => {
     const prompt = aiPrompt.trim();
-    if (!prompt || !formData.alert_rule_id) return;
+    if (!prompt) return;
     setAiError(null);
     setAiLoading(true);
     try {
       const draft = await buildNotificationRuleDraft({
         prompt,
-        alert_rule_id: formData.alert_rule_id,
+        alert_rule_id: alertRule.id,
       });
       hasAiFilledConditionsRef.current = true;
       setFormData((prev) => ({
         ...prev,
-        alert_rule_id: draft.alert_rule_id,
         conditions:
           draft.conditions?.length > 0
             ? draft.conditions.map((c) => ({
@@ -287,7 +231,7 @@ export default function NotificationSettingsPage() {
     setIsSaving(true);
 
     const common = {
-      alert_rule_id: formData.alert_rule_id,
+      alert_rule_id: alertRule.id,
       conditions: formData.conditions,
       enabled: formData.enabled,
     };
@@ -295,10 +239,6 @@ export default function NotificationSettingsPage() {
     try {
       if (formData.notify_to_type === "user") {
         const ids = [...new Set(formData.notify_to_user_ids)];
-        if (ids.length === 0) {
-          alert(t("select-at-least-one-user") || "Select at least one user.");
-          return;
-        }
         if (editingRule) {
           if (ids.length === 1) {
             await updateNotificationRule(editingRule.id, {
@@ -346,7 +286,7 @@ export default function NotificationSettingsPage() {
       setShowForm(false);
       setEditingRule(null);
       resetModalAiState();
-      loadAll();
+      onChanged();
     } catch (err: any) {
       console.error("Error saving notification rule:", err);
       alert(err.response?.data?.message || t("error-saving") || "Error saving");
@@ -364,42 +304,35 @@ export default function NotificationSettingsPage() {
 
   return (
     <>
-      <Stack gap="lg" align="stretch">
-        <Title order={2} ta="center">
-          {t("notification-settings") || "Notification Settings"}
-        </Title>
-
-        <Group justify="center">
+      <Stack gap="xs">
+        <Group justify="space-between" wrap="nowrap">
+          <Text size="sm" fw={500}>
+            {t("view-notification-rules")}
+          </Text>
           <Button
             type="button"
-            leftSection={<IconPlus size={16} />}
+            size="xs"
+            variant="subtle"
+            leftSection={<IconPlus size={14} />}
             onClick={handleOpenCreate}
-            disabled={alertRules.length === 0}
           >
-            {t("create-notification-rule") || "New Notification Rule"}
+            {t("create-notification-rule")}
           </Button>
         </Group>
-
-        {isLoading ? (
-          <Group justify="center" py="xl">
-            <Loader />
-          </Group>
-        ) : rules.length === 0 ? (
-          <Text ta="center" c="dimmed" py="xl" size="lg">
-            {t("no-notification-rules-found") || "No notification rules yet. Create your first one!"}
+        {rules.length === 0 ? (
+          <Text size="xs" c="dimmed">
+            {t("alert-rule-no-notification-rules")}
           </Text>
         ) : (
-          <SimpleGrid cols={{ base: 1, md: 2, lg: 3 }} spacing="md">
-            {rules.map((rule) => (
-              <NotificationRuleCard
-                key={rule.id}
-                rule={rule}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-                t={t}
-              />
-            ))}
-          </SimpleGrid>
+          rules.map((rule) => (
+            <NotificationRuleRow
+              key={rule.id}
+              rule={rule}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+              t={t}
+            />
+          ))
         )}
       </Stack>
 
@@ -417,17 +350,13 @@ export default function NotificationSettingsPage() {
       >
         <Stack gap="md">
           <Text size="sm" c="dimmed">
-            {t("notification-rule-modal-ai-only-hint") ||
-              "Choose the alert rule and recipients, describe when to notify in your own words, then generate. Conditions are created by the assistant."}
+            {t("notification-rule-modal-ai-only-hint")}
           </Text>
 
-          <NativeSelect
+          <TextInput
             label={t("select-alert-rule-required") || "Alert rule"}
-            value={formData.alert_rule_id}
-            onChange={(e) => setFormData((prev) => ({ ...prev, alert_rule_id: e.currentTarget.value }))}
-            data={enabledAlertRules.map((r) => ({ value: r.id, label: r.name }))}
-            disabled={enabledAlertRules.length === 0}
-            required
+            value={alertRule.name}
+            disabled
           />
 
           <Divider label={t("notification-builder-who-to-notify") || "Recipients"} labelPosition="center" />
@@ -537,11 +466,7 @@ export default function NotificationSettingsPage() {
               variant="light"
               onClick={handleAiGenerate}
               loading={aiLoading}
-              disabled={
-                !aiPrompt.trim() ||
-                !formData.alert_rule_id ||
-                enabledAlertRules.length === 0
-              }
+              disabled={!aiPrompt.trim()}
             >
               {t("generate-suggestion") || "Generate conditions"}
             </Button>
@@ -639,7 +564,10 @@ export default function NotificationSettingsPage() {
           <Checkbox
             label={t("enabled") || "Enabled"}
             checked={formData.enabled}
-            onChange={(e) => setFormData((prev) => ({ ...prev, enabled: e.currentTarget.checked }))}
+            onChange={(e) => {
+              const checked = e.currentTarget.checked;
+              setFormData((prev) => ({ ...prev, enabled: checked }));
+            }}
           />
 
           <Divider />
@@ -662,7 +590,7 @@ export default function NotificationSettingsPage() {
   );
 }
 
-function NotificationRuleCard({
+function NotificationRuleRow({
   rule,
   onEdit,
   onDelete,
@@ -680,42 +608,48 @@ function NotificationRuleCard({
     "—";
 
   return (
-    <Card withBorder padding="lg" radius="md">
-      <Stack gap="sm">
-        <Group justify="space-between" wrap="wrap">
-          <Text fw={600} size="sm">
-            {rule.alert_rule_name ?? rule.alert_rule_id}
-          </Text>
-          <Badge color={rule.enabled ? "green" : "red"} size="sm">
-            {rule.enabled ? t("enabled") || "Enabled" : t("disabled") || "Disabled"}
-          </Badge>
+    <Card withBorder padding="xs" radius="sm">
+      <Group justify="space-between" align="flex-start" wrap="nowrap" gap="xs">
+        <Stack gap={2} style={{ minWidth: 0 }}>
+          <Group gap="xs" wrap="nowrap">
+            <Text size="sm" truncate>
+              {t("notify-to") || "Notify to"}: {targetLabel}
+            </Text>
+            {!rule.enabled && (
+              <Badge color="red" size="xs">
+                {t("disabled") || "Disabled"}
+              </Badge>
+            )}
+          </Group>
+          {rule.conditions.map((cond, i) => (
+            <Text key={i} size="xs" c="dimmed" lineClamp={1}>
+              · {cond.condition} → {cond.delivery_method}
+            </Text>
+          ))}
+        </Stack>
+        <Group gap={4} wrap="nowrap">
+          <ActionIcon
+            type="button"
+            variant="subtle"
+            color="gray"
+            size="sm"
+            onClick={() => onEdit(rule)}
+            aria-label={t("edit") || "Edit"}
+          >
+            <IconPencil size={16} />
+          </ActionIcon>
+          <ActionIcon
+            type="button"
+            variant="subtle"
+            color="red"
+            size="sm"
+            onClick={() => onDelete(rule.id)}
+            aria-label={t("delete") || "Delete"}
+          >
+            <IconTrash size={16} />
+          </ActionIcon>
         </Group>
-
-        <Text size="xs" c="dimmed">
-          {t("notify-to") || "Notify to"}: {targetLabel}
-        </Text>
-
-        <Text size="xs" c="dimmed">
-          {t("conditions") || "Conditions"}: {rule.conditions.length}
-        </Text>
-
-        {rule.conditions.map((cond, i) => (
-          <Text key={i} size="xs" c="dimmed" lineClamp={1}>
-            · {cond.condition} → {cond.delivery_method}
-          </Text>
-        ))}
-
-        <Divider />
-
-        <Group gap="xs">
-          <Button type="button" variant="default" size="xs" onClick={() => onEdit(rule)}>
-            {t("edit") || "Edit"}
-          </Button>
-          <Button type="button" variant="default" size="xs" color="red" onClick={() => onDelete(rule.id)}>
-            {t("delete") || "Delete"}
-          </Button>
-        </Group>
-      </Stack>
+      </Group>
     </Card>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useStore } from "../../modules/store";
 import { getMyNotifications, markNotificationRead } from "../../modules/apiCalls";
 import { TUserNotification } from "../../types";

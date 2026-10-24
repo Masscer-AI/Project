@@ -7,10 +7,20 @@ import {
   deleteAlertRule,
   getAgents,
   getUserOrganizations,
+  getNotificationRules,
+  getOrganizationMembers,
+  getOrganizationRoles,
 } from "../../modules/apiCalls";
-import { TConversationAlertRule, TOrganization } from "../../types";
+import {
+  TConversationAlertRule,
+  TNotificationRule,
+  TOrganization,
+  TOrganizationMember,
+  TOrganizationRole,
+} from "../../types";
 import { TAgent } from "../../types/agents";
 import { useTranslation } from "react-i18next";
+import { NotificationRules } from "./NotificationRules";
 import {
   Badge,
   Button,
@@ -39,6 +49,9 @@ export default function AlertRulesPage() {
   const [alertRules, setAlertRules] = useState<TConversationAlertRule[]>([]);
   const [organization, setOrganization] = useState<TOrganization | null>(null);
   const [orgAgents, setOrgAgents] = useState<TAgent[]>([]);
+  const [notificationRules, setNotificationRules] = useState<TNotificationRule[]>([]);
+  const [members, setMembers] = useState<TOrganizationMember[]>([]);
+  const [roles, setRoles] = useState<TOrganizationRole[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingRule, setEditingRule] = useState<TConversationAlertRule | null>(
@@ -64,6 +77,7 @@ export default function AlertRulesPage() {
   useEffect(() => {
     startup();
     loadAlertRules();
+    loadNotificationRules();
     (async () => {
       try {
         const [orgs, agentsRes] = await Promise.all([
@@ -83,11 +97,27 @@ export default function AlertRulesPage() {
               )
             : []
         );
+        if (org) {
+          const [membersData, rolesData] = await Promise.all([
+            getOrganizationMembers(org.id),
+            getOrganizationRoles(org.id),
+          ]);
+          setMembers(membersData);
+          setRoles(rolesData);
+        }
       } catch (e) {
-        console.error("Error loading org agents:", e);
+        console.error("Error loading organization data:", e);
       }
     })();
   }, [startup]);
+
+  const loadNotificationRules = async () => {
+    try {
+      setNotificationRules(await getNotificationRules());
+    } catch (error) {
+      console.error("Error loading notification rules:", error);
+    }
+  };
 
   const loadAlertRules = async () => {
     try {
@@ -221,7 +251,7 @@ export default function AlertRulesPage() {
               "No alert rules found. Create your first one!"}
           </Text>
         ) : (
-          <SimpleGrid cols={{ base: 1, md: 2, lg: 3 }} spacing="md">
+          <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
             {alertRules.map((rule) => (
               <AlertRuleCard
                 key={rule.id}
@@ -230,7 +260,16 @@ export default function AlertRulesPage() {
                 onEdit={handleEdit}
                 onDelete={handleDelete}
                 t={t}
-              />
+              >
+                <NotificationRules
+                  alertRule={rule}
+                  rules={notificationRules.filter((n) => n.alert_rule_id === rule.id)}
+                  members={members}
+                  roles={roles}
+                  organization={organization}
+                  onChanged={loadNotificationRules}
+                />
+              </AlertRuleCard>
             ))}
           </SimpleGrid>
         )}
@@ -343,12 +382,14 @@ function AlertRuleCard({
   onEdit,
   onDelete,
   t,
+  children,
 }: {
   rule: TConversationAlertRule;
   orgAgents: TAgent[];
   onEdit: (rule: TConversationAlertRule) => void;
   onDelete: (ruleId: string) => void;
   t: any;
+  children: React.ReactNode;
 }) {
   const agentNames = useMemo(() => {
     if (rule.scope !== "selected_agents" || !rule.agent_ids?.length) return [];
@@ -386,6 +427,10 @@ function AlertRuleCard({
             </Text>
           )}
         </Stack>
+
+        <Divider />
+
+        {children}
 
         <Divider />
 

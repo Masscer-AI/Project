@@ -1,14 +1,12 @@
-import React from "react";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { AppPage } from "../../components/AppPage/AppPage";
 import AlertsPage from "./AlertsPage";
 import AlertRulesPage from "./AlertRulesPage";
-import NotificationSettingsPage from "./NotificationSettingsPage";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
 import { Container, Group, Loader, Stack, Tabs } from "@mantine/core";
 
-type AlertsHubView = "alerts" | "rules" | "notify-rules";
+type AlertsHubView = "alerts" | "rules";
 
 export default function AlertsHubPage() {
   const { t } = useTranslation();
@@ -31,10 +29,7 @@ export default function AlertsHubPage() {
       ? [{ value: "alerts" as const, label: t("view-alerts-queue") }]
       : []),
     ...(canManageAlertRules
-      ? [
-          { value: "rules" as const, label: t("view-alert-rules") },
-          { value: "notify-rules" as const, label: t("view-notification-rules") },
-        ]
+      ? [{ value: "rules" as const, label: t("view-alert-rules") }]
       : []),
   ];
 
@@ -66,7 +61,6 @@ export default function AlertsHubPage() {
           </Tabs>
           {view === "alerts" && <AlertsPage />}
           {view === "rules" && <AlertRulesPage />}
-          {view === "notify-rules" && <NotificationSettingsPage />}
         </Stack>
       </Container>
     </AppPage>

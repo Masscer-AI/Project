@@ -14,7 +14,6 @@ import {
   Loader,
   Stack,
   Text,
-  Title,
 } from "@mantine/core";
 import { IconEye, IconEyeOff } from "@tabler/icons-react";
 
@@ -97,10 +96,6 @@ export default function AlertsPage() {
 
   return (
     <Stack gap="lg">
-        <Title order={2} ta="center">
-          {t("alerts")}
-        </Title>
-
         <Group justify="center" wrap="wrap" gap="xs">
           {filterOptions.map((opt) => (
             <Button
