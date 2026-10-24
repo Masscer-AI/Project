@@ -961,7 +961,7 @@ export default function OrganizationPage() {
 
   return (
     <AppPage title={t("organization")}>
-        <Box px="md" w="100%" maw="42rem" mx="auto">
+        <Box maw={1100} w="100%" mx="auto">
           {!org ? (
             <Card withBorder p="xl">
               {!showCreateForm ? (
