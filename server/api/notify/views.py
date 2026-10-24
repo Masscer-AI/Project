@@ -17,7 +17,7 @@ from api.notify.models import NotificationRule, UserNotification
 from api.notify.serializers import NotificationRuleSerializer, UserNotificationSerializer
 from api.notify.builder import run_notification_rule_build
 
-FEATURE_FLAG = "can-set-notifications"
+FEATURE_FLAG = "alert-rules-manager"
 
 logger = logging.getLogger(__name__)
 

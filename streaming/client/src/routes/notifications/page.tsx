@@ -8,21 +8,24 @@ import {
   Badge,
   Button,
   Card,
+  Container,
   Group,
   Loader,
   Stack,
   Text,
-  Title,
 } from "@mantine/core";
 import { IconCheck } from "@tabler/icons-react";
+import { AppPage } from "../../components/AppPage/AppPage";
+import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
 import {
   NOTIFICATIONS_INBOX_UPDATED_EVENT,
   notifyInboxUpdated,
 } from "../../utils/notificationInboxEvents";
 
-export default function NotificationsInboxPage() {
+export default function NotificationsPage() {
   const { startup } = useStore((state) => ({ startup: state.startup }));
   const { t } = useTranslation();
+  const canViewAlerts = useIsFeatureEnabled("view-alerts") === true;
   const [items, setItems] = useState<TUserNotification[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -70,11 +73,8 @@ export default function NotificationsInboxPage() {
   const unread = items.filter((n) => !n.read_at);
 
   return (
-    <Stack gap="lg">
-        <Title order={2} ta="center">
-          {t("notifications-inbox") || "Notifications"}
-        </Title>
-
+    <AppPage title={t("notifications-inbox")}>
+      <Container size="md" py="xl">
         {loading ? (
           <Group justify="center" py="xl">
             <Loader />
@@ -110,20 +110,22 @@ export default function NotificationsInboxPage() {
                     <Text size="xs" c="dimmed">
                       {new Date(n.created_at).toLocaleString()}
                     </Text>
-                    <Text
-                      component={Link}
-                      to="/alerts?view=alerts"
-                      size="xs"
-                      c="violet"
-                      style={{ textDecoration: "underline" }}
-                      onClick={() => {
-                        if (!n.read_at) {
-                          void handleMarkRead(n.id);
-                        }
-                      }}
-                    >
-                      {t("open-alerts-dashboard") || "View alerts"}
-                    </Text>
+                    {canViewAlerts && (
+                      <Text
+                        component={Link}
+                        to="/alerts"
+                        size="xs"
+                        c="violet"
+                        style={{ textDecoration: "underline" }}
+                        onClick={() => {
+                          if (!n.read_at) {
+                            void handleMarkRead(n.id);
+                          }
+                        }}
+                      >
+                        {t("open-alerts-dashboard") || "View alerts"}
+                      </Text>
+                    )}
                   </Stack>
                   {!n.read_at && (
                     <Button
@@ -140,6 +142,7 @@ export default function NotificationsInboxPage() {
             ))}
           </Stack>
         )}
-      </Stack>
+      </Container>
+    </AppPage>
   );
 }

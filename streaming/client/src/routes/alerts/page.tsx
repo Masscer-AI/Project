@@ -1,161 +1,72 @@
-import React, { useEffect, useMemo } from "react";
-import { useSearchParams } from "react-router-dom";
+import React from "react";
+import { Navigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { AppPage } from "../../components/AppPage/AppPage";
 import AlertsPage from "./AlertsPage";
 import AlertRulesPage from "./AlertRulesPage";
-import NotificationsInboxPage from "./NotificationsInboxPage";
 import NotificationSettingsPage from "./NotificationSettingsPage";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
-import { useIsOrganizationOwner } from "../../hooks/useIsOrganizationOwner";
 import { Container, Group, Loader, Stack, Tabs } from "@mantine/core";
 
-export type AlertsHubView =
-  | "notifications"
-  | "alerts"
-  | "rules"
-  | "notify-rules";
-
-export function parseAlertsHubView(
-  searchParams: URLSearchParams
-): AlertsHubView {
-  const v = (searchParams.get("view") || "").toLowerCase();
-  if (v === "rules") return "rules";
-  if (v === "notify-rules" || v === "notification-rules") return "notify-rules";
-  if (v === "notifications" || v === "inbox") return "notifications";
-  if (v === "alerts" || v === "list") return "alerts";
-  if (searchParams.get("conversation")) return "alerts";
-  return "notifications";
-}
+type AlertsHubView = "alerts" | "rules" | "notify-rules";
 
 export default function AlertsHubPage() {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
-
+  const canViewAlerts = useIsFeatureEnabled("view-alerts");
   const canManageAlertRules = useIsFeatureEnabled("alert-rules-manager");
-  const canSetNotifications = useIsFeatureEnabled("can-set-notifications");
-  const isOrgOwner = useIsOrganizationOwner();
 
-  const flagsResolved =
-    canManageAlertRules !== null &&
-    canSetNotifications !== null &&
-    isOrgOwner !== null;
+  if (canViewAlerts === null || canManageAlertRules === null) {
+    return (
+      <AppPage title={t("alerts")}>
+        <Group justify="center" py="xl">
+          <Loader />
+        </Group>
+      </AppPage>
+    );
+  }
 
-  const canManageNotificationRules =
-    canSetNotifications === true || isOrgOwner === true;
+  const tabs: { value: AlertsHubView; label: string }[] = [
+    ...(canViewAlerts
+      ? [{ value: "alerts" as const, label: t("view-alerts-queue") }]
+      : []),
+    ...(canManageAlertRules
+      ? [
+          { value: "rules" as const, label: t("view-alert-rules") },
+          { value: "notify-rules" as const, label: t("view-notification-rules") },
+        ]
+      : []),
+  ];
 
-  const parsedView = parseAlertsHubView(searchParams);
+  if (tabs.length === 0) {
+    return <Navigate to="/notifications" replace />;
+  }
 
-  const effectiveView = useMemo((): AlertsHubView => {
-    if (parsedView === "rules" && flagsResolved && canManageAlertRules === false) {
-      return "notifications";
-    }
-    if (
-      parsedView === "notify-rules" &&
-      flagsResolved &&
-      !canManageNotificationRules
-    ) {
-      return "notifications";
-    }
-    return parsedView;
-  }, [
-    parsedView,
-    flagsResolved,
-    canManageAlertRules,
-    canManageNotificationRules,
-  ]);
-
-  useEffect(() => {
-    if (!flagsResolved) return;
-    if (effectiveView === parsedView) return;
-    const next = new URLSearchParams(searchParams);
-    next.set("view", effectiveView);
-    setSearchParams(next, { replace: true });
-  }, [
-    flagsResolved,
-    effectiveView,
-    parsedView,
-    searchParams,
-    setSearchParams,
-  ]);
-
-  const segmentData = useMemo(() => {
-    const items: { value: AlertsHubView; label: string }[] = [
-      {
-        value: "notifications",
-        label: t("view-notifications-inbox") || "Notifications",
-      },
-      {
-        value: "alerts",
-        label: t("view-alerts-queue") || "Alerts",
-      },
-    ];
-    if (flagsResolved && canManageAlertRules) {
-      items.push({
-        value: "rules",
-        label: t("view-alert-rules") || "Alert rules",
-      });
-    }
-    if (flagsResolved && canManageNotificationRules) {
-      items.push({
-        value: "notify-rules",
-        label: t("view-notification-rules") || "Notification rules",
-      });
-    }
-    return items;
-  }, [
-    flagsResolved,
-    canManageAlertRules,
-    canManageNotificationRules,
-    t,
-  ]);
-
-  const waitingForFlags =
-    !flagsResolved &&
-    (parsedView === "rules" || parsedView === "notify-rules");
-
-  const controlValue = segmentData.some((s) => s.value === effectiveView)
-    ? effectiveView
-    : "notifications";
-
-  const setView = (v: string) => {
-    const next = new URLSearchParams(searchParams);
-    next.set("view", v);
-    setSearchParams(next);
-  };
+  const requestedView = searchParams.get("view");
+  const view =
+    tabs.find((tab) => tab.value === requestedView)?.value ?? tabs[0].value;
 
   return (
-    <AppPage title={t("alerts-hub")}>
+    <AppPage title={t("alerts")}>
       <Container size="xl" py="xl">
         <Stack gap="lg">
           <Tabs
-            value={controlValue}
+            value={view}
             onChange={(value) => {
-              if (value) setView(value);
+              if (value) setSearchParams({ view: value });
             }}
           >
             <Tabs.List>
-              {segmentData.map((s) => (
-                <Tabs.Tab key={s.value} value={s.value}>
-                  {s.label}
+              {tabs.map((tab) => (
+                <Tabs.Tab key={tab.value} value={tab.value}>
+                  {tab.label}
                 </Tabs.Tab>
               ))}
             </Tabs.List>
           </Tabs>
-          {waitingForFlags ? (
-            <Group justify="center" py="xl">
-              <Loader />
-            </Group>
-          ) : (
-            <>
-              {effectiveView === "notifications" && <NotificationsInboxPage />}
-              {effectiveView === "alerts" && <AlertsPage />}
-              {effectiveView === "rules" && canManageAlertRules && <AlertRulesPage />}
-              {effectiveView === "notify-rules" && canManageNotificationRules && (
-                <NotificationSettingsPage />
-              )}
-            </>
-          )}
+          {view === "alerts" && <AlertsPage />}
+          {view === "rules" && <AlertRulesPage />}
+          {view === "notify-rules" && <NotificationSettingsPage />}
         </Stack>
       </Container>
     </AppPage>

@@ -73,6 +73,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 CAN_EDIT_CONVERSATION_DATA_FLAG = "can-edit-conversation-data"
+VIEW_ALERTS_FLAG = "view-alerts"
 
 def _deny_unless_can_replace_agent(request, conversation=None):
     user = request.user
@@ -127,6 +128,21 @@ def _deny_unless_can_edit_conversation_data(request, conversation=None):
             status=403,
         )
     return None
+
+def _deny_unless_can_view_alerts(user):
+    org = _resolve_organization_for_user_flag(user)
+    enabled, _ = FeatureFlagService.is_feature_enabled(
+        VIEW_ALERTS_FLAG, organization=org, user=user
+    )
+    if enabled:
+        return None
+    return JsonResponse(
+        {
+            "message": "You are not allowed to view alerts. The 'view-alerts' feature is not enabled for you.",
+            "status": 403,
+        },
+        status=403,
+    )
 
 def _get_conversation_for_user(request, conversation_id):
     """
@@ -1871,7 +1887,10 @@ class ConversationAlertView(View):
     def get(self, request, *args, **kwargs):
         user = request.user
         alert_id = kwargs.get("id")
-        
+        deny = _deny_unless_can_view_alerts(user)
+        if deny:
+            return deny
+
         user_organizations = self._get_user_organizations(user)
         
         if alert_id:
@@ -1903,6 +1922,9 @@ class ConversationAlertView(View):
     def put(self, request, *args, **kwargs):
         user = request.user
         alert_id = kwargs.get("id")
+        deny = _deny_unless_can_view_alerts(user)
+        if deny:
+            return deny
         alert_update_payload = json.loads(request.body)
 
         if not alert_id:
@@ -1947,7 +1969,10 @@ class ConversationAlertView(View):
 class ConversationAlertStatsView(View):
     def get(self, request):
         user = request.user
-        
+        deny = _deny_unless_can_view_alerts(user)
+        if deny:
+            return deny
+
         owned_orgs = Organization.objects.filter(owner=user)
         member_orgs = Organization.objects.none()
         if hasattr(user, 'profile') and user.profile.organization:

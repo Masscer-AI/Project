@@ -15,6 +15,7 @@ import type {
 import { TAlertStats } from "../../types";
 import { TUserData } from "../../types/chatTypes";
 import { useTranslation } from "react-i18next";
+import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
 import { AppPage } from "../../components/AppPage/AppPage";
 import { ConversationsTable, parseDateForPicker } from "./ConversationsTable";
 import {
@@ -88,6 +89,7 @@ export default function DashboardPage() {
     setUser: state.setUser,
   }));
   const { t } = useTranslation();
+  const canViewAlerts = useIsFeatureEnabled("view-alerts") === true;
   const [searchParams, setSearchParams] = useSearchParams();
   const [convStats, setConvStats] = useState<TConversationStats | null>(null);
   const [alertStats, setAlertStats] = useState<TAlertStats | null>(null);
@@ -118,7 +120,7 @@ export default function DashboardPage() {
     try {
       const [conv, alerts] = await Promise.all([
         getConversationStats(filters),
-        getAlertStats(),
+        canViewAlerts ? getAlertStats() : null,
       ]);
       setConvStats(conv);
       setAlertStats(alerts);
@@ -127,7 +129,7 @@ export default function DashboardPage() {
     } finally {
       setIsLoadingStats(false);
     }
-  }, [filters]);
+  }, [filters, canViewAlerts]);
 
   const loadConversations = useCallback(async () => {
     setIsLoadingConversations(true);

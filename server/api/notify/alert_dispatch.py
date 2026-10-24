@@ -9,8 +9,6 @@ from __future__ import annotations
 
 import logging
 from typing import Iterable
-from urllib.parse import urlencode
-
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.db.models import Q
@@ -100,16 +98,14 @@ def _delivery_includes_email(delivery_method: str) -> bool:
         UserNotification.DELIVERY_ALL,
     )
 
-def _alerts_dashboard_url() -> str | None:
-    """Deep-link to the alerts queue (pending list is the default when no conversation filter)."""
+def _notifications_url() -> str | None:
     base = (getattr(settings, "FRONTEND_URL", None) or "").strip().rstrip("/")
     if not base:
         logger.debug(
-            "FRONTEND_URL is unset; alert notification email will have no dashboard link"
+            "FRONTEND_URL is unset; alert notification email will have no notifications link"
         )
         return None
-    query = urlencode({"view": "alerts"})
-    return f"{base}/alerts?{query}"
+    return f"{base}/notifications"
 
 def _send_user_notification_email(
     *,
@@ -118,7 +114,7 @@ def _send_user_notification_email(
     alert_title: str,
     alert_rule_name: str,
     organization_name: str,
-    alerts_dashboard_url: str | None,
+    notifications_url: str | None,
 ) -> None:
     """
     First-version alert notification email via Resend.
@@ -143,12 +139,12 @@ def _send_user_notification_email(
         f"{escape(alert_title)} · {escape(alert_rule_name)} · "
         f"{escape(organization_name)}"
     )
-    if alerts_dashboard_url:
-        safe_href = escape(alerts_dashboard_url)
+    if notifications_url:
+        safe_href = escape(notifications_url)
         link_section = (
             '<p style="margin-top:18px;">'
             f'<a href="{safe_href}" style="color:#6d28d9;font-weight:600;">'
-            "Ver alertas en el panel"
+            "Ver mis notificaciones"
             "</a></p>"
         )
     else:
@@ -230,7 +226,7 @@ def maybe_dispatch_user_notifications(alert: ConversationAlert) -> None:
         org_name = org.name or str(org.id)
         alert_rule_name = alert_rule.name or "Alert rule"
         alert_title = alert.title or "Alert"
-        dashboard_url = _alerts_dashboard_url()
+        notifications_url = _notifications_url()
         for user in targets:
             try:
                 obj, created = UserNotification.objects.get_or_create(
@@ -258,7 +254,7 @@ def maybe_dispatch_user_notifications(alert: ConversationAlert) -> None:
                         alert_title=alert_title,
                         alert_rule_name=alert_rule_name,
                         organization_name=org_name,
-                        alerts_dashboard_url=dashboard_url,
+                        notifications_url=notifications_url,
                     )
                 if created:
                     emit_in_app_notification_created(obj)

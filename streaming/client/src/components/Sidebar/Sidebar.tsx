@@ -20,7 +20,8 @@ import {
   IconSearch,
   IconLayoutSidebarLeftCollapse,
   IconChartBar,
-  IconBellRinging,
+  IconAlertTriangle,
+  IconBell,
   IconChevronDown,
   IconChevronRight,
 } from "@tabler/icons-react";
@@ -119,6 +120,8 @@ export const Sidebar: React.FC = () => {
   const canUseChat = useIsFeatureEnabled("can-use-chat") === true;
   const hasOrgComplianceAccess =
     useIsFeatureEnabled("organization-compliance-access") === true;
+  const canViewAlerts = useIsFeatureEnabled("view-alerts") === true;
+  const canManageAlertRules = useIsFeatureEnabled("alert-rules-manager") === true;
   const toggleSidebar = useStore((s) => s.toggleSidebar);
   const toggleSidebarCollapsed = useStore((s) => s.toggleSidebarCollapsed);
   const isSidebarOpened = useStore((s) => s.chatState.isSidebarOpened);
@@ -193,6 +196,12 @@ export const Sidebar: React.FC = () => {
       label: t("scheduled-tasks-title"),
       icon: <IconCalendarTime size={iconSize} />,
     },
+    {
+      to: "/notifications",
+      label: t("notifications-inbox"),
+      icon: <IconBell size={iconSize} />,
+      badge: unreadNotificationCount,
+    },
     !canUseChat &&
       organizationsLoaded &&
       !hasOrganization && {
@@ -228,13 +237,11 @@ export const Sidebar: React.FC = () => {
         label: t("sidebar-analytics"),
         icon: <IconChartBar size={iconSize} />,
       },
-    canUseChat &&
-      isConversationsDashboardEnabled && {
-        to: "/alerts",
-        label: t("alerts-hub"),
-        icon: <IconBellRinging size={iconSize} />,
-        badge: unreadNotificationCount,
-      },
+    (canViewAlerts || canManageAlertRules) && {
+      to: "/alerts",
+      label: t("alerts"),
+      icon: <IconAlertTriangle size={iconSize} />,
+    },
     hasOrgComplianceAccess &&
       hasPldAccess && {
         to: "/compliance",

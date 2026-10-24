@@ -49,6 +49,7 @@ import { NotificationListener } from "./components/NotificationListener/Notifica
 import { ConversationTakeoverListener } from "./components/ConversationTakeoverListener/ConversationTakeoverListener.tsx";
 import DashboardPage from "./routes/dashboard/page.tsx";
 import AlertsHubPage from "./routes/alerts/page.tsx";
+import NotificationsPage from "./routes/notifications/page.tsx";
 import OrganizationPage from "./routes/organization/page.tsx";
 import KnowledgeBasePage from "./routes/knowledge-base/page.tsx";
 import ListDetailPage from "./routes/knowledge-base/ListDetailPage.tsx";
@@ -219,6 +220,14 @@ const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <AlertsHubPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/notifications",
+        element: (
+          <ProtectedRoute>
+            <NotificationsPage />
           </ProtectedRoute>
         ),
       },
