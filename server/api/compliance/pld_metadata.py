@@ -5,6 +5,8 @@ from __future__ import annotations
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic import ValidationError as PydanticValidationError
 
+from api.compliance.risk.activities import match_vulnerable_activity
+
 
 class AddressData(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -170,6 +172,12 @@ def _id_complete(identification: IdentificationData | None) -> bool:
 def identification_is_complete(person_type: str, metadata: dict | None) -> bool:
     """True when required identification fields are present (documents can unlock)."""
     if not isinstance(metadata, dict) or not metadata:
+        return False
+    if not _filled(metadata.get("vulnerable_activity_fraction")):
+        return False
+    if str(metadata.get("vulnerable_activity_fraction")).strip() == "none" and match_vulnerable_activity(
+        str(metadata.get("economic_activity") or "")
+    ):
         return False
     if person_type == "persona_fisica":
         data = PersonaFisicaMetadata.model_validate(metadata)

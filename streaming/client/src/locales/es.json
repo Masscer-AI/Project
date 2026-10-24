@@ -1078,6 +1078,7 @@
   "compliance-intake-activity-hint-fisica": "A que te dedicas.",
   "compliance-intake-vulnerable": "Actividad vulnerable",
   "compliance-intake-vulnerable-none": "Ninguna",
+  "compliance-intake-vulnerable-placeholder": "Selecciona una opción",
   "compliance-intake-phone": "Telefono",
   "compliance-intake-phone-invalid": "Ingresa un telefono valido",
   "compliance-intake-country-not-found": "No se encontro el pais",

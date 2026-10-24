@@ -41,9 +41,10 @@ const VULNERABLE_NONE = "none";
 
 function chosenVulnerableFraction(row: TMyPldExpedient): string {
   const raw = asString(asRecord(row.metadata).vulnerable_activity_fraction);
-  if (raw === VULNERABLE_NONE) return VULNERABLE_NONE;
+  const guess = row.vulnerable_activity_guess?.fraction || "";
+  if (raw === VULNERABLE_NONE && guess) return guess;
   if (raw) return raw;
-  return row.vulnerable_activity_guess?.fraction || VULNERABLE_NONE;
+  return guess;
 }
 
 function FieldRow({ children }: { children: React.ReactNode }) {
@@ -269,10 +270,11 @@ function storedVulnerableFraction(
   stored: string,
   guess: string
 ): string {
-  if (stored === VULNERABLE_NONE) return VULNERABLE_NONE;
-  if (stored) return stored;
+  if (stored && stored !== VULNERABLE_NONE) return stored;
   if (filled(current) && current !== VULNERABLE_NONE) return current;
-  return guess || current || VULNERABLE_NONE;
+  if (guess) return guess;
+  if (stored) return stored;
+  return current;
 }
 
 function filled(value: string): boolean {
@@ -336,7 +338,7 @@ function metadataFromForm(form: FormState, isMoral: boolean): Record<string, unk
       nationality: form.nationality.trim() || null,
       rfc: form.rfc.trim() || null,
       economic_activity: form.economic_activity.trim() || null,
-      vulnerable_activity_fraction: form.vulnerable_activity_fraction || VULNERABLE_NONE,
+      vulnerable_activity_fraction: form.vulnerable_activity_fraction || null,
       phone,
       email: form.email.trim() || null,
       address: compactAddress(form.address),
@@ -365,7 +367,7 @@ function metadataFromForm(form: FormState, isMoral: boolean): Record<string, unk
     curp: form.curp.trim() || null,
     rfc: form.rfc.trim() || null,
     economic_activity: form.economic_activity.trim() || null,
-    vulnerable_activity_fraction: form.vulnerable_activity_fraction || VULNERABLE_NONE,
+    vulnerable_activity_fraction: form.vulnerable_activity_fraction || null,
     phone,
     email: form.email.trim() || null,
     address: compactAddress(form.address),
@@ -751,6 +753,9 @@ export function PldIntakeForm({
     );
   const entityDone =
     sectionDocsDone("entity") &&
+    filled(form.vulnerable_activity_fraction) &&
+    (!row.vulnerable_activity_guess ||
+      form.vulnerable_activity_fraction !== VULNERABLE_NONE) &&
     (isMoral
       ? filled(form.legal_name) &&
         filled(form.constitution_date) &&
@@ -1254,6 +1259,7 @@ export function PldIntakeForm({
       <Select
         label={t("compliance-intake-vulnerable")}
         required
+        placeholder={t("compliance-intake-vulnerable-placeholder")}
         data={[
           { value: VULNERABLE_NONE, label: t("compliance-intake-vulnerable-none") },
           ...(row.vulnerable_activity_catalog || []).map((item) => ({
@@ -1261,9 +1267,9 @@ export function PldIntakeForm({
             label: `${item.fraction} — ${item.activity}`,
           })),
         ]}
-        value={form.vulnerable_activity_fraction || VULNERABLE_NONE}
+        value={form.vulnerable_activity_fraction || null}
         onChange={(value) =>
-          setField("vulnerable_activity_fraction", value || VULNERABLE_NONE)
+          setField("vulnerable_activity_fraction", value || "")
         }
       />
       {pickedVulnerable?.notice_uma != null && pickedVulnerable.notice_mxn != null ? (

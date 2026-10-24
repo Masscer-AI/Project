@@ -2849,6 +2849,45 @@ class VulnerableActivityTests(SimpleTestCase):
         )
         self.assertIsNone(resolve_vulnerable_activity(entity))
 
+    def test_identification_requires_vulnerable_activity_choice(self):
+        from api.compliance.pld_metadata import identification_is_complete
+
+        metadata = {
+            "legal_name": "ACME SA",
+            "constitution_date": "2020-01-01",
+            "rfc": "AAA010101AAA",
+            "economic_activity": "Construcción",
+            "address": {
+                "country": "MX",
+                "postal_code": "01000",
+                "state": "Ciudad de México",
+                "municipality": "Álvaro Obregón",
+                "city": "Ciudad de México",
+                "neighborhood": "Centro",
+                "street": "Calle Uno",
+                "exterior_number": "1",
+            },
+            "representative": {
+                "given_names": "Ana",
+                "surnames": "Lopez",
+                "identification": {
+                    "document_type": "ine",
+                    "document_number": "123",
+                },
+            },
+            "controllers": [{"name": "Ana Lopez", "email": "ana@example.com"}],
+        }
+        self.assertFalse(identification_is_complete("persona_moral", metadata))
+        metadata["vulnerable_activity_fraction"] = ""
+        self.assertFalse(identification_is_complete("persona_moral", metadata))
+        metadata["vulnerable_activity_fraction"] = "none"
+        self.assertFalse(identification_is_complete("persona_moral", metadata))
+        metadata["vulnerable_activity_fraction"] = "V"
+        self.assertTrue(identification_is_complete("persona_moral", metadata))
+        metadata["economic_activity"] = "Venta de abarrotes"
+        metadata["vulnerable_activity_fraction"] = "none"
+        self.assertTrue(identification_is_complete("persona_moral", metadata))
+
     def test_chosen_fraction_overrides_guess(self):
         from types import SimpleNamespace
 
