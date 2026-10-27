@@ -9,6 +9,7 @@ from api.compliance.views import (
     PLDEntityBundleView,
     PLDEntityDetailView,
     PLDEntityDocumentDownloadView,
+    PLDEntityExpedientListView,
     PLDEntityInviteView,
     PLDScreeningApprovalView,
     PLDEntityListView,
@@ -51,6 +52,21 @@ urlpatterns = [
         PLDEntityBundleView.as_view(),
         name="pld_entity_bundle",
     ),
+    path(
+        "entities/<uuid:entity_id>/expedients/",
+        PLDEntityExpedientListView.as_view(),
+        name="pld_entity_expedients",
+    ),
+    path(
+        "entities/<uuid:entity_id>/expedients/<uuid:expedient_id>/packet/",
+        PLDEntityPacketView.as_view(),
+        name="pld_entity_expedient_packet",
+    ),
+    path(
+        "entities/<uuid:entity_id>/expedients/<uuid:expedient_id>/bundle/",
+        PLDEntityBundleView.as_view(),
+        name="pld_entity_expedient_bundle",
+    ),
     path("bundle/", PLDOrganizationBundleView.as_view(), name="pld_organization_bundle"),
     path("matrix/", PLDMatrixView.as_view(), name="pld_matrix"),
     path(
@@ -81,6 +97,11 @@ urlpatterns = [
         "my-expedients/<uuid:entity_id>/packet/",
         MyPLDExpedientPacketView.as_view(),
         name="my_pld_expedient_packet",
+    ),
+    path(
+        "my-expedients/<uuid:entity_id>/expedients/<uuid:expedient_id>/packet/",
+        MyPLDExpedientPacketView.as_view(),
+        name="my_pld_expedient_run_packet",
     ),
     path(
         "my-expedients/<uuid:entity_id>/documents/",

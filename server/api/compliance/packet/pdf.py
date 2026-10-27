@@ -57,7 +57,7 @@ def _controllers(meta: dict) -> list[str]:
 
 
 def _document_lines(entity) -> list[str]:
-    exp = entity.expedients.order_by("created_at").first()
+    exp = entity.current_expedient()
     uploaded = {}
     if exp:
         uploaded = {doc.slot_key: doc for doc in exp.documents.all()}
@@ -73,10 +73,9 @@ def _document_lines(entity) -> list[str]:
     return lines
 
 
-def _clarification_lines(entity) -> list[str]:
+def _clarification_lines(exp) -> list[str]:
     from api.compliance.clarifications import answers_packet
 
-    exp = entity.expedients.order_by("created_at").first()
     if not exp:
         return []
     lines = []
@@ -116,7 +115,7 @@ _MATRIX_LETTERS = {
 
 
 def _expedient(entity):
-    return entity.expedients.order_by("created_at").first()
+    return entity.current_expedient()
 
 
 def _screening_lines(entity) -> list[str]:
@@ -262,7 +261,7 @@ def _paragraphs(entity) -> list[str]:
     else:
         blocks.append("- No declarado en el formulario.")
 
-    clarifications = _clarification_lines(entity)
+    clarifications = _clarification_lines(entity.current_expedient())
     if clarifications:
         blocks.extend(
             [
@@ -347,8 +346,8 @@ def build_identification_packet_pdf(entity) -> bytes:
     return render_text_pdf(_paragraphs(entity))
 
 
-def build_clarification_report_pdf(entity) -> bytes | None:
-    lines = _clarification_lines(entity)
+def build_clarification_report_pdf(entity, exp) -> bytes | None:
+    lines = _clarification_lines(exp)
     if not lines:
         return None
     return render_text_pdf(

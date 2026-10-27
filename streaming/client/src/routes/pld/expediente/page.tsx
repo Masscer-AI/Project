@@ -4,8 +4,10 @@ import toast from "react-hot-toast";
 import { AppPage } from "../../../components/AppPage/AppPage";
 import {
   ActionIcon,
+  Badge,
   Box,
   Button,
+  Card,
   Group,
   Loader,
   Menu,
@@ -13,11 +15,13 @@ import {
   Stack,
   Text,
 } from "@mantine/core";
-import { IconDots } from "@tabler/icons-react";
+import { IconDots, IconDownload, IconRefresh } from "@tabler/icons-react";
 import { useDisclosure } from "@mantine/hooks";
 import {
+  downloadMyPldRunPacket,
   listMyPldExpedients,
   resetMyPldExpedient,
+  startMyPldRun,
   TMyPldExpedient,
 } from "../../../modules/apiCalls";
 import { flowFurthest, PldIdentificationDossier, ProcessBar, stepLabelKeys } from "./PldIdentificationDossier";
@@ -93,6 +97,116 @@ function ResetExpedienteButton({
   );
 }
 
+function NewRunButton({
+  entityId,
+  onStarted,
+}: {
+  entityId: string;
+  onStarted: (next: TMyPldExpedient) => void;
+}) {
+  const { t } = useTranslation();
+  const [opened, { open, close }] = useDisclosure(false);
+  const [saving, setSaving] = useState(false);
+
+  const handleConfirm = async () => {
+    setSaving(true);
+    try {
+      onStarted(await startMyPldRun(entityId));
+      toast.success(t("compliance-new-run-started"));
+      close();
+    } catch {
+      toast.error(t("compliance-new-run-error"));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <>
+      <Button size="xs" leftSection={<IconRefresh size={14} />} onClick={open}>
+        {t("compliance-new-run")}
+      </Button>
+      <Modal opened={opened} onClose={close} title={t("compliance-new-run")}>
+        <Text size="sm" mb="md">
+          {t("compliance-new-run-hint-self")}
+        </Text>
+        <Group justify="flex-end">
+          <Button variant="default" onClick={close}>
+            {t("cancel")}
+          </Button>
+          <Button loading={saving} onClick={handleConfirm}>
+            {t("compliance-new-run")}
+          </Button>
+        </Group>
+      </Modal>
+    </>
+  );
+}
+
+function RunHistory({ row }: { row: TMyPldExpedient }) {
+  const { t } = useTranslation();
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const past = (row.runs || []).slice(1);
+  if (past.length === 0) return null;
+
+  const download = async (runId: string, run: () => Promise<void>) => {
+    setDownloadingId(runId);
+    try {
+      await run();
+    } catch {
+      toast.error(t("compliance-files-download-error"));
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  return (
+    <Card withBorder p="lg">
+      <Text fw={500} mb="sm">
+        {t("compliance-history-title")}
+      </Text>
+      <Stack gap="xs">
+        {past.map((run) => (
+          <Group key={run.id} justify="space-between" wrap="nowrap">
+            <Stack gap={2}>
+              <Group gap="xs">
+                <Text size="sm" fw={500}>
+                  {t("compliance-history-version", { version: run.version })}
+                </Text>
+                <Badge size="xs" variant="light" color="gray">
+                  {t(`compliance-status-${run.status}`, { defaultValue: run.status })}
+                </Badge>
+              </Group>
+              <Text size="xs" c="dimmed">
+                {run.completed_at
+                  ? t("compliance-history-completed", {
+                      date: new Date(run.completed_at).toLocaleDateString(),
+                    })
+                  : t("compliance-history-started", {
+                      date: new Date(run.created_at).toLocaleDateString(),
+                    })}
+              </Text>
+            </Stack>
+            {run.files.packet ? (
+              <Button
+                size="xs"
+                variant="subtle"
+                leftSection={<IconDownload size={14} />}
+                loading={downloadingId === run.id}
+                onClick={() =>
+                  void download(run.id, () => downloadMyPldRunPacket(row.id, run))
+                }
+              >
+                {t(`compliance-files-packet-${run.files.packet}`)}
+              </Button>
+            ) : null}
+          </Group>
+        ))}
+      </Stack>
+    </Card>
+  );
+}
+
 export default function MyPldExpedientePage() {
   const { t } = useTranslation();
   const [rows, setRows] = useState<TMyPldExpedient[]>([]);
@@ -139,7 +253,18 @@ export default function MyPldExpedientePage() {
                   setFlowStep((prev) => ({ ...prev, [row.id]: step }));
                 const saveRow = (next: TMyPldExpedient) =>
                   setRows((prev) => prev.map((item) => (item.id === next.id ? next : item)));
-                const reset = row.expedient ? (
+                const closed = ["signed", "delivered"].includes(
+                  row.expedient?.status || ""
+                );
+                const reset = !row.expedient ? null : closed ? (
+                  <NewRunButton
+                    entityId={row.id}
+                    onStarted={(next) => {
+                      saveRow(next);
+                      pickStep(0);
+                    }}
+                  />
+                ) : (
                   <ResetExpedienteButton
                     menu={signStep}
                     entityId={row.id}
@@ -148,7 +273,7 @@ export default function MyPldExpedientePage() {
                       pickStep(0);
                     }}
                   />
-                ) : null;
+                );
                 const stepLabels = stepLabelKeys(row).map((key) => t(key));
                 return (
                   <Stack key={row.id} gap="md">
@@ -170,6 +295,7 @@ export default function MyPldExpedientePage() {
                         onSaved={saveRow}
                       />
                     )}
+                    <RunHistory row={row} />
                   </Stack>
                 );
               })}

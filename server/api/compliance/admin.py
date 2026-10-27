@@ -140,9 +140,11 @@ class PLDExpedientAdmin(admin.ModelAdmin):
         "id",
         "organization",
         "entity",
+        "version",
         "status",
         "vulnerable_activity",
         "started_at",
+        "completed_at",
         "updated_at",
     )
     list_filter = ("status", "vulnerable_activity")
@@ -152,6 +154,8 @@ class PLDExpedientAdmin(admin.ModelAdmin):
         "created_at",
         "updated_at",
         "packet_generated_at",
+        "completed_at",
+        "entity_snapshot",
     )
     inlines = [PLDExpedientDocumentInline, PLDClarificationRequestInline]
 

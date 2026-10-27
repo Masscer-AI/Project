@@ -66,7 +66,7 @@ def _payload(doc) -> dict:
 
 
 def _docs_by_kind(entity) -> dict[str, list]:
-    exp = entity.expedients.order_by("created_at").first()
+    exp = entity.current_expedient()
     grouped: dict[str, list] = {}
     if not exp:
         return grouped
@@ -242,7 +242,7 @@ def control_clause_request_specs(entity) -> list[InviteeRequestSpec]:
     rows = acta.get("controllers")
     if not isinstance(rows, list):
         return []
-    exp = entity.expedients.order_by("created_at").first()
+    exp = entity.current_expedient()
     answered = set()
     if exp is not None:
         from api.compliance.models import PLDClarificationRequest

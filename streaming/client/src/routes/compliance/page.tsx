@@ -27,6 +27,7 @@ import {
   IconAdjustments,
   IconDownload,
   IconPlus,
+  IconRefresh,
   IconUsers,
 } from "@tabler/icons-react";
 import {
@@ -37,15 +38,20 @@ import {
   downloadPldEntityDocument,
   downloadPldEntityPacket,
   downloadPldOrganizationBundle,
+  downloadPldRunBundle,
+  downloadPldRunPacket,
   getPldEntityProgress,
   getPldMatrix,
   listPldEntities,
+  listPldEntityRuns,
   sendPldEntityInvite,
   setPldEntityMatrixProfile,
+  startPldEntityRun,
   startPldProcess,
   TPldEntity,
   TPldEntityProgress,
   TPldMatrix,
+  TPldRun,
 } from "../../modules/apiCalls";
 import { RiskMatrixPanel } from "./RiskMatrixPanel";
 
@@ -97,7 +103,6 @@ export default function ComplianceHubPage() {
   const [matrixProfileId, setMatrixProfileId] = useState("");
   const [changingProfile, setChangingProfile] = useState(false);
   const [entities, setEntities] = useState<TPldEntity[]>([]);
-  const [orgProcessReady, setOrgProcessReady] = useState(false);
   const [downloadingKey, setDownloadingKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -121,6 +126,10 @@ export default function ComplianceHubPage() {
   const [progress, setProgress] = useState<TPldEntityProgress | null>(null);
   const [progressLoading, setProgressLoading] = useState(false);
   const [approving, setApproving] = useState(false);
+  const [runs, setRuns] = useState<TPldRun[]>([]);
+  const [startingRun, setStartingRun] = useState(false);
+  const [newRunOpened, { open: openNewRun, close: closeNewRun }] =
+    useDisclosure(false);
 
   const loadEntities = async () => {
     try {
@@ -131,11 +140,9 @@ export default function ComplianceHubPage() {
         if (!current) return current;
         return rows.find((row) => row.id === current.id) || current;
       });
-      setOrgProcessReady(Boolean(data.org_process_ready));
     } catch {
       toast.error(t("compliance-entities-load-error"));
       setEntities([]);
-      setOrgProcessReady(false);
     } finally {
       setLoading(false);
     }
@@ -310,11 +317,21 @@ export default function ComplianceHubPage() {
     }
   };
 
+  const loadRuns = async (entityId: string) => {
+    try {
+      setRuns((await listPldEntityRuns(entityId)).results);
+    } catch {
+      toast.error(t("compliance-history-error"));
+    }
+  };
+
   const openRow = async (entity: TPldEntity) => {
     setSelected(entity);
     setProgress(null);
+    setRuns([]);
     openPanel();
     setProgressLoading(true);
+    void loadRuns(entity.id);
     try {
       setProgress(await getPldEntityProgress(entity.id));
     } catch {
@@ -323,6 +340,29 @@ export default function ComplianceHubPage() {
       setProgressLoading(false);
     }
   };
+
+  const handleStartRun = async () => {
+    if (!selected) return;
+    setStartingRun(true);
+    try {
+      const entity = await startPldEntityRun(selected.id);
+      closeNewRun();
+      toast.success(t("compliance-new-run-started"));
+      if (entity.relationship == null) {
+        navigate("/pld/expediente");
+        return;
+      }
+      setSelected(entity);
+      setProgress(await getPldEntityProgress(entity.id));
+      await Promise.all([loadRuns(entity.id), loadEntities()]);
+    } catch {
+      toast.error(t("compliance-new-run-error"));
+    } finally {
+      setStartingRun(false);
+    }
+  };
+
+  const formatDate = (value: string) => new Date(value).toLocaleDateString();
 
   const ordered = [...entities].sort((a, b) => {
     if (a.relationship == null) return -1;
@@ -405,9 +445,7 @@ export default function ComplianceHubPage() {
               <Card withBorder p="lg" mb="lg">
                 <Group justify="space-between" align="flex-start" wrap="wrap">
                   <Text size="sm" c="dimmed" style={{ flex: 1, minWidth: 0 }}>
-                    {orgProcessReady
-                      ? t("compliance-start-process-ready")
-                      : t("compliance-start-process-blocked")}
+                    {t("compliance-start-process-hint")}
                   </Text>
                   <Group gap="xs">
                     <Button
@@ -422,7 +460,6 @@ export default function ComplianceHubPage() {
                       {t("compliance-org-bundle")}
                     </Button>
                     <Button
-                      disabled={!orgProcessReady}
                       loading={starting}
                       onClick={() => void handleStartProcess()}
                     >
@@ -742,6 +779,94 @@ export default function ComplianceHubPage() {
                   </Stack>
                 </Stack>
               ) : null}
+              {runs.length > 1 ? (
+                <Stack gap="xs">
+                  <Text size="sm" fw={500}>{t("compliance-history-title")}</Text>
+                  {runs.map((run, index) => (
+                    <Card key={run.id} withBorder p="sm">
+                      <Group justify="space-between" wrap="nowrap" align="flex-start">
+                        <Stack gap={2}>
+                          <Group gap="xs">
+                            <Text size="sm" fw={500}>
+                              {t("compliance-history-version", { version: run.version })}
+                            </Text>
+                            {index === 0 ? (
+                              <Badge size="xs" variant="light" color="violet">
+                                {t("compliance-history-current")}
+                              </Badge>
+                            ) : null}
+                          </Group>
+                          <Text size="xs" c="dimmed">
+                            {run.completed_at
+                              ? t("compliance-history-completed", {
+                                  date: formatDate(run.completed_at),
+                                })
+                              : t("compliance-history-started", {
+                                  date: formatDate(run.created_at),
+                                })}
+                          </Text>
+                          <Text size="xs" c="dimmed">
+                            {t(`compliance-status-${run.status}`, {
+                              defaultValue: run.status,
+                            })}
+                          </Text>
+                        </Stack>
+                        {run.semaphore ? (
+                          <Badge variant="light" color={riskBadgeColor(run.semaphore)}>
+                            {t(`compliance-risk-${run.semaphore}`, {
+                              defaultValue: run.semaphore,
+                            })}
+                          </Badge>
+                        ) : null}
+                      </Group>
+                      {index > 0 ? (
+                        <Group gap="xs" mt="xs">
+                          {run.files.packet ? (
+                            <Button
+                              size="xs"
+                              variant="subtle"
+                              leftSection={<IconDownload size={14} />}
+                              loading={downloadingKey === `packet-${run.id}`}
+                              onClick={() =>
+                                void handleDownload(`packet-${run.id}`, () =>
+                                  downloadPldRunPacket(selected.id, run)
+                                )
+                              }
+                            >
+                              {t(`compliance-files-packet-${run.files.packet}`)}
+                            </Button>
+                          ) : null}
+                          <Button
+                            size="xs"
+                            variant="subtle"
+                            leftSection={<IconDownload size={14} />}
+                            loading={downloadingKey === `bundle-${run.id}`}
+                            onClick={() =>
+                              void handleDownload(`bundle-${run.id}`, () =>
+                                downloadPldRunBundle(
+                                  selected.id,
+                                  run,
+                                  `${entityDisplayName(selected)}-v${run.version}.zip`
+                                )
+                              )
+                            }
+                          >
+                            {t("compliance-files-bundle")}
+                          </Button>
+                        </Group>
+                      ) : null}
+                    </Card>
+                  ))}
+                </Stack>
+              ) : null}
+              {CLOSED.has(selected.expedient?.status || "") ? (
+                <Button
+                  leftSection={<IconRefresh size={16} />}
+                  onClick={openNewRun}
+                >
+                  {t("compliance-new-run")}
+                </Button>
+              ) : null}
               {selected.relationship ? (
                 <Group>
                   <Button
@@ -846,6 +971,29 @@ export default function ComplianceHubPage() {
             </Button>
             <Button onClick={handleCreate} loading={saving}>
               {t("compliance-add-counterparty")}
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      <Modal
+        opened={newRunOpened}
+        onClose={closeNewRun}
+        title={t("compliance-new-run")}
+        centered
+      >
+        <Stack gap="md">
+          <Text size="sm">
+            {selected?.relationship
+              ? t("compliance-new-run-hint-counterparty")
+              : t("compliance-new-run-hint-self")}
+          </Text>
+          <Group justify="flex-end">
+            <Button variant="default" onClick={closeNewRun} disabled={startingRun}>
+              {t("cancel")}
+            </Button>
+            <Button loading={startingRun} onClick={() => void handleStartRun()}>
+              {t("compliance-new-run")}
             </Button>
           </Group>
         </Stack>

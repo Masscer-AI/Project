@@ -2478,10 +2478,37 @@ export const approvePldScreening = async (entityId: string) => {
 };
 
 export const listPldEntities = async () => {
-  return makeAuthenticatedRequest<{
-    results: TPldEntity[];
-    org_process_ready?: boolean;
-  }>("GET", "/v1/compliance/entities/");
+  return makeAuthenticatedRequest<{ results: TPldEntity[] }>(
+    "GET",
+    "/v1/compliance/entities/"
+  );
+};
+
+export type TPldRun = {
+  id: string;
+  version: number;
+  status: string;
+  created_at: string;
+  completed_at: string | null;
+  semaphore: string;
+  recommended_action: string;
+  matrix: { total: number; color: string } | null;
+  files: TPldEntityProgress["files"];
+};
+
+export const listPldEntityRuns = async (entityId: string) => {
+  return makeAuthenticatedRequest<{ results: TPldRun[] }>(
+    "GET",
+    `/v1/compliance/entities/${entityId}/expedients/`
+  );
+};
+
+export const startPldEntityRun = async (entityId: string) => {
+  return makeAuthenticatedRequest<TPldEntity>(
+    "POST",
+    `/v1/compliance/entities/${entityId}/expedients/`,
+    {}
+  );
 };
 
 const downloadPldFile = async (path: string, filename: string) => {
@@ -2516,6 +2543,23 @@ export const downloadPldEntityPacket = async (entityId: string, signed: boolean)
 
 export const downloadPldEntityBundle = async (entityId: string, filename: string) =>
   downloadPldFile(`entities/${entityId}/bundle/`, filename);
+
+export const downloadPldRunPacket = async (
+  entityId: string,
+  run: TPldRun
+) =>
+  downloadPldFile(
+    `entities/${entityId}/expedients/${run.id}/packet/`,
+    run.files.packet === "signed"
+      ? `expediente-identificacion-firmado-v${run.version}.pdf`
+      : `expediente-identificacion-v${run.version}.pdf`
+  );
+
+export const downloadPldRunBundle = async (
+  entityId: string,
+  run: TPldRun,
+  filename: string
+) => downloadPldFile(`entities/${entityId}/expedients/${run.id}/bundle/`, filename);
 
 export const downloadPldOrganizationBundle = async () =>
   downloadPldFile("bundle/", "expedientes-pld.zip");
@@ -2742,6 +2786,7 @@ export type TMyPldExpedient = {
     notice_note?: string;
   }[];
   clarification_requests?: TPldClarificationRequest[];
+  runs?: TPldRun[];
 };
 
 export type TPldClarificationRequest = {
@@ -2887,6 +2932,22 @@ export const fetchMyPldPacketBlob = async (entityId: string) => {
   const raw = await response.blob();
   return new Blob([raw], { type: "application/pdf" });
 };
+
+export const startMyPldRun = async (entityId: string) => {
+  return makeAuthenticatedRequest<TMyPldExpedient>(
+    "PATCH",
+    `/v1/compliance/my-expedients/${entityId}/`,
+    { action: "start_new_run" }
+  );
+};
+
+export const downloadMyPldRunPacket = async (entityId: string, run: TPldRun) =>
+  downloadPldFile(
+    `my-expedients/${entityId}/expedients/${run.id}/packet/`,
+    run.files.packet === "signed"
+      ? `expediente-identificacion-firmado-v${run.version}.pdf`
+      : `expediente-identificacion-v${run.version}.pdf`
+  );
 
 export const downloadMyPldPacket = async (entityId: string) => {
   const blob = await fetchMyPldPacketBlob(entityId);

@@ -67,7 +67,7 @@ def match_vulnerable_activity(*texts: str) -> dict[str, Any] | None:
 def activity_texts_for_entity(entity) -> list[str]:
     meta = entity.metadata if isinstance(getattr(entity, "metadata", None), dict) else {}
     texts = [str(meta.get("economic_activity") or "")]
-    exp = entity.expedients.order_by("created_at").first() if hasattr(entity, "expedients") else None
+    exp = entity.current_expedient() if hasattr(entity, "current_expedient") else None
     if not exp:
         return texts
     docs = getattr(exp, "documents", None)

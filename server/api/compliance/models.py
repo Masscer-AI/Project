@@ -273,6 +273,9 @@ class PLDEntity(models.Model):
         self.full_clean()
         super().save(*args, **kwargs)
 
+    def current_expedient(self):
+        return self.expedients.order_by("-version").first()
+
     def __str__(self):
         rel = self.relationship or "self"
         return f"PLDEntity({self.id}, {rel}, {self.person_type})"
@@ -283,6 +286,9 @@ def pld_expedient_packet_upload_to(instance, filename):
 
     ext = os.path.splitext(filename)[1].lower()[:12] or ".pdf"
     return f"pld_expedient_packets/{instance.id}/{uuid.uuid4()}{ext}"
+
+
+PLD_CLOSED_STATUSES = (PLDExpedientStatus.SIGNED, PLDExpedientStatus.DELIVERED)
 
 
 class PLDExpedient(models.Model):
@@ -303,6 +309,13 @@ class PLDExpedient(models.Model):
         PLDEntity,
         on_delete=models.CASCADE,
         related_name="expedients",
+    )
+    version = models.PositiveIntegerField(default=1)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    entity_snapshot = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Entity data and matrix score frozen when the run finished.",
     )
     started_at = models.DateTimeField(null=True, blank=True)
     vulnerable_activity = models.CharField(
@@ -381,8 +394,13 @@ class PLDExpedient(models.Model):
         verbose_name_plural = "PLD expedients"
         constraints = [
             models.UniqueConstraint(
-                fields=["organization", "entity"],
-                name="unique_pld_expedient_per_org_entity",
+                fields=["entity", "version"],
+                name="unique_pld_expedient_version_per_entity",
+            ),
+            models.UniqueConstraint(
+                fields=["entity"],
+                condition=~models.Q(status__in=PLD_CLOSED_STATUSES),
+                name="unique_open_pld_expedient_per_entity",
             ),
         ]
         indexes = [
@@ -391,7 +409,7 @@ class PLDExpedient(models.Model):
         ordering = ["-updated_at"]
 
     def __str__(self):
-        return f"PLDExpedient({self.id}, {self.status})"
+        return f"PLDExpedient({self.id}, v{self.version}, {self.status})"
 
 
 class PLDMatrixKind(models.TextChoices):

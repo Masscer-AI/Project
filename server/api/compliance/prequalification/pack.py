@@ -16,7 +16,7 @@ def _compact_payload(payload: dict) -> dict:
 
 
 def build_prequalification_packet(entity) -> str:
-    exp = entity.expedients.order_by("created_at").first()
+    exp = entity.current_expedient()
     docs = []
     if exp:
         for doc in exp.documents.all():

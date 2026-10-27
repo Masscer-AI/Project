@@ -19,10 +19,6 @@ _RELATIONSHIP_FOLDERS = {
 }
 
 
-def _expedient(entity: PLDEntity):
-    return entity.expedients.order_by("created_at").first()
-
-
 def _copy(archive: zipfile.ZipFile, field, name: str) -> None:
     with field.open("rb") as source, archive.open(name, "w") as target:
         shutil.copyfileobj(source, target)
@@ -47,8 +43,7 @@ def entity_folder(entity: PLDEntity) -> str:
     return f"{name}-{str(entity.id)[:8]}"
 
 
-def _write_entity(archive: zipfile.ZipFile, entity: PLDEntity, prefix: str) -> None:
-    exp = _expedient(entity)
+def _write_entity(archive: zipfile.ZipFile, entity: PLDEntity, exp, prefix: str) -> None:
     if not exp:
         return
     for doc in exp.documents.all():
@@ -62,15 +57,15 @@ def _write_entity(archive: zipfile.ZipFile, entity: PLDEntity, prefix: str) -> N
         _copy(archive, exp.packet_file, f"{prefix}expediente-generado.pdf")
     if exp.packet_generation_payload:
         _write_generation(archive, exp.packet_generation_payload, prefix)
-    report = build_clarification_report_pdf(entity)
+    report = build_clarification_report_pdf(entity, exp)
     if report:
         archive.writestr(f"{prefix}reporte-aclaraciones.pdf", report)
 
 
-def build_entity_bundle(entity: PLDEntity):
+def build_entity_bundle(entity: PLDEntity, exp):
     handle = tempfile.TemporaryFile()
     with zipfile.ZipFile(handle, "w", zipfile.ZIP_DEFLATED) as archive:
-        _write_entity(archive, entity, "")
+        _write_entity(archive, entity, exp, "")
     handle.seek(0)
     return handle
 
@@ -83,6 +78,11 @@ def build_organization_bundle(organization):
     with zipfile.ZipFile(handle, "w", zipfile.ZIP_DEFLATED) as archive:
         for entity in entities:
             group = _RELATIONSHIP_FOLDERS.get(entity.relationship, "expediente-propio")
-            _write_entity(archive, entity, f"{group}/{entity_folder(entity)}/")
+            _write_entity(
+                archive,
+                entity,
+                entity.current_expedient(),
+                f"{group}/{entity_folder(entity)}/",
+            )
     handle.seek(0)
     return handle

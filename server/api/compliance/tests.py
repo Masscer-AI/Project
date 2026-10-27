@@ -183,7 +183,7 @@ class PLDFoundationTests(TestCase):
                     relationship=None,
                 )
 
-    def test_expedient_unique_per_org_entity_allows_counterparties(self):
+    def test_one_open_expedient_per_entity(self):
         from django.db import IntegrityError, transaction
 
         from api.compliance.models import (
@@ -221,6 +221,7 @@ class PLDFoundationTests(TestCase):
                 PLDExpedient.objects.create(
                     organization=self.org,
                     entity=client,
+                    version=2,
                 )
 
     def test_metadata_validation(self):
@@ -815,17 +816,7 @@ class PLDEntityAPITests(TestCase):
         self.assertEqual(incomplete.status_code, 200)
         self.assertFalse(incomplete.json()["found"])
 
-    def test_start_process_waits_until_counterparties_are_delivered(self):
-        from api.compliance.models import PLDExpedient, PLDExpedientStatus
-
-        blocked = self.client.post(
-            "/v1/compliance/start-process/",
-            {},
-            format="json",
-            HTTP_AUTHORIZATION=f"Token {self.owner_token.key}",
-        )
-        self.assertEqual(blocked.status_code, 409)
-
+    def test_start_process_does_not_wait_for_counterparties(self):
         created = self.client.post(
             "/v1/compliance/entities/",
             {
@@ -838,23 +829,6 @@ class PLDEntityAPITests(TestCase):
             HTTP_AUTHORIZATION=f"Token {self.owner_token.key}",
         )
         self.assertEqual(created.status_code, 201)
-        listed = self.client.get(
-            "/v1/compliance/entities/",
-            HTTP_AUTHORIZATION=f"Token {self.owner_token.key}",
-        )
-        self.assertFalse(listed.json()["org_process_ready"])
-
-        still_blocked = self.client.post(
-            "/v1/compliance/start-process/",
-            {},
-            format="json",
-            HTTP_AUTHORIZATION=f"Token {self.owner_token.key}",
-        )
-        self.assertEqual(still_blocked.status_code, 409)
-
-        expedient = PLDExpedient.objects.get(entity_id=created.json()["id"])
-        expedient.status = PLDExpedientStatus.DELIVERED
-        expedient.save(update_fields=["status", "updated_at"])
 
         started = self.client.post(
             "/v1/compliance/start-process/",
@@ -2644,9 +2618,7 @@ class ScreeningRequestFilterTests(SimpleTestCase):
         )
         exp = SimpleNamespace(documents=SimpleNamespace(all=lambda: [doc]))
         entity = SimpleNamespace(
-            expedients=SimpleNamespace(
-                order_by=lambda *_: SimpleNamespace(first=lambda: exp)
-            )
+            current_expedient=lambda: exp,
         )
         kept = _filter_screening_requests(
             entity,
@@ -2888,7 +2860,7 @@ class VulnerableActivityTests(SimpleTestCase):
 
         entity = SimpleNamespace(
             metadata={"economic_activity": "construcción", "vulnerable_activity_fraction": ""},
-            expedients=SimpleNamespace(order_by=lambda *_: SimpleNamespace(first=lambda: None)),
+            current_expedient=lambda: None,
         )
         match = resolve_vulnerable_activity(entity)
         self.assertEqual(match["fraction"], "V")
@@ -2903,7 +2875,7 @@ class VulnerableActivityTests(SimpleTestCase):
                 "economic_activity": "construcción",
                 "vulnerable_activity_fraction": "none",
             },
-            expedients=SimpleNamespace(order_by=lambda *_: SimpleNamespace(first=lambda: None)),
+            current_expedient=lambda: None,
         )
         self.assertIsNone(resolve_vulnerable_activity(entity))
 
@@ -2956,7 +2928,7 @@ class VulnerableActivityTests(SimpleTestCase):
                 "economic_activity": "construcción",
                 "vulnerable_activity_fraction": "XVI",
             },
-            expedients=SimpleNamespace(order_by=lambda *_: SimpleNamespace(first=lambda: None)),
+            current_expedient=lambda: None,
         )
         match = resolve_vulnerable_activity(entity)
         self.assertEqual(match["fraction"], "XVI")
@@ -3005,9 +2977,7 @@ class PldMatrixScoreTests(SimpleTestCase):
                 "economic_activity": "Otras construcciones de ingeniería civil",
                 "controllers": [{"name": "Ana"}],
             },
-            expedients=SimpleNamespace(
-                order_by=lambda *_a: SimpleNamespace(first=lambda: expedient)
-            ),
+            current_expedient=lambda: expedient,
         )
         with patch("api.compliance.risk.matrix_score._points", return_value=table):
             result = score_pld_matrix(entity, expedient)

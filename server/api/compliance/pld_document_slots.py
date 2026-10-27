@@ -46,7 +46,7 @@ def required_slots_extraction_ready(entity) -> tuple[bool, str]:
     """True when every required checklist slot has a succeeded extraction."""
     from api.compliance.models import PLDExpedientDocument
 
-    exp = entity.expedients.order_by("created_at").first()
+    exp = entity.current_expedient()
     if not exp:
         return False, "expedient-not-found"
     uploaded = {doc.slot_key: doc for doc in exp.documents.all()}
@@ -66,7 +66,7 @@ def required_slots_extraction_ready(entity) -> tuple[bool, str]:
 
 def _cfdi_slots(entity) -> list[dict]:
     slots = [_slot("cfdi", "cfdi", required=False)]
-    exp = entity.expedients.order_by("created_at").first()
+    exp = entity.current_expedient()
     indexes: list[int] = []
     has_first = False
     if exp:

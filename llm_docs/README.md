@@ -19,6 +19,7 @@ Documentation written for AI assistants (Claude Code, Cursor, etc.) working on t
 |------|-------------|
 | `conventions.md` | Code style, user-facing text, migrations, feature flags, and checklists for adding tools, pages, and WhatsApp templates |
 | `testing.md` | Writing and running backend tests, and checking changes in the running dev app |
+| `pld.md` | PLD rules: who goes first, run history, and what gets frozen when a run finishes |
 
 ## How to maintain
 

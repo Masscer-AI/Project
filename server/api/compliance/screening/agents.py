@@ -83,7 +83,7 @@ def screening_targets(entity) -> list[dict]:
         if not isinstance(item, dict):
             continue
         add("beneficiario_controlador", str(item.get("name") or ""), item.get("rfc"))
-    exp = entity.expedients.order_by("created_at").first()
+    exp = entity.current_expedient()
     if exp:
         for doc in exp.documents.all():
             if getattr(doc, "document_kind", "") != "acta_constitutiva":
@@ -130,7 +130,7 @@ _ID_REASK = re.compile(
 
 
 def _document_rows(entity) -> list[dict]:
-    exp = entity.expedients.order_by("created_at").first()
+    exp = entity.current_expedient()
     docs = []
     if not exp:
         return docs
@@ -171,7 +171,7 @@ def _filter_screening_requests(entity, specs: list) -> list:
 
 
 def build_screening_packet(entity, rfc_hits: list | None = None) -> str:
-    exp = entity.expedients.order_by("created_at").first()
+    exp = entity.current_expedient()
     packet = {
         "person_type": entity.person_type,
         "declared": entity.metadata if isinstance(entity.metadata, dict) else {},

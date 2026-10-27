@@ -13,6 +13,7 @@ from api.compliance.invites import entity_display_name
 from api.compliance.models import PLDClarificationRequest, PLDExpedient, PLDExpedientStatus
 from api.compliance.packet.gamma import render_identification_packet_pdf
 from api.compliance.packet.signatory import resolve_signatories
+from api.compliance.runs import freeze_expedient
 
 logger = logging.getLogger(__name__)
 
@@ -170,7 +171,13 @@ def mark_expedient_signed(signature_request, *, pdf_bytes: bytes, xml_bytes: byt
         ContentFile(pdf_bytes, name="expediente-identificacion-firmado.pdf"),
         save=False,
     )
-    update_fields = ["signed_packet", "status", "updated_at"]
+    update_fields = [
+        "signed_packet",
+        "status",
+        "completed_at",
+        "entity_snapshot",
+        "updated_at",
+    ]
     if xml_bytes:
         expedient.signed_packet_xml.save(
             "expediente-identificacion-firmado.xml",
@@ -179,6 +186,8 @@ def mark_expedient_signed(signature_request, *, pdf_bytes: bytes, xml_bytes: byt
         )
         update_fields.insert(1, "signed_packet_xml")
     expedient.status = PLDExpedientStatus.DELIVERED
+    expedient.completed_at = timezone.now()
+    freeze_expedient(expedient)
     expedient.save(update_fields=update_fields)
 
 

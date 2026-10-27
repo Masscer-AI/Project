@@ -28,6 +28,7 @@ from api.compliance.invites import (
     send_pld_invite_email,
 )
 from api.compliance.models import (
+    PLD_CLOSED_STATUSES,
     PLDEntity,
     PLDExpedient,
     PLDExpedientDocument,
@@ -43,6 +44,7 @@ from api.compliance.pld_matrix import (
     matrix_rows,
     profile_payload,
 )
+from api.compliance.runs import score_run_matrix, start_new_run
 
 
 def _risk_declared(meta: dict) -> bool:
@@ -62,7 +64,7 @@ def _queue_signature_after_steps(entity: PLDEntity) -> None:
         return
     if resolve_vulnerable_activity(entity) and not meta.get("notice_invoices_done"):
         return
-    exp = entity.expedients.order_by("created_at").first()
+    exp = entity.current_expedient()
     if not exp:
         return
     if (
@@ -236,7 +238,10 @@ def _document_counts(entity: PLDEntity, exp: PLDExpedient | None) -> dict:
 def _matrix_brief(entity: PLDEntity, exp: PLDExpedient | None) -> dict | None:
     if not exp:
         return None
-    scored = _invitee_matrix(entity, exp)
+    if exp.entity_snapshot:
+        scored = exp.entity_snapshot.get("matrix")
+    else:
+        scored = score_run_matrix(entity, exp)
     if not isinstance(scored, dict):
         return None
     return {"total": scored.get("total"), "color": scored.get("color") or ""}
@@ -268,7 +273,7 @@ def _entity_files(exp: PLDExpedient | None) -> dict:
 
 
 def _entity_progress(entity: PLDEntity) -> dict:
-    exp = entity.expedients.order_by("created_at").first()
+    exp = entity.current_expedient()
     risk = exp.risk_payload if exp and isinstance(exp.risk_payload, dict) else {}
     screening = (
         exp.screening_payload if exp and isinstance(exp.screening_payload, dict) else {}
@@ -294,7 +299,7 @@ def _entity_progress(entity: PLDEntity) -> dict:
 
 
 def _entity_payload(entity: PLDEntity) -> dict:
-    expedient = entity.expedients.order_by("created_at").first()
+    expedient = entity.current_expedient()
     risk = (
         expedient.risk_payload
         if expedient and isinstance(expedient.risk_payload, dict)
@@ -352,34 +357,6 @@ def _org_or_404(request):
     return org, None
 
 
-_ORG_PROCESS_DONE = frozenset(
-    {PLDExpedientStatus.SIGNED, PLDExpedientStatus.DELIVERED}
-)
-
-
-def _counterparties_complete(org) -> bool:
-    rows = (
-        PLDEntity.objects.filter(organization=org)
-        .exclude(relationship__isnull=True)
-        .prefetch_related("expedients")
-    )
-    found = False
-    for entity in rows:
-        found = True
-        expedient = next(iter(entity.expedients.all()), None)
-        if expedient is None or expedient.status not in _ORG_PROCESS_DONE:
-            return False
-    return found
-
-
-def _self_process_block(entity: PLDEntity):
-    if entity.relationship is not None:
-        return None
-    if _counterparties_complete(entity.organization):
-        return None
-    return JsonResponse({"error": "counterparties-incomplete"}, status=409)
-
-
 def _is_org_owner(request, org) -> bool:
     return org.owner_id == request.user.id
 
@@ -427,6 +404,53 @@ def _counterparty_or_404(org, entity_id):
     return entity, None
 
 
+def _run_or_404(entity: PLDEntity, expedient_id):
+    if expedient_id is None:
+        return entity.current_expedient(), None
+    exp = entity.expedients.filter(pk=expedient_id).first()
+    if exp is None:
+        return None, JsonResponse({"error": "Expedient not found"}, status=404)
+    return exp, None
+
+
+def _run_payload(entity: PLDEntity, exp: PLDExpedient) -> dict:
+    risk = exp.risk_payload if isinstance(exp.risk_payload, dict) else {}
+    return {
+        "id": str(exp.id),
+        "version": exp.version,
+        "status": exp.status,
+        "created_at": exp.created_at.isoformat(),
+        "completed_at": exp.completed_at.isoformat() if exp.completed_at else None,
+        "semaphore": risk.get("semaphore") or "",
+        "recommended_action": risk.get("recommended_action") or "",
+        "matrix": _matrix_brief(entity, exp),
+        "files": _entity_files(exp),
+    }
+
+
+def _send_invite(request, org, entity: PLDEntity):
+    if not (entity.email or "").strip():
+        return JsonResponse({"error": "email is required"}, status=400)
+    try:
+        invite, raw_token = create_or_rotate_pending_invite(
+            entity=entity,
+            invited_by=request.user,
+        )
+    except ValueError as exc:
+        return JsonResponse({"error": str(exc)}, status=400)
+    signup_url = f"{_frontend_base_url(request)}/signup?pld_invite={raw_token}"
+    try:
+        send_pld_invite_email(
+            invite_email=invite.email,
+            organization_name=org.name,
+            signup_url=signup_url,
+            person_type=entity.person_type,
+        )
+    except Exception:
+        return JsonResponse({"error": "Failed to send invite email"}, status=500)
+    return None
+
+
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class PLDEntityListView(View):
@@ -443,10 +467,7 @@ class PLDEntityListView(View):
             .order_by("-updated_at")
         )
         return JsonResponse(
-            {
-                "results": [_entity_payload(entity) for entity in entities],
-                "org_process_ready": _counterparties_complete(org),
-            },
+            {"results": [_entity_payload(entity) for entity in entities]},
             status=200,
         )
 
@@ -501,10 +522,10 @@ class PLDEntityListView(View):
                     metadata=metadata,
                 )
                 entity.save()
-                PLDExpedient.objects.get_or_create(
+                PLDExpedient.objects.create(
                     organization=org,
                     entity=entity,
-                    defaults={"status": PLDExpedientStatus.DATA_COLLECTION},
+                    status=PLDExpedientStatus.DATA_COLLECTION,
                 )
         except ValidationError as exc:
             return JsonResponse(
@@ -543,8 +564,8 @@ class PLDEntityDetailView(View):
         matrix_profile, err = _matrix_profile_choice(org, payload.get("matrix_profile_id"))
         if err:
             return err
-        exp = entity.expedients.order_by("created_at").first()
-        if exp and exp.status in _ORG_PROCESS_DONE:
+        exp = entity.current_expedient()
+        if exp and exp.status in PLD_CLOSED_STATUSES:
             return JsonResponse({"error": "expedient-closed"}, status=409)
         entity.matrix_profile = matrix_profile
         entity.save(update_fields=["matrix_profile", "updated_at"])
@@ -679,7 +700,7 @@ class PLDScreeningApprovalView(View):
             ).get(pk=entity_id, organization=org)
         except (PLDEntity.DoesNotExist, ValidationError, ValueError):
             return JsonResponse({"error": "Entity not found"}, status=404)
-        exp = entity.expedients.order_by("created_at").first()
+        exp = entity.current_expedient()
         payload = (
             dict(exp.screening_payload)
             if exp and isinstance(exp.screening_payload, dict)
@@ -719,27 +740,9 @@ class PLDEntityInviteView(View):
         entity, err = _counterparty_or_404(org, entity_id)
         if err:
             return err
-        if not (entity.email or "").strip():
-            return JsonResponse({"error": "email is required"}, status=400)
-
-        try:
-            invite, raw_token = create_or_rotate_pending_invite(
-                entity=entity,
-                invited_by=request.user,
-            )
-        except ValueError as exc:
-            return JsonResponse({"error": str(exc)}, status=400)
-
-        signup_url = f"{_frontend_base_url(request)}/signup?pld_invite={raw_token}"
-        try:
-            send_pld_invite_email(
-                invite_email=invite.email,
-                organization_name=org.name,
-                signup_url=signup_url,
-                person_type=entity.person_type,
-            )
-        except Exception:
-            return JsonResponse({"error": "Failed to send invite email"}, status=500)
+        err = _send_invite(request, org, entity)
+        if err:
+            return err
 
         entity = PLDEntity.objects.prefetch_related("expedients", "invites").get(
             pk=entity.pk
@@ -749,13 +752,48 @@ class PLDEntityInviteView(View):
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
+class PLDEntityExpedientListView(View):
+    def get(self, request, entity_id, *args, **kwargs):
+        org, err = _org_or_404(request)
+        if err:
+            return err
+        entity, err = _org_entity_or_404(org, entity_id)
+        if err:
+            return err
+        runs = entity.expedients.prefetch_related("documents").order_by("-version")
+        return JsonResponse(
+            {"results": [_run_payload(entity, exp) for exp in runs]},
+            status=200,
+        )
+
+    def post(self, request, entity_id, *args, **kwargs):
+        org, err = _org_or_404(request)
+        if err:
+            return err
+        entity, err = _org_entity_or_404(org, entity_id)
+        if err:
+            return err
+        try:
+            start_new_run(entity)
+        except ValueError as exc:
+            return JsonResponse({"error": str(exc)}, status=409)
+        if entity.relationship is not None:
+            err = _send_invite(request, org, entity)
+            if err:
+                return err
+        entity = PLDEntity.objects.prefetch_related("expedients", "invites").get(
+            pk=entity.pk
+        )
+        return JsonResponse(_entity_payload(entity), status=201)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
 class PLDStartProcessView(View):
     def post(self, request, *args, **kwargs):
         org, err = _org_or_404(request)
         if err:
             return err
-        if not _counterparties_complete(org):
-            return JsonResponse({"error": "counterparties-incomplete"}, status=409)
 
         with transaction.atomic():
             entity = (
@@ -776,11 +814,12 @@ class PLDStartProcessView(View):
             elif entity.user_id != request.user.id:
                 entity.user = request.user
                 entity.save(update_fields=["user", "updated_at"])
-            PLDExpedient.objects.get_or_create(
-                organization=org,
-                entity=entity,
-                defaults={"status": PLDExpedientStatus.DATA_COLLECTION},
-            )
+            if entity.current_expedient() is None:
+                PLDExpedient.objects.create(
+                    organization=org,
+                    entity=entity,
+                    status=PLDExpedientStatus.DATA_COLLECTION,
+                )
         return JsonResponse(_reload_my_expedient_row(entity.pk), status=200)
 
 
@@ -889,17 +928,10 @@ class MyPLDExpedientView(View):
             )
             .order_by("-updated_at")
         )
-        ready_by_org = {}
-        results = []
-        for entity in entities:
-            if entity.relationship is None:
-                org_id = entity.organization_id
-                if org_id not in ready_by_org:
-                    ready_by_org[org_id] = _counterparties_complete(entity.organization)
-                if not ready_by_org[org_id]:
-                    continue
-            results.append(_my_expedient_row(entity))
-        return JsonResponse({"results": results}, status=200)
+        return JsonResponse(
+            {"results": [_my_expedient_row(entity) for entity in entities]},
+            status=200,
+        )
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -920,21 +952,26 @@ class MyPLDExpedientDetailView(View):
             )
         except (PLDEntity.DoesNotExist, ValidationError, ValueError):
             return JsonResponse({"error": "Entity not found"}, status=404)
-        blocked = _self_process_block(entity)
-        if blocked:
-            return blocked
 
         payload, err = _parse_json_body(request)
         if err:
             return err
         if payload.get("action") == "reset_expedient":
-            exp = entity.expedients.order_by("created_at").first()
+            exp = entity.current_expedient()
             if not exp:
                 return JsonResponse({"error": "expedient-not-found"}, status=400)
+            if exp.status in PLD_CLOSED_STATUSES:
+                return JsonResponse({"error": "expedient-closed"}, status=409)
             _reset_invitee_expedient(entity)
             return JsonResponse(_reload_my_expedient_row(entity.pk), status=200)
+        if payload.get("action") == "start_new_run":
+            try:
+                start_new_run(entity)
+            except ValueError as exc:
+                return JsonResponse({"error": str(exc)}, status=409)
+            return JsonResponse(_reload_my_expedient_row(entity.pk), status=200)
         if payload.get("action") == "regenerate_packet":
-            exp = entity.expedients.order_by("created_at").first()
+            exp = entity.current_expedient()
             if not exp:
                 return JsonResponse({"error": "expedient-not-found"}, status=400)
             from api.compliance.packet.dispatch import _mark_packet_generation
@@ -957,7 +994,7 @@ class MyPLDExpedientDetailView(View):
             ready, reason = required_slots_extraction_ready(entity)
             if not ready:
                 return JsonResponse({"error": reason}, status=400)
-            exp = entity.expedients.order_by("created_at").first()
+            exp = entity.current_expedient()
             if not exp:
                 return JsonResponse({"error": "expedient-not-found"}, status=400)
             if (
@@ -994,7 +1031,7 @@ class MyPLDExpedientDetailView(View):
         if payload.get("action") == "rerun_ppe":
             if not entity.ppe_screening_enabled:
                 return JsonResponse({"error": "ppe-disabled"}, status=400)
-            exp = entity.expedients.order_by("created_at").first()
+            exp = entity.current_expedient()
             if not exp:
                 return JsonResponse({"error": "expedient-not-found"}, status=400)
             if exp.ppe_status == PLDExpedient.PrequalificationStatus.PENDING:
@@ -1026,7 +1063,7 @@ class MyPLDExpedientDetailView(View):
             ready, reason = required_slots_extraction_ready(entity)
             if not ready:
                 return JsonResponse({"error": reason}, status=400)
-            exp = entity.expedients.order_by("created_at").first()
+            exp = entity.current_expedient()
             if not exp:
                 return JsonResponse({"error": "expedient-not-found"}, status=400)
             if exp.prequalification_status != PLDExpedient.PrequalificationStatus.SUCCEEDED:
@@ -1076,7 +1113,7 @@ class MyPLDExpedientDetailView(View):
             text_answer = str(payload.get("text") or "").strip()
             if not request_id:
                 return JsonResponse({"error": "request_id is required"}, status=400)
-            exp = entity.expedients.order_by("created_at").first()
+            exp = entity.current_expedient()
             if not exp:
                 return JsonResponse({"error": "expedient-not-found"}, status=400)
             try:
@@ -1174,9 +1211,6 @@ class MyPLDExpedientDetailView(View):
             )
         except (PLDEntity.DoesNotExist, ValidationError, ValueError):
             return JsonResponse({"error": "Entity not found"}, status=404)
-        blocked = _self_process_block(entity)
-        if blocked:
-            return blocked
         return JsonResponse(_reload_my_expedient_row(entity.pk), status=200)
 
 
@@ -1259,17 +1293,6 @@ def _invitee_ppe(exp: PLDExpedient) -> dict:
     return {"checks": rows}
 
 
-def _invitee_matrix(entity: PLDEntity, exp: PLDExpedient) -> dict | None:
-    from api.compliance.risk.matrix_score import score_pld_matrix
-
-    if exp.screening_status != PLDExpedient.PrequalificationStatus.SUCCEEDED:
-        return None
-    try:
-        return score_pld_matrix(entity, exp)
-    except Exception:
-        return None
-
-
 def _packet_status(exp: PLDExpedient) -> str:
     risk = exp.risk_payload if isinstance(exp.risk_payload, dict) else {}
     state = str(risk.get("packet_generation") or "")
@@ -1310,7 +1333,7 @@ def _my_expedient_row(entity: PLDEntity) -> dict:
     from api.compliance.clarifications import serialize_request, text_reviews
     from api.compliance.pld_document_slots import document_slots_for_entity
 
-    exp = entity.expedients.order_by("created_at").first()
+    exp = entity.current_expedient()
     uploaded = {}
     if exp:
         for doc in exp.documents.all():
@@ -1349,7 +1372,7 @@ def _my_expedient_row(entity: PLDEntity) -> dict:
                     exp.ppe_screened_at.isoformat() if exp.ppe_screened_at else None
                 ),
                 "ppe": _invitee_ppe(exp),
-                "matrix": _invitee_matrix(entity, exp),
+                "matrix": score_run_matrix(entity, exp),
                 "signing": _invitee_signing(exp, entity),
                 "packet_ready": bool(exp.packet_file or exp.signed_packet),
                 "packet_status": _packet_status(exp),
@@ -1357,6 +1380,9 @@ def _my_expedient_row(entity: PLDEntity) -> dict:
             if exp
             else None
         ),
+        "runs": [
+            _run_payload(entity, run) for run in entity.expedients.order_by("-version")
+        ],
         "document_slots": slots,
         "clarification_requests": requests,
         "vulnerable_activity": _invitee_vulnerable_activity(entity),
@@ -1392,7 +1418,7 @@ def _reset_invitee_expedient(entity: PLDEntity) -> None:
     with transaction.atomic():
         entity.metadata = normalize_pld_entity_metadata(entity.person_type, {})
         entity.save(update_fields=["metadata", "updated_at"])
-        exp = entity.expedients.order_by("created_at").first()
+        exp = entity.current_expedient()
         if not exp:
             return
         for doc in list(exp.documents.all()):
@@ -1445,7 +1471,7 @@ def _document_payload(doc: PLDExpedientDocument) -> dict:
 
 
 def _advance_expedient_to_document_collection(entity: PLDEntity) -> None:
-    exp = entity.expedients.order_by("created_at").first()
+    exp = entity.current_expedient()
     if not exp or exp.status != PLDExpedientStatus.DATA_COLLECTION:
         return
     exp.status = PLDExpedientStatus.DOCUMENT_COLLECTION
@@ -1467,9 +1493,6 @@ def _invitee_counterparty_or_404(request, entity_id):
         )
     except (PLDEntity.DoesNotExist, ValidationError, ValueError):
         return None, JsonResponse({"error": "Entity not found"}, status=404)
-    blocked = _self_process_block(entity)
-    if blocked:
-        return None, blocked
     return entity, None
 
 
@@ -1499,7 +1522,7 @@ class MyPLDExpedientDocumentView(View):
         entity, err = _invitee_counterparty_or_404(request, entity_id)
         if err:
             return err
-        exp = entity.expedients.order_by("created_at").first()
+        exp = entity.current_expedient()
         if not exp:
             return JsonResponse({"error": "Expedient not found"}, status=404)
 
@@ -1603,11 +1626,13 @@ def _packet_page_images(field) -> list[str]:
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class MyPLDExpedientPacketView(View):
-    def get(self, request, entity_id, *args, **kwargs):
+    def get(self, request, entity_id, expedient_id=None, *args, **kwargs):
         entity, err = _invitee_counterparty_or_404(request, entity_id)
         if err:
             return err
-        exp = entity.expedients.order_by("created_at").first()
+        exp, err = _run_or_404(entity, expedient_id)
+        if err:
+            return err
         field = _packet_field(exp)
         if field and request.GET.get("preview") == "pages":
             return JsonResponse({"pages": _packet_page_images(field)})
@@ -1644,27 +1669,35 @@ class PLDEntityDocumentDownloadView(View):
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class PLDEntityPacketView(View):
-    def get(self, request, entity_id, *args, **kwargs):
+    def get(self, request, entity_id, expedient_id=None, *args, **kwargs):
         org, err = _org_or_404(request)
         if err:
             return err
         entity, err = _org_entity_or_404(org, entity_id)
         if err:
             return err
-        return _packet_response(entity.expedients.order_by("created_at").first())
+        exp, err = _run_or_404(entity, expedient_id)
+        if err:
+            return err
+        return _packet_response(exp)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
 class PLDEntityBundleView(View):
-    def get(self, request, entity_id, *args, **kwargs):
+    def get(self, request, entity_id, expedient_id=None, *args, **kwargs):
         org, err = _org_or_404(request)
         if err:
             return err
         entity, err = _org_entity_or_404(org, entity_id)
         if err:
             return err
-        return _zip_response(build_entity_bundle(entity), f"{entity_folder(entity)}.zip")
+        exp, err = _run_or_404(entity, expedient_id)
+        if err:
+            return err
+        return _zip_response(
+            build_entity_bundle(entity, exp), f"{entity_folder(entity)}.zip"
+        )
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -1684,7 +1717,7 @@ class MyPLDExpedientDocumentDetailView(View):
         entity, err = _invitee_counterparty_or_404(request, entity_id)
         if err:
             return err
-        exp = entity.expedients.order_by("created_at").first()
+        exp = entity.current_expedient()
         if not exp:
             return JsonResponse({"error": "Expedient not found"}, status=404)
         try:
