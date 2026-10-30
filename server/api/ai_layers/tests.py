@@ -467,7 +467,206 @@ class CreateImageToolBehaviorTests(TestCase):
             )
         self.assertIn("Unsupported image model", str(ctx.exception))
 
+class GenerateVideoModelTests(TestCase):
+    def setUp(self):
+        from api.ai_layers.models import Agent, LanguageModel
+        from api.consumption.models import Currency
+        from api.messaging.models import Conversation
+        from api.providers.models import AIProvider
+
+        Currency.objects.get_or_create(name="Compute Unit", defaults={"one_usd_is": 1000})
+        provider = AIProvider.objects.create(name="OpenAI-vid")
+        self.llm = LanguageModel.objects.create(
+            provider=provider, slug="gpt-vid-test", name="GPT Vid Test"
+        )
+        self.user = User.objects.create_user(username="vid_tool_user", password="x")
+        self.org = Organization.objects.create(name="Vid Tool Org", owner=self.user)
+        self.agent = Agent.objects.create(
+            name="Vid Tool Agent",
+            salute="hi",
+            organization=self.org,
+            llm=self.llm,
+            model_slug=self.llm.slug,
+            model_provider="openai",
+        )
+        self.conversation = Conversation.objects.create(
+            user=self.user, organization=self.org
+        )
+
+    def _impl(self, **kwargs):
+        from api.ai_layers.tools.generate_video import _generate_video_impl
+
+        params = {
+            "prompt": "ocean waves",
+            "image_attachment_id": "",
+            "aspect_ratio": "landscape",
+            "conversation_id": str(self.conversation.id),
+            "user_id": self.user.id,
+            "agent_slug": self.agent.slug,
+        }
+        params.update(kwargs)
+        return _generate_video_impl(**params)
+
+    @patch("api.ai_layers.tools.generate_video._omni_interaction")
+    @patch("api.ai_layers.tools.generate_video._generate_video_veo", return_value=(b"veo-bytes", 8.0))
+    @patch("api.authenticate.services.FeatureFlagService.is_feature_enabled", return_value=(True, "ok"))
+    def test_default_model_calls_veo(self, _flag, veo_mock, omni_mock):
+        result = self._impl()
+        self.assertEqual(result.model, "veo-3.1-generate-001")
+        veo_mock.assert_called_once()
+        omni_mock.assert_not_called()
+
+    @patch("api.ai_layers.tools.generate_video._generate_video_veo")
+    @patch("api.authenticate.services.FeatureFlagService.is_feature_enabled", return_value=(True, "ok"))
+    def test_reference_images_require_omni(self, _flag, veo_mock):
+        with self.assertRaises(ValueError) as ctx:
+            self._impl(reference_attachment_ids=["00000000-0000-0000-0000-000000000099"])
+        self.assertIn("gemini-omni-1.1-flash-preview", str(ctx.exception))
+        veo_mock.assert_not_called()
+
+    @patch("api.ai_layers.tools.generate_video._omni_interaction")
+    @patch("api.ai_layers.tools.generate_video._generate_video_veo")
+    @patch("api.authenticate.services.FeatureFlagService.is_feature_enabled", return_value=(True, "ok"))
+    def test_omni_model_stores_interaction_id(self, _flag, veo_mock, omni_mock):
+        import base64
+        from types import SimpleNamespace
+
+        from api.messaging.models import MessageAttachment
+
+        omni_mock.return_value = SimpleNamespace(
+            id="int-omni-1",
+            status="completed",
+            output_video=SimpleNamespace(
+                type="video",
+                data=base64.b64encode(b"omni-bytes").decode("ascii"),
+            ),
+            steps=[],
+        )
+        result = self._impl(model="gemini-omni-1.1-flash-preview", duration_seconds=6)
+        self.assertEqual(result.model, "gemini-omni-1.1-flash-preview")
+        self.assertEqual(result.duration_seconds, 6.0)
+        veo_mock.assert_not_called()
+        create_kwargs = omni_mock.call_args.kwargs
+        self.assertEqual(create_kwargs["model"], "gemini-omni-1.1-flash-preview")
+        self.assertEqual(create_kwargs["generation_config"]["video_config"]["task"], "text_to_video")
+        self.assertEqual(create_kwargs["response_format"]["duration"], "6s")
+        self.assertTrue(create_kwargs["store"])
+        attachment = MessageAttachment.objects.get(id=result.attachment_id)
+        self.assertEqual(attachment.metadata["omni_interaction_id"], "int-omni-1")
+
+class EditVideoToolTests(TestCase):
+    def setUp(self):
+        from django.core.files.base import ContentFile
+
+        from api.ai_layers.models import Agent, LanguageModel
+        from api.consumption.models import Currency
+        from api.messaging.models import Conversation, MessageAttachment
+        from api.providers.models import AIProvider
+
+        Currency.objects.get_or_create(name="Compute Unit", defaults={"one_usd_is": 1000})
+        provider = AIProvider.objects.create(name="OpenAI-edit-vid")
+        llm = LanguageModel.objects.create(
+            provider=provider, slug="gpt-edit-vid", name="GPT Edit Vid"
+        )
+        self.user = User.objects.create_user(username="edit_vid_user", password="x")
+        self.org = Organization.objects.create(name="Edit Vid Org", owner=self.user)
+        self.agent = Agent.objects.create(
+            name="Edit Vid Agent",
+            salute="hi",
+            organization=self.org,
+            llm=llm,
+            model_slug=llm.slug,
+            model_provider="openai",
+        )
+        self.conversation = Conversation.objects.create(
+            user=self.user, organization=self.org
+        )
+        self.omni_video = MessageAttachment.objects.create(
+            conversation=self.conversation,
+            user=self.user,
+            kind="file",
+            file=ContentFile(b"source-mp4", name="source.mp4"),
+            content_type="video/mp4",
+            metadata={
+                "omni_interaction_id": "int-source",
+                "duration_seconds": 8,
+                "aspect_ratio": "portrait",
+                "model": "gemini-omni-1.1-flash-preview",
+            },
+        )
+        self.long_video = MessageAttachment.objects.create(
+            conversation=self.conversation,
+            user=self.user,
+            kind="file",
+            file=ContentFile(b"long-mp4", name="long.mp4"),
+            content_type="video/mp4",
+            metadata={"duration_seconds": 11, "aspect_ratio": "landscape"},
+        )
+
+    def _edit(self, **kwargs):
+        from api.ai_layers.tools.edit_video import _edit_video_impl
+
+        params = {
+            "prompt": "make the sky purple",
+            "video_attachment_id": str(self.omni_video.id),
+            "action": "edit",
+            "reference_attachment_ids": [],
+            "duration_seconds": None,
+            "conversation_id": str(self.conversation.id),
+            "user_id": self.user.id,
+            "agent_slug": self.agent.slug,
+        }
+        params.update(kwargs)
+        return _edit_video_impl(**params)
+
+    @patch("api.ai_layers.tools.generate_video._omni_interaction")
+    @patch("api.authenticate.services.FeatureFlagService.is_feature_enabled", return_value=(True, "ok"))
+    def test_edit_uses_previous_interaction_id(self, _flag, omni_mock):
+        import base64
+        from types import SimpleNamespace
+
+        omni_mock.return_value = SimpleNamespace(
+            id="int-edited",
+            status="completed",
+            output_video=SimpleNamespace(
+                type="video",
+                data=base64.b64encode(b"edited-bytes").decode("ascii"),
+            ),
+            steps=[],
+        )
+        result = self._edit(action="extend")
+        self.assertEqual(result.model, "gemini-omni-1.1-flash-preview")
+        self.assertEqual(result.aspect_ratio, "portrait")
+        create_kwargs = omni_mock.call_args.kwargs
+        self.assertEqual(create_kwargs["previous_interaction_id"], "int-source")
+        self.assertEqual(create_kwargs["generation_config"]["video_config"]["task"], "extend")
+        self.assertFalse(any(block.get("type") == "video" for block in create_kwargs["input"]))
+
+    @patch("api.ai_layers.tools.generate_video._omni_interaction")
+    @patch("api.authenticate.services.FeatureFlagService.is_feature_enabled", return_value=(True, "ok"))
+    def test_edit_rejects_uploaded_clip_over_ten_seconds(self, _flag, omni_mock):
+        with self.assertRaises(ValueError) as ctx:
+            self._edit(video_attachment_id=str(self.long_video.id))
+        self.assertIn("10 seconds", str(ctx.exception))
+        omni_mock.assert_not_called()
+
 class ToolAttachmentExtractionTests(SimpleTestCase):
+    def test_extract_edit_video_attachments(self):
+        from api.ai_layers.tasks import _extract_generate_video_attachments
+
+        tool_calls = [
+            {
+                "tool_name": "edit_video",
+                "result": (
+                    '{"attachment_id":"7b2a85f8-0b74-4a0f-b5a0-548df74dc5be",'
+                    '"name":"clip","content":"https://example.com/clip.mp4"}'
+                ),
+            }
+        ]
+        attachments, attachment_ids = _extract_generate_video_attachments(tool_calls)
+        self.assertEqual(attachment_ids, ["7b2a85f8-0b74-4a0f-b5a0-548df74dc5be"])
+        self.assertEqual(attachments[0]["content"], "https://example.com/clip.mp4")
+
     def test_extract_render_document_template_attachments(self):
         from api.ai_layers.tasks import _extract_render_document_template_attachments
 

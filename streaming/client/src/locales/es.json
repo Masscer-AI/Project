@@ -1755,6 +1755,8 @@
   "widget-capability-raise_alert-description": "Permite que la IA cree alertas internas segun eventos de la conversacion.",
   "widget-capability-generate_video-title": "Generar video",
   "widget-capability-generate_video-description": "Permite que la IA genere videos cortos a partir de solicitudes del usuario (se envian por WhatsApp si esta activado).",
+  "widget-capability-edit_video-title": "Editar video",
+  "widget-capability-edit_video-description": "Permite que la IA edite o extienda un video corto ya existente (se envía por WhatsApp si está activado).",
   "widget-capability-generate_document_file-title": "Generar documentos",
   "widget-capability-generate_document_file-description": "Permite que la IA cree archivos descargables a partir del contenido de la conversacion.",
   "widget-capability-generate_excel_file-title": "Generar hojas de calculo",

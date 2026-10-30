@@ -78,6 +78,7 @@ export const WHATSAPP_CAPABILITY_NAMES = [
   "create_speech",
   "generate_dialogue",
   "generate_video",
+  "edit_video",
   "generate_document_file",
   "generate_excel_file",
   "generate_text_file",

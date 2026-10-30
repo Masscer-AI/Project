@@ -42,7 +42,7 @@ dependencies = [
     "django-storages[s3]",
     "whitenoise",
     "youtube-transcript-api",
-    "google-genai>=1.70.0",
+    "google-genai>=2.34.0",
     "openpyxl>=3.1.5",
     "authlib>=1.7.2",
     "croniter>=6.2.4",

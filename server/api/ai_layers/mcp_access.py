@@ -80,6 +80,7 @@ MCP_MEDIA_TOOL_NAMES: tuple[str, ...] = (
     "create_image",
     "create_speech",
     "generate_video",
+    "edit_video",
     "generate_dialogue",
 )
 

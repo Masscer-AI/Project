@@ -155,6 +155,8 @@ IMAGE_MODEL_PRICING_USD = {
 
 VIDEO_MODEL_PRICING_USD_PER_SECOND = {
     "veo-3.1-generate-001": 0.40,
+    # 720p video output: 5792 tokens/second * $17.50 / 1M tokens.
+    "gemini-omni-1.1-flash-preview": 0.10136,
 }
 
 def calculate_consumption_image_generation(model_slug: str) -> float:
