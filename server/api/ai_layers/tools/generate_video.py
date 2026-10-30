@@ -182,13 +182,14 @@ def _generate_video_omni(
         "model": OMNI_MODEL,
         "input": inputs,
         "response_format": response_format,
-        "generation_config": {"video_config": {"task": task}},
         "store": True,
         "background": False,
         "timeout": OMNI_TIMEOUT_SECONDS,
     }
     if previous_interaction_id:
         create_kwargs["previous_interaction_id"] = previous_interaction_id
+    else:
+        create_kwargs["generation_config"] = {"video_config": {"task": task}}
 
     interaction = _omni_interaction(**create_kwargs)
     raw, interaction_id = _video_bytes_from_interaction(interaction)

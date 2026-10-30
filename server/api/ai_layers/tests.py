@@ -639,7 +639,7 @@ class EditVideoToolTests(TestCase):
         self.assertEqual(result.aspect_ratio, "portrait")
         create_kwargs = omni_mock.call_args.kwargs
         self.assertEqual(create_kwargs["previous_interaction_id"], "int-source")
-        self.assertEqual(create_kwargs["generation_config"]["video_config"]["task"], "extend")
+        self.assertNotIn("generation_config", create_kwargs)
         self.assertNotIn("aspect_ratio", create_kwargs["response_format"])
         self.assertFalse(any(block.get("type") == "video" for block in create_kwargs["input"]))
 
