@@ -640,6 +640,7 @@ class EditVideoToolTests(TestCase):
         create_kwargs = omni_mock.call_args.kwargs
         self.assertEqual(create_kwargs["previous_interaction_id"], "int-source")
         self.assertEqual(create_kwargs["generation_config"]["video_config"]["task"], "extend")
+        self.assertNotIn("aspect_ratio", create_kwargs["response_format"])
         self.assertFalse(any(block.get("type") == "video" for block in create_kwargs["input"]))
 
     @patch("api.ai_layers.tools.generate_video._omni_interaction")

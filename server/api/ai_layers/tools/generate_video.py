@@ -170,16 +170,18 @@ def _generate_video_omni(
         inputs.append(_video_block(video_bytes, video_mime_type or "video/mp4"))
     inputs.append({"type": "text", "text": prompt})
 
+    response_format = {
+        "type": "video",
+        "resolution": OMNI_RESOLUTION,
+        "duration": f"{duration_seconds}s",
+        "delivery": "inline",
+    }
+    if task != "extend":
+        response_format["aspect_ratio"] = _ASPECT_RATIO_TO_API[aspect_ratio]
     create_kwargs = {
         "model": OMNI_MODEL,
         "input": inputs,
-        "response_format": {
-            "type": "video",
-            "aspect_ratio": _ASPECT_RATIO_TO_API[aspect_ratio],
-            "resolution": OMNI_RESOLUTION,
-            "duration": f"{duration_seconds}s",
-            "delivery": "inline",
-        },
+        "response_format": response_format,
         "generation_config": {"video_config": {"task": task}},
         "store": True,
         "background": False,
