@@ -44,7 +44,7 @@ os.makedirs(SAVE_PATH, exist_ok=True)
 
 def _require_moviepy():
     try:
-        from moviepy.editor import AudioFileClip, VideoFileClip, concatenate_videoclips
+        from moviepy import AudioFileClip, VideoFileClip, concatenate_videoclips
     except ModuleNotFoundError as exc:
         raise RuntimeError(
             "moviepy is required for video transcription/generation features."
@@ -227,7 +227,7 @@ def generate_video(video_job_id: int):
 
 def generate_chunk_video(video_chunk_id: int):
     chunk = VideoChunk.objects.get(pk=video_chunk_id)
-    _, concatenate_videoclips, AudioFileClip = _require_moviepy()
+    VideoFileClip, concatenate_videoclips, AudioFileClip = _require_moviepy()
 
     chunk.status = "PROCESSING"
     chunk.save()
@@ -272,9 +272,9 @@ def generate_chunk_video(video_chunk_id: int):
 
         final_video = concatenate_videoclips(video_clips)
 
-        final_video = final_video.subclip(0, audio_duration)
+        final_video = final_video.subclipped(0, audio_duration)
 
-        final_video = final_video.set_audio(AudioFileClip(audio_output_path))
+        final_video = final_video.with_audio(AudioFileClip(audio_output_path))
 
         final_video_path = os.path.join(
             settings.MEDIA_ROOT,

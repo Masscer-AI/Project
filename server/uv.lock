@@ -647,6 +647,15 @@ wheels = [
 ]
 
 [[package]]
+name = "decorator"
+version = "5.3.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/60/8b/32f9823da46cde7df2087faa08cd98d01b908f8dcab982cdba9c84e85355/decorator-5.3.1.tar.gz", hash = "sha256:4cbcdd55a6efadb9dbea26b858f4fb3264567b52d69ca0d25b721b553f60ea82", size = 58084, upload-time = "2026-05-18T06:03:28.057Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/05/7f/798705f5296a58ca505d600456748d1be48078eac8a7050d8a98bc9edb89/decorator-5.3.1-py3-none-any.whl", hash = "sha256:f47fe6fdbd2edd623ecfe36875d37aba411624e2670dd395dddae1358689bb3c", size = 10365, upload-time = "2026-05-18T06:03:26.517Z" },
+]
+
+[[package]]
 name = "defusedxml"
 version = "0.7.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1243,6 +1252,34 @@ wheels = [
 ]
 
 [[package]]
+name = "imageio"
+version = "2.38.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "pillow" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f3/cd/69e4ac55b6dafdd2b5f32075236841a3945dea7323d0232d80f28c37cea8/imageio-2.38.1.tar.gz", hash = "sha256:6769f1f01c4dd46448307863a787c9a22fa4dbe11c0c88f525c6e410fdfd7983", size = 403667, upload-time = "2026-10-08T14:35:32.961Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7d/8a/3b7f62b9df56460959f1b9bef094248d2a4d7f393c5b0d2da8efcdf0e40e/imageio-2.38.1-py3-none-any.whl", hash = "sha256:36d23eb7423d2fb63f637098758edb3d2df3687f7125e0a5ce8596572022dcf9", size = 328389, upload-time = "2026-10-08T14:35:31.075Z" },
+]
+
+[[package]]
+name = "imageio-ffmpeg"
+version = "0.8.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/d0/c5/2ca1479972cc5f0526d673050ba829518c6db33d9a0d0749892209fdf81d/imageio_ffmpeg-0.8.0.tar.gz", hash = "sha256:0385d9bab7dc7d7141af7d0f160059e05f0d874116faf9ce91f6fcfd66e938f2", size = 26957, upload-time = "2026-11-02T08:50:19.789Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d4/05/0826fb1538dd3ff10ceb120eccc70fe209b178619678a7a7697bd37bf988/imageio_ffmpeg-0.8.0-py3-none-macosx_10_13_x86_64.whl", hash = "sha256:3c1fdef145531268307c7e995a86b95a460dbb33b406dd34bc7488645d54040b", size = 26974211, upload-time = "2026-11-02T08:49:57.515Z" },
+    { url = "https://files.pythonhosted.org/packages/79/d0/8cab3df2c711ca2af0af8b895ece01b71d6c5fdaeb6d5957a5972c2ae333/imageio_ffmpeg-0.8.0-py3-none-macosx_12_0_arm64.whl", hash = "sha256:9dc65cb8650afdb5b8d6a8c251dbcb6c230a07b041e39326e03cb62bab3e992f", size = 22625305, upload-time = "2026-11-02T08:50:00.466Z" },
+    { url = "https://files.pythonhosted.org/packages/76/c7/635ae65f108c100d9dcca0cd118a7aa71d3438ca1e39fd22132ca541d8a1/imageio_ffmpeg-0.8.0-py3-none-manylinux_2_28_aarch64.whl", hash = "sha256:8108995ecb08351b8a4c6f5575cc05d83d79bc9bb1ace236ca09d40e7fa0cdea", size = 60956460, upload-time = "2026-11-02T08:50:03.995Z" },
+    { url = "https://files.pythonhosted.org/packages/fe/32/76b35d13629e6ac5a992bb1d6d40468e8f0422e252736c7e5785b2581e30/imageio_ffmpeg-0.8.0-py3-none-manylinux_2_28_x86_64.whl", hash = "sha256:543c8c5d316fc48575dfb5d44adba84a473d9c5a0e482b7fac5988f24a9cb17b", size = 67998232, upload-time = "2026-11-02T08:50:07.785Z" },
+    { url = "https://files.pythonhosted.org/packages/53/ca/4ed8e95e14984613c5691c2a725ea59693379d069f7b230b47f83f32fd44/imageio_ffmpeg-0.8.0-py3-none-win32.whl", hash = "sha256:c6f71602aa2de990eb964b25923ffc4c248af868449a062d17ecd7f841d458fd", size = 19652527, upload-time = "2026-11-02T08:50:11.045Z" },
+    { url = "https://files.pythonhosted.org/packages/bb/df/4a55891802fb1e745c2852cd958e3d104dfbb46cf4b45f859d4f5006320b/imageio_ffmpeg-0.8.0-py3-none-win_amd64.whl", hash = "sha256:478a7fbcaeb69b6caceb901cde5768e80d05de6b7f75fd57ae9fe93801de7ba0", size = 38893313, upload-time = "2026-11-02T08:50:14.128Z" },
+    { url = "https://files.pythonhosted.org/packages/97/97/634d84105b18eabefc56533199db7ee0e1fcb8d7d076246c5917bdd7aef1/imageio_ffmpeg-0.8.0-py3-none-win_arm64.whl", hash = "sha256:9c195547e08f7f154505ec74ad0bbfdecf43b714c13202d766d7e514ce5ea366", size = 37499512, upload-time = "2026-11-02T08:50:17.416Z" },
+]
+
+[[package]]
 name = "importlib-metadata"
 version = "8.4.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1574,6 +1611,7 @@ dependencies = [
     { name = "gevent" },
     { name = "google-genai" },
     { name = "gunicorn" },
+    { name = "moviepy" },
     { name = "openai" },
     { name = "openpyxl" },
     { name = "pillow" },
@@ -1627,6 +1665,7 @@ requires-dist = [
     { name = "gevent" },
     { name = "google-genai", specifier = ">=2.34.0" },
     { name = "gunicorn" },
+    { name = "moviepy", specifier = ">=2.2.1" },
     { name = "openai" },
     { name = "openpyxl", specifier = ">=3.1.5" },
     { name = "pillow" },
@@ -1708,6 +1747,24 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/ea/ca/8e91948b782ddfbd194f323e7e7d9ba12e5877addf04fb2bf8fca38e86ac/monotonic-1.6.tar.gz", hash = "sha256:3a55207bcfed53ddd5c5bae174524062935efed17792e9de2ad0205ce9ad63f7", size = 7615, upload-time = "2021-08-11T14:37:28.79Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/9a/67/7e8406a29b6c45be7af7740456f7f37025f0506ae2e05fb9009a53946860/monotonic-1.6-py2.py3-none-any.whl", hash = "sha256:68687e19a14f11f26d140dd5c86f3dba4bf5df58003000ed467e0e2a69bca96c", size = 8154, upload-time = "2021-04-09T21:58:05.122Z" },
+]
+
+[[package]]
+name = "moviepy"
+version = "2.2.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "decorator" },
+    { name = "imageio" },
+    { name = "imageio-ffmpeg" },
+    { name = "numpy" },
+    { name = "pillow" },
+    { name = "proglog" },
+    { name = "python-dotenv" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/de/61/15f9476e270f64c78a834e7459ca045d669f869cec24eed26807b8cd479d/moviepy-2.2.1.tar.gz", hash = "sha256:c80cb56815ece94e5e3e2d361aa40070eeb30a09d23a24c4e684d03e16deacb1", size = 58431438, upload-time = "2025-05-21T19:31:52.601Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9a/73/7d3b2010baa0b5eb1e4dfa9e4385e89b6716be76f2fa21a6c0fe34b68e5a/moviepy-2.2.1-py3-none-any.whl", hash = "sha256:6b56803fec2ac54b557404126ac1160e65448e03798fa282bd23e8fab3795060", size = 129871, upload-time = "2025-05-21T19:31:50.11Z" },
 ]
 
 [[package]]
@@ -2082,6 +2139,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/15/3b/9894166fbf290fcb9e253dd54c12d1fdef8c723eb5bd1ce8039211de5dd4/posthog-3.6.6.tar.gz", hash = "sha256:1e04783293117109189ad7048f3eedbe21caff0e39bee5e2d47a93dd790fefac", size = 49583, upload-time = "2024-09-16T10:16:12.228Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c4/3e/53cf7e3ead6c0a5f4064fa4e697a2985bace0aae0ed428983774213a3485/posthog-3.6.6-py2.py3-none-any.whl", hash = "sha256:38834fd7f0732582a20d4eb4674c8d5c088e464d14d1b3f8c176e389aecaa4ef", size = 54258, upload-time = "2024-09-16T10:16:10.424Z" },
+]
+
+[[package]]
+name = "proglog"
+version = "0.1.12"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "tqdm" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c2/af/c108866c452eda1132f3d6b3cb6be2ae8430c97e9309f38ca9dbd430af37/proglog-0.1.12.tar.gz", hash = "sha256:361ee074721c277b89b75c061336cb8c5f287c92b043efa562ccf7866cda931c", size = 8794, upload-time = "2025-05-09T14:36:18.316Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c1/1b/f7ea6cde25621cd9236541c66ff018f4268012a534ec31032bcb187dc5e7/proglog-0.1.12-py3-none-any.whl", hash = "sha256:ccaafce51e80a81c65dc907a460c07ccb8ec1f78dc660cfd8f9ec3a22f01b84c", size = 6337, upload-time = "2025-05-09T14:36:16.798Z" },
 ]
 
 [[package]]

@@ -97,7 +97,7 @@ class Video(models.Model):
 
     def concatenate(self):
         try:
-            from moviepy.editor import concatenate_videoclips, VideoFileClip
+            from moviepy import concatenate_videoclips, VideoFileClip
         except ModuleNotFoundError as exc:
             raise RuntimeError(
                 "moviepy is required for video concatenation features."

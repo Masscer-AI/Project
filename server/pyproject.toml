@@ -47,6 +47,7 @@ dependencies = [
     "authlib>=1.7.2",
     "croniter>=6.2.4",
     "xlrd>=2.0.2",
+    "moviepy>=2.2.1",
 ]
 
 [dependency-groups]
