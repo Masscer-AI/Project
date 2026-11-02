@@ -124,6 +124,82 @@ def _decode_media_data(raw) -> bytes | None:
         return bytes(raw)
     return None
 
+def _clip_text(text: str, limit: int = 400) -> str:
+    collapsed = " ".join(text.split())
+    if len(collapsed) <= limit:
+        return collapsed
+    return collapsed[:limit] + "..."
+
+def _block_brief(item) -> str:
+    kind = str(getattr(item, "type", None))
+    bits = [kind]
+    mime_type = getattr(item, "mime_type", None)
+    if mime_type:
+        bits.append(str(mime_type))
+    uri = getattr(item, "uri", None)
+    if uri:
+        bits.append(f"uri={_clip_text(uri, 200)}")
+    raw = getattr(item, "data", None)
+    if isinstance(raw, str):
+        bits.append(f"data={len(raw)} chars")
+    elif isinstance(raw, (bytes, bytearray)):
+        bits.append(f"data={len(raw)} bytes")
+    elif kind in ("video", "image", "audio"):
+        bits.append("data=none")
+    resolution = getattr(item, "resolution", None)
+    if resolution:
+        bits.append(f"resolution={resolution}")
+    text = getattr(item, "text", None)
+    if text:
+        bits.append(f"text={_clip_text(text, 240)!r}")
+    return " ".join(bits)
+
+def _omni_reply_summary(interaction) -> str:
+    parts = [
+        f"id={getattr(interaction, 'id', None)}",
+        f"status={getattr(interaction, 'status', None)}",
+    ]
+    error_bits = []
+    for err in getattr(interaction, "errors", None) or []:
+        code = getattr(err, "code", None)
+        message = getattr(err, "message", None)
+        if code or message:
+            error_bits.append(f"{code}: {message}")
+    if error_bits:
+        parts.append("errors=" + "; ".join(error_bits))
+    output_text = getattr(interaction, "output_text", None)
+    if output_text:
+        parts.append(f"output_text={_clip_text(output_text)!r}")
+    for name in ("output_video", "output_image", "output_audio"):
+        item = getattr(interaction, name, None)
+        parts.append(f"{name}={'none' if item is None else _block_brief(item)}")
+    step_bits = []
+    for step in getattr(interaction, "steps", None) or []:
+        content = getattr(step, "content", None) or []
+        inner = "; ".join(_block_brief(item) for item in content)
+        step_bits.append(f"{getattr(step, 'type', None)}[{inner}]")
+    parts.append("steps=" + (" | ".join(step_bits) if step_bits else "none"))
+    usage = getattr(interaction, "usage", None)
+    if usage is not None:
+        usage_bits = []
+        for key in ("total_input_tokens", "total_output_tokens", "total_tokens"):
+            value = getattr(usage, key, None)
+            if value is not None:
+                usage_bits.append(f"{key}={value}")
+        modality_bits = []
+        for item in getattr(usage, "output_tokens_by_modality", None) or []:
+            modality_bits.append(
+                f"{getattr(item, 'modality', None)}={getattr(item, 'tokens', None)}"
+            )
+        if modality_bits:
+            usage_bits.append("output_tokens=" + ",".join(modality_bits))
+        if usage_bits:
+            parts.append("usage=" + ", ".join(usage_bits))
+    summary = " | ".join(parts)
+    if len(summary) > 1800:
+        return summary[:1800] + "..."
+    return summary
+
 def _video_bytes_from_interaction(interaction) -> tuple[bytes, str]:
     candidates = []
     output_video = getattr(interaction, "output_video", None)
@@ -139,8 +215,7 @@ def _video_bytes_from_interaction(interaction) -> tuple[bytes, str]:
         raw = _decode_media_data(getattr(item, "data", None))
         if raw:
             return raw, str(getattr(interaction, "id", "") or "")
-    status = getattr(interaction, "status", None)
-    raise ValueError(f"Omni did not return a video (status={status}).")
+    raise ValueError(f"Omni did not return a video. {_omni_reply_summary(interaction)}")
 
 def _omni_interaction(**kwargs):
     from google import genai

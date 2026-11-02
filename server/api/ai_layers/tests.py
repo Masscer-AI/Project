@@ -651,6 +651,50 @@ class EditVideoToolTests(TestCase):
         self.assertIn("10 seconds", str(ctx.exception))
         omni_mock.assert_not_called()
 
+class OmniMissingVideoTests(SimpleTestCase):
+    def test_missing_video_error_describes_the_reply(self):
+        from types import SimpleNamespace
+
+        from api.ai_layers.tools.generate_video import _video_bytes_from_interaction
+
+        interaction = SimpleNamespace(
+            id="int-empty",
+            status="completed",
+            errors=[SimpleNamespace(code="safety", message="blocked the clip")],
+            output_text="I cannot make that clip.",
+            output_video=SimpleNamespace(
+                type="video",
+                mime_type="video/mp4",
+                uri="gs://bucket/clip.mp4",
+                data=None,
+                resolution="720p",
+            ),
+            output_image=None,
+            output_audio=None,
+            steps=[
+                SimpleNamespace(
+                    type="model_output",
+                    content=[SimpleNamespace(type="text", text="I cannot make that clip.")],
+                )
+            ],
+            usage=SimpleNamespace(
+                total_input_tokens=10,
+                total_output_tokens=20,
+                total_tokens=30,
+                output_tokens_by_modality=[SimpleNamespace(modality="text", tokens=20)],
+            ),
+        )
+        with self.assertRaises(ValueError) as ctx:
+            _video_bytes_from_interaction(interaction)
+        message = str(ctx.exception)
+        self.assertIn("status=completed", message)
+        self.assertIn("id=int-empty", message)
+        self.assertIn("gs://bucket/clip.mp4", message)
+        self.assertIn("data=none", message)
+        self.assertIn("I cannot make that clip.", message)
+        self.assertIn("safety: blocked the clip", message)
+        self.assertIn("output_tokens=text=20", message)
+
 class ToolAttachmentExtractionTests(SimpleTestCase):
     def test_extract_edit_video_attachments(self):
         from api.ai_layers.tasks import _extract_generate_video_attachments
