@@ -18,6 +18,8 @@ import { SYSTEM_PLUGINS } from "../../modules/plugins";
 import { API_URL } from "../../modules/constants";
 import { TAttachment } from "../../types";
 import { useCompletionFreshApproval } from "../../hooks/useCompletionFreshApproval";
+import { htmlPreviewFromHref, linkText } from "../HtmlPreview/HtmlFrame";
+import { HtmlInlinePreview } from "../HtmlPreview/HtmlPreview";
 
 const MarkdownRenderer = ({
   markdown,
@@ -247,6 +249,15 @@ const MarkdownRenderer = ({
             );
           }
           const resolvedHref = href ? urlTransform(href) : href;
+          const preview = htmlPreviewFromHref(
+            resolvedHref || "",
+            attachments,
+            (content) => normalizeUrl(content),
+          );
+          if (preview) {
+            const label = linkText((props as { children?: React.ReactNode }).children).trim();
+            return <HtmlInlinePreview src={preview.src} title={label || preview.name} />;
+          }
           return (
             <a
               // eslint-disable-next-line @typescript-eslint/no-explicit-any

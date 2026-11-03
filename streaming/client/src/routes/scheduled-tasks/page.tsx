@@ -31,6 +31,7 @@ import {
   IconRobot,
   IconTrash,
 } from "@tabler/icons-react";
+import { AgentIcon } from "../../components/AgentIcon/AgentIcon";
 import { useStore } from "../../modules/store";
 import {
   cancelScheduledTask,
@@ -345,17 +346,21 @@ export default function ScheduledTasksPage() {
                             </Text>
                           </Group>
                           <Group gap={6}>
-                            {agentSlugs.map((slug) => (
-                              <Badge
-                                key={slug}
-                                size="xs"
-                                variant="light"
-                                color="gray"
-                                title={slug}
-                              >
-                                {agentNameBySlug.get(slug) || slug}
-                              </Badge>
-                            ))}
+                            {agentSlugs.map((slug) => {
+                              const agent = agents.find((item) => item.slug === slug);
+                              return (
+                                <Badge
+                                  key={slug}
+                                  size="xs"
+                                  variant="light"
+                                  color="gray"
+                                  title={slug}
+                                  leftSection={<AgentIcon name={agent?.icon} size={12} />}
+                                >
+                                  {agentNameBySlug.get(slug) || slug}
+                                </Badge>
+                              );
+                            })}
                           </Group>
                         </Stack>
                       )}

@@ -8,6 +8,7 @@ import {
   TextInput,
   Textarea,
   NativeSelect,
+  Select,
   MultiSelect,
   Slider,
   Group,
@@ -29,6 +30,7 @@ import { useTranslation } from "react-i18next";
 import { useIsFeatureEnabled } from "../../hooks/useFeatureFlag";
 import type { TVoiceCatalogEntry } from "../../types/agents";
 import { useLocalizedToolName } from "../../utils/localizedToolName";
+import { AgentIcon, AGENT_ICON_NAMES, DEFAULT_AGENT_ICON } from "../AgentIcon/AgentIcon";
 import { AppHeader } from "../AppHeader/AppHeader";
 import { ToolsSelectorModal } from "../ToolsSelectorModal/ToolsSelectorModal";
 import {
@@ -279,9 +281,12 @@ const AgentComponent = ({ agent }: TAgentComponentProps) => {
               )}
             </div>
           )}
-          <Text fw={500} truncate style={{ flex: 1 }}>
-            {agent.name}
-          </Text>
+          <Group gap="xs" wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
+            <AgentIcon name={agent.icon} size={18} style={{ flexShrink: 0 }} />
+            <Text fw={500} truncate>
+              {agent.name}
+            </Text>
+          </Group>
           {isPlatformAssistant(agent) && (
             <Badge size="sm" color="violet" variant="light">
               {t("platform-assistant-badge")}
@@ -318,7 +323,12 @@ const AgentComponent = ({ agent }: TAgentComponentProps) => {
       <Modal
         opened={configOpened}
         onClose={closeConfig}
-        title={<Title order={4}>{agent.name}</Title>}
+        title={
+          <Group gap="xs">
+            <AgentIcon name={agent.icon} size={20} />
+            <Title order={4}>{agent.name}</Title>
+          </Group>
+        }
         size="lg"
         centered
         overlayProps={{ backgroundOpacity: 0.55, blur: 3 }}
@@ -395,6 +405,7 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
 
   const [formState, setFormState] = useState({
     name: agent.name || "",
+    icon: agent.icon || DEFAULT_AGENT_ICON,
     default_voice_id: agent.default_voice_id ?? null,
     default: agent.default || false,
     max_tokens: agent.max_tokens || 1000,
@@ -646,6 +657,29 @@ const AgentConfigForm = ({ agent, onSave, onDelete }: TAgentConfigProps) => {
         name="name"
         value={formState.name}
         onChange={handleInputChange}
+      />
+
+      <Select
+        label={t("icon")}
+        data={AGENT_ICON_NAMES.map((name) => ({
+          value: name,
+          label: t(`agent-icon-${name}`),
+        }))}
+        value={formState.icon || DEFAULT_AGENT_ICON}
+        allowDeselect={false}
+        searchable
+        leftSection={<AgentIcon name={formState.icon} size={16} />}
+        leftSectionWidth={28}
+        renderOption={({ option }) => (
+          <Group gap={8} wrap="nowrap">
+            <AgentIcon name={option.value} size={16} />
+            <span>{option.label}</span>
+          </Group>
+        )}
+        onChange={(value) => {
+          if (!value) return;
+          setFormState((prev) => ({ ...prev, icon: value }));
+        }}
       />
 
       {canSetOwnership && userOrgs.length > 0 && (

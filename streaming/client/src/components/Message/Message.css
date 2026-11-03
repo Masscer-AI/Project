@@ -28,6 +28,10 @@
   width: fit-content;
 }
 
+.message .markdown-renderer.message-text:has(.html-preview) {
+  width: 100%;
+}
+
 .message .markdown-renderer.message-text {
   padding: 10px 15px;
   max-width: 100%;  

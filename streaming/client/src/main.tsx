@@ -18,6 +18,7 @@ import Root from "./routes/root/page.tsx";
 
 import { chatLoader } from "./routes/chat/loader.ts";
 import { homeLoader } from "./routes/home/loader.ts";
+import { rootLoader } from "./routes/root/loader.ts";
 import { complianceLoader } from "./routes/compliance/loader.ts";
 import ComplianceHubPage from "./routes/compliance/page.tsx";
 import PldInviteAcceptPage from "./routes/pld/invite/page.tsx";
@@ -78,6 +79,7 @@ const router = createBrowserRouter([
           {
             path: "/",
             element: <Root />,
+            loader: rootLoader,
           },
           {
             path: "/signup",

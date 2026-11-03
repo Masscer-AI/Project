@@ -15,7 +15,8 @@ import {
   UnstyledButton,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { IconCalendar, IconChevronDown, IconChevronRight, IconFilter, IconMessage, IconRobot, IconSearch, IconStack2 } from "@tabler/icons-react";
+import { IconCalendar, IconChevronDown, IconChevronRight, IconFilter, IconMessage, IconSearch, IconStack2 } from "@tabler/icons-react";
+import { AgentIcon } from "../../components/AgentIcon/AgentIcon";
 import { AppPage } from "../../components/AppPage/AppPage";
 import { getAgents, getAllConversations, getTags } from "../../modules/apiCalls";
 import { TConversation, TTag } from "../../types";
@@ -100,10 +101,10 @@ function TagMark({ tag }: { tag: TTag }) {
   );
 }
 
-function AgentChip({ name }: { name: string }) {
+function AgentChip({ name, icon }: { name: string; icon?: string }) {
   return (
     <Group gap={6} wrap="nowrap">
-      <IconRobot size={12} style={{ flexShrink: 0 }} />
+      <AgentIcon name={icon} size={12} style={{ flexShrink: 0 }} />
       <Text size="xs" style={{ whiteSpace: "nowrap" }}>
         {name}
       </Text>
@@ -281,7 +282,7 @@ function ChipFilters({
                     }`,
                   }}
                 >
-                  <AgentChip name={agent.name} />
+                  <AgentChip name={agent.name} icon={agent.icon} />
                 </UnstyledButton>
               );
             })}

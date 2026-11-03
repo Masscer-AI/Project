@@ -1,0 +1,68 @@
+.html-frame {
+  display: block;
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #111;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.html-frame iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #fff;
+}
+
+.html-frame-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.html-frame-spinner {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-top-color: #fff;
+  animation: html-frame-spin 0.8s linear infinite;
+}
+
+@keyframes html-frame-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.html-preview {
+  display: block;
+  width: 100%;
+  margin: 8px 0;
+}
+
+.html-preview-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.html-preview-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+}
+
+.html-preview-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 4px;
+}

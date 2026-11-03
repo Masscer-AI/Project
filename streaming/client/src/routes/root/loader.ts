@@ -1,2 +1,9 @@
+import { LoaderFunction, redirect } from "react-router-dom";
+import { resolveAuthenticatedHome } from "../../utils/loginRedirect";
 
-//     // @ts-expect-error
+export const rootLoader: LoaderFunction = async () => {
+  if (!localStorage.getItem("token")) {
+    return null;
+  }
+  return redirect(await resolveAuthenticatedHome(null));
+};

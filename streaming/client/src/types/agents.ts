@@ -43,6 +43,7 @@ export type TVoiceCatalogEntry = {
 
 export type TAgent = {
   name: string;
+  icon?: string;
   provider?: string;
   slug: string;
   agent_kind?: TAgentKind;

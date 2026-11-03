@@ -72,7 +72,7 @@ class AgentAdmin(admin.ModelAdmin):
     
     fieldsets = (
         ("Basic Information", {
-            "fields": ("name", "slug", "agent_kind", "user", "organization")
+            "fields": ("name", "icon", "slug", "agent_kind", "user", "organization")
         }),
         ("Model Configuration", {
             "fields": ("model_provider", "model_slug", "llm", "reasoning_level", "max_tokens")

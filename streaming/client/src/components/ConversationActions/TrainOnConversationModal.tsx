@@ -11,6 +11,7 @@ import {
 import { IconBarbell } from "@tabler/icons-react";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
+import { AgentIcon } from "../AgentIcon/AgentIcon";
 import { useStore } from "../../modules/store";
 import { generateTrainingCompletions } from "../../modules/apiCalls";
 import { TConversation } from "../../types";
@@ -92,6 +93,7 @@ export const TrainOnConversationModal = ({
                 selectedAgents.includes(a.slug) ? "filled" : "default"
               }
               style={{ cursor: "pointer" }}
+              leftSection={<AgentIcon name={a.icon} size={12} />}
               onClick={() => toggleAgent(a.slug)}
             >
               {a.name}

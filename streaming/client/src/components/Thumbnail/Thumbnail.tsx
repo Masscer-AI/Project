@@ -24,6 +24,8 @@ import {
 } from "@tabler/icons-react";
 import { AttachmentDetailsModal } from "../AttachmentVisibility/AttachmentVisibilityModal";
 import { DocumentFileIcon } from "../../modules/documentFileMeta";
+import { isHtmlFile } from "../HtmlPreview/HtmlFrame";
+import { HtmlPreviewModal } from "../HtmlPreview/HtmlPreview";
 import type { TGalleryItem } from "../../modules/apiCalls";
 
 const VIDEO_EXT_RE = /\.(mp4|webm|mov|m4v|ogv)(\?|#|$)/i;
@@ -471,23 +473,27 @@ const DocumentThumnail = ({
   showFloatingButtons: boolean;
 }) => {
   const [opened, { open, close }] = useDisclosure(false);
+  const [previewOpened, { open: openPreview, close: closePreview }] = useDisclosure(false);
   const fileId = resolveAttachmentFileId(attachmentId, id);
   const pdf = isPdfFile(name, fileType);
+  const html = isHtmlFile(name, src, fileType);
   const openFile = () => {
-    if (pdf) openPdfInNewTab(src);
+    if (html) openPreview();
+    else if (pdf) openPdfInNewTab(src);
     else open();
   };
 
   if (showFloatingButtons) {
     return (
+      <>
       <div
         title={name}
         className="width-150 document-attachment bg-contrast rounded padding-small"
       >
         <div className="d-flex gap-small align-center">
-          {pdf ? (
+          {pdf || html ? (
             <UnstyledButton
-              onClick={() => openPdfInNewTab(src)}
+              onClick={openFile}
               style={{ display: "flex", gap: 8, alignItems: "center", flex: 1, minWidth: 0 }}
               aria-label={name}
             >
@@ -514,6 +520,15 @@ const DocumentThumnail = ({
           </ActionIcon>
         </div>
       </div>
+      {html && (
+        <HtmlPreviewModal
+          opened={previewOpened}
+          onClose={closePreview}
+          src={src}
+          title={name}
+        />
+      )}
+      </>
     );
   }
 
@@ -540,20 +555,29 @@ const DocumentThumnail = ({
           </p>
         </div>
       </UnstyledButton>
-      <AttachmentDetailsModal
-        opened={opened}
-        onClose={close}
-        attachmentId={fileId}
-        fallbackName={name}
-        fallbackUrl={src}
-        initialItem={detailsInitialItem({
-          fileId,
-          src,
-          name,
-          visibility,
-          type: "document",
-        })}
-      />
+      {html ? (
+        <HtmlPreviewModal
+          opened={previewOpened}
+          onClose={closePreview}
+          src={src}
+          title={name}
+        />
+      ) : (
+        <AttachmentDetailsModal
+          opened={opened}
+          onClose={close}
+          attachmentId={fileId}
+          fallbackName={name}
+          fallbackUrl={src}
+          initialItem={detailsInitialItem({
+            fileId,
+            src,
+            name,
+            visibility,
+            type: "document",
+          })}
+        />
+      )}
     </>
   );
 };

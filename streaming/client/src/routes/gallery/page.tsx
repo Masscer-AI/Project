@@ -38,6 +38,8 @@ import {
   AttachmentVisibilityModal,
 } from "../../components/AttachmentVisibility/AttachmentVisibilityModal";
 import { SaveToKnowledgeBaseButton } from "../../components/AttachmentVisibility/SaveToKnowledgeBase";
+import { isHtmlFile } from "../../components/HtmlPreview/HtmlFrame";
+import { HtmlPreviewModal } from "../../components/HtmlPreview/HtmlPreview";
 import {
   DocumentFileIcon,
   getDocumentFileMeta,
@@ -538,46 +540,60 @@ function DocumentGalleryCard({
   onIndexed?: (item: TGalleryItem) => void;
 }) {
   const meta = getDocumentFileMeta(item.name, item.content_type);
+  const html = isHtmlFile(item.name, item.url, item.content_type);
+  const [opened, { open, close }] = useDisclosure(false);
+  const heading = (
+    <Group gap="sm" wrap="nowrap" align="flex-start">
+      <Box
+        style={{
+          width: 52,
+          height: 52,
+          borderRadius: 12,
+          background: `var(--mantine-color-${meta.color}-9)`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+        }}
+      >
+        <DocumentFileIcon
+          name={item.name}
+          contentType={item.content_type}
+          size={28}
+          color="white"
+        />
+      </Box>
+      <Box style={{ minWidth: 0, flex: 1 }}>
+        <Group gap={6} mb={4}>
+          <Badge size="xs" variant="light" color={meta.color}>
+            {meta.label}
+          </Badge>
+        </Group>
+        <Text size="sm" fw={500} lineClamp={2} title={item.name}>
+          {item.name}
+        </Text>
+        <Text size="xs" c="dimmed" mt={4}>
+          {dateLabel}
+        </Text>
+      </Box>
+    </Group>
+  );
 
   return (
     <Card className="gallery-card" padding="md" withBorder radius="md">
       <Stack gap="sm">
-        <Group gap="sm" wrap="nowrap" align="flex-start">
-          <Box
-            style={{
-              width: 52,
-              height: 52,
-              borderRadius: 12,
-              background: `var(--mantine-color-${meta.color}-9)`,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-            }}
+        {html ? (
+          <UnstyledButton
+            onClick={open}
+            aria-label={item.name}
+            style={{ textAlign: "left", width: "100%" }}
           >
-            <DocumentFileIcon
-              name={item.name}
-              contentType={item.content_type}
-              size={28}
-              color="white"
-            />
-          </Box>
-          <Box style={{ minWidth: 0, flex: 1 }}>
-            <Group gap={6} mb={4}>
-              <Badge size="xs" variant="light" color={meta.color}>
-                {meta.label}
-              </Badge>
-            </Group>
-            <Text size="sm" fw={500} lineClamp={2} title={item.name}>
-              {item.name}
-            </Text>
-            <Text size="xs" c="dimmed" mt={4}>
-              {dateLabel}
-            </Text>
-          </Box>
-        </Group>
+            {heading}
+          </UnstyledButton>
+        ) : (
+          heading
+        )}
         <ItemTagBadges tagIds={item.tag_ids} tagById={tagById} />
-
         <GalleryCardActions
           item={item}
           onOpenChat={onOpenChat}
@@ -586,6 +602,14 @@ function DocumentGalleryCard({
           onIndexed={onIndexed}
         />
       </Stack>
+      {html && (
+        <HtmlPreviewModal
+          opened={opened}
+          onClose={close}
+          src={item.url}
+          title={item.name}
+        />
+      )}
     </Card>
   );
 }

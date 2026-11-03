@@ -105,6 +105,38 @@ class AgentKind(models.TextChoices):
     PLATFORM_ASSISTANT = "platform_assistant", "Platform assistant"
     COMPLIANCE_ASSISTANT = "compliance_assistant", "Compliance assistant"
 
+class AgentIcon(models.TextChoices):
+    ROBOT = "robot", "Robot"
+    SPARKLES = "sparkles", "Sparkles"
+    USER = "user", "Person"
+    USERS = "users", "People"
+    MESSAGE = "message", "Message"
+    HEADSET = "headset", "Headset"
+    BRIEFCASE = "briefcase", "Briefcase"
+    BUILDING = "building", "Building"
+    BUILDING_BANK = "building-bank", "Bank"
+    SCALE = "scale", "Scale"
+    GAVEL = "gavel", "Gavel"
+    SHIELD = "shield", "Shield"
+    SHIELD_CHECK = "shield-check", "Verified shield"
+    LOCK = "lock", "Lock"
+    BOOK = "book", "Book"
+    BOOKS = "books", "Books"
+    SCHOOL = "school", "School"
+    FILE_TEXT = "file-text", "Document"
+    SEARCH = "search", "Search"
+    BULB = "bulb", "Idea"
+    CHART_BAR = "chart-bar", "Chart"
+    CALCULATOR = "calculator", "Calculator"
+    DATABASE = "database", "Database"
+    CODE = "code", "Code"
+    STETHOSCOPE = "stethoscope", "Health"
+    LEAF = "leaf", "Leaf"
+    WORLD = "world", "World"
+    MAIL = "mail", "Mail"
+    PHONE = "phone", "Phone"
+    STAR = "star", "Star"
+
 class Agent(models.Model):
 
     VOICE_OPTIONS = ["allow", ""]
@@ -116,6 +148,11 @@ class Agent(models.Model):
     ]
 
     name = models.CharField(max_length=255)
+    icon = models.CharField(
+        max_length=40,
+        choices=AgentIcon.choices,
+        default=AgentIcon.ROBOT,
+    )
     slug = models.SlugField(unique=True, blank=True, max_length=100)
     model_slug = models.CharField(
         max_length=100, default="gpt-4o-mini", null=True, blank=True

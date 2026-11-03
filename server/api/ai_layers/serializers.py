@@ -145,6 +145,7 @@ class AgentSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "name",
+            "icon",
             "slug",
             "agent_kind",
             "system_prompt",

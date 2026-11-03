@@ -4,11 +4,19 @@ import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { twilight } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { API_URL } from "../modules/constants";
+import i18n from "../i18next";
+import { HtmlFrame, htmlPreviewFromHref, linkText } from "../components/HtmlPreview/HtmlFrame";
 
 interface WidgetMarkdownRendererProps {
   markdown: string;
   extraClass?: string;
-  attachments?: { attachment_id?: string | number; id?: string | number; content?: string }[];
+  attachments?: {
+    attachment_id?: string | number;
+    id?: string | number;
+    content?: string;
+    name?: string;
+    type?: string;
+  }[];
 }
 
 const WidgetMarkdownRenderer: React.FC<WidgetMarkdownRendererProps> = ({
@@ -67,6 +75,15 @@ const WidgetMarkdownRenderer: React.FC<WidgetMarkdownRendererProps> = ({
         a(props) {
           const href = (props as any)?.href as string | undefined;
           const resolvedHref = href ? urlTransform(href) : href;
+          const preview = htmlPreviewFromHref(
+            resolvedHref || "",
+            attachments,
+            (content) => normalizeUrl(content),
+          );
+          if (preview) {
+            const label = linkText((props as { children?: React.ReactNode }).children).trim();
+            return <WidgetHtmlPreview src={preview.src} title={label || preview.name} />;
+          }
           return (
             <a
               {...(props as any)}
@@ -101,6 +118,39 @@ const WidgetMarkdownRenderer: React.FC<WidgetMarkdownRendererProps> = ({
     </Markdown>
   );
 };
+
+const widgetHtmlButtonStyle: React.CSSProperties = {
+  background: "transparent",
+  border: "none",
+  color: "inherit",
+  cursor: "pointer",
+  fontSize: 12,
+  padding: "2px 6px",
+};
+
+function WidgetHtmlPreview({ src, title }: { src: string; title: string }) {
+  return (
+    <span className="html-preview">
+      <span className="html-preview-bar">
+        <span className="html-preview-title">{title}</span>
+        <span className="html-preview-actions">
+          <button
+            type="button"
+            onClick={() => window.open(src, "_blank", "noopener,noreferrer")}
+            aria-label={i18n.t("expand")}
+            style={widgetHtmlButtonStyle}
+          >
+            {i18n.t("expand")}
+          </button>
+          <a href={src} download={title} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12 }}>
+            {i18n.t("download")}
+          </a>
+        </span>
+      </span>
+      <HtmlFrame src={src} title={title} height={360} />
+    </span>
+  );
+}
 
 const WidgetCodeBlock = ({ code, language }: { code: string; language: string }) => {
   const handleCopy = () => {

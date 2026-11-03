@@ -1,5 +1,8 @@
 import React, { useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { API_URL } from "../modules/constants";
+import i18n from "../i18next";
+import { HtmlFrame, isHtmlFile } from "../components/HtmlPreview/HtmlFrame";
 
 const WIDGET_VIDEO_EXT = /\.(mp4|webm|mov|m4v|ogv)(\?|#|$)/i;
 
@@ -84,6 +87,10 @@ export const WidgetThumbnail: React.FC<WidgetThumbnailProps> = ({
       ? src
       : `${API_URL}${(src || content).startsWith("/") ? "" : "/"}${src || content}`;
 
+  if (isHtmlFile(name, documentHref, type)) {
+    return <WidgetHtmlThumbnail src={documentHref} name={name} />;
+  }
+
   return (
     <a
       href={documentHref}
@@ -108,6 +115,61 @@ export const WidgetThumbnail: React.FC<WidgetThumbnailProps> = ({
     >
       📄 {name}
     </a>
+  );
+};
+
+const WidgetHtmlThumbnail: React.FC<{ src: string; name: string }> = ({ src, name }) => {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          padding: "4px 10px",
+          borderRadius: 6,
+          background: "rgba(255,255,255,0.08)",
+          fontSize: 13,
+          maxWidth: 200,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+          color: "inherit",
+          border: "none",
+          cursor: "pointer",
+        }}
+      >
+        {name}
+      </button>
+      {open &&
+        createPortal(
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 9999,
+              background: "rgba(0,0,0,0.88)",
+              display: "flex",
+              flexDirection: "column",
+              padding: 16,
+              gap: 8,
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              style={{ alignSelf: "flex-end", background: "transparent", border: "none", color: "#fff", cursor: "pointer" }}
+            >
+              {i18n.t("close")}
+            </button>
+            <HtmlFrame src={src} title={name} height="calc(100vh - 72px)" />
+          </div>,
+          document.body,
+        )}
+    </>
   );
 };
 
