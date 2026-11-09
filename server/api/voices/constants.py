@@ -68,4 +68,10 @@ SYSTEM_ELEVENLABS_VOICES: list[dict] = [
         "provider_voice_id": "N2lVS1w4EtoT3dr4eOWO",
         "metadata": {"model_id": ELEVENLABS_DEFAULT_MODEL},
     },
+    {
+        "slug": "gallo",
+        "name": "Gallo",
+        "provider_voice_id": "CXLJiPe2LVlW1WpSrmJp",
+        "metadata": {"model_id": ELEVENLABS_DEFAULT_MODEL},
+    },
 ]
