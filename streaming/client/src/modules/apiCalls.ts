@@ -2484,6 +2484,37 @@ export const listPldEntities = async () => {
   );
 };
 
+export type TWatchlistSummary = {
+  list_slug: string;
+  record_count: number;
+  date_generated: string;
+  ingested_at: string | null;
+};
+
+export type TWatchlistHit = {
+  list_slug: string;
+  primary_name: string;
+  reference_number: string;
+  situation: string;
+  listed_on: string;
+};
+
+export const listComplianceWatchlists = async () => {
+  return makeAuthenticatedRequest<{ results: TWatchlistSummary[] }>(
+    "GET",
+    "/v1/compliance/watchlists/"
+  );
+};
+
+export const searchComplianceWatchlists = async (query: string, listSlug: string) => {
+  const params = new URLSearchParams({ q: query });
+  if (listSlug) params.set("list", listSlug);
+  return makeAuthenticatedRequest<{
+    truncated: boolean;
+    results: TWatchlistHit[];
+  }>("GET", `/v1/compliance/watchlists/search/?${params.toString()}`);
+};
+
 export type TPldRun = {
   id: string;
   version: number;

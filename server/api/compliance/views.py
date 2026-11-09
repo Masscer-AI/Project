@@ -37,6 +37,8 @@ from api.compliance.models import (
     PLDMatrixProfile,
     PLDPersonType,
     PLDRelationship,
+    WatchlistListSlug,
+    WatchlistSnapshot,
 )
 from api.compliance.pld_matrix import (
     base_points,
@@ -45,6 +47,51 @@ from api.compliance.pld_matrix import (
     profile_payload,
 )
 from api.compliance.runs import score_run_matrix, start_new_run
+from api.compliance.screening.search_tool import search_watchlists_impl
+
+
+def _watchlist_catalog():
+    current = {
+        row.list_slug: row
+        for row in WatchlistSnapshot.objects.filter(is_current=True)
+    }
+    rows = []
+    for slug in WatchlistListSlug.values:
+        snap = current.get(slug)
+        rows.append(
+            {
+                "list_slug": slug,
+                "record_count": snap.record_count if snap else 0,
+                "date_generated": snap.date_generated if snap else "",
+                "ingested_at": snap.ingested_at.isoformat() if snap else None,
+            }
+        )
+    return rows
+
+
+def _watchlist_search(request):
+    query = " ".join((request.GET.get("q") or "").split())
+    if len(query) < 3 or len(query) > 200:
+        return None, JsonResponse({"error": "invalid-query"}, status=400)
+    list_slug = (request.GET.get("list") or "").strip()
+    if list_slug and list_slug not in WatchlistListSlug.values:
+        return None, JsonResponse({"error": "unknown-list"}, status=400)
+    found = search_watchlists_impl(
+        query.split(),
+        list_slug=list_slug or None,
+        limit=50,
+    )
+    hits = [
+        {
+            "list_slug": hit.list_slug,
+            "primary_name": hit.primary_name,
+            "reference_number": hit.reference_number,
+            "situation": hit.situation,
+            "listed_on": hit.listed_on,
+        }
+        for hit in found.hits
+    ]
+    return {"truncated": found.truncated, "results": hits}, None
 
 
 def _risk_declared(meta: dict) -> bool:
@@ -1758,3 +1805,26 @@ class PostalCodeLookupView(View):
         if not result:
             return JsonResponse({"found": False}, status=200)
         return JsonResponse({"found": True, **result}, status=200)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class WatchlistCatalogView(View):
+    def get(self, request, *args, **kwargs):
+        _, err = _org_or_404(request)
+        if err:
+            return err
+        return JsonResponse({"results": _watchlist_catalog()}, status=200)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class WatchlistSearchView(View):
+    def get(self, request, *args, **kwargs):
+        _, err = _org_or_404(request)
+        if err:
+            return err
+        payload, err = _watchlist_search(request)
+        if err:
+            return err
+        return JsonResponse(payload, status=200)

@@ -26,6 +26,7 @@ import { useDisclosure } from "@mantine/hooks";
 import {
   IconAdjustments,
   IconDownload,
+  IconListSearch,
   IconPlus,
   IconRefresh,
   IconUsers,
@@ -54,6 +55,7 @@ import {
   TPldRun,
 } from "../../modules/apiCalls";
 import { RiskMatrixPanel } from "./RiskMatrixPanel";
+import { WatchlistsPanel } from "./WatchlistsPanel";
 
 const CLOSED = new Set(["signed", "delivered"]);
 const HIGH_RISK = new Set(["orange", "red"]);
@@ -67,10 +69,11 @@ const STAGES = [
   "action_required",
 ];
 
-type ComplianceTab = "counterparties" | "matrix";
+type ComplianceTab = "counterparties" | "matrix" | "watchlists";
 
 function parseComplianceTab(raw: string | null): ComplianceTab {
   if (raw === "matrix") return "matrix";
+  if (raw === "watchlists") return "watchlists";
   return "counterparties";
 }
 
@@ -416,10 +419,17 @@ export default function ComplianceHubPage() {
               <Tabs.Tab value="matrix" leftSection={<IconAdjustments size={16} />}>
                 {t("compliance-tab-matrix")}
               </Tabs.Tab>
+              <Tabs.Tab value="watchlists" leftSection={<IconListSearch size={16} />}>
+                {t("compliance-tab-watchlists")}
+              </Tabs.Tab>
             </Tabs.List>
 
             <Tabs.Panel value="matrix">
               <RiskMatrixPanel matrix={matrix} onChange={handleMatrixChange} />
+            </Tabs.Panel>
+
+            <Tabs.Panel value="watchlists">
+              <WatchlistsPanel />
             </Tabs.Panel>
 
             <Tabs.Panel value="counterparties">

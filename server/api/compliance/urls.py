@@ -21,6 +21,8 @@ from api.compliance.views import (
     PLDOrganizationBundleView,
     PLDStartProcessView,
     PostalCodeLookupView,
+    WatchlistCatalogView,
+    WatchlistSearchView,
 )
 
 app_name = "compliance"
@@ -69,6 +71,12 @@ urlpatterns = [
     ),
     path("bundle/", PLDOrganizationBundleView.as_view(), name="pld_organization_bundle"),
     path("matrix/", PLDMatrixView.as_view(), name="pld_matrix"),
+    path("watchlists/", WatchlistCatalogView.as_view(), name="watchlist_catalog"),
+    path(
+        "watchlists/search/",
+        WatchlistSearchView.as_view(),
+        name="watchlist_search",
+    ),
     path(
         "matrix/profiles/<uuid:profile_id>/",
         PLDMatrixProfileDetailView.as_view(),
