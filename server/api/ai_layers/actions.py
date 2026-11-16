@@ -133,9 +133,35 @@ def check_models_for_providers():
             },
         },
         {
+            "name": "Gemini 4 Hydrogen",
+            "slug": "gemini-4-hydrogen",
+            "lists": DEFAULT_LISTS,
+            "is_reasoning_model": True,
+            "reasoning_levels": ["low", "medium", "high", "xhigh"],
+            "pricing": {
+                "text": {
+                    "prompt": "1.50 USD / 1000000",
+                    "output": "7.50 USD / 1000000",
+                }
+            },
+        },
+        {
             "name": "Gemini 4 Argon",
             "slug": "gemini-4-argon",
-            "lists": DEFAULT_LISTS,
+            "lists": ADVANCED_LISTS,
+            "is_reasoning_model": True,
+            "reasoning_levels": ["low", "medium", "high"],
+            "pricing": {
+                "text": {
+                    "prompt": "2.00 USD / 1000000",
+                    "output": "10.00 USD / 1000000",
+                }
+            },
+        },
+        {
+            "name": "Gemini 4 Carbon",
+            "slug": "gemini-4-carbon",
+            "lists": ADVANCED_LISTS,
             "is_reasoning_model": True,
             "reasoning_levels": ["low", "medium", "high"],
             "pricing": {
