@@ -19,6 +19,7 @@ import { useDisclosure } from "@mantine/hooks";
 import {
   IconCopy,
   IconEye,
+  IconPencil,
   IconPlug,
   IconPlus,
   IconTrash,
@@ -29,6 +30,7 @@ import {
   getMCPToolPresets,
   listMCPCredentials,
   revokeMCPCredential,
+  updateMCPCredential,
   TMCPCredentialCreated,
   TMCPCredentialSummary,
   TMCPToolPresetGroup,
@@ -36,6 +38,87 @@ import {
 import { useStore } from "../../modules/store";
 import { useLocalizedToolName } from "../../utils/localizedToolName";
 import { mcpToolGroupLabel } from "../../utils/mcpToolGroupLabel";
+
+type SelectOption = { value: string; label: string };
+type GroupedOptions = { group: string; items: SelectOption[] };
+
+type AccessFieldsProps = {
+  name: string;
+  onName: (value: string) => void;
+  agentOptions: SelectOption[];
+  toolOptions: GroupedOptions[];
+  agentSlugs: string[];
+  toolNames: string[];
+  allAgentSlugs: string[];
+  allToolNames: string[];
+  onAgentSlugs: (value: string[]) => void;
+  onToolNames: (value: string[]) => void;
+};
+
+const AccessFields = ({
+  name,
+  onName,
+  agentOptions,
+  toolOptions,
+  agentSlugs,
+  toolNames,
+  allAgentSlugs,
+  allToolNames,
+  onAgentSlugs,
+  onToolNames,
+}: AccessFieldsProps) => {
+  const { t } = useTranslation();
+  return (
+    <Stack gap="sm">
+      <TextInput
+        label={t("mcp-credential-name")}
+        placeholder={t("mcp-credential-name-placeholder")}
+        value={name}
+        onChange={(e) => onName(e.currentTarget.value)}
+      />
+      <Stack gap={4}>
+        <MultiSelect
+          label={t("integrations-mcp-agents-label")}
+          description={t("integrations-mcp-agents-desc")}
+          placeholder={t("integrations-mcp-agents-placeholder")}
+          data={agentOptions}
+          value={agentSlugs}
+          onChange={onAgentSlugs}
+          searchable
+          clearable
+        />
+        <Group gap="xs">
+          <Button size="xs" variant="subtle" onClick={() => onAgentSlugs(allAgentSlugs)}>
+            {t("select-all")}
+          </Button>
+          <Button size="xs" variant="subtle" color="gray" onClick={() => onAgentSlugs([])}>
+            {t("unselect-all")}
+          </Button>
+        </Group>
+      </Stack>
+      <Stack gap={4}>
+        <MultiSelect
+          label={t("integrations-mcp-tools-label")}
+          description={t("integrations-mcp-tools-desc")}
+          placeholder={t("integrations-mcp-tools-placeholder")}
+          data={toolOptions}
+          value={toolNames}
+          onChange={onToolNames}
+          searchable
+          clearable
+        />
+        <Group gap="xs">
+          <Button size="xs" variant="subtle" onClick={() => onToolNames([...allToolNames])}>
+            {t("select-all")}
+          </Button>
+          <Button size="xs" variant="subtle" color="gray" onClick={() => onToolNames([])}>
+            {t("unselect-all")}
+          </Button>
+        </Group>
+      </Stack>
+    </Stack>
+  );
+};
 
 type McpCredentialsSectionProps = {
   variant?: "list" | "create-advanced";
@@ -57,6 +140,10 @@ export const McpCredentialsSection = ({
   const [loading, setLoading] = useState(true);
   const [createOpened, { open: openCreate, close: closeCreate }] = useDisclosure(false);
   const [detailCred, setDetailCred] = useState<TMCPCredentialSummary | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editAgentSlugs, setEditAgentSlugs] = useState<string[]>([]);
+  const [editToolNames, setEditToolNames] = useState<string[]>([]);
   const [revokeTarget, setRevokeTarget] = useState<TMCPCredentialSummary | null>(null);
   const [credentialName, setCredentialName] = useState("");
   const [selectedAgentSlugs, setSelectedAgentSlugs] = useState<string[]>([]);
@@ -211,6 +298,47 @@ export const McpCredentialsSection = ({
     toast.success(t("mcp-copy-key"));
   };
 
+  const openDetail = (cred: TMCPCredentialSummary, startEditing: boolean) => {
+    setDetailCred(cred);
+    setEditName(cred.name);
+    setEditAgentSlugs(cred.allowed_agent_slugs);
+    setEditToolNames(cred.allowed_tool_names);
+    setEditing(startEditing);
+  };
+
+  const closeDetail = () => {
+    setDetailCred(null);
+    setEditing(false);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!detailCred) return;
+    const name = editName.trim();
+    if (!name) {
+      toast.error(t("mcp-credential-name"));
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await updateMCPCredential(detailCred.id, {
+        name,
+        allowed_agent_slugs: editAgentSlugs,
+        allowed_tool_names: editToolNames,
+      });
+      toast.success(t("integrations-mcp-updated"));
+      const res = await listMCPCredentials();
+      const next = res.credentials;
+      setCredentials(next);
+      setDetailCred(next.find((cred) => cred.id === detailCred.id) ?? null);
+      setEditing(false);
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { error?: string } } };
+      toast.error(err?.response?.data?.error || t("an-error-occurred"));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleRevoke = async () => {
     if (!revokeTarget) return;
     try {
@@ -301,70 +429,18 @@ export const McpCredentialsSection = ({
             </Stack>
           ) : (
             <Stack gap="sm">
-              <TextInput
-                label={t("mcp-credential-name")}
-                placeholder={t("mcp-credential-name-placeholder")}
-                value={credentialName}
-                onChange={(e) => setCredentialName(e.currentTarget.value)}
+              <AccessFields
+                name={credentialName}
+                onName={setCredentialName}
+                agentOptions={agentOptions}
+                toolOptions={toolOptions}
+                agentSlugs={selectedAgentSlugs}
+                toolNames={selectedToolNames}
+                allAgentSlugs={allAgentSlugs}
+                allToolNames={allToolNames}
+                onAgentSlugs={setSelectedAgentSlugs}
+                onToolNames={setSelectedToolNames}
               />
-              <Stack gap={4}>
-                <MultiSelect
-                  label={t("integrations-mcp-agents-label")}
-                  description={t("integrations-mcp-agents-desc")}
-                  placeholder={t("integrations-mcp-agents-placeholder")}
-                  data={agentOptions}
-                  value={selectedAgentSlugs}
-                  onChange={setSelectedAgentSlugs}
-                  searchable
-                  clearable
-                />
-                <Group gap="xs">
-                  <Button
-                    size="xs"
-                    variant="subtle"
-                    onClick={() => setSelectedAgentSlugs(allAgentSlugs)}
-                  >
-                    {t("select-all")}
-                  </Button>
-                  <Button
-                    size="xs"
-                    variant="subtle"
-                    color="gray"
-                    onClick={() => setSelectedAgentSlugs([])}
-                  >
-                    {t("unselect-all")}
-                  </Button>
-                </Group>
-              </Stack>
-              <Stack gap={4}>
-                <MultiSelect
-                  label={t("integrations-mcp-tools-label")}
-                  description={t("integrations-mcp-tools-desc")}
-                  placeholder={t("integrations-mcp-tools-placeholder")}
-                  data={toolOptions}
-                  value={selectedToolNames}
-                  onChange={setSelectedToolNames}
-                  searchable
-                  clearable
-                />
-                <Group gap="xs">
-                  <Button
-                    size="xs"
-                    variant="subtle"
-                    onClick={() => setSelectedToolNames([...allToolNames])}
-                  >
-                    {t("select-all")}
-                  </Button>
-                  <Button
-                    size="xs"
-                    variant="subtle"
-                    color="gray"
-                    onClick={() => setSelectedToolNames([])}
-                  >
-                    {t("unselect-all")}
-                  </Button>
-                </Group>
-              </Stack>
               <Group justify="flex-end">
                 <Button variant="default" onClick={closeCreate}>{t("cancel")}</Button>
                 <Button loading={submitting} onClick={() => void handleCreate()}>
@@ -400,7 +476,7 @@ export const McpCredentialsSection = ({
             <Card key={cred.id} withBorder padding="sm" radius="md">
               <Group justify="space-between" align="center" wrap="nowrap">
                 <UnstyledButton
-                  onClick={() => setDetailCred(cred)}
+                  onClick={() => openDetail(cred, false)}
                   style={{ flex: 1, minWidth: 0, textAlign: "left" }}
                 >
                   <Stack gap={4}>
@@ -422,8 +498,17 @@ export const McpCredentialsSection = ({
                     size="xs"
                     variant="subtle"
                     color="gray"
+                    leftSection={<IconPencil size={14} />}
+                    onClick={() => openDetail(cred, true)}
+                  >
+                    {t("edit")}
+                  </Button>
+                  <Button
+                    size="xs"
+                    variant="subtle"
+                    color="gray"
                     leftSection={<IconEye size={14} />}
-                    onClick={() => setDetailCred(cred)}
+                    onClick={() => openDetail(cred, false)}
                   >
                     {t("integrations-mcp-view-details")}
                   </Button>
@@ -445,7 +530,7 @@ export const McpCredentialsSection = ({
 
       <Modal
         opened={Boolean(detailCred)}
-        onClose={() => setDetailCred(null)}
+        onClose={closeDetail}
         title={detailCred?.name ?? t("integrations-mcp-credential-details")}
         size="lg"
       >
@@ -461,59 +546,96 @@ export const McpCredentialsSection = ({
               )}
             </Group>
 
-            <Stack gap={4}>
-              <Text size="sm" fw={600}>{t("integrations-mcp-agents-label")}</Text>
-              {detailCred.allowed_agent_slugs.length > 0 ? (
-                <Group gap={4}>
-                  {detailCred.allowed_agent_slugs.map((slug) => (
-                    <Badge key={slug} size="sm" variant="light">{slug}</Badge>
-                  ))}
-                </Group>
-              ) : (
-                <Text size="sm" c="dimmed">{t("integrations-mcp-all-agents")}</Text>
-              )}
-            </Stack>
+            {editing ? (
+              <AccessFields
+                name={editName}
+                onName={setEditName}
+                agentOptions={agentOptions}
+                toolOptions={toolOptions}
+                agentSlugs={editAgentSlugs}
+                toolNames={editToolNames}
+                allAgentSlugs={allAgentSlugs}
+                allToolNames={allToolNames}
+                onAgentSlugs={setEditAgentSlugs}
+                onToolNames={setEditToolNames}
+              />
+            ) : (
+              <>
+                <Stack gap={4}>
+                  <Text size="sm" fw={600}>{t("integrations-mcp-agents-label")}</Text>
+                  {detailCred.allowed_agent_slugs.length > 0 ? (
+                    <Group gap={4}>
+                      {detailCred.allowed_agent_slugs.map((slug) => (
+                        <Badge key={slug} size="sm" variant="light">{slug}</Badge>
+                      ))}
+                    </Group>
+                  ) : (
+                    <Text size="sm" c="dimmed">{t("integrations-mcp-all-agents")}</Text>
+                  )}
+                </Stack>
 
-            <Stack gap={4}>
-              <Text size="sm" fw={600}>{t("integrations-mcp-tools-label")}</Text>
-              {detailCred.allowed_tool_names.length > 0 ? (
-                <Group gap={4}>
-                  {detailCred.allowed_tool_names.map((tool) => (
-                    <Badge key={tool} size="sm" variant="outline" color="violet">
-                      {localizedToolName(tool)}
-                    </Badge>
-                  ))}
-                </Group>
-              ) : (
-                <Text size="sm" c="dimmed">
-                  {t("integrations-mcp-tools-basic-preset")}
-                </Text>
-              )}
-            </Stack>
+                <Stack gap={4}>
+                  <Text size="sm" fw={600}>{t("integrations-mcp-tools-label")}</Text>
+                  {detailCred.allowed_tool_names.length > 0 ? (
+                    <Group gap={4}>
+                      {detailCred.allowed_tool_names.map((tool) => (
+                        <Badge key={tool} size="sm" variant="outline" color="violet">
+                          {localizedToolName(tool)}
+                        </Badge>
+                      ))}
+                    </Group>
+                  ) : (
+                    <Text size="sm" c="dimmed">
+                      {t("integrations-mcp-tools-basic-preset")}
+                    </Text>
+                  )}
+                </Stack>
+              </>
+            )}
 
             <Group justify="flex-end">
-              {!detailCred.auth_via_oauth ? (
-                <Button
-                  variant="light"
-                  leftSection={<IconCopy size={16} />}
-                  onClick={() => void handleCopyConfig(detailCred.id)}
-                >
-                  {t("mcp-copy-cursor-config")}
-                </Button>
-              ) : null}
-              <Button
-                color="red"
-                variant="light"
-                leftSection={<IconTrash size={16} />}
-                onClick={() => {
-                  setRevokeTarget(detailCred);
-                }}
-              >
-                {t("mcp-revoke-credential")}
-              </Button>
-              <Button variant="default" onClick={() => setDetailCred(null)}>
-                {t("close")}
-              </Button>
+              {editing ? (
+                <>
+                  <Button variant="default" onClick={() => setEditing(false)}>
+                    {t("cancel")}
+                  </Button>
+                  <Button loading={submitting} onClick={() => void handleSaveEdit()}>
+                    {t("save")}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    variant="light"
+                    leftSection={<IconPencil size={16} />}
+                    onClick={() => openDetail(detailCred, true)}
+                  >
+                    {t("edit")}
+                  </Button>
+                  {!detailCred.auth_via_oauth ? (
+                    <Button
+                      variant="light"
+                      leftSection={<IconCopy size={16} />}
+                      onClick={() => void handleCopyConfig(detailCred.id)}
+                    >
+                      {t("mcp-copy-cursor-config")}
+                    </Button>
+                  ) : null}
+                  <Button
+                    color="red"
+                    variant="light"
+                    leftSection={<IconTrash size={16} />}
+                    onClick={() => {
+                      setRevokeTarget(detailCred);
+                    }}
+                  >
+                    {t("mcp-revoke-credential")}
+                  </Button>
+                  <Button variant="default" onClick={closeDetail}>
+                    {t("close")}
+                  </Button>
+                </>
+              )}
             </Group>
           </Stack>
         ) : null}

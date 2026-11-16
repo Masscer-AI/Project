@@ -962,6 +962,7 @@
   "integrations-mcp-tools-count": "{{count}} herramientas",
   "integrations-mcp-agents-count": "{{count}} agentes",
   "integrations-mcp-view-details": "Detalles",
+  "integrations-mcp-updated": "Conexión actualizada",
   "integrations-mcp-credential-details": "Detalles de la credencial",
   "integrations-mcp-oauth-badge": "OAuth",
   "integrations-mcp-revoke-confirm": "¿Revocar la credencial MCP \"{{name}}\"? Los clientes externos que usen esta clave dejarán de funcionar.",

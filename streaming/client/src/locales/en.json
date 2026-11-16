@@ -960,6 +960,7 @@
   "integrations-mcp-tools-count": "{{count}} tools",
   "integrations-mcp-agents-count": "{{count}} agents",
   "integrations-mcp-view-details": "Details",
+  "integrations-mcp-updated": "Connection updated",
   "integrations-mcp-credential-details": "Credential details",
   "integrations-mcp-oauth-badge": "OAuth",
   "integrations-mcp-revoke-confirm": "Revoke MCP credential \"{{name}}\"? External clients using this key will stop working.",
