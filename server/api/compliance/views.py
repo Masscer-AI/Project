@@ -38,7 +38,6 @@ from api.compliance.models import (
     PLDPersonType,
     PLDRelationship,
     WatchlistListSlug,
-    WatchlistSnapshot,
 )
 from api.compliance.pld_matrix import (
     base_points,
@@ -51,22 +50,9 @@ from api.compliance.screening.search_tool import search_watchlists_impl
 
 
 def _watchlist_catalog():
-    current = {
-        row.list_slug: row
-        for row in WatchlistSnapshot.objects.filter(is_current=True)
-    }
-    rows = []
-    for slug in WatchlistListSlug.values:
-        snap = current.get(slug)
-        rows.append(
-            {
-                "list_slug": slug,
-                "record_count": snap.record_count if snap else 0,
-                "date_generated": snap.date_generated if snap else "",
-                "ingested_at": snap.ingested_at.isoformat() if snap else None,
-            }
-        )
-    return rows
+    from api.compliance.watchlists.catalog import catalog_rows
+
+    return catalog_rows()
 
 
 def _watchlist_search(request):
@@ -92,6 +78,34 @@ def _watchlist_search(request):
         for hit in found.hits
     ]
     return {"truncated": found.truncated, "results": hits}, None
+
+
+def _watchlist_upload(request):
+    from api.compliance.watchlists.catalog import SOURCE_BY_SLUG
+    from api.compliance.watchlists.ingest import ingest_uploaded_file
+
+    reasons = {
+        "Official list file has no records": "no-records",
+        "SAT CSV is missing an RFC header row": "sat-header",
+    }
+    uploaded = request.FILES.get("file")
+    if uploaded is None:
+        return JsonResponse({"error": "file-required"}, status=400)
+    source = SOURCE_BY_SLUG.get((request.POST.get("list") or "").strip())
+    if source is None or not source.parser:
+        return JsonResponse({"error": "unknown-list"}, status=400)
+    try:
+        result = ingest_uploaded_file(source, uploaded.read())
+    except Exception as exc:
+        return JsonResponse({"error": reasons.get(str(exc), str(exc)[:500])}, status=400)
+    return JsonResponse(
+        {
+            "status": result["status"],
+            "list_slug": result["list_slug"],
+            "record_count": result["record_count"],
+        },
+        status=200,
+    )
 
 
 def _risk_declared(meta: dict) -> bool:
@@ -1815,6 +1829,16 @@ class WatchlistCatalogView(View):
         if err:
             return err
         return JsonResponse({"results": _watchlist_catalog()}, status=200)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class WatchlistUploadView(View):
+    def post(self, request, *args, **kwargs):
+        _, err = _org_or_404(request)
+        if err:
+            return err
+        return _watchlist_upload(request)
 
 
 @method_decorator(csrf_exempt, name="dispatch")

@@ -1,7 +1,27 @@
+import urllib.error
+
 from django.test import SimpleTestCase, TestCase
 
-from api.compliance.models import WatchlistRecord, WatchlistSnapshot, WatchlistSnapshotStatus
-from api.compliance.watchlists.ingest import ingest_sat_list, ingest_un_csnu
+from api.compliance.models import (
+    WatchlistListSlug,
+    WatchlistRecord,
+    WatchlistSnapshot,
+    WatchlistSnapshotStatus,
+)
+from api.compliance.watchlists.catalog import OFF, SOURCES, active_sources, catalog_rows
+from api.compliance.watchlists.ingest import (
+    ingest_all_watchlists,
+    ingest_fetch,
+    ingest_sat_list,
+    ingest_un_csnu,
+    ingest_watch,
+)
+from api.compliance.watchlists.official_xml import (
+    parse_canada_sema,
+    parse_eu_fsf,
+    parse_ofac_enhanced,
+    parse_uk_sanctions,
+)
 from api.compliance.watchlists.normalize import fold_text
 from api.compliance.watchlists.search import search_watchlist_records
 from api.compliance.watchlists.sat_cff import parse_sat_csv
@@ -186,4 +206,159 @@ class WatchlistSearchToolTests(TestCase):
         self.assertEqual(and_query.hits[0].reference_number, "AAAA620217U54")
         none = search_watchlists_impl(["amador", "xyznoexiste"], list_slug="sat_69b")
         self.assertEqual(none.hits, [])
+
+
+SAMPLE_OFAC = b"""<?xml version="1.0" encoding="UTF-8"?>
+<sanctionsData>
+  <publicationInfo><dataAsOf>2026-11-13</dataAsOf></publicationInfo>
+  <entities>
+    <entity id="36">
+      <generalInfo><entityType>Individual</entityType></generalInfo>
+      <sanctionsPrograms><sanctionsProgram>SDGT</sanctionsProgram></sanctionsPrograms>
+      <sanctionsLists>
+        <sanctionsList datePublished="2001-10-12">SDN List</sanctionsList>
+      </sanctionsLists>
+      <names>
+        <name>
+          <isPrimary>true</isPrimary>
+          <translations><translation><formattedFullName>DOE, John</formattedFullName></translation></translations>
+        </name>
+        <name>
+          <isPrimary>false</isPrimary>
+          <translations><translation><formattedFullName>JOHNNY</formattedFullName></translation></translations>
+        </name>
+      </names>
+    </entity>
+  </entities>
+</sanctionsData>
+"""
+
+SAMPLE_UK = b"""<?xml version="1.0" encoding="UTF-8"?>
+<Designations>
+  <DateGenerated>12/11/2026</DateGenerated>
+  <Designation>
+    <UniqueID>RUS0001</UniqueID>
+    <DateDesignated>24/02/2022</DateDesignated>
+    <IndividualEntityShip>Individual</IndividualEntityShip>
+    <RegimeName>Russia</RegimeName>
+    <Names>
+      <Name>
+        <Name1>DOE</Name1>
+        <Name2>JOHN</Name2>
+        <NameType>Primary Name</NameType>
+      </Name>
+    </Names>
+  </Designation>
+</Designations>
+"""
+
+SAMPLE_EU = b"""<?xml version="1.0" encoding="UTF-8"?>
+<export generationDate="2026-11-04">
+  <sanctionEntity logicalId="13" designationDate="2001-10-17">
+    <subjectType code="person"/>
+    <nameAlias wholeName="John Doe" strong="true"/>
+    <citizenship countryDescription="Russia"/>
+    <birthdate year="1958"/>
+  </sanctionEntity>
+</export>
+"""
+
+SAMPLE_CA = b"""<?xml version="1.0" encoding="UTF-8"?>
+<dataset>
+  <record>
+    <Country>Russia</Country>
+    <LastName>DOE</LastName>
+    <GivenName>John</GivenName>
+    <Item>4</Item>
+    <Schedule>1</Schedule>
+    <DateOfListing>2022-02-24</DateOfListing>
+  </record>
+</dataset>
+"""
+
+PARSER_FIXTURES = {
+    "un": SAMPLE_UN_XML,
+    "sat": SAMPLE_SAT_69_FIRMES_CSV,
+    "ofac": SAMPLE_OFAC,
+    "uk": SAMPLE_UK,
+    "eu": SAMPLE_EU,
+    "ca": SAMPLE_CA,
+    "": b"<html>october</html>",
+}
+
+
+class OfficialListParserTests(SimpleTestCase):
+    def test_parses_ofac_uk_eu_and_canada(self):
+        ofac = parse_ofac_enhanced(SAMPLE_OFAC)
+        self.assertEqual(ofac["date_generated"], "2026-11-13")
+        self.assertEqual(ofac["records"][0]["primary_name"], "DOE, John")
+        self.assertIn("JOHNNY", ofac["records"][0]["names"])
+        self.assertEqual(ofac["records"][0]["record_type"], "individual")
+        uk = parse_uk_sanctions(SAMPLE_UK)
+        self.assertEqual(uk["records"][0]["reference_number"], "RUS0001")
+        self.assertEqual(uk["records"][0]["primary_name"], "DOE JOHN")
+        eu = parse_eu_fsf(SAMPLE_EU)
+        self.assertEqual(eu["records"][0]["primary_name"], "John Doe")
+        self.assertEqual(eu["records"][0]["nationalities"], ["Russia"])
+        canada = parse_canada_sema(SAMPLE_CA)
+        self.assertEqual(canada["records"][0]["reference_number"], "1-4")
+        self.assertEqual(canada["records"][0]["primary_name"], "John DOE")
+
+    def test_catalog_matches_slugs_and_leaves_closed_lists_out(self):
+        self.assertEqual({source.slug for source in SOURCES}, set(WatchlistListSlug.values))
+        closed = {source.slug for source in SOURCES if source.mode == OFF}
+        active = {source.slug for source in active_sources()}
+        self.assertTrue(closed)
+        self.assertFalse(closed & active)
+
+
+class WatchlistReminderTests(TestCase):
+    def test_ofac_file_is_skipped_when_unchanged(self):
+        source = next(source for source in SOURCES if source.slug == "ofac_sdn")
+        first = ingest_fetch(source, file_bytes=SAMPLE_OFAC)
+        self.assertEqual(first["status"], "updated")
+        second = ingest_fetch(source, file_bytes=SAMPLE_OFAC)
+        self.assertEqual(second["status"], "unchanged")
+        self.assertEqual(WatchlistSnapshot.objects.filter(list_slug="ofac_sdn").count(), 1)
+
+    def test_changed_page_asks_for_a_download(self):
+        source = next(source for source in SOURCES if source.slug == "fatf_high")
+        first = ingest_watch(source, page_bytes=b"october")
+        self.assertFalse(first["needs_download"])
+        same = ingest_watch(source, page_bytes=b"october")
+        self.assertFalse(same["needs_download"])
+        changed = ingest_watch(source, page_bytes=b"february")
+        self.assertTrue(changed["needs_download"])
+        again = ingest_watch(source, page_bytes=b"february")
+        self.assertTrue(again["needs_download"])
+        row = next(item for item in catalog_rows() if item["list_slug"] == "fatf_high")
+        self.assertEqual(row["status"], "needs_download")
+        self.assertEqual(row["error"], "")
+        self.assertIn("fatf-gafi.org", row["source_url"])
+
+    def test_failed_download_keeps_the_reason(self):
+        source = next(source for source in SOURCES if source.slug == "fatf_high")
+
+        def download(url, timeout=180):
+            raise urllib.error.HTTPError(url, 403, "Forbidden", hdrs=None, fp=None)
+
+        with self.assertRaises(urllib.error.HTTPError):
+            ingest_watch(source, download=download)
+        row = next(item for item in catalog_rows() if item["list_slug"] == "fatf_high")
+        self.assertEqual(row["status"], "failed")
+        self.assertIn("403", row["error"])
+
+    def test_closed_lists_are_never_requested(self):
+        calls = []
+        by_url = {source.url: source for source in active_sources()}
+
+        def download(url, timeout=180):
+            calls.append(url)
+            return PARSER_FIXTURES[by_url[url].parser]
+
+        payload = ingest_all_watchlists(download=download)
+        self.assertEqual(payload["errors"], [])
+        closed = {source.url for source in SOURCES if source.mode == OFF}
+        self.assertTrue(closed.isdisjoint(calls))
+        self.assertEqual(len(calls), len(active_sources()))
 

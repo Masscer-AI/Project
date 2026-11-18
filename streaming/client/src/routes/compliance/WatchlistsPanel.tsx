@@ -3,9 +3,11 @@ import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
 import {
   Alert,
+  Anchor,
   Badge,
   Button,
   Card,
+  FileButton,
   Group,
   Loader,
   NativeSelect,
@@ -20,6 +22,7 @@ import {
   searchComplianceWatchlists,
   TWatchlistHit,
   TWatchlistSummary,
+  uploadComplianceWatchlist,
 } from "../../modules/apiCalls";
 
 function listLabel(t: (key: string, options?: { defaultValue: string }) => string, slug: string) {
@@ -42,6 +45,54 @@ function sourceDate(value: string, language: string) {
   });
 }
 
+function listStatus(row: TWatchlistSummary, t: (key: string) => string) {
+  if (row.status === "needs_download") {
+    return (
+      <Anchor href={row.source_url} target="_blank" rel="noreferrer" size="sm">
+        {t("compliance-watchlists-needs-download")}
+      </Anchor>
+    );
+  }
+  if (row.status === "failed") {
+    return (
+      <Stack gap={2}>
+        <Text size="sm" c="red">
+          {t("compliance-watchlists-failed")}
+        </Text>
+        {row.error ? (
+          <Text size="xs" c="red">
+            {row.error}
+          </Text>
+        ) : null}
+      </Stack>
+    );
+  }
+  if (row.status === "unchanged") {
+    return (
+      <Text size="sm" c="dimmed">
+        {t("compliance-watchlists-unchanged")}
+      </Text>
+    );
+  }
+  if (row.status === "loaded") {
+    return <Text size="sm">{t("compliance-watchlists-loaded")}</Text>;
+  }
+  return (
+    <Text size="sm" c="dimmed">
+      {t("compliance-watchlists-not-loaded")}
+    </Text>
+  );
+}
+
+function uploadFailure(error: unknown, t: (key: string) => string) {
+  const raw = (error as { response?: { data?: { error?: string } } }).response?.data?.error;
+  if (raw === "file-required") return t("compliance-watchlists-upload-file");
+  if (raw === "unknown-list") return t("compliance-watchlists-upload-unknown");
+  if (raw === "no-records") return t("compliance-watchlists-upload-no-records");
+  if (raw === "sat-header") return t("compliance-watchlists-upload-sat-header");
+  return raw || t("compliance-watchlists-upload-error");
+}
+
 function situationColor(value: string) {
   const folded = value.toLowerCase();
   if (folded.includes("definitiv")) return "red";
@@ -60,6 +111,7 @@ export function WatchlistsPanel() {
   const [searched, setSearched] = useState(false);
   const [truncated, setTruncated] = useState(false);
   const [hits, setHits] = useState<TWatchlistHit[]>([]);
+  const [uploading, setUploading] = useState("");
 
   useEffect(() => {
     void (async () => {
@@ -73,6 +125,21 @@ export function WatchlistsPanel() {
       }
     })();
   }, [t]);
+
+  const uploadList = async (slug: string, file: File | null) => {
+    if (!file) return;
+    setUploading(slug);
+    try {
+      await uploadComplianceWatchlist(slug, file);
+      const data = await listComplianceWatchlists();
+      setLists(data.results);
+      toast.success(t("compliance-watchlists-uploaded"));
+    } catch (error) {
+      toast.error(uploadFailure(error, t));
+    } finally {
+      setUploading("");
+    }
+  };
 
   const runSearch = async () => {
     const text = query.trim();
@@ -107,11 +174,13 @@ export function WatchlistsPanel() {
         {t("compliance-watchlists-help")}
       </Text>
       <Card withBorder p={0}>
-        <Table.ScrollContainer minWidth={640}>
+        <Table.ScrollContainer minWidth={980}>
           <Table>
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>{t("compliance-watchlists-col-list")}</Table.Th>
+                <Table.Th>{t("compliance-watchlists-col-link")}</Table.Th>
+                <Table.Th>{t("compliance-watchlists-col-status")}</Table.Th>
                 <Table.Th>{t("compliance-watchlists-col-rows")}</Table.Th>
                 <Table.Th>{t("compliance-watchlists-col-updated")}</Table.Th>
               </Table.Tr>
@@ -119,9 +188,44 @@ export function WatchlistsPanel() {
             <Table.Tbody>
               {lists.map((row) => (
                 <Table.Tr key={row.list_slug}>
-                  <Table.Td>{listLabel(t, row.list_slug)}</Table.Td>
                   <Table.Td>
-                    {row.record_count.toLocaleString(i18n.language)}
+                    <Group gap="xs" wrap="nowrap">
+                      <Text size="sm">{listLabel(t, row.list_slug)}</Text>
+                      {row.mode === "fetch" ? (
+                        <FileButton
+                          onChange={(file) => void uploadList(row.list_slug, file)}
+                          accept=".csv,.xml"
+                        >
+                          {(props) => (
+                            <Button
+                              {...props}
+                              size="xs"
+                              variant="default"
+                              loading={uploading === row.list_slug}
+                            >
+                              {t("compliance-watchlists-upload")}
+                            </Button>
+                          )}
+                        </FileButton>
+                      ) : null}
+                    </Group>
+                  </Table.Td>
+                  <Table.Td style={{ whiteSpace: "normal", maxWidth: 280 }}>
+                    <Anchor
+                      href={row.source_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      size="xs"
+                      style={{ overflowWrap: "anywhere" }}
+                    >
+                      {row.source_url}
+                    </Anchor>
+                  </Table.Td>
+                  <Table.Td>{listStatus(row, t)}</Table.Td>
+                  <Table.Td>
+                    {row.mode === "fetch"
+                      ? row.record_count.toLocaleString(i18n.language)
+                      : "—"}
                   </Table.Td>
                   <Table.Td style={{ whiteSpace: "normal" }}>
                     {row.ingested_at ? (

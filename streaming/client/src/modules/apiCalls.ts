@@ -2486,6 +2486,10 @@ export const listPldEntities = async () => {
 
 export type TWatchlistSummary = {
   list_slug: string;
+  mode: string;
+  status: string;
+  error: string;
+  source_url: string;
   record_count: number;
   date_generated: string;
   ingested_at: string | null;
@@ -2504,6 +2508,17 @@ export const listComplianceWatchlists = async () => {
     "GET",
     "/v1/compliance/watchlists/"
   );
+};
+
+export const uploadComplianceWatchlist = async (listSlug: string, file: File) => {
+  const body = new FormData();
+  body.append("list", listSlug);
+  body.append("file", file);
+  return makeAuthenticatedRequest<{
+    status: string;
+    list_slug: string;
+    record_count: number;
+  }>("POST", "/v1/compliance/watchlists/upload/", body);
 };
 
 export const searchComplianceWatchlists = async (query: string, listSlug: string) => {

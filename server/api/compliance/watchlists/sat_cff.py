@@ -27,6 +27,10 @@ SAT_SOURCES: dict[str, str] = {
     WatchlistListSlug.SAT_69_EXIGIBLES: f"{SAT_BLOB}/Documents_AGR/Exigibles.csv",
     WatchlistListSlug.SAT_69_SENTENCIAS: f"{SAT_BLOB}/Documents_AGR/Sentencias.csv",
     WatchlistListSlug.SAT_69_CSD: f"{SAT_BLOB}/Documents_AGR/CSDsinefectos.csv",
+    WatchlistListSlug.SAT_69_CANCELADOS: f"{SAT_BLOB}/Documents_AGR/Cancelados.csv",
+    WatchlistListSlug.SAT_69_ENTES: (
+        f"{SAT_BLOB}/Documents_AGR/EntespublicosydeGobiernoomisos.csv"
+    ),
 }
 
 _UPDATED_RE = re.compile(r"actualizada al\s+([^;,\n\r]+)", re.IGNORECASE)

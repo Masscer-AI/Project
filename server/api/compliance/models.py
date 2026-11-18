@@ -699,6 +699,27 @@ class WatchlistListSlug(models.TextChoices):
     SAT_69_EXIGIBLES = "sat_69_exigibles", "SAT Art. 69 exigibles"
     SAT_69_SENTENCIAS = "sat_69_sentencias", "SAT Art. 69 sentencias"
     SAT_69_CSD = "sat_69_csd", "SAT Art. 69 CSD sin efectos"
+    SAT_69_CANCELADOS = "sat_69_cancelados", "SAT Art. 69 cancelados"
+    SAT_69_ENTES = "sat_69_entes", "SAT Art. 69 entes omisos"
+    OFAC_SDN = "ofac_sdn", "OFAC SDN"
+    OFAC_CONS = "ofac_cons", "OFAC consolidated non-SDN"
+    UK_UKSL = "uk_uksl", "UK sanctions list"
+    EU_FSF = "eu_fsf", "EU financial sanctions"
+    CA_SEMA = "ca_sema", "Canada SEMA"
+    MX_49BIS = "mx_49bis", "DOF art. 49 Bis"
+    FATF_HIGH = "fatf_high", "FATF call for action"
+    FATF_GREY = "fatf_grey", "FATF increased monitoring"
+    EU_AML = "eu_aml", "EU high-risk third countries"
+    EU_TAX = "eu_tax", "EU non-cooperative tax jurisdictions"
+    US_FINCEN = "us_fincen", "FinCEN special measures"
+    US_FTO = "us_fto", "US foreign terrorist organizations"
+    MX_UIF = "mx_uif", "UIF press"
+    EU_MAP = "eu_map", "EU sanctions map"
+    MX_LPB = "mx_lpb", "Lista de personas bloqueadas"
+    INTERPOL_RN = "interpol_rn", "Interpol red notices"
+    MX_PEP = "mx_pep", "Mexican PEPs"
+    MX_SABG = "mx_sabg", "SABG sanctioned suppliers"
+    PL_MSWIA = "pl_mswia", "Poland national sanctions"
 
 
 class WatchlistRecordType(models.TextChoices):
@@ -709,6 +730,7 @@ class WatchlistRecordType(models.TextChoices):
 class WatchlistSnapshotStatus(models.TextChoices):
     SUCCEEDED = "succeeded", "Succeeded"
     FAILED = "failed", "Failed"
+    NEEDS_DOWNLOAD = "needs_download", "Needs download"
 
 
 class WatchlistSnapshot(models.Model):

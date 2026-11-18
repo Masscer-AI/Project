@@ -1,4 +1,5 @@
 from django.contrib.auth.models import User
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -211,3 +212,67 @@ class WatchlistCatalogApiTests(TestCase):
             HTTP_AUTHORIZATION=f"Token {token.key}",
         )
         self.assertEqual(response.status_code, 200)
+
+    def test_upload_reads_a_matching_file(self):
+        payload = (
+            "RFC,RAZON SOCIAL,TIPO PERSONA,SUPUESTO,FECHA DE PRIMERA PUBLICACION\n"
+            "AAG090703QT6,APLICA AGUASCALIENTES SA DE CV,M,FIRMES,01/01/2014\n"
+        ).encode("cp1252")
+        response = self.client.post(
+            "/v1/compliance/watchlists/upload/",
+            {
+                "list": WatchlistListSlug.SAT_69_CANCELADOS,
+                "file": SimpleUploadedFile("cancelados.csv", payload, content_type="text/csv"),
+            },
+            **self.auth,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["record_count"], 1)
+        self.assertTrue(
+            WatchlistSnapshot.objects.filter(
+                list_slug=WatchlistListSlug.SAT_69_CANCELADOS,
+                is_current=True,
+                record_count=1,
+            ).exists()
+        )
+
+    def test_upload_rejects_a_file_that_does_not_match(self):
+        response = self.client.post(
+            "/v1/compliance/watchlists/upload/",
+            {
+                "list": WatchlistListSlug.SAT_69_CANCELADOS,
+                "file": SimpleUploadedFile("notes.txt", b"hello", content_type="text/plain"),
+            },
+            **self.auth,
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["error"], "sat-header")
+        self.assertFalse(
+            WatchlistSnapshot.objects.filter(
+                list_slug=WatchlistListSlug.SAT_69_CANCELADOS
+            ).exists()
+        )
+
+    def test_upload_rejects_a_list_without_a_reader(self):
+        response = self.client.post(
+            "/v1/compliance/watchlists/upload/",
+            {
+                "list": WatchlistListSlug.FATF_HIGH,
+                "file": SimpleUploadedFile("page.html", b"<html></html>"),
+            },
+            **self.auth,
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["error"], "unknown-list")
+
+    def test_upload_returns_the_reader_reason(self):
+        response = self.client.post(
+            "/v1/compliance/watchlists/upload/",
+            {
+                "list": WatchlistListSlug.OFAC_SDN,
+                "file": SimpleUploadedFile("sdn.xml", b"<not-a-list></not-a-list>"),
+            },
+            **self.auth,
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["error"], "no-records")

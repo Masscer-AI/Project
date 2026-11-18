@@ -21,6 +21,8 @@ RFC_SEARCH_LISTS = (
     WatchlistListSlug.SAT_69_EXIGIBLES,
     WatchlistListSlug.SAT_69_SENTENCIAS,
     WatchlistListSlug.SAT_69_CSD,
+    WatchlistListSlug.SAT_69_CANCELADOS,
+    WatchlistListSlug.SAT_69_ENTES,
 )
 
 

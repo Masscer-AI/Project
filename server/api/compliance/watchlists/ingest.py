@@ -6,6 +6,7 @@ import urllib.request
 
 from django.conf import settings
 from django.db import transaction
+from django.utils import timezone
 
 from api.compliance.models import (
     WatchlistListSlug,
@@ -13,8 +14,25 @@ from api.compliance.models import (
     WatchlistSnapshot,
     WatchlistSnapshotStatus,
 )
+from api.compliance.watchlists.catalog import (
+    WatchlistSource,
+    active_sources,
+)
+from api.compliance.watchlists.official_xml import (
+    parse_canada_sema,
+    parse_eu_fsf,
+    parse_ofac_enhanced,
+    parse_uk_sanctions,
+)
 from api.compliance.watchlists.sat_cff import SAT_SOURCES, parse_sat_csv
 from api.compliance.watchlists.un_csnu import DEFAULT_SOURCE_URL, parse_un_consolidated
+
+PARSERS = {
+    "ofac": parse_ofac_enhanced,
+    "uk": parse_uk_sanctions,
+    "eu": parse_eu_fsf,
+    "ca": parse_canada_sema,
+}
 
 logger = logging.getLogger(__name__)
 
@@ -132,13 +150,18 @@ def persist_watchlist_records(
     }
 
 
-def ingest_un_csnu(*, xml_bytes: bytes | None = None, force: bool = False) -> dict:
+def ingest_un_csnu(
+    *,
+    xml_bytes: bytes | None = None,
+    force: bool = False,
+    download=download_url,
+) -> dict:
     source_url = getattr(settings, "WATCHLIST_UN_CSNU_URL", "") or DEFAULT_SOURCE_URL
     list_slug = WatchlistListSlug.ONU_CSNU
     file_bytes = b""
     try:
         if xml_bytes is None:
-            xml_bytes = download_url(source_url)
+            xml_bytes = download(source_url)
         file_bytes = xml_bytes
         skipped = unchanged_if_same_hash(
             list_slug=list_slug, file_bytes=file_bytes, force=force
@@ -169,12 +192,13 @@ def ingest_sat_list(
     *,
     csv_bytes: bytes | None = None,
     force: bool = False,
+    download=download_url,
 ) -> dict:
     source_url = SAT_SOURCES[list_slug]
     file_bytes = b""
     try:
         if csv_bytes is None:
-            csv_bytes = download_url(source_url)
+            csv_bytes = download(source_url)
         file_bytes = csv_bytes
         skipped = unchanged_if_same_hash(
             list_slug=list_slug, file_bytes=file_bytes, force=force
@@ -200,18 +224,167 @@ def ingest_sat_list(
         raise
 
 
-def ingest_all_watchlists(*, force: bool = False) -> dict:
+def _ingest_bytes(
+    source: WatchlistSource,
+    parse,
+    *,
+    file_bytes: bytes | None,
+    force: bool,
+    download,
+) -> dict:
+    payload = b""
+    try:
+        if file_bytes is None:
+            file_bytes = download(source.url)
+        payload = file_bytes
+        skipped = unchanged_if_same_hash(
+            list_slug=source.slug, file_bytes=payload, force=force
+        )
+        if skipped:
+            return skipped
+        parsed = parse(payload)
+        return persist_watchlist_records(
+            list_slug=source.slug,
+            source_url=source.url,
+            file_bytes=payload,
+            parsed=parsed,
+            label=source.slug,
+        )
+    except Exception as exc:
+        logger.exception("%s watchlist ingest failed", source.slug)
+        record_failed_snapshot(
+            list_slug=source.slug,
+            source_url=source.url,
+            file_bytes=payload,
+            error=str(exc),
+        )
+        raise
+
+
+def ingest_fetch(
+    source: WatchlistSource,
+    *,
+    file_bytes: bytes | None = None,
+    force: bool = False,
+    download=download_url,
+) -> dict:
+    if source.parser == "un":
+        return ingest_un_csnu(xml_bytes=file_bytes, force=force, download=download)
+    if source.parser == "sat":
+        return ingest_sat_list(
+            source.slug, csv_bytes=file_bytes, force=force, download=download
+        )
+    return _ingest_bytes(
+        source,
+        PARSERS[source.parser],
+        file_bytes=file_bytes,
+        force=force,
+        download=download,
+    )
+
+
+def ingest_uploaded_file(source: WatchlistSource, file_bytes: bytes) -> dict:
+    skipped = unchanged_if_same_hash(
+        list_slug=source.slug, file_bytes=file_bytes, force=False
+    )
+    if skipped:
+        return skipped
+    if source.parser == "un":
+        parsed = parse_un_consolidated(file_bytes)
+    elif source.parser == "sat":
+        parsed = parse_sat_csv(file_bytes)
+    else:
+        parsed = PARSERS[source.parser](file_bytes)
+    return persist_watchlist_records(
+        list_slug=source.slug,
+        source_url=source.url,
+        file_bytes=file_bytes,
+        parsed=parsed,
+        label=source.slug,
+    )
+
+
+def apply_watch_page(source: WatchlistSource, page_bytes: bytes) -> dict:
+    digest = hashlib.sha256(page_bytes).hexdigest()
+    current = WatchlistSnapshot.objects.filter(
+        list_slug=source.slug, is_current=True
+    ).first()
+    now = timezone.now()
+    if current is None:
+        WatchlistSnapshot.objects.create(
+            list_slug=source.slug,
+            source_url=source.url,
+            file_sha256=digest,
+            content_length=len(page_bytes),
+            status=WatchlistSnapshotStatus.SUCCEEDED,
+            is_current=True,
+            record_count=0,
+        )
+        return {
+            "status": "unchanged",
+            "list_slug": source.slug,
+            "needs_download": False,
+        }
+    current.ingested_at = now
+    current.error = ""
+    if current.file_sha256 == digest:
+        current.status = WatchlistSnapshotStatus.SUCCEEDED
+        current.save(update_fields=["status", "error", "ingested_at"])
+        return {
+            "status": "unchanged",
+            "list_slug": source.slug,
+            "needs_download": False,
+        }
+    current.status = WatchlistSnapshotStatus.NEEDS_DOWNLOAD
+    current.save(update_fields=["status", "error", "ingested_at"])
+    return {
+        "status": "needs_download",
+        "list_slug": source.slug,
+        "needs_download": True,
+    }
+
+
+def ingest_watch(
+    source: WatchlistSource,
+    *,
+    page_bytes: bytes | None = None,
+    download=download_url,
+) -> dict:
+    payload = b""
+    try:
+        if page_bytes is None:
+            page_bytes = download(source.url)
+        payload = page_bytes
+        return apply_watch_page(source, payload)
+    except Exception as exc:
+        logger.exception("%s watchlist page check failed", source.slug)
+        current = WatchlistSnapshot.objects.filter(
+            list_slug=source.slug, is_current=True
+        ).first()
+        if current is None:
+            record_failed_snapshot(
+                list_slug=source.slug,
+                source_url=source.url,
+                file_bytes=payload,
+                error=str(exc),
+            )
+        else:
+            current.error = str(exc)[:4000]
+            current.save(update_fields=["error"])
+        raise
+
+
+def ingest_all_watchlists(*, force: bool = False, download=download_url) -> dict:
     results = []
     errors = []
-    try:
-        results.append(ingest_un_csnu(force=force))
-    except Exception as exc:
-        errors.append({"list_slug": WatchlistListSlug.ONU_CSNU, "error": str(exc)[:500]})
-    for slug in SAT_SOURCES:
+    for source in active_sources():
         try:
-            results.append(ingest_sat_list(slug, force=force))
+            if source.mode == "watch":
+                results.append(ingest_watch(source, download=download))
+            else:
+                results.append(ingest_fetch(source, force=force, download=download))
         except Exception as exc:
-            errors.append({"list_slug": slug, "error": str(exc)[:500]})
+            errors.append({"list_slug": source.slug, "error": str(exc)[:500]})
     if errors and not results:
         raise RuntimeError(f"All watchlist ingests failed: {errors}")
     return {"results": results, "errors": errors}

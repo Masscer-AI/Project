@@ -23,6 +23,7 @@ from api.compliance.views import (
     PostalCodeLookupView,
     WatchlistCatalogView,
     WatchlistSearchView,
+    WatchlistUploadView,
 )
 
 app_name = "compliance"
@@ -72,6 +73,7 @@ urlpatterns = [
     path("bundle/", PLDOrganizationBundleView.as_view(), name="pld_organization_bundle"),
     path("matrix/", PLDMatrixView.as_view(), name="pld_matrix"),
     path("watchlists/", WatchlistCatalogView.as_view(), name="watchlist_catalog"),
+    path("watchlists/upload/", WatchlistUploadView.as_view(), name="watchlist_upload"),
     path(
         "watchlists/search/",
         WatchlistSearchView.as_view(),

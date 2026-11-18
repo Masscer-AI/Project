@@ -1,4 +1,5 @@
 import os
+import shutil
 import threading
 import time
 
@@ -6,8 +7,17 @@ from openai import OpenAI
 
 SUPPORTED_AUDIO_FORMATS = [
     "flac", "m4a", "mp3", "mp4", "mpeg",
-    "mpga", "oga", "ogg", "wav", "webm",
+    "mpga", "oga", "ogg", "opus", "wav", "webm",
 ]
+
+
+def _upload_path_for_whisper(file_path: str) -> tuple[str, str | None]:
+    ext = os.path.splitext(file_path)[1].lstrip(".").lower()
+    if ext != "opus":
+        return file_path, None
+    ogg_path = f"{file_path}.ogg"
+    shutil.copyfile(file_path, ogg_path)
+    return ogg_path, ogg_path
 
 def _delete_file_after_delay(file_path: str, delay: int = 5):
     """Delete a file after a specified delay."""
@@ -55,8 +65,9 @@ class TranscriptionService:
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"Audio file not found: {file_path}")
 
+        upload_path, copied_path = _upload_path_for_whisper(file_path)
         try:
-            with open(file_path, "rb") as audio_file:
+            with open(upload_path, "rb") as audio_file:
                 transcription = self.client.audio.transcriptions.create(
                     response_format=output_format,
                     model=self.model,
@@ -65,6 +76,9 @@ class TranscriptionService:
         except Exception as e:
             print(f"Transcription error: {e}")
             raise
+        finally:
+            if copied_path:
+                os.remove(copied_path)
 
         if delete_after:
             threading.Thread(
