@@ -478,8 +478,8 @@ const DocumentThumnail = ({
   const pdf = isPdfFile(name, fileType);
   const html = isHtmlFile(name, src, fileType);
   const openFile = () => {
-    if (html) openPreview();
-    else if (pdf) openPdfInNewTab(src);
+    if (showFloatingButtons && pdf) openPdfInNewTab(src);
+    else if (html) openPreview();
     else open();
   };
 

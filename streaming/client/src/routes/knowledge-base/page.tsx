@@ -826,6 +826,7 @@ const DocumentsTab = ({
                   .map((tag) => ({
                     value: tag.id.toString(),
                     label: tag.title,
+                    color: tag.color,
                   }))}
                 value={uploadTagIds}
                 onChange={(vals) => setUploadTagIds(vals.slice(0, MAX_ITEM_TAGS))}
@@ -1027,7 +1028,11 @@ const DocumentItem = ({
     () =>
       orgTags
         .filter((tag) => tag.enabled)
-        .map((tag) => ({ value: tag.id.toString(), label: tag.title })),
+        .map((tag) => ({
+          value: tag.id.toString(),
+          label: tag.title,
+          color: tag.color,
+        })),
     [orgTags]
   );
 
@@ -1735,6 +1740,7 @@ const CompletionsTab = ({
                 .map((tag) => ({
                   value: tag.id.toString(),
                   label: tag.title,
+                  color: tag.color,
                 }))}
               disabled={newContextRules.include_always}
             />
@@ -2190,6 +2196,7 @@ const CompletionItem = ({
               .map((tag) => ({
                 value: tag.id.toString(),
                 label: tag.title,
+                color: tag.color,
               }))}
             disabled={contextRules.include_always}
           />

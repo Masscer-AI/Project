@@ -250,7 +250,11 @@ function VisibilityFields({
           pickerTitle={t("item-tags-label")}
           data={editor.orgTags
             .filter((tag) => tag.enabled)
-            .map((tag) => ({ value: tag.id.toString(), label: tag.title }))}
+            .map((tag) => ({
+              value: tag.id.toString(),
+              label: tag.title,
+              color: tag.color,
+            }))}
           value={editor.editTagIds}
           onChange={(vals) =>
             editor.setEditTagIds(vals.slice(0, MAX_ITEM_TAGS))

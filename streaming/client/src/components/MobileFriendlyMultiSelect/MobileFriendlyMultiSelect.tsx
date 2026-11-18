@@ -4,6 +4,7 @@ import {
   Box,
   Button,
   Checkbox,
+  ColorSwatch,
   Drawer,
   Group,
   MultiSelect,
@@ -19,7 +20,13 @@ import { useTranslation } from "react-i18next";
 export type MultiSelectOption = {
   value: string;
   label: string;
+  color?: string;
 };
+
+function TagSwatch({ color }: { color?: string }) {
+  if (!color) return null;
+  return <ColorSwatch color={color} size={10} />;
+}
 
 type Props = {
   label: string;
@@ -63,9 +70,9 @@ export const MobileFriendlyMultiSelect = ({
     onChange(value.filter((v) => v !== optionValue));
   };
 
-  const selectedLabels = value
-    .map((v) => data.find((d) => d.value === v)?.label)
-    .filter(Boolean) as string[];
+  const selected = value
+    .map((v) => data.find((d) => d.value === v))
+    .filter((opt): opt is MultiSelectOption => Boolean(opt));
 
   if (!isMobile) {
     return (
@@ -80,6 +87,15 @@ export const MobileFriendlyMultiSelect = ({
         clearable
         disabled={disabled}
         maxDropdownHeight={220}
+        renderOption={({ option }) => {
+          const color = data.find((d) => d.value === option.value)?.color;
+          return (
+            <Group gap={8} wrap="nowrap">
+              <TagSwatch color={color} />
+              <Text size="sm">{option.label}</Text>
+            </Group>
+          );
+        }}
         comboboxProps={{
           withinPortal: false,
           hideDetached: false,
@@ -101,11 +117,17 @@ export const MobileFriendlyMultiSelect = ({
             {description}
           </Text>
         )}
-        {selectedLabels.length > 0 && (
+        {selected.length > 0 && (
           <Group gap={6}>
-            {selectedLabels.map((name) => (
-              <Badge key={name} variant="light" color="gray" size="sm">
-                {name}
+            {selected.map((opt) => (
+              <Badge
+                key={opt.value}
+                variant="light"
+                color="gray"
+                size="sm"
+                leftSection={opt.color ? <TagSwatch color={opt.color} /> : undefined}
+              >
+                {opt.label}
               </Badge>
             ))}
           </Group>
@@ -165,7 +187,12 @@ export const MobileFriendlyMultiSelect = ({
                     }}
                   >
                     <Checkbox
-                      label={opt.label}
+                      label={
+                        <Group gap={8} wrap="nowrap">
+                          <TagSwatch color={opt.color} />
+                          <span>{opt.label}</span>
+                        </Group>
+                      }
                       checked={value.includes(opt.value)}
                       onChange={(e) =>
                         toggleValue(opt.value, e.currentTarget.checked)
