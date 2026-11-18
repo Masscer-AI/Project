@@ -104,6 +104,19 @@ def check_models_for_providers():
             },
         },
         {
+            "name": "GPT-6.2 Sol",
+            "slug": "gpt-6.2-sol",
+            "lists": DEFAULT_LISTS,
+            "is_reasoning_model": True,
+            "reasoning_levels": ["low", "medium", "high", "xhigh", "max"],
+            "pricing": {
+                "text": {
+                    "prompt": "2.00 USD / 1000000",
+                    "output": "10.00 USD / 1000000",
+                }
+            },
+        },
+        {
             "name": "GPT-6 Astra",
             "slug": "gpt-6-astra",
             "lists": ADVANCED_LISTS,
@@ -113,6 +126,19 @@ def check_models_for_providers():
                 "text": {
                     "prompt": "10.00 USD / 1000000",
                     "output": "50.00 USD / 1000000",
+                }
+            },
+        },
+        {
+            "name": "GPT-6.2 Astra",
+            "slug": "gpt-6.2-astra",
+            "lists": ADVANCED_LISTS,
+            "is_reasoning_model": True,
+            "reasoning_levels": ["low", "medium", "high", "xhigh", "max"],
+            "pricing": {
+                "text": {
+                    "prompt": "8.00 USD / 1000000",
+                    "output": "40.00 USD / 1000000",
                 }
             },
         },
