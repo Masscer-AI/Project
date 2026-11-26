@@ -35,6 +35,10 @@ app.conf.beat_schedule = {
         'task': 'api.payments.tasks.expire_subscriptions_past_end_date',
         'schedule': crontab(minute=12),
     },
+    'expire-pending-organization-invites': {
+        'task': 'api.authenticate.tasks.expire_pending_organization_invites',
+        'schedule': crontab(hour=2, minute=40),
+    },
     'purge-expired-data': {
         'task': 'api.data_governance.tasks.purge_expired_data',
         'schedule': crontab(hour=3, minute=0),

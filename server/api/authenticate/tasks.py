@@ -4,6 +4,7 @@ import os
 import requests
 from celery import shared_task
 from django.core.files.base import ContentFile
+from django.utils import timezone
 
 from api.utils.openai_functions import generate_image
 
@@ -209,3 +210,26 @@ def send_invite_welcome_whatsapp(invite_id: str):
         skipped,
         failed,
     )
+
+
+@shared_task(name="api.authenticate.tasks.expire_pending_organization_invites")
+def expire_pending_organization_invites(organization_id=None) -> int:
+    """Mark pending organization invites past invite_expires_at as expired."""
+    now = timezone.now()
+    qs = OrganizationInvite.objects.filter(
+        status=OrganizationInvite.Status.PENDING,
+        invite_expires_at__lte=now,
+    )
+    if organization_id is not None:
+        qs = qs.filter(organization_id=organization_id)
+    updated = qs.update(
+        status=OrganizationInvite.Status.EXPIRED,
+        updated_at=now,
+    )
+    if updated:
+        logger.info(
+            "organization_invite expired count=%s organization=%s",
+            updated,
+            organization_id or "-",
+        )
+    return updated

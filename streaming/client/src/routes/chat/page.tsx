@@ -24,6 +24,7 @@ import {
   buildClientDatetimePayload,
   uploadMessageAttachments,
   sendHumanMessageToConversation,
+  getAgentTaskStatus,
 } from "../../modules/apiCalls";
 import { HumanTakeoverBanner } from "../../components/HumanTakeoverBanner/HumanTakeoverBanner";
 import type { TConversation } from "../../types";
@@ -37,6 +38,20 @@ const complianceKickoffsStarted = new Set<string>();
 function galleryAttachmentId(id: number | string | undefined): string | null {
   if (typeof id !== "string" || !id.includes("-")) return null;
   return id;
+}
+
+function isAgentTaskTrackedHere(conversationId: string) {
+  const { agentTaskStatus, agentTaskConversationId } = useStore.getState();
+  return Boolean(agentTaskStatus) && agentTaskConversationId === conversationId;
+}
+
+function messagesWithWorkingPlaceholder(messages: TMessage[]): TMessage[] {
+  const last = messages[messages.length - 1];
+  if (last?.type === "assistant" && last.id == null) return messages;
+  return [
+    ...messages,
+    { type: "assistant", text: "", attachments: [] },
+  ];
 }
 
 export default function ChatView() {
@@ -243,16 +258,49 @@ export default function ChatView() {
   useEffect(() => {
     if (!conversation?.messages) return;
     if (conversation.id !== conversationId) return;
-    const { agentTaskStatus, agentTaskConversationId } = useStore.getState();
-    if (
-      agentTaskStatus &&
-      agentTaskConversationId === conversation.id &&
-      conversation.messages.length === 0
-    ) {
+    const tracked = isAgentTaskTrackedHere(conversation.id);
+    if (tracked && conversation.messages.length === 0) {
       return;
     }
-    setMessages(conversation.messages);
+    setMessages(
+      tracked
+        ? messagesWithWorkingPlaceholder(conversation.messages)
+        : conversation.messages
+    );
   }, [conversation, conversationId]);
+
+  useEffect(() => {
+    if (!conversationId) return;
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const res = await getAgentTaskStatus(conversationId);
+        if (cancelled || !res.active) return;
+        const currentId = useStore.getState().conversation?.id;
+        if (currentId && currentId !== conversationId) return;
+        if (isAgentTaskTrackedHere(conversationId)) return;
+
+        console.debug("[agent-task] resume active task after load", {
+          conversationId,
+        });
+        setAgentTaskStatus(t("agent-processing"), conversationId);
+        setMessages((prev) => messagesWithWorkingPlaceholder(prev));
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => scrollChat());
+        });
+      } catch (error) {
+        console.debug("[agent-task] resume status check failed", {
+          conversationId,
+          error,
+        });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [conversationId, setAgentTaskStatus, t]);
 
   useEffect(() => {
     const container = chatMessageContainerRef.current;
@@ -808,7 +856,15 @@ export default function ChatView() {
             isTakeoverOperator={isTakeoverOperator}
             onConversationUpdated={(conv) => {
               hydrateConversation(conv);
-              setMessages(conv.messages ?? []);
+              setMessages((prev) => {
+                const server = conv.messages ?? [];
+                if (isAgentTaskTrackedHere(conv.id) && server.length === 0) {
+                  return prev;
+                }
+                return isAgentTaskTrackedHere(conv.id)
+                  ? messagesWithWorkingPlaceholder(server)
+                  : server;
+              });
             }}
           />
         )}

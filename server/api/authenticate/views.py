@@ -1279,6 +1279,9 @@ class OrganizationInvitesView(View):
                 {"error": "You do not have permission"}, status=status.HTTP_403_FORBIDDEN
             )
 
+        from api.authenticate.tasks import expire_pending_organization_invites
+
+        expire_pending_organization_invites(organization_id=organization.id)
         invites = (
             OrganizationInvite.objects.filter(organization=organization)
             .select_related("role")

@@ -621,6 +621,73 @@ class OrganizationInviteFlowTests(TestCase):
         row = next(r for r in listed.json() if r["id"] == str(self.org.id))
         self.assertTrue(row.get("has_active_role"))
 
+    def test_expire_task_marks_only_past_due_pending_invites(self):
+        from datetime import timedelta
+
+        from django.utils import timezone as dj_tz
+
+        from api.authenticate.models import hash_organization_invite_token
+        from api.authenticate.tasks import expire_pending_organization_invites
+
+        now = dj_tz.now()
+        past = self._stored_invite(
+            email="past@test.com",
+            status=OrganizationInvite.Status.PENDING,
+            invite_expires_at=now - timedelta(days=1),
+        )
+        future = self._stored_invite(
+            email="future@test.com",
+            status=OrganizationInvite.Status.PENDING,
+            invite_expires_at=now + timedelta(days=2),
+        )
+        accepted = self._stored_invite(
+            email="accepted@test.com",
+            status=OrganizationInvite.Status.ACCEPTED,
+            invite_expires_at=now - timedelta(days=1),
+        )
+
+        expired_count = expire_pending_organization_invites()
+
+        past.refresh_from_db()
+        future.refresh_from_db()
+        accepted.refresh_from_db()
+        self.assertEqual(expired_count, 1)
+        self.assertEqual(past.status, OrganizationInvite.Status.EXPIRED)
+        self.assertEqual(future.status, OrganizationInvite.Status.PENDING)
+        self.assertEqual(accepted.status, OrganizationInvite.Status.ACCEPTED)
+
+    def test_invite_list_marks_past_due_pending_as_expired(self):
+        from datetime import timedelta
+
+        from django.utils import timezone as dj_tz
+
+        past = self._stored_invite(
+            email="listed-past@test.com",
+            status=OrganizationInvite.Status.PENDING,
+            invite_expires_at=dj_tz.now() - timedelta(hours=1),
+        )
+        response = self.client.get(
+            f"/v1/auth/organizations/{self.org.id}/invites/",
+            **self._auth_headers(),
+        )
+        self.assertEqual(response.status_code, 200)
+        row = next(item for item in response.json() if item["email"] == past.email)
+        self.assertEqual(row["status"], OrganizationInvite.Status.EXPIRED)
+        past.refresh_from_db()
+        self.assertEqual(past.status, OrganizationInvite.Status.EXPIRED)
+
+    def _stored_invite(self, *, email, status, invite_expires_at):
+        from api.authenticate.models import hash_organization_invite_token
+
+        return OrganizationInvite.objects.create(
+            organization=self.org,
+            email=email,
+            invited_by=self.owner,
+            token_hash=hash_organization_invite_token(email),
+            status=status,
+            invite_expires_at=invite_expires_at,
+        )
+
 
 class CanUseChatBackfillTests(TestCase):
     def setUp(self):
