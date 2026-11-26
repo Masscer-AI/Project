@@ -1,3 +1,5 @@
+import logging
+
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
@@ -21,6 +23,8 @@ from .models import (
     Role,
     RoleAssignment,
 )
+
+logger = logging.getLogger(__name__)
 
 class TokenAdminForm(forms.ModelForm):
     class Meta:
@@ -506,7 +510,102 @@ class OrganizationInviteAdmin(admin.ModelAdmin):
     raw_id_fields = ("organization", "role", "invited_by", "accepted_user")
     date_hierarchy = "created_at"
     ordering = ("-created_at",)
-    actions = ["resend_welcome_whatsapp"]
+    actions = ["resend_invitation_email", "resend_welcome_whatsapp"]
+
+    @admin.action(description="Resend invitation email")
+    def resend_invitation_email(self, request, queryset):
+        from django.utils.html import escape
+
+        from api.authenticate.models import hash_organization_invite_token
+        from api.authenticate.views import (
+            ORG_INVITE_VALID_DAYS,
+            _frontend_base_url,
+            _send_organization_invite_email,
+        )
+
+        sent = []
+        skipped = []
+        failed = []
+        for invite in queryset.select_related("organization"):
+            if invite.status not in (
+                OrganizationInvite.Status.PENDING,
+                OrganizationInvite.Status.EXPIRED,
+            ):
+                reason = (
+                    "invite was already accepted"
+                    if invite.status == OrganizationInvite.Status.ACCEPTED
+                    else f"invite is {invite.status}"
+                )
+                skipped.append(f"{invite.email} ({reason})")
+                logger.warning(
+                    "organization_invite email_resend_skipped invite=%s email=%s reason=%s user=%s",
+                    invite.id,
+                    invite.email,
+                    reason,
+                    request.user.id,
+                )
+                continue
+
+            raw_token = OrganizationInvite.generate_raw_token()
+            invite.token_hash = hash_organization_invite_token(raw_token)
+            invite.invite_expires_at = timezone.now() + timezone.timedelta(
+                days=ORG_INVITE_VALID_DAYS
+            )
+            invite.status = OrganizationInvite.Status.PENDING
+            invite.save(
+                update_fields=[
+                    "token_hash",
+                    "invite_expires_at",
+                    "status",
+                    "updated_at",
+                ]
+            )
+            signup_url = f"{_frontend_base_url(request)}/signup?invite={raw_token}"
+            try:
+                _send_organization_invite_email(
+                    request,
+                    invite_id=invite.id,
+                    invite_email=invite.email,
+                    organization_name=escape(invite.organization.name),
+                    signup_url=signup_url,
+                )
+            except Exception:
+                failed.append(invite.email)
+                logger.exception(
+                    "organization_invite email_failed invite=%s email=%s source=admin user=%s",
+                    invite.id,
+                    invite.email,
+                    request.user.id,
+                )
+                continue
+            sent.append(invite.email)
+            logger.info(
+                "organization_invite email_resent invite=%s email=%s user=%s",
+                invite.id,
+                invite.email,
+                request.user.id,
+            )
+
+        if sent:
+            self.message_user(
+                request,
+                "Sent the invitation email to " + ", ".join(sent) + ".",
+                messages.SUCCESS,
+            )
+        if skipped:
+            self.message_user(
+                request,
+                "Skipped: " + "; ".join(skipped) + ".",
+                messages.WARNING,
+            )
+        if failed:
+            self.message_user(
+                request,
+                "Could not send the invitation email to "
+                + ", ".join(failed)
+                + ". The previous link was replaced; resend again.",
+                messages.ERROR,
+            )
 
     @admin.action(description="Resend welcome WhatsApp message")
     def resend_welcome_whatsapp(self, request, queryset):
@@ -519,9 +618,22 @@ class OrganizationInviteAdmin(admin.ModelAdmin):
             reason = welcome_resend_block_reason(invite)
             if reason:
                 skipped.append(f"{invite.email} ({reason})")
+                logger.warning(
+                    "organization_invite welcome_resend_skipped invite=%s email=%s reason=%s user=%s",
+                    invite.id,
+                    invite.email,
+                    reason,
+                    request.user.id,
+                )
                 continue
             send_invite_welcome_whatsapp.delay(str(invite.id))
             queued.append(invite.email)
+            logger.info(
+                "organization_invite welcome_queued invite=%s email=%s source=admin user=%s",
+                invite.id,
+                invite.email,
+                request.user.id,
+            )
 
         if queued:
             self.message_user(

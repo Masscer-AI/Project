@@ -90,28 +90,66 @@ def send_invite_welcome_whatsapp(invite_id: str):
         .filter(pk=invite_id)
         .first()
     )
-    if not invite or not invite.send_welcome_message:
+    if not invite:
+        logger.warning(
+            "organization_invite welcome_skip invite=%s reason=invite-not-found",
+            invite_id,
+        )
+        return
+
+    logger.info(
+        "organization_invite welcome_start invite=%s email=%s status=%s "
+        "send_welcome=%s user=%s phones=%s line_ids=%s language=%s",
+        invite.id,
+        invite.email,
+        invite.status,
+        invite.send_welcome_message,
+        invite.accepted_user_id,
+        invite.welcome_phones or [],
+        invite.welcome_line_ids or [],
+        invite.welcome_language,
+    )
+    if not invite.send_welcome_message:
+        logger.warning(
+            "organization_invite welcome_skip invite=%s reason=welcome-not-requested",
+            invite_id,
+        )
         return
     user = invite.accepted_user
     if not user:
+        logger.warning(
+            "organization_invite welcome_skip invite=%s reason=signup-not-finished",
+            invite_id,
+        )
         return
 
     try:
         lines = welcome_lines_for_org(invite.organization, invite.welcome_line_ids)
     except ValueError:
         logger.warning(
-            "send_invite_welcome_whatsapp: lines missing invite=%s", invite_id
+            "organization_invite welcome_skip invite=%s reason=lines-missing",
+            invite_id,
         )
         return
 
     phones = invite.welcome_phones or []
     if not lines or not phones:
+        logger.warning(
+            "organization_invite welcome_skip invite=%s reason=no-phones-or-lines "
+            "lines=%s phones=%s",
+            invite_id,
+            len(lines),
+            len(phones),
+        )
         return
 
     template_id = welcome_template_id(invite.welcome_language)
     org_name = invite.organization.name
     person_name = (invite.name or user.username or "").strip() or user.username
     help_text = (invite.welcome_help_text or "").strip()
+    sent = 0
+    skipped = 0
+    failed = 0
 
     for ws_number in lines:
         agent_name = (ws_number.agent.name if ws_number.agent_id else "") or ""
@@ -119,18 +157,20 @@ def send_invite_welcome_whatsapp(invite_id: str):
             try:
                 contact = get_or_create_ws_contact(ws_number, phone)
                 if contact.user_id and contact.user_id != user.id:
+                    skipped += 1
                     logger.warning(
-                        "send_invite_welcome_whatsapp: contact already linked "
-                        "invite=%s line=%s phone=%s",
+                        "organization_invite welcome_skip invite=%s reason=contact-already-linked "
+                        "line=%s phone=%s contact_user=%s",
                         invite_id,
                         ws_number.id,
                         phone,
+                        contact.user_id,
                     )
                     continue
                 if contact.user_id is None:
                     contact.user = user
                     contact.save(update_fields=["user", "updated_at"])
-                send_ws_template_to_member(
+                result = send_ws_template_to_member(
                     actor_user_id=user.id,
                     organization_id=invite.organization_id,
                     agent_id=ws_number.agent_id,
@@ -142,10 +182,30 @@ def send_invite_welcome_whatsapp(invite_id: str):
                     },
                     source_conversation_id=None,
                 )
-            except Exception:
-                logger.exception(
-                    "send_invite_welcome_whatsapp failed invite=%s line=%s phone=%s",
+                sent += 1
+                logger.info(
+                    "organization_invite welcome_sent invite=%s line=%s phone=%s "
+                    "template=%s wamid=%s",
                     invite_id,
                     ws_number.id,
                     phone,
+                    template_id,
+                    result.wamid,
                 )
+            except Exception:
+                failed += 1
+                logger.exception(
+                    "organization_invite welcome_failed invite=%s line=%s phone=%s template=%s",
+                    invite_id,
+                    ws_number.id,
+                    phone,
+                    template_id,
+                )
+
+    logger.info(
+        "organization_invite welcome_done invite=%s sent=%s skipped=%s failed=%s",
+        invite_id,
+        sent,
+        skipped,
+        failed,
+    )

@@ -166,7 +166,19 @@ def _frontend_base_url(request):
         frontend_url = f"{scheme}://{request.get_host()}"
     return frontend_url
 
-def _send_organization_invite_email(request, *, invite_email: str, organization_name: str, signup_url: str) -> None:
+def _send_organization_invite_email(
+    request,
+    *,
+    invite_id,
+    invite_email: str,
+    organization_name: str,
+    signup_url: str,
+) -> str:
+    logger.info(
+        "organization_invite email_sending invite=%s email=%s",
+        invite_id,
+        invite_email,
+    )
     html = f"""
         <div style="font-family: Arial, sans-serif; line-height: 1.5;">
             <h2>You have been invited</h2>
@@ -182,12 +194,22 @@ def _send_organization_invite_email(request, *, invite_email: str, organization_
         </div>
     """.strip()
     email_service = EmailService()
-    email_service.send_email(
+    result = email_service.send_email(
         to=invite_email,
         subject=f"Invitation to join {organization_name}",
         html=html,
         from_name="Masscer",
     )
+    resend_id = ""
+    if isinstance(result, dict):
+        resend_id = str(result.get("id") or "")
+    logger.info(
+        "organization_invite email_sent invite=%s email=%s resend_id=%s",
+        invite_id,
+        invite_email,
+        resend_id or "-",
+    )
+    return resend_id
 
 @method_decorator(csrf_exempt, name="dispatch")
 class SignupAPIView(APIView):
@@ -390,10 +412,20 @@ class SignupAPIView(APIView):
             enqueue_welcome = invite_locked.send_welcome_message
             invite_pk = str(invite_locked.id)
 
+        logger.info(
+            "organization_invite accepted invite=%s user=%s enqueue_welcome=%s",
+            invite_pk,
+            user.id,
+            enqueue_welcome,
+        )
         if enqueue_welcome:
             from api.authenticate.tasks import send_invite_welcome_whatsapp
 
             send_invite_welcome_whatsapp.delay(invite_pk)
+            logger.info(
+                "organization_invite welcome_queued invite=%s source=signup",
+                invite_pk,
+            )
 
         return Response(
             {"message": "User created successfully"},
@@ -1356,18 +1388,33 @@ class OrganizationInvitesView(View):
                 welcome_language=welcome_language,
             )
 
+        logger.info(
+            "organization_invite saved invite=%s org=%s email=%s send_welcome=%s phones=%s line_ids=%s language=%s",
+            invite.id,
+            organization.id,
+            normalized_email,
+            send_welcome_message,
+            welcome_phones,
+            welcome_line_ids,
+            welcome_language,
+        )
         signup_url = f"{_frontend_base_url(request)}/signup?invite={raw_token}"
         try:
             from django.utils.html import escape
 
             _send_organization_invite_email(
                 request,
+                invite_id=invite.id,
                 invite_email=normalized_email,
                 organization_name=escape(organization.name),
                 signup_url=signup_url,
             )
         except Exception:
-            logger.exception("Failed to send organization invite email")
+            logger.exception(
+                "organization_invite email_failed invite=%s email=%s",
+                invite.id,
+                normalized_email,
+            )
             return JsonResponse(
                 {"error": "Failed to send invite email"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
