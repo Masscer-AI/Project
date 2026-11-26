@@ -13,6 +13,7 @@ from .models import (
     PublishableToken,
     CredentialsManager,
     Organization,
+    OrganizationInvite,
     OrganizationTenant,
     FeatureFlag,
     FeatureFlagAssignment,
@@ -465,6 +466,46 @@ class RoleAssignmentAdmin(admin.ModelAdmin):
         return obj.is_active()
     is_active_display.boolean = True
     is_active_display.short_description = "Active"
+
+@admin.register(OrganizationInvite)
+class OrganizationInviteAdmin(admin.ModelAdmin):
+    list_display = (
+        "email",
+        "name",
+        "organization",
+        "status",
+        "send_welcome_message",
+        "welcome_language",
+        "accepted_user",
+        "invite_expires_at",
+        "created_at",
+    )
+    list_filter = (
+        "status",
+        "send_welcome_message",
+        "welcome_language",
+        "organization",
+        "created_at",
+    )
+    search_fields = (
+        "email",
+        "name",
+        "organization__name",
+        "invited_by__email",
+        "invited_by__username",
+        "accepted_user__email",
+        "accepted_user__username",
+    )
+    readonly_fields = (
+        "id",
+        "token_hash",
+        "accepted_at",
+        "created_at",
+        "updated_at",
+    )
+    raw_id_fields = ("organization", "role", "invited_by", "accepted_user")
+    date_hierarchy = "created_at"
+    ordering = ("-created_at",)
 
 import api.authenticate.organization_management_admin  # noqa: F401, E402
 import api.authenticate.system_management_admin  # noqa: F401, E402
