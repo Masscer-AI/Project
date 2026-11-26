@@ -33,6 +33,25 @@ def normalize_welcome_phones(raw) -> list[str]:
     return out
 
 
+def welcome_resend_block_reason(invite) -> str | None:
+    """Why this invite cannot send the welcome WhatsApp again, or None."""
+    if not invite.send_welcome_message:
+        return "welcome message was not requested"
+    if not invite.accepted_user_id:
+        return "the person has not finished signup"
+    if not (invite.welcome_phones or []):
+        return "no phone number is stored"
+    if not (invite.welcome_line_ids or []):
+        return "no WhatsApp line is stored"
+    try:
+        lines = welcome_lines_for_org(invite.organization, invite.welcome_line_ids)
+    except ValueError:
+        return "WhatsApp line was not found for this organization"
+    if not lines:
+        return "WhatsApp line was not found for this organization"
+    return None
+
+
 def welcome_lines_for_org(organization, line_ids) -> list[WSNumber]:
     ids: list[int] = []
     seen: set[int] = set()

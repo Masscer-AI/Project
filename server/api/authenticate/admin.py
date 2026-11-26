@@ -506,6 +506,35 @@ class OrganizationInviteAdmin(admin.ModelAdmin):
     raw_id_fields = ("organization", "role", "invited_by", "accepted_user")
     date_hierarchy = "created_at"
     ordering = ("-created_at",)
+    actions = ["resend_welcome_whatsapp"]
+
+    @admin.action(description="Resend welcome WhatsApp message")
+    def resend_welcome_whatsapp(self, request, queryset):
+        from api.authenticate.invite_welcome import welcome_resend_block_reason
+        from api.authenticate.tasks import send_invite_welcome_whatsapp
+
+        queued = []
+        skipped = []
+        for invite in queryset.select_related("organization"):
+            reason = welcome_resend_block_reason(invite)
+            if reason:
+                skipped.append(f"{invite.email} ({reason})")
+                continue
+            send_invite_welcome_whatsapp.delay(str(invite.id))
+            queued.append(invite.email)
+
+        if queued:
+            self.message_user(
+                request,
+                "Queued the welcome WhatsApp for " + ", ".join(queued) + ".",
+                messages.SUCCESS,
+            )
+        if skipped:
+            self.message_user(
+                request,
+                "Skipped: " + "; ".join(skipped) + ".",
+                messages.WARNING,
+            )
 
 import api.authenticate.organization_management_admin  # noqa: F401, E402
 import api.authenticate.system_management_admin  # noqa: F401, E402
